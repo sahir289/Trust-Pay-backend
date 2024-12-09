@@ -7,6 +7,35 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id            String          @id @default(uuid())
+  role_id       String
+  first_name    String
+  last_name     String
+  user_name     String          @unique
+  password      String
+  code          String          @unique
+  is_enabled    Boolean         @default(true)
+  tg_handle     String?
+  tg_id         String?
+  last_login    DateTime?
+  last_logout   DateTime?
+  vendor_id     String
+  config        Json?
+  created_by    String?         @default(uuid())
+  updated_by    String?         @default(uuid())
+  created_at    DateTime        @default(now())
+  updated_at    DateTime        @updatedAt
+  is_obsolete   Boolean         @default(false) // for soft delete in each table
+  accessTokens  AccessToken[]
+  role          Role            @relation(fields: [role_id], references: [id])
+  UserHierarchy UserHierarchy[]
+  Payin         Payin[]
+  Payout        Payout[]
+  Lien          Lien[]
+  Vendor        Vendor          @relation(fields: [vendor_id], references: [id])
+}
+
 model Merchant {
   id                String          @id @default(uuid())
   user_id           String
@@ -33,8 +62,8 @@ model Merchant {
   is_demo           Boolean         @default(false)
   balance           Decimal?
   config            Json // here will add banks like this  {"banks", [bank_id1, bank_id2]} to check how many banks links to this particular merchant
-  created_by        String? 
-  updated_by        String?         
+  created_by        String?
+  updated_by        String?
   created_at        DateTime        @default(now())
   updated_at        DateTime        @updatedAt
   is_obsolete       Boolean         @default(false) // for soft delete in each table
@@ -92,34 +121,6 @@ model Designation {
   updated_at  DateTime @updatedAt
   is_obsolete Boolean  @default(false) // for soft delete
   Role        Role     @relation(fields: [role_id], references: [id])
-}
-
-model User {
-  id            String          @id @default(uuid())
-  role_id       String
-  first_name    String
-  last_name     String
-  user_name     String          @unique
-  password      String
-  code          String          @unique
-  is_enabled    Boolean         @default(true)
-  tg_handle     String?
-  tg_id         String?
-  last_login    DateTime?
-  last_logout   DateTime?
-  vendor_id     String
-  config        Json?
-  created_by    String?         @default(uuid())
-  created_at    DateTime        @default(now())
-  updated_at    DateTime        @updatedAt
-  is_obsolete   Boolean         @default(false) // for soft delete in each table
-  accessTokens  AccessToken[]
-  role          Role            @relation(fields: [role_id], references: [id])
-  UserHierarchy UserHierarchy[]
-  Payin         Payin[]
-  Payout        Payout[]
-  Lien          Lien[]
-  Vendor        Vendor          @relation(fields: [vendor_id], references: [id])
 }
 
 model AccessToken {
