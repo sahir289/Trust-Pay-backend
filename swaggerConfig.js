@@ -10,12 +10,12 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: "http://localhost:8090", // Replace with your base URL
+        url: "http://localhost:8090",
         description: "Development Server",
       },
     ],
   },
-  apis: ["./src/apis/**/*.js"], // Adjust the path to your route files
+  apis: ["./src/apis/**/*.js"],
 };
 
 export const swaggerSpecs = swaggerJsDoc(swaggerOptions);
