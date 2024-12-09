@@ -4,7 +4,7 @@ import DailyRotate from 'winston-daily-rotate-file';
 import CloudWatchTransport from 'winston-cloudwatch';
 import appConfig from '../config/config.js';
 
-const env  = appConfig?.env;
+const env = appConfig?.env;
 const aws = appConfig?.aws;
 const logDir = 'log';
 
@@ -32,8 +32,8 @@ class Logger {
           format: 'YYYY-MM-DD HH:mm:ss',
         }),
         format.printf(
-          (info) => `${info.timestamp} ${info.level}: ${info.message}`
-        )
+          (info) => `${info.timestamp} ${info.level}: ${info.message}`,
+        ),
         // this is to log in json format
         // format.json()
       ),
@@ -43,8 +43,8 @@ class Logger {
           format: format.combine(
             format.colorize(),
             format.printf(
-              (info) => `${info.timestamp} ${info.level}: ${info.message}`
-            )
+              (info) => `${info.timestamp} ${info.level}: ${info.message}`,
+            ),
           ),
         }),
 
@@ -64,8 +64,8 @@ class Logger {
           format: 'YYYY-MM-DD HH:mm:ss',
         }),
         format.printf(
-          (error) => `${error.timestamp} ${error.level}: ${error.message}`
-        )
+          (error) => `${error.timestamp} ${error.level}: ${error.message}`,
+        ),
       ),
       transports: [
         new transports.Console({
@@ -73,8 +73,8 @@ class Logger {
           format: format.combine(
             format.colorize(),
             format.printf(
-              (error) => `${error.timestamp} ${error.level}: ${error.message}`
-            )
+              (error) => `${error.timestamp} ${error.level}: ${error.message}`,
+            ),
           ),
         }),
 
@@ -94,8 +94,8 @@ class Logger {
           format: 'YYYY-MM-DD HH:mm:ss',
         }),
         format.printf(
-          (warn) => `${warn.timestamp} ${warn.level}: ${warn.message}`
-        )
+          (warn) => `${warn.timestamp} ${warn.level}: ${warn.message}`,
+        ),
       ),
       transports: [
         new transports.Console({
@@ -103,8 +103,8 @@ class Logger {
           format: format.combine(
             format.colorize(),
             format.printf(
-              (warn) => `${warn.timestamp} ${warn.level}: ${warn.message}`
-            )
+              (warn) => `${warn.timestamp} ${warn.level}: ${warn.message}`,
+            ),
           ),
         }),
 
@@ -123,8 +123,8 @@ class Logger {
           format: 'YYYY-MM-DD HH:mm:ss',
         }),
         format.printf(
-          (silly) => `${silly.timestamp} ${silly.level}: ${silly.message}`
-        )
+          (silly) => `${silly.timestamp} ${silly.level}: ${silly.message}`,
+        ),
       ),
       transports: [
         new DailyRotate({
