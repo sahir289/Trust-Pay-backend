@@ -8,7 +8,6 @@ const router = express.Router();
 router.use('/ping', ping);
 router.use('/login', login);
 
-
 /* Make sure while changing below parentrouter.
 This is top level router created to enhance in future like versioning, route prefix etc. */
 const parentRouter = express.Router();

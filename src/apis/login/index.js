@@ -7,13 +7,13 @@ const router = express.Router();
  * @swagger
  * /login:
  *   get:
- *     summary: Server health check
- *     description: Returns a status message to verify the server is running.
+ *     summary: login check
+ *     description: Returns a status message to verify the user is authorized or not.
  *     tags:
- *       - Health Check
+ *       - login Check
  *     responses:
  *       200:
- *         description: Ping successful.
+ *         description: login successful.
  *         content:
  *           application/json:
  *             schema:
@@ -21,7 +21,7 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "Ping successful!"
+ *                   example: "login successful!"
  */
 router.get('/', tryCatchHandler()); // login route
 
