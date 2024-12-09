@@ -1,21 +1,21 @@
-import swaggerJsDoc from "swagger-jsdoc";
+import swaggerJsDoc from 'swagger-jsdoc';
 
 const swaggerOptions = {
   definition: {
-    openapi: "3.0.0",
+    openapi: '3.0.0',
     info: {
-      title: "Trust-pay API Documentation",
-      version: "1.0.0",
-      description: "Documentation for Trust Pay APIs",
+      title: 'Trust-pay API Documentation',
+      version: '1.0.0',
+      description: 'Documentation for Trust Pay APIs',
     },
     servers: [
       {
-        url: "http://localhost:8090",
-        description: "Development Server",
+        url: 'http://localhost:8090',
+        description: 'Development Server',
       },
     ],
   },
-  apis: ["./src/apis/**/*.js"],
+  apis: ['./src/apis/**/*.js'],
 };
 
 export const swaggerSpecs = swaggerJsDoc(swaggerOptions);

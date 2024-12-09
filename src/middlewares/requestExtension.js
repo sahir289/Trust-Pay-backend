@@ -6,7 +6,7 @@ import logger from '../utils/logger.js';
 const methodNotFound = (req, res, next) => {
   logger.log(
     'the url you are trying to reach is not hosted on our server',
-    'error'
+    'error',
   );
   const err = new Error('Not Found');
   err.status = 404;

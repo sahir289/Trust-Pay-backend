@@ -1,7 +1,7 @@
 // apis/ping/index.js
 
 import express from 'express';
-import pong from './pingController.js';
+import { pingController } from './pingController.js';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 
 const router = express.Router();
@@ -26,6 +26,6 @@ const router = express.Router();
  *                   type: string
  *                   example: "Ping successful!"
  */
-router.get('/', tryCatchHandler(pong.ping)); // Ping route
+router.get('/', tryCatchHandler(pingController)); // Ping route
 
 export default router;
