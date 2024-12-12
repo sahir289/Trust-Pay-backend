@@ -1,5 +1,3 @@
-// apis/ping/index.js
-
 import express from 'express';
 import { pingController } from './pingController.js';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
