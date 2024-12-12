@@ -13,6 +13,7 @@ model User {
   first_name    String
   last_name     String
   email         String          @unique
+  contact_no    String          @unique
   user_name     String          @unique
   password      String
   code          String          @unique
@@ -150,6 +151,7 @@ model UserHierarchy {
 
 model BankAccount {
   id            String         @id @default(uuid())
+  sno           Int             @default(autoincrement())
   vendor_id     String
   upi_id        String
   upi_params    String?
@@ -165,6 +167,7 @@ model BankAccount {
   is_enabled    Boolean        @default(true)
   payin_count   Int
   balance       Decimal
+  today_balance Decimal
   bank_used_for String?        @default("")
   config        Json? // it will be like this {"merchant" : [merchant1, merchant2]}
   created_by    String?        @default(uuid())
@@ -252,6 +255,7 @@ model Payout {
 
 model Settlement {
   id          String    @id @default(uuid())
+  sno           Int             @default(autoincrement())
   merchant_id String
   vendor_id   String
   status      Status
@@ -331,6 +335,7 @@ model CheckUtrHistory {
   id          String   @id @default(uuid())
   sno         Int      @default(autoincrement())
   payin_id    String
+  utr         String
   created_by  String
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
@@ -351,6 +356,8 @@ model ResetDataHistory {
 
 model Complaints {
   id         String   @id @default(uuid())
+  sno        Int      @default(autoincrement())
+  status     String
   payin_id   String // will extract user_id from there
   email      String
   config     Json // title, complaint, 

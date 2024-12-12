@@ -30,7 +30,7 @@ class BadRequestError extends HTTPClientError {
 class AuthenticationError extends HTTPClientError {
   statusCode = 401;
 
-  constructor(message = 'Authorisation Error') {
+  constructor(message = 'Authorization Error') {
     super(message);
   }
 }
