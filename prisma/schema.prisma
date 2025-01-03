@@ -22,7 +22,6 @@ model User {
   tg_id         String?
   last_login    DateTime?
   last_logout   DateTime?
-  vendor_id     String
   config        Json?
   created_by    String?         @default(uuid())
   updated_by    String?         @default(uuid())
@@ -35,7 +34,8 @@ model User {
   Payin         Payin[]
   Payout        Payout[]
   Lien          Lien[]
-  Vendor        Vendor          @relation(fields: [vendor_id], references: [id])
+  Merchant      Merchant[]
+  Vendor        Vendor[]
 }
 
 model Merchant {
@@ -70,6 +70,7 @@ model Merchant {
   updated_at        DateTime        @updatedAt
   is_obsolete       Boolean         @default(false) // for soft delete in each table
   Role              Role            @relation(fields: [role_id], references: [id])
+  User              User            @relation(fields: [user_id], references: [id])
   UserHierarchy     UserHierarchy[]
   Payin             Payin[]
   Payout            Payout[]
@@ -94,11 +95,11 @@ model Vendor {
   updated_at        DateTime      @updatedAt
   is_obsolete       Boolean       @default(false) // for soft delete in each table
   Role              Role          @relation(fields: [role_id], references: [id])
+  User              User          @relation(fields: [user_id], references: [id])
   BankAccount       BankAccount[]
   Payout            Payout[]
   Settlement        Settlement[]
   Calculations      Calculation[]
-  User              User[]
 }
 
 model Role {
@@ -151,7 +152,7 @@ model UserHierarchy {
 
 model BankAccount {
   id            String         @id @default(uuid())
-  sno           Int             @default(autoincrement())
+  sno           Int            @default(autoincrement())
   vendor_id     String
   upi_id        String
   upi_params    String?
@@ -255,7 +256,7 @@ model Payout {
 
 model Settlement {
   id          String    @id @default(uuid())
-  sno           Int             @default(autoincrement())
+  sno         Int       @default(autoincrement())
   merchant_id String
   vendor_id   String
   status      Status
