@@ -1,29 +1,29 @@
 import pkg from 'pg';
-import Logger from './logger';
-import config from '../config/config';
+import Logger from './logger.js';
+import config from '../config/config.js';
+import chalk from 'chalk';
+import { DbError } from './appErrors.js';
 const { Pool } = pkg;
 const logger = new Logger();
 
 const pool = new Pool({
-//   user: 'postgres',
-//   password: 'psahir1234',
-//   host: 'new-tp-stg.cp0m0y6ag4gv.us-east-1.rds.amazonaws.com',
-//   database: 'new-tp-stg',
-//   port: 5432,
   connectionString: config.databaseUrl,
   ssl: {
-    rejectUnauthorized: false,
+    rejectUnauthorized: false, // Use true in production with proper certificates
   },
 });
 
 const getConnection = async () => {
   try {
     const client = await pool.connect();
-    logger.log(`Database connected successfully:`, 'info')
+    const styledServerMessage =  chalk.bgCyanBright(
+        `Database connected successfully`,
+      );
+    logger.log(`${styledServerMessage}`, 'info');
     return client;
   } catch (error) {
-    logger.log(`Error fetching database connection:`, 'error', error)
-    throw new Error('Database connection error');
+    logger.log(`Error fetching database connection:`, 'error', error);
+    throw new DbError('Database connection error');
   }
 };
 

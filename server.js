@@ -80,7 +80,6 @@ io.on('connection', (socket) => {
 
   // Listen for client events
   socket.on('client-message', (data) => {
-    console.log('Received from client:', data);
     logger.log(`Received from client:`, 'info', data);
   });
 

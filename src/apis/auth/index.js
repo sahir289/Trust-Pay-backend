@@ -1,5 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
+import { loginController } from './authController.js';
 
 const router = express.Router();
 
@@ -23,6 +24,6 @@ const router = express.Router();
  *                   type: string
  *                   example: "login successful!"
  */
-router.get('/', tryCatchHandler()); // login route
+router.get('/', tryCatchHandler(loginController)); // login route
 
 export default router;

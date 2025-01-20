@@ -1,5 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
+import { getUsers, getUsersByUserName } from './userController.js';
 
 const router = express.Router();
 
@@ -23,6 +24,8 @@ const router = express.Router();
  *                   type: string
  *                   example: "get users successfully"
  */
-router.get('/', tryCatchHandler());
+router.get('/', tryCatchHandler(getUsers));
+router.get('/', tryCatchHandler(getUsersByUserName));
+
 
 export default router;

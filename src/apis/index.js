@@ -1,6 +1,6 @@
 import express from 'express';
 import ping from './ping/index.js';
-import login from './login/index.js';
+import login from './auth/index.js';
 import users from './users/index.js';
 
 // Add your newly create component routes here with route prefix.

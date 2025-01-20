@@ -67,6 +67,15 @@ class InternalServerError extends HTTPServerError {
   }
 }
 
+class DbError extends HTTPServerError {
+  statusCode = 502;
+
+  constructor(message = 'Database error') {
+    super(message);
+  }
+}
+
+
 const parseValidationMessage = (errorDetails) => {
   const { details } = errorDetails;
   let errString = '';
@@ -92,6 +101,7 @@ export {
   AccessDeniedError,
   NotFoundError,
   DuplicateDataError,
+  DbError,
   InternalServerError,
   ValidationError,
 };
