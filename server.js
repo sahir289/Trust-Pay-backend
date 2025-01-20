@@ -11,7 +11,6 @@ const server = createServer(app);
 const io = new Server(server, {
   cors: {
     origin: [`${config?.reactFrontOrigin}`, `${config?.reactPaymentOrigin}`],
-    methods: ['GET', 'POST'], // Specify the methods if needed
   },
 });
 
