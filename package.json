@@ -24,7 +24,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "eslint-config-node": "^4.1.0",
-    "express": "^4.21.1",
+    "express": "^4.21.2",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
     "method-override": "^3.0.0",
@@ -34,7 +34,7 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "swagger-ui-themes": "^3.0.1",
-    "uuid": "^11.0.3",
+    "uuid": "^11.0.5",
     "winston": "^3.17.0",
     "winston-cloudwatch": "^6.3.0",
     "winston-daily-rotate-file": "^5.0.0"

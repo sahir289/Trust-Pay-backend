@@ -12,9 +12,9 @@ const router = express.Router();
 router.use('/ping', ping);
 router.use('/login', login);
 router.use('/users', users);
-router.use('/merchant', merchants);
-router.use('/vendor', vendors);
-router.use('/chargeBack', chargeBacks);
+router.use('/merchants', merchants);
+router.use('/vendors', vendors);
+router.use('/chargeBacks', chargeBacks);
 
 /* Make sure while changing below parentrouter.
 This is top level router created to enhance in future like versioning, route prefix etc. */
