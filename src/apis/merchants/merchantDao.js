@@ -22,16 +22,19 @@ const createMerchantDao = async (conn, payload) => {
         payOutNotifyUrl,
         balance = 0, // Default balance to 0 if undefined
         companyId,
+        method,
+        banks,
     } = payload;
 
     // Generate unique identifiers
     const id = generateUUID();
     const apiKey = generateUUID();
     const publicApiKey = generateUUID();
-    const secretKey = generateUUID();
 
     // Default values
     const defaults = {
+        firstName: "",
+        lastName: "",
         createdBy: "",
         updatedBy: "",
         isTestMode: false,
@@ -40,29 +43,43 @@ const createMerchantDao = async (conn, payload) => {
         isObsolete: false,
     };
 
+    const config = {
+        keys: {
+            apiKey: apiKey,
+            publicApiKey: publicApiKey,
+        },
+        urls: {
+            siteUrl: siteUrl,
+            return: returnUrl,
+            notify: notifyUrl,
+            payoutNotify: payOutNotifyUrl,
+        },
+        method: method,
+        banks: banks,
+    }
+
     // Prepare SQL query
     const sql = `
       INSERT INTO Merchant (
-        id, user_id, role_id, code, site_url, api_key, secret_key, public_api_key, 
-        notify_url, return_url, min_payin, max_payin, payin_commission, 
-        min_payout, max_payout, payout_commission, payout_notify_url, 
-        is_test_mode, is_enable, dispute_enabled, balance, created_by, 
+        id, user_id, role_id, first_name, last_name, code, min_payin, 
+        max_payin, payin_commission, min_payout, max_payout, 
+        payout_commission, is_test_mode, is_enable, 
+        dispute_enabled, balance, config, created_by, 
         updated_by, is_obsolete, company_id
       )
       VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 
-        $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25
+        $14, $15, $16, $17, $18, $19, $20, $21,
       ) RETURNING *;
     `;
 
     // Organize parameter values
     const values = [
-        id, userId, roleId, code, siteUrl, apiKey, secretKey, publicApiKey,
-        notifyUrl, returnUrl, minPayIn, maxPayIn, payInCommission,
-        minPayOut, maxPayOut, payOutCommission, payOutNotifyUrl,
-        defaults.isTestMode, defaults.isEnable, defaults.disputeEnabled,
-        balance, defaults.createdBy, defaults.updatedBy,
-        defaults.isObsolete, companyId,
+        id, userId, roleId, defaults.firstName, defaults.lastName, code, minPayIn, 
+        maxPayIn, payInCommission, minPayOut, maxPayOut, 
+        payOutCommission, defaults.isTestMode, defaults.isEnable,
+        defaults.disputeEnabled, balance, config, defaults.createdBy, 
+        defaults.updatedBy, defaults.isObsolete, companyId,
     ];
 
     try {
@@ -87,10 +104,35 @@ const getMerchantsDao = async (conn, filters = {}) => {
 
     // Map of filter keys to their SQL column names
     const filtersMap = {
+        id: 'id',
         userId: 'user_id',
         roleId: 'role_id',
+        firstName: 'first_name',
+        lastName: 'last_name',
+        code: 'code',
+        siteUrl:'site_url',
+        notifyUrl: 'notify_url',
+        returnUrl:'return_url',
+        minPayIn:'min_payin',
+        maxPayIn:'max_payin',
+        payInCommission: 'payin_commission',
+        minPayOut:'min_payout',
+        maxPayOut:'max_payout',
+        payOutCommission: 'payout_commission',
+        payOutNotifyUrl: 'payout_notify_url',
+        isTestMode: 'is_test_mode',
         isEnable: 'is_enable',
+        disputeEnabled: 'dispute_enabled',
+        balance: 'balance',
+        config: 'config',
+        createdBy: 'created_by',
+        updatedBy: 'updated_by',
+        createdAt: 'created_at',
+        updatedAt: 'updated_at',
+        isObsolete: 'is_obsolete',
         companyId: 'company_id',
+        method: 'method',
+        banks: 'banks',
     };
 
     // Dynamically build the query

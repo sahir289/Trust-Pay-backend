@@ -6,27 +6,114 @@ const router = express.Router();
 
 /**
  * @swagger
- * /users:
+ * /vendors:
  *   get:
- *     summary: users check
- *     description: Returns a status message to verify the user is authorized or not.
+ *     summary: Retrieve all vendors
+ *     description: Returns a list of all vendors.
  *     tags:
- *       - users Check
+ *       - Vendors
  *     responses:
  *       200:
- *         description: login successful.
+ *         description: A list of vendors.
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "get users successfully"
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                   name:
+ *                     type: string
+ *                   status:
+ *                     type: string
+ *                     example: "active"
  */
-router.post('/', tryCatchHandler(createVendor));
-router.get('/', tryCatchHandler(getVendors)); 
-router.put('/', tryCatchHandler(updateVendor));
-router.put('/', tryCatchHandler(deleteVendor));
+router.get('/', tryCatchHandler(getVendors));
+
+/**
+ * @swagger
+ * /vendors/create-vendor:
+ *   post:
+ *     summary: Create a new vendor
+ *     description: Adds a new vendor to the system.
+ *     tags:
+ *       - Vendors
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Vendor A"
+ *               status:
+ *                 type: string
+ *                 example: "active"
+ *     responses:
+ *       201:
+ *         description: Vendor created successfully.
+ *       400:
+ *         description: Invalid request data.
+ */
+router.post('/create-vendor', tryCatchHandler(createVendor));
+
+/**
+ * @swagger
+ * /vendors/update-vendor:
+ *   put:
+ *     summary: Update vendor details
+ *     description: Updates an existing vendor’s details.
+ *     tags:
+ *       - Vendors
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 example: "inactive"
+ *     responses:
+ *       200:
+ *         description: Vendor updated successfully.
+ *       404:
+ *         description: Vendor not found.
+ */
+router.put('/update-vendor', tryCatchHandler(updateVendor));
+
+/**
+ * @swagger
+ * /vendors/delete-vendor:
+ *   put:
+ *     summary: Delete a vendor
+ *     description: Soft deletes a vendor by changing its status.
+ *     tags:
+ *       - Vendors
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Vendor deleted successfully.
+ *       404:
+ *         description: Vendor not found.
+ */
+router.put('/delete-vendor', tryCatchHandler(deleteVendor));
 
 export default router;

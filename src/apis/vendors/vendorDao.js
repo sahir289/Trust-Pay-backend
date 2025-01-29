@@ -21,10 +21,10 @@ const createVendorDao = async (conn, payload) => {
 
     // Default values
     const defaults = {
-        createdBy: "",
-        updatedBy: "",
         firstName: "",
         lastName: "",
+        createdBy: "",
+        updatedBy: "",
         isObsolete: false,
     };
 
@@ -72,8 +72,20 @@ const getVendorsDao = async (conn, filters = {}) => {
 
     // Map of filter keys to their SQL column names
     const filtersMap = {
+        id: 'id',
         userId: 'user_id',
         roleId: 'role_id',
+        firstName: 'first_name',
+        lastName: 'last_name',
+        code: 'code',
+        payInCommission: 'payin_commission',
+        payOutCommission: 'payout_commission',
+        balance: 'balance',
+        createdBy: 'created_by',
+        updatedBy: 'updated_by',
+        createdAt: 'created_at',
+        updatedAt: 'updated_at',
+        isObsolete: 'is_obsolete',
         companyId: 'company_id',
     };
 

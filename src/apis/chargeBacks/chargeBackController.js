@@ -1,6 +1,6 @@
 import Logger from '../../utils/logger.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
-import { createVendoService, deleteVendorService, getVendorsService, updateVendorService } from './vendorService.js';
+import { createChargeBackService, getChargeBacksService, updateChargeBackService, deleteChargeBackService} from './chargeBackService.js';
 
 const logger = new Logger();
 
@@ -9,7 +9,7 @@ const createChargeBack = async (req, res) => {
         const payload = req.body;
 
         // Call the service to create the ChargeBack
-        const result = await createVendoService(payload);
+        const result = await createChargeBackService(payload);
 
         // Log success message
         logger.log('ChargeBack created successfully', 'info', result);
@@ -30,7 +30,7 @@ const getChargeBacks = async (req, res) => {
         const payload = req.body;
 
         // Fetch vendors data from the service
-        const data = await getVendorsService(payload);
+        const data = await getChargeBacksService(payload);
 
         // Log success message
         logger.log('getChargeBacks successfully', 'info', data);
@@ -52,7 +52,7 @@ const updateChargeBack = async (req, res) => {
         const { id } = req.params;  // Assuming the ChargeBack ID is passed as a parameter
 
         // Call the service to update the ChargeBack
-        const result = await updateVendorService(id, payload);
+        const result = await updateChargeBackService(id, payload);
 
         // Log success message
         logger.log('ChargeBack updated successfully', 'info', result);
@@ -73,7 +73,7 @@ const deleteChargeBack = async (req, res) => {
         const { id } = req.params;  // Assuming the ChargeBack ID is passed as a parameter
 
         // Call the service to delete the ChargeBack
-        const result = await deleteVendorService(id);
+        const result = await deleteChargeBackService(id);
 
         // Log success message
         logger.log('ChargeBack deleted successfully', 'info', result);

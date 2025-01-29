@@ -22,10 +22,10 @@ const createChargeBackDao = async (conn, payload) => {
 
     // Default values
     const defaults = {
-        createdBy: "",
-        updatedBy: "",
         firstName: "",
         lastName: "",
+        createdBy: "",
+        updatedBy: "",
         isObsolete: false,
     };
 
@@ -71,8 +71,20 @@ const getChargeBackDao = async (conn, filters = {}) => {
 
     // Map of filter keys to their SQL column names
     const filtersMap = {
-        userId: 'user_id',
-        roleId: 'role_id',
+        id: 'id',
+        sno:'sno',
+        user: 'user',
+        merchantUserId:'merchant_user_id',
+        vendorUserId:'vendor_user_id',
+        payInId: 'payin_id',
+        bankAccountId: 'bank_acc_id',
+        amount: 'amount',
+        when: 'when',
+        createdBy: 'created_by',
+        updatedBy: 'updated_by',
+        isObsolete: 'is_obsolete',
+        createdAt: 'created_at',
+        updatedAt: 'updated_at',
         companyId: 'company_id',
     };
 

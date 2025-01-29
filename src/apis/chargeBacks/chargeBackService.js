@@ -3,7 +3,7 @@ import {
 } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
 import Logger from '../../utils/logger.js';
-import { createVendorDao, deleteVendorDao, getVendorsDao, updateVendorDao } from './vendorDao.js';
+import { createChargeBackDao, deleteChargeBackDao, getChargeBackDao, updateChargeBackDao } from './chargeBackDao.js';
 
 const logger = new Logger();
 
@@ -13,7 +13,7 @@ const createChargeBackService = async (payload) => {
         conn = await getConnection();
         await conn.beginTransaction(); // Start a transaction
 
-        const data = await createVendorDao(conn, payload);
+        const data = await createChargeBackDao(conn, payload);
 
         await conn.commit(); // Commit the transaction
         logger.log('ChargeBack created successfully', 'info');
@@ -46,7 +46,7 @@ const getChargeBacksService = async (payload) => {
         conn = await getConnection();
         await conn.beginTransaction(); // Start a transaction (even if read-only)
 
-        const data = await getVendorsDao(conn, payload);
+        const data = await getChargeBackDao(conn, payload);
 
         await conn.commit(); // Commit transaction (even if no modifications)
 
@@ -79,7 +79,7 @@ const updateChargeBackService = async (payload) => {
         conn = await getConnection();
         await conn.beginTransaction(); // Start a transaction
 
-        const data = await updateVendorDao(conn, payload); // Adjust DAO call for update
+        const data = await updateChargeBackDao(conn, payload); // Adjust DAO call for update
 
         await conn.commit(); // Commit the transaction
         logger.log('ChargeBack updated successfully', 'info');
@@ -112,7 +112,7 @@ const deleteChargeBackService = async (payload) => {
         conn = await getConnection();
         await conn.beginTransaction(); // Start a transaction
 
-        const data = await deleteVendorDao(conn, payload); // Adjust DAO call for delete
+        const data = await deleteChargeBackDao(conn, payload); // Adjust DAO call for delete
 
         await conn.commit(); // Commit the transaction
         logger.log('ChargeBack deleted successfully', 'info');

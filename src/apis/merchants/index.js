@@ -6,27 +6,114 @@ const router = express.Router();
 
 /**
  * @swagger
- * /users:
+ * /merchants:
  *   get:
- *     summary: users check
- *     description: Returns a status message to verify the user is authorized or not.
+ *     summary: Retrieve all merchants
+ *     description: Returns a list of all merchants.
  *     tags:
- *       - users Check
+ *       - Merchants
  *     responses:
  *       200:
- *         description: login successful.
+ *         description: A list of merchants.
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "get users successfully"
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                   name:
+ *                     type: string
+ *                   status:
+ *                     type: string
+ *                     example: "active"
  */
-router.post('/', tryCatchHandler(createMerchant));
-router.get('/', tryCatchHandler(getMerchants)); 
-router.put('/', tryCatchHandler(updateMerchant));
-router.put('/', tryCatchHandler(deleteMerchant));
+router.get('/', tryCatchHandler(getMerchants));
+
+/**
+ * @swagger
+ * /merchants/create-merchant:
+ *   post:
+ *     summary: Create a new merchant
+ *     description: Adds a new merchant to the system.
+ *     tags:
+ *       - Merchants
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Merchant A"
+ *               status:
+ *                 type: string
+ *                 example: "active"
+ *     responses:
+ *       201:
+ *         description: Merchant created successfully.
+ *       400:
+ *         description: Invalid request data.
+ */
+router.post('/create-merchant', tryCatchHandler(createMerchant));
+
+/**
+ * @swagger
+ * /merchants/update-merchant:
+ *   put:
+ *     summary: Update merchant details
+ *     description: Updates an existing merchant’s details.
+ *     tags:
+ *       - Merchants
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 example: "inactive"
+ *     responses:
+ *       200:
+ *         description: Merchant updated successfully.
+ *       404:
+ *         description: Merchant not found.
+ */
+router.put('/update-merchant', tryCatchHandler(updateMerchant));
+
+/**
+ * @swagger
+ * /merchants/delete-merchant:
+ *   put:
+ *     summary: Delete a merchant
+ *     description: Soft deletes a merchant by changing its status.
+ *     tags:
+ *       - Merchants
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Merchant deleted successfully.
+ *       404:
+ *         description: Merchant not found.
+ */
+router.put('/delete-merchant', tryCatchHandler(deleteMerchant));
 
 export default router;

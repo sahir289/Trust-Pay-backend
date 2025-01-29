@@ -6,15 +6,15 @@ const router = express.Router();
 
 /**
  * @swagger
- * /users:
+ * /chargeBacks:
  *   get:
- *     summary: users check
- *     description: Returns a status message to verify the user is authorized or not.
+ *     summary: Get all chargebacks
+ *     description: Fetches all chargebacks from the system.
  *     tags:
- *       - users Check
+ *       - ChargeBacks
  *     responses:
  *       200:
- *         description: login successful.
+ *         description: Successfully retrieved chargebacks.
  *         content:
  *           application/json:
  *             schema:
@@ -22,11 +22,111 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "get users successfully"
+ *                   example: "get chargeBacks successfully"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
  */
-router.post('/', tryCatchHandler(createChargeBack));
-router.get('/', tryCatchHandler(getChargeBacks)); 
-router.put('/', tryCatchHandler(updateChargeBack));
-router.put('/', tryCatchHandler(deleteChargeBack));
+router.get('/', tryCatchHandler(getChargeBacks));
+
+/**
+ * @swagger
+ * /chargeBacks/create-chargeback:
+ *   post:
+ *     summary: Create a chargeback
+ *     description: Adds a new chargeback to the system.
+ *     tags:
+ *       - ChargeBacks
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:
+ *                 type: number
+ *               reason:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Chargeback created successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Chargeback created successfully"
+ */
+router.post('/create-chargeback', tryCatchHandler(createChargeBack));
+
+/**
+ * @swagger
+ * /chargeBacks/update-chargeback:
+ *   put:
+ *     summary: Update a chargeback
+ *     description: Updates an existing chargeback in the system.
+ *     tags:
+ *       - ChargeBacks
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: string
+ *               amount:
+ *                 type: number
+ *               reason:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Chargeback updated successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Chargeback updated successfully"
+ */
+router.put('/update-chargeback', tryCatchHandler(updateChargeBack));
+
+/**
+ * @swagger
+ * /chargeBacks/delete-chargeback:
+ *   put:
+ *     summary: Delete a chargeback
+ *     description: Marks a chargeback as deleted in the system.
+ *     tags:
+ *       - ChargeBacks
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Chargeback deleted successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Chargeback deleted successfully"
+ */
+router.put('/delete-chargeback', tryCatchHandler(deleteChargeBack));
 
 export default router;
