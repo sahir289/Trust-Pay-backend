@@ -1,7 +1,7 @@
 import { generateUUID } from '../utils/generateUUID.js';
-import logger from '../utils/logger.js';
+import Logger from '../utils/logger.js';
 
-// const logger = new Logger();
+const logger = new Logger();
 
 const methodNotFound = (req, res, next) => {
   logger.log(

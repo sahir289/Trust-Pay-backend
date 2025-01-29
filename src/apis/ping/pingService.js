@@ -7,7 +7,7 @@ const pingService = async (req, res) => {
   try {
     const data = pingDao(req, res);
     logger.log('getting ping response', 'info', data);
-    return res.status(200).json(data);
+    return data;
   } catch {
     logger.log('not getting ping response', 'error');
   }
