@@ -131,7 +131,7 @@ const getMerchantsDao = async (conn, filters = {}) => {
         updatedAt: 'updated_at',
         isObsolete: 'is_obsolete',
         companyId: 'company_id',
-        method: 'method',
+        allowIntent: 'allow_intent',
         banks: 'banks',
     };
 
