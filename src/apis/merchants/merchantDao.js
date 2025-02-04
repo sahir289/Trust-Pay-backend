@@ -22,7 +22,7 @@ const createMerchantDao = async (conn, payload) => {
         payOutNotifyUrl,
         balance = 0, // Default balance to 0 if undefined
         companyId,
-        method,
+        allowIntent,
         banks,
     } = payload;
 
@@ -45,22 +45,22 @@ const createMerchantDao = async (conn, payload) => {
 
     const config = {
         keys: {
-            apiKey: apiKey,
-            publicApiKey: publicApiKey,
+            apiKey: apiKey || "",
+            publicApiKey: publicApiKey || "",
         },
         urls: {
-            siteUrl: siteUrl,
-            return: returnUrl,
-            notify: notifyUrl,
-            payoutNotify: payOutNotifyUrl,
+            siteUrl: siteUrl || "",
+            return: returnUrl || "",
+            notify: notifyUrl || "",
+            payoutNotify: payOutNotifyUrl || "",
         },
-        method: method,
-        banks: banks,
+        allow_intent: allowIntent || false,
+        banks: banks || [],
     }
 
     // Prepare SQL query
     const sql = `
-      INSERT INTO Merchant (
+      INSERT INTO "Public"."Merchant" (
         id, user_id, role_id, first_name, last_name, code, min_payin, 
         max_payin, payin_commission, min_payout, max_payout, 
         payout_commission, is_test_mode, is_enable, 
@@ -131,7 +131,7 @@ const getMerchantsDao = async (conn, filters = {}) => {
         updatedAt: 'updated_at',
         isObsolete: 'is_obsolete',
         companyId: 'company_id',
-        method: 'method',
+        allowIntent: 'allow_intent',
         banks: 'banks',
     };
 

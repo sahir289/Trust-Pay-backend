@@ -13,11 +13,18 @@ const router = express.Router();
 router.use('/ping', ping);
 router.use('/login', login);
 router.use('/users', users);
+<<<<<<< HEAD
 router.use('/merchant', merchants);
 router.use('/vendor', vendors);
 router.use('/chargeBack', chargeBacks);
 router.use("/bankaccounts",bankAccounts)
 router.use("/reports",reports)
+=======
+router.use('/merchants', merchants);
+router.use('/vendors', vendors);
+router.use('/chargeBacks', chargeBacks);
+
+>>>>>>> 4becca6124fdf091d1b268eedb58241bb362310f
 /* Make sure while changing below parentrouter.
 This is top level router created to enhance in future like versioning, route prefix etc. */
 const parentRouter = express.Router();
