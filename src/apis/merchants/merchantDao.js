@@ -98,7 +98,7 @@ const createMerchantDao = async (conn, payload) => {
 
 const getMerchantsDao = async (conn, filters = {}) => {
     // Base SQL query and parameters
-    let sql = 'SELECT * FROM Merchant WHERE 1=1';
+    let sql = 'SELECT * FROM "Merchant" WHERE 1=1';
     const conditions = [];
     const queryParams = [];
 
@@ -155,7 +155,7 @@ const getMerchantsDao = async (conn, filters = {}) => {
         return rows;
     } catch (error) {
         // Log error details
-        logger.error('Error fetching merchants', error);
+        logger.log('Error fetching merchants', 'error', error);
 
         // Re-throw the error
         throw new DbError('Failed to fetch merchants');

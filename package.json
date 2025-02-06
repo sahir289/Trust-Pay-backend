@@ -1,11 +1,11 @@
 {
   "name": "trust-pay-new-backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "TZ='Asia/Kolkata' eslint . && nodemon server.js",
-    "dev": "TZ='Asia/Kolkata' nodemon index.js",
+    "dev": "eslint . && nodemon server.js",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "format": "prettier --write .",
@@ -28,7 +28,6 @@
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
     "method-override": "^3.0.0",
-    "nodemon": "^3.1.7",
     "pg": "^8.13.1",
     "socket.io": "^4.8.1",
     "swagger-jsdoc": "^6.2.8",
@@ -40,6 +39,7 @@
     "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
+    "nodemon": "^3.1.7",
     "@eslint/js": "^9.15.0",
     "eslint": "^9.15.0",
     "eslint-config-prettier": "^9.1.0",

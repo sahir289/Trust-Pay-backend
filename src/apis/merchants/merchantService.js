@@ -1,7 +1,7 @@
 import {
     BadRequestError,
 } from '../../utils/appErrors.js';
-import { getConnection } from '../../utils/db.js';
+import { beginTransaction, commit, getConnection } from '../../utils/db.js';
 import Logger from '../../utils/logger.js';
 import { createMerchantDao, deleteMerchantDao, getMerchantsDao, updateMerchantDao } from './merchantDao.js';
 
@@ -44,11 +44,9 @@ const getMerchantsService = async (payload) => {
     let conn;
     try {
         conn = await getConnection();
-        await conn.beginTransaction(); // Start a transaction (even if read-only)
-
+        await beginTransaction(conn);
         const data = await getMerchantsDao(conn, payload);
-
-        await conn.commit(); // Commit transaction (even if no modifications)
+        await commit(conn); // Commit transaction (even if no modifications)
 
         logger.log('Fetched Merchants successfully', 'info');
         return data;

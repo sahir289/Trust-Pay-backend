@@ -6,7 +6,6 @@ import { DbError } from './appErrors.js';
 
 const { Pool } = pkg;
 const logger = new Logger();
-
 const pool = new Pool({
   connectionString: config.databaseUrl,
   ssl: {
