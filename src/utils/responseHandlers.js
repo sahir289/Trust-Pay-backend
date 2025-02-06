@@ -16,7 +16,7 @@ const sendSuccess = (
     finalRes.meta.message = message;
   }
   if (data) {
-    finalRes.data = { ...data };
+    finalRes.data = data;
   }
   if (total) {
     finalRes = { ...finalRes, total };
