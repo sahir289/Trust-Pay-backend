@@ -10,6 +10,7 @@ const loginController = async (req, res) => {
   try {
     // const { userName, password, confirmOverRide = false } = req.body;
     const payload = req.body;
+    console.log(payload, "payload");
     const options = { abortEarly: false };
     const joiValidation = INSERT_AUTH_SCHEMA.validate(payload, options);
     if (joiValidation.error) {
