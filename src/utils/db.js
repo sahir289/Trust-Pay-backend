@@ -1,11 +1,9 @@
 import pkg from 'pg';
-import Logger from './logger.js';
 import config from '../config/config.js';
 import chalk from 'chalk';
 import { DbError } from './appErrors.js';
 
 const { Pool } = pkg;
-const logger = new Logger();
 const pool = new Pool({
   connectionString: config.databaseUrl,
   ssl: {
@@ -17,10 +15,10 @@ const getConnection = async () => {
   try {
     const client = await pool.connect();
     const styledServerMessage = chalk.bgCyanBright('Database connected successfully');
-    logger.log(`${styledServerMessage}`, 'info');
+    console.log(`${styledServerMessage}`);
     return client;
   } catch (error) {
-    logger.log(`Error fetching database connection:`, 'error', error);
+    console.error(`Error fetching database connection:`, error);
     throw new DbError('Database connection error');
   }
 };
@@ -28,9 +26,9 @@ const getConnection = async () => {
 const beginTransaction = async (client) => {
   try {
     await client.query('BEGIN');
-    logger.log('Transaction started', 'info');
+    console.log('Transaction started');
   } catch (error) {
-    logger.log('Error starting transaction', 'error', error);
+    console.error('Error starting transaction', error);
     throw new DbError('Failed to start transaction');
   }
 };
@@ -38,9 +36,9 @@ const beginTransaction = async (client) => {
 const commit = async (client) => {
   try {
     await client.query('COMMIT');
-    logger.log('Transaction committed', 'info');
+    console.log('Transaction committed');
   } catch (error) {
-    logger.log('Error committing transaction', 'error', error);
+    console.error('Error committing transaction', error);
     throw new DbError('Failed to commit transaction');
   }
 };
@@ -48,9 +46,9 @@ const commit = async (client) => {
 const rollback = async (client, throwError = true) => {
   try {
     await client.query('ROLLBACK');
-    logger.log('Transaction rolled back', 'info');
+    console.log('Transaction rolled back');
   } catch (error) {
-    logger.log('Error rolling back transaction', 'error', error);
+    console.error('Error rolling back transaction', error);
     if (throwError) {
       throw new DbError('Failed to rollback transaction');
     }
@@ -66,8 +64,8 @@ export const executeQuery = async (query, queryParams = []) => {
     await commit(conn);
     return result;
   } catch (error) {
-    logger.log('Error while executing query', 'error', error);
-    logger.log(`\nQuery: ${query}\nParams: [${queryParams}]`, 'error')
+    console.error('Error while executing query', error);
+    console.error(`\nQuery: ${query}\nParams: [${queryParams}]`);
     await rollback(conn, false); // Rollback the transaction if an error occurs
     throw new DbError(error.message);
   } finally {

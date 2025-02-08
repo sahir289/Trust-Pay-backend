@@ -1,13 +1,6 @@
 import { generateUUID } from '../utils/generateUUID.js';
-import Logger from '../utils/logger.js';
-
-const logger = new Logger();
-
 const methodNotFound = (req, res, next) => {
-  logger.log(
-    'the url you are trying to reach is not hosted on our server',
-    'error',
-  );
+  console.error('the url you are trying to reach is not hosted on our server');
   const err = new Error('Not Found');
   err.status = 404;
   res.status(err.status).json({
@@ -27,7 +20,7 @@ const addLogIdInRequest = (req, res, next) => {
     logString = `${logString} :: ${JSON.stringify(body)}`;
   }
 
-  logger.log(logString, 'info');
+  console.log(logString);
   next();
 };
 

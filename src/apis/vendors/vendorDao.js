@@ -1,8 +1,6 @@
 import { DbError } from '../../utils/appErrors.js';
 import { generateUUID } from '../../utils/generateUUID.js';
-import Logger from '../../utils/logger.js';
 
-const logger = new Logger();
 
 const createVendorDao = async (conn, payload) => {
     // Destructure payload with default values
@@ -57,7 +55,7 @@ const createVendorDao = async (conn, payload) => {
         return result.rows?.[0] || null; // Return the inserted row or null if none
     } catch (error) {
         // Log contextual error details
-        logger.error('Error in createVendorDao', error);
+        console.error('Error in createVendorDao', error);
 
         // Re-throw a generic database error
         throw new DbError('Failed to create Vendor.');
@@ -109,7 +107,7 @@ const getVendorsDao = async (conn, filters = {}) => {
         return rows;
     } catch (error) {
         // Log error details
-        logger.error('Error fetching vendors', error);
+        console.error('Error fetching vendors', error);
 
         // Re-throw the error
         throw new DbError('Failed to fetch Vendors');
@@ -157,7 +155,7 @@ const updateVendorDao = async (conn, payload) => {
         const result = await conn.query(sql, values);
         return result.rows?.[0] || null; // Return the updated row or null if not found
     } catch (error) {
-        logger.error('Error in updateVendorDao', error);
+        console.error('Error in updateVendorDao', error);
         throw new DbError('Failed to update Vendor.');
     }
 };
@@ -177,7 +175,7 @@ const deleteVendorDao = async (conn, vendorId) => {
         const result = await conn.query(sql, values);
         return result.rows?.[0] || null; // Return the deleted Vendor row or null if not found
     } catch (error) {
-        logger.error('Error in deleteVendorDao', error);
+        console.error('Error in deleteVendorDao', error);
         throw new DbError('Failed to delete Vendor.');
     }
 };

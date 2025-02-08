@@ -8,7 +8,6 @@ import { getMerchantBankByIdService } from "../banks/bankService.js";
 import { getMerchantsService } from "../merchants/merchantService.js";
 import { generatePayInUrlService, getPayInUrlService, updatePayInUrlService } from "./payInService.js";
 import { Status } from "../../constants/index.js";
-import { parseJSON } from "../../utils/index.js";
 
 //  To Generate Url
 export const generatePayInUrl = async (req, res) => {
@@ -94,7 +93,8 @@ export const validatePayInUrl = async (req, res) => {
         throw new CustomError(403, "Url is expired");
     }
 
-    const config = parseJSON(payIn.config);
+    const config = payIn.config || {};
+    // TODO: modify expiration date type 
     if (currentTime > Number(payIn.expiration_date) && payIn.status === Status.ASSIGNED) {
         // expire payIn
         await updatePayInUrlService(payInId, {
@@ -121,7 +121,8 @@ export const validatePayInUrl = async (req, res) => {
         notify_url: config.notify_url,
         expiryTime: Number(payIn.expiration_date),
         amount: payIn.amount,
-        one_time_used: payIn.one_time_used
+        one_time_used: payIn.one_time_used,
+        status: payIn.status,
     };
 
     return sendSuccess(res, result, 'Payment Url is correct');

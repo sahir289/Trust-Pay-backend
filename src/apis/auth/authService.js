@@ -9,13 +9,11 @@ import {
 import { comparePassword } from '../../utils/bcryptPassword.js';
 import { getConnection } from '../../utils/db.js';
 // import { generateAccessToken } from '../../utils/auth.js';
-import Logger from '../../utils/logger.js';
 import { getUsersByUserNameDao } from '../users/userDao.js';
 import { createNewToken } from '../../utils/auth.js';
 import { addLoginDao } from './authDao.js';
 // import { generateUUID } from '../../utils/generateUUID.js';
 
-const logger = new Logger();
 
 const loginService = async (config) => {
   let conn;
@@ -116,7 +114,7 @@ const loginService = async (config) => {
   //     throw new InternalServerError(`User is already logged in somewhere else`);
   //   }
   } catch (error) {
-    logger.log('error getting while logging in', 'error', error);
+    console.error('error getting while logging in', error);
     throw new BadRequestError('Error getting while logging in');
   }
 };
