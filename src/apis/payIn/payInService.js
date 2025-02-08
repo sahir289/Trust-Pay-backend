@@ -1,6 +1,6 @@
 import { Currency, Status } from "../../constants/index.js";
 import { nanoid } from 'nanoid'
-import { generatePayInUrlDao, updatePayInUrlDao, validatePayInUrlDao } from "./payInDao.js";
+import { assignedBankToPayInUrlDao, checkPayInStatusDao, expirePayInUrlDao, generatePayInUrlDao, getPayInDataDao, updatePayInDataDao, updatePayInUrlDao, validatePayInUrlDao } from "./payInDao.js";
 
 export const generatePayInUrlService = async (merchant, payInData = {}, bank) => {
     const _10_MINUTES = 1000 * 60 * 10;
@@ -28,10 +28,34 @@ export const generatePayInUrlService = async (merchant, payInData = {}, bank) =>
     return await generatePayInUrlDao(data);
 }
 
-export const getPayInUrlService = async (id)=>{
-    return await validatePayInUrlDao(id);   
+export const getPayInUrlService = async (id) => {
+    return await validatePayInUrlDao(id);
 }
 
-export const updatePayInUrlService = async (id, data)=>{
+export const updatePayInUrlService = async (id, data) => {
     return await updatePayInUrlDao(id, data);
+}
+
+export const getPayInDataService = async (payInId) => {
+    return await getPayInDataDao(payInId);
+};
+
+export const expirePayInUrlService = async (id) => {
+    return await expirePayInUrlDao(id);
+}
+
+export const assignedBankToPayInUrlService = async (id, data, amount) => {
+    return await assignedBankToPayInUrlDao(id, data, amount);
+}
+
+export const updatePayInDataService = async (payInId, data) => {
+    return await updatePayInDataDao(payInId, data)
+}
+
+export const getMerchantByCodeService = async (code) => {
+    return await getMerchantCodeDao(code);
+}
+
+export const checkPayInStatusService = async (payInId, merchantCode, merchantOrderId) => {
+    return await checkPayInStatusDao(payInId, merchantCode, merchantOrderId);
 }
