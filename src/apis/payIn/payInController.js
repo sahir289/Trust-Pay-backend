@@ -6,9 +6,8 @@ import { CustomError, ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getMerchantBankByIdService } from "../banks/bankService.js";
 import { getMerchantsService } from "../merchants/merchantService.js";
-import { assignedBankToPayInUrlService, checkPayInStatusService, expirePayInUrlService, generatePayInUrlService, getMerchantByCodeService, getPayInDataService, getPayInUrlService, updatePayInUrlService } from "./payInService.js";
+import { assignedBankToPayInUrlService, checkPayInStatusService, expirePayInUrlService, generatePayInUrlService, getPayInUrlService, updatePayInUrlService } from "./payInService.js";
 import { Status } from "../../constants/index.js";
-import { getPayInDataDao, validatePayInUrlDao } from "./payInDao.js";
 
 //  To Generate Url
 export const generatePayInUrl = async (req, res) => {
@@ -130,75 +129,11 @@ export const validatePayInUrl = async (req, res) => {
 }
 
 export const assignedBankToPayInUrl = async (req, res) => {
-    const payload = req.query;
-    const joiValidation = VALIDATE_ASSIGNED_BANT_TO_PAY.validate(payload);
+    const joiValidation = VALIDATE_ASSIGNED_BANT_TO_PAY.validate(req);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-
-    const { payInId } = req.params;
-    const { amount } = req.body;
-    const currentTime = Math.floor(Date.now() / 1000);
-
-    // Validate the PayIn URL
-    const urlValidationRes = await validatePayInUrlDao(payInId);
-    if (!urlValidationRes) {
-        throw new CustomError(404, "Payment Url is incorrect");
-    }
-
-    if (urlValidationRes.is_url_expires || currentTime > Number(urlValidationRes.expirationDate)) {
-        const payinDataRes = await getPayInDataService(payInId);
-        if (payinDataRes.status === "ASSIGNED") {
-            const notifyData = {
-                status: "DROPPED",
-                merchantOrderId: payinDataRes.merchant_order_id,
-                payinId: payinDataRes.id,
-                req_amount: payinDataRes.amount,
-                utr_id: payinDataRes.utr
-            };
-            await axios.post(payinDataRes.notify_url, notifyData);
-            throw new CustomError(403, "Session is expired");
-        }
-    }
-
-    // Get enabled merchant bank accounts for payIn
-    const getBankDetails = await getMerchantBankByIdService(urlValidationRes.merchant_id);
-    const enabledBanks = getBankDetails?.filter((bank) => bank?.bankAccount?.is_enabled && bank?.bankAccount?.bank_used_for === "payIn");
-
-    if (!enabledBanks || enabledBanks.length === 0) {
-        const payinDataRes = await getPayInDataService(payInId);
-        if (payinDataRes.status === "ASSIGNED") {
-            await expirePayInUrlService(payInId);
-
-            const notifyData = {
-                status: "DROPPED",
-                merchantOrderId: payinDataRes.merchant_order_id,
-                payinId: payinDataRes.id,
-                req_amount: payinDataRes.amount,
-                utr_id: payinDataRes.utr
-            };
-            await axios.post(payinDataRes.notify_url, notifyData);
-            throw new CustomError(404, "No enabled bank account found");
-        }
-    }
-
-    // Randomly assign one enabled bank account
-    const selectedBankDetails = enabledBanks[Math.floor(Math.random() * enabledBanks.length)];
-    const assignedBankToPayInUrlRes = await assignedBankToPayInUrlService(payInId, selectedBankDetails, parseFloat(amount));
-
-    const payinDataResult = await getPayInDataDao(payInId);
-    Object.assign(assignedBankToPayInUrlRes, {
-        merchant_min_payin: payinDataResult.Merchant.min_payin,
-        merchant_max_payin: payinDataResult.Merchant.max_payin,
-        merchant_code: payinDataResult.Merchant.code,
-        allow_merchant_intent: payinDataResult.Merchant.allow_intent,
-        sno: payinDataResult.sno
-    });
-
-    res.status(201).json({
-        message: "Bank account is assigned",
-        data: assignedBankToPayInUrlRes
-    });
+    assignedBankToPayInUrlService(req, res)
 };
 
 export const expirePayInUrl = async (req, res) => {
@@ -206,29 +141,7 @@ export const expirePayInUrl = async (req, res) => {
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-    const { payInId } = req.params;
-    const payinDataRes = await getPayInDataService(payInId)
-    if (payinDataRes?.status === "ASSIGNED") {
-        const expireRes = await expirePayInUrlService(payInId);
-        console.log('============>', expireRes);
-        // const expirePayinUrl = 
-        // const notifyData = {
-        //     status: "DROPPED",
-        //     merchantOrderId: payinDataRes?.merchant_order_id,
-        //     payinId: payinDataRes?.id,
-        //     amount: null,
-        //     req_amount: payinDataRes?.amount,
-        //     utr_id: payinDataRes?.utr
-        // };
-        // const notifyMerchant = await axios.post(payinDataRes?.notify_url, notifyData);
-        // logger.info('Notification sent successfully', {
-        //     status: notifyMerchant.status,
-        //     data: notifyMerchant.data,
-        // });
-        res.status(200).json({
-            message: "Payment Url is expires",
-        });
-    }
+    expirePayInUrlService(req, res)
 }
 
 export const checkPayInStatus = async (req, res) => {
@@ -236,49 +149,5 @@ export const checkPayInStatus = async (req, res) => {
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-    const { payinId, merchantCode, merchantOrderId } = req.body;
-
-    const getMerchantApiKeyByCode = await getMerchantByCodeService(
-        merchantCode
-    );
-    if (!getMerchantApiKeyByCode) {
-        throw new CustomError(404, "Merchant does not exist");
-    }
-
-    const apiKey = req.headers["x-api-key"];
-    if (apiKey !== merchant.api_key && apiKey !== merchant.public_api_key) {
-        throw new CustomError(404, "Enter valid API key");
-    }
-    if (!merchantCode) {
-        return res.status(404).json({
-            status: "error",
-            error: "API key / code not found"
-        });
-    }
-
-    const data = await checkPayInStatusService(
-        payinId,
-        merchantCode,
-        merchantOrderId
-    );
-    if (!data) {
-        return res.status(404).json({
-            status: "error",
-            error: "payin not found",
-        });
-    }
-    const response = {
-        status: data.status,
-        merchantOrderId: data.merchant_order_id,
-        amount: data.confirmed,
-        payinId: data.id,
-        req_amount: data?.amount,
-        utr_id: (data.status === "SUCCESS" || data.status === "DISPUTE") ? data?.utr : " "
-    };
-
-    return res.status(200).json({
-        res,
-        message: "PayIn status fetched successfully",
-        response,
-    });
+    checkPayInStatusService(req, res)
 }

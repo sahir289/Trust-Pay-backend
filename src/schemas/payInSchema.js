@@ -12,7 +12,7 @@ export const VALIDATE_PAYIN_SCHEMA = Joi.object({
 });
 
 export const VALIDATE_ASSIGNED_BANT_TO_PAY = Joi.object({
-  query: Joi.object({
+  params: Joi.object({
     payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required()
   }),
   body: Joi.object({
@@ -27,5 +27,4 @@ export const VALIDATE_EXPIRE_PAY_IN_URL = Joi.object({
 export const VALIDATE_CHECK_PAY_IN_STATUS = Joi.object({
   payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
   merchantCode: Joi.string().label('merchant_code').required(),
-  merchant_order_id: Joi.string().label('merchant_order_id').required(),
 });
