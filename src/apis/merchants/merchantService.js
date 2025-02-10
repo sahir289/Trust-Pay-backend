@@ -1,7 +1,7 @@
 import {
     BadRequestError,
 } from '../../utils/appErrors.js';
-import { beginTransaction, commit, getConnection } from '../../utils/db.js';
+import { getConnection } from '../../utils/db.js';
 import { createMerchantDao, deleteMerchantDao, getMerchantsDao, updateMerchantDao } from './merchantDao.js';
 
 
@@ -39,34 +39,7 @@ const createMerchantService = async (payload) => {
 };
 
 const getMerchantsService = async (payload) => {
-    let conn;
-    try {
-        conn = await getConnection();
-        await beginTransaction(conn);
-        const data = await getMerchantsDao(conn, payload);
-        await commit(conn); // Commit transaction (even if no modifications)
-
-        console.log('Fetched Merchants successfully');
-        return data;
-    } catch (error) {
-        if (conn) {
-            try {
-                await conn.rollback(); // Rollback the transaction if an error occurs
-            } catch (rollbackError) {
-                console.error('Error during transaction rollback', rollbackError);
-            }
-        }
-        console.error('Error while fetching Merchants', error);
-        throw new BadRequestError('Error occurred while fetching Merchants');
-    } finally {
-        if (conn) {
-            try {
-                conn.release(); // Release the connection back to the pool
-            } catch (releaseError) {
-                console.error('Error while releasing the connection', releaseError);
-            }
-        }
-    }
+    return await getMerchantsDao(payload);
 };
 
 const updateMerchantService = async (payload) => {
@@ -122,7 +95,7 @@ const deleteMerchantService = async (payload) => {
                 console.error('Error during transaction rollback', rollbackError);
             }
         }
-        console.error('Error while deleting Merchant',  error);
+        console.error('Error while deleting Merchant', error);
         throw new BadRequestError('Error occurred while deleting Merchant');
     } finally {
         if (conn) {
@@ -135,4 +108,4 @@ const deleteMerchantService = async (payload) => {
     }
 };
 
-export { createMerchantService, getMerchantsService, updateMerchantService, deleteMerchantService};
+export { createMerchantService, getMerchantsService, updateMerchantService, deleteMerchantService };

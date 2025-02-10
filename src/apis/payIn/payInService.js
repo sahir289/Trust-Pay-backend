@@ -3,7 +3,7 @@ import { nanoid } from 'nanoid'
 import { Currency, Status } from "../../constants/index.js";
 import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao } from "./payInDao.js";
 import { getMerchantsService } from "../merchants/merchantService.js";
-import { BadRequestError, CustomError, NotFoundError } from "../../utils/appErrors.js";
+import { AccessDeniedError, BadRequestError, NotFoundError } from "../../utils/appErrors.js";
 import { v4 as uuidv4 } from "uuid";
 import { getMerchantBankByIdService } from "../banks/bankService.js";
 import { getMerchantBankByIdDao } from "../banks/bankDao.js";
@@ -21,8 +21,8 @@ export const generatePayInUrlService = async (payload) => {
         throw new NotFoundError("Merchant does not exist");
     }
 
-
-    if (ap && api_key !== merchant.config?.api_key) {
+    // bug
+    if (ap && ap !== merchant.config?.api_key) {
         throw new BadRequestError("Enter valid Api key");
     }
 
@@ -47,9 +47,8 @@ export const generatePayInUrlService = async (payload) => {
     };
 
     const _10_MINUTES = 1000 * 60 * 10;
-    const expirationDate = Math.floor(
-        (new Date().getTime() + _10_MINUTES) / 1000
-    );
+    const expirationDate = Math.floor((new Date().getTime() + _10_MINUTES) / 1000);
+    const bank = bankAccountLinkRes[Math.floor(Math.random() * bankAccountLinkRes.length)];
     const data = {
         upi_short_code: nanoid(5), // code added by us
         amount: payInData.amount || 0, // as starting amount will be zero
@@ -59,7 +58,7 @@ export const generatePayInUrlService = async (payload) => {
         user: payInData.user_id,
         merchant_id: merchant.id,
         expiration_date: expirationDate,
-        bank_acc_id: bankAccountLinkRes[0].id, // in old if amount is available only then it can be added
+        bank_acc_id: bank.id, // in old if amount is available only then it can be added
         company_id: merchant.company_id,
         config: JSON.stringify({
             return_url: payInData.return_url || '',
@@ -73,53 +72,55 @@ export const generatePayInUrlService = async (payload) => {
 export const getPayInUrlService = async (id) => {
 
     const currentTime = Math.floor(Date.now() / 1000);
-    const payIn = await getPayInUrlDao(id);
+    const payIn = await getPayInUrlDao({ id });
 
     if (!payIn) {
         throw new NotFoundError("Payment Url is incorrect");
     }
 
     if (payIn.is_url_expires) {
-        throw new CustomError(403, "Url is expired");
+        throw new AccessDeniedError("Url is expired");
     }
 
     const config = payIn.config || {};
     // TODO: modify expiration date type 
-    if (currentTime > Number(payIn.expiration_date) && payIn.status === Status.ASSIGNED) {
+    if (currentTime > Number(payIn.expiration_date) && payIn.status !== Status.INITIATED) {
         // expire payIn
         await updatePayInUrlDao(id, {
             is_url_expires: true,
             status: Status.DROPPED,
         });
         // Notifying merchant about expired URL
-        if (config.notify_url) {
-            axios.post(config.notify_url, {
-                status: Status.DROPPED,
-                merchantOrderId: payIn.merchant_order_id,
-                payinId: payIn.id,
-                amount: null,
-                req_amount: payIn.amount,
-                utr_id: payIn.utr,
-            }).catch(console.error);
-        }
-        throw new CustomError(403, "Session is expired");
+        notifyMerchants(config.notify_url, {
+            status: Status.DROPPED,
+            merchantOrderId: payIn.merchant_order_id,
+            payinId: payIn.id,
+            amount: null,
+            req_amount: payIn.amount,
+            utr_id: payIn.utr,
+        })
+        throw new AccessDeniedError("Session is expired");
     }
 
     return payIn;
 }
 
-export const updatePayInUrlService = async (id, data) => {
-    return await updatePayInUrlDao(id, data);
-}
 
+// TODO: delete this API
 export const expirePayInUrlService = async (payInId) => {
-    const payIn = await generatePayInUrlDao(payInId);
+    const currentTime = Math.floor(Date.now() / 1000);
+    const payIn = await getPayInUrlDao({ id: payInId });
     if (!payIn) {
         throw new NotFoundError('PayIn not found!');
     }
 
-    if (payIn.status !== Status.ASSIGNED) {
-        throw new BadRequestError('PayIn is not assigned');
+    // Question
+    // isn't cron job will be best fit to expire payIns with time
+    // if (payIn.status !== Status.ASSIGNED) {
+    // throw new BadRequestError('PayIn is not assigned');
+    // }
+    if (currentTime < Number(payIn.expiration_date)) {
+        throw new BadRequestError('Pay In is not expired yet!');
     }
 
     const config = payIn.config || {};
@@ -128,16 +129,14 @@ export const expirePayInUrlService = async (payInId) => {
         status: Status.DROPPED,
     })
 
-    if (config.notify_url) {
-        axios.post(config.notify_url, {
-            status: Status.DROPPED,
-            merchantOrderId: payIn.merchant_order_id,
-            payinId: payIn.id,
-            amount: null,
-            req_amount: payIn.amount,
-            utr_id: payIn.utr
-        });
-    }
+    notifyMerchants(config.notify_url, {
+        status: Status.DROPPED,
+        merchantOrderId: payIn.merchant_order_id,
+        payinId: payIn.id,
+        amount: null,
+        req_amount: payIn.amount,
+        utr_id: payIn.utr
+    });
 }
 
 export const assignedBankToPayInUrlService = async (payInId, amount) => {
@@ -147,8 +146,8 @@ export const assignedBankToPayInUrlService = async (payInId, amount) => {
     const payInConfig = payIn.config || {};
 
     // TODO: should we check other statuses too?
-    if(payIn.status === Status.SUCCESS){
-        throw new BadRequestError('Payout has been confirmed already!');
+    if (payIn.status !== Status.INITIATED) {
+        throw new BadRequestError('PayIn has been confirmed already!');
     }
 
     const merchantArr = await getMerchantsService({ id: payIn.merchant_id });
@@ -159,29 +158,27 @@ export const assignedBankToPayInUrlService = async (payInId, amount) => {
     }
 
     // Get enabled merchant bank accounts for payIn
-    const getBankDetails = await getMerchantBankByIdDao(merchant.user_id);
-    if (!getBankDetails.length) {
-        throw new CustomError(403, `No bank found against ${payIn.merchant_id}`);
-    }
-    const enabledBanks = getBankDetails.filter((bank) => bank.is_enabled && bank.bank_used_for === "payIn");
-
-    if (!enabledBanks.length && payIn.status === Status.ASSIGNED) {
+    // Todo: Assign bank on the basis type
+    // type maybe UPI, PhonePe, Bank Transfer
+    // allow_qr ==> UPI
+    // config.is_phonpe ==> Phone Pe
+    // is_enabled ==> Bank Transfer
+    const banks = await getMerchantBankByIdDao(merchant.user_id);
+    const enabledBanks = banks.filter((bank) => bank.is_enabled && bank.bank_used_for === "payIn")
+    if (!enabledBanks.length) {
         await updatePayInUrlDao(payInId, {
             is_url_expires: true,
             status: Status.DROPPED,
         });
-        if (payInConfig.notify_url) {
-            axios.post(payIn.notify_url, {
-                status: Status.DROPPED,
-                merchantOrderId: payIn.merchant_order_id,
-                payinId: payIn.id,
-                req_amount: payIn.amount,
-                utr_id: payIn.utr
-            }).catch(console.error);
-        }
-        throw new CustomError(404, "No enabled bank account found");
+        notifyMerchants(payInConfig.notify_url, {
+            status: Status.DROPPED,
+            merchantOrderId: payIn.merchant_order_id,
+            payinId: payIn.id,
+            req_amount: payIn.amount,
+            utr_id: payIn.utr
+        })
+        throw new NotFoundError(`No enabled bank found!`);
     }
-
     // Randomly assign one enabled bank account
     const selectedBankDetails = enabledBanks[Math.floor(Math.random() * enabledBanks.length)];
     const updatePayIn = await updatePayInUrlDao(payInId, {
@@ -202,6 +199,7 @@ export const assignedBankToPayInUrlService = async (payInId, amount) => {
     return updatePayIn;
 }
 
+// Public API Used by Merchants
 export const checkPayInStatusService = async (payInId, merchantCode, merchantOrderId, api_key) => {
 
     // query on the bases of:
@@ -214,12 +212,15 @@ export const checkPayInStatusService = async (payInId, merchantCode, merchantOrd
     }
 
     const merchantConfig = merchant.config || {};
-    const payIn = await getPayInUrlDao(payInId);
+    const payIn = await getPayInUrlDao({
+        id: payInId,
+        merchant_order_id: merchantOrderId,
+    });
     if (!payIn) {
         throw new NotFoundError('payIn not found');
     }
 
-    if (payIn.merchant_order_id != merchantOrderId || api_key != merchantConfig.api_key) {
+    if (api_key != merchantConfig.api_key) {
         throw new BadRequestError('Invalid PayIn!');
     }
 
@@ -229,4 +230,12 @@ export const checkPayInStatusService = async (payInId, merchantCode, merchantOrd
         amount: payIn.amount,
         payinId: payIn.id,
     };
+}
+
+
+
+const notifyMerchants = (url, data) => {
+    if (url) {
+        axios.post(url, data).catch(console.error);
+    }
 }

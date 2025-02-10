@@ -1,4 +1,5 @@
 import { DbError } from '../../utils/appErrors.js';
+import { executeQuery } from '../../utils/db.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 
 
@@ -73,10 +74,10 @@ const createMerchantDao = async (conn, payload) => {
 
     // Organize parameter values
     const values = [
-        id, userId, roleId, defaults.firstName, defaults.lastName, code, minPayIn, 
-        maxPayIn, payInCommission, minPayOut, maxPayOut, 
+        id, userId, roleId, defaults.firstName, defaults.lastName, code, minPayIn,
+        maxPayIn, payInCommission, minPayOut, maxPayOut,
         payOutCommission, defaults.isTestMode, defaults.isEnable,
-        defaults.disputeEnabled, balance, config, defaults.createdBy, 
+        defaults.disputeEnabled, balance, config, defaults.createdBy,
         defaults.updatedBy, defaults.isObsolete, companyId,
     ];
 
@@ -94,7 +95,7 @@ const createMerchantDao = async (conn, payload) => {
     }
 };
 
-const getMerchantsDao = async (conn, filters = {}) => {
+const getMerchantsDao = async (filters = {}) => {
     // Base SQL query and parameters
     let sql = 'SELECT * FROM "Merchant" WHERE 1=1';
     const conditions = [];
@@ -108,14 +109,14 @@ const getMerchantsDao = async (conn, filters = {}) => {
         firstName: 'first_name',
         lastName: 'last_name',
         code: 'code',
-        siteUrl:'site_url',
+        siteUrl: 'site_url',
         notifyUrl: 'notify_url',
-        returnUrl:'return_url',
-        minPayIn:'min_payin',
-        maxPayIn:'max_payin',
+        returnUrl: 'return_url',
+        minPayIn: 'min_payin',
+        maxPayIn: 'max_payin',
         payInCommission: 'payin_commission',
-        minPayOut:'min_payout',
-        maxPayOut:'max_payout',
+        minPayOut: 'min_payout',
+        maxPayOut: 'max_payout',
         payOutCommission: 'payout_commission',
         payOutNotifyUrl: 'payout_notify_url',
         isTestMode: 'is_test_mode',
@@ -146,18 +147,9 @@ const getMerchantsDao = async (conn, filters = {}) => {
     if (conditions.length) {
         sql += ` AND ${conditions.join(' AND ')}`;
     }
-
-    try {
-        // Execute the query
-        const { rows } = await conn.query(sql, queryParams);
-        return rows;
-    } catch (error) {
-        // Log error details
-        console.error('Error fetching merchants', error);
-
-        // Re-throw the error
-        throw new DbError('Failed to fetch merchants');
-    }
+    // Execute the query
+    const { rows } = await executeQuery(sql, queryParams);
+    return rows;
 };
 
 const updateMerchantDao = async (conn, payload) => {
@@ -206,8 +198,8 @@ const updateMerchantDao = async (conn, payload) => {
     `;
 
     const values = [
-        id, userId, roleId, code, siteUrl, notifyUrl, returnUrl, minPayIn, 
-        maxPayIn, payInCommission, minPayOut, maxPayOut, payOutCommission, 
+        id, userId, roleId, code, siteUrl, notifyUrl, returnUrl, minPayIn,
+        maxPayIn, payInCommission, minPayOut, maxPayOut, payOutCommission,
         payOutNotifyUrl, balance, updatedBy, companyId
     ];
 

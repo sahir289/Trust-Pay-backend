@@ -1,4 +1,4 @@
-import { buildInsertQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
+import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
 
 const tableName = 'Payin';
 
@@ -8,9 +8,9 @@ export const generatePayInUrlDao = async (data) => {
     return result.rows[0];
 }
 
-export const getPayInUrlDao = async (id) => {
-    const query = `SELECT * FROM "${tableName}" WHERE id=$1`;
-    const result = await executeQuery(query, [id]);
+export const getPayInUrlDao = async (filters) => {
+    const [sql, params] = buildSelectQuery(`SELECT * FROM "${tableName}" WHERE 1=1`, filters);
+    const result = await executeQuery(sql, params);
     return result.rows[0];
 }
 
