@@ -58,10 +58,20 @@ class Logger {
   }
 
   log(level, ...args) {
-    const typeStr = ` ${level.toUpperCase()} `;
-    const typeChalk = level === "error" ? chalk.bgRed(typeStr) : level === "warning" ? chalk.bgYellow(typeStr) : chalk.bgCyan(typeStr);
-    const timestamp = new Date().toLocaleDateString();
-    originalLog(`${typeChalk} ${timestamp}`, ...args);
+    const typeChalk = level === "error" ? chalk.red(level) : level === "warning" ? chalk.yellowBright(level) : chalk.cyanBright(level);
+    const options = { 
+      weekday: 'short', 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric', 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit', 
+      hour12: false, 
+      timeZone: 'Asia/Kolkata' 
+  };
+    const timestamp = new Date().toLocaleString('en-US', options).replace(',', '');
+    originalLog(`${typeChalk} : ${timestamp} ::`, ...args);
     this.#logger.log(level, args.shift(), args);
   }
 }
