@@ -8,7 +8,7 @@ export const generatePayInUrlDao = async (data) => {
     return result.rows[0];
 }
 
-export const validatePayInUrlDao = async (id) => {
+export const getPayInUrlDao = async (id) => {
     const query = `SELECT * FROM "${tableName}" WHERE id=$1`;
     const result = await executeQuery(query, [id]);
     return result.rows[0];

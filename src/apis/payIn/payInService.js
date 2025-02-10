@@ -1,7 +1,7 @@
 import axios from "axios";
 import { nanoid } from 'nanoid'
 import { Currency, Status } from "../../constants/index.js";
-import { generatePayInUrlDao, updatePayInUrlDao, validatePayInUrlDao } from "./payInDao.js";
+import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao } from "./payInDao.js";
 import { getMerchantsService } from "../merchants/merchantService.js";
 import { BadRequestError, CustomError, NotFoundError } from "../../utils/appErrors.js";
 import { v4 as uuidv4 } from "uuid";
@@ -73,7 +73,7 @@ export const generatePayInUrlService = async (payload) => {
 export const getPayInUrlService = async (id) => {
 
     const currentTime = Math.floor(Date.now() / 1000);
-    const payIn = await validatePayInUrlDao(id);
+    const payIn = await getPayInUrlDao(id);
 
     if (!payIn) {
         throw new NotFoundError("Payment Url is incorrect");
@@ -145,6 +145,12 @@ export const assignedBankToPayInUrlService = async (payInId, amount) => {
     // Validate the PayIn URL
     const payIn = await getPayInUrlService(payInId);
     const payInConfig = payIn.config || {};
+
+    // TODO: should we check other statuses too?
+    if(payIn.status === Status.SUCCESS){
+        throw new BadRequestError('Payout has been confirmed already!');
+    }
+
     const merchantArr = await getMerchantsService({ id: payIn.merchant_id });
     const merchant = merchantArr[0] || {};
 
@@ -208,7 +214,7 @@ export const checkPayInStatusService = async (payInId, merchantCode, merchantOrd
     }
 
     const merchantConfig = merchant.config || {};
-    const payIn = await validatePayInUrlDao(payInId);
+    const payIn = await getPayInUrlDao(payInId);
     if (!payIn) {
         throw new NotFoundError('payIn not found');
     }
