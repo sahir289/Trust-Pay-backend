@@ -60,7 +60,6 @@ router.get('/', tryCatchHandler(getVendors));
  *         description: Invalid request data.
  */
 router.post('/create-vendor', tryCatchHandler(createVendor));
-
 /**
  * @swagger
  * /vendors/update-vendor:
