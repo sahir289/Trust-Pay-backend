@@ -144,6 +144,7 @@ export const assignedBankToPayInUrlService = async (payInId, amount) => {
 
     // Validate the PayIn URL
     const payIn = await getPayInUrlService(payInId);
+    const payInConfig = payIn.config || {};
     const merchantArr = await getMerchantsService({ id: payIn.merchant_id });
     const merchant = merchantArr[0] || {};
 
@@ -163,7 +164,7 @@ export const assignedBankToPayInUrlService = async (payInId, amount) => {
             is_url_expires: true,
             status: Status.DROPPED,
         });
-        if (config.notify_url) {
+        if (payInConfig.notify_url) {
             axios.post(payIn.notify_url, {
                 status: Status.DROPPED,
                 merchantOrderId: payIn.merchant_order_id,
