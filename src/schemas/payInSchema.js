@@ -1,6 +1,9 @@
 import Joi from 'joi';
 
 export const ASSIGN_PAYIN_SCHEMA = Joi.object({
+  ap: Joi.string().label('ap').optional(),
+  ot: Joi.string().label('ot').optional(),
+  amount: Joi.number().positive().label('amount').optional(),
   code: Joi.string().label('code').required(),
   api_key: Joi.string().label('api_key').required(),
   merchant_order_id: Joi.string().label('merchant_order_id').optional(),
@@ -12,12 +15,8 @@ export const VALIDATE_PAYIN_SCHEMA = Joi.object({
 });
 
 export const VALIDATE_ASSIGNED_BANT_TO_PAY = Joi.object({
-  params: Joi.object({
-    payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required()
-  }),
-  body: Joi.object({
-    amount: Joi.number().positive().label('amount').required()
-  })
+  payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
+  amount: Joi.number().positive().label('amount').required()
 })
 
 export const VALIDATE_EXPIRE_PAY_IN_URL = Joi.object({
@@ -26,5 +25,6 @@ export const VALIDATE_EXPIRE_PAY_IN_URL = Joi.object({
 
 export const VALIDATE_CHECK_PAY_IN_STATUS = Joi.object({
   payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
-  merchantCode: Joi.string().label('merchant_code').required(),
+  merchantCode: Joi.string().label('merchantCode').required(),
+  merchantOrderId: Joi.string().label('merchantOrderId').required(),
 });
