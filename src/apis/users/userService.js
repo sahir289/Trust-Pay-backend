@@ -1,26 +1,24 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
-import Logger from '../../utils/logger.js';
 import { createUserDao, getUserByIdDao, getUsersByUserNameDao, getUsersDao } from './userDao.js';
 
-const logger = new Logger();
 
 const getUsersService = async () => {
   let conn;
   try {
     conn = await getConnection();
     const result = await getUsersDao(conn);
-    logger.log('get Users successfully', 'info');
+    console.log('get Users successfully');
     return result;
   } catch (error) {
-    logger.log('error getting while logging in', 'error', error);
+    console.error('error getting while logging in', error);
     throw new BadRequestError('Error getting while logging in');
   } finally{
     if (conn) {
         try {
           conn.release();
         } catch (releaseError) {
-          logger.log('Error while releasing the connection', 'error', releaseError);
+          console.error('Error while releasing the connection', releaseError);
         }
       }
   }
@@ -31,17 +29,17 @@ const getUserByIdService = async (id) => {
   try {
     conn = await getConnection();
     const result = await getUserByIdDao(conn, id);
-    logger.log('get User by id successfully', 'info');
+    console.log('get User by id successfully');
     return result;
   } catch (error) {
-    logger.log('error getting while getting user by id', 'error', error);
+    console.error('error getting while getting user by id', error);
     throw new BadRequestError('Error getting while getting user by id');
   } finally{
     if (conn) {
         try {
           conn.release();
         } catch (releaseError) {
-          logger.log('Error while releasing the connection', 'error', releaseError);
+          console.error('Error while releasing the connection', releaseError);
         }
       }
   }
@@ -53,18 +51,18 @@ const getUsersByUserNameService = async (username) => {
       conn = await getConnection();
 
       const data = await getUsersByUserNameDao(conn, username);
-      logger.log('getUsers successfully', 'info');
+      console.log('getUsers successfully');
       
       return data;
     } catch (error) {
-      logger.log('error getting while logging in', 'error', error);
+      console.error('error getting while logging in', error);
       throw new BadRequestError('Error getting while logging in');
     } finally{
       if (conn) {
           try {
             conn.release();
           } catch (releaseError) {
-            logger.log('Error while releasing the connection', 'error', releaseError);
+            console.error('Error while releasing the connection', releaseError);
           }
         }
     }
@@ -76,18 +74,18 @@ const getUsersByUserNameService = async (username) => {
       conn = await getConnection();
 
       const data = await createUserDao(conn, payload);
-      logger.log('create user successfully', 'info');
+      console.log('create user successfully');
       
       return data;
     } catch (error) {
-      logger.log('error getting while creating user', 'error', error);
+      console.error('error getting while creating user', error);
       throw new BadRequestError('Error getting while creating user');
     } finally{
       if (conn) {
           try {
             conn.release();
           } catch (releaseError) {
-            logger.log('Error while releasing the connection', 'error', releaseError);
+            console.error('Error while releasing the connection', releaseError);
           }
         }
     }

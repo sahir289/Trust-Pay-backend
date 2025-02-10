@@ -1,8 +1,6 @@
 import { DbError } from '../../utils/appErrors.js';
 import { generateUUID } from '../../utils/generateUUID.js';
-import Logger from '../../utils/logger.js';
 
-const logger = new Logger();
 
 const addLoginDao = async (conn, payload) => {
     const { userId, companyId, refreshToken, refreshTokenExpiry } = payload
@@ -17,7 +15,7 @@ const addLoginDao = async (conn, payload) => {
     const result = await conn.query(sql, values);
     return result.rows?.[0] || undefined;
   } catch (error) {
-    logger.log('Error in addLoginDao', 'error', error);
+    console.error('Error in addLoginDao', error);
     throw new DbError('Error executing query to add login info');
   }
 };

@@ -2,9 +2,6 @@ import jwt from "jsonwebtoken"
 import config from "../config/config.js";
 import bcrypt from 'bcryptjs';
 import { BadRequestError } from './appErrors.js';
-import Logger from "./logger.js";
-
-const logger = new Logger();
 
 const createNewToken = (data) => {
   const accessToken = jwt.sign(data, config.accessTokenSecretKey, {
@@ -24,7 +21,7 @@ const verifyToken = async (token) => {
     const decoded = jwt.verify(token, config.auth.jwt_secret);
     return decoded;
   } catch (err) {
-    logger.log('Getting error while verifying token', 'error', err);
+    console.error('Getting error while verifying token', err);
     return false;
   }
 };

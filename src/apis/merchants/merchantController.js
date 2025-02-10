@@ -1,8 +1,6 @@
-import Logger from '../../utils/logger.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { createMerchantService, deleteMerchantService, getMerchantsService, updateMerchantService } from './merchantService.js';
 
-const logger = new Logger();
 
 const createMerchant = async (req, res) => {
     try {
@@ -12,13 +10,13 @@ const createMerchant = async (req, res) => {
         const result = await createMerchantService(payload);
 
         // Log success message
-        logger.log('Merchant created successfully', 'info', result);
+        console.log('Merchant created successfully', result);
 
         // Send a success response to the client
         return sendSuccess(res, result, 'Merchant created successfully');
     } catch (error) {
         // Log the error
-        logger.log('error getting while creating Merchant', 'error', error);
+        console.error('error getting while creating Merchant', error);
 
         // Send an error response to the client
         return sendError(res, error, 'Error occurred while creating Merchant');
@@ -33,13 +31,13 @@ const getMerchants = async (req, res) => {
         const data = await getMerchantsService(payload);
 
         // Log success message
-        logger.log('getMerchants successfully', 'info', data);
+        console.log('getMerchants successfully', data);
 
         // Send success response
         return sendSuccess(res, data, 'Merchants fetched successfully');
     } catch (error) {
         // Log error
-        logger.log('error getting while fetching Merchants Data', 'error', error);
+        console.error('error getting while fetching Merchants Data', error);
 
         // Send an error response
         return sendError(res, error, 'Error occurred while fetching Merchants');
@@ -55,13 +53,13 @@ const updateMerchant = async (req, res) => {
         const result = await updateMerchantService(id, payload);
 
         // Log success message
-        logger.log('Merchant updated successfully', 'info', result);
+        console.log('Merchant updated successfully', result);
 
         // Send a success response to the client
         return sendSuccess(res, result, 'Merchant updated successfully');
     } catch (error) {
         // Log the error
-        logger.log('error occurred while updating Merchant', 'error', error);
+        console.error('error occurred while updating Merchant', error);
 
         // Send an error response to the client
         return sendError(res, error, 'Error occurred while updating Merchant');
@@ -76,13 +74,13 @@ const deleteMerchant = async (req, res) => {
         const result = await deleteMerchantService(id);
 
         // Log success message
-        logger.log('Merchant deleted successfully', 'info', result);
+        console.log('Merchant deleted successfully',  result);
 
         // Send a success response to the client
         return sendSuccess(res, result, 'Merchant deleted successfully');
     } catch (error) {
         // Log the error
-        logger.log('error occurred while deleting Merchant', 'error', error);
+        console.error('error occurred while deleting Merchant', error);
 
         // Send an error response to the client
         return sendError(res, error, 'Error occurred while deleting Merchant');
