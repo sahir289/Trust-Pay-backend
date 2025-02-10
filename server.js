@@ -1,11 +1,8 @@
 import app from './src/app.js';
-import Logger from './src/utils/logger.js';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import chalk from 'chalk';
 import config from './src/config/config.js';
-
-const logger = new Logger();
 
 const server = createServer(app);
 const io = new Server(server, {
@@ -36,11 +33,11 @@ const onError = (error) => {
   }
   switch (error.code) {
     case 'EACCES':
-      logger.log(`${port} requires elevated privileges`, 'error');
+      console.error(`${port} requires elevated privileges`);
       process.exit(1);
       break;
     case 'EADDRINUSE':
-      logger.log(`${port} is already in use`, 'error');
+      console.error(`${port} is already in use`);
       process.exit(1);
       break;
     default:
@@ -54,14 +51,14 @@ const onListening = () => {
   const styledServerMessage = chalk.blue(
     `the server started listening on ${bind}`,
   );
-  logger.log(styledServerMessage, 'info');
+  console.log(styledServerMessage);
   const docsUrl = `http://localhost:${PORT}/api-docs`;
   const styledMessage = chalk.bold.yellow(`API docs available at ${docsUrl}`);
-  logger.log(styledMessage, 'info');
+  console.log(styledMessage);
 };
 
 process.on('SIGINT', () => {
-  logger.log('stopping the server', 'error');
+  console.error('stopping the server');
   process.exit();
 });
 
@@ -70,7 +67,7 @@ server.on('error', onError);
 server.on('listening', onListening);
 
 io.on('connection', (socket) => {
-  logger.log(`Client connected with socket ID:${socket.id}`, 'info');
+  console.log(`Client connected with socket ID:${socket.id}`);
 
   // Emit a test message to the client
   socket.emit('new-entry', { message: 'Hello from server!!!', data: {} });
@@ -80,12 +77,12 @@ io.on('connection', (socket) => {
 
   // Listen for client events
   socket.on('client-message', (data) => {
-    logger.log(`Received from client:`, 'info', data);
+    console.log(`Received from client:`, data);
   });
 
   // Handle disconnection
   socket.on('disconnect', () => {
-    logger.log('Client disconnected', 'error');
+    console.error('Client disconnected');
   });
 });
 

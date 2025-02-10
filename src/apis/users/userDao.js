@@ -1,7 +1,5 @@
 import { DbError } from '../../utils/appErrors.js';
-import Logger from '../../utils/logger.js';
 
-const logger = new Logger();
 
 const getUsersDao = async (conn) => {
   try {
@@ -9,7 +7,7 @@ const getUsersDao = async (conn) => {
     const result = await conn.query(sql);
 
     if (result.rows.length === 0) {
-      logger.log('No users Found', 'error');
+      console.error('No users Found');
       return [];
     }
     const data = {
@@ -18,7 +16,7 @@ const getUsersDao = async (conn) => {
     }
     return data;
   } catch (error) {
-    logger.log('error getting while logging in', 'error', error);
+    console.error('error getting while logging in', error);
     throw new DbError('Error executing query to fetch all users');
   }
 };
@@ -32,7 +30,7 @@ const getUserByIdDao = async (conn, id) => {
     const values = [id];
     const result = await conn.query(sql, values);
     if (result.rows.length === 0) {
-      logger.log('No users Found', 'error');
+      console.error('No users Found');
       return [];
     }
     const data = {
@@ -40,7 +38,7 @@ const getUserByIdDao = async (conn, id) => {
     }
     return data;
   } catch (error) {
-    logger.log('error getting while logging in', 'error', error);
+    console.error('error getting while logging in', error);
     throw new DbError('Error executing query to fetch all users');
   }
 };
@@ -51,12 +49,12 @@ const getUsersByUserNameDao = async (conn, username) => {
     const values = [username];
     const result = await conn.query(sql, values);
     if (result.rowCount === 0) {
-      logger.log(`No user found with username: ${username}`, 'info');
+      console.log(`No user found with username: ${username}`);
       return null;
     }
     return result;
   } catch (error) {
-    logger.log(`Error fetching user by username: ${username}`, 'error', error);
+    console.error(`Error fetching user by username: ${username}`, error);
     throw new DbError('Error executing query to fetch user by username');
   }
 };
@@ -83,12 +81,12 @@ const createUserDao = async (conn, payload) => {
 
     const result = await conn.query(sql, values);
     if (result) {
-      logger.log(`User with username: ${payload.user_name} created successfully`, 'info');
+      console.log(`User with username: ${payload.user_name} created successfully`);
       return null;
     }
     return result;
   } catch (error) {
-    logger.log(`Error creating user: ${payload.user_name}`, 'error', error);
+    console.error(`Error creating user: ${payload.user_name}`, error);
     throw new DbError('Error executing query to create user');
   }
 };

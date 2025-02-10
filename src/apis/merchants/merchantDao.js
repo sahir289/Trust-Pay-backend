@@ -1,8 +1,6 @@
 import { DbError } from '../../utils/appErrors.js';
 import { generateUUID } from '../../utils/generateUUID.js';
-import Logger from '../../utils/logger.js';
 
-const logger = new Logger();
 
 const createMerchantDao = async (conn, payload) => {
     // Destructure payload with default values
@@ -89,7 +87,7 @@ const createMerchantDao = async (conn, payload) => {
         return result.rows?.[0] || null; // Return the inserted row or null if none
     } catch (error) {
         // Log contextual error details
-        logger.error('Error in createMerchantDao', error);
+        console.error('Error in createMerchantDao', error);
 
         // Re-throw a generic database error
         throw new DbError('Failed to create Merchant.');
@@ -98,7 +96,7 @@ const createMerchantDao = async (conn, payload) => {
 
 const getMerchantsDao = async (conn, filters = {}) => {
     // Base SQL query and parameters
-    let sql = 'SELECT * FROM Merchant WHERE 1=1';
+    let sql = 'SELECT * FROM "Merchant" WHERE 1=1';
     const conditions = [];
     const queryParams = [];
 
@@ -155,7 +153,7 @@ const getMerchantsDao = async (conn, filters = {}) => {
         return rows;
     } catch (error) {
         // Log error details
-        logger.error('Error fetching merchants', error);
+        console.error('Error fetching merchants', error);
 
         // Re-throw the error
         throw new DbError('Failed to fetch merchants');
@@ -217,7 +215,7 @@ const updateMerchantDao = async (conn, payload) => {
         const result = await conn.query(sql, values);
         return result.rows?.[0] || null; // Return the updated row or null if not found
     } catch (error) {
-        logger.error('Error in updateMerchantDao', error);
+        console.error('Error in updateMerchantDao', error);
         throw new DbError('Failed to update Merchant.');
     }
 };
@@ -237,7 +235,7 @@ const deleteMerchantDao = async (conn, merchantId) => {
         const result = await conn.query(sql, values);
         return result.rows?.[0] || null; // Return the deleted Merchant row or null if not found
     } catch (error) {
-        logger.error('Error in deleteMerchantDao', error);
+        console.error('Error in deleteMerchantDao', error);
         throw new DbError('Failed to delete Merchant.');
     }
 };

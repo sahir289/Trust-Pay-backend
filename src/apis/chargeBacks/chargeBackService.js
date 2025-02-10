@@ -2,10 +2,8 @@ import {
     BadRequestError,
 } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
-import Logger from '../../utils/logger.js';
 import { createChargeBackDao, deleteChargeBackDao, getChargeBackDao, updateChargeBackDao } from './chargeBackDao.js';
 
-const logger = new Logger();
 
 const createChargeBackService = async (payload) => {
     let conn;
@@ -16,7 +14,7 @@ const createChargeBackService = async (payload) => {
         const data = await createChargeBackDao(conn, payload);
 
         await conn.commit(); // Commit the transaction
-        logger.log('ChargeBack created successfully', 'info');
+        console.log('ChargeBack created successfully');
 
         return data;
     } catch (error) {
@@ -24,17 +22,17 @@ const createChargeBackService = async (payload) => {
             try {
                 await conn.rollback(); // Rollback the transaction in case of error
             } catch (rollbackError) {
-                logger.log('Error during transaction rollback', 'error', rollbackError);
+                console.error('Error during transaction rollback', rollbackError);
             }
         }
-        logger.log('Error while creating ChargeBack', 'error', error);
+        console.error('Error while creating ChargeBack', error);
         throw new BadRequestError('Error occurred while creating ChargeBack');
     } finally {
         if (conn) {
             try {
                 conn.release(); // Release the connection back to the pool
             } catch (releaseError) {
-                logger.log('Error while releasing the connection', 'error', releaseError);
+                console.error('Error while releasing the connection', releaseError);
             }
         }
     }
@@ -50,24 +48,24 @@ const getChargeBacksService = async (payload) => {
 
         await conn.commit(); // Commit transaction (even if no modifications)
 
-        logger.log('Fetched ChargeBacks successfully', 'info');
+        console.log('Fetched ChargeBacks successfully');
         return data;
     } catch (error) {
         if (conn) {
             try {
                 await conn.rollback(); // Rollback the transaction if an error occurs
             } catch (rollbackError) {
-                logger.log('Error during transaction rollback', 'error', rollbackError);
+                console.error('Error during transaction rollback', rollbackError);
             }
         }
-        logger.log('Error while fetching ChargeBacks', 'error', error);
+        console.error('Error while fetching ChargeBacks', error);
         throw new BadRequestError('Error occurred while fetching ChargeBacks');
     } finally {
         if (conn) {
             try {
                 conn.release(); // Release the connection back to the pool
             } catch (releaseError) {
-                logger.log('Error while releasing the connection', 'error', releaseError);
+                console.error('Error while releasing the connection', releaseError);
             }
         }
     }
@@ -82,7 +80,7 @@ const updateChargeBackService = async (payload) => {
         const data = await updateChargeBackDao(conn, payload); // Adjust DAO call for update
 
         await conn.commit(); // Commit the transaction
-        logger.log('ChargeBack updated successfully', 'info');
+        console.log('ChargeBack updated successfully');
 
         return data;
     } catch (error) {
@@ -90,17 +88,17 @@ const updateChargeBackService = async (payload) => {
             try {
                 await conn.rollback(); // Rollback the transaction in case of error
             } catch (rollbackError) {
-                logger.log('Error during transaction rollback', 'error', rollbackError);
+                console.error('Error during transaction rollback', rollbackError);
             }
         }
-        logger.log('Error while updating ChargeBack', 'error', error);
+        console.error('Error while updating ChargeBack', error);
         throw new BadRequestError('Error occurred while updating ChargeBack');
     } finally {
         if (conn) {
             try {
                 conn.release(); // Release the connection back to the pool
             } catch (releaseError) {
-                logger.log('Error while releasing the connection', 'error', releaseError);
+                console.error('Error while releasing the connection', releaseError);
             }
         }
     }
@@ -115,7 +113,7 @@ const deleteChargeBackService = async (payload) => {
         const data = await deleteChargeBackDao(conn, payload); // Adjust DAO call for delete
 
         await conn.commit(); // Commit the transaction
-        logger.log('ChargeBack deleted successfully', 'info');
+        console.log('ChargeBack deleted successfully');
 
         return data;
     } catch (error) {
@@ -123,17 +121,17 @@ const deleteChargeBackService = async (payload) => {
             try {
                 await conn.rollback(); // Rollback the transaction in case of error
             } catch (rollbackError) {
-                logger.log('Error during transaction rollback', 'error', rollbackError);
+                console.error('Error during transaction rollback', rollbackError);
             }
         }
-        logger.log('Error while deleting ChargeBack', 'error', error);
+        console.error('Error while deleting ChargeBack', error);
         throw new BadRequestError('Error occurred while deleting ChargeBack');
     } finally {
         if (conn) {
             try {
                 conn.release(); // Release the connection back to the pool
             } catch (releaseError) {
-                logger.log('Error while releasing the connection', 'error', releaseError);
+                console.error('Error while releasing the connection', releaseError);
             }
         }
     }

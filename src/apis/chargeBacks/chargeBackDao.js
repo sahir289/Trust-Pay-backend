@@ -1,8 +1,6 @@
 import { DbError } from '../../utils/appErrors.js';
 import { generateUUID } from '../../utils/generateUUID.js';
-import Logger from '../../utils/logger.js';
 
-const logger = new Logger();
 
 const createChargeBackDao = async (conn, payload) => {
     // Destructure payload with default values
@@ -56,7 +54,7 @@ const createChargeBackDao = async (conn, payload) => {
         return result.rows?.[0] || null; // Return the inserted row or null if none
     } catch (error) {
         // Log contextual error details
-        logger.error('Error in createChargeBackDao', error);
+        console.error('Error in createChargeBackDao', error);
 
         // Re-throw a generic database error
         throw new DbError('Failed to create ChargeBack.');
@@ -108,7 +106,7 @@ const getChargeBackDao = async (conn, filters = {}) => {
         return rows;
     } catch (error) {
         // Log error details
-        logger.error('Error fetching ChargeBacks', error);
+        console.error('Error fetching ChargeBacks', error);
 
         // Re-throw the error
         throw new DbError('Failed to fetch ChargeBacks');
@@ -155,7 +153,7 @@ const updateChargeBackDao = async (conn, payload) => {
         const result = await conn.query(sql, values);
         return result.rows?.[0] || null; // Return the updated row or null if not found
     } catch (error) {
-        logger.error('Error in updateChargeBackDao', error);
+     console.error('Error in updateChargeBackDao', error);
         throw new DbError('Failed to update ChargeBack.');
     }
 };
@@ -175,7 +173,7 @@ const deleteChargeBackDao = async (conn, chargeBackId) => {
         const result = await conn.query(sql, values);
         return result.rows?.[0] || null; // Return the deleted ChargeBack row or null if not found
     } catch (error) {
-        logger.error('Error in deleteChargeBackDao', error);
+        console.error('Error in deleteChargeBackDao', error);
         throw new DbError('Failed to delete ChargeBack.');
     }
 };
