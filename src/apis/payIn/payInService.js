@@ -3,7 +3,7 @@ import { nanoid } from 'nanoid'
 import { Currency, Status } from "../../constants/index.js";
 import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao } from "./payInDao.js";
 import { getMerchantsService } from "../merchants/merchantService.js";
-import { AccessDeniedError, BadRequestError, CustomError, NotFoundError } from "../../utils/appErrors.js";
+import { AccessDeniedError, BadRequestError, NotFoundError } from "../../utils/appErrors.js";
 import { v4 as uuidv4 } from "uuid";
 import { getMerchantBankByIdService } from "../banks/bankService.js";
 import { getMerchantBankByIdDao } from "../banks/bankDao.js";
@@ -264,7 +264,7 @@ export const payInIntentGenerateOrderService = async (payInId, amount, isRazorpa
         },
         "order_meta": {
             "return_url": "https://test.cashfree.com/pgappsdemos/return.php?order_id={order_id}",
-            "paymentMethod":"upi",
+            "paymentMethod": "upi",
 
         }
     }
@@ -283,6 +283,65 @@ export const payInIntentGenerateOrderService = async (payInId, amount, isRazorpa
         payInId,
     };
 };
+
+// export const updatePaymentNotificationStatusService = async (payInId, type) => {
+//     let updatePayInOutRes;
+//     let notifyData;
+//     let notifyUrl;
+
+//     if (type === Type.PAYIN) {
+//         updatePayInOutRes = await updatePayInUrlDao(payInId, { is_notified: true });
+//         if (!updatePayInOutRes) {
+//             throw new Error("Payin data not found.");
+//         }
+//         notifyData = {
+//             status: updatePayInOutRes.status,
+//             merchantOrderId: updatePayInOutRes.merchant_order_id,
+//             payinId: updatePayInOutRes.id,
+//             amount: updatePayInOutRes.confirmed,
+//             utr_id: updatePayInOutRes.utr || "",
+//         };
+//         notifyUrl = updatePayInOutRes.notify_url;
+//     } else if (type === Type.PAYOUT) {
+//         updatePayInOutRes = await withdrawService.getWithdrawById(id);
+
+//         if (!updatePayInOutRes) {
+//             throw new Error("Payout data not found.");
+//         }
+
+//         const merchant = await getMerchantBankByIdDao(updatePayInOutRes.merchant_id);
+
+//         if (!merchant || !merchant.payout_notify_url) {
+//             throw new Error("Merchant or payout notify URL not found.");
+//         }
+
+//         notifyData = {
+//             code: updatePayInOutRes.code,
+//             merchantOrderId: updatePayInOutRes.merchant_order_id,
+//             payoutId: updatePayInOutRes.id,
+//             amount: updatePayInOutRes.amount,
+//             status: updatePayInOutRes.status,
+//             utr_id: updatePayInOutRes.utr_id || "",
+//         };
+//         notifyUrl = merchant.payout_notify_url;
+//     } else {
+//         throw new Error("Invalid notification type.");
+//     }
+
+//     // Notify the merchant
+//     try {
+//         logger.info("Sending notification to merchant", { notify_url: notifyUrl, notify_data: notifyData });
+//         const notifyMerchant = await axios.post(notifyUrl, notifyData);
+//         logger.info("Notification sent successfully", {
+//             status: notifyMerchant.status,
+//             data: notifyMerchant.data,
+//         });
+//     } catch (error) {
+//         logger.error("Error while sending notification", error);
+//     }
+
+//     return DefaultResponse(res, 200, "Payment notified successfully");
+// }
 
 
 

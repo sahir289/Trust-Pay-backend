@@ -31,6 +31,5 @@ export const VALIDATE_CHECK_PAY_IN_STATUS = Joi.object({
 
 export const VALIDATE_PAY_IN_INTENT_GENERATE_ORDER = Joi.object({
   payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
-  amount: Joi.number().positive().label('amount').required(),
-  isRazorpay: Joi.boolean().required(),
+  type: Joi.string().label('type').required()
 });

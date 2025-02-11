@@ -26,3 +26,8 @@ export const Method = {
     AED: 'AED',
     CRYPTO: 'CRYPTO',
 }
+
+export const Type = {
+    PAYIN: "PAYIN",
+    PAYOUT: "PAYOUT"
+}

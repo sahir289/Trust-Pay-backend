@@ -3,6 +3,7 @@ import { ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { ASSIGN_PAYIN_SCHEMA, VALIDATE_ASSIGNED_BANT_TO_PAY, VALIDATE_CHECK_PAY_IN_STATUS, VALIDATE_EXPIRE_PAY_IN_URL, VALIDATE_PAY_IN_INTENT_GENERATE_ORDER, VALIDATE_PAYIN_SCHEMA } from "../../schemas/payInSchema.js";
 import { assignedBankToPayInUrlService, checkPayInStatusService, expirePayInUrlService, generatePayInUrlService, getPayInUrlService, payInIntentGenerateOrderService } from "./payInService.js";
+import { updateMerchantService } from "../merchants/merchantService.js";
 
 //  To Generate Url
 export const generatePayInUrl = async (req, res) => {
@@ -100,3 +101,14 @@ export const payInIntentGenerateOrder = async (req, res) => {
     sendSuccess(res, data);
 }
 
+export const updatePaymentNotificationStatus = async (req, res) => {
+    const { payInId } = req.params;
+    const { type } = req.body;
+    const payload = { payInId, type };
+    const joiValidation = VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate(payload);
+    if (joiValidation.error) {
+        throw new ValidationError(joiValidation.error);
+    }
+    const data = await updateMerchantService(payInId, type);
+    sendSuccess(res, data)
+}
