@@ -170,7 +170,6 @@ const deleteVendorDao = async (conn, vendorId) => {
       WHERE id = $1
       RETURNING *;
     `;
-
     const values = [vendorId];
 
     try {

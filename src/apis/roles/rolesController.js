@@ -1,63 +1,57 @@
-import Logger from '../../utils/logger.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getRoleService,createRoleService,updateRoleService,deleteRoleService } from './rolesService.js';
-
-const logger = new Logger();
-
-
-
+import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
+import { getRoleService,createRoleService, updateRoleService} from './rolesService.js';
 
 
 const getRoles = async (req, res) => {
-    console.log('getRoles');
     try {
-      const payload = req.body;
-      const data = await getRoleService(payload);
-      logger.log('getRoles successfully', 'info');
-      return sendSuccess(res, data, 'getRoles successfully');
+      const data = await getRoleService();
+      console.log('get Roles successfully', 'info');
+      return sendSuccess(res, data, 'get Roles successfully');
     } catch (error) {
-      logger.log('error getting while getting Roles', 'error', error);
+      console.error('error getting while getting Roles', 'error', error);
     }
   };
-
-
+ 
 const createRole = async (req, res) => {
-    console.log('createRole');
     try {
       const payload = req.body;
+      if (!payload) {
+        console.error('payload is required');
+        throw new sendError('payload is required');
+      }
       const data = await createRoleService(payload);
-      logger.log('createRole successfully', 'info');
-      return sendSuccess(res, data, 'createRole successfully');
+      console.log('create Role successfully', 'info');
+      return sendSuccess(res, data, 'Create Role successfully');
     } catch (error) {
-        logger.log('error getting while creating Role', 'error', error);                                  
+        console.error('error getting while creating Role', 'error', error);                                  
     }
   };
 
 
   
-const updateRole = async (req, res) => {
-    try{
-            const payload = req.body;   
-            const data = await updateRoleService(payload);
-            logger.log('updateRole successfully', 'info');
-            return sendSuccess(res, data, 'updateRole successfully');
-    }
-    catch(error){
-        logger.log('error getting while updating Role', 'error', error);                                  
+  const updateRole = async (req, res) => {
+    try {
+        const { body, params } = req;
+        const data = await updateRoleService(params.id, body);
+        console.log('Update Role successfully', 'info');
+        return sendSuccess(res, data, 'Update Role successfully');
+    } catch (error) {
+        console.error('error getting while updating Role', 'error', error);                                  
     }
 }
 
 
 const deleteRole = async (req, res) => {
-    try{
-            const payload = req.body;   
-            const data = await deleteRoleService(payload);
-            logger.log('deleteRole successfully', 'info');
-            return sendSuccess(res, data, 'deleteRole successfully');
+    try {
+        const { body, params } = req;
+        console.log(body);
+        const userData = {is_obsolete: true};
+        const data = await updateRoleService(params.id, userData);
+        console.log('Delete Role successfully', 'info');
+        return sendSuccess(res, data, 'Delete Role successfully');
+    } catch (error) {
+        console.error('error getting while updating Role', 'error', error);                                  
     }
-    catch(error){
-        logger.log('error getting while deleting Role', 'error', error);                                  
-      }
   };
   
-export { getRoles, createRole, updateRole, deleteRole };
+export { getRoles, createRole ,updateRole,deleteRole};
