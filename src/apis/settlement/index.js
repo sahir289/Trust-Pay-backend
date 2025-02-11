@@ -4,17 +4,18 @@ import { createSettlement, deleteSettlement, getSettlementById, updateSettlement
 const router = express.Router();
 
 
+
 /**
  * @swagger
- * /settlement/{id}:
+ * /settlement:
  *   get:
- *     summary: Get all Settlements
+ *     summary: Get all settlement
  *     description: Returns a status message to verify the Settlement is authorized or not.
  *     tags:
  *       - Settlement/{id}
- *     responses:
+ *      responses:
  *       200:
- *         description: login successful.
+ *         description: Successfully retrieved chargebacks.
  *         content:
  *           application/json:
  *             schema:
@@ -22,8 +23,8 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "get Settlements successfully"
- *  data:
+ *                   example: "get chargeBacks successfully"
+ *                 data:
  *                   type: array
  *                   items:
  *                     type: object
@@ -32,7 +33,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /settlement/create-Settlement:
+ * /settlement/create-settlement:
  *   post:
  *     summary: create new Settlement
  *     description: Returns Settlements filtered by Settlementname.
@@ -71,7 +72,7 @@ const router = express.Router();
  router.post('/create-settlement', tryCatchHandler(createSettlement));
 /**
  * @swagger
- * /settlement/update-Settlement:
+ * /settlement/update-settlement:
  *   put:
  *     summary: update new Settlement
  *     description: Returns Settlements filtered by Settlementname.
