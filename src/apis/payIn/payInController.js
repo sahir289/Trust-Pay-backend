@@ -1,8 +1,8 @@
 import config from "../../config/config.js";
 import { ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { ASSIGN_PAYIN_SCHEMA, VALIDATE_ASSIGNED_BANT_TO_PAY, VALIDATE_CHECK_PAY_IN_STATUS, VALIDATE_EXPIRE_PAY_IN_URL, VALIDATE_PAYIN_SCHEMA } from "../../schemas/payInSchema.js";
-import { assignedBankToPayInUrlService, checkPayInStatusService, expirePayInUrlService, generatePayInUrlService, getPayInUrlService } from "./payInService.js";
+import { ASSIGN_PAYIN_SCHEMA, VALIDATE_ASSIGNED_BANT_TO_PAY, VALIDATE_CHECK_PAY_IN_STATUS, VALIDATE_EXPIRE_PAY_IN_URL, VALIDATE_PAY_IN_INTENT_GENERATE_ORDER, VALIDATE_PAYIN_SCHEMA } from "../../schemas/payInSchema.js";
+import { assignedBankToPayInUrlService, checkPayInStatusService, expirePayInUrlService, generatePayInUrlService, getPayInUrlService, payInIntentGenerateOrderService } from "./payInService.js";
 
 //  To Generate Url
 export const generatePayInUrl = async (req, res) => {
@@ -87,3 +87,16 @@ export const checkPayInStatus = async (req, res) => {
     const data = await checkPayInStatusService(req.body.payInId, req.body.merchantCode, req.body.merchantOrderId, api_key);
     sendSuccess(res, data);
 }
+
+export const payInIntentGenerateOrder = async (req, res) => {
+    const { payInId } = req.params;
+    const { amount, isRazorpay } = req.body;
+    const payload = { payInId, amount, isRazorpay };
+    const joiValidation = VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate(payload);
+    if (joiValidation.error) {
+        throw new ValidationError(joiValidation.error);
+    }
+    const data = await payInIntentGenerateOrderService(payInId, amount, isRazorpay);
+    sendSuccess(res, data);
+}
+

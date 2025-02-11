@@ -3,12 +3,17 @@ import { nanoid } from 'nanoid'
 import { Currency, Status } from "../../constants/index.js";
 import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao } from "./payInDao.js";
 import { getMerchantsService } from "../merchants/merchantService.js";
-import { AccessDeniedError, BadRequestError, NotFoundError } from "../../utils/appErrors.js";
+import { AccessDeniedError, BadRequestError, CustomError, NotFoundError } from "../../utils/appErrors.js";
 import { v4 as uuidv4 } from "uuid";
 import { getMerchantBankByIdService } from "../banks/bankService.js";
 import { getMerchantBankByIdDao } from "../banks/bankDao.js";
+import { razorpay } from "../../webhooks/razorPay.js";
+import config from "../../config/config.js";
+import { Cashfree } from "cashfree-pg";
 
-
+Cashfree.XClientId = config.cashFreeClientId;
+Cashfree.XClientSecret = config.XClientSecret;
+Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION
 
 export const generatePayInUrlService = async (payload) => {
     const { code, user_id, merchant_order_id: order_id, amount, returnUrl, ap, api_key } = payload;
@@ -231,6 +236,54 @@ export const checkPayInStatusService = async (payInId, merchantCode, merchantOrd
         payinId: payIn.id,
     };
 }
+
+export const payInIntentGenerateOrderService = async (payInId, amount, isRazorpay) => {
+    const getPayInData = await getPayInUrlService(payInId);
+    if (!getPayInData) {
+        throw new NotFoundError(404, "Payment does not exist");
+    }
+    if (isRazorpay) {
+        const orderRes = await razorpay.orders.create({
+            amount: amount * 100,
+            currency: "INR",
+            receipt: payInId,
+        });
+
+        return {
+            status: orderRes.status
+        };
+    }
+
+    const requestBody = {
+        "order_amount": amount,
+        "order_currency": "INR",
+        "customer_details": {
+            "customer_id": "node_sdk_test",
+            "customer_email": "example@gmail.com",
+            "customer_phone": "9999999999"
+        },
+        "order_meta": {
+            "return_url": "https://test.cashfree.com/pgappsdemos/return.php?order_id={order_id}",
+            "paymentMethod":"upi",
+
+        }
+    }
+
+    const cashFreeResponse = await Cashfree.PGCreateOrder(payInId, requestBody)
+        .catch(err => {
+            const data = err?.response?.data || {};
+            console.error(data);
+            throw new Error("Error while creating CashFree Order")
+        })
+
+
+    return {
+        payment_amount: amount,
+        cashFreeResponse,
+        payInId,
+    };
+};
+
 
 
 
