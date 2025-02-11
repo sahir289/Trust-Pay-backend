@@ -89,7 +89,7 @@ router.post('/create-vendor', tryCatchHandler(createVendor));
  *       404:
  *         description: Vendor not found.
  */
-router.put('/update-vendor', tryCatchHandler(updateVendor));
+router.put('/update-vendor/:id', tryCatchHandler(updateVendor));
 
 /**
  * @swagger
@@ -114,6 +114,6 @@ router.put('/update-vendor', tryCatchHandler(updateVendor));
  *       404:
  *         description: Vendor not found.
  */
-router.put('/delete-vendor', tryCatchHandler(deleteVendor));
+router.put('/delete-vendor/:id', tryCatchHandler(deleteVendor));
 
 export default router;
