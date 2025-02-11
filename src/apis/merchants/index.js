@@ -89,7 +89,7 @@ router.post('/create-merchant', tryCatchHandler(createMerchant));
  *       404:
  *         description: Merchant not found.
  */
-router.put('/update-merchant', tryCatchHandler(updateMerchant));
+router.put('/update-merchant/:id', tryCatchHandler(updateMerchant));
 
 /**
  * @swagger
@@ -114,6 +114,6 @@ router.put('/update-merchant', tryCatchHandler(updateMerchant));
  *       404:
  *         description: Merchant not found.
  */
-router.put('/delete-merchant', tryCatchHandler(deleteMerchant));
+router.put('/delete-merchant/:id', tryCatchHandler(deleteMerchant));
 
 export default router;
