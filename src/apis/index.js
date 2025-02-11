@@ -9,6 +9,8 @@ import chargeBacks from './chargeBacks/index.js';
 import roles from './roles/index.js';
 import calculation from './calculation/index.js';
 import payIn from './payIn/index.js';
+import designation from './designation/index.js'
+import bankaccount from './bankAccounts/index.js'
 import complaints from './complaints/index.js'
 
 // Add your newly create component routes here with route prefix.
@@ -25,6 +27,8 @@ router.use('/chargeBacks', chargeBacks);
 router.use('/roles', roles);
 router.use('/calculation', calculation);
 router.use('/payIn', payIn);
+router.use('/designation', designation)
+router.use('/bankaccount', bankaccount)
 router.use('/complaints',complaints)
 
 /* Make sure while changing below parentrouter.

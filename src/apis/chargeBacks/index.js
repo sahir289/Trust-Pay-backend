@@ -96,7 +96,7 @@ router.post('/create-chargeback', tryCatchHandler(createChargeBack));
  *                   type: string
  *                   example: "Chargeback updated successfully"
  */
-router.put('/update-chargeback', tryCatchHandler(updateChargeBack));
+router.put('/update-chargeback/:id', tryCatchHandler(updateChargeBack));
 
 /**
  * @swagger
@@ -127,6 +127,6 @@ router.put('/update-chargeback', tryCatchHandler(updateChargeBack));
  *                   type: string
  *                   example: "Chargeback deleted successfully"
  */
-router.put('/delete-chargeback', tryCatchHandler(deleteChargeBack));
+router.put('/delete-chargeback/:id', tryCatchHandler(deleteChargeBack));
 
 export default router;

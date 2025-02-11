@@ -12,7 +12,7 @@ const getComplaints = async (req, res) => {
     }
   };
 
-  const createComplaints = async (req, res) => {
+const createComplaints = async (req, res) => {
     try {
       const payload = req.body;
       if (!payload) {
@@ -25,7 +25,6 @@ const getComplaints = async (req, res) => {
         logger.error('error getting while creating Complaints', 'error', error);                                  
     }
   };
-
 
   
   const updateComplaints = async (req, res) => {

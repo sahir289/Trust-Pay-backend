@@ -57,5 +57,4 @@ const deleteComplaintsService = async (id,userData ) => {
 
 
 
-
 export {getComplaintsService ,createComplaintsService, updateComplaintsService , deleteComplaintsService}

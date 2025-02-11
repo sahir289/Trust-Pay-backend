@@ -1,34 +1,36 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createComplaints, deleteComplaints, getComplaints, updateComplaints} from "./complaintsController.js"
+import {createComplaints,deleteComplaints,getComplaints,updateComplaints} from "./complaintsController.js";
 
 const router = express.Router();
 
 /**
  * @swagger
  * tags:
- *   name: Roles
- *   description: API endpoints for managing roles
+ *   name: Complaints
+ *   description: Api endpoints for managing complaints
  */
+
 /**
  * @swagger
- * /api/roles:
+ * /v1/complaints:
  *   get:
- *     summary: Get all roles
- *     tags: [Roles]
+ *     summary: Get all complaints
+ *     tags: [Complaints]
  *     responses:
  *       200:
- *         description: A list of roles
+ *         description: A list of complaints
  *       500:
  *         description: Internal server error
  */
 router.get('/', tryCatchHandler(getComplaints));
+
 /**
  * @swagger
- * /api/roles/create-role:
+ * /v1/complaints/create-complaint:
  *   post:
- *     summary: Create a new role
- *     tags: [Roles]
+ *     summary: Create a new complaint
+ *     tags: [Complaints]
  *     requestBody:
  *       required: true
  *       content:
@@ -36,34 +38,33 @@ router.get('/', tryCatchHandler(getComplaints));
  *           schema:
  *             type: object
  *             properties:
- *               role:
+ *               complaint_type:
  *                 type: string
- *               company_id:
- *                 type: integer
- *               created_by:
+ *               description:
+ *                 type: string
+ *               user_id:
  *                 type: integer
  *     responses:
  *       201:
- *         description: Role created successfully
+ *         description: Complaint created successfully
  *       400:
  *         description: Bad request
  */
-
 router.post('/create-complaint', tryCatchHandler(createComplaints));
 
 /**
  * @swagger
- * /api/roles/update-role/{id}:
+ * /v1/complaints/update-complaint/{id}:
  *   put:
- *     summary: Update a role
- *     tags: [Roles]
+ *     summary: Update a complaint
+ *     tags: [Complaints]
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: integer
- *         description: The ID of the role to update
+ *         description: The ID of the complaint to update
  *     requestBody:
  *       required: true
  *       content:
@@ -71,37 +72,39 @@ router.post('/create-complaint', tryCatchHandler(createComplaints));
  *           schema:
  *             type: object
  *             properties:
- *               role:
+ *               complaint_type:
  *                 type: string
- *               company_id:
- *                 type: integer
+ *               description:
+ *                 type: string
  *     responses:
  *       200:
- *         description: Role updated successfully
+ *         description: Complaint updated successfully
  *       404:
- *         description: Role not found
+ *         description: Complaint not found
  */
+
 router.put('/update-complaint/:id', tryCatchHandler(updateComplaints));
 
 /**
  * @swagger
- * /api/roles/delete-role/{id}:
+ * /v1/complaints/delete-complaint/{id}:
  *   put:
- *     summary: Soft delete a role
- *     tags: [Roles]
+ *     summary: Soft delete a complaint
+ *     tags: [Complaints]
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: integer
- *         description: The ID of the role to delete
+ *         description: The ID of the complaint to delete
  *     responses:
  *       200:
- *         description: Role deleted successfully
+ *         description: Complaint deleted successfully
  *       404:
- *         description: Role not found
+ *         description: Complaint not found
  */
+
 router.put('/delete-complaint/:id', tryCatchHandler(deleteComplaints));
 
 export default router;
