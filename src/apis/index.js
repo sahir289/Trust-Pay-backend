@@ -7,6 +7,7 @@ import merchants from './merchants/index.js';
 import vendors from './vendors/index.js';
 import chargeBacks from './chargeBacks/index.js';
 import roles from './roles/index.js';
+import calculation from './calculation/index.js';
 // Add your newly create component routes here with route prefix.
 const router = express.Router();
 
@@ -18,6 +19,7 @@ router.use('/merchants', merchants);
 router.use('/vendors', vendors);
 router.use('/chargeBacks', chargeBacks);
 router.use('/roles', roles);
+router.use('/calculation', calculation);
 /* Make sure while changing below parentrouter.
 This is top level router created to enhance in future like versioning, route prefix etc. */
 const parentRouter = express.Router();

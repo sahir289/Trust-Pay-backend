@@ -43,8 +43,7 @@ const createRole = async (req, res) => {
 
 const deleteRole = async (req, res) => {
     try {
-        const { body, params } = req;
-        console.log(body);
+        const {  params } = req;
         const userData = {is_obsolete: true};
         const data = await updateRoleService(params.id, userData);
         console.log('Delete Role successfully', 'info');
