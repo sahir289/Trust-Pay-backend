@@ -45,15 +45,15 @@ const getUserByIdDao = async (conn, id) => {
 
 const getUsersByUserNameDao = async (conn, username) => {
   try {
-    const sql = `SELECT id, role_id, company_id, designation_id, first_name, last_name, email, contact_no, user_name, password, code, is_enabled, last_login, last_logout, config, created_by, updated_by, created_at, updated_at 
-    FROM public."User" WHERE username = $1`;
+    const sql = `SELECT id, role_id, company_id, designation_id, first_name, last_name, email, contact_no, user_name, code, password, is_enabled, config, created_by, updated_by, created_at, updated_at 
+    FROM public."User" WHERE user_name = $1`;
     const values = [username];
     const result = await conn.query(sql, values);
     if (result.rowCount === 0) {
       console.log(`No user found with username: ${username}`);
       return null;
     }
-    return result;
+    return result.rows[0];
   } catch (error) {
     console.error(`Error fetching user by username: ${username}`, error);
     throw new DbError('Error executing query to fetch user by username');
