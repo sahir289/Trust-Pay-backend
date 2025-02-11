@@ -1,27 +1,20 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createBankaccount, deleteBankaccount, getBankaccountById, updateBankaccount } from './bankaccountController.js';
+import { createSettlement, deleteSettlement, getSettlementById, updateSettlement } from './settlementController.js';
 const router = express.Router();
 
 
-
-
- /* /bankAccounts/by-id:
+/**
+ * @swagger
+ * /settlement/{id}:
  *   get:
- *     summary: Get user by id
- *     description: Returns user filtered by id.
+ *     summary: Get all Settlements
+ *     description: Returns a status message to verify the Settlement is authorized or not.
  *     tags:
- *       - bank Accounts
- *     parameters:
- *       - in: query
- *         name: id
- *         schema:
- *           type: string
- *         required: true
- *         description: The bankAccountsname to filter bankAccounts by.
+ *       - Settlement/{id}
  *     responses:
  *       200:
- *         description: A filtered list of bankAccounts.
+ *         description: login successful.
  *         content:
  *           application/json:
  *             schema:
@@ -29,39 +22,32 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "get bankAccounts by id successfully"
- *                 data:
+ *                   example: "get Settlements successfully"
+ *  data:
  *                   type: array
  *                   items:
  *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 1
- *                       bankAccountsname:
- *                         type: string
- *                         example: "john_doe"
  */
- router.get('/:id', tryCatchHandler(getBankaccountById));
+ router.get('/:id', tryCatchHandler(getSettlementById));
 
 /**
  * @swagger
- * /bankAccounts/create-bankAccounts:
+ * /settlement/create-Settlement:
  *   post:
- *     summary: create new bankAccounts
- *     description: Returns bankAccounts filtered by bankAccountsname.
+ *     summary: create new Settlement
+ *     description: Returns Settlements filtered by Settlementname.
  *     tags:
- *       - bank Accounts
+ *       - settlement
  *     parameters:
  *       - in: query
- *         name: bankAccountsname
+ *         name: Settlementname
  *         schema:
  *           type: string
  *         required: true
- *         description: The bankAccountsname to filter bankAccounts by.
+ *         description: The Settlementname to filter Settlements by.
  *     responses:
  *       200:
- *         description: A filtered list of bankAccounts.
+ *         description: A filtered list of Settlements.
  *         content:
  *           application/json:
  *             schema:
@@ -69,7 +55,7 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "bankAccounts created successfully"
+ *                   example: "Settlement created successfully"
  *                 data:
  *                   type: array
  *                   items:
@@ -78,30 +64,29 @@ const router = express.Router();
  *                       id:
  *                         type: integer
  *                         example: 1
- *                       bankAccountsname:
+ *                       Settlementname:
  *                         type: string
  *                         example: "john_doe"
  */
- router.post('/create-Bankaccount', tryCatchHandler(createBankaccount));
-
+ router.post('/create-settlement', tryCatchHandler(createSettlement));
 /**
  * @swagger
- * /bankAccounts/update-bankAccounts:
+ * /settlement/update-Settlement:
  *   put:
- *     summary: update new bankAccounts
- *     description: Returns bankAccounts filtered by bankAccountsname.
+ *     summary: update new Settlement
+ *     description: Returns Settlements filtered by Settlementname.
  *     tags:
- *       - bank Accounts
+ *       - settlement
  *     parameters:
  *       - in: query
- *         name: bankAccountsname
+ *         name: Settlementname
  *         schema:
  *           type: string
  *         required: true
- *         description: The bankAccountsname to filter bankAccounts by.
+ *         description: The Settlementname to filter Settlements by.
  *     responses:
  *       200:
- *         description: A filtered list of bankAccounts.
+ *         description: A filtered list of Settlements.
  *         content:
  *           application/json:
  *             schema:
@@ -109,7 +94,7 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "bankAccounts created successfully"
+ *                   example: "Settlement created successfully"
  *                 data:
  *                   type: array
  *                   items:
@@ -118,30 +103,29 @@ const router = express.Router();
  *                       id:
  *                         type: integer
  *                         example: 1
- *                       bankAccountsname:
+ *                       Settlementname:
  *                         type: string
  *                         example: "john_doe"
  */
- router.put('/update-Bankaccount/:id', tryCatchHandler(updateBankaccount));
-
+ router.put('/update-settlement/:id', tryCatchHandler(updateSettlement));
 /**
  * @swagger
- * /bankAccounts/delete-bankAccounts:
+ * /settlement/delete-settlement:
  *   put:
- *     summary: delete new bankAccounts
- *     description: Returns bankAccounts filtered by bankAccountsname.
+ *     summary: create new Settlement
+ *     description: Returns Settlements filtered by Settlementname.
  *     tags:
- *       - bank Accounts
+ *       - settlement
  *     parameters:
  *       - in: query
- *         name: bankAccountsname
+ *         name: Settlementname
  *         schema:
  *           type: string
  *         required: true
- *         description: The bankAccountsname to filter bankAccounts by.
+ *         description: The Settlementname to filter Settlements by.
  *     responses:
  *       200:
- *         description: A filtered list of bankAccounts.
+ *         description: A filtered list of Settlements.
  *         content:
  *           application/json:
  *             schema:
@@ -149,7 +133,7 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "bankAccounts created successfully"
+ *                   example: "Settlement created successfully"
  *                 data:
  *                   type: array
  *                   items:
@@ -158,10 +142,10 @@ const router = express.Router();
  *                       id:
  *                         type: integer
  *                         example: 1
- *                       bankAccountsname:
+ *                       Settlementname:
  *                         type: string
  *                         example: "john_doe"
  */
-  router.put('/delete-Bankaccount/:id', tryCatchHandler(deleteBankaccount));
+ router.put('/delete-settlement/:id', tryCatchHandler(deleteSettlement));
 
 export default router;

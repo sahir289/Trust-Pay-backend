@@ -9,6 +9,8 @@ import chargeBacks from './chargeBacks/index.js';
 import payIn from './payIn/index.js';
 import designation from './designation/index.js'
 import bankaccount from './bankAccounts/index.js'
+import company from './company/index.js'
+import settlement from './settlement/index.js'
 
 // Add your newly create component routes here with route prefix.
 const router = express.Router();
@@ -23,6 +25,9 @@ router.use('/chargeBacks', chargeBacks);
 router.use('/payIn', payIn);
 router.use('/designation', designation)
 router.use('/bankaccount', bankaccount)
+router.use('/company', company)
+router.use('/settlement', settlement)
+
 
 /* Make sure while changing below parentrouter.
 This is top level router created to enhance in future like versioning, route prefix etc. */
