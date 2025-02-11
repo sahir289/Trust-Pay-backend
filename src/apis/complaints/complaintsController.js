@@ -2,6 +2,7 @@ import {  sendSuccess } from '../../utils/responseHandlers.js';
 import { getComplaintsService,createComplaintsService,updateComplaintsService,deleteComplaintsService } from './complaintsServices.js';
 import Logger from '../../utils/logger.js';
 const logger = new Logger()
+
 const getComplaints = async (req, res) => {
     try {
       const data = await getComplaintsService();
