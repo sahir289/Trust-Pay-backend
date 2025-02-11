@@ -44,7 +44,7 @@ import { getBankaccountByIDService, createBankaccountByIDService, updateBankacco
   
   const deleteBankaccount =async(req, res) => {
     try {
-        const { id } = req.body;       
+        const { id } = req.params;       
         if (!id) {
             console.error('payload is required');
             throw new BadRequestError('payload is required');

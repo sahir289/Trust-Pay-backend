@@ -86,6 +86,6 @@ const router = express.Router();
 
  router.put('/update-Bankaccount/:id', tryCatchHandler(updateBankaccount));
 
-  router.put('/delete-Bankaccount', tryCatchHandler(deleteBankaccount));
+  router.put('/delete-Bankaccount/:id', tryCatchHandler(deleteBankaccount));
 
 export default router;

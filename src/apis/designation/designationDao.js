@@ -4,7 +4,7 @@ const tableName = 'Designation';
 
 
 const getDesignationByIdDao = async (id) => {
-const query = `SELECT id, designation, role_id, created_by, created_at, updated_at, company_id  FROM  "${tableName}" WHERE 1=1`;
+const query = `SELECT *  FROM  "${tableName}" WHERE 1=1`;
    const [sql, parameters] = buildSelectQuery(query, {id} );
    const result = await executeQuery(sql, parameters);
    return result.rows[0];

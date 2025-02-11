@@ -11,8 +11,6 @@ const getDesignationByIDService = async (id) => {
   try {
     conn = await getConnection();
     const result = await getDesignationByIdDao(id);
-    console.log("data")
-    console.log('get Users successfully');
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -30,15 +28,7 @@ const getDesignationByIDService = async (id) => {
 const createDesignationByIDService = async (payload) => {
   try {
 
-    const result = await createDesignationByIdDao({
-      id: payload.id,
-      designation: payload.designation,
-      role_id: payload.role_id,
-      created_by: payload.created_by,
-      created_at: payload.created_at,
-      updated_at: payload.updated_at,
-      company_id: payload.company_id
-    });
+    const result = await createDesignationByIdDao(payload);
 
     return result;
   } catch (error) {
@@ -47,12 +37,9 @@ const createDesignationByIDService = async (payload) => {
   }
 };
 
-const updateDesignationByIDService = async (payload) => {
-  console.log(payload, "payload")
+const updateDesignationByIDService = async (id, payload) => {
   try {
-    const result = await updateDesignationByIdDao(payload.id, {
-      designation: payload.designation,
-    });
+    const result = await updateDesignationByIdDao(id, payload);
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);

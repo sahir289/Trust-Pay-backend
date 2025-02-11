@@ -84,8 +84,8 @@ const router = express.Router();
  */
  router.post('/create-designation', tryCatchHandler(createDesignation));
 
- router.put('/update-designation', tryCatchHandler(updateDesignation));
+ router.put('/update-designation/:id', tryCatchHandler(updateDesignation));
 
- router.put('/delete-designation', tryCatchHandler(deleteDesignation));
+ router.put('/delete-designation/:id', tryCatchHandler(deleteDesignation));
 
 export default router;

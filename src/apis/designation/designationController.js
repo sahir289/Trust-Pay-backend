@@ -32,8 +32,8 @@ import { getDesignationByIDService, createDesignationByIDService, updateDesignat
   const updateDesignation =async(req, res) => {
     try {
         const payload = req.body;
-       const data = await updateDesignationByIDService( payload);
-       console.log('getUsers successfully');
+        const {id} = req.params;
+       const data = await updateDesignationByIDService(id, payload);
        return sendSuccess(res, data, 'getUsers successfully');
      } catch (error) {
        console.error('error getting while logging in', error);
@@ -43,7 +43,7 @@ import { getDesignationByIDService, createDesignationByIDService, updateDesignat
   
   const deleteDesignation =async(req, res) => {
     try {
-        const { id } = req.body;       
+        const { id } = req.params;       
         if (!id) {
             console.error('payload is required');
             throw new BadRequestError('payload is required');
