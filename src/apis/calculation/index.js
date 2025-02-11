@@ -18,7 +18,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /api/calculations:
+ * /v1/calculations:
  *   get:
  *     summary: Get all calculations
  *     tags: [Calculations]
@@ -32,7 +32,7 @@ router.get('/', tryCatchHandler(getCalculation));
 
 /**
  * @swagger
- * /api/calculations/create-calculation:
+ * /v1/calculations/create-calculation:
  *   post:
  *     summary: Create a new calculation
  *     tags: [Calculations]
@@ -61,7 +61,7 @@ router.post('/create-calculation', tryCatchHandler(createCalculation));
 
 /**
  * @swagger
- * /api/calculations/update-calculation/{id}:
+ * /v1/calculations/update-calculation/{id}:
  *   put:
  *     summary: Update a calculation
  *     tags: [Calculations]
@@ -95,7 +95,7 @@ router.put('/update-calculation/:id', tryCatchHandler(updateCalculation));
 
 /**
  * @swagger
- * /api/calculations/delete-calculation/{id}:
+ * /v1/calculations/delete-calculation/{id}:
  *   put:
  *     summary: Soft delete a calculation
  *     tags: [Calculations]

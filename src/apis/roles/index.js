@@ -13,7 +13,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /api/roles:
+ * /v1/roles:
  *   get:
  *     summary: Get all roles
  *     tags: [Roles]
@@ -27,7 +27,7 @@ router.get('/', tryCatchHandler(getRoles));
 
 /**
  * @swagger
- * /api/roles/create-role:
+ * /v1/roles/create-role:
  *   post:
  *     summary: Create a new role
  *     tags: [Roles]
@@ -54,7 +54,7 @@ router.post('/create-role', tryCatchHandler(createRole));
 
 /**
  * @swagger
- * /api/roles/update-role/{id}:
+ * /v1/roles/update-role/{id}:
  *   put:
  *     summary: Update a role
  *     tags: [Roles]
@@ -86,7 +86,7 @@ router.put('/update-role/:id', tryCatchHandler(updateRole));
 
 /**
  * @swagger
- * /api/roles/delete-role/{id}:
+ * /v1/roles/delete-role/{id}:
  *   put:
  *     summary: Soft delete a role
  *     tags: [Roles]
