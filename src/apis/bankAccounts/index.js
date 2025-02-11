@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createBankaccount, deleteBankaccount, getBankaccountById, updateBankaccount } from './bankaccountController.js';
+import { createBankaccount, deleteBankaccount, getBankaccountById, getMerchantBankById, updateBankaccount } from './bankaccountController.js';
 const router = express.Router();
 
 
@@ -84,44 +84,9 @@ const router = express.Router();
  */
  router.post('/create-Bankaccount', tryCatchHandler(createBankaccount));
 
-/**
- * @swagger
- * /bankAccounts/update-bankAccounts:
- *   put:
- *     summary: update new bankAccounts
- *     description: Returns bankAccounts filtered by bankAccountsname.
- *     tags:
- *       - bank Accounts
- *     parameters:
- *       - in: query
- *         name: bankAccountsname
- *         schema:
- *           type: string
- *         required: true
- *         description: The bankAccountsname to filter bankAccounts by.
- *     responses:
- *       200:
- *         description: A filtered list of bankAccounts.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "bankAccounts created successfully"
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 1
- *                       bankAccountsname:
- *                         type: string
- *                         example: "john_doe"
- */
+
+router.get('/get-merchant-banks', tryCatchHandler(getMerchantBankById));
+
  router.put('/update-Bankaccount/:id', tryCatchHandler(updateBankaccount));
 
 /**

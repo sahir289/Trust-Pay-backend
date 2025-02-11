@@ -2,10 +2,6 @@ import { BadRequestError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
 import { getDesignationByIdDao, createDesignationByIdDao, updateDesignationByIdDao, deleteDesignationByIdDao } from './designationDao.js';
 
-
-
-
-
 const getDesignationByIDService = async (id) => {
   let conn;
   try {
@@ -25,6 +21,7 @@ const getDesignationByIDService = async (id) => {
     }
   }
 };
+
 const createDesignationByIDService = async (payload) => {
   try {
 
@@ -46,9 +43,8 @@ const updateDesignationByIDService = async (id, payload) => {
     throw new BadRequestError('Error getting while logging in');
   }
 };
+
 const deleteDesignationByIDService = async (id) => {
-
-
   try {
     const result = await deleteDesignationByIdDao(id, { is_obsolete: true });
     return result;
@@ -59,5 +55,4 @@ const deleteDesignationByIDService = async (id) => {
 };
 
 
-
-export {  getDesignationByIDService, createDesignationByIDService, updateDesignationByIDService, deleteDesignationByIDService };
+export { getDesignationByIDService, createDesignationByIDService, updateDesignationByIDService, deleteDesignationByIDService };

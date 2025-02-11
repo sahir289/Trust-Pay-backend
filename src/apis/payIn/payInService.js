@@ -5,8 +5,8 @@ import { generatePayInUrlDao, updatePayInUrlDao, validatePayInUrlDao } from "./p
 import { getMerchantsService } from "../merchants/merchantService.js";
 import { BadRequestError, CustomError, NotFoundError } from "../../utils/appErrors.js";
 import { v4 as uuidv4 } from "uuid";
-import { getMerchantBankByIdService } from "../banks/bankService.js";
-import { getMerchantBankByIdDao } from "../banks/bankDao.js";
+import { getMerchantBankByIdService } from "../bankAccounts/bankaccountServices.js";
+import { getMerchantBankByIdDao } from "../bankAccounts/bankaccountDao.js";
 
 
 

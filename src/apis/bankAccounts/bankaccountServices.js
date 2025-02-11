@@ -1,9 +1,5 @@
 import { BadRequestError } from '../../utils/appErrors.js';
-import { getBankaccountByIdDao, createBankaccountByIdDao, updateBankaccountByIdDao, deleteBankaccountByIdDao } from './bankaccountDao.js';
-
-
-
-
+import { getBankaccountByIdDao, createBankaccountByIdDao, updateBankaccountByIdDao, deleteBankaccountByIdDao, getMerchantBankByIdDao } from './bankaccountDao.js';
 
 const getBankaccountByIDService = async (id) => {
     try {
@@ -15,6 +11,7 @@ const getBankaccountByIDService = async (id) => {
         throw new BadRequestError('Error getting while logging in');
     }
 };
+
 const createBankaccountByIDService = async (payload) => {
     try {
 
@@ -35,6 +32,7 @@ const updateBankaccountByIDService = async (id, payload) => {
         throw new BadRequestError('Error getting while logging in');
     }
 };
+
 const deleteBankaccountByIDService = async (id) => {
     try {
         const result = await deleteBankaccountByIdDao(id, { is_obsolete: true });
@@ -45,6 +43,9 @@ const deleteBankaccountByIDService = async (id) => {
     }
 };
 
+const getMerchantBankByIdService = async (id) => {
+    // Fetch the bank account details for the given merchant ID
+   return await getMerchantBankByIdDao(id);
+}
 
-
-export { getBankaccountByIDService, createBankaccountByIDService, updateBankaccountByIDService, deleteBankaccountByIDService };
+export { getBankaccountByIDService, createBankaccountByIDService, updateBankaccountByIDService, deleteBankaccountByIDService, getMerchantBankByIdService };
