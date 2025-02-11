@@ -26,7 +26,7 @@ const getUserByIdDao = async (conn, id) => {
     const sql = `
     SELECT id, role_id, company_id, designation_id, first_name, last_name, email, contact_no, user_name, password, code, 
       is_enabled, last_login, last_logout, config, created_by, updated_by, created_at, updated_at 
-    FROM public."User" WHERE id = $1 AND is_obsolete = false;`;
+    FROM public."User" WHERE id = $1 AND is_obsolete = false`;
     const values = [id];
     const result = await conn.query(sql, values);
     if (result.rows.length === 0) {
@@ -45,7 +45,8 @@ const getUserByIdDao = async (conn, id) => {
 
 const getUsersByUserNameDao = async (conn, username) => {
   try {
-    const sql = 'SELECT * FROM users WHERE username = $1';
+    const sql = `SELECT id, role_id, company_id, designation_id, first_name, last_name, email, contact_no, user_name, password, code, is_enabled, last_login, last_logout, config, created_by, updated_by, created_at, updated_at 
+    FROM public."User" WHERE username = $1`;
     const values = [username];
     const result = await conn.query(sql, values);
     if (result.rowCount === 0) {

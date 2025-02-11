@@ -1,8 +1,6 @@
 
 import {BadRequestError,} from '../../utils/appErrors.js';
 import { getCalculationDao , createCalculationDao , updateCalculationDao ,deleteCalculationDao } from './calculationDao.js';
-
-
 const getCalculationService = async () => {
     try {
         const data = await getCalculationDao();
@@ -10,10 +8,9 @@ const getCalculationService = async () => {
         return data;
     } catch (error) {
        console.error('Error during transaction rollback', 'error', error);
-       throw new BadRequestError('Error occurred while fetching Roles');
+       throw new BadRequestError('Error occurred while fetching Calculation');
     }
 }
-
 const createCalculationService = async (payload) => {
     try {
         const data = await createCalculationDao(payload);
@@ -21,7 +18,7 @@ const createCalculationService = async (payload) => {
         return data;
     } catch (error) {
        console.error('Error during transaction rollback', 'error', error);
-       throw new BadRequestError('Error occurred while creating Roles');
+       throw new BadRequestError('Error occurred while creating Calculation');
     }
 }
 const updateCalculationService = async (id,payload) => {  
@@ -31,10 +28,9 @@ const updateCalculationService = async (id,payload) => {
         return data;
     } catch (error) {
        console.error('Error during transaction rollback', 'error', error);
-       throw new BadRequestError('Error occurred while updating Roles');
+       throw new BadRequestError('Error occurred while updating Calculation');
     }
 }
-
 const deleteCalculationService = async (id) => {  
     try {
         const userData = {is_obsolete: true};
@@ -47,4 +43,4 @@ const deleteCalculationService = async (id) => {
     }
 }
 
-export { getCalculationService , createCalculationService ,updateCalculationService ,deleteCalculationService};
+export { getCalculationService,createCalculationService,updateCalculationService,deleteCalculationService};

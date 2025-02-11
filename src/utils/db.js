@@ -111,7 +111,6 @@ export const buildUpdateQuery = (tableName, data, whereCondition) => {
   const whereKeys = Object.keys(whereCondition).map((key, i) => `"${key}" = $${i + 1 + keys.length}`);
   const query = `UPDATE "${tableName}" SET ${keys.join(', ')} WHERE ${whereKeys.join(' AND ')} RETURNING *`;
   const params = [...values, ...whereValues];
-  
   return [query, params];
 }
 export { pool, getConnection, beginTransaction, commit, rollback };
