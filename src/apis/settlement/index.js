@@ -2,20 +2,17 @@ import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createSettlement, deleteSettlement, getSettlementById, updateSettlement } from './settlementController.js';
 const router = express.Router();
-
-
-
 /**
  * @swagger
  * /settlement:
  *   get:
- *     summary: Get all settlement
- *     description: Returns a status message to verify the Settlement is authorized or not.
+ *     summary: Get all settlements
+ *     description: Returns a status message to verify if the settlement is authorized or not.
  *     tags:
- *       - Settlement/{id}
- *      responses:
+ *       - settlement
+ *     responses:
  *       200:
- *         description: Successfully retrieved chargebacks.
+ *         description: Successfully retrieved settlements.
  *         content:
  *           application/json:
  *             schema:
@@ -23,20 +20,20 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "get chargeBacks successfully"
+ *                   example: "Get settlements successfully"
  *                 data:
  *                   type: array
  *                   items:
  *                     type: object
  */
- router.get('/:id', tryCatchHandler(getSettlementById));
+router.get('/:id', tryCatchHandler(getSettlementById));
 
 /**
  * @swagger
  * /settlement/create-settlement:
  *   post:
- *     summary: create new Settlement
- *     description: Returns Settlements filtered by Settlementname.
+ *     summary: Create a new settlement
+ *     description: Creates a new settlement in the system.
  *     tags:
  *       - settlement
  *     parameters:
@@ -45,10 +42,10 @@ const router = express.Router();
  *         schema:
  *           type: string
  *         required: true
- *         description: The Settlementname to filter Settlements by.
+ *         description: The name of the settlement to create.
  *     responses:
  *       200:
- *         description: A filtered list of Settlements.
+ *         description: Settlement created successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -58,36 +55,41 @@ const router = express.Router();
  *                   type: string
  *                   example: "Settlement created successfully"
  *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 1
- *                       Settlementname:
- *                         type: string
- *                         example: "john_doe"
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     Settlementname:
+ *                       type: string
+ *                       example: "john_doe"
  */
- router.post('/create-settlement', tryCatchHandler(createSettlement));
+router.post('/create-settlement', tryCatchHandler(createSettlement));
+
 /**
  * @swagger
- * /settlement/update-settlement:
+ * /settlement/update-settlement/{id}:
  *   put:
- *     summary: update new Settlement
- *     description: Returns Settlements filtered by Settlementname.
+ *     summary: Update an existing settlement
+ *     description: Updates an existing settlement by its ID.
  *     tags:
  *       - settlement
  *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: The ID of the settlement to update.
+ *         schema:
+ *           type: integer
  *       - in: query
  *         name: Settlementname
  *         schema:
  *           type: string
  *         required: true
- *         description: The Settlementname to filter Settlements by.
+ *         description: The updated settlement name.
  *     responses:
  *       200:
- *         description: A filtered list of Settlements.
+ *         description: Settlement updated successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -95,38 +97,37 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "Settlement created successfully"
+ *                   example: "Settlement updated successfully"
  *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 1
- *                       Settlementname:
- *                         type: string
- *                         example: "john_doe"
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     Settlementname:
+ *                       type: string
+ *                       example: "john_doe"
  */
- router.put('/update-settlement/:id', tryCatchHandler(updateSettlement));
+router.put('/update-settlement/:id', tryCatchHandler(updateSettlement));
+
 /**
  * @swagger
- * /settlement/delete-settlement:
- *   put:
- *     summary: create new Settlement
- *     description: Returns Settlements filtered by Settlementname.
+ * /settlement/delete-settlement/{id}:
+ *   delete:
+ *     summary: Delete a settlement
+ *     description: Deletes an existing settlement.
  *     tags:
  *       - settlement
  *     parameters:
- *       - in: query
- *         name: Settlementname
- *         schema:
- *           type: string
+ *       - in: path
+ *         name: id
  *         required: true
- *         description: The Settlementname to filter Settlements by.
+ *         description: The ID of the settlement to delete.
+ *         schema:
+ *           type: integer
  *     responses:
  *       200:
- *         description: A filtered list of Settlements.
+ *         description: Settlement deleted successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -134,19 +135,17 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "Settlement created successfully"
+ *                   example: "Settlement deleted successfully"
  *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 1
- *                       Settlementname:
- *                         type: string
- *                         example: "john_doe"
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     Settlementname:
+ *                       type: string
+ *                       example: "john_doe"
  */
- router.put('/delete-settlement/:id', tryCatchHandler(deleteSettlement));
+router.delete('/delete-settlement/:id', tryCatchHandler(deleteSettlement));
 
 export default router;
