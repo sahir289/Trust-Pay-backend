@@ -1,12 +1,15 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createBankaccount, deleteBankaccount, getBankaccountById, getMerchantBankById, updateBankaccount } from './bankaccountController.js';
+import {
+  createBankaccount,
+  deleteBankaccount,
+  getBankaccountById,
+  getMerchantBankById,
+  updateBankaccount,
+} from './bankaccountController.js';
 const router = express.Router();
 
-
-
-
- /* /users/by-id:
+/* /users/by-id:
  *   get:
  *     summary: Get user by id
  *     description: Returns user filtered by id.
@@ -42,7 +45,7 @@ const router = express.Router();
  *                         type: string
  *                         example: "john_doe"
  */
- router.get('/:id', tryCatchHandler(getBankaccountById));
+router.get('/:id', tryCatchHandler(getBankaccountById));
 
 /**
  * @swagger
@@ -82,13 +85,12 @@ const router = express.Router();
  *                         type: string
  *                         example: "john_doe"
  */
- router.post('/create-Bankaccount', tryCatchHandler(createBankaccount));
-
+router.post('/create-Bankaccount', tryCatchHandler(createBankaccount));
 
 router.get('/get-merchant-banks', tryCatchHandler(getMerchantBankById));
 
- router.put('/update-Bankaccount/:id', tryCatchHandler(updateBankaccount));
+router.put('/update-Bankaccount/:id', tryCatchHandler(updateBankaccount));
 
-  router.put('/delete-Bankaccount/:id', tryCatchHandler(deleteBankaccount));
+router.put('/delete-Bankaccount/:id', tryCatchHandler(deleteBankaccount));
 
 export default router;
