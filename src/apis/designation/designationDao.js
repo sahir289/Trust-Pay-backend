@@ -5,7 +5,7 @@ const getDesignationDao = async ({
   searchString,
   page = 1,
   pageSize = 10,
-  sortBy = "sno",  // Default sorting column
+  sortBy = "created_at",  // Default sorting column
   sortOrder = "DESC" // ASC (ascending) or DESC (descending)
 } = {}) => {
   // Fetch column names dynamically
@@ -35,7 +35,7 @@ const getDesignationDao = async ({
 
   // Ensure sorting column exists
   if (!searchColumns.includes(sortBy)) {
-      sortBy = "sno"; // Fallback to 'id' if invalid column
+      sortBy = "created_at"; // Fallback to 'created_at' if invalid column
   }
 
   // Ensure sorting order is valid

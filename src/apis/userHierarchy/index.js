@@ -94,7 +94,7 @@ router.put('/update-userHierarchy/:id', tryCatchHandler(updateUserHierarchy));
 /**
  * @swagger
  * /userHierarchys/delete-userHierarchy:
- *   put:
+ *   delete:
  *     summary: Delete a userHierarchy
  *     description: Soft deletes a userHierarchy by changing its status.
  *     tags:
@@ -114,6 +114,6 @@ router.put('/update-userHierarchy/:id', tryCatchHandler(updateUserHierarchy));
  *       404:
  *         description: UserHierarchy not found.
  */
-router.put('/delete-userHierarchy/:id', tryCatchHandler(deleteUserHierarchy));
+router.delete('/delete-userHierarchy/:id', tryCatchHandler(deleteUserHierarchy));
 
 export default router;

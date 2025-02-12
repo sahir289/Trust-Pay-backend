@@ -6,7 +6,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /company/{id}:
+ * /company:
  *   get:
  *     summary: Get Company by ID
  *     description: Retrieves details of a specific company by its ID.
@@ -33,7 +33,7 @@ const router = express.Router();
  *                 data:
  *                   type: object
  */
-router.get('/:id', tryCatchHandler(getCompanyById));
+router.get('/', tryCatchHandler(getCompanyById));
 
 /**
  * @swagger

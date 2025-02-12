@@ -65,7 +65,7 @@ router.post('/create-chargeback', tryCatchHandler(createChargeBack));
 
 /**
  * @swagger
- * /chargeBacks/update-chargeback:
+ * /chargeBacks/update-chargeback/{id}:
  *   put:
  *     summary: Update a chargeback
  *     description: Updates an existing chargeback in the system.
@@ -100,8 +100,8 @@ router.put('/update-chargeback/:id', tryCatchHandler(updateChargeBack));
 
 /**
  * @swagger
- * /chargeBacks/delete-chargeback:
- *   put:
+ * /chargeBacks/delete-chargeback/{id}:
+ *   delete:
  *     summary: Delete a chargeback
  *     description: Marks a chargeback as deleted in the system.
  *     tags:
@@ -127,6 +127,6 @@ router.put('/update-chargeback/:id', tryCatchHandler(updateChargeBack));
  *                   type: string
  *                   example: "Chargeback deleted successfully"
  */
-router.put('/delete-chargeback/:id', tryCatchHandler(deleteChargeBack));
+router.delete('/delete-chargeback/:id', tryCatchHandler(deleteChargeBack));
 
 export default router;

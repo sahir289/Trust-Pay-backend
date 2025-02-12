@@ -5,7 +5,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /designation/{id}:
+ * /designation:
  *   get:
  *     summary: Get Designation by ID
  *     description: Retrieve details of a specific designation by its ID.
@@ -32,7 +32,7 @@ const router = express.Router();
  *                 data:
  *                   type: object
  */
-router.get('/:id', tryCatchHandler(getDesignation));
+router.get('/', tryCatchHandler(getDesignation));
 
 /**
  * @swagger

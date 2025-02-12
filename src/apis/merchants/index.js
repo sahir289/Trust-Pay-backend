@@ -63,7 +63,7 @@ router.post('/create-merchant', tryCatchHandler(createMerchant));
 
 /**
  * @swagger
- * /merchants/update-merchant:
+ * /merchants/update-merchant/{id}:
  *   put:
  *     summary: Update merchant details
  *     description: Updates an existing merchant’s details.
@@ -93,8 +93,8 @@ router.put('/update-merchant/:id', tryCatchHandler(updateMerchant));
 
 /**
  * @swagger
- * /merchants/delete-merchant:
- *   put:
+ * /merchants/delete-merchant/{id}:
+ *   delete:
  *     summary: Delete a merchant
  *     description: Soft deletes a merchant by changing its status.
  *     tags:
@@ -114,6 +114,6 @@ router.put('/update-merchant/:id', tryCatchHandler(updateMerchant));
  *       404:
  *         description: Merchant not found.
  */
-router.put('/delete-merchant/:id', tryCatchHandler(deleteMerchant));
+router.delete('/delete-merchant/:id', tryCatchHandler(deleteMerchant));
 
 export default router;

@@ -9,7 +9,7 @@ const router = express.Router();
  *     summary: Get all settlements
  *     description: Returns a status message to verify if the settlement is authorized or not.
  *     tags:
- *       - settlement
+ *       - Settlements
  *     responses:
  *       200:
  *         description: Successfully retrieved settlements.
@@ -26,7 +26,7 @@ const router = express.Router();
  *                   items:
  *                     type: object
  */
-router.get('/:id', tryCatchHandler(getSettlementById));
+router.get('/', tryCatchHandler(getSettlementById));
 
 /**
  * @swagger
@@ -35,7 +35,7 @@ router.get('/:id', tryCatchHandler(getSettlementById));
  *     summary: Create a new settlement
  *     description: Creates a new settlement in the system.
  *     tags:
- *       - settlement
+ *       - Settlements
  *     parameters:
  *       - in: query
  *         name: Settlementname
@@ -73,7 +73,7 @@ router.post('/create-settlement', tryCatchHandler(createSettlement));
  *     summary: Update an existing settlement
  *     description: Updates an existing settlement by its ID.
  *     tags:
- *       - settlement
+ *       - Settlements
  *     parameters:
  *       - in: path
  *         name: id
@@ -117,7 +117,7 @@ router.put('/update-settlement/:id', tryCatchHandler(updateSettlement));
  *     summary: Delete a settlement
  *     description: Deletes an existing settlement.
  *     tags:
- *       - settlement
+ *       - Settlements
  *     parameters:
  *       - in: path
  *         name: id

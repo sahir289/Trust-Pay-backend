@@ -3,15 +3,14 @@ import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createBankaccount, deleteBankaccount, getBankaccount, getMerchantBankById, updateBankaccount } from './bankaccountController.js';
 const router = express.Router();
 
-
-
-
- /* /bankAccounts/by-id:
+/**
+ * @swagger
+ * /bankAccounts:
  *   get:
  *     summary: Get user by id
  *     description: Returns user filtered by id.
  *     tags:
- *       - bank Accounts
+ *       - Bank Accounts
  *     parameters:
  *       - in: query
  *         name: id
@@ -42,7 +41,7 @@ const router = express.Router();
  *                         type: string
  *                         example: "john_doe"
  */
- router.get('/:id', tryCatchHandler(getBankaccount));
+router.get('/', tryCatchHandler(getBankaccount));
 
 /**
  * @swagger
@@ -51,7 +50,7 @@ const router = express.Router();
  *     summary: create new bankAccounts
  *     description: Returns bankAccounts filtered by bankAccountsname.
  *     tags:
- *       - bank Accounts
+ *       - Bank Accounts
  *     parameters:
  *       - in: query
  *         name: bankAccountsname
@@ -82,12 +81,11 @@ const router = express.Router();
  *                         type: string
  *                         example: "john_doe"
  */
- router.post('/create-Bankaccount', tryCatchHandler(createBankaccount));
-
+router.post('/create-Bankaccount', tryCatchHandler(createBankaccount));
 
 router.get('/get-merchant-banks', tryCatchHandler(getMerchantBankById));
 
- router.put('/update-Bankaccount/:id', tryCatchHandler(updateBankaccount));
+router.put('/update-Bankaccount/:id', tryCatchHandler(updateBankaccount));
 
 /**
  * @swagger
@@ -96,7 +94,7 @@ router.get('/get-merchant-banks', tryCatchHandler(getMerchantBankById));
  *     summary: delete new bankAccounts
  *     description: Returns bankAccounts filtered by bankAccountsname.
  *     tags:
- *       - bank Accounts
+ *       - Bank Accounts
  *     parameters:
  *       - in: query
  *         name: bankAccountsname
@@ -127,6 +125,6 @@ router.get('/get-merchant-banks', tryCatchHandler(getMerchantBankById));
  *                         type: string
  *                         example: "john_doe"
  */
-  router.put('/delete-Bankaccount/:id', tryCatchHandler(deleteBankaccount));
+router.delete('/delete-Bankaccount/:id', tryCatchHandler(deleteBankaccount));
 
 export default router;

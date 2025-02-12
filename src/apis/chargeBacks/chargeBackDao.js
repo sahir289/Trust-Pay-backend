@@ -42,7 +42,7 @@ export const getChargeBackDao = async ({
 
     // Ensure sorting column exists
     if (!searchColumns.includes(sortBy)) {
-        sortBy = "sno"; // Fallback to 'id' if invalid column
+        sortBy = "sno"; // Fallback to 'sno' if invalid column
     }
 
     // Ensure sorting order is valid

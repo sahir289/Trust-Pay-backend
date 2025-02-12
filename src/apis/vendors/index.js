@@ -63,7 +63,7 @@ router.post('/create-vendor', tryCatchHandler(createVendor));
 
 /**
  * @swagger
- * /vendors/update-vendor:
+ * /vendors/update-vendor/{id}:
  *   put:
  *     summary: Update vendor details
  *     description: Updates an existing vendor’s details.
@@ -93,8 +93,8 @@ router.put('/update-vendor/:id', tryCatchHandler(updateVendor));
 
 /**
  * @swagger
- * /vendors/delete-vendor:
- *   put:
+ * /vendors/delete-vendor/{id}:
+ *   delete:
  *     summary: Delete a vendor
  *     description: Soft deletes a vendor by changing its status.
  *     tags:
@@ -114,6 +114,6 @@ router.put('/update-vendor/:id', tryCatchHandler(updateVendor));
  *       404:
  *         description: Vendor not found.
  */
-router.put('/delete-vendor/:id', tryCatchHandler(deleteVendor));
+router.delete('/delete-vendor/:id', tryCatchHandler(deleteVendor));
 
 export default router;
