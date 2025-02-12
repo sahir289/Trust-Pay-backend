@@ -11,7 +11,7 @@ const router = express.Router();
  *     summary: Retrieve all userHierarchys
  *     description: Returns a list of all userHierarchys.
  *     tags:
- *       - UserHierarchys
+ *       - User Hierarchy
  *     responses:
  *       200:
  *         description: A list of userHierarchys.
@@ -39,7 +39,7 @@ router.get('/', tryCatchHandler(getUserHierarchys));
  *     summary: Create a new userHierarchy
  *     description: Adds a new userHierarchy to the system.
  *     tags:
- *       - UserHierarchys
+ *       - User Hierarchy
  *     requestBody:
  *       required: true
  *       content:
@@ -68,7 +68,7 @@ router.post('/create-userHierarchy', tryCatchHandler(createUserHierarchy));
  *     summary: Update userHierarchy details
  *     description: Updates an existing vendor’s details.
  *     tags:
- *       - UserHierarchys
+ *       - User Hierarchy
  *     requestBody:
  *       required: true
  *       content:
@@ -98,7 +98,7 @@ router.put('/update-userHierarchy/:id', tryCatchHandler(updateUserHierarchy));
  *     summary: Delete a userHierarchy
  *     description: Soft deletes a userHierarchy by changing its status.
  *     tags:
- *       - UserHierarchys
+ *       - User Hierarchy
  *     requestBody:
  *       required: true
  *       content:
