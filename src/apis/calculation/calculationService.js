@@ -1,9 +1,10 @@
 
 import {BadRequestError,} from '../../utils/appErrors.js';
 import { getCalculationDao , createCalculationDao , updateCalculationDao ,deleteCalculationDao } from './calculationDao.js';
-const getCalculationService = async () => {
+
+const getCalculationService = async (payload) => {
     try {
-        const data = await getCalculationDao();
+        const data = await getCalculationDao(payload);
         console.log('Fetched Calculations successfully', 'info');
         return data;
     } catch (error) {
@@ -11,6 +12,7 @@ const getCalculationService = async () => {
        throw new BadRequestError('Error occurred while fetching Calculation');
     }
 }
+
 const createCalculationService = async (payload) => {
     try {
         const data = await createCalculationDao(payload);

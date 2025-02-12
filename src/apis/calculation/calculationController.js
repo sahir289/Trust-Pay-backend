@@ -3,18 +3,18 @@ import { getCalculationService ,createCalculationService ,updateCalculationServi
 
 const getCalculation = async (req, res) => {
     try {
-      const data = await getCalculationService();
+      const payload = req.body;
+      const data = await getCalculationService(payload);
       console.log('Get Calculations successfully', 'info');
-      return sendSuccess(res, data, 'get Roles successfully');
+      return sendSuccess(res, data, 'get Calculations successfully');
     } catch (error) {
       console.error('error getting while getting Calculation', 'error', error);
     }
   };
 
-
 const createCalculation = async (req, res) => {
     try {
-      const [body] = req.body;
+      const body = req.body;
       const data = await createCalculationService(body);
       console.log('Create Calaculation successfully', 'info');
       return sendSuccess(res, data, 'Create Calculation successfully');
@@ -25,14 +25,14 @@ const createCalculation = async (req, res) => {
 
 const updateCalculation = async (req, res) => { 
     try {
-      const [body,params] = req;
-      const data = await updateCalculationService(params.id,body);
+      const {body,params} = req;
+      const data = await updateCalculationService(params.user_id,body);
       console.log('Update Calculation successfully', 'info');
       return sendSuccess(res, data, 'Update Calculation successfully');
     } catch (error) {
       console.error('error updating while updating Calculation', 'error', error);
     }
-  }
+}
 const deleteCalculation = async (req, res) => {
     try {
       const params = req.params;

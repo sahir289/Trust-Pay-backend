@@ -26,7 +26,6 @@ const createVendor = async (req, res) => {
 const getVendors = async (req, res) => {
     try {
         const payload = req.body;
-
         // Fetch vendors data from the service
         const data = await getVendorsService(payload);
 
