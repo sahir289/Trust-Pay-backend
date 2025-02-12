@@ -5,20 +5,20 @@ const createPayout = async (req, res) => {
     try {
         const payload = req.body;
 
-        // Call the service to create the Vendor
-        const result = await createPayoutService(payload);
+        // Call the service to create the Payout
+        const result = await createPayoutService( req.headers ,payload);
 
         // Log success message
-        console.log('Vendor created successfully', result);
+        console.log('Payout created successfully', result);
 
         // Send a success response to the client
-        return sendSuccess(res, result, 'Vendor created successfully');
+        return sendSuccess(res, result, 'Payout created successfully');
     } catch (error) {
         // Log the error
-        console.error('error getting while creating Vendor', error);
+        console.error('error getting while creating Payout', error);
 
         // Send an error response to the client
-        return sendError(res, error, 'Error occurred while creating Vendor');
+        return sendError(res, error, 'Error occurred while creating Payout');
     }
 };
 
@@ -30,59 +30,59 @@ const getPayouts = async (req, res) => {
         const data = await getPayoutsService(payload);
 
         // Log success message
-        console.log('getvendors successfully', data);
+        console.log('getPayouts successfully', data);
 
         // Send success response
-        return sendSuccess(res, data, 'Vendors fetched successfully');
+        return sendSuccess(res, data, 'Payouts fetched successfully');
     } catch (error) {
         // Log error
-        console.error('error getting while fetching Vendors Data',  error);
+        console.error('error getting while fetching Payouts Data',  error);
 
         // Send an error response
-        return sendError(res, error, 'Error occurred while fetching Vendors');
+        return sendError(res, error, 'Error occurred while fetching Payouts');
     }
 };
 
 const updatePayout = async (req, res) => {
     try {
         const payload = req.body;
-        const { id } = req.params;  // Assuming the Vendor ID is passed as a parameter
+        const { id } = req.params;  // Assuming the Payout ID is passed as a parameter
 
-        // Call the service to update the Vendor
+        // Call the service to update the Payout
         const result = await updatePayoutService(id, payload);
 
         // Log success message
-        console.log('Vendor updated successfully', result);
+        console.log('Payout updated successfully', result);
 
         // Send a success response to the client
-        return sendSuccess(res, result, 'Vendor updated successfully');
+        return sendSuccess(res, result, 'Payout updated successfully');
     } catch (error) {
         // Log the error
-        console.error('error occurred while updating Vendor', error);
+        console.error('error occurred while updating Payout', error);
 
         // Send an error response to the client
-        return sendError(res, error, 'Error occurred while updating Vendor');
+        return sendError(res, error, 'Error occurred while updating Payout');
     }
 };
 
 const deletePayout = async (req, res) => {
     try {
-        const { id } = req.params;  // Assuming the Vendor ID is passed as a parameter
+        const { id } = req.params;  // Assuming the Payout ID is passed as a parameter
 
-        // Call the service to delete the Vendor
+        // Call the service to delete the Payout
         const result = await deletePayoutService(id);
 
         // Log success message
-        console.log('Vendor deleted successfully', result);
+        console.log('Payout deleted successfully', result);
 
         // Send a success response to the client
-        return sendSuccess(res, result, 'Vendor deleted successfully');
+        return sendSuccess(res, result, 'Payout deleted successfully');
     } catch (error) {
         // Log the error
-        console.error('error occurred while deleting Vendor', error);
+        console.error('error occurred while deleting Payout', error);
 
         // Send an error response to the client
-        return sendError(res, error, 'Error occurred while deleting Vendor');
+        return sendError(res, error, 'Error occurred while deleting Payout');
     }
 };
 

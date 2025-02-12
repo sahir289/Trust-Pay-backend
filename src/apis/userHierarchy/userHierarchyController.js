@@ -31,16 +31,16 @@ const getUserHierarchys = async (req, res) => {
         const data = await getUserHierarchyService(payload);
 
         // Log success message
-        console.log('getvendors successfully', data);
+        console.log('getUserHierarchys successfully', data);
 
         // Send success response
-        return sendSuccess(res, data, 'Vendors fetched successfully');
+        return sendSuccess(res, data, 'UserHierarchy fetched successfully');
     } catch (error) {
         // Log error
-        console.error('error getting while fetching Vendors Data',  error);
+        console.error('error getting while fetching UserHierarchy Data',  error);
 
         // Send an error response
-        return sendError(res, error, 'Error occurred while fetching Vendors');
+        return sendError(res, error, 'Error occurred while fetching UserHierarchy');
     }
 };
 
