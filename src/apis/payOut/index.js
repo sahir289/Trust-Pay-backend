@@ -1,20 +1,20 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createUserHierarchy, deleteUserHierarchy, getUserHierarchys, updateUserHierarchy } from './userHierarchyController.js';
+import { createPayout, deletePayout, getPayouts, updatePayout } from './payOutController.js';
 
 const router = express.Router();
 
 /**
  * @swagger
- * /userHierarchy:
+ * /payout:
  *   get:
- *     summary: Retrieve all userHierarchys
- *     description: Returns a list of all userHierarchys.
+ *     summary: Retrieve all payouts
+ *     description: Returns a list of all payouts.
  *     tags:
- *       - User Hierarchy
+ *       - Payout
  *     responses:
  *       200:
- *         description: A list of userHierarchys.
+ *         description: A list of payouts.
  *         content:
  *           application/json:
  *             schema:
@@ -30,16 +30,16 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get('/', tryCatchHandler(getUserHierarchys));
+router.get('/', tryCatchHandler(getPayouts));
 
 /**
  * @swagger
- * /userHierarchy/create-userHierarchy:
+ * /payout/create-payout:
  *   post:
- *     summary: Create a new userHierarchy
- *     description: Adds a new userHierarchy to the system.
+ *     summary: Create a new payout
+ *     description: Adds a new payout to the system.
  *     tags:
- *       - User Hierarchy
+ *       - Payout
  *     requestBody:
  *       required: true
  *       content:
@@ -49,26 +49,26 @@ router.get('/', tryCatchHandler(getUserHierarchys));
  *             properties:
  *               name:
  *                 type: string
- *                 example: "UserHierarchy A"
+ *                 example: "Payout A"
  *               status:
  *                 type: string
  *                 example: "active"
  *     responses:
  *       201:
- *         description: UserHierarchy created successfully.
+ *         description: Payout created successfully.
  *       400:
  *         description: Invalid request data.
  */
-router.post('/create-userHierarchy', tryCatchHandler(createUserHierarchy));
+router.post('/create-payout', tryCatchHandler(createPayout));
 
 /**
  * @swagger
- * /userHierarchy/update-userHierarchy:
+ * /payout/update-payout/{id}:
  *   put:
- *     summary: Update userHierarchy details
+ *     summary: Update payout details
  *     description: Updates an existing vendor’s details.
  *     tags:
- *       - User Hierarchy
+ *       - Payout
  *     requestBody:
  *       required: true
  *       content:
@@ -85,20 +85,20 @@ router.post('/create-userHierarchy', tryCatchHandler(createUserHierarchy));
  *                 example: "inactive"
  *     responses:
  *       200:
- *         description: UserHierarchy updated successfully.
+ *         description: Payout updated successfully.
  *       404:
- *         description: UserHierarchy not found.
+ *         description: Payout not found.
  */
-router.put('/update-userHierarchy/:id', tryCatchHandler(updateUserHierarchy));
+router.put('/update-payout/:id', tryCatchHandler(updatePayout));
 
 /**
  * @swagger
- * /userHierarchy/delete-userHierarchy:
+ * /payout/delete-payout/{id}:
  *   delete:
- *     summary: Delete a userHierarchy
- *     description: Soft deletes a userHierarchy by changing its status.
+ *     summary: Delete a payout
+ *     description: Soft deletes a payout by changing its status.
  *     tags:
- *       - User Hierarchy
+ *       - Payout
  *     requestBody:
  *       required: true
  *       content:
@@ -110,10 +110,10 @@ router.put('/update-userHierarchy/:id', tryCatchHandler(updateUserHierarchy));
  *                 type: string
  *     responses:
  *       200:
- *         description: UserHierarchy deleted successfully.
+ *         description: Payout deleted successfully.
  *       404:
- *         description: UserHierarchy not found.
+ *         description: Payout not found.
  */
-router.delete('/delete-userHierarchy/:id', tryCatchHandler(deleteUserHierarchy));
+router.delete('/delete-payout/:id', tryCatchHandler(deletePayout));
 
 export default router;

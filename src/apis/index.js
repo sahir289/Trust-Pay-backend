@@ -12,6 +12,7 @@ import bankaccount from './bankAccounts/index.js'
 import company from './company/index.js'
 import settlement from './settlement/index.js'
 import userHierarchy from './userHierarchy/index.js'
+import payOut from './payOut/index.js'
 
 // Add your newly create component routes here with route prefix.
 const router = express.Router();
@@ -29,6 +30,7 @@ router.use('/bankaccount', bankaccount)
 router.use('/company', company)
 router.use('/settlement', settlement)
 router.use('/userHierarchy', userHierarchy)
+router.use('/payout', payOut)
 
 
 /* Make sure while changing below parentrouter.
