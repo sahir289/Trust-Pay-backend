@@ -1,11 +1,11 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getDesignationByIDService, createDesignationByIDService, updateDesignationByIDService, deleteDesignationByIDService } from './designationServices.js';
+import { getDesignationService, createDesignationByIDService, updateDesignationByIDService, deleteDesignationByIDService } from './designationServices.js';
 
-const getDesignationById = async (req, res) => {
+const getDesignation = async (req, res) => {
   try {
-    const { id } = req.params;
-    const data = await getDesignationByIDService(id);
+    const { payload } = req.query;
+    const data = await getDesignationService(payload);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
@@ -54,4 +54,4 @@ const deleteDesignation = async (req, res) => {
   }
 };
 
-export { getDesignationById, createDesignation, updateDesignation, deleteDesignation };
+export { getDesignation, createDesignation, updateDesignation, deleteDesignation };

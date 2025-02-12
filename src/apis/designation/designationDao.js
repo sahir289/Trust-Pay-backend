@@ -1,9 +1,8 @@
 import { buildInsertQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
 const tableName = 'Designation';
 
-const getDesignationByIdDao = async ({
-  id = null,
-  searchString = "",
+const getDesignationDao = async ({
+  searchString,
   page = 1,
   pageSize = 10,
   sortBy = "sno",  // Default sorting column
@@ -17,12 +16,6 @@ const getDesignationByIdDao = async ({
   let query = `SELECT * FROM "${tableName}" WHERE 1=1`;
   let values = [];
   let conditions = [];
-
-  // Filter by ID if provided
-  if (id !== null) {
-      conditions.push(`id = $${values.length + 1}`);
-      values.push(id);
-  }
 
   // Handle searching across all columns
   if (searchString.trim() && searchColumns.length > 0) {
@@ -83,4 +76,4 @@ const deleteDesignationByIdDao = async (id, data) => {
 
 };
 
-export { getDesignationByIdDao, createDesignationByIdDao, updateDesignationByIdDao, deleteDesignationByIdDao };
+export { getDesignationDao, createDesignationByIdDao, updateDesignationByIdDao, deleteDesignationByIdDao };

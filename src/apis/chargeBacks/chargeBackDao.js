@@ -9,8 +9,7 @@ export const createChargeBackDao = async (data) => {
 }
 
 export const getChargeBackDao = async ({
-    id = null,
-    searchString = "",
+    searchString,
     page = 1,
     pageSize = 10,
     sortBy = "sno",  // Default sorting column
@@ -24,12 +23,6 @@ export const getChargeBackDao = async ({
     let query = `SELECT * FROM "${tableName}"`;
     let values = [];
     let conditions = [];
-
-    // Filter by ID if provided
-    if (id !== null) {
-        conditions.push(`id = $${values.length + 1}`);
-        values.push(id);
-    }
 
     // Handle searching across all columns
     if (searchString.trim() && searchColumns.length > 0) {

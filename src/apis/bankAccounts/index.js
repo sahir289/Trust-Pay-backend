@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createBankaccount, deleteBankaccount, getBankaccountById, getMerchantBankById, updateBankaccount } from './bankaccountController.js';
+import { createBankaccount, deleteBankaccount, getBankaccount, getMerchantBankById, updateBankaccount } from './bankaccountController.js';
 const router = express.Router();
 
 
@@ -42,7 +42,7 @@ const router = express.Router();
  *                         type: string
  *                         example: "john_doe"
  */
- router.get('/:id', tryCatchHandler(getBankaccountById));
+ router.get('/:id', tryCatchHandler(getBankaccount));
 
 /**
  * @swagger

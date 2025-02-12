@@ -9,7 +9,7 @@ export const createVendorDao = async (data) => {
 }
 
 export const getVendorsDao = async ({
-    searchString = "",
+    searchString,
     page = 1,
     pageSize = 10,
     sortBy = "sno",  // Default sorting column (change as needed)

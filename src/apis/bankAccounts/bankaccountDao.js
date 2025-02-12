@@ -1,9 +1,8 @@
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
 const tableName = 'BankAccount';
 
-const getBankaccountByIdDao = async ({
-  id = null,
-  searchString = "",
+const getBankaccountDao = async ({
+  searchString,
   page = 1,
   pageSize = 10,
   sortBy = "sno",  // Default sorting column
@@ -17,12 +16,6 @@ const getBankaccountByIdDao = async ({
   let query = `SELECT * FROM "${tableName}" WHERE 1=1`;
   let values = [];
   let conditions = [];
-
-  // Filter by ID if provided
-  if (id !== null) {
-      conditions.push(`id = $${values.length + 1}`);
-      values.push(id);
-  }
 
   // Handle searching across all columns
   if (searchString.trim() && searchColumns.length > 0) {
@@ -85,4 +78,4 @@ const deleteBankaccountByIdDao = async (id, data) => {
   return result.rows[0];
 };
 
-export { getBankaccountByIdDao, createBankaccountByIdDao, updateBankaccountByIdDao, deleteBankaccountByIdDao, getMerchantBankByIdDao };
+export { getBankaccountDao, createBankaccountByIdDao, updateBankaccountByIdDao, deleteBankaccountByIdDao, getMerchantBankByIdDao };

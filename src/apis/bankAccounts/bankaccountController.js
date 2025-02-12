@@ -1,11 +1,11 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getBankaccountByIDService, createBankaccountByIDService, updateBankaccountByIDService, deleteBankaccountByIDService, getMerchantBankByIdService } from './bankaccountServices.js';
+import { getBankaccountService, createBankaccountByIDService, updateBankaccountByIDService, deleteBankaccountByIDService, getMerchantBankByIdService } from './bankaccountServices.js';
 
-const getBankaccountById = async (req, res) => {
+const getBankaccount = async (req, res) => {
   try {
-    const { id } = req.params;
-    const data = await getBankaccountByIDService(id);
+    const { payload } = req.query;
+    const data = await getBankaccountService(payload);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
@@ -60,4 +60,4 @@ const deleteBankaccount = async (req, res) => {
     console.error('error getting while logging in', error);
   }
 }
-export { getBankaccountById, createBankaccount, updateBankaccount, deleteBankaccount, getMerchantBankById };
+export { getBankaccount, createBankaccount, updateBankaccount, deleteBankaccount, getMerchantBankById };

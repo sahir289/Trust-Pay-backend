@@ -9,7 +9,7 @@ export const createMerchantDao = async (data) => {
 }
 
 export const getMerchantsDao = async ({
-    searchString = "",
+    searchString,
     page = 1,
     pageSize = 10,
     sortBy = "sno",  // Default sorting column
