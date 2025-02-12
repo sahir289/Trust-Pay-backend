@@ -30,7 +30,6 @@ function config(Env) {
     clientEmail: Env?.CLIENT_EMAIL,
     bucketName: Env?.BUCKET_NAME,
     bucketRegion: Env?.BUCKET_REGION,
-
     secretKeyS3: Env?.SECRET_ACCESS_KEY,
     telegramBotToken: Env?.TELEGRAM_BOT_TOKEN,
     telegramAlertsBotToken: Env?.TELEGRAM_ALERTS_BOT_TOKEN, // currently not in use
