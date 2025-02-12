@@ -37,7 +37,6 @@ router.use('/company', company)
 router.use('/settlement', settlement)
 router.use('/userHierarchy', userHierarchy)
 router.use('/payout', payOut)
-
 router.use('/complaints',complaints)
 
 /* Make sure while changing below parentrouter.

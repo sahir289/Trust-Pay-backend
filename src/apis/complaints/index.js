@@ -13,7 +13,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /v1/complaints:
+ * /complaints:
  *   get:
  *     summary: Get all complaints
  *     tags: [Complaints]
@@ -27,7 +27,7 @@ router.get('/', tryCatchHandler(getComplaints));
 
 /**
  * @swagger
- * /v1/complaints/create-complaint:
+ * /complaints/create-complaint:
  *   post:
  *     summary: Create a new complaint
  *     tags: [Complaints]
@@ -54,7 +54,7 @@ router.post('/create-complaint', tryCatchHandler(createComplaints));
 
 /**
  * @swagger
- * /v1/complaints/update-complaint/{id}:
+ * /complaints/update-complaint/{id}:
  *   put:
  *     summary: Update a complaint
  *     tags: [Complaints]
@@ -87,8 +87,8 @@ router.put('/update-complaint/:id', tryCatchHandler(updateComplaints));
 
 /**
  * @swagger
- * /v1/complaints/delete-complaint/{id}:
- *   put:
+ * /complaints/delete-complaint/{id}:
+ *   delete:
  *     summary: Soft delete a complaint
  *     tags: [Complaints]
  *     parameters:
@@ -105,6 +105,6 @@ router.put('/update-complaint/:id', tryCatchHandler(updateComplaints));
  *         description: Complaint not found
  */
 
-router.put('/delete-complaint/:id', tryCatchHandler(deleteComplaints));
+router.delete('/delete-complaint/:id', tryCatchHandler(deleteComplaints));
 
 export default router;

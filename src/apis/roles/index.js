@@ -13,7 +13,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /v1/roles:
+ * /roles:
  *   get:
  *     summary: Get all roles
  *     tags: [Roles]
@@ -27,7 +27,7 @@ router.get('/', tryCatchHandler(getRoles));
 
 /**
  * @swagger
- * /v1/roles/create-role:
+ * /roles/create-role:
  *   post:
  *     summary: Create a new role
  *     tags: [Roles]
@@ -54,7 +54,7 @@ router.post('/create-role', tryCatchHandler(createRole));
 
 /**
  * @swagger
- * /v1/roles/update-role/{id}:
+ * /roles/update-role/{id}:
  *   put:
  *     summary: Update a role
  *     tags: [Roles]
@@ -86,8 +86,8 @@ router.put('/update-role/:id', tryCatchHandler(updateRole));
 
 /**
  * @swagger
- * /v1/roles/delete-role/{id}:
- *   put:
+ * /roles/delete-role/{id}:
+ *   delete:
  *     summary: Soft delete a role
  *     tags: [Roles]
  *     parameters:
@@ -103,6 +103,6 @@ router.put('/update-role/:id', tryCatchHandler(updateRole));
  *       404:
  *         description: Role not found
  */
-router.put('/delete-role/:id', tryCatchHandler(deleteRole));
+router.delete('/delete-role/:id', tryCatchHandler(deleteRole));
 
 export default router;
