@@ -24,7 +24,7 @@ export const getUserHierarchysDao = async ({
     let values = [];
 
     // Handle searching
-    if (searchString.trim() && searchColumns.length > 0) {
+    if (searchString?.trim() && searchColumns?.length > 0) {
         const searchValues = searchString.split(",").map(val => val.trim()); // Split & clean values
         const conditions = searchValues.map((_, index) => 
             `(${searchColumns.map(col => `"${col}"::TEXT ILIKE $${index + 1}`).join(" OR ")})`

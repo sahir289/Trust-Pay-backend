@@ -18,7 +18,7 @@ const getDesignationDao = async ({
   let conditions = [];
 
   // Handle searching across all columns
-  if (searchString.trim() && searchColumns.length > 0) {
+  if (searchString?.trim() && searchColumns?.length > 0) {
       const searchValues = searchString.split(",").map(val => val.trim());
       const searchConditions = searchValues.map((_, index) => 
           `(${searchColumns.map(col => `"${col}"::TEXT ILIKE $${values.length + index + 1}`).join(" OR ")})`
