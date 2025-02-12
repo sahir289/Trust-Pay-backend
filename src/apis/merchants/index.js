@@ -16,7 +16,7 @@ const router = express.Router();
  *       200:
  *         description: A list of merchants.
  *         content:
- *           application/json:π
+ *           application/json:
  *             schema:
  *               type: array
  *               items:
