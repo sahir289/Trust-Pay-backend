@@ -1,6 +1,7 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createVendor, deleteVendor, getVendors, updateVendor } from './vendorController.js';
+import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
 
@@ -30,7 +31,7 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get('/', tryCatchHandler(getVendors));
+router.get('/', isAuthenticated, tryCatchHandler(getVendors));
 
 /**
  * @swagger
@@ -59,7 +60,7 @@ router.get('/', tryCatchHandler(getVendors));
  *       400:
  *         description: Invalid request data.
  */
-router.post('/create-vendor', tryCatchHandler(createVendor));
+router.post('/create-vendor', isAuthenticated, tryCatchHandler(createVendor));
 
 /**
  * @swagger
@@ -89,7 +90,7 @@ router.post('/create-vendor', tryCatchHandler(createVendor));
  *       404:
  *         description: Vendor not found.
  */
-router.put('/update-vendor/:id', tryCatchHandler(updateVendor));
+router.put('/update-vendor/:id', isAuthenticated, tryCatchHandler(updateVendor));
 
 /**
  * @swagger
@@ -114,6 +115,6 @@ router.put('/update-vendor/:id', tryCatchHandler(updateVendor));
  *       404:
  *         description: Vendor not found.
  */
-router.delete('/delete-vendor/:id', tryCatchHandler(deleteVendor));
+router.delete('/delete-vendor/:id', isAuthenticated, tryCatchHandler(deleteVendor));
 
 export default router;

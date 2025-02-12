@@ -1,6 +1,7 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createPayout, deletePayout, getPayouts, updatePayout } from './payOutController.js';
+import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
 
@@ -30,7 +31,7 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get('/', tryCatchHandler(getPayouts));
+router.get('/', isAuthenticated, tryCatchHandler(getPayouts));
 
 /**
  * @swagger
@@ -59,7 +60,7 @@ router.get('/', tryCatchHandler(getPayouts));
  *       400:
  *         description: Invalid request data.
  */
-router.post('/create-payout', tryCatchHandler(createPayout));
+router.post('/create-payout', isAuthenticated, tryCatchHandler(createPayout));
 
 /**
  * @swagger
@@ -89,7 +90,7 @@ router.post('/create-payout', tryCatchHandler(createPayout));
  *       404:
  *         description: Payout not found.
  */
-router.put('/update-payout/:id', tryCatchHandler(updatePayout));
+router.put('/update-payout/:id', isAuthenticated, tryCatchHandler(updatePayout));
 
 /**
  * @swagger
@@ -114,6 +115,6 @@ router.put('/update-payout/:id', tryCatchHandler(updatePayout));
  *       404:
  *         description: Payout not found.
  */
-router.delete('/delete-payout/:id', tryCatchHandler(deletePayout));
+router.delete('/delete-payout/:id', isAuthenticated, tryCatchHandler(deletePayout));
 
 export default router;

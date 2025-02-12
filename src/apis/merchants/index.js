@@ -1,6 +1,7 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createMerchant, deleteMerchant, getMerchants, updateMerchant } from './merchantController.js';
+import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
 
@@ -30,7 +31,7 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get('/', tryCatchHandler(getMerchants));
+router.get('/', isAuthenticated, tryCatchHandler(getMerchants));
 
 /**
  * @swagger
@@ -59,7 +60,7 @@ router.get('/', tryCatchHandler(getMerchants));
  *       400:
  *         description: Invalid request data.
  */
-router.post('/create-merchant', tryCatchHandler(createMerchant));
+router.post('/create-merchant', isAuthenticated, tryCatchHandler(createMerchant));
 
 /**
  * @swagger
@@ -89,7 +90,7 @@ router.post('/create-merchant', tryCatchHandler(createMerchant));
  *       404:
  *         description: Merchant not found.
  */
-router.put('/update-merchant/:id', tryCatchHandler(updateMerchant));
+router.put('/update-merchant/:id', isAuthenticated, tryCatchHandler(updateMerchant));
 
 /**
  * @swagger
@@ -114,6 +115,6 @@ router.put('/update-merchant/:id', tryCatchHandler(updateMerchant));
  *       404:
  *         description: Merchant not found.
  */
-router.delete('/delete-merchant/:id', tryCatchHandler(deleteMerchant));
+router.delete('/delete-merchant/:id', isAuthenticated, tryCatchHandler(deleteMerchant));
 
 export default router;

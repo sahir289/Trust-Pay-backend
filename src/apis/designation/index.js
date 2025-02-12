@@ -1,6 +1,7 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createDesignation, deleteDesignation, getDesignation, updateDesignation } from './designationController.js';
+import { isAuthenticated } from '../../middlewares/auth.js';
 const router = express.Router();
 
 /**
@@ -32,7 +33,7 @@ const router = express.Router();
  *                 data:
  *                   type: object
  */
-router.get('/', tryCatchHandler(getDesignation));
+router.get('/', isAuthenticated, tryCatchHandler(getDesignation));
 
 /**
  * @swagger
@@ -66,7 +67,7 @@ router.get('/', tryCatchHandler(getDesignation));
  *                 data:
  *                   type: object
  */
-router.post('/create-designation', tryCatchHandler(createDesignation));
+router.post('/create-designation', isAuthenticated, tryCatchHandler(createDesignation));
 
 /**
  * @swagger
@@ -97,7 +98,7 @@ router.post('/create-designation', tryCatchHandler(createDesignation));
  *       200:
  *         description: Designation updated successfully.
  */
-router.put('/update-designation/:id', tryCatchHandler(updateDesignation));
+router.put('/update-designation/:id', isAuthenticated, tryCatchHandler(updateDesignation));
 
 /**
  * @swagger
@@ -118,6 +119,6 @@ router.put('/update-designation/:id', tryCatchHandler(updateDesignation));
  *       200:
  *         description: Designation deleted successfully.
  */
-router.delete('/delete-designation/:id', tryCatchHandler(deleteDesignation));
+router.delete('/delete-designation/:id', isAuthenticated, tryCatchHandler(deleteDesignation));
 
 export default router;

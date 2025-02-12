@@ -1,6 +1,7 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createUserHierarchy, deleteUserHierarchy, getUserHierarchys, updateUserHierarchy } from './userHierarchyController.js';
+import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
 
@@ -30,7 +31,7 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get('/', tryCatchHandler(getUserHierarchys));
+router.get('/', isAuthenticated, tryCatchHandler(getUserHierarchys));
 
 /**
  * @swagger
@@ -59,7 +60,7 @@ router.get('/', tryCatchHandler(getUserHierarchys));
  *       400:
  *         description: Invalid request data.
  */
-router.post('/create-userHierarchy', tryCatchHandler(createUserHierarchy));
+router.post('/create-userHierarchy', isAuthenticated, tryCatchHandler(createUserHierarchy));
 
 /**
  * @swagger
@@ -89,7 +90,7 @@ router.post('/create-userHierarchy', tryCatchHandler(createUserHierarchy));
  *       404:
  *         description: UserHierarchy not found.
  */
-router.put('/update-userHierarchy/:id', tryCatchHandler(updateUserHierarchy));
+router.put('/update-userHierarchy/:id', isAuthenticated, tryCatchHandler(updateUserHierarchy));
 
 /**
  * @swagger
@@ -114,6 +115,6 @@ router.put('/update-userHierarchy/:id', tryCatchHandler(updateUserHierarchy));
  *       404:
  *         description: UserHierarchy not found.
  */
-router.delete('/delete-userHierarchy/:id', tryCatchHandler(deleteUserHierarchy));
+router.delete('/delete-userHierarchy/:id', isAuthenticated, tryCatchHandler(deleteUserHierarchy));
 
 export default router;

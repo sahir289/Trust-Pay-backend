@@ -1,6 +1,7 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createChargeBack, deleteChargeBack, getChargeBacks, updateChargeBack } from './chargeBackController.js';
+import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
 
@@ -28,7 +29,7 @@ const router = express.Router();
  *                   items:
  *                     type: object
  */
-router.get('/', tryCatchHandler(getChargeBacks));
+router.get('/', isAuthenticated, tryCatchHandler(getChargeBacks));
 
 /**
  * @swagger
@@ -61,7 +62,7 @@ router.get('/', tryCatchHandler(getChargeBacks));
  *                   type: string
  *                   example: "Chargeback created successfully"
  */
-router.post('/create-chargeback', tryCatchHandler(createChargeBack));
+router.post('/create-chargeback', isAuthenticated, tryCatchHandler(createChargeBack));
 
 /**
  * @swagger
@@ -96,7 +97,7 @@ router.post('/create-chargeback', tryCatchHandler(createChargeBack));
  *                   type: string
  *                   example: "Chargeback updated successfully"
  */
-router.put('/update-chargeback/:id', tryCatchHandler(updateChargeBack));
+router.put('/update-chargeback/:id', isAuthenticated, tryCatchHandler(updateChargeBack));
 
 /**
  * @swagger
@@ -127,6 +128,6 @@ router.put('/update-chargeback/:id', tryCatchHandler(updateChargeBack));
  *                   type: string
  *                   example: "Chargeback deleted successfully"
  */
-router.delete('/delete-chargeback/:id', tryCatchHandler(deleteChargeBack));
+router.delete('/delete-chargeback/:id', isAuthenticated, tryCatchHandler(deleteChargeBack));
 
 export default router;
