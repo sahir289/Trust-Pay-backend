@@ -2,8 +2,6 @@ import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { createSettlementByIDService, deleteSettlementByIDService, getSettlementByIDService, updateSettlementByIDService } from './settlementServices.js';
 
-
-
 const getSettlementById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -14,6 +12,7 @@ const getSettlementById = async (req, res) => {
     console.error('error getting while logging in', error);
   }
 };
+
 const createSettlement = async (req, res) => {
   try {
     const payload = req.body;
@@ -27,7 +26,7 @@ const createSettlement = async (req, res) => {
   } catch (error) {
     console.error('error getting while logging in', error);
   }
-}
+};
 
 const updateSettlement = async (req, res) => {
   try {
@@ -38,8 +37,7 @@ const updateSettlement = async (req, res) => {
   } catch (error) {
     console.error('error getting while logging in', error);
   }
-}
-
+};
 
 const deleteSettlement = async (req, res) => {
   try {
@@ -55,4 +53,5 @@ const deleteSettlement = async (req, res) => {
     console.error('error getting while logging in', error);
   }
 }
+
 export { getSettlementById, createSettlement, updateSettlement, deleteSettlement };
