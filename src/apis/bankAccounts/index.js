@@ -91,7 +91,7 @@ router.put('/update-Bankaccount/:id', isAuthenticated, tryCatchHandler(updateBan
 /**
  * @swagger
  * /bankAccounts/delete-bankAccounts:
- *   put:
+ *   delete:
  *     summary: delete new bankAccounts
  *     description: Returns bankAccounts filtered by bankAccountsname.
  *     tags:
