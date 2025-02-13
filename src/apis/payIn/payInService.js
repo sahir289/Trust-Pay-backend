@@ -5,13 +5,14 @@ import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao } from "./payInD
 import { getMerchantsService } from "../merchants/merchantService.js";
 import { AccessDeniedError, BadRequestError, NotFoundError } from "../../utils/appErrors.js";
 import { v4 as uuidv4 } from "uuid";
-import { getMerchantBankByIdService } from "../banks/bankService.js";
 import { getMerchantBankByIdDao } from "../banks/bankDao.js";
 import { razorpay } from "../../webhooks/razorPay.js";
 import config from "../../config/config.js";
 import { Cashfree } from "cashfree-pg";
 import { getWithdrawByIdService } from "../withdraw/withDrawService.js";
 // import { calculateCommission } from "../../utils/utils.js";
+import { getMerchantBankService } from "../bankAccounts/bankaccountServices.js";
+import { getMerchantBankDao } from "../bankAccounts/bankaccountDao.js";
 
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
@@ -36,7 +37,7 @@ export const generatePayInUrlService = async (payload) => {
         throw new BadRequestError(404, "Enter valid Api key");
     }
 
-    const bankAccountLinkRes = await getMerchantBankByIdService(merchant.user_id);
+    const bankAccountLinkRes = await getMerchantBankService(merchant.user_id);
     const availableBankAccounts = bankAccountLinkRes.filter(bankAccount => bankAccount.bank_used_for === "payIn" && bankAccount.is_enabled && (bankAccount.is_bank || bankAccount.is_qr));
     if (!availableBankAccounts.length) {
         // Send alert if no bank account is linked
@@ -53,7 +54,7 @@ export const generatePayInUrlService = async (payload) => {
     };
 
     const _10_MINUTES = 1000 * 60 * 10;
-    const expirationDate = Math.floor((new Date().getTime() + _10_MINUTES) / 1000);
+    const expirationDate = (new Date().getTime() + _10_MINUTES);
     const bank = bankAccountLinkRes[Math.floor(Math.random() * bankAccountLinkRes.length)];
     const data = {
         upi_short_code: nanoid(5), // code added by us
@@ -77,7 +78,7 @@ export const generatePayInUrlService = async (payload) => {
 
 export const getPayInUrlService = async (id) => {
 
-    const currentTime = Math.floor(Date.now() / 1000);
+    const currentTime = Date.now();
     const payIn = await getPayInUrlDao({ id });
 
     if (!payIn) {
@@ -89,7 +90,6 @@ export const getPayInUrlService = async (id) => {
     }
 
     const config = payIn.config || {};
-    // TODO: modify expiration date type 
     if (currentTime > Number(payIn.expiration_date) && payIn.status !== Status.INITIATED) {
         // expire payIn
         await updatePayInUrlDao(id, {
@@ -114,7 +114,7 @@ export const getPayInUrlService = async (id) => {
 
 // TODO: delete this API
 export const expirePayInUrlService = async (payInId) => {
-    const currentTime = Math.floor(Date.now() / 1000);
+    const currentTime = Date.now();
     const payIn = await getPayInUrlDao({ id: payInId });
     if (!payIn) {
         throw new NotFoundError('PayIn not found!');
@@ -125,7 +125,7 @@ export const expirePayInUrlService = async (payInId) => {
     // if (payIn.status !== Status.ASSIGNED) {
     // throw new BadRequestError('PayIn is not assigned');
     // }
-    if (currentTime < Number(payIn.expiration_date)) {
+    if (currentTime < new Date(payIn.expiration_date).getTime()) {
         throw new BadRequestError('Pay In is not expired yet!');
     }
 

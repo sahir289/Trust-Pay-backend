@@ -12,6 +12,14 @@ function config(Env) {
       secretAccessKey: Env.secretKeyS3,
       cloudWatchLogGroup: '/new-trust-pay-stg-logs',
     },
+    jwt: {
+      jwt_secret: Env?.JWT_SECRET,
+      jwt_expires_in: Env?.JWT_EXPIRES_IN || "2h",
+      refresh_token_secret: Env?.REFRESH_TOKEN_SECRET,
+      refresh_token_expires_in: Env?.REFRESH_TOKEN_EXPIRES_IN || "7d",
+      temp_token: Env?.TEMP_TOKEN,
+      temp_token_expires: Env?.TEMP_TOKEN_EXPIRES,
+    },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,
     accessTokenSecretKey: Env?.ACCESS_TOKEN_SECRET_KEY,
@@ -22,7 +30,6 @@ function config(Env) {
     clientEmail: Env?.CLIENT_EMAIL,
     bucketName: Env?.BUCKET_NAME,
     bucketRegion: Env?.BUCKET_REGION,
-
     secretKeyS3: Env?.SECRET_ACCESS_KEY,
     telegramBotToken: Env?.TELEGRAM_BOT_TOKEN,
     telegramAlertsBotToken: Env?.TELEGRAM_ALERTS_BOT_TOKEN, // currently not in use

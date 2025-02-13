@@ -2,13 +2,15 @@ import jwt from "jsonwebtoken"
 import config from "../config/config.js";
 import bcrypt from 'bcryptjs';
 import { BadRequestError } from './appErrors.js';
+import { verifyHash } from "./bcryptPassword.js";
+import { getLoginDao } from "../apis/auth/authDao.js";
 
 const createNewToken = (data) => {
-  const accessToken = jwt.sign(data, config.accessTokenSecretKey, {
-    expiresIn: config.auth.jwt_expiresin,
+  const accessToken = jwt.sign(data, config.jwt.jwt_secret, {
+    expiresIn: config.jwt.jwt_expires_in,
   });
-  const refreshToken = jwt.sign(data, config.auth.refresh_token_secret, {
-    expiresIn: config.auth.refresh_token_expiresin,
+  const refreshToken = jwt.sign(data, config.jwt.refresh_token_secret, {
+    expiresIn: config.jwt.refresh_token_expires_in,
   });
   return {
     accessToken,
@@ -16,9 +18,24 @@ const createNewToken = (data) => {
   };
 };
 
+const refreshAccessToken = async (data) => {
+  const user = await getLoginDao(data.user_id, data.company_id);
+  if (!user) {
+    throw new BadRequestError('Unauthorized"');
+  }
+  const isValid = verifyHash(data.token, user.refresh_token);
+  if(!isValid){
+    throw new BadRequestError('Unauthorized access, Try to login again');
+  }
+  const accessToken = jwt.sign(data, config.jwt.jwt_secret, {
+    expiresIn: config.jwt.jwt_expires_in,
+  });
+  return { accessToken };
+};
+
 const verifyToken = async (token) => {
   try {
-    const decoded = jwt.verify(token, config.auth.jwt_secret);
+    const decoded = jwt.verify(token, config.jwt.jwt_secret);
     return decoded;
   } catch (err) {
     console.error('Getting error while verifying token', err);
@@ -45,4 +62,4 @@ const createTemporaryToken = (data) => {
   };
 };
 
-export { createNewToken, verifyToken, hashValue, createTemporaryToken };
+export { createNewToken, refreshAccessToken, verifyToken, hashValue, createTemporaryToken };

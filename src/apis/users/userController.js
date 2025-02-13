@@ -42,6 +42,7 @@ const getUserById = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
+    // const {} = req.user;
     const payload = req.body;
     if (!payload) {
       console.error('payload is required');
