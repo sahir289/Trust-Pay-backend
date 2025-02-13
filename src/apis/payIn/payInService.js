@@ -468,7 +468,7 @@ export const resetDepositService = async (
 }
 
 
-const notifyMerchants = (url, data) => {
+export const notifyMerchants = (url, data) => {
     if (url) {
         axios.post(url, data).catch(console.error);
     }

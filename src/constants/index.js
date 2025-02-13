@@ -14,6 +14,7 @@ export const Status = {
     TEST_DROPPED: 'TEST_DROPPED',
     BANK_MISMATCH: 'BANK_MISMATCH',
     FAILED: 'FAILED',
+    USER_DROPPED: 'USER_DROPPED'
 }
 
 export const Currency = {
