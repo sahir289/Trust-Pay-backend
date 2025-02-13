@@ -15,7 +15,7 @@ export const getMerchantsDao = async ({
     sortBy = "created_at",  // Default sorting column
     sortOrder = "DESC" // ASC (ascending) or DESC (descending)
 } = {}) => {
-    // Fetch column names dynamically (assuming a metadata function exists)
+    // Fetch column names dynamically (assuming a metadata function exist)
     const columnQuery = `SELECT column_name FROM information_schema.columns WHERE table_name = '${tableName}'`;
     const columnResult = await executeQuery(columnQuery);
     const searchColumns = columnResult.rows.map(row => row.column_name);

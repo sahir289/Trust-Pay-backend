@@ -1,7 +1,7 @@
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { createChargeBackService, getChargeBacksService, updateChargeBackService, deleteChargeBackService} from './chargeBackService.js';
-
-
+import Logger from '../../utils/logger.js';
+const logger = new Logger()
 const createChargeBack = async (req, res) => {
     try {
         const payload = req.body;
@@ -10,13 +10,13 @@ const createChargeBack = async (req, res) => {
         const result = await createChargeBackService(payload);
 
         // Log success message
-        console.log('ChargeBack created successfully', 'info', result);
+        logger.log('ChargeBack created successfully', 'info', result);
 
         // Send a success response to the client
         return sendSuccess(res, result, 'ChargeBack created successfully');
     } catch (error) {
         // Log the error
-        console.error('error getting while creating ChargeBack', error);
+        logger.error('error getting while creating ChargeBack', error);
 
         // Send an error response to the client
         return sendError(res, error, 'Error occurred while creating ChargeBack');
@@ -31,13 +31,13 @@ const getChargeBacks = async (req, res) => {
         const data = await getChargeBacksService(payload);
 
         // Log success message
-        console.log('getChargeBacks successfully', data);
+        logger.log('getChargeBacks successfully', data);
 
         // Send success response
         return sendSuccess(res, data, 'ChargeBacks fetched successfully');
     } catch (error) {
         // Log error
-        console.error('error getting while fetching ChargeBacks Data', error);
+        logger.error('error getting while fetching ChargeBacks Data', error);
 
         // Send an error response
         return sendError(res, error, 'Error occurred while fetching ChargeBacks');
@@ -47,19 +47,19 @@ const getChargeBacks = async (req, res) => {
 const updateChargeBack = async (req, res) => {
     try {
         const payload = req.body;
-        const { id } = req.params;  // Assuming the ChargeBack ID is passed as a parameter
-
+        const { id } = req.params;  
+         
         // Call the service to update the ChargeBack
         const result = await updateChargeBackService(id, payload);
 
         // Log success message
-        console.log('ChargeBack updated successfully',  result);
+        logger.log('ChargeBack updated successfully',  result);
 
         // Send a success response to the client
         return sendSuccess(res, result, 'ChargeBack updated successfully');
     } catch (error) {
         // Log the error
-        console.error('error occurred while updating ChargeBack', error);
+        logger.error('error occurred while updating ChargeBack', error);
 
         // Send an error response to the client
         return sendError(res, error, 'Error occurred while updating ChargeBack');
@@ -74,13 +74,13 @@ const deleteChargeBack = async (req, res) => {
         const result = await deleteChargeBackService(id);
 
         // Log success message
-        console.log('ChargeBack deleted successfully', result);
+        logger.log('ChargeBack deleted successfully', result);
 
         // Send a success response to the client
         return sendSuccess(res, result, 'ChargeBack deleted successfully');
     } catch (error) {
         // Log the error
-        console.error('error occurred while deleting ChargeBack', error);
+        logger.error('error occurred while deleting ChargeBack', error);
 
         // Send an error response to the client
         return sendError(res, error, 'Error occurred while deleting ChargeBack');

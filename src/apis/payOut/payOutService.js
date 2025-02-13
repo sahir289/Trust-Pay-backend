@@ -111,12 +111,9 @@ const updatePayoutService = async (id, payload) => {
     try {
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
-
         const data = await updatePayoutDao(id, payload); // Adjust DAO call for update
-
         await commit(conn); // Commit the transaction
         logger.log('Payout updated successfully', 'info');
-
         return data;
     } catch (error) {
         if (conn) {
@@ -145,9 +142,7 @@ const deletePayoutService = async (id) => {
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
         const payload = { is_obsolete: true };
-
         const data = await deletePayoutDao(id, payload); // Adjust DAO call for delete
-
         await commit(conn); // Commit the transaction
         logger.log('Payout deleted successfully', 'info');
 

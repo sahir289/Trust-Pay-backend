@@ -17,6 +17,7 @@ const getCalculationDao = async (filters={}) => {
   }
 };
 
+   
 const createCalculationDao = async (data) => {
   const [sql, params] = buildInsertQuery(tableName, data)
   const result = await executeQuery(sql, params);

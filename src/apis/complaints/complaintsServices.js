@@ -4,9 +4,9 @@ import { getComplaintsDao , createComplaintsDao, updateComplaintsDao , deleteCom
 import Logger from '../../utils/logger.js';
 const logger = new Logger()
 
-const getComplaintsService = async () => {
+const getComplaintsService = async (payload) => {
     try {
-        const data = await getComplaintsDao();
+        const data = await getComplaintsDao(payload);
         logger.log('Fetched Complaints successfully', 'info');
         return data;
     } catch (error) {

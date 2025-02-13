@@ -5,7 +5,8 @@ const logger = new Logger()
 
 const getComplaints = async (req, res) => {
     try {
-      const data = await getComplaintsService();
+      const { payload } = req.query;
+      const data = await getComplaintsService(payload);
       logger.log('get complaints successfully', 'info');
       return sendSuccess(res, data, 'get complaints successfully');
     } catch (error) {
