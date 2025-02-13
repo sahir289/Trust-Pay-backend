@@ -1,8 +1,8 @@
-import { updatePayInUrlDao } from "../apis/payIn/payInDao";
-import { getPayInUrlService, notifyMerchants } from "../apis/payIn/payInService";
-import { Status } from "../constants";
+import { updatePayInUrlDao } from "../apis/payIn/payInDao.js";
+import { getPayInUrlService, notifyMerchants } from "../apis/payIn/payInService.js";
+import { Status } from "../constants/index.js";
 
-const payInUpdateCashfreeWebhook = async (req, res) => {
+export const payInUpdateCashfreeWebhook = async (req, res) => {
     const payload = req.body;
     res.json({ status: 200, message: 'Cash free Webhook Called successfully' });
     const payInDataById = await getPayInUrlService(payload.data.order.order_id);
@@ -40,14 +40,10 @@ const payInUpdateCashfreeWebhook = async (req, res) => {
         merchantOrderId: updatePayinRes?.merchant_order_id,
         payinId: payInDataById.id,
         amount: updatePayinRes?.confirmed,
-        req_amount: amount,
+        req_amount: updatePayinRes.amount,
         utr_id: (updatePayinRes?.status === Status.SUCCESS || updatePayinRes?.status === Status.DISPUTE) ? updatePayinRes?.utr : ""
     };
 
     notifyMerchants(payInData?.config?.notify_url, notifyData)
-    const notifyMerchant = await axios.post(payInData.notify_url, notifyData);
-    return {
-        notifyMerchant
-    }
 }
 

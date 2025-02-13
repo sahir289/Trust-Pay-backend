@@ -1,4 +1,3 @@
-import { executeQuery } from '../../utils/db.js';
 import { buildInsertQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
 
 const tableName = 'Merchant';

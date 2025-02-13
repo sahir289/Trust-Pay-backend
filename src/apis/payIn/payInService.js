@@ -5,14 +5,13 @@ import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao } from "./payInD
 import { getMerchantsService } from "../merchants/merchantService.js";
 import { AccessDeniedError, BadRequestError, NotFoundError } from "../../utils/appErrors.js";
 import { v4 as uuidv4 } from "uuid";
-import { getMerchantBankByIdDao } from "../banks/bankDao.js";
+import { getMerchantBankDao } from "../bankAccounts/bankaccountDao.js";
 import { razorpay } from "../../webhooks/razorPay.js";
 import config from "../../config/config.js";
 import { Cashfree } from "cashfree-pg";
 import { getWithdrawByIdService } from "../withdraw/withDrawService.js";
 // import { calculateCommission } from "../../utils/utils.js";
 import { getMerchantBankService } from "../bankAccounts/bankaccountServices.js";
-import { getMerchantBankDao } from "../bankAccounts/bankaccountDao.js";
 
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
@@ -169,7 +168,7 @@ export const assignedBankToPayInUrlService = async (payInId, amount) => {
     // allow_qr ==> UPI
     // config.is_phonpe ==> Phone Pe
     // is_enabled ==> Bank Transfer
-    const banks = await getMerchantBankByIdDao(merchant.user_id);
+    const banks = await getMerchantBankDao(merchant.user_id);
     const enabledBanks = banks.filter((bank) => bank.is_enabled && bank.bank_used_for === "payIn")
     if (!enabledBanks.length) {
         await updatePayInUrlDao(payInId, {
@@ -309,7 +308,7 @@ export const updatePaymentNotificationStatusService = async (payInId, type) => {
             throw new Error("Payout data not found.");
         }
 
-        const merchant = await getMerchantBankByIdDao(updatePayInOutRes.merchant_id);
+        const merchant = await getMerchantBankDao(updatePayInOutRes.merchant_id);
         if (!merchant || !merchant.payout_notify_url) {
             throw new Error("Merchant or payout notify URL not found.");
         }
