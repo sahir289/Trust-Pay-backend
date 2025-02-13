@@ -3,6 +3,7 @@ import { getConnection } from '../../utils/db.js';
 import { createCompanyByIdDao, deleteCompanyByIdDao, getCompanyByIdDao, updateCompanyByIdDao } from './companyDao.js';
 import { createRoleDao } from "../roles/rolesDao.js";
 import {createDesignationByIdDao} from "../designation/designationDao.js"
+import { createUserService } from '../users/userService.js';
 
 const getCompanyByIDService = async (id) => {
   let conn;
@@ -26,29 +27,32 @@ const getCompanyByIDService = async (id) => {
 
 const createCompanyByIDService = async (payload) => {
   try {
-    console.log(payload,"payload from company")
     const result = await createCompanyByIdDao(payload);
-    console.log(result,"Company");
-    const company_id=result.id;
-    const name=result.first_name;
-    const Roles = ["ADMIN","VENDOR","MERCHANT"];
-    for (const role of Roles) {
-      const rolePayload = {
-        "role": role,
-        "company_id": company_id,
-        "created_by": name
-      };
-    const createdRole = await createRoleDao(rolePayload);
-    const role_id = createdRole.id;
-    const designation=createdRole.role;
+    const roleName = {
+      "role": "Admin",
+      "company_id": result.id,
+      "created_by":result.id
+    };
+    const role = await createRoleDao(roleName)
     const DesignationPayload = {
-      "role_id": role_id,
-      "company_id": company_id,
-      "created_by":name,
-      "designation":designation
+      "role_id": role.id,
+      "company_id": result.id,
+      "designation":role.role
     }
     const Designation = await createDesignationByIdDao(DesignationPayload);
-    console.log(Designation,"Designation")}
+    const UserPayload = {
+     "role_id":role.id,
+     "company_id": result.id,
+     "designation_id": Designation.id,
+     "user_name": role.role,
+     "email":result.email,
+     "contact_no":result.contact_no,
+     "password":"12345",
+     "first_name":result.first_name,
+     "last_name":result.last_name,
+     "code":result.first_name.split('').reverse().join('')
+    }
+    await createUserService(UserPayload);
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);

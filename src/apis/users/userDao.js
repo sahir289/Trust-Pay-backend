@@ -61,6 +61,7 @@ const getUsersByUserNameDao = async (conn, username) => {
 };
 
 const createUserDao = async (conn, payload) => {
+  console.log(payload,"Payload in user Dao")
   try {
     const sql = `
     INSERT INTO public."User" (role_id, company_id, designation_id, first_name, last_name, email, contact_no, user_name,password, code, is_enabled
