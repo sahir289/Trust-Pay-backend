@@ -1,9 +1,15 @@
 import config from "../../config/config.js";
 import { ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { ASSIGN_PAYIN_SCHEMA, VALIDATE_ASSIGNED_BANT_TO_PAY, VALIDATE_CHECK_PAY_IN_STATUS, VALIDATE_EXPIRE_PAY_IN_URL, VALIDATE_PAY_IN_INTENT_GENERATE_ORDER, VALIDATE_PAYIN_SCHEMA, VALIDATE_RESET_DEPOSIT, VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS } from "../../schemas/payInSchema.js";
-import { assignedBankToPayInUrlService, checkPayInStatusService, expirePayInUrlService, generatePayInUrlService, getPayInUrlService, payInIntentGenerateOrderService, resetDepositService, updateDepositStatusService, updatePaymentNotificationStatusService } from "./payInService.js";
-import { updateMerchantService } from "../merchants/merchantService.js";
+import {
+    ASSIGN_PAYIN_SCHEMA, VALIDATE_ASSIGNED_BANT_TO_PAY, VALIDATE_CHECK_PAY_IN_STATUS,
+    VALIDATE_EXPIRE_PAY_IN_URL, VALIDATE_PAY_IN_INTENT_GENERATE_ORDER, VALIDATE_PAYIN_SCHEMA, VALIDATE_RESET_DEPOSIT,
+    VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS
+} from "../../schemas/payInSchema.js";
+import {
+    assignedBankToPayInUrlService, checkPayInStatusService, expirePayInUrlService, generatePayInUrlService, getPayInUrlService,
+    payInIntentGenerateOrderService, resetDepositService, updateDepositStatusService, updatePaymentNotificationStatusService
+} from "./payInService.js";
 
 //  To Generate Url
 export const generatePayInUrl = async (req, res) => {
@@ -114,17 +120,17 @@ export const updatePaymentNotificationStatus = async (req, res) => {
 }
 
 export const updateDepositStatus = (req, res) => {
-    const { merchantId } = req.params;
+    const { id } = req.params;
     const { bank_name } = req.body;
     const payload = {
-        merchantId,
+        id,
         bank_name
     }
     const joiValidation = VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS.validate(payload);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-    const updateRes = updateDepositStatusService(merchantId, bank_name);
+    const updateRes = updateDepositStatusService(id, bank_name);
     sendSuccess(res, updateRes)
 }
 

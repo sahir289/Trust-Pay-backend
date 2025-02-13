@@ -11,7 +11,7 @@ import { razorpay } from "../../webhooks/razorPay.js";
 import config from "../../config/config.js";
 import { Cashfree } from "cashfree-pg";
 import { getWithdrawByIdService } from "../withdraw/withDrawService.js";
-import { calculateCommission } from "../../utils/utils.js";
+// import { calculateCommission } from "../../utils/utils.js";
 
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
@@ -304,14 +304,12 @@ export const updatePaymentNotificationStatusService = async (payInId, type) => {
         };
         notifyUrl = updatePayInOutRes.notify_url;
     } else if (type === Type.PAYOUT) {
-        updatePayInOutRes = await getWithdrawByIdService(id);
-
-        if (!updatePayInOutRes) {
+        updatePayInOutRes = await getWithdrawByIdService(payInId);
+        if (!updatePayInOutRes.length) {
             throw new Error("Payout data not found.");
         }
 
         const merchant = await getMerchantBankByIdDao(updatePayInOutRes.merchant_id);
-
         if (!merchant || !merchant.payout_notify_url) {
             throw new Error("Merchant or payout notify URL not found.");
         }
@@ -342,7 +340,7 @@ export const updateDepositStatusService = async (merchantId, bank_name) => {
     if (!payInData) {
         throw Error("PayIn data not found")
     }
-    if (payInData.status !== "BANK_MISMATCH") {
+    if (payInData.status !== Status.BANK_MISMATCH) {
         throw Error("Status is not BANK_MISMATCH, no update applied")
     }
     //call the telegram API
@@ -434,7 +432,7 @@ export const resetDepositService = async (merchant_order_id) => {
         const botRes = await botResponseRepo.getBotResByUtr(utr);
 
         const updatePayInData = {
-            status: "ASSIGNED",
+            status: Status.ASSIGNED,
             confirmed: null,
             payin_commission: null,
             utr: null,
@@ -444,6 +442,7 @@ export const resetDepositService = async (merchant_order_id) => {
         let getallPayinDataByUtr
         getallPayinDataByUtr = await getPayInUrlDao(utr);
         if (!getallPayinDataByUtr.length) {
+            //API's under construction
             getallPayinDataByUtr = await payInRepo.getPayinDataByUsrSubmittedUtr(utr);
         }
         const hasSuccess = getallPayinDataByUtr.some((item) => item.status === Status.SUCCESS);

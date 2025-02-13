@@ -34,7 +34,7 @@ export const VALIDATE_PAY_IN_INTENT_GENERATE_ORDER = Joi.object({
 });
 
 export const VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS = Joi.object({
-  merchantId: Joi.string().guid({ version: ['uuidv4'] }).label('merchantId').required(),
+  id: Joi.string().guid({ version: ['uuidv4'] }).label('merchantId').required(),
   bank_name: Joi.string().label('bank_name').required()
 });
 

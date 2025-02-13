@@ -9,7 +9,7 @@ router.post("/assign-bank/:payInId", tryCatchHandler(assignedBankToPayInUrl));
 router.post("/check-payin-status", tryCatchHandler(checkPayInStatus));
 // router.get("/expire-payIn-url/:payInId", tryCatchHandler(expirePayInUrl));
 router.post("/generate-intent-order/:payInId", tryCatchHandler(payInIntentGenerateOrder));
-router.post("/update-payment-notified-status/:id", tryCatchHandler(updatePaymentNotificationStatus));
+router.post("/update-payment-notified-status/:payInId", tryCatchHandler(updatePaymentNotificationStatus));
 router.put("/update-deposit-status/:id", tryCatchHandler(updateDepositStatus));
 router.post("/reset-payment/", tryCatchHandler(resetDeposit));
 
