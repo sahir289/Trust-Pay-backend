@@ -11,6 +11,7 @@ import { getMerchantsDao } from '../merchants/merchantDao.js';
 import { getCalculationDao, updateCalculationDao } from '../calculation/calculationDao.js';
 import { updateBankaccountDao, getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import config from '../../config/config.js';
+import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
 
 const logger = new Logger();
 
@@ -146,17 +147,26 @@ const updatePayoutService = async (id, payload) => {
                     total_payout_amount: calculation.total_payout_amount + data.amount,
                     total_payout_commission: calculation.total_payout_commission + data.commission
                 });
-                await updateBankaccountDao(bankData.id, {balance: bankData.balance - data.amount});
+                await updateBankaccountDao(bankData.id, { balance: bankData.balance - data.amount });
             } else if (data.status === "REJECTED" && isRejectedToday) {
                 await updateCalculationDao(calculation.id, {
                     total_reverse_payout_count: calculation.total_reverse_payout_count + 1,
                     total_reverse_payout_amount: calculation.total_reverse_payout_amount + data.amount,
                     total_reverse_payout_commission: calculation.total_reverse_payout_commission + data.commission
                 });
-                await updateBankaccountDao(bankData.id, {balance: bankData.balance + data.amount});
+                await updateBankaccountDao(bankData.id, { balance: bankData.balance + data.amount });
             }
         }
 
+        let merchantPayoutData = {
+            code: data.code,
+            merchantOrderId: data.merchant_order_id,
+            payoutId: data.id,
+            amount: data.amount,
+            status: data.status,
+            utr_id: data.utr_id ? data.utr_id : "",
+        }
+        await merchantPayoutCallback(data.payout_notify_url, merchantPayoutData);
         await commit(conn);
 
         logger.info('Payout updated successfully');

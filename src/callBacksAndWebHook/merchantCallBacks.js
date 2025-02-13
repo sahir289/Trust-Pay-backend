@@ -1,6 +1,8 @@
 import axios from 'axios';
-import logger from './logger'; // Adjust the import path as needed
-import { BadRequestError } from './errors'; // Adjust the import path as needed
+import Logger from '../utils/logger.js';
+import { BadRequestError } from '../utils/appErrors.js'; // Adjust the import path as needed
+
+const logger = new Logger();
 
 const sendMerchantNotification = async (url, data, type) => {
     try {
