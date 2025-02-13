@@ -2,21 +2,22 @@ import { sendError } from "../../utils/responseHandlers.js";
 import { executeQuery, buildSelectQuery, buildInsertQuery, buildUpdateQuery } from "../../utils/db.js";
 const tableName = 'Calculation';
 
-const getCalculationDao = async (filters = {}) => {
-  try {
-    const baseQuery = `SELECT * 
-                         FROM public."${tableName}" 
-                         WHERE is_obsolete = false`;
-    const [sql, queryParams] = buildSelectQuery(baseQuery, filters);
-    const rows = await executeQuery(sql, queryParams);
+const getCalculationDao = async (id) => {
+    try {
+      const baseQuery = `SELECT * 
+      FROM "${tableName}" 
+      WHERE 1=1`;
+      const [sql, queryParams] = buildSelectQuery(baseQuery, {user_id : id});
+      const row = await executeQuery(sql, queryParams);
+  
+      return row.rows[0];
+    } catch (error) {
+      console.error('Error fetching Calculation', error);
+      throw new sendError('Failed to fetch Calculation');
+    }
+  };
 
-    return rows.rows;
-  } catch (error) {
-    console.error('Error fetching Calculation', error);
-    throw new sendError('Failed to fetch Calculation');
-  }
-};
-
+   
 const createCalculationDao = async (data) => {
   const [sql, params] = buildInsertQuery(tableName, data)
   const result = await executeQuery(sql, params);

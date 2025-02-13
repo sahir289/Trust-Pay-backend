@@ -1,6 +1,9 @@
-import { BadRequestError } from '../../utils/appErrors.js';
+import { BadRequestError, CustomError } from '../../utils/appErrors.js';
 import { createSettlementByIdDao, deleteSettlementByIdDao, getSettlementByIdDao, updateSettlementByIdDao } from './settlementDao.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
+import { getCalculationDao, updateCalculationDao } from '../calculation/calculationDao.js';
+import { getMerchantsDao } from '../merchants/merchantDao.js';
+import { getVendorsDao } from '../vendors/vendorDao.js';
 
 const getSettlementByIDService = async (req, res) => {
   try {
@@ -13,26 +16,19 @@ const getSettlementByIDService = async (req, res) => {
 
       const merchantUserData = await getSettlementByIdDao(merchantData?.user_id);
       return sendSuccess(res, merchantUserData, 'getUsers successfully');
-  } else {
-    const vendorData = await getVendorsDao({ searchString: id });
-    const vendorUserData = await getSettlementByIdDao(vendorData?.user_id);
-    return sendSuccess(res, vendorUserData, 'getUsers successfully');
+    } else {
+      const vendorData = await getVendorsDao({ searchString: id });
+      const vendorUserData = await getSettlementByIdDao(vendorData?.user_id);
+      return sendSuccess(res, vendorUserData, 'getUsers successfully');
 
-  }}catch (error) {
+    }
+  } catch (error) {
     console.error('error getting while logging in', error);
     throw new BadRequestError('Error getting while logging in');
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 
-const createSettlementByIDService = async (req, res ) => {
+const createSettlementByIDService = async (req, res) => {
   try {
     const payload = req.body;
     if (!payload) {
@@ -68,24 +64,32 @@ const createSettlementByIDService = async (req, res ) => {
 
 const updateSettlementByIDService = async (req, res) => {
   try {
-    const payload = {...req.body};
+    const payload = { ...req.body };
     const { id } = req.params;
+    const data = await getSettlementByIdDao(id)
+    const calculationData = await getCalculationDao(data.user_id);
+    let count = calculationData?.total_settlement_count + 1;
+    
+    let amountCalculation = calculationData?.total_settlement_amount + payload?.amount;
+    let calculationId = calculationData?.id;
     if (req.body.config.refrence_id) {
       payload.status = "SUCCESS";
-  }
-  if (req.body.status == "INITIATED") {
+      const updatedCalculation = await updateCalculationDao(  calculationId , { total_settlement_count: count, total_settlement_amount: amountCalculation })
+      // console.log(updatedCalculation, calculationId, count,amountCalculation, "data")
+    }
+    if (req.body.status == "INITIATED") {
       payload.config.refrence_id = "";
       payload.config.rejected_reason = "";
-  }
-  if (req.body.config.rejected_reason) {
+    }
+    if (req.body.config.rejected_reason) {
       payload.status = "REVERSED";
-  }
+    }
     if (!id) {
       throw new CustomError(404, "id not found")
     }
-      const updateData = await updateSettlementByIdDao(id, payload);
-      return sendSuccess(res, updateData, 'getUsers successfully');
-    
+    const updateData = await updateSettlementByIdDao(id, payload);
+    return sendSuccess(res, updateData, 'getUsers successfully');
+
   } catch (error) {
     console.error('error getting while logging in', error);
     throw new BadRequestError('Error getting while logging in');
@@ -94,7 +98,7 @@ const updateSettlementByIDService = async (req, res) => {
 
 const deleteSettlementByIDService = async (req, res) => {
   try {
- 
+
     const { id } = req.params;
     const payload = { is_obsolete: true };
     if (!id) {
@@ -113,9 +117,8 @@ const deleteSettlementByIDService = async (req, res) => {
       const vendorUserData = await deleteSettlementByIdDao(settlementData?.id, payload);
       return sendSuccess(res, vendorUserData, 'getUsers successfully');
 
-    }  
+    }
 
-    return result;
   } catch (error) {
     console.error('error getting while logging in', error);
     throw new BadRequestError('Error getting while logging in');
