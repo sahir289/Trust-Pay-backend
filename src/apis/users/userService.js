@@ -75,7 +75,7 @@ const getUsersByUserNameService = async (username) => {
       conn = await getConnection();
       const { user_name } = payload;
       const user = await getUsersByUserNameDao(conn, user_name);
-      if (user.user_name || user.email || user.contact_no) {
+      if (user?.user_name || user?.email || user?.contact_no) {
         console.error('User already exists');
         throw new BadRequestError('User already exists');
       }
