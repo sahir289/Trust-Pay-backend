@@ -1,7 +1,7 @@
 import { buildInsertQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
 const tableName = 'Designation';
 
-const getDesignationByIdDao = async ({
+const getDesignationDao = async ({
   id = null,
   searchString = "",
   page = 1,
@@ -83,8 +83,7 @@ const deleteDesignationDao = async (id, data) => {
 
 };
 
-<<<<<<< HEAD
-export { getDesignationByIdDao, createDesignationByIdDao, updateDesignationByIdDao, deleteDesignationByIdDao };
-=======
+
+
 export { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao };
->>>>>>> 37570f3 (removed ById)
+
