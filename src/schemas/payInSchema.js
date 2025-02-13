@@ -33,3 +33,13 @@ export const VALIDATE_PAY_IN_INTENT_GENERATE_ORDER = Joi.object({
   payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
   type: Joi.string().label('type').required()
 });
+
+export const VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS = Joi.object({
+  merchantId: Joi.string().guid({ version: ['uuidv4'] }).label('merchantId').required(),
+  bank_name: Joi.string().label('bank_name').required()
+});
+
+export const VALIDATE_RESET_DEPOSIT = Joi.object({
+  merchantId: Joi.string().guid({ version: ['uuidv4'] }).label('merchantId').required(),
+  bank_name: Joi.string().label('bank_name').required()
+});

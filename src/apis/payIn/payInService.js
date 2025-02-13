@@ -1,6 +1,6 @@
 import axios from "axios";
 import { nanoid } from 'nanoid'
-import { Currency, Status } from "../../constants/index.js";
+import { Currency, Status, Type } from "../../constants/index.js";
 import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao } from "./payInDao.js";
 import { getMerchantsService } from "../merchants/merchantService.js";
 import { AccessDeniedError, BadRequestError, NotFoundError } from "../../utils/appErrors.js";
@@ -10,6 +10,8 @@ import { getMerchantBankByIdDao } from "../banks/bankDao.js";
 import { razorpay } from "../../webhooks/razorPay.js";
 import config from "../../config/config.js";
 import { Cashfree } from "cashfree-pg";
+import { getWithdrawByIdService } from "../withdraw/withDrawService.js";
+import { calculateCommission } from "../../utils/utils.js";
 
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
@@ -284,66 +286,184 @@ export const payInIntentGenerateOrderService = async (payInId, amount, isRazorpa
     };
 };
 
-// export const updatePaymentNotificationStatusService = async (payInId, type) => {
-//     let updatePayInOutRes;
-//     let notifyData;
-//     let notifyUrl;
+export const updatePaymentNotificationStatusService = async (payInId, type) => {
+    let updatePayInOutRes;
+    let notifyData;
+    let notifyUrl;
 
-//     if (type === Type.PAYIN) {
-//         updatePayInOutRes = await updatePayInUrlDao(payInId, { is_notified: true });
-//         if (!updatePayInOutRes) {
-//             throw new Error("Payin data not found.");
-//         }
-//         notifyData = {
-//             status: updatePayInOutRes.status,
-//             merchantOrderId: updatePayInOutRes.merchant_order_id,
-//             payinId: updatePayInOutRes.id,
-//             amount: updatePayInOutRes.confirmed,
-//             utr_id: updatePayInOutRes.utr || "",
-//         };
-//         notifyUrl = updatePayInOutRes.notify_url;
-//     } else if (type === Type.PAYOUT) {
-//         updatePayInOutRes = await withdrawService.getWithdrawById(id);
+    if (type === Type.PAYIN) {
+        updatePayInOutRes = await updatePayInUrlDao(payInId, { is_notified: true });
+        if (!updatePayInOutRes) {
+            throw new Error("Payin data not found.");
+        }
+        notifyData = {
+            status: updatePayInOutRes.status,
+            merchantOrderId: updatePayInOutRes.merchant_order_id,
+            payinId: updatePayInOutRes.id,
+            amount: updatePayInOutRes.confirmed,
+            utr_id: updatePayInOutRes.utr || "",
+        };
+        notifyUrl = updatePayInOutRes.notify_url;
+    } else if (type === Type.PAYOUT) {
+        updatePayInOutRes = await getWithdrawByIdService(id);
 
-//         if (!updatePayInOutRes) {
-//             throw new Error("Payout data not found.");
-//         }
+        if (!updatePayInOutRes) {
+            throw new Error("Payout data not found.");
+        }
 
-//         const merchant = await getMerchantBankByIdDao(updatePayInOutRes.merchant_id);
+        const merchant = await getMerchantBankByIdDao(updatePayInOutRes.merchant_id);
 
-//         if (!merchant || !merchant.payout_notify_url) {
-//             throw new Error("Merchant or payout notify URL not found.");
-//         }
+        if (!merchant || !merchant.payout_notify_url) {
+            throw new Error("Merchant or payout notify URL not found.");
+        }
 
-//         notifyData = {
-//             code: updatePayInOutRes.code,
-//             merchantOrderId: updatePayInOutRes.merchant_order_id,
-//             payoutId: updatePayInOutRes.id,
-//             amount: updatePayInOutRes.amount,
-//             status: updatePayInOutRes.status,
-//             utr_id: updatePayInOutRes.utr_id || "",
-//         };
-//         notifyUrl = merchant.payout_notify_url;
-//     } else {
-//         throw new Error("Invalid notification type.");
-//     }
+        notifyData = {
+            code: updatePayInOutRes.code,
+            merchantOrderId: updatePayInOutRes.merchant_order_id,
+            payoutId: updatePayInOutRes.id,
+            amount: updatePayInOutRes.amount,
+            status: updatePayInOutRes.status,
+            utr_id: updatePayInOutRes.utr_id || "",
+        };
+        notifyUrl = merchant.payout_notify_url;
+    } else {
+        throw new Error("Invalid notification type.");
+    }
 
-//     // Notify the merchant
-//     try {
-//         logger.info("Sending notification to merchant", { notify_url: notifyUrl, notify_data: notifyData });
-//         const notifyMerchant = await axios.post(notifyUrl, notifyData);
-//         logger.info("Notification sent successfully", {
-//             status: notifyMerchant.status,
-//             data: notifyMerchant.data,
-//         });
-//     } catch (error) {
-//         logger.error("Error while sending notification", error);
-//     }
+    const response = notifyMerchants(notifyUrl, notifyData)
+    return {
+        response
+    };
+}
 
-//     return DefaultResponse(res, 200, "Payment notified successfully");
-// }
+//under development..
+export const updateDepositStatusService = async (merchantId, bank_name) => {
+    const payInData = await getPayInUrlService(merchantId);
 
+    if (!payInData) {
+        throw Error("PayIn data not found")
+    }
+    if (payInData.status !== "BANK_MISMATCH") {
+        throw Error("Status is not BANK_MISMATCH, no update applied")
+    }
+    //call the telegram API
+    const getBankResponseByUtr = await botResponseRepo.getBotResByUtr(
+        payInData?.utr
+    );
 
+    const payinCommission = calculateCommission(
+        getBankResponseByUtr?.amount,
+        payInData?.Merchant?.payin_commission
+    );
+
+    const durMs = new Date() - payInData?.createdAt;
+    const durSeconds = Math.floor((durMs / 1000) % 60).toString().padStart(2, '0');
+    const durMinutes = Math.floor((durSeconds / 60) % 60).toString().padStart(2, '0');
+    const durHours = Math.floor((durMinutes / 60) % 24).toString().padStart(2, '0');
+    const duration = `${durHours}:${durMinutes}:${durSeconds}`;
+
+    //get bank by nick name api under construction..
+    const getBank = await bankAccountRepo.getBankNickName(bank_name);
+
+    let getSuccessData
+    if (getBankResponseByUtr.is_used) {
+        let existingPayinData;
+        existingPayinData = await payInRepo.getPayinDataByUtr(getBankResponseByUtr?.utr);
+        if (existingPayinData.length === 0) {
+            existingPayinData = await payInRepo.getPayinDataByUsrSubmittedUtr(getBankResponseByUtr?.utr);
+        }
+        if (existingPayinData.length > 1) {
+            getSuccessData = existingPayinData.filter(data => data.status === Status.SUCCESS)
+        }
+    }
+    else {
+        getSuccessData = [];
+    }
+
+    const updatePayInData = {
+        status: getBankResponseByUtr?.bankName != bank_name ? Status.BANK_MISMATCH : getSuccessData?.length > 0 ? Status.DUPLICATE :
+            parseFloat(payInData?.amount) !== parseFloat(payInData?.confirmed) ? Status.DISPUTE : Status.SUCCESS,
+        bank_name: bank_name,
+        bank_acc_id: getBank.id,
+        duration: duration,
+    };
+
+    if (updatePayInData.status === Status.SUCCESS) {
+        updatePayInData.payin_commission = payinCommission;
+        updatePayInData.amount = payInData.confirmed;
+    }
+
+    const updatePayInRes = await updatePayInUrlDao(payInData?.id, updatePayInData);
+
+    //under development telegram API's
+    await botResponseRepo.updateBotResponseByUtr(
+        getBankResponseByUtr?.id,
+        getBankResponseByUtr?.utr
+    );
+
+    //under development update bank API 
+    await bankAccountRepo.updateBankAccountBalance(
+        getBank?.id,
+        parseFloat(payInData.confirmed)
+    );
+
+    const notifyData = {
+        status: updatePayInRes?.status,
+        merchantOrderId: updatePayInRes?.merchant_order_id,
+        payinId: updatePayInRes?.id,
+        amount: updatePayInRes?.confirmed,
+        utr_id: updatePayInRes?.utr || ""
+    };
+
+    notifyMerchants(updatePayInRes.notify_url, notifyData)
+    return {
+        message: "PayIn data updated successfully"
+    };
+}
+
+export const resetDepositService = async (merchant_order_id) => {
+    const payInData = await getPayInUrlDao(merchant_order_id);
+    //under development telegram API's
+    await sendResetEntryTelegramMessage(
+        config?.telegramEntryResetChatId,
+        payInData,
+        config?.telegramBotToken,
+    );
+    if (payInData?.status !== Status.SUCCESS && payInData?.status !== Status.FAILED) {
+        const utr = payInData?.utr ? payInData?.utr : payInData?.user_submitted_utr
+        //API's under construction
+        const botRes = await botResponseRepo.getBotResByUtr(utr);
+
+        const updatePayInData = {
+            status: "ASSIGNED",
+            confirmed: null,
+            payin_commission: null,
+            utr: null,
+            user_submitted_utr: null,
+            duration: null,
+        };
+        let getallPayinDataByUtr
+        getallPayinDataByUtr = await getPayInUrlDao(utr);
+        if (!getallPayinDataByUtr.length) {
+            getallPayinDataByUtr = await payInRepo.getPayinDataByUsrSubmittedUtr(utr);
+        }
+        const hasSuccess = getallPayinDataByUtr.some((item) => item.status === Status.SUCCESS);
+
+        if (!hasSuccess && botRes?.id) {
+            //under development
+            await botResponseRepo?.updateBotResponseToUnusedUtr(botRes?.id);
+        }
+
+        const updatePayInRes = await updatePayInUrlDao(payInData?.id, updatePayInData);
+
+        return {
+            updatePayInRes
+        };
+    }
+    else {
+        return Error("Transaction status is SUCCESS or FAILED, no update applied");
+    }
+}
 
 
 const notifyMerchants = (url, data) => {

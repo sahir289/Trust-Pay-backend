@@ -1,8 +1,8 @@
 import config from "../../config/config.js";
 import { ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { ASSIGN_PAYIN_SCHEMA, VALIDATE_ASSIGNED_BANT_TO_PAY, VALIDATE_CHECK_PAY_IN_STATUS, VALIDATE_EXPIRE_PAY_IN_URL, VALIDATE_PAY_IN_INTENT_GENERATE_ORDER, VALIDATE_PAYIN_SCHEMA } from "../../schemas/payInSchema.js";
-import { assignedBankToPayInUrlService, checkPayInStatusService, expirePayInUrlService, generatePayInUrlService, getPayInUrlService, payInIntentGenerateOrderService } from "./payInService.js";
+import { ASSIGN_PAYIN_SCHEMA, VALIDATE_ASSIGNED_BANT_TO_PAY, VALIDATE_CHECK_PAY_IN_STATUS, VALIDATE_EXPIRE_PAY_IN_URL, VALIDATE_PAY_IN_INTENT_GENERATE_ORDER, VALIDATE_PAYIN_SCHEMA, VALIDATE_RESET_DEPOSIT, VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS } from "../../schemas/payInSchema.js";
+import { assignedBankToPayInUrlService, checkPayInStatusService, expirePayInUrlService, generatePayInUrlService, getPayInUrlService, payInIntentGenerateOrderService, resetDepositService, updateDepositStatusService, updatePaymentNotificationStatusService } from "./payInService.js";
 import { updateMerchantService } from "../merchants/merchantService.js";
 
 //  To Generate Url
@@ -109,6 +109,31 @@ export const updatePaymentNotificationStatus = async (req, res) => {
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-    const data = await updateMerchantService(payInId, type);
+    const data = await updatePaymentNotificationStatusService(payInId, type)
+    sendSuccess(res, data)
+}
+
+export const updateDepositStatus = (req, res) => {
+    const { merchantId } = req.params;
+    const { bank_name } = req.body;
+    const payload = {
+        merchantId,
+        bank_name
+    }
+    const joiValidation = VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS.validate(payload);
+    if (joiValidation.error) {
+        throw new ValidationError(joiValidation.error);
+    }
+    const updateRes = updateDepositStatusService(merchantId, bank_name);
+    sendSuccess(res, updateRes)
+}
+
+export const resetDeposit = async (req, res) => {
+    const { merchant_order_id } = req.body;
+    const joiValidation = VALIDATE_RESET_DEPOSIT.validate(merchant_order_id);
+    if (joiValidation.error) {
+        throw new ValidationError(joiValidation.error);
+    }
+    const data = await resetDepositService(merchant_order_id);
     sendSuccess(res, data)
 }
