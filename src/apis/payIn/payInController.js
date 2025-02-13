@@ -13,11 +13,11 @@ export const generatePayInUrl = async (req, res) => {
         throw new ValidationError(joiValidation.error);
     }
 
-    const api_key = req.headers["x-api-key"];
+    const x_api_key = req.headers["x-api-key"];
 
     const result = await generatePayInUrlService({
         ...payload,
-        api_key,
+        x_api_key,
     });
 
     const queryStr = payload.isTest && (payload.isTest === 'true' || payload.isTest === true) ? `?t=true` : '';
