@@ -61,6 +61,7 @@ const getUsersByUserNameDao = async (conn, username) => {
 };
 
 const createUserDao = async (conn, payload) => {
+
   try {
     const sql = `
     INSERT INTO public."User" (role_id, company_id, designation_id, first_name, last_name, email, contact_no, user_name,password, code, is_enabled
@@ -84,7 +85,7 @@ const createUserDao = async (conn, payload) => {
     if (result) {
       console.log(`User with username: ${payload.user_name} created successfully`);
       return null;
-    }
+    }  console.log("password123", result.rows[0])
     return result;
   } catch (error) {
     console.error(`Error creating user: ${payload.user_name}`, error);
