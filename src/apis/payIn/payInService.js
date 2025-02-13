@@ -53,7 +53,7 @@ export const generatePayInUrlService = async (payload) => {
     };
 
     const _10_MINUTES = 1000 * 60 * 10;
-    const expirationDate = Math.floor((new Date().getTime() + _10_MINUTES) / 1000);
+    const expirationDate = (new Date().getTime() + _10_MINUTES);
     const bank = bankAccountLinkRes[Math.floor(Math.random() * bankAccountLinkRes.length)];
     const data = {
         upi_short_code: nanoid(5), // code added by us
@@ -77,7 +77,7 @@ export const generatePayInUrlService = async (payload) => {
 
 export const getPayInUrlService = async (id) => {
 
-    const currentTime = Math.floor(Date.now() / 1000);
+    const currentTime = Date.now();
     const payIn = await getPayInUrlDao({ id });
 
     if (!payIn) {
@@ -89,7 +89,6 @@ export const getPayInUrlService = async (id) => {
     }
 
     const config = payIn.config || {};
-    // TODO: modify expiration date type 
     if (currentTime > Number(payIn.expiration_date) && payIn.status !== Status.INITIATED) {
         // expire payIn
         await updatePayInUrlDao(id, {
@@ -114,7 +113,7 @@ export const getPayInUrlService = async (id) => {
 
 // TODO: delete this API
 export const expirePayInUrlService = async (payInId) => {
-    const currentTime = Math.floor(Date.now() / 1000);
+    const currentTime = Date.now();
     const payIn = await getPayInUrlDao({ id: payInId });
     if (!payIn) {
         throw new NotFoundError('PayIn not found!');
@@ -125,7 +124,7 @@ export const expirePayInUrlService = async (payInId) => {
     // if (payIn.status !== Status.ASSIGNED) {
     // throw new BadRequestError('PayIn is not assigned');
     // }
-    if (currentTime < Number(payIn.expiration_date)) {
+    if (currentTime < new Date(payIn.expiration_date).getTime()) {
         throw new BadRequestError('Pay In is not expired yet!');
     }
 
