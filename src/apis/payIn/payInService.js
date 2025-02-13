@@ -334,133 +334,137 @@ export const updatePaymentNotificationStatusService = async (payInId, type) => {
 }
 
 //under development..
-export const updateDepositStatusService = async (merchantId, bank_name) => {
-    const payInData = await getPayInUrlService(merchantId);
+export const updateDepositStatusService = async (
+    // merchantId, bank_name
 
-    if (!payInData) {
-        throw Error("PayIn data not found")
-    }
-    if (payInData.status !== Status.BANK_MISMATCH) {
-        throw Error("Status is not BANK_MISMATCH, no update applied")
-    }
-    //call the telegram API
-    const getBankResponseByUtr = await botResponseRepo.getBotResByUtr(
-        payInData?.utr
-    );
+) => {
+    // const payInData = await getPayInUrlService(merchantId);
 
-    const payinCommission = calculateCommission(
-        getBankResponseByUtr?.amount,
-        payInData?.Merchant?.payin_commission
-    );
+    // if (!payInData) {
+    //     throw Error("PayIn data not found")
+    // }
+    // if (payInData.status !== Status.BANK_MISMATCH) {
+    //     throw Error("Status is not BANK_MISMATCH, no update applied")
+    // }
+    // //call the telegram API
+    // const getBankResponseByUtr = await botResponseRepo.getBotResByUtr(
+    //     payInData?.utr
+    // );
 
-    const durMs = new Date() - payInData?.createdAt;
-    const durSeconds = Math.floor((durMs / 1000) % 60).toString().padStart(2, '0');
-    const durMinutes = Math.floor((durSeconds / 60) % 60).toString().padStart(2, '0');
-    const durHours = Math.floor((durMinutes / 60) % 24).toString().padStart(2, '0');
-    const duration = `${durHours}:${durMinutes}:${durSeconds}`;
+    // const payinCommission = calculateCommission(
+    //     getBankResponseByUtr?.amount,
+    //     payInData?.Merchant?.payin_commission
+    // );
 
-    //get bank by nick name api under construction..
-    const getBank = await bankAccountRepo.getBankNickName(bank_name);
+    // const durMs = new Date() - payInData?.createdAt;
+    // const durSeconds = Math.floor((durMs / 1000) % 60).toString().padStart(2, '0');
+    // const durMinutes = Math.floor((durSeconds / 60) % 60).toString().padStart(2, '0');
+    // const durHours = Math.floor((durMinutes / 60) % 24).toString().padStart(2, '0');
+    // const duration = `${durHours}:${durMinutes}:${durSeconds}`;
 
-    let getSuccessData
-    if (getBankResponseByUtr.is_used) {
-        let existingPayinData;
-        existingPayinData = await payInRepo.getPayinDataByUtr(getBankResponseByUtr?.utr);
-        if (existingPayinData.length === 0) {
-            existingPayinData = await payInRepo.getPayinDataByUsrSubmittedUtr(getBankResponseByUtr?.utr);
-        }
-        if (existingPayinData.length > 1) {
-            getSuccessData = existingPayinData.filter(data => data.status === Status.SUCCESS)
-        }
-    }
-    else {
-        getSuccessData = [];
-    }
+    // //get bank by nick name api under construction..
+    // const getBank = await bankAccountRepo.getBankNickName(bank_name);
 
-    const updatePayInData = {
-        status: getBankResponseByUtr?.bankName != bank_name ? Status.BANK_MISMATCH : getSuccessData?.length > 0 ? Status.DUPLICATE :
-            parseFloat(payInData?.amount) !== parseFloat(payInData?.confirmed) ? Status.DISPUTE : Status.SUCCESS,
-        bank_name: bank_name,
-        bank_acc_id: getBank.id,
-        duration: duration,
-    };
+    // let getSuccessData
+    // if (getBankResponseByUtr.is_used) {
+    //     let existingPayinData;
+    //     existingPayinData = await payInRepo.getPayinDataByUtr(getBankResponseByUtr?.utr);
+    //     if (existingPayinData.length === 0) {
+    //         existingPayinData = await payInRepo.getPayinDataByUsrSubmittedUtr(getBankResponseByUtr?.utr);
+    //     }
+    //     if (existingPayinData.length > 1) {
+    //         getSuccessData = existingPayinData.filter(data => data.status === Status.SUCCESS)
+    //     }
+    // }
+    // else {
+    //     getSuccessData = [];
+    // }
 
-    if (updatePayInData.status === Status.SUCCESS) {
-        updatePayInData.payin_commission = payinCommission;
-        updatePayInData.amount = payInData.confirmed;
-    }
+    // const updatePayInData = {
+    //     status: getBankResponseByUtr?.bankName != bank_name ? Status.BANK_MISMATCH : getSuccessData?.length > 0 ? Status.DUPLICATE :
+    //         parseFloat(payInData?.amount) !== parseFloat(payInData?.confirmed) ? Status.DISPUTE : Status.SUCCESS,
+    //     bank_name: bank_name,
+    //     bank_acc_id: getBank.id,
+    //     duration: duration,
+    // };
 
-    const updatePayInRes = await updatePayInUrlDao(payInData?.id, updatePayInData);
+    // if (updatePayInData.status === Status.SUCCESS) {
+    //     updatePayInData.payin_commission = payinCommission;
+    //     updatePayInData.amount = payInData.confirmed;
+    // }
 
-    //under development telegram API's
-    await botResponseRepo.updateBotResponseByUtr(
-        getBankResponseByUtr?.id,
-        getBankResponseByUtr?.utr
-    );
+    // const updatePayInRes = await updatePayInUrlDao(payInData?.id, updatePayInData);
 
-    //under development update bank API 
-    await bankAccountRepo.updateBankAccountBalance(
-        getBank?.id,
-        parseFloat(payInData.confirmed)
-    );
+    // //under development telegram API's
+    // await botResponseRepo.updateBotResponseByUtr(
+    //     getBankResponseByUtr?.id,
+    //     getBankResponseByUtr?.utr
+    // );
 
-    const notifyData = {
-        status: updatePayInRes?.status,
-        merchantOrderId: updatePayInRes?.merchant_order_id,
-        payinId: updatePayInRes?.id,
-        amount: updatePayInRes?.confirmed,
-        utr_id: updatePayInRes?.utr || ""
-    };
+    // //under development update bank API 
+    // await bankAccountRepo.updateBankAccountBalance(
+    //     getBank?.id,
+    //     parseFloat(payInData.confirmed)
+    // );
 
-    notifyMerchants(updatePayInRes.notify_url, notifyData)
-    return {
-        message: "PayIn data updated successfully"
-    };
+    // const notifyData = {
+    //     status: updatePayInRes?.status,
+    //     merchantOrderId: updatePayInRes?.merchant_order_id,
+    //     payinId: updatePayInRes?.id,
+    //     amount: updatePayInRes?.confirmed,
+    //     utr_id: updatePayInRes?.utr || ""
+    // };
+
+    // notifyMerchants(updatePayInRes.notify_url, notifyData)
+    // return {
+    //     message: "PayIn data updated successfully"
+    // };
 }
 
-export const resetDepositService = async (merchant_order_id) => {
-    const payInData = await getPayInUrlDao(merchant_order_id);
-    //under development telegram API's
-    await sendResetEntryTelegramMessage(
-        config?.telegramEntryResetChatId,
-        payInData,
-        config?.telegramBotToken,
-    );
-    if (payInData?.status !== Status.SUCCESS && payInData?.status !== Status.FAILED) {
-        const utr = payInData?.utr ? payInData?.utr : payInData?.user_submitted_utr
-        //API's under construction
-        const botRes = await botResponseRepo.getBotResByUtr(utr);
+export const resetDepositService = async (
+    // merchant_order_id
+) => {
+    // const payInData = await getPayInUrlDao(merchant_order_id);
+    // //under development telegram API's
+    // await sendResetEntryTelegramMessage(
+    //     config?.telegramEntryResetChatId,
+    //     payInData,
+    //     config?.telegramBotToken,
+    // );
+    // if (payInData?.status !== Status.SUCCESS && payInData?.status !== Status.FAILED) {
+    //     const utr = payInData?.utr ? payInData?.utr : payInData?.user_submitted_utr
+    //     //API's under construction
+    //     const botRes = await botResponseRepo.getBotResByUtr(utr);
 
-        const updatePayInData = {
-            status: Status.ASSIGNED,
-            confirmed: null,
-            payin_commission: null,
-            utr: null,
-            user_submitted_utr: null,
-            duration: null,
-        };
-        let getallPayinDataByUtr
-        getallPayinDataByUtr = await getPayInUrlDao(utr);
-        if (!getallPayinDataByUtr.length) {
-            //API's under construction
-            getallPayinDataByUtr = await payInRepo.getPayinDataByUsrSubmittedUtr(utr);
-        }
-        const hasSuccess = getallPayinDataByUtr.some((item) => item.status === Status.SUCCESS);
+    //     const updatePayInData = {
+    //         status: "ASSIGNED",
+    //         confirmed: null,
+    //         payin_commission: null,
+    //         utr: null,
+    //         user_submitted_utr: null,
+    //         duration: null,
+    //     };
+    //     let getallPayinDataByUtr
+    //     getallPayinDataByUtr = await getPayInUrlDao(utr);
+    //     if (!getallPayinDataByUtr.length) {
+    //         getallPayinDataByUtr = await payInRepo.getPayinDataByUsrSubmittedUtr(utr);
+    //     }
+    //     const hasSuccess = getallPayinDataByUtr.some((item) => item.status === Status.SUCCESS);
 
-        if (!hasSuccess && botRes?.id) {
-            //under development
-            await botResponseRepo?.updateBotResponseToUnusedUtr(botRes?.id);
-        }
+    //     if (!hasSuccess && botRes?.id) {
+    //         //under development
+    //         await botResponseRepo?.updateBotResponseToUnusedUtr(botRes?.id);
+    //     }
 
-        const updatePayInRes = await updatePayInUrlDao(payInData?.id, updatePayInData);
+    //     const updatePayInRes = await updatePayInUrlDao(payInData?.id, updatePayInData);
 
-        return {
-            updatePayInRes
-        };
-    }
-    else {
-        return Error("Transaction status is SUCCESS or FAILED, no update applied");
-    }
+    //     return {
+    //         updatePayInRes
+    //     };
+    // }
+    // else {
+    //     return Error("Transaction status is SUCCESS or FAILED, no update applied");
+    // }
 }
 
 
