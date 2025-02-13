@@ -65,7 +65,7 @@ router.get('/', isAuthenticated, tryCatchHandler(getSettlementByIDService));
  *                       type: string
  *                       example: "john_doe"
  */
-router.post('/create-settlement',  tryCatchHandler(createSettlementByIDService));
+router.post('/create-settlement', isAuthenticated, tryCatchHandler(createSettlementByIDService));
 
 /**
  * @swagger

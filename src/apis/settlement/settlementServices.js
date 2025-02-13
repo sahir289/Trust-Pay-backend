@@ -13,7 +13,7 @@ const getSettlementByIDService = async (req, res) => {
       throw new CustomError(404, "id not found")
     }
     const merchantData = await getMerchantsDao({ searchString: id });
-    if (merchantData.length > 0) {
+    if (merchantData?.length > 0) {
 
       const merchantUserData = await getSettlementByIdDao(merchantData?.user_id);
       return sendSuccess(res, merchantUserData, 'getUsers successfully');
@@ -30,29 +30,17 @@ const getSettlementByIDService = async (req, res) => {
 };
 
 const createSettlementByIDService = async (req, res) => {
+  
   try {
     const payload = req.body;
     if (!payload) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
-
-    }
-    console.log(payload, "payload11")
-    const merchantData = await getMerchantsDao({ searchString: payload.user_id });
-    if (merchantData.length > 0) {
-      const merchantUserData = await getSettlementByIDService(merchantData?.user_id);
+    }   
+      const merchantUserData = await getSettlementByIdDao(payload.user_id);
       if (merchantUserData) {
         throw new CustomError(404, "Settlement already exist")
-      }
-    }
-    const vendorData = await getVendorsDao({ searchString: payload.user_id });
-    if (vendorData[0].length > 0) {
-      const vendorUserData = await getSettlementByIDService(vendorData[0].user_id);
-      if (vendorUserData) {
-        throw new CustomError(404, "Settlement already exist")
-      }
-    }
-
+      }  
     const data = await createSettlementByIdDao(payload);
     return sendSuccess(res, data, 'getUsers successfully');
 
@@ -87,27 +75,26 @@ const updateSettlementByIDService = async (req, res) => {
       payload.status = "SUCCESS";
       //calculation for merchant and vendor
       const data = await getSettlementByIdDao(id)
-      const calculationData = await getCalculationDao(data.user_id);
+      const calculationData = await getCalculationDao(data?.user_id);
       let count = calculationData?.total_settlement_count + 1;
       let amountCalculation = calculationData?.total_settlement_amount + payload?.amount;
       let calculationId = calculationData?.id;
       let currentBalance = calculationData?.current_balance + payload?.amount;
       let netBalance = calculationData?.net_balance + payload?.amount;
-      await updateCalculationDao(calculationId,
+      const updated= await updateCalculationDao(calculationId,
         {
           total_settlement_count: count, total_settlement_amount: amountCalculation,
           current_balance: currentBalance, net_balance: netBalance
         })
-      //calculation for bank balance only vendor
-      const settlementData = await getSettlementByIdDao(id)
-      const vendorData = await getVendorsDao(settlementData.user_id)
-      if (vendorData) {
-        const bankData = await getBankaccountDao({searchString: vendorData[0].user_id});
-        const bankAcc = bankData[0].balance - payload?.amount;
-        const updatedBankData = await updateBankaccountByIdDao(bankData[0].id, { balance: bankAcc });
-        console.log(bankData,updatedBankData,"vendor11")
-      }     
-    }
+        const settlementData = await getSettlementByIdDao(id)
+        const vendorData = await getVendorsDao({searchString : settlementData?.user_id})
+        console.log(vendorData, "empty")
+        if (vendorData[0]>0) {
+          const bankData = await getBankaccountDao({searchString: vendorData[0].user_id});
+          const bankAcc = bankData[0].balance - payload?.amount;
+          const updatedBankData = await updateBankaccountByIdDao(bankData[0].id, { balance: bankAcc });
+        }     
+      }
     if (req.body.status == "INITIATED") {
       payload.config.refrence_id = "";
       payload.config.rejected_reason = "";
