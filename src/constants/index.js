@@ -29,5 +29,12 @@ export const Method = {
 
 export const Type = {
     PAYIN: "PAYIN",
-    PAYOUT: "PAYOUT"
+    PAYOUT: "PAYOUT",
+    EKO: 'EKO',
+}
+
+export const Role = {
+    ADMIN: 'ADMIN',
+    MERCHANT: 'MERCHANT',
+    VENDOR: 'VENDOR',
 }

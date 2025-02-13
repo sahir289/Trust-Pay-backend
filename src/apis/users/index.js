@@ -1,6 +1,7 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createUser, getUserById, getUsers, getUsersByUserName } from './userController.js';
+import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
 
@@ -24,7 +25,7 @@ const router = express.Router();
  *                   type: string
  *                   example: "get users successfully"
  */
-router.get('/', tryCatchHandler(getUsers));
+router.get('/', isAuthenticated, tryCatchHandler(getUsers));
 
 /**
  * @swagger
@@ -64,7 +65,7 @@ router.get('/', tryCatchHandler(getUsers));
  *                         type: string
  *                         example: "john_doe"
  */
-router.get('/get-users-by-name', tryCatchHandler(getUsersByUserName));
+router.get('/get-users-by-name', isAuthenticated, tryCatchHandler(getUsersByUserName));
 
 /**
  * @swagger
@@ -104,7 +105,7 @@ router.get('/get-users-by-name', tryCatchHandler(getUsersByUserName));
  *                         type: string
  *                         example: "john_doe"
  */
-router.get('/:id', tryCatchHandler(getUserById));
+router.get('/:id', isAuthenticated, tryCatchHandler(getUserById));
 
 /**
  * @swagger
@@ -144,7 +145,7 @@ router.get('/:id', tryCatchHandler(getUserById));
  *                         type: string
  *                         example: "john_doe"
  */
-router.post('/create-user', tryCatchHandler(createUser));
+router.post('/create-user', isAuthenticated,  tryCatchHandler(createUser));
 
 
 

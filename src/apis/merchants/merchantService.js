@@ -1,7 +1,7 @@
 import {
     BadRequestError,
 } from '../../utils/appErrors.js';
-import { getConnection } from '../../utils/db.js';
+import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { createMerchantDao, deleteMerchantDao, getMerchantsDao, updateMerchantDao } from './merchantDao.js';
 
 
@@ -9,18 +9,18 @@ const createMerchantService = async (payload) => {
     let conn;
     try {
         conn = await getConnection();
-        await conn.beginTransaction(); // Start a transaction
+        await beginTransaction(conn); // Start a transaction
 
-        const data = await createMerchantDao(conn, payload);
+        const data = await createMerchantDao(payload);
 
-        await conn.commit(); // Commit the transaction
+        await commit(conn); // Commit the transaction
         console.log('Merchant created successfully',);
 
         return data;
     } catch (error) {
         if (conn) {
             try {
-                await conn.rollback(); // Rollback the transaction in case of error
+                await rollback(conn); // Rollback the transaction in case of error
             } catch (rollbackError) {
                 console.error('Error during transaction rollback', rollbackError);
             }
@@ -38,26 +38,53 @@ const createMerchantService = async (payload) => {
     }
 };
 
-const getMerchantsService = async (payload) => {
-    return await getMerchantsDao(payload);
-};
-
-const updateMerchantService = async (payload) => {
+const getMerchantsService = async () => {
     let conn;
     try {
         conn = await getConnection();
-        await conn.beginTransaction(); // Start a transaction
+        await beginTransaction(conn);
+        const data = await getMerchantsDao();
+        await commit(conn); // Commit transaction (even if no modifications)
 
-        const data = await updateMerchantDao(conn, payload); // Adjust DAO call for update
+        console.log('Fetched Merchants successfully');
+        return data;
+    } catch (error) {
+        if (conn) {
+            try {
+                await rollback(conn); // Rollback the transaction if an error occurs
+            } catch (rollbackError) {
+                console.error('Error during transaction rollback', rollbackError);
+            }
+        }
+        console.error('Error while fetching Merchants', error);
+        throw new BadRequestError('Error occurred while fetching Merchants');
+    } finally {
+        if (conn) {
+            try {
+                conn.release(); // Release the connection back to the pool
+            } catch (releaseError) {
+                console.error('Error while releasing the connection', releaseError);
+            }
+        }
+    }
+};
 
-        await conn.commit(); // Commit the transaction
+const updateMerchantService = async (id, payload) => {
+    let conn;
+    try {
+        conn = await getConnection();
+        await beginTransaction(conn); // Start a transaction
+
+        const data = await updateMerchantDao(id, payload); // Adjust DAO call for update
+
+        await commit(conn); // Commit the transaction
         console.log('Merchant updated successfully');
 
         return data;
     } catch (error) {
         if (conn) {
             try {
-                await conn.rollback(); // Rollback the transaction in case of error
+                await rollback(conn); // Rollback the transaction in case of error
             } catch (rollbackError) {
                 console.error('Error during transaction rollback', rollbackError);
             }
@@ -75,22 +102,23 @@ const updateMerchantService = async (payload) => {
     }
 };
 
-const deleteMerchantService = async (payload) => {
+const deleteMerchantService = async (id) => {
     let conn;
     try {
         conn = await getConnection();
-        await conn.beginTransaction(); // Start a transaction
+        await beginTransaction(conn); // Start a transaction
+        const payload = { is_obsolete: true };
 
-        const data = await deleteMerchantDao(conn, payload); // Adjust DAO call for delete
+        const data = await deleteMerchantDao(id, payload); // Adjust DAO call for delete
 
-        await conn.commit(); // Commit the transaction
+        await commit(conn); // Commit the transaction
         console.log('Merchant deleted successfully');
 
         return data;
     } catch (error) {
         if (conn) {
             try {
-                await conn.rollback(); // Rollback the transaction in case of error
+                await rollback(conn); // Rollback the transaction in case of error
             } catch (rollbackError) {
                 console.error('Error during transaction rollback', rollbackError);
             }

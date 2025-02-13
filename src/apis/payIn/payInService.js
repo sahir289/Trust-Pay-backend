@@ -5,13 +5,14 @@ import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao } from "./payInD
 import { getMerchantsService } from "../merchants/merchantService.js";
 import { AccessDeniedError, BadRequestError, NotFoundError } from "../../utils/appErrors.js";
 import { v4 as uuidv4 } from "uuid";
-import { getMerchantBankByIdService } from "../banks/bankService.js";
 import { getMerchantBankByIdDao } from "../banks/bankDao.js";
 import { razorpay } from "../../webhooks/razorPay.js";
 import config from "../../config/config.js";
 import { Cashfree } from "cashfree-pg";
 import { getWithdrawByIdService } from "../withdraw/withDrawService.js";
 // import { calculateCommission } from "../../utils/utils.js";
+import { getMerchantBankService } from "../bankAccounts/bankaccountServices.js";
+import { getMerchantBankDao } from "../bankAccounts/bankaccountDao.js";
 
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
@@ -36,7 +37,7 @@ export const generatePayInUrlService = async (payload) => {
         throw new BadRequestError(404, "Enter valid Api key");
     }
 
-    const bankAccountLinkRes = await getMerchantBankByIdService(merchant.user_id);
+    const bankAccountLinkRes = await getMerchantBankService(merchant.user_id);
     const availableBankAccounts = bankAccountLinkRes.filter(bankAccount => bankAccount.bank_used_for === "payIn" && bankAccount.is_enabled && (bankAccount.is_bank || bankAccount.is_qr));
     if (!availableBankAccounts.length) {
         // Send alert if no bank account is linked
