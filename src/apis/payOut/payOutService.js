@@ -9,6 +9,7 @@ import Logger from '../../utils/logger.js';
 import { createPayoutDao, deletePayoutDao, getPayoutsDao, updatePayoutDao } from './payOutDao.js';
 import { getMerchantsDao } from '../merchants/merchantDao.js';
 import { getCalculationDao, updateCalculationDao } from '../calculation/calculationDao.js';
+import { updateBankaccountDao, getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import config from '../../config/config.js';
 
 const logger = new Logger();
@@ -133,6 +134,7 @@ const updatePayoutService = async (id, payload) => {
 
         const data = await updatePayoutDao(id, payload);
         const calculation = await getCalculationDao({ user_id: data.user_id });
+        const bankData = await getBankaccountDao({ id: data.bank_acc_id });
 
         if (data.approved_at) {
             const isToday = new Date(data.approved_at).toDateString() === new Date().toDateString();
@@ -144,12 +146,14 @@ const updatePayoutService = async (id, payload) => {
                     total_payout_amount: calculation.total_payout_amount + data.amount,
                     total_payout_commission: calculation.total_payout_commission + data.commission
                 });
+                await updateBankaccountDao(bankData.id, {balance: bankData.balance - data.amount});
             } else if (data.status === "REJECTED" && isRejectedToday) {
                 await updateCalculationDao(calculation.id, {
                     total_reverse_payout_count: calculation.total_reverse_payout_count + 1,
                     total_reverse_payout_amount: calculation.total_reverse_payout_amount + data.amount,
                     total_reverse_payout_commission: calculation.total_reverse_payout_commission + data.commission
                 });
+                await updateBankaccountDao(bankData.id, {balance: bankData.balance + data.amount});
             }
         }
 

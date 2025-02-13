@@ -1,5 +1,5 @@
 import { BadRequestError } from '../../utils/appErrors.js';
-import { getBankaccountDao, createBankaccountByIdDao, updateBankaccountByIdDao, deleteBankaccountByIdDao, getMerchantBankByIdDao } from './bankaccountDao.js';
+import { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBankaccountDao, getMerchantBankDao } from './bankaccountDao.js';
 
 const getBankaccountService = async (payload) => {
     try {
@@ -12,10 +12,10 @@ const getBankaccountService = async (payload) => {
     }
 };
 
-const createBankaccountByIDService = async (payload) => {
+const createBankaccountService = async (payload) => {
     try {
 
-        const result = await createBankaccountByIdDao(payload);
+        const result = await createBankaccountDao(payload);
         return result;
     } catch (error) {
         console.error('error getting while logging in', error);
@@ -23,9 +23,9 @@ const createBankaccountByIDService = async (payload) => {
     }
 };
 
-const updateBankaccountByIDService = async (id, payload) => {
+const updateBankaccountService = async (id, payload) => {
     try {
-        const result = await updateBankaccountByIdDao(id, payload);
+        const result = await updateBankaccountDao(id, payload);
         return result;
     } catch (error) {
         console.error('error getting while logging in', error);
@@ -33,9 +33,9 @@ const updateBankaccountByIDService = async (id, payload) => {
     }
 };
 
-const deleteBankaccountByIDService = async (id) => {
+const deleteBankaccountService = async (id) => {
     try {
-        const result = await deleteBankaccountByIdDao(id, { is_obsolete: true });
+        const result = await deleteBankaccountDao(id, { is_obsolete: true });
         return result;
     } catch (error) {
         console.error('error getting while logging in', error);
@@ -43,9 +43,9 @@ const deleteBankaccountByIDService = async (id) => {
     }
 };
 
-const getMerchantBankByIdService = async (id) => {
+const getMerchantBankService = async (id) => {
     // Fetch the bank account details for the given merchant ID
-   return await getMerchantBankByIdDao(id);
+   return await getMerchantBankDao(id);
 }
 
-export { getBankaccountService, createBankaccountByIDService, updateBankaccountByIDService, deleteBankaccountByIDService, getMerchantBankByIdService };
+export { getBankaccountService, createBankaccountService, updateBankaccountService, deleteBankaccountService, getMerchantBankService };
