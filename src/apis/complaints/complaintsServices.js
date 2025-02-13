@@ -1,14 +1,16 @@
 import {BadRequestError,} from '../../utils/appErrors.js';
 
 import { getComplaintsDao , createComplaintsDao, updateComplaintsDao , deleteComplaintsDao } from './complaintsDao.js';
+import { Logger } from 'winston';
+const logger = new Logger();
 
 const getComplaintsService = async (payload) => {
     try {
         const data = await getComplaintsDao(payload);
-console.log('Fetched Complaints successfully', 'info');
+logger.info('Fetched Complaints successfully', 'info');
         return data;
     } catch (error) {
-console.error('Error during transaction rollback', 'error', error);
+logger.error('Error during transaction rollback', 'error', error);
        throw new BadRequestError('Error occurred while fetching Complaints');
     }
 }
@@ -17,10 +19,10 @@ console.error('Error during transaction rollback', 'error', error);
 const createComplaintsService = async (payload) => {
     try {
         const data = await createComplaintsDao(payload);
-console.log('Created Complaints successfully', 'info');
+logger.info('Created Complaints successfully', 'info');
         return data;
     }  catch (error) {
-console.error('Error while updating Complaints', 'error', error);
+logger.error('Error while updating Complaints', 'error', error);
         throw new BadRequestError('Error occurred while Creating Complaints');
     }
 }
@@ -32,10 +34,10 @@ const updateComplaintsService = async (id, body) => {
             }
             try {
                 const data = await updateComplaintsDao(id, body);
-console.log('Updated Complaints successfully', 'info');
+logger.info('Updated Complaints successfully', 'info');
                 return data;
             } catch (error) {
-console.error('Error while updating Complaints', 'error', error);
+logger.error('Error while updating Complaints', 'error', error);
                 throw new BadRequestError('Error occurred while updating Complaints');
             }
         }
@@ -44,10 +46,10 @@ console.error('Error while updating Complaints', 'error', error);
 const deleteComplaintsService = async (id,userData ) => {  
     try {
         const data = await deleteComplaintsDao(id,userData);
-        console.log('Deleted Complaints successfully', 'info');
+        logger.log('Deleted Complaints successfully', 'info');
         return data;
     } catch (error) {
-console.error('Error while updating Complaints', 'error', error);
+logger.error('Error while updating Complaints', 'error', error);
             throw new BadRequestError('Error occurred while updating Complaints');
         }
 }

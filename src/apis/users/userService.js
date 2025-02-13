@@ -52,7 +52,7 @@ const getUsersByUserNameService = async (username) => {
       conn = await getConnection();
 
       const data = await getUsersByUserNameDao(conn, username);
-      console.log('getUsers successfully');
+      console.log('get Users successfully');
       
       return data;
     } catch (error) {

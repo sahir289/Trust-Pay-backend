@@ -1,7 +1,8 @@
 import { sendError } from "../../utils/responseHandlers.js";
 import { executeQuery, buildSelectQuery, buildInsertQuery, buildUpdateQuery } from "../../utils/db.js";
 const tableName = 'Calculation';
-
+import { Logger } from 'winston';
+const logger = new Logger();
 const getCalculationDao = async (filters={}) => {
     try {
       const baseQuery = `SELECT * 
@@ -12,12 +13,11 @@ const getCalculationDao = async (filters={}) => {
 
     return rows.rows;
   } catch (error) {
-    console.error('Error fetching Calculation', error);
+    logger.error('Error fetching Calculation', error);
     throw new sendError('Failed to fetch Calculation');
   }
 };
 
-   
 const createCalculationDao = async (data) => {
   const [sql, params] = buildInsertQuery(tableName, data)
   const result = await executeQuery(sql, params);
@@ -78,7 +78,7 @@ const updateCalculationDao = async (user_id, data) => {
 
     return result.rows[0]; 
   } catch (error) {
-    console.error("Error updating calculation", error);
+    logger.error("Error updating calculation", error);
     throw new Error("Failed to update calculation");
   }
 };
