@@ -36,12 +36,25 @@ const createSettlementService = async (req, res) => {
     if (!payload) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
-    }   
-      const merchantUserData = await getSettlementDao(payload.user_id);
+
+    }
+    console.log(payload, "payload11")
+    const merchantData = await getMerchantsDao({ searchString: payload.user_id });
+    if (merchantData.length > 0) {
+      const merchantUserData = await getSettlementByIDService(merchantData?.user_id);
       if (merchantUserData) {
         throw new CustomError(404, "Settlement already exist")
-      }  
-    const data = await createSettlementDao(payload);
+      }
+    }
+    const vendorData = await getVendorsDao({ searchString: payload.user_id });
+    if (vendorData[0].length > 0) {
+      const vendorUserData = await getSettlementByIDService(vendorData[0].user_id);
+      if (vendorUserData) {
+        throw new CustomError(404, "Settlement already exist")
+      }
+    }
+
+    const data = await createSettlementByIdDao(payload);
     return sendSuccess(res, data, 'getUsers successfully');
 
   } catch (error) {
@@ -74,8 +87,8 @@ const updateSettlementService = async (req, res) => {
     if (req.body.config.refrence_id) {
       payload.status = "SUCCESS";
       //calculation for merchant and vendor
-      const data = await getSettlementDao(id)
-      const calculationData = await getCalculationDao(data?.user_id);
+      const data = await getSettlementByIdDao(id)
+      const calculationData = await getCalculationDao(data.user_id);
       let count = calculationData?.total_settlement_count + 1;
       let amountCalculation = calculationData?.total_settlement_amount + payload?.amount;
       let calculationId = calculationData?.id;
