@@ -1,11 +1,10 @@
 import Joi from 'joi';
 
 export const ASSIGN_PAYIN_SCHEMA = Joi.object({
-  ap: Joi.string().label('ap').optional(),
   ot: Joi.string().label('ot').optional(),
   amount: Joi.number().positive().label('amount').optional(),
   code: Joi.string().label('code').required(),
-  api_key: Joi.string().label('api_key').required(),
+  api_key: Joi.string().label('api_key').optional(),
   merchant_order_id: Joi.string().label('merchant_order_id').optional(),
   user_id: Joi.string().label('user_id').required(),
 });

@@ -18,7 +18,7 @@ Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION
 
 export const generatePayInUrlService = async (payload) => {
-    const { code, user_id, merchant_order_id: order_id, amount, returnUrl, ap, api_key } = payload;
+    const { code, user_id, merchant_order_id: order_id, amount, returnUrl, api_key, x_api_key } = payload;
     const merchant_order_id = order_id ? order_id : uuidv4();
 
     const merchantArr = await getMerchantsService({ code });
@@ -28,12 +28,11 @@ export const generatePayInUrlService = async (payload) => {
         throw new NotFoundError("Merchant does not exist");
     }
 
-    // bug
-    if (ap && ap !== merchant.config?.api_key) {
+    if (api_key && api_key != merchant.config?.api_key) {
         throw new BadRequestError("Enter valid Api key");
     }
 
-    if (!ap && api_key !== merchant.config?.api_key) {
+    if (!api_key && x_api_key != merchant.config?.api_key) {
         throw new BadRequestError(404, "Enter valid Api key");
     }
 

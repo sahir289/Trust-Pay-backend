@@ -1,4 +1,4 @@
-import { getWithDrawByIdDao } from "./withDrawDao"
+import { getWithDrawByIdDao } from "./withDrawDao.js"
 
 export const getWithdrawByIdService = async (payInId) => {
     const data = await getWithDrawByIdDao(payInId)
