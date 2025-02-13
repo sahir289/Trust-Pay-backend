@@ -4,7 +4,7 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getCalculationDao, updateCalculationDao } from '../calculation/calculationDao.js';
 import { getMerchantsDao } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
-import { getBankaccountDao, updateBankaccountByIdDao } from '../bankAccounts/bankaccountDao.js';
+import { getBankaccountDao, updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 
 const getSettlementService = async (req, res) => {
   try {
@@ -94,7 +94,7 @@ const updateSettlementService = async (req, res) => {
           const bankData = await getBankaccountDao({searchString: vendorData[0].user_id});
           const bankAcc = bankData[0].balance - payload?.amount;
           // const updatedBankData = 
-          await updateBankaccountByIdDao(bankData[0].id, { balance: bankAcc });
+          await updateBankaccountDao(bankData[0].id, { balance: bankAcc });
         }     
       }
     if (req.body.status == "INITIATED") {

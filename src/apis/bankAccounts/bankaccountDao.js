@@ -23,21 +23,21 @@ const getMerchantBankDao = async (user_id) => {
 }
 
 const createBankaccountDao = async (payload) => {
-  const [sql, params] = buildInsertQuery(tableName.BANK_ACCOUNT, payload)
+  const [sql, params] = buildInsertQuery(tableName, payload)
   const result = await executeQuery(sql, params);
   return result.rows[0];
 };
 
 const updateBankaccountDao = async (id, payload) => {
-  const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, payload, { id });
+  const [sql, params] = buildUpdateQuery(tableName, payload, { id });
   const result = await executeQuery(sql, params);
   return result.rows[0];
 };
 
 const deleteBankaccountDao = async (id, data) => {
-  const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, data, { id });
+  const [sql, params] = buildUpdateQuery(tableName, data, { id });
   const result = await executeQuery(sql, params);
   return result.rows[0];
 };
 
-export { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBankaccountDao, getMerchantBankDao };
+export { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBankaccountDao, getMerchantBankByIdDao };

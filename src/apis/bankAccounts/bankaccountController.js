@@ -1,6 +1,6 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getBankaccountService, createBankaccountService, updateBankaccountService, deleteBankaccountService, getMerchantBankService } from './bankaccountServices.js';
+import { getBankaccountService, createBankaccountService, updateBankaccountService, deleteBankaccountService, getMerchantBankByIdService } from './bankaccountServices.js';
 
 const getBankaccount = async (req, res) => {
   try {
