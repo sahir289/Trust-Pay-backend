@@ -9,6 +9,7 @@ import { getPayoutsDao, updatePayoutDao } from '../apis/payOut/payOutDao';
 import { NotFoundError } from '../utils/appErrors';
 import Logger from '../utils/logger';
 import { merchantPayoutCallback } from './merchantCallBacks';
+import { Status } from '../constants';
 
 // Initialize logger
 const logger = new Logger();
@@ -27,17 +28,17 @@ export const ekoTransactionStatusCallback = async (req, res) => {
         // Prepare the updated data object
         const updatedData = {
             status:
-                payload.txstatus_desc.toUpperCase() === 'SUCCESS'
+                payload.txstatus_desc.toUpperCase() === Status.SUCCESS
                     ? payload.txstatus_desc.toUpperCase()
-                    : 'REJECTED',
+                    : Status.REJECTED,
             amount: Number(payload.amount),
             utr_id: payload.tid ? String(payload.tid) : '',
             approved_at:
-                payload.txstatus_desc.toUpperCase() === 'SUCCESS'
+                payload.txstatus_desc.toUpperCase() === Status.SUCCESS
                     ? payload.timestamp
                     : null,
             rejected_at:
-                payload.txstatus_desc.toUpperCase() !== 'SUCCESS'
+                payload.txstatus_desc.toUpperCase() !== Status.SUCCESS
                     ? payload.timestamp
                     : null,
         };
@@ -62,19 +63,17 @@ export const ekoTransactionStatusCallback = async (req, res) => {
 
         // Log the merchant payout URL
         const merchantPayoutUrl = merchant.payout_notify_url;
-        console.log(merchantPayoutUrl);
 
         // TODO: Implement the notification to the merchant's payout URL
         if (merchantPayoutUrl !== null) {
-            let merchantPayoutData = {
-              code: merchant.code,
-              merchantOrderId: singleWithdrawData.merchant_order_id,
-              payoutId: singleWithdrawData.id,
-              amount: singleWithdrawData.amount,
-              status: payload.status,
-              utr_id: payload.utr ? payload.utr : "",
-            }
-            await merchantPayoutCallback(merchantPayoutUrl, merchantPayoutData);
+            await merchantPayoutCallback(merchantPayoutUrl, {
+                code: merchant.code,
+                merchantOrderId: singleWithdrawData.merchant_order_id,
+                payoutId: singleWithdrawData.id,
+                amount: singleWithdrawData.amount,
+                status: payload.status,
+                utr_id: payload.utr ? payload.utr : "",
+            });
         }
 
         return data;

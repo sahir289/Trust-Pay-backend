@@ -25,4 +25,11 @@ export const Method = {
     CASH: 'CASH',
     AED: 'AED',
     CRYPTO: 'CRYPTO',
+    EKO: 'EKO',
+}
+
+export const Role = {
+    ADMIN: 'ADMIN',
+    MERCHANT: 'MERCHANT',
+    VENDOR: 'VENDOR',
 }
