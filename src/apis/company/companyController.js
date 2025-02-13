@@ -1,57 +1,58 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getDesignationService, createDesignationByIDService, updateDesignationByIDService, deleteDesignationByIDService } from './designationServices.js';
+import { createCompanyByIDService, deleteCompanyByIDService, getCompanyByIDService, updateCompanyByIDService } from './companyServices.js';
 
-const getDesignation = async (req, res) => {
+
+
+const getCompanyById = async (req, res) => {
   try {
-    const { payload } = req.query;
-    const data = await getDesignationService(payload);
-    console.log('getUsers successfully');
+    const { id } = req.params;
+    const data = await getCompanyByIDService(id);
+
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while logging in', error);
   }
 };
-
-const createDesignation = async (req, res) => {
+const createCompany = async (req, res) => {
   try {
     const payload = req.body;
     if (!payload) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await createDesignationByIDService(payload);
+    const data = await createCompanyByIDService(payload);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while logging in', error);
   }
-};
+}
 
-const updateDesignation = async (req, res) => {
+const updateCompany = async (req, res) => {
   try {
     const payload = req.body;
     const { id } = req.params;
-    const data = await updateDesignationByIDService(id, payload);
+    const data = await updateCompanyByIDService(id, payload);
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while logging in', error);
   }
-};
+}
 
-const deleteDesignation = async (req, res) => {
+
+const deleteCompany = async (req, res) => {
   try {
     const { id } = req.params;
     if (!id) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await deleteDesignationByIDService(id);
+    const data = await deleteCompanyByIDService(id);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while logging in', error);
   }
-};
-
-export { getDesignation, createDesignation, updateDesignation, deleteDesignation };
+}
+export { getCompanyById, createCompany, updateCompany, deleteCompany };

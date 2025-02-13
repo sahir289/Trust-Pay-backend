@@ -23,9 +23,10 @@ const createCalculationService = async (payload) => {
        throw new BadRequestError('Error occurred while creating Calculation');
     }
 }
-const updateCalculationService = async (id,payload) => {  
+
+const updateCalculationService = async (user_id,payload) => {  
     try {
-        const data = await updateCalculationDao(id,payload);
+        const data = await updateCalculationDao(user_id,payload);
         console.log('Updated Calculation successfully', 'info');
         return data;
     } catch (error) {
@@ -33,6 +34,7 @@ const updateCalculationService = async (id,payload) => {
        throw new BadRequestError('Error occurred while updating Calculation');
     }
 }
+
 const deleteCalculationService = async (id) => {  
     try {
         const userData = {is_obsolete: true};

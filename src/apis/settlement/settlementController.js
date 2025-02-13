@@ -1,26 +1,26 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getDesignationService, createDesignationByIDService, updateDesignationByIDService, deleteDesignationByIDService } from './designationServices.js';
+import { createSettlementByIDService, deleteSettlementByIDService, getSettlementByIDService, updateSettlementByIDService } from './settlementServices.js';
 
-const getDesignation = async (req, res) => {
+const getSettlementById = async (req, res) => {
   try {
-    const { payload } = req.query;
-    const data = await getDesignationService(payload);
-    console.log('getUsers successfully');
+    const { id } = req.params;
+    const data = await getSettlementByIDService(id);
+
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while logging in', error);
   }
 };
 
-const createDesignation = async (req, res) => {
+const createSettlement = async (req, res) => {
   try {
     const payload = req.body;
     if (!payload) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await createDesignationByIDService(payload);
+    const data = await createSettlementByIDService(payload);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
@@ -28,30 +28,30 @@ const createDesignation = async (req, res) => {
   }
 };
 
-const updateDesignation = async (req, res) => {
+const updateSettlement = async (req, res) => {
   try {
     const payload = req.body;
     const { id } = req.params;
-    const data = await updateDesignationByIDService(id, payload);
+    const data = await updateSettlementByIDService(id, payload);
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while logging in', error);
   }
 };
 
-const deleteDesignation = async (req, res) => {
+const deleteSettlement = async (req, res) => {
   try {
     const { id } = req.params;
     if (!id) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await deleteDesignationByIDService(id);
+    const data = await deleteSettlementByIDService(id);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while logging in', error);
   }
-};
+}
 
-export { getDesignation, createDesignation, updateDesignation, deleteDesignation };
+export { getSettlementById, createSettlement, updateSettlement, deleteSettlement };

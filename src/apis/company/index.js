@@ -1,27 +1,28 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createDesignation, deleteDesignation, getDesignation, updateDesignation } from './designationController.js';
+import { createCompany, deleteCompany, getCompanyById, updateCompany } from './companyController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
+
 const router = express.Router();
 
 /**
  * @swagger
- * /designation:
+ * /company:
  *   get:
- *     summary: Get Designation by ID
- *     description: Retrieve details of a specific designation by its ID.
+ *     summary: Get Company by ID
+ *     description: Retrieves details of a specific company by its ID.
  *     tags:
- *       - Designation
+ *       - Company
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the designation to retrieve.
+ *         description: The ID of the company to retrieve.
  *     responses:
  *       200:
- *         description: Designation details retrieved successfully.
+ *         description: Company details retrieved successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -29,20 +30,20 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "Designation retrieved successfully"
+ *                   example: "Company retrieved successfully"
  *                 data:
  *                   type: object
  */
-router.get('/', isAuthenticated, tryCatchHandler(getDesignation));
+router.get('/', isAuthenticated, tryCatchHandler(getCompanyById));
 
 /**
  * @swagger
- * /designation/create-designation:
+ * /company/create-company:
  *   post:
- *     summary: Create a new Designation
- *     description: Creates a new designation with the provided details.
+ *     summary: Create a new Company
+ *     description: Creates a new company with the provided details.
  *     tags:
- *       - Designation
+ *       - Company
  *     requestBody:
  *       required: true
  *       content:
@@ -50,12 +51,12 @@ router.get('/', isAuthenticated, tryCatchHandler(getDesignation));
  *           schema:
  *             type: object
  *             properties:
- *               name:
+ *               companyName:
  *                 type: string
- *                 example: "Manager"
+ *                 example: "Tech Solutions Ltd."
  *     responses:
  *       201:
- *         description: Designation created successfully.
+ *         description: Company created successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -63,27 +64,27 @@ router.get('/', isAuthenticated, tryCatchHandler(getDesignation));
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "Designation created successfully"
+ *                   example: "Company created successfully"
  *                 data:
  *                   type: object
  */
-router.post('/create-designation', isAuthenticated, tryCatchHandler(createDesignation));
+router.post('/create-company', isAuthenticated, tryCatchHandler(createCompany));
 
 /**
  * @swagger
- * /designation/update-designation/{id}:
+ * /company/update-company/{id}:
  *   put:
- *     summary: Update an existing Designation
- *     description: Updates the details of a specific designation by ID.
+ *     summary: Update an existing Company
+ *     description: Updates the details of a specific company by ID.
  *     tags:
- *       - Designation
+ *       - Company
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the designation to update.
+ *         description: The ID of the company to update.
  *     requestBody:
  *       required: true
  *       content:
@@ -91,34 +92,34 @@ router.post('/create-designation', isAuthenticated, tryCatchHandler(createDesign
  *           schema:
  *             type: object
  *             properties:
- *               name:
+ *               companyName:
  *                 type: string
- *                 example: "Senior Manager"
+ *                 example: "Updated Company Name"
  *     responses:
  *       200:
- *         description: Designation updated successfully.
+ *         description: Company updated successfully.
  */
-router.put('/update-designation/:id', isAuthenticated, tryCatchHandler(updateDesignation));
+router.put('/update-company/:id', isAuthenticated, tryCatchHandler(updateCompany));
 
 /**
  * @swagger
- * /designation/delete-designation/{id}:
+ * /company/delete-company/{id}:
  *   delete:
- *     summary: Delete a Designation
- *     description: Deletes a designation by ID.
+ *     summary: Delete a Company
+ *     description: Deletes a company by ID.
  *     tags:
- *       - Designation
+ *       - Company
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the designation to delete.
+ *         description: The ID of the company to delete.
  *     responses:
  *       200:
- *         description: Designation deleted successfully.
+ *         description: Company deleted successfully.
  */
-router.delete('/delete-designation/:id', isAuthenticated, tryCatchHandler(deleteDesignation));
+router.delete('/delete-company/:id', isAuthenticated, tryCatchHandler(deleteCompany));
 
 export default router;

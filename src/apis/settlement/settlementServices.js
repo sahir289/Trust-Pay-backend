@@ -1,12 +1,12 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
-import { getDesignationDao, createDesignationByIdDao, updateDesignationByIdDao, deleteDesignationByIdDao } from './designationDao.js';
+import { createSettlementByIdDao, deleteSettlementByIdDao, getSettlementByIdDao, updateSettlementByIdDao } from './settlementDao.js';
 
-const getDesignationService = async (payload) => {
+const getSettlementByIDService = async (id) => {
   let conn;
   try {
     conn = await getConnection();
-    const result = await getDesignationDao(payload);
+    const result = await getSettlementByIdDao(id);
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -22,11 +22,9 @@ const getDesignationService = async (payload) => {
   }
 };
 
-const createDesignationByIDService = async (payload) => {
+const createSettlementByIDService = async (payload) => {
   try {
-
-    const result = await createDesignationByIdDao(payload);
-
+    const result = await createSettlementByIdDao(payload);
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -34,9 +32,9 @@ const createDesignationByIDService = async (payload) => {
   }
 };
 
-const updateDesignationByIDService = async (id, payload) => {
+const updateSettlementByIDService = async (id, payload) => {
   try {
-    const result = await updateDesignationByIdDao(id, payload);
+    const result = await updateSettlementByIdDao(id, payload);
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -44,9 +42,9 @@ const updateDesignationByIDService = async (id, payload) => {
   }
 };
 
-const deleteDesignationByIDService = async (id) => {
+const deleteSettlementByIDService = async (id) => {
   try {
-    const result = await deleteDesignationByIdDao(id, { is_obsolete: true });
+    const result = await deleteSettlementByIdDao(id, { is_obsolete: true });
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -54,5 +52,4 @@ const deleteDesignationByIDService = async (id) => {
   }
 };
 
-
-export { getDesignationService, createDesignationByIDService, updateDesignationByIDService, deleteDesignationByIDService };
+export { getSettlementByIDService, createSettlementByIDService, updateSettlementByIDService, deleteSettlementByIDService };

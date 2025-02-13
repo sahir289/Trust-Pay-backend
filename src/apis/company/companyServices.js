@@ -1,12 +1,16 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
-import { getDesignationDao, createDesignationByIdDao, updateDesignationByIdDao, deleteDesignationByIdDao } from './designationDao.js';
+import { createCompanyByIdDao, deleteCompanyByIdDao, getCompanyByIdDao, updateCompanyByIdDao } from './companyDao.js';
 
-const getDesignationService = async (payload) => {
+
+
+
+
+const getCompanyByIDService = async (id) => {
   let conn;
   try {
     conn = await getConnection();
-    const result = await getDesignationDao(payload);
+    const result = await getCompanyByIdDao(id);
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -21,11 +25,10 @@ const getDesignationService = async (payload) => {
     }
   }
 };
-
-const createDesignationByIDService = async (payload) => {
+const createCompanyByIDService = async (payload) => {
   try {
 
-    const result = await createDesignationByIdDao(payload);
+    const result = await createCompanyByIdDao(payload);
 
     return result;
   } catch (error) {
@@ -34,9 +37,20 @@ const createDesignationByIDService = async (payload) => {
   }
 };
 
-const updateDesignationByIDService = async (id, payload) => {
+const updateCompanyByIDService = async (id, payload) => {
   try {
-    const result = await updateDesignationByIdDao(id, payload);
+    const result = await updateCompanyByIdDao(id, payload);
+    return result;
+  } catch (error) {
+    console.error('error getting while logging in', error);
+    throw new BadRequestError('Error getting while logging in');
+  }
+};
+const deleteCompanyByIDService = async (id) => {
+
+
+  try {
+    const result = await deleteCompanyByIdDao(id, { is_obsolete: true });
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -44,15 +58,6 @@ const updateDesignationByIDService = async (id, payload) => {
   }
 };
 
-const deleteDesignationByIDService = async (id) => {
-  try {
-    const result = await deleteDesignationByIdDao(id, { is_obsolete: true });
-    return result;
-  } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
-  }
-};
 
 
-export { getDesignationService, createDesignationByIDService, updateDesignationByIDService, deleteDesignationByIDService };
+export {  getCompanyByIDService, createCompanyByIDService, updateCompanyByIDService, deleteCompanyByIDService };

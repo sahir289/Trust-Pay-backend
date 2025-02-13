@@ -9,10 +9,10 @@ export const createMerchantDao = async (data) => {
 }
 
 export const getMerchantsDao = async ({
-    searchString = "",
+    searchString,
     page = 1,
     pageSize = 10,
-    sortBy = "sno",  // Default sorting column
+    sortBy = "created_at",  // Default sorting column
     sortOrder = "DESC" // ASC (ascending) or DESC (descending)
 } = {}) => {
     // Fetch column names dynamically (assuming a metadata function exists)
@@ -25,7 +25,7 @@ export const getMerchantsDao = async ({
     let conditions = [];
 
     // Handle searching across all columns
-    if (searchString.trim() && searchColumns.length > 0) {
+    if (searchString?.trim() && searchColumns?.length > 0) {
         const searchValues = searchString.split(",").map(val => val.trim());
         const searchConditions = searchValues.map((_, index) => 
             `(${searchColumns.map(col => `"${col}"::TEXT ILIKE $${values.length + index + 1}`).join(" OR ")})`
@@ -42,7 +42,7 @@ export const getMerchantsDao = async ({
 
     // Ensure sorting column exists
     if (!searchColumns.includes(sortBy)) {
-        sortBy = "sno"; // Fallback to 'id' if invalid column
+        sortBy = "created_at"; // Fallback to 'created_at' if invalid column
     }
 
     // Ensure sorting order is valid

@@ -1,18 +1,18 @@
 import { buildInsertQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
 
-const tableName = 'Vendor';
+const tableName = 'UserHierarchy';
 
-export const createVendorDao = async (data) => {
+export const createUserHierarchyDao = async (data) => {
     const [sql, params] = buildInsertQuery(tableName, data)
     const result = await executeQuery(sql, params);
     return result.rows[0];
 }
 
-export const getVendorsDao = async ({
+export const getUserHierarchysDao = async ({
     searchString,
     page = 1,
     pageSize = 10,
-    sortBy = "created_at",  // Default sorting column (change as needed)
+    sortBy = "sno",  // Default sorting column (change as needed)
     sortOrder = "DESC" // ASC (ascending) or DESC (descending)
 } = {}) => {
     // Fetch column names dynamically (assuming a metadata function exists)
@@ -36,7 +36,7 @@ export const getVendorsDao = async ({
 
     // Ensure sorting column exists
     if (!searchColumns.includes(sortBy)) {
-        sortBy = "created_at"; // Fallback to 'created_at' if invalid column
+        sortBy = "sno"; // Fallback to 'id' if invalid column
     }
 
     // Ensure sorting order is valid
@@ -55,12 +55,12 @@ export const getVendorsDao = async ({
 };
 
 
-export const updateVendorDao = async (id, data) => {
+export const updateUserHierarchyDao = async (id, data) => {
     const [sql, params] = buildUpdateQuery(tableName, data, { id });
     const result = await executeQuery(sql, params);
     return result.rows[0];
 }
-export const deleteVendorDao = async (id, data) => {
+export const deleteUserHierarchyDao = async (id, data) => {
     const [sql, params] = buildUpdateQuery(tableName, data, { id });
     const result = await executeQuery(sql, params);
     return result.rows[0];

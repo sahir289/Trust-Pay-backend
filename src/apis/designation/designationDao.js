@@ -1,12 +1,11 @@
 import { buildInsertQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
 const tableName = 'Designation';
 
-const getDesignationByIdDao = async ({
-  id = null,
-  searchString = "",
+const getDesignationDao = async ({
+  searchString,
   page = 1,
   pageSize = 10,
-  sortBy = "sno",  // Default sorting column
+  sortBy = "created_at",  // Default sorting column
   sortOrder = "DESC" // ASC (ascending) or DESC (descending)
 } = {}) => {
   // Fetch column names dynamically
@@ -18,14 +17,8 @@ const getDesignationByIdDao = async ({
   let values = [];
   let conditions = [];
 
-  // Filter by ID if provided
-  if (id !== null) {
-      conditions.push(`id = $${values.length + 1}`);
-      values.push(id);
-  }
-
   // Handle searching across all columns
-  if (searchString.trim() && searchColumns.length > 0) {
+  if (searchString?.trim() && searchColumns?.length > 0) {
       const searchValues = searchString.split(",").map(val => val.trim());
       const searchConditions = searchValues.map((_, index) => 
           `(${searchColumns.map(col => `"${col}"::TEXT ILIKE $${values.length + index + 1}`).join(" OR ")})`
@@ -42,7 +35,7 @@ const getDesignationByIdDao = async ({
 
   // Ensure sorting column exists
   if (!searchColumns.includes(sortBy)) {
-      sortBy = "sno"; // Fallback to 'id' if invalid column
+      sortBy = "created_at"; // Fallback to 'created_at' if invalid column
   }
 
   // Ensure sorting order is valid
@@ -83,4 +76,4 @@ const deleteDesignationByIdDao = async (id, data) => {
 
 };
 
-export { getDesignationByIdDao, createDesignationByIdDao, updateDesignationByIdDao, deleteDesignationByIdDao };
+export { getDesignationDao, createDesignationByIdDao, updateDesignationByIdDao, deleteDesignationByIdDao };

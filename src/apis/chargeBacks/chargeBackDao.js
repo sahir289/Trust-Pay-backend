@@ -9,8 +9,7 @@ export const createChargeBackDao = async (data) => {
 }
 
 export const getChargeBackDao = async ({
-    id = null,
-    searchString = "",
+    searchString,
     page = 1,
     pageSize = 10,
     sortBy = "sno",  // Default sorting column
@@ -25,14 +24,8 @@ export const getChargeBackDao = async ({
     let values = [];
     let conditions = [];
 
-    // Filter by ID if provided
-    if (id !== null) {
-        conditions.push(`id = $${values.length + 1}`);
-        values.push(id);
-    }
-
     // Handle searching across all columns
-    if (searchString.trim() && searchColumns.length > 0) {
+    if (searchString?.trim() && searchColumns?.length > 0) {
         const searchValues = searchString.split(",").map(val => val.trim());
         const searchConditions = searchValues.map((_, index) => 
             `(${searchColumns.map(col => `"${col}"::TEXT ILIKE $${values.length + index + 1}`).join(" OR ")})`
@@ -49,7 +42,7 @@ export const getChargeBackDao = async ({
 
     // Ensure sorting column exists
     if (!searchColumns.includes(sortBy)) {
-        sortBy = "sno"; // Fallback to 'id' if invalid column
+        sortBy = "sno"; // Fallback to 'sno' if invalid column
     }
 
     // Ensure sorting order is valid
