@@ -4,7 +4,6 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getCalculationDao, updateCalculationDao } from '../calculation/calculationDao.js';
 import { getMerchantsDao } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
-
 const getSettlementByIDService = async (req, res) => {
   try {
     const { id } = req.query;
@@ -20,7 +19,6 @@ const getSettlementByIDService = async (req, res) => {
       const vendorData = await getVendorsDao({ searchString: id });
       const vendorUserData = await getSettlementByIdDao(vendorData?.user_id);
       return sendSuccess(res, vendorUserData, 'getUsers successfully');
-
     }
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -37,7 +35,7 @@ const createSettlementByIDService = async (req, res) => {
     }
     const merchantData = await getMerchantsDao(payload.id);
     if (merchantData.length > 0) {
-
+      
       const merchantUserData = await getSettlementByIDService(merchantData?.user_id);
       if (merchantUserData) {
         throw new CustomError(404, "Settlement already exist")

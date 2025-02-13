@@ -35,31 +35,24 @@ const updateCalculationDao = async (user_id, data) => {
     //   ORDER BY created_at DESC
     //   LIMIT 1;
     // `;
-    
     // const latestCalculationResult = await executeQuery(getLatestCalculationSql, [user_id]);
     // if (!latestCalculationResult.rows.length) {
     //   throw new Error('No previous calculation found for this user');
     // }
-
     // const previousData = latestCalculationResult.rows[0]; 
-    
     // let updatedData = {}; 
-
-
     // if (data.payin_amount) {
     //   updatedData.total_payin_count = Number(previousData.total_payin_count) + 1;
     //   updatedData.total_payin_amount = Number(previousData.total_payin_amount) + Number(data.payin_amount);
     //   updatedData.total_payin_commission = (updatedData.total_payin_amount * 3) / 100;
     //   updatedData.current_balance = Number(previousData.current_balance) + (Number(data.payin_amount) - (Number(data.payin_amount) * 3 / 100));
     // }
-    
     // if (data.payout_amount) {
     //   updatedData.total_payout_count = Number(previousData.total_payout_count) + 1;
     //   updatedData.total_payout_amount = Number(previousData.total_payout_amount) + Number(data.payout_amount);
     //   updatedData.total_payout_commission = (updatedData.total_payout_amount * 3) / 100;
     //   updatedData.current_balance = Number(previousData.current_balance) - (Number(data.payout_amount) - (Number(data.payout_amount) * 3 / 100));
     // }
-
     // if (data.reversed_amount) {
     //   updatedData.total_payout_amount = Number(previousData.total_payout_amount) - Number(data.reversed_amount);
     //   updatedData.current_balance = Number(previousData.current_balance) + (Number(data.reversed_amount) - (Number(data.reversed_amount) * 3 / 100));

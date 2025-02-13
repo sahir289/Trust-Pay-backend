@@ -4,6 +4,7 @@ import {
 import { beginTransaction, commit, getConnection, rollback, } from '../../utils/db.js';
 import { createChargeBackDao, deleteChargeBackDao, getChargeBackDao, updateChargeBackDao } from './chargeBackDao.js';
 import Logger from '../../utils/logger.js';
+
 const logger = new Logger()
 const createChargeBackService = async (payload) => {
     let conn;
@@ -54,7 +55,7 @@ const getChargeBacksService = async (payload) => {
     } catch (error) {
         if (conn) {
             try {
-                await rollback(conn); // Rollback the transaction if an error occurs
+                await rollback(conn); // Rollback the transaction if an error occur
             } catch (rollbackError) {
                 logger.error('Error during transaction rollback', rollbackError);
             }
