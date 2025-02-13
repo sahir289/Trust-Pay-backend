@@ -1,6 +1,6 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getDesignationService, createDesignationByIDService, updateDesignationByIDService, deleteDesignationByIDService } from './designationServices.js';
+import { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService } from './designationServices.js';
 
 const getDesignation = async (req, res) => {
   try {

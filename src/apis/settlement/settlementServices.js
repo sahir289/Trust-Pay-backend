@@ -37,11 +37,11 @@ const createSettlementService = async (req, res) => {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }   
-      const merchantUserData = await getSettlementByIdDao(payload.user_id);
+      const merchantUserData = await getSettlementDao(payload.user_id);
       if (merchantUserData) {
         throw new CustomError(404, "Settlement already exist")
       }  
-    const data = await createSettlementByIdDao(payload);
+    const data = await createSettlementDao(payload);
     return sendSuccess(res, data, 'getUsers successfully');
 
   } catch (error) {
@@ -74,7 +74,7 @@ const updateSettlementService = async (req, res) => {
     if (req.body.config.refrence_id) {
       payload.status = "SUCCESS";
       //calculation for merchant and vendor
-      const data = await getSettlementByIdDao(id)
+      const data = await getSettlementDao(id)
       const calculationData = await getCalculationDao(data?.user_id);
       let count = calculationData?.total_settlement_count + 1;
       let amountCalculation = calculationData?.total_settlement_amount + payload?.amount;
