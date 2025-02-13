@@ -1,90 +1,73 @@
 import { BadRequestError } from '../../utils/appErrors.js';
-import { getConnection } from '../../utils/db.js';
-import Logger from '../../utils/logger.js';
-import { getAllPayoutDao ,getAllVendorAccountReportDao } from './reportsDao.js';
+import { sendSuccess } from '../../utils/responseHandlers.js';
+import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
+import { getVendorsDao } from '../vendors/vendorDao.js';
+import { getMerchantReportDao, getPayInMerchantReportDao, getPayInVendorReportDao, getPayOutMerchantReportDao, getPayOutVendorReportDao, getVendorReportDao } from './reportsDao.js';
 
-const logger = new Logger();
 
-const getAllPayoutService = async (payload) => {
-    let conn;
+
+
+
+const getPayInReportService = async (req, res) => {
     try {
-        conn = await getConnection();
-        let { merchantCode, vendorCode, status, startDate, endDate, method} = payload;
-        merchantCode = merchantCode ? (Array.isArray(merchantCode) ? merchantCode : [merchantCode]) : [];
-        vendorCode = vendorCode ? (Array.isArray(vendorCode) ? vendorCode : [vendorCode]) : [];
-
-        if (vendorCode.length > 0) {
-            // console.log("vendor code");
-            const data = await getAllPayoutDao(conn, { Code: vendorCode, status, startDate, endDate, method });
-            logger.log('Vendor Payout fetched successfully', 'info');
-            return data;
-        } else {
-            // console.log("merchant code");
-            // if (merchantCode.length > 0) {
-            //     let allMerchantCodes = [...merchantCode];
-            //     // if (includeSubMerchant) {
-            //     //     console.log("submerchant");
-            //     //     for (const code of merchantCode) {
-            //     //         const query = `
-            //     //             SELECT child_code
-            //     //             FROM Public.Payout
-            //     //             WHERE merchant_code = $1
-            //     //         `;
-            //     //         const result = await conn.query(query, [code]);
-
-            //             if (result.rows.length > 0) {
-            //                 const childCodes = result.rows.map(row => row.child_code);
-            //                 allMerchantCodes.push(...childCodes);
-            //             }
-            //         }
-            //     }
-              const ismerchant = true;
-                const data = await getAllPayoutDao(conn, { Code: merchantCode, status, startDate, endDate, method,ismerchant });
-                logger.log('Merchant Payout fetched successfully', 'info');
-                return data;
-            } 
-        
-    } catch (error) {
-        logger.log('Error while fetching payouts', 'error', error);
-        throw new BadRequestError('Error occurred while fetching payout data.');
-    } finally {
-        if (conn) {
-            try {
-                conn.release(); 
-            } catch (releaseError) {
-                logger.log('Error while releasing the connection', 'error', releaseError);
-            }
+        const { merchant_id, vendor_id } = req.body;
+        let result;
+        if (merchant_id) {
+            result = await getPayInMerchantReportDao(merchant_id);
         }
+        if (vendor_id) {
+            const vendorData = await getBankaccountDao(vendor_id);
+            const bankData = await getVendorsDao({ searchString: vendorData.user_id });
+            result = await getPayInVendorReportDao(bankData.id);
+        }
+        return sendSuccess(res, result, 'getUsers successfully');
+
+    } catch (error) {
+        console.error('error getting while logging in', error);
+        throw new BadRequestError('Error getting while logging in');
     }
 };
-const getAllVendorAccountReportService = async (payload) => {
-    let conn;
+const getPayOutReportService = async (req, res) => {
     try {
-        conn = await getConnection();
-        let { id, startDate, endDate } = payload;
-            if (id == null) {
-                id = [];
-            } else if (typeof id === "string") {
-                id = [id];
-            }
-            const weeklyReport = await getAllVendorAccountReportDao(conn,{id,
-                startDate,
-                endDate});
-           console.log(weeklyReport);       
+        const { merchant_id, vendor_id } = req.body;
+        let result;
+        if (merchant_id) {
+            result = await getPayOutMerchantReportDao(merchant_id);
         }
-     catch (error) {
-        logger.log('Error while fetching payouts', 'error', error);
-        throw new BadRequestError('Error occurred while fetching payout data.');
-    } finally {
-        if (conn) {
-            try {
-                conn.release(); 
-            } catch (releaseError) {
-                logger.log('Error while releasing the connection', 'error', releaseError);
-            }
+        if (vendor_id) {
+            const vendorData = await getBankaccountDao(vendor_id);
+            const bankData = await getVendorsDao({ searchString: vendorData.user_id });
+            result = await getPayOutVendorReportDao(bankData.id);
         }
+        return sendSuccess(res, result, 'getUsers successfully');
+    } catch (error) {
+        console.error('error getting while logging in', error);
+        throw new BadRequestError('Error getting while logging in');
     }
-}
+}; const getMerchantReportService = async (req, res) => {
+    try {
+        const { id } = req.query;
+
+        const result = await getMerchantReportDao(id);
+        return sendSuccess(res, result, 'getUsers successfully');
+    } catch (error) {
+        console.error('error getting while logging in', error);
+        throw new BadRequestError('Error getting while logging in');
+    }
+}; const getVendorReportService = async (req, res) => {
+    try {
+        const { vendor_id } = req.query;
+        const vendorData = await getBankaccountDao(vendor_id);
+        const bankData = await getVendorsDao({ searchString: vendorData.user_id });
+        const result = await getPayOutVendorReportDao(bankData.id);        
+        return sendSuccess(res, result, 'getUsers successfully');
+        
+    } catch (error) {
+        console.error('error getting while logging in', error);
+        throw new BadRequestError('Error getting while logging in');
+    }
+};
 
 
-export { getAllPayoutService , getAllVendorAccountReportService };
+
+export { getPayInReportService, getPayOutReportService, getMerchantReportService, getVendorReportService };
