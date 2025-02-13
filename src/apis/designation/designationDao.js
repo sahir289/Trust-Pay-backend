@@ -61,13 +61,13 @@ const getDesignationByIdDao = async ({
 };
 
 
-const createDesignationByIdDao = async (payload) => {
+const createDesignationDao = async (payload) => {
   const [sql, params] = buildInsertQuery(tableName, payload)
   const result = await executeQuery(sql, params);
   return result.rows[0];
 };
 
-const updateDesignationByIdDao = async (id, data) => {
+const updateDesignationDao = async (id, data) => {
 
   const [sql, params] = buildUpdateQuery(tableName, data, { id });
   const result = await executeQuery(sql, params);
@@ -75,7 +75,7 @@ const updateDesignationByIdDao = async (id, data) => {
 
 };
 
-const deleteDesignationByIdDao = async (id, data) => {
+const deleteDesignationDao = async (id, data) => {
   const [sql, params] = buildUpdateQuery(tableName, data, { id });
   const result = await executeQuery(sql, params);
   return result.rows[0];
@@ -83,4 +83,8 @@ const deleteDesignationByIdDao = async (id, data) => {
 
 };
 
+<<<<<<< HEAD
 export { getDesignationByIdDao, createDesignationByIdDao, updateDesignationByIdDao, deleteDesignationByIdDao };
+=======
+export { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao };
+>>>>>>> 37570f3 (removed ById)
