@@ -1,6 +1,6 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
-import { getDesignationDao, createDesignationByIdDao, updateDesignationByIdDao, deleteDesignationByIdDao } from './designationDao.js';
+import { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao } from './designationDao.js';
 
 const getDesignationService = async (payload) => {
   let conn;
@@ -55,4 +55,4 @@ const deleteDesignationService = async (id) => {
 };
 
 
-export { getDesignationService, createDesignationByIDService, updateDesignationByIDService, deleteDesignationByIDService };
+export { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService };
