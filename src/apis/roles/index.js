@@ -1,6 +1,7 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { getRoles, createRole, updateRole, deleteRole } from './rolesController.js';
+import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
 
@@ -23,7 +24,7 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/', tryCatchHandler(getRoles));
+router.get('/',isAuthenticated, tryCatchHandler(getRoles));
 
 /**
  * @swagger
@@ -50,7 +51,7 @@ router.get('/', tryCatchHandler(getRoles));
  *       400:
  *         description: Bad request
  */
-router.post('/create-role', tryCatchHandler(createRole));
+router.post('/create-role',isAuthenticated, tryCatchHandler(createRole));
 
 /**
  * @swagger
@@ -82,7 +83,7 @@ router.post('/create-role', tryCatchHandler(createRole));
  *       404:
  *         description: Role not found
  */
-router.put('/update-role/:id', tryCatchHandler(updateRole));
+router.put('/update-role/:id',isAuthenticated, tryCatchHandler(updateRole));
 
 /**
  * @swagger
@@ -103,6 +104,6 @@ router.put('/update-role/:id', tryCatchHandler(updateRole));
  *       404:
  *         description: Role not found
  */
-router.delete('/delete-role/:id', tryCatchHandler(deleteRole));
+router.delete('/delete-role/:id',isAuthenticated, tryCatchHandler(deleteRole));
 
 export default router;

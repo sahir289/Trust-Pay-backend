@@ -6,7 +6,7 @@ import {
     updateCalculation,
     deleteCalculation
 } from './calculationController.js';
-
+import { isAuthenticated } from '../../middlewares/auth.js';
 const router = express.Router();
 
 /**
@@ -28,7 +28,7 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/', tryCatchHandler(getCalculation));
+router.get('/',isAuthenticated, tryCatchHandler(getCalculation));
 
 /**
  * @swagger
@@ -57,7 +57,7 @@ router.get('/', tryCatchHandler(getCalculation));
  *       400:
  *         description: Bad request
  */
-router.post('/create-calculation', tryCatchHandler(createCalculation));
+router.post('/create-calculation',isAuthenticated, tryCatchHandler(createCalculation));
 
 /**
  * @swagger
@@ -91,7 +91,7 @@ router.post('/create-calculation', tryCatchHandler(createCalculation));
  *       404:
  *         description: Calculation not found
  */
-router.put('/update-calculation/:user_id', tryCatchHandler(updateCalculation));
+router.put('/update-calculation/:user_id',isAuthenticated, tryCatchHandler(updateCalculation));
 
 /**
  * @swagger
@@ -112,6 +112,6 @@ router.put('/update-calculation/:user_id', tryCatchHandler(updateCalculation));
  *       404:
  *         description: Calculation not found
  */
-router.put('/delete-calculation/:user_id', tryCatchHandler(deleteCalculation));
+router.put('/delete-calculation/:user_id',isAuthenticated, tryCatchHandler(deleteCalculation));
 
 export default router;
