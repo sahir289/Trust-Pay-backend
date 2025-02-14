@@ -40,6 +40,7 @@ const createCompanyByIDService = async (payload) => {
       "designation":role.role
     }
     const Designation = await createDesignationByIdDao(DesignationPayload);
+    
     const UserPayload = {
      "role_id":role.id,
      "company_id": result.id,

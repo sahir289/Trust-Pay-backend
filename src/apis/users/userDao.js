@@ -82,12 +82,9 @@ const createUserDao = async (conn, payload) => {
     ];
 
     const result = await conn.query(sql, values);
-    if (result) {
       console.log(`User with username: ${payload.user_name} created successfully`);
-      return null;
-    }
-    return result;
-  } catch (error) {
+      return result.rows[0]; 
+    } catch (error) {
     console.error(`Error creating user: ${payload.user_name}`, error);
     throw new DbError('Error executing query to create user');
   }

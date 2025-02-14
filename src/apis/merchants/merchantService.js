@@ -21,8 +21,11 @@ const createMerchantService = async (payload) => {
         const role = await getRoleDao({ id: data.role_id});
         if (role.role === Method.MERCHANT) {
             await createUserHierarchyDao({
-                user_id: data.id,
+                user_id: data.user_id,
                 role_id: data.role_id,
+                created_by: data.created_by,
+                updated_by: data.updated_by,
+                company_id:data.company_id,
             })
         }
         else if (role.role === Method.SUBMERCHANT) {

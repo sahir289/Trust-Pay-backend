@@ -2,9 +2,9 @@ import {BadRequestError,} from '../../utils/appErrors.js';
 import { getRoleDao,createRoleDao,updateRoleDao,deleteRoleDao } from './rolesDao.js';
 
 
-const getRoleService = async () => {
+const getRoleService = async (payload) => {
     try {
-        const data = await getRoleDao();
+        const data = await getRoleDao(payload);
         console.log('Fetched Roles successfully', 'info');
         return data;
     } catch (error) {

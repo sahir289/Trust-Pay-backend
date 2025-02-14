@@ -4,6 +4,8 @@ import { getConnection } from '../../utils/db.js';
 import { createUserDao, getUserByIdDao, getUsersByUserNameDao, getUsersDao } from './userDao.js';
 import { createMerchantService } from '../merchants/merchantService.js';
 import { createVendorService } from '../vendors/vendorService.js';
+import { getRoleByIdDao } from '../roles/rolesDao.js';
+
 
 const getUsersService = async () => {
   let conn;
@@ -69,12 +71,11 @@ const getUsersByUserNameService = async (username) => {
         }
     }
   };
-
+  
   const createUserService = async (payload) => {
     let conn;
     try {
       conn = await getConnection();
-      console.log(payload,"payload in user service")
       const { user_name } = payload;
       const user = await getUsersByUserNameDao(conn, user_name);
       if (user?.user_name || user?.email || user?.contact_no) {
@@ -85,68 +86,43 @@ const getUsersByUserNameService = async (username) => {
       payload.password = password;
       const User = await createUserDao(conn, payload);
       console.log('User Created Successfully');
-      if (payload.role === "MERCHANT") {
+      const role =await getRoleByIdDao(payload.role_id)
+      if (role.role === "Merchant" || role.role === "Merchant_Admin" ) {
         const merchantPayload={
          "user_id":User.id,
-         "role_id":User.role_id,
-         "company_id":User.company_id,
-         "first_name":User.first_name,
-         "last_name":User.last_name,
-         "code":User.code,
-          "min_payin": 0.0,
-          "max_payin": 0.0,
+         "role_id":payload.role_id,
+         "company_id":payload.company_id,
+         "first_name":payload.first_name,
+         "last_name":payload.last_name,
+         "code":payload.code,
+         "min_payin": 0.0,
+         "max_payin": 0.0,
           "payin_commission": 0.0,
           "min_payout": 0.0,
           "max_payout": 0.0,
-          "payout_commission": 0.0,
-          "is_test_mode": true,
-          "is_enabled": true,
-          "dispute_enabled": true,
-          "is_demo": false,
-          "balance": 0.0,
+         "payout_commission": 0.0,
+        "balance": 0.0,
+          "created_by":User.id,
+          "updated_by":""
         }
-        const merchant = createMerchantService(merchantPayload)
-
-        // {
-        //   "id": "uuid_generate_v4()",
-        //   "role_id": "string",
-        //   "user_id": "string",
-        //   "first_name": "string",
-        //   "last_name": "string",
-        //   "code": "string",
-        //   "site_url": "string",
-        //   "api_key": "string",
-        //   "secret_key": "string",
-        //   "public_api_key": "string",
-        //   "notify_url": "string",
-        //   "return_url": "string",
-        //   "min_payin": 0.0,
-        //   "max_payin": 0.0,
-        //   "payin_commission": 0.0,
-        //   "min_payout": 0.0,
-        //   "max_payout": 0.0,
-        //   "payout_commission": 0.0,
-        //   "payout_notify_url": "string",
-        //   "is_test_mode": false,
-        //   "is_enabled": true,
-        //   "dispute_enabled": true,
-        //   "is_demo": false,
-        //   "balance": 0.0,
-        //   "company_id": "string",
-        //   "config": {},
-        //   "created_by": "string",
-        //   "updated_by": "string",
-        //   "created_at": "now()",
-        //   "updated_at": "now()",
-        //   "is_obsolete": false
-        // }
-        
-        console.log(merchant,"merchant from user")
-     }
-     if(payload.role === "VENDOR"){
-       const vendor = createVendorService(payload)
-       console.log(vendor)
-     }
+        await createMerchantService(merchantPayload);
+      }
+      if (role.role === "Vendor" || role.role === "Vendor_Admin") {
+        const vendorPayload={
+         "user_id":User.id,
+         "role_id":payload.role_id,
+         "company_id":payload.company_id,
+         "first_name":payload.first_name,
+         "last_name":payload.last_name,
+         "code":payload.code,
+          "payin_commission": 0.0,
+         "payout_commission": 0.0,
+        "balance": 0.0,
+          "created_by":User.id,
+          "updated_by":""
+        }
+        await createVendorService(vendorPayload);
+      }
       return User;
     } catch (error) {
       console.error('error getting while creating user', error);
