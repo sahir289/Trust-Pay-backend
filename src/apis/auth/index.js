@@ -24,6 +24,6 @@ const router = express.Router();
  *                   type: string
  *                   example: "login successful!"
  */
-router.get('/', tryCatchHandler(loginController)); // login route
+router.post('/', tryCatchHandler(loginController)); // login route
 
 export default router;
