@@ -1,67 +1,34 @@
-import { buildInsertQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
-
-const tableName = 'UserHierarchy';
+import { columns, tableName } from "../../constants/index.js";
+import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
 
 export const createUserHierarchyDao = async (data) => {
-    const [sql, params] = buildInsertQuery(tableName, data)
+    const [sql, params] = buildInsertQuery(tableName.USER_HIERARCHY, data)
     const result = await executeQuery(sql, params);
     return result.rows[0];
 }
 
-export const getUserHierarchysDao = async ({
-    searchString,
-    page = 1,
-    pageSize = 10,
-    sortBy = "sno",  // Default sorting column (change as needed)
-    sortOrder = "DESC" // ASC (ascending) or DESC (descending)
-} = {}) => {
-    // Fetch column names dynamically (assuming a metadata function exists)
-    const columnQuery = `SELECT column_name FROM information_schema.columns WHERE table_name = '${tableName}'`;
-    const columnResult = await executeQuery(columnQuery);
-    const searchColumns = columnResult.rows.map(row => row.column_name);
-
-    let query = `SELECT * FROM "${tableName}"`;
-    let values = [];
-
-    // Handle searching
-    if (searchString?.trim() && searchColumns?.length > 0) {
-        const searchValues = searchString.split(",").map(val => val.trim()); // Split & clean values
-        const conditions = searchValues.map((_, index) => 
-            `(${searchColumns.map(col => `"${col}"::TEXT ILIKE $${index + 1}`).join(" OR ")})`
-        ).join(" OR ");
-
-        query += ` WHERE ${conditions}`;
-        values = searchValues.map(val => `%${val}%`); // Use ILIKE for partial matches
-    }
-
-    // Ensure sorting column exists
-    if (!searchColumns.includes(sortBy)) {
-        sortBy = "sno"; // Fallback to 'id' if invalid column
-    }
-
-    // Ensure sorting order is valid
-    const order = sortOrder.toUpperCase() === "DESC" ? "DESC" : "ASC";
-
-    // Add sorting
-    query += ` ORDER BY "${sortBy}" ${order}`;
-
-    // Add pagination
-    const offset = (page - 1) * pageSize;
-    query += ` LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
-    values.push(pageSize, offset);
-
-    const result = await executeQuery(query, values);
+export const getUserHierarchysDao = async (
+    search,
+    page,
+    pageSize,
+    sortBy,
+    sortOrder
+) => {
+    const baseQuery = `SELECT * FROM "${tableName.USER_HIERARCHY}" WHERE 1=1`;
+    const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.USER_HIERARCHY, page, pageSize, sortBy, sortOrder, typeof search != 'string');
+    // Execute query
+    const result = await executeQuery(sql, queryParams);
     return result.rows;
 };
 
 
 export const updateUserHierarchyDao = async (id, data) => {
-    const [sql, params] = buildUpdateQuery(tableName, data, { id });
+    const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data, { id });
     const result = await executeQuery(sql, params);
     return result.rows[0];
 }
 export const deleteUserHierarchyDao = async (id, data) => {
-    const [sql, params] = buildUpdateQuery(tableName, data, { id });
+    const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data, { id });
     const result = await executeQuery(sql, params);
     return result.rows[0];
 }

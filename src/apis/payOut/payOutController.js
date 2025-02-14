@@ -24,7 +24,7 @@ const createPayout = async (req, res) => {
 
 const getPayouts = async (req, res) => {
     try {
-        const { payload } = req.query;
+        const payload = req.query.search;
 
         // Fetch vendors data from the service
         const data = await getPayoutsService(payload);
