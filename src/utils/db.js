@@ -76,26 +76,65 @@ export const executeQuery = async (query, queryParams = []) => {
   }
 }
 
-export const buildSelectQuery = (query, filters) => {
-  const conditions = [];
-  const queryParams = [];
-  let sql = query;
-  // Dynamically build the query
-  for (const key in filters) {
-    const value = filters[key];
-    if (value !== undefined && value !== null) {
-      conditions.push(`${key} = $${queryParams.length + 1}`);
-      queryParams.push(value);
+export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = true) => {
+  const page = p || 1, pageSize = ps || 10, sortBy = s || "created_at", sortOrder = o || "DESC";
+  let filters = {};
+
+  if (isJson) {
+    filters = f;
+  } else {
+    for (const key of columns) {
+      filters[key] = f;
     }
   }
 
-  // Append conditions to the SQL query
-  if (conditions.length) {
-    sql += ` AND ${conditions.join(' AND ')}`;
+  let query = baseQuery;
+  let values = [];
+  let conditions = [];
+
+  // Apply filters
+  for (const key in filters) {
+    const value = filters[key];
+    if (typeof value === 'string' && value.includes(',')) {
+      conditions.push(`"${key}" = ANY($${values.length + 1})`);
+      values.push(value.split(','));
+      continue;
+    }
+    if (value) {
+      conditions.push(`"${key}" = $${values.length + 1}`);
+      values.push(value);
+    }
   }
 
-  return [sql, queryParams];
-}
+  if (conditions.length) {
+    query += ` AND ${conditions.join(' AND ')}`;
+  }
+
+  // Apply sorting and pagination
+  query = applySortingAndPagination(query, values, columns, sortBy, sortOrder, page, pageSize);
+
+  return [query, values];
+};
+
+export const applySortingAndPagination = (query, values, columns, sortBy, sortOrder, page, pageSize) => {
+  // Ensure sorting column exists
+  if (!columns.includes(sortBy)) {
+    sortBy = "created_at"; // Default fallback
+  }
+
+  // Validate sort order
+  const order = sortOrder.toUpperCase() === "DESC" ? "DESC" : "ASC";
+
+  // Add sorting
+  query += ` ORDER BY "${sortBy}" ${order}`;
+
+  // Add pagination
+  const offset = (page - 1) * pageSize;
+  query += ` LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+  values.push(pageSize, offset);
+
+  return query;
+};
 
 export const buildInsertQuery = (tableName, data) => {
   const keys = Object.keys(data).map((key) => `"${key}"`);

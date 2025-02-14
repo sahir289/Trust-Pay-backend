@@ -25,7 +25,7 @@ const createMerchant = async (req, res) => {
 
 const getMerchants = async (req, res) => {
     try {
-        const { payload } = req.query;
+        const payload = req.query.search;
 
         // Fetch merchants data from the service
         const data = await getMerchantsService(payload);
