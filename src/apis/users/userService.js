@@ -4,8 +4,7 @@ import { getConnection } from '../../utils/db.js';
 import { createUserDao, getUserByIdDao, getUsersByUserNameDao, getUsersDao } from './userDao.js';
 import { createMerchantService } from '../merchants/merchantService.js';
 import { createVendorService } from '../vendors/vendorService.js';
-import { getRoleByIdDao } from '../roles/rolesDao.js';
-
+import { getRoleDao } from '../roles/rolesDao.js';
 
 const getUsersService = async () => {
   let conn;
@@ -86,7 +85,7 @@ const getUsersByUserNameService = async (username) => {
       payload.password = password;
       const User = await createUserDao(conn, payload);
       console.log('User Created Successfully');
-      const role =await getRoleByIdDao(payload.role_id)
+      const role =await getRoleDao(payload.role_id)
       if (role.role === "Merchant" || role.role === "Merchant_Admin" ) {
         const merchantPayload={
          "user_id":User.id,

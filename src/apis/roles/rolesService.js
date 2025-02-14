@@ -3,14 +3,8 @@ import { getRoleDao,createRoleDao,updateRoleDao,deleteRoleDao } from './rolesDao
 
 
 const getRoleService = async (payload) => {
-    try {
         const data = await getRoleDao(payload);
-        console.log('Fetched Roles successfully', 'info');
         return data;
-    } catch (error) {
-       console.error('Error during transaction rollback', 'error', error);
-       throw new BadRequestError('Error occurred while fetching Roles');
-    }
 }
 
 

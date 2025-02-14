@@ -2,10 +2,7 @@ import {
     BadRequestError,
 } from '../../utils/appErrors.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
-import Logger from '../../utils/logger.js';
 import { createVendorDao, deleteVendorDao, getVendorsDao, updateVendorDao } from './vendorDao.js';
-
-const logger = new Logger();
 
 const createVendorService = async (payload) => {
     let conn;
@@ -16,7 +13,7 @@ const createVendorService = async (payload) => {
         const data = await createVendorDao(payload);
 
         await commit(conn); // Commit the transaction
-        logger.log('Vendor created successfully', 'info');
+        console.log('Vendor created successfully', 'info');
 
         return data;
     } catch (error) {
@@ -24,53 +21,27 @@ const createVendorService = async (payload) => {
             try {
                 await rollback(conn); // Rollback the transaction in case of error
             } catch (rollbackError) {
-                logger.log('Error during transaction rollback', 'error', rollbackError);
+                console.log('Error during transaction rollback', 'error', rollbackError);
             }
         }
-        logger.log('Error while creating Vendor', 'error', error);
+        console.log('Error while creating Vendor', 'error', error);
         throw new BadRequestError('Error occurred while creating Vendor');
     } finally {
         if (conn) {
             try {
                 conn.release(); // Release the connection back to the pool
             } catch (releaseError) {
-                logger.log('Error while releasing the connection', 'error', releaseError);
+                console.log('Error while releasing the connection', 'error', releaseError);
             }
         }
     }
 };
 
 const getVendorsService = async (payload) => {
-    let conn;
-    try {
-        conn = await getConnection();
-        await beginTransaction(conn); // Start a transaction (even if read-only)
+    const data = await getVendorsDao(payload);
 
-        const data = await getVendorsDao(payload);
-
-        await commit(conn); // Commit transaction (even if no modifications)
-
-        logger.log('Fetched Vendors successfully', 'info');
-        return data;
-    } catch (error) {
-        if (conn) {
-            try {
-                await rollback(conn); // Rollback the transaction if an error occurs
-            } catch (rollbackError) {
-                logger.log('Error during transaction rollback', 'error', rollbackError);
-            }
-        }
-        logger.log('Error while fetching Vendors', 'error', error);
-        throw new BadRequestError('Error occurred while fetching Vendors');
-    } finally {
-        if (conn) {
-            try {
-                conn.release(); // Release the connection back to the pool
-            } catch (releaseError) {
-                logger.log('Error while releasing the connection', 'error', releaseError);
-            }
-        }
-    }
+    console.log('Fetched Vendors successfully', 'info');
+    return data;
 };
 
 const updateVendorService = async (id, payload) => {
@@ -82,7 +53,7 @@ const updateVendorService = async (id, payload) => {
         const data = await updateVendorDao(id, payload); // Adjust DAO call for update
 
         await commit(conn); // Commit the transaction
-        logger.log('Vendor updated successfully', 'info');
+        console.log('Vendor updated successfully', 'info');
 
         return data;
     } catch (error) {
@@ -90,17 +61,17 @@ const updateVendorService = async (id, payload) => {
             try {
                 await rollback(conn); // Rollback the transaction in case of error
             } catch (rollbackError) {
-                logger.log('Error during transaction rollback', 'error', rollbackError);
+                console.log('Error during transaction rollback', 'error', rollbackError);
             }
         }
-        logger.log('Error while updating Vendor', 'error', error);
+        console.log('Error while updating Vendor', 'error', error);
         throw new BadRequestError('Error occurred while updating Vendor');
     } finally {
         if (conn) {
             try {
                 conn.release(); // Release the connection back to the pool
             } catch (releaseError) {
-                logger.log('Error while releasing the connection', 'error', releaseError);
+                console.log('Error while releasing the connection', 'error', releaseError);
             }
         }
     }
@@ -116,7 +87,7 @@ const deleteVendorService = async (id) => {
         const data = await deleteVendorDao(id, payload); // Adjust DAO call for delete
 
         await commit(conn); // Commit the transaction
-        logger.log('Vendor deleted successfully', 'info');
+        console.log('Vendor deleted successfully', 'info');
 
         return data;
     } catch (error) {
@@ -124,20 +95,20 @@ const deleteVendorService = async (id) => {
             try {
                 await rollback(conn); // Rollback the transaction in case of error
             } catch (rollbackError) {
-                logger.log('Error during transaction rollback', 'error', rollbackError);
+                console.log('Error during transaction rollback', 'error', rollbackError);
             }
         }
-        logger.log('Error while deleting Vendor', 'error', error);
+        console.log('Error while deleting Vendor', 'error', error);
         throw new BadRequestError('Error occurred while deleting Vendor');
     } finally {
         if (conn) {
             try {
                 conn.release(); // Release the connection back to the pool
             } catch (releaseError) {
-                logger.log('Error while releasing the connection', 'error', releaseError);
+                console.log('Error while releasing the connection', 'error', releaseError);
             }
         }
     }
 };
 
-export { createVendorService, getVendorsService, updateVendorService, deleteVendorService};
+export { createVendorService, getVendorsService, updateVendorService, deleteVendorService };

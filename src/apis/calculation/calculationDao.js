@@ -1,21 +1,18 @@
-import { sendError } from "../../utils/responseHandlers.js";
 import { executeQuery, buildSelectQuery, buildInsertQuery, buildUpdateQuery } from "../../utils/db.js";
-const tableName = 'Calculation';
-import { Logger } from 'winston';
-const logger = new Logger();
-const getCalculationDao = async (filters={}) => {
-    try {
-      const baseQuery = `SELECT * 
-                         FROM public."${tableName}" 
-                         WHERE is_obsolete = false`;
-    const [sql, queryParams] = buildSelectQuery(baseQuery, filters);
-    const rows = await executeQuery(sql, queryParams);
+import { columns,tableName } from "../../constants/index.js";
 
-    return rows.rows;
-  } catch (error) {
-    logger.error('Error fetching Calculation', error);
-    throw new sendError('Failed to fetch Calculation');
-  }
+const getCalculationDao = async (
+  search,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder
+) => {
+  const baseQuery = `SELECT * FROM "${tableName.CALCULATION}" WHERE 1=1`;
+  const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.CALCULATION, page, pageSize, sortBy, sortOrder, typeof search != 'string');
+  // Execute query
+  const result = await executeQuery(sql, queryParams);
+  return result.rows;
 };
 
 const createCalculationDao = async (data) => {
@@ -78,7 +75,7 @@ const updateCalculationDao = async (user_id, data) => {
 
     return result.rows[0]; 
   } catch (error) {
-    logger.error("Error updating calculation", error);
+console.log("Error updating calculation", error);
     throw new Error("Failed to update calculation");
   }
 };

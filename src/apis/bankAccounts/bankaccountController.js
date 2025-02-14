@@ -4,7 +4,7 @@ import { getBankaccountService, createBankaccountService, updateBankaccountServi
 
 const getBankaccount = async (req, res) => {
   try {
-    const { payload } = req.query;
+    const payload = req.query.search;
     const data = await getBankaccountService(payload);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');

@@ -4,9 +4,9 @@ import { getDesignationService, createDesignationByIDService, updateDesignationB
 
 const getDesignation = async (req, res) => {
   try {
-    const { payload } = req.query;
+    const payload = req.query.search;
     const data = await getDesignationService(payload);
-    console.log('getUsers successfully');
+    console.log('get  successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while logging in', error);

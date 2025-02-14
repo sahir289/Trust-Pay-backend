@@ -5,7 +5,6 @@ import {
 } from '../../utils/appErrors.js';
 import { Buffer } from 'buffer';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
-import Logger from '../../utils/logger.js';
 import { createPayoutDao, deletePayoutDao, getPayoutsDao, updatePayoutDao } from './payOutDao.js';
 import { getMerchantsDao } from '../merchants/merchantDao.js';
 import { getCalculationDao, updateCalculationDao } from '../calculation/calculationDao.js';
@@ -15,8 +14,6 @@ import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBa
 import { getUserByIdDao } from '../users/userDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
 import { Status, Role, Method } from '../../constants/index.js'
-
-const logger = new Logger();
 
 const createPayoutService = async (headers, payload) => {
     let conn;
@@ -55,7 +52,7 @@ const createPayoutService = async (headers, payload) => {
 
         const data = await createPayoutDao(payload);
         await commit(conn);
-        logger.log('Payout created successfully', 'info');
+        console.log('Payout created successfully', 'info');
 
         return data;
     } catch (error) {
@@ -63,53 +60,27 @@ const createPayoutService = async (headers, payload) => {
             try {
                 await rollback(conn);
             } catch (rollbackError) {
-                logger.log('Error during transaction rollback', 'error', rollbackError);
+                console.log('Error during transaction rollback', 'error', rollbackError);
             }
         }
-        logger.log('Error while creating Payout', 'error', error);
+        console.log('Error while creating Payout', 'error', error);
         throw new BadRequestError('Error occurred while creating Payout');
     } finally {
         if (conn) {
             try {
                 conn.release();
             } catch (releaseError) {
-                logger.log('Error while releasing the connection', 'error', releaseError);
+                console.log('Error while releasing the connection', 'error', releaseError);
             }
         }
     }
 };
 
 const getPayoutsService = async (payload) => {
-    let conn;
-    try {
-        conn = await getConnection();
-        await beginTransaction(conn); // Start a transaction (even if read-only)
+    const data = await getPayoutsDao(payload);
 
-        const data = await getPayoutsDao(payload);
-
-        await commit(conn); // Commit transaction (even if no modifications)
-
-        logger.log('Fetched Payouts successfully', 'info');
-        return data;
-    } catch (error) {
-        if (conn) {
-            try {
-                await rollback(conn); // Rollback the transaction if an error occurs
-            } catch (rollbackError) {
-                logger.log('Error during transaction rollback', 'error', rollbackError);
-            }
-        }
-        logger.log('Error while fetching Payouts', 'error', error);
-        throw new BadRequestError('Error occurred while fetching Payouts');
-    } finally {
-        if (conn) {
-            try {
-                conn.release(); // Release the connection back to the pool
-            } catch (releaseError) {
-                logger.log('Error while releasing the connection', 'error', releaseError);
-            }
-        }
-    }
+    console.log('Fetched Payouts successfully', 'info');
+    return data;
 };
 
 const updatePayoutService = async (id, payload) => {
@@ -195,14 +166,14 @@ const updatePayoutService = async (id, payload) => {
         });
 
         await commit(conn);
-        logger.info('Payout updated successfully');
+        console.info('Payout updated successfully');
         return data;
     } catch (error) {
-        if (conn) await rollback(conn).catch(rollbackError => logger.error('Error during transaction rollback', rollbackError));
-        logger.error('Error while updating Payout', error);
+        if (conn) await rollback(conn).catch(rollbackError => console.error('Error during transaction rollback', rollbackError));
+        console.error('Error while updating Payout', error);
         throw new BadRequestError('Error occurred while updating Payout');
     } finally {
-        if (conn) conn.release().catch(releaseError => logger.error('Error while releasing the connection', releaseError));
+        if (conn) conn.release().catch(releaseError => console.error('Error while releasing the connection', releaseError));
     }
 };
 
@@ -219,7 +190,7 @@ const processEkoPayout = async (singleWithdrawData, payload) => {
                 rejected_at: isSuccess ? null : new Date(),
                 utr_id: ekoResponse?.data?.tid
             });
-            logger.info(`Payment initiated: ${ekoResponse?.message}`);
+            console.info(`Payment initiated: ${ekoResponse?.message}`);
         } else {
             let getEkoPayoutStatus = null;
             if (ekoResponse.status === 1328) {
@@ -231,10 +202,10 @@ const processEkoPayout = async (singleWithdrawData, payload) => {
                 rejected_at: new Date(),
                 utr_id: getEkoPayoutStatus?.data?.tid || null
             });
-            logger.error(`Payment rejected by eko due to ${ekoResponse?.message}`);
+            console.error(`Payment rejected by eko due to ${ekoResponse?.message}`);
         }
     } catch (error) {
-        logger.error('Error processing Eko method:', error);
+        console.error('Error processing Eko method:', error);
     }
 };
 
@@ -275,14 +246,14 @@ const activateEkoService = async (req, res) => {
         try {
             parsedData = JSON.parse(responseText);
         } catch (err) {
-            logger.error(err);
+            console.error(err);
             parsedData = responseText;
         }
 
         return parsedData;
 
     } catch (error) {
-        logger.error(error)
+        console.error(error)
     }
 }
 
@@ -338,12 +309,12 @@ const createEkoWithdraw = async (payload, client_ref_id) => {
         try {
             parsedData = JSON.parse(responseText);
         } catch (err) {
-            logger.error(err);
+            console.error(err);
             parsedData = responseText;
         }
         return parsedData;
     } catch (error) {
-        logger.error(error);
+        console.error(error);
     }
 }
 
@@ -376,12 +347,12 @@ const ekoPayoutStatus = async (id, res) => {
             parsedData = JSON.parse(responseText);
 
         } catch (err) {
-            logger.error(err);
+            console.error(err);
             parsedData = responseText;
         }
         return parsedData;
     } catch (error) {
-        logger.error(error);
+        console.error(error);
     }
 }
 
@@ -393,7 +364,7 @@ const deletePayoutService = async (id) => {
         const payload = { is_obsolete: true };
         const data = await deletePayoutDao(id, payload); // Adjust DAO call for delete
         await commit(conn); // Commit the transaction
-        logger.log('Payout deleted successfully', 'info');
+        console.log('Payout deleted successfully', 'info');
 
         return data;
     } catch (error) {
@@ -401,17 +372,17 @@ const deletePayoutService = async (id) => {
             try {
                 await rollback(conn); // Rollback the transaction in case of error
             } catch (rollbackError) {
-                logger.log('Error during transaction rollback', 'error', rollbackError);
+                console.log('Error during transaction rollback', 'error', rollbackError);
             }
         }
-        logger.log('Error while deleting Payout', 'error', error);
+        console.log('Error while deleting Payout', 'error', error);
         throw new BadRequestError('Error occurred while deleting Payout');
     } finally {
         if (conn) {
             try {
                 conn.release(); // Release the connection back to the pool
             } catch (releaseError) {
-                logger.log('Error while releasing the connection', 'error', releaseError);
+                console.log('Error while releasing the connection', 'error', releaseError);
             }
         }
     }
@@ -444,12 +415,12 @@ const ekoWalletBalanceEnquiryInternally = async () => {
         try {
             parsedData = JSON.parse(responseText);
         } catch (err) {
-            logger.error(err);
+            console.error(err);
             parsedData = responseText;
         }
         return parsedData;
     } catch (error) {
-        logger.error(error);
+        console.error(error);
     }
 }
 
