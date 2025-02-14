@@ -9,7 +9,6 @@ import { razorpay } from "../../webhooks/razorPay.js";
 import config from "../../config/config.js";
 import { Cashfree } from "cashfree-pg";
 // import { calculateCommission } from "../../utils/utils.js";
-import { getMerchantBankService } from "../bankAccounts/bankaccountServices.js";
 import dayjs from "dayjs";
 import { merchantPayinCallback } from "../../callBacksAndWebHook/merchantCallBacks.js";
 import { getPayoutsDao } from '../payOut/payOutDao.js';
@@ -37,7 +36,7 @@ export const generatePayInUrlService = async (payload) => {
         throw new BadRequestError(404, "Enter valid Api key");
     }
 
-    const bankAccountLinkRes = await getMerchantBankService(merchant.user_id);
+    const bankAccountLinkRes = await getMerchantBankDao(merchant.user_id);
     const availableBankAccounts = bankAccountLinkRes.filter(bankAccount => bankAccount.bank_used_for === "payIn" && bankAccount.is_enabled && (bankAccount.is_bank || bankAccount.is_qr));
     if (!availableBankAccounts.length) {
         // Send alert if no bank account is linked
@@ -290,7 +289,6 @@ export const updatePaymentNotificationStatusService = async (payInId, type) => {
             status: payIn.status,
             merchantOrderId: payIn.merchant_order_id,
             payinId: payIn.id,
-            // Todo: don't have confirmed column  yet
             amount: payIn.confirmed,
             utr_id: payIn.utr || "",
         });

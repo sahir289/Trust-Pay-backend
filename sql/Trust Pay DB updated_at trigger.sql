@@ -31,8 +31,7 @@ BEGIN
             ('BankResponse'),
             ('CheckUtrHistory'),
             ('ResetDataHistory'),
-            ('Complaints'),
-            ('TelegramResponse')
+            ('Complaints')
         ) AS t(table_name)
     LOOP
         -- Drop the trigger if it exists and create a new one for each table
