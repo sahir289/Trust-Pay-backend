@@ -105,6 +105,6 @@ router.put('/update-complaint/:id', tryCatchHandler(updateComplaints));
  *         description: Complaint not found
  */
 
-router.delete('/delete-complaint/:id', tryCatchHandler(deleteComplaints));
+router.put('/delete-complaint/:id', tryCatchHandler(deleteComplaints));
 
 export default router;

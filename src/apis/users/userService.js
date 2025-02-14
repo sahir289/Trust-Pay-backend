@@ -53,7 +53,7 @@ const getUsersByUserNameService = async (username) => {
       conn = await getConnection();
 
       const data = await getUsersByUserNameDao(conn, username);
-      console.log('getUsers successfully');
+      console.log('get Users successfully');
       
       return data;
     } catch (error) {
@@ -74,6 +74,7 @@ const getUsersByUserNameService = async (username) => {
     let conn;
     try {
       conn = await getConnection();
+      console.log(payload,"payload in user service")
       const { user_name } = payload;
       const user = await getUsersByUserNameDao(conn, user_name);
       if (user?.user_name || user?.email || user?.contact_no) {

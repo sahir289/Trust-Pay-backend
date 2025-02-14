@@ -59,12 +59,13 @@ const createMerchantService = async (payload) => {
     }
 };
 
-const getMerchantsService = async () => {
+const getMerchantsService = async (payload) => {
     let conn;
     try {
+        
         conn = await getConnection();
         await beginTransaction(conn);
-        const data = await getMerchantsDao();
+        const data = await getMerchantsDao(payload);
         await commit(conn); // Commit transaction (even if no modifications)
 
         console.log('Fetched Merchants successfully');
