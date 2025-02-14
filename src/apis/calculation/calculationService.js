@@ -1,16 +1,12 @@
 
 import {BadRequestError,} from '../../utils/appErrors.js';
 import { getCalculationDao , createCalculationDao , updateCalculationDao ,deleteCalculationDao } from './calculationDao.js';
-const getCalculationService = async () => {
-    try {
-        const data = await getCalculationDao();
-        console.log('Fetched Calculations successfully', 'info');
+
+const getCalculationService = async (payload) => {
+        const data = await getCalculationDao(payload);
         return data;
-    } catch (error) {
-       console.error('Error during transaction rollback', 'error', error);
-       throw new BadRequestError('Error occurred while fetching Calculation');
-    }
 }
+
 const createCalculationService = async (payload) => {
     try {
         const data = await createCalculationDao(payload);
@@ -21,9 +17,9 @@ const createCalculationService = async (payload) => {
        throw new BadRequestError('Error occurred while creating Calculation');
     }
 }
-const updateCalculationService = async (id,payload) => {  
+const updateCalculationService = async (user_id,payload) => {  
     try {
-        const data = await updateCalculationDao(id,payload);
+        const data = await updateCalculationDao(user_id,payload);
         console.log('Updated Calculation successfully', 'info');
         return data;
     } catch (error) {

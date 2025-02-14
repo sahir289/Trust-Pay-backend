@@ -2,7 +2,9 @@ import { BadRequestError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
 import { getConnection } from '../../utils/db.js';
 import { createUserDao, getUserByIdDao, getUsersByUserNameDao, getUsersDao } from './userDao.js';
-
+import { createMerchantService } from '../merchants/merchantService.js';
+import { createVendorService } from '../vendors/vendorService.js';
+import { getRoleDao } from '../roles/rolesDao.js';
 
 const getUsersService = async () => {
   let conn;
@@ -52,7 +54,7 @@ const getUsersByUserNameService = async (username) => {
       conn = await getConnection();
 
       const data = await getUsersByUserNameDao(conn, username);
-      console.log('getUsers successfully');
+      console.log('get Users successfully');
       
       return data;
     } catch (error) {
@@ -68,7 +70,7 @@ const getUsersByUserNameService = async (username) => {
         }
     }
   };
-
+  
   const createUserService = async (payload) => {
     let conn;
     try {
@@ -82,10 +84,46 @@ const getUsersByUserNameService = async (username) => {
       const password = await createHash(payload.password);
       
       payload.password = password;
-      const data = await createUserDao(conn, payload);
-
-      console.log('User Created Successfully', data);
-      return data;
+      const User = await createUserDao(conn, payload);
+      console.log('User Created Successfully');
+      const role =await getRoleDao(payload.role_id)
+      if (role.role === "Merchant" || role.role === "Merchant_Admin" ) {
+        const merchantPayload={
+         "user_id":User.id,
+         "role_id":payload.role_id,
+         "company_id":payload.company_id,
+         "first_name":payload.first_name,
+         "last_name":payload.last_name,
+         "code":payload.code,
+         "min_payin": 0.0,
+         "max_payin": 0.0,
+          "payin_commission": 0.0,
+          "min_payout": 0.0,
+          "max_payout": 0.0,
+         "payout_commission": 0.0,
+        "balance": 0.0,
+          "created_by":User.id,
+          "updated_by":""
+        }
+        await createMerchantService(merchantPayload);
+      }
+      if (role.role === "Vendor" || role.role === "Vendor_Admin") {
+        const vendorPayload={
+         "user_id":User.id,
+         "role_id":payload.role_id,
+         "company_id":payload.company_id,
+         "first_name":payload.first_name,
+         "last_name":payload.last_name,
+         "code":payload.code,
+          "payin_commission": 0.0,
+         "payout_commission": 0.0,
+        "balance": 0.0,
+          "created_by":User.id,
+          "updated_by":""
+        }
+        await createVendorService(vendorPayload);
+      }
+      return User;
     } catch (error) {
       console.error('error getting while creating user', error);
       throw new BadRequestError('Error getting while creating user');

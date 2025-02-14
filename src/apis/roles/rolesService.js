@@ -2,15 +2,9 @@ import {BadRequestError,} from '../../utils/appErrors.js';
 import { getRoleDao,createRoleDao,updateRoleDao,deleteRoleDao } from './rolesDao.js';
 
 
-const getRoleService = async () => {
-    try {
-        const data = await getRoleDao();
-        console.log('Fetched Roles successfully', 'info');
+const getRoleService = async (payload) => {
+        const data = await getRoleDao(payload);
         return data;
-    } catch (error) {
-       console.error('Error during transaction rollback', 'error', error);
-       throw new BadRequestError('Error occurred while fetching Roles');
-    }
 }
 
 

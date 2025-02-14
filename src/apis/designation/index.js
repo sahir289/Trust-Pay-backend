@@ -1,67 +1,27 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createDesignation, deleteDesignation, getDesignationById, updateDesignation } from './designationController.js';
+import { createDesignation, deleteDesignation, getDesignation, updateDesignation } from './designationController.js';
+import { isAuthenticated } from '../../middlewares/auth.js';
 const router = express.Router();
-
-
-
-
- /* /users/by-id:
- *   get:
- *     summary: Get user by id
- *     description: Returns user filtered by id.
- *     tags:
- *       - Users
- *     parameters:
- *       - in: query
- *         name: id
- *         schema:
- *           type: string
- *         required: true
- *         description: The username to filter users by.
- *     responses:
- *       200:
- *         description: A filtered list of users.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "get users by id successfully"
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 1
- *                       username:
- *                         type: string
- *                         example: "john_doe"
- */
- router.get('/:id', tryCatchHandler(getDesignationById));
 
 /**
  * @swagger
- * /users/create-user:
- *   post:
- *     summary: create new user
- *     description: Returns users filtered by username.
+ * /designation:
+ *   get:
+ *     summary: Get Designation by ID
+ *     description: Retrieve details of a specific designation by its ID.
  *     tags:
- *       - Users
+ *       - Designation
  *     parameters:
- *       - in: query
- *         name: username
+ *       - in: path
+ *         name: id
+ *         required: true
  *         schema:
  *           type: string
- *         required: true
- *         description: The username to filter users by.
+ *         description: The ID of the designation to retrieve.
  *     responses:
  *       200:
- *         description: A filtered list of users.
+ *         description: Designation details retrieved successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -69,23 +29,96 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "user created successfully"
+ *                   example: "Designation retrieved successfully"
  *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 1
- *                       username:
- *                         type: string
- *                         example: "john_doe"
+ *                   type: object
  */
- router.post('/create-designation', tryCatchHandler(createDesignation));
+router.get('/', isAuthenticated, tryCatchHandler(getDesignation));
 
- router.put('/update-designation/:id', tryCatchHandler(updateDesignation));
+/**
+ * @swagger
+ * /designation/create-designation:
+ *   post:
+ *     summary: Create a new Designation
+ *     description: Creates a new designation with the provided details.
+ *     tags:
+ *       - Designation
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Manager"
+ *     responses:
+ *       201:
+ *         description: Designation created successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Designation created successfully"
+ *                 data:
+ *                   type: object
+ */
+router.post('/create-designation', isAuthenticated, tryCatchHandler(createDesignation));
 
- router.put('/delete-designation/:id', tryCatchHandler(deleteDesignation));
+/**
+ * @swagger
+ * /designation/update-designation/{id}:
+ *   put:
+ *     summary: Update an existing Designation
+ *     description: Updates the details of a specific designation by ID.
+ *     tags:
+ *       - Designation
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the designation to update.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Senior Manager"
+ *     responses:
+ *       200:
+ *         description: Designation updated successfully.
+ */
+router.put('/update-designation/:id', isAuthenticated, tryCatchHandler(updateDesignation));
+
+/**
+ * @swagger
+ * /designation/delete-designation/{id}:
+ *   delete:
+ *     summary: Delete a Designation
+ *     description: Deletes a designation by ID.
+ *     tags:
+ *       - Designation
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the designation to delete.
+ *     responses:
+ *       200:
+ *         description: Designation deleted successfully.
+ */
+router.delete('/delete-designation/:id', isAuthenticated, tryCatchHandler(deleteDesignation));
 
 export default router;

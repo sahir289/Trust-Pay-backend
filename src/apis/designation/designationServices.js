@@ -1,13 +1,12 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
+import { getDesignationDao, createDesignationByIdDao, updateDesignationByIdDao, deleteDesignationByIdDao } from './designationDao.js';
 
-import { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao } from './designationDao.js';
-
-const getDesignationService = async (id) => {
+const getDesignationService = async (payload) => {
   let conn;
   try {
     conn = await getConnection();
-    const result = await getDesignationByIdDao(id);
+    const result = await getDesignationDao(payload);
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -56,6 +55,4 @@ const deleteDesignationService = async (id) => {
 };
 
 
-
-export { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService };
-
+export { getDesignationService, createDesignationByIDService, updateDesignationByIDService, deleteDesignationByIDService };

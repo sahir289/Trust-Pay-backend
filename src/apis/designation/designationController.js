@@ -1,12 +1,12 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService } from './designationServices.js';
+import { getDesignationService, createDesignationByIDService, updateDesignationByIDService, deleteDesignationByIDService } from './designationServices.js';
 
 const getDesignation = async (req, res) => {
   try {
-    const { id } = req.params;
-    const data = await getDesignationService(id);
-    console.log('getUsers successfully');
+    const payload = req.query.search;
+    const data = await getDesignationService(payload);
+    console.log('get  successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while logging in', error);

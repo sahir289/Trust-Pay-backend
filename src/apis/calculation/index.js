@@ -18,7 +18,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /v1/calculations:
+ * /calculations:
  *   get:
  *     summary: Get all calculations
  *     tags: [Calculations]
@@ -32,7 +32,7 @@ router.get('/', tryCatchHandler(getCalculation));
 
 /**
  * @swagger
- * /v1/calculations/create-calculation:
+ * /calculations/create-calculation:
  *   post:
  *     summary: Create a new calculation
  *     tags: [Calculations]
@@ -61,7 +61,7 @@ router.post('/create-calculation', tryCatchHandler(createCalculation));
 
 /**
  * @swagger
- * /v1/calculations/update-calculation/{id}:
+ * /calculations/update-calculation/{id}:
  *   put:
  *     summary: Update a calculation
  *     tags: [Calculations]
@@ -91,12 +91,12 @@ router.post('/create-calculation', tryCatchHandler(createCalculation));
  *       404:
  *         description: Calculation not found
  */
-router.put('/update-calculation/:id', tryCatchHandler(updateCalculation));
+router.put('/update-calculation/:user_id', tryCatchHandler(updateCalculation));
 
 /**
  * @swagger
- * /v1/calculations/delete-calculation/{id}:
- *   put:
+ * /calculations/delete-calculation/{id}:
+ *   delete:
  *     summary: Soft delete a calculation
  *     tags: [Calculations]
  *     parameters:
@@ -112,6 +112,6 @@ router.put('/update-calculation/:id', tryCatchHandler(updateCalculation));
  *       404:
  *         description: Calculation not found
  */
-router.put('/delete-calculation/:id', tryCatchHandler(deleteCalculation));
+router.put('/delete-calculation/:user_id', tryCatchHandler(deleteCalculation));
 
 export default router;

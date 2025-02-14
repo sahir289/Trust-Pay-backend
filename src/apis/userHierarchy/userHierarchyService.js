@@ -2,18 +2,18 @@ import {
     BadRequestError,
 } from '../../utils/appErrors.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
-import { createVendorDao, deleteVendorDao, getVendorsDao, updateVendorDao } from './vendorDao.js';
+import { createUserHierarchyDao, deleteUserHierarchyDao, getUserHierarchysDao, updateUserHierarchyDao } from './userHierarchyDao.js';
 
-const createVendorService = async (payload) => {
+const createUserHierarchyService = async (payload) => {
     let conn;
     try {
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
 
-        const data = await createVendorDao(payload);
+        const data = await createUserHierarchyDao(payload);
 
         await commit(conn); // Commit the transaction
-        console.log('Vendor created successfully', 'info');
+        console.log('UserHierarchy created successfully', 'info');
 
         return data;
     } catch (error) {
@@ -24,8 +24,8 @@ const createVendorService = async (payload) => {
                 console.log('Error during transaction rollback', 'error', rollbackError);
             }
         }
-        console.log('Error while creating Vendor', 'error', error);
-        throw new BadRequestError('Error occurred while creating Vendor');
+        console.log('Error while creating UserHierarchy', 'error', error);
+        throw new BadRequestError('Error occurred while creating UserHierarchy');
     } finally {
         if (conn) {
             try {
@@ -37,23 +37,23 @@ const createVendorService = async (payload) => {
     }
 };
 
-const getVendorsService = async (payload) => {
-    const data = await getVendorsDao(payload);
+const getUserHierarchyService = async (payload) => {
+    const data = await getUserHierarchysDao(payload);
 
-    console.log('Fetched Vendors successfully', 'info');
+    console.log('Fetched UserHierarchys successfully', 'info');
     return data;
 };
 
-const updateVendorService = async (id, payload) => {
+const updateUserHierarchyService = async (id, payload) => {
     let conn;
     try {
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
 
-        const data = await updateVendorDao(id, payload); // Adjust DAO call for update
+        const data = await updateUserHierarchyDao(id, payload); // Adjust DAO call for update
 
         await commit(conn); // Commit the transaction
-        console.log('Vendor updated successfully', 'info');
+        console.log('UserHierarchy updated successfully', 'info');
 
         return data;
     } catch (error) {
@@ -64,8 +64,8 @@ const updateVendorService = async (id, payload) => {
                 console.log('Error during transaction rollback', 'error', rollbackError);
             }
         }
-        console.log('Error while updating Vendor', 'error', error);
-        throw new BadRequestError('Error occurred while updating Vendor');
+        console.log('Error while updating UserHierarchy', 'error', error);
+        throw new BadRequestError('Error occurred while updating UserHierarchy');
     } finally {
         if (conn) {
             try {
@@ -77,17 +77,17 @@ const updateVendorService = async (id, payload) => {
     }
 };
 
-const deleteVendorService = async (id) => {
+const deleteUserHierarchyService = async (id) => {
     let conn;
     try {
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
         const payload = { is_obsolete: true };
 
-        const data = await deleteVendorDao(id, payload); // Adjust DAO call for delete
+        const data = await deleteUserHierarchyDao(id, payload); // Adjust DAO call for delete
 
         await commit(conn); // Commit the transaction
-        console.log('Vendor deleted successfully', 'info');
+        console.log('UserHierarchy deleted successfully', 'info');
 
         return data;
     } catch (error) {
@@ -98,8 +98,8 @@ const deleteVendorService = async (id) => {
                 console.log('Error during transaction rollback', 'error', rollbackError);
             }
         }
-        console.log('Error while deleting Vendor', 'error', error);
-        throw new BadRequestError('Error occurred while deleting Vendor');
+        console.log('Error while deleting UserHierarchy', 'error', error);
+        throw new BadRequestError('Error occurred while deleting UserHierarchy');
     } finally {
         if (conn) {
             try {
@@ -111,4 +111,4 @@ const deleteVendorService = async (id) => {
     }
 };
 
-export { createVendorService, getVendorsService, updateVendorService, deleteVendorService };
+export { createUserHierarchyService, getUserHierarchyService, updateUserHierarchyService, deleteUserHierarchyService };
