@@ -153,7 +153,6 @@ export const transactionWrapper = (fn) => async (...args) => {
   } catch (error) {
     await rollback(conn, false); // Rollback the transaction if an error occurs
     console.error('Error while executing query', error);
-    console.error(`\nQuery: ${query}\nParams: [${queryParams}]`);
     throw new DbError(error.message);
   } finally {
     if (conn) {

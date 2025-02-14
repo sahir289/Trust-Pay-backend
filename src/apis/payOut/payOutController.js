@@ -1,3 +1,4 @@
+import { transactionWrapper } from '../../utils/db.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { createPayoutService, deletePayoutService, getPayoutsService, updatePayoutService } from './payOutService.js';
 
@@ -49,7 +50,7 @@ const updatePayout = async (req, res) => {
         const { id } = req.params;  // Assuming the Payout ID is passed as a parameter
 
         // Call the service to update the Payout
-        const result = await updatePayoutService(id, payload);
+        const result = await transactionWrapper(updatePayoutService)(id, payload);
 
         // Log success message
         console.log('Payout updated successfully', result);
