@@ -1,5 +1,6 @@
 import { updatePayInUrlDao } from "../apis/payIn/payInDao.js";
-import { getPayInUrlService, notifyMerchants } from "../apis/payIn/payInService.js";
+import { getPayInUrlService } from "../apis/payIn/payInService.js";
+import { merchantPayinCallback } from "../callBacksAndWebHook/merchantCallBacks.js";
 import { Status } from "../constants/index.js";
 
 export const payInUpdateCashfreeWebhook = async (req, res) => {
@@ -7,7 +8,7 @@ export const payInUpdateCashfreeWebhook = async (req, res) => {
     res.json({ status: 200, message: 'Cash free Webhook Called successfully' });
     const payInDataById = await getPayInUrlService(payload.data.order.order_id);
     if (!payInDataById) {
-        Error('Payment not found');
+        throw new Error('Payment not found');
     }
 
     const durMs = new Date() - payInDataById.createdAt;
@@ -17,7 +18,7 @@ export const payInUpdateCashfreeWebhook = async (req, res) => {
     const duration = `${durHours}:${durMinutes}:${durSeconds}`;
 
     if (payload.data.payment.payment_status === Status.FAILED || payload.data.payment.payment_status === Status.USER_DROPPED) {
-        Error('Payment Failed due to:', payload.data.payment.payment_message);
+        throw new Error('Payment Failed due to:', payload.data.payment.payment_message);
     }
 
     const payInData = {
@@ -26,7 +27,7 @@ export const payInUpdateCashfreeWebhook = async (req, res) => {
         status: payload.data.payment.payment_status === Status.USER_DROPPED ? Status.DROPPED : payload.data.payment.payment_status,
         utr: payload.data.payment.bank_reference,
         user_submitted_utr: payload.data.payment.bank_reference,
-        approved_at: new Date(),
+        approved_at: new Date().toISOString(),
         is_url_expires: true,
         user_submitted_image: null,
         duration: duration,
@@ -44,6 +45,6 @@ export const payInUpdateCashfreeWebhook = async (req, res) => {
         utr_id: (updatePayinRes?.status === Status.SUCCESS || updatePayinRes?.status === Status.DISPUTE) ? updatePayinRes?.utr : ""
     };
 
-    notifyMerchants(payInData?.config?.notify_url, notifyData)
+    merchantPayinCallback(updatePayinRes?.config?.notify_url, notifyData)
 }
 
