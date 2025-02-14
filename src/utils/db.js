@@ -76,47 +76,37 @@ export const executeQuery = async (query, queryParams = []) => {
   }
 }
 
-export const buildSelectQuery = (baseQuery, filters = {}, columns, page = 1, pageSize = 10, sortBy = "created_at", sortOrder = "DESC") => {
+export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = true) => {
+  const page = p || 1, pageSize = ps || 10, sortBy = s || "created_at", sortOrder = o || "DESC";
+  let filters = {};
+
+  if(isJson){
+    filters = f;
+  } else {
+    for(const key of columns){
+      filters[key] = f;
+    }
+  }
+
   let query = baseQuery;
   let values = [];
   let conditions = [];
 
   // Apply filters
   for (const key in filters) {
-    if (filters[key] !== undefined && filters[key] !== null) {
+    const value = filters[key];
+    if(typeof value === 'string' && value.includes(',')){
+      conditions.push(`"${key}" IN (${value})`);
+      continue;
+    }
+    if (value) {
       conditions.push(`"${key}" = $${values.length + 1}`);
-      values.push(filters[key]);
+      values.push(value);
     }
   }
 
   if (conditions.length > 0) {
-    query += ` WHERE ${conditions.join(" AND ")}`;
-  }
-
-  // Apply sorting and pagination
-  query = applySortingAndPagination(query, values, columns, sortBy, sortOrder, page, pageSize);
-
-  return [query, values];
-};
-
-export const buildSelectStringQuery = (baseQuery, searchString, columns, page = 1, pageSize = 10, sortBy = "created_at", sortOrder = "DESC") => {
-  let query = baseQuery;
-  let values = [];
-  let conditions = [];
-
-  // Apply filters
-  if (searchString?.trim() && columns?.length > 0) {
-    const searchValues = searchString.split(",").map(val => val.trim());
-    const searchConditions = searchValues.map((_, index) =>
-      `(${columns.map(col => `"${col}"::TEXT ILIKE $${values.length + index + 1}`).join(" OR ")})`
-    ).join(" OR ");
-
-    conditions.push(searchConditions);
-    values.push(...searchValues.map(val => `%${val}%`));
-  }
-
-  if (conditions.length > 0) {
-    query += ` WHERE ${conditions.join(" AND ")}`;
+    query += ` ${conditions.join(" AND ")}`;
   }
 
   // Apply sorting and pagination
