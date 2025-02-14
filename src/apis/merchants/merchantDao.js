@@ -8,13 +8,13 @@ export const createMerchantDao = async (data) => {
     return result.rows[0];
 }
 
-export const getMerchantsDao = async ({
+export const getMerchantsDao = async (
     search,
     page,
     pageSize,
     sortBy,
     sortOrder
-} = {}) => {
+) => {
     const baseQuery = `SELECT * FROM "${tableName.MERCHANT}" WHERE 1=1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.MERCHANT, page, pageSize, sortBy, sortOrder, typeof search != 'string');
     // Execute query

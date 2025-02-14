@@ -80,10 +80,10 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
   const page = p || 1, pageSize = ps || 10, sortBy = s || "created_at", sortOrder = o || "DESC";
   let filters = {};
 
-  if(isJson){
+  if (isJson) {
     filters = f;
   } else {
-    for(const key of columns){
+    for (const key of columns) {
       filters[key] = f;
     }
   }
@@ -95,8 +95,9 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
   // Apply filters
   for (const key in filters) {
     const value = filters[key];
-    if(typeof value === 'string' && value.includes(',')){
-      conditions.push(`"${key}" IN (${value})`);
+    if (typeof value === 'string' && value.includes(',')) {
+      conditions.push(`"${key}" = ANY($${values.length + 1})`);
+      values.push(value.split(','));
       continue;
     }
     if (value) {
@@ -105,8 +106,8 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
     }
   }
 
-  if (conditions.length > 0) {
-    query += ` ${conditions.join(" AND ")}`;
+  if (conditions.length) {
+    query += ` AND ${conditions.join(' AND ')}`;
   }
 
   // Apply sorting and pagination
