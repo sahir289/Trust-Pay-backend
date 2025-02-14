@@ -53,7 +53,7 @@ export const validatePayInUrl = async (req, res) => {
         code: payIn.upi_short_code,
         return_url: config.return_url,
         notify_url: config.notify_url,
-        expiryTime: Number(payIn.expiration_date),
+        expiryTime: payIn.expiration_date,
         amount: payIn.amount,
         one_time_used: payIn.one_time_used,
         status: payIn.status,

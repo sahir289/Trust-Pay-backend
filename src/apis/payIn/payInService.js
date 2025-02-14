@@ -5,7 +5,6 @@ import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao } from "./payInD
 import { getMerchantsService } from "../merchants/merchantService.js";
 import { AccessDeniedError, BadRequestError, NotFoundError } from "../../utils/appErrors.js";
 import { v4 as uuidv4 } from "uuid";
-import { getMerchantBankByIdDao } from "../banks/bankDao.js";
 import { razorpay } from "../../webhooks/razorPay.js";
 import config from "../../config/config.js";
 import { Cashfree } from "cashfree-pg";
@@ -13,6 +12,7 @@ import { getWithdrawByIdService } from "../withdraw/withDrawService.js";
 // import { calculateCommission } from "../../utils/utils.js";
 import { getMerchantBankService } from "../bankAccounts/bankaccountServices.js";
 import { getMerchantBankDao } from "../bankAccounts/bankaccountDao.js";
+import dayjs from "dayjs";
 
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
@@ -53,8 +53,7 @@ export const generatePayInUrlService = async (payload) => {
         return_url: returnUrl ? returnUrl : merchant.return_url,
     };
 
-    const _10_MINUTES = 1000 * 60 * 10;
-    const expirationDate = (new Date().getTime() + _10_MINUTES);
+    const expirationDate = dayjs().add(10, 'minutes').toISOString();
     const bank = bankAccountLinkRes[Math.floor(Math.random() * bankAccountLinkRes.length)];
     const data = {
         upi_short_code: nanoid(5), // code added by us
@@ -169,7 +168,7 @@ export const assignedBankToPayInUrlService = async (payInId, amount) => {
     // allow_qr ==> UPI
     // config.is_phonpe ==> Phone Pe
     // is_enabled ==> Bank Transfer
-    const banks = await getMerchantBankByIdDao(merchant.user_id);
+    const banks = await getMerchantBankDao(merchant.user_id);
     const enabledBanks = banks.filter((bank) => bank.is_enabled && bank.bank_used_for === "payIn")
     if (!enabledBanks.length) {
         await updatePayInUrlDao(payInId, {
@@ -290,6 +289,10 @@ export const updatePaymentNotificationStatusService = async (payInId, type) => {
     let notifyData;
     let notifyUrl;
 
+    if (!Object.values(Type).includes(type)) {
+        throw new Error("Invalid notification type.");
+    }
+
     if (type === Type.PAYIN) {
         updatePayInOutRes = await updatePayInUrlDao(payInId, { is_notified: true });
         if (!updatePayInOutRes) {
@@ -306,12 +309,12 @@ export const updatePaymentNotificationStatusService = async (payInId, type) => {
     } else if (type === Type.PAYOUT) {
         updatePayInOutRes = await getWithdrawByIdService(payInId);
         if (!updatePayInOutRes.length) {
-            throw new Error("Payout data not found.");
+            throw new NotFoundError("Payout data not found.");
         }
 
-        const merchant = await getMerchantBankByIdDao(updatePayInOutRes.merchant_id);
+        const merchant = await getMerchantBankDao(updatePayInOutRes.merchant_id);
         if (!merchant || !merchant.payout_notify_url) {
-            throw new Error("Merchant or payout notify URL not found.");
+            throw new NotFoundError("Merchant or payout notify URL not found.");
         }
 
         notifyData = {
@@ -323,8 +326,6 @@ export const updatePaymentNotificationStatusService = async (payInId, type) => {
             utr_id: updatePayInOutRes.utr_id || "",
         };
         notifyUrl = merchant.payout_notify_url;
-    } else {
-        throw new Error("Invalid notification type.");
     }
 
     const response = notifyMerchants(notifyUrl, notifyData)
