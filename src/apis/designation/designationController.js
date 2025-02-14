@@ -4,7 +4,7 @@ import { getDesignationService, createDesignationByIDService, updateDesignationB
 
 const getDesignation = async (req, res) => {
   try {
-    const { payload } = req.query;
+    const payload = req.query.search;
     const data = await getDesignationService(payload);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');

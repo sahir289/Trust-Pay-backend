@@ -40,36 +40,9 @@ const createChargeBackService = async (payload) => {
 };
 
 const getChargeBacksService = async (payload) => {
-    let conn;
-    try {
-        conn = await getConnection();
-        await beginTransaction(conn); // Start a transaction (even if read-only)
-
-        const data = await getChargeBackDao(payload);
-
-        await commit(conn); // Commit transaction (even if no modifications)
-
-        console.log('Fetched ChargeBacks successfully');
-        return data;
-    } catch (error) {
-        if (conn) {
-            try {
-                await rollback(conn); // Rollback the transaction if an error occurs
-            } catch (rollbackError) {
-                console.error('Error during transaction rollback', rollbackError);
-            }
-        }
-        console.error('Error while fetching ChargeBacks', error);
-        throw new BadRequestError('Error occurred while fetching ChargeBacks');
-    } finally {
-        if (conn) {
-            try {
-                rollback(conn); // Release the connection back to the pool
-            } catch (releaseError) {
-                console.error('Error while releasing the connection', releaseError);
-            }
-        }
-    }
+    const data = await getChargeBackDao(payload);
+    console.log('Fetched ChargeBacks successfully');
+    return data;
 };
 
 const updateChargeBackService = async (id, payload) => {
@@ -139,4 +112,4 @@ const deleteChargeBackService = async (id) => {
     }
 };
 
-export { createChargeBackService, getChargeBacksService, updateChargeBackService, deleteChargeBackService};
+export { createChargeBackService, getChargeBacksService, updateChargeBackService, deleteChargeBackService };
