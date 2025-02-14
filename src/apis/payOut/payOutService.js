@@ -6,7 +6,8 @@ import {
 import { Buffer } from 'buffer';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { createPayoutDao, deletePayoutDao, getPayoutsDao, updatePayoutDao } from './payOutDao.js';
-import { getMerchantsDao } from '../merchants/merchantDao.js';
+import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
+import { getVendorsDao, updateVendorDao } from '../vendors/vendorDao.js';
 import { getCalculationDao, updateCalculationDao } from '../calculation/calculationDao.js';
 import { updateBankaccountDao, getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import config from '../../config/config.js';
@@ -102,15 +103,13 @@ const updatePayoutService = async (id, payload) => {
         if (!data.approved_at) return;
 
         // Fetch required user details
-        const [bankData, user, role] = await Promise.all([
+        const [bankData, user, merchant, vendor, role] = await Promise.all([
             getBankaccountDao({ id: data.bank_acc_id }),
             getUserByIdDao({ id: data.user_id }),
+            getMerchantsDao({ user_id: data.user_id }),
+            getVendorsDao({ user_id: data.user_id }),
             getRoleDao({ id: user.role_id })
         ]);
-
-        // Determine if approval or rejection is today
-        const isToday = new Date(data.approved_at).toDateString() === new Date().toDateString();
-        const isRejectedToday = data.rejected_at && new Date(data.rejected_at).toDateString() === new Date().toDateString();
 
         // Function to calculate balances based on role
         const calculateBalances = (calc, prevCalc, isMerchant) => {
@@ -122,41 +121,82 @@ const updatePayoutService = async (id, payload) => {
         };
 
         // Handle successful payout updates
-        if (data.status === Status.SUCCESS && isToday) {
+        if (data.status === Status.SUCCESS) {
             const [currentCalculation, prevCalculation] = await Promise.all([
                 getCalculationDao({ user_id: data.user_id, created_at: data.approved_at }),
                 getCalculationDao({ user_id: data.user_id, created_at: data.approved_at - 1 })
             ]);
 
-            const newCalculation = await updateCalculationDao(currentCalculation.id, {
-                total_payout_count: currentCalculation.total_payout_count + 1,
-                total_payout_amount: currentCalculation.total_payout_amount + data.amount,
-                total_payout_commission: currentCalculation.total_payout_commission + data.commission,
+            const newCalculation = {
+                payInCount: currentCalculation.total_payin_count,
+                payInAmount: currentCalculation.total_payin_amount,
+                payInCommission: currentCalculation.total_payin_commission,
+                payOutCount: currentCalculation.total_payout_count + 1,
+                payOutAmount: currentCalculation.total_payout_amount + data.amount,
+                payOutCommission: currentCalculation.total_payout_commission + data.commission,
+                reversePayoutCount: currentCalculation.total_reverse_payout_count,
+                reversePayoutAmount: currentCalculation.total_reverse_payout_amount,
+                reversePayoutCommission: currentCalculation.total_reverse_payout_commission,
+                settlementCount: currentCalculation.total_settlement_count,
+                settlementAmount: currentCalculation.total_settlement_amount,
+                chargeBackCount: currentCalculation.total_chargeback_count,
+                chargeBackAmount: currentCalculation.total_chargeback_amount,
+                currentBalance: currentCalculation.current_balance,
+                netBalance: currentCalculation.net_balance
+            }
+            const { currentBalance, netBalance } = calculateBalances(newCalculation, prevCalculation, role.role === Role.MERCHANT);
+
+            await updateCalculationDao(currentCalculation.id, {
+                total_payout_count: newCalculation.payOutCount,
+                total_payout_amount: newCalculation.payOutAmount,
+                total_payout_commission: newCalculation.payOutCommission,
+                current_balance: currentBalance,
+                net_balance: netBalance
             });
 
-            const { currentBalance, netBalance } = calculateBalances(newCalculation, prevCalculation, role.role === Role.MERCHANT);
-            await updateCalculationDao({ current_balance: currentBalance, net_balance: netBalance });
             await updateBankaccountDao(bankData.id, { today_balance: bankData.today_balance - data.amount, balance: bankData.balance - data.amount });
+            await updateMerchantDao(merchant.id, { balance: netBalance});
+            await updateVendorDao(vendor.id, { balance: netBalance});
         }
         // Handle rejected payout updates
-        else if (data.status === Status.REJECTED && isRejectedToday) {
+        else if (data.status === Status.REJECTED) {
             const [currentCalculation, prevCalculation] = await Promise.all([
                 getCalculationDao({ user_id: data.user_id, created_at: data.rejected_at }),
                 getCalculationDao({ user_id: data.user_id, created_at: data.rejected_at - 1 })
             ]);
 
-            const newCalculation = await updateCalculationDao(currentCalculation.id, {
-                total_reverse_payout_count: currentCalculation.total_reverse_payout_count + 1,
-                total_reverse_payout_amount: currentCalculation.total_reverse_payout_amount + data.amount,
-                total_reverse_payout_commission: currentCalculation.total_reverse_payout_commission + data.commission,
-            });
-
+            const newCalculation = {
+                payInCount: currentCalculation.total_payin_count,
+                payInAmount: currentCalculation.total_payin_amount,
+                payInCommission: currentCalculation.total_payin_commission,
+                payOutCount: currentCalculation.total_payout_count,
+                payOutAmount: currentCalculation.total_payout_amount,
+                payOutCommission: currentCalculation.total_payout_commission,
+                reversePayoutCount: currentCalculation.total_reverse_payout_count + 1,
+                reversePayoutAmount: currentCalculation.total_reverse_payout_amount + data.amount,
+                reversePayoutCommission: currentCalculation.total_reverse_payout_commission + data.commission,
+                settlementCount: currentCalculation.total_settlement_count,
+                settlementAmount: currentCalculation.total_settlement_amount,
+                chargeBackCount: currentCalculation.total_chargeback_count,
+                chargeBackAmount: currentCalculation.total_chargeback_amount,
+                currentBalance: currentCalculation.current_balance,
+                netBalance: currentCalculation.net_balance
+            }
             const { currentBalance, netBalance } = calculateBalances(newCalculation, prevCalculation, role.role === Role.MERCHANT);
-            await updateCalculationDao({ current_balance: currentBalance, net_balance: netBalance });
+
+            await updateCalculationDao(currentCalculation.id, {
+                total_reverse_payout_count: newCalculation.reversePayoutCount,
+                total_reverse_payout_amount: newCalculation.reversePayoutAmount,
+                total_reverse_payout_commission: newCalculation.reversePayoutCommission,
+                current_balance: currentBalance,
+                net_balance: netBalance
+            });
             await updateBankaccountDao(bankData.id, { today_balance: bankData.today_balance + data.amount, balance: bankData.balance - data.amount });
+            await updateMerchantDao(merchant.id, { balance: netBalance});
+            await updateVendorDao(vendor.id, { balance: netBalance});
         }
 
-        await merchantPayoutCallback(data.payout_notify_url, {
+        await merchantPayoutCallback(data.config?.urls?.payout_notify_url, {
             code: data.code,
             merchantOrderId: data.merchant_order_id,
             payoutId: data.id,
