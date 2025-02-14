@@ -5,13 +5,13 @@ import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao } from "./payInD
 import { getMerchantsService } from "../merchants/merchantService.js";
 import { AccessDeniedError, BadRequestError, NotFoundError } from "../../utils/appErrors.js";
 import { v4 as uuidv4 } from "uuid";
+import { getMerchantBankDao } from "../bankAccounts/bankaccountDao.js";
 import { razorpay } from "../../webhooks/razorPay.js";
 import config from "../../config/config.js";
 import { Cashfree } from "cashfree-pg";
 import { getWithdrawByIdService } from "../withdraw/withDrawService.js";
 // import { calculateCommission } from "../../utils/utils.js";
 import { getMerchantBankService } from "../bankAccounts/bankaccountServices.js";
-import { getMerchantBankDao } from "../bankAccounts/bankaccountDao.js";
 import dayjs from "dayjs";
 
 Cashfree.XClientId = config.cashFreeClientId;
@@ -469,7 +469,7 @@ export const resetDepositService = async (
 }
 
 
-const notifyMerchants = (url, data) => {
+export const notifyMerchants = (url, data) => {
     if (url) {
         axios.post(url, data).catch(console.error);
     }

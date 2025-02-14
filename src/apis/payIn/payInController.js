@@ -4,7 +4,8 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
     ASSIGN_PAYIN_SCHEMA, VALIDATE_ASSIGNED_BANT_TO_PAY, VALIDATE_CHECK_PAY_IN_STATUS,
     VALIDATE_EXPIRE_PAY_IN_URL, VALIDATE_PAY_IN_INTENT_GENERATE_ORDER, VALIDATE_PAYIN_SCHEMA, VALIDATE_RESET_DEPOSIT,
-    VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS
+    VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS,
+    VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS
 } from "../../schemas/payInSchema.js";
 import {
     assignedBankToPayInUrlService, checkPayInStatusService, expirePayInUrlService, generatePayInUrlService, getPayInUrlService,
@@ -111,7 +112,7 @@ export const updatePaymentNotificationStatus = async (req, res) => {
     const { payInId } = req.params;
     const { type } = req.body;
     const payload = { payInId, type };
-    const joiValidation = VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate(payload);
+    const joiValidation = VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS.validate(payload);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
