@@ -26,12 +26,12 @@ export const Method = {
     CASH: 'CASH',
     AED: 'AED',
     CRYPTO: 'CRYPTO',
+    EKO: 'EKO',
 }
 
 export const Type = {
     PAYIN: "PAYIN",
     PAYOUT: "PAYOUT",
-    EKO: 'EKO',
 }
 
 export const Role = {

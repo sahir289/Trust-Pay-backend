@@ -110,10 +110,9 @@ export const getPayInUrlService = async (id) => {
     return payIn;
 }
 
-
 // TODO: delete this API
 export const expirePayInUrlService = async (payInId) => {
-    const currentTime = Date.now();
+    // const currentTime = Date.now();
     const payIn = await getPayInUrlDao({ id: payInId });
     if (!payIn) {
         throw new NotFoundError('PayIn not found!');

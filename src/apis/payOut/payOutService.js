@@ -136,7 +136,7 @@ const updatePayoutService = async (id, payload) => {
 
             const { currentBalance, netBalance } = calculateBalances(newCalculation, prevCalculation, role.role === Role.MERCHANT);
             await updateCalculationDao({ current_balance: currentBalance, net_balance: netBalance });
-            await updateBankaccountDao(bankData.id, { balance: bankData.balance - data.amount });
+            await updateBankaccountDao(bankData.id, { today_balance: bankData.today_balance - data.amount, balance: bankData.balance - data.amount });
         }
         // Handle rejected payout updates
         else if (data.status === Status.REJECTED && isRejectedToday) {
@@ -153,7 +153,7 @@ const updatePayoutService = async (id, payload) => {
 
             const { currentBalance, netBalance } = calculateBalances(newCalculation, prevCalculation, role.role === Role.MERCHANT);
             await updateCalculationDao({ current_balance: currentBalance, net_balance: netBalance });
-            await updateBankaccountDao(bankData.id, { balance: bankData.balance + data.amount });
+            await updateBankaccountDao(bankData.id, { today_balance: bankData.today_balance + data.amount, balance: bankData.balance - data.amount });
         }
 
         await merchantPayoutCallback(data.payout_notify_url, {
