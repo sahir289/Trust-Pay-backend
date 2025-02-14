@@ -13,8 +13,8 @@ import { updateBankaccountDao, getBankaccountDao } from '../bankAccounts/bankacc
 import config from '../../config/config.js';
 import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
 import { getUserByIdDao } from '../users/userDao.js';
-import { getRoleDao } from '../roles/rolesDao.js';
-import { Status, Role, Method } from '../../constants/index.js'
+import { Status, Method } from '../../constants/index.js'
+import { calculateBalances } from '../../helpers/index.js';
 
 const createPayoutService = async (headers, payload) => {
     let conn;
@@ -103,97 +103,27 @@ const updatePayoutService = async (id, payload) => {
         if (!data.approved_at) return;
 
         // Fetch required user details
-        const [bankData, user, merchant, vendor, role] = await Promise.all([
-            getBankaccountDao({ id: data.bank_acc_id }),
-            getUserByIdDao({ id: data.user_id }),
-            getMerchantsDao({ user_id: data.user_id }),
-            getVendorsDao({ user_id: data.user_id }),
-            getRoleDao({ id: user.role_id })
+        const bankData = await getBankaccountDao({ id: data.bank_acc_id });
+        const [merchant, vendor, user] = await Promise.all([
+            getMerchantsDao({ id: data.merchant_id }),
+            getVendorsDao({ id: data.user_id }),
+            getUserByIdDao({ id: bankData.user_id })
         ]);
 
-        // Function to calculate balances based on role
-        const calculateBalances = (calc, prevCalc, isMerchant) => {
-            const baseCalculation = calc.total_payin_amount - calc.total_payout_amount - (calc.total_payin_commission - calc.total_payout_commission + calc.total_reverse_payout_commission) - calc.total_chargeback_amount + calc.total_reverse_payout_amount;
-            return {
-                currentBalance: isMerchant ? baseCalculation - calc.total_settlement_amount : baseCalculation + calc.total_settlement_amount,
-                netBalance: prevCalc.net_balance + baseCalculation + (isMerchant ? -calc.total_settlement_amount : calc.total_settlement_amount)
-            };
-        };
-
-        // Handle successful payout updates
         if (data.status === Status.SUCCESS) {
-            const [currentCalculation, prevCalculation] = await Promise.all([
-                getCalculationDao({ user_id: data.user_id, created_at: data.approved_at }),
-                getCalculationDao({ user_id: data.user_id, created_at: data.approved_at - 1 })
-            ]);
-
-            const newCalculation = {
-                payInCount: currentCalculation.total_payin_count,
-                payInAmount: currentCalculation.total_payin_amount,
-                payInCommission: currentCalculation.total_payin_commission,
-                payOutCount: currentCalculation.total_payout_count + 1,
-                payOutAmount: currentCalculation.total_payout_amount + data.amount,
-                payOutCommission: currentCalculation.total_payout_commission + data.commission,
-                reversePayoutCount: currentCalculation.total_reverse_payout_count,
-                reversePayoutAmount: currentCalculation.total_reverse_payout_amount,
-                reversePayoutCommission: currentCalculation.total_reverse_payout_commission,
-                settlementCount: currentCalculation.total_settlement_count,
-                settlementAmount: currentCalculation.total_settlement_amount,
-                chargeBackCount: currentCalculation.total_chargeback_count,
-                chargeBackAmount: currentCalculation.total_chargeback_amount,
-                currentBalance: currentCalculation.current_balance,
-                netBalance: currentCalculation.net_balance
-            }
-            const { currentBalance, netBalance } = calculateBalances(newCalculation, prevCalculation, role.role === Role.MERCHANT);
-
-            await updateCalculationDao(currentCalculation.id, {
-                total_payout_count: newCalculation.payOutCount,
-                total_payout_amount: newCalculation.payOutAmount,
-                total_payout_commission: newCalculation.payOutCommission,
-                current_balance: currentBalance,
-                net_balance: netBalance
-            });
-
+            const netBalance = await updatePayoutCalculations(data.merchant_id, data.approved_at, data.amount, data.commission, true);
+            const netVendorBalance = await updatePayoutCalculations(user.id, data.approved_at, data.amount, data.commission, false);
+            
             await updateBankaccountDao(bankData.id, { today_balance: bankData.today_balance - data.amount, balance: bankData.balance - data.amount });
-            await updateMerchantDao(merchant.id, { balance: netBalance});
-            await updateVendorDao(vendor.id, { balance: netBalance});
-        }
-        // Handle rejected payout updates
-        else if (data.status === Status.REJECTED) {
-            const [currentCalculation, prevCalculation] = await Promise.all([
-                getCalculationDao({ user_id: data.user_id, created_at: data.rejected_at }),
-                getCalculationDao({ user_id: data.user_id, created_at: data.rejected_at - 1 })
-            ]);
-
-            const newCalculation = {
-                payInCount: currentCalculation.total_payin_count,
-                payInAmount: currentCalculation.total_payin_amount,
-                payInCommission: currentCalculation.total_payin_commission,
-                payOutCount: currentCalculation.total_payout_count,
-                payOutAmount: currentCalculation.total_payout_amount,
-                payOutCommission: currentCalculation.total_payout_commission,
-                reversePayoutCount: currentCalculation.total_reverse_payout_count + 1,
-                reversePayoutAmount: currentCalculation.total_reverse_payout_amount + data.amount,
-                reversePayoutCommission: currentCalculation.total_reverse_payout_commission + data.commission,
-                settlementCount: currentCalculation.total_settlement_count,
-                settlementAmount: currentCalculation.total_settlement_amount,
-                chargeBackCount: currentCalculation.total_chargeback_count,
-                chargeBackAmount: currentCalculation.total_chargeback_amount,
-                currentBalance: currentCalculation.current_balance,
-                netBalance: currentCalculation.net_balance
-            }
-            const { currentBalance, netBalance } = calculateBalances(newCalculation, prevCalculation, role.role === Role.MERCHANT);
-
-            await updateCalculationDao(currentCalculation.id, {
-                total_reverse_payout_count: newCalculation.reversePayoutCount,
-                total_reverse_payout_amount: newCalculation.reversePayoutAmount,
-                total_reverse_payout_commission: newCalculation.reversePayoutCommission,
-                current_balance: currentBalance,
-                net_balance: netBalance
-            });
+            await updateMerchantDao(merchant.id, { balance: netBalance });
+            await updateVendorDao(vendor.id, { balance: netVendorBalance });
+        } else if (data.status === Status.REJECTED) {
+            const netBalance = await updatePayoutCalculations(data.merchant_id, data.rejected_at, data.amount, data.commission, true, true);
+            const netVendorBalance = await updatePayoutCalculations(user.id, data.rejected_at, data.amount, data.commission, false, true);
+            
             await updateBankaccountDao(bankData.id, { today_balance: bankData.today_balance + data.amount, balance: bankData.balance - data.amount });
-            await updateMerchantDao(merchant.id, { balance: netBalance});
-            await updateVendorDao(vendor.id, { balance: netBalance});
+            await updateMerchantDao(merchant.id, { balance: netBalance });
+            await updateVendorDao(vendor.id, { balance: netVendorBalance });
         }
 
         await merchantPayoutCallback(data.config?.urls?.payout_notify_url, {
@@ -215,6 +145,32 @@ const updatePayoutService = async (id, payload) => {
     } finally {
         if (conn) conn.release().catch(releaseError => console.error('Error while releasing the connection', releaseError));
     }
+};
+
+// Function to update calculations
+const updatePayoutCalculations = async (userId, date, amount, commission, isMerchant, isReverse = false) => {
+    const [currentCalculation, prevCalculation] = await Promise.all([
+        getCalculationDao({ user_id: userId, created_at: date }),
+        getCalculationDao({ user_id: userId, created_at: date - 1 })
+    ]);
+
+    const updatedCalculation = {
+        ...currentCalculation,
+        [`total_${isReverse ? "reverse_" : ""}payout_count`]: currentCalculation[`total_${isReverse ? "reverse_" : ""}payout_count`] + 1,
+        [`total_${isReverse ? "reverse_" : ""}payout_amount`]: currentCalculation[`total_${isReverse ? "reverse_" : ""}payout_amount`] + amount,
+        [`total_${isReverse ? "reverse_" : ""}payout_commission`]: currentCalculation[`total_${isReverse ? "reverse_" : ""}payout_commission`] + commission,
+    };
+
+    const { currentBalance, netBalance } = calculateBalances(updatedCalculation, prevCalculation, isMerchant);
+
+    await updateCalculationDao(currentCalculation.id, {
+        [`total_${isReverse ? "reverse_" : ""}payout_count`]: updatedCalculation[`total_${isReverse ? "reverse_" : ""}payout_count`],
+        [`total_${isReverse ? "reverse_" : ""}payout_amount`]: updatedCalculation[`total_${isReverse ? "reverse_" : ""}payout_amount`],
+        [`total_${isReverse ? "reverse_" : ""}payout_commission`]: updatedCalculation[`total_${isReverse ? "reverse_" : ""}payout_commission`],
+        current_balance: currentBalance,
+        net_balance: netBalance
+    });
+    return netBalance;
 };
 
 const processEkoPayout = async (singleWithdrawData, payload) => {
