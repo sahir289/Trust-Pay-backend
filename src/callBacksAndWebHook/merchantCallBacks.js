@@ -16,9 +16,13 @@ const sendMerchantNotification = async (url, data, type) => {
             status: response.status,
             data: response.data,
         });
+        return response.data;
     } catch (error) {
         logger.error(`Error Notifying Merchant at ${type} URL:`, error.message);
         // throw new BadRequestError(`Failed to notify merchant about ${type}`);
+        return {
+            message: `Error Notifying Merchant at ${type} URL: ${error.message}`
+        }
     }
 };
 

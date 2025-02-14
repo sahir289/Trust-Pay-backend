@@ -1,4 +1,3 @@
-import axios from "axios";
 import { nanoid } from 'nanoid'
 import { Currency, Status, Type } from "../../constants/index.js";
 import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao } from "./payInDao.js";
@@ -9,10 +8,11 @@ import { getMerchantBankDao } from "../bankAccounts/bankaccountDao.js";
 import { razorpay } from "../../webhooks/razorPay.js";
 import config from "../../config/config.js";
 import { Cashfree } from "cashfree-pg";
-import { getWithdrawByIdService } from "../withdraw/withDrawService.js";
 // import { calculateCommission } from "../../utils/utils.js";
 import { getMerchantBankService } from "../bankAccounts/bankaccountServices.js";
 import dayjs from "dayjs";
+import { merchantPayinCallback } from "../../callBacksAndWebHook/merchantCallBacks.js";
+import { getPayoutsDao } from '../payOut/payOutDao.js';
 
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
@@ -96,7 +96,7 @@ export const getPayInUrlService = async (id) => {
             status: Status.DROPPED,
         });
         // Notifying merchant about expired URL
-        notifyMerchants(config.notify_url, {
+        merchantPayinCallback(config.notify_url, {
             status: Status.DROPPED,
             merchantOrderId: payIn.merchant_order_id,
             payinId: payIn.id,
@@ -125,7 +125,7 @@ export const expirePayInUrlService = async (payInId) => {
         status: Status.DROPPED,
     })
 
-    notifyMerchants(config.notify_url, {
+    merchantPayinCallback(config.notify_url, {
         status: Status.DROPPED,
         merchantOrderId: payIn.merchant_order_id,
         payinId: payIn.id,
@@ -167,7 +167,7 @@ export const assignedBankToPayInUrlService = async (payInId, amount) => {
             is_url_expires: true,
             status: Status.DROPPED,
         });
-        notifyMerchants(payInConfig.notify_url, {
+        merchantPayinCallback(payInConfig.notify_url, {
             status: Status.DROPPED,
             merchantOrderId: payIn.merchant_order_id,
             payinId: payIn.id,
@@ -277,53 +277,48 @@ export const payInIntentGenerateOrderService = async (payInId, amount, isRazorpa
 };
 
 export const updatePaymentNotificationStatusService = async (payInId, type) => {
-    let updatePayInOutRes;
-    let notifyData;
-    let notifyUrl;
 
     if (!Object.values(Type).includes(type)) {
         throw new Error("Invalid notification type.");
     }
 
     if (type === Type.PAYIN) {
-        updatePayInOutRes = await updatePayInUrlDao(payInId, { is_notified: true });
-        if (!updatePayInOutRes) {
+        const payIn = await updatePayInUrlDao(payInId, { is_notified: true });
+        if (!payIn) {
             throw new Error("Payin data not found.");
         }
-        notifyData = {
-            status: updatePayInOutRes.status,
-            merchantOrderId: updatePayInOutRes.merchant_order_id,
-            payinId: updatePayInOutRes.id,
-            amount: updatePayInOutRes.confirmed,
-            utr_id: updatePayInOutRes.utr || "",
-        };
-        notifyUrl = updatePayInOutRes.notify_url;
-    } else if (type === Type.PAYOUT) {
-        updatePayInOutRes = await getWithdrawByIdService(payInId);
-        if (!updatePayInOutRes.length) {
+        return await merchantPayinCallback(payIn.config?.notify_url, {
+            status: payIn.status,
+            merchantOrderId: payIn.merchant_order_id,
+            payinId: payIn.id,
+            // Todo: don't have confirmed column  yet
+            amount: payIn.confirmed,
+            utr_id: payIn.utr || "",
+        });
+    }
+
+    if (type === Type.PAYOUT) {
+        const payouts = await getPayoutsDao({ id: payInId });
+        const payout = payouts[0];
+        if (!payout.length) {
             throw new NotFoundError("Payout data not found.");
         }
 
-        const merchant = await getMerchantBankDao(updatePayInOutRes.merchant_id);
+        const merchants = await getMerchantsService({ id: payout.merchant_id });
+        const merchant = merchants[0];
         if (!merchant || !merchant.payout_notify_url) {
             throw new NotFoundError("Merchant or payout notify URL not found.");
         }
 
-        notifyData = {
-            code: updatePayInOutRes.code,
-            merchantOrderId: updatePayInOutRes.merchant_order_id,
-            payoutId: updatePayInOutRes.id,
-            amount: updatePayInOutRes.amount,
-            status: updatePayInOutRes.status,
-            utr_id: updatePayInOutRes.utr_id || "",
-        };
-        notifyUrl = merchant.payout_notify_url;
+        return await merchantPayinCallback(merchant.config?.payout_notify_url, {
+            code: payout.code,
+            merchantOrderId: payout.merchant_order_id,
+            payoutId: payout.id,
+            amount: payout.amount,
+            status: payout.status,
+            utr_id: payout.utr_id || "",
+        });
     }
-
-    const response = notifyMerchants(notifyUrl, notifyData)
-    return {
-        response
-    };
 }
 
 //under development..
@@ -406,7 +401,7 @@ export const updateDepositStatusService = async (merchantId, bank_name) => {
     //     utr_id: updatePayInRes?.utr || ""
     // };
 
-    // notifyMerchants(updatePayInRes.notify_url, notifyData)
+    // merchantPayinCallback(updatePayInRes.notify_url, notifyData)
     // return {
     //     message: "PayIn data updated successfully"
     // };
@@ -458,12 +453,6 @@ export const resetDepositService = async (merchant_order_id) => {
     // }
 }
 
-
-export const notifyMerchants = (url, data) => {
-    if (url) {
-        axios.post(url, data).catch(console.error);
-    }
-}
 
 const checkIsPayInExpired = (payIn) => {
     if (Number(payIn.expiration_date) < Date.now() || payIn.is_url_expires) {
