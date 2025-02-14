@@ -1,16 +1,14 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-<<<<<<< HEAD
-import { getDesignationByIDService, createDesignationByIDService, updateDesignationByIDService, deleteDesignationByIDService } from './designationServices.js';
-=======
-import { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService } from './designationServices.js';
->>>>>>> 37570f3 (removed ById)
 
-const getDesignationById = async (req, res) => {
+import { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService } from './designationServices.js';
+
+
+const getDesignation = async (req, res) => {
   try {
-    const { id } = req.params;
-    const data = await getDesignationByIDService(id);
-    console.log('getUsers successfully');
+    const payload = req.query.search;
+    const data = await getDesignationService(payload);
+    console.log('get  successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -58,4 +56,4 @@ const deleteDesignation = async (req, res) => {
   }
 };
 
-export { getDesignationById, createDesignation, updateDesignation, deleteDesignation };
+export { getDesignation, createDesignation, updateDesignation, deleteDesignation };

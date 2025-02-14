@@ -4,7 +4,8 @@ import { getRoleService,createRoleService, updateRoleService} from './rolesServi
 
 const getRoles = async (req, res) => {
     try {
-      const data = await getRoleService();
+      const payload = req.query.search;
+      const data = await getRoleService(payload);
       console.log('get Roles successfully', 'info');
       return sendSuccess(res, data, 'get Roles successfully');
     } catch (error) {

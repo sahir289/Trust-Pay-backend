@@ -1,16 +1,14 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
-<<<<<<< HEAD
-import { getDesignationByIdDao, createDesignationByIdDao, updateDesignationByIdDao, deleteDesignationByIdDao } from './designationDao.js';
-=======
-import { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao } from './designationDao.js';
->>>>>>> 37570f3 (removed ById)
 
-const getDesignationByIDService = async (id) => {
+import { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao } from './designationDao.js';
+
+
+const getDesignationService = async (payload) => {
   let conn;
   try {
     conn = await getConnection();
-    const result = await getDesignationByIdDao(id);
+    const result = await getDesignationDao(payload);
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -59,8 +57,6 @@ const deleteDesignationService = async (id) => {
 };
 
 
-<<<<<<< HEAD
-export { getDesignationByIDService, createDesignationByIDService, updateDesignationByIDService, deleteDesignationByIDService };
-=======
+
 export { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService };
->>>>>>> 37570f3 (removed ById)
+

@@ -1,21 +1,21 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createMerchant, deleteMerchant, getMerchants, updateMerchant } from './merchantController.js';
+import { createPayout, deletePayout, getPayouts, updatePayout } from './payOutController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
 
 /**
  * @swagger
- * /merchants:
+ * /payout:
  *   get:
- *     summary: Retrieve all merchants
- *     description: Returns a list of all merchants.
+ *     summary: Retrieve all payouts
+ *     description: Returns a list of all payouts.
  *     tags:
- *       - Merchants
+ *       - Payout
  *     responses:
  *       200:
- *         description: A list of merchants.
+ *         description: A list of payouts.
  *         content:
  *           application/json:
  *             schema:
@@ -31,16 +31,16 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get('/', isAuthenticated, tryCatchHandler(getMerchants));
+router.get('/', isAuthenticated, tryCatchHandler(getPayouts));
 
 /**
  * @swagger
- * /merchants/create-merchant:
+ * /payout/create-payout:
  *   post:
- *     summary: Create a new merchant
- *     description: Adds a new merchant to the system.
+ *     summary: Create a new payout
+ *     description: Adds a new payout to the system.
  *     tags:
- *       - Merchants
+ *       - Payout
  *     requestBody:
  *       required: true
  *       content:
@@ -50,26 +50,26 @@ router.get('/', isAuthenticated, tryCatchHandler(getMerchants));
  *             properties:
  *               name:
  *                 type: string
- *                 example: "Merchant A"
+ *                 example: "Payout A"
  *               status:
  *                 type: string
  *                 example: "active"
  *     responses:
  *       201:
- *         description: Merchant created successfully.
+ *         description: Payout created successfully.
  *       400:
  *         description: Invalid request data.
  */
-router.post('/create-merchant',isAuthenticated, tryCatchHandler(createMerchant));
+router.post('/create-payout', isAuthenticated, tryCatchHandler(createPayout));
 
 /**
  * @swagger
- * /merchants/update-merchant/{id}:
+ * /payout/update-payout/{id}:
  *   put:
- *     summary: Update merchant details
- *     description: Updates an existing merchant’s details.
+ *     summary: Update payout details
+ *     description: Updates an existing vendor’s details.
  *     tags:
- *       - Merchants
+ *       - Payout
  *     requestBody:
  *       required: true
  *       content:
@@ -86,20 +86,20 @@ router.post('/create-merchant',isAuthenticated, tryCatchHandler(createMerchant))
  *                 example: "inactive"
  *     responses:
  *       200:
- *         description: Merchant updated successfully.
+ *         description: Payout updated successfully.
  *       404:
- *         description: Merchant not found.
+ *         description: Payout not found.
  */
-router.put('/update-merchant/:id', isAuthenticated, tryCatchHandler(updateMerchant));
+router.put('/update-payout/:id', isAuthenticated, tryCatchHandler(updatePayout));
 
 /**
  * @swagger
- * /merchants/delete-merchant/{id}:
+ * /payout/delete-payout/{id}:
  *   delete:
- *     summary: Delete a merchant
- *     description: Soft deletes a merchant by changing its status.
+ *     summary: Delete a payout
+ *     description: Soft deletes a payout by changing its status.
  *     tags:
- *       - Merchants
+ *       - Payout
  *     requestBody:
  *       required: true
  *       content:
@@ -111,10 +111,10 @@ router.put('/update-merchant/:id', isAuthenticated, tryCatchHandler(updateMercha
  *                 type: string
  *     responses:
  *       200:
- *         description: Merchant deleted successfully.
+ *         description: Payout deleted successfully.
  *       404:
- *         description: Merchant not found.
+ *         description: Payout not found.
  */
-router.delete('/delete-merchant/:id', isAuthenticated, tryCatchHandler(deleteMerchant));
+router.delete('/delete-payout/:id', isAuthenticated, tryCatchHandler(deletePayout));
 
 export default router;

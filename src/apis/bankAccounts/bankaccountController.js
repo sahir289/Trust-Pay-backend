@@ -1,11 +1,11 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getBankaccountByIDService, createBankaccountByIDService, updateBankaccountByIDService, deleteBankaccountByIDService, getMerchantBankByIdService } from './bankaccountServices.js';
+import { getBankaccountService, createBankaccountService, updateBankaccountService, deleteBankaccountService, getMerchantBankService } from './bankaccountServices.js';
 
-const getBankaccountById = async (req, res) => {
+const getBankaccount = async (req, res) => {
   try {
-    const { id } = req.params;
-    const data = await getBankaccountByIDService(id);
+    const payload = req.query.search;
+    const data = await getBankaccountService(payload);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
@@ -20,7 +20,7 @@ const createBankaccount = async (req, res) => {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await createBankaccountByIDService(payload);
+    const data = await createBankaccountService(payload);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
@@ -32,7 +32,7 @@ const updateBankaccount = async (req, res) => {
   try {
     const { id } = req.params;
     const payload = req.body;
-    const data = await updateBankaccountByIDService(id, payload);
+    const data = await updateBankaccountService(id, payload);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
@@ -40,9 +40,9 @@ const updateBankaccount = async (req, res) => {
   }
 }
 
-const getMerchantBankById = async (req, res) => {
+const getMerchantBank = async (req, res) => {
   // Fetch the bank account details for the given merchant ID
-  const bankRes = await getMerchantBankByIdService(req.params.id);
+  const bankRes = await getMerchantBankService(req.params.id);
   return sendSuccess(res, bankRes, 'Bank details fetched successfully');
 }
 
@@ -53,11 +53,11 @@ const deleteBankaccount = async (req, res) => {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await deleteBankaccountByIDService(id);
+    const data = await deleteBankaccountService(id);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while logging in', error);
   }
 }
-export { getBankaccountById, createBankaccount, updateBankaccount, deleteBankaccount, getMerchantBankById };
+export { getBankaccount, createBankaccount, updateBankaccount, deleteBankaccount, getMerchantBank };

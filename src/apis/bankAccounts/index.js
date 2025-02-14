@@ -1,30 +1,27 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import {
-  createBankaccount,
-  deleteBankaccount,
-  getBankaccountById,
-  getMerchantBankById,
-  updateBankaccount,
-} from './bankaccountController.js';
+import { createBankaccount, deleteBankaccount, getBankaccount, getMerchantBank, updateBankaccount } from './bankaccountController.js';
+import { isAuthenticated } from '../../middlewares/auth.js';
 const router = express.Router();
 
-/* /users/by-id:
+/**
+ * @swagger
+ * /bankAccounts:
  *   get:
  *     summary: Get user by id
  *     description: Returns user filtered by id.
  *     tags:
- *       - Users
+ *       - Bank Accounts
  *     parameters:
  *       - in: query
  *         name: id
  *         schema:
  *           type: string
  *         required: true
- *         description: The username to filter users by.
+ *         description: The bankAccountsname to filter bankAccounts by.
  *     responses:
  *       200:
- *         description: A filtered list of users.
+ *         description: A filtered list of bankAccounts.
  *         content:
  *           application/json:
  *             schema:
@@ -32,7 +29,7 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "get users by id successfully"
+ *                   example: "get bankAccounts by id successfully"
  *                 data:
  *                   type: array
  *                   items:
@@ -41,30 +38,30 @@ const router = express.Router();
  *                       id:
  *                         type: integer
  *                         example: 1
- *                       username:
+ *                       bankAccountsname:
  *                         type: string
  *                         example: "john_doe"
  */
-router.get('/:id', tryCatchHandler(getBankaccountById));
+router.get('/', isAuthenticated, tryCatchHandler(getBankaccount));
 
 /**
  * @swagger
- * /users/create-user:
+ * /bankAccounts/create-bankAccounts:
  *   post:
- *     summary: create new user
- *     description: Returns users filtered by username.
+ *     summary: create new bankAccounts
+ *     description: Returns bankAccounts filtered by bankAccountsname.
  *     tags:
- *       - Users
+ *       - Bank Accounts
  *     parameters:
  *       - in: query
- *         name: username
+ *         name: bankAccountsname
  *         schema:
  *           type: string
  *         required: true
- *         description: The username to filter users by.
+ *         description: The bankAccountsname to filter bankAccounts by.
  *     responses:
  *       200:
- *         description: A filtered list of users.
+ *         description: A filtered list of bankAccounts.
  *         content:
  *           application/json:
  *             schema:
@@ -72,7 +69,7 @@ router.get('/:id', tryCatchHandler(getBankaccountById));
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "user created successfully"
+ *                   example: "bankAccounts created successfully"
  *                 data:
  *                   type: array
  *                   items:
@@ -81,16 +78,54 @@ router.get('/:id', tryCatchHandler(getBankaccountById));
  *                       id:
  *                         type: integer
  *                         example: 1
- *                       username:
+ *                       bankAccountsname:
  *                         type: string
  *                         example: "john_doe"
  */
-router.post('/create-Bankaccount', tryCatchHandler(createBankaccount));
+router.post('/create-Bankaccount', isAuthenticated, tryCatchHandler(createBankaccount));
 
-router.get('/get-merchant-banks', tryCatchHandler(getMerchantBankById));
+router.get('/get-merchant-banks', isAuthenticated, tryCatchHandler(getMerchantBank));
 
-router.put('/update-Bankaccount/:id', tryCatchHandler(updateBankaccount));
+router.put('/update-Bankaccount/:id', isAuthenticated, tryCatchHandler(updateBankaccount));
 
-router.put('/delete-Bankaccount/:id', tryCatchHandler(deleteBankaccount));
+/**
+ * @swagger
+ * /bankAccounts/delete-bankAccounts:
+ *   delete:
+ *     summary: delete new bankAccounts
+ *     description: Returns bankAccounts filtered by bankAccountsname.
+ *     tags:
+ *       - Bank Accounts
+ *     parameters:
+ *       - in: query
+ *         name: bankAccountsname
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The bankAccountsname to filter bankAccounts by.
+ *     responses:
+ *       200:
+ *         description: A filtered list of bankAccounts.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "bankAccounts created successfully"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 1
+ *                       bankAccountsname:
+ *                         type: string
+ *                         example: "john_doe"
+ */
+router.delete('/delete-Bankaccount/:id', isAuthenticated, tryCatchHandler(deleteBankaccount));
 
 export default router;

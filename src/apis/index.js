@@ -11,6 +11,10 @@ import calculation from './calculation/index.js';
 import payIn from './payIn/index.js';
 import designation from './designation/index.js'
 import bankaccount from './bankAccounts/index.js'
+import company from './company/index.js'
+import settlement from './settlement/index.js'
+import userHierarchy from './userHierarchy/index.js'
+import payOut from './payOut/index.js'
 import complaints from './complaints/index.js'
 
 // Add your newly create component routes here with route prefix.
@@ -29,6 +33,10 @@ router.use('/calculation', calculation);
 router.use('/payIn', payIn);
 router.use('/designation', designation)
 router.use('/bankaccount', bankaccount)
+router.use('/company', company)
+router.use('/settlement', settlement)
+router.use('/userHierarchy', userHierarchy)
+router.use('/payout', payOut)
 router.use('/complaints',complaints)
 
 /* Make sure while changing below parentrouter.

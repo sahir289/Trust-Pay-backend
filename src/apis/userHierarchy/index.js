@@ -1,21 +1,21 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createMerchant, deleteMerchant, getMerchants, updateMerchant } from './merchantController.js';
+import { createUserHierarchy, deleteUserHierarchy, getUserHierarchys, updateUserHierarchy } from './userHierarchyController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
 
 /**
  * @swagger
- * /merchants:
+ * /userHierarchy:
  *   get:
- *     summary: Retrieve all merchants
- *     description: Returns a list of all merchants.
+ *     summary: Retrieve all userHierarchys
+ *     description: Returns a list of all userHierarchys.
  *     tags:
- *       - Merchants
+ *       - User Hierarchy
  *     responses:
  *       200:
- *         description: A list of merchants.
+ *         description: A list of userHierarchys.
  *         content:
  *           application/json:
  *             schema:
@@ -31,16 +31,16 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get('/', isAuthenticated, tryCatchHandler(getMerchants));
+router.get('/', isAuthenticated, tryCatchHandler(getUserHierarchys));
 
 /**
  * @swagger
- * /merchants/create-merchant:
+ * /userHierarchy/create-userHierarchy:
  *   post:
- *     summary: Create a new merchant
- *     description: Adds a new merchant to the system.
+ *     summary: Create a new userHierarchy
+ *     description: Adds a new userHierarchy to the system.
  *     tags:
- *       - Merchants
+ *       - User Hierarchy
  *     requestBody:
  *       required: true
  *       content:
@@ -50,26 +50,26 @@ router.get('/', isAuthenticated, tryCatchHandler(getMerchants));
  *             properties:
  *               name:
  *                 type: string
- *                 example: "Merchant A"
+ *                 example: "UserHierarchy A"
  *               status:
  *                 type: string
  *                 example: "active"
  *     responses:
  *       201:
- *         description: Merchant created successfully.
+ *         description: UserHierarchy created successfully.
  *       400:
  *         description: Invalid request data.
  */
-router.post('/create-merchant',isAuthenticated, tryCatchHandler(createMerchant));
+router.post('/create-userHierarchy', isAuthenticated, tryCatchHandler(createUserHierarchy));
 
 /**
  * @swagger
- * /merchants/update-merchant/{id}:
+ * /userHierarchy/update-userHierarchy:
  *   put:
- *     summary: Update merchant details
- *     description: Updates an existing merchant’s details.
+ *     summary: Update userHierarchy details
+ *     description: Updates an existing vendor’s details.
  *     tags:
- *       - Merchants
+ *       - User Hierarchy
  *     requestBody:
  *       required: true
  *       content:
@@ -86,20 +86,20 @@ router.post('/create-merchant',isAuthenticated, tryCatchHandler(createMerchant))
  *                 example: "inactive"
  *     responses:
  *       200:
- *         description: Merchant updated successfully.
+ *         description: UserHierarchy updated successfully.
  *       404:
- *         description: Merchant not found.
+ *         description: UserHierarchy not found.
  */
-router.put('/update-merchant/:id', isAuthenticated, tryCatchHandler(updateMerchant));
+router.put('/update-userHierarchy/:id', isAuthenticated, tryCatchHandler(updateUserHierarchy));
 
 /**
  * @swagger
- * /merchants/delete-merchant/{id}:
+ * /userHierarchy/delete-userHierarchy:
  *   delete:
- *     summary: Delete a merchant
- *     description: Soft deletes a merchant by changing its status.
+ *     summary: Delete a userHierarchy
+ *     description: Soft deletes a userHierarchy by changing its status.
  *     tags:
- *       - Merchants
+ *       - User Hierarchy
  *     requestBody:
  *       required: true
  *       content:
@@ -111,10 +111,10 @@ router.put('/update-merchant/:id', isAuthenticated, tryCatchHandler(updateMercha
  *                 type: string
  *     responses:
  *       200:
- *         description: Merchant deleted successfully.
+ *         description: UserHierarchy deleted successfully.
  *       404:
- *         description: Merchant not found.
+ *         description: UserHierarchy not found.
  */
-router.delete('/delete-merchant/:id', isAuthenticated, tryCatchHandler(deleteMerchant));
+router.delete('/delete-userHierarchy/:id', isAuthenticated, tryCatchHandler(deleteUserHierarchy));
 
 export default router;

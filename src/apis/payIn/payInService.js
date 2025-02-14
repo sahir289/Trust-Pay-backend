@@ -5,8 +5,8 @@ import { generatePayInUrlDao, updatePayInUrlDao, validatePayInUrlDao } from "./p
 import { getMerchantsService } from "../merchants/merchantService.js";
 import { BadRequestError, CustomError, NotFoundError } from "../../utils/appErrors.js";
 import { v4 as uuidv4 } from "uuid";
-import { getMerchantBankByIdService } from "../bankAccounts/bankaccountServices.js";
-import { getMerchantBankByIdDao } from "../bankAccounts/bankaccountDao.js";
+import { getMerchantBankService } from "../bankAccounts/bankaccountServices.js";
+import { getMerchantBankDao } from "../bankAccounts/bankaccountDao.js";
 
 
 
@@ -30,7 +30,7 @@ export const generatePayInUrlService = async (payload) => {
         throw new BadRequestError(404, "Enter valid Api key");
     }
 
-    const bankAccountLinkRes = await getMerchantBankByIdService(merchant.user_id);
+    const bankAccountLinkRes = await getMerchantBankService(merchant.user_id);
     const availableBankAccounts = bankAccountLinkRes.filter(bankAccount => bankAccount.bank_used_for === "payIn" && bankAccount.is_enabled && (bankAccount.is_bank || bankAccount.is_qr));
     if (!availableBankAccounts.length) {
         // Send alert if no bank account is linked
@@ -153,7 +153,7 @@ export const assignedBankToPayInUrlService = async (payInId, amount) => {
     }
 
     // Get enabled merchant bank accounts for payIn
-    const getBankDetails = await getMerchantBankByIdDao(merchant.user_id);
+    const getBankDetails = await getMerchantBankDao(merchant.user_id);
     if (!getBankDetails.length) {
         throw new CustomError(403, `No bank found against ${payIn.merchant_id}`);
     }
