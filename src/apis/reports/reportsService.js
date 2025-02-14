@@ -2,7 +2,7 @@ import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
-import { getMerchantReportDao, getPayInMerchantReportDao, getPayInVendorReportDao, getPayOutMerchantReportDao, getPayOutVendorReportDao, getVendorReportDao } from './reportsDao.js';
+import { getMerchantReportDao, getPayInMerchantReportDao, getPayInVendorReportDao, getPayOutMerchantReportDao, getPayOutVendorReportDao } from './reportsDao.js';
 
 
 

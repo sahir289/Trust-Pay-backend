@@ -1,0 +1,125 @@
+import express from 'express';
+import tryCatchHandler from '../../utils/tryCatchHandler.js';
+import { createCheckUtr, deleteCheckUtr, getCheckUtr, updateCheckUtr } from './CheckUtrController.js';
+import { isAuthenticated } from '../../middlewares/auth.js';
+
+const router = express.Router();
+
+/**
+ * @swagger
+ * /CheckUtr:
+ *   get:
+ *     summary: Get CheckUtr by ID
+ *     description: Retrieves details of a specific CheckUtr by its ID.
+ *     tags:
+ *       - CheckUtr
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the CheckUtr to retrieve.
+ *     responses:
+ *       200:
+ *         description: CheckUtr details retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "CheckUtr retrieved successfully"
+ *                 data:
+ *                   type: object
+ */
+router.get('/', isAuthenticated, tryCatchHandler(getCheckUtr));
+
+/**
+ * @swagger
+ * /CheckUtr/create-CheckUtr:
+ *   post:
+ *     summary: Create a new CheckUtr
+ *     description: Creates a new CheckUtr with the provided details.
+ *     tags:
+ *       - CheckUtr
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               CheckUtrName:
+ *                 type: string
+ *                 example: "Tech Solutions Ltd."
+ *     responses:
+ *       201:
+ *         description: CheckUtr created successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "CheckUtr created successfully"
+ *                 data:
+ *                   type: object
+ */
+router.post('/create-CheckUtr', isAuthenticated, tryCatchHandler(createCheckUtr));
+
+/**
+ * @swagger
+ * /CheckUtr/update-CheckUtr/{id}:
+ *   put:
+ *     summary: Update an existing CheckUtr
+ *     description: Updates the details of a specific CheckUtr by ID.
+ *     tags:
+ *       - CheckUtr
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the CheckUtr to update.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               CheckUtrName:
+ *                 type: string
+ *                 example: "Updated CheckUtr Name"
+ *     responses:
+ *       200:
+ *         description: CheckUtr updated successfully.
+ */
+router.put('/update-CheckUtr/:id', isAuthenticated, tryCatchHandler(updateCheckUtr));
+
+/**
+ * @swagger
+ * /CheckUtr/delete-CheckUtr/{id}:
+ *   delete:
+ *     summary: Delete a CheckUtr
+ *     description: Deletes a CheckUtr by ID.
+ *     tags:
+ *       - CheckUtr
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the CheckUtr to delete.
+ *     responses:
+ *       200:
+ *         description: CheckUtr deleted successfully.
+ */
+router.delete('/delete-CheckUtr/:id', isAuthenticated, tryCatchHandler(deleteCheckUtr));
+
+export default router;
