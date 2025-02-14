@@ -54,6 +54,11 @@ function config(Env) {
     latitudeBlock: Env?.BLOCK_LAT,
     longitudeBlock: Env?.BLOCK_LONG,
     nodeProductionLogs: Env?.NODE_ENV,
+    cashFreeCreateOrderUrl: Env?.CREATE_ORDER_URL,
+    key_id: Env?.RAZOR_PAY_ID,
+    key_secret: Env?.RAZOR_PAY_SECRET,
+    cashFreeClientSecret: Env?.CLIENT_SECRET,
+    cashFreeClientId: Env?.CLIENT_ID,
   };
 }
 

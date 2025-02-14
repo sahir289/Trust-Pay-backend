@@ -56,23 +56,23 @@ const rollback = async (client, throwError = true) => {
 };
 
 export const executeQuery = async (query, queryParams = []) => {
-  let conn;
+  // let conn;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const result = await conn.query(query, queryParams);
-    await commit(conn);
+    // conn = await getConnection();
+    // await beginTransaction(conn);
+    const result = await pool.query(query, queryParams);
+    // await commit(conn);
     return result;
   } catch (error) {
     console.error('Error while executing query', error);
     console.error(`\nQuery: ${query}\nParams: [${queryParams}]`);
-    await rollback(conn, false); // Rollback the transaction if an error occurs
+    // await rollback(conn, false); // Rollback the transaction if an error occurs
     throw new DbError(error.message);
   } finally {
-    if (conn) {
-      console.log('Releasing connection');
-      conn.release(); // Release the connection back to the pool
-    }
+    // if (conn) {
+    // console.log('Releasing connection');
+    // conn.release(); // Release the connection back to the pool
+    // }
   }
 }
 
@@ -116,7 +116,7 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
   return [query, values];
 };
 
-export const applySortingAndPagination = (query, values, columns, sortBy, sortOrder, page, pageSize) => {
+export const applySortingAndPagination = (query, values, columns = [], sortBy, sortOrder, page, pageSize) => {
   // Ensure sorting column exists
   if (!columns.includes(sortBy)) {
     sortBy = "created_at"; // Default fallback
