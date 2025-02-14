@@ -116,7 +116,7 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
   return [query, values];
 };
 
-export const applySortingAndPagination = (query, values, columns, sortBy, sortOrder, page, pageSize) => {
+export const applySortingAndPagination = (query, values, columns = [], sortBy, sortOrder, page, pageSize) => {
   // Ensure sorting column exists
   if (!columns.includes(sortBy)) {
     sortBy = "created_at"; // Default fallback

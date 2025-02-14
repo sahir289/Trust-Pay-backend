@@ -85,7 +85,7 @@ export const getPayInUrlService = async (id) => {
     }
 
     if (payIn.is_url_expires) {
-        throw new AccessDeniedError("Url is expired");
+        throw new BadRequestError("Url is expired");
     }
 
     const config = payIn.config || {};
@@ -118,16 +118,7 @@ export const expirePayInUrlService = async (payInId) => {
     if (!payIn) {
         throw new NotFoundError('PayIn not found!');
     }
-
-    // Question
-    // isn't cron job will be best fit to expire payIns with time
-    // if (payIn.status !== Status.ASSIGNED) {
-    // throw new BadRequestError('PayIn is not assigned');
-    // }
-    if (currentTime < new Date(payIn.expiration_date).getTime()) {
-        throw new BadRequestError('Pay In is not expired yet!');
-    }
-
+    checkIsPayInExpired(payIn);
     const config = payIn.config || {};
     await updatePayInUrlDao(payInId, {
         is_url_expires: true,
@@ -150,10 +141,11 @@ export const assignedBankToPayInUrlService = async (payInId, amount) => {
     const payIn = await getPayInUrlService(payInId);
     const payInConfig = payIn.config || {};
 
-    // TODO: should we check other statuses too?
+    checkIsPayInExpired(payIn);
     if (payIn.status !== Status.INITIATED) {
         throw new BadRequestError('PayIn has been confirmed already!');
     }
+
 
     const merchantArr = await getMerchantsService({ id: payIn.merchant_id });
     const merchant = merchantArr[0] || {};
@@ -190,6 +182,7 @@ export const assignedBankToPayInUrlService = async (payInId, amount) => {
         amount: parseFloat(amount),
         status: Status.ASSIGNED,
         bank_acc_id: selectedBankDetails.id,
+        one_time_used: true,
     })
 
     Object.assign(updatePayIn, {
@@ -238,14 +231,13 @@ export const checkPayInStatusService = async (payInId, merchantCode, merchantOrd
 }
 
 export const payInIntentGenerateOrderService = async (payInId, amount, isRazorpay) => {
-    const getPayInData = await getPayInUrlService(payInId);
-    if (!getPayInData) {
-        throw new NotFoundError(404, "Payment does not exist");
-    }
+    // validating if it exist
+    const payIn = await getPayInUrlService(payInId);
+    checkIsPayInExpired(payIn);
     if (isRazorpay) {
         const orderRes = await razorpay.orders.create({
             amount: amount * 100,
-            currency: "INR",
+            currency: Currency.INR,
             receipt: payInId,
         });
 
@@ -256,7 +248,7 @@ export const payInIntentGenerateOrderService = async (payInId, amount, isRazorpa
 
     const requestBody = {
         "order_amount": amount,
-        "order_currency": "INR",
+        "order_currency": Currency.INR,
         "customer_details": {
             "customer_id": "node_sdk_test",
             "customer_email": "example@gmail.com",
@@ -335,10 +327,8 @@ export const updatePaymentNotificationStatusService = async (payInId, type) => {
 }
 
 //under development..
-export const updateDepositStatusService = async (
-    // merchantId, bank_name
-
-) => {
+export const updateDepositStatusService = async (merchantId, bank_name) => {
+    console.log(merchantId, bank_name);
     // const payInData = await getPayInUrlService(merchantId);
 
     // if (!payInData) {
@@ -422,9 +412,9 @@ export const updateDepositStatusService = async (
     // };
 }
 
-export const resetDepositService = async (
-    // merchant_order_id
-) => {
+export const resetDepositService = async (merchant_order_id) => {
+    console.log(merchant_order_id);
+
     // const payInData = await getPayInUrlDao(merchant_order_id);
     // //under development telegram API's
     // await sendResetEntryTelegramMessage(
@@ -473,4 +463,12 @@ export const notifyMerchants = (url, data) => {
     if (url) {
         axios.post(url, data).catch(console.error);
     }
+}
+
+const checkIsPayInExpired = (payIn) => {
+    if (Number(payIn.expiration_date) < Date.now() || payIn.is_url_expires) {
+        throw new BadRequestError('PayIn has been expired already!');
+    }
+
+    return false;
 }
