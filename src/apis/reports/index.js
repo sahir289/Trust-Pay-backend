@@ -1,6 +1,7 @@
 import express from "express";
 import tryCatchHandler from "../../utils/tryCatchHandler.js";
 import { getMerchantReportService, getPayInReportService, getPayOutReportService, getVendorReportService } from "./reportsService.js";
+import { isAuthenticated } from '../../middlewares/auth.js';
 
 /**
  * @swagger
@@ -40,10 +41,10 @@ const router = express.Router();
  *       500:
  *         description: Server error
  */
-router.post('/get-all-payouts', tryCatchHandler(getPayOutReportService));
-router.post('/get-all-payins', tryCatchHandler(getPayInReportService));
+router.post('/get-all-payouts', isAuthenticated, tryCatchHandler(getPayOutReportService));
+router.post('/get-all-payins',isAuthenticated, tryCatchHandler(getPayInReportService));
 router.get('/get-all-merchants', tryCatchHandler(getMerchantReportService));
-router.get('/get-all-vendors', tryCatchHandler(getVendorReportService));
+router.get('/get-all-vendors',isAuthenticated, tryCatchHandler(getVendorReportService));
 
 /**
  * @swagger

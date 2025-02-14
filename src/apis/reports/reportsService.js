@@ -10,15 +10,15 @@ import { getMerchantReportDao, getPayInMerchantReportDao, getPayInVendorReportDa
 
 const getPayInReportService = async (req, res) => {
     try {
-        const { merchant_id, vendor_id } = req.body;
+        const { merchant_id, vendor_id , startDate, endDate , method   } = req.body;
         let result;
         if (merchant_id) {
-            result = await getPayInMerchantReportDao(merchant_id);
+            result = await getPayInMerchantReportDao(merchant_id, startDate, endDate );
         }
         if (vendor_id) {
-            const vendorData = await getBankaccountDao(vendor_id);
+            const vendorData = await getBankaccountDao(vendor_id   );
             const bankData = await getVendorsDao({ searchString: vendorData.user_id });
-            result = await getPayInVendorReportDao(bankData.id);
+            result = await getPayInVendorReportDao(bankData.id, startDate, endDate , method );
         }
         return sendSuccess(res, result, 'getUsers successfully');
 
@@ -29,15 +29,15 @@ const getPayInReportService = async (req, res) => {
 };
 const getPayOutReportService = async (req, res) => {
     try {
-        const { merchant_id, vendor_id } = req.body;
+        const { merchant_id, vendor_id , startDate, endDate , method   } = req.body;
         let result;
         if (merchant_id) {
-            result = await getPayOutMerchantReportDao(merchant_id);
+            result = await getPayOutMerchantReportDao(merchant_id , startDate, endDate);
         }
         if (vendor_id) {
             const vendorData = await getBankaccountDao(vendor_id);
             const bankData = await getVendorsDao({ searchString: vendorData.user_id });
-            result = await getPayOutVendorReportDao(bankData.id);
+            result = await getPayOutVendorReportDao(bankData.id , startDate, endDate , method  );
         }
         return sendSuccess(res, result, 'getUsers successfully');
     } catch (error) {
@@ -46,9 +46,9 @@ const getPayOutReportService = async (req, res) => {
     }
 }; const getMerchantReportService = async (req, res) => {
     try {
-        const { id } = req.query;
+        const { merchant_id , startDate, endDate } = req.query;
 
-        const result = await getMerchantReportDao(id);
+        const result = await getMerchantReportDao(merchant_id, startDate, endDate);
         return sendSuccess(res, result, 'getUsers successfully');
     } catch (error) {
         console.error('error getting while logging in', error);
@@ -56,10 +56,10 @@ const getPayOutReportService = async (req, res) => {
     }
 }; const getVendorReportService = async (req, res) => {
     try {
-        const { vendor_id } = req.query;
+        const { vendor_id, startDate, endDate , method  } = req.query;
         const vendorData = await getBankaccountDao(vendor_id);
         const bankData = await getVendorsDao({ searchString: vendorData.user_id });
-        const result = await getPayOutVendorReportDao(bankData.id);        
+        const result = await getPayOutVendorReportDao(bankData.id,  startDate, endDate , method );        
         return sendSuccess(res, result, 'getUsers successfully');
         
     } catch (error) {

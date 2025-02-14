@@ -27,7 +27,7 @@ const router = express.Router();
  *                   items:
  *                     type: object
  */
-router.get('/', isAuthenticated, tryCatchHandler(getSettlementService));
+router.get('/',  tryCatchHandler(getSettlementService));
 
 /**
  * @swagger
