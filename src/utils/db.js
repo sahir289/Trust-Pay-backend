@@ -76,26 +76,74 @@ export const executeQuery = async (query, queryParams = []) => {
   }
 }
 
-export const buildSelectQuery = (query, filters) => {
-  const conditions = [];
-  const queryParams = [];
-  let sql = query;
-  // Dynamically build the query
+export const buildSelectQuery = (baseQuery, filters = {}, columns, page = 1, pageSize = 10, sortBy = "created_at", sortOrder = "DESC") => {
+  let query = baseQuery;
+  let values = [];
+  let conditions = [];
+
+  // Apply filters
   for (const key in filters) {
-    const value = filters[key];
-    if (value !== undefined && value !== null) {
-      conditions.push(`${key} = $${queryParams.length + 1}`);
-      queryParams.push(value);
+    if (filters[key] !== undefined && filters[key] !== null) {
+      conditions.push(`"${key}" = $${values.length + 1}`);
+      values.push(filters[key]);
     }
   }
 
-  // Append conditions to the SQL query
-  if (conditions.length) {
-    sql += ` AND ${conditions.join(' AND ')}`;
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(" AND ")}`;
   }
 
-  return [sql, queryParams];
-}
+  // Apply sorting and pagination
+  query = applySortingAndPagination(query, values, columns, sortBy, sortOrder, page, pageSize);
+
+  return [query, values];
+};
+
+export const buildSelectStringQuery = (baseQuery, searchString, columns, page = 1, pageSize = 10, sortBy = "created_at", sortOrder = "DESC") => {
+  let query = baseQuery;
+  let values = [];
+  let conditions = [];
+
+  // Apply filters
+  if (searchString?.trim() && columns?.length > 0) {
+    const searchValues = searchString.split(",").map(val => val.trim());
+    const searchConditions = searchValues.map((_, index) =>
+      `(${columns.map(col => `"${col}"::TEXT ILIKE $${values.length + index + 1}`).join(" OR ")})`
+    ).join(" OR ");
+
+    conditions.push(searchConditions);
+    values.push(...searchValues.map(val => `%${val}%`));
+  }
+
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(" AND ")}`;
+  }
+
+  // Apply sorting and pagination
+  query = applySortingAndPagination(query, values, columns, sortBy, sortOrder, page, pageSize);
+
+  return [query, values];
+};
+
+export const applySortingAndPagination = (query, values, columns, sortBy, sortOrder, page, pageSize) => {
+  // Ensure sorting column exists
+  if (!columns.includes(sortBy)) {
+    sortBy = "created_at"; // Default fallback
+  }
+
+  // Validate sort order
+  const order = sortOrder.toUpperCase() === "DESC" ? "DESC" : "ASC";
+
+  // Add sorting
+  query += ` ORDER BY "${sortBy}" ${order}`;
+
+  // Add pagination
+  const offset = (page - 1) * pageSize;
+  query += ` LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+  values.push(pageSize, offset);
+
+  return query;
+};
 
 export const buildInsertQuery = (tableName, data) => {
   const keys = Object.keys(data).map((key) => `"${key}"`);
