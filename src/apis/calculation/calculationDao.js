@@ -16,9 +16,12 @@ const getCalculationDao = async (id) => {
     }
   };
 
-   
-const createCalculationDao = async (data) => {
+const createCalculationDao = async (data, conn) => {
   const [sql, params] = buildInsertQuery(tableName, data)
+  if (conn && conn.query) {
+    const result = await conn.query(sql, params);
+    return result.rows[0];
+  }
   const result = await executeQuery(sql, params);
   return result.rows[0];
 }

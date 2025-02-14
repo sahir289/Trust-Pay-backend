@@ -104,6 +104,6 @@ router.put('/update-role/:id',isAuthenticated, tryCatchHandler(updateRole));
  *       404:
  *         description: Role not found
  */
-router.delete('/delete-role/:id', tryCatchHandler(deleteRole));
+router.delete('/delete-role/:id',isAuthenticated, tryCatchHandler(deleteRole));
 
 export default router;
