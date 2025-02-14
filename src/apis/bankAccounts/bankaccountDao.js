@@ -28,8 +28,12 @@ const createBankaccountDao = async (payload) => {
   return result.rows[0];
 };
 
-const updateBankaccountDao = async (id, payload) => {
+const updateBankaccountDao = async (id, payload, conn) => {
   const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, payload, { id });
+  if (conn && conn.query) {
+    const result = await conn.query(sql, params);
+    return result.rows[0];
+  }
   const result = await executeQuery(sql, params);
   return result.rows[0];
 };
