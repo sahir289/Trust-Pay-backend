@@ -1,26 +1,27 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getBankaccountService, createBankaccountService, updateBankaccountService, deleteBankaccountService, getMerchantBankByIdService } from './bankaccountServices.js';
+import { createCheckUtrService, deleteCheckUtrService, getCheckUtrService, updateCheckUtrService } from './CheckUtrServices.js';
 
-const getBankaccount = async (req, res) => {
+
+
+const getCheckUtr = async (req, res) => {
   try {
-    const payload = req.query.search;
-    const data = await getBankaccountService(payload);
-    console.log('getUsers successfully');
+    const { id } = req.params;
+    const data = await getCheckUtrService(id);
+
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while logging in', error);
   }
 };
-
-const createBankaccount = async (req, res) => {
+const createCheckUtr = async (req, res) => {
   try {
     const payload = req.body;
     if (!payload) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await createBankaccountService(payload);
+    const data = await createCheckUtrService(payload);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
@@ -28,36 +29,30 @@ const createBankaccount = async (req, res) => {
   }
 }
 
-const updateBankaccount = async (req, res) => {
+const updateCheckUtr = async (req, res) => {
   try {
-    const { id } = req.params;
     const payload = req.body;
-    const data = await updateBankaccountService(id, payload);
-    console.log('getUsers successfully');
+    const { id } = req.params;
+    const data = await updateCheckUtrService(id, payload);
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while logging in', error);
   }
 }
 
-const getMerchantBank = async (req, res) => {
-  // Fetch the bank account details for the given merchant ID
-  const bankRes = await getMerchantBankService(req.params.id);
-  return sendSuccess(res, bankRes, 'Bank details fetched successfully');
-}
 
-const deleteBankaccount = async (req, res) => {
+const deleteCheckUtr = async (req, res) => {
   try {
     const { id } = req.params;
     if (!id) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await deleteBankaccountService(id);
+    const data = await deleteCheckUtrService(id);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while logging in', error);
   }
 }
-export { getBankaccount, createBankaccount, updateBankaccount, deleteBankaccount, getMerchantBank };
+export { getCheckUtr, createCheckUtr, updateCheckUtr, deleteCheckUtr };

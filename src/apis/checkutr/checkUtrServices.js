@@ -1,12 +1,16 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
-import { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao } from './designationDao.js';
+import { createCheckUtrDao, deleteCheckUtrDao, getCheckUtrDao, updateCheckUtrDao } from './checkUtrDao.js';
 
-const getDesignationService = async (payload) => {
+
+
+
+
+const getCheckUtrService = async (id) => {
   let conn;
   try {
     conn = await getConnection();
-    const result = await getDesignationDao(payload);
+    const result = await getCheckUtrDao(id);
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -21,11 +25,10 @@ const getDesignationService = async (payload) => {
     }
   }
 };
-
-const createDesignationService = async (payload) => {
+const createCheckUtrService = async (payload) => {
   try {
 
-    const result = await createDesignationDao(payload);
+    const result = await createCheckUtrDao(payload);
 
     return result;
   } catch (error) {
@@ -34,9 +37,20 @@ const createDesignationService = async (payload) => {
   }
 };
 
-const updateDesignationService = async (id, payload) => {
+const updateCheckUtrService = async (id, payload) => {
   try {
-    const result = await updateDesignationDao(id, payload);
+    const result = await updateCheckUtrDao(id, payload);
+    return result;
+  } catch (error) {
+    console.error('error getting while logging in', error);
+    throw new BadRequestError('Error getting while logging in');
+  }
+};
+const deleteCheckUtrService = async (id) => {
+
+
+  try {
+    const result = await deleteCheckUtrDao(id, { is_obsolete: true });
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -44,15 +58,6 @@ const updateDesignationService = async (id, payload) => {
   }
 };
 
-const deleteDesignationService = async (id) => {
-  try {
-    const result = await deleteDesignationDao(id, { is_obsolete: true });
-    return result;
-  } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
-  }
-};
 
 
-export { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService };
+export {  getCheckUtrService, createCheckUtrService, updateCheckUtrService, deleteCheckUtrService };

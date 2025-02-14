@@ -1,6 +1,7 @@
 import express from "express";
 import tryCatchHandler from "../../utils/tryCatchHandler.js";
-import { getAllPayoutData, getAllVendorAccountReport } from "./reportsController.js";
+import { getMerchantReportService, getPayInReportService, getPayOutReportService, getVendorReportService } from "./reportsService.js";
+import { isAuthenticated } from '../../middlewares/auth.js';
 
 /**
  * @swagger
@@ -14,7 +15,7 @@ const router = express.Router();
 /**
  * @swagger
  * /reports/get-all-payouts:
- *   post:
+ *   get:
  *     summary: Get all payout transactions
  *     description: Fetches all payout data from the system.
  *     tags: [Reports]
@@ -40,7 +41,10 @@ const router = express.Router();
  *       500:
  *         description: Server error
  */
-router.post('/get-all-payouts', tryCatchHandler(getAllPayoutData));
+router.post('/get-all-payouts', isAuthenticated, tryCatchHandler(getPayOutReportService));
+router.post('/get-all-payins',isAuthenticated, tryCatchHandler(getPayInReportService));
+router.get('/get-all-merchants', tryCatchHandler(getMerchantReportService));
+router.get('/get-all-vendors',isAuthenticated, tryCatchHandler(getVendorReportService));
 
 /**
  * @swagger
@@ -94,6 +98,5 @@ router.post('/get-all-payouts', tryCatchHandler(getAllPayoutData));
  *       500:
  *         description: Server error
  */
-router.post('/weekly-vendor-report', tryCatchHandler(getAllVendorAccountReport));
 
 export default router;

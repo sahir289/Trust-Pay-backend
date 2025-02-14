@@ -38,6 +38,4 @@ const deleteDesignationDao = async (id, data) => {
 
 };
 
-
 export { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao };
-

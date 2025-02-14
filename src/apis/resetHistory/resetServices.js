@@ -1,12 +1,16 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
-import { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao } from './designationDao.js';
+import { createResetHistoryDao, deleteResetHistoryDao, getResetHistoryDao, updateResetHistoryDao } from './ResetHistoryDao.js';
 
-const getDesignationService = async (payload) => {
+
+
+
+
+const getResetHistoryService = async (id) => {
   let conn;
   try {
     conn = await getConnection();
-    const result = await getDesignationDao(payload);
+    const result = await getResetHistoryDao(id);
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -21,11 +25,10 @@ const getDesignationService = async (payload) => {
     }
   }
 };
-
-const createDesignationService = async (payload) => {
+const createResetHistoryService = async (payload) => {
   try {
 
-    const result = await createDesignationDao(payload);
+    const result = await createResetHistoryDao(payload);
 
     return result;
   } catch (error) {
@@ -34,9 +37,20 @@ const createDesignationService = async (payload) => {
   }
 };
 
-const updateDesignationService = async (id, payload) => {
+const updateResetHistoryService = async (id, payload) => {
   try {
-    const result = await updateDesignationDao(id, payload);
+    const result = await updateResetHistoryDao(id, payload);
+    return result;
+  } catch (error) {
+    console.error('error getting while logging in', error);
+    throw new BadRequestError('Error getting while logging in');
+  }
+};
+const deleteResetHistoryService = async (id) => {
+
+
+  try {
+    const result = await deleteResetHistoryDao(id, { is_obsolete: true });
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -44,15 +58,6 @@ const updateDesignationService = async (id, payload) => {
   }
 };
 
-const deleteDesignationService = async (id) => {
-  try {
-    const result = await deleteDesignationDao(id, { is_obsolete: true });
-    return result;
-  } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
-  }
-};
 
 
-export { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService };
+export {  getResetHistoryService, createResetHistoryService, updateResetHistoryService, deleteResetHistoryService };
