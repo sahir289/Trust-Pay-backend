@@ -19,9 +19,7 @@ const getComplaints = async (req, res) => {
 const createComplaints = async (req, res) => {
     try {
       const payload = req.body;
-      if (!payload) {
-        console.error('payload is required');
-      }
+      
       const data = await createComplaintsService(payload);
       console.log('create Complaints successfully', 'info');
       return sendSuccess(res, data, 'Create Complaints successfully');

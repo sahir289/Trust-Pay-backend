@@ -1,42 +1,33 @@
+// Importing DAO functions for database operations
+import { getCalculationDao, createCalculationDao, updateCalculationDao, deleteCalculationDao } from './calculationDao.js';
 
-import {BadRequestError,} from '../../utils/appErrors.js';
-import { getCalculationDao , createCalculationDao , updateCalculationDao ,deleteCalculationDao } from './calculationDao.js';
+// Importing transaction wrapper for handling database transactions
+import { transactionWrapper } from '../../utils/db.js';
 
+// Service to fetch calculation data
 const getCalculationService = async (payload) => {
-        const data = await getCalculationDao(payload);
-        return data;
-}
+    const data = await getCalculationDao(payload);
+    return data;
+};
 
+// Service to create a new calculation record
 const createCalculationService = async (payload) => {
-    try {
-        const data = await createCalculationDao(payload);
-        console.log('Created Calculation successfully', 'info');
-        return data;
-    } catch (error) {
-       console.error('Error during transaction rollback', 'error', error);
-       throw new BadRequestError('Error occurred while creating Calculation');
-    }
-}
-const updateCalculationService = async (user_id,payload) => {  
-    try {
-        const data = await updateCalculationDao(user_id,payload);
-        console.log('Updated Calculation successfully', 'info');
-        return data;
-    } catch (error) {
-       console.error('Error during transaction rollback', 'error', error);
-       throw new BadRequestError('Error occurred while updating Calculation');
-    }
-}
-const deleteCalculationService = async (id) => {  
-    try {
-        const userData = {is_obsolete: true};
-        const data = await deleteCalculationDao(id,userData);
-        console.log('Delete Calculation successfully', 'info');
-        return data;
-    } catch (error) {
-       console.error('Error during transaction rollback', 'error', error);
-       throw new BadRequestError('Error occurred while Deleting Calculation');
-    }
-}
+    const data = await transactionWrapper(createCalculationDao)(payload); // Ensuring transaction safety
+    return data;
+};
 
-export { getCalculationService,createCalculationService,updateCalculationService,deleteCalculationService};
+// Service to update an existing calculation record
+const updateCalculationService = async (user_id, payload) => {
+    const data = await transactionWrapper(updateCalculationDao)(user_id, payload);
+    return data;
+};
+
+// Service to mark a calculation record as obsolete (soft delete)
+const deleteCalculationService = async (id) => {
+    const userData = { is_obsolete: true };
+    const data = await transactionWrapper(deleteCalculationDao)(id, userData);
+    return data;
+};
+
+// Exporting services for use in other modules
+export { getCalculationService, createCalculationService, updateCalculationService, deleteCalculationService };

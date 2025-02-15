@@ -56,23 +56,13 @@ const rollback = async (client, throwError = true) => {
 };
 
 export const executeQuery = async (query, queryParams = []) => {
-  let conn;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const result = await conn.query(query, queryParams);
-    await commit(conn);
+    const result = await pool.query(query, queryParams);
     return result;
   } catch (error) {
     console.error('Error while executing query', error);
     console.error(`\nQuery: ${query}\nParams: [${queryParams}]`);
-    await rollback(conn, false); // Rollback the transaction if an error occurs
     throw new DbError(error.message);
-  } finally {
-    if (conn) {
-      console.log('Releasing connection');
-      conn.release(); // Release the connection back to the pool
-    }
   }
 }
 
@@ -116,7 +106,7 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
   return [query, values];
 };
 
-export const applySortingAndPagination = (query, values, columns, sortBy, sortOrder, page, pageSize) => {
+export const applySortingAndPagination = (query, values, columns = [], sortBy, sortOrder, page, pageSize) => {
   // Ensure sorting column exists
   if (!columns.includes(sortBy)) {
     sortBy = "created_at"; // Default fallback
@@ -152,4 +142,24 @@ export const buildUpdateQuery = (tableName, data, whereCondition) => {
   const params = [...values, ...whereValues];
   return [query, params];
 }
+
+export const transactionWrapper = (fn) => async (...args) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    await Promise.resolve(fn(conn, ...args));
+    await commit(conn);
+  } catch (error) {
+    await rollback(conn, false); // Rollback the transaction if an error occurs
+    console.error('Error while executing query', error);
+    throw new DbError(error.message);
+  } finally {
+    if (conn) {
+      console.log('Releasing connection');
+      conn.release(); // Release the connection back to the pool
+    }
+  }
+}
+
 export { pool, getConnection, beginTransaction, commit, rollback };

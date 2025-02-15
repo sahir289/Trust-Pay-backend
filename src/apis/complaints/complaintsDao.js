@@ -18,18 +18,19 @@ const getComplaintsDao =async (
 
 const createComplaintsDao = async (data) => {  
             // data.id = generateUUID();
-       const [sql, params] = buildInsertQuery(tableName, data)
+       const [sql, params] = buildInsertQuery(tableName.COMPLAINTS, data)
          const result = await executeQuery(sql, params);
          return result.rows[0];
 };
 
 const updateComplaintsDao = async (id,data) => {  
-     const [sql, params] = buildUpdateQuery(tableName, data, { id });
+     const [sql, params] = buildUpdateQuery(tableName.COMPLAINTS, data, { id });
        const result = await executeQuery(sql, params);
        return result.rows[0];
 }
+
 const deleteComplaintsDao = async (id,data) => { 
-        const [sql, params] = buildUpdateQuery(tableName, data, { id});
+        const [sql, params] = buildUpdateQuery(tableName.COMPLAINTS, data, { id});
         const result = await executeQuery(sql, params);
         return result.rows[0];
 }

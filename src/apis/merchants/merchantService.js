@@ -9,57 +9,31 @@ import { Method } from '../../constants/index.js';
 
 
 const createMerchantService = async (payload) => {
-    let conn;
-    try {
-        conn = await getConnection();
-        await beginTransaction(conn); // Start a transaction
-        const parentId = payload.parentId;
-        delete payload.parentId;
+    const parentId = payload.parentId;
 
-        const data = await createMerchantDao(payload);
+    delete payload.parentId;
 
-        const role = await getRoleDao({ id: data.role_id });
-        if (role.role === Method.MERCHANT) {
-            await createUserHierarchyDao({
-                user_id: data.user_id,
-                role_id: data.role_id,
-                created_by: data.created_by,
-                updated_by: data.updated_by,
-                company_id:data.company_id,
-            })
-        }
-        else if (role.role === Method.SUBMERCHANT) {
-            const hierarchy = await getUserHierarchysDao(parentId);
-            await updateUserHierarchyDao(hierarchy.id, {
-                config: {
-                    child: [...(hierarchy?.config?.child || []), data.id]  // Use spread operator to add new element
-                }
-            });
-        }
+    const data = await createMerchantDao(payload);
 
-        await commit(conn); // Commit the transaction
-        console.log('Merchant created successfully',);
-
-        return data;
-    } catch (error) {
-        if (conn) {
-            try {
-                await rollback(conn); // Rollback the transaction in case of error
-            } catch (rollbackError) {
-                console.error('Error during transaction rollback', rollbackError);
-            }
-        }
-        console.error('Error while creating Merchant', error);
-        throw new BadRequestError('Error occurred while creating Merchant');
-    } finally {
-        if (conn) {
-            try {
-                conn.release(); // Release the connection back to the pool
-            } catch (releaseError) {
-                console.error('Error while releasing the connection', releaseError);
-            }
-        }
+    const role = await getRoleDao({ id: data.role_id });
+    
+    if (role.role === Method.MERCHANT) {
+        await createUserHierarchyDao({
+            user_id: data.id,
+            role_id: data.role_id,
+        })
     }
+    else if (role.role === Method.SUBMERCHANT) {
+        const hierarchy = await getUserHierarchysDao(parentId);
+        await updateUserHierarchyDao(hierarchy.id, {
+            config: {
+                child: [...(hierarchy?.config?.child || []), data.id]  // Use spread operator to add new element
+            }
+        });
+    }
+    console.log('Merchant created successfully',);
+
+    return data;
 };
 
 const getMerchantsService = async (payload) => {
@@ -67,37 +41,12 @@ const getMerchantsService = async (payload) => {
     return data;
 };
 
-const updateMerchantService = async (id, payload) => {
-    let conn;
-    try {
-        conn = await getConnection();
-        await beginTransaction(conn); // Start a transaction
+const updateMerchantService = async (conn, id, payload) => {
 
-        const data = await updateMerchantDao(id, payload); // Adjust DAO call for update
+    const data = await updateMerchantDao(id, payload); // Adjust DAO call for update
+    console.log('Merchant updated successfully');
 
-        await commit(conn); // Commit the transaction
-        console.log('Merchant updated successfully');
-
-        return data;
-    } catch (error) {
-        if (conn) {
-            try {
-                await rollback(conn); // Rollback the transaction in case of error
-            } catch (rollbackError) {
-                console.error('Error during transaction rollback', rollbackError);
-            }
-        }
-        console.error('Error while updating Merchant', error);
-        throw new BadRequestError('Error occurred while updating Merchant');
-    } finally {
-        if (conn) {
-            try {
-                conn.release(); // Release the connection back to the pool
-            } catch (releaseError) {
-                console.error('Error while releasing the connection', releaseError);
-            }
-        }
-    }
+    return data;
 };
 
 const deleteMerchantService = async (id) => {

@@ -25,7 +25,6 @@ const getRoleDao = async (
 
 
 const createRoleDao = async (data) => {  
-            // data.id = generateUUID();
        const [sql, params] = buildInsertQuery(tableName, data)
          const result = await executeQuery(sql, params);
          return result.rows[0];

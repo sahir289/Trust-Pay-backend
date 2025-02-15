@@ -14,6 +14,7 @@ export const Status = {
     TEST_DROPPED: 'TEST_DROPPED',
     BANK_MISMATCH: 'BANK_MISMATCH',
     FAILED: 'FAILED',
+    USER_DROPPED: 'USER_DROPPED'
 }
 
 export const Currency = {
@@ -26,6 +27,11 @@ export const Method = {
     AED: 'AED',
     CRYPTO: 'CRYPTO',
     EKO: 'EKO',
+}
+
+export const Type = {
+    PAYIN: "PAYIN",
+    PAYOUT: "PAYOUT",
 }
 
 export const Role = {

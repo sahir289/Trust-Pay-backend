@@ -28,8 +28,6 @@ const createRole = async (req, res) => {
     }
   };
 
-
-  
   const updateRole = async (req, res) => {
     try {
         const { body, params } = req;

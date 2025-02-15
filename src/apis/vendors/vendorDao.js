@@ -22,8 +22,12 @@ export const getVendorsDao = async (
 };
 
 
-export const updateVendorDao = async (id, data) => {
+export const updateVendorDao = async (id, data, conn) => {
     const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, { id });
+    if (conn && conn.query) {
+        const result = await conn.query(sql, params);
+        return result.rows[0];
+    }
     const result = await executeQuery(sql, params);
     return result.rows[0];
 }
