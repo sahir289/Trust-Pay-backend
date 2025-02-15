@@ -3,9 +3,7 @@ import {BadRequestError,} from '../../utils/appErrors.js';
 import { getComplaintsDao , createComplaintsDao, updateComplaintsDao , deleteComplaintsDao } from './complaintsDao.js';
 
 const getComplaintsService = async (payload) => {
-  
         const data = await getComplaintsDao(payload);
-
    return data;
 }
 

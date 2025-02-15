@@ -141,7 +141,6 @@ const updatePayoutCalculations = async (userId, date, amount, commission, isMerc
         getCalculationDao({ user_id: userId, created_at: date - 1 })
     ]);
     const prefix = isReverse ? "reverse_" : "";
-
     const updatedCalculation = {
         ...currentCalculation,
         [`total_${prefix}payout_count`]: currentCalculation[`total_${prefix}payout_count`] + 1,
