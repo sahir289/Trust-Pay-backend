@@ -10,11 +10,13 @@ import { Method } from '../../constants/index.js';
 
 const createMerchantService = async (payload) => {
     const parentId = payload.parentId;
+
     delete payload.parentId;
 
     const data = await createMerchantDao(payload);
 
     const role = await getRoleDao({ id: data.role_id });
+    
     if (role.role === Method.MERCHANT) {
         await createUserHierarchyDao({
             user_id: data.id,

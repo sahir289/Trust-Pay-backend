@@ -10,17 +10,14 @@ export const payInUpdateCashfreeWebhook = async (req, res) => {
     if (!payInDataById) {
         throw new Error('Payment not found');
     }
-
     const durMs = new Date() - payInDataById.createdAt;
     const durSeconds = Math.floor((durMs / 1000) % 60).toString().padStart(2, '0');
     const durMinutes = Math.floor((durSeconds / 60) % 60).toString().padStart(2, '0');
     const durHours = Math.floor((durMinutes / 60) % 24).toString().padStart(2, '0');
     const duration = `${durHours}:${durMinutes}:${durSeconds}`;
-
     if (payload.data.payment.payment_status === Status.FAILED || payload.data.payment.payment_status === Status.USER_DROPPED) {
         throw new Error('Payment Failed due to:', payload.data.payment.payment_message);
     }
-
     const payInData = {
         confirmed: payload.data.order.order_amount,
         amount: payload.data.order.order_amount,
@@ -34,7 +31,6 @@ export const payInUpdateCashfreeWebhook = async (req, res) => {
         method: 'CashFree',
         is_notified: true
     }
-
     const updatePayinRes = await updatePayInUrlDao(payInDataById.id, payInData);
     const notifyData = {
         status: updatePayinRes?.status,
@@ -44,7 +40,6 @@ export const payInUpdateCashfreeWebhook = async (req, res) => {
         req_amount: updatePayinRes.amount,
         utr_id: (updatePayinRes?.status === Status.SUCCESS || updatePayinRes?.status === Status.DISPUTE) ? updatePayinRes?.utr : ""
     };
-
     merchantPayinCallback(updatePayinRes?.config?.notify_url, notifyData)
 }
 

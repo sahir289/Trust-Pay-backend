@@ -36,6 +36,7 @@ const router = express.Router();
  */
 router.get('/', isAuthenticated, tryCatchHandler(getCompanyById));
 
+
 /**
  * @swagger
  * /company/create-company:
@@ -70,6 +71,7 @@ router.get('/', isAuthenticated, tryCatchHandler(getCompanyById));
  */
 router.post('/create-company', tryCatchHandler(createCompany));
 
+
 /**
  * @swagger
  * /company/update-company/{id}:
@@ -101,6 +103,7 @@ router.post('/create-company', tryCatchHandler(createCompany));
  */
 router.put('/update-company/:id', isAuthenticated, tryCatchHandler(updateCompany));
 
+
 /**
  * @swagger
  * /company/delete-company/{id}:
@@ -121,5 +124,7 @@ router.put('/update-company/:id', isAuthenticated, tryCatchHandler(updateCompany
  *         description: Company deleted successfully.
  */
 router.delete('/delete-company/:id', isAuthenticated, tryCatchHandler(deleteCompany));
+
+
 
 export default router;
