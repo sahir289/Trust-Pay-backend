@@ -3,20 +3,20 @@ const tableName = 'Company';
 
 
 
-const getCompanyDao = async (id) => {
+const getCompanyByIdDao = async (id) => {
 const query = `SELECT *  FROM  "${tableName}" WHERE 1=1`;
    const [sql, parameters] = buildSelectQuery(query, {id} );
    const result = await executeQuery(sql, parameters);
    return result.rows[0];
 };
 
-const createCompanyDao = async (payload ) => {
+const createCompanyByIdDao = async (payload ) => {
     const [sql, params] = buildInsertQuery(tableName, payload)
         const result = await executeQuery(sql, params);
         return result.rows[0];
 };
 
-const updateCompanyDao = async (id, data) => {
+const updateCompanyByIdDao = async (id, data) => {
    
   const [sql, params] = buildUpdateQuery(tableName, data, {id});
   const result = await executeQuery(sql, params);
@@ -26,7 +26,7 @@ const updateCompanyDao = async (id, data) => {
 
 
 
-const deleteCompanyDao = async ( id, data) => {
+const deleteCompanyByIdDao = async ( id, data) => {
   const [sql, params] = buildUpdateQuery(tableName, data, {id});
   const result = await executeQuery(sql, params);
   return result.rows[0];
@@ -35,4 +35,4 @@ const deleteCompanyDao = async ( id, data) => {
 };
 
 
-export {  getCompanyDao, createCompanyDao, updateCompanyDao, deleteCompanyDao };
+export {  getCompanyByIdDao, createCompanyByIdDao, updateCompanyByIdDao, deleteCompanyByIdDao };
