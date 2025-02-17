@@ -50,6 +50,7 @@ export const columns = {
     USER: ['id', 'role_id', 'company_id', 'designation_id', 'first_name', 'last_name', 'email', 'contact_no', 'user_name', 'password', 'code', 'is_enabled', 'last_login', 'last_logout', 'config', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     ROLE: ['id', 'role', 'company_id', 'email', 'contact_no', 'created_at', 'updated_at', 'is_obsolete'],
     COMPANY: ['id', 'first_name', 'last_name', 'email', 'contact_no', 'congig', 'is_obsolete'],
+    SETTLEMENT: ["id","sno","user_id","status","amount","method", "config", "approved_at","rejected_at","created_by","updated_by","created_at","updated_at","company_id","is_obsolete"],      
     CALCULATION: ["id", "user_id", "total_payin_count","total_payin_amount","total_payin_commission","total_payout_count","total_payout_amount","total_payout_commission","total_settlement_count","total_settlement_amount","total_chargeback_count","total_chargeback_amount","current_balance","net_balance","created_at","updated_at", "company_id","is_obsolete"],
     COMPLAINTS: ["id", "sno", "status", "payin_id", "email", "config", "created_at", "updated_at", "company_id"],
     DESIGNATION: ['id', 'designation', 'role_id', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
@@ -75,4 +76,5 @@ export const tableName = {
     CHAREBACK: 'Chargeback',
     BANK_ACCOUNT: 'BankAccount',
     USER_HIERARCHY: 'UserHierarchy',
+    SETTLEMENT: 'Settlement',
 }

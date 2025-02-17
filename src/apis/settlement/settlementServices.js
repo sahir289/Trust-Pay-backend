@@ -4,6 +4,7 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getCalculationDao, updateCalculationDao } from '../calculation/calculationDao.js';
 import { getMerchantsDao } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
+
 const getSettlementService = async (req, res) => {
   try {
     const { id } = req.query;
