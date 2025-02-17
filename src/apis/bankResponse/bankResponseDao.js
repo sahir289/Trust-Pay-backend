@@ -1,5 +1,5 @@
-import { tableName } from "../../constants"
-import { buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db"
+import { tableName } from "../../constants/index.js"
+import { buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js"
 
 export const getBankResponsesDao = async (filters)=>{
     const [sql, params] = buildSelectQuery(`SELECT * from ${tableName.BANK_RESPONSE}`, filters);

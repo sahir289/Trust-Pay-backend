@@ -384,7 +384,7 @@ export const updateDepositStatusService = async (merchantOrderId, nick_name) => 
     await updateBankResponseDao({ id: bank.id }, { is_used: true });
 
     // first get the old balance and add the new one
-    // await updateBankaccountDao(bank.id, parseFloat(payInData.confirmed));
+    await updateBankaccountDao(bank.id, parseFloat(payInData.confirmed));
 
     merchantPayinCallback(updatePayInRes.config?.notify_url, {
         status: updatePayInRes.status,
