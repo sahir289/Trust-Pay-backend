@@ -34,7 +34,7 @@ router.use('/roles', roles);
 router.use('/calculation', calculation);
 router.use('/payIn', payIn);
 router.use('/designation', designation)
-router.use('/bankaccount', bankaccount)
+router.use('/bankAccount', bankaccount)
 router.use('/company', company)
 router.use('/settlement', settlement)
 router.use('/userHierarchy', userHierarchy)

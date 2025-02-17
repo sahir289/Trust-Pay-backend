@@ -115,6 +115,7 @@ router.put('/update-merchant/:id', isAuthenticated, tryCatchHandler(updateMercha
  *       404:
  *         description: Merchant not found.
  */
+
 router.delete('/delete-merchant/:id', isAuthenticated, tryCatchHandler(deleteMerchant));
 
 export default router;

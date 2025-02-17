@@ -17,7 +17,7 @@ const getDesignationDao = async (
 
 
 const createDesignationDao = async (payload) => {
-  const [sql, params] = buildInsertQuery(tableName, payload)
+  const [sql, params] = buildInsertQuery(tableName.DESIGNATION, payload)
   const result = await executeQuery(sql, params);
   return result.rows[0];
 };
@@ -31,7 +31,7 @@ const updateDesignationDao = async (id, data) => {
 };
 
 const deleteDesignationDao = async (id, data) => {
-  const [sql, params] = buildUpdateQuery(tableName, data, { id });
+  const [sql, params] = buildUpdateQuery(tableName.DESIGNATION, data, { id });
   const result = await executeQuery(sql, params);
   return result.rows[0];
 

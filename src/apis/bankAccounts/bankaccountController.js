@@ -6,10 +6,10 @@ const getBankaccount = async (req, res) => {
   try {
     const payload = req.query.search;
     const data = await getBankaccountService(payload);
-    console.log('getUsers successfully');
-    return sendSuccess(res, data, 'getUsers successfully');
+    console.log('get Banks successfully');
+    return sendSuccess(res, data, 'get Banks successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while getting banks', error);
   }
 };
 
@@ -21,10 +21,10 @@ const createBankaccount = async (req, res) => {
       throw new BadRequestError('payload is required');
     }
     const data = await createBankaccountService(payload);
-    console.log('getUsers successfully');
-    return sendSuccess(res, data, 'getUsers successfully');
+    console.log('get Banks successfully');
+    return sendSuccess(res, data, 'get Banks successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while creating banks', error);
   }
 }
 
@@ -33,10 +33,10 @@ const updateBankaccount = async (req, res) => {
     const { id } = req.params;
     const payload = req.body;
     const data = await updateBankaccountService(id, payload);
-    console.log('getUsers successfully');
-    return sendSuccess(res, data, 'getUsers successfully');
+    console.log('get Banks successfully');
+    return sendSuccess(res, data, 'get Banks successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while updating banks', error);
   }
 }
 
@@ -54,10 +54,10 @@ const deleteBankaccount = async (req, res) => {
       throw new BadRequestError('payload is required');
     }
     const data = await deleteBankaccountService(id);
-    console.log('getUsers successfully');
-    return sendSuccess(res, data, 'getUsers successfully');
+    console.log('get Banks successfully');
+    return sendSuccess(res, data, 'get Banks successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while deleting banks', error);
   }
 }
 export { getBankaccount, createBankaccount, updateBankaccount, deleteBankaccount, getMerchantBank };
