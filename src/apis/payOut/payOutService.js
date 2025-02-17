@@ -108,14 +108,12 @@ const updatePayoutService = async (conn, id, payload) => {
     if (data.status === Status.SUCCESS) {
         const netBalance = await updatePayoutCalculations(data.merchant_id, data.approved_at, data.amount, data.commission, true, false, conn);
         const netVendorBalance = await updatePayoutCalculations(user.id, data.approved_at, data.amount, data.commission, false, false, conn);
-
         await updateBankaccountDao(bankData.id, { today_balance: bankData.today_balance - data.amount, balance: bankData.balance - data.amount }, conn);
         await updateMerchantDao(merchant.id, { balance: netBalance }, conn);
         await updateVendorDao(vendor.id, { balance: netVendorBalance }, conn);
     } else if (data.status === Status.REJECTED) {
         const netBalance = await updatePayoutCalculations(data.merchant_id, data.rejected_at, data.amount, data.commission, true, true, conn);
         const netVendorBalance = await updatePayoutCalculations(user.id, data.rejected_at, data.amount, data.commission, false, true, conn);
-
         await updateBankaccountDao(bankData.id, { today_balance: bankData.today_balance + data.amount, balance: bankData.balance - data.amount }, conn);
         await updateMerchantDao(merchant.id, { balance: netBalance }, conn);
         await updateVendorDao(vendor.id, { balance: netVendorBalance }, conn);

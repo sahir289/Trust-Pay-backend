@@ -9,8 +9,8 @@ const getDesignationService = async (payload) => {
     const result = await getDesignationDao(payload);
     return result;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while Designation', error);
+    throw new BadRequestError('Error getting while Designation');
   } finally {
     if (conn) {
       try {
@@ -29,8 +29,8 @@ const createDesignationService = async (payload) => {
 
     return result;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while Designation', error);
+    throw new BadRequestError('Error getting while Designation');
   }
 };
 
@@ -39,8 +39,8 @@ const updateDesignationService = async (id, payload) => {
     const result = await updateDesignationDao(id, payload);
     return result;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while Designation', error);
+    throw new BadRequestError('Error getting while Designation');
   }
 };
 
@@ -49,8 +49,8 @@ const deleteDesignationService = async (id) => {
     const result = await deleteDesignationDao(id, { is_obsolete: true });
     return result;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while Designation', error);
+    throw new BadRequestError('Error getting while Designation');
   }
 };
 

@@ -30,7 +30,7 @@ const getChargeBacks = async (req, res) => {
         const data = await getChargeBacksService(payload);
 
         // Log success message
-        console.log('getChargeBacks successfully', data);
+        console.log('get ChargeBacks successfully', data);
 
         // Send success response
         return sendSuccess(res, data, 'ChargeBacks fetched successfully');
