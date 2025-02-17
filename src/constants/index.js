@@ -71,4 +71,5 @@ export const tableName = {
     CHAREBACK: 'ChargeBack',
     BANK_ACCOUNT: 'BankAccount',
     USER_HIERARCHY: 'UserHierarchy',
+    BANK_RESPONSE: 'BankResponse'
 }

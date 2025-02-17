@@ -132,7 +132,7 @@ export const updateDepositStatus = (req, res) => {
         throw new ValidationError(joiValidation.error);
     }
     const updateRes = updateDepositStatusService(merchantId, nick_name);
-    sendSuccess(res, updateRes)
+    sendSuccess(res, updateRes, 'PayIn data updated successfully');
 }
 
 export const resetDeposit = async (req, res) => {
