@@ -27,12 +27,12 @@ router.use('/login', login);
 router.use('/users', users);
 router.use('/merchants', merchants);
 router.use('/vendors', vendors);
-router.use('/chargebacks', chargeBacks);
+router.use('/chargeBacks', chargeBacks);
 router.use('/roles', roles);
 router.use('/calculation', calculation);
 router.use('/payIn', payIn);
 router.use('/designation', designation)
-router.use('/bankaccount', bankaccount)
+router.use('/bankAccount', bankaccount)
 router.use('/company', company)
 router.use('/settlement', settlement)
 router.use('/userHierarchy', userHierarchy)

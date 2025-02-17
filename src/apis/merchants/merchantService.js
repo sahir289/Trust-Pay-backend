@@ -19,10 +19,14 @@ const createMerchantService = async (payload) => {
     
     if (role.role === Method.MERCHANT) {
         await createUserHierarchyDao({
-            user_id: data.id,
+            user_id: data.user_id,
             role_id: data.role_id,
+            created_by:data.created_by,
+            updated_by:data.updated_by,
+            company_id:data.company_id
         })
     }
+
     else if (role.role === Method.SUBMERCHANT) {
         const hierarchy = await getUserHierarchysDao(parentId);
         await updateUserHierarchyDao(hierarchy.id, {
@@ -41,7 +45,7 @@ const getMerchantsService = async (payload) => {
     return data;
 };
 
-const updateMerchantService = async (conn, id, payload) => {
+const updateMerchantService = async ( id, payload) => {
 
     const data = await updateMerchantDao(id, payload); // Adjust DAO call for update
     console.log('Merchant updated successfully');
