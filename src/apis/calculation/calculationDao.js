@@ -1,15 +1,18 @@
 import { executeQuery, buildSelectQuery, buildInsertQuery, buildUpdateQuery } from "../../utils/db.js";
-import { columns,tableName } from "../../constants/index.js";
+import { columns, tableName } from "../../constants/index.js";
+import { sendError } from "../../utils/responseHandlers.js";
 
-const getCalculationDao = async (id) => {
+const getCalculationDao = async (search,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder) => {
     try {
-      const baseQuery = `SELECT * 
-      FROM "${tableName}" 
-      WHERE 1=1`;
-      const [sql, queryParams] = buildSelectQuery(baseQuery, {user_id : id});
-      const row = await executeQuery(sql, queryParams);
-  
-      return row.rows[0];
+      const baseQuery = `SELECT * FROM "${tableName.CALCULATION}" WHERE 1=1`;
+       const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.CALCULATION, page, pageSize, sortBy, sortOrder, typeof search != 'string');
+       // Execute query
+       const result = await executeQuery(sql, queryParams);
+       return result.rows[0];
     } catch (error) {
       console.error('Error fetching Calculation', error);
       throw new sendError('Failed to fetch Calculation');
@@ -32,8 +35,9 @@ const createCalculationDao = async (data, conn) => {
     //   updatedData.current_balance = Number(previousData.current_balance) - Number(data.chargeback_amount);
     // }
 
-const updateCalculationDao = async (user_id, data) => {
-    const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, { user_id });
+const updateCalculationDao = async (id, data) => {
+
+    const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, { id });
     const result = await executeQuery(sql, params);
     return result.rows[0]; 
 };

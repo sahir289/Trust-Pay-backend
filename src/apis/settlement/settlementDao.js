@@ -14,7 +14,7 @@ const getSettlementDao = async (
   const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.SETTLEMENT, page, pageSize, sortBy, sortOrder, typeof search != 'string');
   // Execute query
   const result = await executeQuery(sql, queryParams);
-  return result.rows;
+  return result.rows[0];
 };
 
 const createSettlementDao = async (payload) => {

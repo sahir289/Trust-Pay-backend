@@ -44,4 +44,4 @@ const deleteBankaccountDao = async (id, data) => {
   return result.rows[0];
 };
 
-export { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBankaccountDao, getMerchantBankByIdDao };
+export { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBankaccountDao, getMerchantBankDao };

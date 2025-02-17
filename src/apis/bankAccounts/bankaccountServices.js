@@ -1,5 +1,5 @@
 import { BadRequestError } from '../../utils/appErrors.js';
-import { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBankaccountDao, getMerchantBankByIdDao } from './bankaccountDao.js';
+import { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBankaccountDao } from './bankaccountDao.js';
 
 const getBankaccountService = async (payload) => {
     try {
@@ -43,9 +43,6 @@ const deleteBankaccountService = async (id) => {
     }
 };
 
-const getMerchantBankService = async (id) => {
-    // Fetch the bank account details for the given merchant ID
-   return await getMerchantBankDao(id);
-}
 
-export { getBankaccountService, createBankaccountService, updateBankaccountService, deleteBankaccountService, getMerchantBankByIdService };
+
+export { getBankaccountService, createBankaccountService, updateBankaccountService, deleteBankaccountService };
