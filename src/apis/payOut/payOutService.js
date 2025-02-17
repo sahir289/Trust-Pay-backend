@@ -247,7 +247,7 @@ const createEkoWithdraw = async (payload, client_ref_id) => {
         client_ref_id,
         recipient_name: payload?.acc_holder_name,
         ifsc: payload?.ifsc_code,
-        account: payload?.acc_no,
+        account: payload?.ac_no,
         sender_name: "TrustPay"
     }
 

@@ -55,9 +55,10 @@ export const columns = {
     DESIGNATION: ['id', 'designation', 'role_id', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     PAYIN: ['id', 'sno', 'upi_short_code', 'qr_params', 'amount', 'status', 'is_notified', 'user_submitted_utr', 'currency', 'merchant_order_id', 'user', 'bank_acc_id', 'merchant_id', 'bank_response_id', 'payin_merchant_commission', 'payin_vendor_commission', 'user_submitted_image', 'duration', 'is_url_expires', 'expiration_date', 'one_time_used', 'approved_at', 'failed_at', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     PAYOUT: ['id', 'sno', 'user', 'merchant_id', 'bank_acc_id', 'amount', 'status', 'failed_reason', 'currency', 'merchant_order_id', 'acc_no', 'acc_holder_name', 'ifsc_code', 'bank_name', 'upi_id', 'utr_id', 'rejected_reason', 'payout_merchant_commission', 'payout_vendor_commission', 'from_bank_acc_id', 'approved_at', 'rejected_at', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
-    BANK_ACCOUNT: ['id', 'sno', 'user_id', 'upi_id', 'upi_params', 'name', 'acc_no', 'acc_name', 'ifsc_code', 'bank_name', 'is_qr', 'is_bank', 'is_enabled', 'payin_count', 'balance', 'today_balance', 'bank_used_for', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
+    BANK_ACCOUNT: ['id', 'sno', 'user_id', 'upi_id', 'upi_params', 'name', 'ac_no', 'ac_name', 'ifsc', 'bank_name', 'is_qr', 'is_bank', 'is_enabled', 'payin_count', 'balance', 'today_balance', 'bank_used_for', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     VENDOR: ['id', 'role_id', 'user_id', 'first_name', 'last_name', 'code', 'payin_commission', 'payout_commission', 'balance', 'created_by', 'updated_by', 'config', 'company_id', 'created_at', 'updated_at', 'is_obsolete'],
     CHAREBACK: ['id', 'sno', 'user', 'merchant_user_id', 'vendor_user_id', 'payin_id', 'bank_acc_id', 'amount', 'when', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
+    BANKRESPONSE : ['id', 'sno', 'status', 'bank_id', 'amount', 'upi_short_code', 'utr', 'is_used' , 'created_at', 'updated_at', 'created_by','company_id' , 'is_obslete', 'config', 'updated_by'],
     USER_HIERARCHY: ['id', 'user_id', 'role_id', 'role_id', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
 }
 
@@ -69,10 +70,11 @@ export const tableName = {
     CALCULATION: "Calculation",
     COMPLAINTS: "Complaints",
     DESIGNATION: 'Designation',
-    PAYIN: 'PayIn',
-    PAYOUT: 'Payout',
+    PAYIN: 'Payin',
+    PAYOUT: 'PayOut',
     VENDOR: 'Vendor',
     CHAREBACK: 'Chargeback',
     BANK_ACCOUNT: 'BankAccount',
+    BANK_RESPONSE :'BankResponse',
     USER_HIERARCHY: 'UserHierarchy',
 }

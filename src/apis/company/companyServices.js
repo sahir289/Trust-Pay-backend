@@ -1,5 +1,5 @@
 import { BadRequestError } from '../../utils/appErrors.js';
-import { getConnection } from '../../utils/db.js';
+import { beginTransaction, commit, getConnection } from '../../utils/db.js';
 import { createCompanyDao, deleteCompanyDao, getCompanyDao, updateCompanyDao } from './companyDao.js';
 import { createRoleDao } from "../roles/rolesDao.js";
 import {createDesignationDao} from "../designation/designationDao.js"
@@ -26,7 +26,10 @@ const getCompanyService = async (id) => {
 };
 
 const createCompanyService = async (payload) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     const result = await createCompanyDao(payload);
     const roleName = {
       "role": "Admin",
@@ -54,6 +57,7 @@ const createCompanyService = async (payload) => {
      "code":result.first_name.split('').reverse().join('')
     }
     await createUserService(UserPayload);
+    await commit(conn);
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);

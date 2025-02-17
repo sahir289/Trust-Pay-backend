@@ -1,6 +1,6 @@
 import config from "../../config/config.js";
 import { ValidationError } from '../../utils/appErrors.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
+import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import {
     ASSIGN_PAYIN_SCHEMA, VALIDATE_ASSIGNED_BANT_TO_PAY, VALIDATE_CHECK_PAY_IN_STATUS,
     VALIDATE_EXPIRE_PAY_IN_URL, VALIDATE_PAY_IN_INTENT_GENERATE_ORDER, VALIDATE_PAYIN_SCHEMA, VALIDATE_RESET_DEPOSIT,
@@ -8,7 +8,7 @@ import {
     VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS
 } from "../../schemas/payInSchema.js";
 import {
-    assignedBankToPayInUrlService, checkPayInStatusService, expirePayInUrlService, generatePayInUrlService, getPayInUrlService,
+    assignedBankToPayInUrlService, checkPayInStatusService, expirePayInUrlService, generatePayInUrlService, getPayinsServiceById, getPayinsServiceByid, getPayInUrlService,
     payInIntentGenerateOrderService, resetDepositService, updateDepositStatusService, updatePaymentNotificationStatusService
 } from "./payInService.js";
 
@@ -144,3 +144,23 @@ export const resetDeposit = async (req, res) => {
     const data = await resetDepositService(merchant_order_id);
     sendSuccess(res, data)
 }
+
+export const getPayinsByUtrController = async (req, res) => {
+    try {
+        
+        // Fetch vendors data from the service
+        const data = await getPayinsServiceById(req);
+
+        // Log success message
+        console.log('getPayins successfully', data);
+
+        // Send success response
+        return sendSuccess(res, data, 'Payins fetched successfully');
+    } catch (error) {
+        // Log error
+        console.error('error getting while fetching Payins Data',  error);
+
+        // Send an error response
+        return sendError(res, error, 'Error occurred while fetching Payins');
+    }
+};

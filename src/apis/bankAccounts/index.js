@@ -42,7 +42,7 @@ const router = express.Router();
  *                         type: string
  *                         example: "john_doe"
  */
-router.get('/', isAuthenticated, tryCatchHandler(getBankaccount));
+router.get('/', tryCatchHandler(getBankaccount));
 
 /**
  * @swagger

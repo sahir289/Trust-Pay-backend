@@ -101,10 +101,20 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
   }
 
   // Apply sorting and pagination
-  query = applySortingAndPagination(query, values, columns, sortBy, sortOrder, page, pageSize);
+  // query = applySortingAndPagination(query, values, columns, sortBy, sortOrder, page, pageSize);
+  query += ` ORDER BY "${sortBy}" ${sortOrder} LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`;
+
 
   return [query, values];
 };
+
+
+
+
+
+
+
+
 
 export const applySortingAndPagination = (query, values, columns = [], sortBy, sortOrder, page, pageSize) => {
   // Ensure sorting column exists

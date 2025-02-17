@@ -5,7 +5,11 @@ import { getBankaccountService, createBankaccountService, updateBankaccountServi
 const getBankaccount = async (req, res) => {
   try {
     const payload = req.query.search;
-    const data = await getBankaccountService(payload);
+     let filters = {};
+    if (payload) {
+      filters.user_id = payload; 
+    }
+    const data = await getBankaccountService(filters);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {

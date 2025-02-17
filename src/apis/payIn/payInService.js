@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import { Currency, Status, Type } from "../../constants/index.js";
-import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao } from "./payInDao.js";
+import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao, getPayinsByIdDao } from "./payInDao.js";
 import { getMerchantsService } from "../merchants/merchantService.js";
 import { AccessDeniedError, BadRequestError, NotFoundError } from "../../utils/appErrors.js";
 import { v4 as uuidv4 } from "uuid";
@@ -450,6 +450,31 @@ export const resetDepositService = async (merchant_order_id) => {
     // }
 }
 
+
+export const getPayinsServiceByid = async (payload) => {
+    const data = await getPayinsByIdDao(payload);
+
+    console.log('Fetched Payins successfully', 'info');
+    return data;
+};
+
+
+export const getPayinsServiceById = async(id)=>{
+    const payload = id;
+    let filters = {};
+   if (payload) {
+     filters.id = payload; 
+   }
+   console.log('getUsers successfully');
+    // Fetch vendors data from the service
+    const data = await getPayinsByIdDao(filters);
+
+    // Log success message
+    console.log('getPayins successfully', data);
+
+    // Send success response
+    return sendSuccess(res, data, 'Payins fetched successfully');
+}
 
 const checkIsPayInExpired = (payIn) => {
     if (Number(payIn.expiration_date) < Date.now() || payIn.is_url_expires) {
