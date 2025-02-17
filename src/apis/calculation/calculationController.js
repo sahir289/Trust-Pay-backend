@@ -1,5 +1,7 @@
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getCalculationService ,createCalculationService ,updateCalculationService ,deleteCalculationService} from './calculationService.js';
+import { transactionWrapper } from '../../utils/db.js';
+
 const getCalculation = async (req, res) => {
     try {
       const payload = req.query.search;
@@ -25,7 +27,7 @@ const createCalculation = async (req, res) => {
 const updateCalculation = async (req, res) => { 
     try {
       const {body,params} = req;
-      const data = await updateCalculationService(params.user_id,body);
+      const data = await transactionWrapper(updateCalculationService)(params.user_id,body);
       console.info('Update Calculation successfully', 'info');
       return sendSuccess(res, data, 'Update Calculation successfully');
     } catch (error) {
@@ -35,7 +37,7 @@ const updateCalculation = async (req, res) => {
 const deleteCalculation = async (req, res) => {
     try {
       const params = req.params;
-      const data = await deleteCalculationService(params.id);
+      const data = await transactionWrapper(deleteCalculationService)(params.id);     
       console.info('Delete Calculation successfully', 'info');
       return sendSuccess(res, data, 'Delete Calculation successfully');
     } catch (error) {
