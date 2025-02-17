@@ -84,7 +84,6 @@ const getUsersByUserNameService = async (username) => {
       const password = await createHash(payload.password);
       payload.password = password;
       const User = await createUserDao(conn, payload);
-      console.log('User Created Successfully');
       const role =await getRoleDao(payload.role_id)
       if (role.role === "Merchant" || role.role === "Merchant_Admin" ) {
         const merchantPayload={
@@ -122,6 +121,7 @@ const getUsersByUserNameService = async (username) => {
         }
         await createVendorService(vendorPayload);
       }
+      console.log('User Created Successfully');
       return User;
     } catch (error) {
       console.error('error getting while creating user', error);

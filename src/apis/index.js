@@ -27,7 +27,7 @@ router.use('/login', login);
 router.use('/users', users);
 router.use('/merchants', merchants);
 router.use('/vendors', vendors);
-router.use('/chargeBacks', chargeBacks);
+router.use('/chargebacks', chargeBacks);
 router.use('/roles', roles);
 router.use('/calculation', calculation);
 router.use('/payIn', payIn);

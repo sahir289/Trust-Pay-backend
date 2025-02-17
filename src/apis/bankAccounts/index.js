@@ -128,4 +128,5 @@ router.put('/update-Bankaccount/:id', isAuthenticated, tryCatchHandler(updateBan
  */
 router.delete('/delete-Bankaccount/:id', isAuthenticated, tryCatchHandler(deleteBankaccount));
 
+
 export default router;

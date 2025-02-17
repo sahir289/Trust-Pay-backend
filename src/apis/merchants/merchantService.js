@@ -55,12 +55,9 @@ const deleteMerchantService = async (id) => {
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
         const payload = { is_obsolete: true };
-
         const data = await deleteMerchantDao(id, payload); // Adjust DAO call for delete
-
         await commit(conn); // Commit the transaction
         console.log('Merchant deleted successfully');
-
         return data;
     } catch (error) {
         if (conn) {

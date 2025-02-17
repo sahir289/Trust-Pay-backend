@@ -70,9 +70,9 @@ export const tableName = {
     COMPLAINTS: "Complaints",
     DESIGNATION: 'Designation',
     PAYIN: 'PayIn',
-    PAYOUT: 'PayOut',
+    PAYOUT: 'Payout',
     VENDOR: 'Vendor',
-    CHAREBACK: 'ChargeBack',
+    CHAREBACK: 'Chargeback',
     BANK_ACCOUNT: 'BankAccount',
     USER_HIERARCHY: 'UserHierarchy',
 }
