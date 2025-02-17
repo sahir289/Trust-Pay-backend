@@ -1,5 +1,5 @@
 import { BadRequestError, CustomError } from '../../utils/appErrors.js';
-import { createSettlementDao, deleteSettlementDao, getSettlementDao, updateSettlementDao } from './settlementDao.js';
+import { createSettlementDao, deleteSettlementDao, getSettlementDao, getSettlementDaoAll, updateSettlementDao } from './settlementDao.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getCalculationDao, updateCalculationDao } from '../calculation/calculationDao.js';
 import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
@@ -30,6 +30,28 @@ const getSettlementService = async (req, res) => {
     throw new BadRequestError('Error getting while getting settlements');
   }
 };
+
+
+const  getSettlementServiceAll = async (req, res) => {
+  try {
+    const payload = req.query;
+    if (!payload) {
+      throw new CustomError(404, "id not found")
+    }
+      const settlementData = await getSettlementDaoAll(payload);
+      if(!settlementData){
+          throw new BadRequestError('Error getting while getting settlements');    
+      }
+      console.log(settlementData, "settlementData")
+      return sendSuccess(res, settlementData, 'get settlements successfully');
+
+    
+  } catch (error) {
+    console.error('error getting while  getting settlements', error);
+    throw new BadRequestError('Error getting while getting settlements');
+  }
+};
+
 
 const createSettlementService = async (req, res) => {
   try {
@@ -145,4 +167,4 @@ const deleteSettlementService = async (req, res) => {
   }
 };
 
-export { getSettlementService, createSettlementService, updateSettlementService, deleteSettlementService };
+export { getSettlementService, createSettlementService, updateSettlementService, deleteSettlementService, getSettlementServiceAll };

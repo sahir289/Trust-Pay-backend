@@ -16,7 +16,19 @@ const getSettlementDao = async (
   const result = await executeQuery(sql, queryParams);
   return result.rows[0];
 };
-
+const getSettlementDaoAll = async (
+  search,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder
+) => {
+  const baseQuery = `SELECT * FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
+  const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.SETTLEMENT, page, pageSize, sortBy, sortOrder, typeof search != 'string');
+  // Execute query
+  const result = await executeQuery(sql, queryParams);
+  return result.rows;
+};
 const createSettlementDao = async (payload) => {
   const [sql, params] = buildInsertQuery(tableName.SETTLEMENT, payload)
   const result = await executeQuery(sql, params);
@@ -38,4 +50,4 @@ const deleteSettlementDao = async (id, data) => {
 };
 
 
-export { getSettlementDao, createSettlementDao, updateSettlementDao, deleteSettlementDao };
+export { getSettlementDao, createSettlementDao, updateSettlementDao, deleteSettlementDao, getSettlementDaoAll };
