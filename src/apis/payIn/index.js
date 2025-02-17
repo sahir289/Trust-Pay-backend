@@ -15,7 +15,7 @@ router.post("/generate-intent-order/:payInId", tryCatchHandler(payInIntentGenera
 // Authenticated API's
 router.use(isAuthenticated)
 router.post("/update-payment-notified-status/:payInId", tryCatchHandler(updatePaymentNotificationStatus));
-router.put("/update-deposit-status/:id", tryCatchHandler(updateDepositStatus));
+router.put("/update-deposit-status/:merchantId", tryCatchHandler(updateDepositStatus));
 router.post("/update-payment-cashfree-webhook", tryCatchHandler(payInUpdateCashfreeWebhook));
 router.post("/reset-payment/", tryCatchHandler(resetDeposit));
 // router.get("/expire-payIn-url/:payInId", tryCatchHandler(expirePayInUrl));

@@ -121,17 +121,17 @@ export const updatePaymentNotificationStatus = async (req, res) => {
 }
 
 export const updateDepositStatus = (req, res) => {
-    const { id } = req.params;
-    const { bank_name } = req.body;
+    const { merchantId } = req.params;
+    const { nick_name } = req.body;
     const payload = {
-        id,
-        bank_name
+        merchantId,
+        nick_name
     }
     const joiValidation = VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS.validate(payload);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-    const updateRes = updateDepositStatusService(id, bank_name);
+    const updateRes = updateDepositStatusService(merchantId, nick_name);
     sendSuccess(res, updateRes)
 }
 
