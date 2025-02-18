@@ -108,6 +108,6 @@ router.put('/update-complaint/:id',isAuthenticated, tryCatchHandler(updateCompla
  *         description: Complaint not found
  */
 
-router.put('/delete-complaint/:id',isAuthenticated, tryCatchHandler(deleteComplaints));
+router.delete('/delete-complaint/:id',isAuthenticated, tryCatchHandler(deleteComplaints));
 
 export default router;

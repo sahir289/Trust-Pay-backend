@@ -1,8 +1,7 @@
 import {  sendSuccess } from '../../utils/responseHandlers.js';
 import { getComplaintsService,createComplaintsService,updateComplaintsService,deleteComplaintsService } from './complaintsServices.js';
-
-
-
+import { VALIDATE_COMPLAINT_BY_ID,VALIDATE_COMPLAINT_SCHEMA,VALIDATE_UPDATE_COMPLAINT_STATUS,VALIDATE_DELETE_COMPLAINT} from '../../schemas/complaintSchema.js';
+import { sendError } from '../../utils/responseHandlers.js';
 
 const getComplaints = async (req, res) => {
     try {
@@ -17,6 +16,10 @@ const getComplaints = async (req, res) => {
 
 const getComplaintsById =  async (req, res) => {
     try {
+      const { error } = VALIDATE_COMPLAINT_BY_ID.validate(req.params);
+      if (error) {
+          return sendError(res, error.details[0].message, 'Validation Error');
+      }
       const {id} = req.params;
       const data = await getComplaintsService({id:id});
       console.log ('get complaint successfully');
@@ -30,6 +33,10 @@ const getComplaintsById =  async (req, res) => {
 
 const createComplaints = async (req, res) => {
     try {
+      const { error } = VALIDATE_COMPLAINT_SCHEMA.validate(req.body);
+      if (error) {
+          return sendError(res, error.details[0].message, 'Validation Error');
+      }
       const payload = req.body;
       
       const data = await createComplaintsService(payload);
@@ -43,6 +50,15 @@ const createComplaints = async (req, res) => {
 
 const updateComplaints = async (req, res) => {
     try {
+      const { error: paramsError } =VALIDATE_COMPLAINT_BY_ID.validate(req.params);
+      if (paramsError) {
+          return sendError(res, paramsError.details[0].message, 'Validation Error');
+      }
+      // Validate body (fields for update)
+      const { error: bodyError } = VALIDATE_UPDATE_COMPLAINT_STATUS.validate(req.body);
+      if (bodyError) {
+          return sendError(res, bodyError.details[0].message, 'Validation Error');
+      }
         const { body, params } = req;
         const data = await updateComplaintsService(params.id, body);
         console.log('Update Complaints successfully', 'info');
@@ -55,6 +71,10 @@ const updateComplaints = async (req, res) => {
 
 const deleteComplaints = async (req, res) => {
     try {
+      const { error } = VALIDATE_DELETE_COMPLAINT.validate(req.params);
+      if (error) {
+          return sendError(res, error.details[0].message, 'Validation Error');
+      }
         const {  params } = req;
         const userData = {is_obsolete: true};
         const data = await deleteComplaintsService(params.id, userData);

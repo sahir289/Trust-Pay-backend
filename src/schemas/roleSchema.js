@@ -38,6 +38,7 @@ const VALIDATE_DELETE_ROLE = Joi.object({
   }),
 });
 
+
 // Validation Schema for Getting a Role by ID
 const VALIDATE_ROLE_BY_ID = Joi.object({
     id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
@@ -45,6 +46,7 @@ const VALIDATE_ROLE_BY_ID = Joi.object({
       'any.required': 'ID is required',
     }),
 });
+
 
 export { 
   VALIDATE_ROLE_BY_ID, 

@@ -25,6 +25,7 @@ const VALIDATE_CALCULATION_SCHEMA = Joi.object({
     config: Joi.object().default({}),
 });
 
+
 // Validation Schema for Updating a Calculation
 const VALIDATE_UPDATE_CALCULATION_STATUS = Joi.object({
     is_obsolete: Joi.boolean().optional(),
@@ -43,10 +44,12 @@ const VALIDATE_UPDATE_CALCULATION_STATUS = Joi.object({
     config: Joi.object().optional(),
 });
 
+
 // Validation Schema for Deleting a Calculation
 const VALIDATE_DELETE_CALCULATION = Joi.object({
   id: Joi.string().guid({ version: ['uuidv4'] }).label('id').required(),
 });
+
 
 // Validation Schema for Getting a Calculation by User ID
 const VALIDATE_CALCULATION_BY_USER_ID = Joi.object({
@@ -55,6 +58,7 @@ const VALIDATE_CALCULATION_BY_USER_ID = Joi.object({
       'any.required': 'ID is required',
     }),
 });
+
 
 export { 
   VALIDATE_CALCULATION_BY_USER_ID, 

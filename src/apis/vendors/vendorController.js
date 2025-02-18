@@ -1,92 +1,122 @@
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
-import { createVendorService, deleteVendorService, getVendorsService, updateVendorService } from './vendorService.js';
+import {createVendorService,deleteVendorService,getVendorsService,updateVendorService} from './vendorService.js';
+import {VALIDATE_VENDOR_BY_ID,VALIDATE_UPDATE_VENDOR_STATUS,VALIDATE_VENDOR_SCHEMA} from '../../schemas/vendorSchema.js';
 
 
 const createVendor = async (req, res) => {
-    try {
-        const payload = req.body;
-        // Call the service to create the Vendor
-        const result = await createVendorService(payload);
-        // Log success message
-        console.log('Vendor created successfully', result);
-        // Send a success response to the client
-        return sendSuccess(res, result, 'Vendor created successfully');
-    } catch (error) {
-        // Log the error
-        console.error('error getting while creating Vendor', error);
-        // Send an error response to the client
-        return sendError(res, error, 'Error occurred while creating Vendor');
+  try {
+    const { error } = VALIDATE_VENDOR_SCHEMA.validate(req.body);
+    if (error) {
+      return sendError(res, error.details[0].message, 'Validation Error');
     }
+    const payload = req.body;
+    // Call the service to create the Vendor
+    const result = await createVendorService(payload);
+    // Log success message
+    console.log('Vendor created successfully', result);
+    // Send a success response to the client
+    return sendSuccess(res, result, 'Vendor created successfully');
+  } catch (error) {
+    // Log the error
+    console.error('error getting while creating Vendor', error);
+    // Send an error response to the client
+    return sendError(res, error, 'Error occurred while creating Vendor');
+  }
 };
+
 
 const getVendors = async (req, res) => {
-    try {
-        const payload = req.query.search;
+  try {
+    const payload = req.query.search;
+    // Fetch vendors data from the service
+    const data = await getVendorsService(payload);
+    // Log success message
+    console.log('get Vendors successfully', data);
+    // Send success response
+    return sendSuccess(res, data, 'Vendors fetched successfully');
+  } catch (error) {
+    // Log error
+    console.error('error getting while fetching Vendors Data', error);
+    // Send an error response
+    return sendError(res, error, 'Error occurred while fetching Vendors');
+  }
 
-        // Fetch vendors data from the service
-        const data = await getVendorsService(payload);
-        // Log success message
-        console.log('getvendors successfully', data);
-        // Send success response
-        return sendSuccess(res, data, 'Vendors fetched successfully');
-    } catch (error) {
-        // Log error
-        console.error('error getting while fetching Vendors Data',  error);
-        // Send an error response
-        return sendError(res, error, 'Error occurred while fetching Vendors');
-    }
 };
-const getVendorById = async (req, res) => {
-    try {
-        const {id} = req.params;
 
-        // Fetch vendors data from the service
-        const data = await getVendorsService({id:id});
-        // Log success message
-        console.log('getvendors successfully', data);
-        // Send success response
-        return sendSuccess(res, data, 'Vendors fetched successfully');
-    } catch (error) {
-        // Log error
-        console.error('error getting while fetching Vendors Data',  error);
-        // Send an error response
-        return sendError(res, error, 'Error occurred while fetching Vendors');
+const getVendorById = async (req, res) => {
+  try {
+    const { error } = VALIDATE_VENDOR_BY_ID.validate(req.params);
+    if (error) {
+      return sendError(res, error.details[0].message, 'Validation Error');
     }
+    const { id } = req.params;
+
+    // Fetch vendors data from the service
+    const data = await getVendorsService({ id: id });
+    // Log success message
+    console.log('get vendor successfully', data);
+    // Send success response
+    return sendSuccess(res, data, ' Vendor fetched successfully');
+  } catch (error) {
+    // Log error
+    console.error('error getting while fetching Vendor Data', error);
+    // Send an error response
+    return sendError(res, error, 'Error occurred while fetching Vendors');
+  }
 };
 
 const updateVendor = async (req, res) => {
-    try {
-        const payload = req.body;
-        const { id } = req.params;  // Assuming the Vendor ID is passed as a parameter
-        // Call the service to update the Vendor
-        const result = await updateVendorService(id, payload);
-        // Log success message
-        console.log('Vendor updated successfully', result);
-        // Send a success response to the client
-        return sendSuccess(res, result, 'Vendor updated successfully');
-    } catch (error) {
-        // Log the error
-        console.error('error occurred while updating Vendor', error);
-        // Send an error response to the client
-        return sendError(res, error, 'Error occurred while updating Vendor');
+
+  try {
+    // Validate Vendor ID (from params)
+    const { error: idError } = VALIDATE_VENDOR_BY_ID.validate(req.params);
+    if (idError) {
+      return sendError(res, idError.details[0].message, 'Validation Error');
     }
+
+    // Validate Vendor Update Status (from body)
+    const { error: bodyError } = VALIDATE_UPDATE_VENDOR_STATUS.validate(
+      req.body,
+    );
+    if (bodyError) {
+      return sendError(res, bodyError.details[0].message, 'Validation Error');
+    }
+
+    const payload = req.body;
+    const { id } = req.params; // Assuming the Vendor ID is passed as a parameter
+    // Call the service to update the Vendor
+    const result = await updateVendorService(id, payload);
+    // Log success message
+    console.log('Vendor updated successfully', result);
+    // Send a success response to the client
+    return sendSuccess(res, result, 'Vendor updated successfully');
+  } catch (error) {
+    // Log the error
+    console.error('error occurred while updating Vendor', error);
+    // Send an error response to the client
+    return sendError(res, error, 'Error occurred while updating Vendor');
+  }
 };
 
 const deleteVendor = async (req, res) => {
-    try {
-        const { id } = req.params;  // Assuming the Vendor ID is passed as a parameter
-        // Call the service to delete the Vendor
-        const result = await deleteVendorService(id);
-        // Log success message
-        console.log('Vendor deleted successfully', result);
-        // Send a success response to the client
-        return sendSuccess(res, result, 'Vendor deleted successfully');
-    } catch (error) {
-        // Log the error
-        console.error('error occurred while deleting Vendor', error);
-        // Send an error response to the client
-        return sendError(res, error, 'Error occurred while deleting Vendor');
+  try {
+    const { error: idError } = VALIDATE_VENDOR_BY_ID.validate(req.params);
+    if (idError) {
+      return sendError(res, idError.details[0].message, 'Validation Error');
     }
+    const { id } = req.params; // Assuming the Vendor ID is passed as a parameter
+    // Call the service to delete the Vendor
+    const result = await deleteVendorService(id);
+    // Log success message
+    console.log('Vendor deleted successfully', result);
+    // Send a success response to the client
+    return sendSuccess(res, result, 'Vendor deleted successfully');
+  } catch (error) {
+    // Log the error
+    console.error('error occurred while deleting Vendor', error);
+    // Send an error response to the client
+    return sendError(res, error, 'Error occurred while deleting Vendor');
+  }
 };
 
-export { createVendor, getVendors,getVendorById, updateVendor, deleteVendor };
+export { createVendor, getVendors, getVendorById, updateVendor, deleteVendor };

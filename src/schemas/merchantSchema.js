@@ -64,6 +64,19 @@ const VALIDATE_MERCHANT_SCHEMA = Joi.object({
       'string.guid': 'Company ID must be a valid UUID',
       'any.required': 'Company ID is required',
     }),
+    created_by: Joi.string().guid({ version: ['uuidv4'] }).optional().messages({
+      'string.guid': 'Created By must be a valid UUID',
+    }),
+    updated_by: Joi.string().guid({ version: ['uuidv4'] }).optional().messages({
+      'string.guid': 'Updated By must be a valid UUID',
+    }),
+    created_at: Joi.string().isoDate().optional().messages({
+      'string.isoDate': 'Created At must be a valid date in ISO 8601 format',
+    }),
+    updated_at: Joi.string().isoDate().optional().messages({
+      'string.isoDate': 'Updated At must be a valid date in ISO 8601 format',
+    }),
+    is_obsolete: Joi.boolean().optional(),
 });
 
 // Validation Schema for Updating a Merchant
@@ -87,7 +100,18 @@ const VALIDATE_UPDATE_MERCHANT_STATUS = Joi.object({
     config: Joi.object().optional(),
     company_id: Joi.string().guid({ version: ['uuidv4'] }).optional(),
     is_obsolete: Joi.boolean().optional(),
-    updated_by: Joi.string().optional(),
+    updated_by: Joi.string().guid({ version: ['uuidv4'] }).optional().messages({
+      'string.guid': 'Updated By must be a valid UUID',
+    }),
+    created_by: Joi.string().guid({ version: ['uuidv4'] }).optional().messages({
+      'string.guid': 'Created By must be a valid UUID',
+    }),
+    created_at: Joi.string().isoDate().optional().messages({
+      'string.isoDate': 'Created At must be a valid date in ISO 8601 format',
+    }),
+    updated_at: Joi.string().isoDate().optional().messages({
+      'string.isoDate': 'Updated At must be a valid date in ISO 8601 format',
+    }),
 });
 
 // Validation Schema for Deleting a Merchant

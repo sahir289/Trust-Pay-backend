@@ -2,10 +2,7 @@ import Joi from 'joi';
 
 // Validation Schema for Creating a Complaint
 const VALIDATE_COMPLAINT_SCHEMA = Joi.object({
-    status: Joi.string().valid('open', 'closed', 'resolved').required().messages({
-      'any.required': 'Status is required',
-      'any.only': 'Status must be one of the following: open, closed, resolved',
-    }),
+  status: Joi.string().required(),
     payin_id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
       'string.guid': 'Payin ID must be a valid UUID',
       'any.required': 'Payin ID is required',
@@ -21,10 +18,10 @@ const VALIDATE_COMPLAINT_SCHEMA = Joi.object({
       'string.guid': 'Company ID must be a valid UUID',
       'any.required': 'Company ID is required',
     }),
-    created_by: Joi.string().required().messages({
+    created_by: Joi.string().messages({
       'any.required': 'Created By is required',
     }),
-    updated_by: Joi.string().required().messages({
+    updated_by: Joi.string().messages({
       'any.required': 'Updated By is required',
     }),
 });

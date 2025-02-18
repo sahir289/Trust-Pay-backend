@@ -32,6 +32,8 @@ const router = express.Router();
  *                     example: "active"
  */
 router.get('/:id', isAuthenticated, tryCatchHandler(getMerchantsById));
+
+
 router.get('/getAll', isAuthenticated, tryCatchHandler(getMerchants));
 /**
  * @swagger
