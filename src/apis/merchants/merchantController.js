@@ -1,11 +1,16 @@
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { createMerchantService, deleteMerchantService, getMerchantsService, updateMerchantService } from './merchantService.js';
-
+import { VALIDATE_UPDATE_MERCHANT_STATUS,VALIDATE_MERCHANT_BY_ID,VALIDATE_MERCHANT_SCHEMA,VALIDATE_DELETE_MERCHANT } from '../../schemas/merchantSchema.js';
 
 const createMerchant = async (req, res) => {
     try {
-        const payload = req.body;
+        const { error } = VALIDATE_MERCHANT_SCHEMA.validate(req.body);
+        if (error) {
+            return sendError(res, error.details[0].message, 'Validation Error');
+        }
 
+        const payload = req.body;
+   
         // Call the service to create the Merchant
         const result = await createMerchantService(payload);
 
@@ -44,6 +49,10 @@ const getMerchants = async (req, res) => {
 };
 const getMerchantsById = async (req, res) => {
     try {
+        const { error } = VALIDATE_MERCHANT_BY_ID.validate(req.params);
+        if (error) {
+            return sendError(res, error.details[0].message, 'Validation Error');
+        }
         const payload = req.params;
 
         // Fetch merchants data from the service
@@ -66,6 +75,7 @@ const getMerchantsById = async (req, res) => {
 
 const updateMerchant = async (req, res) => {
     try {
+        
         const payload = req.body;
         const { id } = req.params;  // Assuming the Merchant ID is passed as a parameter
 

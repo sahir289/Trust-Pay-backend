@@ -1,6 +1,5 @@
 import {BadRequestError,} from '../../utils/appErrors.js';
 import { getRoleDao,createRoleDao,updateRoleDao,deleteRoleDao } from './rolesDao.js';
-import { transactionWrapper } from '../../utils/db.js';
 
 const getRoleService = async (payload) => {
     try {
@@ -16,7 +15,7 @@ const getRoleService = async (payload) => {
 
 const createRoleService = async (payload) => {
     try {
-        const data = await transactionWrapper(createRoleDao)(payload);
+        const data = await createRoleDao(payload);
         console.log('Created Role successfully', 'info');
         return data;
     }  catch (error) {
@@ -25,12 +24,12 @@ const createRoleService = async (payload) => {
     }
 }
 
-const updateRoleService = async (id, body) => {  
+const updateRoleService = async (conn,id, body) => {  
             if (!body || !id) {
                 throw new BadRequestError('Missing required fields: body or id');
             }
             try {
-                const data = await transactionWrapper(updateRoleDao)(id,body);
+                const data = await updateRoleDao(conn,id,body);
                 console.log('Updated Role successfully', 'info');
                 return data;
             } catch (error) {
@@ -39,9 +38,9 @@ const updateRoleService = async (id, body) => {
             }
         }
 
-const deleteRoleService = async (id,userData ) => {  
+const deleteRoleService = async (conn,id,userData ) => {  
     try {
-        const data = await transactionWrapper(deleteRoleDao)(id,userData)
+        const data = await deleteRoleDao(conn,id,userData);
         console.log('Deleted Role successfully', 'info');
         return data;
     } catch (error) {

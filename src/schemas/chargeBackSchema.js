@@ -1,0 +1,75 @@
+import Joi from 'joi';
+
+// Validation Schema for Creating a Chargeback
+const VALIDATE_CHARGEBACK_SCHEMA = Joi.object({
+    user: Joi.string().required().messages({
+      'any.required': 'User is required',
+    }),
+    merchant_user_id: Joi.string().required().messages({
+      'any.required': 'Merchant User ID is required',
+    }),
+    vendor_user_id: Joi.string().required().messages({
+      'any.required': 'Vendor User ID is required',
+    }),
+    payin_id: Joi.string().required().messages({
+      'any.required': 'Payin ID is required',
+    }),
+    bank_acc_id: Joi.string().required().messages({
+      'any.required': 'Bank Account ID is required',
+    }),
+    amount: Joi.number().min(0).required().messages({
+      'any.required': 'Amount is required',
+    }),
+    when: Joi.date().required().messages({
+      'any.required': 'When is required',
+    }),
+    created_by: Joi.string().optional(),
+    updated_by: Joi.string().optional(),
+    company_id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
+      'string.guid': 'Company ID must be a valid UUID',
+      'any.required': 'Company ID is required',
+    }),
+    is_obsolete: Joi.boolean().default(false),
+    config: Joi.object().default({}),
+});
+
+// Validation Schema for Updating a Chargeback
+const VALIDATE_UPDATE_CHARGEBACK_SCHEMA = Joi.object({
+    user: Joi.string().optional(),
+    merchant_user_id: Joi.string().optional(),
+    vendor_user_id: Joi.string().optional(),
+    payin_id: Joi.string().optional(),
+    bank_acc_id: Joi.string().optional(),
+    amount: Joi.number().min(0).optional(),
+    when: Joi.date().optional(),
+    created_by: Joi.string().optional(),
+    updated_by: Joi.string().optional(),
+    company_id: Joi.string().guid({ version: ['uuidv4'] }).optional().messages({
+      'string.guid': 'Company ID must be a valid UUID',
+    }),
+    is_obsolete: Joi.boolean().optional(),
+    config: Joi.object().optional(),
+});
+
+// Validation Schema for Deleting a Chargeback
+const VALIDATE_DELETE_CHARGEBACK = Joi.object({
+    id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
+      'string.guid': 'Chargeback ID must be a valid UUID',
+      'any.required': 'Chargeback ID is required',
+    }),
+});
+
+// Validation Schema for Getting a Chargeback by ID
+const VALIDATE_CHARGEBACK_BY_ID = Joi.object({
+    id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
+      'string.guid': 'Chargeback ID must be a valid UUID',
+      'any.required': 'Chargeback ID is required',
+    }),
+});
+
+export { 
+  VALIDATE_CHARGEBACK_BY_ID, 
+  VALIDATE_CHARGEBACK_SCHEMA, 
+  VALIDATE_DELETE_CHARGEBACK, 
+  VALIDATE_UPDATE_CHARGEBACK_SCHEMA 
+};
