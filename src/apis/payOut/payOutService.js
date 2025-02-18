@@ -141,7 +141,6 @@ const updatePayoutCalculations = async (userId, date, amount, commission, isMerc
         getCalculationDao({ user_id: userId, created_at: date - 1 })
     ]);
     const prefix = isReverse ? "reverse_" : "";
-
     const updatedCalculation = {
         ...currentCalculation,
         [`total_${prefix}payout_count`]: currentCalculation[`total_${prefix}payout_count`] + 1,
@@ -346,9 +345,7 @@ const deletePayoutService = async (id) => {
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
         const payload = { is_obsolete: true };
-
         const data = await deletePayoutDao(id, payload); // Adjust DAO call for delete
-
         await commit(conn); // Commit the transaction
         console.log('Payout deleted successfully', 'info');
 

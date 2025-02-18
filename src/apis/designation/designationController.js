@@ -1,12 +1,12 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getDesignationService, createDesignationByIDService, updateDesignationByIDService, deleteDesignationByIDService } from './designationServices.js';
+import { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService } from './designationServices.js';
 
 const getDesignation = async (req, res) => {
   try {
     const payload = req.query.search;
     const data = await getDesignationService(payload);
-    console.log('getUsers successfully');
+    console.log('get  successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -20,7 +20,7 @@ const createDesignation = async (req, res) => {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await createDesignationByIDService(payload);
+    const data = await createDesignationService(payload);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
@@ -32,7 +32,7 @@ const updateDesignation = async (req, res) => {
   try {
     const payload = req.body;
     const { id } = req.params;
-    const data = await updateDesignationByIDService(id, payload);
+    const data = await updateDesignationService(id, payload);
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -46,7 +46,7 @@ const deleteDesignation = async (req, res) => {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await deleteDesignationByIDService(id);
+    const data = await deleteDesignationService(id);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {

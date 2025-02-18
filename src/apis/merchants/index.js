@@ -60,7 +60,7 @@ router.get('/', isAuthenticated, tryCatchHandler(getMerchants));
  *       400:
  *         description: Invalid request data.
  */
-router.post('/create-merchant', isAuthenticated, tryCatchHandler(createMerchant));
+router.post('/create-merchant',isAuthenticated, tryCatchHandler(createMerchant));
 
 /**
  * @swagger
@@ -115,6 +115,7 @@ router.put('/update-merchant/:id', isAuthenticated, tryCatchHandler(updateMercha
  *       404:
  *         description: Merchant not found.
  */
+
 router.delete('/delete-merchant/:id', isAuthenticated, tryCatchHandler(deleteMerchant));
 
 export default router;

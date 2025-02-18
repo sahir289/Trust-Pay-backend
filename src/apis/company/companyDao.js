@@ -1,26 +1,29 @@
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
-const tableName = 'Company';
+import { columns,tableName } from '../../constants/index.js';
 
-
-
-const getCompanyByIdDao = async (id) => {
-const query = `SELECT *  FROM  "${tableName}" WHERE 1=1`;
-   const [sql, parameters] = buildSelectQuery(query, {id} );
-   const result = await executeQuery(sql, parameters);
-   return result.rows[0];
+const getCompanyDao = async (
+  search,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder
+) => {
+  const baseQuery = `SELECT * FROM "${tableName.COMPANY}" WHERE 1=1`;
+  const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.COMPANY, page, pageSize, sortBy, sortOrder, typeof search != 'string');
+  // Execute query
+  const result = await executeQuery(sql, queryParams);
+  return result.rows;
 };
 
-const createCompanyByIdDao = async (payload ) => {
-    const [sql, params] = buildInsertQuery(tableName, payload)
+const createCompanyDao = async (payload ) => {
+    const [sql, params] = buildInsertQuery(tableName.COMPANY, payload)
         const result = await executeQuery(sql, params);
         return result.rows[0];
-
-  
 };
 
-const updateCompanyByIdDao = async (id, data) => {
+const updateCompanyDao = async (id, data) => {
    
-  const [sql, params] = buildUpdateQuery(tableName, data, {id});
+  const [sql, params] = buildUpdateQuery(tableName.COMPANY, data, {id});
   const result = await executeQuery(sql, params);
   return result.rows[0];
   
@@ -28,8 +31,8 @@ const updateCompanyByIdDao = async (id, data) => {
 
 
 
-const deleteCompanyByIdDao = async ( id, data) => {
-  const [sql, params] = buildUpdateQuery(tableName, data, {id});
+const deleteCompanyDao = async ( id, data) => {
+  const [sql, params] = buildUpdateQuery(tableName.COMPANY, data, {id});
   const result = await executeQuery(sql, params);
   return result.rows[0];
 
@@ -37,4 +40,4 @@ const deleteCompanyByIdDao = async ( id, data) => {
 };
 
 
-export {  getCompanyByIdDao, createCompanyByIdDao, updateCompanyByIdDao, deleteCompanyByIdDao };
+export {  getCompanyDao, createCompanyDao, updateCompanyDao, deleteCompanyDao };

@@ -1,10 +1,12 @@
+import { transactionWrapper } from '../../utils/db.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { getRoleService,createRoleService, updateRoleService} from './rolesService.js';
 
 
 const getRoles = async (req, res) => {
     try {
-      const data = await getRoleService();
+      const payload = req.query.search;
+      const data = await getRoleService(payload);
       console.log('get Roles successfully', 'info');
       return sendSuccess(res, data, 'get Roles successfully');
     } catch (error) {
@@ -19,7 +21,7 @@ const createRole = async (req, res) => {
         console.error('payload is required');
         throw new sendError('payload is required');
       }
-      const data = await createRoleService(payload);
+      const data = await transactionWrapper(createRoleService)(payload);
       console.log('create Role successfully', 'info');
       return sendSuccess(res, data, 'Create Role successfully');
     } catch (error) {
@@ -27,8 +29,6 @@ const createRole = async (req, res) => {
     }
   };
 
-
-  
   const updateRole = async (req, res) => {
     try {
         const { body, params } = req;

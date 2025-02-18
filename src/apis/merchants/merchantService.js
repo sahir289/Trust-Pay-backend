@@ -10,17 +10,23 @@ import { Method } from '../../constants/index.js';
 
 const createMerchantService = async (payload) => {
     const parentId = payload.parentId;
+
     delete payload.parentId;
 
     const data = await createMerchantDao(payload);
 
     const role = await getRoleDao({ id: data.role_id });
+    
     if (role.role === Method.MERCHANT) {
         await createUserHierarchyDao({
-            user_id: data.id,
+            user_id: data.user_id,
             role_id: data.role_id,
+            created_by:data.created_by,
+            updated_by:data.updated_by,
+            company_id:data.company_id
         })
     }
+
     else if (role.role === Method.SUBMERCHANT) {
         const hierarchy = await getUserHierarchysDao(parentId);
         await updateUserHierarchyDao(hierarchy.id, {
@@ -39,7 +45,7 @@ const getMerchantsService = async (payload) => {
     return data;
 };
 
-const updateMerchantService = async (conn, id, payload) => {
+const updateMerchantService = async ( id, payload) => {
 
     const data = await updateMerchantDao(id, payload); // Adjust DAO call for update
     console.log('Merchant updated successfully');
@@ -53,12 +59,9 @@ const deleteMerchantService = async (id) => {
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
         const payload = { is_obsolete: true };
-
         const data = await deleteMerchantDao(id, payload); // Adjust DAO call for delete
-
         await commit(conn); // Commit the transaction
         console.log('Merchant deleted successfully');
-
         return data;
     } catch (error) {
         if (conn) {

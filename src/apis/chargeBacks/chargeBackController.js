@@ -1,7 +1,6 @@
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { createChargeBackService, getChargeBacksService, updateChargeBackService, deleteChargeBackService} from './chargeBackService.js';
 
-
 const createChargeBack = async (req, res) => {
     try {
         const payload = req.body;
@@ -47,8 +46,8 @@ const getChargeBacks = async (req, res) => {
 const updateChargeBack = async (req, res) => {
     try {
         const payload = req.body;
-        const { id } = req.params;  // Assuming the ChargeBack ID is passed as a parameter
-
+        const { id } = req.params;  
+         
         // Call the service to update the ChargeBack
         const result = await updateChargeBackService(id, payload);
 

@@ -1,44 +1,38 @@
-import { sendError } from "../../utils/responseHandlers.js";
 import { executeQuery, buildSelectQuery, buildInsertQuery, buildUpdateQuery } from "../../utils/db.js";
-const tableName = 'Calculation';
+import { columns,tableName } from "../../constants/index.js";
 
-const getCalculationDao = async (filters = {}) => {
-  try {
-    const baseQuery = `SELECT * 
-                         FROM public."${tableName}" 
-                         WHERE is_obsolete = false`;
-    const [sql, queryParams] = buildSelectQuery(baseQuery, filters);
-    const rows = await executeQuery(sql, queryParams);
-
-    return rows.rows;
-  } catch (error) {
-    console.error('Error fetching Calculation', error);
-    throw new sendError('Failed to fetch Calculation');
-  }
+const getCalculationDao = async (
+  search,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder
+) => {
+  const baseQuery = `SELECT * FROM "${tableName.CALCULATION}" WHERE 1=1`;
+  const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.CALCULATION, page, pageSize, sortBy, sortOrder, typeof search != 'string');
+  // Execute query
+  const result = await executeQuery(sql, queryParams);
+  return result.rows;
 };
 
-const createCalculationDao = async (data, conn) => {
-  const [sql, params] = buildInsertQuery(tableName, data)
-  if (conn && conn.query) {
-    const result = await conn.query(sql, params);
-    return result.rows[0];
-  }
+const createCalculationDao = async (data) => {
+  const [sql, params] = buildInsertQuery(tableName.CALCULATION, data)
   const result = await executeQuery(sql, params);
   return result.rows[0];
 }
 
 
-const updateCalculationDao = async (id, data) => {
-  const [sql, params] = buildUpdateQuery(tableName, data, { id });
-  const result = await executeQuery(sql, params);
-  return result.rows[0];
-}
+const updateCalculationDao = async (user_id, data) => {
+    const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, { user_id });
+    const result = await executeQuery(sql, params);
+    return result.rows[0]; 
+};
+
 const deleteCalculationDao = async (id, data) => {
-  const [sql, params] = buildUpdateQuery(tableName, data, { id });
+  const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, { id });
   const result = await executeQuery(sql, params);
   return result.rows[0];
 }
-
 
 
 export { getCalculationDao, createCalculationDao, updateCalculationDao, deleteCalculationDao };

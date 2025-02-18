@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createSettlement, deleteSettlement, getSettlementById, updateSettlement } from './settlementController.js';
+import { createSettlementByIDService, deleteSettlementByIDService, getSettlementByIDService, updateSettlementByIDService } from './settlementServices.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 const router = express.Router();
 /**
@@ -27,7 +27,7 @@ const router = express.Router();
  *                   items:
  *                     type: object
  */
-router.get('/', isAuthenticated, tryCatchHandler(getSettlementById));
+router.get('/', isAuthenticated, tryCatchHandler(getSettlementByIDService));
 
 /**
  * @swagger
@@ -65,7 +65,7 @@ router.get('/', isAuthenticated, tryCatchHandler(getSettlementById));
  *                       type: string
  *                       example: "john_doe"
  */
-router.post('/create-settlement', isAuthenticated, tryCatchHandler(createSettlement));
+router.post('/create-settlement', isAuthenticated, tryCatchHandler(createSettlementByIDService));
 
 /**
  * @swagger
@@ -109,7 +109,7 @@ router.post('/create-settlement', isAuthenticated, tryCatchHandler(createSettlem
  *                       type: string
  *                       example: "john_doe"
  */
-router.put('/update-settlement/:id', isAuthenticated, tryCatchHandler(updateSettlement));
+router.put('/update-settlement/:id', tryCatchHandler(updateSettlementByIDService));
 
 /**
  * @swagger
@@ -147,6 +147,6 @@ router.put('/update-settlement/:id', isAuthenticated, tryCatchHandler(updateSett
  *                       type: string
  *                       example: "john_doe"
  */
-router.delete('/delete-settlement/:id', isAuthenticated, tryCatchHandler(deleteSettlement));
+router.delete('/delete-settlement/:id', isAuthenticated, tryCatchHandler(deleteSettlementByIDService));
 
 export default router;

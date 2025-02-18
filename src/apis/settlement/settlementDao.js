@@ -15,14 +15,15 @@ const createSettlementByIdDao = async (payload) => {
 };
 
 const updateSettlementByIdDao = async (id, data) => {
-  const [sql, params] = buildUpdateQuery(tableName, data, { id });
+  const [sql, params] = buildUpdateQuery(tableName, data, { id});
   const result = await executeQuery(sql, params);
   return result.rows[0];
 };
 
 const deleteSettlementByIdDao = async (id, data) => {
   const [sql, params] = buildUpdateQuery(tableName, data, { id });
-  const result = await executeQuery(sql, params);
+  const result = await executeQuery(sql, params); 
+ 
   return result.rows[0];
 
 };
