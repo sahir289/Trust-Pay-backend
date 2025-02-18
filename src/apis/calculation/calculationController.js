@@ -1,8 +1,28 @@
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getCalculationService ,createCalculationService ,updateCalculationService ,deleteCalculationService} from './calculationService.js';
 import { transactionWrapper } from '../../utils/db.js';
+import { sendError } from '../../utils/responseHandlers.js';
 
-const getCalculation = async (req, res) => {
+const getCalculationById = async (req, res) => {
+  try {
+    // Get the 'id' from the URL parameters (e.g., /calculations/:id)
+    const { id } = req.params; 
+
+    // Fetch the calculation data by 'id'
+    const data = await getCalculationService({id:id});
+
+    console.info('Get Calculation successfully', 'info');
+    
+    // Respond with the calculation data
+    return sendSuccess(res, data, 'Get Calculation successfully');
+  } catch (error) {
+    console.error('Error while getting Calculation', 'error', error);
+    // Optionally, you can send an error response here if needed.
+    return sendError(res, 'Error occurred while fetching the calculation');
+  }
+};
+
+  const getCalculation = async (req, res) => {
     try {
       const payload = req.query.search;
       const data = await getCalculationService(payload);
@@ -12,6 +32,7 @@ const getCalculation = async (req, res) => {
       console.error('error getting while getting Calculation', 'error', error);
     }
   };
+
 
 const createCalculation = async (req, res) => {
     try {
@@ -45,4 +66,4 @@ const deleteCalculation = async (req, res) => {
     }
   }
 
-export { getCalculation,createCalculation,updateCalculation,deleteCalculation };
+export { getCalculationById,getCalculation,createCalculation,updateCalculation,deleteCalculation };

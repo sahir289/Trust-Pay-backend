@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createUserHierarchy, deleteUserHierarchy, getUserHierarchys, updateUserHierarchy } from './userHierarchyController.js';
+import { createUserHierarchy, deleteUserHierarchy, getUserHierarchys, updateUserHierarchy,getUserHierarchysById } from './userHierarchyController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
@@ -31,7 +31,8 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get('/', isAuthenticated, tryCatchHandler(getUserHierarchys));
+router.get('/getAll', isAuthenticated, tryCatchHandler(getUserHierarchys));
+router.get('/:id', isAuthenticated, tryCatchHandler(getUserHierarchysById));
 
 /**
  * @swagger

@@ -1,6 +1,7 @@
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { createChargeBackService, getChargeBacksService, updateChargeBackService, deleteChargeBackService} from './chargeBackService.js';
 
+
 const createChargeBack = async (req, res) => {
     try {
         const payload = req.body;
@@ -22,6 +23,28 @@ const createChargeBack = async (req, res) => {
     }
 };
 
+const getChargeBacksById = async (req, res) => {
+    try {
+        const {id} = req.params;
+
+        // Call the service to create the ChargeBack
+        const result = await getChargeBacksService({id:id});
+
+        // Log success message
+        console.log('ChargeBack created successfully', 'info', result);
+
+        // Send a success response to the client
+        return sendSuccess(res, result, 'ChargeBack created successfully');
+    } catch (error) {
+        // Log the error
+        console.error('error getting while creating ChargeBack', error);
+
+        // Send an error response to the client
+        return sendError(res, error, 'Error occurred while creating ChargeBack');
+    }
+};
+
+
 const getChargeBacks = async (req, res) => {
     try {
         const payload = req.query.search;
@@ -30,7 +53,7 @@ const getChargeBacks = async (req, res) => {
         const data = await getChargeBacksService(payload);
 
         // Log success message
-        console.log('getChargeBacks successfully', data);
+        console.log('get ChargeBacks successfully', data);
 
         // Send success response
         return sendSuccess(res, data, 'ChargeBacks fetched successfully');
@@ -86,4 +109,4 @@ const deleteChargeBack = async (req, res) => {
     }
 };
 
-export { createChargeBack, getChargeBacks, updateChargeBack, deleteChargeBack };
+export { createChargeBack,getChargeBacksById, getChargeBacks, updateChargeBack, deleteChargeBack };

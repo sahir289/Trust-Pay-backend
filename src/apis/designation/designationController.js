@@ -1,4 +1,5 @@
 import { BadRequestError } from '../../utils/appErrors.js';
+import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService } from './designationServices.js';
 
@@ -6,10 +7,20 @@ const getDesignation = async (req, res) => {
   try {
     const payload = req.query.search;
     const data = await getDesignationService(payload);
-    console.log('get  successfully');
-    return sendSuccess(res, data, 'getUsers successfully');
+    console.log('get Designations  successfully');
+    return sendSuccess(res, data, 'get  Designations successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while getting designations', error);
+  }
+};
+const getDesignationById = async (req, res) => {
+  try {
+    const {id}= req.params;
+    const data = await getDesignationService({id:id});
+    console.log('get Designation  successfully');
+    return sendSuccess(res, data, 'get  Designation successfully');
+  } catch (error) {
+    console.error('error getting while getting designation', error);
   }
 };
 
@@ -20,11 +31,11 @@ const createDesignation = async (req, res) => {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await createDesignationService(payload);
-    console.log('getUsers successfully');
-    return sendSuccess(res, data, 'getUsers successfully');
+    const data = await transactionWrapper(createDesignationService)(payload);
+    console.log('get Designations successfully');
+    return sendSuccess(res, data, 'get Designations successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while creating designations', error);
   }
 };
 
@@ -33,9 +44,9 @@ const updateDesignation = async (req, res) => {
     const payload = req.body;
     const { id } = req.params;
     const data = await updateDesignationService(id, payload);
-    return sendSuccess(res, data, 'getUsers successfully');
+    return sendSuccess(res, data, 'get Designations successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while updating designations', error);
   }
 };
 
@@ -47,11 +58,11 @@ const deleteDesignation = async (req, res) => {
       throw new BadRequestError('payload is required');
     }
     const data = await deleteDesignationService(id);
-    console.log('getUsers successfully');
-    return sendSuccess(res, data, 'getUsers successfully');
+    console.log('get Designations successfully');
+    return sendSuccess(res, data, 'get Designations successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while deleting Designation', error);
   }
 };
 
-export { getDesignation, createDesignation, updateDesignation, deleteDesignation };
+export { getDesignationById,getDesignation, createDesignation, updateDesignation, deleteDesignation };

@@ -3,11 +3,12 @@ import { columns, tableName } from "../../constants/index.js";
 
 
 // const getRoleByIdDao = async (id) => {
-// const query = `SELECT *  FROM  "${tableName}" WHERE 1=1`;
+// const query = `SELECT *  FROM  "${tableName.ROLE}" WHERE 1=1`;
 //    const [sql, parameters] = buildSelectQuery(query, {id} );
 //    const result = await executeQuery(sql, parameters);
 //    return result.rows[0];
 // };
+
 
 const getRoleDao = async (
   search,
@@ -25,19 +26,19 @@ const getRoleDao = async (
 
 
 const createRoleDao = async (data) => {  
-       const [sql, params] = buildInsertQuery(tableName, data)
+       const [sql, params] = buildInsertQuery(tableName.ROLE, data)
          const result = await executeQuery(sql, params);
          return result.rows[0];
 };
 
 const updateRoleDao = async (id,data) => {  
-     const [sql, params] = buildUpdateQuery(tableName, data, { id });
+     const [sql, params] = buildUpdateQuery(tableName.ROLE, data, { id });
        const result = await executeQuery(sql, params);
        return result.rows[0];
 }
 
 const deleteRoleDao = async (id,data) => { 
-        const [sql, params] = buildUpdateQuery(tableName, data, { id});
+        const [sql, params] = buildUpdateQuery(tableName.ROLE, data, { id});
         const result = await executeQuery(sql, params);
         return result.rows[0];
 }

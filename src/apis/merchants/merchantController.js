@@ -32,6 +32,25 @@ const getMerchants = async (req, res) => {
 
         // Log success message
         console.log('getMerchants successfully', data);
+        // Send success response
+        return sendSuccess(res, data, 'Merchants fetched successfully');
+    } catch (error) {
+        // Log error
+        console.error('error getting while fetching Merchants Data', error);
+
+        // Send an error response
+        return sendError(res, error, 'Error occurred while fetching Merchants');
+    }
+};
+const getMerchantsById = async (req, res) => {
+    try {
+        const payload = req.params;
+
+        // Fetch merchants data from the service
+        const data = await getMerchantsService({id:payload});
+
+        // Log success message
+        console.log('getMerchants successfully', data);
 
         // Send success response
         return sendSuccess(res, data, 'Merchants fetched successfully');
@@ -43,6 +62,7 @@ const getMerchants = async (req, res) => {
         return sendError(res, error, 'Error occurred while fetching Merchants');
     }
 };
+
 
 const updateMerchant = async (req, res) => {
     try {
@@ -87,4 +107,4 @@ const deleteMerchant = async (req, res) => {
     }
 };
 
-export { createMerchant, getMerchants, updateMerchant, deleteMerchant };
+export { createMerchant, getMerchants, updateMerchant, deleteMerchant ,getMerchantsById};

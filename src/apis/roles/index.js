@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { getRoles, createRole, updateRole, deleteRole } from './rolesController.js';
+import { getRoles, createRole, updateRole, deleteRole,getRolesById} from './rolesController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
@@ -24,7 +24,8 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/',isAuthenticated, tryCatchHandler(getRoles));
+router.get('/getAll',isAuthenticated, tryCatchHandler(getRoles));
+router.get('/:id',isAuthenticated, tryCatchHandler(getRolesById));
 
 /**
  * @swagger

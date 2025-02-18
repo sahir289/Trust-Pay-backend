@@ -1,11 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import {
-    getCalculation,
-    createCalculation,
-    updateCalculation,
-    deleteCalculation
-} from './calculationController.js';
+import {getCalculation,getCalculationById,createCalculation,updateCalculation,deleteCalculation} from './calculationController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 const router = express.Router();
 
@@ -28,7 +23,9 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/',isAuthenticated, tryCatchHandler(getCalculation));
+router.get('/getAll',isAuthenticated, tryCatchHandler(getCalculation));
+
+router.get('/:id',isAuthenticated, tryCatchHandler(getCalculationById));
 
 /**
  * @swagger

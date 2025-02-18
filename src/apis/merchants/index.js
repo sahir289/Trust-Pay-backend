@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createMerchant, deleteMerchant, getMerchants, updateMerchant } from './merchantController.js';
+import { createMerchant, deleteMerchant, getMerchants, updateMerchant,getMerchantsById } from './merchantController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
@@ -31,8 +31,8 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get('/', isAuthenticated, tryCatchHandler(getMerchants));
-
+router.get('/:id', isAuthenticated, tryCatchHandler(getMerchantsById));
+router.get('/getAll', isAuthenticated, tryCatchHandler(getMerchants));
 /**
  * @swagger
  * /merchants/create-merchant:

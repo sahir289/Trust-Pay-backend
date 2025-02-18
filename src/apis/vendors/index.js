@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createVendor, deleteVendor, getVendors, updateVendor } from './vendorController.js';
+import { createVendor, deleteVendor, getVendors, updateVendor,getVendorById } from './vendorController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
@@ -31,7 +31,8 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get('/', isAuthenticated, tryCatchHandler(getVendors));
+router.get('/:id', isAuthenticated, tryCatchHandler(getVendorById));
+router.get('/getAll', isAuthenticated, tryCatchHandler(getVendors));
 
 /**
  * @swagger
@@ -60,7 +61,7 @@ router.get('/', isAuthenticated, tryCatchHandler(getVendors));
  *       400:
  *         description: Invalid request data.
  */
-router.post('/create-vendor', isAuthenticated, tryCatchHandler(createVendor));
+router.post('/create-vendor', tryCatchHandler(createVendor));
 
 /**
  * @swagger

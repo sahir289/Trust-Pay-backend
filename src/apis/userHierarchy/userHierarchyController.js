@@ -43,7 +43,26 @@ const getUserHierarchys = async (req, res) => {
         return sendError(res, error, 'Error occurred while fetching UserHierarchy');
     }
 };
+const getUserHierarchysById = async (req, res) => {
+    try {
+        const {id} = req.params;
 
+        // Fetch vendors data from the service
+        const data = await getUserHierarchyService({id:id});
+
+        // Log success message
+        console.log('get UserHierarchy successfully', data);
+
+        // Send success response
+        return sendSuccess(res, data, 'UserHierarchy fetched successfully');
+    } catch (error) {
+        // Log error
+        console.error('error getting while fetching UserHierarchy Data',  error);
+
+        // Send an error response
+        return sendError(res, error, 'Error occurred while fetching UserHierarchy');
+    }
+};
 const updateUserHierarchy = async (req, res) => {
     try {
         const payload = req.body;
@@ -87,4 +106,4 @@ const deleteUserHierarchy = async (req, res) => {
     }
 };
 
-export { createUserHierarchy, getUserHierarchys, updateUserHierarchy, deleteUserHierarchy };
+export { createUserHierarchy,getUserHierarchysById, getUserHierarchys, updateUserHierarchy, deleteUserHierarchy };
