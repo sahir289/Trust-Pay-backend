@@ -28,8 +28,12 @@ const createCalculationDao = async (data, conn) => {
 }
 
 
-const updateCalculationDao = async (id, data) => {
+const updateCalculationDao = async (id, data, conn) => {
   const [sql, params] = buildUpdateQuery(tableName, data, { id });
+  if (conn && conn.query) {
+    const result = await conn.query(sql, params);
+    return result.rows[0];
+  }
   const result = await executeQuery(sql, params);
   return result.rows[0];
 }

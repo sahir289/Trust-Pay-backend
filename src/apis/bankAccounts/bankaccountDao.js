@@ -44,4 +44,15 @@ const deleteBankaccountDao = async (id, data) => {
   return result.rows[0];
 };
 
+export const updateBanktBalanceDao = async (filters, balance, today_balance, conn) => {
+  const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, { balance, today_balance }, filters, { balance: '+', today_balance: '+' });
+  if (conn && conn.query) {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
+  }
+  const result = await executeQuery(sql, params);
+  return result[0];
+}
+
+
 export { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBankaccountDao, getMerchantBankDao };
