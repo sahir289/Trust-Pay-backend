@@ -27,8 +27,8 @@ const router = express.Router();
  *                   items:
  *                     type: object
  */
-router.get('/',  tryCatchHandler(getSettlementService));
-router.get('/getall',  tryCatchHandler(getSettlementServiceAll));
+router.get('/',isAuthenticated,  tryCatchHandler(getSettlementService));
+router.get('/getall', isAuthenticated, tryCatchHandler(getSettlementServiceAll));
 
 /**
  * @swagger
@@ -66,7 +66,7 @@ router.get('/getall',  tryCatchHandler(getSettlementServiceAll));
  *                       type: string
  *                       example: "john_doe"
  */
-router.post('/create-settlement',  tryCatchHandler(createSettlementService));
+router.post('/create-settlement', isAuthenticated,  tryCatchHandler(createSettlementService));
 
 /**
  * @swagger
@@ -110,7 +110,7 @@ router.post('/create-settlement',  tryCatchHandler(createSettlementService));
  *                       type: string
  *                       example: "john_doe"
  */
-router.put('/update-settlement/:id', tryCatchHandler(updateSettlementService));
+router.put('/update-settlement/:id', isAuthenticated,  tryCatchHandler(updateSettlementService));
 
 /**
  * @swagger
@@ -148,6 +148,6 @@ router.put('/update-settlement/:id', tryCatchHandler(updateSettlementService));
  *                       type: string
  *                       example: "john_doe"
  */
-router.delete('/delete-settlement/:id', tryCatchHandler(deleteSettlementService));
+router.delete('/delete-settlement/:id', isAuthenticated,  tryCatchHandler(deleteSettlementService));
 
 export default router;

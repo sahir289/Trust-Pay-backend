@@ -67,7 +67,7 @@ export const executeQuery = async (query, queryParams = []) => {
 }
 
 export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = true) => {
-  const page = p || 1, pageSize = ps || 10, sortBy = s || "created_at", sortOrder = o || "DESC", is_oboslete = true;
+  const page = p || 1, pageSize = ps || 10, sortBy = s || "created_at", sortOrder = o || "DESC";
   let filters = {};
 
   if (isJson) {

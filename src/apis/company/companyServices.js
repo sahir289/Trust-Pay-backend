@@ -1,10 +1,10 @@
 import { BadRequestError } from '../../utils/appErrors.js';
-import { getConnection } from '../../utils/db.js';
+import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { createCompanyDao, deleteCompanyDao, getCompanyDao, updateCompanyDao } from './companyDao.js';
 import { createUserService } from '../users/userService.js';
 import { transactionWrapper } from '../../utils/db.js';
-import { createRoleService } from '../roles/rolesService.js';
-import { createDesignationService } from '../designation/designationServices.js';
+import { createRoleDao } from '../roles/rolesDao.js';
+import { createDesignationDao, getDesignationDao } from '../designation/designationDao.js';
 const getCompanyService = async (id) => {
   let conn;
   try {
@@ -26,48 +26,88 @@ const getCompanyService = async (id) => {
 };
 
 const createCompanyService = async (payload) => {
+  let conn;
   try {
-    const result = await createCompanyDao(payload);
-    const roleName = {
-      "role": "Userrerr",
-      "company_id": result.id,
-      "created_by":result.id
-    };
-    const role = await createRoleService(roleName)
-    console.log(role,"role from roleName");
-    const DesignationPayload = {
-      "role_id": role.id,
-      "company_id": result.id,
-      "designation":role.role
-    }
-    const Designation = await createDesignationService(DesignationPayload);
-    console.log(Designation,"designation from designation")
-    const UserPayload = {
-     "role_id":role.id,
-     "company_id": result.id,
-     "designation_id": Designation.id,
-     "user_name": role.role,
-     "email":result.email,
-     "contact_no":result.contact_no,
-     "password":"12345",
-     "first_name":result.first_name,
-     "last_name":result.last_name,
-     "code":result.first_name.split('').reverse().join('')
-    }
- await createUserService(UserPayload);
+    conn = await getConnection();
+    await beginTransaction(conn);
 
+    const result = await createCompanyDao(payload);
+    // const [sql, params] = buildInsertQuery(tableName.COMPANY, payload)
+    // const result = await executeQuery(sql, params);
+    
+    const roleName = {
+      role: "Userrerra",
+      company_id: result.id,
+      created_by: result.id
+    };
+    const designation = await createRoleDao(conn, roleName);
+    const designationCheckName = await getDesignationDao({ role: payload?.role });
+    if (designationCheckName) {
+      throw new BadRequestError('Merchant does not exist');
+    }
+    const DesignationPayload = {
+      role_id: role.id,
+      company_id: result.id,
+      designation: role.role
+    };
+    const Designation = await createDesignationDao(DesignationPayload);
+
+    // Step 5: Create user
+    const UserPayload = {
+      role_id: role.id,
+      company_id: result.id,
+      designation_id: Designation.id,
+      user_name: role.role,
+      email: result.email,
+      contact_no: result.contact_no,
+      password: "12345", // Ensure you have proper hashing for the password
+      first_name: result.first_name,
+      last_name: result.last_name,
+      code: result.first_name.split('').reverse().join('')
+    };
+    const userCreated = await createUserService(UserPayload);
+    console.log(userCreated, "333");
+
+    // Step 6: Commit the transaction
+    await commit(conn);
+
+    // Return the result if all is successful
     return result;
   } catch (error) {
-    console.error('error getting while company', error);
-    throw new BadRequestError('Error getting while company');
+    // Rollback transaction in case of an error
+    if (conn) {
+      try {
+        await rollback(conn);
+        console.log("Transaction rolled back due to error");
+      } catch (rollbackError) {
+        console.error('Error during transaction rollback', rollbackError);
+      }
+    }
+
+    // Log the error and throw a new error
+    console.error('Error while creating company:', error);
+    throw new BadRequestError('Error occurred while creating company');
+  } finally {
+    // Always release the connection
+    if (conn) {
+      try {
+        conn.release();
+        console.log('Connection released');
+      } catch (releaseError) {
+        console.error('Error while releasing the connection', releaseError);
+      }
+    }
   }
 };
 
+
+
+
 const updateCompanyService = async (id, payload) => {
-     transactionWrapper(updateCompanyDao)(id, payload);
+  transactionWrapper(updateCompanyDao)(id, payload);
 };
 const deleteCompanyService = async (id) => {
-    transactionWrapper( deleteCompanyDao)(id, { is_obsolete: true });
+  transactionWrapper(deleteCompanyDao)(id, { is_obsolete: true });
 };
 
-export {  getCompanyService, createCompanyService, updateCompanyService, deleteCompanyService };
+export { getCompanyService, createCompanyService, updateCompanyService, deleteCompanyService };
