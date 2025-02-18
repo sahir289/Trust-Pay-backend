@@ -12,14 +12,12 @@ const getSettlementService = async (req, res) => {
     if (!id) {
       throw new CustomError(404, "id not found")
     }
-
     const merchantData = await getMerchantsDao( {user_id: id });
     const vendorData = await getVendorsDao({ user_id: id });
     if (merchantData?.length > 0) {     
       const merchantUserData = await getSettlementDao({user_id : merchantData?.user_id});
       return sendSuccess(res, merchantUserData, 'get settlements successfully');
     }
-    
     if(vendorData?.length>0) {
       const vendorUserData = await getSettlementDao({user_id : vendorData?.user_id});
       return sendSuccess(res, vendorUserData, 'get settlements successfully');
@@ -159,7 +157,7 @@ const deleteSettlementService = async (req, res) => {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-      const updatedData = await updateSettlementDao(id, {is_obsolete: true})    
+      const updatedData = await deleteSettlementDao(id, {is_obsolete: true})    
       return sendSuccess(res, updatedData, 'delete settlements successfully');
   } catch (error) {
     console.error('error getting while deleting settlement', error);

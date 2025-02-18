@@ -13,6 +13,17 @@ const getRoles = async (req, res) => {
       console.error('error getting while getting Roles', 'error', error);
     }
   };
+
+  const getRolesById = async (req, res) => {
+    try {
+      const {id} = req.params;
+      const data = await getRoleService({id:id});
+      console.log('get Roles successfully', 'info');
+      return sendSuccess(res, data, 'get Roles successfully');
+    } catch (error) {
+      console.error('error getting while getting Roles', 'error', error);
+    }
+  };
  
 const createRole = async (req, res) => {
     try {
@@ -53,4 +64,4 @@ const deleteRole = async (req, res) => {
     }
   };
   
-export { getRoles, createRole ,updateRole,deleteRole};
+export { getRoles,getRolesById, createRole ,updateRole,deleteRole};

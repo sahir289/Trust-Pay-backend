@@ -36,6 +36,23 @@ const getVendors = async (req, res) => {
         return sendError(res, error, 'Error occurred while fetching Vendors');
     }
 };
+const getVendorById = async (req, res) => {
+    try {
+        const {id} = req.params;
+
+        // Fetch vendors data from the service
+        const data = await getVendorsService({id:id});
+        // Log success message
+        console.log('getvendors successfully', data);
+        // Send success response
+        return sendSuccess(res, data, 'Vendors fetched successfully');
+    } catch (error) {
+        // Log error
+        console.error('error getting while fetching Vendors Data',  error);
+        // Send an error response
+        return sendError(res, error, 'Error occurred while fetching Vendors');
+    }
+};
 
 const updateVendor = async (req, res) => {
     try {
@@ -72,4 +89,4 @@ const deleteVendor = async (req, res) => {
     }
 };
 
-export { createVendor, getVendors, updateVendor, deleteVendor };
+export { createVendor, getVendors,getVendorById, updateVendor, deleteVendor };

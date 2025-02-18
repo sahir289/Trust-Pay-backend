@@ -74,11 +74,16 @@ const createPayoutService = async (headers, payload) => {
 };
 
 const getPayoutsService = async (payload) => {
-    const data = await getPayoutsDao(payload);
-
-    console.log('Fetched Payouts successfully', 'info');
-    return data;
+    try {
+        const data = await getPayoutsDao(payload);
+        console.log('Fetched Payouts successfully', 'info');
+        return data;
+    } catch (error) {
+        console.error('Error while fetching Payouts', error);
+        throw new BadRequestError('Error occurred while fetching Payouts');
+    }
 };
+
 
 const updatePayoutService = async (conn, id, payload) => {
     // Set default statuses based on input conditions

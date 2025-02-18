@@ -13,6 +13,16 @@ const getDesignation = async (req, res) => {
     console.error('error getting while getting designations', error);
   }
 };
+const getDesignationById = async (req, res) => {
+  try {
+    const {id}= req.params;
+    const data = await getDesignationService({id:id});
+    console.log('get Designation  successfully');
+    return sendSuccess(res, data, 'get  Designation successfully');
+  } catch (error) {
+    console.error('error getting while getting designation', error);
+  }
+};
 
 const createDesignation = async (req, res) => {
   try {
@@ -55,4 +65,4 @@ const deleteDesignation = async (req, res) => {
   }
 };
 
-export { getDesignation, createDesignation, updateDesignation, deleteDesignation };
+export { getDesignationById,getDesignation, createDesignation, updateDesignation, deleteDesignation };

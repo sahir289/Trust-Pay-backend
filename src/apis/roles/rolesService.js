@@ -3,9 +3,15 @@ import { getRoleDao,createRoleDao,updateRoleDao,deleteRoleDao } from './rolesDao
 import { transactionWrapper } from '../../utils/db.js';
 
 const getRoleService = async (payload) => {
+    try {
         const data = await getRoleDao(payload);
         return data;
-}
+    } catch (error) {
+        console.error('Error while fetching role', error);
+        throw new BadRequestError('Error occurred while fetching role');
+    }
+};
+
 
 
 const createRoleService = async (payload) => {

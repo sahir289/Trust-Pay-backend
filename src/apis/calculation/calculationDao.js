@@ -18,6 +18,9 @@ const getCalculationDao = async (search,
       throw new sendError('Failed to fetch Calculation');
     }
   };
+  
+ 
+
 
 const createCalculationDao = async (data, conn) => {
   const [sql, params] = buildInsertQuery(tableName, data)

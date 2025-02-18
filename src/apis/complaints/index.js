@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import {createComplaints,deleteComplaints,getComplaints,updateComplaints} from "./complaintsController.js";
+import {createComplaints,deleteComplaints,getComplaints,getComplaintsById,updateComplaints} from "./complaintsController.js";
 import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
@@ -24,7 +24,9 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/',isAuthenticated, tryCatchHandler(getComplaints));
+router.get('/getAll',isAuthenticated, tryCatchHandler(getComplaints));
+
+router.get('/:id',isAuthenticated, tryCatchHandler(getComplaintsById));
 
 /**
  * @swagger

@@ -14,6 +14,17 @@ const getBankaccount = async (req, res) => {
   }
 };
 
+const getBankaccountById = async (req, res) => {
+  try {
+    const {id} = req.params;
+    const data = await getBankaccountService({id:id});
+    console.log('get Bank successfully');
+    return sendSuccess(res, data, 'get Bank successfully');
+  } catch (error) {
+    console.error('error getting while getting bank', error);
+  }
+};
+
 const createBankaccount = async (req, res) => {
   try {
     const payload = req.body;
@@ -61,4 +72,4 @@ const deleteBankaccount = async (req, res) => {
     console.error('error getting while deleting banks', error);
   }
 }
-export { getBankaccount, createBankaccount, updateBankaccount, deleteBankaccount, getMerchantBank };
+export { getBankaccount,getBankaccountById, createBankaccount, updateBankaccount, deleteBankaccount, getMerchantBank };
