@@ -7,13 +7,15 @@ import { razorpay } from "../../webhooks/razorPay.js";
 import { getPayoutsDao } from '../payOut/payOutDao.js';
 import { Currency, Status, Type } from "../../constants/index.js";
 import { getMerchantsService } from "../merchants/merchantService.js";
-import { calculateCommission, calculateDuration } from "../../utils/utils.js";
+import { calculateCommission, calculateDuration } from "../../helpers/index.js";
 import { merchantPayinCallback } from "../../callBacksAndWebHook/merchantCallBacks.js";
-import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao } from "./payInDao.js";
+import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao, getPayInUrlsDao } from "./payInDao.js";
 import { AccessDeniedError, BadRequestError, NotFoundError } from "../../utils/appErrors.js";
-import { getBankaccountDao, getMerchantBankDao, updateBankaccountDao } from "../bankAccounts/bankaccountDao.js";
-import { getBankResponsesDao, updateBankResponseDao } from "../bankResponse/bankResponseDao.js";
-import { getMerchantsDao } from "../merchants/merchantDao.js";
+import { getBankaccountDao, getMerchantBankDao, updateBankaccountDao, updateBanktBalanceDao } from "../bankAccounts/bankaccountDao.js";
+import { getBankResponseDao, updateBankResponseDao } from "../bankResponse/bankResponseDao.js";
+import { getMerchantsDao, updateMerchantBalanceDao } from "../merchants/merchantDao.js";
+import { getCalculationDao, updateCalculationDao } from "../calculation/calculationDao.js";
+import { updateVendorBalanceDao } from "../vendors/vendorDao.js";
 
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
@@ -287,11 +289,15 @@ export const updatePaymentNotificationStatusService = async (payInId, type) => {
         if (!payIn) {
             throw new Error("Payin data not found.");
         }
+
+        const bankResponse = await getBankResponseDao({ id: payIn.bank_response_id });
+
         return await merchantPayinCallback(payIn.config?.notify_url, {
             status: payIn.status,
             merchantOrderId: payIn.merchant_order_id,
             payinId: payIn.id,
-            amount: payIn.confirmed,
+            req_amount: payIn.amount,
+            amount: bankResponse?.amount || null,
             utr_id: payIn.utr || "",
         });
     }
@@ -320,29 +326,27 @@ export const updatePaymentNotificationStatusService = async (payInId, type) => {
     }
 }
 
-//under development..
-export const updateDepositStatusService = async (merchantOrderId, nick_name) => {
+export const updateDepositStatusService = async (conn, merchantOrderId, nick_name) => {
     const payInData = await getPayInUrlDao({ merchant_order_id: merchantOrderId });
-    const merchant = merchants[0];
     if (!payInData) {
         throw new NotFoundError("PayIn data not found")
     }
-    
     const merchants = await getMerchantsDao({ id: payInData.merchant_id });
 
-    if(!merchant){
+    // need to check pay in is for merchant or vendor
+    const merchant = merchants[0];
+
+    if (!merchant) {
         throw new NotFoundError('No merchant found against payIn')
     }
 
     if (payInData.status !== Status.BANK_MISMATCH) {
         throw new BadRequestError("Status is not BANK_MISMATCH, no update applied")
     }
-    
-    //call the Bank Res API
-    const bankResponses = await getBankResponsesDao({utr: payInData.utr});
-    const bankResponse = bankResponses[0];
 
-    if(!bankResponse){
+    //call the Bank Res API
+    const bankResponse = await getBankResponseDao({ id: payInData.bank_response_id });
+    if (!bankResponse) {
         throw new NotFoundError('No bank response found!');
     }
 
@@ -350,55 +354,66 @@ export const updateDepositStatusService = async (merchantOrderId, nick_name) => 
     const payinCommission = calculateCommission(bankResponse.amount, merchant.payin_commission);
     const duration = calculateDuration(payInData.created_at);
 
-    // in old code ac_name is being used as nick_name
-    const banks = await getBankaccountDao({nick_name});
+    const banks = await getBankaccountDao({ nick_name });
     const bank = banks[0]
 
-    if(!bank){
+    if (!bank) {
         throw new NotFoundError('Bank not found!');
     }
 
     let successData = [];
     if (bankResponse.is_used) {
-        // in old first we are getting payin on the basis of utr then user_submitted_utr
-        successData = await getPayInUrlDao({ user_submitted_utr: bankResponse.user_submitted_utr, status: Status.SUCCESS });
+        successData = await getOtherSuccessPayIns(bankResponse);
     }
 
     const updatePayInData = {
-        status: bank.nick_name != nick_name ? Status.BANK_MISMATCH : successData.length > 0 ? Status.DUPLICATE :
-            parseFloat(payInData.confirmed) !== parseFloat(payInData.amount) ? Status.DISPUTE : Status.SUCCESS,
+        status: bank.nick_name != nick_name ? Status.BANK_MISMATCH : successData.length ? Status.DUPLICATE :
+            parseFloat(bankResponse.amount) !== parseFloat(payInData.amount) ? Status.DISPUTE : Status.SUCCESS,
         bank_acc_id: bank.id,
         duration: duration,
+        // updated_by: '',
     };
 
     if (updatePayInData.status === Status.SUCCESS) {
         updatePayInData.payin_merchant_commission = payinCommission;
-        // ???
-        updatePayInData.amount = payInData.confirmed;
+        updatePayInData.bank_acc_id = bankResponse.bank_id;
+
+        // update merchant caclulation table
+        await updateCalculationTable(merchant.user_id, { ...payInData, payinCommission }, conn);
+
+        // update vendor caclulation table
+        await updateCalculationTable(bank.user_id, { ...payInData, payinCommission }, conn);
+
+        // update merchant balance
+        await updateMerchantBalanceDao({id: merchant.id}, payInData.amount, conn);
+
+        // update vendor balance
+        await updateVendorBalanceDao({ user_id: bank.user_id }, payInData.amount, conn);
     }
 
-    const updatePayInRes = await updatePayInUrlDao(payInData.id, updatePayInData);
+    const updatePayInRes = await updatePayInUrlDao(payInData.id, updatePayInData, conn);
 
-    // confusion here
-    // in old code function calling is different
-    await updateBankResponseDao({ id: bank.id }, { is_used: true });
+    await updateBankResponseDao({ id: bank.id }, { is_used: true }, conn);
 
-    // first get the old balance and add the new one
-    await updateBankaccountDao(bank.id, parseFloat(payInData.confirmed));
+    // update bank balance and today balance
+    await updateBanktBalanceDao({ id: bank.id }, )
+    const bankBalance = updatePayInData.status === Status.DISPUTE ? bankResponse.amount : payInData.amount;
+    await updateBankaccountDao(bank.id, bankBalance, bankBalance, conn);
 
     merchantPayinCallback(updatePayInRes.config?.notify_url, {
         status: updatePayInRes.status,
         merchantOrderId: updatePayInRes.merchant_order_id,
         payinId: updatePayInRes.id,
-        amount: updatePayInRes.confirmed,
+        req_amount: payInData.amount,
+        amount: bankResponse.amount,
         utr_id: updatePayInRes.user_submitted_utr || ""
     });
 
     return;
 }
 
-export const resetDepositService = async (merchant_order_id) => {
-    const payIn = await getPayInUrlDao({merchant_order_id});
+export const resetDepositService = async (conn, merchant_order_id) => {
+    const payIn = await getPayInUrlDao({ merchant_order_id });
     // //under development telegram API's
     // await sendResetEntryTelegramMessage(
     //     config?.telegramEntryResetChatId,
@@ -408,43 +423,151 @@ export const resetDepositService = async (merchant_order_id) => {
     if (!payIn) {
         throw new NotFoundError("PayIn not found");
     }
-    if (payIn.status === Status.SUCCESS || payIn.status === Status.FAILED) {
+    if ([Status.SUCCESS, Status.FAILED, Status.ASSIGNED, Status.DROPPED].includes(payIn.status)) {
         throw new BadRequestError('This payIn can not be reset!');
     }
-    
-    // utr column does not exit
-    const utr = payIn.utr || payIn.user_submitted_utr
-    
-    const bankResponses = await getBankResponsesDao({ utr });
-    const bankResponse = bankResponses[0];
 
-    if(!bankResponse){
-        throw new NotFoundError('Bank Response not found!');
+    const condition = {};
+    if (payIn.bank_response_id) {
+        condition.id = payIn.bank_response_id;
+    } else {
+        condition.utr = payIn.user_submitted_utr;
     }
+    const bankResponse = await getBankResponseDao(condition);
 
     const updatePayInData = {
         status: Status.ASSIGNED,
         confirmed: null,
         payin_merchant_commission: null,
-        utr: '',
         user_submitted_utr: null,
         duration: null,
     };
 
-    // utr column does not exist
-    // check if any entry exists
-    // in old code first we are getting payIn on basis of utr
-    const payInSuccess = await getPayInUrlDao({ utr, status: Status.SUCCESS });
 
-    if (!payInSuccess && bankResponse.id) {
-        // is_used does not exist
-        await updateBankResponseDao({id: bankResponse.id}, { is_used: false });
+    if (bankResponse && bankResponse.is_used) {
+        // check if any entry exists
+        const payInSuccess = await getOtherSuccessPayIns(bankResponse);
+        if (!payInSuccess.length) {
+            await updateBankResponseDao({ id: bankResponse.id }, { is_used: false }, conn);
+        }
     }
 
-    return await updatePayInUrlDao(payIn.id, updatePayInData);
-    
+    // update bank balance
+    const banks = await getBankaccountDao({ id: payIn.bank_acc_id });
+    const bank = banks[0];
+
+    if (bank && payIn.status !== Status.PENDING && bankResponse) {
+        await updateBankaccountDao(bank.id, {
+            today_balance: bank.today_balance - bankResponse.amount,
+            balance: bank.balance - bankResponse.amount,
+            // updated_by: '',
+        }, conn)
+    }
+
+    return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+
 }
 
+export const processPayInService = async (conn, payload) => {
+    const { userSubmittedUtr, payInId, amount } = payload;
+    // validate payIn
+    // throw error if not exist or expires
+    const payIn = await getPayInUrlService(payInId);
+    const banks = await getBankaccountDao({ bank_acc_id: payIn.bank_acc_id }); 
+    const bank = banks[0];
+
+    if (!bank) {
+        throw new NotFoundError('Bank not found!');
+    }
+
+    const duration = calculateDuration(payIn.created_at);
+    const otherPayIns = await getPayInUrlsDao({ user_submitted_utr: userSubmittedUtr });
+    const updatePayInData = {
+        amount,
+        user_submitted_utr: userSubmittedUtr,
+        is_url_expires: true,
+        one_time_used: true,
+        duration,
+        user_submitted_image: null,
+        is_notified: true,
+    }
+    let bankResponse = {};
+    if (payIn.bank_response_id) {
+        bankResponse = await getBankResponseDao({ id: payIn.bank_response_id }) || {};
+    }
+    const result = {
+        status: payIn.status,
+        merchantOrderId: payIn.merchant_order_id,
+        payinId: payIn.id,
+        amount: bankResponse.amount,
+        req_amount: payIn.amount,
+        utr_id: payIn.user_submitted_utr,
+    };
+
+    if ([Status.SUCCESS, Status.DUPLICATE, Status.DISPUTE, Status.BANK_MISMATCH].includes(payIn.status)) {
+        if (payIn.status === Status.DUPLICATE) {
+            result.utr_id = bankResponse.utr || payIn.user_submitted_utr;
+        }
+        merchantPayinCallback(payIn.config?.notify_url, result)
+        return result;
+    }
+
+    if (otherPayIns.length || bankResponse.is_used) {
+        updatePayInData.status = Status.DUPLICATE
+        result.status = Status.DUPLICATE;
+        await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+        merchantPayinCallback(payIn.config?.notify_url, result);
+        return {
+            ...result,
+            message: 'Duplicate entry found!',
+        };
+    }
+
+    if (!bankResponse) {
+        bankResponse = await getBankResponseDao({ utr: userSubmittedUtr }) || {};
+    }
+
+    if (bankResponse.id) {
+        await updateBankResponseDao({ id: bankResponse.id }, { is_used: true }, conn);
+    }
+
+    if (bankResponse.bank_id && bankResponse.bank_id !== payIn.bank_acc_id) {
+        updatePayInData.status = Status.BANK_MISMATCH;
+        updatePayInData.approved_at = new Date().toISOString();
+        result.status = Status.BANK_MISMATCH;
+        await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+        merchantPayinCallback(payIn.config?.notify_url, result);
+        return {
+            ...result,
+            message: 'Bank Mismatched',
+        }
+    }
+
+    if(bankResponse.id){
+        updatePayInData.status = parseFloat(amount) === parseFloat(bankResponse.amount) ? Status.SUCCESS: Status.DISPUTE;
+    } else {
+        updatePayInData.status = Status.PENDING;
+    }
+
+    result.status = updatePayInData.status;
+    
+    if(updatePayInData.status === Status.SUCCESS){
+        // update merchant blanace
+        await updateMerchantBalanceDao({ id: payIn.merchant_id }, bankResponse.amount, conn);
+        // update vendor balance
+        await updateVendorBalanceDao({ user_id: bank.user_id }, bankResponse.amount, conn);
+    }
+
+    if(updatePayInData.status === Status.DISPUTE){
+        // update bank balance
+        await updateBanktBalanceDao({ id: bank.id }, payIn.amount, payIn.amount, conn);
+    }
+
+    await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+    merchantPayinCallback(payIn.config?.notify_url, result);
+    return result;
+
+}
 
 const checkIsPayInExpired = (payIn) => {
     if (Number(payIn.expiration_date) < Date.now() || payIn.is_url_expires) {
@@ -452,4 +575,35 @@ const checkIsPayInExpired = (payIn) => {
     }
 
     return false;
+}
+
+const updateCalculationTable = async (user_id, data, conn) => {
+    const calculations = await getCalculationDao({ user_id });
+    const calculate = calculations[0] || {
+        total_payin_count: 0,
+        total_payin_amount: 0,
+        total_payin_commission: 0,
+        current_balance: 0,
+        net_balance: 0,
+    };
+
+    if (calculate.id) {
+        await updateCalculationDao(calculate.id, {
+            total_payin_count: calculate.total_payin_count + 1,
+            total_payin_amount: calculate.total_payin_amount + data.amount,
+            total_payin_commission: calculate.total_payin_commission + data.payinCommission,
+            current_balance: calculate.current_balance + data.amount,
+            net_balance: calculate.net_balance + data.amount,
+        }, conn);
+    }
+
+}
+
+const getOtherSuccessPayIns = async (bankResponse) => {
+    let successData = await getPayInUrlsDao({ bank_response_id: bankResponse.id, status: Status.SUCCESS });
+    if (!successData.length) {
+        successData = await getPayInUrlsDao({ user_submitted_utr: bankResponse.utr, status: Status.SUCCESS });
+    }
+
+    return successData;
 }
