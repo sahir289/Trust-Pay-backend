@@ -34,7 +34,7 @@ const router = express.Router();
  *                 data:
  *                   type: object
  */
-router.get('/', isAuthenticated, tryCatchHandler(getCompany));
+router.get('/',  tryCatchHandler(getCompany));
 
 
 /**
@@ -101,7 +101,7 @@ router.post('/create-company', tryCatchHandler(createCompany));
  *       200:
  *         description: Company updated successfully.
  */
-router.put('/update-company/:id', isAuthenticated, tryCatchHandler(updateCompany));
+router.put('/update-company/:id',  tryCatchHandler(updateCompany));
 
 
 /**
@@ -123,7 +123,7 @@ router.put('/update-company/:id', isAuthenticated, tryCatchHandler(updateCompany
  *       200:
  *         description: Company deleted successfully.
  */
-router.delete('/delete-company/:id', isAuthenticated, tryCatchHandler(deleteCompany));
+router.delete('/delete-company/:id',  tryCatchHandler(deleteCompany));
 
 
 

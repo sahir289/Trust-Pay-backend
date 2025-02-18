@@ -67,7 +67,7 @@ export const executeQuery = async (query, queryParams = []) => {
 }
 
 export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = true) => {
-  const page = p || 1, pageSize = ps || 10, sortBy = s || "created_at", sortOrder = o || "DESC";
+  const page = p || 1, pageSize = ps || 10, sortBy = s || "created_at", sortOrder = o || "DESC", is_oboslete = true;
   let filters = {};
 
   if (isJson) {
@@ -95,6 +95,7 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
       values.push(value);
     }
   }
+  conditions.push(`is_obsolete = false`);
 
   if (conditions.length) {
     query += ` AND ${conditions.join(' AND ')}`;

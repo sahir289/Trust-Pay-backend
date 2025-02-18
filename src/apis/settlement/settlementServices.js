@@ -159,7 +159,7 @@ const deleteSettlementService = async (req, res) => {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-      const updatedData = await updateSettlementDao(id, {is_obsolete: true})    
+      const updatedData = await deleteSettlementDao(id, {is_obsolete: true})    
       return sendSuccess(res, updatedData, 'delete settlements successfully');
   } catch (error) {
     console.error('error getting while deleting settlement', error);
