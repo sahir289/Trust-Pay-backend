@@ -1,5 +1,5 @@
 import { CREATE_DESIGNATION_SCHEMA, UPDATE_DESIGNATION_SCHEMA } from '../../schemas/designationSchema.js';
-import { BadRequestError } from '../../utils/appErrors.js';
+import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
 import { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao } from './designationDao.js';
 

@@ -1,17 +1,21 @@
 import Joi from 'joi';
 
 export const CREATE_DESIGNATION_SCHEMA = Joi.object({
-  id: Joi.string().label('id').optional(),
-  user_id: Joi.string().label('user_id').optional(),
-  status: Joi.string().label('status').required(),
-  amount: Joi.number().label('amount').optional(),
-  method: Joi.string().label('method').optional(),
+  id: Joi.string().label('id').required(),
+  designation: Joi.string().label('designation').required(),
+  role_id: Joi.string().label('role_id').required(),
   created_by: Joi.string().label('created_by').required(),
-  company_id : Joi.string().label('company_id').required()
+  created_at: Joi.date().iso().label('created_at').required(),
+  updated_at: Joi.date().iso().label('updated_at').required(),
+  company_id: Joi.string().uuid().label('company_id').required()
 });
 export const UPDATE_DESIGNATION_SCHEMA = Joi.object({
-    designation : Joi.string().label('designation').optional(),
-});
+  designation: Joi.string().label('designation').required(),
+  role_id: Joi.string().uuid().label('role_id').required(),
+  created_by: Joi.string().label('created_by').required(),
+  created_at: Joi.date().iso().label('created_at').required(),
+  updated_at: Joi.date().iso().label('updated_at').required(),
+  company_id: Joi.string().uuid().label('company_id').required()});
 
 export const VALIDATE_DESIGNATION_BY_ID = Joi.object({
     id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({

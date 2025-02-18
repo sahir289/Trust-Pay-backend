@@ -20,18 +20,10 @@ const getSettlementService = async (req, res) => {
         throw new ValidationError(joiValidation.error);
     }
 
-    const merchantData = await getMerchantsDao( {user_id: id });
-    const vendorData = await getVendorsDao({ user_id: id });
-    if (merchantData?.length > 0) {     
-      const merchantUserData = await getSettlementDao({user_id : merchantData?.user_id});
-      return sendSuccess(res, merchantUserData, 'get settlements successfully');
-    }
+      
+      const data = await getSettlementDao({id : id});
+      return sendSuccess(res, data, 'get settlements successfully');
     
-    if(vendorData?.length>0) {
-      const vendorUserData = await getSettlementDao({user_id : vendorData?.user_id});
-      return sendSuccess(res, vendorUserData, 'get settlements successfully');
-    }
-      throw new BadRequestError('Error getting while getting settlements');    
   } catch (error) {
     console.error('error getting while  getting settlements', error);
     throw new BadRequestError('Error getting while getting settlements');
@@ -41,9 +33,7 @@ const getSettlementService = async (req, res) => {
 const  getSettlementServiceAll = async (req, res) => {
   try {
     const payload = req.query;
-    if (!payload) {
-      throw new CustomError(404, "id not found")
-    }
+    
       const settlementData = await getSettlementDao(payload);
       if(!settlementData){
           throw new BadRequestError('Error getting while getting settlements');    
@@ -101,13 +91,13 @@ const createSettlementService = async (req, res) => {
 
 const updateSettlementService = async (req, res) => {
   try {
+    const { id } = req.params;
     const payload = { ...req.body };
     const joiValidation = UPDATE_SETTLEMENT_SCHEMA.validate(payload);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
 
-    const { id } = req.params;
     if (!id) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
@@ -116,7 +106,7 @@ const updateSettlementService = async (req, res) => {
       payload.status = "SUCCESS";
       // calculation for merchant and vendor
       const data = await getSettlementDao({id : id})
-      if(data){
+      if(!data){
         throw new BadRequestError('payload is required');
       }
       const calculationData = await getCalculationDao({user_id : data?.user_id});
