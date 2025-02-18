@@ -2,9 +2,9 @@ import { BadRequestError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
 import { getConnection } from '../../utils/db.js';
 import { createUserDao, getUserByIdDao, getUsersByUserNameDao, getUsersDao } from './userDao.js';
-import { createMerchantService } from '../merchants/merchantService.js';
-import { createVendorService } from '../vendors/vendorService.js';
-import { getRoleDao } from '../roles/rolesDao.js';
+// import { createMerchantService } from '../merchants/merchantService.js';
+// import { createVendorService } from '../vendors/vendorService.js';
+// import { getRoleDao } from '../roles/rolesDao.js';
 
 const getUsersService = async () => {
   let conn;
