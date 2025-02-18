@@ -74,6 +74,7 @@ const getUsersByUserNameService = async (username) => {
   const createUserService = async (payload) => {
     let conn;
     try {
+      console.log(payload,"user from payload ")
       conn = await getConnection();
       const { user_name } = payload;
       const user = await getUsersByUserNameDao(conn, user_name);
@@ -84,43 +85,43 @@ const getUsersByUserNameService = async (username) => {
       const password = await createHash(payload.password);
       payload.password = password;
       const User = await createUserDao(conn, payload);
-      const role =await getRoleDao(payload.role_id)
-      if (role.role === "Merchant" || role.role === "Merchant_Admin" ) {
-        const merchantPayload={
-         "user_id":User.id,
-         "role_id":payload.role_id,
-         "company_id":payload.company_id,
-         "first_name":payload.first_name,
-         "last_name":payload.last_name,
-         "code":payload.code,
-         "min_payin": 0.0,
-         "max_payin": 0.0,
-          "payin_commission": 0.0,
-          "min_payout": 0.0,
-          "max_payout": 0.0,
-         "payout_commission": 0.0,
-        "balance": 0.0,
-          "created_by":User.id,
-          "updated_by":""
-        }
-        await createMerchantService(merchantPayload);
-      }
-      if (role.role === "Vendor" || role.role === "Vendor_Admin") {
-        const vendorPayload={
-         "user_id":User.id,
-         "role_id":payload.role_id,
-         "company_id":payload.company_id,
-         "first_name":payload.first_name,
-         "last_name":payload.last_name,
-         "code":payload.code,
-          "payin_commission": 0.0,
-         "payout_commission": 0.0,
-        "balance": 0.0,
-          "created_by":User.id,
-          "updated_by":""
-        }
-        await createVendorService(vendorPayload);
-      }
+      // const role =await getRoleDao(payload.role_id)
+      // if (role.role === "Merchant" || role.role === "Merchant_Admin" ) {
+      //   const merchantPayload={
+      //    "user_id":User.id,
+      //    "role_id":payload.role_id,
+      //    "company_id":payload.company_id,
+      //    "first_name":payload.first_name,
+      //    "last_name":payload.last_name,
+      //    "code":payload.code,
+      //    "min_payin": 0.0,
+      //    "max_payin": 0.0,
+      //     "payin_commission": 0.0,
+      //     "min_payout": 0.0,
+      //     "max_payout": 0.0,
+      //    "payout_commission": 0.0,
+      //   "balance": 0.0,
+      //     "created_by":User.id,
+      //     "updated_by":""
+      //   }
+      //   await createMerchantService(merchantPayload);
+      // }
+      // if (role.role === "Vendor" || role.role === "Vendor_Admin") {
+      //   const vendorPayload={
+      //    "user_id":User.id,
+      //    "role_id":payload.role_id,
+      //    "company_id":payload.company_id,
+      //    "first_name":payload.first_name,
+      //    "last_name":payload.last_name,
+      //    "code":payload.code,
+      //     "payin_commission": 0.0,
+      //    "payout_commission": 0.0,
+      //   "balance": 0.0,
+      //     "created_by":User.id,
+      //     "updated_by":""
+      //   }
+      //   await createVendorService(vendorPayload);
+      // }
       console.log('User Created Successfully');
       return User;
     } catch (error) {

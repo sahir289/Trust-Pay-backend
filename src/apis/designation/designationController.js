@@ -1,4 +1,5 @@
 import { BadRequestError } from '../../utils/appErrors.js';
+import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService } from './designationServices.js';
 
@@ -20,7 +21,7 @@ const createDesignation = async (req, res) => {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await createDesignationService(payload);
+    const data = await transactionWrapper(createDesignationService)(payload);
     console.log('get Designations successfully');
     return sendSuccess(res, data, 'get Designations successfully');
   } catch (error) {
