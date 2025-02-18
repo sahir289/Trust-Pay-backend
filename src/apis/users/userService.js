@@ -83,6 +83,7 @@ const getUsersByUserNameService = async (username) => {
         throw new BadRequestError('User already exists');
       }
       const password = await createHash(payload.password);
+      
       payload.password = password;
       const User = await createUserDao(conn, payload);
       // const role =await getRoleDao(payload.role_id)

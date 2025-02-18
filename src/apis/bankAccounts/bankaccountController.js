@@ -1,6 +1,7 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getBankaccountService, createBankaccountService, updateBankaccountService, deleteBankaccountService, getMerchantBankService } from './bankaccountServices.js';
+import { getMerchantBankDao } from './bankaccountDao.js';
+import { getBankaccountService, createBankaccountService, updateBankaccountService, deleteBankaccountService } from './bankaccountServices.js';
 
 const getBankaccount = async (req, res) => {
   try {
@@ -42,7 +43,7 @@ const updateBankaccount = async (req, res) => {
 
 const getMerchantBank = async (req, res) => {
   // Fetch the bank account details for the given merchant ID
-  const bankRes = await getMerchantBankService(req.params.id);
+  const bankRes = await getMerchantBankDao(req.params.id);
   return sendSuccess(res, bankRes, 'Bank details fetched successfully');
 }
 
