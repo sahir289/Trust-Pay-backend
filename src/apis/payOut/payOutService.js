@@ -1,8 +1,5 @@
 /* eslint-disable no-unused-vars */
-import {
-    BadRequestError,
-    DuplicateDataError,
-} from '../../utils/appErrors.js';
+import {BadRequestError,DuplicateDataError,} from '../../utils/appErrors.js';
 import { Buffer } from 'buffer';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { createPayoutDao, deletePayoutDao, getPayoutsDao, updatePayoutDao } from './payOutDao.js';
@@ -21,7 +18,6 @@ const createPayoutService = async (headers, payload) => {
     try {
         conn = await getConnection();
         await beginTransaction(conn);
-
         const { merchant_id, amount, merchant_order_id } = payload;
         const { code, user_id, api_key, config } = await getMerchantsDao({merchant_id : payload.id});
         const payoutAmount = Number(amount);

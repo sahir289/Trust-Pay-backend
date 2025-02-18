@@ -1,10 +1,10 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
 import { createCompanyDao, deleteCompanyDao, getCompanyDao, updateCompanyDao } from './companyDao.js';
-import { createRoleDao } from "../roles/rolesDao.js";
-import {createDesignationDao} from "../designation/designationDao.js"
 import { createUserService } from '../users/userService.js';
 import { transactionWrapper } from '../../utils/db.js';
+import { createRoleService } from '../roles/rolesService.js';
+import { createDesignationService } from '../designation/designationServices.js';
 const getCompanyService = async (id) => {
   let conn;
   try {
@@ -12,8 +12,8 @@ const getCompanyService = async (id) => {
     const result = await getCompanyDao(id);
     return result;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while company', error);
+    throw new BadRequestError('Error getting while company');
   } finally {
     if (conn) {
       try {
@@ -29,18 +29,19 @@ const createCompanyService = async (payload) => {
   try {
     const result = await createCompanyDao(payload);
     const roleName = {
-      "role": "Admin",
+      "role": "Userrerr",
       "company_id": result.id,
       "created_by":result.id
     };
-    const role = await createRoleDao(roleName)
+    const role = await createRoleService(roleName)
+    console.log(role,"role from roleName");
     const DesignationPayload = {
       "role_id": role.id,
       "company_id": result.id,
       "designation":role.role
     }
-    const Designation = await createDesignationDao(DesignationPayload);
-    
+    const Designation = await createDesignationService(DesignationPayload);
+    console.log(Designation,"designation from designation")
     const UserPayload = {
      "role_id":role.id,
      "company_id": result.id,
@@ -53,11 +54,12 @@ const createCompanyService = async (payload) => {
      "last_name":result.last_name,
      "code":result.first_name.split('').reverse().join('')
     }
-    await createUserService(UserPayload);
+ await createUserService(UserPayload);
+
     return result;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while company', error);
+    throw new BadRequestError('Error getting while company');
   }
 };
 
