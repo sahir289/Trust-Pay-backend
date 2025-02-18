@@ -12,7 +12,7 @@ const createRoleService = async (payload) => {
   try {
     const roleName = await getRoleDao({ role: payload?.role });
     if (roleName) {
-      console.error('Error while updating Role', 'error', error);
+      console.error('Error while updating Role', 'error');
     }
 
     const data = await createRoleDao(payload);

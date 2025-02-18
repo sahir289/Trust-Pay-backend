@@ -1,16 +1,23 @@
-import { BadRequestError, CustomError } from '../../utils/appErrors.js';
-import { createSettlementDao, deleteSettlementDao, getSettlementDao, getSettlementDaoAll, updateSettlementDao } from './settlementDao.js';
+import { BadRequestError, CustomError, ValidationError } from '../../utils/appErrors.js';
+import { createSettlementDao, deleteSettlementDao, getSettlementDao, updateSettlementDao } from './settlementDao.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getCalculationDao, updateCalculationDao } from '../calculation/calculationDao.js';
 import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getBankaccountDao, updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
+import { CREATE_SETTLEMENT_SCHEMA,UPDATE_SETTLEMENT_SCHEMA, VALIDATE_SETTLEMENT_BY_ID } from '../../schemas/settlementSchema.js';
 
 const getSettlementService = async (req, res) => {
   try {
-    const { id } = req.query;
+    
+    
+    const { id } = req.params;
     if (!id) {
       throw new CustomError(404, "id not found")
+    }
+    const joiValidation = VALIDATE_SETTLEMENT_BY_ID.validate(id);
+    if (joiValidation.error) {
+        throw new ValidationError(joiValidation.error);
     }
 
     const merchantData = await getMerchantsDao( {user_id: id });
@@ -31,14 +38,13 @@ const getSettlementService = async (req, res) => {
   }
 };
 
-
 const  getSettlementServiceAll = async (req, res) => {
   try {
     const payload = req.query;
     if (!payload) {
       throw new CustomError(404, "id not found")
     }
-      const settlementData = await getSettlementDaoAll(payload);
+      const settlementData = await getSettlementDao(payload);
       if(!settlementData){
           throw new BadRequestError('Error getting while getting settlements');    
       }
@@ -52,10 +58,15 @@ const  getSettlementServiceAll = async (req, res) => {
   }
 };
 
-
 const createSettlementService = async (req, res) => {
   try {
     const payload = req.body;
+    
+    const joiValidation = CREATE_SETTLEMENT_SCHEMA.validate(payload);
+    if (joiValidation.error) {
+        throw new ValidationError(joiValidation.error);
+    }
+
     if (!payload) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
@@ -91,13 +102,17 @@ const createSettlementService = async (req, res) => {
 const updateSettlementService = async (req, res) => {
   try {
     const payload = { ...req.body };
-  
+    const joiValidation = UPDATE_SETTLEMENT_SCHEMA.validate(payload);
+    if (joiValidation.error) {
+        throw new ValidationError(joiValidation.error);
+    }
+
     const { id } = req.params;
     if (!id) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    if (payload.config.refrence_id) {
+    if (payload.config.reference_id) {
       payload.status = "SUCCESS";
       // calculation for merchant and vendor
       const data = await getSettlementDao({id : id})
@@ -126,7 +141,7 @@ const updateSettlementService = async (req, res) => {
         await updateBankaccountDao(bankData[0].id, { balance: bankAcc });
       }
       const merchantData = await getMerchantsDao({ user_id: settlementData?.user_id })
-      if (merchantData.length > 0) {
+      if (merchantData) {
         console.log(merchantData, "merchantData")
         const merchantAcc = merchantData[0].balance - payload?.amount;
         // const updatedBankData = 
@@ -135,7 +150,7 @@ const updateSettlementService = async (req, res) => {
 
     }
     if (req.body.status == "INITIATED") {
-      payload.config.refrence_id = "";
+      payload.config.reference_id = "";
       payload.config.rejected_reason = "";
     }
     if (req.body.config.rejected_reason) {
@@ -167,4 +182,4 @@ const deleteSettlementService = async (req, res) => {
   }
 };
 
-export { getSettlementService, createSettlementService, updateSettlementService, deleteSettlementService, getSettlementServiceAll };
+export { getSettlementService, createSettlementService,getSettlementServiceAll, updateSettlementService, deleteSettlementService };

@@ -12,6 +12,7 @@ import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBa
 import { getUserByIdDao } from '../users/userDao.js';
 import { Status, Method } from '../../constants/index.js'
 import { calculateBalances } from '../../helpers/index.js';
+import { PAYOUT_DETAILS_SCHEMA, UPDATE_DETAILS_SCHEMA } from '../../schemas/payoutSchema.js';
 
 const createPayoutService = async (headers, payload) => {
     let conn;
@@ -19,6 +20,10 @@ const createPayoutService = async (headers, payload) => {
         conn = await getConnection();
         await beginTransaction(conn);
         const { merchant_id, amount, merchant_order_id } = payload;
+        const joiValidation = PAYOUT_DETAILS_SCHEMA.validate(payload);
+        if (joiValidation.error) {
+            throw new ValidationError(joiValidation.error);
+        }
         const { code, user_id, api_key, config } = await getMerchantsDao({merchant_id : payload.id});
         const payoutAmount = Number(amount);
         const balanceRestriction = config.balanceRestriction;
@@ -82,6 +87,10 @@ const getPayoutsService = async (payload) => {
 
 const updatePayoutService = async (conn, id, payload) => {
     // Set default statuses based on input conditions
+    const joiValidation = UPDATE_DETAILS_SCHEMA.validate(payload);
+        if (joiValidation.error) {
+            throw new ValidationError(joiValidation.error);
+        }
     if (payload.utr_id && !payload.status) Object.assign(payload, { status: Status.SUCCESS, approved_at: new Date() });
     if (payload.rejected_reason) Object.assign(payload, { status: Status.REJECTED, rejected_at: new Date() });
     if (payload.status === Status.INITIATED) Object.assign(payload, { utr_id: "", rejected_reason: "" });

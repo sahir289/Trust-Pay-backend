@@ -3,8 +3,8 @@ import { beginTransaction, commit, getConnection, rollback } from '../../utils/d
 import { createCompanyDao, deleteCompanyDao, getCompanyDao, updateCompanyDao } from './companyDao.js';
 import { createUserService } from '../users/userService.js';
 import { transactionWrapper } from '../../utils/db.js';
+import { createDesignationService } from '../designation/designationServices.js';
 import { createRoleDao } from '../roles/rolesDao.js';
-import { createDesignationDao, getDesignationDao } from '../designation/designationDao.js';
 const getCompanyService = async (id) => {
   let conn;
   try {
@@ -40,30 +40,27 @@ const createCompanyService = async (payload) => {
       company_id: result.id,
       created_by: result.id
     };
-    const designation = await createRoleDao(conn, roleName);
-    const designationCheckName = await getDesignationDao({ role: payload?.role });
-    if (designationCheckName) {
-      throw new BadRequestError('Merchant does not exist');
-    }
+    const role = await createRoleDao(conn, roleName);
+    
     const DesignationPayload = {
       role_id: role.id,
       company_id: result.id,
       designation: role.role
     };
-    const Designation = await createDesignationDao(DesignationPayload);
+    const Designation = await createDesignationService(DesignationPayload);
 
     // Step 5: Create user
     const UserPayload = {
-      role_id: role.id,
+      role_id: Designation.id,
       company_id: result.id,
       designation_id: Designation.id,
-      user_name: role.role,
-      email: result.email,
+      user_name: Designation.role,
+      email: Designation.email,
       contact_no: result.contact_no,
       password: "12345", // Ensure you have proper hashing for the password
-      first_name: result.first_name,
-      last_name: result.last_name,
-      code: result.first_name.split('').reverse().join('')
+      first_name: Designation.first_name,
+      last_name: Designation.last_name,
+      code: Designation.first_name.split('').reverse().join('')
     };
     const userCreated = await createUserService(UserPayload);
     console.log(userCreated, "333");

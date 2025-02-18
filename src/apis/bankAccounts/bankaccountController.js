@@ -1,10 +1,25 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getMerchantBankDao } from './bankaccountDao.js';
+import { getBankaccountDao, getMerchantBankDao } from './bankaccountDao.js';
 import { getBankaccountService, createBankaccountService, updateBankaccountService, deleteBankaccountService } from './bankaccountServices.js';
 
+const getBankaccountALL = async (req, res) => {
+  try {
+    
+    const data = await getBankaccountDao();
+    console.log('get Banks successfully');
+    return sendSuccess(res, data, 'get Banks successfully');
+  } catch (error) {
+    console.error('error getting while getting banks', error);
+  }
+};
 const getBankaccount = async (req, res) => {
   try {
+    
+    const joiValidation = VVALIDATE_BANK_RESPONSE_BY_ID.validate(payload);
+    if (joiValidation.error) {
+        throw new ValidationError(joiValidation.error);
+    }
     const payload = req.query.search;
     const data = await getBankaccountService(payload);
     console.log('get Banks successfully');
@@ -17,6 +32,7 @@ const getBankaccount = async (req, res) => {
 const createBankaccount = async (req, res) => {
   try {
     const payload = req.body;
+    PAYOUT_DETAILS_SCHEMA
     if (!payload) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
@@ -61,4 +77,4 @@ const deleteBankaccount = async (req, res) => {
     console.error('error getting while deleting banks', error);
   }
 }
-export { getBankaccount, createBankaccount, updateBankaccount, deleteBankaccount, getMerchantBank };
+export { getBankaccount, createBankaccount, updateBankaccount,getBankaccountALL, deleteBankaccount, getMerchantBank };

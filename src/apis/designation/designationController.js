@@ -1,5 +1,4 @@
 import { BadRequestError } from '../../utils/appErrors.js';
-import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService } from './designationServices.js';
 
