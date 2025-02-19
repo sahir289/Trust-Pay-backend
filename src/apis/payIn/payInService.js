@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import { Currency, Status, Type } from "../../constants/index.js";
-import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao } from "./payInDao.js";
+import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao, getPayinsDao } from "./payInDao.js";
 import { getMerchantsService } from "../merchants/merchantService.js";
 import { AccessDeniedError, BadRequestError, NotFoundError } from "../../utils/appErrors.js";
 import { v4 as uuidv4 } from "uuid";
@@ -449,7 +449,12 @@ export const resetDepositService = async (merchant_order_id) => {
     //     return Error("Transaction status is SUCCESS or FAILED, no update applied");
     // }
 }
+export const getPayinsService = async (payload) => {
+    const data = await getPayinsDao(payload);
 
+    console.log('Fetched Payins successfully', 'info');
+    return data;
+};
 
 const checkIsPayInExpired = (payIn) => {
     if (Number(payIn.expiration_date) < Date.now() || payIn.is_url_expires) {

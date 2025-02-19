@@ -20,3 +20,16 @@ export const updatePayInUrlDao = async (id, data) => {
     return result.rows[0];
 }
 
+export const getPayinsDao = async (
+    search,
+    page,
+    pageSize,
+    sortBy,
+    sortOrder
+) => {
+    const baseQuery = `SELECT * FROM "${tableName}" WHERE 1=1`;
+    const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.PAYIN, page, pageSize, sortBy, sortOrder, typeof search != 'string');
+    // Execute query
+    const result = await executeQuery(sql, queryParams);
+    return result.rows;
+};
