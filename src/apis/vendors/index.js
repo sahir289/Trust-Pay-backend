@@ -31,9 +31,10 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get('/:id', isAuthenticated, tryCatchHandler(getVendorById));
 router.get('/getAll', isAuthenticated, tryCatchHandler(getVendors));
 
+
+router.get('/:id', isAuthenticated, tryCatchHandler(getVendorById));
 /**
  * @swagger
  * /vendors/create-vendor:

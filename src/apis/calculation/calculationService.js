@@ -29,9 +29,9 @@ const createCalculationService = async (payload) => {
 
 
 // Service to update an existing calculation record
-const updateCalculationService = async (user_id, payload) => {
+const updateCalculationService = async (conn,id, payload) => {
   try {
-    const data = await transactionWrapper(updateCalculationDao)(user_id, payload);
+    const data = await updateCalculationDao(conn,id, payload);
     return data;
   } catch (error) {
     console.error('Error while updating calculation record:', error);
@@ -41,10 +41,10 @@ const updateCalculationService = async (user_id, payload) => {
 
 
 // Service to mark a calculation record as obsolete (soft delete)
-const deleteCalculationService = async (id) => {
+const deleteCalculationService = async (conn,id) => {
   try {
     const userData = { is_obsolete: true };
-    const data = await transactionWrapper(deleteCalculationDao)(id, userData);
+    const data = await deleteCalculationDao(conn,id, userData);
     return data;
   } catch (error) {
     console.error('Error while deleting calculation record:', error);

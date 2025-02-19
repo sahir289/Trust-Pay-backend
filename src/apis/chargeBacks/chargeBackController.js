@@ -1,9 +1,13 @@
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { createChargeBackService, getChargeBacksService, updateChargeBackService, deleteChargeBackService} from './chargeBackService.js';
-
+import { VALIDATE_CHARGEBACK_BY_ID,VALIDATE_CHARGEBACK_SCHEMA,VALIDATE_DELETE_CHARGEBACK,VALIDATE_UPDATE_CHARGEBACK_SCHEMA } from '../../schemas/chargeBackSchema.js';
 
 const createChargeBack = async (req, res) => {
     try {
+        const { error } = VALIDATE_CHARGEBACK_SCHEMA.validate(req.body);
+        if (error) {
+            return sendError(res, error.details[0].message, 'Validation Error');
+        }
         const payload = req.body;
 
         // Call the service to create the ChargeBack
@@ -25,6 +29,10 @@ const createChargeBack = async (req, res) => {
 
 const getChargeBacksById = async (req, res) => {
     try {
+        const { error } = VALIDATE_CHARGEBACK_BY_ID.validate(req.params);
+        if (error) {
+            return sendError(res, error.details[0].message, 'Validation Error');
+        }
         const {id} = req.params;
 
         // Call the service to create the ChargeBack
@@ -68,6 +76,15 @@ const getChargeBacks = async (req, res) => {
 
 const updateChargeBack = async (req, res) => {
     try {
+        const { error: paramsError } =VALIDATE_DELETE_CHARGEBACK.validate(req.params);
+        if (paramsError) {
+            return sendError(res, paramsError.details[0].message, 'Validation Error');
+        }
+        // Validate body (fields for update)
+        const { error: bodyError } = VALIDATE_UPDATE_CHARGEBACK_SCHEMA.validate(req.body);
+        if (bodyError) {
+            return sendError(res, bodyError.details[0].message, 'Validation Error');
+        }
         const payload = req.body;
         const { id } = req.params;  
          
@@ -90,6 +107,10 @@ const updateChargeBack = async (req, res) => {
 
 const deleteChargeBack = async (req, res) => {
     try {
+        const { error } = VALIDATE_DELETE_CHARGEBACK.validate(req.params);
+        if (error) {
+            return sendError(res, error.details[0].message, 'Validation Error');
+        }
         const { id } = req.params;  // Assuming the ChargeBack ID is passed as a parameter
 
         // Call the service to delete the ChargeBack

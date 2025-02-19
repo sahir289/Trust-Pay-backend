@@ -38,15 +38,22 @@ const createCalculationDao = async (data, conn) => {
     //   updatedData.current_balance = Number(previousData.current_balance) - Number(data.chargeback_amount);
     // }
 
-const updateCalculationDao = async (id, data) => {
-
+const updateCalculationDao = async (conn,id, data) => {
     const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, { id });
+    if (conn && conn.query) {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
+  }
     const result = await executeQuery(sql, params);
     return result.rows[0]; 
 };
 
-const deleteCalculationDao = async (id, data) => {
+const deleteCalculationDao = async (conn,id, data) => {
   const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, { id });
+  if (conn && conn.query) {
+    const result = await conn.query(sql, params);
+    return result.rows[0];
+}
   const result = await executeQuery(sql, params);
   return result.rows[0];
 }

@@ -1,11 +1,14 @@
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { createMerchantService, deleteMerchantService, getMerchantsService, updateMerchantService } from './merchantService.js';
-
+import { VALIDATE_UPDATE_MERCHANT_STATUS,VALIDATE_MERCHANT_BY_ID,VALIDATE_MERCHANT_SCHEMA } from '../../schemas/merchantSchema.js';
 
 const createMerchant = async (req, res) => {
     try {
+        const { error } = VALIDATE_MERCHANT_SCHEMA.validate(req.body);
+        if (error) {
+            return sendError(res, error.details[0].message, 'Validation Error');
+        }
         const payload = req.body;
-
         // Call the service to create the Merchant
         const result = await createMerchantService(payload);
 
@@ -31,7 +34,7 @@ const getMerchants = async (req, res) => {
         const data = await getMerchantsService(payload);
 
         // Log success message
-        console.log('getMerchants successfully', data);
+        console.log('get Merchants successfully', data);
         // Send success response
         return sendSuccess(res, data, 'Merchants fetched successfully');
     } catch (error) {
@@ -44,16 +47,20 @@ const getMerchants = async (req, res) => {
 };
 const getMerchantsById = async (req, res) => {
     try {
+        const { error } = VALIDATE_MERCHANT_BY_ID.validate(req.params);
+        if (error) {
+            return sendError(res, error.details[0].message, 'Validation Error');
+        }
         const payload = req.params;
 
         // Fetch merchants data from the service
         const data = await getMerchantsService({id:payload});
 
         // Log success message
-        console.log('getMerchants successfully', data);
+        console.log('get Merchant successfully', data);
 
         // Send success response
-        return sendSuccess(res, data, 'Merchants fetched successfully');
+        return sendSuccess(res, data, 'Merchant fetched successfully');
     } catch (error) {
         // Log error
         console.error('error getting while fetching Merchants Data', error);
@@ -66,6 +73,16 @@ const getMerchantsById = async (req, res) => {
 
 const updateMerchant = async (req, res) => {
     try {
+        const { error: paramsError } =VALIDATE_MERCHANT_BY_ID.validate(req.params);
+        if (paramsError) {
+            return sendError(res, paramsError.details[0].message, 'Validation Error');
+        }
+        // Validate body (fields for update)
+        const { error: bodyError } = VALIDATE_UPDATE_MERCHANT_STATUS.validate(req.body);
+        if (bodyError) {
+            return sendError(res, bodyError.details[0].message, 'Validation Error');
+        }
+
         const payload = req.body;
         const { id } = req.params;  // Assuming the Merchant ID is passed as a parameter
 
@@ -88,11 +105,13 @@ const updateMerchant = async (req, res) => {
 
 const deleteMerchant = async (req, res) => {
     try {
+        const { error } = VALIDATE_MERCHANT_BY_ID.validate(req.params);
+        if (error) {
+            return sendError(res, error.details[0].message, 'Validation Error');
+        }
         const { id } = req.params;  // Assuming the Merchant ID is passed as a parameter
-
         // Call the service to delete the Merchant
         const result = await deleteMerchantService(id);
-
         // Log success message
         console.log('Merchant deleted successfully',  result);
 

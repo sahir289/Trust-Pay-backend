@@ -88,7 +88,7 @@ router.post('/create-calculation',isAuthenticated, tryCatchHandler(createCalcula
  *       404:
  *         description: Calculation not found
  */
-router.put('/update-calculation/:user_id',isAuthenticated, tryCatchHandler(updateCalculation));
+router.put('/update-calculation/:id',isAuthenticated, tryCatchHandler(updateCalculation));
 
 /**
  * @swagger
@@ -109,6 +109,6 @@ router.put('/update-calculation/:user_id',isAuthenticated, tryCatchHandler(updat
  *       404:
  *         description: Calculation not found
  */
-router.put('/delete-calculation/:user_id',isAuthenticated, tryCatchHandler(deleteCalculation));
+router.delete('/delete-calculation/:id',isAuthenticated, tryCatchHandler(deleteCalculation));
 
 export default router;
