@@ -43,6 +43,20 @@ const deleteCalculationDao = async (id, data) => {
   return result.rows[0];
 }
 
+export const updateCalculationBalanceDao = async (filters, data, conn) => {
+  const specialFields = {};
+  Object.keys(data).forEach(el => {
+    specialFields[el] = "+";
+  })
+  const [sql, params] = buildUpdateQuery(tableName, data, filters, specialFields);
+  if (conn && conn.query) {
+    const result = await conn.query(sql, params);
+    return result.rows[0];
+  }
+  const result = await executeQuery(sql, params);
+  return result[0];
+}
+
 
 
 export { getCalculationDao, createCalculationDao, updateCalculationDao, deleteCalculationDao };
