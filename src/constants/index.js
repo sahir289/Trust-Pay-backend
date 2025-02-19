@@ -77,4 +77,5 @@ export const tableName = {
     BANK_ACCOUNT: 'BankAccount',
     USER_HIERARCHY: 'UserHierarchy',
     SETTLEMENT: 'Settlement',
+    BANK_RESPONSE: 'BankResponse'
 }
