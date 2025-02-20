@@ -160,20 +160,28 @@ export const transactionWrapper = (fn) => async (...args) => {
   let conn;
   try {
     conn = await getConnection();
-    await beginTransaction(conn);
-    const data = await Promise.resolve(fn(conn, ...args));
-    await commit(conn);
+    await beginTransaction(conn); // Ensure transaction starts properly
+
+    const data = await fn(conn, ...args); // Ensure fn expects conn as the first argument
+
+    await commit(conn); // Commit only if no errors
     return data;
   } catch (error) {
-    await rollback(conn, false); // Rollback the transaction if an error occurs
-    console.error('Error while executing query', error);
-    throw new DbError(error.message);
+    if (conn) {
+      try {
+        await rollback(conn); // Explicit rollback
+        console.error('Transaction rolled back due to error:', error);
+      } catch (rollbackError) {
+        console.error('Rollback failed:', rollbackError);
+      }
+    }
+    throw new DbError(error.message); // Rethrow error
   } finally {
     if (conn) {
       console.log('Releasing connection');
-      conn.release(); // Release the connection back to the pool
+      conn.release(); // Always release connection
     }
   }
-}
+};
 
 export { pool, getConnection, beginTransaction, commit, rollback };
