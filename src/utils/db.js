@@ -133,23 +133,37 @@ export const buildInsertQuery = (tableName, data) => {
   return [query, Object.values(data)];
 }
 
-export const buildUpdateQuery = (tableName, data, whereCondition) => {
-  const values = Object.values(data);
-  const whereValues = Object.values(whereCondition);
-  const keys = Object.keys(data).map((key, i) => `"${key}" = $${i + 1}`);
-  const whereKeys = Object.keys(whereCondition).map((key, i) => `"${key}" = $${i + 1 + keys.length}`);
-  const query = `UPDATE "${tableName}" SET ${keys.join(', ')} WHERE ${whereKeys.join(' AND ')} RETURNING *`;
-  const params = [...values, ...whereValues];
-  return [query, params];
-}
+// specialFields { balance: "+" }
+// whereCondition { id: 1 }
+// data { balance: 1000 }
+export const buildUpdateQuery = (tableName, data, whereCondition, specialFields = {}) => {
+  const values = [];
+
+  const setClause = Object.entries(data).map(([key, value]) => {
+    values.push(value);
+    return specialFields[key]
+      ? `"${key}" = "${key}" ${specialFields[key]} $${values.length}`  // Use specified operator
+      : `"${key}" = $${values.length}`;
+  });
+
+  const whereClause = Object.entries(whereCondition).map(([key, value]) => {
+    values.push(value);
+    return `"${key}" = $${values.length}`;
+  });
+
+  const query = `UPDATE "${tableName}" SET ${setClause.join(', ')} WHERE ${whereClause.join(' AND ')} RETURNING *`;
+  return [query, values];
+};
+
 
 export const transactionWrapper = (fn) => async (...args) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    await Promise.resolve(fn(conn, ...args));
+    const data = await Promise.resolve(fn(conn, ...args));
     await commit(conn);
+    return data;
   } catch (error) {
     await rollback(conn, false); // Rollback the transaction if an error occurs
     console.error('Error while executing query', error);

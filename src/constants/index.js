@@ -80,5 +80,6 @@ export const tableName = {
     USER_HIERARCHY: 'UserHierarchy',
     SETTLEMENT: 'Settlement',
     CHECK_UTR_HISTORY :'CheckUtrHistory',
-    RESET_DATA_HISTORY : 'ResetDataHistory'
+    RESET_DATA_HISTORY : 'ResetDataHistory',
+    BANK_RESPONSE: 'BankResponse'
 }
