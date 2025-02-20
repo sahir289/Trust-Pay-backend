@@ -23,7 +23,7 @@ const getCalculationDao = async (search,
 
 
 const createCalculationDao = async (data, conn) => {
-  const [sql, params] = buildInsertQuery(tableName, data)
+  const [sql, params] = buildInsertQuery(tableName.CALCULATION, data)
   if (conn && conn.query) {
     const result = await conn.query(sql, params);
     return result.rows[0];

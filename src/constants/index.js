@@ -60,6 +60,8 @@ export const columns = {
     VENDOR: ['id', 'role_id', 'user_id', 'first_name', 'last_name', 'code', 'payin_commission', 'payout_commission', 'balance', 'created_by', 'updated_by', 'config', 'company_id', 'created_at', 'updated_at', 'is_obsolete'],
     CHAREBACK: ['id', 'sno', 'user', 'merchant_user_id', 'vendor_user_id', 'payin_id', 'bank_acc_id', 'amount', 'when', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     USER_HIERARCHY: ['id', 'user_id', 'role_id', 'role_id', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
+    CHECK_UTR_HISTORY: ['id', 'sno', 'payin_id', 'utr', 'created_by', 'updated_by', 'created_at', 'updated_at', 'company_id', 'is_obsolete','config'],
+    RESET_DATA_HISTORY: ['id', 'sno', 'payin_id', 'pre_status', 'created_by',  'updated_by', 'created_at', 'updated_at', 'company_id', 'is_obsolete', 'config']
 }
 
 export const tableName = {
@@ -77,4 +79,6 @@ export const tableName = {
     BANK_ACCOUNT: 'BankAccount',
     USER_HIERARCHY: 'UserHierarchy',
     SETTLEMENT: 'Settlement',
+    CHECK_UTR_HISTORY :'CheckUtrHistory',
+    RESET_DATA_HISTORY : 'ResetDataHistory'
 }

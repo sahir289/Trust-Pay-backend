@@ -1,5 +1,5 @@
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
-
+import { columns } from "../../constants/index.js";
 const tableName = 'Payin';
 
 export const generatePayInUrlDao = async (data) => {
