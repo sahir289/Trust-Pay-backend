@@ -1,28 +1,28 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createCompany, deleteCompany, getCompany, updateCompany } from './companyController.js';
+import { createResetHistory, deleteResetHistory, getResetHistory, updateResetHistory } from './ResetHistoryController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
 
 /**
  * @swagger
- * /company:
+ * /ResetHistory:
  *   get:
- *     summary: Get Company by ID
- *     description: Retrieves details of a specific company by its ID.
+ *     summary: Get ResetHistory by ID
+ *     description: Retrieves details of a specific ResetHistory by its ID.
  *     tags:
- *       - Company
+ *       - ResetHistory
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the company to retrieve.
+ *         description: The ID of the ResetHistory to retrieve.
  *     responses:
  *       200:
- *         description: Company details retrieved successfully.
+ *         description: ResetHistory details retrieved successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -30,21 +30,20 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "Company retrieved successfully"
+ *                   example: "ResetHistory retrieved successfully"
  *                 data:
  *                   type: object
  */
-router.get('/', isAuthenticated, tryCatchHandler(getCompany));
-
+router.get('/', isAuthenticated, tryCatchHandler(getResetHistory));
 
 /**
  * @swagger
- * /company/create-company:
+ * /ResetHistory/create-ResetHistory:
  *   post:
- *     summary: Create a new Company
- *     description: Creates a new company with the provided details.
+ *     summary: Create a new ResetHistory
+ *     description: Creates a new ResetHistory with the provided details.
  *     tags:
- *       - Company
+ *       - ResetHistory
  *     requestBody:
  *       required: true
  *       content:
@@ -52,12 +51,12 @@ router.get('/', isAuthenticated, tryCatchHandler(getCompany));
  *           schema:
  *             type: object
  *             properties:
- *               companyName:
+ *               ResetHistoryName:
  *                 type: string
  *                 example: "Tech Solutions Ltd."
  *     responses:
  *       201:
- *         description: Company created successfully.
+ *         description: ResetHistory created successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -65,28 +64,27 @@ router.get('/', isAuthenticated, tryCatchHandler(getCompany));
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "Company created successfully"
+ *                   example: "ResetHistory created successfully"
  *                 data:
  *                   type: object
  */
-router.post('/create-company', tryCatchHandler(createCompany));
-
+router.post('/create-ResetHistory', isAuthenticated, tryCatchHandler(createResetHistory));
 
 /**
  * @swagger
- * /company/update-company/{id}:
+ * /ResetHistory/update-ResetHistory/{id}:
  *   put:
- *     summary: Update an existing Company
- *     description: Updates the details of a specific company by ID.
+ *     summary: Update an existing ResetHistory
+ *     description: Updates the details of a specific ResetHistory by ID.
  *     tags:
- *       - Company
+ *       - ResetHistory
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the company to update.
+ *         description: The ID of the ResetHistory to update.
  *     requestBody:
  *       required: true
  *       content:
@@ -94,37 +92,34 @@ router.post('/create-company', tryCatchHandler(createCompany));
  *           schema:
  *             type: object
  *             properties:
- *               companyName:
+ *               ResetHistoryName:
  *                 type: string
- *                 example: "Updated Company Name"
+ *                 example: "Updated ResetHistory Name"
  *     responses:
  *       200:
- *         description: Company updated successfully.
+ *         description: ResetHistory updated successfully.
  */
-router.put('/update-company/:id', isAuthenticated, tryCatchHandler(updateCompany));
-
+router.put('/update-ResetHistory/:id', isAuthenticated, tryCatchHandler(updateResetHistory));
 
 /**
  * @swagger
- * /company/delete-company/{id}:
+ * /ResetHistory/delete-ResetHistory/{id}:
  *   delete:
- *     summary: Delete a Company
- *     description: Deletes a company by ID.
+ *     summary: Delete a ResetHistory
+ *     description: Deletes a ResetHistory by ID.
  *     tags:
- *       - Company
+ *       - ResetHistory
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the company to delete.
+ *         description: The ID of the ResetHistory to delete.
  *     responses:
  *       200:
- *         description: Company deleted successfully.
+ *         description: ResetHistory deleted successfully.
  */
-router.delete('/delete-company/:id', isAuthenticated, tryCatchHandler(deleteCompany));
-
-
+router.delete('/delete-ResetHistory/:id', isAuthenticated, tryCatchHandler(deleteResetHistory));
 
 export default router;

@@ -1,6 +1,7 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import {createComplaints,deleteComplaints,getComplaints,updateComplaints} from "./complaintsController.js";
+import {createComplaints,deleteComplaints,getComplaints,getComplaintsById,updateComplaints} from "./complaintsController.js";
+import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
 
@@ -23,7 +24,9 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/', tryCatchHandler(getComplaints));
+router.get('/getAll',isAuthenticated, tryCatchHandler(getComplaints));
+
+router.get('/:id',isAuthenticated, tryCatchHandler(getComplaintsById));
 
 /**
  * @swagger
@@ -50,7 +53,7 @@ router.get('/', tryCatchHandler(getComplaints));
  *       400:
  *         description: Bad request
  */
-router.post('/create-complaint', tryCatchHandler(createComplaints));
+router.post('/create-complaint',isAuthenticated, tryCatchHandler(createComplaints));
 
 /**
  * @swagger
@@ -83,7 +86,7 @@ router.post('/create-complaint', tryCatchHandler(createComplaints));
  *         description: Complaint not found
  */
 
-router.put('/update-complaint/:id', tryCatchHandler(updateComplaints));
+router.put('/update-complaint/:id',isAuthenticated, tryCatchHandler(updateComplaints));
 
 /**
  * @swagger
@@ -105,6 +108,6 @@ router.put('/update-complaint/:id', tryCatchHandler(updateComplaints));
  *         description: Complaint not found
  */
 
-router.delete('/delete-complaint/:id', tryCatchHandler(deleteComplaints));
+router.delete('/delete-complaint/:id',isAuthenticated, tryCatchHandler(deleteComplaints));
 
 export default router;

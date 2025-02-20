@@ -145,7 +145,7 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getUserById));
  *                         type: string
  *                         example: "john_doe"
  */
-router.post('/create-user', isAuthenticated,  tryCatchHandler(createUser));
+router.post('/create-user',  tryCatchHandler(createUser));
 
 
 

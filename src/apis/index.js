@@ -16,6 +16,8 @@ import settlement from './settlement/index.js'
 import userHierarchy from './userHierarchy/index.js'
 import payOut from './payOut/index.js'
 import complaints from './complaints/index.js'
+import reports from './reports/index.js'
+
 
 // Add your newly create component routes here with route prefix.
 
@@ -32,12 +34,13 @@ router.use('/roles', roles);
 router.use('/calculation', calculation);
 router.use('/payIn', payIn);
 router.use('/designation', designation)
-router.use('/bankaccount', bankaccount)
+router.use('/bankAccount', bankaccount)
 router.use('/company', company)
 router.use('/settlement', settlement)
 router.use('/userHierarchy', userHierarchy)
 router.use('/payout', payOut)
 router.use('/complaints',complaints)
+router.use('/reports',reports)
 
 /* Make sure while changing below parentrouter.
 This is top level router created to enhance in future like versioning, route prefix etc. */

@@ -1,28 +1,28 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createCompany, deleteCompany, getCompany, updateCompany } from './companyController.js';
+import { createCheckUtr, deleteCheckUtr, getCheckUtr, updateCheckUtr } from './CheckUtrController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
 
 /**
  * @swagger
- * /company:
+ * /CheckUtr:
  *   get:
- *     summary: Get Company by ID
- *     description: Retrieves details of a specific company by its ID.
+ *     summary: Get CheckUtr by ID
+ *     description: Retrieves details of a specific CheckUtr by its ID.
  *     tags:
- *       - Company
+ *       - CheckUtr
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the company to retrieve.
+ *         description: The ID of the CheckUtr to retrieve.
  *     responses:
  *       200:
- *         description: Company details retrieved successfully.
+ *         description: CheckUtr details retrieved successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -30,21 +30,20 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "Company retrieved successfully"
+ *                   example: "CheckUtr retrieved successfully"
  *                 data:
  *                   type: object
  */
-router.get('/', isAuthenticated, tryCatchHandler(getCompany));
-
+router.get('/', isAuthenticated, tryCatchHandler(getCheckUtr));
 
 /**
  * @swagger
- * /company/create-company:
+ * /CheckUtr/create-CheckUtr:
  *   post:
- *     summary: Create a new Company
- *     description: Creates a new company with the provided details.
+ *     summary: Create a new CheckUtr
+ *     description: Creates a new CheckUtr with the provided details.
  *     tags:
- *       - Company
+ *       - CheckUtr
  *     requestBody:
  *       required: true
  *       content:
@@ -52,12 +51,12 @@ router.get('/', isAuthenticated, tryCatchHandler(getCompany));
  *           schema:
  *             type: object
  *             properties:
- *               companyName:
+ *               CheckUtrName:
  *                 type: string
  *                 example: "Tech Solutions Ltd."
  *     responses:
  *       201:
- *         description: Company created successfully.
+ *         description: CheckUtr created successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -65,28 +64,27 @@ router.get('/', isAuthenticated, tryCatchHandler(getCompany));
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "Company created successfully"
+ *                   example: "CheckUtr created successfully"
  *                 data:
  *                   type: object
  */
-router.post('/create-company', tryCatchHandler(createCompany));
-
+router.post('/create-CheckUtr', isAuthenticated, tryCatchHandler(createCheckUtr));
 
 /**
  * @swagger
- * /company/update-company/{id}:
+ * /CheckUtr/update-CheckUtr/{id}:
  *   put:
- *     summary: Update an existing Company
- *     description: Updates the details of a specific company by ID.
+ *     summary: Update an existing CheckUtr
+ *     description: Updates the details of a specific CheckUtr by ID.
  *     tags:
- *       - Company
+ *       - CheckUtr
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the company to update.
+ *         description: The ID of the CheckUtr to update.
  *     requestBody:
  *       required: true
  *       content:
@@ -94,37 +92,34 @@ router.post('/create-company', tryCatchHandler(createCompany));
  *           schema:
  *             type: object
  *             properties:
- *               companyName:
+ *               CheckUtrName:
  *                 type: string
- *                 example: "Updated Company Name"
+ *                 example: "Updated CheckUtr Name"
  *     responses:
  *       200:
- *         description: Company updated successfully.
+ *         description: CheckUtr updated successfully.
  */
-router.put('/update-company/:id', isAuthenticated, tryCatchHandler(updateCompany));
-
+router.put('/update-CheckUtr/:id', isAuthenticated, tryCatchHandler(updateCheckUtr));
 
 /**
  * @swagger
- * /company/delete-company/{id}:
+ * /CheckUtr/delete-CheckUtr/{id}:
  *   delete:
- *     summary: Delete a Company
- *     description: Deletes a company by ID.
+ *     summary: Delete a CheckUtr
+ *     description: Deletes a CheckUtr by ID.
  *     tags:
- *       - Company
+ *       - CheckUtr
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the company to delete.
+ *         description: The ID of the CheckUtr to delete.
  *     responses:
  *       200:
- *         description: Company deleted successfully.
+ *         description: CheckUtr deleted successfully.
  */
-router.delete('/delete-company/:id', isAuthenticated, tryCatchHandler(deleteCompany));
-
-
+router.delete('/delete-CheckUtr/:id', isAuthenticated, tryCatchHandler(deleteCheckUtr));
 
 export default router;
