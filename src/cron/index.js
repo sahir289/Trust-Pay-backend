@@ -31,12 +31,7 @@ router.get('/bankCron', (req, res) => {
       );
     res.json({ message: 'Cron job is running for Banks' });
 },collectBankData);
-// console.log(
-//     "Calling gatherAllData CRONJOB with type: H and timezone: Asia/Kolkata"
-//   );
-//   gatherAllData("H", "Asia/Kolkata");
-//   res.send("Cron job initialized");
-// })
+
 /**
  * @swagger
  * /calculationCron:

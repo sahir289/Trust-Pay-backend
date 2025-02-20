@@ -34,7 +34,7 @@ const router = express.Router();
 router.get('/:id', isAuthenticated, tryCatchHandler(getMerchantsById));
 
 
-router.get('/getAll', isAuthenticated, tryCatchHandler(getMerchants));
+router.get('/', isAuthenticated, tryCatchHandler(getMerchants));
 /**
  * @swagger
  * /merchants/create-merchant:

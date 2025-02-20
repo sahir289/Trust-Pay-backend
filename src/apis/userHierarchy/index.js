@@ -31,7 +31,7 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get('/getAll', isAuthenticated, tryCatchHandler(getUserHierarchys));
+router.get('/', isAuthenticated, tryCatchHandler(getUserHierarchys));
 router.get('/:id', isAuthenticated, tryCatchHandler(getUserHierarchysById));
 
 /**

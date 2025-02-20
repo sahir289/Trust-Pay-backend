@@ -16,7 +16,7 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
       is_notified: 'false',
       updated_at: startTime,
     });
-    if (!(payins.length > 0)) {
+    if (!payins.length) {
      return
     }
     await processPayinNotifications(payins);
