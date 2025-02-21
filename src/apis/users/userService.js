@@ -34,7 +34,7 @@ const getUserByIdService = async (id) => {
     conn = await getConnection();
     const result = await getUserByIdDao(conn, id);
     
-    const joiValidation = VALIDATE_USER_BY_ID.validate(id);
+    const joiValidation = VALIDATE_USER_BY_ID.validate(result);
       if (joiValidation.error) {
           throw new ValidationError(joiValidation.error);
       }

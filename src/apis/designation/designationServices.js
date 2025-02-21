@@ -6,6 +6,7 @@ import { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDe
 const getDesignationService = async (payload) => {
   let conn;
   try {
+
     conn = await getConnection();
     const result = await getDesignationDao(payload);
     return result;
