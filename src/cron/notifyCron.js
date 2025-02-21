@@ -16,9 +16,11 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
       is_notified: 'false',
       updated_at: startTime,
     });
+
     if (!payins.length) {
-     return
+      return;
     }
+
     await processPayinNotifications(payins);
   } catch (error) {
     console.error('Error while collecting payin data:', error?.message);
@@ -35,26 +37,30 @@ async function processPayinNotifications(payins) {
       requestedAmount: payin.amount || null,
       utrId: payin.user_submitted_utr || null,
     };
+
     try {
       console.info('Simulating notification to merchant', {
         notify_url: payin.config.notify_url,
         notify_data: notificationData,
       });
+
       if (payin.config.notify_url) {
-        const notifyMerchant = await axios.post(
-          payin.config.notify_url,
-          notificationData,
-        );
-        console.info('Notification sent successfully', {
-          status: notifyMerchant.status,
-          data: notifyMerchant.data,
-        });
-        await updatePayInUrlDao(payin.id, { is_notified: 'true' });
+        try {
+          const notifyMerchant = await axios.post(payin.config.notify_url, notificationData);
+          console.info('Notification sent successfully', {
+            status: notifyMerchant.status,
+            data: notifyMerchant.data,
+          });
+          await updatePayInUrlDao(payin.id, { is_notified: 'true' });
+        } catch (error) {
+          console.error('Error sending notification to merchant:', error?.message);
+          // If required, add retry logic here
+        }
       } else {
         console.warn('Notify URL is missing for payin', { payinId: payin.id });
       }
     } catch (error) {
-      console.error('Error simulating notification:', {
+      console.error('Error processing payin:', {
         error: error.message,
         payinId: payin.id,
         notify_url: payin.config.notify_url,

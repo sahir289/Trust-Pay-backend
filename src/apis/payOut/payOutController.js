@@ -4,7 +4,13 @@ import { createPayoutService, deletePayoutService, getPayoutsService, updatePayo
 
 const createPayout = async (req, res) => {
     try {
-        const payload = req.body;
+        let payload = req.body;
+      if (!payload) {
+        console.error('payload is required');
+        return sendError(res, 'payload is required', 'Validation Error');
+      }
+      const {company_id} = req.user;
+      payload.company_id=company_id;
 
         // Call the service to create the Payout
         const result = await createPayoutService( req.headers ,payload);
@@ -48,8 +54,9 @@ const getPayoutsById = async (req, res) => {
 
 const getPayouts = async (req, res) => {
     try {
-        const payload = req.query.search;
-
+        const {company_id} = req.user;
+        let payload = req.query.search;
+        payload.company_id=company_id;
         // Fetch vendors data from the service
         const data = await getPayoutsService(payload);
 

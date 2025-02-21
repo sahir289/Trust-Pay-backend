@@ -5,7 +5,9 @@ import { sendError } from '../../utils/responseHandlers.js';
 
 const getComplaints = async (req, res) => {
     try {
-      const payload = req.query.search;
+      const {company_id} = req.user;
+      let payload = req.query.search;
+      payload.company_id=company_id;
       const data = await getComplaintsService(payload);
       console.log ('get complaints successfully');
       return sendSuccess(res, data, 'get complaints successfully');
@@ -37,8 +39,13 @@ const createComplaints = async (req, res) => {
       if (error) {
           return sendError(res, error.details[0].message, 'Validation Error');
       }
-      const payload = req.body;
-      
+      let payload = req.body;
+      if (!payload) {
+        console.error('payload is required');
+        return sendError(res, 'payload is required', 'Validation Error');
+      }
+      const {company_id} = req.user;
+      payload.company_id=company_id;
       const data = await createComplaintsService(payload);
       console.log('create Complaints successfully', 'info');
       return sendSuccess(res, data, 'Create Complaints successfully');

@@ -2,10 +2,12 @@ import { BadRequestError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService } from './designationServices.js';
-
+import { sendError } from '../../utils/responseHandlers.js';
 const getDesignation = async (req, res) => {
   try {
-    const payload = req.query.search;
+    const {company_id} = req.user;
+    let payload = req.query.search;
+    payload.company_id=company_id;
     const data = await getDesignationService(payload);
     console.log('get Designations  successfully');
     return sendSuccess(res, data, 'get  Designations successfully');
@@ -15,8 +17,9 @@ const getDesignation = async (req, res) => {
 };
 const getDesignationById = async (req, res) => {
   try {
-    const {id}= req.params;
-    const data = await getDesignationService({id:id});
+    const { id } = req.params;
+    const {company_id} = req.user;
+    const data = await getDesignationService({id:id,company_id:company_id});
     console.log('get Designation  successfully');
     return sendSuccess(res, data, 'get  Designation successfully');
   } catch (error) {
@@ -26,11 +29,13 @@ const getDesignationById = async (req, res) => {
 
 const createDesignation = async (req, res) => {
   try {
-    const payload = req.body;
-    if (!payload) {
-      console.error('payload is required');
-      throw new BadRequestError('payload is required');
-    }
+    let payload = req.body;
+      if (!payload) {
+        console.error('payload is required');
+        return sendError(res, 'payload is required', 'Validation Error');
+      }
+      const {company_id} = req.user;
+      payload.company_id=company_id;
     const data = await transactionWrapper(createDesignationService)(payload);
     console.log('get Designations successfully');
     return sendSuccess(res, data, 'get Designations successfully');
@@ -41,9 +46,9 @@ const createDesignation = async (req, res) => {
 
 const updateDesignation = async (req, res) => {
   try {
-    const payload = req.body;
-    const { id } = req.params;
-    const data = await updateDesignationService(id, payload);
+    let { body, params } = req;
+    const {company_id} = req.user;
+    const data = await updateDesignationService(params.id,company_id, body);
     return sendSuccess(res, data, 'get Designations successfully');
   } catch (error) {
     console.error('error getting while updating designations', error);

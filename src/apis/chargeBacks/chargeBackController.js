@@ -8,8 +8,13 @@ const createChargeBack = async (req, res) => {
         if (error) {
             return sendError(res, error.details[0].message, 'Validation Error');
         }
-        const payload = req.body;
-
+        let payload = req.body;
+        if (!payload) {
+          console.error('payload is required');
+          return sendError(res, 'payload is required', 'Validation Error');
+        }
+        const {company_id} = req.user;
+        payload.company_id=company_id;
         // Call the service to create the ChargeBack
         const result = await createChargeBackService(payload);
 
@@ -55,8 +60,9 @@ const getChargeBacksById = async (req, res) => {
 
 const getChargeBacks = async (req, res) => {
     try {
-        const payload = req.query.search;
-
+        const {company_id} = req.user;
+        let payload = req.query.search;
+        payload.company_id=company_id;
         // Fetch vendors data from the service
         const data = await getChargeBacksService(payload);
 

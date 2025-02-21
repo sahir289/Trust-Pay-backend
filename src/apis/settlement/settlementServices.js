@@ -5,6 +5,7 @@ import { getCalculationDao, updateCalculationDao } from '../calculation/calculat
 import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getBankaccountDao, updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
+import { sendError } from '../../utils/responseHandlers.js';
 
 const getSettlementService = async (req, res) => {
   try {
@@ -32,7 +33,9 @@ const getSettlementService = async (req, res) => {
 
 const  getSettlementServiceAll = async (req, res) => {
   try {
-    const payload = req.query;
+    const {company_id} = req.user;
+    let payload = req.query.search;
+    payload.company_id=company_id;
     if (!payload) {
       throw new CustomError(404, "id not found")
     }
@@ -53,11 +56,13 @@ const  getSettlementServiceAll = async (req, res) => {
 
 const createSettlementService = async (req, res) => {
   try {
-    const payload = req.body;
-    if (!payload) {
-      console.error('payload is required');
-      throw new BadRequestError('payload is required');
-    }
+    let payload = req.body;
+      if (!payload) {
+        console.error('payload is required');
+        return sendError(res, 'payload is required', 'Validation Error');
+      }
+      const {company_id} = req.user;
+      payload.company_id=company_id;
     const merchantData = await getMerchantsDao({id : payload.id});
 
     if (merchantData) {

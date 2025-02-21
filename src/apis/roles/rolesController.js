@@ -1,16 +1,13 @@
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
-import { getRoleService, createRoleService, updateRoleService } from './rolesService.js';
-import { 
-  VALIDATE_ROLE_SCHEMA, 
-  VALIDATE_UPDATE_ROLE_STATUS, 
-  VALIDATE_DELETE_ROLE, 
-  VALIDATE_ROLE_BY_ID 
-} from '../../schemas/roleSchema.js';
+import { getRoleService, createRoleService, updateRoleService,deleteRoleService } from './rolesService.js';
+import { VALIDATE_ROLE_SCHEMA, VALIDATE_UPDATE_ROLE_STATUS, VALIDATE_DELETE_ROLE, VALIDATE_ROLE_BY_ID } from '../../schemas/roleSchema.js';
 import { transactionWrapper } from '../../utils/db.js';
 
 const getRoles = async (req, res) => {
     try {
-      const payload = req.query.search;
+      const {company_id} = req.user;
+      let payload = req.query.search || {};  
+      payload.company_id=company_id;
       const data = await getRoleService(payload);
       console.log('get Roles successfully', 'info');
       return sendSuccess(res, data, 'get Roles successfully');
@@ -27,7 +24,8 @@ const getRolesById = async (req, res) => {
         return sendError(res, error.details[0].message, 'Validation Error');
       }
       const { id } = req.params;
-      const data = await getRoleService({id: id});
+      const {company_id} = req.user;
+      const data = await getRoleService({id: id,company_id:company_id});
       console.log('get Roles by ID successfully', 'info');
       return sendSuccess(res, data, 'get Roles by ID successfully');
     } catch (error) {
@@ -38,16 +36,17 @@ const getRolesById = async (req, res) => {
 
 const createRole = async (req, res) => {
     try {
-      const { error } = VALIDATE_ROLE_SCHEMA.validate(req.body); // Validate body
-      if (error) {
-        return sendError(res, error.details[0].message, 'Validation Error');
-      }
-      const payload = req.body;
+      let payload = req.body;
       if (!payload) {
         console.error('payload is required');
         return sendError(res, 'payload is required', 'Validation Error');
       }
-      
+      const {company_id} = req.user;
+      payload.company_id=company_id;
+      const { error } = VALIDATE_ROLE_SCHEMA.validate(payload); // Validate body
+      if (error) {
+        return sendError(res, error.details[0].message, 'Validation Error');
+      }
       const data = await createRoleService(payload);
       console.log('create Role successfully', 'info');
       return sendSuccess(res, data, 'Create Role successfully');
@@ -67,8 +66,9 @@ const updateRole = async (req, res) => {
         if (paramsError) {
             return sendError(res, paramsError.details[0].message, 'Validation Error');
         }
-        const { body, params } = req;
-        const data = await  transactionWrapper(updateRoleService)(params.id, body);
+        let { body, params } = req;
+        const {company_id} = req.user;
+        const data = await  transactionWrapper(updateRoleService)(params.id,company_id, body);
         console.log('Update Role successfully', 'info');
         return sendSuccess(res, data, 'Update Role successfully');
     } catch (error) {
@@ -83,9 +83,10 @@ const deleteRole = async (req, res) => {
         if (error) {
             return sendError(res, error.details[0].message, 'Validation Error');
         }
-        const { params } = req;
+        let { params } = req;
+        const {company_id} = req.user;
         const userData = { is_obsolete: true };
-        const data = await transactionWrapper(updateRoleService)(params.id, userData);
+        const data = await transactionWrapper(deleteRoleService)(params.id,company_id, userData);
         console.log('Delete Role successfully', 'info');
         return sendSuccess(res, data, 'Delete Role successfully');
     } catch (error) {

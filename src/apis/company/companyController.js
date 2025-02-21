@@ -2,7 +2,7 @@ import { BadRequestError } from '../../utils/appErrors.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { createCompanyService, deleteCompanyService, getCompanyService, updateCompanyService } from './companyServices.js';
-
+import { sendError } from '../../utils/responseHandlers.js';
 
 const getCompany = async (req, res) => {
   try {
@@ -22,14 +22,13 @@ const createCompany = async (req, res) => {
     conn = await getConnection();
     await beginTransaction(conn); // Start the transaction
     
-    const payload = req.body;
-    
-    // Validate the payload
-    if (!payload) {
-      console.error('payload is required');
-      throw new BadRequestError('payload is required');
-    }
-    
+    let payload = req.body;
+      if (!payload) {
+        console.error('payload is required');
+        return sendError(res, 'payload is required', 'Validation Error');
+      }
+      const {company_id} = req.user;
+      payload.company_id=company_id;
     // Pass the connection to the service to perform database operations
     const data = await createCompanyService(payload);
     
@@ -87,4 +86,7 @@ const deleteCompany = async (req, res) => {
     console.error('error getting while company', error);
   }
 }
+
+
+
 export { getCompany, createCompany, updateCompany, deleteCompany };

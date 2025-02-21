@@ -8,13 +8,18 @@ const createUserHierarchy = async (req, res) => {
         if (error) {
             return sendError(res, error.details[0].message, 'Validation Error');
         }
-        const payload = req.body;
-
+      let payload = req.body;
+      if (!payload) {
+        console.error('payload is required');
+        return sendError(res, 'payload is required', 'Validation Error');
+      }
+      const {company_id} = req.user;
+      payload.company_id=company_id;
         // Call the service to create the UserHierarchy
-        const result = await createUserHierarchyService(payload);
+      const result = await createUserHierarchyService(payload);
 
         // Log success message
-        console.log('UserHierarchy created successfully', result);
+        console.log('User Hierarchy created successfully', result);
 
         // Send a success response to the client
         return sendSuccess(res, result, 'UserHierarchy created successfully');
@@ -29,8 +34,9 @@ const createUserHierarchy = async (req, res) => {
 
 const getUserHierarchys = async (req, res) => {
     try {
-        const payload = req.query.search;
-
+        const {company_id} = req.user;
+        let payload = req.query.search;
+        payload.company_id=company_id;
         // Fetch vendors data from the service
         const data = await getUserHierarchyService(payload);
 

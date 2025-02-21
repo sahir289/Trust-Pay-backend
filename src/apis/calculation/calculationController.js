@@ -11,9 +11,8 @@ const getCalculationById = async (req, res) => {
     if (error) {
       throw new ValidationError(error);
     }
-    
-    const { user_id } = req.params; 
-    
+    const { user_id } = req.params;
+     
     // Fetch the calculation data by 'id'
     const data = await getCalculationService({ user_id:user_id });
 
@@ -30,7 +29,9 @@ const getCalculationById = async (req, res) => {
 const getCalculation = async (req, res) => {
   try {
     // You can add additional validation here if needed, depending on the request
-    const payload = req.query.search;
+    const {company_id} = req.user;
+    let payload = req.query.search;
+    payload.company_id=company_id;
     const data = await getCalculationService(payload);
     console.info('Get Calculations successfully', 'info');
     return sendSuccess(res, data, 'Get Calculations successfully');
@@ -47,9 +48,14 @@ const createCalculation = async (req, res) => {
     if (error) {
       throw new ValidationError(error);
     }
-
-    const body = req.body;
-    const data = await createCalculationService(body);
+    let payload = req.body;
+    if (!payload) {
+      console.error('payload is required');
+      return sendError(res, 'payload is required', 'Validation Error');
+    }
+    const {company_id} = req.user;
+    payload.company_id=company_id;
+    const data = await createCalculationService(payload);
     console.info('Create Calculation successfully', 'info');
     return sendSuccess(res, data, 'Create Calculation successfully');
   } catch (error) {
