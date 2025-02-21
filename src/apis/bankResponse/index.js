@@ -87,7 +87,7 @@ router.get('/get-message', isAuthenticated, tryCatchHandler(getBankResponse));
  *         description: Complaint not found
  */
 
-router.get('/get-bank-message',  tryCatchHandler(getBankMessage));
+router.get('/get-bank-message',isAuthenticated,  tryCatchHandler(getBankMessage));
 
 /**
  * @swagger
