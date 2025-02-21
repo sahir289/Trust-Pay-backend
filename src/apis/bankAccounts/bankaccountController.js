@@ -1,16 +1,18 @@
-import { BadRequestError } from '../../utils/appErrors.js';
+import { BANK_ACCOUNT_SCHEMA, UPDATE_BANK_ACCOUNT_SCHEMA, BANK_ACCOUNT_SCHEMA } from '../../schemas/bankAccoountSchema.js';
+import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getMerchantBankDao } from './bankaccountDao.js';
+import {  getMerchantBankDao } from './bankaccountDao.js';
 import { getBankaccountService, createBankaccountService, updateBankaccountService, deleteBankaccountService } from './bankaccountServices.js';
+
 
 const getBankaccount = async (req, res) => {
   try {
     
     const payload = req.query.search;
-    // const joiValidation = VALIDATE_BANK_RESPONSE_BY_ID.validate(payload);
-    // if (joiValidation.error) {
-    //     throw new ValidationError(joiValidation.error);
-    // }
+    const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
+        if (joiValidation.error) {
+            throw new ValidationError(joiValidation.error);
+        }
     const data = await getBankaccountService(payload);
     console.log('get Banks successfully');
     return sendSuccess(res, data, 'get Banks successfully');
@@ -33,6 +35,10 @@ const getBankaccountById = async (req, res) => {
 const createBankaccount = async (req, res) => {
   try {
     const payload = req.body;
+    const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
+    if (joiValidation.error) {
+        throw new ValidationError(joiValidation.error);
+    }
     if (!payload) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
@@ -49,6 +55,10 @@ const updateBankaccount = async (req, res) => {
   try {
     const { id } = req.params;
     const payload = req.body;
+    const joiValidation = UPDATE_BANK_ACCOUNT_SCHEMA.validate(payload);
+        if (joiValidation.error) {
+            throw new ValidationError(joiValidation.error);
+        }
     const data = await updateBankaccountService(id, payload);
     console.log('get Banks successfully');
     return sendSuccess(res, data, 'get Banks successfully');

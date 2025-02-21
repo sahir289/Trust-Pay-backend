@@ -95,6 +95,7 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
       values.push(value);
     }
   }
+  conditions.push(`is_obsolete = false`);
 
   if (conditions.length) {
     query += ` AND ${conditions.join(' AND ')}`;

@@ -1,6 +1,5 @@
 import { CREATE_DESIGNATION_SCHEMA, UPDATE_DESIGNATION_SCHEMA, VALIDATE_DESIGNATION_BY_ID } from '../../schemas/designationSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
-import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService } from './designationServices.js';
 
@@ -41,7 +40,7 @@ const createDesignation = async (req, res) => {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await transactionWrapper(createDesignationService)(payload);
+    const data = await createDesignationService(payload);
     console.log('get Designations successfully');
     return sendSuccess(res, data, 'get Designations successfully');
   } catch (error) {
