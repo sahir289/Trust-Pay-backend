@@ -1,6 +1,6 @@
 import config from "../../config/config.js";
 import { ValidationError } from '../../utils/appErrors.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
+import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import {
     ASSIGN_PAYIN_SCHEMA, VALIDATE_ASSIGNED_BANT_TO_PAY, VALIDATE_CHECK_PAY_IN_STATUS,
     VALIDATE_EXPIRE_PAY_IN_URL, VALIDATE_PAY_IN_INTENT_GENERATE_ORDER, VALIDATE_PAYIN_SCHEMA, VALIDATE_RESET_DEPOSIT,
@@ -146,7 +146,7 @@ export const resetDeposit = async (req, res) => {
 }
 export const getPayins = async (req, res) => {
     try {
-        const payload = req.query.search;
+        const payload = req.query;
 
         // Fetch vendors data from the service
         const data = await getPayinsService(payload);
