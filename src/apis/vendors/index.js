@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createVendor, deleteVendor, getVendors, updateVendor } from './vendorController.js';
+import { createVendor, deleteVendor, getVendors, updateVendor,getVendorById } from './vendorController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
@@ -33,6 +33,8 @@ const router = express.Router();
  */
 router.get('/', isAuthenticated, tryCatchHandler(getVendors));
 
+
+router.get('/:id', isAuthenticated, tryCatchHandler(getVendorById));
 /**
  * @swagger
  * /vendors/create-vendor:

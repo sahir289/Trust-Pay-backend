@@ -18,9 +18,12 @@ const getCalculationDao = async (search,
       throw new sendError('Failed to fetch Calculation');
     }
   };
+  
+ 
+
 
 const createCalculationDao = async (data, conn) => {
-  const [sql, params] = buildInsertQuery(tableName, data)
+  const [sql, params] = buildInsertQuery(tableName.CALCULATION, data)
   if (conn && conn.query) {
     const result = await conn.query(sql, params);
     return result.rows[0];
@@ -35,17 +38,38 @@ const createCalculationDao = async (data, conn) => {
     //   updatedData.current_balance = Number(previousData.current_balance) - Number(data.chargeback_amount);
     // }
 
-const updateCalculationDao = async (id, data) => {
-
+const updateCalculationDao = async (conn,id, data) => {
     const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, { id });
+    if (conn && conn.query) {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
+  }
     const result = await executeQuery(sql, params);
     return result.rows[0]; 
 };
 
-const deleteCalculationDao = async (id, data) => {
+const deleteCalculationDao = async (conn,id, data) => {
   const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, { id });
+  if (conn && conn.query) {
+    const result = await conn.query(sql, params);
+    return result.rows[0];
+}
   const result = await executeQuery(sql, params);
   return result.rows[0];
+}
+
+export const updateCalculationBalanceDao = async (filters, data, conn) => {
+  const specialFields = {};
+  Object.keys(data).forEach(el => {
+    specialFields[el] = "+";
+  })
+  const [sql, params] = buildUpdateQuery(tableName, data, filters, specialFields);
+  if (conn && conn.query) {
+    const result = await conn.query(sql, params);
+    return result.rows[0];
+  }
+  const result = await executeQuery(sql, params);
+  return result[0];
 }
 
 

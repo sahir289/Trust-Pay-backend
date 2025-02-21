@@ -1,11 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import {
-    getCalculation,
-    createCalculation,
-    updateCalculation,
-    deleteCalculation
-} from './calculationController.js';
+import {getCalculation,getCalculationById,createCalculation,updateCalculation,deleteCalculation} from './calculationController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 const router = express.Router();
 
@@ -29,6 +24,8 @@ const router = express.Router();
  *         description: Internal server error
  */
 router.get('/',isAuthenticated, tryCatchHandler(getCalculation));
+
+router.get('/:id',isAuthenticated, tryCatchHandler(getCalculationById));
 
 /**
  * @swagger
@@ -91,7 +88,7 @@ router.post('/create-calculation',isAuthenticated, tryCatchHandler(createCalcula
  *       404:
  *         description: Calculation not found
  */
-router.put('/update-calculation/:user_id',isAuthenticated, tryCatchHandler(updateCalculation));
+router.put('/update-calculation/:id',isAuthenticated, tryCatchHandler(updateCalculation));
 
 /**
  * @swagger
@@ -112,6 +109,6 @@ router.put('/update-calculation/:user_id',isAuthenticated, tryCatchHandler(updat
  *       404:
  *         description: Calculation not found
  */
-router.put('/delete-calculation/:user_id',isAuthenticated, tryCatchHandler(deleteCalculation));
+router.delete('/delete-calculation/:id',isAuthenticated, tryCatchHandler(deleteCalculation));
 
 export default router;

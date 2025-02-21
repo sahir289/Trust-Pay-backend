@@ -31,14 +31,22 @@ const createRoleDao = async (data) => {
          return result.rows[0];
 };
 
-const updateRoleDao = async (id,data) => {  
+const updateRoleDao = async (conn,id,data) => {  
      const [sql, params] = buildUpdateQuery(tableName.ROLE, data, { id });
+     if (conn && conn.query) {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
+  }
        const result = await executeQuery(sql, params);
        return result.rows[0];
 }
 
-const deleteRoleDao = async (id,data) => { 
+const deleteRoleDao = async (conn,id,data) => { 
         const [sql, params] = buildUpdateQuery(tableName.ROLE, data, { id});
+        if (conn && conn.query) {
+          const result = await conn.query(sql, params);
+          return result.rows[0];
+      }
         const result = await executeQuery(sql, params);
         return result.rows[0];
 }
