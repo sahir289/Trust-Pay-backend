@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import {createComplaints,deleteComplaints,getComplaints,updateComplaints} from "./complaintsController.js";
+import {createComplaints,deleteComplaints,getComplaints,getComplaintsById,updateComplaints} from "./complaintsController.js";
 import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
@@ -25,6 +25,8 @@ const router = express.Router();
  *         description: Internal server error
  */
 router.get('/',isAuthenticated, tryCatchHandler(getComplaints));
+
+router.get('/:id',isAuthenticated, tryCatchHandler(getComplaintsById));
 
 /**
  * @swagger
@@ -106,6 +108,6 @@ router.put('/update-complaint/:id',isAuthenticated, tryCatchHandler(updateCompla
  *         description: Complaint not found
  */
 
-router.put('/delete-complaint/:id',isAuthenticated, tryCatchHandler(deleteComplaints));
+router.delete('/delete-complaint/:id',isAuthenticated, tryCatchHandler(deleteComplaints));
 
 export default router;

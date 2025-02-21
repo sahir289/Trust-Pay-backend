@@ -1,27 +1,57 @@
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { createChargeBackService, getChargeBacksService, updateChargeBackService, deleteChargeBackService} from './chargeBackService.js';
-import Logger from '../../utils/logger.js';
-const logger = new Logger()
+import { VALIDATE_CHARGEBACK_BY_ID,VALIDATE_CHARGEBACK_SCHEMA,VALIDATE_DELETE_CHARGEBACK,VALIDATE_UPDATE_CHARGEBACK_SCHEMA } from '../../schemas/chargeBackSchema.js';
+
 const createChargeBack = async (req, res) => {
     try {
+        const { error } = VALIDATE_CHARGEBACK_SCHEMA.validate(req.body);
+        if (error) {
+            return sendError(res, error.details[0].message, 'Validation Error');
+        }
         const payload = req.body;
 
         // Call the service to create the ChargeBack
         const result = await createChargeBackService(payload);
 
         // Log success message
-        logger.log('ChargeBack created successfully', 'info', result);
+        console.log('ChargeBack created successfully', 'info', result);
 
         // Send a success response to the client
         return sendSuccess(res, result, 'ChargeBack created successfully');
     } catch (error) {
         // Log the error
-        logger.error('error getting while creating ChargeBack', error);
+        console.error('error getting while creating ChargeBack', error);
 
         // Send an error response to the client
         return sendError(res, error, 'Error occurred while creating ChargeBack');
     }
 };
+
+const getChargeBacksById = async (req, res) => {
+    try {
+        const { error } = VALIDATE_CHARGEBACK_BY_ID.validate(req.params);
+        if (error) {
+            return sendError(res, error.details[0].message, 'Validation Error');
+        }
+        const {id} = req.params;
+
+        // Call the service to create the ChargeBack
+        const result = await getChargeBacksService({id:id});
+
+        // Log success message
+        console.log('ChargeBack created successfully', 'info', result);
+
+        // Send a success response to the client
+        return sendSuccess(res, result, 'ChargeBack created successfully');
+    } catch (error) {
+        // Log the error
+        console.error('error getting while creating ChargeBack', error);
+
+        // Send an error response to the client
+        return sendError(res, error, 'Error occurred while creating ChargeBack');
+    }
+};
+
 
 const getChargeBacks = async (req, res) => {
     try {
@@ -31,13 +61,13 @@ const getChargeBacks = async (req, res) => {
         const data = await getChargeBacksService(payload);
 
         // Log success message
-        logger.log('getChargeBacks successfully', data);
+        console.log('get ChargeBacks successfully', data);
 
         // Send success response
         return sendSuccess(res, data, 'ChargeBacks fetched successfully');
     } catch (error) {
         // Log error
-        logger.error('error getting while fetching ChargeBacks Data', error);
+        console.error('error getting while fetching ChargeBacks Data', error);
 
         // Send an error response
         return sendError(res, error, 'Error occurred while fetching ChargeBacks');
@@ -46,6 +76,15 @@ const getChargeBacks = async (req, res) => {
 
 const updateChargeBack = async (req, res) => {
     try {
+        const { error: paramsError } =VALIDATE_DELETE_CHARGEBACK.validate(req.params);
+        if (paramsError) {
+            return sendError(res, paramsError.details[0].message, 'Validation Error');
+        }
+        // Validate body (fields for update)
+        const { error: bodyError } = VALIDATE_UPDATE_CHARGEBACK_SCHEMA.validate(req.body);
+        if (bodyError) {
+            return sendError(res, bodyError.details[0].message, 'Validation Error');
+        }
         const payload = req.body;
         const { id } = req.params;  
          
@@ -53,13 +92,13 @@ const updateChargeBack = async (req, res) => {
         const result = await updateChargeBackService(id, payload);
 
         // Log success message
-        logger.log('ChargeBack updated successfully',  result);
+        console.log('ChargeBack updated successfully',  result);
 
         // Send a success response to the client
         return sendSuccess(res, result, 'ChargeBack updated successfully');
     } catch (error) {
         // Log the error
-        logger.error('error occurred while updating ChargeBack', error);
+        console.error('error occurred while updating ChargeBack', error);
 
         // Send an error response to the client
         return sendError(res, error, 'Error occurred while updating ChargeBack');
@@ -68,23 +107,27 @@ const updateChargeBack = async (req, res) => {
 
 const deleteChargeBack = async (req, res) => {
     try {
+        const { error } = VALIDATE_DELETE_CHARGEBACK.validate(req.params);
+        if (error) {
+            return sendError(res, error.details[0].message, 'Validation Error');
+        }
         const { id } = req.params;  // Assuming the ChargeBack ID is passed as a parameter
 
         // Call the service to delete the ChargeBack
         const result = await deleteChargeBackService(id);
 
         // Log success message
-        logger.log('ChargeBack deleted successfully', result);
+        console.log('ChargeBack deleted successfully', result);
 
         // Send a success response to the client
         return sendSuccess(res, result, 'ChargeBack deleted successfully');
     } catch (error) {
         // Log the error
-        logger.error('error occurred while deleting ChargeBack', error);
+        console.error('error occurred while deleting ChargeBack', error);
 
         // Send an error response to the client
         return sendError(res, error, 'Error occurred while deleting ChargeBack');
     }
 };
 
-export { createChargeBack, getChargeBacks, updateChargeBack, deleteChargeBack };
+export { createChargeBack,getChargeBacksById, getChargeBacks, updateChargeBack, deleteChargeBack };

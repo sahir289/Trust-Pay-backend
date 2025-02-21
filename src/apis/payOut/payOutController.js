@@ -23,6 +23,29 @@ const createPayout = async (req, res) => {
     }
 };
 
+
+const getPayoutsById = async (req, res) => {
+    try {
+        const {id} = req.params;
+
+        // Fetch vendors data from the service
+        const data = await getPayoutsService({id:id});
+
+        // Log success message
+        console.log('getPayouts successfully', data);
+
+        // Send success response
+        return sendSuccess(res, data, 'Payouts fetched successfully');
+    } catch (error) {
+        // Log error
+        console.error('error getting while fetching Payouts Data',  error);
+
+        // Send an error response
+        return sendError(res, error, 'Error occurred while fetching Payouts');
+    }
+};
+
+
 const getPayouts = async (req, res) => {
     try {
         const payload = req.query.search;
@@ -43,6 +66,8 @@ const getPayouts = async (req, res) => {
         return sendError(res, error, 'Error occurred while fetching Payouts');
     }
 };
+
+
 
 const updatePayout = async (req, res) => {
     try {
@@ -87,4 +112,4 @@ const deletePayout = async (req, res) => {
     }
 };
 
-export { createPayout, getPayouts, updatePayout, deletePayout };
+export { createPayout, getPayouts, updatePayout, deletePayout,getPayoutsById };

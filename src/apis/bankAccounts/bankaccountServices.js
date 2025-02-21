@@ -1,35 +1,36 @@
 import { BadRequestError } from '../../utils/appErrors.js';
-import { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBankaccountDao, getMerchantBankDao } from './bankaccountDao.js';
+import { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBankaccountDao } from './bankaccountDao.js';
 
 const getBankaccountService = async (payload) => {
     try {
+        
         const result = await getBankaccountDao(payload);
-
         return result;
     } catch (error) {
-        console.error('error getting while logging in', error);
-        throw new BadRequestError('Error getting while logging in');
+        console.error('error getting while  getting banks', error);
+        throw new BadRequestError('Error getting while  getting banks');
     }
 };
 
 const createBankaccountService = async (payload) => {
     try {
-
+       
         const result = await createBankaccountDao(payload);
         return result;
     } catch (error) {
-        console.error('error getting while logging in', error);
-        throw new BadRequestError('Error getting while logging in');
+        console.error('error getting while  creating banks', error);
+        throw new BadRequestError('Error getting while  creating banks');
     }
 };
 
 const updateBankaccountService = async (id, payload) => {
     try {
+        
         const result = await updateBankaccountDao(id, payload);
         return result;
     } catch (error) {
-        console.error('error getting while logging in', error);
-        throw new BadRequestError('Error getting while logging in');
+        console.error('error getting while  updating banks', error);
+        throw new BadRequestError('Error getting while  updating banks');
     }
 };
 
@@ -38,14 +39,11 @@ const deleteBankaccountService = async (id) => {
         const result = await deleteBankaccountDao(id, { is_obsolete: true });
         return result;
     } catch (error) {
-        console.error('error getting while logging in', error);
-        throw new BadRequestError('Error getting while logging in');
+        console.error('error getting while deleting banks', error);
+        throw new BadRequestError('Error getting while  deleting banks');
     }
 };
 
-const getMerchantBankService = async (id) => {
-    // Fetch the bank account details for the given merchant ID
-   return await getMerchantBankDao(id);
-}
 
-export { getBankaccountService, createBankaccountService, updateBankaccountService, deleteBankaccountService, getMerchantBankService };
+
+export { getBankaccountService, createBankaccountService, updateBankaccountService, deleteBankaccountService };

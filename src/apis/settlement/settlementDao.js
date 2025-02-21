@@ -1,27 +1,36 @@
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
-const tableName = 'Settlement';
+import { columns, tableName } from "../../constants/index.js";
 
-const getSettlementByIdDao = async (id) => {
-  const query = `SELECT *  FROM  "${tableName}" WHERE 1=1`;
-  const [sql, parameters] = buildSelectQuery(query, { id });
-  const result = await executeQuery(sql, parameters);
+
+
+const getSettlementDao = async (
+  search,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder
+) => {
+  const baseQuery = `SELECT * FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
+  const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.SETTLEMENT, page, pageSize, sortBy, sortOrder, typeof search != 'string');
+  // Execute query
+  const result = await executeQuery(sql, queryParams);
   return result.rows[0];
 };
 
-const createSettlementByIdDao = async (payload) => {
-  const [sql, params] = buildInsertQuery(tableName, payload)
+const createSettlementDao = async (payload) => {
+  const [sql, params] = buildInsertQuery(tableName.SETTLEMENT, payload)
   const result = await executeQuery(sql, params);
   return result.rows[0];
 };
 
-const updateSettlementByIdDao = async (id, data) => {
-  const [sql, params] = buildUpdateQuery(tableName, data, { id});
+const updateSettlementDao = async (id, data) => {
+  const [sql, params] = buildUpdateQuery(tableName.SETTLEMENT, data, { id});
   const result = await executeQuery(sql, params);
   return result.rows[0];
 };
 
-const deleteSettlementByIdDao = async (id, data) => {
-  const [sql, params] = buildUpdateQuery(tableName, data, { id });
+const deleteSettlementDao = async (id, data) => {
+  const [sql, params] = buildUpdateQuery(tableName.SETTLEMENT, data, { id });
   const result = await executeQuery(sql, params); 
  
   return result.rows[0];
@@ -29,4 +38,4 @@ const deleteSettlementByIdDao = async (id, data) => {
 };
 
 
-export { getSettlementByIdDao, createSettlementByIdDao, updateSettlementByIdDao, deleteSettlementByIdDao };
+export { getSettlementDao, createSettlementDao, updateSettlementDao, deleteSettlementDao };

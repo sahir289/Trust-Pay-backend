@@ -95,6 +95,7 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
       values.push(value);
     }
   }
+  conditions.push(`is_obsolete = false`);
 
   if (conditions.length) {
     query += ` AND ${conditions.join(' AND ')}`;
@@ -143,33 +144,55 @@ export const buildInsertQuery = (tableName, data) => {
   return [query, Object.values(data)];
 }
 
-export const buildUpdateQuery = (tableName, data, whereCondition) => {
-  const values = Object.values(data);
-  const whereValues = Object.values(whereCondition);
-  const keys = Object.keys(data).map((key, i) => `"${key}" = $${i + 1}`);
-  const whereKeys = Object.keys(whereCondition).map((key, i) => `"${key}" = $${i + 1 + keys.length}`);
-  const query = `UPDATE "${tableName}" SET ${keys.join(', ')} WHERE ${whereKeys.join(' AND ')} RETURNING *`;
-  const params = [...values, ...whereValues];
-  return [query, params];
-}
+// specialFields { balance: "+" }
+// whereCondition { id: 1 }
+// data { balance: 1000 }
+export const buildUpdateQuery = (tableName, data, whereCondition, specialFields = {}) => {
+  const values = [];
+
+  const setClause = Object.entries(data).map(([key, value]) => {
+    values.push(value);
+    return specialFields[key]
+      ? `"${key}" = "${key}" ${specialFields[key]} $${values.length}`  // Use specified operator
+      : `"${key}" = $${values.length}`;
+  });
+
+  const whereClause = Object.entries(whereCondition).map(([key, value]) => {
+    values.push(value);
+    return `"${key}" = $${values.length}`;
+  });
+
+  const query = `UPDATE "${tableName}" SET ${setClause.join(', ')} WHERE ${whereClause.join(' AND ')} RETURNING *`;
+  return [query, values];
+};
+
 
 export const transactionWrapper = (fn) => async (...args) => {
   let conn;
   try {
     conn = await getConnection();
-    await beginTransaction(conn);
-    await Promise.resolve(fn(conn, ...args));
-    await commit(conn);
+    await beginTransaction(conn); // Ensure transaction starts properly
+
+    const data = await fn(conn, ...args); // Ensure fn expects conn as the first argument
+
+    await commit(conn); // Commit only if no errors
+    return data;
   } catch (error) {
-    await rollback(conn, false); // Rollback the transaction if an error occurs
-    console.error('Error while executing query', error);
-    throw new DbError(error.message);
+    if (conn) {
+      try {
+        await rollback(conn); // Explicit rollback
+        console.error('Transaction rolled back due to error:', error);
+      } catch (rollbackError) {
+        console.error('Rollback failed:', rollbackError);
+      }
+    }
+    throw new DbError(error.message); // Rethrow error
   } finally {
     if (conn) {
       console.log('Releasing connection');
-      conn.release(); // Release the connection back to the pool
+      conn.release(); // Always release connection
     }
   }
-}
+};
 
 export { pool, getConnection, beginTransaction, commit, rollback };

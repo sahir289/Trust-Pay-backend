@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createBankaccount, deleteBankaccount, getBankaccount, getMerchantBank, updateBankaccount } from './bankaccountController.js';
+import { createBankaccount, deleteBankaccount, getBankaccountById,getBankaccount, getMerchantBank, updateBankaccount } from './bankaccountController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 const router = express.Router();
 
@@ -42,7 +42,8 @@ const router = express.Router();
  *                         type: string
  *                         example: "john_doe"
  */
-router.get('/', tryCatchHandler(getBankaccount));
+router.get('/', isAuthenticated, tryCatchHandler(getBankaccount));
+router.get('/:id', isAuthenticated, tryCatchHandler(getBankaccountById));
 
 /**
  * @swagger
@@ -82,11 +83,11 @@ router.get('/', tryCatchHandler(getBankaccount));
  *                         type: string
  *                         example: "john_doe"
  */
-router.post('/create-Bankaccount', isAuthenticated, tryCatchHandler(createBankaccount));
+router.post('/create-bankAccount',isAuthenticated, tryCatchHandler(createBankaccount));
 
-router.get('/get-merchant-banks', isAuthenticated, tryCatchHandler(getMerchantBank));
+router.get('/get-merchantBanks', isAuthenticated, tryCatchHandler(getMerchantBank));
 
-router.put('/update-Bankaccount/:id', isAuthenticated, tryCatchHandler(updateBankaccount));
+router.put('/update-bankAccount/:id',isAuthenticated, tryCatchHandler(updateBankaccount));
 
 /**
  * @swagger
@@ -126,7 +127,7 @@ router.put('/update-Bankaccount/:id', isAuthenticated, tryCatchHandler(updateBan
  *                         type: string
  *                         example: "john_doe"
  */
-router.delete('/delete-Bankaccount/:id', isAuthenticated, tryCatchHandler(deleteBankaccount));
+router.delete('/delete-bankAccount/:id', isAuthenticated, tryCatchHandler(deleteBankaccount));
 
 
 export default router;

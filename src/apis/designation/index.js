@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createDesignation, deleteDesignation, getDesignation, updateDesignation } from './designationController.js';
+import { createDesignation, deleteDesignation, getDesignation, updateDesignation ,getDesignationById} from './designationController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 const router = express.Router();
 
@@ -34,6 +34,7 @@ const router = express.Router();
  *                   type: object
  */
 router.get('/', isAuthenticated, tryCatchHandler(getDesignation));
+router.get('/:id', isAuthenticated, tryCatchHandler(getDesignationById));
 
 /**
  * @swagger

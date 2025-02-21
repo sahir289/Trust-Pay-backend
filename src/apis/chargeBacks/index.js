@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createChargeBack, deleteChargeBack, getChargeBacks, updateChargeBack } from './chargeBackController.js';
+import { createChargeBack, deleteChargeBack, getChargeBacks, updateChargeBack,getChargeBacksById } from './chargeBackController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
@@ -30,6 +30,7 @@ const router = express.Router();
  *                     type: object
  */
 router.get('/', isAuthenticated, tryCatchHandler(getChargeBacks));
+router.get('/:id', isAuthenticated, tryCatchHandler(getChargeBacksById));
 
 /**
  * @swagger

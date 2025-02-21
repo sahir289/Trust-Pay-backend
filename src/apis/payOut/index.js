@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createPayout, deletePayout, getPayouts, updatePayout } from './payOutController.js';
+import { createPayout, deletePayout, getPayouts, updatePayout,getPayoutsById } from './payOutController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
@@ -32,6 +32,7 @@ const router = express.Router();
  *                     example: "active"
  */
 router.get('/', isAuthenticated, tryCatchHandler(getPayouts));
+router.get('/:id', isAuthenticated, tryCatchHandler(getPayoutsById));
 
 /**
  * @swagger
