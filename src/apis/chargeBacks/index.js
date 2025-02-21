@@ -29,7 +29,7 @@ const router = express.Router();
  *                   items:
  *                     type: object
  */
-router.get('/getAll', isAuthenticated, tryCatchHandler(getChargeBacks));
+router.get('/', isAuthenticated, tryCatchHandler(getChargeBacks));
 router.get('/:id', isAuthenticated, tryCatchHandler(getChargeBacksById));
 
 /**

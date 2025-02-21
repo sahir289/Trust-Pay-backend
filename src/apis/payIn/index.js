@@ -1,7 +1,7 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
-import { assignedBankToPayInUrl, checkPayInStatus, generatePayInUrl, payInIntentGenerateOrder, processPayIn, resetDeposit, updateDepositStatus, updatePaymentNotificationStatus, validatePayInUrl } from './payInController.js';
+import { assignedBankToPayInUrl, checkPayInStatus, generatePayInUrl,getPayins, payInIntentGenerateOrder, processPayIn, resetDeposit, updateDepositStatus, updatePaymentNotificationStatus, validatePayInUrl } from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 const router = express.Router();
 
@@ -20,5 +20,5 @@ router.put("/update-deposit-status/:merchantId", tryCatchHandler(updateDepositSt
 router.post("/update-payment-cashfree-webhook", tryCatchHandler(payInUpdateCashfreeWebhook));
 router.post("/reset-payment/", tryCatchHandler(resetDeposit));
 // router.get("/expire-payIn-url/:payInId", tryCatchHandler(expirePayInUrl));
-// router.get('/payin-data',  tryCatchHandler(getPayins));
+router.get('/payin-data',  tryCatchHandler(getPayins));
 export default router;

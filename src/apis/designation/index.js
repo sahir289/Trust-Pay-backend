@@ -33,7 +33,7 @@ const router = express.Router();
  *                 data:
  *                   type: object
  */
-router.get('/getAll', isAuthenticated, tryCatchHandler(getDesignation));
+router.get('/', isAuthenticated, tryCatchHandler(getDesignation));
 router.get('/:id', isAuthenticated, tryCatchHandler(getDesignationById));
 
 /**
