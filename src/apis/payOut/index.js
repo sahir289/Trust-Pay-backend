@@ -31,7 +31,7 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get('/getAll', isAuthenticated, tryCatchHandler(getPayouts));
+router.get('/', isAuthenticated, tryCatchHandler(getPayouts));
 router.get('/:id', isAuthenticated, tryCatchHandler(getPayoutsById));
 
 /**
