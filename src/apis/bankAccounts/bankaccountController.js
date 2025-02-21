@@ -8,11 +8,12 @@ import { getBankaccountService, createBankaccountService, updateBankaccountServi
 const getBankaccount = async (req, res) => {
   try {
     
-    const payload = req.query.search;
-    const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
-        if (joiValidation.error) {
-            throw new ValidationError(joiValidation.error);
-        }
+    const {company_id ,user_id} = req.user;
+    let payload = req.query.search || {};
+    // const {user_id} = req.user
+    // payload.user_id = user_id;
+    payload.company_id=company_id;
+    payload.user_id=user_id;
     const data = await getBankaccountService(payload);
     console.log('get Banks successfully');
     return sendSuccess(res, data, 'get Banks successfully');
@@ -24,8 +25,8 @@ const getBankaccount = async (req, res) => {
 const getBankaccountById = async (req, res) => {
   try {
     const {id} = req.params;
-    const {company_id} = req.user;
-    const data = await getBankaccountService({id,company_id});
+    const {company_id,user_id} = req.user;
+    const data = await getBankaccountService({id,company_id,user_id});
     console.log('get Bank successfully');
     return sendSuccess(res, data, 'get Bank successfully');
   } catch (error) {
@@ -35,7 +36,10 @@ const getBankaccountById = async (req, res) => {
 
 const createBankaccount = async (req, res) => {
   try {
-    const payload = req.body;
+    let payload = req.body;
+    const {user_id,company_id} = req.user
+    payload.user_id = user_id;
+    payload.company_id=company_id;
     const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
@@ -56,11 +60,12 @@ const updateBankaccount = async (req, res) => {
   try {
     const { id } = req.params;
     const payload = req.body;
+    const {company_id ,user_id} = req.user;
     const joiValidation = UPDATE_BANK_ACCOUNT_SCHEMA.validate(payload);
         if (joiValidation.error) {
             throw new ValidationError(joiValidation.error);
         }
-    const data = await updateBankaccountService(id, payload);
+    const data = await updateBankaccountService(id,user_id,company_id,payload);
     console.log('get Banks successfully');
     return sendSuccess(res, data, 'get Banks successfully');
   } catch (error) {
@@ -70,8 +75,8 @@ const updateBankaccount = async (req, res) => {
 
 const getMerchantBank = async (req, res) => {
   // Fetch the bank account details for the given merchant ID
-  const {company_id}=req.user;
-  const bankRes = await getMerchantBankDao(req.params.id,company_id);
+  const {company_id,user_id}=req.user;
+  const bankRes = await getMerchantBankDao(req.params.id,user_id,company_id);
   return sendSuccess(res, bankRes, 'Bank details fetched successfully');
 }
 
@@ -82,8 +87,8 @@ const deleteBankaccount = async (req, res) => {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-  
-    const data = await deleteBankaccountService(id);
+    const {company_id ,user_id} = req.user;
+    const data = await deleteBankaccountService(id,user_id,company_id);
     console.log('get Banks successfully');
     return sendSuccess(res, data, 'get Banks successfully');
   } catch (error) {

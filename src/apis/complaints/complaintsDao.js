@@ -1,38 +1,62 @@
+import { executeQuery, buildInsertQuery, buildUpdateQuery, buildSelectQuery } from "../../utils/db.js";
+import { columns, tableName } from "../../constants/index.js";
 
-import {   executeQuery,buildInsertQuery ,buildUpdateQuery,buildSelectQuery   } from "../../utils/db.js";
-import { columns,tableName } from "../../constants/index.js";
-
-const getComplaintsDao =async (
+// Get Complaints with pagination, sorting, and filtering
+const getComplaintsDao = async (
   search,
   page,
   pageSize,
   sortBy,
-  sortOrder
+  sortOrder 
 ) => {
-  const baseQuery = `SELECT * FROM "${tableName.COMPLAINTS}" WHERE 1=1`;
-  const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.COMPLAINTS, page, pageSize, sortBy, sortOrder, typeof search != 'string');
-  // Execute query
-  const result = await executeQuery(sql, queryParams);
-  return result.rows;
+  try {
+    const baseQuery = `SELECT id,status,payin_id,created_at,updated_at FROM "${tableName.COMPLAINTS}" WHERE 1=1 AND "company_id"=$1`;
+    const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.COMPLAINTS, page, pageSize, sortBy, sortOrder, typeof search !== 'string');
+    // Execute query
+    const result = await executeQuery(sql, queryParams);
+    return result.rows;
+  } catch (error) {
+    console.error("Error fetching complaints:", error);
+    throw new Error("Error fetching complaints");
+  }
 };
 
-const createComplaintsDao = async (data) => {  
-            // data.id = generateUUID();
-       const [sql, params] = buildInsertQuery(tableName.COMPLAINTS, data)
-         const result = await executeQuery(sql, params);
-         return result.rows[0];
+// Create a new Complaint
+const createComplaintsDao = async (data) => {
+  try {
+    // If you want to generate UUID or modify data before insertion, do it here.
+    // data.id = generateUUID(); // Uncomment if UUID generation is needed
+    const [sql, params] = buildInsertQuery(tableName.COMPLAINTS, data);
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    console.error("Error creating complaint:", error);
+    throw new Error("Error creating complaint");
+  }
 };
 
-const updateComplaintsDao = async (id,data) => {  
-     const [sql, params] = buildUpdateQuery(tableName.COMPLAINTS, data, { id });
-       const result = await executeQuery(sql, params);
-       return result.rows[0];
-}
+// Update an existing Complaint
+const updateComplaintsDao = async (id,company_id, data) => {
+  try {
+    const [sql, params] = buildUpdateQuery(tableName.COMPLAINTS, data, { id,company_id });
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    console.error("Error updating complaint:", error);
+    throw new Error("Error updating complaint");
+  }
+};
 
-const deleteComplaintsDao = async (id,data) => { 
-        const [sql, params] = buildUpdateQuery(tableName.COMPLAINTS, data, { id});
-        const result = await executeQuery(sql, params);
-        return result.rows[0];
-}
+// Delete a Complaint
+const deleteComplaintsDao = async (id,company_id, data) => {
+  try {
+    const [sql, params] = buildUpdateQuery(tableName.COMPLAINTS, data, { id,company_id });
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    console.error("Error deleting complaint:", error);
+    throw new Error("Error deleting complaint");
+  }
+};
 
-export {getComplaintsDao , createComplaintsDao ,updateComplaintsDao , deleteComplaintsDao}
+export { getComplaintsDao, createComplaintsDao, updateComplaintsDao, deleteComplaintsDao };

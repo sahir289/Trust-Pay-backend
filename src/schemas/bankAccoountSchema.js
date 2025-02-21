@@ -42,7 +42,6 @@ export const UPDATE_BANK_ACCOUNT_SCHEMA = Joi.object({
     today_balance: Joi.number().label('today_balance').required(), // Added today_balance
     bank_used_for: Joi.string().valid('payIn', 'payout').label('bank_used_for').required(), // Enum validation
 
-
 })
 
 

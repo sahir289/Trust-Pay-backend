@@ -28,7 +28,7 @@ const VALIDATE_COMPLAINT_SCHEMA = Joi.object({
 
 // Validation Schema for Updating a Complaint
 const VALIDATE_UPDATE_COMPLAINT_STATUS = Joi.object({
-    status: Joi.string().valid('open', 'closed', 'resolved').optional(),
+    status: Joi.string().valid().optional(),
     payin_id: Joi.string().guid({ version: ['uuidv4'] }).optional(),
     email: Joi.string().email().optional(),
     config: Joi.object().optional(),

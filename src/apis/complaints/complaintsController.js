@@ -23,7 +23,9 @@ const getComplaintsById =  async (req, res) => {
           return sendError(res, error.details[0].message, 'Validation Error');
       }
       const {id} = req.params;
-      const data = await getComplaintsService({id:id});
+      const {company_id} = req.user;
+
+      const data = await getComplaintsService({id,company_id});
       console.log ('get complaint successfully');
       return sendSuccess(res, data, 'get complaint successfully');
     } catch (error) {
@@ -35,10 +37,7 @@ const getComplaintsById =  async (req, res) => {
 
 const createComplaints = async (req, res) => {
     try {
-      const { error } = VALIDATE_COMPLAINT_SCHEMA.validate(req.body);
-      if (error) {
-          return sendError(res, error.details[0].message, 'Validation Error');
-      }
+      
       let payload = req.body;
       if (!payload) {
         console.error('payload is required');
@@ -46,6 +45,10 @@ const createComplaints = async (req, res) => {
       }
       const {company_id} = req.user;
       payload.company_id=company_id;
+      const { error } = VALIDATE_COMPLAINT_SCHEMA.validate(payload);
+      if (error) {
+          return sendError(res, error.details[0].message, 'Validation Error');
+      }
       const data = await createComplaintsService(payload);
       console.log('create Complaints successfully', 'info');
       return sendSuccess(res, data, 'Create Complaints successfully');
@@ -67,7 +70,8 @@ const updateComplaints = async (req, res) => {
           return sendError(res, bodyError.details[0].message, 'Validation Error');
       }
         const { body, params } = req;
-        const data = await updateComplaintsService(params.id, body);
+        const {company_id} = req.user;
+        const data = await updateComplaintsService(params.id,company_id, body);
         console.log('Update Complaints successfully', 'info');
         return sendSuccess(res, data, 'Update Complaints successfully');
     } catch (error) {
@@ -83,8 +87,10 @@ const deleteComplaints = async (req, res) => {
           return sendError(res, error.details[0].message, 'Validation Error');
       }
         const {  params } = req;
+        const {company_id} = req.user;
+
         const userData = {is_obsolete: true};
-        const data = await deleteComplaintsService(params.id, userData);
+        const data = await deleteComplaintsService(params.id,company_id, userData);
         return sendSuccess(res, data, 'Delete Complaints successfully');
     } catch (error) {
         console.error('error getting while updating Complaints', 'error', error);                                  

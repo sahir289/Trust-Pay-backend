@@ -8,7 +8,7 @@ const getCalculationDao = async (search,
   sortBy,
   sortOrder) => {
     try {
-      const baseQuery = `SELECT * FROM "${tableName.CALCULATION}" WHERE 1=1`;
+      const baseQuery = `SELECT  "id","total_payin_count","total_payin_amount","total_payin_commission","total_payout_count","total_payout_amount","total_payout_commission","total_settlement_count","total_settlement_amount","total_chargeback_count", "total_chargeback_amount","current_balance","net_balance","created_at","updated_at" FROM "${tableName.CALCULATION}" WHERE 1=1 AND "company_id" = $1 AND "role_id" = $1 AND "user_id" = $1`;
        const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.CALCULATION, page, pageSize, sortBy, sortOrder, typeof search != 'string');
        // Execute query
        const result = await executeQuery(sql, queryParams);
@@ -22,7 +22,7 @@ const getCalculationDao = async (search,
  
 
 
-const createCalculationDao = async (data, conn) => {
+const createCalculationDao = async (conn,data) => {
   const [sql, params] = buildInsertQuery(tableName.CALCULATION, data)
   if (conn && conn.query) {
     const result = await conn.query(sql, params);
@@ -38,8 +38,8 @@ const createCalculationDao = async (data, conn) => {
     //   updatedData.current_balance = Number(previousData.current_balance) - Number(data.chargeback_amount);
     // }
 
-const updateCalculationDao = async (conn,id, data) => {
-    const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, { id });
+const updateCalculationDao = async (conn,id,user_id,role_id,company_id,data) => {
+    const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data,{ id,user_id,company_id,role_id });
     if (conn && conn.query) {
       const result = await conn.query(sql, params);
       return result.rows[0];
@@ -48,8 +48,8 @@ const updateCalculationDao = async (conn,id, data) => {
     return result.rows[0]; 
 };
 
-const deleteCalculationDao = async (conn,id, data) => {
-  const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, { id });
+const deleteCalculationDao = async (conn,id,user_id,role_id,company_id, data) => {
+  const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, { id,user_id,role_id,company_id });
   if (conn && conn.query) {
     const result = await conn.query(sql, params);
     return result.rows[0];

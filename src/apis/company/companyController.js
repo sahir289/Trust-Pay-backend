@@ -6,9 +6,9 @@ import { sendError } from '../../utils/responseHandlers.js';
 
 const getCompany = async (req, res) => {
   try {
-    const {company_id} = req.user;
+    let {company_id} = req.user;
     let payload = req.query.search || {};  
-    payload.company_id=company_id;
+    payload.id=company_id
     const data = await getCompanyService(payload);
     return sendSuccess(res, data, 'get Company successfully');
   } catch (error) {
@@ -19,6 +19,7 @@ const getCompanyById = async (req, res) => {
   try {
     const { id } = req.params;
     const data = await getCompanyService(id);
+
     return sendSuccess(res, data, 'get Company successfully');
   } catch (error) {
     console.error('error getting while Company', error);
@@ -31,20 +32,15 @@ const createCompany = async (req, res) => {
     // Get the database connection
     conn = await getConnection();
     await beginTransaction(conn); // Start the transaction
-    
     let payload = req.body;
       if (!payload) {
         console.error('payload is required');
         return sendError(res, 'payload is required', 'Validation Error');
       }
-      const {company_id} = req.user;
-      payload.company_id=company_id;
     // Pass the connection to the service to perform database operations
     const data = await createCompanyService(payload);
-    
     // Commit the transaction after the operation
     await commit(conn); // Await commit to ensure it is successfully committed
-    
     console.log('Create Company successfully');
     return sendSuccess(res, data, 'Create Company successfully');
   } catch (error) {

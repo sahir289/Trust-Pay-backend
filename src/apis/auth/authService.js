@@ -75,9 +75,9 @@ const loginService = async (config) => {
     const tokenInfo = createNewToken({
       user_name: user.user_name,
       user_id: user.id,
-      designation_id: user.designation,
+      designation_id: user.designation_id,
       designation_name: user.designation_name,
-      role_id: user.role,
+      role_id: user.role_id,
       role_name: user.role_name,
       company_id: user.company_id,
       session_id: sessionId
@@ -88,10 +88,8 @@ const loginService = async (config) => {
       confirm_over_ride: config.confirm_over_ride,
       session_id: sessionId,
     }
-
     await addLoginDao(conn, user.id, newConfig, user.company_id);
-    return tokenInfo;
-  
+    return tokenInfo
   } catch (error) {
     console.error('error getting while logging in', error);
     throw new BadRequestError('Error getting while logging in');

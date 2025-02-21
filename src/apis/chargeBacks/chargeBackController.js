@@ -4,10 +4,7 @@ import { VALIDATE_CHARGEBACK_BY_ID,VALIDATE_CHARGEBACK_SCHEMA,VALIDATE_DELETE_CH
 
 const createChargeBack = async (req, res) => {
     try {
-        const { error } = VALIDATE_CHARGEBACK_SCHEMA.validate(req.body);
-        if (error) {
-            return sendError(res, error.details[0].message, 'Validation Error');
-        }
+       
         let payload = req.body;
         if (!payload) {
           console.error('payload is required');
@@ -16,6 +13,10 @@ const createChargeBack = async (req, res) => {
         const {company_id} = req.user;
         payload.company_id=company_id;
         // Call the service to create the ChargeBack
+        const { error } = VALIDATE_CHARGEBACK_SCHEMA.validate(payload);
+        if (error) {
+            return sendError(res, error.details[0].message, 'Validation Error');
+        }
         const result = await createChargeBackService(payload);
 
         // Log success message
@@ -39,9 +40,9 @@ const getChargeBacksById = async (req, res) => {
             return sendError(res, error.details[0].message, 'Validation Error');
         }
         const {id} = req.params;
-
+        const {company_id} = req.user;
         // Call the service to create the ChargeBack
-        const result = await getChargeBacksService({id:id});
+        const result = await getChargeBacksService({id,company_id});
 
         // Log success message
         console.log('ChargeBack created successfully', 'info', result);
@@ -65,16 +66,13 @@ const getChargeBacks = async (req, res) => {
         payload.company_id=company_id;
         // Fetch vendors data from the service
         const data = await getChargeBacksService(payload);
-
         // Log success message
         console.log('get ChargeBacks successfully', data);
-
         // Send success response
         return sendSuccess(res, data, 'ChargeBacks fetched successfully');
     } catch (error) {
         // Log error
         console.error('error getting while fetching ChargeBacks Data', error);
-
         // Send an error response
         return sendError(res, error, 'Error occurred while fetching ChargeBacks');
     }
@@ -93,9 +91,9 @@ const updateChargeBack = async (req, res) => {
         }
         const payload = req.body;
         const { id } = req.params;  
-         
+         const {company_id} = req.user;
         // Call the service to update the ChargeBack
-        const result = await updateChargeBackService(id, payload);
+        const result = await updateChargeBackService(id,company_id, payload);
 
         // Log success message
         console.log('ChargeBack updated successfully',  result);
@@ -118,9 +116,10 @@ const deleteChargeBack = async (req, res) => {
             return sendError(res, error.details[0].message, 'Validation Error');
         }
         const { id } = req.params;  // Assuming the ChargeBack ID is passed as a parameter
+        const {company_id} = req.user;
 
         // Call the service to delete the ChargeBack
-        const result = await deleteChargeBackService(id);
+        const result = await deleteChargeBackService(id,company_id);
 
         // Log success message
         console.log('ChargeBack deleted successfully', result);

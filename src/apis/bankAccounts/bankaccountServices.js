@@ -3,7 +3,6 @@ import { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBa
 
 const getBankaccountService = async (payload) => {
     try {
-        
         const result = await getBankaccountDao(payload);
         return result;
     } catch (error) {
@@ -14,7 +13,6 @@ const getBankaccountService = async (payload) => {
 
 const createBankaccountService = async (payload) => {
     try {
-       
         const result = await createBankaccountDao(payload);
         return result;
     } catch (error) {
@@ -23,10 +21,9 @@ const createBankaccountService = async (payload) => {
     }
 };
 
-const updateBankaccountService = async (id, payload) => {
+const updateBankaccountService = async (id,user_id,compay_id, payload) => {
     try {
-        
-        const result = await updateBankaccountDao(id, payload);
+        const result = await updateBankaccountDao(id,user_id,compay_id,payload);
         return result;
     } catch (error) {
         console.error('error getting while  updating banks', error);
@@ -34,9 +31,9 @@ const updateBankaccountService = async (id, payload) => {
     }
 };
 
-const deleteBankaccountService = async (id) => {
+const deleteBankaccountService = async (id,user_id,compay_id) => {
     try {
-        const result = await deleteBankaccountDao(id, { is_obsolete: true });
+        const result = await deleteBankaccountDao(id,user_id,compay_id,{ is_obsolete: true });
         return result;
     } catch (error) {
         console.error('error getting while deleting banks', error);
