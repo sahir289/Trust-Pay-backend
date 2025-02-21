@@ -7,10 +7,11 @@ import {
 } from '../../utils/appErrors.js';
 import { createHash, verifyHash } from '../../utils/bcryptPassword.js';
 import { getConnection } from '../../utils/db.js';
-import { getUsersByUserNameDao } from '../users/userDao.js';
-import { createNewToken } from '../../utils/auth.js';
-import { addLoginDao } from './authDao.js';
+import { getUserByIdDao, getUsersByUserNameDao } from '../users/userDao.js';
+import { generateUserToken } from '../../utils/auth.js';
+import { addLoginDao, getRefreshTokenDao } from './authDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
+import { io } from '../../../server.js';
 
 
 const loginService = async (config) => {
@@ -72,25 +73,27 @@ const loginService = async (config) => {
 
     // const loginData = await addLoginDao(conn, user.id, config, user.company);
     const sessionId = generateUUID();
-    const tokenInfo = createNewToken({
-      user_name: user.user_name,
-      user_id: user.id,
-      designation_id: user.designation,
-      designation_name: user.designation_name,
-      role_id: user.role,
-      role_name: user.role_name,
-      company_id: user.company_id,
-      session_id: sessionId
-    });
+
+    // await deleteUserSessionsDao(conn, user.id);
+
+    const tokenInfo = generateUserToken(user);
     const hashedToken = await createHash(tokenInfo.refreshToken);
     const newConfig = {
       refresh_token: hashedToken,
       confirm_over_ride: config.confirm_over_ride,
       session_id: sessionId,
     }
-
+    
     await addLoginDao(conn, user.id, newConfig, user.company_id);
-    return tokenInfo;
+
+    // **Notify previous sessions to log out**
+    io.to(user.id).emit('forceLogout');
+
+
+    return {
+      tokenInfo,
+      sessionId
+    };
   
   } catch (error) {
     console.error('error getting while logging in', error);
@@ -98,5 +101,26 @@ const loginService = async (config) => {
   }
 };
 
+const refreshTokenService = async (refreshToken) => {
+  let conn;
+  try {
+    const hashedToken = await createHash(refreshToken);
+    const storedToken = await getRefreshTokenDao(hashedToken);
+    if (!storedToken){
+      throw new BadRequestError('Invalid Refresh Token');  
+    }
+    const user = await getUserByIdDao(conn, storedToken.user_id);  
+    const tokenInfo = generateUserToken(user);
+    return tokenInfo;
+  } catch (error) {
+    console.log('Error getting while getting refresh token', error);
+  }
+}
 
-export { loginService };
+const logoutService = async (config) => {
+  console.log(config)
+
+}
+
+
+export { loginService, refreshTokenService, logoutService };
