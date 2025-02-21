@@ -21,7 +21,7 @@ const createRoleService = async (payload) => {
     }  catch (error) {
        console.error('Error while updating Role', 'error', error);
         throw new BadRequestError('Error occurred while Creating Role');
-    }
+  }
 }
 
 const updateRoleService = async (conn,id,company_id, body) => {  

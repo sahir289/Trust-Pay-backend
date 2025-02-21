@@ -42,8 +42,8 @@ const router = express.Router();
  *         description: Server error
  */
 router.post('/get-all-payouts', isAuthenticated, tryCatchHandler(getPayOutReportService));
-router.post('/get-all-payins',isAuthenticated, tryCatchHandler(getPayInReportService));
-router.get('/get-all-merchants', tryCatchHandler(getMerchantReportService));
+router.post('/get-all-payins',isAuthenticated,tryCatchHandler(getPayInReportService));
+router.get('/get-all-merchants',isAuthenticated, tryCatchHandler(getMerchantReportService));
 router.get('/get-all-vendors',isAuthenticated, tryCatchHandler(getVendorReportService));
 
 /**

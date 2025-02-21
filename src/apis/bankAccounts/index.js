@@ -83,11 +83,11 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getBankaccountById));
  *                         type: string
  *                         example: "john_doe"
  */
-router.post('/create-bankAccount', isAuthenticated, tryCatchHandler(createBankaccount));
+router.post('/create-bankAccount',isAuthenticated, tryCatchHandler(createBankaccount));
 
 router.get('/get-merchantBanks', isAuthenticated, tryCatchHandler(getMerchantBank));
 
-router.put('/update-bankAccount/:id', isAuthenticated, tryCatchHandler(updateBankaccount));
+router.put('/update-bankAccount/:id',isAuthenticated, tryCatchHandler(updateBankaccount));
 
 /**
  * @swagger

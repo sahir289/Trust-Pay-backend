@@ -3,8 +3,8 @@ import { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBa
 
 const getBankaccountService = async (payload) => {
     try {
+        
         const result = await getBankaccountDao(payload);
-
         return result;
     } catch (error) {
         console.error('error getting while  getting banks', error);
@@ -14,7 +14,7 @@ const getBankaccountService = async (payload) => {
 
 const createBankaccountService = async (payload) => {
     try {
-
+       
         const result = await createBankaccountDao(payload);
         return result;
     } catch (error) {
@@ -25,6 +25,7 @@ const createBankaccountService = async (payload) => {
 
 const updateBankaccountService = async (id, payload) => {
     try {
+        
         const result = await updateBankaccountDao(id, payload);
         return result;
     } catch (error) {

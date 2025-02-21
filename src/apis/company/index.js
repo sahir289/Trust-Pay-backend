@@ -69,7 +69,7 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getCompanyById));
  *                 data:
  *                   type: object
  */
-router.post('/create-company', tryCatchHandler(createCompany));
+router.post('/create-company',isAuthenticated, tryCatchHandler(createCompany));
 
 
 /**
@@ -101,7 +101,7 @@ router.post('/create-company', tryCatchHandler(createCompany));
  *       200:
  *         description: Company updated successfully.
  */
-router.put('/update-company/:id', isAuthenticated, tryCatchHandler(updateCompany));
+router.put('/update-company/:id',isAuthenticated,  tryCatchHandler(updateCompany));
 
 
 /**
