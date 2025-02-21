@@ -18,7 +18,11 @@ const getBankaccountService = async (payload) => {
 
 const createBankaccountService = async (payload) => {
     try {
-
+        
+        const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
+        if (joiValidation.error) {
+            throw new ValidationError(joiValidation.error);
+        }
         const result = await createBankaccountDao(payload);
         return result;
     } catch (error) {

@@ -1,5 +1,6 @@
 import { CREATE_DESIGNATION_SCHEMA, UPDATE_DESIGNATION_SCHEMA, VALIDATE_DESIGNATION_BY_ID } from '../../schemas/designationSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService } from './designationServices.js';
 
@@ -32,7 +33,7 @@ const getDesignationById = async (req, res) => {
 const createDesignation = async (req, res) => {
   try {
     const payload = req.body;
-    const joiValidation = CREATE_DESIGNATION_SCHEMA.validate(req.body);
+    const joiValidation = CREATE_DESIGNATION_SCHEMA.validate(payload);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
@@ -52,7 +53,7 @@ const updateDesignation = async (req, res) => {
   try {
     const payload = req.body;
     
-    const joiValidation = VALIDATE_DESIGNATION_BY_ID.validate(req.params);
+    const joiValidation = UPDATE_DESIGNATION_SCHEMA.validate(req.params);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }

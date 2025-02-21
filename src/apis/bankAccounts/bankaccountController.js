@@ -1,5 +1,4 @@
-import { VALIDATE_BANK_RESPONSE_BY_ID } from '../../schemas/bankResponseSchema.js';
-import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getMerchantBankDao } from './bankaccountDao.js';
 import { getBankaccountService, createBankaccountService, updateBankaccountService, deleteBankaccountService } from './bankaccountServices.js';
@@ -8,10 +7,10 @@ const getBankaccount = async (req, res) => {
   try {
     
     const payload = req.query.search;
-    const joiValidation = VALIDATE_BANK_RESPONSE_BY_ID.validate(payload);
-    if (joiValidation.error) {
-        throw new ValidationError(joiValidation.error);
-    }
+    // const joiValidation = VALIDATE_BANK_RESPONSE_BY_ID.validate(payload);
+    // if (joiValidation.error) {
+    //     throw new ValidationError(joiValidation.error);
+    // }
     const data = await getBankaccountService(payload);
     console.log('get Banks successfully');
     return sendSuccess(res, data, 'get Banks successfully');
