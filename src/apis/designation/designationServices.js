@@ -1,6 +1,6 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
-import { getDesignationDao, createDesignationByIdDao, updateDesignationByIdDao, deleteDesignationByIdDao } from './designationDao.js';
+import { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao } from './designationDao.js';
 
 const getDesignationService = async (payload) => {
   let conn;
@@ -9,8 +9,8 @@ const getDesignationService = async (payload) => {
     const result = await getDesignationDao(payload);
     return result;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while Designation', error);
+    throw new BadRequestError('Error getting while Designation');
   } finally {
     if (conn) {
       try {
@@ -22,37 +22,37 @@ const getDesignationService = async (payload) => {
   }
 };
 
-const createDesignationByIDService = async (payload) => {
+const createDesignationService = async (payload) => {
   try {
 
-    const result = await createDesignationByIdDao(payload);
+    const result = await createDesignationDao(payload);
 
     return result;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while Designation', error);
+    throw new BadRequestError('Error getting while Designation');
   }
 };
 
-const updateDesignationByIDService = async (id, payload) => {
+const updateDesignationService = async (id, payload) => {
   try {
-    const result = await updateDesignationByIdDao(id, payload);
+    const result = await updateDesignationDao(id, payload);
     return result;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while Designation', error);
+    throw new BadRequestError('Error getting while Designation');
   }
 };
 
-const deleteDesignationByIDService = async (id) => {
+const deleteDesignationService = async (id) => {
   try {
-    const result = await deleteDesignationByIdDao(id, { is_obsolete: true });
+    const result = await deleteDesignationDao(id, { is_obsolete: true });
     return result;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while Designation', error);
+    throw new BadRequestError('Error getting while Designation');
   }
 };
 
 
-export { getDesignationService, createDesignationByIDService, updateDesignationByIDService, deleteDesignationByIDService };
+export { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService };

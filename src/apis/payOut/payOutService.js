@@ -1,8 +1,5 @@
 /* eslint-disable no-unused-vars */
-import {
-    BadRequestError,
-    DuplicateDataError,
-} from '../../utils/appErrors.js';
+import {BadRequestError,DuplicateDataError,} from '../../utils/appErrors.js';
 import { Buffer } from 'buffer';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { createPayoutDao, deletePayoutDao, getPayoutsDao, updatePayoutDao } from './payOutDao.js';
@@ -21,12 +18,12 @@ const createPayoutService = async (headers, payload) => {
     try {
         conn = await getConnection();
         await beginTransaction(conn);
-
         const { merchant_id, amount, merchant_order_id } = payload;
-        const { code, user_id, api_key, config } = await getMerchantsDao(merchant_id);
+        const { code, user_id, api_key, config } = await getMerchantsDao({merchant_id : payload.id});
         const payoutAmount = Number(amount);
         const balanceRestriction = config.balanceRestriction;
 
+        const data = await createPayoutDao(payload);
         if (balanceRestriction) {
             const { totalNetBalance } = await getCalculationDao({ user_id });
             if (totalNetBalance < payoutAmount) {
@@ -46,12 +43,11 @@ const createPayoutService = async (headers, payload) => {
             throw new BadRequestError('Enter valid Api key');
         }
 
-        const merchantOrderIdPayoutData = merchant_order_id ? await getPayoutsDao(merchant_order_id) : '';
+        const merchantOrderIdPayoutData = merchant_order_id ? await getPayoutsDao({merchant_order_id : merchant_order_id}) : '';
         if (merchantOrderIdPayoutData || merchantOrderIdPayoutData?.length > 0) {
             throw new DuplicateDataError('Merchant Order ID already exists');
         }
 
-        const data = await createPayoutDao(payload);
         await commit(conn);
         console.log('Payout created successfully', 'info');
 
@@ -78,11 +74,16 @@ const createPayoutService = async (headers, payload) => {
 };
 
 const getPayoutsService = async (payload) => {
-    const data = await getPayoutsDao(payload);
-
-    console.log('Fetched Payouts successfully', 'info');
-    return data;
+    try {
+        const data = await getPayoutsDao(payload);
+        console.log('Fetched Payouts successfully', 'info');
+        return data;
+    } catch (error) {
+        console.error('Error while fetching Payouts', error);
+        throw new BadRequestError('Error occurred while fetching Payouts');
+    }
 };
+
 
 const updatePayoutService = async (conn, id, payload) => {
     // Set default statuses based on input conditions
@@ -90,7 +91,7 @@ const updatePayoutService = async (conn, id, payload) => {
     if (payload.rejected_reason) Object.assign(payload, { status: Status.REJECTED, rejected_at: new Date() });
     if (payload.status === Status.INITIATED) Object.assign(payload, { utr_id: "", rejected_reason: "" });
 
-    const singleWithdrawData = await getPayoutsDao(id);
+    const singleWithdrawData = await getPayoutsDao({id : id});
     if (payload?.method === Method.EKO) await processEkoPayout(singleWithdrawData, payload);
 
     // Update payout status and retrieve necessary data
@@ -108,14 +109,12 @@ const updatePayoutService = async (conn, id, payload) => {
     if (data.status === Status.SUCCESS) {
         const netBalance = await updatePayoutCalculations(data.merchant_id, data.approved_at, data.amount, data.commission, true, false, conn);
         const netVendorBalance = await updatePayoutCalculations(user.id, data.approved_at, data.amount, data.commission, false, false, conn);
-
         await updateBankaccountDao(bankData.id, { today_balance: bankData.today_balance - data.amount, balance: bankData.balance - data.amount }, conn);
         await updateMerchantDao(merchant.id, { balance: netBalance }, conn);
         await updateVendorDao(vendor.id, { balance: netVendorBalance }, conn);
     } else if (data.status === Status.REJECTED) {
         const netBalance = await updatePayoutCalculations(data.merchant_id, data.rejected_at, data.amount, data.commission, true, true, conn);
         const netVendorBalance = await updatePayoutCalculations(user.id, data.rejected_at, data.amount, data.commission, false, true, conn);
-
         await updateBankaccountDao(bankData.id, { today_balance: bankData.today_balance + data.amount, balance: bankData.balance - data.amount }, conn);
         await updateMerchantDao(merchant.id, { balance: netBalance }, conn);
         await updateVendorDao(vendor.id, { balance: netVendorBalance }, conn);
@@ -141,7 +140,6 @@ const updatePayoutCalculations = async (userId, date, amount, commission, isMerc
         getCalculationDao({ user_id: userId, created_at: date - 1 })
     ]);
     const prefix = isReverse ? "reverse_" : "";
-
     const updatedCalculation = {
         ...currentCalculation,
         [`total_${prefix}payout_count`]: currentCalculation[`total_${prefix}payout_count`] + 1,
@@ -346,9 +344,7 @@ const deletePayoutService = async (id) => {
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
         const payload = { is_obsolete: true };
-
         const data = await deletePayoutDao(id, payload); // Adjust DAO call for delete
-
         await commit(conn); // Commit the transaction
         console.log('Payout deleted successfully', 'info');
 

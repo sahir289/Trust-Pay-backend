@@ -4,7 +4,6 @@ import {
 import { beginTransaction, commit, getConnection, rollback, } from '../../utils/db.js';
 import { createChargeBackDao, deleteChargeBackDao, getChargeBackDao, updateChargeBackDao } from './chargeBackDao.js';
 
-
 const createChargeBackService = async (payload) => {
     let conn;
     try {
@@ -40,10 +39,16 @@ const createChargeBackService = async (payload) => {
 };
 
 const getChargeBacksService = async (payload) => {
-    const data = await getChargeBackDao(payload);
-    console.log('Fetched ChargeBacks successfully');
-    return data;
+    try {
+        const data = await getChargeBackDao(payload);
+        console.log('Fetched ChargeBacks successfully');
+        return data;
+    } catch (error) {
+        console.error('Error while fetching ChargeBacks', error);
+        throw new BadRequestError('Error occurred while fetching ChargeBacks');
+    }
 };
+
 
 const updateChargeBackService = async (id, payload) => {
     let conn;

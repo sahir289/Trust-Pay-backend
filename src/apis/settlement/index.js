@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createSettlement, deleteSettlement, getSettlementById, updateSettlement } from './settlementController.js';
+import { createSettlementService, deleteSettlementService, getSettlementService, getSettlementServiceAll, updateSettlementService } from './settlementServices.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 const router = express.Router();
 /**
@@ -27,7 +27,8 @@ const router = express.Router();
  *                   items:
  *                     type: object
  */
-router.get('/', isAuthenticated, tryCatchHandler(getSettlementById));
+router.get('/', isAuthenticated, tryCatchHandler(getSettlementService));
+router.get('/getall',isAuthenticated,  tryCatchHandler(getSettlementServiceAll));
 
 /**
  * @swagger
@@ -65,7 +66,7 @@ router.get('/', isAuthenticated, tryCatchHandler(getSettlementById));
  *                       type: string
  *                       example: "john_doe"
  */
-router.post('/create-settlement', isAuthenticated, tryCatchHandler(createSettlement));
+router.post('/create-settlement',isAuthenticated,  tryCatchHandler(createSettlementService));
 
 /**
  * @swagger
@@ -109,7 +110,7 @@ router.post('/create-settlement', isAuthenticated, tryCatchHandler(createSettlem
  *                       type: string
  *                       example: "john_doe"
  */
-router.put('/update-settlement/:id', isAuthenticated, tryCatchHandler(updateSettlement));
+router.put('/update-settlement/:id',isAuthenticated, tryCatchHandler(updateSettlementService));
 
 /**
  * @swagger
@@ -147,6 +148,6 @@ router.put('/update-settlement/:id', isAuthenticated, tryCatchHandler(updateSett
  *                       type: string
  *                       example: "john_doe"
  */
-router.delete('/delete-settlement/:id', isAuthenticated, tryCatchHandler(deleteSettlement));
+router.delete('/delete-settlement/:id',isAuthenticated, tryCatchHandler(deleteSettlementService));
 
 export default router;

@@ -38,11 +38,16 @@ const createVendorService = async (payload) => {
 };
 
 const getVendorsService = async (payload) => {
-    const data = await getVendorsDao(payload);
-
-    console.log('Fetched Vendors successfully', 'info');
-    return data;
+    try {
+        const data = await getVendorsDao(payload);
+        console.log('Fetched Vendors successfully', 'info');
+        return data;
+    } catch (error) {
+        console.error('Error while fetching vendors', error);
+        throw new BadRequestError('Error occurred while fetching vendors');
+    }
 };
+
 
 const updateVendorService = async (id, payload) => {
     let conn;

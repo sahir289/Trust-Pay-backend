@@ -38,11 +38,16 @@ const createUserHierarchyService = async (payload) => {
 };
 
 const getUserHierarchyService = async (payload) => {
-    const data = await getUserHierarchysDao(payload);
-
-    console.log('Fetched UserHierarchys successfully', 'info');
-    return data;
+    try {
+        const data = await getUserHierarchysDao(payload);
+        console.log('Fetched UserHierarchys successfully', 'info');
+        return data;
+    } catch (error) {
+        console.error('Error while fetching UserHierarchys', error);
+        throw new BadRequestError('Error occurred while fetching UserHierarchys');
+    }
 };
+
 
 const updateUserHierarchyService = async (id, payload) => {
     let conn;

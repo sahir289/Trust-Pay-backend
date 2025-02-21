@@ -1,12 +1,7 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import {
-    getCalculation,
-    createCalculation,
-    updateCalculation,
-    deleteCalculation
-} from './calculationController.js';
-
+import {getCalculation,getCalculationById,createCalculation,updateCalculation,deleteCalculation} from './calculationController.js';
+import { isAuthenticated } from '../../middlewares/auth.js';
 const router = express.Router();
 
 /**
@@ -28,7 +23,9 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/', tryCatchHandler(getCalculation));
+router.get('/getAll',isAuthenticated, tryCatchHandler(getCalculation));
+
+router.get('/:id',isAuthenticated, tryCatchHandler(getCalculationById));
 
 /**
  * @swagger
@@ -57,7 +54,7 @@ router.get('/', tryCatchHandler(getCalculation));
  *       400:
  *         description: Bad request
  */
-router.post('/create-calculation', tryCatchHandler(createCalculation));
+router.post('/create-calculation',isAuthenticated, tryCatchHandler(createCalculation));
 
 /**
  * @swagger
@@ -91,7 +88,7 @@ router.post('/create-calculation', tryCatchHandler(createCalculation));
  *       404:
  *         description: Calculation not found
  */
-router.put('/update-calculation/:id', tryCatchHandler(updateCalculation));
+router.put('/update-calculation/:id',isAuthenticated, tryCatchHandler(updateCalculation));
 
 /**
  * @swagger
@@ -112,6 +109,6 @@ router.put('/update-calculation/:id', tryCatchHandler(updateCalculation));
  *       404:
  *         description: Calculation not found
  */
-router.delete('/delete-calculation/:id', tryCatchHandler(deleteCalculation));
+router.delete('/delete-calculation/:id',isAuthenticated, tryCatchHandler(deleteCalculation));
 
 export default router;

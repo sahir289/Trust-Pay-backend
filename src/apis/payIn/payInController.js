@@ -2,15 +2,20 @@ import config from "../../config/config.js";
 import { ValidationError } from '../../utils/appErrors.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import {
-    ASSIGN_PAYIN_SCHEMA, VALIDATE_ASSIGNED_BANT_TO_PAY, VALIDATE_CHECK_PAY_IN_STATUS,
-    VALIDATE_EXPIRE_PAY_IN_URL, VALIDATE_PAY_IN_INTENT_GENERATE_ORDER, VALIDATE_PAYIN_SCHEMA, VALIDATE_RESET_DEPOSIT,
+    ASSIGN_PAYIN_SCHEMA, 
+    VALIDATE_ASSIGNED_BANT_TO_PAY, 
+    VALIDATE_CHECK_PAY_IN_STATUS,
+    VALIDATE_EXPIRE_PAY_IN_URL, 
+    VALIDATE_PAY_IN_INTENT_GENERATE_ORDER, 
+    VALIDATE_PAYIN_SCHEMA, VALIDATE_RESET_DEPOSIT,
     VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS,
     VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS
 } from "../../schemas/payInSchema.js";
 import {
-    assignedBankToPayInUrlService, checkPayInStatusService, expirePayInUrlService, generatePayInUrlService, getPayinsService, getPayInUrlService,
-    payInIntentGenerateOrderService, resetDepositService, updateDepositStatusService, updatePaymentNotificationStatusService
+    assignedBankToPayInUrlService, checkPayInStatusService, expirePayInUrlService, generatePayInUrlService, getPayInUrlService,
+    payInIntentGenerateOrderService, processPayInService, resetDepositService, updateDepositStatusService, updatePaymentNotificationStatusService
 } from "./payInService.js";
+import { transactionWrapper } from "../../utils/db.js";
 
 //  To Generate Url
 export const generatePayInUrl = async (req, res) => {
@@ -121,18 +126,18 @@ export const updatePaymentNotificationStatus = async (req, res) => {
 }
 
 export const updateDepositStatus = (req, res) => {
-    const { id } = req.params;
-    const { bank_name } = req.body;
+    const { merchantId } = req.params;
+    const { nick_name } = req.body;
     const payload = {
-        id,
-        bank_name
+        merchantId,
+        nick_name
     }
     const joiValidation = VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS.validate(payload);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-    const updateRes = updateDepositStatusService(id, bank_name);
-    sendSuccess(res, updateRes)
+    const updateRes = transactionWrapper(updateDepositStatusService)(merchantId, nick_name);
+    sendSuccess(res, updateRes, 'PayIn data updated successfully');
 }
 
 export const resetDeposit = async (req, res) => {
@@ -141,26 +146,16 @@ export const resetDeposit = async (req, res) => {
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-    const data = await resetDepositService(merchant_order_id);
+    const data = await transactionWrapper(resetDepositService)(merchant_order_id);
     sendSuccess(res, data)
 }
-export const getPayins = async (req, res) => {
-    try {
-        const payload = req.query;
 
-        // Fetch vendors data from the service
-        const data = await getPayinsService(payload);
-
-        // Log success message
-        console.log('getPayins successfully', data);
-
-        // Send success response
-        return sendSuccess(res, data, 'Payins fetched successfully');
-    } catch (error) {
-        // Log error
-        console.error('error getting while fetching Payins Data',  error);
-
-        // Send an error response
-        return sendError(res, error, 'Error occurred while fetching Payins');
+export const processPayIn = async (req, res) => {
+    const joiValidation = VALIDATE_RESET_DEPOSIT.validate(req.body);
+    if (joiValidation.error) {
+        throw new ValidationError(joiValidation.error);
     }
-};
+
+    const data = await transactionWrapper(processPayInService)(req.body);
+    sendSuccess(res, data);
+}

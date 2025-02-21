@@ -19,7 +19,7 @@ export const getMerchantsDao = async (
     const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.MERCHANT, page, pageSize, sortBy, sortOrder, typeof search != 'string');
     // Execute query
     const result = await executeQuery(sql, queryParams);
-    return result.rows;
+    return result.rows[0];
 };
 
 export const updateMerchantDao = async (id, data, conn) => {
@@ -35,4 +35,14 @@ export const deleteMerchantDao = async (id, data) => {
     const [sql, params] = buildUpdateQuery(tableName.MERCHANT, data, { id });
     const result = await executeQuery(sql, params);
     return result.rows[0];
+}
+
+export const updateMerchantBalanceDao = async (filters, valueToAdd, conn) => {
+    const [sql, params] = buildUpdateQuery(tableName.MERCHANT, { balance: valueToAdd }, filters, { balance: '+' });
+    if (conn && conn.query) {
+        const result = await conn.query(sql, params);
+        return result.rows[0];
+    }
+    const result = await executeQuery(sql, params);
+    return result[0];
 }

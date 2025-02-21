@@ -1,60 +1,51 @@
-import {BadRequestError,} from '../../utils/appErrors.js';
+import { BadRequestError } from '../../utils/appErrors.js';
+import { getComplaintsDao, createComplaintsDao, updateComplaintsDao, deleteComplaintsDao } from './complaintsDao.js';
 
-import { getComplaintsDao , createComplaintsDao, updateComplaintsDao , deleteComplaintsDao } from './complaintsDao.js';
-import Logger from '../../utils/logger.js';
-const logger = new Logger()
-
-const getComplaintsService = async () => {
+// Service to get complaints
+const getComplaintsService = async (payload) => {
     try {
-        const data = await getComplaintsDao();
-        logger.log('Fetched Complaints successfully', 'info');
+        const data = await getComplaintsDao(payload);
         return data;
     } catch (error) {
-       logger.error('Error during transaction rollback', 'error', error);
-       throw new BadRequestError('Error occurred while fetching Complaints');
+        console.error('Error while fetching complaints', error);
+        throw new BadRequestError('Error occurred while fetching complaints');
     }
 }
 
-
+// Service to create a new complaint
 const createComplaintsService = async (payload) => {
     try {
         const data = await createComplaintsDao(payload);
-        logger.log('Created Complaints successfully', 'info');
         return data;
-    }  catch (error) {
-       logger.error('Error while updating Complaints', 'error', error);
-        throw new BadRequestError('Error occurred while Creating Complaints');
+    } catch (error) {
+        console.error('Error while creating complaint', error);
+        throw new BadRequestError('Error occurred while creating complaint');
     }
 }
 
-
-const updateComplaintsService = async (id, body) => {  
-            if (!body || !id) {
-                throw new BadRequestError('Missing required fields: body or id');
-            }
-            try {
-                const data = await updateComplaintsDao(id, body);
-                logger.log('Updated Complaints successfully', 'info');
-                return data;
-            } catch (error) {
-                logger.error('Error while updating Complaints', 'error', error);
-                throw new BadRequestError('Error occurred while updating Complaints');
-            }
-        }
-
-
-const deleteComplaintsService = async (id,userData ) => {  
+// Service to update an existing complaint
+const updateComplaintsService = async (id, body) => {
     try {
-        const data = await deleteComplaintsDao(id,userData);
-        logger.log('Deleted Complaints successfully', 'info');
+        if (!body || !id) {
+            throw new BadRequestError('Missing required fields: body or id');
+        }
+        const data = await updateComplaintsDao(id, body);
         return data;
     } catch (error) {
-            logger.error('Error while updating Complaints', 'error', error);
-            throw new BadRequestError('Error occurred while updating Complaints');
-        }
+        console.error('Error while updating complaint', error);
+        throw new BadRequestError('Error occurred while updating complaint');
+    }
 }
 
+// Service to delete a complaint
+const deleteComplaintsService = async (id, userData) => {
+    try {
+        const data = await deleteComplaintsDao(id, userData);
+        return data;
+    } catch (error) {
+        console.error('Error while deleting complaint', error);
+        throw new BadRequestError('Error occurred while deleting complaint');
+    }
+}
 
-
-
-export {getComplaintsService ,createComplaintsService, updateComplaintsService , deleteComplaintsService}
+export { getComplaintsService, createComplaintsService, updateComplaintsService, deleteComplaintsService };
