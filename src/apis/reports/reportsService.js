@@ -16,9 +16,10 @@ const getPayInReportService = async (req, res) => {
             result = await getPayInMerchantReportDao(merchant_id, startDate, endDate );
         }
         if (vendor_id) {
-            const vendorData = await getBankaccountDao(vendor_id   );
-            const bankData = await getVendorsDao({ searchString: vendorData.user_id });
-            result = await getPayInVendorReportDao(bankData.id, startDate, endDate , method );
+            const vendorData = await getVendorsDao({id: vendor_id})
+            const bankVendorData = await getBankaccountDao({user_id :  vendorData.user_id}   );
+            result = await getPayInVendorReportDao(bankVendorData.id, startDate, endDate , method );
+            console.log(result.rows, "ujytgfgdcvbn")
         }
         return sendSuccess(res, result, 'getUsers successfully');
 
@@ -57,9 +58,11 @@ const getPayOutReportService = async (req, res) => {
 }; const getVendorReportService = async (req, res) => {
     try {
         const { vendor_id, startDate, endDate , method  } = req.query;
-        const vendorData = await getBankaccountDao(vendor_id);
-        const bankData = await getVendorsDao({ searchString: vendorData.user_id });
-        const result = await getPayOutVendorReportDao(bankData.id,  startDate, endDate , method );        
+        const vendorData = await getVendorsDao({id: vendor_id})
+        const bankVendorData = await getBankaccountDao({user_id :  vendorData.user_id}   );
+
+       
+        const result = await getPayOutVendorReportDao(bankVendorData.id,  startDate, endDate , method );        
         return sendSuccess(res, result, 'getUsers successfully');
         
     } catch (error) {
