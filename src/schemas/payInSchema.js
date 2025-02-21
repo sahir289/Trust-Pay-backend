@@ -53,3 +53,15 @@ export const VALIDATE_PROCESSE_PAYIN = Joi.object({
   code: Joi.string().label('code').min(5).max(5).required(),
   amount: Joi.number().label('amount').min(1).required(),
 })
+
+export const VALIDATE_PROCESSE_PAYIN_BY_IMAGE = Joi.object({
+  payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
+  amount: Joi.number().label('amount').min(1).required(),
+})
+
+export const VALIDATE_DISPUTE_DUPLICATE_TRANSACTION = Joi.object({
+  payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
+  merchantOrderId: Joi.string().label('merchantOrderId').optional(),
+  confirmed: Joi.number().min(1).label('confirmed').optional(),
+  amount: Joi.number().min(1).label('amount').optional(),
+});

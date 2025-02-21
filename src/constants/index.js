@@ -59,7 +59,7 @@ export const columns = {
     BANK_ACCOUNT: ['id', 'sno', 'user_id', 'upi_id', 'upi_params', 'name', 'acc_no', 'acc_name', 'ifsc_code', 'bank_name', 'is_qr', 'is_bank', 'is_enabled', 'payin_count', 'balance', 'today_balance', 'bank_used_for', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     VENDOR: ['id', 'role_id', 'user_id', 'first_name', 'last_name', 'code', 'payin_commission', 'payout_commission', 'balance', 'created_by', 'updated_by', 'config', 'company_id', 'created_at', 'updated_at', 'is_obsolete'],
     CHAREBACK: ['id', 'sno', 'user', 'merchant_user_id', 'vendor_user_id', 'payin_id', 'bank_acc_id', 'amount', 'when', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
-    USER_HIERARCHY: ['id', 'user_id', 'role_id', 'role_id', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
+    USER_HIERARCHY: ['id', 'user_id', 'role_id', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     CHECK_UTR_HISTORY: ['id', 'sno', 'payin_id', 'utr', 'created_by', 'updated_by', 'created_at', 'updated_at', 'company_id', 'is_obsolete','config'],
     RESET_DATA_HISTORY: ['id', 'sno', 'payin_id', 'pre_status', 'created_by',  'updated_by', 'created_at', 'updated_at', 'company_id', 'is_obsolete', 'config']
 }
@@ -72,7 +72,7 @@ export const tableName = {
     CALCULATION: "Calculation",
     COMPLAINTS: "Complaints",
     DESIGNATION: 'Designation',
-    PAYIN: 'PayIn',
+    PAYIN: 'Payin',
     PAYOUT: 'Payout',
     VENDOR: 'Vendor',
     CHAREBACK: 'Chargeback',

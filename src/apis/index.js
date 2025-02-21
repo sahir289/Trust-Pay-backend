@@ -16,6 +16,7 @@ import settlement from './settlement/index.js'
 import userHierarchy from './userHierarchy/index.js'
 import payOut from './payOut/index.js'
 import complaints from './complaints/index.js'
+import gatherAllData from '../cron/gatherAllData.js';
 import reports from './reports/index.js'
 import cron from "../cron/index.js"
 // Add your newly create component routes here with route prefix.
@@ -39,6 +40,7 @@ router.use('/settlement', settlement)
 router.use('/userHierarchy', userHierarchy)
 router.use('/payout', payOut)
 router.use('/complaints',complaints)
+router.use("/initialize-cronjob", gatherAllData);
 router.use('/reports',reports)
 router.use("/cron",cron)
 /* Make sure while changing below parentrouter.
