@@ -61,7 +61,8 @@ export const columns = {
     CHAREBACK: ['id', 'sno', 'user', 'merchant_user_id', 'vendor_user_id', 'payin_id', 'bank_acc_id', 'amount', 'when', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     USER_HIERARCHY: ['id', 'user_id', 'role_id', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     CHECK_UTR_HISTORY: ['id', 'sno', 'payin_id', 'utr', 'created_by', 'updated_by', 'created_at', 'updated_at', 'company_id', 'is_obsolete','config'],
-    RESET_DATA_HISTORY: ['id', 'sno', 'payin_id', 'pre_status', 'created_by',  'updated_by', 'created_at', 'updated_at', 'company_id', 'is_obsolete', 'config']
+    RESET_DATA_HISTORY: ['id', 'sno', 'payin_id', 'pre_status', 'created_by',  'updated_by', 'created_at', 'updated_at', 'company_id', 'is_obsolete', 'config'],
+    BANK_RESPONSE: ['id', 'sno','status', 'bank_id', 'amount', 'upi_short_code', 'utr', 'is_used', 'created_at', 'updated_at', 'created_by', 'company_id', 'is_obsolete', 'config' , 'updated_by']
 }
 
 export const tableName = {

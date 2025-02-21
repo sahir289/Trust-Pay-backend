@@ -1,10 +1,10 @@
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getPayinsByIdDao } from '../payIn/payInDao.js';
-import { updateBotResponseDao } from './bankResponseDao.js';
+import { getPayinsDao } from '../payIn/payInDao.js';
+import { getBankResponseDao, updateBotResponseDao } from './bankResponseDao.js';
 
 import { getBankResponseService,
   createBankResponseService,
-  getBankMessageServices,resetBankResponseService} from './bankResponseServices.js';
+  getBankMessageServices,updateBotResponseDao} from './bankResponseServices.js';
 
 
 const getBankResponse = async (req, res) => {
@@ -20,15 +20,15 @@ const getBankResponse = async (req, res) => {
 const createBankResponse = async (req, res) => {
     try {
       const payload = req.body?.body;      
-      console.log(payload, "banksucess")
+      console.log(payload, "banksucess1")
       if (!payload) {
         console.error('payload is required');
       }
-      const data = await createBankResponseService(payload , res);
+      const data = await createBankResponseService(payload);
       console.log( data, "bankresp121")
       return sendSuccess(res, data, 'Create BankResponse successfully');
     } catch (error) {
-      console.error(res, error,'error getting while creating BankResponse');                                  
+      console.error( error,'error getting while creating BankResponse');                                  
     }
   };
 
@@ -49,7 +49,7 @@ const resetBankResponse = async (req, res) => {
       const { id } = req.body;
       const botRes = await getBankResponseDao({id: id});
       let getallPayinDataByUtr
-      getallPayinDataByUtr = await getPayinsByIdDao({user_submitted_utr : botRes.utr});
+      getallPayinDataByUtr = await getPayinsDao({user_submitted_utr : botRes.utr});
       const hasSuccess = getallPayinDataByUtr?.some((item) => item.status === 'SUCCESS');
 
       if (!hasSuccess) {
@@ -77,8 +77,8 @@ const resetBankResponse = async (req, res) => {
           "Bot response Reset successful"
         );
 
-        // const data = await resetBankResponseService(params.id, userData);
-        return sendSuccess(res, data, 'Delete BankResponse successfully');
+        //  const data = await resetBankResponseService(params.id, userData);
+        // return sendSuccess(res, data, 'Delete BankResponse successfully');
       }
       else {
         const successPayinDataID = getallPayinDataByUtr?.filter((item) => item.status === 'SUCCESS');

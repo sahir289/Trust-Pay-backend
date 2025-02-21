@@ -42,3 +42,11 @@ export const getPayinsDao = async (
     const result = await executeQuery(sql, queryParams);
     return result.rows;
 };
+
+export const updatePayInDao = async (id, data) => {
+    
+    const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
+    const result = await executeQuery(sql, params);
+    console.log(sql, params, "queryisis")
+    return result.rows[0];
+}

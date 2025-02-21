@@ -6,6 +6,7 @@ import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js'
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getBankaccountDao, updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { CREATE_SETTLEMENT_SCHEMA, UPDATE_SETTLEMENT_SCHEMA, VALIDATE_SETTLEMENT_BY_ID } from '../../schemas/settlementSchema.js';
+import { beginTransaction, getConnection } from '../../utils/db.js';
 
 const getSettlementService = async (req, res) => {
   try {
@@ -49,7 +50,10 @@ const getSettlementServiceAll = async (req, res) => {
 };
 
 const createSettlementService = async (req, res) => {
-  try {
+  let conn;
+    try {
+        conn = await getConnection();
+        await beginTransaction(conn);
     const payload = req.body;
 
     const joiValidation = CREATE_SETTLEMENT_SCHEMA.validate(payload);
@@ -80,12 +84,29 @@ const createSettlementService = async (req, res) => {
     }
 
     const data = await createSettlementDao(payload);
+    await commit(conn);
+
     return sendSuccess(res, data, 'create settlements successfully');
 
   } catch (error) {
-    console.error('error getting while creating', error);
-    throw new BadRequestError('Error getting while creating settlement');
-  }
+    if (conn) {
+        try {
+            await rollback(conn);
+        } catch (rollbackError) {
+            console.log('Error during transaction rollback', 'error', rollbackError);
+        }
+    }
+    console.log('Error while creating Payout', 'error', error);
+    throw new BadRequestError('Error occurred while creating Payout');
+} finally {
+    if (conn) {
+        try {
+            conn.release();
+        } catch (releaseError) {
+            console.log('Error while releasing the connection', 'error', releaseError);
+        }
+    }
+}
 };
 
 

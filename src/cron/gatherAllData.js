@@ -8,8 +8,8 @@ import { getUserHierarchysDao } from "../apis/userHierarchy/userHierarchyDao.js"
 import { getBankaccountDao } from "../apis/bankAccounts/bankaccountDao.js";
 import { getChargeBackDao } from "../apis/chargeBacks/chargeBackDao.js";
 import { sendTelegramDashboardMerchantGroupingReportMessage, sendTelegramDashboardReportMessage, sendTelegramDashboardSuccessRatioMessage } from "../utils/sendTelegramMessages.js";
-import config from "../config.js";
 import { getSettlementDao } from "../apis/settlement/settlementDao.js";
+import config from "../config/config.js";
 
 cron.schedule("* * * * *", () => {
     gatherAllData("Asia/Kolkata");
@@ -353,7 +353,7 @@ const gatherAllData = async (timezone = "Asia/Kolkata") => {
                 await sendTelegramDashboardSuccessRatioMessage(
                     config?.telegramRatioAlertsChatId,
                     fullMessages,
-                    config?.telegramBotToken
+                    config ?.telegramBotToken
                 );
 
                 await sendTelegramDashboardReportMessage(
