@@ -42,6 +42,19 @@ export const getPayinsDao = async (
     const result = await executeQuery(sql, queryParams);
     return result.rows;
 };
+export const getPayinsDaoId = async (
+    search,
+    page,
+    pageSize,
+    sortBy,
+    sortOrder
+) => {
+    const baseQuery = `SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`;
+    const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.PAYIN, page, pageSize, sortBy, sortOrder, typeof search != 'string');
+    // Execute query
+    const result = await executeQuery(sql, queryParams);
+    return result.rows[0];
+};
 
 export const updatePayInDao = async (id, data) => {
     

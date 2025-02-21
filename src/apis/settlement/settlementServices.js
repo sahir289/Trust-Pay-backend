@@ -84,29 +84,14 @@ const createSettlementService = async (req, res) => {
     }
 
     const data = await createSettlementDao(payload);
-    await commit(conn);
 
     return sendSuccess(res, data, 'create settlements successfully');
 
   } catch (error) {
-    if (conn) {
-        try {
-            await rollback(conn);
-        } catch (rollbackError) {
-            console.log('Error during transaction rollback', 'error', rollbackError);
-        }
-    }
+    
     console.log('Error while creating Payout', 'error', error);
     throw new BadRequestError('Error occurred while creating Payout');
-} finally {
-    if (conn) {
-        try {
-            conn.release();
-        } catch (releaseError) {
-            console.log('Error while releasing the connection', 'error', releaseError);
-        }
-    }
-}
+} 
 };
 
 

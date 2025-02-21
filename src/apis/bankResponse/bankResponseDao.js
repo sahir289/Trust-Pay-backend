@@ -48,16 +48,24 @@ const createBankResponseDao = async (data) => {
 };
 
 
-const getBankMessageDao = async (search,
+const getBankMessageDao = async ({bank_id, startDate, endDate,
   page,
   pageSize,
   sortBy,
-  sortOrder) => {
+  sortOrder}) => {
 
-  const baseQuery = `SELECT * FROM "${tableName}" WHERE 1=1`;
-  const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.BANK_RESPONSE, page, pageSize, sortBy, sortOrder, typeof search != 'string');
-  // Execute query
-  const result = await executeQuery(sql, queryParams);
+  const baseQuery = `SELECT * FROM "${tableName.BANK_RESPONSE}" WHERE 1=1`;
+  const filters = { bank_id };
+
+  if (startDate && endDate) {
+    filters["created_at"] = [startDate, endDate];  
+  }
+
+  const columns = ["bank_id", "created_at"]; 
+
+  const [query, values] = buildSelectQuery(baseQuery, filters, columns, page, pageSize, sortBy, sortOrder);  // Execute query
+  const result = await executeQuery(query, values);
+  console.log(result.rows, "123456789")
   return result.rows;
 
 };

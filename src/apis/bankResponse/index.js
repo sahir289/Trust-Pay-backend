@@ -2,7 +2,9 @@ import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import {
     createBankResponse,
-    resetBankResponse,getBankResponse,getBankMessage} from "./bankResponseController.js";
+    resetBankResponse, getBankResponse, getBankMessage
+} from "./bankResponseController.js";
+import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
 
@@ -25,7 +27,7 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.post('/create-message', tryCatchHandler(createBankResponse));
+router.post('/create-message', isAuthenticated, tryCatchHandler(createBankResponse));
 
 /**
  * @swagger
@@ -52,7 +54,7 @@ router.post('/create-message', tryCatchHandler(createBankResponse));
  *       400:
  *         description: Bad request
  */
-router.get('/get-message', tryCatchHandler(getBankResponse));
+router.get('/get-message', isAuthenticated, tryCatchHandler(getBankResponse));
 
 /**
  * @swagger
@@ -85,7 +87,7 @@ router.get('/get-message', tryCatchHandler(getBankResponse));
  *         description: Complaint not found
  */
 
-router.get('/get-bank-message', tryCatchHandler(getBankMessage));
+router.get('/get-bank-message',  tryCatchHandler(getBankMessage));
 
 /**
  * @swagger
@@ -107,6 +109,6 @@ router.get('/get-bank-message', tryCatchHandler(getBankMessage));
  *         description: Complaint not found
  */
 
-router.put('/reset-message', tryCatchHandler(resetBankResponse));
+router.put('/reset-message', isAuthenticated, tryCatchHandler(resetBankResponse));
 
 export default router;

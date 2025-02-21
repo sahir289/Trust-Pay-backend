@@ -9,7 +9,7 @@ import { Currency, Status, Type } from "../../constants/index.js";
 import { getMerchantsService } from "../merchants/merchantService.js";
 import { calculateCommission, calculateDuration } from "../../helpers/index.js";
 import { merchantPayinCallback } from "../../callBacksAndWebHook/merchantCallBacks.js";
-import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao, getPayInUrlsDao,getPayinsDao } from "./payInDao.js";
+import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao, getPayInUrlsDao,getPayinsDao, getPayinsDaoId } from "./payInDao.js";
 import { AccessDeniedError, BadRequestError, NotFoundError } from "../../utils/appErrors.js";
 import { getBankaccountDao, getMerchantBankDao, updateBankaccountDao, updateBanktBalanceDao } from "../bankAccounts/bankaccountDao.js";
 import { getBankResponseDao, updateBotResponseDao } from "../bankResponse/bankResponseDao.js";
@@ -870,7 +870,7 @@ export const disputeDuplicateTransactionService = async (conn, payload) => {
 }
 
 export const getPayinsServiceByid = async (payload) => {
-    const data = await getPayinsByIdDao(payload);
+    const data = await getPayinsDaoId(payload);
 
     console.log('Fetched Payins successfully', 'info');
     return data;
@@ -885,13 +885,13 @@ export const getPayinsServiceById = async(id)=>{
    }
    console.log('getUsers successfully');
     // Fetch vendors data from the service
-    const data = await getPayinsByIdDao(filters);
+    const data = await getPayinsDaoId(filters);
 
     // Log success message
     console.log('getPayins successfully', data);
 
     // Send success response
-    return sendSuccess(res, data, 'Payins fetched successfully');
+    return  data;
 }
 
 const checkIsPayInExpired = (payIn) => {

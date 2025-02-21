@@ -83,5 +83,5 @@ export const tableName = {
     SETTLEMENT: 'Settlement',
     CHECK_UTR_HISTORY :'CheckUtrHistory',
     RESET_DATA_HISTORY : 'ResetDataHistory',
-    BANK_RESPONSE: 'BankResponse'
+
 }
