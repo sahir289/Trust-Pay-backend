@@ -1,4 +1,5 @@
-import { BadRequestError } from '../../utils/appErrors.js';
+import { CREATE_USER_SCHEMA, VALIDATE_USER_BY_ID } from '../../schemas/userSchema.js';
+import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
 import { getConnection } from '../../utils/db.js';
 import { createUserDao, getUserByIdDao, getUsersByUserNameDao, getUsersDao } from './userDao.js';
@@ -32,6 +33,11 @@ const getUserByIdService = async (id) => {
   try {
     conn = await getConnection();
     const result = await getUserByIdDao(conn, id);
+    
+    const joiValidation = VALIDATE_USER_BY_ID.validate(id);
+      if (joiValidation.error) {
+          throw new ValidationError(joiValidation.error);
+      }
     console.log('get User by id successfully');
     return result;
   } catch (error) {
@@ -74,9 +80,12 @@ const getUsersByUserNameService = async (username) => {
   const createUserService = async (payload) => {
     let conn;
     try {
-      console.log(payload,"user from payload ")
       conn = await getConnection();
       const { user_name } = payload;
+      const joiValidation = CREATE_USER_SCHEMA.validate(payload);
+      if (joiValidation.error) {
+          throw new ValidationError(joiValidation.error);
+      }
       const user = await getUsersByUserNameDao(conn, user_name);
       if (user?.user_name || user?.email || user?.contact_no) {
         console.error('User already exists');
