@@ -67,6 +67,8 @@ const getPayouts = async (req, res) => {
     }
 };
 
+
+
 const updatePayout = async (req, res) => {
     try {
         const payload = req.body;
