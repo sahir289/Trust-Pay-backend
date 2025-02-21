@@ -1,4 +1,4 @@
-import { BANK_ACCOUNT_SCHEMA, UPDATE_BANK_ACCOUNT_SCHEMA, BANK_ACCOUNT_SCHEMA } from '../../schemas/bankAccoountSchema.js';
+import { BANK_ACCOUNT_SCHEMA, UPDATE_BANK_ACCOUNT_SCHEMA } from '../../schemas/bankAccoountSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {  getMerchantBankDao } from './bankaccountDao.js';

@@ -1,7 +1,7 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createSettlementService, deleteSettlementService, getSettlementService, getSettlementServiceAll, updateSettlementService } from './settlementServices.js';
-// import { isAuthenticated } from '../../middlewares/auth.js';
+import { isAuthenticated } from '../../middlewares/auth.js';
 const router = express.Router();
 /**
  * @swagger

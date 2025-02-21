@@ -67,26 +67,6 @@ const getPayouts = async (req, res) => {
     }
 };
 
-const getByIdPayouts =  async(req, res) => {
-    try {
-        const {id} = req.params;
-
-        // Fetch vendors data from the service
-        const data = await getPayoutsService({id : id});
-
-        // Log success message
-        console.log('getPayouts successfully', data);
-
-        // Send success response
-        return sendSuccess(res, data, 'Payouts fetched successfully');
-    } catch (error) {
-        // Log error
-        console.error('error getting while fetching Payouts Data',  error);
-
-        // Send an error response
-        return sendError(res, error, 'Error occurred while fetching Payouts');
-    }
-}
 
 
 const updatePayout = async (req, res) => {
