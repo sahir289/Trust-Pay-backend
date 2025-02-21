@@ -98,18 +98,27 @@ const updateSettlementService = async (req, res) => {
         throw new ValidationError(joiValidation.error);
     }
 
-    if (!id) {
-      console.error('payload is required');
-      throw new BadRequestError('payload is required');
-    }
-    if (payload.config.reference_id) {
+    //   if (req.body.status == "INITIATED") {
+
+    //     console.log("vendorData", vendorData)
+
+    //       if (settlementData.data[0].method === "INTERNAL_QR_TRANSFER" || settlementData.data[0].method === "INTERNAL_BANK_TRANSFER") {
+    //           const botRes = await getBankResponseDao(settlementData.data[0].config.refrence_id, String(settlementData.data[0].amount).replace("-", ""));
+    //           const apiData = {
+    //               status: "/success",
+    //           }
+    //           await updateBotResponseByUtrToInternalTransfer(botRes.id, apiData);
+    //       }
+    //     }
+    // }
+console.log(payload, id , "1111")
+    if (payload.config.refrence_id) {
       payload.status = "SUCCESS";
       // calculation for merchant and vendor
-      const data = await getSettlementDao({id : id})
-      if(!data){
-        throw new BadRequestError('payload is required');
-      }
-      const calculationData = await getCalculationDao({user_id : data?.user_id});
+      const data = await getSettlementDao({id: id})
+      console.log(data[0].user_id, "dataabc")
+      const calculationData = await getCalculationDao({user_id : data[0].user_id});
+      console.log(calculationData , "abcd")
       let count = calculationData?.total_settlement_count + 1;
       let amountCalculation = calculationData?.total_settlement_amount + payload?.amount;
       let calculationId = calculationData?.id;
@@ -121,17 +130,18 @@ const updateSettlementService = async (req, res) => {
           total_settlement_count: count, total_settlement_amount: amountCalculation,
           current_balance: currentBalance, net_balance: netBalance
         })
-  
-      const settlementData = await getSettlementDao({id: id})
-      const vendorData = await getVendorsDao({ user_id: settlementData?.user_id })
-      if (vendorData) {
-        const bankData = await getBankaccountDao({ user_id: vendorData?.user_id });
+      const settlementData = await getSettlementDao(id)
+      const vendorData = await getVendorsDao({ searchString: settlementData?.user_id })
+      if (vendorData[0].length > 0) {
+        console.log(merchantData, "merchantData")
+
+        const bankData = await getBankaccountDao({ searchString: vendorData[0].user_id });
         const bankAcc = bankData[0].balance - payload?.amount;
         // const updatedBankData = 
         await updateBankaccountDao(bankData[0].id, { balance: bankAcc });
       }
-      const merchantData = await getMerchantsDao({ user_id: settlementData?.user_id })
-      if (merchantData) {
+      const merchantData = await getMerchantsDao({ searchString: settlementData?.user_id })
+      if (merchantData[0].length > 0) {
         console.log(merchantData, "merchantData")
         const merchantAcc = merchantData[0].balance - payload?.amount;
         // const updatedBankData = 
