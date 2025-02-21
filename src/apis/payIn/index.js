@@ -20,5 +20,5 @@ router.put("/update-deposit-status/:merchantId", tryCatchHandler(updateDepositSt
 router.post("/update-payment-cashfree-webhook", tryCatchHandler(payInUpdateCashfreeWebhook));
 router.post("/reset-payment/", tryCatchHandler(resetDeposit));
 // router.get("/expire-payIn-url/:payInId", tryCatchHandler(expirePayInUrl));
-router.get('/payin-data',  tryCatchHandler(getPayins));
+// router.get('/payin-data',  tryCatchHandler(getPayins));
 export default router;

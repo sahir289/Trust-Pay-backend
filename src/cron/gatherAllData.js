@@ -6,10 +6,10 @@ import { getPayoutsDao } from "../apis/payOut/payOutDao.js";
 // import moment from "moment-timezone";
 import { getUserHierarchysDao } from "../apis/userHierarchy/userHierarchyDao.js";
 import { getBankaccountDao } from "../apis/bankAccounts/bankaccountDao.js";
-import { getSettlementByIdDao } from "../apis/settlement/settlementDao.js";
 import { getChargeBackDao } from "../apis/chargeBacks/chargeBackDao.js";
 import { sendTelegramDashboardMerchantGroupingReportMessage, sendTelegramDashboardReportMessage, sendTelegramDashboardSuccessRatioMessage } from "../utils/sendTelegramMessages.js";
 import config from "../config.js";
+import { getSettlementDao } from "../apis/settlement/settlementDao.js";
 
 cron.schedule("* * * * *", () => {
     gatherAllData("Asia/Kolkata");
@@ -218,7 +218,7 @@ const gatherAllData = async (timezone = "Asia/Kolkata") => {
         }else {
             console.log("no payiout banks data")
         }
-        let settlements = await getSettlementByIdDao({})
+        let settlements = await getSettlementDao({})
         let settlementdata = [];
         if (settlements) {
             for (let settlement of settlements) {

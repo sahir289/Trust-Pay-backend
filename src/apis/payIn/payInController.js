@@ -1,6 +1,6 @@
 import config from "../../config/config.js";
 import { ValidationError } from '../../utils/appErrors.js';
-import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
+import {  sendSuccess } from '../../utils/responseHandlers.js';
 import {
     ASSIGN_PAYIN_SCHEMA, 
     VALIDATE_ASSIGNED_BANT_TO_PAY, 
