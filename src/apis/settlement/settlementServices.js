@@ -1,5 +1,5 @@
 import { BadRequestError, CustomError } from '../../utils/appErrors.js';
-import { createSettlementDao, deleteSettlementDao, getSettlementDao, getSettlementDaoAll, updateSettlementDao } from './settlementDao.js';
+import { createSettlementDao, deleteSettlementDao, getSettlementDao, updateSettlementDao } from './settlementDao.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getCalculationDao, updateCalculationDao } from '../calculation/calculationDao.js';
 import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
@@ -36,7 +36,7 @@ const  getSettlementServiceAll = async (req, res) => {
     if (!payload) {
       throw new CustomError(404, "id not found")
     }
-      const settlementData = await getSettlementDaoAll(payload);
+      const settlementData = await getSettlementDao(payload);
       if(!settlementData){
           throw new BadRequestError('Error getting while getting settlements');    
       }

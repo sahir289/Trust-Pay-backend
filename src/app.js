@@ -11,6 +11,7 @@ import apis from './apis/index.js';
 import errorHandler from './middlewares/errorHandler.js';
 import config from './config/config.js';
 import swaggerUi from 'swagger-ui-express';
+import "../src/cron/gatherAllData.js"
 import { swaggerSpecs } from '../swaggerConfig.js';
 const app = express();
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
