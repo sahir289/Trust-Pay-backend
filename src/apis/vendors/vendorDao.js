@@ -14,16 +14,16 @@ export const getVendorsDao = async (
     sortBy,
     sortOrder
 ) => {
-    const baseQuery = `SELECT * FROM "${tableName.VENDOR}" WHERE 1=1`;
+    const baseQuery = `SELECT * FROM "${tableName.VENDOR}" WHERE 1=1 AND "company_id" = $1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.VENDOR, page, pageSize, sortBy, sortOrder, typeof search != 'string');
-    // Execute query
+    // Execute queryy
     const result = await executeQuery(sql, queryParams);
     return result.rows[0];
 };
 
 
-export const updateVendorDao = async (id, data, conn) => {
-    const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, { id });
+export const updateVendorDao = async (id,company_id, data, conn) => {
+    const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, {id ,company_id});
     if (conn && conn.query) {
         const result = await conn.query(sql, params);
         return result.rows[0];
@@ -31,8 +31,8 @@ export const updateVendorDao = async (id, data, conn) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
 }
-export const deleteVendorDao = async (id, data) => {
-    const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, { id });
+export const deleteVendorDao = async (id,company_id,data) => {
+    const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, {id ,company_id});
     const result = await executeQuery(sql, params);
     return result.rows[0];
 }

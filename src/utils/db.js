@@ -129,7 +129,7 @@ export const applySortingAndPagination = (query, values, columns = [], sortBy, s
 export const buildInsertQuery = (tableName, data) => {
   const keys = Object.keys(data).map((key) => `"${key}"`);
   const values = keys.map((el, i) => `$${i + 1}`);
-  const query = `INSERT INTO "${tableName}" (${keys.join(', ')}) VALUES (${values}) RETURNING *`;
+  const query = `INSERT INTO "${tableName}" (${keys.join(', ')}) VALUES (${values}) RETURNING id`;
   return [query, Object.values(data)];
 }
 
@@ -151,7 +151,7 @@ export const buildUpdateQuery = (tableName, data, whereCondition, specialFields 
     return `"${key}" = $${values.length}`;
   });
 
-  const query = `UPDATE "${tableName}" SET ${setClause.join(', ')} WHERE ${whereClause.join(' AND ')} RETURNING *`;
+  const query = `UPDATE "${tableName}" SET ${setClause.join(', ')} WHERE ${whereClause.join(' AND ')} RETURNING id`;
   return [query, values];
 };
 

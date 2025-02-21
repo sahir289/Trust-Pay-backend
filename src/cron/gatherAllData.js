@@ -11,7 +11,7 @@ import { sendTelegramDashboardMerchantGroupingReportMessage, sendTelegramDashboa
 import config from "../config.js";
 import { getSettlementDao } from "../apis/settlement/settlementDao.js";
 
-cron.schedule("* * * * *", () => {
+cron.schedule("23 18 * * *", () => {
     gatherAllData("Asia/Kolkata");
 });
 

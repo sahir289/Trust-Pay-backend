@@ -6,7 +6,7 @@ import { sendError } from '../../utils/responseHandlers.js';
 const getBankaccount = async (req, res) => {
   try {
     const {company_id} = req.user;
-    let payload = req.query.search;
+    let payload = req.query.search || {};
     payload.company_id=company_id;
     const data = await getBankaccountService(payload);
     console.log('get Banks successfully');
@@ -19,8 +19,8 @@ const getBankaccount = async (req, res) => {
 const getBankaccountById = async (req, res) => {
   try {
     const {id} = req.params;
-    const {company_id}= req.user;
-    const data = await getBankaccountService({id:id,company_id:company_id});
+    const {company_id} = req.user;
+    const data = await getBankaccountService({id,company_id});
     console.log('get Bank successfully');
     return sendSuccess(res, data, 'get Bank successfully');
   } catch (error) {
@@ -72,7 +72,7 @@ const deleteBankaccount = async (req, res) => {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    
+  
     const data = await deleteBankaccountService(id);
     console.log('get Banks successfully');
     return sendSuccess(res, data, 'get Banks successfully');

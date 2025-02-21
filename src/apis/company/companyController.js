@@ -6,9 +6,19 @@ import { sendError } from '../../utils/responseHandlers.js';
 
 const getCompany = async (req, res) => {
   try {
+    const {company_id} = req.user;
+    let payload = req.query.search || {};  
+    payload.company_id=company_id;
+    const data = await getCompanyService(payload);
+    return sendSuccess(res, data, 'get Company successfully');
+  } catch (error) {
+    console.error('error getting while Company', error);
+  }
+};
+const getCompanyById = async (req, res) => {
+  try {
     const { id } = req.params;
     const data = await getCompanyService(id);
-
     return sendSuccess(res, data, 'get Company successfully');
   } catch (error) {
     console.error('error getting while Company', error);
@@ -89,4 +99,4 @@ const deleteCompany = async (req, res) => {
 
 
 
-export { getCompany, createCompany, updateCompany, deleteCompany };
+export { getCompany,getCompanyById,createCompany, updateCompany, deleteCompany };

@@ -42,9 +42,7 @@ export const generatePayInUrl = async (req, res) => {
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-
     const x_api_key = req.headers["x-api-key"];
-
     const result = await generatePayInUrlService({
         ...payload,
         x_api_key,
@@ -169,8 +167,9 @@ export const resetDeposit = async (req, res) => {
 }
 export const getPayins = async (req, res) => {
     try {
-        const payload = req.query.search;
-
+        const {company_id} = req.user;
+        let payload = req.query.search || {};  
+        payload.company_id=company_id;
         // Fetch vendors data from the service
         const data = await getPayinsService(payload);
 

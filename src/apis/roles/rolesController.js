@@ -25,7 +25,7 @@ const getRolesById = async (req, res) => {
       }
       const { id } = req.params;
       const {company_id} = req.user;
-      const data = await getRoleService({id: id,company_id:company_id});
+      const data = await getRoleService({id,company_id});
       console.log('get Roles by ID successfully', 'info');
       return sendSuccess(res, data, 'get Roles by ID successfully');
     } catch (error) {

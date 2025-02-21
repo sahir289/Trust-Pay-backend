@@ -6,7 +6,7 @@ import { sendError } from '../../utils/responseHandlers.js';
 const getComplaints = async (req, res) => {
     try {
       const {company_id} = req.user;
-      let payload = req.query.search;
+      let payload = req.query.search || {};  
       payload.company_id=company_id;
       const data = await getComplaintsService(payload);
       console.log ('get complaints successfully');

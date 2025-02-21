@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createCompany, deleteCompany, getCompany, updateCompany } from './companyController.js';
+import { createCompany, deleteCompany, getCompany, updateCompany,getCompanyById } from './companyController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
@@ -36,7 +36,7 @@ const router = express.Router();
  */
 router.get('/', isAuthenticated, tryCatchHandler(getCompany));
 
-
+router.get('/:id', isAuthenticated, tryCatchHandler(getCompanyById));
 /**
  * @swagger
  * /company/create-company:
