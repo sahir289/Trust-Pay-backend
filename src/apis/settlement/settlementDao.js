@@ -8,10 +8,11 @@ const getSettlementDao = async (
   page,
   pageSize,
   sortBy,
-  sortOrder
+  sortOrder,
+  user
 ) => {
   const baseQuery = `SELECT * FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
-  const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.SETTLEMENT, page, pageSize, sortBy, sortOrder, typeof search != 'string');
+  const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.SETTLEMENT, page, pageSize, sortBy, sortOrder, typeof search != 'string', user);
   // Execute query
   const result = await executeQuery(sql, queryParams);
   return result.rows[0];

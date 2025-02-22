@@ -13,6 +13,9 @@ const getSettlementService = async (req, res) => {
 
 
     const { id } = req.params;
+    const {company_id} = req.user  ;  
+    const user = {};
+    user.company_id = company_id;
     if (!id) {
       throw new CustomError(404, "id not found")
     }
@@ -22,7 +25,7 @@ const getSettlementService = async (req, res) => {
     }
 
 
-    const data = await getSettlementDao({ id: id });
+    const data = await getSettlementDao(id, user);
     return sendSuccess(res, data, 'get settlements successfully');
 
   } catch (error) {
@@ -34,8 +37,10 @@ const getSettlementService = async (req, res) => {
 const getSettlementServiceAll = async (req, res) => {
   try {
     const payload = req.query;
-
-    const settlementData = await getSettlementDao(payload);
+    const {company_id} = req.user  ;  
+    const user = {};
+    user.company_id = company_id;
+    const settlementData = await getSettlementDao(payload, user);
     if (!settlementData) {
       throw new BadRequestError('Error getting while getting settlements');
     }
@@ -55,7 +60,9 @@ const createSettlementService = async (req, res) => {
         conn = await getConnection();
         await beginTransaction(conn);
     const payload = req.body;
-
+    const {company_id} = req.user  ;  
+    const user = {};
+    user.company_id = company_id;
     const joiValidation = CREATE_SETTLEMENT_SCHEMA.validate(payload);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
@@ -127,12 +134,12 @@ const updateSettlementService = async (req, res) => {
           total_settlement_count: count, total_settlement_amount: amountCalculation,
           current_balance: currentBalance, net_balance: netBalance
         })
-      const settlementData = await getSettlementDao(id)
-      const vendorData = await getVendorsDao({ searchString: settlementData?.user_id })
+      const settlementData = await getSettlementDao(id, user)
+      const vendorData = await getVendorsDao({ user_id: settlementData?.user_id })
       if (vendorData[0].length > 0) {
         console.log(merchantData, "merchantData")
 
-        const bankData = await getBankaccountDao({ searchString: vendorData[0].user_id });
+        const bankData = await getBankaccountDao({ user_id: vendorData[0].user_id });
         const bankAcc = bankData[0].balance - payload?.amount;
         // const updatedBankData = 
         await updateBankaccountDao(bankData[0].id, { balance: bankAcc });
