@@ -2,10 +2,16 @@ import { columns, tableName } from "../../constants/index.js";
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
 
 export const createPayoutDao = async (data) => {
-    const [sql, params] = buildInsertQuery(tableName.PAYOUT, data)
-    const result = await executeQuery(sql, params);
-    return result.rows[0];
-}
+    try {
+        const [sql, params] = buildInsertQuery(tableName.PAYOUT, data);
+        const result = await executeQuery(sql, params);
+        return result.rows[0];
+    } catch (error) {
+        console.error('Error in createPayoutDao:', error);
+        throw new Error('Failed to create payout');
+    }
+};
+
 
 export const getPayoutsDao = async (
     search,

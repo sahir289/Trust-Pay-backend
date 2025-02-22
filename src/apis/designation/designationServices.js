@@ -1,5 +1,4 @@
-import { CREATE_DESIGNATION_SCHEMA, UPDATE_DESIGNATION_SCHEMA } from '../../schemas/designationSchema.js';
-import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import { BadRequestError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
 import { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao } from './designationDao.js';
 
@@ -26,10 +25,6 @@ const getDesignationService = async (payload) => {
 
 const createDesignationService = async (payload) => {
   try {
-    const joiValidation = CREATE_DESIGNATION_SCHEMA.validate(payload);
-    if (joiValidation.error) {
-        throw new ValidationError(joiValidation.error);
-    }
     const result = await createDesignationDao(payload);
 
     return result;
@@ -39,13 +34,9 @@ const createDesignationService = async (payload) => {
   }
 };
 
-const updateDesignationService = async (id, payload) => {
+const updateDesignationService = async (id,comapany_id,role_id, payload) => {
   try {
-    const joiValidation = UPDATE_DESIGNATION_SCHEMA.validate(payload);
-    if (joiValidation.error) {
-        throw new ValidationError(joiValidation.error);
-    }
-    const result = await updateDesignationDao(id, payload);
+    const result = await updateDesignationDao(id,comapany_id,role_id, payload);
     return result;
   } catch (error) {
     console.error('error getting while Designation', error);
@@ -53,9 +44,9 @@ const updateDesignationService = async (id, payload) => {
   }
 };
 
-const deleteDesignationService = async (id) => {
+const deleteDesignationService = async (id,comapany_id,role_id) => {
   try {
-    const result = await deleteDesignationDao(id, { is_obsolete: true });
+    const result = await deleteDesignationDao(id,comapany_id,role_id, { is_obsolete: true });
     return result;
   } catch (error) {
     console.error('error getting while Designation', error);

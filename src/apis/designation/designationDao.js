@@ -8,34 +8,49 @@ const getDesignationDao = async (
   sortBy,
   sortOrder
 ) => {
-  const baseQuery = `SELECT * FROM "${tableName.DESIGNATION}" WHERE 1=1`;
-  const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.DESIGNATION, page, pageSize, sortBy, sortOrder, typeof search != 'string');
-  // Execute query
-  const result = await executeQuery(sql, queryParams);
-  return result.rows;
+  try {
+    const baseQuery = `SELECT id,designation,created_by,updated_by FROM "${tableName.DESIGNATION}" WHERE 1=1 AND "company_id"=$1 AND "role_id"=$1`;
+    const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.DESIGNATION, page, pageSize, sortBy, sortOrder, typeof search != 'string');
+    
+    const result = await executeQuery(sql, queryParams);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getDesignationDao:', error);
+    throw new Error('Database query failed');
+  }
 };
-
 
 const createDesignationDao = async (payload) => {
-  const [sql, params] = buildInsertQuery(tableName.DESIGNATION, payload)
-  const result = await executeQuery(sql, params);
-  return result.rows[0];
+  try {
+    const [sql, params] = buildInsertQuery(tableName.DESIGNATION, payload);
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error in createDesignationDao:', error);
+    throw new Error('Failed to create designation');
+  }
 };
 
-const updateDesignationDao = async (id, data) => {
-
-  const [sql, params] = buildUpdateQuery(tableName.DESIGNATION, data, { id });
-  const result = await executeQuery(sql, params);
-  return result.rows[0];
-
+const updateDesignationDao = async (id,company_id,role_id, data) => {
+  try {
+    const [sql, params] = buildUpdateQuery(tableName.DESIGNATION, data, { id,company_id,role_id });
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error in updateDesignationDao:', error);
+    throw new Error('Failed to update designation');
+  }
 };
 
-const deleteDesignationDao = async (id, data) => {
-  const [sql, params] = buildUpdateQuery(tableName.DESIGNATION, data, { id });
-  const result = await executeQuery(sql, params);
-  return result.rows[0];
-
-
+const deleteDesignationDao = async (id,company_id,role_id, data) => {
+  try {
+    const [sql, params] = buildUpdateQuery(tableName.DESIGNATION, data, { id,company_id,role_id });
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error in deleteDesignationDao:', error);
+    throw new Error('Failed to delete designation');
+  }
 };
 
 export { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao };

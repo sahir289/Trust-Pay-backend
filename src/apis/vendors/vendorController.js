@@ -6,8 +6,11 @@ import {VALIDATE_VENDOR_BY_ID,VALIDATE_UPDATE_VENDOR_STATUS,VALIDATE_VENDOR_SCHE
 const createVendor = async (req, res) => {
   try {
     let payload = req.body;
-      const {company_id} = req.user;
-      payload.company_id=company_id;
+    console.log(req.user,"user from req.user");
+    const {company_id,user_id,role_id} = req.user;
+    payload.company_id=company_id;
+    payload.user_id=user_id;
+    payload.role_id=role_id;
       const { error } = VALIDATE_VENDOR_SCHEMA.validate(payload);
     if (error) {
       return sendError(res, error.details[0].message, 'Validation Error');
@@ -33,9 +36,11 @@ const createVendor = async (req, res) => {
 
 const getVendors = async (req, res) => {
   try {
-    const {company_id} = req.user;
-    let payload = req.query.search;
-    payload.company_id=company_id;    // Fetch vendors data from the service
+    const {company_id,user_id,role_id} = req.user;
+    let payload = req.query.search || {};  
+    payload.company_id=company_id;
+    payload.user_id=user_id;
+    payload.role_id=role_id; // Fetch vendors data from the service
     const data = await getVendorsService(payload);
     // Log success message
     console.log('get Vendors successfully', data);
@@ -57,9 +62,9 @@ const getVendorById = async (req, res) => {
       return sendError(res, error.details[0].message, 'Validation Error');
     }
     const { id } = req.params;
- const {company_id} = req.user;
+    const {company_id,user_id,role_id} = req.user;
     // Fetch vendors data from the service
-    const data = await getVendorsService({ id: id ,company_id:company_id});
+    const data = await getVendorsService({ id,company_id,role_id,user_id});
     // Log success message
     console.log('get vendor successfully', data);
     // Send success response
@@ -88,10 +93,10 @@ const updateVendor = async (req, res) => {
       return sendError(res, bodyError.details[0].message, 'Validation Error');
     }
     const payload = req.body;
-    const {company_id} = req.user;
+    const {company_id,user_id,role_id} = req.user;
     const { id } = req.params; // Assuming the Vendor ID is passed as a parameter
     // Call the service to update the Vendor
-    const result = await updateVendorService(id,company_id, payload);
+    const result = await updateVendorService(id,company_id,user_id,role_id, payload);
     // Log success message
     console.log('Vendor updated successfully', result);
     // Send a success response to the client
@@ -112,8 +117,8 @@ const deleteVendor = async (req, res) => {
     }
     const { id } = req.params; // Assuming the Vendor ID is passed as a parameter
     // Call the service to delete the Vendor
-    const {company_id} = req.user;
-    const result = await deleteVendorService(id,company_id);
+    const {company_id,user_id,role_id} = req.user;
+    const result = await deleteVendorService(id,company_id,user_id,role_id);
     // Log success message
     console.log('Vendor deleted successfully', result);
     // Send a success response to the client

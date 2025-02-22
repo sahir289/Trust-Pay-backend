@@ -9,8 +9,6 @@ import { CREATE_SETTLEMENT_SCHEMA, UPDATE_SETTLEMENT_SCHEMA, VALIDATE_SETTLEMENT
 
 const getSettlementService = async (req, res) => {
   try {
-
-
     const { id } = req.params;
     if (!id) {
       throw new CustomError(404, "id not found")
