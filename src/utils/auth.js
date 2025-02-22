@@ -53,7 +53,10 @@ const verifyToken = (token) => {
     const decoded = jwt.verify(token, config.jwt.jwt_secret);
     return decoded;
   } catch (err) {
-    console.error('Getting error while verifying token', err);
+    if (err.name === 'TokenExpiredError') {
+      throw new BadRequestError('Token expired');
+    }
+    console.error('Token expired', err);
     return false;
   }
 };

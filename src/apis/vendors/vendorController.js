@@ -27,7 +27,8 @@ const createVendor = async (req, res) => {
 
 const getVendors = async (req, res) => {
   try {
-    const payload = req.query.search;
+    const payload = req.query.search ;
+    
     // Fetch vendors data from the service
     const data = await getVendorsService(payload);
     // Log success message

@@ -1,8 +1,8 @@
-import jwt from 'jsonwebtoken';
-import config from '../config/config.js';
+// import jwt from 'jsonwebtoken';
+// import config from '../config/config.js';
 import { AUTH_HEADER_KEY } from '../utils/constants.js';
-import { AuthenticationError} from '../utils/appErrors.js';
-// import { verifyToken } from '../utils/auth.js';
+import { AccessDeniedError, AuthenticationError} from '../utils/appErrors.js';
+import { verifyToken } from '../utils/auth.js';
 // import { getLoginDao } from '../apis/auth/authDao.js';
 
 const logoutSet = new Set();
@@ -19,7 +19,7 @@ const isAuthenticated = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, config.jwt.jwt_secret);
+    const decoded = verifyToken(token);
     
     // in future need to keep check with session_id if user is logged out or not
     // console.log(decoded, "decoddeeed")
@@ -37,6 +37,9 @@ const isAuthenticated = (req, res, next) => {
     req.user = decoded;
     next();
   } catch (error) {
+    if (error.message === 'Token expired') {
+      throw new AccessDeniedError('Session expired. Please log in again.');
+    }
     throw new AuthenticationError('Invalid token', error);
   }
 };
