@@ -1,6 +1,7 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { isAuthenticated } from '../../middlewares/auth.js';
+import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
 import { assignedBankToPayInUrl, checkPayInStatus, generatePayInUrl,getPayins, payInIntentGenerateOrder, processPayIn, processPayInByImage, resetDeposit, telegramOCR, updateDepositStatus, updatePaymentNotificationStatus, validatePayInUrl } from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
@@ -16,10 +17,10 @@ router.post("/process/:payInId", tryCatchHandler(processPayIn));
 router.post("/process-by-image/:payInId", multerUpload.single("file"), tryCatchHandler(processPayInByImage));
 
 // Telegram API's
-router.post('/telegram-ocr', tryCatchHandler(telegramOCR))
+router.post('/telegram-ocr', tryCatchHandler(telegramOCR)) //
 
 // Authenticated API's
-router.use(isAuthenticated)
+router.use([isAuthenticated, authorized(AccessRoles.PAYIN)])
 router.post("/update-payment-notified-status/:payInId", tryCatchHandler(updatePaymentNotificationStatus));
 router.put("/update-deposit-status/:merchantId", tryCatchHandler(updateDepositStatus));
 router.post("/update-payment-cashfree-webhook", tryCatchHandler(payInUpdateCashfreeWebhook));

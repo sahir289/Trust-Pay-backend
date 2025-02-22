@@ -1,7 +1,8 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createDesignation, deleteDesignation, getDesignation, updateDesignation ,getDesignationById} from './designationController.js';
-import { isAuthenticated } from '../../middlewares/auth.js';
+import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
 
 /**
@@ -33,8 +34,8 @@ const router = express.Router();
  *                 data:
  *                   type: object
  */
-router.get('/', isAuthenticated, tryCatchHandler(getDesignation));
-router.get('/:id', isAuthenticated, tryCatchHandler(getDesignationById));
+router.get('/', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(getDesignation));
+router.get('/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(getDesignationById));
 
 /**
  * @swagger
@@ -68,7 +69,7 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getDesignationById));
  *                 data:
  *                   type: object
  */
-router.post('/create-designation', isAuthenticated, tryCatchHandler(createDesignation));
+router.post('/create-designation', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(createDesignation));
 
 /**
  * @swagger
@@ -99,7 +100,7 @@ router.post('/create-designation', isAuthenticated, tryCatchHandler(createDesign
  *       200:
  *         description: Designation updated successfully.
  */
-router.put('/update-designation/:id', isAuthenticated, tryCatchHandler(updateDesignation));
+router.put('/update-designation/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(updateDesignation));
 
 /**
  * @swagger
@@ -120,6 +121,6 @@ router.put('/update-designation/:id', isAuthenticated, tryCatchHandler(updateDes
  *       200:
  *         description: Designation deleted successfully.
  */
-router.delete('/delete-designation/:id', isAuthenticated, tryCatchHandler(deleteDesignation));
+router.delete('/delete-designation/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(deleteDesignation));
 
 export default router;

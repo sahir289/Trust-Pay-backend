@@ -1,7 +1,8 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import {getCalculation,getCalculationById,createCalculation,updateCalculation,deleteCalculation} from './calculationController.js';
-import { isAuthenticated } from '../../middlewares/auth.js';
+import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
 
 /**
@@ -23,9 +24,9 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/',isAuthenticated, tryCatchHandler(getCalculation));
+router.get('/',[isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(getCalculation));
 
-router.get('/:id',isAuthenticated, tryCatchHandler(getCalculationById));
+router.get('/:id',[isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(getCalculationById));
 
 /**
  * @swagger
@@ -54,7 +55,7 @@ router.get('/:id',isAuthenticated, tryCatchHandler(getCalculationById));
  *       400:
  *         description: Bad request
  */
-router.post('/create-calculation',isAuthenticated, tryCatchHandler(createCalculation));
+router.post('/create-calculation',[isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(createCalculation));
 
 /**
  * @swagger
@@ -88,7 +89,7 @@ router.post('/create-calculation',isAuthenticated, tryCatchHandler(createCalcula
  *       404:
  *         description: Calculation not found
  */
-router.put('/update-calculation/:id',isAuthenticated, tryCatchHandler(updateCalculation));
+router.put('/update-calculation/:id',[isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(updateCalculation));
 
 /**
  * @swagger
@@ -109,6 +110,6 @@ router.put('/update-calculation/:id',isAuthenticated, tryCatchHandler(updateCalc
  *       404:
  *         description: Calculation not found
  */
-router.delete('/delete-calculation/:id',isAuthenticated, tryCatchHandler(deleteCalculation));
+router.delete('/delete-calculation/:id',[isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(deleteCalculation));
 
 export default router;

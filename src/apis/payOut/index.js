@@ -1,8 +1,8 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createPayout, deletePayout, getPayouts, updatePayout,getPayoutsById } from './payOutController.js';
-import { isAuthenticated } from '../../middlewares/auth.js';
-
+import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
 
 /**
@@ -31,8 +31,8 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get('/', isAuthenticated, tryCatchHandler(getPayouts));
-router.get('/:id', isAuthenticated, tryCatchHandler(getPayoutsById));
+router.get('/', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHandler(getPayouts));
+router.get('/:id', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHandler(getPayoutsById));
 
 /**
  * @swagger
@@ -61,7 +61,7 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getPayoutsById));
  *       400:
  *         description: Invalid request data.
  */
-router.post('/create-payout', isAuthenticated, tryCatchHandler(createPayout));
+router.post('/create-payout', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHandler(createPayout));
 
 /**
  * @swagger
@@ -91,7 +91,7 @@ router.post('/create-payout', isAuthenticated, tryCatchHandler(createPayout));
  *       404:
  *         description: Payout not found.
  */
-router.put('/update-payout/:id', isAuthenticated, tryCatchHandler(updatePayout));
+router.put('/update-payout/:id', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHandler(updatePayout));
 
 /**
  * @swagger
@@ -116,6 +116,6 @@ router.put('/update-payout/:id', isAuthenticated, tryCatchHandler(updatePayout))
  *       404:
  *         description: Payout not found.
  */
-router.delete('/delete-payout/:id', isAuthenticated, tryCatchHandler(deletePayout));
+router.delete('/delete-payout/:id', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHandler(deletePayout));
 
 export default router;
