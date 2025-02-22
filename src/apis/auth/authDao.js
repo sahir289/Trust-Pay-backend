@@ -10,7 +10,7 @@ const addLoginDao = async (conn, user_id, config, company_id) => {
     const configData = JSON.stringify(config);
     const sql = `
       INSERT INTO public."AccessToken" (id, user_id, company_id, config)
-      VALUES ($1, $2, $3, $4) RETURNING *
+      VALUES ($1, $2, $3, $4)
     `;
     const values = [id, user_id, company_id, configData];
     const result = await conn.query(sql, values);
@@ -21,15 +21,26 @@ const addLoginDao = async (conn, user_id, config, company_id) => {
   }
 };
 
+const getRefreshTokenDao = async (hashedToken, company_id) => {
+  try {
+    const query = `SELECT user_id FROM access_tokens WHERE config->>'refresh_token' = $1 AND company_id=$2`;
+    const result = await executeQuery(query, [hashedToken, company_id]);
+    return result.rows?.[0] || undefined;
+  } catch (error) {
+    console.error('Error in getting refresh token', error);
+    throw new DbError('Error executing query to get refresh token');
+  }
+}
+
 const getLoginDao = async (user_id, company_id) => {
   try {
     const query = `SELECT config FROM "${tableName}" WHERE user_id=$1 AND company_id=$2`;
     const result = await executeQuery(query, [user_id, company_id]);
     return result.rows?.[0] || undefined;
   } catch (error) {
-    console.error('Error in adding login details', error);
-    throw new DbError('Error executing query to add login info');
+    console.error('Error in getting login details', error);
+    throw new DbError('Error executing query to get login info');
   }
 };
 
-export { addLoginDao, getLoginDao };
+export { addLoginDao, getRefreshTokenDao, getLoginDao };
