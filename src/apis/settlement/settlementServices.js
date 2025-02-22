@@ -16,9 +16,9 @@ const getSettlementService = async (req, res) => {
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }
+
     const data = await getSettlementDao({ payload, company_id });
     return sendSuccess(res, data, 'get settlements successfully');
-
   } catch (error) {
     console.error('error getting while  getting settlements', error);
     throw new BadRequestError('Error getting while getting settlements');
@@ -28,8 +28,6 @@ const getSettlementService = async (req, res) => {
 const getSettlementServiceAll = async (req, res) => {
   try {
     const payload = req.query;
-    console.log(payload)
-
     const { company_id } = req.user;
     const user = {};
     user.company_id = company_id;
@@ -37,10 +35,7 @@ const getSettlementServiceAll = async (req, res) => {
     if (!settlementData) {
       throw new BadRequestError('Error getting while getting settlements');
     }
-    console.log(settlementData, "settlementData")
     return sendSuccess(res, settlementData, 'get settlements successfully');
-
-
   } catch (error) {
     console.error('error getting while  getting settlements', error);
     throw new BadRequestError('Error getting while getting settlements');
@@ -59,12 +54,9 @@ const createSettlementService = async (req, res) => {
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }
-
     const data = await createSettlementDao(payload);
     await commit(conn);
     return sendSuccess(res, data, 'create settlements successfully');
-
-
   } catch (error) {
     if (conn) {
       try {
@@ -115,7 +107,6 @@ const updateSettlementService = async (req, res) => {
       let currentBalance = calculationData?.current_balance + payload?.amount;
       let netBalance = calculationData?.net_balance + payload?.amount;
       if (calculationData) {
-        // const updated = 
         await updateCalculationDao(calculationId,
           {
             total_settlement_count: count, total_settlement_amount: amountCalculation,
@@ -130,7 +121,6 @@ const updateSettlementService = async (req, res) => {
         const bankData = await getBankaccountDao({ user_id: vendorData.user_id });
         if (bankData) {
           const bankAcc = bankData.balance - payload?.amount;
-          //  const updatedBankData = 
           await updateBankaccountDao(bankData[0].id, { balance: bankAcc });
         }
         else {
@@ -139,7 +129,6 @@ const updateSettlementService = async (req, res) => {
       }
       else if (merchantData) {
         const merchantAcc = merchantData.balance - payload?.amount;
-        //  const updatedBankData = 
         await updateMerchantDao(merchantData.id, { balance: merchantAcc });
       }
 
@@ -155,7 +144,6 @@ const updateSettlementService = async (req, res) => {
     const updateData = await updateSettlementDao(ids, payload);
     await commit(conn);
     return sendSuccess(res, updateData, 'update settlements successfully');
-
   } catch (error) {
     if (conn) {
       try {
@@ -183,10 +171,9 @@ const deleteSettlementService = async (req, res) => {
     const { id } = req.params;
     const { company_id } = req.user;
     const ids = { id, company_id }
-
-    if (!id) {
-      console.error('payload is required');
-      throw new BadRequestError('payload is required');
+    const joiValidation = UPDATE_SETTLEMENT_SCHEMA.validate(payload);
+    if (joiValidation.error) {
+      throw new ValidationError(joiValidation.error);
     }
     const updatedData = await deleteSettlementDao(ids, { is_obsolete: true })
     return sendSuccess(res, updatedData, 'delete settlements successfully');

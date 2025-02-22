@@ -19,8 +19,6 @@ const getCalculationDao = async (search,
     }
   };
   
- 
-
 
 const createCalculationDao = async (data, conn) => {
   const [sql, params] = buildInsertQuery(tableName.CALCULATION, data)

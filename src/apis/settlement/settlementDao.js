@@ -1,8 +1,6 @@
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
 import { columns, tableName } from "../../constants/index.js";
 
-
-
 const getSettlementDao = async (
   search,user,
   page,
@@ -12,10 +10,10 @@ const getSettlementDao = async (
 ) => {
   const baseQuery = `SELECT * FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
   const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.SETTLEMENT, page, pageSize, sortBy, sortOrder, typeof search != 'string', user);
-  // Execute query
   const result = await executeQuery(sql, queryParams);
   return result.rows[0];
 };
+
 const getSettlementDaoAll = async (
   search,user,
   page,
@@ -25,7 +23,6 @@ const getSettlementDaoAll = async (
 ) => {
   const baseQuery = `SELECT * FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
   const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.SETTLEMENT, page, pageSize, sortBy, sortOrder, typeof search != 'string', user);
-  // Execute query
   const result = await executeQuery(sql, queryParams);
   return result.rows;
 };
