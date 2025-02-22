@@ -2,15 +2,15 @@ import { columns, tableName } from '../../constants/index.js';
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
 
 const getDesignationDao = async (
-  search,
+  search,user,
   page,
   pageSize,
   sortBy,
   sortOrder
 ) => {
   try {
-    const baseQuery = `SELECT id,designation,created_by,updated_by FROM "${tableName.DESIGNATION}" WHERE 1=1 AND "company_id"=$1 AND "role_id"=$1`;
-    const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.DESIGNATION, page, pageSize, sortBy, sortOrder, typeof search != 'string');
+    const baseQuery = `SELECT id,designation FROM "${tableName.DESIGNATION}" WHERE 1=1`;
+    const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.DESIGNATION, page, pageSize, sortBy, sortOrder, typeof search != 'string',user);
     
     const result = await executeQuery(sql, queryParams);
     return result.rows;

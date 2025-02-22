@@ -6,17 +6,15 @@ import { createUserHierarchyDao, deleteUserHierarchyDao, getUserHierarchysDao, u
 
 const createUserHierarchyService = async (payload) => {
     let conn;
-    try {
+    try{
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
-
         const data = await createUserHierarchyDao(payload);
-
         await commit(conn); // Commit the transaction
         console.log('UserHierarchy created successfully', 'info');
-
         return data;
-    } catch (error) {
+    }
+    catch (error) {
         if (conn) {
             try {
                 await rollback(conn); // Rollback the transaction in case of error
@@ -37,9 +35,9 @@ const createUserHierarchyService = async (payload) => {
     }
 };
 
-const getUserHierarchyService = async (payload) => {
+const getUserHierarchyService = async (search,user) => {
     try {
-        const data = await getUserHierarchysDao(payload);
+        const data = await getUserHierarchysDao(search,user);
         console.log('Fetched UserHierarchys successfully', 'info');
         return data;
     } catch (error) {
@@ -48,14 +46,12 @@ const getUserHierarchyService = async (payload) => {
     }
 };
 
-
-const updateUserHierarchyService = async (id, payload) => {
+const updateUserHierarchyService = async (id,company_id,user_id,role_id,payload) => {
     let conn;
     try {
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
-
-        const data = await updateUserHierarchyDao(id, payload); // Adjust DAO call for update
+        const data = await updateUserHierarchyDao(id,company_id,user_id,role_id,payload); // Adjust DAO call for update
 
         await commit(conn); // Commit the transaction
         console.log('UserHierarchy updated successfully', 'info');
@@ -82,18 +78,15 @@ const updateUserHierarchyService = async (id, payload) => {
     }
 };
 
-const deleteUserHierarchyService = async (id) => {
+const deleteUserHierarchyService = async (id,company_id,user_id,role_id) => {
     let conn;
     try {
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
         const payload = { is_obsolete: true };
-
-        const data = await deleteUserHierarchyDao(id, payload); // Adjust DAO call for delete
-
+        const data = await deleteUserHierarchyDao(id,company_id,user_id,role_id,payload); // Adjust DAO call for delete
         await commit(conn); // Commit the transaction
         console.log('UserHierarchy deleted successfully', 'info');
-
         return data;
     } catch (error) {
         if (conn) {

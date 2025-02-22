@@ -7,9 +7,11 @@ import { sendError } from '../../utils/responseHandlers.js';
 const getCompany = async (req, res) => {
   try {
     let {company_id} = req.user;
-    let payload = req.query.search || {};  
-    payload.id=company_id
-    const data = await getCompanyService(payload);
+    const search = req.query.search;
+      let payload = {};
+      payload.company_id=company_id;
+     
+    const data = await getCompanyService(search,payload);
     return sendSuccess(res, data, 'get Company successfully');
   } catch (error) {
     console.error('error getting while Company', error);

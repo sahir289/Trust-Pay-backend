@@ -2,9 +2,9 @@ import { BadRequestError } from '../../utils/appErrors.js';
 import { getComplaintsDao, createComplaintsDao, updateComplaintsDao, deleteComplaintsDao } from './complaintsDao.js';
 
 // Service to get complaints
-const getComplaintsService = async (payload) => {
+const getComplaintsService = async (search,payload) => {
     try {
-        const data = await getComplaintsDao(payload);
+        const data = await getComplaintsDao(search,payload);
         return data;
     } catch (error) {
         console.error('Error while fetching complaints', error);

@@ -6,9 +6,10 @@ import { sendError } from '../../utils/responseHandlers.js';
 const getComplaints = async (req, res) => {
     try {
       const {company_id} = req.user;
-      let payload = req.query.search || {};  
+      let search = req.query.search;
+      let payload =  {};  
       payload.company_id=company_id;
-      const data = await getComplaintsService(payload);
+      const data = await getComplaintsService(search,payload);
       console.log ('get complaints successfully');
       return sendSuccess(res, data, 'get complaints successfully');
     } catch (error) {

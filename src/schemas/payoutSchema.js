@@ -27,7 +27,6 @@ export const PAYOUT_DETAILS_SCHEMA = Joi.object({
     created_by: Joi.string().label('created_by').required(),
     updated_by: Joi.string().label('updated_by').required(),
     company_id: Joi.string().label('company_id').required(),
-    user_id: Joi.string().label('company_id').required(),
     is_obsolete: Joi.boolean().label('is_obsolete').required().default(false)
 });
 

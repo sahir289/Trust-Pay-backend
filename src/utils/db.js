@@ -66,10 +66,9 @@ export const executeQuery = async (query, queryParams = []) => {
   }
 }
 
-export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = true) => {
+export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = true ,user) => {
   const page = p || 1, pageSize = ps || 10, sortBy = s || "created_at", sortOrder = o || "DESC";
   let filters = {};
-
   if (isJson) {
     filters = f;
   } else {
@@ -77,7 +76,6 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
       filters[key] = f;
     }
   }
-
   let query = baseQuery;
   let values = [];
   let conditions = [];
@@ -95,15 +93,21 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
       values.push(value);
     }
   }
+  if(user){
+    for (const key in user) {
+      const value = user[key];
+      if (value) {
+        conditions.push(`"${key}" = $${values.length + 1}`);
+        values.push(value);
+      }
+    }
+  }
   conditions.push(`is_obsolete = false`);
-
   if (conditions.length) {
     query += ` AND ${conditions.join(' AND ')}`;
   }
-
   // Apply sorting and pagination
   query = applySortingAndPagination(query, values, columns, sortBy, sortOrder, page, pageSize);
-
   return [query, values];
 };
 

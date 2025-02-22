@@ -34,9 +34,9 @@ const createChargeBackService = async (payload) => {
     }
 };
 
-const getChargeBacksService = async (payload) => {
+const getChargeBacksService = async (search,payload) => {
     try {
-        const data = await getChargeBackDao(payload);
+        const data = await getChargeBackDao(search,payload);
         console.log('Fetched ChargeBacks successfully');
         return data;
     } catch (error) {

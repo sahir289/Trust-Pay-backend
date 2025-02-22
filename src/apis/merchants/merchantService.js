@@ -42,9 +42,9 @@ const createMerchantService = async (payload) => {
 };
 
 // Get Merchants Service
-const getMerchantsService = async (payload) => {
+const getMerchantsService = async (search,user) => {
     try {
-        const data = await getMerchantsDao(payload);
+        const data = await getMerchantsDao(search,user);
         return data;
     } catch (error) {
         console.error('Error while fetching merchants', error);

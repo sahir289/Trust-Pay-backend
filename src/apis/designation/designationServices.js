@@ -2,12 +2,12 @@ import { BadRequestError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
 import { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao } from './designationDao.js';
 
-const getDesignationService = async (payload) => {
+const getDesignationService = async (search,user) => {
   let conn;
   try {
 
     conn = await getConnection();
-    const result = await getDesignationDao(payload);
+    const result = await getDesignationDao(search,user);
     return result;
   } catch (error) {
     console.error('error getting while Designation', error);

@@ -6,7 +6,6 @@ import {VALIDATE_VENDOR_BY_ID,VALIDATE_UPDATE_VENDOR_STATUS,VALIDATE_VENDOR_SCHE
 const createVendor = async (req, res) => {
   try {
     let payload = req.body;
-    console.log(req.user,"user from req.user");
     const {company_id,user_id,role_id} = req.user;
     payload.company_id=company_id;
     payload.user_id=user_id;
@@ -64,7 +63,7 @@ const getVendorById = async (req, res) => {
     const { id } = req.params;
     const {company_id,user_id,role_id} = req.user;
     // Fetch vendors data from the service
-    const data = await getVendorsService({ id,company_id,role_id,user_id});
+    const data = await getVendorsService({id,company_id,role_id,user_id});
     // Log success message
     console.log('get vendor successfully', data);
     // Send success response

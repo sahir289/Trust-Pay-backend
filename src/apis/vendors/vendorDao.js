@@ -20,7 +20,7 @@ export const getVendorsDao = async (
     sortBy,
     sortOrder
 ) => {
-    const baseQuery = `SELECT * FROM "${tableName.VENDOR}" WHERE 1=1 AND "company_id" = $1`;
+    const baseQuery = `SELECT id, first_name, last_name, code, payin_commission, payout_commission, balance, created_by, updated_by, config,  created_at, updated_at FROM "${tableName.VENDOR}" WHERE 1=1 ` ;
     const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.VENDOR, page, pageSize, sortBy, sortOrder, typeof search != 'string');
     // Execute queryy
     const result = await executeQuery(sql, queryParams);

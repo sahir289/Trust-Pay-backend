@@ -6,9 +6,10 @@ import { transactionWrapper } from '../../utils/db.js';
 const getRoles = async (req, res) => {
     try {
       const {company_id} = req.user;
-      let payload = req.query.search || {};  
-      payload.company_id=company_id;
-      const data = await getRoleService(payload);
+      let search = req.query.search ; 
+      let user = {} ;
+      user.company_id=company_id;
+      const data = await getRoleService(search,user);
       console.log('get Roles successfully', 'info');
       return sendSuccess(res, data, 'get Roles successfully');
     } catch (error) {

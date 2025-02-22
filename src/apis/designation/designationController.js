@@ -4,12 +4,12 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService } from './designationServices.js';
 const getDesignation = async (req, res) => {
   try {
-    let payload = req.query.search || {};
+    const search = req.query.search;
+    let user = {};
     const {comapany_id,role_id}=req.user
-    payload.comapany_id=comapany_id;
-    payload.role_id=role_id
-    
-    const data = await getDesignationService(payload);
+    user.comapany_id=comapany_id;
+    user.role_id=role_id
+    const data = await getDesignationService(search,user);
     console.log('get Designations  successfully');
     return sendSuccess(res, data, 'get  Designations successfully');
   } catch (error) {

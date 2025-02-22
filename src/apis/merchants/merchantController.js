@@ -10,7 +10,6 @@ const createMerchant = async (req, res) => {
           return sendError(res, 'payload is required', 'Validation Error');
         }
         const {company_id,user_id,role_id} = req.user;
-        console.log(req.user);
         payload.company_id=company_id;
         payload.user_id=user_id;
         payload.role_id=role_id;
@@ -36,12 +35,13 @@ const createMerchant = async (req, res) => {
 const getMerchants = async (req, res) => {
     try {
         const {company_id,user_id,role_id} = req.user;
-        let payload = req.query.search || {};  
-        payload.company_id=company_id;
-        payload.user_id=user_id;
-        payload.role_id=role_id;
+        let search = req.query.search; 
+        let user = {}; 
+        user.company_id=company_id;
+        user.user_id=user_id;
+        user.role_id=role_id;
         // Fetch merchants data from the service
-        const data = await getMerchantsService(payload);
+        const data = await getMerchantsService(search,user);
         // Log success message
         console.log('get Merchants successfully', data);
         // Send success response

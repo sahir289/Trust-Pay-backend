@@ -7,8 +7,8 @@ import {
 import { columns, tableName } from '../../constants/index.js';
 
 
-const getRoleDao = async (search, page, pageSize, sortBy, sortOrder) => {
-  const baseQuery = `SELECT id,role,updated_by,created_by,updated_at FROM "${tableName.ROLE}" WHERE 1=1 AND "company_id" = $1`;
+const getRoleDao = async (search,user, page, pageSize, sortBy, sortOrder) => {
+  const baseQuery = `SELECT id,role FROM "${tableName.ROLE}" WHERE 1=1`;
   const [sql, queryParams] = buildSelectQuery(
     baseQuery,
     search,
@@ -18,6 +18,7 @@ const getRoleDao = async (search, page, pageSize, sortBy, sortOrder) => {
     sortBy,
     sortOrder,
     typeof search != 'string',
+    user
   );
   // Execute query
   const result = await executeQuery(sql, queryParams)

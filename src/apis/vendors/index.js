@@ -62,7 +62,7 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getVendorById));
  *       400:
  *         description: Invalid request data.
  */
-router.post('/create-vendor', tryCatchHandler(createVendor));
+router.post('/create-vendor',isAuthenticated ,tryCatchHandler(createVendor));
 
 /**
  * @swagger

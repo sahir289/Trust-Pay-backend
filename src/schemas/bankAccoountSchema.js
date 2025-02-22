@@ -7,7 +7,7 @@ export const BANK_ACCOUNT_SCHEMA = Joi.object({
   name: Joi.string().label('name').required(),
   ac_no: Joi.alternatives().try(Joi.string(), Joi.number()).label('ac_no').required(),
   ac_name: Joi.string().label('ac_name').required(),
-  ifsc: Joi.string().pattern(/^[A-Z]{4}0[A-Z0-9]{6}$/).label('ifsc').required(), // IFSC format validation
+  ifsc: Joi.string().pattern(/^[A-Z]{4}0[A-Z0-9]{6}$/).label('ifsc').required(), 
   bank_name: Joi.string().label('bank_name').required(),
   is_qr: Joi.boolean().label('is_qr').required(),
   is_bank: Joi.boolean().label('is_bank').required(),

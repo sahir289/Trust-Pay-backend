@@ -5,11 +5,11 @@ import { createUserService } from '../users/userService.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { createDesignationService } from '../designation/designationServices.js';
 import { createRoleDao } from '../roles/rolesDao.js';
-const getCompanyService = async (id) => {
+const getCompanyService = async (search,id) => {
   let conn;
   try {
     conn = await getConnection();
-    const result = await getCompanyDao(id);
+    const result = await getCompanyDao(search,id);
     return result;
   } catch (error) {
     console.error('error getting while company', error);

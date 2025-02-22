@@ -16,6 +16,7 @@ export const createChargeBackDao = async (data) => {
 // Get Chargeback entries with pagination, sorting, and filtering
 export const getChargeBackDao = async (
     search,
+    payload,
     page,
     pageSize,
     sortBy,
@@ -25,11 +26,10 @@ export const getChargeBackDao = async (
         // Explicitly list columns instead of using *
         const columnsToSelect = `id,
             user, merchant_user_id, vendor_user_id, payin_id, 
-            bank_acc_id, amount, "when", created_by, updated_by, 
-            created_at, updated_at
+            bank_acc_id, amount, "when", created_by, updated_by,
         `;
         const baseQuery = `SELECT ${columnsToSelect} FROM "${tableName.CHAREBACK}" WHERE 1=1`;
-        const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.CHAREBACK, page, pageSize, sortBy, sortOrder, typeof search !== 'string');
+        const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.CHAREBACK, page, pageSize, sortBy, sortOrder, typeof search !== 'string',payload);
         const result = await executeQuery(sql, queryParams);
         return result.rows;
     } catch (error) {

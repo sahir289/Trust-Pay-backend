@@ -6,6 +6,11 @@ import { sendError } from '../../utils/responseHandlers.js';
 const getUsers = async (req, res) => {
   try {
     // const reqBody = req.body;
+    let user={};
+    const {role_id,company_id,designation_id}=req.user;
+    user.role_id=role_id;
+    user.company_id=company_id;
+    user.designation_id=designation_id;
     const data = await getUsersService();
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');

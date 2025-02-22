@@ -3,15 +3,15 @@ import { columns, tableName } from "../../constants/index.js";
 
 // Get Complaints with pagination, sorting, and filtering
 const getComplaintsDao = async (
-  search,
+  search,user,
   page,
   pageSize,
   sortBy,
   sortOrder 
 ) => {
   try {
-    const baseQuery = `SELECT id,status,payin_id,created_at,updated_at FROM "${tableName.COMPLAINTS}" WHERE 1=1 AND "company_id"=$1`;
-    const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.COMPLAINTS, page, pageSize, sortBy, sortOrder, typeof search !== 'string');
+    const baseQuery = `SELECT id,status,payin_id FROM "${tableName.COMPLAINTS}" WHERE 1=1`;
+    const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.COMPLAINTS, page, pageSize, sortBy, sortOrder, typeof search !== 'string',user);
     // Execute query
     const result = await executeQuery(sql, queryParams);
     return result.rows;

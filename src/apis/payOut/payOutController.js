@@ -4,17 +4,15 @@ import { createPayoutService, deletePayoutService, getPayoutsService, updatePayo
 
 const createPayout = async (req, res) => {
     try {
-        let payload = req.body;
+      let payload = req.body;
       if (!payload) {
         console.error('payload is required');
         return sendError(res, 'payload is required', 'Validation Error');
       }
       const {company_id} = req.user;
       payload.company_id=company_id;
-
         // Call the service to create the Payout
         const result = await createPayoutService( req.headers ,payload);
-
         // Log success message
         console.log('Payout created successfully', result);
 
@@ -33,9 +31,9 @@ const createPayout = async (req, res) => {
 const getPayoutsById = async (req, res) => {
     try {
         const {id} = req.params;
-
+  const {company_id}  = req.user;
         // Fetch vendors data from the service
-        const data = await getPayoutsService({id:id});
+        const data = await getPayoutsService({id,company_id});
 
         // Log success message
         console.log('getPayouts successfully', data);
@@ -55,10 +53,11 @@ const getPayoutsById = async (req, res) => {
 const getPayouts = async (req, res) => {
     try {
         const {company_id} = req.user;
-        let payload = req.query.search || {};  
-        payload.company_id=company_id;
+        let search = req.query.search;  
+        let user={}
+        user.company_id=company_id;
         // Fetch vendors data from the service
-        const data = await getPayoutsService(payload);
+        const data = await getPayoutsService(search,user);
 
         // Log success message
         console.log('getPayouts successfully', data);
@@ -79,10 +78,11 @@ const getPayouts = async (req, res) => {
 const updatePayout = async (req, res) => {
     try {
         const payload = req.body;
-        const { id } = req.params;  // Assuming the Payout ID is passed as a parameter
-
+        const { id } = req.params; 
+        const {company_id} = req.user;
+         // Assuming the Payout ID is passed as a parameter
         // Call the service to update the Payout
-        const result = await transactionWrapper(updatePayoutService)(id, payload);
+        const result = await transactionWrapper(updatePayoutService)(id,company_id, payload);
 
         // Log success message
         console.log('Payout updated successfully', result);
@@ -101,9 +101,9 @@ const updatePayout = async (req, res) => {
 const deletePayout = async (req, res) => {
     try {
         const { id } = req.params;  // Assuming the Payout ID is passed as a parameter
-
+        const {company_id} = req.user;
         // Call the service to delete the Payout
-        const result = await deletePayoutService(id);
+        const result = await deletePayoutService(id,company_id);
 
         // Log success message
         console.log('Payout deleted successfully', result);
