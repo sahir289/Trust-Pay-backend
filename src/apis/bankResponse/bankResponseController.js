@@ -1,4 +1,5 @@
 import { CREATE_BANK_RESPONSE_SCHEMA } from '../../schemas/bankResponseSchema.js';
+import { ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getPayinsDao, updatePayInDao } from '../payIn/payInDao.js';
 import { getBankResponseDao, updateBotResponseDao } from './bankResponseDao.js';

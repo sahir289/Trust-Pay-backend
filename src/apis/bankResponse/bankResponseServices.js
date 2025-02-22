@@ -101,11 +101,13 @@ const createBankResponseService = async (payload) => {
                     checkPayInUtr[0]?.id,
                     payInData
                   );
-                  const updateBotRes = await updateBotResponseDao(botRes.id, { is_used: true })
+                  // const updateBotRes
+                  await updateBotResponseDao(botRes.id, { is_used: true })
                   const bankdetails = await getBankaccountDao({ id: isBankExist?.id })
 
                   // We are adding the amount to the bank as we want to update the balance of the bank
-                  const updateBankRes = await updateBankaccountDao(
+                   const updateBankRes = 
+                  await updateBankaccountDao(
                     {
                       id: isBankExist.id,
                       balance: bankdetails.balance + parseFloat(amount),
@@ -123,7 +125,8 @@ const createBankResponseService = async (payload) => {
 
                   try {
                     //when we get the correct notify url;
-                    const notifyMerchant = await axios.post(checkPayInUtr[0]?.notify_url, notifyData)
+                    // const notifyMerchant =
+                    await axios.post(checkPayInUtr[0]?.notify_url, notifyData)
                   } catch (error) {
                     console.log(error)
                   }
@@ -149,7 +152,8 @@ const createBankResponseService = async (payload) => {
                 await updateBotResponseDao(botRes?.id, { is_used: true })
                 const bankdetails = await getBankaccountDao({ id: isBankExist?.id })
                 // We are adding the amount to the bank as we want to update the balance of the bank
-                const updateBankRes = await updateBankaccountDao(
+                // const updateBankRes = 
+                await updateBankaccountDao(
                   isBankExist?.id,
                   {
                     balance: bankdetails.balance + parseFloat(amount),
@@ -235,9 +239,11 @@ const createBankResponseService = async (payload) => {
                     );
 
                   }
-                  const updateBotRes = await updateBotResponseDao(botRes?.id, { is_used: true })
+                  // const updateBotRes = 
+                  await updateBotResponseDao(botRes?.id, { is_used: true })
                   const merchatnData = await getMerchantsDao({ id: checkPayInUtr[0]?.merchant_id })
-                  const updateMerchantData = await updateMerchantDao(checkPayInUtr[0]?.merchant_id, { balance: merchatnData.balance + parseFloat(amount) })
+                  // const updateMerchantData = 
+                  await updateMerchantDao(checkPayInUtr[0]?.merchant_id, { balance: merchatnData.balance + parseFloat(amount) })
                   const notifyData = {
                     status: "SUCCESS",
                     merchantOrderId: updatePayInDataRes?.merchant_order_id,
@@ -275,7 +281,8 @@ const createBankResponseService = async (payload) => {
 
                 if (checkPayInUtr[0]?.bank_acc_id) {
                   const bankdetails = await getBankaccountDao({ id: isBankExist?.id })
-                  const updateBankRes = await updateBankaccountDao(
+                  // const updateBankRes = 
+                  await updateBankaccountDao(
                     checkPayInUtr[0]?.bank_acc_id,
                     {
                       balance: bankdetails.balance + parseFloat(amount),
@@ -283,9 +290,11 @@ const createBankResponseService = async (payload) => {
                     }
                   );
                 }
-                const updateBotRes = await updateBotResponseDao(botRes?.id, { is_used: true })
+                // const updateBotRes = 
+                await updateBotResponseDao(botRes?.id, { is_used: true })
                 const merchatnData = await getMerchantsDao({ id: checkPayInUtr[0]?.merchant_id })
-                const updateMerchantData = await updateMerchantDao(checkPayInUtr[0]?.merchant_id, { balance: merchatnData.balance + parseFloat(amount) })
+                // const updateMerchantData = 
+                await updateMerchantDao(checkPayInUtr[0]?.merchant_id, { balance: merchatnData.balance + parseFloat(amount) })
                 const notifyData = {
                   status: "SUCCESS",
                   merchantOrderId: updatePayInDataRes?.merchant_order_id,
@@ -295,7 +304,8 @@ const createBankResponseService = async (payload) => {
                 };
                 try {
                   //when we get the correct notify url;
-                  const notifyMerchant = await axios.post(checkPayInUtr[0]?.notify_url, notifyData)
+                  // const notifyMerchant = 
+                  await axios.post(checkPayInUtr[0]?.notify_url, notifyData)
                 } catch (error) {
                   console.log(error)
                 }
@@ -331,7 +341,8 @@ const createBankResponseService = async (payload) => {
                   // console.log(notifyMerchant, "7notifyMerchant")
 
 
-                  const updateBotRes = await updateBotResponseDao(botRes?.id, { is_used: true });
+                  // const updateBotRes = 
+                  await updateBotResponseDao(botRes?.id, { is_used: true });
                   const notifyData = {
                     status: "DISPUTE",
                     merchantOrderId: updatePayInDataRes?.merchant_order_id,
@@ -368,7 +379,8 @@ const createBankResponseService = async (payload) => {
                   payInData
                 );
                 const bankdetails = await getBankaccountDao({ id: isBankExist?.id })
-                const updateBankRes = await updateBankaccountDao(
+                // const updateBankRes = 
+                await updateBankaccountDao(
                   checkPayInUtr[0]?.bank_acc_id,
                   {
                     balance: bankdetails.balance + parseFloat(amount),
@@ -376,7 +388,8 @@ const createBankResponseService = async (payload) => {
                   }
                 );
 
-                const updateBotRes = await updateBotResponseDao(botRes?.id, { is_used: true });
+                // const updateBotRes = 
+                await updateBotResponseDao(botRes?.id, { is_used: true });
                 const notifyData = {
                   status: "DISPUTE",
                   merchantOrderId: updatePayInDataRes?.merchant_order_id,
@@ -418,16 +431,17 @@ const createBankResponseService = async (payload) => {
                   payInData
                 );
 
-                const updateBotRes = await updateBotResponseDao(botRes?.id, { is_used: true })
+                // const updateBotRes = 
+                await updateBotResponseDao(botRes?.id, { is_used: true })
                 const bankdetails = await getBankaccountDao({ id: isBankExist?.id })                // We are adding the amount to the bank as we want to update the balance of the bank
-                const updateBankRes = await updateBankaccountDao(
+                // const updateBankRes = 
+                await updateBankaccountDao(
                   isBankExist?.id,
                   {
                     balance: bankdetails.balance + parseFloat(amount),
                     today_balance: bankdetails.balance + parseFloat(amount)
                   }
                 );
-                console.log(updateBankRes, "updateBankRes")
 
                 const notifyData = {
                   status: "BANK_MISMATCH",
@@ -466,10 +480,12 @@ const createBankResponseService = async (payload) => {
                 payInData
               );
 
-              const updateBotRes = await updateBotResponseDao(botRes?.id, { is_used: true })
+              // const updateBotRes = 
+              await updateBotResponseDao(botRes?.id, { is_used: true })
               // We are adding the amount to the bank as we want to update the balance of the bank
               const bankdetails = await getBankaccountDao({ id: isBankExist?.id })
-              const updateBankRes = await updateBankaccountDao(
+              // const updateBankRes = 
+              await updateBankaccountDao(
                 isBankExist?.id,
                 {
                   balance: bankdetails.balance + parseFloat(amount),
@@ -518,10 +534,12 @@ const createBankResponseService = async (payload) => {
                   payInData
                 );
 
-                const updateBotRes = await updateBotResponseDao(botRes?.id, { is_used: true })
+                // const updateBotRes = 
+                await updateBotResponseDao(botRes?.id, { is_used: true })
                 // We are adding the amount to the bank as we want to update the balance of the bank
                 const bankdetails = await getBankaccountDao({ id: isBankExist?.id })
-                const updateBankRes = await updateBankaccountDao(
+                // const updateBankRes = 
+                await updateBankaccountDao(
                   isBankExist?.id,
                   {
                     balance: bankdetails.balance + parseFloat(amount),
@@ -563,10 +581,12 @@ const createBankResponseService = async (payload) => {
                 payInData
               );
 
-              const updateBotRes = await updateBotResponseDao(botRes?.id, { is_used: true })
+              // const updateBotRes = 
+              await updateBotResponseDao(botRes?.id, { is_used: true })
               // We are adding the amount to the bank as we want to update the balance of the bank
               const bankdetails = await getBankaccountDao({ id: isBankExist?.id })
-              const updateBankRes = await updateBankaccountDao(
+              // const updateBankRes = 
+              await updateBankaccountDao(
                 isBankExist?.id,
                 { balance: bankdetails.balance + parseFloat(amount) }
               );
@@ -582,7 +602,8 @@ const createBankResponseService = async (payload) => {
 
               try {
                 //when we get the correct notify url;
-                const notifyMerchant = await axios.post(checkPayInUtr[0]?.notify_url, notifyData)
+                // const notifyMerchant = 
+                await axios.post(checkPayInUtr[0]?.notify_url, notifyData)
               } catch (error) {
                 console.log(error)
 
@@ -632,7 +653,8 @@ const createBankResponseService = async (payload) => {
 
                 if (checkPayInUtr[0]?.bank_acc_id) {
                   const bankdetails = await getBankaccountDao({ id: isBankExist?.id })
-                  const updateBankRes = await updateBankaccountDao(
+                  // const updateBankRes = 
+                  await updateBankaccountDao(
                     checkPayInUtr[0]?.bank_acc_id,
                     {
                       balance: bankdetails.balance + parseFloat(amount),
@@ -641,9 +663,11 @@ const createBankResponseService = async (payload) => {
                   );
                 }
 
-                const updateBotRes = await updateBotResponseDao(botRes?.id, { is_used: true })
+                // const updateBotRes = 
+                await updateBotResponseDao(botRes?.id, { is_used: true })
                 const merchatnData = await getMerchantsDao({ id: checkPayInUtr[0]?.merchant_id })
-                const updateMerchantData = await updateMerchantDao(checkPayInUtr[0]?.merchant_id, { balance: merchatnData.balance + parseFloat(amount) })
+                // const updateMerchantData = 
+                await updateMerchantDao(checkPayInUtr[0]?.merchant_id, { balance: merchatnData.balance + parseFloat(amount) })
                 const notifyData = {
                   status: "SUCCESS",
                   merchantOrderId: updatePayInDataRes?.merchant_order_id,
@@ -692,9 +716,11 @@ const createBankResponseService = async (payload) => {
                   }
                 );
               }
-              const updateBotRes = await updateBotResponseDao(botRes?.id, { is_used: true })
+              // const updateBotRes = 
+              await updateBotResponseDao(botRes?.id, { is_used: true })
               const merchatnData = await getMerchantsDao({ id: checkPayInUtr[0]?.merchant_id })
-              const updateMerchantData = await updateMerchantDao(checkPayInUtr[0]?.merchant_id, { balance: merchatnData.balance + parseFloat(amount) })
+              // const updateMerchantData = 
+              await updateMerchantDao(checkPayInUtr[0]?.merchant_id, { balance: merchatnData.balance + parseFloat(amount) })
               const notifyData = {
                 status: "SUCCESS",
                 merchantOrderId: updatePayInDataRes?.merchant_order_id,
@@ -704,7 +730,8 @@ const createBankResponseService = async (payload) => {
               };
               try {
                 //when we get the correct notify url;
-                const notifyMerchant = await axios.post(checkPayInUtr[0]?.notify_url, notifyData)
+                // const notifyMerchant = 
+                await axios.post(checkPayInUtr[0]?.notify_url, notifyData)
               } catch (error) {
                 console.log(error)
               }
@@ -730,14 +757,16 @@ const createBankResponseService = async (payload) => {
                 );
                 const bankdetails = await getBankaccountDao({ id: isBankExist?.id })
 
-                const updateBankRes = await updateBankaccountDao(
+                // const updateBankRes = 
+                await updateBankaccountDao(
                   checkPayInUtr[0]?.bank_acc_id,
                   {
                     balance: bankdetails.balance + parseFloat(amount),
                     today_balance: bankdetails.balance + parseFloat(amount)
                   }
                 );
-                const updateBotRes = await updateBotResponseDao(botRes?.id, { is_used: true });
+                // const updateBotRes = 
+                await updateBotResponseDao(botRes?.id, { is_used: true });
                 const notifyData = {
                   status: "DISPUTE",
                   merchantOrderId: updatePayInDataRes?.merchant_order_id,
@@ -774,7 +803,8 @@ const createBankResponseService = async (payload) => {
                 payInData
               );
               const bankdetails = await getBankaccountDao({ id: isBankExist?.id })
-              const updateBankRes = await updateBankaccountDao(
+              // const updateBankRes = 
+              await updateBankaccountDao(
                 checkPayInUtr[0]?.bank_acc_id,
                 {
                   balance: bankdetails.balance + parseFloat(amount),
@@ -782,7 +812,8 @@ const createBankResponseService = async (payload) => {
                 }
               );
 
-              const updateBotRes = await updateBotResponseDao(botRes?.id, { is_used: true });
+              // const updateBotRes
+              await updateBotResponseDao(botRes?.id, { is_used: true });
               const notifyData = {
                 status: "DISPUTE",
                 merchantOrderId: updatePayInDataRes?.merchant_order_id,
