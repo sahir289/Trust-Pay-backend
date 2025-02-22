@@ -58,7 +58,7 @@ const getMerchantsById = async (req, res) => {
     try {
         const { error } = VALIDATE_MERCHANT_BY_ID.validate(req.params);
         if (error) {
-            return sendError(res, error.details[0].message, 'Validation Error');
+            throw new ValidationError(error);
         }
         const {id} = req.params;
         const {company_id,user_id,role_id} = req.user;
@@ -83,12 +83,12 @@ const updateMerchant = async (req, res) => {
     try {
         const { error: paramsError } =VALIDATE_MERCHANT_BY_ID.validate(req.params);
         if (paramsError) {
-            return sendError(res, paramsError.details[0].message, 'Validation Error');
+            throw new ValidationError(paramsError);
         }
         // Validate body (fields for update)
         const { error: bodyError } = VALIDATE_UPDATE_MERCHANT_STATUS.validate(req.body);
         if (bodyError) {
-            return sendError(res, bodyError.details[0].message, 'Validation Error');
+            throw new ValidationError(bodyError);
         }
 
         const payload = req.body;
@@ -116,7 +116,7 @@ const deleteMerchant = async (req, res) => {
     try {
         const { error } = VALIDATE_MERCHANT_BY_ID.validate(req.params);
         if (error) {
-            return sendError(res, error.details[0].message, 'Validation Error');
+            throw new ValidationError(error);
         }
         const { id } = req.params;  // Assuming the Merchant ID is passed as a parameter
         // Call the service to delete the Merchant

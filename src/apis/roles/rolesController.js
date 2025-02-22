@@ -2,6 +2,7 @@ import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { getRoleService, createRoleService, updateRoleService,deleteRoleService } from './rolesService.js';
 import { VALIDATE_ROLE_SCHEMA, VALIDATE_UPDATE_ROLE_STATUS, VALIDATE_DELETE_ROLE, VALIDATE_ROLE_BY_ID } from '../../schemas/roleSchema.js';
 import { transactionWrapper } from '../../utils/db.js';
+import { ValidationError } from '../../utils/appErrors.js';
 
 const getRoles = async (req, res) => {
     try {
@@ -22,7 +23,7 @@ const getRolesById = async (req, res) => {
     try {
       const { error } = VALIDATE_ROLE_BY_ID.validate(req.params); // Validate ID from params
       if (error) {
-        return sendError(res, error.details[0].message, 'Validation Error');
+        throw new ValidationError(error);
       }
       const { id } = req.params;
       const {company_id} = req.user;
@@ -46,7 +47,7 @@ const createRole = async (req, res) => {
       payload.company_id=company_id;
       const { error } = VALIDATE_ROLE_SCHEMA.validate(payload); // Validate body
       if (error) {
-        return sendError(res, error.details[0].message, 'Validation Error');
+        throw new ValidationError(error);
       }
       const data = await createRoleService(payload);
       console.log('create Role successfully', 'info');
@@ -61,11 +62,11 @@ const updateRole = async (req, res) => {
     try {
         const { error: bodyError } = VALIDATE_UPDATE_ROLE_STATUS.validate(req.body); // Validate update body
         if (bodyError) {
-            return sendError(res, bodyError.details[0].message, 'Validation Error');
+          throw new ValidationError(bodyError);
         }
         const { error: paramsError } = VALIDATE_ROLE_BY_ID.validate(req.params); // Validate ID from params
         if (paramsError) {
-            return sendError(res, paramsError.details[0].message, 'Validation Error');
+          throw new ValidationError(paramsError);
         }
         let { body, params } = req;
         const {company_id} = req.user;
@@ -82,7 +83,7 @@ const deleteRole = async (req, res) => {
     try {
         const { error } = VALIDATE_DELETE_ROLE.validate(req.params); // Validate ID from params
         if (error) {
-            return sendError(res, error.details[0].message, 'Validation Error');
+          throw new ValidationError(error);
         }
         let { params } = req;
         const {company_id} = req.user;

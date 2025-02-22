@@ -31,10 +31,12 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
+
 router.get('/', isAuthenticated, tryCatchHandler(getVendors));
 
 
 router.get('/:id', isAuthenticated, tryCatchHandler(getVendorById));
+
 /**
  * @swagger
  * /vendors/create-vendor:
@@ -62,6 +64,7 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getVendorById));
  *       400:
  *         description: Invalid request data.
  */
+
 router.post('/create-vendor',isAuthenticated ,tryCatchHandler(createVendor));
 
 /**
@@ -92,6 +95,7 @@ router.post('/create-vendor',isAuthenticated ,tryCatchHandler(createVendor));
  *       404:
  *         description: Vendor not found.
  */
+
 router.put('/update-vendor/:id', isAuthenticated, tryCatchHandler(updateVendor));
 
 /**
@@ -117,6 +121,7 @@ router.put('/update-vendor/:id', isAuthenticated, tryCatchHandler(updateVendor))
  *       404:
  *         description: Vendor not found.
  */
+
 router.delete('/delete-vendor/:id', isAuthenticated, tryCatchHandler(deleteVendor));
 
 export default router;

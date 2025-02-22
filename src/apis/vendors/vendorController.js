@@ -1,7 +1,7 @@
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import {createVendorService,deleteVendorService,getVendorsService,updateVendorService} from './vendorService.js';
 import {VALIDATE_VENDOR_BY_ID,VALIDATE_UPDATE_VENDOR_STATUS,VALIDATE_VENDOR_SCHEMA} from '../../schemas/vendorSchema.js';
-
+import { ValidationError } from '../../utils/appErrors.js';
 
 const createVendor = async (req, res) => {
   try {
@@ -12,7 +12,7 @@ const createVendor = async (req, res) => {
     payload.role_id=role_id;
       const { error } = VALIDATE_VENDOR_SCHEMA.validate(payload);
     if (error) {
-      return sendError(res, error.details[0].message, 'Validation Error');
+      throw new ValidationError(error);
     }
       if (!payload) {
         console.error('payload is required');
@@ -59,7 +59,7 @@ const getVendorById = async (req, res) => {
   try {
     const { error } = VALIDATE_VENDOR_BY_ID.validate(req.params);
     if (error) {
-      return sendError(res, error.details[0].message, 'Validation Error');
+      throw new ValidationError(error);
     }
     const { id } = req.params;
     const {company_id,user_id,role_id} = req.user;
@@ -83,14 +83,14 @@ const updateVendor = async (req, res) => {
     // Validate Vendor ID (from params)
     const { error: idError } = VALIDATE_VENDOR_BY_ID.validate(req.params);
     if (idError) {
-      return sendError(res, idError.details[0].message, 'Validation Error');
+      throw new ValidationError(idError);
     }
     // Validate Vendor Update Status (from body)
     const { error: bodyError } = VALIDATE_UPDATE_VENDOR_STATUS.validate(
       req.body,
     );
     if (bodyError) {
-      return sendError(res, bodyError.details[0].message, 'Validation Error');
+      throw new ValidationError(bodyError);
     }
     const payload = req.body;
     const {company_id,user_id,role_id} = req.user;
@@ -113,7 +113,7 @@ const deleteVendor = async (req, res) => {
   try {
     const { error: idError } = VALIDATE_VENDOR_BY_ID.validate(req.params);
     if (idError) {
-      return sendError(res, idError.details[0].message, 'Validation Error');
+      throw new ValidationError(idError);
     }
     const { id } = req.params; // Assuming the Vendor ID is passed as a parameter
     // Call the service to delete the Vendor

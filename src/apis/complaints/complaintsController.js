@@ -2,7 +2,7 @@ import {  sendSuccess } from '../../utils/responseHandlers.js';
 import { getComplaintsService,createComplaintsService,updateComplaintsService,deleteComplaintsService } from './complaintsServices.js';
 import { VALIDATE_COMPLAINT_BY_ID,VALIDATE_COMPLAINT_SCHEMA,VALIDATE_UPDATE_COMPLAINT_STATUS,VALIDATE_DELETE_COMPLAINT} from '../../schemas/complaintSchema.js';
 import { sendError } from '../../utils/responseHandlers.js';
-
+import { ValidationError } from '../../utils/appErrors.js';
 const getComplaints = async (req, res) => {
     try {
       const {company_id} = req.user;
@@ -21,7 +21,7 @@ const getComplaintsById =  async (req, res) => {
     try {
       const { error } = VALIDATE_COMPLAINT_BY_ID.validate(req.params);
       if (error) {
-          return sendError(res, error.details[0].message, 'Validation Error');
+        throw new ValidationError(error);
       }
       const {id} = req.params;
       const {company_id} = req.user;
@@ -48,7 +48,7 @@ const createComplaints = async (req, res) => {
       payload.company_id=company_id;
       const { error } = VALIDATE_COMPLAINT_SCHEMA.validate(payload);
       if (error) {
-          return sendError(res, error.details[0].message, 'Validation Error');
+        throw new ValidationError(error);
       }
       const data = await createComplaintsService(payload);
       console.log('create Complaints successfully', 'info');
@@ -63,12 +63,12 @@ const updateComplaints = async (req, res) => {
     try {
       const { error: paramsError } =VALIDATE_COMPLAINT_BY_ID.validate(req.params);
       if (paramsError) {
-          return sendError(res, paramsError.details[0].message, 'Validation Error');
+        throw new ValidationError(paramsError);
       }
       // Validate body (fields for update)
       const { error: bodyError } = VALIDATE_UPDATE_COMPLAINT_STATUS.validate(req.body);
       if (bodyError) {
-          return sendError(res, bodyError.details[0].message, 'Validation Error');
+        throw new ValidationError(bodyError);
       }
         const { body, params } = req;
         const {company_id} = req.user;
@@ -85,7 +85,7 @@ const deleteComplaints = async (req, res) => {
     try {
       const { error } = VALIDATE_DELETE_COMPLAINT.validate(req.params);
       if (error) {
-          return sendError(res, error.details[0].message, 'Validation Error');
+        throw new ValidationError(error);
       }
         const {  params } = req;
         const {company_id} = req.user;

@@ -1,7 +1,7 @@
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { createUserHierarchyService, updateUserHierarchyService, getUserHierarchyService, deleteUserHierarchyService } from './userHierarchyService.js';
 import { VALIDATE_UPDATE_USER_HIERARCHY_STATUS,VALIDATE_DELETE_USER_HIERARCHY,VALIDATE_USER_HIERARCHY_SCHEMA,VALIDATE_USER_HIERARCHY_BY_ID } from '../../schemas/userHierarchySchema.js';
-
+import { ValidationError } from '../../utils/appErrors.js';
 const createUserHierarchy = async (req, res) => {
     try {
       let payload = req.body;
@@ -15,7 +15,7 @@ const createUserHierarchy = async (req, res) => {
       payload.role_id=role_id;
       const { error } = VALIDATE_USER_HIERARCHY_SCHEMA.validate(payload);
         if (error) {
-            return sendError(res, error.details[0].message, 'Validation Error');
+            throw new ValidationError(error);
         }
         // Call the service to create the UserHierarchy
       const result = await createUserHierarchyService(payload);
@@ -57,7 +57,7 @@ const getUserHierarchysById = async (req, res) => {
     try {
         const { error } = VALIDATE_USER_HIERARCHY_BY_ID.validate(req.params);
         if (error) {
-            return sendError(res, error.details[0].message, 'Validation Error');
+            throw new ValidationError(error);
         }
         const {id} = req.params;
         const {company_id,user_id,role_id} = req.user;
@@ -80,12 +80,12 @@ const updateUserHierarchy = async (req, res) => {
     try {
         const { error: paramsError } =VALIDATE_USER_HIERARCHY_BY_ID.validate(req.params);
         if (paramsError) {
-        return sendError(res, paramsError.details[0].message, 'Validation Error');
+            throw new ValidationError(paramsError);
         }
         // Validate body (fields for update)
         const { error: bodyError } = VALIDATE_UPDATE_USER_HIERARCHY_STATUS.validate(req.body);
         if (bodyError) {
-            return sendError(res, bodyError.details[0].message, 'Validation Error');
+            throw new ValidationError(bodyError);
         }
         const payload = req.body;
         const { id } = req.params;  // Assuming the UserHierarchy ID is passed as a parameter
@@ -111,7 +111,7 @@ const deleteUserHierarchy = async (req, res) => {
     try {
         const { error: paramsError } =VALIDATE_DELETE_USER_HIERARCHY.validate(req.params);
         if (paramsError) {
-            return sendError(res, paramsError.details[0].message, 'Validation Error');
+            throw new ValidationError(paramsError);
         }
         // Validate body (fields for update)
        

@@ -37,9 +37,9 @@ const createVendorService = async (payload) => {
     }
 };
 
-const getVendorsService = async (payload) => {
+const getVendorsService = async (search,payload) => {
     try {
-        const data = await getVendorsDao(payload);
+        const data = await getVendorsDao(search,payload);
         console.log('Fetched Vendors successfully', 'info');
         return data;
     } catch (error) {

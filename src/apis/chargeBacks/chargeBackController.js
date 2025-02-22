@@ -1,6 +1,7 @@
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { createChargeBackService, getChargeBacksService, updateChargeBackService, deleteChargeBackService} from './chargeBackService.js';
 import { VALIDATE_CHARGEBACK_BY_ID,VALIDATE_CHARGEBACK_SCHEMA,VALIDATE_DELETE_CHARGEBACK,VALIDATE_UPDATE_CHARGEBACK_SCHEMA } from '../../schemas/chargeBackSchema.js';
+import { ValidationError } from '../../utils/appErrors.js';
 
 const createChargeBack = async (req, res) => {
     try {
@@ -15,7 +16,7 @@ const createChargeBack = async (req, res) => {
         // Call the service to create the ChargeBack
         const { error } = VALIDATE_CHARGEBACK_SCHEMA.validate(payload);
         if (error) {
-            return sendError(res, error.details[0].message, 'Validation Error');
+            throw new ValidationError(error);
         }
         const result = await createChargeBackService(payload);
 
@@ -37,7 +38,7 @@ const getChargeBacksById = async (req, res) => {
     try {
         const { error } = VALIDATE_CHARGEBACK_BY_ID.validate(req.params);
         if (error) {
-            return sendError(res, error.details[0].message, 'Validation Error');
+            throw new ValidationError(error);
         }
         const {id} = req.params;
         const {company_id} = req.user;
@@ -83,7 +84,7 @@ const updateChargeBack = async (req, res) => {
     try {
         const { error: paramsError } =VALIDATE_DELETE_CHARGEBACK.validate(req.params);
         if (paramsError) {
-            return sendError(res, paramsError.details[0].message, 'Validation Error');
+            throw new ValidationError(paramsError);
         }
         // Validate body (fields for update)
         const { error: bodyError } = VALIDATE_UPDATE_CHARGEBACK_SCHEMA.validate(req.body);
@@ -114,7 +115,7 @@ const deleteChargeBack = async (req, res) => {
     try {
         const { error } = VALIDATE_DELETE_CHARGEBACK.validate(req.params);
         if (error) {
-            return sendError(res, error.details[0].message, 'Validation Error');
+            throw new ValidationError(error);
         }
         const { id } = req.params;  // Assuming the ChargeBack ID is passed as a parameter
         const {company_id} = req.user;

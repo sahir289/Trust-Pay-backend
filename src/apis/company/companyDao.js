@@ -9,7 +9,7 @@ const getCompanyDao = async (
   sortBy,
   sortOrder
 ) => {
-  const baseQuery = `SELECT id,first_name,last_name FROM "${tableName.COMPANY}" WHERE 1=1 AND "id" = $1`;
+  const baseQuery = `SELECT id,first_name,last_name FROM "${tableName.COMPANY}" WHERE 1=1`;
   const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.COMPANY, page, pageSize, sortBy, sortOrder, typeof search != 'string',payload);
   // Execute query
   const result = await executeQuery(sql, queryParams);
