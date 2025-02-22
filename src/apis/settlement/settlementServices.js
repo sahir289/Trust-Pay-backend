@@ -1,4 +1,4 @@
-import { BadRequestError, CustomError, ValidationError } from '../../utils/appErrors.js';
+import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { createSettlementDao, deleteSettlementDao, getSettlementDao, getSettlementDaoAll, updateSettlementDao } from './settlementDao.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getCalculationDao, updateCalculationDao } from '../calculation/calculationDao.js';
@@ -171,7 +171,7 @@ const deleteSettlementService = async (req, res) => {
     const { id } = req.params;
     const { company_id } = req.user;
     const ids = { id, company_id }
-    const joiValidation = UPDATE_SETTLEMENT_SCHEMA.validate(payload);
+    const joiValidation = VALIDATE_SETTLEMENT_BY_ID.validate(id);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }

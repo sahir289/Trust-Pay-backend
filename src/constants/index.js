@@ -79,7 +79,6 @@ export const tableName = {
     VENDOR: 'Vendor',
     CHAREBACK: 'Chargeback',
     BANK_ACCOUNT: 'BankAccount',
-    BANK_RESPONSE :'BankResponse',
     USER_HIERARCHY: 'UserHierarchy',
     SETTLEMENT: 'Settlement',
     CHECK_UTR_HISTORY :'CheckUtrHistory',
