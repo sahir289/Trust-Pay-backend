@@ -83,3 +83,11 @@ export const tableName = {
     RESET_DATA_HISTORY : 'ResetDataHistory',
     BANK_RESPONSE: 'BankResponse'
 }
+
+
+export const BankTypes = {
+    UPI: 'upi',
+    PHONE_PE: 'phone_pe',
+    BANK_TRANSFER: 'bank_transfer',
+    INTENT: 'intent',
+}

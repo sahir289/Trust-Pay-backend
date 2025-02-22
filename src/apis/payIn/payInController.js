@@ -6,6 +6,7 @@ import {
     ASSIGN_PAYIN_SCHEMA,
     VALIDATE_ASSIGNED_BANT_TO_PAY,
     VALIDATE_CHECK_PAY_IN_STATUS,
+    VALIDATE_CHECK_UTR,
     VALIDATE_DISPUTE_DUPLICATE_TRANSACTION,
     VALIDATE_EXPIRE_PAY_IN_URL,
     VALIDATE_PAY_IN_INTENT_GENERATE_ORDER,
@@ -16,7 +17,7 @@ import {
     VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS
 } from "../../schemas/payInSchema.js";
 import {
-    assignedBankToPayInUrlService,getPayinsService,
+    assignedBankToPayInUrlService, getPayinsService,
     checkPayInStatusService,
     disputeDuplicateTransactionService,
     expirePayInUrlService,
@@ -95,7 +96,7 @@ export const assignedBankToPayInUrl = async (req, res) => {
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-    const result = await assignedBankToPayInUrlService(req.params.payInId, req.body.amount);
+    const result = await assignedBankToPayInUrlService(req.params.payInId, req.body.amount, req.body.type);
     return sendSuccess(res, result, 'Bank account is assigned');
 };
 
@@ -182,7 +183,7 @@ export const getPayins = async (req, res) => {
         return sendSuccess(res, data, 'Payins fetched successfully');
     } catch (error) {
         // Log error
-        console.error('error getting while fetching Payins Data',  error);
+        console.error('error getting while fetching Payins Data', error);
 
         // Send an error response
         return sendError(res, error, 'Error occurred while fetching Payins');
@@ -262,55 +263,11 @@ export const disputeDuplicateTransaction = async (req, res) => {
 }
 
 export const telegramCheckUTR = async (req, res) => {
-    const message = req.body.message;
-    if (!message || typeof message !== 'object') {
-        console.error('No Telegram Message found!', message);
-        return;
+    const { utr, merchantOrderId } = req.body;
+    const joiValidation = VALIDATE_CHECK_UTR.validate(req.body);
+    if (joiValidation.error) {
+        throw new ValidationError(joiValidation.error);
     }
-    const data = message.text ? message.text : message.caption;
-    // await sendCheckUTRHistoryTelegramMessage(
-    //     config?.telegramCheckUTRHistoryChatId,
-    //     data,
-    //     config?.telegramBotToken,
-    // );
-    if (!data) {
-        console.error('Data is missing in telegram check utr.');
-        return;
-    }
-
-    const splitData = data.split(" ");
-    const command = splitData[0];
-    const merchantOrderId = splitData[1];
-    const utr = splitData[2];
-
-    if (command != '/checkutr') {
-        console.error('Telegram Check UTR Invalid Command!');
-        return;
-    }
-
-    if (!merchantOrderId || !merchantOrderId.trim()) {
-        console.error("Telegram Check UTR merchant orderId not found!");
-        // const response = await sendErrorMessageNoMerchantOrderIdFoundTelegramBot(
-        //     message?.chat?.id,
-        //     TELEGRAM_BOT_TOKEN,
-        //     message?.message_id,
-        //     true, // this check for message according to captions only
-        //     fromUI
-        //   );
-        return;
-    }
-
-    if (!utr || !utr.trim()) {
-        // const response = await sendErrorMessageNoDepositFoundTelegramBot(
-        //     message?.chat?.id,
-        //     utr,
-        //     TELEGRAM_BOT_TOKEN,
-        //     message?.message_id,
-        //     fromUI
-        //   );
-        return;
-    }
-
     const result = await transactionWrapper(telegramCheckUTRService)(utr, merchantOrderId);
     sendSuccess(res, result);
 }
