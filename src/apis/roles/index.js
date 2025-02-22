@@ -24,7 +24,7 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/getAll',isAuthenticated, tryCatchHandler(getRoles));
+router.get('/',isAuthenticated, tryCatchHandler(getRoles));
 router.get('/:id',isAuthenticated, tryCatchHandler(getRolesById));
 
 /**

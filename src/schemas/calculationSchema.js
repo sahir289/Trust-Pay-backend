@@ -23,6 +23,7 @@ const VALIDATE_CALCULATION_SCHEMA = Joi.object({
       'any.required': 'Company ID is required',
     }),
     config: Joi.object().default({}),
+    is_obsolete: Joi.boolean().optional().default(false),
 });
 
 

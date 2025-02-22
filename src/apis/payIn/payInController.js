@@ -1,6 +1,7 @@
 import config from "../../config/config.js";
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
+import { sendError } from "../../utils/responseHandlers.js";
 import {
     ASSIGN_PAYIN_SCHEMA,
     VALIDATE_ASSIGNED_BANT_TO_PAY,
@@ -15,7 +16,7 @@ import {
     VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS
 } from "../../schemas/payInSchema.js";
 import {
-    assignedBankToPayInUrlService,
+    assignedBankToPayInUrlService,getPayinsService,
     checkPayInStatusService,
     disputeDuplicateTransactionService,
     expirePayInUrlService,
@@ -167,6 +168,26 @@ export const resetDeposit = async (req, res) => {
     const data = await transactionWrapper(resetDepositService)(merchant_order_id);
     sendSuccess(res, data)
 }
+export const getPayins = async (req, res) => {
+    try {
+        const payload = req.query.search;
+
+        // Fetch vendors data from the service
+        const data = await getPayinsService(payload);
+
+        // Log success message
+        console.log('getPayins successfully', data);
+
+        // Send success response
+        return sendSuccess(res, data, 'Payins fetched successfully');
+    } catch (error) {
+        // Log error
+        console.error('error getting while fetching Payins Data',  error);
+
+        // Send an error response
+        return sendError(res, error, 'Error occurred while fetching Payins');
+    }
+};
 
 export const processPayIn = async (req, res) => {
     const payload = {

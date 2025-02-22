@@ -1,7 +1,6 @@
 import express from 'express';
 import ping from './ping/index.js';
 import auth from './auth/index.js';
-import login from './auth/index.js';
 import users from './users/index.js';
 import merchants from './merchants/index.js';
 import vendors from './vendors/index.js';
@@ -16,16 +15,15 @@ import settlement from './settlement/index.js'
 import userHierarchy from './userHierarchy/index.js'
 import payOut from './payOut/index.js'
 import complaints from './complaints/index.js'
+import gatherAllData from '../cron/gatherAllData.js';
 import reports from './reports/index.js'
-
-
+import cron from "../cron/index.js"
 // Add your newly create component routes here with route prefix.
 
 const router = express.Router();
 
 router.use('/ping', ping);
 router.use('/auth', auth);
-router.use('/login', login);
 router.use('/users', users);
 router.use('/merchants', merchants);
 router.use('/vendors', vendors);
@@ -40,8 +38,9 @@ router.use('/settlement', settlement)
 router.use('/userHierarchy', userHierarchy)
 router.use('/payout', payOut)
 router.use('/complaints',complaints)
+router.use("/initialize-cronjob", gatherAllData);
 router.use('/reports',reports)
-
+router.use("/cron",cron)
 /* Make sure while changing below parentrouter.
 This is top level router created to enhance in future like versioning, route prefix etc. */
 
