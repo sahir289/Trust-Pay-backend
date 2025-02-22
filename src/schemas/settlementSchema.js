@@ -2,7 +2,7 @@ import Joi from 'joi';
 
 export const CREATE_SETTLEMENT_SCHEMA = Joi.object({
   id: Joi.string().guid({ version: ['uuidv4'] }).label('id').optional(),
-  user_id: Joi.string().guid({ version: ['uuidv4'] }).label('user_id').required(),
+  user_id: Joi.string().guid({ version: ['uuidv4'] }).label('user_id').optional(),
   status: Joi.string().label('status').required(),
   amount: Joi.number().label('amount').required(),
   method: Joi.string().label('method').required(),
@@ -21,7 +21,9 @@ export const UPDATE_SETTLEMENT_SCHEMA = Joi.object({
     }).label('config').required()
 });
 
-export const VALIDATE_SETTLEMENT_BY_ID = Joi.string().guid({ version: ['uuidv4'] }).required().messages({
-  'string.guid': 'ID must be a valid UUID',
-  'any.required': 'ID is required',
+export const VALIDATE_SETTLEMENT_BY_ID = Joi.object({
+    id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
+      'string.guid': 'ID must be a valid UUID',
+      'any.required': 'ID is required',
+    }),
 });

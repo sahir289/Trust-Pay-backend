@@ -4,18 +4,30 @@ import { columns, tableName } from "../../constants/index.js";
 
 
 const getSettlementDao = async (
-  search,
+  search,user,
   page,
   pageSize,
   sortBy,
   sortOrder,
-  user
 ) => {
   const baseQuery = `SELECT * FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
   const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.SETTLEMENT, page, pageSize, sortBy, sortOrder, typeof search != 'string', user);
   // Execute query
   const result = await executeQuery(sql, queryParams);
   return result.rows[0];
+};
+const getSettlementDaoAll = async (
+  search,user,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+) => {
+  const baseQuery = `SELECT * FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
+  const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.SETTLEMENT, page, pageSize, sortBy, sortOrder, typeof search != 'string', user);
+  // Execute query
+  const result = await executeQuery(sql, queryParams);
+  return result.rows;
 };
 
 const createSettlementDao = async (payload) => {
@@ -39,4 +51,4 @@ const deleteSettlementDao = async (id, data) => {
 };
 
 
-export { getSettlementDao, createSettlementDao, updateSettlementDao, deleteSettlementDao };
+export { getSettlementDao,getSettlementDaoAll, createSettlementDao, updateSettlementDao, deleteSettlementDao };
