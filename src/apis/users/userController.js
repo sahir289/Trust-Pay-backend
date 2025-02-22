@@ -6,7 +6,8 @@ import { createUserService, getUserByIdService, getUsersByUserNameService, getUs
 const getUsers = async (req, res) => {
   try {
     // const reqBody = req.body;
-    const data = await getUsersService();
+    const { role } = req.user;
+    const data = await getUsersService(role);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
