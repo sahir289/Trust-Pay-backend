@@ -1,7 +1,8 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createMerchant, deleteMerchant, getMerchants, updateMerchant,getMerchantsById } from './merchantController.js';
-import { isAuthenticated } from '../../middlewares/auth.js';
+import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
 
 const router = express.Router();
 
@@ -31,10 +32,36 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get('/:id', isAuthenticated, tryCatchHandler(getMerchantsById));
+router.get('/', [isAuthenticated, authorized(AccessRoles.MERCHANT)], tryCatchHandler(getMerchants));
 
+/**
+ * @swagger
+ * /merchants/:id:
+ *   get:
+ *     summary: Retrieve a merchant by id
+ *     description: Returns a merchant by id.
+ *     tags:
+ *       - Merchants
+ *     responses:
+ *       200:
+ *         description: A merchant by id.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                   name:
+ *                     type: string
+ *                   status:
+ *                     type: string
+ *                     example: "active"
+ */
+router.get('/:id', [isAuthenticated, authorized(AccessRoles.MERCHANT)], tryCatchHandler(getMerchantsById));
 
-router.get('/', isAuthenticated, tryCatchHandler(getMerchants));
 /**
  * @swagger
  * /merchants/create-merchant:
@@ -92,7 +119,7 @@ router.post('/create-merchant',isAuthenticated, tryCatchHandler(createMerchant))
  *       404:
  *         description: Merchant not found.
  */
-router.put('/update-merchant/:id', isAuthenticated, tryCatchHandler(updateMerchant));
+router.put('/update-merchant/:id', [isAuthenticated, authorized(AccessRoles.MERCHANT)], tryCatchHandler(updateMerchant));
 
 /**
  * @swagger
@@ -118,6 +145,6 @@ router.put('/update-merchant/:id', isAuthenticated, tryCatchHandler(updateMercha
  *         description: Merchant not found.
  */
 
-router.delete('/delete-merchant/:id', isAuthenticated, tryCatchHandler(deleteMerchant));
+router.delete('/delete-merchant/:id', [isAuthenticated, authorized(AccessRoles.MERCHANT)], tryCatchHandler(deleteMerchant));
 
 export default router;
