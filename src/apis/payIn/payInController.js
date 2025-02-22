@@ -25,6 +25,7 @@ import {
     processPayInByImageService,
     processPayInService,
     resetDepositService,
+    telegramCheckUTRService,
     telegramResponseService,
     updateDepositStatusService,
     updatePaymentNotificationStatusService
@@ -237,4 +238,58 @@ export const disputeDuplicateTransaction = async (req, res) => {
 
     const data = await transactionWrapper(disputeDuplicateTransactionService)(payload);
     sendSuccess(res, data);
+}
+
+export const telegramCheckUTR = async (req, res) => {
+    const message = req.body.message;
+    if (!message || typeof message !== 'object') {
+        console.error('No Telegram Message found!', message);
+        return;
+    }
+    const data = message.text ? message.text : message.caption;
+    // await sendCheckUTRHistoryTelegramMessage(
+    //     config?.telegramCheckUTRHistoryChatId,
+    //     data,
+    //     config?.telegramBotToken,
+    // );
+    if (!data) {
+        console.error('Data is missing in telegram check utr.');
+        return;
+    }
+
+    const splitData = data.split(" ");
+    const command = splitData[0];
+    const merchantOrderId = splitData[1];
+    const utr = splitData[2];
+
+    if (command != '/checkutr') {
+        console.error('Telegram Check UTR Invalid Command!');
+        return;
+    }
+
+    if (!merchantOrderId || !merchantOrderId.trim()) {
+        console.error("Telegram Check UTR merchant orderId not found!");
+        // const response = await sendErrorMessageNoMerchantOrderIdFoundTelegramBot(
+        //     message?.chat?.id,
+        //     TELEGRAM_BOT_TOKEN,
+        //     message?.message_id,
+        //     true, // this check for message according to captions only
+        //     fromUI
+        //   );
+        return;
+    }
+
+    if (!utr || !utr.trim()) {
+        // const response = await sendErrorMessageNoDepositFoundTelegramBot(
+        //     message?.chat?.id,
+        //     utr,
+        //     TELEGRAM_BOT_TOKEN,
+        //     message?.message_id,
+        //     fromUI
+        //   );
+        return;
+    }
+
+    const result = await transactionWrapper(telegramCheckUTRService)(utr, merchantOrderId);
+    sendSuccess(res, result);
 }

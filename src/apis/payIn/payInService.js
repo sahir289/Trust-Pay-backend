@@ -475,7 +475,6 @@ export const resetDepositService = async (conn, merchant_order_id) => {
     }
 
     return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-
 }
 
 export const processPayInService = async (conn, payload) => {
@@ -864,6 +863,51 @@ export const disputeDuplicateTransactionService = async (conn, payload) => {
 
 }
 
+export const telegramCheckUTRService = async (conn, utr, merchant_order_id) => {
+    const bankResponse = await getBankResponseDao({ utr });
+    let otherBankResponse = {};
+    if (!bankResponse) {
+        throw new NotFoundError('Bank Response not found!');
+    }
+
+    const payIn = await getPayInUrlDao({ merchant_order_id });
+    if (!payIn) {
+        throw new NotFoundError('PayIn not found');
+    }
+
+    if(payIn.bank_response_id){
+        otherBankResponse = await getBankResponseDao({ id: payIn.bank_response_id }) || {};
+    }
+
+
+    // check old code flow
+    if (payIn.status === Status.SUCCESS) {
+        return {
+            message: `PayIn is already confirmed with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
+        };
+    }
+
+    const isAlreadyExit = await getPayInUrlDao({ bank_response_id: bankResponse.id });
+    if (!isAlreadyExit) {
+        return {
+            message: `Utr: ${utr} is ${isAlreadyExit.status} with ${isAlreadyExit.merchant_order_id}`,
+        };
+    }
+
+    if(![Status.PENDING, Status.ASSIGNED].includes(payIn.status)){
+        return {
+            status: payIn.status,
+            message: `Pay In is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
+        }
+    }
+
+    return await processPayInService(conn, {
+        userSubmittedUtr: utr,
+        payInId: payIn.id,
+        amount: payIn.amount,
+    })
+}
+
 const checkIsPayInExpired = (payIn) => {
     if (Number(payIn.expiration_date) < Date.now() || payIn.is_url_expires) {
         throw new BadRequestError('PayIn has been expired already!');
@@ -885,10 +929,14 @@ const updateCalculationTable = async (user_id, data, conn) => {
 
 }
 
-const getOtherSuccessPayIns = async (bankResponse) => {
-    let successData = await getPayInUrlsDao({ bank_response_id: bankResponse.id, status: Status.SUCCESS });
+const getOtherSuccessPayIns = async (bankResponse, includeSuccess = true) => {
+    const extraCondition = {};
+    if (includeSuccess) {
+        extraCondition.status = Status.SUCCESS;
+    }
+    let successData = await getPayInUrlsDao({ bank_response_id: bankResponse.id, ...extraCondition });
     if (!successData.length) {
-        successData = await getPayInUrlsDao({ user_submitted_utr: bankResponse.utr, status: Status.SUCCESS });
+        successData = await getPayInUrlsDao({ user_submitted_utr: bankResponse.utr, ...extraCondition });
     }
 
     return successData;
