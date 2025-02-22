@@ -1,9 +1,10 @@
-import jwt from "jsonwebtoken"
-import config from "../config/config.js";
+import jwt from 'jsonwebtoken';
+import config from '../config/config.js';
 import bcrypt from 'bcryptjs';
 import { BadRequestError } from './appErrors.js';
-import { verifyHash } from "./bcryptPassword.js";
-import { getLoginDao } from "../apis/auth/authDao.js";
+import { verifyHash } from './bcryptPassword.js';
+import { getLoginDao } from '../apis/auth/authDao.js';
+import { generateUUID } from './generateUUID.js';
 
 const createNewToken = (data) => {
   const accessToken = jwt.sign(data, config.jwt.jwt_secret, {
@@ -24,7 +25,7 @@ const refreshAccessToken = async (data) => {
     throw new BadRequestError('Unauthorized"');
   }
   const isValid = verifyHash(data.token, user.refresh_token);
-  if(!isValid){
+  if (!isValid) {
     throw new BadRequestError('Unauthorized access, Try to login again');
   }
   const accessToken = jwt.sign(data, config.jwt.jwt_secret, {
@@ -33,12 +34,29 @@ const refreshAccessToken = async (data) => {
   return { accessToken };
 };
 
-const verifyToken = async (token) => {
+const generateUserToken = (user) => {
+  const sessionId = generateUUID();
+  return createNewToken({
+    user_name: user.user_name,
+    user_id: user.id,
+    designation_id: user.designation_id,
+    designation_name: user.designation_name,
+    role_id: user.role_id,
+    role_name: user.role_name,
+    company_id: user.company_id,
+    session_id: sessionId,
+  });
+};
+
+const verifyToken = (token) => {
   try {
     const decoded = jwt.verify(token, config.jwt.jwt_secret);
     return decoded;
   } catch (err) {
-    console.error('Getting error while verifying token', err);
+    if (err.name === 'TokenExpiredError') {
+      throw new BadRequestError('Token expired');
+    }
+    console.error('Token expired', err);
     return false;
   }
 };
@@ -62,4 +80,11 @@ const createTemporaryToken = (data) => {
   };
 };
 
-export { createNewToken, refreshAccessToken, verifyToken, hashValue, createTemporaryToken };
+export {
+  createNewToken,
+  refreshAccessToken,
+  generateUserToken,
+  verifyToken,
+  hashValue,
+  createTemporaryToken,
+};

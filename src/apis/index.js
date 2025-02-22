@@ -1,7 +1,6 @@
 import express from 'express';
 import ping from './ping/index.js';
 import auth from './auth/index.js';
-import login from './auth/index.js';
 import users from './users/index.js';
 import merchants from './merchants/index.js';
 import vendors from './vendors/index.js';
@@ -28,7 +27,6 @@ const router = express.Router();
 
 router.use('/ping', ping);
 router.use('/auth', auth);
-router.use('/login', login);
 router.use('/users', users);
 router.use('/merchants', merchants);
 router.use('/vendors', vendors);
