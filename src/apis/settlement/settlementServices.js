@@ -1,29 +1,24 @@
-import { BadRequestError, CustomError, ValidationError } from '../../utils/appErrors.js';
-import { createSettlementDao, deleteSettlementDao, getSettlementDao, updateSettlementDao } from './settlementDao.js';
+import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import { createSettlementDao, deleteSettlementDao, getSettlementDao, getSettlementDaoAll, updateSettlementDao } from './settlementDao.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getCalculationDao, updateCalculationDao } from '../calculation/calculationDao.js';
 import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getBankaccountDao, updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { CREATE_SETTLEMENT_SCHEMA, UPDATE_SETTLEMENT_SCHEMA, VALIDATE_SETTLEMENT_BY_ID } from '../../schemas/settlementSchema.js';
+import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 
 const getSettlementService = async (req, res) => {
   try {
-
-
-    const { id } = req.params;
-    if (!id) {
-      throw new CustomError(404, "id not found")
-    }
-    const joiValidation = VALIDATE_SETTLEMENT_BY_ID.validate(id);
+    const { payload } = req.params;
+    const { company_id } = req.user;
+    const joiValidation = VALIDATE_SETTLEMENT_BY_ID.validate(payload);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }
 
-
-    const data = await getSettlementDao({ id: id });
+    const data = await getSettlementDao({ payload, company_id });
     return sendSuccess(res, data, 'get settlements successfully');
-
   } catch (error) {
     console.error('error getting while  getting settlements', error);
     throw new BadRequestError('Error getting while getting settlements');
@@ -33,15 +28,14 @@ const getSettlementService = async (req, res) => {
 const getSettlementServiceAll = async (req, res) => {
   try {
     const payload = req.query;
-
-    const settlementData = await getSettlementDao(payload);
+    const { company_id } = req.user;
+    const user = {};
+    user.company_id = company_id;
+    const settlementData = await getSettlementDaoAll(payload, user);
     if (!settlementData) {
       throw new BadRequestError('Error getting while getting settlements');
     }
-    console.log(settlementData, "settlementData")
     return sendSuccess(res, settlementData, 'get settlements successfully');
-
-
   } catch (error) {
     console.error('error getting while  getting settlements', error);
     throw new BadRequestError('Error getting while getting settlements');
@@ -49,58 +43,55 @@ const getSettlementServiceAll = async (req, res) => {
 };
 
 const createSettlementService = async (req, res) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     const payload = req.body;
-
+    const { company_id } = req.user;
+    payload.company_id = company_id;
     const joiValidation = CREATE_SETTLEMENT_SCHEMA.validate(payload);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }
-
-    if (!payload) {
-      console.error('payload is required');
-      throw new BadRequestError('payload is required');
-    }
-    const merchantData = await getMerchantsDao({ id: payload.id });
-
-    if (merchantData) {
-      const merchantUserData = await getSettlementDao({ user_id: merchantData.user_id });
-      if (merchantUserData) {
-        throw new CustomError(404, "Settlement already exist")
-      }
-    }
-
-
-    const vendorData = await getVendorsDao({ id: payload.id });
-    if (vendorData) {
-      const vendorUserData = await getSettlementService({ user_id: vendorData[0].user_id });
-      if (vendorUserData) {
-        throw new CustomError(404, "Settlement already exist")
-      }
-    }
-
     const data = await createSettlementDao(payload);
+    await commit(conn);
     return sendSuccess(res, data, 'create settlements successfully');
-
   } catch (error) {
-    console.error('error getting while creating', error);
-    throw new BadRequestError('Error getting while creating settlement');
+    if (conn) {
+      try {
+        await rollback(conn);
+      } catch (rollbackError) {
+        console.log('Error during transaction rollback', 'error', rollbackError);
+      }
+    }
+    console.log('Error while creating Payout', 'error', error);
+    throw new BadRequestError('Error occurred while creating Payout');
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.log('Error while releasing the connection', 'error', releaseError);
+      }
+    }
   }
 };
 
 
+
 const updateSettlementService = async (req, res) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     const { id } = req.params;
     const payload = { ...req.body };
+    const { company_id } = req.user;
+    const ids = { id, company_id }
     const joiValidation = UPDATE_SETTLEMENT_SCHEMA.validate(payload);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
-    }
-
-    if (!id) {
-      console.error('payload is required');
-      throw new BadRequestError('payload is required');
     }
     if (payload.config.reference_id) {
       payload.status = "SUCCESS";
@@ -115,28 +106,30 @@ const updateSettlementService = async (req, res) => {
       let calculationId = calculationData?.id;
       let currentBalance = calculationData?.current_balance + payload?.amount;
       let netBalance = calculationData?.net_balance + payload?.amount;
-      // const updated = 
-      await updateCalculationDao(calculationId,
-        {
-          total_settlement_count: count, total_settlement_amount: amountCalculation,
-          current_balance: currentBalance, net_balance: netBalance
-        })
-      const settlementData = await getSettlementDao(id)
-      const vendorData = await getVendorsDao({ searchString: settlementData?.user_id })
-      if (vendorData[0].length > 0) {
-        console.log(merchantData, "merchantData")
-
-        const bankData = await getBankaccountDao({ searchString: vendorData[0].user_id });
-        const bankAcc = bankData[0].balance - payload?.amount;
-        // const updatedBankData = 
-        await updateBankaccountDao(bankData[0].id, { balance: bankAcc });
+      if (calculationData) {
+        await updateCalculationDao(calculationId,
+          {
+            total_settlement_count: count, total_settlement_amount: amountCalculation,
+            current_balance: currentBalance, net_balance: netBalance
+          })
       }
+      const settlementData = await getSettlementDao({ id: id })
+      const vendorData = await getVendorsDao({ user_id: settlementData?.user_id })
       const merchantData = await getMerchantsDao({ user_id: settlementData?.user_id })
-      if (merchantData) {
-        console.log(merchantData, "merchantData")
-        const merchantAcc = merchantData[0].balance - payload?.amount;
-        // const updatedBankData = 
-        await updateMerchantDao(merchantData[0].id, { balance: merchantAcc });
+      if (vendorData) {
+
+        const bankData = await getBankaccountDao({ user_id: vendorData.user_id });
+        if (bankData) {
+          const bankAcc = bankData.balance - payload?.amount;
+          await updateBankaccountDao(bankData[0].id, { balance: bankAcc });
+        }
+        else {
+          console.error("No data in bank accounts")
+        }
+      }
+      else if (merchantData) {
+        const merchantAcc = merchantData.balance - payload?.amount;
+        await updateMerchantDao(merchantData.id, { balance: merchantAcc });
       }
 
     }
@@ -148,12 +141,27 @@ const updateSettlementService = async (req, res) => {
       payload.status = "REVERSED";
     }
 
-    const updateData = await updateSettlementDao(id, payload);
+    const updateData = await updateSettlementDao(ids, payload);
+    await commit(conn);
     return sendSuccess(res, updateData, 'update settlements successfully');
-
   } catch (error) {
-    console.error('error getting while ', error);
-    throw new BadRequestError('Error getting while creating settlements');
+    if (conn) {
+      try {
+        await rollback(conn);
+      } catch (rollbackError) {
+        console.log('Error during transaction rollback', 'error', rollbackError);
+      }
+    }
+    console.log('Error while creating Payout', 'error', error);
+    throw new BadRequestError('Error occurred while creating Payout');
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.log('Error while releasing the connection', 'error', releaseError);
+      }
+    }
   }
 };
 
@@ -161,11 +169,13 @@ const deleteSettlementService = async (req, res) => {
   try {
 
     const { id } = req.params;
-    if (!id) {
-      console.error('payload is required');
-      throw new BadRequestError('payload is required');
+    const { company_id } = req.user;
+    const ids = { id, company_id }
+    const joiValidation = VALIDATE_SETTLEMENT_BY_ID.validate(id);
+    if (joiValidation.error) {
+      throw new ValidationError(joiValidation.error);
     }
-    const updatedData = await deleteSettlementDao(id, { is_obsolete: true })
+    const updatedData = await deleteSettlementDao(ids, { is_obsolete: true })
     return sendSuccess(res, updatedData, 'delete settlements successfully');
   } catch (error) {
     console.error('error getting while deleting settlement', error);

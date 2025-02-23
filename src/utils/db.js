@@ -66,7 +66,8 @@ export const executeQuery = async (query, queryParams = []) => {
   }
 }
 
-export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = true) => {
+
+export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = true, user) => {
   const page = p || 1, pageSize = ps || 10, sortBy = s || "created_at", sortOrder = o || "DESC";
   let filters = {};
 
@@ -82,30 +83,44 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
   let values = [];
   let conditions = [];
 
-  // Apply filters
   for (const key in filters) {
     const value = filters[key];
-    if (typeof value === 'string' && value.includes(',')) {
+    if (key === "$config.reference_id$") {
+      conditions.push(`config->>'reference_id' = $${values.length + 1}`);
+      values.push(value);
+      continue;
+    } else if (key === "method" && Array.isArray(value)) {
+      conditions.push(`"method" = ANY($${values.length + 1})`);
+      values.push(value);  
+      continue;
+    } else if (typeof value === 'string' && value.includes(',')) {
       conditions.push(`"${key}" = ANY($${values.length + 1})`);
       values.push(value.split(','));
       continue;
+    } else if (value) {
+      conditions.push(`"${key}" = $${values.length + 1}`);
+      values.push(value);
     }
+  }
+  for (const key in user) {
+    const value = user[key];
     if (value) {
       conditions.push(`"${key}" = $${values.length + 1}`);
       values.push(value);
     }
   }
+
   conditions.push(`is_obsolete = false`);
 
   if (conditions.length) {
     query += ` AND ${conditions.join(' AND ')}`;
   }
 
-  // Apply sorting and pagination
-  query = applySortingAndPagination(query, values, columns, sortBy, sortOrder, page, pageSize);
+  query += ` ORDER BY "${sortBy}" ${sortOrder} LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`;
 
   return [query, values];
 };
+
 
 export const applySortingAndPagination = (query, values, columns = [], sortBy, sortOrder, page, pageSize) => {
   // Ensure sorting column exists

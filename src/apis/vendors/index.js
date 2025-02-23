@@ -1,7 +1,8 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createVendor, deleteVendor, getVendors, updateVendor,getVendorById } from './vendorController.js';
-import { isAuthenticated } from '../../middlewares/auth.js';
+import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
 
 const router = express.Router();
 
@@ -31,10 +32,10 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get('/', isAuthenticated, tryCatchHandler(getVendors));
+router.get('/', [isAuthenticated, authorized(AccessRoles.VENDOR)], tryCatchHandler(getVendors));
 
 
-router.get('/:id', isAuthenticated, tryCatchHandler(getVendorById));
+router.get('/:id', [isAuthenticated, authorized(AccessRoles.VENDOR)], tryCatchHandler(getVendorById));
 /**
  * @swagger
  * /vendors/create-vendor:
@@ -62,7 +63,7 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getVendorById));
  *       400:
  *         description: Invalid request data.
  */
-router.post('/create-vendor', tryCatchHandler(createVendor));
+router.post('/create-vendor',[isAuthenticated, authorized(AccessRoles.VENDOR)], tryCatchHandler(createVendor));
 
 /**
  * @swagger
@@ -92,7 +93,7 @@ router.post('/create-vendor', tryCatchHandler(createVendor));
  *       404:
  *         description: Vendor not found.
  */
-router.put('/update-vendor/:id', isAuthenticated, tryCatchHandler(updateVendor));
+router.put('/update-vendor/:id', [isAuthenticated, authorized(AccessRoles.VENDOR)], tryCatchHandler(updateVendor));
 
 /**
  * @swagger
@@ -117,6 +118,6 @@ router.put('/update-vendor/:id', isAuthenticated, tryCatchHandler(updateVendor))
  *       404:
  *         description: Vendor not found.
  */
-router.delete('/delete-vendor/:id', isAuthenticated, tryCatchHandler(deleteVendor));
+router.delete('/delete-vendor/:id', [isAuthenticated, authorized(AccessRoles.VENDOR)], tryCatchHandler(deleteVendor));
 
 export default router;

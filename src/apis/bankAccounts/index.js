@@ -1,8 +1,9 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createBankaccount, deleteBankaccount, getBankaccountById,getBankaccount, getMerchantBank, updateBankaccount } from './bankaccountController.js';
-import { isAuthenticated } from '../../middlewares/auth.js';
 const router = express.Router();
+import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
 
 /**
  * @swagger
@@ -42,8 +43,8 @@ const router = express.Router();
  *                         type: string
  *                         example: "john_doe"
  */
-router.get('/', isAuthenticated, tryCatchHandler(getBankaccount));
-router.get('/:id', isAuthenticated, tryCatchHandler(getBankaccountById));
+router.get('/', [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(getBankaccount));
+router.get('/:id', [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(getBankaccountById));
 
 /**
  * @swagger
@@ -83,11 +84,11 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getBankaccountById));
  *                         type: string
  *                         example: "john_doe"
  */
-router.post('/create-bankAccount',isAuthenticated, tryCatchHandler(createBankaccount));
+router.post('/create-bankAccount',[isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(createBankaccount));
 
-router.get('/get-merchantBanks', isAuthenticated, tryCatchHandler(getMerchantBank));
+router.get('/get-merchantBanks', [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(getMerchantBank));
 
-router.put('/update-bankAccount/:id',isAuthenticated, tryCatchHandler(updateBankaccount));
+router.put('/update-bankAccount/:id',[isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(updateBankaccount));
 
 /**
  * @swagger
@@ -127,7 +128,7 @@ router.put('/update-bankAccount/:id',isAuthenticated, tryCatchHandler(updateBank
  *                         type: string
  *                         example: "john_doe"
  */
-router.delete('/delete-bankAccount/:id', isAuthenticated, tryCatchHandler(deleteBankaccount));
+router.delete('/delete-bankAccount/:id', [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(deleteBankaccount));
 
 
 export default router;

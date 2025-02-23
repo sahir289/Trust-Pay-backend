@@ -1,7 +1,8 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createCompany, deleteCompany, getCompany, updateCompany } from './companyController.js';
-import { isAuthenticated } from '../../middlewares/auth.js';
+import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
 
 const router = express.Router();
 
@@ -34,7 +35,7 @@ const router = express.Router();
  *                 data:
  *                   type: object
  */
-router.get('/', isAuthenticated, tryCatchHandler(getCompany));
+router.get('/', [isAuthenticated, authorized(AccessRoles.COMPANY)], tryCatchHandler(getCompany));
 
 
 /**
@@ -69,7 +70,7 @@ router.get('/', isAuthenticated, tryCatchHandler(getCompany));
  *                 data:
  *                   type: object
  */
-router.post('/create-company',isAuthenticated, tryCatchHandler(createCompany));
+router.post('/create-company',[isAuthenticated, authorized(AccessRoles.COMPANY)], tryCatchHandler(createCompany));
 
 
 /**
@@ -101,7 +102,7 @@ router.post('/create-company',isAuthenticated, tryCatchHandler(createCompany));
  *       200:
  *         description: Company updated successfully.
  */
-router.put('/update-company/:id',isAuthenticated,  tryCatchHandler(updateCompany));
+router.put('/update-company/:id',[isAuthenticated, authorized(AccessRoles.COMPANY)],  tryCatchHandler(updateCompany));
 
 
 /**
@@ -123,7 +124,7 @@ router.put('/update-company/:id',isAuthenticated,  tryCatchHandler(updateCompany
  *       200:
  *         description: Company deleted successfully.
  */
-router.delete('/delete-company/:id', isAuthenticated, tryCatchHandler(deleteCompany));
+router.delete('/delete-company/:id', [isAuthenticated, authorized(AccessRoles.COMPANY)], tryCatchHandler(deleteCompany));
 
 
 

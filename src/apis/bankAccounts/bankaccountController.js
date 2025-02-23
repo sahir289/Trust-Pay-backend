@@ -9,13 +9,17 @@ const getBankaccount = async (req, res) => {
   try {
 
     const payload = req.query.search;
+     let filters = {};
+    if (payload) {
+      filters.user_id = payload; 
+    }
     const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }
-    const data = await getBankaccountService(payload);
-    console.log('get Banks successfully');
-    return sendSuccess(res, data, 'get Banks successfully');
+    const data = await getBankaccountService(filters);
+    console.log('getUsers successfully');
+    return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while getting banks', error);
   }

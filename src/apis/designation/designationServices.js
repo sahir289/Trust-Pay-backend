@@ -1,5 +1,4 @@
-import { CREATE_DESIGNATION_SCHEMA, UPDATE_DESIGNATION_SCHEMA } from '../../schemas/designationSchema.js';
-import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import { BadRequestError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
 import { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao } from './designationDao.js';
 
@@ -26,10 +25,7 @@ const getDesignationService = async (payload) => {
 
 const createDesignationService = async (payload) => {
   try {
-    const joiValidation = CREATE_DESIGNATION_SCHEMA.validate(payload);
-    if (joiValidation.error) {
-        throw new ValidationError(joiValidation.error);
-    }
+    
     const result = await createDesignationDao(payload);
 
     return result;
@@ -41,10 +37,6 @@ const createDesignationService = async (payload) => {
 
 const updateDesignationService = async (id, payload) => {
   try {
-    const joiValidation = UPDATE_DESIGNATION_SCHEMA.validate(payload);
-    if (joiValidation.error) {
-        throw new ValidationError(joiValidation.error);
-    }
     const result = await updateDesignationDao(id, payload);
     return result;
   } catch (error) {

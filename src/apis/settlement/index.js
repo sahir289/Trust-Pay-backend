@@ -1,7 +1,8 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createSettlementService, deleteSettlementService, getSettlementService, getSettlementServiceAll, updateSettlementService } from './settlementServices.js';
-import { isAuthenticated } from '../../middlewares/auth.js';
+import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
 /**
  * @swagger
@@ -27,8 +28,8 @@ const router = express.Router();
  *                   items:
  *                     type: object
  */
-router.get('/:id', isAuthenticated, tryCatchHandler(getSettlementService));
-router.get('/',isAuthenticated,  tryCatchHandler(getSettlementServiceAll));
+router.get('/:id', [isAuthenticated, authorized(AccessRoles.SETTLEMENT)], tryCatchHandler(getSettlementService));
+router.get('/',[isAuthenticated, authorized(AccessRoles.SETTLEMENT)],  tryCatchHandler(getSettlementServiceAll));
 
 /**
  * @swagger
@@ -66,7 +67,7 @@ router.get('/',isAuthenticated,  tryCatchHandler(getSettlementServiceAll));
  *                       type: string
  *                       example: "john_doe"
  */
-router.post('/create-settlement',isAuthenticated,  tryCatchHandler(createSettlementService));
+router.post('/create-settlement',[isAuthenticated, authorized(AccessRoles.SETTLEMENT)],  tryCatchHandler(createSettlementService));
 
 /**
  * @swagger
@@ -110,7 +111,7 @@ router.post('/create-settlement',isAuthenticated,  tryCatchHandler(createSettlem
  *                       type: string
  *                       example: "john_doe"
  */
-router.put('/update-settlement/:id',isAuthenticated, tryCatchHandler(updateSettlementService));
+router.put('/update-settlement/:id',[isAuthenticated, authorized(AccessRoles.SETTLEMENT)], tryCatchHandler(updateSettlementService));
 
 /**
  * @swagger
@@ -148,6 +149,6 @@ router.put('/update-settlement/:id',isAuthenticated, tryCatchHandler(updateSettl
  *                       type: string
  *                       example: "john_doe"
  */
-router.delete('/delete-settlement/:id',isAuthenticated, tryCatchHandler(deleteSettlementService));
+router.delete('/delete-settlement/:id',[isAuthenticated, authorized(AccessRoles.SETTLEMENT)], tryCatchHandler(deleteSettlementService));
 
 export default router;
