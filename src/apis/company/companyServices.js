@@ -40,7 +40,7 @@ const createCompanyService = async (payload) => {
     // const result = await executeQuery(sql, params);
     
     const roleName = {
-      role: "Userrerra",
+      role: "Admin",
       company_id: result.id,
       created_by: result.id
     };

@@ -22,12 +22,63 @@ const router = express.Router();
  *     responses:
  *       200:
  *         description: A list of roles
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     example: 1
+ *                   role:
+ *                     type: string
+ *                     example: "Admin"
+ *                   company_id:
+ *                     type: integer
+ *                     example: 123
  *       500:
  *         description: Internal server error
  */
-router.get('/',[isAuthenticated, authorized(AccessRoles.ROLES)], tryCatchHandler(getRoles));
-router.get('/:id',[isAuthenticated, authorized(AccessRoles.ROLES)], tryCatchHandler(getRolesById));
 
+router.get('/',[isAuthenticated, authorized(AccessRoles.ROLES)], tryCatchHandler(getRoles));
+
+
+/**
+ * @swagger
+ * /roles/{id}:
+ *   get:
+ *     summary: Get a specific role by ID
+ *     tags: [Roles]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the role to retrieve
+ *     responses:
+ *       200:
+ *         description: Role details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                   example: 1
+ *                 role:
+ *                   type: string
+ *                   example: "Admin"
+ *                 company_id:
+ *                   type: integer
+ *                   example: 123
+ *       404:
+ *         description: Role not found
+ */
+router.get('/:id',[isAuthenticated, authorized(AccessRoles.ROLES)], tryCatchHandler(getRolesById));
 /**
  * @swagger
  * /roles/create-role:
@@ -43,15 +94,18 @@ router.get('/:id',[isAuthenticated, authorized(AccessRoles.ROLES)], tryCatchHand
  *             properties:
  *               role:
  *                 type: string
+ *                 example: "Manager"
  *               company_id:
  *                 type: integer
+ *                 example: 123
  *               created_by:
  *                 type: integer
+ *                 example: 1
  *     responses:
  *       201:
  *         description: Role created successfully
  *       400:
- *         description: Bad request
+ *         description: Bad request due to missing/invalid fields
  */
 router.post('/create-role',[isAuthenticated, authorized(AccessRoles.ROLES)], tryCatchHandler(createRole));
 
@@ -77,8 +131,10 @@ router.post('/create-role',[isAuthenticated, authorized(AccessRoles.ROLES)], try
  *             properties:
  *               role:
  *                 type: string
+ *                 example: "Senior Manager"
  *               company_id:
  *                 type: integer
+ *                 example: 123
  *     responses:
  *       200:
  *         description: Role updated successfully

@@ -6,7 +6,7 @@ export const BANK_ACCOUNT_SCHEMA = Joi.object({
   upi_params: Joi.string().label('upi_params').optional(),
   nick_name: Joi.string().label('nick_name').optional(),
   ac_name: Joi.string().label('ac_name').required(),
-  ifsc: Joi.string().pattern(/^[A-Z]{4}0[A-Z0-9]{6}$/).label('ifsc').required(), // IFSC format validation
+  ifsc: Joi.string().pattern(/^[A-Z]{4}0[A-Z0-9]{6}$/).label('ifsc').required(), 
   bank_name: Joi.string().label('bank_name').required(),
   is_qr: Joi.boolean().label('is_qr').required(),
   is_bank: Joi.boolean().label('is_bank').required(),
@@ -40,7 +40,6 @@ export const UPDATE_BANK_ACCOUNT_SCHEMA = Joi.object({
     balance: Joi.number().label('balance').optional(),
     today_balance: Joi.number().label('today_balance').optional(), // Added today_balance
     bank_used_for: Joi.string().valid('payIn', 'payOut').label('bank_used_for').optional(), // Enum validation
-
 
 })
 

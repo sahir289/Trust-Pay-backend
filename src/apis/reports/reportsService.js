@@ -5,10 +5,6 @@ import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getMerchantReportDao, getPayInMerchantReportDao, getPayInVendorReportDao, getPayOutMerchantReportDao, getPayOutVendorReportDao } from './reportsDao.js';
 
-
-
-
-
 const getPayInReportService = async (req, res) => {
     try {
         const { role } = req.user;

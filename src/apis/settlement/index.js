@@ -4,14 +4,21 @@ import { createSettlementService, deleteSettlementService, getSettlementService,
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   name: Settlements
+ *   description: API endpoints for managing settlements
+ */
+
 /**
  * @swagger
  * /settlement:
  *   get:
  *     summary: Get all settlements
  *     description: Returns a status message to verify if the settlement is authorized or not.
- *     tags:
- *       - Settlements
+ *     tags: [Settlements]
  *     responses:
  *       200:
  *         description: Successfully retrieved settlements.
@@ -27,6 +34,13 @@ const router = express.Router();
  *                   type: array
  *                   items:
  *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 1
+ *                       settlementName:
+ *                         type: string
+ *                         example: "john_doe"
  */
 router.get('/:id', [isAuthenticated, authorized(AccessRoles.SETTLEMENT)], tryCatchHandler(getSettlementService));
 router.get('/',[isAuthenticated, authorized(AccessRoles.SETTLEMENT)],  tryCatchHandler(getSettlementServiceAll));
@@ -37,8 +51,7 @@ router.get('/',[isAuthenticated, authorized(AccessRoles.SETTLEMENT)],  tryCatchH
  *   post:
  *     summary: Create a new settlement
  *     description: Creates a new settlement in the system.
- *     tags:
- *       - Settlements
+ *     tags: [Settlements]
  *     parameters:
  *       - in: query
  *         name: Settlementname
@@ -63,7 +76,7 @@ router.get('/',[isAuthenticated, authorized(AccessRoles.SETTLEMENT)],  tryCatchH
  *                     id:
  *                       type: integer
  *                       example: 1
- *                     Settlementname:
+ *                     settlementName:
  *                       type: string
  *                       example: "john_doe"
  */
@@ -75,8 +88,7 @@ router.post('/create-settlement',[isAuthenticated, authorized(AccessRoles.SETTLE
  *   put:
  *     summary: Update an existing settlement
  *     description: Updates an existing settlement by its ID.
- *     tags:
- *       - Settlements
+ *     tags: [Settlements]
  *     parameters:
  *       - in: path
  *         name: id
@@ -107,7 +119,7 @@ router.post('/create-settlement',[isAuthenticated, authorized(AccessRoles.SETTLE
  *                     id:
  *                       type: integer
  *                       example: 1
- *                     Settlementname:
+ *                     settlementName:
  *                       type: string
  *                       example: "john_doe"
  */
@@ -118,9 +130,8 @@ router.put('/update-settlement/:id',[isAuthenticated, authorized(AccessRoles.SET
  * /settlement/delete-settlement/{id}:
  *   delete:
  *     summary: Delete a settlement
- *     description: Deletes an existing settlement.
- *     tags:
- *       - Settlements
+ *     description: Deletes an existing settlement by ID.
+ *     tags: [Settlements]
  *     parameters:
  *       - in: path
  *         name: id
@@ -145,7 +156,7 @@ router.put('/update-settlement/:id',[isAuthenticated, authorized(AccessRoles.SET
  *                     id:
  *                       type: integer
  *                       example: 1
- *                     Settlementname:
+ *                     settlementName:
  *                       type: string
  *                       example: "john_doe"
  */

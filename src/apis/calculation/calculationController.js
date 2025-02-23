@@ -1,7 +1,7 @@
 import { sendSuccess, sendError } from '../../utils/responseHandlers.js';
-import { getCalculationService, createCalculationService, updateCalculationService, deleteCalculationService } from './calculationService.js';
+import {getCalculationService,createCalculationService,updateCalculationService,deleteCalculationService} from './calculationService.js';
 import { transactionWrapper } from '../../utils/db.js';
-import { VALIDATE_CALCULATION_BY_USER_ID, VALIDATE_CALCULATION_SCHEMA, VALIDATE_UPDATE_CALCULATION_STATUS, VALIDATE_DELETE_CALCULATION } from '../../schemas/calculationSchema.js';
+import {VALIDATE_CALCULATION_BY_USER_ID,VALIDATE_CALCULATION_SCHEMA,VALIDATE_UPDATE_CALCULATION_STATUS,VALIDATE_DELETE_CALCULATION} from '../../schemas/calculationSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 
 const getCalculationById = async (req, res) => {
@@ -12,14 +12,15 @@ const getCalculationById = async (req, res) => {
     if (error) {
       throw new ValidationError(error);
     }
-    
-    const { user_id } = req.params; 
-    
+    const { id } = req.params;
+    const { user_id, role_id, company_id } = req.user;
+    const ids = { user_id, role_id, company_id,id}
     // Fetch the calculation data by 'id'
-    const data = await getCalculationService({ user_id:user_id });
-
+    const payload=null;
+    const data = await getCalculationService({
+    ids,payload
+    });
     console.info('Get Calculation successfully', 'info');
-    
     // Respond with the calculation data
     return sendSuccess(res, data, 'Get Calculation successfully');
   } catch (error) {
@@ -32,8 +33,14 @@ const getCalculation = async (req, res) => {
   try {
     const { role } = req.user;
     // You can add additional validation here if needed, depending on the request
-    const payload = req.query.search;
-    const data = await getCalculationService(payload, role);
+    const { company_id, user_id, role_id } = req.user;
+    const search = req.query.search;
+    let payload = {
+      company_id,
+      user_id,
+      role_id,
+    };
+    const data = await getCalculationService(search, payload, role);
     console.info('Get Calculations successfully', 'info');
     return sendSuccess(res, data, 'Get Calculations successfully');
   } catch (error) {
@@ -45,14 +52,23 @@ const getCalculation = async (req, res) => {
 const createCalculation = async (req, res) => {
   try {
     const { role } = req.user;
+    let payload = req.body;
+    console.log(req.user);
+    const { company_id, user_id, role_id } = req.user;
+    payload.company_id = company_id;
+    payload.user_id = user_id;
+    payload.role_id = role_id;
+    console.log(payload, 'jkdfhfk payloead fron payload');
     // Validate the request body using Joi schema
-    const { error } = VALIDATE_CALCULATION_SCHEMA.validate(req.body);
+    const { error } = VALIDATE_CALCULATION_SCHEMA.validate(payload);
     if (error) {
       throw new ValidationError(error);
     }
-
-    const body = req.body;
-    const data = await createCalculationService(body, role);
+    if (!payload) {
+      console.error('payload is required');
+      return sendError(res, 'payload is required', 'Validation Error');
+    }
+    const data = await createCalculationService(payload, role);
     console.info('Create Calculation successfully', 'info');
     return sendSuccess(res, data, 'Create Calculation successfully');
   } catch (error) {
@@ -65,15 +81,25 @@ const updateCalculation = async (req, res) => {
   try {
     const { role } = req.user;
     // Validate the request body and params using Joi schema
-    const { error: bodyError } = VALIDATE_UPDATE_CALCULATION_STATUS.validate(req.body);
-    const { error: paramsError } = VALIDATE_CALCULATION_BY_USER_ID.validate(req.params);
+    const { error: bodyError } = VALIDATE_UPDATE_CALCULATION_STATUS.validate(
+      req.body,
+    );
+    const { error: paramsError } = VALIDATE_CALCULATION_BY_USER_ID.validate(
+      req.params,
+    );
     if (bodyError || paramsError) {
-      return sendError(res, `Validation error: ${bodyError ? bodyError.details[0].message : paramsError.details[0].message}`);
+      return sendError(
+        res,
+        `Validation error: ${bodyError ? bodyError.details[0].message : paramsError.details[0].message}`,
+      );
     }
     const payload = req.body;
-    const { id } = req.params;  // Assuming the Payout ID is passed as a parameter
+    const { id } = req.params;
+    const { user_id, role_id, company_id } = req.user;
+    const ids = {user_id,role_id,company_id,id}
+    // Assuming the Payout ID is passed as a parameter
     // Call the service to update the Payout
-    const data = await transactionWrapper(updateCalculationService)(id, payload, role);
+    const data = await transactionWrapper(updateCalculationService)(ids,payload, role);
     console.info('Update Calculation successfully', 'info');
     return sendSuccess(res, data, 'Update Calculation successfully');
   } catch (error) {
@@ -88,12 +114,18 @@ const deleteCalculation = async (req, res) => {
     const { role } = req.user;
     // Validate the request params using Joi schema
     const { error } = VALIDATE_DELETE_CALCULATION.validate(req.params);
-   if (error) {
+    if (error) {
       throw new ValidationError(error);
     }
-
+    const { user_id, role_id, company_id } = req.user;
     const params = req.params;
-    const data = await transactionWrapper(deleteCalculationService)(params.id, role);     
+    const data = await transactionWrapper(deleteCalculationService)(
+      params.id,
+      user_id,
+      role_id,
+      company_id,
+      role
+    );
     console.info('Delete Calculation successfully', 'info');
     return sendSuccess(res, data, 'Delete Calculation successfully');
   } catch (error) {
@@ -102,4 +134,4 @@ const deleteCalculation = async (req, res) => {
   }
 };
 
-export { getCalculationById, getCalculation, createCalculation, updateCalculation, deleteCalculation };
+export {getCalculationById,getCalculation,createCalculation,updateCalculation,deleteCalculation};

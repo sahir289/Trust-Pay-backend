@@ -7,7 +7,10 @@ export const CREATE_DESIGNATION_SCHEMA = Joi.object({
   created_by: Joi.string().label('created_by').required(),
   created_at: Joi.date().iso().label('created_at').required(),
   updated_at: Joi.date().iso().label('updated_at').required(),
-  company_id: Joi.string().uuid().label('company_id').required()
+  company_id: Joi.string().uuid().label('company_id').required(),
+  is_obsolete: Joi.boolean().optional().default(false),
+  updated_by: Joi.date().iso().label('updated_by').required(),
+
 });
 export const UPDATE_DESIGNATION_SCHEMA = Joi.object({
   designation: Joi.string().label('designation').required(),

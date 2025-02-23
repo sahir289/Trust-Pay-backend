@@ -1,10 +1,9 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBankaccountDao } from './bankaccountDao.js';
 
-const getBankaccountService = async (payload) => {
+const getBankaccountService = async (search,payload) => {
     try {
-        
-        const result = await getBankaccountDao(payload);
+        const result = await getBankaccountDao(search,payload);
         return result;
     } catch (error) {
         console.error('error getting while  getting banks', error);
@@ -14,7 +13,6 @@ const getBankaccountService = async (payload) => {
 
 const createBankaccountService = async (payload) => {
     try {
-       
         const result = await createBankaccountDao(payload);
         return result;
     } catch (error) {
@@ -25,8 +23,7 @@ const createBankaccountService = async (payload) => {
 
 const updateBankaccountService = async (id, payload) => {
     try {
-        
-        const result = await updateBankaccountDao(id, payload);
+        const result = await updateBankaccountDao(id,payload);
         return result;
     } catch (error) {
         console.error('error getting while  updating banks', error);
@@ -36,7 +33,7 @@ const updateBankaccountService = async (id, payload) => {
 
 const deleteBankaccountService = async (id) => {
     try {
-        const result = await deleteBankaccountDao(id, { is_obsolete: true });
+        const result = await deleteBankaccountDao(id,{ is_obsolete: true });
         return result;
     } catch (error) {
         console.error('error getting while deleting banks', error);

@@ -5,11 +5,11 @@ import { v4 as uuidv4 } from "uuid";
 import config from "../../config/config.js";
 import { razorpay } from "../../webhooks/razorPay.js";
 import { getPayoutsDao } from '../payOut/payOutDao.js';
-import { Currency, Status, Type } from "../../constants/index.js";
+import { BankTypes, Currency, Status, Type } from "../../constants/index.js";
 import { getMerchantsService } from "../merchants/merchantService.js";
 import { calculateCommission, calculateDuration } from "../../helpers/index.js";
 import { merchantPayinCallback } from "../../callBacksAndWebHook/merchantCallBacks.js";
-import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao, getPayInUrlsDao,getPayinsDao, getPayinsDaoId } from "./payInDao.js";
+import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao, getPayInUrlsDao, getPayinsDao, getPayinsDaoId } from "./payInDao.js";
 import { AccessDeniedError, BadRequestError, NotFoundError } from "../../utils/appErrors.js";
 import { getBankaccountDao, getMerchantBankDao, updateBankaccountDao, updateBanktBalanceDao } from "../bankAccounts/bankaccountDao.js";
 import { getBankResponseDao, updateBotResponseDao } from "../bankResponse/bankResponseDao.js";
@@ -21,7 +21,7 @@ import {
     getTelegramFilePath,
     getTelegramImageBase64
 } from "../../helpers/index.js";
-
+import { sendAlreadyConfirmedMessageTelegramBot, sendErrorMessageNoDepositFoundTelegramBot, sendErrorMessageNoMerchantOrderIdFoundTelegramBot, sendErrorMessageTelegram, sendErrorMessageUtrOrAmountNotFoundImgTelegramBot, sendMerchantOrderIDStatusDuplicateTelegramMessage, sendTelegramMessage } from '../../utils/sendTelegramMessages.js'
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION
@@ -45,13 +45,6 @@ export const generatePayInUrlService = async (payload) => {
         throw new BadRequestError(404, "Enter valid Api key");
     }
 
-    const bankAccountLinkRes = await getMerchantBankDao(merchant.user_id);
-    const availableBankAccounts = bankAccountLinkRes.filter(bankAccount => bankAccount.bank_used_for === "payIn" && bankAccount.is_enabled && (bankAccount.is_bank || bankAccount.is_qr));
-    if (!availableBankAccounts.length) {
-        // Send alert if no bank account is linked
-        throw new BadRequestError("Bank Account has not been linked with Merchant");
-    }
-
     const payInData = {
         code: code,
         amount,
@@ -62,7 +55,6 @@ export const generatePayInUrlService = async (payload) => {
     };
 
     const expirationDate = dayjs().add(10, 'minutes').toISOString();
-    const bank = bankAccountLinkRes[Math.floor(Math.random() * bankAccountLinkRes.length)];
     const data = {
         upi_short_code: nanoid(5), // code added by us
         amount: payInData.amount || 0, // as starting amount will be zero
@@ -72,7 +64,6 @@ export const generatePayInUrlService = async (payload) => {
         user: payInData.user_id,
         merchant_id: merchant.id,
         expiration_date: expirationDate,
-        bank_acc_id: bank.id, // in old if amount is available only then it can be added
         company_id: merchant.company_id,
         config: JSON.stringify({
             return_url: payInData.return_url || '',
@@ -142,7 +133,7 @@ export const expirePayInUrlService = async (payInId) => {
     });
 }
 
-export const assignedBankToPayInUrlService = async (payInId, amount) => {
+export const assignedBankToPayInUrlService = async (payInId, amount, type) => {
 
     // Validate the PayIn URL
     const payIn = await getPayInUrlService(payInId);
@@ -161,14 +152,28 @@ export const assignedBankToPayInUrlService = async (payInId, amount) => {
         throw new NotFoundError('No merchant found');
     }
 
-    // Get enabled merchant bank accounts for payIn
-    // Todo: Assign bank on the basis type
-    // type maybe UPI, PhonePe, Bank Transfer
-    // allow_qr ==> UPI
-    // config.is_phonpe ==> Phone Pe
-    // is_enabled ==> Bank Transfer
+
     const banks = await getMerchantBankDao(merchant.user_id);
-    const enabledBanks = banks.filter((bank) => bank.is_enabled && bank.bank_used_for === "payIn")
+    const enabledBanks = banks.filter((bank) => {
+        // Get enabled merchant bank accounts for payIn
+        // Assign bank on the basis type
+        if (bank.is_enabled && bank.bank_used_for !== "payIn") {
+            return false;
+        }
+
+        switch (type) {
+            case BankTypes.UPI:
+                return bank.allow_qr;
+            case BankTypes.PHONE_PE:
+                return bank.config?.is_phone;
+            case BankTypes.BANK_TRANSFER:
+                return bank.is_bank;
+            case BankTypes.INTENT:
+                return bank.config?.allow_intent;
+            default:
+                return false;
+        }
+    })
     if (!enabledBanks.length) {
         await updatePayInUrlDao(payInId, {
             is_url_expires: true,
@@ -206,10 +211,6 @@ export const assignedBankToPayInUrlService = async (payInId, amount) => {
 
 // Public API Used by Merchants
 export const checkPayInStatusService = async (payInId, merchantCode, merchantOrderId, api_key) => {
-
-    // query on the bases of:
-    // merchant table code column
-    // payin table id and merchant_order_id
     const merchantArr = await getMerchantsService({ code: merchantCode });
     const merchant = merchantArr[0];
     if (!merchant) {
@@ -329,6 +330,8 @@ export const updatePaymentNotificationStatusService = async (payInId, type) => {
             utr_id: payout.utr_id || "",
         });
     }
+
+    return {};
 }
 
 export const updateDepositStatusService = async (conn, merchantOrderId, nick_name) => {
@@ -424,15 +427,19 @@ export const updateDepositStatusService = async (conn, merchantOrderId, nick_nam
 
 export const resetDepositService = async (conn, merchant_order_id) => {
     const payIn = await getPayInUrlDao({ merchant_order_id });
-    // //under development telegram API's
-    // await sendResetEntryTelegramMessage(
-    //     config?.telegramEntryResetChatId,
-    //     payIn,
-    //     config?.telegramBotToken,
-    // );
     if (!payIn) {
         throw new NotFoundError("PayIn not found");
     }
+
+
+    // createResetHistoryService({
+    //     payin_id: payIn.id,
+    //     pre_status: payIn.status,
+    //     created_by: '',
+    //     updated_by: '',
+    //     company_id: '',
+    // })
+
     if ([Status.SUCCESS, Status.FAILED, Status.ASSIGNED, Status.DROPPED].includes(payIn.status)) {
         throw new BadRequestError('This payIn can not be reset!');
     }
@@ -475,14 +482,15 @@ export const resetDepositService = async (conn, merchant_order_id) => {
     }
 
     return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-
 }
+
 export const getPayinsService = async (payload) => {
     const data = await getPayinsDao(payload);
 
     console.log('Fetched Payins successfully', 'info');
     return data;
 };
+
 export const processPayInService = async (conn, payload) => {
     const { userSubmittedUtr, payInId, amount } = payload;
     // validate payIn
@@ -586,6 +594,7 @@ export const processPayInService = async (conn, payload) => {
 
 export const telegramResponseService = async (conn, message) => {
     const { photo } = message;
+    const TELEGRAM_BOT_TOKEN = config.telegramOcrBotToken;
 
     if (!photo) {
         console.error('No Telegram Message Photo found!', message);
@@ -596,27 +605,27 @@ export const telegramResponseService = async (conn, message) => {
     const filePath = await getTelegramFilePath(lastPhoto?.file_id);
     const image = await getTelegramImageBase64(filePath);
     const content = await getImageContentFromOCr(image);
-    // sendTelegramMessage(
-    //     message.chat.id,
-    //     dataRes,
-    //     TELEGRAM_BOT_TOKEN,
-    //     message?.message_id
-    //   );
+    sendTelegramMessage(
+        message.chat?.id,
+        content,
+        TELEGRAM_BOT_TOKEN,
+        message.message_id
+    );
     if (!content || !content.utr || !content.amount) {
-        // await sendErrorMessageUtrOrAmountNotFoundImgTelegramBot(
-        //     message.chat.id,
-        //     TELEGRAM_BOT_TOKEN,
-        //     message?.message_id
-        //   );
+        sendErrorMessageUtrOrAmountNotFoundImgTelegramBot(
+            message.chat?.id,
+            TELEGRAM_BOT_TOKEN,
+            message.message_id
+        );
         return;
     }
 
     if (!message.caption) {
-        // await sendErrorMessageNoMerchantOrderIdFoundTelegramBot(
-        //     message.chat.id,
-        //     TELEGRAM_BOT_TOKEN,
-        //     message?.message_id
-        //   );
+        sendErrorMessageNoMerchantOrderIdFoundTelegramBot(
+            message.chat?.id,
+            TELEGRAM_BOT_TOKEN,
+            message.message_id
+        );
         return
     }
 
@@ -626,71 +635,60 @@ export const telegramResponseService = async (conn, message) => {
     const otherUtrPayIns = await getPayInUrlsDao({ user_submitted_utr: content.utr });
 
     if (!payIn) {
-        // await sendErrorMessageTelegram(
-        //     message.chat.id,
-        //     merchantOrderIdTele,
-        //     TELEGRAM_BOT_TOKEN,
-        //     message?.message_id
-        // );
+        sendErrorMessageTelegram(
+            message.chat?.id,
+            message.caption,
+            TELEGRAM_BOT_TOKEN,
+            message.message_id
+        );
         return
     }
 
     if (!bankResponse) {
-        // await sendErrorMessageNoDepositFoundTelegramBot(
-        //     message.chat.id,
-        //     dataRes?.utr,
-        //     TELEGRAM_BOT_TOKEN,
-        //     message?.message_id
-        //   )
+        sendErrorMessageNoDepositFoundTelegramBot(
+            message.chat?.id,
+            content.utr,
+            TELEGRAM_BOT_TOKEN,
+            message.message_id
+        )
         return
     }
 
     if (payIn.is_notified && [Status.SUCCESS, Status.BANK_MISMATCH, Status.DISPUTE].includes(payIn.status)) {
-        // await sendAlreadyConfirmedMessageTelegramBot(
-        //     message.chat.id,
-        //     dataRes?.utr,
-        //     TELEGRAM_BOT_TOKEN,
-        //     message?.message_id,
-        //     existingPayinData,
-        //     getPayInData
-        // );
+        sendAlreadyConfirmedMessageTelegramBot(
+            message.chat.id,
+            content.utr,
+            TELEGRAM_BOT_TOKEN,
+            message.message_id,
+            otherUtrPayIns,
+            payIn
+        );
         return;
     }
 
     if (payIn.status === Status.DISPUTE) {
-        // await sendMerchantOrderIDStatusDuplicateTelegramMessage(
-        //     message.chat.id,
-        //     getPayInData,
-        //     dataRes?.utr,
-        //     TELEGRAM_BOT_TOKEN,
-        //     message?.message_id,
-        //   );
+        sendMerchantOrderIDStatusDuplicateTelegramMessage(
+            message.chat.id,
+            payIn,
+            content.utr,
+            TELEGRAM_BOT_TOKEN,
+            message.message_id,
+            otherUtrPayIns,
+          );
         return;
     }
 
     const duplicateEntry = otheBankResponsePayIns.length > 1 ? otheBankResponsePayIns : otherUtrPayIns;
-    if (bankResponse.is_used) {
-        // await sendAlreadyConfirmedMessageTelegramBot(
-        //     message.chat.id,
-        //     dataRes?.utr,
-        //     TELEGRAM_BOT_TOKEN,
-        //     message?.message_id,
-        //     existingPayinData,
-        //     getPayInData
-        // );
+    if (bankResponse.is_used || duplicateEntry.length) {
+        sendAlreadyConfirmedMessageTelegramBot(
+            message.chat.id,
+            content.utr,
+            TELEGRAM_BOT_TOKEN,
+            message.message_id,
+            otherUtrPayIns,
+            payIn
+        );
         return;
-    }
-
-    if (duplicateEntry.length) {
-        // await sendAlreadyConfirmedMessageTelegramBot(
-        //     message.chat.id,
-        //     dataRes?.utr,
-        //     TELEGRAM_BOT_TOKEN,
-        //     message?.message_id,
-        //     existingPayinData,
-        //     getPayInData
-        // );
-
     }
 
     await processPayInService(conn, {
@@ -869,6 +867,60 @@ export const disputeDuplicateTransactionService = async (conn, payload) => {
 
 }
 
+export const telegramCheckUTRService = async (conn, utr, merchant_order_id) => {
+    const bankResponse = await getBankResponseDao({ utr });
+    let otherBankResponse = {};
+    if (!bankResponse) {
+        throw new NotFoundError('Bank Response not found!');
+    }
+
+    const payIn = await getPayInUrlDao({ merchant_order_id });
+    if (!payIn) {
+        throw new NotFoundError('PayIn not found');
+    }
+
+
+    // createCheckUtrService({
+    //     payin_id: payIn.id,
+    //     utr: utr,
+    //     company_id: '',
+    //     created_by: '',
+    //     updated_by: '',
+    // })
+
+    if (payIn.bank_response_id) {
+        otherBankResponse = await getBankResponseDao({ id: payIn.bank_response_id }) || {};
+    }
+
+
+    // check old code flow
+    if (payIn.status === Status.SUCCESS) {
+        return {
+            message: `PayIn is already confirmed with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
+        };
+    }
+
+    const isAlreadyExit = await getPayInUrlDao({ bank_response_id: bankResponse.id });
+    if (!isAlreadyExit) {
+        return {
+            message: `Utr: ${utr} is ${isAlreadyExit.status} with ${isAlreadyExit.merchant_order_id}`,
+        };
+    }
+
+    if (![Status.PENDING, Status.ASSIGNED].includes(payIn.status)) {
+        return {
+            status: payIn.status,
+            message: `Pay In is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
+        }
+    }
+
+    return await processPayInService(conn, {
+        userSubmittedUtr: utr,
+        payInId: payIn.id,
+        amount: payIn.amount,
+    })
+}
+
 export const getPayinsServiceByid = async (payload) => {
     const data = await getPayinsDaoId(payload);
 
@@ -915,10 +967,14 @@ const updateCalculationTable = async (user_id, data, conn) => {
 
 }
 
-const getOtherSuccessPayIns = async (bankResponse) => {
-    let successData = await getPayInUrlsDao({ bank_response_id: bankResponse.id, status: Status.SUCCESS });
+const getOtherSuccessPayIns = async (bankResponse, includeSuccess = true) => {
+    const extraCondition = {};
+    if (includeSuccess) {
+        extraCondition.status = Status.SUCCESS;
+    }
+    let successData = await getPayInUrlsDao({ bank_response_id: bankResponse.id, ...extraCondition });
     if (!successData.length) {
-        successData = await getPayInUrlsDao({ user_submitted_utr: bankResponse.utr, status: Status.SUCCESS });
+        successData = await getPayInUrlsDao({ user_submitted_utr: bankResponse.utr, ...extraCondition });
     }
 
     return successData;

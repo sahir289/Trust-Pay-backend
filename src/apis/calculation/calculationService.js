@@ -6,10 +6,10 @@ import { transactionWrapper } from '../../utils/db.js';
 import { merchantColumns } from '../../constants/index.js';
 
 // Service to fetch calculation data
-const getCalculationService = async (payload) => {
+const getCalculationService = async (search,payload) => {
   try {
   const filterColumns = role === Role.MERCHANT ? merchantColumns.CALCULATION : role === Role.VENDOR ? vendorColumns.CALCULATION : columns.CALCULATION; 
-    const data = await getCalculationDao(payload);
+    const data = await getCalculationDao(search, payload);
     const finalResult = await filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -34,7 +34,7 @@ const createCalculationService = async (payload) => {
 
 
 // Service to update an existing calculation record
-const updateCalculationService = async (conn,id, payload) => {
+const updateCalculationService = async (conn,id,payload) => {
   try {
     const filterColumns = role === Role.MERCHANT ? merchantColumns.CALCULATION : role === Role.VENDOR ? vendorColumns.CALCULATION : columns.CALCULATION; 
     const data = await updateCalculationDao(conn,id, payload);

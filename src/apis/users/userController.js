@@ -1,7 +1,7 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { createUserService, getUserByIdService, getUsersByUserNameService, getUsersService } from './userService.js';
-
+import { sendError } from '../../utils/responseHandlers.js';
 
 const getUsers = async (req, res) => {
   try {
@@ -47,11 +47,13 @@ const createUser = async (req, res) => {
   try {
     const { role } = req.user;
     // const {} = req.user;
-    const payload = req.body;
+    let payload = req.body;
     if (!payload) {
       console.error('payload is required');
-      throw new BadRequestError('payload is required');
+      return sendError(res, 'payload is required', 'Validation Error');
     }
+    const {company_id} = req.user;
+    payload.company_id=company_id;
     const data = await createUserService(payload, role);
     console.log('create user successfully');
     return sendSuccess(res, data, 'create user successfully');

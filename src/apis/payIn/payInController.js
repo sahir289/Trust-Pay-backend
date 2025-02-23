@@ -6,6 +6,7 @@ import {
     ASSIGN_PAYIN_SCHEMA,
     VALIDATE_ASSIGNED_BANT_TO_PAY,
     VALIDATE_CHECK_PAY_IN_STATUS,
+    VALIDATE_CHECK_UTR,
     VALIDATE_DISPUTE_DUPLICATE_TRANSACTION,
     VALIDATE_EXPIRE_PAY_IN_URL,
     VALIDATE_PAY_IN_INTENT_GENERATE_ORDER,
@@ -16,7 +17,7 @@ import {
     VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS
 } from "../../schemas/payInSchema.js";
 import {
-    assignedBankToPayInUrlService,getPayinsService,
+    assignedBankToPayInUrlService, getPayinsService,
     checkPayInStatusService,
     disputeDuplicateTransactionService,
     expirePayInUrlService,
@@ -26,6 +27,7 @@ import {
     processPayInByImageService,
     processPayInService,
     resetDepositService,
+    telegramCheckUTRService,
     telegramResponseService,
     updateDepositStatusService,
     updatePaymentNotificationStatusService
@@ -42,9 +44,7 @@ export const generatePayInUrl = async (req, res) => {
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-
     const x_api_key = req.headers["x-api-key"];
-
     const result = await generatePayInUrlService({
         ...payload,
         x_api_key,
@@ -94,7 +94,7 @@ export const assignedBankToPayInUrl = async (req, res) => {
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-    const result = await assignedBankToPayInUrlService(req.params.payInId, req.body.amount);
+    const result = await assignedBankToPayInUrlService(req.params.payInId, req.body.amount, req.body.type);
     return sendSuccess(res, result, 'Bank account is assigned');
 };
 
@@ -174,7 +174,10 @@ export const getPayins = async (req, res) => {
         console.log('getPayins successfully', data);
         return sendSuccess(res, data, 'Payins fetched successfully');
     } catch (error) {
-        console.error('error getting while fetching Payins Data',  error);
+        // Log error
+        console.error('error getting while fetching Payins Data', error);
+
+        // Send an error response
         return sendError(res, error, 'Error occurred while fetching Payins');
     }
 };
@@ -249,4 +252,14 @@ export const disputeDuplicateTransaction = async (req, res) => {
 
     const data = await transactionWrapper(disputeDuplicateTransactionService)(payload);
     sendSuccess(res, data);
+}
+
+export const telegramCheckUTR = async (req, res) => {
+    const { utr, merchantOrderId } = req.body;
+    const joiValidation = VALIDATE_CHECK_UTR.validate(req.body);
+    if (joiValidation.error) {
+        throw new ValidationError(joiValidation.error);
+    }
+    const result = await transactionWrapper(telegramCheckUTRService)(utr, merchantOrderId);
+    sendSuccess(res, result);
 }
