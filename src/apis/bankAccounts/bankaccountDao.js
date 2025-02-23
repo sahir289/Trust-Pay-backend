@@ -12,7 +12,7 @@ const getBankaccountDao = async (
   const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.BANK_ACCOUNT, page, pageSize, sortBy, sortOrder, typeof search != 'string',payload);
   // Execute query
   const result = await executeQuery(sql, queryParams);
-  return result.rows;
+  return result.rows[0];
 };
 
 const getMerchantBankDao = async (id) => {

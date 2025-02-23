@@ -1,20 +1,8 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { isAuthenticated } from '../../middlewares/auth.js';
-import { 
-    assignedBankToPayInUrl,
-    checkPayInStatus,
-    generatePayInUrl,
-    getPayins,
-    payInIntentGenerateOrder,
-    processPayIn,
-    processPayInByImage,
-    resetDeposit,
-    telegramOCR,
-    updateDepositStatus,
-    updatePaymentNotificationStatus,
-    validatePayInUrl
-} from './payInController.js';
+import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
+import { assignedBankToPayInUrl, checkPayInStatus, generatePayInUrl,getPayins, payInIntentGenerateOrder, processPayIn, processPayInByImage, resetDeposit, telegramOCR, updateDepositStatus, updatePaymentNotificationStatus, validatePayInUrl } from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
 
@@ -223,7 +211,7 @@ router.post('/telegram-ocr', tryCatchHandler(telegramOCR));
 
 // Authenticated API's
 
-router.use(isAuthenticated);
+router.use([isAuthenticated, authorized(AccessRoles.PAYIN)])
 
 /**
  * @swagger

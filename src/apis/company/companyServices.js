@@ -30,7 +30,6 @@ const createCompanyService = async (payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-
     const result = await createCompanyDao(payload);
     // const [sql, params] = buildInsertQuery(tableName.COMPANY, payload)
     // const result = await executeQuery(sql, params);

@@ -1,8 +1,9 @@
 import Joi from 'joi';
 
 export const CREATE_DESIGNATION_SCHEMA = Joi.object({
+  id: Joi.string().guid({ version: ['uuidv4'] }).label('id').optional(),
   designation: Joi.string().label('designation').required(),
-  role_id: Joi.string().label('role_id').required(),
+  role_id: Joi.string().guid({ version: ['uuidv4'] }).label('role_id').required(),
   created_by: Joi.string().label('created_by').required(),
   created_at: Joi.date().iso().label('created_at').required(),
   updated_at: Joi.date().iso().label('updated_at').required(),
@@ -12,8 +13,8 @@ export const CREATE_DESIGNATION_SCHEMA = Joi.object({
 
 });
 export const UPDATE_DESIGNATION_SCHEMA = Joi.object({
-  designation: Joi.string().label('designation').optional(),
-  role_id: Joi.string().uuid().label('role_id').optional(),
+  designation: Joi.string().label('designation').required(),
+  role_id: Joi.string().guid({ version: ['uuidv4'] }).label('role_id').optional(),
   created_by: Joi.string().label('created_by').optional(),
   created_at: Joi.date().iso().label('created_at').optional(),
   updated_at: Joi.date().iso().label('updated_at').optional(),

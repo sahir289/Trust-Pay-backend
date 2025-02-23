@@ -79,6 +79,6 @@ export const ekoTransactionStatusCallback = async (req, res) => {
         return data;
     } catch (err) {
         // Log any errors while updating the payout
-        logger.error('getting error while updating payout', err);
+        console.error('getting error while updating payout', err);
     }
 };

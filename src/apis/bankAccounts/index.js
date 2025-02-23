@@ -1,8 +1,9 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createBankaccount, deleteBankaccount, getBankaccountById, getBankaccount, getMerchantBank, updateBankaccount } from './bankaccountController.js';
-import { isAuthenticated } from '../../middlewares/auth.js';
+import { createBankaccount, deleteBankaccount, getBankaccountById,getBankaccount, getMerchantBank, updateBankaccount } from './bankaccountController.js';
 const router = express.Router();
+import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
 
 /**
  * @swagger
@@ -37,8 +38,7 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/', isAuthenticated, tryCatchHandler(getBankaccount));
-
+router.get('/', [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(getBankaccount));
 /**
  * @swagger
  * /bankAccounts/{id}:
@@ -72,8 +72,7 @@ router.get('/', isAuthenticated, tryCatchHandler(getBankaccount));
  *       500:
  *         description: Internal server error
  */
-router.get('/:id', isAuthenticated, tryCatchHandler(getBankaccountById));
-
+router.get('/:id', [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(getBankaccountById));
 /**
  * @swagger
  * /bankAccounts/create-bankAccount:
@@ -113,7 +112,8 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getBankaccountById));
  *       500:
  *         description: Internal server error
  */
-router.post('/create-bankAccount', isAuthenticated, tryCatchHandler(createBankaccount));
+router.post('/create-bankAccount',[isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(createBankaccount));
+
 
 /**
  * @swagger
@@ -141,7 +141,7 @@ router.post('/create-bankAccount', isAuthenticated, tryCatchHandler(createBankac
  *       500:
  *         description: Internal server error
  */
-router.get('/get-merchantBanks', isAuthenticated, tryCatchHandler(getMerchantBank));
+router.get('/get-merchantBanks', [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(getMerchantBank));
 
 /**
  * @swagger
@@ -191,7 +191,7 @@ router.get('/get-merchantBanks', isAuthenticated, tryCatchHandler(getMerchantBan
  *       500:
  *         description: Internal server error
  */
-router.put('/update-bankAccount/:id', isAuthenticated, tryCatchHandler(updateBankaccount));
+router.put('/update-bankAccount/:id',[isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(updateBankaccount));
 
 /**
  * @swagger
@@ -215,6 +215,6 @@ router.put('/update-bankAccount/:id', isAuthenticated, tryCatchHandler(updateBan
  *       500:
  *         description: Internal server error
  */
-router.delete('/delete-bankAccount/:id', isAuthenticated, tryCatchHandler(deleteBankaccount));
+router.delete('/delete-bankAccount/:id', [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(deleteBankaccount));
 
 export default router;

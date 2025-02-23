@@ -1,7 +1,8 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createChargeBack, deleteChargeBack, getChargeBacks, updateChargeBack, getChargeBacksById } from './chargeBackController.js';
-import { isAuthenticated } from '../../middlewares/auth.js';
+import { createChargeBack, deleteChargeBack, getChargeBacks, updateChargeBack,getChargeBacksById } from './chargeBackController.js';
+import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
 
 const router = express.Router();
 
@@ -47,8 +48,7 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/', isAuthenticated, tryCatchHandler(getChargeBacks));
-
+router.get('/', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(getChargeBacks));
 /**
  * @swagger
  * /chargeBacks/{id}:
@@ -85,7 +85,7 @@ router.get('/', isAuthenticated, tryCatchHandler(getChargeBacks));
  *       500:
  *         description: Internal server error
  */
-router.get('/:id', isAuthenticated, tryCatchHandler(getChargeBacksById));
+router.get('/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(getChargeBacksById));
 
 /**
  * @swagger
@@ -137,7 +137,7 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getChargeBacksById));
  *       500:
  *         description: Internal server error.
  */
-router.post('/create-chargeback', isAuthenticated, tryCatchHandler(createChargeBack));
+router.post('/create-chargeback', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(createChargeBack));
 
 /**
  * @swagger
@@ -186,7 +186,7 @@ router.post('/create-chargeback', isAuthenticated, tryCatchHandler(createChargeB
  *       500:
  *         description: Internal server error.
  */
-router.put('/update-chargeback/:id', isAuthenticated, tryCatchHandler(updateChargeBack));
+router.put('/update-chargeback/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(updateChargeBack));
 
 /**
  * @swagger
@@ -218,6 +218,6 @@ router.put('/update-chargeback/:id', isAuthenticated, tryCatchHandler(updateChar
  *       500:
  *         description: Internal server error.
  */
-router.delete('/delete-chargeback/:id', isAuthenticated, tryCatchHandler(deleteChargeBack));
+router.delete('/delete-chargeback/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(deleteChargeBack));
 
 export default router;

@@ -3,43 +3,50 @@ import { getMerchantsDao } from '../apis/merchants/merchantDao.js';
 import { getPayinsDao } from "../apis/payIn/payInDao.js";
 import { getCalculationDao } from "../apis/calculation/calculationDao.js";
 import { getPayoutsDao } from "../apis/payOut/payOutDao.js";
-// import moment from "moment-timezone";
+import moment from "moment-timezone";
 import { getUserHierarchysDao } from "../apis/userHierarchy/userHierarchyDao.js";
 import { getBankaccountDao } from "../apis/bankAccounts/bankaccountDao.js";
 import { getChargeBackDao } from "../apis/chargeBacks/chargeBackDao.js";
 import { sendTelegramDashboardMerchantGroupingReportMessage, sendTelegramDashboardReportMessage, sendTelegramDashboardSuccessRatioMessage } from "../utils/sendTelegramMessages.js";
-import config from "../config.js";
 import { getSettlementDao } from "../apis/settlement/settlementDao.js";
+import config from "../config/config.js";
 
-cron.schedule("23 18 * * *", () => {
+cron.schedule("0 0 * * *", () => {
     gatherAllData("Asia/Kolkata");
 });
 
-// cron.schedule("0 1-23 * * *", () => {
-//     gatherAllData("H", "Asia/Kolkata");
-// });
+cron.schedule("0 1-23 * * *", () => {
+    gatherAllData("H", "Asia/Kolkata");
+});
 
-const gatherAllData = async (timezone = "Asia/Kolkata") => {
+const gatherAllData = async (type = "H", timezone = "Asia/Kolkata") => {
     try {
+        // let startDate;
+        // let endDate;
+        // let oneHourAgo;
         if (typeof timezone !== "string") {
             timezone = "Asia/Kolkata";
         }
 
-        // const currentDate = moment().tz(timezone, true);
+        const currentDate = moment().tz(timezone, true);
 
-        //   if (type === "H") {
-        //     startDate = currentDate.clone().startOf("day").toDate(); // Start of today at 12 AM
-        //     endDate = currentDate.clone().toDate(); // Current time
-        //     oneHourAgo = currentDate.clone().subtract(1, "hour").toDate();
-        //   }
+          if (type === "H") {
+            // startDate = 
+            currentDate.clone().startOf("day").toDate(); 
+            // endDate = 
+            currentDate.clone().toDate(); 
+            // oneHourAgo = 
+            currentDate.clone().subtract(1, "hour").toDate();
+          }
 
         //   if (type === "N") {
         //     startDate = currentDate
         //       .clone()
         //       .subtract(1, "day")
         //       .startOf("day")
-        //       .toDate(); // Start of yesterday
-        //     endDate = currentDate.clone().subtract(1, "day").endOf("day").toDate(); // End of yesterday at 11:59 PM
+        //       .toDate();
+        //     endDate = currentDate.clone().subtract(1, "day").endOf("day").toDate(); 
+            // End of yesterday at 11:59 PM
         //   }
         console.log("cron started")
         const merchants = await getMerchantsDao({});
@@ -52,7 +59,7 @@ const gatherAllData = async (timezone = "Asia/Kolkata") => {
         let configs = [];
         for (const payin of payins) {
             const userId = await getMerchantsDao({ id: payin.merchant_id })
-           
+
             const groupMerchants = await getUserHierarchysDao({
                 user_id: userId[0].user_id
             });
@@ -65,28 +72,28 @@ const gatherAllData = async (timezone = "Asia/Kolkata") => {
                     for (let value of values) {
                         const merchantData = await getMerchantsDao({ user_id: value });
                         const totalPayindataArray = await getCalculationDao({ user_id: value });
-                    
+
                         console.log("totalPayindataArray for user_id:", value, totalPayindataArray);
-                    
+
                         if (Array.isArray(totalPayindataArray) && totalPayindataArray.length > 0) {
                             for (const totalPayindata of totalPayindataArray) {
                                 console.log("totalPayindata.total_payin_amount:", totalPayindata.total_payin_amount);
                                 console.log("totalPayindata.total_payin_count:", totalPayindata.total_payin_count);
-                    
+
                                 payInSum += totalPayindata.total_payin_amount || 0;
                                 payInCount += totalPayindata.total_payin_count || 0;
-                    
+
                                 console.log("Updated payInSum:", payInSum);
                                 console.log("Updated payInCount:", payInCount);
                             }
                         }
-                    
+
                         merchant.push({
                             merchantId: merchantData[0].code,
                             payInSum,
                             payInCount,
                         });
-                    
+
                         console.log(merchant, payInSum, payInCount, "drxfcgvjhh");
                     }
                 }
@@ -103,7 +110,7 @@ const gatherAllData = async (timezone = "Asia/Kolkata") => {
 
         for (const totalPayin of totalPayins) {
             const userId = await getMerchantsDao({ id: totalPayin.merchant_id })
-                for(let userid of userId){
+            for (let userid of userId) {
                 const totalPayindataArray = await getCalculationDao({ user_id: userId.user_id });
                 if (Array.isArray(totalPayindataArray) && totalPayindataArray.length > 0) {
                     for (const totalPayindata of totalPayindataArray) {
@@ -113,18 +120,18 @@ const gatherAllData = async (timezone = "Asia/Kolkata") => {
                         totalPayInEachCount = totalPayindata.total_payin_count || 0;
                     }
                 }
-                
-               
+
+
                 totalPayinsMerchant.push({
                     merchantId: userid.code,
-    
+
                     totalPayIn,
                     totalPayInEachCount
                 });
             }
-        
+
         }
-       
+
 
         const payouts = await getPayoutsDao({ status: "SUCCESS" });
         let payOutSum = 0;
@@ -137,36 +144,36 @@ const gatherAllData = async (timezone = "Asia/Kolkata") => {
             const userId = await getMerchantsDao({ id: payout.merchant_id })
             // for (let userid of userId) {
 
-                const groupMerchants = await getUserHierarchysDao({
-                    user_id: userId[0].user_id
-                });
-                if (groupMerchants.length > 0) {
-                    for (let groupmerchant of groupMerchants) {
-                        const config = groupmerchant.config;
-                        payoutconfigs.push({ config: config });
-                        const values = Object.values(config).flat();
-                        for (let value of values) {
-                            const merchant_id = await getMerchantsDao({ user_id: value })
+            const groupMerchants = await getUserHierarchysDao({
+                user_id: userId[0].user_id
+            });
+            if (groupMerchants.length > 0) {
+                for (let groupmerchant of groupMerchants) {
+                    const config = groupmerchant.config;
+                    payoutconfigs.push({ config: config });
+                    const values = Object.values(config).flat();
+                    for (let value of values) {
+                        const merchant_id = await getMerchantsDao({ user_id: value })
 
-                            const totalPayoutdataArray = await getCalculationDao({ user_id: value });
-                            if (Array.isArray(totalPayoutdataArray) && totalPayoutdataArray.length > 0) {
-                                for (const totalPayindata of totalPayoutdataArray) {
-                                    payOutSum += totalPayindata.total_payout_amount || 0;
-                                    payOutCount += totalPayindata.total_payout_count || 0;
-                                    // payOut = totalPayindata.total_payout_amount || 0;
-                                    // payOutCountEach = totalPayindata.total_payout_count || 0;
-                                }
+                        const totalPayoutdataArray = await getCalculationDao({ user_id: value });
+                        if (Array.isArray(totalPayoutdataArray) && totalPayoutdataArray.length > 0) {
+                            for (const totalPayindata of totalPayoutdataArray) {
+                                payOutSum += totalPayindata.total_payout_amount || 0;
+                                payOutCount += totalPayindata.total_payout_count || 0;
+                                // payOut = totalPayindata.total_payout_amount || 0;
+                                // payOutCountEach = totalPayindata.total_payout_count || 0;
                             }
-                            merchantpayout.push({
-                                merchantId: merchant_id[0].code,
-                                payOutSum,
-                                payOutCount
-                            });
                         }
+                        merchantpayout.push({
+                            merchantId: merchant_id[0].code,
+                            payOutSum,
+                            payOutCount
+                        });
                     }
                 }
-            
-        } 
+            }
+
+        }
         const totalPayouts = await getPayinsDao({ status: "SUCCESS" });
         let totalPayOutSum = 0;
         let totalPayOutCount = 0;
@@ -204,9 +211,9 @@ const gatherAllData = async (timezone = "Asia/Kolkata") => {
                 });
             }
         }
-        // else {
-        //     console.log("no payin banks data")
-        // }
+        else {
+            console.log("no payin banks data")
+        }
         let payOutBanks = await getBankaccountDao({ bank_used_for: "payOut" })
         let payOutBanksdata = [];
         if (Array.isArray(payOutBanks) && payOutBanks.length > 0) {
@@ -215,7 +222,7 @@ const gatherAllData = async (timezone = "Asia/Kolkata") => {
                 payoutbankBalance: payoutbank.balance,
                 payoutbankToday: payoutbank.today_balance
             }));
-        }else {
+        } else {
             console.log("no payiout banks data")
         }
         let settlements = await getSettlementDao({})
@@ -289,7 +296,7 @@ const gatherAllData = async (timezone = "Asia/Kolkata") => {
                     if (!transactions) {
                         console.log(merchant.id, "has no transactions available.");
                     } else {
-                        console.log( "transactions for merchant");
+                        console.log("transactions for merchant");
                     }
                 });
 
@@ -364,45 +371,46 @@ const gatherAllData = async (timezone = "Asia/Kolkata") => {
                     chargebackData,
                     payInBanksdata,
                     payOutBanksdata,
-                    // formatePrice(totalPayInSum),
-                    // formatePrice(totalPayInCount),
-                    // formatePrice(totalPayOutSum),
-                    // formatePrice(totalPayOutCount),
-                    // formatePrice(payInBanks),
-                    // formatePrice(payOutBanks),
-                    // formatePrice(settlements),
-                    // formatePrice(chargebacks),
-                    // type === "H" ? "Hourly Report" : "Daily Report",
-                    totalPayInSum,
-                    totalPayInCount,
-                    totalPayOutSum,
-                    totalPayOutCount,
-                    payInBanks,
-                    payOutBanks,
-                    settlements,
-                    chargebacks,
+                    formatePrice(totalPayInSum),
+                    formatePrice(totalPayInCount),
+                    formatePrice(totalPayOutSum),
+                    formatePrice(totalPayOutCount),
+                    formatePrice(payInBanks),
+                    formatePrice(payOutBanks),
+                    formatePrice(settlements),
+                    formatePrice(chargebacks),
+                    type === "H" ? "Hourly Report" : "Daily Report",
+                    // totalPayInSum,
+                    // totalPayInCount,
+                    // totalPayOutSum,
+                    // totalPayOutCount,
+                    // payInBanks,
+                    // payOutBanks,
+                    // settlements,
+                    // chargebacks,
 
                     config?.telegramBotToken,
                 );
 
                 await sendTelegramDashboardMerchantGroupingReportMessage(
-                   
+
 
                     config?.telegramDashboardMerchantGroupingChatId,
-                    // formatePrice(payInSum),
-                    // formatePrice(payOutSum),
-                    // formatePrice(payInCount),
-                    // formatePrice(payOutCount),
-                    // type === "H" ? "Hourly Report" : "Daily Report",
-                    totalPayInSum,
-                    totalPayOutSum,
-                    totalPayInCount,
-                    totalPayOutCount,
+                    formatePrice(totalPayInSum),
+                    formatePrice(totalPayOutSum),
+                    formatePrice(totalPayInCount),
+                    formatePrice(totalPayOutCount),
+                    type === "H" ? "Hourly Report" : "Daily Report",
+                    // totalPayInSum,
+                    // totalPayOutSum,
+                    // totalPayInCount,
+                    // totalPayOutCount,
+
                     totalPayinsMerchant,
                     merchantTotalPayout,
 
                     config?.telegramBotToken,
-                   
+
                 );
             } catch (error) {
                 console.error("Error ", error.message);
@@ -411,19 +419,19 @@ const gatherAllData = async (timezone = "Asia/Kolkata") => {
         formattedSuccessRatiosByMerchant();
     }
     catch {
-        console.log()
+        console.error("no transactions found")
     }
-    // const formatePrice = (price, currencySymbol = "₹") => {
-    //     const numericPrice = Number(price);
-    //     if (isNaN(numericPrice)) {
-    //         console.error("Invalid price:", price);
-    //         return `${currencySymbol} 0.00`; // Return default value to avoid errors
-    //     }
-    //     return `${currencySymbol} ${Number(price).toLocaleString("en-US", {
-    //         minimumFractionDigits: 2,
-    //         maximumFractionDigits: 2,
-    //     })}`;
-    // };
+    const formatePrice = (price, currencySymbol = "₹") => {
+        const numericPrice = Number(price);
+        if (isNaN(numericPrice)) {
+            console.error("Invalid price:", price);
+            return `${currencySymbol} 0.00`; // Return default value to avoid errors
+        }
+        return `${currencySymbol} ${Number(price).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        })}`;
+    };
 
 }
 

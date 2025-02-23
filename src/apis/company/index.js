@@ -1,7 +1,8 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createCompany, deleteCompany, getCompany, updateCompany, getCompanyById } from './companyController.js';
-import { isAuthenticated } from '../../middlewares/auth.js';
+import { createCompany, deleteCompany, getCompany, updateCompany,getCompanyById } from './companyController.js';
+import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
 
 const router = express.Router();
 
@@ -44,7 +45,7 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/', isAuthenticated, tryCatchHandler(getCompany));
+router.get('/', [isAuthenticated, authorized(AccessRoles.COMPANY)], tryCatchHandler(getCompany));
 
 /**
  * @swagger
@@ -85,7 +86,7 @@ router.get('/', isAuthenticated, tryCatchHandler(getCompany));
  *       500:
  *         description: Internal server error
  */
-router.get('/:id', isAuthenticated, tryCatchHandler(getCompanyById));
+router.get('/:id',  [isAuthenticated, authorized(AccessRoles.COMPANY)], tryCatchHandler(getCompanyById));
 
 /**
  * @swagger
@@ -129,7 +130,8 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getCompanyById));
  *       500:
  *         description: Internal server error
  */
-router.post('/create-company', isAuthenticated, tryCatchHandler(createCompany));
+router.post('/create-company',[isAuthenticated, authorized(AccessRoles.COMPANY)], tryCatchHandler(createCompany));
+
 
 /**
  * @swagger
@@ -173,7 +175,8 @@ router.post('/create-company', isAuthenticated, tryCatchHandler(createCompany));
  *       500:
  *         description: Internal server error
  */
-router.put('/update-company/:id', isAuthenticated, tryCatchHandler(updateCompany));
+router.put('/update-company/:id',[isAuthenticated, authorized(AccessRoles.COMPANY)],  tryCatchHandler(updateCompany));
+
 
 /**
  * @swagger
@@ -205,6 +208,6 @@ router.put('/update-company/:id', isAuthenticated, tryCatchHandler(updateCompany
  *       500:
  *         description: Internal server error
  */
-router.delete('/delete-company/:id', isAuthenticated, tryCatchHandler(deleteCompany));
+router.delete('/delete-company/:id', [isAuthenticated, authorized(AccessRoles.COMPANY)], tryCatchHandler(deleteCompany));
 
 export default router;

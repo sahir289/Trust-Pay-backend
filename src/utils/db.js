@@ -80,14 +80,27 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
   let values = [];
   let conditions = [];
 
-  // Apply filters
   for (const key in filters) {
     const value = filters[key];
-    if (typeof value === 'string' && value.includes(',')) {
+    if (key === "$config.reference_id$") {
+      conditions.push(`config->>'reference_id' = $${values.length + 1}`);
+      values.push(value);
+      continue;
+    } else if (key === "method" && Array.isArray(value)) {
+      conditions.push(`"method" = ANY($${values.length + 1})`);
+      values.push(value);  
+      continue;
+    } else if (typeof value === 'string' && value.includes(',')) {
       conditions.push(`"${key}" = ANY($${values.length + 1})`);
       values.push(value.split(','));
       continue;
+    } else if (value) {
+      conditions.push(`"${key}" = $${values.length + 1}`);
+      values.push(value);
     }
+  }
+  for (const key in user) {
+    const value = user[key];
     if (value) {
       conditions.push(`"${key}" = $${values.length + 1}`);
       values.push(value);
@@ -110,6 +123,7 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
   query = applySortingAndPagination(query, values, columns, sortBy, sortOrder, page, pageSize);
   return [query, values];
 };
+
 
 export const applySortingAndPagination = (query, values, columns = [], sortBy, sortOrder, page, pageSize) => {
   // Ensure sorting column exists
