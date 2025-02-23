@@ -109,6 +109,13 @@ export const tableName = {
     BANK_RESPONSE: 'BankResponse'
 }
 
+export const BankTypes = {
+    UPI: 'upi',
+    PHONE_PE: 'phone_pe',
+    BANK_TRANSFER: 'bank_transfer',
+    INTENT: 'intent',
+}
+
 export const AccessRoles = {
     USER: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.MERCHANTADMIN, Role.MERCHANT, Role.VENDOR],
     MERCHANT: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.MERCHANTADMIN, Role.MERCHANT, Role.SUBMERCHANT, Role.MERCHANTOPERATIONS],

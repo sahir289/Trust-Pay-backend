@@ -3,14 +3,14 @@ const tableName = 'CheckUtr';
 
 
 
-const getCheckUtrDao = async (id) => {
+const getCheckUtrDao = async (filters) => {
 const query = `SELECT *  FROM  "${tableName}" WHERE 1=1`;
-   const [sql, parameters] = buildSelectQuery(query, {id} );
+   const [sql, parameters] = buildSelectQuery(query, filters);
    const result = await executeQuery(sql, parameters);
    return result.rows[0];
 };
 
-const createCheckUtrDao = async (payload ) => {
+const createCheckUtrDao = async (payload) => {
     const [sql, params] = buildInsertQuery(tableName, payload)
         const result = await executeQuery(sql, params);
         return result.rows[0];
