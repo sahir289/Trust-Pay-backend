@@ -2,15 +2,23 @@ import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createSettlementService, deleteSettlementService, getSettlementService, getSettlementServiceAll, updateSettlementService } from './settlementServices.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
+
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   name: Settlements
+ *   description: API endpoints for managing settlements
+ */
+
 /**
  * @swagger
  * /settlement:
  *   get:
  *     summary: Get all settlements
  *     description: Returns a status message to verify if the settlement is authorized or not.
- *     tags:
- *       - Settlements
+ *     tags: [Settlements]
  *     responses:
  *       200:
  *         description: Successfully retrieved settlements.
@@ -26,9 +34,16 @@ const router = express.Router();
  *                   type: array
  *                   items:
  *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 1
+ *                       settlementName:
+ *                         type: string
+ *                         example: "john_doe"
  */
+router.get('/', isAuthenticated, tryCatchHandler(getSettlementServiceAll));
 router.get('/:id', isAuthenticated, tryCatchHandler(getSettlementService));
-router.get('/',isAuthenticated,  tryCatchHandler(getSettlementServiceAll));
 
 /**
  * @swagger
@@ -36,8 +51,7 @@ router.get('/',isAuthenticated,  tryCatchHandler(getSettlementServiceAll));
  *   post:
  *     summary: Create a new settlement
  *     description: Creates a new settlement in the system.
- *     tags:
- *       - Settlements
+ *     tags: [Settlements]
  *     parameters:
  *       - in: query
  *         name: Settlementname
@@ -62,11 +76,11 @@ router.get('/',isAuthenticated,  tryCatchHandler(getSettlementServiceAll));
  *                     id:
  *                       type: integer
  *                       example: 1
- *                     Settlementname:
+ *                     settlementName:
  *                       type: string
  *                       example: "john_doe"
  */
-router.post('/create-settlement',isAuthenticated,  tryCatchHandler(createSettlementService));
+router.post('/create-settlement', isAuthenticated, tryCatchHandler(createSettlementService));
 
 /**
  * @swagger
@@ -74,8 +88,7 @@ router.post('/create-settlement',isAuthenticated,  tryCatchHandler(createSettlem
  *   put:
  *     summary: Update an existing settlement
  *     description: Updates an existing settlement by its ID.
- *     tags:
- *       - Settlements
+ *     tags: [Settlements]
  *     parameters:
  *       - in: path
  *         name: id
@@ -106,20 +119,19 @@ router.post('/create-settlement',isAuthenticated,  tryCatchHandler(createSettlem
  *                     id:
  *                       type: integer
  *                       example: 1
- *                     Settlementname:
+ *                     settlementName:
  *                       type: string
  *                       example: "john_doe"
  */
-router.put('/update-settlement/:id',isAuthenticated, tryCatchHandler(updateSettlementService));
+router.put('/update-settlement/:id', isAuthenticated, tryCatchHandler(updateSettlementService));
 
 /**
  * @swagger
  * /settlement/delete-settlement/{id}:
  *   delete:
  *     summary: Delete a settlement
- *     description: Deletes an existing settlement.
- *     tags:
- *       - Settlements
+ *     description: Deletes an existing settlement by ID.
+ *     tags: [Settlements]
  *     parameters:
  *       - in: path
  *         name: id
@@ -144,10 +156,10 @@ router.put('/update-settlement/:id',isAuthenticated, tryCatchHandler(updateSettl
  *                     id:
  *                       type: integer
  *                       example: 1
- *                     Settlementname:
+ *                     settlementName:
  *                       type: string
  *                       example: "john_doe"
  */
-router.delete('/delete-settlement/:id',isAuthenticated, tryCatchHandler(deleteSettlementService));
+router.delete('/delete-settlement/:id', isAuthenticated, tryCatchHandler(deleteSettlementService));
 
 export default router;

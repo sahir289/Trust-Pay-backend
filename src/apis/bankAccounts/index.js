@@ -1,133 +1,220 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createBankaccount, deleteBankaccount, getBankaccountById,getBankaccount, getMerchantBank, updateBankaccount } from './bankaccountController.js';
+import { createBankaccount, deleteBankaccount, getBankaccountById, getBankaccount, getMerchantBank, updateBankaccount } from './bankaccountController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 const router = express.Router();
 
 /**
  * @swagger
+ * tags:
+ *   name: Bank Accounts
+ *   description: API endpoints for managing bank accounts
+ */
+
+/**
+ * @swagger
  * /bankAccounts:
  *   get:
- *     summary: Get user by id
- *     description: Returns user filtered by id.
- *     tags:
- *       - Bank Accounts
- *     parameters:
- *       - in: query
- *         name: id
- *         schema:
- *           type: string
- *         required: true
- *         description: The bankAccountsname to filter bankAccounts by.
+ *     summary: Get all bank accounts
+ *     description: Returns a list of all bank accounts.
+ *     tags: [Bank Accounts]
  *     responses:
  *       200:
- *         description: A filtered list of bankAccounts.
+ *         description: A list of bank accounts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     example: 1
+ *                   bankAccountsname:
+ *                     type: string
+ *                     example: "john_doe"
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/', isAuthenticated, tryCatchHandler(getBankaccount));
+
+/**
+ * @swagger
+ * /bankAccounts/{id}:
+ *   get:
+ *     summary: Get a bank account by ID
+ *     description: Returns the details of a specific bank account.
+ *     tags: [Bank Accounts]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the bank account to fetch
+ *     responses:
+ *       200:
+ *         description: The requested bank account
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 message:
+ *                 id:
+ *                   type: integer
+ *                   example: 1
+ *                 bankAccountsname:
  *                   type: string
- *                   example: "get bankAccounts by id successfully"
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 1
- *                       bankAccountsname:
- *                         type: string
- *                         example: "john_doe"
+ *                   example: "john_doe"
+ *       404:
+ *         description: Bank account not found
+ *       500:
+ *         description: Internal server error
  */
-router.get('/', isAuthenticated, tryCatchHandler(getBankaccount));
 router.get('/:id', isAuthenticated, tryCatchHandler(getBankaccountById));
 
 /**
  * @swagger
- * /bankAccounts/create-bankAccounts:
+ * /bankAccounts/create-bankAccount:
  *   post:
- *     summary: create new bankAccounts
- *     description: Returns bankAccounts filtered by bankAccountsname.
- *     tags:
- *       - Bank Accounts
- *     parameters:
- *       - in: query
- *         name: bankAccountsname
- *         schema:
- *           type: string
- *         required: true
- *         description: The bankAccountsname to filter bankAccounts by.
+ *     summary: Create a new bank account
+ *     description: Creates a new bank account and returns the created account.
+ *     tags: [Bank Accounts]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               bankAccountsname:
+ *                 type: string
+ *                 description: The name of the bank account (e.g., username or account name)
+ *               created_by:
+ *                 type: integer
+ *                 description: ID of the user creating the bank account
  *     responses:
- *       200:
- *         description: A filtered list of bankAccounts.
+ *       201:
+ *         description: Bank account created successfully
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 message:
+ *                 id:
+ *                   type: integer
+ *                   example: 1
+ *                 bankAccountsname:
  *                   type: string
- *                   example: "bankAccounts created successfully"
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 1
- *                       bankAccountsname:
- *                         type: string
- *                         example: "john_doe"
+ *                   example: "john_doe"
+ *       400:
+ *         description: Bad request (validation error)
+ *       500:
+ *         description: Internal server error
  */
-router.post('/create-bankAccount',isAuthenticated, tryCatchHandler(createBankaccount));
-
-router.get('/get-merchantBanks', isAuthenticated, tryCatchHandler(getMerchantBank));
-
-router.put('/update-bankAccount/:id',isAuthenticated, tryCatchHandler(updateBankaccount));
+router.post('/create-bankAccount', isAuthenticated, tryCatchHandler(createBankaccount));
 
 /**
  * @swagger
- * /bankAccounts/delete-bankAccounts:
- *   delete:
- *     summary: delete new bankAccounts
- *     description: Returns bankAccounts filtered by bankAccountsname.
- *     tags:
- *       - Bank Accounts
- *     parameters:
- *       - in: query
- *         name: bankAccountsname
- *         schema:
- *           type: string
- *         required: true
- *         description: The bankAccountsname to filter bankAccounts by.
+ * /bankAccounts/get-merchantBanks:
+ *   get:
+ *     summary: Get all merchant bank accounts
+ *     description: Returns a list of all merchant bank accounts.
+ *     tags: [Bank Accounts]
  *     responses:
  *       200:
- *         description: A filtered list of bankAccounts.
+ *         description: A list of merchant bank accounts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     example: 1
+ *                   bankAccountsname:
+ *                     type: string
+ *                     example: "merchant_account"
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/get-merchantBanks', isAuthenticated, tryCatchHandler(getMerchantBank));
+
+/**
+ * @swagger
+ * /bankAccounts/update-bankAccount/{id}:
+ *   put:
+ *     summary: Update a bank account
+ *     description: Updates the details of a specific bank account.
+ *     tags: [Bank Accounts]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the bank account to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               bankAccountsname:
+ *                 type: string
+ *                 description: The updated name of the bank account
+ *               updated_by:
+ *                 type: integer
+ *                 description: ID of the user updating the bank account
+ *     responses:
+ *       200:
+ *         description: Bank account updated successfully
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 message:
+ *                 id:
+ *                   type: integer
+ *                   example: 1
+ *                 bankAccountsname:
  *                   type: string
- *                   example: "bankAccounts created successfully"
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 1
- *                       bankAccountsname:
- *                         type: string
- *                         example: "john_doe"
+ *                   example: "john_doe_updated"
+ *       404:
+ *         description: Bank account not found
+ *       400:
+ *         description: Bad request (validation error)
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/update-bankAccount/:id', isAuthenticated, tryCatchHandler(updateBankaccount));
+
+/**
+ * @swagger
+ * /bankAccounts/delete-bankAccount/{id}:
+ *   delete:
+ *     summary: Delete a bank account
+ *     description: Deletes a specific bank account by ID.
+ *     tags: [Bank Accounts]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the bank account to delete
+ *     responses:
+ *       200:
+ *         description: Bank account deleted successfully
+ *       404:
+ *         description: Bank account not found
+ *       500:
+ *         description: Internal server error
  */
 router.delete('/delete-bankAccount/:id', isAuthenticated, tryCatchHandler(deleteBankaccount));
-
 
 export default router;

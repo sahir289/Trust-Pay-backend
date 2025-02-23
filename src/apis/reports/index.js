@@ -42,9 +42,90 @@ const router = express.Router();
  *         description: Server error
  */
 router.post('/get-all-payouts', isAuthenticated, tryCatchHandler(getPayOutReportService));
-router.post('/get-all-payins',isAuthenticated,tryCatchHandler(getPayInReportService));
-router.get('/get-all-merchants',isAuthenticated, tryCatchHandler(getMerchantReportService));
-router.get('/get-all-vendors',isAuthenticated, tryCatchHandler(getVendorReportService));
+
+/**
+ * @swagger
+ * /reports/get-all-payins:
+ *   get:
+ *     summary: Get all pay-in transactions
+ *     description: Fetches all pay-in data from the system.
+ *     tags: [Reports]
+ *     responses:
+ *       200:
+ *         description: List of all pay-ins.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     example: 456
+ *                   amount:
+ *                     type: number
+ *                     example: 1000.00
+ *       500:
+ *         description: Server error
+ */
+router.post('/get-all-payins', isAuthenticated, tryCatchHandler(getPayInReportService));
+
+/**
+ * @swagger
+ * /reports/get-all-merchants:
+ *   get:
+ *     summary: Get all merchants
+ *     description: Fetches a list of all merchants.
+ *     tags: [Reports]
+ *     responses:
+ *       200:
+ *         description: List of all merchants.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     example: 789
+ *                   name:
+ *                     type: string
+ *                     example: "Merchant A"
+ *       500:
+ *         description: Server error
+ */
+router.get('/get-all-merchants', isAuthenticated, tryCatchHandler(getMerchantReportService));
+
+/**
+ * @swagger
+ * /reports/get-all-vendors:
+ *   get:
+ *     summary: Get all vendors
+ *     description: Fetches a list of all vendors.
+ *     tags: [Reports]
+ *     responses:
+ *       200:
+ *         description: List of all vendors.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     example: 123
+ *                   vendorCode:
+ *                     type: string
+ *                     example: "VEND001"
+ *       500:
+ *         description: Server error
+ */
+router.get('/get-all-vendors', isAuthenticated, tryCatchHandler(getVendorReportService));
 
 /**
  * @swagger
@@ -59,21 +140,21 @@ router.get('/get-all-vendors',isAuthenticated, tryCatchHandler(getVendorReportSe
  *         schema:
  *           type: string
  *         required: true
- *         description: Vendor code to filter reports
+ *         description: Vendor code to filter reports.
  *       - in: query
  *         name: startDate
  *         schema:
  *           type: string
  *           format: date
  *         required: false
- *         description: Start date (optional)
+ *         description: Start date (optional).
  *       - in: query
  *         name: endDate
  *         schema:
  *           type: string
  *           format: date
  *         required: false
- *         description: End date (optional)
+ *         description: End date (optional).
  *     responses:
  *       200:
  *         description: Weekly vendor report data.
@@ -94,9 +175,10 @@ router.get('/get-all-vendors',isAuthenticated, tryCatchHandler(getVendorReportSe
  *                     type: number
  *                     example: 15000.00
  *       400:
- *         description: Invalid request parameters
+ *         description: Invalid request parameters.
  *       500:
- *         description: Server error
+ *         description: Server error.
  */
+router.get('/weekly-vendor-report', isAuthenticated, tryCatchHandler(getVendorReportService));
 
 export default router;

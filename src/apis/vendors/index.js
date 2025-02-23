@@ -1,9 +1,16 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createVendor, deleteVendor, getVendors, updateVendor,getVendorById } from './vendorController.js';
+import { createVendor, deleteVendor, getVendors, updateVendor, getVendorById } from './vendorController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   name: Vendors
+ *   description: API endpoints for managing vendors
+ */
 
 /**
  * @swagger
@@ -11,8 +18,7 @@ const router = express.Router();
  *   get:
  *     summary: Retrieve all vendors
  *     description: Returns a list of all vendors.
- *     tags:
- *       - Vendors
+ *     tags: [Vendors]
  *     responses:
  *       200:
  *         description: A list of vendors.
@@ -31,10 +37,40 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-
 router.get('/', isAuthenticated, tryCatchHandler(getVendors));
 
-
+/**
+ * @swagger
+ * /vendors/{id}:
+ *   get:
+ *     summary: Get vendor by ID
+ *     description: Fetches details of a vendor by its ID.
+ *     tags: [Vendors]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: The ID of the vendor to fetch.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Vendor details.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *                   example: "active"
+ *       404:
+ *         description: Vendor not found.
+ */
 router.get('/:id', isAuthenticated, tryCatchHandler(getVendorById));
 
 /**
@@ -43,8 +79,7 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getVendorById));
  *   post:
  *     summary: Create a new vendor
  *     description: Adds a new vendor to the system.
- *     tags:
- *       - Vendors
+ *     tags: [Vendors]
  *     requestBody:
  *       required: true
  *       content:
@@ -64,8 +99,7 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getVendorById));
  *       400:
  *         description: Invalid request data.
  */
-
-router.post('/create-vendor',isAuthenticated ,tryCatchHandler(createVendor));
+router.post('/create-vendor', isAuthenticated, tryCatchHandler(createVendor));
 
 /**
  * @swagger
@@ -73,8 +107,14 @@ router.post('/create-vendor',isAuthenticated ,tryCatchHandler(createVendor));
  *   put:
  *     summary: Update vendor details
  *     description: Updates an existing vendor’s details.
- *     tags:
- *       - Vendors
+ *     tags: [Vendors]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: The ID of the vendor to update.
+ *         schema:
+ *           type: string
  *     requestBody:
  *       required: true
  *       content:
@@ -82,8 +122,6 @@ router.post('/create-vendor',isAuthenticated ,tryCatchHandler(createVendor));
  *           schema:
  *             type: object
  *             properties:
- *               id:
- *                 type: string
  *               name:
  *                 type: string
  *               status:
@@ -95,7 +133,6 @@ router.post('/create-vendor',isAuthenticated ,tryCatchHandler(createVendor));
  *       404:
  *         description: Vendor not found.
  */
-
 router.put('/update-vendor/:id', isAuthenticated, tryCatchHandler(updateVendor));
 
 /**
@@ -104,24 +141,20 @@ router.put('/update-vendor/:id', isAuthenticated, tryCatchHandler(updateVendor))
  *   delete:
  *     summary: Delete a vendor
  *     description: Soft deletes a vendor by changing its status.
- *     tags:
- *       - Vendors
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               id:
- *                 type: string
+ *     tags: [Vendors]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: The ID of the vendor to delete.
+ *         schema:
+ *           type: string
  *     responses:
  *       200:
  *         description: Vendor deleted successfully.
  *       404:
  *         description: Vendor not found.
  */
-
 router.delete('/delete-vendor/:id', isAuthenticated, tryCatchHandler(deleteVendor));
 
 export default router;

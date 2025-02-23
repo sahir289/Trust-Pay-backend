@@ -87,14 +87,20 @@ export const getImageContentFromOCr = async (image) => {
 // Helper function to convert a readable stream to a buffer
 export const streamToBase64 = (readableStream) => {
     return new Promise((resolve, reject) => {
-      const chunks = [];
-      readableStream.on('data', (chunk) => chunks.push(chunk));
-      readableStream.on('end', () => {
-        const buffer = globalThis.Buffer.concat(chunks);
-        const base64 = buffer.toString('base64');
-        resolve(base64);
-      });
-      readableStream.on('error', reject);
+        const chunks = [];
+        readableStream.on('data', (chunk) => chunks.push(chunk));
+        readableStream.on('end', () => {
+            const buffer = globalThis.Buffer.concat(chunks);
+            const base64 = buffer.toString('base64');
+            resolve(base64);
+        });
+        readableStream.on('error', reject);
     });
-  };
-  
+};
+
+export const filterResponse = async (data, key) => {
+    if (typeof data === 'object' && data !== null && key in data) {
+      return { [key]: data[key] };
+    }
+    return {};
+  }
