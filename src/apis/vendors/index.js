@@ -8,12 +8,18 @@ const router = express.Router();
 
 /**
  * @swagger
+ * tags:
+ *   name: Vendors
+ *   description: API endpoints for managing vendors
+ */
+
+/**
+ * @swagger
  * /vendors:
  *   get:
  *     summary: Retrieve all vendors
  *     description: Returns a list of all vendors.
- *     tags:
- *       - Vendors
+ *     tags: [Vendors]
  *     responses:
  *       200:
  *         description: A list of vendors.
@@ -34,16 +40,47 @@ const router = express.Router();
  */
 router.get('/', [isAuthenticated, authorized(AccessRoles.VENDOR)], tryCatchHandler(getVendors));
 
-
+/**
+ * @swagger
+ * /vendors/{id}:
+ *   get:
+ *     summary: Get vendor by ID
+ *     description: Fetches details of a vendor by its ID.
+ *     tags: [Vendors]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: The ID of the vendor to fetch.
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Vendor details.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *                   example: "active"
+ *       404:
+ *         description: Vendor not found.
+ */
 router.get('/:id', [isAuthenticated, authorized(AccessRoles.VENDOR)], tryCatchHandler(getVendorById));
+
 /**
  * @swagger
  * /vendors/create-vendor:
  *   post:
  *     summary: Create a new vendor
  *     description: Adds a new vendor to the system.
- *     tags:
- *       - Vendors
+ *     tags: [Vendors]
  *     requestBody:
  *       required: true
  *       content:
@@ -71,8 +108,14 @@ router.post('/create-vendor',[isAuthenticated, authorized(AccessRoles.VENDOR)], 
  *   put:
  *     summary: Update vendor details
  *     description: Updates an existing vendor’s details.
- *     tags:
- *       - Vendors
+ *     tags: [Vendors]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: The ID of the vendor to update.
+ *         schema:
+ *           type: string
  *     requestBody:
  *       required: true
  *       content:
@@ -80,8 +123,6 @@ router.post('/create-vendor',[isAuthenticated, authorized(AccessRoles.VENDOR)], 
  *           schema:
  *             type: object
  *             properties:
- *               id:
- *                 type: string
  *               name:
  *                 type: string
  *               status:
@@ -101,17 +142,14 @@ router.put('/update-vendor/:id', [isAuthenticated, authorized(AccessRoles.VENDOR
  *   delete:
  *     summary: Delete a vendor
  *     description: Soft deletes a vendor by changing its status.
- *     tags:
- *       - Vendors
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               id:
- *                 type: string
+ *     tags: [Vendors]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: The ID of the vendor to delete.
+ *         schema:
+ *           type: string
  *     responses:
  *       200:
  *         description: Vendor deleted successfully.

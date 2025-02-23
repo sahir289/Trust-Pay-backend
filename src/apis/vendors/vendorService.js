@@ -37,9 +37,9 @@ const createVendorService = async (payload) => {
     }
 };
 
-const getVendorsService = async (payload) => {
+const getVendorsService = async (search,payload) => {
     try {
-        const data = await getVendorsDao(payload);
+        const data = await getVendorsDao(search,payload);
         console.log('Fetched Vendors successfully', 'info');
         return data;
     } catch (error) {
@@ -49,13 +49,13 @@ const getVendorsService = async (payload) => {
 };
 
 
-const updateVendorService = async (id, payload) => {
+const updateVendorService = async (id,company_id, payload) => {
     let conn;
     try {
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
 
-        const data = await updateVendorDao(id, payload); // Adjust DAO call for update
+        const data = await updateVendorDao(id,company_id,payload); // Adjust DAO call for update
 
         await commit(conn); // Commit the transaction
         console.log('Vendor updated successfully', 'info');
@@ -82,14 +82,14 @@ const updateVendorService = async (id, payload) => {
     }
 };
 
-const deleteVendorService = async (id) => {
+const deleteVendorService = async (id,company_id) => {
     let conn;
     try {
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
         const payload = { is_obsolete: true };
 
-        const data = await deleteVendorDao(id, payload); // Adjust DAO call for delete
+        const data = await deleteVendorDao(id,company_id,payload); // Adjust DAO call for delete
 
         await commit(conn); // Commit the transaction
         console.log('Vendor deleted successfully', 'info');

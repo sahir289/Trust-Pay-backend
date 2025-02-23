@@ -3,13 +3,14 @@ import { columns,tableName } from '../../constants/index.js';
 
 const getCompanyDao = async (
   search,
+  payload,
   page,
   pageSize,
   sortBy,
   sortOrder
 ) => {
-  const baseQuery = `SELECT * FROM "${tableName.COMPANY}" WHERE 1=1`;
-  const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.COMPANY, page, pageSize, sortBy, sortOrder, typeof search != 'string');
+  const baseQuery = `SELECT id,first_name,last_name FROM "${tableName.COMPANY}" WHERE 1=1`;
+  const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.COMPANY, page, pageSize, sortBy, sortOrder, typeof search != 'string',payload);
   // Execute query
   const result = await executeQuery(sql, queryParams);
   return result.rows;

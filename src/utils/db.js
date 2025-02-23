@@ -66,11 +66,9 @@ export const executeQuery = async (query, queryParams = []) => {
   }
 }
 
-
-export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = true, user) => {
+export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = true ,user) => {
   const page = p || 1, pageSize = ps || 10, sortBy = s || "created_at", sortOrder = o || "DESC";
   let filters = {};
-
   if (isJson) {
     filters = f;
   } else {
@@ -78,7 +76,6 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
       filters[key] = f;
     }
   }
-
   let query = baseQuery;
   let values = [];
   let conditions = [];
@@ -109,15 +106,21 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
       values.push(value);
     }
   }
-
+  if(user){
+    for (const key in user) {
+      const value = user[key];
+      if (value) {
+        conditions.push(`"${key}" = $${values.length + 1}`);
+        values.push(value);
+      }
+    }
+  }
   conditions.push(`is_obsolete = false`);
-
   if (conditions.length) {
     query += ` AND ${conditions.join(' AND ')}`;
   }
-
-  query += ` ORDER BY "${sortBy}" ${sortOrder} LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`;
-
+  // Apply sorting and pagination
+  query = applySortingAndPagination(query, values, columns, sortBy, sortOrder, page, pageSize);
   return [query, values];
 };
 
@@ -145,7 +148,7 @@ export const applySortingAndPagination = (query, values, columns = [], sortBy, s
 export const buildInsertQuery = (tableName, data) => {
   const keys = Object.keys(data).map((key) => `"${key}"`);
   const values = keys.map((el, i) => `$${i + 1}`);
-  const query = `INSERT INTO "${tableName}" (${keys.join(', ')}) VALUES (${values}) RETURNING *`;
+  const query = `INSERT INTO "${tableName}" (${keys.join(', ')}) VALUES (${values}) RETURNING id`;
   return [query, Object.values(data)];
 }
 
@@ -167,7 +170,7 @@ export const buildUpdateQuery = (tableName, data, whereCondition, specialFields 
     return `"${key}" = $${values.length}`;
   });
 
-  const query = `UPDATE "${tableName}" SET ${setClause.join(', ')} WHERE ${whereClause.join(' AND ')} RETURNING *`;
+  const query = `UPDATE "${tableName}" SET ${setClause.join(', ')} WHERE ${whereClause.join(' AND ')} RETURNING id`;
   return [query, values];
 };
 

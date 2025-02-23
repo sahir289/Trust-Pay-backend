@@ -44,9 +44,7 @@ export const generatePayInUrl = async (req, res) => {
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-
     const x_api_key = req.headers["x-api-key"];
-
     const result = await generatePayInUrlService({
         ...payload,
         x_api_key,

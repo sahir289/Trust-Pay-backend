@@ -2,9 +2,9 @@ import { BadRequestError } from '../../utils/appErrors.js';
 import { getComplaintsDao, createComplaintsDao, updateComplaintsDao, deleteComplaintsDao } from './complaintsDao.js';
 
 // Service to get complaints
-const getComplaintsService = async (payload) => {
+const getComplaintsService = async (search,payload) => {
     try {
-        const data = await getComplaintsDao(payload);
+        const data = await getComplaintsDao(search,payload);
         return data;
     } catch (error) {
         console.error('Error while fetching complaints', error);
@@ -24,12 +24,12 @@ const createComplaintsService = async (payload) => {
 }
 
 // Service to update an existing complaint
-const updateComplaintsService = async (id, body) => {
+const updateComplaintsService = async (id,company_id, body) => {
     try {
         if (!body || !id) {
             throw new BadRequestError('Missing required fields: body or id');
         }
-        const data = await updateComplaintsDao(id, body);
+        const data = await updateComplaintsDao(id,company_id, body);
         return data;
     } catch (error) {
         console.error('Error while updating complaint', error);
@@ -38,9 +38,9 @@ const updateComplaintsService = async (id, body) => {
 }
 
 // Service to delete a complaint
-const deleteComplaintsService = async (id, userData) => {
+const deleteComplaintsService = async (id,company_id, userData) => {
     try {
-        const data = await deleteComplaintsDao(id, userData);
+        const data = await deleteComplaintsDao(id,company_id, userData);
         return data;
     } catch (error) {
         console.error('Error while deleting complaint', error);

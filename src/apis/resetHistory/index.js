@@ -1,8 +1,8 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createResetHistory, deleteResetHistory, getResetHistory, updateResetHistory } from './ResetHistoryController.js';
-import { isAuthenticated } from '../../middlewares/auth.js';
-
+import { isAuthenticated,authorized } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
 
 /**
@@ -34,7 +34,7 @@ const router = express.Router();
  *                 data:
  *                   type: object
  */
-router.get('/', isAuthenticated, tryCatchHandler(getResetHistory));
+router.get('/', [isAuthenticated,authorized(AccessRoles.RESET_DATA_HISTORY)], tryCatchHandler(getResetHistory));
 
 /**
  * @swagger
@@ -68,7 +68,7 @@ router.get('/', isAuthenticated, tryCatchHandler(getResetHistory));
  *                 data:
  *                   type: object
  */
-router.post('/create-ResetHistory', isAuthenticated, tryCatchHandler(createResetHistory));
+router.post('/create-ResetHistory', [isAuthenticated,authorized(AccessRoles.RESET_DATA_HISTORY)], tryCatchHandler(createResetHistory));
 
 /**
  * @swagger
@@ -99,7 +99,7 @@ router.post('/create-ResetHistory', isAuthenticated, tryCatchHandler(createReset
  *       200:
  *         description: ResetHistory updated successfully.
  */
-router.put('/update-ResetHistory/:id', isAuthenticated, tryCatchHandler(updateResetHistory));
+router.put('/update-ResetHistory/:id', [isAuthenticated,authorized(AccessRoles.RESET_DATA_HISTORY)], tryCatchHandler(updateResetHistory));
 
 /**
  * @swagger
@@ -120,6 +120,6 @@ router.put('/update-ResetHistory/:id', isAuthenticated, tryCatchHandler(updateRe
  *       200:
  *         description: ResetHistory deleted successfully.
  */
-router.delete('/delete-ResetHistory/:id', isAuthenticated, tryCatchHandler(deleteResetHistory));
+router.delete('/delete-ResetHistory/:id', [isAuthenticated,authorized(AccessRoles.RESET_DATA_HISTORY)], tryCatchHandler(deleteResetHistory));
 
 export default router;

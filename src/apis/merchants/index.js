@@ -89,7 +89,7 @@ router.get('/:id', [isAuthenticated, authorized(AccessRoles.MERCHANT)], tryCatch
  *       400:
  *         description: Invalid request data.
  */
-router.post('/create-merchant',isAuthenticated, tryCatchHandler(createMerchant));
+router.post('/create-merchant',[isAuthenticated, authorized(AccessRoles.MERCHANT)], tryCatchHandler(createMerchant));
 
 /**
  * @swagger

@@ -30,10 +30,47 @@ const router = express.Router();
  *                   status:
  *                     type: string
  *                     example: "active"
+ *       401:
+ *         description: Unauthorized access
  */
 router.get('/', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHandler(getPayouts));
-router.get('/:id', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHandler(getPayoutsById));
 
+
+/**
+ * @swagger
+ * /payout/{id}:
+ *   get:
+ *     summary: Retrieve a specific payout by ID
+ *     description: Retrieves the details of a specific payout by its ID.
+ *     tags:
+ *       - Payout
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the payout to retrieve.
+ *     responses:
+ *       200:
+ *         description: Payout details retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: string
+ *                 name:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *       404:
+ *         description: Payout not found.
+ *       401:
+ *         description: Unauthorized access
+ */
+router.get('/:id', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHandler(getPayoutsById));
 /**
  * @swagger
  * /payout/create-payout:
@@ -60,6 +97,8 @@ router.get('/:id', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHa
  *         description: Payout created successfully.
  *       400:
  *         description: Invalid request data.
+ *       401:
+ *         description: Unauthorized access
  */
 router.post('/create-payout', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHandler(createPayout));
 
@@ -68,9 +107,16 @@ router.post('/create-payout', [isAuthenticated, authorized(AccessRoles.PAYOUT)],
  * /payout/update-payout/{id}:
  *   put:
  *     summary: Update payout details
- *     description: Updates an existing vendor’s details.
+ *     description: Updates an existing payout's details by its ID.
  *     tags:
  *       - Payout
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the payout to update.
  *     requestBody:
  *       required: true
  *       content:
@@ -78,10 +124,9 @@ router.post('/create-payout', [isAuthenticated, authorized(AccessRoles.PAYOUT)],
  *           schema:
  *             type: object
  *             properties:
- *               id:
- *                 type: string
  *               name:
  *                 type: string
+ *                 example: "Updated Payout"
  *               status:
  *                 type: string
  *                 example: "inactive"
@@ -90,6 +135,8 @@ router.post('/create-payout', [isAuthenticated, authorized(AccessRoles.PAYOUT)],
  *         description: Payout updated successfully.
  *       404:
  *         description: Payout not found.
+ *       401:
+ *         description: Unauthorized access
  */
 router.put('/update-payout/:id', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHandler(updatePayout));
 
@@ -98,23 +145,23 @@ router.put('/update-payout/:id', [isAuthenticated, authorized(AccessRoles.PAYOUT
  * /payout/delete-payout/{id}:
  *   delete:
  *     summary: Delete a payout
- *     description: Soft deletes a payout by changing its status.
+ *     description: Soft deletes a payout by changing its status to inactive.
  *     tags:
  *       - Payout
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               id:
- *                 type: string
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the payout to delete.
  *     responses:
  *       200:
  *         description: Payout deleted successfully.
  *       404:
  *         description: Payout not found.
+ *       401:
+ *         description: Unauthorized access
  */
 router.delete('/delete-payout/:id', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHandler(deletePayout));
 

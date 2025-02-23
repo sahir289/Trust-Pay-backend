@@ -7,12 +7,52 @@ const router = express.Router();
 
 /**
  * @swagger
+ * tags:
+ *   name: Designation
+ *   description: API endpoints for managing designations
+ */
+
+/**
+ * @swagger
  * /designation:
  *   get:
- *     summary: Get Designation by ID
- *     description: Retrieve details of a specific designation by its ID.
- *     tags:
- *       - Designation
+ *     summary: Get all designations
+ *     description: Retrieves the list of all designations.
+ *     tags: [Designation]
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved list of designations.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Designations retrieved successfully"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         example: "1"
+ *                       name:
+ *                         type: string
+ *                         example: "Manager"
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/', [isAuthenticated, authorized(AccessRoles.DESIGNATION)], tryCatchHandler(getDesignation));
+
+/**
+ * @swagger
+ * /designation/{id}:
+ *   get:
+ *     summary: Get a specific designation by ID
+ *     description: Retrieves the details of a specific designation by its ID.
+ *     tags: [Designation]
  *     parameters:
  *       - in: path
  *         name: id
@@ -33,18 +73,27 @@ const router = express.Router();
  *                   example: "Designation retrieved successfully"
  *                 data:
  *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       example: "1"
+ *                     name:
+ *                       type: string
+ *                       example: "Manager"
+ *       404:
+ *         description: Designation not found
+ *       500:
+ *         description: Internal server error
  */
-router.get('/', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(getDesignation));
-router.get('/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(getDesignationById));
+router.get('/:id', [isAuthenticated, authorized(AccessRoles.DESIGNATION)], tryCatchHandler(getDesignationById));
 
 /**
  * @swagger
  * /designation/create-designation:
  *   post:
- *     summary: Create a new Designation
- *     description: Creates a new designation with the provided details.
- *     tags:
- *       - Designation
+ *     summary: Create a new designation
+ *     description: Adds a new designation to the system with the provided details.
+ *     tags: [Designation]
  *     requestBody:
  *       required: true
  *       content:
@@ -68,17 +117,27 @@ router.get('/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatc
  *                   example: "Designation created successfully"
  *                 data:
  *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       example: "1"
+ *                     name:
+ *                       type: string
+ *                       example: "Manager"
+ *       400:
+ *         description: Bad request (validation error)
+ *       500:
+ *         description: Internal server error
  */
-router.post('/create-designation', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(createDesignation));
+router.post('/create-designation', [isAuthenticated, authorized(AccessRoles.DESIGNATION)], tryCatchHandler(createDesignation));
 
 /**
  * @swagger
  * /designation/update-designation/{id}:
  *   put:
- *     summary: Update an existing Designation
- *     description: Updates the details of a specific designation by ID.
- *     tags:
- *       - Designation
+ *     summary: Update an existing designation
+ *     description: Updates the details of a specific designation by its ID.
+ *     tags: [Designation]
  *     parameters:
  *       - in: path
  *         name: id
@@ -99,17 +158,28 @@ router.post('/create-designation', [isAuthenticated, authorized(AccessRoles.CHAR
  *     responses:
  *       200:
  *         description: Designation updated successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Designation updated successfully"
+ *       404:
+ *         description: Designation not found
+ *       500:
+ *         description: Internal server error
  */
-router.put('/update-designation/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(updateDesignation));
+router.put('/update-designation/:id', [isAuthenticated, authorized(AccessRoles.DESIGNATION)], tryCatchHandler(updateDesignation));
 
 /**
  * @swagger
  * /designation/delete-designation/{id}:
  *   delete:
- *     summary: Delete a Designation
- *     description: Deletes a designation by ID.
- *     tags:
- *       - Designation
+ *     summary: Delete a designation
+ *     description: Deletes a specific designation by its ID from the system.
+ *     tags: [Designation]
  *     parameters:
  *       - in: path
  *         name: id
@@ -120,7 +190,19 @@ router.put('/update-designation/:id', [isAuthenticated, authorized(AccessRoles.C
  *     responses:
  *       200:
  *         description: Designation deleted successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Designation deleted successfully"
+ *       404:
+ *         description: Designation not found
+ *       500:
+ *         description: Internal server error
  */
-router.delete('/delete-designation/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(deleteDesignation));
+router.delete('/delete-designation/:id', [isAuthenticated, authorized(AccessRoles.DESIGNATION)], tryCatchHandler(deleteDesignation));
 
 export default router;
