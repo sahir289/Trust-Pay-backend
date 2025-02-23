@@ -180,6 +180,6 @@ router.get('/get-all-vendors',[isAuthenticated, authorized(AccessRoles.REPORT)],
  *       500:
  *         description: Server error.
  */
-router.get('/weekly-vendor-report', isAuthenticated, tryCatchHandler(getVendorReportService));
+router.get('/weekly-vendor-report', [isAuthenticated, authorized(AccessRoles.REPORT)], tryCatchHandler(getVendorReportService));
 
 export default router;

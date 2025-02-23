@@ -49,7 +49,7 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/', [isAuthenticated,authorized(AccessRoles.COMPANY)], tryCatchHandler(getComplaints));
+router.get('/', [isAuthenticated,authorized(AccessRoles.COMPLAINTS)], tryCatchHandler(getComplaints));
 
 /**
  * @swagger
@@ -95,7 +95,7 @@ router.get('/', [isAuthenticated,authorized(AccessRoles.COMPANY)], tryCatchHandl
  *       500:
  *         description: Internal server error
  */
-router.get('/:id',  [isAuthenticated,authorized(AccessRoles.COMPANY)], tryCatchHandler(getComplaintsById));
+router.get('/:id',  [isAuthenticated,authorized(AccessRoles.COMPLAINTS)], tryCatchHandler(getComplaintsById));
 
 /**
  * @swagger
@@ -150,7 +150,7 @@ router.get('/:id',  [isAuthenticated,authorized(AccessRoles.COMPANY)], tryCatchH
  *       500:
  *         description: Internal server error
  */
-router.post('/create-complaint', [isAuthenticated,authorized(AccessRoles.COMPANY)], tryCatchHandler(createComplaints));
+router.post('/create-complaint', [isAuthenticated,authorized(AccessRoles.COMPLAINTS)], tryCatchHandler(createComplaints));
 
 /**
  * @swagger
@@ -194,7 +194,7 @@ router.post('/create-complaint', [isAuthenticated,authorized(AccessRoles.COMPANY
  *       500:
  *         description: Internal server error
  */
-router.put('/update-complaint/:id',  [isAuthenticated,authorized(AccessRoles.COMPANY)], tryCatchHandler(updateComplaints));
+router.put('/update-complaint/:id',  [isAuthenticated,authorized(AccessRoles.COMPLAINTS)], tryCatchHandler(updateComplaints));
 
 /**
  * @swagger
@@ -225,6 +225,6 @@ router.put('/update-complaint/:id',  [isAuthenticated,authorized(AccessRoles.COM
  *       500:
  *         description: Internal server error
  */
-router.delete('/delete-complaint/:id',  [isAuthenticated,authorized(AccessRoles.COMPANY)], tryCatchHandler(deleteComplaints));
+router.delete('/delete-complaint/:id',  [isAuthenticated,authorized(AccessRoles.COMPLAINTS)], tryCatchHandler(deleteComplaints));
 
 export default router;

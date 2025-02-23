@@ -44,7 +44,7 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(getDesignation));
+router.get('/', [isAuthenticated, authorized(AccessRoles.DESIGNATION)], tryCatchHandler(getDesignation));
 
 /**
  * @swagger
@@ -85,7 +85,7 @@ router.get('/', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHa
  *       500:
  *         description: Internal server error
  */
-router.get('/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(getDesignationById));
+router.get('/:id', [isAuthenticated, authorized(AccessRoles.DESIGNATION)], tryCatchHandler(getDesignationById));
 
 /**
  * @swagger
@@ -129,7 +129,7 @@ router.get('/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatc
  *       500:
  *         description: Internal server error
  */
-router.post('/create-designation', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(createDesignation));
+router.post('/create-designation', [isAuthenticated, authorized(AccessRoles.DESIGNATION)], tryCatchHandler(createDesignation));
 
 /**
  * @swagger
@@ -171,7 +171,7 @@ router.post('/create-designation', [isAuthenticated, authorized(AccessRoles.CHAR
  *       500:
  *         description: Internal server error
  */
-router.put('/update-designation/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(updateDesignation));
+router.put('/update-designation/:id', [isAuthenticated, authorized(AccessRoles.DESIGNATION)], tryCatchHandler(updateDesignation));
 
 /**
  * @swagger
@@ -203,6 +203,6 @@ router.put('/update-designation/:id', [isAuthenticated, authorized(AccessRoles.C
  *       500:
  *         description: Internal server error
  */
-router.delete('/delete-designation/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(deleteDesignation));
+router.delete('/delete-designation/:id', [isAuthenticated, authorized(AccessRoles.DESIGNATION)], tryCatchHandler(deleteDesignation));
 
 export default router;
