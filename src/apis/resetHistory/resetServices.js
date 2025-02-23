@@ -1,5 +1,4 @@
 import { BadRequestError } from '../../utils/appErrors.js';
-import { getConnection } from '../../utils/db.js';
 import { createResetHistoryDao, deleteResetHistoryDao, getResetHistoryDao, updateResetHistoryDao } from './ResetHistoryDao.js';
 
 
@@ -7,22 +6,12 @@ import { createResetHistoryDao, deleteResetHistoryDao, getResetHistoryDao, updat
 
 
 const getResetHistoryService = async (id) => {
-  let conn;
   try {
-    conn = await getConnection();
     const result = await getResetHistoryDao(id);
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);
     throw new BadRequestError('Error getting while logging in');
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 const createResetHistoryService = async (payload) => {
@@ -33,7 +22,7 @@ const createResetHistoryService = async (payload) => {
     return result;
   } catch (error) {
     console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    // throw new BadRequestError('Error getting while logging in');
   }
 };
 
@@ -60,4 +49,4 @@ const deleteResetHistoryService = async (id) => {
 
 
 
-export {  getResetHistoryService, createResetHistoryService, updateResetHistoryService, deleteResetHistoryService };
+export { getResetHistoryService, createResetHistoryService, updateResetHistoryService, deleteResetHistoryService };

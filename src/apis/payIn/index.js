@@ -17,6 +17,7 @@ router.post("/process-by-image/:payInId", multerUpload.single("file"), tryCatchH
 
 // Telegram API's
 router.post('/telegram-ocr', tryCatchHandler(telegramOCR))
+router.post('/telegram-check-utr', tryCatchHandler(telegramOCR))
 
 // Authenticated API's
 router.use(isAuthenticated)

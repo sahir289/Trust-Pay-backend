@@ -1,4 +1,5 @@
 import Joi from 'joi';
+import { BankTypes } from '../constants/index.js';
 
 export const ASSIGN_PAYIN_SCHEMA = Joi.object({
   ot: Joi.string().label('ot').optional(),
@@ -15,7 +16,8 @@ export const VALIDATE_PAYIN_SCHEMA = Joi.object({
 
 export const VALIDATE_ASSIGNED_BANT_TO_PAY = Joi.object({
   payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
-  amount: Joi.number().positive().label('amount').required()
+  amount: Joi.number().positive().label('amount').required(),
+  type: Joi.string().valid(...Object.values(BankTypes)).label('type').required(),
 })
 
 export const VALIDATE_EXPIRE_PAY_IN_URL = Joi.object({
@@ -64,4 +66,9 @@ export const VALIDATE_DISPUTE_DUPLICATE_TRANSACTION = Joi.object({
   merchantOrderId: Joi.string().label('merchantOrderId').optional(),
   confirmed: Joi.number().min(1).label('confirmed').optional(),
   amount: Joi.number().min(1).label('amount').optional(),
+});
+
+export const VALIDATE_CHECK_UTR = Joi.object({
+  utr: Joi.string().label('utr').required(),
+  merchantOrderId: Joi.string().label('merchantOrderId').required(),
 });
