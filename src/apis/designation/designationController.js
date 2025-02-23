@@ -5,13 +5,14 @@ import { getDesignationService, createDesignationService, updateDesignationServi
 
 const getDesignation = async (req, res) => {
   try {
+    const { role } = req.user;
     const payload = req.query.search;
     
     const joiValidation = VALIDATE_DESIGNATION_BY_ID.validate(req.params);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-    const data = await getDesignationService(payload);
+    const data = await getDesignationService(payload, role);
     console.log('get Designations  successfully');
     return sendSuccess(res, data, 'get  Designations successfully');
   } catch (error) {
@@ -20,8 +21,9 @@ const getDesignation = async (req, res) => {
 };
 const getDesignationById = async (req, res) => {
   try {
+    const { role } = req.user;
     const {id}= req.params;
-    const data = await getDesignationService({id:id});
+    const data = await getDesignationService({id:id}, role);
     console.log('get Designation  successfully');
     return sendSuccess(res, data, 'get  Designation successfully');
   } catch (error) {
@@ -31,6 +33,7 @@ const getDesignationById = async (req, res) => {
 
 const createDesignation = async (req, res) => {
   try {
+    const { role } = req.user;
     const payload = req.body;
     const joiValidation = CREATE_DESIGNATION_SCHEMA.validate(payload);
     if (joiValidation.error) {
@@ -40,7 +43,7 @@ const createDesignation = async (req, res) => {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await createDesignationService(payload);
+    const data = await createDesignationService(payload, role);
     console.log('get Designations successfully');
     return sendSuccess(res, data, 'get Designations successfully');
   } catch (error) {
@@ -51,13 +54,13 @@ const createDesignation = async (req, res) => {
 const updateDesignation = async (req, res) => {
   try {
     const payload = req.body;
-    
+    const { role } = req.user;
     const joiValidation = UPDATE_DESIGNATION_SCHEMA.validate(req.params);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
     const { id } = req.params;
-    const data = await updateDesignationService(id, payload);
+    const data = await updateDesignationService(id, payload, role);
     return sendSuccess(res, data, 'get Designations successfully');
   } catch (error) {
     console.error('error getting while updating designations', error);
@@ -67,11 +70,12 @@ const updateDesignation = async (req, res) => {
 const deleteDesignation = async (req, res) => {
   try {
     const { id } = req.params;
+    const { role } = req.user;
     if (!id) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await deleteDesignationService(id);
+    const data = await deleteDesignationService(id, role);
     console.log('get Designations successfully');
     return sendSuccess(res, data, 'get Designations successfully');
   } catch (error) {

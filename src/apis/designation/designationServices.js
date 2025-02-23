@@ -1,11 +1,12 @@
+import { merchantColumns, Role } from '../../constants/index.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
 import { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao } from './designationDao.js';
 
-const getDesignationService = async (payload) => {
+const getDesignationService = async (payload, role) => {
   let conn;
   try {
-
+    const filterColumns = role === Role.MERCHANT ? merchantColumns.DESIGNATION : role === Role.VENDOR ? vendorColumns.DESIGNATION : columns.DESIGNATION;
     conn = await getConnection();
     const result = await getDesignationDao(payload);
     return result;
@@ -23,7 +24,7 @@ const getDesignationService = async (payload) => {
   }
 };
 
-const createDesignationService = async (payload) => {
+const createDesignationService = async (payload, role) => {
   try {
     
     const result = await createDesignationDao(payload);
@@ -35,7 +36,7 @@ const createDesignationService = async (payload) => {
   }
 };
 
-const updateDesignationService = async (id, payload) => {
+const updateDesignationService = async (id, payload, role) => {
   try {
     const result = await updateDesignationDao(id, payload);
     return result;
@@ -45,7 +46,7 @@ const updateDesignationService = async (id, payload) => {
   }
 };
 
-const deleteDesignationService = async (id) => {
+const deleteDesignationService = async (id, role) => {
   try {
     const result = await deleteDesignationDao(id, { is_obsolete: true });
     return result;

@@ -7,8 +7,8 @@ import { createCompanyService, deleteCompanyService, getCompanyService, updateCo
 const getCompany = async (req, res) => {
   try {
     const { id } = req.params;
-    const data = await getCompanyService(id);
-
+    const { role } = req.user;
+    const data = await getCompanyService(id, role);
     return sendSuccess(res, data, 'get Company successfully');
   } catch (error) {
     console.error('error getting while Company', error);
@@ -31,7 +31,8 @@ const createCompany = async (req, res) => {
     }
     
     // Pass the connection to the service to perform database operations
-    const data = await createCompanyService(payload);
+    const { role } = req.user;
+    const data = await createCompanyService(payload, role);
     
     // Commit the transaction after the operation
     await commit(conn); // Await commit to ensure it is successfully committed
@@ -66,7 +67,8 @@ const updateCompany = async (req, res) => {
   try {
     const payload = req.body;
     const { id } = req.params;
-    const data = await updateCompanyService(id, payload);
+    const { role } = req.user;
+    const data = await updateCompanyService(id, payload, role);
     return sendSuccess(res, data, 'Update Company successfully');
   } catch (error) {
     console.error('error getting while getting Company', error);
@@ -76,11 +78,12 @@ const updateCompany = async (req, res) => {
 const deleteCompany = async (req, res) => {
   try {
     const { id } = req.params;
+    const { role } = req.user;
     if (!id) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await deleteCompanyService(id);
+    const data = await deleteCompanyService(id, role);
     console.log('Delete Company successfully');
     return sendSuccess(res, data, 'Delete Company successfully');
   } catch (error) {

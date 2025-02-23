@@ -7,9 +7,12 @@ import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getBankaccountDao, updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { CREATE_SETTLEMENT_SCHEMA, UPDATE_SETTLEMENT_SCHEMA, VALIDATE_SETTLEMENT_BY_ID } from '../../schemas/settlementSchema.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
+import { merchantColumns, Role } from '../../constants/index.js';
 
 const getSettlementService = async (req, res) => {
   try {
+    const { role } = req.user;
+    const filterColumns = role === Role.MERCHANT ? merchantColumns.SETTLEMENT : role === Role.VENDOR ? vendorColumns.SETTLEMENT : columns.SETTLEMENT;
     const { payload } = req.params;
     const { company_id } = req.user;
     const joiValidation = VALIDATE_SETTLEMENT_BY_ID.validate(payload);
@@ -18,7 +21,8 @@ const getSettlementService = async (req, res) => {
     }
 
     const data = await getSettlementDao({ payload, company_id });
-    return sendSuccess(res, data, 'get settlements successfully');
+    const finalResult = await filterResponse(data, filterColumns);
+    return finalResult;
   } catch (error) {
     console.error('error getting while  getting settlements', error);
     throw new BadRequestError('Error getting while getting settlements');
@@ -27,6 +31,8 @@ const getSettlementService = async (req, res) => {
 
 const getSettlementServiceAll = async (req, res) => {
   try {
+    const { role } = req.user;
+    const filterColumns = role === Role.MERCHANT ? merchantColumns.SETTLEMENT : role === Role.VENDOR ? vendorColumns.SETTLEMENT : columns.SETTLEMENT;
     const payload = req.query;
     const { company_id } = req.user;
     const user = {};
@@ -35,7 +41,8 @@ const getSettlementServiceAll = async (req, res) => {
     if (!settlementData) {
       throw new BadRequestError('Error getting while getting settlements');
     }
-    return sendSuccess(res, settlementData, 'get settlements successfully');
+    const finalResult = await filterResponse(settlementData, filterColumns);
+    return finalResult;
   } catch (error) {
     console.error('error getting while  getting settlements', error);
     throw new BadRequestError('Error getting while getting settlements');
@@ -45,6 +52,8 @@ const getSettlementServiceAll = async (req, res) => {
 const createSettlementService = async (req, res) => {
   let conn;
   try {
+    const { role } = req.user;
+    const filterColumns = role === Role.MERCHANT ? merchantColumns.SETTLEMENT : role === Role.VENDOR ? vendorColumns.SETTLEMENT : columns.SETTLEMENT;
     conn = await getConnection();
     await beginTransaction(conn);
     const payload = req.body;
@@ -56,7 +65,8 @@ const createSettlementService = async (req, res) => {
     }
     const data = await createSettlementDao(payload);
     await commit(conn);
-    return sendSuccess(res, data, 'create settlements successfully');
+    const finalResult = await filterResponse(data, filterColumns);
+    return finalResult;
   } catch (error) {
     if (conn) {
       try {
@@ -83,6 +93,8 @@ const createSettlementService = async (req, res) => {
 const updateSettlementService = async (req, res) => {
   let conn;
   try {
+    const { role } = req.user;
+    const filterColumns = role === Role.MERCHANT ? merchantColumns.SETTLEMENT : role === Role.VENDOR ? vendorColumns.SETTLEMENT : columns.SETTLEMENT;
     conn = await getConnection();
     await beginTransaction(conn);
     const { id } = req.params;
@@ -143,7 +155,8 @@ const updateSettlementService = async (req, res) => {
 
     const updateData = await updateSettlementDao(ids, payload);
     await commit(conn);
-    return sendSuccess(res, updateData, 'update settlements successfully');
+    const finalResult = await filterResponse(updateData, filterColumns);
+    return finalResult;
   } catch (error) {
     if (conn) {
       try {
@@ -167,7 +180,8 @@ const updateSettlementService = async (req, res) => {
 
 const deleteSettlementService = async (req, res) => {
   try {
-
+    const { role } = req.user;
+    const filterColumns = role === Role.MERCHANT ? merchantColumns.SETTLEMENT : role === Role.VENDOR ? vendorColumns.SETTLEMENT : columns.SETTLEMENT;
     const { id } = req.params;
     const { company_id } = req.user;
     const ids = { id, company_id }
@@ -176,7 +190,8 @@ const deleteSettlementService = async (req, res) => {
       throw new ValidationError(joiValidation.error);
     }
     const updatedData = await deleteSettlementDao(ids, { is_obsolete: true })
-    return sendSuccess(res, updatedData, 'delete settlements successfully');
+    const finalResult = await filterResponse(updateData, filterColumns);
+    return finalResult;
   } catch (error) {
     console.error('error getting while deleting settlement', error);
     throw new BadRequestError('Error getting while delete settlement');

@@ -7,15 +7,15 @@ import { createVendorDao, deleteVendorDao, getVendorsDao, updateVendorDao } from
 const createVendorService = async (payload) => {
     let conn;
     try {
+        const filterColumns = vendorColumns.VENDOR;
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
-
         const data = await createVendorDao(payload);
-
         await commit(conn); // Commit the transaction
         console.log('Vendor created successfully', 'info');
 
-        return data;
+        const finalResult = await filterResponse(data, filterColumns);
+        return finalResult;
     } catch (error) {
         if (conn) {
             try {
@@ -39,10 +39,13 @@ const createVendorService = async (payload) => {
 
 const getVendorsService = async (payload) => {
     try {
+        const filterColumns = vendorColumns.VENDOR;
+
         const data = await getVendorsDao(payload);
         console.log('Fetched Vendors successfully', 'info');
-        return data;
-    } catch (error) {
+        const finalResult = await filterResponse(data, filterColumns);
+        return finalResult;
+        } catch (error) {
         console.error('Error while fetching vendors', error);
         throw new BadRequestError('Error occurred while fetching vendors');
     }
@@ -52,6 +55,8 @@ const getVendorsService = async (payload) => {
 const updateVendorService = async (id, payload) => {
     let conn;
     try {
+        const filterColumns = vendorColumns.VENDOR;
+
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
 
@@ -60,8 +65,9 @@ const updateVendorService = async (id, payload) => {
         await commit(conn); // Commit the transaction
         console.log('Vendor updated successfully', 'info');
 
-        return data;
-    } catch (error) {
+        const finalResult = await filterResponse(data, filterColumns);
+        return finalResult;
+        } catch (error) {
         if (conn) {
             try {
                 await rollback(conn); // Rollback the transaction in case of error
@@ -85,6 +91,8 @@ const updateVendorService = async (id, payload) => {
 const deleteVendorService = async (id) => {
     let conn;
     try {
+        const filterColumns = vendorColumns.VENDOR;
+
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
         const payload = { is_obsolete: true };
@@ -94,8 +102,9 @@ const deleteVendorService = async (id) => {
         await commit(conn); // Commit the transaction
         console.log('Vendor deleted successfully', 'info');
 
-        return data;
-    } catch (error) {
+        const finalResult = await filterResponse(data, filterColumns);
+        return finalResult;
+        } catch (error) {
         if (conn) {
             try {
                 await rollback(conn); // Rollback the transaction in case of error

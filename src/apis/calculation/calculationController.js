@@ -7,6 +7,7 @@ import { ValidationError } from '../../utils/appErrors.js';
 const getCalculationById = async (req, res) => {
   try {
     // Validate request parameters using Joi schema
+    const { role } = req.user;
     const { error } = VALIDATE_CALCULATION_BY_USER_ID.validate(req.params);
     if (error) {
       throw new ValidationError(error);
@@ -29,9 +30,10 @@ const getCalculationById = async (req, res) => {
 
 const getCalculation = async (req, res) => {
   try {
+    const { role } = req.user;
     // You can add additional validation here if needed, depending on the request
     const payload = req.query.search;
-    const data = await getCalculationService(payload);
+    const data = await getCalculationService(payload, role);
     console.info('Get Calculations successfully', 'info');
     return sendSuccess(res, data, 'Get Calculations successfully');
   } catch (error) {
@@ -42,6 +44,7 @@ const getCalculation = async (req, res) => {
 
 const createCalculation = async (req, res) => {
   try {
+    const { role } = req.user;
     // Validate the request body using Joi schema
     const { error } = VALIDATE_CALCULATION_SCHEMA.validate(req.body);
     if (error) {
@@ -49,7 +52,7 @@ const createCalculation = async (req, res) => {
     }
 
     const body = req.body;
-    const data = await createCalculationService(body);
+    const data = await createCalculationService(body, role);
     console.info('Create Calculation successfully', 'info');
     return sendSuccess(res, data, 'Create Calculation successfully');
   } catch (error) {
@@ -60,6 +63,7 @@ const createCalculation = async (req, res) => {
 
 const updateCalculation = async (req, res) => {
   try {
+    const { role } = req.user;
     // Validate the request body and params using Joi schema
     const { error: bodyError } = VALIDATE_UPDATE_CALCULATION_STATUS.validate(req.body);
     const { error: paramsError } = VALIDATE_CALCULATION_BY_USER_ID.validate(req.params);
@@ -69,7 +73,7 @@ const updateCalculation = async (req, res) => {
     const payload = req.body;
     const { id } = req.params;  // Assuming the Payout ID is passed as a parameter
     // Call the service to update the Payout
-    const data = await transactionWrapper(updateCalculationService)(id, payload);
+    const data = await transactionWrapper(updateCalculationService)(id, payload, role);
     console.info('Update Calculation successfully', 'info');
     return sendSuccess(res, data, 'Update Calculation successfully');
   } catch (error) {
@@ -81,6 +85,7 @@ const updateCalculation = async (req, res) => {
 // const result = await transactionWrapper(updatePayoutService)(id, payload);
 const deleteCalculation = async (req, res) => {
   try {
+    const { role } = req.user;
     // Validate the request params using Joi schema
     const { error } = VALIDATE_DELETE_CALCULATION.validate(req.params);
    if (error) {
@@ -88,7 +93,7 @@ const deleteCalculation = async (req, res) => {
     }
 
     const params = req.params;
-    const data = await transactionWrapper(deleteCalculationService)(params.id);     
+    const data = await transactionWrapper(deleteCalculationService)(params.id, role);     
     console.info('Delete Calculation successfully', 'info');
     return sendSuccess(res, data, 'Delete Calculation successfully');
   } catch (error) {

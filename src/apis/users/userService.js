@@ -35,6 +35,8 @@ const getUsersService = async (role) => {
 const getUserByIdService = async (id) => {
   let conn;
   try {
+    const filterColumns = role === Role.MERCHANT ? merchantColumns.USER : role === Role.VENDOR ? vendorColumns.USER : columns.USER;
+
     conn = await getConnection();
     const result = await getUserByIdDao(conn, id);
 
@@ -43,7 +45,8 @@ const getUserByIdService = async (id) => {
       throw new ValidationError(joiValidation.error);
     }
     console.log('get User by id successfully');
-    return result;
+    const finalResult = await filterResponse(result, filterColumns);
+    return finalResult;
   } catch (error) {
     console.error('error getting while getting user by id', error);
     throw new BadRequestError('Error getting while getting user by id');
@@ -61,12 +64,15 @@ const getUserByIdService = async (id) => {
 const getUsersByUserNameService = async (username) => {
   let conn;
   try {
+    const filterColumns = role === Role.MERCHANT ? merchantColumns.USER : role === Role.VENDOR ? vendorColumns.USER : columns.USER;
+
     conn = await getConnection();
 
     const data = await getUsersByUserNameDao(conn, username);
     console.log('get Users successfully');
 
-    return data;
+    const finalResult = await filterResponse(data, filterColumns);
+    return finalResult;
   } catch (error) {
     console.error('error getting while logging in', error);
     throw new BadRequestError('Error getting while logging in');
@@ -84,6 +90,8 @@ const getUsersByUserNameService = async (username) => {
 const createUserService = async (payload) => {
   let conn;
   try {
+    const filterColumns = role === Role.MERCHANT ? merchantColumns.USER : role === Role.VENDOR ? vendorColumns.USER : columns.USER;
+
     conn = await getConnection();
     const { user_name } = payload;
     const joiValidation = CREATE_USER_SCHEMA.validate(payload);
@@ -137,7 +145,8 @@ const createUserService = async (payload) => {
     //   await createVendorService(vendorPayload);
     // }
     console.log('User Created Successfully');
-    return User;
+    const finalResult = await filterResponse(User, filterColumns);
+    return finalResult;
   } catch (error) {
     console.error('error getting while creating user', error);
     throw new BadRequestError('Error getting while creating user');

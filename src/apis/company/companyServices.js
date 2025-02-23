@@ -9,8 +9,11 @@ const getCompanyService = async (id) => {
   let conn;
   try {
     conn = await getConnection();
+    const filterColumns = role === Role.MERCHANT ? merchantColumns.COMPANY : role === Role.VENDOR ? vendorColumns.COMPANY : columns.COMPANY;
+    
     const result = await getCompanyDao(id);
-    return result;
+    const finalResult = await filterResponse(result, filterColumns);
+    return finalResult;
   } catch (error) {
     console.error('error getting while company', error);
     throw new BadRequestError('Error getting while company');
@@ -28,6 +31,8 @@ const getCompanyService = async (id) => {
 const createCompanyService = async (payload) => {
   let conn;
   try {
+    const filterColumns = role === Role.MERCHANT ? merchantColumns.COMPANY : role === Role.VENDOR ? vendorColumns.COMPANY : columns.COMPANY;
+
     conn = await getConnection();
     await beginTransaction(conn);
     const result = await createCompanyDao(payload);
@@ -68,7 +73,8 @@ const createCompanyService = async (payload) => {
     await commit(conn);
 
     // Return the result if all is successful
-    return result;
+    const finalResult = await filterResponse(result, filterColumns);
+    return finalResult;
   } catch (error) {
     // Rollback transaction in case of an error
     if (conn) {
@@ -100,10 +106,18 @@ const createCompanyService = async (payload) => {
 
 
 const updateCompanyService = async (id, payload) => {
-  transactionWrapper(updateCompanyDao)(id, payload);
+  const filterColumns = role === Role.MERCHANT ? merchantColumns.COMPANY : role === Role.VENDOR ? vendorColumns.COMPANY : columns.COMPANY;
+
+  const result= transactionWrapper(updateCompanyDao)(id, payload);
+  const finalResult = await filterResponse(result, filterColumns);
+  return finalResult;
 };
 const deleteCompanyService = async (id) => {
-  transactionWrapper(deleteCompanyDao)(id, { is_obsolete: true });
+  const filterColumns = role === Role.MERCHANT ? merchantColumns.COMPANY : role === Role.VENDOR ? vendorColumns.COMPANY : columns.COMPANY;
+
+  const result= transactionWrapper(deleteCompanyDao)(id, { is_obsolete: true });
+  const finalResult = await filterResponse(result, filterColumns);
+  return finalResult;
 };
 
 export { getCompanyService, createCompanyService, updateCompanyService, deleteCompanyService };

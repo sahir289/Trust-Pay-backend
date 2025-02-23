@@ -1,3 +1,4 @@
+import { merchantColumns } from '../../constants/index.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
@@ -10,19 +11,22 @@ import { getMerchantReportDao, getPayInMerchantReportDao, getPayInVendorReportDa
 
 const getPayInReportService = async (req, res) => {
     try {
-        const { merchant_id, vendor_id , startDate, endDate , method   } = req.body;
+        const { role } = req.user;
+        const filterColumns = role === Role.MERCHANT ? merchantColumns.REPORT : role === Role.VENDOR ? vendorColumns.REPORT : columns.REPORT;
+
+        const { merchant_id, vendor_id, startDate, endDate, method } = req.body;
         let result;
         if (merchant_id) {
-            result = await getPayInMerchantReportDao(merchant_id, startDate, endDate );
+            result = await getPayInMerchantReportDao(merchant_id, startDate, endDate);
         }
         if (vendor_id) {
-            const vendorData = await getVendorsDao({id: vendor_id})
-            const bankVendorData = await getBankaccountDao({user_id :  vendorData.user_id}   );
-            result = await getPayInVendorReportDao(bankVendorData.id, startDate, endDate , method );
+            const vendorData = await getVendorsDao({ id: vendor_id })
+            const bankVendorData = await getBankaccountDao({ user_id: vendorData.user_id });
+            result = await getPayInVendorReportDao(bankVendorData.id, startDate, endDate, method);
             console.log(result.rows, "ujytgfgdcvbn")
         }
-        return sendSuccess(res, result, 'getUsers successfully');
-
+        const finalResult = await filterResponse(result, filterColumns);
+        return finalResult;
     } catch (error) {
         console.error('error getting while logging in', error);
         throw new BadRequestError('Error getting while logging in');
@@ -30,41 +34,52 @@ const getPayInReportService = async (req, res) => {
 };
 const getPayOutReportService = async (req, res) => {
     try {
-        const { merchant_id, vendor_id , startDate, endDate , method   } = req.body;
+        const { role } = req.user;
+        const filterColumns = role === Role.MERCHANT ? merchantColumns.REPORT : role === Role.VENDOR ? vendorColumns.REPORT : columns.REPORT;
+
+        const { merchant_id, vendor_id, startDate, endDate, method } = req.body;
         let result;
         if (merchant_id) {
-            result = await getPayOutMerchantReportDao(merchant_id , startDate, endDate);
+            result = await getPayOutMerchantReportDao(merchant_id, startDate, endDate);
         }
         if (vendor_id) {
             const vendorData = await getBankaccountDao(vendor_id);
             const bankData = await getVendorsDao({ searchString: vendorData.user_id });
-            result = await getPayOutVendorReportDao(bankData.id , startDate, endDate , method  );
+            result = await getPayOutVendorReportDao(bankData.id, startDate, endDate, method);
         }
-        return sendSuccess(res, result, 'getUsers successfully');
+        const finalResult = await filterResponse(result, filterColumns);
+        return finalResult;
     } catch (error) {
         console.error('error getting while logging in', error);
         throw new BadRequestError('Error getting while logging in');
     }
 }; const getMerchantReportService = async (req, res) => {
     try {
-        const { merchant_id , startDate, endDate } = req.query;
+        const { role } = req.user;
+        const filterColumns = role === Role.MERCHANT ? merchantColumns.REPORT : role === Role.VENDOR ? vendorColumns.REPORT : columns.REPORT;
+
+        const { merchant_id, startDate, endDate } = req.query;
 
         const result = await getMerchantReportDao(merchant_id, startDate, endDate);
-        return sendSuccess(res, result, 'getUsers successfully');
+        const finalResult = await filterResponse(result, filterColumns);
+        return finalResult;
     } catch (error) {
         console.error('error getting while logging in', error);
         throw new BadRequestError('Error getting while logging in');
     }
 }; const getVendorReportService = async (req, res) => {
     try {
-        const { vendor_id, startDate, endDate , method  } = req.query;
-        const vendorData = await getVendorsDao({id: vendor_id})
-        const bankVendorData = await getBankaccountDao({user_id :  vendorData.user_id}   );
+        const { role } = req.user;
+        const filterColumns = role === Role.MERCHANT ? merchantColumns.REPORT : role === Role.VENDOR ? vendorColumns.REPORT : columns.REPORT;
 
-       
-        const result = await getPayOutVendorReportDao(bankVendorData.id,  startDate, endDate , method );        
-        return sendSuccess(res, result, 'getUsers successfully');
-        
+        const { vendor_id, startDate, endDate, method } = req.query;
+        const vendorData = await getVendorsDao({ id: vendor_id })
+        const bankVendorData = await getBankaccountDao({ user_id: vendorData.user_id });
+
+
+        const result = await getPayOutVendorReportDao(bankVendorData.id, startDate, endDate, method);
+        const finalResult = await filterResponse(result, filterColumns);
+        return finalResult;
     } catch (error) {
         console.error('error getting while logging in', error);
         throw new BadRequestError('Error getting while logging in');

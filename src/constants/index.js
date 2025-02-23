@@ -76,6 +76,7 @@ export const merchantColumns = {
     PAYOUT: ['id', 'sno', 'user', 'amount', 'status', 'failed_reason', 'currency', 'merchant_order_id', 'acc_no', 'acc_holder_name', 'ifsc_code', 'bank_name', 'upi_id', 'utr_id', 'rejected_reason', 'payout_merchant_commission', 'config'],
     CHAREBACK: ['sno', 'user', 'merchant_user_id', 'amount', 'when'],
     USER_HIERARCHY: ['config'],
+
 }
 export const vendorColumns = {
     USER: ['first_name', 'last_name', 'email', 'contact_no', 'user_name', 'code', 'config'],
@@ -87,6 +88,7 @@ export const vendorColumns = {
     BANK_ACCOUNT: ['sno', 'upi_id', 'upi_params', 'name', 'acc_no', 'acc_name', 'ifsc_code', 'bank_name', 'is_qr', 'is_bank', 'is_enabled', 'payin_count', 'balance', 'today_balance', 'bank_used_for', 'config'],
     VENDOR: ['first_name', 'last_name', 'code', 'payin_commission', 'payout_commission', 'balance', 'config'],
     CHAREBACK: ['sno', 'user', 'vendor_user_id', 'bank_acc_id', 'amount', 'when'],
+
 }
 
 export const tableName = {
