@@ -5,7 +5,8 @@ import { beginTransaction, commit, getConnection, rollback } from '../../utils/d
 import { createMerchantDao, deleteMerchantDao, getMerchantsDao, updateMerchantDao } from './merchantDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
 import { createUserHierarchyDao, getUserHierarchysDao, updateUserHierarchyDao } from '../userHierarchy/userHierarchyDao.js';
-import { merchantColumns, Method, Role } from '../../constants/index.js';
+import { merchantColumns, Method } from '../../constants/index.js';
+import { filterResponse } from '../../helpers/index.js';
 
 // Create Merchant Service
 const createMerchantService = async (payload) => {

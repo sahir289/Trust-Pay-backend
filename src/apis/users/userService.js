@@ -32,7 +32,7 @@ const getUsersService = async (role) => {
   }
 };
 
-const getUserByIdService = async (id) => {
+const getUserByIdService = async (id, role) => {
   let conn;
   try {
     const filterColumns = role === Role.MERCHANT ? merchantColumns.USER : role === Role.VENDOR ? vendorColumns.USER : columns.USER;
@@ -61,7 +61,7 @@ const getUserByIdService = async (id) => {
   }
 };
 
-const getUsersByUserNameService = async (username) => {
+const getUsersByUserNameService = async (username, role) => {
   let conn;
   try {
     const filterColumns = role === Role.MERCHANT ? merchantColumns.USER : role === Role.VENDOR ? vendorColumns.USER : columns.USER;
@@ -87,7 +87,7 @@ const getUsersByUserNameService = async (username) => {
   }
 };
 
-const createUserService = async (payload) => {
+const createUserService = async (payload, role) => {
   let conn;
   try {
     const filterColumns = role === Role.MERCHANT ? merchantColumns.USER : role === Role.VENDOR ? vendorColumns.USER : columns.USER;

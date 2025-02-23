@@ -18,7 +18,7 @@ const getCalculationById = async (req, res) => {
     // Fetch the calculation data by 'id'
     const payload=null;
     const data = await getCalculationService({
-    ids,payload
+    ids,payload, role
     });
     console.info('Get Calculation successfully', 'info');
     // Respond with the calculation data

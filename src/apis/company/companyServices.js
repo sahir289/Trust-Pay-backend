@@ -5,7 +5,9 @@ import { createUserService } from '../users/userService.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { createDesignationService } from '../designation/designationServices.js';
 import { createRoleDao } from '../roles/rolesDao.js';
-const getCompanyService = async (id) => {
+import { columns, merchantColumns, Role, vendorColumns } from '../../constants/index.js';
+import { filterResponse } from '../../helpers/index.js';
+const getCompanyService = async (id, role) => {
   let conn;
   try {
     conn = await getConnection();
@@ -28,10 +30,10 @@ const getCompanyService = async (id) => {
   }
 };
 
-const createCompanyService = async (payload) => {
+const createCompanyService = async (payload, roleIs) => {
   let conn;
   try {
-    const filterColumns = role === Role.MERCHANT ? merchantColumns.COMPANY : role === Role.VENDOR ? vendorColumns.COMPANY : columns.COMPANY;
+    const filterColumns = roleIs === Role.MERCHANT ? merchantColumns.COMPANY : roleIs === Role.VENDOR ? vendorColumns.COMPANY : columns.COMPANY;
 
     conn = await getConnection();
     await beginTransaction(conn);
@@ -105,14 +107,14 @@ const createCompanyService = async (payload) => {
 
 
 
-const updateCompanyService = async (id, payload) => {
+const updateCompanyService = async (id, payload, role) => {
   const filterColumns = role === Role.MERCHANT ? merchantColumns.COMPANY : role === Role.VENDOR ? vendorColumns.COMPANY : columns.COMPANY;
 
   const result= transactionWrapper(updateCompanyDao)(id, payload);
   const finalResult = await filterResponse(result, filterColumns);
   return finalResult;
 };
-const deleteCompanyService = async (id) => {
+const deleteCompanyService = async (id, role) => {
   const filterColumns = role === Role.MERCHANT ? merchantColumns.COMPANY : role === Role.VENDOR ? vendorColumns.COMPANY : columns.COMPANY;
 
   const result= transactionWrapper(deleteCompanyDao)(id, { is_obsolete: true });

@@ -1,11 +1,11 @@
-import { merchantColumns } from '../../constants/index.js';
+import { columns, merchantColumns, Role, vendorColumns } from '../../constants/index.js';
+import { filterResponse } from '../../helpers/index.js';
 import { BadRequestError } from '../../utils/appErrors.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getMerchantReportDao, getPayInMerchantReportDao, getPayInVendorReportDao, getPayOutMerchantReportDao, getPayOutVendorReportDao } from './reportsDao.js';
 
-const getPayInReportService = async (req, res) => {
+const getPayInReportService = async (req) => {
     try {
         const { role } = req.user;
         const filterColumns = role === Role.MERCHANT ? merchantColumns.REPORT : role === Role.VENDOR ? vendorColumns.REPORT : columns.REPORT;
@@ -19,7 +19,6 @@ const getPayInReportService = async (req, res) => {
             const vendorData = await getVendorsDao({ id: vendor_id })
             const bankVendorData = await getBankaccountDao({ user_id: vendorData.user_id });
             result = await getPayInVendorReportDao(bankVendorData.id, startDate, endDate, method);
-            console.log(result.rows, "ujytgfgdcvbn")
         }
         const finalResult = await filterResponse(result, filterColumns);
         return finalResult;
@@ -28,7 +27,7 @@ const getPayInReportService = async (req, res) => {
         throw new BadRequestError('Error getting while logging in');
     }
 };
-const getPayOutReportService = async (req, res) => {
+const getPayOutReportService = async (req) => {
     try {
         const { role } = req.user;
         const filterColumns = role === Role.MERCHANT ? merchantColumns.REPORT : role === Role.VENDOR ? vendorColumns.REPORT : columns.REPORT;
@@ -49,7 +48,7 @@ const getPayOutReportService = async (req, res) => {
         console.error('error getting while logging in', error);
         throw new BadRequestError('Error getting while logging in');
     }
-}; const getMerchantReportService = async (req, res) => {
+}; const getMerchantReportService = async (req) => {
     try {
         const { role } = req.user;
         const filterColumns = role === Role.MERCHANT ? merchantColumns.REPORT : role === Role.VENDOR ? vendorColumns.REPORT : columns.REPORT;
@@ -63,7 +62,7 @@ const getPayOutReportService = async (req, res) => {
         console.error('error getting while logging in', error);
         throw new BadRequestError('Error getting while logging in');
     }
-}; const getVendorReportService = async (req, res) => {
+}; const getVendorReportService = async (req) => {
     try {
         const { role } = req.user;
         const filterColumns = role === Role.MERCHANT ? merchantColumns.REPORT : role === Role.VENDOR ? vendorColumns.REPORT : columns.REPORT;

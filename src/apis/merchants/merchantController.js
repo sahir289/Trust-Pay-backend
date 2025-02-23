@@ -44,7 +44,7 @@ const { role } = req.user;
         user.user_id=user_id;
         user.role_id=role_id;
         // Fetch merchants data from the service
-        const data = await getMerchantsService(search,user);
+        const data = await getMerchantsService(search,user, role);
         // Log success message
         console.log('get Merchants successfully', data);
         // Send success response
