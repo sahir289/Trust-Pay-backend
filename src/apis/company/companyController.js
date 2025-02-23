@@ -9,7 +9,8 @@ import { ValidationError } from '../../utils/appErrors.js';
 const getCompany = async (req, res) => {
   try {
     const search = req.query.search;
-    const data = await getCompanyService(search);
+    const { role } = req.user;
+    const data = await getCompanyService(search, role);
     return sendSuccess(res, data, 'get Company successfully');
   } catch (error) {
     console.error('error getting while Company', error);
@@ -46,7 +47,9 @@ const createCompany = async (req, res) => {
         throw new ValidationError(joiValidation.error);
       }
     // Pass the connection to the service to perform database operations
-    const data = await createCompanyService(payload);
+    const { role } = req.user;
+    const data = await createCompanyService(payload, role);
+    
     // Commit the transaction after the operation
     await commit(conn); // Await commit to ensure it is successfully committed
     console.log('Create Company successfully');
@@ -86,7 +89,8 @@ const updateCompany = async (req, res) => {
     }
     const payload = req.body;
     const { id } = req.params;
-    const data = await updateCompanyService(id, payload);
+    const { role } = req.user;
+    const data = await updateCompanyService(id, payload, role);
     return sendSuccess(res, data, 'Update Company successfully');
   } catch (error) {
     console.error('error getting while getting Company', error);
@@ -100,11 +104,12 @@ const deleteCompany = async (req, res) => {
         throw new ValidationError(Validation.error);
   }
     const { id } = req.params;
+    const { role } = req.user;
     if (!id) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await deleteCompanyService(id);
+    const data = await deleteCompanyService(id, role);
     console.log('Delete Company successfully');
     return sendSuccess(res, data, 'Delete Company successfully');
   } catch (error) {

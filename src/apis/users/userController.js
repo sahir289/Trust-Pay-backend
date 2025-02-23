@@ -17,12 +17,13 @@ const getUsers = async (req, res) => {
 
 const getUsersByUserName = async (req, res) => {
   try {
+    const { role } = req.user;
     const { username } = req.body;
     if (!username) {
       console.error('Username is required');
       throw new BadRequestError('Username is required');
     }
-    const data = await getUsersByUserNameService(username);
+    const data = await getUsersByUserNameService(username, role);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
@@ -32,8 +33,9 @@ const getUsersByUserName = async (req, res) => {
 
 const getUserById = async (req, res) => {
   try {
+    const { role } = req.user;
     const {id} = req.params;
-    const data = await getUserByIdService(id);
+    const data = await getUserByIdService(id, role);
     console.log('get User by id successfully');
     return sendSuccess(res, data, 'getting User by id successfully');
   } catch (error) {
@@ -43,6 +45,7 @@ const getUserById = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
+    const { role } = req.user;
     // const {} = req.user;
     let payload = req.body;
     if (!payload) {
@@ -51,7 +54,7 @@ const createUser = async (req, res) => {
     }
     const {company_id} = req.user;
     payload.company_id=company_id;
-    const data = await createUserService(payload);
+    const data = await createUserService(payload, role);
     console.log('create user successfully');
     return sendSuccess(res, data, 'create user successfully');
   } catch (error) {
