@@ -9,7 +9,7 @@ import { createHash, verifyHash } from '../../utils/bcryptPassword.js';
 import { getConnection } from '../../utils/db.js';
 import { getUserByIdDao, getUsersByUserNameDao } from '../users/userDao.js';
 import { generateUserToken } from '../../utils/auth.js';
-import { addLoginDao, getRefreshTokenDao } from './authDao.js';
+import { addLoginDao, getRefreshTokenDao, getSessionByIdDao } from './authDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { io } from '../../../server.js';
 
@@ -33,36 +33,7 @@ const loginService = async (config) => {
       throw new AuthenticationError('Invalid credentials'); // 401 Unauthorized - The provided credentials (password) are invalid.
     }
 
-    // const payload = {
-    //   first_name: user?.first_name,
-    //   last_name: user?.last_name,
-    //   email: user?.email,
-    //   contact_no: user.contact_no,
-    //   status: user?.status,
-    //   config: user?.config,
-    // };
-
-    // const currentTime = new Date().getTime();
-    // const timeDifference = currentTime - user.config.otpExpirationTime;
-    // const validDuration = 2 * 60 * 1000;
-    // if (timeDifference <= validDuration) {
-    //   if (otp === user.config.otp) {
-    //     updateUserDao(conn, user.id, payload, token);
-    //   } else {
-    //     throw new BadRequestError('Invalid Otp');
-    //   }
-    // } else {
-    //   throw new BadRequestError('Otp is Expired !!!');
-    // }
-
-    // if (user.status === STATUS.IN_ACTIVE) {
-    //   throw new BadRequestError('Unable to login. User Inactive');
-    // }
-    // const isPasswordCorrect = bcrypt.compareSync(password, data.password);
-    // if (!isPasswordCorrect) {
-    //   throw new BadRequestError('Invalid credentials');
-    // }
-
+  
     // const isRequestVerified = processRequest(
     //   config.source,
     //   user.role_name
@@ -80,11 +51,10 @@ const loginService = async (config) => {
     const hashedToken = await createHash(tokenInfo.refreshToken);
     const newConfig = {
       refresh_token: hashedToken,
-      confirm_over_ride: config.confirm_over_ride,
-      session_id: sessionId,
+      confirm_over_ride: config.confirmOverRide,
     }
     
-    await addLoginDao(conn, user.id, newConfig, user.company_id);
+    await addLoginDao(conn, user.id, newConfig, user.company_id, sessionId);
 
     // **Notify previous sessions to log out**
     io.to(user.id).emit('forceLogout');
@@ -117,8 +87,17 @@ const refreshTokenService = async (refreshToken) => {
   }
 }
 
-const logoutService = async (config) => {
-  console.log(config)
+const logoutService = async (decodeToken, session_id) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    console.log(decodeToken, session_id)
+    const user = await getSessionByIdDao(conn, decodeToken, session_id);  
+    const tokenInfo = generateUserToken(user);
+    return tokenInfo;
+  } catch (error) {
+    console.log('Error getting while getting refresh token', error);
+  }
 
 }
 

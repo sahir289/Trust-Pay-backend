@@ -20,7 +20,7 @@ const errorHandler = (error, req, res, next) => {
     };
   } else if (error && error instanceof CustomError) {
     statusCode = error.statusCode || statusCode;
-    err = { 
+    err = {
       ...error,
       message: error.message || message,
     };

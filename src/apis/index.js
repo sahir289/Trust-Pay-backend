@@ -8,22 +8,20 @@ import chargeBacks from './chargeBacks/index.js';
 import roles from './roles/index.js';
 import calculation from './calculation/index.js';
 import payIn from './payIn/index.js';
-import designation from './designation/index.js'
-import bankaccount from './bankAccounts/index.js'
-import company from './company/index.js'
-import settlement from './settlement/index.js'
-import userHierarchy from './userHierarchy/index.js'
-import payOut from './payOut/index.js'
-import complaints from './complaints/index.js'
+import designation from './designation/index.js';
+import bankaccount from './bankAccounts/index.js';
+import company from './company/index.js';
+import settlement from './settlement/index.js';
+import userHierarchy from './userHierarchy/index.js';
+import payOut from './payOut/index.js';
+import complaints from './complaints/index.js';
 import gatherAllData from '../cron/gatherAllData.js';
-import reports from './reports/index.js'
-import cron from "../cron/index.js"
-// Add your newly create component routes here with route prefix.
+import reports from './reports/index.js';
+import cron from "../cron/index.js";
 
 const router = express.Router();
 
-router.use('/ping', ping);
-router.use('/auth', auth);
+// Apply authorization middleware for specific routes
 router.use('/users', users);
 router.use('/merchants', merchants);
 router.use('/vendors', vendors);
@@ -31,18 +29,20 @@ router.use('/chargeBacks', chargeBacks);
 router.use('/roles', roles);
 router.use('/calculation', calculation);
 router.use('/payIn', payIn);
-router.use('/designation', designation)
-router.use('/bankAccount', bankaccount)
-router.use('/company', company)
-router.use('/settlement', settlement)
-router.use('/userHierarchy', userHierarchy)
-router.use('/payout', payOut)
-router.use('/complaints',complaints)
-router.use("/initialize-cronjob", gatherAllData);
-router.use('/reports',reports)
-router.use("/cron",cron)
-/* Make sure while changing below parentrouter.
-This is top level router created to enhance in future like versioning, route prefix etc. */
+router.use('/designation', designation);
+router.use('/bankAccount', bankaccount);
+router.use('/company', company);
+router.use('/settlement', settlement);
+router.use('/userHierarchy', userHierarchy);
+router.use('/payout', payOut);
+router.use('/reports', reports);
+
+// Public routes (no authorization required)
+router.use('/ping', ping);
+router.use('/auth', auth);
+router.use('/initialize-cronjob', gatherAllData);
+router.use('/complaints', complaints);
+router.use('/cron', cron);
 
 const parentRouter = express.Router();
 parentRouter.use('/v1', router);
