@@ -183,31 +183,8 @@ router.post("/process/:payInId", tryCatchHandler(processPayIn));
 router.post("/process-by-image/:payInId", multerUpload.single("file"), tryCatchHandler(processPayInByImage));
 
 // Telegram API's
-
-/**
- * @swagger
- * /payin/telegram-ocr:
- *   post:
- *     summary: Telegram OCR for Pay-In
- *     description: Processes a Telegram message containing payment confirmation and performs OCR.
- *     tags: [PayIn]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               image_url:
- *                 type: string
- *                 example: "https://example.com/payment_image.png"
- *     responses:
- *       200:
- *         description: Telegram OCR processed successfully.
- *       500:
- *         description: Internal server error
- */
-router.post('/telegram-ocr', tryCatchHandler(telegramOCR));
+router.post('/telegram-ocr', tryCatchHandler(telegramOCR))
+router.post('/telegram-check-utr', tryCatchHandler(telegramOCR))
 
 // Authenticated API's
 
