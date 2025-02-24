@@ -11,7 +11,8 @@ export const calculateBalances = (calc, prevCalc, isMerchant) => {
 };
 
 export const calculateCommission = (amount, percentage) => {
-    return (amount * percentage) / 100;
+    const numAmount = Number(amount);
+    return (numAmount * percentage) / 100;
 };
 
 
