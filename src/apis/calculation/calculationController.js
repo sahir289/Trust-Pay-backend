@@ -18,7 +18,7 @@ const getCalculationById = async (req, res) => {
     // Fetch the calculation data by 'id'
     const payload=null;
     const data = await getCalculationService({
-    ids,payload, role
+    ids,payload,role
     });
     console.info('Get Calculation successfully', 'info');
     // Respond with the calculation data
@@ -53,12 +53,10 @@ const createCalculation = async (req, res) => {
   try {
     const { role } = req.user;
     let payload = req.body;
-    console.log(req.user);
     const { company_id, user_id, role_id } = req.user;
     payload.company_id = company_id;
     payload.user_id = user_id;
     payload.role_id = role_id;
-    console.log(payload, 'jkdfhfk payloead fron payload');
     // Validate the request body using Joi schema
     const { error } = VALIDATE_CALCULATION_SCHEMA.validate(payload);
     if (error) {

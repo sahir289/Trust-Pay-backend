@@ -69,26 +69,26 @@ export const columns = {
 export const merchantColumns = {
     MERCHANT: ['first_name', 'last_name', 'code', 'min_payin', 'max_payin', 'payin_commission', 'min_payout', 'max_payout', 'payout_commission', 'balance', 'config'],
     USER: ['first_name', 'last_name', 'email', 'contact_no', 'user_name', 'code', 'config'],
-    SETTLEMENT: ['sno', 'status', 'amount', 'method', 'config',],      
+    SETTLEMENT: ['id','sno' ,'status', 'amount', 'method', 'config',],      
     CALCULATION: ['total_payin_count', 'total_payin_amount', 'total_payin_commission', 'total_payout_count', 'total_payout_amount', 'total_payout_commission', 'total_settlement_count', 'total_settlement_amount', 'total_chargeback_count', 'total_chargeback_amount', 'current_balance', 'net_balance'],
     COMPLAINTS: ['sno', 'status', 'email', 'config'],
     PAYIN: ['id', 'sno','qr_params', 'amount', 'status', 'is_notified', 'user_submitted_utr', 'currency', 'merchant_order_id', 'user', 'payin_merchant_commission', 'user_submitted_image', 'duration', 'config'],
     PAYOUT: ['id', 'sno', 'user', 'amount', 'status', 'failed_reason', 'currency', 'merchant_order_id', 'acc_no', 'acc_holder_name', 'ifsc_code', 'bank_name', 'upi_id', 'utr_id', 'rejected_reason', 'payout_merchant_commission', 'config'],
     CHAREBACK: ['sno', 'user', 'merchant_user_id', 'amount', 'when'],
     USER_HIERARCHY: ['config'],
+    BANK_ACCOUNT: ['upi_id', 'upi_params', 'name', 'acc_no', 'acc_name', 'bank_name', 'is_qr', 'is_bank', 'is_enabled', 'config'],
 
 }
 export const vendorColumns = {
     USER: ['first_name', 'last_name', 'email', 'contact_no', 'user_name', 'code', 'config'],
-    SETTLEMENT: ['sno', 'status', 'amount', 'method', 'config',],      
+    SETTLEMENT: ['id','sno', 'status', 'amount', 'method', 'config',],      
     CALCULATION: ['total_payin_count', 'total_payin_amount', 'total_payin_commission', 'total_payout_count', 'total_payout_amount', 'total_payout_commission', 'total_settlement_count', 'total_settlement_amount', 'total_chargeback_count', 'total_chargeback_amount', 'current_balance', 'net_balance'],
     COMPLAINTS: ['sno', 'status', 'email', 'config'],
     PAYIN: ['id', 'sno','qr_params', 'amount', 'status', 'user_submitted_utr', 'currency', 'user', 'payin_vendor_commission', 'user_submitted_image', 'duration', 'config'],
     PAYOUT: ['id', 'sno', 'user', 'amount', 'status', 'failed_reason', 'currency', 'acc_no', 'acc_holder_name', 'ifsc_code', 'bank_name', 'upi_id', 'utr_id', 'rejected_reason', 'payout_vendor_commission', 'from_bank_acc_id', 'config'],
-    BANK_ACCOUNT: ['sno', 'upi_id', 'upi_params', 'name', 'acc_no', 'acc_name', 'ifsc_code', 'bank_name', 'is_qr', 'is_bank', 'is_enabled', 'payin_count', 'balance', 'today_balance', 'bank_used_for', 'config'],
+    BANK_ACCOUNT: ['id','sno', 'upi_id', 'upi_params', 'name', 'acc_no', 'acc_name', 'ifsc_code', 'bank_name', 'is_qr', 'is_bank', 'is_enabled', 'payin_count', 'balance', 'today_balance', 'bank_used_for', 'config'],
     VENDOR: ['first_name', 'last_name', 'code', 'payin_commission', 'payout_commission', 'balance', 'config'],
     CHAREBACK: ['sno', 'user', 'vendor_user_id', 'bank_acc_id', 'amount', 'when'],
-
 }
 
 export const tableName = {
