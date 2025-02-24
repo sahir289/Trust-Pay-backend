@@ -6,10 +6,8 @@ const getDesignation = async (req, res) => {
   try {
     const { role } = req.user;
     const search = req.query.search;
-    let user = {};
     const { comapany_id, role_id } = req.user
-    user.comapany_id = comapany_id;
-    user.role_id = role_id
+    let user = {comapany_id, role_id };
     const data = await getDesignationService(search, user, role);
     console.log('get Designations  successfully');
     return sendSuccess(res, data, 'get  Designations successfully');

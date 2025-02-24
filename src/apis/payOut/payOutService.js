@@ -13,10 +13,12 @@ import { getUserByIdDao } from '../users/userDao.js';
 import { Status, Method } from '../../constants/index.js'
 import { calculateBalances } from '../../helpers/index.js';
 import { PAYOUT_DETAILS_SCHEMA, UPDATE_DETAILS_SCHEMA } from '../../schemas/payoutSchema.js';
-
-const createPayoutService = async (headers, payload) => {
+import { columns, merchantColumns, Role, vendorColumns } from '../../constants/index.js';
+import { filterResponse } from '../../helpers/index.js';
+const createPayoutService = async (headers,payload,role) => {
     let conn;
     try {
+        const filterColumns = role === Role.MERCHANT ? merchantColumns.PAYOUT : role === Role.VENDOR ? vendorColumns.PAYOUT : columns.PAYOUT;
         conn = await getConnection();
         await beginTransaction(conn);
         const { merchant_id, amount, merchant_order_id } = payload;
@@ -55,8 +57,8 @@ const createPayoutService = async (headers, payload) => {
 
         await commit(conn);
         console.log('Payout created successfully', 'info');
-
-        return data;
+        const finalResult = await filterResponse(data, filterColumns);
+        return finalResult;
     } catch (error) {
         if (conn) {
             try {
@@ -78,20 +80,23 @@ const createPayoutService = async (headers, payload) => {
     }
 };
 
-const getPayoutsService = async (search,user) => {
+const getPayoutsService = async (search,user,role) => {
     try {
+        const filterColumns = role === Role.MERCHANT ? merchantColumns.PAYOUT : role === Role.VENDOR ? vendorColumns.PAYOUT : columns.PAYOUT;
         const data = await getPayoutsDao(search,user);
         console.log('Fetched Payouts successfully', 'info');
-        return data;
-    } catch (error) {
+        const finalResult = await filterResponse(data, filterColumns);
+        return finalResult;    } catch (error) {
         console.error('Error while fetching Payouts', error);
         throw new BadRequestError('Error occurred while fetching Payouts');
     }
 };
 
 
-const updatePayoutService = async (conn, id,company_id, payload) => {
+const updatePayoutService = async (conn, ids, payload,role) => {
     // Set default statuses based on input conditions
+    const filterColumns = role === Role.MERCHANT ? merchantColumns.PAYOUT : role === Role.VENDOR ? vendorColumns.PAYOUT : columns.PAYOUT;
+  
     const joiValidation = UPDATE_DETAILS_SCHEMA.validate(payload);
         if (joiValidation.error) {
             throw new ValidationError(joiValidation.error);
@@ -100,11 +105,11 @@ const updatePayoutService = async (conn, id,company_id, payload) => {
     if (payload.rejected_reason) Object.assign(payload, { status: Status.REJECTED, rejected_at: new Date() });
     if (payload.status === Status.INITIATED) Object.assign(payload, { utr_id: "", rejected_reason: "" });
 
-    const singleWithdrawData = await getPayoutsDao({id,company_id});
+    const singleWithdrawData = await getPayoutsDao(ids);
     if (payload?.method === Method.EKO) await processEkoPayout(singleWithdrawData, payload);
 
     // Update payout status and retrieve necessary data
-    const data = await updatePayoutDao(id,company_id, payload, conn);
+    const data = await updatePayoutDao(ids, payload, conn);
     if (!data.approved_at) return;
 
     // Fetch required user details
@@ -139,7 +144,8 @@ const updatePayoutService = async (conn, id,company_id, payload) => {
     });
 
     console.info('Payout updated successfully');
-    return data;
+    const finalResult = await filterResponse(data, filterColumns);
+    return finalResult;
 };
 
 // Function to update calculations
@@ -347,17 +353,18 @@ const ekoPayoutStatus = async (id, res) => {
     }
 }
 
-const deletePayoutService = async (id) => {
+const deletePayoutService = async (id,role) => {
     let conn;
     try {
+        const filterColumns = role === Role.MERCHANT ? merchantColumns.PAYOUT : role === Role.VENDOR ? vendorColumns.PAYOUT : columns.PAYOUT;
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
         const payload = { is_obsolete: true };
         const data = await deletePayoutDao(id, payload); // Adjust DAO call for delete
         await commit(conn); // Commit the transaction
         console.log('Payout deleted successfully', 'info');
-
-        return data;
+        const finalResult = await filterResponse(data, filterColumns);
+        return finalResult;
     } catch (error) {
         if (conn) {
             try {

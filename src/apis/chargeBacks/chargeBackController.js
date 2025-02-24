@@ -11,14 +11,14 @@ const createChargeBack = async (req, res) => {
           console.error('payload is required');
           return sendError(res, 'payload is required', 'Validation Error');
         }
-        const {company_id} = req.user;
+        const {company_id,role} = req.user;
         payload.company_id=company_id;
         // Call the service to create the ChargeBack
         const { error } = VALIDATE_CHARGEBACK_SCHEMA.validate(payload);
         if (error) {
             throw new ValidationError(error);
         }
-        const result = await createChargeBackService(payload);
+        const result = await createChargeBackService(payload,role);
 
         // Log success message
         console.log('ChargeBack created successfully', 'info', result);
@@ -41,9 +41,10 @@ const getChargeBacksById = async (req, res) => {
             throw new ValidationError(error);
         }
         const {id} = req.params;
-        const {company_id} = req.user;
+        const {company_id,role} = req.user;
+        const payload={};
         // Call the service to create the ChargeBack
-        const result = await getChargeBacksService({id,company_id});
+        const result = await getChargeBacksService({id,company_id},payload,role);
 
         // Log success message
         console.log('ChargeBack created successfully', 'info', result);
@@ -62,12 +63,11 @@ const getChargeBacksById = async (req, res) => {
 
 const getChargeBacks = async (req, res) => {
     try {
-        const {company_id} = req.user;
-        const search = req.query.search;
-      let payload = {};
-      payload.company_id=company_id;
+    const {company_id,role} = req.user;
+    const search = req.query.search;
+    let payload = {company_id};
         // Fetch vendors data from the service
-        const data = await getChargeBacksService(search,payload);
+        const data = await getChargeBacksService(search,payload,role);
         // Log success message
         console.log('get ChargeBacks successfully', data);
         // Send success response
@@ -93,9 +93,9 @@ const updateChargeBack = async (req, res) => {
         }
         const payload = req.body;
         const { id } = req.params;  
-         const {company_id} = req.user;
+         const {company_id,role} = req.user;
         // Call the service to update the ChargeBack
-        const result = await updateChargeBackService(id,company_id, payload);
+        const result = await updateChargeBackService({id,company_id}, payload,role);
 
         // Log success message
         console.log('ChargeBack updated successfully',  result);
@@ -118,10 +118,10 @@ const deleteChargeBack = async (req, res) => {
             throw new ValidationError(error);
         }
         const { id } = req.params;  // Assuming the ChargeBack ID is passed as a parameter
-        const {company_id} = req.user;
+        const {company_id,role} = req.user;
 
         // Call the service to delete the ChargeBack
-        const result = await deleteChargeBackService(id,company_id);
+        const result = await deleteChargeBackService({id,company_id},role);
 
         // Log success message
         console.log('ChargeBack deleted successfully', result);
