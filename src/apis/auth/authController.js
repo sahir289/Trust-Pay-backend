@@ -1,5 +1,6 @@
 import { logoutSet } from '../../middlewares/auth.js';
-import { BadRequestError } from '../../utils/appErrors.js';
+import { INSERT_AUTH_SCHEMA } from '../../schemas/authSchema.js';
+import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 // import { verifyToken } from '../../utils/auth.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { loginService, 
