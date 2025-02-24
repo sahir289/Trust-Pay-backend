@@ -10,8 +10,8 @@ const getResetHistoryService = async (id) => {
     const result = await getResetHistoryDao(id);
     return result;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while reset history', error);
+    throw new BadRequestError('Error getting while reset history');
   }
 };
 const createResetHistoryService = async (payload) => {
@@ -21,8 +21,8 @@ const createResetHistoryService = async (payload) => {
 
     return result;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    // throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while reset history', error);
+    // throw new BadRequestError('Error getting while reset history');
   }
 };
 
@@ -31,8 +31,8 @@ const updateResetHistoryService = async (id, payload) => {
     const result = await updateResetHistoryDao(id, payload);
     return result;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while reset history', error);
+    throw new BadRequestError('Error getting while reset history');
   }
 };
 const deleteResetHistoryService = async (id) => {
@@ -42,8 +42,8 @@ const deleteResetHistoryService = async (id) => {
     const result = await deleteResetHistoryDao(id, { is_obsolete: true });
     return result;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while reset history', error);
+    throw new BadRequestError('Error getting while reset history');
   }
 };
 

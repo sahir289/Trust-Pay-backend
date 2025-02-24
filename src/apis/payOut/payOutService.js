@@ -11,7 +11,7 @@ import config from '../../config/config.js';
 import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
 import { getUserByIdDao } from '../users/userDao.js';
 import { Status, Method } from '../../constants/index.js'
-import { calculateBalances } from '../../helpers/index.js';
+import { calculateBalances, calculateCommission } from '../../helpers/index.js';
 import { PAYOUT_DETAILS_SCHEMA, UPDATE_DETAILS_SCHEMA } from '../../schemas/payoutSchema.js';
 import { columns, merchantColumns, Role, vendorColumns } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
@@ -57,7 +57,7 @@ const createPayoutService = async (headers,payload,role) => {
 
         await commit(conn);
         console.log('Payout created successfully', 'info');
-        const finalResult = await filterResponse(data, filterColumns);
+        const finalResult =  filterResponse(data, filterColumns);
         return finalResult;
     } catch (error) {
         if (conn) {
@@ -85,7 +85,7 @@ const getPayoutsService = async (search,user,role) => {
         const filterColumns = role === Role.MERCHANT ? merchantColumns.PAYOUT : role === Role.VENDOR ? vendorColumns.PAYOUT : columns.PAYOUT;
         const data = await getPayoutsDao(search,user);
         console.log('Fetched Payouts successfully', 'info');
-        const finalResult = await filterResponse(data, filterColumns);
+        const finalResult =  filterResponse(data, filterColumns);
         return finalResult;    } catch (error) {
         console.error('Error while fetching Payouts', error);
         throw new BadRequestError('Error occurred while fetching Payouts');
@@ -94,7 +94,6 @@ const getPayoutsService = async (search,user,role) => {
 
 
 const updatePayoutService = async (conn, ids, payload,role) => {
-    // Set default statuses based on input conditions
     const filterColumns = role === Role.MERCHANT ? merchantColumns.PAYOUT : role === Role.VENDOR ? vendorColumns.PAYOUT : columns.PAYOUT;
   
     const joiValidation = UPDATE_DETAILS_SCHEMA.validate(payload);
@@ -107,12 +106,8 @@ const updatePayoutService = async (conn, ids, payload,role) => {
 
     const singleWithdrawData = await getPayoutsDao(ids);
     if (payload?.method === Method.EKO) await processEkoPayout(singleWithdrawData, payload);
-
-    // Update payout status and retrieve necessary data
     const data = await updatePayoutDao(ids, payload, conn);
     if (!data.approved_at) return;
-
-    // Fetch required user details
     const bankData = await getBankaccountDao({ id: data.bank_acc_id });
     const [merchant, vendor, user] = await Promise.all([
         getMerchantsDao({ id: data.merchant_id }),
@@ -124,14 +119,25 @@ const updatePayoutService = async (conn, ids, payload,role) => {
         const netBalance = await updatePayoutCalculations(data.merchant_id, data.approved_at, data.amount, data.commission, true, false, conn);
         const netVendorBalance = await updatePayoutCalculations(user.id, data.approved_at, data.amount, data.commission, false, false, conn);
         await updateBankaccountDao(bankData.id, { today_balance: bankData.today_balance - data.amount, balance: bankData.balance - data.amount }, conn);
+        
+        const merchantCommission =  calculateCommission(data.amount, data.commission)
+        const vendorCommission =  calculateCommission(data.amount, data.commission)
         await updateMerchantDao(merchant.id, { balance: netBalance }, conn);
         await updateVendorDao(vendor.id, { balance: netVendorBalance }, conn);
+
+        await updatePayoutDao({ payout_merchant_commission : merchantCommission }, { payout_vendor_commission : vendorCommission} )
+
     } else if (data.status === Status.REJECTED) {
         const netBalance = await updatePayoutCalculations(data.merchant_id, data.rejected_at, data.amount, data.commission, true, true, conn);
         const netVendorBalance = await updatePayoutCalculations(user.id, data.rejected_at, data.amount, data.commission, false, true, conn);
         await updateBankaccountDao(bankData.id, { today_balance: bankData.today_balance + data.amount, balance: bankData.balance - data.amount }, conn);
         await updateMerchantDao(merchant.id, { balance: netBalance }, conn);
         await updateVendorDao(vendor.id, { balance: netVendorBalance }, conn);
+        
+        const merchantCommission =  calculateCommission(data.amount, data.commission)
+        const vendorCommission =  calculateCommission(data.amount, data.commission)
+        await updateMerchantDao(merchant.id, { balance: netBalance }, { payout_commission : merchantCommission }, conn);
+        await updateVendorDao(vendor.id, { balance: netVendorBalance }, { payout_commission : vendorCommission}, conn);
     }
 
     await merchantPayoutCallback(data.config?.urls?.payout_notify_url, {
@@ -143,8 +149,7 @@ const updatePayoutService = async (conn, ids, payload,role) => {
         utr_id: data.utr_id || "",
     });
 
-    console.info('Payout updated successfully');
-    const finalResult = await filterResponse(data, filterColumns);
+    const finalResult = filterResponse(data, filterColumns);
     return finalResult;
 };
 
@@ -163,7 +168,7 @@ const updatePayoutCalculations = async (userId, date, amount, commission, isMerc
     };
 
     const { currentBalance, netBalance } = calculateBalances(updatedCalculation, prevCalculation, isMerchant);
-
+    
     await updateCalculationDao(currentCalculation.id, {
         [`total_${prefix}payout_count`]: updatedCalculation[`total_${prefix}payout_count`],
         [`total_${prefix}payout_amount`]: updatedCalculation[`total_${prefix}payout_amount`],

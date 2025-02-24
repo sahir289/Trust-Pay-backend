@@ -21,9 +21,8 @@ export const getMerchantsDao = async (
     sortOrder
 ) => {
     try {
-        const baseQuery = `SELECT id,first_name, last_name, code, min_payin, max_payin, payin_commission, min_payout, max_payout, payout_commission, is_test_mode, is_enabled, dispute_enabled, is_demo, balance FROM "${tableName.MERCHANT}" WHERE 1=1`;
+        const baseQuery = `SELECT id,first_name, last_name, code, min_payin, max_payin, payin_commission, min_payout, max_payout, payout_commission, is_test_mode, is_enabled, dispute_enabled, is_demo,config, balance FROM "${tableName.MERCHANT}" WHERE 1=1`;
         const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.MERCHANT, page, pageSize, sortBy, sortOrder, typeof search != 'string',user);
-        // Execute query
         const result = await executeQuery(sql, queryParams);
         return result.rows;
     } catch (error) {

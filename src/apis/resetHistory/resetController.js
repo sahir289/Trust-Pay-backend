@@ -9,9 +9,9 @@ const getResetHistory = async (req, res) => {
     const { id } = req.params;
     const data = await getResetHistoryService(id);
 
-    return sendSuccess(res, data, 'getUsers successfully');
+    return sendSuccess(res, data, 'reset history successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while fetching reports', error);
   }
 };
 const createResetHistory = async (req, res) => {
@@ -22,10 +22,10 @@ const createResetHistory = async (req, res) => {
       throw new BadRequestError('payload is required');
     }
     const data = await createResetHistoryService(payload);
-    console.log('getUsers successfully');
-    return sendSuccess(res, data, 'getUsers successfully');
+    console.log('reset history successfully');
+    return sendSuccess(res, data, 'reset history successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while fetching reports', error);
   }
 }
 
@@ -34,9 +34,9 @@ const updateResetHistory = async (req, res) => {
     const payload = req.body;
     const { id } = req.params;
     const data = await updateResetHistoryService(id, payload);
-    return sendSuccess(res, data, 'getUsers successfully');
+    return sendSuccess(res, data, 'reset history successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while fetching reports', error);
   }
 }
 
@@ -49,10 +49,10 @@ const deleteResetHistory = async (req, res) => {
       throw new BadRequestError('payload is required');
     }
     const data = await deleteResetHistoryService(id);
-    console.log('getUsers successfully');
-    return sendSuccess(res, data, 'getUsers successfully');
+    console.log('reset history successfully');
+    return sendSuccess(res, data, 'reset history successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while fetching reports', error);
   }
 }
 export { getResetHistory, createResetHistory, updateResetHistory, deleteResetHistory };
