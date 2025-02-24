@@ -20,13 +20,13 @@ const getUsers = async (req, res) => {
 const getUsersByUserName = async (req, res) => {
   try {
     const { role,role_id,designation_id,company_id } = req.user;
-    const { user_name } = req.body;
+    const { username } = req.body;
     const ids = {role_id,designation_id,company_id};
-    if (!user_name) {
+    if (!username) {
       console.error('Username is required');
       throw new BadRequestError('Username is required');
     }
-    const data = await getUsersByUserNameService(user_name,ids, role);
+    const data = await getUsersByUserNameService(username,ids, role);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
