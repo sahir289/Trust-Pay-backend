@@ -20,41 +20,63 @@ const getCalculationDao = async (search,payload,
   };
   
 
-const createCalculationDao = async (conn,data) => {
-  const [sql, params] = buildInsertQuery(tableName.CALCULATION, data)
-  if (conn && conn.query) {
-    const result = await conn.query(sql, params);
-    return result.rows[0];
-  }
-  const result = await executeQuery(sql, params);
-  return result.rows[0];
-}
-
+  const createCalculationDao = async (conn, data) => {
+    try {
+      const [sql, params] = buildInsertQuery(tableName.CALCULATION, data);
+      
+      let result;
+      if (conn && conn.query) {
+        result = await conn.query(sql, params); 
+      } else {
+        result = await executeQuery(sql, params);  
+      }
+  
+      return result.rows ? result.rows[0] : result[0];  // Return the first row or result based on the structure
+    } catch (error) {
+      console.error('Error creating calculation:', error);  // Log the error for debugging
+    }
+  };
+  
     // if (data.chargeback_amount) {
     //   updatedData.total_chargeback_count = Number(previousData.total_chargeback_count) + 1;
     //   updatedData.total_chargeback_amount = Number(previousData.total_chargeback_amount) + Number(data.chargeback_amount);
     //   updatedData.current_balance = Number(previousData.current_balance) - Number(data.chargeback_amount);
     // }
+    const updateCalculationDao = async (conn, id, data) => {
+      try {
+        const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, id);
+        
+        let result;
+        if (conn && conn.query) {
+          result = await conn.query(sql, params);  // Use connection to execute query
+        } else {
+          result = await executeQuery(sql, params);  // Use executeQuery if no connection
+        }
+    
+        return result.rows ? result.rows[0] : result[0];  // Return the first row or result based on the structure
+      } catch (error) {
+        console.error('Error updating calculation:', error);  // Log the error for debugging
+      }
+    };
+    
 
-const updateCalculationDao = async (conn,id,user_id,role_id,company_id,data) => {
-    const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data,{ id,user_id,company_id,role_id });
+const deleteCalculationDao = async (conn, id, data) => {
+  try {
+    const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, id);
+    
+    let result;
     if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
+      result = await conn.query(sql, params);  // Use connection to execute query
+    } else {
+      result = await executeQuery(sql, params);  // Use executeQuery if no connection
+    }
+
+    return result.rows ? result.rows[0] : result[0];  // Return the first row or result based on the structure
+  } catch (error) {
+    console.error('Error deleting calculation:', error);
   }
-    const result = await executeQuery(sql, params);
-    return result.rows[0]; 
 };
 
-const deleteCalculationDao = async (conn,id,user_id,role_id,company_id, data) => {
-  const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, { id,user_id,role_id,company_id });
-  if (conn && conn.query) {
-    const result = await conn.query(sql, params);
-    return result.rows[0];
-}
-  const result = await executeQuery(sql, params);
-  return result.rows[0];
-}
 
 export const updateCalculationBalanceDao = async (filters, data, conn) => {
   const specialFields = {};
