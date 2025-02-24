@@ -18,10 +18,10 @@ import { io } from '../../../server.js';
 
 const loginService = async (config, clientIP) => {
   let conn;
-  
+  let ids = {}
   try{
     conn = await getConnection();
-    const user = await getUsersByUserNameDao(conn, config.username);
+    const user = await getUsersByUserNameDao(conn,ids,config.username);
     if (!user) {
       throw new NotFoundError('User not found');
     }

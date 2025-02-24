@@ -140,7 +140,7 @@ const getUserByIdDao = async (conn, ids) => {
   }
 };
 
-const getUsersByUserNameDao = async (conn, ids, username) => {
+const getUsersByUserNameDao = async (conn, ids,username) => {
   try {
     let baseQuery = `
       SELECT 
@@ -148,6 +148,10 @@ const getUsersByUserNameDao = async (conn, ids, username) => {
         u.first_name, 
         u.last_name, 
         u.email, 
+        u.password,
+        u.company_id,
+        u.role_id,
+        u.designation_id,
         u.contact_no, 
         u.user_name, 
         u.code, 
@@ -157,14 +161,16 @@ const getUsersByUserNameDao = async (conn, ids, username) => {
         u.updated_by, 
         u.created_at, 
         u.updated_at, 
-        r.role , 
+        r.role, 
         d.designation 
       FROM public."User" u
       LEFT JOIN public."Role" r ON u.role_id = r.id 
       LEFT JOIN public."Designation" d ON u.designation_id = d.id 
       WHERE u.user_name = $1
     `;
+    
     const queryParams = [username]; 
+
     if (ids.role_id) {
       baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
       queryParams.push(ids.role_id); 
@@ -177,18 +183,19 @@ const getUsersByUserNameDao = async (conn, ids, username) => {
       baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
       queryParams.push(ids.company_id); 
     }
+
     const result = await conn.query(baseQuery, queryParams);
     if (result.rowCount === 0) {
       console.log(`No user found with username: ${username}`);
       return null;
     }
-
     return result.rows[0];
   } catch (error) {
     console.error(`Error fetching user by username: ${username}`, error);
     throw new DbError('Error executing query to fetch user by username');
   }
 };
+
 
 const createUserDao = async (conn, payload) => {
   try {
