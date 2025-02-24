@@ -81,7 +81,7 @@ router.get('/', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHa
  *                   type: string
  *                   example: "fraudulent transaction"
  *       404:
- *         description: Chargeback not found.
+ *         description: ChargeBack not found.
  *       500:
  *         description: Internal server error
  */
@@ -111,7 +111,7 @@ router.get('/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatc
  *                 example: "fraudulent transaction"
  *     responses:
  *       201:
- *         description: Chargeback created successfully.
+ *         description: ChargeBack created successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -119,7 +119,7 @@ router.get('/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatc
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "Chargeback created successfully"
+ *                   example: "ChargeBack created successfully"
  *                 data:
  *                   type: object
  *                   properties:
@@ -170,7 +170,7 @@ router.post('/create-chargeback', [isAuthenticated, authorized(AccessRoles.CHARE
  *                 example: "unauthorized transaction"
  *     responses:
  *       200:
- *         description: Chargeback updated successfully.
+ *         description: ChargeBack updated successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -178,15 +178,15 @@ router.post('/create-chargeback', [isAuthenticated, authorized(AccessRoles.CHARE
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "Chargeback updated successfully"
+ *                   example: "ChargeBack updated successfully"
  *       400:
  *         description: Bad request (validation error).
  *       404:
- *         description: Chargeback not found.
+ *         description: ChargeBack not found.
  *       500:
  *         description: Internal server error.
  */
-router.put('/update-chargeback/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(updateChargeBack));
+router.put('/update-chargeback/:id', [isAuthenticated, authorized(AccessRoles.CHARGE_BACK)], tryCatchHandler(updateChargeBack));
 
 /**
  * @swagger
@@ -204,7 +204,7 @@ router.put('/update-chargeback/:id', [isAuthenticated, authorized(AccessRoles.CH
  *         description: The ID of the chargeback to delete.
  *     responses:
  *       200:
- *         description: Chargeback deleted successfully.
+ *         description: ChargeBack deleted successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -212,12 +212,12 @@ router.put('/update-chargeback/:id', [isAuthenticated, authorized(AccessRoles.CH
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "Chargeback deleted successfully"
+ *                   example: "ChargeBack deleted successfully"
  *       404:
- *         description: Chargeback not found.
+ *         description: ChargeBack not found.
  *       500:
  *         description: Internal server error.
  */
-router.delete('/delete-chargeback/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(deleteChargeBack));
+router.delete('/delete-chargeback/:id', [isAuthenticated, authorized(AccessRoles.CHARGE_BACK)], tryCatchHandler(deleteChargeBack));
 
 export default router;

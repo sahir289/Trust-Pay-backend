@@ -62,7 +62,7 @@ ADD COLUMN     "user_id" TEXT NOT NULL;
 DROP TABLE "Lien";
 
 -- CreateTable
-CREATE TABLE "Chargeback" (
+CREATE TABLE "ChargeBack" (
     "id" TEXT NOT NULL,
     "sno" SERIAL NOT NULL,
     "user" TEXT NOT NULL,
@@ -87,13 +87,13 @@ ALTER TABLE "Settlement" ADD CONSTRAINT "Settlement_user_id_fkey" FOREIGN KEY ("
 ALTER TABLE "Calculation" ADD CONSTRAINT "Calculation_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Chargeback" ADD CONSTRAINT "Chargeback_merchant_user_id_fkey" FOREIGN KEY ("merchant_user_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ChargeBack" ADD CONSTRAINT "Chargeback_merchant_user_id_fkey" FOREIGN KEY ("merchant_user_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Chargeback" ADD CONSTRAINT "Chargeback_vendor_user_id_fkey" FOREIGN KEY ("vendor_user_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ChargeBack" ADD CONSTRAINT "Chargeback_vendor_user_id_fkey" FOREIGN KEY ("vendor_user_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Chargeback" ADD CONSTRAINT "Chargeback_payin_id_fkey" FOREIGN KEY ("payin_id") REFERENCES "Payin"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ChargeBack" ADD CONSTRAINT "Chargeback_payin_id_fkey" FOREIGN KEY ("payin_id") REFERENCES "Payin"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Chargeback" ADD CONSTRAINT "Chargeback_bank_acc_id_fkey" FOREIGN KEY ("bank_acc_id") REFERENCES "BankAccount"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ChargeBack" ADD CONSTRAINT "Chargeback_bank_acc_id_fkey" FOREIGN KEY ("bank_acc_id") REFERENCES "BankAccount"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

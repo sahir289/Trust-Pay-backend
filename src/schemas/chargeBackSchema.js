@@ -1,6 +1,6 @@
 import Joi from 'joi';
 
-// Validation Schema for Creating a Chargeback
+// Validation Schema for Creating a ChargeBack
 const VALIDATE_CHARGEBACK_SCHEMA = Joi.object({
     user: Joi.string().required().messages({
       'any.required': 'User is required',
@@ -33,7 +33,7 @@ const VALIDATE_CHARGEBACK_SCHEMA = Joi.object({
     config: Joi.object().default({}),
 });
 
-// Validation Schema for Updating a Chargeback
+// Validation Schema for Updating a ChargeBack
 const VALIDATE_UPDATE_CHARGEBACK_SCHEMA = Joi.object({
     user: Joi.string().optional(),
     merchant_user_id: Joi.string().optional(),
@@ -51,19 +51,19 @@ const VALIDATE_UPDATE_CHARGEBACK_SCHEMA = Joi.object({
     config: Joi.object().optional(),
 });
 
-// Validation Schema for Deleting a Chargeback
+// Validation Schema for Deleting a ChargeBack
 const VALIDATE_DELETE_CHARGEBACK = Joi.object({
     id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
-      'string.guid': 'Chargeback ID must be a valid UUID',
-      'any.required': 'Chargeback ID is required',
+      'string.guid': 'ChargeBack ID must be a valid UUID',
+      'any.required': 'ChargeBack ID is required',
     }),
 });
 
-// Validation Schema for Getting a Chargeback by ID
+// Validation Schema for Getting a ChargeBack by ID
 const VALIDATE_CHARGEBACK_BY_ID = Joi.object({
     id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
-      'string.guid': 'Chargeback ID must be a valid UUID',
-      'any.required': 'Chargeback ID is required',
+      'string.guid': 'ChargeBack ID must be a valid UUID',
+      'any.required': 'ChargeBack ID is required',
     }),
 });
 
