@@ -52,7 +52,6 @@ const getVendors = async (req, res) => {
     // Send an error response
     return sendError(res, error, 'Error occurred while fetching Vendors');
   }
-
 };
 
 const getVendorById = async (req, res) => {
@@ -96,7 +95,8 @@ const updateVendor = async (req, res) => {
     const {company_id,user_id,role_id} = req.user;
     const { id } = req.params; // Assuming the Vendor ID is passed as a parameter
     // Call the service to update the Vendor
-    const result = await updateVendorService(id,company_id,user_id,role_id, payload);
+    const ids={id,company_id,user_id,role_id}
+    const result = await updateVendorService(ids, payload);
     // Log success message
     console.log('Vendor updated successfully', result);
     // Send a success response to the client
@@ -118,7 +118,8 @@ const deleteVendor = async (req, res) => {
     const { id } = req.params; // Assuming the Vendor ID is passed as a parameter
     // Call the service to delete the Vendor
     const {company_id,user_id,role_id} = req.user;
-    const result = await deleteVendorService(id,company_id,user_id,role_id);
+    const ids={id,company_id,user_id,role_id}
+    const result = await deleteVendorService(ids);
     // Log success message
     console.log('Vendor deleted successfully', result);
     // Send a success response to the client

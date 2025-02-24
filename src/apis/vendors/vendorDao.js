@@ -31,9 +31,9 @@ export const getVendorsDao = async (
     }
 };
 
-export const updateVendorDao = async (id, company_id, data, conn) => {
+export const updateVendorDao = async (id, data, conn) => {
     try {
-        const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, { id, company_id });
+        const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, id);
         if (conn && conn.query) {
             const result = await conn.query(sql, params);
             return result.rows[0];
@@ -46,9 +46,9 @@ export const updateVendorDao = async (id, company_id, data, conn) => {
     }
 };
 
-export const deleteVendorDao = async (id, company_id, data) => {
+export const deleteVendorDao = async (id, data) => {
     try {
-        const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, { id, company_id });
+        const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, id);
         const result = await executeQuery(sql, params);
         return result.rows[0];
     } catch (error) {
