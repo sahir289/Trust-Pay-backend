@@ -1,10 +1,10 @@
 import { columns, tableName } from "../../constants/index.js";
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
 
-// Create Chargeback entry
+// Create ChargeBack entry
 export const createChargeBackDao = async (data) => {
     try {
-        const [sql, params] = buildInsertQuery(tableName.CHAREBACK, data);
+        const [sql, params] = buildInsertQuery(tableName.CHARGE_BACK, data);
         const result = await executeQuery(sql, params);
         return result.rows[0];
     } catch (error) {
@@ -13,7 +13,7 @@ export const createChargeBackDao = async (data) => {
     }
 };
 
-// Get Chargeback entries with pagination, sorting, and filtering
+// Get ChargeBack entries with pagination, sorting, and filtering
 export const getChargeBackDao = async (
     search,
     payload,
@@ -28,8 +28,8 @@ export const getChargeBackDao = async (
             user, merchant_user_id, vendor_user_id, payin_id, 
             bank_acc_id, amount, "when", created_by, updated_by,
         `;
-        const baseQuery = `SELECT ${columnsToSelect} FROM "${tableName.CHAREBACK}" WHERE 1=1`;
-        const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.CHAREBACK, page, pageSize, sortBy, sortOrder, typeof search !== 'string',payload);
+        const baseQuery = `SELECT ${columnsToSelect} FROM "${tableName.CHARGE_BACK}" WHERE 1=1`;
+        const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.CHARGE_BACK, page, pageSize, sortBy, sortOrder, typeof search !== 'string',payload);
         const result = await executeQuery(sql, queryParams);
         return result.rows;
     } catch (error) {
@@ -38,8 +38,8 @@ export const getChargeBackDao = async (
     }
 };
 
-// Update Chargeback entry
-export const updateChargeBackDao = async (id, data) => {
+// Update ChargeBack entry
+export const updateChargeBackDao = async (id, company_id, data) => {
     try {
         const [sql, params] = buildUpdateQuery(tableName.CHAREBACK, data, id);
         const result = await executeQuery(sql, params);
@@ -50,8 +50,8 @@ export const updateChargeBackDao = async (id, data) => {
     }
 };
 
-// Delete Chargeback entry
-export const deleteChargeBackDao = async (id,  data) => {
+// Delete ChargeBack entry
+export const deleteChargeBackDao = async (id, company_id, data) => {
     try {
         const [sql, params] = buildUpdateQuery(tableName.CHAREBACK, data, id);
         const result = await executeQuery(sql, params);
