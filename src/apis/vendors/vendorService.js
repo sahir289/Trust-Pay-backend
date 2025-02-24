@@ -99,7 +99,7 @@ const deleteVendorService = async (id, company_id, role) => {
         await beginTransaction(conn); // Start a transaction
         const payload = { is_obsolete: true };
 
-        const data = await deleteVendorDao(id, company_id, payload); // Adjust DAO call for delete
+        const data = await deleteVendorDao(ids, payload); // Adjust DAO call for delete
 
         await commit(conn); // Commit the transaction
         console.log('Vendor deleted successfully', 'info');

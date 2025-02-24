@@ -54,7 +54,6 @@ const getVendors = async (req, res) => {
     // Send an error response
     return sendError(res, error, 'Error occurred while fetching Vendors');
   }
-
 };
 
 const getVendorById = async (req, res) => {

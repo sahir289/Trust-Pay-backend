@@ -1,19 +1,80 @@
 import { DbError } from '../../utils/appErrors.js';
 
-
-const getUsersDao = async (conn) => {
+const getUsersDao = async (conn, ids) => {
   try {
-    const sql = `SELECT id, role_id, company_id, designation_id, first_name, last_name, email, contact_no, user_name, password, code, is_enabled, last_login, last_logout, config, created_by, updated_by, created_at, updated_at FROM public."User" where is_obsolete = false`;
-    const result = await conn.query(sql);
+    let baseQuery = `
+      SELECT 
+        u.id, 
+        u.first_name, 
+        u.last_name, 
+        u.email, 
+        u.contact_no, 
+        u.user_name, 
+        u.code, 
+        u.is_enabled, 
+        u.last_login, 
+        u.last_logout, 
+        u.config, 
+        u.created_by, 
+        u.updated_by, 
+        u.created_at, 
+        u.updated_at, 
+        r.role,   
+        d.designation 
+      FROM public."User" u
+      LEFT JOIN public."Role" r ON u.role_id = r.id   
+      LEFT JOIN public."Designation" d ON u.designation_id = d.id  
+      WHERE u.is_obsolete = false
+    `;
+    const queryParams = [];
+
+    if (ids.role_id) {
+      baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
+      queryParams.push(ids.role_id); 
+    }
+    if (ids.designation_id) {
+      baseQuery += ` AND u.designation_id = $${queryParams.length + 1}`;
+      queryParams.push(ids.designation_id); 
+    }
+    if (ids.company_id) {
+      baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
+      queryParams.push(ids.company_id); 
+    }
+
+    const result = await conn.query(baseQuery, queryParams);
 
     if (result.rows.length === 0) {
-      console.error('No users Found');
+      console.error('No users found');
       return [];
     }
+
     const data = {
       total_count: result.rowCount,
-      users: result.rows,
-    }
+      users: result.rows.map((row) => ({
+        id: row.id,
+        role_id: row.role_id,
+        role: row.role,
+        company_id: row.company_id,
+        designation_id: row.designation_id,
+        designation: row.designation,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        email: row.email,
+        contact_no: row.contact_no,
+        user_name: row.user_name,
+        password: row.password,
+        code: row.code,
+        is_enabled: row.is_enabled,
+        last_login: row.last_login,
+        last_logout: row.last_logout,
+        config: row.config,
+        created_by: row.created_by,
+        updated_by: row.updated_by,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      })),
+    };
+
     return data;
   } catch (error) {
     console.error('error getting while fetching user', error);
@@ -21,21 +82,57 @@ const getUsersDao = async (conn) => {
   }
 };
 
-const getUserByIdDao = async (conn, id) => {
+const getUserByIdDao = async (conn, ids) => {
   try {
-    const sql = `
-    SELECT id, role_id, company_id, designation_id, first_name, last_name, email, contact_no, user_name, password, code, 
-      is_enabled, last_login, last_logout, config, created_by, updated_by, created_at, updated_at 
-    FROM public."User" WHERE id = $1 AND is_obsolete = false`;
-    const values = [id];
-    const result = await conn.query(sql, values);
-    if (result.rows.length === 0) {
-      console.error('No users Found');
+    let baseQuery = `
+      SELECT 
+        u.id, 
+        u.first_name, 
+        u.last_name, 
+        u.email, 
+        u.contact_no, 
+        u.user_name, 
+        u.code, 
+        u.is_enabled, 
+        u.last_login, 
+        u.last_logout, 
+        u.config, 
+        u.created_by, 
+        u.updated_by, 
+        u.created_at, 
+        u.updated_at, 
+        r.role , 
+        d.designation   
+      FROM public."User" u
+      LEFT JOIN public."Role" r ON u.role_id = r.id 
+      LEFT JOIN public."Designation" d ON u.designation_id = d.id  
+      WHERE u.id = $1 AND u.is_obsolete = false
+    `;
+
+    const queryParams = [ids.id];
+
+    if (ids.role_id) {
+      baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
+      queryParams.push(ids.role_id);
+    }
+    if (ids.designation_id) {
+      baseQuery += ` AND u.designation_id = $${queryParams.length + 1}`;
+      queryParams.push(ids.designation_id); 
+    }
+    if (ids.company_id) {
+      baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
+      queryParams.push(ids.company_id); 
+    }
+
+    const result = await conn.query(baseQuery, queryParams);
+    if (result.rowCount === 0) {
+      console.error('No user found with the provided id and filters');
       return [];
     }
+
     const data = {
-      user: result.rows,
-    }
+      user: result.rows[0], 
+    };
     return data;
   } catch (error) {
     console.error('error getting while fetching user', error);
@@ -43,16 +140,49 @@ const getUserByIdDao = async (conn, id) => {
   }
 };
 
-const getUsersByUserNameDao = async (conn, username) => {
+const getUsersByUserNameDao = async (conn, ids, username) => {
   try {
-    const sql = `SELECT id, role_id, company_id, designation_id, first_name, last_name, email, contact_no, user_name, code, password, is_enabled, config, created_by, updated_by, created_at, updated_at 
-    FROM public."User" WHERE user_name = $1`;
-    const values = [username];
-    const result = await conn.query(sql, values);
+    let baseQuery = `
+      SELECT 
+        u.id, 
+        u.first_name, 
+        u.last_name, 
+        u.email, 
+        u.contact_no, 
+        u.user_name, 
+        u.code, 
+        u.is_enabled, 
+        u.config, 
+        u.created_by, 
+        u.updated_by, 
+        u.created_at, 
+        u.updated_at, 
+        r.role , 
+        d.designation 
+      FROM public."User" u
+      LEFT JOIN public."Role" r ON u.role_id = r.id 
+      LEFT JOIN public."Designation" d ON u.designation_id = d.id 
+      WHERE u.user_name = $1
+    `;
+    const queryParams = [username]; 
+    if (ids.role_id) {
+      baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
+      queryParams.push(ids.role_id); 
+    }
+    if (ids.designation_id) {
+      baseQuery += ` AND u.designation_id = $${queryParams.length + 1}`;
+      queryParams.push(ids.designation_id); 
+    }
+    if (ids.company_id) {
+      baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
+      queryParams.push(ids.company_id); 
+    }
+    const result = await conn.query(baseQuery, queryParams);
     if (result.rowCount === 0) {
       console.log(`No user found with username: ${username}`);
       return null;
     }
+
     return result.rows[0];
   } catch (error) {
     console.error(`Error fetching user by username: ${username}`, error);
@@ -63,8 +193,9 @@ const getUsersByUserNameDao = async (conn, username) => {
 const createUserDao = async (conn, payload) => {
   try {
     const sql = `
-    INSERT INTO public."User" (role_id, company_id, designation_id, first_name, last_name, email, contact_no, user_name,password, code, is_enabled
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id `;
+    INSERT INTO public."User" (role_id, company_id, designation_id, first_name, last_name, email, contact_no, user_name, password, code, is_enabled)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id 
+    `;
 
     const values = [
       payload.role_id,
@@ -77,13 +208,15 @@ const createUserDao = async (conn, payload) => {
       payload.user_name,
       payload.password,
       payload.code,
-      payload.is_enabled
+      payload.is_enabled,
     ];
 
     const result = await conn.query(sql, values);
-      console.log(`User with username: ${payload.user_name} created successfully`);
-      return result.rows[0]; 
-    } catch (error) {
+    console.log(
+      `User with username: ${payload.user_name} created successfully`,
+    );
+    return result.rows[0];
+  } catch (error) {
     console.error(`Error creating user: ${payload.user_name}`, error);
     throw new DbError('Error executing query to create user');
   }
