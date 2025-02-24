@@ -2,6 +2,7 @@ import { BadRequestError } from '../../utils/appErrors.js';
 import { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBankaccountDao } from './bankaccountDao.js';
 import { Role,columns,vendorColumns } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
+import { getMerchantBankDao } from './bankaccountDao.js';
 const getBankaccountService = async (search,payload,role) => {
     try {
         const filterColumns = role ===  Role.VENDOR ? vendorColumns.BANK_ACCOUNT : columns.BANK_ACCOUNT;
@@ -13,7 +14,15 @@ const getBankaccountService = async (search,payload,role) => {
         throw new BadRequestError('Error getting while  getting banks');
     }
 };
-
+const getMerchantBankService = async (payload,) => {
+    try {
+        const result = await getMerchantBankDao(payload);
+        return result;
+    } catch (error) {
+        console.error('error getting while  getting banks', error);
+        throw new BadRequestError('Error getting while  getting banks');
+    }
+};
 const createBankaccountService = async (payload,role) => {
     try {
         const filterColumns = role ===  Role.VENDOR ? vendorColumns.BANK_ACCOUNT : columns.BANK_ACCOUNT;
@@ -52,4 +61,4 @@ const deleteBankaccountService = async (id,role) => {
 
 
 
-export { getBankaccountService, createBankaccountService, updateBankaccountService, deleteBankaccountService };
+export { getBankaccountService,getMerchantBankService, createBankaccountService, updateBankaccountService, deleteBankaccountService };
