@@ -116,7 +116,6 @@ export const expirePayInUrl = async (req, res) => {
 }
 
 export const checkPayInStatus = async (req, res) => {
-    console.log(req.user, "req7654456789")
     // const joiValidation = VALIDATE_CHECK_PAY_IN_STATUS.validate(req);
     // if (joiValidation.error) {
     //     throw new ValidationError(joiValidation.error);

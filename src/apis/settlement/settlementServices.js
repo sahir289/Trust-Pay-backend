@@ -133,8 +133,7 @@ const updateSettlementService = async (req) => {
       payload.status = "REVERSED";
     }
 
-    const updateData = await transactionWrapper(updateSettlementDao)(ids, payload);
-    
+    const updateData = await transactionWrapper(updateSettlementDao)(ids, payload);  
     const finalResult =  filterResponse(updateData, filterColumns);
     return finalResult;
   } catch (error) {

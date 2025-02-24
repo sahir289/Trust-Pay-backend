@@ -48,11 +48,11 @@ const isAuthenticated = (req, res, next) => {
 const authorized =  (allowedRoles) => {
   return async (req, res, next) => {
     const { designation_id} = req.user;
-    const data = await getDesignationDao({id: designation_id}) ;
-    if (!data[0].designation || !allowedRoles.includes(data[0].designation)) {
+    if (!designation_id || !allowedRoles.includes(designation_id)) { 
+      console.log(!data[0].designation,!allowedRoles.includes(data[0].designation), "dhfhgh" )
       throw new AuthenticationError('Access denied: Insufficient permissions');
     }
-    
+    // return data[0].designation; 
     next();
   };
 };

@@ -213,9 +213,6 @@ export const assignedBankToPayInUrlService = async (payInId, amount,type, compan
 
 // Public API Used by Merchants
 export const checkPayInStatusService = async (payinId, merchantCode, merchantOrderId,  company_id, api_key) => {
-    // query on the bases of:
-    // merchant table code column
-    // payin table id and merchant_order_id
     const merchantArr = await getMerchantsService({ code: merchantCode });
     const merchant = merchantArr[0];
     if (!merchant) {
@@ -223,7 +220,6 @@ export const checkPayInStatusService = async (payinId, merchantCode, merchantOrd
     }
 
     const merchantConfig = merchant.config || {};
-    console.log(merchantConfig,merchantArr, "merchantConfig11")
     const payIn = await getPayInUrlDao({
         id: payinId,
         merchant_order_id: merchantOrderId,
