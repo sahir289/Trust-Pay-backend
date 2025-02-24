@@ -65,7 +65,6 @@ export const generatePayInUrlService = async (payload) => {
         user: payInData.user_id,
         merchant_id: merchant.id,
         expiration_date: expirationDate,
-        bank_acc_id: bank.id, // in old if amount is available only then it can be added
         company_id: company_id,
         config: JSON.stringify({
             return_url: payInData.return_url || '',
@@ -135,7 +134,7 @@ export const expirePayInUrlService = async (payInId) => {
     });
 }
 
-export const assignedBankToPayInUrlService = async (payInId, amount, company_id) => {
+export const assignedBankToPayInUrlService = async (payInId, amount,type, company_id) => {
 
     // Validate the PayIn URL
     const payIn = await getPayInUrlService({payInId, company_id});
