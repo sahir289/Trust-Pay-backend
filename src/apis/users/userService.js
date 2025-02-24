@@ -14,7 +14,7 @@ const getUsersService = async (ids,role) => {
     conn = await getConnection();
     const filterColumns = role === Role.MERCHANT ? merchantColumns.USER : role === Role.VENDOR ? vendorColumns.USER : columns.USER;
     const result = await getUsersDao(conn,ids);
-    console.log('get Users successfully',role);
+    console.log('get Users successfully');
     const finalResult = await filterResponse(result, filterColumns);
     return finalResult;
   } catch (error) {
