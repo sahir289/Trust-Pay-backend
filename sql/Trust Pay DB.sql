@@ -132,7 +132,7 @@ CREATE TABLE "BankAccount" (
   "upi_params" varchar,
   "nick_name" varchar NOT NULL UNIQUE,
   "acc_holder_name" float NOT NULL,
-  "ac_name" varchar NOT NULL,
+  "acc_no" varchar NOT NULL,
   "ifsc" varchar NOT NULL,
   "bank_name" varchar NOT NULL,
   "is_qr" boolean DEFAULT false,

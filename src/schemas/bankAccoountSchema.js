@@ -5,7 +5,7 @@ export const BANK_ACCOUNT_SCHEMA = Joi.object({
   upi_id: Joi.string().label('upi_id').required(),
   upi_params: Joi.string().label('upi_params').optional(),
   nick_name: Joi.string().label('nick_name').optional(),
-  ac_name: Joi.string().label('ac_name').required(),
+  acc_no: Joi.string().label('acc_no').required(),
   ifsc: Joi.string().pattern(/^[A-Z]{4}0[A-Z0-9]{6}$/).label('ifsc').required(), 
   bank_name: Joi.string().label('bank_name').required(),
   is_qr: Joi.boolean().label('is_qr').required(),
@@ -28,7 +28,7 @@ export const BANK_ACCOUNT_SCHEMA = Joi.object({
 export const UPDATE_BANK_ACCOUNT_SCHEMA = Joi.object({
   upi_id: Joi.string().pattern(/^[\w.-]+@[\w.-]+$/).label('upi_id').optional(), // Validates UPI ID format
     upi_params: Joi.string().label('upi_params').optional(),
-    ac_name: Joi.string().label('ac_name').optional(),
+    acc_no: Joi.string().label('acc_no').optional(),
     ifsc: Joi.string().pattern(/^[A-Z]{4}0[A-Z0-9]{6}$/).label('ifsc').optional(), // IFSC code validation
     bank_name: Joi.string().label('bank_name').optional(),
     is_qr: Joi.boolean().label('is_qr').optional(),

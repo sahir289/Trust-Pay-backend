@@ -8,7 +8,7 @@ const getBankaccountDao = async (
   sortBy,
   sortOrder
 ) => {
-  const baseQuery = `SELECT id,upi_id,upi_params,ac_name,ifsc,bank_name,is_qr,is_bank,min_payin,is_enabled,payin_count,balance,today_balance,bank_used_for,created_by,updated_by FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1 `;
+  const baseQuery = `SELECT id,upi_id,upi_params,acc_no,ifsc,bank_name,is_qr,is_bank,min_payin,is_enabled,payin_count,balance,today_balance,bank_used_for,created_by,updated_by FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1 `;
   const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.BANK_ACCOUNT, page, pageSize, sortBy, sortOrder, typeof search != 'string',payload);
   // Execute query
   const result = await executeQuery(sql, queryParams);
