@@ -134,7 +134,7 @@ const updateSettlementService = async (req) => {
     }
 
     const updateData = await transactionWrapper(updateSettlementDao)(ids, payload);
-    await (conn);
+    
     const finalResult =  filterResponse(updateData, filterColumns);
     return finalResult;
   } catch (error) {

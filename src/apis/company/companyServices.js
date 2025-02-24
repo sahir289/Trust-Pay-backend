@@ -1,5 +1,4 @@
 import { BadRequestError } from '../../utils/appErrors.js';
-import { getConnection } from '../../utils/db.js';
 import { createCompanyDao, deleteCompanyDao, getCompanyDao, updateCompanyDao } from './companyDao.js';
 import { createUserService } from '../users/userService.js';
 import { transactionWrapper } from '../../utils/db.js';
@@ -13,15 +12,7 @@ const getCompanyService = async (id) => {
   } catch (error) {
     console.error('error getting while company', error);
     throw new BadRequestError('Error getting while company');
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
-      }
-    }
-  }
+  } 
 };
 
 const createCompanyService = async (conn, payload) => {
@@ -53,7 +44,8 @@ const createCompanyService = async (conn, payload) => {
       last_name: payload.last_name,
       code: payload.first_name.split('').reverse().join('')
     };
-    const userCreated = await createUserService(conn, UserPayload);
+    // const userCreated = 
+    await createUserService(conn, UserPayload);
     return result;
   } catch (error) {
     // Rollback transaction in case of an error

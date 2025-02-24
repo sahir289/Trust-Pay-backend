@@ -1,4 +1,4 @@
-import { vendorColumns } from '../../constants/index.js';
+import { columns, Role, vendorColumns } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
 import {
     BadRequestError,
@@ -6,12 +6,12 @@ import {
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { createVendorDao, deleteVendorDao, getVendorsDao, updateVendorDao } from './vendorDao.js';
 
-const createVendorService = async (payload) => {
+const createVendorService = async (payload, roleIs) => {
     let conn;
     try {
-        const filterColumns = role = VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
+        const filterColumns = roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
         const data = await createVendorDao(payload);
         await commit(conn); // Commit the transaction
         console.log('Vendor created successfully', 'info');
@@ -39,9 +39,9 @@ const createVendorService = async (payload) => {
     }
 };
 
-const getVendorsService = async (search, payload) => {
+const getVendorsService = async (search, payload, roleIs) => {
     try {
-        const filterColumns = role = VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
+        const filterColumns = roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
 
         const data = await getVendorsDao(search, payload);
         console.log('Fetched Vendors successfully', 'info');
@@ -57,7 +57,7 @@ const getVendorsService = async (search, payload) => {
 const updateVendorService = async (id, payload, role) => {
     let conn;
     try {
-        const filterColumns = role = VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
+        const filterColumns = role === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
 
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
@@ -90,10 +90,10 @@ const updateVendorService = async (id, payload, role) => {
     }
 };
 
-const deleteVendorService = async (id, company_id) => {
+const deleteVendorService = async (id, company_id, role) => {
     let conn;
     try {
-        const filterColumns = role = VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
+        const filterColumns = role === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
 
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction

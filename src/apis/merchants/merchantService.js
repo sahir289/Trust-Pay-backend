@@ -5,13 +5,13 @@ import { beginTransaction, commit, getConnection, rollback } from '../../utils/d
 import { createMerchantDao, deleteMerchantDao, getMerchantsDao, updateMerchantDao } from './merchantDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
 import { createUserHierarchyDao, getUserHierarchysDao, updateUserHierarchyDao } from '../userHierarchy/userHierarchyDao.js';
-import { columns, merchantColumns, Method } from '../../constants/index.js';
+import { columns, merchantColumns, Method, Role } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
 
 // Create Merchant Service
 const createMerchantService = async (payload, roleIs) => {
     try {
-        const filterColumns =roleIs===MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
+        const filterColumns = roleIs=== Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
         const parentId = payload.parentId;
         delete payload.parentId;
 
@@ -47,10 +47,10 @@ const createMerchantService = async (payload, roleIs) => {
 // Get Merchants Service
 const getMerchantsService = async (search, role) => {
     try {
-        const filterColumns =role===MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
+        const filterColumns =role===Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
         const data = await getMerchantsDao(search);
         const finalResult = filterResponse(data, filterColumns);
-        return data;
+        return finalResult;
     } catch (error) {
         console.error('Error while fetching merchants', error);
         throw new BadRequestError('Error occurred while fetching merchants');
@@ -61,7 +61,7 @@ const getMerchantsService = async (search, role) => {
 // Update Merchant Service
 const updateMerchantService = async (id, company_id, role_id, user_id, payload, role) => {
     try {
-        const filterColumns =role===MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
+        const filterColumns =role===Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
         const data = await updateMerchantDao(id, company_id, role_id, user_id, payload); // Adjust DAO call for update
         console.log('Merchant updated successfully');
         const finalResult =  filterResponse(data, filterColumns);
@@ -76,7 +76,7 @@ const updateMerchantService = async (id, company_id, role_id, user_id, payload, 
 const deleteMerchantService = async (id, company_id, role_id, user_id, roleIs) => {
     let conn;
     try {
-        const filterColumns =roleIs=== MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
+        const filterColumns =roleIs=== Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
 

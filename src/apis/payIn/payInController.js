@@ -5,7 +5,7 @@ import { sendError } from "../../utils/responseHandlers.js";
 import {
     ASSIGN_PAYIN_SCHEMA,
     VALIDATE_ASSIGNED_BANT_TO_PAY,
-    VALIDATE_CHECK_PAY_IN_STATUS,
+    // VALIDATE_CHECK_PAY_IN_STATUS,
     VALIDATE_CHECK_UTR,
     VALIDATE_DISPUTE_DUPLICATE_TRANSACTION,
     VALIDATE_EXPIRE_PAY_IN_URL,
@@ -111,7 +111,7 @@ export const expirePayInUrl = async (req, res) => {
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-    await expirePayInUrlService(payload.payInId)
+    await expirePayInUrlService(req.params.payInId)
     return sendSuccess(res, null, 'Payin expires!');
 }
 

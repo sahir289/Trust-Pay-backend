@@ -1,5 +1,5 @@
 import { BadRequestError } from '../../utils/appErrors.js';
-import { beginTransaction, commit, getConnection, rollback, transactionWrapper } from '../../utils/db.js';
+import {  transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { createCompanyService, deleteCompanyService, getCompanyService, updateCompanyService } from './companyServices.js';
 import { sendError } from '../../utils/responseHandlers.js';
@@ -32,7 +32,6 @@ const getCompanyById = async (req, res) => {
 };
 
 const createCompany = async (req, res) => {
-  let conn;
   try {
     let payload = req.body;
     if (!payload) {
