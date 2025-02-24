@@ -9,10 +9,10 @@ import { BankTypes, Currency, Status, Type } from "../../constants/index.js";
 import { getMerchantsService } from "../merchants/merchantService.js";
 import { calculateCommission, calculateDuration } from "../../helpers/index.js";
 import { merchantPayinCallback } from "../../callBacksAndWebHook/merchantCallBacks.js";
-import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao, getPayInUrlsDao, getPayinsDao } from "./payInDao.js";
+import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao, getPayInUrlsDao, getPayinsDao, getPayinsDaoId } from "./payInDao.js";
 import { AccessDeniedError, BadRequestError, NotFoundError } from "../../utils/appErrors.js";
 import { getBankaccountDao, getMerchantBankDao, updateBankaccountDao, updateBanktBalanceDao } from "../bankAccounts/bankaccountDao.js";
-import { getBankResponseDao, updateBankResponseDao } from "../bankResponse/bankResponseDao.js";
+import { getBankResponseDao, updateBotResponseDao } from "../bankResponse/bankResponseDao.js";
 import { getMerchantsDao, updateMerchantBalanceDao } from "../merchants/merchantDao.js";
 import { updateCalculationBalanceDao } from "../calculation/calculationDao.js";
 import { getVendorsDao, updateVendorBalanceDao } from "../vendors/vendorDao.js";
@@ -406,7 +406,7 @@ export const updateDepositStatusService = async (conn, merchantOrderId, nick_nam
 
     const updatePayInRes = await updatePayInUrlDao(payInData.id, updatePayInData, conn);
 
-    await updateBankResponseDao({ id: bank.id }, { is_used: true }, conn);
+    await updateBotResponseDao({ id: bank.id }, { is_used: true }, conn);
 
     // update bank balance and today balance
     await updateBanktBalanceDao({ id: bank.id },)
@@ -465,7 +465,7 @@ export const resetDepositService = async (conn, merchant_order_id) => {
         // check if any entry exists
         const payInSuccess = await getOtherSuccessPayIns(bankResponse);
         if (!payInSuccess.length) {
-            await updateBankResponseDao({ id: bankResponse.id }, { is_used: false }, conn);
+            await updateBotResponseDao({ id: bankResponse.id }, { is_used: false }, conn);
         }
     }
 
@@ -551,7 +551,7 @@ export const processPayInService = async (conn, payload) => {
     }
 
     if (bankResponse.id) {
-        await updateBankResponseDao({ id: bankResponse.id }, { is_used: true }, conn);
+        await updateBotResponseDao({ id: bankResponse.id }, { is_used: true }, conn);
     }
 
     if (bankResponse.bank_id && bankResponse.bank_id !== payIn.bank_acc_id) {
@@ -919,6 +919,31 @@ export const telegramCheckUTRService = async (conn, utr, merchant_order_id) => {
         payInId: payIn.id,
         amount: payIn.amount,
     })
+}
+
+export const getPayinsServiceByid = async (payload) => {
+    const data = await getPayinsDaoId(payload);
+
+    console.log('Fetched Payins successfully', 'info');
+    return data;
+};
+
+
+export const getPayinsServiceById = async(id)=>{
+    const payload = id;
+    let filters = {};
+   if (payload) {
+     filters.id = payload; 
+   }
+   console.log('getUsers successfully');
+    // Fetch vendors data from the service
+    const data = await getPayinsDaoId(filters);
+
+    // Log success message
+    console.log('getPayins successfully', data);
+
+    // Send success response
+    return  data;
 }
 
 const checkIsPayInExpired = (payIn) => {

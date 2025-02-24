@@ -26,7 +26,7 @@ model Company {
   Payout           Payout[]
   Settlement       Settlement[]
   Calculation      Calculation[]
-  Chargeback       Chargeback[]
+  ChargeBack       ChargeBack[]
   BankResponse     BankResponse[]
   CheckUtrHistory  CheckUtrHistory[]
   ResetDataHistory ResetDataHistory[]
@@ -58,8 +58,8 @@ model User {
   role                Role            @relation(fields: [role_id], references: [id])
   designation         Designation     @relation(fields: [designation_id], references: [id])
   Company             Company         @relation(fields: [company_id], references: [id])
-  merchantChargebacks Chargeback[]    @relation("MerchantUser")
-  vendorChargebacks   Chargeback[]    @relation("VendorUser")
+  merchantChargebacks ChargeBack[]    @relation("MerchantUser")
+  vendorChargebacks   ChargeBack[]    @relation("VendorUser")
   UserHierarchy       UserHierarchy[]
   Payout              Payout[]
   Merchant            Merchant[]
@@ -220,7 +220,7 @@ model BankAccount {
   Payin        Payin[]
   Payout       Payout[]
   BankResponse BankResponse[]
-  Chargeback   Chargeback[]
+  ChargeBack   ChargeBack[]
 }
 
 model Payin {
@@ -258,7 +258,7 @@ model Payin {
   BankResponse BankResponse @relation(fields: [bank_response_id], references: [id])
   Company      Company      @relation(fields: [company_id], references: [id])
 
-  Chargeback       Chargeback[]
+  ChargeBack       ChargeBack[]
   CheckUtrHistory  CheckUtrHistory[]
   ResetDataHistory ResetDataHistory[]
   Complaints       Complaints[]
@@ -345,7 +345,7 @@ model Calculation {
   Company     Company @relation(fields: [company_id], references: [id])
 }
 
-model Chargeback {
+model ChargeBack {
   id               String   @id @default(uuid())
   sno              Int      @default(autoincrement())
   user             String

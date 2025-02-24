@@ -1,9 +1,17 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { createChargeBack, deleteChargeBack, getChargeBacks, updateChargeBack,getChargeBacksById } from './chargeBackController.js';
-import { isAuthenticated } from '../../middlewares/auth.js';
+import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
 
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   name: ChargeBacks
+ *   description: API endpoints for managing chargebacks
+ */
 
 /**
  * @swagger
@@ -11,8 +19,7 @@ const router = express.Router();
  *   get:
  *     summary: Get all chargebacks
  *     description: Fetches all chargebacks from the system.
- *     tags:
- *       - ChargeBacks
+ *     tags: [ChargeBacks]
  *     responses:
  *       200:
  *         description: Successfully retrieved chargebacks.
@@ -23,14 +30,62 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "get chargeBacks successfully"
+ *                   example: "get chargebacks successfully"
  *                 data:
  *                   type: array
  *                   items:
  *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 1
+ *                       amount:
+ *                         type: number
+ *                         example: 100.50
+ *                       reason:
+ *                         type: string
+ *                         example: "fraudulent transaction"
+ *       500:
+ *         description: Internal server error
  */
-router.get('/', isAuthenticated, tryCatchHandler(getChargeBacks));
-router.get('/:id', isAuthenticated, tryCatchHandler(getChargeBacksById));
+router.get('/', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(getChargeBacks));
+/**
+ * @swagger
+ * /chargeBacks/{id}:
+ *   get:
+ *     summary: Get a chargeback by ID
+ *     description: Fetches a specific chargeback by its ID.
+ *     tags: [ChargeBacks]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the chargeback to fetch.
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved the chargeback.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                   example: 1
+ *                 amount:
+ *                   type: number
+ *                   example: 100.50
+ *                 reason:
+ *                   type: string
+ *                   example: "fraudulent transaction"
+ *       404:
+ *         description: ChargeBack not found.
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(getChargeBacksById));
 
 /**
  * @swagger
@@ -38,8 +93,7 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getChargeBacksById));
  *   post:
  *     summary: Create a chargeback
  *     description: Adds a new chargeback to the system.
- *     tags:
- *       - ChargeBacks
+ *     tags: [ChargeBacks]
  *     requestBody:
  *       required: true
  *       content:
@@ -49,11 +103,15 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getChargeBacksById));
  *             properties:
  *               amount:
  *                 type: number
+ *                 description: The amount of the chargeback.
+ *                 example: 100.50
  *               reason:
  *                 type: string
+ *                 description: The reason for the chargeback.
+ *                 example: "fraudulent transaction"
  *     responses:
  *       201:
- *         description: Chargeback created successfully.
+ *         description: ChargeBack created successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -61,9 +119,25 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getChargeBacksById));
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "Chargeback created successfully"
+ *                   example: "ChargeBack created successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     amount:
+ *                       type: number
+ *                       example: 100.50
+ *                     reason:
+ *                       type: string
+ *                       example: "fraudulent transaction"
+ *       400:
+ *         description: Bad request (validation error).
+ *       500:
+ *         description: Internal server error.
  */
-router.post('/create-chargeback', isAuthenticated, tryCatchHandler(createChargeBack));
+router.post('/create-chargeback', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(createChargeBack));
 
 /**
  * @swagger
@@ -71,8 +145,14 @@ router.post('/create-chargeback', isAuthenticated, tryCatchHandler(createChargeB
  *   put:
  *     summary: Update a chargeback
  *     description: Updates an existing chargeback in the system.
- *     tags:
- *       - ChargeBacks
+ *     tags: [ChargeBacks]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the chargeback to update.
  *     requestBody:
  *       required: true
  *       content:
@@ -80,15 +160,17 @@ router.post('/create-chargeback', isAuthenticated, tryCatchHandler(createChargeB
  *           schema:
  *             type: object
  *             properties:
- *               id:
- *                 type: string
  *               amount:
  *                 type: number
+ *                 description: The updated amount for the chargeback.
+ *                 example: 150.00
  *               reason:
  *                 type: string
+ *                 description: The updated reason for the chargeback.
+ *                 example: "unauthorized transaction"
  *     responses:
  *       200:
- *         description: Chargeback updated successfully.
+ *         description: ChargeBack updated successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -96,9 +178,15 @@ router.post('/create-chargeback', isAuthenticated, tryCatchHandler(createChargeB
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "Chargeback updated successfully"
+ *                   example: "ChargeBack updated successfully"
+ *       400:
+ *         description: Bad request (validation error).
+ *       404:
+ *         description: ChargeBack not found.
+ *       500:
+ *         description: Internal server error.
  */
-router.put('/update-chargeback/:id', isAuthenticated, tryCatchHandler(updateChargeBack));
+router.put('/update-chargeback/:id', [isAuthenticated, authorized(AccessRoles.CHARGE_BACK)], tryCatchHandler(updateChargeBack));
 
 /**
  * @swagger
@@ -106,20 +194,17 @@ router.put('/update-chargeback/:id', isAuthenticated, tryCatchHandler(updateChar
  *   delete:
  *     summary: Delete a chargeback
  *     description: Marks a chargeback as deleted in the system.
- *     tags:
- *       - ChargeBacks
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               id:
- *                 type: string
+ *     tags: [ChargeBacks]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the chargeback to delete.
  *     responses:
  *       200:
- *         description: Chargeback deleted successfully.
+ *         description: ChargeBack deleted successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -127,8 +212,12 @@ router.put('/update-chargeback/:id', isAuthenticated, tryCatchHandler(updateChar
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "Chargeback deleted successfully"
+ *                   example: "ChargeBack deleted successfully"
+ *       404:
+ *         description: ChargeBack not found.
+ *       500:
+ *         description: Internal server error.
  */
-router.delete('/delete-chargeback/:id', isAuthenticated, tryCatchHandler(deleteChargeBack));
+router.delete('/delete-chargeback/:id', [isAuthenticated, authorized(AccessRoles.CHARGE_BACK)], tryCatchHandler(deleteChargeBack));
 
 export default router;

@@ -1,23 +1,90 @@
-import { tableName } from "../../constants/index.js"
-import { buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js"
 
-export const getBankResponsesDao = async (filters) => {
-    const [sql, params] = buildSelectQuery(`SELECT * from ${tableName.BANK_RESPONSE} WHERE 1=1`, filters);
-    return await executeQuery(sql, params);
+import { columns, tableName } from "../../constants/index.js";
+// import { generateUUID } from '../utils/generateUUID.js';
+
+import { executeQuery, buildSelectQuery, buildInsertQuery, buildUpdateQuery } from "../../utils/db.js";
+import { generateUUID } from "../../utils/generateUUID.js";
+
+
+
+
+const getBankResponseDao = async (search,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder) => {
+
+  const baseQuery = `SELECT * FROM "${tableName.BANK_RESPONSE}" WHERE 1=1`;
+  const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.BANK_RESPONSE, page, pageSize, sortBy, sortOrder, typeof search != 'string');
+  // Execute query
+  const result = await executeQuery(sql, queryParams);
+  return result.rows[0];
+
+};
+const getBankResponseDaoAll = async (search,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder) => {
+
+  const baseQuery = `SELECT * FROM "${tableName.BANK_RESPONSE}" WHERE 1=1`;
+  const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.BANK_RESPONSE, page, pageSize, sortBy, sortOrder, typeof search != 'string');
+  // Execute query
+  const result = await executeQuery(sql, queryParams);
+  return result.rows;
+
+};
+
+
+
+
+
+const createBankResponseDao = async (data) => {
+  data.id = generateUUID();
+  const [sql, params] = buildInsertQuery(tableName.BANK_RESPONSE, data)
+  const result = await executeQuery(sql, params);
+  console.log(sql, params, "0987654e4wsxrctvjknm")
+  return result.rows[0];
+};
+
+
+const getBankMessageDao = async ({bank_id, startDate, endDate,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder}) => {
+
+  const baseQuery = `SELECT * FROM "${tableName.BANK_RESPONSE}" WHERE 1=1`;
+  const filters = { bank_id };
+
+  if (startDate && endDate) {
+    filters["created_at"] = [startDate, endDate];  
+  }
+
+  const columns = ["bank_id", "created_at"]; 
+
+  const [query, values] = buildSelectQuery(baseQuery, filters, columns, page, pageSize, sortBy, sortOrder);  // Execute query
+  const result = await executeQuery(query, values);
+  console.log(result.rows, "123456789")
+  return result.rows;
+
+};
+
+
+
+const resetBankResponseDao = async (id, data) => {
+  const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, { id });
+  const result = await executeQuery(sql, params);
+  return result.rows[0];
 }
 
-export const getBankResponseDao = async (filters) => {
-    const [sql, params] = buildSelectQuery(`SELECT * from "${tableName.BANK_RESPONSE}" WHERE 1=1`, filters);
-    const result = await executeQuery(sql, params);
-    return result.rows[0];
+
+const updateBotResponseDao = async (id, data) => {
+  const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, { id });
+  const result = await executeQuery(sql, params);
+  
+  return result.rows[0];
 }
 
-export const updateBankResponseDao = async (filters, payload, conn) => {
-    const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, payload, filters);
-    if (conn && conn.query) {
-        const result = await conn.query(sql, params);
-        return result.rows[0];
-    }
-    const result = await executeQuery(sql, params);
-    return result.rows[0];
-}
+
+export { getBankResponseDao, createBankResponseDao, getBankResponseDaoAll, getBankMessageDao, resetBankResponseDao, updateBotResponseDao }

@@ -38,12 +38,12 @@ export const Role = {
     ADMIN: 'ADMIN',
     TRANSACTIONS: 'TRANSACTIONS',
     OPERATIONS: 'OPERATIONS',
-    MERCHANTADMIN: 'MERCHANTADMIN',
+    MERCHANT_ADMIN: 'MERCHANT_ADMIN',
     MERCHANT: 'MERCHANT',
-    SUBMERCHANT: 'SUBMERCHANT',
-    MERCHANTOPERATIONS: 'MERCHANTOPERATIONS',
+    SUB_MERCHANT: 'SUB_MERCHANT',
+    MERCHANT_OPERATIONS: 'MERCHANT_OPERATIONS',
     VENDOR: 'VENDOR',
-    VENDOROPERATIONS: 'VENOROPERATIONS',
+    VENDOR_OPERATIONS: 'VENDOR_OPERATIONS',
 }
 
 export const columns = {
@@ -57,12 +57,14 @@ export const columns = {
     DESIGNATION: ['id', 'designation', 'role_id', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     PAYIN: ['id', 'sno', 'upi_short_code', 'qr_params', 'amount', 'status', 'is_notified', 'user_submitted_utr', 'currency', 'merchant_order_id', 'user', 'bank_acc_id', 'merchant_id', 'bank_response_id', 'payin_merchant_commission', 'payin_vendor_commission', 'user_submitted_image', 'duration', 'is_url_expires', 'expiration_date', 'one_time_used', 'approved_at', 'failed_at', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     PAYOUT: ['id', 'sno', 'user', 'merchant_id', 'bank_acc_id', 'amount', 'status', 'failed_reason', 'currency', 'merchant_order_id', 'acc_no', 'acc_holder_name', 'ifsc_code', 'bank_name', 'upi_id', 'utr_id', 'rejected_reason', 'payout_merchant_commission', 'payout_vendor_commission', 'from_bank_acc_id', 'approved_at', 'rejected_at', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
-    BANK_ACCOUNT: ['id', 'sno', 'user_id', 'upi_id', 'upi_params', 'name', 'acc_no', 'acc_name', 'ifsc_code', 'bank_name', 'is_qr', 'is_bank', 'is_enabled', 'payin_count', 'balance', 'today_balance', 'bank_used_for', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
+    BANK_ACCOUNT: ['id', 'sno', 'user_id', 'upi_id', 'upi_params', 'name', 'ac_no', 'ac_name', 'ifsc', 'bank_name', 'is_qr', 'is_bank', 'is_enabled', 'payin_count', 'balance', 'today_balance', 'bank_used_for', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     VENDOR: ['id', 'role_id', 'user_id', 'first_name', 'last_name', 'code', 'payin_commission', 'payout_commission', 'balance', 'created_by', 'updated_by', 'config', 'company_id', 'created_at', 'updated_at', 'is_obsolete'],
-    CHAREBACK: ['id', 'sno', 'user', 'merchant_user_id', 'vendor_user_id', 'payin_id', 'bank_acc_id', 'amount', 'when', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
+    CHARGE_BACK: ['id', 'sno', 'user', 'merchant_user_id', 'vendor_user_id', 'payin_id', 'bank_acc_id', 'amount', 'when', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     USER_HIERARCHY: ['id', 'user_id', 'role_id', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     CHECK_UTR_HISTORY: ['id', 'sno', 'payin_id', 'utr', 'created_by', 'updated_by', 'created_at', 'updated_at', 'company_id', 'is_obsolete', 'config'],
-    RESET_DATA_HISTORY: ['id', 'sno', 'payin_id', 'pre_status', 'created_by',  'updated_by', 'created_at', 'updated_at', 'company_id', 'is_obsolete', 'config']
+    RESET_DATA_HISTORY: ['id', 'sno', 'payin_id', 'pre_status', 'created_by',  'updated_by', 'created_at', 'updated_at', 'company_id', 'is_obsolete', 'config'],
+    BANK_RESPONSE: ['id', 'sno','status', 'bank_id', 'amount', 'upi_short_code', 'utr', 'is_used', 'created_at', 'updated_at', 'created_by', 'company_id', 'is_obsolete', 'config' , 'updated_by']
+
 }
 export const merchantColumns = {
     MERCHANT: ['first_name', 'last_name', 'code', 'min_payin', 'max_payin', 'payin_commission', 'min_payout', 'max_payout', 'payout_commission', 'balance', 'config'],
@@ -74,6 +76,7 @@ export const merchantColumns = {
     PAYOUT: ['id', 'sno', 'user', 'amount', 'status', 'failed_reason', 'currency', 'merchant_order_id', 'acc_no', 'acc_holder_name', 'ifsc_code', 'bank_name', 'upi_id', 'utr_id', 'rejected_reason', 'payout_merchant_commission', 'config'],
     CHAREBACK: ['sno', 'user', 'merchant_user_id', 'amount', 'when'],
     USER_HIERARCHY: ['config'],
+
 }
 export const vendorColumns = {
     USER: ['first_name', 'last_name', 'email', 'contact_no', 'user_name', 'code', 'config'],
@@ -85,6 +88,7 @@ export const vendorColumns = {
     BANK_ACCOUNT: ['sno', 'upi_id', 'upi_params', 'name', 'acc_no', 'acc_name', 'ifsc_code', 'bank_name', 'is_qr', 'is_bank', 'is_enabled', 'payin_count', 'balance', 'today_balance', 'bank_used_for', 'config'],
     VENDOR: ['first_name', 'last_name', 'code', 'payin_commission', 'payout_commission', 'balance', 'config'],
     CHAREBACK: ['sno', 'user', 'vendor_user_id', 'bank_acc_id', 'amount', 'when'],
+
 }
 
 export const tableName = {
@@ -98,7 +102,7 @@ export const tableName = {
     PAYIN: 'Payin',
     PAYOUT: 'Payout',
     VENDOR: 'Vendor',
-    CHAREBACK: 'Chargeback',
+    CHARGE_BACK: 'ChargeBack',
     BANK_ACCOUNT: 'BankAccount',
     USER_HIERARCHY: 'UserHierarchy',
     SETTLEMENT: 'Settlement',
@@ -115,25 +119,29 @@ export const BankTypes = {
 }
 
 export const AccessRoles = {
-    USER: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.MERCHANTADMIN, Role.MERCHANT, Role.VENDOR],
-    MERCHANT: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.MERCHANTADMIN, Role.MERCHANT, Role.SUBMERCHANT, Role.MERCHANTOPERATIONS],
-    VENDOR: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.VENDOR, Role.VENDOROPERATIONS],
-    PAYIN: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.MERCHANTADMIN, Role.MERCHANT, Role.SUBMERCHANT, Role.MERCHANTOPERATIONS, Role.VENDOR, Role.VENDOROPERATIONS],
-    PAYOUT: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.MERCHANTADMIN, Role.MERCHANT, Role.SUBMERCHANT, Role.MERCHANTOPERATIONS, Role.VENDOR, Role.VENDOROPERATIONS],
-    SETTLEMENT: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.MERCHANTADMIN, Role.MERCHANT, Role.SUBMERCHANT, Role.MERCHANTOPERATIONS, Role.VENDOR, Role.VENDOROPERATIONS],
-    REPORT: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.MERCHANTADMIN, Role.MERCHANT, Role.SUBMERCHANT, Role.MERCHANTOPERATIONS, Role.VENDOR, Role.VENDOROPERATIONS],
+    USER: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.MERCHANT_ADMIN, Role.MERCHANT, Role.VENDOR],
+    MERCHANT: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.MERCHANT_ADMIN, Role.MERCHANT, Role.SUB_MERCHANT, Role.MERCHANT_OPERATIONS],
+    VENDOR: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.VENDOR, Role.VENDOR_OPERATIONS],
+    PAYIN: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.MERCHANT_ADMIN, Role.MERCHANT, Role.SUB_MERCHANT, Role.MERCHANT_OPERATIONS, Role.VENDOR, Role.VENDOR_OPERATIONS],
+    PAYOUT: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.MERCHANT_ADMIN, Role.MERCHANT, Role.SUB_MERCHANT, Role.MERCHANT_OPERATIONS, Role.VENDOR, Role.VENDOR_OPERATIONS],
+    SETTLEMENT: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.MERCHANT_ADMIN, Role.MERCHANT, Role.SUB_MERCHANT, Role.MERCHANT_OPERATIONS, Role.VENDOR, Role.VENDOR_OPERATIONS],
+    REPORT: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.MERCHANT_ADMIN, Role.MERCHANT, Role.SUB_MERCHANT, Role.MERCHANT_OPERATIONS, Role.VENDOR, Role.VENDOR_OPERATIONS],
     COMPANY: [Role.ADMIN],
     USER_HIERARCHY: {
         CREATE_DELETE: [Role.ADMIN, Role.TRANSACTIONS],
-        UPDATE_READ: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANTADMIN]
+        UPDATE_READ: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANT_ADMIN]
     },
     RESET_DATA_HISTORY: [Role.ADMIN],
     CHECK_UTR_HISTORY: [Role.ADMIN],
     BANK_RESPONSE: [Role.ADMIN],
-    BANK_ACCOUNT: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS, Role.VENDOR, Role.VENDOROPERATIONS],
-    CHAREBACK: {
+    BANK_ACCOUNT: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS, Role.VENDOR, Role.VENDOR_OPERATIONS],
+    CHARGE_BACK: {
         CREATE_DELETE: [Role.ADMIN, Role.TRANSACTIONS],
-        UPDATE_READ: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANTADMIN, Role.MERCHANT, Role.VENDOR]
+        UPDATE_READ: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANT_ADMIN, Role.MERCHANT, Role.VENDOR]
     },
-    CALCULATION: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANTADMIN, Role.MERCHANT, Role.VENDOR]
+    CALCULATION: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANT_ADMIN, Role.MERCHANT, Role.VENDOR],
+    ROLES : [Role.ADMIN, Role.TRANSACTIONS],
+    DESIGNATION : [Role.ADMIN, Role.TRANSACTIONS],
+    COMPLAINTS:[Role.ADMIN]
+
 }

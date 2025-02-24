@@ -1,16 +1,25 @@
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { createMerchantService, deleteMerchantService, getMerchantsService, updateMerchantService } from './merchantService.js';
 import { VALIDATE_UPDATE_MERCHANT_STATUS,VALIDATE_MERCHANT_BY_ID,VALIDATE_MERCHANT_SCHEMA } from '../../schemas/merchantSchema.js';
-
+import { ValidationError } from '../../utils/appErrors.js';
 const createMerchant = async (req, res) => {
     try {
-        const { error } = VALIDATE_MERCHANT_SCHEMA.validate(req.body);
-        if (error) {
-            return sendError(res, error.details[0].message, 'Validation Error');
+const { role } = req.user;
+        let payload = req.body;
+        if (!payload) {
+          console.error('payload is required');
+          return sendError(res, 'payload is required', 'Validation Error');
         }
-        const payload = req.body;
+        const {company_id,user_id,role_id} = req.user;
+        payload.company_id=company_id;
+        payload.user_id=user_id;
+        payload.role_id=role_id;
+        const { error } = VALIDATE_MERCHANT_SCHEMA.validate(payload);
+        if (error) {
+            throw new ValidationError(error);
+        }
         // Call the service to create the Merchant
-        const result = await createMerchantService(payload);
+        const result = await createMerchantService(payload, role);
 
         // Log success message
         console.log('Merchant created successfully', result);
@@ -20,7 +29,6 @@ const createMerchant = async (req, res) => {
     } catch (error) {
         // Log the error
         console.error('error getting while creating Merchant', error);
-
         // Send an error response to the client
         return sendError(res, error, 'Error occurred while creating Merchant');
     }
@@ -28,11 +36,15 @@ const createMerchant = async (req, res) => {
 
 const getMerchants = async (req, res) => {
     try {
-        const payload = req.query.search;
-
+const { role } = req.user;
+        const {company_id,user_id,role_id} = req.user;
+        let search = req.query.search; 
+        let user = {}; 
+        user.company_id=company_id;
+        user.user_id=user_id;
+        user.role_id=role_id;
         // Fetch merchants data from the service
-        const data = await getMerchantsService(payload);
-
+        const data = await getMerchantsService(search,user, role);
         // Log success message
         console.log('get Merchants successfully', data);
         // Send success response
@@ -47,15 +59,15 @@ const getMerchants = async (req, res) => {
 };
 const getMerchantsById = async (req, res) => {
     try {
+        const { role } = req.user;
         const { error } = VALIDATE_MERCHANT_BY_ID.validate(req.params);
         if (error) {
-            return sendError(res, error.details[0].message, 'Validation Error');
+            throw new ValidationError(error);
         }
-        const payload = req.params;
-
+        const {id} = req.params;
+        const {company_id,user_id,role_id} = req.user;
         // Fetch merchants data from the service
-        const data = await getMerchantsService({id:payload});
-
+        const data = await getMerchantsService({id,company_id,role_id,user_id}, role);
         // Log success message
         console.log('get Merchant successfully', data);
 
@@ -73,21 +85,23 @@ const getMerchantsById = async (req, res) => {
 
 const updateMerchant = async (req, res) => {
     try {
+        const { role } = req.user;
         const { error: paramsError } =VALIDATE_MERCHANT_BY_ID.validate(req.params);
         if (paramsError) {
-            return sendError(res, paramsError.details[0].message, 'Validation Error');
+            throw new ValidationError(paramsError);
         }
         // Validate body (fields for update)
         const { error: bodyError } = VALIDATE_UPDATE_MERCHANT_STATUS.validate(req.body);
         if (bodyError) {
-            return sendError(res, bodyError.details[0].message, 'Validation Error');
+            throw new ValidationError(bodyError);
         }
 
         const payload = req.body;
         const { id } = req.params;  // Assuming the Merchant ID is passed as a parameter
+        const {company_id,user_id,role_id} = req.user;
 
         // Call the service to update the Merchant
-        const result = await updateMerchantService(id, payload);
+        const result = await updateMerchantService(id,company_id,role_id,user_id, payload, role);
 
         // Log success message
         console.log('Merchant updated successfully', result);
@@ -105,13 +119,15 @@ const updateMerchant = async (req, res) => {
 
 const deleteMerchant = async (req, res) => {
     try {
+        const { role } = req.user;
         const { error } = VALIDATE_MERCHANT_BY_ID.validate(req.params);
         if (error) {
-            return sendError(res, error.details[0].message, 'Validation Error');
+            throw new ValidationError(error);
         }
         const { id } = req.params;  // Assuming the Merchant ID is passed as a parameter
         // Call the service to delete the Merchant
-        const result = await deleteMerchantService(id);
+        const {company_id,user_id,role_id} = req.user;
+        const result = await deleteMerchantService(id,company_id,user_id,role_id, role);
         // Log success message
         console.log('Merchant deleted successfully',  result);
 

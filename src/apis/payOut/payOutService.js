@@ -78,9 +78,9 @@ const createPayoutService = async (headers, payload) => {
     }
 };
 
-const getPayoutsService = async (payload) => {
+const getPayoutsService = async (search,user) => {
     try {
-        const data = await getPayoutsDao(payload);
+        const data = await getPayoutsDao(search,user);
         console.log('Fetched Payouts successfully', 'info');
         return data;
     } catch (error) {
@@ -90,7 +90,7 @@ const getPayoutsService = async (payload) => {
 };
 
 
-const updatePayoutService = async (conn, id, payload) => {
+const updatePayoutService = async (conn, id,company_id, payload) => {
     // Set default statuses based on input conditions
     const joiValidation = UPDATE_DETAILS_SCHEMA.validate(payload);
         if (joiValidation.error) {
@@ -100,11 +100,11 @@ const updatePayoutService = async (conn, id, payload) => {
     if (payload.rejected_reason) Object.assign(payload, { status: Status.REJECTED, rejected_at: new Date() });
     if (payload.status === Status.INITIATED) Object.assign(payload, { utr_id: "", rejected_reason: "" });
 
-    const singleWithdrawData = await getPayoutsDao({id : id});
+    const singleWithdrawData = await getPayoutsDao({id,company_id});
     if (payload?.method === Method.EKO) await processEkoPayout(singleWithdrawData, payload);
 
     // Update payout status and retrieve necessary data
-    const data = await updatePayoutDao(id, payload, conn);
+    const data = await updatePayoutDao(id,company_id, payload, conn);
     if (!data.approved_at) return;
 
     // Fetch required user details
@@ -255,7 +255,7 @@ const createEkoWithdraw = async (payload, client_ref_id) => {
         client_ref_id,
         recipient_name: payload?.acc_holder_name,
         ifsc: payload?.ifsc_code,
-        account: payload?.acc_no,
+        account: payload?.ac_no,
         sender_name: "TrustPay"
     }
 
