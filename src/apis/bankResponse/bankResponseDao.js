@@ -7,7 +7,6 @@ import { generateUUID } from "../../utils/generateUUID.js";
 
 
 
-
 const getBankResponseDao = async (search,
   page,
   pageSize,
@@ -34,8 +33,6 @@ const getBankResponseDaoAll = async (search,
   return result.rows;
 
 };
-
-
 
 
 

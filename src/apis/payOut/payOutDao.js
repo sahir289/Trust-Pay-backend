@@ -41,9 +41,9 @@ export const getPayoutsDao = async (
   return result.rows;
 };
 
-export const updatePayoutDao = async (id, company_id, data, conn) => {
+export const updatePayoutDao = async (ids, data, conn) => {
     try {
-      const [sql, params] = buildUpdateQuery(tableName.PAYOUT, data, { id, company_id });
+      const [sql, params] = buildUpdateQuery(tableName.PAYOUT, data, ids);
       
       let result;
       if (conn && conn.query) {
@@ -60,9 +60,9 @@ export const updatePayoutDao = async (id, company_id, data, conn) => {
   };
   
 
-export const deletePayoutDao = async (id, company_id, data) => {
+export const deletePayoutDao = async (ids,data) => {
     try {
-      const [sql, params] = buildUpdateQuery(tableName.PAYOUT, data, { id, company_id });
+      const [sql, params] = buildUpdateQuery(tableName.PAYOUT, data, ids);
       const result = await executeQuery(sql, params);
       return result.rows[0];
     } catch (error) {

@@ -9,10 +9,10 @@ const createPayout = async (req, res) => {
         console.error('payload is required');
         return sendError(res, 'payload is required', 'Validation Error');
       }
-      const {company_id} = req.user;
+      const {company_id,role} = req.user;
       payload.company_id=company_id;
         // Call the service to create the Payout
-        const result = await createPayoutService( req.headers ,payload);
+        const result = await createPayoutService( req.headers ,payload,role);
         // Log success message
         console.log('Payout created successfully', result);
 
@@ -31,9 +31,10 @@ const createPayout = async (req, res) => {
 const getPayoutsById = async (req, res) => {
     try {
         const {id} = req.params;
-  const {company_id}  = req.user;
+  const {company_id,role}  = req.user;
+  const payload={};
         // Fetch vendors data from the service
-        const data = await getPayoutsService({id,company_id});
+        const data = await getPayoutsService({id,company_id},payload,role);
 
         // Log success message
         console.log('getPayouts successfully', data);
@@ -52,12 +53,12 @@ const getPayoutsById = async (req, res) => {
 
 const getPayouts = async (req, res) => {
     try {
-        const {company_id} = req.user;
+        const {company_id,role} = req.user;
         let search = req.query.search;  
         let user={}
         user.company_id=company_id;
         // Fetch vendors data from the service
-        const data = await getPayoutsService(search,user);
+        const data = await getPayoutsService(search,user,role);
 
         // Log success message
         console.log('getPayouts successfully', data);
@@ -79,10 +80,11 @@ const updatePayout = async (req, res) => {
     try {
         const payload = req.body;
         const { id } = req.params; 
-        const {company_id} = req.user;
+        const {company_id,role} = req.user;
+        const ids = {id,company_id}
          // Assuming the Payout ID is passed as a parameter
         // Call the service to update the Payout
-        const result = await transactionWrapper(updatePayoutService)(id,company_id, payload);
+        const result = await transactionWrapper(updatePayoutService)(ids, payload,role);
 
         // Log success message
         console.log('Payout updated successfully', result);
