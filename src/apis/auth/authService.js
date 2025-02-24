@@ -16,7 +16,7 @@ import { io } from '../../../server.js';
 
 
 
-const loginService = async (config) => {
+const loginService = async (config, clientIP) => {
   let conn;
   
   try{
@@ -53,7 +53,7 @@ const loginService = async (config) => {
     const tokenInfo = generateUserToken(user);
     const hashedToken = await createHash(tokenInfo.refreshToken);
     const newConfig = {
-      user_ip : config.clientIP,
+      user_ip : clientIP,
       token : {refresh_token: hashedToken},
       confirm_over_ride: config.confirmOverRide,
       hostname : os.hostname(),
@@ -61,7 +61,6 @@ const loginService = async (config) => {
       network_interface : Object.values(os.networkInterfaces())[0]?.[0],
       cpu_cores : os.cpus()[0],
     }
-    console.log(newConfig, "newConfig")
     await addLoginDao(conn, user.id, newConfig, user.company_id, sessionId);
 
     // **Notify previous sessions to log out**
