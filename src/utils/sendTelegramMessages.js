@@ -56,7 +56,7 @@ export async function sendTelegramDashboardReportMessage(
   ).join("\n");
 
   const chargebackDetails = (chargebackData || []).map(m =>
-    `<b>Chargeback:</b> ${m.chargebackDataID} | <b>Balance:</b> ${m.chargebackDataBalance} | <b>Today Balance:</b> ${m.chargebackDataToday}| <b>Bank :</b> ${m.chargeBank} `
+    `<b>ChargeBack:</b> ${m.chargebackDataID} | <b>Balance:</b> ${m.chargebackDataBalance} | <b>Today Balance:</b> ${m.chargebackDataToday}| <b>Bank :</b> ${m.chargeBank} `
   ).join("\n");
 
   const message = `
@@ -92,10 +92,10 @@ export async function sendTelegramDashboardReportMessage(
 
   <b>Total Settlement </b> ${settlements}
   
-  <b>✅ Chargeback </b>
-    <b>✅ Chargeback</b>${chargebackDetails}
+  <b>✅ ChargeBack </b>
+    <b>✅ ChargeBack</b>${chargebackDetails}
 
-  <b>Total Chargeback </b> ${chargebacks}`;
+  <b>Total ChargeBack </b> ${chargebacks}`;
 
   // const sendMessageUrl = ""
   // `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;

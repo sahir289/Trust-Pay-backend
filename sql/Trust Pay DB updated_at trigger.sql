@@ -27,7 +27,7 @@ BEGIN
             ('Payout'),
             ('Settlement'),
             ('Calculation'),
-            ('Chargeback'),
+            ('ChargeBack'),
             ('BankResponse'),
             ('CheckUtrHistory'),
             ('ResetDataHistory'),
