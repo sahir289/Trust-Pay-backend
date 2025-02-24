@@ -90,7 +90,7 @@ const updateVendorService = async (id, payload, role) => {
     }
 };
 
-const deleteVendorService = async (id, company_id, role) => {
+const deleteVendorService = async (ids, role) => {
     let conn;
     try {
         const filterColumns = role === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
