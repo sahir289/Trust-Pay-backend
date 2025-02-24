@@ -13,7 +13,7 @@ const getUsers = async (req, res) => {
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while fetching user', error);
   }
 };
 
@@ -30,7 +30,7 @@ const getUsersByUserName = async (req, res) => {
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while fetching user', error);
   }
 };
 

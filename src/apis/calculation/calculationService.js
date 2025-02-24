@@ -55,7 +55,7 @@ const deleteCalculationService = async (conn,id, role) => {
     const filterColumns = role === Role.MERCHANT ? merchantColumns.CALCULATION : role === Role.VENDOR ? vendorColumns.CALCULATION : columns.CALCULATION; 
     const userData = { is_obsolete: true };
     const data = await deleteCalculationDao(conn,id, userData);
-    const finalResult = await filterResponse(data, filterColumns);
+    const finalResult =  filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
     console.error('Error while deleting calculation record:', error);

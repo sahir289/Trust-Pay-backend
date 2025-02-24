@@ -77,7 +77,7 @@ const getUsersDao = async (conn, ids) => {
 
     return data;
   } catch (error) {
-    console.error('Error getting users', error);
+    console.error('error getting while fetching user', error);
     throw new DbError('Error executing query to fetch all users');
   }
 };
@@ -135,8 +135,8 @@ const getUserByIdDao = async (conn, ids) => {
     };
     return data;
   } catch (error) {
-    console.error('Error fetching user by ID', error);
-    throw new DbError('Error executing query to fetch user by ID');
+    console.error('error getting while fetching user', error);
+    throw new DbError('Error executing query to fetch all users');
   }
 };
 

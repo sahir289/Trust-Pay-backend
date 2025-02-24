@@ -11,7 +11,7 @@ const getCheckUtr = async (req, res) => {
 
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while check utr', error);
   }
 };
 const createCheckUtr = async (req, res) => {
@@ -25,7 +25,7 @@ const createCheckUtr = async (req, res) => {
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while check utr', error);
   }
 }
 
@@ -36,7 +36,7 @@ const updateCheckUtr = async (req, res) => {
     const data = await updateCheckUtrService(id, payload);
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while check utr', error);
   }
 }
 
@@ -52,7 +52,7 @@ const deleteCheckUtr = async (req, res) => {
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
-    console.error('error getting while logging in', error);
+    console.error('error getting while check utr', error);
   }
 }
 export { getCheckUtr, createCheckUtr, updateCheckUtr, deleteCheckUtr };

@@ -9,7 +9,7 @@ const getSettlementDao = async (
   sortOrder,
 ) => {
   try {
-    const baseQuery = `SELECT * FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
+    const baseQuery = `SELECT id, user_id, status, amount, method, config, approved_at, rejected_at, created_by, created_at, updated_at, company_id, is_obsolete, updated_by FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.SETTLEMENT, page, pageSize, sortBy, sortOrder, typeof search !== 'string', user);
     const result = await executeQuery(sql, queryParams);
     return result.rows[0];
@@ -27,7 +27,7 @@ const getSettlementDaoAll = async (
   sortOrder,
 ) => {
   try {
-    const baseQuery = `SELECT * FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
+    const baseQuery = `SELECT id, user_id, status, amount, method, config FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.SETTLEMENT, page, pageSize, sortBy, sortOrder, typeof search !== 'string', user);
     const result = await executeQuery(sql, queryParams);
     return result.rows;

@@ -18,8 +18,8 @@ const getUsersService = async (ids,role) => {
     const finalResult = await filterResponse(result, filterColumns);
     return finalResult;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while fetching user', error);
+    throw new BadRequestError('Error getting while fetching user');
   } finally {
     if (conn) {
       try {
@@ -67,8 +67,8 @@ const getUsersByUserNameService = async (username,ids, role) => {
     const finalResult = await filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while fetching user', error);
+    throw new BadRequestError('Error getting while fetching user');
   } finally {
     if (conn) {
       try {
@@ -80,12 +80,10 @@ const getUsersByUserNameService = async (username,ids, role) => {
   }
 };
 
-const createUserService = async (payload, role) => {
-  let conn;
+const createUserService = async (conn,payload, role) => {
+
   try {
     const filterColumns = role === Role.MERCHANT ? merchantColumns.USER : role === Role.VENDOR ? vendorColumns.USER : columns.USER;
-
-    conn = await getConnection();
     const { user_name } = payload;
    
     const user = await getUsersByUserNameDao(conn, user_name);
@@ -135,20 +133,12 @@ const createUserService = async (payload, role) => {
     //   await createVendorService(vendorPayload);
     // }
     console.log('User Created Successfully');
-    const finalResult = await filterResponse(User, filterColumns);
+    const finalResult =  filterResponse(User, filterColumns);
     return finalResult;
   } catch (error) {
     console.error('error getting while creating user', error);
     throw new BadRequestError('Error getting while creating user');
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
-      }
-    }
-  }
+  } 
 };
 
 export { getUsersService, getUserByIdService, getUsersByUserNameService, createUserService };

@@ -21,15 +21,14 @@ const getCompanyDao = async (
   }
 };
 
-const createCompanyDao = async (payload) => {
-  try {
-    const [sql, params] = buildInsertQuery(tableName.COMPANY, payload);
-    const result = await executeQuery(sql, params);
-    return result.rows[0];
-  } catch (error) {
-    console.error('Error creating company:', error); // Log the error for debugging
-    throw error; // Rethrow the error to propagate it
+const createCompanyDao = async (conn, payload ) => {
+    const [sql, params] = buildInsertQuery(tableName.COMPANY, payload)
+    if (conn && conn.query) {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
   }
+        const result = await executeQuery(sql, params);
+        return result.rows;
 };
 
 const updateCompanyDao = async (id, data) => {
