@@ -12,7 +12,7 @@
   - Added the required column `user_id` to the `BankAccount` table without a default value. This is not possible if the table is not empty.
   - Added the required column `company_id` to the `BankResponse` table without a default value. This is not possible if the table is not empty.
   - Added the required column `company_id` to the `Calculation` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `company_id` to the `Chargeback` table without a default value. This is not possible if the table is not empty.
+  - Added the required column `company_id` to the `ChargeBack` table without a default value. This is not possible if the table is not empty.
   - Added the required column `company_id` to the `CheckUtrHistory` table without a default value. This is not possible if the table is not empty.
   - Added the required column `company_id` to the `Complaints` table without a default value. This is not possible if the table is not empty.
   - Added the required column `company_id` to the `Designation` table without a default value. This is not possible if the table is not empty.
@@ -58,7 +58,7 @@ ALTER TABLE "BankResponse" ADD COLUMN     "company_id" TEXT NOT NULL;
 ALTER TABLE "Calculation" ADD COLUMN     "company_id" TEXT NOT NULL;
 
 -- AlterTable
-ALTER TABLE "Chargeback" ADD COLUMN     "company_id" TEXT NOT NULL;
+ALTER TABLE "ChargeBack" ADD COLUMN     "company_id" TEXT NOT NULL;
 
 -- AlterTable
 ALTER TABLE "CheckUtrHistory" ADD COLUMN     "company_id" TEXT NOT NULL;
@@ -170,7 +170,7 @@ ALTER TABLE "Settlement" ADD CONSTRAINT "Settlement_company_id_fkey" FOREIGN KEY
 ALTER TABLE "Calculation" ADD CONSTRAINT "Calculation_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "Company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Chargeback" ADD CONSTRAINT "Chargeback_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "Company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ChargeBack" ADD CONSTRAINT "Chargeback_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "Company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "BankResponse" ADD CONSTRAINT "BankResponse_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "Company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
