@@ -81,15 +81,9 @@ const updatePayout = async (req, res) => {
         const payload = req.body;
         const { id } = req.params; 
         const {company_id,role} = req.user;
-        const ids = {id,company_id}
-         // Assuming the Payout ID is passed as a parameter
-        // Call the service to update the Payout
+        const ids = {id, company_id}
         const result = await transactionWrapper(updatePayoutService)(ids, payload,role);
-
-        // Log success message
         console.log('Payout updated successfully', result);
-
-        // Send a success response to the client
         return sendSuccess(res, result, 'Payout updated successfully');
     } catch (error) {
         // Log the error

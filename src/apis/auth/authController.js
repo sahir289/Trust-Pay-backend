@@ -9,12 +9,13 @@ import { loginService,
 
 const loginController = async (req, res) => {
   // const { userName, password, confirmOverRide = false } = req.body;
-  const payload = req.body;
+  let clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const payload = {...req.body, clientIP};
   const options = { abortEarly: false };
-  const joiValidation = INSERT_AUTH_SCHEMA.validate(payload, options);
-  if (joiValidation.error) {
-    throw new ValidationError(joiValidation.error);
-  }
+  // const joiValidation = INSERT_AUTH_SCHEMA.validate(payload, options);
+  // if (joiValidation.error) {
+  //   throw new ValidationError(joiValidation.error);
+  // }
   const data = await loginService(payload);
   res.cookie('refreshToken', data.refreshToken, {
     httpOnly: true,

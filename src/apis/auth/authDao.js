@@ -7,8 +7,10 @@ const tableName = 'AccessToken';
 const addLoginDao = async (conn, user_id, config, company_id, sessionId) => {
   try {
     // const id = generateUUID();
-    const configData = JSON.stringify(config);
-    const sql = `
+    const configData = JSON.stringify(config, (key, value) =>
+      typeof value === 'object' && value !== null ? JSON.stringify(value) : value
+    );
+        const sql = `
       INSERT INTO public."AccessToken" (user_id, company_id, config, session_id)
       VALUES ($1, $2, $3, $4)
     `;
