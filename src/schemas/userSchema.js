@@ -24,8 +24,9 @@ export const CREATE_USER_SCHEMA = Joi.object({
 
 
 export const VALIDATE_USER_BY_ID = Joi.object({
-    id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
-      'string.guid': 'ID must be a valid UUID',
-      'any.required': 'ID is required',
-    }),
+  id: Joi.string().uuid({ version: 'uuidv4' }).required().messages({
+    'string.uuid': 'ID must be a valid UUID',
+    'any.required': 'ID is required',
+  }),
 });
+;
