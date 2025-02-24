@@ -2,7 +2,7 @@ import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
-import { assignedBankToPayInUrl, checkPayInStatus, generatePayInUrl,getPayins, payInIntentGenerateOrder, processPayIn, processPayInByImage, resetDeposit, telegramOCR, updateDepositStatus, updatePaymentNotificationStatus, validatePayInUrl } from './payInController.js';
+import { assignedBankToPayInUrl, checkPayInStatus, disputeDuplicateTransaction, generatePayInUrl,getPayins, payInIntentGenerateOrder, processPayIn, processPayInByImage, resetDeposit, telegramCheckUTR, telegramOCR, updateDepositStatus, updatePaymentNotificationStatus, validatePayInUrl } from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
 
@@ -278,7 +278,7 @@ router.post("/reset-payment", tryCatchHandler(resetDeposit));
  *       200:
  *         description: Duplicate payment disputed successfully.
  */
-router.post("/dispute-duplicate/:payInId", tryCatchHandler(resetDeposit));
+router.post("/dispute-duplicate/:payInId", tryCatchHandler(disputeDuplicateTransaction));
 
 /**
  * @swagger
