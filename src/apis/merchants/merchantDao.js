@@ -19,7 +19,7 @@ export const getMerchantsDao = async (
     const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.MERCHANT, page, pageSize, sortBy, sortOrder, typeof search != 'string');
     // Execute query
     const result = await executeQuery(sql, queryParams);
-    return result.rows[0];
+    return result.rows;
 };
 
 export const updateMerchantDao = async (id, data, conn) => {

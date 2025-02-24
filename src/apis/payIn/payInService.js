@@ -250,7 +250,7 @@ export const payInIntentGenerateOrderService = async (payInId, amount, isRazorpa
         });
 
         return {
-            status: orderRes.status
+            ...orderRes
         };
     }
 

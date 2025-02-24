@@ -2,12 +2,12 @@ import { tableName } from "../../constants/index.js"
 import { buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js"
 
 export const getBankResponsesDao = async (filters) => {
-    const [sql, params] = buildSelectQuery(`SELECT * from ${tableName.BANK_RESPONSE}`, filters);
+    const [sql, params] = buildSelectQuery(`SELECT * from ${tableName.BANK_RESPONSE} WHERE 1=1`, filters);
     return await executeQuery(sql, params);
 }
 
 export const getBankResponseDao = async (filters) => {
-    const [sql, params] = buildSelectQuery(`SELECT * from ${tableName.BANK_RESPONSE}`, filters);
+    const [sql, params] = buildSelectQuery(`SELECT * from "${tableName.BANK_RESPONSE}" WHERE 1=1`, filters);
     const result = await executeQuery(sql, params);
     return result.rows[0];
 }

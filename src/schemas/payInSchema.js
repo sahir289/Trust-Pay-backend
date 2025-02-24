@@ -41,12 +41,12 @@ export const VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS = Joi.object({
 });
 
 export const VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS = Joi.object({
-  id: Joi.string().guid({ version: ['uuidv4'] }).label('id').required(),
+  merchantOrderId: Joi.string().guid({ version: ['uuidv4'] }).label('merchantOrderId').required(),
   nick_name: Joi.string().label('nick_name').required()
 });
 
 export const VALIDATE_RESET_DEPOSIT = Joi.object({
-  merchantId: Joi.string().guid({ version: ['uuidv4'] }).label('merchantId').required(),
+  merchant_order_id: Joi.string().guid({ version: ['uuidv4'] }).label('merchant_order_id').required(),
 });
 
 export const VALIDATE_PROCESSE_PAYIN = Joi.object({

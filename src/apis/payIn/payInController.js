@@ -145,24 +145,24 @@ export const updatePaymentNotificationStatus = async (req, res) => {
     sendSuccess(res, data)
 }
 
-export const updateDepositStatus = (req, res) => {
-    const { merchantId } = req.params;
+export const updateDepositStatus = async (req, res) => {
+    const { merchantOrderId } = req.params;
     const { nick_name } = req.body;
     const payload = {
-        merchantId,
+        merchantOrderId,
         nick_name
     }
     const joiValidation = VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS.validate(payload);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-    const updateRes = transactionWrapper(updateDepositStatusService)(merchantId, nick_name);
+    const updateRes = await transactionWrapper(updateDepositStatusService)(merchantOrderId, nick_name);
     sendSuccess(res, updateRes, 'PayIn data updated successfully');
 }
 
 export const resetDeposit = async (req, res) => {
     const { merchant_order_id } = req.body;
-    const joiValidation = VALIDATE_RESET_DEPOSIT.validate(merchant_order_id);
+    const joiValidation = VALIDATE_RESET_DEPOSIT.validate(req.body);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
