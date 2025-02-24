@@ -141,14 +141,13 @@ export const applySortingAndPagination = (query, values, columns = [], sortBy, s
   const offset = (page - 1) * pageSize;
   query += ` LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
   values.push(pageSize, offset);
-
   return query;
 };
 
 export const buildInsertQuery = (tableName, data) => {
   const keys = Object.keys(data).map((key) => `"${key}"`);
   const values = keys.map((el, i) => `$${i + 1}`);
-  const query = `INSERT INTO "${tableName}" (${keys.join(', ')}) VALUES (${values}) RETURNING id`;
+  const query = `INSERT INTO "${tableName}" (${keys.join(', ')}) VALUES (${values}) RETURNING *`;
   return [query, Object.values(data)];
 }
 

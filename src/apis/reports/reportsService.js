@@ -23,8 +23,8 @@ const getPayInReportService = async (req) => {
         const finalResult = await filterResponse(result, filterColumns);
         return finalResult;
     } catch (error) {
-        console.error('error getting while logging in', error);
-        throw new BadRequestError('Error getting while logging in');
+        console.error('error getting while fetching reports', error);
+        throw new BadRequestError('Error getting while fetching reports');
     }
 };
 const getPayOutReportService = async (req) => {
@@ -45,8 +45,8 @@ const getPayOutReportService = async (req) => {
         const finalResult = await filterResponse(result, filterColumns);
         return finalResult;
     } catch (error) {
-        console.error('error getting while logging in', error);
-        throw new BadRequestError('Error getting while logging in');
+        console.error('error getting while fetching reports', error);
+        throw new BadRequestError('Error getting while fetching reports');
     }
 }; const getMerchantReportService = async (req) => {
     try {
@@ -59,8 +59,8 @@ const getPayOutReportService = async (req) => {
         const finalResult = await filterResponse(result, filterColumns);
         return finalResult;
     } catch (error) {
-        console.error('error getting while logging in', error);
-        throw new BadRequestError('Error getting while logging in');
+        console.error('error getting while fetching reports', error);
+        throw new BadRequestError('Error getting while fetching reports');
     }
 }; const getVendorReportService = async (req) => {
     try {
@@ -76,8 +76,8 @@ const getPayOutReportService = async (req) => {
         const finalResult = await filterResponse(result, filterColumns);
         return finalResult;
     } catch (error) {
-        console.error('error getting while logging in', error);
-        throw new BadRequestError('Error getting while logging in');
+        console.error('error getting while fetching reports', error);
+        throw new BadRequestError('Error getting while fetching reports');
     }
 };
 

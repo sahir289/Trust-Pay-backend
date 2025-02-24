@@ -16,10 +16,14 @@ const getCompanyDao = async (
   return result.rows;
 };
 
-const createCompanyDao = async (payload ) => {
+const createCompanyDao = async (conn, payload ) => {
     const [sql, params] = buildInsertQuery(tableName.COMPANY, payload)
+    if (conn && conn.query) {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
+  }
         const result = await executeQuery(sql, params);
-        return result.rows[0];
+        return result.rows;
 };
 
 const updateCompanyDao = async (id, data) => {

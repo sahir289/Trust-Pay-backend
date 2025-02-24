@@ -5,7 +5,7 @@ import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js'
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getBankaccountDao, updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { CREATE_SETTLEMENT_SCHEMA, UPDATE_SETTLEMENT_SCHEMA, VALIDATE_SETTLEMENT_BY_ID } from '../../schemas/settlementSchema.js';
-import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
+import { transactionWrapper } from '../../utils/db.js';
 import { columns, merchantColumns, Role, vendorColumns } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
 
@@ -20,8 +20,8 @@ const getSettlementService = async (req) => {
       throw new ValidationError(joiValidation.error);
     }
 
-    const data = await getSettlementDao({ payload, company_id });
-    const finalResult = await filterResponse(data, filterColumns);
+    const data = await transactionWrapper(getSettlementDao)({ payload, company_id });
+    const finalResult =  filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
     console.error('error getting while  getting settlements', error);
@@ -37,11 +37,11 @@ const getSettlementServiceAll = async (req) => {
     const { company_id } = req.user;
     const user = {};
     user.company_id = company_id;
-    const settlementData = await getSettlementDaoAll(payload, user);
+    const settlementData = await transactionWrapper(getSettlementDaoAll)(payload, user);
     if (!settlementData) {
       throw new BadRequestError('Error getting while getting settlements');
     }
-    const finalResult = await filterResponse(settlementData, filterColumns);
+    const finalResult =  filterResponse(settlementData, filterColumns);
     return finalResult;
   } catch (error) {
     console.error('error getting while  getting settlements', error);
@@ -50,12 +50,10 @@ const getSettlementServiceAll = async (req) => {
 };
 
 const createSettlementService = async (req) => {
-  let conn;
+ 
   try {
     const { role } = req.user;
     const filterColumns = role === Role.MERCHANT ? merchantColumns.SETTLEMENT : role === Role.VENDOR ? vendorColumns.SETTLEMENT : columns.SETTLEMENT;
-    conn = await getConnection();
-    await beginTransaction(conn);
     const payload = req.body;
     const { company_id } = req.user;
     payload.company_id = company_id;
@@ -63,40 +61,22 @@ const createSettlementService = async (req) => {
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }
-    const data = await createSettlementDao(payload);
-    await commit(conn);
-    const finalResult = await filterResponse(data, filterColumns);
+    const data = await transactionWrapper(createSettlementDao)(payload);
+    const finalResult =  filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn);
-      } catch (rollbackError) {
-        console.log('Error during transaction rollback', 'error', rollbackError);
-      }
-    }
     console.log('Error while creating Payout', 'error', error);
     throw new BadRequestError('Error occurred while creating Payout');
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        console.log('Error while releasing the connection', 'error', releaseError);
-      }
-    }
-  }
+  } 
 };
 
 
 
 const updateSettlementService = async (req) => {
-  let conn;
+ 
   try {
     const { role } = req.user;
     const filterColumns = role === Role.MERCHANT ? merchantColumns.SETTLEMENT : role === Role.VENDOR ? vendorColumns.SETTLEMENT : columns.SETTLEMENT;
-    conn = await getConnection();
-    await beginTransaction(conn);
     const { id } = req.params;
     const payload = { ...req.body };
     const { company_id } = req.user;
@@ -153,29 +133,14 @@ const updateSettlementService = async (req) => {
       payload.status = "REVERSED";
     }
 
-    const updateData = await updateSettlementDao(ids, payload);
-    await commit(conn);
-    const finalResult = await filterResponse(updateData, filterColumns);
+    const updateData = await transactionWrapper(updateSettlementDao)(ids, payload);
+    await (conn);
+    const finalResult =  filterResponse(updateData, filterColumns);
     return finalResult;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn);
-      } catch (rollbackError) {
-        console.log('Error during transaction rollback', 'error', rollbackError);
-      }
-    }
     console.log('Error while creating Payout', 'error', error);
     throw new BadRequestError('Error occurred while creating Payout');
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        console.log('Error while releasing the connection', 'error', releaseError);
-      }
-    }
-  }
+  } 
 };
 
 const deleteSettlementService = async (req) => {
@@ -189,8 +154,8 @@ const deleteSettlementService = async (req) => {
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }
-    const updatedData = await deleteSettlementDao(ids, { is_obsolete: true })
-    const finalResult = await filterResponse(updatedData, filterColumns);
+    const updatedData = await transactionWrapper(deleteSettlementDao)(ids, { is_obsolete: true })
+    const finalResult =  filterResponse(updatedData, filterColumns);
     return finalResult;
   } catch (error) {
     console.error('error getting while deleting settlement', error);

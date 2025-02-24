@@ -3,6 +3,7 @@
 import { AUTH_HEADER_KEY } from '../utils/constants.js';
 import { AccessDeniedError, AuthenticationError } from '../utils/appErrors.js';
 import { verifyToken } from '../utils/auth.js';
+import { getDesignationDao } from '../apis/designation/designationDao.js';
 // import { getLoginDao } from '../apis/auth/authDao.js';
 
 const logoutSet = new Set();
@@ -44,11 +45,11 @@ const isAuthenticated = (req, res, next) => {
   }
 };
 
-const authorized = (allowedRoles) => {
-  return (req, res, next) => {
-    const { designation_name } = req.user;
-    
-    if (!designation_name || !allowedRoles.includes(designation_name)) {
+const authorized =  (allowedRoles) => {
+  return async (req, res, next) => {
+    const { designation_id} = req.user;
+    const data = await getDesignationDao({id: designation_id}) ;
+    if (!data[0].designation || !allowedRoles.includes(data[0].designation)) {
       throw new AuthenticationError('Access denied: Insufficient permissions');
     }
     

@@ -9,14 +9,14 @@ import { createVendorDao, deleteVendorDao, getVendorsDao, updateVendorDao } from
 const createVendorService = async (payload) => {
     let conn;
     try {
-        const filterColumns = vendorColumns.VENDOR;
+        const filterColumns = role = VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
         const data = await createVendorDao(payload);
         await commit(conn); // Commit the transaction
         console.log('Vendor created successfully', 'info');
 
-        const finalResult = await filterResponse(data, filterColumns);
+        const finalResult =  filterResponse(data, filterColumns);
         return finalResult;
     } catch (error) {
         if (conn) {
@@ -41,11 +41,11 @@ const createVendorService = async (payload) => {
 
 const getVendorsService = async (search, payload) => {
     try {
-        const filterColumns = vendorColumns.VENDOR;
+        const filterColumns = role = VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
 
         const data = await getVendorsDao(search, payload);
         console.log('Fetched Vendors successfully', 'info');
-        const finalResult = await filterResponse(data, filterColumns);
+        const finalResult =  filterResponse(data, filterColumns);
         return finalResult;
     } catch (error) {
         console.error('Error while fetching vendors', error);
@@ -54,20 +54,20 @@ const getVendorsService = async (search, payload) => {
 };
 
 
-const updateVendorService = async (id, company_id, payload) => {
+const updateVendorService = async (id, payload, role) => {
     let conn;
     try {
-        const filterColumns = vendorColumns.VENDOR;
+        const filterColumns = role = VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
 
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
 
-        const data = await updateVendorDao(id, company_id, payload); // Adjust DAO call for update
+        const data = await updateVendorDao(id, payload); // Adjust DAO call for update
 
         await commit(conn); // Commit the transaction
         console.log('Vendor updated successfully', 'info');
 
-        const finalResult = await filterResponse(data, filterColumns);
+        const finalResult =  filterResponse(data, filterColumns);
         return finalResult;
     } catch (error) {
         if (conn) {
@@ -93,7 +93,7 @@ const updateVendorService = async (id, company_id, payload) => {
 const deleteVendorService = async (id, company_id) => {
     let conn;
     try {
-        const filterColumns = vendorColumns.VENDOR;
+        const filterColumns = role = VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
 
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
@@ -104,7 +104,7 @@ const deleteVendorService = async (id, company_id) => {
         await commit(conn); // Commit the transaction
         console.log('Vendor deleted successfully', 'info');
 
-        const finalResult = await filterResponse(data, filterColumns);
+        const finalResult =  filterResponse(data, filterColumns);
         return finalResult;
     } catch (error) {
         if (conn) {

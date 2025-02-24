@@ -9,6 +9,7 @@ export const generatePayInUrlDao = async (data) => {
 
 export const getPayInUrlDao = async (filters) => {
     const [sql, params] = buildSelectQuery(`SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`, filters);
+    console.log(sql, params, "oiuytrfghjnbvc")
     const result = await executeQuery(sql, params);
     return result.rows[0];
 }

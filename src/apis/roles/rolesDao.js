@@ -27,6 +27,10 @@ const getRoleDao = async (search,user, page, pageSize, sortBy, sortOrder) => {
 
 const createRoleDao = async (conn,data) => {
   const [sql, params] = buildInsertQuery(tableName.ROLE, data);
+  if (conn && conn.query) {
+    const result = await conn.query(sql, params);
+    return result.rows[0];
+}
   const result = await executeQuery(sql, params);
   return result.rows[0];
 };

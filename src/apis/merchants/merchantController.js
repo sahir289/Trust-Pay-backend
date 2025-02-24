@@ -1,19 +1,19 @@
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { createMerchantService, deleteMerchantService, getMerchantsService, updateMerchantService } from './merchantService.js';
-import { VALIDATE_UPDATE_MERCHANT_STATUS,VALIDATE_MERCHANT_BY_ID,VALIDATE_MERCHANT_SCHEMA } from '../../schemas/merchantSchema.js';
+import { VALIDATE_UPDATE_MERCHANT_STATUS, VALIDATE_MERCHANT_BY_ID, VALIDATE_MERCHANT_SCHEMA } from '../../schemas/merchantSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 const createMerchant = async (req, res) => {
     try {
-const { role } = req.user;
+        const { role } = req.user;
         let payload = req.body;
         if (!payload) {
-          console.error('payload is required');
-          return sendError(res, 'payload is required', 'Validation Error');
+            console.error('payload is required');
+            return sendError(res, 'payload is required', 'Validation Error');
         }
-        const {company_id,user_id,role_id} = req.user;
-        payload.company_id=company_id;
-        payload.user_id=user_id;
-        payload.role_id=role_id;
+        const { company_id, user_id, role_id } = req.user;
+        payload.company_id = company_id;
+        payload.user_id = user_id;
+        payload.role_id = role_id;
         const { error } = VALIDATE_MERCHANT_SCHEMA.validate(payload);
         if (error) {
             throw new ValidationError(error);
@@ -36,15 +36,15 @@ const { role } = req.user;
 
 const getMerchants = async (req, res) => {
     try {
-const { role } = req.user;
-        const {company_id,user_id,role_id} = req.user;
-        let search = req.query.search; 
-        let user = {}; 
-        user.company_id=company_id;
-        user.user_id=user_id;
-        user.role_id=role_id;
+        const { role } = req.user;
+        const { company_id, user_id, role_id } = req.user;
+        let search = req.query.search;
+        let user = {};
+        user.company_id = company_id;
+        user.user_id = user_id;
+        user.role_id = role_id;
         // Fetch merchants data from the service
-        const data = await getMerchantsService(search,user, role);
+        const data = await getMerchantsService(search, user, role);
         // Log success message
         console.log('get Merchants successfully', data);
         // Send success response
@@ -64,10 +64,10 @@ const getMerchantsById = async (req, res) => {
         if (error) {
             throw new ValidationError(error);
         }
-        const {id} = req.params;
-        const {company_id,user_id,role_id} = req.user;
+        const { id } = req.params;
+        const { company_id, user_id, role_id } = req.user;
         // Fetch merchants data from the service
-        const data = await getMerchantsService({id,company_id,role_id,user_id}, role);
+        const data = await getMerchantsService({ id, company_id, role_id, user_id }, role);
         // Log success message
         console.log('get Merchant successfully', data);
 
@@ -86,7 +86,7 @@ const getMerchantsById = async (req, res) => {
 const updateMerchant = async (req, res) => {
     try {
         const { role } = req.user;
-        const { error: paramsError } =VALIDATE_MERCHANT_BY_ID.validate(req.params);
+        const { error: paramsError } = VALIDATE_MERCHANT_BY_ID.validate(req.params);
         if (paramsError) {
             throw new ValidationError(paramsError);
         }
@@ -98,10 +98,10 @@ const updateMerchant = async (req, res) => {
 
         const payload = req.body;
         const { id } = req.params;  // Assuming the Merchant ID is passed as a parameter
-        const {company_id,user_id,role_id} = req.user;
+        const { company_id, user_id, role_id } = req.user;
 
         // Call the service to update the Merchant
-        const result = await updateMerchantService(id,company_id,role_id,user_id, payload, role);
+        const result = await updateMerchantService(id, company_id, role_id, user_id, payload, role);
 
         // Log success message
         console.log('Merchant updated successfully', result);
@@ -126,10 +126,10 @@ const deleteMerchant = async (req, res) => {
         }
         const { id } = req.params;  // Assuming the Merchant ID is passed as a parameter
         // Call the service to delete the Merchant
-        const {company_id,user_id,role_id} = req.user;
-        const result = await deleteMerchantService(id,company_id,user_id,role_id, role);
+        const { company_id, user_id, role_id } = req.user;
+        const result = await deleteMerchantService(id, company_id, user_id, role_id, role);
         // Log success message
-        console.log('Merchant deleted successfully',  result);
+        console.log('Merchant deleted successfully', result);
 
         // Send a success response to the client
         return sendSuccess(res, result, 'Merchant deleted successfully');
@@ -142,4 +142,4 @@ const deleteMerchant = async (req, res) => {
     }
 };
 
-export { createMerchant, getMerchants, updateMerchant, deleteMerchant ,getMerchantsById};
+export { createMerchant, getMerchants, updateMerchant, deleteMerchant, getMerchantsById };

@@ -4,14 +4,12 @@ import { BadRequestError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
 import { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao } from './designationDao.js';
 
-const getDesignationService = async (search,user, role) => {
+const getDesignationService = async (search, user) => {
   let conn;
   try {
-    const filterColumns = role === Role.MERCHANT ? merchantColumns.DESIGNATION : role === Role.VENDOR ? vendorColumns.DESIGNATION : columns.DESIGNATION;
     conn = await getConnection();
-    const result = await getDesignationDao(search,user);
-    const finalResult = await filterResponse(result, filterColumns);
-        return finalResult;
+    const result = await getDesignationDao(search, user);
+    return result;
   } catch (error) {
     console.error('error getting while Designation', error);
     throw new BadRequestError('Error getting while Designation');
@@ -26,39 +24,31 @@ const getDesignationService = async (search,user, role) => {
   }
 };
 
-const createDesignationService = async (payload, role) => {
+const createDesignationService = async (conn, payload) => {
   try {
-    const filterColumns = role === Role.MERCHANT ? merchantColumns.DESIGNATION : role === Role.VENDOR ? vendorColumns.DESIGNATION : columns.DESIGNATION;
-
-    const result = await createDesignationDao(payload);
-
-    const finalResult = await filterResponse(result, filterColumns);
-        return finalResult;
+    const result = await createDesignationDao(conn, payload);
+    return result;
   } catch (error) {
     console.error('error getting while Designation', error);
     throw new BadRequestError('Error getting while Designation');
   }
 };
 
-const updateDesignationService = async (id,comapany_id,role_id, payload, role) => {
+const updateDesignationService = async (id, comapany_id, role_id, payload) => {
   try {
-    const filterColumns = role === Role.MERCHANT ? merchantColumns.DESIGNATION : role === Role.VENDOR ? vendorColumns.DESIGNATION : columns.DESIGNATION;
 
-    const result = await updateDesignationDao(id,comapany_id,role_id, payload);
-    const finalResult = await filterResponse(result, filterColumns);
-        return finalResult;
+    const result = await updateDesignationDao(id, comapany_id, role_id, payload);
+    return result;
   } catch (error) {
     console.error('error getting while Designation', error);
     throw new BadRequestError('Error getting while Designation');
   }
 };
 
-const deleteDesignationService = async (id,comapany_id,role_id, role) => {
+const deleteDesignationService = async (id, comapany_id, role_id) => {
   try {
-    const filterColumns = role === Role.MERCHANT ? merchantColumns.DESIGNATION : role === Role.VENDOR ? vendorColumns.DESIGNATION : columns.DESIGNATION;
-    const result = await deleteDesignationDao(id,comapany_id,role_id, { is_obsolete: true });
-    const finalResult = await filterResponse(result, filterColumns);
-        return finalResult;
+    const result = await deleteDesignationDao(id, comapany_id, role_id, { is_obsolete: true });
+    return result;
   } catch (error) {
     console.error('error getting while Designation', error);
     throw new BadRequestError('Error getting while Designation');
