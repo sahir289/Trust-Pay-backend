@@ -1,4 +1,5 @@
 import { BANK_ACCOUNT_SCHEMA, UPDATE_BANK_ACCOUNT_SCHEMA } from '../../schemas/bankAccoountSchema.js';
+import { VALIDATE_BANK_RESPONSE_BY_ID } from '../../schemas/bankResponseSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getMerchantBankDao } from './bankaccountDao.js';
@@ -10,10 +11,6 @@ const getBankaccount = async (req, res) => {
     const {company_id ,user_id,role} = req.user;
     let search = req.query.search;
     let payload={company_id,user_id}
-    const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
-    }
     const data = await getBankaccountService(search,payload,role);
     console.log('get Banks successfully');
     return sendSuccess(res, data, 'get Banks successfully');
@@ -28,6 +25,10 @@ const getBankaccountById = async (req, res) => {
     const search = {}
     const {company_id,user_id,role} = req.user;
     const payload=(id,company_id,user_id)
+    const joiValidation = VALIDATE_BANK_RESPONSE_BY_ID.validate(id);
+    if (joiValidation.error) {
+      throw new ValidationError(joiValidation.error);
+    }
     const data = await getBankaccountService(search,payload,role);
     console.log('get Bank successfully');
     return sendSuccess(res, data, 'get Bank successfully');
