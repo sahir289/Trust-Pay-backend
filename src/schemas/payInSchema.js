@@ -13,33 +13,33 @@ export const ASSIGN_PAYIN_SCHEMA = Joi.object({
 });
 
 export const VALIDATE_PAYIN_SCHEMA = Joi.object({
-  payinId: Joi.string().guid({ version: ['uuidv4'] }).label('payinId').required(),
+  payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
 });
 
 export const VALIDATE_ASSIGNED_BANT_TO_PAY = Joi.object({
-  payinId: Joi.string().guid({ version: ['uuidv4'] }).label('payinId').required(),
+  payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
   amount: Joi.number().positive().label('amount').required(),
   type: Joi.string().valid(...Object.values(BankTypes)).label('type').required(),
 })
 
 export const VALIDATE_EXPIRE_PAY_IN_URL = Joi.object({
-  payinId: Joi.string().guid({ version: ['uuidv4'] }).label('payinId').required(),
+  payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
 });
 
 export const VALIDATE_CHECK_PAY_IN_STATUS = Joi.object({
-  payinId: Joi.string().guid({ version: ['uuidv4'] }).label('payinId').required(),
+  payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
   merchantCode: Joi.string().label('merchantCode').required(),
   merchantOrderId: Joi.string().label('merchantOrderId').required(),
   company_id : Joi.string().guid({ version: ['uuidv4'] }).label('company_id').required(),
 });
 
 export const VALIDATE_PAY_IN_INTENT_GENERATE_ORDER = Joi.object({
-  payinId: Joi.string().guid({ version: ['uuidv4'] }).label('payinId').required(),
+  payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
   amount: Joi.number().positive().label('amount').required(),
   isRazorpay: Joi.boolean().label('isRazorpay').required(),
 });
 export const VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS = Joi.object({
-  payinId: Joi.string().guid({ version: ['uuidv4'] }).label('payinId').required(),
+  payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
   type: Joi.string().label('type').required(),
 });
 
@@ -53,19 +53,19 @@ export const VALIDATE_RESET_DEPOSIT = Joi.object({
 });
 
 export const VALIDATE_PROCESSE_PAYIN = Joi.object({
-  payinId: Joi.string().guid({ version: ['uuidv4'] }).label('payinId').required(),
+  payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
   userSubmittedUtr: Joi.string().label('userSubmittedUtr').required(),
   code: Joi.string().label('code').min(5).max(5).required(),
   amount: Joi.number().label('amount').min(1).required(),
 })
 
 export const VALIDATE_PROCESSE_PAYIN_BY_IMAGE = Joi.object({
-  payinId: Joi.string().guid({ version: ['uuidv4'] }).label('payinId').required(),
+  payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
   amount: Joi.number().label('amount').min(1).required(),
 })
 
 export const VALIDATE_DISPUTE_DUPLICATE_TRANSACTION = Joi.object({
-  payinId: Joi.string().guid({ version: ['uuidv4'] }).label('payinId').required(),
+  payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
   merchantOrderId: Joi.string().label('merchantOrderId').optional(),
   confirmed: Joi.number().min(1).label('confirmed').optional(),
   amount: Joi.number().min(1).label('amount').optional(),

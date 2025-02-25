@@ -2,6 +2,7 @@ import config from "../../config/config.js";
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { sendError } from "../../utils/responseHandlers.js";
+import { getPayinsDao,updatePayInDao } from "./payInDao.js";
 import {
     ASSIGN_PAYIN_SCHEMA,
     VALIDATE_ASSIGNED_BANT_TO_PAY,
@@ -41,10 +42,8 @@ import { s3 } from "../../helpers/Aws.js";
 //  To Generate Url
 export const generatePayInUrl = async (req, res) => {
     const payload = req.query;
-    
     const { company_id } = req.user;
     payload.company_id = company_id;
-
     const joiValidation = ASSIGN_PAYIN_SCHEMA.validate(payload);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
@@ -77,8 +76,14 @@ export const validatePayInUrl = async (req, res) => {
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-
-    const payIn = await getPayInUrlService({payInId, company_id });
+    const {user_location} = req ;  
+    const payin = await getPayinsDao({ id: payInId }); 
+    const updatedConfig = { 
+        ...payin[0].config,  
+        user: user_location   
+      };
+  await updatePayInDao(payin[0].id, {config: updatedConfig});
+    const payIn = await getPayInUrlService({payInId,company_id});
     const result = {
         code: payIn.upi_short_code,
         return_url: config.return_url,
@@ -89,7 +94,7 @@ export const validatePayInUrl = async (req, res) => {
         status: payIn.status,
     };
 
-    return sendSuccess(res, result, 'Payment Url is correct');
+return sendSuccess(res, result, 'Payment Url is correct');
 }
 
 export const assignedBankToPayInUrl = async (req, res) => {

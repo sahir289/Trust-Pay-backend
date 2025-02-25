@@ -20,7 +20,6 @@ const isAuthenticated = (req, res, next) => {
 
   try {
     const decoded = verifyToken(token);
-
     // in future need to keep check with session_id if user is logged out or not
     // console.log(decoded, "decoddeeed")
     // const user = await getLoginDao(decoded.user_id, decoded.company_id);

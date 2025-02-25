@@ -52,17 +52,13 @@ const getUsersDao = async (conn, ids) => {
       total_count: result.rowCount,
       users: result.rows.map((row) => ({
         id: row.id,
-        role_id: row.role_id,
         role: row.role,
-        company_id: row.company_id,
-        designation_id: row.designation_id,
         designation: row.designation,
         first_name: row.first_name,
         last_name: row.last_name,
         email: row.email,
         contact_no: row.contact_no,
         user_name: row.user_name,
-        password: row.password,
         code: row.code,
         is_enabled: row.is_enabled,
         last_login: row.last_login,
@@ -74,8 +70,7 @@ const getUsersDao = async (conn, ids) => {
         updated_at: row.updated_at,
       })),
     };
-
-    return data;
+      return data;
   } catch (error) {
     console.error('error getting while fetching user', error);
     throw new DbError('Error executing query to fetch all users');

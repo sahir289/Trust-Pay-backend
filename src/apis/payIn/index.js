@@ -5,7 +5,7 @@ import { AccessRoles } from '../../constants/index.js';
 import { assignedBankToPayInUrl, checkPayInStatus, generatePayInUrl,getPayins, payInIntentGenerateOrder, processPayIn, processPayInByImage, resetDeposit, telegramOCR, updateDepositStatus, updatePaymentNotificationStatus, validatePayInUrl } from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
-
+import getUserLocationMiddleware from '../../middlewares/locationRestrict.js';
 const router = express.Router();
 
 // Public API's
@@ -56,7 +56,7 @@ router.get('/',[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler
  *       404:
  *         description: Pay-In URL not found
  */
-router.get('/validate-payIn-url/:payInId',[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(validatePayInUrl));
+router.get('/validate-payIn-url/:payInId',[isAuthenticated,getUserLocationMiddleware, authorized(AccessRoles.PAYIN)], tryCatchHandler(validatePayInUrl));
 
 /**
  * @swagger
