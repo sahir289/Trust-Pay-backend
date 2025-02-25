@@ -40,7 +40,6 @@ const createBankResponseDao = async (data) => {
   data.id = generateUUID();
   const [sql, params] = buildInsertQuery(tableName.BANK_RESPONSE, data)
   const result = await executeQuery(sql, params);
-  console.log(sql, params, "0987654e4wsxrctvjknm")
   return result.rows[0];
 };
 

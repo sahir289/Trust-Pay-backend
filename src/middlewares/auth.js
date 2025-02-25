@@ -46,11 +46,10 @@ const isAuthenticated = (req, res, next) => {
 
 const authorized =  (allowedRoles) => {
   return async (req, res, next) => {
-    const { designation_id} = req.user;
-    if (!designation_id || !allowedRoles.includes(designation_id)) { 
+    const { designation_name} = req.user;
+    if (!designation_name || !allowedRoles.includes(designation_name)) { 
       throw new AuthenticationError('Access denied: Insufficient permissions');
     }
-    // return data[0].designation; 
     next();
   };
 };

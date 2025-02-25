@@ -82,11 +82,7 @@ export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = tr
 
   for (const key in filters) {
     const value = filters[key];
-    if (key === "$config.reference_id$") {
-      conditions.push(`config->>'reference_id' = $${values.length + 1}`);
-      values.push(value);
-      continue;
-    } else if (key === "method" && Array.isArray(value)) {
+     if (key === "method" && Array.isArray(value)) {
       conditions.push(`"method" = ANY($${values.length + 1})`);
       values.push(value);  
       continue;
