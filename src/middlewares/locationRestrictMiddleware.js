@@ -1,0 +1,161 @@
+import axios from 'axios';
+const BLOCK_LAT = process.env.BLOCK_LAT;
+const BLOCK_LONG = process.env.BLOCK_LONG;
+const PROXY_CHECK_API_KEY = process.env.PROXY_CHECK_API_KEY;
+const getUserLocationMiddleware = async (req, res, next) => {
+  let userIp =req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
+   console.info(`Request Details:
+      Headers: ${JSON.stringify(req.headers, null, 2)}
+      req.ip: ${req.ip}
+      x-forwarded-for: ${req.headers['x-forwarded-for']}
+      remoteAddress: ${req.connection.remoteAddress}`);
+// userIp="103.48.198.141"
+  const restrictedLocation = { latitude: BLOCK_LAT, longitude: BLOCK_LONG }; 
+  const radiusKm = 60;
+  const restrictedStates = ['Haryana', 'Rajasthan'];
+  try {
+    // Get the user's IP address (checking for reverse proxy headers)
+    // Send a request to proxycheck.io to fetch the geolocation data
+    const response = await axios.get( `https://proxycheck.io/v2/${userIp}?key=${PROXY_CHECK_API_KEY}&vpn=3&asn=1`,);
+    console.info('response data here:', response.data);
+    const userData = response.data[userIp];
+    if (!userData) {
+      return res.status(500).json({ message: 'Error fetching location data' });
+    }
+    const { latitude, longitude, vpn, region, country } = userData;
+    if (vpn === 'yes') {
+      console.warn('VPN detected. Access denied.', userData);
+      return res.status(403).send('403: Access denied');
+    }
+    if (country === 'India' && restrictedStates.includes(region)) {
+      console.error(`Access restricted for users in ${region}.`, userData);
+      return res.status(403).send('403: Access denied');
+    }
+    const europeanCountries = [
+      'Albania',
+      'Andorra',
+      'Armenia',
+      'Austria',
+      'Azerbaijan',
+      'Belarus',
+      'Belgium',
+      'Bosnia and Herzegovina',
+      'Bulgaria',
+      'Croatia',
+      'Cyprus',
+      'Czech Republic',
+      'Denmark',
+      'Estonia',
+      'Finland',
+      'France',
+      'Georgia',
+      'Germany',
+      'Greece',
+      'Hungary',
+      'Iceland',
+      'Ireland',
+      'Italy',
+      'Kazakhstan',
+      'Kosovo',
+      'Latvia',
+      'Liechtenstein',
+      'Lithuania',
+      'Luxembourg',
+      'Malta',
+      'Moldova',
+      'Monaco',
+      'Montenegro',
+      'Netherlands',
+      'North Macedonia',
+      'Norway',
+      'Poland',
+      'Portugal',
+      'Romania',
+      'San Marino',
+      'Serbia',
+      'Slovakia',
+      'Slovenia',
+      'Spain',
+      'Sweden',
+      'Switzerland',
+      'Turkey',
+      'Ukraine',
+      'United Kingdom',
+      'Vatican City',
+    ];
+
+    if (
+      country !== 'India' &&
+      country !== 'United Arab Emirates' &&
+      country !== 'Pakistan' &&
+      !europeanCountries.includes(country)
+    ) {
+      console.error(`Access restricted for users from ${country}.`, userData);
+      return res.status(403).send('403: Access denied');
+    }
+    if (!isNaN(latitude) && !isNaN(longitude)) {
+      // Check if the user is in the restricted region
+      if (
+        isLocationBlocked(
+          latitude,
+          longitude,
+          restrictedLocation.latitude,
+          restrictedLocation.longitude,
+          radiusKm,
+        )
+      ) {
+        console.error('Access restricted in your region.', userData);
+        return res.status(403).send('403: Access denied');
+      }
+    } else {
+      console.warn('Invalid latitude/longitude data received.');
+      return res.status(500).send('500: Access denied');
+    }
+    req.user_location = {
+      user_ip: userIp,
+      continent: userData.continent,
+      continent_code: userData.continentcode,
+      country: userData.country,
+      region: userData.region,
+      timezone: userData.timezone,
+      city: userData.city,
+      postcode: userData.postcode,
+      latitude: userData.latitude,
+      longitude: userData.longitude,
+    };
+    next();
+  } catch (error) {
+    console.error('Error fetching user location:', error);
+    res.status(500).json({ message: 'Error fetching user location' });
+  }
+};
+const isLocationBlocked = (
+  userLat,
+  userLon,
+  restrictedLat,
+  restrictedLon,
+  radiusKm,
+) => {
+  const distance = haversineDistance(
+    userLat,
+    userLon,
+    restrictedLat,
+    restrictedLon,
+  );
+  return distance <= radiusKm;
+};
+const haversineDistance = (lat1, lon1, lat2, lon2) => {
+  const toRadians = (degrees) => (degrees * Math.PI) / 180;
+  const R = 6371; 
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) *
+      Math.cos(toRadians(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+export default getUserLocationMiddleware;
