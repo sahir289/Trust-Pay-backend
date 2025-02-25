@@ -36,15 +36,15 @@ const { role } = req.user;
 
 const getMerchants = async (req, res) => {
     try {
-const { role } = req.user;
-        const {company_id,user_id,role_id} = req.user;
-        let search = req.query.search; 
-        let user = {}; 
-        user.company_id=company_id;
-        user.user_id=user_id;
-        user.role_id=role_id;
+        const {company_id,user_id,role_id, role} = req.user;
+        // let search = req.query.search; 
         // Fetch merchants data from the service
-        const data = await getMerchantsService(search,user, role);
+        const data = await getMerchantsService({
+            company_id,
+            user_id,
+            role_id,
+            // Todo: search
+        }, role);
         // Log success message
         console.log('get Merchants successfully', data);
         // Send success response

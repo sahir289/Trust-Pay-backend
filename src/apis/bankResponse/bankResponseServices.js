@@ -48,7 +48,7 @@ const createBankResponseService = async (payload) => {
 
       let botRes
       const utrinternalTransfer = await getSettlementDao({
-        "$config.reference_id$": utr,
+        'config->>\'reference_id\'': utr,
         method: ["INTERNAL_QR_TRANSFER", "INTERNAL_BANK_TRANSFER"]
       });
       if (utrinternalTransfer) {

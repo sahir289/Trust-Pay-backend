@@ -1,4 +1,4 @@
-import { columns, tableName } from "../../constants/index.js";
+import { tableName } from "../../constants/index.js";
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
 
 export const generatePayInUrlDao = async (data) => {
@@ -28,33 +28,6 @@ export const updatePayInUrlDao = async (id, data, conn) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
 }
-
-export const getPayinsDao = async (
-    search,
-    page,
-    pageSize,
-    sortBy,
-    sortOrder
-) => {
-    const baseQuery = `SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`;
-    const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.PAYIN, page, pageSize, sortBy, sortOrder, typeof search != 'string');
-    // Execute query
-    const result = await executeQuery(sql, queryParams);
-    return result.rows;
-};
-export const getPayinsDaoId = async (
-    search,
-    page,
-    pageSize,
-    sortBy,
-    sortOrder
-) => {
-    const baseQuery = `SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`;
-    const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.PAYIN, page, pageSize, sortBy, sortOrder, typeof search != 'string');
-    // Execute query
-    const result = await executeQuery(sql, queryParams);
-    return result.rows[0];
-};
 
 export const updatePayInDao = async (id, data) => {
     

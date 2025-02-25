@@ -1,24 +1,24 @@
 import { sendSuccess, sendError } from '../../utils/responseHandlers.js';
-import {getCalculationService,createCalculationService,updateCalculationService,deleteCalculationService} from './calculationService.js';
+import { getCalculationService, createCalculationService, updateCalculationService, deleteCalculationService } from './calculationService.js';
 import { transactionWrapper } from '../../utils/db.js';
-import {VALIDATE_CALCULATION_BY_USER_ID,VALIDATE_CALCULATION_SCHEMA,VALIDATE_UPDATE_CALCULATION_STATUS,VALIDATE_DELETE_CALCULATION} from '../../schemas/calculationSchema.js';
+import { VALIDATE_CALCULATION_BY_USER_ID, VALIDATE_CALCULATION_SCHEMA, VALIDATE_UPDATE_CALCULATION_STATUS, VALIDATE_DELETE_CALCULATION } from '../../schemas/calculationSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 
 const getCalculationById = async (req, res) => {
   try {
     // Validate request parameters using Joi schema
-    const { role } = req.user;
+    // const { role } = req.user;
     const { error } = VALIDATE_CALCULATION_BY_USER_ID.validate(req.params);
     if (error) {
       throw new ValidationError(error);
     }
     const { id } = req.params;
     const { user_id, role_id, company_id } = req.user;
-    const ids = { user_id, role_id, company_id,id}
-    // Fetch the calculation data by 'id'
-    const payload=null;
     const data = await getCalculationService({
-    ids,payload, role
+      id,
+      user_id,
+      role_id,
+      company_id,
     });
     console.info('Get Calculation successfully', 'info');
     // Respond with the calculation data
@@ -34,13 +34,13 @@ const getCalculation = async (req, res) => {
     const { role } = req.user;
     // You can add additional validation here if needed, depending on the request
     const { company_id, user_id, role_id } = req.user;
-    const search = req.query.search;
-    let payload = {
+    // const search = req.query.search;
+    const data = await getCalculationService({
       company_id,
-      user_id,
       role_id,
-    };
-    const data = await getCalculationService(search, payload, role);
+      user_id,
+      // TODO: search i don't think so it can be search
+    }, role);
     console.info('Get Calculations successfully', 'info');
     return sendSuccess(res, data, 'Get Calculations successfully');
   } catch (error) {
@@ -96,10 +96,10 @@ const updateCalculation = async (req, res) => {
     const payload = req.body;
     const { id } = req.params;
     const { user_id, role_id, company_id } = req.user;
-    const ids = {user_id,role_id,company_id,id}
+    const ids = { user_id, role_id, company_id, id }
     // Assuming the Payout ID is passed as a parameter
     // Call the service to update the Payout
-    const data = await transactionWrapper(updateCalculationService)(ids,payload, role);
+    const data = await transactionWrapper(updateCalculationService)(ids, payload, role);
     console.info('Update Calculation successfully', 'info');
     return sendSuccess(res, data, 'Update Calculation successfully');
   } catch (error) {
@@ -134,4 +134,4 @@ const deleteCalculation = async (req, res) => {
   }
 };
 
-export {getCalculationById,getCalculation,createCalculation,updateCalculation,deleteCalculation};
+export { getCalculationById, getCalculation, createCalculation, updateCalculation, deleteCalculation };

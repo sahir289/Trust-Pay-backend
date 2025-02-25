@@ -1,9 +1,9 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBankaccountDao } from './bankaccountDao.js';
 
-const getBankaccountService = async (search,payload) => {
+const getBankaccountService = async (filters) => {
     try {
-        const result = await getBankaccountDao(search,payload);
+        const result = await getBankaccountDao(filters);
         return result;
     } catch (error) {
         console.error('error getting while  getting banks', error);

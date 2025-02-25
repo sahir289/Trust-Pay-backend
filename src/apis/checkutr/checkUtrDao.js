@@ -14,8 +14,6 @@ const createCheckUtrDao = async (payload) => {
     const [sql, params] = buildInsertQuery(tableName, payload)
         const result = await executeQuery(sql, params);
         return result.rows[0];
-
-  
 };
 
 const updateCheckUtrDao = async (id, data) => {

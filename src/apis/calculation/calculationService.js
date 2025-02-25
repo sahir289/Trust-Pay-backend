@@ -7,10 +7,10 @@ import { columns, merchantColumns, Role, vendorColumns } from '../../constants/i
 import { filterResponse } from '../../helpers/index.js';
 
 // Service to fetch calculation data
-const getCalculationService = async (search,payload, role) => {
+const getCalculationService = async (filters, role) => {
   try {
   const filterColumns = role === Role.MERCHANT ? merchantColumns.CALCULATION : role === Role.VENDOR ? vendorColumns.CALCULATION : columns.CALCULATION; 
-    const data = await getCalculationDao(search, payload);
+    const data = await getCalculationDao(filters);
     const finalResult = await filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {

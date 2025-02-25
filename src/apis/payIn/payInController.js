@@ -169,8 +169,10 @@ export const resetDeposit = async (req, res) => {
 }
 export const getPayins = async (req, res) => {
     try {
-        const payload = req.query.search;
-        const data = await getPayinsService(payload);
+        // const payload = req.query.search;
+        const data = await getPayinsService({
+            // TODO: search
+        });
         console.log('getPayins successfully', data);
         return sendSuccess(res, data, 'Payins fetched successfully');
     } catch (error) {

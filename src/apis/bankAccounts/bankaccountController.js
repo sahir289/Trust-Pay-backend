@@ -8,13 +8,17 @@ import { getBankaccountService, createBankaccountService, updateBankaccountServi
 const getBankaccount = async (req, res) => {
   try {
     const {company_id ,user_id} = req.user;
-    let search = req.query.search;
-    let payload={company_id,user_id}
-    const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
-    }
-    const data = await getBankaccountService(search,payload);
+    // let search = req.query.search;
+    // Todo: Do we need to validate????
+    // const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
+    // if (joiValidation.error) {
+    //   throw new ValidationError(joiValidation.error);
+    // }
+    const data = await getBankaccountService({
+      company_id,
+      user_id,
+      // TODO: search
+    });
     console.log('get Banks successfully');
     return sendSuccess(res, data, 'get Banks successfully');
   } catch (error) {
@@ -25,10 +29,12 @@ const getBankaccount = async (req, res) => {
 const getBankaccountById = async (req, res) => {
   try {
     const {id} = req.params;
-    const search = {}
     const {company_id,user_id} = req.user;
-    const payload=(id,company_id,user_id)
-    const data = await getBankaccountService(search,payload);
+    const data = await getBankaccountService({
+      company_id,
+      user_id,
+      id,
+    });
     console.log('get Bank successfully');
     return sendSuccess(res, data, 'get Bank successfully');
   } catch (error) {

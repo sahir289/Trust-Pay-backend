@@ -78,9 +78,9 @@ const createPayoutService = async (headers, payload) => {
     }
 };
 
-const getPayoutsService = async (search,user) => {
+const getPayoutsService = async (filters) => {
     try {
-        const data = await getPayoutsDao(search,user);
+        const data = await getPayoutsDao(filters);
         console.log('Fetched Payouts successfully', 'info');
         return data;
     } catch (error) {

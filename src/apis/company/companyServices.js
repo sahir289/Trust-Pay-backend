@@ -13,7 +13,7 @@ const getCompanyService = async (id, role) => {
     conn = await getConnection();
     const filterColumns = role === Role.MERCHANT ? merchantColumns.COMPANY : role === Role.VENDOR ? vendorColumns.COMPANY : columns.COMPANY;
     
-    const result = await getCompanyDao(id);
+    const result = await getCompanyDao({id});
     const finalResult = await filterResponse(result, filterColumns);
     return finalResult;
   } catch (error) {

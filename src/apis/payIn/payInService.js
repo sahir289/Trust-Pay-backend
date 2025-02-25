@@ -9,7 +9,7 @@ import { BankTypes, Currency, Status, Type } from "../../constants/index.js";
 import { getMerchantsService } from "../merchants/merchantService.js";
 import { calculateCommission, calculateDuration } from "../../helpers/index.js";
 import { merchantPayinCallback } from "../../callBacksAndWebHook/merchantCallBacks.js";
-import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao, getPayInUrlsDao, getPayinsDao, getPayinsDaoId } from "./payInDao.js";
+import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao, getPayInUrlsDao } from "./payInDao.js";
 import { AccessDeniedError, BadRequestError, NotFoundError } from "../../utils/appErrors.js";
 import { getBankaccountDao, getMerchantBankDao, updateBankaccountDao, updateBanktBalanceDao } from "../bankAccounts/bankaccountDao.js";
 import { getBankResponseDao, updateBotResponseDao } from "../bankResponse/bankResponseDao.js";
@@ -485,10 +485,7 @@ export const resetDepositService = async (conn, merchant_order_id) => {
 }
 
 export const getPayinsService = async (payload) => {
-    const data = await getPayinsDao(payload);
-
-    console.log('Fetched Payins successfully', 'info');
-    return data;
+    return await getPayInUrlService(payload);
 };
 
 export const processPayInService = async (conn, payload) => {
@@ -921,30 +918,10 @@ export const telegramCheckUTRService = async (conn, utr, merchant_order_id) => {
     })
 }
 
-export const getPayinsServiceByid = async (payload) => {
-    const data = await getPayinsDaoId(payload);
-
-    console.log('Fetched Payins successfully', 'info');
-    return data;
+export const getPayinsServiceById = async (payload) => {
+    return await getPayInUrlDao(payload);
 };
 
-
-export const getPayinsServiceById = async(id)=>{
-    const payload = id;
-    let filters = {};
-   if (payload) {
-     filters.id = payload; 
-   }
-   console.log('getUsers successfully');
-    // Fetch vendors data from the service
-    const data = await getPayinsDaoId(filters);
-
-    // Log success message
-    console.log('getPayins successfully', data);
-
-    // Send success response
-    return  data;
-}
 
 const checkIsPayInExpired = (payIn) => {
     if (Number(payIn.expiration_date) < Date.now() || payIn.is_url_expires) {

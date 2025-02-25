@@ -34,9 +34,9 @@ const createChargeBackService = async (payload) => {
     }
 };
 
-const getChargeBacksService = async (search,payload) => {
+const getChargeBacksService = async (filters) => {
     try {
-        const data = await getChargeBackDao(search,payload);
+        const data = await getChargeBackDao(filters);
         console.log('Fetched ChargeBacks successfully');
         return data;
     } catch (error) {
@@ -45,13 +45,13 @@ const getChargeBacksService = async (search,payload) => {
     }
 };
 
-const updateChargeBackService = async (id,company_id, payload) => {
+const updateChargeBackService = async (id, company_id, payload) => {
     let conn;
     try {
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
 
-        const data = await updateChargeBackDao(id,company_id, payload); // Adjust DAO call for update
+        const data = await updateChargeBackDao(id, company_id, payload); // Adjust DAO call for update
 
         await commit(conn); // Commit the transaction
         console.log('ChargeBack updated successfully');
@@ -78,14 +78,14 @@ const updateChargeBackService = async (id,company_id, payload) => {
     }
 };
 
-const deleteChargeBackService = async (id,company_id) => {
+const deleteChargeBackService = async (id, company_id) => {
     let conn;
     try {
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
         const payload = { is_obsolete: true };
 
-        const data = await deleteChargeBackDao(id,company_id, payload); // Adjust DAO call for delete
+        const data = await deleteChargeBackDao(id, company_id, payload); // Adjust DAO call for delete
 
         await commit(conn); // Commit the transaction
         console.log('ChargeBack deleted successfully');

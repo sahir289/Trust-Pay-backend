@@ -35,9 +35,9 @@ const createUserHierarchyService = async (payload) => {
     }
 };
 
-const getUserHierarchyService = async (search,user) => {
+const getUserHierarchyService = async (filters) => {
     try {
-        const data = await getUserHierarchysDao(search,user);
+        const data = await getUserHierarchysDao(filters);
         console.log('Fetched UserHierarchys successfully', 'info');
         return data;
     } catch (error) {

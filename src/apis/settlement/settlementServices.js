@@ -33,11 +33,11 @@ const getSettlementServiceAll = async (req) => {
   try {
     const { role } = req.user;
     const filterColumns = role === Role.MERCHANT ? merchantColumns.SETTLEMENT : role === Role.VENDOR ? vendorColumns.SETTLEMENT : columns.SETTLEMENT;
-    const payload = req.query;
+    // const payload = req.query;
     const { company_id } = req.user;
-    const user = {};
-    user.company_id = company_id;
-    const settlementData = await getSettlementDaoAll(payload, user);
+    const settlementData = await getSettlementDaoAll({
+      company_id,
+    });
     if (!settlementData) {
       throw new BadRequestError('Error getting while getting settlements');
     }

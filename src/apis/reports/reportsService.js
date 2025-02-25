@@ -38,8 +38,10 @@ const getPayOutReportService = async (req) => {
             result = await getPayOutMerchantReportDao(merchant_id, startDate, endDate);
         }
         if (vendor_id) {
-            const vendorData = await getBankaccountDao(vendor_id);
-            const bankData = await getVendorsDao({ searchString: vendorData.user_id });
+            // TODO: i guess this is user_id
+            // i think this was an extra query
+            // const vendorData = await getBankaccountDao({user_id: vendor_id});
+            const bankData = await getVendorsDao({ user_id: vendor_id });
             result = await getPayOutVendorReportDao(bankData.id, startDate, endDate, method);
         }
         const finalResult = await filterResponse(result, filterColumns);

@@ -27,7 +27,8 @@ const createMerchantService = async (payload) => {
                 company_id: payload.company_id
             });
         } else if (role.role === Method.SUBMERCHANT) {
-            const hierarchy = await getUserHierarchysDao(parentId);
+            // TODO: parentID?
+            const hierarchy = await getUserHierarchysDao({user_id: parentId});
             await updateUserHierarchyDao(hierarchy.id, {
                 config: {
                     child: [...(hierarchy?.config?.child || []), data.id]  // Use spread operator to add new element
@@ -45,10 +46,10 @@ const createMerchantService = async (payload) => {
 };
 
 // Get Merchants Service
-const getMerchantsService = async (search,user) => {
+const getMerchantsService = async (filters) => {
     try {
         const filterColumns = merchantColumns.MERCHANT;
-        const data = await getMerchantsDao(search,user);
+        const data = await getMerchantsDao(filters);
         const finalResult = await filterResponse(data, filterColumns);
         return finalResult;
     } catch (error) {

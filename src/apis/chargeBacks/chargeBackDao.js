@@ -1,4 +1,4 @@
-import { columns, tableName } from "../../constants/index.js";
+import { tableName } from "../../constants/index.js";
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
 
 // Create ChargeBack entry
@@ -15,8 +15,7 @@ export const createChargeBackDao = async (data) => {
 
 // Get ChargeBack entries with pagination, sorting, and filtering
 export const getChargeBackDao = async (
-    search,
-    payload,
+    filters,
     page,
     pageSize,
     sortBy,
@@ -29,7 +28,8 @@ export const getChargeBackDao = async (
             bank_acc_id, amount, "when", created_by, updated_by,
         `;
         const baseQuery = `SELECT ${columnsToSelect} FROM "${tableName.CHARGE_BACK}" WHERE 1=1`;
-        const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.CHARGE_BACK, page, pageSize, sortBy, sortOrder, typeof search !== 'string',payload);
+        //TODO: columns.CHARGE_BACK dynamic search
+        const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
         const result = await executeQuery(sql, queryParams);
         return result.rows;
     } catch (error) {
