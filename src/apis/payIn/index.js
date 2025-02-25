@@ -33,7 +33,7 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/', tryCatchHandler(generatePayInUrl));
+router.get('/payIn',[isAuthenticated], tryCatchHandler(generatePayInUrl));
 
 /**
  * @swagger
@@ -306,6 +306,6 @@ router.post("/dispute-duplicate/:payInId", tryCatchHandler(disputeDuplicateTrans
  *       500:
  *         description: Internal server error
  */
-router.get('/payin-data', tryCatchHandler(getPayins));
+router.get('/',[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(getPayins));
 
 export default router;
