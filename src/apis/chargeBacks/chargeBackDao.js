@@ -39,7 +39,7 @@ export const getChargeBackDao = async (
 };
 
 // Update ChargeBack entry
-export const updateChargeBackDao = async (id, company_id, data) => {
+export const updateChargeBackDao = async (id, data) => {
     try {
         const [sql, params] = buildUpdateQuery(tableName.CHAREBACK, data, id);
         const result = await executeQuery(sql, params);
