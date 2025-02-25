@@ -48,15 +48,3 @@ export const updatePayInUrlDao = async (id, data, conn) => {
         throw error; // Rethrow the error to propagate it
     }
 }
-
-export const updatePayInDao = async (id, data) => {
-    try {
-        const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
-        const result = await executeQuery(sql, params);
-        console.log(sql, params, "queryisis"); // Log query and params for debugging
-        return result.rows[0];
-    } catch (error) {
-        console.error('Error updating PayIn:', error); // Log the error for debugging
-        throw error; // Rethrow the error to propagate it
-    }
-};

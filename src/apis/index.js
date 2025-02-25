@@ -20,16 +20,18 @@ import gatherAllData from '../cron/gatherAllData.js';
 import reports from './reports/index.js';
 import cron from "../cron/index.js";
 
+const parentRouter = express.Router();
 const router = express.Router();
+parentRouter.use('/v1', router);
 
 // Apply authorization middleware for specific routes
+router.use('/payIn', payIn);
 router.use('/users', users);
 router.use('/merchants', merchants);
 router.use('/vendors', vendors);
 router.use('/chargeBacks', chargeBacks);
 router.use('/roles', roles);
 router.use('/calculation', calculation);
-router.use('/payIn', payIn);
 router.use('/designation', designation);
 router.use('/bankAccount', bankaccount);
 router.use('/bankResponse', bankResponse);
@@ -46,8 +48,5 @@ router.use('/auth', auth);
 router.use('/initialize-cronjob', gatherAllData);
 router.use('/complaints', complaints);
 router.use('/cron', cron);
-
-const parentRouter = express.Router();
-parentRouter.use('/v1', router);
 
 export default parentRouter;

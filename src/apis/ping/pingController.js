@@ -3,13 +3,8 @@ import { pingService } from './pingService.js';
 
 
 const pingController = async (req, res) => {
-  try {
-    const data = pingService(req, res);
-    console.log('getting ping response', data);
-    return sendSuccess(res, data, 'getting ping successfully');
-  } catch (error) {
-    console.error('getting error while ping',  error);
-  }
+  const data = await pingService(req, res);
+  return sendSuccess(res, data);
 };
 
 export { pingController };
