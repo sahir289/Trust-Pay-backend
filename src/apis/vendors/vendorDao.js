@@ -1,4 +1,4 @@
-import { columns, tableName } from "../../constants/index.js";
+import { tableName } from "../../constants/index.js";
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
 
 export const createVendorDao = async (data) => {
@@ -13,7 +13,7 @@ export const createVendorDao = async (data) => {
 };
 
 export const getVendorsDao = async (
-    search, payload,
+    filters,
     page,
     pageSize,
     sortBy,
@@ -21,7 +21,7 @@ export const getVendorsDao = async (
 ) => {
     try {
         const baseQuery = `SELECT id, first_name, last_name, code, payin_commission, payout_commission, balance, created_by, updated_by, config, created_at, updated_at FROM "${tableName.VENDOR}" WHERE 1=1`;
-        const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.VENDOR, page, pageSize, sortBy, sortOrder, typeof search !== 'string', payload);
+        const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
         // Execute query
         const result = await executeQuery(sql, queryParams);
         return result.rows[0];

@@ -53,7 +53,9 @@ export const ekoTransactionStatusCallback = async (req, res) => {
 
         // Update the bank account if 'from_bank' is present in the payload
         if (payload.from_bank) {
-            const bankAccountRes = await getBankaccountDao(data.from_bank);
+            // Todo: what is from_bank
+            // if this is id then its an extra query
+            const bankAccountRes = await getBankaccountDao({id: data.from_bank});
             await updateBankaccountByIdDao(
                 bankAccountRes.id,
                 parseFloat(data.amount),

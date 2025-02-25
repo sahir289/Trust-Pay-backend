@@ -6,11 +6,10 @@ import config from "../../config/config.js";
 import { razorpay } from "../../webhooks/razorPay.js";
 import { getPayoutsDao } from '../payOut/payOutDao.js';
 import { BankTypes, Currency, Status, Type } from "../../constants/index.js";
-import { getMerchantsService } from "../merchants/merchantService.js";
 import { calculateCommission, calculateDuration } from "../../helpers/index.js";
 import { merchantPayinCallback } from "../../callBacksAndWebHook/merchantCallBacks.js";
-import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao, getPayInUrlsDao, getPayinsDao, getPayinsDaoId } from "./payInDao.js";
-import { AccessDeniedError, BadRequestError, NotFoundError } from "../../utils/appErrors.js";
+import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao, getPayInUrlsDao } from "./payInDao.js";
+import { BadRequestError, NotFoundError } from "../../utils/appErrors.js";
 import { getBankaccountDao, getMerchantBankDao, updateBankaccountDao, updateBanktBalanceDao } from "../bankAccounts/bankaccountDao.js";
 import { getBankResponseDao, updateBotResponseDao } from "../bankResponse/bankResponseDao.js";
 import { getMerchantsDao, updateMerchantBalanceDao } from "../merchants/merchantDao.js";
@@ -30,7 +29,7 @@ export const generatePayInUrlService = async (payload) => {
     const { code, user_id, merchant_order_id: order_id, amount, returnUrl, api_key, x_api_key, company_id } = payload;
     const merchant_order_id = order_id ? order_id : uuidv4();
 
-    const merchantArr = await getMerchantsService({ code });
+    const merchantArr = await getMerchantsDao({ code });
     const merchant = merchantArr[0];
 
     if (!merchant) {
@@ -104,7 +103,7 @@ export const getPayInUrlService = async (id) => {
             req_amount: payIn.amount,
             utr_id: payIn.utr,
         })
-        throw new AccessDeniedError("Session is expired");
+        throw new BadRequestError("PayIn Expired");
     }
 
     return payIn;
@@ -146,7 +145,7 @@ export const assignedBankToPayInUrlService = async (payInId, amount,type, compan
     }
 
 
-    const merchantArr = await getMerchantsService({ id: payIn.merchant_id });
+    const merchantArr = await getMerchantsDao({ id: payIn.merchant_id });
     const merchant = merchantArr[0] || {};
 
     if (!merchant) {
@@ -154,7 +153,7 @@ export const assignedBankToPayInUrlService = async (payInId, amount,type, compan
     }
 
 
-    const banks = await getMerchantBankDao(merchant.user_id);
+    const banks = await getMerchantBankDao({user_id: merchant.user_id});
     const enabledBanks = banks.filter((bank) => {
         // Get enabled merchant bank accounts for payIn
         // Assign bank on the basis type
@@ -212,8 +211,8 @@ export const assignedBankToPayInUrlService = async (payInId, amount,type, compan
 }
 
 // Public API Used by Merchants
-export const checkPayInStatusService = async (payinId, merchantCode, merchantOrderId,  company_id, api_key) => {
-    const merchantArr = await getMerchantsService({ code: merchantCode });
+export const checkPayInStatusService = async (payInId, merchantCode, merchantOrderId, company_id, api_key) => {
+    const merchantArr = await getMerchantsDao({ code: merchantCode, company_id });
     const merchant = merchantArr[0];
     if (!merchant) {
         throw new NotFoundError("Merchant does not exist");
@@ -221,7 +220,7 @@ export const checkPayInStatusService = async (payinId, merchantCode, merchantOrd
 
     const merchantConfig = merchant.config || {};
     const payIn = await getPayInUrlDao({
-        id: payinId,
+        id: payInId,
         merchant_order_id: merchantOrderId,
         company_id: company_id
     });
@@ -253,7 +252,7 @@ export const payInIntentGenerateOrderService = async (payInId, amount, isRazorpa
         });
 
         return {
-            status: orderRes.status
+            ...orderRes
         };
     }
 
@@ -318,7 +317,7 @@ export const updatePaymentNotificationStatusService = async (payInId, type) => {
             throw new NotFoundError("Payout data not found.");
         }
 
-        const merchants = await getMerchantsService({ id: payout.merchant_id });
+        const merchants = await getMerchantsDao({ id: payout.merchant_id });
         const merchant = merchants[0];
         if (!merchant || !merchant.payout_notify_url) {
             throw new NotFoundError("Merchant or payout notify URL not found.");
@@ -488,10 +487,7 @@ export const resetDepositService = async (conn, merchant_order_id) => {
 }
 
 export const getPayinsService = async (payload) => {
-    const data = await getPayinsDao(payload);
-
-    console.log('Fetched Payins successfully', 'info');
-    return data;
+    return await getPayInUrlsDao(payload);
 };
 
 export const processPayInService = async (conn, payload) => {
@@ -924,30 +920,10 @@ export const telegramCheckUTRService = async (conn, utr, merchant_order_id) => {
     })
 }
 
-export const getPayinsServiceByid = async (payload) => {
-    const data = await getPayinsDaoId(payload);
-
-    console.log('Fetched Payins successfully', 'info');
-    return data;
+export const getPayinsServiceById = async (id) => {
+    return await getPayInUrlDao({ id });
 };
 
-
-export const getPayinsServiceById = async(id)=>{
-    const payload = id;
-    let filters = {};
-   if (payload) {
-     filters.id = payload; 
-   }
-   console.log('getUsers successfully');
-    // Fetch vendors data from the service
-    const data = await getPayinsDaoId(filters);
-
-    // Log success message
-    console.log('getPayins successfully', data);
-
-    // Send success response
-    return  data;
-}
 
 const checkIsPayInExpired = (payIn) => {
     if (Number(payIn.expiration_date) < Date.now() || payIn.is_url_expires) {

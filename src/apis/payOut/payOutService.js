@@ -80,10 +80,10 @@ const createPayoutService = async (headers,payload,role) => {
     }
 };
 
-const getPayoutsService = async (search,user,role) => {
+const getPayoutsService = async (filters, role) => {
     try {
+        const data = await getPayoutsDao(filters);
         const filterColumns = role === Role.MERCHANT ? merchantColumns.PAYOUT : role === Role.VENDOR ? vendorColumns.PAYOUT : columns.PAYOUT;
-        const data = await getPayoutsDao(search,user);
         console.log('Fetched Payouts successfully', 'info');
         const finalResult =  filterResponse(data, filterColumns);
         return finalResult;    } catch (error) {

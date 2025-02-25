@@ -66,66 +66,32 @@ export const executeQuery = async (query, queryParams = []) => {
   }
 }
 
-export const buildSelectQuery = (baseQuery, f, columns, p, ps, s, o, isJson = true ,user) => {
+export const buildSelectQuery = (baseQuery, filters, p, ps, s, o) => {
   const page = p || 1, pageSize = ps || 10, sortBy = s || "created_at", sortOrder = o || "DESC";
-  let filters = {};
-  if (isJson) {
-    filters = f;
-  } else {
-    for (const key of columns) {
-      filters[key] = f;
-    }
-  }
   let query = baseQuery;
   let values = [];
-  let conditions = [];
+  let conditions = [`is_obsolete = false`];
 
   for (const key in filters) {
     const value = filters[key];
-     if (key === "method" && Array.isArray(value)) {
-      conditions.push(`"method" = ANY($${values.length + 1})`);
-      values.push(value);  
-      continue;
-    } else if (typeof value === 'string' && value.includes(',')) {
+    if (Array.isArray(value)) {
       conditions.push(`"${key}" = ANY($${values.length + 1})`);
-      values.push(value.split(','));
-      continue;
-    } else if (value) {
+    } else {
       conditions.push(`"${key}" = $${values.length + 1}`);
-      values.push(value);
     }
+    values.push(value);
   }
-  for (const key in user) {
-    const value = user[key];
-    if (value) {
-      conditions.push(`"${key}" = $${values.length + 1}`);
-      values.push(value);
-    }
-  }
-  if(user){
-    for (const key in user) {
-      const value = user[key];
-      if (value) {
-        conditions.push(`"${key}" = $${values.length + 1}`);
-        values.push(value);
-      }
-    }
-  }
-  conditions.push(`is_obsolete = false`);
+
   if (conditions.length) {
     query += ` AND ${conditions.join(' AND ')}`;
   }
   // Apply sorting and pagination
-  query = applySortingAndPagination(query, values, columns, sortBy, sortOrder, page, pageSize);
+  query = applySortingAndPagination(query, values, sortBy, sortOrder, page, pageSize);
   return [query, values];
 };
 
 
-export const applySortingAndPagination = (query, values, columns = [], sortBy, sortOrder, page, pageSize) => {
-  // Ensure sorting column exists
-  if (!columns.includes(sortBy)) {
-    sortBy = "created_at"; // Default fallback
-  }
+export const applySortingAndPagination = (query, values, sortBy, sortOrder, page, pageSize) => {
 
   // Validate sort order
   const order = sortOrder.toUpperCase() === "DESC" ? "DESC" : "ASC";
@@ -165,7 +131,7 @@ export const buildUpdateQuery = (tableName, data, whereCondition, specialFields 
     return `"${key}" = $${values.length}`;
   });
 
-  const query = `UPDATE "${tableName}" SET ${setClause.join(', ')} WHERE ${whereClause.join(' AND ')} RETURNING id`;
+  const query = `UPDATE "${tableName}" SET ${setClause.join(', ')} WHERE ${whereClause.join(' AND ')} RETURNING *`;
   return [query, values];
 };
 

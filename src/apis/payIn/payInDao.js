@@ -1,4 +1,4 @@
-import { columns, tableName } from "../../constants/index.js";
+import { tableName } from "../../constants/index.js";
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
 
 export const generatePayInUrlDao = async (data) => {
@@ -48,44 +48,6 @@ export const updatePayInUrlDao = async (id, data, conn) => {
         throw error; // Rethrow the error to propagate it
     }
 }
-
-export const getPayinsDao = async (
-    search,
-    page,
-    pageSize,
-    sortBy,
-    sortOrder
-) => {
-    try {
-        const baseQuery = `SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`;
-        const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.PAYIN, page, pageSize, sortBy, sortOrder, typeof search !== 'string');
-        // Execute query
-        const result = await executeQuery(sql, queryParams);
-        return result.rows;
-    } catch (error) {
-        console.error('Error getting Payins:', error); // Log the error for debugging
-        throw error; // Rethrow the error to propagate it
-    }
-};
-
-export const getPayinsDaoId = async (
-    search,
-    page,
-    pageSize,
-    sortBy,
-    sortOrder
-) => {
-    try {
-        const baseQuery = `SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`;
-        const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.PAYIN, page, pageSize, sortBy, sortOrder, typeof search !== 'string');
-        // Execute query
-        const result = await executeQuery(sql, queryParams);
-        return result.rows[0];
-    } catch (error) {
-        console.error('Error getting Payin by ID:', error); // Log the error for debugging
-        throw error; // Rethrow the error to propagate it
-    }
-};
 
 export const updatePayInDao = async (id, data) => {
     try {

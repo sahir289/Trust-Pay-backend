@@ -11,7 +11,7 @@ import Logger from '../../utils/logger.js';
 import { getBankaccountDao, updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { getSettlementDaoforInternalTransfer } from '../settlement/settlementDao.js';
 import axios from 'axios';
-import { getPayinsDao, updatePayInDao } from '../payIn/payInDao.js';
+import { getPayInUrlsDao, updatePayInDao } from '../payIn/payInDao.js';
 import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
@@ -90,8 +90,7 @@ const createBankResponseService = async (payload) => {
       }
 
 
-      const checkPayInUtr = await getPayinsDao(
-        { user_submitted_utr: utr });
+      const checkPayInUtr = await getPayInUrlsDao({ user_submitted_utr: utr });
       if (checkPayInUtr?.length > 0) {
         if (upi_short_code && isValidAmountCode) {
         let dataUtr = checkPayInUtr[0]?.utr ? checkPayInUtr[0]?.utr : checkPayInUtr[0]?.user_submitted_utr
