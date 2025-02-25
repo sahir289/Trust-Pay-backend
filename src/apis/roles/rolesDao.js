@@ -23,30 +23,50 @@ const getRoleDao = async (filters, page, pageSize, sortBy, sortOrder) => {
   return result.rows;
 };
 
-const createRoleDao = async (conn,data) => {
-  const [sql, params] = buildInsertQuery(tableName.ROLE, data);
-  const result = await executeQuery(sql, params);
-  return result.rows[0];
+
+const createRoleDao = async (conn, data) => {
+  try {
+    const [sql, params] = buildInsertQuery(tableName.ROLE, data);
+    if (conn && conn.query) {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
+    }
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
 };
 
-const updateRoleDao = async (conn, id,company_id, data) => {
-  const [sql, params] = buildUpdateQuery(tableName.ROLE, data, {id ,company_id});
-  if (conn && conn.query) {
-    const result = await conn.query(sql, params);
+const updateRoleDao = async (conn, id, company_id, data) => {
+  try {
+    const [sql, params] = buildUpdateQuery(tableName.ROLE, data, { id, company_id });
+    if (conn && conn.query) {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
+    }
+    const result = await executeQuery(sql, params);
     return result.rows[0];
+  } catch (error) {
+    console.error(error);
+    throw error;
   }
-  const result = await executeQuery(sql, params);
-  return result.rows[0];
 };
 
-const deleteRoleDao = async (conn, id,company_id, data) => {
-  const [sql, params] = buildUpdateQuery(tableName.ROLE, data, { id,company_id });
-  if (conn && conn.query) {
-    const result = await conn.query(sql, params);
+const deleteRoleDao = async (conn,id,company_id, data) => {
+  try {
+    const [sql, params] = buildUpdateQuery(tableName.ROLE, data, { id, company_id });
+    if (conn && conn.query) {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
+    }
+    const result = await executeQuery(sql, params);
     return result.rows[0];
+  } catch (error) {
+    console.error(error);
+    throw error;
   }
-  const result = await executeQuery(sql, params);
-  return result.rows[0];
 };
 
 export { getRoleDao, createRoleDao, updateRoleDao, deleteRoleDao };

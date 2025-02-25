@@ -6,6 +6,7 @@ import {
   NotFoundError,
 } from '../../utils/appErrors.js';
 import { createHash, verifyHash } from '../../utils/bcryptPassword.js';
+import os from 'os';
 import { getConnection } from '../../utils/db.js';
 import { getUserByIdDao, getUsersByUserNameDao } from '../users/userDao.js';
 import { generateUserToken } from '../../utils/auth.js';
@@ -14,11 +15,13 @@ import { generateUUID } from '../../utils/generateUUID.js';
 import { io } from '../../../server.js';
 
 
-const loginService = async (config) => {
+
+const loginService = async (config, clientIP) => {
   let conn;
+  let ids = {}
   try{
     conn = await getConnection();
-    const user = await getUsersByUserNameDao(conn, config.username);
+    const user = await getUsersByUserNameDao(conn,ids,config.username);
     if (!user) {
       throw new NotFoundError('User not found');
     }
@@ -50,15 +53,18 @@ const loginService = async (config) => {
     const tokenInfo = generateUserToken(user);
     const hashedToken = await createHash(tokenInfo.refreshToken);
     const newConfig = {
-      refresh_token: hashedToken,
+      user_ip : clientIP,
+      token : {refresh_token: hashedToken},
       confirm_over_ride: config.confirmOverRide,
+      hostname : os.hostname(),
+      os_platform : os.platform(),
+      network_interface : Object.values(os.networkInterfaces())[0]?.[0],
+      cpu_cores : os.cpus()[0],
     }
-    
     await addLoginDao(conn, user.id, newConfig, user.company_id, sessionId);
 
     // **Notify previous sessions to log out**
     io.to(user.id).emit('forceLogout');
-
 
     return {
       tokenInfo,

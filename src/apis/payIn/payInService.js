@@ -26,7 +26,7 @@ Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION
 
 export const generatePayInUrlService = async (payload) => {
-    const { code, user_id, merchant_order_id: order_id, amount, returnUrl, api_key, x_api_key } = payload;
+    const { code, user_id, merchant_order_id: order_id, amount, returnUrl, api_key, x_api_key, company_id } = payload;
     const merchant_order_id = order_id ? order_id : uuidv4();
 
     const merchantArr = await getMerchantsDao({ code });
@@ -51,6 +51,7 @@ export const generatePayInUrlService = async (payload) => {
         merchant_order_id,
         user_id: user_id,
         return_url: returnUrl ? returnUrl : merchant.return_url,
+
     };
 
     const expirationDate = dayjs().add(10, 'minutes').toISOString();
@@ -63,7 +64,7 @@ export const generatePayInUrlService = async (payload) => {
         user: payInData.user_id,
         merchant_id: merchant.id,
         expiration_date: expirationDate,
-        company_id: merchant.company_id,
+        company_id: company_id,
         config: JSON.stringify({
             return_url: payInData.return_url || '',
             notify_url: merchant.notify_url || '',
@@ -132,10 +133,10 @@ export const expirePayInUrlService = async (payInId) => {
     });
 }
 
-export const assignedBankToPayInUrlService = async (payInId, amount, type) => {
+export const assignedBankToPayInUrlService = async (payInId, amount,type, company_id) => {
 
     // Validate the PayIn URL
-    const payIn = await getPayInUrlService(payInId);
+    const payIn = await getPayInUrlService({payInId, company_id});
     const payInConfig = payIn.config || {};
 
     checkIsPayInExpired(payIn);
@@ -194,6 +195,7 @@ export const assignedBankToPayInUrlService = async (payInId, amount, type) => {
         status: Status.ASSIGNED,
         bank_acc_id: selectedBankDetails.id,
         one_time_used: true,
+        company_id: company_id
     })
 
     Object.assign(updatePayIn, {
@@ -209,8 +211,8 @@ export const assignedBankToPayInUrlService = async (payInId, amount, type) => {
 }
 
 // Public API Used by Merchants
-export const checkPayInStatusService = async (payInId, merchantCode, merchantOrderId, api_key) => {
-    const merchantArr = await getMerchantsDao({ code: merchantCode });
+export const checkPayInStatusService = async (payInId, merchantCode, merchantOrderId, company_id, api_key) => {
+    const merchantArr = await getMerchantsDao({ code: merchantCode, company_id });
     const merchant = merchantArr[0];
     if (!merchant) {
         throw new NotFoundError("Merchant does not exist");
@@ -220,6 +222,7 @@ export const checkPayInStatusService = async (payInId, merchantCode, merchantOrd
     const payIn = await getPayInUrlDao({
         id: payInId,
         merchant_order_id: merchantOrderId,
+        company_id: company_id
     });
     if (!payIn) {
         throw new NotFoundError('payIn not found');
@@ -237,9 +240,9 @@ export const checkPayInStatusService = async (payInId, merchantCode, merchantOrd
     };
 }
 
-export const payInIntentGenerateOrderService = async (payInId, amount, isRazorpay) => {
+export const payInIntentGenerateOrderService = async (payInId, amount, isRazorpay, company_id) => {
     // validating if it exist
-    const payIn = await getPayInUrlService(payInId);
+    const payIn = await getPayInUrlService({payInId, company_id});
     checkIsPayInExpired(payIn);
     if (isRazorpay) {
         const orderRes = await razorpay.orders.create({

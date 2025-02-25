@@ -19,37 +19,55 @@ export const getVendorsDao = async (
     sortBy,
     sortOrder
 ) => {
-    const baseQuery = `SELECT id, first_name, last_name, code, payin_commission, payout_commission, balance, created_by, updated_by, config,  created_at, updated_at FROM "${tableName.VENDOR}" WHERE 1=1 ` ;
-    //TODO: columns.VENDOR dynamic search
-    const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
-    // Execute queryy
-    const result = await executeQuery(sql, queryParams);
-    return result.rows[0];
+    try {
+        const baseQuery = `SELECT id, first_name, last_name, code, payin_commission, payout_commission, balance, created_by, updated_by, config, created_at, updated_at FROM "${tableName.VENDOR}" WHERE 1=1`;
+        const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
+        // Execute query
+        const result = await executeQuery(sql, queryParams);
+        return result.rows[0];
+    } catch (error) {
+        console.error('Error in getVendorsDao:', error);
+        throw new Error('Failed to get vendors');
+    }
 };
 
-
-export const updateVendorDao = async (id,company_id, data, conn) => {
-    const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, {id ,company_id});
-    if (conn && conn.query) {
-        const result = await conn.query(sql, params);
+export const updateVendorDao = async (id, data, conn) => {
+    try {
+        const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, id);
+        if (conn && conn.query) {
+            const result = await conn.query(sql, params);
+            return result.rows[0];
+        }
+        const result = await executeQuery(sql, params);
         return result.rows[0];
+    } catch (error) {
+        console.error('Error in updateVendorDao:', error);
+        throw new Error('Failed to update vendor');
     }
-    const result = await executeQuery(sql, params);
-    return result.rows[0];
-}
-export const deleteVendorDao = async (id,company_id,data) => {
-    const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, {id ,company_id});
-    const result = await executeQuery(sql, params);
-    return result.rows[0];
-}
+};
 
+export const deleteVendorDao = async (id, data) => {
+    try {
+        const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, id);
+        const result = await executeQuery(sql, params);
+        return result.rows[0];
+    } catch (error) {
+        console.error('Error in deleteVendorDao:', error);
+        throw new Error('Failed to delete vendor');
+    }
+};
 
 export const updateVendorBalanceDao = async (filters, valueToAdd, conn) => {
-    const [sql, params] = buildUpdateQuery(tableName.VENDOR, { balance: valueToAdd }, filters, { balance: '+' });
-    if (conn && conn.query) {
-        const result = await conn.query(sql, params);
-        return result.rows[0];
+    try {
+        const [sql, params] = buildUpdateQuery(tableName.VENDOR, { balance: valueToAdd }, filters, { balance: '+' });
+        if (conn && conn.query) {
+            const result = await conn.query(sql, params);
+            return result.rows[0];
+        }
+        const result = await executeQuery(sql, params);
+        return result[0];
+    } catch (error) {
+        console.error('Error in updateVendorBalanceDao:', error);
+        throw new Error('Failed to update vendor balance');
     }
-    const result = await executeQuery(sql, params);
-    return result[0];
-}
+};

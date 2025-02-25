@@ -9,7 +9,7 @@ const createUserHierarchy = async (req, res) => {
         console.error('payload is required');
         return sendError(res, 'payload is required', 'Validation Error');
       }
-      const {company_id,role_id,user_id} = req.user;
+      const {company_id,role_id,user_id,role} = req.user;
       payload.company_id=company_id;
       payload.user_id=user_id;
       payload.role_id=role_id;
@@ -18,7 +18,7 @@ const createUserHierarchy = async (req, res) => {
             throw new ValidationError(error);
         }
         // Call the service to create the UserHierarchy
-      const result = await createUserHierarchyService(payload);
+      const result = await createUserHierarchyService(payload,role);
         // Log success message
         console.log('User Hierarchy created successfully', result);
         // Send a success response to the client
@@ -33,7 +33,7 @@ const createUserHierarchy = async (req, res) => {
 
 const getUserHierarchys = async (req, res) => {
     try {
-        const {company_id,user_id,role_id} = req.user;
+        const {company_id,user_id,role_id, role} = req.user;
         // const search = req.query.search;
         // Fetch vendors data from the service
         const data = await getUserHierarchyService({
@@ -41,7 +41,7 @@ const getUserHierarchys = async (req, res) => {
             user_id,
             role_id,
             // TOOD: search
-        });
+        }, role);
         // Log success message
         console.log('get UserHierarchys successfully', data);
         // Send success response
@@ -61,9 +61,11 @@ const getUserHierarchysById = async (req, res) => {
             throw new ValidationError(error);
         }
         const {id} = req.params;
-        const {company_id,user_id,role_id} = req.user;
+        const {company_id,user_id,role_id,role} = req.user;
         // Fetch vendors data from the service
-        const data = await getUserHierarchyService({id,company_id,user_id,role_id});
+        const ids = {id,company_id,user_id,role_id}
+        const payload={};
+        const data = await getUserHierarchyService(ids,payload,role);
         // Log success message
         console.log('get UserHierarchy successfully', data);
         // Send success response
@@ -90,9 +92,10 @@ const updateUserHierarchy = async (req, res) => {
         }
         const payload = req.body;
         const { id } = req.params;  // Assuming the UserHierarchy ID is passed as a parameter
-        const {company_id,user_id,role_id} = req.user;
+        const {company_id,user_id,role_id,role} = req.user;
+        const ids={id,company_id,user_id,role_id}
         // Call the service to update the UserHierarchy
-        const result = await updateUserHierarchyService(id,company_id,user_id,role_id, payload);
+        const result = await updateUserHierarchyService(ids,payload,role);
 
         // Log success message
         console.log('UserHierarchy updated successfully', result);
@@ -118,10 +121,10 @@ const deleteUserHierarchy = async (req, res) => {
        
         const { id } = req.params;  // Assuming the UserHierarchy ID is passed as a parameter
 
-        const {company_id,user_id,role_id}=req.user;
-        
+        const {company_id,user_id,role_id,role}=req.user;
+        const ids = {company_id,user_id,role_id,id}
         // Call the service to delete the UserHierarchy
-        const result = await deleteUserHierarchyService(id,company_id,user_id,role_id);
+        const result = await deleteUserHierarchyService(ids,role);
 
         // Log success message
         console.log('UserHierarchy deleted successfully', result);

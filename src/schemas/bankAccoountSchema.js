@@ -1,8 +1,8 @@
 import Joi from 'joi';
 
 export const BANK_ACCOUNT_SCHEMA = Joi.object({
-  user_id: Joi.string().guid({ version: ['uuidv4'] }).label('user_id').required(),
-  upi_id: Joi.string().label('upi_id').required(),
+  user_id: Joi.string().guid({ version: ['uuidv4'] }).label('user_id').optional(),
+  upi_id: Joi.string().label('upi_id').optional(),
   upi_params: Joi.string().label('upi_params').optional(),
   nick_name: Joi.string().label('nick_name').optional(),
   acc_no: Joi.string().label('acc_no').required(),
@@ -19,9 +19,9 @@ export const BANK_ACCOUNT_SCHEMA = Joi.object({
   bank_used_for: Joi.string().valid('payIn', 'payOut').label('bank_used_for').required(),
   config: Joi.object().label('config').optional(),
   updated_by: Joi.string().label('updated_by').optional(),
-  created_at: Joi.date().iso().label('created_at').required(),
-  updated_at: Joi.date().iso().label('updated_at').required(),
-  company_id: Joi.string().label('company_id').required(),
+  created_at: Joi.date().iso().label('created_at').optional(),
+  updated_at: Joi.date().iso().label('updated_at').optional(),
+  company_id: Joi.string().label('company_id').optional(),
 
 });
 
@@ -46,8 +46,8 @@ export const UPDATE_BANK_ACCOUNT_SCHEMA = Joi.object({
 
 
 export const VALIDATE_BANK_RESPONSE_BY_ID = Joi.object({
-    id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
+    id: Joi.string().guid({ version: ['uuidv4'] }).optional().messages({
       'string.guid': 'ID must be a valid UUID',
-      'any.required': 'ID is required',
+      'any.optional': 'ID is optional',
     }),
 });

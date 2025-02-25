@@ -11,7 +11,8 @@ export const calculateBalances = (calc, prevCalc, isMerchant) => {
 };
 
 export const calculateCommission = (amount, percentage) => {
-    return (amount * percentage) / 100;
+    const numAmount = Number(amount);
+    return (numAmount * percentage) / 100;
 };
 
 
@@ -98,9 +99,25 @@ export const streamToBase64 = (readableStream) => {
     });
 };
 
-export const filterResponse = async (data, key) => {
-    if (typeof data === 'object' && data !== null && key in data) {
-      return { [key]: data[key] };
-    }
-    return {};
-  }
+// export const filterResponse = async (data, key) => {
+//     console.log(data, key,"datakey")
+//     if (typeof data === 'object' && data !== null && key in data) {
+//         console.log({[key]: data[key]},"datakey1")
+
+//       return { [key]: data[key] };
+//     }
+//     return {};
+//   }
+
+export const filterResponse = (data, key) => {
+    if (Array.isArray(data && data !== null)) {
+        return data.map(item => ({ [key]: item[key] })).filter(item => item[key] !== undefined);
+    } else if (!data || typeof data !== "object") return null;
+
+    return key.reduce((acc, ke) => {
+        if (ke in data) acc[ke] = data[ke];
+        return acc;
+    }, {});
+
+
+};

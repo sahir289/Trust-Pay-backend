@@ -40,9 +40,9 @@ const generateUserToken = (user) => {
     user_name: user.user_name,
     user_id: user.id,
     designation_id: user.designation_id,
-    designation_name: user.designation_name,
+    designation: user.designation,
     role_id: user.role_id,
-    role_name: user.role_name,
+    role: user.role,
     company_id: user.company_id,
     session_id: sessionId,
   });

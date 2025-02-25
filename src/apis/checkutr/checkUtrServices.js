@@ -16,8 +16,8 @@ const createCheckUtrService = async (payload) => {
 
     return result;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    // throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while check utr', error);
+    // throw new BadRequestError('Error getting while check utr');
   }
 };
 
@@ -26,8 +26,8 @@ const updateCheckUtrService = async (id, payload) => {
     const result = await updateCheckUtrDao(id, payload);
     return result;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while check utr', error);
+    throw new BadRequestError('Error getting while check utr');
   }
 };
 const deleteCheckUtrService = async (id) => {
@@ -37,8 +37,8 @@ const deleteCheckUtrService = async (id) => {
     const result = await deleteCheckUtrDao(id, { is_obsolete: true });
     return result;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while check utr', error);
+    throw new BadRequestError('Error getting while check utr');
   }
 };
 

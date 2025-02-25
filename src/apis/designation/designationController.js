@@ -4,13 +4,10 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService } from './designationServices.js';
 const getDesignation = async (req, res) => {
   try {
-    const { role } = req.user;
     const search = req.query.search;
-    let user = {};
     const { comapany_id, role_id } = req.user
-    user.comapany_id = comapany_id;
-    user.role_id = role_id
-    const data = await getDesignationService(search, user, role);
+    let user = {comapany_id, role_id };
+    const data = await getDesignationService(search, user);
     console.log('get Designations  successfully');
     return sendSuccess(res, data, 'get  Designations successfully');
   } catch (error) {
@@ -19,8 +16,7 @@ const getDesignation = async (req, res) => {
 };
 const getDesignationById = async (req, res) => {
   try {
-    const { role } = req.user;
-    const joiValidation = VALIDATE_DESIGNATION_BY_ID.validate(req.params, role);
+    const joiValidation = VALIDATE_DESIGNATION_BY_ID.validate(req.params);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }
@@ -36,7 +32,6 @@ const getDesignationById = async (req, res) => {
 
 const createDesignation = async (req, res) => {
   try {
-    const { role } = req.user;
     let payload = req.body;
     const { company_id, role_id } = req.user;
     payload.company_id = company_id;
@@ -49,7 +44,7 @@ const createDesignation = async (req, res) => {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await createDesignationService(payload, role);
+    const data = await createDesignationService(payload);
     console.log('get Designations successfully');
     return sendSuccess(res, data, 'get Designations successfully');
   } catch (error) {
@@ -60,7 +55,6 @@ const createDesignation = async (req, res) => {
 const updateDesignation = async (req, res) => {
   try {
     const payload = req.body;
-    const { role } = req.user;
     const joiValidation = VALIDATE_DESIGNATION_BY_ID.validate(req.params);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
@@ -71,7 +65,7 @@ const updateDesignation = async (req, res) => {
     }
     const { id } = req.params;
     const { company_id, role_id } = req.user;
-    const data = await updateDesignationService(id, company_id, role_id, payload, role);
+    const data = await updateDesignationService(id, company_id, role_id, payload);
     return sendSuccess(res, data, 'update Designations successfully');
   } catch (error) {
     console.error('error getting while updating designations', error);
@@ -80,7 +74,6 @@ const updateDesignation = async (req, res) => {
 
 const deleteDesignation = async (req, res) => {
   try {
-    const { role } = req.user;
     const joiValidation = VALIDATE_DESIGNATION_BY_ID.validate(req.params);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
@@ -91,7 +84,7 @@ const deleteDesignation = async (req, res) => {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await deleteDesignationService(id, company_id, role_id, role);
+    const data = await deleteDesignationService(id, company_id, role_id);
     console.log('delete Designations successfully');
     return sendSuccess(res, data, 'delete Designations successfully');
   } catch (error) {

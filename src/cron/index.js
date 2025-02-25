@@ -1,7 +1,7 @@
 import express from 'express';
 import collectBankData from './bankCron.js';
 import collectCalculationData from './calculationCron.js';
-import collectPayinData from './notifycron.js';
+import collectPayinData from './notifyCron.js';
 const router = express.Router();
 
 /**

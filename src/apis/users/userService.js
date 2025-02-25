@@ -1,5 +1,4 @@
-import { CREATE_USER_SCHEMA, VALIDATE_USER_BY_ID } from '../../schemas/userSchema.js';
-import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import { BadRequestError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
 import { getConnection } from '../../utils/db.js';
 import { createUserDao, getUserByIdDao, getUsersByUserNameDao, getUsersDao } from './userDao.js';
@@ -9,18 +8,18 @@ import { columns, merchantColumns, Role, vendorColumns } from '../../constants/i
 // import { createVendorService } from '../vendors/vendorService.js';
 // import { getRoleDao } from '../roles/rolesDao.js';
 
-const getUsersService = async (role) => {
+const getUsersService = async (ids,role) => {
   let conn;
   try {
     conn = await getConnection();
     const filterColumns = role === Role.MERCHANT ? merchantColumns.USER : role === Role.VENDOR ? vendorColumns.USER : columns.USER;
-    const result = await getUsersDao(conn);
+    const result = await getUsersDao(conn,ids);
     console.log('get Users successfully');
-    const finalResult = await filterResponse(result, filterColumns);
+    const finalResult =  filterResponse(result, filterColumns);
     return finalResult;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while fetching user', error);
+    throw new BadRequestError('Error getting while fetching user');
   } finally {
     if (conn) {
       try {
@@ -32,18 +31,13 @@ const getUsersService = async (role) => {
   }
 };
 
-const getUserByIdService = async (id, role) => {
+const getUserByIdService = async (ids, role) => {
   let conn;
   try {
     const filterColumns = role === Role.MERCHANT ? merchantColumns.USER : role === Role.VENDOR ? vendorColumns.USER : columns.USER;
-
     conn = await getConnection();
-    const result = await getUserByIdDao(conn, id);
-
-    const joiValidation = VALIDATE_USER_BY_ID.validate(result);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
-    }
+    const result = await getUserByIdDao(conn, ids);
+   
     console.log('get User by id successfully');
     const finalResult = await filterResponse(result, filterColumns);
     return finalResult;
@@ -61,21 +55,18 @@ const getUserByIdService = async (id, role) => {
   }
 };
 
-const getUsersByUserNameService = async (username, role) => {
+const getUsersByUserNameService = async (username,ids, role) => {
   let conn;
   try {
+
     const filterColumns = role === Role.MERCHANT ? merchantColumns.USER : role === Role.VENDOR ? vendorColumns.USER : columns.USER;
-
     conn = await getConnection();
-
-    const data = await getUsersByUserNameDao(conn, username);
-    console.log('get Users successfully');
-
+    const data = await getUsersByUserNameDao(conn, ids, username);
     const finalResult = await filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+    console.error('error getting while fetching user', error);
+    throw new BadRequestError('Error getting while fetching user');
   } finally {
     if (conn) {
       try {
@@ -87,17 +78,12 @@ const getUsersByUserNameService = async (username, role) => {
   }
 };
 
-const createUserService = async (payload, role) => {
-  let conn;
+const createUserService = async (conn,payload, role) => {
+
   try {
     const filterColumns = role === Role.MERCHANT ? merchantColumns.USER : role === Role.VENDOR ? vendorColumns.USER : columns.USER;
-
-    conn = await getConnection();
     const { user_name } = payload;
-    const joiValidation = CREATE_USER_SCHEMA.validate(payload);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
-    }
+   
     const user = await getUsersByUserNameDao(conn, user_name);
     if (user?.user_name || user?.email || user?.contact_no) {
       console.error('User already exists');
@@ -145,20 +131,12 @@ const createUserService = async (payload, role) => {
     //   await createVendorService(vendorPayload);
     // }
     console.log('User Created Successfully');
-    const finalResult = await filterResponse(User, filterColumns);
+    const finalResult =  filterResponse(User, filterColumns);
     return finalResult;
   } catch (error) {
     console.error('error getting while creating user', error);
     throw new BadRequestError('Error getting while creating user');
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
-      }
-    }
-  }
+  } 
 };
 
 export { getUsersService, getUserByIdService, getUsersByUserNameService, createUserService };

@@ -20,7 +20,6 @@ const isAuthenticated = (req, res, next) => {
 
   try {
     const decoded = verifyToken(token);
-
     // in future need to keep check with session_id if user is logged out or not
     // console.log(decoded, "decoddeeed")
     // const user = await getLoginDao(decoded.user_id, decoded.company_id);
@@ -44,14 +43,12 @@ const isAuthenticated = (req, res, next) => {
   }
 };
 
-const authorized = (allowedRoles) => {
-  return (req, res, next) => {
-    const { designation_name } = req.user;
-    
-    if (!designation_name || !allowedRoles.includes(designation_name)) {
+const authorized =  (allowedRoles) => {
+  return async (req, res, next) => {
+    const { designation_name} = req.user;
+    if (!designation_name || !allowedRoles.includes(designation_name)) { 
       throw new AuthenticationError('Access denied: Insufficient permissions');
     }
-    
     next();
   };
 };

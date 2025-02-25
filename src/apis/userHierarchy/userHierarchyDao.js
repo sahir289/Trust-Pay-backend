@@ -28,9 +28,9 @@ export const getUserHierarchysDao = async (
 };
 
 
-export const updateUserHierarchyDao = async (id, company_id, user_id, role_id, data) => {
+export const updateUserHierarchyDao = async (id, data) => {
     try {
-        const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data, { id, company_id, user_id, role_id });
+        const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data, id);
         const result = await executeQuery(sql, params);
         return result.rows[0];
     } catch (error) {
@@ -39,9 +39,9 @@ export const updateUserHierarchyDao = async (id, company_id, user_id, role_id, d
     }
 };
 
-export const deleteUserHierarchyDao = async (id, company_id, user_id, role_id, data) => {
+export const deleteUserHierarchyDao = async (id, data) => {
     try {
-        const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data, { id, company_id, user_id, role_id });
+        const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data,id);
         const result = await executeQuery(sql, params);
         return result.rows[0];
     } catch (error) {

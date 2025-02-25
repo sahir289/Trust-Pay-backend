@@ -50,7 +50,7 @@ const createRole = async (req, res) => {
       if (error) {
         throw new ValidationError(error);
       }
-      const data = await createRoleService(payload);
+      const data = await transactionWrapper(createRoleService)(payload);
       console.log('create Role successfully', 'info');
       return sendSuccess(res, data, 'Create Role successfully');
     } catch (error) {

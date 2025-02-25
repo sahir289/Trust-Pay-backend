@@ -13,13 +13,13 @@ const getCalculationById = async (req, res) => {
       throw new ValidationError(error);
     }
     const { id } = req.params;
-    const { user_id, role_id, company_id } = req.user;
+    const { user_id, role_id, company_id, role } = req.user;
     const data = await getCalculationService({
       id,
       user_id,
       role_id,
       company_id,
-    });
+    }, role);
     console.info('Get Calculation successfully', 'info');
     // Respond with the calculation data
     return sendSuccess(res, data, 'Get Calculation successfully');
@@ -53,12 +53,10 @@ const createCalculation = async (req, res) => {
   try {
     const { role } = req.user;
     let payload = req.body;
-    console.log(req.user);
     const { company_id, user_id, role_id } = req.user;
     payload.company_id = company_id;
     payload.user_id = user_id;
     payload.role_id = role_id;
-    console.log(payload, 'jkdfhfk payloead fron payload');
     // Validate the request body using Joi schema
     const { error } = VALIDATE_CALCULATION_SCHEMA.validate(payload);
     if (error) {

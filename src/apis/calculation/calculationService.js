@@ -6,6 +6,7 @@ import { transactionWrapper } from '../../utils/db.js';
 import { columns, merchantColumns, Role, vendorColumns } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
 
+
 // Service to fetch calculation data
 const getCalculationService = async (filters, role) => {
   try {
@@ -35,10 +36,10 @@ const createCalculationService = async (payload, role) => {
 
 
 // Service to update an existing calculation record
-const updateCalculationService = async (conn,id,payload, role) => {
+const updateCalculationService = async (conn,id,payload,role) => {
   try {
     const filterColumns = role === Role.MERCHANT ? merchantColumns.CALCULATION : role === Role.VENDOR ? vendorColumns.CALCULATION : columns.CALCULATION; 
-    const data = await updateCalculationDao(conn,id, payload);
+    const data = await updateCalculationDao(conn,id,payload);
     const finalResult = await filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -54,7 +55,7 @@ const deleteCalculationService = async (conn,id, role) => {
     const filterColumns = role === Role.MERCHANT ? merchantColumns.CALCULATION : role === Role.VENDOR ? vendorColumns.CALCULATION : columns.CALCULATION; 
     const userData = { is_obsolete: true };
     const data = await deleteCalculationDao(conn,id, userData);
-    const finalResult = await filterResponse(data, filterColumns);
+    const finalResult =  filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
     console.error('Error while deleting calculation record:', error);

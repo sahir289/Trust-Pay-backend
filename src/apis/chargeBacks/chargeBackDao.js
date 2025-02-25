@@ -41,7 +41,7 @@ export const getChargeBackDao = async (
 // Update ChargeBack entry
 export const updateChargeBackDao = async (id, company_id, data) => {
     try {
-        const [sql, params] = buildUpdateQuery(tableName.CHAREBACK, data, { id, company_id });
+        const [sql, params] = buildUpdateQuery(tableName.CHAREBACK, data, id);
         const result = await executeQuery(sql, params);
         return result.rows[0];
     } catch (error) {
@@ -53,7 +53,7 @@ export const updateChargeBackDao = async (id, company_id, data) => {
 // Delete ChargeBack entry
 export const deleteChargeBackDao = async (id, company_id, data) => {
     try {
-        const [sql, params] = buildUpdateQuery(tableName.CHAREBACK, data, { id, company_id });
+        const [sql, params] = buildUpdateQuery(tableName.CHAREBACK, data, id);
         const result = await executeQuery(sql, params);
         return result.rows[0];
     } catch (error) {

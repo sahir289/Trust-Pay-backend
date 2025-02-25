@@ -2,10 +2,12 @@ import config from "../../config/config.js";
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { sendError } from "../../utils/responseHandlers.js";
+import { getPayinsDao,updatePayInDao } from "./payInDao.js";
 import {
     ASSIGN_PAYIN_SCHEMA,
     VALIDATE_ASSIGNED_BANT_TO_PAY,
     VALIDATE_CHECK_PAY_IN_STATUS,
+    // VALIDATE_CHECK_PAY_IN_STATUS,
     VALIDATE_CHECK_UTR,
     VALIDATE_DISPUTE_DUPLICATE_TRANSACTION,
     VALIDATE_EXPIRE_PAY_IN_URL,
@@ -40,6 +42,8 @@ import { s3 } from "../../helpers/Aws.js";
 //  To Generate Url
 export const generatePayInUrl = async (req, res) => {
     const payload = req.query;
+    const { company_id } = req.user;
+    payload.company_id = company_id;
     const joiValidation = ASSIGN_PAYIN_SCHEMA.validate(payload);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
@@ -67,12 +71,19 @@ export const generatePayInUrl = async (req, res) => {
 
 export const validatePayInUrl = async (req, res) => {
     const { payInId } = req.params;
+    const { company_id } = req.user;
     const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-
-    const payIn = await getPayInUrlService(payInId);
+    const {user_location} = req ;  
+    const payin = await getPayinsDao({ id: payInId }); 
+    const updatedConfig = { 
+        ...payin[0].config,  
+        user: user_location   
+      };
+  await updatePayInDao(payin[0].id, {config: updatedConfig});
+    const payIn = await getPayInUrlService({payInId,company_id});
     const result = {
         code: payIn.upi_short_code,
         return_url: config.return_url,
@@ -83,18 +94,21 @@ export const validatePayInUrl = async (req, res) => {
         status: payIn.status,
     };
 
-    return sendSuccess(res, result, 'Payment Url is correct');
+return sendSuccess(res, result, 'Payment Url is correct');
 }
 
 export const assignedBankToPayInUrl = async (req, res) => {
+    const payload = {...req.body};
+    const { company_id } = req.user;
+    payload.company_id = company_id;
     const joiValidation = VALIDATE_ASSIGNED_BANT_TO_PAY.validate({
         ...req.params,
-        ...req.body,
-    });
+    } ,  payload
+);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-    const result = await assignedBankToPayInUrlService(req.params.payInId, req.body.amount, req.body.type);
+    const result = await assignedBankToPayInUrlService(req.params.payInId, payload.amount, payload.company_id);
     return sendSuccess(res, result, 'Bank account is assigned');
 };
 
@@ -103,7 +117,7 @@ export const expirePayInUrl = async (req, res) => {
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-    await expirePayInUrlService(req.body.payInId)
+    await expirePayInUrlService(req.params.payInId)
     return sendSuccess(res, null, 'Payin expires!');
 }
 
@@ -112,29 +126,32 @@ export const checkPayInStatus = async (req, res) => {
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-
     const api_key = req.headers["x-api-key"];
-
-    const data = await checkPayInStatusService(req.body.payInId, req.body.merchantCode, req.body.merchantOrderId, api_key);
+    const data = await checkPayInStatusService(req.body.payInId, req.body.merchantCode, req.body.merchantOrderId, req.user.company_id, api_key);
     sendSuccess(res, data);
 }
 
 export const payInIntentGenerateOrder = async (req, res) => {
-    const { payInId } = req.params;
+    const { payinId } = req.params;
     const { amount, isRazorpay } = req.body;
-    const payload = { payInId, amount, isRazorpay };
+    const { company_id } = req.user;
+    const user = {};
+    user.company_id = company_id;
+    const payload = { payinId, amount, isRazorpay, company_id };
     const joiValidation = VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate(payload);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-    const data = await payInIntentGenerateOrderService(payInId, amount, isRazorpay);
+    const data = await payInIntentGenerateOrderService(payinId, amount, isRazorpay, company_id);
     sendSuccess(res, data);
 }
 
 export const updatePaymentNotificationStatus = async (req, res) => {
     const { payInId } = req.params;
     const { type } = req.body;
-    const payload = { payInId, type };
+    const { company_id } = req.user;
+    payload.company_id = company_id;
+    const payload = { payInId, type, company_id };
     const joiValidation = VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS.validate(payload);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
@@ -146,6 +163,7 @@ export const updatePaymentNotificationStatus = async (req, res) => {
 export const updateDepositStatus = async (req, res) => {
     const { merchantOrderId } = req.params;
     const { nick_name } = req.body;
+    // const {company_id} = req.user;
     const payload = {
         merchantOrderId,
         nick_name
@@ -160,6 +178,7 @@ export const updateDepositStatus = async (req, res) => {
 
 export const resetDeposit = async (req, res) => {
     const { merchant_order_id } = req.body;
+    // const {company_id} = req.user;
     const joiValidation = VALIDATE_RESET_DEPOSIT.validate(req.body);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
@@ -171,7 +190,8 @@ export const getPayins = async (req, res) => {
     try {
         // const payload = req.query.search;
         const data = await getPayinsService({
-            // TODO: search
+            company_id,
+            // Todo: Search
         });
         console.log('getPayins successfully', data);
         return sendSuccess(res, data, 'Payins fetched successfully');
@@ -188,6 +208,7 @@ export const processPayIn = async (req, res) => {
     const payload = {
         ...req.body,
         ...req.params,
+        ...req.user.company_id
     }
     const joiValidation = VALIDATE_PROCESSE_PAYIN.validate(payload);
     if (joiValidation.error) {
@@ -201,12 +222,15 @@ export const processPayIn = async (req, res) => {
 export const telegramOCR = async (req, res) => {
     sendSuccess(res, 'API Called Successfully!');
     const message = req.body.message;
+    const { company_id } = req.user;
+    const user = {};
+    user.company_id = company_id;
     if (!message || typeof message !== 'object') {
         console.error('No Telegram Message found!', message);
         return;
     }
 
-    await transactionWrapper(telegramResponseService)(message);
+    await transactionWrapper(telegramResponseService)(message, user);
 
 }
 
@@ -214,6 +238,7 @@ export const processPayInByImage = async (req, res) => {
     const payload = {
         ...req.body,
         ...req.params,
+        ...req.user.company_id
     }
     const joiValidation = VALIDATE_PROCESSE_PAYIN_BY_IMAGE.validate(payload);
     if (joiValidation.error) {

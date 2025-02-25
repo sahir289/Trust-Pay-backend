@@ -5,19 +5,19 @@ import { beginTransaction, commit, getConnection, rollback } from '../../utils/d
 import { createMerchantDao, deleteMerchantDao, getMerchantsDao, updateMerchantDao } from './merchantDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
 import { createUserHierarchyDao, getUserHierarchysDao, updateUserHierarchyDao } from '../userHierarchy/userHierarchyDao.js';
-import { merchantColumns, Method } from '../../constants/index.js';
+import { columns, merchantColumns, Method, Role } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
 
 // Create Merchant Service
-const createMerchantService = async (payload) => {
+const createMerchantService = async (payload, roleIs) => {
     try {
-        const filterColumns = merchantColumns.MERCHANT;
+        const filterColumns = roleIs === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
         const parentId = payload.parentId;
         delete payload.parentId;
 
         const data = await createMerchantDao(payload);
         const role = await getRoleDao({ id: payload.role_id });
-        
+
         if (role.role === Method.MERCHANT) {
             await createUserHierarchyDao({
                 user_id: payload.user_id,
@@ -28,7 +28,7 @@ const createMerchantService = async (payload) => {
             });
         } else if (role.role === Method.SUBMERCHANT) {
             // TODO: parentID?
-            const hierarchy = await getUserHierarchysDao({user_id: parentId});
+            const hierarchy = await getUserHierarchysDao({ user_id: parentId });
             await updateUserHierarchyDao(hierarchy.id, {
                 config: {
                     child: [...(hierarchy?.config?.child || []), data.id]  // Use spread operator to add new element
@@ -37,7 +37,7 @@ const createMerchantService = async (payload) => {
         }
 
         console.log('Merchant created successfully');
-        const finalResult = await filterResponse(data, filterColumns);
+        const finalResult = filterResponse(data, filterColumns);
         return finalResult;
     } catch (error) {
         console.error('Error while creating merchant', error);
@@ -46,9 +46,9 @@ const createMerchantService = async (payload) => {
 };
 
 // Get Merchants Service
-const getMerchantsService = async (filters) => {
+const getMerchantsService = async (filters, role) => {
     try {
-        const filterColumns = merchantColumns.MERCHANT;
+        const filterColumns = role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
         const data = await getMerchantsDao(filters);
         const finalResult = await filterResponse(data, filterColumns);
         return finalResult;
@@ -58,13 +58,14 @@ const getMerchantsService = async (filters) => {
     }
 };
 
+
 // Update Merchant Service
-const updateMerchantService = async (id,company_id,role_id,user_id, payload) => {
+const updateMerchantService = async (id, company_id, role_id, user_id, payload, role) => {
     try {
-        const filterColumns = merchantColumns.MERCHANT;
-        const data = await updateMerchantDao(id,company_id,role_id,user_id, payload); // Adjust DAO call for update
+        const filterColumns = role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
+        const data = await updateMerchantDao(id, company_id, role_id, user_id, payload); // Adjust DAO call for update
         console.log('Merchant updated successfully');
-        const finalResult = await filterResponse(data, filterColumns);
+        const finalResult = filterResponse(data, filterColumns);
         return finalResult;
     } catch (error) {
         console.error('Error while updating merchant', error);
@@ -73,19 +74,19 @@ const updateMerchantService = async (id,company_id,role_id,user_id, payload) => 
 };
 
 // Delete Merchant Service (with Transaction Handling)
-const deleteMerchantService = async (id,company_id,role_id,user_id) => {
+const deleteMerchantService = async (id, company_id, role_id, user_id, roleIs) => {
     let conn;
     try {
-        const filterColumns = merchantColumns.MERCHANT;
+        const filterColumns = roleIs === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
 
         const payload = { is_obsolete: true };
-        const data = await deleteMerchantDao(id,company_id,role_id,user_id, payload); // Adjust DAO call for delete
+        const data = await deleteMerchantDao(id, company_id, role_id, user_id, payload); // Adjust DAO call for delete
 
         await commit(conn); // Commit the transaction
         console.log('Merchant deleted successfully');
-        const finalResult = await filterResponse(data, filterColumns);
+        const finalResult = filterResponse(data, filterColumns);
         return finalResult;
     } catch (error) {
         if (conn) {

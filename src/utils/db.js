@@ -103,7 +103,6 @@ export const applySortingAndPagination = (query, values, sortBy, sortOrder, page
   const offset = (page - 1) * pageSize;
   query += ` LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
   values.push(pageSize, offset);
-
   return query;
 };
 

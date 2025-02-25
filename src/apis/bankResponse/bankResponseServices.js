@@ -9,7 +9,7 @@ import {
 } from './bankResponseDao.js';
 import Logger from '../../utils/logger.js';
 import { getBankaccountDao, updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
-import { getSettlementDao } from '../settlement/settlementDao.js';
+import { getSettlementDaoforInternalTransfer } from '../settlement/settlementDao.js';
 import axios from 'axios';
 import { getPayinsDao, updatePayInDao } from '../payIn/payInDao.js';
 import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
@@ -23,7 +23,7 @@ const createBankResponseService = async (payload) => {
     const splitData = payload.split(" ");
     // const status = splitData[0];
     const amount = parseFloat(splitData[1]);
-    // const amount_code = splitData[2];
+    const upi_short_code = splitData[2];
     const utr = splitData[3];
     const bank_id = splitData[4];
     const is_used = splitData[5];
@@ -31,6 +31,8 @@ const createBankResponseService = async (payload) => {
     const company_id = splitData[7];
 
     const isValidAmount = amount;
+    const isValidAmountCode =
+    upi_short_code !== "nil" && upi_short_code.length === 5;
     const acceptedStatus = ["SUCCESS", "DISPUTE", "BANK_MISMATCH", "FAILED", "DUPLICATE"]
 
 
@@ -46,11 +48,27 @@ const createBankResponseService = async (payload) => {
         company_id
       };
 
+      if (isValidAmountCode) {
+        updatedData.upi_short_code = upi_short_code;
+      }
+
+      const isAmountCodeExist = await getBankResponseDao({upi_short_code : upi_short_code})
+
+      if (isAmountCodeExist) {
+        // const botRes = 
+        await getBankResponseDao({status : updatedData.status , amount : updatedData.amount , 
+          utr : updatedData.utr , bank_id : updatedData.bank_id , is_used : updatedData.is_used , created_by : updatedData.created_by ,
+          company_id : updatedData.company_id
+        });
+        throw new CustomError(400, "Amount code already exist")
+      }
+
       let botRes
-      const utrinternalTransfer = await getSettlementDao({
-        'config->>\'reference_id\'': utr,
-        method: ["INTERNAL_QR_TRANSFER", "INTERNAL_BANK_TRANSFER"]
-      });
+      const utrinternalTransfer = await getSettlementDaoforInternalTransfer(
+         utr,
+        ["INTERNAL_QR_TRANSFER", "INTERNAL_BANK_TRANSFER"]
+      );
+
       if (utrinternalTransfer) {
         const updatedData = {
           status: "/internalTransfer",
@@ -75,6 +93,7 @@ const createBankResponseService = async (payload) => {
       const checkPayInUtr = await getPayinsDao(
         { user_submitted_utr: utr });
       if (checkPayInUtr?.length > 0) {
+        if (upi_short_code && isValidAmountCode) {
         let dataUtr = checkPayInUtr[0]?.utr ? checkPayInUtr[0]?.utr : checkPayInUtr[0]?.user_submitted_utr
         const getDataByUtr = await getBankResponseDaoAll({ utr: dataUtr })
         const botUtrIsUsed = getDataByUtr?.some((item) => item.is_used);
@@ -411,7 +430,7 @@ const createBankResponseService = async (payload) => {
             }
           }
         }
-
+      }
         if (!acceptedStatus.includes(checkPayInUtr[0]?.status)) {
 
           // We check bank exist here as we have to add the data to the res no matter what comes.
@@ -433,7 +452,7 @@ const createBankResponseService = async (payload) => {
 
                 // const updateBotRes = 
                 await updateBotResponseDao(botRes?.id, { is_used: true })
-                const bankdetails = await getBankaccountDao({ id: isBankExist?.id })                // We are adding the amount to the bank as we want to update the balance of the bank
+                const bankdetails = await getBankaccountDao({ id: isBankExist?.id })// We are adding the amount to the bank as we want to update the balance of the bank
                 // const updateBankRes = 
                 await updateBankaccountDao(
                   isBankExist?.id,
@@ -842,7 +861,6 @@ const createBankResponseService = async (payload) => {
       //   data: updatedData
       // });
 
-      await createBankResponseDao(updatedData)
       return updatedData
     }
 

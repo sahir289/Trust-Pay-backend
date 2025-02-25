@@ -13,9 +13,9 @@ const getRoleService = async (filters) => {
 
 
 
-const createRoleService = async (payload) => {
+const createRoleService = async (conn,payload) => {
     try {
-        const data = await createRoleDao(payload);
+        const data = await createRoleDao(conn,payload);
         console.log('Created Role successfully', 'info');
         return data;
     }  catch (error) {
