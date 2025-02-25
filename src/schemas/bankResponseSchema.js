@@ -1,8 +1,8 @@
 import Joi from 'joi';
 
 export const CREATE_BANK_RESPONSE_SCHEMA = Joi.object({
-    body: Joi.string().label('body').required()
-  });
+  body: Joi.string().required().label('body')
+});
 
 
 export const VALIDATE_BANK_RESPONSE_BY_ID = Joi.object({

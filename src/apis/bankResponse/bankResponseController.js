@@ -28,7 +28,7 @@ const createBankResponse = async (req, res) => {
     if (!payload) {
       console.error('payload is required');
     }
-    const { error } = CREATE_BANK_RESPONSE_SCHEMA.validate(payload);
+    const { error } = CREATE_BANK_RESPONSE_SCHEMA.validate(req.body);
     if (error) {
       throw new ValidationError(error);
     }

@@ -10,6 +10,7 @@ import calculation from './calculation/index.js';
 import payIn from './payIn/index.js';
 import designation from './designation/index.js';
 import bankaccount from './bankAccounts/index.js';
+import bankResponse from './bankResponse/index.js';
 import company from './company/index.js';
 import settlement from './settlement/index.js';
 import userHierarchy from './userHierarchy/index.js';
@@ -31,6 +32,8 @@ router.use('/calculation', calculation);
 router.use('/payIn', payIn);
 router.use('/designation', designation);
 router.use('/bankAccount', bankaccount);
+router.use('/bankResponse', bankResponse);
+
 router.use('/company', company);
 router.use('/settlement', settlement);
 router.use('/userHierarchy', userHierarchy);

@@ -1,4 +1,4 @@
-import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
+import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery, getConnection } from '../../utils/db.js';
 import { columns, tableName } from "../../constants/index.js";
 
 const getSettlementDao = async (
@@ -18,6 +18,17 @@ const getSettlementDao = async (
     throw error;
   }
 };
+
+const getSettlementDaoforInternalTransfer = async (utr, method) => {
+  let conn;
+  conn = await getConnection();
+  let baseQuery = `SELECT id, user_id, status, amount, method, config, approved_at, rejected_at, created_by, created_at, updated_at, company_id, is_obsolete, updated_by FROM "${tableName.SETTLEMENT}"
+ WHERE config->>'reference_id' = $1 AND method = ANY($2)`
+ 
+  const queryParams = [utr, method];
+  const result = await conn.query(baseQuery, queryParams);
+  return result.rows[0];
+}
 
 const getSettlementDaoAll = async (
   search, user,
@@ -70,4 +81,4 @@ const deleteSettlementDao = async (id, data) => {
   }
 };
 
-export { getSettlementDao, getSettlementDaoAll, createSettlementDao, updateSettlementDao, deleteSettlementDao };
+export { getSettlementDao, getSettlementDaoAll, createSettlementDao, getSettlementDaoforInternalTransfer, updateSettlementDao, deleteSettlementDao };

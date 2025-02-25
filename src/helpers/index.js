@@ -110,15 +110,14 @@ export const streamToBase64 = (readableStream) => {
 //   }
 
 export const filterResponse = (data, key) => {
+    if (Array.isArray(data && data !== null)) {
+        return data.map(item => ({ [key]: item[key] })).filter(item => item[key] !== undefined);
+    } else if (!data || typeof data !== "object") return null;
 
-    if (Array.isArray(data) && data !== null && key in data) {
-        const filtered =  data.map(item =>
-            Object.fromEntries(Object.entries(item).filter(([idx]) => key.includes(idx)))
-        );
-        return filtered;
-    }
-    if (typeof data === 'object' && data !== null && key in data) {
-        return { [key]: data[key] };
-    }
-  
+    return key.reduce((acc, ke) => {
+        if (ke in data) acc[ke] = data[ke];
+        return acc;
+    }, {});
+
+
 };
