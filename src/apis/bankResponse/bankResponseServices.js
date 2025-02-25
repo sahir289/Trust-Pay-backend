@@ -55,7 +55,8 @@ const createBankResponseService = async (payload) => {
       const isAmountCodeExist = await getBankResponseDao({upi_short_code : upi_short_code})
 
       if (isAmountCodeExist) {
-        const botRes = await getBankResponseDao({status : updatedData.status , amount : updatedData.amount , 
+        // const botRes = 
+        await getBankResponseDao({status : updatedData.status , amount : updatedData.amount , 
           utr : updatedData.utr , bank_id : updatedData.bank_id , is_used : updatedData.is_used , created_by : updatedData.created_by ,
           company_id : updatedData.company_id
         });
