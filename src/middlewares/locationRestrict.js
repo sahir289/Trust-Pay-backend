@@ -6,11 +6,7 @@ const BLOCK_LONG = process.env.BLOCK_LONG;
 const PROXY_CHECK_URL = process.env.PROXY_CHECK_URL;
 const getUserLocationMiddleware = async (req, res, next) => {
   let userIp =req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
-   console.info(`Request Details:
-      Headers: ${JSON.stringify(req.headers, null, 2)}
-      req.ip: ${req.ip}
-      x-forwarded-for: ${req.headers['x-forwarded-for']}
-      remoteAddress: ${req.connection.remoteAddress}`);
+  
   const restrictedLocation = { latitude: BLOCK_LAT, longitude: BLOCK_LONG }; 
   const radiusKm = 60;
   const restrictedStates = ['Haryana', 'Rajasthan'];
@@ -19,7 +15,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
     // Send a request to proxycheck.io to fetch the geolocation data
     const url = PROXY_CHECK_URL.replace("${userIp}", userIp);
     const response = await axios.get( url);
-    console.info('response data here:', response.data);
+   
     const userData = response.data[userIp];
     if (!userData) {
       return res.status(500).json({ message: 'Error fetching location data' });

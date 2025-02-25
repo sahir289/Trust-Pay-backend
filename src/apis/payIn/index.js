@@ -5,7 +5,7 @@ import { AccessRoles } from '../../constants/index.js';
 import { assignedBankToPayInUrl, checkPayInStatus, generatePayInUrl,getPayins, payInIntentGenerateOrder, processPayIn, processPayInByImage, resetDeposit, telegramOCR, updateDepositStatus, updatePaymentNotificationStatus, validatePayInUrl } from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
-import getUserLocationMiddleware from '../../middlewares/locationRestrictMiddleware.js';
+import getUserLocationMiddleware from '../../middlewares/locationRestrict.js';
 const router = express.Router();
 
 // Public API's
