@@ -1,7 +1,9 @@
 import axios from 'axios';
+import { europeanCountries } from '../constants/index.js';
+import { COUNTRIES } from '../constants/index.js';
 const BLOCK_LAT = process.env.BLOCK_LAT;
 const BLOCK_LONG = process.env.BLOCK_LONG;
-const PROXY_CHECK_API_KEY = process.env.PROXY_CHECK_API_KEY;
+const PROXY_CHECK_URL = process.env.PROXY_CHECK_URL;
 const getUserLocationMiddleware = async (req, res, next) => {
   let userIp =req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
    console.info(`Request Details:
@@ -9,14 +11,14 @@ const getUserLocationMiddleware = async (req, res, next) => {
       req.ip: ${req.ip}
       x-forwarded-for: ${req.headers['x-forwarded-for']}
       remoteAddress: ${req.connection.remoteAddress}`);
-// userIp="103.48.198.141"
   const restrictedLocation = { latitude: BLOCK_LAT, longitude: BLOCK_LONG }; 
   const radiusKm = 60;
   const restrictedStates = ['Haryana', 'Rajasthan'];
   try {
     // Get the user's IP address (checking for reverse proxy headers)
     // Send a request to proxycheck.io to fetch the geolocation data
-    const response = await axios.get( `https://proxycheck.io/v2/${userIp}?key=${PROXY_CHECK_API_KEY}&vpn=3&asn=1`,);
+    const url = PROXY_CHECK_URL.replace("${userIp}", userIp);
+    const response = await axios.get( url);
     console.info('response data here:', response.data);
     const userData = response.data[userIp];
     if (!userData) {
@@ -31,65 +33,11 @@ const getUserLocationMiddleware = async (req, res, next) => {
       console.error(`Access restricted for users in ${region}.`, userData);
       return res.status(403).send('403: Access denied');
     }
-    const europeanCountries = [
-      'Albania',
-      'Andorra',
-      'Armenia',
-      'Austria',
-      'Azerbaijan',
-      'Belarus',
-      'Belgium',
-      'Bosnia and Herzegovina',
-      'Bulgaria',
-      'Croatia',
-      'Cyprus',
-      'Czech Republic',
-      'Denmark',
-      'Estonia',
-      'Finland',
-      'France',
-      'Georgia',
-      'Germany',
-      'Greece',
-      'Hungary',
-      'Iceland',
-      'Ireland',
-      'Italy',
-      'Kazakhstan',
-      'Kosovo',
-      'Latvia',
-      'Liechtenstein',
-      'Lithuania',
-      'Luxembourg',
-      'Malta',
-      'Moldova',
-      'Monaco',
-      'Montenegro',
-      'Netherlands',
-      'North Macedonia',
-      'Norway',
-      'Poland',
-      'Portugal',
-      'Romania',
-      'San Marino',
-      'Serbia',
-      'Slovakia',
-      'Slovenia',
-      'Spain',
-      'Sweden',
-      'Switzerland',
-      'Turkey',
-      'Ukraine',
-      'United Kingdom',
-      'Vatican City',
-    ];
-
+   
     if (
-      country !== 'India' &&
-      country !== 'United Arab Emirates' &&
-      country !== 'Pakistan' &&
-      !europeanCountries.includes(country)
-    ) {
+        !COUNTRIES.includes(country) &&
+        !europeanCountries.includes(country)
+      ) {
       console.error(`Access restricted for users from ${country}.`, userData);
       return res.status(403).send('403: Access denied');
     }
