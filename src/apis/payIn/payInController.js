@@ -53,6 +53,7 @@ export const generatePayInUrl = async (req, res) => {
         x_api_key,
     });
 
+    // create some kind of hash to secure the next public API flow
     const queryStr = payload.isTest && (payload.isTest === 'true' || payload.isTest === true) ? `?t=true` : '';
     const updateRes = {
         expirationDate: result.expirationDate,
