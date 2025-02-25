@@ -184,7 +184,7 @@ router.post("/process-by-image/:payInId",[isAuthenticated, authorized(AccessRole
 
 // Telegram API's
 router.post('/telegram-ocr',[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(telegramOCR))
-router.post('/telegram-check-utr',[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(telegramOCR))
+router.post('/telegram-check-utr',[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(telegramCheckUTR))
 
 // Authenticated API's
 
@@ -278,7 +278,7 @@ router.post("/reset-payment",[isAuthenticated, authorized(AccessRoles.PAYIN)], t
  *       200:
  *         description: Duplicate payment disputed successfully.
  */
-router.post("/dispute-duplicate/:payInId",[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(resetDeposit));
+router.post("/dispute-duplicate/:payInId",[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(disputeDuplicateTransaction));
 
 /**
  * @swagger

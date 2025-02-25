@@ -2,7 +2,7 @@ import config from "../../config/config.js";
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { sendError } from "../../utils/responseHandlers.js";
-import { getPayinsDao,updatePayInDao } from "./payInDao.js";
+import { getPayInUrlDao,updatePayInDao } from "./payInDao.js";
 import {
     ASSIGN_PAYIN_SCHEMA,
     VALIDATE_ASSIGNED_BANT_TO_PAY,
@@ -77,7 +77,7 @@ export const validatePayInUrl = async (req, res) => {
         throw new ValidationError(joiValidation.error);
     }
     const {user_location} = req ;  
-    const payin = await getPayinsDao({ id: payInId }); 
+    const payin = await getPayInUrlDao({ id: payInId }); 
     const updatedConfig = { 
         ...payin[0].config,  
         user: user_location   
@@ -189,6 +189,7 @@ export const resetDeposit = async (req, res) => {
 export const getPayins = async (req, res) => {
     try {
         // const payload = req.query.search;
+        const { company_id } = req.user;
         const data = await getPayinsService({
             company_id,
             // Todo: Search
