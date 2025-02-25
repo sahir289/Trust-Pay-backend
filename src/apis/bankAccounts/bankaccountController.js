@@ -85,9 +85,10 @@ const updateBankaccount = async (req, res) => {
 const getMerchantBank = async (req, res) => {
   // Fetch the bank account details for the given merchant ID
   const {company_id,user_id}=req.user;
-  const {id} = req.params.id;
-  const ids = {id,company_id,user_id};
-  const bankRes = await getMerchantBankDao(ids);
+  const bankRes = await getMerchantBankDao({
+    company_id,
+    user_id,
+  });
   return sendSuccess(res, bankRes, 'Bank details fetched successfully');
 }
 

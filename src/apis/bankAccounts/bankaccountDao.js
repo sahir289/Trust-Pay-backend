@@ -16,9 +16,9 @@ const getBankaccountDao = async (
   return result.rows[0];
 };
 
-const getMerchantBankDao = async (id) => {
-  const query = `SELECT * FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1 AND "company_id" = $1 AND "user_id" = $1`;
-  const [sql, parameters] = buildSelectQuery(query, id);
+const getMerchantBankDao = async (filters) => {
+  const query = `SELECT * FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
+  const [sql, parameters] = buildSelectQuery(query, filters);
   const result = await executeQuery(sql, parameters);
   return result.rows;
 }
