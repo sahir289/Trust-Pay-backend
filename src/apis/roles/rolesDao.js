@@ -4,30 +4,25 @@ import {
   executeQuery,
   buildUpdateQuery,
 } from '../../utils/db.js';
-import { columns, tableName } from '../../constants/index.js';
+import { tableName } from '../../constants/index.js';
 
-const getRoleDao = async (search, user, page, pageSize, sortBy, sortOrder) => {
-  try {
-    const baseQuery = `SELECT id,role FROM "${tableName.ROLE}" WHERE 1=1`;
-    const [sql, queryParams] = buildSelectQuery(
-      baseQuery,
-      search,
-      columns.ROLE,
-      page,
-      pageSize,
-      sortBy,
-      sortOrder,
-      typeof search !== 'string',
-      user
-    );
-    // Execute query
-    const result = await executeQuery(sql, queryParams);
-    return result.rows;
-  } catch (error) {
-    console.error(error);
-    throw error;
-  }
+
+const getRoleDao = async (filters, page, pageSize, sortBy, sortOrder) => {
+  const baseQuery = `SELECT id,role FROM "${tableName.ROLE}" WHERE 1=1`;
+  //TODO: columns.ROLE dynamic search
+  const [sql, queryParams] = buildSelectQuery(
+    baseQuery,
+    filters,
+    page,
+    pageSize,
+    sortBy,
+    sortOrder
+  );
+  // Execute query
+  const result = await executeQuery(sql, queryParams)
+  return result.rows;
 };
+
 
 const createRoleDao = async (conn, data) => {
   try {

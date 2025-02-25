@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import moment from 'moment-timezone';
-import { getPayinsDao, updatePayInUrlDao } from '../apis/payIn/payInDao.js';
+import { getPayInUrlsDao, updatePayInUrlDao } from '../apis/payIn/payInDao.js';
 import axios from 'axios';
 
 cron.schedule('*/10 * * * * *', () => {
@@ -11,7 +11,7 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
   const currentTime = moment().tz(timezone, true);
   try {
     const startTime = currentTime.clone().subtract(10, 'minutes').toDate();
-    const payins = await getPayinsDao({
+    const payins = await getPayInUrlsDao({
       status: 'DROPPED',
       is_notified: 'false',
       updated_at: startTime,

@@ -39,11 +39,11 @@ const createVendorService = async (payload, roleIs) => {
     }
 };
 
-const getVendorsService = async (search, payload, roleIs) => {
+const getVendorsService = async (filters, roleIs) => {
     try {
         const filterColumns = roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
 
-        const data = await getVendorsDao(search, payload);
+        const data = await getVendorsDao(filters);
         console.log('Fetched Vendors successfully', 'info');
         const finalResult =  filterResponse(data, filterColumns);
         return finalResult;

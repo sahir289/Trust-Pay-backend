@@ -6,10 +6,11 @@ import { ValidationError } from '../../utils/appErrors.js';
 const getComplaints = async (req, res) => {
     try {
       const {company_id} = req.user;
-      let search = req.query.search;
-      let payload =  {};  
-      payload.company_id=company_id;
-      const data = await getComplaintsService(search,payload);
+      // let search = req.query.search;
+      const data = await getComplaintsService({
+        company_id,
+        // TODO: search
+      });
       console.log ('get complaints successfully');
       return sendSuccess(res, data, 'get complaints successfully');
     } catch (error) {

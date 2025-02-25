@@ -36,14 +36,14 @@ const createVendor = async (req, res) => {
 
 const getVendors = async (req, res) => {
   try {
-    const {company_id,user_id,role_id} = req.user;
-    const { role } = req.user;
-    let search = req.query.search; 
-    let payload = {} ;
-    payload.company_id=company_id;
-    payload.user_id=user_id;
-    payload.role_id=role_id; // Fetch vendors data from the service
-    const data = await getVendorsService(search,payload, role);
+    const {company_id,user_id,role_id, role} = req.user;
+    // let search = req.query.search;
+    const data = await getVendorsService({
+      company_id,
+      user_id,
+      role_id,
+      // Todo: search
+    }, role);
     // Log success message
     console.log('get Vendors successfully', data);
     // Send success response

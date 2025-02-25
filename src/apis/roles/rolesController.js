@@ -7,10 +7,11 @@ import { ValidationError } from '../../utils/appErrors.js';
 const getRoles = async (req, res) => {
     try {
       const {company_id} = req.user;
-      let search = req.query.search ; 
-      let user = {} ;
-      user.company_id=company_id;
-      const data = await getRoleService(search,user);
+      // let search = req.query.search ; 
+      const data = await getRoleService({
+        company_id,
+        // Todo: search
+      });
       console.log('get Roles successfully', 'info');
       return sendSuccess(res, data, 'get Roles successfully');
     } catch (error) {

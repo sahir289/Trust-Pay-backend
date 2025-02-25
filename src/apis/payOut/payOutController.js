@@ -53,12 +53,13 @@ const getPayoutsById = async (req, res) => {
 
 const getPayouts = async (req, res) => {
     try {
-        const {company_id,role} = req.user;
-        let search = req.query.search;  
-        let user={}
-        user.company_id=company_id;
+        const {company_id, role} = req.user;
+        // let search = req.query.search;  
         // Fetch vendors data from the service
-        const data = await getPayoutsService(search,user,role);
+        const data = await getPayoutsService({
+            company_id,
+            // TODO: search
+        }, role);
 
         // Log success message
         console.log('getPayouts successfully', data);

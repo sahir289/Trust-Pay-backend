@@ -2,7 +2,7 @@ import config from "../../config/config.js";
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { sendError } from "../../utils/responseHandlers.js";
-import { getPayinsDao,updatePayInDao } from "./payInDao.js";
+import { getPayInUrlDao,updatePayInDao } from "./payInDao.js";
 import {
     ASSIGN_PAYIN_SCHEMA,
     VALIDATE_ASSIGNED_BANT_TO_PAY,
@@ -77,7 +77,7 @@ export const validatePayInUrl = async (req, res) => {
         throw new ValidationError(joiValidation.error);
     }
     const {user_location} = req ;  
-    const payin = await getPayinsDao({ id: payInId }); 
+    const payin = await getPayInUrlDao({ id: payInId }); 
     const updatedConfig = { 
         ...payin[0].config,  
         user: user_location   
@@ -122,12 +122,12 @@ export const expirePayInUrl = async (req, res) => {
 }
 
 export const checkPayInStatus = async (req, res) => {
-    const joiValidation = VALIDATE_CHECK_PAY_IN_STATUS.validate(req);
+    const joiValidation = VALIDATE_CHECK_PAY_IN_STATUS.validate(req.body);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
     const api_key = req.headers["x-api-key"];
-    const data = await checkPayInStatusService(req.body.payinId, req.body.merchantCode, req.body.merchantOrderId, req.user.company_id, api_key);
+    const data = await checkPayInStatusService(req.body.payInId, req.body.merchantCode, req.body.merchantOrderId, req.user.company_id, api_key);
     sendSuccess(res, data);
 }
 
@@ -160,41 +160,40 @@ export const updatePaymentNotificationStatus = async (req, res) => {
     sendSuccess(res, data)
 }
 
-export const updateDepositStatus = (req, res) => {
-    const { merchantId } = req.params;
+export const updateDepositStatus = async (req, res) => {
+    const { merchantOrderId } = req.params;
     const { nick_name } = req.body;
-    const {company_id} = req.user;
+    // const {company_id} = req.user;
     const payload = {
-        merchantId,
-        nick_name,
-        company_id
+        merchantOrderId,
+        nick_name
     }
     const joiValidation = VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS.validate(payload);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-    const updateRes = transactionWrapper(updateDepositStatusService)(merchantId, nick_name);
+    const updateRes = await transactionWrapper(updateDepositStatusService)(merchantOrderId, nick_name);
     sendSuccess(res, updateRes, 'PayIn data updated successfully');
 }
 
 export const resetDeposit = async (req, res) => {
     const { merchant_order_id } = req.body;
-    const {company_id} = req.user;
-    const payload = {merchant_order_id, company_id}
-    const joiValidation = VALIDATE_RESET_DEPOSIT.validate(payload);
+    // const {company_id} = req.user;
+    const joiValidation = VALIDATE_RESET_DEPOSIT.validate(req.body);
     if (joiValidation.error) {
         throw new ValidationError(joiValidation.error);
     }
-    const data = await transactionWrapper(resetDepositService)(payload);
+    const data = await transactionWrapper(resetDepositService)(merchant_order_id);
     sendSuccess(res, data)
 }
 export const getPayins = async (req, res) => {
     try {
-        const payload = req.query.search;
+        // const payload = req.query.search;
         const { company_id } = req.user;
-        const user = {};
-        user.company_id = company_id;
-        const data = await getPayinsService(payload, user);
+        const data = await getPayinsService({
+            company_id,
+            // Todo: Search
+        });
         console.log('getPayins successfully', data);
         return sendSuccess(res, data, 'Payins fetched successfully');
     } catch (error) {

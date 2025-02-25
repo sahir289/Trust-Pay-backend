@@ -37,10 +37,10 @@ const createChargeBackService = async (payload,role) => {
     }
 };
 
-const getChargeBacksService = async (search,payload,role) => {
+const getChargeBacksService = async (filters, role) => {
     try {
         const filterColumns = role === Role.MERCHANT ? merchantColumns.CHAREBACK : role === Role.VENDOR ? vendorColumns.CHAREBACK : columns.CHAREBACK;
-        const data = await getChargeBackDao(search,payload);
+        const data = await getChargeBackDao(filters);
         console.log('Fetched ChargeBacks successfully');
         const finalResult = await filterResponse(data, filterColumns);
         return finalResult;   

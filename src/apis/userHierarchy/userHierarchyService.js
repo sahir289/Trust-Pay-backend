@@ -38,11 +38,11 @@ const createUserHierarchyService = async (payload,role) => {
     }
 };
 
-const getUserHierarchyService = async (search,user,role) => {
+const getUserHierarchyService = async (filters, role) => {
     try {
-        const filterColumns = role === Role.MERCHANT ? merchantColumns.USER_HIERARCHY : columns.USER_HIERARCHY;
-        const data = await getUserHierarchysDao(search,user);
+        const data = await getUserHierarchysDao(filters);
         console.log('Fetched UserHierarchys successfully', 'info');
+        const filterColumns = role === Role.MERCHANT ? merchantColumns.USER_HIERARCHY : columns.USER_HIERARCHY;
         const finalResult = await filterResponse(data, filterColumns);
         return finalResult;
     } catch (error) {

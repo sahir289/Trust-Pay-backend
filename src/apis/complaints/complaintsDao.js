@@ -1,9 +1,9 @@
 import { executeQuery, buildInsertQuery, buildUpdateQuery, buildSelectQuery } from "../../utils/db.js";
-import { columns, tableName } from "../../constants/index.js";
+import { tableName } from "../../constants/index.js";
 
 // Get Complaints with pagination, sorting, and filtering
 const getComplaintsDao = async (
-  search,user,
+  filters,
   page,
   pageSize,
   sortBy,
@@ -11,7 +11,8 @@ const getComplaintsDao = async (
 ) => {
   try {
     const baseQuery = `SELECT id,status,payin_id FROM "${tableName.COMPLAINTS}" WHERE 1=1`;
-    const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.COMPLAINTS, page, pageSize, sortBy, sortOrder, typeof search !== 'string',user);
+    //TODO: columns.COMPLAINTS dynamic search
+    const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
     // Execute query
     const result = await executeQuery(sql, queryParams);
     return result.rows;

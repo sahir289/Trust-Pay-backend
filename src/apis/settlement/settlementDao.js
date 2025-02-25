@@ -1,22 +1,19 @@
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery, getConnection } from '../../utils/db.js';
-import { columns, tableName } from "../../constants/index.js";
+import { tableName } from "../../constants/index.js";
 
 const getSettlementDao = async (
-  search, user,
+  filters,
   page,
   pageSize,
   sortBy,
   sortOrder,
 ) => {
-  try {
-    const baseQuery = `SELECT id, user_id, status, amount, method, config, approved_at, rejected_at, created_by, created_at, updated_at, company_id, is_obsolete, updated_by FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
-    const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.SETTLEMENT, page, pageSize, sortBy, sortOrder, typeof search !== 'string', user);
-    const result = await executeQuery(sql, queryParams);
-    return result.rows[0];
-  } catch (error) {
-    console.error(error);
-    throw error;
-  }
+  // const baseQuery = `SELECT * FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
+  const baseQuery = `SELECT id, user_id, status, amount, method, config, approved_at, rejected_at, created_by, created_at, updated_at, company_id, is_obsolete, updated_by FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
+  //TODO: columns.SETTLEMENT dynamic search
+  const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
+  const result = await executeQuery(sql, queryParams);
+  return result.rows[0];
 };
 
 const getSettlementDaoforInternalTransfer = async (utr, method) => {
@@ -31,21 +28,17 @@ const getSettlementDaoforInternalTransfer = async (utr, method) => {
 }
 
 const getSettlementDaoAll = async (
-  search, user,
+  filters,
   page,
   pageSize,
   sortBy,
   sortOrder,
 ) => {
-  try {
-    const baseQuery = `SELECT id, user_id, status, amount, method, config FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
-    const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.SETTLEMENT, page, pageSize, sortBy, sortOrder, typeof search !== 'string', user);
-    const result = await executeQuery(sql, queryParams);
-    return result.rows;
-  } catch (error) {
-    console.error(error);
-    throw error;
-  }
+  // const baseQuery = `SELECT * FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
+  const baseQuery = `SELECT id, user_id, status, amount, method, config FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
+  const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
+  const result = await executeQuery(sql, queryParams);
+  return result.rows;
 };
 
 const createSettlementDao = async (payload) => {
