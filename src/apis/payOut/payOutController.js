@@ -27,7 +27,6 @@ const createPayout = async (req, res) => {
     }
 };
 
-
 const getPayoutsById = async (req, res) => {
     try {
         const {id} = req.params;

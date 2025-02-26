@@ -24,7 +24,7 @@ export const getVendorsDao = async (
         const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
         // Execute query
         const result = await executeQuery(sql, queryParams);
-        return result.rows[0];
+        return result.rows;
     } catch (error) {
         console.error('Error in getVendorsDao:', error);
         throw new Error('Failed to get vendors');

@@ -27,7 +27,6 @@ const getUsersDao = async (conn, ids) => {
       WHERE u.is_obsolete = false
     `;
     const queryParams = [];
-
     if (ids.role_id) {
       baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
       queryParams.push(ids.role_id); 
@@ -40,43 +39,17 @@ const getUsersDao = async (conn, ids) => {
       baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
       queryParams.push(ids.company_id); 
     }
-
     const result = await conn.query(baseQuery, queryParams);
-
     if (result.rows.length === 0) {
       console.error('No users found');
       return [];
     }
-
-    const data = {
-      total_count: result.rowCount,
-      users: result.rows.map((row) => ({
-        id: row.id,
-        role: row.role,
-        designation: row.designation,
-        first_name: row.first_name,
-        last_name: row.last_name,
-        email: row.email,
-        contact_no: row.contact_no,
-        user_name: row.user_name,
-        code: row.code,
-        is_enabled: row.is_enabled,
-        last_login: row.last_login,
-        last_logout: row.last_logout,
-        config: row.config,
-        created_by: row.created_by,
-        updated_by: row.updated_by,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-      })),
-    };
-      return data;
+    return result.rows;
   } catch (error) {
     console.error('error getting while fetching user', error);
     throw new DbError('Error executing query to fetch all users');
   }
 };
-
 const getUserByIdDao = async (conn, ids) => {
   try {
     let baseQuery = `
@@ -103,9 +76,7 @@ const getUserByIdDao = async (conn, ids) => {
       LEFT JOIN public."Designation" d ON u.designation_id = d.id  
       WHERE u.id = $1 AND u.is_obsolete = false
     `;
-
     const queryParams = [ids.id];
-
     if (ids.role_id) {
       baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
       queryParams.push(ids.role_id);
@@ -118,13 +89,11 @@ const getUserByIdDao = async (conn, ids) => {
       baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
       queryParams.push(ids.company_id); 
     }
-
     const result = await conn.query(baseQuery, queryParams);
     if (result.rowCount === 0) {
       console.error('No user found with the provided id and filters');
       return [];
     }
-
     const data = {
       user: result.rows[0], 
     };

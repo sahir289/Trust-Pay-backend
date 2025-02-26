@@ -25,10 +25,7 @@ const VALIDATE_CHARGEBACK_SCHEMA = Joi.object({
     }),
     created_by: Joi.string().optional(),
     updated_by: Joi.string().optional(),
-    company_id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
-      'string.guid': 'Company ID must be a valid UUID',
-      'any.required': 'Company ID is required',
-    }),
+    
     is_obsolete: Joi.boolean().default(false),
     config: Joi.object().default({}),
 });

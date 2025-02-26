@@ -7,10 +7,10 @@ const createVendor = async (req, res) => {
   try {
     let payload = req.body;
     const { role } = req.user;
-    const {company_id,user_id,role_id} = req.user;
+    const {company_id,role_id,user_id} = req.user;
     payload.company_id=company_id;
-    payload.user_id=user_id;
     payload.role_id=role_id;
+    payload.user_id=user_id;
       const { error } = VALIDATE_VENDOR_SCHEMA.validate(payload);
     if (error) {
       throw new ValidationError(error);
@@ -36,7 +36,7 @@ const createVendor = async (req, res) => {
 
 const getVendors = async (req, res) => {
   try {
-    const {company_id,user_id,role_id, role} = req.user;
+    const {company_id,user_id,role_id,role} = req.user;
     // let search = req.query.search;
     const data = await getVendorsService({
       company_id,
@@ -123,7 +123,8 @@ const deleteVendor = async (req, res) => {
     const { id } = req.params; // Assuming the Vendor ID is passed as a parameter
     // Call the service to delete the Vendor
     const {company_id,user_id,role_id} = req.user;
-    const result = await deleteVendorService(id,company_id,user_id,role_id, role);
+    const ids= {company_id,user_id,role_id,id}
+    const result = await deleteVendorService(ids, role);
     // Log success message
     console.log('Vendor deleted successfully', result);
     // Send a success response to the client

@@ -54,14 +54,15 @@ const createCalculation = async (req, res) => {
     const { role } = req.user;
     let payload = req.body;
     const { company_id, user_id, role_id } = req.user;
-    payload.company_id = company_id;
-    payload.user_id = user_id;
-    payload.role_id = role_id;
+   
     // Validate the request body using Joi schema
     const { error } = VALIDATE_CALCULATION_SCHEMA.validate(payload);
     if (error) {
       throw new ValidationError(error);
     }
+    payload.company_id = company_id;
+    payload.user_id = user_id;
+    payload.role_id = role_id;
     if (!payload) {
       console.error('payload is required');
       return sendError(res, 'payload is required', 'Validation Error');
@@ -71,7 +72,6 @@ const createCalculation = async (req, res) => {
     return sendSuccess(res, data, 'Create Calculation successfully');
   } catch (error) {
     console.error('Error creating calculation', 'error', error);
-    return sendError(res, 'Error occurred while creating calculation');
   }
 };
 
