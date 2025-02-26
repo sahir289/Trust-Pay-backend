@@ -5,20 +5,16 @@ import { ValidationError } from '../../utils/appErrors.js';
 
 const createVendor = async (req, res) => {
   try {
+    const { error } = VALIDATE_VENDOR_SCHEMA.validate(req.body);
+    if (error) {
+      throw new ValidationError(error);
+    }
     let payload = req.body;
     const { role } = req.user;
     const {company_id,role_id,user_id} = req.user;
     payload.company_id=company_id;
     payload.role_id=role_id;
     payload.user_id=user_id;
-      const { error } = VALIDATE_VENDOR_SCHEMA.validate(payload);
-    if (error) {
-      throw new ValidationError(error);
-    }
-      if (!payload) {
-        console.error('payload is required');
-        return sendError(res, 'payload is required', 'Validation Error');
-      }
     // Call the service to create the Vendor
     const result = await createVendorService(payload, role);
     // Log success message

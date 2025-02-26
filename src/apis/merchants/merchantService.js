@@ -60,10 +60,10 @@ const getMerchantsService = async (filters, role) => {
 
 
 // Update Merchant Service
-const updateMerchantService = async (id, company_id, role_id, user_id, payload, role) => {
+const updateMerchantService = async (ids, payload, role) => {
     try {
         const filterColumns = role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
-        const data = await updateMerchantDao(id, company_id, role_id, user_id, payload); // Adjust DAO call for update
+        const data = await updateMerchantDao(ids, payload); // Adjust DAO call for update
         console.log('Merchant updated successfully');
         const finalResult = filterResponse(data, filterColumns);
         return finalResult;
@@ -74,7 +74,7 @@ const updateMerchantService = async (id, company_id, role_id, user_id, payload, 
 };
 
 // Delete Merchant Service (with Transaction Handling)
-const deleteMerchantService = async (id, company_id, role_id, user_id, roleIs) => {
+const deleteMerchantService = async (ids, roleIs) => {
     let conn;
     try {
         const filterColumns = roleIs === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
@@ -82,7 +82,7 @@ const deleteMerchantService = async (id, company_id, role_id, user_id, roleIs) =
         await beginTransaction(conn); // Start a transaction
 
         const payload = { is_obsolete: true };
-        const data = await deleteMerchantDao(id, company_id, role_id, user_id, payload); // Adjust DAO call for delete
+        const data = await deleteMerchantDao(ids, payload); // Adjust DAO call for delete
 
         await commit(conn); // Commit the transaction
         console.log('Merchant deleted successfully');

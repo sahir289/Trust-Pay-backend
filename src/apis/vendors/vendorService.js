@@ -42,7 +42,6 @@ const createVendorService = async (payload, roleIs) => {
 const getVendorsService = async (filters, roleIs) => {
     try {
         const filterColumns = roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
-
         const data = await getVendorsDao(filters);
         console.log('Fetched Vendors successfully', 'info');
         const finalResult =  filterResponse(data, filterColumns);
@@ -58,15 +57,11 @@ const updateVendorService = async (id, payload, role) => {
     let conn;
     try {
         const filterColumns = role === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
-
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
-
         const data = await updateVendorDao(id, payload); // Adjust DAO call for update
-
         await commit(conn); // Commit the transaction
         console.log('Vendor updated successfully', 'info');
-
         const finalResult =  filterResponse(data, filterColumns);
         return finalResult;
     } catch (error) {

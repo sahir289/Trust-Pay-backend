@@ -4,20 +4,17 @@ import { VALIDATE_UPDATE_MERCHANT_STATUS, VALIDATE_MERCHANT_BY_ID, VALIDATE_MERC
 import { ValidationError } from '../../utils/appErrors.js';
 const createMerchant = async (req, res) => {
     try {
+        const { error } = VALIDATE_MERCHANT_SCHEMA.validate(req.payload);
+        if (error) {
+            throw new ValidationError(error);
+        }
         const { role } = req.user;
         let payload = req.body;
-        if (!payload) {
-            console.error('payload is required');
-            return sendError(res, 'payload is required', 'Validation Error');
-        }
+       
         const { company_id, user_id, role_id } = req.user;
         payload.company_id = company_id;
         payload.user_id = user_id;
         payload.role_id = role_id;
-        const { error } = VALIDATE_MERCHANT_SCHEMA.validate(payload);
-        if (error) {
-            throw new ValidationError(error);
-        }
         // Call the service to create the Merchant
         const result = await createMerchantService(payload, role);
 
@@ -99,9 +96,9 @@ const updateMerchant = async (req, res) => {
         const payload = req.body;
         const { id } = req.params;  // Assuming the Merchant ID is passed as a parameter
         const { company_id, user_id, role_id } = req.user;
-
+        const ids = {id, company_id, role_id, user_id}
         // Call the service to update the Merchant
-        const result = await updateMerchantService(id, company_id, role_id, user_id, payload, role);
+        const result = await updateMerchantService(ids, payload, role);
 
         // Log success message
         console.log('Merchant updated successfully', result);
@@ -127,9 +124,10 @@ const deleteMerchant = async (req, res) => {
         const { id } = req.params;  // Assuming the Merchant ID is passed as a parameter
         // Call the service to delete the Merchant
         const { company_id, user_id, role_id } = req.user;
-        const result = await deleteMerchantService(id, company_id, user_id, role_id, role);
+        const ids = {id, company_id, user_id, role_id}
+        const result = await deleteMerchantService(ids, role);
         // Log success message
-        console.log('Merchant deleted successfully', result);
+        console.log('Merchant deleted successfully');
 
         // Send a success response to the client
         return sendSuccess(res, result, 'Merchant deleted successfully');

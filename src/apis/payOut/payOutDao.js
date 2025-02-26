@@ -6,10 +6,15 @@ import {
   executeQuery,
 } from '../../utils/db.js';
 
-export const createPayoutDao = async (data) => {
+export const createPayoutDao = async (conn,data) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.PAYOUT, data);
-    const result = await executeQuery(sql, params);
+    let result;
+      if (conn && conn.query) {
+        result = await conn.query(sql, params);
+      } else {
+        result = await executeQuery(sql, params);
+      }
     return result.rows[0];
   } catch (error) {
     console.error('Error in createPayoutDao:', error);

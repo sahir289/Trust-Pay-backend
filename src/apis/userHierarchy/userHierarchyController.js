@@ -4,20 +4,16 @@ import { VALIDATE_UPDATE_USER_HIERARCHY_STATUS,VALIDATE_DELETE_USER_HIERARCHY,VA
 import { ValidationError } from '../../utils/appErrors.js';
 const createUserHierarchy = async (req, res) => {
     try {
+       const { error } = VALIDATE_USER_HIERARCHY_SCHEMA.validate(req.body);
+        if (error) {
+            throw new ValidationError(error);
+        }
       let payload = req.body;
-      if (!payload) {
-        console.error('payload is required');
-        return sendError(res, 'payload is required', 'Validation Error');
-      }
       const {company_id,role_id,user_id,role} = req.user;
       payload.company_id=company_id;
       payload.user_id=user_id;
       payload.role_id=role_id;
-      const { error } = VALIDATE_USER_HIERARCHY_SCHEMA.validate(payload);
-        if (error) {
-            throw new ValidationError(error);
-        }
-        // Call the service to create the UserHierarchy
+       // Call the service to create the UserHierarchy
       const result = await createUserHierarchyService(payload,role);
         // Log success message
         console.log('User Hierarchy created successfully', result);
