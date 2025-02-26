@@ -1,5 +1,6 @@
 import { tableName } from "../../constants/index.js";
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
+import { buildSearchFilterObj } from "../../utils/searchBuilder.js";
 
 export const createMerchantDao = async (data) => {
     console.log(data)
@@ -18,12 +19,17 @@ export const getMerchantsDao = async (
     page,
     pageSize,
     sortBy,
-    sortOrder
+    sortOrder,
+    // columns to select from db (optional)
+    columns = [],
 ) => {
     try {
-        // const baseQuery = `SELECT id,first_name, last_name, code, min_payin, max_payin, payin_commission, min_payout, max_payout, payout_commission, is_test_mode, is_enabled, dispute_enabled, is_demo, balance FROM "${tableName.MERCHANT}" WHERE 1=1`;
-        const baseQuery = `SELECT * FROM "${tableName.MERCHANT}" WHERE 1=1`;
-        //TODO: columns.MERCHANTS dynamic search
+        const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.MERCHANT}" WHERE 1=1`;
+        if (filters.search) {
+            filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
+            delete filters.search;
+        }
+        // console.log(JSON.stringify(filters, undefined, 4));
         const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
         // Execute query
         const result = await executeQuery(sql, queryParams);
