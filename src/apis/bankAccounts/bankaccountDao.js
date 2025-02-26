@@ -1,4 +1,4 @@
-import { tableName } from '../../constants/index.js';
+import { columns, tableName } from '../../constants/index.js';
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
 const getBankaccountDao = async (
   filters,
@@ -7,7 +7,7 @@ const getBankaccountDao = async (
   sortBy,
   sortOrder
 ) => {
-  const baseQuery = `SELECT id,upi_id,upi_params,acc_no,ifsc,bank_name,is_qr,is_bank,min_payin,is_enabled,payin_count,balance,today_balance,bank_used_for,created_by,updated_by FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1 `;
+  const baseQuery = `SELECT id,upi_id,upi_params,user_id,acc_no,ifsc,bank_name,is_qr,is_bank,min_payin,is_enabled,payin_count,balance,today_balance,bank_used_for,created_by,updated_by FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1 `;
   //TODO: columns.BANK_ACCOUNT dynamic search
   // filter with company_id role etc
   const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
@@ -32,7 +32,7 @@ const getBankaccountDaoAll = async (
   return result.rows;
 };
 
-const getMerchantBankDao = async (id) => {
+const getMerchantBankDao = async (filters) => {
   const query = `SELECT * FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
   const [sql, parameters] = buildSelectQuery(query, filters);
   const result = await executeQuery(sql, parameters);
@@ -45,7 +45,7 @@ const createBankaccountDao = async (payload) => {
   return result.rows[0];
 };
 
-const updateBankaccountDao = async (id,payload, conn) => {
+const updateBankaccountDao = async (conn,id,payload) => {
   const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, payload, id);
   if (conn && conn.query) {
     const result = await conn.query(sql, params);

@@ -44,7 +44,6 @@ const createCalculationDao = async (conn, data) => {
 const updateCalculationDao = async (conn, id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, id);
-
     let result;
     if (conn && conn.query) {
       result = await conn.query(sql, params); // Use connection to execute query
