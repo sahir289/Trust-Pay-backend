@@ -27,7 +27,6 @@ const createMerchantService = async (payload, roleIs) => {
                 company_id: payload.company_id
             });
         } else if (role.role === Method.SUBMERCHANT) {
-            // TODO: parentID?
             const hierarchy = await getUserHierarchysDao({ user_id: parentId });
             await updateUserHierarchyDao(hierarchy.id, {
                 config: {
@@ -49,9 +48,7 @@ const createMerchantService = async (payload, roleIs) => {
 const getMerchantsService = async (filters, role) => {
     try {
         const filterColumns = role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
-        const data = await getMerchantsDao(filters);
-        const finalResult = await filterResponse(data, filterColumns);
-        return finalResult;
+        return await getMerchantsDao(filters, null, null, null, null, filterColumns);
     } catch (error) {
         console.error('Error while fetching merchants', error);
         throw new BadRequestError('Error occurred while fetching merchants');

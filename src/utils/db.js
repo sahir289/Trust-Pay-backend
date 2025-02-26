@@ -104,7 +104,10 @@ export const buildSelectQuery = (baseQuery, filters, p, ps, s, o) => {
 
   for (const key in filters) {
     const value = filters[key];
-    if (Array.isArray(value)) {
+    if (key === "or") {
+      // skip or query
+      continue;
+    } else if (Array.isArray(value)) {
       conditions.push(`"${key}" = ANY($${values.length + 1})`);
     } else {
       conditions.push(`"${key}" = $${values.length + 1}`);
@@ -112,9 +115,28 @@ export const buildSelectQuery = (baseQuery, filters, p, ps, s, o) => {
     values.push(value);
   }
 
+
   if (conditions.length) {
     query += ` AND ${conditions.join(' AND ')}`;
   }
+
+
+  // repeat the query process for OR
+  if (filters.or && typeof filters.or === "object") {
+    const orConditions = [];
+    for (const key in filters.or) {
+      const value = filters.or[key];
+      if (Array.isArray(value)) {
+        orConditions.push(`"${key}" = ANY($${values.length + 1})`);
+      } else {
+        orConditions.push(`"${key}" = $${values.length + 1}`);
+      }
+      values.push(value);
+    }
+
+    query += ` AND (${orConditions.join(' OR ')})`;
+  }
+
   // Apply sorting and pagination
   query = applySortingAndPagination(query, values, sortBy, sortOrder, page, pageSize);
   return [query, values];

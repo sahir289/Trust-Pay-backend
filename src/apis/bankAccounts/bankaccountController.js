@@ -8,12 +8,6 @@ import { getBankaccountService, createBankaccountService, updateBankaccountServi
 const getBankaccount = async (req, res) => {
   try {
     const { company_id, user_id, role } = req.user;
-    // let search = req.query.search;
-    // Todo: Do we need to validate????
-    // const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
-    // if (joiValidation.error) {
-    //   throw new ValidationError(joiValidation.error);
-    // }
     const data = await getBankaccountService({
       company_id,
       user_id,

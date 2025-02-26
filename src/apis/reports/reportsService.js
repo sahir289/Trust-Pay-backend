@@ -31,9 +31,9 @@ const getPayOutReportService = async (req, res) => {
             result = await getPayOutMerchantReportDao(merchant_id, startDate, endDate);
             return sendSuccess(res, result, 'Payouts created successfully'); 
         }
-        else if (vendor_id) {
-            const vendorData = await getBankaccountDao(vendor_id);
-            const bankData = await getVendorsDao({ searchString: vendorData.user_id });
+        if (vendor_id) {
+            const vendorData = await getVendorsDao({ id: vendor_id });
+            const bankData = await getBankaccountDao({user_id: vendorData.user_id});
             result = await getPayOutVendorReportDao(bankData.id, startDate, endDate, method);
             return sendSuccess(res, result, 'Payouts created successfully'); 
         }
