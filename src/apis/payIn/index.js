@@ -2,7 +2,7 @@ import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
-import { assignedBankToPayInUrl, checkPayInStatus, disputeDuplicateTransaction, generatePayInUrl,getPayins, payInIntentGenerateOrder, processPayIn, processPayInByImage, resetDeposit, telegramCheckUTR, telegramOCR, updateDepositStatus, updatePaymentNotificationStatus, validatePayInUrl } from './payInController.js';
+import { assignedBankToPayInUrl, checkPayInStatus, disputeDuplicateTransaction, generatePayInUrl, getPayins, payInIntentGenerateOrder, processPayIn, processPayInByImage, resetDeposit, telegramCheckUTR, telegramOCR, updateDepositStatus, updatePaymentNotificationStatus, validatePayInUrl } from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
 const router = express.Router();
@@ -33,7 +33,7 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/', tryCatchHandler(generatePayInUrl));
+router.get('/generate-payin', tryCatchHandler(generatePayInUrl));
 
 /**
  * @swagger
@@ -184,8 +184,20 @@ router.post("/process-by-image/:payInId", multerUpload.single("file"), tryCatchH
 // Telegram API's
 router.post('/telegram-ocr', tryCatchHandler(telegramOCR))
 
-// Authenticated API's
+/**
+ * @swagger
+ * /payin/update-payment-cashfree-webhook:
+ *   post:
+ *     summary: Update Payment Cashfree Webhook
+ *     description: Receives webhook data from Cashfree and updates the payment status.
+ *     tags: [PayIn]
+ *     responses:
+ *       200:
+ *         description: Payment status updated from Cashfree webhook successfully.
+ */
+router.post("/update-payment-cashfree-webhook", tryCatchHandler(payInUpdateCashfreeWebhook));
 
+// Authenticated API's
 router.use(isAuthenticated)
 router.use(authorized(AccessRoles.PAYIN))
 
@@ -232,19 +244,6 @@ router.post("/update-payment-notified-status/:payInId", tryCatchHandler(updatePa
  *         description: Merchant not found
  */
 router.put("/update-deposit-status/:merchantId", tryCatchHandler(updateDepositStatus));
-
-/**
- * @swagger
- * /payin/update-payment-cashfree-webhook:
- *   post:
- *     summary: Update Payment Cashfree Webhook
- *     description: Receives webhook data from Cashfree and updates the payment status.
- *     tags: [PayIn]
- *     responses:
- *       200:
- *         description: Payment status updated from Cashfree webhook successfully.
- */
-router.post("/update-payment-cashfree-webhook", tryCatchHandler(payInUpdateCashfreeWebhook));
 
 /**
  * @swagger
@@ -306,6 +305,6 @@ router.post("/dispute-duplicate/:payInId", tryCatchHandler(disputeDuplicateTrans
  *       500:
  *         description: Internal server error
  */
-router.get('/payin-data', tryCatchHandler(getPayins));
+router.get('/', tryCatchHandler(getPayins));
 
 export default router;

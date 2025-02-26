@@ -26,7 +26,7 @@ Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION
 
 export const generatePayInUrlService = async (payload) => {
-    const { code, user_id, merchant_order_id: order_id, amount, returnUrl, api_key, x_api_key, company_id } = payload;
+    const { code, user_id, merchant_order_id: order_id, amount, returnUrl, api_key, x_api_key } = payload;
     const merchant_order_id = order_id ? order_id : uuidv4();
 
     const merchantArr = await getMerchantsDao({ code });
@@ -64,7 +64,6 @@ export const generatePayInUrlService = async (payload) => {
         user: payInData.user_id,
         merchant_id: merchant.id,
         expiration_date: expirationDate,
-        company_id: company_id,
         config: JSON.stringify({
             return_url: payInData.return_url || '',
             notify_url: merchant.notify_url || '',
@@ -133,10 +132,10 @@ export const expirePayInUrlService = async (payInId) => {
     });
 }
 
-export const assignedBankToPayInUrlService = async (payInId, amount,type, company_id) => {
+export const assignedBankToPayInUrlService = async (payInId, amount, type) => {
 
     // Validate the PayIn URL
-    const payIn = await getPayInUrlService({payInId, company_id});
+    const payIn = await getPayInUrlService(payInId);
     const payInConfig = payIn.config || {};
 
     checkIsPayInExpired(payIn);
@@ -153,7 +152,7 @@ export const assignedBankToPayInUrlService = async (payInId, amount,type, compan
     }
 
 
-    const banks = await getMerchantBankDao({user_id: merchant.user_id});
+    const banks = await getMerchantBankDao({ user_id: merchant.user_id });
     const enabledBanks = banks.filter((bank) => {
         // Get enabled merchant bank accounts for payIn
         // Assign bank on the basis type
@@ -195,8 +194,12 @@ export const assignedBankToPayInUrlService = async (payInId, amount,type, compan
         status: Status.ASSIGNED,
         bank_acc_id: selectedBankDetails.id,
         one_time_used: true,
-        company_id: company_id
     })
+
+    delete updatePayIn.is_obsolete; 
+    delete updatePayIn.company_id; 
+    delete selectedBankDetails.is_obsolete; 
+    delete updatePayIn.company_id; 
 
     Object.assign(updatePayIn, {
         merchant_min_payin: merchant.min_payin,
@@ -211,8 +214,8 @@ export const assignedBankToPayInUrlService = async (payInId, amount,type, compan
 }
 
 // Public API Used by Merchants
-export const checkPayInStatusService = async (payInId, merchantCode, merchantOrderId, company_id, api_key) => {
-    const merchantArr = await getMerchantsDao({ code: merchantCode, company_id });
+export const checkPayInStatusService = async (payInId, merchantCode, merchantOrderId, api_key) => {
+    const merchantArr = await getMerchantsDao({ code: merchantCode,});
     const merchant = merchantArr[0];
     if (!merchant) {
         throw new NotFoundError("Merchant does not exist");
@@ -222,7 +225,6 @@ export const checkPayInStatusService = async (payInId, merchantCode, merchantOrd
     const payIn = await getPayInUrlDao({
         id: payInId,
         merchant_order_id: merchantOrderId,
-        company_id: company_id
     });
     if (!payIn) {
         throw new NotFoundError('payIn not found');
@@ -240,9 +242,9 @@ export const checkPayInStatusService = async (payInId, merchantCode, merchantOrd
     };
 }
 
-export const payInIntentGenerateOrderService = async (payInId, amount, isRazorpay, company_id) => {
+export const payInIntentGenerateOrderService = async (payInId, amount, isRazorpay) => {
     // validating if it exist
-    const payIn = await getPayInUrlService({payInId, company_id});
+    const payIn = await getPayInUrlService(payInId);
     checkIsPayInExpired(payIn);
     if (isRazorpay) {
         const orderRes = await razorpay.orders.create({
@@ -286,7 +288,7 @@ export const payInIntentGenerateOrderService = async (payInId, amount, isRazorpa
     };
 };
 
-export const updatePaymentNotificationStatusService = async (payInId, type) => {
+export const updatePaymentNotificationStatusService = async (payInId, type, company_id) => {
 
     if (!Object.values(Type).includes(type)) {
         throw new Error("Invalid notification type.");
@@ -298,6 +300,7 @@ export const updatePaymentNotificationStatusService = async (payInId, type) => {
             throw new Error("Payin data not found.");
         }
 
+        // TODO: company_id ???
         const bankResponse = await getBankResponseDao({ id: payIn.bank_response_id });
 
         return await merchantPayinCallback(payIn.config?.notify_url, {
@@ -311,13 +314,14 @@ export const updatePaymentNotificationStatusService = async (payInId, type) => {
     }
 
     if (type === Type.PAYOUT) {
+        // TODO: company_id????
         const payouts = await getPayoutsDao({ id: payInId });
         const payout = payouts[0];
         if (!payout.length) {
             throw new NotFoundError("Payout data not found.");
         }
 
-        const merchants = await getMerchantsDao({ id: payout.merchant_id });
+        const merchants = await getMerchantsDao({ id: payout.merchant_id, company_id });
         const merchant = merchants[0];
         if (!merchant || !merchant.payout_notify_url) {
             throw new NotFoundError("Merchant or payout notify URL not found.");
@@ -336,12 +340,13 @@ export const updatePaymentNotificationStatusService = async (payInId, type) => {
     return {};
 }
 
-export const updateDepositStatusService = async (conn, merchantOrderId, nick_name) => {
+export const updateDepositStatusService = async (conn, merchantOrderId, nick_name, company_id) => {
+    // TODO: company_id???
     const payInData = await getPayInUrlDao({ merchant_order_id: merchantOrderId });
     if (!payInData) {
         throw new NotFoundError("PayIn data not found")
     }
-    const merchants = await getMerchantsDao({ id: payInData.merchant_id });
+    const merchants = await getMerchantsDao({ id: payInData.merchant_id, company_id });
 
     // need to check pay in is for merchant or vendor
     const merchant = merchants[0];
@@ -355,12 +360,13 @@ export const updateDepositStatusService = async (conn, merchantOrderId, nick_nam
     }
 
     //call the Bank Res API
+    // TODO: company_id???
     const bankResponse = await getBankResponseDao({ id: payInData.bank_response_id });
     if (!bankResponse) {
         throw new NotFoundError('No bank response found!');
     }
 
-    const vendors = await getVendorsDao({ id: bankResponse.user_id });
+    const vendors = await getVendorsDao({ user_id: bankResponse.user_id, company_id });
     const vendor = vendors[0];
 
     //calculate the payin commission 
@@ -368,7 +374,7 @@ export const updateDepositStatusService = async (conn, merchantOrderId, nick_nam
     const vendorPayinCommission = calculateCommission(bankResponse.amount, vendor.payin_commission);
     const duration = calculateDuration(payInData.created_at);
 
-    const banks = await getBankaccountDao({ nick_name });
+    const banks = await getBankaccountDao({ nick_name, company_id });
     const bank = banks[0]
 
     if (!bank) {
@@ -427,7 +433,8 @@ export const updateDepositStatusService = async (conn, merchantOrderId, nick_nam
     return;
 }
 
-export const resetDepositService = async (conn, merchant_order_id) => {
+export const resetDepositService = async (conn, merchant_order_id, company_id) => {
+    // TODO: company_id???
     const payIn = await getPayInUrlDao({ merchant_order_id });
     if (!payIn) {
         throw new NotFoundError("PayIn not found");
@@ -446,7 +453,9 @@ export const resetDepositService = async (conn, merchant_order_id) => {
         throw new BadRequestError('This payIn can not be reset!');
     }
 
-    const condition = {};
+    const condition = {
+        company_id
+    };
     if (payIn.bank_response_id) {
         condition.id = payIn.bank_response_id;
     } else {
@@ -673,7 +682,7 @@ export const telegramResponseService = async (conn, message) => {
             TELEGRAM_BOT_TOKEN,
             message.message_id,
             otherUtrPayIns,
-          );
+        );
         return;
     }
 
@@ -723,7 +732,7 @@ export const processPayInByImageService = async (conn, payload) => {
     });
 }
 
-export const disputeDuplicateTransactionService = async (conn, payload) => {
+export const disputeDuplicateTransactionService = async (conn, payload, company_id) => {
     const { payInId, merchantOrderId, confirmed, amount } = payload;
     const payIn = await getPayInUrlDao({ id: payInId });
 
@@ -744,10 +753,11 @@ export const disputeDuplicateTransactionService = async (conn, payload) => {
         throw new NotFoundError('Bank Response not found!');
     }
 
+    // TODO: company_id???
     const bankResponse = await getBankResponseDao({ id: payIn.bank_response_id });
-    const merchants = await getMerchantsDao({ id: payIn.merchant_id });
+    const merchants = await getMerchantsDao({ id: payIn.merchant_id, company_id });
     const merchant = merchants[0];
-    const vendors = await getMerchantsDao({ id: bankResponse.user_id });
+    const vendors = await getVendorsDao({ user_id: bankResponse.user_id, company_id });
     const vendor = vendors[0];
 
     if (!merchant) {

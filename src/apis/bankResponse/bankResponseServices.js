@@ -11,7 +11,7 @@ import Logger from '../../utils/logger.js';
 import { getBankaccountDao, updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { getSettlementDaoforInternalTransfer } from '../settlement/settlementDao.js';
 import axios from 'axios';
-import { getPayInUrlsDao, updatePayInDao } from '../payIn/payInDao.js';
+import { getPayInUrlsDao, updatePayInUrlDao } from '../payIn/payInDao.js';
 import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
@@ -115,7 +115,7 @@ const createBankResponseService = async (payload) => {
                     user_submitted_utr: botRes?.utr,
                     approved_at: new Date(),
                   };
-                  const updatePayInDataRes = await updatePayInDao(
+                  const updatePayInDataRes = await updatePayInUrlDao(
                     checkPayInUtr[0]?.id,
                     payInData
                   );
@@ -161,7 +161,7 @@ const createBankResponseService = async (payload) => {
                   approved_at: new Date(),
                 };
 
-                const updatePayInDataRes = await updatePayInDao(
+                const updatePayInDataRes = await updatePayInUrlDao(
                   checkPayInUtr[0]?.id,
                   payInData
                 );
@@ -240,7 +240,7 @@ const createBankResponseService = async (payload) => {
 
                   };
 
-                  const updatePayInDataRes = await updatePayInDao(
+                  const updatePayInDataRes = await updatePayInUrlDao(
                     checkPayInUtr[0]?.id,
                     payInData
                   );
@@ -292,7 +292,7 @@ const createBankResponseService = async (payload) => {
                   payin_mvendor_commission: payinVendorCommission,
                 };
 
-                const updatePayInDataRes = await updatePayInDao(
+                const updatePayInDataRes = await updatePayInUrlDao(
                   checkPayInUtr[0]?.id,
                   payInData
                 );
@@ -342,7 +342,7 @@ const createBankResponseService = async (payload) => {
                     payin_merchant_commission: payinMerchantCommission,
                     payin_mvendor_commission: payinVendorCommission,
                   };
-                  const updatePayInDataRes = await updatePayInDao(
+                  const updatePayInDataRes = await updatePayInUrlDao(
                     checkPayInUtr[0]?.id,
                     payInData
                   );
@@ -392,7 +392,7 @@ const createBankResponseService = async (payload) => {
                   payin_merchant_commission: payinMerchantCommission,
                   payin_mvendor_commission: payinVendorCommission,
                 };
-                const updatePayInDataRes = await updatePayInDao(
+                const updatePayInDataRes = await updatePayInUrlDao(
                   checkPayInUtr[0]?.id,
                   payInData
                 );
@@ -444,7 +444,7 @@ const createBankResponseService = async (payload) => {
                   user_submitted_utr: botRes?.utr,
                   approved_at: new Date(),
                 };
-                const updatePayInDataRes = await updatePayInDao(
+                const updatePayInDataRes = await updatePayInUrlDao(
                   checkPayInUtr[0]?.id,
                   payInData
                 );
@@ -493,7 +493,7 @@ const createBankResponseService = async (payload) => {
                 approved_at: new Date(),
               };
 
-              const updatePayInDataRes = await updatePayInDao(
+              const updatePayInDataRes = await updatePayInUrlDao(
                 checkPayInUtr[0]?.id,
                 payInData
               );
@@ -547,7 +547,7 @@ const createBankResponseService = async (payload) => {
                   approved_at: new Date(),
                 };
 
-                const updatePayInDataRes = await updatePayInDao(
+                const updatePayInDataRes = await updatePayInUrlDao(
                   checkPayInUtr[0]?.id,
                   payInData
                 );
@@ -594,7 +594,7 @@ const createBankResponseService = async (payload) => {
                 approved_at: new Date(),
               };
 
-              const updatePayInDataRes = await updatePayInDao(
+              const updatePayInDataRes = await updatePayInUrlDao(
                 checkPayInUtr[0]?.id,
                 payInData
               );
@@ -664,7 +664,7 @@ const createBankResponseService = async (payload) => {
                   payin_vendor_commission: payinVendorCommission
                 };
 
-                const updatePayInDataRes = await updatePayInDao(
+                const updatePayInDataRes = await updatePayInUrlDao(
                   checkPayInUtr[0]?.id,
                   payInData
                 );
@@ -717,7 +717,7 @@ const createBankResponseService = async (payload) => {
                 payin_mvendor_commission: payinVendorCommission,
               };
 
-              const updatePayInDataRes = await updatePayInDao(
+              const updatePayInDataRes = await updatePayInUrlDao(
                 checkPayInUtr[0]?.id,
                 payInData
               );
@@ -769,7 +769,7 @@ const createBankResponseService = async (payload) => {
                   payin_mvendor_commission: payinVendorCommission,
 
                 };
-                const updatePayInDataRes = await updatePayInDao(
+                const updatePayInDataRes = await updatePayInUrlDao(
                   checkPayInUtr[0]?.id,
                   payInData
                 );
@@ -816,7 +816,7 @@ const createBankResponseService = async (payload) => {
                 payin_merchant_commission: payinMerchantCommission,
                 payin_mvendor_commission: payinVendorCommission,
               };
-              const updatePayInDataRes = await updatePayInDao(
+              const updatePayInDataRes = await updatePayInUrlDao(
                 checkPayInUtr[0]?.id,
                 payInData
               );

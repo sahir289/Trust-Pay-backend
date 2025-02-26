@@ -8,7 +8,6 @@ export const ASSIGN_PAYIN_SCHEMA = Joi.object({
   api_key: Joi.string().label('api_key').optional(),
   merchant_order_id: Joi.string().label('merchant_order_id').optional(),
   user_id: Joi.string().label('user_id').required(),
-  company_id : Joi.string().guid({ version: ['uuidv4'] }).label('company_id').required(),
 
 });
 
@@ -30,7 +29,6 @@ export const VALIDATE_CHECK_PAY_IN_STATUS = Joi.object({
   payInId: Joi.string().guid({ version: ['uuidv4'] }).label('payInId').required(),
   merchantCode: Joi.string().label('merchantCode').required(),
   merchantOrderId: Joi.string().label('merchantOrderId').required(),
-  company_id : Joi.string().guid({ version: ['uuidv4'] }).label('company_id').required(),
 });
 
 export const VALIDATE_PAY_IN_INTENT_GENERATE_ORDER = Joi.object({
