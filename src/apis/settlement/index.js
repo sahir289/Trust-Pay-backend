@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createSettlementService, deleteSettlementService, getSettlementService, getSettlementServiceAll, updateSettlementService } from './settlementServices.js';
+import { createSettlementService, deleteSettlementService, getSettlementService, getSettlementServiceAll, getSettlementServiceJoined, updateSettlementService } from './settlementServices.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
@@ -43,7 +43,7 @@ const router = express.Router();
  *                         example: "john_doe"
  */
 router.get('/:id', [isAuthenticated, authorized(AccessRoles.SETTLEMENT)], tryCatchHandler(getSettlementService));
-router.get('/',[isAuthenticated, authorized(AccessRoles.SETTLEMENT)],  tryCatchHandler(getSettlementServiceAll));
+router.get('/',  tryCatchHandler(getSettlementServiceJoined));
 
 /**
  * @swagger

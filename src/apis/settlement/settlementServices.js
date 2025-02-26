@@ -1,5 +1,5 @@
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
-import { createSettlementDao, deleteSettlementDao, getSettlementDao, getSettlementDaoAll, updateSettlementDao } from './settlementDao.js';
+import { createSettlementDao, deleteSettlementDao, getSettlementDao, getSettlementDaoAll, settlementJoindao, updateSettlementDao } from './settlementDao.js';
 import { getCalculationDao, updateCalculationDao } from '../calculation/calculationDao.js';
 import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
@@ -8,6 +8,7 @@ import { CREATE_SETTLEMENT_SCHEMA, UPDATE_SETTLEMENT_SCHEMA, VALIDATE_SETTLEMENT
 import { transactionWrapper } from '../../utils/db.js';
 import { columns, merchantColumns, Role, vendorColumns } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
+import { sendSuccess } from '../../utils/responseHandlers.js';
 
 const getSettlementService = async (req) => {
   try {
@@ -31,9 +32,6 @@ const getSettlementService = async (req) => {
 
 const getSettlementServiceAll = async (req) => {
   try {
-    const { role } = req.user;
-    const filterColumns = role === Role.MERCHANT ? merchantColumns.SETTLEMENT : role === Role.VENDOR ? vendorColumns.SETTLEMENT : columns.SETTLEMENT;
-    // const payload = req.query;
     const { company_id } = req.user;
     const settlementData = await getSettlementDaoAll({
       company_id,
@@ -41,13 +39,41 @@ const getSettlementServiceAll = async (req) => {
     if (!settlementData) {
       throw new BadRequestError('Error getting while getting settlements');
     }
-    const finalResult =  filterResponse(settlementData, filterColumns);
-    return finalResult;
+    return settlementData;
   } catch (error) {
     console.error('error getting while  getting settlements', error);
     throw new BadRequestError('Error getting while getting settlements');
   }
 };
+
+
+
+const getSettlementServiceJoined = async (req, res) => {
+  try {
+    const settlementData = await settlementJoindao(
+      "Settlement", 
+      [
+        { tableName: "BankAccount", id: "user_id" },
+      ],
+      req.query.page || 1, 
+      req.query.pageSize || 10, 
+      req.query.sortBy || "created_at", 
+      req.query.sortOrder || "DESC"
+    );
+
+    if (!settlementData || settlementData.length === 0) {
+      throw new BadRequestError('Error getting settlements');
+    }
+
+    sendSuccess(res, settlementData, "Got settlement data");
+
+  } catch (error) {
+    console.error('Error getting settlements:', error);
+    throw new BadRequestError('Error getting settlements');
+  }
+}
+
+
 
 const createSettlementService = async (req) => {
  
@@ -162,4 +188,4 @@ const deleteSettlementService = async (req) => {
   }
 };
 
-export { getSettlementService, createSettlementService, getSettlementServiceAll, updateSettlementService, deleteSettlementService };
+export { getSettlementService, getSettlementServiceJoined, createSettlementService, getSettlementServiceAll, updateSettlementService, deleteSettlementService };

@@ -1,4 +1,4 @@
-import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery, getConnection } from '../../utils/db.js';
+import { buildInsertQuery, buildJoinQuery, buildSelectQuery, buildUpdateQuery, executeQuery, getConnection } from '../../utils/db.js';
 import { tableName } from "../../constants/index.js";
 
 const getSettlementDao = async (
@@ -15,6 +15,24 @@ const getSettlementDao = async (
   const result = await executeQuery(sql, queryParams);
   return result.rows[0];
 };
+
+const settlementJoindao = async (
+  baseTable,
+  filters, 
+  page, 
+  pageSize, 
+  sortBy, 
+  sortOrder 
+) => {
+  const baseQuery = `SELECT * FROM public."${baseTable}"`; 
+  const [sql, queryParams] = await buildJoinQuery(baseTable, filters, baseQuery, page, pageSize, sortBy, sortOrder);
+
+  console.log(sql, queryParams, "sql query params");
+
+  const result = await executeQuery(sql, queryParams);
+  return result.rows;
+};
+
 
 const getSettlementDaoforInternalTransfer = async (utr, method) => {
   let conn;
@@ -74,4 +92,4 @@ const deleteSettlementDao = async (id, data) => {
   }
 };
 
-export { getSettlementDao, getSettlementDaoAll, createSettlementDao, getSettlementDaoforInternalTransfer, updateSettlementDao, deleteSettlementDao };
+export { getSettlementDao, getSettlementDaoAll, settlementJoindao, createSettlementDao, getSettlementDaoforInternalTransfer, updateSettlementDao, deleteSettlementDao };

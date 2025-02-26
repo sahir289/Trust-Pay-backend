@@ -66,6 +66,36 @@ export const executeQuery = async (query, queryParams = []) => {
   }
 }
 
+export const buildJoinQuery = async (baseTable, filters, baseQuery, p, ps, s, o) => {
+  try {
+    const page = p || 1,
+      pageSize = ps || 10,
+      sortBy = s || "created_at",
+      sortOrder = o || "DESC";
+
+    let query = baseQuery;
+    let values = [];
+
+    for (const filter of filters) {
+      query += ` LEFT JOIN public."${filter.tableName}" r_${filter.tableName} 
+                 ON r_${filter.tableName}.${filter.id} = "${baseTable}".${filter.id}`;
+    }
+
+    query += ` WHERE "${baseTable}".is_obsolete = false`;
+    query += ` ORDER BY "${baseTable}"."${sortBy}" ${sortOrder}`;
+    query += ` LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+      values.push(pageSize);
+    values.push((page - 1) * pageSize); 
+  
+    return [query, values];
+  } catch (error) {
+    console.error('Error building join query:', error);
+    throw new DbError('Error building join query');
+  }
+};
+
+
+
 export const buildSelectQuery = (baseQuery, filters, p, ps, s, o) => {
   const page = p || 1, pageSize = ps || 10, sortBy = s || "created_at", sortOrder = o || "DESC";
   let query = baseQuery;
