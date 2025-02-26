@@ -1,4 +1,4 @@
-import { columns, tableName } from "../../constants/index.js";
+import { tableName } from "../../constants/index.js";
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
 
 export const createMerchantDao = async (data) => {
@@ -14,15 +14,18 @@ export const createMerchantDao = async (data) => {
 };
 
 export const getMerchantsDao = async (
-    search,user,
+    filters,
     page,
     pageSize,
     sortBy,
     sortOrder
 ) => {
     try {
-        const baseQuery = `SELECT id,first_name, last_name, code, min_payin, max_payin, payin_commission, min_payout, max_payout, payout_commission, is_test_mode, is_enabled, dispute_enabled, is_demo,config, balance FROM "${tableName.MERCHANT}" WHERE 1=1`;
-        const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.MERCHANT, page, pageSize, sortBy, sortOrder, typeof search != 'string',user);
+        // const baseQuery = `SELECT id,first_name, last_name, code, min_payin, max_payin, payin_commission, min_payout, max_payout, payout_commission, is_test_mode, is_enabled, dispute_enabled, is_demo, balance FROM "${tableName.MERCHANT}" WHERE 1=1`;
+        const baseQuery = `SELECT * FROM "${tableName.MERCHANT}" WHERE 1=1`;
+        //TODO: columns.MERCHANTS dynamic search
+        const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
+        // Execute query
         const result = await executeQuery(sql, queryParams);
         return result.rows;
     } catch (error) {

@@ -1,7 +1,7 @@
 import { CREATE_BANK_RESPONSE_SCHEMA } from '../../schemas/bankResponseSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getPayinsDao, updatePayInDao } from '../payIn/payInDao.js';
+import { getPayInUrlsDao, updatePayInUrlDao } from '../payIn/payInDao.js';
 import { getBankResponseDao, updateBotResponseDao } from './bankResponseDao.js';
 
 import {
@@ -56,7 +56,7 @@ const resetBankResponse = async (req, res) => {
     const { id } = req.body;
     const botRes = await getBankResponseDao({ id: id });
     let getallPayinDataByUtr
-    getallPayinDataByUtr = await getPayinsDao({ user_submitted_utr: botRes.utr });
+    getallPayinDataByUtr = await getPayInUrlsDao({ user_submitted_utr: botRes.utr });
 
     const hasSuccess = getallPayinDataByUtr?.some((item) => item.status === 'SUCCESS');
 
@@ -74,7 +74,7 @@ const resetBankResponse = async (req, res) => {
           status: "ASSIGNED",
           user_submitted_utr: null,
         }
-        await updatePayInDao(updatePayinID[0]?.id, updatePayinData)
+        await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData)
       }
       return sendSuccess(
         res,

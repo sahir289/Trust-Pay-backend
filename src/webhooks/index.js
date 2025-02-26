@@ -5,8 +5,6 @@ import { Status } from "../constants/index.js";
 
 export const payInUpdateCashfreeWebhook = async (req, res) => {
     const payload = req.body;
-    const { company_id } = req.user;
-    payload.company_id = company_id;
     res.json({ status: 200, message: 'Cash free Webhook Called successfully' });
     const payInDataById = await getPayInUrlService(payload.data.order.order_id);
     if (!payInDataById) {

@@ -1,23 +1,13 @@
+import { columns, Role, vendorColumns } from '../../constants/index.js';
+import { filterResponse } from '../../helpers/index.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBankaccountDao } from './bankaccountDao.js';
-import { Role,columns,vendorColumns } from '../../constants/index.js';
-import { filterResponse } from '../../helpers/index.js';
-import { getMerchantBankDao } from './bankaccountDao.js';
-const getBankaccountService = async (search,payload,role) => {
+
+const getBankaccountService = async (filters, role) => {
     try {
+        const result = await getBankaccountDao(filters);
         const filterColumns = role ===  Role.VENDOR ? vendorColumns.BANK_ACCOUNT : columns.BANK_ACCOUNT;
-        const result = await getBankaccountDao(search,payload);
-        const finalResult = await filterResponse(result, filterColumns);
-        return finalResult;
-    } catch (error) {
-        console.error('error getting while  getting banks', error);
-        throw new BadRequestError('Error getting while  getting banks');
-    }
-};
-const getMerchantBankService = async (payload,) => {
-    try {
-        const result = await getMerchantBankDao(payload);
-        return result;
+        return await filterResponse(result, filterColumns);
     } catch (error) {
         console.error('error getting while  getting banks', error);
         throw new BadRequestError('Error getting while  getting banks');
@@ -61,4 +51,4 @@ const deleteBankaccountService = async (id,role) => {
 
 
 
-export { getBankaccountService,getMerchantBankService, createBankaccountService, updateBankaccountService, deleteBankaccountService };
+export { getBankaccountService, createBankaccountService, updateBankaccountService, deleteBankaccountService };

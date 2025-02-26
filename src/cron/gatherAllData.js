@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { getMerchantsDao } from '../apis/merchants/merchantDao.js';
-import { getPayinsDao } from "../apis/payIn/payInDao.js";
+import { getPayInUrlsDao } from "../apis/payIn/payInDao.js";
 import { getCalculationDao } from "../apis/calculation/calculationDao.js";
 import { getPayoutsDao } from "../apis/payOut/payOutDao.js";
 import moment from "moment-timezone";
@@ -50,7 +50,7 @@ const gatherAllData = async (type = "H", timezone = "Asia/Kolkata") => {
         //   }
         console.log("cron started")
         const merchants = await getMerchantsDao({});
-        const payins = await getPayinsDao({ status: "SUCCESS" });
+        const payins = await getPayInUrlsDao({ status: "SUCCESS" });
         let payInSum = 0;
         // let payIn = 0;
         // let payInEachCount = 0;
@@ -101,7 +101,7 @@ const gatherAllData = async (type = "H", timezone = "Asia/Kolkata") => {
             }
         }
 
-        const totalPayins = await getPayinsDao({ status: "SUCCESS" });
+        const totalPayins = await getPayInUrlsDao({ status: "SUCCESS" });
         let totalPayInSum = 0;
         let totalPayInCount = 0;
         let totalPayInEachCount = 0;
@@ -174,7 +174,7 @@ const gatherAllData = async (type = "H", timezone = "Asia/Kolkata") => {
             }
 
         }
-        const totalPayouts = await getPayinsDao({ status: "SUCCESS" });
+        const totalPayouts = await getPayInUrlsDao({ status: "SUCCESS" });
         let totalPayOutSum = 0;
         let totalPayOutCount = 0;
         // let totalPayOutEach = 0;
@@ -272,7 +272,7 @@ const gatherAllData = async (type = "H", timezone = "Asia/Kolkata") => {
                 ];
 
                 // fetch all transactions
-                const allPayins = await getPayinsDao({})
+                const allPayins = await getPayInUrlsDao({})
                 // group transactions by merchant_id
                 const transactionsByMerchant = allPayins.reduce((map, payin) => {
                     if (!map[payin.merchant_id]) map[payin.merchant_id] = [];

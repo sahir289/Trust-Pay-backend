@@ -2,10 +2,9 @@ import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
-import { assignedBankToPayInUrl, checkPayInStatus, generatePayInUrl,getPayins, payInIntentGenerateOrder, processPayIn, processPayInByImage, resetDeposit, telegramOCR, updateDepositStatus, updatePaymentNotificationStatus, validatePayInUrl } from './payInController.js';
+import { assignedBankToPayInUrl, checkPayInStatus, disputeDuplicateTransaction, generatePayInUrl, getPayins, payInIntentGenerateOrder, processPayIn, processPayInByImage, resetDeposit, telegramCheckUTR, telegramOCR, updateDepositStatus, updatePaymentNotificationStatus, validatePayInUrl } from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
-
 const router = express.Router();
 
 // Public API's
@@ -34,7 +33,7 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/',[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(generatePayInUrl));
+router.get('/generate-payin', tryCatchHandler(generatePayInUrl));
 
 /**
  * @swagger
@@ -56,7 +55,7 @@ router.get('/',[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler
  *       404:
  *         description: Pay-In URL not found
  */
-router.get('/validate-payIn-url/:payInId',[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(validatePayInUrl));
+router.get('/validate-payIn-url/:payInId', tryCatchHandler(validatePayInUrl));
 
 /**
  * @swagger
@@ -78,7 +77,7 @@ router.get('/validate-payIn-url/:payInId',[isAuthenticated, authorized(AccessRol
  *       404:
  *         description: Pay-In URL not found
  */
-router.post("/assign-bank/:payInId",[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(assignedBankToPayInUrl));
+router.post("/assign-bank/:payInId", tryCatchHandler(assignedBankToPayInUrl));
 
 /**
  * @swagger
@@ -103,7 +102,7 @@ router.post("/assign-bank/:payInId",[isAuthenticated, authorized(AccessRoles.PAY
  *       500:
  *         description: Internal server error
  */
-router.post("/check-payin-status",[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(checkPayInStatus));
+router.post("/check-payin-status", tryCatchHandler(checkPayInStatus));
 
 /**
  * @swagger
@@ -125,7 +124,7 @@ router.post("/check-payin-status",[isAuthenticated, authorized(AccessRoles.PAYIN
  *       404:
  *         description: Pay-In URL not found
  */
-router.post("/generate-intent-order/:payInId",[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(payInIntentGenerateOrder));
+router.post("/generate-intent-order/:payInId", tryCatchHandler(payInIntentGenerateOrder));
 
 /**
  * @swagger
@@ -147,7 +146,7 @@ router.post("/generate-intent-order/:payInId",[isAuthenticated, authorized(Acces
  *       404:
  *         description: Pay-In URL not found
  */
-router.post("/process/:payInId",[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(processPayIn));
+router.post("/process/:payInId", tryCatchHandler(processPayIn));
 
 /**
  * @swagger
@@ -180,15 +179,29 @@ router.post("/process/:payInId",[isAuthenticated, authorized(AccessRoles.PAYIN)]
  *       404:
  *         description: Pay-In URL not found
  */
-router.post("/process-by-image/:payInId",[isAuthenticated, authorized(AccessRoles.PAYIN)], multerUpload.single("file"), tryCatchHandler(processPayInByImage));
+router.post("/process-by-image/:payInId", multerUpload.single("file"), tryCatchHandler(processPayInByImage));
 
 // Telegram API's
-router.post('/telegram-ocr',[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(telegramOCR))
-router.post('/telegram-check-utr',[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(telegramOCR))
+router.post('/telegram-ocr', tryCatchHandler(telegramOCR))
+
+/**
+ * @swagger
+ * /payin/update-payment-cashfree-webhook:
+ *   post:
+ *     summary: Update Payment Cashfree Webhook
+ *     description: Receives webhook data from Cashfree and updates the payment status.
+ *     tags: [PayIn]
+ *     responses:
+ *       200:
+ *         description: Payment status updated from Cashfree webhook successfully.
+ */
+router.post("/update-payment-cashfree-webhook", tryCatchHandler(payInUpdateCashfreeWebhook));
 
 // Authenticated API's
+router.use(isAuthenticated)
+router.use(authorized(AccessRoles.PAYIN))
 
-router.use([isAuthenticated, authorized(AccessRoles.PAYIN)])
+router.post('/telegram-check-utr', tryCatchHandler(telegramCheckUTR))
 
 /**
  * @swagger
@@ -208,7 +221,7 @@ router.use([isAuthenticated, authorized(AccessRoles.PAYIN)])
  *       200:
  *         description: Payment notification status updated successfully.
  */
-router.post("/update-payment-notified-status/:payInId",[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(updatePaymentNotificationStatus));
+router.post("/update-payment-notified-status/:payInId", tryCatchHandler(updatePaymentNotificationStatus));
 
 /**
  * @swagger
@@ -230,20 +243,7 @@ router.post("/update-payment-notified-status/:payInId",[isAuthenticated, authori
  *       404:
  *         description: Merchant not found
  */
-router.put("/update-deposit-status/:merchantId",[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(updateDepositStatus));
-
-/**
- * @swagger
- * /payin/update-payment-cashfree-webhook:
- *   post:
- *     summary: Update Payment Cashfree Webhook
- *     description: Receives webhook data from Cashfree and updates the payment status.
- *     tags: [PayIn]
- *     responses:
- *       200:
- *         description: Payment status updated from Cashfree webhook successfully.
- */
-router.post("/update-payment-cashfree-webhook",[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(payInUpdateCashfreeWebhook));
+router.put("/update-deposit-status/:merchantId", tryCatchHandler(updateDepositStatus));
 
 /**
  * @swagger
@@ -258,7 +258,7 @@ router.post("/update-payment-cashfree-webhook",[isAuthenticated, authorized(Acce
  *       404:
  *         description: Pay-In URL not found
  */
-router.post("/reset-payment",[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(resetDeposit));
+router.post("/reset-payment", tryCatchHandler(resetDeposit));
 
 /**
  * @swagger
@@ -278,7 +278,7 @@ router.post("/reset-payment",[isAuthenticated, authorized(AccessRoles.PAYIN)], t
  *       200:
  *         description: Duplicate payment disputed successfully.
  */
-router.post("/dispute-duplicate/:payInId",[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(resetDeposit));
+router.post("/dispute-duplicate/:payInId", tryCatchHandler(disputeDuplicateTransaction));
 
 /**
  * @swagger
@@ -305,6 +305,6 @@ router.post("/dispute-duplicate/:payInId",[isAuthenticated, authorized(AccessRol
  *       500:
  *         description: Internal server error
  */
-router.get('/payin-data',[isAuthenticated, authorized(AccessRoles.PAYIN)], tryCatchHandler(getPayins));
+router.get('/', tryCatchHandler(getPayins));
 
 export default router;

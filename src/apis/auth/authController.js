@@ -49,6 +49,11 @@ const logoutController = async (req, res) => {
   // const data = await logoutService(decodeToken, session_id);
   // console.log(data, "data")
   logoutSet.add(token); // we will update this logic in future, currently this approach is not good to invalidate token
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Strict",
+  });
   console.log('logout successfully', 'info');
   return sendSuccess(res, {}, 'logout successfully');
 };

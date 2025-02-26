@@ -66,7 +66,6 @@ const loginService = async (config, clientIP) => {
     // **Notify previous sessions to log out**
     io.to(user.id).emit('forceLogout');
 
-
     return {
       tokenInfo,
       sessionId

@@ -1,33 +1,17 @@
-import {
-  executeQuery,
-  buildSelectQuery,
-  buildInsertQuery,
-  buildUpdateQuery,
-} from '../../utils/db.js';
-import { columns, tableName } from '../../constants/index.js';
-import { sendError } from '../../utils/responseHandlers.js';
+import { executeQuery, buildSelectQuery, buildInsertQuery, buildUpdateQuery } from "../../utils/db.js";
+import { tableName } from "../../constants/index.js";
+import { sendError } from "../../utils/responseHandlers.js";
 
 const getCalculationDao = async (
-  search,
-  payload,
+  filters,
   page,
   pageSize,
   sortBy,
-  sortOrder,
-) => {
+  sortOrder) => {
   try {
     const baseQuery = `SELECT  "id","total_payin_count","total_payin_amount","total_payin_commission","total_payout_count","total_payout_amount","total_payout_commission","total_settlement_count","total_settlement_amount","total_chargeback_count", "total_chargeback_amount","current_balance","net_balance" FROM "${tableName.CALCULATION}" WHERE 1=1`;
-    const [sql, queryParams] = buildSelectQuery(
-      baseQuery,
-      search,
-      columns.CALCULATION,
-      page,
-      pageSize,
-      sortBy,
-      sortOrder,
-      typeof search != 'string',
-      payload,
-    );
+    //TODO: columns.CALCULATION dynamic search 
+    const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
     // Execute query
     const result = await executeQuery(sql, queryParams);
     return result.rows[0];

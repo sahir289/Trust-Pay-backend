@@ -7,7 +7,7 @@ import { createRoleDao } from '../roles/rolesDao.js';
 const getCompanyService = async (id) => {
 
   try {
-    const result = await transactionWrapper(getCompanyDao)(id);
+    const result = await transactionWrapper(getCompanyDao)({id});
     return result;
   } catch (error) {
     console.error('error getting while company', error);
