@@ -1,33 +1,42 @@
 import cron from 'node-cron';
 import moment from 'moment-timezone';
 import { getCalculationDao, createCalculationDao } from '../apis/calculation/calculationDao.js';
-import { getUsersDao } from '../apis/users/userDao.js';
-import { getConnection } from '../utils/db.js';
+import { transactionWrapper } from '../utils/db.js';
 
 
-cron.schedule("0 0 * * *", () => {
+const getUsersForCron = async (conn) => {
+  try {
+    const sql = `SELECT id  FROM public."User" where is_obsolete = false`;
+    const result = await conn.query(sql);
+    if (result.rows.length === 0) {
+      console.error('No users Found');
+      return [];
+    }
+    return result.rows;
+  } catch (error) {
+    console.error('error getting while logging in', error);
+  }
+};
+
+cron.schedule('*/5 * * * * *', () => {
     collectCalculationData('Asia/Kolkata');
-},{
-    timezone: 'Asia/Kolkata' 
 });
+// cron.schedule("0 0 * * *", () => {
+//     collectCalculationData('Asia/Kolkata')
+// },{
+//     timezone: 'Asia/Kolkata' 
+// }
+// );
 
 const collectCalculationData = async (timezone = 'Asia/Kolkata') => {
     const startTime = moment().tz(timezone, true);
-    let conn;
+    // const updatedTime = startTime.subtract(24, 'hours')
     try {
-        conn = await getConnection();
-    } catch (error) {
-        console.error('Error while connecting to the database:', error?.message);
-        return;
-    }
-
-    try {
-        const users = (await getUsersDao(conn)) || [];
-        const usersArray = users?.users || users?.data || [];
-
+        const users = (await transactionWrapper(getUsersForCron)()) || [];
+        const usersArray = users || [];
         for (const user of usersArray) {
             try {
-                const calculation = await getCalculationDao({ user_id: user?.id });
+                const calculation = await getCalculationDao({ user_id: user.id});
                 if (calculation) {
                     const resetData = {
                         user_id: calculation.user_id,
@@ -51,7 +60,7 @@ const collectCalculationData = async (timezone = 'Asia/Kolkata') => {
                         config: {},
                     };
 
-                    await processUpdate(resetData);
+                    // await processUpdate(resetData);
                 }
             } catch (userError) {
                 console.error(
@@ -63,22 +72,14 @@ const collectCalculationData = async (timezone = 'Asia/Kolkata') => {
         console.info('Cron job executed successfully for all users.', startTime);
     } catch (error) {
         console.error('Error while collecting user data:', error?.message);
-    } finally {
-        // Ensuring connection is closed after the process
-        if (conn) {
-            try {
-                conn.release();
-            } catch (releaseError) {
-                console.error('Error releasing DB connection:', releaseError?.message);
-            }
-        }
-    }
+    } 
 };
 
 // Function to update the calculation data
 async function processUpdate(data) {
+    console.log(data,"hii from data")
     try {
-        await createCalculationDao(data, null);
+       await createCalculationDao(data, null);
     } catch (error) {
         console.error('Error while updating calculation data:', error?.message);
     }
