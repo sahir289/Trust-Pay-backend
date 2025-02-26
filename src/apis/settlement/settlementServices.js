@@ -1,14 +1,15 @@
 import { BadRequestError } from '../../utils/appErrors.js';
-import { createSettlementDao, deleteSettlementDao, getSettlementDao, getSettlementDaoAll, settlementJoindao, updateSettlementDao } from './settlementDao.js';
+import { createSettlementDao, deleteSettlementDao, getSettlementDao,  settlementJoindao, updateSettlementDao } from './settlementDao.js';
 import { getCalculationDao, updateCalculationDao } from '../calculation/calculationDao.js';
 import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getBankaccountDao, updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
+import { columns, Role } from '../../constants/index.js';
 
 const getSettlementServiceById = async (ids) => {
   try {
-    const data = await getSettlementDao(ids);
-    return data
+    const filterColumns = ids.role === Role.MERCHANT ? merchantColumns.SETTLEMENT : ids.role=== Role.VENDOR ? Role.vendorColumns.SETTLEMENT : columns.SETTLEMENT;
+    return await getSettlementDao({id: ids.id}, null, null, null, null, filterColumns);
   } catch (error) {
     console.error('error getting while  getting settlements', error);
     throw new BadRequestError('Error getting while getting settlements');
@@ -17,13 +18,9 @@ const getSettlementServiceById = async (ids) => {
 
 const getSettlementService = async (ids) => {
   try {
-    const settlementData = await getSettlementDaoAll({
-      ids
-    });
-    if (!settlementData) {
-      throw new BadRequestError('Error getting while getting settlements');
-    }
-   return settlementData
+    const filterColumns = ids.role === Role.MERCHANT ? merchantColumns.SETTLEMENT : ids.role=== Role.VENDOR ? Role.vendorColumns.SETTLEMENT : columns.SETTLEMENT;
+    return await getSettlementDao({}, null, null, null, null, filterColumns);
+   
   } catch (error) {
     console.error('error getting while  getting settlements', error);
     throw new BadRequestError('Error getting while getting settlements');
@@ -75,6 +72,7 @@ const createSettlementService = async (payload) => {
 
 const updateSettlementService = async (conn, ids, payload) => {
   try {
+    const filterColumns = ['balance'];
     if (payload.config.reference_id) {
       payload.status = "SUCCESS";
       const data = await getSettlementDao({ id: ids.id })
@@ -98,8 +96,8 @@ const updateSettlementService = async (conn, ids, payload) => {
         console.log("no data in calculation")
       }
       const settlementData = await getSettlementDao({ id: ids.id })
-      const vendorData = await getVendorsDao({ user_id: settlementData?.user_id })
-      const merchantData = await getMerchantsDao({ user_id: settlementData?.user_id })
+      const vendorData = await getVendorsDao({ user_id: settlementData[0].user_id })
+      const merchantData = await getMerchantsDao({ user_id: settlementData[0].user_id }, null, null, null, null, filterColumns )
       if (vendorData) {
         const bankData = await getBankaccountDao({ user_id: vendorData.user_id });
         if (bankData) {

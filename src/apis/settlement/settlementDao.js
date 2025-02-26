@@ -11,7 +11,8 @@ const getSettlementDao = async (
   const baseQuery = `SELECT id, user_id, status, amount, method, config, approved_at, rejected_at, created_by, created_at, updated_at, company_id, is_obsolete, updated_by FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
   const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
   const result = await executeQuery(sql, queryParams);
-  return result.rows[0];
+    return result.rows.length > 0 ? result.rows : result.rows[0];
+
 };
 
 const settlementJoindao = async (
@@ -37,22 +38,9 @@ const getSettlementDaoforInternalTransfer = async (utr, method) => {
 
   const queryParams = [utr, method];
   const result = await conn.query(baseQuery, queryParams);
-  return result.rows[0];
-}
+  return result.rows.length > 0 ? result.rows : result.rows[0];}
 
-const getSettlementDaoAll = async (
-  filters,
-  page,
-  pageSize,
-  sortBy,
-  sortOrder,
-) => {
-  // const baseQuery = `SELECT * FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
-  const baseQuery = `SELECT id, user_id, status, amount, method, config FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
-  const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
-  const result = await executeQuery(sql, queryParams);
-  return result.rows;
-};
+
 
 const createSettlementDao = async (payload) => {
   try {
@@ -75,7 +63,7 @@ const updateSettlementDao = async (conn, id, data) => {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
 
-    return result.rows ? result.rows[0] : result[0];
+    return result;
   } catch (error) {
     console.error(error);
     throw error;
@@ -92,11 +80,11 @@ const deleteSettlementDao = async (conn, id, data) => {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
 
-    return result.rows ? result.rows[0] : result[0];
+    return result.rows[0] ;
   } catch (error) {
     console.error(error);
     throw error;
   }
 };
 
-export { getSettlementDao, getSettlementDaoAll, settlementJoindao, createSettlementDao, getSettlementDaoforInternalTransfer, updateSettlementDao, deleteSettlementDao };
+export { getSettlementDao,  settlementJoindao, createSettlementDao, getSettlementDaoforInternalTransfer, updateSettlementDao, deleteSettlementDao };

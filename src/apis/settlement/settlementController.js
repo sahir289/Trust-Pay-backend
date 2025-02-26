@@ -14,7 +14,8 @@ const getSettlementControllerById = async (req, res) => {
       throw new ValidationError(joiValidation.error);
     }
     const { company_id } = req.user;
-    const ids = { id, company_id }
+    const {role} = req.user;
+    const ids = { id, company_id, role }
     const data = await getSettlementServiceById(ids);
     sendSuccess(res, data, "got settlement");
   } catch (error) {
@@ -65,14 +66,14 @@ const updateSettlementController = async (req, res) => {
     
       try {
         const { id } = req.params;
+        const {role} = req.user;
         const payload = { ...req.body };
         const { company_id } = req.user;
-        const ids = { id, company_id }
+        const ids = { id, company_id , role}
         const joiValidation = UPDATE_SETTLEMENT_SCHEMA.validate(payload);
         if (joiValidation.error) {
           throw new ValidationError(joiValidation.error);
         }
-    console.log(ids, payload, "payloadss")
         const updateData = await transactionWrapper(updateSettlementService)(ids, payload);
         sendSuccess(res, updateData, "got settlement");
       } catch (error) {
