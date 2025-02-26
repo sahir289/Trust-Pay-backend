@@ -1,8 +1,8 @@
-import { columns, tableName } from '../../constants/index.js';
+import {tableName } from '../../constants/index.js';
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
 
 const getDesignationDao = async (
-  search,user,
+  search,
   page,
   pageSize,
   sortBy,
@@ -10,7 +10,7 @@ const getDesignationDao = async (
 ) => {
   try {
     const baseQuery = `SELECT id,designation FROM "${tableName.DESIGNATION}" WHERE 1=1`;
-    const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.DESIGNATION, page, pageSize, sortBy, sortOrder, typeof search != 'string',user);
+    const [sql, queryParams] = buildSelectQuery(baseQuery, search,page, pageSize, sortBy, sortOrder, typeof search != 'string',);
     
     const result = await executeQuery(sql, queryParams);
     return result.rows;

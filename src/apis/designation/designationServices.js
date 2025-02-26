@@ -1,25 +1,14 @@
 import { BadRequestError } from '../../utils/appErrors.js';
-import { getConnection } from '../../utils/db.js';
 import { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao } from './designationDao.js';
 
-const getDesignationService = async (search, user) => {
-  let conn;
+const getDesignationService = async (user) => {
   try {
-    conn = await getConnection();
-    const result = await getDesignationDao(search, user);
+    const result = await getDesignationDao(user);
     return result;
   } catch (error) {
     console.error('error getting while Designation', error);
     throw new BadRequestError('Error getting while Designation');
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
-      }
-    }
-  }
+  } 
 };
 
 const createDesignationService = async (conn, payload) => {

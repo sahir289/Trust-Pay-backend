@@ -1,13 +1,14 @@
 import { CREATE_DESIGNATION_SCHEMA, UPDATE_DESIGNATION_SCHEMA, VALIDATE_DESIGNATION_BY_ID } from '../../schemas/designationSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService } from './designationServices.js';
 const getDesignation = async (req, res) => {
   try {
-    const search = req.query.search;
-    const { comapany_id, role_id } = req.user
-    let user = {comapany_id, role_id };
-    const data = await getDesignationService(search, user);
+    // const search = req.query.search;
+    const { company_id, role_id } = req.user
+    let user = {company_id, role_id };
+    const data = await getDesignationService(user);
     console.log('get Designations  successfully');
     return sendSuccess(res, data, 'get  Designations successfully');
   } catch (error) {
@@ -32,19 +33,19 @@ const getDesignationById = async (req, res) => {
 
 const createDesignation = async (req, res) => {
   try {
+    const joiValidation = CREATE_DESIGNATION_SCHEMA.validate(req.body);
+    if (joiValidation.error) {
+      throw new ValidationError(joiValidation.error);
+    }
     let payload = req.body;
     const { company_id, role_id } = req.user;
     payload.company_id = company_id;
     payload.role_id = role_id
-    const joiValidation = CREATE_DESIGNATION_SCHEMA.validate(payload);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
-    }
     if (!payload) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await createDesignationService(payload);
+    const data = await transactionWrapper(createDesignationService)(payload);
     console.log('get Designations successfully');
     return sendSuccess(res, data, 'get Designations successfully');
   } catch (error) {
