@@ -23,9 +23,9 @@ export const getPayInUrlDao = async (filters) => {
     }
 }
 
-export const getPayInUrlsDao = async (filters = {}) => {
+export const getPayInUrlsDao = async (filters = {}, page, limit) => {
     try {
-        const [sql, params] = buildSelectQuery(`SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`, filters);
+        const [sql, params] = buildSelectQuery(`SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`, filters, page, limit);
         const result = await executeQuery(sql, params);
         return result.rows;
     } catch (error) {
