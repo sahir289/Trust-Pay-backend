@@ -48,9 +48,7 @@ const createMerchantService = async (payload, roleIs) => {
 const getMerchantsService = async (filters, role) => {
     try {
         const filterColumns = role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
-        const data = await getMerchantsDao(filters);
-        const finalResult = await filterResponse(data, filterColumns);
-        return finalResult;
+        return await getMerchantsDao(filters, null, null, null, null, filterColumns);
     } catch (error) {
         console.error('Error while fetching merchants', error);
         throw new BadRequestError('Error occurred while fetching merchants');
