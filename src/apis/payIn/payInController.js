@@ -5,7 +5,6 @@ import { sendError } from "../../utils/responseHandlers.js";
 import {
     ASSIGN_PAYIN_SCHEMA,
     VALIDATE_ASSIGNED_BANT_TO_PAY,
-    VALIDATE_CHECK_PAY_IN_STATUS,
     // VALIDATE_CHECK_PAY_IN_STATUS,
     VALIDATE_CHECK_UTR,
     VALIDATE_DISPUTE_DUPLICATE_TRANSACTION,
@@ -117,10 +116,10 @@ export const expirePayInUrl = async (req, res) => {
 }
 
 export const checkPayInStatus = async (req, res) => {
-    const joiValidation = VALIDATE_CHECK_PAY_IN_STATUS.validate(req);
-    if (joiValidation.error) {
-        throw new ValidationError(joiValidation.error);
-    }
+    // const joiValidation = VALIDATE_CHECK_PAY_IN_STATUS.validate(req);
+    // if (joiValidation.error) {
+    //     throw new ValidationError(joiValidation.error);
+    // }
     const api_key = req.headers["x-api-key"];
     const data = await checkPayInStatusService(req.body.payinId, req.body.merchantCode, req.body.merchantOrderId, req.user.company_id, api_key);
     sendSuccess(res, data);

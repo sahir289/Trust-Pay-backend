@@ -12,6 +12,22 @@ const getBankaccountDao = async (
   const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.BANK_ACCOUNT, page, pageSize, sortBy, sortOrder, typeof search != 'string',payload);
   // Execute query
   const result = await executeQuery(sql, queryParams);
+  return result.rows[0];
+};
+
+
+const getBankaccountDaoAll = async (
+  search,
+  payload,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder
+) => {
+  const baseQuery = `SELECT id,upi_id,upi_params,acc_no,ifsc,bank_name,is_qr,is_bank,min_payin,is_enabled,payin_count,balance,today_balance,bank_used_for,created_by,updated_by FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1 `;
+  const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.BANK_ACCOUNT, page, pageSize, sortBy, sortOrder, typeof search != 'string',payload);
+  // Execute query
+  const result = await executeQuery(sql, queryParams);
   return result.rows;
 };
 
@@ -55,4 +71,4 @@ export const updateBanktBalanceDao = async (filters, balance, today_balance, con
 }
 
 
-export { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBankaccountDao, getMerchantBankDao };
+export { getBankaccountDao, createBankaccountDao, getBankaccountDaoAll, updateBankaccountDao, deleteBankaccountDao, getMerchantBankDao };
