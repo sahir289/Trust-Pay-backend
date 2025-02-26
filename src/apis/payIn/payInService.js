@@ -491,8 +491,8 @@ export const resetDepositService = async (conn, merchant_order_id, company_id) =
     return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 }
 
-export const getPayinsService = async (payload) => {
-    return await getPayInUrlsDao(payload);
+export const getPayinsService = async (payload, page, limit) => {
+    return await getPayInUrlsDao(payload, page, limit);
 };
 
 export const processPayInService = async (conn, payload) => {
