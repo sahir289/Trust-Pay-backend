@@ -27,7 +27,6 @@ const createMerchantService = async (payload, roleIs) => {
                 company_id: payload.company_id
             });
         } else if (role.role === Method.SUBMERCHANT) {
-            // TODO: parentID?
             const hierarchy = await getUserHierarchysDao({ user_id: parentId });
             await updateUserHierarchyDao(hierarchy.id, {
                 config: {
