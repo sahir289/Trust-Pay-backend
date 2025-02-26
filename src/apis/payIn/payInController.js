@@ -53,6 +53,7 @@ export const generatePayInUrl = async (req, res) => {
         x_api_key,
     });
 
+    // create some kind of hash to secure the next public API flow
     const queryStr = payload.isTest && (payload.isTest === 'true' || payload.isTest === true) ? `?t=true` : '';
     const updateRes = {
         expirationDate: result.expirationDate,
@@ -179,12 +180,12 @@ export const resetDeposit = async (req, res) => {
 }
 export const getPayins = async (req, res) => {
     try {
-        // const payload = req.query.search;
+        const payload = req.query;
         const { company_id } = req.user;
         const data = await getPayinsService({
             company_id,
             // Todo: Search
-        });
+        }, payload.page, payload.limit);
         console.log('getPayins successfully', data);
         return sendSuccess(res, data, 'Payins fetched successfully');
     } catch (error) {

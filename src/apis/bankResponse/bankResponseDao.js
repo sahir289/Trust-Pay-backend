@@ -49,11 +49,11 @@ const createBankResponseDao = async (data) => {
 };
 
 
-const getBankMessageDao = async ({ bank_id, startDate, endDate,
+const getBankMessageDao = async (bank_id, startDate, endDate,
   page,
   pageSize,
   sortBy,
-  sortOrder }) => {
+  sortOrder ) => {
 
   const baseQuery = `SELECT * FROM "${tableName.BANK_RESPONSE}" WHERE 1=1`;
   const filters = { bank_id };
@@ -62,7 +62,6 @@ const getBankMessageDao = async ({ bank_id, startDate, endDate,
     filters["created_at"] = [startDate, endDate];
   }
 
-  // TODO: i guess this API was only getting bank_id and created_at
   const [query, values] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);  // Execute query
   const result = await executeQuery(query, values);
   console.log(result.rows, "123456789")

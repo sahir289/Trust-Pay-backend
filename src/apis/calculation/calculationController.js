@@ -34,12 +34,10 @@ const getCalculation = async (req, res) => {
     const { role } = req.user;
     // You can add additional validation here if needed, depending on the request
     const { company_id, user_id, role_id } = req.user;
-    // const search = req.query.search;
     const data = await getCalculationService({
       company_id,
       role_id,
       user_id,
-      // TODO: search i don't think so it can be search
     }, role);
     console.info('Get Calculations successfully', 'info');
     return sendSuccess(res, data, 'Get Calculations successfully');
