@@ -25,6 +25,7 @@ const createBankResponse = async (req, res) => {
   try {
 
     const payload = req.body?.body;
+    const { company_id } = req.user;
     if (!payload) {
       console.error('payload is required');
     }
@@ -32,7 +33,7 @@ const createBankResponse = async (req, res) => {
     if (error) {
       throw new ValidationError(error);
     }
-    const data = await createBankResponseService(payload);
+    const data = await createBankResponseService(payload, company_id);
     return sendSuccess(res, data, 'Create BankResponse successfully');
   } catch (error) {
     console.error(error, 'error getting while creating BankResponse');

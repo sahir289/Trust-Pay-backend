@@ -63,7 +63,7 @@ const updateSettlementDao = async (conn, id, data) => {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
 
-    return result;
+    return result.rows[0];
   } catch (error) {
     console.error(error);
     throw error;

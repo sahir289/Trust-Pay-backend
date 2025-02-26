@@ -4,12 +4,12 @@ import { getCalculationDao, updateCalculationDao } from '../calculation/calculat
 import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getBankaccountDao, updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
-import { columns, Role } from '../../constants/index.js';
+import { columns, merchantColumns, Role } from '../../constants/index.js';
 
 const getSettlementServiceById = async (ids) => {
   try {
     const filterColumns = ids.role === Role.MERCHANT ? merchantColumns.SETTLEMENT : ids.role=== Role.VENDOR ? Role.vendorColumns.SETTLEMENT : columns.SETTLEMENT;
-    return await getSettlementDao({id: ids.id}, null, null, null, null, filterColumns);
+    return await getSettlementDao({id: ids.id, company_id : ids.company_id}, null, null, null, null, filterColumns);
   } catch (error) {
     console.error('error getting while  getting settlements', error);
     throw new BadRequestError('Error getting while getting settlements');
@@ -19,7 +19,7 @@ const getSettlementServiceById = async (ids) => {
 const getSettlementService = async (ids) => {
   try {
     const filterColumns = ids.role === Role.MERCHANT ? merchantColumns.SETTLEMENT : ids.role=== Role.VENDOR ? Role.vendorColumns.SETTLEMENT : columns.SETTLEMENT;
-    return await getSettlementDao({}, null, null, null, null, filterColumns);
+    return await getSettlementDao({company_id: ids.company_id}, null, null, null, null, filterColumns);
    
   } catch (error) {
     console.error('error getting while  getting settlements', error);
@@ -59,6 +59,10 @@ const getSettlementServiceJoined = async (req) => {
 const createSettlementService = async (payload) => {
 
   try {
+    const dataexist = await getSettlementDao({ id: ids.id })
+      if (dataexist) {
+        throw new BadRequestError('already data found');
+      }
     const data = await createSettlementDao(payload);
     return data
   }
@@ -72,14 +76,17 @@ const createSettlementService = async (payload) => {
 
 const updateSettlementService = async (conn, ids, payload) => {
   try {
-    const filterColumns = ['balance'];
+    const filterColumns = ['id','balance'];
+    const filterColumnsSettle =['id', 'user_id']
+    const filterColumnsVendor = ['id','user_id'];
+    const filterColumnsBank =['id', 'balance']
     if (payload.config.reference_id) {
       payload.status = "SUCCESS";
-      const data = await getSettlementDao({ id: ids.id })
+      const data = await getSettlementDao({ id: ids.id, company_id: ids.company_id })
       if (!data) {
         throw new BadRequestError('no data found');
       }
-      const calculationData = await getCalculationDao({ user_id: data?.user_id });
+      const calculationData = await getCalculationDao({ user_id: data?.user_id }, null, null, null, null, filterColumnsSettle);
       let count = calculationData?.total_settlement_count + 1;
       let amountCalculation = calculationData?.total_settlement_amount + payload?.amount;
       let calculationId = calculationData?.id;
@@ -95,11 +102,10 @@ const updateSettlementService = async (conn, ids, payload) => {
       }else{
         console.log("no data in calculation")
       }
-      const settlementData = await getSettlementDao({ id: ids.id })
-      const vendorData = await getVendorsDao({ user_id: settlementData[0].user_id })
-      const merchantData = await getMerchantsDao({ user_id: settlementData[0].user_id }, null, null, null, null, filterColumns )
+      const vendorData = await getVendorsDao({ user_id: data[0].user_id }, null, null, null, null, filterColumnsVendor)
+      const merchantData = await getMerchantsDao({ user_id: data[0].user_id }, null, null, null, null, filterColumns )
       if (vendorData) {
-        const bankData = await getBankaccountDao({ user_id: vendorData.user_id });
+        const bankData = await getBankaccountDao({ user_id: vendorData.user_id }, null, null, null, null, filterColumnsBank);
         if (bankData) {
           const bankId = bankData.id;
           const bankAcc = bankData.balance - payload?.amount;

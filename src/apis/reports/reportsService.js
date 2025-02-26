@@ -1,6 +1,6 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getBankaccountDao, getBankaccountDaoAll } from '../bankAccounts/bankaccountDao.js';
+import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getMerchantReportDao, getMerchantReportDaoAll, getPayInMerchantReportDao, getPayInVendorReportDao, getPayOutMerchantReportDao, getPayOutVendorReportDao } from './reportsDao.js';
 
@@ -67,7 +67,7 @@ const getPayOutReportService = async (req, res) => {
         const result = await getPayOutVendorReportDao(bankVendorData.id, startDate, endDate, method);
         return sendSuccess(res, result, 'Payins created successfully'); 
         }else{
-            const result = await getBankaccountDaoAll()
+            const result = await getBankaccountDao()
             return sendSuccess(res, result, 'Payins created successfully'); 
         }
         } catch (error) {

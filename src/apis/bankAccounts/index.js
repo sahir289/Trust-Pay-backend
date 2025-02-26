@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createBankaccount, deleteBankaccount, getBankaccountById,getBankaccount, getMerchantBank, updateBankaccount } from './bankaccountController.js';
+import { createBankaccount, deleteBankaccount, getBankaccountById,getBankaccount, updateBankaccount } from './bankaccountController.js';
 const router = express.Router();
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -141,7 +141,7 @@ router.post('/create-bankAccount',[isAuthenticated, authorized(AccessRoles.BANK_
  *       500:
  *         description: Internal server error
  */
-router.get('/get-merchantBanks', [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(getMerchantBank));
+// router.get('/get-merchantBanks', [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(getMerchantBank));
 
 /**
  * @swagger

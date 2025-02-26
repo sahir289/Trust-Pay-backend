@@ -1,48 +1,42 @@
-import { columns, Role, vendorColumns } from '../../constants/index.js';
-import { filterResponse } from '../../helpers/index.js';
+import { columns, merchantColumns, Role, vendorColumns } from '../../constants/index.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBankaccountDao } from './bankaccountDao.js';
 
 const getBankaccountService = async (filters, role) => {
     try {
-        const result = await getBankaccountDao(filters);
-        const filterColumns = role ===  Role.VENDOR ? vendorColumns.BANK_ACCOUNT : columns.BANK_ACCOUNT;
-        return await filterResponse(result, filterColumns);
+        console.log(role,filters, "rolerolero")
+        const filterColumns = role === Role.MERCHANT ? merchantColumns.BANK_ACCOUNT : role=== Role.VENDOR ? vendorColumns.BANK_ACCOUNT : columns.BANK_ACCOUNT;
+        return await getBankaccountDao(filters, null, null, null, null, filterColumns);
     } catch (error) {
         console.error('error getting while  getting banks', error);
         throw new BadRequestError('Error getting while  getting banks');
     }
 };
-const createBankaccountService = async (payload,role) => {
+const createBankaccountService = async (payload) => {
     try {
-        const filterColumns = role ===  Role.VENDOR ? vendorColumns.BANK_ACCOUNT : columns.BANK_ACCOUNT;
         const result = await createBankaccountDao(payload);
-        const finalResult = await filterResponse(result, filterColumns);
-        return finalResult;
+        return result;
     } catch (error) {
         console.error('error getting while  creating banks', error);
         throw new BadRequestError('Error getting while  creating banks');
     }
 };
 
-const updateBankaccountService = async (id, payload,role) => {
+const updateBankaccountService = async (conn, ids, payload) => {
     try {
-        const filterColumns = role ===  Role.VENDOR ? vendorColumns.BANK_ACCOUNT : columns.BANK_ACCOUNT;
-        const result = await updateBankaccountDao(id,payload);
-        const finalResult = await filterResponse(result, filterColumns);
-        return finalResult;
+        const result = await updateBankaccountDao(conn, {id: ids.id, company_id: ids.company_id },payload);
+        return result;
     } catch (error) {
         console.error('error getting while  updating banks', error);
         throw new BadRequestError('Error getting while  updating banks');
     }
 };
 
-const deleteBankaccountService = async (id,role) => {
+const deleteBankaccountService = async (conn, ids) => {
     try {
-        const filterColumns = role ===  Role.VENDOR ? vendorColumns.BANK_ACCOUNT : columns.BANK_ACCOUNT;
-        const result = await deleteBankaccountDao(id,{ is_obsolete: true });
-        const finalResult = await filterResponse(result, filterColumns);
-        return finalResult;
+        const payload = { is_obsolete: true }
+        const result = await deleteBankaccountDao(conn, {id: ids.id, company_id: ids.company_id },payload);
+        return result;
     } catch (error) {
         console.error('error getting while deleting banks', error);
         throw new BadRequestError('Error getting while  deleting banks');

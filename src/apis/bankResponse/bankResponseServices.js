@@ -15,9 +15,10 @@ import { getPayInUrlsDao, updatePayInUrlDao } from '../payIn/payInDao.js';
 import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
+import { merchantColumns, Role } from '../../constants/index.js';
 const logger = new Logger()
 
-const createBankResponseService = async (payload) => {
+const createBankResponseService = async (payload, company_id, role) => {
   try {
 
     const splitData = payload.split(" ");
@@ -35,9 +36,11 @@ const createBankResponseService = async (payload) => {
     upi_short_code !== "nil" && upi_short_code.length === 5;
     const acceptedStatus = ["SUCCESS", "DISPUTE", "BANK_MISMATCH", "FAILED", "DUPLICATE"]
 
+    const filterColumns = ids.role === Role.MERCHANT ? merchantColumns.BANK_RESPONSE : ids.role=== Role.VENDOR ? Role.vendorColumns.BANK_RESPONSE : columns.BANK_RESPONSE;
 
     if (isValidAmount) {
-      const utrAlreadyExist = await getBankResponseDao({ utr: utr });
+      const utrAlreadyExist = await getBankResponseDao({ utr: utr, company_id : ids.company_id }, null, null, null, null, filterColumns);
+
       const updatedData = {
         status: utrAlreadyExist ? "/repeated" : "/success",
         amount,
@@ -52,14 +55,13 @@ const createBankResponseService = async (payload) => {
         updatedData.upi_short_code = upi_short_code;
       }
 
-      const isAmountCodeExist = await getBankResponseDao({upi_short_code : upi_short_code})
+      const isAmountCodeExist = await getBankResponseDao({upi_short_code : upi_short_code, company_id : ids.company_id }, null, null, null, null, filterColumns)
 
       if (isAmountCodeExist) {
         // const botRes = 
         await getBankResponseDao({status : updatedData.status , amount : updatedData.amount , 
           utr : updatedData.utr , bank_id : updatedData.bank_id , is_used : updatedData.is_used , created_by : updatedData.created_by ,
-          company_id : updatedData.company_id
-        });
+          company_id : updatedData.company_id}, null, null, null, null, filterColumns);
         throw new CustomError(400, "Amount code already exist")
       }
 
@@ -94,7 +96,7 @@ const createBankResponseService = async (payload) => {
       if (checkPayInUtr?.length > 0) {
         if (upi_short_code && isValidAmountCode) {
         let dataUtr = checkPayInUtr[0]?.utr ? checkPayInUtr[0]?.utr : checkPayInUtr[0]?.user_submitted_utr
-        const getDataByUtr = await getBankResponseDaoAll({ utr: dataUtr })
+        const getDataByUtr = await getBankResponseDaoAll({ utr: dataUtr , company_id : ids.company_id }, null, null, null, null, filterColumns)
         const botUtrIsUsed = getDataByUtr?.some((item) => item.is_used);
 
         if (acceptedStatus.includes(checkPayInUtr[0]?.status) && botUtrIsUsed) {
@@ -205,8 +207,8 @@ const createBankResponseService = async (payload) => {
             // check if duplicate and return error
             const existingResponse = await getBankResponseDao({
               utr: utr,
-              is_used: true
-            });
+              is_used: true, company_id : ids.company_id }, null, null, null, null, filterColumns
+            );
 
             if (existingResponse?.length > 0) {
               throw new CustomError(400, "The UTR already exists");
@@ -633,7 +635,7 @@ const createBankResponseService = async (payload) => {
 
 
           // check if duplicate and return error
-          const existingResponse = await getBankResponseDao({ utr: utr, is_used: true })
+          const existingResponse = await getBankResponseDao({ utr: utr, is_used: true , company_id : ids.company_id }, null, null, null, null, filterColumns)
           if (existingResponse?.length > 0) {
             throw new CustomError(400, "The UTR already exists");
           }
@@ -913,7 +915,7 @@ const getBankResponseService = async (payload) => {
       utr: filters.utr,
       bank_id: filters.bank_id,
       is_used: filters.is_used
-    });
+    , company_id : ids.company_id }, null, null, null, null, filterColumns);
 
 
     return data;
