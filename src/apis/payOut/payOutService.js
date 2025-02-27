@@ -12,25 +12,20 @@ import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBa
 import { getUserByIdDao } from '../users/userDao.js';
 import { Status, Method } from '../../constants/index.js'
 import { calculateBalances, calculateCommission } from '../../helpers/index.js';
-import { PAYOUT_DETAILS_SCHEMA, UPDATE_DETAILS_SCHEMA } from '../../schemas/payoutSchema.js';
 import { columns, merchantColumns, Role, vendorColumns } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
-const createPayoutService = async (headers,payload,role) => {
-    let conn;
+
+
+const createPayoutService = async (conn,headers,payload,role) => {
     try {
         const filterColumns = role === Role.MERCHANT ? merchantColumns.PAYOUT : role === Role.VENDOR ? vendorColumns.PAYOUT : columns.PAYOUT;
-        conn = await getConnection();
-        await beginTransaction(conn);
         const { merchant_id, amount, merchant_order_id } = payload;
-        const joiValidation = PAYOUT_DETAILS_SCHEMA.validate(payload);
-        if (joiValidation.error) {
-            throw new ValidationError(joiValidation.error);
-        }
-        const { code, user_id, api_key, config } = await getMerchantsDao({merchant_id : payload.id});
+        const details = await getMerchantsDao({id : merchant_id});
+        const { code, user_id, config } = details[0];
+        const api_key = config?.api_key;
         const payoutAmount = Number(amount);
         const balanceRestriction = config.balanceRestriction;
-
-        const data = await createPayoutDao(payload);
+        const data = await createPayoutDao(conn,payload);
         if (balanceRestriction) {
             const { totalNetBalance } = await getCalculationDao({ user_id });
             if (totalNetBalance < payoutAmount) {
@@ -46,47 +41,32 @@ const createPayoutService = async (headers,payload,role) => {
             throw new BadRequestError('Merchant does not exist');
         }
 
-        if (headers['x-api-key'] !== api_key) {
+        if (String(headers['x-api-key']) !== String(api_key)) {
+           
             throw new BadRequestError('Enter valid Api key');
         }
 
         const merchantOrderIdPayoutData = merchant_order_id ? await getPayoutsDao({merchant_order_id : merchant_order_id}) : '';
-        if (merchantOrderIdPayoutData || merchantOrderIdPayoutData?.length > 0) {
+        if (merchantOrderIdPayoutData?.length > 0) {
             throw new DuplicateDataError('Merchant Order ID already exists');
         }
 
-        await commit(conn);
+       
         console.log('Payout created successfully', 'info');
         const finalResult =  filterResponse(data, filterColumns);
         return finalResult;
     } catch (error) {
-        if (conn) {
-            try {
-                await rollback(conn);
-            } catch (rollbackError) {
-                console.log('Error during transaction rollback', 'error', rollbackError);
-            }
-        }
+       
         console.log('Error while creating Payout', 'error', error);
         throw new BadRequestError('Error occurred while creating Payout');
-    } finally {
-        if (conn) {
-            try {
-                conn.release();
-            } catch (releaseError) {
-                console.log('Error while releasing the connection', 'error', releaseError);
-            }
-        }
-    }
+    } 
 };
 
 const getPayoutsService = async (filters, role) => {
     try {
-        const data = await getPayoutsDao(filters);
         const filterColumns = role === Role.MERCHANT ? merchantColumns.PAYOUT : role === Role.VENDOR ? vendorColumns.PAYOUT : columns.PAYOUT;
-        console.log('Fetched Payouts successfully', 'info');
-        const finalResult =  filterResponse(data, filterColumns);
-        return finalResult;    } catch (error) {
+        return await getPayoutsDao(filters, null, null, null, null, filterColumns);
+       } catch (error) {
         console.error('Error while fetching Payouts', error);
         throw new BadRequestError('Error occurred while fetching Payouts');
     }
@@ -96,10 +76,7 @@ const getPayoutsService = async (filters, role) => {
 const updatePayoutService = async (conn, ids, payload,role) => {
     const filterColumns = role === Role.MERCHANT ? merchantColumns.PAYOUT : role === Role.VENDOR ? vendorColumns.PAYOUT : columns.PAYOUT;
   
-    const joiValidation = UPDATE_DETAILS_SCHEMA.validate(payload);
-        if (joiValidation.error) {
-            throw new ValidationError(joiValidation.error);
-        }
+    
     if (payload.utr_id && !payload.status) Object.assign(payload, { status: Status.SUCCESS, approved_at: new Date() });
     if (payload.rejected_reason) Object.assign(payload, { status: Status.REJECTED, rejected_at: new Date() });
     if (payload.status === Status.INITIATED) Object.assign(payload, { utr_id: "", rejected_reason: "" });
@@ -112,7 +89,7 @@ const updatePayoutService = async (conn, ids, payload,role) => {
     const [merchant, vendor, user] = await Promise.all([
         getMerchantsDao({ id: data.merchant_id }),
         getVendorsDao({ id: data.user_id }),
-        getUserByIdDao({ id: bankData.user_id })
+        getUserByIdDao(conn,{ id: bankData.user_id })
     ]);
 
     if (data.status === Status.SUCCESS) {

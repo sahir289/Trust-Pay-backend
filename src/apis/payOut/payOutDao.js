@@ -5,11 +5,16 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
-
-export const createPayoutDao = async (data) => {
+import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
+export const createPayoutDao = async (conn,data) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.PAYOUT, data);
-    const result = await executeQuery(sql, params);
+    let result;
+      if (conn && conn.query) {
+        result = await conn.query(sql, params);
+      } else {
+        result = await executeQuery(sql, params);
+      }
     return result.rows[0];
   } catch (error) {
     console.error('Error in createPayoutDao:', error);
@@ -23,20 +28,23 @@ export const getPayoutsDao = async (
   pageSize,
   sortBy,
   sortOrder,
+  columns = [],
 ) => {
-  const baseQuery = `SELECT id, user, merchant_id, bank_acc_id, amount, status, failed_reason, currency, merchant_order_id, acc_no, acc_holder_name, ifsc_code, bank_name, upi_id, utr_id, rejected_reason, payout_merchant_commission, payout_vendor_commission, from_bank_acc_id, approved_at, rejected_at FROM "${tableName.PAYOUT}" WHERE 1=1`;
+  try {
+  const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.PAYOUT}" WHERE 1=1`;
   //TODO: columns.PAYOUT dynamic search
-  const [sql, queryParams] = buildSelectQuery(
-    baseQuery,
-    filters,
-    page,
-    pageSize,
-    sortBy,
-    sortOrder
-  );
+  if (filters.search) {
+              filters.or = buildSearchFilterObj(filters.search, tableName.PAYOUT);
+              delete filters.search;
+          }
+  const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
   // Execute query
   const result = await executeQuery(sql, queryParams);
-  return result.rows;
+  return result.rows;}
+  catch (error) {
+    console.error('Error in getpayoutDao:', error);
+    throw new Error('Failed to fetch payouts');
+}
 };
 
 export const updatePayoutDao = async (ids, data, conn) => {

@@ -1,6 +1,6 @@
 import { tableName } from "../../constants/index.js";
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
-
+import { buildSearchFilterObj } from "../../utils/searchBuilder.js";
 export const createUserHierarchyDao = async (data) => {
     try {
         const [sql, params] = buildInsertQuery(tableName.USER_HIERARCHY, data);
@@ -17,10 +17,15 @@ export const getUserHierarchysDao = async (
     page,
     pageSize,
     sortBy,
-    sortOrder
+    sortOrder,
+    columns = [],
 ) => {
-    const baseQuery = `SELECT id  FROM "${tableName.USER_HIERARCHY}" WHERE 1=1`;
+    const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.USER_HIERARCHY}" WHERE 1=1`;
     //TODO: columns.USER_HEIRARCHY dynamic search
+     if (filters.search) {
+                filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
+                delete filters.search;
+            }
     const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
     // Execute query
     const result = await executeQuery(sql, queryParams);

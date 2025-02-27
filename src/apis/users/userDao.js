@@ -27,7 +27,6 @@ const getUsersDao = async (conn, ids) => {
       WHERE u.is_obsolete = false
     `;
     const queryParams = [];
-
     if (ids.role_id) {
       baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
       queryParams.push(ids.role_id); 
@@ -40,21 +39,20 @@ const getUsersDao = async (conn, ids) => {
       baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
       queryParams.push(ids.company_id); 
     }
-
     const result = await conn.query(baseQuery, queryParams);
-
     if (result.rows.length === 0) {
       console.error('No users found');
       return [];
     }
 
+
       return result.rows;
+
   } catch (error) {
     console.error('error getting while fetching user', error);
     throw new DbError('Error executing query to fetch all users');
   }
 };
-
 const getUserByIdDao = async (conn, ids) => {
   try {
     let baseQuery = `
@@ -81,9 +79,7 @@ const getUserByIdDao = async (conn, ids) => {
       LEFT JOIN public."Designation" d ON u.designation_id = d.id  
       WHERE u.id = $1 AND u.is_obsolete = false
     `;
-
     const queryParams = [ids.id];
-
     if (ids.role_id) {
       baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
       queryParams.push(ids.role_id);
@@ -96,13 +92,11 @@ const getUserByIdDao = async (conn, ids) => {
       baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
       queryParams.push(ids.company_id); 
     }
-
     const result = await conn.query(baseQuery, queryParams);
     if (result.rowCount === 0) {
       console.error('No user found with the provided id and filters');
       return [];
     }
-
     const data = {
       user: result.rows[0], 
     };

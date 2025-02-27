@@ -4,6 +4,7 @@ import { createUserService, getUserByIdService, getUsersByUserNameService, getUs
 import { sendError } from '../../utils/responseHandlers.js';
 import { VALIDATE_USER_BY_ID ,CREATE_USER_SCHEMA} from '../../schemas/userSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
+import { transactionWrapper } from '../../utils/db.js';
 const getUsers = async (req, res) => {
   try {
     // const reqBody = req.body;
@@ -53,9 +54,12 @@ const getUserById = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const { role } = req.user;
+    const { role,designation_id,company_id,role_id } = req.user;
     // const {} = req.user;
     let payload = req.body;
+    payload.role_id=role_id;
+    payload.designation_id=designation_id;
+    payload.company_id=company_id;
     const joiValidation = CREATE_USER_SCHEMA.validate(payload);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
@@ -64,9 +68,7 @@ const createUser = async (req, res) => {
       console.error('payload is required');
       return sendError(res, 'payload is required', 'Validation Error');
     }
-    const {company_id} = req.user;
-    payload.company_id=company_id;
-    const data = await createUserService(payload, role);
+    const data = await transactionWrapper(createUserService)(payload, role);
     console.log('create user successfully');
     return sendSuccess(res, data, 'create user successfully');
   } catch (error) {

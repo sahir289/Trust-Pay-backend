@@ -19,7 +19,6 @@ const createChargeBack = async (req, res) => {
             throw new ValidationError(error);
         }
         const result = await createChargeBackService(payload,role);
-
         // Log success message
         console.log('ChargeBack created successfully', 'info', result);
 
