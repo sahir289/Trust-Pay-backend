@@ -52,7 +52,8 @@ const createSettlementController = async (req, res) => {
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }
-    const data = await createSettlementService(payload);
+    // const data = 
+    await createSettlementService(payload);
     sendSuccess(res, "Created settlement");
   }
   catch (error) {
@@ -65,7 +66,7 @@ const createSettlementController = async (req, res) => {
 const updateSettlementController = async (req, res) => {
     
       try {
-        const { id , created_by } = req.params;
+        const { id , updated_by } = req.params;
         const {role} = req.user;
         const payload = { ...req.body };
         payload.updated_by = updated_by;
@@ -75,7 +76,8 @@ const updateSettlementController = async (req, res) => {
         if (joiValidation.error) {
           throw new ValidationError(joiValidation.error);
         }
-        const updateData = await transactionWrapper(updateSettlementService)(ids, payload);
+        // const updateData = 
+        await transactionWrapper(updateSettlementService)(ids, payload);
         sendSuccess(res, "Updated settlement");
       } catch (error) {
         console.log('Error while creating Settlement', 'error', error);
@@ -92,7 +94,8 @@ const updateSettlementController = async (req, res) => {
         if (joiValidation.error) {
           throw new ValidationError(joiValidation.error);
         }
-        const updatedData = await transactionWrapper(deleteSettlementService)(ids)
+        // const updatedData = 
+        await transactionWrapper(deleteSettlementService)(ids)
         sendSuccess(res, "Deleted settlement");
       } catch (error) {
         console.error('error getting while deleting settlement', error);

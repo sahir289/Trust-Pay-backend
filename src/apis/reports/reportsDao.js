@@ -1,4 +1,4 @@
-import { columns, tableName } from '../../constants/index.js';
+import {  tableName } from '../../constants/index.js';
 import { buildSelectQuery, executeQuery } from '../../utils/db.js';
 
 const getPayInMerchantReportDao = async (merchant_id, startDate, endDate) => {

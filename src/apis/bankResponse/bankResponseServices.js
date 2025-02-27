@@ -924,7 +924,7 @@ const getBankMessageServices = async (bank_id, startDate, endDate, company_id, r
   try {
     const filterColumns = role === Role.MERCHANT ? merchantColumns.BANK_RESPONSE : role=== Role.VENDOR ? vendorColumns.BANK_RESPONSE : columns.BANK_RESPONSE;
     return await getBankMessageDao( bank_id,  startDate, endDate,  company_id, null, null, null, null, filterColumns);
-return data;
+
   } catch (error) {
     console.error('Error while updating BankResponse', 'error', error);
     throw new BadRequestError('Error occurred while updating BankResponse');

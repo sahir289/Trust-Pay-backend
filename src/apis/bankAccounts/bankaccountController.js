@@ -71,7 +71,8 @@ const updateBankaccount = async (req, res) => {
       throw new ValidationError(joiValidation.error);
     }
     
-    const data = await transactionWrapper(updateBankaccountService)(ids, payload);
+    // const data = 
+    await transactionWrapper(updateBankaccountService)(ids, payload);
     console.log('get Banks successfully');
     return sendSuccess(res, 'Updated Banks successfully');
   } catch (error) {
@@ -103,7 +104,8 @@ const deleteBankaccount = async (req, res) => {
     }
     const { company_id } = req.user;
     const ids = { id, company_id };
-    const data = await transactionWrapper(deleteBankaccountService)(ids);
+    // const data = 
+    await transactionWrapper(deleteBankaccountService)(ids);
     console.log('get Banks successfully');
     return sendSuccess(res, 'get Banks successfully');
   } catch (error) {

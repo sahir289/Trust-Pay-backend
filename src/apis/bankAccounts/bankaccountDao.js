@@ -1,5 +1,6 @@
 import {  tableName } from '../../constants/index.js';
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
+import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 const getBankaccountDao = async (
   filters,
   page,

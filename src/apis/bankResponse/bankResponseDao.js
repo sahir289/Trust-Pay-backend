@@ -53,10 +53,11 @@ const createBankResponseDao = async (data) => {
 
 
 const getBankMessageDao = async (bank_id, startDate, endDate, company_id,
-  page,
-  pageSize,
-  sortBy,
-  sortOrder) => {
+  // page,
+  // pageSize,
+  // sortBy,
+  // sortOrder
+) => {
 
   const query = `SELECT * FROM "BankResponse" 
 WHERE 1=1 
