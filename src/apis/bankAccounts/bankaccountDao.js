@@ -1,20 +1,25 @@
-import { tableName } from '../../constants/index.js';
+import {  tableName } from '../../constants/index.js';
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
 const getBankaccountDao = async (
   filters,
   page,
   pageSize,
   sortBy,
-  sortOrder
+  sortOrder,
+  columns = [],
+
 ) => {
-  const baseQuery = `SELECT id,upi_id,upi_params,acc_no,ifsc,bank_name,is_qr,is_bank,min_payin,is_enabled,payin_count,balance,today_balance,bank_used_for,created_by,updated_by FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1 `;
-  //TODO: columns.BANK_ACCOUNT dynamic search
-  // filter with company_id role etc
+  const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
+if (filters.search) {
+    filters.or = buildSearchFilterObj(filters.search, tableName.BANK_ACCOUNT);
+    delete filters.search;
+  }
   const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
-  // Execute query
   const result = await executeQuery(sql, queryParams);
-  return result.rows[0];
+  return result.rows.length > 0 ? result.rows : result.rows[0];
+
 };
+
 
 const getMerchantBankDao = async (filters) => {
   const query = `SELECT * FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
@@ -29,20 +34,42 @@ const createBankaccountDao = async (payload) => {
   return result.rows[0];
 };
 
-const updateBankaccountDao = async (id,payload, conn) => {
-  const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, payload, id);
-  if (conn && conn.query) {
-    const result = await conn.query(sql, params);
+const updateBankaccountDao = async (conn,id,payload) => {
+
+  try {
+    const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, payload, id);
+    let result;
+    if (conn && conn.query) {
+      result = await conn.query(sql, params); // Use connection to execute query
+    } else {
+      result = await executeQuery(sql, params); // Use executeQuery if no connection
+    }
+
     return result.rows[0];
+  } catch (error) {
+    console.error(error);
+    throw error;
   }
-  const result = await executeQuery(sql, params);
-  return result.rows[0];
+
+
 };
 
-const deleteBankaccountDao = async (id, data) => {
-  const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, data,  id );
-  const result = await executeQuery(sql, params);
-  return result.rows[0];
+const deleteBankaccountDao = async (conn, id, data) => {
+  try {
+    const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, data, id);
+    let result;
+    console.log(sql, params, data, "dshjdjbcjkcb" )
+    if (conn && conn.query) {
+      result = await conn.query(sql, params); // Use connection to execute query
+    } else {
+      result = await executeQuery(sql, params); // Use executeQuery if no connection
+    }
+
+    return result.rows[0];
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
 };
 
 export const updateBanktBalanceDao = async (filters, balance, today_balance, conn) => {

@@ -1,8 +1,7 @@
 import express from "express";
 import tryCatchHandler from "../../utils/tryCatchHandler.js";
 import { getMerchantReportService, getPayInReportService, getPayOutReportService, getVendorReportService } from "./reportsService.js";
-import { authorized, isAuthenticated } from '../../middlewares/auth.js';
-import { AccessRoles } from '../../constants/index.js';
+import {  isAuthenticated } from '../../middlewares/auth.js';
 
 /**
  * @swagger
@@ -42,7 +41,7 @@ const router = express.Router();
  *       500:
  *         description: Server error
  */
-router.post('/get-all-payouts', [isAuthenticated, authorized(AccessRoles.REPORT)], tryCatchHandler(getPayOutReportService));
+router.post('/get-all-payouts', isAuthenticated, tryCatchHandler(getPayOutReportService));
 
 /**
  * @swagger
@@ -70,7 +69,7 @@ router.post('/get-all-payouts', [isAuthenticated, authorized(AccessRoles.REPORT)
  *       500:
  *         description: Server error
  */
-router.post('/get-all-payins',[isAuthenticated, authorized(AccessRoles.REPORT)], tryCatchHandler(getPayInReportService));
+router.post('/get-all-payins',isAuthenticated ,tryCatchHandler(getPayInReportService));
 
 /**
  * @swagger
@@ -98,7 +97,7 @@ router.post('/get-all-payins',[isAuthenticated, authorized(AccessRoles.REPORT)],
  *       500:
  *         description: Server error
  */
-router.get('/get-all-merchants',[isAuthenticated, authorized(AccessRoles.REPORT)], tryCatchHandler(getMerchantReportService));
+router.get('/get-all-merchants',isAuthenticated, tryCatchHandler(getMerchantReportService));
 
 /**
  * @swagger
@@ -126,7 +125,7 @@ router.get('/get-all-merchants',[isAuthenticated, authorized(AccessRoles.REPORT)
  *       500:
  *         description: Server error
  */
-router.get('/get-all-vendors',[isAuthenticated, authorized(AccessRoles.REPORT)], tryCatchHandler(getVendorReportService));
+router.get('/get-all-vendors',isAuthenticated, tryCatchHandler(getVendorReportService));
 
 /**
  * @swagger
@@ -180,6 +179,6 @@ router.get('/get-all-vendors',[isAuthenticated, authorized(AccessRoles.REPORT)],
  *       500:
  *         description: Server error.
  */
-router.get('/weekly-vendor-report', [isAuthenticated, authorized(AccessRoles.REPORT)], tryCatchHandler(getVendorReportService));
+router.get('/weekly-vendor-report', isAuthenticated, tryCatchHandler(getVendorReportService));
 
 export default router;

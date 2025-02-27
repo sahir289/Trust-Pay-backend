@@ -1,3 +1,4 @@
+import { columns, tableName } from '../../constants/index.js';
 import { buildSelectQuery, executeQuery } from '../../utils/db.js';
 
 const getPayInMerchantReportDao = async (merchant_id, startDate, endDate) => {
@@ -11,7 +12,7 @@ const getPayInMerchantReportDao = async (merchant_id, startDate, endDate) => {
          parameters[`created_at_end`] = endDate;
       }
       const result = await executeQuery(sql, parameters);
-      return result.rows;
+      return result.rows[0];
    } catch (error) {
       console.error('Error in getPayInMerchantReportDao:', error);
       throw error;
@@ -35,6 +36,33 @@ const getPayInVendorReportDao = async (id, startDate, endDate) => {
       throw error;
    }
 }
+
+
+// const getVendorReportDaoAll = async (
+//    search,
+//    user,
+//    page,
+//    pageSize,
+//    sortBy,
+//    sortOrder
+//  ) => {
+//    const baseQuery = `SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`;
+//    const [sql, queryParams] = buildSelectQuery(
+//      baseQuery,
+//      search,
+//      columns.PAYIN,
+//      page,
+//      pageSize,
+//      sortBy,
+//      sortOrder,
+//      typeof search !== "string",
+//      user
+//    );
+//    const result = await executeQuery(sql, queryParams);
+//     return result.rows.length > 0 ? result.rows : null;
+//  };
+
+
 
 const getPayOutMerchantReportDao = async (id, startDate, endDate) => {
    try {
@@ -72,6 +100,23 @@ const getPayOutVendorReportDao = async (id, startDate, endDate) => {
    }
 };
 
+const getMerchantReportDaoAll = async (
+   filters,
+   page,
+   pageSize,
+   sortBy,
+   sortOrder
+ ) => {
+   const baseQuery = `SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`;
+   const [sql, queryParams] = buildSelectQuery(
+      baseQuery, filters, page, pageSize, sortBy, sortOrder
+   );
+   console.log(sql, queryParams, "gfhcjhgvbh" )
+   const result = await executeQuery(sql, queryParams);
+    return result.rows ;
+ };
+ 
+
 const getMerchantReportDao = async (id, startDate, endDate) => {
    try {
       let query = `SELECT *  FROM  "Payin" WHERE 1=1`;
@@ -81,8 +126,8 @@ const getMerchantReportDao = async (id, startDate, endDate) => {
          parameters[`created_at_start`] = startDate;
          parameters[`created_at_end`] = endDate;
       }
-      const result = await executeQuery(sql, parameters);
 
+      const result = await executeQuery(sql, parameters);
       const payOutquery = `SELECT *  FROM  "Payout" WHERE 1=1`;
       const [payOutsql, payOutparameters] = buildSelectQuery(payOutquery, { merchant_id: id });
       if (startDate && endDate) {
@@ -128,4 +173,4 @@ const getVendorReportDao = async (id, startDate, endDate) => {
    }
 };
 
-export { getPayInMerchantReportDao, getPayInVendorReportDao, getPayOutMerchantReportDao, getPayOutVendorReportDao, getMerchantReportDao, getVendorReportDao };
+export { getPayInMerchantReportDao, getMerchantReportDaoAll, getPayInVendorReportDao, getPayOutMerchantReportDao, getPayOutVendorReportDao, getMerchantReportDao, getVendorReportDao };

@@ -1,119 +1,122 @@
-import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
-import { createSettlementDao, deleteSettlementDao, getSettlementDao, getSettlementDaoAll, updateSettlementDao } from './settlementDao.js';
+import { BadRequestError } from '../../utils/appErrors.js';
+import { createSettlementDao, deleteSettlementDao, getSettlementDao,  settlementJoindao, updateSettlementDao } from './settlementDao.js';
 import { getCalculationDao, updateCalculationDao } from '../calculation/calculationDao.js';
 import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getBankaccountDao, updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
-import { CREATE_SETTLEMENT_SCHEMA, UPDATE_SETTLEMENT_SCHEMA, VALIDATE_SETTLEMENT_BY_ID } from '../../schemas/settlementSchema.js';
-import { transactionWrapper } from '../../utils/db.js';
-import { columns, merchantColumns, Role, vendorColumns } from '../../constants/index.js';
-import { filterResponse } from '../../helpers/index.js';
+import { columns, merchantColumns, Role } from '../../constants/index.js';
 
-const getSettlementService = async (req) => {
+const getSettlementServiceById = async (ids) => {
   try {
-    const { role } = req.user;
-    const filterColumns = role === Role.MERCHANT ? merchantColumns.SETTLEMENT : role === Role.VENDOR ? vendorColumns.SETTLEMENT : columns.SETTLEMENT;
-    const { payload } = req.params;
-    const { company_id } = req.user;
-    const joiValidation = VALIDATE_SETTLEMENT_BY_ID.validate(payload);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
-    }
-
-    const data = await transactionWrapper(getSettlementDao)({ payload, company_id });
-    const finalResult =  filterResponse(data, filterColumns);
-    return finalResult;
+    const filterColumns = ids.role === Role.MERCHANT ? merchantColumns.SETTLEMENT : ids.role=== Role.VENDOR ? Role.vendorColumns.SETTLEMENT : columns.SETTLEMENT;
+    return await getSettlementDao({id: ids.id, company_id : ids.company_id}, null, null, null, null, filterColumns);
   } catch (error) {
     console.error('error getting while  getting settlements', error);
     throw new BadRequestError('Error getting while getting settlements');
   }
 };
 
-const getSettlementServiceAll = async (req) => {
+const getSettlementService = async (ids) => {
   try {
-    const { role } = req.user;
-    const filterColumns = role === Role.MERCHANT ? merchantColumns.SETTLEMENT : role === Role.VENDOR ? vendorColumns.SETTLEMENT : columns.SETTLEMENT;
-    // const payload = req.query;
-    const { company_id } = req.user;
-    const settlementData = await getSettlementDaoAll({
-      company_id,
-    });
-    if (!settlementData) {
-      throw new BadRequestError('Error getting while getting settlements');
-    }
-    const finalResult =  filterResponse(settlementData, filterColumns);
-    return finalResult;
+    const filterColumns = ids.role === Role.MERCHANT ? merchantColumns.SETTLEMENT : ids.role=== Role.VENDOR ? Role.vendorColumns.SETTLEMENT : columns.SETTLEMENT;
+    return await getSettlementDao({company_id: ids.company_id}, null, null, null, null, filterColumns);
+   
   } catch (error) {
     console.error('error getting while  getting settlements', error);
     throw new BadRequestError('Error getting while getting settlements');
   }
 };
 
-const createSettlementService = async (req) => {
- 
+
+
+const getSettlementServiceJoined = async (req) => {
   try {
-    const { role } = req.user;
-    const filterColumns = role === Role.MERCHANT ? merchantColumns.SETTLEMENT : role === Role.VENDOR ? vendorColumns.SETTLEMENT : columns.SETTLEMENT;
-    const payload = req.body;
-    const { company_id } = req.user;
-    payload.company_id = company_id;
-    const joiValidation = CREATE_SETTLEMENT_SCHEMA.validate(payload);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
+    const settlementData = await settlementJoindao(
+      "Settlement",
+      [
+        { tableName: "BankAccount", id: "user_id" },
+      ],
+      req.query.page || 1,
+      req.query.pageSize || 10,
+      req.query.sortBy || "created_at",
+      req.query.sortOrder || "DESC"
+    );
+
+    if (!settlementData || settlementData.length === 0) {
+      throw new BadRequestError('Error getting settlements');
     }
-    const data = await transactionWrapper(createSettlementDao)(payload);
-    const finalResult =  filterResponse(data, filterColumns);
-    return finalResult;
+
+    return settlementData
+
   } catch (error) {
-    console.log('Error while creating Payout', 'error', error);
-    throw new BadRequestError('Error occurred while creating Payout');
-  } 
+    console.error('Error getting settlements:', error);
+    throw new BadRequestError('Error getting settlements');
+  }
+}
+
+
+
+const createSettlementService = async (payload) => {
+
+  try {
+    const dataexist = await getSettlementDao({ id: payload.id })
+      if (dataexist) {
+        throw new BadRequestError('already data found');
+      }
+    const data = await createSettlementDao(payload);
+    return data
+  }
+  catch (error) {
+    console.log('Error while creating Settlement', 'error', error);
+    throw new BadRequestError('Error occurred while creating Settlement');
+  }
 };
 
 
 
-const updateSettlementService = async (req) => {
- 
+const updateSettlementService = async (conn, ids, payload) => {
   try {
-    const { role } = req.user;
-    const filterColumns = role === Role.MERCHANT ? merchantColumns.SETTLEMENT : role === Role.VENDOR ? vendorColumns.SETTLEMENT : columns.SETTLEMENT;
-    const { id } = req.params;
-    const payload = { ...req.body };
-    const { company_id } = req.user;
-    const ids = { id, company_id }
-    const joiValidation = UPDATE_SETTLEMENT_SCHEMA.validate(payload);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
-    }
+    //-TODO after merchant and vendor filetr columns added
+    // const filterColumns = ['id','balance'];  
+    const filterColumnsSettle = ids.role === Role.MERCHANT ? merchantColumns.SETTLEMENT : ids.role=== Role.VENDOR ? Role.vendorColumns.SETTLEMENT : columns.SETTLEMENT;
+    // const filterColumnsVendor = ['id','user_id'];
+    // const filterColumnsBank =['id', 'balance']
     if (payload.config.reference_id) {
       payload.status = "SUCCESS";
-      // calculation for merchant and vendor
-      const data = await getSettlementDao({ id: id })
+      const data = await getSettlementDao({ id: ids.id, company_id: ids.company_id })
       if (!data) {
-        throw new BadRequestError('payload is required');
+        throw new BadRequestError('no data found');
       }
-      const calculationData = await getCalculationDao({ user_id: data?.user_id });
+      const calculationData = await getCalculationDao({ user_id: data?.user_id }, null, null, null, null, filterColumnsSettle);
       let count = calculationData?.total_settlement_count + 1;
       let amountCalculation = calculationData?.total_settlement_amount + payload?.amount;
       let calculationId = calculationData?.id;
       let currentBalance = calculationData?.current_balance + payload?.amount;
       let netBalance = calculationData?.net_balance + payload?.amount;
       if (calculationData) {
-        await updateCalculationDao(calculationId,
+        const updatedCalculations = await updateCalculationDao(conn, {id : calculationId},
           {
             total_settlement_count: count, total_settlement_amount: amountCalculation,
             current_balance: currentBalance, net_balance: netBalance
           })
+          console.log(updatedCalculations, "updatedCalculationsupdatedCalculations")
+      }else{
+        console.log("no data in calculation")
       }
-      const settlementData = await getSettlementDao({ id: id })
-      const vendorData = await getVendorsDao({ user_id: settlementData?.user_id })
-      const merchantData = await getMerchantsDao({ user_id: settlementData?.user_id })
+      const vendorData = await getVendorsDao({ user_id: data[0].user_id }
+        // , null, null, null, null, filterColumnsVendor
+      )
+      const merchantData = await getMerchantsDao({ user_id: data[0].user_id }
+        // , null, null, null, null, filterColumns 
+      )
       if (vendorData) {
-
-        const bankData = await getBankaccountDao({ user_id: vendorData.user_id });
+        const bankData = await getBankaccountDao({ user_id: vendorData.user_id }
+          // , null, null, null, null, filterColumnsBank
+        );
         if (bankData) {
+          const bankId = bankData.id;
           const bankAcc = bankData.balance - payload?.amount;
-          await updateBankaccountDao(bankData[0].id, { balance: bankAcc });
+          await updateBankaccountDao(conn, {id : bankId}, {balance: bankAcc});
         }
         else {
           console.error("No data in bank accounts")
@@ -121,45 +124,33 @@ const updateSettlementService = async (req) => {
       }
       else if (merchantData) {
         const merchantAcc = merchantData.balance - payload?.amount;
-        await updateMerchantDao(merchantData.id, { balance: merchantAcc });
+        await updateMerchantDao( {id: merchantData.id, balance: merchantAcc });
       }
 
     }
-    if (req.body.status == "INITIATED") {
+    if (payload.status == "INITIATED") {
       payload.config.reference_id = "";
       payload.config.rejected_reason = "";
     }
-    if (req.body.config.rejected_reason) {
+    if (payload.config.rejected_reason) {
       payload.status = "REVERSED";
     }
-
-    const updateData = await transactionWrapper(updateSettlementDao)(ids, payload);  
-    const finalResult =  filterResponse(updateData, filterColumns);
-    return finalResult;
+    const updateData = await updateSettlementDao(conn, {id: ids.id, company_id : ids.company_id}, payload);
+    return updateData;
   } catch (error) {
-    console.log('Error while creating Payout', 'error', error);
-    throw new BadRequestError('Error occurred while creating Payout');
-  } 
+    console.log('Error while updating Settlement', 'error', error);
+    throw new BadRequestError('Error occurred while updating Settlement');
+  }
 };
 
-const deleteSettlementService = async (req) => {
+const deleteSettlementService = async (conn, ids) => {
   try {
-    const { role } = req.user;
-    const filterColumns = role === Role.MERCHANT ? merchantColumns.SETTLEMENT : role === Role.VENDOR ? vendorColumns.SETTLEMENT : columns.SETTLEMENT;
-    const { id } = req.params;
-    const { company_id } = req.user;
-    const ids = { id, company_id }
-    const joiValidation = VALIDATE_SETTLEMENT_BY_ID.validate(id);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
-    }
-    const updatedData = await transactionWrapper(deleteSettlementDao)(ids, { is_obsolete: true })
-    const finalResult =  filterResponse(updatedData, filterColumns);
-    return finalResult;
+    const updatedData = await deleteSettlementDao(conn, {id:ids.id, company_id : ids.company_id}, { is_obsolete: true, updated_by : ids.updated_by })
+    return updatedData;
   } catch (error) {
     console.error('error getting while deleting settlement', error);
     throw new BadRequestError('Error getting while delete settlement');
   }
 };
 
-export { getSettlementService, createSettlementService, getSettlementServiceAll, updateSettlementService, deleteSettlementService };
+export { getSettlementService, getSettlementServiceJoined, createSettlementService, getSettlementServiceById, updateSettlementService, deleteSettlementService };
