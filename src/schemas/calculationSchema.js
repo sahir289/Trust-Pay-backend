@@ -2,6 +2,7 @@ import Joi from 'joi';
 
 // Validation Schema for Creating a Calculation
 const VALIDATE_CALCULATION_SCHEMA = Joi.object({
+  user_id: Joi.string().guid({ version: ['uuidv4'] }).label('user_id').required(),
     total_payin_count: Joi.number().integer().min(0).default(0),
     total_payin_amount: Joi.number().min(0).default(0),
     total_payin_commission: Joi.number().min(0).default(0),
@@ -14,8 +15,7 @@ const VALIDATE_CALCULATION_SCHEMA = Joi.object({
     total_chargeback_amount: Joi.number().min(0).default(0),
     current_balance: Joi.number().min(0).default(0),
     net_balance: Joi.number().min(0).default(0),
-    config: Joi.object().default({}),
-    is_obsolete: Joi.boolean().optional().default(false),
+    config: Joi.object().optional().default({}),
 });
 
 

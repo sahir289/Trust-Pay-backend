@@ -37,7 +37,7 @@ CREATE TABLE "Merchant" (
   "user_id" varchar NOT NULL,
   "first_name" varchar NOT NULL,
   "last_name" varchar NOT NULL,
-  "code" varchar NOT NULL,
+  "code" varchar UNIQUE NOT NULL,
   "min_payin" float NOT NULL,
   "max_payin" float NOT NULL,
   "payin_commission" float NOT NULL,

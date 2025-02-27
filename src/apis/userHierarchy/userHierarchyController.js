@@ -9,10 +9,10 @@ const createUserHierarchy = async (req, res) => {
             throw new ValidationError(error);
         }
       let payload = req.body;
-      const {company_id,role_id,user_id,role} = req.user;
+      const {company_id,user_id,role} = req.user;
       payload.company_id=company_id;
-      payload.user_id=user_id;
-      payload.role_id=role_id;
+      payload.created_by=user_id;
+      payload.updated_by=user_id;
        // Call the service to create the UserHierarchy
       const result = await createUserHierarchyService(payload,role);
         // Log success message
@@ -86,7 +86,8 @@ const updateUserHierarchy = async (req, res) => {
         }
         const payload = req.body;
         const { id } = req.params;  // Assuming the UserHierarchy ID is passed as a parameter
-        const {company_id,role} = req.user;
+        const {company_id,role,user_id} = req.user;
+        payload.updated_by=user_id;
         const ids={id,company_id}
         // Call the service to update the UserHierarchy
         const result = await updateUserHierarchyService(ids,payload,role);
@@ -115,10 +116,11 @@ const deleteUserHierarchy = async (req, res) => {
        
         const { id } = req.params;  // Assuming the UserHierarchy ID is passed as a parameter
 
-        const {company_id,role}=req.user;
+        const {company_id,role,user_id}=req.user;
+        const updated_by=user_id;
         const ids = {company_id,id}
         // Call the service to delete the UserHierarchy
-        const result = await deleteUserHierarchyService(ids,role);
+        const result = await deleteUserHierarchyService(ids,updated_by,role);
 
         // Log success message
         console.log('UserHierarchy deleted successfully', result);

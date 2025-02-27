@@ -5,6 +5,8 @@ import {
 } from '../../utils/appErrors.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { createVendorDao, deleteVendorDao, getVendorsDao, updateVendorDao } from './vendorDao.js';
+import { createCalculationDao } from '../calculation/calculationDao.js';
+import { transactionWrapper } from '../../utils/db.js';
 
 const createVendorService = async (payload, roleIs) => {
     let conn;
@@ -13,9 +15,26 @@ const createVendorService = async (payload, roleIs) => {
         await beginTransaction(conn); // Start a transaction
         const filterColumns = roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
         const data = await createVendorDao(payload);
+        const calculationPayload={
+            role_id:data.role_id,
+            user_id:data.user_id,
+            total_payin_count: "0",
+            total_payin_amount: "0",
+            total_payin_commission: "0",
+            total_payout_count: "0",
+            total_payout_amount: "0",
+            total_payout_commission: "0",
+            total_settlement_count: "0",
+            total_settlement_amount: "0",
+            total_chargeback_count: "0",
+            total_chargeback_amount: "0",
+            current_balance: "0",
+            net_balance: "0",
+            company_id:data.company_id
+              }
+     await transactionWrapper(createCalculationDao)(calculationPayload);
         await commit(conn); // Commit the transaction
         console.log('Vendor created successfully', 'info');
-
         const finalResult =  filterResponse(data, filterColumns);
         return finalResult;
     } catch (error) {
@@ -90,9 +109,7 @@ const deleteVendorService = async (ids, role) => {
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
         const payload = { is_obsolete: true };
-
         const data = await deleteVendorDao(ids, payload); // Adjust DAO call for delete
-
         await commit(conn); // Commit the transaction
         console.log('Vendor deleted successfully', 'info');
 

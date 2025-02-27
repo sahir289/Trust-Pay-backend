@@ -3,7 +3,6 @@ import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } fr
 import { buildSearchFilterObj } from "../../utils/searchBuilder.js";
 
 export const createMerchantDao = async (data) => {
-    console.log(data)
     try {
         const [sql, params] = buildInsertQuery(tableName.MERCHANT, data);
         const result = await executeQuery(sql, params);

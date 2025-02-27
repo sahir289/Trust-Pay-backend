@@ -1,12 +1,8 @@
 import Joi from 'joi';
 
 export const CREATE_DESIGNATION_SCHEMA = Joi.object({
+  role_id: Joi.string().guid({ version: ['uuidv4'] }).label('role_id'),
   designation: Joi.string().label('designation').required(),
-  created_by: Joi.string().guid({ version: ['uuidv4'] }).label('created_by').optional(), // made optional
-  created_at: Joi.date().iso().label('created_at').required().optional(),
-  updated_at: Joi.date().iso().label('updated_at').optional(),
-  updated_by: Joi.string().guid({ version: ['uuidv4'] }).label('updated_by').optional(), // added updated_by as optional UUID
-  is_obsolete: Joi.boolean().optional().default(false),
 });
 
 export const UPDATE_DESIGNATION_SCHEMA = Joi.object({

@@ -1,4 +1,4 @@
-import {tableName } from '../../constants/index.js';
+import {columns, tableName } from '../../constants/index.js';
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
 import { buildSearchFilterObj } from "../../utils/searchBuilder.js";
 
@@ -8,12 +8,12 @@ const getDesignationDao = async (
   pageSize,
   sortBy,
   sortOrder,
-  columns = [],
+  Columns = columns.DESIGNATION,
 ) => {
   try {
-    const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.DESIGNATION}" WHERE 1=1`;
+    const baseQuery = `SELECT ${Columns.length ? Columns.join(', ') : "*"} FROM "${tableName.DESIGNATION}" WHERE 1=1`;
      if (filters.search) {
-                filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
+                filters.or = buildSearchFilterObj(filters.search, tableName.DESIGNATION);
                 delete filters.search;
             }
     const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);

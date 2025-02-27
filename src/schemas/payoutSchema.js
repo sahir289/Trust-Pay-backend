@@ -19,25 +19,16 @@ export const PAYOUT_DETAILS_SCHEMA = Joi.object({
     payout_merchant_commission: Joi.number().label('payout_merchant_commission').required(),
     payout_vendor_commission: Joi.number().label('payout_vendor_commission').required(),
     from_bank_acc_id: Joi.string().label('from_bank_acc_id').required(),
-    approved_at: Joi.date().iso().label('approved_at').required(),
-    rejected_at: Joi.date().iso().allow(null).label('rejected_at'), // Allow null if rejected_at is null
     config: Joi.object({
         notify_url: Joi.string().uri().label('notify_url').required()
     }).label('config').optional(),
-    created_by: Joi.string().label('created_by').required(),
-    updated_by: Joi.string().label('updated_by').required(),
-    company_id: Joi.string().label('company_id').required(),
-    is_obsolete: Joi.boolean().label('is_obsolete').required().default(false)
 });
 
 export const UPDATE_DETAILS_SCHEMA = Joi.object({
     user: Joi.string().label('user').optional(),
-    merchant_id: Joi.string().label('merchant_id').optional(),
-    bank_acc_id: Joi.string().label('bank_acc_id').optional(),
     amount: Joi.number().label('amount').optional(),
     status: Joi.string().valid('PENDING', 'COMPLETED', 'FAILED').label('status').optional(),
     currency: Joi.string().length(3).label('currency').optional(),
-    merchant_order_id: Joi.string().label('merchant_order_id').optional(),
     acc_no: Joi.string().length(10).label('acc_no').optional(),
     acc_holder_name: Joi.string().label('acc_holder_name').optional(),
     ifsc_code: Joi.string().label('ifsc_code').optional(),
@@ -54,7 +45,6 @@ export const UPDATE_DETAILS_SCHEMA = Joi.object({
     config: Joi.object({
         notify_url: Joi.string().uri().label('notify_url').optional()
     }).label('config').optional(),
-    created_by: Joi.string().label('created_by').optional(),
     updated_by: Joi.string().label('updated_by').optional(),
     company_id: Joi.string().label('company_id').optional(),
     is_obsolete: Joi.boolean().label('is_obsolete').optional()
