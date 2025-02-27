@@ -1,25 +1,14 @@
 import { BadRequestError } from '../../utils/appErrors.js';
-import { getConnection } from '../../utils/db.js';
 import { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao } from './designationDao.js';
 
-const getDesignationService = async (search, user) => {
-  let conn;
+const getDesignationService = async (user) => {
   try {
-    conn = await getConnection();
-    const result = await getDesignationDao(search, user);
+    const result = await getDesignationDao(user);
     return result;
   } catch (error) {
     console.error('error getting while Designation', error);
     throw new BadRequestError('Error getting while Designation');
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
-      }
-    }
-  }
+  } 
 };
 
 const createDesignationService = async (conn, payload) => {
@@ -32,10 +21,10 @@ const createDesignationService = async (conn, payload) => {
   }
 };
 
-const updateDesignationService = async (id, comapany_id, role_id, payload) => {
+const updateDesignationService = async (id, payload) => {
   try {
 
-    const result = await updateDesignationDao(id, comapany_id, role_id, payload);
+    const result = await updateDesignationDao(id, payload);
     return result;
   } catch (error) {
     console.error('error getting while Designation', error);
@@ -43,9 +32,9 @@ const updateDesignationService = async (id, comapany_id, role_id, payload) => {
   }
 };
 
-const deleteDesignationService = async (id, comapany_id, role_id) => {
+const deleteDesignationService = async (id) => {
   try {
-    const result = await deleteDesignationDao(id, comapany_id, role_id, { is_obsolete: true });
+    const result = await deleteDesignationDao(id, { is_obsolete: true });
     return result;
   } catch (error) {
     console.error('error getting while Designation', error);

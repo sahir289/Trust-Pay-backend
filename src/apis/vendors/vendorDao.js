@@ -1,6 +1,6 @@
 import { tableName } from "../../constants/index.js";
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
-
+import { buildSearchFilterObj } from "../../utils/searchBuilder.js";
 export const createVendorDao = async (data) => {
     try {
         const [sql, params] = buildInsertQuery(tableName.VENDOR, data);
@@ -17,14 +17,20 @@ export const getVendorsDao = async (
     page,
     pageSize,
     sortBy,
-    sortOrder
+    sortOrder,
+    columns = [],
 ) => {
     try {
-        const baseQuery = `SELECT id, first_name, last_name, code, payin_commission, payout_commission, balance, created_by, updated_by, config, created_at, updated_at FROM "${tableName.VENDOR}" WHERE 1=1`;
-        const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
+        const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.VENDOR}" WHERE 1=1`;
         // Execute query
+         if (filters.search) {
+                    filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
+                    delete filters.search;
+                }
+                const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
+
         const result = await executeQuery(sql, queryParams);
-        return result.rows[0];
+        return result.rows;
     } catch (error) {
         console.error('Error in getVendorsDao:', error);
         throw new Error('Failed to get vendors');

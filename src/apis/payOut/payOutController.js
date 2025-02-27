@@ -1,21 +1,22 @@
 import { transactionWrapper } from '../../utils/db.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { createPayoutService, deletePayoutService, getPayoutsService, updatePayoutService } from './payOutService.js';
+import { PAYOUT_DETAILS_SCHEMA, UPDATE_DETAILS_SCHEMA ,VALIDATE_PAYOUT_BY_ID} from '../../schemas/payoutSchema.js';
+import { ValidationError } from '../../utils/appErrors.js';
 
 const createPayout = async (req, res) => {
     try {
+         const joiValidation = PAYOUT_DETAILS_SCHEMA.validate(req.body);
+                if (joiValidation.error) {
+                    throw new ValidationError(joiValidation.error);
+                }
       let payload = req.body;
-      if (!payload) {
-        console.error('payload is required');
-        return sendError(res, 'payload is required', 'Validation Error');
-      }
       const {company_id,role} = req.user;
       payload.company_id=company_id;
         // Call the service to create the Payout
-        const result = await createPayoutService( req.headers ,payload,role);
+        const result = await transactionWrapper(createPayoutService)( req.headers ,payload,role);
         // Log success message
-        console.log('Payout created successfully', result);
-
+        console.log('Payout created successfully');
         // Send a success response to the client
         return sendSuccess(res, result, 'Payout created successfully');
     } catch (error) {
@@ -27,24 +28,23 @@ const createPayout = async (req, res) => {
     }
 };
 
-
 const getPayoutsById = async (req, res) => {
     try {
+        const joiValidation = VALIDATE_PAYOUT_BY_ID.validate(req.params);
+        if (joiValidation.error) {
+            throw new ValidationError(joiValidation.error);
+        }
         const {id} = req.params;
   const {company_id,role}  = req.user;
-  const payload={};
         // Fetch vendors data from the service
-        const data = await getPayoutsService({id,company_id},payload,role);
-
+        const data = await getPayoutsService({id,company_id},role);
         // Log success message
         console.log('getPayouts successfully', data);
-
         // Send success response
         return sendSuccess(res, data, 'Payouts fetched successfully');
     } catch (error) {
         // Log error
         console.error('error getting while fetching Payouts Data',  error);
-
         // Send an error response
         return sendError(res, error, 'Error occurred while fetching Payouts');
     }
@@ -58,7 +58,7 @@ const getPayouts = async (req, res) => {
         // Fetch vendors data from the service
         const data = await getPayoutsService({
             company_id,
-            // TODO: search
+            ...req.query,
         }, role);
 
         // Log success message
@@ -80,11 +80,19 @@ const getPayouts = async (req, res) => {
 const updatePayout = async (req, res) => {
     try {
         const payload = req.body;
+        const joiValidation = UPDATE_DETAILS_SCHEMA.validate(payload);
+                if (joiValidation.error) {
+                    throw new ValidationError(joiValidation.error);
+                }
+                const Validation = VALIDATE_PAYOUT_BY_ID.validate(req.params);
+                if (Validation.error) {
+                    throw new ValidationError(Validation.error);
+                }
         const { id } = req.params; 
         const {company_id,role} = req.user;
         const ids = {id, company_id}
         const result = await transactionWrapper(updatePayoutService)(ids, payload,role);
-        console.log('Payout updated successfully', result);
+        console.log('Payout updated successfully');
         return sendSuccess(res, result, 'Payout updated successfully');
     } catch (error) {
         // Log the error
@@ -97,11 +105,15 @@ const updatePayout = async (req, res) => {
 
 const deletePayout = async (req, res) => {
     try {
+        const joiValidation = VALIDATE_PAYOUT_BY_ID.validate(req.params);
+        if (joiValidation.error) {
+            throw new ValidationError(joiValidation.error);
+        }
         const { id } = req.params;  // Assuming the Payout ID is passed as a parameter
-        const {company_id} = req.user;
+        const {company_id,role} = req.user;
+        const ids = {id, company_id}
         // Call the service to delete the Payout
-        const result = await deletePayoutService(id,company_id);
-
+        const result = await deletePayoutService(ids,role);
         // Log success message
         console.log('Payout deleted successfully', result);
 

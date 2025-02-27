@@ -108,16 +108,39 @@ export const streamToBase64 = (readableStream) => {
 //     }
 //     return {};
 //   }
+export const filterResponse = (data, keys) => {
+    console.log(data, keys, "Initial check");
 
-export const filterResponse = (data, key) => {
-    if (Array.isArray(data && data !== null)) {
-        return data.map(item => ({ [key]: item[key] })).filter(item => item[key] !== undefined);
-    } else if (!data || typeof data !== "object") return null;
+    if (Array.isArray(data)) {
+        console.log(data, keys, "Data is an array");
 
-    return key.reduce((acc, ke) => {
-        if (ke in data) acc[ke] = data[ke];
-        return acc;
-    }, {});
+        return data.map(item => {
+            const filteredItem = {};
+            keys.forEach(key => {
+                if (Object.prototype.hasOwnProperty.call(item, key)) { 
+                    filteredItem[key] = item[key]; 
+                } else {
+                    console.log(item, key, "Key not found in object");
+                }
+            });
+            return filteredItem;
+        });
+    } 
+    else if (typeof data === "object" && data !== null) {
+        console.log(data, keys, "Data is an object");
 
-
+        const filteredItem = {};
+        keys.forEach(key => {
+            if (Object.prototype.hasOwnProperty.call(data, key)) { 
+                filteredItem[key] = data[key]; 
+            } else {
+                console.log(data, key, "Key not found in object");
+            }
+        });
+        return filteredItem;
+    } 
+    else {
+        console.log(data, keys, "Data is neither an array nor an object");
+        return null; 
+    }
 };
