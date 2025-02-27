@@ -1,20 +1,26 @@
 import { executeQuery, buildSelectQuery, buildInsertQuery, buildUpdateQuery } from "../../utils/db.js";
 import { tableName } from "../../constants/index.js";
 import { sendError } from "../../utils/responseHandlers.js";
-
+import { buildSearchFilterObj } from "../../utils/searchBuilder.js";
 const getCalculationDao = async (
   filters,
   page,
   pageSize,
   sortBy,
-  sortOrder) => {
+  sortOrder,
+  columns = [],
+) => {
   try {
-    const baseQuery = `SELECT  "id","total_payin_count","total_payin_amount","total_payin_commission","total_payout_count","total_payout_amount","total_payout_commission","total_settlement_count","total_settlement_amount","total_chargeback_count", "total_chargeback_amount","current_balance","net_balance" FROM "${tableName.CALCULATION}" WHERE 1=1`;
+    const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.CALCULATION}" WHERE 1=1`;
     //TODO: columns.CALCULATION dynamic search 
+    if (filters.search) {
+                filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
+                delete filters.search;
+            }
     const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
-    // Execute query
+            // Execute query
     const result = await executeQuery(sql, queryParams);
-    return result.rows[0];
+    return result.rows;
   } catch (error) {
     console.error('Error fetching Calculation', error);
     throw new sendError('Failed to fetch Calculation');

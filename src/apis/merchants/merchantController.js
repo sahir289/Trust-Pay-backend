@@ -10,14 +10,12 @@ const createMerchant = async (req, res) => {
         }
         const { role } = req.user;
         let payload = req.body;
-       
         const { company_id, user_id, role_id } = req.user;
         payload.company_id = company_id;
         payload.user_id = user_id;
         payload.role_id = role_id;
         // Call the service to create the Merchant
         const result = await createMerchantService(payload, role);
-
         // Log success message
         console.log('Merchant created successfully', result);
 
@@ -33,12 +31,10 @@ const createMerchant = async (req, res) => {
 
 const getMerchants = async (req, res) => {
     try {
-        const {company_id,user_id,role_id, role} = req.user; 
+        const {company_id,role} = req.user; 
         // Fetch merchants data from the service
         const data = await getMerchantsService({
             company_id,
-            user_id,
-            role_id,
             ...req.query,
         }, role);
         // Log success message
@@ -61,9 +57,9 @@ const getMerchantsById = async (req, res) => {
             throw new ValidationError(error);
         }
         const { id } = req.params;
-        const { company_id, user_id, role_id } = req.user;
+        const { company_id } = req.user;
         // Fetch merchants data from the service
-        const data = await getMerchantsService({ id, company_id, role_id, user_id }, role);
+        const data = await getMerchantsService({ id, company_id }, role);
         // Log success message
         console.log('get Merchant successfully', data);
 
@@ -94,8 +90,8 @@ const updateMerchant = async (req, res) => {
 
         const payload = req.body;
         const { id } = req.params;  // Assuming the Merchant ID is passed as a parameter
-        const { company_id, user_id, role_id } = req.user;
-        const ids = {id, company_id, role_id, user_id}
+        const { company_id} = req.user;
+        const ids = {id, company_id}
         // Call the service to update the Merchant
         const result = await updateMerchantService(ids, payload, role);
 

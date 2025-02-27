@@ -29,14 +29,12 @@ const createUserHierarchy = async (req, res) => {
 
 const getUserHierarchys = async (req, res) => {
     try {
-        const {company_id,user_id,role_id, role} = req.user;
+        const {company_id, role} = req.user;
         // const search = req.query.search;
         // Fetch vendors data from the service
         const data = await getUserHierarchyService({
             company_id,
-            user_id,
-            role_id,
-            // TOOD: search
+            ...req.query,
         }, role);
         // Log success message
         console.log('get UserHierarchys successfully', data);
@@ -57,9 +55,9 @@ const getUserHierarchysById = async (req, res) => {
             throw new ValidationError(error);
         }
         const {id} = req.params;
-        const {company_id,user_id,role_id,role} = req.user;
+        const {company_id,role} = req.user;
         // Fetch vendors data from the service
-        const ids = {id,company_id,user_id,role_id}
+        const ids = {id,company_id}
         const payload={};
         const data = await getUserHierarchyService(ids,payload,role);
         // Log success message
@@ -88,8 +86,8 @@ const updateUserHierarchy = async (req, res) => {
         }
         const payload = req.body;
         const { id } = req.params;  // Assuming the UserHierarchy ID is passed as a parameter
-        const {company_id,user_id,role_id,role} = req.user;
-        const ids={id,company_id,user_id,role_id}
+        const {company_id,role} = req.user;
+        const ids={id,company_id}
         // Call the service to update the UserHierarchy
         const result = await updateUserHierarchyService(ids,payload,role);
 
@@ -117,8 +115,8 @@ const deleteUserHierarchy = async (req, res) => {
        
         const { id } = req.params;  // Assuming the UserHierarchy ID is passed as a parameter
 
-        const {company_id,user_id,role_id,role}=req.user;
-        const ids = {company_id,user_id,role_id,id}
+        const {company_id,role}=req.user;
+        const ids = {company_id,id}
         // Call the service to delete the UserHierarchy
         const result = await deleteUserHierarchyService(ids,role);
 

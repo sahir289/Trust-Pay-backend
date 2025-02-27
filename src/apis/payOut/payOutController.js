@@ -36,9 +36,8 @@ const getPayoutsById = async (req, res) => {
         }
         const {id} = req.params;
   const {company_id,role}  = req.user;
-  const payload={};
         // Fetch vendors data from the service
-        const data = await getPayoutsService({id,company_id},payload,role);
+        const data = await getPayoutsService({id,company_id},role);
         // Log success message
         console.log('getPayouts successfully', data);
         // Send success response
@@ -59,7 +58,7 @@ const getPayouts = async (req, res) => {
         // Fetch vendors data from the service
         const data = await getPayoutsService({
             company_id,
-            // TODO: search
+            ...req.query,
         }, role);
 
         // Log success message
@@ -115,7 +114,6 @@ const deletePayout = async (req, res) => {
         const ids = {id, company_id}
         // Call the service to delete the Payout
         const result = await deletePayoutService(ids,role);
-
         // Log success message
         console.log('Payout deleted successfully', result);
 

@@ -7,14 +7,12 @@ import { getRoleDao } from '../roles/rolesDao.js';
 import { createUserHierarchyDao, getUserHierarchysDao, updateUserHierarchyDao } from '../userHierarchy/userHierarchyDao.js';
 import { columns, merchantColumns, Method, Role } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
-
 // Create Merchant Service
 const createMerchantService = async (payload, roleIs) => {
     try {
         const filterColumns = roleIs === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
         const parentId = payload.parentId;
         delete payload.parentId;
-
         const data = await createMerchantDao(payload);
         const role = await getRoleDao({ id: payload.role_id });
 
@@ -80,7 +78,6 @@ const deleteMerchantService = async (ids, roleIs) => {
 
         const payload = { is_obsolete: true };
         const data = await deleteMerchantDao(ids, payload); // Adjust DAO call for delete
-
         await commit(conn); // Commit the transaction
         console.log('Merchant deleted successfully');
         const finalResult = filterResponse(data, filterColumns);

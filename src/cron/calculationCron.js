@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import moment from 'moment-timezone';
-import { getCalculationDao, createCalculationDao } from '../apis/calculation/calculationDao.js';
+import { getCalculationDao} from '../apis/calculation/calculationDao.js';
 import { transactionWrapper } from '../utils/db.js';
 
 
@@ -18,15 +18,15 @@ const getUsersForCron = async (conn) => {
   }
 };
 
-cron.schedule('*/5 * * * * *', () => {
-    collectCalculationData('Asia/Kolkata');
-});
-// cron.schedule("0 0 * * *", () => {
-//     collectCalculationData('Asia/Kolkata')
-// },{
-//     timezone: 'Asia/Kolkata' 
-// }
-// );
+// cron.schedule('*/5 * * * * *', () => {
+//     collectCalculationData('Asia/Kolkata');
+// });
+cron.schedule("0 0 * * *", () => {
+    collectCalculationData('Asia/Kolkata')
+},{
+    timezone: 'Asia/Kolkata' 
+}
+);
 
 const collectCalculationData = async (timezone = 'Asia/Kolkata') => {
     const startTime = moment().tz(timezone, true);
@@ -59,7 +59,7 @@ const collectCalculationData = async (timezone = 'Asia/Kolkata') => {
                         total_reverse_payout_commission: 0,
                         config: {},
                     };
-
+                console.log(resetData)
                     // await processUpdate(resetData);
                 }
             } catch (userError) {
@@ -76,13 +76,13 @@ const collectCalculationData = async (timezone = 'Asia/Kolkata') => {
 };
 
 // Function to update the calculation data
-async function processUpdate(data) {
-    console.log(data,"hii from data")
-    try {
-       await createCalculationDao(data, null);
-    } catch (error) {
-        console.error('Error while updating calculation data:', error?.message);
-    }
-}
+// async function processUpdate(data) {
+//     console.log(data,"hii from data")
+//     try {
+//        await createCalculationDao(data, null);
+//     } catch (error) {
+//         console.error('Error while updating calculation data:', error?.message);
+//     }
+// }
 
 export default collectCalculationData;

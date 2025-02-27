@@ -21,10 +21,10 @@ const createDesignationService = async (conn, payload) => {
   }
 };
 
-const updateDesignationService = async (id, comapany_id, role_id, payload) => {
+const updateDesignationService = async (id, payload) => {
   try {
 
-    const result = await updateDesignationDao(id, comapany_id, role_id, payload);
+    const result = await updateDesignationDao(id, payload);
     return result;
   } catch (error) {
     console.error('error getting while Designation', error);
@@ -32,9 +32,9 @@ const updateDesignationService = async (id, comapany_id, role_id, payload) => {
   }
 };
 
-const deleteDesignationService = async (id, comapany_id, role_id) => {
+const deleteDesignationService = async (id) => {
   try {
-    const result = await deleteDesignationDao(id, comapany_id, role_id, { is_obsolete: true });
+    const result = await deleteDesignationDao(id, { is_obsolete: true });
     return result;
   } catch (error) {
     console.error('error getting while Designation', error);

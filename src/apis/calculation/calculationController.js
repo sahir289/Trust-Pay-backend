@@ -13,11 +13,9 @@ const getCalculationById = async (req, res) => {
       throw new ValidationError(error);
     }
     const { id } = req.params;
-    const { user_id, role_id, company_id, role } = req.user;
+    const {  company_id, role } = req.user;
     const data = await getCalculationService({
       id,
-      user_id,
-      role_id,
       company_id,
     }, role);
     console.info('Get Calculation successfully', 'info');
@@ -33,11 +31,10 @@ const getCalculation = async (req, res) => {
   try {
     const { role } = req.user;
     // You can add additional validation here if needed, depending on the request
-    const { company_id, user_id, role_id } = req.user;
+    const { company_id } = req.user;
     const data = await getCalculationService({
       company_id,
-      role_id,
-      user_id,
+      ...req.query
     }, role);
     console.info('Get Calculations successfully', 'info');
     return sendSuccess(res, data, 'Get Calculations successfully');
@@ -91,8 +88,8 @@ const updateCalculation = async (req, res) => {
     }
     const payload = req.body;
     const { id } = req.params;
-    const { user_id, role_id, company_id } = req.user;
-    const ids = { user_id, role_id, company_id, id }
+    const { company_id } = req.user;
+    const ids = { company_id, id }
     // Assuming the Payout ID is passed as a parameter
     // Call the service to update the Payout
     const data = await transactionWrapper(updateCalculationService)(ids, payload, role);
@@ -113,15 +110,10 @@ const deleteCalculation = async (req, res) => {
     if (error) {
       throw new ValidationError(error);
     }
-    const { user_id, role_id, company_id } = req.user;
-    const params = req.params;
-    const data = await transactionWrapper(deleteCalculationService)(
-      params.id,
-      user_id,
-      role_id,
-      company_id,
-      role
-    );
+    const { company_id } = req.user;
+    const {id} = req.params;
+    const ids = {id,company_id}
+    const data = await transactionWrapper(deleteCalculationService)(ids,role);
     console.info('Delete Calculation successfully', 'info');
     return sendSuccess(res, data, 'Delete Calculation successfully');
   } catch (error) {

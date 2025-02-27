@@ -42,10 +42,7 @@ const createVendorService = async (payload, roleIs) => {
 const getVendorsService = async (filters, roleIs) => {
     try {
         const filterColumns = roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
-        const data = await getVendorsDao(filters);
-        console.log('Fetched Vendors successfully', 'info');
-        const finalResult =  filterResponse(data, filterColumns);
-        return finalResult;
+        return await getVendorsDao(filters, null, null, null, null, filterColumns);
     } catch (error) {
         console.error('Error while fetching vendors', error);
         throw new BadRequestError('Error occurred while fetching vendors');
@@ -59,7 +56,7 @@ const updateVendorService = async (id, payload, role) => {
         const filterColumns = role === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
-        const data = await updateVendorDao(id, payload); // Adjust DAO call for update
+        const data = await updateVendorDao(id, payload,conn); // Adjust DAO call for update
         await commit(conn); // Commit the transaction
         console.log('Vendor updated successfully', 'info');
         const finalResult =  filterResponse(data, filterColumns);
