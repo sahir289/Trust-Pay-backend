@@ -33,11 +33,7 @@ const getBankResponseDaoAll = async (
   const baseQuery = `SELECT * FROM "${tableName.BANK_RESPONSE}" WHERE 1=1`;
   //TODO: columns.BANK_RESPONSE dynamic search
   const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
-  // Execute query
-  console.log(sql, queryParams, "sdhjgdiuygbjchb")
-
   const result = await executeQuery(sql, queryParams);
-  console.log(result, "sdhjgdsjchb")
   return result.rows;
 
 };

@@ -59,7 +59,6 @@ const deleteBankaccountDao = async (conn, id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, data, id);
     let result;
-    console.log(sql, params, data, "dshjdjbcjkcb" )
     if (conn && conn.query) {
       result = await conn.query(sql, params); // Use connection to execute query
     } else {

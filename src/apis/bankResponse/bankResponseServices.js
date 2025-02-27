@@ -538,7 +538,6 @@ const createBankResponseService = async (payload, companyId, role) => {
           }
 
           if (checkPayInUtr[0].bank_acc_id !== isBankExist?.id) {
-            console.log(checkPayInUtr[0], "iuytdrsdxfcgvhb")
             if (checkPayInUtr.at(0)?.user_submitted_utr) {
               if (checkPayInUtr.at(0)?.user_submitted_utr == utr) {
                 const payInData = {
