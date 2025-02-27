@@ -29,7 +29,7 @@ const createBankResponseService = async (payload, companyId, role) => {
     const utr = splitData[3];
     const bank_id = splitData[4];
     const is_used = splitData[5];
-    const created_by = splitData[6];
+    const created_by = payload.created_by;
     const company_id = companyId;
 
     const isValidAmount = amount;

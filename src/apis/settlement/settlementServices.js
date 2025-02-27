@@ -4,11 +4,11 @@ import { getCalculationDao, updateCalculationDao } from '../calculation/calculat
 import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getBankaccountDao, updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
-import { columns, merchantColumns, Role } from '../../constants/index.js';
+import { columns, merchantColumns, Role, vendorColumns } from '../../constants/index.js';
 
 const getSettlementServiceById = async (ids) => {
   try {
-    const filterColumns = ids.role === Role.MERCHANT ? merchantColumns.SETTLEMENT : ids.role=== Role.VENDOR ? Role.vendorColumns.SETTLEMENT : columns.SETTLEMENT;
+    const filterColumns = ids.role === Role.MERCHANT ? merchantColumns.SETTLEMENT : ids.role=== Role.VENDOR ? vendorColumns.SETTLEMENT : columns.SETTLEMENT;
     return await getSettlementDao({id: ids.id, company_id : ids.company_id}, null, null, null, null, filterColumns);
   } catch (error) {
     console.error('error getting while  getting settlements', error);
@@ -145,7 +145,7 @@ const updateSettlementService = async (conn, ids, payload) => {
 
 const deleteSettlementService = async (conn, ids) => {
   try {
-    const updatedData = await deleteSettlementDao(conn, {id:ids.id, company_id : ids.company_id}, { is_obsolete: true, updated_by : ids.updated_by })
+    const updatedData = await deleteSettlementDao(conn, {id:ids.id, company_id : ids.company_id}, { is_obsolete: true, updated_by : ids.user_id })
     return updatedData;
   } catch (error) {
     console.error('error getting while deleting settlement', error);

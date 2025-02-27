@@ -28,8 +28,8 @@ const createBankResponse = async (req, res) => {
   try {
     const {role} = req.user;
     const payload = req.body?.body;
-    payload.created_by = created_by;
-    const { company_id, created_by } = req.user;
+    const { company_id, user_id } = req.user;
+    payload.created_by = user_id
     if (!payload) {
       console.error('payload is required');
     }
@@ -61,7 +61,7 @@ const getBankMessage = async (req, res) => {
 
 const resetBankResponse = async (req, res) => {
   try {
-    const { company_id, updated_by } = req.user;
+    const { company_id, user_id } = req.user;
     const { id } = req.body;
     const botRes = await getBankResponseDao({ id: id , company_id:company_id });
     let getallPayinDataByUtr
@@ -72,7 +72,7 @@ const resetBankResponse = async (req, res) => {
     if (!hasSuccess) {
       const data = {
         is_used: false,
-        updated_by: updated_by
+        updated_by: user_id
       }
       await updateBotResponseDao(id, data);
 
@@ -83,7 +83,7 @@ const resetBankResponse = async (req, res) => {
         const updatePayinData = {
           status: "ASSIGNED",
           user_submitted_utr: null,
-          updated_by: updated_by
+          updated_by: user_id
         }
         await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData)
       }

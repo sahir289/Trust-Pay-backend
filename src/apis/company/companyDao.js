@@ -1,5 +1,6 @@
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
 import { tableName } from '../../constants/index.js';
+import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 const getCompanyDao = async (
   filters,
@@ -12,12 +13,11 @@ const getCompanyDao = async (
     const baseQuery = `SELECT id,first_name,last_name FROM "${tableName.COMPANY}" WHERE 1=1`;
     //TODO: columns.Company dynamic search
     const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
-    // Execute query
     const result = await executeQuery(sql, queryParams);
-    return result.rows;
+    return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
-    console.error('Error fetching company:', error); // Log the error for debugging
-    throw error; // Rethrow the error to propagate it
+    console.error('Error fetching company:', error); 
+    throw error; 
   }
 };
 

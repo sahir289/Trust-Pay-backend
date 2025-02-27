@@ -1,11 +1,11 @@
 import {  tableName } from '../../constants/index.js';
 import { buildSelectQuery, executeQuery } from '../../utils/db.js';
 
-const getPayInMerchantReportDao = async (merchant_id, startDate, endDate) => {
+const getPayInMerchantReportDao = async (merchant_id, startDate, endDate, company_id) => {
    try {
       const tableName = 'Payin';
       let query = `SELECT *  FROM  "${tableName}" WHERE 1=1`;
-      const [sql, parameters] = buildSelectQuery(query, { merchant_id: merchant_id });
+      const [sql, parameters] = buildSelectQuery(query, { merchant_id: merchant_id, company_id:company_id });
       if (startDate && endDate) {
          query += ` AND created_at BETWEEN $${Object.keys(parameters).length + 1} AND $${Object.keys(parameters).length + 2}`;
          parameters[`created_at_start`] = startDate;
@@ -19,11 +19,11 @@ const getPayInMerchantReportDao = async (merchant_id, startDate, endDate) => {
    }
 };
 
-const getPayInVendorReportDao = async (id, startDate, endDate) => {
+const getPayInVendorReportDao = async (id, startDate, endDate, company_id) => {
    try {
       const tableName = 'Payin';
       let query = `SELECT *  FROM  "${tableName}" WHERE 1=1`;
-      const [sql, parameters] = buildSelectQuery(query, { bank_acc_id: id });
+      const [sql, parameters] = buildSelectQuery(query, { bank_acc_id: id }, {company_id:company_id});
       if (startDate && endDate) {
          query += ` AND created_at BETWEEN $${Object.keys(parameters).length + 1} AND $${Object.keys(parameters).length + 2}`;
          parameters[`created_at_start`] = startDate;
@@ -38,7 +38,7 @@ const getPayInVendorReportDao = async (id, startDate, endDate) => {
 }
 
 
-// const getVendorReportDaoAll = async (
+// const getPayOutAll = async (
 //    search,
 //    user,
 //    page,
@@ -64,10 +64,10 @@ const getPayInVendorReportDao = async (id, startDate, endDate) => {
 
 
 
-const getPayOutMerchantReportDao = async (id, startDate, endDate) => {
+const getPayOutMerchantReportDao = async (id, startDate, endDate, company_id) => {
    try {
       let query = `SELECT *  FROM  "Payout" WHERE 1=1`;
-      const [sql, parameters] = buildSelectQuery(query, { merchant_id: id });
+      const [sql, parameters] = buildSelectQuery(query, { merchant_id: id, company_id:company_id });
       if (startDate && endDate) {
          query += ` AND created_at BETWEEN $${Object.keys(parameters).length + 1} AND $${Object.keys(parameters).length + 2}`;
          parameters[`created_at_start`] = startDate;
@@ -82,10 +82,10 @@ const getPayOutMerchantReportDao = async (id, startDate, endDate) => {
    }
 };
 
-const getPayOutVendorReportDao = async (id, startDate, endDate) => {
+const getPayOutVendorReportDao = async (id, startDate, endDate, company_id) => {
    try {
       let query = `SELECT *  FROM  "Payout" WHERE 1=1`;
-      const [sql, parameters] = buildSelectQuery(query, { bank_acc_id: id });
+      const [sql, parameters] = buildSelectQuery(query, { bank_acc_id: id, company_id:company_id });
       if (startDate && endDate) {
          query += ` AND created_at BETWEEN $${Object.keys(parameters).length + 1} AND $${Object.keys(parameters).length + 2}`;
          parameters[`created_at_start`] = startDate;
@@ -100,7 +100,7 @@ const getPayOutVendorReportDao = async (id, startDate, endDate) => {
    }
 };
 
-const getMerchantReportDaoAll = async (
+const getPayinReportDao = async (
    filters,
    page,
    pageSize,
@@ -117,10 +117,27 @@ const getMerchantReportDaoAll = async (
  };
  
 
-const getMerchantReportDao = async (id, startDate, endDate) => {
+ const getPayOutAll = async (
+   filters,
+   page,
+   pageSize,
+   sortBy,
+   sortOrder
+ ) => {
+   const baseQuery = `SELECT * FROM "${tableName.PAYOUT}" WHERE 1=1`;
+   const [sql, queryParams] = buildSelectQuery(
+      baseQuery, filters, page, pageSize, sortBy, sortOrder
+   );
+   console.log(sql, queryParams, "gfhcjhgvbh" )
+   const result = await executeQuery(sql, queryParams);
+    return result.rows ;
+ };
+ 
+
+const getMerchantReportDao = async (id, startDate, endDate, company_id) => {
    try {
       let query = `SELECT *  FROM  "Payin" WHERE 1=1`;
-      const [sql, parameters] = buildSelectQuery(query, { merchant_id: id });
+      const [sql, parameters] = buildSelectQuery(query, { merchant_id: id, company_id:company_id });
       if (startDate && endDate) {
          query += ` AND created_at BETWEEN $${Object.keys(parameters).length + 1} AND $${Object.keys(parameters).length + 2}`;
          parameters[`created_at_start`] = startDate;
@@ -145,10 +162,10 @@ const getMerchantReportDao = async (id, startDate, endDate) => {
    }
 };
 
-const getVendorReportDao = async (id, startDate, endDate) => {
+const getVendorReportDao = async (id, startDate, endDate, company_id) => {
    try {
       let query = `SELECT *  FROM  "Payin" WHERE 1=1`;
-      const [sql, parameters] = buildSelectQuery(query, { bank_acc_id: id });
+      const [sql, parameters] = buildSelectQuery(query, { bank_acc_id: id , company_id:company_id});
       if (startDate && endDate) {
          query += ` AND created_at BETWEEN $${Object.keys(parameters).length + 1} AND $${Object.keys(parameters).length + 2}`;
          parameters[`created_at_start`] = startDate;
@@ -173,4 +190,4 @@ const getVendorReportDao = async (id, startDate, endDate) => {
    }
 };
 
-export { getPayInMerchantReportDao, getMerchantReportDaoAll, getPayInVendorReportDao, getPayOutMerchantReportDao, getPayOutVendorReportDao, getMerchantReportDao, getVendorReportDao };
+export { getPayInMerchantReportDao, getPayinReportDao,getPayOutAll, getPayInVendorReportDao, getPayOutMerchantReportDao, getPayOutVendorReportDao, getMerchantReportDao, getVendorReportDao };

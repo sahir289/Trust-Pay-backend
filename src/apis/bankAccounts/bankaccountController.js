@@ -39,8 +39,8 @@ const getBankaccountById = async (req, res) => {
 const createBankaccount = async (req, res) => {
   try {
     let payload = req.body;
-    const { created_by, company_id, role } = req.user
-    payload.created_by = created_by;
+    const { user_id, company_id, role } = req.user
+    payload.created_by = user_id
     payload.company_id = company_id;
     const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
     if (joiValidation.error) {
