@@ -52,7 +52,7 @@ const createSettlementController = async (req, res) => {
       throw new ValidationError(joiValidation.error);
     }
     const data = await createSettlementService(payload);
-    sendSuccess(res, data, "got settlement");
+    sendSuccess(res, data, "Created settlement");
   }
   catch (error) {
     console.log('Error while creating Settlement', 'error', error);
@@ -74,7 +74,7 @@ const updateSettlementController = async (req, res) => {
           throw new ValidationError(joiValidation.error);
         }
         const updateData = await transactionWrapper(updateSettlementService)(ids, payload);
-        sendSuccess(res, updateData, "got settlement");
+        sendSuccess(res, "Updated settlement");
       } catch (error) {
         console.log('Error while creating Settlement', 'error', error);
         throw new BadRequestError('Error occurred while creating Settlement');
@@ -91,7 +91,7 @@ const updateSettlementController = async (req, res) => {
           throw new ValidationError(joiValidation.error);
         }
         const updatedData = await transactionWrapper(deleteSettlementService)(ids)
-        sendSuccess(res, updatedData, "got settlement");
+        sendSuccess(res, "Deleted settlement");
       } catch (error) {
         console.error('error getting while deleting settlement', error);
         throw new BadRequestError('Error getting while delete settlement');

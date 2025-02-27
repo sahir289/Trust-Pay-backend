@@ -2,7 +2,7 @@ import { columns, merchantColumns, Role, vendorColumns } from '../../constants/i
 import { BANK_ACCOUNT_SCHEMA, UPDATE_BANK_ACCOUNT_SCHEMA } from '../../schemas/bankAccoountSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
+import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { getMerchantBankDao } from './bankaccountDao.js';
 import { getBankaccountService, createBankaccountService, updateBankaccountService, deleteBankaccountService } from './bankaccountServices.js';
 
@@ -17,7 +17,7 @@ const getBankaccount = async (req, res) => {
     console.log('get Banks successfully', role);
     return sendSuccess(res, data, 'get Banks successfully');
   } catch (error) {
-    console.error('error getting while getting banks', error);
+    sendError('error getting while getting banks', error);
   }
 };
 
@@ -32,7 +32,7 @@ const getBankaccountById = async (req, res) => {
     console.log('get Bank successfully');
     return sendSuccess(res, data, 'get Bank successfully');
   } catch (error) {
-    console.error('error getting while getting bank', error);
+    sendError('error getting while getting bank', error);
   }
 };
 
@@ -52,9 +52,9 @@ const createBankaccount = async (req, res) => {
     }
     const data = await createBankaccountService(payload, role);
     console.log('get Banks successfully');
-    return sendSuccess(res, data, 'get Banks successfully');
+    return sendSuccess(res, 'Created Banks successfully');
   } catch (error) {
-    console.error('error getting while creating banks', error);
+    sendError('error getting while creating banks', error);
   }
 }
 
@@ -71,9 +71,9 @@ const updateBankaccount = async (req, res) => {
     
     const data = await transactionWrapper(updateBankaccountService)(ids, payload);
     console.log('get Banks successfully');
-    return sendSuccess(res, data, 'get Banks successfully');
+    return sendSuccess(res, 'Updated Banks successfully');
   } catch (error) {
-    console.error('error getting while updating banks', error);
+    sendError('error getting while updating banks', error);
   }
 }
 
@@ -105,7 +105,7 @@ const deleteBankaccount = async (req, res) => {
     console.log('get Banks successfully');
     return sendSuccess(res, data, 'get Banks successfully');
   } catch (error) {
-    console.error('error getting while deleting banks', error);
+    sendError('error getting while deleting banks', error);
   }
 }
 export { getBankaccount, getBankaccountById, createBankaccount, updateBankaccount, deleteBankaccount, getMerchantBank };

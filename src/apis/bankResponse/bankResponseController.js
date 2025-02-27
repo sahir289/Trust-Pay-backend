@@ -37,7 +37,7 @@ const createBankResponse = async (req, res) => {
       throw new ValidationError(error);
     }
     const data = await createBankResponseService(payload, company_id, role);
-    return sendSuccess(res, data, 'Create BankResponse successfully');
+    return sendSuccess(res, 'Create BankResponse successfully');
   } catch (error) {
     console.error(error, 'error getting while creating BankResponse');
   }
@@ -46,9 +46,11 @@ const createBankResponse = async (req, res) => {
 
 const getBankMessage = async (req, res) => {
   try {
+    const { company_id } = req.user;
+    const { role } = req.user;
     const { bank_id, startDate, endDate } = req.query;
-    const data = await getBankMessageServices(bank_id, startDate, endDate);
-    return sendSuccess(res, data, 'Update BankResponse successfully');
+    const data = await getBankMessageServices(bank_id, startDate, endDate, company_id, role);
+    return sendSuccess(res, data, 'Get BankResponse successfully');
   } catch (error) {
     console.error(res, error, 'error getting while updating BankResponse');
   }
@@ -57,8 +59,9 @@ const getBankMessage = async (req, res) => {
 
 const resetBankResponse = async (req, res) => {
   try {
+    const { company_id } = req.user;
     const { id } = req.body;
-    const botRes = await getBankResponseDao({ id: id });
+    const botRes = await getBankResponseDao({ id: id , company_id:company_id });
     let getallPayinDataByUtr
     getallPayinDataByUtr = await getPayInUrlsDao({ user_submitted_utr: botRes.utr });
 

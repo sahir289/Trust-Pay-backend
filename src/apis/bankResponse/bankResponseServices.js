@@ -882,7 +882,6 @@ const createBankResponseService = async (payload, companyId, role) => {
 const getBankResponseService = async (payload , role) => {
   try {
     const filterColumns = role === Role.MERCHANT ? merchantColumns.BANK_RESPONSE : role=== Role.VENDOR ? vendorColumns.BANK_RESPONSE : columns.BANK_RESPONSE;
-
     const sno = !isNaN(Number(payload.sno)) ? Number(payload.sno) : 0;
     const status = payload.status || "";
     const amount = !isNaN(Number(payload.amount)) ? Number(payload.amount) : 0;
@@ -895,7 +894,6 @@ const getBankResponseService = async (payload , role) => {
     // const take = Math.max(1, pageSize);
 
     let filters = {};
-    
     if (sno > 0) filters.sno = sno;
     if (status) filters.status = status;
     if (amount > 0) filters.amount = amount;
@@ -904,10 +902,6 @@ const getBankResponseService = async (payload , role) => {
     if (bank_id) filters.bank_id = bank_id;
     if (is_used !== undefined) filters.is_used = is_used === 'Used' ? true : is_used === 'Unused' ? false : true;
     
-
-
-
-
     const data = await getBankResponseDaoAll({
       sno: filters.sno,
       status: filters.status,
@@ -917,8 +911,6 @@ const getBankResponseService = async (payload , role) => {
       is_used: filters.is_used
     , company_id : payload.company_id 
   }, null, null, null, null , filterColumns);
-
-
     return data;
   } catch (error) {
     console.error('Error while updating BankResponse', 'error', error);
@@ -927,11 +919,12 @@ const getBankResponseService = async (payload , role) => {
 }
 
 
-const getBankMessageServices = async (bank_id, startDate, endDate) => {
+const getBankMessageServices = async (bank_id, startDate, endDate, company_id, role) => {
 
   try {
-    const data = await getBankMessageDao( bank_id, startDate, endDate );
-    return data;
+    const filterColumns = role === Role.MERCHANT ? merchantColumns.BANK_RESPONSE : role=== Role.VENDOR ? vendorColumns.BANK_RESPONSE : columns.BANK_RESPONSE;
+    return await getBankMessageDao( bank_id,  startDate, endDate,  company_id, null, null, null, null, filterColumns);
+return data;
   } catch (error) {
     console.error('Error while updating BankResponse', 'error', error);
     throw new BadRequestError('Error occurred while updating BankResponse');
