@@ -11,9 +11,7 @@ import { filterResponse } from '../../helpers/index.js';
 const getCalculationService = async (filters, role) => {
   try {
   const filterColumns = role === Role.MERCHANT ? merchantColumns.CALCULATION : role === Role.VENDOR ? vendorColumns.CALCULATION : columns.CALCULATION; 
-    const data = await getCalculationDao(filters);
-    const finalResult = await filterResponse(data, filterColumns);
-    return finalResult;
+    return await getCalculationDao(filters, null, null, null, null, filterColumns);
   } catch (error) {
     console.error('Error while fetching calculation data:', error);
     throw new Error('Error occurred while fetching calculation data');

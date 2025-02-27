@@ -2,14 +2,6 @@ import Joi from 'joi';
 
 // Validation Schema for Creating a Calculation
 const VALIDATE_CALCULATION_SCHEMA = Joi.object({
-    role_id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
-      'string.guid': 'Role ID must be a valid UUID',
-      'any.required': 'Role ID is required',
-    }),
-    user_id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
-      'string.guid': 'user ID must be a valid UUID',
-      'any.required': 'user ID is required',
-    }),
     total_payin_count: Joi.number().integer().min(0).default(0),
     total_payin_amount: Joi.number().min(0).default(0),
     total_payin_commission: Joi.number().min(0).default(0),
@@ -22,10 +14,6 @@ const VALIDATE_CALCULATION_SCHEMA = Joi.object({
     total_chargeback_amount: Joi.number().min(0).default(0),
     current_balance: Joi.number().min(0).default(0),
     net_balance: Joi.number().min(0).default(0),
-    company_id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
-      'string.guid': 'Company ID must be a valid UUID',
-      'any.required': 'Company ID is required',
-    }),
     config: Joi.object().default({}),
     is_obsolete: Joi.boolean().optional().default(false),
 });

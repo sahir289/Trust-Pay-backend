@@ -183,12 +183,13 @@ export const getPayins = async (req, res) => {
         const payload = {
             search: req.query.search,  // Assuming you're passing search query too
             page: parseInt(req.query.page, 10) || 1,  // Default to page 1 if not provided
+            limit : parseInt(req.query.page, 10) || 1
         };
         const { company_id } = req.user;
         payload.company_id = company_id;
         const data = await getPayinsService(
             payload
-            // Todo: Search
+           
         );
         console.log('getPayins successfully', data);
         return sendSuccess(res, data, 'Payins fetched successfully');

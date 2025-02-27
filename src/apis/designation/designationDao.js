@@ -1,17 +1,22 @@
-import { columns, tableName } from '../../constants/index.js';
+import {tableName } from '../../constants/index.js';
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
+import { buildSearchFilterObj } from "../../utils/searchBuilder.js";
 
 const getDesignationDao = async (
-  search,user,
+  filters,
   page,
   pageSize,
   sortBy,
-  sortOrder
+  sortOrder,
+  columns = [],
 ) => {
   try {
-    const baseQuery = `SELECT id,designation FROM "${tableName.DESIGNATION}" WHERE 1=1`;
-    const [sql, queryParams] = buildSelectQuery(baseQuery, search, columns.DESIGNATION, page, pageSize, sortBy, sortOrder, typeof search != 'string',user);
-    
+    const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.DESIGNATION}" WHERE 1=1`;
+     if (filters.search) {
+                filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
+                delete filters.search;
+            }
+    const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
@@ -35,9 +40,9 @@ const createDesignationDao = async (conn, payload) => {
   }
 };
 
-const updateDesignationDao = async (id,company_id,role_id, data) => {
+const updateDesignationDao = async (id, data) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.DESIGNATION, data, { id,company_id,role_id });
+    const [sql, params] = buildUpdateQuery(tableName.DESIGNATION, data, id);
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
@@ -46,9 +51,9 @@ const updateDesignationDao = async (id,company_id,role_id, data) => {
   }
 };
 
-const deleteDesignationDao = async (id,company_id,role_id, data) => {
+const deleteDesignationDao = async (id, data) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.DESIGNATION, data, { id,company_id,role_id });
+    const [sql, params] = buildUpdateQuery(tableName.DESIGNATION, data, id);
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {

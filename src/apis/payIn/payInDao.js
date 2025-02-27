@@ -48,12 +48,12 @@ LEFT JOIN public."Vendor" v
          WHERE b.id = u.bank_acc_id
     )
 WHERE u.is_obsolete = false AND u.company_id = $1
-LIMIT 10 OFFSET $2;
+LIMIT $3 OFFSET $2;
 ;
 `
 
 let payindata=[] ;
-    const queryParams = [payload.company_id, payload.page];
+    const queryParams = [payload.company_id, payload.page, payload.limit];
     const result = await conn.query(baseQuery, queryParams);
     const dataIs = result.rows;
     for(const res of dataIs){        
@@ -90,7 +90,7 @@ let payindata=[] ;
 
 export const getPayInUrlsDao = async (filters = {}) => {
     try {
-        const [sql, params] = buildSelectQuery(`SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`, filters);
+        const [sql, params] = buildSelectQuery(`SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`, filters, page, limit);
         const result = await executeQuery(sql, params);
         return result.rows;
     } catch (error) {

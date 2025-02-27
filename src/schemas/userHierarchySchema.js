@@ -2,14 +2,6 @@ import Joi from 'joi';
 
 // Validation Schema for Creating a UserHierarchy
 const VALIDATE_USER_HIERARCHY_SCHEMA = Joi.object({
-    user_id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
-      'string.guid': 'User ID must be a valid UUID',
-      'any.required': 'User ID is required',
-    }),
-    role_id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
-      'string.guid': 'Role ID must be a valid UUID',
-      'any.required': 'Role ID is required',
-    }),
     config: Joi.object().default({}).messages({
       'object.base': 'Config must be a valid object',
     }),
@@ -20,10 +12,6 @@ const VALIDATE_USER_HIERARCHY_SCHEMA = Joi.object({
     updated_by: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
       'string.guid': 'Updated By must be a valid UUID',
       'any.required': 'Updated By is required',
-    }),
-    company_id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
-      'string.guid': 'Company ID must be a valid UUID',
-      'any.required': 'Company ID is required',
     }),
     created_at: Joi.string().isoDate().required().messages({
       'string.isoDate': 'Created At must be a valid date in ISO 8601 format',
@@ -38,8 +26,6 @@ const VALIDATE_USER_HIERARCHY_SCHEMA = Joi.object({
 
 // Validation Schema for Updating a UserHierarchy
 const VALIDATE_UPDATE_USER_HIERARCHY_STATUS = Joi.object({
-    user_id: Joi.string().guid({ version: ['uuidv4'] }).optional(),
-    role_id: Joi.string().guid({ version: ['uuidv4'] }).optional(),
     config: Joi.object().optional(),
     updated_by: Joi.string().guid({ version: ['uuidv4'] }).optional().messages({
       'string.guid': 'Updated By must be a valid UUID',

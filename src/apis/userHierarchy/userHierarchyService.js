@@ -40,11 +40,8 @@ const createUserHierarchyService = async (payload,role) => {
 
 const getUserHierarchyService = async (filters, role) => {
     try {
-        const data = await getUserHierarchysDao(filters);
-        console.log('Fetched UserHierarchys successfully', 'info');
         const filterColumns = role === Role.MERCHANT ? merchantColumns.USER_HIERARCHY : columns.USER_HIERARCHY;
-        const finalResult = await filterResponse(data, filterColumns);
-        return finalResult;
+        return await getUserHierarchysDao(filters, null, null, null, null, filterColumns);
     } catch (error) {
         console.error('Error while fetching UserHierarchys', error);
         throw new BadRequestError('Error occurred while fetching UserHierarchys');
