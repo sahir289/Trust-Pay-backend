@@ -145,7 +145,7 @@ const updateSettlementService = async (conn, ids, payload) => {
 
 const deleteSettlementService = async (conn, ids) => {
   try {
-    const updatedData = await deleteSettlementDao(conn, {id:ids.id, company_id : ids.company_id}, { is_obsolete: true })
+    const updatedData = await deleteSettlementDao(conn, {id:ids.id, company_id : ids.company_id}, { is_obsolete: true, updated_by : ids.updated_by })
     return updatedData;
   } catch (error) {
     console.error('error getting while deleting settlement', error);

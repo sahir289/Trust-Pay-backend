@@ -41,23 +41,27 @@ const getPayOutReportService = async (req, res) => {
         console.error('error getting while fetching reports', error);
         throw new BadRequestError('Error getting while fetching reports');
     }
-}; const getMerchantReportService = async (req, res) => {
+}; 
+
+const getMerchantReportService = async (req, res) => {
     try {
-       
+        const {company_id} = req.user
         const { merchant_id, startDate, endDate } = req.query;
-        if(merchant_id){
+        if(merchant_id && startDate && endDate){
         const result = await getMerchantReportDao(merchant_id, startDate, endDate);
-        return sendSuccess(res, result, 'Payins created successfully');
+        return sendSuccess(res, result, 'Reports fetched successfully');
         }
         else{
-            const result = await getMerchantReportDaoAll();
-            return sendSuccess(res, result, 'Payins created successfully'); 
+            const result = await getMerchantReportDaoAll({company_id: company_id});
+            return sendSuccess(res, result, 'Reports fetched successfully'); 
         }
     } catch (error) {
         console.error('error getting while fetching reports', error);
         throw new BadRequestError('Error getting while fetching reports');
     }
 }
+
+
  const getVendorReportService = async (req, res) => {
     try {
         const { vendor_id, startDate, endDate, method } = req.query;
@@ -65,10 +69,10 @@ const getPayOutReportService = async (req, res) => {
         const vendorData = await getVendorsDao({ id: vendor_id })
         const bankVendorData = await getBankaccountDao({ user_id: vendorData.user_id });
         const result = await getPayOutVendorReportDao(bankVendorData.id, startDate, endDate, method);
-        return sendSuccess(res, result, 'Payins created successfully'); 
+        return sendSuccess(res, result, 'Reports created successfully'); 
         }else{
             const result = await getBankaccountDao()
-            return sendSuccess(res, result, 'Payins created successfully'); 
+            return sendSuccess(res, result, 'Reports created successfully'); 
         }
         } catch (error) {
         console.error('error getting while fetching reports', error);

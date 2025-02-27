@@ -39,8 +39,8 @@ const getBankaccountById = async (req, res) => {
 const createBankaccount = async (req, res) => {
   try {
     let payload = req.body;
-    const { user_id, company_id, role } = req.user
-    payload.user_id = user_id;
+    const { created_by, company_id, role } = req.user
+    payload.created_by = created_by;
     payload.company_id = company_id;
     const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
     if (joiValidation.error) {
@@ -50,7 +50,8 @@ const createBankaccount = async (req, res) => {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await createBankaccountService(payload, role);
+    // const data =
+    await createBankaccountService(payload, role);
     console.log('get Banks successfully');
     return sendSuccess(res, 'Created Banks successfully');
   } catch (error) {
@@ -62,7 +63,8 @@ const updateBankaccount = async (req, res) => {
   try {
     const { id } = req.params;
     const payload = req.body;
-    const { company_id } = req.user;
+    const { company_id , updated_by} = req.user;
+    payload.updated_by = updated_by;
     const ids = { id, company_id };
     const joiValidation = UPDATE_BANK_ACCOUNT_SCHEMA.validate(payload);
     if (joiValidation.error) {
@@ -103,7 +105,7 @@ const deleteBankaccount = async (req, res) => {
     const ids = { id, company_id };
     const data = await transactionWrapper(deleteBankaccountService)(ids);
     console.log('get Banks successfully');
-    return sendSuccess(res, data, 'get Banks successfully');
+    return sendSuccess(res, 'get Banks successfully');
   } catch (error) {
     sendError('error getting while deleting banks', error);
   }

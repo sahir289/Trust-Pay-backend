@@ -99,9 +99,9 @@ const getPayOutVendorReportDao = async (id, startDate, endDate) => {
       throw error;
    }
 };
+
 const getMerchantReportDaoAll = async (
-   search,
-   user,
+   filters,
    page,
    pageSize,
    sortBy,
@@ -109,18 +109,11 @@ const getMerchantReportDaoAll = async (
  ) => {
    const baseQuery = `SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`;
    const [sql, queryParams] = buildSelectQuery(
-     baseQuery,
-     search,
-     columns.PAYIN,
-     page,
-     pageSize,
-     sortBy,
-     sortOrder,
-     typeof search !== "string",
-     user
+      baseQuery, filters, page, pageSize, sortBy, sortOrder
    );
+   console.log(sql, queryParams, "gfhcjhgvbh" )
    const result = await executeQuery(sql, queryParams);
-    return result.rows.length > 0 ? result.rows : null;
+    return result.rows ;
  };
  
 
@@ -135,7 +128,6 @@ const getMerchantReportDao = async (id, startDate, endDate) => {
       }
 
       const result = await executeQuery(sql, parameters);
-      console.log(sql, parameters, "ijhikjjnj")
       const payOutquery = `SELECT *  FROM  "Payout" WHERE 1=1`;
       const [payOutsql, payOutparameters] = buildSelectQuery(payOutquery, { merchant_id: id });
       if (startDate && endDate) {

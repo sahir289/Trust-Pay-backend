@@ -38,7 +38,8 @@ const generateUserToken = (user) => {
   const sessionId = generateUUID();
   return createNewToken({
     user_name: user.user_name,
-    user_id: user.id,
+    created_by: user.id,
+    updated_by: user.updated_by,
     designation_id: user.designation_id,
     designation: user.designation,
     role_id: user.role_id,

@@ -45,14 +45,15 @@ const createSettlementController = async (req, res) => {
 
   try {
     const payload = req.body;
-    const { company_id } = req.user;
+    const { company_id, created_by } = req.user;
     payload.company_id = company_id;
+    payload.created_by = created_by;
     const joiValidation = CREATE_SETTLEMENT_SCHEMA.validate(payload);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }
     const data = await createSettlementService(payload);
-    sendSuccess(res, data, "Created settlement");
+    sendSuccess(res, "Created settlement");
   }
   catch (error) {
     console.log('Error while creating Settlement', 'error', error);
@@ -64,9 +65,10 @@ const createSettlementController = async (req, res) => {
 const updateSettlementController = async (req, res) => {
     
       try {
-        const { id } = req.params;
+        const { id , created_by } = req.params;
         const {role} = req.user;
         const payload = { ...req.body };
+        payload.updated_by = updated_by;
         const { company_id } = req.user;
         const ids = { id, company_id , role}
         const joiValidation = UPDATE_SETTLEMENT_SCHEMA.validate(payload);
@@ -84,8 +86,8 @@ const updateSettlementController = async (req, res) => {
     const deleteSettlementController = async (req, res) => {
       try {
         const { id } = req.params;
-        const { company_id } = req.user;
-        const ids = { id, company_id }
+        const { company_id, updated_by } = req.user;
+        const ids = { id, company_id, updated_by }
         const joiValidation = VALIDATE_SETTLEMENT_BY_ID_DELETE.validate(id);
         if (joiValidation.error) {
           throw new ValidationError(joiValidation.error);
