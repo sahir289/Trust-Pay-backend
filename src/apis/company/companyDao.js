@@ -1,6 +1,5 @@
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
 import { tableName } from '../../constants/index.js';
-import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 const getCompanyDao = async (
   filters,
