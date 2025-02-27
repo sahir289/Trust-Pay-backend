@@ -1,5 +1,6 @@
 import { buildInsertQuery, buildJoinQuery, buildSelectQuery, buildUpdateQuery, executeQuery, getConnection } from '../../utils/db.js';
 import { tableName } from "../../constants/index.js";
+import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 const getSettlementDao = async (
   filters,
@@ -7,11 +8,17 @@ const getSettlementDao = async (
   pageSize,
   sortBy,
   sortOrder,
+  columns = [],
 ) => {
-  const baseQuery = `SELECT id, user_id, status, amount, method, config, approved_at, rejected_at, created_by, created_at, updated_at, company_id, is_obsolete, updated_by FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
+  const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.SETTLEMENT}" WHERE 1=1`;
+  if (filters.search) {
+    filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
+    delete filters.search;
+  }
   const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
+
   const result = await executeQuery(sql, queryParams);
-    return result.rows.length > 0 ? result.rows : result.rows[0];
+  return result.rows.length > 0 ? result.rows : result.rows[0];
 
 };
 
@@ -21,9 +28,10 @@ const settlementJoindao = async (
   page,
   pageSize,
   sortBy,
-  sortOrder
+  sortOrder,
+  columns = [],
 ) => {
-  const baseQuery = `SELECT id, user_id, status, amount, method, config FROM public."${baseTable}"`;
+  const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.MERCHANT}" WHERE 1=1`;
   const [sql, queryParams] = await buildJoinQuery(baseTable, filters, baseQuery, page, pageSize, sortBy, sortOrder);
   const result = await executeQuery(sql, queryParams);
   return result.rows;
@@ -38,7 +46,8 @@ const getSettlementDaoforInternalTransfer = async (utr, method) => {
 
   const queryParams = [utr, method];
   const result = await conn.query(baseQuery, queryParams);
-  return result.rows.length > 0 ? result.rows : result.rows[0];}
+  return result.rows.length > 0 ? result.rows : result.rows[0];
+}
 
 
 
@@ -80,11 +89,11 @@ const deleteSettlementDao = async (conn, id, data) => {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
 
-    return result.rows[0] ;
+    return result.rows[0];
   } catch (error) {
     console.error(error);
     throw error;
   }
 };
 
-export { getSettlementDao,  settlementJoindao, createSettlementDao, getSettlementDaoforInternalTransfer, updateSettlementDao, deleteSettlementDao };
+export { getSettlementDao, settlementJoindao, createSettlementDao, getSettlementDaoforInternalTransfer, updateSettlementDao, deleteSettlementDao };

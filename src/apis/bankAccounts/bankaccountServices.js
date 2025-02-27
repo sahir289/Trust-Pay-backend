@@ -4,7 +4,6 @@ import { getBankaccountDao, createBankaccountDao, updateBankaccountDao, deleteBa
 
 const getBankaccountService = async (filters, role) => {
     try {
-        console.log(role,filters, "rolerolero")
         const filterColumns = role === Role.MERCHANT ? merchantColumns.BANK_ACCOUNT : role=== Role.VENDOR ? vendorColumns.BANK_ACCOUNT : columns.BANK_ACCOUNT;
         return await getBankaccountDao(filters, null, null, null, null, filterColumns);
     } catch (error) {

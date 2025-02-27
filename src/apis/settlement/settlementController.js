@@ -26,7 +26,6 @@ const getSettlementControllerById = async (req, res) => {
 
 const getSettlementController = async (req, res) => {
   try {
-    console.log(req.user, "company_idcompany_id")
     const { company_id } = req.user;
     const settlementData = await getSettlementService({
       company_id,

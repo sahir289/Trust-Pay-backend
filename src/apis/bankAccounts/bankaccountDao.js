@@ -5,13 +5,19 @@ const getBankaccountDao = async (
   page,
   pageSize,
   sortBy,
-  sortOrder
+  sortOrder,
+  columns = [],
+
 ) => {
-  const baseQuery = `SELECT id,upi_id,upi_params,user_id,acc_no,ifsc,bank_name,is_qr,is_bank,min_payin,is_enabled,payin_count,balance,today_balance,bank_used_for,created_by,updated_by FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1 `;
+  const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
+if (filters.search) {
+    filters.or = buildSearchFilterObj(filters.search, tableName.BANK_ACCOUNT);
+    delete filters.search;
+  }
   const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
   const result = await executeQuery(sql, queryParams);
-  console.log(sql, queryParams, result.rows[0], "sqlparamsresult")
-  return result.rows.length>0 ? result : result.rows[0];
+  return result.rows.length > 0 ? result.rows : result.rows[0];
+
 };
 
 

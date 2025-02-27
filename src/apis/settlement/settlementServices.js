@@ -59,7 +59,7 @@ const getSettlementServiceJoined = async (req) => {
 const createSettlementService = async (payload) => {
 
   try {
-    const dataexist = await getSettlementDao({ id: ids.id })
+    const dataexist = await getSettlementDao({ id: payload.id })
       if (dataexist) {
         throw new BadRequestError('already data found');
       }
@@ -76,10 +76,11 @@ const createSettlementService = async (payload) => {
 
 const updateSettlementService = async (conn, ids, payload) => {
   try {
-    const filterColumns = ['id','balance'];
-    const filterColumnsSettle =['id', 'user_id']
-    const filterColumnsVendor = ['id','user_id'];
-    const filterColumnsBank =['id', 'balance']
+    //-TODO after merchant and vendor filetr columns added
+    // const filterColumns = ['id','balance'];  
+    const filterColumnsSettle = ids.role === Role.MERCHANT ? merchantColumns.SETTLEMENT : ids.role=== Role.VENDOR ? Role.vendorColumns.SETTLEMENT : columns.SETTLEMENT;
+    // const filterColumnsVendor = ['id','user_id'];
+    // const filterColumnsBank =['id', 'balance']
     if (payload.config.reference_id) {
       payload.status = "SUCCESS";
       const data = await getSettlementDao({ id: ids.id, company_id: ids.company_id })
@@ -102,10 +103,16 @@ const updateSettlementService = async (conn, ids, payload) => {
       }else{
         console.log("no data in calculation")
       }
-      const vendorData = await getVendorsDao({ user_id: data[0].user_id }, null, null, null, null, filterColumnsVendor)
-      const merchantData = await getMerchantsDao({ user_id: data[0].user_id }, null, null, null, null, filterColumns )
+      const vendorData = await getVendorsDao({ user_id: data[0].user_id }
+        // , null, null, null, null, filterColumnsVendor
+      )
+      const merchantData = await getMerchantsDao({ user_id: data[0].user_id }
+        // , null, null, null, null, filterColumns 
+      )
       if (vendorData) {
-        const bankData = await getBankaccountDao({ user_id: vendorData.user_id }, null, null, null, null, filterColumnsBank);
+        const bankData = await getBankaccountDao({ user_id: vendorData.user_id }
+          // , null, null, null, null, filterColumnsBank
+        );
         if (bankData) {
           const bankId = bankData.id;
           const bankAcc = bankData.balance - payload?.amount;

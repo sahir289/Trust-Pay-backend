@@ -15,12 +15,13 @@ import { getPayInUrlsDao, updatePayInUrlDao } from '../payIn/payInDao.js';
 import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
-import { merchantColumns, Role } from '../../constants/index.js';
+import { columns, merchantColumns, Role, vendorColumns } from '../../constants/index.js';
 const logger = new Logger()
 
-const createBankResponseService = async (payload, company_id, role) => {
+const createBankResponseService = async (payload, companyId, role) => {
   try {
 
+    const filterColumns = role === Role.MERCHANT ? merchantColumns.BANK_RESPONSE : role=== Role.VENDOR ? vendorColumns.BANK_RESPONSE : columns.BANK_RESPONSE;
     const splitData = payload.split(" ");
     // const status = splitData[0];
     const amount = parseFloat(splitData[1]);
@@ -29,17 +30,16 @@ const createBankResponseService = async (payload, company_id, role) => {
     const bank_id = splitData[4];
     const is_used = splitData[5];
     const created_by = splitData[6];
-    const company_id = splitData[7];
+    const company_id = companyId;
 
     const isValidAmount = amount;
     const isValidAmountCode =
     upi_short_code !== "nil" && upi_short_code.length === 5;
     const acceptedStatus = ["SUCCESS", "DISPUTE", "BANK_MISMATCH", "FAILED", "DUPLICATE"]
 
-    const filterColumns = ids.role === Role.MERCHANT ? merchantColumns.BANK_RESPONSE : ids.role=== Role.VENDOR ? Role.vendorColumns.BANK_RESPONSE : columns.BANK_RESPONSE;
 
     if (isValidAmount) {
-      const utrAlreadyExist = await getBankResponseDao({ utr: utr, company_id : ids.company_id }, null, null, null, null, filterColumns);
+      const utrAlreadyExist = await getBankResponseDao({ utr: utr, company_id : company_id }, null, null, null, null, filterColumns);
 
       const updatedData = {
         status: utrAlreadyExist ? "/repeated" : "/success",
@@ -55,7 +55,7 @@ const createBankResponseService = async (payload, company_id, role) => {
         updatedData.upi_short_code = upi_short_code;
       }
 
-      const isAmountCodeExist = await getBankResponseDao({upi_short_code : upi_short_code, company_id : ids.company_id }, null, null, null, null, filterColumns)
+      const isAmountCodeExist = await getBankResponseDao({upi_short_code : upi_short_code, company_id : company_id }, null, null, null, null, filterColumns)
 
       if (isAmountCodeExist) {
         // const botRes = 
@@ -96,7 +96,7 @@ const createBankResponseService = async (payload, company_id, role) => {
       if (checkPayInUtr?.length > 0) {
         if (upi_short_code && isValidAmountCode) {
         let dataUtr = checkPayInUtr[0]?.utr ? checkPayInUtr[0]?.utr : checkPayInUtr[0]?.user_submitted_utr
-        const getDataByUtr = await getBankResponseDaoAll({ utr: dataUtr , company_id : ids.company_id }, null, null, null, null, filterColumns)
+        const getDataByUtr = await getBankResponseDaoAll({ utr: dataUtr , company_id : company_id }, null, null, null, null, filterColumns)
         const botUtrIsUsed = getDataByUtr?.some((item) => item.is_used);
 
         if (acceptedStatus.includes(checkPayInUtr[0]?.status) && botUtrIsUsed) {
@@ -207,7 +207,7 @@ const createBankResponseService = async (payload, company_id, role) => {
             // check if duplicate and return error
             const existingResponse = await getBankResponseDao({
               utr: utr,
-              is_used: true, company_id : ids.company_id }, null, null, null, null, filterColumns
+              is_used: true, company_id : company_id }, null, null, null, null, filterColumns
             );
 
             if (existingResponse?.length > 0) {
@@ -635,7 +635,7 @@ const createBankResponseService = async (payload, company_id, role) => {
 
 
           // check if duplicate and return error
-          const existingResponse = await getBankResponseDao({ utr: utr, is_used: true , company_id : ids.company_id }, null, null, null, null, filterColumns)
+          const existingResponse = await getBankResponseDao({ utr: utr, is_used: true , company_id : company_id }, null, null, null, null, filterColumns)
           if (existingResponse?.length > 0) {
             throw new CustomError(400, "The UTR already exists");
           }
@@ -879,8 +879,10 @@ const createBankResponseService = async (payload, company_id, role) => {
 
 
 
-const getBankResponseService = async (payload) => {
+const getBankResponseService = async (payload , role) => {
   try {
+    const filterColumns = role === Role.MERCHANT ? merchantColumns.BANK_RESPONSE : role=== Role.VENDOR ? vendorColumns.BANK_RESPONSE : columns.BANK_RESPONSE;
+
     const sno = !isNaN(Number(payload.sno)) ? Number(payload.sno) : 0;
     const status = payload.status || "";
     const amount = !isNaN(Number(payload.amount)) ? Number(payload.amount) : 0;
@@ -892,11 +894,8 @@ const getBankResponseService = async (payload) => {
     // const skip = Math.max(0, (page - 1) * pageSize);
     // const take = Math.max(1, pageSize);
 
-    // if (payload.is_used !== undefined) {
-    //   filter.is_used = payload.is_used === 'Used' ? true : payload.is_used === 'Unused' ? false : true;
-    // }
     let filters = {};
-
+    
     if (sno > 0) filters.sno = sno;
     if (status) filters.status = status;
     if (amount > 0) filters.amount = amount;
@@ -904,6 +903,7 @@ const getBankResponseService = async (payload) => {
     if (utr) filters.utr = utr;
     if (bank_id) filters.bank_id = bank_id;
     if (is_used !== undefined) filters.is_used = is_used === 'Used' ? true : is_used === 'Unused' ? false : true;
+    
 
 
 
@@ -915,7 +915,8 @@ const getBankResponseService = async (payload) => {
       utr: filters.utr,
       bank_id: filters.bank_id,
       is_used: filters.is_used
-    , company_id : ids.company_id }, null, null, null, null, filterColumns);
+    , company_id : payload.company_id 
+  }, null, null, null, null , filterColumns);
 
 
     return data;

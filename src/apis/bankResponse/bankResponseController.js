@@ -14,7 +14,10 @@ import {
 const getBankResponse = async (req, res) => {
   try {
     const payload = req.query;
-    const data = await getBankResponseService(payload);
+    const {role} = req.user;
+    const {company_id} = req.user;
+    payload.company_id = company_id;
+    const data = await getBankResponseService(payload, role);
     return sendSuccess(res, data, 'get bankResponse successfully');
   } catch (error) {
     console.error(res, error, 'error getting while getting bankResponse');
@@ -23,7 +26,7 @@ const getBankResponse = async (req, res) => {
 
 const createBankResponse = async (req, res) => {
   try {
-
+    const {role} = req.user;
     const payload = req.body?.body;
     const { company_id } = req.user;
     if (!payload) {
@@ -33,7 +36,7 @@ const createBankResponse = async (req, res) => {
     if (error) {
       throw new ValidationError(error);
     }
-    const data = await createBankResponseService(payload, company_id);
+    const data = await createBankResponseService(payload, company_id, role);
     return sendSuccess(res, data, 'Create BankResponse successfully');
   } catch (error) {
     console.error(error, 'error getting while creating BankResponse');
