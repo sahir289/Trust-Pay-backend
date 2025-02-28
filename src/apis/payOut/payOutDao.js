@@ -38,7 +38,6 @@ export const getPayoutsDao = async (
               delete filters.search;
           }
   const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
-  // Execute query
   const result = await executeQuery(sql, queryParams);
   return result.rows;}
   catch (error) {

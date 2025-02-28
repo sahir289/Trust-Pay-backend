@@ -24,13 +24,13 @@ export const getPayInUrlDao = async (filters) => {
 }
 
 export const getPayInsDao = async (conn, payload) => {
-    let baseQuery = `SELECT 
-    u.id AS payin_id, u.sno, u.upi_short_code, u.amount, u.status, u.is_notified, u.user_submitted_utr, 
-    u.merchant_order_id, u.user, u.payin_merchant_commission, u.payin_vendor_commission, u.user_submitted_image ,
-    u.duration, u.approved_at,  u.created_by, u.updated_by, u.created_at, u.updated_at, u.config AS payin_config,
+    let baseQuery = `SELECT DISTINCT ON (u.id)
+    u.id, u.sno, u.upi_short_code, u.amount, u.status, u.is_notified, u.user_submitted_utr, 
+    u.merchant_order_id, u.user, u.payin_merchant_commission, u.payin_vendor_commission, u.user_submitted_image,
+    u.duration, u.approved_at, u.created_by, u.updated_by, u.created_at, u.updated_at, u.config AS payin_config,
     
     v.code AS vendor_code, v.id AS vendor_id, v.user_id AS vendor_user_id,
-    b.id AS bank_table_id, b.user_id, b.nick_name ,
+    b.id AS bank_table_id, b.user_id, b.nick_name,
     r.code AS merchant_code, r.id AS merchant_table_id, r.config,
     br.id AS bank_res_id, br.bank_id, br.amount AS bank_res_amount, br.utr
 
@@ -38,27 +38,26 @@ FROM public."Payin" u
 LEFT JOIN public."Merchant" r 
     ON u.merchant_id = r.id
 LEFT JOIN public."BankAccount" b
-    ON b.id = u.bank_acc_id
+    ON u.bank_acc_id = b.id
 LEFT JOIN public."BankResponse" br
-    ON br.bank_id = u.bank_acc_id
+    ON b.id = br.bank_id
 LEFT JOIN public."Vendor" v 
-    ON v.user_id = (
-         SELECT b.user_id 
-         FROM public."BankAccount" b 
-         WHERE b.id = u.bank_acc_id
-    )
+    ON v.user_id = b.user_id
 WHERE u.is_obsolete = false AND u.company_id = $1
+ORDER BY u.id, br.id
 LIMIT $3 OFFSET $2;
-;
 `
 
 let payindata=[] ;
     const queryParams = [payload.company_id, payload.page, payload.limit];
     const result = await conn.query(baseQuery, queryParams);
     const dataIs = result.rows;
+    payindata.push( 
+    {totalCount : result.rows.length },)
     for(const res of dataIs){        
-        payindata.push( {
-           id: res.payin_id ,
+        payindata.push( 
+            { rows :
+           {id: res.id ,
            sno: res.sno,
            upi_short_code: res.upi_short_code,
            amount: res.amount,
@@ -79,7 +78,7 @@ let payindata=[] ;
            created_by: res.created_by,
            updated_by: res.updated_by,
            created_at: res.created_at,
-           updated_at: res.updated_at,  
+           updated_at: res.updated_at,  }
        })
        
     }    

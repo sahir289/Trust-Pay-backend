@@ -182,13 +182,12 @@ export const getPayins = async (req, res) => {
     try {
         const payload = {
             page: parseInt(req.query.page, 10) || 1,  // Default to page 1 if not provided
-            limit : parseInt(req.query.limit, 10) || 10
+            limit : parseInt(req.query.limit) || null
         };
         const { company_id } = req.user;
         payload.company_id = company_id;
         const data = await getPayinsService(
-            payload
-           
+            payload       
         );
         console.log('getPayins successfully', data);
         return sendSuccess(res, data, 'Payins fetched successfully');
