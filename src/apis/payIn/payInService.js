@@ -52,6 +52,7 @@ export const generatePayInUrlService = async (payload) => {
         user_id: user_id,
         return_url: returnUrl ? returnUrl : merchant.return_url,
         company_id: merchant.company_id,
+        created_by: merchant.user_id, // Todo: Add user_id of user if called by our frontend portal
     };
 
     const expirationDate = dayjs().add(10, 'minutes').toISOString();
