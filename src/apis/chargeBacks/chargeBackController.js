@@ -124,7 +124,7 @@ const deleteChargeBack = async (req, res) => {
         console.log('ChargeBack deleted successfully', result);
 
         // Send a success response to the client
-        return sendSuccess(res, result, 'ChargeBack deleted successfully');
+        return sendSuccess(res, 'ChargeBack deleted successfully');
     } catch (error) {
         // Log the error
         console.error('error occurred while deleting ChargeBack', error);
