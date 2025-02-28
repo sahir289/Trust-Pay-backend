@@ -2,7 +2,6 @@ import { BadRequestError } from '../../utils/appErrors.js';
 import {  transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { createCompanyService, deleteCompanyService, getCompanyService, updateCompanyService } from './companyServices.js';
-import { sendError } from '../../utils/responseHandlers.js';
 import { VALIDATE_COMPANY_SCHEMA, VALIDATE_COMPANY_BY_ID, VALIDATE_UPDATE_COMPANY_STATUS } from '../../schemas/companySchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 
@@ -33,19 +32,15 @@ const getCompanyById = async (req, res) => {
 const createCompany = async (req, res) => {
   try {
     let payload = req.body;
-    if (!payload) {
-      console.error('payload is required');
-      return sendError(res, 'payload is required', 'Validation Error');
-    }
     const joiValidation = VALIDATE_COMPANY_SCHEMA.validate(payload);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }
     const { role } = req.user;
-    // payload.role_id = role_id
-    const data = await transactionWrapper(createCompanyService)(payload, role);
+    // const data = 
+    await transactionWrapper(createCompanyService)(payload, role);
     console.log('Create Company successfully');
-    return sendSuccess(res, data, 'Create Company successfully');
+    return sendSuccess(res, 'Create Company successfully');
   } catch (error) {
     console.log('Error while creating company', 'error', error);
     throw new BadRequestError('Error occurred while creating company');
