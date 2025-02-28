@@ -115,10 +115,10 @@ const deleteChargeBack = async (req, res) => {
         }
         const { id } = req.params;  // Assuming the ChargeBack ID is passed as a parameter
         const {company_id,role, user_id} = req.user;
-        payload.updated_by = user_id;
+
 
         // Call the service to delete the ChargeBack
-        const result = await deleteChargeBackService({id,company_id},role);
+        const result = await deleteChargeBackService({id,company_id},{updated_by : user_id,  is_obsolete: true }, role);
 
         // Log success message
         console.log('ChargeBack deleted successfully', result);

@@ -65,14 +65,13 @@ const updateChargeBackService = async (ids, payload,role) => {
     }
 };
 
-const deleteChargeBackService = async (ids,role) => {
+const deleteChargeBackService = async (ids,payload,role) => {
     let conn;
     try {
         const filterColumns = role === Role.MERCHANT ? merchantColumns.CHARGE_BACK : role === Role.VENDOR ? vendorColumns.CHARGE_BACK : columns.CHARGE_BACK;
 
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
-        const payload = { is_obsolete: true };
 
         const data = await deleteChargeBackDao(ids, payload); // Adjust DAO call for delete
         await commit(conn); // Commit the transaction
