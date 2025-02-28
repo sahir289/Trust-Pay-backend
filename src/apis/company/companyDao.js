@@ -32,7 +32,7 @@ const createCompanyDao = async (conn, payload ) => {
 
 const updateCompanyDao = async (id, data) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.COMPANY, data, { id });
+    const [sql, params] = buildUpdateQuery(tableName.COMPANY, data,  id );
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
@@ -43,7 +43,7 @@ const updateCompanyDao = async (id, data) => {
 
 const deleteCompanyDao = async (id, data) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.COMPANY, data, { id });
+    const [sql, params] = buildUpdateQuery(tableName.COMPANY, data,  id );
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {

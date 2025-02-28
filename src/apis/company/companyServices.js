@@ -7,7 +7,7 @@ import { createRoleDao } from '../roles/rolesDao.js';
 const getCompanyService = async (id) => {
 
   try {
-    const result = await transactionWrapper(getCompanyDao)({id});
+    const result = await getCompanyDao(id);
     return result;
   } catch (error) {
     console.error('error getting while company', error);
@@ -54,11 +54,11 @@ const createCompanyService = async (conn, payload) => {
 };
 
 const updateCompanyService = async (id, payload) => {
-  const result= transactionWrapper(updateCompanyDao)(id, payload);
+  const result= updateCompanyDao(id, payload);
   return result;
 };
 const deleteCompanyService = async (id) => {
-  const result= transactionWrapper(deleteCompanyDao)(id, { is_obsolete: true }); 
+  const result= deleteCompanyDao(id, { is_obsolete: true }); 
   return result;
 };
 

@@ -12,7 +12,7 @@ const getBankaccount = async (req, res) => {
     const { company_id } = req.user;
     const {role} = req.user;
     const data = await getBankaccountService({
-      company_id
+      company_id : company_id
     }, role);
     console.log('get Banks successfully', role);
     return sendSuccess(res, data, 'get Banks successfully');
@@ -26,8 +26,8 @@ const getBankaccountById = async (req, res) => {
     const { id } = req.params;
     const { company_id, role } = req.user;
     const data = await getBankaccountService({
-      company_id,
-      id,
+      company_id : company_id,
+      id: id,
     }, role);
     console.log('get Bank successfully');
     return sendSuccess(res, data, 'get Bank successfully');
