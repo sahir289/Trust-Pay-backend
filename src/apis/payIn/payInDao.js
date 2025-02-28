@@ -68,7 +68,7 @@ let payindata=[] ;
            merchant_order_id: res.merchant_order_id,
            user: res.user,
            bank_account : res.nick_name,
-           merchant: {[res.merchant_code]: res.payin_config},
+           merchant:{code :res.merchant_code , ReturnUrl : res.payin_config.return_url, NotifyUrl : res.payin_config.notify_url},
            vendor: res.vendor_code,
             bank_response: {amount : res.bank_res_amount, utr: res.utr} ,
            payin_merchant_commission: res.payin_merchant_commission,

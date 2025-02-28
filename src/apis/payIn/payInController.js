@@ -181,9 +181,8 @@ export const resetDeposit = async (req, res) => {
 export const getPayins = async (req, res) => {
     try {
         const payload = {
-            search: req.query.search,  // Assuming you're passing search query too
             page: parseInt(req.query.page, 10) || 1,  // Default to page 1 if not provided
-            limit : parseInt(req.query.page, 10) || 1
+            limit : parseInt(req.query.limit, 10) || 10
         };
         const { company_id } = req.user;
         payload.company_id = company_id;
