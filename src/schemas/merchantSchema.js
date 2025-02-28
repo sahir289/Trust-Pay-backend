@@ -2,14 +2,7 @@ import Joi from 'joi';
 
 // Validation Schema for Creating a Merchant
 const VALIDATE_MERCHANT_SCHEMA = Joi.object({
-    role_id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
-      'string.guid': 'Role ID must be a valid UUID',
-      'any.required': 'Role ID is required',
-    }),
-    user_id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
-      'string.guid': 'User ID must be a valid UUID',
-      'any.required': 'User ID is required',
-    }),
+    
     first_name: Joi.string().min(1).max(255).required().messages({
       'string.min': 'First Name must be at least 1 character long',
       'string.max': 'First Name must be less than 255 characters long',
@@ -60,10 +53,6 @@ const VALIDATE_MERCHANT_SCHEMA = Joi.object({
     config: Joi.object().default({}).messages({
       'object.base': 'Config must be a valid object',
     }),
-    company_id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
-      'string.guid': 'Company ID must be a valid UUID',
-      'any.required': 'Company ID is required',
-    }),
     created_by: Joi.string().guid({ version: ['uuidv4'] }).optional().messages({
       'string.guid': 'Created By must be a valid UUID',
     }),
@@ -81,8 +70,6 @@ const VALIDATE_MERCHANT_SCHEMA = Joi.object({
 
 // Validation Schema for Updating a Merchant
 const VALIDATE_UPDATE_MERCHANT_STATUS = Joi.object({
-    role_id: Joi.string().guid({ version: ['uuidv4'] }).optional(),
-    user_id: Joi.string().guid({ version: ['uuidv4'] }).optional(),
     first_name: Joi.string().min(1).max(255).optional(),
     last_name: Joi.string().min(1).max(255).optional(),
     code: Joi.string().min(1).max(255).optional(),
@@ -98,7 +85,6 @@ const VALIDATE_UPDATE_MERCHANT_STATUS = Joi.object({
     is_demo: Joi.boolean().optional(),
     balance: Joi.number().min(0).optional(),
     config: Joi.object().optional(),
-    company_id: Joi.string().guid({ version: ['uuidv4'] }).optional(),
     is_obsolete: Joi.boolean().optional(),
     updated_by: Joi.string().guid({ version: ['uuidv4'] }).optional().messages({
       'string.guid': 'Updated By must be a valid UUID',

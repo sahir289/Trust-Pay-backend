@@ -243,7 +243,7 @@ router.post("/update-payment-notified-status/:payInId", tryCatchHandler(updatePa
  *       404:
  *         description: Merchant not found
  */
-router.put("/update-deposit-status/:merchantId", tryCatchHandler(updateDepositStatus));
+router.put("/update-deposit-status/:merchantOrderId", tryCatchHandler(updateDepositStatus));
 
 /**
  * @swagger

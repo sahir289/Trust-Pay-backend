@@ -10,7 +10,7 @@ const getRoles = async (req, res) => {
       // let search = req.query.search ; 
       const data = await getRoleService({
         company_id,
-        // Todo: search
+        ...req.query,
       });
       console.log('get Roles successfully', 'info');
       return sendSuccess(res, data, 'get Roles successfully');
@@ -69,9 +69,9 @@ const updateRole = async (req, res) => {
         if (paramsError) {
           throw new ValidationError(paramsError);
         }
-        let { body, params } = req;
+        const {id} = req.params
         const {company_id} = req.user;
-        const data = await  transactionWrapper(updateRoleService)(params.id,company_id, body);
+        const data = await  transactionWrapper(updateRoleService)({id,company_id}, req.body);
         console.log('Update Role successfully', 'info');
         return sendSuccess(res, data, 'Update Role successfully');
     } catch (error) {
@@ -86,10 +86,11 @@ const deleteRole = async (req, res) => {
         if (error) {
           throw new ValidationError(error);
         }
-        let { params } = req;
+        const {id} = req.params;
         const {company_id} = req.user;
+        const ids = {id,company_id}
         const userData = { is_obsolete: true };
-        const data = await transactionWrapper(deleteRoleService)(params.id,company_id, userData);
+        const data = await deleteRoleService(ids, userData);
         console.log('Delete Role successfully', 'info');
         return sendSuccess(res, data, 'Delete Role successfully');
     } catch (error) {

@@ -40,9 +40,9 @@ export const getMerchantsDao = async (
     }
 };
 
-export const updateMerchantDao = async (id, company_id, role_id, user_id, data, conn) => {
+export const updateMerchantDao = async (ids, data, conn) => {
     try {
-        const [sql, params] = buildUpdateQuery(tableName.MERCHANT, data, { id, company_id, role_id, user_id, });
+        const [sql, params] = buildUpdateQuery(tableName.MERCHANT, data, ids);
         if (conn && conn.query) {
             const result = await conn.query(sql, params);
             return result.rows[0];
@@ -55,9 +55,9 @@ export const updateMerchantDao = async (id, company_id, role_id, user_id, data, 
     }
 };
 
-export const deleteMerchantDao = async (id, company_id, role_id, user_id, data) => {
+export const deleteMerchantDao = async (ids, data) => {
     try {
-        const [sql, params] = buildUpdateQuery(tableName.MERCHANT, data, { id, company_id, role_id, user_id });
+        const [sql, params] = buildUpdateQuery(tableName.MERCHANT, data, ids);
         const result = await executeQuery(sql, params);
         return result.rows[0];
     } catch (error) {

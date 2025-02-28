@@ -5,10 +5,15 @@ import {
   buildUpdateQuery,
 } from '../../utils/db.js';
 import { tableName } from '../../constants/index.js';
-
+import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 const getRoleDao = async (filters, page, pageSize, sortBy, sortOrder) => {
+  try {
   const baseQuery = `SELECT id,role FROM "${tableName.ROLE}" WHERE 1=1`;
+   if (filters.search) {
+              filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
+              delete filters.search;
+          }
   //TODO: columns.ROLE dynamic search
   const [sql, queryParams] = buildSelectQuery(
     baseQuery,
@@ -21,7 +26,12 @@ const getRoleDao = async (filters, page, pageSize, sortBy, sortOrder) => {
   // Execute query
   const result = await executeQuery(sql, queryParams)
   return result.rows;
+}catch (error) {
+  console.error('Error in getRolesDao:', error);
+  throw new Error('Failed to fetch Roles');
+}
 };
+
 
 
 const createRoleDao = async (conn, data) => {
@@ -39,9 +49,9 @@ const createRoleDao = async (conn, data) => {
   }
 };
 
-const updateRoleDao = async (conn, id, company_id, data) => {
+const updateRoleDao = async (conn, id, data) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.ROLE, data, { id, company_id });
+    const [sql, params] = buildUpdateQuery(tableName.ROLE, data, id);
     if (conn && conn.query) {
       const result = await conn.query(sql, params);
       return result.rows[0];
@@ -54,13 +64,9 @@ const updateRoleDao = async (conn, id, company_id, data) => {
   }
 };
 
-const deleteRoleDao = async (conn,id,company_id, data) => {
+const deleteRoleDao = async (id, data) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.ROLE, data, { id, company_id });
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
+    const [sql, params] = buildUpdateQuery(tableName.ROLE, data, id);
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {

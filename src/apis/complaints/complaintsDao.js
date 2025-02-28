@@ -37,9 +37,9 @@ const createComplaintsDao = async (data) => {
 };
 
 // Update an existing Complaint
-const updateComplaintsDao = async (id,company_id, data) => {
+const updateComplaintsDao = async (id, data) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.COMPLAINTS, data, { id,company_id });
+    const [sql, params] = buildUpdateQuery(tableName.COMPLAINTS, data,id);
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
@@ -49,9 +49,9 @@ const updateComplaintsDao = async (id,company_id, data) => {
 };
 
 // Delete a Complaint
-const deleteComplaintsDao = async (id,company_id, data) => {
+const deleteComplaintsDao = async (id, data) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.COMPLAINTS, data, { id,company_id });
+    const [sql, params] = buildUpdateQuery(tableName.COMPLAINTS, data, id);
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
