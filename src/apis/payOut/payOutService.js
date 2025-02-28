@@ -62,14 +62,9 @@ const createPayoutService = async (conn,headers,payload,role) => {
     } 
 };
 
-const getPayoutsService = async (filters, role) => {
-    try {
-        const filterColumns = role === Role.MERCHANT ? merchantColumns.PAYOUT : role === Role.VENDOR ? vendorColumns.PAYOUT : columns.PAYOUT;
-        return await getPayoutsDao(filters, null, null, null, null, filterColumns);
-       } catch (error) {
-        console.error('Error while fetching Payouts', error);
-        throw new BadRequestError('Error occurred while fetching Payouts');
-    }
+const getPayoutsService = async (payload) => {
+   let conn = await getConnection();
+       return await getPayoutsDao(conn, payload);
 };
 
 
