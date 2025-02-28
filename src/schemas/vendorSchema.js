@@ -2,6 +2,14 @@ import Joi from 'joi';
 
 // Validation Schema for Creating a Vendor
 const VALIDATE_VENDOR_SCHEMA = Joi.object({
+   user_id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
+      'string.guid': 'User_ID must be a valid UUID',
+      'any.required': 'User_ID is required',
+    }),
+    role_id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
+      'string.guid': 'Role_ID must be a valid UUID',
+      'any.required': 'Rokle_ID is required',
+    }),
     first_name: Joi.string().min(1).max(255).required().messages({
       'string.min': 'First Name must be at least 1 character long',
       'string.max': 'First Name must be less than 255 characters long',
@@ -29,22 +37,9 @@ const VALIDATE_VENDOR_SCHEMA = Joi.object({
       'number.min': 'Balance must be a positive number',
       'any.required': 'Balance is required',
     }),
-    config: Joi.object().default({}).messages({
+    config: Joi.object().default({}).optional().messages({
       'object.base': 'Config must be a valid object',
     }),
-    created_by: Joi.string().guid({ version: ['uuidv4'] }).optional().messages({
-      'string.guid': 'Created By must be a valid UUID',
-    }),
-    updated_by: Joi.string().guid({ version: ['uuidv4'] }).optional().messages({
-      'string.guid': 'Updated By must be a valid UUID',
-    }),
-    created_at: Joi.string().isoDate().optional().messages({
-      'string.isoDate': 'Created At must be a valid date in ISO 8601 format',
-    }),
-    updated_at: Joi.string().isoDate().optional().messages({
-      'string.isoDate': 'Updated At must be a valid date in ISO 8601 format',
-    }),
-    is_obsolete: Joi.boolean().optional(),
 
 });
 
@@ -52,7 +47,6 @@ const VALIDATE_VENDOR_SCHEMA = Joi.object({
 const VALIDATE_UPDATE_VENDOR_STATUS = Joi.object({
     first_name: Joi.string().min(1).max(255).optional(),
     last_name: Joi.string().min(1).max(255).optional(),
-    code: Joi.string().min(1).max(255).optional(),
     payin_commission: Joi.number().min(0).optional(),
     payout_commission: Joi.number().min(0).optional(),
     balance: Joi.number().min(0).optional(),
@@ -60,12 +54,6 @@ const VALIDATE_UPDATE_VENDOR_STATUS = Joi.object({
     is_obsolete: Joi.boolean().optional(),
     updated_by: Joi.string().guid({ version: ['uuidv4'] }).optional().messages({
       'string.guid': 'Updated By must be a valid UUID',
-    }),
-    created_by: Joi.string().guid({ version: ['uuidv4'] }).optional().messages({
-      'string.guid': 'Created By must be a valid UUID',
-    }),
-    created_at: Joi.string().isoDate().optional().messages({
-      'string.isoDate': 'Created At must be a valid date in ISO 8601 format',
     }),
     updated_at: Joi.string().isoDate().optional().messages({
       'string.isoDate': 'Updated At must be a valid date in ISO 8601 format',

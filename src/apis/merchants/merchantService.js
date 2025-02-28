@@ -7,6 +7,8 @@ import { getRoleDao } from '../roles/rolesDao.js';
 import { createUserHierarchyDao, getUserHierarchysDao, updateUserHierarchyDao } from '../userHierarchy/userHierarchyDao.js';
 import { columns, merchantColumns, Method, Role } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
+import { transactionWrapper } from '../../utils/db.js';
+import { createCalculationDao } from '../calculation/calculationDao.js';
 // Create Merchant Service
 const createMerchantService = async (payload, roleIs) => {
     try {
@@ -14,8 +16,25 @@ const createMerchantService = async (payload, roleIs) => {
         const parentId = payload.parentId;
         delete payload.parentId;
         const data = await createMerchantDao(payload);
+        const calculationPayload={
+            role_id:data.role_id,
+            user_id:data.user_id,
+            total_payin_count: "0",
+            total_payin_amount: "0",
+            total_payin_commission: "0",
+            total_payout_count: "0",
+            total_payout_amount: "0",
+            total_payout_commission: "0",
+            total_settlement_count: "0",
+            total_settlement_amount: "0",
+            total_chargeback_count: "0",
+            total_chargeback_amount: "0",
+            current_balance: "0",
+            net_balance: "0",
+            company_id:data.company_id
+              }
+     await transactionWrapper(createCalculationDao)(calculationPayload);
         const role = await getRoleDao({ id: payload.role_id });
-
         if (role.role === Method.MERCHANT) {
             await createUserHierarchyDao({
                 user_id: payload.user_id,
@@ -69,14 +88,14 @@ const updateMerchantService = async (ids, payload, role) => {
 };
 
 // Delete Merchant Service (with Transaction Handling)
-const deleteMerchantService = async (ids, roleIs) => {
+const deleteMerchantService = async (ids,updated_by,roleIs) => {
     let conn;
     try {
         const filterColumns = roleIs === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
 
-        const payload = { is_obsolete: true };
+        const payload = { is_obsolete: true ,updated_by};
         const data = await deleteMerchantDao(ids, payload); // Adjust DAO call for delete
         await commit(conn); // Commit the transaction
         console.log('Merchant deleted successfully');

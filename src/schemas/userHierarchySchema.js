@@ -2,26 +2,11 @@ import Joi from 'joi';
 
 // Validation Schema for Creating a UserHierarchy
 const VALIDATE_USER_HIERARCHY_SCHEMA = Joi.object({
-    config: Joi.object().default({}).messages({
+  designation_id: Joi.string().guid({ version: ['uuidv4'] }).label('designation_id').required(),
+  user_id: Joi.string().guid({ version: ['uuidv4'] }).label('user_id').required(),
+    config: Joi.object().default({}).optional().messages({
       'object.base': 'Config must be a valid object',
     }),
-    created_by: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
-      'string.guid': 'Created By must be a valid UUID',
-      'any.required': 'Created By is required',
-    }),
-    updated_by: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
-      'string.guid': 'Updated By must be a valid UUID',
-      'any.required': 'Updated By is required',
-    }),
-    created_at: Joi.string().isoDate().required().messages({
-      'string.isoDate': 'Created At must be a valid date in ISO 8601 format',
-      'any.required': 'Created At is required',
-    }),
-    updated_at: Joi.string().isoDate().required().messages({
-      'string.isoDate': 'Updated At must be a valid date in ISO 8601 format',
-      'any.required': 'Updated At is required',
-    }),
-    is_obsolete: Joi.boolean().default(false),
 });
 
 // Validation Schema for Updating a UserHierarchy
@@ -31,9 +16,6 @@ const VALIDATE_UPDATE_USER_HIERARCHY_STATUS = Joi.object({
       'string.guid': 'Updated By must be a valid UUID',
     }),
     is_obsolete: Joi.boolean().optional(),
-    created_at: Joi.string().isoDate().optional().messages({
-      'string.isoDate': 'Created At must be a valid date in ISO 8601 format',
-    }),
     updated_at: Joi.string().isoDate().optional().messages({
       'string.isoDate': 'Updated At must be a valid date in ISO 8601 format',
     }),

@@ -47,17 +47,14 @@ const getCalculation = async (req, res) => {
 const createCalculation = async (req, res) => {
   try {
     const { role } = req.user;
-    let payload = req.body;
-    const { company_id, user_id, role_id } = req.user;
-   
-    // Validate the request body using Joi schema
-    const { error } = VALIDATE_CALCULATION_SCHEMA.validate(payload);
+    const { error } = VALIDATE_CALCULATION_SCHEMA.validate(req.body);
     if (error) {
       throw new ValidationError(error);
     }
+    let payload = req.body;
+    const {company_id} = req.user;
+    // Validate the request body using Joi schema
     payload.company_id = company_id;
-    payload.user_id = user_id;
-    payload.role_id = role_id;
     if (!payload) {
       console.error('payload is required');
       return sendError(res, 'payload is required', 'Validation Error');

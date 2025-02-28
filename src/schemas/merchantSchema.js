@@ -2,77 +2,71 @@ import Joi from 'joi';
 
 // Validation Schema for Creating a Merchant
 const VALIDATE_MERCHANT_SCHEMA = Joi.object({
-    
-    first_name: Joi.string().min(1).max(255).required().messages({
+  User_id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
+    'string.guid': 'User_ID must be a valid UUID',
+    'any.required': 'User_ID is required',
+  }),
+  Role_id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
+    'string.guid': 'Role_ID must be a valid UUID',
+    'any.required': 'Rokle_ID is required',
+  }),
+  first_name: Joi.string().min(1).max(255).required().messages({
       'string.min': 'First Name must be at least 1 character long',
       'string.max': 'First Name must be less than 255 characters long',
       'any.required': 'First Name is required',
     }),
-    last_name: Joi.string().min(1).max(255).required().messages({
+  last_name: Joi.string().min(1).max(255).required().messages({
       'string.min': 'Last Name must be at least 1 character long',
       'string.max': 'Last Name must be less than 255 characters long',
       'any.required': 'Last Name is required',
     }),
-    code: Joi.string().min(1).max(255).required().messages({
+  code: Joi.string().min(1).max(255).required().messages({
       'string.min': 'Code must be at least 1 character long',
       'string.max': 'Code must be less than 255 characters long',
       'any.required': 'Code is required',
     }),
-    min_payin: Joi.number().min(0).required().messages({
+  min_payin: Joi.number().min(0).required().messages({
       'number.min': 'Min Payin must be a positive number',
       'any.required': 'Min Payin is required',
     }),
-    max_payin: Joi.number().min(0).required().messages({
+  max_payin: Joi.number().min(0).required().messages({
       'number.min': 'Max Payin must be a positive number',
       'any.required': 'Max Payin is required',
     }),
-    payin_commission: Joi.number().min(0).required().messages({
+  payin_commission: Joi.number().min(0).required().messages({
       'number.min': 'Payin Commission must be a positive number',
       'any.required': 'Payin Commission is required',
     }),
-    min_payout: Joi.number().min(0).required().messages({
+  min_payout: Joi.number().min(0).required().messages({
       'number.min': 'Min Payout must be a positive number',
       'any.required': 'Min Payout is required',
     }),
-    max_payout: Joi.number().min(0).required().messages({
+  max_payout: Joi.number().min(0).required().messages({
       'number.min': 'Max Payout must be a positive number',
       'any.required': 'Max Payout is required',
     }),
-    payout_commission: Joi.number().min(0).required().messages({
+  payout_commission: Joi.number().min(0).required().messages({
       'number.min': 'Payout Commission must be a positive number',
       'any.required': 'Payout Commission is required',
     }),
-    is_test_mode: Joi.boolean().default(false),
-    is_enabled: Joi.boolean().default(true),
-    dispute_enabled: Joi.boolean().default(true),
-    is_demo: Joi.boolean().default(false),
-    balance: Joi.number().min(0).required().messages({
+  is_test_mode: Joi.boolean().default(false),
+  is_enabled: Joi.boolean().default(true),
+  dispute_enabled: Joi.boolean().default(true),
+  is_demo: Joi.boolean().default(false),
+  balance: Joi.number().min(0).required().messages({
       'number.min': 'Balance must be a positive number',
       'any.required': 'Balance is required',
     }),
     config: Joi.object().default({}).messages({
       'object.base': 'Config must be a valid object',
     }),
-    created_by: Joi.string().guid({ version: ['uuidv4'] }).optional().messages({
-      'string.guid': 'Created By must be a valid UUID',
-    }),
-    updated_by: Joi.string().guid({ version: ['uuidv4'] }).optional().messages({
-      'string.guid': 'Updated By must be a valid UUID',
-    }),
-    created_at: Joi.string().isoDate().optional().messages({
-      'string.isoDate': 'Created At must be a valid date in ISO 8601 format',
-    }),
-    updated_at: Joi.string().isoDate().optional().messages({
-      'string.isoDate': 'Updated At must be a valid date in ISO 8601 format',
-    }),
-    is_obsolete: Joi.boolean().optional(),
+   
 });
 
 // Validation Schema for Updating a Merchant
 const VALIDATE_UPDATE_MERCHANT_STATUS = Joi.object({
     first_name: Joi.string().min(1).max(255).optional(),
     last_name: Joi.string().min(1).max(255).optional(),
-    code: Joi.string().min(1).max(255).optional(),
     min_payin: Joi.number().min(0).optional(),
     max_payin: Joi.number().min(0).optional(),
     payin_commission: Joi.number().min(0).optional(),

@@ -7,24 +7,16 @@ const VALIDATE_ROLE_SCHEMA = Joi.object({
       'string.max': 'Role name must be less than 255 characters long',
       'any.required': 'Role name is required',
     }),
-    company_id: Joi.string().guid({ version: ['uuidv4'] }).required().messages({
-      'string.guid': 'Company ID must be a valid UUID',
-      'any.required': 'Company ID is required',
-    }),
-    is_obsolete: Joi.boolean().optional().default(false),
-    created_by: Joi.string().optional(),
-    updated_by: Joi.string().optional(),
     config: Joi.object().optional().default({}).messages({
       'object.base': 'Config must be a valid object',
     }),
-});
-
-// Validation Schema for Updating a Role
-const VALIDATE_UPDATE_ROLE_STATUS = Joi.object({
-    role: Joi.string().min(1).max(255).optional(),
     company_id: Joi.string().guid({ version: ['uuidv4'] }).optional().messages({
       'string.guid': 'Company ID must be a valid UUID',
     }),
+});
+// Validation Schema for Updating a Role
+const VALIDATE_UPDATE_ROLE_STATUS = Joi.object({
+    role: Joi.string().min(1).max(255).optional(),
     is_obsolete: Joi.boolean().optional(),
     updated_by: Joi.string().optional(),
     config: Joi.object().optional(),

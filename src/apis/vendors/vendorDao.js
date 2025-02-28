@@ -1,6 +1,7 @@
 import { tableName } from "../../constants/index.js";
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
 import { buildSearchFilterObj } from "../../utils/searchBuilder.js";
+
 export const createVendorDao = async (data) => {
     try {
         const [sql, params] = buildInsertQuery(tableName.VENDOR, data);
@@ -26,7 +27,7 @@ export const getVendorsDao = async (
 
         // Execute query
          if (filters.search) {
-                    filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
+                    filters.or = buildSearchFilterObj(filters.search, tableName.VENDOR);
                     delete filters.search;
                 }
                 const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
