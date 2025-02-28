@@ -1,8 +1,7 @@
 import express from "express";
 import tryCatchHandler from "../../utils/tryCatchHandler.js";
 import { getMerchantReportService, getPayInReportService, getPayOutReportService, getVendorReportService } from "./reportsService.js";
-import { authorized, isAuthenticated } from '../../middlewares/auth.js';
-import { AccessRoles } from '../../constants/index.js';
+import {  isAuthenticated } from '../../middlewares/auth.js';
 
 /**
  * @swagger
@@ -42,7 +41,7 @@ const router = express.Router();
  *       500:
  *         description: Server error
  */
-router.post('/get-all-payouts', [isAuthenticated, authorized(AccessRoles.REPORT)], tryCatchHandler(getPayOutReportService));
+router.post('/get-payouts-report', isAuthenticated, tryCatchHandler(getPayOutReportService));
 
 /**
  * @swagger
@@ -70,7 +69,7 @@ router.post('/get-all-payouts', [isAuthenticated, authorized(AccessRoles.REPORT)
  *       500:
  *         description: Server error
  */
-router.post('/get-all-payins',[isAuthenticated, authorized(AccessRoles.REPORT)], tryCatchHandler(getPayInReportService));
+router.post('/get-payins-reports',isAuthenticated ,tryCatchHandler(getPayInReportService));
 
 /**
  * @swagger
@@ -98,7 +97,7 @@ router.post('/get-all-payins',[isAuthenticated, authorized(AccessRoles.REPORT)],
  *       500:
  *         description: Server error
  */
-router.get('/get-all-merchants',[isAuthenticated, authorized(AccessRoles.REPORT)], tryCatchHandler(getMerchantReportService));
+router.get('/get-merchants-reports',isAuthenticated, tryCatchHandler(getMerchantReportService));
 
 /**
  * @swagger
@@ -126,60 +125,6 @@ router.get('/get-all-merchants',[isAuthenticated, authorized(AccessRoles.REPORT)
  *       500:
  *         description: Server error
  */
-router.get('/get-all-vendors',[isAuthenticated, authorized(AccessRoles.REPORT)], tryCatchHandler(getVendorReportService));
-
-/**
- * @swagger
- * /reports/weekly-vendor-report:
- *   get:
- *     summary: Get weekly vendor report
- *     description: Retrieves a weekly summary of vendor account reports.
- *     tags: [Reports]
- *     parameters:
- *       - in: query
- *         name: vendorCode
- *         schema:
- *           type: string
- *         required: true
- *         description: Vendor code to filter reports.
- *       - in: query
- *         name: startDate
- *         schema:
- *           type: string
- *           format: date
- *         required: false
- *         description: Start date (optional).
- *       - in: query
- *         name: endDate
- *         schema:
- *           type: string
- *           format: date
- *         required: false
- *         description: End date (optional).
- *     responses:
- *       200:
- *         description: Weekly vendor report data.
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   vendorCode:
- *                     type: string
- *                     example: "ABC123"
- *                   totalPayout:
- *                     type: number
- *                     example: 10000.00
- *                   totalPayin:
- *                     type: number
- *                     example: 15000.00
- *       400:
- *         description: Invalid request parameters.
- *       500:
- *         description: Server error.
- */
-router.get('/weekly-vendor-report', [isAuthenticated, authorized(AccessRoles.REPORT)], tryCatchHandler(getVendorReportService));
+router.get('/get-vendors-reports',isAuthenticated, tryCatchHandler(getVendorReportService));
 
 export default router;
