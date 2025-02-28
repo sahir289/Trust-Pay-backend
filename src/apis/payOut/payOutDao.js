@@ -48,45 +48,42 @@ ORDER BY u.id
 LIMIT $3 OFFSET $2;
 `
 
-  let payoutdata = [];
   const queryParams = [payload.company_id, payload.page, payload.limit];
   const result = await conn.query(baseQuery, queryParams);
-  const dataIs = result.rows;
-  payoutdata.push(
-    { totalCount: result.rows.length },)
-  for (const res of dataIs) {
-    payoutdata.push({
-      rows: {
-        id: res.id,
-        sno: res.sno,
-        upi_short_code: res.upi_id, // Changed to match query field
-        amount: res.amount,
-        status: res.status,
-        is_notified: res.is_notified, // This field does not exist in the query, will be `undefined`
-        user_submitted_utr: res.user_submitted_utr, // This field does not exist in the query, will be `undefined`
-        merchant_order_id: res.merchant_order_id,
-        user: res.user,
-        bank_account: res.nick_name, // Matches `b.nick_name` in query
-        merchant: {
-          code: res.merchant_code, // Matches `r.code`
-        },
-        vendor: res.vendor_code, // Matches `v.code`
-        payout_merchant_commission: res.payout_merchant_commission, // Changed `payin` to `payout`
-        payout_vendor_commission: res.payout_vendor_commission, // Changed `payin` to `payout`
-        user_submitted_image: null, // No equivalent field in the query, set to `null`
-        duration: null, // No equivalent field in the query, set to `null`
-        approved_at: res.approved_at,
-        created_by: res.created_by,
-        updated_by: res.updated_by,
-        created_at: res.created_at,
-        updated_at: res.updated_at,
-      },
-    });
-
-
-  }
-  //  return payoutdata;
-  return result;
+    return {
+      totalCount: result.rows.length,
+      rows: result.rows.reduce((acc, res) => acc.concat({
+          id: res.id,
+          sno: res.sno,
+          upi_short_code: res.upi_short_code,
+          amount: res.amount,
+          status: res.status,
+          is_notified: res.is_notified,
+          user_submitted_utr: res.user_submitted_utr,
+          merchant_order_id: res.merchant_order_id,
+          user: res.user,
+          bank_account: res.nick_name,
+          merchant: {
+              code: res.merchant_code,
+              ReturnUrl: res.payout_config.return_url,
+              NotifyUrl: res.payout_config.notify_url,
+          },
+          vendor: res.vendor_code,
+          bank_response: {
+              amount: res.bank_res_amount,
+              utr: res.utr,
+          },
+          payout_merchant_commission: res.payout_merchant_commission,
+          payout_vendor_commission: res.payout_vendor_commission,
+          user_submitted_image: res.user_submitted_image,
+          duration: res.duration,
+          approved_at: res.approved_at,
+          created_by: res.created_by,
+          updated_by: res.updated_by,
+          created_at: res.created_at,
+          updated_at: res.updated_at,
+      }), [])
+  };
 };
 
 export const updatePayoutDao = async (ids, data, conn) => {
