@@ -22,7 +22,9 @@ export const getVendorsDao = async (
     columns = [],
 ) => {
     try {
+
         const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.VENDOR}" WHERE 1=1`;
+
         // Execute query
          if (filters.search) {
                     filters.or = buildSearchFilterObj(filters.search, tableName.VENDOR);

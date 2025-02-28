@@ -14,7 +14,10 @@ import {
 const getBankResponse = async (req, res) => {
   try {
     const payload = req.query;
-    const data = await getBankResponseService(payload);
+    const {role} = req.user;
+    const {company_id} = req.user;
+    payload.company_id = company_id;
+    const data = await getBankResponseService(payload, role);
     return sendSuccess(res, data, 'get bankResponse successfully');
   } catch (error) {
     console.error(res, error, 'error getting while getting bankResponse');
@@ -23,8 +26,10 @@ const getBankResponse = async (req, res) => {
 
 const createBankResponse = async (req, res) => {
   try {
-
+    const {role} = req.user;
     const payload = req.body?.body;
+    const { company_id, user_id } = req.user;
+    payload.created_by = user_id
     if (!payload) {
       console.error('payload is required');
     }
@@ -32,8 +37,9 @@ const createBankResponse = async (req, res) => {
     if (error) {
       throw new ValidationError(error);
     }
-    const data = await createBankResponseService(payload);
-    return sendSuccess(res, data, 'Create BankResponse successfully');
+    // const data = 
+    await createBankResponseService(payload, company_id, role);
+    return sendSuccess(res, 'Create BankResponse successfully');
   } catch (error) {
     console.error(error, 'error getting while creating BankResponse');
   }
@@ -42,9 +48,11 @@ const createBankResponse = async (req, res) => {
 
 const getBankMessage = async (req, res) => {
   try {
+    const { company_id } = req.user;
+    const { role } = req.user;
     const { bank_id, startDate, endDate } = req.query;
-    const data = await getBankMessageServices(bank_id, startDate, endDate);
-    return sendSuccess(res, data, 'Update BankResponse successfully');
+    const data = await getBankMessageServices(bank_id, startDate, endDate, company_id, role);
+    return sendSuccess(res, data, 'Get BankResponse successfully');
   } catch (error) {
     console.error(res, error, 'error getting while updating BankResponse');
   }
@@ -53,8 +61,9 @@ const getBankMessage = async (req, res) => {
 
 const resetBankResponse = async (req, res) => {
   try {
+    const { company_id, user_id } = req.user;
     const { id } = req.body;
-    const botRes = await getBankResponseDao({ id: id });
+    const botRes = await getBankResponseDao({ id: id , company_id:company_id });
     let getallPayinDataByUtr
     getallPayinDataByUtr = await getPayInUrlsDao({ user_submitted_utr: botRes.utr });
 
@@ -63,6 +72,7 @@ const resetBankResponse = async (req, res) => {
     if (!hasSuccess) {
       const data = {
         is_used: false,
+        updated_by: user_id
       }
       await updateBotResponseDao(id, data);
 
@@ -73,6 +83,7 @@ const resetBankResponse = async (req, res) => {
         const updatePayinData = {
           status: "ASSIGNED",
           user_submitted_utr: null,
+          updated_by: user_id
         }
         await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData)
       }

@@ -31,7 +31,6 @@ const loginService = async (config, clientIP) => {
     }
   
     const isPasswordValid = await verifyHash(config.password, user?.password);
-  
     if (!isPasswordValid) {
       throw new AuthenticationError('Invalid credentials'); // 401 Unauthorized - The provided credentials (password) are invalid.
     }

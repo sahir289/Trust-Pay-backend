@@ -180,19 +180,21 @@ export const resetDeposit = async (req, res) => {
 }
 export const getPayins = async (req, res) => {
     try {
-        const payload = req.query;
+        const payload = {
+            search: req.query.search,  // Assuming you're passing search query too
+            page: parseInt(req.query.page, 10) || 1,  // Default to page 1 if not provided
+            limit : parseInt(req.query.page, 10) || 1
+        };
         const { company_id } = req.user;
-        const data = await getPayinsService({
-            company_id,
-            // Todo: Search
-        }, payload.page, payload.limit);
+        payload.company_id = company_id;
+        const data = await getPayinsService(
+            payload
+           
+        );
         console.log('getPayins successfully', data);
         return sendSuccess(res, data, 'Payins fetched successfully');
     } catch (error) {
-        // Log error
         console.error('error getting while fetching Payins Data', error);
-
-        // Send an error response
         return sendError(res, error, 'Error occurred while fetching Payins');
     }
 };

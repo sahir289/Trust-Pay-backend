@@ -48,7 +48,7 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(getChargeBacks));
+router.get('/', [isAuthenticated, authorized(AccessRoles.CHARGE_BACK.GET)], tryCatchHandler(getChargeBacks));
 /**
  * @swagger
  * /chargeBacks/{id}:
@@ -85,7 +85,7 @@ router.get('/', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHa
  *       500:
  *         description: Internal server error
  */
-router.get('/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(getChargeBacksById));
+router.get('/:id', [isAuthenticated, authorized(AccessRoles.CHARGE_BACK.GET)], tryCatchHandler(getChargeBacksById));
 
 /**
  * @swagger
@@ -137,7 +137,7 @@ router.get('/:id', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatc
  *       500:
  *         description: Internal server error.
  */
-router.post('/create-chargeback', [isAuthenticated, authorized(AccessRoles.CHAREBACK)], tryCatchHandler(createChargeBack));
+router.post('/create-chargeback', [isAuthenticated, authorized(AccessRoles.CHARGE_BACK.CREATE_DELETE)], tryCatchHandler(createChargeBack));
 
 /**
  * @swagger
@@ -186,7 +186,7 @@ router.post('/create-chargeback', [isAuthenticated, authorized(AccessRoles.CHARE
  *       500:
  *         description: Internal server error.
  */
-router.put('/update-chargeback/:id', [isAuthenticated, authorized(AccessRoles.CHARGE_BACK)], tryCatchHandler(updateChargeBack));
+router.put('/update-chargeback/:id', [isAuthenticated, authorized(AccessRoles.CHARGE_BACK.UPDATE_READ)], tryCatchHandler(updateChargeBack));
 
 /**
  * @swagger
