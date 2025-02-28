@@ -64,7 +64,8 @@ const updateCompany = async (req, res) => {
       throw new ValidationError(Validation.error);
     }
     const { id } = req.params;
-    const data = await updateCompanyService({id:id}, payload);
+    // const data = 
+    await updateCompanyService({id:id}, payload);
     return sendSuccess(res, 'Update Company successfully');
   } catch (error) {
     console.error('error getting while getting Company', error);

@@ -1,7 +1,6 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { createCompanyDao, deleteCompanyDao, getCompanyDao, updateCompanyDao } from './companyDao.js';
 import { createUserService } from '../users/userService.js';
-import { transactionWrapper } from '../../utils/db.js';
 import { createDesignationService } from '../designation/designationServices.js';
 import { createRoleDao } from '../roles/rolesDao.js';
 const getCompanyService = async (id) => {
