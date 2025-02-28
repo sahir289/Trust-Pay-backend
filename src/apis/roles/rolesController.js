@@ -39,20 +39,18 @@ const getRolesById = async (req, res) => {
 
 const createRole = async (req, res) => {
     try {
-      let payload = req.body;
-      if (!payload) {
-        console.error('payload is required');
-        return sendError(res, 'payload is required', 'Validation Error');
-      }
-      const {company_id} = req.user;
-      payload.company_id=company_id;
-      const { error } = VALIDATE_ROLE_SCHEMA.validate(payload); // Validate body
+      const { error } = VALIDATE_ROLE_SCHEMA.validate(req.body); // Validate body
       if (error) {
         throw new ValidationError(error);
       }
-      const data = await transactionWrapper(createRoleService)(payload);
+      let payload = req.body;
+      const {company_id,user_id} = req.user;
+      payload.company_id=company_id;
+      payload.created_by=user_id;
+      payload.updated_by=user_id;
+      await transactionWrapper(createRoleService)(payload);
       console.log('create Role successfully', 'info');
-      return sendSuccess(res, data, 'Create Role successfully');
+      return sendSuccess(res, 'Create Role successfully');
     } catch (error) {
         console.error('error getting while creating Role', 'error', error);
         return sendError(res, error, 'Error occurred while creating Role');
@@ -69,11 +67,13 @@ const updateRole = async (req, res) => {
         if (paramsError) {
           throw new ValidationError(paramsError);
         }
+        const payload = req.body;
         const {id} = req.params
-        const {company_id} = req.user;
-        const data = await  transactionWrapper(updateRoleService)({id,company_id}, req.body);
+        const {company_id,user_id} = req.user;
+        payload.updated_by=user_id;
+         await  transactionWrapper(updateRoleService)({id,company_id}, payload);
         console.log('Update Role successfully', 'info');
-        return sendSuccess(res, data, 'Update Role successfully');
+        return sendSuccess(res, 'Update Role successfully');
     } catch (error) {
         console.error('error getting while updating Role', 'error', error);
         return sendError(res, error, 'Error occurred while updating Role');
@@ -87,12 +87,12 @@ const deleteRole = async (req, res) => {
           throw new ValidationError(error);
         }
         const {id} = req.params;
-        const {company_id} = req.user;
+        const {company_id,user_id} = req.user;
         const ids = {id,company_id}
-        const userData = { is_obsolete: true };
-        const data = await deleteRoleService(ids, userData);
+        const userData = { is_obsolete: true,updated_by:user_id };
+        await deleteRoleService(ids, userData);
         console.log('Delete Role successfully', 'info');
-        return sendSuccess(res, data, 'Delete Role successfully');
+        return sendSuccess(res, 'Delete Role successfully');
     } catch (error) {
         console.error('error getting while deleting Role', 'error', error);
         return sendError(res, error, 'Error occurred while deleting Role');

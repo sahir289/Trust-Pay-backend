@@ -4,14 +4,25 @@ import {
   executeQuery,
   buildUpdateQuery,
 } from '../../utils/db.js';
-import { tableName } from '../../constants/index.js';
+import { tableName,columns } from '../../constants/index.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
-const getRoleDao = async (filters, page, pageSize, sortBy, sortOrder) => {
+const getRoleDao = async (filters, page, pageSize, sortBy, sortOrder,
+Columns=columns.ROLE
+) => {
+//   let baseQuery = `
+//     SELECT u.id, u.role, 
+//        JSON_AGG(r.designation) AS designations
+// FROM public."Role" u
+// LEFT JOIN public."Designation" r ON u.id = r.role_id
+// WHERE 1 = 1
+// GROUP BY u.id, u.role
+// ORDER BY u.created_at DESC;
+// `;
   try {
-  const baseQuery = `SELECT id,role FROM "${tableName.ROLE}" WHERE 1=1`;
-   if (filters.search) {
-              filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
+    const baseQuery = `SELECT ${Columns.length ? Columns.join(', ') : "*"} FROM "${tableName.ROLE}" WHERE 1=1`;
+    if (filters.search) {
+              filters.or = buildSearchFilterObj(filters.search, tableName.ROLE);
               delete filters.search;
           }
   //TODO: columns.ROLE dynamic search

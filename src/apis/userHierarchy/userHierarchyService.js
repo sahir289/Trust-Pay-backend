@@ -80,13 +80,13 @@ const updateUserHierarchyService = async (id,payload,role) => {
     }
 };
 
-const deleteUserHierarchyService = async (ids,role) => {
+const deleteUserHierarchyService = async (ids,updated_by,role) => {
     let conn;
     try {
         const filterColumns = role === Role.MERCHANT ? merchantColumns.USER_HIERARCHY : columns.USER_HIERARCHY;
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
-        const payload = { is_obsolete: true };
+        const payload = { is_obsolete: true,updated_by};
         const data = await deleteUserHierarchyDao(ids,payload); // Adjust DAO call for delete
         await commit(conn); // Commit the transaction
         console.log('UserHierarchy deleted successfully', 'info');

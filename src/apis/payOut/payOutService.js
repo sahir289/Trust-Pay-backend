@@ -76,7 +76,6 @@ const getPayoutsService = async (filters, role) => {
 const updatePayoutService = async (conn, ids, payload,role) => {
     const filterColumns = role === Role.MERCHANT ? merchantColumns.PAYOUT : role === Role.VENDOR ? vendorColumns.PAYOUT : columns.PAYOUT;
   
-    
     if (payload.utr_id && !payload.status) Object.assign(payload, { status: Status.SUCCESS, approved_at: new Date() });
     if (payload.rejected_reason) Object.assign(payload, { status: Status.REJECTED, rejected_at: new Date() });
     if (payload.status === Status.INITIATED) Object.assign(payload, { utr_id: "", rejected_reason: "" });
@@ -335,13 +334,14 @@ const ekoPayoutStatus = async (id, res) => {
     }
 }
 
-const deletePayoutService = async (id,role) => {
+const deletePayoutService = async (id,updated_by,role) => {
     let conn;
     try {
         const filterColumns = role === Role.MERCHANT ? merchantColumns.PAYOUT : role === Role.VENDOR ? vendorColumns.PAYOUT : columns.PAYOUT;
         conn = await getConnection();
         await beginTransaction(conn); // Start a transaction
         const payload = { is_obsolete: true };
+        payload.updated_by = updated_by;
         const data = await deletePayoutDao(id, payload); // Adjust DAO call for delete
         await commit(conn); // Commit the transaction
         console.log('Payout deleted successfully', 'info');
