@@ -59,7 +59,7 @@ export const columns = {
     PAYOUT: ['id', 'sno', 'user', 'merchant_id', 'bank_acc_id', 'amount', 'status', 'failed_reason', 'currency', 'merchant_order_id', 'acc_no', 'acc_holder_name', 'ifsc_code', 'bank_name', 'upi_id', 'utr_id', 'rejected_reason', 'payout_merchant_commission', 'payout_vendor_commission', 'from_bank_acc_id', 'approved_at', 'rejected_at', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     BANK_ACCOUNT: ['id', 'sno', 'user_id', 'upi_id', 'upi_params', 'nick_name', 'acc_no', 'ifsc', 'bank_name', 'is_qr', 'is_bank', 'is_enabled', 'payin_count', 'balance', 'today_balance', 'bank_used_for', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     VENDOR: ['id', 'role_id', 'user_id', 'first_name', 'last_name', 'code', 'payin_commission', 'payout_commission', 'balance', 'created_by', 'updated_by', 'config', 'company_id', 'created_at', 'updated_at', 'is_obsolete'],
-    CHARGE_BACK: ['id', 'sno', 'user', 'merchant_user_id', 'vendor_user_id', 'payin_id', 'bank_acc_id', 'amount', 'when', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
+    CHARGE_BACK: ['id', 'sno', 'user', 'merchant_user_id', 'vendor_user_id', 'payin_id', 'bank_acc_id', 'amount', '"when"', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     USER_HIERARCHY: ['id', 'user_id', 'role_id', 'config', 'company_id', 'created_by', 'updated_by', 'created_at', 'updated_at', 'is_obsolete'],
     CHECK_UTR_HISTORY: ['id', 'sno', 'payin_id', 'utr', 'created_by', 'updated_by', 'created_at', 'updated_at', 'company_id', 'is_obsolete', 'config'],
     RESET_DATA_HISTORY: ['id', 'sno', 'payin_id', 'pre_status', 'created_by',  'updated_by', 'created_at', 'updated_at', 'company_id', 'is_obsolete', 'config'],
@@ -74,7 +74,7 @@ export const merchantColumns = {
     COMPLAINTS: ['sno', 'status', 'email', 'config'],
     PAYIN: ['id', 'sno','qr_params', 'amount', 'status', 'is_notified', 'user_submitted_utr', 'currency', 'merchant_order_id', 'user', 'payin_merchant_commission', 'user_submitted_image', 'duration', 'config'],
     PAYOUT: ['id', 'sno', 'user', 'amount', 'status', 'failed_reason', 'currency', 'merchant_order_id', 'acc_no', 'acc_holder_name', 'ifsc_code', 'bank_name', 'upi_id', 'utr_id', 'rejected_reason', 'payout_merchant_commission', 'config'],
-    CHAREBACK: ['sno', 'user', 'merchant_user_id', 'amount', 'when'],
+    CHARGE_BACK: ['sno', 'user', 'merchant_user_id', 'amount', 'when'],
     USER_HIERARCHY: ['config'],
     BANK_ACCOUNT: ['upi_id', 'upi_params', 'nick_name', 'acc_no', 'acc_name', 'bank_name', 'is_qr', 'is_bank', 'is_enabled', 'config'],
 
@@ -88,7 +88,7 @@ export const vendorColumns = {
     PAYOUT: ['id', 'sno', 'user', 'amount', 'status', 'failed_reason', 'currency', 'acc_no', 'acc_holder_name', 'ifsc_code', 'bank_name', 'upi_id', 'utr_id', 'rejected_reason', 'payout_vendor_commission', 'from_bank_acc_id', 'config'],
     BANK_ACCOUNT: ['id','sno', 'upi_id', 'upi_params', 'nick_name', 'acc_no', 'acc_name', 'ifsc_code', 'bank_name', 'is_qr', 'is_bank', 'is_enabled', 'payin_count', 'balance', 'today_balance', 'bank_used_for', 'config'],
     VENDOR: ['first_name', 'last_name', 'code', 'payin_commission', 'payout_commission', 'balance', 'config'],
-    CHAREBACK: ['sno', 'user', 'vendor_user_id', 'bank_acc_id', 'amount', 'when'],
+    CHARGE_BACK: ['sno', 'user', 'vendor_user_id', 'bank_acc_id', 'amount', 'when'],
 }
 
 export const tableName = {
@@ -136,13 +136,15 @@ export const AccessRoles = {
     BANK_RESPONSE: [Role.ADMIN],
     BANK_ACCOUNT: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS, Role.VENDOR, Role.VENDOR_OPERATIONS],
     CHARGE_BACK: {
+        GET:  [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANT_ADMIN, Role.MERCHANT, Role.VENDOR],
         CREATE_DELETE: [Role.ADMIN, Role.TRANSACTIONS],
         UPDATE_READ: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANT_ADMIN, Role.MERCHANT, Role.VENDOR]
     },
     CALCULATION: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANT_ADMIN, Role.MERCHANT, Role.VENDOR],
     ROLES : [Role.ADMIN, Role.TRANSACTIONS],
     DESIGNATION : [Role.ADMIN, Role.TRANSACTIONS],
-    COMPLAINTS:[Role.ADMIN]
+    COMPLAINTS:[Role.ADMIN],
+
 
 }
 export const COUNTRIES = ['India', 'United Arab Emirates', 'Pakistan'];

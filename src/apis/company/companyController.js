@@ -43,7 +43,7 @@ const createCompany = async (req, res) => {
       throw new ValidationError(joiValidation.error);
     }
     const { role } = req.user;
-    console.log(payload, "payloadpayload")
+    // payload.role_id = role_id
     const data = await transactionWrapper(createCompanyService)(payload, role);
     console.log('Create Company successfully');
     return sendSuccess(res, data, 'Create Company successfully');

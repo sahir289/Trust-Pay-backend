@@ -18,8 +18,6 @@ const getCompanyService = async (id) => {
 const createCompanyService = async (conn, payload) => {
   try {
     const result = await createCompanyDao(conn, payload);
-    // const [sql, params] = buildInsertQuery(tableName.COMPANY, payload)
-    // const result = await executeQuery(sql, params);
     const roleName = {
       role: "Admin",
       company_id: result.id,
@@ -44,6 +42,7 @@ const createCompanyService = async (conn, payload) => {
       last_name: payload.last_name,
       code: payload.first_name.split('').reverse().join('')
     };
+    console.log(DesignationPayload, UserPayload, "dghfhgh")
     // const userCreated = 
     await createUserService(conn, UserPayload);
     return result;
