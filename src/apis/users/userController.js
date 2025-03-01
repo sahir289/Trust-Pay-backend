@@ -8,8 +8,10 @@ const getUsers = async (req, res) => {
   try {
     // const reqBody = req.body;
     const { role,company_id} = req.user;
-    const ids = {company_id}
-    const data = await getUsersService(ids,role);
+    const data = await getUsersService({
+      company_id,
+      ...req.query,
+    },role);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {

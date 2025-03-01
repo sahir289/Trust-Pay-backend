@@ -48,7 +48,7 @@ export const Role = {
 
 export const columns = {
     MERCHANT: ['id','role_id','user_id', 'first_name', 'last_name', 'code', 'min_payin', 'max_payin', 'payin_commission', 'min_payout', 'max_payout', 'payout_commission', 'is_test_mode', 'is_enabled', 'dispute_enabled', 'is_demo', 'balance', 'config', 'created_by', 'updated_by', 'created_at', 'updated_at'],
-    USER: ['id', 'role_id', 'company_id', 'designation_id', 'first_name', 'last_name', 'email', 'contact_no', 'user_name', 'password', 'code', 'is_enabled', 'last_login', 'last_logout', 'config', 'created_by', 'updated_by', 'created_at', 'updated_at'],
+    USER: ['id', 'role_id', 'designation_id', 'first_name', 'last_name', 'email', 'contact_no', 'user_name', 'password', 'code', 'is_enabled', 'last_login', 'last_logout', 'config', 'created_by', 'updated_by', 'created_at', 'updated_at'],
     ROLE: ['id', 'role', 'created_at', 'updated_at'],
     COMPANY: ['id', 'first_name', 'last_name', 'email', 'contact_no', 'config'],
     SETTLEMENT: ['id', 'sno', 'user_id', 'status', 'amount', 'method', 'config', 'approved_at', 'rejected_at', 'created_by', 'updated_by', 'created_at', 'updated_at', 'company_id'],      

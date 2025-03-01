@@ -24,6 +24,7 @@ const collectCalculationData = async (timezone = 'Asia/Kolkata') => {
                         user_id: calculation[0].user_id,
                         role_id: calculation[0].role_id,
                         company_id: calculation[0].company_id,
+                        net_balance: calculation[0].net_balance,
                         total_payin_count: 0,
                         total_payin_amount: 0,
                         total_payin_commission: 0,
@@ -34,12 +35,11 @@ const collectCalculationData = async (timezone = 'Asia/Kolkata') => {
                         total_settlement_amount: 0,
                         total_chargeback_count: 0,
                         total_chargeback_amount: 0,
-                        net_balance: calculation[0].net_balance,
                         current_balance: 0,
                         total_reverse_payout_amount: 0,
                         total_reverse_payout_count: 0,
                         total_reverse_payout_commission: 0,
-                        config: {},
+                        config:calculation[0].config,
                     };
                     await processUpdate(resetData);
                 }

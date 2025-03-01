@@ -8,26 +8,13 @@ import { createMerchantService } from '../merchants/merchantService.js';
 import { createVendorService } from '../vendors/vendorService.js';
 
 const getUsersService = async (ids,role) => {
-  let conn;
   try {
-    conn = await getConnection();
     const filterColumns = role === Role.MERCHANT ? merchantColumns.USER : role === Role.VENDOR ? vendorColumns.USER : columns.USER;
-    const result = await getUsersDao(conn,ids);
-    console.log('get Users successfully');
-    const finalResult =  filterResponse(result, filterColumns);
-    return finalResult;
+    return await getUsersDao(ids, null, null, null, null, filterColumns);
   } catch (error) {
     console.error('error getting while fetching user', error);
     throw new BadRequestError('Error getting while fetching user');
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
-      }
-    }
-  }
+  } 
 };
 
 const getUserByIdService = async (ids, role) => {
