@@ -94,7 +94,6 @@ const gatherAllData = async (type = "H", timezone = "Asia/Kolkata") => {
                             payInCount,
                         });
 
-                        console.log(merchant, payInSum, payInCount, "drxfcgvjhh");
                     }
                 }
 

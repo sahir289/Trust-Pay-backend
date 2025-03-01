@@ -1,5 +1,6 @@
 import { tableName } from "../../constants/index.js";
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
+import { buildSearchFilterObj } from "../../utils/searchBuilder.js";
 
 // Create ChargeBack entry
 export const createChargeBackDao = async (data) => {
@@ -19,16 +20,18 @@ export const getChargeBackDao = async (
     page,
     pageSize,
     sortBy,
-    sortOrder
+    sortOrder,
+    columns = [],
+
 ) => {
     try {
         // Explicitly list columns instead of using *
-        const columnsToSelect = `id,
-            user, merchant_user_id, vendor_user_id, payin_id, 
-            bank_acc_id, amount, "when", created_by, updated_by,
-        `;
-        const baseQuery = `SELECT ${columnsToSelect} FROM "${tableName.CHARGE_BACK}" WHERE 1=1`;
+        const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"}  FROM "${tableName.CHARGE_BACK}" WHERE 1=1`;
         //TODO: columns.CHARGE_BACK dynamic search
+          if (filters.search) {
+            filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
+            delete filters.search;
+          }
         const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
         const result = await executeQuery(sql, queryParams);
         return result.rows;
@@ -41,7 +44,7 @@ export const getChargeBackDao = async (
 // Update ChargeBack entry
 export const updateChargeBackDao = async (id, data) => {
     try {
-        const [sql, params] = buildUpdateQuery(tableName.CHAREBACK, data, id);
+        const [sql, params] = buildUpdateQuery(tableName.CHARGE_BACK, data, id);
         const result = await executeQuery(sql, params);
         return result.rows[0];
     } catch (error) {
@@ -53,7 +56,7 @@ export const updateChargeBackDao = async (id, data) => {
 // Delete ChargeBack entry
 export const deleteChargeBackDao = async (id, company_id, data) => {
     try {
-        const [sql, params] = buildUpdateQuery(tableName.CHAREBACK, data, id);
+        const [sql, params] = buildUpdateQuery(tableName.CHARGE_BACK, data, id);
         const result = await executeQuery(sql, params);
         return result.rows[0];
     } catch (error) {

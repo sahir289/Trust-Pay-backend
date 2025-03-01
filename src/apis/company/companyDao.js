@@ -12,12 +12,11 @@ const getCompanyDao = async (
     const baseQuery = `SELECT id,first_name,last_name FROM "${tableName.COMPANY}" WHERE 1=1`;
     //TODO: columns.Company dynamic search
     const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
-    // Execute query
     const result = await executeQuery(sql, queryParams);
-    return result.rows;
+    return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
-    console.error('Error fetching company:', error); // Log the error for debugging
-    throw error; // Rethrow the error to propagate it
+    console.error('Error fetching company:', error); 
+    throw error; 
   }
 };
 
@@ -33,7 +32,7 @@ const createCompanyDao = async (conn, payload ) => {
 
 const updateCompanyDao = async (id, data) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.COMPANY, data, { id });
+    const [sql, params] = buildUpdateQuery(tableName.COMPANY, data,  id );
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
@@ -44,7 +43,7 @@ const updateCompanyDao = async (id, data) => {
 
 const deleteCompanyDao = async (id, data) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.COMPANY, data, { id });
+    const [sql, params] = buildUpdateQuery(tableName.COMPANY, data,  id );
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {

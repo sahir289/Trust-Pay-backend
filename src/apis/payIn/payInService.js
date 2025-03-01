@@ -8,7 +8,7 @@ import { getPayoutsDao } from '../payOut/payOutDao.js';
 import { BankTypes, Currency, Status, Type } from "../../constants/index.js";
 import { calculateCommission, calculateDuration } from "../../helpers/index.js";
 import { merchantPayinCallback } from "../../callBacksAndWebHook/merchantCallBacks.js";
-import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao, getPayInUrlsDao } from "./payInDao.js";
+import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao, getPayInUrlsDao, getPayInsDao } from "./payInDao.js";
 import { BadRequestError, NotFoundError } from "../../utils/appErrors.js";
 import { getBankaccountDao, getMerchantBankDao, updateBankaccountDao, updateBanktBalanceDao } from "../bankAccounts/bankaccountDao.js";
 import { getBankResponseDao, updateBotResponseDao } from "../bankResponse/bankResponseDao.js";
@@ -21,6 +21,7 @@ import {
     getTelegramImageBase64
 } from "../../helpers/index.js";
 import { sendAlreadyConfirmedMessageTelegramBot, sendErrorMessageNoDepositFoundTelegramBot, sendErrorMessageNoMerchantOrderIdFoundTelegramBot, sendErrorMessageTelegram, sendErrorMessageUtrOrAmountNotFoundImgTelegramBot, sendMerchantOrderIDStatusDuplicateTelegramMessage, sendTelegramMessage } from '../../utils/sendTelegramMessages.js'
+import { getConnection } from "../../utils/db.js";
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION
@@ -491,8 +492,9 @@ export const resetDepositService = async (conn, merchant_order_id, company_id) =
     return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 }
 
-export const getPayinsService = async (payload, page, limit) => {
-    return await getPayInUrlsDao(payload, page, limit);
+export const getPayinsService = async (payload) => {
+   let conn = await getConnection();
+    return await getPayInsDao(conn, payload);
 };
 
 export const processPayInService = async (conn, payload) => {

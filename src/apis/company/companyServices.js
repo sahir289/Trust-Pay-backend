@@ -1,13 +1,12 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { createCompanyDao, deleteCompanyDao, getCompanyDao, updateCompanyDao } from './companyDao.js';
 import { createUserService } from '../users/userService.js';
-import { transactionWrapper } from '../../utils/db.js';
 import { createDesignationService } from '../designation/designationServices.js';
 import { createRoleDao } from '../roles/rolesDao.js';
 const getCompanyService = async (id) => {
 
   try {
-    const result = await transactionWrapper(getCompanyDao)({id});
+    const result = await getCompanyDao(id);
     return result;
   } catch (error) {
     console.error('error getting while company', error);
@@ -18,8 +17,6 @@ const getCompanyService = async (id) => {
 const createCompanyService = async (conn, payload) => {
   try {
     const result = await createCompanyDao(conn, payload);
-    // const [sql, params] = buildInsertQuery(tableName.COMPANY, payload)
-    // const result = await executeQuery(sql, params);
     const roleName = {
       role: "Admin",
       company_id: result.id,
@@ -44,6 +41,7 @@ const createCompanyService = async (conn, payload) => {
       last_name: payload.last_name,
       code: payload.first_name.split('').reverse().join('')
     };
+    console.log(DesignationPayload, UserPayload, "dghfhgh")
     // const userCreated = 
     await createUserService(conn, UserPayload);
     return result;
@@ -55,11 +53,11 @@ const createCompanyService = async (conn, payload) => {
 };
 
 const updateCompanyService = async (id, payload) => {
-  const result= transactionWrapper(updateCompanyDao)(id, payload);
+  const result= updateCompanyDao(id, payload);
   return result;
 };
 const deleteCompanyService = async (id) => {
-  const result= transactionWrapper(deleteCompanyDao)(id, { is_obsolete: true }); 
+  const result= deleteCompanyDao(id, { is_obsolete: true }); 
   return result;
 };
 
