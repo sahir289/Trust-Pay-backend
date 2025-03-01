@@ -197,7 +197,7 @@ const getUsersForCronDao = async (conn) => {
     const sql = `SELECT id  FROM public."User" where is_obsolete = false`;
     const result = await conn.query(sql);
     if (result.rows.length === 0) {
-      console.error('No users Found');
+      console.log('No users Found');
       return [];
     }
     return result.rows;

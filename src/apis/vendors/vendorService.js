@@ -7,7 +7,7 @@ import { beginTransaction, commit, getConnection, rollback } from '../../utils/d
 import { createVendorDao, deleteVendorDao, getVendorsDao, updateVendorDao } from './vendorDao.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 
-const createVendorService = async (conn,payload, roleIs) => {
+const createVendorService = async (conn,payload,roleIs) => {
     
     try {
         const filterColumns = roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;

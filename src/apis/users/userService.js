@@ -57,7 +57,6 @@ const getUserByIdService = async (ids, role) => {
 const getUsersByUserNameService = async (username,ids, role) => {
   let conn;
   try {
-
     const filterColumns = role === Role.MERCHANT ? merchantColumns.USER : role === Role.VENDOR ? vendorColumns.USER : columns.USER;
     conn = await getConnection();
     const data = await getUsersByUserNameDao(conn, ids, username);
@@ -92,7 +91,7 @@ const createUserService = async (conn,payload,role) => {
     const User = await createUserDao(conn, payload);
     const userRole = await getUsersByUserNameDao(conn,payload.company_id,user_name);
     console.log(userRole,"hii from role data from the parent")
-    const createUserPayload = (User, payload, roleSpecificFields = {}) => ({
+    const CommonCreateUserPayload = (User, payload, roleSpecificFields = {}) => ({
       user_id: User.id,
       role_id: payload.role_id,
       company_id: payload.company_id,
@@ -105,9 +104,9 @@ const createUserService = async (conn,payload,role) => {
       ...roleSpecificFields, 
     });
     
-    if (userRole.role === Role.MERCHANT || userRole.role === Role.MERCHANT_ADMIN) {
+    if (userRole.role === Role.VENDOR) {
     console.log("hii from the merchants of aur data")
-      const merchantPayload = createUserPayload(User, payload, {
+      const merchantPayload = CommonCreateUserPayload(User, payload, {
         min_payin: 0.0,
         max_payin: 0.0,
         payin_commission: 0.0,
@@ -115,16 +114,15 @@ const createUserService = async (conn,payload,role) => {
         max_payout: 0.0,
         payout_commission: 0.0,
       });
-    
       await createMerchantService(conn,merchantPayload,role);
     }
     
-    if (userRole.role === Role.MERCHANT || userRole.role === Role.MERCHANT) {
-      const vendorPayload = createUserPayload(User, payload, {
+    if (userRole.role === Role.ADMIN || userRole.role === Role.MERCHANT) {
+      const vendorPayload = CommonCreateUserPayload(User, payload, {
         payin_commission: 0.0,
         payout_commission: 0.0,
       });
-      await createVendorService(vendorPayload,role);
+      await createVendorService(conn,vendorPayload,role);
     }
     
     console.log('User Created Successfully');

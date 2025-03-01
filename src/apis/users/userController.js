@@ -57,8 +57,7 @@ const createUser = async (req, res) => {
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }
-    const { role,company_id,user_id,role_id,designation_id } = req.user;
-    console.log(role_id,designation_id,"hiii from the role id and hello from the role id i get")
+    const { role,company_id,user_id } = req.user;
     let payload = req.body;
     payload.company_id=company_id;
     payload.created_by=user_id;
