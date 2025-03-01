@@ -25,7 +25,7 @@ export const getPayInUrlDao = async (filters) => {
 
 export const getPayInsDao = async (conn, payload) => {
     const baseQuery = `
-   SELECT DISTINCT ON (u.id)
+    SELECT DISTINCT ON (u.id)
     u.id,
     u.sno,
     u.upi_short_code,
@@ -45,25 +45,20 @@ export const getPayInsDao = async (conn, payload) => {
     u.created_at,
     u.updated_at,
     u.config AS payin_details,
-
     v.code AS vendor_code,
-    v.user_id AS vendor_user_id,
-
-    b.id AS bank_table_id,
-    b.user_id,
     b.nick_name,
 
-    r.code AS merchant_code,
-    r.id AS merchant_table_id,
     json_build_object(
-    'merchant_code', r.code,
+        'merchant_code', r.code,
         'return_url', r.config->>'return_url',
         'notify_url', r.config->>'notify_url'
     ) AS merchant_details,
-  
-    br.amount AS bank_res_amount,
-    br.utr
 
+    json_build_object(
+        'utr', br.utr,
+        'amount', br.amount
+    ) AS bank_res_details
+  
 FROM public."Payin" u
 LEFT JOIN public."Merchant" r ON u.merchant_id = r.id
 LEFT JOIN public."BankAccount" b ON u.bank_acc_id = b.id
@@ -76,41 +71,7 @@ AND u.company_id = $1;
     const queryParams = [payload.company_id];
     const result = await conn.query(baseQuery, queryParams);
 
-    return result.rows
-    // {
-    //     totalCount: result.rows.length,
-    //     rows: result.rows.reduce((acc, res) => acc.concat({
-    //         id: res.id,
-    //         sno: res.sno,
-    //         upi_short_code: res.upi_short_code,
-    //         amount: res.amount,
-    //         status: res.status,
-    //         is_notified: res.is_notified,
-    //         user_submitted_utr: res.user_submitted_utr,
-    //         merchant_order_id: res.merchant_order_id,
-    //         user: res.user,
-    //         bank_account: res.nick_name,
-    //         merchant: {
-    //             code: res.merchant_code,
-    //             ReturnUrl: res.payin_config.return_url,
-    //             NotifyUrl: res.payin_config.notify_url,
-    //         },
-    //         vendor: res.vendor_code,
-    //         bank_response: {
-    //             amount: res.bank_res_amount,
-    //             utr: res.utr,
-    //         },
-    //         payin_merchant_commission: res.payin_merchant_commission,
-    //         payin_vendor_commission: res.payin_vendor_commission,
-    //         user_submitted_image: res.user_submitted_image,
-    //         duration: res.duration,
-    //         approved_at: res.approved_at,
-    //         created_by: res.created_by,
-    //         updated_by: res.updated_by,
-    //         created_at: res.created_at,
-    //         updated_at: res.updated_at,
-    //     }), [])
-    // };
+    return {totalCount: result.rows.length, rows:result.rows}
 };
 
 

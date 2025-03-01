@@ -17,8 +17,8 @@ if (filters.search) {
   }
   const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
   const result = await executeQuery(sql, queryParams);
-  return result.rows.length > 0 ? result.rows : result.rows[0];
-
+  console.log(result.rows, "sqlqueryparams")
+  return result.rows
 };
 
 
