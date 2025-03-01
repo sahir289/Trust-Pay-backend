@@ -192,5 +192,17 @@ const createUserDao = async (conn, payload) => {
     throw new DbError('Error executing query to create user');
   }
 };
-
-export { getUsersDao, getUserByIdDao, getUsersByUserNameDao, createUserDao };
+const getUsersForCronDao = async (conn) => {
+  try {
+    const sql = `SELECT id  FROM public."User" where is_obsolete = false`;
+    const result = await conn.query(sql);
+    if (result.rows.length === 0) {
+      console.error('No users Found');
+      return [];
+    }
+    return result.rows;
+  } catch (error) {
+    console.error('error getting users', error);
+  }
+};
+export { getUsersDao, getUserByIdDao,getUsersForCronDao, getUsersByUserNameDao, createUserDao };

@@ -6,15 +6,12 @@ import {
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { createVendorDao, deleteVendorDao, getVendorsDao, updateVendorDao } from './vendorDao.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
-import { transactionWrapper } from '../../utils/db.js';
 
-const createVendorService = async (payload, roleIs) => {
-    let conn;
+const createVendorService = async (conn,payload, roleIs) => {
+    
     try {
-        conn = await getConnection();
-        await beginTransaction(conn); // Start a transaction
         const filterColumns = roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
-        const data = await createVendorDao(payload);
+        const data = await createVendorDao(payload,conn);
         const calculationPayload={
             role_id:data.role_id,
             user_id:data.user_id,
@@ -32,30 +29,14 @@ const createVendorService = async (payload, roleIs) => {
             net_balance: "0",
             company_id:data.company_id
               }
-     await transactionWrapper(createCalculationDao)(calculationPayload);
-        await commit(conn); // Commit the transaction
+     await createCalculationDao(conn,calculationPayload);
         console.log('Vendor created successfully', 'info');
         const finalResult =  filterResponse(data, filterColumns);
         return finalResult;
     } catch (error) {
-        if (conn) {
-            try {
-                await rollback(conn); // Rollback the transaction in case of error
-            } catch (rollbackError) {
-                console.log('Error during transaction rollback', 'error', rollbackError);
-            }
-        }
         console.log('Error while creating Vendor', 'error', error);
         throw new BadRequestError('Error occurred while creating Vendor');
-    } finally {
-        if (conn) {
-            try {
-                conn.release(); // Release the connection back to the pool
-            } catch (releaseError) {
-                console.log('Error while releasing the connection', 'error', releaseError);
-            }
-        }
-    }
+    } 
 };
 
 const getVendorsService = async (filters, roleIs) => {

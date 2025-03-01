@@ -1,15 +1,14 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { createUserService, getUserByIdService, getUsersByUserNameService, getUsersService } from './userService.js';
-import { sendError } from '../../utils/responseHandlers.js';
 import { VALIDATE_USER_BY_ID ,CREATE_USER_SCHEMA} from '../../schemas/userSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 const getUsers = async (req, res) => {
   try {
     // const reqBody = req.body;
-    const { role,role_id,designation_id,company_id} = req.user;
-    const ids = {role_id,designation_id,company_id}
+    const { role,company_id} = req.user;
+    const ids = {company_id}
     const data = await getUsersService(ids,role);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
@@ -20,14 +19,14 @@ const getUsers = async (req, res) => {
 
 const getUsersByUserName = async (req, res) => {
   try {
-    const { role,role_id,designation_id,company_id } = req.user;
-    const { username } = req.body;
-    const ids = {role_id,designation_id,company_id};
+    const {role,company_id} = req.user;
+    const {username} = req.body;
+    const ids = {company_id};
     if (!username) {
       console.error('Username is required');
       throw new BadRequestError('Username is required');
     }
-    const data = await getUsersByUserNameService(username,ids, role);
+    const data = await getUsersByUserNameService(username,ids,role);
     console.log('getUsers successfully');
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
@@ -54,20 +53,16 @@ const getUserById = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const { role,designation_id,company_id,role_id } = req.user;
-    // const {} = req.user;
-    let payload = req.body;
-    payload.role_id=role_id;
-    payload.designation_id=designation_id;
-    payload.company_id=company_id;
-    const joiValidation = CREATE_USER_SCHEMA.validate(payload);
+    const joiValidation = CREATE_USER_SCHEMA.validate(req.body);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }
-    if (!payload) {
-      console.error('payload is required');
-      return sendError(res, 'payload is required', 'Validation Error');
-    }
+    const { role,company_id,user_id,role_id,designation_id } = req.user;
+    console.log(role_id,designation_id,"hiii from the role id and hello from the role id i get")
+    let payload = req.body;
+    payload.company_id=company_id;
+    payload.created_by=user_id;
+    payload.updated_by=user_id;
     const data = await transactionWrapper(createUserService)(payload, role);
     console.log('create user successfully');
     return sendSuccess(res, data, 'create user successfully');

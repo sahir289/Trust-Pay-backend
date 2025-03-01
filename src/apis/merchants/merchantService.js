@@ -7,15 +7,14 @@ import { getRoleDao } from '../roles/rolesDao.js';
 import { createUserHierarchyDao, getUserHierarchysDao, updateUserHierarchyDao } from '../userHierarchy/userHierarchyDao.js';
 import { columns, merchantColumns, Method, Role } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
-import { transactionWrapper } from '../../utils/db.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 // Create Merchant Service
-const createMerchantService = async (payload, roleIs) => {
+const createMerchantService = async (conn,payload, roleIs) => {
     try {
         const filterColumns = roleIs === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
         const parentId = payload.parentId;
         delete payload.parentId;
-        const data = await createMerchantDao(payload);
+        const data = await createMerchantDao(payload,conn);
         const calculationPayload={
             role_id:data.role_id,
             user_id:data.user_id,
@@ -33,7 +32,7 @@ const createMerchantService = async (payload, roleIs) => {
             net_balance: "0",
             company_id:data.company_id
               }
-     await transactionWrapper(createCalculationDao)(calculationPayload);
+     await createCalculationDao(conn,calculationPayload);
         const role = await getRoleDao({ id: payload.role_id });
         if (role.role === Method.MERCHANT) {
             await createUserHierarchyDao({

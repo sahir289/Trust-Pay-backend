@@ -11,6 +11,7 @@ const loginController = async (req, res) => {
   // const { userName, password, confirmOverRide = false } = req.body;
   let clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   const payload = {...req.body};
+  console.log(payload,"dhfdjhf djchf")
   const options = { abortEarly: false };
   const joiValidation = INSERT_AUTH_SCHEMA.validate(payload, options);
   if (joiValidation.error) {
@@ -49,11 +50,6 @@ const logoutController = async (req, res) => {
   // const data = await logoutService(decodeToken, session_id);
   // console.log(data, "data")
   logoutSet.add(token); // we will update this logic in future, currently this approach is not good to invalidate token
-  res.clearCookie("refreshToken", {
-    httpOnly: true,
-    secure: true,
-    sameSite: "Strict",
-  });
   console.log('logout successfully', 'info');
   return sendSuccess(res, {}, 'logout successfully');
 };

@@ -20,10 +20,9 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
     if (!payins.length) {
       return;
     }
-
     await processPayinNotifications(payins);
-  } catch (error) {
-    console.error('Error while collecting payin data:', error?.message);
+  } catch  {
+    console.error('Error while collecting payin data:');
   }
 };
 

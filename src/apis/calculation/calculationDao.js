@@ -18,12 +18,31 @@ const getCalculationDao = async (
                 delete filters.search;
             }
     const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
-            // Execute query
+            // Execute query     
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
     console.error('Error fetching Calculation', error);
     throw new sendError('Failed to fetch Calculation');
+  }
+};
+////for cron job to update net_balance
+export const getCalculationforCronDao = async (userId) => {
+  try {
+    const sql = `
+      SELECT *
+      FROM public."Calculation" 
+      WHERE is_obsolete = false 
+      AND user_id = $1
+      ORDER BY updated_at DESC 
+      LIMIT 1
+    `;
+    // Ensure userId is correctly passed as an array
+    const result = await executeQuery(sql, [userId]);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching Calculation', error);
+    throw new Error('Failed to fetch Calculation'); // Fix `sendError` issue
   }
 };
 
