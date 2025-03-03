@@ -1,5 +1,5 @@
 import { tableName } from "../../constants/index.js";
-import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
+import { buildInsertQuery, buildJoinQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
 import { buildSearchFilterObj } from "../../utils/searchBuilder.js";
 
 export const createMerchantDao = async (data,conn) => {
@@ -27,13 +27,38 @@ export const getMerchantsDao = async (
     columns = [],
 ) => {
     try {
-        const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.MERCHANT}" WHERE 1=1`;
+
+        const { USER, MERCHANT, DESIGNATION } = tableName;
+
+        const joins = [
+            {
+                table: USER,
+                // first is source key
+                // second is target key
+                keys: ['user_id', 'id'],
+                type: "JOIN",
+                columns: ["designation_id"],
+                columnAs: [`"${USER}".first_name || ' ' || "${USER}".last_name AS full_name`],
+            },
+            {
+                table: DESIGNATION,
+                // first is source key
+                // second is target key
+                keys: [`designation_id`, 'id'],
+                type: "LEFT JOIN",
+                columnAs: [`"${DESIGNATION}".designation AS designation_name`],
+                referenceTable: USER,
+            }
+        ]
+
+        const baseQuery = buildJoinQuery(MERCHANT, columns.length ? columns : "*", joins);
+        console.log(baseQuery);
         if (filters.search) {
-            filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
+            filters.or = buildSearchFilterObj(filters.search, MERCHANT);
             delete filters.search;
         }
         // console.log(JSON.stringify(filters, undefined, 4));
-        const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
+        const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder, tableName.MERCHANT);
         // Execute query
         const result = await executeQuery(sql, queryParams);
         return result.rows;

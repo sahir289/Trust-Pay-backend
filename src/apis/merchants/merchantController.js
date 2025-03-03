@@ -35,20 +35,14 @@ const createMerchant = async (req, res) => {
 const getMerchants = async (req, res) => {
     try {
         const {company_id,role} = req.user; 
-        // Fetch merchants data from the service
         const data = await getMerchantsService({
             company_id,
             ...req.query,
         }, role);
-        // Log success message
         console.log('get Merchants successfully');
-        // Send success response
         return sendSuccess(res, data, 'Merchants fetched successfully');
     } catch (error) {
-        // Log error
         console.error('error getting while fetching Merchants Data', error);
-
-        // Send an error response
         return sendError(res, error, 'Error occurred while fetching Merchants');
     }
 };
