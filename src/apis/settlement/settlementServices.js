@@ -1,5 +1,5 @@
 import { BadRequestError } from '../../utils/appErrors.js';
-import { createSettlementDao, deleteSettlementDao, getSettlementDao,  settlementJoindao, updateSettlementDao } from './settlementDao.js';
+import { createSettlementDao, deleteSettlementDao, getSettlementDao, updateSettlementDao } from './settlementDao.js';
 import { getCalculationDao, updateCalculationDao } from '../calculation/calculationDao.js';
 import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
@@ -29,30 +29,30 @@ const getSettlementService = async (ids) => {
 
 
 
-const getSettlementServiceJoined = async (req) => {
-  try {
-    const settlementData = await settlementJoindao(
-      "Settlement",
-      [
-        { tableName: "BankAccount", id: "user_id" },
-      ],
-      req.query.page || 1,
-      req.query.pageSize || 10,
-      req.query.sortBy || "created_at",
-      req.query.sortOrder || "DESC"
-    );
+// const getSettlementServiceJoined = async (req) => {
+//   try {
+//     const settlementData = await settlementJoindao(
+//       "Settlement",
+//       [
+//         { tableName: "BankAccount", id: "user_id" },
+//       ],
+//       req.query.page || 1,
+//       req.query.pageSize || 10,
+//       req.query.sortBy || "created_at",
+//       req.query.sortOrder || "DESC"
+//     );
 
-    if (!settlementData || settlementData.length === 0) {
-      throw new BadRequestError('Error getting settlements');
-    }
+//     if (!settlementData || settlementData.length === 0) {
+//       throw new BadRequestError('Error getting settlements');
+//     }
 
-    return settlementData
+//     return settlementData
 
-  } catch (error) {
-    console.error('Error getting settlements:', error);
-    throw new BadRequestError('Error getting settlements');
-  }
-}
+//   } catch (error) {
+//     console.error('Error getting settlements:', error);
+//     throw new BadRequestError('Error getting settlements');
+//   }
+// }
 
 
 
@@ -153,4 +153,4 @@ const deleteSettlementService = async (conn, ids) => {
   }
 };
 
-export { getSettlementService, getSettlementServiceJoined, createSettlementService, getSettlementServiceById, updateSettlementService, deleteSettlementService };
+export { getSettlementService, createSettlementService, getSettlementServiceById, updateSettlementService, deleteSettlementService };

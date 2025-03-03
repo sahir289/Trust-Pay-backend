@@ -1,31 +1,55 @@
 import { DbError } from '../../utils/appErrors.js';
 import { tableName } from '../../constants/index.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-import { buildSelectQuery ,executeQuery} from '../../utils/db.js';
+import { buildJoinQuery, buildSelectQuery ,executeQuery} from '../../utils/db.js';
 
 
-const getUsersDao = async (filters, page, pageSize, sortBy, sortOrder,
-columns=[]
+const getUsersDao = async (
+  filters,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+  // columns to select from db (optional)
+  columns = [],
 ) => {
   try {
-    const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.USER}" WHERE 1=1`;
-    if (filters.search) {
-              filters.or = buildSearchFilterObj(filters.search, tableName.USER);
-              delete filters.search;
+
+      const { ROLE, USER, DESIGNATION } = tableName;
+
+      const joins = [
+          {
+              table: ROLE,
+              // first is source key
+              // second is target key
+              keys: ['role_id', 'id'],
+              type: "JOIN",
+              columns: ["id"],
+              columnAs: [`"${ROLE}".role  AS role_name`],
+          },
+          {
+              table: DESIGNATION,
+              // first is source key
+              // second is target key
+              keys: [`designation_id`, 'id'],
+              type: "LEFT JOIN",
+              columnAs: [`"${DESIGNATION}".designation AS designation_name`],
+              referenceTable: USER,
           }
-  //TODO: columns.ROLE dynamic search
-  const [sql, queryParams] = buildSelectQuery(
-    baseQuery,
-    filters,
-    page,
-    pageSize,
-    sortBy,
-    sortOrder
-  );
-  // Execute query
-  const result = await executeQuery(sql, queryParams)
-  return result.rows;
-}catch (error) {
+      ]
+
+      const baseQuery = buildJoinQuery(USER, columns.length ? columns : "*", joins);
+      console.log(baseQuery);
+      if (filters.search) {
+          filters.or = buildSearchFilterObj(filters.search, USER);
+          delete filters.search;
+      }
+      // console.log(JSON.stringify(filters, undefined, 4));
+      const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder, tableName.USER);
+      // Execute query
+      const result = await executeQuery(sql, queryParams);
+      return result.rows;
+  }catch (error) {
   console.error('Error in getUserssDao:', error);
   throw new Error('Failed to fetch Users');
 }

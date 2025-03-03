@@ -1,5 +1,5 @@
 import { tableName } from "../../constants/index.js";
-import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
+import { buildInsertQuery, buildJoinQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
 import { buildSearchFilterObj } from "../../utils/searchBuilder.js";
 
 // Create ChargeBack entry
@@ -16,26 +16,49 @@ export const createChargeBackDao = async (data) => {
 
 // Get ChargeBack entries with pagination, sorting, and filtering
 export const getChargeBackDao = async (
-    filters,
-    page,
-    pageSize,
-    sortBy,
-    sortOrder,
-    columns = [],
-
-) => {
-    try {
-        // Explicitly list columns instead of using *
-        const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"}  FROM "${tableName.CHARGE_BACK}" WHERE 1=1`;
-        //TODO: columns.CHARGE_BACK dynamic search
-          if (filters.search) {
-            filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
-            delete filters.search;
-          }
-        const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
-        const result = await executeQuery(sql, queryParams);
-        return result.rows;
-    } catch (error) {
+   filters,
+       page,
+       pageSize,
+       sortBy,
+       sortOrder,
+       // columns to select from db (optional)
+       columns = [],
+   ) => {
+       try {
+           const { VENDOR, CHARGE_BACK, MERCHANT } = tableName;
+   
+           const joins = [
+               {
+                   table: VENDOR,
+                   // first is source key
+                   // second is target key
+                   keys: ['vendor_user_id', 'user_id'],
+                   type: "JOIN",
+                   columns: ["code"],
+                   columnAs: [`"${VENDOR}".code AS vendor_name`],
+               },
+               {
+                   table: MERCHANT,
+                   // first is source key
+                   // second is target key
+                   keys: [`merchant_user_id`, 'user_id'],
+                   type: "LEFT JOIN",
+                   columns: ["code"],
+                   columnAs: [`"${MERCHANT}".code AS merchant_name`],
+               }
+           ]
+   
+           const baseQuery = buildJoinQuery(CHARGE_BACK, columns.length ? columns : "*", joins);
+           if (filters.search) {
+               filters.or = buildSearchFilterObj(filters.search, CHARGE_BACK);
+               delete filters.search;
+           }
+           // console.log(JSON.stringify(filters, undefined, 4));
+           const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder, tableName.CHARGE_BACK);
+           // Execute query
+           const result = await executeQuery(sql, queryParams);
+           return result.rows;
+       } catch (error) {
         console.error("Error fetching ChargeBack entries:", error);
         throw new Error("Error fetching ChargeBack entries");
     }

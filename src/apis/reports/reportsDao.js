@@ -1,6 +1,6 @@
 import { tableName } from '../../constants/index.js';
-import { buildSelectQuery, executeQuery } from '../../utils/db.js';
-import { getMerchantsDao } from '../merchants/merchantDao.js';
+import { buildJoinQuery, buildSelectQuery, executeQuery } from '../../utils/db.js';
+import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 const getPayInMerchantReportDao = async (merchant_id, startDate, endDate, company_id) => {
    try {
@@ -135,59 +135,93 @@ const getPayOutAll = async (
 };
 
 
-const getMerchantReportDao = async (code, startDate, endDate, company_id) => {
+const getMerchantReportDao = async (
+   filters,
+   startDate, endDate,
+   page,
+   pageSize,
+   sortBy,
+   sortOrder,
+   // columns to select from db (optional)
+   columns = [],) => {
    try {
-      let query = `SELECT *  FROM  "Payin" WHERE 1=1`;
-      const merchantData = await getMerchantsDao({ code: code })
-      
-      const merchantIds = merchantData.map(merchant => merchant.id);
-      const [sql, parameters] = buildSelectQuery(query, { merchant_id: merchantIds, company_id: company_id });
-      if (startDate && endDate) {
-         query += ` AND created_at BETWEEN $${Object.keys(parameters).length + 1} AND $${Object.keys(parameters).length + 2}`;
-         parameters[`created_at_start`] = startDate;
-         parameters[`created_at_end`] = endDate;
-      }
-      const result = await executeQuery(sql, parameters);
-      const payOutquery = `SELECT *  FROM  "Payout" WHERE 1=1`;
-      const [payOutsql, payOutparameters] = buildSelectQuery(payOutquery, {merchant_id: merchantIds, company_id: company_id });
-      if (startDate && endDate) {
-         query += ` AND created_at BETWEEN $${Object.keys(parameters).length + 1} AND $${Object.keys(parameters).length + 2}`;
-         parameters[`created_at_start`] = startDate;
-         parameters[`created_at_end`] = endDate;
-      }
-      const payOutresult = await executeQuery(payOutsql, payOutparameters);
-      console.log(result, payOutresult, "sjhewbnvnbdgdjh")
+      //   let query;
+      const { CALCULATION, MERCHANT } = tableName;
 
-      const combinedRows = [...result.rows, ...payOutresult.rows];
-      console.log(combinedRows, "sjhewdgdjh")
-      return combinedRows;
+      const joins =
+         [{
+            table: MERCHANT,
+            // first is source key
+            // second is target key
+            keys: 'user_id',
+            type: "JOIN",
+            columns: ["user_id"],
+            columnAs: [`"${MERCHANT}".user_id AS calculation_user_id`],
+
+         }
+         ]
+      let baseQuery = buildJoinQuery(CALCULATION, columns.length ? columns : "*", joins);
+      if (filters.search) {
+         filters.or = buildSearchFilterObj(filters.search, CALCULATION);
+         delete filters.search;
+      }
+      // console.log(JSON.stringify(filters, undefined, 4));
+      const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder, tableName.CALCULATION);
+      if (startDate && endDate) {
+         baseQuery += ` AND created_at BETWEEN $${Object.keys(queryParams).length + 1} AND $${Object.keys(queryParams).length + 2}`;
+         queryParams[`created_at_start`] = startDate;
+         queryParams[`created_at_end`] = endDate;
+      }
+      const result = await executeQuery(sql, queryParams);
+      return result.rows;
    } catch (error) {
       console.error('Error in getMerchantReportDao:', error);
       throw error;
    }
 };
 
-const getVendorReportDao = async (id, startDate, endDate, company_id) => {
+const getVendorReportDao = async (
+   filters,
+   startDate, endDate,
+   page,
+   pageSize,
+   sortBy,
+   sortOrder,
+   columns = [],) => {
    try {
-      let query = `SELECT *  FROM  "Payin" WHERE 1=1`;
-      const [sql, parameters] = buildSelectQuery(query, { bank_acc_id: id, company_id: company_id });
+      const { VENDOR, CALCULATION } = tableName;
+
+      const joins =
+         [{
+            table: VENDOR,
+            // first is source key
+            // second is target key
+            keys: 'user_id',
+            type: "JOIN",
+            columns: ["user_id"],
+            columnAs: [`"${VENDOR}".user_id AS vendor_user_id`],
+
+         }]
+
+      let baseQuery = buildJoinQuery(CALCULATION, columns.length ? columns : "*", joins);
+      if (filters.search) {
+         filters.or = buildSearchFilterObj(filters.search, CALCULATION);
+         delete filters.search;
+      }
+      // console.log(JSON.stringify(filters, undefined, 4));
+      const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder, tableName.CALCULATION);
+
       if (startDate && endDate) {
-         query += ` AND created_at BETWEEN $${Object.keys(parameters).length + 1} AND $${Object.keys(parameters).length + 2}`;
-         parameters[`created_at_start`] = startDate;
-         parameters[`created_at_end`] = endDate;
+         baseQuery += ` AND created_at BETWEEN $${Object.keys(queryParams).length + 1} AND $${Object.keys(queryParams).length + 2}`;
+         queryParams['created_at_start'] = startDate;
+         queryParams['created_at_end'] = endDate;
       }
 
-      const result = await executeQuery(sql, parameters);
-      let payOutquery = `SELECT *  FROM  "Payout" WHERE 1=1`;
-      const [payOutsql, payOutparameters] = buildSelectQuery(payOutquery, { bank_acc_id: id });
-      if (startDate && endDate) {
-         query += ` AND created_at BETWEEN $${Object.keys(parameters).length + 1} AND $${Object.keys(parameters).length + 2}`;
-         parameters[`created_at_start`] = startDate;
-         parameters[`created_at_end`] = endDate;
-      }
-      const payOutresult = await executeQuery(payOutsql, payOutparameters);
-      const combinedRows = [...result.rows, ...payOutresult.rows];
-      return combinedRows;
+      const result = await executeQuery(sql, queryParams);
+      console.log(result.rows, sql, queryParams, baseQuery, "ashghgjasgd");
+
+      return result.rows;
+
    } catch (error) {
       console.error('Error in getVendorReportDao:', error);
       throw error;

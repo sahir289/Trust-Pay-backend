@@ -47,7 +47,7 @@ const getUsersByUserNameService = async (username,ids, role) => {
     const filterColumns = role === Role.MERCHANT ? merchantColumns.USER : role === Role.VENDOR ? vendorColumns.USER : columns.USER;
     conn = await getConnection();
     const data = await getUsersByUserNameDao(conn, ids, username);
-    const finalResult = await filterResponse(data, filterColumns);
+    const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
     console.error('error getting while fetching user', error);
