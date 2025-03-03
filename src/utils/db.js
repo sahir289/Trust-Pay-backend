@@ -66,11 +66,12 @@ export const executeQuery = async (query, queryParams = []) => {
   }
 }
 
-export const buildSelectQuery = (baseQuery, filters, p, ps, s, o) => {
+export const buildSelectQuery = (baseQuery, filters, p, ps, s, o, tableName) => {
   const page = p || 1, pageSize = ps || 10, sortBy = s || "created_at", sortOrder = o || "DESC";
+  const prefix = tableName ? `"${tableName}".` : "";
   let query = baseQuery;
   let values = [];
-  let conditions = [`is_obsolete = false`];
+  let conditions = [`${prefix}is_obsolete = false`];
 
   for (const key in filters) {
     const value = filters[key];
@@ -78,9 +79,9 @@ export const buildSelectQuery = (baseQuery, filters, p, ps, s, o) => {
       // skip or query
       continue;
     } else if (Array.isArray(value)) {
-      conditions.push(`"${key}" = ANY($${values.length + 1})`);
+      conditions.push(`${[prefix]}"${key}" = ANY($${values.length + 1})`);
     } else {
-      conditions.push(`"${key}" = $${values.length + 1}`);
+      conditions.push(`${prefix}"${key}" = $${values.length + 1}`);
     }
     values.push(value);
   }
@@ -97,9 +98,9 @@ export const buildSelectQuery = (baseQuery, filters, p, ps, s, o) => {
     for (const key in filters.or) {
       const value = filters.or[key];
       if (Array.isArray(value)) {
-        orConditions.push(`"${key}" = ANY($${values.length + 1})`);
+        orConditions.push(`${prefix}"${key}" = ANY($${values.length + 1})`);
       } else {
-        orConditions.push(`"${key}" = $${values.length + 1}`);
+        orConditions.push(`${prefix}"${key}" = $${values.length + 1}`);
       }
       values.push(value);
     }
@@ -184,6 +185,89 @@ export const transactionWrapper = (fn) => async (...args) => {
       conn.release(); // Always release connection
     }
   }
+}
+
+
+/**
+* Builds a dynamic SQL SELECT query with auto-generated JOIN conditions.
+* @param {string} table - The main table name.
+* @param {Array<string>|"*"} [columns="*"] - Base table columns.
+* @param {Array<Object>} [joins=[]] - Array of join objects.
+*
+* Each join object should have:
+*  - {string} table: The table to join.
+*  - {string} referenceTable: The table to use as baseTable (Optional).
+*  - {string|Array<string>} keys: 
+*      - If string → assumes both tables have the same key. (e.g., `"user_id"`)
+*      - If array → assumes [foreignKey, primaryKey]. (e.g., `["user_id", "id"]`)
+*  - {string} [type="JOIN"]: Type of join (e.g., "JOIN", "LEFT JOIN").
+*  - {Array<string>} [columns=[]]: Columns to select from the joined table.
+*  - {Array<string>} [columnAs=[]]: Columns with aliases.
+*
+* @returns {string} - The generated SQL query.
+*
+* @example
+*
+* const sql = buildJoinQuery({
+*   table: "Merchant",
+*   columns: "*",
+*   joins: [
+*     {
+*       table: "User",
+*       keys: "user_id",
+*       type: "JOIN",
+*       columns: ["first_name", "last_name"]
+*     },
+*     {
+*       table: "Designation",
+*       keys: ["designation_id", "id"],
+*       type: "LEFT JOIN",
+*       columnAs: [`"Designation".designation AS designation_name`]
+*     }
+*   ]
+* });
+*
+* 
+* // Generates:
+* SELECT "Merchant".*, "User".first_name, "User".last_name, "Designation".designation AS designation_name
+* FROM "Merchant"
+* JOIN "User" ON "Merchant".user_id = "User".user_id
+* LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
+*/
+export const buildJoinQuery = (table, columns = "*", joins = []) => {
+  let selectCols = columns === "*" ? [`"${table}".*`] : columns.map(col => `"${table}".${col}`);
+  let joinClauses = [];
+
+  for (const join of joins) {
+    const { table: jTable, referenceTable: rTable, keys, type = "JOIN", columns = [], columnAs = [] } = join;
+    const referenceTable = rTable || table;
+
+    // Auto-generate ON condition
+    let onCondition = "";
+    if (keys) {
+      if (typeof keys === "string") {
+        // If keys is a string, use the same key for both tables
+        onCondition = `"${referenceTable}".${keys} = "${jTable}".${keys}`;
+      } else if (Array.isArray(keys) && keys.length === 2) {
+        // If keys is an array, assume different keys for each table
+        onCondition = `"${referenceTable}".${keys[0]} = "${jTable}".${keys[1]}`;
+      }
+    }
+
+    // Add selected columns
+    for (const col of columns) {
+      selectCols.push(`"${jTable}".${col}`);
+    }
+    for (const colAs of columnAs) {
+      selectCols.push(colAs);
+    }
+
+    // Add the JOIN clause
+    joinClauses.push(`${type} "${jTable}" ON ${onCondition}`);
+  }
+
+  return `SELECT ${selectCols.join(", ")} FROM "${table}" ${joinClauses.join(" ")} WHERE 1=1`;
 };
+
 
 export { pool, getConnection, beginTransaction, commit, rollback };
