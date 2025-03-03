@@ -1,6 +1,12 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createBankaccount, deleteBankaccount, getBankaccountById,getBankaccount, updateBankaccount } from './bankaccountController.js';
+import {
+  createBankaccount,
+  deleteBankaccount,
+  getBankaccountById,
+  getBankaccount,
+  updateBankaccount,
+} from './bankaccountController.js';
 const router = express.Router();
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -38,7 +44,11 @@ import { AccessRoles } from '../../constants/index.js';
  *       500:
  *         description: Internal server error
  */
-router.get('/', [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(getBankaccount));
+router.get(
+  '/',
+  [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)],
+  tryCatchHandler(getBankaccount),
+);
 /**
  * @swagger
  * /bankAccounts/{id}:
@@ -72,7 +82,11 @@ router.get('/', [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatc
  *       500:
  *         description: Internal server error
  */
-router.get('/:id', [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(getBankaccountById));
+router.get(
+  '/:id',
+  [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)],
+  tryCatchHandler(getBankaccountById),
+);
 /**
  * @swagger
  * /bankAccounts/create-bankAccount:
@@ -112,8 +126,11 @@ router.get('/:id', [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryC
  *       500:
  *         description: Internal server error
  */
-router.post('/create-bankAccount',[isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(createBankaccount));
-
+router.post(
+  '/create-bankAccount',
+  [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)],
+  tryCatchHandler(createBankaccount),
+);
 
 /**
  * @swagger
@@ -191,7 +208,11 @@ router.post('/create-bankAccount',[isAuthenticated, authorized(AccessRoles.BANK_
  *       500:
  *         description: Internal server error
  */
-router.put('/update-bankAccount/:id',[isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(updateBankaccount));
+router.put(
+  '/update-bankAccount/:id',
+  [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)],
+  tryCatchHandler(updateBankaccount),
+);
 
 /**
  * @swagger
@@ -215,6 +236,10 @@ router.put('/update-bankAccount/:id',[isAuthenticated, authorized(AccessRoles.BA
  *       500:
  *         description: Internal server error
  */
-router.delete('/delete-bankAccount/:id', [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)], tryCatchHandler(deleteBankaccount));
+router.delete(
+  '/delete-bankAccount/:id',
+  [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)],
+  tryCatchHandler(deleteBankaccount),
+);
 
 export default router;

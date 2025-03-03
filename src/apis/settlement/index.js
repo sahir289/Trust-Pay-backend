@@ -2,7 +2,13 @@ import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
-import { createSettlementController, deleteSettlementController, getSettlementController, getSettlementControllerById, updateSettlementController } from './settlementController.js';
+import {
+  createSettlementController,
+  deleteSettlementController,
+  getSettlementController,
+  getSettlementControllerById,
+  updateSettlementController,
+} from './settlementController.js';
 const router = express.Router();
 
 /**
@@ -42,8 +48,16 @@ const router = express.Router();
  *                         type: string
  *                         example: "john_doe"
  */
-router.get('/:id', [isAuthenticated, authorized(AccessRoles.SETTLEMENT)], tryCatchHandler(getSettlementControllerById));
-router.get('/',[isAuthenticated, authorized(AccessRoles.SETTLEMENT)],  tryCatchHandler(getSettlementController));
+router.get(
+  '/:id',
+  [isAuthenticated, authorized(AccessRoles.SETTLEMENT)],
+  tryCatchHandler(getSettlementControllerById),
+);
+router.get(
+  '/',
+  [isAuthenticated, authorized(AccessRoles.SETTLEMENT)],
+  tryCatchHandler(getSettlementController),
+);
 
 /**
  * @swagger
@@ -80,7 +94,11 @@ router.get('/',[isAuthenticated, authorized(AccessRoles.SETTLEMENT)],  tryCatchH
  *                       type: string
  *                       example: "john_doe"
  */
-router.post('/create-settlement',[isAuthenticated, authorized(AccessRoles.SETTLEMENT)],  tryCatchHandler(createSettlementController));
+router.post(
+  '/create-settlement',
+  [isAuthenticated, authorized(AccessRoles.SETTLEMENT)],
+  tryCatchHandler(createSettlementController),
+);
 
 /**
  * @swagger
@@ -123,7 +141,11 @@ router.post('/create-settlement',[isAuthenticated, authorized(AccessRoles.SETTLE
  *                       type: string
  *                       example: "john_doe"
  */
-router.put('/update-settlement/:id',[isAuthenticated, authorized(AccessRoles.SETTLEMENT)], tryCatchHandler(updateSettlementController));
+router.put(
+  '/update-settlement/:id',
+  [isAuthenticated, authorized(AccessRoles.SETTLEMENT)],
+  tryCatchHandler(updateSettlementController),
+);
 
 /**
  * @swagger
@@ -160,6 +182,10 @@ router.put('/update-settlement/:id',[isAuthenticated, authorized(AccessRoles.SET
  *                       type: string
  *                       example: "john_doe"
  */
-router.delete('/delete-settlement/:id',[isAuthenticated, authorized(AccessRoles.SETTLEMENT)], tryCatchHandler(deleteSettlementController));
+router.delete(
+  '/delete-settlement/:id',
+  [isAuthenticated, authorized(AccessRoles.SETTLEMENT)],
+  tryCatchHandler(deleteSettlementController),
+);
 
 export default router;

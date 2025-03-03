@@ -1,7 +1,5 @@
-
-
 const pingDao = async () => {
-  return { message: 'pong' }
+  return { message: 'pong' };
 };
 
 export { pingDao };

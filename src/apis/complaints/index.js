@@ -1,6 +1,12 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createComplaints, deleteComplaints, getComplaints, getComplaintsById, updateComplaints } from "./complaintsController.js";
+import {
+  createComplaints,
+  deleteComplaints,
+  getComplaints,
+  getComplaintsById,
+  updateComplaints,
+} from './complaintsController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
@@ -49,7 +55,11 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/', [isAuthenticated,authorized(AccessRoles.COMPLAINTS)], tryCatchHandler(getComplaints));
+router.get(
+  '/',
+  [isAuthenticated, authorized(AccessRoles.COMPLAINTS)],
+  tryCatchHandler(getComplaints),
+);
 
 /**
  * @swagger
@@ -95,7 +105,11 @@ router.get('/', [isAuthenticated,authorized(AccessRoles.COMPLAINTS)], tryCatchHa
  *       500:
  *         description: Internal server error
  */
-router.get('/:id',  [isAuthenticated,authorized(AccessRoles.COMPLAINTS)], tryCatchHandler(getComplaintsById));
+router.get(
+  '/:id',
+  [isAuthenticated, authorized(AccessRoles.COMPLAINTS)],
+  tryCatchHandler(getComplaintsById),
+);
 
 /**
  * @swagger
@@ -150,7 +164,11 @@ router.get('/:id',  [isAuthenticated,authorized(AccessRoles.COMPLAINTS)], tryCat
  *       500:
  *         description: Internal server error
  */
-router.post('/create-complaint', [isAuthenticated,authorized(AccessRoles.COMPLAINTS)], tryCatchHandler(createComplaints));
+router.post(
+  '/create-complaint',
+  [isAuthenticated, authorized(AccessRoles.COMPLAINTS)],
+  tryCatchHandler(createComplaints),
+);
 
 /**
  * @swagger
@@ -194,7 +212,11 @@ router.post('/create-complaint', [isAuthenticated,authorized(AccessRoles.COMPLAI
  *       500:
  *         description: Internal server error
  */
-router.put('/update-complaint/:id',  [isAuthenticated,authorized(AccessRoles.COMPLAINTS)], tryCatchHandler(updateComplaints));
+router.put(
+  '/update-complaint/:id',
+  [isAuthenticated, authorized(AccessRoles.COMPLAINTS)],
+  tryCatchHandler(updateComplaints),
+);
 
 /**
  * @swagger
@@ -225,6 +247,10 @@ router.put('/update-complaint/:id',  [isAuthenticated,authorized(AccessRoles.COM
  *       500:
  *         description: Internal server error
  */
-router.delete('/delete-complaint/:id',  [isAuthenticated,authorized(AccessRoles.COMPLAINTS)], tryCatchHandler(deleteComplaints));
+router.delete(
+  '/delete-complaint/:id',
+  [isAuthenticated, authorized(AccessRoles.COMPLAINTS)],
+  tryCatchHandler(deleteComplaints),
+);
 
 export default router;

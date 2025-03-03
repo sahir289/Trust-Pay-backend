@@ -1,24 +1,30 @@
-import { executeQuery, buildInsertQuery, buildUpdateQuery, buildSelectQuery } from "../../utils/db.js";
-import { tableName } from "../../constants/index.js";
+import {
+  executeQuery,
+  buildInsertQuery,
+  buildUpdateQuery,
+  buildSelectQuery,
+} from '../../utils/db.js';
+import { tableName } from '../../constants/index.js';
 
 // Get Complaints with pagination, sorting, and filtering
-const getComplaintsDao = async (
-  filters,
-  page,
-  pageSize,
-  sortBy,
-  sortOrder 
-) => {
+const getComplaintsDao = async (filters, page, pageSize, sortBy, sortOrder) => {
   try {
     const baseQuery = `SELECT id,status,payin_id FROM "${tableName.COMPLAINTS}" WHERE 1=1`;
     //TODO: columns.COMPLAINTS dynamic search
-    const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+    );
     // Execute query
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
-    console.error("Error fetching complaints:", error);
-    throw new Error("Error fetching complaints");
+    console.error('Error fetching complaints:', error);
+    throw new Error('Error fetching complaints');
   }
 };
 
@@ -31,20 +37,20 @@ const createComplaintsDao = async (data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error("Error creating complaint:", error);
-    throw new Error("Error creating complaint");
+    console.error('Error creating complaint:', error);
+    throw new Error('Error creating complaint');
   }
 };
 
 // Update an existing Complaint
 const updateComplaintsDao = async (id, data) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.COMPLAINTS, data,id);
+    const [sql, params] = buildUpdateQuery(tableName.COMPLAINTS, data, id);
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error("Error updating complaint:", error);
-    throw new Error("Error updating complaint");
+    console.error('Error updating complaint:', error);
+    throw new Error('Error updating complaint');
   }
 };
 
@@ -55,9 +61,14 @@ const deleteComplaintsDao = async (id, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error("Error deleting complaint:", error);
-    throw new Error("Error deleting complaint");
+    console.error('Error deleting complaint:', error);
+    throw new Error('Error deleting complaint');
   }
 };
 
-export { getComplaintsDao, createComplaintsDao, updateComplaintsDao, deleteComplaintsDao };
+export {
+  getComplaintsDao,
+  createComplaintsDao,
+  updateComplaintsDao,
+  deleteComplaintsDao,
+};

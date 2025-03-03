@@ -1,6 +1,11 @@
-import {columns, tableName } from '../../constants/index.js';
-import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
-import { buildSearchFilterObj } from "../../utils/searchBuilder.js";
+import { columns, tableName } from '../../constants/index.js';
+import {
+  buildInsertQuery,
+  buildSelectQuery,
+  buildUpdateQuery,
+  executeQuery,
+} from '../../utils/db.js';
+import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 const getDesignationDao = async (
   filters,
@@ -11,12 +16,19 @@ const getDesignationDao = async (
   Columns = columns.DESIGNATION,
 ) => {
   try {
-    const baseQuery = `SELECT ${Columns.length ? Columns.join(', ') : "*"} FROM "${tableName.DESIGNATION}" WHERE 1=1`;
-     if (filters.search) {
-                filters.or = buildSearchFilterObj(filters.search, tableName.DESIGNATION);
-                delete filters.search;
-            }
-    const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
+    const baseQuery = `SELECT ${Columns.length ? Columns.join(', ') : '*'} FROM "${tableName.DESIGNATION}" WHERE 1=1`;
+    if (filters.search) {
+      filters.or = buildSearchFilterObj(filters.search, tableName.DESIGNATION);
+      delete filters.search;
+    }
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+    );
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
@@ -31,7 +43,7 @@ const createDesignationDao = async (conn, payload) => {
     if (conn && conn.query) {
       const result = await conn.query(sql, params);
       return result.rows[0];
-  }
+    }
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
@@ -62,4 +74,9 @@ const deleteDesignationDao = async (id, data) => {
   }
 };
 
-export { getDesignationDao, createDesignationDao, updateDesignationDao, deleteDesignationDao };
+export {
+  getDesignationDao,
+  createDesignationDao,
+  updateDesignationDao,
+  deleteDesignationDao,
+};

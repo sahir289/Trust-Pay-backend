@@ -1,106 +1,117 @@
-import {  sendSuccess } from '../../utils/responseHandlers.js';
-import { getComplaintsService,createComplaintsService,updateComplaintsService,deleteComplaintsService } from './complaintsServices.js';
-import { VALIDATE_COMPLAINT_BY_ID,VALIDATE_COMPLAINT_SCHEMA,VALIDATE_UPDATE_COMPLAINT_STATUS,VALIDATE_DELETE_COMPLAINT} from '../../schemas/complaintSchema.js';
+import { sendSuccess } from '../../utils/responseHandlers.js';
+import {
+  getComplaintsService,
+  createComplaintsService,
+  updateComplaintsService,
+  deleteComplaintsService,
+} from './complaintsServices.js';
+import {
+  VALIDATE_COMPLAINT_BY_ID,
+  VALIDATE_COMPLAINT_SCHEMA,
+  VALIDATE_UPDATE_COMPLAINT_STATUS,
+  VALIDATE_DELETE_COMPLAINT,
+} from '../../schemas/complaintSchema.js';
 import { sendError } from '../../utils/responseHandlers.js';
 import { ValidationError } from '../../utils/appErrors.js';
 const getComplaints = async (req, res) => {
-    try {
-      const {company_id} = req.user;
-      // let search = req.query.search;
-      const data = await getComplaintsService({
-        company_id,
-        // TODO: search
-      });
-      console.log ('get complaints successfully');
-      return sendSuccess(res, data, 'get complaints successfully');
-    } catch (error) {
-      console.error('error getting while getting complaints', 'error', error);
-    }
+  try {
+    const { company_id } = req.user;
+    // let search = req.query.search;
+    const data = await getComplaintsService({
+      company_id,
+      // TODO: search
+    });
+    console.log('get complaints successfully');
+    return sendSuccess(res, data, 'get complaints successfully');
+  } catch (error) {
+    console.error('error getting while getting complaints', 'error', error);
+  }
 };
 
-const getComplaintsById =  async (req, res) => {
-    try {
-      const { error } = VALIDATE_COMPLAINT_BY_ID.validate(req.params);
-      if (error) {
-        throw new ValidationError(error);
-      }
-      const {id} = req.params;
-      const {company_id} = req.user;
-
-      const data = await getComplaintsService({id,company_id});
-      console.log ('get complaint successfully');
-      return sendSuccess(res, data, 'get complaint successfully');
-    } catch (error) {
-      console.error('error getting while getting complaint', 'error', error);
+const getComplaintsById = async (req, res) => {
+  try {
+    const { error } = VALIDATE_COMPLAINT_BY_ID.validate(req.params);
+    if (error) {
+      throw new ValidationError(error);
     }
+    const { id } = req.params;
+    const { company_id } = req.user;
+
+    const data = await getComplaintsService({ id, company_id });
+    console.log('get complaint successfully');
+    return sendSuccess(res, data, 'get complaint successfully');
+  } catch (error) {
+    console.error('error getting while getting complaint', 'error', error);
+  }
 };
-
-
 
 const createComplaints = async (req, res) => {
-    try {
-      
-      let payload = req.body;
-      if (!payload) {
-        console.error('payload is required');
-        return sendError(res, 'payload is required', 'Validation Error');
-      }
-      const {company_id} = req.user;
-      payload.company_id=company_id;
-      const { error } = VALIDATE_COMPLAINT_SCHEMA.validate(payload);
-      if (error) {
-        throw new ValidationError(error);
-      }
-      const data = await createComplaintsService(payload);
-      console.log('create Complaints successfully', 'info');
-      return sendSuccess(res, data, 'Create Complaints successfully');
-    } catch (error) {
-        console.error('error getting while creating Complaints', 'error', error);                                  
+  try {
+    let payload = req.body;
+    if (!payload) {
+      console.error('payload is required');
+      return sendError(res, 'payload is required', 'Validation Error');
     }
+    const { company_id } = req.user;
+    payload.company_id = company_id;
+    const { error } = VALIDATE_COMPLAINT_SCHEMA.validate(payload);
+    if (error) {
+      throw new ValidationError(error);
+    }
+    const data = await createComplaintsService(payload);
+    console.log('create Complaints successfully', 'info');
+    return sendSuccess(res, data, 'Create Complaints successfully');
+  } catch (error) {
+    console.error('error getting while creating Complaints', 'error', error);
+  }
 };
-
 
 const updateComplaints = async (req, res) => {
-    try {
-      const { error: paramsError } =VALIDATE_COMPLAINT_BY_ID.validate(req.params);
-      if (paramsError) {
-        throw new ValidationError(paramsError);
-      }
-      // Validate body (fields for update)
-      const { error: bodyError } = VALIDATE_UPDATE_COMPLAINT_STATUS.validate(req.body);
-      if (bodyError) {
-        throw new ValidationError(bodyError);
-      }
-        const { body, params } = req;
-        const {company_id} = req.user;
-        const data = await updateComplaintsService(params.id,company_id, body);
-        console.log('Update Complaints successfully', 'info');
-        return sendSuccess(res, data, 'Update Complaints successfully');
-    } catch (error) {
-        console.error('error getting while updating Complaints', 'error', error);                                  
+  try {
+    const { error: paramsError } = VALIDATE_COMPLAINT_BY_ID.validate(
+      req.params,
+    );
+    if (paramsError) {
+      throw new ValidationError(paramsError);
     }
-}
-
-
-const deleteComplaints = async (req, res) => {
-    try {
-      const { error } = VALIDATE_DELETE_COMPLAINT.validate(req.params);
-      if (error) {
-        throw new ValidationError(error);
-      }
-        const {  params } = req;
-        const {company_id} = req.user;
-
-        const userData = {is_obsolete: true};
-        const data = await deleteComplaintsService(params.id,company_id, userData);
-        return sendSuccess(res, data, 'Delete Complaints successfully');
-    } catch (error) {
-        console.error('error getting while updating Complaints', 'error', error);                                  
+    // Validate body (fields for update)
+    const { error: bodyError } = VALIDATE_UPDATE_COMPLAINT_STATUS.validate(
+      req.body,
+    );
+    if (bodyError) {
+      throw new ValidationError(bodyError);
     }
+    const { body, params } = req;
+    const { company_id } = req.user;
+    const data = await updateComplaintsService(params.id, company_id, body);
+    console.log('Update Complaints successfully', 'info');
+    return sendSuccess(res, data, 'Update Complaints successfully');
+  } catch (error) {
+    console.error('error getting while updating Complaints', 'error', error);
+  }
 };
 
+const deleteComplaints = async (req, res) => {
+  try {
+    const { error } = VALIDATE_DELETE_COMPLAINT.validate(req.params);
+    if (error) {
+      throw new ValidationError(error);
+    }
+    const { params } = req;
+    const { company_id } = req.user;
 
+    const userData = { is_obsolete: true };
+    const data = await deleteComplaintsService(params.id, company_id, userData);
+    return sendSuccess(res, data, 'Delete Complaints successfully');
+  } catch (error) {
+    console.error('error getting while updating Complaints', 'error', error);
+  }
+};
 
-
-export  {getComplaints , createComplaints,getComplaintsById, updateComplaints, deleteComplaints}
- 
+export {
+  getComplaints,
+  createComplaints,
+  getComplaintsById,
+  updateComplaints,
+  deleteComplaints,
+};

@@ -24,13 +24,15 @@ const router = express.Router();
  *                   type: string
  *                   example: "Bank cron job executed successfully."
  */
-router.get('/bankCron', (req, res) => {
-    collectBankData("Asia/Kolkata");
-    console.log(
-        "Calling collectBankData CRONJOB with timezone: Asia/Kolkata"
-      );
+router.get(
+  '/bankCron',
+  (req, res) => {
+    collectBankData('Asia/Kolkata');
+    console.log('Calling collectBankData CRONJOB with timezone: Asia/Kolkata');
     res.json({ message: 'Cron job is running for Banks' });
-},collectBankData);
+  },
+  collectBankData,
+);
 
 /**
  * @swagger
@@ -52,14 +54,17 @@ router.get('/bankCron', (req, res) => {
  *                   type: string
  *                   example: "Calculation cron job executed successfully."
  */
-router.get('/calculationCron',
-    (req, res) => {
-        collectCalculationData("Asia/Kolkata");
-        console.log(
-            "Calling collectCalculationData CRONJOB with timezone: Asia/Kolkata"
-          );
-        res.json({ message: 'Cron job is running for calculation' });
-    } ,collectCalculationData);
+router.get(
+  '/calculationCron',
+  (req, res) => {
+    collectCalculationData('Asia/Kolkata');
+    console.log(
+      'Calling collectCalculationData CRONJOB with timezone: Asia/Kolkata',
+    );
+    res.json({ message: 'Cron job is running for calculation' });
+  },
+  collectCalculationData,
+);
 
 /**
  * @swagger
@@ -81,13 +86,14 @@ router.get('/calculationCron',
  *                   type: string
  *                   example: "Payin dropped notification cron job executed successfully."
  */
-router.get('/notifyPayinDroppedCron',
-    (req, res) => {
-        collectPayinData("Asia/Kolkata");
-        console.log(
-            "Calling collectPayinData CRONJOB with timezone: Asia/Kolkata"
-          );
-        res.json({ message: 'Cron job is running for Notify-Url' });
-    },collectPayinData);
+router.get(
+  '/notifyPayinDroppedCron',
+  (req, res) => {
+    collectPayinData('Asia/Kolkata');
+    console.log('Calling collectPayinData CRONJOB with timezone: Asia/Kolkata');
+    res.json({ message: 'Cron job is running for Notify-Url' });
+  },
+  collectPayinData,
+);
 
 export default router;

@@ -1,7 +1,12 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createCheckUtr, deleteCheckUtr, getCheckUtr, updateCheckUtr } from './CheckUtrController.js';
-import { isAuthenticated,authorized } from '../../middlewares/auth.js';
+import {
+  createCheckUtr,
+  deleteCheckUtr,
+  getCheckUtr,
+  updateCheckUtr,
+} from './CheckUtrController.js';
+import { isAuthenticated, authorized } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
 
@@ -34,7 +39,11 @@ const router = express.Router();
  *                 data:
  *                   type: object
  */
-router.get('/', [isAuthenticated,authorized(AccessRoles.CHECK_UTR_HISTORY)], tryCatchHandler(getCheckUtr));
+router.get(
+  '/',
+  [isAuthenticated, authorized(AccessRoles.CHECK_UTR_HISTORY)],
+  tryCatchHandler(getCheckUtr),
+);
 
 /**
  * @swagger
@@ -68,7 +77,11 @@ router.get('/', [isAuthenticated,authorized(AccessRoles.CHECK_UTR_HISTORY)], try
  *                 data:
  *                   type: object
  */
-router.post('/create-CheckUtr', [isAuthenticated,authorized(AccessRoles.CHECK_UTR_HISTORY)], tryCatchHandler(createCheckUtr));
+router.post(
+  '/create-CheckUtr',
+  [isAuthenticated, authorized(AccessRoles.CHECK_UTR_HISTORY)],
+  tryCatchHandler(createCheckUtr),
+);
 
 /**
  * @swagger
@@ -99,7 +112,11 @@ router.post('/create-CheckUtr', [isAuthenticated,authorized(AccessRoles.CHECK_UT
  *       200:
  *         description: CheckUtr updated successfully.
  */
-router.put('/update-CheckUtr/:id', [isAuthenticated,authorized(AccessRoles.CHECK_UTR_HISTORY)], tryCatchHandler(updateCheckUtr));
+router.put(
+  '/update-CheckUtr/:id',
+  [isAuthenticated, authorized(AccessRoles.CHECK_UTR_HISTORY)],
+  tryCatchHandler(updateCheckUtr),
+);
 
 /**
  * @swagger
@@ -120,6 +137,10 @@ router.put('/update-CheckUtr/:id', [isAuthenticated,authorized(AccessRoles.CHECK
  *       200:
  *         description: CheckUtr deleted successfully.
  */
-router.delete('/delete-CheckUtr/:id', [isAuthenticated,authorized(AccessRoles.CHECK_UTR_HISTORY)], tryCatchHandler(deleteCheckUtr));
+router.delete(
+  '/delete-CheckUtr/:id',
+  [isAuthenticated, authorized(AccessRoles.CHECK_UTR_HISTORY)],
+  tryCatchHandler(deleteCheckUtr),
+);
 
 export default router;

@@ -1,6 +1,12 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import {getCalculation,getCalculationById,createCalculation,updateCalculation,deleteCalculation} from './calculationController.js';
+import {
+  getCalculation,
+  getCalculationById,
+  createCalculation,
+  updateCalculation,
+  deleteCalculation,
+} from './calculationController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
@@ -47,7 +53,11 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/',[isAuthenticated, authorized(AccessRoles.CALCULATION)], tryCatchHandler(getCalculation));
+router.get(
+  '/',
+  [isAuthenticated, authorized(AccessRoles.CALCULATION)],
+  tryCatchHandler(getCalculation),
+);
 
 /**
  * @swagger
@@ -91,7 +101,11 @@ router.get('/',[isAuthenticated, authorized(AccessRoles.CALCULATION)], tryCatchH
  *       500:
  *         description: Internal server error
  */
-router.get('/:id',[isAuthenticated, authorized(AccessRoles.CALCULATION)], tryCatchHandler(getCalculationById));
+router.get(
+  '/:id',
+  [isAuthenticated, authorized(AccessRoles.CALCULATION)],
+  tryCatchHandler(getCalculationById),
+);
 
 /**
  * @swagger
@@ -146,7 +160,11 @@ router.get('/:id',[isAuthenticated, authorized(AccessRoles.CALCULATION)], tryCat
  *       500:
  *         description: Internal server error
  */
-router.post('/create-calculation',[isAuthenticated, authorized(AccessRoles.CALCULATION)], tryCatchHandler(createCalculation));
+router.post(
+  '/create-calculation',
+  [isAuthenticated, authorized(AccessRoles.CALCULATION)],
+  tryCatchHandler(createCalculation),
+);
 
 /**
  * @swagger
@@ -207,7 +225,11 @@ router.post('/create-calculation',[isAuthenticated, authorized(AccessRoles.CALCU
  *       500:
  *         description: Internal server error
  */
-router.put('/update-calculation/:id',[isAuthenticated, authorized(AccessRoles.CALCULATION)], tryCatchHandler(updateCalculation));
+router.put(
+  '/update-calculation/:id',
+  [isAuthenticated, authorized(AccessRoles.CALCULATION)],
+  tryCatchHandler(updateCalculation),
+);
 
 /**
  * @swagger
@@ -230,6 +252,10 @@ router.put('/update-calculation/:id',[isAuthenticated, authorized(AccessRoles.CA
  *       500:
  *         description: Internal server error
  */
-router.delete('/delete-calculation/:id',[isAuthenticated, authorized(AccessRoles.CALCULATION)], tryCatchHandler(deleteCalculation));
+router.delete(
+  '/delete-calculation/:id',
+  [isAuthenticated, authorized(AccessRoles.CALCULATION)],
+  tryCatchHandler(deleteCalculation),
+);
 
 export default router;

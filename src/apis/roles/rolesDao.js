@@ -4,37 +4,40 @@ import {
   executeQuery,
   buildUpdateQuery,
 } from '../../utils/db.js';
-import { tableName,columns } from '../../constants/index.js';
+import { tableName, columns } from '../../constants/index.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
-const getRoleDao = async (filters, page, pageSize, sortBy, sortOrder,
-Columns=columns.ROLE
+const getRoleDao = async (
+  filters,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+  Columns = columns.ROLE,
 ) => {
   try {
-    const baseQuery = `SELECT ${Columns.length ? Columns.join(', ') : "*"} FROM "${tableName.ROLE}" WHERE 1=1`;
+    const baseQuery = `SELECT ${Columns.length ? Columns.join(', ') : '*'} FROM "${tableName.ROLE}" WHERE 1=1`;
     if (filters.search) {
-              filters.or = buildSearchFilterObj(filters.search, tableName.ROLE);
-              delete filters.search;
-          }
-  //TODO: columns.ROLE dynamic search
-  const [sql, queryParams] = buildSelectQuery(
-    baseQuery,
-    filters,
-    page,
-    pageSize,
-    sortBy,
-    sortOrder
-  );
-  // Execute query
-  const result = await executeQuery(sql, queryParams)
-  return result.rows;
-}catch (error) {
-  console.error('Error in getRolesDao:', error);
-  throw new Error('Failed to fetch Roles');
-}
+      filters.or = buildSearchFilterObj(filters.search, tableName.ROLE);
+      delete filters.search;
+    }
+    //TODO: columns.ROLE dynamic search
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+    );
+    // Execute query
+    const result = await executeQuery(sql, queryParams);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getRolesDao:', error);
+    throw new Error('Failed to fetch Roles');
+  }
 };
-
-
 
 const createRoleDao = async (conn, data) => {
   try {

@@ -15,9 +15,9 @@ class HTTPError extends Error {
   }
 }
 
-class HTTPClientError extends HTTPError { }
+class HTTPClientError extends HTTPError {}
 
-class HTTPServerError extends HTTPError { }
+class HTTPServerError extends HTTPError {}
 
 class BadRequestError extends HTTPClientError {
   statusCode = 400;
@@ -74,7 +74,6 @@ class DbError extends HTTPServerError {
     super(message);
   }
 }
-
 
 const parseValidationMessage = (errorDetails) => {
   const { details } = errorDetails;

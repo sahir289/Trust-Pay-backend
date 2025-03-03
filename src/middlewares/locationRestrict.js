@@ -5,17 +5,18 @@ const BLOCK_LAT = process.env.BLOCK_LAT;
 const BLOCK_LONG = process.env.BLOCK_LONG;
 const PROXY_CHECK_URL = process.env.PROXY_CHECK_URL;
 const getUserLocationMiddleware = async (req, res, next) => {
-  let userIp =req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
-  
-  const restrictedLocation = { latitude: BLOCK_LAT, longitude: BLOCK_LONG }; 
+  let userIp =
+    req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
+
+  const restrictedLocation = { latitude: BLOCK_LAT, longitude: BLOCK_LONG };
   const radiusKm = 60;
   const restrictedStates = ['Haryana', 'Rajasthan'];
   try {
     // Get the user's IP address (checking for reverse proxy headers)
     // Send a request to proxycheck.io to fetch the geolocation data
-    const url = PROXY_CHECK_URL.replace("${userIp}", userIp);
-    const response = await axios.get( url);
-   
+    const url = PROXY_CHECK_URL.replace('${userIp}', userIp);
+    const response = await axios.get(url);
+
     const userData = response.data[userIp];
     if (!userData) {
       return res.status(500).json({ message: 'Error fetching location data' });
@@ -29,11 +30,8 @@ const getUserLocationMiddleware = async (req, res, next) => {
       console.error(`Access restricted for users in ${region}.`, userData);
       return res.status(403).send('403: Access denied');
     }
-   
-    if (
-        !COUNTRIES.includes(country) &&
-        !europeanCountries.includes(country)
-      ) {
+
+    if (!COUNTRIES.includes(country) && !europeanCountries.includes(country)) {
       console.error(`Access restricted for users from ${country}.`, userData);
       return res.status(403).send('403: Access denied');
     }
@@ -90,7 +88,7 @@ const isLocationBlocked = (
 };
 const haversineDistance = (lat1, lon1, lat2, lon2) => {
   const toRadians = (degrees) => (degrees * Math.PI) / 180;
-  const R = 6371; 
+  const R = 6371;
   const dLat = toRadians(lat2 - lat1);
   const dLon = toRadians(lon2 - lon1);
   const a =

@@ -18,7 +18,7 @@ import payOut from './payOut/index.js';
 import complaints from './complaints/index.js';
 import gatherAllData from '../cron/gatherAllData.js';
 import reports from './reports/index.js';
-import cron from "../cron/index.js";
+import cron from '../cron/index.js';
 
 const parentRouter = express.Router();
 const router = express.Router();

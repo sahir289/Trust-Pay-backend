@@ -14,7 +14,9 @@ const pool = new Pool({
 const getConnection = async () => {
   try {
     const client = await pool.connect();
-    const styledServerMessage = chalk.bgCyanBright('Database connected successfully');
+    const styledServerMessage = chalk.bgCyanBright(
+      'Database connected successfully',
+    );
     console.log(`${styledServerMessage}`);
     return client;
   } catch (error) {
@@ -64,7 +66,7 @@ export const executeQuery = async (query, queryParams = []) => {
     console.error(`\nQuery: ${query}\nParams: [${queryParams}]`);
     throw new DbError(error.message);
   }
-}
+};
 
 // export const buildJoinQuery = async (baseTable, filters, baseQuery, p, ps, s, o) => {
 //   try {
@@ -77,7 +79,7 @@ export const executeQuery = async (query, queryParams = []) => {
 //     let values = [];
 
 //     for (const filter of filters) {
-//       query += ` LEFT JOIN public."${filter.tableName}" r_${filter.tableName} 
+//       query += ` LEFT JOIN public."${filter.tableName}" r_${filter.tableName}
 //                  ON r_${filter.tableName}.${filter.id} = "${baseTable}".${filter.id}`;
 //     }
 
@@ -85,8 +87,8 @@ export const executeQuery = async (query, queryParams = []) => {
 //     query += ` ORDER BY "${baseTable}"."${sortBy}" ${sortOrder}`;
 //     query += ` LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
 //       values.push(pageSize);
-//     values.push((page - 1) * pageSize); 
-  
+//     values.push((page - 1) * pageSize);
+
 //     return [query, values];
 //   } catch (error) {
 //     console.error('Error building join query:', error);
@@ -94,16 +96,27 @@ export const executeQuery = async (query, queryParams = []) => {
 //   }
 // };
 
-export const buildSelectQuery = (baseQuery, filters, p, ps, s, o, tableName) => {
-  const page = p || 1, pageSize = ps || 10, sortBy = s || "created_at", sortOrder = o || "DESC";
-  const prefix = tableName ? `"${tableName}".` : "";
+export const buildSelectQuery = (
+  baseQuery,
+  filters,
+  p,
+  ps,
+  s,
+  o,
+  tableName,
+) => {
+  const page = p || 1,
+    pageSize = ps || 10,
+    sortBy = s || 'created_at',
+    sortOrder = o || 'DESC';
+  const prefix = tableName ? `"${tableName}".` : '';
   let query = baseQuery;
   let values = [];
   let conditions = [`${prefix}is_obsolete = false`];
 
   for (const key in filters) {
     const value = filters[key];
-    if (key === "or") {
+    if (key === 'or') {
       // skip or query
       continue;
     } else if (Array.isArray(value)) {
@@ -114,14 +127,12 @@ export const buildSelectQuery = (baseQuery, filters, p, ps, s, o, tableName) => 
     values.push(value);
   }
 
-
   if (conditions.length) {
     query += ` AND ${conditions.join(' AND ')}`;
   }
 
-
   // repeat the query process for OR
-  if (filters.or && typeof filters.or === "object") {
+  if (filters.or && typeof filters.or === 'object') {
     const orConditions = [];
     for (const key in filters.or) {
       const value = filters.or[key];
@@ -137,15 +148,27 @@ export const buildSelectQuery = (baseQuery, filters, p, ps, s, o, tableName) => 
   }
 
   // Apply sorting and pagination
-  query = applySortingAndPagination(query, values, sortBy, sortOrder, page, pageSize);
+  query = applySortingAndPagination(
+    query,
+    values,
+    sortBy,
+    sortOrder,
+    page,
+    pageSize,
+  );
   return [query, values];
 };
 
-
-export const applySortingAndPagination = (query, values, sortBy, sortOrder, page, pageSize) => {
-
+export const applySortingAndPagination = (
+  query,
+  values,
+  sortBy,
+  sortOrder,
+  page,
+  pageSize,
+) => {
   // Validate sort order
-  const order = sortOrder.toUpperCase() === "DESC" ? "DESC" : "ASC";
+  const order = sortOrder.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
   // Add sorting
   query += ` ORDER BY "${sortBy}" ${order}`;
@@ -162,18 +185,23 @@ export const buildInsertQuery = (tableName, data) => {
   const values = keys.map((el, i) => `$${i + 1}`);
   const query = `INSERT INTO "${tableName}" (${keys.join(', ')}) VALUES (${values}) RETURNING *`;
   return [query, Object.values(data)];
-}
+};
 
 // specialFields { balance: "+" }
 // whereCondition { id: 1 }
 // data { balance: 1000 }
-export const buildUpdateQuery = (tableName, data, whereCondition, specialFields = {}) => {
+export const buildUpdateQuery = (
+  tableName,
+  data,
+  whereCondition,
+  specialFields = {},
+) => {
   const values = [];
 
   const setClause = Object.entries(data).map(([key, value]) => {
     values.push(value);
     return specialFields[key]
-      ? `"${key}" = "${key}" ${specialFields[key]} $${values.length}`  // Use specified operator
+      ? `"${key}" = "${key}" ${specialFields[key]} $${values.length}` // Use specified operator
       : `"${key}" = $${values.length}`;
   });
 
@@ -186,94 +214,104 @@ export const buildUpdateQuery = (tableName, data, whereCondition, specialFields 
   return [query, values];
 };
 
+export const transactionWrapper =
+  (fn) =>
+  async (...args) => {
+    let conn;
+    try {
+      conn = await getConnection();
+      await beginTransaction(conn); // Ensure transaction starts properly
 
-export const transactionWrapper = (fn) => async (...args) => {
-  let conn;
-  try {
-    conn = await getConnection();
-    await beginTransaction(conn); // Ensure transaction starts properly
+      const data = await fn(conn, ...args); // Ensure fn expects conn as the first argument
 
-    const data = await fn(conn, ...args); // Ensure fn expects conn as the first argument
-
-    await commit(conn); // Commit only if no errors
-    return data;
-  } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn); // Explicit rollback
-        console.error('Transaction rolled back due to error:', error);
-      } catch (rollbackError) {
-        console.error('Rollback failed:', rollbackError);
+      await commit(conn); // Commit only if no errors
+      return data;
+    } catch (error) {
+      if (conn) {
+        try {
+          await rollback(conn); // Explicit rollback
+          console.error('Transaction rolled back due to error:', error);
+        } catch (rollbackError) {
+          console.error('Rollback failed:', rollbackError);
+        }
+      }
+      throw new DbError(error.message); // Rethrow error
+    } finally {
+      if (conn) {
+        console.log('Releasing connection');
+        conn.release(); // Always release connection
       }
     }
-    throw new DbError(error.message); // Rethrow error
-  } finally {
-    if (conn) {
-      console.log('Releasing connection');
-      conn.release(); // Always release connection
-    }
-  }
-}
-
+  };
 
 /**
-* Builds a dynamic SQL SELECT query with auto-generated JOIN conditions.
-* @param {string} table - The main table name.
-* @param {Array<string>|"*"} [columns="*"] - Base table columns.
-* @param {Array<Object>} [joins=[]] - Array of join objects.
-*
-* Each join object should have:
-*  - {string} table: The table to join.
-*  - {string} referenceTable: The table to use as baseTable (Optional).
-*  - {string|Array<string>} keys: 
-*      - If string → assumes both tables have the same key. (e.g., `"user_id"`)
-*      - If array → assumes [foreignKey, primaryKey]. (e.g., `["user_id", "id"]`)
-*  - {string} [type="JOIN"]: Type of join (e.g., "JOIN", "LEFT JOIN").
-*  - {Array<string>} [columns=[]]: Columns to select from the joined table.
-*  - {Array<string>} [columnAs=[]]: Columns with aliases.
-*
-* @returns {string} - The generated SQL query.
-*
-* @example
-*
-* const sql = buildJoinQuery({
-*   table: "Merchant",
-*   columns: "*",
-*   joins: [
-*     {
-*       table: "User",
-*       keys: "user_id",
-*       type: "JOIN",
-*       columns: ["first_name", "last_name"]
-*     },
-*     {
-*       table: "Designation",
-*       keys: ["designation_id", "id"],
-*       type: "LEFT JOIN",
-*       columnAs: [`"Designation".designation AS designation_name`]
-*     }
-*   ]
-* });
-*
-* 
-* // Generates:
-* SELECT "Merchant".*, "User".first_name, "User".last_name, "Designation".designation AS designation_name
-* FROM "Merchant"
-* JOIN "User" ON "Merchant".user_id = "User".user_id
-* LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
-*/
-export const buildJoinQuery = (table, columns = "*", joins = []) => {
-  let selectCols = columns === "*" ? [`"${table}".*`] : columns.map(col => `"${table}".${col}`);
+ * Builds a dynamic SQL SELECT query with auto-generated JOIN conditions.
+ * @param {string} table - The main table name.
+ * @param {Array<string>|"*"} [columns="*"] - Base table columns.
+ * @param {Array<Object>} [joins=[]] - Array of join objects.
+ *
+ * Each join object should have:
+ *  - {string} table: The table to join.
+ *  - {string} referenceTable: The table to use as baseTable (Optional).
+ *  - {string|Array<string>} keys:
+ *      - If string → assumes both tables have the same key. (e.g., `"user_id"`)
+ *      - If array → assumes [foreignKey, primaryKey]. (e.g., `["user_id", "id"]`)
+ *  - {string} [type="JOIN"]: Type of join (e.g., "JOIN", "LEFT JOIN").
+ *  - {Array<string>} [columns=[]]: Columns to select from the joined table.
+ *  - {Array<string>} [columnAs=[]]: Columns with aliases.
+ *
+ * @returns {string} - The generated SQL query.
+ *
+ * @example
+ *
+ * const sql = buildJoinQuery({
+ *   table: "Merchant",
+ *   columns: "*",
+ *   joins: [
+ *     {
+ *       table: "User",
+ *       keys: "user_id",
+ *       type: "JOIN",
+ *       columns: ["first_name", "last_name"]
+ *     },
+ *     {
+ *       table: "Designation",
+ *       keys: ["designation_id", "id"],
+ *       type: "LEFT JOIN",
+ *       columnAs: [`"Designation".designation AS designation_name`]
+ *     }
+ *   ]
+ * });
+ *
+ *
+ * // Generates:
+ * SELECT "Merchant".*, "User".first_name, "User".last_name, "Designation".designation AS designation_name
+ * FROM "Merchant"
+ * JOIN "User" ON "Merchant".user_id = "User".user_id
+ * LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
+ */
+export const buildJoinQuery = (table, columns = '*', joins = []) => {
+  let selectCols =
+    columns === '*'
+      ? [`"${table}".*`]
+      : columns.map((col) => `"${table}".${col}`);
   let joinClauses = [];
 
   for (const join of joins) {
-    const { table: jTable, referenceTable: rTable, keys, type = "JOIN", columns = [], columnAs = [] } = join;
+    const {
+      table: jTable,
+      referenceTable: rTable,
+      keys,
+      type = 'JOIN',
+      columns = [],
+      columnAs = [],
+    } = join;
     const referenceTable = rTable || table;
 
     // Auto-generate ON condition
-    let onCondition = "";
+    let onCondition = '';
     if (keys) {
-      if (typeof keys === "string") {
+      if (typeof keys === 'string') {
         // If keys is a string, use the same key for both tables
         onCondition = `"${referenceTable}".${keys} = "${jTable}".${keys}`;
       } else if (Array.isArray(keys) && keys.length === 2) {
@@ -294,8 +332,7 @@ export const buildJoinQuery = (table, columns = "*", joins = []) => {
     joinClauses.push(`${type} "${jTable}" ON ${onCondition}`);
   }
 
-  return `SELECT ${selectCols.join(", ")} FROM "${table}" ${joinClauses.join(" ")} WHERE 1=1`;
+  return `SELECT ${selectCols.join(', ')} FROM "${table}" ${joinClauses.join(' ')} WHERE 1=1`;
 };
-
 
 export { pool, getConnection, beginTransaction, commit, rollback };

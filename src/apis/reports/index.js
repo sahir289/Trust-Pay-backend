@@ -1,7 +1,12 @@
-import express from "express";
-import tryCatchHandler from "../../utils/tryCatchHandler.js";
-import { getMerchantReportService, getPayInReportService, getPayOutReportService, getVendorReportService } from "./reportsService.js";
-import {  isAuthenticated } from '../../middlewares/auth.js';
+import express from 'express';
+import tryCatchHandler from '../../utils/tryCatchHandler.js';
+import {
+  getMerchantReportService,
+  getPayInReportService,
+  getPayOutReportService,
+  getVendorReportService,
+} from './reportsService.js';
+import { isAuthenticated } from '../../middlewares/auth.js';
 
 /**
  * @swagger
@@ -41,7 +46,11 @@ const router = express.Router();
  *       500:
  *         description: Server error
  */
-router.post('/get-payouts-report', isAuthenticated, tryCatchHandler(getPayOutReportService));
+router.post(
+  '/get-payouts-report',
+  isAuthenticated,
+  tryCatchHandler(getPayOutReportService),
+);
 
 /**
  * @swagger
@@ -69,7 +78,11 @@ router.post('/get-payouts-report', isAuthenticated, tryCatchHandler(getPayOutRep
  *       500:
  *         description: Server error
  */
-router.post('/get-payins-reports',isAuthenticated ,tryCatchHandler(getPayInReportService));
+router.post(
+  '/get-payins-reports',
+  isAuthenticated,
+  tryCatchHandler(getPayInReportService),
+);
 
 /**
  * @swagger
@@ -97,7 +110,11 @@ router.post('/get-payins-reports',isAuthenticated ,tryCatchHandler(getPayInRepor
  *       500:
  *         description: Server error
  */
-router.get('/get-merchants-reports',isAuthenticated, tryCatchHandler(getMerchantReportService));
+router.get(
+  '/get-merchants-reports',
+  isAuthenticated,
+  tryCatchHandler(getMerchantReportService),
+);
 
 /**
  * @swagger
@@ -125,6 +142,10 @@ router.get('/get-merchants-reports',isAuthenticated, tryCatchHandler(getMerchant
  *       500:
  *         description: Server error
  */
-router.get('/get-vendors-reports',isAuthenticated, tryCatchHandler(getVendorReportService));
+router.get(
+  '/get-vendors-reports',
+  isAuthenticated,
+  tryCatchHandler(getVendorReportService),
+);
 
 export default router;

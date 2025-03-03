@@ -1,6 +1,11 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createUser, getUserById, getUsers, getUsersByUserName } from './userController.js';
+import {
+  createUser,
+  getUserById,
+  getUsers,
+  getUsersByUserName,
+} from './userController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 
@@ -26,7 +31,11 @@ const router = express.Router();
  *                   type: string
  *                   example: "get users successfully"
  */
-router.get('/', [isAuthenticated, authorized(AccessRoles.USER)], tryCatchHandler(getUsers));
+router.get(
+  '/',
+  [isAuthenticated, authorized(AccessRoles.USER)],
+  tryCatchHandler(getUsers),
+);
 
 /**
  * @swagger
@@ -66,7 +75,11 @@ router.get('/', [isAuthenticated, authorized(AccessRoles.USER)], tryCatchHandler
  *                         type: string
  *                         example: "john_doe"
  */
-router.get('/get-users-by-name', [isAuthenticated, authorized(AccessRoles.USER)], tryCatchHandler(getUsersByUserName));
+router.get(
+  '/get-users-by-name',
+  [isAuthenticated, authorized(AccessRoles.USER)],
+  tryCatchHandler(getUsersByUserName),
+);
 
 /**
  * @swagger
@@ -106,7 +119,11 @@ router.get('/get-users-by-name', [isAuthenticated, authorized(AccessRoles.USER)]
  *                         type: string
  *                         example: "john_doe"
  */
-router.get('/:id', [isAuthenticated, authorized(AccessRoles.USER)], tryCatchHandler(getUserById));
+router.get(
+  '/:id',
+  [isAuthenticated, authorized(AccessRoles.USER)],
+  tryCatchHandler(getUserById),
+);
 
 /**
  * @swagger
@@ -146,8 +163,10 @@ router.get('/:id', [isAuthenticated, authorized(AccessRoles.USER)], tryCatchHand
  *                         type: string
  *                         example: "john_doe"
  */
-router.post('/create-user', [isAuthenticated, authorized(AccessRoles.USER)], tryCatchHandler(createUser));
-
-
+router.post(
+  '/create-user',
+  [isAuthenticated, authorized(AccessRoles.USER)],
+  tryCatchHandler(createUser),
+);
 
 export default router;

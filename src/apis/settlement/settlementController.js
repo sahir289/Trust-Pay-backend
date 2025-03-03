@@ -1,10 +1,19 @@
-
-
-import { CREATE_SETTLEMENT_SCHEMA, UPDATE_SETTLEMENT_SCHEMA, VALIDATE_SETTLEMENT_BY_ID, VALIDATE_SETTLEMENT_BY_ID_DELETE } from "../../schemas/settlementSchema.js";
+import {
+  CREATE_SETTLEMENT_SCHEMA,
+  UPDATE_SETTLEMENT_SCHEMA,
+  VALIDATE_SETTLEMENT_BY_ID,
+  VALIDATE_SETTLEMENT_BY_ID_DELETE,
+} from '../../schemas/settlementSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
-import { transactionWrapper } from "../../utils/db.js";
+import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { createSettlementService, deleteSettlementService, getSettlementService, getSettlementServiceById, updateSettlementService } from "./settlementServices.js";
+import {
+  createSettlementService,
+  deleteSettlementService,
+  getSettlementService,
+  getSettlementServiceById,
+  updateSettlementService,
+} from './settlementServices.js';
 
 const getSettlementControllerById = async (req, res) => {
   try {
@@ -14,10 +23,10 @@ const getSettlementControllerById = async (req, res) => {
       throw new ValidationError(joiValidation.error);
     }
     const { company_id } = req.user;
-    const {role} = req.user;
-    const ids = { id, company_id, role }
+    const { role } = req.user;
+    const ids = { id, company_id, role };
     const data = await getSettlementServiceById(ids);
-    sendSuccess(res, data, "got settlement");
+    sendSuccess(res, data, 'got settlement');
   } catch (error) {
     console.error('error getting while  getting settlements', error);
     throw new BadRequestError('Error getting while getting settlements');
@@ -33,16 +42,14 @@ const getSettlementController = async (req, res) => {
     if (!settlementData) {
       throw new BadRequestError('Error getting while getting settlements');
     }
-    sendSuccess(res, settlementData, "got settlement");
+    sendSuccess(res, settlementData, 'got settlement');
   } catch (error) {
     console.error('error getting while  getting settlements', error);
     throw new BadRequestError('Error getting while getting settlements');
   }
 };
 
-
 const createSettlementController = async (req, res) => {
-
   try {
     const payload = req.body;
     const { company_id, user_id } = req.user;
@@ -52,56 +59,58 @@ const createSettlementController = async (req, res) => {
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }
-    // const data = 
+    // const data =
     await createSettlementService(payload);
-    sendSuccess(res, "Created settlement");
-  }
-  catch (error) {
+    sendSuccess(res, 'Created settlement');
+  } catch (error) {
     console.log('Error while creating Settlement', 'error', error);
     throw new BadRequestError('Error occurred while creating Settlement');
   }
 };
 
-
 const updateSettlementController = async (req, res) => {
-    
-      try {
-        const { id , user_id } = req.params;
-        const {role} = req.user;
-        const payload = { ...req.body };
-        payload.updated_by = user_id;
-        const { company_id } = req.user;
-        const ids = { id, company_id , role}
-        const joiValidation = UPDATE_SETTLEMENT_SCHEMA.validate(payload);
-        if (joiValidation.error) {
-          throw new ValidationError(joiValidation.error);
-        }
-        // const updateData = 
-        await transactionWrapper(updateSettlementService)(ids, payload);
-        sendSuccess(res, "Updated settlement");
-      } catch (error) {
-        console.log('Error while creating Settlement', 'error', error);
-        throw new BadRequestError('Error occurred while creating Settlement');
-      }
-    };
+  try {
+    const { id, user_id } = req.params;
+    const { role } = req.user;
+    const payload = { ...req.body };
+    payload.updated_by = user_id;
+    const { company_id } = req.user;
+    const ids = { id, company_id, role };
+    const joiValidation = UPDATE_SETTLEMENT_SCHEMA.validate(payload);
+    if (joiValidation.error) {
+      throw new ValidationError(joiValidation.error);
+    }
+    // const updateData =
+    await transactionWrapper(updateSettlementService)(ids, payload);
+    sendSuccess(res, 'Updated settlement');
+  } catch (error) {
+    console.log('Error while creating Settlement', 'error', error);
+    throw new BadRequestError('Error occurred while creating Settlement');
+  }
+};
 
-    const deleteSettlementController = async (req, res) => {
-      try {
-        const { id } = req.params;
-        const { company_id, user_id } = req.user;
-        const ids = { id, company_id, user_id }
-        const joiValidation = VALIDATE_SETTLEMENT_BY_ID_DELETE.validate(id);
-        if (joiValidation.error) {
-          throw new ValidationError(joiValidation.error);
-        }
-        // const updatedData = 
-        await transactionWrapper(deleteSettlementService)(ids)
-        sendSuccess(res, "Deleted settlement");
-      } catch (error) {
-        console.error('error getting while deleting settlement', error);
-        throw new BadRequestError('Error getting while delete settlement');
-      }
-    };
+const deleteSettlementController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { company_id, user_id } = req.user;
+    const ids = { id, company_id, user_id };
+    const joiValidation = VALIDATE_SETTLEMENT_BY_ID_DELETE.validate(id);
+    if (joiValidation.error) {
+      throw new ValidationError(joiValidation.error);
+    }
+    // const updatedData =
+    await transactionWrapper(deleteSettlementService)(ids);
+    sendSuccess(res, 'Deleted settlement');
+  } catch (error) {
+    console.error('error getting while deleting settlement', error);
+    throw new BadRequestError('Error getting while delete settlement');
+  }
+};
 
-
-    export {  updateSettlementController, deleteSettlementController ,createSettlementController, getSettlementControllerById , getSettlementController};
+export {
+  updateSettlementController,
+  deleteSettlementController,
+  createSettlementController,
+  getSettlementControllerById,
+  getSettlementController,
+};

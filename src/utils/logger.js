@@ -12,7 +12,6 @@ const logDir = 'log';
 const originalLog = console.log;
 
 class Logger {
-
   #logger;
   constructor() {
     if (!fs.existsSync(logDir)) {
@@ -31,9 +30,12 @@ class Logger {
 
     this.#logger = createLogger({
       format: format.combine(
-        format.errors({stack: true}),
+        format.errors({ stack: true }),
         format.timestamp({ format: 'YYYY-MM-DD hh:mm:ss' }),
-        format.printf(info => `${info.timestamp} ${info.level}: ${info.message} ${info.splat || ""} ${info.stack || ""}`)
+        format.printf(
+          (info) =>
+            `${info.timestamp} ${info.level}: ${info.message} ${info.splat || ''} ${info.stack || ''}`,
+        ),
       ),
       transports: [
         new DailyRotate({
@@ -58,19 +60,26 @@ class Logger {
   }
 
   log(level, ...args) {
-    const typeChalk = level === "error" ? chalk.red(level) : level === "warning" ? chalk.yellowBright(level) : chalk.cyanBright(level);
-    const options = { 
-      weekday: 'short', 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric', 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      second: '2-digit', 
-      hour12: false, 
-      timeZone: 'Asia/Kolkata' 
-  };
-    const timestamp = new Date().toLocaleString('en-US', options).replace(',', '');
+    const typeChalk =
+      level === 'error'
+        ? chalk.red(level)
+        : level === 'warning'
+          ? chalk.yellowBright(level)
+          : chalk.cyanBright(level);
+    const options = {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Kolkata',
+    };
+    const timestamp = new Date()
+      .toLocaleString('en-US', options)
+      .replace(',', '');
     originalLog(`${typeChalk} : ${timestamp} ::`, ...args);
     this.#logger.log(level, args.shift(), args);
   }
