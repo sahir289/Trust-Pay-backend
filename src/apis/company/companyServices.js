@@ -30,7 +30,7 @@ const createCompanyService = async (conn, payload) => {
     };
     const Designation = await createDesignationService(conn, DesignationPayload);
     const UserPayload = {
-      role_id: Designation.id,
+      role_id: role.id,
       company_id: result.id,
       designation_id: Designation.id,
       user_name: payload.first_name,
