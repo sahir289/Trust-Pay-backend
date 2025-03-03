@@ -19,9 +19,18 @@ const router = express.Router();
  *     description: Returns a status message to verify the user is authorized or not.
  *     tags:
  *       - Users
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: header
+ *         name: x-auth-token
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Authentication token
  *     responses:
  *       200:
- *         description: login successful.
+ *         description: Login successful.
  *         content:
  *           application/json:
  *             schema:
@@ -30,6 +39,16 @@ const router = express.Router();
  *                 message:
  *                   type: string
  *                   example: "get users successfully"
+ *       401:
+ *         description: Unauthorized, invalid or missing token.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized access"
  */
 router.get(
   '/',
@@ -83,22 +102,30 @@ router.get(
 
 /**
  * @swagger
- * /users/by-id:
+ * /users/id:
  *   get:
- *     summary: Get user by id
- *     description: Returns user filtered by id.
+ *     summary: Get user by ID
+ *     description: Returns user filtered by ID.
  *     tags:
  *       - Users
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
+ *       - in: header
+ *         name: x-auth-token
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Authentication token
  *       - in: query
  *         name: id
  *         schema:
  *           type: string
  *         required: true
- *         description: The username to filter users by.
+ *         description: The ID of the user to retrieve.
  *     responses:
  *       200:
- *         description: A filtered list of users.
+ *         description: User retrieved successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -106,18 +133,36 @@ router.get(
  *               properties:
  *                 message:
  *                   type: string
- *                   example: "get users by id successfully"
+ *                   example: "get user by id successfully"
  *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 1
- *                       username:
- *                         type: string
- *                         example: "john_doe"
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     username:
+ *                       type: string
+ *                       example: "john_doe"
+ *       401:
+ *         description: Unauthorized, invalid or missing token.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized access"
+ *       404:
+ *         description: User not found.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "User not found"
  */
 router.get(
   '/:id',

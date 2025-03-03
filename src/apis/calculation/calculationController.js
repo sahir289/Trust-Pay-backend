@@ -41,46 +41,37 @@ const getCalculationById = async (req, res) => {
 };
 
 const getCalculation = async (req, res) => {
-  try {
-    const { role } = req.user;
-    // You can add additional validation here if needed, depending on the request
-    const { company_id } = req.user;
-    const data = await getCalculationService(
-      {
-        company_id,
-        ...req.query,
-      },
-      role,
-    );
-    console.info('Get Calculations successfully', 'info');
-    return sendSuccess(res, data, 'Get Calculations successfully');
-  } catch (error) {
-    console.error('Error getting calculations', 'error', error);
-    return sendError(res, 'Error occurred while fetching calculations');
-  }
+  const { role } = req.user;
+  // You can add additional validation here if needed, depending on the request
+  const { company_id } = req.user;
+  const data = await getCalculationService(
+    {
+      company_id,
+      ...req.query,
+    },
+    role,
+  );
+  console.info('Get Calculations successfully', 'info');
+  return sendSuccess(res, data, 'Get Calculations successfully');
 };
 
 const createCalculation = async (req, res) => {
-  try {
-    const { role } = req.user;
-    const { error } = VALIDATE_CALCULATION_SCHEMA.validate(req.body);
-    if (error) {
-      throw new ValidationError(error);
-    }
-    let payload = req.body;
-    const { company_id } = req.user;
-    // Validate the request body using Joi schema
-    payload.company_id = company_id;
-    if (!payload) {
-      console.error('payload is required');
-      return sendError(res, 'payload is required', 'Validation Error');
-    }
-    const data = await createCalculationService(payload, role);
-    console.info('Create Calculation successfully', 'info');
-    return sendSuccess(res, data, 'Create Calculation successfully');
-  } catch (error) {
-    console.error('Error creating calculation', 'error', error);
+  const { role } = req.user;
+  const { error } = VALIDATE_CALCULATION_SCHEMA.validate(req.body);
+  if (error) {
+    throw new ValidationError(error);
   }
+  let payload = req.body;
+  const { company_id } = req.user;
+  // Validate the request body using Joi schema
+  payload.company_id = company_id;
+  if (!payload) {
+    console.error('payload is required');
+    return sendError(res, 'payload is required', 'Validation Error');
+  }
+  const data = await createCalculationService(payload, role);
+  console.info('Create Calculation successfully', 'info');
+  return sendSuccess(res, data, 'Create Calculation successfully');
 };
 
 const updateCalculation = async (req, res) => {

@@ -45,7 +45,7 @@ const getUserByIdService = async (ids, role) => {
     const result = await getUserByIdDao(conn, ids);
 
     console.log('get User by id successfully');
-    const finalResult = await filterResponse(result, filterColumns);
+    const finalResult = filterResponse(result, filterColumns);
     return finalResult;
   } catch (error) {
     console.error('error getting while getting user by id', error);
@@ -115,7 +115,6 @@ const createUserService = async (conn, payload, role) => {
       payload.company_id,
       user_name,
     );
-    console.log(userRole, 'hii from role data from the parent');
     const CommonCreateUserPayload = (
       User,
       payload,
@@ -134,7 +133,6 @@ const createUserService = async (conn, payload, role) => {
     });
 
     if (userRole.role === Role.VENDOR) {
-      console.log('hii from the merchants of aur data');
       const merchantPayload = CommonCreateUserPayload(User, payload, {
         min_payin: 0.0,
         max_payin: 0.0,

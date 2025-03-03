@@ -28,20 +28,6 @@ const collectCalculationData = async (timezone = 'Asia/Kolkata') => {
             role_id: calculation[0].role_id,
             company_id: calculation[0].company_id,
             net_balance: calculation[0].net_balance,
-            total_payin_count: 0,
-            total_payin_amount: 0,
-            total_payin_commission: 0,
-            total_payout_count: 0,
-            total_payout_amount: 0,
-            total_payout_commission: 0,
-            total_settlement_count: 0,
-            total_settlement_amount: 0,
-            total_chargeback_count: 0,
-            total_chargeback_amount: 0,
-            current_balance: 0,
-            total_reverse_payout_amount: 0,
-            total_reverse_payout_count: 0,
-            total_reverse_payout_commission: 0,
             config: calculation[0].config,
           };
           await processUpdate(resetData);
@@ -61,8 +47,7 @@ const collectCalculationData = async (timezone = 'Asia/Kolkata') => {
 // Function to update the calculation data
 async function processUpdate(data) {
   try {
-    const Data = await createCalculationDao(null, data);
-    console.log(Data, 'from the burger');
+    await createCalculationDao(null, data);
   } catch (error) {
     console.error('Error while updating calculation data:', error?.message);
   }

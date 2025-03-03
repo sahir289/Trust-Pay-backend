@@ -131,10 +131,8 @@ const getUserByIdDao = async (conn, ids) => {
       console.error('No user found with the provided id and filters');
       return [];
     }
-    const data = {
-      user: result.rows[0],
-    };
-    return data;
+   
+    return result.rows;
   } catch (error) {
     console.error('error getting while fetching user', error);
     throw new DbError('Error executing query to fetch all users');

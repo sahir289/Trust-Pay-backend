@@ -41,9 +41,10 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { streamToBase64 } from '../../helpers/index.js';
 import { s3 } from '../../helpers/Aws.js';
 import { stringifyJSON } from '../../utils/index.js';
+import { crypto512Algo } from '../../utils/cryptoAlgorithm.js';
 
 //  To Generate Url
-export const generatePayInUrl = async (req, res) => {
+export const  generatePayInUrl = async (req, res) => {
   const payload = req.query;
   const joiValidation = ASSIGN_PAYIN_SCHEMA.validate(payload);
   if (joiValidation.error) {
@@ -60,18 +61,19 @@ export const generatePayInUrl = async (req, res) => {
     payload.isTest && (payload.isTest === 'true' || payload.isTest === true)
       ? `?t=true`
       : '';
+  const hash = crypto512Algo(x_api_key, result.id, result.merchant_order_id); 
+  console.log(hash, "hash");
   const updateRes = {
-    expirationDate: result.expirationDate,
-    payInUrl: `${config.reactPaymentOrigin}/transaction/${result.id}${queryStr}`, // use env
-    payInId: result.id,
-    merchantOrderId: result.merchant_order_id,
+    expirationDate: result.expiration_date,
+    payInUrl: `${config.reactPaymentOrigin}/transaction/${hash}${queryStr}`, // use env
+    payinId: result.id
   };
 
   if (payload.ot === 'y') {
     return sendSuccess(
       res,
       updateRes,
-      'PayIn is generate & url is sent successfully',
+      'PayIn is generated & url is sent successfully',
     );
   }
   res.redirect(302, updateRes.payInUrl);

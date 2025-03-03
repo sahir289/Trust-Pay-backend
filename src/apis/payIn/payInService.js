@@ -102,6 +102,7 @@ export const generatePayInUrlService = async (payload) => {
     config: JSON.stringify({
       return_url: payInData.return_url || '',
       notify_url: merchant.notify_url || '',
+
     }),
   };
 
