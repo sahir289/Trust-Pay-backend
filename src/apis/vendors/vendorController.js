@@ -2,6 +2,8 @@ import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import {createVendorService,deleteVendorService,getVendorsService,updateVendorService} from './vendorService.js';
 import {VALIDATE_VENDOR_BY_ID,VALIDATE_UPDATE_VENDOR_STATUS,VALIDATE_VENDOR_SCHEMA} from '../../schemas/vendorSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
+import { transactionWrapper } from '../../utils/db.js';
+
 const createVendor = async (req, res) => {
   try {
     const { error }=VALIDATE_VENDOR_SCHEMA.validate(req.body);
@@ -15,7 +17,7 @@ const createVendor = async (req, res) => {
     payload.created_by=user_id;
     payload.updated_by=user_id;
     // Call the service to create the Vendor
-    await createVendorService(payload, role);
+    await transactionWrapper(createVendorService)(payload, role);
     // Log success message
     console.log('Vendor created successfully');
     // Send a success response to the client

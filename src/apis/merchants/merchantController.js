@@ -2,6 +2,7 @@ import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { createMerchantService, deleteMerchantService, getMerchantsService, updateMerchantService } from './merchantService.js';
 import { VALIDATE_UPDATE_MERCHANT_STATUS, VALIDATE_MERCHANT_BY_ID, VALIDATE_MERCHANT_SCHEMA } from '../../schemas/merchantSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
+import { transactionWrapper } from '../../utils/db.js';
 
 const createMerchant = async (req, res) => {
     try {
@@ -15,7 +16,10 @@ const createMerchant = async (req, res) => {
         payload.company_id = company_id;
         payload.created_by = user_id;
         payload.updated_by = user_id;
-        await createMerchantService(payload, role);        
+        // Call the service to create the Merchant
+        await transactionWrapper(createMerchantService)(payload, role);
+        
+        // Log success message
         console.log('Merchant created successfully');
 
         // Send a success response to the client

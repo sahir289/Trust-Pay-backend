@@ -2,9 +2,13 @@ import { tableName } from "../../constants/index.js";
 import { buildInsertQuery, buildJoinQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
 import { buildSearchFilterObj } from "../../utils/searchBuilder.js";
 
-export const createMerchantDao = async (data) => {
+export const createMerchantDao = async (data,conn) => {
     try {
         const [sql, params] = buildInsertQuery(tableName.MERCHANT, data);
+        if (conn && conn.query) {
+            const result = await conn.query(sql, params);
+            return result.rows[0];
+        }
         const result = await executeQuery(sql, params);
         return result.rows[0];
     } catch (error) {

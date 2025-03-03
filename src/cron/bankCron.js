@@ -2,7 +2,6 @@ import cron from 'node-cron';
 import moment from 'moment-timezone';
 import { getConnection } from '../utils/db.js';
 
-
 cron.schedule("0 0 * * *", () => {
     collectBankData('Asia/Kolkata');
 }, {
