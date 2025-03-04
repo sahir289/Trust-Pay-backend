@@ -64,7 +64,7 @@ const createBankaccount = async (req, res) => {
     // const data =
     await createBankaccountService(payload, role);
     console.log('get Banks successfully');
-    return sendSuccess(res, 'Created Banks successfully');
+    return sendSuccess(res, {} , 'Created Banks successfully');
 }
 
 const updateBankaccount = async (req, res) => {
@@ -80,7 +80,7 @@ const updateBankaccount = async (req, res) => {
     // const data = 
     await transactionWrapper(updateBankaccountService)(ids, payload);
     console.log('get Banks successfully');
-    return sendSuccess(res, 'Updated Banks successfully');
+    return sendSuccess(res, {}, 'Updated Banks successfully');
   }
 
 const getMerchantBank = async (req, res) => {
@@ -126,7 +126,7 @@ const deleteBankaccount = async (req, res) => {
     const ids = { id, company_id };
     // const data =
     await transactionWrapper(deleteBankaccountService)(ids);
-return sendSuccess(res, 'deleted Banks successfully');
+return sendSuccess(res, {}, 'deleted Banks successfully');
 }
 export {
   getBankaccount,

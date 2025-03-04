@@ -41,7 +41,7 @@ const createCompany = async (req, res) => {
     // const data =
     await transactionWrapper(createCompanyService)(payload, role);
     console.log('Create Company successfully');
-    return sendSuccess(res, 'Create Company successfully');
+    return sendSuccess(res, {}, 'Create Company successfully');
 
 };
 
@@ -58,7 +58,7 @@ const updateCompany = async (req, res) => {
     const { id } = req.params;
     // const data =
     await updateCompanyService({ id: id }, payload);
-    return sendSuccess(res, 'Update Company successfully');
+    return sendSuccess(res, {}, 'Update Company successfully');
 
 };
 
@@ -70,7 +70,7 @@ const deleteCompany = async (req, res) => {
     const { id } = req.params;
     await deleteCompanyService({ id: id });
     console.log('Delete Company successfully');
-    return sendSuccess(res, 'Delete Company successfully');
+    return sendSuccess(res, {}, 'Delete Company successfully');
 
 };
 

@@ -50,7 +50,7 @@ const createSettlementController = async (req, res) => {
   }
   // const data = 
   await createSettlementService(payload);
-  sendSuccess(res, "Created settlement");
+  sendSuccess(res, {}, "Created settlement");
 };
 
 const updateSettlementController = async (req, res) => {

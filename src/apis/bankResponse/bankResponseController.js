@@ -99,7 +99,7 @@ const resetBankResponse = async (req, res) => {
         (item) => item.status === 'SUCCESS',
       );
       return sendSuccess(
-        res,
+        res,{},
         `UTR of this entry is already used with ${successPayinDataID[0]?.merchant_order_id} Merchant Order ID, No Changes Applied`,
       );
     }

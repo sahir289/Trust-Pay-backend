@@ -31,7 +31,7 @@ const createChargeBack = async (req, res) => {
     }
     const result = await createChargeBackService(payload, role);
     console.log('ChargeBack created successfully', 'info', result);
-    return sendSuccess(res, 'ChargeBack created successfully');
+    return sendSuccess(res, {}, 'ChargeBack created successfully');
   } catch (error) {
     // Log the error
     console.error('error getting while creating ChargeBack', error);
@@ -116,7 +116,7 @@ const updateChargeBack = async (req, res) => {
     console.log('ChargeBack updated successfully', result);
 
     // Send a success response to the client
-    return sendSuccess(res, 'ChargeBack updated successfully');
+    return sendSuccess(res, {}, 'ChargeBack updated successfully');
   } catch (error) {
     // Log the error
     console.error('error occurred while updating ChargeBack', error);
@@ -146,7 +146,7 @@ const deleteChargeBack = async (req, res) => {
     console.log('ChargeBack deleted successfully', result);
 
     // Send a success response to the client
-    return sendSuccess(res, 'ChargeBack deleted successfully');
+    return sendSuccess(res, {}, 'ChargeBack deleted successfully');
   } catch (error) {
     // Log the error
     console.error('error occurred while deleting ChargeBack', error);
