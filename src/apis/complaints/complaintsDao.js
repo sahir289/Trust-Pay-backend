@@ -5,7 +5,6 @@ import {
   buildSelectQuery,
 } from '../../utils/db.js';
 import { tableName } from '../../constants/index.js';
-
 // Get Complaints with pagination, sorting, and filtering
 const getComplaintsDao = async (filters, page, pageSize, sortBy, sortOrder) => {
   try {
@@ -24,7 +23,7 @@ const getComplaintsDao = async (filters, page, pageSize, sortBy, sortOrder) => {
     return result.rows;
   } catch (error) {
     console.error('Error fetching complaints:', error);
-    throw new Error('Error fetching complaints');
+    throw error.message
   }
 };
 
@@ -38,7 +37,7 @@ const createComplaintsDao = async (data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error creating complaint:', error);
-    throw new Error('Error creating complaint');
+    throw error.message
   }
 };
 
@@ -50,7 +49,7 @@ const updateComplaintsDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error updating complaint:', error);
-    throw new Error('Error updating complaint');
+    throw error.message
   }
 };
 
@@ -62,7 +61,7 @@ const deleteComplaintsDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error deleting complaint:', error);
-    throw new Error('Error deleting complaint');
+    throw error.message
   }
 };
 

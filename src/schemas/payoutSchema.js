@@ -64,7 +64,6 @@ export const UPDATE_DETAILS_SCHEMA = Joi.object({
     .label('config')
     .optional(),
   updated_by: Joi.string().label('updated_by').optional(),
-  company_id: Joi.string().label('company_id').optional(),
   is_obsolete: Joi.boolean().label('is_obsolete').optional(),
 });
 

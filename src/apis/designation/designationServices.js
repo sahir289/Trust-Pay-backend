@@ -1,4 +1,4 @@
-import { BadRequestError } from '../../utils/appErrors.js';
+import { InternalServerError } from '../../utils/appErrors.js';
 import {
   getDesignationDao,
   createDesignationDao,
@@ -12,8 +12,7 @@ const getDesignationService = async (user) => {
     return result;
   } catch (error) {
     console.error('error getting while Designation', error);
-    throw new BadRequestError('Error getting while Designation');
-  }
+throw new InternalServerError(error)  }
 };
 
 const createDesignationService = async (conn, payload) => {
@@ -22,8 +21,7 @@ const createDesignationService = async (conn, payload) => {
     return result;
   } catch (error) {
     console.error('error getting while Designation', error);
-    throw new BadRequestError('Error getting while Designation');
-  }
+throw new InternalServerError(error)  }
 };
 
 const updateDesignationService = async (id, payload) => {
@@ -32,8 +30,7 @@ const updateDesignationService = async (id, payload) => {
     return result;
   } catch (error) {
     console.error('error getting while Designation', error);
-    throw new BadRequestError('Error getting while Designation');
-  }
+throw new InternalServerError(error)  }
 };
 
 const deleteDesignationService = async (id, updated_by) => {
@@ -45,8 +42,7 @@ const deleteDesignationService = async (id, updated_by) => {
     return result;
   } catch (error) {
     console.error('error getting while Designation', error);
-    throw new BadRequestError('Error getting while Designation');
-  }
+throw new InternalServerError(error)  }
 };
 
 export {

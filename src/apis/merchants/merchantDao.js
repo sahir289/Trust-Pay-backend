@@ -19,7 +19,7 @@ export const createMerchantDao = async (data, conn) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error in createMerchantDao:', error);
-    throw new Error('Failed to create merchant');
+    throw error.message;
   }
 };
 
@@ -83,7 +83,7 @@ export const getMerchantsDao = async (
     return result.rows;
   } catch (error) {
     console.error('Error in getMerchantsDao:', error);
-    throw new Error('Failed to fetch merchants');
+    throw error.message;
   }
 };
 
@@ -98,7 +98,7 @@ export const updateMerchantDao = async (ids, data, conn) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error in updateMerchantDao:', error);
-    throw new Error('Failed to update merchant');
+    throw error.message;
   }
 };
 
@@ -109,7 +109,7 @@ export const deleteMerchantDao = async (ids, data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error in deleteMerchantDao:', error);
-    throw new Error('Failed to delete merchant');
+    throw error.message;
   }
 };
 
@@ -129,6 +129,6 @@ export const updateMerchantBalanceDao = async (filters, valueToAdd, conn) => {
     return result[0];
   } catch (error) {
     console.error('Error in updateMerchantBalanceDao:', error);
-    throw new Error('Failed to update merchant balance');
+    throw error.message;
   }
 };

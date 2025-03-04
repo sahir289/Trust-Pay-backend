@@ -11,20 +11,16 @@ import {
 } from './bankResponseServices.js';
 
 const getBankResponse = async (req, res) => {
-  try {
+
     const payload = req.query;
     const { role } = req.user;
     const { company_id } = req.user;
     payload.company_id = company_id;
     const data = await getBankResponseService(payload, role);
     return sendSuccess(res, data, 'get bankResponse successfully');
-  } catch (error) {
-    console.error(res, error, 'error getting while getting bankResponse');
   }
-};
 
 const createBankResponse = async (req, res) => {
-  try {
     const { role } = req.user;
     const payload = req.body?.body;
     const { company_id, user_id } = req.user;
@@ -39,13 +35,9 @@ const createBankResponse = async (req, res) => {
     // const data =
     await createBankResponseService(payload, company_id, role);
     return sendSuccess(res, 'Create BankResponse successfully');
-  } catch (error) {
-    console.error(error, 'error getting while creating BankResponse');
-  }
-};
+  } 
 
 const getBankMessage = async (req, res) => {
-  try {
     const { company_id } = req.user;
     const { role } = req.user;
     const { bank_id, startDate, endDate } = req.query;
@@ -57,13 +49,9 @@ const getBankMessage = async (req, res) => {
       role,
     );
     return sendSuccess(res, data, 'Get BankResponse successfully');
-  } catch (error) {
-    console.error(res, error, 'error getting while updating BankResponse');
-  }
-};
+  } 
 
 const resetBankResponse = async (req, res) => {
-  try {
     const { company_id, user_id } = req.user;
     const { id } = req.body;
     const botRes = await getBankResponseDao({ id: id, company_id: company_id });
@@ -108,10 +96,7 @@ const resetBankResponse = async (req, res) => {
         `UTR of this entry is already used with ${successPayinDataID[0]?.merchant_order_id} Merchant Order ID, No Changes Applied`,
       );
     }
-  } catch (error) {
-    console.error(res, error, 'error getting while updating BankResponse');
   }
-};
 
 export {
   getBankResponse,

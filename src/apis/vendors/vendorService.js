@@ -1,6 +1,6 @@
 import { columns, Role, vendorColumns } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
-import { BadRequestError } from '../../utils/appErrors.js';
+import { InternalServerError } from '../../utils/appErrors.js';
 import {
   beginTransaction,
   commit,
@@ -14,7 +14,6 @@ import {
   updateVendorDao,
 } from './vendorDao.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
-
 const createVendorService = async (conn, payload, roleIs) => {
   try {
     const filterColumns =
@@ -23,18 +22,6 @@ const createVendorService = async (conn, payload, roleIs) => {
     const calculationPayload = {
       role_id: data.role_id,
       user_id: data.user_id,
-      total_payin_count: '0',
-      total_payin_amount: '0',
-      total_payin_commission: '0',
-      total_payout_count: '0',
-      total_payout_amount: '0',
-      total_payout_commission: '0',
-      total_settlement_count: '0',
-      total_settlement_amount: '0',
-      total_chargeback_count: '0',
-      total_chargeback_amount: '0',
-      current_balance: '0',
-      net_balance: '0',
       company_id: data.company_id,
     };
     await createCalculationDao(conn, calculationPayload);
@@ -43,7 +30,7 @@ const createVendorService = async (conn, payload, roleIs) => {
     return finalResult;
   } catch (error) {
     console.log('Error while creating Vendor', 'error', error);
-    throw new BadRequestError('Error occurred while creating Vendor');
+    throw new InternalServerError(error);
   }
 };
 
@@ -54,7 +41,7 @@ const getVendorsService = async (filters, roleIs) => {
     return await getVendorsDao(filters, null, null, null, null, filterColumns);
   } catch (error) {
     console.error('Error while fetching vendors', error);
-    throw new BadRequestError('Error occurred while fetching vendors');
+    throw new InternalServerError(error);
   }
 };
 
@@ -83,7 +70,7 @@ const updateVendorService = async (id, payload, role) => {
       }
     }
     console.log('Error while updating Vendor', 'error', error);
-    throw new BadRequestError('Error occurred while updating Vendor');
+    throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
@@ -111,7 +98,6 @@ const deleteVendorService = async (ids, role) => {
     const data = await deleteVendorDao(ids, payload); // Adjust DAO call for delete
     await commit(conn); // Commit the transaction
     console.log('Vendor deleted successfully', 'info');
-
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -127,7 +113,7 @@ const deleteVendorService = async (ids, role) => {
       }
     }
     console.log('Error while deleting Vendor', 'error', error);
-    throw new BadRequestError('Error occurred while deleting Vendor');
+    throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {

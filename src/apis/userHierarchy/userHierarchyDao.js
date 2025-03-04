@@ -1,10 +1,5 @@
 import { tableName } from '../../constants/index.js';
-import {
-  buildInsertQuery,
-  buildSelectQuery,
-  buildUpdateQuery,
-  executeQuery,
-} from '../../utils/db.js';
+import {buildInsertQuery,buildSelectQuery,buildUpdateQuery,executeQuery,} from '../../utils/db.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 export const createUserHierarchyDao = async (data, conn) => {
   try {
@@ -16,8 +11,8 @@ export const createUserHierarchyDao = async (data, conn) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in createUserHierarchyDao:', error);
-    throw new Error('Failed to create user hierarchy');
+    console.error('Error in create UserHierarchy Dao:', error);
+    throw error.message;
   }
 };
 
@@ -29,6 +24,7 @@ export const getUserHierarchysDao = async (
   sortOrder,
   columns = [],
 ) => {
+  try {
   const baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.USER_HIERARCHY}" WHERE 1=1`;
   //TODO: columns.USER_HEIRARCHY dynamic search
   if (filters.search) {
@@ -46,6 +42,10 @@ export const getUserHierarchysDao = async (
   // Execute query
   const result = await executeQuery(sql, queryParams);
   return result.rows;
+}catch (error) {
+  console.error('Error in get UserHierarchy Dao:', error);
+  throw error.message;
+}
 };
 
 export const updateUserHierarchyDao = async (id, data) => {
@@ -55,7 +55,7 @@ export const updateUserHierarchyDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error in updateUserHierarchyDao:', error);
-    throw new Error('Failed to update user hierarchy');
+    throw error.message;
   }
 };
 
@@ -66,6 +66,6 @@ export const deleteUserHierarchyDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error in deleteUserHierarchyDao:', error);
-    throw new Error('Failed to delete user hierarchy');
+    throw error.message;
   }
 };

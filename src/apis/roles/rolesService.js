@@ -1,4 +1,4 @@
-import { BadRequestError } from '../../utils/appErrors.js';
+import { InternalServerError } from '../../utils/appErrors.js';
 import {
   getRoleDao,
   createRoleDao,
@@ -12,7 +12,7 @@ const getRoleService = async (filters) => {
     return data;
   } catch (error) {
     console.error('Error while fetching role', error);
-    throw new BadRequestError('Error occurred while fetching role');
+    throw new InternalServerError(error);
   }
 };
 
@@ -23,7 +23,7 @@ const createRoleService = async (conn, payload) => {
     return data;
   } catch (error) {
     console.error('Error while updating Role', 'error', error);
-    throw new BadRequestError('Error occurred while Creating Role');
+    throw new InternalServerError(error);
   }
 };
 
@@ -34,7 +34,7 @@ const updateRoleService = async (conn, id, body) => {
     return data;
   } catch (error) {
     console.error('Error while updating Role', 'error', error);
-    throw new BadRequestError('Error occurred while updating Role');
+    throw new InternalServerError(error);
   }
 };
 
@@ -45,7 +45,7 @@ const deleteRoleService = async (id, userData) => {
     return data;
   } catch (error) {
     console.error('Error while updating Role', 'error', error);
-    throw new BadRequestError('Error occurred while updating Role');
+    throw new InternalServerError(error);
   }
 };
 

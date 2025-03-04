@@ -17,8 +17,8 @@ export const createVendorDao = async (data, conn) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in createVendorDao:', error);
-    throw new Error('Failed to create vendor');
+    console.error('Error in create Vendor Dao:', error);
+    throw error.message;
   }
 };
 
@@ -51,7 +51,7 @@ export const getVendorsDao = async (
     return result.rows;
   } catch (error) {
     console.error('Error in getVendorsDao:', error);
-    throw new Error('Failed to get vendors');
+    throw error.message;
   }
 };
 
@@ -66,7 +66,7 @@ export const updateVendorDao = async (id, data, conn) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error in updateVendorDao:', error);
-    throw new Error('Failed to update vendor');
+    throw error.message;
   }
 };
 
@@ -77,7 +77,7 @@ export const deleteVendorDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error in deleteVendorDao:', error);
-    throw new Error('Failed to delete vendor');
+    throw error.message;
   }
 };
 
@@ -97,6 +97,6 @@ export const updateVendorBalanceDao = async (filters, valueToAdd, conn) => {
     return result[0];
   } catch (error) {
     console.error('Error in updateVendorBalanceDao:', error);
-    throw new Error('Failed to update vendor balance');
+    throw error.message;
   }
 };
