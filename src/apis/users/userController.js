@@ -55,9 +55,9 @@ const createUser = async (req, res) => {
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
-  const data = await transactionWrapper(createUserService)(payload, role);
+  await transactionWrapper(createUserService)(payload, role);
   console.log('create user successfully');
-  return sendSuccess(res, data, 'create user successfully');
+  return sendSuccess(res, {}, 'create user successfully');
 };
 
 export { getUsers, getUserById, getUsersByUserName, createUser };
