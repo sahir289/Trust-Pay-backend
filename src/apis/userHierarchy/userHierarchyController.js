@@ -1,9 +1,8 @@
-import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
+import {  sendSuccess } from '../../utils/responseHandlers.js';
 import { createUserHierarchyService, updateUserHierarchyService, getUserHierarchyService, deleteUserHierarchyService } from './userHierarchyService.js';
 import { VALIDATE_UPDATE_USER_HIERARCHY_STATUS,VALIDATE_DELETE_USER_HIERARCHY,VALIDATE_USER_HIERARCHY_SCHEMA,VALIDATE_USER_HIERARCHY_BY_ID } from '../../schemas/userHierarchySchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 const createUserHierarchy = async (req, res) => {
-    try {
        const { error } = VALIDATE_USER_HIERARCHY_SCHEMA.validate(req.body);
         if (error) {
             throw new ValidationError(error);
@@ -19,16 +18,10 @@ const createUserHierarchy = async (req, res) => {
         console.log('User Hierarchy created successfully', result);
         // Send a success response to the client
         return sendSuccess(res, result, 'UserHierarchy created successfully');
-    } catch (error) {
-        // Log the error
-        console.error('error getting while creating UserHierarchy', error);
-        // Send an error response to the client
-        return sendError(res, error, 'Error occurred while creating UserHierarchy');
-    }
+
 };
 
 const getUserHierarchys = async (req, res) => {
-    try {
         const {company_id, role} = req.user;
         // const search = req.query.search;
         // Fetch vendors data from the service
@@ -40,16 +33,9 @@ const getUserHierarchys = async (req, res) => {
         console.log('get UserHierarchys successfully', data);
         // Send success response
         return sendSuccess(res, data, 'UserHierarchy fetched successfully');
-    } catch (error) {
-        // Log error
-        console.error('error getting while fetching UserHierarchy Data',  error);
-        // Send an error response
-        return sendError(res, error, 'Error occurred while fetching UserHierarchy');
-    }
 };
 
 const getUserHierarchysById = async (req, res) => {
-    try {
         const { error } = VALIDATE_USER_HIERARCHY_BY_ID.validate(req.params);
         if (error) {
             throw new ValidationError(error);
@@ -64,17 +50,9 @@ const getUserHierarchysById = async (req, res) => {
         console.log('get UserHierarchy successfully', data);
         // Send success response
         return sendSuccess(res, data, 'UserHierarchy fetched successfully');
-    } catch (error) {
-        // Log error
-        console.error('error getting while fetching UserHierarchy Data',  error);
-
-        // Send an error response
-        return sendError(res, error, 'Error occurred while fetching UserHierarchy');
-    }
 };
 
 const updateUserHierarchy = async (req, res) => {
-    try {
         const { error: paramsError } =VALIDATE_USER_HIERARCHY_BY_ID.validate(req.params);
         if (paramsError) {
             throw new ValidationError(paramsError);
@@ -97,17 +75,9 @@ const updateUserHierarchy = async (req, res) => {
 
         // Send a success response to the client
         return sendSuccess(res, result, 'UserHierarchy updated successfully');
-    } catch (error) {
-        // Log the error
-        console.error('error occurred while updating UserHierarchy', error);
-
-        // Send an error response to the client
-        return sendError(res, error, 'Error occurred while updating UserHierarchy');
-    }
 };
 
 const deleteUserHierarchy = async (req, res) => {
-    try {
         const { error: paramsError } =VALIDATE_DELETE_USER_HIERARCHY.validate(req.params);
         if (paramsError) {
             throw new ValidationError(paramsError);
@@ -127,13 +97,7 @@ const deleteUserHierarchy = async (req, res) => {
 
         // Send a success response to the client
         return sendSuccess(res, result, 'UserHierarchy deleted successfully');
-    } catch (error) {
-        // Log the error
-        console.error('error occurred while deleting UserHierarchy', error);
 
-        // Send an error response to the client
-        return sendError(res, error, 'Error occurred while deleting UserHierarchy');
-    }
 };
 
 

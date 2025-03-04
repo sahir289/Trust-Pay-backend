@@ -1,5 +1,4 @@
 import { columns, merchantColumns, Role, vendorColumns } from '../../constants/index.js';
-import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { getMerchantsDao } from '../merchants/merchantDao.js';
@@ -7,7 +6,6 @@ import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getMerchantReportDao, getPayinReportDao, getPayInMerchantReportDao, getPayInVendorReportDao, getPayOutMerchantReportDao, getPayOutVendorReportDao, getVendorReportDao, getPayOutAll } from './reportsDao.js';
 
 const getPayInReportService = async (req, res) => {
-    try {
         const { company_id } = req.user
         const { merchant_id, vendor_id, startDate, endDate, method } = req.body;
         let result;
@@ -21,16 +19,10 @@ const getPayInReportService = async (req, res) => {
         }
         else {
             result = await getPayinReportDao({ company_id: company_id });
-
         }
         return sendSuccess(res, result, "got payin report")
-    } catch (error) {
-        console.error('error getting while fetching reports', error);
-        throw new BadRequestError('Error getting while fetching reports');
-    }
 };
 const getPayOutReportService = async (req, res) => {
-    try {
         const { company_id } = req.user
         const { merchant_id, vendor_id, startDate, endDate, method } = req.body;
         let result;
@@ -47,25 +39,20 @@ const getPayOutReportService = async (req, res) => {
         else {
             result = await getPayOutAll({ company_id: company_id });
             return sendSuccess(res, result, 'Payouts created successfully');
-
         }
-    } catch (error) {
-        console.error('error getting while fetching reports', error);
-        throw new BadRequestError('Error getting while fetching reports');
-    }
 };
 
 const getMerchantReportService = async (req, res) => {
-    try {
         const { company_id, role } = req.user
         const filterColumns = role === Role.MERCHANT ? merchantColumns.CALCULATION : columns.CALCULATION;
         const { code, startDate, endDate } = req.query;
         ///api/data?code=123&code=456&startDate=2024-01-01&endDate=2024-01-31
         let dataArray = []
+        let result ;
         if (code) {
             const merchantDatas = await getMerchantsDao({ code: code })
-            for (let merchantData of merchantDatas) {
-                const result = await getMerchantReportDao({ user_id: merchantData.user_id, company_id: company_id }, startDate, endDate, null, null, null, null, filterColumns);
+            for (const merchantData of merchantDatas) {
+                result = await getMerchantReportDao({ user_id: merchantData.user_id, company_id: company_id }, startDate, endDate, null, null, null, null, filterColumns);
                 dataArray.push(...result)
             } return sendSuccess(res, dataArray, 'Reports fetched successfully');
         }
@@ -73,15 +60,10 @@ const getMerchantReportService = async (req, res) => {
             const result = await getPayinReportDao({ company_id: company_id })
             return sendSuccess(res, result, 'Reports created successfully');
         }
-    } catch (error) {
-        console.error('error getting while fetching reports', error);
-        throw new BadRequestError('Error getting while fetching reports');
-    }
 }
 
 
 const getVendorReportService = async (req, res) => {
-    try {
         const { company_id, role } = req.user
         const filterColumns = role === Role.VENDOR ? vendorColumns.CALCULATION : columns.CALCULATION;
         const { code, startDate, endDate } = req.query;
@@ -98,10 +80,6 @@ const getVendorReportService = async (req, res) => {
             const result = await getPayinReportDao({ company_id: company_id })
             return sendSuccess(res, result, 'Reports created successfully');
         }
-    } catch (error) {
-        console.error('error getting while fetching reports', error);
-        throw new BadRequestError('Error getting while fetching reports');
-    }
 };
 
 

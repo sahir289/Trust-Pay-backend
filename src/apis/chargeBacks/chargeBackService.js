@@ -65,37 +65,15 @@ const updateChargeBackService = async (ids, payload,role) => {
     }
 };
 
-const deleteChargeBackService = async (ids,payload,role) => {
-    let conn;
+const deleteChargeBackService = async (conn,ids,payload,role) => {
     try {
         const filterColumns = role === Role.MERCHANT ? merchantColumns.CHARGE_BACK : role === Role.VENDOR ? vendorColumns.CHARGE_BACK : columns.CHARGE_BACK;
-
-        conn = await getConnection();
-        await beginTransaction(conn); // Start a transaction
-
-        const data = await deleteChargeBackDao(ids, payload); // Adjust DAO call for delete
-        await commit(conn); // Commit the transaction
-        console.log('ChargeBack deleted successfully');
-        const finalResult = await filterResponse(data, filterColumns);
+        const data = await deleteChargeBackDao(ids, payload); 
+        const finalResult =  filterResponse(data, filterColumns);
         return finalResult;  
         } catch (error) {
-        if (conn) {
-            try {
-                await rollback(conn); // Rollback the transaction in case of error
-            } catch (rollbackError) {
-                console.error('Error during transaction rollback', rollbackError);
-            }
-        }
         console.error('Error while deleting ChargeBack', error);
         throw new BadRequestError('Error occurred while deleting ChargeBack');
-    } finally {
-        if (conn) {
-            try {
-                rollback(conn); // Release the connection back to the pool
-            } catch (releaseError) {
-                console.error('Error while releasing the connection', releaseError);
-            }
-        }
     }
 };
 

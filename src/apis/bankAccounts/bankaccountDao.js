@@ -17,7 +17,6 @@ if (filters.search) {
   }
   const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
   const result = await executeQuery(sql, queryParams);
-  console.log(result.rows, "sqlqueryparams")
   return result.rows
 };
 
@@ -64,7 +63,6 @@ const deleteBankaccountDao = async (conn, id, data) => {
     } else {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
-
     return result.rows[0];
   } catch (error) {
     console.error(error);

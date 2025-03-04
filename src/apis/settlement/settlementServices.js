@@ -59,10 +59,6 @@ const getSettlementService = async (ids) => {
 const createSettlementService = async (payload) => {
 
   try {
-    const dataexist = await getSettlementDao({ id: payload.id })
-      if (dataexist) {
-        throw new BadRequestError('already data found');
-      }
     const data = await createSettlementDao(payload);
     return data
   }

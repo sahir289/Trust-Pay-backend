@@ -37,8 +37,8 @@ const deleteBankaccountService = async (conn, ids) => {
         const result = await deleteBankaccountDao(conn, {id: ids.id, company_id: ids.company_id },payload);
         return result;
     } catch (error) {
-        console.error('error getting while deleting banks', error);
-        throw new BadRequestError('Error getting while  deleting banks');
+        console.error('error deleteing while deleting banks', error);
+        throw new BadRequestError('Error deleteing while  deleting banks');
     }
 };
 

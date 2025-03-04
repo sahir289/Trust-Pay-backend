@@ -142,10 +142,8 @@ const getMerchantReportDao = async (
    pageSize,
    sortBy,
    sortOrder,
-   // columns to select from db (optional)
    columns = [],) => {
    try {
-      //   let query;
       const { CALCULATION, MERCHANT } = tableName;
 
       const joins =
@@ -155,7 +153,7 @@ const getMerchantReportDao = async (
             // second is target key
             keys: 'user_id',
             type: "JOIN",
-            columns: ["user_id"],
+            columns: ["user_id", 'code'],
             columnAs: [`"${MERCHANT}".user_id AS calculation_user_id`],
 
          }

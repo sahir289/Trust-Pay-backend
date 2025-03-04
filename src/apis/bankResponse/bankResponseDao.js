@@ -54,8 +54,7 @@ const getBankMessageDao = async (bank_id, startDate, endDate, company_id,
   // sortBy,
   // sortOrder
 ) => {
-
-  const query = `SELECT * FROM "BankResponse" 
+const query = `SELECT * FROM "BankResponse" 
 WHERE 1=1 
 AND "bank_id" = $1 
 AND is_obsolete = false 
@@ -66,7 +65,6 @@ LIMIT $4 OFFSET $5`
   const values = [bank_id, startDate, endDate, 10, 0, company_id]
   const result = await executeQuery(query, values);
   return result.rows;
-
 };
 
 

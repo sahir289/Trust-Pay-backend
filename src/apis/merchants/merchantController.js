@@ -1,11 +1,10 @@
-import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
+import {  sendSuccess } from '../../utils/responseHandlers.js';
 import { createMerchantService, deleteMerchantService, getMerchantsService, updateMerchantService } from './merchantService.js';
 import { VALIDATE_UPDATE_MERCHANT_STATUS, VALIDATE_MERCHANT_BY_ID, VALIDATE_MERCHANT_SCHEMA } from '../../schemas/merchantSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 
 const createMerchant = async (req, res) => {
-    try {
         const { error } = VALIDATE_MERCHANT_SCHEMA.validate(req.payload);
         if (error) {
             throw new ValidationError(error);
@@ -24,16 +23,9 @@ const createMerchant = async (req, res) => {
 
         // Send a success response to the client
         return sendSuccess(res,'Merchant created successfully');
-    } catch (error) {
-        // Log the error
-        console.error('error getting while creating Merchant', error);
-        // Send an error response to the client
-        return sendError(res, error, 'Error occurred while creating Merchant');
-    }
 };
 
 const getMerchants = async (req, res) => {
-    try {
         const {company_id,role} = req.user; 
         const data = await getMerchantsService({
             company_id,
@@ -41,13 +33,9 @@ const getMerchants = async (req, res) => {
         }, role);
         console.log('get Merchants successfully');
         return sendSuccess(res, data, 'Merchants fetched successfully');
-    } catch (error) {
-        console.error('error getting while fetching Merchants Data', error);
-        return sendError(res, error, 'Error occurred while fetching Merchants');
-    }
+
 };
 const getMerchantsById = async (req, res) => {
-    try {
         const { role } = req.user;
         const { error } = VALIDATE_MERCHANT_BY_ID.validate(req.params);
         if (error) {
@@ -62,18 +50,11 @@ const getMerchantsById = async (req, res) => {
 
         // Send success response
         return sendSuccess(res, data, 'Merchant fetched successfully');
-    } catch (error) {
-        // Log error
-        console.error('error getting while fetching Merchants Data', error);
 
-        // Send an error response
-        return sendError(res, error, 'Error occurred while fetching Merchants');
-    }
 };
 
 
 const updateMerchant = async (req, res) => {
-    try {
         const { error: paramsError } = VALIDATE_MERCHANT_BY_ID.validate(req.params);
         if (paramsError) {
             throw new ValidationError(paramsError);
@@ -95,17 +76,10 @@ const updateMerchant = async (req, res) => {
 
         // Send a success response to the client
         return sendSuccess(res, 'Merchant updated successfully');
-    } catch (error) {
-        // Log the error
-        console.error('error occurred while updating Merchant', error);
 
-        // Send an error response to the client
-        return sendError(res, error, 'Error occurred while updating Merchant');
-    }
 };
 
 const deleteMerchant = async (req, res) => {
-    try {
         const { role } = req.user;
         const { error } = VALIDATE_MERCHANT_BY_ID.validate(req.params);
         if (error) {
@@ -122,13 +96,7 @@ const deleteMerchant = async (req, res) => {
 
         // Send a success response to the client
         return sendSuccess(res, 'Merchant deleted successfully');
-    } catch (error) {
-        // Log the error
-        console.error('error occurred while deleting Merchant', error);
 
-        // Send an error response to the client
-        return sendError(res, error, 'Error occurred while deleting Merchant');
-    }
 };
 
 export { createMerchant, getMerchants, updateMerchant, deleteMerchant, getMerchantsById };
