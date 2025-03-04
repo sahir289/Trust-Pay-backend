@@ -77,7 +77,7 @@ const updateChargeBackService = async (ids, payload, role) => {
     const data = await updateChargeBackDao(ids, payload); // Adjust DAO call for update
     await commit(conn); // Commit the transaction
     console.log('ChargeBack updated successfully');
-    const finalResult = await filterResponse(data, filterColumns);
+    const finalResult =  filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
     if (conn) {
@@ -116,7 +116,7 @@ const deleteChargeBackService = async (ids, payload, role) => {
     const data = await deleteChargeBackDao(ids, payload); // Adjust DAO call for delete
     await commit(conn); // Commit the transaction
     console.log('ChargeBack deleted successfully');
-    const finalResult = await filterResponse(data, filterColumns);
+    const finalResult =  filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
     if (conn) {

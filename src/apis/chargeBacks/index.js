@@ -242,7 +242,7 @@ router.put(
  */
 router.delete(
   '/delete-chargeback/:id',
-  [isAuthenticated, authorized(AccessRoles.CHARGE_BACK)],
+  [isAuthenticated, authorized(AccessRoles.CHARGE_BACK.UPDATE_READ)],
   tryCatchHandler(deleteChargeBack),
 );
 
