@@ -19,7 +19,6 @@ import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
 import {
   getBankaccountDao,
   getMerchantBankDao,
-  updateBankaccountDao,
   updateBanktBalanceDao,
 } from '../bankAccounts/bankaccountDao.js';
 import {
@@ -53,7 +52,7 @@ Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
 
-export const generatePayInUrlService = async (payload) => {
+export const generatePayInUrlService = async (payload, created_by) => {
   const {
     code,
     user_id,
@@ -72,11 +71,13 @@ export const generatePayInUrlService = async (payload) => {
     throw new NotFoundError('Merchant does not exist');
   }
 
-  if (api_key && api_key != merchant.config?.api_key) {
+  const merchantAPIKey = merchant.config?.keys?.api_keys;
+
+  if (api_key && api_key != merchantAPIKey) {
     throw new BadRequestError('Enter valid Api key');
   }
 
-  if (!api_key && x_api_key != merchant.config?.api_key) {
+  if (!api_key && x_api_key != merchantAPIKey) {
     throw new BadRequestError(404, 'Enter valid Api key');
   }
 
@@ -88,7 +89,7 @@ export const generatePayInUrlService = async (payload) => {
     user_id: user_id,
     return_url: returnUrl ? returnUrl : merchant.return_url,
     company_id: merchant.company_id,
-    created_by: merchant.user_id, // Todo: Add user_id of user if called by our frontend portal
+    created_by: created_by || merchant.user_id,
   };
 
   const expirationDate = dayjs().add(10, 'minutes').toISOString();
@@ -1128,7 +1129,7 @@ export const telegramCheckUTRService = async (conn, utr, merchant_order_id, comp
     userSubmittedUtr: utr,
     payInId: payIn.id,
     amount: payIn.amount,
-  }, user_id);
+  }, updated_by);
 };
 
 export const getPayinsServiceById = async (id) => {
