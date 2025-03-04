@@ -29,7 +29,7 @@ import {
   getMerchantsDao,
   updateMerchantBalanceDao,
 } from '../merchants/merchantDao.js';
-import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
+import { getCalculationforCronDao, updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { getVendorsDao, updateVendorBalanceDao } from '../vendors/vendorDao.js';
 import {
   getImageContentFromOCr,
@@ -1144,11 +1144,11 @@ const checkIsPayInExpired = (payIn) => {
   return false;
 };
 
-// TODO: add only in today entry not in all
 const updateCalculationTable = async (user_id, data, conn) => {
   if (user_id) {
+    const calculation = getCalculationforCronDao(user_id);
     await updateCalculationBalanceDao(
-      { user_id },
+      { id: calculation.id },
       {
         total_payin_count: 1,
         total_payin_amount: data.amount,
