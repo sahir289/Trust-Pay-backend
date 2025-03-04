@@ -1,5 +1,12 @@
-import { buildInsertQuery, buildJoinQuery, buildSelectQuery, buildUpdateQuery, executeQuery, getConnection } from '../../utils/db.js';
-import { tableName } from "../../constants/index.js";
+import {
+  buildInsertQuery,
+  buildJoinQuery,
+  buildSelectQuery,
+  buildUpdateQuery,
+  executeQuery,
+  getConnection,
+} from '../../utils/db.js';
+import { tableName } from '../../constants/index.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 const getSettlementDao = async (
@@ -66,19 +73,16 @@ const getSettlementDao = async (
 //   return result.rows;
 // };
 
-
 const getSettlementDaoforInternalTransfer = async (utr, method) => {
   let conn;
   conn = await getConnection();
   let baseQuery = `SELECT id, user_id, status, amount, method, config, approved_at, rejected_at, created_by, created_at, updated_at, company_id, is_obsolete, updated_by FROM "${tableName.SETTLEMENT}"
- WHERE config->>'reference_id' = $1 AND method = ANY($2)`
+ WHERE config->>'reference_id' = $1 AND method = ANY($2)`;
 
   const queryParams = [utr, method];
   const result = await conn.query(baseQuery, queryParams);
   return result.rows.length > 0 ? result.rows : result.rows[0];
-}
-
-
+};
 
 const createSettlementDao = async (payload) => {
   try {

@@ -1,12 +1,21 @@
-import { CREATE_DESIGNATION_SCHEMA, UPDATE_DESIGNATION_SCHEMA, VALIDATE_DESIGNATION_BY_ID } from '../../schemas/designationSchema.js';
+import {
+  CREATE_DESIGNATION_SCHEMA,
+  UPDATE_DESIGNATION_SCHEMA,
+  VALIDATE_DESIGNATION_BY_ID,
+} from '../../schemas/designationSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getDesignationService, createDesignationService, updateDesignationService, deleteDesignationService } from './designationServices.js';
+import {
+  getDesignationService,
+  createDesignationService,
+  updateDesignationService,
+  deleteDesignationService,
+} from './designationServices.js';
 const getDesignation = async (req, res) => {
   try {
-    const { company_id} = req.user
-    const data = await getDesignationService({company_id,...req.query,});
+    const { company_id } = req.user;
+    const data = await getDesignationService({ company_id, ...req.query });
     console.log('get Designations  successfully');
     return sendSuccess(res, data, 'get  Designations successfully');
   } catch (error) {
@@ -20,7 +29,7 @@ const getDesignationById = async (req, res) => {
       throw new ValidationError(joiValidation.error);
     }
     const { id } = req.params;
-    const { company_id} = req.user;
+    const { company_id } = req.user;
     const data = await getDesignationService({ id, company_id });
     console.log('get Designation  successfully');
     return sendSuccess(res, data, 'get  Designation successfully');
@@ -36,13 +45,13 @@ const createDesignation = async (req, res) => {
       throw new ValidationError(joiValidation.error);
     }
     let payload = req.body;
-    const {company_id,user_id} = req.user;
+    const { company_id, user_id } = req.user;
     payload.company_id = company_id;
     payload.created_by = user_id;
     payload.updated_by = user_id;
     await transactionWrapper(createDesignationService)(payload);
     console.log('Create Designations successfully');
-    return sendSuccess(res,  'Create Designations successfully');
+    return sendSuccess(res, 'Create Designations successfully');
   } catch (error) {
     console.error('error getting while creating designations', error);
   }
@@ -60,10 +69,10 @@ const updateDesignation = async (req, res) => {
       throw new ValidationError(Validation.error);
     }
     const { id } = req.params;
-    const {company_id,user_id} = req.user;
-    payload.updated_by=user_id;
-    const data=await updateDesignationService({id, company_id}, payload);
-    return sendSuccess(res,data, 'update Designations successfully');
+    const { company_id, user_id } = req.user;
+    payload.updated_by = user_id;
+    const data = await updateDesignationService({ id, company_id }, payload);
+    return sendSuccess(res, data, 'update Designations successfully');
   } catch (error) {
     console.error('error getting while updating designations', error);
   }
@@ -76,13 +85,13 @@ const deleteDesignation = async (req, res) => {
       throw new ValidationError(joiValidation.error);
     }
     const { id } = req.params;
-    const {company_id,user_id} = req.user;
+    const { company_id, user_id } = req.user;
     const updated_by = user_id;
     if (!id) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
     }
-    const data = await deleteDesignationService({id, company_id},updated_by);
+    const data = await deleteDesignationService({ id, company_id }, updated_by);
     console.log('delete Designations successfully');
     return sendSuccess(res, data, 'delete Designations successfully');
   } catch (error) {
@@ -90,4 +99,10 @@ const deleteDesignation = async (req, res) => {
   }
 };
 
-export { getDesignationById, getDesignation, createDesignation, updateDesignation, deleteDesignation };
+export {
+  getDesignationById,
+  getDesignation,
+  createDesignation,
+  updateDesignation,
+  deleteDesignation,
+};

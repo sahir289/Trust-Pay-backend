@@ -3,15 +3,17 @@ import { INSERT_AUTH_SCHEMA } from '../../schemas/authSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 // import { verifyToken } from '../../utils/auth.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { loginService, 
-  // logoutService, 
-  refreshTokenService } from './authService.js';
+import {
+  loginService,
+  // logoutService,
+  refreshTokenService,
+} from './authService.js';
 
 const loginController = async (req, res) => {
   // const { userName, password, confirmOverRide = false } = req.body;
   let clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  const payload = {...req.body};
-  console.log(payload,"dhfdjhf djchf")
+  const payload = { ...req.body };
+  console.log(payload, 'dhfdjhf djchf');
   const options = { abortEarly: false };
   const joiValidation = INSERT_AUTH_SCHEMA.validate(payload, options);
   if (joiValidation.error) {
@@ -33,18 +35,17 @@ const loginController = async (req, res) => {
 
 const refreshTokenController = async (req, res) => {
   const { refreshToken } = req.cookies;
-  console.log(req.cookies, "refreshToken")
+  console.log(req.cookies, 'refreshToken');
   if (!refreshToken) {
     throw new BadRequestError('Unauthorized');
   }
   const data = await refreshTokenService(refreshToken);
   return sendSuccess(res, data, 'refresh token generated successfully');
-
 };
 
 const logoutController = async (req, res) => {
   const { session_id } = req.body;
-  console.log(session_id, "session_id");
+  console.log(session_id, 'session_id');
   const token = req.header('x-auth-token');
   // const decodeToken = verifyToken(token);
   // const data = await logoutService(decodeToken, session_id);

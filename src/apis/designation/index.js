@@ -1,6 +1,12 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createDesignation, deleteDesignation, getDesignation, updateDesignation ,getDesignationById} from './designationController.js';
+import {
+  createDesignation,
+  deleteDesignation,
+  getDesignation,
+  updateDesignation,
+  getDesignationById,
+} from './designationController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
@@ -44,7 +50,11 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/', [isAuthenticated, authorized(AccessRoles.DESIGNATION)], tryCatchHandler(getDesignation));
+router.get(
+  '/',
+  [isAuthenticated, authorized(AccessRoles.DESIGNATION)],
+  tryCatchHandler(getDesignation),
+);
 
 /**
  * @swagger
@@ -85,7 +95,11 @@ router.get('/', [isAuthenticated, authorized(AccessRoles.DESIGNATION)], tryCatch
  *       500:
  *         description: Internal server error
  */
-router.get('/:id', [isAuthenticated, authorized(AccessRoles.DESIGNATION)], tryCatchHandler(getDesignationById));
+router.get(
+  '/:id',
+  [isAuthenticated, authorized(AccessRoles.DESIGNATION)],
+  tryCatchHandler(getDesignationById),
+);
 
 /**
  * @swagger
@@ -129,7 +143,11 @@ router.get('/:id', [isAuthenticated, authorized(AccessRoles.DESIGNATION)], tryCa
  *       500:
  *         description: Internal server error
  */
-router.post('/create-designation', [isAuthenticated, authorized(AccessRoles.DESIGNATION)], tryCatchHandler(createDesignation));
+router.post(
+  '/create-designation',
+  [isAuthenticated, authorized(AccessRoles.DESIGNATION)],
+  tryCatchHandler(createDesignation),
+);
 
 /**
  * @swagger
@@ -171,7 +189,11 @@ router.post('/create-designation', [isAuthenticated, authorized(AccessRoles.DESI
  *       500:
  *         description: Internal server error
  */
-router.put('/update-designation/:id', [isAuthenticated, authorized(AccessRoles.DESIGNATION)], tryCatchHandler(updateDesignation));
+router.put(
+  '/update-designation/:id',
+  [isAuthenticated, authorized(AccessRoles.DESIGNATION)],
+  tryCatchHandler(updateDesignation),
+);
 
 /**
  * @swagger
@@ -203,6 +225,10 @@ router.put('/update-designation/:id', [isAuthenticated, authorized(AccessRoles.D
  *       500:
  *         description: Internal server error
  */
-router.delete('/delete-designation/:id', [isAuthenticated, authorized(AccessRoles.DESIGNATION)], tryCatchHandler(deleteDesignation));
+router.delete(
+  '/delete-designation/:id',
+  [isAuthenticated, authorized(AccessRoles.DESIGNATION)],
+  tryCatchHandler(deleteDesignation),
+);
 
 export default router;

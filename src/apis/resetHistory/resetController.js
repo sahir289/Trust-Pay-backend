@@ -1,8 +1,11 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { createResetHistoryService, deleteResetHistoryService, getResetHistoryService, updateResetHistoryService } from './ResetHistoryServices.js';
-
-
+import {
+  createResetHistoryService,
+  deleteResetHistoryService,
+  getResetHistoryService,
+  updateResetHistoryService,
+} from './ResetHistoryServices.js';
 
 const getResetHistory = async (req, res) => {
   try {
@@ -27,7 +30,7 @@ const createResetHistory = async (req, res) => {
   } catch (error) {
     console.error('error getting while fetching reports', error);
   }
-}
+};
 
 const updateResetHistory = async (req, res) => {
   try {
@@ -38,8 +41,7 @@ const updateResetHistory = async (req, res) => {
   } catch (error) {
     console.error('error getting while fetching reports', error);
   }
-}
-
+};
 
 const deleteResetHistory = async (req, res) => {
   try {
@@ -54,5 +56,10 @@ const deleteResetHistory = async (req, res) => {
   } catch (error) {
     console.error('error getting while fetching reports', error);
   }
-}
-export { getResetHistory, createResetHistory, updateResetHistory, deleteResetHistory };
+};
+export {
+  getResetHistory,
+  createResetHistory,
+  updateResetHistory,
+  deleteResetHistory,
+};

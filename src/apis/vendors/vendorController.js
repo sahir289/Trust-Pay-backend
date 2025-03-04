@@ -1,20 +1,30 @@
-import {  sendSuccess } from '../../utils/responseHandlers.js';
-import {createVendorService,deleteVendorService,getVendorsService,updateVendorService} from './vendorService.js';
-import {VALIDATE_VENDOR_BY_ID,VALIDATE_UPDATE_VENDOR_STATUS,VALIDATE_VENDOR_SCHEMA} from '../../schemas/vendorSchema.js';
+import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
+import {
+  createVendorService,
+  deleteVendorService,
+  getVendorsService,
+  updateVendorService,
+} from './vendorService.js';
+import {
+  VALIDATE_VENDOR_BY_ID,
+  VALIDATE_UPDATE_VENDOR_STATUS,
+  VALIDATE_VENDOR_SCHEMA,
+} from '../../schemas/vendorSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 
 const createVendor = async (req, res) => {
-    const { error }=VALIDATE_VENDOR_SCHEMA.validate(req.body);
+ 
+    const { error } = VALIDATE_VENDOR_SCHEMA.validate(req.body);
     if (error) {
       throw new ValidationError(error);
     }
     let payload = req.body;
     const { role } = req.user;
-    const {company_id,user_id} = req.user;
-    payload.company_id=company_id;
-    payload.created_by=user_id;
-    payload.updated_by=user_id;
+    const { company_id, user_id } = req.user;
+    payload.company_id = company_id;
+    payload.created_by = user_id;
+    payload.updated_by = user_id;
     // Call the service to create the Vendor
     await transactionWrapper(createVendorService)(payload, role);
     // Log success message
@@ -22,16 +32,18 @@ const createVendor = async (req, res) => {
     // Send a success response to the client
     return sendSuccess(res, 'Vendor created successfully');
   
-};
-
+}
 
 const getVendors = async (req, res) => {
-    const {company_id,role} = req.user;
+    const { company_id, role } = req.user;
     // let search = req.query.search;
-    const data = await getVendorsService({
-      company_id,
-      ...req.query,
-    }, role);
+    const data = await getVendorsService(
+      {
+        company_id,
+        ...req.query,
+      },
+      role,
+    );
     // Log success message
     console.log('get Vendors successfully');
     // Send success response
@@ -45,9 +57,9 @@ const getVendorById = async (req, res) => {
     }
     const { role } = req.user;
     const { id } = req.params;
-    const {company_id} = req.user;
+    const { company_id } = req.user;
     // Fetch vendors data from the service
-    const data = await getVendorsService({id,company_id}, role);
+    const data = await getVendorsService({ id, company_id }, role);
     // Log success message
     console.log('get vendor successfully', data);
     // Send success response
@@ -70,15 +82,15 @@ const updateVendor = async (req, res) => {
       throw new ValidationError(bodyError);
     }
     const payload = req.body;
-    const {company_id} = req.user;
+    const { company_id } = req.user;
     const { id } = req.params; // Assuming the Vendor ID is passed as a parameter
     // Call the service to update the Vendor
-    const ids={id,company_id}
+    const ids = { id, company_id };
     await updateVendorService(ids, payload, role);
     // Log success message
     console.log('Vendor updated successfully');
     // Send a success response to the client
-    return sendSuccess(res,  'Vendor updated successfully');
+    return sendSuccess(res, 'Vendor updated successfully');
 };
 
 const deleteVendor = async (req, res) => {
@@ -89,14 +101,13 @@ const deleteVendor = async (req, res) => {
     const { role } = req.user;
     const { id } = req.params; // Assuming the Vendor ID is passed as a parameter
     // Call the service to delete the Vendor
-    const {company_id} = req.user;
-    const ids= {company_id,id}
+    const { company_id } = req.user;
+    const ids = { company_id, id };
     await deleteVendorService(ids, role);
     // Log success message
     console.log('Vendor deleted successfully');
     // Send a success response to the client
-    return sendSuccess(res,  'Vendor deleted successfully');
-
+    return sendSuccess(res, 'Vendor deleted successfully');
 };
 
 export { createVendor, getVendors, getVendorById, updateVendor, deleteVendor };

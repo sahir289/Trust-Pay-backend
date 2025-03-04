@@ -2,7 +2,22 @@ import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
-import { assignedBankToPayInUrl, checkPayInStatus, disputeDuplicateTransaction, generatePayInUrl, getPayins, payInIntentGenerateOrder, processPayIn, processPayInByImage, resetDeposit, telegramCheckUTR, telegramOCR, updateDepositStatus, updatePaymentNotificationStatus, validatePayInUrl } from './payInController.js';
+import {
+  assignedBankToPayInUrl,
+  checkPayInStatus,
+  disputeDuplicateTransaction,
+  generatePayInUrl,
+  getPayins,
+  payInIntentGenerateOrder,
+  processPayIn,
+  processPayInByImage,
+  resetDeposit,
+  telegramCheckUTR,
+  telegramOCR,
+  updateDepositStatus,
+  updatePaymentNotificationStatus,
+  validatePayInUrl,
+} from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
 const router = express.Router();
@@ -77,7 +92,7 @@ router.get('/validate-payIn-url/:payInId', tryCatchHandler(validatePayInUrl));
  *       404:
  *         description: Pay-In URL not found
  */
-router.post("/assign-bank/:payInId", tryCatchHandler(assignedBankToPayInUrl));
+router.post('/assign-bank/:payInId', tryCatchHandler(assignedBankToPayInUrl));
 
 /**
  * @swagger
@@ -102,7 +117,7 @@ router.post("/assign-bank/:payInId", tryCatchHandler(assignedBankToPayInUrl));
  *       500:
  *         description: Internal server error
  */
-router.post("/check-payin-status", tryCatchHandler(checkPayInStatus));
+router.post('/check-payin-status', tryCatchHandler(checkPayInStatus));
 
 /**
  * @swagger
@@ -124,7 +139,10 @@ router.post("/check-payin-status", tryCatchHandler(checkPayInStatus));
  *       404:
  *         description: Pay-In URL not found
  */
-router.post("/generate-intent-order/:payInId", tryCatchHandler(payInIntentGenerateOrder));
+router.post(
+  '/generate-intent-order/:payInId',
+  tryCatchHandler(payInIntentGenerateOrder),
+);
 
 /**
  * @swagger
@@ -146,7 +164,7 @@ router.post("/generate-intent-order/:payInId", tryCatchHandler(payInIntentGenera
  *       404:
  *         description: Pay-In URL not found
  */
-router.post("/process/:payInId", tryCatchHandler(processPayIn));
+router.post('/process/:payInId', tryCatchHandler(processPayIn));
 
 /**
  * @swagger
@@ -179,10 +197,14 @@ router.post("/process/:payInId", tryCatchHandler(processPayIn));
  *       404:
  *         description: Pay-In URL not found
  */
-router.post("/process-by-image/:payInId", multerUpload.single("file"), tryCatchHandler(processPayInByImage));
+router.post(
+  '/process-by-image/:payInId',
+  multerUpload.single('file'),
+  tryCatchHandler(processPayInByImage),
+);
 
 // Telegram API's
-router.post('/telegram-ocr', tryCatchHandler(telegramOCR))
+router.post('/telegram-ocr', tryCatchHandler(telegramOCR));
 
 /**
  * @swagger
@@ -195,13 +217,16 @@ router.post('/telegram-ocr', tryCatchHandler(telegramOCR))
  *       200:
  *         description: Payment status updated from Cashfree webhook successfully.
  */
-router.post("/update-payment-cashfree-webhook", tryCatchHandler(payInUpdateCashfreeWebhook));
+router.post(
+  '/update-payment-cashfree-webhook',
+  tryCatchHandler(payInUpdateCashfreeWebhook),
+);
 
 // Authenticated API's
-router.use(isAuthenticated)
-router.use(authorized(AccessRoles.PAYIN))
+router.use(isAuthenticated);
+router.use(authorized(AccessRoles.PAYIN));
 
-router.post('/telegram-check-utr', tryCatchHandler(telegramCheckUTR))
+router.post('/telegram-check-utr', tryCatchHandler(telegramCheckUTR));
 
 /**
  * @swagger
@@ -221,7 +246,10 @@ router.post('/telegram-check-utr', tryCatchHandler(telegramCheckUTR))
  *       200:
  *         description: Payment notification status updated successfully.
  */
-router.post("/update-payment-notified-status/:payInId", tryCatchHandler(updatePaymentNotificationStatus));
+router.post(
+  '/update-payment-notified-status/:payInId',
+  tryCatchHandler(updatePaymentNotificationStatus),
+);
 
 /**
  * @swagger
@@ -243,7 +271,10 @@ router.post("/update-payment-notified-status/:payInId", tryCatchHandler(updatePa
  *       404:
  *         description: Merchant not found
  */
-router.put("/update-deposit-status/:merchantOrderId", tryCatchHandler(updateDepositStatus));
+router.put(
+  '/update-deposit-status/:merchantOrderId',
+  tryCatchHandler(updateDepositStatus),
+);
 
 /**
  * @swagger
@@ -258,7 +289,7 @@ router.put("/update-deposit-status/:merchantOrderId", tryCatchHandler(updateDepo
  *       404:
  *         description: Pay-In URL not found
  */
-router.post("/reset-payment", tryCatchHandler(resetDeposit));
+router.post('/reset-payment', tryCatchHandler(resetDeposit));
 
 /**
  * @swagger
@@ -278,7 +309,10 @@ router.post("/reset-payment", tryCatchHandler(resetDeposit));
  *       200:
  *         description: Duplicate payment disputed successfully.
  */
-router.post("/dispute-duplicate/:payInId", tryCatchHandler(disputeDuplicateTransaction));
+router.post(
+  '/dispute-duplicate/:payInId',
+  tryCatchHandler(disputeDuplicateTransaction),
+);
 
 /**
  * @swagger

@@ -1,8 +1,7 @@
 import { DbError } from '../../utils/appErrors.js';
 import { tableName } from '../../constants/index.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-import { buildJoinQuery, buildSelectQuery ,executeQuery} from '../../utils/db.js';
-
+import { buildSelectQuery, executeQuery } from '../../utils/db.js';
 
 const getUsersDao = async (
   filters,
@@ -10,97 +9,76 @@ const getUsersDao = async (
   pageSize,
   sortBy,
   sortOrder,
-  // columns to select from db (optional)
   columns = [],
 ) => {
   try {
-
-      const { ROLE, USER, DESIGNATION } = tableName;
-
-      const joins = [
-          {
-              table: ROLE,
-              // first is source key
-              // second is target key
-              keys: ['role_id', 'id'],
-              type: "JOIN",
-              columns: ["id"],
-              columnAs: [`"${ROLE}".role  AS role_name`],
-          },
-          {
-              table: DESIGNATION,
-              // first is source key
-              // second is target key
-              keys: [`designation_id`, 'id'],
-              type: "LEFT JOIN",
-              columnAs: [`"${DESIGNATION}".designation AS designation_name`],
-              referenceTable: USER,
-          }
-      ]
-
-      const baseQuery = buildJoinQuery(USER, columns.length ? columns : "*", joins);
-      console.log(baseQuery);
-      if (filters.search) {
-          filters.or = buildSearchFilterObj(filters.search, USER);
-          delete filters.search;
-      }
-      // console.log(JSON.stringify(filters, undefined, 4));
-      const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder, tableName.USER);
-      // Execute query
-      const result = await executeQuery(sql, queryParams);
-      return result.rows;
-  }catch (error) {
-  console.error('Error in getUserssDao:', error);
-  throw new Error('Failed to fetch Users');
-}
+    const baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.USER}" WHERE 1=1`;
+    if (filters.search) {
+      filters.or = buildSearchFilterObj(filters.search, tableName.USER);
+      delete filters.search;
+    }
+    //TODO: columns.ROLE dynamic search
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+    );
+    // Execute query
+    const result = await executeQuery(sql, queryParams);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getUserssDao:', error);
+    throw new Error('Failed to fetch Users');
+  }
 };
-
 
 // const getUsersDao = async (conn, ids) => {
 //   try {
 //     let baseQuery = `
-//       SELECT 
-//         u.id, 
-//         u.first_name, 
-//         u.last_name, 
-//         u.email, 
-//         u.contact_no, 
-//         u.user_name, 
-//         u.code, 
-//         u.is_enabled, 
-//         u.last_login, 
-//         u.last_logout, 
-//         u.config, 
-//         u.created_by, 
-//         u.updated_by, 
-//         u.created_at, 
-//         u.updated_at, 
-//         r.role,   
-//         d.designation 
+//       SELECT
+//         u.id,
+//         u.first_name,
+//         u.last_name,
+//         u.email,
+//         u.contact_no,
+//         u.user_name,
+//         u.code,
+//         u.is_enabled,
+//         u.last_login,
+//         u.last_logout,
+//         u.config,
+//         u.created_by,
+//         u.updated_by,
+//         u.created_at,
+//         u.updated_at,
+//         r.role,
+//         d.designation
 //       FROM public."User" u
-//       LEFT JOIN public."Role" r ON u.role_id = r.id   
-//       LEFT JOIN public."Designation" d ON u.designation_id = d.id  
+//       LEFT JOIN public."Role" r ON u.role_id = r.id
+//       LEFT JOIN public."Designation" d ON u.designation_id = d.id
 //       WHERE u.is_obsolete = false
 //     `;
 //     const queryParams = [];
 //     if (ids.role_id) {
 //       baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
-//       queryParams.push(ids.role_id); 
+//       queryParams.push(ids.role_id);
 //     }
 //     if (ids.designation_id) {
 //       baseQuery += ` AND u.designation_id = $${queryParams.length + 1}`;
-//       queryParams.push(ids.designation_id); 
+//       queryParams.push(ids.designation_id);
 //     }
 //     if (ids.company_id) {
 //       baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
-//       queryParams.push(ids.company_id); 
+//       queryParams.push(ids.company_id);
 //     }
 //     const result = await conn.query(baseQuery, queryParams);
 //     if (result.rows.length === 0) {
 //       console.error('No users found');
 //       return [];
 //     }
-
 
 //       return result.rows;
 
@@ -142,28 +120,26 @@ const getUserByIdDao = async (conn, ids) => {
     }
     if (ids.designation_id) {
       baseQuery += ` AND u.designation_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.designation_id); 
+      queryParams.push(ids.designation_id);
     }
     if (ids.company_id) {
       baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.company_id); 
+      queryParams.push(ids.company_id);
     }
     const result = await conn.query(baseQuery, queryParams);
     if (result.rowCount === 0) {
       console.error('No user found with the provided id and filters');
       return [];
     }
-    const data = {
-      user: result.rows[0], 
-    };
-    return data;
+   
+    return result.rows;
   } catch (error) {
     console.error('error getting while fetching user', error);
     throw new DbError('Error executing query to fetch all users');
   }
 };
 
-const getUsersByUserNameDao = async (conn, ids,username) => {
+const getUsersByUserNameDao = async (conn, ids, username) => {
   try {
     let baseQuery = `
       SELECT 
@@ -191,20 +167,20 @@ const getUsersByUserNameDao = async (conn, ids,username) => {
       LEFT JOIN public."Designation" d ON u.designation_id = d.id 
       WHERE u.user_name = $1
     `;
-    
-    const queryParams = [username]; 
+
+    const queryParams = [username];
 
     if (ids.role_id) {
       baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.role_id); 
+      queryParams.push(ids.role_id);
     }
     if (ids.designation_id) {
       baseQuery += ` AND u.designation_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.designation_id); 
+      queryParams.push(ids.designation_id);
     }
     if (ids.company_id) {
       baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.company_id); 
+      queryParams.push(ids.company_id);
     }
 
     const result = await conn.query(baseQuery, queryParams);
@@ -218,7 +194,6 @@ const getUsersByUserNameDao = async (conn, ids,username) => {
     throw new DbError('Error executing query to fetch user by username');
   }
 };
-
 
 const createUserDao = async (conn, payload) => {
   try {
@@ -264,4 +239,10 @@ const getUsersForCronDao = async (conn) => {
     console.error('error getting users', error);
   }
 };
-export { getUsersDao, getUserByIdDao,getUsersForCronDao, getUsersByUserNameDao, createUserDao };
+export {
+  getUsersDao,
+  getUserByIdDao,
+  getUsersForCronDao,
+  getUsersByUserNameDao,
+  createUserDao,
+};

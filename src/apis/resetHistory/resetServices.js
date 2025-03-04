@@ -1,9 +1,10 @@
 import { BadRequestError } from '../../utils/appErrors.js';
-import { createResetHistoryDao, deleteResetHistoryDao, getResetHistoryDao, updateResetHistoryDao } from './ResetHistoryDao.js';
-
-
-
-
+import {
+  createResetHistoryDao,
+  deleteResetHistoryDao,
+  getResetHistoryDao,
+  updateResetHistoryDao,
+} from './ResetHistoryDao.js';
 
 const getResetHistoryService = async (id) => {
   try {
@@ -16,7 +17,6 @@ const getResetHistoryService = async (id) => {
 };
 const createResetHistoryService = async (payload) => {
   try {
-
     const result = await createResetHistoryDao(payload);
 
     return result;
@@ -36,8 +36,6 @@ const updateResetHistoryService = async (id, payload) => {
   }
 };
 const deleteResetHistoryService = async (id) => {
-
-
   try {
     const result = await deleteResetHistoryDao(id, { is_obsolete: true });
     return result;
@@ -47,6 +45,9 @@ const deleteResetHistoryService = async (id) => {
   }
 };
 
-
-
-export { getResetHistoryService, createResetHistoryService, updateResetHistoryService, deleteResetHistoryService };
+export {
+  getResetHistoryService,
+  createResetHistoryService,
+  updateResetHistoryService,
+  deleteResetHistoryService,
+};

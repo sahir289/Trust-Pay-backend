@@ -20,9 +20,7 @@ export const createPayoutDao = async (conn, data) => {
   }
 };
 
-export const getPayoutsDao = async (
-  conn, payload
-) => {
+export const getPayoutsDao = async (conn, payload) => {
   let baseQuery = `SELECT DISTINCT ON (u.id)
   u.id, u.sno,u.user, u.merchant_id, u.bank_acc_id, 
  u.amount, u.status, u.failed_reason, u.currency, 
@@ -46,13 +44,15 @@ LEFT JOIN public."Vendor" v
 WHERE u.is_obsolete = false AND u.company_id = $1
 ORDER BY u.id
 LIMIT $3 OFFSET $2;
-`
+`;
 
   const queryParams = [payload.company_id, payload.page, payload.limit];
   const result = await conn.query(baseQuery, queryParams);
-    return {
-      totalCount: result.rows.length,
-      rows: result.rows.reduce((acc, res) => acc.concat({
+  return {
+    totalCount: result.rows.length,
+    rows: result.rows.reduce(
+      (acc, res) =>
+        acc.concat({
           id: res.id,
           sno: res.sno,
           upi_short_code: res.upi_short_code,
@@ -64,14 +64,14 @@ LIMIT $3 OFFSET $2;
           user: res.user,
           bank_account: res.nick_name,
           merchant: {
-              code: res.merchant_code,
-              ReturnUrl: res.payout_config.return_url,
-              NotifyUrl: res.payout_config.notify_url,
+            code: res.merchant_code,
+            ReturnUrl: res.payout_config.return_url,
+            NotifyUrl: res.payout_config.notify_url,
           },
           vendor: res.vendor_code,
           bank_response: {
-              amount: res.bank_res_amount,
-              utr: res.utr,
+            amount: res.bank_res_amount,
+            utr: res.utr,
           },
           payout_merchant_commission: res.payout_merchant_commission,
           payout_vendor_commission: res.payout_vendor_commission,
@@ -82,7 +82,9 @@ LIMIT $3 OFFSET $2;
           updated_by: res.updated_by,
           created_at: res.created_at,
           updated_at: res.updated_at,
-      }), [])
+        }),
+      [],
+    ),
   };
 };
 
@@ -99,11 +101,10 @@ export const updatePayoutDao = async (ids, data, conn) => {
 
     return result.rows[0];
   } catch (error) {
-    console.error("Error occurred while updating payout:", error);
-    throw new Error("An error occurred while processing the payout update.");
+    console.error('Error occurred while updating payout:', error);
+    throw new Error('An error occurred while processing the payout update.');
   }
 };
-
 
 export const deletePayoutDao = async (ids, data) => {
   try {
@@ -111,7 +112,7 @@ export const deletePayoutDao = async (ids, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error("Error occurred while deleting payout:", error);
-    throw new Error("An error occurred while processing the payout deletion.");
+    console.error('Error occurred while deleting payout:', error);
+    throw new Error('An error occurred while processing the payout deletion.');
   }
 };

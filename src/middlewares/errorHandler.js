@@ -24,8 +24,7 @@ const errorHandler = (error, req, res, next) => {
       ...error,
       message: error.message || message,
     };
-  }
-  else if (error) {
+  } else if (error) {
     err = { ...error, message };
   }
 

@@ -1,3 +1,3 @@
-const AUTH_HEADER_KEY = 'x-auth-token'
+const AUTH_HEADER_KEY = 'x-auth-token';
 
-export { AUTH_HEADER_KEY }
+export { AUTH_HEADER_KEY };

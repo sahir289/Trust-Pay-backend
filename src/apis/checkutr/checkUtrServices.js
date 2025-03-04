@@ -1,9 +1,10 @@
 import { BadRequestError } from '../../utils/appErrors.js';
-import { createCheckUtrDao, deleteCheckUtrDao, getCheckUtrDao, updateCheckUtrDao } from './checkUtrDao.js';
-
-
-
-
+import {
+  createCheckUtrDao,
+  deleteCheckUtrDao,
+  getCheckUtrDao,
+  updateCheckUtrDao,
+} from './checkUtrDao.js';
 
 const getCheckUtrService = async (id) => {
   const result = await getCheckUtrDao({ id });
@@ -11,7 +12,6 @@ const getCheckUtrService = async (id) => {
 };
 const createCheckUtrService = async (payload) => {
   try {
-
     const result = await createCheckUtrDao(payload);
 
     return result;
@@ -31,8 +31,6 @@ const updateCheckUtrService = async (id, payload) => {
   }
 };
 const deleteCheckUtrService = async (id) => {
-
-
   try {
     const result = await deleteCheckUtrDao(id, { is_obsolete: true });
     return result;
@@ -42,6 +40,9 @@ const deleteCheckUtrService = async (id) => {
   }
 };
 
-
-
-export { getCheckUtrService, createCheckUtrService, updateCheckUtrService, deleteCheckUtrService };
+export {
+  getCheckUtrService,
+  createCheckUtrService,
+  updateCheckUtrService,
+  deleteCheckUtrService,
+};

@@ -1,6 +1,10 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { loginController, logoutController, refreshTokenController } from './authController.js';
+import {
+  loginController,
+  logoutController,
+  refreshTokenController,
+} from './authController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();

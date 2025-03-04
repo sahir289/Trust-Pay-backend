@@ -1,6 +1,12 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createPayout, deletePayout, getPayouts, updatePayout,getPayoutsById } from './payOutController.js';
+import {
+  createPayout,
+  deletePayout,
+  getPayouts,
+  updatePayout,
+  getPayoutsById,
+} from './payOutController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
@@ -33,8 +39,11 @@ const router = express.Router();
  *       401:
  *         description: Unauthorized access
  */
-router.get('/', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHandler(getPayouts));
-
+router.get(
+  '/',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getPayouts),
+);
 
 /**
  * @swagger
@@ -70,7 +79,11 @@ router.get('/', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHandl
  *       401:
  *         description: Unauthorized access
  */
-router.get('/:id', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHandler(getPayoutsById));
+router.get(
+  '/:id',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getPayoutsById),
+);
 /**
  * @swagger
  * /payout/create-payout:
@@ -100,7 +113,11 @@ router.get('/:id', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHa
  *       401:
  *         description: Unauthorized access
  */
-router.post('/create-payout', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHandler(createPayout));
+router.post(
+  '/create-payout',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(createPayout),
+);
 
 /**
  * @swagger
@@ -138,7 +155,11 @@ router.post('/create-payout', [isAuthenticated, authorized(AccessRoles.PAYOUT)],
  *       401:
  *         description: Unauthorized access
  */
-router.put('/update-payout/:id', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHandler(updatePayout));
+router.put(
+  '/update-payout/:id',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(updatePayout),
+);
 
 /**
  * @swagger
@@ -163,6 +184,10 @@ router.put('/update-payout/:id', [isAuthenticated, authorized(AccessRoles.PAYOUT
  *       401:
  *         description: Unauthorized access
  */
-router.delete('/delete-payout/:id', [isAuthenticated, authorized(AccessRoles.PAYOUT)], tryCatchHandler(deletePayout));
+router.delete(
+  '/delete-payout/:id',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(deletePayout),
+);
 
 export default router;

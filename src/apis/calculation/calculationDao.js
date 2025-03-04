@@ -1,7 +1,12 @@
-import { executeQuery, buildSelectQuery, buildInsertQuery, buildUpdateQuery } from "../../utils/db.js";
-import { tableName } from "../../constants/index.js";
-import { sendError } from "../../utils/responseHandlers.js";
-import { buildSearchFilterObj } from "../../utils/searchBuilder.js";
+import {
+  executeQuery,
+  buildSelectQuery,
+  buildInsertQuery,
+  buildUpdateQuery,
+} from '../../utils/db.js';
+import { tableName } from '../../constants/index.js';
+import { sendError } from '../../utils/responseHandlers.js';
+import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 const getCalculationDao = async (
   filters,
   page,
@@ -11,14 +16,21 @@ const getCalculationDao = async (
   columns = [],
 ) => {
   try {
-    const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.CALCULATION}" WHERE 1=1`;
-    //TODO: columns.CALCULATION dynamic search 
+    const baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.CALCULATION}" WHERE 1=1`;
+    //TODO: columns.CALCULATION dynamic search
     if (filters.search) {
-                filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
-                delete filters.search;
-            }
-    const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
-            // Execute query     
+      filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
+      delete filters.search;
+    }
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+    );
+    // Execute query
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
