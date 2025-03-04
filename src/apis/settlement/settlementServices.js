@@ -3,7 +3,6 @@ import {
   createSettlementDao,
   deleteSettlementDao,
   getSettlementDao,
-  settlementJoindao,
   updateSettlementDao,
 } from './settlementDao.js';
 import {
@@ -226,7 +225,6 @@ const deleteSettlementService = async (conn, ids) => {
 
 export {
   getSettlementService,
-  getSettlementServiceJoined,
   createSettlementService,
   getSettlementServiceById,
   updateSettlementService,

@@ -1,4 +1,5 @@
 import { columns, merchantColumns, Role, vendorColumns } from '../../constants/index.js';
+import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { getMerchantsDao } from '../merchants/merchantDao.js';

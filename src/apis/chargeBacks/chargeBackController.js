@@ -12,7 +12,6 @@ import {
   VALIDATE_UPDATE_CHARGEBACK_SCHEMA,
 } from '../../schemas/chargeBackSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
-import { transactionWrapper } from '../../utils/db.js';
 
 const createChargeBack = async (req, res) => {
   try {

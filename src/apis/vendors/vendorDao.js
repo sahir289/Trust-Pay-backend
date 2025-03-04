@@ -1,6 +1,7 @@
 import { tableName } from '../../constants/index.js';
 import {
   buildInsertQuery,
+  buildJoinQuery,
   buildSelectQuery,
   buildUpdateQuery,
   executeQuery,

@@ -1,6 +1,6 @@
 import { CREATE_BANK_RESPONSE_SCHEMA, VALIDATE_BANK_RESPONSE_BY_ID } from '../../schemas/bankResponseSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
-import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
+import {  sendSuccess } from '../../utils/responseHandlers.js';
 import { getPayInUrlsDao, updatePayInUrlDao } from '../payIn/payInDao.js';
 import { getBankResponseDao, updateBotResponseDao } from './bankResponseDao.js';
 
@@ -24,14 +24,10 @@ const getBankResponse = async (req, res) => {
 };
 
 const createBankResponse = async (req, res) => {
-  try {
     const { role } = req.user;
     const payload = req.body?.body;
     const { company_id, user_id } = req.user;
     payload.created_by = user_id;
-    if (!payload) {
-      console.error('payload is required');
-    }
     const { error } = CREATE_BANK_RESPONSE_SCHEMA.validate(req.body);
     if (error) {
       throw new ValidationError(error);
@@ -39,13 +35,6 @@ const createBankResponse = async (req, res) => {
     // const data =
     await createBankResponseService(payload, company_id, role);
     return sendSuccess(res, 'Create BankResponse successfully');
-  } catch (error) {
-    console.error(error, 'error getting while creating BankResponse');
-  }
-  // const data = 
-  await createBankResponseService(payload, company_id, role, user_id);
-  return sendSuccess(res, {}, 'Create BankResponse successfully');
-
 };
 
 const getBankMessage = async (req, res) => {

@@ -16,7 +16,6 @@ import {
 } from './settlementServices.js';
 
 const getSettlementControllerById = async (req, res) => {
-  try {
     const { id } = req.params;
     const joiValidation = VALIDATE_SETTLEMENT_BY_ID.validate(req.params);
     if (joiValidation.error) {
@@ -27,19 +26,9 @@ const getSettlementControllerById = async (req, res) => {
     const ids = { id, company_id, role };
     const data = await getSettlementServiceById(ids);
     sendSuccess(res, data, 'got settlement');
-  } catch (error) {
-    console.error('error getting while  getting settlements', error);
-    throw new BadRequestError('Error getting while getting settlements');
   }
-  const { company_id } = req.user;
-  const { role } = req.user;
-  const ids = { id, company_id, role }
-  const data = await getSettlementServiceById(ids);
-  sendSuccess(res, data, "got settlement");
-};
 
 const getSettlementController = async (req, res) => {
-  try {
     const { company_id } = req.user;
     const settlementData = await getSettlementService({
       company_id,
@@ -48,11 +37,6 @@ const getSettlementController = async (req, res) => {
       throw new BadRequestError('Error getting while getting settlements');
     }
     sendSuccess(res, settlementData, 'got settlement');
-  } catch (error) {
-    console.error('error getting while  getting settlements', error);
-    throw new BadRequestError('Error getting while getting settlements');
-  }
-  sendSuccess(res, settlementData, "got settlement");
 };
 
 const createSettlementController = async (req, res) => {

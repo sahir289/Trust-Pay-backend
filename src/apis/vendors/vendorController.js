@@ -1,4 +1,4 @@
-import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
+import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   createVendorService,
   deleteVendorService,
