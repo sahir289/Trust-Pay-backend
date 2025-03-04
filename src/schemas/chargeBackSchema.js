@@ -25,7 +25,6 @@ const VALIDATE_CHARGEBACK_SCHEMA = Joi.object({
   }),
   created_by: Joi.string().optional(),
   updated_by: Joi.string().optional(),
-  company_id: Joi.string().optional(),
   user_id: Joi.string().optional(),
   is_obsolete: Joi.boolean().default(false),
   config: Joi.object().default({}),
