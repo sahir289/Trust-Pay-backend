@@ -125,7 +125,6 @@ export const columns = {
     'net_balance',
     'created_at',
     'updated_at',
-    'company_id',
   ],
   COMPLAINTS: [
     'id',
@@ -136,7 +135,6 @@ export const columns = {
     'config',
     'created_at',
     'updated_at',
-    'company_id',
   ],
   DESIGNATION: [
     'id',
@@ -255,7 +253,6 @@ export const columns = {
     'bank_acc_id',
     'amount',
     'when',
-    'company_id',
     'created_by',
     'updated_by',
     'created_at',
@@ -291,7 +288,6 @@ export const columns = {
     'updated_by',
     'created_at',
     'updated_at',
-    'company_id',
     'config',
   ],
   BANK_RESPONSE: [
@@ -306,7 +302,6 @@ export const columns = {
     'created_at',
     'updated_at',
     'created_by',
-    'company_id',
     'config',
     'updated_by',
   ],
