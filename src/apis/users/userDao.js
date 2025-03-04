@@ -1,4 +1,3 @@
-import { DbError } from '../../utils/appErrors.js';
 import { tableName } from '../../constants/index.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { buildSelectQuery, executeQuery } from '../../utils/db.js';
@@ -31,7 +30,7 @@ const getUsersDao = async (
     return result.rows;
   } catch (error) {
     console.error('Error in getUserssDao:', error);
-    throw new Error('Failed to fetch Users');
+    throw error.message;
   }
 };
 
@@ -135,7 +134,7 @@ const getUserByIdDao = async (conn, ids) => {
     return result.rows;
   } catch (error) {
     console.error('error getting while fetching user', error);
-    throw new DbError('Error executing query to fetch all users');
+    throw error.message;
   }
 };
 
@@ -191,7 +190,7 @@ const getUsersByUserNameDao = async (conn, ids, username) => {
     return result.rows[0];
   } catch (error) {
     console.error(`Error fetching user by username: ${username}`, error);
-    throw new DbError('Error executing query to fetch user by username');
+    throw error.message;
   }
 };
 
@@ -223,7 +222,7 @@ const createUserDao = async (conn, payload) => {
     return result.rows[0];
   } catch (error) {
     console.error(`Error creating user: ${payload.user_name}`, error);
-    throw new DbError('Error executing query to create user');
+    throw error.message;
   }
 };
 const getUsersForCronDao = async (conn) => {
