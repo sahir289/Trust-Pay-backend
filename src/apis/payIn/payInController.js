@@ -198,6 +198,7 @@ export const updateDepositStatus = async (req, res) => {
     merchantOrderId,
     nick_name,
     req.user.company_id,
+    req.user.user_id,
   );
   sendSuccess(res, updateRes, 'PayIn data updated successfully');
 };
@@ -211,6 +212,7 @@ export const resetDeposit = async (req, res) => {
   const data = await transactionWrapper(resetDepositService)(
     merchant_order_id,
     req.user.company_id,
+    req.user.user_id,
   );
   sendSuccess(res, data);
 };
@@ -302,6 +304,7 @@ export const disputeDuplicateTransaction = async (req, res) => {
   const data = await transactionWrapper(disputeDuplicateTransactionService)(
     payload,
     req.user.company_id,
+    req.user.user_id
   );
   sendSuccess(res, data);
 };
@@ -315,6 +318,8 @@ export const telegramCheckUTR = async (req, res) => {
   const result = await transactionWrapper(telegramCheckUTRService)(
     utr,
     merchantOrderId,
+    req.user.company_id,
+    req.user.user_id,
   );
   sendSuccess(res, result);
 };
