@@ -12,7 +12,7 @@ import {
   VALIDATE_ROLE_BY_ID,
 } from '../../schemas/roleSchema.js';
 import { transactionWrapper } from '../../utils/db.js';
-import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import { ValidationError } from '../../utils/appErrors.js';
 
 const getRoles = async (req, res) => {
   const { company_id } = req.user;
@@ -28,7 +28,7 @@ const getRoles = async (req, res) => {
 const getRolesById = async (req, res) => {
   const { error } = VALIDATE_ROLE_BY_ID.validate(req.params); // Validate ID from params
   if (error) {
-    throw new BadRequestError(error);
+    throw new ValidationError(error);
   }
   const { id } = req.params;
   const { company_id } = req.user;
@@ -49,7 +49,7 @@ const createRole = async (req, res) => {
   payload.updated_by = user_id;
   await transactionWrapper(createRoleService)(payload);
   console.log('create Role successfully', 'info');
-  return sendSuccess(res, 'Create Role successfully');
+  return sendSuccess(res,{}, 'Create Role successfully');
 };
 
 const updateRole = async (req, res) => {
@@ -67,7 +67,7 @@ const updateRole = async (req, res) => {
   payload.updated_by = user_id;
   await transactionWrapper(updateRoleService)({ id, company_id }, payload);
   console.log('Update Role successfully', 'info');
-  return sendSuccess(res, 'Update Role successfully');
+  return sendSuccess(res,{}, 'Update Role successfully');
 };
 
 const deleteRole = async (req, res) => {
@@ -81,7 +81,7 @@ const deleteRole = async (req, res) => {
   const userData = { is_obsolete: true, updated_by: user_id };
   await deleteRoleService(ids, userData);
   console.log('Delete Role successfully', 'info');
-  return sendSuccess(res, 'Delete Role successfully');
+  return sendSuccess(res,{}, 'Delete Role successfully');
 };
 
 export { getRoles, getRolesById, createRole, updateRole, deleteRole };

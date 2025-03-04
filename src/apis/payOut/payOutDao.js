@@ -16,11 +16,12 @@ export const createPayoutDao = async (conn, data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error in createPayoutDao:', error);
-    throw new Error('Failed to create payout');
+    throw error.message;
   }
 };
 
 export const getPayoutsDao = async (conn, payload) => {
+  try{
   let baseQuery = `SELECT DISTINCT ON (u.id)
   u.id, u.sno,u.user, u.merchant_id, u.bank_acc_id, 
  u.amount, u.status, u.failed_reason, u.currency, 
@@ -33,7 +34,6 @@ export const getPayoutsDao = async (conn, payload) => {
   v.code AS vendor_code, v.id AS vendor_id, v.user_id AS vendor_user_id,
   b.id AS bank_table_id, b.user_id, b.nick_name,
   r.code AS merchant_code, r.id AS merchant_table_id, r.config
-
 FROM public."Payout" u
 LEFT JOIN public."Merchant" r 
   ON u.merchant_id = r.id
@@ -86,6 +86,10 @@ LIMIT $3 OFFSET $2;
       [],
     ),
   };
+} catch (error) {
+  console.error('Error in createPayoutDao:', error);
+  throw error.message;
+}
 };
 
 export const updatePayoutDao = async (ids, data, conn) => {
@@ -98,11 +102,10 @@ export const updatePayoutDao = async (ids, data, conn) => {
     } else {
       result = await executeQuery(sql, params);
     }
-
     return result.rows[0];
   } catch (error) {
     console.error('Error occurred while updating payout:', error);
-    throw new Error('An error occurred while processing the payout update.');
+    throw error.message;
   }
 };
 
@@ -113,6 +116,6 @@ export const deletePayoutDao = async (ids, data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error occurred while deleting payout:', error);
-    throw new Error('An error occurred while processing the payout deletion.');
+    throw error.message;
   }
 };

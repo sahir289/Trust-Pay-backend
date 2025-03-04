@@ -1,4 +1,4 @@
-import { BadRequestError } from '../../utils/appErrors.js';
+import { InternalServerError } from '../../utils/appErrors.js';
 import {
   beginTransaction,
   commit,
@@ -36,23 +36,11 @@ const createMerchantService = async (conn, payload, roleIs) => {
     const calculationPayload = {
       role_id: data.role_id,
       user_id: data.user_id,
-      total_payin_count: '0',
-      total_payin_amount: '0',
-      total_payin_commission: '0',
-      total_payout_count: '0',
-      total_payout_amount: '0',
-      total_payout_commission: '0',
-      total_settlement_count: '0',
-      total_settlement_amount: '0',
-      total_chargeback_count: '0',
-      total_chargeback_amount: '0',
-      current_balance: '0',
-      net_balance: '0',
       company_id: data.company_id,
     };
     await createCalculationDao(conn, calculationPayload);
     const role = await getRoleDao({ id: payload.role_id });
-    if (role.role === Method.ADMIN) {
+    if (role.role === Method.MERCHANT) {
       await createUserHierarchyDao(
         {
           user_id: data.user_id,
@@ -77,7 +65,7 @@ const createMerchantService = async (conn, payload, roleIs) => {
     return finalResult;
   } catch (error) {
     console.error('Error while creating merchant', error);
-    throw new BadRequestError('Error occurred while creating merchant');
+    throw new InternalServerError(error);
   }
 };
 
@@ -96,7 +84,7 @@ const getMerchantsService = async (filters, role) => {
     );
   } catch (error) {
     console.error('Error while fetching merchants', error);
-    throw new BadRequestError('Error occurred while fetching merchants');
+    throw new InternalServerError(error);
   }
 };
 
@@ -111,7 +99,7 @@ const updateMerchantService = async (ids, payload, role) => {
     return finalResult;
   } catch (error) {
     console.error('Error while updating merchant', error);
-    throw new BadRequestError('Error occurred while updating merchant');
+    throw new InternalServerError(error);
   }
 };
 
@@ -139,7 +127,7 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
       }
     }
     console.error('Error while deleting merchant', error);
-    throw new BadRequestError('Error occurred while deleting merchant');
+    throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {

@@ -31,7 +31,7 @@ const getUsersDao = async (
     return result.rows;
   } catch (error) {
     console.error('Error in getUserssDao:', error);
-    throw new Error('Failed to fetch Users');
+    throw new DbError('Error executing query to fetch all users');
   }
 };
 

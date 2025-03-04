@@ -10,12 +10,6 @@ const VALIDATE_ROLE_SCHEMA = Joi.object({
   config: Joi.object().optional().default({}).messages({
     'object.base': 'Config must be a valid object',
   }),
-  company_id: Joi.string()
-    .guid({ version: ['uuidv4'] })
-    .optional()
-    .messages({
-      'string.guid': 'Company ID must be a valid UUID',
-    }),
 });
 // Validation Schema for Updating a Role
 const VALIDATE_UPDATE_ROLE_STATUS = Joi.object({

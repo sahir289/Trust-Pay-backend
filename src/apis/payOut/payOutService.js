@@ -2,7 +2,7 @@
 import {
   BadRequestError,
   DuplicateDataError,
-  ValidationError,
+  InternalServerError,
 } from '../../utils/appErrors.js';
 import { Buffer } from 'buffer';
 import {
@@ -35,12 +35,7 @@ import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBa
 import { getUserByIdDao } from '../users/userDao.js';
 import { Status, Method } from '../../constants/index.js';
 import { calculateBalances, calculateCommission } from '../../helpers/index.js';
-import {
-  columns,
-  merchantColumns,
-  Role,
-  vendorColumns,
-} from '../../constants/index.js';
+import {columns,merchantColumns,Role,vendorColumns,} from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
 
 const createPayoutService = async (conn, headers, payload, role) => {
@@ -89,16 +84,27 @@ const createPayoutService = async (conn, headers, payload, role) => {
     return finalResult;
   } catch (error) {
     console.log('Error while creating Payout', 'error', error);
-    throw new BadRequestError('Error occurred while creating Payout');
+    throw new InternalServerError(error);
   }
 };
 
 const getPayoutsService = async (payload) => {
-  let conn = await getConnection();
-  return await getPayoutsDao(conn, payload);
+  let conn;
+  try {
+    conn = await getConnection();
+    return await getPayoutsDao(conn, payload);
+  } catch (error) {
+    console.error("Error in getPayoutsService:", error);
+    throw new InternalServerError(error);
+  } finally {
+    if (conn) {
+      conn.release(); 
+    }
+  }
 };
 
 const updatePayoutService = async (conn, ids, payload, role) => {
+  try {
   const filterColumns =
     role === Role.MERCHANT
       ? merchantColumns.PAYOUT
@@ -116,7 +122,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
   if (payload.status === Status.INITIATED)
     Object.assign(payload, { utr_id: '', rejected_reason: '' });
 
-  const singleWithdrawData = await getPayoutsDao(ids);
+  const singleWithdrawData = await getPayoutsDao(conn,ids);
   if (payload?.method === Method.EKO)
     await processEkoPayout(singleWithdrawData, payload);
   const data = await updatePayoutDao(ids, payload, conn);
@@ -228,8 +234,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
   const finalResult = filterResponse(data, filterColumns);
   return finalResult;
+} catch (error) {
+  console.error("Error in getPayoutsService:", error);
+  throw new InternalServerError(error);
+}
 };
-
 // Function to update calculations
 const updatePayoutCalculations = async (
   userId,
@@ -240,6 +249,7 @@ const updatePayoutCalculations = async (
   isReverse = false,
   conn,
 ) => {
+
   const [currentCalculation, prevCalculation] = await Promise.all([
     getCalculationDao({ user_id: userId, created_at: date }),
     getCalculationDao({ user_id: userId, created_at: date - 1 }),
@@ -497,7 +507,7 @@ const deletePayoutService = async (id, updated_by, role) => {
       }
     }
     console.log('Error while deleting Payout', 'error', error);
-    throw new BadRequestError('Error occurred while deleting Payout');
+    throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
