@@ -35,7 +35,7 @@ const getRoleDao = async (
     return result.rows;
   } catch (error) {
     console.error('Error in getRolesDao:', error);
-    throw new Error('Failed to fetch Roles');
+    throw error.message;
   }
 };
 
@@ -50,7 +50,7 @@ const createRoleDao = async (conn, data) => {
     return result.rows[0];
   } catch (error) {
     console.error(error);
-    throw error;
+    throw error.message;
   }
 };
 
@@ -65,7 +65,7 @@ const updateRoleDao = async (conn, id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error(error);
-    throw error;
+    throw error.message;
   }
 };
 
@@ -76,7 +76,7 @@ const deleteRoleDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error(error);
-    throw error;
+    throw error.message;
   }
 };
 

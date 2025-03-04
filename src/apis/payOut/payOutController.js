@@ -14,7 +14,6 @@ import {
 import { ValidationError } from '../../utils/appErrors.js';
 
 const createPayout = async (req, res) => {
-  try {
     const joiValidation = PAYOUT_DETAILS_SCHEMA.validate(req.body);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
@@ -29,18 +28,10 @@ const createPayout = async (req, res) => {
     // Log success message
     console.log('Payout created successfully');
     // Send a success response to the client
-    return sendSuccess(res, 'Payout created successfully');
-  } catch (error) {
-    // Log the error
-    console.error('error getting while creating Payout', error);
-
-    // Send an error response to the client
-    return sendError(res, error, 'Error occurred while creating Payout');
+    return sendSuccess(res,{} ,'Payout created successfully');
   }
-};
 
 const getPayoutsById = async (req, res) => {
-  try {
     const joiValidation = VALIDATE_PAYOUT_BY_ID.validate(req.params);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
@@ -53,16 +44,9 @@ const getPayoutsById = async (req, res) => {
     console.log('getPayouts successfully', data);
     // Send success response
     return sendSuccess(res, data, 'Payouts fetched successfully');
-  } catch (error) {
-    // Log error
-    console.error('error getting while fetching Payouts Data', error);
-    // Send an error response
-    return sendError(res, error, 'Error occurred while fetching Payouts');
-  }
-};
+  } 
 
 const getPayouts = async (req, res) => {
-  try {
     const payload = {
       page: parseInt(req.query.page, 10) || 1, // Default to page 1 if not provided
       limit: parseInt(req.query.limit) || null,
@@ -72,17 +56,9 @@ const getPayouts = async (req, res) => {
     const data = await getPayoutsService(payload);
     console.log('getPayins successfully', data);
     return sendSuccess(res, data, 'Payouts fetched successfully');
-  } catch (error) {
-    // Log error
-    console.error('error getting while fetching Payouts Data', error);
-
-    // Send an error response
-    return sendError(res, error, 'Error occurred while fetching Payouts');
-  }
-};
+  } 
 
 const updatePayout = async (req, res) => {
-  try {
     const payload = req.body;
     const joiValidation = UPDATE_DETAILS_SCHEMA.validate(payload);
     if (joiValidation.error) {
@@ -98,18 +74,10 @@ const updatePayout = async (req, res) => {
     const ids = { id, company_id };
     await transactionWrapper(updatePayoutService)(ids, payload, role);
     console.log('Payout updated successfully');
-    return sendSuccess(res, 'Payout updated successfully');
-  } catch (error) {
-    // Log the error
-    console.error('error occurred while updating Payout', error);
-
-    // Send an error response to the client
-    return sendError(res, error, 'Error occurred while updating Payout');
-  }
-};
+    return sendSuccess(res,{} , 'Payout updated successfully');
+  } 
 
 const deletePayout = async (req, res) => {
-  try {
     const joiValidation = VALIDATE_PAYOUT_BY_ID.validate(req.params);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
@@ -124,14 +92,7 @@ const deletePayout = async (req, res) => {
     console.log('Payout deleted successfully');
 
     // Send a success response to the client
-    return sendSuccess(res, 'Payout deleted successfully');
-  } catch (error) {
-    // Log the error
-    console.error('error occurred while deleting Payout', error);
-
-    // Send an error response to the client
-    return sendError(res, error, 'Error occurred while deleting Payout');
-  }
-};
+    return sendSuccess(res,{}, 'Payout deleted successfully');
+  } 
 
 export { createPayout, getPayouts, updatePayout, deletePayout, getPayoutsById };

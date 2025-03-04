@@ -11,7 +11,7 @@ import {
 } from '../../schemas/bankAccoountSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
-import {  sendSuccess } from '../../utils/responseHandlers.js';
+import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getMerchantBankDao } from './bankaccountDao.js';
 import {
   getBankaccountService,
@@ -21,6 +21,7 @@ import {
 } from './bankaccountServices.js';
 
 const getBankaccount = async (req, res) => {
+  
     const { company_id } = req.user;
     const { role } = req.user;
     const data = await getBankaccountService(
@@ -31,7 +32,7 @@ const getBankaccount = async (req, res) => {
     );
     console.log('get Banks successfully', role);
     return sendSuccess(res, data, 'get Banks successfully');
-};
+  }
 
 const getBankaccountById = async (req, res) => {
     const { id } = req.params;
@@ -49,7 +50,7 @@ const getBankaccountById = async (req, res) => {
     );
     console.log('get Bank successfully');
     return sendSuccess(res, data, 'get Bank successfully');
-};
+  }
 
 const createBankaccount = async (req, res) => {
     let payload = req.body;
@@ -80,8 +81,7 @@ const updateBankaccount = async (req, res) => {
     await transactionWrapper(updateBankaccountService)(ids, payload);
     console.log('get Banks successfully');
     return sendSuccess(res, 'Updated Banks successfully');
-
-}
+  }
 
 const getMerchantBank = async (req, res) => {
   // Fetch the bank account details for the given merchant ID
@@ -116,6 +116,7 @@ const getMerchantBank = async (req, res) => {
 };
 
 const deleteBankaccount = async (req, res) => {
+ 
     const { id } = req.params;
     const joiValidation = VALIDATE_BANK_RESPONSE_BY_ID.validate(id);
     if (joiValidation.error) {

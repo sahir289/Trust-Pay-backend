@@ -2,6 +2,10 @@ import Joi from 'joi';
 
 // Validation Schema for Creating a Calculation
 const VALIDATE_CALCULATION_SCHEMA = Joi.object({
+  role_id: Joi.string()
+    .guid({ version: ['uuidv4'] })
+    .label('role_id')
+    .required(),
   user_id: Joi.string()
     .guid({ version: ['uuidv4'] })
     .label('user_id')

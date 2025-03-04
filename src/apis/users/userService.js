@@ -49,7 +49,7 @@ const getUserByIdService = async (ids, role) => {
     return finalResult;
   } catch (error) {
     console.error('error getting while getting user by id', error);
-    throw new BadRequestError('Error getting while getting user by id');
+    throw new BadRequestError(error);
   } finally {
     if (conn) {
       try {
@@ -76,7 +76,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
     return finalResult;
   } catch (error) {
     console.error('error getting while fetching user', error);
-    throw new BadRequestError('Error getting while fetching user');
+    throw new BadRequestError(error);
   } finally {
     if (conn) {
       try {
@@ -157,7 +157,7 @@ const createUserService = async (conn, payload, role) => {
     return finalResult;
   } catch (error) {
     console.error('error getting while creating user', error);
-    throw new BadRequestError('Error getting while creating user');
+    throw new BadRequestError(error);
   }
 };
 

@@ -224,7 +224,6 @@ export const columns = {
     'today_balance',
     'bank_used_for',
     'config',
-    'company_id',
     'created_by',
     'updated_by',
     'created_at',
@@ -264,15 +263,11 @@ export const columns = {
   ],
   USER_HIERARCHY: [
     'id',
-    'user_id',
-    'role_id',
     'config',
-    'company_id',
     'created_by',
     'updated_by',
     'created_at',
     'updated_at',
-    'is_obsolete',
   ],
   CHECK_UTR_HISTORY: [
     'id',

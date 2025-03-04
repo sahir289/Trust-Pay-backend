@@ -48,7 +48,6 @@ const createCompanyService = async (conn, payload) => {
       last_name: payload.last_name,
       code: payload.first_name.split('').reverse().join(''),
     };
-    console.log(DesignationPayload, UserPayload, 'dghfhgh');
     // const userCreated =
     await createUserService(conn, UserPayload);
     return result;

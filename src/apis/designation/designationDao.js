@@ -33,7 +33,7 @@ const getDesignationDao = async (
     return result.rows;
   } catch (error) {
     console.error('Error in getDesignationDao:', error);
-    throw new Error('Database query failed');
+    throw error.message;
   }
 };
 
@@ -48,7 +48,7 @@ const createDesignationDao = async (conn, payload) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error in createDesignationDao:', error);
-    throw new Error('Failed to create designation');
+    throw error.message;
   }
 };
 
@@ -59,7 +59,7 @@ const updateDesignationDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error in updateDesignationDao:', error);
-    throw new Error('Failed to update designation');
+    throw error.message;
   }
 };
 
@@ -70,7 +70,7 @@ const deleteDesignationDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error in deleteDesignationDao:', error);
-    throw new Error('Failed to delete designation');
+    throw error.message;
   }
 };
 

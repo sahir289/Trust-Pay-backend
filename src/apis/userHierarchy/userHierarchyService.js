@@ -1,4 +1,4 @@
-import { BadRequestError } from '../../utils/appErrors.js';
+import { InternalServerError } from '../../utils/appErrors.js';
 import {
   beginTransaction,
   commit,
@@ -40,7 +40,7 @@ const createUserHierarchyService = async (payload, role) => {
       }
     }
     console.log('Error while creating UserHierarchy', 'error', error);
-    throw new BadRequestError('Error occurred while creating UserHierarchy');
+    throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
@@ -72,7 +72,7 @@ const getUserHierarchyService = async (filters, role) => {
     );
   } catch (error) {
     console.error('Error while fetching UserHierarchys', error);
-    throw new BadRequestError('Error occurred while fetching UserHierarchys');
+    throw new InternalServerError(error);
   }
 };
 
@@ -103,7 +103,7 @@ const updateUserHierarchyService = async (id, payload, role) => {
       }
     }
     console.log('Error while updating UserHierarchy', 'error', error);
-    throw new BadRequestError('Error occurred while updating UserHierarchy');
+    throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
@@ -147,7 +147,7 @@ const deleteUserHierarchyService = async (ids, updated_by, role) => {
       }
     }
     console.log('Error while deleting UserHierarchy', 'error', error);
-    throw new BadRequestError('Error occurred while deleting UserHierarchy');
+    throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {

@@ -2,9 +2,9 @@ import Joi from 'joi';
 
 // Validation Schema for Creating a UserHierarchy
 const VALIDATE_USER_HIERARCHY_SCHEMA = Joi.object({
-  designation_id: Joi.string()
+  role_id: Joi.string()
     .guid({ version: ['uuidv4'] })
-    .label('designation_id')
+    .label('role_id')
     .required(),
   user_id: Joi.string()
     .guid({ version: ['uuidv4'] })

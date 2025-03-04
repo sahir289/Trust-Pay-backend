@@ -2,14 +2,14 @@ import Joi from 'joi';
 
 // Validation Schema for Creating a Merchant
 const VALIDATE_MERCHANT_SCHEMA = Joi.object({
-  User_id: Joi.string()
+  user_id: Joi.string()
     .guid({ version: ['uuidv4'] })
     .required()
     .messages({
       'string.guid': 'User_ID must be a valid UUID',
       'any.required': 'User_ID is required',
     }),
-  Role_id: Joi.string()
+  role_id: Joi.string()
     .guid({ version: ['uuidv4'] })
     .required()
     .messages({

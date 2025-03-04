@@ -1,4 +1,4 @@
-import { BadRequestError } from '../../utils/appErrors.js';
+import { InternalServerError } from '../../utils/appErrors.js';
 import {
   getComplaintsDao,
   createComplaintsDao,
@@ -13,7 +13,7 @@ const getComplaintsService = async (filters) => {
     return data;
   } catch (error) {
     console.error('Error while fetching complaints', error);
-    throw new BadRequestError('Error occurred while fetching complaints');
+    throw new InternalServerError(error);
   }
 };
 
@@ -24,7 +24,7 @@ const createComplaintsService = async (payload) => {
     return data;
   } catch (error) {
     console.error('Error while creating complaint', error);
-    throw new BadRequestError('Error occurred while creating complaint');
+    throw new InternalServerError(error);
   }
 };
 
@@ -32,13 +32,13 @@ const createComplaintsService = async (payload) => {
 const updateComplaintsService = async (id, company_id, body) => {
   try {
     if (!body || !id) {
-      throw new BadRequestError('Missing required fields: body or id');
+      throw new InternalServerError('Missing required fields: body or id');
     }
     const data = await updateComplaintsDao({ id, company_id }, body);
     return data;
   } catch (error) {
     console.error('Error while updating complaint', error);
-    throw new BadRequestError('Error occurred while updating complaint');
+    throw new InternalServerError(error);
   }
 };
 
@@ -49,7 +49,7 @@ const deleteComplaintsService = async (id, company_id, userData) => {
     return data;
   } catch (error) {
     console.error('Error while deleting complaint', error);
-    throw new BadRequestError('Error occurred while deleting complaint');
+    throw new InternalServerError(error);
   }
 };
 

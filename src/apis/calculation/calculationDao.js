@@ -5,7 +5,6 @@ import {
   buildUpdateQuery,
 } from '../../utils/db.js';
 import { tableName } from '../../constants/index.js';
-import { sendError } from '../../utils/responseHandlers.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 const getCalculationDao = async (
   filters,
@@ -34,7 +33,7 @@ const getCalculationDao = async (
     return result.rows;
   } catch (error) {
     console.error('Error fetching Calculation', error);
-    throw new sendError('Failed to fetch Calculation');
+    throw error.message;
   }
 };
 ////for cron job to update net_balance
@@ -53,7 +52,7 @@ export const getCalculationforCronDao = async (userId) => {
     return result.rows;
   } catch (error) {
     console.error('Error fetching Calculation', error);
-    throw new Error('Failed to fetch Calculation'); // Fix `sendError` issue
+    throw error.message;
   }
 };
 
@@ -69,6 +68,7 @@ const createCalculationDao = async (conn, data) => {
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
     console.error('Error creating calculation:', error); // Log the error for debugging
+    throw error.message;
   }
 };
 
@@ -91,6 +91,7 @@ const updateCalculationDao = async (conn, id, data) => {
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
     console.error('Error updating calculation:', error); // Log the error for debugging
+    throw error.message;
   }
 };
 
@@ -108,10 +109,12 @@ const deleteCalculationDao = async (conn, id, data) => {
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
     console.error('Error deleting calculation:', error);
+    throw error.message;
   }
 };
 
 export const updateCalculationBalanceDao = async (filters, data, conn) => {
+  try {
   const specialFields = {};
   Object.keys(data).forEach((el) => {
     specialFields[el] = '+';
@@ -127,7 +130,11 @@ export const updateCalculationBalanceDao = async (filters, data, conn) => {
     return result.rows[0];
   }
   const result = await executeQuery(sql, params);
-  return result[0];
+  return result[0];}
+  catch (error) {
+    console.error('Error updating calculation:', error);
+    throw error.message;
+  }
 };
 
 export {

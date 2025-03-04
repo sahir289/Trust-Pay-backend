@@ -90,8 +90,8 @@ const updateVendor = async (req, res) => {
     // Log success message
     console.log('Vendor updated successfully');
     // Send a success response to the client
-    return sendSuccess(res, 'Vendor updated successfully');
-};
+    return sendSuccess(res,{}, 'Vendor updated successfully');
+  } 
 
 const deleteVendor = async (req, res) => {
     const { error: idError } = VALIDATE_VENDOR_BY_ID.validate(req.params);
@@ -107,7 +107,7 @@ const deleteVendor = async (req, res) => {
     // Log success message
     console.log('Vendor deleted successfully');
     // Send a success response to the client
-    return sendSuccess(res, 'Vendor deleted successfully');
-};
+    return sendSuccess(res,{},'Vendor deleted successfully');
+  }
 
 export { createVendor, getVendors, getVendorById, updateVendor, deleteVendor };

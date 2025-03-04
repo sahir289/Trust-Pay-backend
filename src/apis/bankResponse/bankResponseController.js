@@ -55,7 +55,6 @@ const getBankMessage = async (req, res) => {
 };
 
 const resetBankResponse = async (req, res) => {
-  try {
     const { company_id, user_id } = req.user;
     const { id } = req.query;
     const { error } = VALIDATE_BANK_RESPONSE_BY_ID.validate(req.query);
@@ -104,10 +103,7 @@ const resetBankResponse = async (req, res) => {
         `UTR of this entry is already used with ${successPayinDataID[0]?.merchant_order_id} Merchant Order ID, No Changes Applied`,
       );
     }
-  } catch (error) {
-    console.error(res, error, 'error getting while updating BankResponse');
   }
-};
 
 export {
   getBankResponse,

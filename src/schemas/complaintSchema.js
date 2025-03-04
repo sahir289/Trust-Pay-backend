@@ -14,21 +14,8 @@ const VALIDATE_COMPLAINT_SCHEMA = Joi.object({
     'string.email': 'Email must be a valid email address',
     'any.required': 'Email is required',
   }),
-  config: Joi.object().default({}).messages({
+  config: Joi.object().default({}).optional().messages({
     'object.base': 'Config must be a valid object',
-  }),
-  company_id: Joi.string()
-    .guid({ version: ['uuidv4'] })
-    .required()
-    .messages({
-      'string.guid': 'Company ID must be a valid UUID',
-      'any.required': 'Company ID is required',
-    }),
-  created_by: Joi.string().messages({
-    'any.required': 'Created By is required',
-  }),
-  updated_by: Joi.string().messages({
-    'any.required': 'Updated By is required',
   }),
 });
 
