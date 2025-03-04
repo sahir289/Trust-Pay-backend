@@ -22,18 +22,24 @@ const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     console.error('Error fetching company:', error);
-    throw error;
+    throw error.message;
   }
 };
 
 const createCompanyDao = async (conn, payload) => {
-  const [sql, params] = buildInsertQuery(tableName.COMPANY, payload);
-  if (conn && conn.query) {
-    const result = await conn.query(sql, params);
-    return result.rows[0];
+  try {
+    const [sql, params] = buildInsertQuery(tableName.COMPANY, payload);
+    if (conn && conn.query) {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
+    }
+    const result = await executeQuery(sql, params);
+    return result.rows;
   }
-  const result = await executeQuery(sql, params);
-  return result.rows;
+  catch (error) {
+    console.error('Error fetching company:', error);
+    throw error.message;
+  }
 };
 
 const updateCompanyDao = async (id, data) => {
@@ -43,7 +49,7 @@ const updateCompanyDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error updating company:', error); // Log the error for debugging
-    throw error; // Rethrow the error to propagate it
+    throw error.message;
   }
 };
 
@@ -54,7 +60,7 @@ const deleteCompanyDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error deleting company:', error); // Log the error for debugging
-    throw error; // Rethrow the error to propagate it
+    throw error.message;
   }
 };
 

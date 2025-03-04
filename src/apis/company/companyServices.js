@@ -1,4 +1,4 @@
-import { BadRequestError } from '../../utils/appErrors.js';
+import { InternalServerError } from '../../utils/appErrors.js';
 import {
   createCompanyDao,
   deleteCompanyDao,
@@ -14,7 +14,7 @@ const getCompanyService = async (id) => {
     return result;
   } catch (error) {
     console.error('error getting while company', error);
-    throw new BadRequestError('Error getting while company');
+    throw new InternalServerError(error);
   }
 };
 
@@ -55,17 +55,29 @@ const createCompanyService = async (conn, payload) => {
   } catch (error) {
     // Rollback transaction in case of an error
     console.error('Error while creating company:', error);
-    throw new BadRequestError('Error occurred while creating company');
+    throw new InternalServerError(error);
   }
 };
 
 const updateCompanyService = async (id, payload) => {
-  const result = updateCompanyDao(id, payload);
-  return result;
+  try {
+    const result = updateCompanyDao(id, payload);
+    return result;
+  }
+  catch (error) {
+    console.error('Error while creating company:', error);
+    throw new InternalServerError(error);
+  }
 };
 const deleteCompanyService = async (id) => {
-  const result = deleteCompanyDao(id, { is_obsolete: true });
-  return result;
+  try {
+    const result = deleteCompanyDao(id, { is_obsolete: true });
+    return result;
+  }
+  catch (error) {
+    console.error('Error while creating company:', error);
+    throw new InternalServerError(error);
+  }
 };
 
 export {

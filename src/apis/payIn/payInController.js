@@ -1,7 +1,6 @@
 import config from '../../config/config.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { sendError } from '../../utils/responseHandlers.js';
 import { updatePayInUrlDao } from './payInDao.js';
 import {
   ASSIGN_PAYIN_SCHEMA,
@@ -44,7 +43,7 @@ import { stringifyJSON } from '../../utils/index.js';
 import { crypto512Algo } from '../../utils/cryptoAlgorithm.js';
 
 //  To Generate Url
-export const  generatePayInUrl = async (req, res) => {
+export const generatePayInUrl = async (req, res) => {
   const payload = req.query;
   const joiValidation = ASSIGN_PAYIN_SCHEMA.validate(payload);
   if (joiValidation.error) {
@@ -61,7 +60,7 @@ export const  generatePayInUrl = async (req, res) => {
     payload.isTest && (payload.isTest === 'true' || payload.isTest === true)
       ? `?t=true`
       : '';
-  const hash = crypto512Algo(x_api_key, result.id, result.merchant_order_id); 
+  const hash = crypto512Algo(x_api_key, result.id, result.merchant_order_id);
   console.log(hash, "hash");
   const updateRes = {
     expirationDate: result.expiration_date,
@@ -84,30 +83,32 @@ export const  generatePayInUrl = async (req, res) => {
  * @type import('express').RequestHandler
  */
 export const validatePayInUrl = async (req, res) => {
-  const { payInId } = req.params;
-  const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
-  if (joiValidation.error) {
-    throw new ValidationError(joiValidation.error);
-  }
-  const user_location =
-    req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
-  const payIn = await getPayInUrlService(payInId);
-  const updatedConfig = stringifyJSON({
-    ...payIn.config,
-    user: user_location,
-  });
-  await updatePayInUrlDao(payIn.id, { config: updatedConfig });
-  const result = {
-    code: payIn.upi_short_code,
-    return_url: config.return_url,
-    notify_url: config.notify_url,
-    expiryTime: payIn.expiration_date,
-    amount: payIn.amount,
-    one_time_used: payIn.one_time_used,
-    status: payIn.status,
-  };
+    const { payInId } = req.params;
+    const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
+    if (joiValidation.error) {
+      throw new ValidationError(joiValidation.error);
+    }
+    console.log(payInId, "payInIdpayInId")
+    const user_location =
+      req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
+    const payIn = await getPayInUrlService(payInId);
+    const updatedConfig = stringifyJSON({
+      ...payIn.config,
+      user: user_location,
+    });
+    await updatePayInUrlDao(payIn.id, { config: updatedConfig });
+    const result = {
+      code: payIn.upi_short_code,
+      return_url: config.return_url,
+      notify_url: config.notify_url,
+      expiryTime: payIn.expiration_date,
+      amount: payIn.amount,
+      one_time_used: payIn.one_time_used,
+      status: payIn.status,
+    };
 
-  return sendSuccess(res, result, 'Payment Url is correct');
+    return sendSuccess(res, result, 'Payment Url is correct');
+ 
 };
 
 export const assignedBankToPayInUrl = async (req, res) => {
@@ -215,20 +216,16 @@ export const resetDeposit = async (req, res) => {
   sendSuccess(res, data);
 };
 export const getPayins = async (req, res) => {
-  try {
-    const payload = {
-      page: parseInt(req.query.page, 10) || 1, // Default to page 1 if not provided
-      limit: parseInt(req.query.limit) || null,
-    };
-    const { company_id } = req.user;
-    payload.company_id = company_id;
-    const data = await getPayinsService(payload);
-    console.log('getPayins successfully', data);
-    return sendSuccess(res, data, 'Payins fetched successfully');
-  } catch (error) {
-    console.error('error getting while fetching Payins Data', error);
-    return sendError(res, error, 'Error occurred while fetching Payins');
-  }
+  const payload = {
+    page: parseInt(req.query.page, 10) || 1, // Default to page 1 if not provided
+    limit: parseInt(req.query.limit) || null,
+  };
+  const { company_id } = req.user;
+  payload.company_id = company_id;
+  const data = await getPayinsService(payload);
+  console.log('getPayins successfully', data);
+  return sendSuccess(res, data, 'Payins fetched successfully');
+
 };
 
 export const processPayIn = async (req, res) => {

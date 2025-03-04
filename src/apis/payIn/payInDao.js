@@ -13,7 +13,7 @@ export const generatePayInUrlDao = async (data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error generating PayIn URL:', error); // Log the error for debugging
-    throw error; // Rethrow the error to propagate it
+    throw error.message; // Rethrow the error to propagate it
   }
 };
 
@@ -27,12 +27,13 @@ export const getPayInUrlDao = async (filters) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error getting PayIn URL:', error); // Log the error for debugging
-    throw error; // Rethrow the error to propagate it
+    throw error.message; // Rethrow the error to propagate it
   }
 };
 
 export const getPayInsDao = async (conn, payload) => {
-  const baseQuery = `
+  try
+  {const baseQuery = `
     SELECT DISTINCT ON (u.id)
     u.id,
     u.sno,
@@ -78,8 +79,11 @@ AND u.company_id = $1;
 
   const queryParams = [payload.company_id];
   const result = await conn.query(baseQuery, queryParams);
-
-  return { totalCount: result.rows.length, rows: result.rows };
+  return { totalCount: result.rows.length, rows: result.rows };}
+  catch(error){
+    console.error('Error getting PayIn URL:', error); // Log the error for debugging
+    throw error.message; // Rethrow the error to propagate it
+  }
 };
 
 export const getPayInUrlsDao = async (filters = {}) => {
@@ -93,7 +97,7 @@ export const getPayInUrlsDao = async (filters = {}) => {
     return result.rows;
   } catch (error) {
     console.error('Error getting PayIn URLs:', error); // Log the error for debugging
-    throw error; // Rethrow the error to propagate it
+    throw error.message; // Rethrow the error to propagate it
   }
 };
 
@@ -108,6 +112,6 @@ export const updatePayInUrlDao = async (id, data, conn) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error updating PayIn URL:', error); // Log the error for debugging
-    throw error; // Rethrow the error to propagate it
+    throw error.message; // Rethrow the error to propagate it
   }
 };

@@ -24,7 +24,7 @@ const getPayInMerchantReportDao = async (
     return result.rows[0];
   } catch (error) {
     console.error('Error in getPayInMerchantReportDao:', error);
-    throw error;
+    throw error.message;
   }
 };
 
@@ -46,7 +46,7 @@ const getPayInVendorReportDao = async (id, startDate, endDate, company_id) => {
     return result.rows;
   } catch (error) {
     console.error('Error in getPayInVendorReportDao:', error);
-    throw error;
+    throw error.message;
   }
 };
 
@@ -96,7 +96,7 @@ const getPayOutMerchantReportDao = async (
     return result.rows;
   } catch (error) {
     console.error('Error in getPayOutMerchantReportDao:', error);
-    throw error;
+    throw error.message;
   }
 };
 
@@ -117,7 +117,7 @@ const getPayOutVendorReportDao = async (id, startDate, endDate, company_id) => {
     return result.rows;
   } catch (error) {
     console.error('Error in getPayOutVendorReportDao:', error);
-    throw error;
+    throw error.message;
   }
 };
 
@@ -128,7 +128,7 @@ const getPayinReportDao = async (
   sortBy,
   sortOrder,
 ) => {
-  const baseQuery = `SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`;
+ try {const baseQuery = `SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`;
   const [sql, queryParams] = buildSelectQuery(
     baseQuery,
     filters,
@@ -139,11 +139,15 @@ const getPayinReportDao = async (
   );
   console.log(sql, queryParams, 'gfhcjhgvbh');
   const result = await executeQuery(sql, queryParams);
-  return result.rows;
+  return result.rows;}
+  catch(error){
+    console.error('Error in getPayOutVendorReportDao:', error);
+    throw error.message;
+  }
 };
 
 const getPayOutAll = async (filters, page, pageSize, sortBy, sortOrder) => {
-  const baseQuery = `SELECT * FROM "${tableName.PAYOUT}" WHERE 1=1`;
+ try {const baseQuery = `SELECT * FROM "${tableName.PAYOUT}" WHERE 1=1`;
   const [sql, queryParams] = buildSelectQuery(
     baseQuery,
     filters,
@@ -154,7 +158,11 @@ const getPayOutAll = async (filters, page, pageSize, sortBy, sortOrder) => {
   );
   console.log(sql, queryParams, 'gfhcjhgvbh');
   const result = await executeQuery(sql, queryParams);
-  return result.rows;
+  return result.rows;}
+  catch(error){
+    console.error('Error in getPayOutVendorReportDao:', error);
+    throw error.message;
+  }
 };
 
 
@@ -168,7 +176,6 @@ const getMerchantReportDao = async (
    columns = [],) => {
    try {
       const { CALCULATION, MERCHANT } = tableName;
-
       const joins =
          [{
             table: MERCHANT,
@@ -182,22 +189,27 @@ const getMerchantReportDao = async (
          }
          ]
       let baseQuery = buildJoinQuery(CALCULATION, columns.length ? columns : "*", joins);
+     console.log(baseQuery, "basebasequery")
       if (filters.search) {
          filters.or = buildSearchFilterObj(filters.search, CALCULATION);
          delete filters.search;
       }
       // console.log(JSON.stringify(filters, undefined, 4));
       const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder, tableName.CALCULATION);
+      console.log(sql, queryParams, "basebasequery")
+
       if (startDate && endDate) {
          baseQuery += ` AND created_at BETWEEN $${Object.keys(queryParams).length + 1} AND $${Object.keys(queryParams).length + 2}`;
          queryParams[`created_at_start`] = startDate;
          queryParams[`created_at_end`] = endDate;
       }
+
       const result = await executeQuery(sql, queryParams);
+      console.log(sql, queryParams, "sdjkfdshjf")
       return result.rows;
    } catch (error) {
       console.error('Error in getMerchantReportDao:', error);
-      throw error;
+      throw error.message;
    }
 };
 
@@ -245,7 +257,7 @@ const getVendorReportDao = async (
 
    } catch (error) {
       console.error('Error in getVendorReportDao:', error);
-      throw error;
+      throw error.message;
    }
 };
 

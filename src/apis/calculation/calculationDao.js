@@ -17,7 +17,6 @@ const getCalculationDao = async (
 ) => {
   try {
     const baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.CALCULATION}" WHERE 1=1`;
-    //TODO: columns.CALCULATION dynamic search
     if (filters.search) {
       filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
       delete filters.search;
@@ -87,6 +86,7 @@ const updateCalculationDao = async (conn, id, data) => {
     } else {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
+    
 
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {

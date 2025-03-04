@@ -66,7 +66,7 @@ const updateSettlementController = async (req, res) => {
   }
   // const updateData = 
   await transactionWrapper(updateSettlementService)(ids, payload);
-  sendSuccess(res, "Updated settlement");
+  sendSuccess(res,{}, "Updated settlement");
 };
 
 const deleteSettlementController = async (req, res) => {
@@ -74,7 +74,7 @@ const deleteSettlementController = async (req, res) => {
   const { company_id, user_id } = req.user;
   const { role } = req.user;
   const ids = { id, company_id, user_id, role }
-  const joiValidation = VALIDATE_SETTLEMENT_BY_ID_DELETE.validate(ids);
+  const joiValidation = VALIDATE_SETTLEMENT_BY_ID_DELETE.validate(id);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }

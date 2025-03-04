@@ -7,8 +7,9 @@ import {
 import {
   BANK_ACCOUNT_SCHEMA,
   UPDATE_BANK_ACCOUNT_SCHEMA,
+  VALIDATE_BANK_RESPONSE_BY_ID,
 } from '../../schemas/bankAccoountSchema.js';
-import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import { ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 import {  sendSuccess } from '../../utils/responseHandlers.js';
 import { getMerchantBankDao } from './bankaccountDao.js';
@@ -35,6 +36,10 @@ const getBankaccount = async (req, res) => {
 const getBankaccountById = async (req, res) => {
     const { id } = req.params;
     const { company_id, role } = req.user;
+    const joiValidation = VALIDATE_BANK_RESPONSE_BY_ID.validate(id);
+    if (joiValidation.error) {
+      throw new ValidationError(joiValidation.error);
+    }
     const data = await getBankaccountService(
       {
         company_id: company_id,
@@ -44,7 +49,6 @@ const getBankaccountById = async (req, res) => {
     );
     console.log('get Bank successfully');
     return sendSuccess(res, data, 'get Bank successfully');
- 
 };
 
 const createBankaccount = async (req, res) => {
@@ -55,10 +59,6 @@ const createBankaccount = async (req, res) => {
     const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
-    }
-    if (!payload) {
-      console.error('payload is required');
-      throw new BadRequestError('payload is required');
     }
     // const data =
     await createBankaccountService(payload, role);
@@ -117,9 +117,9 @@ const getMerchantBank = async (req, res) => {
 
 const deleteBankaccount = async (req, res) => {
     const { id } = req.params;
-    if (!id) {
-      console.error('payload is required');
-      throw new BadRequestError('payload is required');
+    const joiValidation = VALIDATE_BANK_RESPONSE_BY_ID.validate(id);
+    if (joiValidation.error) {
+      throw new ValidationError(joiValidation.error);
     }
     const { company_id } = req.user;
     const ids = { id, company_id };

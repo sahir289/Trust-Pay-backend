@@ -1,12 +1,5 @@
-import {
-  buildInsertQuery,
-  buildJoinQuery,
-  buildSelectQuery,
-  buildUpdateQuery,
-  executeQuery,
-  getConnection,
-} from '../../utils/db.js';
-import { tableName } from '../../constants/index.js';
+import { buildInsertQuery, buildJoinQuery, buildSelectQuery, buildUpdateQuery, executeQuery, getConnection } from '../../utils/db.js';
+import { tableName } from "../../constants/index.js";
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 const getSettlementDao = async (
@@ -29,8 +22,8 @@ const getSettlementDao = async (
                      // second is target key
                      keys: ['user_id', 'id'],
                      type: "JOIN",
-                     columns: ["designation_id"],
-                     columnAs: [`"${USER}".first_name || ' ' || "${USER}".last_name AS full_name`],
+                     columns: ["role_id" , 'designation_id'],
+                     columnAs: [`"${USER}".id AS user_table_id`],
                  },
                  {
                      table: ROLE,
@@ -56,7 +49,7 @@ const getSettlementDao = async (
              return result.rows;
          }catch (error) {
           console.error('Error in getMerchantsDao:', error);
-          throw new Error('Failed to fetch merchants');
+          throw error.message;
       }}
 // const settlementJoindao = async (
 //   baseTable,
@@ -73,16 +66,23 @@ const getSettlementDao = async (
 //   return result.rows;
 // };
 
+
 const getSettlementDaoforInternalTransfer = async (utr, method) => {
-  let conn;
+ try{ let conn;
   conn = await getConnection();
   let baseQuery = `SELECT id, user_id, status, amount, method, config, approved_at, rejected_at, created_by, created_at, updated_at, company_id, is_obsolete, updated_by FROM "${tableName.SETTLEMENT}"
- WHERE config->>'reference_id' = $1 AND method = ANY($2)`;
+ WHERE config->>'reference_id' = $1 AND method = ANY($2)`
 
   const queryParams = [utr, method];
   const result = await conn.query(baseQuery, queryParams);
-  return result.rows.length > 0 ? result.rows : result.rows[0];
-};
+  return result.rows.length > 0 ? result.rows : result.rows[0];}
+  catch(error){
+    console.error(error);
+    throw error.message;
+  }
+}
+
+
 
 const createSettlementDao = async (payload) => {
   try {
@@ -91,7 +91,7 @@ const createSettlementDao = async (payload) => {
     return result.rows[0];
   } catch (error) {
     console.error(error);
-    throw error;
+    throw error.message;
   }
 };
 
@@ -108,7 +108,7 @@ const updateSettlementDao = async (conn, id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error(error);
-    throw error;
+    throw error.message;
   }
 };
 
@@ -125,7 +125,7 @@ const deleteSettlementDao = async (conn, id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error(error);
-    throw error;
+    throw error.message;
   }
 };
 

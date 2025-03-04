@@ -1,4 +1,4 @@
-import { CREATE_BANK_RESPONSE_SCHEMA, VALIDATE_BANK_RESPONSE_BY_ID } from '../../schemas/bankResponseSchema.js';
+import { CREATE_BANK_RESPONSE_SCHEMA, VALIDATE_BANK_RESPONSE_BY_BANK_ID, VALIDATE_BANK_RESPONSE_BY_ID, VALIDATE_BANK_RESPONSE_QUERY } from '../../schemas/bankResponseSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import {  sendSuccess } from '../../utils/responseHandlers.js';
 import { getPayInUrlsDao, updatePayInUrlDao } from '../payIn/payInDao.js';
@@ -15,7 +15,7 @@ const getBankResponse = async (req, res) => {
     const { role } = req.user;
     const { company_id } = req.user;
     payload.company_id = company_id;
-    const { error } = VALIDATE_BANK_RESPONSE_BY_ID.validate(req.query);
+    const { error } = VALIDATE_BANK_RESPONSE_QUERY.validate(req.query);
   if (error) {
     throw new ValidationError(error);
   } 
@@ -27,22 +27,20 @@ const createBankResponse = async (req, res) => {
     const { role } = req.user;
     const payload = req.body?.body;
     const { company_id, user_id } = req.user;
-    payload.created_by = user_id;
     const { error } = CREATE_BANK_RESPONSE_SCHEMA.validate(req.body);
     if (error) {
       throw new ValidationError(error);
     }
     // const data =
-    await createBankResponseService(payload, company_id, role);
-    return sendSuccess(res, 'Create BankResponse successfully');
+    await createBankResponseService(payload, company_id, role, user_id);
+    return sendSuccess(res,{}, 'Create BankResponse successfully');
 };
 
 const getBankMessage = async (req, res) => {
-  try {
     const { company_id } = req.user;
     const { role } = req.user;
     const { bank_id, startDate, endDate } = req.query;
-    const { error } = VALIDATE_BANK_RESPONSE_BY_ID.validate(req.query);
+    const { error } = VALIDATE_BANK_RESPONSE_BY_BANK_ID.validate(req.query);
   if (error) {
     throw new ValidationError(error);
   }
@@ -54,9 +52,6 @@ const getBankMessage = async (req, res) => {
       role,
     );
     return sendSuccess(res, data, 'Get BankResponse successfully');
-  } catch (error) {
-    console.error(res, error, 'error getting while updating BankResponse');
-  }
 };
 
 const resetBankResponse = async (req, res) => {
@@ -83,7 +78,7 @@ const resetBankResponse = async (req, res) => {
         updated_by: user_id,
       };
       await updateBotResponseDao(id, data);
-
+      
       const isEqualUTR = getallPayinDataByUtr?.some(
         (item) => item.user_submitted_utr === botRes.utr,
       );

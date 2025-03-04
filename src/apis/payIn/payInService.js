@@ -15,7 +15,7 @@ import {
   getPayInUrlsDao,
   getPayInsDao,
 } from './payInDao.js';
-import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
+import { BadRequestError, InternalServerError, NotFoundError } from '../../utils/appErrors.js';
 import {
   getBankaccountDao,
   getMerchantBankDao,
@@ -609,8 +609,11 @@ export const resetDepositService = async (
 };
 
 export const getPayinsService = async (payload) => {
-  let conn = await getConnection();
-  return await getPayInsDao(conn, payload);
+  try {let conn = await getConnection();
+  return await getPayInsDao(conn, payload);}
+  catch(error){
+    throw new InternalServerError(error)
+  }
 };
 
 export const processPayInService = async (conn, payload) => {
@@ -618,7 +621,7 @@ export const processPayInService = async (conn, payload) => {
   // validate payIn
   // throw error if not exist or expires
   const payIn = await getPayInUrlService(payInId);
-  const banks = await getBankaccountDao({ bank_acc_id: payIn.bank_acc_id });
+  const banks = await getBankaccountDao({ id: payIn.bank_acc_id });
   const bank = banks[0];
 
   if (!bank) {
