@@ -531,6 +531,7 @@ export const tableName = {
   CHECK_UTR_HISTORY: 'CheckUtrHistory',
   RESET_DATA_HISTORY: 'ResetDataHistory',
   BANK_RESPONSE: 'BankResponse',
+  ACCESS_TOKEN: 'AccessToken',
 };
 
 export const BankTypes = {

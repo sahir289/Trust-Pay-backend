@@ -12,6 +12,7 @@ import { getUserByIdDao, getUsersByUserNameDao } from '../users/userDao.js';
 import { generateUserToken } from '../../utils/auth.js';
 import {
   addLoginDao,
+  deleteUserSessionsDao,
   getRefreshTokenDao,
   getSessionByIdDao,
 } from './authDao.js';
@@ -48,7 +49,7 @@ const loginService = async (config, clientIP) => {
     // const loginData = await addLoginDao(conn, user.id, config, user.company);
     const sessionId = generateUUID();
 
-    // await deleteUserSessionsDao(conn, user.id);
+    await deleteUserSessionsDao(user.id, user.company_id);
 
     const tokenInfo = generateUserToken(user);
     const hashedToken = await createHash(tokenInfo.refreshToken);
