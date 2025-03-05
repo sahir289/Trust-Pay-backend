@@ -1,5 +1,6 @@
 /* eslint-disable no-undef */
 import crypto from 'crypto';
+import config from '../config/config.js';
 
 export const crypto512Algo = (x_api_key, payinId, merchant_order_id) => {
   const salt = crypto.randomBytes(256).toString('hex');
@@ -58,6 +59,6 @@ export const generatePaymentUrlToken = (
     token,
     expiry,
     ot,
-    url: `https://yourdomain.com/payment?merchant_order_id=${merchant_order_id}&token=${token}&expiry=${expiry}&ot=${ot}`,
+    url: `${config.reactPaymentOrigin}/transaction?merchant_order_id=${merchant_order_id}&token=${token}&expiry=${expiry}&ot=${ot}`,
   };
 };

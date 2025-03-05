@@ -12,6 +12,7 @@ import { getUserByIdDao, getUsersByUserNameDao } from '../users/userDao.js';
 import { generateUserToken } from '../../utils/auth.js';
 import {
   addLoginDao,
+  deleteUserSessionsDao,
   getRefreshTokenDao,
   getSessionByIdDao,
 } from './authDao.js';
@@ -48,18 +49,20 @@ const loginService = async (config, clientIP) => {
     // const loginData = await addLoginDao(conn, user.id, config, user.company);
     const sessionId = generateUUID();
 
-    // await deleteUserSessionsDao(conn, user.id);
+    await deleteUserSessionsDao(user.id, user.company_id);
 
     const tokenInfo = generateUserToken(user);
     const hashedToken = await createHash(tokenInfo.refreshToken);
     const newConfig = {
-      user_ip: clientIP,
+      user_info: {
+        user_ip: clientIP,
+        hostname: os.hostname(),
+        os_platform: os.platform(),
+        network_interface: Object.values(os.networkInterfaces())[0]?.[0],
+        cpu_cores: os.cpus()[0],
+      },
       token: { refresh_token: hashedToken },
       confirm_over_ride: config.confirmOverRide,
-      hostname: os.hostname(),
-      os_platform: os.platform(),
-      network_interface: Object.values(os.networkInterfaces())[0]?.[0],
-      cpu_cores: os.cpus()[0],
     };
     await addLoginDao(conn, user.id, newConfig, user.company_id, sessionId);
 

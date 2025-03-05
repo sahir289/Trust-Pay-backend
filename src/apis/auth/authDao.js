@@ -1,8 +1,6 @@
+import { tableName } from '../../constants/index.js';
 import { DbError } from '../../utils/appErrors.js';
 import { executeQuery } from '../../utils/db.js';
-// import { generateUUID } from '../../utils/generateUUID.js';
-
-const tableName = 'AccessToken';
 
 const addLoginDao = async (conn, user_id, config, company_id, sessionId) => {
   try {
@@ -38,7 +36,7 @@ const getRefreshTokenDao = async (hashedToken, company_id) => {
 
 const getLoginDao = async (user_id, company_id) => {
   try {
-    const query = `SELECT config FROM "${tableName}" WHERE user_id=$1 AND company_id=$2`;
+    const query = `SELECT config FROM "${tableName.ACCESS_TOKEN}" WHERE user_id=$1 AND company_id=$2`;
     const result = await executeQuery(query, [user_id, company_id]);
     return result.rows?.[0] || undefined;
   } catch (error) {
@@ -49,7 +47,7 @@ const getLoginDao = async (user_id, company_id) => {
 
 const getSessionByIdDao = async (decodeToken, session_id, company_id) => {
   try {
-    const query = `SELECT config FROM "${tableName}" WHERE user_id=$1 AND company_id=$2`;
+    const query = `SELECT config FROM "${tableName.ACCESS_TOKEN}" WHERE user_id=$1 AND company_id=$2`;
     const result = await executeQuery(query, [
       decodeToken,
       session_id,
@@ -58,8 +56,22 @@ const getSessionByIdDao = async (decodeToken, session_id, company_id) => {
     return result.rows?.[0] || undefined;
   } catch (error) {
     console.error('Error in getting login details', error);
-    throw new DbError('Error executing query to get login info');
+    throw new DbError(error.message);
   }
 };
 
-export { addLoginDao, getRefreshTokenDao, getLoginDao, getSessionByIdDao };
+const deleteUserSessionsDao = async (user_id, company_id) => {
+  try {
+    const query = `UPDATE "${tableName.ACCESS_TOKEN}" SET is_obsolete = TRUE WHERE user_id = $1 AND company_id = $2`;
+    const result = await executeQuery(query, [
+      user_id,
+      company_id,
+    ]);
+    return result.rows?.[0] || undefined;
+  } catch (error) {
+    console.error('Getting error while deleting user session', error);
+    throw error.message;
+  }
+};
+
+export { addLoginDao, getRefreshTokenDao, getLoginDao, getSessionByIdDao, deleteUserSessionsDao };
