@@ -30,7 +30,7 @@ import {
 } from '../../constants/index.js';
 const logger = new Logger();
 
-const createBankResponseService = async (payload, companyId, role) => {
+const createBankResponseService = async (payload, companyId, role, userId) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -45,7 +45,7 @@ const createBankResponseService = async (payload, companyId, role) => {
     const utr = splitData[3];
     const bank_id = splitData[4];
     const is_used = splitData[5];
-    const created_by = payload.created_by;
+    const created_by = userId;
     const company_id = companyId;
 
     const isValidAmount = amount;
@@ -1070,8 +1070,8 @@ const getBankMessageServices = async (
       filterColumns,
     );
   } catch (error) {
-    console.error('Error while updating BankResponse', 'error', error);
-    throw new BadRequestError('Error occurred while updating BankResponse');
+    console.error('Error while getting BankResponse', 'error', error);
+    throw new BadRequestError('Error occurred while getting BankResponse');
   }
 };
 

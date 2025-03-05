@@ -7,8 +7,9 @@ import {
 import {
   BANK_ACCOUNT_SCHEMA,
   UPDATE_BANK_ACCOUNT_SCHEMA,
+  VALIDATE_BANK_RESPONSE_BY_ID,
 } from '../../schemas/bankAccoountSchema.js';
-import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import { ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getMerchantBankDao } from './bankaccountDao.js';
@@ -36,6 +37,10 @@ const getBankaccount = async (req, res) => {
 const getBankaccountById = async (req, res) => {
     const { id } = req.params;
     const { company_id, role } = req.user;
+    const joiValidation = VALIDATE_BANK_RESPONSE_BY_ID.validate(id);
+    if (joiValidation.error) {
+      throw new ValidationError(joiValidation.error);
+    }
     const data = await getBankaccountService(
       {
         company_id: company_id,
@@ -56,31 +61,26 @@ const createBankaccount = async (req, res) => {
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }
-    if (!payload) {
-      console.error('payload is required');
-      throw new BadRequestError('payload is required');
-    } // const data =
+    // const data =
     await createBankaccountService(payload, role);
     console.log('get Banks successfully');
-    return sendSuccess(res, 'Created Banks successfully');
-  }
+    return sendSuccess(res, {} , 'Created Banks successfully');
+}
 
 const updateBankaccount = async (req, res) => {
-
     const { id } = req.params;
     const payload = req.body;
-    const { company_id, updated_by } = req.user;
-    payload.updated_by = updated_by;
+    const { company_id , user_id} = req.user;
+    payload.updated_by = user_id;
     const ids = { id, company_id };
     const joiValidation = UPDATE_BANK_ACCOUNT_SCHEMA.validate(payload);
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }
-
-    // const data =
+    // const data = 
     await transactionWrapper(updateBankaccountService)(ids, payload);
     console.log('get Banks successfully');
-    return sendSuccess(res, 'Updated Banks successfully');
+    return sendSuccess(res, {}, 'Updated Banks successfully');
   }
 
 const getMerchantBank = async (req, res) => {
@@ -118,17 +118,16 @@ const getMerchantBank = async (req, res) => {
 const deleteBankaccount = async (req, res) => {
  
     const { id } = req.params;
-    if (!id) {
-      console.error('payload is required');
-      throw new BadRequestError('payload is required');
+    const joiValidation = VALIDATE_BANK_RESPONSE_BY_ID.validate(id);
+    if (joiValidation.error) {
+      throw new ValidationError(joiValidation.error);
     }
     const { company_id } = req.user;
     const ids = { id, company_id };
     // const data =
     await transactionWrapper(deleteBankaccountService)(ids);
-    console.log('get Banks successfully');
-    return sendSuccess(res, 'get Banks successfully');
-  } 
+return sendSuccess(res, {}, 'deleted Banks successfully');
+}
 export {
   getBankaccount,
   getBankaccountById,

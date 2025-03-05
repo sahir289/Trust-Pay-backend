@@ -70,12 +70,12 @@ export const UPDATE_BANK_ACCOUNT_SCHEMA = Joi.object({
   company_id: Joi.string().label('company_id').optional(),
 });
 
-export const VALIDATE_BANK_RESPONSE_BY_ID = Joi.object({
-  id: Joi.string()
+export const VALIDATE_BANK_RESPONSE_BY_ID = 
+  Joi.string()
     .guid({ version: ['uuidv4'] })
     .optional()
     .messages({
       'string.guid': 'ID must be a valid UUID',
       'any.optional': 'ID is optional',
-    }),
-});
+    })
+

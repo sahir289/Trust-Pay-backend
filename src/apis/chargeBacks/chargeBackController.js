@@ -35,7 +35,7 @@ const getChargeBacksById = async (req, res) => {
     }
     const { id } = req.params;
     const { company_id, role } = req.user;
-    const result = await getChargeBacksService({ id, company_id }, role);
+    const result = await getChargeBacksService({ id:id, company_id:company_id }, role);
 
     console.log('ChargeBack created successfully', 'info', result);
     return sendSuccess(res, result, 'ChargeBack created successfully');
@@ -47,7 +47,7 @@ const getChargeBacks = async (req, res) => {
     // Fetch vendors data from the service
     const data = await getChargeBacksService(
       {
-        company_id,
+        company_id :company_id,
         // TODO: search
       },
       role,
@@ -99,7 +99,7 @@ const deleteChargeBack = async (req, res) => {
     const { company_id, role, user_id } = req.user;
     // Call the service to delete the ChargeBack
     const result = await deleteChargeBackService(
-      { id, company_id },
+       {id,  company_id },
       { updated_by: user_id, is_obsolete: true },
       role
     );

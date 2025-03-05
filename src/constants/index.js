@@ -394,6 +394,17 @@ export const merchantColumns = {
     'is_enabled',
     'config',
   ],
+  BANK_RESPONSE: [
+    'id',
+    'sno',
+    'status',
+    'bank_id',
+    'amount',
+    'api_short_code',
+    'utr',
+    'is_used',
+    'config'
+  ],
 };
 export const vendorColumns = {
   USER: [
@@ -472,6 +483,17 @@ export const vendorColumns = {
     'today_balance',
     'bank_used_for',
     'config',
+  ],
+  BANK_RESPONSE: [
+    'id',
+    'sno',
+    'status',
+    'bank_id',
+    'amount',
+    'api_short_code',
+    'utr',
+    'is_used',
+    'config'
   ],
   VENDOR: [
     'first_name',

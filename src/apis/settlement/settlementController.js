@@ -16,7 +16,6 @@ import {
 } from './settlementServices.js';
 
 const getSettlementControllerById = async (req, res) => {
-  try {
     const { id } = req.params;
     const joiValidation = VALIDATE_SETTLEMENT_BY_ID.validate(req.params);
     if (joiValidation.error) {
@@ -27,14 +26,9 @@ const getSettlementControllerById = async (req, res) => {
     const ids = { id, company_id, role };
     const data = await getSettlementServiceById(ids);
     sendSuccess(res, data, 'got settlement');
-  } catch (error) {
-    console.error('error getting while  getting settlements', error);
-    throw new BadRequestError('Error getting while getting settlements');
   }
-};
 
 const getSettlementController = async (req, res) => {
-  try {
     const { company_id } = req.user;
     const settlementData = await getSettlementService({
       company_id,
@@ -43,74 +37,51 @@ const getSettlementController = async (req, res) => {
       throw new BadRequestError('Error getting while getting settlements');
     }
     sendSuccess(res, settlementData, 'got settlement');
-  } catch (error) {
-    console.error('error getting while  getting settlements', error);
-    throw new BadRequestError('Error getting while getting settlements');
-  }
 };
 
 const createSettlementController = async (req, res) => {
-  try {
-    const payload = req.body;
-    const { company_id, user_id } = req.user;
-    payload.company_id = company_id;
-    payload.created_by = user_id;
-    const joiValidation = CREATE_SETTLEMENT_SCHEMA.validate(payload);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
-    }
-    // const data =
-    await createSettlementService(payload);
-    sendSuccess(res, 'Created settlement');
-  } catch (error) {
-    console.log('Error while creating Settlement', 'error', error);
-    throw new BadRequestError('Error occurred while creating Settlement');
+  const payload = req.body;
+  const { company_id, user_id } = req.user;
+  payload.company_id = company_id;
+  payload.created_by = user_id;
+  const joiValidation = CREATE_SETTLEMENT_SCHEMA.validate(payload);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
   }
+  // const data = 
+  await createSettlementService(payload);
+  sendSuccess(res, {}, "Created settlement");
 };
 
 const updateSettlementController = async (req, res) => {
-  try {
-    const { id, user_id } = req.params;
-    const { role } = req.user;
-    const payload = { ...req.body };
-    payload.updated_by = user_id;
-    const { company_id } = req.user;
-    const ids = { id, company_id, role };
-    const joiValidation = UPDATE_SETTLEMENT_SCHEMA.validate(payload);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
-    }
-    // const updateData =
-    await transactionWrapper(updateSettlementService)(ids, payload);
-    sendSuccess(res, 'Updated settlement');
-  } catch (error) {
-    console.log('Error while creating Settlement', 'error', error);
-    throw new BadRequestError('Error occurred while creating Settlement');
+  const { id, user_id } = req.params;
+  const { role } = req.user;
+  const payload = { ...req.body };
+  payload.updated_by = user_id;
+  const { company_id } = req.user;
+  const ids = { id, company_id, role }
+  const joiValidation = UPDATE_SETTLEMENT_SCHEMA.validate(payload);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
   }
+  // const updateData = 
+  await transactionWrapper(updateSettlementService)(ids, payload);
+  sendSuccess(res,{}, "Updated settlement");
 };
 
 const deleteSettlementController = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { company_id, user_id } = req.user;
-    const ids = { id, company_id, user_id };
-    const joiValidation = VALIDATE_SETTLEMENT_BY_ID_DELETE.validate(id);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
-    }
-    // const updatedData =
-    await transactionWrapper(deleteSettlementService)(ids);
-    sendSuccess(res, 'Deleted settlement');
-  } catch (error) {
-    console.error('error getting while deleting settlement', error);
-    throw new BadRequestError('Error getting while delete settlement');
+  const { id } = req.params;
+  const { company_id, user_id } = req.user;
+  const { role } = req.user;
+  const ids = { id, company_id, user_id, role }
+  const joiValidation = VALIDATE_SETTLEMENT_BY_ID_DELETE.validate(id);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
   }
+  // const updatedData = 
+  await transactionWrapper(deleteSettlementService)(ids)
+  sendSuccess(res, "Deleted settlement");
 };
 
-export {
-  updateSettlementController,
-  deleteSettlementController,
-  createSettlementController,
-  getSettlementControllerById,
-  getSettlementController,
-};
+
+export { updateSettlementController, deleteSettlementController, createSettlementController, getSettlementControllerById, getSettlementController };

@@ -1,6 +1,7 @@
 import { tableName } from '../../constants/index.js';
 import {
   buildInsertQuery,
+  buildJoinQuery,
   buildSelectQuery,
   buildUpdateQuery,
   executeQuery,
@@ -26,24 +27,41 @@ export const getChargeBackDao = async (
   pageSize,
   sortBy,
   sortOrder,
+  // columns to select from db (optional)
   columns = [],
 ) => {
   try {
-    // Explicitly list columns instead of using *
-    const baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'}  FROM "${tableName.CHARGE_BACK}" WHERE 1=1`;
-    //TODO: columns.CHARGE_BACK dynamic search
+    const { VENDOR, CHARGE_BACK, MERCHANT } = tableName;
+    const joins = [
+      {
+        table: VENDOR,
+        // first is source key
+        // second is target key
+        keys: ['vendor_user_id', 'user_id'], // Fixed syntax by adding quotes around keys
+        type: 'LEFT JOIN',
+        columns: ['code'],
+        columnAs: [`"${VENDOR}".code AS vendor_name`], 
+      },
+      {
+        table: MERCHANT,
+        // first is source key
+        // second is target key
+        keys: ['merchant_user_id', 'user_id'], // Fixed syntax by adding quotes around keys
+        type: 'LEFT JOIN',
+        columns: ['code'], // Added missing "columns" to specify selected columns
+        columnAs: [`"${MERCHANT}".code AS merchant_name`], 
+        referenceTable: CHARGE_BACK,
+      },
+    ];
+    
+    const baseQuery = buildJoinQuery(CHARGE_BACK, columns.length ? columns : "*", joins);
+    
     if (filters.search) {
-      filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
+      filters.or = buildSearchFilterObj(filters.search, CHARGE_BACK);
       delete filters.search;
     }
-    const [sql, queryParams] = buildSelectQuery(
-      baseQuery,
-      filters,
-      page,
-      pageSize,
-      sortBy,
-      sortOrder,
-    );
+    // console.log(JSON.stringify(filters, undefined, 4));
+    const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder, tableName.CHARGE_BACK);
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {

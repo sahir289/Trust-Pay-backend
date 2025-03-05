@@ -1,10 +1,20 @@
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import {createVendorService,deleteVendorService,getVendorsService, updateVendorService,} from './vendorService.js';
-import {VALIDATE_VENDOR_BY_ID, VALIDATE_UPDATE_VENDOR_STATUS,VALIDATE_VENDOR_SCHEMA,} from '../../schemas/vendorSchema.js';
+import {
+  createVendorService,
+  deleteVendorService,
+  getVendorsService,
+  updateVendorService,
+} from './vendorService.js';
+import {
+  VALIDATE_VENDOR_BY_ID,
+  VALIDATE_UPDATE_VENDOR_STATUS,
+  VALIDATE_VENDOR_SCHEMA,
+} from '../../schemas/vendorSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 
 const createVendor = async (req, res) => {
+ 
     const { error } = VALIDATE_VENDOR_SCHEMA.validate(req.body);
     if (error) {
       throw new ValidationError(error);
@@ -20,9 +30,9 @@ const createVendor = async (req, res) => {
     // Log success message
     console.log('Vendor created successfully');
     // Send a success response to the client
-    return sendSuccess(res,{}, 'Vendor created successfully');
-  }
-
+    return sendSuccess(res, 'Vendor created successfully');
+  
+}
 
 const getVendors = async (req, res) => {
     const { company_id, role } = req.user;
@@ -38,7 +48,7 @@ const getVendors = async (req, res) => {
     console.log('get Vendors successfully');
     // Send success response
     return sendSuccess(res, data, 'Vendors fetched successfully');
-  } 
+};
 
 const getVendorById = async (req, res) => {
     const { error } = VALIDATE_VENDOR_BY_ID.validate(req.params);
@@ -54,7 +64,9 @@ const getVendorById = async (req, res) => {
     console.log('get vendor successfully', data);
     // Send success response
     return sendSuccess(res, data, ' Vendor fetched successfully');
-  } 
+
+};
+
 const updateVendor = async (req, res) => {
     // Validate Vendor ID (from params)
     const { role } = req.user;
