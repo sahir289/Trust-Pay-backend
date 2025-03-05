@@ -32,8 +32,8 @@ export const getPayInUrlDao = async (filters) => {
 };
 
 export const getPayInsDao = async (conn, payload) => {
-  try
-  {const baseQuery = `
+  try {
+    const baseQuery = `
     SELECT DISTINCT ON (u.id)
     u.id,
     u.sno,
@@ -77,10 +77,10 @@ WHERE u.is_obsolete = false
 AND u.company_id = $1;
     `;
 
-  const queryParams = [payload.company_id];
-  const result = await conn.query(baseQuery, queryParams);
-  return { totalCount: result.rows.length, rows: result.rows };}
-  catch(error){
+    const queryParams = [payload.company_id];
+    const result = await conn.query(baseQuery, queryParams);
+    return { totalCount: result.rows.length, rows: result.rows };
+  } catch (error) {
     console.error('Error getting PayIn URL:', error); // Log the error for debugging
     throw error.message; // Rethrow the error to propagate it
   }

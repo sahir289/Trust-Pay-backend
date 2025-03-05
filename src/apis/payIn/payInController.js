@@ -53,10 +53,13 @@ export const generatePayInUrl = async (req, res) => {
   const x_api_key = req.headers['x-api-key'];
   const token = req.headers[AUTH_HEADER_KEY];
   const tokenData = decodeAuthToken(token);
-  const result = await generatePayInUrlService({
-    ...payload,
-    x_api_key,
-  }, tokenData.user_id);
+  const result = await generatePayInUrlService(
+    {
+      ...payload,
+      x_api_key,
+    },
+    tokenData.user_id,
+  );
 
   // create some kind of hash to secure the next public API flow
   const queryStr =
@@ -64,11 +67,11 @@ export const generatePayInUrl = async (req, res) => {
       ? `?t=true`
       : '';
   const hash = crypto512Algo(x_api_key, result.id, result.merchant_order_id);
-  console.log(hash, "hash");
+  console.log(hash, 'hash');
   const updateRes = {
     expirationDate: result.expiration_date,
     payInUrl: `${config.reactPaymentOrigin}/transaction/${hash}${queryStr}`, // use env
-    payinId: result.id
+    payinId: result.id,
   };
 
   if (payload.ot === 'y') {
@@ -86,32 +89,31 @@ export const generatePayInUrl = async (req, res) => {
  * @type import('express').RequestHandler
  */
 export const validatePayInUrl = async (req, res) => {
-    const { payInId } = req.params;
-    const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
-    }
-    console.log(payInId, "payInIdpayInId")
-    const user_location =
-      req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
-    const payIn = await getPayInUrlService(payInId);
-    const updatedConfig = stringifyJSON({
-      ...payIn.config,
-      user: user_location,
-    });
-    await updatePayInUrlDao(payIn.id, { config: updatedConfig });
-    const result = {
-      code: payIn.upi_short_code,
-      return_url: config.return_url,
-      notify_url: config.notify_url,
-      expiryTime: payIn.expiration_date,
-      amount: payIn.amount,
-      one_time_used: payIn.one_time_used,
-      status: payIn.status,
-    };
+  const { payInId } = req.params;
+  const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  console.log(payInId, 'payInIdpayInId');
+  const user_location =
+    req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
+  const payIn = await getPayInUrlService(payInId);
+  const updatedConfig = stringifyJSON({
+    ...payIn.config,
+    user: user_location,
+  });
+  await updatePayInUrlDao(payIn.id, { config: updatedConfig });
+  const result = {
+    code: payIn.upi_short_code,
+    return_url: config.return_url,
+    notify_url: config.notify_url,
+    expiryTime: payIn.expiration_date,
+    amount: payIn.amount,
+    one_time_used: payIn.one_time_used,
+    status: payIn.status,
+  };
 
-    return sendSuccess(res, result, 'Payment Url is correct');
- 
+  return sendSuccess(res, result, 'Payment Url is correct');
 };
 
 export const assignedBankToPayInUrl = async (req, res) => {
@@ -230,7 +232,6 @@ export const getPayins = async (req, res) => {
   const data = await getPayinsService(payload);
   console.log('getPayins successfully', data);
   return sendSuccess(res, data, 'Payins fetched successfully');
-
 };
 
 export const processPayIn = async (req, res) => {
@@ -304,7 +305,7 @@ export const disputeDuplicateTransaction = async (req, res) => {
   const data = await transactionWrapper(disputeDuplicateTransactionService)(
     payload,
     req.user.company_id,
-    req.user.user_id
+    req.user.user_id,
   );
   sendSuccess(res, data);
 };

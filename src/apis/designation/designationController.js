@@ -59,7 +59,7 @@ const updateDesignation = async (req, res) => {
   const { company_id, user_id } = req.user;
   payload.updated_by = user_id;
   await updateDesignationService({ id, company_id }, payload);
-  return sendSuccess(res,{}, 'update Designations successfully');
+  return sendSuccess(res, {}, 'update Designations successfully');
 };
 const deleteDesignation = async (req, res) => {
   const joiValidation = VALIDATE_DESIGNATION_BY_ID.validate(req.params);
@@ -73,7 +73,7 @@ const deleteDesignation = async (req, res) => {
     console.error('payload is required');
     throw new BadRequestError('payload is required');
   }
-   await deleteDesignationService({ id, company_id }, updated_by);
+  await deleteDesignationService({ id, company_id }, updated_by);
   console.log('delete Designations successfully');
   return sendSuccess(res, {}, 'delete Designations successfully');
 };

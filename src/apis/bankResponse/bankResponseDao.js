@@ -21,11 +21,13 @@ const getBankResponseDao = async (
   sortOrder,
   columns = [],
 ) => {
-  try
-  {  
+  try {
     let baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.BANK_RESPONSE}" WHERE 1=1`;
     if (filters.search) {
-      filters.or = buildSearchFilterObj(filters.search, tableName.BANK_RESPONSE);
+      filters.or = buildSearchFilterObj(
+        filters.search,
+        tableName.BANK_RESPONSE,
+      );
       delete filters.search;
     }
     const [sql, queryParams] = buildSelectQuery(
@@ -36,16 +38,15 @@ const getBankResponseDao = async (
       sortBy,
       sortOrder,
     );
-  if (startDate && endDate) {
-    baseQuery += ` AND created_at BETWEEN $${Object.keys(queryParams).length + 1} AND $${Object.keys(queryParams).length + 2}`;
-    queryParams[`created_at_start`] = startDate;
-    queryParams[`created_at_end`] = endDate;
-  }
-  const result = await executeQuery(sql, queryParams);
-  return result.rows[0];
-}
-  catch{
-    DbError("Error executing query")
+    if (startDate && endDate) {
+      baseQuery += ` AND created_at BETWEEN $${Object.keys(queryParams).length + 1} AND $${Object.keys(queryParams).length + 2}`;
+      queryParams[`created_at_start`] = startDate;
+      queryParams[`created_at_end`] = endDate;
+    }
+    const result = await executeQuery(sql, queryParams);
+    return result.rows[0];
+  } catch {
+    DbError('Error executing query');
   }
 };
 const getBankResponseDaoAll = async (
@@ -54,26 +55,24 @@ const getBankResponseDaoAll = async (
   pageSize,
   sortBy,
   sortOrder,
-  columns = []
+  columns = [],
 ) => {
-  try
-  {
+  try {
     let baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.BANK_RESPONSE}" WHERE 1=1`;
-  //TODO: columns.BANK_RESPONSE dynamic search
-  const [sql, queryParams] = buildSelectQuery(
-    baseQuery,
-    filters,
-    page,
-    pageSize,
-    sortBy,
-    sortOrder,
-    "BankResponse"
-  );
-  const result = await executeQuery(sql, queryParams);
-  return result.rows;
-}
-  catch{
-    DbError("Error executing query")
+    //TODO: columns.BANK_RESPONSE dynamic search
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      'BankResponse',
+    );
+    const result = await executeQuery(sql, queryParams);
+    return result.rows;
+  } catch {
+    DbError('Error executing query');
   }
 };
 
@@ -83,10 +82,8 @@ const createBankResponseDao = async (data) => {
     const [sql, params] = buildInsertQuery(tableName.BANK_RESPONSE, data);
     const result = await executeQuery(sql, params);
     return result.rows[0];
-  }
-
-  catch {
-    DbError("Error executing query")
+  } catch {
+    DbError('Error executing query');
   }
 };
 
@@ -112,31 +109,32 @@ LIMIT $4 OFFSET $5`;
     const values = [bank_id, startDate, endDate, 10, 0, company_id];
     const result = await executeQuery(query, values);
     return result.rows;
-  }
-  catch {
-    DbError("Error executing query")
+  } catch {
+    DbError('Error executing query');
   }
 };
 
 const resetBankResponseDao = async (id, data) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, { id });
+    const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, {
+      id,
+    });
     const result = await executeQuery(sql, params);
     return result.rows[0];
-  }
-  catch {
-    DbError("Error executing query")
+  } catch {
+    DbError('Error executing query');
   }
 };
 
 const updateBotResponseDao = async (id, data) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, { id });
+    const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, {
+      id,
+    });
     const result = await executeQuery(sql, params);
     return result.rows[0];
-  }
-  catch {
-    DbError("Error executing query")
+  } catch {
+    DbError('Error executing query');
   }
 };
 

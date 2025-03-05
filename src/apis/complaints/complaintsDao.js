@@ -23,7 +23,7 @@ const getComplaintsDao = async (filters, page, pageSize, sortBy, sortOrder) => {
     return result.rows;
   } catch (error) {
     console.error('Error fetching complaints:', error);
-    throw error.message
+    throw error.message;
   }
 };
 
@@ -37,7 +37,7 @@ const createComplaintsDao = async (data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error creating complaint:', error);
-    throw error.message
+    throw error.message;
   }
 };
 
@@ -49,7 +49,7 @@ const updateComplaintsDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error updating complaint:', error);
-    throw error.message
+    throw error.message;
   }
 };
 
@@ -61,7 +61,7 @@ const deleteComplaintsDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error deleting complaint:', error);
-    throw error.message
+    throw error.message;
   }
 };
 

@@ -1,6 +1,6 @@
 const sendSuccess = (
   res,
-  data = undefined ,
+  data = undefined,
   message = undefined,
   status = 200,
   total,

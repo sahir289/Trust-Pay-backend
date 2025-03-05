@@ -1,4 +1,4 @@
-import { BadRequestError,InternalServerError } from '../../utils/appErrors.js';
+import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
 import { getConnection } from '../../utils/db.js';
 import {
@@ -132,7 +132,10 @@ const createUserService = async (conn, payload, role) => {
       ...roleSpecificFields,
     });
 
-    if (userRole.role === Role.MERCHANT || userRole.role === Role.MERCHANT_ADMIN) {
+    if (
+      userRole.role === Role.MERCHANT ||
+      userRole.role === Role.MERCHANT_ADMIN
+    ) {
       const merchantPayload = CommonCreateUserPayload(User, payload, {
         min_payin: 0.0,
         max_payin: 0.0,
@@ -144,7 +147,7 @@ const createUserService = async (conn, payload, role) => {
       await createMerchantService(conn, merchantPayload, role);
     }
 
-    if (userRole.role === Role.VENDOR ) {
+    if (userRole.role === Role.VENDOR) {
       const vendorPayload = CommonCreateUserPayload(User, payload, {
         payin_commission: 0.0,
         payout_commission: 0.0,

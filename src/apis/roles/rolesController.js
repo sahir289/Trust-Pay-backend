@@ -49,7 +49,7 @@ const createRole = async (req, res) => {
   payload.updated_by = user_id;
   await transactionWrapper(createRoleService)(payload);
   console.log('create Role successfully', 'info');
-  return sendSuccess(res,{}, 'Create Role successfully');
+  return sendSuccess(res, {}, 'Create Role successfully');
 };
 
 const updateRole = async (req, res) => {
@@ -67,7 +67,7 @@ const updateRole = async (req, res) => {
   payload.updated_by = user_id;
   await transactionWrapper(updateRoleService)({ id, company_id }, payload);
   console.log('Update Role successfully', 'info');
-  return sendSuccess(res,{}, 'Update Role successfully');
+  return sendSuccess(res, {}, 'Update Role successfully');
 };
 
 const deleteRole = async (req, res) => {
@@ -81,7 +81,7 @@ const deleteRole = async (req, res) => {
   const userData = { is_obsolete: true, updated_by: user_id };
   await deleteRoleService(ids, userData);
   console.log('Delete Role successfully', 'info');
-  return sendSuccess(res,{}, 'Delete Role successfully');
+  return sendSuccess(res, {}, 'Delete Role successfully');
 };
 
 export { getRoles, getRolesById, createRole, updateRole, deleteRole };

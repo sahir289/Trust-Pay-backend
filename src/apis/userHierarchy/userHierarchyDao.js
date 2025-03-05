@@ -1,5 +1,10 @@
 import { tableName } from '../../constants/index.js';
-import {buildInsertQuery,buildSelectQuery,buildUpdateQuery,executeQuery,} from '../../utils/db.js';
+import {
+  buildInsertQuery,
+  buildSelectQuery,
+  buildUpdateQuery,
+  executeQuery,
+} from '../../utils/db.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 export const createUserHierarchyDao = async (data, conn) => {
   try {
@@ -25,27 +30,27 @@ export const getUserHierarchysDao = async (
   columns = [],
 ) => {
   try {
-  const baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.USER_HIERARCHY}" WHERE 1=1`;
-  //TODO: columns.USER_HEIRARCHY dynamic search
-  if (filters.search) {
-    filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
-    delete filters.search;
+    const baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.USER_HIERARCHY}" WHERE 1=1`;
+    //TODO: columns.USER_HEIRARCHY dynamic search
+    if (filters.search) {
+      filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
+      delete filters.search;
+    }
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+    );
+    // Execute query
+    const result = await executeQuery(sql, queryParams);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in get UserHierarchy Dao:', error);
+    throw error.message;
   }
-  const [sql, queryParams] = buildSelectQuery(
-    baseQuery,
-    filters,
-    page,
-    pageSize,
-    sortBy,
-    sortOrder,
-  );
-  // Execute query
-  const result = await executeQuery(sql, queryParams);
-  return result.rows;
-}catch (error) {
-  console.error('Error in get UserHierarchy Dao:', error);
-  throw error.message;
-}
 };
 
 export const updateUserHierarchyDao = async (id, data) => {

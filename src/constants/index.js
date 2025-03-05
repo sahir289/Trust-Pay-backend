@@ -403,7 +403,7 @@ export const merchantColumns = {
     'api_short_code',
     'utr',
     'is_used',
-    'config'
+    'config',
   ],
 };
 export const vendorColumns = {
@@ -493,7 +493,7 @@ export const vendorColumns = {
     'api_short_code',
     'utr',
     'is_used',
-    'config'
+    'config',
   ],
   VENDOR: [
     'first_name',

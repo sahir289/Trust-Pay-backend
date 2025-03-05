@@ -12,7 +12,6 @@ export const VALIDATE_BANK_RESPONSE_BY_ID = Joi.object({
       'string.guid': 'ID must be a valid UUID',
       'any.required': 'ID is required',
     }),
-   
 });
 export const VALIDATE_BANK_RESPONSE_QUERY = Joi.object({
   bank_id: Joi.string()
@@ -23,44 +22,30 @@ export const VALIDATE_BANK_RESPONSE_QUERY = Joi.object({
       'any.required': 'Bank ID is required',
     }),
 
-  sno: Joi.number()
-    .integer()
-    .required()
-    .messages({
-      'number.base': 'Sno must be a number',
-      'any.required': 'Sno is required',
-    }),
+  sno: Joi.number().integer().required().messages({
+    'number.base': 'Sno must be a number',
+    'any.required': 'Sno is required',
+  }),
 
-  status: Joi.string()
-    .required()
-    .messages({
-      'string.base': 'Status must be a string',
-      'any.required': 'Status is required',
-    }),
+  status: Joi.string().required().messages({
+    'string.base': 'Status must be a string',
+    'any.required': 'Status is required',
+  }),
 
-  amount: Joi.number()
-    .integer()
-    .required()
-    .messages({
-      'number.base': 'Amount must be a number',
-      'any.required': 'Amount is required',
-    }),
+  amount: Joi.number().integer().required().messages({
+    'number.base': 'Amount must be a number',
+    'any.required': 'Amount is required',
+  }),
 
-  utr: Joi.string()
-    .pattern(/^\d+$/)
-    .required()
-    .messages({
-      'string.pattern.base': 'UTR must be a numeric string',
-      'any.required': 'UTR is required',
-    }),
+  utr: Joi.string().pattern(/^\d+$/).required().messages({
+    'string.pattern.base': 'UTR must be a numeric string',
+    'any.required': 'UTR is required',
+  }),
 
-  is_used: Joi.string()
-    .valid('Used', 'Unused')
-    .required()
-    .messages({
-      'any.only': 'is_used must be either "Used" or "Unused"',
-      'any.required': 'is_used is required',
-    }),
+  is_used: Joi.string().valid('Used', 'Unused').required().messages({
+    'any.only': 'is_used must be either "Used" or "Unused"',
+    'any.required': 'is_used is required',
+  }),
 
   company_id: Joi.string()
     .guid({ version: ['uuidv4'] })
@@ -80,18 +65,11 @@ export const VALIDATE_BANK_RESPONSE_BY_BANK_ID = Joi.object({
       'any.required': 'ID is required',
     }),
 
-  startDate: Joi.date()
-    .iso()
-    .optional()
-    .messages({
-      'date.format': 'startDate must be in ISO format (YYYY-MM-DD)',
-    }),
+  startDate: Joi.date().iso().optional().messages({
+    'date.format': 'startDate must be in ISO format (YYYY-MM-DD)',
+  }),
 
-  endDate: Joi.date()
-    .iso()
-    .optional()
-    .messages({
-      'date.format': 'endDate must be in ISO format (YYYY-MM-DD)',
-    }),
+  endDate: Joi.date().iso().optional().messages({
+    'date.format': 'endDate must be in ISO format (YYYY-MM-DD)',
+  }),
 });
-

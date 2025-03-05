@@ -1,5 +1,9 @@
 import { tableName } from '../../constants/index.js';
-import { buildJoinQuery, buildSelectQuery, executeQuery } from '../../utils/db.js';
+import {
+  buildJoinQuery,
+  buildSelectQuery,
+  executeQuery,
+} from '../../utils/db.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 const getPayInMerchantReportDao = async (
@@ -128,137 +132,164 @@ const getPayinReportDao = async (
   sortBy,
   sortOrder,
 ) => {
- try {const baseQuery = `SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`;
-  const [sql, queryParams] = buildSelectQuery(
-    baseQuery,
-    filters,
-    page,
-    pageSize,
-    sortBy,
-    sortOrder,
-  );
-  console.log(sql, queryParams, 'gfhcjhgvbh');
-  const result = await executeQuery(sql, queryParams);
-  return result.rows;}
-  catch(error){
+  try {
+    const baseQuery = `SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`;
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+    );
+    console.log(sql, queryParams, 'gfhcjhgvbh');
+    const result = await executeQuery(sql, queryParams);
+    return result.rows;
+  } catch (error) {
     console.error('Error in getPayOutVendorReportDao:', error);
     throw error.message;
   }
 };
 
 const getPayOutAll = async (filters, page, pageSize, sortBy, sortOrder) => {
- try {const baseQuery = `SELECT * FROM "${tableName.PAYOUT}" WHERE 1=1`;
-  const [sql, queryParams] = buildSelectQuery(
-    baseQuery,
-    filters,
-    page,
-    pageSize,
-    sortBy,
-    sortOrder,
-  );
-  console.log(sql, queryParams, 'gfhcjhgvbh');
-  const result = await executeQuery(sql, queryParams);
-  return result.rows;}
-  catch(error){
+  try {
+    const baseQuery = `SELECT * FROM "${tableName.PAYOUT}" WHERE 1=1`;
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+    );
+    console.log(sql, queryParams, 'gfhcjhgvbh');
+    const result = await executeQuery(sql, queryParams);
+    return result.rows;
+  } catch (error) {
     console.error('Error in getPayOutVendorReportDao:', error);
     throw error.message;
   }
 };
 
-
 const getMerchantReportDao = async (
-   filters,
-   startDate, endDate,
-   page,
-   pageSize,
-   sortBy,
-   sortOrder,
-   columns = [],) => {
-   try {
-      const { CALCULATION, MERCHANT } = tableName;
-      const joins =
-         [{
-            table: MERCHANT,
-            // first is source key
-            // second is target key
-            keys: 'user_id',
-            type: "JOIN",
-            columns: ["user_id", 'code'],
-            columnAs: [`"${MERCHANT}".user_id AS calculation_user_id`],
+  filters,
+  startDate,
+  endDate,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+  columns = [],
+) => {
+  try {
+    const { CALCULATION, MERCHANT } = tableName;
+    const joins = [
+      {
+        table: MERCHANT,
+        // first is source key
+        // second is target key
+        keys: 'user_id',
+        type: 'JOIN',
+        columns: ['user_id', 'code'],
+        columnAs: [`"${MERCHANT}".user_id AS calculation_user_id`],
+      },
+    ];
+    let baseQuery = buildJoinQuery(
+      CALCULATION,
+      columns.length ? columns : '*',
+      joins,
+    );
+    console.log(baseQuery, 'basebasequery');
+    if (filters.search) {
+      filters.or = buildSearchFilterObj(filters.search, CALCULATION);
+      delete filters.search;
+    }
+    // console.log(JSON.stringify(filters, undefined, 4));
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      tableName.CALCULATION,
+    );
+    console.log(sql, queryParams, 'basebasequery');
 
-         }
-         ]
-      let baseQuery = buildJoinQuery(CALCULATION, columns.length ? columns : "*", joins);
-     console.log(baseQuery, "basebasequery")
-      if (filters.search) {
-         filters.or = buildSearchFilterObj(filters.search, CALCULATION);
-         delete filters.search;
-      }
-      // console.log(JSON.stringify(filters, undefined, 4));
-      const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder, tableName.CALCULATION);
-      console.log(sql, queryParams, "basebasequery")
+    if (startDate && endDate) {
+      baseQuery += ` AND created_at BETWEEN $${Object.keys(queryParams).length + 1} AND $${Object.keys(queryParams).length + 2}`;
+      queryParams[`created_at_start`] = startDate;
+      queryParams[`created_at_end`] = endDate;
+    }
 
-      if (startDate && endDate) {
-         baseQuery += ` AND created_at BETWEEN $${Object.keys(queryParams).length + 1} AND $${Object.keys(queryParams).length + 2}`;
-         queryParams[`created_at_start`] = startDate;
-         queryParams[`created_at_end`] = endDate;
-      }
-
-      const result = await executeQuery(sql, queryParams);
-      console.log(sql, queryParams, "sdjkfdshjf")
-      return result.rows;
-   } catch (error) {
-      console.error('Error in getMerchantReportDao:', error);
-      throw error.message;
-   }
+    const result = await executeQuery(sql, queryParams);
+    console.log(sql, queryParams, 'sdjkfdshjf');
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getMerchantReportDao:', error);
+    throw error.message;
+  }
 };
 
 const getVendorReportDao = async (
-   filters,
-   startDate, endDate,
-   page,
-   pageSize,
-   sortBy,
-   sortOrder,
-   columns = [],) => {
-   try {
-      const { VENDOR, CALCULATION } = tableName;
+  filters,
+  startDate,
+  endDate,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+  columns = [],
+) => {
+  try {
+    const { VENDOR, CALCULATION } = tableName;
 
-      const joins =
-         [{
-            table: VENDOR,
-            // first is source key
-            // second is target key
-            keys: 'user_id',
-            type: "JOIN",
-            columns: ["user_id"],
-            columnAs: [`"${VENDOR}".user_id AS vendor_user_id`],
+    const joins = [
+      {
+        table: VENDOR,
+        // first is source key
+        // second is target key
+        keys: 'user_id',
+        type: 'JOIN',
+        columns: ['user_id'],
+        columnAs: [`"${VENDOR}".user_id AS vendor_user_id`],
+      },
+    ];
 
-         }]
+    let baseQuery = buildJoinQuery(
+      CALCULATION,
+      columns.length ? columns : '*',
+      joins,
+    );
+    if (filters.search) {
+      filters.or = buildSearchFilterObj(filters.search, CALCULATION);
+      delete filters.search;
+    }
+    // console.log(JSON.stringify(filters, undefined, 4));
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      tableName.CALCULATION,
+    );
 
-      let baseQuery = buildJoinQuery(CALCULATION, columns.length ? columns : "*", joins);
-      if (filters.search) {
-         filters.or = buildSearchFilterObj(filters.search, CALCULATION);
-         delete filters.search;
-      }
-      // console.log(JSON.stringify(filters, undefined, 4));
-      const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder, tableName.CALCULATION);
+    if (startDate && endDate) {
+      baseQuery += ` AND created_at BETWEEN $${Object.keys(queryParams).length + 1} AND $${Object.keys(queryParams).length + 2}`;
+      queryParams['created_at_start'] = startDate;
+      queryParams['created_at_end'] = endDate;
+    }
 
-      if (startDate && endDate) {
-         baseQuery += ` AND created_at BETWEEN $${Object.keys(queryParams).length + 1} AND $${Object.keys(queryParams).length + 2}`;
-         queryParams['created_at_start'] = startDate;
-         queryParams['created_at_end'] = endDate;
-      }
+    const result = await executeQuery(sql, queryParams);
+    console.log(result.rows, sql, queryParams, baseQuery, 'ashghgjasgd');
 
-      const result = await executeQuery(sql, queryParams);
-      console.log(result.rows, sql, queryParams, baseQuery, "ashghgjasgd");
-
-      return result.rows;
-
-   } catch (error) {
-      console.error('Error in getVendorReportDao:', error);
-      throw error.message;
-   }
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getVendorReportDao:', error);
+    throw error.message;
+  }
 };
 
 export {

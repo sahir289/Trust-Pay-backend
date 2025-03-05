@@ -31,10 +31,9 @@ const getBankaccountDao = async (
       sortOrder,
     );
     const result = await executeQuery(sql, queryParams);
-    return result.rows
-  }
-  catch (error) {
-    console.error(error)
+    return result.rows;
+  } catch (error) {
+    console.error(error);
     throw error.message;
   }
 };
@@ -45,9 +44,8 @@ const getMerchantBankDao = async (filters) => {
     const [sql, parameters] = buildSelectQuery(query, filters);
     const result = await executeQuery(sql, parameters);
     return result.rows;
-  }
-  catch (error) {
-    console.error(error)
+  } catch (error) {
+    console.error(error);
     throw error.message;
   }
 };
@@ -57,9 +55,8 @@ const createBankaccountDao = async (payload) => {
     const [sql, params] = buildInsertQuery(tableName.BANK_ACCOUNT, payload);
     const result = await executeQuery(sql, params);
     return result.rows[0];
-  }
-  catch (error) {
-    console.error(error)
+  } catch (error) {
+    console.error(error);
     throw error.message;
   }
 };
@@ -76,7 +73,7 @@ const updateBankaccountDao = async (conn, id, payload) => {
 
     return result.rows[0];
   } catch (error) {
-    throw error.message
+    throw error.message;
   }
 };
 
@@ -91,7 +88,7 @@ const deleteBankaccountDao = async (conn, id, data) => {
     }
     return result.rows[0];
   } catch {
-    DbError("Error executing query")
+    DbError('Error executing query');
   }
 };
 
@@ -114,10 +111,8 @@ export const updateBanktBalanceDao = async (
     }
     const result = await executeQuery(sql, params);
     return result[0];
-  }
-
-  catch (error) {
-    console.error(error)
+  } catch (error) {
+    console.error(error);
     throw error.message;
   }
 };

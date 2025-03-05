@@ -166,7 +166,6 @@ export const filterResponse = (data, keys) => {
 };
 
 export const decodeAuthToken = (token) => {
-
   if (!token) {
     return {};
   }
@@ -176,4 +175,4 @@ export const decodeAuthToken = (token) => {
   }
 
   return verifyToken(token);
-}
+};

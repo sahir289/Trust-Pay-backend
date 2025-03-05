@@ -130,7 +130,7 @@ const getUserByIdDao = async (conn, ids) => {
       console.error('No user found with the provided id and filters');
       return [];
     }
-   
+
     return result.rows;
   } catch (error) {
     console.error('error getting while fetching user', error);

@@ -7,7 +7,12 @@ import {
 } from './calculationDao.js';
 
 // Importing transaction wrapper for handling database transactions
-import {columns,merchantColumns,Role,vendorColumns,} from '../../constants/index.js';
+import {
+  columns,
+  merchantColumns,
+  Role,
+  vendorColumns,
+} from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
 import { InternalServerError } from '../../utils/appErrors.js';
 // Service to fetch calculation data
@@ -34,7 +39,7 @@ const getCalculationService = async (filters, role) => {
 };
 
 // Service to create a new calculation record
-const createCalculationService = async (conn,payload, role) => {
+const createCalculationService = async (conn, payload, role) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -42,7 +47,7 @@ const createCalculationService = async (conn,payload, role) => {
         : role === Role.VENDOR
           ? vendorColumns.CALCULATION
           : columns.CALCULATION;
-    const data = await createCalculationDao(conn,payload); // Ensuring transaction safety
+    const data = await createCalculationDao(conn, payload); // Ensuring transaction safety
     const finalResult = await filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {

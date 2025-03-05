@@ -62,8 +62,7 @@ const updateCompanyService = async (id, payload) => {
   try {
     const result = updateCompanyDao(id, payload);
     return result;
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Error while creating company:', error);
     throw new InternalServerError(error);
   }
@@ -72,8 +71,7 @@ const deleteCompanyService = async (id) => {
   try {
     const result = deleteCompanyDao(id, { is_obsolete: true });
     return result;
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Error while creating company:', error);
     throw new InternalServerError(error);
   }

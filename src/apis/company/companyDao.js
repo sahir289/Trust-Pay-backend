@@ -35,8 +35,7 @@ const createCompanyDao = async (conn, payload) => {
     }
     const result = await executeQuery(sql, params);
     return result.rows;
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Error fetching company:', error);
     throw error.message;
   }

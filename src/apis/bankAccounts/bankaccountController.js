@@ -21,67 +21,66 @@ import {
 } from './bankaccountServices.js';
 
 const getBankaccount = async (req, res) => {
-  
-    const { company_id } = req.user;
-    const { role } = req.user;
-    const data = await getBankaccountService(
-      {
-        company_id: company_id,
-      },
-      role,
-    );
-    console.log('get Banks successfully', role);
-    return sendSuccess(res, data, 'get Banks successfully');
-  }
+  const { company_id } = req.user;
+  const { role } = req.user;
+  const data = await getBankaccountService(
+    {
+      company_id: company_id,
+    },
+    role,
+  );
+  console.log('get Banks successfully', role);
+  return sendSuccess(res, data, 'get Banks successfully');
+};
 
 const getBankaccountById = async (req, res) => {
-    const { id } = req.params;
-    const { company_id, role } = req.user;
-    const joiValidation = VALIDATE_BANK_RESPONSE_BY_ID.validate(id);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
-    }
-    const data = await getBankaccountService(
-      {
-        company_id: company_id,
-        id: id,
-      },
-      role,
-    );
-    console.log('get Bank successfully');
-    return sendSuccess(res, data, 'get Bank successfully');
+  const { id } = req.params;
+  const { company_id, role } = req.user;
+  const joiValidation = VALIDATE_BANK_RESPONSE_BY_ID.validate(id);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
   }
+  const data = await getBankaccountService(
+    {
+      company_id: company_id,
+      id: id,
+    },
+    role,
+  );
+  console.log('get Bank successfully');
+  return sendSuccess(res, data, 'get Bank successfully');
+};
 
 const createBankaccount = async (req, res) => {
-    let payload = req.body;
-    const { user_id, company_id, role } = req.user;
-    payload.created_by = user_id;
-    payload.company_id = company_id;
-    const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
-    }
-    // const data =
-    await createBankaccountService(payload, role);
-    console.log('get Banks successfully');
-    return sendSuccess(res, {} , 'Created Banks successfully');
-}
+  let payload = req.body;
+  const { user_id, company_id, role } = req.user;
+  payload.created_by = user_id;
+  payload.company_id = company_id;
+  const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  // const data =
+  await createBankaccountService(payload, role);
+  console.log('get Banks successfully');
+  return sendSuccess(res, {}, 'Created Banks successfully');
+};
 
 const updateBankaccount = async (req, res) => {
-    const { id } = req.params;
-    const payload = req.body;
-    const { company_id , user_id} = req.user;
-    payload.updated_by = user_id;
-    const ids = { id, company_id };
-    const joiValidation = UPDATE_BANK_ACCOUNT_SCHEMA.validate(payload);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
-    }
-    // const data = 
-    await transactionWrapper(updateBankaccountService)(ids, payload);
-    console.log('get Banks successfully');
-    return sendSuccess(res, {}, 'Updated Banks successfully');
+  const { id } = req.params;
+  const payload = req.body;
+  const { company_id, user_id } = req.user;
+  payload.updated_by = user_id;
+  const ids = { id, company_id };
+  const joiValidation = UPDATE_BANK_ACCOUNT_SCHEMA.validate(payload);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
   }
+  // const data =
+  await transactionWrapper(updateBankaccountService)(ids, payload);
+  console.log('get Banks successfully');
+  return sendSuccess(res, {}, 'Updated Banks successfully');
+};
 
 const getMerchantBank = async (req, res) => {
   // Fetch the bank account details for the given merchant ID
@@ -116,18 +115,17 @@ const getMerchantBank = async (req, res) => {
 };
 
 const deleteBankaccount = async (req, res) => {
- 
-    const { id } = req.params;
-    const joiValidation = VALIDATE_BANK_RESPONSE_BY_ID.validate(id);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
-    }
-    const { company_id } = req.user;
-    const ids = { id, company_id };
-    // const data =
-    await transactionWrapper(deleteBankaccountService)(ids);
-return sendSuccess(res, {}, 'deleted Banks successfully');
-}
+  const { id } = req.params;
+  const joiValidation = VALIDATE_BANK_RESPONSE_BY_ID.validate(id);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  const { company_id } = req.user;
+  const ids = { id, company_id };
+  // const data =
+  await transactionWrapper(deleteBankaccountService)(ids);
+  return sendSuccess(res, {}, 'deleted Banks successfully');
+};
 export {
   getBankaccount,
   getBankaccountById,

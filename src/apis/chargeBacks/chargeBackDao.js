@@ -40,7 +40,7 @@ export const getChargeBackDao = async (
         keys: ['vendor_user_id', 'user_id'], // Fixed syntax by adding quotes around keys
         type: 'LEFT JOIN',
         columns: ['code'],
-        columnAs: [`"${VENDOR}".code AS vendor_name`], 
+        columnAs: [`"${VENDOR}".code AS vendor_name`],
       },
       {
         table: MERCHANT,
@@ -49,19 +49,31 @@ export const getChargeBackDao = async (
         keys: ['merchant_user_id', 'user_id'], // Fixed syntax by adding quotes around keys
         type: 'LEFT JOIN',
         columns: ['code'], // Added missing "columns" to specify selected columns
-        columnAs: [`"${MERCHANT}".code AS merchant_name`], 
+        columnAs: [`"${MERCHANT}".code AS merchant_name`],
         referenceTable: CHARGE_BACK,
       },
     ];
-    
-    const baseQuery = buildJoinQuery(CHARGE_BACK, columns.length ? columns : "*", joins);
-    
+
+    const baseQuery = buildJoinQuery(
+      CHARGE_BACK,
+      columns.length ? columns : '*',
+      joins,
+    );
+
     if (filters.search) {
       filters.or = buildSearchFilterObj(filters.search, CHARGE_BACK);
       delete filters.search;
     }
     // console.log(JSON.stringify(filters, undefined, 4));
-    const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder, tableName.CHARGE_BACK);
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      tableName.CHARGE_BACK,
+    );
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
