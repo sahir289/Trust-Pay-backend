@@ -33,7 +33,7 @@ const getBankaccountDao = async (
     const result = await executeQuery(sql, queryParams);
     return result.rows
   }
-catch(error) {
+  catch (error) {
     console.error(error)
     throw error.message;
   }
@@ -46,7 +46,7 @@ const getMerchantBankDao = async (filters) => {
     const result = await executeQuery(sql, parameters);
     return result.rows;
   }
-  catch(error) {
+  catch (error) {
     console.error(error)
     throw error.message;
   }
@@ -58,7 +58,7 @@ const createBankaccountDao = async (payload) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   }
-catch(error) {
+  catch (error) {
     console.error(error)
     throw error.message;
   }
@@ -75,7 +75,7 @@ const updateBankaccountDao = async (conn, id, payload) => {
     }
 
     return result.rows[0];
-  } catch(error) {
+  } catch (error) {
     throw error.message
   }
 };
@@ -104,7 +104,7 @@ export const updateBanktBalanceDao = async (
   try {
     const [sql, params] = buildUpdateQuery(
       tableName.BANK_ACCOUNT,
-      { balance, today_balance },
+      { balance: amount, today_balance: amount, updated_by },
       filters,
       { balance: '+', today_balance: '+' },
     );
@@ -116,8 +116,8 @@ export const updateBanktBalanceDao = async (
     return result[0];
   }
 
-catch(error) {
-  console.error(error)
+  catch (error) {
+    console.error(error)
     throw error.message;
   }
 };
