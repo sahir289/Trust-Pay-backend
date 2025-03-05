@@ -246,7 +246,6 @@ export const columns = {
   CHARGE_BACK: [
     'id',
     'sno',
-    'user',
     'merchant_user_id',
     'vendor_user_id',
     'payin_id',
@@ -380,7 +379,7 @@ export const merchantColumns = {
     'payout_merchant_commission',
     'config',
   ],
-  CHARGE_BACK: ['sno', 'user', 'merchant_user_id', 'amount', 'when'],
+  CHARGE_BACK: ['sno', 'merchant_user_id', 'amount', 'when'],
   USER_HIERARCHY: ['config'],
   BANK_ACCOUNT: [
     'upi_id',
@@ -506,7 +505,6 @@ export const vendorColumns = {
   ],
   CHARGE_BACK: [
     'sno',
-    'user',
     'vendor_user_id',
     'bank_acc_id',
     'amount',

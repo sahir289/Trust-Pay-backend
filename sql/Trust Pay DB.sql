@@ -268,7 +268,7 @@ CREATE TABLE "ChargeBack" (
   "user" varchar NOT NULL,
   "merchant_user_id" varchar NOT NULL,
   "vendor_user_id" varchar NOT NULL,
-  "payin_id" varchar NOT NULL,
+  "payin_id" varchar NOT NULL UNIQUE, 
   "bank_acc_id" varchar NOT NULL,
   "amount" float NOT NULL,
   "when" TIMESTAMPTZ NOT NULL,

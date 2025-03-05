@@ -31,7 +31,7 @@ export const getChargeBackDao = async (
   columns = [],
 ) => {
   try {
-    const { VENDOR, CHARGE_BACK, MERCHANT } = tableName;
+    const { VENDOR, CHARGE_BACK, MERCHANT, PAYIN } = tableName;
     const joins = [
       {
         table: VENDOR,
@@ -48,6 +48,14 @@ export const getChargeBackDao = async (
         keys: ['merchant_user_id', 'user_id'], // Fixed syntax by adding quotes around keys
         type: 'LEFT JOIN',
         columnAs: [`"${MERCHANT}".code AS merchant_name`],
+      },
+      {
+        table: PAYIN,
+        // first is source key
+        // second is target key
+        keys: ['payin_id', 'id'],
+        type: 'LEFT JOIN',
+        columns: ['user']
       },
     ];
 

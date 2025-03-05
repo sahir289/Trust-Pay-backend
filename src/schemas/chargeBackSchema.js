@@ -2,9 +2,6 @@ import Joi from 'joi';
 
 // Validation Schema for Creating a ChargeBack
 const VALIDATE_CHARGEBACK_SCHEMA = Joi.object({
-  user: Joi.string().required().messages({
-    'any.required': 'User is required',
-  }),
   merchant_user_id: Joi.string().required().messages({
     'any.required': 'Merchant User ID is required',
   }),
