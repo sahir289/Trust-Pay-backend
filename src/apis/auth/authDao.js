@@ -63,10 +63,7 @@ const getSessionByIdDao = async (decodeToken, session_id, company_id) => {
 const deleteUserSessionsDao = async (user_id, company_id) => {
   try {
     const query = `UPDATE "${tableName.ACCESS_TOKEN}" SET is_obsolete = TRUE WHERE user_id = $1 AND company_id = $2`;
-    const result = await executeQuery(query, [
-      user_id,
-      company_id,
-    ]);
+    const result = await executeQuery(query, [user_id, company_id]);
     return result.rows?.[0] || undefined;
   } catch (error) {
     console.error('Getting error while deleting user session', error);
@@ -74,4 +71,10 @@ const deleteUserSessionsDao = async (user_id, company_id) => {
   }
 };
 
-export { addLoginDao, getRefreshTokenDao, getLoginDao, getSessionByIdDao, deleteUserSessionsDao };
+export {
+  addLoginDao,
+  getRefreshTokenDao,
+  getLoginDao,
+  getSessionByIdDao,
+  deleteUserSessionsDao,
+};
