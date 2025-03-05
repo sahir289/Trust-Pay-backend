@@ -86,10 +86,11 @@ class Logger {
 }
 
 export default Logger;
-const logger = new Logger();
+const winstonLogger = new Logger();
 
-console.log = (...args) => logger.log('info', ...args);
-
-console.warn = (...args) => logger.log('warn', ...args);
-
-console.error = (...args) => logger.log('error', ...args);
+export const logger = {
+  log: (...args) => winstonLogger.log('info', ...args),
+  info: (...args) => winstonLogger.log('info', ...args),
+  warn: (...args) => winstonLogger.log('warn', ...args),
+  error: (...args) => winstonLogger.log('error', ...args),
+}

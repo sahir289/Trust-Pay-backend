@@ -78,7 +78,7 @@ export const generatePayInUrlService = async (payload, created_by) => {
     throw new NotFoundError('Merchant does not exist');
   }
 
-  const merchantAPIKey = merchant.config?.keys?.api_keys;
+  const merchantAPIKey = merchant.config?.keys?.private;
 
   if (api_key && api_key != merchantAPIKey) {
     throw new BadRequestError('Enter valid Api key');
@@ -87,32 +87,24 @@ export const generatePayInUrlService = async (payload, created_by) => {
   if (!api_key && x_api_key != merchantAPIKey) {
     throw new BadRequestError(404, 'Enter valid Api key');
   }
-
-  const payInData = {
-    code: code,
-    amount,
-    api_key: merchant.api_key,
-    merchant_order_id,
-    user_id: user_id,
-    return_url: returnUrl ? returnUrl : merchant.return_url,
-    company_id: merchant.company_id,
-    created_by: created_by || merchant.user_id,
-  };
-
+  
   const expirationDate = dayjs().add(10, 'minutes').toISOString();
   const data = {
     upi_short_code: nanoid(5), // code added by us
-    amount: payInData.amount || 0, // as starting amount will be zero
+    amount: amount || 0, // as starting amount will be zero
     status: Status.INITIATED,
     currency: Currency.INR,
-    merchant_order_id: payInData.merchant_order_id, // for time being we are using this
-    user: payInData.user_id,
+    merchant_order_id, // for time being we are using this
+    user: user_id,
     merchant_id: merchant.id,
     expiration_date: expirationDate,
     config: JSON.stringify({
-      return_url: payInData.return_url || '',
-      notify_url: merchant.notify_url || '',
+      urls: {
+        return: returnUrl || merchant.config?.urls?.return || '',
+        notify: merchant.config?.urls?.notify || '',
+      }
     }),
+    created_by,
   };
 
   return await generatePayInUrlDao(data);
@@ -141,7 +133,7 @@ export const getPayInUrlService = async (id) => {
       status: Status.DROPPED,
     });
     // Notifying merchant about expired URL
-    merchantPayinCallback(config.notify_url, {
+    merchantPayinCallback(config.urls?.notify, {
       status: Status.DROPPED,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
@@ -169,7 +161,7 @@ export const expirePayInUrlService = async (payInId) => {
     status: Status.DROPPED,
   });
 
-  merchantPayinCallback(config.notify_url, {
+  merchantPayinCallback(config.urls?.notify, {
     status: Status.DROPPED,
     merchantOrderId: payIn.merchant_order_id,
     payinId: payIn.id,
@@ -222,7 +214,7 @@ export const assignedBankToPayInUrlService = async (payInId, amount, type) => {
       is_url_expires: true,
       status: Status.DROPPED,
     });
-    merchantPayinCallback(payInConfig.notify_url, {
+    merchantPayinCallback(payInConfig.urls?.notify, {
       status: Status.DROPPED,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
@@ -280,7 +272,7 @@ export const checkPayInStatusService = async (
     throw new NotFoundError('payIn not found');
   }
 
-  if (api_key != merchantConfig.api_key) {
+  if (api_key != merchantConfig.keys?.private) {
     throw new BadRequestError('Invalid PayIn!');
   }
 
@@ -363,7 +355,7 @@ export const updatePaymentNotificationStatusService = async (
       company_id,
     });
 
-    return await merchantPayinCallback(payIn.config?.notify_url, {
+    return await merchantPayinCallback(payIn.config?.urls?.notify, {
       status: payIn.status,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
@@ -386,11 +378,11 @@ export const updatePaymentNotificationStatusService = async (
       company_id,
     });
     const merchant = merchants[0];
-    if (!merchant || !merchant.payout_notify_url) {
+    if (!merchant || !merchant.config?.urls?.payout_notify) {
       throw new NotFoundError('Merchant or payout notify URL not found.');
     }
 
-    return await merchantPayinCallback(merchant.config?.payout_notify_url, {
+    return await merchantPayinCallback(merchant.config.urls.payout_notify, {
       code: payout.code,
       merchantOrderId: payout.merchant_order_id,
       payoutId: payout.id,
@@ -536,7 +528,7 @@ export const updateDepositStatusService = async (
       : payInData.amount;
   await updateBanktBalanceDao({ id: bank.id }, bankBalance, updated_by, conn);
 
-  merchantPayinCallback(updatePayInRes.config?.notify_url, {
+  merchantPayinCallback(updatePayInRes.config?.urls?.notify, {
     status: updatePayInRes.status,
     merchantOrderId: updatePayInRes.merchant_order_id,
     payinId: updatePayInRes.id,
@@ -682,7 +674,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
     if (payIn.status === Status.DUPLICATE) {
       result.utr_id = bankResponse.utr || payIn.user_submitted_utr;
     }
-    merchantPayinCallback(payIn.config?.notify_url, result);
+    merchantPayinCallback(payIn.config?.urls?.notify, result);
     return result;
   }
 
@@ -690,7 +682,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
     updatePayInData.status = Status.DUPLICATE;
     result.status = Status.DUPLICATE;
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-    merchantPayinCallback(payIn.config?.notify_url, result);
+    merchantPayinCallback(payIn.config?.urls?.notify, result);
     return {
       ...result,
       message: 'Duplicate entry found!',
@@ -714,7 +706,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
     updatePayInData.approved_at = new Date().toISOString();
     result.status = Status.BANK_MISMATCH;
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-    merchantPayinCallback(payIn.config?.notify_url, result);
+    merchantPayinCallback(payIn.config?.urls?.notify, result);
     return {
       ...result,
       message: 'Bank Mismatched',
@@ -760,7 +752,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
   }
 
   await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-  merchantPayinCallback(payIn.config?.notify_url, result);
+  merchantPayinCallback(payIn.config?.urls?.notify, result);
   return result;
 };
 
@@ -899,7 +891,7 @@ export const processPayInByImageService = async (conn, payload) => {
       status: 'Not Found',
       amount: payload.amount,
       merchant_order_id: payIn.merchant_order_id,
-      return_url: payIn.config?.return_url,
+      return_url: payIn.config?.urls?.return,
     };
   }
 
@@ -1025,7 +1017,7 @@ export const disputeDuplicateTransactionService = async (
       updateBalance = false;
     }
 
-    merchantPayinCallback(payIn.config?.notify_url, {
+    merchantPayinCallback(payIn.config?.urls?.notify, {
       status: newStatus,
       merchantOrderId: merchantOrderId,
       payinId: payInData.id,
@@ -1058,7 +1050,7 @@ export const disputeDuplicateTransactionService = async (
     updated_by,
     conn,
   );
-  merchantPayinCallback(payIn.config?.notify_url, {
+  merchantPayinCallback(payIn.config?.urls?.notify, {
     status: updatePayload.status,
     merchantOrderId: payIn.merchant_order_id,
     payinId: payIn.id,

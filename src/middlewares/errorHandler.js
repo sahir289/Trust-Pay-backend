@@ -1,8 +1,9 @@
 import { HTTPError, CustomError } from '../utils/appErrors.js';
+import { logger } from '../utils/logger.js';
 
 // eslint-disable-next-line no-unused-vars
 const errorHandler = (error, req, res, next) => {
-  console.error(error);
+  logger.error(error);
   let statusCode = 500;
   const message = 'Server encountered a problem';
   let err = {
