@@ -17,7 +17,7 @@ import {
   getSessionByIdDao,
 } from './authDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
-import { io } from '../../../server.js';
+import { forceLogoutUser } from '../../utils/sockets.js';
 
 const loginService = async (config, clientIP) => {
   let conn;
@@ -67,7 +67,8 @@ const loginService = async (config, clientIP) => {
     await addLoginDao(conn, user.id, newConfig, user.company_id, sessionId);
 
     // **Notify previous sessions to log out**
-    io.to(user.id).emit('forceLogout');
+    // io.to(user.id).emit('forceLogout');
+    forceLogoutUser(user.id);
 
     return {
       tokenInfo,
