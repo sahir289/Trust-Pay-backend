@@ -81,13 +81,13 @@ const deleteBankaccountDao = async (conn, id, data) => {
 
 export const updateBanktBalanceDao = async (
   filters,
-  balance,
-  today_balance,
+  amount,
+  updated_by,
   conn,
 ) => {
   const [sql, params] = buildUpdateQuery(
     tableName.BANK_ACCOUNT,
-    { balance, today_balance },
+    { balance: amount, today_balance: amount, updated_by },
     filters,
     { balance: '+', today_balance: '+' },
   );

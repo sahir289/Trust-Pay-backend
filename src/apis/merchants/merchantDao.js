@@ -113,11 +113,11 @@ export const deleteMerchantDao = async (ids, data) => {
   }
 };
 
-export const updateMerchantBalanceDao = async (filters, valueToAdd, conn) => {
+export const updateMerchantBalanceDao = async (filters, valueToAdd, updated_by, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(
       tableName.MERCHANT,
-      { balance: valueToAdd },
+      { balance: valueToAdd, updated_by },
       filters,
       { balance: '+' },
     );
