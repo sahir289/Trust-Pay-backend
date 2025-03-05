@@ -97,8 +97,8 @@ const deleteBankaccountDao = async (conn, id, data) => {
 
 export const updateBanktBalanceDao = async (
   filters,
-  balance,
-  today_balance,
+  amount,
+  updated_by,
   conn,
 ) => {
   try {

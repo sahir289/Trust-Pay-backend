@@ -1,4 +1,4 @@
-import { sendSuccess } from '../../utils/responseHandlers.js';
+import {  sendSuccess } from '../../utils/responseHandlers.js';
 import {
   createMerchantService,
   deleteMerchantService,

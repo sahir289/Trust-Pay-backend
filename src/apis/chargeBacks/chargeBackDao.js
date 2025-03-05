@@ -16,7 +16,7 @@ export const createChargeBackDao = async (data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error creating ChargeBack entry:', error);
-    throw new Error('Error creating ChargeBack entry');
+    throw error.message;
   }
 };
 
@@ -65,8 +65,8 @@ export const getChargeBackDao = async (
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
-    console.error("Error fetching ChargeBack entries:", error);
-    throw new Error("Error fetching ChargeBack entries");
+    console.error('Error fetching ChargeBack entries:', error);
+    throw error.message;
   }
 };
 
@@ -78,7 +78,7 @@ export const updateChargeBackDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error updating ChargeBack entry:', error);
-    throw new Error('Error updating ChargeBack entry');
+    throw error.message;
   }
 };
 
@@ -90,6 +90,6 @@ export const deleteChargeBackDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error deleting ChargeBack entry:', error);
-    throw new Error('Error deleting ChargeBack entry');
+    throw error.message;
   }
 };

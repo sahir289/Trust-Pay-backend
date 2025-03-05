@@ -1,4 +1,4 @@
-import { BadRequestError } from '../../utils/appErrors.js';
+import { InternalServerError } from '../../utils/appErrors.js';
 import {
   beginTransaction,
   commit,
@@ -18,6 +18,7 @@ import {
   vendorColumns,
 } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
+
 const createChargeBackService = async (payload, role) => {
   let conn;
   try {
@@ -36,7 +37,7 @@ const createChargeBackService = async (payload, role) => {
     return finalResult;
   } catch (error) {
     console.error('Error while creating ChargeBack', error);
-    throw new BadRequestError('Error occurred while creating ChargeBack');
+    throw new InternalServerError(error);
   }
 };
 
@@ -59,7 +60,7 @@ const getChargeBacksService = async (filters, role) => {
     );
   } catch (error) {
     console.error('Error while fetching ChargeBacks', error);
-    throw new BadRequestError('Error occurred while fetching ChargeBacks');
+    throw new InternalServerError(error);
   }
 };
 
@@ -88,7 +89,7 @@ const updateChargeBackService = async (ids, payload, role) => {
       }
     }
     console.error('Error while updating ChargeBack', error);
-    throw new BadRequestError('Error occurred while updating ChargeBack');
+    throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
@@ -127,7 +128,7 @@ const deleteChargeBackService = async (ids, payload, role) => {
       }
     }
     console.error('Error while deleting ChargeBack', error);
-    throw new BadRequestError('Error occurred while deleting ChargeBack');
+    throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {

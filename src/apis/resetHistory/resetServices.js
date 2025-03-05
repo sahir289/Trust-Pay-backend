@@ -4,7 +4,7 @@ import {
   deleteResetHistoryDao,
   getResetHistoryDao,
   updateResetHistoryDao,
-} from './ResetHistoryDao.js';
+} from './resetDao.js';
 
 const getResetHistoryService = async (id) => {
   try {

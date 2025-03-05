@@ -225,6 +225,7 @@ const createUserDao = async (conn, payload) => {
     throw error.message;
   }
 };
+/////no params get all users data
 const getUsersForCronDao = async (conn) => {
   try {
     const sql = `SELECT id  FROM public."User" where is_obsolete = false`;
@@ -236,6 +237,7 @@ const getUsersForCronDao = async (conn) => {
     return result.rows;
   } catch (error) {
     console.error('error getting users', error);
+    throw error.message;
   }
 };
 export {

@@ -1,4 +1,4 @@
-import { BadRequestError } from '../../utils/appErrors.js';
+import { BadRequestError,InternalServerError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
 import { getConnection } from '../../utils/db.js';
 import {
@@ -28,7 +28,7 @@ const getUsersService = async (ids, role) => {
     return await getUsersDao(ids, null, null, null, null, filterColumns);
   } catch (error) {
     console.error('error getting while fetching user', error);
-    throw new BadRequestError('Error getting while fetching user');
+    throw new InternalServerError(error);
   }
 };
 
@@ -49,7 +49,7 @@ const getUserByIdService = async (ids, role) => {
     return finalResult;
   } catch (error) {
     console.error('error getting while getting user by id', error);
-    throw new BadRequestError(error);
+    throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
@@ -76,7 +76,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
     return finalResult;
   } catch (error) {
     console.error('error getting while fetching user', error);
-    throw new BadRequestError(error);
+    throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
@@ -157,7 +157,7 @@ const createUserService = async (conn, payload, role) => {
     return finalResult;
   } catch (error) {
     console.error('error getting while creating user', error);
-    throw new BadRequestError(error);
+    throw new InternalServerError(error);
   }
 };
 

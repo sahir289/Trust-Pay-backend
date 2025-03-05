@@ -1,5 +1,8 @@
 import axios from 'axios';
 import config from '../config/config.js';
+import { logoutSet } from '../middlewares/auth.js';
+import { AuthenticationError } from '../utils/appErrors.js';
+import { verifyToken } from '../utils/auth.js';
 
 // Function to calculate balances based on role
 export const calculateBalances = (calc, prevCalc, isMerchant) => {
@@ -161,3 +164,16 @@ export const filterResponse = (data, keys) => {
     return null;
   }
 };
+
+export const decodeAuthToken = (token) => {
+
+  if (!token) {
+    return {};
+  }
+
+  if (logoutSet.has(token)) {
+    throw new AuthenticationError('Token expired or User logged out.');
+  }
+
+  return verifyToken(token);
+}

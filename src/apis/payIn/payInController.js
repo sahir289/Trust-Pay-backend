@@ -37,10 +37,11 @@ import {
 } from './payInService.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
-import { streamToBase64 } from '../../helpers/index.js';
+import { decodeAuthToken, streamToBase64 } from '../../helpers/index.js';
 import { s3 } from '../../helpers/Aws.js';
 import { stringifyJSON } from '../../utils/index.js';
 import { crypto512Algo } from '../../utils/cryptoAlgorithm.js';
+import { AUTH_HEADER_KEY } from '../../utils/constants.js';
 
 //  To Generate Url
 export const generatePayInUrl = async (req, res) => {
@@ -50,10 +51,12 @@ export const generatePayInUrl = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const x_api_key = req.headers['x-api-key'];
+  const token = req.headers[AUTH_HEADER_KEY];
+  const tokenData = decodeAuthToken(token);
   const result = await generatePayInUrlService({
     ...payload,
     x_api_key,
-  });
+  }, tokenData.user_id);
 
   // create some kind of hash to secure the next public API flow
   const queryStr =
@@ -199,6 +202,7 @@ export const updateDepositStatus = async (req, res) => {
     merchantOrderId,
     nick_name,
     req.user.company_id,
+    req.user.user_id,
   );
   sendSuccess(res, updateRes, 'PayIn data updated successfully');
 };
@@ -212,6 +216,7 @@ export const resetDeposit = async (req, res) => {
   const data = await transactionWrapper(resetDepositService)(
     merchant_order_id,
     req.user.company_id,
+    req.user.user_id,
   );
   sendSuccess(res, data);
 };
@@ -299,6 +304,7 @@ export const disputeDuplicateTransaction = async (req, res) => {
   const data = await transactionWrapper(disputeDuplicateTransactionService)(
     payload,
     req.user.company_id,
+    req.user.user_id
   );
   sendSuccess(res, data);
 };
@@ -312,6 +318,8 @@ export const telegramCheckUTR = async (req, res) => {
   const result = await transactionWrapper(telegramCheckUTRService)(
     utr,
     merchantOrderId,
+    req.user.company_id,
+    req.user.user_id,
   );
   sendSuccess(res, result);
 };
