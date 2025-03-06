@@ -117,7 +117,11 @@ const getMerchantReportService = async (req, res) => {
       }
       return sendSuccess(res, dataArray, 'Reports fetched successfully');
     } else {
-      const result = await getPayinReportDao({ company_id: company_id });
+      const result = await getMerchantReportDao({ company_id: company_id}, null, null, null,
+        null,
+        null,
+        null,
+        filterColumns ) ;
       return sendSuccess(res, result, 'Reports created successfully');
     }
   } catch (error) {
@@ -151,7 +155,11 @@ const getVendorReportService = async (req, res) => {
       }
       return sendSuccess(res, dataArray, 'Reports fetched successfully');
     } else {
-      const result = await getPayinReportDao({ company_id: company_id });
+      const result = await getVendorReportDao({ company_id: company_id}, null, null, null,
+        null,
+        null,
+        null,
+        filterColumns ) ;
       return sendSuccess(res, result, 'Reports created successfully');
     }
   } catch (error) {

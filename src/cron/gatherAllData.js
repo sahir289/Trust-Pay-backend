@@ -16,13 +16,13 @@ import { getSettlementDao } from '../apis/settlement/settlementDao.js';
 import config from '../config/config.js';
 import { getConnection } from '../utils/db.js';
 
-cron.schedule('0 0 * * *', () => {
-  gatherAllData('Asia/Kolkata');
-});
+// cron.schedule('0 0 * * *', () => {
+//   gatherAllData('Asia/Kolkata');
+// });
 
-cron.schedule('0 1-23 * * *', () => {
-  gatherAllData('H', 'Asia/Kolkata');
-});
+// cron.schedule('0 1-23 * * *', () => {
+//   gatherAllData('H', 'Asia/Kolkata');
+// });
 
 const gatherAllData = async (type = 'H', timezone = 'Asia/Kolkata') => {
   let conn;
