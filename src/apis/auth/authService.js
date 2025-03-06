@@ -77,6 +77,14 @@ const loginService = async (config, clientIP) => {
   } catch (error) {
     console.error('error getting while logging in', error);
     throw new BadRequestError('Error getting while logging in');
+  } finally{
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.error('Error while releasing the connection', releaseError);
+      }
+    }
   }
 };
 
@@ -93,6 +101,12 @@ const refreshTokenService = async (refreshToken) => {
     return tokenInfo;
   } catch (error) {
     console.log('Error getting while getting refresh token', error);
+  } if (conn) {
+    try {
+      conn.release();
+    } catch (releaseError) {
+      console.error('Error while releasing the connection', releaseError);
+    }
   }
 };
 
@@ -106,6 +120,14 @@ const logoutService = async (decodeToken, session_id) => {
     return tokenInfo;
   } catch (error) {
     console.log('Error getting while getting refresh token', error);
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.error('Error while releasing the connection', releaseError);
+      }
+    }
   }
 };
 

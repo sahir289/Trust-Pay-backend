@@ -38,6 +38,14 @@ const createChargeBackService = async (payload, role) => {
   } catch (error) {
     console.error('Error while creating ChargeBack', error);
     throw new InternalServerError(error);
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.error('Error while releasing the connection', releaseError);
+      }
+    }
   }
 };
 
@@ -93,7 +101,7 @@ const updateChargeBackService = async (ids, payload, role) => {
   } finally {
     if (conn) {
       try {
-        rollback(conn); // Release the connection back to the pool
+        conn.release();
       } catch (releaseError) {
         console.error('Error while releasing the connection', releaseError);
       }
@@ -132,7 +140,7 @@ const deleteChargeBackService = async (ids, payload, role) => {
   } finally {
     if (conn) {
       try {
-        rollback(conn); // Release the connection back to the pool
+        conn.release();
       } catch (releaseError) {
         console.error('Error while releasing the connection', releaseError);
       }
