@@ -55,7 +55,6 @@ const getChargeBacks = async (req, res) => {
     role,
   );
   // Log success message
-  console.log('get ChargeBacks successfully', data);
   // Send success response
   return sendSuccess(res, data, 'ChargeBacks fetched successfully');
 };
