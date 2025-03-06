@@ -91,12 +91,8 @@ CREATE TABLE "Role" (
 CREATE TABLE "Designation" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
   "designation" varchar NOT NULL,
-  "role_id" varchar NOT NULL,
-  "created_by" varchar,
-  "updated_by" varchar,
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
-  "company_id" varchar NOT NULL,
   "is_obsolete" boolean DEFAULT false
 );
 
