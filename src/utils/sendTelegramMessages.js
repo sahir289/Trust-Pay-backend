@@ -160,7 +160,7 @@ export async function sendTelegramDashboardMerchantGroupingReportMessage(
   //   const merchantAllPayinDetails = totalPayinsMerchant.map(m =>
   //     `<b>Merchant:</b> ${m.merchantId} | <b>PayIn:</b> ${m.totalPayIn} | <b>Count:</b> ${m.totalPayInEachCount}`
   // ).join("\n");
-  const merchantAllPayinDetails = (totalPayinsMerchant || [])
+  const merchantAllPayinDetails = (Array.isArray(totalPayinsMerchant) ? totalPayinsMerchant : [])
     .map(
       (m) =>
         `<b>Merchant:</b> ${m.merchantId} | <b>PayIn:</b> ${m.totalPayIn} | <b>Count:</b> ${m.totalPayInEachCount}`,

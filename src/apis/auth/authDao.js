@@ -19,7 +19,7 @@ const addLoginDao = async (conn, user_id, config, company_id, sessionId) => {
     return result.rows?.[0] || undefined;
   } catch (error) {
     console.error('Error in adding login details', error);
-    throw new DbError('Error executing query to add login info');
+    throw error;
   }
 };
 

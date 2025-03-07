@@ -1,8 +1,8 @@
-import cron from 'node-cron';
+// import cron from 'node-cron';
 import { getMerchantsDao } from '../apis/merchants/merchantDao.js';
 import { getPayInUrlsDao } from '../apis/payIn/payInDao.js';
 import { getCalculationDao } from '../apis/calculation/calculationDao.js';
-import { getPayoutsDao } from '../apis/payOut/payOutDao.js';
+import { getPayoutsCronDao } from '../apis/payOut/payOutDao.js';
 import moment from 'moment-timezone';
 import { getUserHierarchysDao } from '../apis/userHierarchy/userHierarchyDao.js';
 import { getBankaccountDao } from '../apis/bankAccounts/bankaccountDao.js';
@@ -14,17 +14,20 @@ import {
 } from '../utils/sendTelegramMessages.js';
 import { getSettlementDao } from '../apis/settlement/settlementDao.js';
 import config from '../config/config.js';
+import { getConnection } from '../utils/db.js';
 
-cron.schedule('0 0 * * *', () => {
-  gatherAllData('Asia/Kolkata');
-});
+// cron.schedule('0 0 * * *', () => {
+//   gatherAllData('Asia/Kolkata');
+// });
 
-cron.schedule('0 1-23 * * *', () => {
-  gatherAllData('H', 'Asia/Kolkata');
-});
+// cron.schedule('0 1-23 * * *', () => {
+//   gatherAllData('H', 'Asia/Kolkata');
+// });
 
 const gatherAllData = async (type = 'H', timezone = 'Asia/Kolkata') => {
+  let conn;
   try {
+    conn = await getConnection();
     // let startDate;
     // let endDate;
     // let oneHourAgo;
@@ -144,14 +147,13 @@ const gatherAllData = async (type = 'H', timezone = 'Asia/Kolkata') => {
 
         totalPayinsMerchant.push({
           merchantId: userid.code,
-
           totalPayIn,
           totalPayInEachCount,
         });
       }
     }
 
-    const payouts = await getPayoutsDao({ status: 'SUCCESS' });
+    const payouts = await getPayoutsCronDao(conn, 'SUCCESS' );
     let payOutSum = 0;
     let payOutCount = 0;
     // let payOut = 0;
@@ -438,8 +440,8 @@ const gatherAllData = async (type = 'H', timezone = 'Asia/Kolkata') => {
       }
     };
     formattedSuccessRatiosByMerchant();
-  } catch {
-    console.error('no transactions found');
+  } catch(error) {
+    console.error(error);
   }
   const formatePrice = (price, currencySymbol = '₹') => {
     const numericPrice = Number(price);

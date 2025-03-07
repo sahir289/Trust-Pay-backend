@@ -615,11 +615,20 @@ export const resetDepositService = async (
 };
 
 export const getPayinsService = async (payload) => {
+  let conn;
   try {
-    let conn = await getConnection();
+    conn = await getConnection();
     return await getPayInsDao(conn, payload);
   } catch (error) {
     throw new InternalServerError(error);
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.error('Error while releasing the connection', releaseError);
+      }
+    }
   }
 };
 
