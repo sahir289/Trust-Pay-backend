@@ -155,6 +155,7 @@ export const buildSelectQuery = (
     sortOrder,
     page,
     pageSize,
+    prefix,
   );
   return [query, values];
 };
@@ -166,12 +167,13 @@ export const applySortingAndPagination = (
   sortOrder,
   page,
   pageSize,
+  prefix
 ) => {
   // Validate sort order
   const order = sortOrder.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
   // Add sorting
-  query += ` ORDER BY "${sortBy}" ${order}`;
+  query += ` ORDER BY ${prefix}"${sortBy}" ${order}`;
 
   // Add pagination
   const offset = (page - 1) * pageSize;
