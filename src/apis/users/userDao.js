@@ -138,7 +138,7 @@ const getUserByIdDao = async (conn, ids) => {
   }
 };
 
-const getUsersByUserNameDao = async (conn, ids, username) => {
+const getUsersByUserNameDao = async (ids, username) => {
   try {
     let baseQuery = `
       SELECT 
@@ -182,7 +182,7 @@ const getUsersByUserNameDao = async (conn, ids, username) => {
       queryParams.push(ids.company_id);
     }
 
-    const result = await conn.query(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams);
     if (result.rowCount === 0) {
       console.log(`No user found with username: ${username}`);
       return null;
