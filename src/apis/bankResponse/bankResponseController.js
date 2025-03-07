@@ -2,7 +2,7 @@ import {
   CREATE_BANK_RESPONSE_SCHEMA,
   VALIDATE_BANK_RESPONSE_BY_BANK_ID,
   VALIDATE_BANK_RESPONSE_BY_ID,
-  VALIDATE_BANK_RESPONSE_QUERY,
+  // VALIDATE_BANK_RESPONSE_QUERY,
 } from '../../schemas/bankResponseSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
@@ -20,10 +20,10 @@ const getBankResponse = async (req, res) => {
   const { role } = req.user;
   const { company_id } = req.user;
   payload.company_id = company_id;
-  const { error } = VALIDATE_BANK_RESPONSE_QUERY.validate(req.query);
-  if (error) {
-    throw new ValidationError(error);
-  }
+  // const { error } = VALIDATE_BANK_RESPONSE_QUERY.validate(req.query);
+  // if (error) {
+  //   throw new ValidationError(error);
+  // }
   const data = await getBankResponseService(payload, role);
   return sendSuccess(res, data, 'get bankResponse successfully');
 };

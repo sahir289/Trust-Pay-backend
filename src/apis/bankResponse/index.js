@@ -61,7 +61,7 @@ router.post(
  *         description: Bad request
  */
 router.get(
-  '/get-message',
+  '/',
   [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
   tryCatchHandler(getBankResponse),
 );
