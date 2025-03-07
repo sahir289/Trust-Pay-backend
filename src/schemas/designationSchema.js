@@ -1,21 +1,11 @@
 import Joi from 'joi';
 
 export const CREATE_DESIGNATION_SCHEMA = Joi.object({
-  role_id: Joi.string()
-    .guid({ version: ['uuidv4'] })
-    .label('role_id'),
   designation: Joi.string().label('designation').required(),
 });
 
 export const UPDATE_DESIGNATION_SCHEMA = Joi.object({
   designation: Joi.string().label('designation').required(),
-  role_id: Joi.string()
-    .guid({ version: ['uuidv4'] })
-    .label('role_id')
-    .optional(),
-  created_by: Joi.string().label('created_by').optional(),
-  created_at: Joi.date().iso().label('created_at').optional(),
-  updated_at: Joi.date().iso().label('updated_at').optional(),
 });
 
 export const VALIDATE_DESIGNATION_BY_ID = Joi.object({

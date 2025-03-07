@@ -92,6 +92,23 @@ LIMIT $3 OFFSET $2;
   }
 };
 
+export const getPayoutsCronDao = async (conn, payload) => {
+  try {
+    let baseQuery = `SELECT * FROM public."Payout" 
+WHERE is_obsolete = false AND status = $1
+ORDER BY created_at
+`;
+    const queryParams = [payload];
+
+    const result = await conn.query(baseQuery, queryParams);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in createPayoutDao:', error);
+    throw error.message;
+  }
+};
+
+
 export const updatePayoutDao = async (ids, data, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.PAYOUT, data, ids);

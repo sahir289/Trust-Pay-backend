@@ -17,7 +17,7 @@ import {
   getSessionByIdDao,
 } from './authDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
-import { io } from '../../../server.js';
+import { forceLogoutUser } from '../../utils/sockets.js';
 
 const loginService = async (config, clientIP) => {
   let conn;
@@ -67,7 +67,8 @@ const loginService = async (config, clientIP) => {
     await addLoginDao(conn, user.id, newConfig, user.company_id, sessionId);
 
     // **Notify previous sessions to log out**
-    io.to(user.id).emit('forceLogout');
+    // io.to(user.id).emit('forceLogout');
+    forceLogoutUser(user.id);
 
     return {
       tokenInfo,
@@ -76,6 +77,14 @@ const loginService = async (config, clientIP) => {
   } catch (error) {
     console.error('error getting while logging in', error);
     throw new BadRequestError('Error getting while logging in');
+  } finally{
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.error('Error while releasing the connection', releaseError);
+      }
+    }
   }
 };
 
@@ -92,6 +101,12 @@ const refreshTokenService = async (refreshToken) => {
     return tokenInfo;
   } catch (error) {
     console.log('Error getting while getting refresh token', error);
+  } if (conn) {
+    try {
+      conn.release();
+    } catch (releaseError) {
+      console.error('Error while releasing the connection', releaseError);
+    }
   }
 };
 
@@ -105,6 +120,14 @@ const logoutService = async (decodeToken, session_id) => {
     return tokenInfo;
   } catch (error) {
     console.log('Error getting while getting refresh token', error);
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.error('Error while releasing the connection', releaseError);
+      }
+    }
   }
 };
 
