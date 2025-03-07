@@ -245,7 +245,7 @@ const getMerchantByIdService = async (filters, role, addUserHierarchy = false) =
     merchant.subMerchants = await getMerchantsDao({
       user_id: userHierarchy.config[user_id],
       company_id: filters.company_id
-    });
+    }, null, null, null, null, filterColumns);
   }
 
   return merchant;
