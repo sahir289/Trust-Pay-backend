@@ -46,7 +46,7 @@ const getVendorsService = async (filters, roleIs) => {
   }
 };
 
-const getVendorsCodeService = async (filters, roleIs) => {
+const getVendorsCodeService = async (filters) => {
   try {
     return await getVendorsCodeDao(filters, null, null, null, null, null);
   } catch (error) {

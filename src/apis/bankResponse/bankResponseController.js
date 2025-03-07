@@ -1,7 +1,6 @@
 import {
   CREATE_BANK_RESPONSE_SCHEMA,
-  VALIDATE_BANK_RESPONSE_BY_BANK_ID,
-  VALIDATE_BANK_RESPONSE_BY_ID,
+
   // VALIDATE_BANK_RESPONSE_QUERY,
 } from '../../schemas/bankResponseSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';

@@ -4,7 +4,7 @@ import {
   Role,
   vendorColumns,
 } from '../../constants/index.js';
-import { BadRequestError } from '../../utils/appErrors.js';
+import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import {
   getBankaccountDao,

@@ -10,7 +10,6 @@ import {
 } from './vendorController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
-import { getVendorsCodeDao } from './vendorDao.js';
 
 const router = express.Router();
 
