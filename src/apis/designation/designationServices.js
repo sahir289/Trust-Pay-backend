@@ -36,11 +36,10 @@ const updateDesignationService = async (id, payload) => {
   }
 };
 
-const deleteDesignationService = async (id, updated_by) => {
+const deleteDesignationService = async (id) => {
   try {
     const result = await deleteDesignationDao(id, {
       is_obsolete: true,
-      updated_by,
     });
     return result;
   } catch (error) {

@@ -999,42 +999,30 @@ const getBankResponseService = async (payload, role) => {
         : role === Role.VENDOR
           ? vendorColumns.BANK_RESPONSE
           : columns.BANK_RESPONSE;
-    const sno = !isNaN(Number(payload.sno)) ? Number(payload.sno) : 0;
-    const status = payload.status || '';
-    const amount = !isNaN(Number(payload.amount)) ? Number(payload.amount) : 0;
-    const utr = payload.utr || '';
-    const bank_id = payload.bank_id || '';
-    const is_used = payload.is_used;
-    let filters = {};
-    if (sno > 0) filters.sno = sno;
-    if (status) filters.status = status;
-    if (amount > 0) filters.amount = amount;
-    if (utr) filters.utr = utr;
-    if (bank_id) filters.bank_id = bank_id;
-    if (is_used !== undefined)
-      filters.is_used =
-        is_used === 'Used' ? true : is_used === 'Unused' ? false : true;
 
-    const data = await getBankResponseDaoAll(
-      {
-        sno: filters.sno,
-        status: filters.status,
-        amount: filters.amount,
-        utr: filters.utr,
-        bank_id: filters.bank_id,
-        is_used: filters.is_used,
-        company_id: payload.company_id,
-      },
-      null,
-      null,
-      null,
-      null,
-      filterColumns,
+    // Convert and sanitize input values
+    const sno = Number(payload.sno) > 0 ? Number(payload.sno) : undefined;
+    const amount = Number(payload.amount) > 0 ? Number(payload.amount) : undefined;
+    const is_used = payload.is_used === 'Used' ? true : payload.is_used === 'Unused' ? false : undefined;
+
+    // Construct filters dynamically
+    const filters = Object.fromEntries(
+      Object.entries({
+        sno,
+        status: payload.status || undefined,
+        amount,
+        utr: payload.utr || undefined,
+        bank_id: payload.bank_id || undefined,
+        is_used,
+        company_id: payload.company_id || undefined,
+      }).filter(([, v]) => v !== undefined) // Remove undefined values
     );
-    return data;
+
+    // Fetch data
+    return await getBankResponseDaoAll(filters, null, null, null, null, filterColumns);
   } catch (error) {
-    console.error('Error while updating BankResponse', 'error', error);
-    throw new BadRequestError('Error occurred while Creating BankResponse');
+    console.error('Error while fetching BankResponse:', error);
+    throw new BadRequestError('Error occurred while Fetching BankResponse');
   }
 };
 

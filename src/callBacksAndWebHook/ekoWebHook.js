@@ -1,18 +1,14 @@
 /* eslint-disable no-unused-vars */
 // Import required functions and classes
 import {
-  getBankaccountDao,
   updateBankaccountByIdDao,
 } from '../apis/bankAccounts/bankaccountDao';
 import { getMerchantsDao } from '../apis/merchants/merchantDao';
 import { getPayoutsDao, updatePayoutDao } from '../apis/payOut/payOutDao';
 import { NotFoundError } from '../utils/appErrors';
-import Logger from '../utils/logger';
 import { merchantPayoutCallback } from './merchantCallBacks';
 import { Status } from '../constants';
-
-// Initialize logger
-const logger = new Logger();
+import { logger } from '../utils/logger.js';
 
 // Define the optimized ekoTransactionStatusCallback function
 export const ekoTransactionStatusCallback = async (req, res) => {
@@ -78,6 +74,6 @@ export const ekoTransactionStatusCallback = async (req, res) => {
     return data;
   } catch (err) {
     // Log any errors while updating the payout
-    console.error('getting error while updating payout', err);
+    logger.error('getting error while updating payout', err);
   }
 };

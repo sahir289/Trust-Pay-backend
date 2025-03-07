@@ -34,7 +34,7 @@ CREATE TABLE "User" (
 CREATE TABLE "Merchant" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
   "role_id" varchar NOT NULL,
-  "user_id" varchar NOT NULL,
+  "user_id" varchar NOT NULL UNIQUE,
   "first_name" varchar NOT NULL,
   "last_name" varchar NOT NULL,
   "code" varchar UNIQUE NOT NULL,
@@ -61,7 +61,7 @@ CREATE TABLE "Merchant" (
 CREATE TABLE "Vendor" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
   "role_id" varchar NOT NULL,
-  "user_id" varchar NOT NULL,
+  "user_id" varchar NOT NULL UNIQUE,
   "first_name" varchar NOT NULL,
   "last_name" varchar NOT NULL,
   "code" varchar UNIQUE NOT NULL,
@@ -91,12 +91,8 @@ CREATE TABLE "Role" (
 CREATE TABLE "Designation" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
   "designation" varchar NOT NULL,
-  "role_id" varchar NOT NULL,
-  "created_by" varchar,
-  "updated_by" varchar,
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
-  "company_id" varchar NOT NULL,
   "is_obsolete" boolean DEFAULT false
 );
 
@@ -268,7 +264,7 @@ CREATE TABLE "ChargeBack" (
   "user" varchar NOT NULL,
   "merchant_user_id" varchar NOT NULL,
   "vendor_user_id" varchar NOT NULL,
-  "payin_id" varchar NOT NULL,
+  "payin_id" varchar NOT NULL UNIQUE, 
   "bank_acc_id" varchar NOT NULL,
   "amount" float NOT NULL,
   "when" TIMESTAMPTZ NOT NULL,

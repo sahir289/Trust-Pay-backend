@@ -36,10 +36,6 @@ const createDesignation = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   let payload = req.body;
-  const { company_id, user_id } = req.user;
-  payload.company_id = company_id;
-  payload.created_by = user_id;
-  payload.updated_by = user_id;
   await transactionWrapper(createDesignationService)(payload);
   console.log('Create Designations successfully');
   return sendSuccess(res, {}, 'Create Designations successfully');
@@ -56,9 +52,7 @@ const updateDesignation = async (req, res) => {
     throw new ValidationError(Validation.error);
   }
   const { id } = req.params;
-  const { company_id, user_id } = req.user;
-  payload.updated_by = user_id;
-  await updateDesignationService({ id, company_id }, payload);
+  await updateDesignationService({ id }, payload);
   return sendSuccess(res, {}, 'update Designations successfully');
 };
 const deleteDesignation = async (req, res) => {
@@ -67,13 +61,11 @@ const deleteDesignation = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const { id } = req.params;
-  const { company_id, user_id } = req.user;
-  const updated_by = user_id;
   if (!id) {
     console.error('payload is required');
     throw new BadRequestError('payload is required');
   }
-  await deleteDesignationService({ id, company_id }, updated_by);
+  await deleteDesignationService({ id });
   console.log('delete Designations successfully');
   return sendSuccess(res, {}, 'delete Designations successfully');
 };

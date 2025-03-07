@@ -102,7 +102,7 @@ router.get(
  *         description: Internal server error
  */
 router.get(
-  '/:id',
+  '/:user_id',
   [isAuthenticated, authorized(AccessRoles.CALCULATION)],
   tryCatchHandler(getCalculationById),
 );

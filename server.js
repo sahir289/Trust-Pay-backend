@@ -1,15 +1,12 @@
 import app from './src/app.js';
 import { createServer } from 'http';
-import { Server } from 'socket.io';
 import chalk from 'chalk';
 import config from './src/config/config.js';
+import { initializeSocket } from './src/utils/sockets.js';
 
 const server = createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: [`${config?.reactFrontOrigin}`, `${config?.reactPaymentOrigin}`],
-  },
-});
+
+initializeSocket(server);
 
 const PORT = config?.port || 8090;
 
@@ -58,7 +55,8 @@ const onListening = () => {
 };
 
 process.on('SIGINT', () => {
-  console.error('stopping the server');
+  const message = chalk.bold.red('stopping the server');
+  console.error(message);
   process.exit();
 });
 
@@ -66,24 +64,36 @@ server.listen(port);
 server.on('error', onError);
 server.on('listening', onListening);
 
-io.on('connection', (socket) => {
-  console.log(`Client connected with socket ID:${socket.id}`);
+// io.on('connection', (socket) => {
+//   console.log(`Client connected with socket ID:${socket.id}`);
 
-  // Emit a test message to the client
-  socket.emit('new-entry', { message: 'Hello from server!!!', data: {} });
+//   // Emit a test message to the client
+//   socket.emit('new-entry', { message: 'Hello from server!!!', data: {} });
 
-  // Optional: Broadcast to all clients
-  io.emit('broadcast-message', { message: 'A new client has connected!' });
+//   socket.on("user-login", (userId) => {
+//     userSockets.set(userId, socket.id);
+//     console.log(`User ${userId} is associated with socket ${socket.id}`);
+//   });
 
-  // Listen for client events
-  socket.on('client-message', (data) => {
-    console.log(`Received from client:`, data);
-  });
+//   // Optional: Broadcast to all clients
+//   io.emit('broadcast-message', { message: 'A new client has connected!' });
 
-  // Handle disconnection
-  socket.on('disconnect', () => {
-    console.error('Client disconnected');
-  });
-});
+//   // Listen for client events
+//   socket.on('client-message', (data) => {
+//     console.log(`Received from client:`, data);
+//   });
 
-export { io };
+//   // Handle disconnection
+//   socket.on('disconnect', () => {
+//     for (const [userId, socketId] of userSockets.entries()) {
+//       if (socketId === socket.id) {
+//         userSockets.delete(userId);
+//         console.log(`User ${userId} disconnected`);
+//         break;
+//       }
+//     }
+//     console.error('Client disconnected');
+//   });
+// });
+
+// export { io, userSockets };
