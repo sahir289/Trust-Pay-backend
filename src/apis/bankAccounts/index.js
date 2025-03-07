@@ -6,6 +6,7 @@ import {
   getBankaccountById,
   getBankaccount,
   updateBankaccount,
+  getBankaccountNickName,
 } from './bankaccountController.js';
 const router = express.Router();
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
@@ -49,6 +50,42 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)],
   tryCatchHandler(getBankaccount),
 );
+
+
+
+/**
+ * @swagger
+ * /bankAccounts:
+ *   get:
+ *     summary: Get all bank accounts
+ *     description: Returns a list of all bank accounts.
+ *     tags: [Bank Accounts]
+ *     responses:
+ *       200:
+ *         description: A list of bank accounts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     example: 1
+ *                   bankAccountsname:
+ *                     type: string
+ *                     example: "john_doe"
+ *       500:
+ *         description: Internal server error
+ */
+router.get(
+  '/banknames',
+  [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)],
+  tryCatchHandler(getBankaccountNickName),
+);
+
+
 /**
  * @swagger
  * /bankAccounts/{id}:

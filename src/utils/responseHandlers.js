@@ -1,3 +1,5 @@
+import { logger } from "./logger.js";
+
 const sendSuccess = (
   res,
   data = undefined,
@@ -24,6 +26,8 @@ const sendSuccess = (
   if (page) {
     finalRes = { ...finalRes, page };
   }
+
+  logger.info(message);
   return res.status(status).json(finalRes);
 };
 
@@ -45,6 +49,7 @@ const sendError = (
   if (error) {
     finalRes.error = { ...error };
   }
+  logger.error(message);
   return res.status(statusCode).json(finalRes);
 };
 

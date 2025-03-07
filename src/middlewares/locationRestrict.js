@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { europeanCountries } from '../constants/index.js';
 import { COUNTRIES } from '../constants/index.js';
+import { logger } from '../utils/logger.js';
 const BLOCK_LAT = process.env.BLOCK_LAT;
 const BLOCK_LONG = process.env.BLOCK_LONG;
 const PROXY_CHECK_URL = process.env.PROXY_CHECK_URL;
@@ -23,16 +24,16 @@ const getUserLocationMiddleware = async (req, res, next) => {
     }
     const { latitude, longitude, vpn, region, country } = userData;
     if (vpn === 'yes') {
-      console.warn('VPN detected. Access denied.', userData);
+      logger.warn('VPN detected. Access denied.', userData);
       return res.status(403).send('403: Access denied');
     }
     if (country === 'India' && restrictedStates.includes(region)) {
-      console.error(`Access restricted for users in ${region}.`, userData);
+      logger.error(`Access restricted for users in ${region}.`, userData);
       return res.status(403).send('403: Access denied');
     }
 
     if (!COUNTRIES.includes(country) && !europeanCountries.includes(country)) {
-      console.error(`Access restricted for users from ${country}.`, userData);
+      logger.error(`Access restricted for users from ${country}.`, userData);
       return res.status(403).send('403: Access denied');
     }
     if (!isNaN(latitude) && !isNaN(longitude)) {
@@ -46,11 +47,11 @@ const getUserLocationMiddleware = async (req, res, next) => {
           radiusKm,
         )
       ) {
-        console.error('Access restricted in your region.', userData);
+        logger.error('Access restricted in your region.', userData);
         return res.status(403).send('403: Access denied');
       }
     } else {
-      console.warn('Invalid latitude/longitude data received.');
+      logger.warn('Invalid latitude/longitude data received.');
       return res.status(500).send('500: Access denied');
     }
     req.user_location = {
@@ -67,7 +68,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
     };
     next();
   } catch (error) {
-    console.error('Error fetching user location:', error);
+    logger.error('Error fetching user location:', error);
     res.status(500).json({ message: 'Error fetching user location' });
   }
 };
