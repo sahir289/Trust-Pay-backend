@@ -20,10 +20,9 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
     if (!payins.length) {
       return;
     }
-
     await processPayinNotifications(payins);
-  } catch (error) {
-    console.error('Error while collecting payin data:', error?.message);
+  } catch {
+    console.error('Error while collecting payin data:');
   }
 };
 
@@ -46,14 +45,20 @@ async function processPayinNotifications(payins) {
 
       if (payin.config.notify_url) {
         try {
-          const notifyMerchant = await axios.post(payin.config.notify_url, notificationData);
+          const notifyMerchant = await axios.post(
+            payin.config.notify_url,
+            notificationData,
+          );
           console.info('Notification sent successfully', {
             status: notifyMerchant.status,
             data: notifyMerchant.data,
           });
           await updatePayInUrlDao(payin.id, { is_notified: 'true' });
         } catch (error) {
-          console.error('Error sending notification to merchant:', error?.message);
+          console.error(
+            'Error sending notification to merchant:',
+            error?.message,
+          );
           // If required, add retry logic here
         }
       } else {

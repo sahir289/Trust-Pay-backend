@@ -1,10 +1,12 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import {
-    createBankResponse,
-    resetBankResponse, getBankResponse, getBankMessage
-} from "./bankResponseController.js";
-import { isAuthenticated,authorized } from '../../middlewares/auth.js';
+  createBankResponse,
+  resetBankResponse,
+  getBankResponse,
+  getBankMessage,
+} from './bankResponseController.js';
+import { isAuthenticated, authorized } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
 
@@ -27,7 +29,11 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.post('/create-message', [isAuthenticated,authorized(AccessRoles.BANK_RESPONSE)], tryCatchHandler(createBankResponse));
+router.post(
+  '/create-message',
+  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+  tryCatchHandler(createBankResponse),
+);
 
 /**
  * @swagger
@@ -54,7 +60,11 @@ router.post('/create-message', [isAuthenticated,authorized(AccessRoles.BANK_RESP
  *       400:
  *         description: Bad request
  */
-router.get('/get-message',  [isAuthenticated,authorized(AccessRoles.BANK_RESPONSE)], tryCatchHandler(getBankResponse));
+router.get(
+  '/get-message',
+  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+  tryCatchHandler(getBankResponse),
+);
 
 /**
  * @swagger
@@ -87,7 +97,11 @@ router.get('/get-message',  [isAuthenticated,authorized(AccessRoles.BANK_RESPONS
  *         description: Complaint not found
  */
 
-router.get('/get-bank-message', [isAuthenticated,authorized(AccessRoles.BANK_RESPONSE)],  tryCatchHandler(getBankMessage));
+router.get(
+  '/get-bank-message',
+  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+  tryCatchHandler(getBankMessage),
+);
 
 /**
  * @swagger
@@ -109,6 +123,10 @@ router.get('/get-bank-message', [isAuthenticated,authorized(AccessRoles.BANK_RES
  *         description: Complaint not found
  */
 
-router.put('/reset-message',  [isAuthenticated,authorized(AccessRoles.BANK_RESPONSE)], tryCatchHandler(resetBankResponse));
+router.put(
+  '/reset-message',
+  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+  tryCatchHandler(resetBankResponse),
+);
 
 export default router;

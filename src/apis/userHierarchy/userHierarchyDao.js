@@ -1,56 +1,76 @@
-import { tableName } from "../../constants/index.js";
-import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from "../../utils/db.js";
-import { buildSearchFilterObj } from "../../utils/searchBuilder.js";
-export const createUserHierarchyDao = async (data) => {
-    try {
-        const [sql, params] = buildInsertQuery(tableName.USER_HIERARCHY, data);
-        const result = await executeQuery(sql, params);
-        return result.rows[0];
-    } catch (error) {
-        console.error('Error in createUserHierarchyDao:', error);
-        throw new Error('Failed to create user hierarchy');
+import { tableName } from '../../constants/index.js';
+import {
+  buildInsertQuery,
+  buildSelectQuery,
+  buildUpdateQuery,
+  executeQuery,
+} from '../../utils/db.js';
+import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
+export const createUserHierarchyDao = async (data, conn) => {
+  try {
+    const [sql, params] = buildInsertQuery(tableName.USER_HIERARCHY, data);
+    if (conn && conn.query) {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
     }
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error in create UserHierarchy Dao:', error);
+    throw error.message;
+  }
 };
 
 export const getUserHierarchysDao = async (
-    filters,
-    page,
-    pageSize,
-    sortBy,
-    sortOrder,
-    columns = [],
+  filters,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+  columns = [],
 ) => {
-    const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.USER_HIERARCHY}" WHERE 1=1`;
+  try {
+    const baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.USER_HIERARCHY}" WHERE 1=1`;
     //TODO: columns.USER_HEIRARCHY dynamic search
-     if (filters.search) {
-                filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
-                delete filters.search;
-            }
-    const [sql, queryParams] = buildSelectQuery(baseQuery, filters, page, pageSize, sortBy, sortOrder);
+    if (filters.search) {
+      filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
+      delete filters.search;
+    }
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+    );
     // Execute query
     const result = await executeQuery(sql, queryParams);
     return result.rows;
+  } catch (error) {
+    console.error('Error in get UserHierarchy Dao:', error);
+    throw error.message;
+  }
 };
 
-
 export const updateUserHierarchyDao = async (id, data) => {
-    try {
-        const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data, id);
-        const result = await executeQuery(sql, params);
-        return result.rows[0];
-    } catch (error) {
-        console.error('Error in updateUserHierarchyDao:', error);
-        throw new Error('Failed to update user hierarchy');
-    }
+  try {
+    const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data, id);
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error in updateUserHierarchyDao:', error);
+    throw error.message;
+  }
 };
 
 export const deleteUserHierarchyDao = async (id, data) => {
-    try {
-        const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data,id);
-        const result = await executeQuery(sql, params);
-        return result.rows[0];
-    } catch (error) {
-        console.error('Error in deleteUserHierarchyDao:', error);
-        throw new Error('Failed to delete user hierarchy');
-    }
+  try {
+    const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data, id);
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error in deleteUserHierarchyDao:', error);
+    throw error.message;
+  }
 };

@@ -1,8 +1,11 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { createCheckUtrService, deleteCheckUtrService, getCheckUtrService, updateCheckUtrService } from './CheckUtrServices.js';
-
-
+import {
+  createCheckUtrService,
+  deleteCheckUtrService,
+  getCheckUtrService,
+  updateCheckUtrService,
+} from './CheckUtrServices.js';
 
 const getCheckUtr = async (req, res) => {
   try {
@@ -27,7 +30,7 @@ const createCheckUtr = async (req, res) => {
   } catch (error) {
     console.error('error getting while check utr', error);
   }
-}
+};
 
 const updateCheckUtr = async (req, res) => {
   try {
@@ -38,8 +41,7 @@ const updateCheckUtr = async (req, res) => {
   } catch (error) {
     console.error('error getting while check utr', error);
   }
-}
-
+};
 
 const deleteCheckUtr = async (req, res) => {
   try {
@@ -54,5 +56,5 @@ const deleteCheckUtr = async (req, res) => {
   } catch (error) {
     console.error('error getting while check utr', error);
   }
-}
+};
 export { getCheckUtr, createCheckUtr, updateCheckUtr, deleteCheckUtr };

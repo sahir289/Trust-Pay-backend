@@ -4,35 +4,40 @@ import {
   executeQuery,
   buildUpdateQuery,
 } from '../../utils/db.js';
-import { tableName } from '../../constants/index.js';
+import { tableName, columns } from '../../constants/index.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
-const getRoleDao = async (filters, page, pageSize, sortBy, sortOrder) => {
+const getRoleDao = async (
+  filters,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+  Columns = columns.ROLE,
+) => {
   try {
-  const baseQuery = `SELECT id,role FROM "${tableName.ROLE}" WHERE 1=1`;
-   if (filters.search) {
-              filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
-              delete filters.search;
-          }
-  //TODO: columns.ROLE dynamic search
-  const [sql, queryParams] = buildSelectQuery(
-    baseQuery,
-    filters,
-    page,
-    pageSize,
-    sortBy,
-    sortOrder
-  );
-  // Execute query
-  const result = await executeQuery(sql, queryParams)
-  return result.rows;
-}catch (error) {
-  console.error('Error in getRolesDao:', error);
-  throw new Error('Failed to fetch Roles');
-}
+    const baseQuery = `SELECT ${Columns.length ? Columns.join(', ') : '*'} FROM "${tableName.ROLE}" WHERE 1=1`;
+    if (filters.search) {
+      filters.or = buildSearchFilterObj(filters.search, tableName.ROLE);
+      delete filters.search;
+    }
+    //TODO: columns.ROLE dynamic search
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+    );
+    // Execute query
+    const result = await executeQuery(sql, queryParams);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getRolesDao:', error);
+    throw error.message;
+  }
 };
-
-
 
 const createRoleDao = async (conn, data) => {
   try {
@@ -45,7 +50,7 @@ const createRoleDao = async (conn, data) => {
     return result.rows[0];
   } catch (error) {
     console.error(error);
-    throw error;
+    throw error.message;
   }
 };
 
@@ -60,7 +65,7 @@ const updateRoleDao = async (conn, id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error(error);
-    throw error;
+    throw error.message;
   }
 };
 
@@ -71,7 +76,7 @@ const deleteRoleDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error(error);
-    throw error;
+    throw error.message;
   }
 };
 

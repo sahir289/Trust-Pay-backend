@@ -1,35 +1,20 @@
-import { DbError } from '../../utils/appErrors.js';
+import { tableName } from '../../constants/index.js';
+import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
+import { buildSelectQuery, executeQuery } from '../../utils/db.js';
 
-const getUsersDao = async (conn, ids) => {
+const getUsersDao = async (
+  filters,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+  columns = [],
+) => {
   try {
-    let baseQuery = `
-      SELECT 
-        u.id, 
-        u.first_name, 
-        u.last_name, 
-        u.email, 
-        u.contact_no, 
-        u.user_name, 
-        u.code, 
-        u.is_enabled, 
-        u.last_login, 
-        u.last_logout, 
-        u.config, 
-        u.created_by, 
-        u.updated_by, 
-        u.created_at, 
-        u.updated_at, 
-        r.role,   
-        d.designation 
-      FROM public."User" u
-      LEFT JOIN public."Role" r ON u.role_id = r.id   
-      LEFT JOIN public."Designation" d ON u.designation_id = d.id  
-      WHERE u.is_obsolete = false
-    `;
-    const queryParams = [];
-    if (ids.role_id) {
-      baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.role_id); 
+    const baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.USER}" WHERE 1=1`;
+    if (filters.search) {
+      filters.or = buildSearchFilterObj(filters.search, tableName.USER);
+      delete filters.search;
     }
     if (ids.designation_id) {
       baseQuery += ` AND u.designation_id = $${queryParams.length + 1}`;
@@ -46,10 +31,63 @@ const getUsersDao = async (conn, ids) => {
     }
     return result.rows;
   } catch (error) {
-    console.error('error getting while fetching user', error);
-    throw new DbError('Error executing query to fetch all users');
+    console.error('Error in getUserssDao:', error);
+    throw error.message;
   }
 };
+
+// const getUsersDao = async (conn, ids) => {
+//   try {
+//     let baseQuery = `
+//       SELECT
+//         u.id,
+//         u.first_name,
+//         u.last_name,
+//         u.email,
+//         u.contact_no,
+//         u.user_name,
+//         u.code,
+//         u.is_enabled,
+//         u.last_login,
+//         u.last_logout,
+//         u.config,
+//         u.created_by,
+//         u.updated_by,
+//         u.created_at,
+//         u.updated_at,
+//         r.role,
+//         d.designation
+//       FROM public."User" u
+//       LEFT JOIN public."Role" r ON u.role_id = r.id
+//       LEFT JOIN public."Designation" d ON u.designation_id = d.id
+//       WHERE u.is_obsolete = false
+//     `;
+//     const queryParams = [];
+//     if (ids.role_id) {
+//       baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
+//       queryParams.push(ids.role_id);
+//     }
+//     if (ids.designation_id) {
+//       baseQuery += ` AND u.designation_id = $${queryParams.length + 1}`;
+//       queryParams.push(ids.designation_id);
+//     }
+//     if (ids.company_id) {
+//       baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
+//       queryParams.push(ids.company_id);
+//     }
+//     const result = await conn.query(baseQuery, queryParams);
+//     if (result.rows.length === 0) {
+//       console.error('No users found');
+//       return [];
+//     }
+
+//       return result.rows;
+
+//   } catch (error) {
+//     console.error('error getting while fetching user', error);
+//     throw new DbError('Error executing query to fetch all users');
+//   }
+// };
 const getUserByIdDao = async (conn, ids) => {
   try {
     let baseQuery = `
@@ -83,28 +121,26 @@ const getUserByIdDao = async (conn, ids) => {
     }
     if (ids.designation_id) {
       baseQuery += ` AND u.designation_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.designation_id); 
+      queryParams.push(ids.designation_id);
     }
     if (ids.company_id) {
       baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.company_id); 
+      queryParams.push(ids.company_id);
     }
     const result = await conn.query(baseQuery, queryParams);
     if (result.rowCount === 0) {
       console.error('No user found with the provided id and filters');
       return [];
     }
-    const data = {
-      user: result.rows[0], 
-    };
-    return data;
+
+    return result.rows;
   } catch (error) {
     console.error('error getting while fetching user', error);
-    throw new DbError('Error executing query to fetch all users');
+    throw error.message;
   }
 };
 
-const getUsersByUserNameDao = async (conn, ids,username) => {
+const getUsersByUserNameDao = async (conn, ids, username) => {
   try {
     let baseQuery = `
       SELECT 
@@ -132,20 +168,20 @@ const getUsersByUserNameDao = async (conn, ids,username) => {
       LEFT JOIN public."Designation" d ON u.designation_id = d.id 
       WHERE u.user_name = $1
     `;
-    
-    const queryParams = [username]; 
+
+    const queryParams = [username];
 
     if (ids.role_id) {
       baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.role_id); 
+      queryParams.push(ids.role_id);
     }
     if (ids.designation_id) {
       baseQuery += ` AND u.designation_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.designation_id); 
+      queryParams.push(ids.designation_id);
     }
     if (ids.company_id) {
       baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.company_id); 
+      queryParams.push(ids.company_id);
     }
 
     const result = await conn.query(baseQuery, queryParams);
@@ -156,10 +192,9 @@ const getUsersByUserNameDao = async (conn, ids,username) => {
     return result.rows[0];
   } catch (error) {
     console.error(`Error fetching user by username: ${username}`, error);
-    throw new DbError('Error executing query to fetch user by username');
+    throw error.message;
   }
 };
-
 
 const createUserDao = async (conn, payload) => {
   try {
@@ -189,8 +224,28 @@ const createUserDao = async (conn, payload) => {
     return result.rows[0];
   } catch (error) {
     console.error(`Error creating user: ${payload.user_name}`, error);
-    throw new DbError('Error executing query to create user');
+    throw error.message;
   }
 };
-
-export { getUsersDao, getUserByIdDao, getUsersByUserNameDao, createUserDao };
+/////no params get all users data
+const getUsersForCronDao = async (conn) => {
+  try {
+    const sql = `SELECT id  FROM public."User" where is_obsolete = false`;
+    const result = await conn.query(sql);
+    if (result.rows.length === 0) {
+      console.log('No users Found');
+      return [];
+    }
+    return result.rows;
+  } catch (error) {
+    console.error('error getting users', error);
+    throw error.message;
+  }
+};
+export {
+  getUsersDao,
+  getUserByIdDao,
+  getUsersForCronDao,
+  getUsersByUserNameDao,
+  createUserDao,
+};

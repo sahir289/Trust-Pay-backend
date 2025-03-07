@@ -1,6 +1,12 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { createUserHierarchy, deleteUserHierarchy, getUserHierarchys, updateUserHierarchy, getUserHierarchysById } from './userHierarchyController.js';
+import {
+  createUserHierarchy,
+  deleteUserHierarchy,
+  getUserHierarchys,
+  updateUserHierarchy,
+  getUserHierarchysById,
+} from './userHierarchyController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 
@@ -38,7 +44,11 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get('/', [isAuthenticated, authorized(AccessRoles.USER_HIERARCHY.UPDATE_READ)], tryCatchHandler(getUserHierarchys));
+router.get(
+  '/',
+  [isAuthenticated, authorized(AccessRoles.USER_HIERARCHY.UPDATE_READ)],
+  tryCatchHandler(getUserHierarchys),
+);
 
 /**
  * @swagger
@@ -72,7 +82,11 @@ router.get('/', [isAuthenticated, authorized(AccessRoles.USER_HIERARCHY.UPDATE_R
  *       404:
  *         description: UserHierarchy not found.
  */
-router.get('/:id', [isAuthenticated, authorized(AccessRoles.USER_HIERARCHY.UPDATE_READ)], tryCatchHandler(getUserHierarchysById));
+router.get(
+  '/:id',
+  [isAuthenticated, authorized(AccessRoles.USER_HIERARCHY.UPDATE_READ)],
+  tryCatchHandler(getUserHierarchysById),
+);
 
 /**
  * @swagger
@@ -100,7 +114,11 @@ router.get('/:id', [isAuthenticated, authorized(AccessRoles.USER_HIERARCHY.UPDAT
  *       400:
  *         description: Invalid request data.
  */
-router.post('/create-userHierarchy', [isAuthenticated, authorized(AccessRoles.USER_HIERARCHY.CREATE_DELETE)], tryCatchHandler(createUserHierarchy));
+router.post(
+  '/create-userHierarchy',
+  [isAuthenticated, authorized(AccessRoles.USER_HIERARCHY.CREATE_DELETE)],
+  tryCatchHandler(createUserHierarchy),
+);
 
 /**
  * @swagger
@@ -135,7 +153,11 @@ router.post('/create-userHierarchy', [isAuthenticated, authorized(AccessRoles.US
  *       404:
  *         description: UserHierarchy not found.
  */
-router.put('/update-userHierarchy/:id', [isAuthenticated, authorized(AccessRoles.USER_HIERARCHY.UPDATE_READ)], tryCatchHandler(updateUserHierarchy));
+router.put(
+  '/update-userHierarchy/:id',
+  [isAuthenticated, authorized(AccessRoles.USER_HIERARCHY.UPDATE_READ)],
+  tryCatchHandler(updateUserHierarchy),
+);
 
 /**
  * @swagger
@@ -157,6 +179,10 @@ router.put('/update-userHierarchy/:id', [isAuthenticated, authorized(AccessRoles
  *       404:
  *         description: UserHierarchy not found.
  */
-router.delete('/delete-userHierarchy/:id', [isAuthenticated, authorized(AccessRoles.USER_HIERARCHY.CREATE_DELETE)], tryCatchHandler(deleteUserHierarchy));
+router.delete(
+  '/delete-userHierarchy/:id',
+  [isAuthenticated, authorized(AccessRoles.USER_HIERARCHY.CREATE_DELETE)],
+  tryCatchHandler(deleteUserHierarchy),
+);
 
 export default router;
