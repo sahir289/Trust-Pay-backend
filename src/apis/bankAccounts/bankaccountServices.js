@@ -14,8 +14,14 @@ import {
   getBankaccountDaoNickName,
 } from './bankaccountDao.js';
 
-const getBankaccountService = async (filters) => {
+const getBankaccountService = async (filters,role) => {
   try {
+    const filterColumns =
+    role === Role.MERCHANT
+      ? merchantColumns.BANK_ACCOUNT
+      : role === Role.VENDOR
+        ? vendorColumns.BANK_ACCOUNT
+        : columns.BANK_ACCOUNT;
     return await getBankaccountDao(
       filters,
       null,

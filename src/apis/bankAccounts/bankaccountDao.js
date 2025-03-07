@@ -2,6 +2,7 @@ import { tableName } from '../../constants/index.js';
 
 import {
   buildInsertQuery,
+  buildJoinQuery,
   buildSelectQuery,
   buildUpdateQuery,
   executeQuery,
@@ -17,11 +18,30 @@ const getBankaccountDao = async (
   columns = [],
 ) => {
   try {
-    const baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
+    const { VENDOR, BANK_ACCOUNT } = tableName
+    const joins = [
+      {
+        table: VENDOR,
+        // first is source key
+        // second is target key
+        keys: ['user_id', 'user_id'],
+        type: 'LEFT JOIN',
+        // columns: ['designation_id'],
+        columnAs: [
+          `"${VENDOR}".code AS Vendor`,
+        ],
+      }]
+    const baseQuery = buildJoinQuery(
+      BANK_ACCOUNT,
+      columns.length ? columns : '*',
+      joins,
+    );
+    console.log(baseQuery);
     if (filters.search) {
-      filters.or = buildSearchFilterObj(filters.search, tableName.BANK_ACCOUNT);
+      filters.or = buildSearchFilterObj(filters.search, BANK_ACCOUNT);
       delete filters.search;
     }
+    // console.log(JSON.stringify(filters, undefined, 4));
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
@@ -29,9 +49,11 @@ const getBankaccountDao = async (
       pageSize,
       sortBy,
       sortOrder,
+      tableName.BANK_ACCOUNT,
     );
+    // Execute query
     const result = await executeQuery(sql, queryParams);
-    return result.rows;
+    return { totalCount: result.rowCount, bankCodes: result.rows };
   } catch (error) {
     console.error(error);
     throw error.message;
@@ -43,7 +65,7 @@ const getMerchantBankDao = async (filters) => {
     const query = `SELECT * FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
     const [sql, parameters] = buildSelectQuery(query, filters);
     const result = await executeQuery(sql, parameters);
-    return {totalCount : result.rowCount, merchantCodes : result.rows};
+    return {totalCount : result.rowCount, merchantBankCodes : result.rows};
   } catch (error) {
     console.error(error);
     throw error.message;
@@ -61,11 +83,11 @@ const createBankaccountDao = async (payload) => {
   }
 };
 
-const getBankaccountDaoNickName = async(conn, company_id, type)=>{
+const getBankaccountDaoNickName = async (conn, company_id, type) => {
   const baseQuery = `SELECT nick_name,id FROM "${tableName.BANK_ACCOUNT}" WHERE company_id = $1 AND bank_used_for= $2`;
-    const queryParams = [company_id, type];
-    const result = await conn.query(baseQuery, queryParams);
-    return {totalCount : result.rowCount, merchantCodes : result.rows};
+  const queryParams = [company_id, type];
+  const result = await conn.query(baseQuery, queryParams);
+  return { totalCount: result.rowCount, merchantCodes: result.rows };
 }
 
 
