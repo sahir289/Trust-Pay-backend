@@ -41,20 +41,14 @@ const getPayoutsById = async (req, res) => {
   // Fetch vendors data from the service
   const data = await getPayoutsService({ id, company_id }, role);
   // Log success message
-  console.log('getPayouts successfully', data);
+  console.log('getPayouts successfully');
   // Send success response
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };
 
 const getPayouts = async (req, res) => {
-  const payload = {
-    page: parseInt(req.query.page, 10) || 1, // Default to page 1 if not provided
-    limit: parseInt(req.query.limit) || null,
-  };
-  const { company_id } = req.user;
-  payload.company_id = company_id;
-  const data = await getPayoutsService(payload);
-  console.log('getPayins successfully', data);
+  const { company_id, role } = req.user;  
+  const data = await getPayoutsService(company_id , req.query, role);
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };
 
