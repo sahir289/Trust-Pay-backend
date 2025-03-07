@@ -89,7 +89,7 @@ const getMerchantsService = async (filters, role, designation, user_id) => {
       // only send merhcant underlings if Requested person is Merchant Admin
       filters.user_id = userHierarchy.config[user_id];
     }
-    
+
     const data = await getMerchantsDao(
       filters,
       null,
@@ -101,19 +101,19 @@ const getMerchantsService = async (filters, role, designation, user_id) => {
 
     // TODO: add designation constants
     if (role === Role.ADMIN && designation === Role.ADMIN) {
-      for (const merchant of data){
+      for (const merchant of data) {
         // user_id is unique
         const userHierarchys = await getUserHierarchysDao({ user_id: merchant.user_id });
         const userHierarchy = userHierarchys[0];
-  
+
         if (!userHierarchy || !userHierarchy.config || !Array.isArray(userHierarchy.config[merchant.user_id])) {
           merchant.subMerchants = [];
           continue;
         }
         // if Requested Person is Admin Admin then also send merchant underlings
-        merchant.subMerchants = await getMerchantsDao({ 
+        merchant.subMerchants = await getMerchantsDao({
           user_id: userHierarchy.config[merchant.user_id],
-          company_id: filters.company_id 
+          company_id: filters.company_id
         });
       }
 
@@ -179,9 +179,41 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
   }
 };
 
+const getMerchantByIdService = async (filters, role, addUserHierarchy = false) => {
+
+  const filterColumns = role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
+  const data = await getMerchantsDao(
+    filters,
+    null,
+    null,
+    null,
+    null,
+    filterColumns,
+  );
+
+  if (addUserHierarchy) {
+    // user_id is unique
+    const userHierarchys = await getUserHierarchysDao({ user_id: data.user_id });
+    const userHierarchy = userHierarchys[0];
+
+    if (!userHierarchy || !userHierarchy.config || !Array.isArray(userHierarchy.config[data.user_id])) {
+      data.subMerchants = [];
+      return data;
+    }
+
+    data.subMerchants = await getMerchantsDao({
+      user_id: userHierarchy.config[data.user_id],
+      company_id: filters.company_id
+    });
+  }
+
+  return data;
+}
+
 export {
   createMerchantService,
   getMerchantsService,
   updateMerchantService,
   deleteMerchantService,
+  getMerchantByIdService,
 };
