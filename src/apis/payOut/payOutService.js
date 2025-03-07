@@ -42,6 +42,7 @@ import {
   vendorColumns,
 } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
+import { getPayInsDao } from '../payIn/payInDao.js';
 
 const createPayoutService = async (conn, headers, payload, role) => {
   try {
@@ -93,12 +94,16 @@ const createPayoutService = async (conn, headers, payload, role) => {
   }
 };
 
-const getPayoutsService = async (payload) => {
+const getPayoutsService = async ( company_id, filters, role) => {
   let conn;
   try {
     conn = await getConnection();
-    return await getPayoutsDao(conn, payload);
-  } catch (error) {
+    await beginTransaction(conn); 
+    const data = await getPayInsDao(conn, filters, company_id, null,null, role);
+    await commit(conn); 
+    return data
+   }
+  catch (error) {
     console.error('Error in getPayoutsService:', error);
     throw new InternalServerError(error);
   } finally {
