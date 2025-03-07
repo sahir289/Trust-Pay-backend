@@ -39,7 +39,8 @@ export const getPayoutsDao = async (conn, filters, company_id, page, limit, role
     if (Object.keys(filters).length > 0) {
       Object.keys(filters).forEach((key) => {
         const value = filters[key];
-        if (value !== null && value !== undefined && value !== '' && value !== -0) {
+        if (value !== null && value !== undefined && value !== '')
+          {
           if (Array.isArray(value)) {
             conditions.push(`u."${key}" = ANY($${queryParams.length + 1})`);
             queryParams.push(value);
