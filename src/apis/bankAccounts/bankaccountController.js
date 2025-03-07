@@ -74,7 +74,7 @@ const createBankaccount = async (req, res) => {
   delete payload.min_payout;
   delete payload.max_payout;
 
-  const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
+  const joiValidation = BANK_ACCOUNT_SCHEMA.validate(req.body);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
