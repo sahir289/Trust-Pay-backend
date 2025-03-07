@@ -1,4 +1,4 @@
-import { InternalServerError } from '../../utils/appErrors.js';
+import { InternalServerError, NotFoundError } from '../../utils/appErrors.js';
 import {
   beginTransaction,
   commit,
@@ -181,8 +181,9 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
 
 const getMerchantByIdService = async (filters, role, addUserHierarchy = false) => {
 
-  const filterColumns = role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
-  const data = await getMerchantsDao(
+  const entryColumns = role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT
+  const filterColumns = entryColumns.includes('user_id') ? entryColumns : [...entryColumns, 'user_id'];
+  const dataArr = await getMerchantsDao(
     filters,
     null,
     null,
@@ -191,23 +192,32 @@ const getMerchantByIdService = async (filters, role, addUserHierarchy = false) =
     filterColumns,
   );
 
+  const merchant = dataArr[0];
+
+  if(!merchant){
+    throw new NotFoundError("Merchant not found!");
+  }
+
+  const user_id = merchant.user_id;
+  delete merchant.user_id;
+
   if (addUserHierarchy) {
     // user_id is unique
-    const userHierarchys = await getUserHierarchysDao({ user_id: data.user_id });
+    const userHierarchys = await getUserHierarchysDao({ user_id });
     const userHierarchy = userHierarchys[0];
-
-    if (!userHierarchy || !userHierarchy.config || !Array.isArray(userHierarchy.config[data.user_id])) {
-      data.subMerchants = [];
-      return data;
+    
+    if (!userHierarchy || !userHierarchy.config || !Array.isArray(userHierarchy.config[user_id])) {
+      merchant.subMerchants = [];
+      return merchant;
     }
 
-    data.subMerchants = await getMerchantsDao({
-      user_id: userHierarchy.config[data.user_id],
+    merchant.subMerchants = await getMerchantsDao({
+      user_id: userHierarchy.config[user_id],
       company_id: filters.company_id
     });
   }
 
-  return data;
+  return merchant;
 }
 
 export {
