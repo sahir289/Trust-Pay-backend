@@ -7,23 +7,40 @@ import {
 } from './merchantService.js';
 import {
   VALIDATE_UPDATE_MERCHANT_STATUS,
-  VALIDATE_MERCHANT_BY_ID,
   VALIDATE_MERCHANT_SCHEMA,
 } from '../../schemas/merchantSchema.js';
-import { ValidationError } from '../../utils/appErrors.js';
+import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
-
+import { generateUUID } from '../../utils/generateUUID.js';
 const createMerchant = async (req, res) => {
-  const { error } = VALIDATE_MERCHANT_SCHEMA.validate(req.body);
+  let payload = req.body;
+  const Secret = generateUUID();
+  const Public = generateUUID();
+ payload.config = {
+   ...payload.config, // Preserve existing config properties
+   urls: {
+     payin_notify: payload.payin_notify,
+     payout_notify: payload.payout_notify,
+     return_url: payload.return_url,
+     site: payload.site,
+   },
+   keys: {
+     secret:Secret,
+     public:Public,
+   },
+ };
+  delete payload.payin_notify;
+  delete payload.payout_notify;
+  delete payload.return_url;
+  delete payload.site;
+  const { company_id, user_id, role, } = req.user;
+  const { error } = VALIDATE_MERCHANT_SCHEMA.validate(payload);
   if (error) {
     throw new ValidationError(error);
   }
-  const { role } = req.user;
-  let payload = req.body;
-  const { company_id, user_id } = req.user;
-  payload.company_id = company_id;
-  payload.created_by = user_id;
-  payload.updated_by = user_id;
+   payload.company_id = company_id;
+   payload.created_by = user_id;
+   payload.updated_by = user_id;
   // Call the service to create the Merchant
   await transactionWrapper(createMerchantService)(payload, role);
 
@@ -47,9 +64,8 @@ const getMerchants = async (req, res) => {
 };
 const getMerchantsById = async (req, res) => {
   const { role } = req.user;
-  const { error } = VALIDATE_MERCHANT_BY_ID.validate(req.params);
-  if (error) {
-    throw new ValidationError(error);
+  if (!req.params) {
+    throw new BadRequestError("id required in request");
   }
   const { id } = req.params;
   const { company_id } = req.user;
@@ -63,19 +79,31 @@ const getMerchantsById = async (req, res) => {
 };
 
 const updateMerchant = async (req, res) => {
-  const { error: paramsError } = VALIDATE_MERCHANT_BY_ID.validate(req.params);
-  if (paramsError) {
-    throw new ValidationError(paramsError);
-  }
+ if (!req.params) {
+   throw new BadRequestError('id required in request');
+ }
+  let payload = req.body;
+  payload.config = { ...payload.config, url: { ...payload.config?.url } };
+
+  const urlKeys = ['payin_notify', 'payout_notify', 'return_url', 'site'];
+  urlKeys.forEach((key) => {
+    if (
+      payload[key] !== undefined &&
+      payload[key] !== payload.config.url[key]
+    ) {
+      payload.config.url[key] = payload[key];
+      delete payload[key];
+    }
+  });
+
+
   // Validate body (fields for update)
-  const { error: bodyError } = VALIDATE_UPDATE_MERCHANT_STATUS.validate(
-    req.body,
-  );
+  const { error: bodyError } =
+    VALIDATE_UPDATE_MERCHANT_STATUS.validate(payload);
   if (bodyError) {
     throw new ValidationError(bodyError);
   }
-  const payload = req.body;
-  const { id } = req.params; // Assuming the Merchant ID is passed as a parameter
+  const { id } = req.params; 
   const { company_id, user_id, role } = req.user;
   payload.updated_by = user_id;
   const ids = { id, company_id };
@@ -83,16 +111,14 @@ const updateMerchant = async (req, res) => {
   await updateMerchantService(ids, payload, role);
   // Log success message
   console.log('Merchant updated successfully');
-
   // Send a success response to the client
   return sendSuccess(res, {}, 'Merchant updated successfully');
 };
 
 const deleteMerchant = async (req, res) => {
   const { role } = req.user;
-  const { error } = VALIDATE_MERCHANT_BY_ID.validate(req.params);
-  if (error) {
-    throw new ValidationError(error);
+  if (!req.params) {
+    throw new BadRequestError('id required in request');
   }
   const { id } = req.params; // Assuming the Merchant ID is passed as a parameter
   // Call the service to delete the Merchant

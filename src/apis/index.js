@@ -33,7 +33,7 @@ router.use('/chargeBacks', chargeBacks);
 router.use('/roles', roles);
 router.use('/calculation', calculation);
 router.use('/designation', designation);
-router.use('/bankAccount', bankaccount);
+router.use('/bankDetails', bankaccount);
 router.use('/bankResponse', bankResponse);
 router.use('/company', company);
 router.use('/settlement', settlement);
