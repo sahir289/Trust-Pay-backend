@@ -1004,17 +1004,11 @@ const getBankResponseService = async (payload, role) => {
     const amount = !isNaN(Number(payload.amount)) ? Number(payload.amount) : 0;
     const utr = payload.utr || '';
     const bank_id = payload.bank_id || '';
-    // const page = parseInt(payload.page) || 1;
-    // const pageSize = parseInt(payload.pageSize) || 10;
     const is_used = payload.is_used;
-    // const skip = Math.max(0, (page - 1) * pageSize);
-    // const take = Math.max(1, pageSize);
-
     let filters = {};
     if (sno > 0) filters.sno = sno;
     if (status) filters.status = status;
     if (amount > 0) filters.amount = amount;
-    // if (amount_code) filters.amount_code = { contains: amount_code, mode: "insensitive" };
     if (utr) filters.utr = utr;
     if (bank_id) filters.bank_id = bank_id;
     if (is_used !== undefined)

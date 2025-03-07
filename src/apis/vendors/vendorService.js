@@ -10,6 +10,7 @@ import {
 import {
   createVendorDao,
   deleteVendorDao,
+  getVendorsCodeDao,
   getVendorsDao,
   updateVendorDao,
 } from './vendorDao.js';
@@ -44,6 +45,16 @@ const getVendorsService = async (filters, roleIs) => {
     throw new InternalServerError(error);
   }
 };
+
+const getVendorsCodeService = async (filters, roleIs) => {
+  try {
+    return await getVendorsCodeDao(filters, null, null, null, null, null);
+  } catch (error) {
+    console.error('Error while fetching vendors', error);
+    throw new InternalServerError(error);
+  }
+};
+
 
 const updateVendorService = async (id, payload, role) => {
   let conn;
@@ -134,4 +145,5 @@ export {
   getVendorsService,
   updateVendorService,
   deleteVendorService,
+  getVendorsCodeService
 };

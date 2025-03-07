@@ -3,6 +3,7 @@ import {
   createMerchantService,
   deleteMerchantService,
   getMerchantsService,
+  getMerchantsServiceCode,
   updateMerchantService,
 } from './merchantService.js';
 import {
@@ -45,6 +46,17 @@ const getMerchants = async (req, res) => {
   console.log('get Merchants successfully');
   return sendSuccess(res, data, 'Merchants fetched successfully');
 };
+
+const getMerchantCodes = async (req, res) => {
+  const {company_id} = req.user
+  const data = await getMerchantsServiceCode(
+    company_id
+  );
+  console.log('get Merchants successfully');
+  return sendSuccess(res, data, 'Merchants fetched successfully');
+};
+
+
 const getMerchantsById = async (req, res) => {
   const { role } = req.user;
   const { error } = VALIDATE_MERCHANT_BY_ID.validate(req.params);
@@ -113,4 +125,5 @@ export {
   updateMerchant,
   deleteMerchant,
   getMerchantsById,
+  getMerchantCodes
 };

@@ -5,21 +5,17 @@ import {
   vendorColumns,
 } from '../../constants/index.js';
 import { BadRequestError } from '../../utils/appErrors.js';
+import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import {
   getBankaccountDao,
   createBankaccountDao,
   updateBankaccountDao,
   deleteBankaccountDao,
+  getBankaccountDaoNickName,
 } from './bankaccountDao.js';
 
-const getBankaccountService = async (filters, role) => {
+const getBankaccountService = async (filters) => {
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.BANK_ACCOUNT
-        : role === Role.VENDOR
-          ? vendorColumns.BANK_ACCOUNT
-          : columns.BANK_ACCOUNT;
     return await getBankaccountDao(
       filters,
       null,
@@ -33,6 +29,41 @@ const getBankaccountService = async (filters, role) => {
     throw new BadRequestError('Error getting while  getting banks');
   }
 };
+
+const getBankaccountServiceNickName = async(company_id,type)=>{
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await getBankaccountDaoNickName(conn, company_id, type,
+      null,
+      null,
+      null,
+      null,
+      null);
+    await commit(conn);
+    return result;
+  } catch (error) {
+    if (conn) {
+      try {
+        await rollback(conn); 
+      } catch (rollbackError) {
+        console.error('Error during transaction rollback', rollbackError);
+      }
+    }
+    console.error('Error while deleting ChargeBack', error);
+    throw new InternalServerError(error);
+  } finally {
+    if (conn) {
+      try {
+        rollback(conn);
+      } catch (releaseError) {
+        console.error('Error while releasing the connection', releaseError);
+      }
+    }
+  }
+}
+
 const createBankaccountService = async (payload) => {
   try {
     const result = await createBankaccountDao(payload);
@@ -77,4 +108,5 @@ export {
   createBankaccountService,
   updateBankaccountService,
   deleteBankaccountService,
+  getBankaccountServiceNickName
 };

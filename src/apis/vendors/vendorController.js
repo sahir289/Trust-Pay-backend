@@ -2,6 +2,7 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   createVendorService,
   deleteVendorService,
+  getVendorsCodeService,
   getVendorsService,
   updateVendorService,
 } from './vendorService.js';
@@ -48,6 +49,20 @@ const getVendors = async (req, res) => {
   return sendSuccess(res, data, 'Vendors fetched successfully');
 };
 
+
+const getVendorCodes = async (req, res) => {
+  const { company_id } = req.user;
+  // let search = req.query.search;
+  const data = await getVendorsCodeService(
+    {
+      company_id,
+    },
+  );
+  // Log success message
+  console.log('get Vendors successfully');
+  // Send success response
+  return sendSuccess(res, data, 'Vendors fetched successfully');
+};
 const getVendorById = async (req, res) => {
   const { error } = VALIDATE_VENDOR_BY_ID.validate(req.params);
   if (error) {
@@ -105,4 +120,4 @@ const deleteVendor = async (req, res) => {
   return sendSuccess(res, {}, 'Vendor deleted successfully');
 };
 
-export { createVendor, getVendors, getVendorById, updateVendor, deleteVendor };
+export { createVendor, getVendors,getVendorCodes, getVendorById, updateVendor, deleteVendor };

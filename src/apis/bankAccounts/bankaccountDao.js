@@ -43,7 +43,7 @@ const getMerchantBankDao = async (filters) => {
     const query = `SELECT * FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
     const [sql, parameters] = buildSelectQuery(query, filters);
     const result = await executeQuery(sql, parameters);
-    return result.rows;
+    return {totalCount : result.rowCount, merchantCodes : result.rows};
   } catch (error) {
     console.error(error);
     throw error.message;
@@ -61,6 +61,14 @@ const createBankaccountDao = async (payload) => {
   }
 };
 
+const getBankaccountDaoNickName = async(conn, company_id, type)=>{
+  const baseQuery = `SELECT nick_name,id FROM "${tableName.BANK_ACCOUNT}" WHERE company_id = $1 AND bank_used_for= $2`;
+    const queryParams = [company_id, type];
+    const result = await conn.query(baseQuery, queryParams);
+    return {totalCount : result.rowCount, merchantCodes : result.rows};
+}
+
+
 const updateBankaccountDao = async (conn, id, payload) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, payload, id);
@@ -70,7 +78,6 @@ const updateBankaccountDao = async (conn, id, payload) => {
     } else {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
-
     return result.rows[0];
   } catch (error) {
     throw error.message;
@@ -123,4 +130,5 @@ export {
   updateBankaccountDao,
   deleteBankaccountDao,
   getMerchantBankDao,
+  getBankaccountDaoNickName
 };

@@ -18,6 +18,7 @@ import {
   createBankaccountService,
   updateBankaccountService,
   deleteBankaccountService,
+  getBankaccountServiceNickName,
 } from './bankaccountServices.js';
 
 const getBankaccount = async (req, res) => {
@@ -33,13 +34,19 @@ const getBankaccount = async (req, res) => {
   return sendSuccess(res, data, 'get Banks successfully');
 };
 
+const getBankaccountNickName = async(req, res) =>{
+  const { type } = req.query;
+  const { company_id } = req.user;
+  const data = await getBankaccountServiceNickName(
+    company_id, type
+  )
+  return sendSuccess(res, data, 'get Banks successfully');
+}
+
+
 const getBankaccountById = async (req, res) => {
   const { id } = req.params;
   const { company_id, role } = req.user;
-  const joiValidation = VALIDATE_BANK_RESPONSE_BY_ID.validate(id);
-  if (joiValidation.error) {
-    throw new ValidationError(joiValidation.error);
-  }
   const data = await getBankaccountService(
     {
       company_id: company_id,
@@ -133,4 +140,5 @@ export {
   updateBankaccount,
   deleteBankaccount,
   getMerchantBank,
+  getBankaccountNickName
 };

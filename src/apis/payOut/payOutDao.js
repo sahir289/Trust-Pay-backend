@@ -79,7 +79,8 @@ export const getPayoutsDao = async (conn, payload) => {
 
     const queryParams = [payload.company_id, payload.page, payload.limit];
     const result = await conn.query(baseQuery, queryParams);
-    return { totalCount: result.rows.length, rows: result.rows };
+
+    return  { totalCount: result.rowCount, rows: result.rows };
 
   } catch (error) {
     console.error('Error in createPayoutDao:', error);

@@ -8,6 +8,7 @@ import {
 import {
   createMerchantDao,
   deleteMerchantDao,
+  getMerchantsCodeDao,
   getMerchantsDao,
   updateMerchantDao,
 } from './merchantDao.js';
@@ -88,6 +89,36 @@ const getMerchantsService = async (filters, role) => {
   }
 };
 
+
+const getMerchantsServiceCode = async (company_id) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const codes = await getMerchantsCodeDao(conn, company_id);
+    await commit(conn);
+    return codes;
+  } catch (error) {
+    if (conn) {
+      try {
+        await rollback(conn); 
+      } catch (rollbackError) {
+        console.error('Error during transaction rollback', rollbackError);
+      }
+    }
+    console.error('Error while deleting ChargeBack', error);
+    throw new InternalServerError(error);
+  } finally {
+    if (conn) {
+      try {
+        rollback(conn);
+      } catch (releaseError) {
+        console.error('Error while releasing the connection', releaseError);
+      }
+    }
+  }
+};
+
 // Update Merchant Service
 const updateMerchantService = async (ids, payload, role) => {
   try {
@@ -144,4 +175,5 @@ export {
   getMerchantsService,
   updateMerchantService,
   deleteMerchantService,
+  getMerchantsServiceCode
 };
