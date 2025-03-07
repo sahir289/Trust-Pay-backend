@@ -44,7 +44,7 @@ export const getPayoutsDao = async (conn, payload) => {
     u.updated_by, 
     u.created_at, 
     u.updated_at, 
-    u.config AS payout_config,
+    u.config AS payout_details,
     
     v.code AS vendor_code, v.id AS vendor_id, v.user_id AS vendor_user_id,
     b.id AS bank_table_id, b.user_id, b.nick_name,
@@ -79,7 +79,8 @@ export const getPayoutsDao = async (conn, payload) => {
 
     const queryParams = [payload.company_id, payload.page, payload.limit];
     const result = await conn.query(baseQuery, queryParams);
-    return { totalCount: result.rows.length, rows: result.rows };
+
+    return  { totalCount: result.rowCount, rows: result.rows };
 
   } catch (error) {
     console.error('Error in createPayoutDao:', error);

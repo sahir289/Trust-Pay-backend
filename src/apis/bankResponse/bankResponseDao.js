@@ -1,5 +1,5 @@
 import { tableName } from '../../constants/index.js';
-import { DbError } from '../../utils/appErrors.js';
+import { DbError, InternalServerError } from '../../utils/appErrors.js';
 // import { generateUUID } from '../utils/generateUUID.js';
 
 import {
@@ -7,6 +7,7 @@ import {
   buildSelectQuery,
   buildInsertQuery,
   buildUpdateQuery,
+  buildJoinQuery,
 } from '../../utils/db.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
@@ -46,7 +47,7 @@ const getBankResponseDao = async (
     const result = await executeQuery(sql, queryParams);
     return result.rows[0];
   } catch {
-    DbError('Error executing query');
+    throw new InternalServerError('Error executing query');
   }
 };
 
@@ -59,8 +60,36 @@ const getBankResponseDaoAll = async (
   columns = [],
 ) => {
   try {
-    let baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.BANK_RESPONSE}" WHERE 1=1`;
-    //TODO: columns.BANK_RESPONSE dynamic search
+    const { BANK_ACCOUNT, BANK_RESPONSE, VENDOR } = tableName;
+    const joins = [
+      {
+        table: BANK_ACCOUNT,
+        // first is source key
+        // second is target key
+        keys: ['bank_id', 'id'],
+        type: 'JOIN',
+        columns: ['user_id', 'nick_name', 'bank_name'],
+      },
+      {
+        table: VENDOR,
+        // first is source key
+        // second is target key
+        keys: [`user_id`, 'user_id'],
+        columns: ['code'],
+        type: 'LEFT JOIN',
+        referenceTable: BANK_ACCOUNT,
+      },
+    ];
+    const baseQuery = buildJoinQuery(
+      BANK_RESPONSE,
+      columns.length ? columns : '*',
+      joins,
+    );
+    console.log(baseQuery, "baseQueryfiltersfilters")
+    if (filters.search) {
+      filters.or = buildSearchFilterObj(filters.search, MERCHANT);
+      delete filters.search;
+    }
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
@@ -68,12 +97,13 @@ const getBankResponseDaoAll = async (
       pageSize,
       sortBy,
       sortOrder,
-      'BankResponse',
+      tableName.BANK_RESPONSE,
     );
+    console.log(sql,queryParams, "sqlqueryParams")
     const result = await executeQuery(sql, queryParams);
     return { totalCount: result.rows.length, rows: result.rows };
   } catch {
-    DbError('Error executing query');
+    throw new InternalServerError('Error executing query');
   }
 };
 
@@ -84,7 +114,7 @@ const createBankResponseDao = async (data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch {
-    DbError('Error executing query');
+    throw new InternalServerError('Error executing query');
   }
 };
 
@@ -111,7 +141,7 @@ const getBankMessageDao = async (
     const result = await executeQuery(query, values);
     return result.rows;
   } catch {
-    DbError('Error executing query');
+    throw new InternalServerError('Error executing query');
   }
 };
 
@@ -123,7 +153,7 @@ const resetBankResponseDao = async (id, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch {
-    DbError('Error executing query');
+    throw new InternalServerError('Error executing query');
   }
 };
 
@@ -135,7 +165,7 @@ const updateBotResponseDao = async (id, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch {
-    DbError('Error executing query');
+    throw new InternalServerError('Error executing query');
   }
 };
 
