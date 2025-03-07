@@ -90,7 +90,7 @@ CREATE TABLE "Role" (
 
 CREATE TABLE "Designation" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
-  "designation" varchar NOT NULL,
+  "designation" varchar NOT NULL UNIQUE,
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
   "is_obsolete" boolean DEFAULT false

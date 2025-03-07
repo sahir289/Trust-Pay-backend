@@ -30,8 +30,8 @@ export const BANK_ACCOUNT_SCHEMA = Joi.object({
     .label('bank_used_for')
     .optional(),
   config: Joi.object().label('config').optional(),
-  created_at: Joi.date().iso().label('created_at').optional(),
-  updated_at: Joi.date().iso().label('updated_at').optional(),
+  created_by: Joi.string().label('created_by').optional(),
+  updated_by: Joi.string().label('updated_by').optional(),
   company_id: Joi.string().label('company_id').optional(),
 });
 
