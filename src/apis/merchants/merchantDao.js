@@ -23,6 +23,20 @@ export const createMerchantDao = async (data, conn) => {
   }
 };
 
+export const getMerchantsCodeDao = async (conn,
+company_id ) => {
+  try {
+    const baseQuery = `SELECT code,user_id FROM "${tableName.MERCHANT}" WHERE company_id = $1`;
+    const queryParams = [company_id];
+    const result = await conn.query(baseQuery, queryParams);
+    return {totalCount : result.rowCount, merchantCodes : result.rows};
+  } catch (error) {
+    console.error('Error fetching company:', error);
+    throw error.message;
+  }
+};
+
+
 export const getMerchantsDao = async (
   filters,
   page,
@@ -80,7 +94,7 @@ export const getMerchantsDao = async (
     );
     // Execute query
     const result = await executeQuery(sql, queryParams);
-    return result.rows;
+    return {totalCount : result.rowCount, merchantCodes : result.rows};
   } catch (error) {
     console.error('Error in getMerchantsDao:', error);
     throw error.message;
