@@ -44,7 +44,7 @@ export const getCalculationforCronDao = async (userId) => {
       FROM public."Calculation" 
       WHERE is_obsolete = false 
       AND user_id = $1
-      ORDER BY id DESC 
+      ORDER BY created_at DESC 
       LIMIT 1
     `;
     // Ensure userId is correctly passed as an array
