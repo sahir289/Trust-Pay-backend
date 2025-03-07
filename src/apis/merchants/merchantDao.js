@@ -77,7 +77,7 @@ export const getMerchantsDao = async (
       columns.length ? columns : '*',
       joins,
     );
-    console.log(baseQuery);
+
     if (filters.search) {
       filters.or = buildSearchFilterObj(filters.search, MERCHANT);
       delete filters.search;
