@@ -2,6 +2,7 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   createMerchantService,
   deleteMerchantService,
+  getMerchantByIdService,
   getMerchantsService,
   getMerchantsServiceCode,
   updateMerchantService,
@@ -84,7 +85,7 @@ const getMerchantsById = async (req, res) => {
   const { id } = req.params;
   const { company_id } = req.user;
   // Fetch merchants data from the service
-  const data = await getMerchantsService({ id, company_id }, role);
+  const data = await getMerchantByIdService({ id, company_id }, role, true);
   // Log success message
   console.log('get Merchant successfully', data);
 
