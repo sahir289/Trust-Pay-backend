@@ -1,5 +1,5 @@
 import { tableName } from '../../constants/index.js';
-import { DbError, InternalServerError } from '../../utils/appErrors.js';
+import { InternalServerError } from '../../utils/appErrors.js';
 // import { generateUUID } from '../utils/generateUUID.js';
 
 import {
@@ -87,7 +87,7 @@ const getBankResponseDaoAll = async (
     );
     console.log(baseQuery, "baseQueryfiltersfilters")
     if (filters.search) {
-      filters.or = buildSearchFilterObj(filters.search, MERCHANT);
+      filters.or = buildSearchFilterObj(filters.search, BANK_ACCOUNT);
       delete filters.search;
     }
     const [sql, queryParams] = buildSelectQuery(
