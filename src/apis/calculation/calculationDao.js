@@ -20,6 +20,8 @@ const getCalculationDao = async (
     // if simple user is querying then filter object must have user_id to bind result
     let baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.CALCULATION}" WHERE 1=1`;
     const role = filters.role;
+    const designation = filters.designation;
+    delete filters.designation;
 
     // scenarios for super admin
     if(role && role === Role.SUPER_ADMIN){
@@ -33,15 +35,10 @@ const getCalculationDao = async (
       delete filters.user_id;
     }
     
-    // scenarios for merchant admin
-    if (role && [Role.MERCHANT_ADMIN].includes(role)) {
-      
+    // scenarios for merchant admin, vendor admin
+    if (role && designation && [Role.MERCHANT_ADMIN, Role.VENDOR_ADMIN].includes(designation) && (filters.includeSubMerchant || filters.includeSubVendors)) {
       delete filters.user_id;
-      
-      if(filters.users){
-        filters.user_id = filters.users;
-        delete filters.users;
-      }
+      const roleToMatch = role === Role.MERCHANT_ADMIN ? Role.MERCHANT : Role.VENDOR;
 
       baseQuery = buildJoinQuery(tableName.CALCULATION, columns.length ? columns : "*", [
         {
@@ -57,9 +54,13 @@ const getCalculationDao = async (
         }
       ])
 
-      baseQuery += ` AND "${tableName.ROLE}".role = '${Role.MERCHANT}'`;
+      baseQuery += ` AND "${tableName.ROLE}".role = '${roleToMatch}'`;
 
-      // edge case merhcant can only see its sub merchants and its own calculations
+      if(filters.includeSubMerchant || filters.users){
+        // fetch user heirarchy
+        filters.user_id = filters.users;
+        delete filters.users;
+      }
     }
 
     // don't think so we can search this
