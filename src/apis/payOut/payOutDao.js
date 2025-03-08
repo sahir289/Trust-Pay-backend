@@ -29,28 +29,31 @@ export const getPayoutsDao = async (conn, filters, company_id, page, limit, role
 
     let conditions = [`u.is_obsolete = false`, `u.company_id = $1`];
     let queryParams = [company_id];
+    let limitcondition = '';
 
     if (filters?.startDate && filters?.endDate) {
       conditions.push(`u.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`);
       queryParams.push(filters.startDate, filters.endDate);
-      delete filters.startDate;
-      delete filters.endDate;
     }
-
-    if (Object.keys(filters).length > 0) {
-      Object.keys(filters).forEach((key) => {
-        const value = filters[key];
-        if (value !== null && value !== undefined && value !== '') {
-          if (Array.isArray(value)) {
-            conditions.push(`u."${key}" = ANY($${queryParams.length + 1})`);
-            queryParams.push(value);
-          } else {
-            conditions.push(`u."${key}" = $${queryParams.length + 1}`);
-            queryParams.push(value);
-          }
+    
+    if (page && limit) {
+      limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+      queryParams.push(limit, (page - 1) * limit);
+    }
+    Object.keys(filters).forEach((key) => {
+      delete filters.page
+      delete filters.limit
+      const value = filters[key];
+      if (value !== null && value !== undefined && value !== '') {
+        if (Array.isArray(value)) {
+          conditions.push(`u."${key}" = ANY($${queryParams.length + 1})`);
+        } else {
+          conditions.push(`u."${key}" = $${queryParams.length + 1}`);
         }
-      });
-    }
+        queryParams.push(value);
+      }
+    });
+
 
     let commissionSelect = '';
     if (role === 'MERCHANT') {
@@ -77,8 +80,8 @@ export const getPayoutsDao = async (conn, filters, company_id, page, limit, role
         u.updated_by, 
         u.created_at, 
         v.code AS vendor_code, 
-          v.id AS vendor_id, 
-          v.user_id AS vendor_user_id,
+        v.id AS vendor_id, 
+        v.user_id AS vendor_user_id,
         u.updated_at, 
         json_build_object(
           'merchant_code', r.code,
@@ -104,7 +107,6 @@ export const getPayoutsDao = async (conn, filters, company_id, page, limit, role
           u.rejected_reason,
           u.config AS payout_details,
           ${commissionSelect},
-          
           b.id AS bank_table_id, 
           b.user_id, 
           b.nick_name,
@@ -123,21 +125,23 @@ export const getPayoutsDao = async (conn, filters, company_id, page, limit, role
       )
       SELECT * FROM filtered_payins
       ORDER BY sno ASC
-      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2};
+      ${limitcondition}
     `;
 
-    queryParams.push(limit, (page - 1) * limit);
-
-    console.log(baseQuery, "baseQuerybaseQuery");
+    console.log(baseQuery, queryParams);
 
     const result = await conn.query(baseQuery, queryParams);
-
     return { totalCount: result.rowCount, payouts: result.rows };
   } catch (error) {
     console.error('Error in getPayoutsDao:', error);
-    throw error.message;
+    throw new Error(error.message);
   }
 };
+
+
+
+
+
 
 export const getPayoutsCronDao = async (conn, payload) => {
   try {

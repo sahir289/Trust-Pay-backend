@@ -1,17 +1,12 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import {
-  createCheckUtrService,
-  deleteCheckUtrService,
-  getCheckUtrService,
-  updateCheckUtrService,
-} from './CheckUtrServices.js';
+import { createCheckUtrService, deleteCheckUtrService, getCheckUtrService, updateCheckUtrService } from './checkUtrServices.js';
+
 
 const getCheckUtr = async (req, res) => {
   try {
-    const { id } = req.params;
-    const data = await getCheckUtrService(id);
-
+    const { company_id } = req.user;
+    const data = await getCheckUtrService({company_id, ...req.query});
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while check utr', error);
