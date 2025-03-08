@@ -38,14 +38,22 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
     }
     let conditions = [`u.is_obsolete = false`, `u.company_id = $1`];
     let queryParams = [company_id];
+    let limitcondition = '';
+
     if (filters.startDate && filters.endDate) {
       conditions.push(`u.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`);
       queryParams.push(filters.startDate, filters.endDate);
-      delete filters.startDate
-      delete filters.endDate
+      // delete filters.startDate
+      // delete filters.endDate
+    }
+    if (page && limit) {
+      limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+      queryParams.push(limit, (page - 1) * limit);
     }
     if (Object.keys(filters).length > 0) {
       Object.keys(filters).forEach((key) => {
+        delete filters.page
+        delete filters.limit
         const value = filters[key];
         if (value !== null && value !== undefined && value !== ''){
           if (Array.isArray(value)) {
@@ -104,10 +112,9 @@ LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
   )
       SELECT * FROM filtered_payins
       ORDER BY sno ASC
-      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2};
-    `;
+    ${limitcondition}
+      `;
 
-    queryParams.push(limit, (page - 1) * limit);
     const result = await conn.query(baseQuery, queryParams);
 
     return { totalCount: result.rowCount, payins: result.rows };

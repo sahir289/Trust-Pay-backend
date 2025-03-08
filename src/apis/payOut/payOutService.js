@@ -96,12 +96,12 @@ const createPayoutService = async (conn, headers, payload, role) => {
   }
 };
 
-const getPayoutsService = async ( company_id, filters, role) => {
+const getPayoutsService = async ( company_id,page,limit, filters, role) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn); 
-    const data = await getPayInsDao(conn, filters, company_id, null,null, role);
+    const data = await getPayoutsDao(conn, filters, company_id, page,limit, role);
     await commit(conn); 
     return data
    }

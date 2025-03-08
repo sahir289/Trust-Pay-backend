@@ -20,12 +20,9 @@ const getSettlementDao = async (
 ) => {
   try {
     const { USER, SETTLEMENT, ROLE } = tableName;
-
     const joins = [
       {
         table: USER,
-        // first is source key
-        // second is target key
         keys: ['user_id', 'id'],
         type: 'JOIN',
         columns: ['role_id', 'designation_id'],
@@ -33,27 +30,27 @@ const getSettlementDao = async (
       },
       {
         table: ROLE,
-        // first is source key
-        // second is target key
         keys: [`role_id`, 'id'],
         type: 'LEFT JOIN',
-        columnAs: [`"${ROLE}".role AS role_name`],
+        columns : ['role'],
         referenceTable: USER,
       },
     ];
-
-    const baseQuery = buildJoinQuery(
+    let baseQuery = buildJoinQuery(
       SETTLEMENT,
-      columns.length ? columns : '*',
+      columns,
       joins,
     );
-    console.log(baseQuery);
     if (filters.search) {
       filters.or = buildSearchFilterObj(filters.search, SETTLEMENT);
       delete filters.search;
     }
-    // console.log(JSON.stringify(filters, undefined, 4));
-    const [sql, queryParams] = buildSelectQuery(
+    if (filters.role) {
+      baseQuery += ` AND "${ROLE}".role = '${filters.role}'`
+      delete filters.role; 
+    }
+    console.log(filters, "filters12")
+    let [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
       page,
@@ -62,6 +59,8 @@ const getSettlementDao = async (
       sortOrder,
       tableName.SETTLEMENT,
     );
+
+    console.log(sql, queryParams, "baseQuerybaseQuery");
     // Execute query
     const result = await executeQuery(sql, queryParams);
     return result.rows;

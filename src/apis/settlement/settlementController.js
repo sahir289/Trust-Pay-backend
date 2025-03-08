@@ -30,9 +30,10 @@ const getSettlementControllerById = async (req, res) => {
 
 const getSettlementController = async (req, res) => {
   const { company_id } = req.user;
-  const settlementData = await getSettlementService({
-    company_id,
-  });
+  const { role_name } = req.query;
+  const ids= {company_id , role_name}
+  console.log(ids, "ids12")
+  const settlementData = await getSettlementService(ids);
   if (!settlementData) {
     throw new BadRequestError('Error getting while getting settlements');
   }

@@ -25,6 +25,7 @@ import {
   disputeDuplicateTransactionService,
   expirePayInUrlService,
   generatePayInUrlService,
+  getPayinsService,
   getPayInUrlService,
   payInIntentGenerateOrderService,
   processPayInByImageService,
@@ -224,7 +225,8 @@ export const resetDeposit = async (req, res) => {
 };
 export const getPayins = async (req, res) => {
   const { company_id, role } = req.user;  
-  const data = await getPayinsService(company_id , req.query, role);
+  const {page, limit} = req.query;
+  const data = await getPayinsService(company_id ,page,limit,  req.query, role);
   return sendSuccess(res, data, 'PayIns fetched successfully');
 };
 
