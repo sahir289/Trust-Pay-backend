@@ -5,6 +5,7 @@ import {
   getUserByIdService,
   getUsersByUserNameService,
   getUsersService,
+  userUpdateService,
 } from './userService.js';
 import { CREATE_USER_SCHEMA } from '../../schemas/userSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
@@ -60,4 +61,19 @@ const createUser = async (req, res) => {
   return sendSuccess(res, {}, 'create user successfully');
 };
 
-export { getUsers, getUserById, getUsersByUserName, createUser };
+const updateUser = async (req, res) => {
+  const joiValidation = CREATE_USER_SCHEMA.validate(req.body);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  const { role, company_id, user_id } = req.user;
+  let payload = req.body;
+  payload.updated_by = user_id;
+  const id = req.params.id;
+  const ids = { id, company_id };
+  await userUpdateService(ids ,payload, role);
+  console.log('update user successfully');
+  return sendSuccess(res, {}, 'update user successfully');
+};
+
+export { getUsers, getUserById, getUsersByUserName, createUser, updateUser };

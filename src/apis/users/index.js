@@ -5,6 +5,7 @@ import {
   getUserById,
   getUsers,
   getUsersByUserName,
+  updateUser,
 } from './userController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -213,5 +214,55 @@ router.post(
   [isAuthenticated, authorized(AccessRoles.USER)],
   tryCatchHandler(createUser),
 );
+
+/**
+ * @swagger
+ * /users/update-user/{id}:
+ *   put:
+ *     summary: Update an existing user
+ *     tags: [Users]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the user to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 description: The new username for the user
+ *     responses: 
+ *       200:   
+ *         description: User updated successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "User updated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     username:
+ *                       type: string
+ *                       example: "john_doe"
+ */
+router.put(
+  '/update-user/:id',
+  [isAuthenticated, authorized(AccessRoles.USER)],
+  tryCatchHandler(updateUser),
+ )
 
 export default router;

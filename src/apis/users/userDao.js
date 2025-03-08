@@ -1,6 +1,6 @@
 import { tableName } from '../../constants/index.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-import { buildSelectQuery, executeQuery } from '../../utils/db.js';
+import { buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
 
 const getUsersDao = async (
   filters,
@@ -240,10 +240,22 @@ const getUsersForCronDao = async (conn) => {
     throw error.message;
   }
 };
+
+const updateUserDao = async (ids, data) => {
+  try {
+    const [sql, params] = buildUpdateQuery(tableName.USER, data, ids);
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error in updateMerchantDao:', error);
+    throw error.message;
+  }
+}
 export {
   getUsersDao,
   getUserByIdDao,
   getUsersForCronDao,
   getUsersByUserNameDao,
   createUserDao,
+  updateUserDao,
 };
