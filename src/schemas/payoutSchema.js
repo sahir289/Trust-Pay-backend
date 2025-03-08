@@ -2,13 +2,13 @@ import Joi from 'joi';
 
 export const PAYOUT_DETAILS_SCHEMA = Joi.object({
   user: Joi.string().label('user').required(),
-  merchant_id: Joi.string().label('merchant_id').required(),
+  code: Joi.string().label('code').required(),
   bank_acc_id: Joi.string().label('bank_acc_id').required(),
   amount: Joi.number().label('amount').required(),
-  status: Joi.string()
-    .valid('PENDING', 'COMPLETED', 'FAILED')
-    .label('status')
-    .required(),
+  // status: Joi.string()
+  //   .valid('PENDING', 'COMPLETED', 'FAILED')
+  //   .label('status')
+  //   .required(),
   currency: Joi.string().length(3).label('currency').required(),
   merchant_order_id: Joi.string().label('merchant_order_id').required(),
   acc_no: Joi.string().length(10).label('acc_no').required(),
@@ -17,15 +17,15 @@ export const PAYOUT_DETAILS_SCHEMA = Joi.object({
   bank_name: Joi.string().label('bank_name').required(),
   upi_id: Joi.string().label('upi_id').optional(), // UPI ID could be in email format
   utr_id: Joi.string().label('utr_id').required(),
-  is_enable: Joi.boolean().label('is_enable').default(true).optional(), // `is_enable` should be a boolean
-  rejected_reason: Joi.string().label('rejected_reason').optional(),
-  payout_merchant_commission: Joi.number()
-    .label('payout_merchant_commission')
-    .required(),
-  payout_vendor_commission: Joi.number()
-    .label('payout_vendor_commission')
-    .required(),
-  from_bank_acc_id: Joi.string().label('from_bank_acc_id').required(),
+  // is_enable: Joi.boolean().label('is_enable').default(true).optional(), // `is_enable` should be a boolean
+  // rejected_reason: Joi.string().label('rejected_reason').optional(),
+  // payout_merchant_commission: Joi.number()
+  //   .label('payout_merchant_commission')
+  //   .required(),
+  // payout_vendor_commission: Joi.number()
+  //   .label('payout_vendor_commission')
+  //   .required(),
+  // from_bank_acc_id: Joi.string().label('from_bank_acc_id').required(),
   config: Joi.object({
     notify_url: Joi.string().uri().label('notify_url').required(),
   })
