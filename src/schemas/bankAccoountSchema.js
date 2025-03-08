@@ -40,7 +40,6 @@ export const UPDATE_BANK_ACCOUNT_SCHEMA = Joi.object({
     .optional(),
   bank_name: Joi.string().label('bank_name').optional(),
   is_qr: Joi.boolean().label('is_qr').optional(),
-  updated_by: Joi.string().label('updated_by').optional(),
   is_bank: Joi.boolean().label('is_bank').optional(),
   min_payin: Joi.number().min(1).label('min_payin').optional(),
   max_payin: Joi.number().min(1).label('max_payin').optional(),
