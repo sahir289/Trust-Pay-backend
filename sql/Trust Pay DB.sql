@@ -33,7 +33,6 @@ CREATE TABLE "User" (
 
 CREATE TABLE "Merchant" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
-  "role_id" varchar NOT NULL,
   "user_id" varchar NOT NULL UNIQUE,
   "first_name" varchar NOT NULL,
   "last_name" varchar NOT NULL,
@@ -60,7 +59,6 @@ CREATE TABLE "Merchant" (
 
 CREATE TABLE "Vendor" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
-  "role_id" varchar NOT NULL,
   "user_id" varchar NOT NULL UNIQUE,
   "first_name" varchar NOT NULL,
   "last_name" varchar NOT NULL,
@@ -80,12 +78,9 @@ CREATE TABLE "Vendor" (
 CREATE TABLE "Role" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
   "role" varchar NOT NULL,
-  "created_by" varchar,
-  "updated_by" varchar,
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
   "is_obsolete" boolean DEFAULT false,
-  "company_id" varchar NOT NULL
 );
 
 CREATE TABLE "Designation" (
@@ -109,8 +104,7 @@ CREATE TABLE "AccessToken" (
 
 CREATE TABLE "UserHierarchy" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
-  "user_id" varchar NOT NULL,
-  "role_id" varchar NOT NULL,
+  "user_id" varchar NOT NULL UNIQUE,
   "config" json NOT NULL DEFAULT '{}',
   "created_by" varchar,
   "updated_by" varchar,
