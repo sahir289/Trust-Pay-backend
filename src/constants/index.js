@@ -34,6 +34,7 @@ export const Type = {
 };
 
 export const Role = {
+  SUPER_ADMIN: 'SUPER_ADMIN',
   ADMIN: 'ADMIN',
   TRANSACTIONS: 'TRANSACTIONS',
   OPERATIONS: 'OPERATIONS',
