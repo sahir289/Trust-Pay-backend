@@ -20,7 +20,6 @@ import {
 } from '../../schemas/payInSchema.js';
 import {
   assignedBankToPayInUrlService,
-  getPayinsService,
   checkPayInStatusService,
   disputeDuplicateTransactionService,
   expirePayInUrlService,
