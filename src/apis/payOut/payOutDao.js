@@ -54,7 +54,6 @@ export const getPayoutsDao = async (conn, filters, company_id, page, limit, role
       }
     });
 
-
     let commissionSelect = '';
     if (role === 'MERCHANT') {
       commissionSelect = `
@@ -124,12 +123,12 @@ export const getPayoutsDao = async (conn, filters, company_id, page, limit, role
         WHERE ${conditions.join(' AND ')}  
       )
       SELECT * FROM filtered_payOuts
-      ORDER BY sno ASC
+      ORDER BY sno DESC
       ${limitcondition}
     `;
 
     const result = await conn.query(baseQuery, queryParams);
-    return { totalCount: result.rowCount, payouts: result.rows };
+    return { totalCount: result.rowCount, payout: result.rows };
   } catch (error) {
     console.error('Error in getPayoutsDao:', error);
     throw new Error(error.message);
@@ -137,16 +136,12 @@ export const getPayoutsDao = async (conn, filters, company_id, page, limit, role
 };
 
 
-
-
-
-
 export const getPayoutsCronDao = async (conn, payload) => {
   try {
     let baseQuery = `SELECT * FROM public."Payout" 
-WHERE is_obsolete = false AND status = $1
-ORDER BY created_at
-`;
+      WHERE is_obsolete = false AND status = $1
+      ORDER BY created_at
+    `;
     const queryParams = [payload];
 
     const result = await conn.query(baseQuery, queryParams);
