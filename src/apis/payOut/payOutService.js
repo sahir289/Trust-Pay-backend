@@ -53,16 +53,30 @@ const createPayoutService = async (conn, headers, payload, role) => {
         : role === Role.VENDOR
           ? vendorColumns.PAYOUT
           : columns.PAYOUT;
-    const { code, amount } = payload;
+    const { code, amount, x_api_key } = payload;
     const details = await getMerchantsDao({ code });
+    console.log(details)
     const { user_id, config } = details[0];
-    const keys = config?.keys;
+    const merchantAPIKey = config?.keys;
     const payoutAmount = Number(amount);
     const balanceRestriction = config.balanceRestriction;
     const merchant_order_id = payload.merchant_order_id ?? uuidv4()
     delete payload.code;
     payload.merchant_id = details[0].id
     payload.merchant_order_id = merchant_order_id;
+  
+    if (!x_api_key || !merchantAPIKey) {
+      throw new BadRequestError(400, 'Missing API key or Merchant Keys');
+    }
+    
+    if (
+      x_api_key !== merchantAPIKey?.private &&
+      x_api_key !== merchantAPIKey?.public
+    ) {
+      throw new BadRequestError(403, 'Enter a valid API key');
+    }
+
+    delete payload.x_api_key;
     const data = await createPayoutDao(conn, payload);
     if (balanceRestriction) {
       const { totalNetBalance } = await getCalculationDao({ user_id });
@@ -77,10 +91,6 @@ const createPayoutService = async (conn, headers, payload, role) => {
 
     if (!code) {
       throw new BadRequestError('Merchant does not exist');
-    }
-
-    if (((String(headers['x-api-key']) !== String(keys.private)) && (String(headers['x-api-key']) !== String(keys.public)))) {
-      throw new BadRequestError('Enter valid Api key');
     }
 
     const merchantOrderIdPayoutData = merchant_order_id

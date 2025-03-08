@@ -1,12 +1,13 @@
 import Joi from 'joi';
 
 export const PAYOUT_DETAILS_SCHEMA = Joi.object({
+  api_key: Joi.string().label('api_key').optional(),
   user: Joi.string().label('user').required(),
   code: Joi.string().label('code').required(),
   amount: Joi.number().label('amount').required(),
   currency: Joi.string().length(3).label('currency').optional(),
   merchant_order_id: Joi.string().label('merchant_order_id').optional(),
-  acc_no: Joi.string().length(10).label('acc_no').required(),
+  acc_no: Joi.string().label('acc_no').required(),
   acc_holder_name: Joi.string().label('acc_holder_name').required(),
   ifsc_code: Joi.string().label('ifsc_code').required(),
   bank_name: Joi.string().label('bank_name').required(),
