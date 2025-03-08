@@ -55,7 +55,7 @@ const createPayoutService = async (conn, headers, payload, role) => {
     const { code, amount, merchant_order_id } = payload;
     const details = await getMerchantsDao({ code });
     const { user_id, config } = details[0];
-    const api_key = config?.keys?.private;
+    const keys = config?.keys;
     const payoutAmount = Number(amount);
     const balanceRestriction = config.balanceRestriction;
     delete payload.code;
@@ -76,7 +76,7 @@ const createPayoutService = async (conn, headers, payload, role) => {
       throw new BadRequestError('Merchant does not exist');
     }
 
-    if (String(headers['x-api-key']) !== String(api_key)) {
+    if (((String(headers['x-api-key']) !== String(keys.private)) && (String(headers['x-api-key']) !== String(keys.public)))) {
       throw new BadRequestError('Enter valid Api key');
     }
 
