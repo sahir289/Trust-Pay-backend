@@ -48,7 +48,6 @@ export const Role = {
 export const columns = {
   MERCHANT: [
     'id',
-    'role_id',
     'user_id',
     'first_name',
     'last_name',
@@ -226,7 +225,6 @@ export const columns = {
   ],
   VENDOR: [
     'id',
-    'role_id',
     'user_id',
     'first_name',
     'last_name',
