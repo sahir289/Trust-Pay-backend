@@ -1,4 +1,5 @@
 /* eslint-disable no-unused-vars */
+import { v4 as uuidv4 } from 'uuid';
 import {
   BadRequestError,
   DuplicateDataError,
@@ -52,14 +53,16 @@ const createPayoutService = async (conn, headers, payload, role) => {
         : role === Role.VENDOR
           ? vendorColumns.PAYOUT
           : columns.PAYOUT;
-    const { code, amount, merchant_order_id } = payload;
+    const { code, amount } = payload;
     const details = await getMerchantsDao({ code });
     const { user_id, config } = details[0];
     const keys = config?.keys;
     const payoutAmount = Number(amount);
     const balanceRestriction = config.balanceRestriction;
+    const merchant_order_id = payload.merchant_order_id ?? uuidv4()
     delete payload.code;
     payload.merchant_id = details[0].id
+    payload.merchant_order_id = merchant_order_id;
     const data = await createPayoutDao(conn, payload);
     if (balanceRestriction) {
       const { totalNetBalance } = await getCalculationDao({ user_id });
@@ -81,7 +84,7 @@ const createPayoutService = async (conn, headers, payload, role) => {
     }
 
     const merchantOrderIdPayoutData = merchant_order_id
-      ? await getPayoutsDao(conn, {merchant_order_id: merchant_order_id}, payload.company_id, null,null, role)
+      ? await getPayoutsDao(conn, { merchant_order_id: merchant_order_id }, payload.company_id, null, null, role)
       : '';
     if (merchantOrderIdPayoutData?.length > 0) {
       throw new DuplicateDataError('Merchant Order ID already exists');
@@ -96,15 +99,15 @@ const createPayoutService = async (conn, headers, payload, role) => {
   }
 };
 
-const getPayoutsService = async ( company_id, filters, role) => {
+const getPayoutsService = async (company_id, filters, role) => {
   let conn;
   try {
     conn = await getConnection();
-    await beginTransaction(conn); 
-    const data = await getPayInsDao(conn, filters, company_id, null,null, role);
-    await commit(conn); 
+    await beginTransaction(conn);
+    const data = await getPayInsDao(conn, filters, company_id, null, null, role);
+    await commit(conn);
     return data
-   }
+  }
   catch (error) {
     console.error('Error in getPayoutsService:', error);
     throw new InternalServerError(error);
