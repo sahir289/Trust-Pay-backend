@@ -60,6 +60,13 @@ const getBankaccountById = async (req, res) => {
 
 const createBankaccount = async (req, res) => {
   let payload = req.body;
+  if (!payload.payin_count) {
+    payload.payin_count = 0;
+  }
+  const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
   const { user_id, company_id, role } = req.user;
   payload.created_by = user_id;
   payload.updated_by = user_id;
@@ -74,10 +81,7 @@ const createBankaccount = async (req, res) => {
   delete payload.min_payout;
   delete payload.max_payout;
 
-  const joiValidation = BANK_ACCOUNT_SCHEMA.validate(req.body);
-  if (joiValidation.error) {
-    throw new ValidationError(joiValidation.error);
-  }
+  
   // const data =
   await createBankaccountService(payload, role);
   console.log('get Banks successfully');
