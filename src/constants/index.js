@@ -192,7 +192,6 @@ export const columns = {
     'rejected_reason',
     'payout_merchant_commission',
     'payout_vendor_commission',
-    'from_bank_acc_id',
     'approved_at',
     'rejected_at',
     'config',
@@ -458,7 +457,6 @@ export const vendorColumns = {
     'utr_id',
     'rejected_reason',
     'payout_vendor_commission',
-    'from_bank_acc_id',
     'config',
   ],
   BANK_ACCOUNT: [

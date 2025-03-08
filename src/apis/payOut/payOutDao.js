@@ -101,8 +101,7 @@ export const getPayoutsDao = async (conn, filters, company_id, page, limit, role
           u.currency, 
           u.upi_id, 
           u.utr_id, 
-          u.rejected_reason, 
-          u.from_bank_acc_id,
+          u.rejected_reason,
           u.config AS payout_details,
           ${commissionSelect},
           
