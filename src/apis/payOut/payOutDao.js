@@ -5,6 +5,7 @@ import {
   executeQuery,
 } from '../../utils/db.js';
 export const createPayoutDao = async (conn, data) => {
+  console.log(data)
   try {
     const [sql, params] = buildInsertQuery(tableName.PAYOUT, data);
     let result;
@@ -15,7 +16,6 @@ export const createPayoutDao = async (conn, data) => {
     }
     return result.rows[0];
   } catch (error) {
-    console.log(error)
     console.error('Error in createPayoutDao:', error);
     throw error.message;
   }
@@ -30,7 +30,7 @@ export const getPayoutsDao = async (conn, filters, company_id, page, limit, role
     let conditions = [`u.is_obsolete = false`, `u.company_id = $1`];
     let queryParams = [company_id];
 
-    if (filters.startDate && filters.endDate) {
+    if (filters?.startDate && filters?.endDate) {
       conditions.push(`u.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`);
       queryParams.push(filters.startDate, filters.endDate);
       delete filters.startDate;

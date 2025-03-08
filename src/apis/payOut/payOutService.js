@@ -58,6 +58,8 @@ const createPayoutService = async (conn, headers, payload, role) => {
     const api_key = config?.keys?.private;
     const payoutAmount = Number(amount);
     const balanceRestriction = config.balanceRestriction;
+    delete payload.code;
+    payload.merchant_id = details[0].id
     const data = await createPayoutDao(conn, payload);
     if (balanceRestriction) {
       const { totalNetBalance } = await getCalculationDao({ user_id });
@@ -79,7 +81,7 @@ const createPayoutService = async (conn, headers, payload, role) => {
     }
 
     const merchantOrderIdPayoutData = merchant_order_id
-      ? await getPayoutsDao({ merchant_order_id: merchant_order_id })
+      ? await getPayoutsDao(conn, {merchant_order_id: merchant_order_id}, payload.company_id, null,null, role)
       : '';
     if (merchantOrderIdPayoutData?.length > 0) {
       throw new DuplicateDataError('Merchant Order ID already exists');
