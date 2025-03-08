@@ -40,7 +40,7 @@ export const getPayoutsDao = async (conn, filters, company_id, page, limit, role
     if (Object.keys(filters).length > 0) {
       Object.keys(filters).forEach((key) => {
         const value = filters[key];
-        if (value !== null && value !== undefined && value !== '' && value !== -0) {
+        if (value !== null && value !== undefined && value !== '') {
           if (Array.isArray(value)) {
             conditions.push(`u."${key}" = ANY($${queryParams.length + 1})`);
             queryParams.push(value);
@@ -126,7 +126,7 @@ export const getPayoutsDao = async (conn, filters, company_id, page, limit, role
       ORDER BY sno ASC
       LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2};
     `;
-    
+
     queryParams.push(limit, (page - 1) * limit);
 
     console.log(baseQuery, "baseQuerybaseQuery");
@@ -139,10 +139,6 @@ export const getPayoutsDao = async (conn, filters, company_id, page, limit, role
     throw error.message;
   }
 };
-
-
-
-
 
 export const getPayoutsCronDao = async (conn, payload) => {
   try {
@@ -159,7 +155,6 @@ ORDER BY created_at
     throw error.message;
   }
 };
-
 
 export const updatePayoutDao = async (ids, data, conn) => {
   try {

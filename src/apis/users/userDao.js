@@ -16,19 +16,17 @@ const getUsersDao = async (
       filters.or = buildSearchFilterObj(filters.search, tableName.USER);
       delete filters.search;
     }
-    if (ids.designation_id) {
-      baseQuery += ` AND u.designation_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.designation_id); 
-    }
-    if (ids.company_id) {
-      baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.company_id); 
-    }
-    const result = await conn.query(baseQuery, queryParams);
-    if (result.rows.length === 0) {
-      console.error('No users found');
-      return [];
-    }
+    //TODO: columns.ROLE dynamic search
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+    );
+    // Execute query
+    const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
     console.error('Error in getUserssDao:', error);

@@ -42,7 +42,6 @@ import { s3 } from '../../helpers/Aws.js';
 import { stringifyJSON } from '../../utils/index.js';
 import { crypto512Algo } from '../../utils/cryptoAlgorithm.js';
 import { AUTH_HEADER_KEY } from '../../utils/constants.js';
-import { getPayoutsService } from '../payOut/payOutService.js';
 
 //  To Generate Url
 export const generatePayInUrl = async (req, res) => {
@@ -225,8 +224,8 @@ export const resetDeposit = async (req, res) => {
 };
 export const getPayins = async (req, res) => {
   const { company_id, role } = req.user;  
-  const data = await getPayoutsService(company_id , req.query, role);
-  return sendSuccess(res, data, 'Payouts fetched successfully');
+  const data = await getPayinsService(company_id , req.query, role);
+  return sendSuccess(res, data, 'PayIns fetched successfully');
 };
 
 export const processPayIn = async (req, res) => {
