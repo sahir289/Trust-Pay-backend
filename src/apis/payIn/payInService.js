@@ -78,13 +78,13 @@ export const generatePayInUrlService = async (payload, created_by) => {
     throw new NotFoundError('Merchant does not exist');
   }
 
-  const merchantAPIKey = merchant.config?.keys?.private;
+  const merchantAPIKey = merchant.config?.keys;
 
-  if (api_key && api_key != merchantAPIKey) {
+  if (api_key && api_key != merchantAPIKey?.private && api_key != merchantAPIKey?.public) {
     throw new BadRequestError('Enter valid Api key');
   }
 
-  if (!api_key && x_api_key != merchantAPIKey) {
+  if (!api_key && x_api_key != merchantAPIKey?.private && x_api_key != merchantAPIKey?.public) {
     throw new BadRequestError(404, 'Enter valid Api key');
   }
   
