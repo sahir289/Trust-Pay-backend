@@ -56,13 +56,13 @@ const getSettlementService = async (ids) => {
           ? Role.vendorColumns.SETTLEMENT
           : columns.SETTLEMENT;
     return await getSettlementDao(
-      { company_id: ids.company_id },
+      { company_id: ids.company_id, role : ids.role_name },
       null,
       null,
       null,
       null,
-      filterColumns,
-    );
+      filterColumns
+    );  
   } catch (error) {
     console.error('error getting while  getting settlements', error);
     throw new InternalServerError(error);

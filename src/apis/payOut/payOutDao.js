@@ -4,6 +4,7 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
+
 export const createPayoutDao = async (conn, data) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.PAYOUT, data);
@@ -20,84 +21,127 @@ export const createPayoutDao = async (conn, data) => {
   }
 };
 
-export const getPayoutsDao = async (conn, payload) => {
+export const getPayoutsDao = async (conn, filters, company_id, page, limit, role) => {
   try {
-    let baseQuery = `SELECT DISTINCT ON (u.id)
-  u.id, u.sno,u.user, u.merchant_id, u.bank_acc_id, 
- u.amount, u.status, u.failed_reason, u.currency, 
-  u.merchant_order_id, u.acc_no, u.acc_holder_name, u.ifsc_code,u.bank_name,
-  u.upi_id, utr_id, u.rejected_reason, 
-  u.payout_merchant_commission, u.payout_vendor_commission,
-  u.from_bank_acc_id, 
- u.approved_at, u.created_by, u.updated_by, u.created_at, u.updated_at, u.config AS payout_config,
-  
-  v.code AS vendor_code, v.id AS vendor_id, v.user_id AS vendor_user_id,
-  b.id AS bank_table_id, b.user_id, b.nick_name,
-  r.code AS merchant_code, r.id AS merchant_table_id, r.config
-FROM public."Payout" u
-LEFT JOIN public."Merchant" r 
-  ON u.merchant_id = r.id
-LEFT JOIN public."BankAccount" b
-  ON u.bank_acc_id = b.id
-LEFT JOIN public."Vendor" v 
-  ON v.user_id = b.user_id
-WHERE u.is_obsolete = false AND u.company_id = $1
-ORDER BY u.id
-LIMIT $3 OFFSET $2;
-`;
+    if (typeof company_id === 'string') {
+      company_id = company_id.trim();
+    }
 
-    const queryParams = [payload.company_id, payload.page, payload.limit];
+    let conditions = [`u.is_obsolete = false`, `u.company_id = $1`];
+    let queryParams = [company_id];
+    let limitcondition = '';
+
+    if (filters?.startDate && filters?.endDate) {
+      conditions.push(`u.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`);
+      queryParams.push(filters.startDate, filters.endDate);
+    }
+    
+    if (page && limit) {
+      limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+      queryParams.push(limit, (page - 1) * limit);
+    }
+    Object.keys(filters).forEach((key) => {
+      delete filters.page
+      delete filters.limit
+      const value = filters[key];
+      if (value !== null && value !== undefined && value !== '') {
+        if (Array.isArray(value)) {
+          conditions.push(`u."${key}" = ANY($${queryParams.length + 1})`);
+        } else {
+          conditions.push(`u."${key}" = $${queryParams.length + 1}`);
+        }
+        queryParams.push(value);
+      }
+    });
+
+    let commissionSelect = '';
+    if (role === 'MERCHANT') {
+      commissionSelect = `
+        u.payout_merchant_commission, 
+        u.merchant_order_id, 
+        json_build_object(
+          'merchant_code', r.code,
+          'return_url', r.config->>'return_url',
+          'notify_url', r.config->>'notify_url'
+        ) AS merchant_details
+      `;
+    } else if (role === 'VENDOR') {
+      commissionSelect = `u.payout_vendor_commission, v.code AS vendor_code, 
+          v.id AS vendor_id, 
+          v.user_id AS vendor_user_id,`;
+    } else {
+      commissionSelect = `
+        u.merchant_id, 
+        u.payout_merchant_commission, 
+        u.payout_vendor_commission, 
+        u.approved_at, 
+        u.created_by, 
+        u.updated_by, 
+        u.created_at, 
+        v.code AS vendor_code, 
+        v.id AS vendor_id, 
+        v.user_id AS vendor_user_id,
+        u.updated_at, 
+        json_build_object(
+          'merchant_code', r.code,
+          'return_url', r.config->>'return_url',
+          'notify_url', r.config->>'notify_url'
+        ) AS merchant_details
+      `;
+    }
+
+    let baseQuery = `
+      WITH filtered_payOuts AS (
+        SELECT DISTINCT ON (u.id) 
+          u.id, 
+          u.sno,
+          u.user,    
+          u.bank_acc_id, 
+          u.amount,
+          u.status, 
+          u.failed_reason, 
+          u.currency, 
+          u.upi_id, 
+          u.utr_id, 
+          u.rejected_reason,
+          u.config AS payout_details,
+          ${commissionSelect},
+          b.id AS bank_table_id, 
+          b.user_id, 
+          b.nick_name,
+          r.id AS merchant_table_id,
+          json_build_object(
+            'account_holder_name', u.acc_holder_name,
+            'account_no', u.acc_no,
+            'ifsc_code', u.ifsc_code,
+            'bank_name', u.bank_name
+          ) AS user_bank_details
+        FROM public."Payout" u
+        LEFT JOIN public."Merchant" r ON u.merchant_id = r.id
+        LEFT JOIN public."BankAccount" b ON u.bank_acc_id = b.id
+        LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
+        WHERE ${conditions.join(' AND ')}  
+      )
+      SELECT * FROM filtered_payOuts
+      ORDER BY sno DESC
+      ${limitcondition}
+    `;
+
     const result = await conn.query(baseQuery, queryParams);
-    return {
-      totalCount: result.rows.length,
-      rows: result.rows.reduce(
-        (acc, res) =>
-          acc.concat({
-            id: res.id,
-            sno: res.sno,
-            upi_short_code: res.upi_short_code,
-            amount: res.amount,
-            status: res.status,
-            is_notified: res.is_notified,
-            user_submitted_utr: res.user_submitted_utr,
-            merchant_order_id: res.merchant_order_id,
-            user: res.user,
-            bank_account: res.nick_name,
-            merchant: {
-              code: res.merchant_code,
-              ReturnUrl: res.payout_config.return_url,
-              NotifyUrl: res.payout_config.notify_url,
-            },
-            vendor: res.vendor_code,
-            bank_response: {
-              amount: res.bank_res_amount,
-              utr: res.utr,
-            },
-            payout_merchant_commission: res.payout_merchant_commission,
-            payout_vendor_commission: res.payout_vendor_commission,
-            user_submitted_image: res.user_submitted_image,
-            duration: res.duration,
-            approved_at: res.approved_at,
-            created_by: res.created_by,
-            updated_by: res.updated_by,
-            created_at: res.created_at,
-            updated_at: res.updated_at,
-          }),
-        [],
-      ),
-    };
+    return { totalCount: result.rowCount, payout: result.rows };
   } catch (error) {
-    console.error('Error in createPayoutDao:', error);
-    throw error.message;
+    console.error('Error in getPayoutsDao:', error);
+    throw new Error(error.message);
   }
 };
+
 
 export const getPayoutsCronDao = async (conn, payload) => {
   try {
     let baseQuery = `SELECT * FROM public."Payout" 
-WHERE is_obsolete = false AND status = $1
-ORDER BY created_at
-`;
+      WHERE is_obsolete = false AND status = $1
+      ORDER BY created_at
+    `;
     const queryParams = [payload];
 
     const result = await conn.query(baseQuery, queryParams);
@@ -107,7 +151,6 @@ ORDER BY created_at
     throw error.message;
   }
 };
-
 
 export const updatePayoutDao = async (ids, data, conn) => {
   try {

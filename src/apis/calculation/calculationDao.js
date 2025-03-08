@@ -3,9 +3,10 @@ import {
   buildSelectQuery,
   buildInsertQuery,
   buildUpdateQuery,
+  buildJoinQuery,
 } from '../../utils/db.js';
-import { tableName } from '../../constants/index.js';
-import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
+import { Role, tableName } from '../../constants/index.js';
+// import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 const getCalculationDao = async (
   filters,
   page,
@@ -15,11 +16,57 @@ const getCalculationDao = async (
   columns = [],
 ) => {
   try {
-    const baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.CALCULATION}" WHERE 1=1`;
-    if (filters.search) {
-      filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
-      delete filters.search;
+
+    // if simple user is querying then filter object must have user_id to bind result
+    let baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.CALCULATION}" WHERE 1=1`;
+    const role = filters.role;
+
+    // scenarios for super admin
+    if(role && role === Role.SUPER_ADMIN){
+      delete filters.company_id;
+      delete filters.user_id;
     }
+
+    // scenarios for admin
+    if(role && role === Role.ADMIN){
+      // filter object must have company_id to bind the result
+      delete filters.user_id;
+    }
+    
+    // scenarios for merchant admin
+    if (role && [Role.MERCHANT_ADMIN].includes(role)) {
+      
+      delete filters.user_id;
+      
+      if(filters.users){
+        filters.user_id = filters.users;
+        delete filters.users;
+      }
+
+      baseQuery = buildJoinQuery(tableName.CALCULATION, columns.length ? columns : "*", [
+        {
+          table: tableName.USER,
+          keys: ['user_id', 'id'],
+          columns: ['role_id']
+        },
+        {
+          table: tableName.ROLE,
+          keys: ['role_id', 'id'],
+          columns: ['role'],
+          referenceTable: tableName.USER,
+        }
+      ])
+
+      baseQuery += ` AND "${tableName.ROLE}".role = '${Role.MERCHANT}'`;
+
+      // edge case merhcant can only see its sub merchants and its own calculations
+    }
+
+    // don't think so we can search this
+    // if (filters.search) {
+    //   filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
+    //   delete filters.search;
+    // }
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
@@ -27,6 +74,7 @@ const getCalculationDao = async (
       pageSize,
       sortBy,
       sortOrder,
+      tableName.CALCULATION
     );
     // Execute query
     const result = await executeQuery(sql, queryParams);
@@ -44,7 +92,7 @@ export const getCalculationforCronDao = async (userId) => {
       FROM public."Calculation" 
       WHERE is_obsolete = false 
       AND user_id = $1
-      ORDER BY updated_at DESC 
+      ORDER BY created_at DESC 
       LIMIT 1
     `;
     // Ensure userId is correctly passed as an array

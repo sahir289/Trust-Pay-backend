@@ -20,11 +20,9 @@ import { generateUUID } from '../../utils/generateUUID.js';
 import { forceLogoutUser } from '../../utils/sockets.js';
 
 const loginService = async (config, clientIP) => {
-  let conn;
   let ids = {};
   try {
-    conn = await getConnection();
-    const user = await getUsersByUserNameDao(conn, ids, config.username);
+    const user = await getUsersByUserNameDao(ids, config.username);
     if (!user) {
       throw new NotFoundError('User not found');
     }
@@ -46,7 +44,7 @@ const loginService = async (config, clientIP) => {
     //   throw new BadRequestError('Invalid source or role combination');
     // }
 
-    // const loginData = await addLoginDao(conn, user.id, config, user.company);
+    // const loginData = await addLoginDao(user.id, config, user.company);
     const sessionId = generateUUID();
 
     await deleteUserSessionsDao(user.id, user.company_id);
@@ -64,7 +62,7 @@ const loginService = async (config, clientIP) => {
       token: { refresh_token: hashedToken },
       confirm_over_ride: config.confirmOverRide,
     };
-    await addLoginDao(conn, user.id, newConfig, user.company_id, sessionId);
+    await addLoginDao(user.id, newConfig, user.company_id, sessionId);
 
     // **Notify previous sessions to log out**
     // io.to(user.id).emit('forceLogout');
@@ -77,7 +75,7 @@ const loginService = async (config, clientIP) => {
   } catch (error) {
     console.error('error getting while logging in', error);
     throw new BadRequestError('Error getting while logging in');
-  }
+  } 
 };
 
 const refreshTokenService = async (refreshToken) => {
@@ -93,6 +91,12 @@ const refreshTokenService = async (refreshToken) => {
     return tokenInfo;
   } catch (error) {
     console.log('Error getting while getting refresh token', error);
+  } if (conn) {
+    try {
+      conn.release();
+    } catch (releaseError) {
+      console.error('Error while releasing the connection', releaseError);
+    }
   }
 };
 
@@ -106,6 +110,14 @@ const logoutService = async (decodeToken, session_id) => {
     return tokenInfo;
   } catch (error) {
     console.log('Error getting while getting refresh token', error);
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.error('Error while releasing the connection', releaseError);
+      }
+    }
   }
 };
 

@@ -78,13 +78,13 @@ export const generatePayInUrlService = async (payload, created_by) => {
     throw new NotFoundError('Merchant does not exist');
   }
 
-  const merchantAPIKey = merchant.config?.keys?.private;
+  const merchantAPIKey = merchant.config?.keys;
 
-  if (api_key && api_key != merchantAPIKey) {
+  if (api_key && api_key != merchantAPIKey?.private && api_key != merchantAPIKey?.public) {
     throw new BadRequestError('Enter valid Api key');
   }
 
-  if (!api_key && x_api_key != merchantAPIKey) {
+  if (!api_key && x_api_key != merchantAPIKey?.private && x_api_key != merchantAPIKey?.public) {
     throw new BadRequestError(404, 'Enter valid Api key');
   }
   
@@ -614,14 +614,26 @@ export const resetDepositService = async (
   return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 };
 
-export const getPayinsService = async (payload) => {
+export const getPayinsService = async ( company_id,page,limit, filters, role) => {
+  let conn;
   try {
-    let conn = await getConnection();
-    return await getPayInsDao(conn, payload);
+    conn = await getConnection();
+    return await getPayInsDao(conn, filters, company_id, page,limit, role);
   } catch (error) {
     throw new InternalServerError(error);
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.error('Error while releasing the connection', releaseError);
+      }
+    }
   }
 };
+
+
+
 
 export const processPayInService = async (conn, payload, updated_by) => {
   const { userSubmittedUtr, payInId, amount } = payload;

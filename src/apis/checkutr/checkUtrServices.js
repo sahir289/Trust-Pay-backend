@@ -7,7 +7,7 @@ import {
 } from './checkUtrDao.js';
 
 const getCheckUtrService = async (id) => {
-  const result = await getCheckUtrDao({ id });
+  const result = await getCheckUtrDao( id, null,null,null,null, null );
   return result;
 };
 const createCheckUtrService = async (payload) => {

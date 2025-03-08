@@ -7,24 +7,23 @@ import {
 } from './calculationService.js';
 import { transactionWrapper } from '../../utils/db.js';
 import {
-  VALIDATE_CALCULATION_BY_USER_ID,
   VALIDATE_CALCULATION_SCHEMA,
   VALIDATE_UPDATE_CALCULATION_STATUS,
-  VALIDATE_DELETE_CALCULATION,
+  
 } from '../../schemas/calculationSchema.js';
-import { ValidationError } from '../../utils/appErrors.js';
+import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 const getCalculationById = async (req, res) => {
   // Validate request parameters using Joi schema
   // const { role } = req.user;
-  const { error } = VALIDATE_CALCULATION_BY_USER_ID.validate(req.params);
-  if (error) {
-    throw new ValidationError(error);
+  
+  if (!req.params) {
+    throw new BadRequestError("User_id Required");
   }
-  const { id } = req.params;
+  const { user_id } = req.params;
   const { company_id, role } = req.user;
   const data = await getCalculationService(
     {
-      id,
+      user_id,
       company_id,
     },
     role,
@@ -36,11 +35,12 @@ const getCalculationById = async (req, res) => {
 const getCalculation = async (req, res) => {
   const { role } = req.user;
   // You can add additional validation here if needed, depending on the request
-  const { company_id } = req.user;
+  const { company_id, user_id } = req.user;
   const data = await getCalculationService(
     {
       company_id,
-      ...req.query,
+      user_id,
+      users: req.query.users,
     },
     role,
   );
@@ -73,11 +73,11 @@ const updateCalculation = async (req, res) => {
   const { error: bodyError } = VALIDATE_UPDATE_CALCULATION_STATUS.validate(
     req.body,
   );
-  const { error: paramsError } = VALIDATE_CALCULATION_BY_USER_ID.validate(
-    req.params,
-  );
-  if (bodyError || paramsError) {
-    throw new ValidationError(bodyError || paramsError);
+  if (!req.params) {
+    throw new BadRequestError('id Required');
+  }
+  if (bodyError) {
+    throw new ValidationError(bodyError);
   }
   const payload = req.body;
   const { id } = req.params;
@@ -94,10 +94,9 @@ const updateCalculation = async (req, res) => {
 const deleteCalculation = async (req, res) => {
   const { role } = req.user;
   // Validate the request params using Joi schema
-  const { error } = VALIDATE_DELETE_CALCULATION.validate(req.params);
-  if (error) {
-    throw new ValidationError(error);
-  }
+ if (!req.params) {
+   throw new BadRequestError('id Required');
+ }
   const { company_id } = req.user;
   const { id } = req.params;
   const ids = { id, company_id };

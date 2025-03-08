@@ -19,7 +19,7 @@ import complaints from './complaints/index.js';
 import gatherAllData from '../cron/gatherAllData.js';
 import reports from './reports/index.js';
 import cron from '../cron/index.js';
-
+import checkUtr from './checkutr/index.js'
 const parentRouter = express.Router();
 const router = express.Router();
 parentRouter.use('/v1', router);
@@ -33,14 +33,14 @@ router.use('/chargeBacks', chargeBacks);
 router.use('/roles', roles);
 router.use('/calculation', calculation);
 router.use('/designation', designation);
-router.use('/bankAccount', bankaccount);
+router.use('/bankDetails', bankaccount);
 router.use('/bankResponse', bankResponse);
 router.use('/company', company);
 router.use('/settlement', settlement);
 router.use('/userHierarchy', userHierarchy);
 router.use('/payout', payOut);
 router.use('/reports', reports);
-
+router.use('/checkutr', checkUtr);
 // Public routes (no authorization required)
 router.use('/ping', ping);
 router.use('/auth', auth);

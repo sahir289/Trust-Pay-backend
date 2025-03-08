@@ -6,6 +6,7 @@ import {
   getMerchants,
   updateMerchant,
   getMerchantsById,
+  getMerchantCodes,
 } from './merchantController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -43,6 +44,39 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.MERCHANT)],
   tryCatchHandler(getMerchants),
 );
+
+/**
+ * @swagger
+ * /merchants:
+ *   get:
+ *     summary: Retrieve all merchants
+ *     description: Returns a list of all merchants.
+ *     tags:
+ *       - Merchants
+ *     responses:
+ *       200:
+ *         description: A list of merchants.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                   name:
+ *                     type: string
+ *                   status:
+ *                     type: string
+ *                     example: "active"
+ */
+router.get(
+  '/codes',
+  [isAuthenticated, authorized(AccessRoles.MERCHANT)],
+  tryCatchHandler(getMerchantCodes),
+);
+
 
 /**
  * @swagger

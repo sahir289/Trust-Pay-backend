@@ -1,4 +1,5 @@
 /* eslint-disable no-unused-vars */
+import { v4 as uuidv4 } from 'uuid';
 import {
   BadRequestError,
   DuplicateDataError,
@@ -42,6 +43,7 @@ import {
   vendorColumns,
 } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
+import { getPayInsDao } from '../payIn/payInDao.js';
 
 const createPayoutService = async (conn, headers, payload, role) => {
   try {
@@ -51,12 +53,30 @@ const createPayoutService = async (conn, headers, payload, role) => {
         : role === Role.VENDOR
           ? vendorColumns.PAYOUT
           : columns.PAYOUT;
-    const { merchant_id, amount, merchant_order_id } = payload;
-    const details = await getMerchantsDao({ id: merchant_id });
-    const { code, user_id, config } = details[0];
-    const api_key = config?.api_key;
+    const { code, amount, x_api_key } = payload;
+    const details = await getMerchantsDao({ code });
+    console.log(details)
+    const { user_id, config } = details[0];
+    const merchantAPIKey = config?.keys;
     const payoutAmount = Number(amount);
     const balanceRestriction = config.balanceRestriction;
+    const merchant_order_id = payload.merchant_order_id ?? uuidv4()
+    delete payload.code;
+    payload.merchant_id = details[0].id
+    payload.merchant_order_id = merchant_order_id;
+  
+    if (!x_api_key || !merchantAPIKey) {
+      throw new BadRequestError(400, 'Missing API key or Merchant Keys');
+    }
+    
+    if (
+      x_api_key !== merchantAPIKey?.private &&
+      x_api_key !== merchantAPIKey?.public
+    ) {
+      throw new BadRequestError(403, 'Enter a valid API key');
+    }
+
+    delete payload.x_api_key;
     const data = await createPayoutDao(conn, payload);
     if (balanceRestriction) {
       const { totalNetBalance } = await getCalculationDao({ user_id });
@@ -73,12 +93,8 @@ const createPayoutService = async (conn, headers, payload, role) => {
       throw new BadRequestError('Merchant does not exist');
     }
 
-    if (String(headers['x-api-key']) !== String(api_key)) {
-      throw new BadRequestError('Enter valid Api key');
-    }
-
     const merchantOrderIdPayoutData = merchant_order_id
-      ? await getPayoutsDao({ merchant_order_id: merchant_order_id })
+      ? await getPayoutsDao(conn, { merchant_order_id: merchant_order_id }, payload.company_id, null, null, role)
       : '';
     if (merchantOrderIdPayoutData?.length > 0) {
       throw new DuplicateDataError('Merchant Order ID already exists');
@@ -93,12 +109,16 @@ const createPayoutService = async (conn, headers, payload, role) => {
   }
 };
 
-const getPayoutsService = async (payload) => {
+const getPayoutsService = async ( company_id,page,limit, filters, role) => {
   let conn;
   try {
     conn = await getConnection();
-    return await getPayoutsDao(conn, payload);
-  } catch (error) {
+    await beginTransaction(conn); 
+    const data = await getPayoutsDao(conn, filters, company_id, page,limit, role);
+    await commit(conn); 
+    return data
+  }
+  catch (error) {
     console.error('Error in getPayoutsService:', error);
     throw new InternalServerError(error);
   } finally {

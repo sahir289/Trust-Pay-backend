@@ -23,6 +23,32 @@ export const createVendorDao = async (data, conn) => {
   }
 };
 
+export const getVendorsCodeDao = async (
+  filters,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+) => {
+  try {
+    const baseQuery = `SELECT code,user_id FROM "${tableName.VENDOR}" WHERE 1=1`;
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+    );
+    const result = await executeQuery(sql, queryParams);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching company:', error);
+    throw error.message;
+  }
+};
+
+
 export const getVendorsDao = async (
   filters,
   page,

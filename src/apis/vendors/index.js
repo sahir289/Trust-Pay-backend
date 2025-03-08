@@ -6,6 +6,7 @@ import {
   getVendors,
   updateVendor,
   getVendorById,
+  getVendorCodes,
 } from './vendorController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -44,10 +45,42 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
+
 router.get(
   '/',
   [isAuthenticated, authorized(AccessRoles.VENDOR)],
   tryCatchHandler(getVendors),
+);
+
+/**
+ * @swagger
+ * /vendors:
+ *   get:
+ *     summary: Retrieve all vendors
+ *     description: Returns a list of all vendors.
+ *     tags: [Vendors]
+ *     responses:
+ *       200:
+ *         description: A list of vendors.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                   name:
+ *                     type: string
+ *                   status:
+ *                     type: string
+ *                     example: "active"
+ */
+router.get(
+  '/codes',
+  [isAuthenticated, authorized(AccessRoles.VENDOR)],
+  tryCatchHandler(getVendorCodes),
 );
 
 /**

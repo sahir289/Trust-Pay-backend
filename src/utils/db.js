@@ -99,16 +99,13 @@ export const executeQuery = async (query, queryParams = []) => {
 export const buildSelectQuery = (
   baseQuery,
   filters,
-  p,
-  ps,
-  s,
-  o,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
   tableName,
 ) => {
-  const page = p || 1,
-    pageSize = ps || 10,
-    sortBy = s || 'created_at',
-    sortOrder = o || 'DESC';
+
   const prefix = tableName ? `"${tableName}".` : '';
   let query = baseQuery;
   let values = [];
@@ -155,6 +152,7 @@ export const buildSelectQuery = (
     sortOrder,
     page,
     pageSize,
+    prefix,
   );
   return [query, values];
 };
@@ -166,17 +164,21 @@ export const applySortingAndPagination = (
   sortOrder,
   page,
   pageSize,
+  prefix
 ) => {
   // Validate sort order
-  const order = sortOrder.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+  const order = (sortOrder && sortOrder.toUpperCase()) === 'DESC' ? 'DESC' : 'ASC';
 
   // Add sorting
-  query += ` ORDER BY "${sortBy}" ${order}`;
+  query += ` ORDER BY ${prefix}"${sortBy || "created_at"}" ${order}`;
 
-  // Add pagination
-  const offset = (page - 1) * pageSize;
-  query += ` LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
-  values.push(pageSize, offset);
+  // Add pagination if values are passed
+  if(Number(page) && Number(pageSize)){
+    const offset = (page - 1) * pageSize;
+    query += ` LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+    values.push(pageSize, offset);
+  }
+
   return query;
 };
 
