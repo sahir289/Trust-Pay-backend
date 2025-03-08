@@ -94,7 +94,7 @@ export const getMerchantsDao = async (
     );
     // Execute query
     const result = await executeQuery(sql, queryParams);
-    return {totalCount : result.rowCount, merchantCodes : result.rows};
+    return result.rows;
   } catch (error) {
     console.error('Error in getMerchantsDao:', error);
     throw error.message;

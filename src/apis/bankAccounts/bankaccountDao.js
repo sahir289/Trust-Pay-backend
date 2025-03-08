@@ -53,7 +53,7 @@ const getBankaccountDao = async (
     );
     // Execute query
     const result = await executeQuery(sql, queryParams);
-    return { totalCount: result.rowCount, bankCodes: result.rows };
+    return result.rows;
   } catch (error) {
     console.error(error);
     throw error.message;

@@ -36,7 +36,7 @@ class AuthenticationError extends HTTPClientError {
 }
 
 class AccessDeniedError extends HTTPClientError {
-  statusCode = 403;
+  statusCode = 401;
 
   constructor(message = 'Access denied') {
     super(message);
