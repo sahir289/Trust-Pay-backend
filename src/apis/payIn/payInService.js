@@ -614,11 +614,11 @@ export const resetDepositService = async (
   return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 };
 
-export const getPayinsService = async (payload) => {
+export const getPayinsService = async ( company_id, filters, role) => {
   let conn;
   try {
     conn = await getConnection();
-    return await getPayInsDao(conn, payload);
+    return await getPayInsDao(conn, filters, company_id, null,null, role);
   } catch (error) {
     throw new InternalServerError(error);
   } finally {
@@ -631,6 +631,9 @@ export const getPayinsService = async (payload) => {
     }
   }
 };
+
+
+
 
 export const processPayInService = async (conn, payload, updated_by) => {
   const { userSubmittedUtr, payInId, amount } = payload;

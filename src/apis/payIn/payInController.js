@@ -223,15 +223,9 @@ export const resetDeposit = async (req, res) => {
   sendSuccess(res, data);
 };
 export const getPayins = async (req, res) => {
-  const payload = {
-    page: parseInt(req.query.page, 10) || 1, // Default to page 1 if not provided
-    limit: parseInt(req.query.limit) || null,
-  };
-  const { company_id } = req.user;
-  payload.company_id = company_id;
-  const data = await getPayinsService(payload);
-  console.log('getPayins successfully', data);
-  return sendSuccess(res, data, 'Payins fetched successfully');
+  const { company_id, role } = req.user;  
+  const data = await getPayinsService(company_id , req.query, role);
+  return sendSuccess(res, data, 'PayIns fetched successfully');
 };
 
 export const processPayIn = async (req, res) => {

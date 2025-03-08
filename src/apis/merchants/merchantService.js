@@ -1,4 +1,4 @@
-import { InternalServerError } from '../../utils/appErrors.js';
+import { InternalServerError, NotFoundError } from '../../utils/appErrors.js';
 import {
   beginTransaction,
   commit,
@@ -90,7 +90,7 @@ const getMerchantsService = async (filters, role, designation, user_id) => {
       // only send merhcant underlings if Requested person is Merchant Admin
       filters.user_id = userHierarchy.config[user_id];
     }
-    
+
     const data = await getMerchantsDao(
       filters,
       null,
@@ -102,19 +102,19 @@ const getMerchantsService = async (filters, role, designation, user_id) => {
 
     // TODO: add designation constants
     if (role === Role.ADMIN && designation === Role.ADMIN) {
-      for (const merchant of data){
+      for (const merchant of data) {
         // user_id is unique
         const userHierarchys = await getUserHierarchysDao({ user_id: merchant.user_id });
         const userHierarchy = userHierarchys[0];
-  
+
         if (!userHierarchy || !userHierarchy.config || !Array.isArray(userHierarchy.config[merchant.user_id])) {
           merchant.subMerchants = [];
           continue;
         }
         // if Requested Person is Admin Admin then also send merchant underlings
-        merchant.subMerchants = await getMerchantsDao({ 
+        merchant.subMerchants = await getMerchantsDao({
           user_id: userHierarchy.config[merchant.user_id],
-          company_id: filters.company_id 
+          company_id: filters.company_id
         });
       }
 
@@ -210,10 +210,52 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
   }
 };
 
+const getMerchantByIdService = async (filters, role, addUserHierarchy = false) => {
+
+  const entryColumns = role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT
+  const filterColumns = entryColumns.includes('user_id') ? entryColumns : [...entryColumns, 'user_id'];
+  const dataArr = await getMerchantsDao(
+    filters,
+    null,
+    null,
+    null,
+    null,
+    filterColumns,
+  );
+
+  const merchant = dataArr[0];
+
+  if(!merchant){
+    throw new NotFoundError("Merchant not found!");
+  }
+
+  const user_id = merchant.user_id;
+  delete merchant.user_id;
+
+  if (addUserHierarchy) {
+    // user_id is unique
+    const userHierarchys = await getUserHierarchysDao({ user_id });
+    const userHierarchy = userHierarchys[0];
+    
+    if (!userHierarchy || !userHierarchy.config || !Array.isArray(userHierarchy.config[user_id])) {
+      merchant.subMerchants = [];
+      return merchant;
+    }
+
+    merchant.subMerchants = await getMerchantsDao({
+      user_id: userHierarchy.config[user_id],
+      company_id: filters.company_id
+    }, null, null, null, null, filterColumns);
+  }
+
+  return merchant;
+}
+
 export {
   createMerchantService,
   getMerchantsService,
   updateMerchantService,
   deleteMerchantService,
+  getMerchantByIdService,
   getMerchantsServiceCode
 };
