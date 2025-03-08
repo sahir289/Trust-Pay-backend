@@ -15,6 +15,7 @@ export const createPayoutDao = async (conn, data) => {
     }
     return result.rows[0];
   } catch (error) {
+    console.log(error)
     console.error('Error in createPayoutDao:', error);
     throw error.message;
   }
