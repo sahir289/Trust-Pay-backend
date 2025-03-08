@@ -35,11 +35,12 @@ const getCalculationById = async (req, res) => {
 const getCalculation = async (req, res) => {
   const { role } = req.user;
   // You can add additional validation here if needed, depending on the request
-  const { company_id } = req.user;
+  const { company_id, user_id } = req.user;
   const data = await getCalculationService(
     {
       company_id,
-      ...req.query,
+      user_id,
+      users: req.query.users,
     },
     role,
   );

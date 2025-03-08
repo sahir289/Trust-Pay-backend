@@ -133,8 +133,8 @@ export const streamToBase64 = (readableStream) => {
 export const filterResponse = (data, keys) => {
   console.log(data, keys, 'Initial check');
 
-    if (Array.isArray(data)) {
-        console.log(data, keys, "Data is an array");
+  if (Array.isArray(data)) {
+    console.log(data, keys, "Data is an array");
 
     return data.map((item) => {
       const filteredItem = {};

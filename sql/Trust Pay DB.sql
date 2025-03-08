@@ -33,7 +33,6 @@ CREATE TABLE "User" (
 
 CREATE TABLE "Merchant" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
-  "role_id" varchar NOT NULL,
   "user_id" varchar NOT NULL UNIQUE,
   "first_name" varchar NOT NULL,
   "last_name" varchar NOT NULL,
@@ -60,7 +59,6 @@ CREATE TABLE "Merchant" (
 
 CREATE TABLE "Vendor" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
-  "role_id" varchar NOT NULL,
   "user_id" varchar NOT NULL UNIQUE,
   "first_name" varchar NOT NULL,
   "last_name" varchar NOT NULL,
@@ -80,12 +78,9 @@ CREATE TABLE "Vendor" (
 CREATE TABLE "Role" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
   "role" varchar NOT NULL,
-  "created_by" varchar,
-  "updated_by" varchar,
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
   "is_obsolete" boolean DEFAULT false,
-  "company_id" varchar NOT NULL
 );
 
 CREATE TABLE "Designation" (
@@ -109,8 +104,7 @@ CREATE TABLE "AccessToken" (
 
 CREATE TABLE "UserHierarchy" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
-  "user_id" varchar NOT NULL,
-  "role_id" varchar NOT NULL,
+  "user_id" varchar NOT NULL UNIQUE,
   "config" json NOT NULL DEFAULT '{}',
   "created_by" varchar,
   "updated_by" varchar,
@@ -190,9 +184,9 @@ CREATE TABLE "Payout" (
   "merchant_id" varchar NOT NULL,
   "bank_acc_id" varchar,
   "amount" float NOT NULL,
-  "status" varchar NOT NULL,
+  "status" varchar NOT NULL DEFAULT 'INITIATED',
   "failed_reason" varchar,
-  "currency" varchar NOT NULL,
+  "currency" varchar NOT NULL DEFAULT 'INR',
   "merchant_order_id" varchar NOT NULL,
   "acc_no" varchar NOT NULL,
   "acc_holder_name" varchar NOT NULL,
@@ -201,9 +195,8 @@ CREATE TABLE "Payout" (
   "upi_id" varchar,
   "utr_id" varchar,
   "rejected_reason" varchar,
-  "payout_merchant_commission" float NOT NULL,
-  "payout_vendor_commission" float NOT NULL,
-  "from_bank_acc_id" varchar NOT NULL,
+  "payout_merchant_commission" float NOT NULL DEFAULT 0,
+  "payout_vendor_commission" float NOT NULL DEFAULT 0,
   "approved_at" TIMESTAMPTZ,
   "rejected_at" TIMESTAMPTZ,
   "config" json NOT NULL DEFAULT '{}',

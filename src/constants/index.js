@@ -34,6 +34,7 @@ export const Type = {
 };
 
 export const Role = {
+  SUPER_ADMIN: 'SUPER_ADMIN',
   ADMIN: 'ADMIN',
   TRANSACTIONS: 'TRANSACTIONS',
   OPERATIONS: 'OPERATIONS',
@@ -48,7 +49,6 @@ export const Role = {
 export const columns = {
   MERCHANT: [
     'id',
-    'role_id',
     'user_id',
     'first_name',
     'last_name',
@@ -187,7 +187,6 @@ export const columns = {
     'rejected_reason',
     'payout_merchant_commission',
     'payout_vendor_commission',
-    'from_bank_acc_id',
     'approved_at',
     'rejected_at',
     'config',
@@ -223,7 +222,6 @@ export const columns = {
   ],
   VENDOR: [
     'id',
-    'role_id',
     'user_id',
     'first_name',
     'last_name',
@@ -455,7 +453,6 @@ export const vendorColumns = {
     'utr_id',
     'rejected_reason',
     'payout_vendor_commission',
-    'from_bank_acc_id',
     'config',
   ],
   BANK_ACCOUNT: [
