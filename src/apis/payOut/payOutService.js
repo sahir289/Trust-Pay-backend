@@ -51,10 +51,10 @@ const createPayoutService = async (conn, headers, payload, role) => {
         : role === Role.VENDOR
           ? vendorColumns.PAYOUT
           : columns.PAYOUT;
-    const { merchant_id, amount, merchant_order_id } = payload;
-    const details = await getMerchantsDao({ id: merchant_id });
-    const { code, user_id, config } = details[0];
-    const api_key = config?.api_key;
+    const { code, amount, merchant_order_id } = payload;
+    const details = await getMerchantsDao({ code });
+    const { user_id, config } = details[0];
+    const api_key = config?.keys?.private;
     const payoutAmount = Number(amount);
     const balanceRestriction = config.balanceRestriction;
     const data = await createPayoutDao(conn, payload);
