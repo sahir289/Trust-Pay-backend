@@ -93,6 +93,7 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
         u.upi_short_code,
         u.amount,
         u.status,
+        u.merchant_order_id,
         u.is_notified,
         u.user_submitted_utr,
         u.user,
