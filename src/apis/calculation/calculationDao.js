@@ -6,7 +6,9 @@ import {
   buildJoinQuery,
 } from '../../utils/db.js';
 import { Role, tableName } from '../../constants/index.js';
-// import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
+import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
+import { NotFoundError } from '../../utils/appErrors.js';
+
 const getCalculationDao = async (
   filters,
   page,
@@ -19,24 +21,29 @@ const getCalculationDao = async (
 
     // if simple user is querying then filter object must have user_id to bind result
     let baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.CALCULATION}" WHERE 1=1`;
-    const role = filters.role;
-    const designation = filters.designation;
+    const { role, designation, startDate, endDate, includeSubVendors, includeSubMerchant, user_id } = filters;
+    let users = filters.users || "";
     delete filters.designation;
-
+    delete filters.users;
+    delete filters.role;
+    delete filters.startDate;
+    delete filters.endDate;
+    users = users.split(",");
+    
     // scenarios for super admin
-    if(role && role === Role.SUPER_ADMIN){
+    if (role && role === Role.SUPER_ADMIN) {
       delete filters.company_id;
       delete filters.user_id;
     }
 
     // scenarios for admin
-    if(role && role === Role.ADMIN){
+    if (role && role === Role.ADMIN) {
       // filter object must have company_id to bind the result
       delete filters.user_id;
     }
-    
+
     // scenarios for merchant admin, vendor admin
-    if (role && designation && [Role.MERCHANT_ADMIN, Role.VENDOR_ADMIN].includes(designation) && (filters.includeSubMerchant || filters.includeSubVendors)) {
+    if (role && designation && [Role.MERCHANT_ADMIN, Role.VENDOR_ADMIN].includes(designation) && (includeSubMerchant || includeSubVendors)) {
       delete filters.user_id;
       const roleToMatch = role === Role.MERCHANT_ADMIN ? Role.MERCHANT : Role.VENDOR;
 
@@ -56,18 +63,34 @@ const getCalculationDao = async (
 
       baseQuery += ` AND "${tableName.ROLE}".role = '${roleToMatch}'`;
 
-      if(filters.includeSubMerchant || filters.users){
-        // fetch user heirarchy
-        filters.user_id = filters.users;
-        delete filters.users;
+      if (includeSubMerchant || includeSubVendors || users.length) {
+        const heirarchy = await getUserHierarchysDao({ user_id });
+        if (!heirarchy) {
+          throw NotFoundError('Sub Merchants not found!');
+        }
+        const heirarchyUsers = heirarchy.config[user_id] || [];
+        if (heirarchyUsers.length && users.length) {
+          // fetch user heirarchy
+          let userIds = [];
+          for (const user of users) {
+            if (heirarchyUsers.includes(user)) {
+              userIds.push(user);
+            }
+          }
+
+          if(userIds.length){
+            filters.user_id = userIds;
+          }
+        }
       }
     }
 
-    // don't think so we can search this
-    // if (filters.search) {
-    //   filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
-    //   delete filters.search;
-    // }
+    if(startDate && endDate){
+      baseQuery += ` AND created_at BETWEEN '${new Date(startDate).toISOString()}'::TIMESTAMPTZ AND '${new Date(endDate).toISOString()}'::TIMESTAMPTZ`
+    }
+
+    console.log(baseQuery, startDate, endDate)
+
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
