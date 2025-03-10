@@ -285,7 +285,6 @@ model Payout {
   rejected_reason            String?
   payout_merchant_commission Decimal
   payout_vendor_commission   Decimal
-  from_bank_acc_id           String
   approved_at                DateTime?
   rejected_at                DateTime?
   config                     Json?

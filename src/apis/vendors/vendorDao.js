@@ -41,7 +41,7 @@ export const getVendorsCodeDao = async (
       sortOrder,
     );
     const result = await executeQuery(sql, queryParams);
-    return {totalCount : result.rowCount, merchantCodes : result.rows};
+    return result.rows;
   } catch (error) {
     console.error('Error fetching company:', error);
     throw error.message;

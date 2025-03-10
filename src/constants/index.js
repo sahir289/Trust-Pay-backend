@@ -137,12 +137,7 @@ export const columns = {
     'created_at',
     'updated_at',
   ],
-  DESIGNATION: [
-    'id',
-    'designation',
-    'created_at',
-    'updated_at',
-  ],
+  DESIGNATION: ['id', 'designation', 'created_at', 'updated_at'],
   PAYIN: [
     'id',
     'sno',
@@ -193,7 +188,6 @@ export const columns = {
     'rejected_reason',
     'payout_merchant_commission',
     'payout_vendor_commission',
-    'from_bank_acc_id',
     'approved_at',
     'rejected_at',
     'config',
@@ -215,6 +209,8 @@ export const columns = {
     'is_qr',
     'is_bank',
     'is_enabled',
+    'min_payin',
+    'max_payin',
     'payin_count',
     'balance',
     'today_balance',
@@ -458,7 +454,6 @@ export const vendorColumns = {
     'utr_id',
     'rejected_reason',
     'payout_vendor_commission',
-    'from_bank_acc_id',
     'config',
   ],
   BANK_ACCOUNT: [
@@ -500,13 +495,7 @@ export const vendorColumns = {
     'balance',
     'config',
   ],
-  CHARGE_BACK: [
-    'sno',
-    'vendor_user_id',
-    'bank_acc_id',
-    'amount',
-    'when',
-  ],
+  CHARGE_BACK: ['sno', 'vendor_user_id', 'bank_acc_id', 'amount', 'when'],
 };
 export const tableName = {
   USER: 'User',

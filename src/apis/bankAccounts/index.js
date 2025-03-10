@@ -164,7 +164,7 @@ router.get(
  *         description: Internal server error
  */
 router.post(
-  '/create-bankAccount',
+  '/create-bank',
   [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)],
   tryCatchHandler(createBankaccount),
 );
@@ -246,7 +246,7 @@ router.post(
  *         description: Internal server error
  */
 router.put(
-  '/update-bankAccount/:id',
+  '/update-bank/:id',
   [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)],
   tryCatchHandler(updateBankaccount),
 );
@@ -274,7 +274,7 @@ router.put(
  *         description: Internal server error
  */
 router.delete(
-  '/delete-bankAccount/:id',
+  '/delete-bank/:id',
   [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)],
   tryCatchHandler(deleteBankaccount),
 );
