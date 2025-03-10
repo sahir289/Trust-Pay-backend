@@ -114,7 +114,7 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
         WHERE ${conditions.join(' AND ')}  
       )
       SELECT * FROM filtered_payins
-      ORDER BY sno ASC
+      ORDER BY sno DESC
       ${limitcondition}
     `;
 
