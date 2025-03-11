@@ -100,20 +100,17 @@ const createUserService = async (conn, payload, role) => {
     const { user_name } = payload;
 
     const user = await getUsersByUserNameDao(
-      conn,
       payload.company_id,
       user_name,
     );
     if (user?.user_name || user?.email || user?.contact_no) {
-      console.error('User already exists');
       throw new BadRequestError('User already exists');
     }
     const password = await createHash(payload.password);
     payload.password = password;
-    const User = await createUserDao(conn, payload);
+    const User = await createUserDao(payload);
     const userRole = await getUsersByUserNameDao(
-      conn,
-      payload.company_id,
+      payload,
       user_name,
     );
     const CommonCreateUserPayload = (

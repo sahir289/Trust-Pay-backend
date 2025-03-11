@@ -52,7 +52,7 @@ const getBankMessage = async (req, res) => {
 
 const resetBankResponse = async (req, res) => {
   const { company_id, user_id } = req.user;
-  const { id } = req.query;
+  const { id } = req.params;
   const botRes = await getBankResponseDao({ id: id, company_id: company_id });
   let getallPayinDataByUtr;
   getallPayinDataByUtr = await getPayInUrlsDao({

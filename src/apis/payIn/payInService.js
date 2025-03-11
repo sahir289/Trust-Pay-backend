@@ -7,7 +7,7 @@ import { razorpay } from '../../webhooks/razorPay.js';
 import { getPayoutsDao } from '../payOut/payOutDao.js';
 import { BankTypes, Currency, Status, Type } from '../../constants/index.js';
 import { calculateCommission, calculateDuration } from '../../helpers/index.js';
-import { merchantPayinCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
+import { merchantPayinCallback, merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
 import {
   generatePayInUrlDao,
   updatePayInUrlDao,
@@ -382,8 +382,8 @@ export const updatePaymentNotificationStatusService = async (
       throw new NotFoundError('Merchant or payout notify URL not found.');
     }
 
-    return await merchantPayinCallback(merchant.config.urls.payout_notify, {
-      code: payout.code,
+    return await merchantPayoutCallback(merchant.config.urls.payout_notify, {
+      code: merchant.code,
       merchantOrderId: payout.merchant_order_id,
       payoutId: payout.id,
       amount: payout.amount,
