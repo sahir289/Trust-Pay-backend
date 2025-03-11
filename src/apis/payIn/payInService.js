@@ -85,7 +85,7 @@ export const generatePayInUrlService = async (payload, created_by) => {
   }
 
   if (!api_key && x_api_key != merchantAPIKey?.private && x_api_key != merchantAPIKey?.public) {
-    throw new BadRequestError(404, 'Enter valid Api key');
+    throw new BadRequestError('Enter valid Api key');
   }
   
   const expirationDate = dayjs().add(10, 'minutes').toISOString();
