@@ -6,6 +6,7 @@ import {
   getUserByIdDao,
   getUsersByUserNameDao,
   getUsersDao,
+  updateUserDao,
 } from './userDao.js';
 import { filterResponse } from '../../helpers/index.js';
 import {
@@ -164,9 +165,28 @@ const createUserService = async (conn, payload, role) => {
   }
 };
 
+const userUpdateService = async (ids, payload, role) => {
+  try {
+    const filterColumns =
+      role === Role.MERCHANT
+        ? merchantColumns.USER
+        : role === Role.VENDOR
+          ? vendorColumns.USER
+          : columns.USER;
+    const User = await updateUserDao(ids, payload);
+    console.log('User Updated Successfully');
+    const finalResult = filterResponse(User, filterColumns);
+    return finalResult;
+  } catch (error) {
+    console.error('error getting while updating user', error);
+    throw new InternalServerError(error);
+  }
+};
+
 export {
   getUsersService,
   getUserByIdService,
   getUsersByUserNameService,
   createUserService,
+  userUpdateService,
 };

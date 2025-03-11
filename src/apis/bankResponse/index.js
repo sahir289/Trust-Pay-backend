@@ -124,7 +124,7 @@ router.get(
  */
 
 router.put(
-  '/reset-message',
+  '/reset-message/:id',
   [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
   tryCatchHandler(resetBankResponse),
 );
