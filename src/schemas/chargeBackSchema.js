@@ -2,29 +2,15 @@ import Joi from 'joi';
 
 // Validation Schema for Creating a ChargeBack
 const VALIDATE_CHARGEBACK_SCHEMA = Joi.object({
-  merchant_user_id: Joi.string().required().messages({
-    'any.required': 'Merchant User ID is required',
-  }),
-  vendor_user_id: Joi.string().required().messages({
-    'any.required': 'Vendor User ID is required',
-  }),
-  payin_id: Joi.string().required().messages({
-    'any.required': 'Payin ID is required',
-  }),
-  bank_acc_id: Joi.string().required().messages({
-    'any.required': 'Bank Account ID is required',
+  merchant_order_id: Joi.string().required().messages({
+    'any.required': 'Merchant Order ID is required',
   }),
   amount: Joi.number().min(0).required().messages({
     'any.required': 'Amount is required',
   }),
   when: Joi.date().required().messages({
     'any.required': 'When is required',
-  }),
-  created_by: Joi.string().optional(),
-  updated_by: Joi.string().optional(),
-  user_id: Joi.string().optional(),
-  is_obsolete: Joi.boolean().default(false),
-  config: Joi.object().default({}),
+  })
 });
 
 // Validation Schema for Updating a ChargeBack
