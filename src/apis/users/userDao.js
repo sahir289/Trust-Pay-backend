@@ -139,6 +139,7 @@ const getUserByIdDao = async (conn, ids) => {
 };
 
 const getUsersByUserNameDao = async (ids, username) => {
+  
   try {
     let baseQuery = `
       SELECT 
@@ -194,7 +195,7 @@ const getUsersByUserNameDao = async (ids, username) => {
   }
 };
 
-const createUserDao = async (conn, payload) => {
+const createUserDao = async (payload) => {
   try {
     const sql = `
     INSERT INTO public."User" (role_id, company_id, designation_id, first_name, last_name, email, contact_no, user_name, password, code, is_enabled)
@@ -215,7 +216,7 @@ const createUserDao = async (conn, payload) => {
       payload.is_enabled,
     ];
 
-    const result = await conn.query(sql, values);
+    const result = await executeQuery(sql, values);
     console.log(
       `User with username: ${payload.user_name} created successfully`,
     );
