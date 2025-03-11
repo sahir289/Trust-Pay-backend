@@ -78,7 +78,7 @@ router.get(
  *                   type: object
  */
 router.post(
-  '/create-CheckUtr',
+  '/create',
   [isAuthenticated, authorized(AccessRoles.CHECK_UTR_HISTORY)],
   tryCatchHandler(createCheckUtr),
 );

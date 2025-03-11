@@ -36,7 +36,6 @@ const getBankaccountDao = async (
       columns.length ? columns : '*',
       joins,
     );
-    console.log(baseQuery);
     if (filters.search) {
       filters.or = buildSearchFilterObj(filters.search, BANK_ACCOUNT);
       delete filters.search;

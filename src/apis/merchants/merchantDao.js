@@ -29,7 +29,7 @@ company_id ) => {
     const baseQuery = `SELECT code,user_id FROM "${tableName.MERCHANT}" WHERE company_id = $1`;
     const queryParams = [company_id];
     const result = await conn.query(baseQuery, queryParams);
-    return {totalCount : result.rowCount, merchantCodes : result.rows};
+    return result.rows;
   } catch (error) {
     console.error('Error fetching company:', error);
     throw error.message;
