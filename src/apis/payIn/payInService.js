@@ -1055,7 +1055,7 @@ export const disputeDuplicateTransactionService = async (
     updatePayload.status = Status.FAILED;
   }
 
-  await updatePayInUrlDao(id, updatePayload);
+  await updatePayInUrlDao(payIn.id, updatePayload);
   await updateVendorBalanceDao(
     { user_id: bankResponse.user_id },
     toAmount,
