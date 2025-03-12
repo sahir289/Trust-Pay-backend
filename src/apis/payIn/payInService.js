@@ -98,6 +98,7 @@ export const generatePayInUrlService = async (payload, created_by) => {
     user: user_id,
     merchant_id: merchant.id,
     expiration_date: expirationDate,
+    company_id: merchant.company_id,
     config: JSON.stringify({
       urls: {
         return: returnUrl || merchant.config?.urls?.return || '',
