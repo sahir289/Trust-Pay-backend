@@ -29,7 +29,7 @@ const getCalculationDao = async (
     delete filters.startDate;
     delete filters.endDate;
     users = users.split(",");
-    
+
     // scenarios for super admin
     if (role && role === Role.SUPER_ADMIN) {
       delete filters.company_id;
@@ -78,14 +78,14 @@ const getCalculationDao = async (
             }
           }
 
-          if(userIds.length){
+          if (userIds.length) {
             filters.user_id = userIds;
           }
         }
       }
     }
 
-    if(startDate && endDate){
+    if (startDate && endDate) {
       baseQuery += ` AND created_at BETWEEN '${new Date(startDate).toISOString()}'::TIMESTAMPTZ AND '${new Date(endDate).toISOString()}'::TIMESTAMPTZ`
     }
 
@@ -108,6 +108,137 @@ const getCalculationDao = async (
     throw error.message;
   }
 };
+
+export const getCalculationsSumDao = async (filters) => {
+  const {
+    role,
+    designation,
+    startDate,
+    endDate,
+    includeSubVendors,
+    includeSubMerchant,
+    user_id,
+    users,
+    company_id
+  } = filters;
+
+  let vendorData = {}, merchantData = {}, latestCalculation = {};
+  let hierarchyUsers = [], userCodes = users ? users.split(", ") : [];
+
+  // Fetch hierarchy users if applicable
+  if (
+    designation &&
+    [Role.MERCHANT_ADMIN, Role.VENDOR_ADMIN].includes(designation) &&
+    (includeSubMerchant || includeSubVendors)
+  ) {
+    const hierarchy = await getUserHierarchysDao({ user_id });
+    if (!hierarchy) throw NotFoundError('Sub Merchants not found!');
+    hierarchyUsers = hierarchy.config[user_id] || [];
+  }
+
+  // Base Query for Aggregated Calculations
+  let baseQuery = `
+    SELECT 
+      COALESCE(SUM(c.total_payin_count), 0) AS total_payin_count,
+      COALESCE(SUM(c.total_payin_amount), 0) AS total_payin_amount,
+      COALESCE(SUM(c.total_payin_commission), 0) AS total_payin_commission,
+      COALESCE(SUM(c.total_payout_count), 0) AS total_payout_count,
+      COALESCE(SUM(c.total_payout_amount), 0) AS total_payout_amount,
+      COALESCE(SUM(c.total_payout_commission), 0) AS total_payout_commission,
+      COALESCE(SUM(c.total_settlement_count), 0) AS total_settlement_count,
+      COALESCE(SUM(c.total_settlement_amount), 0) AS total_settlement_amount,
+      COALESCE(SUM(c.total_chargeback_count), 0) AS total_chargeback_count,
+      COALESCE(SUM(c.total_chargeback_amount), 0) AS total_chargeback_amount,
+      COALESCE(SUM(c.total_reverse_payout_count), 0) AS total_reverse_payout_count,
+      COALESCE(SUM(c.total_reverse_payout_amount), 0) AS total_reverse_payout_amount,
+      COALESCE(SUM(c.total_reverse_payout_commission), 0) AS total_reverse_payout_commission,
+      COALESCE(SUM(c.current_balance), 0) AS current_balance
+    FROM "${tableName.CALCULATION}" c
+    JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
+    JOIN "${tableName.ROLE}" r ON u.role_id = r.id
+    WHERE c.is_obsolete = FALSE
+  `;
+
+  // Add Date Filter
+  if (startDate && endDate) {
+    baseQuery += ` AND c.created_at BETWEEN '${startDate}' AND '${endDate}' `;
+  }
+
+  // Queries for Different Roles
+  let merchantQuery = `${baseQuery} AND r.role = 'MERCHANT' `;
+  let vendorQuery = `${baseQuery} AND r.role = 'VENDOR' `;
+
+  // Include hierarchy filtering (match against `code` column)
+  if (hierarchyUsers.length) {
+    merchantQuery += `
+      AND EXISTS (
+        SELECT 1 FROM merchant m
+        WHERE m.user_id = ANY(${hierarchyUsers})
+      )`;
+
+    vendorQuery += `
+      AND EXISTS (
+        SELECT 1 FROM vendor v
+        WHERE v.user_id = ANY(${hierarchyUsers})
+      )`;
+  }
+
+  if (userCodes.length) {
+    merchantQuery += ` AND v.code = ANY(${userCodes}) `;
+    vendorQuery += ` AND v.code = ANY(${userCodes}) `;
+  }
+
+  console.log(merchantQuery)
+  console.log(vendorQuery)
+
+  // Role-Based Execution
+  if (Role.ADMIN === role) {
+    merchantData = (await executeQuery(`${merchantQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}'`, [])).rows[0];
+    vendorData = (await executeQuery(`${vendorQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}'`, [])).rows[0];
+  }
+
+  // Role-Based Execution
+  if (Role.ADMIN === role) {
+    merchantData = (await executeQuery(merchantQuery, [])).rows[0];
+    vendorData = (await executeQuery(vendorQuery, [])).rows[0];
+  }
+
+  if (role === Role.MERCHANT) {
+    merchantData = (await executeQuery(`${merchantQuery}  AND c.user_id = $1  AND c.company_id = $2`, [user_id, company_id])).rows[0];
+  }
+
+  if (role === Role.VENDOR) {
+    vendorData = (await executeQuery(`${vendorQuery}  AND c.user_id = $1  AND c.company_id = $2`, [user_id, company_id])).rows[0];
+  }
+
+  // Fetch Latest Calculation Entry for Vendors & Merchants
+  if ([Role.VENDOR, Role.MERCHANT].includes(role)) {
+    let latestCalculationQuery = `
+      SELECT *
+      FROM calculation
+      WHERE is_obsolete = FALSE 
+      AND user_id = $1
+      AND company_id = $2 
+    `;
+
+    let latestParams = [user_id, company_id];
+    if (endDate) {
+      const end = new Date(end).toISOString();
+      latestCalculationQuery += ` AND DATE(created_at) = $3 `;
+      latestParams.push(end);
+    };
+
+    latestCalculationQuery += ` ORDER BY created_at DESC LIMIT 1 `;
+    latestCalculation = (await executeQuery(latestCalculationQuery, latestParams)).rows[0];
+  }
+
+  return {
+    vendor: vendorData,
+    merchant: merchantData,
+    calculation: latestCalculation,
+  };
+};
+
 ////for cron job to update net_balance
 export const getCalculationforCronDao = async (userId) => {
   try {
