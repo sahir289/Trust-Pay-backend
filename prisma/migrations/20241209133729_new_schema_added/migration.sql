@@ -223,7 +223,6 @@ CREATE TABLE "Payout" (
     "rejected_reason" TEXT,
     "payout_merchant_commission" DECIMAL(65,30) NOT NULL,
     "payout_vendor_commission" DECIMAL(65,30) NOT NULL,
-    "from_bank_acc_id" TEXT NOT NULL,
     "approved_at" TIMESTAMP(3),
     "rejected_at" TIMESTAMP(3),
     "created_by" TEXT NOT NULL,
