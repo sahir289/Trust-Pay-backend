@@ -151,7 +151,8 @@ export const getCalculationsSumDao = async (filters) => {
       COALESCE(SUM(c.total_chargeback_amount), 0) AS total_chargeback_amount,
       COALESCE(SUM(c.total_reverse_payout_count), 0) AS total_reverse_payout_count,
       COALESCE(SUM(c.total_reverse_payout_amount), 0) AS total_reverse_payout_amount,
-      COALESCE(SUM(c.total_reverse_payout_commission), 0) AS total_reverse_payout_commission
+      COALESCE(SUM(c.total_reverse_payout_commission), 0) AS total_reverse_payout_commission,
+      COALESCE(SUM(c.current_balance), 0) AS current_balance
     FROM "${tableName.CALCULATION}" c
     JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
     JOIN "${tableName.ROLE}" r ON u.role_id = r.id
@@ -162,7 +163,7 @@ export const getCalculationsSumDao = async (filters) => {
   if (startDate && endDate) {
     baseQuery += ` AND c.created_at BETWEEN '${startDate}' AND '${endDate}' `;
   }
-  
+
   // Queries for Different Roles
   let merchantQuery = `${baseQuery} AND r.role = 'MERCHANT' `;
   let vendorQuery = `${baseQuery} AND r.role = 'VENDOR' `;
@@ -180,17 +181,20 @@ export const getCalculationsSumDao = async (filters) => {
         SELECT 1 FROM vendor v
         WHERE v.user_id = ANY(${hierarchyUsers})
       )`;
-
-    if (userCodes.length) {
-      merchantQuery += ` AND v.code = ANY(${userCodes}) `;
-      vendorQuery += ` AND v.code = ANY(${userCodes}) `;
-    }
   }
+
+  if (userCodes.length) {
+    merchantQuery += ` AND v.code = ANY(${userCodes}) `;
+    vendorQuery += ` AND v.code = ANY(${userCodes}) `;
+  }
+
+  console.log(merchantQuery)
+  console.log(vendorQuery)
 
   // Role-Based Execution
   if (Role.ADMIN === role) {
-    merchantData = (await executeQuery(`${merchantQuery}  AND c.company_id = '${company_id}'`, [])).rows[0];
-    vendorData = (await executeQuery(`${vendorQuery}  AND c.company_id = '${company_id}'`, [])).rows[0];
+    merchantData = (await executeQuery(`${merchantQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}'`, [])).rows[0];
+    vendorData = (await executeQuery(`${vendorQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}'`, [])).rows[0];
   }
 
   // Role-Based Execution
@@ -218,7 +222,7 @@ export const getCalculationsSumDao = async (filters) => {
     `;
 
     let latestParams = [user_id, company_id];
-    if (endDate){
+    if (endDate) {
       const end = new Date(end).toISOString();
       latestCalculationQuery += ` AND DATE(created_at) = $3 `;
       latestParams.push(end);
