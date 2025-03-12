@@ -187,9 +187,6 @@ export const getCalculationsSumDao = async (filters) => {
     }
   }
 
-  console.log(merchantQuery)
-  console.log(vendorQuery)
-
   // Role-Based Execution
   if (Role.ADMIN === role) {
     merchantData = (await executeQuery(`${merchantQuery}  AND c.company_id = '${company_id}'`, [])).rows[0];
