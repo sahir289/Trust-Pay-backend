@@ -5,7 +5,7 @@ import {
   deleteCheckUtr,
   getCheckUtr,
   updateCheckUtr,
-} from './CheckUtrController.js';
+} from './checkUtrController.js';
 import { isAuthenticated, authorized } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
@@ -78,7 +78,7 @@ router.get(
  *                   type: object
  */
 router.post(
-  '/create-CheckUtr',
+  '/create',
   [isAuthenticated, authorized(AccessRoles.CHECK_UTR_HISTORY)],
   tryCatchHandler(createCheckUtr),
 );

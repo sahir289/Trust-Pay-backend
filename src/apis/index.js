@@ -42,7 +42,7 @@ router.use('/settlement', settlement);
 router.use('/userHierarchy', userHierarchy);
 router.use('/payout', payOut);
 router.use('/reports', reports);
-router.use('/checkutr', checkUtr);
+router.use('/checkUtr', checkUtr);
 router.use('/resetHistory' , resetHistory)
 // Public routes (no authorization required)
 router.use('/ping', ping);

@@ -60,24 +60,18 @@ const getBankaccountById = async (req, res) => {
 
 const createBankaccount = async (req, res) => {
   let payload = req.body;
+  if (!payload.payin_count) {
+    payload.payin_count = 0;
+  }
+  const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  payload.config={"merchants":[]}
   const { user_id, company_id, role } = req.user;
   payload.created_by = user_id;
   payload.updated_by = user_id;
   payload.company_id = company_id;
-  payload.config={
-    ...payload.config,
-    payouts:{
-      min_payout : payload.min_payout,
-      max_payout : payload.max_payout
-    }
-  }
-  delete payload.min_payout;
-  delete payload.max_payout;
-
-  const joiValidation = BANK_ACCOUNT_SCHEMA.validate(req.body);
-  if (joiValidation.error) {
-    throw new ValidationError(joiValidation.error);
-  }
   // const data =
   await createBankaccountService(payload, role);
   console.log('get Banks successfully');
@@ -86,14 +80,27 @@ const createBankaccount = async (req, res) => {
 
 const updateBankaccount = async (req, res) => {
   const { id } = req.params;
-  const payload = req.body;
+  let payload = req.body;
+  console.log(id);
+  if (payload.code && payload.user_id) {
+    // Ensure payload.config.merchants exists and is an array
+    // Push the extracted code and user_id as an object into merchants array
+    payload.config.merchants.push({
+      code: payload.code,
+      user_id: payload.user_id,
+    });
+
+    // Delete code and user_id from the original payload
+    delete payload.code;
+    delete payload.user_id;
+  }
+   const joiValidation = UPDATE_BANK_ACCOUNT_SCHEMA.validate(req.body);
+   if (joiValidation.error) {
+     throw new ValidationError(joiValidation.error);
+   }
   const { company_id, user_id } = req.user;
   payload.updated_by = user_id;
   const ids = { id, company_id };
-  const joiValidation = UPDATE_BANK_ACCOUNT_SCHEMA.validate(payload);
-  if (joiValidation.error) {
-    throw new ValidationError(joiValidation.error);
-  }
   // const data =
   await transactionWrapper(updateBankaccountService)(ids, payload);
   console.log('get Banks successfully');

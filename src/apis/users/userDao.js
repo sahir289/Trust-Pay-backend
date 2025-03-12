@@ -1,6 +1,6 @@
 import { tableName } from '../../constants/index.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-import { buildSelectQuery, executeQuery } from '../../utils/db.js';
+import { buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
 
 const getUsersDao = async (
   filters,
@@ -139,6 +139,7 @@ const getUserByIdDao = async (conn, ids) => {
 };
 
 const getUsersByUserNameDao = async (ids, username) => {
+  
   try {
     let baseQuery = `
       SELECT 
@@ -194,7 +195,7 @@ const getUsersByUserNameDao = async (ids, username) => {
   }
 };
 
-const createUserDao = async (conn, payload) => {
+const createUserDao = async (payload) => {
   try {
     const sql = `
     INSERT INTO public."User" (role_id, company_id, designation_id, first_name, last_name, email, contact_no, user_name, password, code, is_enabled)
@@ -215,7 +216,7 @@ const createUserDao = async (conn, payload) => {
       payload.is_enabled,
     ];
 
-    const result = await conn.query(sql, values);
+    const result = await executeQuery(sql, values);
     console.log(
       `User with username: ${payload.user_name} created successfully`,
     );
@@ -240,10 +241,22 @@ const getUsersForCronDao = async (conn) => {
     throw error.message;
   }
 };
+
+const updateUserDao = async (ids, data) => {
+  try {
+    const [sql, params] = buildUpdateQuery(tableName.USER, data, ids);
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error in updateMerchantDao:', error);
+    throw error.message;
+  }
+}
 export {
   getUsersDao,
   getUserByIdDao,
   getUsersForCronDao,
   getUsersByUserNameDao,
   createUserDao,
+  updateUserDao,
 };

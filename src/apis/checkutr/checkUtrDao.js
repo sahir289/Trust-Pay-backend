@@ -6,8 +6,9 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
-import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-// const tableName = 'CheckUtr';
+import {
+  buildSearchFilterObj
+} from '../../utils/searchBuilder.js';
 
 const getCheckUtrDao = async (filters,
   page,

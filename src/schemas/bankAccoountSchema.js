@@ -8,11 +8,9 @@ export const BANK_ACCOUNT_SCHEMA = Joi.object({
   upi_id: Joi.string().label('upi_id').optional(),
   upi_params: Joi.string().label('upi_params').optional(),
   nick_name: Joi.string().label('nick_name').optional(),
-  acc_holder_name: Joi.number().label('acc_holder_name').optional(),
-  acc_no: Joi.string().label('acc_no').optional(),
-
+  acc_holder_name: Joi.string().label('acc_holder_name').optional(),
+  acc_no: Joi.number().label('acc_no').optional(),
   ifsc: Joi.string()
-    .pattern(/^[A-Z]{4}0[A-Z0-9]{6}$/)
     .label('ifsc')
     .optional(),
   bank_name: Joi.string().label('bank_name').optional(),
@@ -25,23 +23,17 @@ export const BANK_ACCOUNT_SCHEMA = Joi.object({
   payin_count: Joi.number().integer().min(0).label('payin_count').optional(),
   balance: Joi.number().label('balance').optional(),
   today_balance: Joi.number().label('today_balance').optional(),
-  bank_used_for: Joi.string()
-    .valid('payIn', 'payOut')
-    .label('bank_used_for')
-    .optional(),
+  bank_used_for: Joi.string().label('bank_used_for').optional(),
   config: Joi.object().label('config').optional(),
-
 });
 
 export const UPDATE_BANK_ACCOUNT_SCHEMA = Joi.object({
   upi_id: Joi.string().label('upi_id').optional(),
   upi_params: Joi.string().label('upi_params').optional(),
   nick_name: Joi.string().label('nick_name').optional(),
-
   acc_holder_name: Joi.number().label('acc_holder_name').optional(),
-  acc_no: Joi.string().label('acc_no').optional(),
+  acc_no: Joi.number().label('acc_no').optional(),
   ifsc: Joi.string()
-    .pattern(/^[A-Z]{4}0[A-Z0-9]{6}$/)
     .label('ifsc')
     .optional(),
   bank_name: Joi.string().label('bank_name').optional(),
@@ -53,8 +45,8 @@ export const UPDATE_BANK_ACCOUNT_SCHEMA = Joi.object({
   payin_count: Joi.number().integer().min(0).label('payin_count').optional(),
   balance: Joi.number().label('balance').optional(),
   today_balance: Joi.number().label('today_balance').optional(),
+  
   bank_used_for: Joi.string()
-    .valid('payIn', 'payOut')
     .label('bank_used_for')
     .optional(),
   config: Joi.object().label('config').optional(),

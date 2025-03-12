@@ -231,7 +231,7 @@ router.post('/telegram-check-utr', tryCatchHandler(telegramCheckUTR));
 /**
  * @swagger
  * /payin/update-payment-notified-status/{payInId}:
- *   post:
+ *   put:
  *     summary: Update Payment Notification Status
  *     description: Updates the payment notification status of a Pay-In.
  *     tags: [PayIn]
@@ -246,7 +246,7 @@ router.post('/telegram-check-utr', tryCatchHandler(telegramCheckUTR));
  *       200:
  *         description: Payment notification status updated successfully.
  */
-router.post(
+router.put(
   '/update-payment-notified-status/:payInId',
   tryCatchHandler(updatePaymentNotificationStatus),
 );

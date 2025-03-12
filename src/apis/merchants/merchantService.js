@@ -75,10 +75,8 @@ const getMerchantsService = async (filters, role, designation, user_id) => {
   try {
     const filterColumns =
       role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
-
     // TODO: add designation constants
     if (role === Role.MERCHANT && designation === Role.MERCHANT_ADMIN) {
-
       // user_id is unique
       const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys[0];
@@ -86,7 +84,6 @@ const getMerchantsService = async (filters, role, designation, user_id) => {
       if (!userHierarchy || !userHierarchy.config || !Array.isArray(userHierarchy.config[user_id])) {
         return [];
       }
-
       // only send merhcant underlings if Requested person is Merchant Admin
       filters.user_id = userHierarchy.config[user_id];
     }
@@ -135,29 +132,33 @@ const getMerchantsServiceCode = async (company_id) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
+
+    // Fetch the merchant codes
     const codes = await getMerchantsCodeDao(conn, company_id);
+
     await commit(conn);
     return codes;
   } catch (error) {
     if (conn) {
       try {
-        await rollback(conn); 
+        await rollback(conn); // Rollback the transaction in case of error
       } catch (rollbackError) {
         console.error('Error during transaction rollback', rollbackError);
       }
     }
-    console.error('Error while deleting ChargeBack', error);
+    console.error('Error while getting merchants codes', error);
     throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
-        rollback(conn);
+        conn.release(); // Release the connection back to the pool
       } catch (releaseError) {
         console.error('Error while releasing the connection', releaseError);
       }
     }
   }
 };
+
 
 // Update Merchant Service
 const updateMerchantService = async (ids, payload, role) => {

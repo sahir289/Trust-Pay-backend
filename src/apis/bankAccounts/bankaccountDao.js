@@ -36,7 +36,6 @@ const getBankaccountDao = async (
       columns.length ? columns : '*',
       joins,
     );
-    console.log(baseQuery);
     if (filters.search) {
       filters.or = buildSearchFilterObj(filters.search, BANK_ACCOUNT);
       delete filters.search;
@@ -53,7 +52,7 @@ const getBankaccountDao = async (
     );
     // Execute query
     const result = await executeQuery(sql, queryParams);
-    return { totalCount: result.rowCount, bankDetails: result.rows };
+    return result.rows;
   } catch (error) {
     console.error(error);
     throw error.message;
