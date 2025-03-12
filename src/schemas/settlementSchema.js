@@ -4,7 +4,8 @@ export const CREATE_SETTLEMENT_SCHEMA = Joi.object({
   user_id: Joi.string()
     .guid({ version: ['uuidv4'] })
     .label('user_id')
-    .required(),
+    .optional(),
+  merchant : Joi.string().label('merchant').optional(),
   status: Joi.string().label('status').optional(),
   amount: Joi.number().label('amount').optional(),
   method: Joi.string().label('method').optional(),
@@ -22,18 +23,19 @@ export const UPDATE_SETTLEMENT_SCHEMA = Joi.object({
     .guid({ version: ['uuidv4'] })
     .label('user_id')
     .optional(),
-  status: Joi.string().label('status').optional(),
   amount: Joi.number().label('amount').optional(),
+  status: Joi.string().label('status').optional(),
   method: Joi.string().label('method').optional(),
   created_by: Joi.string().label('created_by').optional(),
   company_id: Joi.string().label('company_id').optional(),
   updated_by: Joi.string().label('updated_by').optional(),
   config: Joi.object({
-    reference_id: Joi.string().label('reference_id').optional(),
-  })
-    .label('config')
-    .optional(),
+    reference_id: Joi.string().label('reference_id').optional(),  
+    rejected_reason: Joi.string().label('rejected_reason').optional(),  
+
+  }).label('config').optional(),
 });
+
 
 export const VALIDATE_SETTLEMENT_BY_ID = Joi.object({
   id: Joi.string()

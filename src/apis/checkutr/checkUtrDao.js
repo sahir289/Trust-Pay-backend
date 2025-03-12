@@ -1,4 +1,4 @@
-import { columns, tableName } from '../../constants/index.js';
+import { tableName } from '../../constants/index.js';
 import {
   buildInsertQuery,
   buildJoinQuery,
@@ -6,6 +6,7 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
+import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 // const tableName = 'CheckUtr';
 
 const getCheckUtrDao = async (filters,

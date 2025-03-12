@@ -226,7 +226,6 @@ export const columns = {
   ],
   VENDOR: [
     'id',
-    'role_id',
     'user_id',
     'first_name',
     'last_name',

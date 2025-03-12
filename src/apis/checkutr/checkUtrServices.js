@@ -1,4 +1,3 @@
-import { Role, vendorColumns } from '../../constants/index.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import {
   createCheckUtrDao,

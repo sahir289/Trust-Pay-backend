@@ -546,16 +546,15 @@ export const resetDepositService = async (
   company_id,
   updated_by,
 ) => {
-  const payIn = await getPayInUrlDao({ merchant_order_id, company_id });
+  const payIn = await getPayInUrlDao({ merchant_order_id: merchant_order_id, company_id: company_id  });
   if (!payIn) {
     throw new NotFoundError('PayIn not found');
   }
-
   createResetHistoryService({
     payin_id: payIn.id,
     pre_status: payIn.status,
     created_by: updated_by,
-    updated_by,
+    updated_by ,
     company_id,
   });
 
@@ -566,7 +565,6 @@ export const resetDepositService = async (
   ) {
     throw new BadRequestError('This payIn can not be reset!');
   }
-
   const condition = {
     company_id,
   };
@@ -603,7 +601,7 @@ export const resetDepositService = async (
   const bank = banks[0];
 
   if (bank && payIn.status !== Status.PENDING && bankResponse) {
-    await updateBanktBalanceDao(
+  await updateBanktBalanceDao(
       { id: bank.id },
       bankResponse.amount,
       updated_by,
@@ -611,7 +609,7 @@ export const resetDepositService = async (
     );
   }
 
-  return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+  return await updatePayInUrlDao(payIn.id, updatePayInData, company_id );
 };
 
 export const getPayinsService = async ( company_id,page,limit, filters, role) => {
