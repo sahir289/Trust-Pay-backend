@@ -8,6 +8,7 @@ import {
 import { Role, tableName } from '../../constants/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { NotFoundError } from '../../utils/appErrors.js';
+import dayjs from "dayjs";
 
 const getCalculationDao = async (
   filters,
@@ -113,8 +114,8 @@ export const getCalculationsSumDao = async (filters) => {
   const {
     role,
     designation,
-    startDate,
-    endDate,
+    startDate: start,
+    endDate: end,
     includeSubVendors,
     includeSubMerchant,
     user_id,
@@ -122,7 +123,9 @@ export const getCalculationsSumDao = async (filters) => {
     company_id
   } = filters;
 
-  let vendorData = {}, merchantData = {}, latestCalculation = {};
+  const startDate = start || dayjs().subtract(7, 'days').toISOString();
+  const endDate = end || dayjs().toISOString();
+  let vendorData = {}, merchantData = {}, netBalance = {};
   let hierarchyUsers = [], userCodes = users ? users.split(", ") : [];
   const checkForHierarchy = [Role.MERCHANT_ADMIN, Role.VENDOR_ADMIN].includes(designation);
 
@@ -133,40 +136,41 @@ export const getCalculationsSumDao = async (filters) => {
     hierarchyUsers = hierarchy.config[user_id] || [];
   }
 
+
+  const groupBy = ` GROUP BY DATE_TRUNC('day', c.created_at) ORDER BY DATE_TRUNC('day', c.created_at);`
+
   // Base Query for Aggregated Calculations
   let baseQuery = `
     SELECT 
-      COALESCE(SUM(c.total_payin_count), 0) AS total_payin_count,
-      COALESCE(SUM(c.total_payin_amount), 0) AS total_payin_amount,
-      COALESCE(SUM(c.total_payin_commission), 0) AS total_payin_commission,
-      COALESCE(SUM(c.total_payout_count), 0) AS total_payout_count,
-      COALESCE(SUM(c.total_payout_amount), 0) AS total_payout_amount,
-      COALESCE(SUM(c.total_payout_commission), 0) AS total_payout_commission,
-      COALESCE(SUM(c.total_settlement_count), 0) AS total_settlement_count,
-      COALESCE(SUM(c.total_settlement_amount), 0) AS total_settlement_amount,
-      COALESCE(SUM(c.total_chargeback_count), 0) AS total_chargeback_count,
-      COALESCE(SUM(c.total_chargeback_amount), 0) AS total_chargeback_amount,
-      COALESCE(SUM(c.total_reverse_payout_count), 0) AS total_reverse_payout_count,
-      COALESCE(SUM(c.total_reverse_payout_amount), 0) AS total_reverse_payout_amount,
-      COALESCE(SUM(c.total_reverse_payout_commission), 0) AS total_reverse_payout_commission,
-      COALESCE(SUM(c.current_balance), 0) AS current_balance
+       DATE_TRUNC('day', c.created_at)::DATE AS date,
+      JSONB_BUILD_OBJECT(
+        'total_payin_count', SUM(c.total_payin_count),
+        'total_payin_amount', SUM(c.total_payin_amount),
+        'total_payin_commission', SUM(c.total_payin_commission),
+        'total_payout_count', SUM(c.total_payout_count),
+        'total_payout_amount', SUM(c.total_payout_amount),
+        'total_payout_commission', SUM(c.total_payout_commission),
+        'total_settlement_count', SUM(c.total_settlement_count),
+        'total_settlement_amount', SUM(c.total_settlement_amount),
+        'total_chargeback_count', SUM(c.total_chargeback_count),
+        'total_chargeback_amount', SUM(c.total_chargeback_amount),
+        'total_reverse_payout_count', SUM(c.total_reverse_payout_count),
+        'total_reverse_payout_amount', SUM(c.total_reverse_payout_amount),
+        'total_reverse_payout_commission', SUM(c.total_reverse_payout_commission),
+        'current_balance', SUM(c.current_balance) -- Ensure correct aggregation
+      ) AS calculations
     FROM "${tableName.CALCULATION}" c
     JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
     JOIN "${tableName.ROLE}" r ON u.role_id = r.id
-    WHERE c.is_obsolete = FALSE
+    WHERE c.is_obsolete = FALSE AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
   `;
-
-  // Add Date Filter
-  if (startDate && endDate) {
-    baseQuery += ` AND c.created_at BETWEEN '${startDate}' AND '${endDate}' `;
-  }
 
   // Queries for Different Roles
   let merchantQuery = `${baseQuery} AND r.role = 'MERCHANT' `;
   let vendorQuery = `${baseQuery} AND r.role = 'VENDOR' `;
 
   // Include hierarchy filtering (match against `code` column)
-  if (hierarchyUsers.length ) {
+  if (hierarchyUsers.length) {
     merchantQuery += `
       AND EXISTS (
         SELECT 1 FROM merchant m
@@ -185,28 +189,34 @@ export const getCalculationsSumDao = async (filters) => {
     vendorQuery += ` AND v.code = ANY(${userCodes}) `;
   }
 
-  // Role-Based Execution
+  // Admin Query
   if (Role.ADMIN === role) {
-    merchantData = (await executeQuery(`${merchantQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}'`, [])).rows[0];
-    vendorData = (await executeQuery(`${vendorQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}'`, [])).rows[0];
+    const vQuery = `${vendorQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
+    const mQuery = `${merchantQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
+    merchantData = (await executeQuery(mQuery, [])).rows;
+    vendorData = (await executeQuery(vQuery, [])).rows;
   }
 
-  // Role-Based Execution
-  if (Role.ADMIN === role) {
-    merchantData = (await executeQuery(merchantQuery, [])).rows[0];
-    vendorData = (await executeQuery(vendorQuery, [])).rows[0];
+  // Super Admin Query
+  if (Role.SUPER_ADMIN === role) {
+    merchantData = (await executeQuery(`${merchantQuery}  ${groupBy}`, [])).rows;
+    vendorData = (await executeQuery(`${vendorQuery}  ${groupBy}`, [])).rows;
   }
 
+  // query for merchant only role
   if (role === Role.MERCHANT) {
-    merchantData = (await executeQuery(`${merchantQuery}  AND c.user_id = $1  AND c.company_id = $2`, [user_id, company_id])).rows[0];
+    const mQuery = `${merchantQuery}  AND c.user_id = $1  AND c.company_id = $2  ${groupBy}`;
+    merchantData = (await executeQuery(mQuery, [user_id, company_id])).rows;
   }
 
+  // query for vendor only role
   if (role === Role.VENDOR) {
-    vendorData = (await executeQuery(`${vendorQuery}  AND c.user_id = $1  AND c.company_id = $2`, [user_id, company_id])).rows[0];
+    const vQuery = `${vendorQuery}  AND c.user_id = $1  AND c.company_id = $2  ${groupBy}`;
+    vendorData = (await executeQuery(vQuery, [user_id, company_id])).rows;
   }
 
   // Fetch Latest Calculation Entry for Vendors & Merchants
-  const endDateConditon = endDate ? ` AND DATE(created_at) = '${endDate}' ` : "";
+  const endDateConditon = ` AND DATE(c.created_at) = '${endDate}' `;
   let vendorCalQuery = `
       SELECT net_balance AS net_balance_sum
       FROM "${tableName.CALCULATION}" c
@@ -261,13 +271,13 @@ export const getCalculationsSumDao = async (filters) => {
     FROM LatestEntries;`;
   }
 
-  vendorData.sum_net_balance = (await executeQuery(vendorCalQuery)).rows[0]?.net_balance_sum || 0;
-  merchantData.sum_net_balance = (await executeQuery(merchantCalQuery)).rows[0]?.net_balance_sum || 0;
+  netBalance.vendor = (await executeQuery(vendorCalQuery)).rows[0]?.net_balance_sum || 0;
+  netBalance.merchant = (await executeQuery(merchantCalQuery)).rows[0]?.net_balance_sum || 0;
 
   return {
     vendor: vendorData,
     merchant: merchantData,
-    calculation: latestCalculation,
+    netBalance,
   };
 };
 
