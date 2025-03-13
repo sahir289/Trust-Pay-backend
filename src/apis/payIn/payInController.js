@@ -63,10 +63,21 @@ export const generatePayInUrl = async (req, res) => {
 
   // create some kind of hash to secure the next public API flow
   const queryStr =
-    payload.isTest && (payload.isTest === 'true' || payload.isTest === true)
-      ? `?t=true`
-      : '';
-  const hash = crypto512Algo(x_api_key, result.id, result.merchant_order_id, payload.amount);
+    payload.amount &&
+    payload.isTest &&
+    (payload.isTest === 'true' || payload.isTest === true)
+      ? `?amount=${payload.amount}&t=true`
+      : payload.isTest && (payload.isTest === 'true' || payload.isTest === true)
+        ? `?t=true`
+        : payload.amount
+          ? `?amount=${payload.amount}`
+          : '';
+  const hash = crypto512Algo(
+    x_api_key,
+    result.id,
+    result.merchant_order_id,
+    payload.amount,
+  );
   const updateRes = {
     expirationDate: result.expiration_date,
     payInUrl: `${config.reactPaymentOrigin}/transaction/${hash}${queryStr}`, // use env
@@ -222,9 +233,9 @@ export const resetDeposit = async (req, res) => {
   sendSuccess(res, data);
 };
 export const getPayins = async (req, res) => {
-  const { company_id, role } = req.user;  
-  const {page, limit} = req.query;
-  const data = await getPayinsService(company_id ,page,limit,  req.query, role);
+  const { company_id, role } = req.user;
+  const { page, limit } = req.query;
+  const data = await getPayinsService(company_id, page, limit, req.query, role);
   return sendSuccess(res, data, 'PayIns fetched successfully');
 };
 
