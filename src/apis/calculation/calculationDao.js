@@ -123,8 +123,9 @@ export const getCalculationsSumDao = async (filters) => {
     company_id
   } = filters;
 
-  const startDate = start || dayjs().subtract(7, 'days').toISOString();
-  const endDate = end || dayjs().toISOString();
+  const dateFormat = 'MM-DD-YYYY';
+  const startDate = start ? dayjs(start).format(dateFormat) : dayjs().subtract(7, 'd').format(dateFormat);
+  const endDate = end ? dayjs(end).format(dateFormat) : dayjs().format(dateFormat);
   let vendorData = {}, merchantData = {}, netBalance = {};
   let hierarchyUsers = [], userCodes = users ? users.split(", ") : [];
   const checkForHierarchy = [Role.MERCHANT_ADMIN, Role.VENDOR_ADMIN].includes(designation);
@@ -143,22 +144,20 @@ export const getCalculationsSumDao = async (filters) => {
   let baseQuery = `
     SELECT 
        DATE_TRUNC('day', c.created_at)::DATE AS date,
-      JSONB_BUILD_OBJECT(
-        'total_payin_count', SUM(c.total_payin_count),
-        'total_payin_amount', SUM(c.total_payin_amount),
-        'total_payin_commission', SUM(c.total_payin_commission),
-        'total_payout_count', SUM(c.total_payout_count),
-        'total_payout_amount', SUM(c.total_payout_amount),
-        'total_payout_commission', SUM(c.total_payout_commission),
-        'total_settlement_count', SUM(c.total_settlement_count),
-        'total_settlement_amount', SUM(c.total_settlement_amount),
-        'total_chargeback_count', SUM(c.total_chargeback_count),
-        'total_chargeback_amount', SUM(c.total_chargeback_amount),
-        'total_reverse_payout_count', SUM(c.total_reverse_payout_count),
-        'total_reverse_payout_amount', SUM(c.total_reverse_payout_amount),
-        'total_reverse_payout_commission', SUM(c.total_reverse_payout_commission),
-        'current_balance', SUM(c.current_balance) -- Ensure correct aggregation
-      ) AS calculations
+        SUM(c.total_payin_count) AS total_payin_count,
+        SUM(c.total_payin_amount) AS total_payin_amount,
+        SUM(c.total_payin_commission) AS total_payin_commission,
+        SUM(c.total_payout_count) AS total_payout_count,
+        SUM(c.total_payout_amount) AS total_payout_amount,
+        SUM(c.total_payout_commission) AS total_payout_commission,
+        SUM(c.total_settlement_count) AS total_settlement_count,
+        SUM(c.total_settlement_amount) AS total_settlement_amount,
+        SUM(c.total_chargeback_count) AS total_chargeback_count,
+        SUM(c.total_chargeback_amount) AS total_chargeback_amount,
+        SUM(c.total_reverse_payout_count) AS total_reverse_payout_count,
+        SUM(c.total_reverse_payout_amount) AS total_reverse_payout_amount,
+        SUM(c.total_reverse_payout_commission) AS total_reverse_payout_commission,
+        SUM(c.current_balance) AS current_balance
     FROM "${tableName.CALCULATION}" c
     JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
     JOIN "${tableName.ROLE}" r ON u.role_id = r.id
@@ -193,6 +192,9 @@ export const getCalculationsSumDao = async (filters) => {
   if (Role.ADMIN === role) {
     const vQuery = `${vendorQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
     const mQuery = `${merchantQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
+    console.log(vQuery)
+    console.log("=====")
+    console.log(mQuery)
     merchantData = (await executeQuery(mQuery, [])).rows;
     vendorData = (await executeQuery(vQuery, [])).rows;
   }
@@ -217,58 +219,38 @@ export const getCalculationsSumDao = async (filters) => {
 
   // Fetch Latest Calculation Entry for Vendors & Merchants
   const endDateConditon = ` AND DATE(c.created_at) = '${endDate}' `;
-  let vendorCalQuery = `
+  const calBaseQuery = `
       SELECT net_balance AS net_balance_sum
       FROM "${tableName.CALCULATION}" c
       JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
-      JOIN "${tableName.ROLE}" r ON u.role_id = r.id AND r.role = '${Role.VENDOR}'
+      JOIN "${tableName.ROLE}" r ON u.role_id = r.id AND r.role = 'PLACE_ROLE_HERE'
       WHERE c.is_obsolete = FALSE 
       AND c.user_id = '${user_id}'
       AND c.company_id = '${company_id}'
       ${endDateConditon}
       ORDER BY c.created_at DESC LIMIT 1
-    `,
-    merchantCalQuery = `
-      SELECT net_balance AS net_balance_sum
-      FROM "${tableName.CALCULATION}" c
-      JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
-      JOIN "${tableName.ROLE}" r ON u.role_id = r.id AND r.role = '${Role.MERCHANT}'
-      WHERE c.is_obsolete = FALSE 
-      AND c.user_id = '${user_id}'
-      AND c.company_id = '${company_id}'
-      ${endDateConditon}
-      ORDER BY c.created_at DESC LIMIT 1
-    `;
+    `
+  let vendorCalQuery = calBaseQuery.replace('PLACE_ROLE_HERE', Role.VENDOR), 
+  merchantCalQuery = calBaseQuery.replace('PLACE_ROLE_HERE', Role.MERCHANT);
 
   if ([Role.SUPER_ADMIN, Role.ADMIN].includes(role)) {
     const condition = role === Role.ADMIN ? ` AND c.company_id = '${company_id}' ${endDateConditon} ` : ` ${endDateConditon} `;
-    vendorCalQuery = `
-    WITH LatestEntries AS (
-      SELECT DISTINCT ON (user_id) *
-      FROM "Calculation" c
-      JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
-      JOIN "${tableName.ROLE}" r ON u.role_id = r.id AND r.role = '${Role.VENDOR}'
-      WHERE c.is_obsolete = FALSE
-      ${condition}
-      ORDER BY c.user_id, c.created_at DESC
-    )
-    SELECT 
-        SUM(net_balance) AS net_balance_sum
-    FROM LatestEntries;`;
-
-    merchantCalQuery = `
-    WITH LatestEntries AS (
-      SELECT DISTINCT ON (user_id) *
-      FROM "Calculation" c
-      JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
-      JOIN "${tableName.ROLE}" r ON u.role_id = r.id AND r.role = '${Role.MERCHANT}'
-      WHERE c.is_obsolete = FALSE
-      ${condition}
-      ORDER BY c.user_id, c.created_at DESC
-    )
-    SELECT 
-        SUM(net_balance) AS net_balance_sum
-    FROM LatestEntries;`;
+    const baseCalQuery = `
+      WITH LatestEntries AS (
+        SELECT DISTINCT ON (user_id) *
+        FROM "Calculation" c
+        JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
+        JOIN "${tableName.ROLE}" r ON u.role_id = r.id AND r.role = 'PLACE_ROLE_HERE'
+        WHERE c.is_obsolete = FALSE
+        ${condition}
+        ORDER BY c.user_id, c.created_at DESC
+      )
+      SELECT 
+          SUM(net_balance) AS net_balance_sum
+      FROM LatestEntries;
+    `
+    vendorCalQuery =  baseCalQuery.replace('PLACE_ROLE_HERE', Role.VENDOR);
+    merchantCalQuery = baseCalQuery.replace('PLACE_ROLE_HERE', Role.MERCHANT);
   }
 
   netBalance.vendor = (await executeQuery(vendorCalQuery)).rows[0]?.net_balance_sum || 0;
