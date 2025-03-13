@@ -167,7 +167,7 @@ const updateSettlementService = async (conn, ids, payload) => {
       }
     }
     if (payload.config.rejected_reason) {
-      payload.status = 'REVERSED';
+      payload.status = 'REJECTED';
     }
     if (payload.status == 'INITIATED') {
       payload.config.reference_id = '';
