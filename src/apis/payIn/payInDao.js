@@ -70,20 +70,20 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
     let commissionSelect = '';
     if (role === 'MERCHANT') {
       commissionSelect = `u.payin_merchant_commission, u.merchant_order_id, 
-      json_build_object(
-        'merchant_code', r.code,
-        'return_url', r.config->>'return_url',
-        'notify_url', r.config->>'notify_url'
-    ) AS merchant_details,`;
+        json_build_object(
+          'merchant_code', r.code,
+          'return_url', r.config->>'return_url',
+          'notify_url', r.config->>'notify_url'
+      ) AS merchant_details,`;
     } else if (role === 'VENDOR') {
       commissionSelect = 'u.payin_vendor_commission, v.code AS vendor_code,';
     } else {
       commissionSelect = `u.payin_merchant_commission,
-      json_build_object(
-        'merchant_code', r.code,
-        'return_url', r.config->>'return_url',
-        'notify_url', r.config->>'notify_url'
-    ) AS merchant_details,u.payin_vendor_commission, v.code AS vendor_code,
+        json_build_object(
+          'merchant_code', r.code,
+          'return_url', r.config->>'return_url',
+          'notify_url', r.config->>'notify_url'
+      ) AS merchant_details,u.payin_vendor_commission, v.code AS vendor_code,
       u.payin_vendor_commission, u.approved_at, u.created_by, u.updated_by, u.created_at, u.updated_at`;
     }
     const baseQuery = `
@@ -94,7 +94,6 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
         u.upi_short_code,
         u.amount,
         u.status,
-        u.merchant_order_id,
         u.is_notified,
         u.user_submitted_utr,
         u.user,
@@ -107,21 +106,23 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
             'utr', br.utr,
             'amount', br.amount
         ) AS bank_res_details
+      
         FROM public."Payin" u
         LEFT JOIN public."Merchant" r ON u.merchant_id = r.id
         LEFT JOIN public."BankAccount" b ON u.bank_acc_id = b.id
         LEFT JOIN public."BankResponse" br ON b.id = br.bank_id
         LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
         WHERE ${conditions.join(' AND ')}  
+      ),
+      total_count AS (
+        SELECT COUNT(*) AS total FROM filtered_payins
       )
-      SELECT * FROM filtered_payins
+      SELECT * FROM filtered_payins, total_count
       ORDER BY sno DESC
       ${limitcondition}
     `;
-
     const result = await conn.query(baseQuery, queryParams);
-
-    return { totalCount: result.rowCount, payin: result.rows };
+    return { totalCount: result.rows[0]?.total, payins: result.rows }
   } catch (error) {
     console.error('Error getting PayIn URL:', error);
     throw error.message;

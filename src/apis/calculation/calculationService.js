@@ -1,9 +1,9 @@
 // Importing DAO functions for database operations
 import {
-  getCalculationDao,
   createCalculationDao,
   updateCalculationDao,
   deleteCalculationDao,
+  getCalculationsSumDao,
 } from './calculationDao.js';
 
 // Importing transaction wrapper for handling database transactions
@@ -26,7 +26,7 @@ const getCalculationService = async (filters, role) => {
           ? vendorColumns.CALCULATION
           : columns.CALCULATION;
           
-    return await getCalculationDao(
+    return await getCalculationsSumDao(
       { ...filters, role },
       null,
       null,

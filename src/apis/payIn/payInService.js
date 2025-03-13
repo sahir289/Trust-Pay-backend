@@ -98,6 +98,7 @@ export const generatePayInUrlService = async (payload, created_by) => {
     user: user_id,
     merchant_id: merchant.id,
     expiration_date: expirationDate,
+    company_id: merchant.company_id,
     config: JSON.stringify({
       urls: {
         return: returnUrl || merchant.config?.urls?.return || '',
@@ -887,7 +888,7 @@ export const processPayInByImageService = async (conn, payload) => {
   const content = await getImageContentFromOCr(base64Image);
   if (!content) {
     const payIn = await updatePayInUrlDao(
-      { id: payInId },
+      payInId,
       {
         status: Status.IMG_PENDING,
         amount: payload.amount,
@@ -1009,7 +1010,7 @@ export const disputeDuplicateTransactionService = async (
           : Status.SUCCESS;
     // make new pay in success
     await updatePayInUrlDao(
-      { merchant_order_id: merchantOrderId },
+      payInData.id,
       {
         is_url_expires: true,
         one_time_used: true,
@@ -1053,7 +1054,7 @@ export const disputeDuplicateTransactionService = async (
     updatePayload.status = Status.FAILED;
   }
 
-  await updatePayInUrlDao({ id: payIn.id }, updatePayload);
+  await updatePayInUrlDao(payIn.id, updatePayload);
   await updateVendorBalanceDao(
     { user_id: bankResponse.user_id },
     toAmount,
