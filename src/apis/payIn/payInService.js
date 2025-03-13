@@ -85,7 +85,7 @@ export const generatePayInUrlService = async (payload, created_by) => {
   }
 
   if (!api_key && x_api_key != merchantAPIKey?.private && x_api_key != merchantAPIKey?.public) {
-    throw new BadRequestError(404, 'Enter valid Api key');
+    throw new BadRequestError('Enter valid Api key');
   }
   
   const expirationDate = dayjs().add(10, 'minutes').toISOString();
@@ -98,6 +98,7 @@ export const generatePayInUrlService = async (payload, created_by) => {
     user: user_id,
     merchant_id: merchant.id,
     expiration_date: expirationDate,
+    company_id: merchant.company_id,
     config: JSON.stringify({
       urls: {
         return: returnUrl || merchant.config?.urls?.return || '',
@@ -546,16 +547,15 @@ export const resetDepositService = async (
   company_id,
   updated_by,
 ) => {
-  const payIn = await getPayInUrlDao({ merchant_order_id, company_id });
+  const payIn = await getPayInUrlDao({ merchant_order_id: merchant_order_id, company_id: company_id  });
   if (!payIn) {
     throw new NotFoundError('PayIn not found');
   }
-
   createResetHistoryService({
     payin_id: payIn.id,
     pre_status: payIn.status,
     created_by: updated_by,
-    updated_by,
+    updated_by ,
     company_id,
   });
 
@@ -566,7 +566,6 @@ export const resetDepositService = async (
   ) {
     throw new BadRequestError('This payIn can not be reset!');
   }
-
   const condition = {
     company_id,
   };
@@ -603,7 +602,7 @@ export const resetDepositService = async (
   const bank = banks[0];
 
   if (bank && payIn.status !== Status.PENDING && bankResponse) {
-    await updateBanktBalanceDao(
+  await updateBanktBalanceDao(
       { id: bank.id },
       bankResponse.amount,
       updated_by,
@@ -888,7 +887,7 @@ export const processPayInByImageService = async (conn, payload) => {
   const content = await getImageContentFromOCr(base64Image);
   if (!content) {
     const payIn = await updatePayInUrlDao(
-      { id: payInId },
+      payInId,
       {
         status: Status.IMG_PENDING,
         amount: payload.amount,
@@ -1010,7 +1009,7 @@ export const disputeDuplicateTransactionService = async (
           : Status.SUCCESS;
     // make new pay in success
     await updatePayInUrlDao(
-      { merchant_order_id: merchantOrderId },
+      payInData.id,
       {
         is_url_expires: true,
         one_time_used: true,
@@ -1054,7 +1053,7 @@ export const disputeDuplicateTransactionService = async (
     updatePayload.status = Status.FAILED;
   }
 
-  await updatePayInUrlDao({ id: payIn.id }, updatePayload);
+  await updatePayInUrlDao(payIn.id, updatePayload);
   await updateVendorBalanceDao(
     { user_id: bankResponse.user_id },
     toAmount,

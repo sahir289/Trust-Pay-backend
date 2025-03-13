@@ -4,7 +4,7 @@ import Joi from 'joi';
 const VALIDATE_VENDOR_SCHEMA = Joi.object({
   user_id: Joi.string()
     .guid({ version: ['uuidv4'] })
-    .required()
+    .optional()
     .messages({
       'string.guid': 'User_ID must be a valid UUID',
       'any.required': 'User_ID is required',

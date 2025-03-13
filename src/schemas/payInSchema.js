@@ -71,10 +71,10 @@ export const VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS = Joi.object({
 
 export const VALIDATE_RESET_DEPOSIT = Joi.object({
   merchant_order_id: Joi.string()
-    .guid({ version: ['uuidv4'] })
     .label('merchant_order_id')
     .required(),
 });
+
 
 export const VALIDATE_PROCESSE_PAYIN = Joi.object({
   payInId: Joi.string()

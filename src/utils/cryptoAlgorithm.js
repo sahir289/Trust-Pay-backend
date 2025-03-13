@@ -2,9 +2,9 @@
 import crypto from 'crypto';
 import config from '../config/config.js';
 
-export const crypto512Algo = (x_api_key, payinId, merchant_order_id) => {
+export const crypto512Algo = (x_api_key, payinId, merchant_order_id, amount) => {
   const salt = crypto.randomBytes(256).toString('hex');
-  const hashString = `${x_api_key}|${payinId}|${merchant_order_id}|${salt}`;
+  const hashString = `${x_api_key}|${payinId}|${merchant_order_id}|${amount}|${salt}`;
   return crypto.createHash('sha512').update(hashString).digest('hex');
 };
 

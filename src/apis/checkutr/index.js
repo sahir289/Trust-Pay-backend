@@ -5,7 +5,7 @@ import {
   deleteCheckUtr,
   getCheckUtr,
   updateCheckUtr,
-} from './CheckUtrController.js';
+} from './checkUtrController.js';
 import { isAuthenticated, authorized } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();

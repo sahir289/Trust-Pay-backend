@@ -66,8 +66,7 @@ export const generatePayInUrl = async (req, res) => {
     payload.isTest && (payload.isTest === 'true' || payload.isTest === true)
       ? `?t=true`
       : '';
-  const hash = crypto512Algo(x_api_key, result.id, result.merchant_order_id);
-  console.log(hash, 'hash');
+  const hash = crypto512Algo(x_api_key, result.id, result.merchant_order_id, payload.amount);
   const updateRes = {
     expirationDate: result.expiration_date,
     payInUrl: `${config.reactPaymentOrigin}/transaction/${hash}${queryStr}`, // use env
