@@ -12,7 +12,6 @@ import {
   getMerchantsDao,
   updateMerchantDao,
 } from './merchantDao.js';
-import { getRoleDao } from '../roles/rolesDao.js';
 import {
   createUserHierarchyDao,
   getUserHierarchysDao,
@@ -21,38 +20,38 @@ import {
 import {
   columns,
   merchantColumns,
-  Method,
+  // Method,
   Role,
 } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 // Create Merchant Service
-const createMerchantService = async (conn, payload, roleIs) => {
+const createMerchantService = async (conn, payload, role) => {
   try {
     const filterColumns =
-      roleIs === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
+      role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
     const parentId = payload.parentId;
     delete payload.parentId;
     const data = await createMerchantDao(payload, conn);
     const calculationPayload = {
-      role_id: data.role_id,
+      // role_id: data.role_id,
       user_id: data.user_id,
       company_id: data.company_id,
     };
     await createCalculationDao(conn, calculationPayload);
-    const role = await getRoleDao({ id: payload.role_id });
-    if (role.role === Method.MERCHANT) {
+    // const role = await getRoleDao({ id: payload.role_id });
+    if (role === Role.MERCHANT ) {
       await createUserHierarchyDao(
         {
           user_id: data.user_id,
-          role_id: data.role_id,
+          // role_id: data.role_id,
           created_by: data.created_by,
           updated_by: data.updated_by,
           company_id: data.company_id,
         },
         conn,
       );
-    } else if (role.role === Method.SUBMERCHANT) {
+    } else if (role === Role.SUB_MERCHANT) {
       const hierarchy = await getUserHierarchysDao({ user_id: parentId });
       await updateUserHierarchyDao(hierarchy.id, {
         config: {
@@ -60,7 +59,6 @@ const createMerchantService = async (conn, payload, roleIs) => {
         },
       });
     }
-
     console.log('Merchant created successfully');
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;

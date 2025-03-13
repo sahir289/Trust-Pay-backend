@@ -1,4 +1,4 @@
-import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
+import { InternalServerError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
 import { getConnection } from '../../utils/db.js';
 import {
@@ -98,13 +98,12 @@ const createUserService = async (conn, payload, role) => {
           ? vendorColumns.USER
           : columns.USER;
     const { user_name } = payload;
-
     const user = await getUsersByUserNameDao(
       payload.company_id,
       user_name,
     );
     if (user?.user_name || user?.email || user?.contact_no) {
-      throw new BadRequestError('User already exists');
+      throw new InternalServerError('User already exists');
     }
     const password = await createHash(payload.password);
     payload.password = password;
@@ -119,7 +118,7 @@ const createUserService = async (conn, payload, role) => {
       roleSpecificFields = {},
     ) => ({
       user_id: User.id,
-      role_id: payload.role_id,
+      // role_id: payload.role_id,
       company_id: payload.company_id,
       first_name: payload.first_name,
       last_name: payload.last_name,
