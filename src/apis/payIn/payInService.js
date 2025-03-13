@@ -610,7 +610,6 @@ export const resetDepositService = async (
       conn,
     );
   }
-
   return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 };
 
@@ -1123,7 +1122,6 @@ export const telegramCheckUTRService = async (
   if (!payIn) {
     throw new NotFoundError('PayIn not found');
   }
-
   createCheckUtrService({
     payin_id: payIn.id,
     utr,
@@ -1135,6 +1133,7 @@ export const telegramCheckUTRService = async (
   if (payIn.bank_response_id) {
     otherBankResponse =
       (await getBankResponseDao({ id: payIn.bank_response_id })) || {};
+
   }
 
   // check old code flow
@@ -1143,11 +1142,10 @@ export const telegramCheckUTRService = async (
       message: `PayIn is already confirmed with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
     };
   }
-
   const isAlreadyExit = await getPayInUrlDao({
     bank_response_id: bankResponse.id,
   });
-  if (!isAlreadyExit) {
+  if (isAlreadyExit) {
     return {
       message: `Utr: ${utr} is ${isAlreadyExit.status} with ${isAlreadyExit.merchant_order_id}`,
     };
