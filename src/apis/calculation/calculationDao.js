@@ -167,8 +167,8 @@ export const getCalculationsSumDao = async (filters) => {
   `;
 
   // Queries for Different Roles
-  // let merchantQuery = `${baseQuery} AND r.role = 'MERCHANT' `;
-  let merchantQuery = `${baseQuery} `;
+  let merchantQuery = `${baseQuery} AND r.role = 'MERCHANT' `;
+  // let merchantQuery = `${baseQuery} `;
   let vendorQuery = `${baseQuery} AND r.role = 'VENDOR' `;
 
   // Include hierarchy filtering (match against `code` column)
