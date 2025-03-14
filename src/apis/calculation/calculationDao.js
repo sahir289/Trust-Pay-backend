@@ -161,11 +161,14 @@ export const getCalculationsSumDao = async (filters) => {
     FROM "${tableName.CALCULATION}" c
     JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
     JOIN "${tableName.ROLE}" r ON u.role_id = r.id
+    JOIN "${tableName.MERCHANT}" m ON m.user_id = u.id
+    JOIN "${tableName.VENDOR}" v ON v.user_id = u.id
     WHERE c.is_obsolete = FALSE AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
   `;
 
   // Queries for Different Roles
-  let merchantQuery = `${baseQuery} AND r.role = 'MERCHANT' `;
+  // let merchantQuery = `${baseQuery} AND r.role = 'MERCHANT' `;
+  let merchantQuery = `${baseQuery} `;
   let vendorQuery = `${baseQuery} AND r.role = 'VENDOR' `;
 
   // Include hierarchy filtering (match against `code` column)
@@ -173,19 +176,19 @@ export const getCalculationsSumDao = async (filters) => {
     merchantQuery += `
       AND EXISTS (
         SELECT 1 FROM merchant m
-        WHERE m.user_id = ANY(${hierarchyUsers})
+        WHERE m.user_id = ANY(ARRAY[${hierarchyUsers.map((el=> `'${el}'`))}])
       )`;
 
     vendorQuery += `
       AND EXISTS (
         SELECT 1 FROM vendor v
-        WHERE v.user_id = ANY(${hierarchyUsers})
+        WHERE v.user_id = ANY(ARRAY[${hierarchyUsers.map((el=> `'${el}'`))}])
       )`;
   }
 
   if (userCodes.length) {
-    merchantQuery += ` AND v.code = ANY(${userCodes}) `;
-    vendorQuery += ` AND v.code = ANY(${userCodes}) `;
+    merchantQuery += ` AND m.code = ANY(ARRAY[${userCodes.map((el=> `'${el}'`))}]) `;
+    vendorQuery += ` AND v.code = ANY(ARRAY[${userCodes.map((el=> `'${el}'`))}]) `;
   }
 
   // Admin Query
