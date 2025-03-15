@@ -158,6 +158,7 @@ export const updatePayInUrlDao = async (id, data, conn) => {
     throw error.message;
   }
 };
+
 export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
   let conn;
   const baseQuery = `
