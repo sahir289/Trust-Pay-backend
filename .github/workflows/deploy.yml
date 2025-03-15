@@ -24,14 +24,24 @@ jobs:
         echo "$PRIVATE_KEY" > private_key
         chmod 600 private_key
 
-        # SSH into EC2 and deploy with debug output
+        # Test SSH connection first
+        echo "Testing SSH connection..."
+        ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "whoami" || echo "SSH connection failed"
+
+        # SSH into EC2 and deploy with detailed debug
+        echo "Deploying to EC2..."
         ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST << 'EOF'
-          cd $TARGET_DIR  # Use the TARGET_DIR variable
-          echo "Current directory: $(/bin/pwd)" 
-          git status  # Debug: Show Git state
-          git pull origin trust-pay-stg
-          npm install
-          pm2 restart all
+          echo "User: $(whoami)"
+          echo "Target directory: $TARGET_DIR"
+          cd $TARGET_DIR || { echo "Failed to cd into $TARGET_DIR"; exit 1; }
+          echo "Current directory: $(/bin/pwd)"
+          git fetch origin
+          echo "Git remote: $(git remote -v)"
+          echo "Git status: $(git status)"
+          git pull origin trust-pay-stg --verbose || echo "Git pull failed"
+          echo "Latest commit: $(git log -1 --oneline)"
+          npm install || echo "npm install failed"
+          pm2 restart all || echo "pm2 restart failed"
         EOF
 
         # Clean up
