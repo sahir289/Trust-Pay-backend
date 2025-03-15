@@ -48,19 +48,20 @@ const getUserById = async (req, res) => {
 };
 
 const createUser = async (req, res) => {
-  const joiValidation = CREATE_USER_SCHEMA.validate(req.body);
-  if (joiValidation.error) {
-    throw new ValidationError(joiValidation.error);
-  }
+  // const joiValidation = CREATE_USER_SCHEMA.validate(req.body);
+  // if (joiValidation.error) {
+  //   throw new ValidationError(joiValidation.error);
+  // }
   const { role, company_id, user_id } = req.user;
   let payload = req.body;
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
   await transactionWrapper(createUserService)(payload, role);
-  console.log('create user successfully');
-  return sendSuccess(res, {}, 'create user successfully');
+  console.log('Create user successfully');
+  return sendSuccess(res, {}, 'Create user successfully');
 };
+
 
 const updateUser = async (req, res) => {
   const joiValidation = CREATE_USER_SCHEMA.validate(req.body);

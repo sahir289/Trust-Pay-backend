@@ -124,12 +124,11 @@ const updateMerchant = async (req, res) => {
   // });
 
 
-  // Validate body (fields for update)
-  // const { error: bodyError } =
-  //   VALIDATE_UPDATE_MERCHANT_STATUS.validate(payload);
-  // if (bodyError) {
-  //   throw new ValidationError(bodyError);
-  // }
+  const { error: bodyError } =
+    VALIDATE_UPDATE_MERCHANT_STATUS.validate(payload);
+  if (bodyError) {
+    throw new ValidationError(bodyError);
+  }
   const { id } = req.params; 
   const { company_id, user_id, role } = req.user;
   payload.updated_by = user_id;

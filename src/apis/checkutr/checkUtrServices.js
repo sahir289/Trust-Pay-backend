@@ -8,8 +8,9 @@ import {
 
 const getCheckUtrService = async (id, page, limit) => {
   try{
-    const result = await getCheckUtrDao(id, null, null, null, null, null);
-    return result;
+  const result = await getCheckUtrDao( id, page,limit, null,null, null );
+  return result;
+
   } catch (error) {
     console.error('error getting while check utr', error);
     throw new InternalServerError(error);
