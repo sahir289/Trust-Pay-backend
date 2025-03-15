@@ -65,7 +65,7 @@ const getMerchantBankDao = async (filters) => {
     const query = `SELECT * FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
     const [sql, parameters] = buildSelectQuery(query, filters);
     const result = await executeQuery(sql, parameters);
-    return {totalCount : result.rowCount, merchantBankCodes : result.rows};
+    return result.rows;
   } catch (error) {
     console.error(error);
     throw error.message;
