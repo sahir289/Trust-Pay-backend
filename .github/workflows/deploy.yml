@@ -18,7 +18,7 @@ jobs:
         PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
         HOST: ${{ secrets.EC2_HOST }}
         USER: ${{ secrets.EC2_USER }}
-        TARGET_DIR: ${{ secrets.TARGET_DIR }}
+        TARGET_DIR: /home/ubuntu/trust-pay/Trust-Pay-backend
       run: |
         echo "PRIVATE_KEY is set: $([ -n "$PRIVATE_KEY" ] && echo 'yes' || echo 'no')"
         echo "HOST is set: $([ -n "$HOST" ] && echo 'yes' || echo 'no')"
@@ -32,7 +32,7 @@ jobs:
         PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
         HOST: ${{ secrets.EC2_HOST }}
         USER: ${{ secrets.EC2_USER }}
-        TARGET_DIR: ${{ secrets.TARGET_DIR }}
+        TARGET_DIR: /home/ubuntu/trust-pay/Trust-Pay-backend
       run: |
         echo "$PRIVATE_KEY" > private_key
         chmod 600 private_key
