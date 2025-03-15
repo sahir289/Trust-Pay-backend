@@ -176,15 +176,12 @@ export const assignedBankToPayInUrlService = async (merchantOrderId, amount, typ
   // Validate the PayIn URL
   const payIn = await getPayInUrlService(merchantOrderId);
   const payInConfig = payIn.config || {};
-
   checkIsPayInExpired(payIn);
   if (payIn.status !== Status.INITIATED) {
     throw new BadRequestError('PayIn has been confirmed already!');
   }
-
   const merchantArr = await getMerchantsDao({ id: payIn.merchant_id });
   const merchant = merchantArr[0] || {};
-
   if (!merchant) {
     throw new NotFoundError('No merchant found');
   }
@@ -610,8 +607,7 @@ export const resetDepositService = async (
       conn,
     );
   }
-
-  return await updatePayInUrlDao(payIn.id, updatePayInData, company_id );
+  return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 };
 
 export const getPayinsService = async ( company_id,page,limit, filters, role) => {
@@ -1121,7 +1117,6 @@ export const telegramCheckUTRService = async (
   if (!payIn) {
     throw new NotFoundError('PayIn not found');
   }
-
   createCheckUtrService({
     payin_id: payIn.id,
     utr,
@@ -1133,6 +1128,7 @@ export const telegramCheckUTRService = async (
   if (payIn.bank_response_id) {
     otherBankResponse =
       (await getBankResponseDao({ id: payIn.bank_response_id })) || {};
+
   }
 
   // check old code flow
@@ -1141,11 +1137,10 @@ export const telegramCheckUTRService = async (
       message: `PayIn is already confirmed with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
     };
   }
-
   const isAlreadyExit = await getPayInUrlDao({
     bank_response_id: bankResponse.id,
   });
-  if (!isAlreadyExit) {
+  if (isAlreadyExit) {
     return {
       message: `Utr: ${utr} is ${isAlreadyExit.status} with ${isAlreadyExit.merchant_order_id}`,
     };

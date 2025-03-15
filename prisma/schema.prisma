@@ -202,8 +202,8 @@ model BankAccount {
   bank_name     String
   is_qr         Boolean  @default(true)
   is_bank       Boolean  @default(true)
-  min_payin     Decimal
-  max_payin     Decimal
+  min     Decimal
+  max     Decimal
   is_enabled    Boolean  @default(true)
   payin_count   Int
   balance       Decimal

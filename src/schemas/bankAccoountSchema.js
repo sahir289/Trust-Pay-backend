@@ -17,8 +17,8 @@ export const BANK_ACCOUNT_SCHEMA = Joi.object({
   is_qr: Joi.boolean().label('is_qr').optional(),
   updated_by: Joi.string().label('updated_by').optional(),
   is_bank: Joi.boolean().label('is_bank').optional(),
-  min_payin: Joi.number().min(1).label('min_payin').optional(),
-  max_payin: Joi.number().min(1).label('max_payin').optional(),
+  min: Joi.number().min(1).label('min').optional(),
+  max: Joi.number().min(1).label('max').optional(),
   is_enabled: Joi.boolean().label('is_enabled').optional(),
   payin_count: Joi.number().integer().min(0).label('payin_count').optional(),
   balance: Joi.number().label('balance').optional(),
@@ -31,24 +31,20 @@ export const UPDATE_BANK_ACCOUNT_SCHEMA = Joi.object({
   upi_id: Joi.string().label('upi_id').optional(),
   upi_params: Joi.string().label('upi_params').optional(),
   nick_name: Joi.string().label('nick_name').optional(),
-  acc_holder_name: Joi.number().label('acc_holder_name').optional(),
+  acc_holder_name: Joi.string().label('acc_holder_name').optional(),
   acc_no: Joi.number().label('acc_no').optional(),
-  ifsc: Joi.string()
-    .label('ifsc')
-    .optional(),
+  ifsc: Joi.string().label('ifsc').optional(),
   bank_name: Joi.string().label('bank_name').optional(),
   is_qr: Joi.boolean().label('is_qr').optional(),
   is_bank: Joi.boolean().label('is_bank').optional(),
-  min_payin: Joi.number().min(1).label('min_payin').optional(),
-  max_payin: Joi.number().min(1).label('max_payin').optional(),
+  min: Joi.number().min(1).label('min').optional(),
+  max: Joi.number().min(1).label('max').optional(),
   is_enabled: Joi.boolean().label('is_enabled').optional(),
   payin_count: Joi.number().integer().min(0).label('payin_count').optional(),
   balance: Joi.number().label('balance').optional(),
   today_balance: Joi.number().label('today_balance').optional(),
-  
-  bank_used_for: Joi.string()
-    .label('bank_used_for')
-    .optional(),
+
+  bank_used_for: Joi.string().label('bank_used_for').optional(),
   config: Joi.object().label('config').optional(),
 });
 

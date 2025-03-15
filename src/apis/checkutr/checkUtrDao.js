@@ -50,7 +50,6 @@ const getCheckUtrDao = async (filters,
       filters.or = buildSearchFilterObj(filters.search, CHECK_UTR_HISTORY);
       delete filters.search;
     }
-
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
@@ -60,12 +59,11 @@ const getCheckUtrDao = async (filters,
       sortOrder,
       tableName.CHECK_UTR_HISTORY,
     );
-
     const result = await executeQuery(sql, queryParams);
     return { totalCount: result.rowCount, checkutr: result.rows };
   } catch (error) {
     console.error('Error getting CheckUtr:', error); // Log the error for debugging
-    throw error; // Rethrow the error to propagate it
+    throw error.message; // Rethrow the error to propagate it
   }
 };
 
