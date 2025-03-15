@@ -24,6 +24,7 @@ jobs:
         echo "HOST: $HOST"
         echo "USER: $USER"
         echo "TARGET_DIR: $TARGET_DIR"
+        if [ -z "$TARGET_DIR" ]; then echo "TARGET_DIR is not set or empty!"; exit 1; fi
 
     - name: Deploy to EC2
       env:
