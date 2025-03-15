@@ -70,7 +70,7 @@ router.get('/generate-payin', tryCatchHandler(generatePayInUrl));
  *       404:
  *         description: Pay-In URL not found
  */
-router.get('/validate-payIn-url/:payInId', tryCatchHandler(validatePayInUrl));
+router.get('/validate-payIn-url/:merchantOrderId', tryCatchHandler(validatePayInUrl));
 
 /**
  * @swagger
@@ -92,7 +92,7 @@ router.get('/validate-payIn-url/:payInId', tryCatchHandler(validatePayInUrl));
  *       404:
  *         description: Pay-In URL not found
  */
-router.post('/assign-bank/:payInId', tryCatchHandler(assignedBankToPayInUrl));
+router.post('/assign-bank/:merchantOrderId', tryCatchHandler(assignedBankToPayInUrl));
 
 /**
  * @swagger

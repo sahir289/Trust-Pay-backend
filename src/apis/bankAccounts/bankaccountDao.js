@@ -9,6 +9,7 @@ import {
 } from '../../utils/db.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { DbError } from '../../utils/appErrors.js';
+
 const getBankaccountDao = async (
   filters,
   page,

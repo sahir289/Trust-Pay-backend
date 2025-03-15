@@ -65,7 +65,6 @@ const loginService = async (config, clientIP) => {
     await addLoginDao(user.id, newConfig, user.company_id, sessionId);
 
     // **Notify previous sessions to log out**
-    // io.to(user.id).emit('forceLogout');
     forceLogoutUser(user.id);
 
     return {

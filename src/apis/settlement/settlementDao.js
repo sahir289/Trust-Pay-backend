@@ -49,7 +49,6 @@ const getSettlementDao = async (
       baseQuery += ` AND "${ROLE}".role = '${filters.role}'`
       delete filters.role; 
     }
-    console.log(filters, "filters12")
     let [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
@@ -59,8 +58,6 @@ const getSettlementDao = async (
       sortOrder,
       tableName.SETTLEMENT,
     );
-
-    console.log(sql, queryParams, "baseQuerybaseQuery");
     // Execute query
     const result = await executeQuery(sql, queryParams);
     return result.rows;

@@ -121,14 +121,17 @@ export const getPayoutsDao = async (conn, filters, company_id, page, limit, role
         LEFT JOIN public."BankAccount" b ON u.bank_acc_id = b.id
         LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
         WHERE ${conditions.join(' AND ')}  
+      ),
+      total_count AS (
+        SELECT COUNT(*) AS total FROM filtered_payOuts
       )
-      SELECT * FROM filtered_payOuts
+      SELECT * FROM filtered_payOuts, total_count
       ORDER BY sno DESC
       ${limitcondition}
     `;
 
     const result = await conn.query(baseQuery, queryParams);
-    return { totalCount: result.rowCount, payout: result.rows };
+    return { totalCount: result.rows[0]?.total, payout: result.rows };
   } catch (error) {
     console.error('Error in getPayoutsDao:', error);
     throw new Error(error.message);

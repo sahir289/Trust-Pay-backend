@@ -13,12 +13,13 @@ import { transactionWrapper } from '../../utils/db.js';
 const getUsers = async (req, res) => {
   // const reqBody = req.body;
   const { role, company_id } = req.user;
+  const {page, limit} = req.query;
   const data = await getUsersService(
     {
       company_id,
       ...req.query,
     },
-    role,
+    role, page,limit,
   );
   console.log('getUsers successfully');
   return sendSuccess(res, data, 'getUsers successfully');

@@ -30,10 +30,9 @@ const getSettlementControllerById = async (req, res) => {
 
 const getSettlementController = async (req, res) => {
   const { company_id } = req.user;
-  const { role_name } = req.query;
+  const { role_name, page, limit } = req.query;
   const ids= {company_id , role_name}
-  console.log(ids, "ids12")
-  const settlementData = await getSettlementService(ids);
+  const settlementData = await getSettlementService(ids,  page, limit);
   if (!settlementData) {
     throw new BadRequestError('Error getting while getting settlements');
   }
@@ -45,6 +44,7 @@ const createSettlementController = async (req, res) => {
   const { company_id, user_id } = req.user;
   payload.company_id = company_id;
   payload.created_by = user_id;
+  payload.status = "INITIATED";
   const joiValidation = CREATE_SETTLEMENT_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
@@ -64,10 +64,9 @@ const updateSettlementController = async (req, res) => {
   const joiValidation = UPDATE_SETTLEMENT_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
-  }
-  // const updateData =
-  await transactionWrapper(updateSettlementService)(ids, payload);
-  sendSuccess(res, {}, 'Updated settlement');
+  }  
+  const data = await transactionWrapper(updateSettlementService)(ids, payload);
+  sendSuccess(res,data, 'Updated settlement');
 };
 
 const deleteSettlementController = async (req, res) => {
