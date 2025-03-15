@@ -7,9 +7,9 @@ import {
 } from './complaintsDao.js';
 
 // Service to get complaints
-const getComplaintsService = async (filters) => {
+const getComplaintsService = async (filters,  page,limit,) => {
   try {
-    const data = await getComplaintsDao(filters);
+    const data = await getComplaintsDao(filters,  page,limit,);
     return data;
   } catch (error) {
     console.error('Error while fetching complaints', error);

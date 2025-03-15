@@ -33,6 +33,7 @@ const createUserHierarchy = async (req, res) => {
 
 const getUserHierarchys = async (req, res) => {
   const { company_id, role } = req.user;
+  const {page, limit} = req.query;
   // const search = req.query.search;
   // Fetch vendors data from the service
   const data = await getUserHierarchyService(
@@ -40,7 +41,7 @@ const getUserHierarchys = async (req, res) => {
       company_id,
       ...req.query,
     },
-    role,
+    role,page,limit,
   );
   // Log success message
   console.log('get UserHierarchys successfully', data);

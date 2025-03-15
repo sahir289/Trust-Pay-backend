@@ -14,18 +14,19 @@ import {
   getBankaccountDaoNickName,
 } from './bankaccountDao.js';
 
-const getBankaccountService = async (filters,role) => {
+const getBankaccountService = async (filters, role, page, limit) => {
   try {
     const filterColumns =
-    role === Role.MERCHANT
-      ? merchantColumns.BANK_ACCOUNT
-      : role === Role.VENDOR
-        ? vendorColumns.BANK_ACCOUNT
-        : columns.BANK_ACCOUNT;
+      role === Role.MERCHANT
+        ? merchantColumns.BANK_ACCOUNT
+        : role === Role.VENDOR
+          ? vendorColumns.BANK_ACCOUNT
+          : columns.BANK_ACCOUNT;
+    const pageNumber = parseInt(page, 10) || 1;
+    const pageSize = parseInt(limit, 10) || 10;
     return await getBankaccountDao(
       filters,
-      null,
-      null,
+      pageNumber, pageSize, 
       null,
       null,
       filterColumns,
@@ -36,7 +37,7 @@ const getBankaccountService = async (filters,role) => {
   }
 };
 
-const getBankaccountServiceNickName = async(company_id,type)=>{
+const getBankaccountServiceNickName = async (company_id, type) => {
   let conn;
   try {
     conn = await getConnection();
@@ -52,7 +53,7 @@ const getBankaccountServiceNickName = async(company_id,type)=>{
   } catch (error) {
     if (conn) {
       try {
-        await rollback(conn); 
+        await rollback(conn);
       } catch (rollbackError) {
         console.error('Error during transaction rollback', rollbackError);
       }

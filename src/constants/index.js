@@ -126,6 +126,9 @@ export const columns = {
     'net_balance',
     'created_at',
     'updated_at',
+    'total_reverse_payout_count',
+    'total_reverse_payout_amount',
+    'total_reverse_payout_commission'
   ],
   COMPLAINTS: [
     'id',
@@ -209,8 +212,8 @@ export const columns = {
     'is_qr',
     'is_bank',
     'is_enabled',
-    'min_payin',
-    'max_payin',
+    'min',
+    'max',
     'payin_count',
     'balance',
     'today_balance',
@@ -335,6 +338,9 @@ export const merchantColumns = {
     'total_chargeback_amount',
     'current_balance',
     'net_balance',
+    'total_reverse_payout_count',
+    'total_reverse_payout_amount',
+    'total_reverse_payout_commission'
   ],
   COMPLAINTS: ['sno', 'status', 'email', 'config'],
   PAYIN: [
@@ -422,6 +428,9 @@ export const vendorColumns = {
     'total_chargeback_amount',
     'current_balance',
     'net_balance',
+    'total_reverse_payout_count',
+    'total_reverse_payout_amount',
+    'total_reverse_payout_commission'
   ],
   COMPLAINTS: ['sno', 'status', 'email', 'config'],
   PAYIN: [

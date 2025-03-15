@@ -12,7 +12,6 @@ import {
   getMerchantsDao,
   updateMerchantDao,
 } from './merchantDao.js';
-import { getRoleDao } from '../roles/rolesDao.js';
 import {
   createUserHierarchyDao,
   getUserHierarchysDao,
@@ -21,38 +20,38 @@ import {
 import {
   columns,
   merchantColumns,
-  Method,
+  // Method,
   Role,
 } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 // Create Merchant Service
-const createMerchantService = async (conn, payload, roleIs) => {
+const createMerchantService = async (conn, payload, role) => {
   try {
     const filterColumns =
-      roleIs === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
+      role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
     const parentId = payload.parentId;
     delete payload.parentId;
     const data = await createMerchantDao(payload, conn);
     const calculationPayload = {
-      role_id: data.role_id,
+      // role_id: data.role_id,
       user_id: data.user_id,
       company_id: data.company_id,
     };
     await createCalculationDao(conn, calculationPayload);
-    const role = await getRoleDao({ id: payload.role_id });
-    if (role.role === Method.MERCHANT) {
+    // const role = await getRoleDao({ id: payload.role_id });
+    if (role === Role.MERCHANT) {
       await createUserHierarchyDao(
         {
           user_id: data.user_id,
-          role_id: data.role_id,
+          // role_id: data.role_id,
           created_by: data.created_by,
           updated_by: data.updated_by,
           company_id: data.company_id,
         },
         conn,
       );
-    } else if (role.role === Method.SUBMERCHANT) {
+    } else if (role === Role.SUB_MERCHANT) {
       const hierarchy = await getUserHierarchysDao({ user_id: parentId });
       await updateUserHierarchyDao(hierarchy.id, {
         config: {
@@ -60,7 +59,6 @@ const createMerchantService = async (conn, payload, roleIs) => {
         },
       });
     }
-
     console.log('Merchant created successfully');
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
@@ -71,14 +69,12 @@ const createMerchantService = async (conn, payload, roleIs) => {
 };
 
 // Get Merchants Service
-const getMerchantsService = async (filters, role, designation, user_id) => {
+const getMerchantsService = async (filters, role, page, limit, designation, user_id) => {
   try {
     const filterColumns =
       role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
-
     // TODO: add designation constants
     if (role === Role.MERCHANT && designation === Role.MERCHANT_ADMIN) {
-
       // user_id is unique
       const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys[0];
@@ -86,15 +82,15 @@ const getMerchantsService = async (filters, role, designation, user_id) => {
       if (!userHierarchy || !userHierarchy.config || !Array.isArray(userHierarchy.config[user_id])) {
         return [];
       }
-
       // only send merhcant underlings if Requested person is Merchant Admin
       filters.user_id = userHierarchy.config[user_id];
     }
-
+    const pageNumber = parseInt(page, 10) || 1;
+    const pageSize = parseInt(limit, 10) || 10;
+    
     const data = await getMerchantsDao(
-      filters,
-      null,
-      null,
+      filters
+      , pageNumber, pageSize,
       null,
       null,
       filterColumns,
@@ -135,29 +131,33 @@ const getMerchantsServiceCode = async (company_id) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
+
+    // Fetch the merchant codes
     const codes = await getMerchantsCodeDao(conn, company_id);
+
     await commit(conn);
     return codes;
   } catch (error) {
     if (conn) {
       try {
-        await rollback(conn); 
+        await rollback(conn); // Rollback the transaction in case of error
       } catch (rollbackError) {
         console.error('Error during transaction rollback', rollbackError);
       }
     }
-    console.error('Error while deleting ChargeBack', error);
+    console.error('Error while getting merchants codes', error);
     throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
-        rollback(conn);
+        conn.release(); // Release the connection back to the pool
       } catch (releaseError) {
         console.error('Error while releasing the connection', releaseError);
       }
     }
   }
 };
+
 
 // Update Merchant Service
 const updateMerchantService = async (ids, payload, role) => {
@@ -225,7 +225,7 @@ const getMerchantByIdService = async (filters, role, addUserHierarchy = false) =
 
   const merchant = dataArr[0];
 
-  if(!merchant){
+  if (!merchant) {
     throw new NotFoundError("Merchant not found!");
   }
 
@@ -236,7 +236,7 @@ const getMerchantByIdService = async (filters, role, addUserHierarchy = false) =
     // user_id is unique
     const userHierarchys = await getUserHierarchysDao({ user_id });
     const userHierarchy = userHierarchys[0];
-    
+
     if (!userHierarchy || !userHierarchy.config || !Array.isArray(userHierarchy.config[user_id])) {
       merchant.subMerchants = [];
       return merchant;

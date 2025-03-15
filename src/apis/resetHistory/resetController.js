@@ -1,17 +1,12 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import {
-  createResetHistoryService,
-  deleteResetHistoryService,
-  getResetHistoryService,
-  updateResetHistoryService,
-} from './ResetHistoryServices.js';
+import { createResetHistoryService, deleteResetHistoryService, getResetHistoryService, updateResetHistoryService } from './resetServices.js';
 
 const getResetHistory = async (req, res) => {
   try {
-    const { id } = req.params;
-    const data = await getResetHistoryService(id);
-
+    const { company_id } = req.user;
+    const {page, limit} = req.query;
+    const data = await getResetHistoryService(company_id,  page,limit,);
     return sendSuccess(res, data, 'reset history successfully');
   } catch (error) {
     console.error('error getting while fetching reports', error);
@@ -20,6 +15,10 @@ const getResetHistory = async (req, res) => {
 const createResetHistory = async (req, res) => {
   try {
     const payload = req.body;
+    const {user_id , company_id}= req.user;
+    payload.created_by = user_id;
+    payload.company_id = company_id;
+
     if (!payload) {
       console.error('payload is required');
       throw new BadRequestError('payload is required');
@@ -34,9 +33,9 @@ const createResetHistory = async (req, res) => {
 
 const updateResetHistory = async (req, res) => {
   try {
-    const payload = req.body;
     const { id } = req.params;
-    const data = await updateResetHistoryService(id, payload);
+    const {company_id} = req.user;
+    const data = await updateResetHistoryService(id, company_id);
     return sendSuccess(res, data, 'reset history successfully');
   } catch (error) {
     console.error('error getting while fetching reports', error);
@@ -57,6 +56,8 @@ const deleteResetHistory = async (req, res) => {
     console.error('error getting while fetching reports', error);
   }
 };
+
+
 export {
   getResetHistory,
   createResetHistory,

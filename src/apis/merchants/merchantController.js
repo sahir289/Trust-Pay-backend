@@ -54,12 +54,13 @@ const createMerchant = async (req, res) => {
 };
 const getMerchants = async (req, res) => {
   const { company_id, role, designation, user_id } = req.user;
+  const {page, limit} = req.query;
   const data = await getMerchantsService(
     {
       company_id,
       ...req.query,
     },
-    role,
+    role, page,limit,
     designation,
     user_id
   );

@@ -97,6 +97,8 @@ const getMerchantReportService = async (req, res) => {
         ? merchantColumns.CALCULATION
         : columns.CALCULATION;
     const { code, startDate, endDate } = req.query;
+    const {page, limit} = req.query;
+
     ///api/data?code=123&code=456&startDate=2024-01-01&endDate=2024-01-31
     let dataArray = [];
     let result;
@@ -117,8 +119,8 @@ const getMerchantReportService = async (req, res) => {
       }
       return sendSuccess(res, dataArray, 'Reports fetched successfully');
     } else {
-      const result = await getMerchantReportDao({ company_id: company_id}, null, null, null,
-        null,
+      const result = await getMerchantReportDao({ company_id: company_id}, null, null,
+        page,limit,
         null,
         null,
         filterColumns ) ;
@@ -136,6 +138,7 @@ const getVendorReportService = async (req, res) => {
     const filterColumns =
       role === Role.VENDOR ? vendorColumns.CALCULATION : columns.CALCULATION;
     const { code, startDate, endDate } = req.query;
+    const {page, limit} = req.query;
     ///api/data?code=123&code=456&startDate=2024-01-01&endDate=2024-01-31
     let dataArray = [];
     if (code) {
@@ -155,8 +158,8 @@ const getVendorReportService = async (req, res) => {
       }
       return sendSuccess(res, dataArray, 'Reports fetched successfully');
     } else {
-      const result = await getVendorReportDao({ company_id: company_id}, null, null, null,
-        null,
+      const result = await getVendorReportDao({ company_id: company_id}, null, null,
+        page,limit,
         null,
         null,
         filterColumns ) ;

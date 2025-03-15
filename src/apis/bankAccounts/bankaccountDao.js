@@ -9,6 +9,7 @@ import {
 } from '../../utils/db.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { DbError } from '../../utils/appErrors.js';
+
 const getBankaccountDao = async (
   filters,
   page,
@@ -36,7 +37,6 @@ const getBankaccountDao = async (
       columns.length ? columns : '*',
       joins,
     );
-    console.log(baseQuery);
     if (filters.search) {
       filters.or = buildSearchFilterObj(filters.search, BANK_ACCOUNT);
       delete filters.search;

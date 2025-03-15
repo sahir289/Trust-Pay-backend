@@ -1,13 +1,9 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import {
-  createResetHistory,
-  deleteResetHistory,
-  getResetHistory,
-  updateResetHistory,
-} from './ResetHistoryController.js';
+
 import { isAuthenticated, authorized } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
+import { createResetHistory, deleteResetHistory, getResetHistory, updateResetHistory } from './resetController.js';
 const router = express.Router();
 
 /**
@@ -112,7 +108,7 @@ router.post(
  *       200:
  *         description: ResetHistory updated successfully.
  */
-router.put(
+router.post(
   '/update-ResetHistory/:id',
   [isAuthenticated, authorized(AccessRoles.RESET_DATA_HISTORY)],
   tryCatchHandler(updateResetHistory),

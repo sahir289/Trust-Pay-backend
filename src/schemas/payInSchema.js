@@ -11,16 +11,16 @@ export const ASSIGN_PAYIN_SCHEMA = Joi.object({
 });
 
 export const VALIDATE_PAYIN_SCHEMA = Joi.object({
-  payInId: Joi.string()
+  merchantOrderId: Joi.string()
     .guid({ version: ['uuidv4'] })
-    .label('payInId')
+    .label('merchantOrderId')
     .required(),
 });
 
 export const VALIDATE_ASSIGNED_BANT_TO_PAY = Joi.object({
-  payInId: Joi.string()
+  merchantOrderId: Joi.string()
     .guid({ version: ['uuidv4'] })
-    .label('payInId')
+    .label('merchantOrderId')
     .required(),
   amount: Joi.number().positive().label('amount').required(),
   type: Joi.string()
@@ -71,10 +71,10 @@ export const VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS = Joi.object({
 
 export const VALIDATE_RESET_DEPOSIT = Joi.object({
   merchant_order_id: Joi.string()
-    .guid({ version: ['uuidv4'] })
     .label('merchant_order_id')
     .required(),
 });
+
 
 export const VALIDATE_PROCESSE_PAYIN = Joi.object({
   payInId: Joi.string()

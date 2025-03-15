@@ -1,4 +1,5 @@
 import { sendSuccess } from '../../utils/responseHandlers.js';
+import { getPayinDetailsByMerchantOrderId } from '../payIn/payInDao.js';
 import {
   createChargeBackService,
   getChargeBacksService,
@@ -15,13 +16,22 @@ import { ValidationError } from '../../utils/appErrors.js';
 
 const createChargeBack = async (req, res) => {
   let payload = req.body;
+  delete payload.date;
   const { error } = VALIDATE_CHARGEBACK_SCHEMA.validate(req.body);
   if (error) {
     throw new ValidationError(error);
   }
+  const PayinDetails = await getPayinDetailsByMerchantOrderId(payload.merchant_order_id)
+  payload.vendor_user_id = PayinDetails[0].vendor_user_id;
+  payload.merchant_user_id = PayinDetails[0].merchant_user_id;
+  payload.payin_id = PayinDetails[0].payin_id;
+  payload.bank_acc_id = PayinDetails[0].bank_acc_id;
   const { company_id, role, user_id } = req.user;
   payload.created_by = user_id;
+  payload.updated_by = user_id;
   payload.company_id = company_id;
+  delete payload.merchant_order_id;
+  
   // Call the service to create the ChargeBack
   const result = await createChargeBackService(payload, role);
   console.log('ChargeBack created successfully', 'info', result);
@@ -45,6 +55,7 @@ const getChargeBacksById = async (req, res) => {
 
 const getChargeBacks = async (req, res) => {
   const { company_id, role } = req.user;
+  const {page, limit} = req.query;
   // const search = req.query.search;
   // Fetch vendors data from the service
   const data = await getChargeBacksService(
@@ -52,7 +63,7 @@ const getChargeBacks = async (req, res) => {
       company_id: company_id,
       // TODO: search
     },
-    role,
+    role,page,limit,
   );
   // Log success message
   // Send success response

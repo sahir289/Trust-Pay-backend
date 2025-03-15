@@ -47,7 +47,7 @@ const getSettlementServiceById = async (ids) => {
   }
 };
 
-const getSettlementService = async (ids) => {
+const getSettlementService = async (ids,  page, limit) => {
   try {
     const filterColumns =
       ids.role === Role.MERCHANT
@@ -57,8 +57,7 @@ const getSettlementService = async (ids) => {
           : columns.SETTLEMENT;
     return await getSettlementDao(
       { company_id: ids.company_id, role : ids.role_name },
-      null,
-      null,
+      page, limit,
       null,
       null,
       filterColumns
@@ -96,10 +95,6 @@ const getSettlementService = async (ids) => {
 
 const createSettlementService = async (payload) => {
   try {
-    const dataexist = await getSettlementDao({ id: payload.id });
-    if (dataexist) {
-      throw new BadRequestError('already data found');
-    }
     const data = await createSettlementDao(payload);
     return data;
   } catch (error) {
@@ -110,12 +105,6 @@ const createSettlementService = async (payload) => {
 
 const updateSettlementService = async (conn, ids, payload) => {
   try {
-    //-TODO after merchant and vendor filetr columns added
-    // const filterColumns = ['id','balance'];
-    // const filterColumnsSettle = ids.role === Role.MERCHANT ? merchantColumns.SETTLEMENT : ids.role=== Role.VENDOR ? Role.vendorColumns.SETTLEMENT : columns.SETTLEMENT;
-    // const filterColumnsCal = ids.role === Role.MERCHANT ? merchantColumns.CALCULATION : ids.role=== Role.VENDOR ? Role.vendorColumns.CALCULATION : columns.CALCULATION;
-    // const filterColumnsVendor = ['id','user_id'];
-    // const filterColumnsBank =['id', 'balance']
     if (payload.config.reference_id) {
       payload.status = 'SUCCESS';
       const data = await getSettlementDao({
@@ -126,13 +115,13 @@ const updateSettlementService = async (conn, ids, payload) => {
         throw new BadRequestError('no data found');
       }
       const calculationData = await getCalculationforCronDao(data[0].user_id);
+      if (calculationData.length>0) {
       let count = calculationData[0].total_settlement_count + 1;
       let amountCalculation =
         calculationData[0].total_settlement_amount + payload?.amount;
       let calculationId = calculationData[0].id;
       let currentBalance = calculationData[0].current_balance + payload?.amount;
       let netBalance = calculationData[0].net_balance + payload?.amount;
-      if (calculationData) {
         //  const updatedCalculations =
         await updateCalculationDao(
           conn,
@@ -176,12 +165,12 @@ const updateSettlementService = async (conn, ids, payload) => {
         await updateMerchantDao({ id: merchantData.id, balance: merchantAcc });
       }
     }
+    if (payload.config.rejected_reason) {
+      payload.status = 'REJECTED';
+    }
     if (payload.status == 'INITIATED') {
       payload.config.reference_id = '';
       payload.config.rejected_reason = '';
-    }
-    if (payload.config.rejected_reason) {
-      payload.status = 'REVERSED';
     }
     const updateData = await updateSettlementDao(
       conn,
