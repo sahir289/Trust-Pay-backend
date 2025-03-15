@@ -105,7 +105,6 @@ export const buildSelectQuery = (
   sortOrder,
   tableName,
 ) => {
-
   const prefix = tableName ? `"${tableName}".` : '';
   let query = baseQuery;
   let values = [];
@@ -113,21 +112,36 @@ export const buildSelectQuery = (
 
   for (const key in filters) {
     const value = filters[key];
-    if (key === 'or'|| key === 'page' || key === 'limit') {
+    if (key === 'or' || key === 'page' || key === 'limit') {
       continue;
+    } else if (key.startsWith('config_') && key.endsWith('_contains')) {
+      // Handle dynamic config.<variable> array column containment
+      const variablePart = key.replace('config_', '').replace('_contains', '');
+      const jsonColumn = `
+        COALESCE(
+          CASE 
+            WHEN json_typeof(${prefix}"config"->'${variablePart}') = 'array' 
+            THEN ARRAY(SELECT json_array_elements_text(${prefix}"config"->'${variablePart}'))
+            ELSE ARRAY[(${prefix}"config"->>'${variablePart}')::text]
+          END,
+          ARRAY[]::text[]
+        )`;
+      conditions.push(`$${values.length + 1} = ANY(${jsonColumn})`);
+      values.push(value);
     } else if (Array.isArray(value)) {
-      conditions.push(`${[prefix]}"${key}" = ANY($${values.length + 1})`);
+      conditions.push(`${prefix}"${key}" = ANY($${values.length + 1})`);
+      values.push(value);
     } else {
       conditions.push(`${prefix}"${key}" = $${values.length + 1}`);
+      values.push(value);
     }
-    values.push(value);
   }
 
   if (conditions.length) {
     query += ` AND ${conditions.join(' AND ')}`;
   }
 
-  // repeat the query process for OR
+  // OR conditions (unchanged)
   if (filters.or && typeof filters.or === 'object') {
     const orConditions = [];
     for (const key in filters.or) {
@@ -139,7 +153,6 @@ export const buildSelectQuery = (
       }
       values.push(value);
     }
-
     query += ` AND (${orConditions.join(' OR ')})`;
   }
 
