@@ -1,9 +1,10 @@
-name: Deploy to EC2
+name: Deploying to EC2
 
 on:
   push:
     branches:
       - trust-pay-stg
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -23,11 +24,13 @@ jobs:
         echo "$PRIVATE_KEY" > private_key
         chmod 600 private_key
 
-        # SSH into EC2 and deploy
+        # SSH into EC2 and deploy with debug output
         ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST << 'EOF'
           cd $TARGET_DIR
-          git pull origin trust-pay-stg
-          npm install           
+          echo "Current directory: $(/home/ubuntu/trust-pay/Trust-Pay-backend)"
+          git status  # Debug: Show Git state
+          git pull origin trust-pay-stg 
+          npm install
           pm2 restart all
         EOF
 
