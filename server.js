@@ -3,6 +3,7 @@ import { createServer } from 'http';
 import chalk from 'chalk';
 import config from './src/config/config.js';
 import { initializeSocket } from './src/utils/sockets.js';
+import { logger } from './src/utils/logger.js';
 
 const server = createServer(app);
 
@@ -30,11 +31,11 @@ const onError = (error) => {
   }
   switch (error.code) {
     case 'EACCES':
-      console.error(`${port} requires elevated privileges`);
+      logger.error(`${port} requires elevated privileges`);
       process.exit(1);
       break;
     case 'EADDRINUSE':
-      console.error(`${port} is already in use`);
+      logger.error(`${port} is already in use`);
       process.exit(1);
       break;
     default:
@@ -48,10 +49,10 @@ const onListening = () => {
   const styledServerMessage = chalk.blue(
     `the server started listening on ${bind}`,
   );
-  console.log(styledServerMessage);
+  logger.log(styledServerMessage);
   const docsUrl = `http://localhost:${PORT}/api-docs`;
   const styledMessage = chalk.bold.yellow(`API docs available at ${docsUrl}`);
-  console.log(styledMessage);
+  logger.log(styledMessage);
 };
 
 process.on('SIGINT', () => {
