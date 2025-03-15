@@ -26,10 +26,10 @@ jobs:
 
         # SSH into EC2 and deploy with debug output
         ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST << 'EOF'
-          cd $TARGET_DIR
-          echo "Current directory: $(/home/ubuntu/trust-pay/Trust-Pay-backend)"
+          cd $TARGET_DIR  # Use the TARGET_DIR variable
+          echo "Current directory: $(/bin/pwd)" 
           git status  # Debug: Show Git state
-          git pull origin trust-pay-stg 
+          git pull origin trust-pay-stg
           npm install
           pm2 restart all
         EOF
