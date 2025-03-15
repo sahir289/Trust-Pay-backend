@@ -52,14 +52,14 @@ router.get('/generate-payin', tryCatchHandler(generatePayInUrl));
 
 /**
  * @swagger
- * /payin/validate-payIn-url/{payInId}:
+ * /payin/validate-payIn-url/{merchantOrderId}:
  *   get:
  *     summary: Validate Pay-In URL
  *     description: Validates if the Pay-In URL is valid.
  *     tags: [PayIn]
  *     parameters:
  *       - in: path
- *         name: payInId
+ *         name: merchantOrderId
  *         required: true
  *         schema:
  *           type: string
@@ -74,14 +74,14 @@ router.get('/validate-payIn-url/:merchantOrderId', tryCatchHandler(validatePayIn
 
 /**
  * @swagger
- * /payin/assign-bank/{payInId}:
+ * /payin/assign-bank/{merchantOrderId}:
  *   post:
  *     summary: Assign bank to Pay-In URL
  *     description: Assigns a bank to a specific Pay-In URL.
  *     tags: [PayIn]
  *     parameters:
  *       - in: path
- *         name: payInId
+ *         name: merchantOrderId
  *         required: true
  *         schema:
  *           type: string
@@ -146,14 +146,14 @@ router.post(
 
 /**
  * @swagger
- * /payin/process/{payInId}:
+ * /payin/process/{merchantOrderId}:
  *   post:
  *     summary: Process a Pay-In
  *     description: Processes a Pay-In for the specified Pay-In URL.
  *     tags: [PayIn]
  *     parameters:
  *       - in: path
- *         name: payInId
+ *         name: merchantOrderId
  *         required: true
  *         schema:
  *           type: string
@@ -164,18 +164,18 @@ router.post(
  *       404:
  *         description: Pay-In URL not found
  */
-router.post('/process/:payInId', tryCatchHandler(processPayIn));
+router.post('/process/:merchantOrderId', tryCatchHandler(processPayIn));
 
 /**
  * @swagger
- * /payin/process-by-image/{payInId}:
+ * /payin/process-by-image/{merchantOrderId}:
  *   post:
  *     summary: Process Pay-In by Image
  *     description: Processes a Pay-In using an image of the payment confirmation.
  *     tags: [PayIn]
  *     parameters:
  *       - in: path
- *         name: payInId
+ *         name: merchantOrderId
  *         required: true
  *         schema:
  *           type: string
@@ -198,7 +198,7 @@ router.post('/process/:payInId', tryCatchHandler(processPayIn));
  *         description: Pay-In URL not found
  */
 router.post(
-  '/process-by-image/:payInId',
+  '/process-by-image/:merchantOrderId',
   multerUpload.single('file'),
   tryCatchHandler(processPayInByImage),
 );
