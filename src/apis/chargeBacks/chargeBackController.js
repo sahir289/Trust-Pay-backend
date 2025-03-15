@@ -1,5 +1,6 @@
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getPayinDetailsByMerchantOrderId } from '../payIn/payInDao.js';
+import { NotFoundError } from '../../utils/appErrors.js';
 import {
   createChargeBackService,
   getChargeBacksService,
@@ -22,6 +23,11 @@ const createChargeBack = async (req, res) => {
     throw new ValidationError(error);
   }
   const PayinDetails = await getPayinDetailsByMerchantOrderId(payload.merchant_order_id)
+
+  if (!PayinDetails.lenth > 0) {
+      throw new NotFoundError('Records Not Found');
+  }
+
   payload.vendor_user_id = PayinDetails[0].vendor_user_id;
   payload.merchant_user_id = PayinDetails[0].merchant_user_id;
   payload.payin_id = PayinDetails[0].payin_id;
@@ -33,10 +39,11 @@ const createChargeBack = async (req, res) => {
   delete payload.merchant_order_id;
   
   // Call the service to create the ChargeBack
-  const result = await createChargeBackService(payload, role);
-  console.log('ChargeBack created successfully', 'info', result);
-  return sendSuccess(res, {}, 'ChargeBack created successfully');
+const result = await createChargeBackService(payload, role);
+console.log('ChargeBack created successfully', 'info', result);
+return sendSuccess(res, {}, 'ChargeBack created successfully');
 };
+
 const getChargeBacksById = async (req, res) => {
   const { error } = VALIDATE_CHARGEBACK_BY_ID.validate(req.params);
   if (error) {
@@ -94,10 +101,8 @@ const updateChargeBack = async (req, res) => {
     payload,
     role,
   );
-
   // Log success message
   console.log('ChargeBack updated successfully', result);
-
   // Send a success response to the client
   return sendSuccess(res, {}, 'ChargeBack updated successfully');
 };
@@ -115,10 +120,8 @@ const deleteChargeBack = async (req, res) => {
     { updated_by: user_id, is_obsolete: true },
     role,
   );
-
   // Log success message
   console.log('ChargeBack deleted successfully', result);
-
   // Send a success response to the client
   return sendSuccess(res, {}, 'ChargeBack deleted successfully');
 };

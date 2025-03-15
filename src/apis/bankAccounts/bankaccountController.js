@@ -82,7 +82,7 @@ const createBankaccount = async (req, res) => {
 const updateBankaccount = async (req, res) => {
   const { id } = req.params;
   let payload = req.body;
-  console.log(id);
+  
   if (payload.code && payload.user_id) {
     // Ensure payload.config.merchants exists and is an array
     // Push the extracted code and user_id as an object into merchants array

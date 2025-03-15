@@ -21,7 +21,6 @@ const createVendorService = async (conn, payload, roleIs) => {
       roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
     const data = await createVendorDao(payload, conn);
     const calculationPayload = {
-      role_id: data.role_id,
       user_id: data.user_id,
       company_id: data.company_id,
     };
