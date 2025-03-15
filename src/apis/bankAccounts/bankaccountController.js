@@ -24,11 +24,12 @@ import {
 const getBankaccount = async (req, res) => {
   const { company_id } = req.user;
   const { role } = req.user;
+  const {page, limit} = req.query;
   const data = await getBankaccountService(
     {
       company_id: company_id,
     },
-    role,
+    role, page,limit,
   );
   console.log('get Banks successfully', role);
   return sendSuccess(res, data, 'get Banks successfully');

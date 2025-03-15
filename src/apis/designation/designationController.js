@@ -12,9 +12,10 @@ import {
   updateDesignationService,
   deleteDesignationService,
 } from './designationServices.js';
+
 const getDesignation = async (req, res) => {
-  const { company_id } = req.user;
-  const data = await getDesignationService({ company_id, ...req.query });
+  const {page, limit} = req.query;
+  const data = await getDesignationService({ ...req.query },  page,limit,);
   console.log('get Designations  successfully');
   return sendSuccess(res, data, 'get  Designations successfully');
 };

@@ -6,8 +6,8 @@ import {
   updateCheckUtrDao,
 } from './checkUtrDao.js';
 
-const getCheckUtrService = async (id) => {
-  try {
+const getCheckUtrService = async (id, page, limit) => {
+  try{
     const result = await getCheckUtrDao(id, null, null, null, null, null);
     return result;
   } catch (error) {

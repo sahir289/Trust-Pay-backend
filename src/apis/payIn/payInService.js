@@ -112,8 +112,9 @@ export const generatePayInUrlService = async (payload, created_by) => {
 };
 
 export const getPayInUrlService = async (id) => {
+  console.log(id);
   const currentTime = Date.now();
-  const payIn = await getPayInUrlDao({ id });
+  const payIn = await getPayInUrlDao({ merchant_order_id: id });
 
   if (!payIn) {
     throw new NotFoundError('Payment Url is incorrect');
@@ -172,9 +173,9 @@ export const expirePayInUrlService = async (payInId) => {
   });
 };
 
-export const assignedBankToPayInUrlService = async (payInId, amount, type) => {
+export const assignedBankToPayInUrlService = async (merchantOrderId, amount, type) => {
   // Validate the PayIn URL
-  const payIn = await getPayInUrlService(payInId);
+  const payIn = await getPayInUrlService(merchantOrderId);
   const payInConfig = payIn.config || {};
   checkIsPayInExpired(payIn);
   if (payIn.status !== Status.INITIATED) {
@@ -207,7 +208,7 @@ export const assignedBankToPayInUrlService = async (payInId, amount, type) => {
     }
   });
   if (!enabledBanks.length) {
-    await updatePayInUrlDao(payInId, {
+    await updatePayInUrlDao(payIn.id, {
       is_url_expires: true,
       status: Status.DROPPED,
     });
@@ -223,7 +224,7 @@ export const assignedBankToPayInUrlService = async (payInId, amount, type) => {
   // Randomly assign one enabled bank account
   const selectedBankDetails =
     enabledBanks[Math.floor(Math.random() * enabledBanks.length)];
-  const updatePayIn = await updatePayInUrlDao(payInId, {
+  const updatePayIn = await updatePayInUrlDao(payIn.id, {
     amount: parseFloat(amount),
     status: Status.ASSIGNED,
     bank_acc_id: selectedBankDetails.id,

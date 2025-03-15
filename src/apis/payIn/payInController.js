@@ -64,9 +64,14 @@ export const generatePayInUrl = async (req, res) => {
   // create some kind of hash to secure the next public API flow
   const queryStr =
     payload.isTest && (payload.isTest === 'true' || payload.isTest === true)
-      ? `?t=true`
-      : '';
-  const hash = crypto512Algo(x_api_key, result.id, result.merchant_order_id, payload.amount);
+      ? `?t=true&order=${result.merchant_order_id}`
+      : `?order=${result.merchant_order_id}`;
+  const hash = crypto512Algo(
+    x_api_key,
+    result.id,
+    result.merchant_order_id,
+    payload.amount,
+  );
   const updateRes = {
     expirationDate: result.expiration_date,
     payInUrl: `${config.reactPaymentOrigin}/transaction/${hash}${queryStr}`, // use env
@@ -88,15 +93,14 @@ export const generatePayInUrl = async (req, res) => {
  * @type import('express').RequestHandler
  */
 export const validatePayInUrl = async (req, res) => {
-  const { payInId } = req.params;
+  const { merchantOrderId } = req.params;
   const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  console.log(payInId, 'payInIdpayInId');
   const user_location =
     req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
-  const payIn = await getPayInUrlService(payInId);
+  const payIn = await getPayInUrlService(merchantOrderId);
   const updatedConfig = stringifyJSON({
     ...payIn.config,
     user: user_location,
@@ -124,7 +128,7 @@ export const assignedBankToPayInUrl = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const result = await assignedBankToPayInUrlService(
-    req.params.payInId,
+    req.params.merchantOrderId,
     req.body.amount,
     req.body.type,
   );
@@ -222,9 +226,9 @@ export const resetDeposit = async (req, res) => {
   sendSuccess(res, data);
 };
 export const getPayins = async (req, res) => {
-  const { company_id, role } = req.user;  
-  const {page, limit} = req.query;
-  const data = await getPayinsService(company_id ,page,limit,  req.query, role);
+  const { company_id, role } = req.user;
+  const { page, limit } = req.query;
+  const data = await getPayinsService(company_id, page, limit, req.query, role);
   return sendSuccess(res, data, 'PayIns fetched successfully');
 };
 
