@@ -8,6 +8,7 @@ import {
 import { Role, tableName } from '../../constants/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { NotFoundError } from '../../utils/appErrors.js';
+import dayjs from "dayjs";
 
 const getCalculationDao = async (
   filters,
@@ -113,8 +114,8 @@ export const getCalculationsSumDao = async (filters) => {
   const {
     role,
     designation,
-    startDate,
-    endDate,
+    startDate: start,
+    endDate: end,
     includeSubVendors,
     includeSubMerchant,
     user_id,
@@ -122,50 +123,52 @@ export const getCalculationsSumDao = async (filters) => {
     company_id
   } = filters;
 
-  let vendorData = {}, merchantData = {}, latestCalculation = {};
+  const dateFormat = 'MM-DD-YYYY';
+  const startDate = start ? dayjs(start).format(dateFormat) : dayjs().subtract(7, 'd').format(dateFormat);
+  const endDate = end ? dayjs(end).format(dateFormat) : dayjs().format(dateFormat);
+  let vendorData = {}, merchantData = {}, netBalance = {};
   let hierarchyUsers = [], userCodes = users ? users.split(", ") : [];
+  const checkForHierarchy = [Role.MERCHANT_ADMIN, Role.VENDOR_ADMIN].includes(designation);
 
   // Fetch hierarchy users if applicable
-  if (
-    designation &&
-    [Role.MERCHANT_ADMIN, Role.VENDOR_ADMIN].includes(designation) &&
-    (includeSubMerchant || includeSubVendors)
-  ) {
+  if (designation && checkForHierarchy && (includeSubMerchant || includeSubVendors)) {
     const hierarchy = await getUserHierarchysDao({ user_id });
     if (!hierarchy) throw NotFoundError('Sub Merchants not found!');
     hierarchyUsers = hierarchy.config[user_id] || [];
   }
 
+
+  const groupBy = ` GROUP BY DATE_TRUNC('day', c.created_at) ORDER BY DATE_TRUNC('day', c.created_at);`
+
   // Base Query for Aggregated Calculations
   let baseQuery = `
     SELECT 
-      COALESCE(SUM(c.total_payin_count), 0) AS total_payin_count,
-      COALESCE(SUM(c.total_payin_amount), 0) AS total_payin_amount,
-      COALESCE(SUM(c.total_payin_commission), 0) AS total_payin_commission,
-      COALESCE(SUM(c.total_payout_count), 0) AS total_payout_count,
-      COALESCE(SUM(c.total_payout_amount), 0) AS total_payout_amount,
-      COALESCE(SUM(c.total_payout_commission), 0) AS total_payout_commission,
-      COALESCE(SUM(c.total_settlement_count), 0) AS total_settlement_count,
-      COALESCE(SUM(c.total_settlement_amount), 0) AS total_settlement_amount,
-      COALESCE(SUM(c.total_chargeback_count), 0) AS total_chargeback_count,
-      COALESCE(SUM(c.total_chargeback_amount), 0) AS total_chargeback_amount,
-      COALESCE(SUM(c.total_reverse_payout_count), 0) AS total_reverse_payout_count,
-      COALESCE(SUM(c.total_reverse_payout_amount), 0) AS total_reverse_payout_amount,
-      COALESCE(SUM(c.total_reverse_payout_commission), 0) AS total_reverse_payout_commission,
-      COALESCE(SUM(c.current_balance), 0) AS current_balance
+       DATE_TRUNC('day', c.created_at)::DATE AS date,
+        SUM(c.total_payin_count) AS total_payin_count,
+        SUM(c.total_payin_amount) AS total_payin_amount,
+        SUM(c.total_payin_commission) AS total_payin_commission,
+        SUM(c.total_payout_count) AS total_payout_count,
+        SUM(c.total_payout_amount) AS total_payout_amount,
+        SUM(c.total_payout_commission) AS total_payout_commission,
+        SUM(c.total_settlement_count) AS total_settlement_count,
+        SUM(c.total_settlement_amount) AS total_settlement_amount,
+        SUM(c.total_chargeback_count) AS total_chargeback_count,
+        SUM(c.total_chargeback_amount) AS total_chargeback_amount,
+        SUM(c.total_reverse_payout_count) AS total_reverse_payout_count,
+        SUM(c.total_reverse_payout_amount) AS total_reverse_payout_amount,
+        SUM(c.total_reverse_payout_commission) AS total_reverse_payout_commission,
+        SUM(c.current_balance) AS current_balance
     FROM "${tableName.CALCULATION}" c
     JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
     JOIN "${tableName.ROLE}" r ON u.role_id = r.id
-    WHERE c.is_obsolete = FALSE
+    JOIN "${tableName.MERCHANT}" m ON m.user_id = u.id
+    JOIN "${tableName.VENDOR}" v ON v.user_id = u.id
+    WHERE c.is_obsolete = FALSE AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
   `;
-
-  // Add Date Filter
-  if (startDate && endDate) {
-    baseQuery += ` AND c.created_at BETWEEN '${startDate}' AND '${endDate}' `;
-  }
 
   // Queries for Different Roles
   let merchantQuery = `${baseQuery} AND r.role = 'MERCHANT' `;
+  // let merchantQuery = `${baseQuery} `;
   let vendorQuery = `${baseQuery} AND r.role = 'VENDOR' `;
 
   // Include hierarchy filtering (match against `code` column)
@@ -173,69 +176,93 @@ export const getCalculationsSumDao = async (filters) => {
     merchantQuery += `
       AND EXISTS (
         SELECT 1 FROM merchant m
-        WHERE m.user_id = ANY(${hierarchyUsers})
+        WHERE m.user_id = ANY(ARRAY[${hierarchyUsers.map((el=> `'${el}'`))}])
       )`;
 
     vendorQuery += `
       AND EXISTS (
         SELECT 1 FROM vendor v
-        WHERE v.user_id = ANY(${hierarchyUsers})
+        WHERE v.user_id = ANY(ARRAY[${hierarchyUsers.map((el=> `'${el}'`))}])
       )`;
   }
 
   if (userCodes.length) {
-    merchantQuery += ` AND v.code = ANY(${userCodes}) `;
-    vendorQuery += ` AND v.code = ANY(${userCodes}) `;
+    merchantQuery += ` AND m.code = ANY(ARRAY[${userCodes.map((el=> `'${el}'`))}]) `;
+    vendorQuery += ` AND v.code = ANY(ARRAY[${userCodes.map((el=> `'${el}'`))}]) `;
   }
 
-  console.log(merchantQuery)
-  console.log(vendorQuery)
-
-  // Role-Based Execution
+  // Admin Query
   if (Role.ADMIN === role) {
-    merchantData = (await executeQuery(`${merchantQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}'`, [])).rows[0];
-    vendorData = (await executeQuery(`${vendorQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}'`, [])).rows[0];
+    const vQuery = `${vendorQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
+    const mQuery = `${merchantQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
+    console.log(vQuery)
+    console.log("=====")
+    console.log(mQuery)
+    merchantData = (await executeQuery(mQuery, [])).rows;
+    vendorData = (await executeQuery(vQuery, [])).rows;
   }
 
-  // Role-Based Execution
-  if (Role.ADMIN === role) {
-    merchantData = (await executeQuery(merchantQuery, [])).rows[0];
-    vendorData = (await executeQuery(vendorQuery, [])).rows[0];
+  // Super Admin Query
+  if (Role.SUPER_ADMIN === role) {
+    merchantData = (await executeQuery(`${merchantQuery}  ${groupBy}`, [])).rows;
+    vendorData = (await executeQuery(`${vendorQuery}  ${groupBy}`, [])).rows;
   }
 
+  // query for merchant only role
   if (role === Role.MERCHANT) {
-    merchantData = (await executeQuery(`${merchantQuery}  AND c.user_id = $1  AND c.company_id = $2`, [user_id, company_id])).rows[0];
+    const mQuery = `${merchantQuery}  AND c.user_id = $1  AND c.company_id = $2  ${groupBy}`;
+    merchantData = (await executeQuery(mQuery, [user_id, company_id])).rows;
   }
 
+  // query for vendor only role
   if (role === Role.VENDOR) {
-    vendorData = (await executeQuery(`${vendorQuery}  AND c.user_id = $1  AND c.company_id = $2`, [user_id, company_id])).rows[0];
+    const vQuery = `${vendorQuery}  AND c.user_id = $1  AND c.company_id = $2  ${groupBy}`;
+    vendorData = (await executeQuery(vQuery, [user_id, company_id])).rows;
   }
 
   // Fetch Latest Calculation Entry for Vendors & Merchants
-  if ([Role.VENDOR, Role.MERCHANT].includes(role)) {
-    let latestCalculationQuery = `
-      SELECT *
-      FROM calculation
-      WHERE is_obsolete = FALSE 
-      AND user_id = $1
-      AND company_id = $2 
-    `;
+  const endDateConditon = ` AND DATE(c.created_at) = '${endDate}' `;
+  const calBaseQuery = `
+      SELECT net_balance AS net_balance_sum
+      FROM "${tableName.CALCULATION}" c
+      JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
+      JOIN "${tableName.ROLE}" r ON u.role_id = r.id AND r.role = 'PLACE_ROLE_HERE'
+      WHERE c.is_obsolete = FALSE 
+      AND c.user_id = '${user_id}'
+      AND c.company_id = '${company_id}'
+      ${endDateConditon}
+      ORDER BY c.created_at DESC LIMIT 1
+    `
+  let vendorCalQuery = calBaseQuery.replace('PLACE_ROLE_HERE', Role.VENDOR), 
+  merchantCalQuery = calBaseQuery.replace('PLACE_ROLE_HERE', Role.MERCHANT);
 
-    let latestParams = [user_id, company_id];
-    if (endDate) {
-      const end = new Date(end).toISOString();
-      latestCalculationQuery += ` AND DATE(created_at) = $3 `;
-      latestParams.push(end);
-    };
-
-    latestCalculationQuery += ` ORDER BY created_at DESC LIMIT 1 `;
-    latestCalculation = (await executeQuery(latestCalculationQuery, latestParams)).rows[0];
+  if ([Role.SUPER_ADMIN, Role.ADMIN].includes(role)) {
+    const condition = role === Role.ADMIN ? ` AND c.company_id = '${company_id}' ${endDateConditon} ` : ` ${endDateConditon} `;
+    const baseCalQuery = `
+      WITH LatestEntries AS (
+        SELECT DISTINCT ON (user_id) *
+        FROM "Calculation" c
+        JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
+        JOIN "${tableName.ROLE}" r ON u.role_id = r.id AND r.role = 'PLACE_ROLE_HERE'
+        WHERE c.is_obsolete = FALSE
+        ${condition}
+        ORDER BY c.user_id, c.created_at DESC
+      )
+      SELECT 
+          SUM(net_balance) AS net_balance_sum
+      FROM LatestEntries;
+    `
+    vendorCalQuery =  baseCalQuery.replace('PLACE_ROLE_HERE', Role.VENDOR);
+    merchantCalQuery = baseCalQuery.replace('PLACE_ROLE_HERE', Role.MERCHANT);
   }
+
+  netBalance.vendor = (await executeQuery(vendorCalQuery)).rows[0]?.net_balance_sum || 0;
+  netBalance.merchant = (await executeQuery(merchantCalQuery)).rows[0]?.net_balance_sum || 0;
 
   return {
     vendor: vendorData,
     merchant: merchantData,
-    calculation: latestCalculation,
+    netBalance,
   };
 };
 
