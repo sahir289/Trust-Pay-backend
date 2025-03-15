@@ -18,7 +18,7 @@ import {
 import { createMerchantService } from '../merchants/merchantService.js';
 import { createVendorService } from '../vendors/vendorService.js';
 
-const getUsersService = async (ids, role) => {
+const getUsersService = async (ids, role, page, limit) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -26,7 +26,9 @@ const getUsersService = async (ids, role) => {
         : role === Role.VENDOR
           ? vendorColumns.USER
           : columns.USER;
-    return await getUsersDao(ids, null, null, null, null, filterColumns);
+          const pageNumber = parseInt(page, 10) || 1;
+          const pageSize = parseInt(limit, 10) || 10;
+    return await getUsersDao(ids, pageNumber, pageSize, null, null, filterColumns);
   } catch (error) {
     console.error('error getting while fetching user', error);
     throw new InternalServerError(error);

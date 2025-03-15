@@ -49,7 +49,7 @@ const createChargeBackService = async (payload, role) => {
   }
 };
 
-const getChargeBacksService = async (filters, role) => {
+const getChargeBacksService = async (filters, role, page,limit,) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -57,11 +57,12 @@ const getChargeBacksService = async (filters, role) => {
         : role === Role.VENDOR
           ? vendorColumns.CHARGE_BACK
           : columns.CHARGE_BACK;
+          const pageNumber = parseInt(page, 10) || 1;
+      const pageSize = parseInt(limit, 10) || 10;
     console.log('Fetched ChargeBacks successfully');
     return await getChargeBackDao(
       filters,
-      null,
-      null,
+      pageNumber, pageSize, 
       null,
       null,
       filterColumns,

@@ -12,13 +12,15 @@ import {
   VALIDATE_DELETE_COMPLAINT,
 } from '../../schemas/complaintSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
+
 const getComplaints = async (req, res) => {
   const { company_id } = req.user;
+  const {page, limit} = req.query;
   // let search = req.query.search;
   const data = await getComplaintsService({
     company_id,
     // TODO: search
-  });
+  },  page,limit,);
   console.log('get complaints successfully');
   return sendSuccess(res, data, 'get complaints successfully');
 };

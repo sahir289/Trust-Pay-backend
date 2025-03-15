@@ -56,16 +56,16 @@ const createUserHierarchyService = async (payload, role) => {
   }
 };
 
-const getUserHierarchyService = async (filters, role) => {
+const getUserHierarchyService = async (filters, role,  page, limit) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.USER_HIERARCHY
         : columns.USER_HIERARCHY;
+        const pageNumber = parseInt(page, 10) || 1;
+        const pageSize = parseInt(limit, 10) || 10;
     return await getUserHierarchysDao(
-      filters,
-      null,
-      null,
+      filters, pageNumber, pageSize, 
       null,
       null,
       filterColumns,

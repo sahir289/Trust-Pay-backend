@@ -55,6 +55,7 @@ const getChargeBacksById = async (req, res) => {
 
 const getChargeBacks = async (req, res) => {
   const { company_id, role } = req.user;
+  const {page, limit} = req.query;
   // const search = req.query.search;
   // Fetch vendors data from the service
   const data = await getChargeBacksService(
@@ -62,7 +63,7 @@ const getChargeBacks = async (req, res) => {
       company_id: company_id,
       // TODO: search
     },
-    role,
+    role,page,limit,
   );
   // Log success message
   // Send success response

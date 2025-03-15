@@ -1031,7 +1031,7 @@ const getBankMessageServices = async (
   startDate,
   endDate,
   company_id,
-  role,
+  role, page, limit
 ) => {
   try {
     const filterColumns =
@@ -1040,13 +1040,14 @@ const getBankMessageServices = async (
         : role === Role.VENDOR
           ? vendorColumns.BANK_RESPONSE
           : columns.BANK_RESPONSE;
+    const pageNumber = parseInt(page, 10) || 1;
+    const pageSize = parseInt(limit, 10) || 10;
     return await getBankMessageDao(
       bank_id,
       startDate,
       endDate,
-      company_id,
-      null,
-      null,
+      company_id
+      , pageNumber, pageSize,
       null,
       null,
       filterColumns,

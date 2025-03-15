@@ -6,9 +6,9 @@ import {
   deleteDesignationDao,
 } from './designationDao.js';
 
-const getDesignationService = async (user) => {
+const getDesignationService = async (user,  page,limit,) => {
   try {
-    const result = await getDesignationDao(user);
+    const result = await getDesignationDao(user,  page,limit,);
     return result;
   } catch (error) {
     console.error('error getting while Designation', error);

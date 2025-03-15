@@ -7,7 +7,8 @@ import { getPayinDetailsByMerchantOrderId } from '../payIn/payInDao.js';
 const getCheckUtr = async (req, res) => {
   try {
     const { company_id } = req.user;
-    const data = await getCheckUtrService({company_id, ...req.query});
+    const {page, limit} = req.query;
+    const data = await getCheckUtrService({company_id, ...req.query},page,limit,);
     return sendSuccess(res, data, 'getUsers successfully');
   } catch (error) {
     console.error('error getting while check utr', error);
