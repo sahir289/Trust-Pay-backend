@@ -1,25 +1,35 @@
-name: Deploy Backend to EC2
+name: Deploy to EC2
 
 on:
   push:
     branches:
-      - main
-
+      - trust-pay-stg
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
 
     - name: Deploy to EC2
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ubuntu
-        key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          cd /trust-pay/Trust-Pay-backend
-          ./deploy.sh
+      env:
+        PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+        HOST: ${{ secrets.EC2_HOST }}
+        USER: ${{ secrets.EC2_USER }}
+        TARGET_DIR: ${{ secrets.TARGET_DIR }}
+      run: |
+        # Write the SSH key to a file
+        echo "$PRIVATE_KEY" > private_key
+        chmod 600 private_key
 
+        # SSH into EC2 and deploy
+        ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST << 'EOF'
+          cd $TARGET_DIR
+          git pull origin trust-pay-stg
+          npm install           
+          pm2 restart all
+        EOF
+
+        # Clean up
+        rm -f private_key
