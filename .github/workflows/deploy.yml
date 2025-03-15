@@ -13,6 +13,18 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Debug Secrets
+      env:
+        PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+        HOST: ${{ secrets.EC2_HOST }}
+        USER: ${{ secrets.EC2_USER }}
+        TARGET_DIR: ${{ secrets.TARGET_DIR }}
+      run: |
+        echo "PRIVATE_KEY is set: $([ -n "$PRIVATE_KEY" ] && echo 'yes' || echo 'no')"
+        echo "HOST: $HOST"
+        echo "USER: $USER"
+        echo "TARGET_DIR: $TARGET_DIR"
+
     - name: Deploy to EC2
       env:
         PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
@@ -20,15 +32,10 @@ jobs:
         USER: ${{ secrets.EC2_USER }}
         TARGET_DIR: ${{ secrets.TARGET_DIR }}
       run: |
-        # Write the SSH key to a file
         echo "$PRIVATE_KEY" > private_key
         chmod 600 private_key
-
-        # Test SSH connection
         echo "Testing SSH connection..."
         ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "whoami" || { echo "SSH connection failed"; exit 1; }
-
-        # SSH into EC2 and deploy with debug
         echo "Deploying to EC2..."
         ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST << 'EOF'
           echo "User: $(whoami)"
@@ -44,6 +51,4 @@ jobs:
           npm install || { echo "npm install failed"; exit 1; }
           pm2 restart trust-pay || { echo "pm2 restart failed - check process name"; pm2 list; exit 1; }
         EOF
-
-        # Clean up
         rm -f private_key
