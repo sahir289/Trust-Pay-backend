@@ -112,7 +112,6 @@ export const generatePayInUrlService = async (payload, created_by) => {
 };
 
 export const getPayInUrlService = async (id) => {
-  console.log(id);
   const currentTime = Date.now();
   const payIn = await getPayInUrlDao({ merchant_order_id: id });
 
@@ -633,14 +632,11 @@ export const getPayinsService = async ( company_id,page,limit, filters, role) =>
   }
 };
 
-
-
-
 export const processPayInService = async (conn, payload, updated_by) => {
-  const { userSubmittedUtr, payInId, amount } = payload;
+  const { userSubmittedUtr, merchantOrderId, amount } = payload;
   // validate payIn
   // throw error if not exist or expires
-  const payIn = await getPayInUrlService(payInId);
+  const payIn = await getPayInUrlService(merchantOrderId);
   const banks = await getBankaccountDao({ id: payIn.bank_acc_id });
   const bank = banks[0];
 
@@ -886,11 +882,12 @@ export const telegramResponseService = async (conn, message) => {
 };
 
 export const processPayInByImageService = async (conn, payload) => {
-  const { base64Image, payInId } = payload;
+  const { base64Image, merchantOrderId } = payload;
   const content = await getImageContentFromOCr(base64Image);
   if (!content) {
+    const payInData = await getPayInUrlService(merchantOrderId)
     const payIn = await updatePayInUrlDao(
-      payInId,
+      payInData.id,
       {
         status: Status.IMG_PENDING,
         amount: payload.amount,
@@ -903,7 +900,7 @@ export const processPayInByImageService = async (conn, payload) => {
     return {
       status: 'Not Found',
       amount: payload.amount,
-      merchant_order_id: payIn.merchant_order_id,
+      merchant_order_id: merchantOrderId,
       return_url: payIn.config?.urls?.return,
     };
   }

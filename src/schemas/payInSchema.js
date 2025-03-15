@@ -76,20 +76,20 @@ export const VALIDATE_RESET_DEPOSIT = Joi.object({
 });
 
 
-export const VALIDATE_PROCESSE_PAYIN = Joi.object({
-  payInId: Joi.string()
+export const VALIDATE_PROCESS_PAYIN = Joi.object({
+  merchantOrderId: Joi.string()
     .guid({ version: ['uuidv4'] })
-    .label('payInId')
+    .label('merchantOrderId')
     .required(),
   userSubmittedUtr: Joi.string().label('userSubmittedUtr').required(),
   code: Joi.string().label('code').min(5).max(5).required(),
   amount: Joi.number().label('amount').min(1).required(),
 });
 
-export const VALIDATE_PROCESSE_PAYIN_BY_IMAGE = Joi.object({
-  payInId: Joi.string()
+export const VALIDATE_PROCESS_PAYIN_BY_IMAGE = Joi.object({
+  merchantOrderId: Joi.string()
     .guid({ version: ['uuidv4'] })
-    .label('payInId')
+    .label('merchantOrderId')
     .required(),
   amount: Joi.number().label('amount').min(1).required(),
 });
