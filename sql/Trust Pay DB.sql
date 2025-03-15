@@ -149,7 +149,6 @@ CREATE TABLE "Payin" (
   "upi_short_code" varchar NOT NULL,
   "qr_params" varchar,
   "amount" float NOT NULL,
-  "confirmed" float DEFAULT 0,
   "status" varchar NOT NULL,
   "is_notified" boolean DEFAULT false,
   "user_submitted_utr" varchar,
