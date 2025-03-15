@@ -47,7 +47,7 @@ const onListening = () => {
   const addr = server.address();
   const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr.port}`;
   const styledServerMessage = chalk.blue(
-    `the server started listening on ${bind}`,
+    `the server started listening on ${bind} +++`,
   );
   logger.log(styledServerMessage);
   const docsUrl = `http://localhost:${PORT}/api-docs`;
