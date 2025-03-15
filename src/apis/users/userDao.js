@@ -139,7 +139,6 @@ const getUserByIdDao = async (conn, ids) => {
 };
 
 const getUsersByUserNameDao = async (ids, username) => {
-  
   try {
     let baseQuery = `
       SELECT 
@@ -195,8 +194,9 @@ const getUsersByUserNameDao = async (ids, username) => {
   }
 };
 
-const createUserDao = async (payload) => {
+const createUserDao = async (payload,conn) => {
   try {
+
     const sql = `
     INSERT INTO public."User" (role_id, company_id, designation_id, first_name, last_name, email, contact_no, user_name, password, code, is_enabled)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id 
@@ -215,17 +215,27 @@ const createUserDao = async (payload) => {
       payload.code,
       payload.is_enabled,
     ];
-
-    const result = await executeQuery(sql, values);
+    let result;
+    ///temperary for conn ...in future can excute to query in if condition
+    if (conn) {
+      // result = await conn.query(sql, values);
+      result = await executeQuery(sql, values);
+    }
+    else {
+      result = await executeQuery(sql, values);
+    }
     console.log(
       `User with username: ${payload.user_name} created successfully`,
     );
+
     return result.rows[0];
+
   } catch (error) {
     console.error(`Error creating user: ${payload.user_name}`, error);
     throw error.message;
   }
 };
+
 /////no params get all users data
 const getUsersForCronDao = async (conn) => {
   try {
@@ -252,6 +262,7 @@ const updateUserDao = async (ids, data) => {
     throw error.message;
   }
 }
+
 export {
   getUsersDao,
   getUserByIdDao,
@@ -260,3 +271,4 @@ export {
   createUserDao,
   updateUserDao,
 };
+
