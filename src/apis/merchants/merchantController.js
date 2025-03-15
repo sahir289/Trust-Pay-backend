@@ -97,27 +97,38 @@ const updateMerchant = async (req, res) => {
  if (!req.params) {
    throw new BadRequestError('id required in request');
  }
+  
   let payload = req.body;
-  payload.config = { ...payload.config, url: { ...payload.config?.url } };
+      delete payload.payin_notify;
+      delete payload.payout_notify;
+      delete payload.return_url;
 
-  const urlKeys = ['payin_notify', 'payout_notify', 'return_url', 'site'];
-  urlKeys.forEach((key) => {
-    if (
-      payload[key] !== undefined &&
-      payload[key] !== payload.config.url[key]
-    ) {
-      payload.config.url[key] = payload[key];
-      delete payload[key];
-    }
-  });
+  console.log(payload, "payload data");
+  if (payload.site) {
+    payload["config=jsonb_set(config, '{urls,site}', $1::jsonb)"] = payload.site;
+    delete payload.site;
+  }
+  // config = jsonb_set(config, '{urls,site}', '"new_value"');
+  // payload.config = { ...payload.config, url: { ...payload.config?.url } };
+
+  // const urlKeys = ['payin_notify', 'payout_notify', 'return_url', 'site'];
+  // urlKeys.forEach((key) => {
+  //   if (
+  //     payload[key] !== undefined &&
+  //     payload[key] !== payload.config.url[key]
+  //   ) {
+  //     payload.config.url[key] = payload[key];
+  //     delete payload[key];
+  //   }
+  // });
 
 
   // Validate body (fields for update)
-  const { error: bodyError } =
-    VALIDATE_UPDATE_MERCHANT_STATUS.validate(payload);
-  if (bodyError) {
-    throw new ValidationError(bodyError);
-  }
+  // const { error: bodyError } =
+  //   VALIDATE_UPDATE_MERCHANT_STATUS.validate(payload);
+  // if (bodyError) {
+  //   throw new ValidationError(bodyError);
+  // }
   const { id } = req.params; 
   const { company_id, user_id, role } = req.user;
   payload.updated_by = user_id;

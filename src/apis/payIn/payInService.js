@@ -176,19 +176,15 @@ export const assignedBankToPayInUrlService = async (payInId, amount, type) => {
   // Validate the PayIn URL
   const payIn = await getPayInUrlService(payInId);
   const payInConfig = payIn.config || {};
-
   checkIsPayInExpired(payIn);
   if (payIn.status !== Status.INITIATED) {
     throw new BadRequestError('PayIn has been confirmed already!');
   }
-
   const merchantArr = await getMerchantsDao({ id: payIn.merchant_id });
   const merchant = merchantArr[0] || {};
-
   if (!merchant) {
     throw new NotFoundError('No merchant found');
   }
-
   const banks = await getMerchantBankDao({ user_id: merchant.user_id });
   const enabledBanks = banks.filter((bank) => {
     // Get enabled merchant bank accounts for payIn

@@ -131,9 +131,7 @@ const createUserService = async (conn, payload, role) => {
     });
 
     if (
-      userRole.role === Role.MERCHANT ||
-      userRole.role === Role.MERCHANT_ADMIN
-    ) {
+      userRole.role === Role.MERCHANT     ) {
       const merchantPayload = CommonCreateUserPayload(User, payload, {
         min_payin: 0.0,
         max_payin: 0.0,
