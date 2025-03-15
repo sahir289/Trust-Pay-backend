@@ -24,24 +24,25 @@ jobs:
         echo "$PRIVATE_KEY" > private_key
         chmod 600 private_key
 
-        # Test SSH connection first
+        # Test SSH connection
         echo "Testing SSH connection..."
-        ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "whoami" || echo "SSH connection failed"
+        ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "whoami" || { echo "SSH connection failed"; exit 1; }
 
-        # SSH into EC2 and deploy with detailed debug
+        # SSH into EC2 and deploy with debug
         echo "Deploying to EC2..."
         ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST << 'EOF'
           echo "User: $(whoami)"
-          echo "Target directory: $TARGET_DIR"
-          cd $TARGET_DIR || { echo "Failed to cd into $TARGET_DIR"; exit 1; }
+          echo "Target directory from secret: $TARGET_DIR"
+          if [ -z "$TARGET_DIR" ]; then echo "TARGET_DIR is empty!"; exit 1; fi
+          cd "$TARGET_DIR" || { echo "Failed to cd into $TARGET_DIR"; exit 1; }
           echo "Current directory: $(/bin/pwd)"
           git fetch origin
           echo "Git remote: $(git remote -v)"
           echo "Git status: $(git status)"
-          git pull origin trust-pay-stg --verbose || echo "Git pull failed"
+          git pull origin trust-pay-stg --verbose || { echo "Git pull failed"; exit 1; }
           echo "Latest commit: $(git log -1 --oneline)"
-          npm install || echo "npm install failed"
-          pm2 restart all || echo "pm2 restart failed"
+          npm install || { echo "npm install failed"; exit 1; }
+          pm2 restart trust-pay || { echo "pm2 restart failed - check process name"; pm2 list; exit 1; }
         EOF
 
         # Clean up
