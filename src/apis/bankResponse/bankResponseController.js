@@ -39,13 +39,13 @@ const createBankResponse = async (req, res) => {
 const getBankMessage = async (req, res) => {
   const { company_id } = req.user;
   const { role } = req.user;
-  const { bank_id, startDate, endDate } = req.query;
+  const { bank_id, startDate, endDate, page, limit } = req.query;
   const data = await getBankMessageServices(
     bank_id,
     startDate,
     endDate,
     company_id,
-    role,
+    role, page,limit,
   );
   return sendSuccess(res, data, 'Get BankResponse successfully');
 };

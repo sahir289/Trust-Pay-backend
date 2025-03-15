@@ -113,8 +113,7 @@ export const buildSelectQuery = (
 
   for (const key in filters) {
     const value = filters[key];
-    if (key === 'or') {
-      // skip or query
+    if (key === 'or'|| key === 'page' || key === 'limit') {
       continue;
     } else if (Array.isArray(value)) {
       conditions.push(`${[prefix]}"${key}" = ANY($${values.length + 1})`);

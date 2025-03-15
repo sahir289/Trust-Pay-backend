@@ -35,11 +35,13 @@ const createVendorService = async (conn, payload, roleIs) => {
   }
 };
 
-const getVendorsService = async (filters, roleIs) => {
+const getVendorsService = async (filters, roleIs, page, limit) => {
   try {
     const filterColumns =
       roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
-    return await getVendorsDao(filters, null, null, null, null, filterColumns);
+      const pageNumber = parseInt(page, 10) || 1;
+      const pageSize = parseInt(limit, 10) || 10;
+    return await getVendorsDao(filters , pageNumber, pageSize, null, null, filterColumns);
   } catch (error) {
     console.error('Error while fetching vendors', error);
     throw new InternalServerError(error);

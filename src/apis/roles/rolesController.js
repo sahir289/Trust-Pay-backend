@@ -15,10 +15,8 @@ import { transactionWrapper } from '../../utils/db.js';
 import { ValidationError } from '../../utils/appErrors.js';
 
 const getRoles = async (req, res) => {
-  const { company_id } = req.user;
   // let search = req.query.search ;
   const data = await getRoleService({
-    company_id,
     ...req.query,
   });
   console.log('get Roles successfully', 'info');
