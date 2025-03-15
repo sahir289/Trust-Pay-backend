@@ -40,7 +40,7 @@ const createMerchantService = async (conn, payload, role) => {
     };
     await createCalculationDao(conn, calculationPayload);
     // const role = await getRoleDao({ id: payload.role_id });
-    if (role === Role.MERCHANT ) {
+    if (role === Role.MERCHANT) {
       await createUserHierarchyDao(
         {
           user_id: data.user_id,
@@ -69,7 +69,7 @@ const createMerchantService = async (conn, payload, role) => {
 };
 
 // Get Merchants Service
-const getMerchantsService = async (filters, role, designation, user_id) => {
+const getMerchantsService = async (filters, role, page, limit, designation, user_id) => {
   try {
     const filterColumns =
       role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
@@ -85,11 +85,12 @@ const getMerchantsService = async (filters, role, designation, user_id) => {
       // only send merhcant underlings if Requested person is Merchant Admin
       filters.user_id = userHierarchy.config[user_id];
     }
-
+    const pageNumber = parseInt(page, 10) || 1;
+    const pageSize = parseInt(limit, 10) || 10;
+    
     const data = await getMerchantsDao(
-      filters,
-      null,
-      null,
+      filters
+      , pageNumber, pageSize,
       null,
       null,
       filterColumns,
@@ -224,7 +225,7 @@ const getMerchantByIdService = async (filters, role, addUserHierarchy = false) =
 
   const merchant = dataArr[0];
 
-  if(!merchant){
+  if (!merchant) {
     throw new NotFoundError("Merchant not found!");
   }
 
@@ -235,7 +236,7 @@ const getMerchantByIdService = async (filters, role, addUserHierarchy = false) =
     // user_id is unique
     const userHierarchys = await getUserHierarchysDao({ user_id });
     const userHierarchy = userHierarchys[0];
-    
+
     if (!userHierarchy || !userHierarchy.config || !Array.isArray(userHierarchy.config[user_id])) {
       merchant.subMerchants = [];
       return merchant;
