@@ -63,15 +63,9 @@ export const generatePayInUrl = async (req, res) => {
 
   // create some kind of hash to secure the next public API flow
   const queryStr =
-    payload.amount &&
-    payload.isTest &&
-    (payload.isTest === 'true' || payload.isTest === true)
-      ? `?amount=${payload.amount}&t=true`
-      : payload.isTest && (payload.isTest === 'true' || payload.isTest === true)
-        ? `?t=true`
-        : payload.amount
-          ? `?amount=${payload.amount}`
-          : '';
+    payload.isTest && (payload.isTest === 'true' || payload.isTest === true)
+      ? `?t=true&order=${result.merchant_order_id}`
+      : `?order=${result.merchant_order_id}`;
   const hash = crypto512Algo(
     x_api_key,
     result.id,
@@ -99,15 +93,14 @@ export const generatePayInUrl = async (req, res) => {
  * @type import('express').RequestHandler
  */
 export const validatePayInUrl = async (req, res) => {
-  const { payInId } = req.params;
+  const { merchantOrderId } = req.params;
   const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  console.log(payInId, 'payInIdpayInId');
   const user_location =
     req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
-  const payIn = await getPayInUrlService(payInId);
+  const payIn = await getPayInUrlService(merchantOrderId);
   const updatedConfig = stringifyJSON({
     ...payIn.config,
     user: user_location,
@@ -135,7 +128,7 @@ export const assignedBankToPayInUrl = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const result = await assignedBankToPayInUrlService(
-    req.params.payInId,
+    req.params.merchantOrderId,
     req.body.amount,
     req.body.type,
   );
