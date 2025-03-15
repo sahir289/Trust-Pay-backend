@@ -190,17 +190,17 @@ export const assignedBankToPayInUrlService = async (merchantOrderId, amount, typ
     throw new NotFoundError('No merchant found');
   }
 
-  const banks = await getMerchantBankDao({ user_id: merchant.user_id });
+  const banks = await getMerchantBankDao({ config_merchants_contains: merchant.id });
+  
   const enabledBanks = banks.filter((bank) => {
-    // Get enabled merchant bank accounts for payIn
-    // Assign bank on the basis type
+  
     if (bank.is_enabled && bank.bank_used_for !== 'payIn') {
       return false;
     }
-
+  
     switch (type) {
       case BankTypes.UPI:
-        return bank.allow_qr;
+        return bank.is_qr;
       case BankTypes.PHONE_PE:
         return bank.config?.is_phone;
       case BankTypes.BANK_TRANSFER:
@@ -211,6 +211,7 @@ export const assignedBankToPayInUrlService = async (merchantOrderId, amount, typ
         return false;
     }
   });
+  
   if (!enabledBanks.length) {
     await updatePayInUrlDao(payIn.id, {
       is_url_expires: true,
