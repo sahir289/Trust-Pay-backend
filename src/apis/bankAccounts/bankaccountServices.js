@@ -1,9 +1,4 @@
-import {
-  columns,
-  merchantColumns,
-  Role,
-  vendorColumns,
-} from '../../constants/index.js';
+
 import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import {
@@ -14,22 +9,16 @@ import {
   getBankaccountDaoNickName,
 } from './bankaccountDao.js';
 
-const getBankaccountService = async (filters, role, page, limit) => {
+const getBankaccountService = async ( filters, company_id,role, page, limit) => {
+  let conn;
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.BANK_ACCOUNT
-        : role === Role.VENDOR
-          ? vendorColumns.BANK_ACCOUNT
-          : columns.BANK_ACCOUNT;
+    conn = await getConnection();
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
-    return await getBankaccountDao(
-      filters,
-      pageNumber, pageSize, 
-      null,
-      null,
-      filterColumns,
+    return await getBankaccountDao(conn,company_id, filters
+      ,
+      pageNumber, pageSize, role
+
     );
   } catch (error) {
     console.error('error getting while  getting banks', error);
