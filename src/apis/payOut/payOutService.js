@@ -55,20 +55,20 @@ const createPayoutService = async (conn, headers, payload, role) => {
           : columns.PAYOUT;
     const { code, amount, x_api_key } = payload;
     const details = await getMerchantsDao({ code });
-    console.log(details)
+    console.log(details);
     const { user_id, config } = details[0];
     const merchantAPIKey = config?.keys;
     const payoutAmount = Number(amount);
     const balanceRestriction = config.balanceRestriction;
-    const merchant_order_id = payload.merchant_order_id ?? uuidv4()
+    const merchant_order_id = payload.merchant_order_id ?? uuidv4();
     delete payload.code;
-    payload.merchant_id = details[0].id
+    payload.merchant_id = details[0].id;
     payload.merchant_order_id = merchant_order_id;
-  
+
     if (!x_api_key || !merchantAPIKey) {
       throw new BadRequestError(400, 'Missing API key or Merchant Keys');
     }
-    
+
     if (
       x_api_key !== merchantAPIKey?.private &&
       x_api_key !== merchantAPIKey?.public
@@ -94,7 +94,14 @@ const createPayoutService = async (conn, headers, payload, role) => {
     }
 
     const merchantOrderIdPayoutData = merchant_order_id
-      ? await getPayoutsDao(conn, { merchant_order_id: merchant_order_id }, payload.company_id, null, null, role)
+      ? await getPayoutsDao(
+        conn,
+        { merchant_order_id: merchant_order_id },
+        payload.company_id,
+        null,
+        null,
+        role,
+      )
       : '';
     if (merchantOrderIdPayoutData?.length > 0) {
       throw new DuplicateDataError('Merchant Order ID already exists');
@@ -109,16 +116,22 @@ const createPayoutService = async (conn, headers, payload, role) => {
   }
 };
 
-const getPayoutsService = async ( company_id,page,limit, filters, role) => {
+const getPayoutsService = async (company_id, page, limit, filters, role) => {
   let conn;
   try {
     conn = await getConnection();
-    await beginTransaction(conn); 
-    const data = await getPayoutsDao(conn, filters, company_id, page,limit, role);
-    await commit(conn); 
-    return data
-  }
-  catch (error) {
+    await beginTransaction(conn);
+    const data = await getPayoutsDao(
+      conn,
+      filters,
+      company_id,
+      page,
+      limit,
+      role,
+    );
+    await commit(conn);
+    return data;
+  } catch (error) {
     console.error('Error in getPayoutsService:', error);
     throw new InternalServerError(error);
   } finally {
@@ -139,13 +152,13 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
     if (payload.utr_id && !payload.status)
       Object.assign(payload, {
-        status: Status.SUCCESS,
-        approved_at: new Date(),
+        status: Status.APPROVED,
+        approved_at: new Date().toISOString(),
       });
     if (payload.rejected_reason)
       Object.assign(payload, {
         status: Status.REJECTED,
-        rejected_at: new Date(),
+        rejected_at: new Date().toISOString(),
       });
     if (payload.status === Status.INITIATED)
       Object.assign(payload, { utr_id: '', rejected_reason: '' });
@@ -153,6 +166,10 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     const singleWithdrawData = await getPayoutsDao(conn, ids);
     if (payload?.method === Method.EKO)
       await processEkoPayout(singleWithdrawData, payload);
+    payload.config = {
+      method: payload.method,
+    }
+    delete payload.method;
     const data = await updatePayoutDao(ids, payload, conn);
     if (!data.approved_at) return;
     const bankData = await getBankaccountDao({ id: data.bank_acc_id });
@@ -162,7 +179,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       getUserByIdDao(conn, { id: bankData.user_id }),
     ]);
 
-    if (data.status === Status.SUCCESS) {
+    if (data.status === Status.APPROVED) {
       const netBalance = await updatePayoutCalculations(
         data.merchant_id,
         data.approved_at,
@@ -257,7 +274,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       );
     }
 
-    await merchantPayoutCallback(data.config?.urls?.payout_notify_url, {
+    await merchantPayoutCallback(data.config?.urls?.payout_notify, {
       code: data.code,
       merchantOrderId: data.merchant_order_id,
       payoutId: data.id,
@@ -333,9 +350,9 @@ const processEkoPayout = async (singleWithdrawData, payload) => {
       const isSuccess =
         ekoResponse?.data?.txstatus_desc?.toUpperCase() == Status.SUCCESS;
       Object.assign(payload, {
-        status: isSuccess ? Status.SUCCESS : Status.REJECTED,
-        approved_at: isSuccess ? new Date() : null,
-        rejected_at: isSuccess ? null : new Date(),
+        status: isSuccess ? Status.APPROVED : Status.REJECTED,
+        approved_at: isSuccess ? new Date().toISOString() : null,
+        rejected_at: isSuccess ? null : new Date().toISOString(),
         utr_id: ekoResponse?.data?.tid,
       });
       console.info(`Payment initiated: ${ekoResponse?.message}`);
@@ -347,7 +364,7 @@ const processEkoPayout = async (singleWithdrawData, payload) => {
       Object.assign(payload, {
         status: Status.REJECTED,
         rejected_reason: ekoResponse?.message,
-        rejected_at: new Date(),
+        rejected_at: new Date().toISOString(),
         utr_id: getEkoPayoutStatus?.data?.tid || null,
       });
       console.error(`Payment rejected by eko due to ${ekoResponse?.message}`);
