@@ -170,7 +170,9 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       method: payload.method,
     }
     delete payload.method;
+    console.log(payload);
     const data = await updatePayoutDao(ids, payload, conn);
+    console.log(data);
     if (!data.approved_at) return;
     const bankData = await getBankaccountDao({ id: data.bank_acc_id });
     const [merchant, vendor, user] = await Promise.all([
@@ -302,9 +304,10 @@ const updatePayoutCalculations = async (
   conn,
 ) => {
   const [currentCalculation, prevCalculation] = await Promise.all([
-    getCalculationDao({ user_id: userId, created_at: date }),
-    getCalculationDao({ user_id: userId, created_at: date - 1 }),
+    getCalculationDao({ user_id: userId, startDate: date, endDate: date }),
+    getCalculationDao({ user_id: userId, startDate: date - 1, endDate: date - 1 }),
   ]);
+  console.log(currentCalculation, prevCalculation);
   const prefix = isReverse ? 'reverse_' : '';
   const updatedCalculation = {
     ...currentCalculation,
