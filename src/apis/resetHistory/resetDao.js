@@ -28,8 +28,7 @@ const getResetHistoryDao = async (
         columnAs: [
           `json_build_object(
              'status', "${PAYIN}".status,
-             'user_submitted_utr', "${PAYIN}".user_submitted_utr,
-             'confirmed', "${PAYIN}".confirmed
+             'user_submitted_utr', "${PAYIN}".user_submitted_utr
           ) AS new_details`
         ],
       },
