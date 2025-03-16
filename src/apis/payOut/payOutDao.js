@@ -134,7 +134,7 @@ export const getPayoutsDao = async (conn, filters, company_id, page, limit, role
     return { totalCount: result.rows[0]?.total, payout: result.rows };
   } catch (error) {
     console.error('Error in getPayoutsDao:', error);
-    throw new Error(error.message);
+    throw error.message;
   }
 };
 

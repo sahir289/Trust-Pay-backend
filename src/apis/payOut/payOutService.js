@@ -290,6 +290,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     throw new InternalServerError(error);
   }
 };
+
 // Function to update calculations
 const updatePayoutCalculations = async (
   userId,
