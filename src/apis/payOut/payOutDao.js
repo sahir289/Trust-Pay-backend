@@ -99,6 +99,7 @@ export const getPayoutsDao = async (conn, filters, company_id, page, limit, role
           u.bank_acc_id, 
           u.amount,
           u.status, 
+          u.merchant_order_id,
           u.failed_reason, 
           u.currency, 
           u.upi_id, 
