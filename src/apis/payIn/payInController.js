@@ -223,7 +223,8 @@ export const resetDeposit = async (req, res) => {
     req.user.company_id,
     req.user.user_id,
   );
-  sendSuccess(res, data);
+  sendSuccess(res, data, `UTR of this entry is already used with ${data[0]?.merchant_order_id} Merchant Order ID, No Changes Applied`,
+  );
 };
 export const getPayins = async (req, res) => {
   const { company_id, role } = req.user;
