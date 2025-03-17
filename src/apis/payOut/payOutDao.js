@@ -114,6 +114,7 @@ export const getPayoutsDao = async (filters, company_id, page, limit, role, conn
           b.user_id, 
           b.nick_name,
           r.id AS merchant_table_id,
+          ve.code AS vendor_code,
           json_build_object(
             'account_holder_name', u.acc_holder_name,
             'account_no', u.acc_no,
@@ -124,6 +125,7 @@ export const getPayoutsDao = async (filters, company_id, page, limit, role, conn
         LEFT JOIN public."Merchant" r ON u.merchant_id = r.id
         LEFT JOIN public."BankAccount" b ON u.bank_acc_id = b.id
         LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
+        LEFT JOIN public."Vendor" ve ON u.vendor_id = ve.id
         WHERE ${conditions.join(' AND ')}  
       ),
       total_count AS (

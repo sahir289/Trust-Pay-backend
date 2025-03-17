@@ -47,6 +47,7 @@ export const UPDATE_DETAILS_SCHEMA = Joi.object({
     .optional(),
   updated_by: Joi.string().label('updated_by').optional(),
   is_obsolete: Joi.boolean().label('is_obsolete').optional(),
+  vendor_id: Joi.string().label('vendor_id').optional(),
 });
 
 export const VALIDATE_PAYOUT_BY_ID = Joi.object({

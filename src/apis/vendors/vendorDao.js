@@ -31,7 +31,7 @@ export const getVendorsCodeDao = async (
   sortOrder,
 ) => {
   try {
-    const baseQuery = `SELECT code as label, user_id as value FROM "${tableName.VENDOR}" WHERE 1=1`;
+    const baseQuery = `SELECT code as label, user_id as value,id as vendor_id FROM "${tableName.VENDOR}" WHERE 1=1`;
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
