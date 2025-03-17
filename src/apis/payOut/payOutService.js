@@ -94,7 +94,7 @@ const createPayoutService = async (conn, headers, payload, role) => {
     }
 
     const merchantOrderIdPayoutData = merchant_order_id
-      ? await getPayoutsDao(conn, { merchant_order_id: merchant_order_id }, payload.company_id, null, null, role)
+      ? await getPayoutsDao({ merchant_order_id: merchant_order_id }, payload.company_id, null, null, role, conn)
       : '';
     if (merchantOrderIdPayoutData?.length > 0) {
       throw new DuplicateDataError('Merchant Order ID already exists');
@@ -114,9 +114,9 @@ const getPayoutsService = async ( company_id,page,limit, filters, role) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn); 
-    const data = await getPayoutsDao(conn, filters, company_id, page,limit, role);
+    const data = await getPayoutsDao(filters, company_id, page,limit, role, conn);
     await commit(conn); 
-    return data
+    return { totalCount: data[0]?.total, payout: data }
   }
   catch (error) {
     console.error('Error in getPayoutsService:', error);
@@ -150,7 +150,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (payload.status === Status.INITIATED)
       Object.assign(payload, { utr_id: '', rejected_reason: '' });
 
-    const singleWithdrawData = await getPayoutsDao(conn, ids);
+    const singleWithdrawData = await getPayoutsDao(ids, null, null, null, null, conn);
     if (payload?.method === Method.EKO)
       await processEkoPayout(singleWithdrawData, payload);
     const data = await updatePayoutDao(ids, payload, conn);

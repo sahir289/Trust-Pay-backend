@@ -21,14 +21,17 @@ export const createPayoutDao = async (conn, data) => {
   }
 };
 
-export const getPayoutsDao = async (conn, filters, company_id, page, limit, role) => {
+export const getPayoutsDao = async (filters, company_id, page, limit, role, conn) => {
   try {
     if (typeof company_id === 'string') {
       company_id = company_id.trim();
     }
 
-    let conditions = [`u.is_obsolete = false`, `u.company_id = $1`];
-    let queryParams = [company_id];
+    let conditions = [`u.is_obsolete = false`];
+    let queryParams = [];
+    if(company_id){
+      conditions.push(`u.company_id = '${company_id}'`);
+    }
     let limitcondition = '';
 
     if (filters?.startDate && filters?.endDate) {
@@ -130,11 +133,19 @@ export const getPayoutsDao = async (conn, filters, company_id, page, limit, role
       ${limitcondition}
     `;
 
-    const result = await conn.query(baseQuery, queryParams);
-    return { totalCount: result.rows[0]?.total, payout: result.rows };
+    let result;
+
+    if(conn){
+      result = await conn.query(baseQuery, queryParams);
+    } else {
+      result = await executeQuery(baseQuery, queryParams);
+    }
+
+    return result.rows;
+
   } catch (error) {
     console.error('Error in getPayoutsDao:', error);
-    throw new Error(error.message);
+    throw new Error("Error while getting payout");
   }
 };
 
