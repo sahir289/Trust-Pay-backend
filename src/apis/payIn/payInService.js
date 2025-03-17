@@ -632,7 +632,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
   // validate payIn
   // throw error if not exist or expires
   const payIn = await getPayInUrlService(merchantOrderId);
-  const banks = await getBankaccountDao({ id: payIn.bank_acc_id });
+  const banks = await getBankaccountDao(null, payIn.company_id, { id: payIn.bank_acc_id }, null, null, null);
   const bank = banks[0];
 
   if (!bank) {
