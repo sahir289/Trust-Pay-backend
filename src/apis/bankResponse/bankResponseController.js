@@ -26,7 +26,7 @@ const getBankResponse = async (req, res) => {
   const { company_id } = req.user;
   payload.company_id = company_id;
   const data = await getBankResponseService(payload, role);
-  return sendSuccess(res, data, 'get bankResponse successfully');
+   return sendSuccess(res, data, 'get bankResponse successfully');
 };
 
 const createBankResponse = async (req, res) => {
@@ -227,7 +227,7 @@ const createBankResponse = async (req, res) => {
                     } catch (error) {
                       console.log(error);
                     }
-                    return sendSuccess(res, updatedData, { message: `Bank Mismatch with ${updatePayInDataRes?.merchant_order_id}` });
+                     return sendSuccess(res, updatedData, { message: `Bank Mismatch with ${updatePayInDataRes?.merchant_order_id}` });
 
                   } else {
                     return {
@@ -282,7 +282,7 @@ const createBankResponse = async (req, res) => {
                   } catch (error) {
                     console.log(error);
                   }
-                  return sendSuccess(res, updatedData, { message: `Bank Mismatch with ${updatePayInDataRes?.merchant_order_id}` });
+                   return sendSuccess(res, updatedData, { message: `Bank Mismatch with ${updatePayInDataRes?.merchant_order_id}` });
 
                 }
               }
@@ -399,6 +399,11 @@ const createBankResponse = async (req, res) => {
                     } catch (error) {
                       console.log(error);
                     }
+                    return sendSuccess(
+                      res,
+                      updatedData,
+                      "⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr.at(0)?.user_submitted_utr}",
+                    );
                   } else {
                     return {
                       meta: {},
@@ -510,7 +515,7 @@ const createBankResponse = async (req, res) => {
                     } catch (error) {
                       console.log(error);
                     }
-                    return sendSuccess(res, updatedData, { message: `Bank Mismatch with ${updatePayInDataRes?.merchant_order_id}` });
+                     return sendSuccess(res, updatedData, { message: `Bank Mismatch with ${updatePayInDataRes?.merchant_order_id}` });
 
 
                   } else {
@@ -620,11 +625,11 @@ const createBankResponse = async (req, res) => {
                   console.log(error);
                 }
                 console.log('Bank Response created successfully', 'info');
-                return {
-                  error: {},
-                  meta: { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr.at(0)?.user_submitted_utr}` },
-                  data: updatedData
-                };
+                return sendSuccess(
+                  res,
+                  updatedData,
+                  "⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr.at(0)?.user_submitted_utr}",
+                );
               } else {
                 return {
                   meta: {},
@@ -681,11 +686,11 @@ const createBankResponse = async (req, res) => {
               }
               console.log('Bank Response created successfully', 'info');
 
-              return {
-                error: {},
-                meta: { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr.at(0)?.user_submitted_utr}` },
-                data: updatedData
-              };
+              return sendSuccess(
+                res,
+                updatedData,
+                "⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr.at(0)?.user_submitted_utr}",
+              );
             }
           }
 
@@ -737,11 +742,11 @@ const createBankResponse = async (req, res) => {
                   console.log(error);
                 }
                 console.log('Bank Response created successfully', 'info');
-                return {
-                  error: {},
-                  meta: { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr.at(0)?.user_submitted_utr}` },
-                  data: updatedData
-                };
+                return sendSuccess(
+                  res,
+                  updatedData,
+                  "⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr.at(0)?.user_submitted_utr}",
+                );
               } else {
                 return {
                   meta: {},
@@ -792,11 +797,11 @@ const createBankResponse = async (req, res) => {
               } catch (error) {
                 console.log(error);
               }
-              return {
-                error: {},
-                meta: { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr.at(0)?.user_submitted_utr}` },
-                data: updatedData
-              };
+              return sendSuccess(
+                res,
+                updatedData,
+                "⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr.at(0)?.user_submitted_utr}",
+              );
             }
           }
 
@@ -898,11 +903,11 @@ const createBankResponse = async (req, res) => {
                 } catch (error) {
                   console.log(error);
                 }
-                return {
-                  error: {},
-                  meta: { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr.at(0)?.user_submitted_utr}` },
-                  data: updatedData
-                };
+                return sendSuccess(
+                  res,
+                  updatedData,
+                  "⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr.at(0)?.user_submitted_utr}",
+                );
               } else {
                 return {
                   meta: {},
@@ -1011,11 +1016,13 @@ const createBankResponse = async (req, res) => {
                 } catch (error) {
                   console.log(error);
                 }
-                return {
-                  error: {},
-                  meta: { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr.at(0)?.user_submitted_utr}` },
-                  data: updatedData
-                };
+               
+                return sendSuccess(
+                  res,
+                  updatedData,
+                  "⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr.at(0)?.user_submitted_utr}",
+                );
+                
               } else {
                 return {
                   meta: {},
@@ -1059,17 +1066,22 @@ const createBankResponse = async (req, res) => {
                 utr_id: updatePayInDataRes?.user_submitted_utr,
                 config: JSON.stringify({ from_UI: from_UI })
               };
-
+              
               try {
                 await axios.post(checkPayInUtr[0]?.notify_url, notifyData);
               } catch (error) {
                 console.log(error);
               }
+              return sendSuccess(
+                res,
+                updatedData,
+                "⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr.at(0)?.user_submitted_utr}",
+              );
             }
           }
         }
       }
-      sendSuccess(
+      return sendSuccess(
         res,
         updatedData,
         "Response created successfully",
