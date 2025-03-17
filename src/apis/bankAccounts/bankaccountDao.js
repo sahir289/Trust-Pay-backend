@@ -2,63 +2,101 @@ import { tableName } from '../../constants/index.js';
 
 import {
   buildInsertQuery,
-  buildJoinQuery,
   buildSelectQuery,
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
-import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { DbError } from '../../utils/appErrors.js';
 
-const getBankaccountDao = async (
-  filters,
-  page,
-  pageSize,
-  sortBy,
-  sortOrder,
-  columns = [],
-) => {
+const getBankaccountDao = async (conn, company_id, filters,  page, limit, role) => {
   try {
-    const { VENDOR, BANK_ACCOUNT } = tableName
-    const joins = [
-      {
-        table: VENDOR,
-        // first is source key
-        // second is target key
-        keys: ['user_id', 'user_id'],
-        type: 'LEFT JOIN',
-        // columns: ['designation_id'],
-        columnAs: [
-          `"${VENDOR}".code AS Vendor`,
-        ],
-      }]
-    const baseQuery = buildJoinQuery(
-      BANK_ACCOUNT,
-      columns.length ? columns : '*',
-      joins,
-    );
-    if (filters.search) {
-      filters.or = buildSearchFilterObj(filters.search, BANK_ACCOUNT);
-      delete filters.search;
+    let queryParams = [company_id];
+    let limitcondition = '';
+
+    let conditions = [`ba.is_obsolete = false`, `ba.company_id = $1`];
+    if (page && limit) {
+      limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+      queryParams.push(limit, (page - 1) * limit);
     }
-    // console.log(JSON.stringify(filters, undefined, 4));
-    const [sql, queryParams] = buildSelectQuery(
-      baseQuery,
-      filters,
-      page,
-      pageSize,
-      sortBy,
-      sortOrder,
-      tableName.BANK_ACCOUNT,
-    );
-    // Execute query
-    const result = await executeQuery(sql, queryParams);
+    if (filters?.startDate && filters?.endDate) {
+      conditions.push(`ba.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`);
+      queryParams.push(filters?.startDate, filters?.endDate);
+      // delete filters.startDate
+      // delete filters.endDate
+    }
+    if (filters && Object.keys(filters).length > 0) {
+      Object.keys(filters).forEach((key) => {
+        delete filters?.page
+        delete filters?.limit
+        const value = filters[key];
+        if (value !== null && value !== undefined && value !== '') {
+          if (Array.isArray(value)) {
+            conditions.push(`ba."${key}" = ANY($${queryParams.length + 1})`);
+            queryParams.push(value);
+          } else {
+            conditions.push(`ba."${key}" = $${queryParams.length + 1}`);
+            queryParams.push(value);
+          }
+        }
+      });
+    }
+    let commissionSelect = '';
+    if (role === 'MERCHANT') {
+      commissionSelect = '';
+    } else if (role === 'VENDOR') {
+      commissionSelect = 'ifsc_code, ba.payin_count, ba.balance, ba.today_balance, ba.bank_used_for, ';
+    } else {
+      commissionSelect = `
+        ba.user_id, ba.ifsc, ba.min, 
+        ba.max, ba.payin_count, ba.balance, ba.today_balance, ba.bank_used_for, ba.created_by, 
+        ba.updated_by, ba.created_at, ba.updated_at
+      `;
+    }
+    const baseQuery = 
+`SELECT 
+   ba.id, 
+        ba.sno, 
+        ba.upi_id, 
+        ba.upi_params, 
+        ba.nick_name, 
+        ba.acc_no, 
+        ba.bank_name, 
+        ba.is_qr, 
+        ba.is_bank, 
+        ba.is_enabled, 
+        ba.config,  
+
+     ${commissionSelect},
+    v.code AS Vendor, 
+    array_agg(m.code) AS Merchant_Codes 
+FROM 
+    public."BankAccount" ba
+LEFT JOIN public."Vendor" v 
+    ON ba.user_id = v.user_id
+LEFT JOIN LATERAL (
+    SELECT m.code
+    FROM public."Merchant" m
+    WHERE m.id::text IN (
+        SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
+    )
+) m ON TRUE
+WHERE 
+     ${conditions.join(' AND ')}  
+
+GROUP BY 
+    ba.id, v.code  
+ORDER BY 
+    ba.sno ASC
+  ${limitcondition}
+`
+    const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
-    console.error(error);
-    throw error.message;
+    console.error('Error in getBankaccountDao:', error);
+    throw error.message; 
   }
 };
+
 
 const getMerchantBankDao = async (filters) => {
   try {
@@ -84,10 +122,10 @@ const createBankaccountDao = async (payload) => {
 };
 
 const getBankaccountDaoNickName = async (conn, company_id, type) => {
-  const baseQuery = `SELECT nick_name,id FROM "${tableName.BANK_ACCOUNT}" WHERE company_id = $1 AND bank_used_for= $2`;
+  const baseQuery = `SELECT nick_name as label, id as value FROM "${tableName.BANK_ACCOUNT}" WHERE company_id = $1 AND bank_used_for= $2`;
   const queryParams = [company_id, type];
   const result = await conn.query(baseQuery, queryParams);
-  return { totalCount: result.rowCount, merchantCodes: result.rows };
+  return { totalCount: result.rowCount, bankNames: result.rows };
 }
 
 

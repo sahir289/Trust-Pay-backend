@@ -12,8 +12,8 @@ import {
   VALIDATE_EXPIRE_PAY_IN_URL,
   VALIDATE_PAY_IN_INTENT_GENERATE_ORDER,
   VALIDATE_PAYIN_SCHEMA,
-  VALIDATE_PROCESSE_PAYIN,
-  VALIDATE_PROCESSE_PAYIN_BY_IMAGE,
+  VALIDATE_PROCESS_PAYIN,
+  VALIDATE_PROCESS_PAYIN_BY_IMAGE,
   VALIDATE_RESET_DEPOSIT,
   VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS,
   VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS,
@@ -237,7 +237,7 @@ export const processPayIn = async (req, res) => {
     ...req.body,
     ...req.params,
   };
-  const joiValidation = VALIDATE_PROCESSE_PAYIN.validate(payload);
+  const joiValidation = VALIDATE_PROCESS_PAYIN.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
@@ -263,7 +263,7 @@ export const processPayInByImage = async (req, res) => {
     ...req.body,
     ...req.params,
   };
-  const joiValidation = VALIDATE_PROCESSE_PAYIN_BY_IMAGE.validate(payload);
+  const joiValidation = VALIDATE_PROCESS_PAYIN_BY_IMAGE.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }

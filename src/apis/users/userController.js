@@ -58,8 +58,8 @@ const createUser = async (req, res) => {
   payload.created_by = user_id;
   payload.updated_by = user_id;
   await transactionWrapper(createUserService)(payload, role);
-  console.log('create user successfully');
-  return sendSuccess(res, {}, 'create user successfully');
+  console.log('Create user successfully');
+  return sendSuccess(res, {}, 'Create user successfully');
 };
 
 const updateUser = async (req, res) => {

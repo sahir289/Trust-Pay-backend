@@ -112,7 +112,6 @@ export const generatePayInUrlService = async (payload, created_by) => {
 };
 
 export const getPayInUrlService = async (id) => {
-  console.log(id);
   const currentTime = Date.now();
   const payIn = await getPayInUrlDao({ merchant_order_id: id });
 
@@ -177,30 +176,27 @@ export const assignedBankToPayInUrlService = async (merchantOrderId, amount, typ
   // Validate the PayIn URL
   const payIn = await getPayInUrlService(merchantOrderId);
   const payInConfig = payIn.config || {};
-
   checkIsPayInExpired(payIn);
   if (payIn.status !== Status.INITIATED) {
     throw new BadRequestError('PayIn has been confirmed already!');
   }
-
   const merchantArr = await getMerchantsDao({ id: payIn.merchant_id });
   const merchant = merchantArr[0] || {};
-
   if (!merchant) {
     throw new NotFoundError('No merchant found');
   }
 
-  const banks = await getMerchantBankDao({ user_id: merchant.user_id });
+  const banks = await getMerchantBankDao({ config_merchants_contains: merchant.id });
+  
   const enabledBanks = banks.filter((bank) => {
-    // Get enabled merchant bank accounts for payIn
-    // Assign bank on the basis type
+  
     if (bank.is_enabled && bank.bank_used_for !== 'payIn') {
       return false;
     }
-
+  
     switch (type) {
       case BankTypes.UPI:
-        return bank.allow_qr;
+        return bank.is_qr;
       case BankTypes.PHONE_PE:
         return bank.config?.is_phone;
       case BankTypes.BANK_TRANSFER:
@@ -211,6 +207,7 @@ export const assignedBankToPayInUrlService = async (merchantOrderId, amount, typ
         return false;
     }
   });
+  
   if (!enabledBanks.length) {
     await updatePayInUrlDao(payIn.id, {
       is_url_expires: true,
@@ -610,8 +607,7 @@ export const resetDepositService = async (
       conn,
     );
   }
-
-  return await updatePayInUrlDao(payIn.id, updatePayInData, company_id );
+  return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 };
 
 export const getPayinsService = async ( company_id,page,limit, filters, role) => {
@@ -632,14 +628,11 @@ export const getPayinsService = async ( company_id,page,limit, filters, role) =>
   }
 };
 
-
-
-
 export const processPayInService = async (conn, payload, updated_by) => {
-  const { userSubmittedUtr, payInId, amount } = payload;
+  const { userSubmittedUtr, merchantOrderId, amount } = payload;
   // validate payIn
   // throw error if not exist or expires
-  const payIn = await getPayInUrlService(payInId);
+  const payIn = await getPayInUrlService(merchantOrderId);
   const banks = await getBankaccountDao({ id: payIn.bank_acc_id });
   const bank = banks[0];
 
@@ -885,11 +878,12 @@ export const telegramResponseService = async (conn, message) => {
 };
 
 export const processPayInByImageService = async (conn, payload) => {
-  const { base64Image, payInId } = payload;
+  const { base64Image, merchantOrderId } = payload;
   const content = await getImageContentFromOCr(base64Image);
   if (!content) {
+    const payInData = await getPayInUrlService(merchantOrderId)
     const payIn = await updatePayInUrlDao(
-      payInId,
+      payInData.id,
       {
         status: Status.IMG_PENDING,
         amount: payload.amount,
@@ -902,7 +896,7 @@ export const processPayInByImageService = async (conn, payload) => {
     return {
       status: 'Not Found',
       amount: payload.amount,
-      merchant_order_id: payIn.merchant_order_id,
+      merchant_order_id: merchantOrderId,
       return_url: payIn.config?.urls?.return,
     };
   }
@@ -1123,7 +1117,6 @@ export const telegramCheckUTRService = async (
   if (!payIn) {
     throw new NotFoundError('PayIn not found');
   }
-
   createCheckUtrService({
     payin_id: payIn.id,
     utr,
@@ -1135,6 +1128,7 @@ export const telegramCheckUTRService = async (
   if (payIn.bank_response_id) {
     otherBankResponse =
       (await getBankResponseDao({ id: payIn.bank_response_id })) || {};
+
   }
 
   // check old code flow
@@ -1143,11 +1137,10 @@ export const telegramCheckUTRService = async (
       message: `PayIn is already confirmed with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
     };
   }
-
   const isAlreadyExit = await getPayInUrlDao({
     bank_response_id: bankResponse.id,
   });
-  if (!isAlreadyExit) {
+  if (isAlreadyExit) {
     return {
       message: `Utr: ${utr} is ${isAlreadyExit.status} with ${isAlreadyExit.merchant_order_id}`,
     };

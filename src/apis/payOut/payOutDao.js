@@ -102,6 +102,7 @@ export const getPayoutsDao = async (filters, company_id, page, limit, role, conn
           u.bank_acc_id, 
           u.amount,
           u.status, 
+          u.merchant_order_id,
           u.failed_reason, 
           u.currency, 
           u.upi_id, 
@@ -145,7 +146,7 @@ export const getPayoutsDao = async (filters, company_id, page, limit, role, conn
 
   } catch (error) {
     console.error('Error in getPayoutsDao:', error);
-    throw new Error("Error while getting payout");
+    throw error.message;
   }
 };
 

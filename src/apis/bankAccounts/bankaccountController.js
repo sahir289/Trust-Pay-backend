@@ -24,18 +24,17 @@ import {
 const getBankaccount = async (req, res) => {
   const { company_id } = req.user;
   const { role } = req.user;
-  const {page, limit} = req.query;
+  const { page, limit } = req.query;
   const data = await getBankaccountService(
-    {
-      company_id: company_id,
-    },
-    role, page,limit,
+    req.query,
+    company_id,
+    role, page, limit,
   );
   console.log('get Banks successfully', role);
   return sendSuccess(res, data, 'get Banks successfully');
 };
 
-const getBankaccountNickName = async(req, res) =>{
+const getBankaccountNickName = async (req, res) => {
   const { type } = req.query;
   const { company_id } = req.user;
   const data = await getBankaccountServiceNickName(
@@ -68,7 +67,7 @@ const createBankaccount = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  payload.config={"merchants":[]}
+  payload.config = { "merchants": [] }
   const { user_id, company_id, role } = req.user;
   payload.created_by = user_id;
   payload.updated_by = user_id;
@@ -82,7 +81,7 @@ const createBankaccount = async (req, res) => {
 const updateBankaccount = async (req, res) => {
   const { id } = req.params;
   let payload = req.body;
-  console.log(id);
+  
   if (payload.code && payload.user_id) {
     // Ensure payload.config.merchants exists and is an array
     // Push the extracted code and user_id as an object into merchants array
@@ -95,10 +94,10 @@ const updateBankaccount = async (req, res) => {
     delete payload.code;
     delete payload.user_id;
   }
-   const joiValidation = UPDATE_BANK_ACCOUNT_SCHEMA.validate(req.body);
-   if (joiValidation.error) {
-     throw new ValidationError(joiValidation.error);
-   }
+  const joiValidation = UPDATE_BANK_ACCOUNT_SCHEMA.validate(req.body);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
   const { company_id, user_id } = req.user;
   payload.updated_by = user_id;
   const ids = { id, company_id };

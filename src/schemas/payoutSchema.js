@@ -1,11 +1,17 @@
 import Joi from 'joi';
 
 export const PAYOUT_DETAILS_SCHEMA = Joi.object({
-  status: Joi.string().label('status').required(),
+  ifsc_code: Joi.string().label('ifsc_code').required(),
   method: Joi.string().label('method').optional(),
-  utr_id: Joi.string().label('utr_id').optional(),
   bank_acc_id: Joi.string().label('bank_acc_id').optional(),
   reason: Joi.string().label('reason').optional(),
+  user: Joi.string().label('user').required(),
+  code: Joi.string().label('code').required(),
+  acc_holder_name: Joi.string().label('acc_holder_name').required(),
+  acc_no: Joi.string().label('acc_no').required(),
+  bank_name: Joi.string().label('bank_name').required(),
+  amount: Joi.number().label('amount').required(),
+  utr_id: Joi.string().label('utr_id').optional(),
 });
 
 export const UPDATE_DETAILS_SCHEMA = Joi.object({
@@ -20,6 +26,8 @@ export const UPDATE_DETAILS_SCHEMA = Joi.object({
   acc_holder_name: Joi.string().label('acc_holder_name').optional(),
   ifsc_code: Joi.string().label('ifsc_code').optional(),
   bank_name: Joi.string().label('bank_name').optional(),
+  bank_acc_id: Joi.string().label('bank_acc_id').optional(),
+  method: Joi.string().label('method').optional(),
   upi_id: Joi.string().email().label('upi_id').optional(), // UPI ID could be in email format
   utr_id: Joi.string().label('utr_id').optional(),
   is_enable: Joi.boolean().label('is_enable').default(true), // `is_enable` should be a boolean

@@ -109,50 +109,71 @@ const createUserService = async (conn, payload, role) => {
     }
     const password = await createHash(payload.password);
     payload.password = password;
-    const User = await createUserDao(payload);
+   
+
+    
+    const userPayload = {
+      code: payload.code,
+      role_id: payload.role_id,
+      designation_id: payload.designation_id,
+      first_name: payload.first_name,
+      last_name: payload.last_name,
+      email: payload.email,
+      contact_no: payload.contact_no,
+      user_name: payload.user_name,
+      password: payload.password,
+      is_enabled: payload.is_enabled,
+      company_id: payload.company_id,
+      created_by: payload.created_by,
+      updated_by:payload.updated_by
+    };
+
+    const User = await createUserDao(userPayload, conn);
     const userRole = await getUsersByUserNameDao(
       payload,
       user_name,
     );
-    const CommonCreateUserPayload = (
-      User,
-      payload,
-      roleSpecificFields = {},
-    ) => ({
-      user_id: User.id,
-      // role_id: payload.role_id,
-      company_id: payload.company_id,
-      first_name: payload.first_name,
-      last_name: payload.last_name,
-      code: payload.code,
-      balance: 0.0,
-      created_by: User.id,
-      updated_by: User.id,
-      ...roleSpecificFields,
-    });
-
     if (
-      userRole.role === Role.MERCHANT ||
-      userRole.role === Role.MERCHANT_ADMIN
-    ) {
-      const merchantPayload = CommonCreateUserPayload(User, payload, {
-        min_payin: 0.0,
-        max_payin: 0.0,
-        payin_commission: 0.0,
-        min_payout: 0.0,
-        max_payout: 0.0,
-        payout_commission: 0.0,
-      });
+      userRole.role === Role.MERCHANT     ) {
+      const merchantPayload = {
+        user_id: User.id,
+        // role_id: payload.role_id,
+        company_id: payload.company_id,
+        first_name: payload.first_name,
+        last_name: payload.last_name,
+        code: payload.code,
+        balance: 0.0,
+        min_payin: payload.min_payin,
+        max_payin: payload.max_payin,
+        payin_commission: payload.payin_commission,
+        min_payout: payload.min_payout,
+        max_payout: payload.max_payout,
+        payout_commission: payload.payout_commission,
+        created_by: payload.created_by,
+        updated_by: payload.updated_by,
+      };
+      console.log(merchantPayload,"merchant payload");
       await createMerchantService(conn, merchantPayload, role);
     }
 
+
     if (userRole.role === Role.VENDOR) {
-      const vendorPayload = CommonCreateUserPayload(User, payload, {
-        payin_commission: 0.0,
-        payout_commission: 0.0,
-      });
+      const vendorPayload ={
+        user_id: User.id,
+        // role_id: payload.role_id,
+        company_id: payload.company_id,
+        first_name: payload.first_name,
+        last_name: payload.last_name,
+        code: payload.code,
+        balance: 0.0,
+        payin_commission: payload.payin_commission,
+        payout_commission: payload.payout_commission,
+        created_by: payload.created_by,
+        updated_by:payload.updated_by
+      };
       await createVendorService(conn, vendorPayload, role);
     }
+
 
     console.log('User Created Successfully');
     const finalResult = filterResponse(User, filterColumns);
@@ -162,6 +183,7 @@ const createUserService = async (conn, payload, role) => {
     throw new InternalServerError(error);
   }
 };
+
 
 const userUpdateService = async (ids, payload, role) => {
   try {
@@ -180,6 +202,7 @@ const userUpdateService = async (ids, payload, role) => {
     throw new InternalServerError(error);
   }
 };
+
 
 export {
   getUsersService,

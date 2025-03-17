@@ -14,6 +14,7 @@ export const Status = {
   BANK_MISMATCH: 'BANK_MISMATCH',
   FAILED: 'FAILED',
   USER_DROPPED: 'USER_DROPPED',
+  APPROVED: 'APPROVED',
 };
 
 export const Currency = {
@@ -140,7 +141,7 @@ export const columns = {
     'created_at',
     'updated_at',
   ],
-  DESIGNATION: ['id', 'designation', 'created_at', 'updated_at'],
+  DESIGNATION: ['id', 'designation','role_id', 'created_at', 'updated_at'],
   PAYIN: [
     'id',
     'sno',
@@ -205,6 +206,7 @@ export const columns = {
     'user_id',
     'upi_id',
     'upi_params',
+    'acc_holder_name',
     'nick_name',
     'acc_no',
     'ifsc',
