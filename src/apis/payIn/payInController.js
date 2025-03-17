@@ -78,15 +78,11 @@ export const generatePayInUrl = async (req, res) => {
     payinId: result.id,
   };
 
-  if (payload.ot === 'y') {
-    return sendSuccess(
-      res,
-      updateRes,
-      'PayIn is generated & url is sent successfully',
-    );
-  }
-  res.redirect(302, updateRes.payInUrl);
-  return;
+  return sendSuccess(
+    res,
+    updateRes,
+    'PayIn is generated & url is sent successfully',
+  );
 };
 
 /**
