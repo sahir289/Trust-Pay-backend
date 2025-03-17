@@ -53,40 +53,39 @@ const getBankaccountDao = async (conn, company_id, filters,  page, limit, role) 
       `;
     }
     const baseQuery = 
-      `SELECT 
-        ba.id, 
-        ba.sno, 
-        ba.upi_id, 
-        ba.upi_params, 
-        ba.nick_name, 
-        ba.acc_no, 
-        ba.bank_name, 
-        ba.is_qr, 
-        ba.is_bank, 
-        ba.is_enabled, 
-        ba.config,  
-        ${commissionSelect},
-        v.code AS Vendor, 
-        COALESCE(array_agg(m.code) FILTER (WHERE m.code IS NOT NULL), '{}') AS Merchant_Codes
-      FROM 
-          public."BankAccount" ba
-      LEFT JOIN public."Vendor" v 
-          ON ba.user_id = v.user_id
-      LEFT JOIN LATERAL (
-          SELECT m.code
-          FROM public."Merchant" m
-          WHERE m.id::text IN (
+`SELECT 
+   ba.id, 
+   ba.sno, 
+   ba.upi_id, 
+   ba.upi_params, 
+   ba.nick_name, 
+   ba.acc_no, 
+   ba.bank_name, 
+   ba.is_qr, 
+   ba.is_bank, 
+   ba.is_enabled, 
+   ba.config,  
+   ${commissionSelect},
+   v.code AS Vendor, 
+   COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details
+FROM 
+    public."BankAccount" ba
+LEFT JOIN public."Vendor" v 
+    ON ba.user_id = v.user_id
+LEFT JOIN LATERAL (
+    SELECT 
+        jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
+    FROM public."Merchant" m
+    WHERE m.id::text IN (
               SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
-          )
-      ) m ON TRUE
-      WHERE 
-          ${conditions.join(' AND ')}  
-      GROUP BY 
-          ba.id, v.code  
-      ORDER BY 
-          ba.sno ASC
-      ${limitcondition}
-    `
+    )
+) m ON TRUE
+WHERE 
+    ${conditions.join(' AND ')}
+ORDER BY 
+    ba.sno ASC
+${limitcondition};
+`
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
