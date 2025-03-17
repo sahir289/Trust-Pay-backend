@@ -55,20 +55,19 @@ const getBankaccountDao = async (conn, company_id, filters,  page, limit, role) 
     const baseQuery = 
 `SELECT 
    ba.id, 
-        ba.sno, 
-        ba.upi_id, 
-        ba.upi_params, 
-        ba.nick_name, 
-        ba.acc_no, 
-        ba.bank_name, 
-        ba.is_qr, 
-        ba.is_bank, 
-        ba.is_enabled, 
-        ba.config,  
-
-     ${commissionSelect},
-    v.code AS Vendor, 
-    array_agg(m.code) AS Merchant_Codes 
+   ba.sno, 
+   ba.upi_id, 
+   ba.upi_params, 
+   ba.nick_name, 
+   ba.acc_no, 
+   ba.bank_name, 
+   ba.is_qr, 
+   ba.is_bank, 
+   ba.is_enabled, 
+   ba.config,  
+   ${commissionSelect},
+   v.code AS Vendor, 
+   COALESCE(array_agg(m.code) FILTER (WHERE m.code IS NOT NULL), '{}') AS Merchant_Codes
 FROM 
     public."BankAccount" ba
 LEFT JOIN public."Vendor" v 
@@ -81,13 +80,12 @@ LEFT JOIN LATERAL (
     )
 ) m ON TRUE
 WHERE 
-     ${conditions.join(' AND ')}  
-
+    ${conditions.join(' AND ')}  
 GROUP BY 
     ba.id, v.code  
 ORDER BY 
     ba.sno ASC
-  ${limitcondition}
+${limitcondition}
 `
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
