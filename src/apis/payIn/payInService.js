@@ -66,6 +66,8 @@ export const generatePayInUrlService = async (payload, created_by) => {
     merchant_order_id: order_id,
     amount,
     returnUrl,
+    callbackUrl,
+    ot,
     api_key,
     x_api_key,
   } = payload;
@@ -88,7 +90,7 @@ export const generatePayInUrlService = async (payload, created_by) => {
     throw new BadRequestError('Enter valid Api key');
   }
   
-  const expirationDate = dayjs().add(10, 'minutes').toISOString();
+  const expirationDate = ot === 'y' ? dayjs().add(10, 'minutes').toISOString() : dayjs().add(30, 'days').toISOString();
   const data = {
     upi_short_code: nanoid(5), // code added by us
     amount: amount || 0, // as starting amount will be zero
@@ -102,7 +104,7 @@ export const generatePayInUrlService = async (payload, created_by) => {
     config: JSON.stringify({
       urls: {
         return: returnUrl || merchant.config?.urls?.return || '',
-        notify: merchant.config?.urls?.notify || '',
+        notify: callbackUrl || merchant.config?.urls?.payin_notify || '',
       }
     }),
     created_by,
