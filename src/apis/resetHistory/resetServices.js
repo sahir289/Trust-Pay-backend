@@ -1,4 +1,4 @@
-import { BadRequestError } from '../../utils/appErrors.js';
+import { InternalServerError } from '../../utils/appErrors.js';
 import { getBankResponseDao, updateBotResponseDao } from '../bankResponse/bankResponseDao.js';
 import { getPayInUrlDao, getPayInUrlsDao, updatePayInUrlDao } from '../payIn/payInDao.js';
 import {
@@ -15,7 +15,7 @@ const getResetHistoryService = async (id, page, limit) => {
     return result;
   } catch (error) {
     console.error('error getting while reset history', error);
-    throw new BadRequestError('Error getting while reset history');
+    throw new InternalServerError('Error getting while reset history');
   }
 };
 const createResetHistoryService = async (payload) => {
@@ -24,7 +24,7 @@ const createResetHistoryService = async (payload) => {
     return result;
   } catch (error) {
     console.error('error getting while reset history', error);
-    // throw new BadRequestError('Error getting while reset history');
+    throw new InternalServerError('Error getting while reset history');
   }
 };
 
@@ -65,7 +65,7 @@ const updateResetHistoryService = async (id, company_id) => {
     }
   } catch (error) {
     console.error('error getting while reset history', error);
-    throw new BadRequestError('Error getting while reset history');
+    throw new InternalServerError('Error getting while reset history');
   }
 };
 const deleteResetHistoryService = async (id) => {
@@ -74,7 +74,7 @@ const deleteResetHistoryService = async (id) => {
     return result;
   } catch (error) {
     console.error('error getting while reset history', error);
-    throw new BadRequestError('Error getting while reset history');
+    throw new InternalServerError('Error getting while reset history');
   }
 };
 

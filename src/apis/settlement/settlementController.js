@@ -4,7 +4,7 @@ import {
   VALIDATE_SETTLEMENT_BY_ID,
   VALIDATE_SETTLEMENT_BY_ID_DELETE,
 } from '../../schemas/settlementSchema.js';
-import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import {  InternalServerError, ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
@@ -34,7 +34,7 @@ const getSettlementController = async (req, res) => {
   const ids= {company_id , role_name}
   const settlementData = await getSettlementService(ids,  page, limit);
   if (!settlementData) {
-    throw new BadRequestError('Error getting while getting settlements');
+    throw new InternalServerError('Error getting while getting settlements');
   }
   sendSuccess(res, settlementData, 'got settlement');
 };
