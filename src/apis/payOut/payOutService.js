@@ -294,26 +294,33 @@ const updatePayoutCalculations = async (
     getCalculationDao({ user_id: userId, startDate: date, endDate: date }),
     getCalculationDao({ user_id: userId, startDate: date - 1, endDate: date - 1 }),
   ]);
-  console.log(currentCalculation, prevCalculation);
+
+  const cal1 = currentCalculation[0], cal2 = prevCalculation[0];
+
+  console.log(cal1, cal2);
+  if(!cal1 || !cal2){
+    throw Error('Calculation not found!');
+  }
+
   const prefix = isReverse ? 'reverse_' : '';
   const updatedCalculation = {
-    ...currentCalculation,
+    ...cal1,
     [`total_${prefix}payout_count`]:
-      currentCalculation[`total_${prefix}payout_count`] + 1,
+    cal1[`total_${prefix}payout_count`] + 1,
     [`total_${prefix}payout_amount`]:
-      currentCalculation[`total_${prefix}payout_amount`] + amount,
+    cal1[`total_${prefix}payout_amount`] + amount,
     [`total_${prefix}payout_commission`]:
-      currentCalculation[`total_${prefix}payout_commission`] + commission,
+    cal1[`total_${prefix}payout_commission`] + commission,
   };
 
   const { currentBalance, netBalance } = calculateBalances(
     updatedCalculation,
-    prevCalculation,
+    cal2,
     isMerchant,
   );
 
   await updateCalculationDao(
-    currentCalculation.id,
+    {id: cal1.id},
     {
       [`total_${prefix}payout_count`]:
         updatedCalculation[`total_${prefix}payout_count`],
