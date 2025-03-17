@@ -16,7 +16,7 @@ export const ekoTransactionStatusCallback = async (req, res) => {
   const tid = payload.tid;
 
   try {
-    const singleWithdrawData = await getPayoutsDao(tid);
+    const singleWithdrawData = await getPayoutsDao({id: tid});
     if (!singleWithdrawData) {
       return NotFoundError('Payment not found');
     }
