@@ -576,7 +576,6 @@ export const resetDepositService = async (
 
   const updatePayInData = {
     status: Status.ASSIGNED,
-    confirmed: null,
     payin_merchant_commission: null,
     user_submitted_utr: null,
     duration: null,
@@ -1117,7 +1116,7 @@ export const telegramCheckUTRService = async (
   if (!payIn) {
     throw new NotFoundError('PayIn not found');
   }
-  createCheckUtrService({
+  await createCheckUtrService({
     payin_id: payIn.id,
     utr,
     company_id: company_id,
@@ -1157,7 +1156,8 @@ export const telegramCheckUTRService = async (
     conn,
     {
       userSubmittedUtr: utr,
-      payInId: payIn.id,
+      // merchantOrderId: payIn.id,
+      merchantOrderId: merchant_order_id,
       amount: payIn.amount,
     },
     updated_by,
