@@ -91,7 +91,6 @@ export const generatePayInUrlService = async (payload, created_by) => {
   }
   
   const expirationDate = ot === 'y' ? dayjs().add(10, 'minutes').toISOString() : dayjs().add(30, 'days').toISOString();
-  console.log(merchant)
   const data = {
     upi_short_code: nanoid(5), // code added by us
     amount: amount || 0, // as starting amount will be zero
