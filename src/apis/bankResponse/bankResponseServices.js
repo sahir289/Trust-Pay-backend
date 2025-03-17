@@ -39,12 +39,13 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
           ? vendorColumns.BANK_RESPONSE
           : columns.BANK_RESPONSE;
     const splitData = payload.split(' ');
-    // const status = splitData[0];
-    const amount = parseFloat(splitData[1]);
-    const upi_short_code = splitData[2];
-    const utr = splitData[3];
-    const bank_id = splitData[4];
-    const is_used = splitData[5];
+    const amount = parseFloat(splitData[0]);
+    const upi_short_code = splitData[1];
+    const utr = splitData[2];
+    // const status = splitData[3];
+    // const is_used = splitData[3];
+    const bank_id = splitData[3];
+    const from_UI = splitData[4];
     const created_by = userId;
     const company_id = companyId;
 
@@ -66,7 +67,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
         null,
         null,
         null,
-        filterColumns,
+        filterColumns
       );
 
       const updatedData = {
@@ -74,7 +75,8 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
         amount,
         utr,
         bank_id,
-        is_used,
+        config: {from_UI : from_UI},
+        is_used : utrAlreadyExist? 'false':'true',
         created_by,
         company_id,
       };
@@ -128,6 +130,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
           is_used: false,
           created_by: created_by,
           company_id: company_id,
+          config: {from_UI:from_UI}
         };
         botRes = await createBankResponseDao(updatedData);
       } else {
@@ -176,6 +179,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                       is_notified: true,
                       user_submitted_utr: botRes?.utr,
                       approved_at: new Date(),
+                      config: {from_UI:from_UI}
                     };
                     const updatePayInDataRes = await updatePayInUrlDao(
                       checkPayInUtr[0]?.id,
@@ -192,6 +196,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                       id: isBankExist.id,
                       balance: bankdetails.balance + parseFloat(amount),
                       today_balance: bankdetails.balance + parseFloat(amount),
+                      config: {from_UI:from_UI}
                     });
                     const notifyData = {
                       status: 'BANK_MISMATCH',
@@ -200,6 +205,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                       amount: updatePayInDataRes?.confirmed,
                       req_amount: updatePayInDataRes?.amount,
                       utr_id: updatePayInDataRes?.user_submitted_utr,
+                      config: {from_UI:from_UI}
                     };
 
                     try {
@@ -223,6 +229,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                     is_notified: true,
                     user_submitted_utr: botRes?.utr,
                     approved_at: new Date(),
+                    config: {from_UI:from_UI}
                   };
 
                   const updatePayInDataRes = await updatePayInUrlDao(
@@ -248,6 +255,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                     amount: updatePayInDataRes?.confirmed,
                     req_amount: updatePayInDataRes?.amount,
                     utr_id: updatePayInDataRes?.user_submitted_utr,
+                    config: {from_UI:from_UI}
                   };
 
                   try {
@@ -328,6 +336,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                       duration: duration,
                       payin_merchant_commission: payinMerchantCommission,
                       payin_vendor_commission: payinVendorCommission,
+                      config: {from_UI:from_UI}
                     };
 
                     const updatePayInDataRes = await updatePayInUrlDao(
@@ -364,6 +373,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                       payinId: updatePayInDataRes?.id,
                       amount: updatePayInDataRes?.confirmed,
                       utr_id: updatePayInDataRes?.user_submitted_utr,
+                      config: {from_UI:from_UI}
                     };
                     try {
                       //when we get the correct notify url;
@@ -388,7 +398,8 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                     approved_at: new Date(),
                     duration: duration,
                     payin_merchant_commission: payinMerchantCommission,
-                    payin_mvendor_commission: payinVendorCommission,
+                    payin_vendor_commission: payinVendorCommission,
+                    config: {from_UI:from_UI}
                   };
 
                   const updatePayInDataRes = await updatePayInUrlDao(
@@ -421,6 +432,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                     payinId: updatePayInDataRes?.id,
                     amount: updatePayInDataRes?.confirmed,
                     utr_id: updatePayInDataRes?.user_submitted_utr,
+                    config: {from_UI:from_UI}
                   };
                   try {
                     //when we get the correct notify url;
@@ -441,7 +453,8 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                       approved_at: new Date(),
                       duration: duration,
                       payin_merchant_commission: payinMerchantCommission,
-                      payin_mvendor_commission: payinVendorCommission,
+                      payin_vendor_commission: payinVendorCommission,
+                      config: {from_UI:from_UI}
                     };
                     const updatePayInDataRes = await updatePayInUrlDao(
                       checkPayInUtr[0]?.id,
@@ -466,6 +479,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                       amount: updatePayInDataRes?.confirmed,
                       req_amount: updatePayInDataRes?.amount,
                       utr_id: updatePayInDataRes?.user_submitted_utr,
+                      config: {from_UI:from_UI}
                     };
 
                     try {
@@ -490,7 +504,8 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                     approved_at: new Date(),
                     duration: duration,
                     payin_merchant_commission: payinMerchantCommission,
-                    payin_mvendor_commission: payinVendorCommission,
+                    payin_vendor_commission: payinVendorCommission,
+                    config: {from_UI:from_UI}
                   };
                   const updatePayInDataRes = await updatePayInUrlDao(
                     checkPayInUtr[0]?.id,
@@ -514,6 +529,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                     amount: updatePayInDataRes?.confirmed,
                     req_amount: updatePayInDataRes?.amount,
                     utr_id: updatePayInDataRes?.user_submitted_utr,
+                    config: {from_UI:from_UI}
                   };
 
                   try {
@@ -540,6 +556,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                   is_notified: true,
                   user_submitted_utr: botRes?.utr,
                   approved_at: new Date(),
+                  config: {from_UI:from_UI}
                 };
                 const updatePayInDataRes = await updatePayInUrlDao(
                   checkPayInUtr[0]?.id,
@@ -564,6 +581,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                   amount: updatePayInDataRes?.confirmed,
                   req_amount: updatePayInDataRes?.amount,
                   utr_id: updatePayInDataRes?.user_submitted_utr,
+                  config: {from_UI:from_UI}
                 };
 
                 try {
@@ -588,6 +606,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                 is_notified: true,
                 user_submitted_utr: botRes?.utr,
                 approved_at: new Date(),
+                config: {from_UI:from_UI}
               };
 
               const updatePayInDataRes = await updatePayInUrlDao(
@@ -614,6 +633,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                 amount: updatePayInDataRes?.confirmed,
                 req_amount: updatePayInDataRes?.amount,
                 utr_id: updatePayInDataRes?.user_submitted_utr,
+                config: {from_UI:from_UI}
               };
 
               try {
@@ -641,6 +661,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                   is_notified: true,
                   user_submitted_utr: botRes?.utr,
                   approved_at: new Date(),
+                  config: {from_UI:from_UI}
                 };
 
                 const updatePayInDataRes = await updatePayInUrlDao(
@@ -666,6 +687,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                   amount: updatePayInDataRes?.confirmed,
                   req_amount: updatePayInDataRes?.amount,
                   utr_id: updatePayInDataRes?.user_submitted_utr,
+                  config: {from_UI:from_UI}
                 };
                 try {
                   //when we get the correct notify url;
@@ -689,6 +711,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                 is_notified: true,
                 user_submitted_utr: botRes?.utr,
                 approved_at: new Date(),
+                config: {from_UI:from_UI}
               };
 
               const updatePayInDataRes = await updatePayInUrlDao(
@@ -714,6 +737,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                 amount: updatePayInDataRes?.confirmed,
                 req_amount: updatePayInDataRes?.amount,
                 utr_id: updatePayInDataRes?.user_submitted_utr,
+                config: {from_UI:from_UI}
               };
 
               try {
@@ -782,6 +806,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                   duration: duration,
                   payin_merchant_commission: payinMerchantCommission,
                   payin_vendor_commission: payinVendorCommission,
+                  config: {from_UI:from_UI}
                 };
 
                 const updatePayInDataRes = await updatePayInUrlDao(
@@ -815,6 +840,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                   payinId: updatePayInDataRes?.id,
                   amount: updatePayInDataRes?.confirmed,
                   utr_id: updatePayInDataRes?.user_submitted_utr,
+                  config: {from_UI:from_UI}
                 };
                 try {
                   //when we get the correct notify url;
@@ -836,7 +862,8 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                 approved_at: new Date(),
                 duration: duration,
                 payin_merchant_commission: payinMerchantCommission,
-                payin_mvendor_commission: payinVendorCommission,
+                payin_vendor_commission: payinVendorCommission,
+                config: {from_UI:from_UI}
               };
 
               const updatePayInDataRes = await updatePayInUrlDao(
@@ -870,6 +897,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                 payinId: updatePayInDataRes?.id,
                 amount: updatePayInDataRes?.confirmed,
                 utr_id: updatePayInDataRes?.user_submitted_utr,
+                config: {from_UI:from_UI}
               };
               try {
                 //when we get the correct notify url;
@@ -890,7 +918,8 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                   approved_at: new Date(),
                   duration: duration,
                   payin_merchant_commission: payinMerchantCommission,
-                  payin_mvendor_commission: payinVendorCommission,
+                  payin_vendor_commission: payinVendorCommission,
+                  config: {from_UI:from_UI}
                 };
                 const updatePayInDataRes = await updatePayInUrlDao(
                   checkPayInUtr[0]?.id,
@@ -914,6 +943,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                   amount: updatePayInDataRes?.confirmed,
                   req_amount: updatePayInDataRes?.amount,
                   utr_id: updatePayInDataRes?.user_submitted_utr,
+                  config: {from_UI:from_UI}
                 };
 
                 try {
@@ -935,7 +965,8 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                 approved_at: new Date(),
                 duration: duration,
                 payin_merchant_commission: payinMerchantCommission,
-                payin_mvendor_commission: payinVendorCommission,
+                payin_vendor_commission: payinVendorCommission,
+                config: {from_UI:from_UI}
               };
               const updatePayInDataRes = await updatePayInUrlDao(
                 checkPayInUtr[0]?.id,
@@ -951,7 +982,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
               });
 
               // const updateBotRes
-              await updateBotResponseDao(botRes?.id, { is_used: true });
+              await updateBotResponseDao(botRes?.id, { is_used: true , config: {from_UI : from_UI}});
               const notifyData = {
                 status: 'DISPUTE',
                 merchantOrderId: updatePayInDataRes?.merchant_order_id,
@@ -959,6 +990,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                 amount: updatePayInDataRes?.confirmed,
                 req_amount: updatePayInDataRes?.amount,
                 utr_id: updatePayInDataRes?.user_submitted_utr,
+                config: {from_UI:from_UI}
               };
 
               try {

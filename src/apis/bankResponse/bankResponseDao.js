@@ -18,8 +18,8 @@ const getBankResponseDao = async (
   endDate,
   page,
   pageSize,
-  sortBy,
-  sortOrder,
+  // sortBy,
+  // sortOrder,
   columns = [],
 ) => {
   try {
@@ -35,9 +35,7 @@ const getBankResponseDao = async (
       baseQuery,
       filters,
       page,
-      pageSize,
-      sortBy,
-      sortOrder,
+      pageSize
     );
     if (startDate && endDate) {
       baseQuery += ` AND created_at BETWEEN $${Object.keys(queryParams).length + 1} AND $${Object.keys(queryParams).length + 2}`;
