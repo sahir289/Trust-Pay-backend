@@ -67,25 +67,24 @@ const getBankaccountDao = async (conn, company_id, filters,  page, limit, role) 
    ba.config,  
    ${commissionSelect},
    v.code AS Vendor, 
-   COALESCE(array_agg(m.code) FILTER (WHERE m.code IS NOT NULL), '{}') AS Merchant_Codes
+   COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details
 FROM 
     public."BankAccount" ba
 LEFT JOIN public."Vendor" v 
     ON ba.user_id = v.user_id
 LEFT JOIN LATERAL (
-    SELECT m.code
+    SELECT 
+        jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
     FROM public."Merchant" m
     WHERE m.id::text IN (
-        SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
+              SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
     )
 ) m ON TRUE
 WHERE 
-    ${conditions.join(' AND ')}  
-GROUP BY 
-    ba.id, v.code  
+    ${conditions.join(' AND ')}
 ORDER BY 
     ba.sno ASC
-${limitcondition}
+${limitcondition};
 `
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
