@@ -14,6 +14,7 @@ export const Status = {
   BANK_MISMATCH: 'BANK_MISMATCH',
   FAILED: 'FAILED',
   USER_DROPPED: 'USER_DROPPED',
+  APPROVED: 'APPROVED',
 };
 
 export const Currency = {

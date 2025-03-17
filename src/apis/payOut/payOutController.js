@@ -51,6 +51,8 @@ const getPayoutsById = async (req, res) => {
 const getPayouts = async (req, res) => {
   const { company_id, role } = req.user;  
   const {page, limit} = req.query;
+  delete req.query.limit;
+  delete req.query.page;
   const data = await getPayoutsService(company_id ,page,limit, req.query, role);
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };

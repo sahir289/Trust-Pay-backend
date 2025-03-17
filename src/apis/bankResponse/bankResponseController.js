@@ -31,9 +31,9 @@ const createBankResponse = async (req, res) => {
   if (error) {
     throw new ValidationError(error);
   }
-  // const data =
+  const data =
   await createBankResponseService(payload, company_id, role, user_id);
-  return sendSuccess(res, {}, 'Create BankResponse successfully');
+  return sendSuccess(res, data, data.message);
 };
 
 const getBankMessage = async (req, res) => {

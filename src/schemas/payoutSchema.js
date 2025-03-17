@@ -26,6 +26,8 @@ export const UPDATE_DETAILS_SCHEMA = Joi.object({
   acc_holder_name: Joi.string().label('acc_holder_name').optional(),
   ifsc_code: Joi.string().label('ifsc_code').optional(),
   bank_name: Joi.string().label('bank_name').optional(),
+  bank_acc_id: Joi.string().label('bank_acc_id').optional(),
+  method: Joi.string().label('method').optional(),
   upi_id: Joi.string().email().label('upi_id').optional(), // UPI ID could be in email format
   utr_id: Joi.string().label('utr_id').optional(),
   is_enable: Joi.boolean().label('is_enable').default(true), // `is_enable` should be a boolean
@@ -45,6 +47,7 @@ export const UPDATE_DETAILS_SCHEMA = Joi.object({
     .optional(),
   updated_by: Joi.string().label('updated_by').optional(),
   is_obsolete: Joi.boolean().label('is_obsolete').optional(),
+  vendor_id: Joi.string().label('vendor_id').optional(),
 });
 
 export const VALIDATE_PAYOUT_BY_ID = Joi.object({

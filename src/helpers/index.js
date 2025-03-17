@@ -3,6 +3,7 @@ import config from '../config/config.js';
 import { logoutSet } from '../middlewares/auth.js';
 import { AuthenticationError } from '../utils/appErrors.js';
 import { verifyToken } from '../utils/auth.js';
+import { logger } from '../utils/logger.js';
 
 // Function to calculate balances based on role
 export const calculateBalances = (calc, prevCalc, isMerchant) => {
@@ -131,10 +132,10 @@ export const streamToBase64 = (readableStream) => {
 //   }
 
 export const filterResponse = (data, keys) => {
-  console.log(data, keys, 'Initial check');
+  logger.log(data, keys, 'Initial check');
 
   if (Array.isArray(data)) {
-    console.log(data, keys, "Data is an array");
+    logger.log(data, keys, "Data is an array");
 
     return data.map((item) => {
       const filteredItem = {};
@@ -142,25 +143,25 @@ export const filterResponse = (data, keys) => {
         if (Object.prototype.hasOwnProperty.call(item, key)) {
           filteredItem[key] = item[key];
         } else {
-          console.log(item, key, 'Key not found in object');
+          logger.error(item, key, 'Key not found in object');
         }
       });
       return filteredItem;
     });
   } else if (typeof data === 'object' && data !== null) {
-    console.log(data, keys, 'Data is an object');
+    logger.error(data, keys, 'Data is an object');
 
     const filteredItem = {};
     keys.forEach((key) => {
       if (Object.prototype.hasOwnProperty.call(data, key)) {
         filteredItem[key] = data[key];
       } else {
-        console.log(data, key, 'Key not found in object');
+        logger.error(data, key, 'Key not found in object');
       }
     });
     return filteredItem;
   } else {
-    console.log(data, keys, 'Data is neither an array nor an object');
+    logger.error(data, keys, 'Data is neither an array nor an object');
     return null;
   }
 };

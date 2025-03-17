@@ -19,7 +19,6 @@ const getCalculationDao = async (
   columns = [],
 ) => {
   try {
-
     // if simple user is querying then filter object must have user_id to bind result
     let baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.CALCULATION}" WHERE 1=1`;
     const { role, designation, startDate, endDate, includeSubVendors, includeSubMerchant, user_id } = filters;
@@ -89,8 +88,6 @@ const getCalculationDao = async (
     if (startDate && endDate) {
       baseQuery += ` AND created_at BETWEEN '${new Date(startDate).toISOString()}'::TIMESTAMPTZ AND '${new Date(endDate).toISOString()}'::TIMESTAMPTZ`
     }
-
-    console.log(baseQuery, startDate, endDate)
 
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
@@ -167,8 +164,8 @@ export const getCalculationsSumDao = async (filters) => {
   `;
 
   // Queries for Different Roles
-  let merchantQuery = `${baseQuery} AND r.role = 'MERCHANT' `;
-  // let merchantQuery = `${baseQuery} `;
+  // let merchantQuery = `${baseQuery} AND r.role = 'MERCHANT' `;
+  let merchantQuery = `${baseQuery} `;
   let vendorQuery = `${baseQuery} AND r.role = 'VENDOR' `;
 
   // Include hierarchy filtering (match against `code` column)
@@ -316,6 +313,8 @@ const updateCalculationDao = async (conn, id, data) => {
     } else {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
+
+    console.log(result);
 
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {

@@ -18,16 +18,16 @@ const getBankaccountDao = async (conn, company_id, filters,  page, limit, role) 
       limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
       queryParams.push(limit, (page - 1) * limit);
     }
-    if (filters.startDate && filters.endDate) {
+    if (filters?.startDate && filters?.endDate) {
       conditions.push(`ba.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`);
-      queryParams.push(filters.startDate, filters.endDate);
+      queryParams.push(filters?.startDate, filters?.endDate);
       // delete filters.startDate
       // delete filters.endDate
     }
-    if (Object.keys(filters).length > 0) {
+    if (filters && Object.keys(filters).length > 0) {
       Object.keys(filters).forEach((key) => {
-        delete filters.page
-        delete filters.limit
+        delete filters?.page
+        delete filters?.limit
         const value = filters[key];
         if (value !== null && value !== undefined && value !== '') {
           if (Array.isArray(value)) {
@@ -67,31 +67,30 @@ const getBankaccountDao = async (conn, company_id, filters,  page, limit, role) 
    ba.config,  
    ${commissionSelect},
    v.code AS Vendor, 
-   COALESCE(array_agg(m.code) FILTER (WHERE m.code IS NOT NULL), '{}') AS Merchant_Codes
+   COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details
 FROM 
     public."BankAccount" ba
 LEFT JOIN public."Vendor" v 
     ON ba.user_id = v.user_id
 LEFT JOIN LATERAL (
-    SELECT m.code
+    SELECT 
+        jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
     FROM public."Merchant" m
     WHERE m.id::text IN (
-        SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
+              SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
     )
 ) m ON TRUE
 WHERE 
-    ${conditions.join(' AND ')}  
-GROUP BY 
-    ba.id, v.code  
+    ${conditions.join(' AND ')}
 ORDER BY 
     ba.sno ASC
-${limitcondition}
+${limitcondition};
 `
-    const result = await conn.query(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
     console.error('Error in getBankaccountDao:', error);
-    throw new Error(error.message); 
+    throw error.message; 
   }
 };
 
@@ -120,10 +119,10 @@ const createBankaccountDao = async (payload) => {
 };
 
 const getBankaccountDaoNickName = async (conn, company_id, type) => {
-  const baseQuery = `SELECT nick_name,id FROM "${tableName.BANK_ACCOUNT}" WHERE company_id = $1 AND bank_used_for= $2`;
+  const baseQuery = `SELECT nick_name as label, id as value FROM "${tableName.BANK_ACCOUNT}" WHERE company_id = $1 AND bank_used_for= $2`;
   const queryParams = [company_id, type];
   const result = await conn.query(baseQuery, queryParams);
-  return { totalCount: result.rowCount, merchantCodes: result.rows };
+  return { totalCount: result.rowCount, bankNames: result.rows };
 }
 
 

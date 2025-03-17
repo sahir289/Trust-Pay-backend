@@ -78,15 +78,11 @@ export const generatePayInUrl = async (req, res) => {
     payinId: result.id,
   };
 
-  if (payload.ot === 'y') {
-    return sendSuccess(
-      res,
-      updateRes,
-      'PayIn is generated & url is sent successfully',
-    );
-  }
-  res.redirect(302, updateRes.payInUrl);
-  return;
+  return sendSuccess(
+    res,
+    updateRes,
+    'PayIn is generated & url is sent successfully',
+  );
 };
 
 /**
@@ -223,7 +219,8 @@ export const resetDeposit = async (req, res) => {
     req.user.company_id,
     req.user.user_id,
   );
-  sendSuccess(res, data);
+  sendSuccess(res, data, `UTR of this entry is already used with ${data[0]?.merchant_order_id} Merchant Order ID, No Changes Applied`,
+  );
 };
 export const getPayins = async (req, res) => {
   const { company_id, role } = req.user;
