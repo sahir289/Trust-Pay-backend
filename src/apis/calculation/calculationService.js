@@ -59,7 +59,7 @@ const createCalculationService = async (conn, payload, role) => {
 };
 
 // Service to update an existing calculation record
-const updateCalculationService = async (conn, id, payload, role) => {
+const updateCalculationService = async (conn, filters, payload, role) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -67,7 +67,7 @@ const updateCalculationService = async (conn, id, payload, role) => {
         : role === Role.VENDOR
           ? vendorColumns.CALCULATION
           : columns.CALCULATION;
-    const data = await updateCalculationDao(conn, id, payload);
+    const data = await updateCalculationDao(filters, payload, conn);
     const finalResult = await filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
