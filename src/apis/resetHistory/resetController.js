@@ -1,4 +1,4 @@
-import { BadRequestError } from '../../utils/appErrors.js';
+import {  InternalServerError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { createResetHistoryService, deleteResetHistoryService, getResetHistoryService, updateResetHistoryService } from './resetServices.js';
 
@@ -21,7 +21,7 @@ const createResetHistory = async (req, res) => {
 
     if (!payload) {
       console.error('payload is required');
-      throw new BadRequestError('payload is required');
+      throw new InternalServerError('payload is required');
     }
     const data = await createResetHistoryService(payload);
     console.log('reset history successfully');
@@ -47,7 +47,7 @@ const deleteResetHistory = async (req, res) => {
     const { id } = req.params;
     if (!id) {
       console.error('payload is required');
-      throw new BadRequestError('payload is required');
+      throw new InternalServerError('payload is required');
     }
     const data = await deleteResetHistoryService(id);
     console.log('reset history successfully');
