@@ -8,7 +8,7 @@ import {
 } from '../../utils/db.js';
 import { DbError } from '../../utils/appErrors.js';
 
-const getBankaccountDao = async ( filters,  page, limit, role) => {
+const getBankaccountDao = async (filters,  page, limit, role) => {
   try {
     const company_id = filters.company_id
     let queryParams = [company_id];
