@@ -88,7 +88,9 @@ export const getPayoutsDao = async (filters, company_id, page, limit, role, conn
         json_build_object(
           'merchant_code', r.code,
           'return_url', r.config->>'return_url',
-          'notify_url', r.config->>'notify_url'
+          'notify_url', r.config->>'notify_url',
+          'public_key', r.config->'keys'->>'public',
+          'private_key', r.config->'keys'->>'private'
         ) AS merchant_details
       `;
     }

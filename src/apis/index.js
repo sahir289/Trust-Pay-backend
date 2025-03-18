@@ -21,6 +21,7 @@ import reports from './reports/index.js';
 import cron from '../cron/index.js';
 import resetHistory from './resetHistory/index.js';
 import checkUtr from './checkutr/index.js';
+import common from './common/index.js';
 
 const parentRouter = express.Router();
 const router = express.Router();
@@ -50,5 +51,6 @@ router.use('/auth', auth);
 router.use('/initialize-cronjob', gatherAllData);
 router.use('/complaints', complaints);
 router.use('/cron', cron);
+router.use('/common', common);
 
 export default parentRouter;
