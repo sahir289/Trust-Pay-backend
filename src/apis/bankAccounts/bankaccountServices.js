@@ -10,12 +10,10 @@ import {
 } from './bankaccountDao.js';
 
 const getBankaccountService = async ( filters, company_id,role, page, limit) => {
-  let conn;
   try {
-    conn = await getConnection();
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
-    return await getBankaccountDao(conn,company_id, filters
+    return await getBankaccountDao({...filters, company_id}
       ,
       pageNumber, pageSize, role
 
@@ -52,7 +50,7 @@ const getBankaccountServiceNickName = async (company_id, type) => {
   } finally {
     if (conn) {
       try {
-        rollback(conn);
+        conn.release();
       } catch (releaseError) {
         console.error('Error while releasing the connection', releaseError);
       }
