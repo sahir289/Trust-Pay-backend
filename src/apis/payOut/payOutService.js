@@ -294,6 +294,8 @@ const updatePayoutCalculations = async (
     getCalculationDao({ user_id: userId, startDate: date, endDate: date }),
     getCalculationDao({ user_id: userId, startDate: date - 1, endDate: date - 1 }),
   ]);
+  
+  console.log(userId);
 
   const cal1 = currentCalculation[0], cal2 = prevCalculation[0];
 

@@ -442,6 +442,10 @@ const gatherAllData = async (type = 'H', timezone = 'Asia/Kolkata') => {
     formattedSuccessRatiosByMerchant();
   } catch(error) {
     console.error(error);
+  } finally {
+    if(conn){
+      conn.release();
+    }
   }
   const formatePrice = (price, currencySymbol = '₹') => {
     const numericPrice = Number(price);
