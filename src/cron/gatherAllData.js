@@ -228,7 +228,7 @@ const gatherAllData = async (type = 'H', timezone = 'Asia/Kolkata') => {
         });
       }
     }
-    let payInBanks = await getBankaccountDao({ bank_used_for: 'payIn' });
+    let payInBanks = await getBankaccountDao({ bank_used_for: 'payIn' }, null,null,"ADMIN");
 
     let payInBanksdata = [];
     if (Array.isArray(payInBanks)) {
@@ -242,7 +242,7 @@ const gatherAllData = async (type = 'H', timezone = 'Asia/Kolkata') => {
     } else {
       console.log('no payin banks data');
     }
-    let payOutBanks = await getBankaccountDao({ bank_used_for: 'payOut' });
+    let payOutBanks = await getBankaccountDao({ bank_used_for: 'payOut' }, null,null,"ADMIN");
     let payOutBanksdata = [];
     if (Array.isArray(payOutBanks) && payOutBanks.length > 0) {
       payOutBanksdata = payOutBanks.map((payoutbank) => ({

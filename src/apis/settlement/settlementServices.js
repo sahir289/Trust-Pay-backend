@@ -1,4 +1,4 @@
-import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
+import {  InternalServerError } from '../../utils/appErrors.js';
 import {
   createSettlementDao,
   deleteSettlementDao,
@@ -103,7 +103,7 @@ const createSettlementService = async (payload) => {
   }
 };
 
-const updateSettlementService = async (conn, ids, payload) => {
+const updateSettlementService = async (conn, ids, payload, role) => {
   try {
     if (payload.config.reference_id) {
       payload.status = 'SUCCESS';
@@ -112,7 +112,7 @@ const updateSettlementService = async (conn, ids, payload) => {
         company_id: ids.company_id,
       });
       if (!data) {
-        throw new BadRequestError('no data found');
+        throw new InternalServerError('no data found');
       }
       const calculationData = await getCalculationforCronDao(data[0].user_id);
       if (calculationData.length>0) {
@@ -146,7 +146,7 @@ const updateSettlementService = async (conn, ids, payload) => {
       );
       if (vendorData) {
         const bankData = await getBankaccountDao(
-          { user_id: vendorData.user_id },
+          { user_id: vendorData.user_id },null,null, role
           // , null, null, null, null, filterColumnsBank
         );
         if (bankData) {

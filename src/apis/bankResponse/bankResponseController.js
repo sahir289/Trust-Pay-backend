@@ -1,18 +1,21 @@
+
 import {
   CREATE_BANK_RESPONSE_SCHEMA,
 
   // VALIDATE_BANK_RESPONSE_QUERY,
 } from '../../schemas/bankResponseSchema.js';
-import { ValidationError } from '../../utils/appErrors.js';
+import {  ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getPayInUrlsDao, updatePayInUrlDao } from '../payIn/payInDao.js';
-import { getBankResponseDao, updateBotResponseDao } from './bankResponseDao.js';
+import {  getBankResponseDao, updateBotResponseDao } from './bankResponseDao.js';
 
 import {
   getBankResponseService,
-  createBankResponseService,
   getBankMessageServices,
+  createBankResponseService,
 } from './bankResponseServices.js';
+
+import { transactionWrapper } from '../../utils/db.js';
 
 const getBankResponse = async (req, res) => {
   const payload = req.query;
@@ -20,9 +23,8 @@ const getBankResponse = async (req, res) => {
   const { company_id } = req.user;
   payload.company_id = company_id;
   const data = await getBankResponseService(payload, role);
-  return sendSuccess(res, data, 'get bankResponse successfully');
+   return sendSuccess(res, data, 'get bankResponse successfully');
 };
-
 const createBankResponse = async (req, res) => {
   const { role } = req.user;
   const payload = req.body?.body;
@@ -31,9 +33,9 @@ const createBankResponse = async (req, res) => {
   if (error) {
     throw new ValidationError(error);
   }
-  const data =
-  await createBankResponseService(payload, company_id, role, user_id);
-  return sendSuccess(res, data, data.message);
+  const result =
+  await transactionWrapper(createBankResponseService)( payload, company_id, role, user_id);
+  sendSuccess(res, result);
 };
 
 const getBankMessage = async (req, res) => {
@@ -45,7 +47,7 @@ const getBankMessage = async (req, res) => {
     startDate,
     endDate,
     company_id,
-    role, page,limit,
+    role, page, limit,
   );
   return sendSuccess(res, data, 'Get BankResponse successfully');
 };

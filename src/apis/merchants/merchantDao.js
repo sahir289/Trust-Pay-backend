@@ -26,7 +26,29 @@ export const createMerchantDao = async (data, conn) => {
 export const getMerchantsCodeDao = async (conn,
 company_id ) => {
   try {
-    const baseQuery = `SELECT code as label ,user_id as value,id as merchant_id FROM "${tableName.MERCHANT}" WHERE company_id = $1`;
+    const baseQuery = `SELECT 
+    m.code AS label,  -- Parent Merchant Name
+    m.user_id AS value,  -- Parent User ID
+    m.id AS merchant_id,  -- Parent Merchant ID
+    COALESCE(
+        json_agg(
+            json_build_object(
+                'label', sm.code,  --child
+                'value',sm.user_id, --child
+                'merchant_id', sm.id --child
+            )
+        ) FILTER (WHERE sm.id IS NOT NULL), '[]'
+    ) AS submerchants
+FROM public."Merchant" m
+LEFT JOIN public."UserHierarchy" uh 
+    ON uh.config::jsonb ? m.user_id::TEXT  
+LEFT JOIN public."Merchant" sm 
+    ON sm.user_id IN (
+        SELECT jsonb_array_elements_text(uh.config::jsonb->m.user_id::TEXT) 
+    )  
+WHERE m.company_id = $1
+AND m.is_obsolete = FALSE  
+GROUP BY m.id, m.code, m.user_id;`;
     const queryParams = [company_id];
     const result = await conn.query(baseQuery, queryParams);
     return result.rows;
@@ -74,7 +96,7 @@ export const getMerchantsDao = async (
 
     const baseQuery = buildJoinQuery(
       MERCHANT,
-      columns.length ? columns : '*',
+      columns?.length ? columns : '*',
       joins,
     );
 

@@ -179,7 +179,7 @@ export const applySortingAndPagination = (
   prefix
 ) => {
   // Validate sort order
-  const order = (sortOrder && sortOrder.toUpperCase()) === 'DESC' ? 'DESC' : 'ASC';
+  const order = (sortOrder && sortOrder.toUpperCase()) === 'ASC' ? 'ASC' : 'DESC';
 
   // Add sorting
   query += ` ORDER BY ${prefix}"${sortBy || "created_at"}" ${order}`;
