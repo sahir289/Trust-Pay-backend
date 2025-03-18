@@ -103,7 +103,7 @@ const createSettlementService = async (payload) => {
   }
 };
 
-const updateSettlementService = async (conn, ids, payload) => {
+const updateSettlementService = async (conn, ids, payload, role) => {
   try {
     if (payload.config.reference_id) {
       payload.status = 'SUCCESS';
@@ -146,7 +146,7 @@ const updateSettlementService = async (conn, ids, payload) => {
       );
       if (vendorData) {
         const bankData = await getBankaccountDao(
-          { user_id: vendorData.user_id },
+          { user_id: vendorData.user_id },null,null, role
           // , null, null, null, null, filterColumnsBank
         );
         if (bankData) {

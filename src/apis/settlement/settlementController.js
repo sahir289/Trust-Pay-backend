@@ -65,7 +65,7 @@ const updateSettlementController = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }  
-  const data = await transactionWrapper(updateSettlementService)(ids, payload);
+  const data = await transactionWrapper(updateSettlementService)(ids, payload, role);
   sendSuccess(res,data, 'Updated settlement');
 };
 

@@ -175,7 +175,7 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
         } else {
           if (!botUtrIsUsed) {
             // We check bank exist here as we have to add the data to the res no matter what comes.
-            const isBankExist = await getBankaccountDao(companyId,{ id: bank_id }, null,null,role);
+            const isBankExist = await getBankaccountDao({ id: bank_id, company_id: companyId }, null,null,role);
             if (checkPayInUtr[0].bank_acc_id !== isBankExist?.id) {
               if (checkPayInUtr.at(0)?.user_submitted_utr) {
                 if (checkPayInUtr.at(0)?.user_submitted_utr == utr) {
@@ -272,8 +272,8 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
               botRes?.amount,
               getMerchantToGetPayinCommissionRes?.payin_merchant_commission,
             );
-            const bankAccountDetails = await getBankaccountDao(companyId, {
-              id: checkPayInUtr[0].bank_acc_id,
+            const bankAccountDetails = await getBankaccountDao( {
+              id: checkPayInUtr[0].bank_acc_id,  company_id: companyId
             }, null,null,role);
 
             const getVendorToGetPayinComission = await getVendorsDao({
@@ -321,8 +321,8 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
                   );
 
                   if (checkPayInUtr[0]?.bank_acc_id) {
-                    const bankdetails = await getBankaccountDao(companyId,{
-                      id: isBankExist?.id,
+                    const bankdetails = await getBankaccountDao({
+                      id: isBankExist?.id, company_id: companyId
                     }, null,null,role);
                     // const updateBankRes =
                     await updateBankaccountDao(
@@ -375,8 +375,8 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
                 );
 
                 if (checkPayInUtr[0]?.bank_acc_id) {
-                  const bankdetails = await getBankaccountDao(companyId, {
-                    id: isBankExist?.id,
+                  const bankdetails = await getBankaccountDao( {
+                    id: isBankExist?.id, company_id: companyId
                   }, null,null,role);
                   // const updateBankRes =
                   await updateBankaccountDao(conn, checkPayInUtr[0]?.bank_acc_id, {
@@ -479,7 +479,7 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
       else {
       if(!acceptedStatus.includes(checkPayInUtr[0]?.status)) {
         // We check bank exist here as we have to add the data to the res no matter what comes.
-        const isBankExist = await getBankaccountDao(companyId, { id: bank_id }, null,null,role);
+        const isBankExist = await getBankaccountDao( { id: bank_id, company_id: companyId }, null,null,role);
         if (!isBankExist) {
           if (checkPayInUtr.at(0)?.user_submitted_utr) {
             if (checkPayInUtr.at(0)?.user_submitted_utr == utr) {
@@ -637,8 +637,8 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
           botRes?.amount,
           getMerchantToGetPayinCommissionRes?.payin_merchant_commission,
         );
-        const bankAccountDetails = await getBankaccountDao(companyId, {
-          id: checkPayInUtr[0].bank_acc_id,
+        const bankAccountDetails = await getBankaccountDao( {
+          id: checkPayInUtr[0].bank_acc_id, company_id: companyId
         },null,null, role);
 
         const getVendorToGetPayinComission = await getVendorsDao({
@@ -685,8 +685,8 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
               );
 
               if (checkPayInUtr[0]?.bank_acc_id) {
-                const bankdetails = await getBankaccountDao(companyId, {
-                  id: checkPayInUtr[0]?.bank_acc_id,
+                const bankdetails = await getBankaccountDao( {
+                  id: checkPayInUtr[0]?.bank_acc_id, company_id: companyId
                 },null,null, role);
                 // const updateBankRes =
                 await updateBankaccountDao(checkPayInUtr[0]?.bank_acc_id, {
@@ -737,8 +737,8 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
             );
 
             if (checkPayInUtr[0]?.bank_acc_id) {
-              const bankdetails = await getBankaccountDao(companyId, {
-                id: updatePayInDataRes?.bank_acc_id,
+              const bankdetails = await getBankaccountDao( {
+                id: updatePayInDataRes?.bank_acc_id, company_id: companyId
               },null,null, role);
               // const updateBankRes =
               await updateBankaccountDao(conn, checkPayInUtr[0]?.bank_acc_id, {
