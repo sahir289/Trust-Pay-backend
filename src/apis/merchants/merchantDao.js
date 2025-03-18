@@ -74,7 +74,7 @@ export const getMerchantsDao = async (
 
     const baseQuery = buildJoinQuery(
       MERCHANT,
-      columns.length ? columns : '*',
+      columns?.length ? columns : '*',
       joins,
     );
 
