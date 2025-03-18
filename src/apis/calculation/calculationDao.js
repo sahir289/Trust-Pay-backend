@@ -304,7 +304,7 @@ const createCalculationDao = async (conn, data) => {
 //   updatedData.total_chargeback_amount = Number(previousData.total_chargeback_amount) + Number(data.chargeback_amount);
 //   updatedData.current_balance = Number(previousData.current_balance) - Number(data.chargeback_amount);
 // }
-const updateCalculationDao = async (conn, id, data) => {
+const updateCalculationDao = async (id, data, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, id);
     let result;

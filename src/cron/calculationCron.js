@@ -1,9 +1,14 @@
 import cron from 'node-cron';
 import moment from 'moment-timezone';
-import { transactionWrapper } from '../utils/db.js';
+import { 
+  // executeQuery, 
+  transactionWrapper 
+} from '../utils/db.js';
 import { createCalculationDao } from '../apis/calculation/calculationDao.js';
 import { getCalculationforCronDao } from '../apis/calculation/calculationDao.js';
 import { getUsersForCronDao } from '../apis/users/userDao.js';
+// import { Role, tableName } from '../constants/index.js';
+// import dayjs from 'dayjs';
 
 cron.schedule(
   '0 0 * * *',
@@ -54,3 +59,38 @@ async function processUpdate(data) {
 }
 
 export default collectCalculationData;
+
+// add users in calculation table if user table is empty
+// (async () => {
+//   try {
+//     const roles = [Role.ADMIN, Role.MERCHANT, Role.VENDOR].map(el=> `'${el}'`).join(", ")
+//     const userQuery = `select u.id, r.id as role_id, u.company_id from "${tableName.USER}" u
+//     join "${tableName.ROLE}" r on u.role_id = r.id AND r.role = ANY(ARRAY[${roles}])
+//     where u.is_obsolete = false`;
+//     // console.log(userQuery);
+//     // add other roles if necessary
+//     const users = await executeQuery(userQuery, []);
+
+//     for (const user of users.rows) {
+//       try {
+//         const existQuery = `Select c.id from "${tableName.CALCULATION}" c where c.user_id = $1 AND c.created_at::DATE = '${dayjs().format("YYYY-MM-DD")}'`
+//         // console.log(existQuery);
+//         const isExist = await executeQuery(existQuery, [user.id]);
+//         if (isExist.rowCount) {
+//           console.log("Entry already exist for user_id", user.id, isExist.rows[0].created_at);
+//           continue;
+//         }
+
+//         await createCalculationDao(null, {
+//           role_id: user.role_id,
+//           user_id: user.id,
+//           company_id: user.company_id,
+//         })
+//       } catch (err) {
+//         console.log("Error for user", user.id, err.message);
+//       }
+//     }
+//   } catch (err) {
+//     console.log(err);
+//   }
+// })()

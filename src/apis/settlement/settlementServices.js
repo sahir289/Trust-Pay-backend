@@ -124,7 +124,6 @@ const updateSettlementService = async (conn, ids, payload) => {
       let netBalance = calculationData[0].net_balance + payload?.amount;
         //  const updatedCalculations =
         await updateCalculationDao(
-          conn,
           { id: calculationId },
           {
             total_settlement_count: count,
@@ -132,6 +131,7 @@ const updateSettlementService = async (conn, ids, payload) => {
             current_balance: currentBalance,
             net_balance: netBalance,
           },
+          conn
         );
       } else {
         console.log('no data in calculation');
