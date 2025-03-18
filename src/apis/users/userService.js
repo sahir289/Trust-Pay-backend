@@ -137,7 +137,7 @@ const createUserService = async (conn, payload, role) => {
       userRole.role === Role.MERCHANT     ) {
       const merchantPayload = {
         user_id: User.id,
-        // role_id: payload.role_id,
+        role_id: payload.role_id,
         company_id: payload.company_id,
         first_name: payload.first_name,
         last_name: payload.last_name,
@@ -160,7 +160,7 @@ const createUserService = async (conn, payload, role) => {
     if (userRole.role === Role.VENDOR) {
       const vendorPayload ={
         user_id: User.id,
-        // role_id: payload.role_id,
+        role_id: payload.role_id,
         company_id: payload.company_id,
         first_name: payload.first_name,
         last_name: payload.last_name,
