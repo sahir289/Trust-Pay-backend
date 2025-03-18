@@ -326,12 +326,13 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
                     }, null,null,role);
                     // const updateBankRes =
                     await updateBankaccountDao(
-                      checkPayInUtr[0]?.bank_acc_id,
+                      {id: checkPayInUtr[0]?.bank_acc_id},
                       {
                         balance: bankdetails.balance + parseFloat(amount),
                         today_balance:
                           bankdetails.balance + parseFloat(amount),
                       },
+                      conn,
                     );
                   }
                   // const updateBotRes =
@@ -379,10 +380,10 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
                     id: isBankExist?.id, company_id: companyId
                   }, null,null,role);
                   // const updateBankRes =
-                  await updateBankaccountDao(conn, checkPayInUtr[0]?.bank_acc_id, {
+                  await updateBankaccountDao({id: checkPayInUtr[0]?.bank_acc_id}, {
                     balance: bankdetails.balance + parseFloat(amount),
                     today_balance: bankdetails.balance + parseFloat(amount),
-                  });
+                  }, conn);
                 }
                 // const updateBotRes =
                 await updateBotResponseDao(conn, botRes?.id, { is_used: true });
@@ -689,10 +690,10 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
                   id: checkPayInUtr[0]?.bank_acc_id, company_id: companyId
                 },null,null, role);
                 // const updateBankRes =
-                await updateBankaccountDao(checkPayInUtr[0]?.bank_acc_id, {
+                await updateBankaccountDao({id: checkPayInUtr[0]?.bank_acc_id}, {
                   balance: bankdetails.balance + parseFloat(amount),
                   today_balance: bankdetails.balance + parseFloat(amount),
-                });
+                }, conn);
               }
 
               // const updateBotRes =
@@ -741,10 +742,10 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
                 id: updatePayInDataRes?.bank_acc_id, company_id: companyId
               },null,null, role);
               // const updateBankRes =
-              await updateBankaccountDao(conn, checkPayInUtr[0]?.bank_acc_id, {
+              await updateBankaccountDao({id: checkPayInUtr[0]?.bank_acc_id}, {
                 balance: bankdetails.balance + parseFloat(amount),
                 today_balance: bankdetails.balance + parseFloat(amount),
-              });
+              }, conn);
             }
             // const updateBotRes =
             await updateBotResponseDao(conn, botRes?.id, { is_used: true });

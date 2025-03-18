@@ -10,11 +10,14 @@ import { DbError } from '../../utils/appErrors.js';
 
 const getBankaccountDao = async (filters,  page, limit, role) => {
   try {
-    const company_id = filters.company_id
-    let queryParams = [company_id];
+    let queryParams = [];
+    let conditions = [`ba.is_obsolete = false`];
+    if(filters.company_id){
+      queryParams.push(filters.company_id)
+      conditions.push(`ba.company_id = $1`)
+    }
     let limitcondition = '';
 
-    let conditions = [`ba.is_obsolete = false`, `ba.company_id = $1`];
     if (page && limit) {
       limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
       queryParams.push(limit, (page - 1) * limit);
@@ -127,7 +130,7 @@ const getBankaccountDaoNickName = async (conn, company_id, type) => {
 }
 
 
-const updateBankaccountDao = async (conn, id, payload) => {
+const updateBankaccountDao = async (id, payload, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, payload, id);
     let result;
