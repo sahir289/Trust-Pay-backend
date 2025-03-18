@@ -192,8 +192,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                     });
 
                     // We are adding the amount to the bank as we want to update the balance of the bank
-                    const updateBankRes = await updateBankaccountDao({
-                      id: isBankExist.id,
+                    const updateBankRes = await updateBankaccountDao({id: isBankExist.id}, {
                       balance: bankdetails.balance + parseFloat(amount),
                       today_balance: bankdetails.balance + parseFloat(amount),
                       config: {from_UI:from_UI}
@@ -244,7 +243,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                   });
                   // We are adding the amount to the bank as we want to update the balance of the bank
                   // const updateBankRes =
-                  await updateBankaccountDao(isBankExist?.id, {
+                  await updateBankaccountDao({id: isBankExist?.id}, {
                     balance: bankdetails.balance + parseFloat(amount),
                     today_balance: bankdetails.balance + parseFloat(amount),
                   });
@@ -350,7 +349,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                       });
                       // const updateBankRes =
                       await updateBankaccountDao(
-                        checkPayInUtr[0]?.bank_acc_id,
+                        {id: checkPayInUtr[0]?.bank_acc_id},
                         {
                           balance: bankdetails.balance + parseFloat(amount),
                           today_balance:
@@ -412,7 +411,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                       id: isBankExist?.id,
                     });
                     // const updateBankRes =
-                    await updateBankaccountDao(checkPayInUtr[0]?.bank_acc_id, {
+                    await updateBankaccountDao({id: checkPayInUtr[0]?.bank_acc_id}, {
                       balance: bankdetails.balance + parseFloat(amount),
                       today_balance: bankdetails.balance + parseFloat(amount),
                     });
@@ -464,7 +463,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                       id: isBankExist?.id,
                     });
                     // const updateBankRes =
-                    await updateBankaccountDao(checkPayInUtr[0]?.bank_acc_id, {
+                    await updateBankaccountDao({id: checkPayInUtr[0]?.bank_acc_id}, {
                       balance: bankdetails.balance + parseFloat(amount),
                       today_balance: bankdetails.balance + parseFloat(amount),
                     });
@@ -515,7 +514,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                     id: isBankExist?.id,
                   });
                   // const updateBankRes =
-                  await updateBankaccountDao(checkPayInUtr[0]?.bank_acc_id, {
+                  await updateBankaccountDao({id: checkPayInUtr[0]?.bank_acc_id}, {
                     balance: bankdetails.balance + parseFloat(amount),
                     today_balance: bankdetails.balance + parseFloat(amount),
                   });
@@ -569,7 +568,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                   id: isBankExist?.id,
                 }); // We are adding the amount to the bank as we want to update the balance of the bank
                 // const updateBankRes =
-                await updateBankaccountDao(isBankExist?.id, {
+                await updateBankaccountDao({id: isBankExist?.id}, {
                   balance: bankdetails.balance + parseFloat(amount),
                   today_balance: bankdetails.balance + parseFloat(amount),
                 });
@@ -621,7 +620,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                 id: isBankExist?.id,
               });
               // const updateBankRes =
-              await updateBankaccountDao(isBankExist?.id, {
+              await updateBankaccountDao({id: isBankExist?.id}, {
                 balance: bankdetails.balance + parseFloat(amount),
                 today_balance: bankdetails.balance + parseFloat(amount),
               });
@@ -676,7 +675,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                   id: isBankExist?.id,
                 });
                 // const updateBankRes =
-                await updateBankaccountDao(isBankExist?.id, {
+                await updateBankaccountDao({id: isBankExist?.id}, {
                   balance: bankdetails.balance + parseFloat(amount),
                   today_balance: bankdetails.balance + parseFloat(amount),
                 });
@@ -726,7 +725,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                 id: isBankExist?.id,
               });
               // const updateBankRes =
-              await updateBankaccountDao(isBankExist?.id, {
+              await updateBankaccountDao({id: isBankExist?.id}, {
                 balance: bankdetails.balance + parseFloat(amount),
               });
 
@@ -819,7 +818,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                     id: isBankExist?.id,
                   });
                   // const updateBankRes =
-                  await updateBankaccountDao(checkPayInUtr[0]?.bank_acc_id, {
+                  await updateBankaccountDao({id: checkPayInUtr[0]?.bank_acc_id}, {
                     balance: bankdetails.balance + parseFloat(amount),
                     today_balance: bankdetails.balance + parseFloat(amount),
                   });
@@ -877,7 +876,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                 });
 
                 // const updateBankRes =
-                await updateBankaccountDao(checkPayInUtr[0]?.bank_acc_id, {
+                await updateBankaccountDao({id: checkPayInUtr[0]?.bank_acc_id}, {
                   balance: bankdetails.balance + parseFloat(amount),
                   today_balance: bankdetails.balance + parseFloat(amount),
                 });
@@ -930,7 +929,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                 });
 
                 // const updateBankRes =
-                await updateBankaccountDao(checkPayInUtr[0]?.bank_acc_id, {
+                await updateBankaccountDao({id: checkPayInUtr[0]?.bank_acc_id}, {
                   balance: bankdetails.balance + parseFloat(amount),
                   today_balance: bankdetails.balance + parseFloat(amount),
                 });
@@ -976,7 +975,7 @@ const createBankResponseService = async (payload, companyId, role, userId) => {
                 id: isBankExist?.id,
               });
               // const updateBankRes =
-              await updateBankaccountDao(checkPayInUtr[0]?.bank_acc_id, {
+              await updateBankaccountDao({id: checkPayInUtr[0]?.bank_acc_id}, {
                 balance: bankdetails.balance + parseFloat(amount),
                 today_balance: bankdetails.balance + parseFloat(amount),
               });

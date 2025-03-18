@@ -4,6 +4,7 @@ import {
   BadRequestError,
   DuplicateDataError,
   InternalServerError,
+  NotFoundError,
 } from '../../utils/appErrors.js';
 import { Buffer } from 'buffer';
 import {
@@ -25,6 +26,7 @@ import {
 import { getVendorsDao, updateVendorDao } from '../vendors/vendorDao.js';
 import {
   getCalculationDao,
+  getCalculationforCronDao,
   updateCalculationDao,
 } from '../calculation/calculationDao.js';
 import {
@@ -162,16 +164,32 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     const data = await updatePayoutDao(ids, payload, conn);
     console.log(data);
     if (!data.approved_at) return;
-    const bankData = await getBankaccountDao({ id: data.bank_acc_id });
-    const [merchant, vendor, user] = await Promise.all([
+    const bankDataArr = await getBankaccountDao({ id: data.bank_acc_id });
+    const bankData = bankDataArr[0];
+
+    if(!bankData){
+      throw new NotFoundError('Bank not found!');
+    }
+
+    const [merchantArr, vendorArr, userArr] = await Promise.all([
       getMerchantsDao({ id: data.merchant_id }),
-      getVendorsDao({ id: data.user_id }),
+      getVendorsDao({ user_id: bankData.user_id }),
       getUserByIdDao(conn, { id: bankData.user_id }),
     ]);
 
+    const merchant = merchantArr[0], vendor = vendorArr[0], user = userArr[0];
+
+    if(!merchant){
+      throw new NotFoundError('Merchant not found!');
+    }
+
+    if(!vendor){
+      throw new NotFoundError('Vendor not found!');
+    }
+
     if (data.status === Status.APPROVED) {
       const netBalance = await updatePayoutCalculations(
-        data.merchant_id,
+        merchant.user_id,
         data.approved_at,
         data.amount,
         data.commission,
@@ -180,7 +198,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         conn,
       );
       const netVendorBalance = await updatePayoutCalculations(
-        user.id,
+        vendor.user_id,
         data.approved_at,
         data.amount,
         data.commission,
@@ -189,7 +207,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         conn,
       );
       await updateBankaccountDao(
-        bankData.id,
+        {id: bankData.id},
         {
           today_balance: bankData.today_balance - data.amount,
           balance: bankData.balance - data.amount,
@@ -205,8 +223,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         data.amount,
         data.commission,
       );
-      await updateMerchantDao(merchant.id, { balance: netBalance }, conn);
-      await updateVendorDao(vendor.id, { balance: netVendorBalance }, conn);
+      await updateMerchantDao({id: merchant.id}, { balance: netBalance }, conn);
+      await updateVendorDao({id: vendor.id}, { balance: netVendorBalance }, conn);
 
       await updatePayoutDao(
         { payout_merchant_commission: merchantCommission },
@@ -214,7 +232,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       );
     } else if (data.status === Status.REJECTED) {
       const netBalance = await updatePayoutCalculations(
-        data.merchant_id,
+        merchant.user_id,
         data.rejected_at,
         data.amount,
         data.commission,
@@ -223,7 +241,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         conn,
       );
       const netVendorBalance = await updatePayoutCalculations(
-        user.id,
+        vendor.user_id,
         data.rejected_at,
         data.amount,
         data.commission,
@@ -232,7 +250,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         conn,
       );
       await updateBankaccountDao(
-        bankData.id,
+        {id: bankData.id},
         {
           today_balance: bankData.today_balance + data.amount,
           balance: bankData.balance - data.amount,
@@ -291,39 +309,32 @@ const updatePayoutCalculations = async (
   isReverse = false,
   conn,
 ) => {
-  const [currentCalculation, prevCalculation] = await Promise.all([
-    getCalculationDao({ user_id: userId, startDate: date, endDate: date }),
-    getCalculationDao({ user_id: userId, startDate: date - 1, endDate: date - 1 }),
-  ]);
-
-  console.log(userId);
-
-  const cal1 = currentCalculation[0], cal2 = prevCalculation[0];
-
-  console.log(cal1, cal2);
-  if (!cal1 || !cal2) {
+  const currentCalculation = await getCalculationforCronDao(userId);
+  const cal = currentCalculation[0];
+  console.log(cal, userId);
+  if (!cal) {
     throw Error('Calculation not found!');
   }
 
   const prefix = isReverse ? 'reverse_' : '';
   const updatedCalculation = {
-    ...cal1,
+    ...cal,
     [`total_${prefix}payout_count`]:
-      cal1[`total_${prefix}payout_count`] + 1,
+      cal[`total_${prefix}payout_count`] + 1,
     [`total_${prefix}payout_amount`]:
-      cal1[`total_${prefix}payout_amount`] + amount,
+      cal[`total_${prefix}payout_amount`] + amount,
     [`total_${prefix}payout_commission`]:
-      cal1[`total_${prefix}payout_commission`] + commission,
+      cal[`total_${prefix}payout_commission`] + commission,
   };
 
   const { currentBalance, netBalance } = calculateBalances(
     updatedCalculation,
-    cal2,
+    cal,
     isMerchant,
   );
 
   await updateCalculationDao(
-    { id: cal1.id },
+    { id: cal.id },
     {
       [`total_${prefix}payout_count`]:
         updatedCalculation[`total_${prefix}payout_count`],
