@@ -76,6 +76,14 @@ const createPayoutService = async (conn, headers, payload, role) => {
       throw new BadRequestError(403, 'Enter a valid API key');
     }
 
+    if (payload.merchant_order_id) {
+      const data = await getPayoutsDao({ merchant_order_id: merchant_order_id }, payload.company_id, null, null, role, conn);
+      if (data.length > 0) {
+        throw new DuplicateDataError('Merchant Order ID already exists');
+      }
+    }
+
+
     delete payload.x_api_key;
     const data = await createPayoutDao(conn, payload);
     if (balanceRestriction) {
@@ -93,13 +101,6 @@ const createPayoutService = async (conn, headers, payload, role) => {
       throw new BadRequestError('Merchant does not exist');
     }
 
-    const merchantOrderIdPayoutData = merchant_order_id
-      ? await getPayoutsDao({ merchant_order_id: merchant_order_id }, payload.company_id, null, null, role, conn)
-      : '';
-    if (merchantOrderIdPayoutData?.length > 0) {
-      throw new DuplicateDataError('Merchant Order ID already exists');
-    }
-
     console.log('Payout created successfully', 'info');
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
@@ -113,9 +114,9 @@ const getPayoutsService = async (company_id, page, limit, filters, role) => {
   let conn;
   try {
     conn = await getConnection();
-    await beginTransaction(conn); 
-    const data = await getPayoutsDao(filters, company_id, page,limit, role, conn);
-    await commit(conn); 
+    await beginTransaction(conn);
+    const data = await getPayoutsDao(filters, company_id, page, limit, role, conn);
+    await commit(conn);
     return { totalCount: data[0]?.total, payout: data }
   }
   catch (error) {
@@ -294,13 +295,13 @@ const updatePayoutCalculations = async (
     getCalculationDao({ user_id: userId, startDate: date, endDate: date }),
     getCalculationDao({ user_id: userId, startDate: date - 1, endDate: date - 1 }),
   ]);
-  
+
   console.log(userId);
 
   const cal1 = currentCalculation[0], cal2 = prevCalculation[0];
 
   console.log(cal1, cal2);
-  if(!cal1 || !cal2){
+  if (!cal1 || !cal2) {
     throw Error('Calculation not found!');
   }
 
@@ -308,11 +309,11 @@ const updatePayoutCalculations = async (
   const updatedCalculation = {
     ...cal1,
     [`total_${prefix}payout_count`]:
-    cal1[`total_${prefix}payout_count`] + 1,
+      cal1[`total_${prefix}payout_count`] + 1,
     [`total_${prefix}payout_amount`]:
-    cal1[`total_${prefix}payout_amount`] + amount,
+      cal1[`total_${prefix}payout_amount`] + amount,
     [`total_${prefix}payout_commission`]:
-    cal1[`total_${prefix}payout_commission`] + commission,
+      cal1[`total_${prefix}payout_commission`] + commission,
   };
 
   const { currentBalance, netBalance } = calculateBalances(
@@ -322,7 +323,7 @@ const updatePayoutCalculations = async (
   );
 
   await updateCalculationDao(
-    {id: cal1.id},
+    { id: cal1.id },
     {
       [`total_${prefix}payout_count`]:
         updatedCalculation[`total_${prefix}payout_count`],
