@@ -1,4 +1,4 @@
-import { BadRequestError,InternalServerError } from '../../utils/appErrors.js';
+import { InternalServerError } from '../../utils/appErrors.js';
 import {
   createCheckUtrDao,
   deleteCheckUtrDao,
@@ -42,7 +42,7 @@ const deleteCheckUtrService = async (id) => {
     return result;
   } catch (error) {
     console.error('error getting while check utr', error);
-    throw new BadRequestError('Error getting while check utr');
+    throw new InternalServerError('Error getting while check utr');
   }
 };
 

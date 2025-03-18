@@ -105,11 +105,17 @@ const getBankResponseDaoAll = async (
   }
 };
 
-const createBankResponseDao = async (data) => {
+const createBankResponseDao = async (conn, data) => {
   try {
     data.id = generateUUID();
+
     const [sql, params] = buildInsertQuery(tableName.BANK_RESPONSE, data);
-    const result = await executeQuery(sql, params);
+    let result;
+    if (conn && conn.query) {
+      result = await conn.query(sql, params); // Use connection to execute query
+    } else {
+      result = await executeQuery(sql, params); // Use executeQuery if no connection
+    }
     return result.rows[0];
   } catch {
     throw new InternalServerError('Error executing query');
@@ -155,12 +161,17 @@ const resetBankResponseDao = async (id, data) => {
   }
 };
 
-const updateBotResponseDao = async (id, data) => {
+const updateBotResponseDao = async (conn, id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, {
       id,
     });
-    const result = await executeQuery(sql, params);
+    let result;
+    if (conn && conn.query) {
+      result = await conn.query(sql, params); // Use connection to execute query
+    } else {
+      result = await executeQuery(sql, params); // Use executeQuery if no connection
+    }
     return result.rows[0];
   } catch {
     throw new InternalServerError('Error executing query');

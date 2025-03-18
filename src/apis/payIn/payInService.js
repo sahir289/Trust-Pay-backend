@@ -122,7 +122,7 @@ export const getPayInUrlService = async (id) => {
   }
 
   if (payIn.is_url_expires) {
-    throw new BadRequestError('Url is expired');
+    throw new InternalServerError('Url is expired');
   }
 
   const config = payIn.config || {};
@@ -144,7 +144,7 @@ export const getPayInUrlService = async (id) => {
       req_amount: payIn.amount,
       utr_id: payIn.utr,
     });
-    throw new BadRequestError('PayIn Expired');
+    throw new InternalServerError('PayIn Expired');
   }
 
   return payIn;
