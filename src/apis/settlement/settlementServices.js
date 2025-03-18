@@ -1,4 +1,4 @@
-import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
+import {  InternalServerError } from '../../utils/appErrors.js';
 import {
   createSettlementDao,
   deleteSettlementDao,
@@ -112,7 +112,7 @@ const updateSettlementService = async (conn, ids, payload) => {
         company_id: ids.company_id,
       });
       if (!data) {
-        throw new BadRequestError('no data found');
+        throw new InternalServerError('no data found');
       }
       const calculationData = await getCalculationforCronDao(data[0].user_id);
       if (calculationData.length>0) {
