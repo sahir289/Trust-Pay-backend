@@ -71,9 +71,9 @@ const createBankaccountService = async (payload) => {
 const updateBankaccountService = async (conn, ids, payload) => {
   try {
     const result = await updateBankaccountDao(
-      conn,
       { id: ids.id, company_id: ids.company_id },
       payload,
+      conn,
     );
     return result;
   } catch (error) {

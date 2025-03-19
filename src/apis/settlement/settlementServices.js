@@ -153,9 +153,9 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           const bankId = bankData.id;
           const bankAcc = bankData.balance - payload?.amount;
           await updateBankaccountDao(
-            conn,
             { id: bankId },
             { balance: bankAcc },
+            conn,
           );
         } else {
           console.error('No data in bank accounts');

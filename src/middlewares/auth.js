@@ -43,14 +43,24 @@ const isAuthenticated = (req, res, next) => {
   }
 };
 
-const authorized = (allowedRoles) => {
-  return async (req, res, next) => {
+const authorized = (allowedRoles = []) => (req, res, next) => {
+  try {
     const { designation } = req.user;
+
+    // Ensure allowedRoles is an array
+    if (!Array.isArray(allowedRoles)) {
+      throw new TypeError('allowedRoles must be an array');
+    }
+
+    // Check if the user's designation is included in the allowed roles
     if (!designation || !allowedRoles.includes(designation)) {
-      throw new AuthenticationError('Access denied: Insufficient permissions');
+      return res.status(403).json({ message: 'Access denied' });
     }
     next();
-  };
+  } catch (error) {
+    console.error('Error in authorization middleware:', error);
+    return res.status(500).json({ message: 'Internal Server Error' });
+  }
 };
 
 export { isAuthenticated, logoutSet, authorized };
