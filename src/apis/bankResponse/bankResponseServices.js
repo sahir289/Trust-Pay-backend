@@ -335,7 +335,7 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
                   // const updateMerchantData =
                   await updateMerchantDao(checkPayInUtr[0]?.merchant_id, {
                     balance: merchatnData.balance + parseFloat(amount),
-                  });
+                  },conn);
                   // const notifyData = {
                   //   status: "SUCCESS",
                   //   merchantOrderId: updatePayInDataRes?.merchant_order_id,
@@ -383,9 +383,9 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
                   id: checkPayInUtr[0]?.merchant_id,
                 });
                 // const updateMerchantData =
-                await updateMerchantDao(conn, checkPayInUtr[0]?.merchant_id, {
+                await updateMerchantDao( checkPayInUtr[0]?.merchant_id, {
                   balance: merchatnData.balance + parseFloat(amount),
-                });
+                }, conn);
                 // const notifyData = {
                 //   status: "SUCCESS",
                 //   merchantOrderId: updatePayInDataRes?.merchant_order_id,
@@ -613,7 +613,7 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
             message: `The UTR already exists`,
           };
         }
-
+        console.log("noterepeated")
         const getMerchantToGetPayinCommissionRes = await getMerchantsDao({
           id: checkPayInUtr[0]?.merchant_id,
         });
@@ -677,7 +677,7 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
                 }, conn);
               }
               // const updateBotRes =
-              await updateBotResponseDao(conn, botRes?.id, { is_used: true });
+              await updateBotResponseDao(conn, {id:botRes?.id}, { is_used: true });
               // console.log(botRes,botRes.id,updateBotRes, "updateBotRes234567")
 
               const merchatnData = await getMerchantsDao({
@@ -686,9 +686,9 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
               if(!merchatnData){
                 return {message : `No Entry found in Bank Response table with ${botRes.id}`}
               }
-              await updateMerchantDao(conn, checkPayInUtr[0]?.merchant_id, {
+              await updateMerchantDao( checkPayInUtr[0]?.merchant_id, {
                 balance: merchatnData.balance + parseFloat(amount),
-              });
+              },conn);
              
 
               // const notifyData = {
@@ -739,9 +739,9 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
               id: checkPayInUtr[0]?.merchant_id,
             });
             // const updateMerchantData =
-            await updateMerchantDao(conn, checkPayInUtr[0]?.merchant_id, {
+            await updateMerchantDao( checkPayInUtr[0]?.merchant_id, {
               balance: merchatnData.balance + parseFloat(amount),
-            });
+            },conn);
             // const notifyData = {
             //   status: "SUCCESS",
             //   merchantOrderId: updatePayInDataRes?.merchant_order_id,
