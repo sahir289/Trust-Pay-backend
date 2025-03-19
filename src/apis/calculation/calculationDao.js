@@ -158,15 +158,19 @@ export const getCalculationsSumDao = async (filters) => {
     FROM "${tableName.CALCULATION}" c
     JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
     JOIN "${tableName.ROLE}" r ON u.role_id = r.id
-    JOIN "${tableName.MERCHANT}" m ON m.user_id = u.id
-    JOIN "${tableName.VENDOR}" v ON v.user_id = u.id
-    WHERE c.is_obsolete = FALSE AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
   `;
 
   // Queries for Different Roles
-  // let merchantQuery = `${baseQuery} AND r.role = 'MERCHANT' `;
-  let merchantQuery = `${baseQuery} `;
-  let vendorQuery = `${baseQuery} AND r.role = 'VENDOR' `;
+  let merchantQuery = `${baseQuery} 
+    JOIN "${tableName.MERCHANT}" m ON m.user_id = c.user_id
+    WHERE c.is_obsolete = FALSE 
+    AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
+    AND r.role = 'MERCHANT' `;
+  let vendorQuery = `${baseQuery} 
+    JOIN "${tableName.VENDOR}" v ON v.user_id = c.user_id
+    WHERE c.is_obsolete = FALSE 
+    AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
+    AND r.role = 'VENDOR' `;
 
   // Include hierarchy filtering (match against `code` column)
   if (hierarchyUsers.length) {
