@@ -32,9 +32,11 @@ const createMerchantService = async (conn, payload, role) => {
       role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
     const parentId = payload.parentId;
     delete payload.parentId;
+    let Role_id = payload.role_id
+    delete payload.role_id
     const data = await createMerchantDao(payload, conn);
     const calculationPayload = {
-      // role_id: data.role_id,
+      role_id:Role_id,
       user_id: data.user_id,
       company_id: data.company_id,
     };
@@ -44,7 +46,7 @@ const createMerchantService = async (conn, payload, role) => {
       await createUserHierarchyDao(
         {
           user_id: data.user_id,
-          // role_id: data.role_id,
+          role_id: data.role_id,
           created_by: data.created_by,
           updated_by: data.updated_by,
           company_id: data.company_id,
