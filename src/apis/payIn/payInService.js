@@ -7,7 +7,10 @@ import { razorpay } from '../../webhooks/razorPay.js';
 import { getPayoutsDao } from '../payOut/payOutDao.js';
 import { BankTypes, Currency, Status, Type } from '../../constants/index.js';
 import { calculateCommission, calculateDuration } from '../../helpers/index.js';
-import { merchantPayinCallback, merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
+import {
+  merchantPayinCallback,
+  merchantPayoutCallback,
+} from '../../callBacksAndWebHook/merchantCallBacks.js';
 import {
   generatePayInUrlDao,
   updatePayInUrlDao,
@@ -82,15 +85,26 @@ export const generatePayInUrlService = async (payload, created_by) => {
 
   const merchantAPIKey = merchant.config?.keys;
 
-  if (api_key && api_key != merchantAPIKey?.private && api_key != merchantAPIKey?.public) {
+  if (
+    api_key &&
+    api_key != merchantAPIKey?.private &&
+    api_key != merchantAPIKey?.public
+  ) {
     throw new BadRequestError('Enter valid Api key');
   }
 
-  if (!api_key && x_api_key != merchantAPIKey?.private && x_api_key != merchantAPIKey?.public) {
+  if (
+    !api_key &&
+    x_api_key != merchantAPIKey?.private &&
+    x_api_key != merchantAPIKey?.public
+  ) {
     throw new BadRequestError('Enter valid Api key');
   }
-  
-  const expirationDate = ot === 'y' ? dayjs().add(10, 'minutes').toISOString() : dayjs().add(30, 'days').toISOString();
+
+  const expirationDate =
+    ot === 'y'
+      ? dayjs().add(10, 'minutes').toISOString()
+      : dayjs().add(30, 'days').toISOString();
   const data = {
     upi_short_code: nanoid(5), // code added by us
     amount: amount || 0, // as starting amount will be zero
@@ -105,7 +119,7 @@ export const generatePayInUrlService = async (payload, created_by) => {
       urls: {
         return: returnUrl || merchant.config?.urls?.return || '',
         notify: callbackUrl || merchant.config?.urls?.payin_notify || '',
-      }
+      },
     }),
     created_by,
   };
@@ -174,7 +188,11 @@ export const expirePayInUrlService = async (payInId) => {
   });
 };
 
-export const assignedBankToPayInUrlService = async (merchantOrderId, amount, type) => {
+export const assignedBankToPayInUrlService = async (
+  merchantOrderId,
+  amount,
+  type,
+) => {
   // Validate the PayIn URL
   const payIn = await getPayInUrlService(merchantOrderId);
   const payInConfig = payIn.config || {};
@@ -188,14 +206,15 @@ export const assignedBankToPayInUrlService = async (merchantOrderId, amount, typ
     throw new NotFoundError('No merchant found');
   }
 
-  const banks = await getMerchantBankDao({ config_merchants_contains: merchant.id });
-  
+  const banks = await getMerchantBankDao({
+    config_merchants_contains: merchant.id,
+  });
+
   const enabledBanks = banks.filter((bank) => {
-  
     if (bank.is_enabled && bank.bank_used_for !== 'payIn') {
       return false;
     }
-  
+
     switch (type) {
       case BankTypes.UPI:
         return bank.is_qr;
@@ -209,7 +228,7 @@ export const assignedBankToPayInUrlService = async (merchantOrderId, amount, typ
         return false;
     }
   });
-  
+
   if (!enabledBanks.length) {
     await updatePayInUrlDao(payIn.id, {
       is_url_expires: true,
@@ -547,7 +566,10 @@ export const resetDepositService = async (
   company_id,
   updated_by,
 ) => {
-  const payIn = await getPayInUrlDao({ merchant_order_id: merchant_order_id, company_id: company_id  });
+  const payIn = await getPayInUrlDao({
+    merchant_order_id: merchant_order_id,
+    company_id: company_id,
+  });
   if (!payIn) {
     throw new NotFoundError('PayIn not found');
   }
@@ -555,7 +577,7 @@ export const resetDepositService = async (
     payin_id: payIn.id,
     pre_status: payIn.status,
     created_by: updated_by,
-    updated_by ,
+    updated_by,
     company_id,
   });
 
@@ -601,7 +623,7 @@ export const resetDepositService = async (
   const bank = banks[0];
 
   if (bank && payIn.status !== Status.PENDING && bankResponse) {
-  await updateBanktBalanceDao(
+    await updateBanktBalanceDao(
       { id: bank.id },
       bankResponse.amount,
       updated_by,
@@ -611,11 +633,17 @@ export const resetDepositService = async (
   return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 };
 
-export const getPayinsService = async ( company_id,page,limit, filters, role) => {
+export const getPayinsService = async (
+  company_id,
+  page,
+  limit,
+  filters,
+  role,
+) => {
   let conn;
   try {
     conn = await getConnection();
-    return await getPayInsDao(conn, filters, company_id, page,limit, role);
+    return await getPayInsDao(conn, filters, company_id, page, limit, role);
   } catch (error) {
     throw new InternalServerError(error);
   } finally {
@@ -634,7 +662,10 @@ export const processPayInService = async (conn, payload, updated_by) => {
   // validate payIn
   // throw error if not exist or expires
   const payIn = await getPayInUrlService(merchantOrderId);
-  const banks = await getBankaccountDao({ id: payIn.bank_acc_id, company_id: payIn.company_id });
+  const banks = await getBankaccountDao({
+    id: payIn.bank_acc_id,
+    company_id: payIn.company_id,
+  });
   const bank = banks[0];
 
   if (!bank) {
@@ -882,17 +913,14 @@ export const processPayInByImageService = async (conn, payload) => {
   const { base64Image, merchantOrderId } = payload;
   const content = await getImageContentFromOCr(base64Image);
   if (!content) {
-    const payInData = await getPayInUrlService(merchantOrderId)
-    const payIn = await updatePayInUrlDao(
-      payInData.id,
-      {
-        status: Status.IMG_PENDING,
-        amount: payload.amount,
-        is_url_expires: true,
-        one_time_used: true,
-        user_submitted_image: payload.fileKey,
-      },
-    );
+    const payInData = await getPayInUrlService(merchantOrderId);
+    const payIn = await updatePayInUrlDao(payInData.id, {
+      status: Status.IMG_PENDING,
+      amount: payload.amount,
+      is_url_expires: true,
+      one_time_used: true,
+      user_submitted_image: payload.fileKey,
+    });
 
     return {
       status: 'Not Found',
@@ -1005,17 +1033,14 @@ export const disputeDuplicateTransactionService = async (
           ? Status.DISPUTE
           : Status.SUCCESS;
     // make new pay in success
-    await updatePayInUrlDao(
-      payInData.id,
-      {
-        is_url_expires: true,
-        one_time_used: true,
-        is_notified: true,
-        duration,
-        status: newStatus,
-        updated_by,
-      },
-    );
+    await updatePayInUrlDao(payInData.id, {
+      is_url_expires: true,
+      one_time_used: true,
+      is_notified: true,
+      duration,
+      status: newStatus,
+      updated_by,
+    });
 
     if ([Status.BANK_MISMATCH, Status.SUCCESS].includes(newStatus)) {
       bankId = payInData.bank_acc_id;
@@ -1129,7 +1154,6 @@ export const telegramCheckUTRService = async (
   if (payIn.bank_response_id) {
     otherBankResponse =
       (await getBankResponseDao({ id: payIn.bank_response_id })) || {};
-
   }
 
   // check old code flow
