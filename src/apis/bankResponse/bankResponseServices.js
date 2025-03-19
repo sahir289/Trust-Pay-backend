@@ -659,7 +659,7 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
                 config: { from_UI: from_UI }
               };
              
-              const updatePayInDataRes = 
+              // const updatePayInDataRes = 
               await updatePayInUrlDao(
                 checkPayInUtr[0]?.id,
                 payInData,
@@ -676,7 +676,7 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
                   today_balance: bankdetails[0].balance + parseFloat(amount),
                 });
               }
-              const updateBotRes =
+              // const updateBotRes =
               await updateBotResponseDao(conn, botRes?.id, { is_used: true });
               // console.log(botRes,botRes.id,updateBotRes, "updateBotRes234567")
 
