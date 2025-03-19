@@ -4,7 +4,6 @@ import {
   buildSelectQuery,
   buildUpdateQuery,
   executeQuery,
-  getConnection,
 } from '../../utils/db.js';
 import { tableName } from '../../constants/index.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
@@ -83,13 +82,11 @@ const getSettlementDao = async (
 
 const getSettlementDaoforInternalTransfer = async (utr, method) => {
   try {
-    let conn;
-    conn = await getConnection();
     let baseQuery = `SELECT id, user_id, status, amount, method, config, approved_at, rejected_at, created_by, created_at, updated_at, company_id, is_obsolete, updated_by FROM "${tableName.SETTLEMENT}"
  WHERE config->>'reference_id' = $1 AND method = ANY($2)`;
 
     const queryParams = [utr, method];
-    const result = await conn.query(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     console.error(error);
