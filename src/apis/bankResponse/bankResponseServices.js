@@ -81,7 +81,7 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
       utr,
       bank_id,
       config: { from_UI: from_UI },
-      is_used: utrAlreadyExist ? 'false' : 'true',
+      is_used:  'false' ,
       created_by,
       company_id,
     };

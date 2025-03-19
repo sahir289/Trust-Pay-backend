@@ -74,10 +74,10 @@ export const generatePayInUrlService = async (payload, created_by) => {
   const merchant_order_id = order_id ? order_id : uuidv4();
 
   const merchantArr = await getMerchantsDao({ code });
-  const bankAssigned = await getBankaccountDao({user_id: merchantArr[0].user_id}, null,null,"ADMIN")
+  const bankAssigned = await getBankaccountDao({ user_id: merchantArr[0].user_id }, null, null, "ADMIN")
 
-  if(!bankAssigned){
-    throw new NotFoundError('No Bank Assigned to Merchant')
+  if (bankAssigned.length<1) {
+    throw new InternalServerError('No Bank Assigned to Merchant')
   }
   const merchant = merchantArr[0];
 
@@ -94,7 +94,7 @@ export const generatePayInUrlService = async (payload, created_by) => {
   if (!api_key && x_api_key != merchantAPIKey?.private && x_api_key != merchantAPIKey?.public) {
     throw new BadRequestError('Enter valid Api key');
   }
-  
+
   const expirationDate = ot === 'y' ? dayjs().add(10, 'minutes').toISOString() : dayjs().add(30, 'days').toISOString();
   const data = {
     upi_short_code: nanoid(5), // code added by us
@@ -136,8 +136,8 @@ export const getPayInUrlService = async (id, conn) => {
     payIn.status !== Status.INITIATED
   ) {
     // expire payIn
-  //  const updatedpayin= 
-   await updatePayInUrlDao(id, {
+    //  const updatedpayin= 
+    await updatePayInUrlDao(id, {
       is_url_expires: true,
       status: Status.DROPPED,
     }, conn);
@@ -555,7 +555,7 @@ export const resetDepositService = async (
   company_id,
   updated_by,
 ) => {
-  const payIn = await getPayInUrlDao({ merchant_order_id: merchant_order_id, company_id: company_id  });
+  const payIn = await getPayInUrlDao({ merchant_order_id: merchant_order_id, company_id: company_id });
   if (!payIn) {
     throw new NotFoundError('PayIn not found');
   }
@@ -563,7 +563,7 @@ export const resetDepositService = async (
     payin_id: payIn.id,
     pre_status: payIn.status,
     created_by: updated_by,
-    updated_by ,
+    updated_by,
     company_id,
   });
 
@@ -609,7 +609,7 @@ export const resetDepositService = async (
   const bank = banks[0];
 
   if (bank && payIn.status !== Status.PENDING && bankResponse) {
-  await updateBanktBalanceDao(
+    await updateBanktBalanceDao(
       { id: bank.id },
       bankResponse.amount,
       updated_by,
@@ -619,11 +619,11 @@ export const resetDepositService = async (
   return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 };
 
-export const getPayinsService = async ( company_id,page,limit, filters, role) => {
+export const getPayinsService = async (company_id, page, limit, filters, role) => {
   let conn;
   try {
     conn = await getConnection();
-    return await getPayInsDao(conn, filters, company_id, page,limit, role);
+    return await getPayInsDao(conn, filters, company_id, page, limit, role);
   } catch (error) {
     throw new InternalServerError(error);
   } finally {
@@ -1119,7 +1119,7 @@ export const telegramCheckUTRService = async (
   //already sucess bank_mismatch with merchant order id //
   //pending - without/with checkutr - utr //
   //utr doesnt match //
-  //dropped- url expire - dropped - amount/bank ??
+  //dropped- url expire - dropped - amount/bank //
 
   const bankResponse = await getBankResponseDao({ utr });
   let otherBankResponse = {};
@@ -1131,7 +1131,6 @@ export const telegramCheckUTRService = async (
   if (!payIn) {
     throw new NotFoundError('Merchant Order ID not found in Payin');
   }
-// if(bankResponse)
   await createCheckUtrService({
     payin_id: payIn.id,
     utr,
@@ -1139,6 +1138,11 @@ export const telegramCheckUTRService = async (
     created_by: updated_by,
     updated_by,
   });
+
+  if (payIn.status === "DROPPED") {
+    await updatePayInUrlDao({ merchant_order_id: merchant_order_id }, { user_submitted_utr: bankResponse.utr })
+    return { message: `${utr} paired with ${merchant_order_id}` }
+  }
 
   if (payIn.bank_response_id) {
     otherBankResponse =
@@ -1163,14 +1167,15 @@ export const telegramCheckUTRService = async (
     };
   }
 
-  if (![Status.PENDING, Status.ASSIGNED].includes(payIn.status)) {
+  if (![Status.PENDING, Status.ASSIGNED, Status.DROPPED].includes(payIn.status)) {
     return {
       status: payIn.status,
       message: `Pay In is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
     };
   }
   const url_expired = false;
-  updatePayInUrlDao({id:payIn.id},{is_url_expires:url_expired}, conn )
+  updatePayInUrlDao({ id: payIn.id }, { is_url_expires: url_expired }, conn)
+  
   return await processPayInService(
     conn,
     {
