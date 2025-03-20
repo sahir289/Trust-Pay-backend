@@ -7,7 +7,10 @@ import { razorpay } from '../../webhooks/razorPay.js';
 import { getPayoutsDao } from '../payOut/payOutDao.js';
 import { BankTypes, Currency, Status, Type } from '../../constants/index.js';
 import { calculateCommission, calculateDuration } from '../../helpers/index.js';
-import { merchantPayinCallback, merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
+import {
+  merchantPayinCallback,
+  merchantPayoutCallback,
+} from '../../callBacksAndWebHook/merchantCallBacks.js';
 import {
   generatePayInUrlDao,
   updatePayInUrlDao,
@@ -84,17 +87,34 @@ export const generatePayInUrlService = async (payload, created_by) => {
     throw new NotFoundError('Merchant does not exist');
   }
 
+  const bankAssigned = await getMerchantBankDao({ config_merchants_contains: merchant.id });
+
+  if (bankAssigned.length < 0) {
+    throw new InternalServerError('No Bank Assigned to Merchant')
+  }
+
   const merchantAPIKey = merchant.config?.keys;
 
-  if (api_key && api_key != merchantAPIKey?.private && api_key != merchantAPIKey?.public) {
+  if (
+    api_key &&
+    api_key != merchantAPIKey?.private &&
+    api_key != merchantAPIKey?.public
+  ) {
     throw new BadRequestError('Enter valid Api key');
   }
 
-  if (!api_key && x_api_key != merchantAPIKey?.private && x_api_key != merchantAPIKey?.public) {
+  if (
+    !api_key &&
+    x_api_key != merchantAPIKey?.private &&
+    x_api_key != merchantAPIKey?.public
+  ) {
     throw new BadRequestError('Enter valid Api key');
   }
 
-  const expirationDate = ot === 'y' ? dayjs().add(10, 'minutes').toISOString() : dayjs().add(30, 'days').toISOString();
+  const expirationDate =
+    ot === 'y'
+      ? dayjs().add(10, 'minutes').toISOString()
+      : dayjs().add(30, 'days').toISOString();
   const data = {
     upi_short_code: nanoid(5), // code added by us
     amount: amount || 0, // as starting amount will be zero
@@ -109,7 +129,7 @@ export const generatePayInUrlService = async (payload, created_by) => {
       urls: {
         return: returnUrl || merchant.config?.urls?.return || '',
         notify: callbackUrl || merchant.config?.urls?.payin_notify || '',
-      }
+      },
     }),
     created_by,
   };
@@ -178,7 +198,11 @@ export const expirePayInUrlService = async (payInId) => {
   });
 };
 
-export const assignedBankToPayInUrlService = async (merchantOrderId, amount, type) => {
+export const assignedBankToPayInUrlService = async (
+  merchantOrderId,
+  amount,
+  type,
+) => {
   // Validate the PayIn URL
   const payIn = await getPayInUrlService(merchantOrderId);
   const payInConfig = payIn.config || {};
@@ -198,10 +222,10 @@ export const assignedBankToPayInUrlService = async (merchantOrderId, amount, typ
   const banks = await getMerchantBankDao({ config_merchants_contains: merchant.id });
 
   const enabledBanks = banks.filter((bank) => {
-    if (bank.is_enabled && bank.bank_used_for !== 'payIn') {
+    if (bank.is_enabled && (bank.bank_used_for !== 'PayIn' && bank.bank_used_for !== 'payIn')) {
       return false;
     }
-  
+
     switch (type) {
       case BankTypes.UPI:
         return bank.is_qr;
@@ -215,7 +239,7 @@ export const assignedBankToPayInUrlService = async (merchantOrderId, amount, typ
         return false;
     }
   });
-  
+
   if (!enabledBanks.length) {
     await updatePayInUrlDao(payIn.id, {
       is_url_expires: true,
@@ -701,13 +725,14 @@ export const processPayInService = async (conn, payload, updated_by) => {
     };
   }
 
-  if (!bankResponse) {
+  if (!bankResponse || Object.keys(bankResponse).length === 0) {
     bankResponse = (await getBankResponseDao({ utr: userSubmittedUtr })) || {};
   }
 
+
   if (bankResponse.id) {
     await updateBotResponseDao(
-      { id: bankResponse.id },
+      bankResponse.id,
       { is_used: true },
       conn,
     );
@@ -715,6 +740,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
 
   if (bankResponse.bank_id && bankResponse.bank_id !== payIn.bank_acc_id) {
     updatePayInData.status = Status.BANK_MISMATCH;
+    updatePayInData.bank_response_id = bankResponse.id;
     updatePayInData.approved_at = new Date().toISOString();
     result.status = Status.BANK_MISMATCH;
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
@@ -730,6 +756,9 @@ export const processPayInService = async (conn, payload, updated_by) => {
       parseFloat(amount) === parseFloat(bankResponse.amount)
         ? Status.SUCCESS
         : Status.DISPUTE;
+    updatePayInData.bank_response_id = bankResponse.id;
+    updatePayInData.approved_at = new Date().toISOString();
+    result.amount = bankResponse.amount;
   } else {
     updatePayInData.status = Status.PENDING;
   }
@@ -888,17 +917,14 @@ export const processPayInByImageService = async (conn, payload) => {
   const { base64Image, merchantOrderId } = payload;
   const content = await getImageContentFromOCr(base64Image);
   if (!content) {
-    const payInData = await getPayInUrlService(merchantOrderId)
-    const payIn = await updatePayInUrlDao(
-      payInData.id,
-      {
-        status: Status.IMG_PENDING,
-        amount: payload.amount,
-        is_url_expires: true,
-        one_time_used: true,
-        user_submitted_image: payload.fileKey,
-      },
-    );
+    const payInData = await getPayInUrlService(merchantOrderId);
+    const payIn = await updatePayInUrlDao(payInData.id, {
+      status: Status.IMG_PENDING,
+      amount: payload.amount,
+      is_url_expires: true,
+      one_time_used: true,
+      user_submitted_image: payload.fileKey,
+    });
 
     return {
       status: 'Not Found',
@@ -1011,17 +1037,14 @@ export const disputeDuplicateTransactionService = async (
           ? Status.DISPUTE
           : Status.SUCCESS;
     // make new pay in success
-    await updatePayInUrlDao(
-      payInData.id,
-      {
-        is_url_expires: true,
-        one_time_used: true,
-        is_notified: true,
-        duration,
-        status: newStatus,
-        updated_by,
-      },
-    );
+    await updatePayInUrlDao(payInData.id, {
+      is_url_expires: true,
+      one_time_used: true,
+      is_notified: true,
+      duration,
+      status: newStatus,
+      updated_by,
+    });
 
     if ([Status.BANK_MISMATCH, Status.SUCCESS].includes(newStatus)) {
       bankId = payInData.bank_acc_id;
@@ -1145,7 +1168,6 @@ export const telegramCheckUTRService = async (
   if (payIn.bank_response_id) {
     otherBankResponse =
       (await getBankResponseDao({ id: payIn.bank_response_id })) || {};
-
   }
 
   // check old code flow
@@ -1164,15 +1186,16 @@ export const telegramCheckUTRService = async (
       message: `Utr: ${utr} is ${isAlreadyExit.status} with ${isAlreadyExit.merchant_order_id}`,
     };
   }
-    if (![Status.PENDING, Status.ASSIGNED, Status.DROPPED].includes(payIn.status)) {
-      return {
-        status: payIn.status,
-        message: `Pay In is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
-      };
-    }
-  
-  updatePayInUrlDao({ id: payIn.id }, { is_url_expires: false }, conn)
-  
+
+  if (![Status.PENDING, Status.ASSIGNED, Status.DROPPED].includes(payIn.status)) {
+    return {
+      status: payIn.status,
+      message: `Pay In is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
+    };
+  }
+  const url_expired = false;
+  updatePayInUrlDao({ id: payIn.id }, { is_url_expires: url_expired }, conn)
+
   return await processPayInService(
     conn,
     {

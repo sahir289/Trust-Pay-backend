@@ -18,7 +18,6 @@ export const UPDATE_DETAILS_SCHEMA = Joi.object({
   user: Joi.string().label('user').optional(),
   amount: Joi.number().label('amount').optional(),
   status: Joi.string()
-    .valid('PENDING', 'COMPLETED', 'FAILED')
     .label('status')
     .optional(),
   currency: Joi.string().length(3).label('currency').optional(),
@@ -47,7 +46,7 @@ export const UPDATE_DETAILS_SCHEMA = Joi.object({
     .optional(),
   updated_by: Joi.string().label('updated_by').optional(),
   is_obsolete: Joi.boolean().label('is_obsolete').optional(),
-  vendor_id: Joi.string().label('vendor_id').optional(),
+  vendor_id: Joi.alternatives().try(Joi.string(), Joi.valid(null)).label('vendor_id').optional(),
 });
 
 export const VALIDATE_PAYOUT_BY_ID = Joi.object({

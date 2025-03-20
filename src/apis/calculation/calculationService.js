@@ -68,7 +68,7 @@ const updateCalculationService = async (conn, filters, payload, role) => {
           ? vendorColumns.CALCULATION
           : columns.CALCULATION;
     const data = await updateCalculationDao(filters, payload, conn);
-    const finalResult = await filterResponse(data, filterColumns);
+    const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
     console.error('Error while updating calculation record:', error);
