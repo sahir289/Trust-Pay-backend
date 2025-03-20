@@ -192,7 +192,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         merchant.user_id,
         data.approved_at,
         data.amount,
-        data.commission,
+        data.payout_merchant_commission,
         true,
         false,
         conn,
@@ -201,7 +201,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         vendor.user_id,
         data.approved_at,
         data.amount,
-        data.commission,
+        data.payout_vendor_commission,
         false,
         false,
         conn,
@@ -217,11 +217,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
       const merchantCommission = calculateCommission(
         data.amount,
-        data.commission,
+        data.payout_merchant_commission,
       );
       const vendorCommission = calculateCommission(
         data.amount,
-        data.commission,
+        data.payout_vendor_commission,
       );
       await updateMerchantDao({id: merchant.id}, { balance: netBalance }, conn);
       await updateVendorDao({id: vendor.id}, { balance: netVendorBalance }, conn);
@@ -235,7 +235,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         merchant.user_id,
         data.rejected_at,
         data.amount,
-        data.commission,
+        data.payout_merchant_commission,
         true,
         true,
         conn,
@@ -244,7 +244,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         vendor.user_id,
         data.rejected_at,
         data.amount,
-        data.commission,
+        data.payout_vendor_commission,
         false,
         true,
         conn,
@@ -262,11 +262,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
       const merchantCommission = calculateCommission(
         data.amount,
-        data.commission,
+        data.payout_merchant_commission,
       );
       const vendorCommission = calculateCommission(
         data.amount,
-        data.commission,
+        data.payout_vendor_commission,
       );
       await updateMerchantDao(
         merchant.id,
