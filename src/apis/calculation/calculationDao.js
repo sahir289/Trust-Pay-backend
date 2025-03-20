@@ -196,9 +196,6 @@ export const getCalculationsSumDao = async (filters) => {
   if (Role.ADMIN === role) {
     const vQuery = `${vendorQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
     const mQuery = `${merchantQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
-    console.log(vQuery)
-    console.log("=====")
-    console.log(mQuery)
     merchantData = (await executeQuery(mQuery, [])).rows;
     vendorData = (await executeQuery(vQuery, [])).rows;
   }
