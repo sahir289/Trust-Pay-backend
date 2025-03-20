@@ -63,10 +63,7 @@ const updatePayout = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const Validation = VALIDATE_PAYOUT_BY_ID.validate(req.params);
-  if (Validation.error) {
-    throw new ValidationError(Validation.error);
-  }
+  
   const { id } = req.params;
   const { company_id, role, user_id } = req.user;
   payload.updated_by = user_id;
