@@ -264,7 +264,7 @@ export const getCalculationsSumDao = async (filters) => {
   };
 };
 
-////for cron job to update net_balance
+//for cron job to update net_balance
 export const getCalculationforCronDao = async (userId) => {
   try {
     const sql = `

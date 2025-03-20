@@ -460,9 +460,17 @@ export const updateDepositStatusService = async (
   if (!bankResponse) {
     throw new NotFoundError('No bank response found!');
   }
+  const duration = calculateDuration(payInData.created_at);
+
+  const banks = await getBankaccountDao({ nick_name, company_id });
+  const bank = banks[0];
+
+  if (!bank) {
+    throw new NotFoundError('Bank not found!');
+  }
 
   const vendors = await getVendorsDao({
-    user_id: bankResponse.user_id,
+    user_id: bank.user_id,
     company_id,
   });
   const vendor = vendors[0];
@@ -476,14 +484,6 @@ export const updateDepositStatusService = async (
     bankResponse.amount,
     vendor.payin_commission,
   );
-  const duration = calculateDuration(payInData.created_at);
-
-  const banks = await getBankaccountDao({ nick_name, company_id });
-  const bank = banks[0];
-
-  if (!bank) {
-    throw new NotFoundError('Bank not found!');
-  }
 
   let successData = [];
   if (bankResponse.is_used) {
@@ -512,14 +512,20 @@ export const updateDepositStatusService = async (
     // update merchant caclulation table
     await updateCalculationTable(
       merchant.user_id,
-      { ...payInData, payinCommission },
+      {
+        amount : payInData.amount,
+        payinCommission : payinCommission
+      },
       conn,
     );
 
     // update vendor caclulation table
     await updateCalculationTable(
       bank.user_id,
-      { ...payInData, payinCommission: vendorPayinCommission },
+      {
+        amount : payInData.amount,
+        payinCommission : vendorPayinCommission
+      },
       conn,
     );
 
@@ -1218,9 +1224,10 @@ const checkIsPayInExpired = (payIn) => {
 
 const updateCalculationTable = async (user_id, data, conn) => {
   if (user_id) {
-    const calculation = getCalculationforCronDao(user_id);
+    const calculation = await getCalculationforCronDao({user_id: user_id});
+    console.log(calculation)
     await updateCalculationBalanceDao(
-      { id: calculation.id },
+      calculation.id,
       {
         total_payin_count: 1,
         total_payin_amount: data.amount,
