@@ -74,13 +74,12 @@ export const generatePayInUrlService = async (payload, created_by) => {
   const merchant_order_id = order_id ? order_id : uuidv4();
 
   const merchantArr = await getMerchantsDao({ code });
-  const bankAssigned = await getBankaccountDao({ user_id: merchantArr[0].user_id }, null, null, "ADMIN")
+  const banks = await getMerchantBankDao({ config_merchants_contains: merchantArr[0].id });
 
-  if (bankAssigned.length<1) {
-    throw new InternalServerError('No Bank Assigned to Merchant')
+  if (banks.length<1) {
+    throw new NotFoundError('No Bank Assigned to Merchant')
   }
   const merchant = merchantArr[0];
-
   if (!merchant) {
     throw new NotFoundError('Merchant does not exist');
   }
@@ -129,7 +128,6 @@ export const getPayInUrlService = async (id, conn) => {
   if (payIn.is_url_expires) {
     throw new InternalServerError('Url is expired');
   }
-
   const config = payIn.config || {};
   if (
     currentTime > Number(payIn.expiration_date) &&
@@ -194,12 +192,12 @@ export const assignedBankToPayInUrlService = async (merchantOrderId, amount, typ
   if (!merchant) {
     throw new NotFoundError('No merchant found');
   }
-  // if(!(merchant.max_payin> amount >merchant.min_payin)){
-  //   throw new NotFoundError( `Amount must be between ${merchant.max_payin} and ${merchant.min_payin}`);
-  // }
+  if(!(merchant.max_payin> amount >merchant.min_payin)){
+    throw new NotFoundError( `Amount must be between ${merchant.max_payin} and ${merchant.min_payin}`);
+  }
   const banks = await getMerchantBankDao({ config_merchants_contains: merchant.id });
+
   const enabledBanks = banks.filter((bank) => {
-  
     if (bank.is_enabled && bank.bank_used_for !== 'payIn') {
       return false;
     }
@@ -1166,15 +1164,14 @@ export const telegramCheckUTRService = async (
       message: `Utr: ${utr} is ${isAlreadyExit.status} with ${isAlreadyExit.merchant_order_id}`,
     };
   }
-
-  if (![Status.PENDING, Status.ASSIGNED, Status.DROPPED].includes(payIn.status)) {
-    return {
-      status: payIn.status,
-      message: `Pay In is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
-    };
-  }
-  const url_expired = false;
-  updatePayInUrlDao({ id: payIn.id }, { is_url_expires: url_expired }, conn)
+    if (![Status.PENDING, Status.ASSIGNED, Status.DROPPED].includes(payIn.status)) {
+      return {
+        status: payIn.status,
+        message: `Pay In is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
+      };
+    }
+  
+  updatePayInUrlDao({ id: payIn.id }, { is_url_expires: false }, conn)
   
   return await processPayInService(
     conn,
