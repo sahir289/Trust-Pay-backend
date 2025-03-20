@@ -187,8 +187,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       const netBalance = await updatePayoutCalculations(
         merchant.user_id,
         data.approved_at,
-        data.amount,
-        data.commission,
+        Number(data.amount),
+       Number(data.payout_merchant_commission),
         true,
         false,
         conn,
@@ -196,8 +196,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       const netVendorBalance = await updatePayoutCalculations(
         vendor.user_id,
         data.approved_at,
-        data.amount,
-        data.commission,
+        Number(data.amount),
+        Number(data.payout_vendor_commission),
         false,
         false,
         conn,
@@ -205,19 +205,19 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       await updateBankaccountDao(
         {id: bankData.id},
         {
-          today_balance: bankData.today_balance - data.amount,
-          balance: bankData.balance - data.amount,
+          today_balance: Number(bankData.today_balance) - Number(data.amount),
+          balance: Number(bankData.balance) - Number(data.amount),
         },
         conn,
       );
 
       const merchantCommission = calculateCommission(
-        data.amount,
-        data.commission,
+        Number(data.amount),
+        Number(data.payout_merchant_commission),
       );
       const vendorCommission = calculateCommission(
-        data.amount,
-        data.commission,
+        Number(data.amount),
+        Number(data.commission),
       );
       await updateMerchantDao({id: merchant.id}, { balance: netBalance }, conn);
       await updateVendorDao({id: vendor.id}, { balance: netVendorBalance }, conn);
@@ -332,11 +332,12 @@ const updatePayoutCalculations = async (
         updatedCalculation[`total_${prefix}payout_amount`],
       [`total_${prefix}payout_commission`]:
         updatedCalculation[`total_${prefix}payout_commission`],
-      current_balance: currentBalance,
-      net_balance: netBalance,
+      current_balance: Number(currentBalance),
+      net_balance: Number(netBalance),
     },
     conn,
   );
+
   return Number(netBalance);
 };
 
