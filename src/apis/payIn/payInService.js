@@ -728,7 +728,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
 
   if (bankResponse.id) {
     await updateBotResponseDao(
-      { id: bankResponse.id },
+      bankResponse.id,
       { is_used: true },
       conn,
     );
@@ -736,6 +736,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
 
   if (bankResponse.bank_id && bankResponse.bank_id !== payIn.bank_acc_id) {
     updatePayInData.status = Status.BANK_MISMATCH;
+    updatePayInData.bank_response_id = bankResponse.id;
     updatePayInData.approved_at = new Date().toISOString();
     result.status = Status.BANK_MISMATCH;
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
@@ -751,6 +752,9 @@ export const processPayInService = async (conn, payload, updated_by) => {
       parseFloat(amount) === parseFloat(bankResponse.amount)
         ? Status.SUCCESS
         : Status.DISPUTE;
+    updatePayInData.bank_response_id = bankResponse.id;
+    updatePayInData.approved_at = new Date().toISOString();
+    result.amount = bankResponse.amount;
   } else {
     updatePayInData.status = Status.PENDING;
   }
