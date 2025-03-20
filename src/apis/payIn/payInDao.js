@@ -111,7 +111,7 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
         FROM public."Payin" u
         LEFT JOIN public."Merchant" r ON u.merchant_id = r.id
         LEFT JOIN public."BankAccount" b ON u.bank_acc_id = b.id
-        LEFT JOIN public."BankResponse" br ON b.id = br.bank_id
+        LEFT JOIN public."BankResponse" br ON u.bank_response_id = br.id
         LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
         WHERE ${conditions.join(' AND ')}  
       ),
