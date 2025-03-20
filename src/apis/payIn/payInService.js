@@ -79,7 +79,7 @@ export const generatePayInUrlService = async (payload, created_by) => {
   const merchantArr = await getMerchantsDao({ code });
   const bankAssigned = await getBankaccountDao({ user_id: merchantArr[0].user_id }, null, null, "ADMIN")
 
-  if (bankAssigned.length<1) {
+  if (bankAssigned.length < 1) {
     throw new InternalServerError('No Bank Assigned to Merchant')
   }
   const merchant = merchantArr[0];
@@ -1185,7 +1185,7 @@ export const telegramCheckUTRService = async (
   }
   const url_expired = false;
   updatePayInUrlDao({ id: payIn.id }, { is_url_expires: url_expired }, conn)
-  
+
   return await processPayInService(
     conn,
     {
