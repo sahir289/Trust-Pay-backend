@@ -77,15 +77,16 @@ export const generatePayInUrlService = async (payload, created_by) => {
   const merchant_order_id = order_id ? order_id : uuidv4();
 
   const merchantArr = await getMerchantsDao({ code });
-  const bankAssigned = await getBankaccountDao({ user_id: merchantArr[0].user_id }, null, null, "ADMIN")
-
-  if (bankAssigned.length < 1) {
-    throw new InternalServerError('No Bank Assigned to Merchant')
-  }
   const merchant = merchantArr[0];
 
   if (!merchant) {
     throw new NotFoundError('Merchant does not exist');
+  }
+
+  const bankAssigned = await getMerchantBankDao({ config_merchants_contains: merchant.id });
+
+  if (bankAssigned.length < 0) {
+    throw new InternalServerError('No Bank Assigned to Merchant')
   }
 
   const merchantAPIKey = merchant.config?.keys;
@@ -217,7 +218,7 @@ export const assignedBankToPayInUrlService = async (
   // }
   const banks = await getMerchantBankDao({ config_merchants_contains: merchant.id });
   const enabledBanks = banks.filter((bank) => {
-    if (bank.is_enabled && bank.bank_used_for !== 'payIn') {
+    if (bank.is_enabled && (bank.bank_used_for !== 'PayIn' && bank.bank_used_for !== 'payIn')) {
       return false;
     }
 
@@ -720,9 +721,10 @@ export const processPayInService = async (conn, payload, updated_by) => {
     };
   }
 
-  if (!bankResponse) {
+  if (!bankResponse || Object.keys(bankResponse).length === 0) {
     bankResponse = (await getBankResponseDao({ utr: userSubmittedUtr })) || {};
   }
+
 
   if (bankResponse.id) {
     await updateBotResponseDao(
