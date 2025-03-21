@@ -214,10 +214,12 @@ export const assignedBankToPayInUrlService = async (
   const merchant = merchantArr[0] || {};
 
   if (!merchant) {
-    throw new NotFoundError('No merchant found');
+    // throw new NotFoundError('No merchant found');
+    return {message : `No merchant found`}
   }
   if(!(merchant.max_payin> amount >merchant.min_payin)){
-    throw new NotFoundError( `Amount must be between ${merchant.max_payin} and ${merchant.min_payin}`);
+    // throw new NotFoundError( ``);
+    return {message : `Amount must be between ${merchant.max_payin} and ${merchant.min_payin}`}
   }
   const banks = await getMerchantBankDao({ config_merchants_contains: merchant.id });
 
@@ -1152,11 +1154,13 @@ export const telegramCheckUTRService = async (
   let otherBankResponse = {};
 
   if (!bankResponse) {
-    throw new NotFoundError('UTR Does Not match in Bank Response');
+    return {message : `UTR Does Not match in Bank Response`}
   }
   const payIn = await getPayInUrlDao({ merchant_order_id });
   if (!payIn) {
-    throw new NotFoundError('Merchant Order ID not found in Payin');
+    // throw new NotFoundError('Merchant Order ID not found in Payin');
+    return {message : `Merchant Order ID not found in Payin`}
+
   }
   await createCheckUtrService({
     payin_id: payIn.id,
@@ -1199,8 +1203,7 @@ export const telegramCheckUTRService = async (
       message: `Pay In is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
     };
   }
-  const url_expired = false;
-  updatePayInUrlDao({ id: payIn.id }, { is_url_expires: url_expired }, conn)
+  updatePayInUrlDao({ id: payIn.id }, { is_url_expires: false }, conn)
 
   return await processPayInService(
     conn,
@@ -1220,7 +1223,8 @@ export const getPayinsServiceById = async (id) => {
 
 const checkIsPayInExpired = (payIn) => {
   if (Number(payIn.expiration_date) < Date.now() || payIn.is_url_expires) {
-    throw new BadRequestError('PayIn has been expired already!');
+    // throw new BadRequestError('PayIn has been expired already!');
+    return {message : `PayIn has been expired already!`}
   }
 
   return false;
