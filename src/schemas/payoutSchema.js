@@ -18,7 +18,6 @@ export const UPDATE_DETAILS_SCHEMA = Joi.object({
   user: Joi.string().label('user').optional(),
   amount: Joi.number().label('amount').optional(),
   status: Joi.string()
-    .valid('PENDING', 'COMPLETED', 'FAILED')
     .label('status')
     .optional(),
   currency: Joi.string().length(3).label('currency').optional(),

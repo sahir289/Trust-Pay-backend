@@ -140,14 +140,12 @@ export const getPayoutsDao = async (filters, company_id, page, limit, role, conn
 
     let result;
 
-    if(conn){
+    if (conn && conn.query) {
       result = await conn.query(baseQuery, queryParams);
     } else {
       result = await executeQuery(baseQuery, queryParams);
     }
-
     return result.rows;
-
   } catch (error) {
     console.error('Error in getPayoutsDao:', error);
     throw error.message;

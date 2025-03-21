@@ -160,25 +160,21 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       method: payload.method,
     }
     delete payload.method;
-    console.log(payload);
     const data = await updatePayoutDao(ids, payload, conn);
-    console.log(data);
     if (!data.approved_at) return;
-    const bankDataArr = await getBankaccountDao({ id: data.bank_acc_id });
+    const bankDataArr = await getBankaccountDao({ id: data.bank_acc_id }, null, null, role);
     const bankData = bankDataArr[0];
-
     if(!bankData){
       throw new NotFoundError('Bank not found!');
     }
 
     const [merchantArr, vendorArr, userArr] = await Promise.all([
-      getMerchantsDao({ id: data.merchant_id }),
-      getVendorsDao({ user_id: bankData.user_id }),
+      getMerchantsDao({ id: data.merchant_id }, null,null,null,null),
+      getVendorsDao({ user_id: bankData.user_id }, null,null,null,null),
       getUserByIdDao(conn, { id: bankData.user_id }),
     ]);
 
     const merchant = merchantArr[0], vendor = vendorArr[0], user = userArr[0];
-
     if(!merchant){
       throw new NotFoundError('Merchant not found!');
     }
@@ -214,7 +210,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         },
         conn,
       );
-
+      
       const merchantCommission = calculateCommission(
         data.amount,
         data.commission,
@@ -225,7 +221,6 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       );
       await updateMerchantDao({id: merchant.id}, { balance: netBalance }, conn);
       await updateVendorDao({id: vendor.id}, { balance: netVendorBalance }, conn);
-
       await updatePayoutDao(
         { payout_merchant_commission: merchantCommission },
         { payout_vendor_commission: vendorCommission },
@@ -234,8 +229,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       const netBalance = await updatePayoutCalculations(
         merchant.user_id,
         data.rejected_at,
-        data.amount,
-        data.commission,
+        Number(data.amount),
+        Number(data.payout_merchant_commission),
         true,
         true,
         conn,
@@ -243,8 +238,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       const netVendorBalance = await updatePayoutCalculations(
         vendor.user_id,
         data.rejected_at,
-        data.amount,
-        data.commission,
+        Number(data.amount),
+        Number(data.payout_vendor_commission),
         false,
         true,
         conn,
@@ -252,32 +247,28 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       await updateBankaccountDao(
         {id: bankData.id},
         {
-          today_balance: bankData.today_balance + data.amount,
-          balance: bankData.balance - data.amount,
+          today_balance: Number(bankData.today_balance) + Number(data.amount),
+          balance: Number(bankData.balance) - Number(data.amount),
         },
         conn,
       );
-      await updateMerchantDao(merchant.id, { balance: netBalance }, conn);
-      await updateVendorDao(vendor.id, { balance: netVendorBalance }, conn);
+      await updateMerchantDao({ id: merchant.id,company_id:merchant.company_id }, { balance: netBalance }, conn);
+
+      await updateVendorDao({ id: vendor.id }, { balance: netVendorBalance }, conn);
 
       const merchantCommission = calculateCommission(
-        data.amount,
-        data.commission,
+        Number(data.amount),
+        Number(data.payout_merchant_commission),
       );
       const vendorCommission = calculateCommission(
-        data.amount,
-        data.commission,
+        Number(data.amount),
+        Number(data.payout_vendor_commission),
       );
-      await updateMerchantDao(
-        merchant.id,
-        { balance: netBalance },
-        { payout_commission: merchantCommission },
-        conn,
-      );
+      await updateMerchantDao({ id: merchant.id },{ balance: netBalance ,payout_commission: merchantCommission }, conn,);
       await updateVendorDao(
-        vendor.id,
-        { balance: netVendorBalance },
-        { payout_commission: vendorCommission },
+        { id: vendor.id },
+        { balance: netVendorBalance ,
+        payout_commission: vendorCommission },
         conn,
       );
     }
@@ -290,7 +281,6 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       status: data.status,
       utr_id: data.utr_id || '',
     });
-
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -309,6 +299,13 @@ const updatePayoutCalculations = async (
   isReverse = false,
   conn,
 ) => {
+  console.log(userId,
+    date,
+    amount,
+    commission,
+    isMerchant,
+    isReverse = false,
+    conn,"payoutconsoled")
   const currentCalculation = await getCalculationforCronDao(userId);
   const cal = currentCalculation[0];
   console.log(cal, userId);
@@ -347,7 +344,7 @@ const updatePayoutCalculations = async (
     },
     conn,
   );
-  return netBalance;
+  return Number(netBalance);
 };
 
 const processEkoPayout = async (singleWithdrawData, payload) => {

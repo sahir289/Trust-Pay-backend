@@ -26,15 +26,14 @@ const getBankResponse = async (req, res) => {
    return sendSuccess(res, data, 'get bankResponse successfully');
 };
 const createBankResponse = async (req, res) => {
-  const { role } = req.user;
+  const { role, user_name, company_id } = req.user;
   const payload = req.body?.body;
-  const { company_id, user_id } = req.user;
   const { error } = CREATE_BANK_RESPONSE_SCHEMA.validate(req.body);
   if (error) {
     throw new ValidationError(error);
   }
   const result =
-  await transactionWrapper(createBankResponseService)( payload, company_id, role, user_id);
+  await transactionWrapper(createBankResponseService)( payload, company_id, role, user_name);
   sendSuccess(res, result);
 };
 
