@@ -89,7 +89,7 @@ export const getVendorsDao = async (
       columns.length ? columns : '*',
       joins,
     );
-    console.log(baseQuery);
+  
     if (filters.search) {
       filters.or = buildSearchFilterObj(filters.search, VENDOR);
       delete filters.search;
@@ -105,6 +105,7 @@ export const getVendorsDao = async (
       tableName.VENDOR,
     );
     // Execute query
+    console.log(sql, queryParams)
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {

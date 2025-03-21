@@ -77,8 +77,12 @@ export const generatePayInUrlService = async (payload, created_by) => {
   const merchant_order_id = order_id ? order_id : uuidv4();
 
   const merchantArr = await getMerchantsDao({ code });
-  const merchant = merchantArr[0];
+  const banks = await getMerchantBankDao({ config_merchants_contains: merchantArr[0].id });
 
+  if (banks.length<1) {
+    throw new NotFoundError('No Bank Assigned to Merchant')
+  }
+  const merchant = merchantArr[0];
   if (!merchant) {
     throw new NotFoundError('Merchant does not exist');
   }
@@ -144,7 +148,6 @@ export const getPayInUrlService = async (id, conn) => {
   if (payIn.is_url_expires) {
     throw new InternalServerError('Url is expired');
   }
-
   const config = payIn.config || {};
   if (
     currentTime > Number(payIn.expiration_date) &&
@@ -211,12 +214,15 @@ export const assignedBankToPayInUrlService = async (
   const merchant = merchantArr[0] || {};
 
   if (!merchant) {
-    throw new NotFoundError('No merchant found');
+    // throw new NotFoundError('No merchant found');
+    return {message : `No merchant found`}
   }
-  // if(!(merchant.max_payin> amount >merchant.min_payin)){
-  //   throw new NotFoundError( `Amount must be between ${merchant.max_payin} and ${merchant.min_payin}`);
-  // }
+  if(!(merchant.max_payin> amount >merchant.min_payin)){
+    // throw new NotFoundError( ``);
+    return {message : `Amount must be between ${merchant.max_payin} and ${merchant.min_payin}`}
+  }
   const banks = await getMerchantBankDao({ config_merchants_contains: merchant.id });
+
   const enabledBanks = banks.filter((bank) => {
     if (bank.is_enabled && (bank.bank_used_for !== 'PayIn' && bank.bank_used_for !== 'payIn')) {
       return false;
@@ -460,9 +466,17 @@ export const updateDepositStatusService = async (
   if (!bankResponse) {
     throw new NotFoundError('No bank response found!');
   }
+  const duration = calculateDuration(payInData.created_at);
+
+  const banks = await getBankaccountDao({ nick_name, company_id });
+  const bank = banks[0];
+
+  if (!bank) {
+    throw new NotFoundError('Bank not found!');
+  }
 
   const vendors = await getVendorsDao({
-    user_id: bankResponse.user_id,
+    user_id: bank.user_id,
     company_id,
   });
   const vendor = vendors[0];
@@ -476,14 +490,6 @@ export const updateDepositStatusService = async (
     bankResponse.amount,
     vendor.payin_commission,
   );
-  const duration = calculateDuration(payInData.created_at);
-
-  const banks = await getBankaccountDao({ nick_name, company_id });
-  const bank = banks[0];
-
-  if (!bank) {
-    throw new NotFoundError('Bank not found!');
-  }
 
   let successData = [];
   if (bankResponse.is_used) {
@@ -512,14 +518,20 @@ export const updateDepositStatusService = async (
     // update merchant caclulation table
     await updateCalculationTable(
       merchant.user_id,
-      { ...payInData, payinCommission },
+      {
+        amount : payInData.amount,
+        payinCommission : payinCommission
+      },
       conn,
     );
 
     // update vendor caclulation table
     await updateCalculationTable(
       bank.user_id,
-      { ...payInData, payinCommission: vendorPayinCommission },
+      {
+        amount : payInData.amount,
+        payinCommission : vendorPayinCommission
+      },
       conn,
     );
 
@@ -1142,11 +1154,13 @@ export const telegramCheckUTRService = async (
   let otherBankResponse = {};
 
   if (!bankResponse) {
-    throw new NotFoundError('UTR Does Not match in Bank Response');
+    return {message : `UTR Does Not match in Bank Response`}
   }
   const payIn = await getPayInUrlDao({ merchant_order_id });
   if (!payIn) {
-    throw new NotFoundError('Merchant Order ID not found in Payin');
+    // throw new NotFoundError('Merchant Order ID not found in Payin');
+    return {message : `Merchant Order ID not found in Payin`}
+
   }
   await createCheckUtrService({
     payin_id: payIn.id,
@@ -1189,8 +1203,7 @@ export const telegramCheckUTRService = async (
       message: `Pay In is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
     };
   }
-  const url_expired = false;
-  updatePayInUrlDao({ id: payIn.id }, { is_url_expires: url_expired }, conn)
+  updatePayInUrlDao({ id: payIn.id }, { is_url_expires: false }, conn)
 
   return await processPayInService(
     conn,
@@ -1210,7 +1223,8 @@ export const getPayinsServiceById = async (id) => {
 
 const checkIsPayInExpired = (payIn) => {
   if (Number(payIn.expiration_date) < Date.now() || payIn.is_url_expires) {
-    throw new BadRequestError('PayIn has been expired already!');
+    // throw new BadRequestError('PayIn has been expired already!');
+    return {message : `PayIn has been expired already!`}
   }
 
   return false;
@@ -1218,9 +1232,10 @@ const checkIsPayInExpired = (payIn) => {
 
 const updateCalculationTable = async (user_id, data, conn) => {
   if (user_id) {
-    const calculation = getCalculationforCronDao(user_id);
+    const calculation = await getCalculationforCronDao({user_id: user_id});
+    console.log(calculation)
     await updateCalculationBalanceDao(
-      { id: calculation.id },
+      calculation.id,
       {
         total_payin_count: 1,
         total_payin_amount: data.amount,

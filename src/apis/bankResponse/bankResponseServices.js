@@ -30,7 +30,7 @@ import {
 } from '../../constants/index.js';
 const logger = new Logger();
 
-const createBankResponseService = async (conn, payload, companyId, role, userId) => {
+const createBankResponseService = async (conn, payload, companyId, role, name) => {
   const filterColumns =
     role === Role.MERCHANT
       ? merchantColumns.BANK_RESPONSE
@@ -49,7 +49,8 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
 
   // const status = splitData[3];
   // const is_used = splitData[3];
-  const created_by = userId;
+  const created_by = name? name : 'Bank Response';
+  const updated_by = name? name :'Bank Response';
   const company_id = companyId;
   const isValidAmount = amount;
 
@@ -83,6 +84,7 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
       config: { from_UI: from_UI },
       is_used:  'false' ,
       created_by,
+      updated_by,
       company_id,
     };
 
@@ -295,6 +297,7 @@ const createBankResponseService = async (conn, payload, companyId, role, userId)
                   const payInData = {
                     status: 'SUCCESS',
                     is_notified: true,
+                    // is_used: true,
                     user_submitted_utr:
                       botRes?.utr || checkPayInUtr[0]?.user_submitted_utr,
                     approved_at: new Date(),
