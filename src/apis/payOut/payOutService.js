@@ -162,15 +162,15 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     delete payload.method;
     const data = await updatePayoutDao(ids, payload, conn);
     if (!data.approved_at) return;
-    const bankDataArr = await getBankaccountDao({ id: data.bank_acc_id });
+    const bankDataArr = await getBankaccountDao({ id: data.bank_acc_id }, null, null, role);
     const bankData = bankDataArr[0];
     if(!bankData){
       throw new NotFoundError('Bank not found!');
     }
 
     const [merchantArr, vendorArr, userArr] = await Promise.all([
-      getMerchantsDao({ id: data.merchant_id }),
-      getVendorsDao({ user_id: bankData.user_id }),
+      getMerchantsDao({ id: data.merchant_id }, null,null,null,null),
+      getVendorsDao({ user_id: bankData.user_id }, null,null,null,null),
       getUserByIdDao(conn, { id: bankData.user_id }),
     ]);
 
@@ -210,7 +210,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         },
         conn,
       );
-
+      
       const merchantCommission = calculateCommission(
         data.amount,
         data.commission,
@@ -299,6 +299,13 @@ const updatePayoutCalculations = async (
   isReverse = false,
   conn,
 ) => {
+  console.log(userId,
+    date,
+    amount,
+    commission,
+    isMerchant,
+    isReverse = false,
+    conn,"payoutconsoled")
   const currentCalculation = await getCalculationforCronDao(userId);
   const cal = currentCalculation[0];
   console.log(cal, userId);
