@@ -319,7 +319,6 @@ const updateCalculationDao = async (id, data, conn) => {
     } else {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
-
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
     console.error('Error updating calculation:', error); // Log the error for debugging
