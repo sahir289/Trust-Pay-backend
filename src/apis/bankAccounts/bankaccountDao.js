@@ -123,7 +123,7 @@ const createBankaccountDao = async (payload) => {
 };
 
 const getBankaccountDaoNickName = async (conn, company_id, type) => {
-  const baseQuery = `SELECT nick_name as label, id as value FROM "${tableName.BANK_ACCOUNT}" WHERE company_id = $1 AND is_obsolete= false AND bank_used_for= $2`;
+  const baseQuery = `SELECT nick_name as label, id as value FROM "${tableName.BANK_ACCOUNT}" WHERE company_id = $1 AND bank_used_for= $2 AND is_obsolete = false`;
   const queryParams = [company_id, type];
   const result = await conn.query(baseQuery, queryParams);
   return { totalCount: result.rowCount, bankNames: result.rows };
