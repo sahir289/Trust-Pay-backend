@@ -89,7 +89,6 @@ export const getVendorsDao = async (
       columns.length ? columns : '*',
       joins,
     );
-    console.log(baseQuery);
     if (filters.search) {
       filters.or = buildSearchFilterObj(filters.search, VENDOR);
       delete filters.search;

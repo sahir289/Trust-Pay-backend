@@ -83,7 +83,6 @@ const getBankResponseDaoAll = async (
       columns.length ? columns : '*',
       joins,
     );
-    console.log(baseQuery, 'baseQueryfiltersfilters');
     if (filters.search) {
       filters.or = buildSearchFilterObj(filters.search, BANK_ACCOUNT);
       delete filters.search;
@@ -97,7 +96,6 @@ const getBankResponseDaoAll = async (
       sortOrder,
       tableName.BANK_RESPONSE,
     );
-    console.log(sql, queryParams, 'sqlqueryParams');
     const result = await executeQuery(sql, queryParams);
     return { totalCount: result.rows.length, rows: result.rows };
   } catch {
