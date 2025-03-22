@@ -49,8 +49,8 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
   const created_by = name ? name : 'Bank Response';
   const updated_by = name ? name : 'Bank Response';
   const company_id = companyId;
-  const isValidAmount = amount;
-
+  const isValidAmount = 500000>amount>1;
+ 
   let isValidAmountCode
   if (upi_short_code) {
     isValidAmountCode =
