@@ -301,9 +301,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                     status: 'SUCCESS',
                     is_notified: true,
                     // is_used: true,
-                    utr: utr,
-                    user_submitted_utr:
-                      botRes?.utr || checkPayInUtr[0]?.user_submitted_utr,
+                    user_submitted_utr:botRes?.utr ,
                     approved_at: new Date(),
                     duration: duration,
                     payin_merchant_commission: payinMerchantCommission,
@@ -358,9 +356,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                 const payInData = {
                   status: 'SUCCESS',
                   is_notified: true,
-                  utr: utr,
-                  user_submitted_utr:
-                    botRes?.utr || checkPayInUtr[0]?.user_submitted_utr,
+                  user_submitted_utr:botRes?.utr ,
                   approved_at: new Date(),
                   duration: duration,
                   payin_merchant_commission: payinMerchantCommission,
@@ -664,9 +660,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
               const payInData = {
                 status: 'SUCCESS',
                 is_notified: true,
-                utr: utr,
-                user_submitted_utr:
-                  botRes?.utr || checkPayInUtr[0]?.user_submitted_utr,
+                user_submitted_utr:botRes?.utr ,
                 approved_at: new Date(),
                 duration: duration,
                 payin_merchant_commission: payinMerchantCommission,
@@ -724,8 +718,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
             const payInData = {
               status: 'SUCCESS',
               is_notified: true,
-              user_submitted_utr:
-                botRes?.utr || checkPayInUtr[0]?.user_submitted_utr,
+              user_submitted_utr:botRes?.utr ,
               approved_at: new Date(),
               duration: duration,
               payin_merchant_commission: payinMerchantCommission,
