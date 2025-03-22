@@ -158,7 +158,11 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
           null,
           filterColumns,
         );
-        const botUtrIsUsed = getDataByUtr?.some((item) => item.is_used); //isused- true and bankresponse entry and payin status - pending , assigned , initiated, dropped
+        console.log(getDataByUtr, "getDataByUtr1234")
+        let botUtrIsUsed
+         if(getDataByUtr.rows.length>1){  
+        botUtrIsUsed = getDataByUtr?.some((item) => item.is_used); //isused- true and bankresponse entry and payin status - pending , assigned , initiated, dropped
+         }
         if (
           !acceptedStatus.includes(checkPayInUtr[0]?.status) &&
           botUtrIsUsed

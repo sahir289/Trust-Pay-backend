@@ -1154,11 +1154,11 @@ export const telegramCheckUTRService = async (
 
   const bankResponse = await getBankResponseDao({ utr });
   let otherBankResponse = {};
+  const payIn = await getPayInUrlDao({ merchant_order_id });
 
   if (!bankResponse) {
-    return { message: `UTR Does Not match in Bank Response` }
+    return { message: `${utr} UTR Does Not match with ${payIn.merchant_order_id} Merchant Order ID` }
   }
-  const payIn = await getPayInUrlDao({ merchant_order_id });
   if (!payIn) {
     // throw new NotFoundError('Merchant Order ID not found in Payin');
     return { message: `Merchant Order ID not found in Payin` }
