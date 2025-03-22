@@ -18,10 +18,11 @@ export const CREATE_USER_SCHEMA = Joi.object({
     .label('contact_no')
     .required(), // Allows 10-15 digit numbers
   user_name: Joi.string().label('user_name').required(),
-  password: Joi.string().label('password').required(), // Enforcing a min length for security
+  password: Joi.string().label('password').required(),
   code: Joi.string().label('code').required(),
   is_enabled: Joi.boolean().label('is_enabled').optional(),
-  // New optional fields
+
+  // Payin & Payout Configurations
   min_payin: Joi.number().min(0).label('min_payin').optional(),
   max_payin: Joi.number()
     .min(Joi.ref('min_payin'))
@@ -43,9 +44,14 @@ export const CREATE_USER_SCHEMA = Joi.object({
     .max(100)
     .label('payout_commission')
     .optional(),
-
+  // Optional Fields
+  payin_notify: Joi.string().uri().label('payin_notify').optional(),
+  payout_notify: Joi.string().uri().label('payout_notify').optional(),
+  return_url: Joi.string().uri().label('return_url').optional(),
+  site: Joi.string().uri().label('site').optional(),
   config: Joi.object().label('config').optional(),
 });
+
 
 
 export const VALIDATE_USER_BY_ID = Joi.object({

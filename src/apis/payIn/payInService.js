@@ -79,9 +79,8 @@ export const generatePayInUrlService = async (payload, created_by) => {
   const merchantArr = await getMerchantsDao({ code });
   const banks = await getMerchantBankDao({ config_merchants_contains: merchantArr[0].id });
 
-  if (banks.length<1) {
-    // throw new NotFoundError('No Bank Assigned to Merchant')
-    return {error : `No Bank Assigned to Merchant`}
+  if (banks.length < 1) {
+    throw new NotFoundError('No Bank Assigned to Merchant')
   }
   const merchant = merchantArr[0];
   if (!merchant) {
@@ -216,12 +215,14 @@ export const assignedBankToPayInUrlService = async (
 
   if (!merchant) {
     // throw new NotFoundError('No merchant found');
-    return {message : `No merchant found`}
+    return { message: `No merchant found` }
   }
-  const validAmount = merchant.min_payin< amount <merchant.max_payin
-  if(!validAmount){
-    // throw new NotFoundError( ``);
-    return {error : `Amount must be between ${merchant.max_payin} and ${merchant.min_payin}`}
+  const maxPayIn = Number(merchant.max_payin);
+  const minPayIn = Number(merchant.min_payin);
+  const amt = Number(amount);
+
+  if (amt >= maxPayIn || amt <= minPayIn) {
+    return { message: `Amount must be between ${minPayIn} and ${maxPayIn}` };
   }
   const banks = await getMerchantBankDao({ config_merchants_contains: merchant.id });
 
@@ -520,8 +521,8 @@ export const updateDepositStatusService = async (
     await updateCalculationTable(
       merchant.user_id,
       {
-        amount : payInData.amount,
-        payinCommission : payinCommission
+        amount: payInData.amount,
+        payinCommission: payinCommission
       },
       conn,
     );
@@ -530,8 +531,8 @@ export const updateDepositStatusService = async (
     await updateCalculationTable(
       bank.user_id,
       {
-        amount : payInData.amount,
-        payinCommission : vendorPayinCommission
+        amount: payInData.amount,
+        payinCommission: vendorPayinCommission
       },
       conn,
     );
@@ -1155,12 +1156,12 @@ export const telegramCheckUTRService = async (
   let otherBankResponse = {};
 
   if (!bankResponse) {
-    return {message : `UTR Does Not match in Bank Response`}
+    return { message: `UTR Does Not match in Bank Response` }
   }
   const payIn = await getPayInUrlDao({ merchant_order_id });
   if (!payIn) {
     // throw new NotFoundError('Merchant Order ID not found in Payin');
-    return {message : `Merchant Order ID not found in Payin`}
+    return { message: `Merchant Order ID not found in Payin` }
 
   }
   await createCheckUtrService({
@@ -1225,7 +1226,7 @@ export const getPayinsServiceById = async (id) => {
 const checkIsPayInExpired = (payIn) => {
   if (Number(payIn.expiration_date) < Date.now() || payIn.is_url_expires) {
     // throw new BadRequestError('PayIn has been expired already!');
-    return {message : `PayIn has been expired already!`}
+    return { message: `PayIn has been expired already!` }
   }
 
   return false;
@@ -1233,7 +1234,7 @@ const checkIsPayInExpired = (payIn) => {
 
 const updateCalculationTable = async (user_id, data, conn) => {
   if (user_id) {
-    const calculation = await getCalculationforCronDao({user_id: user_id});
+    const calculation = await getCalculationforCronDao({ user_id: user_id });
     console.log(calculation)
     await updateCalculationBalanceDao(
       calculation.id,
