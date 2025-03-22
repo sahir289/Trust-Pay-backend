@@ -19,9 +19,12 @@ const createVendorService = async (conn, payload, roleIs) => {
   try {
     const filterColumns =
       roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
+    let role_id = payload.role_id;
+    delete payload.role_id;
     const data = await createVendorDao(payload, conn);
     const calculationPayload = {
       user_id: data.user_id,
+      role_id:role_id,
       company_id: data.company_id,
     };
     await createCalculationDao(conn, calculationPayload);

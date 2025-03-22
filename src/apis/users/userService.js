@@ -1,6 +1,7 @@
 import { InternalServerError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
 import { getConnection } from '../../utils/db.js';
+import { generateUUID } from '../../utils/generateUUID.js';
 import {
   createUserDao,
   getUserByIdDao,
@@ -110,8 +111,6 @@ const createUserService = async (conn, payload, role) => {
     const password = await createHash(payload.password);
     payload.password = password;
    
-
-    
     const userPayload = {
       code: payload.code,
       role_id: payload.role_id,
@@ -127,14 +126,24 @@ const createUserService = async (conn, payload, role) => {
       created_by: payload.created_by,
       updated_by:payload.updated_by
     };
-
+    const payin_notify = payload.payin_notify;
+    const payout_notify = payload.payout_notify;
+    const return_url = payload.return_url;
+    const site = payload.site;
+    delete payload.payin_notify;
+    delete payload.payout_notify;
+    delete payload.return_url;
+    delete payload.site;
     const User = await createUserDao(userPayload, conn);
     const userRole = await getUsersByUserNameDao(
       payload,
       user_name,
     );
+    console.log(userRole,"hey users")
     if (
-      userRole.role === Role.MERCHANT     ) {
+      userRole.role === Role.MERCHANT) {
+  const Secret = generateUUID();
+  const Public = generateUUID();
       const merchantPayload = {
         user_id: User.id,
         role_id: payload.role_id,
@@ -142,20 +151,30 @@ const createUserService = async (conn, payload, role) => {
         first_name: payload.first_name,
         last_name: payload.last_name,
         code: payload.code,
-        balance: 0.0,
-        min_payin: payload.min_payin,
-        max_payin: payload.max_payin,
-        payin_commission: payload.payin_commission,
-        min_payout: payload.min_payout,
-        max_payout: payload.max_payout,
-        payout_commission: payload.payout_commission,
+        balance: Number(0),
+        min_payin: Number(payload.min_payin),
+        max_payin: Number(payload.max_payin),
+        payin_commission: Number(payload.payin_commission),
+        min_payout: Number(payload.min_payout),
+        max_payout: Number(payload.max_payout),
+        payout_commission: Number(payload.payout_commission),
         created_by: payload.created_by,
         updated_by: payload.updated_by,
+        config: {
+          urls: {
+            payin_notify: payin_notify,
+            payout_notify: payout_notify,
+            return_url: return_url,
+            site: site,
+          },
+          keys: {
+            secret: Secret,
+            public: Public,
+          },
+        }
       };
-      console.log(merchantPayload,"merchant payload");
       await createMerchantService(conn, merchantPayload, role);
     }
-
 
     if (userRole.role === Role.VENDOR) {
       const vendorPayload ={
@@ -165,7 +184,7 @@ const createUserService = async (conn, payload, role) => {
         first_name: payload.first_name,
         last_name: payload.last_name,
         code: payload.code,
-        balance: 0.0,
+        balance: Number(0),
         payin_commission: payload.payin_commission,
         payout_commission: payload.payout_commission,
         created_by: payload.created_by,
