@@ -256,6 +256,11 @@ export const getCalculationsSumDao = async (filters) => {
 
   netBalance.vendor = (await executeQuery(vendorCalQuery)).rows[0]?.net_balance_sum || 0;
   netBalance.merchant = (await executeQuery(merchantCalQuery)).rows[0]?.net_balance_sum || 0;
+  console.log("======================")
+  console.log("======================")
+  console.log(vendorCalQuery)
+  console.log("======================")
+  console.log(merchantCalQuery)
 
   return {
     vendor: vendorData,
@@ -264,7 +269,7 @@ export const getCalculationsSumDao = async (filters) => {
   };
 };
 
-////for cron job to update net_balance
+//for cron job to update net_balance
 export const getCalculationforCronDao = async (userId) => {
   try {
     const sql = `
