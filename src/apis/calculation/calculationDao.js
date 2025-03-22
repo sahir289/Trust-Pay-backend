@@ -347,7 +347,7 @@ export const updateCalculationBalanceDao = async (filters, data, conn) => {
       specialFields[el] = '+';
     });
     const [sql, params] = buildUpdateQuery(
-      tableName,
+      tableName.CALCULATION,
       data,
       filters,
       specialFields,

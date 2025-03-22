@@ -80,7 +80,8 @@ export const generatePayInUrlService = async (payload, created_by) => {
   const banks = await getMerchantBankDao({ config_merchants_contains: merchantArr[0].id });
 
   if (banks.length<1) {
-    throw new NotFoundError('No Bank Assigned to Merchant')
+    // throw new NotFoundError('No Bank Assigned to Merchant')
+    return {error : `No Bank Assigned to Merchant`}
   }
   const merchant = merchantArr[0];
   if (!merchant) {
@@ -217,9 +218,10 @@ export const assignedBankToPayInUrlService = async (
     // throw new NotFoundError('No merchant found');
     return {message : `No merchant found`}
   }
-  if(!(merchant.max_payin> amount >merchant.min_payin)){
+  const validAmount = merchant.min_payin< amount <merchant.max_payin
+  if(!validAmount){
     // throw new NotFoundError( ``);
-    return {message : `Amount must be between ${merchant.max_payin} and ${merchant.min_payin}`}
+    return {error : `Amount must be between ${merchant.max_payin} and ${merchant.min_payin}`}
   }
   const banks = await getMerchantBankDao({ config_merchants_contains: merchant.id });
 
@@ -435,6 +437,7 @@ export const updateDepositStatusService = async (
   company_id,
   updated_by,
 ) => {
+  console.log("insideupdateDepositStatusService")
   const payInData = await getPayInUrlDao({
     merchant_order_id: merchantOrderId,
     company_id,
@@ -466,13 +469,13 @@ export const updateDepositStatusService = async (
   if (!bankResponse) {
     throw new NotFoundError('No bank response found!');
   }
-
+const bankaccounts = await getBankaccountDao({id: bankResponse.bank_id}, null,null, "ADMIN")
+const bankaccount = bankaccounts[0]
   const vendors = await getVendorsDao({
-    user_id: bankResponse.user_id,
+    user_id: bankaccount.user_id,
     company_id,
   });
   const vendor = vendors[0];
-
   //calculate the payin commission
   const payinCommission = calculateCommission(
     bankResponse.amount,
@@ -482,6 +485,7 @@ export const updateDepositStatusService = async (
     bankResponse.amount,
     vendor.payin_commission,
   );
+  //, vendor,bankResponse,
   const duration = calculateDuration(payInData.created_at);
 
   const banks = await getBankaccountDao({ nick_name, company_id });
@@ -514,7 +518,6 @@ export const updateDepositStatusService = async (
     updatePayInData.payin_merchant_commission = payinCommission;
     updatePayInData.payin_vendor_commission = vendorPayinCommission;
     updatePayInData.bank_acc_id = bankResponse.bank_id;
-
     // update merchant caclulation table
     await updateCalculationTable(
       merchant.user_id,
@@ -1226,9 +1229,9 @@ const checkIsPayInExpired = (payIn) => {
 
 const updateCalculationTable = async (user_id, data, conn) => {
   if (user_id) {
-    const calculation = getCalculationforCronDao(user_id);
+    const calculation = await getCalculationforCronDao(user_id);
     await updateCalculationBalanceDao(
-      { id: calculation.id },
+       {id: calculation[0].id} ,
       {
         total_payin_count: 1,
         total_payin_amount: data.amount,
