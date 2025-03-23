@@ -438,6 +438,7 @@ export const updateDepositStatusService = async (
   company_id,
   updated_by,
 ) => {
+  console.log("insideupdateDepositStatusService")
   const payInData = await getPayInUrlDao({
     merchant_order_id: merchantOrderId,
     company_id,
@@ -483,7 +484,6 @@ export const updateDepositStatusService = async (
     company_id,
   });
   const vendor = vendors[0];
-
   //calculate the payin commission
   const payinCommission = calculateCommission(
     bankResponse.amount,
@@ -517,7 +517,6 @@ export const updateDepositStatusService = async (
     updatePayInData.payin_merchant_commission = payinCommission;
     updatePayInData.payin_vendor_commission = vendorPayinCommission;
     updatePayInData.bank_acc_id = bankResponse.bank_id;
-
     // update merchant caclulation table
     await updateCalculationTable(
       merchant.user_id,
@@ -1155,11 +1154,11 @@ export const telegramCheckUTRService = async (
 
   const bankResponse = await getBankResponseDao({ utr });
   let otherBankResponse = {};
+  const payIn = await getPayInUrlDao({ merchant_order_id });
 
   if (!bankResponse) {
-    return { message: `UTR Does Not match in Bank Response` }
+    return { message: `${utr} UTR Does Not match with ${payIn.merchant_order_id} Merchant Order ID` }
   }
-  const payIn = await getPayInUrlDao({ merchant_order_id });
   if (!payIn) {
     // throw new NotFoundError('Merchant Order ID not found in Payin');
     return { message: `Merchant Order ID not found in Payin` }

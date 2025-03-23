@@ -299,13 +299,6 @@ const updatePayoutCalculations = async (
   isReverse = false,
   conn,
 ) => {
-  console.log(userId,
-    date,
-    amount,
-    commission,
-    isMerchant,
-    isReverse = false,
-    conn,"payoutconsoled")
   const currentCalculation = await getCalculationforCronDao(userId);
   const cal = currentCalculation[0];
   console.log(cal, userId);
