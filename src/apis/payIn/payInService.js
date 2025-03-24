@@ -160,7 +160,7 @@ export const getPayInUrlService = async (id, conn) => {
       status: Status.DROPPED,
     }, conn);
     // Notifying merchant about expired URL
-    merchantPayinCallback(config.urls?.notify, {
+    merchantPayinCallback(config.urls?.payin_notify, {
       status: Status.DROPPED,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
@@ -188,7 +188,7 @@ export const expirePayInUrlService = async (payInId) => {
     status: Status.DROPPED,
   });
 
-  merchantPayinCallback(config.urls?.notify, {
+  merchantPayinCallback(config.urls?.payin_notify, {
     status: Status.DROPPED,
     merchantOrderId: payIn.merchant_order_id,
     payinId: payIn.id,
@@ -250,7 +250,7 @@ export const assignedBankToPayInUrlService = async (
       is_url_expires: true,
       status: Status.DROPPED,
     });
-    merchantPayinCallback(payInConfig.urls?.notify, {
+    merchantPayinCallback(payInConfig.urls?.payin_notify, {
       status: Status.DROPPED,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
@@ -391,7 +391,7 @@ export const updatePaymentNotificationStatusService = async (
       company_id,
     });
 
-    return await merchantPayinCallback(payIn.config?.urls?.notify, {
+    return await merchantPayinCallback(payIn.config?.urls?.payin_notify, {
       status: payIn.status,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
@@ -438,7 +438,6 @@ export const updateDepositStatusService = async (
   company_id,
   updated_by,
 ) => {
-  console.log("insideupdateDepositStatusService")
   const payInData = await getPayInUrlDao({
     merchant_order_id: merchantOrderId,
     company_id,
@@ -569,7 +568,7 @@ export const updateDepositStatusService = async (
       : payInData.amount;
   await updateBanktBalanceDao({ id: bank.id }, bankBalance, updated_by, conn);
 
-  merchantPayinCallback(updatePayInRes.config?.urls?.notify, {
+  merchantPayinCallback(updatePayInRes.config?.urls?.payin_notify, {
     status: updatePayInRes.status,
     merchantOrderId: updatePayInRes.merchant_order_id,
     payinId: updatePayInRes.id,
@@ -720,7 +719,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
     if (payIn.status === Status.DUPLICATE) {
       result.utr_id = bankResponse.utr || payIn.user_submitted_utr;
     }
-    merchantPayinCallback(payIn.config?.urls?.notify, result);
+    merchantPayinCallback(payIn.config?.urls?.payin_notify, result);
     return result;
   }
 
@@ -728,7 +727,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
     updatePayInData.status = Status.DUPLICATE;
     result.status = Status.DUPLICATE;
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-    merchantPayinCallback(payIn.config?.urls?.notify, result);
+    merchantPayinCallback(payIn.config?.urls?.payin_notify, result);
     return {
       ...result,
       message: 'Duplicate entry found!',
@@ -754,7 +753,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
     updatePayInData.approved_at = new Date().toISOString();
     result.status = Status.BANK_MISMATCH;
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-    merchantPayinCallback(payIn.config?.urls?.notify, result);
+    merchantPayinCallback(payIn.config?.urls?.payin_notify, result);
     return {
       ...result,
       message: 'Bank Mismatched',
@@ -794,6 +793,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
 
   if (updatePayInData.status === Status.DISPUTE) {
     // update bank balance
+    updated_by = updated_by ? updated_by : bank.updated_by,
     await updateBanktBalanceDao(
       { id: bank.id },
       payIn.amount,
@@ -803,7 +803,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
   }
 
   await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-  merchantPayinCallback(payIn.config?.urls?.notify, result);
+  merchantPayinCallback(payIn.config?.urls?.payin_notify, result);
   return result;
 };
 
@@ -985,8 +985,15 @@ export const disputeDuplicateTransactionService = async (
     company_id,
   });
   const merchant = merchants[0];
+  const banks = await getBankaccountDao({ id: bankId, company_id });
+  const bank = banks[0];
+
+  if (!bank) {
+    throw new NotFoundError('Bank not found!');
+  }
+
   const vendors = await getVendorsDao({
-    user_id: bankResponse.user_id,
+    user_id: bank.user_id,
     company_id,
   });
   const vendor = vendors[0];
@@ -1063,7 +1070,7 @@ export const disputeDuplicateTransactionService = async (
       updateBalance = false;
     }
 
-    merchantPayinCallback(payIn.config?.urls?.notify, {
+    merchantPayinCallback(payIn.config?.urls?.payin_notify, {
       status: newStatus,
       merchantOrderId: merchantOrderId,
       payinId: payInData.id,
@@ -1083,6 +1090,7 @@ export const disputeDuplicateTransactionService = async (
 
   if (makeItSuccess) {
     updatePayload.status = Status.SUCCESS;
+    updatePayload.amount = toAmount;
     updatePayload.payin_merchant_commission = payinCommission;
     updatePayload.payin_vendor_commission = vendorPayinCommission;
   } else {
@@ -1096,7 +1104,7 @@ export const disputeDuplicateTransactionService = async (
     updated_by,
     conn,
   );
-  merchantPayinCallback(payIn.config?.urls?.notify, {
+  merchantPayinCallback(payIn.config?.urls?.payin_notify, {
     status: updatePayload.status,
     merchantOrderId: payIn.merchant_order_id,
     payinId: payIn.id,
@@ -1234,10 +1242,10 @@ const checkIsPayInExpired = (payIn) => {
 
 const updateCalculationTable = async (user_id, data, conn) => {
   if (user_id) {
-    const calculation = await getCalculationforCronDao({ user_id: user_id });
-    console.log(calculation)
+    const calculation = await getCalculationforCronDao(user_id);
+    const calculationId = calculation[0]?.id;
     await updateCalculationBalanceDao(
-      calculation.id,
+      {id: calculationId},
       {
         total_payin_count: 1,
         total_payin_amount: data.amount,
