@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   createMerchantService,
@@ -13,75 +14,82 @@ import {
 } from '../../schemas/merchantSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
-import { generateUUID } from '../../utils/generateUUID.js';
+import { createHashApiKey } from '../../utils/cryptoAlgorithm.js';
+import { logger } from '../../utils/logger.js';
+
 const createMerchant = async (req, res) => {
-  let payload = req.body;
-  const Secret = generateUUID();
-  const Public = generateUUID();
- payload.config = {
-   ...payload.config, // Preserve existing config properties
-   urls: {
-     payin_notify: payload.payin_notify,
-     payout_notify: payload.payout_notify,
-     return_url: payload.return_url,
-     site: payload.site,
-   },
-   keys: {
-     secret:Secret,
-     public:Public,
-   },
- };
-  delete payload.payin_notify;
-  delete payload.payout_notify;
-  delete payload.return_url;
-  delete payload.site;
-  const { company_id, user_id, role, } = req.user;
-  const { error } = VALIDATE_MERCHANT_SCHEMA.validate(payload);
-  if (error) {
-    throw new ValidationError(error);
-  }
-   payload.company_id = company_id;
-   payload.created_by = user_id;
-   payload.updated_by = user_id;
-  // Call the service to create the Merchant
-  await transactionWrapper(createMerchantService)(payload, role);
+    const { body: payload, user } = req;
+    const { company_id, user_id, role } = user;
+    const { secretKey, publicKey } = createHashApiKey();
 
-  // Log success message
-  console.log('Merchant created successfully');
+    // transform payload in a single, immutable operation
+    let merchantData = {
+      ...payload,
+      config: {
+        ...payload.config,
+        urls: {
+          payin_notify: payload.payin_notify,
+          payout_notify: payload.payout_notify,
+          return: payload.return_url,
+          site: payload.site,
+        },
+        keys: {
+          private: secretKey,
+          public: publicKey,
+        },
+      },
+    };
 
-  // Send a success response to the client
-  return sendSuccess(res, {}, 'Merchant created successfully');
+    // *** removed unnecessary fields using object destructuring as it is not needed in the service ***
+    const { payin_notify, payout_notify, return_url, site, ...cleanedPayload } = merchantData;
+
+    const validation = VALIDATE_MERCHANT_SCHEMA.validate(cleanedPayload);
+    if (validation.error) {
+      throw new ValidationError(validation.error);
+    }
+    const finalPayload = {
+      ...cleanedPayload,
+      company_id,
+      created_by: user_id,
+      updated_by: user_id,
+    };
+    console.log(finalPayload, "finalPayload")
+
+    await transactionWrapper(createMerchantService)(finalPayload, role);
+
+    logger.info('Merchant created successfully', { company_id, user_id });
+    return sendSuccess(res, null, 'Merchant created successfully');
 };
+
 const getMerchants = async (req, res) => {
   const { company_id, role, designation, user_id } = req.user;
-  const {page, limit} = req.query;
+  const { page, limit } = req.query;
   const data = await getMerchantsService(
     {
       company_id,
       ...req.query,
     },
-    role, page,limit,
+    role,
+    page,
+    limit,
     designation,
-    user_id
+    user_id,
   );
   console.log('get Merchants successfully');
   return sendSuccess(res, data, 'Merchants fetched successfully');
 };
 
 const getMerchantCodes = async (req, res) => {
-  const {company_id} = req.user
-  const data = await getMerchantsServiceCode(
-    company_id
-  );
+  const { company_id } = req.user;
+  const data = await getMerchantsServiceCode(company_id);
   console.log('get Merchants successfully');
   return sendSuccess(res, data, 'Merchants fetched successfully');
 };
 
-
 const getMerchantsById = async (req, res) => {
   const { role } = req.user;
   if (!req.params) {
-    throw new BadRequestError("id required in request");
+    throw new BadRequestError('id required in request');
   }
   const { id } = req.params;
   const { company_id } = req.user;
@@ -95,16 +103,16 @@ const getMerchantsById = async (req, res) => {
 };
 
 const updateMerchant = async (req, res) => {
- if (!req.params) {
-   throw new BadRequestError('id required in request');
- }
+  if (!req.params) {
+    throw new BadRequestError('id required in request');
+  }
   let payload = req.body;
   const { error: bodyError } =
     VALIDATE_UPDATE_MERCHANT_STATUS.validate(payload);
   if (bodyError) {
     throw new ValidationError(bodyError);
   }
-  const { id } = req.params; 
+  const { id } = req.params;
   const { company_id, user_id, role } = req.user;
   payload.updated_by = user_id;
   const ids = { id, company_id };
@@ -140,5 +148,5 @@ export {
   updateMerchant,
   deleteMerchant,
   getMerchantsById,
-  getMerchantCodes
+  getMerchantCodes,
 };
