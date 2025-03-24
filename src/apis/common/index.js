@@ -22,6 +22,12 @@ const router = express.Router();
  *         schema:
  *           type: string
  *         description: Name of the table/module
+ *       - in: query
+ *         name: role
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Role of the user
  *     responses:
  *       200:
  *         description: Total count retrieved successfully.
