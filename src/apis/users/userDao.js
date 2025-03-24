@@ -105,6 +105,7 @@ const getUserByIdDao = async (conn, ids) => {
         u.updated_by, 
         u.created_at, 
         u.updated_at, 
+        u.password,
         r.role , 
         d.designation   
       FROM public."User" u
@@ -125,12 +126,15 @@ const getUserByIdDao = async (conn, ids) => {
       baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
       queryParams.push(ids.company_id);
     }
+    if (ids.user_id) {
+      baseQuery += ` AND u.id = $${queryParams.length + 1}`;
+      queryParams.push(ids.user_id);
+    }
     const result = await conn.query(baseQuery, queryParams);
     if (result.rowCount === 0) {
       console.error('No user found with the provided id and filters');
       return [];
     }
-
     return result.rows;
   } catch (error) {
     console.error('error getting while fetching user', error);

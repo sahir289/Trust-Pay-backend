@@ -1,8 +1,11 @@
 import { logoutSet } from '../../middlewares/auth.js';
 import { INSERT_AUTH_SCHEMA } from '../../schemas/authSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import { verifyHash } from '../../utils/bcryptPassword.js';
+import { getConnection } from '../../utils/db.js';
 // import { verifyToken } from '../../utils/auth.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
+import { getUserByIdDao } from '../users/userDao.js';
 import {
   loginService,
   // logoutService,
@@ -53,4 +56,17 @@ const logoutController = async (req, res) => {
   return sendSuccess(res, {}, 'logout successfully');
 };
 
-export { loginController, refreshTokenController, logoutController };
+const verificationController =async(req, res) => {
+  let conn;
+  const { user_id } = req.user;
+  const { password } = req.body.password;
+  conn = await getConnection();
+  const userDetails = await getUserByIdDao(conn, {id : user_id});
+  const isPasswordValid = await verifyHash(password, userDetails[0].password);
+  if(!isPasswordValid){
+    throw new BadRequestError('Invalid Password');
+  }
+  return sendSuccess(res, {}, 'verification successfully');
+}
+
+export { loginController, refreshTokenController, logoutController, verificationController };
