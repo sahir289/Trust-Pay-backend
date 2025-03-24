@@ -1,6 +1,6 @@
 import config from '../../config/config.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
+import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { updatePayInUrlDao } from './payInDao.js';
 import {
   ASSIGN_PAYIN_SCHEMA,
@@ -219,8 +219,12 @@ export const resetDeposit = async (req, res) => {
     req.user.company_id,
     req.user.user_id,
   );
-  sendSuccess(res, data, `Payin Reset Successful`,
-  );
+  if (data.error) {
+    sendError(res, data);
+  }
+  else {
+    sendSuccess(res, data, 'PayIn reset successful');
+  }
 };
 export const getPayins = async (req, res) => {
   const { company_id, role } = req.user;

@@ -598,13 +598,18 @@ export const resetDepositService = async (
     company_id,
   });
 
-  if (
-    [Status.SUCCESS, Status.FAILED, Status.ASSIGNED, Status.DROPPED].includes(
-      payIn.status,
-    )
-  ) {
-    throw new BadRequestError('This payIn can not be reset!');
-  }
+  const nonResettableStatuses = new Set([
+    Status.SUCCESS,
+    Status.FAILED,
+    Status.ASSIGNED,
+    Status.DROPPED,
+    Status.INITIATED,
+  ]);
+  
+  if (nonResettableStatuses.has(payIn.status)) {
+    return { error: 'This payIn cannot be reset!' };
+  }  
+
   const condition = {
     company_id,
   };
