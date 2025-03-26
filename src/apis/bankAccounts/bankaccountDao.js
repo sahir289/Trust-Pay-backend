@@ -60,7 +60,8 @@ const getBankaccountDao = async (filters,  page, limit, role) => {
 `SELECT 
    ba.id, 
    ba.sno, 
-   ba.upi_id, 
+   ba.upi_id,
+   ba.acc_holder_name,
    ba.upi_params, 
    ba.nick_name, 
    ba.acc_no, 

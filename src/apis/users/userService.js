@@ -139,11 +139,10 @@ const createUserService = async (conn, payload, role) => {
       payload,
       user_name,
     );
-    console.log(userRole,"hey users")
     if (
       userRole.role === Role.MERCHANT) {
-  const Secret = generateUUID();
-  const Public = generateUUID();
+      const Private = generateUUID();
+      const Public = generateUUID();
       const merchantPayload = {
         user_id: User.id,
         role_id: payload.role_id,
@@ -164,11 +163,11 @@ const createUserService = async (conn, payload, role) => {
           urls: {
             payin_notify: payin_notify,
             payout_notify: payout_notify,
-            return_url: return_url,
+            return: return_url,
             site: site,
           },
           keys: {
-            secret: Secret,
+            secret: Private,
             public: Public,
           },
         }
@@ -185,8 +184,8 @@ const createUserService = async (conn, payload, role) => {
         last_name: payload.last_name,
         code: payload.code,
         balance: Number(0),
-        payin_commission: payload.payin_commission,
-        payout_commission: payload.payout_commission,
+        payin_commission: Number(payload.payin_commission),
+        payout_commission: Number(payload.payout_commission),
         created_by: payload.created_by,
         updated_by:payload.updated_by
       };
