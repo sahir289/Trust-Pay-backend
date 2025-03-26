@@ -33,7 +33,7 @@ export const UPDATE_BANK_ACCOUNT_SCHEMA = Joi.object({
   is_intent: Joi.boolean().label('is_intent').optional(),
   is_phonepay: Joi.boolean().label('is_phonepay').optional(),
   upi_id: Joi.string().label('upi_id').optional(),
-  upi_params: Joi.string().label('upi_params').optional(),
+  upi_params: Joi.string().label('upi_params').optional().allow(''),
   nick_name: Joi.string().label('nick_name').optional(),
   acc_holder_name: Joi.string().label('acc_holder_name').optional(),
   acc_no: Joi.number().label('acc_no').optional(),
