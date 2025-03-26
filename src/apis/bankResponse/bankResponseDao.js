@@ -160,7 +160,6 @@ const resetBankResponseDao = async (id, data) => {
 };
 
 const updateBotResponseDao = async (id, data, conn) => {
-  console.log(data,id);
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, {
       id,
