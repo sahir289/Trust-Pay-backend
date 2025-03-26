@@ -678,7 +678,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
   }
 }
 
-const getBankResponseService = async (payload, role) => {
+const getBankResponseService = async (payload, role, page, limit) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -703,10 +703,10 @@ const getBankResponseService = async (payload, role) => {
       }).filter(([, v]) => v !== undefined)
     );
 
-    return await getBankResponseDaoAll(filters, null, null, null, null, filterColumns);
+    return await getBankResponseDaoAll(filters, page, limit, null, null, filterColumns);
   } catch (error) {
-    console.error('Error while fetching BankResponse:', error);
-    throw new BadRequestError('Error occurred while Fetching BankResponse');
+    console.error('Error in getBankResponseService:', error);
+    throw error;
   }
 };
 
