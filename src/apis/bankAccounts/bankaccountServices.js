@@ -1,6 +1,7 @@
 
 import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
+import { getBankResponseDaoAll, updateBotResponseDao } from '../bankResponse/bankResponseDao.js';
 import {
   getBankaccountDao,
   createBankaccountDao,
@@ -75,6 +76,14 @@ const updateBankaccountService = async (conn, ids, payload) => {
       payload,
       conn,
     );
+    if (payload.config.is_freezed === true) {
+      const bankResponse = await getBankResponseDaoAll({bank_id: ids.id, is_used: false});
+      if (bankResponse.length > 0) {
+        for (let i = 0; i < bankResponse.length; i++) {
+          await updateBotResponseDao(bankResponse[i].id, {status: '/freezed'});
+        }
+      }
+    }
     return result;
   } catch (error) {
     console.error('error getting while  updating banks', error);
