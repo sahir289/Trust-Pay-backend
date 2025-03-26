@@ -706,7 +706,7 @@ const getBankResponseService = async (payload, role, page, limit) => {
     return await getBankResponseDaoAll(filters, page, limit, null, null, filterColumns);
   } catch (error) {
     console.error('Error in getBankResponseService:', error);
-    throw error;
+    throw new BadRequestError('Error occurred while Fetching BankResponse');
   }
 };
 
