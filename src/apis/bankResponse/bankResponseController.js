@@ -1,4 +1,3 @@
-
 import {
   CREATE_BANK_RESPONSE_SCHEMA,
 
@@ -19,11 +18,12 @@ import { transactionWrapper } from '../../utils/db.js';
 
 const getBankResponse = async (req, res) => {
   const payload = req.query;
-  const { role } = req.user;
-  const { company_id } = req.user;
+  const { role, company_id } = req.user;
+  const { page = 1, limit = 10 } = req.query; // Default values for pagination
   payload.company_id = company_id;
-  const data = await getBankResponseService(payload, role);
-   return sendSuccess(res, data, 'get bankResponse successfully');
+
+  const data = await getBankResponseService(payload, role, page, limit);
+  return sendSuccess(res, data, 'Get bankResponse successfully');
 };
 const createBankResponse = async (req, res) => {
   const { role, user_name, company_id } = req.user;
