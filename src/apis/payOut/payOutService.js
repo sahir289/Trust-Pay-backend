@@ -79,12 +79,18 @@ const createPayoutService = async (conn, headers, payload, role) => {
     }
 
     if (payload.merchant_order_id) {
-      const data = await getPayoutsDao({ merchant_order_id: merchant_order_id }, payload.company_id, null, null, role, conn);
+      const data = await getPayoutsDao(
+        { merchant_order_id: merchant_order_id },
+        payload.company_id,
+        null,
+        null,
+        role,
+        conn,
+      );
       if (data.length > 0) {
         throw new DuplicateDataError('Merchant Order ID already exists');
       }
     }
-
 
     delete payload.x_api_key;
     const data = await createPayoutDao(conn, payload);
@@ -117,11 +123,17 @@ const getPayoutsService = async (company_id, page, limit, filters, role) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await getPayoutsDao(filters, company_id, page, limit, role, conn);
+    const data = await getPayoutsDao(
+      filters,
+      company_id,
+      page,
+      limit,
+      role,
+      conn,
+    );
     await commit(conn);
-    return { totalCount: data[0]?.total, payout: data }
-  }
-  catch (error) {
+    return { totalCount: data[0]?.total, payout: data };
+  } catch (error) {
     console.error('Error in getPayoutsService:', error);
     throw new InternalServerError(error);
   } finally {
@@ -153,33 +165,47 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (payload.status === Status.INITIATED)
       Object.assign(payload, { utr_id: '', rejected_reason: '' });
 
-    const singleWithdrawData = await getPayoutsDao(ids, null, null, null, null, conn);
+    const singleWithdrawData = await getPayoutsDao(
+      ids,
+      null,
+      null,
+      null,
+      null,
+      conn,
+    );
     if (payload?.method === Method.EKO)
       await processEkoPayout(singleWithdrawData, payload);
     payload.config = {
       method: payload.method,
-    }
+    };
     delete payload.method;
     const data = await updatePayoutDao(ids, payload, conn);
     if (!data.approved_at) return;
-    const bankDataArr = await getBankaccountDao({ id: data.bank_acc_id }, null, null, role);
+    const bankDataArr = await getBankaccountDao(
+      { id: data.bank_acc_id },
+      null,
+      null,
+      role,
+    );
     const bankData = bankDataArr[0];
-    if(!bankData){
+    if (!bankData) {
       throw new NotFoundError('Bank not found!');
     }
 
     const [merchantArr, vendorArr, userArr] = await Promise.all([
-      getMerchantsDao({ id: data.merchant_id }, null,null,null,null),
-      getVendorsDao({ user_id: bankData.user_id }, null,null,null,null),
+      getMerchantsDao({ id: data.merchant_id }, null, null, null, null),
+      getVendorsDao({ user_id: bankData.user_id }, null, null, null, null),
       getUserByIdDao(conn, { id: bankData.user_id }),
     ]);
 
-    const merchant = merchantArr[0], vendor = vendorArr[0], user = userArr[0];
-    if(!merchant){
+    const merchant = merchantArr[0];
+    const vendor = vendorArr[0];
+    const user = userArr[0];
+    if (!merchant) {
       throw new NotFoundError('Merchant not found!');
     }
 
-    if(!vendor){
+    if (!vendor) {
       throw new NotFoundError('Vendor not found!');
     }
 
@@ -188,7 +214,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         merchant.user_id,
         data.approved_at,
         Number(data.amount),
-       Number(data.payout_merchant_commission),
+        Number(data.payout_merchant_commission),
         true,
         false,
         conn,
@@ -203,14 +229,14 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         conn,
       );
       await updateBankaccountDao(
-        {id: bankData.id},
+        { id: bankData.id },
         {
           today_balance: Number(bankData.today_balance) - Number(data.amount),
           balance: Number(bankData.balance) - Number(data.amount),
         },
         conn,
       );
-      
+
       const merchantCommission = calculateCommission(
         Number(data.amount),
         Number(data.payout_merchant_commission),
@@ -219,8 +245,16 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         Number(data.amount),
         Number(data.commission),
       );
-      await updateMerchantDao({id: merchant.id}, { balance: netBalance }, conn);
-      await updateVendorDao({id: vendor.id}, { balance: netVendorBalance }, conn);
+      await updateMerchantDao(
+        { id: merchant.id },
+        { balance: netBalance },
+        conn,
+      );
+      await updateVendorDao(
+        { id: vendor.id },
+        { balance: netVendorBalance },
+        conn,
+      );
       await updatePayoutDao(
         { payout_merchant_commission: merchantCommission },
         { payout_vendor_commission: vendorCommission },
@@ -245,16 +279,24 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         conn,
       );
       await updateBankaccountDao(
-        {id: bankData.id},
+        { id: bankData.id },
         {
           today_balance: Number(bankData.today_balance) + Number(data.amount),
           balance: Number(bankData.balance) - Number(data.amount),
         },
         conn,
       );
-      await updateMerchantDao({ id: merchant.id,company_id:merchant.company_id }, { balance: netBalance }, conn);
+      await updateMerchantDao(
+        { id: merchant.id, company_id: merchant.company_id },
+        { balance: netBalance },
+        conn,
+      );
 
-      await updateVendorDao({ id: vendor.id }, { balance: netVendorBalance }, conn);
+      await updateVendorDao(
+        { id: vendor.id },
+        { balance: netVendorBalance },
+        conn,
+      );
 
       const merchantCommission = calculateCommission(
         Number(data.amount),
@@ -264,11 +306,14 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         Number(data.amount),
         Number(data.payout_vendor_commission),
       );
-      await updateMerchantDao({ id: merchant.id },{ balance: netBalance ,payout_commission: merchantCommission }, conn,);
+      await updateMerchantDao(
+        { id: merchant.id },
+        { balance: netBalance, payout_commission: merchantCommission },
+        conn,
+      );
       await updateVendorDao(
         { id: vendor.id },
-        { balance: netVendorBalance ,
-        payout_commission: vendorCommission },
+        { balance: netVendorBalance, payout_commission: vendorCommission },
         conn,
       );
     }
@@ -299,13 +344,6 @@ const updatePayoutCalculations = async (
   isReverse = false,
   conn,
 ) => {
-  console.log(userId,
-    date,
-    amount,
-    commission,
-    isMerchant,
-    isReverse = false,
-    conn,"payoutconsoled")
   const currentCalculation = await getCalculationforCronDao(userId);
   const cal = currentCalculation[0];
   console.log(cal, userId);
@@ -316,8 +354,7 @@ const updatePayoutCalculations = async (
   const prefix = isReverse ? 'reverse_' : '';
   const updatedCalculation = {
     ...cal,
-    [`total_${prefix}payout_count`]:
-      cal[`total_${prefix}payout_count`] + 1,
+    [`total_${prefix}payout_count`]: cal[`total_${prefix}payout_count`] + 1,
     [`total_${prefix}payout_amount`]:
       cal[`total_${prefix}payout_amount`] + amount,
     [`total_${prefix}payout_commission`]:

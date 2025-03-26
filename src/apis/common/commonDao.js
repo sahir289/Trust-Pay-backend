@@ -1,14 +1,27 @@
 import { executeQuery } from '../../utils/db.js';
 
-export const getTotalCountDao = async (tableName) => {
+export const getTotalCountDao = async (tableName, role) => {
   try {
     // Validate table name to prevent SQL injection
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tableName)) {
       throw new Error(`Invalid table name: ${tableName}`);
     }
-    // Ensure the table name is properly quoted to handle case sensitivity
-    const query = `SELECT COUNT(*) AS count FROM "${tableName}" WHERE is_obsolete = false`;
-    const result = await executeQuery(query);
+
+    // Base query
+    let query = `SELECT COUNT(*) AS count FROM "${tableName}" WHERE is_obsolete = false`;
+
+    // Add role-based filtering for the settlement table
+    if (tableName === 'Settlement' && role) {
+      query += ` AND EXISTS (
+        SELECT 1 FROM public."User" u
+        JOIN public."Role" r ON r.id = u.role_id
+        WHERE u.id = "${tableName}".user_id AND r.role = $1
+      )`;
+    }
+
+    const params = tableName === 'Settlement' && role ? [role] : [];
+    const result = await executeQuery(query, params);
+
     return parseInt(result.rows[0].count, 10); // Ensure the count is returned as an integer
   } catch (error) {
     if (error.code === '42P01') {

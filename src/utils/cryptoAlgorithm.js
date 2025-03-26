@@ -2,10 +2,21 @@
 import crypto from 'crypto';
 import config from '../config/config.js';
 
-export const crypto512Algo = (x_api_key, payinId, merchant_order_id, amount) => {
+export const crypto512Algo = (
+  x_api_key,
+  payinId,
+  merchant_order_id,
+  amount,
+) => {
   const salt = crypto.randomBytes(256).toString('hex');
   const hashString = `${x_api_key}|${payinId}|${merchant_order_id}|${amount}|${salt}`;
   return crypto.createHash('sha512').update(hashString).digest('hex');
+};
+
+export const createHashApiKey = () => {
+  const publicKey = crypto.randomBytes(32).toString('hex');
+  const secretKey = crypto.randomBytes(64).toString('hex');
+  return { publicKey, secretKey };
 };
 
 export const generateSecureSignature = (

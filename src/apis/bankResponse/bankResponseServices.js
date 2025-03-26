@@ -49,8 +49,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
   const created_by = name ? name : 'Bank Response';
   const updated_by = name ? name : 'Bank Response';
   const company_id = companyId;
-  const isValidAmount = amount;
-
+  const isValidAmount = amount > 1 && amount < 500000; 
   let isValidAmountCode
   if (upi_short_code) {
     isValidAmountCode =
@@ -158,7 +157,10 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
           null,
           filterColumns,
         );
-        const botUtrIsUsed = getDataByUtr?.some((item) => item.is_used); //isused- true and bankresponse entry and payin status - pending , assigned , initiated, dropped
+        let botUtrIsUsed
+         if(getDataByUtr.rows.length>1){  
+        botUtrIsUsed = getDataByUtr?.some((item) => item.is_used); //isused- true and bankresponse entry and payin status - pending , assigned , initiated, dropped
+         }
         if (
           !acceptedStatus.includes(checkPayInUtr[0]?.status) &&
           botUtrIsUsed
@@ -180,6 +182,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                     bank_response_id: botRes?.id,
                     approved_at: new Date(),
                     config: { from_UI: from_UI },
+
                   };
                   const updatePayInDataRes =
                     await updatePayInUrlDao(
@@ -269,14 +272,14 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                   const payInData = {
                     status: 'SUCCESS',
                     is_notified: true,
-                    user_submitted_utr:
-                      botRes?.utr || checkPayInUtr[0]?.user_submitted_utr,
-                    bank_response_id: botRes?.id,
+                    // is_used: true,
+                    user_submitted_utr:botRes?.utr ,
                     approved_at: new Date(),
                     duration: duration,
                     payin_merchant_commission: payinMerchantCommission,
                     payin_vendor_commission: payinVendorCommission,
-                    config: { from_UI: from_UI }
+                    config: { from_UI: from_UI },
+                    bank_response_id : botRes.id
                   };
 
                   await updatePayInUrlDao(
@@ -314,14 +317,13 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                 const payInData = {
                   status: 'SUCCESS',
                   is_notified: true,
-                  user_submitted_utr:
-                    botRes?.utr || checkPayInUtr[0]?.user_submitted_utr,
-                  bank_response_id: botRes?.id,
+                  user_submitted_utr:botRes?.utr ,
                   approved_at: new Date(),
                   duration: duration,
                   payin_merchant_commission: payinMerchantCommission,
                   payin_vendor_commission: payinVendorCommission,
-                  config: { from_UI: from_UI }
+                  config: { from_UI: from_UI },
+                  bank_response_id : botRes.id
                 };
 
                 await updatePayInUrlDao(
@@ -359,7 +361,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                     duration: duration,
                     payin_merchant_commission: payinMerchantCommission,
                     payin_vendor_commission: payinVendorCommission,
-                    config: { from_UI: from_UI }
+                    config: { from_UI: from_UI },
                   };
                   const updatePayInDataRes = await updatePayInUrlDao(
                     checkPayInUtr[0]?.id,
@@ -383,7 +385,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                   duration: duration,
                   payin_merchant_commission: payinMerchantCommission,
                   payin_vendor_commission: payinVendorCommission,
-                  config: { from_UI: from_UI }
+                  config: { from_UI: from_UI },
                 };
                 const updatePayInDataRes =
                   await updatePayInUrlDao(
@@ -430,7 +432,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                   user_submitted_utr: botRes?.utr,
                   bank_response_id: botRes?.id,
                   approved_at: new Date(),
-                  config: { from_UI: from_UI }
+                  config: { from_UI: from_UI },
                 };
                 const updatePayInDataRes = await updatePayInUrlDao(
                   checkPayInUtr[0]?.id,
@@ -450,7 +452,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                 user_submitted_utr: botRes?.utr,
                 bank_response_id: botRes?.id,
                 approved_at: new Date(),
-                config: { from_UI: from_UI }
+                config: { from_UI: from_UI },
               };
 
               const updatePayInDataRes = await updatePayInUrlDao(
@@ -474,7 +476,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                   user_submitted_utr: botRes?.utr,
                   bank_response_id: botRes?.id,
                   approved_at: new Date(),
-                  config: { from_UI: from_UI }
+                  config: { from_UI: from_UI },
                 };
 
                 const updatePayInDataRes = await updatePayInUrlDao(
@@ -542,14 +544,13 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
               const payInData = {
                 status: 'SUCCESS',
                 is_notified: true,
-                user_submitted_utr:
-                  botRes?.utr || checkPayInUtr[0]?.user_submitted_utr,
-                bank_response_id: botRes?.id,
+                user_submitted_utr:botRes?.utr ,
                 approved_at: new Date(),
                 duration: duration,
                 payin_merchant_commission: payinMerchantCommission,
                 payin_vendor_commission: payinVendorCommission,
-                config: { from_UI: from_UI }
+                config: { from_UI: from_UI },
+                bank_response_id : botRes.id
               };
 
               await updatePayInUrlDao(
@@ -578,7 +579,6 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
               await updateMerchantDao({ id: checkPayInUtr[0]?.merchant_id }, {
                 balance: merchatnData.balance + parseFloat(amount),
               }, conn);
-
               return { message: `Successfully Created The Entry` }
             } else {
               return { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr[0]?.user_submitted_utr}` };
@@ -587,14 +587,13 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
             const payInData = {
               status: 'SUCCESS',
               is_notified: true,
-              user_submitted_utr:
-                botRes?.utr || checkPayInUtr[0]?.user_submitted_utr,
-              bank_response_id: botRes?.id,
+              user_submitted_utr:botRes?.utr ,
               approved_at: new Date(),
               duration: duration,
               payin_merchant_commission: payinMerchantCommission,
               payin_vendor_commission: payinVendorCommission,
-              config: { from_UI: from_UI }
+              config: { from_UI: from_UI },
+              bank_response_id : botRes.id
             };
 
             const updatePayInDataRes = await updatePayInUrlDao(
@@ -633,7 +632,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                 duration: duration,
                 payin_merchant_commission: payinMerchantCommission,
                 payin_vendor_commission: payinVendorCommission,
-                config: { from_UI: from_UI }
+                config: { from_UI: from_UI },
               };
               await updatePayInUrlDao(
                 checkPayInUtr[0]?.id,
@@ -656,7 +655,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
               duration: duration,
               payin_merchant_commission: payinMerchantCommission,
               payin_vendor_commission: payinVendorCommission,
-              config: { from_UI: from_UI }
+              config: { from_UI: from_UI },
             };
             await updatePayInUrlDao(
               checkPayInUtr[0]?.id,

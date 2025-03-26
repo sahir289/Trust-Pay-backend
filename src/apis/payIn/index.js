@@ -294,7 +294,7 @@ router.post('/reset-payment', tryCatchHandler(resetDeposit));
 /**
  * @swagger
  * /payin/dispute-duplicate/{payInId}:
- *   post:
+ *   put:
  *     summary: Dispute Duplicate Payment
  *     description: Disputes a duplicate payment for a specific Pay-In URL.
  *     tags: [PayIn]
@@ -309,7 +309,7 @@ router.post('/reset-payment', tryCatchHandler(resetDeposit));
  *       200:
  *         description: Duplicate payment disputed successfully.
  */
-router.post(
+router.put(
   '/dispute-duplicate/:payInId',
   tryCatchHandler(disputeDuplicateTransaction),
 );
