@@ -154,7 +154,7 @@ const getVendorReportService = async (req, res) => {
           null,
           filterColumns,
         );
-        dataArray.push(...result);
+        dataArray.push(result);
       }
       return sendSuccess(res, dataArray, 'Reports fetched successfully');
     } else {
