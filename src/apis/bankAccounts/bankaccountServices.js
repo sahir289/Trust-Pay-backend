@@ -76,7 +76,7 @@ const updateBankaccountService = async (conn, ids, payload) => {
       payload,
       conn,
     );
-    if (payload.config.is_freezed === true) {
+    if (payload?.config?.is_freezed === true) {
       const bankResponse = await getBankResponseDaoAll({bank_id: ids.id, is_used: false});
       if (bankResponse.length > 0) {
         for (let i = 0; i < bankResponse.length; i++) {
