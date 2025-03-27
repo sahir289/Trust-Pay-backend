@@ -145,7 +145,6 @@ const getVendorReportService = async (req, res) => {
     if (code) {
       const userIds = typeof code === 'string' ? code.split(',').map(id => id.trim()) : Array.isArray(code) ? code : [code];
       for (const user_id of userIds) {
-
         const result = await getVendorReportDao(
           { user_id: user_id, company_id: company_id },
           startDate,
