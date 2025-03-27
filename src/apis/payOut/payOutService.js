@@ -346,7 +346,6 @@ const updatePayoutCalculations = async (
 ) => {
   const currentCalculation = await getCalculationforCronDao(userId);
   const cal = currentCalculation[0];
-  console.log(cal, userId);
   if (!cal) {
     throw Error('Calculation not found!');
   }

@@ -1248,7 +1248,10 @@ const checkIsPayInExpired = (payIn) => {
 const updateCalculationTable = async (user_id, data, conn) => {
   if (user_id) {
     const calculation = await getCalculationforCronDao(user_id);
-    const calculationId = calculation[0]?.id;
+    if(!calculation[0]){
+      throw new NotFoundError('Calculation not found!');
+    }
+    const calculationId = calculation[0].id;
     await updateCalculationBalanceDao(
       {id: calculationId},
       {
