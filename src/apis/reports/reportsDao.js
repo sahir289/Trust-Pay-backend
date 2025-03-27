@@ -199,6 +199,9 @@ const getMerchantReportDao = async (
       filters.or = buildSearchFilterObj(filters.search, CALCULATION);
       delete filters.search;
     }
+    console.log(filters,
+      startDate,
+      endDate, "filters123")
     // console.log(JSON.stringify(filters, undefined, 4));
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
@@ -209,14 +212,15 @@ const getMerchantReportDao = async (
       sortOrder,
       tableName.CALCULATION,
     );
-
     if (startDate && endDate) {
       baseQuery += ` AND created_at BETWEEN $${Object.keys(queryParams).length + 1} AND $${Object.keys(queryParams).length + 2}`;
       queryParams[`created_at_start`] = startDate;
       queryParams[`created_at_end`] = endDate;
     }
-
+    
+    console.log(sql, queryParams, "sqlparams")
     const result = await executeQuery(sql, queryParams);
+    console.log(result.rows, "result2334")
     return result.rows;
   } catch (error) {
     console.error('Error in getMerchantReportDao:', error);
