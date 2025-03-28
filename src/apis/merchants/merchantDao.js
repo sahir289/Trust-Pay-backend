@@ -173,3 +173,19 @@ export const updateMerchantBalanceDao = async (
     throw error.message;
   }
 };
+
+export const getMerchantByCodeAndApiKey = async (code, publicKey) => {
+  try {
+    const query = `
+      SELECT * 
+      FROM "${tableName.MERCHANT}" 
+      WHERE code = $1 AND config->'keys'->>'public' = $2 AND is_obsolete = false
+    `;
+    const params = [code, publicKey];
+    const result = await executeQuery(query, params);
+    return result.rows[0]; // Return the first matching merchant
+  } catch (error) {
+    console.error('Error fetching merchant by code and API key:', error);
+    throw error.message;
+  }
+};
