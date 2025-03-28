@@ -58,6 +58,7 @@ import {
 import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
+import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
@@ -567,6 +568,7 @@ export const updateDepositStatusService = async (
       ? bankResponse.amount
       : payInData.amount;
   await updateBanktBalanceDao({ id: bank.id }, bankBalance, updated_by, conn);
+  await updateBankaccountService( conn, { id: bank.id, company_id: bank.company_id }, {} );
 
   merchantPayinCallback(updatePayInRes.config?.urls?.payin_notify, {
     status: updatePayInRes.status,
@@ -651,6 +653,7 @@ export const resetDepositService = async (
       updated_by,
       conn,
     );
+    await updateBankaccountService( conn, { id: bank.id, company_id: bank.company_id }, {} );
   }
   return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 };
@@ -796,7 +799,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
     );
   }
 
-  if (updatePayInData.status === Status.DISPUTE) {
+  // if (updatePayInData.status === Status.DISPUTE) {
     // update bank balance
     updated_by = updated_by ? updated_by : bank.updated_by,
     await updateBanktBalanceDao(
@@ -805,7 +808,8 @@ export const processPayInService = async (conn, payload, updated_by) => {
       updated_by,
       conn,
     );
-  }
+    await updateBankaccountService( conn, { id: bank.id, company_id: bank.company_id }, {} );
+  // }
 
   await updatePayInUrlDao(payIn.id, updatePayInData, conn);
   merchantPayinCallback(payIn.config?.urls?.payin_notify, result);
@@ -1133,6 +1137,7 @@ export const disputeDuplicateTransactionService = async (
 
   if (updateBalance) {
     await updateBanktBalanceDao({ id: bankId }, toAmount, updated_by, conn);
+    await updateBankaccountService( conn, { id: bank.id, company_id: bank.company_id }, {} );
     await updateCalculationTable(
       bankResponse.user_id,
       {
