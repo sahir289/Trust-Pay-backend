@@ -74,11 +74,11 @@ const createBankaccountService = async (payload) => {
 const updateBankaccountService = async (conn, ids, payload) => {
   try {
     const bank = await getBankaccountDao({ id: ids.id, company_id: ids.company_id });
-    if (bank.today_balance >= bank.config.max_limit) {
+    if (bank.today_balance >= bank.config?.max_limit) {
       payload.is_enabled = false;
       deactivateBank(bank.nick_name, ids.id);
     }
-    else if (bank.today_balance === bank.config.max_limit) {
+    else if (bank.today_balance === bank.config?.max_limit) {
       deactivateBank(bank.nick_name, ids.id, true);
     }
 
