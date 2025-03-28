@@ -2,6 +2,8 @@ import multer from 'multer';
 import multerS3 from 'multer-s3';
 import { s3 } from '../helpers/Aws.js';
 import config from '../config/config.js';
+import { getPayInUrlDao, updatePayInUrlDao } from '../apis/payIn/payInDao.js';
+import { Status } from '../constants/index.js';
 
 export const multerUpload = multer({
   storage: multerS3({
@@ -32,3 +34,36 @@ export const stringifyJSON = (data) => {
     return '{}';
   }
 };
+
+
+
+const scheduledJobs = new Map();
+export async function expirePayInIfNeeded(payInId) {
+
+  if (scheduledJobs.has(payInId)) {
+    console.log(`PayIn ${payInId} task is already scheduled.`);
+    return;
+  }
+
+  const timeout = setTimeout(async () => {
+    try {
+      const payIn = await getPayInUrlDao({ id: payInId });
+      if (!payIn) {
+        throw new Error('Payin not found!', payInId);
+      }
+      if (![Status.INITIATED, Status.ASSIGNED].includes(payIn.status)) {
+        console.log("Status is not initiated or assigned", payIn.status);
+        return;
+      }
+
+      await updatePayInUrlDao(payInId, { status: Status.DROPPED });
+    } catch (error) {
+      console.error(`Error executing PayIn ${payInId} task:`, error);
+    } finally {
+      scheduledJobs.delete(payInId);
+    }
+  }, 10 * 60 * 1000);
+
+  // set in scheduledJobs
+  scheduledJobs.set(payInId, timeout);
+}
