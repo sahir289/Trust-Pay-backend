@@ -85,7 +85,8 @@ const getPayOutMerchantReportDao = async (
   company_id,
 ) => {
   try {
-    let query = `SELECT *  FROM  "Payout" WHERE 1=1`;
+    let query = `SELECT merchant_order_id, ifsc_code, payout_merchant_commission,
+    amount, utr_id, status, bank_acc_id, merchant_id  FROM  "Payout" WHERE 1=1`;
     const [sql, parameters] = buildSelectQuery(query, {
       merchant_id: id,
       company_id: company_id,
@@ -105,7 +106,8 @@ const getPayOutMerchantReportDao = async (
 
 const getPayOutVendorReportDao = async (id, startDate, endDate, company_id) => {
   try {
-    let query = `SELECT *  FROM  "Payout" WHERE 1=1`;
+    let query = `SELECT merchant_order_id, ifsc_code, payout_vendor_commission,
+    amount, utr_id, status, bank_acc_id, merchant_id  FROM  "Payout" WHERE 1=1`;
     const [sql, parameters] = buildSelectQuery(query, {
       bank_acc_id: id,
       company_id: company_id,
@@ -148,9 +150,12 @@ const getPayinReportDao = async (
   }
 };
 
+
 const getPayOutAll = async (filters, page, pageSize, sortBy, sortOrder) => {
   try {
-    const baseQuery = `SELECT * FROM "${tableName.PAYOUT}" WHERE 1=1`;
+    const baseQuery = `SELECT merchant_order_id, ifsc_code, payout_vendor_commission, payout_merchant_commission,
+    amount, utr_id, status, bank_acc_id, merchant_id
+    FROM "${tableName.PAYOUT}" WHERE 1=1`;
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,

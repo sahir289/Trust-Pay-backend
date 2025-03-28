@@ -46,7 +46,7 @@ const router = express.Router();
  *       500:
  *         description: Server error
  */
-router.post(
+router.get(
   '/get-payouts-report',
   isAuthenticated,
   tryCatchHandler(getPayOutReportService),
