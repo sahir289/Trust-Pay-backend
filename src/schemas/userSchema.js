@@ -19,7 +19,7 @@ export const CREATE_USER_SCHEMA = Joi.object({
     .required(), // Allows 10-15 digit numbers
   user_name: Joi.string().label('user_name').required(),
   password: Joi.string().label('password').required(),
-  code: Joi.string().label('code').required(),
+  code: Joi.string().label('code').optional(),
   is_enabled: Joi.boolean().label('is_enabled').optional(),
 
   // Payin & Payout Configurations
