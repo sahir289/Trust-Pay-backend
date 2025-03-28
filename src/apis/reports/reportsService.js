@@ -7,7 +7,6 @@ import {
 import { InternalServerError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
-import { getMerchantsDao } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import {
   getMerchantReportDao,
@@ -101,24 +100,26 @@ const getMerchantReportService = async (req, res) => {
 
     ///api/data?code=123&code=456&startDate=2024-01-01&endDate=2024-01-31
     let dataArray = [];
-    let result;
     if (code) {
-      const merchantDatas = await getMerchantsDao({ code: code });
-      for (let merchantData of merchantDatas) {
-        result = await getMerchantReportDao(
-          { user_id: merchantData.user_id, company_id: company_id },
+      const userIds = typeof code === 'string' ? code.split(',').map(id => id.trim()) : Array.isArray(code) ? code : [code];    
+      for (const user_id of userIds) {    
+        const result = await getMerchantReportDao(
+          { user_id, company_id },
           startDate,
           endDate,
           null,
           null,
           null,
           null,
-          filterColumns,
+          filterColumns
         );
+    
         dataArray.push(result);
       }
+    
       return sendSuccess(res, dataArray, 'Reports fetched successfully');
-    } else {
+    }
+     else {
       const result = await getMerchantReportDao({ company_id: company_id}, null, null,
         page,limit,
         null,
@@ -142,10 +143,10 @@ const getVendorReportService = async (req, res) => {
     ///api/data?code=123&code=456&startDate=2024-01-01&endDate=2024-01-31
     let dataArray = [];
     if (code) {
-      const vendorDatas = await getVendorsDao({ code: code });
-      for (let vendorData of vendorDatas) {
+      const userIds = typeof code === 'string' ? code.split(',').map(id => id.trim()) : Array.isArray(code) ? code : [code];
+      for (const user_id of userIds) {
         const result = await getVendorReportDao(
-          { user_id: vendorData.user_id, company_id: company_id },
+          { user_id: user_id, company_id: company_id },
           startDate,
           endDate,
           null,
@@ -154,7 +155,7 @@ const getVendorReportService = async (req, res) => {
           null,
           filterColumns,
         );
-        dataArray.push(...result);
+        dataArray.push(result);
       }
       return sendSuccess(res, dataArray, 'Reports fetched successfully');
     } else {
