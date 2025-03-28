@@ -58,6 +58,7 @@ import {
 import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
+import { expirePayInIfNeeded } from '../../utils/index.js';
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
@@ -134,7 +135,10 @@ export const generatePayInUrlService = async (payload, created_by) => {
     created_by,
   };
 
-  return await generatePayInUrlDao(data);
+  const result = await generatePayInUrlDao(data);
+  expirePayInIfNeeded(result.id);
+
+  return result;
 };
 
 export const getPayInUrlService = async (id, conn) => {
