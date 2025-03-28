@@ -14,7 +14,7 @@ const getPayInMerchantReportDao = async (
 ) => {
   try {
     const tableName = 'Payin';
-    let query = `SELECT *  FROM  "${tableName}" WHERE 1=1`;
+    let query = `SELECT merchant_order_id, upi_short_code,payin_merchant_commission, amount, user_submitted_utr, status, bank_acc_id, merchant_id  FROM  "${tableName}" WHERE 1=1`;
     const [sql, parameters] = buildSelectQuery(query, {
       merchant_id: merchant_id,
       company_id: company_id,

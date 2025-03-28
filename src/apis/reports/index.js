@@ -78,7 +78,7 @@ router.post(
  *       500:
  *         description: Server error
  */
-router.post(
+router.get(
   '/get-payins-reports',
   isAuthenticated,
   tryCatchHandler(getPayInReportService),

@@ -7,6 +7,7 @@ import {
 import { InternalServerError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
+import { getMerchantsDao } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import {
   getMerchantReportDao,
@@ -22,37 +23,65 @@ import {
 const getPayInReportService = async (req, res) => {
   try {
     const { company_id } = req.user;
-    const { merchant_id, vendor_id, startDate, endDate, method } = req.body;
-    let result;
+    const { user_id, startDate, endDate, method } = req.query;
+    let result = [];
+    const merchant_id = await getMerchantsDao({ user_id });
     if (merchant_id) {
-      result = await getPayInMerchantReportDao(
+      const merchantReport = await getPayInMerchantReportDao(
         merchant_id,
         startDate,
         endDate,
-        company_id,
+        company_id
       );
+
+      if (Array.isArray(merchantReport)) {
+        result.push(...merchantReport);
+      } else if (merchantReport) {
+        result.push(merchantReport);  // If it's not an array, push the single result
+      }
     }
+
+    const vendor_id = await getVendorsDao({ user_id });
     if (vendor_id) {
       const vendorData = await getVendorsDao({ id: vendor_id });
-      const bankVendorData = await getBankaccountDao({
-        user_id: vendorData.user_id,
-      });
-      result = await getPayInVendorReportDao(
-        bankVendorData.id,
-        startDate,
-        endDate,
-        method,
-        company_id,
-      );
-    } else {
-      result = await getPayinReportDao({ company_id: company_id });
+      if (vendorData) {
+        const bankVendorData = await getBankaccountDao(
+          { user_id: vendorData.user_id },
+          null,
+          null,
+          "ADMIN"
+        );
+
+        if (bankVendorData) {
+          const vendorReport = await getPayInVendorReportDao(
+            bankVendorData.id,
+            startDate,
+            endDate,
+            method,
+            company_id
+          );
+
+          if (Array.isArray(vendorReport)) {
+            result.push(...vendorReport);
+          } else if (vendorReport) {
+            result.push(vendorReport);  // If it's not an array, push the single result
+          }
+        }
+      }
     }
-    return sendSuccess(res, result, 'got payin report');
+
+    if (result.length === 0) {
+      result = await getPayinReportDao({ company_id });
+    }
+
+    return sendSuccess(res, result, "Got Pay-In report");
   } catch (error) {
-    console.error('error getting while fetching reports', error);
+    console.error("Error while fetching reports", error);
     throw new InternalServerError(error);
   }
 };
+
+
 const getPayOutReportService = async (req, res) => {
   try {
     const { company_id } = req.user;
