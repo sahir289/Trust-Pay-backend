@@ -71,8 +71,9 @@ const createCalculation = async (req, res) => {
 };
 
 const updateCalculation = async (req, res) => {
-  const { role } = req.user;
-  // Validate the request body and params using Joi schema
+    const { role } = req.user;
+
+// Validate the request body and params using Joi schema
   const { error: bodyError } = VALIDATE_UPDATE_CALCULATION_STATUS.validate(
     req.body,
   );

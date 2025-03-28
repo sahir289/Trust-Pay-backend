@@ -1,7 +1,4 @@
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getPayinDetailsByMerchantOrderId } from '../payIn/payInDao.js';
-import { NotFoundError } from '../../utils/appErrors.js';
-import { getChargeBackDao } from './chargeBackDao.js';
 import {
   createChargeBackService,
   getChargeBacksService,
@@ -16,7 +13,6 @@ import {
 } from '../../schemas/chargeBackSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 
-
 const createChargeBack = async (req, res) => {
   let payload = req.body;
   delete payload.date;
@@ -24,27 +20,10 @@ const createChargeBack = async (req, res) => {
   if (error) {
     throw new ValidationError(error);
   }
-  
-  const PayinDetails = await getPayinDetailsByMerchantOrderId(payload.merchant_order_id)
-  if (PayinDetails.length == 0) {
-      throw new NotFoundError('Records Not Found');
-  }
-  const isAlreadyExit = await getChargeBackDao({payin_id: PayinDetails[0].payin_id});
-  if (isAlreadyExit.length > 0) {
-    throw new NotFoundError('ChargeBack already exist');
-  }
-  // console.log("bye")
-  payload.vendor_user_id = PayinDetails[0].vendor_user_id;
-  payload.merchant_user_id = PayinDetails[0].merchant_user_id;
-  payload.payin_id = PayinDetails[0].payin_id;
-  payload.bank_acc_id = PayinDetails[0].bank_acc_id;
+
   const { company_id, role, user_id } = req.user;
-  payload.created_by = user_id;
-  payload.updated_by = user_id;
-  payload.company_id = company_id;
-  delete payload.merchant_order_id;
   // Call the service to create the ChargeBack
-const result = await createChargeBackService(payload, role);
+const result = await createChargeBackService(payload, role,company_id,user_id);
 console.log('ChargeBack created successfully', 'info', result);
 return sendSuccess(res, {}, 'ChargeBack created successfully');
 };
