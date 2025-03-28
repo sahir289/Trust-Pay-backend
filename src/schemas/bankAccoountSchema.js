@@ -14,12 +14,14 @@ export const BANK_ACCOUNT_SCHEMA = Joi.object({
     .label('ifsc')
     .optional(),
   bank_name: Joi.string().label('bank_name').optional(),
-  is_qr: Joi.boolean().label('is_qr').optional(),
   updated_by: Joi.string().label('updated_by').optional(),
   is_bank: Joi.boolean().label('is_bank').optional(),
   min: Joi.number().min(1).label('min').optional(),
   max: Joi.number().min(1).label('max').optional(),
   is_enabled: Joi.boolean().label('is_enabled').optional(),
+  is_phonepay: Joi.boolean().label('is_phonepay').optional(),
+  is_intent: Joi.boolean().label('is_intent').optional(),
+  is_qr: Joi.boolean().label('is_qr').optional(),
   payin_count: Joi.number().integer().min(0).label('payin_count').optional(),
   balance: Joi.number().label('balance').optional(),
   today_balance: Joi.number().label('today_balance').optional(),
@@ -28,6 +30,8 @@ export const BANK_ACCOUNT_SCHEMA = Joi.object({
 });
 
 export const UPDATE_BANK_ACCOUNT_SCHEMA = Joi.object({
+  is_intent: Joi.boolean().label('is_intent').optional(),
+  is_phonepay: Joi.boolean().label('is_phonepay').optional(),
   upi_id: Joi.string().label('upi_id').optional(),
   upi_params: Joi.string().label('upi_params').optional().allow(''),
   nick_name: Joi.string().label('nick_name').optional(),

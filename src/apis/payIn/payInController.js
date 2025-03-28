@@ -42,21 +42,52 @@ import { s3 } from '../../helpers/Aws.js';
 import { stringifyJSON } from '../../utils/index.js';
 import { crypto512Algo } from '../../utils/cryptoAlgorithm.js';
 import { AUTH_HEADER_KEY } from '../../utils/constants.js';
+import { getMerchantByCodeAndApiKey } from '../merchants/merchantDao.js';
 
 //  To Generate Url
+export const generateHashForPayIn = async (req, res) => {
+  const payload = req.query;
+  const { user_id, code, ot, key } = req.query;
+
+  if (!user_id || !code || !ot) {
+    throw new BadRequestError('Missing required query parameters: user_id, code, or ot');
+  }
+
+  const x_api_key = req.headers['x-api-key'];
+  const token = req.headers[AUTH_HEADER_KEY];
+  const tokenData = decodeAuthToken(token);
+
+  const query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
+  const hash = crypto512Algo(x_api_key, tokenData.user_id, payload.amount);
+
+  const updateRes = {
+    payInUrl: `${config.reactPaymentOrigin}/transaction/${hash}?${query}`,
+  };
+
+  return sendSuccess(res, updateRes, 'PayIn hash generated successfully');
+};
+
 export const generatePayInUrl = async (req, res) => {
   const payload = req.query;
   const joiValidation = ASSIGN_PAYIN_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const x_api_key = req.headers['x-api-key'];
+
+  const { code, key } = payload;
+
+  // Fetch the merchant using the code and API public key
+  const merchant = await getMerchantByCodeAndApiKey(code, key);
+  if (!merchant) {
+    throw new BadRequestError('Invalid merchant code or API key');
+  }
+
   const token = req.headers[AUTH_HEADER_KEY];
   const tokenData = decodeAuthToken(token);
   const result = await generatePayInUrlService(
     {
       ...payload,
-      x_api_key,
+      x_api_key: key,
     },
     tokenData.user_id,
   );
@@ -67,13 +98,14 @@ export const generatePayInUrl = async (req, res) => {
       ? `?t=true&order=${result.merchant_order_id}`
       : `?order=${result.merchant_order_id}`;
   const hash = crypto512Algo(
-    x_api_key,
+    key,
     result.id,
     result.merchant_order_id,
     payload.amount,
   );
   const updateRes = {
     expirationDate: result.expiration_date,
+    merchantOrderId: result.merchant_order_id,
     payInUrl: `${config.reactPaymentOrigin}/transaction/${hash}${queryStr}`, // use env
     payinId: result.id,
   };

@@ -55,7 +55,7 @@ export const getChargeBackDao = async (
         // second is target key
         keys: ['payin_id', 'id'],
         type: 'LEFT JOIN',
-        columns: ['user']
+        columns: ['user', 'merchant_order_id'],
       },
     ];
 
