@@ -56,8 +56,7 @@ const getBankaccountDao = async (filters,  page, limit, role) => {
         ba.updated_by, ba.created_at, ba.updated_at
       `;
     }
-    const baseQuery = 
-`SELECT 
+    const baseQuery = `SELECT 
    ba.id, 
    ba.sno, 
    ba.upi_id,
@@ -88,9 +87,10 @@ LEFT JOIN LATERAL (
 WHERE 
     ${conditions.join(' AND ')}
 ORDER BY 
+    ba.is_enabled DESC, 
     ba.sno ASC
 ${limitcondition};
-`
+`;
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {

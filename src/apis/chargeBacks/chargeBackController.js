@@ -12,7 +12,9 @@ import {
   VALIDATE_UPDATE_CHARGEBACK_SCHEMA,
 } from '../../schemas/chargeBackSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
-
+import { getPayinDetailsByMerchantOrderId } from '../payIn/payInDao.js';
+import { NotFoundError } from '../../utils/appErrors.js';
+import { getChargeBackDao } from './chargeBackDao.js';
 const createChargeBack = async (req, res) => {
   let payload = req.body;
   delete payload.date;
@@ -20,10 +22,22 @@ const createChargeBack = async (req, res) => {
   if (error) {
     throw new ValidationError(error);
   }
-
-  const { company_id, role, user_id } = req.user;
+  const PayinDetails = await getPayinDetailsByMerchantOrderId(
+        payload.merchant_order_id,
+      );
+ 
+     if (PayinDetails.length == 0) {
+        throw new NotFoundError('Invalid Order_Id');
+      }
+      const isAlreadyExit = await getChargeBackDao({
+        payin_id: PayinDetails[0].payin_id,
+      });
+      if (isAlreadyExit.length > 0) {
+        throw new NotFoundError('ChargeBack already exist');
+      }
+const { company_id, role, user_id } = req.user;
   // Call the service to create the ChargeBack
-const result = await createChargeBackService(payload, role,company_id,user_id);
+const result = await createChargeBackService(payload,PayinDetails, role,company_id,user_id);
 console.log('ChargeBack created successfully', 'info', result);
 return sendSuccess(res, {}, 'ChargeBack created successfully');
 };

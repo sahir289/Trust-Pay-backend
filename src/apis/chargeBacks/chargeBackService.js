@@ -20,9 +20,7 @@ import {
 import { filterResponse } from '../../helpers/index.js';
 import { getCalculationforCronDao } from '../calculation/calculationDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
-import { getPayinDetailsByMerchantOrderId } from '../payIn/payInDao.js';
-import { NotFoundError } from '../../utils/appErrors.js';
-const createChargeBackService = async (payload, role,company_id,user_id) => {
+const createChargeBackService = async (payload,PayinDetails, role,company_id,user_id) => {
   let conn;
   try {
     const filterColumns =
@@ -33,19 +31,7 @@ const createChargeBackService = async (payload, role,company_id,user_id) => {
           : columns.CHARGE_BACK;
     conn = await getConnection();
     await beginTransaction(conn); // Start a transaction
-     const PayinDetails = await getPayinDetailsByMerchantOrderId(
-       payload.merchant_order_id,
-     );
-
-     if (PayinDetails.length == 0) {
-       throw new NotFoundError('Records Not Found');
-     }
-     const isAlreadyExit = await getChargeBackDao({
-       payin_id: PayinDetails[0].payin_id,
-     });
-     if (isAlreadyExit.length > 0) {
-       throw new NotFoundError('ChargeBack already exist');
-     }
+    
     let userId = PayinDetails[0].merchant_user_id;
     const CalculationUser = await getCalculationforCronDao(userId);
     if (CalculationUser) {

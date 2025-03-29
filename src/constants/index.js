@@ -81,7 +81,7 @@ export const columns = {
     'email',
     'contact_no',
     'user_name',
-    'password',
+    // 'password',
     'code',
     'is_enabled',
     'last_login',
