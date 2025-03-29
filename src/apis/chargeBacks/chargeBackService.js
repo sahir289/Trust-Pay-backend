@@ -18,8 +18,9 @@ import {
   vendorColumns,
 } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
-
-const createChargeBackService = async (payload, role) => {
+import { getCalculationforCronDao } from '../calculation/calculationDao.js';
+import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
+const createChargeBackService = async (payload,PayinDetails, role,company_id,user_id) => {
   let conn;
   try {
     const filterColumns =
@@ -30,6 +31,35 @@ const createChargeBackService = async (payload, role) => {
           : columns.CHARGE_BACK;
     conn = await getConnection();
     await beginTransaction(conn); // Start a transaction
+    
+    let userId = PayinDetails[0].merchant_user_id;
+    const CalculationUser = await getCalculationforCronDao(userId);
+    if (CalculationUser) {
+       let count =  Number(1);
+       let amount = Number(payload.amount);
+       let currentBalance = -Number(payload.amount);
+       let net_balance = -Number(payload.amount);
+       
+       let Id = CalculationUser[0].id;
+        await updateCalculationBalanceDao(
+         { id: Id },
+         {
+            total_chargeback_count: count,
+           total_chargeback_amount: amount,
+           current_balance: currentBalance,
+           net_balance:net_balance,
+         },
+         conn,
+       );
+     }
+     payload.vendor_user_id = PayinDetails[0].vendor_user_id;
+     payload.merchant_user_id = PayinDetails[0].merchant_user_id;
+     payload.payin_id = PayinDetails[0].payin_id;
+     payload.bank_acc_id = PayinDetails[0].bank_acc_id;
+     payload.created_by = user_id;
+     payload.updated_by = user_id;
+     payload.company_id = company_id;
+     delete payload.merchant_order_id;
     const data = await createChargeBackDao(payload);
     await commit(conn); // Commit the transaction
     console.log('ChargeBack created successfully');
