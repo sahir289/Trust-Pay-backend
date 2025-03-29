@@ -1,6 +1,9 @@
+/* eslint-disable no-unreachable */
 
 import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
+import { deactivateBank } from '../../utils/sockets.js';
+import { getBankResponseDaoAll, updateBotResponseDao } from '../bankResponse/bankResponseDao.js';
 import {
   getBankaccountDao,
   createBankaccountDao,
@@ -9,11 +12,11 @@ import {
   getBankaccountDaoNickName,
 } from './bankaccountDao.js';
 
-const getBankaccountService = async ( filters, company_id,role, page, limit) => {
+const getBankaccountService = async (filters, company_id, role, page, limit) => {
   try {
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
-    return await getBankaccountDao({...filters, company_id}
+    return await getBankaccountDao({ ...filters, company_id }
       ,
       pageNumber, pageSize, role
 
@@ -70,11 +73,28 @@ const createBankaccountService = async (payload) => {
 
 const updateBankaccountService = async (conn, ids, payload) => {
   try {
+    const bank = await getBankaccountDao({ id: ids.id, company_id: ids.company_id });
+    if (bank.today_balance >= bank.config?.max_limit) {
+      payload.is_enabled = false;
+      deactivateBank(bank.nick_name, ids.id);
+    }
+    else if (bank.today_balance === bank.config?.max_limit) {
+      deactivateBank(bank.nick_name, ids.id, true);
+    }
+
     const result = await updateBankaccountDao(
       { id: ids.id, company_id: ids.company_id },
       payload,
       conn,
     );
+    if (payload?.config?.is_freezed === true) {
+      const bankResponse = await getBankResponseDaoAll({ bank_id: ids.id, is_used: false });
+      if (bankResponse.length > 0) {
+        for (let i = 0; i < bankResponse.length; i++) {
+          await updateBotResponseDao(bankResponse[i].id, { status: '/freezed' });
+        }
+      }
+    }
     return result;
   } catch (error) {
     console.error('error getting while  updating banks', error);

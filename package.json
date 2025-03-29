@@ -5,7 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "TZ='Asia/Kolkata' eslint . && nodemon server.js",
-    "dev": "nodemon --exec \"npm run lint && node server.js\"",
+    "start:windows": "SET TZ=Asia/Kolkata eslint . && nodemon server.js",
+    "dev": "nodemon --exec \"npm run lint && npm run start:windows\"",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "format": "prettier --write .",

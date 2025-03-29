@@ -63,11 +63,16 @@ const createBankaccount = async (req, res) => {
   if (!payload.payin_count) {
     payload.payin_count = 0;
   }
+  delete payload.qr
   const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  payload.config = { "merchants": [] }
+  const phonePe = payload.is_phonepay ? true : false;
+  const intent = payload.is_intent ? true : false;
+  payload.bank_used_for == "PayIn" ? payload.config = { "merchants": [] ,"is_phonepay":phonePe,"is_intent":intent} : payload.config = {}
+  delete payload.is_phonepay;
+  delete payload.is_intent;
   const { user_id, company_id, role } = req.user;
   payload.created_by = user_id;
   payload.updated_by = user_id;
@@ -81,19 +86,8 @@ const createBankaccount = async (req, res) => {
 const updateBankaccount = async (req, res) => {
   const { id } = req.params;
   let payload = req.body;
-  
-  if (payload.code && payload.user_id) {
-    // Ensure payload.config.merchants exists and is an array
-    // Push the extracted code and user_id as an object into merchants array
-    payload.config.merchants.push({
-      code: payload.code,
-      user_id: payload.user_id,
-    });
-
-    // Delete code and user_id from the original payload
-    delete payload.code;
-    delete payload.user_id;
-  }
+  delete payload.is_phonepay;
+  delete payload.is_intent;
   const joiValidation = UPDATE_BANK_ACCOUNT_SCHEMA.validate(req.body);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);

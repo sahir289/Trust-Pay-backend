@@ -1,4 +1,4 @@
-import { BadRequestError } from '../../utils/appErrors.js';
+import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
 
 import {
   getBankResponseDao,
@@ -28,6 +28,7 @@ import {
   Role,
   vendorColumns,
 } from '../../constants/index.js';
+import { getCalculationforCronDao, updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 const logger = new Logger();
 
 const createBankResponseService = async (conn, payload, companyId, role, name) => {
@@ -49,7 +50,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
   const created_by = name ? name : 'Bank Response';
   const updated_by = name ? name : 'Bank Response';
   const company_id = companyId;
-  const isValidAmount = amount > 1 && amount < 500000; 
+  const isValidAmount = amount > 1 && amount < 500000;
   let isValidAmountCode
   if (upi_short_code) {
     isValidAmountCode =
@@ -158,9 +159,9 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
           filterColumns,
         );
         let botUtrIsUsed
-         if(getDataByUtr.rows.length>1){  
-        botUtrIsUsed = getDataByUtr?.some((item) => item.is_used); //isused- true and bankresponse entry and payin status - pending , assigned , initiated, dropped
-         }
+        if (getDataByUtr.rows.length > 1) {
+          botUtrIsUsed = getDataByUtr?.some((item) => item.is_used); //isused- true and bankresponse entry and payin status - pending , assigned , initiated, dropped
+        }
         if (
           !acceptedStatus.includes(checkPayInUtr[0]?.status) &&
           botUtrIsUsed
@@ -212,7 +213,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                   conn,
                 );
 
-                 await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+                await updateBotResponseDao(botRes.id, { is_used: true }, conn);
 
                 return { message: `entry in bank mismatch with ${updatePayInDataRes?.merchant_order_id}` };
               }
@@ -273,13 +274,13 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                     status: 'SUCCESS',
                     is_notified: true,
                     // is_used: true,
-                    user_submitted_utr:botRes?.utr ,
+                    user_submitted_utr: botRes?.utr,
                     approved_at: new Date(),
                     duration: duration,
                     payin_merchant_commission: payinMerchantCommission,
                     payin_vendor_commission: payinVendorCommission,
                     config: { from_UI: from_UI },
-                    bank_response_id : botRes.id
+                    bank_response_id: botRes.id
                   };
 
                   await updatePayInUrlDao(
@@ -301,7 +302,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                       }, conn
                     );
                   }
-                   await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+                  await updateBotResponseDao(botRes.id, { is_used: true }, conn);
                   const merchatnData = await getMerchantsDao({
                     id: checkPayInUtr[0]?.merchant_id,
                   }, null, null, null, null);
@@ -309,6 +310,18 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                   await updateMerchantDao({ id: checkPayInUtr[0]?.merchant_id }, {
                     balance: merchatnData.balance + parseFloat(amount),
                   }, conn);
+                  await updateCalculationTable(checkPayInUtr[0]?.merchant_id, {
+                    payinMerchantCommission,
+                    amount: botRes.amount,
+                  });
+                  await updateCalculationTable(
+                    botRes.user_id,
+                    {
+                      payinCommission: payinVendorCommission,
+                      amount: botRes.amount,
+                    },
+                    conn,
+                  );
                   return { message: `Successfully Created The Entry` }
                 } else {
                   return { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr[0]?.user_submitted_utr}` };
@@ -317,13 +330,13 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                 const payInData = {
                   status: 'SUCCESS',
                   is_notified: true,
-                  user_submitted_utr:botRes?.utr ,
+                  user_submitted_utr: botRes?.utr,
                   approved_at: new Date(),
                   duration: duration,
                   payin_merchant_commission: payinMerchantCommission,
                   payin_vendor_commission: payinVendorCommission,
                   config: { from_UI: from_UI },
-                  bank_response_id : botRes.id
+                  bank_response_id: botRes.id
                 };
 
                 await updatePayInUrlDao(
@@ -340,13 +353,25 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                     today_balance: bankdetails.balance + parseFloat(amount),
                   }, conn);
                 }
-                 await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+                await updateBotResponseDao(botRes.id, { is_used: true }, conn);
                 const merchatnData = await getMerchantsDao({
                   id: checkPayInUtr[0]?.merchant_id,
                 }, null, null, null, null);
                 await updateMerchantDao({ id: checkPayInUtr[0]?.merchant_id }, {
                   balance: merchatnData.balance + parseFloat(amount),
                 }, conn);
+                await updateCalculationTable(checkPayInUtr[0]?.merchant_id, {
+                  payinMerchantCommission,
+                  amount: botRes.amount,
+                });
+                await updateCalculationTable(
+                  botRes.user_id,
+                  {
+                    payinCommission: payinVendorCommission,
+                    amount: botRes.amount,
+                  },
+                  conn,
+                );
                 return { message: `Successfully Created The Entry` }
               }
             } else {
@@ -369,7 +394,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                     conn,
                   );
 
-                   await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+                  await updateBotResponseDao(botRes.id, { is_used: true }, conn);
 
                   return { message: `Entry is in Dispute with ${updatePayInDataRes?.merchant_order_id}` }
                 } else {
@@ -394,7 +419,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                     conn,
                   );
 
-                 await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+                await updateBotResponseDao(botRes.id, { is_used: true }, conn);
                 return { message: `Entry is in DISPUTE with ${updatePayInDataRes[0]?.merchant_order_id}` }
               }
             }
@@ -440,7 +465,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                   conn,
                 );
 
-                 await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+                await updateBotResponseDao(botRes.id, { is_used: true }, conn);
                 return { message: `entry in bank Mismatch with ${updatePayInDataRes?.merchant_order_id}` }
               } else {
                 return { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr[0]?.user_submitted_utr}` };
@@ -461,7 +486,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                 conn,
               );
 
-               await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+              await updateBotResponseDao(botRes.id, { is_used: true }, conn);
 
               return { message: `entry in bank mismatch with ${updatePayInDataRes?.merchant_order_id}` }
             }
@@ -484,7 +509,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                   payInData,
                   conn,
                 );
-                 await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+                await updateBotResponseDao(botRes.id, { is_used: true }, conn);
                 return { message: `Bank Mismatch created with ${updatePayInDataRes?.merchant_order_id}` }
               }
             } else {
@@ -544,13 +569,13 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
               const payInData = {
                 status: 'SUCCESS',
                 is_notified: true,
-                user_submitted_utr:botRes?.utr ,
+                user_submitted_utr: botRes?.utr,
                 approved_at: new Date(),
                 duration: duration,
                 payin_merchant_commission: payinMerchantCommission,
                 payin_vendor_commission: payinVendorCommission,
                 config: { from_UI: from_UI },
-                bank_response_id : botRes.id
+                bank_response_id: botRes.id
               };
 
               await updatePayInUrlDao(
@@ -568,7 +593,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                   today_balance: bankdetails[0].balance + parseFloat(amount),
                 }, conn);
               }
-               await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+              await updateBotResponseDao(botRes.id, { is_used: true }, conn);
 
               const merchatnData = await getMerchantsDao({
                 id: checkPayInUtr[0]?.merchant_id,
@@ -579,6 +604,18 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
               await updateMerchantDao({ id: checkPayInUtr[0]?.merchant_id }, {
                 balance: merchatnData.balance + parseFloat(amount),
               }, conn);
+              await updateCalculationTable(checkPayInUtr[0]?.merchant_id, {
+                payinMerchantCommission,
+                amount: botRes.amount,
+              });
+              await updateCalculationTable(
+                botRes.user_id,
+                {
+                  payinCommission: payinVendorCommission,
+                  amount: botRes.amount,
+                },
+                conn,
+              );
               return { message: `Successfully Created The Entry` }
             } else {
               return { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr[0]?.user_submitted_utr}` };
@@ -587,13 +624,13 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
             const payInData = {
               status: 'SUCCESS',
               is_notified: true,
-              user_submitted_utr:botRes?.utr ,
+              user_submitted_utr: botRes?.utr,
               approved_at: new Date(),
               duration: duration,
               payin_merchant_commission: payinMerchantCommission,
               payin_vendor_commission: payinVendorCommission,
               config: { from_UI: from_UI },
-              bank_response_id : botRes.id
+              bank_response_id: botRes.id
             };
 
             const updatePayInDataRes = await updatePayInUrlDao(
@@ -611,13 +648,25 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                 today_balance: bankdetails.balance + parseFloat(amount),
               }, conn);
             }
-             await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+            await updateBotResponseDao(botRes.id, { is_used: true }, conn);
             const merchatnData = await getMerchantsDao({
               id: checkPayInUtr[0]?.merchant_id,
             }, null, null, null, null);
             await updateMerchantDao({ id: checkPayInUtr[0]?.merchant_id }, {
               balance: merchatnData.balance + parseFloat(amount),
             }, conn);
+            await updateCalculationTable(checkPayInUtr[0]?.merchant_id, {
+              payinMerchantCommission,
+              amount: botRes.amount,
+            });
+            await updateCalculationTable(
+              botRes.user_id,
+              {
+                payinCommission: payinVendorCommission,
+                amount: botRes.amount,
+              },
+              conn,
+            );
             return { message: `Successfully Created The Entry` }
           }
         } else {
@@ -640,7 +689,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                 conn
               );
 
-               await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+              await updateBotResponseDao(botRes.id, { is_used: true }, conn);
               return { message: `Amount is in DISPUTE with : ${checkPayInUtr[0]?.user_submitted_utr}` }
             } else {
               return { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr[0]?.user_submitted_utr}` };
@@ -678,7 +727,28 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
   }
 }
 
-const getBankResponseService = async (payload, role) => {
+const updateCalculationTable = async (user_id, data, conn) => {
+  if (user_id) {
+    const calculation = await getCalculationforCronDao(user_id);
+    if (!calculation[0]) {
+      throw new NotFoundError('Calculation not found!');
+    }
+    const calculationId = calculation[0].id;
+    await updateCalculationBalanceDao(
+      { id: calculationId },
+      {
+        total_payin_count: 1,
+        total_payin_amount: data.amount,
+        total_payin_commission: data.payinCommission,
+        current_balance: data.amount,
+        net_balance: data.amount,
+      },
+      conn,
+    );
+  }
+};
+
+const getBankResponseService = async (payload, role, page, limit) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -703,9 +773,9 @@ const getBankResponseService = async (payload, role) => {
       }).filter(([, v]) => v !== undefined)
     );
 
-    return await getBankResponseDaoAll(filters, null, null, null, null, filterColumns);
+    return await getBankResponseDaoAll(filters, page, limit, null, null, filterColumns);
   } catch (error) {
-    console.error('Error while fetching BankResponse:', error);
+    console.error('Error in getBankResponseService:', error);
     throw new BadRequestError('Error occurred while Fetching BankResponse');
   }
 };

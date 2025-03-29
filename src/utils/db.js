@@ -5,7 +5,7 @@ import { DbError } from './appErrors.js';
 import { logger } from "./logger.js";
 const { Pool } = pkg;
 const pool = new Pool({
-  connectionString: config.databaseUrl,
+  connectionString: `${config.databaseUrl}?options=-c%20timezone%3DAsia%2FKolkata`,
   ssl: {
     rejectUnauthorized: false, // Use true in production with proper certificates
   },

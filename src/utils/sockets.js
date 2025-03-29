@@ -90,4 +90,20 @@ const forceLogoutUser = (userId) => {
   }
 };
 
-export { initializeSocket, forceLogoutUser };
+const deactivateBank = (nickName, bankId, isWarning = false) => {
+  if (!ioInstance) {
+    logger.error('Socket.IO not initialized');
+    return;
+  }
+  
+  ioInstance.emit(isWarning ? 'bankStatusWarning' : 'bankStatusUpdate', {
+    message: isWarning 
+      ? `The Bank with the ${nickName} will be Deactivate soon as the Balance will soon reach the Daily Limit`
+      : `The Bank with the ${nickName} id Deactivate`,
+    bankId,
+    nickname: nickName,
+    isEnabled: !isWarning ? false : undefined
+  });
+};
+
+export { initializeSocket, forceLogoutUser, deactivateBank };

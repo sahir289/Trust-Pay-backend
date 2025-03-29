@@ -17,12 +17,16 @@ import {
   updateDepositStatus,
   updatePaymentNotificationStatus,
   validatePayInUrl,
+  generateHashForPayIn
 } from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
 const router = express.Router();
 
 // Public API's
+
+router.get('/generate-hash', tryCatchHandler(generateHashForPayIn));
+
 
 /**
  * @swagger
