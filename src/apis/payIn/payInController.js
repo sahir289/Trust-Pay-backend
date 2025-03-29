@@ -129,11 +129,22 @@ export const validatePayInUrl = async (req, res) => {
   const user_location =
     req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
   const payIn = await getPayInUrlService(merchantOrderId);
+
+  if (!payIn) {
+    throw new BadRequestError('Invalid merchant order id');
+  }
+
+  console.log('payIn', payIn);
+
+  if (payIn.one_time_used === true) {
+    throw new BadRequestError('This payin url is already used');
+  }
+
   const updatedConfig = stringifyJSON({
     ...payIn.config,
     user: user_location,
   });
-  await updatePayInUrlDao(payIn.id, { config: updatedConfig });
+  await updatePayInUrlDao(payIn.id, { config: updatedConfig, one_time_used: true });
   const result = {
     code: payIn.upi_short_code,
     return_url: config.return_url,
