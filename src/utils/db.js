@@ -114,8 +114,13 @@ export const buildSelectQuery = (
     const value = filters[key];
     if (key === 'or' || key === 'page' || key === 'limit') {
       continue;
-    } else if (key.startsWith('config_') && key.endsWith('_contains')) {
-      // Handle dynamic config.<variable> array column containment
+    }
+
+    if (['startDate', 'endDate'].includes(key)) {
+      continue;
+    }
+
+    if (key.startsWith('config_') && key.endsWith('_contains')) {
       const variablePart = key.replace('config_', '').replace('_contains', '');
       const jsonColumn = `
         COALESCE(
@@ -137,11 +142,23 @@ export const buildSelectQuery = (
     }
   }
 
-  if (conditions.length) {
-    query += ` AND ${conditions.join(' AND ')}`;
+  // Handle startDate and endDate
+  if (filters.startDate && filters.endDate) {
+    const startDate = new Date(filters.startDate).toISOString().split('T')[0];
+    const endDate = new Date(filters.endDate).toISOString().split('T')[0];
+    conditions.push(`${prefix}"created_at" BETWEEN $${values.length + 1} AND $${values.length + 2}`);
+    values.push(startDate, endDate);
   }
 
-  // OR conditions (unchanged)
+  // Add WHERE conditions
+  if (conditions.length) {
+    if (query.toLowerCase().includes('where')) {
+      query += ` AND ${conditions.join(' AND ')}`;
+    } else {
+      query += ` WHERE ${conditions.join(' AND ')}`;
+    }
+  }
+
   if (filters.or && typeof filters.or === 'object') {
     const orConditions = [];
     for (const key in filters.or) {
@@ -185,7 +202,7 @@ export const applySortingAndPagination = (
   query += ` ORDER BY ${prefix}"${sortBy || "created_at"}" ${order}`;
 
   // Add pagination if values are passed
-  if(Number(page) && Number(pageSize)){
+  if (Number(page) && Number(pageSize)) {
     const offset = (page - 1) * pageSize;
     query += ` LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
     values.push(pageSize, offset);
@@ -230,33 +247,33 @@ export const buildUpdateQuery = (
 
 export const transactionWrapper =
   (fn) =>
-  async (...args) => {
-    let conn;
-    try {
-      conn = await getConnection();
-      await beginTransaction(conn); // Ensure transaction starts properly
+    async (...args) => {
+      let conn;
+      try {
+        conn = await getConnection();
+        await beginTransaction(conn); // Ensure transaction starts properly
 
-      const data = await fn(conn, ...args); // Ensure fn expects conn as the first argument
+        const data = await fn(conn, ...args); // Ensure fn expects conn as the first argument
 
-      await commit(conn); // Commit only if no errors
-      return data;
-    } catch (error) {
-      if (conn) {
-        try {
-          await rollback(conn); // Explicit rollback
-          logger.error('Transaction rolled back due to error:', error);
-        } catch (rollbackError) {
-          logger.error('Rollback failed:', rollbackError);
+        await commit(conn); // Commit only if no errors
+        return data;
+      } catch (error) {
+        if (conn) {
+          try {
+            await rollback(conn); // Explicit rollback
+            logger.error('Transaction rolled back due to error:', error);
+          } catch (rollbackError) {
+            logger.error('Rollback failed:', rollbackError);
+          }
+        }
+        throw new DbError(error.message); // Rethrow error
+      } finally {
+        if (conn) {
+          logger.log('Releasing connection');
+          conn.release(); // Always release connection
         }
       }
-      throw new DbError(error.message); // Rethrow error
-    } finally {
-      if (conn) {
-        logger.log('Releasing connection');
-        conn.release(); // Always release connection
-      }
-    }
-  };
+    };
 
 /**
  * Builds a dynamic SQL SELECT query with auto-generated JOIN conditions.
