@@ -1,6 +1,3 @@
-/* eslint-disable no-constant-binary-expression */
-/* eslint-disable no-unreachable */
-
 import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { deactivateBank } from '../../utils/sockets.js';
