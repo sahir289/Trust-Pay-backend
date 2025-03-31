@@ -87,8 +87,8 @@ LEFT JOIN LATERAL (
 WHERE 
     ${conditions.join(' AND ')}
 ORDER BY 
-    ba.is_enabled DESC, 
-    ba.sno ASC
+    ba.is_enabled DESC,  
+    ba.updated_at DESC  
 ${limitcondition};
 `;
     const result = await executeQuery(baseQuery, queryParams);
