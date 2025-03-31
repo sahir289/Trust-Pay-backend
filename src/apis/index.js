@@ -19,6 +19,8 @@ import complaints from './complaints/index.js';
 import gatherAllData from '../cron/gatherAllData.js';
 import reports from './reports/index.js';
 import cron from '../cron/index.js';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpecs } from '../../swaggerConfig.js';
 import resetHistory from './resetHistory/index.js';
 import checkUtr from './checkutr/index.js';
 import common from './common/index.js';
@@ -28,6 +30,7 @@ const router = express.Router();
 parentRouter.use('/v1', router);
 
 // Apply authorization middleware for specific routes
+router.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 router.use('/payIn', payIn);
 router.use('/users', users);
 router.use('/merchants', merchants);

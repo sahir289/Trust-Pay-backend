@@ -50,7 +50,7 @@ const onListening = () => {
     `the server started listening on ${bind}`,
   );
   logger.log(styledServerMessage);
-  const docsUrl = `http://localhost:${PORT}/api-docs`;
+  const docsUrl = `http://localhost:${PORT}/v1/api-docs`;
   const styledMessage = chalk.bold.yellow(`API docs available at ${docsUrl}`);
   logger.log(styledMessage);
 };
