@@ -43,6 +43,7 @@ import { stringifyJSON } from '../../utils/index.js';
 import { AUTH_HEADER_KEY } from '../../utils/constants.js';
 import { getMerchantByCodeAndApiKey } from '../merchants/merchantDao.js';
 import { createHash, compareHash } from '../../utils/hashUtils.js';
+import { logger } from '../../utils/logger.js';
 
 //  To Generate Url
 export const generateHashForPayIn = async (req, res) => {
@@ -301,7 +302,7 @@ export const telegramOCR = async (req, res) => {
   const message = req.body.message;
 
   if (!message || typeof message !== 'object') {
-    console.error('No Telegram Message found!', message);
+    logger.error('No Telegram Message found!', message);
     return;
   }
 
