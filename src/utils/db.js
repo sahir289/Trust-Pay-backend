@@ -11,6 +11,11 @@ const pool = new Pool({
   },
 });
 
+pool.on('error', (err) => {
+  logger.error('Unexpected error on idle client', err);
+  process.exit(-1);
+});
+
 const getConnection = async () => {
   try {
     const client = await pool.connect();
