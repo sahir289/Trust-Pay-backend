@@ -612,7 +612,7 @@ export const resetDepositService = async (
   ]);
 
   if (nonResettableStatuses.has(payIn.status)) {
-    return { error: 'This payIn cannot be reset!' };
+    return { error: `The Order Id: ${payIn.merchant_order_id} with Status: ${payIn.status} cannot be reset!` };
   }
 
   const condition = {
@@ -626,7 +626,7 @@ export const resetDepositService = async (
   const bankResponse = await getBankResponseDao(condition);
 
   const updatePayInData = {
-    status: Status.ASSIGNED,
+    status: calculateStatus(payIn.created_at),
     payin_merchant_commission: null,
     user_submitted_utr: null,
     duration: null,
@@ -659,6 +659,15 @@ export const resetDepositService = async (
     await updateBankaccountService(conn, { id: bank.id, company_id: payIn.company_id }, {});
   }
   return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+};
+
+const calculateStatus = (createdAt) => {
+  const TEN_MINUTES_IN_MS = 10 * 60 * 1000;
+  const currentTime = new Date();
+  const createdTime = new Date(createdAt);
+  const timeDifference = currentTime - createdTime;
+
+  return timeDifference > TEN_MINUTES_IN_MS ? Status.DROPPED : Status.ASSIGNED;
 };
 
 export const getPayinsService = async (company_id, page, limit, filters, role) => {

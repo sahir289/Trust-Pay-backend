@@ -40,28 +40,33 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { decodeAuthToken, streamToBase64 } from '../../helpers/index.js';
 import { s3 } from '../../helpers/Aws.js';
 import { stringifyJSON } from '../../utils/index.js';
-import { crypto512Algo } from '../../utils/cryptoAlgorithm.js';
 import { AUTH_HEADER_KEY } from '../../utils/constants.js';
 import { getMerchantByCodeAndApiKey } from '../merchants/merchantDao.js';
+import { createHash, compareHash } from '../../utils/hashUtils.js';
+import { logger } from '../../utils/logger.js';
 
 //  To Generate Url
 export const generateHashForPayIn = async (req, res) => {
-  const payload = req.query;
-  const { user_id, code, ot, key } = req.query;
+  const { user_id, code, ot, key, amount } = req.query;
 
   if (!user_id || !code || !ot) {
     throw new BadRequestError('Missing required query parameters: user_id, code, or ot');
   }
-
   const x_api_key = req.headers['x-api-key'];
-  const token = req.headers[AUTH_HEADER_KEY];
-  const tokenData = decodeAuthToken(token);
 
-  const query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
-  const hash = crypto512Algo(x_api_key, tokenData.user_id, payload.amount);
+  let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
+  if (amount) {
+    query += `&amount=${amount}`;
+  }
+
+  // Create a deterministic hash
+  const hash = createHash(`${code}:${x_api_key}`);
+
+  // Encode the hash to make it URL-safe
+  const encodedHash = encodeURIComponent(hash);
 
   const updateRes = {
-    payInUrl: `${config.reactPaymentOrigin}/transaction/${hash}?${query}`,
+    payInUrl: `${config.reactPaymentOrigin}/transaction/${encodedHash}?${query}`,
   };
 
   return sendSuccess(res, updateRes, 'PayIn hash generated successfully');
@@ -73,8 +78,8 @@ export const generatePayInUrl = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-
-  const { code, key } = payload;
+  const x_api_key = req.headers['x-api-key'];
+  const { code, key, hash_code } = payload;
 
   // Fetch the merchant using the code and API public key
   const merchant = await getMerchantByCodeAndApiKey(code, key);
@@ -82,12 +87,22 @@ export const generatePayInUrl = async (req, res) => {
     throw new BadRequestError('Invalid merchant code or API key');
   }
 
+  // Create a deterministic hash
+  const generatedHash = createHash(`${code}`);
+  // Decode the provided hash before comparison
+  const decodedHashCode = hash_code ? decodeURIComponent(hash_code) : null;
+
+  // Compare the provided hash with the generated hash
+  if (decodedHashCode && !compareHash(`${code}:${merchant.config.keys.private}`, decodedHashCode)) {
+    throw new BadRequestError('Hash code does not match');
+  }
+
   const token = req.headers[AUTH_HEADER_KEY];
   const tokenData = decodeAuthToken(token);
   const result = await generatePayInUrlService(
     {
       ...payload,
-      x_api_key: key,
+      x_api_key: x_api_key ? x_api_key : key,
     },
     tokenData.user_id,
   );
@@ -97,16 +112,10 @@ export const generatePayInUrl = async (req, res) => {
     payload.isTest && (payload.isTest === 'true' || payload.isTest === true)
       ? `?t=true&order=${result.merchant_order_id}`
       : `?order=${result.merchant_order_id}`;
-  const hash = crypto512Algo(
-    key,
-    result.id,
-    result.merchant_order_id,
-    payload.amount,
-  );
   const updateRes = {
     expirationDate: result.expiration_date,
     merchantOrderId: result.merchant_order_id,
-    payInUrl: `${config.reactPaymentOrigin}/transaction/${hash}${queryStr}`, // use env
+    payInUrl: `${config.reactPaymentOrigin}/transaction/${generatedHash}${queryStr}`, // Use env
     payinId: result.id,
   };
 
@@ -129,11 +138,20 @@ export const validatePayInUrl = async (req, res) => {
   const user_location =
     req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
   const payIn = await getPayInUrlService(merchantOrderId);
+
+  if (!payIn) {
+    throw new BadRequestError('Invalid merchant order id');
+  }
+
+  if (payIn.one_time_used === true) {
+    throw new BadRequestError('This payin url is already used');
+  }
+
   const updatedConfig = stringifyJSON({
     ...payIn.config,
     user: user_location,
   });
-  await updatePayInUrlDao(payIn.id, { config: updatedConfig });
+  await updatePayInUrlDao(payIn.id, { config: updatedConfig, one_time_used: true });
   const result = {
     code: payIn.upi_short_code,
     return_url: config.return_url,
@@ -284,7 +302,7 @@ export const telegramOCR = async (req, res) => {
   const message = req.body.message;
 
   if (!message || typeof message !== 'object') {
-    console.error('No Telegram Message found!', message);
+    logger.error('No Telegram Message found!', message);
     return;
   }
 
