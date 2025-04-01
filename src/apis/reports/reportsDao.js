@@ -10,47 +10,133 @@ const getPayInMerchantReportDao = async (
   merchant_id,
   startDate,
   endDate,
-  company_id,
+  company_id
 ) => {
   try {
-    const tableName = 'Payin';
-    let query = `SELECT merchant_order_id, upi_short_code,payin_merchant_commission, amount, user_submitted_utr, status, bank_acc_id, merchant_id  FROM  "${tableName}" WHERE 1=1`;
-    const [sql, parameters] = buildSelectQuery(query, {
-      merchant_id: merchant_id,
-      company_id: company_id,
-    });
-    if (startDate && endDate) {
-      query += ` AND created_at BETWEEN $${Object.keys(parameters).length + 1} AND $${Object.keys(parameters).length + 2}`;
-      parameters[`created_at_start`] = startDate;
-      parameters[`created_at_end`] = endDate;
+    let commissionSelect = `u.payin_merchant_commission,
+        json_build_object(
+          'merchant_code', r.code,
+          'return_url', r.config->>'return_url',
+          'notify_url', r.config->>'notify_url'
+      ) AS merchant_details, 
+      u.payin_vendor_commission, 
+      u.approved_at, 
+      u.created_by, 
+      u.updated_by, 
+      u.created_at, 
+      u.updated_at`;
+
+    let query = `
+WITH filtered_payins AS (
+        SELECT DISTINCT ON (u.id)
+        u.id,
+        u.sno,
+        u.upi_short_code,
+        u.amount,
+        u.status,
+        u.merchant_order_id,
+        u.is_notified,
+        u.user_submitted_utr,
+        u.user,
+        u.user_submitted_image,
+        u.duration,
+        u.config AS payin_details,
+        b.nick_name,
+        ${commissionSelect},
+        json_build_object(
+            'utr', br.utr,
+            'amount', br.amount
+        ) AS bank_res_details
+        FROM public."Payin" u
+        LEFT JOIN public."Merchant" r ON u.merchant_id = r.id
+        LEFT JOIN public."BankAccount" b ON u.bank_acc_id = b.id
+        LEFT JOIN public."BankResponse" br ON u.bank_response_id = br.id
+        WHERE u.company_id = $1`;
+    
+    let parameters = [company_id];
+    let paramIndex = parameters.length + 1;
+
+    if (merchant_id) {
+      query += ` AND u.merchant_id = $${paramIndex}`;
+      parameters.push(merchant_id);
+      paramIndex++;
     }
-    const result = await executeQuery(sql, parameters);
-    return result.rows[0];
+
+    if (startDate && endDate) {
+      query += ` AND u.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      parameters.push(startDate, endDate);
+    }
+
+    query += `) SELECT * FROM filtered_payins;`;
+
+    const result = await executeQuery(query, parameters);
+    return result.rows;
   } catch (error) {
-    console.error('Error in getPayInMerchantReportDao:', error);
-    throw error.message;
+    console.error("Error in getPayInMerchantReportDao:", error);
+    throw new Error(error.message);
   }
 };
 
+
 const getPayInVendorReportDao = async (id, startDate, endDate, company_id) => {
   try {
-    const tableName = 'Payin';
-    let query = `SELECT *  FROM  "${tableName}" WHERE 1=1`;
-    const [sql, parameters] = buildSelectQuery(
-      query,
-      { bank_acc_id: id },
-      { company_id: company_id },
-    );
-    if (startDate && endDate) {
-      query += ` AND created_at BETWEEN $${Object.keys(parameters).length + 1} AND $${Object.keys(parameters).length + 2}`;
-      parameters[`created_at_start`] = startDate;
-      parameters[`created_at_end`] = endDate;
+    let commissionSelect = `u.payin_merchant_commission,
+      u.payin_vendor_commission, 
+      v.code AS vendor_code,
+      u.approved_at, 
+      u.created_by, 
+      u.updated_by, 
+      u.created_at, 
+      u.updated_at`;
+
+    let query = `
+WITH filtered_payins AS (
+        SELECT DISTINCT ON (u.id)
+        u.id,
+        u.sno,
+        u.upi_short_code,
+        u.amount,
+        u.status,
+        u.merchant_order_id,
+        u.is_notified,
+        u.user_submitted_utr,
+        u.user,
+        u.user_submitted_image,
+        u.duration,
+        u.config AS payin_details,
+        b.nick_name,
+        ${commissionSelect},
+        json_build_object(
+            'utr', br.utr,
+            'amount', br.amount
+        ) AS bank_res_details
+        FROM public."Payin" u
+        LEFT JOIN public."BankAccount" b ON u.bank_acc_id = b.id
+        LEFT JOIN public."BankResponse" br ON u.bank_response_id = br.id
+        LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
+        WHERE u.company_id = $1`;
+    
+    let parameters = [company_id];
+    let paramIndex = parameters.length + 1;
+
+    if (id) {
+      query += ` AND u.id = $${paramIndex}`;
+      parameters.push(id);
+      paramIndex++;
     }
-    const result = await executeQuery(sql, parameters);
+
+    if (startDate && endDate) {
+      query += ` AND u.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      parameters.push(startDate, endDate);
+    }
+
+    query += `) SELECT * FROM filtered_payins;`;
+
+    const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
-    console.error('Error in getPayInVendorReportDao:', error);
-    throw error.message;
+    console.error("Error in getPayInMerchantReportDao:", error);
+    throw new Error(error.message);
   }
 };
 
