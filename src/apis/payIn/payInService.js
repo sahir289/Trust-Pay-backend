@@ -55,6 +55,7 @@ import {
   sendMerchantOrderIDStatusDuplicateTelegramMessage,
   sendTelegramMessage,
 } from '../../utils/sendTelegramMessages.js';
+
 import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
@@ -63,7 +64,6 @@ import { expirePayInIfNeeded } from '../../utils/index.js';
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
-
 export const generatePayInUrlService = async (payload, created_by) => {
   const {
     code,
@@ -138,7 +138,6 @@ export const generatePayInUrlService = async (payload, created_by) => {
 
   const result = await generatePayInUrlDao(data);
   expirePayInIfNeeded(result.id);
-
   return result;
 };
 
@@ -273,7 +272,7 @@ export const assignedBankToPayInUrlService = async (
     bank_acc_id: selectedBankDetails.id,
     one_time_used: true,
   });
-
+  // expirePayInIfNeeded(payIn);
   delete updatePayIn.is_obsolete;
   delete updatePayIn.company_id;
   delete selectedBankDetails.is_obsolete;
@@ -1073,9 +1072,12 @@ export const disputeDuplicateTransactionService = async (
     }
 
     if (
-      ![Status.DUPLICATE, Status.PENDING, Status.ASSIGNED].includes(
-        payIn.status,
-      )
+      ![
+        Status.DUPLICATE,
+        Status.PENDING,
+        Status.ASSIGNED,
+        Status.DISPUTE,
+      ].includes(payIn.status)
     ) {
       throw new BadRequestError(
         'PayIn Status is not DUPLICATE, PENDING, ASSIGNED against merchant order id',

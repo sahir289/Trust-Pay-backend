@@ -27,7 +27,6 @@ const router = express.Router();
 
 router.get('/generate-hash', tryCatchHandler(generateHashForPayIn));
 
-
 /**
  * @swagger
  * /payin:
@@ -294,7 +293,6 @@ router.put(
  *         description: Pay-In URL not found
  */
 router.post('/reset-payment', tryCatchHandler(resetDeposit));
-
 /**
  * @swagger
  * /payin/dispute-duplicate/{payInId}:
