@@ -35,18 +35,16 @@ const createVendor = async (req, res) => {
 
 const getVendors = async (req, res) => {
   const { company_id, role } = req.user;
-  const {page, limit} = req.query;
-  // let search = req.query.search;
+  const {page, limit, search } = req.query;
   const data = await getVendorsService(
     {
       company_id,
+      ...(search ? { search } : {}),
       ...req.query,
     },
     role, page,limit,
   );
-  // Log success message
   console.log('get Vendors successfully');
-  // Send success response
   return sendSuccess(res, data, 'Vendors fetched successfully');
 };
 

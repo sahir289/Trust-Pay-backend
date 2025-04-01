@@ -12,6 +12,7 @@ import {
   VALIDATE_PAYOUT_BY_ID,
 } from '../../schemas/payoutSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
+import { logger } from '../../utils/logger.js';
 
 const createPayout = async (req, res) => {
   const joiValidation = PAYOUT_DETAILS_SCHEMA.validate(req.body);
@@ -40,11 +41,8 @@ const getPayoutsById = async (req, res) => {
   }
   const { id } = req.params;
   const { company_id, role } = req.user;
-  // Fetch vendors data from the service
   const data = await getPayoutsService({ id, company_id }, role);
-  // Log success message
-  console.log('getPayouts successfully');
-  // Send success response
+  logger.info('getting Payouts successfully');
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };
 

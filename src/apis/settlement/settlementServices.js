@@ -47,7 +47,7 @@ const getSettlementServiceById = async (ids) => {
   }
 };
 
-const getSettlementService = async (ids,  page, limit) => {
+const getSettlementService = async (ids,  page, limit, search) => {
   try {
     const filterColumns =
       ids.role === Role.MERCHANT
@@ -56,8 +56,9 @@ const getSettlementService = async (ids,  page, limit) => {
           ? Role.vendorColumns.SETTLEMENT
           : columns.SETTLEMENT;
     return await getSettlementDao(
-      { company_id: ids.company_id, role : ids.role_name },
-      page, limit,
+      { company_id: ids.company_id, role : ids.role_name, ...(search ? { search } : {}) },
+      page, 
+      limit,
       null,
       null,
       filterColumns

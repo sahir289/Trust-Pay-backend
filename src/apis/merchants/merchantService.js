@@ -84,15 +84,16 @@ const getMerchantsService = async (filters, role, page, limit, designation, user
       if (!userHierarchy || !userHierarchy.config || !Array.isArray(userHierarchy.config[user_id])) {
         return [];
       }
-      // only send merhcant underlings if Requested person is Merchant Admin
+      // only send merchant underlings if Requested person is Merchant Admin
       filters.user_id = userHierarchy.config[user_id];
     }
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
     
     const data = await getMerchantsDao(
-      filters
-      , pageNumber, pageSize,
+      filters, 
+      pageNumber, 
+      pageSize,
       null,
       null,
       filterColumns,
