@@ -31,7 +31,7 @@ const getPayInReportService = async (req, res) => {
 
       if (merchant_id && merchant_id.length > 0) {
         const merchantReport = await getPayInMerchantReportDao(
-          merchant_id[0].id,  // Assuming merchant_id is an array, pick the first result
+          merchant_id[0].id,  
           startDate,
           endDate,
           company_id
@@ -40,13 +40,13 @@ const getPayInReportService = async (req, res) => {
         if (Array.isArray(merchantReport)) {
           result.push(...merchantReport);
         } else if (merchantReport) {
-          result.push(merchantReport);  // If it's not an array, push the single result
+          result.push(merchantReport);  
         }
         return sendSuccess(res, result, 'Payins created successfully');
 
       }
-      const vendor_id = await getVendorsDao({ user_id: code });
-      if (vendor_id) {
+      const vendor_id = await getVendorsDao({ user_id: codeItem });
+      if (vendor_id && vendor_id.length > 0) {
         const vendorData = await getVendorsDao({ id: vendor_id });
         if (vendorData) {
           const bankVendorData = await getBankaccountDao(
@@ -64,11 +64,10 @@ const getPayInReportService = async (req, res) => {
               method,
               company_id
             );
-  
             if (Array.isArray(vendorReport)) {
               result.push(...vendorReport);
             } else if (vendorReport) {
-              result.push(vendorReport);  // If it's not an array, push the single result
+              result.push(vendorReport);  
             }
           }
         }
