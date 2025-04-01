@@ -7,7 +7,7 @@ import {
 } from '../../utils/db.js';
 import { getConnection } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
-import { buildFilterConditions, buildSearchFilterObj } from '../../utils/searchBuilder.js';
+import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 export const generatePayInUrlDao = async (data) => {
   try {
