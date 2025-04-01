@@ -1217,11 +1217,11 @@ export const telegramCheckUTRService = async (
   const payIn = await getPayInUrlDao({ merchant_order_id });
 
   if (!bankResponse) {
-    return { message: `${utr} UTR Does Not match with ${payIn.merchant_order_id} Merchant Order ID` }
+    return { error: `${utr} UTR Does Not match with ${payIn.merchant_order_id} Merchant Order ID` }
   }
   if (!payIn) {
     // throw new NotFoundError('Merchant Order ID not found in Payin');
-    return { message: `Merchant Order ID not found in Payin` }
+    return { error: `Merchant Order ID not found in Payin` }
 
   }
   await createCheckUtrService({
@@ -1262,7 +1262,7 @@ export const telegramCheckUTRService = async (
   if (![Status.PENDING, Status.ASSIGNED, Status.DROPPED].includes(payIn.status)) {
     return {
       status: payIn.status,
-      message: `Pay In is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
+      message: `PayIn is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
     };
   }
   updatePayInUrlDao({ id: payIn.id }, { is_url_expires: false }, conn)
