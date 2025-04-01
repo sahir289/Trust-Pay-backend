@@ -80,7 +80,6 @@ const getUserByIdDao = async (conn, ids) => {
         u.updated_by, 
         u.created_at, 
         u.updated_at, 
-        u.password,
         r.role , 
         d.designation   
       FROM public."User" u
@@ -100,10 +99,6 @@ const getUserByIdDao = async (conn, ids) => {
     if (ids.company_id) {
       baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
       queryParams.push(ids.company_id);
-    }
-    if (ids.user_id) {
-      baseQuery += ` AND u.id = $${queryParams.length + 1}`;
-      queryParams.push(ids.user_id);
     }
     const result = await conn.query(baseQuery, queryParams);
     if (result.rowCount === 0) {
@@ -147,7 +142,6 @@ const getUsersByUserNameDao = async (ids, username) => {
     `;
 
     const queryParams = [username];
-
     if (ids.role_id) {
       baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
       queryParams.push(ids.role_id);

@@ -2,10 +2,9 @@ import { logoutSet } from '../../middlewares/auth.js';
 import { INSERT_AUTH_SCHEMA } from '../../schemas/authSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { verifyHash } from '../../utils/bcryptPassword.js';
-import { getConnection } from '../../utils/db.js';
 // import { verifyToken } from '../../utils/auth.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getUserByIdDao } from '../users/userDao.js';
+import { getUsersByUserNameDao } from '../users/userDao.js';
 import {
   loginService,
   // logoutService,
@@ -57,12 +56,11 @@ const logoutController = async (req, res) => {
 };
 
 const verificationController =async(req, res) => {
-  let conn;
-  const { user_id } = req.user;
-  const { password } = req.body.password;
-  conn = await getConnection();
-  const userDetails = await getUserByIdDao(conn, {id : user_id});
-  const isPasswordValid = await verifyHash(password, userDetails[0].password);
+  const { user_name } = req.user;
+  const { password } = req.body;
+  let ids = {};
+  const userDetails = await getUsersByUserNameDao( ids, user_name);
+  const isPasswordValid = await verifyHash(password, userDetails.password);
   if(!isPasswordValid){
     throw new BadRequestError('Invalid Password');
   }

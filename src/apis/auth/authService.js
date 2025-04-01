@@ -120,9 +120,6 @@ const logoutService = async (decodeToken, session_id) => {
   }
 };
 
-const comparePassword = async (password, hash) => {
-  const isPasswordValid = await verifyHash(password, hash);
-  return isPasswordValid;
-};
 
-export { loginService, refreshTokenService, logoutService, comparePassword };
+
+export { loginService, refreshTokenService, logoutService };
