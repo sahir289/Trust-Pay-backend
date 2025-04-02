@@ -10,6 +10,7 @@ import {
   buildJoinQuery,
 } from '../../utils/db.js';
 import { generateUUID } from '../../utils/generateUUID.js';
+import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 const getBankResponseDao = async (
@@ -78,15 +79,19 @@ const getBankResponseDaoAll = async (
         referenceTable: BANK_ACCOUNT,
       },
     ];
+    console.log(filters, "filterss");
     const baseQuery = buildJoinQuery(
       BANK_RESPONSE,
       columns.length ? columns : '*',
       joins,
     );
+
     if (filters.search) {
-      filters.or = buildSearchFilterObj(filters.search, BANK_ACCOUNT);
+      filters.or = buildSearchFilterObj(filters.search, BANK_RESPONSE);
       delete filters.search;
     }
+
+    console.log(filters.or, "filetrs")
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
@@ -98,8 +103,9 @@ const getBankResponseDaoAll = async (
     );
     const result = await executeQuery(sql, queryParams);
     return { totalCount: result.rows.length, rows: result.rows };
-  } catch {
-    throw new InternalServerError('Error executing query');
+  } catch(error) {
+    logger.error('Error getting Bank Response:', error);
+    throw error.message;
   }
 };
 

@@ -40,14 +40,14 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
     if (typeof company_id === 'string') {
       company_id = company_id.trim();
     }
-    let conditions = [`u.is_obsolete = false`, `u.company_id = $1`];
+    let conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
     let queryParams = [company_id];
     let limitcondition = '';
 
     // const tableConfigs = {
     //   u: {
     //     columns: ['sno', 'upi_short_code', 'amount', 'status', 'merchant_order_id', 'user_submitted_utr', 'user', 'is_notified'],
-    //     jsonFields: ['u.config'],
+    //     jsonFields: ['p.config'],
     //   },
     //   r: {
     //     columns: ['code'],
@@ -72,69 +72,54 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
       delete filters.search;
     }
 
-    console.log(filters, "filetrs")
+    console.log(filters.or, "filetrs")
     // const { conditions, queryParams } = buildFilterConditions(filters, tableConfigs, baseConditions, baseParams);
 
     console.log(conditions, queryParams, "+++++++");
 
     if (filters.startDate && filters.endDate) {
-      conditions.push(`u.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`);
+      conditions.push(`p.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`);
       queryParams.push(filters.startDate, filters.endDate);
     }
     if (page && limit) {
       limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
       queryParams.push(limit, (page - 1) * limit);
     }
-    // if (Object.keys(filters).length > 0) {
-    //   Object.keys(filters).forEach((key) => {
-    //     delete filters.page
-    //     delete filters.limit
-    //     const value = filters[key]; 
-    //     if (value !== null && value !== undefined && value !== '') {
-    //       if (Array.isArray(value)) {
-    //         conditions.push(`u."${key}" = ANY($${queryParams.length + 1})`);
-    //         queryParams.push(value);
-    //       } else {
-    //         conditions.push(`u."${key}" = $${queryParams.length + 1}`);
-    //         queryParams.push(value);
-    //       }
-    //     }
-    //   });
-    // }
+  
     let commissionSelect = '';
     if (role === 'MERCHANT') {
-      commissionSelect = `u.payin_merchant_commission, u.merchant_order_id, 
+      commissionSelect = `p.payin_merchant_commission, p.merchant_order_id, 
         json_build_object(
           'merchant_code', r.code,
           'return_url', r.config->>'return_url',
           'notify_url', r.config->>'notify_url'
       ) AS merchant_details,`;
     } else if (role === 'VENDOR') {
-      commissionSelect = 'u.payin_vendor_commission, v.code AS vendor_code,';
+      commissionSelect = 'p.payin_vendor_commission, v.code AS vendor_code,';
     } else {
-      commissionSelect = `u.payin_merchant_commission,
+      commissionSelect = `p.payin_merchant_commission,
         json_build_object(
           'merchant_code', r.code,
           'return_url', r.config->>'return_url',
           'notify_url', r.config->>'notify_url'
-      ) AS merchant_details,u.payin_vendor_commission, v.code AS vendor_code,
-      u.payin_vendor_commission, u.approved_at, u.created_by, u.updated_by, u.created_at, u.updated_at`;
+      ) AS merchant_details,p.payin_vendor_commission, v.code AS vendor_code,
+      p.payin_vendor_commission, p.approved_at, p.created_by, p.updated_by, p.created_at, p.updated_at`;
     }
     const baseQuery = `
       WITH filtered_payins AS (
-        SELECT DISTINCT ON (u.id)
-        u.id,
-        u.sno,
-        u.upi_short_code,
-        u.amount,
-        u.status,
-        u.merchant_order_id,
-        u.is_notified,
-        u.user_submitted_utr,
-        u.user,
-        u.user_submitted_image,
-        u.duration,
-        u.config AS payin_details,
+        SELECT DISTINCT ON (p.id)
+        p.id,
+        p.sno,
+        p.upi_short_code,
+        p.amount,
+        p.status,
+        p.merchant_order_id,
+        p.is_notified,
+        p.user_submitted_utr,
+        p.user,
+        p.user_submitted_image,
+        p.duration,
+        p.config AS payin_details,
         b.nick_name,
         ${commissionSelect},
         json_build_object(
@@ -142,10 +127,10 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
             'amount', br.amount
         ) AS bank_res_details
       
-        FROM public."Payin" u
-        LEFT JOIN public."Merchant" r ON u.merchant_id = r.id
-        LEFT JOIN public."BankAccount" b ON u.bank_acc_id = b.id
-        LEFT JOIN public."BankResponse" br ON u.bank_response_id = br.id
+        FROM public."Payin" p
+        LEFT JOIN public."Merchant" r ON p.merchant_id = r.id
+        LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
+        LEFT JOIN public."BankResponse" br ON p.bank_response_id = br.id
         LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
         WHERE ${conditions.join(' AND ')}  
       ),
@@ -156,10 +141,20 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
       ORDER BY sno DESC
       ${limitcondition}
     `;
-    console.log(baseQuery, "baseQuery")
-    // buildSearchFilterObj(filters.search, 'u');
+    console.log(filters, "filters")
 
-    const result = await conn.query(baseQuery, queryParams);
+    // const [sql, values] = buildSelectQuery(
+    //   baseQuery,
+    //   filters,
+    //   page,
+    //   limit,
+    //   filters.sortBy,
+    //   filters.sortOrder,
+    //   PAYIN,
+    // );
+    console.log(baseQuery, "_________aqollllll", queryParams, "______valuess", conditions, limitcondition, "limitcondition");
+    const result = await executeQuery(baseQuery, queryParams);
+    // const result = await conn.query(baseQuery, queryParams);
     return { totalCount: result.rows[0]?.total, payins: result.rows }
   } catch (error) {
     logger.error('Error getting PayIn URL:', error);

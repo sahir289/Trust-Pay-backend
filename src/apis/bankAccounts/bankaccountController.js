@@ -11,6 +11,7 @@ import {
 } from '../../schemas/bankAccoountSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
+import { logger } from '../../utils/logger.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getMerchantBankDao } from './bankaccountDao.js';
 import {
@@ -24,25 +25,27 @@ import {
 const getBankaccount = async (req, res) => {
   const { company_id } = req.user;
   const { role } = req.user;
-  const { page, limit } = req.query;
+  const { page, limit, search } = req.query;
+  const filters = {
+    ...(search ? { search } : {}),
+  };
   const data = await getBankaccountService(
-    req.query,
+    filters,
     company_id,
-    role, page, limit,
+    role,
+    page,
+    limit,
   );
-  console.log('get Banks successfully', role);
+  logger.log('get Banks successfully', role);
   return sendSuccess(res, data, 'get Banks successfully');
 };
 
 const getBankaccountNickName = async (req, res) => {
   const { type } = req.query;
   const { company_id } = req.user;
-  const data = await getBankaccountServiceNickName(
-    company_id, type
-  )
+  const data = await getBankaccountServiceNickName(company_id, type);
   return sendSuccess(res, data, 'get Banks successfully');
-}
-
+};
 
 const getBankaccountById = async (req, res) => {
   const { id } = req.params;
@@ -63,14 +66,20 @@ const createBankaccount = async (req, res) => {
   if (!payload.payin_count) {
     payload.payin_count = 0;
   }
-  delete payload.qr
+  delete payload.qr;
   const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
   const phonePe = payload.is_phonepay ? true : false;
   const intent = payload.is_intent ? true : false;
-  payload.bank_used_for == "PayIn" ? payload.config = { "merchants": [] ,"is_phonepay":phonePe,"is_intent":intent} : payload.config = {}
+  payload.bank_used_for == 'PayIn'
+    ? (payload.config = {
+        merchants: [],
+        is_phonepay: phonePe,
+        is_intent: intent,
+      })
+    : (payload.config = {});
   delete payload.is_phonepay;
   delete payload.is_intent;
   const { user_id, company_id, role } = req.user;
@@ -152,5 +161,5 @@ export {
   updateBankaccount,
   deleteBankaccount,
   getMerchantBank,
-  getBankaccountNickName
+  getBankaccountNickName,
 };

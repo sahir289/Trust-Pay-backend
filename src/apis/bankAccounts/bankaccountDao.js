@@ -7,48 +7,59 @@ import {
   executeQuery,
 } from '../../utils/db.js';
 import { DbError } from '../../utils/appErrors.js';
+import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
-const getBankaccountDao = async (filters,  page, limit, role) => {
+const getBankaccountDao = async (filters, page, limit, role) => {
   try {
+    const { BANK_ACCOUNT } = tableName;
     let queryParams = [];
     let conditions = [`ba.is_obsolete = false`];
-    if(filters.company_id){
-      queryParams.push(filters.company_id)
-      conditions.push(`ba.company_id = $1`)
+    if (filters.company_id) {
+      queryParams.push(filters.company_id);
+      conditions.push(`ba.company_id = $1`);
     }
     let limitcondition = '';
+    console.log(filters, "filterrsss");
 
     if (page && limit) {
       limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
       queryParams.push(limit, (page - 1) * limit);
     }
+    if (filters.search) {
+      filters.or = buildSearchFilterObj(filters.search, BANK_ACCOUNT);
+      delete filters.search;
+    }
+
     if (filters?.startDate && filters?.endDate) {
-      conditions.push(`ba.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`);
+      conditions.push(
+        `ba.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`,
+      );
       queryParams.push(filters?.startDate, filters?.endDate);
       // delete filters.startDate
       // delete filters.endDate
     }
-    if (filters && Object.keys(filters).length > 0) {
-      Object.keys(filters).forEach((key) => {
-        delete filters?.page
-        delete filters?.limit
-        const value = filters[key];
-        if (value !== null && value !== undefined && value !== '') {
-          if (Array.isArray(value)) {
-            conditions.push(`ba."${key}" = ANY($${queryParams.length + 1})`);
-            queryParams.push(value);
-          } else {
-            conditions.push(`ba."${key}" = $${queryParams.length + 1}`);
-            queryParams.push(value);
-          }
-        }
-      });
-    }
+    // if (filters && Object.keys(filters).length > 0) {
+    //   Object.keys(filters).forEach((key) => {
+    //     delete filters?.page;
+    //     delete filters?.limit;
+    //     const value = filters[key];
+    //     if (value !== null && value !== undefined && value !== '') {
+    //       if (Array.isArray(value)) {
+    //         conditions.push(`ba."${key}" = ANY($${queryParams.length + 1})`);
+    //         queryParams.push(value);
+    //       } else {
+    //         conditions.push(`ba."${key}" = $${queryParams.length + 1}`);
+    //         queryParams.push(value);
+    //       }
+    //     }
+    //   });
+    // }
     let commissionSelect = '';
     if (role === 'MERCHANT') {
       commissionSelect = '';
     } else if (role === 'VENDOR') {
-      commissionSelect = 'ifsc_code, ba.payin_count, ba.balance, ba.today_balance, ba.bank_used_for, ';
+      commissionSelect =
+        'ifsc_code, ba.payin_count, ba.balance, ba.today_balance, ba.bank_used_for, ';
     } else {
       commissionSelect = `
         ba.user_id, ba.ifsc, ba.min, 
@@ -57,48 +68,47 @@ const getBankaccountDao = async (filters,  page, limit, role) => {
       `;
     }
     const baseQuery = `SELECT 
-   ba.id, 
-   ba.sno, 
-   ba.upi_id,
-   ba.acc_holder_name,
-   ba.upi_params, 
-   ba.nick_name, 
-   ba.acc_no, 
-   ba.bank_name, 
-   ba.is_qr, 
-   ba.is_bank, 
-   ba.is_enabled, 
-   ba.config,  
-   ${commissionSelect},
-   v.code AS Vendor, 
-   COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details
-FROM 
-    public."BankAccount" ba
-LEFT JOIN public."Vendor" v 
-    ON ba.user_id = v.user_id
-LEFT JOIN LATERAL (
-    SELECT 
-        jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
-    FROM public."Merchant" m
-    WHERE m.id::text IN (
-              SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
-    )
-) m ON TRUE
-WHERE 
-    ${conditions.join(' AND ')}
-ORDER BY 
-    ba.is_enabled DESC,  
-    ba.updated_at DESC  
-${limitcondition};
-`;
+        ba.id, 
+        ba.sno, 
+        ba.upi_id,
+        ba.acc_holder_name,
+        ba.upi_params, 
+        ba.nick_name, 
+        ba.acc_no, 
+        ba.bank_name, 
+        ba.is_qr, 
+        ba.is_bank, 
+        ba.is_enabled, 
+        ba.config,  
+        ${commissionSelect},
+        v.code AS Vendor, 
+        COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details
+      FROM 
+          public."BankAccount" ba
+      LEFT JOIN public."Vendor" v 
+          ON ba.user_id = v.user_id
+      LEFT JOIN LATERAL (
+          SELECT 
+              jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
+          FROM public."Merchant" m
+          WHERE m.id::text IN (
+                    SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
+          )
+      ) m ON TRUE
+      WHERE 
+          ${conditions.join(' AND ')}
+      ORDER BY 
+          ba.is_enabled DESC,  
+          ba.updated_at DESC  
+      ${limitcondition};
+      `;
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
     console.error('Error in getBankaccountDao:', error);
-    throw error.message; 
+    throw error.message;
   }
 };
-
 
 const getMerchantBankDao = async (filters) => {
   try {
@@ -128,8 +138,7 @@ const getBankaccountDaoNickName = async (conn, company_id, type) => {
   const queryParams = [company_id, type];
   const result = await conn.query(baseQuery, queryParams);
   return { totalCount: result.rowCount, bankNames: result.rows };
-}
-
+};
 
 const updateBankaccountDao = async (id, payload, conn) => {
   try {
@@ -192,5 +201,5 @@ export {
   updateBankaccountDao,
   deleteBankaccountDao,
   getMerchantBankDao,
-  getBankaccountDaoNickName
+  getBankaccountDaoNickName,
 };

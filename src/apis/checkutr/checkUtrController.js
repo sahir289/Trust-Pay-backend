@@ -1,14 +1,23 @@
 import { BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { createCheckUtrService, deleteCheckUtrService, getCheckUtrService, updateCheckUtrService } from './checkUtrServices.js';
+import {
+  createCheckUtrService,
+  deleteCheckUtrService,
+  getCheckUtrService,
+  updateCheckUtrService,
+} from './checkUtrServices.js';
 import { getPayinDetailsByMerchantOrderId } from '../payIn/payInDao.js';
 
-
 const getCheckUtr = async (req, res) => {
-  try{
+  try {
     const { company_id } = req.user;
-    const {page, limit} = req.query;
-    const data = await getCheckUtrService({company_id, ...req.query},page,limit,);
+    const { page, limit, search } = req.query;
+    const filters = {
+      company_id,
+      ...(search ? { search } : {}),
+      ...req.query,
+    };
+    const data = await getCheckUtrService(filters, page, limit);
     return sendSuccess(res, data, 'get checkutr successfully');
   } catch (error) {
     console.error('error getting while check utr', error);
@@ -17,38 +26,40 @@ const getCheckUtr = async (req, res) => {
 
 const createCheckUtr = async (req, res) => {
   const payload = req.body;
-  const payinData = await getPayinDetailsByMerchantOrderId(payload.merchant_order_id);
+  const payinData = await getPayinDetailsByMerchantOrderId(
+    payload.merchant_order_id,
+  );
   payload.payin_id = payinData[0].payin_id;
-  const { company_id,user_id } = req.user;
+  const { company_id, user_id } = req.user;
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
   delete payload.merchant_order_id;
-    if (!payload) {
-      console.error('payload is required');
-      throw new BadRequestError('payload is required');
-    }
-     await createCheckUtrService(payload);
-    console.log('Check Utr successfully');
-    return sendSuccess(res, {}, 'Check Utr successfully');
+  if (!payload) {
+    console.error('payload is required');
+    throw new BadRequestError('payload is required');
+  }
+  await createCheckUtrService(payload);
+  console.log('Check Utr successfully');
+  return sendSuccess(res, {}, 'Check Utr successfully');
 };
 
 const updateCheckUtr = async (req, res) => {
-    const payload = req.body;
-    const { id } = req.params;
-    await updateCheckUtrService(id, payload);
-    return sendSuccess(res,{}, 'Update CheckUtr successfully');
+  const payload = req.body;
+  const { id } = req.params;
+  await updateCheckUtrService(id, payload);
+  return sendSuccess(res, {}, 'Update CheckUtr successfully');
 };
 
 const deleteCheckUtr = async (req, res) => {
-    const { id } = req.params;
-    if (!id) {
-      console.error('payload is required');
-      throw new BadRequestError('payload is required');
-    }
-     await deleteCheckUtrService(id);
-    console.log('getUsers successfully');
-    return sendSuccess(res,{}, 'Delete CheckUtr successfully');
+  const { id } = req.params;
+  if (!id) {
+    console.error('payload is required');
+    throw new BadRequestError('payload is required');
+  }
+  await deleteCheckUtrService(id);
+  console.log('getUsers successfully');
+  return sendSuccess(res, {}, 'Delete CheckUtr successfully');
 };
 
 export { getCheckUtr, createCheckUtr, updateCheckUtr, deleteCheckUtr };

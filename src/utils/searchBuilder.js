@@ -1,4 +1,5 @@
 import { tableName as dbTables } from '../constants/index.js';
+import { BadRequestError, InternalServerError } from './appErrors.js';
 
 const DataTypes = {
   STRING: 'string',
@@ -47,7 +48,7 @@ const tables = {
   },
   [dbTables.USER]: {
     first_name: DataTypes.STRING,
-    last_name: DataTypes.STRING, 
+    last_name: DataTypes.STRING,
     email: DataTypes.STRING,
     contact_no: DataTypes.STRING,
     user_name: DataTypes.STRING,
@@ -68,6 +69,28 @@ const tables = {
     merchant_id: DataTypes.STRING,
     config: DataTypes.JSON,
   },
+  [dbTables.BANK_RESPONSE]: {
+    sno: DataTypes.NUMBER,
+    status: DataTypes.STRING,
+    bank_id: DataTypes.STRING,
+    amount: DataTypes.NUMBER,
+    upi_short_code: DataTypes.STRING,
+    utr: DataTypes.STRING,
+    is_used: DataTypes.BOOLEAN,
+  },
+  [dbTables.BANK_ACCOUNT]: {
+      sno: DataTypes.NUMBER,
+      upi_id: DataTypes.STRING,
+      acc_holder_name: DataTypes.STRING,
+      nick_name: DataTypes.STRING,
+      acc_no: DataTypes.STRING,
+      ifsc: DataTypes.STRING,
+      bank_name: DataTypes.STRING,
+      payin_count: DataTypes.NUMBER,
+      balance: DataTypes.NUMBER,
+      bank_used_for: DataTypes.STRING,
+      config: DataTypes.JSON,
+  }
 };
 
 /**
@@ -82,16 +105,19 @@ const tables = {
 
 export const buildSearchFilterObj = (search, tableName) => {
   if (typeof search !== 'string') {
-    throw new Error('Invalid Search Type');
+    throw new BadRequestError('Invalid Search Type');
   }
-
   const obj = tables[tableName];
-  if (!obj) {
-    throw new Error(`Search table ${tableName} not found!`);
+  if (!obj || obj === undefined) {
+    throw new InternalServerError(`Search table ${tableName} not found!`);
   }
 
   const filters = {};
-  const values = search.trim().split(',').map(v => v.trim()).filter(v => v);
+  const values = search
+    .trim()
+    .split(',')
+    .map((v) => v.trim())
+    .filter((v) => v);
 
   for (const value of values) {
     if (!value) continue;
@@ -102,11 +128,12 @@ export const buildSearchFilterObj = (search, tableName) => {
         ? Number(value)
         : value;
 
-    const valueType = typeof toValue === 'boolean'
-      ? DataTypes.BOOLEAN
-      : typeof toValue === 'number'
-        ? DataTypes.NUMBER
-        : DataTypes.STRING;
+    const valueType =
+      typeof toValue === 'boolean'
+        ? DataTypes.BOOLEAN
+        : typeof toValue === 'number'
+          ? DataTypes.NUMBER
+          : DataTypes.STRING;
 
     let matched = false;
 
@@ -149,7 +176,12 @@ export const buildSearchFilterObj = (search, tableName) => {
   return filters;
 };
 
-export const buildFilterConditions = (filters, tableConfigs, baseConditions = [], baseParams = []) => {
+export const buildFilterConditions = (
+  filters,
+  tableConfigs,
+  baseConditions = [],
+  baseParams = [],
+) => {
   // console.log(filters, tableConfigs, "--=-========")
   let conditions = [...baseConditions];
   let queryParams = [...baseParams];
@@ -157,16 +189,24 @@ export const buildFilterConditions = (filters, tableConfigs, baseConditions = []
   Object.keys(filters).forEach((key) => {
     const value = filters[key];
     // console.log(value, 'value0000')
-    if (value !== null && value !== undefined && value !== '' && key !== 'page' && key !== 'limit') {
+    if (
+      value !== null &&
+      value !== undefined &&
+      value !== '' &&
+      key !== 'page' &&
+      key !== 'limit'
+    ) {
       let columnConditions = [];
       let jsonConditions = [];
       let paramIndex;
 
       // Find the first table with this column to determine its type
       const aliasWithKey = Object.keys(tableConfigs).find((alias) =>
-        tableConfigs[alias].columns.includes(key)
+        tableConfigs[alias].columns.includes(key),
       );
-      const columnType = aliasWithKey ? tableConfigs[aliasWithKey].columnTypes[key] || 'string' : 'string';
+      const columnType = aliasWithKey
+        ? tableConfigs[aliasWithKey].columnTypes[key] || 'string'
+        : 'string';
 
       // Add the parameter value once based on type
       paramIndex = queryParams.length + 1;
@@ -180,7 +220,9 @@ export const buildFilterConditions = (filters, tableConfigs, baseConditions = []
           paramIndex = queryParams.length + 1;
           queryParams.push(`%${keyword}%`);
           if (aliasWithKey) {
-            columnConditions.push(`${aliasWithKey}."${key}" ILIKE $${paramIndex}`);
+            columnConditions.push(
+              `${aliasWithKey}."${key}" ILIKE $${paramIndex}`,
+            );
           }
           Object.keys(tableConfigs).forEach((alias) => {
             const { jsonFields = [] } = tableConfigs[alias];

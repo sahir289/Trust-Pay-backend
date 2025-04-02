@@ -103,6 +103,7 @@ export const getMerchantsDao = async (
       filters.or = buildSearchFilterObj(filters.search, MERCHANT);
       delete filters.search;
     }
+    console.log(filters, "filterss");
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,

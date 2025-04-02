@@ -1,4 +1,4 @@
-import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
+import { BadRequestError, InternalServerError, NotFoundError } from '../../utils/appErrors.js';
 
 import {
   getBankResponseDao,
@@ -8,7 +8,7 @@ import {
   updateBotResponseDao,
   getBankResponseDaoAll,
 } from './bankResponseDao.js';
-import Logger from '../../utils/logger.js';
+import { logger } from '../../utils/logger.js';
 import {
   getBankaccountDao,
   updateBankaccountDao,
@@ -29,7 +29,6 @@ import {
   vendorColumns,
 } from '../../constants/index.js';
 import { getCalculationforCronDao, updateCalculationBalanceDao } from '../calculation/calculationDao.js';
-const logger = new Logger();
 
 const createBankResponseService = async (conn, payload, companyId, role, name) => {
   const filterColumns =
@@ -748,7 +747,7 @@ const updateCalculationTable = async (user_id, data, conn) => {
   }
 };
 
-const getBankResponseService = async (payload, role, page, limit) => {
+const getBankResponseService = async (payload, role, page, limit, search) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -761,7 +760,7 @@ const getBankResponseService = async (payload, role, page, limit) => {
     const amount = Number(payload.amount) > 0 ? Number(payload.amount) : undefined;
     const is_used = payload.is_used === 'Used' ? true : payload.is_used === 'Unused' ? false : undefined;
 
-    const filters = Object.fromEntries(
+    let filters = Object.fromEntries(
       Object.entries({
         sno,
         status: payload.status || undefined,
@@ -772,11 +771,14 @@ const getBankResponseService = async (payload, role, page, limit) => {
         company_id: payload.company_id || undefined,
       }).filter(([, v]) => v !== undefined)
     );
-
+    filters = {
+      ...(search ? { search } : {}),
+      ...filters,
+    }
     return await getBankResponseDaoAll(filters, page, limit, null, null, filterColumns);
   } catch (error) {
-    console.error('Error in getBankResponseService:', error);
-    throw new BadRequestError('Error occurred while Fetching BankResponse');
+    logger.error('Error in getBankResponseService:', error);
+    throw new InternalServerError(error);
   }
 };
 

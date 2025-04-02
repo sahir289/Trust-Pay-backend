@@ -1,7 +1,15 @@
 import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
-import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
+import {
+  beginTransaction,
+  commit,
+  getConnection,
+  rollback,
+} from '../../utils/db.js';
 import { deactivateBank } from '../../utils/sockets.js';
-import { getBankResponseDaoAll, updateBotResponseDao } from '../bankResponse/bankResponseDao.js';
+import {
+  getBankResponseDaoAll,
+  updateBotResponseDao,
+} from '../bankResponse/bankResponseDao.js';
 import {
   getBankaccountDao,
   createBankaccountDao,
@@ -10,18 +18,25 @@ import {
   getBankaccountDaoNickName,
 } from './bankaccountDao.js';
 
-const getBankaccountService = async (filters, company_id, role, page, limit) => {
+const getBankaccountService = async (
+  filters,
+  company_id,
+  role,
+  page,
+  limit,
+) => {
   try {
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
-    return await getBankaccountDao({ ...filters, company_id }
-      ,
-      pageNumber, pageSize, role
-
+    return await getBankaccountDao(
+      { company_id, ...filters },
+      pageNumber,
+      pageSize,
+      role,
     );
   } catch (error) {
     console.error('error getting while  getting banks', error);
-    throw new BadRequestError('Error getting while  getting banks');
+    throw new InternalServerError(error);
   }
 };
 
@@ -30,12 +45,16 @@ const getBankaccountServiceNickName = async (company_id, type) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await getBankaccountDaoNickName(conn, company_id, type,
+    const result = await getBankaccountDaoNickName(
+      conn,
+      company_id,
+      type,
       null,
       null,
       null,
       null,
-      null);
+      null,
+    );
     await commit(conn);
     return result;
   } catch (error) {
@@ -57,7 +76,7 @@ const getBankaccountServiceNickName = async (company_id, type) => {
       }
     }
   }
-}
+};
 
 const createBankaccountService = async (payload) => {
   try {
@@ -74,13 +93,15 @@ const updateBankaccountService = async (conn, ids, payload) => {
     let result;
 
     if (Object.keys(payload).length === 0) {
-      const bank = await getBankaccountDao({ id: ids.id, company_id: ids.company_id });
-  
+      const bank = await getBankaccountDao({
+        id: ids.id,
+        company_id: ids.company_id,
+      });
+
       if (bank[0].today_balance >= bank[0].config?.max_limit) {
         payload.is_enabled = false;
         deactivateBank(bank[0].nick_name, ids.id);
-      }
-      else if (bank[0].today_balance === bank[0].config?.max_limit) {
+      } else if (bank[0].today_balance === bank[0].config?.max_limit) {
         deactivateBank(bank[0].nick_name, ids.id, true);
       }
     }
@@ -94,10 +115,15 @@ const updateBankaccountService = async (conn, ids, payload) => {
     }
 
     if (payload?.config?.is_freezed === true) {
-      const bankResponse = await getBankResponseDaoAll({ bank_id: ids.id, is_used: false });
+      const bankResponse = await getBankResponseDaoAll({
+        bank_id: ids.id,
+        is_used: false,
+      });
       if (bankResponse.length > 0) {
         for (let i = 0; i < bankResponse.length; i++) {
-          await updateBotResponseDao(bankResponse[i].id, { status: '/freezed' });
+          await updateBotResponseDao(bankResponse[i].id, {
+            status: '/freezed',
+          });
         }
       }
     }
@@ -128,5 +154,5 @@ export {
   createBankaccountService,
   updateBankaccountService,
   deleteBankaccountService,
-  getBankaccountServiceNickName
+  getBankaccountServiceNickName,
 };
