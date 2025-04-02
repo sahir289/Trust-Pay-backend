@@ -24,28 +24,30 @@ export const createVendorDao = async (data, conn) => {
 };
 
 export const getVendorsCodeDao = async (
-  filters,
-  page,
-  pageSize,
-  sortBy,
-  sortOrder,
+  company_id,conn
 ) => {
   try {
-    const baseQuery = `SELECT code as label, user_id as value,id as vendor_id FROM "${tableName.VENDOR}" WHERE 1=1`;
-    const [sql, queryParams] = buildSelectQuery(
-      baseQuery,
-      filters,
-      page,
-      pageSize,
-      sortBy,
-      sortOrder,
-    );
-    const result = await executeQuery(sql, queryParams);
+    const baseQuery = `
+        SELECT 
+            code AS label, 
+            user_id AS value, 
+            id AS vendor_id 
+        FROM 
+            "${tableName.VENDOR}" 
+        WHERE 
+            company_id = $1 
+            AND is_obsolete = FALSE 
+        ORDER BY 
+            code ASC;
+    `;
+    const result = await conn.query(baseQuery, [company_id]);
+    console.log('Fetched Vendors:', result.rows.length, 'rows');
     return result.rows;
   } catch (error) {
-    console.error('Error fetching company:', error);
-    throw error.message;
+    console.error('Error executing vendor query:', error);
+    throw new Error('Database query failed'); // Re-throwing for upstream handling
   }
+
 };
 
 
