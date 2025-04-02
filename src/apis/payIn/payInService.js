@@ -572,7 +572,7 @@ export const updateDepositStatusService = async (
       ? bankResponse.amount
       : payInData.amount;
   await updateBanktBalanceDao({ id: bank.id }, bankBalance, updated_by, conn);
-  await updateBankaccountService(conn, { id: bank.id, company_id: bank.company_id }, {});
+  await updateBankaccountService(conn, { id: bank.id, company_id: payInData.company_id }, {});
 
   merchantPayinCallback(updatePayInRes.config?.urls?.payin_notify, {
     status: updatePayInRes.status,
@@ -613,7 +613,7 @@ export const resetDepositService = async (
   ]);
 
   if (nonResettableStatuses.has(payIn.status)) {
-    return { error: 'This payIn cannot be reset!' };
+    return { error: `The Order Id: ${payIn.merchant_order_id} with Status: ${payIn.status} cannot be reset!` };
   }
 
   const condition = {
@@ -627,7 +627,7 @@ export const resetDepositService = async (
   const bankResponse = await getBankResponseDao(condition);
 
   const updatePayInData = {
-    status: Status.ASSIGNED,
+    status: calculateStatus(payIn.created_at),
     payin_merchant_commission: null,
     user_submitted_utr: null,
     duration: null,
@@ -657,9 +657,18 @@ export const resetDepositService = async (
       updated_by,
       conn,
     );
-    await updateBankaccountService(conn, { id: bank.id, company_id: bank.company_id }, {});
+    await updateBankaccountService(conn, { id: bank.id, company_id: payIn.company_id }, {});
   }
   return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+};
+
+const calculateStatus = (createdAt) => {
+  const TEN_MINUTES_IN_MS = 10 * 60 * 1000;
+  const currentTime = new Date();
+  const createdTime = new Date(createdAt);
+  const timeDifference = currentTime - createdTime;
+
+  return timeDifference > TEN_MINUTES_IN_MS ? Status.DROPPED : Status.ASSIGNED;
 };
 
 export const getPayinsService = async (company_id, page, limit, filters, role) => {
@@ -807,7 +816,8 @@ export const processPayInService = async (conn, payload, updated_by) => {
     const vendorCommission = commissions.payin_vendor_commission;
     updatePayInData.payin_merchant_commission = merchantCommission;
     updatePayInData.payin_vendor_commission = vendorCommission;
-    await updateCalculationTable(payIn.merchant_id, {
+    const merchant = await getMerchantsDao({ id: payIn.merchant_id });
+    await updateCalculationTable(merchant.user_id, {
       merchantCommission,
       amount: bankResponse.amount,
     });
@@ -830,7 +840,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
       updated_by,
       conn,
     );
-  await updateBankaccountService(conn, { id: bank.id, company_id: bank.company_id }, {});
+  await updateBankaccountService(conn, { id: bank.id, company_id: payIn.company_id }, {});
   // }
 
   await updatePayInUrlDao(payIn.id, updatePayInData, conn);
@@ -843,8 +853,8 @@ const calculateCommissions = async (merchantId, vendorId, amount) => {
   const vendor = await getVendorsDao({ user_id: vendorId });
 
   return {
-    payin_merchant_commission: calculateCommission(amount, merchant?.payin_commission || 0),
-    payin_vendor_commission: calculateCommission(amount, vendor?.payin_commission || 0)
+    payin_merchant_commission: calculateCommission(amount, merchant[0]?.payin_commission),
+    payin_vendor_commission: calculateCommission(amount, vendor[0]?.payin_commission)
   };
 };
 
@@ -1169,7 +1179,7 @@ export const disputeDuplicateTransactionService = async (
 
   if (updateBalance) {
     await updateBanktBalanceDao({ id: bankId }, toAmount, updated_by, conn);
-    await updateBankaccountService(conn, { id: bank.id, company_id: bank.company_id }, {});
+    await updateBankaccountService(conn, { id: bank.id, company_id: payIn.company_id }, {});
     await updateCalculationTable(
       bankResponse.user_id,
       {

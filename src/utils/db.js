@@ -11,18 +11,54 @@ const pool = new Pool({
   },
 });
 
-const getConnection = async () => {
-  try {
-    const client = await pool.connect();
-    const styledServerMessage = chalk.bgCyanBright(
-      'Database connected successfully',
-    );
-    logger.log(`${styledServerMessage}`);
-    return client;
-  } catch (error) {
-    logger.error(`Error fetching database connection:`, error);
-    throw new DbError('Database connection error');
+pool.on('error', async (err, client) => {
+  logger.error('Unexpected error on idle client:', err);
+
+  if (client) client.release(); // release faulty connection if it exists
+
+  let retryCount = 0;
+  const maxRetries = 5;
+  const baseDelay = 2000; // 2 seconds delay
+
+  while (retryCount < maxRetries) {
+    const delay = baseDelay * Math.pow(2, retryCount);
+    logger.warn(`Reconnecting to DB (Attempt ${retryCount + 1}) in ${delay / 1000}s...`);
+
+    await new Promise((resolve) => setTimeout(resolve, delay));
+
+    try {
+      const newClient = await pool.connect();
+      newClient.release();
+      logger.info('Database reconnected successfully!');
+      return;
+    } catch (retryErr) {
+      logger.error(`Reconnection attempt ${retryCount + 1} failed:`, retryErr);
+    }
+
+    retryCount++;
   }
+  logger.error('All DB reconnection attempts failed. The database remains unreachable.');
+});
+
+const getConnection = async () => {
+  const maxRetries = 5;
+  const baseDelay = 2000;
+
+  for (let retryCount = 0; retryCount < maxRetries; retryCount++) {
+    try {
+      const client = await pool.connect();
+      logger.log(chalk.bgCyanBright('Database connected successfully'));
+      return client;
+    } catch (error) {
+      const delay = baseDelay * Math.pow(2, retryCount);
+      logger.error(`Error fetching database connection:`, error);
+      logger.warn(chalk.yellow(`DB connection failed (Attempt ${retryCount + 1}). Retrying in ${delay / 1000}s...`));
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  logger.error('Database connection failed after multiple retries');
+  throw new DbError('Database connection error');
 };
 
 const beginTransaction = async (client) => {

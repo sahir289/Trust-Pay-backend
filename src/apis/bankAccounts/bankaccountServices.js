@@ -71,20 +71,28 @@ const createBankaccountService = async (payload) => {
 
 const updateBankaccountService = async (conn, ids, payload) => {
   try {
-    const bank = await getBankaccountDao({ id: ids.id, company_id: ids.company_id });
-    if (bank.today_balance >= bank.config?.max_limit) {
-      payload.is_enabled = false;
-      deactivateBank(bank.nick_name, ids.id);
-    }
-    else if (bank.today_balance === bank.config?.max_limit) {
-      deactivateBank(bank.nick_name, ids.id, true);
+    let result;
+
+    if (Object.keys(payload).length === 0) {
+      const bank = await getBankaccountDao({ id: ids.id, company_id: ids.company_id });
+  
+      if (bank[0].today_balance >= bank[0].config?.max_limit) {
+        payload.is_enabled = false;
+        deactivateBank(bank[0].nick_name, ids.id);
+      }
+      else if (bank[0].today_balance === bank[0].config?.max_limit) {
+        deactivateBank(bank[0].nick_name, ids.id, true);
+      }
     }
 
-    const result = await updateBankaccountDao(
-      { id: ids.id, company_id: ids.company_id },
-      payload,
-      conn,
-    );
+    if (Object.keys(payload).length > 0) {
+      result = await updateBankaccountDao(
+        { id: ids.id, company_id: ids.company_id },
+        payload,
+        conn,
+      );
+    }
+
     if (payload?.config?.is_freezed === true) {
       const bankResponse = await getBankResponseDaoAll({ bank_id: ids.id, is_used: false });
       if (bankResponse.length > 0) {

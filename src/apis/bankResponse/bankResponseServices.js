@@ -532,7 +532,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
             message: `The UTR already exists`,
           };
         }
-        console.log("noterepeated")
+        
         const getMerchantToGetPayinCommissionRes = await getMerchantsDao({
           id: checkPayInUtr[0]?.merchant_id,
         }, null, null, null, null);
