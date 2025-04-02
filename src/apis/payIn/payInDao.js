@@ -74,7 +74,7 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
           'merchant_code', r.code,
           'return_url', r.config->>'return_url',
           'notify_url', r.config->>'notify_url'
-      ) AS merchant_details,`;
+      ) AS merchant_details`;
     } else if (role === 'VENDOR') {
       commissionSelect = 'u.payin_vendor_commission, v.code AS vendor_code,';
     } else {
@@ -122,6 +122,7 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
       ORDER BY sno DESC
       ${limitcondition}
     `;
+    console.log(baseQuery, "baseQuery")
     const result = await conn.query(baseQuery, queryParams);
     return { totalCount: result.rows[0]?.total, payins: result.rows }
   } catch (error) {

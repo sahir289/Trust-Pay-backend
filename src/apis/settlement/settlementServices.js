@@ -110,7 +110,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       const data = await getSettlementDao({
         id: ids.id,
         company_id: ids.company_id,
-      });
+      },null ,null,null,null);
       if (!data) {
         throw new InternalServerError('no data found');
       }
@@ -138,16 +138,15 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       }
       const vendorData = await getVendorsDao(
         { user_id: data[0].user_id },
-        // , null, null, null, null, filterColumnsVendor
+         null, null, null, null
       );
       const merchantData = await getMerchantsDao(
         { user_id: data[0].user_id },
-        // , null, null, null, null, filterColumns
+         null, null, null, null
       );
       if (vendorData) {
         const bankData = await getBankaccountDao(
           { user_id: vendorData.user_id },null,null, role
-          // , null, null, null, null, filterColumnsBank
         );
         if (bankData) {
           const bankId = bankData.id;
@@ -162,7 +161,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         }
       } else if (merchantData) {
         const merchantAcc = merchantData.balance - payload?.amount;
-        await updateMerchantDao({ id: merchantData.id, balance: merchantAcc });
+        await updateMerchantDao({id: merchantData.id, balance: merchantAcc }, conn);
       }
     }
     if (payload.config.rejected_reason) {
