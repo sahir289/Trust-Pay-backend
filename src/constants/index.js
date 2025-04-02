@@ -644,8 +644,8 @@ export const AccessRoles = {
     Role.MERCHANT,
     Role.VENDOR,
   ],
-  ROLES: [Role.ADMIN, Role.TRANSACTIONS],
-  DESIGNATION: [Role.ADMIN, Role.TRANSACTIONS],
+  ROLES: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANT_ADMIN, Role.MERCHANT , Role.VENDOR],
+  DESIGNATION: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANT_ADMIN, Role.MERCHANT , Role.VENDOR],
   COMPLAINTS: [Role.ADMIN],
 };
 export const COUNTRIES = ['India', 'United Arab Emirates', 'Pakistan'];

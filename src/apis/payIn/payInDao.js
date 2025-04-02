@@ -93,7 +93,7 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
           'merchant_code', r.code,
           'return_url', r.config->>'return_url',
           'notify_url', r.config->>'notify_url'
-      ) AS merchant_details,`;
+      ) AS merchant_details`;
     } else if (role === 'VENDOR') {
       commissionSelect = 'p.payin_vendor_commission, v.code AS vendor_code,';
     } else {
