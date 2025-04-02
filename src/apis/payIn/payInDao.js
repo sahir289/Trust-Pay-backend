@@ -6,6 +6,8 @@ import {
   executeQuery,
 } from '../../utils/db.js';
 import { getConnection } from '../../utils/db.js';
+import { logger } from '../../utils/logger.js';
+import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 export const generatePayInUrlDao = async (data) => {
   try {
@@ -34,6 +36,7 @@ export const getPayInUrlDao = async (filters) => {
 
 export const getPayInsDao = async (conn, filters, company_id, page, limit, role) => {
   try {
+    const { PAYIN } = tableName;
     if (typeof company_id === 'string') {
       company_id = company_id.trim();
     }
@@ -41,32 +44,63 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
     let queryParams = [company_id];
     let limitcondition = '';
 
+    // const tableConfigs = {
+    //   u: {
+    //     columns: ['sno', 'upi_short_code', 'amount', 'status', 'merchant_order_id', 'user_submitted_utr', 'user', 'is_notified'],
+    //     jsonFields: ['u.config'],
+    //   },
+    //   r: {
+    //     columns: ['code'],
+    //     jsonFields: ['r.config'],
+    //   },
+    //   b: {
+    //     columns: ['nick_name'],
+    //     jsonFields: [],
+    //   },
+    //   br: {
+    //     columns: ['utr', 'amount'],
+    //     jsonFields: [],
+    //   },
+    //   v: {
+    //     columns: ['code'],
+    //     jsonFields: [],
+    //   },
+    // };
+
+    if (filters.search) {
+      filters.or = buildSearchFilterObj(filters.search, PAYIN);
+      delete filters.search;
+    }
+
+    console.log(filters, "filetrs")
+    // const { conditions, queryParams } = buildFilterConditions(filters, tableConfigs, baseConditions, baseParams);
+
+    console.log(conditions, queryParams, "+++++++");
+
     if (filters.startDate && filters.endDate) {
       conditions.push(`u.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`);
       queryParams.push(filters.startDate, filters.endDate);
-      // delete filters.startDate
-      // delete filters.endDate
     }
     if (page && limit) {
       limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
       queryParams.push(limit, (page - 1) * limit);
     }
-    if (Object.keys(filters).length > 0) {
-      Object.keys(filters).forEach((key) => {
-        delete filters.page
-        delete filters.limit
-        const value = filters[key];
-        if (value !== null && value !== undefined && value !== '') {
-          if (Array.isArray(value)) {
-            conditions.push(`u."${key}" = ANY($${queryParams.length + 1})`);
-            queryParams.push(value);
-          } else {
-            conditions.push(`u."${key}" = $${queryParams.length + 1}`);
-            queryParams.push(value);
-          }
-        }
-      });
-    }
+    // if (Object.keys(filters).length > 0) {
+    //   Object.keys(filters).forEach((key) => {
+    //     delete filters.page
+    //     delete filters.limit
+    //     const value = filters[key]; 
+    //     if (value !== null && value !== undefined && value !== '') {
+    //       if (Array.isArray(value)) {
+    //         conditions.push(`u."${key}" = ANY($${queryParams.length + 1})`);
+    //         queryParams.push(value);
+    //       } else {
+    //         conditions.push(`u."${key}" = $${queryParams.length + 1}`);
+    //         queryParams.push(value);
+    //       }
+    //     }
+    //   });
+    // }
     let commissionSelect = '';
     if (role === 'MERCHANT') {
       commissionSelect = `u.payin_merchant_commission, u.merchant_order_id, 
@@ -122,10 +156,13 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
       ORDER BY sno DESC
       ${limitcondition}
     `;
+    console.log(baseQuery, "baseQuery")
+    // buildSearchFilterObj(filters.search, 'u');
+
     const result = await conn.query(baseQuery, queryParams);
     return { totalCount: result.rows[0]?.total, payins: result.rows }
   } catch (error) {
-    console.error('Error getting PayIn URL:', error);
+    logger.error('Error getting PayIn URL:', error);
     throw error.message;
   }
 };

@@ -670,10 +670,14 @@ const calculateStatus = (createdAt) => {
   return timeDifference > TEN_MINUTES_IN_MS ? Status.DROPPED : Status.ASSIGNED;
 };
 
-export const getPayinsService = async (company_id, page, limit, filters, role) => {
+export const getPayinsService = async (company_id, page, limit, filters, role, search) => {
   let conn;
   try {
     conn = await getConnection();
+    filters= {
+      ...(search ? { search } : {}),
+      ...filters,
+    }
     return await getPayInsDao(conn, filters, company_id, page, limit, role);
   } catch (error) {
     throw new InternalServerError(error);

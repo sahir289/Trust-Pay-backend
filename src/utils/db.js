@@ -18,7 +18,7 @@ pool.on('error', async (err, client) => {
 
   let retryCount = 0;
   const maxRetries = 5;
-  const baseDelay = 2000; // 2 seconds delay
+  const baseDelay = config.env === 'production' ? 5000 : 2000;
 
   while (retryCount < maxRetries) {
     const delay = baseDelay * Math.pow(2, retryCount);
