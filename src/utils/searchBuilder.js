@@ -4,10 +4,12 @@ const DataTypes = {
   STRING: 'string',
   NUMBER: 'number',
   BOOLEAN: 'boolean',
+  JSON: 'json',
 };
 
 const tables = {
   [dbTables.MERCHANT]: {
+    id: DataTypes.STRING,
     first_name: DataTypes.STRING,
     last_name: DataTypes.STRING,
     code: DataTypes.STRING,
@@ -22,6 +24,49 @@ const tables = {
     dispute_enabled: DataTypes.BOOLEAN,
     is_demo: DataTypes.BOOLEAN,
     balance: DataTypes.NUMBER,
+    config: DataTypes.JSON,
+  },
+  [dbTables.VENDOR]: {
+    id: DataTypes.STRING,
+    user_id: DataTypes.STRING,
+    first_name: DataTypes.STRING,
+    last_name: DataTypes.STRING,
+    code: DataTypes.STRING,
+    balance: DataTypes.NUMBER,
+    created_by: DataTypes.STRING,
+    config: DataTypes.JSON,
+  },
+  [dbTables.SETTLEMENT]: {
+    id: DataTypes.STRING,
+    sno: DataTypes.NUMBER,
+    user_id: DataTypes.STRING,
+    status: DataTypes.STRING,
+    amount: DataTypes.NUMBER,
+    method: DataTypes.STRING,
+    config: DataTypes.JSON,
+  },
+  [dbTables.USER]: {
+    first_name: DataTypes.STRING,
+    last_name: DataTypes.STRING, 
+    email: DataTypes.STRING,
+    contact_no: DataTypes.STRING,
+    user_name: DataTypes.STRING,
+  },
+  [dbTables.PAYIN]: {
+    id: DataTypes.STRING,
+    sno: DataTypes.NUMBER,
+    upi_short_code: DataTypes.STRING,
+    qr_params: DataTypes.STRING,
+    amount: DataTypes.NUMBER,
+    status: DataTypes.STRING,
+    is_notified: DataTypes.BOOLEAN,
+    user_submitted_utr: DataTypes.STRING,
+    currency: DataTypes.STRING,
+    merchant_order_id: DataTypes.STRING,
+    user: DataTypes.STRING,
+    bank_acc_id: DataTypes.STRING,
+    merchant_id: DataTypes.STRING,
+    config: DataTypes.JSON,
   },
 };
 
@@ -31,51 +76,156 @@ const tables = {
  * @param {string} search - The search term.
  * @param {string} tableName - Table Name to build filter for
  * @example
- * searchInTable("first_name", "Merhcant");
- * searchInTable("first_name, last_name", "Merhcant");
+ * searchInTable("first_name", "Merchant");
+ * searchInTable("first_name, last_name", "Merchant");
  */
+
 export const buildSearchFilterObj = (search, tableName) => {
   if (typeof search !== 'string') {
     throw new Error('Invalid Search Type');
   }
 
   const obj = tables[tableName];
-
   if (!obj) {
-    throw new Error('Search table not found!');
+    throw new Error(`Search table ${tableName} not found!`);
   }
 
   const filters = {};
-  const values = search.split(',');
-  for (const v of values) {
-    const toValue = v.trim();
-    if (!toValue) {
-      continue;
-    }
-    const valueType = ['true', 'false'].includes(toValue)
+  const values = search.trim().split(',').map(v => v.trim()).filter(v => v);
+
+  for (const value of values) {
+    if (!value) continue;
+
+    const toValue = ['true', 'false'].includes(value.toLowerCase())
+      ? value.toLowerCase() === 'true'
+      : !isNaN(value)
+        ? Number(value)
+        : value;
+
+    const valueType = typeof toValue === 'boolean'
       ? DataTypes.BOOLEAN
-      : !isNaN(toValue)
+      : typeof toValue === 'number'
         ? DataTypes.NUMBER
         : DataTypes.STRING;
+
+    let matched = false;
+
     for (const column in obj) {
-      // console.log({ columnType: obj[column], valueType, column })
-      // match column type
-      if (obj[column] === valueType) {
+      const columnDef = obj[column];
+      const columnType = columnDef.type || columnDef; // handle nested structure
+
+      // here will handle top level fields
+      if (columnType === valueType) {
+        matched = true;
         if (filters[column]) {
-          // check if array then push it
           if (Array.isArray(filters[column])) {
             filters[column].push(toValue);
-            continue;
+          } else {
+            filters[column] = [filters[column], toValue];
           }
-          // if values exist then make it array to use ANY
-          filters[column] = [filters[column], toValue];
-          continue;
+        } else {
+          filters[column] = toValue;
         }
-        // first add direct value to avoid ANY query
-        filters[column] = toValue;
       }
+
+      // here will handle JSON fields
+      if (columnType === DataTypes.JSON && typeof toValue === 'string') {
+        const jsonStructure = columnDef.structure || {};
+        for (const nestedKey in jsonStructure) {
+          matched = true;
+          // it will generate single-level key compatible with buildSelectQuery
+          const filterKey = `config_${nestedKey}_contains`;
+          filters[filterKey] = toValue;
+        }
+      }
+    }
+
+    if (!matched) {
+      if (!filters.or) filters.or = {};
+      filters.or.$raw = toValue;
     }
   }
 
   return filters;
+};
+
+export const buildFilterConditions = (filters, tableConfigs, baseConditions = [], baseParams = []) => {
+  // console.log(filters, tableConfigs, "--=-========")
+  let conditions = [...baseConditions];
+  let queryParams = [...baseParams];
+
+  Object.keys(filters).forEach((key) => {
+    const value = filters[key];
+    // console.log(value, 'value0000')
+    if (value !== null && value !== undefined && value !== '' && key !== 'page' && key !== 'limit') {
+      let columnConditions = [];
+      let jsonConditions = [];
+      let paramIndex;
+
+      // Find the first table with this column to determine its type
+      const aliasWithKey = Object.keys(tableConfigs).find((alias) =>
+        tableConfigs[alias].columns.includes(key)
+      );
+      const columnType = aliasWithKey ? tableConfigs[aliasWithKey].columnTypes[key] || 'string' : 'string';
+
+      // Add the parameter value once based on type
+      paramIndex = queryParams.length + 1;
+      if (columnType === 'boolean') {
+        queryParams.push(value === 'true' || value === true);
+      } else if (columnType === 'number') {
+        queryParams.push(parseFloat(value));
+      } else if (typeof value === 'string' && value.includes(' ')) {
+        const keywords = value.trim().split(' ').filter(Boolean);
+        keywords.forEach((keyword) => {
+          paramIndex = queryParams.length + 1;
+          queryParams.push(`%${keyword}%`);
+          if (aliasWithKey) {
+            columnConditions.push(`${aliasWithKey}."${key}" ILIKE $${paramIndex}`);
+          }
+          Object.keys(tableConfigs).forEach((alias) => {
+            const { jsonFields = [] } = tableConfigs[alias];
+            jsonFields.forEach((jsonField) => {
+              jsonConditions.push(`${jsonField}::text ILIKE $${paramIndex}`);
+            });
+          });
+        });
+      } else {
+        queryParams.push(columnType === 'string' ? `%${value}%` : value);
+      }
+
+      // Apply to columns
+      Object.keys(tableConfigs).forEach((alias) => {
+        const { columns = [], columnTypes = {} } = tableConfigs[alias];
+        const colType = columnTypes[key] || 'string';
+        if (columns.includes(key)) {
+          if (colType === 'string' && !value.includes(' ')) {
+            columnConditions.push(`${alias}."${key}" ILIKE $${paramIndex}`);
+          } else {
+            columnConditions.push(`${alias}."${key}" = $${paramIndex}`);
+          }
+        }
+      });
+
+      // Apply to JSON fields (only for string values)
+      if (typeof value === 'string' && !value.includes(' ')) {
+        Object.keys(tableConfigs).forEach((alias) => {
+          const { jsonFields = [] } = tableConfigs[alias];
+          jsonFields.forEach((jsonField) => {
+            jsonConditions.push(`${jsonField}::text ILIKE $${paramIndex}`);
+          });
+        });
+      }
+
+      // Combine conditions
+      if (columnConditions.length > 0 || jsonConditions.length > 0) {
+        const combinedConditions = [...columnConditions];
+        if (jsonConditions.length > 0) {
+          combinedConditions.push(`(${jsonConditions.join(' OR ')})`);
+        }
+        conditions.push(`(${combinedConditions.join(' OR ')})`);
+      }
+    }
+  });
+
+  return { conditions, queryParams };
 };

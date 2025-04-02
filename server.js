@@ -61,6 +61,16 @@ process.on('SIGINT', () => {
   process.exit();
 });
 
+process.on('uncaughtException', (err) => {
+  logger.error('There was an uncaught error', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // maybe we will add cleanup or restart logic in future here
+});
+
 server.listen(port);
 server.on('error', onError);
 server.on('listening', onListening);

@@ -99,12 +99,10 @@ export const getMerchantsDao = async (
       columns?.length ? columns : '*',
       joins,
     );
-
     if (filters.search) {
       filters.or = buildSearchFilterObj(filters.search, MERCHANT);
       delete filters.search;
     }
-    // console.log(JSON.stringify(filters, undefined, 4));
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
