@@ -19,7 +19,6 @@ const getBankaccountDao = async (filters, page, limit, role) => {
       conditions.push(`ba.company_id = $1`);
     }
     let limitcondition = '';
-    console.log(filters, "filterrsss");
 
     if (page && limit) {
       limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;

@@ -79,7 +79,6 @@ const getBankResponseDaoAll = async (
         referenceTable: BANK_ACCOUNT,
       },
     ];
-    console.log(filters, "filterss");
     const baseQuery = buildJoinQuery(
       BANK_RESPONSE,
       columns.length ? columns : '*',
