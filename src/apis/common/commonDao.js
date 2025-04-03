@@ -6,7 +6,6 @@ export const getTotalCountDao = async (tableName, role, filters) => {
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tableName)) {
       throw new Error(`Invalid table name: ${tableName}`);
     }
-    console.log(role);
     let columnName = '';
     let columnValue = '';
     if (filters) {
@@ -38,7 +37,6 @@ export const getTotalCountDao = async (tableName, role, filters) => {
       params.push(columnValue);
       paramIndex++;
     }
-console.log(query, "query", params, "params")
     const result = await executeQuery(query, params);
      
     return parseInt(result.rows[0].count, 10); // Ensure the count is returned as an integer
