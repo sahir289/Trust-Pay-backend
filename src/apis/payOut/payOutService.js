@@ -256,8 +256,9 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         conn,
       );
       await updatePayoutDao(
-        { payout_merchant_commission: merchantCommission },
-        { payout_vendor_commission: vendorCommission },
+        ids,
+        { payout_merchant_commission: merchantCommission, payout_vendor_commission: vendorCommission },
+        conn
       );
     } else if (data.status === Status.REJECTED) {
       const netBalance = await updatePayoutCalculations(

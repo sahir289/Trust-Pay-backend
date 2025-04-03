@@ -4,6 +4,11 @@ export const CREATE_BANK_RESPONSE_SCHEMA = Joi.object({
   body: Joi.string().required().label('body'),
 });
 
+export const UPDATE_BANK_RESPONSE_SCHEMA = Joi.object({
+  amount: Joi.number().optional().label('amount'),
+  utr: Joi.string().optional().label('utr'),
+});
+
 export const VALIDATE_BANK_RESPONSE_BY_ID = Joi.object({
   id: Joi.string()
     .guid({ version: ['uuidv4'] })
