@@ -72,7 +72,6 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
       delete filters.search;
     }
 
-    console.log(filters.or, "filetrs")
     // const { conditions, queryParams } = buildFilterConditions(filters, tableConfigs, baseConditions, baseParams);
 
     console.log(conditions, queryParams, "+++++++");
