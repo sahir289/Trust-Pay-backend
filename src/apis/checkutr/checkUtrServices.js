@@ -1,4 +1,5 @@
 import { InternalServerError } from '../../utils/appErrors.js';
+import { logger } from '../../utils/logger.js';
 import {
   createCheckUtrDao,
   deleteCheckUtrDao,
@@ -7,12 +8,11 @@ import {
 } from './checkUtrDao.js';
 
 const getCheckUtrService = async (id, page, limit) => {
-  try{
-  const result = await getCheckUtrDao( id, page,limit, null,null, null );
-  return result;
-
+  try {
+    const result = await getCheckUtrDao(id, page, limit, null, null, null);
+    return result;
   } catch (error) {
-    console.error('error getting while check utr', error);
+    logger.error('error getting while check utr', error);
     throw new InternalServerError(error);
   }
 };

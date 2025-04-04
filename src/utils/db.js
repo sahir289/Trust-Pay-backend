@@ -7,14 +7,15 @@ const { Pool } = pkg;
 const pool = new Pool({
   connectionString: `${config.databaseUrl}?options=-c%20timezone%3DAsia%2FKolkata`,
   ssl: {
-    rejectUnauthorized: false, // Use true in production with proper certificates
+    rejectUnauthorized: false, // Set to true in production with valid certificates
   },
+  // max: 20,
+  // idleTimeoutMillis: 10000,
+  // connectionTimeoutMillis: 5000, 
 });
 
-pool.on('error', async (err, client) => {
+pool.on('error', async (err) => {
   logger.error('Unexpected error on idle client:', err);
-
-  if (client) client.release(); // release faulty connection if it exists
 
   let retryCount = 0;
   const maxRetries = 5;

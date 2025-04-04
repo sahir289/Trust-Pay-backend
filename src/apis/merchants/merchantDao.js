@@ -49,7 +49,8 @@ LEFT JOIN public."Merchant" sm
     )  
 WHERE m.company_id = $1
 AND m.is_obsolete = FALSE  
-GROUP BY m.id, m.code, m.user_id;`;
+GROUP BY m.id, m.code, m.user_id
+ORDER BY m.code ASC;`;
     const queryParams = [company_id];
     const result = await conn.query(baseQuery, queryParams);
     return result.rows;

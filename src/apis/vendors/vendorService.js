@@ -50,15 +50,36 @@ const getVendorsService = async (filters, roleIs, page, limit) => {
   }
 };
 
-const getVendorsCodeService = async (filters) => {
+const getVendorsCodeService = async (company_id) => {
+  let conn;
   try {
-    return await getVendorsCodeDao(filters, null, null, null, null, null);
+    conn = await getConnection(); // Get DB connection
+    await beginTransaction(conn); // Start transaction
+
+    const data = await getVendorsCodeDao(company_id, conn);
+
+    await commit(conn); // Commit transaction
+    return data;
   } catch (error) {
-    console.error('Error while fetching vendors', error);
+    if (conn) {
+      try {
+        await rollback(conn); // Rollback in case of error
+      } catch (rollbackError) {
+        console.error('Error during transaction rollback:', rollbackError);
+      }
+    }
+    console.error('Error while fetching vendors:', error);
     throw new InternalServerError(error);
+  } finally {
+    if (conn) {
+      try {
+         conn.release(); // Ensure connection is released
+      } catch (releaseError) {
+        console.error('Error releasing connection:', releaseError);
+      }
+    }
   }
 };
-
 
 const updateVendorService = async (id, payload, role) => {
   let conn;

@@ -1,4 +1,4 @@
-import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
+import { BadRequestError, InternalServerError, NotFoundError } from '../../utils/appErrors.js';
 
 import {
   getBankResponseDao,
@@ -7,8 +7,9 @@ import {
   resetBankResponseDao,
   updateBotResponseDao,
   getBankResponseDaoAll,
+  updateBankResponseDao,
 } from './bankResponseDao.js';
-import Logger from '../../utils/logger.js';
+import { logger } from '../../utils/logger.js';
 import {
   getBankaccountDao,
   updateBankaccountDao,
@@ -29,7 +30,8 @@ import {
   vendorColumns,
 } from '../../constants/index.js';
 import { getCalculationforCronDao, updateCalculationBalanceDao } from '../calculation/calculationDao.js';
-const logger = new Logger();
+import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
+import { filterResponse } from '../../helpers/index.js';
 
 const createBankResponseService = async (conn, payload, companyId, role, name) => {
   const filterColumns =
@@ -532,7 +534,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
             message: `The UTR already exists`,
           };
         }
-        
+
         const getMerchantToGetPayinCommissionRes = await getMerchantsDao({
           id: checkPayInUtr[0]?.merchant_id,
         }, null, null, null, null);
@@ -748,7 +750,7 @@ const updateCalculationTable = async (user_id, data, conn) => {
   }
 };
 
-const getBankResponseService = async (payload, role, page, limit) => {
+const getBankResponseService = async (payload, role, page, limit, search) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -761,7 +763,7 @@ const getBankResponseService = async (payload, role, page, limit) => {
     const amount = Number(payload.amount) > 0 ? Number(payload.amount) : undefined;
     const is_used = payload.is_used === 'Used' ? true : payload.is_used === 'Unused' ? false : undefined;
 
-    const filters = Object.fromEntries(
+    let filters = Object.fromEntries(
       Object.entries({
         sno,
         status: payload.status || undefined,
@@ -772,11 +774,59 @@ const getBankResponseService = async (payload, role, page, limit) => {
         company_id: payload.company_id || undefined,
       }).filter(([, v]) => v !== undefined)
     );
-
+    filters = {
+      ...(search ? { search } : {}),
+      ...filters,
+    }
     return await getBankResponseDaoAll(filters, page, limit, null, null, filterColumns);
   } catch (error) {
-    console.error('Error in getBankResponseService:', error);
-    throw new BadRequestError('Error occurred while Fetching BankResponse');
+    logger.error('Error in getBankResponseService:', error);
+    throw new InternalServerError(error);
+  }
+};
+
+const updateBankResponseService = async (id, payload, role) => {
+  let conn;
+  try {
+    const filterColumns =
+      role === Role.MERCHANT
+        ? merchantColumns.BANK_RESPONSE
+        : role === Role.VENDOR
+          ? vendorColumns.BANK_RESPONSE
+          : columns.BANK_RESPONSE;
+    conn = await getConnection();
+    await beginTransaction(conn); // Start a transaction
+    const data = await updateBankResponseDao(id, payload, conn); // Adjust DAO call for update
+    await commit(conn); // Commit the transaction
+    console.log('BankResponse updated successfully', 'info');
+    const finalResult = filterResponse(data, filterColumns);
+    return finalResult;
+  } catch (error) {
+    if (conn) {
+      try {
+        await rollback(conn); // Rollback the transaction in case of error
+      } catch (rollbackError) {
+        console.log(
+          'Error during transaction rollback',
+          'error',
+          rollbackError,
+        );
+      }
+    }
+    console.log('Error while updating BankResponse', 'error', error);
+    throw new InternalServerError(error);
+  } finally {
+    if (conn) {
+      try {
+        conn.release(); // Release the connection back to the pool
+      } catch (releaseError) {
+        console.log(
+          'Error while releasing the connection',
+          'error',
+          releaseError,
+        );
+      }
+    }
   }
 };
 
@@ -826,6 +876,7 @@ const resetBankResponseService = async (id, userData) => {
 export {
   getBankResponseService,
   createBankResponseService,
+  updateBankResponseService,
   getBankMessageServices,
   resetBankResponseService,
 };

@@ -51,8 +51,6 @@ router.get(
   tryCatchHandler(getBankaccount),
 );
 
-
-
 /**
  * @swagger
  * /bankAccounts:

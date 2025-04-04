@@ -5,6 +5,7 @@ import {
   resetBankResponse,
   getBankResponse,
   getBankMessage,
+  updateBankResponse,
 } from './bankResponseController.js';
 import { isAuthenticated, authorized } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -101,6 +102,43 @@ router.get(
   '/get-bank-message',
   [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
   tryCatchHandler(getBankMessage),
+);
+
+/**
+ * @swagger
+ * /bankResponse/update-message/{id}:
+ *   put:
+ *     summary: update a BankResponse
+ *     tags: [BankResponse]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The ID of the BankResponse to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               complaint_type:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: BankResponse updated successfully
+ *       404:
+ *         description: BankResponse not found
+ */
+
+router.put(
+  '/update-message/:id',
+  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+  tryCatchHandler(updateBankResponse),
 );
 
 /**
