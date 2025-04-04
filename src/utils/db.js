@@ -9,9 +9,9 @@ const pool = new Pool({
   ssl: {
     rejectUnauthorized: false, // Set to true in production with valid certificates
   },
-  max: 20,
-  idleTimeoutMillis: 10000,
-  connectionTimeoutMillis: 5000, 
+  // max: 20,
+  // idleTimeoutMillis: 10000,
+  // connectionTimeoutMillis: 5000, 
 });
 
 pool.on('error', async (err) => {
