@@ -25,9 +25,10 @@ import {
 const getBankaccount = async (req, res) => {
   const { company_id } = req.user;
   const { role } = req.user;
-  const { page, limit, search } = req.query;
+  const { page, limit, search, bank_used_for } = req.query;
   const filters = {
     ...(search ? { search } : {}),
+    bank_used_for,
   };
   const data = await getBankaccountService(
     filters,

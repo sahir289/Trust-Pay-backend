@@ -74,17 +74,28 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
 
     // const { conditions, queryParams } = buildFilterConditions(filters, tableConfigs, baseConditions, baseParams);
 
-    console.log(conditions, queryParams, "+++++++");
 
     if (filters.startDate && filters.endDate) {
       conditions.push(`p.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`);
       queryParams.push(filters.startDate, filters.endDate);
     }
+    if (filters.status) {
+      const statusArray = filters.status.split(',').map(s => s.trim());
+    
+      if (statusArray.length > 1) {
+        const placeholders = statusArray.map((_, idx) => `$${queryParams.length + idx + 1}`);
+        conditions.push(`p.status IN (${placeholders.join(', ')})`);
+        queryParams.push(...statusArray);
+      } else {
+        conditions.push(`p.status = $${queryParams.length + 1}`);
+        queryParams.push(statusArray[0]);
+      }
+    }
     if (page && limit) {
       limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
       queryParams.push(limit, (page - 1) * limit);
     }
-  
+
     let commissionSelect = '';
     if (role === 'MERCHANT') {
       commissionSelect = `p.payin_merchant_commission, p.merchant_order_id, 
@@ -140,7 +151,6 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
       ORDER BY sno DESC
       ${limitcondition}
     `;
-    console.log(filters, "filters")
 
     // const [sql, values] = buildSelectQuery(
     //   baseQuery,
@@ -151,7 +161,6 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
     //   filters.sortOrder,
     //   PAYIN,
     // );
-    console.log(baseQuery, "_________aqollllll", queryParams, "______valuess", conditions, limitcondition, "limitcondition");
     const result = await executeQuery(baseQuery, queryParams);
     // const result = await conn.query(baseQuery, queryParams);
     return { totalCount: result.rows[0]?.total, payins: result.rows }
