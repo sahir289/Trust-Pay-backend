@@ -94,43 +94,27 @@ const rollback = async (client, throwError = true) => {
 };
 
 export const executeQuery = async (query, queryParams = []) => {
-  try {
-    const result = await pool.query(query, queryParams);
-    return result;
-  } catch (error) {
-    logger.error('Error while executing query', error);
-    logger.error(`\nQuery: ${query}\nParams: [${queryParams}]`);
-    throw new DbError(error.message);
+  const maxRetries = 3; // Number of retries for transient errors
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await pool.query(query, queryParams);
+      return result;
+    } catch (error) {
+      logger.error(`Error while executing query (Attempt ${attempt}):`, error);
+      logger.error(`\nQuery: ${query}\nParams: [${queryParams}]`);
+
+      // Retry only for transient errors
+      if (error.message.includes('Connection terminated unexpectedly') && attempt < maxRetries) {
+        logger.warn(`Retrying query (Attempt ${attempt + 1})...`);
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second before retrying
+        continue;
+      }
+
+      // Throw error if retries are exhausted or error is not transient
+      throw new DbError(error.message);
+    }
   }
 };
-
-// export const buildJoinQuery = async (baseTable, filters, baseQuery, p, ps, s, o) => {
-//   try {
-//     const page = p || 1,
-//       pageSize = ps || 10,
-//       sortBy = s || "created_at",
-//       sortOrder = o || "DESC";
-
-//     let query = baseQuery;
-//     let values = [];
-
-//     for (const filter of filters) {
-//       query += ` LEFT JOIN public."${filter.tableName}" r_${filter.tableName}
-//                  ON r_${filter.tableName}.${filter.id} = "${baseTable}".${filter.id}`;
-//     }
-
-//     query += ` WHERE "${baseTable}".is_obsolete = false`;
-//     query += ` ORDER BY "${baseTable}"."${sortBy}" ${sortOrder}`;
-//     query += ` LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
-//       values.push(pageSize);
-//     values.push((page - 1) * pageSize);
-
-//     return [query, values];
-//   } catch (error) {
-//     console.error('Error building join query:', error);
-//     throw new DbError('Error building join query');
-//   }
-// };
 
 export const buildSelectQuery = (
   baseQuery,
@@ -262,13 +246,13 @@ export const buildUpdateQuery = (
   data,
   whereCondition,
   specialFields = {},
+  options = { returnUpdated: true } // Option to control RETURNING clause
 ) => {
   const values = [];
-
   const setClause = Object.entries(data).map(([key, value]) => {
     values.push(value);
     return specialFields[key]
-      ? `"${key}" = "${key}" ${specialFields[key]} $${values.length}` // Use specified operator
+      ? `"${key}" = "${key}" ${specialFields[key]} $${values.length}` // Use specified operator (e.g., "+", "-")
       : `"${key}" = $${values.length}`;
   });
 
@@ -277,8 +261,91 @@ export const buildUpdateQuery = (
     return `"${key}" = $${values.length}`;
   });
 
-  const query = `UPDATE "${tableName}" SET ${setClause.join(', ')} WHERE ${whereClause.join(' AND ')} RETURNING *`;
+  const returningClause = options.returnUpdated ? 'RETURNING *' : '';
+
+  const query = `UPDATE "${tableName}" SET ${setClause.join(', ')} WHERE ${whereClause.join(' AND ')} ${returningClause}`;
   return [query, values];
+};
+
+export const buildAndExecuteUpdateQuery = async (
+  tableName,
+  data,
+  whereCondition,
+  specialFields = {},
+  options = { returnUpdated: true }, // Option to control RETURNING clause
+  conn = null // Optional database connection
+) => {
+  try {
+    const values = [];
+    const setClause = [];
+    let index = 1;
+
+    // Handle nested JSON updates for `config` or other JSONB columns
+    if (data.config && typeof data.config === 'object') {
+      let jsonbSetQuery = `"config"::jsonb`;
+      const processNestedKeys = (obj, parentKey = []) => {
+        Object.entries(obj).forEach(([key, value]) => {
+          const currentPath = [...parentKey, key];
+          if (typeof value === 'object' && !Array.isArray(value)) {
+            // Recursively process nested objects
+            processNestedKeys(value, currentPath);
+          } else {
+            // Add jsonb_set for the current key
+            const path = currentPath.join(',');
+            jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', $${index}::jsonb)`;
+            values.push(JSON.stringify(value));
+            index++;
+          }
+        });
+      };
+
+      processNestedKeys(data.config);
+      setClause.push(`"config" = ${jsonbSetQuery}`);
+      delete data.config; // Remove `config` from the main data object
+    }
+
+    // Handle other updates
+    Object.entries(data).forEach(([key, value]) => {
+      setClause.push(
+        specialFields[key]
+          ? `"${key}" = "${key}" ${specialFields[key]} $${index}` // Use specified operator (e.g., "+", "-")
+          : `"${key}" = $${index}`
+      );
+      values.push(value);
+      index++;
+    });
+
+    // Build the WHERE clause
+    const whereClause = Object.entries(whereCondition).map(([key, value]) => {
+      values.push(value);
+      return `"${key}" = $${index++}`;
+    });
+
+    // Add RETURNING clause if required
+    const returningClause = options.returnUpdated ? 'RETURNING *' : '';
+
+    // Build the final query
+    const query = `UPDATE "${tableName}" SET ${setClause.join(', ')} WHERE ${whereClause.join(' AND ')} ${returningClause}`;
+
+    // Log the query and parameters for debugging
+    console.log('Executing SQL:', query);
+    console.log('With Parameters:', values);
+
+    // Execute the query
+    const result = conn
+      ? await conn.query(query, values) // Use provided connection
+      : await executeQuery(query, values); // Use default pool connection
+
+    if (!result || !result.rows || result.rows.length === 0) {
+      console.warn('No rows updated. Please check the provided IDs and conditions.');
+      throw new Error('No rows updated. Please check the provided IDs and conditions.');
+    }
+
+    return result.rows[0]; // Return the updated row
+  } catch (error) {
+    console.error('Error in buildAndExecuteUpdateQuery:', error);
+    throw new Error(error.message || 'Error updating the database.');
+  }
 };
 
 export const transactionWrapper =
