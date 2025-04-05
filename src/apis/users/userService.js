@@ -170,7 +170,7 @@ const createUserService = async (conn, payload, role) => {
             private: Private,
             public: Public,
           },
-          is_intent: false,
+          allow_intent: false,
         },
       };
       await createMerchantService(conn, merchantPayload, role);
