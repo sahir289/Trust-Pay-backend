@@ -72,9 +72,6 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
       delete filters.search;
     }
 
-    // const { conditions, queryParams } = buildFilterConditions(filters, tableConfigs, baseConditions, baseParams);
-
-
     if (filters.startDate && filters.endDate) {
       conditions.push(`p.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`);
       queryParams.push(filters.startDate, filters.endDate);

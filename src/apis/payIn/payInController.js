@@ -278,12 +278,13 @@ export const resetDeposit = async (req, res) => {
 };
 export const getPayins = async (req, res) => {
   const { company_id, role } = req.user;
-  const { page, limit, search, sortBy, sortOrder, status } = req.query;
+  const { page, limit, search, sortBy, sortOrder, status, ...rest } = req.query;
   const filters = {
-    sortBy, 
+    sortBy,
     sortOrder,
     status,
-  }
+    ...rest
+  };
   const data = await getPayinsService(company_id, page, limit, filters, role, search);
   return sendSuccess(res, data, 'PayIns fetched successfully');
 };
