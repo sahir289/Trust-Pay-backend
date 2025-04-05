@@ -34,7 +34,7 @@ export const getPayInUrlDao = async (filters) => {
   }
 };
 
-export const getPayInsDao = async (conn, filters, company_id, page, limit, role) => {
+export const getPayInsDao = async (filters, company_id, page, limit, role) => {
   try {
     const { PAYIN } = tableName;
 

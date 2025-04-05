@@ -7,6 +7,7 @@ import {
   updateMerchant,
   getMerchantsById,
   getMerchantCodes,
+  getMerchantsBySearch,
 } from './merchantController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -43,6 +44,12 @@ router.get(
   '/',
   [isAuthenticated, authorized(AccessRoles.MERCHANT)],
   tryCatchHandler(getMerchants),
+);
+
+router.get(
+  '/search',
+  [isAuthenticated, authorized(AccessRoles.MERCHANT)],
+  tryCatchHandler(getMerchantsBySearch),
 );
 
 /**

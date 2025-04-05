@@ -1,17 +1,15 @@
+/* eslint-disable no-unused-vars */
 import pkg from 'pg';
 import config from '../config/config.js';
 import chalk from 'chalk';
 import { DbError } from './appErrors.js';
-import { logger } from "./logger.js";
+import { logger } from './logger.js';
 const { Pool } = pkg;
 const pool = new Pool({
   connectionString: `${config.databaseUrl}?options=-c%20timezone%3DAsia%2FKolkata`,
   ssl: {
     rejectUnauthorized: false, // Set to true in production with valid certificates
   },
-  // max: 20,
-  // idleTimeoutMillis: 10000,
-  // connectionTimeoutMillis: 5000, 
 });
 
 pool.on('error', async (err) => {
@@ -23,7 +21,9 @@ pool.on('error', async (err) => {
 
   while (retryCount < maxRetries) {
     const delay = baseDelay * Math.pow(2, retryCount);
-    logger.warn(`Reconnecting to DB (Attempt ${retryCount + 1}) in ${delay / 1000}s...`);
+    logger.warn(
+      `Reconnecting to DB (Attempt ${retryCount + 1}) in ${delay / 1000}s...`,
+    );
 
     await new Promise((resolve) => setTimeout(resolve, delay));
 
@@ -38,7 +38,9 @@ pool.on('error', async (err) => {
 
     retryCount++;
   }
-  logger.error('All DB reconnection attempts failed. The database remains unreachable.');
+  logger.error(
+    'All DB reconnection attempts failed. The database remains unreachable.',
+  );
 });
 
 const getConnection = async () => {
@@ -53,7 +55,11 @@ const getConnection = async () => {
     } catch (error) {
       const delay = baseDelay * Math.pow(2, retryCount);
       logger.error(`Error fetching database connection:`, error);
-      logger.warn(chalk.yellow(`DB connection failed (Attempt ${retryCount + 1}). Retrying in ${delay / 1000}s...`));
+      logger.warn(
+        chalk.yellow(
+          `DB connection failed (Attempt ${retryCount + 1}). Retrying in ${delay / 1000}s...`,
+        ),
+      );
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
@@ -183,7 +189,9 @@ export const buildSelectQuery = (
   if (filters.startDate && filters.endDate) {
     const startDate = new Date(filters.startDate).toISOString().split('T')[0];
     const endDate = new Date(filters.endDate).toISOString().split('T')[0];
-    conditions.push(`${prefix}"created_at" BETWEEN $${values.length + 1} AND $${values.length + 2}`);
+    conditions.push(
+      `${prefix}"created_at" BETWEEN $${values.length + 1} AND $${values.length + 2}`,
+    );
     values.push(startDate, endDate);
   }
 
@@ -208,6 +216,7 @@ export const buildSelectQuery = (
       values.push(value);
     }
     query += ` AND (${orConditions.join(' OR ')})`;
+    
   }
 
   // Apply sorting and pagination
@@ -230,13 +239,14 @@ export const applySortingAndPagination = (
   sortOrder,
   page,
   pageSize,
-  prefix
+  prefix,
 ) => {
   // Validate sort order
-  const order = (sortOrder && sortOrder.toUpperCase()) === 'ASC' ? 'ASC' : 'DESC';
+  const order =
+    (sortOrder && sortOrder.toUpperCase()) === 'ASC' ? 'ASC' : 'DESC';
 
   // Add sorting
-  query += ` ORDER BY ${prefix}"${sortBy || "created_at"}" ${order}`;
+  query += ` ORDER BY ${prefix}"${sortBy || 'created_at'}" ${order}`;
 
   // Add pagination if values are passed
   if (Number(page) && Number(pageSize)) {
@@ -284,33 +294,33 @@ export const buildUpdateQuery = (
 
 export const transactionWrapper =
   (fn) =>
-    async (...args) => {
-      let conn;
-      try {
-        conn = await getConnection();
-        await beginTransaction(conn); // Ensure transaction starts properly
+  async (...args) => {
+    let conn;
+    try {
+      conn = await getConnection();
+      await beginTransaction(conn); // Ensure transaction starts properly
 
-        const data = await fn(conn, ...args); // Ensure fn expects conn as the first argument
+      const data = await fn(conn, ...args); // Ensure fn expects conn as the first argument
 
-        await commit(conn); // Commit only if no errors
-        return data;
-      } catch (error) {
-        if (conn) {
-          try {
-            await rollback(conn); // Explicit rollback
-            logger.error('Transaction rolled back due to error:', error);
-          } catch (rollbackError) {
-            logger.error('Rollback failed:', rollbackError);
-          }
-        }
-        throw new DbError(error.message); // Rethrow error
-      } finally {
-        if (conn) {
-          logger.log('Releasing connection');
-          conn.release(); // Always release connection
+      await commit(conn); // Commit only if no errors
+      return data;
+    } catch (error) {
+      if (conn) {
+        try {
+          await rollback(conn); // Explicit rollback
+          logger.error('Transaction rolled back due to error:', error);
+        } catch (rollbackError) {
+          logger.error('Rollback failed:', rollbackError);
         }
       }
-    };
+      throw new DbError(error.message); // Rethrow error
+    } finally {
+      if (conn) {
+        logger.log('Releasing connection');
+        conn.release(); // Always release connection
+      }
+    }
+  };
 
 /**
  * Builds a dynamic SQL SELECT query with auto-generated JOIN conditions.
@@ -403,4 +413,103 @@ export const buildJoinQuery = (table, columns = '*', joins = []) => {
   return `SELECT ${selectCols.join(', ')} FROM "${table}" ${joinClauses.join(' ')} WHERE 1=1`;
 };
 
-export { pool, getConnection, beginTransaction, commit, rollback };
+const executePaginatedQuery = async ({ baseQuery, countQuery, params = [], page = 1, limit = 10 }) => {
+  // Convert page and limit to integers
+  const pageNum = parseInt(page, 10) || 1;
+  const limitNum = parseInt(limit, 10) || 10;
+  const offset = (pageNum - 1) * limitNum;
+  console.log(typeof offset, offset, pageNum, "offset");
+
+  // Base query params include limit and offset
+  const validParams = params.filter(param => param !== undefined);
+  const baseQueryParams = [...validParams, limitNum, offset];
+  console.log(baseQueryParams, "baseQueryParams")
+  // Count query params exclude limit and offset
+  const countQueryParams = [...params];
+
+  const limitPlaceholder = `$${baseQueryParams.length - 1 + 1}`; // Correct index
+  const offsetPlaceholder = `$${baseQueryParams.length + 1}`; 
+
+  console.log(`${baseQuery} LIMIT $${limitPlaceholder.length - 1} OFFSET $${offsetPlaceholder.length}`, '-------')
+
+  const [result, countResult] = await Promise.all([
+      executeQuery(`${baseQuery} LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}`, baseQueryParams),
+      executeQuery(countQuery, countQueryParams) // Use only the params needed for countQuery
+  ]);
+
+  return {
+      rows: result.rows,
+      totalCount: parseInt(countResult.rows[0].total)
+  };
+};
+
+const buildSearchConditions = (searchTerms, searchableFields, paramStart = 1) => {
+  if (!searchTerms?.length) return { conditions: [], params: [], nextParam: paramStart };
+
+  const params = [];
+  let paramCount = paramStart;
+
+  const conditions = searchTerms.map(term => {
+      const fieldConditions = searchableFields.map(field =>
+          `${field} ILIKE '%' || $${paramCount++} || '%'`
+      );
+      params.push(term);
+      return `(${fieldConditions.join(' OR ')})`
+  });
+
+  return {
+      conditions: conditions.length ? [`(${conditions.join(' AND ')})`] : [],
+      params,
+      nextParam: paramCount
+  };
+};
+
+const buildFilterConditions = (filters, fieldMap, paramStart = 1) => {
+  const params = [];
+  let paramCount = paramStart;
+
+  const conditions = Object.entries(filters)
+      .filter(([_, value]) => value !== undefined && value !== null)
+      .map(([key, value]) => {
+          const field = fieldMap[key];
+          if (!field) return null;
+          params.push(value);
+          return `${field} = $${paramCount++}`;
+      })
+      .filter(Boolean);
+
+  return { conditions, params, nextParam: paramCount };
+};
+
+const generateQuery = (baseQuery, options={}) => {
+  // Default options
+  const {
+      tableName = "CheckUtrHistory",
+      sortOrder = "DESC",
+      companyIdParam = "$1"
+  } = options;
+
+  // Build the additional conditions
+  const additionalConditions = `
+      AND "${tableName}".is_obsolete = false 
+      AND "${tableName}"."company_id" = ${companyIdParam}
+      ORDER BY "${tableName}"."created_at" ${sortOrder}
+  `;
+
+  // Combine base query with additional conditions
+  const finalQuery = `${baseQuery} ${additionalConditions}`;
+
+  return finalQuery;
+}
+
+export {
+  pool,
+  getConnection,
+  beginTransaction,
+  commit,
+  rollback,
+  executePaginatedQuery,
+  buildSearchConditions,
+  buildFilterConditions,
+  generateQuery,
+};

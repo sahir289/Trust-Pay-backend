@@ -3,26 +3,34 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   createCheckUtrService,
   deleteCheckUtrService,
+  getCheckUtrBySearchService,
   getCheckUtrService,
   updateCheckUtrService,
 } from './checkUtrServices.js';
 import { getPayinDetailsByMerchantOrderId } from '../payIn/payInDao.js';
+import { logger } from '../../utils/logger.js';
 
 const getCheckUtr = async (req, res) => {
-  try {
-    const { company_id } = req.user;
-    const { page, limit, search } = req.query;
-    const filters = {
-      company_id,
-      ...(search ? { search } : {}),
-      ...req.query,
-    };
-    const data = await getCheckUtrService(filters, page, limit);
-    return sendSuccess(res, data, 'get checkutr successfully');
-  } catch (error) {
-    console.error('error getting while check utr', error);
-  }
+  const { company_id } = req.user;
+  const { page, limit, search } = req.query;
+  const filters = {
+    company_id,
+    ...(search ? { search } : {}),
+    ...req.query,
+  };
+  const data = await getCheckUtrService(filters, page, limit);
+  return sendSuccess(res, data, 'get checkutr successfully');
 };
+
+const getCheckUtrBySearch = async (req, res) => {
+  const { company_id } = req.user;
+  const { search, page = 1, limit = 10 } = req.query;
+  if (!search) {
+    throw new BadRequestError('search is required');
+  }
+  const data = await getCheckUtrBySearchService(company_id, search, page, limit);
+  return sendSuccess(res, data, 'get checkUtr by search successfully');
+}
 
 const createCheckUtr = async (req, res) => {
   const payload = req.body;
@@ -36,11 +44,10 @@ const createCheckUtr = async (req, res) => {
   payload.updated_by = user_id;
   delete payload.merchant_order_id;
   if (!payload) {
-    console.error('payload is required');
     throw new BadRequestError('payload is required');
   }
   await createCheckUtrService(payload);
-  console.log('Check Utr successfully');
+  logger.log('Check Utr successfully');
   return sendSuccess(res, {}, 'Check Utr successfully');
 };
 
@@ -54,12 +61,11 @@ const updateCheckUtr = async (req, res) => {
 const deleteCheckUtr = async (req, res) => {
   const { id } = req.params;
   if (!id) {
-    console.error('payload is required');
     throw new BadRequestError('payload is required');
   }
   await deleteCheckUtrService(id);
-  console.log('getUsers successfully');
+  logger.log('getUsers successfully');
   return sendSuccess(res, {}, 'Delete CheckUtr successfully');
 };
 
-export { getCheckUtr, createCheckUtr, updateCheckUtr, deleteCheckUtr };
+export { getCheckUtr, getCheckUtrBySearch, createCheckUtr, updateCheckUtr, deleteCheckUtr };

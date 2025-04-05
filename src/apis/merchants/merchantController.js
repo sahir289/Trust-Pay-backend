@@ -4,6 +4,7 @@ import {
   createMerchantService,
   deleteMerchantService,
   getMerchantByIdService,
+  getMerchantsBySearchService,
   getMerchantsService,
   getMerchantsServiceCode,
   updateMerchantService,
@@ -63,11 +64,10 @@ const createMerchant = async (req, res) => {
 
 const getMerchants = async (req, res) => {
   const { company_id, role, designation, user_id } = req.user;
-  const { page, limit, search } = req.query;
+  const { page, limit } = req.query;
   const data = await getMerchantsService(
     {
       company_id,
-      ...(search ? { search } : {}),
       ...req.query,
     },
     role,
@@ -76,9 +76,31 @@ const getMerchants = async (req, res) => {
     designation,
     user_id,
   );
-  console.log('get Merchants successfully');
+  logger.log('get Merchants successfully');
   return sendSuccess(res, data, 'Merchants fetched successfully');
 };
+
+const getMerchantsBySearch = async (req, res) => {
+  const { company_id, role, designation, user_id } = req.user;
+  const { search, page = 1, limit = 10 } = req.query;
+  if (!search) {
+    throw new BadRequestError('search is required');
+  }
+  const data = await getMerchantsBySearchService(
+    {
+      company_id,
+      search,
+      page,
+      limit,
+      ...req.query,
+    },
+    role,
+    designation,
+    user_id,
+  );
+  logger.log('get Merchants successfully');
+  return sendSuccess(res, data, 'Merchants fetched successfully');
+}
 
 const getMerchantCodes = async (req, res) => {
   const { company_id } = req.user;
@@ -146,6 +168,7 @@ const deleteMerchant = async (req, res) => {
 export {
   createMerchant,
   getMerchants,
+  getMerchantsBySearch,
   updateMerchant,
   deleteMerchant,
   getMerchantsById,
