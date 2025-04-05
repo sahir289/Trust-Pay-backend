@@ -1,9 +1,4 @@
-import {
-  columns,
-  merchantColumns,
-  Role,
-  vendorColumns,
-} from '../../constants/index.js';
+
 import { InternalServerError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
@@ -162,43 +157,34 @@ const getPayOutReportService = async (req, res) => {
 
 const getMerchantReportService = async (req, res) => {
   try {
-    const { company_id, role } = req.user;
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.CALCULATION
-        : columns.CALCULATION;
-    const { code, startDate, endDate } = req.query;
+    const { company_id,  role } = req.user;
+    const { code, startDate, endDate, role_name } = req.query;
     const { page, limit } = req.query;
-
-    ///api/data?code=123&code=456&startDate=2024-01-01&endDate=2024-01-31
     let dataArray = [];
-    if (code) {
+    let result
       const userIds = typeof code === 'string' ? code.split(',').map(id => id.trim()) : Array.isArray(code) ? code : [code];
+      if(role_name === 'MERCHANT'){
       for (const user_id of userIds) {
-        const result = await getMerchantReportDao(
-          { user_id, company_id },
+         result = await getMerchantReportDao(
+          user_id,
           startDate,
           endDate,
-          null,
-          null,
-          null,
-          null,
-          filterColumns
+          company_id, page, limit
         );
-
         dataArray.push(result);
-      }
-
-      return sendSuccess(res, dataArray, 'Reports fetched successfully');
-    }
-    else {
-      const result = await getMerchantReportDao({ company_id: company_id }, null, null,
-        page, limit,
-        null,
-        null,
-        filterColumns);
-      return sendSuccess(res, result, 'Reports created successfully');
-    }
+      }}
+      else{
+        for (const user_id of userIds) {
+        const result = await getVendorReportDao(
+          user_id,
+          startDate,
+          endDate,
+          company_id, page, limit, role
+        );
+        dataArray.push(result);
+      }}
+      return sendSuccess(res, result, 'Reports fetched successfully');
+   
   } catch (error) {
     console.error('error getting while fetching reports', error);
     throw new InternalServerError(error);
@@ -208,36 +194,22 @@ const getMerchantReportService = async (req, res) => {
 const getVendorReportService = async (req, res) => {
   try {
     const { company_id, role } = req.user;
-    const filterColumns =
-      role === Role.VENDOR ? vendorColumns.CALCULATION : columns.CALCULATION;
     const { code, startDate, endDate } = req.query;
     const { page, limit } = req.query;
-    ///api/data?code=123&code=456&startDate=2024-01-01&endDate=2024-01-31
     let dataArray = [];
-    if (code) {
       const userIds = typeof code === 'string' ? code.split(',').map(id => id.trim()) : Array.isArray(code) ? code : [code];
       for (const user_id of userIds) {
+        console.log(startDate, endDate, "startendate");
         const result = await getVendorReportDao(
-          { user_id: user_id, company_id: company_id },
+          user_id,
           startDate,
           endDate,
-          null,
-          null,
-          null,
-          null,
-          filterColumns,
+          company_id, page, limit, role
         );
         dataArray.push(result);
       }
       return sendSuccess(res, dataArray, 'Reports fetched successfully');
-    } else {
-      const result = await getVendorReportDao({ company_id: company_id }, null, null,
-        page, limit,
-        null,
-        null,
-        filterColumns);
-      return sendSuccess(res, result, 'Reports created successfully');
-    }
+   
   } catch (error) {
     console.error('error getting while fetching reports', error);
     throw new InternalServerError(error);
