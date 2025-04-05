@@ -41,6 +41,7 @@ export const UPDATE_DETAILS_SCHEMA = Joi.object({
   config: Joi.object({
     notify_url: Joi.string().uri().label('notify_url').optional(),
     method: Joi.string().label('method').optional(),
+    rejected_reason: Joi.string().label('rejected_reason').optional(),
   })
     .label('config')
     .optional(),
