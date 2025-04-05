@@ -6,6 +6,7 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
+import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 export const createMerchantDao = async (data, conn) => {
@@ -23,8 +24,7 @@ export const createMerchantDao = async (data, conn) => {
   }
 };
 
-export const getMerchantsCodeDao = async (conn,
-company_id ) => {
+export const getMerchantsCodeDao = async (conn, company_id) => {
   try {
     const baseQuery = `SELECT 
     m.code AS label,  -- Parent Merchant Name
@@ -58,7 +58,6 @@ ORDER BY m.code ASC;`;
     throw error.message;
   }
 };
-
 
 export const getMerchantsDao = async (
   filters,
@@ -104,7 +103,7 @@ export const getMerchantsDao = async (
       filters.or = buildSearchFilterObj(filters.search, MERCHANT);
       delete filters.search;
     }
-    console.log(filters, "filterss");
+    console.log(baseQuery, 'baseQuery');
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
@@ -114,11 +113,136 @@ export const getMerchantsDao = async (
       sortOrder,
       tableName.MERCHANT,
     );
+    console.log(sql, queryParams, '++++++++');
     // Execute query
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
     console.error('Error in getMerchantsDao:', error);
+    throw error.message;
+  }
+};
+
+export const getMerchantsBySearchDao = async (
+  filters,
+  searchTerms,
+  limitNum,
+  offset,
+) => {
+  try {
+   const conditions = [];
+    const values = [filters.company_id];
+    let paramIndex = 2;
+
+    let queryText = `
+      SELECT 
+        "Merchant".id, 
+        "Merchant".user_id, 
+        "Merchant".first_name, 
+        "Merchant".last_name, 
+        "Merchant".code, 
+        "Merchant".min_payin, 
+        "Merchant".max_payin, 
+        "Merchant".payin_commission, 
+        "Merchant".min_payout, 
+        "Merchant".max_payout, 
+        "Merchant".payout_commission, 
+        "Merchant".is_test_mode, 
+        "Merchant".is_enabled, 
+        "Merchant".dispute_enabled, 
+        "Merchant".is_demo, 
+        "Merchant".balance, 
+        "Merchant".config, 
+        "Merchant".created_by, 
+        "Merchant".updated_by, 
+        "Merchant".created_at, 
+        "Merchant".updated_at, 
+        "User".designation_id, 
+        "User".first_name || ' ' || "User".last_name AS full_name, 
+        "Designation".designation AS designation_name 
+      FROM "Merchant" 
+      JOIN "User" ON "Merchant".user_id = "User".id 
+      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id 
+      WHERE 1=1 
+      AND "Merchant".is_obsolete = false 
+      AND "Merchant"."company_id" = $1
+    `;
+
+    searchTerms.forEach(term => {
+      // it will handle boolean terms
+      if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+        const boolValue = term.toLowerCase() === 'true';
+        conditions.push(`
+          (
+            "Merchant".is_test_mode = $${paramIndex}
+            OR "Merchant".is_enabled = $${paramIndex}
+            OR "Merchant".dispute_enabled = $${paramIndex}
+            OR "Merchant".is_demo = $${paramIndex}
+            OR ("Merchant".config->'allow_intent')::boolean = $${paramIndex}
+          )
+        `);
+        values.push(boolValue);
+        paramIndex++;
+      } else {
+        // it will handle text/numeric terms including JSON fields
+        conditions.push(`
+          (
+            LOWER("Merchant".id::text) LIKE LOWER($${paramIndex})
+            OR LOWER("Merchant".user_id::text) LIKE LOWER($${paramIndex})
+            OR LOWER("Merchant".first_name) LIKE LOWER($${paramIndex})
+            OR LOWER("Merchant".last_name) LIKE LOWER($${paramIndex})
+            OR LOWER("Merchant".code) LIKE LOWER($${paramIndex})
+            OR "Merchant".min_payin::text LIKE $${paramIndex}
+            OR "Merchant".max_payin::text LIKE $${paramIndex}
+            OR "Merchant".payin_commission::text LIKE $${paramIndex}
+            OR "Merchant".min_payout::text LIKE $${paramIndex}
+            OR "Merchant".max_payout::text LIKE $${paramIndex}
+            OR "Merchant".payout_commission::text LIKE $${paramIndex}
+            OR LOWER("Merchant".created_by::text) LIKE LOWER($${paramIndex})
+            OR LOWER("Merchant".updated_by::text) LIKE LOWER($${paramIndex})
+            OR LOWER("User".first_name || ' ' || "User".last_name) LIKE LOWER($${paramIndex})
+            OR LOWER("Designation".designation) LIKE LOWER($${paramIndex})
+            OR LOWER("Merchant".config->'keys'->>'public') LIKE LOWER($${paramIndex})
+            OR LOWER("Merchant".config->'keys'->>'private') LIKE LOWER($${paramIndex})
+            OR LOWER("Merchant".config->'urls'->>'site') LIKE LOWER($${paramIndex})
+            OR LOWER("Merchant".config->'urls'->>'return') LIKE LOWER($${paramIndex})
+            OR LOWER("Merchant".config->'urls'->>'payin_notify') LIKE LOWER($${paramIndex})
+            OR LOWER("Merchant".config->'urls'->>'payout_notify') LIKE LOWER($${paramIndex})
+          )
+        `);
+        values.push(`%${term}%`);
+        paramIndex++;
+      }
+    });
+
+    if (conditions.length > 0) {
+      queryText += ' AND (' + conditions.join(' OR ') + ')';
+    }
+
+   const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
+
+    queryText += `
+      ORDER BY "Merchant"."created_at" DESC
+      LIMIT $${paramIndex}
+      OFFSET $${paramIndex + 1}
+    `;
+    values.push(limitNum, offset);
+
+    const countResult = await executeQuery(countQuery, values.slice(0, -2));
+    const searchResult = await executeQuery(queryText, values);
+
+    // Calculate pagination metadata
+    const totalItems = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(totalItems / limitNum);
+
+    const data = {
+      totalCount: totalItems,
+      totalPages,
+      merchants: searchResult.rows,
+    };
+    return data;
+  } catch (error) {
+    logger.error(error.message);
     throw error.message;
   }
 };

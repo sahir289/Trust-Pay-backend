@@ -1,8 +1,9 @@
-import { InternalServerError } from '../../utils/appErrors.js';
+import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
 import {
   createCheckUtrDao,
   deleteCheckUtrDao,
+  getCheckUtrBySearchDao,
   getCheckUtrDao,
   updateCheckUtrDao,
 } from './checkUtrDao.js';
@@ -13,6 +14,28 @@ const getCheckUtrService = async (id, page, limit) => {
     return result;
   } catch (error) {
     logger.error('error getting while check utr', error);
+    throw new InternalServerError(error);
+  }
+};
+
+const getCheckUtrBySearchService = async (company_id, search, page, limit) => {
+  try {
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
+      throw new BadRequestError('Invalid pagination parameters');
+    }
+    const searchTerms = search.split(',')
+      .map(term => term.trim())
+      .filter(term => term.length > 0);
+
+    if (searchTerms.length === 0) {
+      throw new BadRequestError('Please provide valid search items');
+    }
+    const offset = (pageNum - 1) * limitNum;
+    return await getCheckUtrBySearchDao(company_id, searchTerms, limitNum, offset);
+  } catch (error) {
+    logger.error('error getting while getting check utr by search', error);
     throw new InternalServerError(error);
   }
 };
@@ -48,6 +71,7 @@ const deleteCheckUtrService = async (id) => {
 
 export {
   getCheckUtrService,
+  getCheckUtrBySearchService,
   createCheckUtrService,
   updateCheckUtrService,
   deleteCheckUtrService,

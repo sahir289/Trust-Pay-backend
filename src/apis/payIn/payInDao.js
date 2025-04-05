@@ -34,7 +34,7 @@ export const getPayInUrlDao = async (filters) => {
   }
 };
 
-export const getPayInsDao = async (conn, filters, company_id, page, limit, role) => {
+export const getPayInsDao = async (filters, company_id, page, limit, role) => {
   try {
     const { PAYIN } = tableName;
     if (typeof company_id === 'string') {
@@ -72,10 +72,7 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
       delete filters.search;
     }
 
-    console.log(filters.or, "filetrs")
     // const { conditions, queryParams } = buildFilterConditions(filters, tableConfigs, baseConditions, baseParams);
-
-    console.log(conditions, queryParams, "+++++++");
 
     if (filters.startDate && filters.endDate) {
       conditions.push(`p.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`);
@@ -85,7 +82,7 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
       limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
       queryParams.push(limit, (page - 1) * limit);
     }
-  
+
     let commissionSelect = '';
     if (role === 'MERCHANT') {
       commissionSelect = `p.payin_merchant_commission, p.merchant_order_id, 
@@ -141,20 +138,8 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
       ORDER BY sno DESC
       ${limitcondition}
     `;
-    console.log(filters, "filters")
 
-    // const [sql, values] = buildSelectQuery(
-    //   baseQuery,
-    //   filters,
-    //   page,
-    //   limit,
-    //   filters.sortBy,
-    //   filters.sortOrder,
-    //   PAYIN,
-    // );
-    console.log(baseQuery, "_________aqollllll", queryParams, "______valuess", conditions, limitcondition, "limitcondition");
     const result = await executeQuery(baseQuery, queryParams);
-    // const result = await conn.query(baseQuery, queryParams);
     return { totalCount: result.rows[0]?.total, payins: result.rows }
   } catch (error) {
     logger.error('Error getting PayIn URL:', error);
