@@ -302,7 +302,6 @@ const getPayOutAll = async (filters, page, pageSize, sortBy, sortOrder) => {
 
 const getMerchantReportDao = async (user_id, startDate, endDate, company_id, page, limit) => {
   try {
-    console.log(user_id, startDate, endDate, company_id, page, limit, "Executing getMerchantReportDao");
 
     if (!startDate || !endDate) {
       throw new Error("Both startDate and endDate must be provided.");
@@ -369,8 +368,6 @@ const getMerchantReportDao = async (user_id, startDate, endDate, company_id, pag
       parameters.push(parseInt(limit), offset);
     }
 
-    console.log("Executing Query:", query, "Parameters:", parameters);
-
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
@@ -387,7 +384,6 @@ const getVendorReportDao = async (
   company_id, page, limit
 ) => {
   try {
-console.log(startDate, endDate, "startenddateindao")
     if (!startDate || !endDate) {
       throw new Error("Both startDate and endDate must be provided.");
     }
@@ -434,7 +430,7 @@ WITH filtered_vendors AS (
 
     query += ` AND c.created_at BETWEEN $${paramIndex}::TIMESTAMPTZ AND $${paramIndex + 1}::TIMESTAMPTZ 
       ORDER BY c.id, v.code ASC
-    ) SELECT * FROM filtered_merchants`;
+    ) SELECT * FROM filtered_vendors`;
 
     parameters.push(
       formattedStartDate.toISOString(),
