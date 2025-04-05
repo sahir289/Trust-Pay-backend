@@ -176,8 +176,8 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
     // Debug log: Check if placeholders match params
     const expectedParamCount = (baseQuery.match(/\$\d+/g) || []).length;
     if (expectedParamCount !== queryParams.length) {
-      console.warn('⚠️ Placeholder count does not match parameter count!');
-      console.warn(`Expected: ${expectedParamCount}, Got: ${queryParams.length}`);
+      logger.warn('⚠️ Placeholder count does not match parameter count!');
+      logger.warn(`Expected: ${expectedParamCount}, Got: ${queryParams.length}`);
     }
 
     const result = await executeQuery(baseQuery, queryParams);
