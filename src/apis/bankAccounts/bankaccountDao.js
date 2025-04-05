@@ -38,6 +38,13 @@ const getBankaccountDao = async (filters, page, limit, role) => {
       // delete filters.startDate
       // delete filters.endDate
     }
+    if (filters?.bank_used_for) {
+      conditions.push(
+        `ba.bank_used_for = $${queryParams.length + 1}`,
+      );
+      queryParams.push(filters?.bank_used_for);
+      // delete filters.bank_used_for
+    }
     // if (filters && Object.keys(filters).length > 0) {
     //   Object.keys(filters).forEach((key) => {
     //     delete filters?.page;

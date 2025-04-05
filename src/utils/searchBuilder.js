@@ -79,18 +79,24 @@ const tables = {
     is_used: DataTypes.BOOLEAN,
   },
   [dbTables.BANK_ACCOUNT]: {
-      sno: DataTypes.NUMBER,
-      upi_id: DataTypes.STRING,
-      acc_holder_name: DataTypes.STRING,
-      nick_name: DataTypes.STRING,
-      acc_no: DataTypes.STRING,
-      ifsc: DataTypes.STRING,
-      bank_name: DataTypes.STRING,
-      payin_count: DataTypes.NUMBER,
-      balance: DataTypes.NUMBER,
-      bank_used_for: DataTypes.STRING,
-      config: DataTypes.JSON,
-  }
+    sno: DataTypes.NUMBER,
+    upi_id: DataTypes.STRING,
+    acc_holder_name: DataTypes.STRING,
+    nick_name: DataTypes.STRING,
+    acc_no: DataTypes.STRING,
+    ifsc: DataTypes.STRING,
+    bank_name: DataTypes.STRING,
+    payin_count: DataTypes.NUMBER,
+    balance: DataTypes.NUMBER,
+    bank_used_for: DataTypes.STRING,
+    config: DataTypes.JSON,
+  },
+  [dbTables.CHECK_UTR_HISTORY]: {
+    sno: DataTypes.NUMBER,
+    payin_id: DataTypes.STRING,
+    utr: DataTypes.STRING,
+    config: DataTypes.JSON,
+  },
 };
 
 /**
@@ -104,6 +110,7 @@ const tables = {
  */
 
 export const buildSearchFilterObj = (search, tableName) => {
+  console.log(typeof(search), "search")
   if (typeof search !== 'string') {
     throw new BadRequestError('Invalid Search Type');
   }
@@ -128,12 +135,15 @@ export const buildSearchFilterObj = (search, tableName) => {
         ? Number(value)
         : value;
 
+
     const valueType =
       typeof toValue === 'boolean'
         ? DataTypes.BOOLEAN
         : typeof toValue === 'number'
           ? DataTypes.NUMBER
           : DataTypes.STRING;
+
+          console.log(valueType, "valueType")
 
     let matched = false;
 
