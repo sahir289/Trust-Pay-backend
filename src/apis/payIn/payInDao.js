@@ -167,8 +167,8 @@ export const getPayInsDao = async (conn, filters, company_id, page, limit, role)
         LEFT JOIN public."BankResponse" br ON p.bank_response_id = br.id
         LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
         WHERE ${conditions.join(' AND ')}
-      ),
-      SELECT * FROM filtered_payins, total_count
+      )
+      SELECT * FROM filtered_payins
       ORDER BY sno DESC
       ${limitcondition.value}
     `;
