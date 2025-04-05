@@ -96,8 +96,8 @@ const createBankaccount = async (req, res) => {
 const updateBankaccount = async (req, res) => {
   const { id } = req.params;
   let payload = req.body;
-  delete payload.is_phonepay;
-  delete payload.is_intent;
+  // delete payload.is_phonepay;
+  // delete payload.is_intent;
   const joiValidation = UPDATE_BANK_ACCOUNT_SCHEMA.validate(req.body);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);

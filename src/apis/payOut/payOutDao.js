@@ -1,5 +1,6 @@
 import { tableName } from '../../constants/index.js';
 import {
+  buildAndExecuteUpdateQuery,
   buildInsertQuery,
   buildUpdateQuery,
   executeQuery,
@@ -7,13 +8,16 @@ import {
 
 export const createPayoutDao = async (conn, data) => {
   try {
-    const [sql, params] = buildInsertQuery(tableName.PAYOUT, data);
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(sql, params);
-    } else {
-      result = await executeQuery(sql, params);
+    // Ensure `config` is initialized if not provided
+    if (!data.config) {
+      data.config = {}; // Default to an empty JSON object
     }
+
+    const [sql, params] = buildInsertQuery(tableName.PAYOUT, data);
+    const result = conn
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
+
     return result.rows[0];
   } catch (error) {
     console.error('Error in createPayoutDao:', error);
@@ -171,15 +175,36 @@ export const getPayoutsCronDao = async (conn, payload) => {
 
 export const updatePayoutDao = async (ids, data, conn) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.PAYOUT, data, ids);
+    // Clone the data object to avoid modifying the original
+    const updateData = { ...data };
 
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(sql, params);
-    } else {
-      result = await executeQuery(sql, params);
+    // If config is present, ensure it's properly formatted
+    if (updateData.config && typeof updateData.config === 'object') {
+      // Get existing config first to merge with new config
+      const existingData = await executeQuery(
+        `SELECT config FROM "${tableName.PAYOUT}" WHERE id = $1`,
+        [ids.id]
+      );
+
+      if (existingData.rows.length > 0) {
+        const existingConfig = existingData.rows[0].config || {};
+        // Merge existing config with new config
+        updateData.config = {
+          ...existingConfig,
+          ...updateData.config
+        };
+      }
     }
-    return result.rows[0];
+
+    // Use buildAndExecuteUpdateQuery
+    return await buildAndExecuteUpdateQuery(
+      tableName.PAYOUT,
+      updateData,
+      ids,
+      {}, // No special fields
+      { returnUpdated: true },
+      conn
+    );
   } catch (error) {
     console.error('Error occurred while updating payout:', error);
     throw error.message;

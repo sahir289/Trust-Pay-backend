@@ -26,7 +26,6 @@ export const UPDATE_DETAILS_SCHEMA = Joi.object({
   ifsc_code: Joi.string().label('ifsc_code').optional(),
   bank_name: Joi.string().label('bank_name').optional(),
   bank_acc_id: Joi.string().label('bank_acc_id').optional(),
-  method: Joi.string().label('method').optional(),
   upi_id: Joi.string().email().label('upi_id').optional(), // UPI ID could be in email format
   utr_id: Joi.string().label('utr_id').optional(),
   is_enable: Joi.boolean().label('is_enable').default(true), // `is_enable` should be a boolean
@@ -41,6 +40,8 @@ export const UPDATE_DETAILS_SCHEMA = Joi.object({
   rejected_at: Joi.date().iso().allow(null).label('rejected_at'), // Allow null if rejected_at is null
   config: Joi.object({
     notify_url: Joi.string().uri().label('notify_url').optional(),
+    method: Joi.string().label('method').optional(),
+    rejected_reason: Joi.string().label('rejected_reason').optional(),
   })
     .label('config')
     .optional(),
