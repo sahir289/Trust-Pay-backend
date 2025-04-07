@@ -20,6 +20,7 @@ import {
   updateBankaccountService,
   deleteBankaccountService,
   getBankaccountServiceNickName,
+  getBankAccountBySearchService,
 } from './bankaccountServices.js';
 
 const getBankaccount = async (req, res) => {
@@ -38,6 +39,22 @@ const getBankaccount = async (req, res) => {
   );
   logger.log('get Banks successfully', role);
   return sendSuccess(res, data, 'get Banks successfully');
+};
+
+const getBankAccountBySearch = async (req, res) => {
+  const { company_id, role } = req.user;
+  const { search, page = 1, limit = 10 } = req.query;
+  if (!search) {
+    throw new ValidationError('search is required');
+  }
+  const data = await getBankAccountBySearchService(
+    company_id,
+    role,
+    search,
+    page,
+    limit,
+  );
+  return sendSuccess(res, data, 'get Banks by search successfully');
 };
 
 const getBankaccountNickName = async (req, res) => {
@@ -156,6 +173,7 @@ const deleteBankaccount = async (req, res) => {
 };
 export {
   getBankaccount,
+  getBankAccountBySearch,
   getBankaccountById,
   createBankaccount,
   updateBankaccount,

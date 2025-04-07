@@ -8,6 +8,7 @@ import {
 } from '../../utils/db.js';
 import { DbError } from '../../utils/appErrors.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
+import { logger } from '../../utils/logger.js';
 
 const getBankaccountDao = async (filters, page, limit, role) => {
   try {
@@ -19,7 +20,6 @@ const getBankaccountDao = async (filters, page, limit, role) => {
       conditions.push(`ba.company_id = $1`);
     }
     let limitcondition = '';
-    console.log(filters, "filterrsss");
 
     if (page && limit) {
       limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
@@ -105,10 +105,98 @@ const getBankaccountDao = async (filters, page, limit, role) => {
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
-    console.error('Error in getBankaccountDao:', error);
+    logger.error('Error in get BankAccount Dao:', error);
     throw error.message;
   }
 };
+
+const getBankAccountBySearchDao = async (company_id, role, searchTerms, limitNum, offset) => {
+  try {
+    const conditions = [];
+    const values = [company_id, role];
+    let paramIndex = 3;
+    let queryText = `
+      SELECT 
+        "CheckUtrHistory".*, 
+        "Payin".merchant_order_id, 
+        "Payin".amount, 
+        "Payin".user_submitted_utr, 
+        "Payin".amount as requested_amount, 
+        "BankResponse".status, 
+        "BankResponse".utr, 
+        "BankResponse".amount, 
+        "BankResponse".is_used, 
+        "BankResponse".upi_short_code 
+      FROM "CheckUtrHistory" 
+      JOIN "Payin" ON "CheckUtrHistory".payin_id = "Payin".id 
+      LEFT JOIN "BankResponse" ON "Payin".bank_acc_id = "BankResponse".bank_id 
+      WHERE 1=1 
+      AND "CheckUtrHistory".is_obsolete = false 
+      AND "CheckUtrHistory"."company_id" = $1
+    `;
+
+    searchTerms.forEach(term => {
+      // here it will handle boolean terms separately
+      if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+        const boolValue = term.toLowerCase() === 'true';
+        conditions.push(`
+          (
+            "CheckUtrHistory"."is_obsolete" = $${paramIndex}
+            OR "BankResponse".is_used = $${paramIndex}
+          )
+        `);
+        values.push(boolValue);
+        paramIndex++;
+      } else {
+        // it will handle text/numeric terms
+        conditions.push(`
+          (
+            LOWER("CheckUtrHistory"."id"::text) LIKE LOWER($${paramIndex})
+            OR LOWER("Payin".merchant_order_id) LIKE LOWER($${paramIndex})
+            OR LOWER("Payin".user_submitted_utr) LIKE LOWER($${paramIndex})
+            OR LOWER("BankResponse".status) LIKE LOWER($${paramIndex})
+            OR LOWER("BankResponse".utr) LIKE LOWER($${paramIndex})
+            OR LOWER("BankResponse".upi_short_code) LIKE LOWER($${paramIndex})
+            OR "Payin".amount::text LIKE $${paramIndex}
+            OR "BankResponse".amount::text LIKE $${paramIndex}
+          )
+        `);
+        values.push(`%${term}%`);
+        paramIndex++;
+      }
+    });
+
+    if (conditions.length > 0) {
+      queryText += ' AND (' + conditions.join(' OR ') + ')';
+    }
+
+    const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
+    
+    queryText += `
+      ORDER BY "CheckUtrHistory"."created_at" DESC
+      LIMIT $${values.length + 1}
+      OFFSET $${values.length + 2}
+    `;
+    values.push(limitNum, offset);
+
+    const countResult = await executeQuery(countQuery, values.slice(0, -2));
+    const searchResult = await executeQuery(queryText, values);
+
+    const totalItems = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(totalItems / limitNum);
+
+    const data = {
+      totalCount: totalItems,
+      totalPages,
+      checkUtr: searchResult.rows,
+    };
+    return data;
+    
+  } catch (error) {
+    logger.error(error);
+    throw error.message;
+  }
+}
 
 const getMerchantBankDao = async (filters) => {
   try {
@@ -197,6 +285,7 @@ export const updateBanktBalanceDao = async (
 
 export {
   getBankaccountDao,
+  getBankAccountBySearchDao,
   createBankaccountDao,
   updateBankaccountDao,
   deleteBankaccountDao,

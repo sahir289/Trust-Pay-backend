@@ -5,6 +5,7 @@ import {
   getConnection,
   rollback,
 } from '../../utils/db.js';
+import { logger } from '../../utils/logger.js';
 import { deactivateBank } from '../../utils/sockets.js';
 import {
   getBankResponseDaoAll,
@@ -16,6 +17,7 @@ import {
   updateBankaccountDao,
   deleteBankaccountDao,
   getBankaccountDaoNickName,
+  getBankAccountBySearchDao,
 } from './bankaccountDao.js';
 
 const getBankaccountService = async (
@@ -36,6 +38,34 @@ const getBankaccountService = async (
     );
   } catch (error) {
     console.error('error getting while  getting banks', error);
+    throw new InternalServerError(error);
+  }
+};
+
+const getBankAccountBySearchService = async (
+  company_id,
+  role,
+  search,
+  page,
+  limit,
+) => {
+  try {
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
+      throw new BadRequestError('Invalid pagination parameters');
+    }
+    const searchTerms = search.split(',')
+      .map(term => term.trim())
+      .filter(term => term.length > 0);
+
+    if (searchTerms.length === 0) {
+      throw new BadRequestError('Please provide valid search items');
+    }
+    const offset = (pageNum - 1) * limitNum;
+    return await getBankAccountBySearchDao(company_id, role, searchTerms, limitNum, offset);
+  } catch (error) {
+    logger.error('error getting while getting check utr by search', error);
     throw new InternalServerError(error);
   }
 };
@@ -151,6 +181,7 @@ const deleteBankaccountService = async (conn, ids) => {
 
 export {
   getBankaccountService,
+  getBankAccountBySearchService,
   createBankaccountService,
   updateBankaccountService,
   deleteBankaccountService,
