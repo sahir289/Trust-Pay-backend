@@ -18,7 +18,7 @@ import {
 const getPayInReportService = async (req, res) => {
   try {
     const { company_id } = req.user;
-    const { code, startDate, endDate, method } = req.query;
+    const { code, startDate, endDate } = req.query;
     let result = [];
     const codes = code.split(',');
     for (let codeItem of codes) {
@@ -40,23 +40,20 @@ const getPayInReportService = async (req, res) => {
         return sendSuccess(res, result, 'Payins created successfully');
 
       }
-      const vendor_id = await getVendorsDao({ user_id: codeItem });
+      const vendor_id = await getVendorsDao({ user_id: codeItem }, null, null, null, null);
       if (vendor_id && vendor_id.length > 0) {
-        const vendorData = await getVendorsDao({ id: vendor_id });
-        if (vendorData) {
           const bankVendorData = await getBankaccountDao(
-            { user_id: vendorData.user_id },
+            { user_id: codeItem },
             null,
             null,
             "ADMIN"
           );
-  
-          if (bankVendorData) {
+          if (bankVendorData && bankVendorData.length > 0) {
+            for (const bank of bankVendorData) {
             const vendorReport = await getPayInVendorReportDao(
-              bankVendorData.id,
+              bank.id,
               startDate,
               endDate,
-              method,
               company_id
             );
             if (Array.isArray(vendorReport)) {
@@ -65,10 +62,10 @@ const getPayInReportService = async (req, res) => {
               result.push(vendorReport);  
             }
           }
+        
+          return sendSuccess(res, result, 'Payouts created successfully');  }  
         }
-      }
     }
-
 
     if (result.length === 0) {
       result = await getPayinReportDao({ company_id });
@@ -85,16 +82,12 @@ const getPayInReportService = async (req, res) => {
 const getPayOutReportService = async (req, res) => {
   try {
     const { company_id } = req.user;
-    const { code, startDate, endDate, method } = req.query;
+    const { code, startDate, endDate } = req.query;
     let result = [];
     const codes = code.split(',');
 
     for (let codeItem of codes) {
-      console.log(codeItem, "before search");
-
       const merchant_id = await getMerchantsDao({ user_id: codeItem }, null, null, null, null);
-      console.log(merchant_id, "after merchant search");
-
       if (merchant_id && merchant_id.length > 0) {
         const merchantReport = await getPayOutMerchantReportDao(
           merchant_id[0].id,
@@ -108,27 +101,14 @@ const getPayOutReportService = async (req, res) => {
         } else if (merchantReport) {
           result.push(merchantReport);
         }
-        continue;  // Skip to the next iteration since this codeItem was processed
-      }
+        return sendSuccess(res, result, 'Payouts created successfully');      }
 
-      // If no merchant is found, check for vendor
-      const vendor_id = await getVendorsDao({ user_id: codeItem });
-      if (vendor_id) {
-        const vendorData = await getVendorsDao({ id: vendor_id });
-        if (vendorData) {
-          const bankVendorData = await getBankaccountDao(
-            { user_id: vendorData.user_id },
-            null,
-            null,
-            "ADMIN"
-          );
-
-          if (bankVendorData) {
+      const vendor_id = await getVendorsDao({ user_id: codeItem }, null, null, null, null);
+      if (vendor_id && vendor_id.length > 0) {
             const vendorReport = await getPayOutVendorReportDao(
-              bankVendorData.id,
+              vendor_id[0].id,
               startDate,
               endDate,
-              method,
               company_id
             );
 
@@ -137,8 +117,9 @@ const getPayOutReportService = async (req, res) => {
             } else if (vendorReport) {
               result.push(vendorReport);
             }
-          }
-        }
+            return sendSuccess(res, result, 'Payouts created successfully');    
+          
+        
       }
     }
 
@@ -196,7 +177,6 @@ const getVendorReportService = async (req, res) => {
     let dataArray = [];
       const userIds = typeof code === 'string' ? code.split(',').map(id => id.trim()) : Array.isArray(code) ? code : [code];
       for (const user_id of userIds) {
-        console.log(startDate, endDate, "startendate");
         const result = await getVendorReportDao(
           user_id,
           startDate,
