@@ -79,7 +79,6 @@ const getBankResponseDaoAll = async (
         referenceTable: BANK_ACCOUNT,
       },
     ];
-    console.log(filters, "filterss");
     const baseQuery = buildJoinQuery(
       BANK_RESPONSE,
       columns.length ? columns : '*',
@@ -91,7 +90,6 @@ const getBankResponseDaoAll = async (
       delete filters.search;
     }
 
-    console.log(filters.or, "filetrs")
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
@@ -123,6 +121,21 @@ const createBankResponseDao = async (conn, data) => {
     return result.rows[0];
   } catch {
     throw new InternalServerError('Error executing query');
+  }
+};
+
+export const updateBankResponseDao = async (id, data, conn) => {
+  try {
+    const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, id);
+    if (conn && conn.query) {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
+    }
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error in updateBankResponseDao:', error);
+    throw error.message;
   }
 };
 

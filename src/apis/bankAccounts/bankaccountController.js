@@ -26,9 +26,10 @@ import {
 const getBankaccount = async (req, res) => {
   const { company_id } = req.user;
   const { role } = req.user;
-  const { page, limit, search } = req.query;
+  const { page, limit, search, bank_used_for } = req.query;
   const filters = {
     ...(search ? { search } : {}),
+    bank_used_for,
   };
   const data = await getBankaccountService(
     filters,
@@ -112,8 +113,8 @@ const createBankaccount = async (req, res) => {
 const updateBankaccount = async (req, res) => {
   const { id } = req.params;
   let payload = req.body;
-  delete payload.is_phonepay;
-  delete payload.is_intent;
+  // delete payload.is_phonepay;
+  // delete payload.is_intent;
   const joiValidation = UPDATE_BANK_ACCOUNT_SCHEMA.validate(req.body);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);

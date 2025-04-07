@@ -7,6 +7,7 @@ import {
   resetBankResponseDao,
   updateBotResponseDao,
   getBankResponseDaoAll,
+  updateBankResponseDao,
 } from './bankResponseDao.js';
 import { logger } from '../../utils/logger.js';
 import {
@@ -29,6 +30,8 @@ import {
   vendorColumns,
 } from '../../constants/index.js';
 import { getCalculationforCronDao, updateCalculationBalanceDao } from '../calculation/calculationDao.js';
+import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
+import { filterResponse } from '../../helpers/index.js';
 
 const createBankResponseService = async (conn, payload, companyId, role, name) => {
   const filterColumns =
@@ -531,7 +534,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
             message: `The UTR already exists`,
           };
         }
-        
+
         const getMerchantToGetPayinCommissionRes = await getMerchantsDao({
           id: checkPayInUtr[0]?.merchant_id,
         }, null, null, null, null);
@@ -782,6 +785,51 @@ const getBankResponseService = async (payload, role, page, limit, search) => {
   }
 };
 
+const updateBankResponseService = async (id, payload, role) => {
+  let conn;
+  try {
+    const filterColumns =
+      role === Role.MERCHANT
+        ? merchantColumns.BANK_RESPONSE
+        : role === Role.VENDOR
+          ? vendorColumns.BANK_RESPONSE
+          : columns.BANK_RESPONSE;
+    conn = await getConnection();
+    await beginTransaction(conn); // Start a transaction
+    const data = await updateBankResponseDao(id, payload, conn); // Adjust DAO call for update
+    await commit(conn); // Commit the transaction
+    console.log('BankResponse updated successfully', 'info');
+    const finalResult = filterResponse(data, filterColumns);
+    return finalResult;
+  } catch (error) {
+    if (conn) {
+      try {
+        await rollback(conn); // Rollback the transaction in case of error
+      } catch (rollbackError) {
+        console.log(
+          'Error during transaction rollback',
+          'error',
+          rollbackError,
+        );
+      }
+    }
+    console.log('Error while updating BankResponse', 'error', error);
+    throw new InternalServerError(error);
+  } finally {
+    if (conn) {
+      try {
+        conn.release(); // Release the connection back to the pool
+      } catch (releaseError) {
+        console.log(
+          'Error while releasing the connection',
+          'error',
+          releaseError,
+        );
+      }
+    }
+  }
+};
+
 const getBankMessageServices = async (
   bank_id,
   startDate,
@@ -828,6 +876,7 @@ const resetBankResponseService = async (id, userData) => {
 export {
   getBankResponseService,
   createBankResponseService,
+  updateBankResponseService,
   getBankMessageServices,
   resetBankResponseService,
 };

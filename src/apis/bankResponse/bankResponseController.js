@@ -1,6 +1,7 @@
 import {
   CREATE_BANK_RESPONSE_SCHEMA,
-
+  UPDATE_BANK_RESPONSE_SCHEMA,
+  VALIDATE_BANK_RESPONSE_BY_ID,
   // VALIDATE_BANK_RESPONSE_QUERY,
 } from '../../schemas/bankResponseSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
@@ -12,6 +13,7 @@ import {
   getBankResponseService,
   getBankMessageServices,
   createBankResponseService,
+  updateBankResponseService,
 } from './bankResponseServices.js';
 
 import { transactionWrapper } from '../../utils/db.js';
@@ -41,6 +43,29 @@ const createBankResponse = async (req, res) => {
     user_name,
   );
   sendSuccess(res, result);
+};
+
+const updateBankResponse = async (req, res) => {
+  // Validate Vendor ID (from params)
+  const { role } = req.user;
+  const { error: idError } = VALIDATE_BANK_RESPONSE_BY_ID.validate(req.params);
+  if (idError) {
+    throw new ValidationError(idError);
+  }
+  // Validate Vendor Update Status (from body)
+  const { error: bodyError } = UPDATE_BANK_RESPONSE_SCHEMA.validate(req.body);
+  if (bodyError) {
+    throw new ValidationError(bodyError);
+  }
+  const payload = req.body;
+  const { company_id } = req.user;
+  const { id } = req.params;
+  const ids = { id, company_id };
+  await updateBankResponseService(ids, payload, role);
+  // Log success message
+  console.log('BankResponse updated successfully');
+  // Send a success response to the client
+  return sendSuccess(res, {}, 'BankResponse updated successfully');
 };
 
 const getBankMessage = async (req, res) => {
@@ -110,6 +135,7 @@ const resetBankResponse = async (req, res) => {
 export {
   getBankResponse,
   createBankResponse,
+  updateBankResponse,
   getBankMessage,
   resetBankResponse,
 };
