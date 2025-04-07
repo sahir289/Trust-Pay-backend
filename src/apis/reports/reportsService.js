@@ -142,7 +142,6 @@ const getPayOutReportService = async (req, res) => {
       }
     }
 
-    // If no merchant or vendor reports were found, fetch all payouts
     if (result.length === 0) {
       result = await getPayOutAll({ company_id: company_id });
     }
@@ -158,21 +157,19 @@ const getPayOutReportService = async (req, res) => {
 const getMerchantReportService = async (req, res) => {
   try {
     const { company_id,  role } = req.user;
-    const { code, startDate, endDate, role_name } = req.query;
-    const { page, limit } = req.query;
+    const { code, startDate, endDate, role_name, page, limit } = req.query;
     let dataArray = [];
     let result
       const userIds = typeof code === 'string' ? code.split(',').map(id => id.trim()) : Array.isArray(code) ? code : [code];
       if(role_name === 'MERCHANT'){
-      for (const user_id of userIds) {
          result = await getMerchantReportDao(
-          user_id,
+          userIds,
           startDate,
           endDate,
           company_id, page, limit
         );
         dataArray.push(result);
-      }}
+      }
       else{
         for (const user_id of userIds) {
         const result = await getVendorReportDao(

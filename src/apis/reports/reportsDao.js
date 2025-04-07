@@ -138,30 +138,6 @@ WITH filtered_payins AS (
   }
 };
 
-// const getPayOutAll = async (
-//    search,
-//    user,
-//    page,
-//    pageSize,
-//    sortBy,
-//    sortOrder
-//  ) => {
-//    const baseQuery = `SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`;
-//    const [sql, queryParams] = buildSelectQuery(
-//      baseQuery,
-//      search,
-//      columns.PAYIN,
-//      page,
-//      pageSize,
-//      sortBy,
-//      sortOrder,
-//      typeof search !== "string",
-//      user
-//    );
-//    const result = await executeQuery(sql, queryParams);
-//     return result.rows.length > 0 ? result.rows : null;
-//  };
-
 const getPayOutMerchantReportDao = async (
   merchant_id,
   startDate,
@@ -300,9 +276,8 @@ const getPayOutAll = async (filters, page, pageSize, sortBy, sortOrder) => {
   }
 };
 
-const getMerchantReportDao = async (user_id, startDate, endDate, company_id, page, limit) => {
+const getMerchantReportDao = async (userIds, startDate, endDate, company_id, page, limit) => {
   try {
-
     if (!startDate || !endDate) {
       throw new Error("Both startDate and endDate must be provided.");
     }
@@ -345,10 +320,10 @@ const getMerchantReportDao = async (user_id, startDate, endDate, company_id, pag
 
     let parameters = [company_id];
     let paramIndex = parameters.length + 1;
-
-    if (user_id) {
-      query += ` AND c.user_id = $${paramIndex}`;
-      parameters.push(user_id);
+    if (userIds) {
+      // query += ` AND c.user_id IN (${userIds});`;
+      query += ` AND c.user_id = ANY($2)`;
+      parameters.push(userIds);
       paramIndex++;
     }
 
@@ -381,7 +356,9 @@ const getVendorReportDao = async (
   user_id,
   startDate,
   endDate,
-  company_id, page, limit
+  company_id,
+  page,
+  limit
 ) => {
   try {
     if (!startDate || !endDate) {
@@ -395,9 +372,13 @@ const getVendorReportDao = async (
       throw new Error("Invalid date format for startDate or endDate");
     }
 
+    let parameters = [company_id];
+    let paramIndex = parameters.length + 1;
+
+    // Prepare base query
     let query = `
 WITH filtered_vendors AS (
-    SELECT DISTINCT ON (c.id)
+  SELECT DISTINCT ON (c.id)
     c.id,
     c.user_id,
     c.total_payin_count,
@@ -412,44 +393,52 @@ WITH filtered_vendors AS (
     c.total_chargeback_amount,
     c.current_balance,
     c.net_balance,
-    c.created_at, c.updated_at, 
-    c.total_reverse_payout_count, c.total_reverse_payout_amount,
-    c.total_reverse_payout_commission, v.code, v.user_id
-    FROM public."Calculation" c
-    LEFT JOIN public."Vendor" v ON c.user_id = v.user_id
-    WHERE c.company_id = $1`;
+    c.created_at,
+    c.updated_at,
+    c.total_reverse_payout_count,
+    c.total_reverse_payout_amount,
+    c.total_reverse_payout_commission,
+    v.code,
+    v.user_id
+  FROM public."Calculation" c
+  LEFT JOIN public."Vendor" v ON c.user_id = v.user_id
+  WHERE c.company_id = $1`;
 
-    let parameters = [company_id];
-    let paramIndex = parameters.length + 1;
-
+    // Optional user filter
     if (user_id) {
       query += ` AND c.user_id = $${paramIndex}`;
       parameters.push(user_id);
       paramIndex++;
     }
 
-    query += ` AND c.created_at BETWEEN $${paramIndex}::TIMESTAMPTZ AND $${paramIndex + 1}::TIMESTAMPTZ 
-      ORDER BY c.id, v.code ASC
-    ) SELECT * FROM filtered_vendors`;
-
+    // Add date range
     parameters.push(
       formattedStartDate.toISOString(),
       formattedEndDate.toISOString()
     );
+    query += ` AND c.created_at BETWEEN $${paramIndex}::TIMESTAMPTZ AND $${paramIndex + 1}::TIMESTAMPTZ
+  ORDER BY c.id, v.code ASC
+)
+SELECT * FROM filtered_vendors
+ORDER BY code ASC NULLS LAST`;
 
+    paramIndex += 2;
+
+    // Add pagination if provided
     if (page && limit) {
       const offset = (page - 1) * limit;
-      query += ` ORDER BY code ASC LIMIT $${paramIndex + 2} OFFSET $${paramIndex + 3};`;
+      query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       parameters.push(limit, offset);
     }
 
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
-    console.error('Error in getVendorReportDao:', error);
-    throw error.message;
+    console.error("Error in getVendorReportDao:", error);
+    throw error.message || error;
   }
 };
+
 
 export {
   getPayInMerchantReportDao,
