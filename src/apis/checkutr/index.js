@@ -4,6 +4,7 @@ import {
   createCheckUtr,
   deleteCheckUtr,
   getCheckUtr,
+  getCheckUtrBySearch,
   updateCheckUtr,
 } from './checkUtrController.js';
 import { isAuthenticated, authorized } from '../../middlewares/auth.js';
@@ -43,6 +44,12 @@ router.get(
   '/',
   [isAuthenticated, authorized(AccessRoles.CHECK_UTR_HISTORY)],
   tryCatchHandler(getCheckUtr),
+);
+
+router.get(
+  '/find/',
+  [isAuthenticated, authorized(AccessRoles.CHECK_UTR_HISTORY)],
+  tryCatchHandler(getCheckUtrBySearch),
 );
 
 /**
