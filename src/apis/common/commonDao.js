@@ -6,13 +6,7 @@ export const getTotalCountDao = async (tableName, role, filters) => {
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tableName)) {
       throw new Error(`Invalid table name: ${tableName}`);
     }
-    let columnName = '';
-    let columnValue = '';
-    if (filters) {
-      columnName = Object.keys(filters)[0];
-      columnValue = Object.values(filters)[0];
-    }
-    
+   
     // Base query
     let query = `SELECT COUNT(*) AS count FROM "${tableName}" WHERE is_obsolete = false`;
 
@@ -21,7 +15,7 @@ export const getTotalCountDao = async (tableName, role, filters) => {
     let paramIndex = 1;
 
     // Add role-based filtering for 'Settlement'
-    if (tableName === 'Settlement' && role) {
+    if (tableName && role) {
       query += ` AND EXISTS (
         SELECT 1 FROM public."User" u
         JOIN public."Role" r ON r.id = u.role_id
@@ -32,14 +26,22 @@ export const getTotalCountDao = async (tableName, role, filters) => {
     }
 
     // Dynamically add filters to query
-    if (filters){
-      query += ` AND "${columnName}" = $${paramIndex}`;
-      params.push(columnValue);
-      paramIndex++;
-    }
-
+     if (filters) {
+       Object.entries(filters).forEach(([column, value]) => {
+         if (Array.isArray(value)) {
+           // Handle multiple values using SQL IN clause
+           const placeholders = value.map(() => `$${paramIndex++}`).join(',');
+           query += ` AND "${column}" IN (${placeholders})`;
+           params.push(...value);
+         } else {
+           // Single value condition
+           query += ` AND "${column}" = $${paramIndex++}`;
+           params.push(value);
+         }
+       });
+     }
     const result = await executeQuery(query, params);
-
+     
     return parseInt(result.rows[0].count, 10); // Ensure the count is returned as an integer
   } catch (error) {
     if (error.code === '42P01') {

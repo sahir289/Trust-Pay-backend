@@ -128,11 +128,11 @@ const createUserService = async (conn, payload, role) => {
     };
     const payin_notify = payload.payin_notify;
     const payout_notify = payload.payout_notify;
-    const return_url = payload.return_url;
+    const Return = payload.return;
     const site = payload.site;
     delete payload.payin_notify;
     delete payload.payout_notify;
-    delete payload.return_url;
+    delete payload.return;
     delete payload.site;
     const User = await createUserDao(userPayload, conn);
     const userRole = await getUsersByUserNameDao(
@@ -163,14 +163,15 @@ const createUserService = async (conn, payload, role) => {
           urls: {
             payin_notify: payin_notify,
             payout_notify: payout_notify,
-            return: return_url,
+            return: Return,
             site: site,
           },
           keys: {
-            secret: Private,
+            private: Private,
             public: Public,
           },
-        }
+          allow_intent: false,
+        },
       };
       await createMerchantService(conn, merchantPayload, role);
     }
