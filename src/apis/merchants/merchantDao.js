@@ -5,6 +5,7 @@ import {
   buildSelectQuery,
   buildUpdateQuery,
   executeQuery,
+  buildAndExecuteUpdateQuery,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
@@ -103,7 +104,6 @@ export const getMerchantsDao = async (
       filters.or = buildSearchFilterObj(filters.search, MERCHANT);
       delete filters.search;
     }
-    console.log(baseQuery, 'baseQuery');
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
@@ -248,18 +248,7 @@ export const getMerchantsBySearchDao = async (
 };
 
 export const updateMerchantDao = async (ids, data, conn) => {
-  try {
-    const [sql, params] = buildUpdateQuery(tableName.MERCHANT, data, ids);
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
-    const result = await executeQuery(sql, params);
-    return result.rows[0];
-  } catch (error) {
-    console.error('Error in updateMerchantDao:', error);
-    throw error.message;
-  }
+  return await buildAndExecuteUpdateQuery('Merchant', data, ids, {}, { returnUpdated: true }, conn);
 };
 
 export const deleteMerchantDao = async (ids, data) => {
