@@ -167,9 +167,10 @@ const createUserService = async (conn, payload, role) => {
             site: site,
           },
           keys: {
-            secret: Private,
+            private: Private,
             public: Public,
           },
+          allow_intent: false,
         },
       };
       await createMerchantService(conn, merchantPayload, role);
