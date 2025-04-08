@@ -78,7 +78,7 @@ export const generatePayInUrlByHashService = async (req) => {
 
   if (bankAssigned.length <= 0) {
     throw new InternalServerError('No Bank Assigned to Merchant')
-}
+  }
 
   let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
   if (amount) {
@@ -326,15 +326,27 @@ export const assignedBankToPayInUrlService = async (
     bank: selectedBankDetails,
   });
 
-  const response = {
-    code: updatePayIn.upi_short_code,
-    bank: {
-      nick_name: selectedBankDetails.nick_name,
-      acc_holder_name: selectedBankDetails.acc_holder_name,
-      acc_no: selectedBankDetails.acc_no,
-      ifsc: selectedBankDetails.ifsc,
-      upi_id: selectedBankDetails.upi_id,
-    }
+  let response
+  if (
+    type === BankTypes.BANK_TRANSFER
+  ) {
+    response = {
+      code: updatePayIn.upi_short_code,
+      bank: {
+        nick_name: selectedBankDetails.nick_name,
+        acc_holder_name: selectedBankDetails.acc_holder_name,
+        acc_no: selectedBankDetails.acc_no,
+        ifsc: selectedBankDetails.ifsc,
+      },
+    };
+  }
+  else {
+    response = {
+      code: updatePayIn.upi_short_code,
+      bank: {
+        upi_id: selectedBankDetails.upi_id,
+      },
+    };
   }
 
   return response;
@@ -787,7 +799,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
     ].includes(payIn.status)
   ) {
     if (payIn.status === Status.DUPLICATE) {
-      result.utr_id = bankResponse.utr || payIn.user_submitted_utr;
+      result.utr_id = bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
     }
     merchantPayinCallback(payIn.config?.urls?.payin_notify, result);
     return result;
@@ -796,6 +808,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
   if (otherPayIns.length || bankResponse.is_used) {
     updatePayInData.status = Status.DUPLICATE;
     result.status = Status.DUPLICATE;
+    result.utr_id = bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
     merchantPayinCallback(payIn.config?.urls?.payin_notify, result);
     return {
@@ -807,7 +820,6 @@ export const processPayInService = async (conn, payload, updated_by) => {
   if (!bankResponse || Object.keys(bankResponse).length === 0) {
     bankResponse = (await getBankResponseDao({ utr: userSubmittedUtr })) || {};
   }
-
 
   if (bankResponse.id) {
     await updateBotResponseDao(
@@ -822,6 +834,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
     updatePayInData.bank_response_id = bankResponse.id;
     updatePayInData.approved_at = new Date().toISOString();
     result.status = Status.BANK_MISMATCH;
+    result.utr_id = bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
     merchantPayinCallback(payIn.config?.urls?.payin_notify, result);
     return {
@@ -838,8 +851,10 @@ export const processPayInService = async (conn, payload, updated_by) => {
     updatePayInData.bank_response_id = bankResponse.id;
     updatePayInData.approved_at = new Date().toISOString();
     result.amount = bankResponse.amount;
+    result.utr_id = bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
   } else {
     updatePayInData.status = Status.PENDING;
+    result.utr_id = bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
   }
 
   result.status = updatePayInData.status;
