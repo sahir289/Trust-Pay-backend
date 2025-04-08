@@ -50,7 +50,7 @@ const router = express.Router();
  *                         example: "john_doe"
  */
 router.get(
-  '/:id/6',
+  '/:id',
   [isAuthenticated, authorized(AccessRoles.SETTLEMENT)],
   tryCatchHandler(getSettlementControllerById),
 );

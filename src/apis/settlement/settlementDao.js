@@ -101,18 +101,18 @@ const getSettlementsBySearchDao = async (
     `;
 
     // Handle additional filters
-    if (filters.role_name) {
-      console.log(filters.role_name, 'filters.role_name');
-      queryText += ` AND r.role = $${paramIndex}`;
-      values.push(filters.role_name);
-      paramIndex++;
-    }
+    // if (filters.role_name) {
+    //   console.log(filters.role_name, 'filters.role_name');
+    //   queryText += ` AND r.role = $${paramIndex}`;
+    //   values.push(filters.role_name);
+    //   paramIndex++;
+    // }
 
-    if (filters.status) {
-      queryText += ` AND s.status = $${paramIndex}`;
-      values.push(filters.status);
-      paramIndex++;
-    }
+    // if (filters.status) {
+    //   queryText += ` AND s.status = $${paramIndex}`;
+    //   values.push(filters.status);
+    //   paramIndex++;
+    // }
 
     // Handle search terms
     searchTerms.forEach((term) => {
