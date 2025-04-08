@@ -60,7 +60,7 @@ import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
 import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
-import { expirePayInIfNeeded } from '../../utils/index.js';
+import { expirePayInIfNeeded, stringifyJSON } from '../../utils/index.js';
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
@@ -111,6 +111,12 @@ export const generatePayInUrlService = async (payload, created_by) => {
     x_api_key != merchantAPIKey?.public
   ) {
     throw new BadRequestError('Enter valid Api key');
+  }
+
+  if (amount < merchant.min_payin || amount > merchant.max_payin) {
+    throw new BadRequestError(
+      `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
+    );
   }
 
   const expirationDate =
@@ -809,7 +815,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
       updated_by,
       conn,
     );
-    
+
     const commissions = await calculateCommissions(payIn.merchant_id, bank.user_id, bankResponse.amount);
     const merchantCommission = commissions.payin_merchant_commission;
     const vendorCommission = commissions.payin_vendor_commission;
@@ -1283,6 +1289,37 @@ export const telegramCheckUTRService = async (
 
 export const getPayinsServiceById = async (id) => {
   return await getPayInUrlDao({ id });
+};
+
+export const verifyPayinsService = async (merchantOrderId, user_location) => {
+  const payIn = await getPayInUrlService(merchantOrderId);
+
+  if (!payIn) {
+    throw new BadRequestError('Invalid merchant order id');
+  }
+
+  if (payIn.one_time_used === true) {
+    throw new BadRequestError('This payin url is already used');
+  }
+
+  const updatedConfig = stringifyJSON({
+    ...payIn.config,
+    user: user_location,
+  });
+  const merchant = await getMerchantsDao({ id: payIn.merchant_id });
+  await updatePayInUrlDao(payIn.id, { config: updatedConfig, one_time_used: true });
+  const result = {
+    code: payIn.upi_short_code,
+    return_url: config.return_url,
+    notify_url: config.notify_url,
+    expiryTime: payIn.expiration_date,
+    amount: payIn.amount,
+    one_time_used: payIn.one_time_used,
+    status: payIn.status,
+    min_amount: merchant[0].min_payin,
+    max_amount: merchant[0].max_payin,
+  };
+  return result;
 };
 
 const checkIsPayInExpired = (payIn) => {
