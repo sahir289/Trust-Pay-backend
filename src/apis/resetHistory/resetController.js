@@ -20,6 +20,7 @@ const getResetHistory = async (req, res) => {
 const getResetHistoryBySearch = async (req, res) => {
   const { company_id, role } = req.user;
   const { search, page = 1, limit = 10 } = req.query;
+  console.log(search, 'searchhh');
   if (!search) {
     throw new BadRequestError('search is required');
   }

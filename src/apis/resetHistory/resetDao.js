@@ -53,6 +53,7 @@ const getResetHistoryDao = async (
       columns.length ? columns : '*',
       joins
     );
+    console.log(baseQuery, 'baseQuery');
 
     if (filters.search) {
       filters.or = buildSearchFilterObj(filters.search, RESET_DATA_HISTORY);
@@ -86,6 +87,7 @@ const getResetHistoryBySearchDao = async (
   limitNum,
   offset,
 ) => {
+  console.log('getResetHistoryBySearchDao', searchTerms);
   try {
     const conditions = [];
     const values = [company_id];
@@ -157,8 +159,7 @@ let queryText = `
       OFFSET $${values.length + 2}
     `;
     values.push(limitNum, offset);
-    console.log('Generated SQL:', queryText);
-    console.log('Query Parameters:', values);
+    console.log('Query Parameters:', limitNum, offset);
     
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);

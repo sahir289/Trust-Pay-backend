@@ -1,4 +1,4 @@
-import { tableName,columns } from '../../constants/index.js';
+import { tableName } from '../../constants/index.js';
 import { InternalServerError } from '../../utils/appErrors.js';
 // import { generateUUID } from '../utils/generateUUID.js';
 
