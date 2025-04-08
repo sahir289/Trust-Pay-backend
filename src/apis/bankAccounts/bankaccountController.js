@@ -9,7 +9,7 @@ import {
   UPDATE_BANK_ACCOUNT_SCHEMA,
   VALIDATE_BANK_RESPONSE_BY_ID,
 } from '../../schemas/bankAccoountSchema.js';
-import { ValidationError } from '../../utils/appErrors.js';
+import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
@@ -44,14 +44,15 @@ const getBankaccount = async (req, res) => {
 
 const getBankAccountBySearch = async (req, res) => {
   const { company_id, role } = req.user;
-  const { search, page = 1, limit = 10 } = req.query;
+  const { search, bank_used_for, page = 1, limit = 10 } = req.query;
   if (!search) {
-    throw new ValidationError('search is required');
+    throw new BadRequestError('search is required');
   }
   const data = await getBankAccountBySearchService(
     company_id,
     role,
     search,
+    bank_used_for,
     page,
     limit,
   );

@@ -89,6 +89,7 @@ const getMerchantsBySearch = async (req, res) => {
   const data = await getMerchantsBySearchService(
     {
       company_id,
+      user_id,
       search,
       page,
       limit,
@@ -96,7 +97,6 @@ const getMerchantsBySearch = async (req, res) => {
     },
     role,
     designation,
-    user_id,
   );
   logger.log('get Merchants successfully');
   return sendSuccess(res, data, 'Merchants fetched successfully');

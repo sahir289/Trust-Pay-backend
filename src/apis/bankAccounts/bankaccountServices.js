@@ -17,7 +17,7 @@ import {
   updateBankaccountDao,
   deleteBankaccountDao,
   getBankaccountDaoNickName,
-  getBankAccountBySearchDao,
+  getBankAccountsBySearchDao,
 } from './bankaccountDao.js';
 
 const getBankaccountService = async (
@@ -46,6 +46,7 @@ const getBankAccountBySearchService = async (
   company_id,
   role,
   search,
+  bank_used_for,
   page,
   limit,
 ) => {
@@ -63,10 +64,10 @@ const getBankAccountBySearchService = async (
       throw new BadRequestError('Please provide valid search items');
     }
     const offset = (pageNum - 1) * limitNum;
-    return await getBankAccountBySearchDao(company_id, role, searchTerms, limitNum, offset);
+    return await getBankAccountsBySearchDao(company_id, role, searchTerms, limitNum, offset, bank_used_for);
   } catch (error) {
     logger.error('error getting while getting check utr by search', error);
-    throw new InternalServerError(error);
+    throw new InternalServerError(error.message);
   }
 };
 
