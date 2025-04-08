@@ -1,4 +1,4 @@
-import {  InternalServerError } from '../../utils/appErrors.js';
+import { InternalServerError } from '../../utils/appErrors.js';
 import {
   createSettlementDao,
   deleteSettlementDao,
@@ -13,7 +13,6 @@ import {
   getMerchantsDao,
   updateMerchantDao,
 } from '../merchants/merchantDao.js';
-import { getVendorsDao } from '../vendors/vendorDao.js';
 import {
   getBankaccountDao,
   updateBankaccountDao,
@@ -47,7 +46,7 @@ const getSettlementServiceById = async (ids) => {
   }
 };
 
-const getSettlementService = async (ids,  page, limit, search) => {
+const getSettlementService = async (ids, page, limit, search) => {
   try {
     const filterColumns =
       ids.role === Role.MERCHANT
@@ -56,13 +55,13 @@ const getSettlementService = async (ids,  page, limit, search) => {
           ? Role.vendorColumns.SETTLEMENT
           : columns.SETTLEMENT;
     return await getSettlementDao(
-      { company_id: ids.company_id, role : ids.role_name, ...(search ? { search } : {}) },
-      page, 
+      { company_id: ids.company_id, role: ids.role_name, ...(search ? { search } : {}) },
+      page,
       limit,
       null,
       null,
       filterColumns
-    );  
+    );
   } catch (error) {
     console.error('error getting while  getting settlements', error);
     throw new InternalServerError(error);
@@ -106,26 +105,35 @@ const createSettlementService = async (payload) => {
 
 const updateSettlementService = async (conn, ids, payload, role) => {
   try {
+    payload.config = payload.config || {};
+
     if (payload.config.reference_id) {
       payload.status = 'SUCCESS';
-      const data = await getSettlementDao({
-        id: ids.id,
-        company_id: ids.company_id,
-      },null ,null,null,null);
+      const data = await getSettlementDao(
+        {
+          id: ids.id,
+          company_id: ids.company_id,
+        },
+        null,
+        null,
+        null,
+        null
+      );
+
       if (!data) {
         throw new InternalServerError('no data found');
       }
-      const calculationData = await getCalculationforCronDao(data[0].user_id);
-      if (calculationData.length>0) {
-      let count = calculationData[0].total_settlement_count + 1;
-      let amountCalculation =
-        calculationData[0].total_settlement_amount + payload?.amount;
-      let calculationId = calculationData[0].id;
-      let currentBalance = calculationData[0].current_balance + payload?.amount;
-      let netBalance = calculationData[0].net_balance + payload?.amount;
-        //  const updatedCalculations =
+
+      const calculationData = await getCalculationforCronDao(data[0].user_table_id);
+      if (calculationData.length > 0) {
+        const calc = calculationData[0];
+        const count = calc.total_settlement_count + 1;
+        const amountCalculation = calc.total_settlement_amount + payload?.amount;
+        const currentBalance = calc.current_balance - payload?.amount;
+        const netBalance = calc.net_balance - payload?.amount;
+
         await updateCalculationDao(
-          { id: calculationId },
+          { id: calc.id },
           {
             total_settlement_count: count,
             total_settlement_amount: amountCalculation,
@@ -137,45 +145,58 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       } else {
         console.log('no data in calculation');
       }
-      const vendorData = await getVendorsDao(
-        { user_id: data[0].user_id },
-         null, null, null, null
-      );
+
       const merchantData = await getMerchantsDao(
-        { user_id: data[0].user_id },
-         null, null, null, null
+        { user_id: data[0].user_table_id },
+        null,
+        null,
+        null,
+        null
       );
-      if (vendorData) {
+
+      if (data[0].role === Role.VENDOR) {
         const bankData = await getBankaccountDao(
-          { user_id: vendorData.user_id },null,null, role
+          { user_id: data[0].user_table_id },
+          null,
+          null,
+          role
         );
-        if (bankData) {
-          const bankId = bankData.id;
-          const bankAcc = bankData.balance - payload?.amount;
-          await updateBankaccountDao(
-            { id: bankId },
+        console.log('bankData_bank_account', bankData);
+
+        if (bankData.length > 0) {
+          console.log('bankData__bank_account', bankData);
+          const bankAcc = bankData[0].balance - payload?.amount;
+          const updatedBank = await updateBankaccountDao(
+            { id: bankData[0].id },
             { balance: bankAcc },
-            conn,
+            conn
           );
+          console.log('updated_bank_account', updatedBank);
         } else {
           console.error('No data in bank accounts');
         }
-      } else if (merchantData) {
-        const merchantAcc = merchantData.balance - payload?.amount;
-        await updateMerchantDao({id: merchantData.id, balance: merchantAcc }, conn);
+      } else if (data[0].role === Role.MERCHANT) {
+        const merchantAcc = merchantData[0].balance - payload?.amount;
+        await updateMerchantDao(
+          { id: merchantData[0].id },
+          { balance: merchantAcc },
+          conn
+        );
       }
     }
+
     if (payload.config.rejected_reason) {
       payload.status = 'REJECTED';
     }
-    if (payload.status == 'INITIATED') {
+
+    if (payload.status === 'INITIATED') {
       payload.config.reference_id = '';
       payload.config.rejected_reason = '';
     }
     const updateData = await updateSettlementDao(
       conn,
       { id: ids.id, company_id: ids.company_id },
-      payload,
+      payload
     );
     return updateData;
   } catch (error) {

@@ -4,7 +4,7 @@ import {
   VALIDATE_SETTLEMENT_BY_ID,
   VALIDATE_SETTLEMENT_BY_ID_DELETE,
 } from '../../schemas/settlementSchema.js';
-import {  InternalServerError, ValidationError } from '../../utils/appErrors.js';
+import { InternalServerError, ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
@@ -31,8 +31,8 @@ const getSettlementControllerById = async (req, res) => {
 const getSettlementController = async (req, res) => {
   const { company_id } = req.user;
   const { role_name, page, limit, search } = req.query;
-  const ids= {company_id , role_name}
-  const settlementData = await getSettlementService(ids,  page, limit, search);
+  const ids = { company_id, role_name }
+  const settlementData = await getSettlementService(ids, page, limit, search);
   if (!settlementData) {
     throw new InternalServerError('Error getting while getting settlements');
   }
@@ -49,8 +49,24 @@ const createSettlementController = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
+  const data = {
+    method: payload.method,
+    amount: payload.amount,
+    user_id: payload.user_id,
+    company_id,
+    created_by: user_id,
+    status: "INITIATED",
+    config: {
+     
+       ifsc :  payload.ifsc,
+       acc_no:  payload.acc_no,
+       acc_holder_name: payload.acc_holder_name,
+       bank_name:  payload.bank_name
+      
+    }
+  };
   // const data =
-  await createSettlementService(payload);
+  await createSettlementService(data);
   sendSuccess(res, {}, 'Created settlement');
 };
 
@@ -64,9 +80,9 @@ const updateSettlementController = async (req, res) => {
   const joiValidation = UPDATE_SETTLEMENT_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
-  }  
+  }
   const data = await transactionWrapper(updateSettlementService)(ids, payload, role);
-  sendSuccess(res,data, 'Updated settlement');
+  sendSuccess(res, data, 'Updated settlement');
 };
 
 const deleteSettlementController = async (req, res) => {

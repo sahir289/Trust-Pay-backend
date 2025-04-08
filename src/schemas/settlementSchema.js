@@ -5,7 +5,7 @@ export const CREATE_SETTLEMENT_SCHEMA = Joi.object({
     .guid({ version: ['uuidv4'] })
     .label('user_id')
     .optional(),
-  merchant : Joi.string().label('merchant').optional(),
+  merchant: Joi.string().label('merchant').optional(),
   status: Joi.string().label('status').optional(),
   amount: Joi.number().label('amount').optional(),
   method: Joi.string().label('method').optional(),
@@ -30,18 +30,18 @@ export const UPDATE_SETTLEMENT_SCHEMA = Joi.object({
   amount: Joi.number().label('amount').optional(),
   status: Joi.string().label('status').optional(),
   method: Joi.string().label('method').optional(),
-  bank_name: Joi.string().label('bank_name').optional(),
-  acc_holder_name: Joi.string().label('acc_holder_name').optional(),
-  acc_no: Joi.number().label('acc_no').optional(),
-  ifsc: Joi.string().label('ifsc').optional(),
   created_by: Joi.string().label('created_by').optional(),
   company_id: Joi.string().label('company_id').optional(),
   updated_by: Joi.string().label('updated_by').optional(),
   config: Joi.object({
-    reference_id: Joi.string().label('reference_id').optional(),  
-    rejected_reason: Joi.string().label('rejected_reason').optional(),  
-
+    reference_id: Joi.string().allow('').label('reference_id').optional(),
+    rejected_reason: Joi.string().allow('').label('rejected_reason').optional(),
+    ifsc: Joi.string().label('ifsc').optional(),
+    acc_no: Joi.number().label('acc_no').optional(),
+    acc_holder_name: Joi.string().label('acc_holder_name').optional(),
+    bank_name: Joi.string().label('bank_name').optional(),
   }).label('config').optional(),
+
 });
 
 
