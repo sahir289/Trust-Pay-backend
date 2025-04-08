@@ -326,7 +326,17 @@ export const assignedBankToPayInUrlService = async (
     bank: selectedBankDetails,
   });
 
-  return updatePayIn;
+  const response = {
+    code: updatePayIn.upi_short_code,
+    bank: {
+      nick_name: selectedBankDetails.nick_name,
+      acc_holder_name: selectedBankDetails.acc_holder_name,
+      acc_no: selectedBankDetails.acc_no,
+      ifsc: selectedBankDetails.ifsc,
+    }
+  }
+
+  return response;
 };
 
 // Public API Used by Merchants
