@@ -1,11 +1,10 @@
 import {
   buildInsertQuery,
-  buildJoinQuery,
-  buildSelectQuery,
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
 import { tableName } from '../../constants/index.js';
+import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 const getSettlementDao = async (
@@ -14,54 +13,94 @@ const getSettlementDao = async (
   pageSize,
   sortBy,
   sortOrder,
-  // columns to select from db (optional)
-  columns = [],
+  columns = []
 ) => {
   try {
-    const { USER, SETTLEMENT, ROLE } = tableName;
-    const joins = [
-      {
-        table: USER,
-        keys: ['user_id', 'id'],
-        type: 'JOIN',
-        columns: ['role_id', 'designation_id'],
-        columnAs: [`"${USER}".id AS user_table_id`],
+    const { SETTLEMENT, USER, ROLE } = tableName;
+
+    const conditions = [`s.is_obsolete = false`];
+    const queryParams = [];
+    const limitcondition = { value: '' };
+
+    const handledKeys = new Set(['search', 'sortBy', 'sortOrder', 'role']);
+
+    const conditionBuilders = {
+      search: (filters, SETTLEMENT) => {
+        if (!filters.search || typeof filters.search !== 'string') return;
+        try {
+          filters.or = buildSearchFilterObj(filters.search, SETTLEMENT);
+          delete filters.search;
+        } catch (error) {
+          logger.warn(`Invalid search filter: ${filters.search}`, error);
+          delete filters.search;
+        }
       },
-      {
-        table: ROLE,
-        keys: [`role_id`, 'id'],
-        type: 'LEFT JOIN',
-        columns : ['role'],
-        referenceTable: USER,
+      role: (filters, conditions, queryParams) => {
+        if (!filters.role) return;
+        const nextParamIdx = queryParams.length + 1;
+        conditions.push(`r.role = $${nextParamIdx}`);
+        queryParams.push(filters.role);
+        delete filters.role;
       },
-    ];
-    let baseQuery = buildJoinQuery(
-      SETTLEMENT,
-      columns,
-      joins,
-    );
-    if (filters.search) {
-      filters.or = buildSearchFilterObj(filters.search, SETTLEMENT);
-      delete filters.search;
-    }
-    if (filters.role) {
-      baseQuery += ` AND "${ROLE}".role = '${filters.role}'`
-      delete filters.role; 
-    }
-    let [sql, queryParams] = buildSelectQuery(
-      baseQuery,
-      filters,
-      page,
-      pageSize,
-      sortBy,
-      sortOrder,
-      tableName.SETTLEMENT,
-    );
-    // Execute query
-    const result = await executeQuery(sql, queryParams);
+      pagination: (page, pageSize, queryParams, limitconditionRef) => {
+        if (!page || !pageSize) return;
+        const nextParamIdx = queryParams.length + 1;
+        limitconditionRef.value = `LIMIT $${nextParamIdx} OFFSET $${nextParamIdx + 1}`;
+        queryParams.push(pageSize, (page - 1) * pageSize);
+      }
+    };
+
+    conditionBuilders.search(filters, SETTLEMENT);
+    conditionBuilders.role(filters, conditions, queryParams);
+    conditionBuilders.pagination(page, pageSize, queryParams, limitcondition);
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (handledKeys.has(key) || value == null) return;
+      const nextParamIdx = queryParams.length + 1;
+      const isMultiValue = typeof value === 'string' && value.includes(',');
+      const valueArray = isMultiValue ? value.split(',').map(v => v.trim()) : [value];
+      const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+      conditions.push(isMultiValue
+        ? `s.${key} IN (${placeholders})`
+        : `s.${key} = $${nextParamIdx}`);
+      queryParams.push(...valueArray);
+    });
+
+    const columnSelection = columns.length > 0 
+      ? columns.map(col => `s.${col}`).join(', ')
+      : `s.*`;
+
+    const baseQuery = `
+      SELECT DISTINCT ON (s.sno)
+        ${columnSelection},
+        u.role_id,
+        u.designation_id,
+        r.role,
+        u.id AS user_table_id
+      FROM public."${SETTLEMENT}" s
+      JOIN public."${USER}" u ON s.user_id = u.id
+      LEFT JOIN public."${ROLE}" r ON u.role_id = r.id
+      WHERE ${conditions.join(' AND ')}
+    `;
+
+    const sortClause = sortBy && sortOrder 
+      ? `ORDER BY s.${sortBy} ${sortOrder.toUpperCase()}`
+      : 'ORDER BY s.sno DESC';
+
+    const finalQuery = `
+      ${baseQuery}
+      ${sortClause}
+      ${limitcondition.value}
+    `;
+
+    console.log('Final Query:', finalQuery); // Debug query
+    console.log('Query Params:', queryParams); // Debug params
+
+    const result = await executeQuery(finalQuery, queryParams);
     return result.rows;
+
   } catch (error) {
-    console.error('Error in getMerchantsDao:', error);
+    logger.error('Error in getSettlementDao:', error);
     throw error.message;
   }
 };

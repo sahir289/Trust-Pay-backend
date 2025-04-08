@@ -66,12 +66,11 @@ const getChargeBacksById = async (req, res) => {
 
 const getChargeBacks = async (req, res) => {
   const { company_id, role } = req.user;
-  const { page, limit } = req.query;
-  // const search = req.query.search;
-  // Fetch vendors data from the service
+  const { page, limit, ...rest } = req.query;
   const data = await getChargeBacksService(
     {
       company_id: company_id,
+      ...rest,
       // TODO: search
     },
     role,

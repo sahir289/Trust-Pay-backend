@@ -249,7 +249,7 @@ export const columns = {
     'payin_id',
     'bank_acc_id',
     'amount',
-    'when',
+    'reference_date',
     'created_by',
     'updated_by',
     'created_at',
@@ -380,7 +380,7 @@ export const merchantColumns = {
     'payout_merchant_commission',
     'config',
   ],
-  CHARGE_BACK: ['sno', 'merchant_user_id', 'amount', 'when'],
+  CHARGE_BACK: ['sno', 'merchant_user_id', 'amount', 'reference_date'],
   USER_HIERARCHY: ['config'],
   BANK_ACCOUNT: [
     'upi_id',
@@ -506,7 +506,7 @@ export const vendorColumns = {
     'balance',
     'config',
   ],
-  CHARGE_BACK: ['sno', 'vendor_user_id', 'bank_acc_id', 'amount', 'when'],
+  CHARGE_BACK: ['sno', 'vendor_user_id', 'bank_acc_id', 'amount', 'reference_date'],
 };
 export const tableName = {
   USER: 'User',

@@ -4,7 +4,7 @@ import {
   VALIDATE_SETTLEMENT_BY_ID,
   VALIDATE_SETTLEMENT_BY_ID_DELETE,
 } from '../../schemas/settlementSchema.js';
-import {  InternalServerError, ValidationError } from '../../utils/appErrors.js';
+import { ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
@@ -29,14 +29,45 @@ const getSettlementControllerById = async (req, res) => {
 };
 
 const getSettlementController = async (req, res) => {
-  const { company_id } = req.user;
-  const { role_name, page, limit, search } = req.query;
-  const ids= {company_id , role_name}
-  const settlementData = await getSettlementService(ids,  page, limit, search);
-  if (!settlementData) {
-    throw new InternalServerError('Error getting while getting settlements');
+  // Extract user data and query parameters
+  const { company_id } = req.user || {};
+  const {
+    role_name,
+    page = 1,
+    limit = 10,
+    search,
+    sortBy,
+    sortOrder,
+    ...filters
+  } = req.query;
+
+  // Prepare filters object
+  const filterParams = {
+    ...(search && { search }),
+    ...(role_name && { role: role_name }),
+    ...filters
+  };
+
+  // Convert page and limit to numbers
+  const pageNum = parseInt(page, 10);
+  const limitNum = parseInt(limit, 10);
+
+  // Call service with structured parameters
+  const settlementData = await getSettlementService(
+    { company_id, role_name },
+    filterParams,
+    pageNum,
+    limitNum,
+    sortBy,
+    sortOrder
+  );
+
+  if (!settlementData || settlementData.length === 0) {
+    return sendSuccess(res, [], 'No settlements found');
   }
-  sendSuccess(res, settlementData, 'got settlement');
+
+  // Send success response
+  return sendSuccess(res, settlementData, 'Settlements retrieved successfully');
 };
 
 const createSettlementController = async (req, res) => {
@@ -64,9 +95,9 @@ const updateSettlementController = async (req, res) => {
   const joiValidation = UPDATE_SETTLEMENT_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
-  }  
+  }
   const data = await transactionWrapper(updateSettlementService)(ids, payload, role);
-  sendSuccess(res,data, 'Updated settlement');
+  sendSuccess(res, data, 'Updated settlement');
 };
 
 const deleteSettlementController = async (req, res) => {
