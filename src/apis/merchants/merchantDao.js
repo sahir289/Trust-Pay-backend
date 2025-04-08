@@ -128,6 +128,7 @@ export const getMerchantsBySearchDao = async (
   searchTerms,
   limitNum,
   offset,
+  // user_id
 ) => {
   try {
    const conditions = [];

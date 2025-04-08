@@ -194,6 +194,7 @@ const getMerchantsBySearchService = async (
       limitNum,
       offset,
       filterColumns,
+      user_id
     );
 
     // TODO: add designation constants

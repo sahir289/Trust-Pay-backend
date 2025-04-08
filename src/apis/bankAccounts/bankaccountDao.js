@@ -8,11 +8,10 @@ import {
   executeQuery,
 } from '../../utils/db.js';
 import { DbError } from '../../utils/appErrors.js';
-import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
+import { logger } from '../../utils/logger.js';
 
 const getBankaccountDao = async (filters, page, limit, role) => {
   try {
-    const { BANK_ACCOUNT } = tableName;
     let queryParams = [];
     let conditions = [`ba.is_obsolete = false`];
     if (filters.company_id) {
@@ -24,10 +23,6 @@ const getBankaccountDao = async (filters, page, limit, role) => {
     if (page && limit) {
       limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
       queryParams.push(limit, (page - 1) * limit);
-    }
-    if (filters.search) {
-      filters.or = buildSearchFilterObj(filters.search, BANK_ACCOUNT);
-      delete filters.search;
     }
 
     if (filters?.startDate && filters?.endDate) {
@@ -45,22 +40,22 @@ const getBankaccountDao = async (filters, page, limit, role) => {
       queryParams.push(filters?.bank_used_for);
       // delete filters.bank_used_for
     }
-    // if (filters && Object.keys(filters).length > 0) {
-    //   Object.keys(filters).forEach((key) => {
-    //     delete filters?.page;
-    //     delete filters?.limit;
-    //     const value = filters[key];
-    //     if (value !== null && value !== undefined && value !== '') {
-    //       if (Array.isArray(value)) {
-    //         conditions.push(`ba."${key}" = ANY($${queryParams.length + 1})`);
-    //         queryParams.push(value);
-    //       } else {
-    //         conditions.push(`ba."${key}" = $${queryParams.length + 1}`);
-    //         queryParams.push(value);
-    //       }
-    //     }
-    //   });
-    // }
+    if (filters && Object.keys(filters).length > 0) {
+      Object.keys(filters).forEach((key) => {
+        delete filters?.page;
+        delete filters?.limit;
+        const value = filters[key];
+        if (value !== null && value !== undefined && value !== '') {
+          if (Array.isArray(value)) {
+            conditions.push(`ba."${key}" = ANY($${queryParams.length + 1})`);
+            queryParams.push(value);
+          } else {
+            conditions.push(`ba."${key}" = $${queryParams.length + 1}`);
+            queryParams.push(value);
+          }
+        }
+      });
+    }
     let commissionSelect = '';
     if (role === 'MERCHANT') {
       commissionSelect = '';
@@ -112,7 +107,181 @@ const getBankaccountDao = async (filters, page, limit, role) => {
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
-    console.error('Error in getBankaccountDao:', error);
+    logger.error('Error in get BankAccount Dao:', error);
+    throw error.message;
+  }
+};
+
+const getBankAccountsBySearchDao = async (
+  company_id,
+  role,
+  searchTerms,
+  limitNum,
+  offset,
+  bank_used_for
+) => {
+  try {
+    let commissionSelect = '';
+    if (role === 'MERCHANT') {
+      commissionSelect = '';
+    } else if (role === 'VENDOR') {
+      commissionSelect = `
+        ba.ifsc_code, 
+        ba.payin_count, 
+        ba.balance, 
+        ba.today_balance, 
+        ba.bank_used_for, 
+      `;
+    } else {
+      commissionSelect = `
+        ba.user_id, 
+        ba.ifsc, 
+        ba.min, 
+        ba.max, 
+        ba.payin_count, 
+        ba.balance, 
+        ba.today_balance, 
+        ba.bank_used_for, 
+        ba.created_by, 
+        ba.updated_by, 
+        ba.created_at, 
+        ba.updated_at,
+      `;
+    }
+
+    const conditions = ['ba.company_id = $1'];
+    const searchConditions = [];
+    const values = [company_id];
+    let paramIndex = 2;
+
+    let baseQuery = `
+      SELECT 
+        ba.id, 
+        ba.sno, 
+        ba.upi_id,
+        ba.acc_holder_name,
+        ba.upi_params, 
+        ba.nick_name, 
+        ba.acc_no, 
+        ba.bank_name, 
+        ba.is_qr, 
+        ba.is_bank, 
+        ba.is_enabled, 
+        ba.config,  
+        ${commissionSelect}
+        v.code AS Vendor, 
+        COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details
+      FROM 
+        public."BankAccount" ba
+      LEFT JOIN public."Vendor" v 
+        ON ba.user_id = v.user_id
+      LEFT JOIN LATERAL (
+        SELECT 
+          jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
+        FROM public."Merchant" m
+        WHERE m.id::text IN (
+          SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
+        )
+      ) m ON TRUE
+      WHERE 1=1
+    `;
+
+    if (bank_used_for) {
+      conditions.push(`LOWER(ba.bank_used_for) = $${paramIndex}`);
+      values.push(bank_used_for.toLowerCase());
+      paramIndex++;
+    }
+
+    searchTerms.forEach(term => {
+      if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+        const boolValue = term.toLowerCase() === 'true';
+        searchConditions.push(`
+          (
+            ba.is_qr = $${paramIndex}
+            OR ba.is_bank = $${paramIndex}
+            OR ba.is_enabled = $${paramIndex}
+          )
+        `);
+        values.push(boolValue);
+        paramIndex++;
+      } else {
+        searchConditions.push(`
+          (
+            LOWER(ba.id::text) LIKE LOWER($${paramIndex})
+            OR LOWER(ba.sno::text) LIKE LOWER($${paramIndex})
+            OR LOWER(ba.upi_id) LIKE LOWER($${paramIndex})
+            OR LOWER(ba.acc_holder_name) LIKE LOWER($${paramIndex})
+            OR LOWER(ba.upi_params::text) LIKE LOWER($${paramIndex})
+            OR LOWER(ba.nick_name) LIKE LOWER($${paramIndex})
+            OR LOWER(ba.acc_no) LIKE LOWER($${paramIndex})
+            OR LOWER(ba.bank_name) LIKE LOWER($${paramIndex})
+            OR LOWER(v.code) LIKE LOWER($${paramIndex})
+            OR LOWER(ba.config->>'merchants') LIKE LOWER($${paramIndex})
+            OR EXISTS (
+              SELECT 1 
+              FROM jsonb_array_elements_text((ba.config->'merchants')::jsonb) AS merchant_id
+              WHERE LOWER(merchant_id) LIKE LOWER($${paramIndex})
+            )
+            ${role !== 'MERCHANT' ? `
+              OR LOWER(ba.user_id::text) LIKE LOWER($${paramIndex})
+              OR LOWER(ba.ifsc) LIKE LOWER($${paramIndex})
+              OR ba.min::text LIKE $${paramIndex}
+              OR ba.max::text LIKE $${paramIndex}
+              OR ba.payin_count::text LIKE $${paramIndex}
+              OR ba.balance::text LIKE $${paramIndex}
+              OR ba.today_balance::text LIKE $${paramIndex}
+              OR LOWER(ba.bank_used_for) LIKE LOWER($${paramIndex})
+              ${role !== 'VENDOR' ? `
+                OR LOWER(ba.created_by::text) LIKE LOWER($${paramIndex})
+                OR LOWER(ba.updated_by::text) LIKE LOWER($${paramIndex})
+              ` : ''}
+            ` : role === 'VENDOR' ? `
+              OR LOWER(ba.ifsc_code) LIKE LOWER($${paramIndex})
+              OR ba.payin_count::text LIKE $${paramIndex}
+              OR ba.balance::text LIKE $${paramIndex}
+              OR ba.today_balance::text LIKE $${paramIndex}
+              OR LOWER(ba.bank_used_for) LIKE LOWER($${paramIndex})
+            ` : ''}
+            OR LOWER(m.merchant_details::text) LIKE LOWER($${paramIndex})
+          )
+        `);
+        values.push(`%${term}%`);
+        paramIndex++;
+      }
+    });
+
+    if (conditions.length > 0) {
+      baseQuery += ' AND ' + conditions.join(' AND ');
+    }
+    if (searchConditions.length > 0) {
+      baseQuery += ' AND (' + searchConditions.join(' OR ') + ')';
+    }
+
+    const countQuery = `SELECT COUNT(*) as total FROM (${baseQuery}) as count_table`;
+
+    baseQuery += `
+      ORDER BY 
+        ba.is_enabled DESC, 
+        ba.updated_at DESC
+      LIMIT $${paramIndex}
+      OFFSET $${paramIndex + 1}
+    `;
+    values.push(limitNum, offset);
+
+    const countResult = await executeQuery(countQuery, values.slice(0, -2));
+    const searchResult = await executeQuery(baseQuery, values);
+
+    const totalItems = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(totalItems / limitNum);
+
+    const data = {
+      totalCount: totalItems,
+      totalPages,
+      bankAccounts: searchResult.rows,
+    };
+    return data;
+  } catch (error) {
+    logger.error('Error in getBankAccountsBySearchDao:', error);
     throw error.message;
   }
 };
@@ -217,6 +386,7 @@ export const updateBanktBalanceDao = async (
 
 export {
   getBankaccountDao,
+  getBankAccountsBySearchDao,
   createBankaccountDao,
   updateBankaccountDao,
   deleteBankaccountDao,
