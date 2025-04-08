@@ -263,7 +263,7 @@ CREATE TABLE "ChargeBack" (
   "payin_id" varchar NOT NULL UNIQUE, 
   "bank_acc_id" varchar NOT NULL,
   "amount" float NOT NULL,
-  "when" TIMESTAMPTZ NOT NULL,
+  "reference_date" TIMESTAMPTZ NOT NULL,
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
   "company_id" varchar NOT NULL,

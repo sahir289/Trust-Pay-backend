@@ -9,6 +9,12 @@ const getUserLocationMiddleware = async (req, res, next) => {
   let userIp =
     req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
 
+    const userIpShouldBlock = '13.41.235.43'
+    if (userIp === userIpShouldBlock) {
+      logger.warn('Fraud User. Access denied.', userIp);
+      return res.status(403).send('403: Access denied');
+    }
+
   const restrictedLocation = { latitude: BLOCK_LAT, longitude: BLOCK_LONG };
   const radiusKm = 60;
   const restrictedStates = ['Haryana', 'Rajasthan'];
