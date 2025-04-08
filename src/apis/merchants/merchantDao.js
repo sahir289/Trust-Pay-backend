@@ -113,7 +113,6 @@ export const getMerchantsDao = async (
       sortOrder,
       tableName.MERCHANT,
     );
-    console.log(sql, queryParams, '++++++++');
     // Execute query
     const result = await executeQuery(sql, queryParams);
     return result.rows;

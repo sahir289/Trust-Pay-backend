@@ -61,9 +61,42 @@ import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
 import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
 import { expirePayInIfNeeded, stringifyJSON } from '../../utils/index.js';
+import { createHash } from '../../utils/hashUtils.js';
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
+
+export const generatePayInUrlByHashService = async (req) => {
+  const { user_id, code, ot, key, amount } = req.query;
+
+  if (!user_id || !code || !ot) {
+    throw new BadRequestError('Missing required query parameters: user_id, code, or ot');
+  }
+  const x_api_key = req.headers['x-api-key'];
+  const merchantArr = await getMerchantsDao({ code });
+  const bankAssigned = await getMerchantBankDao({ config_merchants_contains: merchantArr[0].id });
+
+  if (bankAssigned.length <= 0) {
+    throw new InternalServerError('No Bank Assigned to Merchant')
+}
+
+  let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
+  if (amount) {
+    query += `&amount=${amount}`;
+  }
+
+  // Create a deterministic hash
+  const hash = createHash(`${code}:${x_api_key}`);
+
+  // Encode the hash to make it URL-safe
+  const encodedHash = encodeURIComponent(hash);
+
+  const updateRes = {
+    payInUrl: `${config.reactPaymentOrigin}/transaction/${encodedHash}?${query}`,
+  };
+  return updateRes;
+}
+
 export const generatePayInUrlService = async (payload, created_by) => {
   const {
     code,

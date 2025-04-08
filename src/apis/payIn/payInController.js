@@ -22,6 +22,7 @@ import {
   checkPayInStatusService,
   disputeDuplicateTransactionService,
   expirePayInUrlService,
+  generatePayInUrlByHashService,
   generatePayInUrlService,
   getPayinsService,
   payInIntentGenerateOrderService,
@@ -45,27 +46,8 @@ import { logger } from '../../utils/logger.js';
 
 //  To Generate Url
 export const generateHashForPayIn = async (req, res) => {
-  const { user_id, code, ot, key, amount } = req.query;
-
-  if (!user_id || !code || !ot) {
-    throw new BadRequestError('Missing required query parameters: user_id, code, or ot');
-  }
-  const x_api_key = req.headers['x-api-key'];
-
-  let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
-  if (amount) {
-    query += `&amount=${amount}`;
-  }
-
-  // Create a deterministic hash
-  const hash = createHash(`${code}:${x_api_key}`);
-
-  // Encode the hash to make it URL-safe
-  const encodedHash = encodeURIComponent(hash);
-
-  const updateRes = {
-    payInUrl: `${config.reactPaymentOrigin}/transaction/${encodedHash}?${query}`,
-  };
+  
+  const updateRes = await generatePayInUrlByHashService(req)
 
   return sendSuccess(res, updateRes, 'PayIn hash generated successfully');
 };
