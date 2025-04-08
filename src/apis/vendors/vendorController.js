@@ -5,6 +5,7 @@ import {
   getVendorsCodeService,
   getVendorsService,
   updateVendorService,
+  getVendorsBySearchService
 } from './vendorService.js';
 import {
   VALIDATE_VENDOR_BY_ID,
@@ -13,6 +14,8 @@ import {
 } from '../../schemas/vendorSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
+import { BadRequestError } from '../../utils/appErrors.js';
+import {logger} from '../../utils/logger.js';
 
 const createVendor = async (req, res) => {
   const { error } = VALIDATE_VENDOR_SCHEMA.validate(req.body);
@@ -28,7 +31,7 @@ const createVendor = async (req, res) => {
   // Call the service to create the Vendor
   await transactionWrapper(createVendorService)(payload, role);
   // Log success message
-  console.log('Vendor created successfully');
+  logger.log('Vendor created successfully');
   // Send a success response to the client
   return sendSuccess(res, 'Vendor created successfully');
 };
@@ -44,10 +47,31 @@ const getVendors = async (req, res) => {
     },
     role, page,limit,
   );
-  console.log('get Vendors successfully');
+  logger.log('get Vendors successfully');
   return sendSuccess(res, data, 'Vendors fetched successfully');
 };
 
+const getVendorsBySearch = async (req, res) => {
+  const { company_id, role} = req.user;
+  const { search, page = 1, limit = 10 } = req.query;
+  if (!search) {
+    throw new BadRequestError('search is required');
+  }
+  const data = await getVendorsBySearchService(
+    {
+      company_id,
+      search,
+      page,
+      limit,
+      ...req.query,
+    },
+    role,
+    // designation,
+    // user_id,
+  );
+  logger.log('get Vendors successfully');
+  return sendSuccess(res, data, 'Vendors fetched successfully');
+};
 
 const getVendorCodes = async (req, res) => {
   const { company_id } = req.user;
@@ -58,7 +82,7 @@ const getVendorCodes = async (req, res) => {
     
   );
   // Log success message
-  console.log('get Vendors successfully');
+  logger.log('get Vendors successfully');
   // Send success response
   return sendSuccess(res, data, 'Vendors fetched successfully');
 };
@@ -73,7 +97,7 @@ const getVendorById = async (req, res) => {
   // Fetch vendors data from the service
   const data = await getVendorsService({ id, company_id }, role);
   // Log success message
-  console.log('get vendor successfully', data);
+  logger.log('get vendor successfully', data);
   // Send success response
   return sendSuccess(res, data, ' Vendor fetched successfully');
 };
@@ -97,7 +121,7 @@ const updateVendor = async (req, res) => {
   const ids = { id, company_id };
   await updateVendorService(ids, payload, role);
   // Log success message
-  console.log('Vendor updated successfully');
+  logger.log('Vendor updated successfully');
   // Send a success response to the client
   return sendSuccess(res, {}, 'Vendor updated successfully');
 };
@@ -114,9 +138,9 @@ const deleteVendor = async (req, res) => {
   const ids = { company_id, id };
   await deleteVendorService(ids, role);
   // Log success message
-  console.log('Vendor deleted successfully');
+  logger.log('Vendor deleted successfully');
   // Send a success response to the client
   return sendSuccess(res, {}, 'Vendor deleted successfully');
 };
 
-export { createVendor, getVendors,getVendorCodes, getVendorById, updateVendor, deleteVendor };
+export { createVendor,getVendorsBySearch, getVendors,getVendorCodes, getVendorById, updateVendor, deleteVendor };

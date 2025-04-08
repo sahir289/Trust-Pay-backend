@@ -6,6 +6,7 @@ import {
   getChargeBacks,
   updateChargeBack,
   getChargeBacksById,
+  getChargeBacksBySearch
 } from './chargeBackController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -58,6 +59,11 @@ router.get(
   '/',
   [isAuthenticated, authorized(AccessRoles.CHARGE_BACK.GET)],
   tryCatchHandler(getChargeBacks),
+);
+router.get(
+  '/search',
+  [isAuthenticated, authorized(AccessRoles.CHARGE_BACK.GET)],
+  tryCatchHandler(getChargeBacksBySearch),
 );
 /**
  * @swagger

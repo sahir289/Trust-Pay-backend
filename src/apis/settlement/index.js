@@ -8,6 +8,7 @@ import {
   getSettlementController,
   getSettlementControllerById,
   updateSettlementController,
+  getSettlementsBySearch,
 } from './settlementController.js';
 const router = express.Router();
 
@@ -49,7 +50,7 @@ const router = express.Router();
  *                         example: "john_doe"
  */
 router.get(
-  '/:id',
+  '/:id/6',
   [isAuthenticated, authorized(AccessRoles.SETTLEMENT)],
   tryCatchHandler(getSettlementControllerById),
 );
@@ -58,7 +59,11 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.SETTLEMENT)],
   tryCatchHandler(getSettlementController),
 );
-
+router.get(
+  '/search',
+  [isAuthenticated, authorized(AccessRoles.SETTLEMENT)],
+  tryCatchHandler(getSettlementsBySearch),
+);
 /**
  * @swagger
  * /settlement/create-settlement:

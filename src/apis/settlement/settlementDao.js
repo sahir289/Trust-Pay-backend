@@ -65,6 +65,119 @@ const getSettlementDao = async (
     throw error.message;
   }
 };
+const getSettlementsBySearchDao = async (
+  filters,
+  searchTerms,
+  limitNum,
+  offset,
+) => {
+  try {
+    const { USER, SETTLEMENT, ROLE } = tableName;
+    const conditions = [];
+    const values = [filters.company_id];
+    let paramIndex = 2;
+
+    let queryText = `
+      SELECT 
+        s.id,
+        s.user_id,
+        s.company_id,
+        s.amount,
+        s.status,
+        s.config,
+        s.method,
+        s.created_at,
+        s.updated_at,
+        u.role_id,
+        u.designation_id,
+        u.id AS user_table_id,
+        u.first_name || ' ' || u.last_name AS full_name,
+        r.role AS role_name
+      FROM "${SETTLEMENT}" s
+      JOIN "${USER}" u ON s.user_id = u.id
+      LEFT JOIN "${ROLE}" r ON u.role_id = r.id
+      WHERE s.is_obsolete = false 
+        AND s.company_id = $1
+    `;
+
+    // Handle additional filters
+    if (filters.role_name) {
+      console.log(filters.role_name, 'filters.role_name');
+      queryText += ` AND r.role = $${paramIndex}`;
+      values.push(filters.role_name);
+      paramIndex++;
+    }
+
+    if (filters.status) {
+      queryText += ` AND s.status = $${paramIndex}`;
+      values.push(filters.status);
+      paramIndex++;
+    }
+
+    // Handle search terms
+    searchTerms.forEach((term) => {
+      if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+        const boolValue = term.toLowerCase() === 'true';
+        conditions.push(`
+          (
+            s.is_obsolete = $${paramIndex}
+          )
+        `);
+        values.push(boolValue);
+        paramIndex++;
+      } else {
+        conditions.push(`
+          (
+            LOWER(s.id::text) LIKE LOWER($${paramIndex})
+            OR LOWER(s.user_id::text) LIKE LOWER($${paramIndex})
+            OR LOWER(s.amount::text) LIKE LOWER($${paramIndex})
+            OR LOWER(s.status) LIKE LOWER($${paramIndex})
+            OR LOWER(s.method) LIKE LOWER($${paramIndex})
+            OR LOWER(u.first_name || ' ' || u.last_name) LIKE LOWER($${paramIndex})
+            OR LOWER(r.role) LIKE LOWER($${paramIndex})
+            OR LOWER(COALESCE(s.config->>'reference_id', '')) LIKE LOWER($${paramIndex})
+            OR LOWER(COALESCE(s.config->>'rejected_reason', '')) LIKE LOWER($${paramIndex})
+          )
+        `);
+        values.push(`%${term}%`);
+        paramIndex++;
+      }
+    });
+
+    if (conditions.length > 0) {
+      queryText += ' AND (' + conditions.join(' OR ') + ')';
+    }
+
+    const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
+
+    queryText += `
+      ORDER BY s.created_at DESC
+      LIMIT $${paramIndex}
+      OFFSET $${paramIndex + 1}
+    `;
+    values.push(limitNum, offset);
+
+    // Optional: log for debugging
+
+    const countResult = await executeQuery(countQuery, values.slice(0, -2));
+    const searchResult = await executeQuery(queryText, values);
+
+    // console.log(countResult, searchResult, 'searchResult');
+
+    const totalItems = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(totalItems / limitNum);
+
+    return {
+      totalCount: totalItems,
+      totalPages,
+      settlements: searchResult.rows,
+    };
+  } catch (error) {
+    console.error('Error in getSettlementsBySearchDao:', error.message);
+    throw error.message;
+  }
+};
+
 // const settlementJoindao = async (
 //   baseTable,
 //   filters,
@@ -142,6 +255,7 @@ const deleteSettlementDao = async (conn, id, data) => {
 export {
   getSettlementDao,
   createSettlementDao,
+  getSettlementsBySearchDao,
   getSettlementDaoforInternalTransfer,
   updateSettlementDao,
   deleteSettlementDao,

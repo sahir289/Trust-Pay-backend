@@ -6,6 +6,7 @@ import {
   getUsers,
   getUsersByUserName,
   updateUser,
+  getUsersBySearch
 } from './userController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -56,7 +57,11 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.USER)],
   tryCatchHandler(getUsers),
 );
-
+router.get(
+  '/search',
+  [isAuthenticated, authorized(AccessRoles.USER)],
+  tryCatchHandler(getUsersBySearch),
+);
 /**
  * @swagger
  * /users/by-username:

@@ -7,14 +7,19 @@ import {
   getConnection,
   rollback,
 } from '../../utils/db.js';
+import { logger } from '../../utils/logger.js';
+
 import {
   createVendorDao,
   deleteVendorDao,
   getVendorsCodeDao,
   getVendorsDao,
+  getVendorsBySearchDao,
   updateVendorDao,
 } from './vendorDao.js';
+import { BadRequestError } from '../../utils/appErrors.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
+
 const createVendorService = async (conn, payload, roleIs) => {
   try {
     const filterColumns =
@@ -78,6 +83,45 @@ const getVendorsCodeService = async (company_id) => {
         console.error('Error releasing connection:', releaseError);
       }
     }
+  }
+};
+const getVendorsBySearchService = async (
+  filters,
+  // designation,
+  // user_id,
+) => {
+  try {
+    const pageNum = parseInt(filters.page);
+    const limitNum = parseInt(filters.limit);
+    if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
+      throw new BadRequestError('Invalid pagination parameters');
+    }
+    const searchTerms = filters.search
+      .split(',')
+      .map((term) => term.trim())
+      .filter((term) => term.length > 0);
+
+    if (searchTerms.length === 0) {
+      throw new BadRequestError('Please provide valid search terms');
+    }
+    const offset = (pageNum - 1) * limitNum;
+
+    // const filterColumns =
+    //   role === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
+    // TODO: add designation constants
+   
+    const data = await getVendorsBySearchDao(
+      filters,
+      searchTerms,
+      limitNum,
+      offset,
+      // filterColumns,
+    );
+
+    return data;
+  } catch (error) {
+    logger.error('Error while fetching vendors by search', error);
+    throw new InternalServerError(error.message);
   }
 };
 
@@ -170,5 +214,6 @@ export {
   getVendorsService,
   updateVendorService,
   deleteVendorService,
+  getVendorsBySearchService,
   getVendorsCodeService
 };
