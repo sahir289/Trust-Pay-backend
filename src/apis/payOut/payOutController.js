@@ -5,6 +5,7 @@ import {
   deletePayoutService,
   getPayoutsService,
   updatePayoutService,
+  getPayoutsBySearchService,
 } from './payOutService.js';
 import {
   PAYOUT_DETAILS_SCHEMA,
@@ -13,6 +14,7 @@ import {
 } from '../../schemas/payoutSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
+import { BadRequestError } from '../../utils/appErrors.js';
 
 const createPayout = async (req, res) => {
   const joiValidation = PAYOUT_DETAILS_SCHEMA.validate(req.body);
@@ -34,6 +36,7 @@ const createPayout = async (req, res) => {
   return sendSuccess(res, {}, 'Payout created successfully');
 };
 
+
 const getPayoutsById = async (req, res) => {
   const joiValidation = VALIDATE_PAYOUT_BY_ID.validate(req.params);
   if (joiValidation.error) {
@@ -52,6 +55,26 @@ const getPayouts = async (req, res) => {
   delete req.query.limit;
   delete req.query.page;
   const data = await getPayoutsService(company_id ,page,limit, req.query, role);
+  return sendSuccess(res, data, 'Payouts fetched successfully');
+};
+ 
+const getPayoutsBySearch = async (req, res) => {
+  const { company_id, role } = req.user;
+  const { search, page = 1, limit = 10 } = req.query;
+  if (!search) {
+    throw new BadRequestError('search is required');
+  }
+  const data = await getPayoutsBySearchService(
+    {
+      company_id,
+      search,
+      page,
+      limit,
+      ...req.query,
+    },
+    role,
+  );
+  console.log('get Payouts successfully');
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };
 
@@ -89,4 +112,4 @@ const deletePayout = async (req, res) => {
   return sendSuccess(res, {}, 'Payout deleted successfully');
 };
 
-export { createPayout, getPayouts, updatePayout, deletePayout, getPayoutsById };
+export { createPayout,getPayoutsBySearch, getPayouts, updatePayout, deletePayout, getPayoutsById };

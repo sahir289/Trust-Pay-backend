@@ -190,7 +190,117 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
     throw error.message;
   }
 };
+export const getPayinsBySearchDao = async (
+  company_id,
+  searchTerms,
+  limitNum,
+  offset,
+) => {
+  try {
+   
+    const conditions = [];
+    const values = [company_id];
+    let paramIndex = 2;
 
+    let queryText = `
+      SELECT 
+        p.id,
+        p.sno,
+        p.upi_short_code,
+        p.amount,
+        p.status,
+        p.merchant_order_id,
+        p.is_notified,
+        p.user_submitted_utr,
+        p.user,
+        p.bank_acc_id,
+        p.merchant_id,
+        p.bank_response_id,
+        p.payin_merchant_commission,
+        p.payin_vendor_commission,
+        p.duration,
+        p.config,
+        p.is_url_expires,
+        p.expiration_date,
+        p.created_at,
+        p.updated_at,
+        b.nick_name AS bank_nickname,
+        br.utr AS bank_response_utr,
+        br.amount AS bank_response_amount,
+        br.status AS bank_response_status
+      FROM public."Payin" p
+      LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
+      LEFT JOIN public."BankResponse" br ON p.bank_response_id = br.id
+      WHERE p.is_obsolete = false 
+      AND p.company_id = $1
+    `;
+
+    searchTerms.forEach((term) => {
+      if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+        const boolValue = term.toLowerCase() === 'true';
+        conditions.push(`
+          (
+            p.is_notified = $${paramIndex}
+            OR p.is_url_expires = $${paramIndex}
+            OR p.one_time_used = $${paramIndex}
+          )
+        `);
+        values.push(boolValue);
+        paramIndex++;
+      } else {
+        conditions.push(`
+          (
+            LOWER(p.id::text) LIKE LOWER($${paramIndex})
+            OR LOWER(p.sno::text) LIKE LOWER($${paramIndex})
+            OR LOWER(p.upi_short_code) LIKE LOWER($${paramIndex})
+            OR LOWER(p.status) LIKE LOWER($${paramIndex})
+            OR LOWER(p.merchant_order_id) LIKE LOWER($${paramIndex})
+            OR LOWER(p.user_submitted_utr) LIKE LOWER($${paramIndex})
+            OR LOWER(p.user) LIKE LOWER($${paramIndex})
+            OR LOWER(b.nick_name) LIKE LOWER($${paramIndex})
+            OR LOWER(br.utr) LIKE LOWER($${paramIndex})
+            OR LOWER(br.status) LIKE LOWER($${paramIndex})
+            OR p.amount::text LIKE $${paramIndex}
+            OR br.amount::text LIKE $${paramIndex}
+            OR LOWER(p.config->>'user') LIKE LOWER($${paramIndex})  
+            OR LOWER(p.config->'urls'->>'site') LIKE LOWER($${paramIndex})
+            OR LOWER(p.config->'urls'->>'notify') LIKE LOWER($${paramIndex})
+          )
+        `);
+        values.push(`%${term}%`);
+        paramIndex++;
+      }
+    });
+
+    if (conditions.length > 0) {
+      queryText += ' AND (' + conditions.join(' OR ') + ')';
+    }
+
+    const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
+
+    queryText += `
+      ORDER BY p.created_at DESC
+      LIMIT $${values.length + 1}
+      OFFSET $${values.length + 2}
+    `;
+    values.push(limitNum, offset);
+    const countResult = await executeQuery(countQuery, values.slice(0, -2));
+    const searchResult = await executeQuery(queryText, values);
+
+    const totalItems = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(totalItems / limitNum);
+
+    const data = {
+      totalCount: totalItems,
+      totalPages,
+      payins: searchResult.rows,
+    };
+    return data;
+  } catch (error) {
+    logger.error('Error in getPayinSearch:', error);
+    throw error.message;
+  }
+};
 export const getPayInUrlsDao = async (filters = {}) => {
   try {
     const [sql, params] = buildSelectQuery(

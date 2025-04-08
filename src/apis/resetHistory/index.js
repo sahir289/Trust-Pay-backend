@@ -3,7 +3,13 @@ import tryCatchHandler from '../../utils/tryCatchHandler.js';
 
 import { isAuthenticated, authorized } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
-import { createResetHistory, deleteResetHistory, getResetHistory, updateResetHistory } from './resetController.js';
+import {
+  createResetHistory,
+  deleteResetHistory,
+  getResetHistory,
+  updateResetHistory,
+  getResetHistoryBySearch,
+} from './resetController.js';
 const router = express.Router();
 
 /**
@@ -40,7 +46,11 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.RESET_DATA_HISTORY)],
   tryCatchHandler(getResetHistory),
 );
-
+router.get(
+  '/search',
+  [isAuthenticated, authorized(AccessRoles.RESET_DATA_HISTORY)],
+  tryCatchHandler(getResetHistoryBySearch),
+);
 /**
  * @swagger
  * /ResetHistory/create-ResetHistory:
