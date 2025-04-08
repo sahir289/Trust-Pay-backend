@@ -4,6 +4,7 @@ import {
   buildInsertQuery,
   buildSelectQuery,
   buildUpdateQuery,
+  buildAndExecuteUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
 import { DbError } from '../../utils/appErrors.js';
@@ -148,15 +149,28 @@ const getBankaccountDaoNickName = async (conn, company_id, type) => {
 
 const updateBankaccountDao = async (id, payload, conn) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, payload, id);
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(sql, params); // Use connection to execute query
-    } else {
-      result = await executeQuery(sql, params); // Use executeQuery if no connection
+    // Handle nested JSON updates for the `config` column
+    if (payload.config && typeof payload.config === 'object') {
+      const configUpdates = payload.config;
+      delete payload.config; // Remove `config` from the main payload
+
+      // Merge the new `config` data into the existing JSON structure
+      payload.config = {
+        ...configUpdates,
+      };
     }
-    return result.rows[0];
+
+    // Use buildAndExecuteUpdateQuery to update the bank account
+    return await buildAndExecuteUpdateQuery(
+      tableName.BANK_ACCOUNT,
+      payload,
+      id,
+      {}, // No special fields
+      { returnUpdated: true }, // Return the updated row
+      conn, // Use the provided connection
+    );
   } catch (error) {
+    console.error('Error in updateBankaccountDao:', error);
     throw error.message;
   }
 };
