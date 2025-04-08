@@ -333,6 +333,7 @@ export const assignedBankToPayInUrlService = async (
       acc_holder_name: selectedBankDetails.acc_holder_name,
       acc_no: selectedBankDetails.acc_no,
       ifsc: selectedBankDetails.ifsc,
+      upi_id: selectedBankDetails.upi_id,
     }
   }
 
