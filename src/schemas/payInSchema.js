@@ -84,7 +84,7 @@ export const VALIDATE_PROCESS_PAYIN = Joi.object({
     .label('merchantOrderId')
     .required(),
   userSubmittedUtr: Joi.string().label('userSubmittedUtr').required(),
-  code: Joi.string().label('code').min(5).max(5).required(),
+  code: Joi.string().label('code').required(),
   amount: Joi.number().label('amount').min(1).required(),
 });
 
