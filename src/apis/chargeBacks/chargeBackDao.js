@@ -36,7 +36,7 @@ export const getChargeBackDao = async (
     const queryParams = [];
     const limitcondition = { value: '' };
 
-    const handledKeys = new Set(['search', 'startDate', 'endDate', 'status']);
+    const handledKeys = new Set(['search', 'startDate', 'endDate']);
 
     const conditionBuilders = {
       search: (filters, CHARGE_BACK) => {
@@ -55,16 +55,6 @@ export const getChargeBackDao = async (
         conditions.push(`cb.created_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`);
         queryParams.push(filters.startDate, filters.endDate);
       },
-      status: (filters, conditions, queryParams) => {
-        if (!filters.status) return;
-        const statusArray = filters.status.split(',').map(s => s.trim());
-        const nextParamIdx = queryParams.length + 1;
-        const placeholders = statusArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
-        conditions.push(statusArray.length > 1
-          ? `cb.status IN (${placeholders})`
-          : `cb.status = $${nextParamIdx}`);
-        queryParams.push(...statusArray);
-      },
       pagination: (page, pageSize, queryParams, limitconditionRef) => {
         if (!page || !pageSize) return;
         const nextParamIdx = queryParams.length + 1;
@@ -75,7 +65,6 @@ export const getChargeBackDao = async (
 
     conditionBuilders.search(filters, CHARGE_BACK);
     conditionBuilders.dateRange(filters, conditions, queryParams);
-    conditionBuilders.status(filters, conditions, queryParams);
     conditionBuilders.pagination(page, pageSize, queryParams, limitcondition);
 
     Object.entries(filters).forEach(([key, value]) => {
@@ -100,7 +89,7 @@ export const getChargeBackDao = async (
     );
 
     // Default columns if none provided
-    const defaultColumns = ['id', 'payin_id', 'status', 'amount'];
+    const defaultColumns = ['id', 'payin_id', 'amount'];
     const baseColumns = columns.length 
       ? columns.map(col => `${tableAlias}.${col}`).join(', ')
       : defaultColumns.map(col => `${tableAlias}.${col}`).join(', ');
