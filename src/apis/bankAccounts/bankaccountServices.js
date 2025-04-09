@@ -37,7 +37,7 @@ const getBankaccountService = async (
       role,
     );
   } catch (error) {
-    console.error('error getting while  getting banks', error);
+    logger.error('error getting while  getting banks', error);
     throw new InternalServerError(error);
   }
 };
