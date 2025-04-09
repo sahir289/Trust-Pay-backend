@@ -12,10 +12,11 @@ import { logger } from '../../utils/logger.js';
 
 const getCheckUtr = async (req, res) => {
   const { company_id } = req.user;
-  const { page, limit, search } = req.query;
+  const { page, limit } = req.query;
+  delete req.query.page;
+  delete req.query.limit;
   const filters = {
     company_id,
-    ...(search ? { search } : {}),
     ...req.query,
   };
   const data = await getCheckUtrService(filters, page, limit);
