@@ -331,7 +331,7 @@ export const assignedBankToPayInUrlService = async (
     type === BankTypes.BANK_TRANSFER
   ) {
     response = {
-      code: updatePayIn.upi_short_code,
+      return: updatePayIn.config?.urls?.return,
       bank: {
         nick_name: selectedBankDetails.nick_name,
         acc_holder_name: selectedBankDetails.acc_holder_name,
@@ -342,7 +342,7 @@ export const assignedBankToPayInUrlService = async (
   }
   else {
     response = {
-      code: updatePayIn.upi_short_code,
+      return: updatePayIn.config?.urls?.return,
       bank: {
         upi_id: selectedBankDetails.upi_id,
       },
