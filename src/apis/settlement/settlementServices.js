@@ -249,7 +249,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         if (bankData.length > 0) {
           console.log('bankData__bank_account', bankData);
           const bankAcc = bankData[0].balance - payload?.amount;
-          const updatedBank = await updateBankaccountDao(
+          await updateBankaccountDao(
             { id: bankData[0].id },
             { balance: bankAcc },
             conn
