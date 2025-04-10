@@ -17,7 +17,8 @@ import {
   updateDepositStatus,
   updatePaymentNotificationStatus,
   validatePayInUrl,
-  generateHashForPayIn
+  generateHashForPayIn,
+  getPayinsBySearch
 } from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
@@ -342,5 +343,7 @@ router.put(
  *         description: Internal server error
  */
 router.get('/', tryCatchHandler(getPayins));
+
+router.get('/search', tryCatchHandler(getPayinsBySearch));
 
 export default router;

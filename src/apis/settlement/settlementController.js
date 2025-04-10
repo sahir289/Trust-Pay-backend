@@ -1,7 +1,6 @@
 import {
   CREATE_SETTLEMENT_SCHEMA,
   UPDATE_SETTLEMENT_SCHEMA,
-  VALIDATE_SETTLEMENT_BY_ID,
   VALIDATE_SETTLEMENT_BY_ID_DELETE,
 } from '../../schemas/settlementSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
@@ -12,15 +11,13 @@ import {
   deleteSettlementService,
   getSettlementService,
   getSettlementServiceById,
+  getSettlementsBySearchService,
   updateSettlementService,
 } from './settlementServices.js';
-
+import { BadRequestError } from '../../utils/appErrors.js';
 const getSettlementControllerById = async (req, res) => {
   const { id } = req.params;
-  const joiValidation = VALIDATE_SETTLEMENT_BY_ID.validate(req.params);
-  if (joiValidation.error) {
-    throw new ValidationError(joiValidation.error);
-  }
+  
   const { company_id } = req.user;
   const { role } = req.user;
   const ids = { id, company_id, role };
@@ -69,7 +66,25 @@ const getSettlementController = async (req, res) => {
   // Send success response
   return sendSuccess(res, settlementData, 'Settlements retrieved successfully');
 };
-
+const getSettlementsBySearch = async (req, res) => {
+  const { company_id,role} = req.user;
+  const { search, page = 1, limit = 10  } = req.query;
+  if (!search) {
+    throw new BadRequestError('search is required');
+  }
+  const data = await getSettlementsBySearchService(
+    {
+      company_id,
+      search,
+      page,
+      limit,
+      ...req.query,
+    },
+    role,
+  );
+  console.log('get settlements successfully');
+  return sendSuccess(res, data, 'settlements fetched successfully');
+};
 const createSettlementController = async (req, res) => {
   const payload = req.body;
   const { company_id, user_id } = req.user;
@@ -136,4 +151,5 @@ export {
   createSettlementController,
   getSettlementControllerById,
   getSettlementController,
+  getSettlementsBySearch,
 };

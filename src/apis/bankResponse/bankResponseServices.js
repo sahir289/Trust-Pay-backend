@@ -8,6 +8,7 @@ import {
   updateBotResponseDao,
   getBankResponseDaoAll,
   updateBankResponseDao,
+  getBankResponseBySearchDao,
 } from './bankResponseDao.js';
 import { logger } from '../../utils/logger.js';
 import {
@@ -420,11 +421,10 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                     payInData,
                     conn,
                   );
-
                 await updateBotResponseDao(botRes.id, { is_used: true }, conn);
                 return { message: `Entry is in DISPUTE with ${updatePayInDataRes[0]?.merchant_order_id}` }
               }
-            }
+            } 
           }
           else {
             const existingResponse = await getBankResponseDao(
@@ -784,7 +784,49 @@ const getBankResponseService = async (payload, role, page, limit, search) => {
     throw new InternalServerError(error);
   }
 };
-
+const getBankResponseBySearchService = async  (
+   filters,
+    role,
+    // designation,
+    // user_id,
+  ) => {
+    try {
+      const pageNum = parseInt(filters.page);
+      const limitNum = parseInt(filters.limit);
+      if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
+        throw new BadRequestError('Invalid pagination parameters');
+      }
+      const searchTerms = filters.search
+        .split(',')
+        .map((term) => term.trim())
+        .filter((term) => term.length > 0);
+  
+      if (searchTerms.length === 0) {
+        throw new BadRequestError('Please provide valid search terms');
+      }
+      const offset = (pageNum - 1) * limitNum;
+  
+      const filterColumns =
+        role === Role.MERCHANT
+          ? merchantColumns.SETTLEMENT
+          : role === Role.VENDOR
+            ? vendorColumns.SETTLEMENT
+            : columns.SETTLEMENT;
+  
+      const data = await getBankResponseBySearchDao(
+        filters.company_id,
+        searchTerms,
+        limitNum,
+        offset,
+        filterColumns,
+      );
+  
+      return data;
+    } catch (error) {
+      console.error('Error while fetching Payin by search', error);
+      throw new InternalServerError(error.message);
+    }
+  };
 const updateBankResponseService = async (id, payload, role) => {
   let conn;
   try {
@@ -878,5 +920,6 @@ export {
   createBankResponseService,
   updateBankResponseService,
   getBankMessageServices,
+  getBankResponseBySearchService,
   resetBankResponseService,
 };

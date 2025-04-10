@@ -33,6 +33,7 @@ import {
   telegramResponseService,
   updateDepositStatusService,
   updatePaymentNotificationStatusService,
+  getPayinsBySearchService,
   verifyPayinsService,
 } from './payInService.js';
 import { transactionWrapper } from '../../utils/db.js';
@@ -245,6 +246,26 @@ export const getPayins = async (req, res) => {
   };
   const data = await getPayinsService(company_id, page, limit, filters, role, search);
   return sendSuccess(res, data, 'PayIns fetched successfully');
+};
+
+export const getPayinsBySearch = async (req, res) => {
+  const { company_id,role } = req.user;
+  const { search, page = 1, limit = 10 } = req.query;
+  if (!search) {
+    throw new BadRequestError('search is required');
+  }
+  const data = await getPayinsBySearchService(
+    {
+      company_id,
+      search,
+      page,
+      limit,
+      ...req.query,
+    },
+    role,
+  );
+  console.log('get Payins successfully');
+  return sendSuccess(res, data, 'Payins fetched successfully');
 };
 
 export const processPayIn = async (req, res) => {

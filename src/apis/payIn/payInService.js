@@ -17,6 +17,7 @@ import {
   getPayInUrlDao,
   getPayInUrlsDao,
   getPayInsDao,
+  getPayinsBySearchDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -331,7 +332,7 @@ export const assignedBankToPayInUrlService = async (
     type === BankTypes.BANK_TRANSFER
   ) {
     response = {
-      code: updatePayIn.upi_short_code,
+      return: updatePayIn.config?.urls?.return,
       bank: {
         nick_name: selectedBankDetails.nick_name,
         acc_holder_name: selectedBankDetails.acc_holder_name,
@@ -342,7 +343,7 @@ export const assignedBankToPayInUrlService = async (
   }
   else {
     response = {
-      code: updatePayIn.upi_short_code,
+      return: updatePayIn.config?.urls?.return,
       bank: {
         upi_id: selectedBankDetails.upi_id,
       },
@@ -749,6 +750,53 @@ export const getPayinsService = async (company_id, page, limit, filters, role) =
     }
   }
 };
+
+export const getPayinsBySearchService = async (
+  filters,
+  // role,
+  // designation,
+  // user_id,
+) => {
+  try {
+    const pageNum = parseInt(filters.page);
+    const limitNum = parseInt(filters.limit);
+    if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
+      throw new BadRequestError('Invalid pagination parameters');
+    }
+    const searchTerms = filters.search
+      .split(',')
+      .map((term) => term.trim())
+      .filter((term) => term.length > 0);
+
+    if (searchTerms.length === 0) {
+      throw new BadRequestError('Please provide valid search terms');
+    }
+    const offset = (pageNum - 1) * limitNum;
+
+    // const filterColumns =
+    //   role === Role.MERCHANT
+    //     ? merchantColumns.SETTLEMENT
+    //     : role === Role.VENDOR
+    //       ? vendorColumns.SETTLEMENT
+    //       : columns.SETTLEMENT;
+    // TODO: add designation constants
+
+    const data = await getPayinsBySearchDao(
+      filters.company_id,
+      searchTerms,
+      limitNum,
+      offset,
+      // filterColumns,
+    );
+
+    return data;
+  } catch (error) {
+    console.error('Error while fetching Payin by search', error);
+    throw new InternalServerError(error.message);
+  }
+};
+
+
 
 export const processPayInService = async (conn, payload, updated_by) => {
   const { userSubmittedUtr, merchantOrderId, amount } = payload;

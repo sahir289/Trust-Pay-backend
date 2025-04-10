@@ -10,6 +10,7 @@ import {
   deleteChargeBackDao,
   getChargeBackDao,
   updateChargeBackDao,
+  getChargeBacksBySearchDao
 } from './chargeBackDao.js';
 import {
   columns,
@@ -17,6 +18,7 @@ import {
   Role,
   vendorColumns,
 } from '../../constants/index.js';
+import { BadRequestError } from '../../utils/appErrors.js';
 import { filterResponse } from '../../helpers/index.js';
 import { getCalculationforCronDao } from '../calculation/calculationDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
@@ -131,7 +133,50 @@ const getChargeBacksService = async (
     );
   }
 };
+const getChargeBacksBySearchService = async (
+  filters,
+  role,
+  // designation,
+  // user_id,
+) => {
+  try {
+    const pageNum = parseInt(filters.page);
+    const limitNum = parseInt(filters.limit);
+    if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
+      throw new BadRequestError('Invalid pagination parameters');
+    }
+    const searchTerms = filters.search
+      .split(',')
+      .map((term) => term.trim())
+      .filter((term) => term.length > 0);
 
+    if (searchTerms.length === 0) {
+      throw new BadRequestError('Please provide valid search terms');
+    }
+    const offset = (pageNum - 1) * limitNum;
+
+   const filterColumns =
+     role === Role.MERCHANT
+       ? merchantColumns.CHARGE_BACK
+       : role === Role.VENDOR
+         ? vendorColumns.CHARGE_BACK
+         : columns.CHARGE_BACK;
+    // TODO: add designation constants
+
+    const data = await getChargeBacksBySearchDao(
+      filters,
+      searchTerms,
+      limitNum,
+      offset,
+      filterColumns,
+    );
+
+    return data;
+  } catch (error) {
+    console.error('Error while fetching chargeback by search', error);
+    throw new InternalServerError(error.message);
+  }
+};
 const updateChargeBackService = async (ids, payload, role) => {
   let conn;
   try {
@@ -211,6 +256,7 @@ const deleteChargeBackService = async (ids, payload, role) => {
 export {
   createChargeBackService,
   getChargeBacksService,
+  getChargeBacksBySearchService,
   updateChargeBackService,
   deleteChargeBackService,
 };

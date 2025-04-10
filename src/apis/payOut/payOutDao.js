@@ -155,8 +155,118 @@ export const getPayoutsDao = async (filters, company_id, page, limit, role, conn
     throw error.message;
   }
 };
+export const getPayoutsBySearchDao = async (
+  company_id,
+  searchTerms,
+  limitNum,
+  offset,
+) => {
+  try {
+    const conditions = [];
+    const values = [company_id];
+    let paramIndex = 2;
 
+    let queryText = `
+      SELECT 
+        p.id,
+        p.sno,
+        p.user,
+        p.bank_acc_id,
+        p.amount,
+        p.status,
+        p.merchant_order_id,
+        p.failed_reason,
+        p.currency,
+        p.upi_id,
+        p.utr_id,
+        p.rejected_reason,
+        p.payout_merchant_commission,
+        p.payout_vendor_commission,
+        p.created_at,
+        p.updated_at,
+        p.config AS payout_details,
+        b.nick_name AS bank_nickname,
+        m.code AS merchant_code,
+        v.code AS vendor_code,
+        json_build_object(
+          'account_holder_name', p.acc_holder_name,
+          'account_no', p.acc_no,
+          'ifsc_code', p.ifsc_code,
+          'bank_name', p.bank_name
+        ) AS user_bank_details
+      FROM public."Payout" p
+      LEFT JOIN public."Merchant" m ON p.merchant_id = m.id
+      LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
+      LEFT JOIN public."Vendor" v ON p.vendor_id = v.id
+      WHERE p.is_obsolete = false 
+      AND p.company_id = $1
+    `;
 
+    searchTerms.forEach((term) => {
+      if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+        const boolValue = term.toLowerCase() === 'true';
+        conditions.push(`(p.is_obsolete = $${paramIndex})`);
+        values.push(boolValue);
+        paramIndex++;
+      } else {
+        conditions.push(`
+          (
+            LOWER(p.id::text) LIKE LOWER($${paramIndex})
+            OR LOWER(p.user) LIKE LOWER($${paramIndex})
+            OR LOWER(p.status) LIKE LOWER($${paramIndex})
+            OR LOWER(p.merchant_order_id) LIKE LOWER($${paramIndex})
+            OR LOWER(p.failed_reason) LIKE LOWER($${paramIndex})
+            OR LOWER(p.currency) LIKE LOWER($${paramIndex})
+            OR LOWER(p.upi_id) LIKE LOWER($${paramIndex})
+            OR LOWER(p.utr_id) LIKE LOWER($${paramIndex})
+            OR LOWER(p.rejected_reason) LIKE LOWER($${paramIndex})
+            OR LOWER(b.nick_name) LIKE LOWER($${paramIndex})
+            OR LOWER(m.code) LIKE LOWER($${paramIndex})
+            OR LOWER(v.code) LIKE LOWER($${paramIndex})
+            OR p.amount::text LIKE $${paramIndex}
+            OR LOWER(p.config->>'method') LIKE LOWER($${paramIndex})
+            OR LOWER(p.config->>'rejected_reason') LIKE LOWER($${paramIndex})
+            OR LOWER(p.acc_holder_name) LIKE LOWER($${paramIndex})
+            OR LOWER(p.acc_no) LIKE LOWER($${paramIndex})
+            OR LOWER(p.ifsc_code) LIKE LOWER($${paramIndex})
+            OR LOWER(p.bank_name) LIKE LOWER($${paramIndex})
+          )
+        `);
+        values.push(`%${term}%`);
+        paramIndex++;
+      }
+    });
+
+    if (conditions.length > 0) {
+      queryText += ' AND (' + conditions.join(' OR ') + ')';
+    }
+
+    const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
+
+    queryText += `
+      ORDER BY p.created_at DESC
+      LIMIT $${values.length + 1}
+      OFFSET $${values.length + 2}
+    `;
+    values.push(limitNum, offset);
+
+    const countResult = await executeQuery(countQuery, values.slice(0, -2));
+    const searchResult = await executeQuery(queryText, values);
+
+    const totalItems = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(totalItems / limitNum);
+
+    const data = {
+      totalCount: totalItems,
+      totalPages,
+      payouts: searchResult.rows,
+    };
+    return data;
+  } catch (error) {
+    console.error('Error in getPayoutsBySearchDao:', error);
+    throw error.message;
+  }
+};  
 export const getPayoutsCronDao = async (conn, payload) => {
   try {
     let baseQuery = `SELECT * FROM public."Payout" 

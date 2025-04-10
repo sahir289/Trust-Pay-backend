@@ -8,8 +8,8 @@ const VALIDATE_CHARGEBACK_SCHEMA = Joi.object({
   amount: Joi.number().min(0).required().messages({
     'any.required': 'Amount is required',
   }),
-  when: Joi.date().required().messages({
-    'any.required': 'When is required',
+  reference_date: Joi.date().required().messages({
+    'any.required': 'Reference Date is required',
   })
 });
 

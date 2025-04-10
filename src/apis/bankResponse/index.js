@@ -6,6 +6,7 @@ import {
   getBankResponse,
   getBankMessage,
   updateBankResponse,
+  getBankResponseBySearch,
 } from './bankResponseController.js';
 import { isAuthenticated, authorized } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -66,7 +67,11 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
   tryCatchHandler(getBankResponse),
 );
-
+router.get(
+  '/search',
+  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+  tryCatchHandler(getBankResponseBySearch),
+);
 /**
  * @swagger
  * /bankResponse/update-complaint/{id}:

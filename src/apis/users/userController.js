@@ -6,10 +6,12 @@ import {
   getUsersByUserNameService,
   getUsersService,
   userUpdateService,
+  getUsersBySearchService
 } from './userService.js';
 import { CREATE_USER_SCHEMA } from '../../schemas/userSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
+import { logger } from '../../utils/logger.js';
 const getUsers = async (req, res) => {
   // const reqBody = req.body;
   const { role, company_id } = req.user;
@@ -24,6 +26,27 @@ const getUsers = async (req, res) => {
   );
   console.log('getUsers successfully');
   return sendSuccess(res, data, 'getUsers successfully');
+};
+
+const getUsersBySearch = async (req, res) => {
+  const { company_id, role } = req.user;
+  const { search, page = 1, limit = 10 } = req.query;
+  if (!search) {
+    throw new BadRequestError('search is required');
+  }
+  const data = await getUsersBySearchService(
+    {
+      company_id,
+      search,
+      page,
+      limit,
+      ...req.query,
+    },
+    role,
+   
+  );
+  logger.log('get Users successfully');
+  return sendSuccess(res, data, 'Users fetched successfully');
 };
 
 const getUsersByUserName = async (req, res) => {
@@ -75,4 +98,4 @@ const updateUser = async (req, res) => {
   return sendSuccess(res, {}, 'update user successfully');
 };
 
-export { getUsers, getUserById, getUsersByUserName, createUser, updateUser };
+export { getUsers,getUsersBySearch, getUserById, getUsersByUserName, createUser, updateUser };

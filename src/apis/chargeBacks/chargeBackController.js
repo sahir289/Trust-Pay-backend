@@ -4,6 +4,7 @@ import {
   getChargeBacksService,
   updateChargeBackService,
   deleteChargeBackService,
+  getChargeBacksBySearchService,
 } from './chargeBackService.js';
 import {
   VALIDATE_CHARGEBACK_BY_ID,
@@ -15,6 +16,8 @@ import { ValidationError } from '../../utils/appErrors.js';
 import { getPayinDetailsByMerchantOrderId } from '../payIn/payInDao.js';
 import { NotFoundError } from '../../utils/appErrors.js';
 import { getChargeBackDao } from './chargeBackDao.js';
+import { BadRequestError } from '../../utils/appErrors.js';
+
 const createChargeBack = async (req, res) => {
   let payload = req.body;
   delete payload.date;
@@ -27,11 +30,12 @@ const createChargeBack = async (req, res) => {
   );
 
   if (PayinDetails.length == 0) {
-    throw new NotFoundError('Invalid Order_Id');
+    throw new NotFoundError('Invalid Order Id, Please enter valid Order Id');
   }
   const isAlreadyExit = await getChargeBackDao({
     payin_id: PayinDetails[0].payin_id,
-  });
+  },
+    null, null, 'sno', 'DESC');
   if (isAlreadyExit.length > 0) {
     throw new NotFoundError('ChargeBack already exist');
   }
@@ -63,7 +67,27 @@ const getChargeBacksById = async (req, res) => {
   console.log('ChargeBack created successfully', 'info', result);
   return sendSuccess(res, result, 'ChargeBack created successfully');
 };
-
+const getChargeBacksBySearch = async (req, res) => {
+  const { company_id, role} = req.user;
+  const { search, page = 1, limit = 10 } = req.query;
+  if (!search) {
+    throw new BadRequestError('search is required');
+  }
+  const data = await getChargeBacksBySearchService(
+    {
+      company_id,
+      search,
+      page,
+      limit,
+      ...req.query,
+    },
+    role,
+    // designation,
+    // user_id,
+  );
+  console.log('get chargbacks successfully');
+  return sendSuccess(res, data, 'chargbacks fetched successfully');
+};
 const getChargeBacks = async (req, res) => {
   const { company_id, role } = req.user;
   const { page, limit, ...rest } = req.query;
@@ -136,5 +160,6 @@ export {
   getChargeBacksById,
   getChargeBacks,
   updateChargeBack,
+  getChargeBacksBySearch,
   deleteChargeBack,
 };

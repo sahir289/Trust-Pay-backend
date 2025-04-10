@@ -4,9 +4,10 @@ import { getPayInUrlDao, getPayInUrlsDao, updatePayInUrlDao } from '../payIn/pay
 import {
   createResetHistoryDao,
   deleteResetHistoryDao,
+  getResetHistoryBySearchDao,
   getResetHistoryDao,
 } from './resetDao.js';
-
+import { BadRequestError } from '../../utils/appErrors.js';
 const getResetHistoryService = async (id, page, limit) => {
   try {
     const pageNumber = parseInt(page, 10) || 1;
@@ -18,6 +19,54 @@ const getResetHistoryService = async (id, page, limit) => {
     throw new InternalServerError('Error getting while reset history');
   }
 };
+const getResetHistoryBySearchService = async (filters) => {
+  try {
+    const pageNum = parseInt(filters.page);
+    const limitNum = parseInt(filters.limit);
+
+    // Validate pagination parameters
+    if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
+      throw new BadRequestError('Invalid pagination parameters');
+    }
+
+    // Process search terms
+    const searchTerms = filters.search
+      ? filters.search
+          .split(',')
+          .map((term) => term.trim())
+          .filter((term) => term.length > 0)
+      : [];
+
+    if (searchTerms.length === 0) {
+      throw new BadRequestError('Please provide valid search terms');
+    }
+
+    const offset = (pageNum - 1) * limitNum;
+
+    // Determine columns based on role
+    // const filterColumns =
+    //   role === Role.MERCHANT
+    //     ? merchantColumns.SETTLEMENT
+    //     : role === Role.VENDOR
+    //       ? vendorColumns.SETTLEMENT
+    //       : columns.SETTLEMENT;
+
+    // Call DAO function
+    const data = await getResetHistoryBySearchDao(
+      filters.company_id,
+      searchTerms,
+      limitNum,
+      offset,
+      // filterColumns,
+    );
+
+    return data;
+  } catch (error) {
+      console.error('Error while fetching Payin by search', error);
+      throw new InternalServerError(error.message);
+    }
+  };
+
 const createResetHistoryService = async (payload) => {
   try {
     const result = await createResetHistoryDao(payload);
@@ -82,5 +131,6 @@ export {
   getResetHistoryService,
   createResetHistoryService,
   updateResetHistoryService,
+  getResetHistoryBySearchService,
   deleteResetHistoryService,
 };
