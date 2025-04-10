@@ -208,7 +208,6 @@ const updateSettlementService = async (conn, ids, payload, role) => {
             { balance: bankAcc },
             conn
           );
-          console.log('updated_bank_account', updatedBank);
         } else {
           console.error('No data in bank accounts');
         }

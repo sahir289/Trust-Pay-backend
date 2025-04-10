@@ -111,7 +111,7 @@ export const getChargeBackDao = async (
     let additionalColumns = '';
     if (role !== 'VENDOR') {
       additionalColumns = `
-        m.code AS code,
+        m.code AS merchant_name,
         p.merchant_order_id AS merchant_order_id,
       `;
     }
@@ -122,13 +122,13 @@ export const getChargeBackDao = async (
     }
     else {
       additionalColumns = `
-        m.code AS code,
+        m.code AS merchant_name,
         p.merchant_order_id AS merchant_order_id,
-        v.code AS code,
+        v.code AS vendor_name,
       `;
     }
     additionalColumns += `
-      v.code AS code,
+      v.code AS vendor_name,
       p.user AS user
     `;
 
