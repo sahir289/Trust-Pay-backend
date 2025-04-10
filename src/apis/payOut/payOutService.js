@@ -163,7 +163,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         status: Status.APPROVED,
         approved_at: new Date().toISOString(),
       });
-    if (payload.rejected_reason)
+    if (payload.config.rejected_reason)
       Object.assign(payload, {
         status: Status.REJECTED,
         rejected_at: new Date().toISOString(),

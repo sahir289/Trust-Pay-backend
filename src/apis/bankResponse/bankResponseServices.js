@@ -312,7 +312,8 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                   await updateMerchantDao({ id: checkPayInUtr[0]?.merchant_id }, {
                     balance: merchatnData.balance + parseFloat(amount),
                   }, conn);
-                  await updateCalculationTable(checkPayInUtr[0]?.merchant_id, {
+                  //  userId pass always in updateCalculationTable
+                  await updateCalculationTable(merchatnData.user_id, {
                     payinMerchantCommission,
                     amount: botRes.amount,
                   });
@@ -362,7 +363,8 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                 await updateMerchantDao({ id: checkPayInUtr[0]?.merchant_id }, {
                   balance: merchatnData.balance + parseFloat(amount),
                 }, conn);
-                await updateCalculationTable(checkPayInUtr[0]?.merchant_id, {
+                  //  userId pass always in updateCalculationTable
+                await updateCalculationTable(merchatnData.user_id, {
                   payinMerchantCommission,
                   amount: botRes.amount,
                 });
@@ -593,7 +595,15 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                 await updateBankaccountDao({ id: checkPayInUtr[0]?.bank_acc_id }, {
                   balance: bankdetails[0].balance + parseFloat(amount),
                   today_balance: bankdetails[0].balance + parseFloat(amount),
-                }, conn);
+                }, conn);    
+                await updateCalculationTable(
+                  bankdetails[0]?.user_id,
+                  {
+                    payinCommission: payinVendorCommission,
+                    amount: botRes.amount,
+                  },
+                  conn,
+                );
               }
               await updateBotResponseDao(botRes.id, { is_used: true }, conn);
 
@@ -604,20 +614,13 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                 return { message: `No Entry found in Bank Response table with ${botRes.id}` }
               }
               await updateMerchantDao({ id: checkPayInUtr[0]?.merchant_id }, {
-                balance: merchatnData.balance + parseFloat(amount),
+                balance: merchatnData[0].balance + parseFloat(amount),
               }, conn);
-              await updateCalculationTable(checkPayInUtr[0]?.merchant_id, {
-                payinMerchantCommission,
+                  //  userId pass always in updateCalculationTable
+              await updateCalculationTable(merchatnData[0].user_id, {
+                payinCommission: payinMerchantCommission,
                 amount: botRes.amount,
               });
-              await updateCalculationTable(
-                botRes.user_id,
-                {
-                  payinCommission: payinVendorCommission,
-                  amount: botRes.amount,
-                },
-                conn,
-              );
               return { message: `Successfully Created The Entry` }
             } else {
               return { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr[0]?.user_submitted_utr}` };
@@ -657,7 +660,8 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
             await updateMerchantDao({ id: checkPayInUtr[0]?.merchant_id }, {
               balance: merchatnData.balance + parseFloat(amount),
             }, conn);
-            await updateCalculationTable(checkPayInUtr[0]?.merchant_id, {
+              //  userId pass always in updateCalculationTable
+            await updateCalculationTable(merchatnData.user_id, {
               payinMerchantCommission,
               amount: botRes.amount,
             });
@@ -731,19 +735,24 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
 
 const updateCalculationTable = async (user_id, data, conn) => {
   if (user_id) {
-    const calculation = await getCalculationforCronDao(user_id);
-    if (!calculation[0]) {
+    const calculationData = await getCalculationforCronDao(user_id);
+    if (!calculationData[0]) {
       throw new NotFoundError('Calculation not found!');
     }
-    const calculationId = calculation[0].id;
+    let count = calculationData[0].total_settlement_count + 1;
+    let amountCalculation =
+      calculationData[0].total_payin_amount + data?.amount;
+    let currentBalance = Number(calculationData[0].current_balance) || 0  + data?.amount;
+    let netBalance = calculationData[0].net_balance + data?.amount;
+    const calculationId = calculationData[0].id;
     await updateCalculationBalanceDao(
       { id: calculationId },
       {
-        total_payin_count: 1,
-        total_payin_amount: data.amount,
+        total_payin_count: count,
+        total_payin_amount: amountCalculation,
         total_payin_commission: data.payinCommission,
-        current_balance: data.amount,
-        net_balance: data.amount,
+        current_balance: currentBalance,
+        net_balance: netBalance,
       },
       conn,
     );
