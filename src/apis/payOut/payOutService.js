@@ -57,7 +57,6 @@ const createPayoutService = async (conn, headers, payload, role) => {
           : columns.PAYOUT;
     const { code, amount, x_api_key } = payload;
     const details = await getMerchantsDao({ code });
-    console.log(details);
     const { user_id, config } = details[0];
     const merchantAPIKey = config?.keys;
     const payoutAmount = Number(amount);
@@ -76,6 +75,13 @@ const createPayoutService = async (conn, headers, payload, role) => {
       x_api_key !== merchantAPIKey?.public
     ) {
       throw new BadRequestError(403, 'Enter a valid API key');
+    }
+
+    if (amount < details[0].min_payout || amount > details[0].max_payout) {
+      throw new BadRequestError(
+        400,
+        `Amount should be between ${details[0].min_payout} and ${details[0].max_payout}`,
+      );
     }
 
     if (payload.merchant_order_id) {

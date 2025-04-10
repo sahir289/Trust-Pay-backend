@@ -1,4 +1,4 @@
-import {  InternalServerError } from '../../utils/appErrors.js';
+import {  BadRequestError, InternalServerError } from '../../utils/appErrors.js';
 import {
   createSettlementDao,
   deleteSettlementDao,
@@ -25,7 +25,8 @@ import {
   Role,
   vendorColumns,
 } from '../../constants/index.js';
-import { BadRequestError } from '../../utils/appErrors.js';
+import { logger } from '../../utils/logger.js';
+
 const getSettlementServiceById = async (ids) => {
   try {
     const filterColumns =
@@ -48,25 +49,61 @@ const getSettlementServiceById = async (ids) => {
   }
 };
 
-const getSettlementService = async (ids,  page, limit, search) => {
+const getSettlementService = async (ids, filters, page, limit, sortBy, sortOrder) => {
   try {
-    const filterColumns =
-      ids.role === Role.MERCHANT
-        ? merchantColumns.SETTLEMENT
-        : ids.role === Role.VENDOR
-          ? Role.vendorColumns.SETTLEMENT
-          : columns.SETTLEMENT;
-    return await getSettlementDao(
-      { company_id: ids.company_id, role : ids.role_name, ...(search ? { search } : {}) },
-      page, 
+    // Validate required parameters
+    if (!ids?.company_id) {
+      throw new BadRequestError('Company ID is required');
+    }
+
+    // Determine column selection based on role
+    const filterColumns = (() => {
+      switch (ids.role_name) {
+        case Role.MERCHANT:
+          return merchantColumns.SETTLEMENT;
+        case Role.VENDOR:
+          return vendorColumns.SETTLEMENT;
+        default:
+          return columns.SETTLEMENT;
+      }
+    })();
+
+    // Prepare filter object, ensuring all properties are included
+    const daoFilters = {
+      company_id: ids.company_id,
+      ...(ids.role_name && { role: ids.role_name }),
+      ...filters
+    };
+
+    // Call DAO with validated parameters
+    const settlementData = await getSettlementDao(
+      daoFilters,
+      page,
       limit,
-      null,
-      null,
+      sortBy || 'sno',
+      sortOrder || 'DESC',
       filterColumns
-    );  
+    );
+
+    return settlementData;
+
   } catch (error) {
-    console.error('error getting while  getting settlements', error);
-    throw new InternalServerError(error);
+    // Handle and rethrow errors with appropriate context
+    if (error instanceof BadRequestError) {
+      throw error;
+    }
+
+    console.log(error)
+    
+    logger.error('Error in getSettlementService:', {
+      error: error,
+      ids,
+      filters,
+      page,
+      limit
+    });
+    
+    throw new InternalServerError('Failed to retrieve settlements: ' + error);
   }
 };
 

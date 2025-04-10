@@ -1,80 +1,101 @@
 import { tableName } from '../../constants/index.js';
 import {
   buildInsertQuery,
-  buildJoinQuery,
-  buildSelectQuery,
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
-import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 const getResetHistoryDao = async (
-  filters,
-  page,
-  pageSize,
-  sortBy,
-  sortOrder,
+  filters = {},
+  page = 1,
+  pageSize = 10,
+  sortBy = 'sno',
+  sortOrder = 'DESC',
   columns = []
 ) => {
   try {
     const { BANK_RESPONSE, RESET_DATA_HISTORY, PAYIN } = tableName;
 
-    const joins = [
-      {
-        table: PAYIN,
-        keys: ['payin_id', 'id'], 
-        type: 'JOIN',
-        columns: ['merchant_order_id', 'duration'],
-        columnAs: [
-          `json_build_object(
-             'status', "${PAYIN}".status,
-             'user_submitted_utr', "${PAYIN}".user_submitted_utr
-          ) AS new_details`
-        ],
-      },
-      {
-        table: BANK_RESPONSE,
-        keys: ['bank_acc_id', 'bank_id'], 
-        columns: ['utr', 'amount'],
-        columnAs: [
-          `json_build_object(
-             'amount', "${BANK_RESPONSE}".amount,
-             'utr', "${BANK_RESPONSE}".utr,
-             'previous_status', "${RESET_DATA_HISTORY}".pre_status 
-          ) AS previous_details`
-        ],
-        type: 'LEFT JOIN',
-        referenceTable: PAYIN,
-      },
-    ];
+    // Default columns if none provided
+    const selectColumns = columns.length
+      ? columns.map(col => `"${RESET_DATA_HISTORY}".${col}`).join(', ')
+      : `"${RESET_DATA_HISTORY}".*`;
 
-    const baseQuery = buildJoinQuery(
-      RESET_DATA_HISTORY,
-      columns.length ? columns : '*',
-      joins
-    );
-    console.log(baseQuery, 'baseQuery');
+    // Base query with DISTINCT ON (sno)
+    let sql = `
+    SELECT DISTINCT ON ("${RESET_DATA_HISTORY}".sno)
+      ${selectColumns},
+      json_build_object(
+        'status', "${PAYIN}".status,
+        'user_submitted_utr', "${PAYIN}".user_submitted_utr
+      ) AS new_details,
+      CASE
+        WHEN "${PAYIN}".bank_response_id IS NOT NULL THEN
+          json_build_object(
+            'amount', "${BANK_RESPONSE}".amount,
+            'utr', "${BANK_RESPONSE}".utr,
+            'previous_status', "${RESET_DATA_HISTORY}".pre_status
+          )
+        ELSE
+          json_build_object(
+            'amount', "${PAYIN}".amount,
+            'utr', "${PAYIN}".user_submitted_utr,
+            'previous_status', "${RESET_DATA_HISTORY}".pre_status
+          )
+      END AS previous_details,
+      "${PAYIN}".merchant_order_id AS merchant_order_id
+    FROM "${RESET_DATA_HISTORY}"
+    JOIN "${PAYIN}" ON "${RESET_DATA_HISTORY}".payin_id = "${PAYIN}".id
+    LEFT JOIN "${BANK_RESPONSE}" ON "${PAYIN}".bank_response_id = "${BANK_RESPONSE}".id
+  `;
+
+    // Handle filters
+    const whereClauses = [];
+    const queryParams = [];
+    let paramIndex = 1;
 
     if (filters.search) {
-      filters.or = buildSearchFilterObj(filters.search, RESET_DATA_HISTORY);
-      delete filters.search;
+      // Assuming search applies to a few key fields (e.g., utr, merchant_order_id)
+      whereClauses.push(`
+        ("${RESET_DATA_HISTORY}".sno::text ILIKE $${paramIndex}
+        OR "${PAYIN}".merchant_order_id ILIKE $${paramIndex}
+        OR "${BANK_RESPONSE}".utr ILIKE $${paramIndex})
+      `);
+      queryParams.push(`%${filters.search}%`);
+      paramIndex++;
     }
 
-    const [sql, queryParams] = buildSelectQuery(
-      baseQuery,
-      filters,
-      page,
-      pageSize,
-      sortBy,
-      sortOrder,
-      tableName.RESET_DATA_HISTORY
-    );
+    // Add additional filters (e.g., status, amount)
+    for (const [key, value] of Object.entries(filters)) {
+      if (key !== 'search' && value !== undefined) {
+        whereClauses.push(`"${RESET_DATA_HISTORY}".${key} = $${paramIndex}`);
+        queryParams.push(value);
+        paramIndex++;
+      }
+    }
 
-    console.log('Generated SQL:', sql);
-    console.log('Query Parameters:', queryParams);
+    if (whereClauses.length > 0) {
+      sql += ` WHERE ${whereClauses.join(' AND ')}`;
+    }
 
-    const result = await executeQuery(sql, queryParams);
-    return { totalCount: result.rowCount, resetHistory: result.rows };
+    // Sorting
+    const validSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    sql += ` ORDER BY "${RESET_DATA_HISTORY}".${sortBy} ${validSortOrder}`;
+
+    // Pagination
+    const offset = (page - 1) * pageSize;
+    sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    queryParams.push(pageSize, offset);
+    paramIndex += 2;
+
+    // Execute both queries
+    const [result] = await Promise.all([
+      executeQuery(sql, queryParams),
+    ]);
+
+    return {
+      resetHistory: result.rows
+    };
   } catch (error) {
     console.error('Error getting CheckUtr:', error);
     throw error;

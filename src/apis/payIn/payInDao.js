@@ -332,28 +332,45 @@ export const updatePayInUrlDao = async (id, data, conn) => {
 };
 
 export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
+  if (!merchantOrderId || typeof merchantOrderId !== 'string') {
+    throw new Error('Valid merchantOrderId is required');
+  }
+
   let conn;
   const baseQuery = `
     SELECT 
-        p.id AS payin_id, 
-        p.bank_acc_id, 
-        p.merchant_id, 
-        ba.user_id AS vendor_user_id, 
-        m.user_id AS merchant_user_id
+      p.id AS payin_id,
+      p.bank_acc_id,
+      p.merchant_id,
+      ba.user_id AS vendor_user_id,
+      m.user_id AS merchant_user_id,
+      p.created_at,
+      p.status
     FROM public."Payin" p
-    JOIN public."BankAccount" ba ON p.bank_acc_id = ba.id
+    LEFT JOIN public."BankAccount" ba ON p.bank_acc_id = ba.id
     JOIN public."Merchant" m ON p.merchant_id = m.id
-    WHERE p.merchant_order_id = $1 AND p.is_obsolete = false;
+    WHERE p.merchant_order_id = $1
+    AND p.is_obsolete = false
+    LIMIT 1;
   `;
 
   try {
-    conn = await getConnection(); // Get DB connection
-    const result = await conn.query(baseQuery, [merchantOrderId]); // Execute query
-    return result.rows; // Return result
+    conn = await getConnection();
+    console.log(conn)
+    const result = await conn.query(baseQuery, [merchantOrderId]);
+    
+    return result.rows;
   } catch (error) {
-    console.error('Error fetching payin details:', error);
-    throw error;
+    const errorMessage = `Error fetching payin details for merchantOrderId ${merchantOrderId}: ${error.message}`;
+    console.error(errorMessage);
+    throw new Error(errorMessage);
   } finally {
-    if (conn) conn.release(); // Ensure connection is released
+    if (conn) {
+      try {
+        await conn.release();
+      } catch (releaseError) {
+        console.error('Error releasing connection:', releaseError);
+      }
+    }
   }
 };

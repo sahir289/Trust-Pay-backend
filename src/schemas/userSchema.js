@@ -47,7 +47,7 @@ export const CREATE_USER_SCHEMA = Joi.object({
   // Optional Fields
   payin_notify: Joi.string().uri().label('payin_notify').optional(),
   payout_notify: Joi.string().uri().label('payout_notify').optional(),
-  return_url: Joi.string().uri().label('return_url').optional(),
+  return: Joi.string().uri().label('return').optional(),
   site: Joi.string().uri().label('site').optional(),
   config: Joi.object().label('config').optional(),
 });

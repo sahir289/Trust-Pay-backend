@@ -7,6 +7,7 @@ import {
   getBankaccount,
   updateBankaccount,
   getBankaccountNickName,
+  getBankAccountBySearch,
 } from './bankaccountController.js';
 const router = express.Router();
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
@@ -51,6 +52,12 @@ router.get(
   tryCatchHandler(getBankaccount),
 );
 
+router.get(
+  '/search',
+  [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)],
+  tryCatchHandler(getBankAccountBySearch),
+);
+
 /**
  * @swagger
  * /bankAccounts:
@@ -82,7 +89,6 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)],
   tryCatchHandler(getBankaccountNickName),
 );
-
 
 /**
  * @swagger

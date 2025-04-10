@@ -30,11 +30,12 @@ const createChargeBack = async (req, res) => {
   );
 
   if (PayinDetails.length == 0) {
-    throw new NotFoundError('Invalid Order_Id');
+    throw new NotFoundError('Invalid Order Id, Please enter valid Order Id');
   }
   const isAlreadyExit = await getChargeBackDao({
     payin_id: PayinDetails[0].payin_id,
-  });
+  },
+    null, null, 'sno', 'DESC');
   if (isAlreadyExit.length > 0) {
     throw new NotFoundError('ChargeBack already exist');
   }
@@ -89,12 +90,11 @@ const getChargeBacksBySearch = async (req, res) => {
 };
 const getChargeBacks = async (req, res) => {
   const { company_id, role } = req.user;
-  const { page, limit } = req.query;
-  // const search = req.query.search;
-  // Fetch vendors data from the service
+  const { page, limit, ...rest } = req.query;
   const data = await getChargeBacksService(
     {
       company_id: company_id,
+      ...rest,
       // TODO: search
     },
     role,

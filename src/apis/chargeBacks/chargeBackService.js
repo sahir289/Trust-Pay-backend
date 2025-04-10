@@ -22,7 +22,8 @@ import { BadRequestError } from '../../utils/appErrors.js';
 import { filterResponse } from '../../helpers/index.js';
 import { getCalculationforCronDao } from '../calculation/calculationDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
-const createChargeBackService = async (payload,PayinDetails, role,company_id,user_id) => {
+import { logger } from '../../utils/logger.js';
+const createChargeBackService = async (payload, PayinDetails, role, company_id, user_id) => {
   let conn;
   try {
     const filterColumns =
@@ -33,35 +34,35 @@ const createChargeBackService = async (payload,PayinDetails, role,company_id,use
           : columns.CHARGE_BACK;
     conn = await getConnection();
     await beginTransaction(conn); // Start a transaction
-    
+
     let userId = PayinDetails[0].merchant_user_id;
     const CalculationUser = await getCalculationforCronDao(userId);
     if (CalculationUser) {
-       let count =  Number(1);
-       let amount = Number(payload.amount);
-       let currentBalance = -Number(payload.amount);
-       let net_balance = -Number(payload.amount);
-       
-       let Id = CalculationUser[0].id;
-        await updateCalculationBalanceDao(
-         { id: Id },
-         {
-            total_chargeback_count: count,
-           total_chargeback_amount: amount,
-           current_balance: currentBalance,
-           net_balance:net_balance,
-         },
-         conn,
-       );
-     }
-     payload.vendor_user_id = PayinDetails[0].vendor_user_id;
-     payload.merchant_user_id = PayinDetails[0].merchant_user_id;
-     payload.payin_id = PayinDetails[0].payin_id;
-     payload.bank_acc_id = PayinDetails[0].bank_acc_id;
-     payload.created_by = user_id;
-     payload.updated_by = user_id;
-     payload.company_id = company_id;
-     delete payload.merchant_order_id;
+      let count = Number(1);
+      let amount = Number(payload.amount);
+      let currentBalance = -Number(payload.amount);
+      let net_balance = -Number(payload.amount);
+
+      let Id = CalculationUser[0].id;
+      await updateCalculationBalanceDao(
+        { id: Id },
+        {
+          total_chargeback_count: count,
+          total_chargeback_amount: amount,
+          current_balance: currentBalance,
+          net_balance: net_balance,
+        },
+        conn,
+      );
+    }
+    payload.vendor_user_id = PayinDetails[0].vendor_user_id;
+    payload.merchant_user_id = PayinDetails[0].merchant_user_id;
+    payload.payin_id = PayinDetails[0].payin_id;
+    payload.bank_acc_id = PayinDetails[0].bank_acc_id;
+    payload.created_by = user_id;
+    payload.updated_by = user_id;
+    payload.company_id = company_id;
+    delete payload.merchant_order_id;
     const data = await createChargeBackDao(payload);
     await commit(conn); // Commit the transaction
     console.log('ChargeBack created successfully');
@@ -81,27 +82,55 @@ const createChargeBackService = async (payload,PayinDetails, role,company_id,use
   }
 };
 
-const getChargeBacksService = async (filters, role, page,limit,) => {
+const getChargeBacksService = async (
+  filters,
+  role,
+  page,
+  limit
+) => {
   try {
+    // Determine columns based on role
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.CHARGE_BACK
         : role === Role.VENDOR
           ? vendorColumns.CHARGE_BACK
           : columns.CHARGE_BACK;
-          const pageNumber = parseInt(page, 10) || 1;
-      const pageSize = parseInt(limit, 10) || 10;
-    console.log('Fetched ChargeBacks successfully');
-    return await getChargeBackDao(
+
+    // Parse and validate pagination parameters
+    const pageNumber = Math.max(1, parseInt(String(page), 10) || 1);
+    const pageSize = Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)); // Added upper limit
+
+    // Call DAO with all required parameters
+    const chargeBacks = await getChargeBackDao(
       filters,
-      pageNumber, pageSize, 
-      null,
-      null,
+      pageNumber,
+      pageSize,
+      'sno',
+      'DESC',
       filterColumns,
+      role
     );
+
+    logger.info('Fetched ChargeBacks successfully', {
+      role,
+      page: pageNumber,
+      limit: pageSize,
+      filterCount: Object.keys(filters).length
+    });
+
+    return chargeBacks;
   } catch (error) {
-    console.error('Error while fetching ChargeBacks', error);
-    throw new InternalServerError(error);
+    logger.error('Error while fetching ChargeBacks', {
+      error: error instanceof Error ? error.message : String(error),
+      role,
+      filters,
+      page,
+      limit
+    });
+    throw new InternalServerError(
+      error instanceof Error ? error.message : 'Failed to fetch chargebacks'
+    );
   }
 };
 const getChargeBacksBySearchService = async (
