@@ -121,13 +121,10 @@ let queryText = `
       SELECT 
         rdh.*,
         p.merchant_order_id,
-        p.duration,
         json_build_object(
           'status', p.status,
           'user_submitted_utr', p.user_submitted_utr
         ) AS new_details,
-        br.utr,
-        br.amount,
         json_build_object(
           'amount', br.amount,
           'utr', br.utr,
