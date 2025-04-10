@@ -68,13 +68,11 @@ const createBankResponse = async (req, res) => {
 };
 
 const updateBankResponse = async (req, res) => {
-  // Validate Vendor ID (from params)
   const { role } = req.user;
   const { error: idError } = VALIDATE_BANK_RESPONSE_BY_ID.validate(req.params);
   if (idError) {
     throw new ValidationError(idError);
   }
-  // Validate Vendor Update Status (from body)
   const { error: bodyError } = UPDATE_BANK_RESPONSE_SCHEMA.validate(req.body);
   if (bodyError) {
     throw new ValidationError(bodyError);
@@ -84,9 +82,22 @@ const updateBankResponse = async (req, res) => {
   const { id } = req.params;
   const ids = { id, company_id };
   await updateBankResponseService(ids, payload, role);
-  // Log success message
-  console.log('BankResponse updated successfully');
-  // Send a success response to the client
+ 
+  return sendSuccess(res, {}, 'BankResponse updated successfully');
+};
+
+const updateBankResponseUTR = async (req, res) => {
+  const { role } = req.user;
+  const { error: bodyError } = UPDATE_BANK_RESPONSE_SCHEMA.validate(req.body);
+  if (bodyError) {
+    throw new ValidationError(bodyError);
+  }
+  const { company_id } = req.user;
+  const { utr } = req.params;
+  const { amount } = req.body;
+  const ids = { utr, company_id };
+  await updateBankResponseService(ids, {is_used : false, amount: amount }, role);
+ 
   return sendSuccess(res, {}, 'BankResponse updated successfully');
 };
 
@@ -161,4 +172,5 @@ export {
   getBankMessage,
   getBankResponseBySearch,
   resetBankResponse,
+  updateBankResponseUTR
 };

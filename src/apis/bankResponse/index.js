@@ -7,6 +7,7 @@ import {
   getBankMessage,
   updateBankResponse,
   getBankResponseBySearch,
+  updateBankResponseUTR,
 } from './bankResponseController.js';
 import { isAuthenticated, authorized } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -144,6 +145,12 @@ router.put(
   '/update-message/:id',
   [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
   tryCatchHandler(updateBankResponse),
+);
+
+router.put(
+  '/update-message-utr/:utr',
+  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+  tryCatchHandler(updateBankResponseUTR),
 );
 
 /**

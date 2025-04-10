@@ -15,10 +15,10 @@ import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 const getBankResponseDao = async (
   filters,
-  startDate,
-  endDate,
-  page,
-  pageSize,
+  startDate =new Date(),
+  endDate = new Date(),
+  page = 0,
+  pageSize = 10,
   // sortBy,
   // sortOrder,
   columns = [],
