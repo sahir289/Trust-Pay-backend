@@ -1,7 +1,6 @@
 import config from '../../config/config.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
-import { updatePayInUrlDao } from './payInDao.js';
 import {
   ASSIGN_PAYIN_SCHEMA,
   VALIDATE_ASSIGNED_BANT_TO_PAY,
@@ -23,9 +22,9 @@ import {
   checkPayInStatusService,
   disputeDuplicateTransactionService,
   expirePayInUrlService,
+  generatePayInUrlByHashService,
   generatePayInUrlService,
   getPayinsService,
-  getPayInUrlService,
   payInIntentGenerateOrderService,
   processPayInByImageService,
   processPayInService,
@@ -34,12 +33,12 @@ import {
   telegramResponseService,
   updateDepositStatusService,
   updatePaymentNotificationStatusService,
+  verifyPayinsService,
 } from './payInService.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { decodeAuthToken, streamToBase64 } from '../../helpers/index.js';
 import { s3 } from '../../helpers/Aws.js';
-import { stringifyJSON } from '../../utils/index.js';
 import { AUTH_HEADER_KEY } from '../../utils/constants.js';
 import { getMerchantByCodeAndApiKey } from '../merchants/merchantDao.js';
 import { createHash, compareHash } from '../../utils/hashUtils.js';
@@ -47,27 +46,8 @@ import { logger } from '../../utils/logger.js';
 
 //  To Generate Url
 export const generateHashForPayIn = async (req, res) => {
-  const { user_id, code, ot, key, amount } = req.query;
-
-  if (!user_id || !code || !ot) {
-    throw new BadRequestError('Missing required query parameters: user_id, code, or ot');
-  }
-  const x_api_key = req.headers['x-api-key'];
-
-  let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
-  if (amount) {
-    query += `&amount=${amount}`;
-  }
-
-  // Create a deterministic hash
-  const hash = createHash(`${code}:${x_api_key}`);
-
-  // Encode the hash to make it URL-safe
-  const encodedHash = encodeURIComponent(hash);
-
-  const updateRes = {
-    payInUrl: `${config.reactPaymentOrigin}/transaction/${encodedHash}?${query}`,
-  };
+  
+  const updateRes = await generatePayInUrlByHashService(req)
 
   return sendSuccess(res, updateRes, 'PayIn hash generated successfully');
 };
@@ -137,30 +117,8 @@ export const validatePayInUrl = async (req, res) => {
   }
   const user_location =
     req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
-  const payIn = await getPayInUrlService(merchantOrderId);
 
-  if (!payIn) {
-    throw new BadRequestError('Invalid merchant order id');
-  }
-
-  if (payIn.one_time_used === true) {
-    throw new BadRequestError('This payin url is already used');
-  }
-
-  const updatedConfig = stringifyJSON({
-    ...payIn.config,
-    user: user_location,
-  });
-  await updatePayInUrlDao(payIn.id, { config: updatedConfig, one_time_used: true });
-  const result = {
-    code: payIn.upi_short_code,
-    return_url: config.return_url,
-    notify_url: config.notify_url,
-    expiryTime: payIn.expiration_date,
-    amount: payIn.amount,
-    one_time_used: payIn.one_time_used,
-    status: payIn.status,
-  };
+  const result = await verifyPayinsService(merchantOrderId, user_location);
 
   return sendSuccess(res, result, 'Payment Url is correct');
 };

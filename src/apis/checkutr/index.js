@@ -47,7 +47,7 @@ router.get(
 );
 
 router.get(
-  '/find/',
+  '/search/',
   [isAuthenticated, authorized(AccessRoles.CHECK_UTR_HISTORY)],
   tryCatchHandler(getCheckUtrBySearch),
 );

@@ -9,7 +9,7 @@ import {
   UPDATE_BANK_ACCOUNT_SCHEMA,
   VALIDATE_BANK_RESPONSE_BY_ID,
 } from '../../schemas/bankAccoountSchema.js';
-import { ValidationError } from '../../utils/appErrors.js';
+import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
@@ -20,14 +20,14 @@ import {
   updateBankaccountService,
   deleteBankaccountService,
   getBankaccountServiceNickName,
+  getBankAccountBySearchService,
 } from './bankaccountServices.js';
 
 const getBankaccount = async (req, res) => {
   const { company_id } = req.user;
   const { role } = req.user;
-  const { page, limit, search, bank_used_for } = req.query;
+  const { page, limit, bank_used_for } = req.query;
   const filters = {
-    ...(search ? { search } : {}),
     bank_used_for,
   };
   const data = await getBankaccountService(
@@ -39,6 +39,23 @@ const getBankaccount = async (req, res) => {
   );
   logger.log('get Banks successfully', role);
   return sendSuccess(res, data, 'get Banks successfully');
+};
+
+const getBankAccountBySearch = async (req, res) => {
+  const { company_id, role } = req.user;
+  const { search, bank_used_for, page = 1, limit = 10 } = req.query;
+  if (!search) {
+    throw new BadRequestError('search is required');
+  }
+  const data = await getBankAccountBySearchService(
+    company_id,
+    role,
+    search,
+    bank_used_for,
+    page,
+    limit,
+  );
+  return sendSuccess(res, data, 'get Banks by search successfully');
 };
 
 const getBankaccountNickName = async (req, res) => {
@@ -155,6 +172,7 @@ const deleteBankaccount = async (req, res) => {
 };
 export {
   getBankaccount,
+  getBankAccountBySearch,
   getBankaccountById,
   createBankaccount,
   updateBankaccount,

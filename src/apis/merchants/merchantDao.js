@@ -113,7 +113,6 @@ export const getMerchantsDao = async (
       sortOrder,
       tableName.MERCHANT,
     );
-    console.log(sql, queryParams, '++++++++');
     // Execute query
     const result = await executeQuery(sql, queryParams);
     return result.rows;
@@ -128,6 +127,7 @@ export const getMerchantsBySearchDao = async (
   searchTerms,
   limitNum,
   offset,
+  // user_id
 ) => {
   try {
    const conditions = [];
