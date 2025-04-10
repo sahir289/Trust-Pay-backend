@@ -6,6 +6,7 @@ import {
   getPayouts,
   updatePayout,
   getPayoutsById,
+  getPayoutsBySearch,
 } from './payOutController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -79,6 +80,11 @@ router.get(
  *       401:
  *         description: Unauthorized access
  */
+router.get(
+  '/search',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getPayoutsBySearch),
+);
 router.get(
   '/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],

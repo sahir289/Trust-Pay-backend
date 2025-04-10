@@ -8,6 +8,7 @@ import {
   getUsersByUserNameDao,
   getUsersDao,
   updateUserDao,
+  getUsersBySearchDao
 } from './userDao.js';
 import { filterResponse } from '../../helpers/index.js';
 import {
@@ -18,7 +19,8 @@ import {
 } from '../../constants/index.js';
 import { createMerchantService } from '../merchants/merchantService.js';
 import { createVendorService } from '../vendors/vendorService.js';
-
+import { BadRequestError } from '../../utils/appErrors.js';
+import { logger } from '../../utils/logger.js';
 const getUsersService = async (ids, role, page, limit) => {
   try {
     const filterColumns =
@@ -35,7 +37,48 @@ const getUsersService = async (ids, role, page, limit) => {
     throw new InternalServerError(error);
   }
 };
+const getUsersBySearchService = async (
+  filters,
+  role,
+) => {
+  try {
+    const pageNum = parseInt(filters.page);
+    const limitNum = parseInt(filters.limit);
+    if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
+      throw new BadRequestError('Invalid pagination parameters');
+    }
+    const searchTerms = filters.search
+      .split(',')
+      .map((term) => term.trim())
+      .filter((term) => term.length > 0);
 
+    if (searchTerms.length === 0) {
+      throw new BadRequestError('Please provide valid search terms');
+    }
+    const offset = (pageNum - 1) * limitNum;
+
+    const filterColumns =
+      role === Role.MERCHANT
+        ? merchantColumns.USER
+        : role === Role.VENDOR
+          ? vendorColumns.USER
+          : columns.USER;
+    // TODO: add designation constants
+
+    const data = await getUsersBySearchDao(
+      filters,
+      searchTerms,
+      limitNum,
+      offset,
+      filterColumns,
+    );
+
+    return data;
+  } catch (error) {
+    logger.error('Error while fetching users by search', error);
+    throw new InternalServerError(error.message);
+  }
+};
 const getUserByIdService = async (ids, role) => {
   let conn;
   try {
@@ -226,6 +269,7 @@ const userUpdateService = async (ids, payload, role) => {
 export {
   getUsersService,
   getUserByIdService,
+  getUsersBySearchService,
   getUsersByUserNameService,
   createUserService,
   userUpdateService,

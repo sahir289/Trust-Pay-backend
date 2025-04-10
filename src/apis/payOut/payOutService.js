@@ -17,6 +17,7 @@ import {
   createPayoutDao,
   deletePayoutDao,
   getPayoutsDao,
+  getPayoutsBySearchDao,
   updatePayoutDao,
 } from './payOutDao.js';
 import {
@@ -45,7 +46,6 @@ import {
   vendorColumns,
 } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
-import { getPayInsDao } from '../payIn/payInDao.js';
 
 const createPayoutService = async (conn, headers, payload, role) => {
   try {
@@ -148,6 +148,51 @@ const getPayoutsService = async (company_id, page, limit, filters, role) => {
     }
   }
 };
+
+const getPayoutsBySearchService = async (
+  filters,
+  role,
+  ) => {
+    try {
+      const pageNum = parseInt(filters.page);
+      const limitNum = parseInt(filters.limit);
+      if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
+        throw new BadRequestError('Invalid pagination parameters');
+      }
+      const searchTerms = filters.search
+        .split(',')
+        .map((term) => term.trim())
+        .filter((term) => term.length > 0);
+  
+      if (searchTerms.length === 0) {
+        throw new BadRequestError('Please provide valid search terms');
+      }
+      const offset = (pageNum - 1) * limitNum;
+  
+      // const filterColumns =
+      //   role === Role.MERCHANT
+      //     ? merchantColumns.SETTLEMENT
+      //     : role === Role.VENDOR
+      //       ? vendorColumns.SETTLEMENT
+      //       : columns.SETTLEMENT;
+      // TODO: add designation constants
+  
+      const data = await getPayoutsBySearchDao(
+        filters.company_id,
+        searchTerms,
+        limitNum,
+        offset,
+        role
+        // filterColumns,
+      );
+  
+      return data;
+    } catch (error) {
+      console.error('Error while fetching Payout by search', error);
+      throw new InternalServerError(error.message);
+    }
+  };
+  
 
 const updatePayoutService = async (conn, ids, payload, role) => {
   try {
@@ -664,6 +709,7 @@ const ekoWalletBalanceEnquiryInternally = async () => {
 export {
   createPayoutService,
   getPayoutsService,
+  getPayoutsBySearchService,
   updatePayoutService,
   deletePayoutService,
 };

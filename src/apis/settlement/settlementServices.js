@@ -4,6 +4,7 @@ import {
   deleteSettlementDao,
   getSettlementDao,
   updateSettlementDao,
+  getSettlementsBySearchDao
 } from './settlementDao.js';
 import {
   getCalculationforCronDao,
@@ -102,6 +103,51 @@ const getSettlementService = async (ids, filters, page, limit, sortBy, sortOrder
     });
     
     throw new InternalServerError('Failed to retrieve settlements: ' + error);
+  }
+};
+
+const getSettlementsBySearchService = async (
+  filters,
+  role,
+  // designation,
+  // user_id,
+) => {
+  try {
+    const pageNum = parseInt(filters.page);
+    const limitNum = parseInt(filters.limit);
+    if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
+      throw new BadRequestError('Invalid pagination parameters');
+    }
+    const searchTerms = filters.search
+      .split(',')
+      .map((term) => term.trim())
+      .filter((term) => term.length > 0);
+
+    if (searchTerms.length === 0) {
+      throw new BadRequestError('Please provide valid search terms');
+    }
+    const offset = (pageNum - 1) * limitNum;
+
+    const filterColumns =
+      role === Role.MERCHANT
+        ? merchantColumns.SETTLEMENT
+        : role === Role.VENDOR
+          ? vendorColumns.SETTLEMENT
+          : columns.SETTLEMENT;
+    // TODO: add designation constants
+
+    const data = await getSettlementsBySearchDao(
+      filters,
+      searchTerms,
+      limitNum,
+      offset,
+      filterColumns,
+    );
+
+    return data;
+  } catch (error) {
+    console.error('Error while fetching chargeback by search', error);
+    throw new InternalServerError(error.message);
   }
 };
 
@@ -261,4 +307,5 @@ export {
   getSettlementServiceById,
   updateSettlementService,
   deleteSettlementService,
+  getSettlementsBySearchService,
 };

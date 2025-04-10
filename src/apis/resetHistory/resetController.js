@@ -1,7 +1,12 @@
-import {  InternalServerError } from '../../utils/appErrors.js';
+import { InternalServerError, BadRequestError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { createResetHistoryService, deleteResetHistoryService, getResetHistoryService, updateResetHistoryService } from './resetServices.js';
-
+import {
+  createResetHistoryService,
+  getResetHistoryBySearchService,
+  deleteResetHistoryService,
+  getResetHistoryService,
+  updateResetHistoryService,
+} from './resetServices.js';
 const getResetHistory = async (req, res) => {
   try {
     const { company_id } = req.user;
@@ -11,6 +16,26 @@ const getResetHistory = async (req, res) => {
   } catch (error) {
     console.error('error getting while fetching reports', error);
   }
+};
+const getResetHistoryBySearch = async (req, res) => {
+  const { company_id, role } = req.user;
+  const { search, page = 1, limit = 10 } = req.query;
+  console.log(search, 'searchhh');
+  if (!search) {
+    throw new BadRequestError('search is required');
+  }
+  const data = await getResetHistoryBySearchService(
+    {
+      company_id,
+      search,
+      page,
+      limit,
+      ...req.query,
+    },
+    role,
+  );
+  console.log('get reset history successfully');
+  return sendSuccess(res, data, 'History fetched successfully');
 };
 const createResetHistory = async (req, res) => {
   try {
@@ -62,5 +87,6 @@ export {
   getResetHistory,
   createResetHistory,
   updateResetHistory,
+  getResetHistoryBySearch,
   deleteResetHistory,
 };

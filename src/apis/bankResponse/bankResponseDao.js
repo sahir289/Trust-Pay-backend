@@ -50,6 +50,104 @@ const getBankResponseDao = async (
   }
 };
 
+const getBankResponseBySearchDao = async (
+  company_id,
+  searchTerm,
+  limitNum,
+  offset,
+) => {
+  try {
+    const conditions = [];
+    const values = [company_id];
+    let paramIndex = 2;
+
+    let queryText = `
+      SELECT 
+        br.id,
+        br.status,
+        br.bank_id,
+        br.amount,
+        br.upi_short_code,
+        br.utr,
+        br.is_used,
+        br.created_at,
+        br.updated_at,
+        br.created_by,
+        br.config,
+        br.updated_by,
+        ba.user_id ,
+        ba.nick_name ,
+        ba.bank_name ,
+        v.code 
+      FROM public."BankResponse" br 
+      JOIN public."BankAccount" ba ON br.bank_id = ba.id
+      LEFT JOIN public."Vendor" v ON ba.user_id = v.user_id
+      WHERE br.is_obsolete = false
+      AND br.company_id = $1  
+    `;
+
+    searchTerm.forEach((term) => {
+      if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+        const boolValue = term.toLowerCase() === 'true';
+        conditions.push(`br.is_used = $${paramIndex}`);
+        values.push(boolValue);
+        paramIndex++;
+      } else {
+        conditions.push(`
+          (
+            LOWER(br.id::text) LIKE LOWER($${paramIndex})
+            OR LOWER(br.status) LIKE LOWER($${paramIndex})
+            OR LOWER(br.bank_id::text) LIKE LOWER($${paramIndex})
+            OR LOWER(br.amount::text) LIKE LOWER($${paramIndex})
+            OR LOWER(br.upi_short_code) LIKE LOWER($${paramIndex})
+            OR LOWER(br.utr) LIKE LOWER($${paramIndex})
+            OR LOWER(br.is_used::text) LIKE LOWER($${paramIndex})
+            OR LOWER(br.created_at::text) LIKE LOWER($${paramIndex})
+            OR LOWER(br.updated_at::text) LIKE LOWER($${paramIndex})
+            OR LOWER(br.created_by) LIKE LOWER($${paramIndex})
+            OR LOWER(br.config->>'from_UI') LIKE LOWER($${paramIndex})
+            OR LOWER(br.updated_by) LIKE LOWER($${paramIndex})
+            OR LOWER(ba.user_id::text) LIKE LOWER($${paramIndex})
+            OR LOWER(ba.nick_name) LIKE LOWER($${paramIndex})
+            OR LOWER(ba.bank_name) LIKE LOWER($${paramIndex})
+            OR LOWER(v.code) LIKE LOWER($${paramIndex})
+          )
+        `);
+        values.push(`%${term}%`);
+        paramIndex++;
+      }
+    });
+
+    if (conditions.length > 0) {
+      queryText += ' AND (' + conditions.join(' OR ') + ')';
+    }
+
+    const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
+
+    queryText += `
+      ORDER BY br.created_at DESC
+      LIMIT $${values.length + 1}
+      OFFSET $${values.length + 2}
+    `;
+    values.push(limitNum, offset);
+
+    const countResult = await executeQuery(countQuery, values.slice(0, -2));
+    const searchResult = await executeQuery(queryText, values);
+
+    const totalItems = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(totalItems / limitNum);
+
+    const data = {
+      totalCount: totalItems,
+      totalPages,
+      bankResponses: searchResult.rows,
+    };
+    return data;
+  } catch (error) {
+    logger.error('Error in getBankResponseBySearchDao:', error);
+    throw new Error('Error executing query');
+  }
+};
 const getBankResponseDaoAll = async (
   filters,
   page,
@@ -200,6 +298,7 @@ export {
   getBankResponseDao,
   createBankResponseDao,
   getBankResponseDaoAll,
+  getBankResponseBySearchDao,
   getBankMessageDao,
   resetBankResponseDao,
   updateBotResponseDao,

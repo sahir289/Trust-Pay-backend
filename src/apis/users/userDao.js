@@ -51,7 +51,7 @@ const getUsersDao = async (
       sortOrder,
       USER,
     );
-     console.log('sql',sql);
+    
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
@@ -60,7 +60,109 @@ const getUsersDao = async (
   }
 };
 
+export const getUsersBySearchDao = async (
+  filters,
+  searchTerms,
+  limitNum,
+  offset,
+) => {
+  try {
+    const conditions = [];
+    const values = [filters.company_id];
+    let paramIndex = 2;
 
+    let queryText = `
+      SELECT 
+        "User".id,
+        "User".role_id,
+        "User".designation_id,
+        "User".first_name,
+        "User".last_name,
+        "User".email,
+        "User".contact_no,
+        "User".user_name,
+        "User".code,
+        "User".is_enabled,
+        "User".last_login,
+        "User".last_logout,
+        "User".config,
+        "User".created_by,
+        "User".updated_by,
+        "User".created_at,
+        "User".updated_at,
+        "User".first_name || ' ' || "User".last_name AS full_name,
+        "Designation".designation AS designation_name 
+      FROM "User" 
+      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id 
+      WHERE 1=1 
+        AND "User".is_obsolete = false 
+        AND "User"."company_id" = $1
+    `;
+    searchTerms.forEach((term) => {
+
+      if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+        const boolValue = term.toLowerCase() === 'true';
+        conditions.push(`
+          (
+            "User".is_enabled = $${paramIndex}
+          )
+        `);
+        values.push(boolValue);
+        paramIndex++;
+      } else {
+        conditions.push(`
+          
+          (
+            LOWER("User".id::text) LIKE LOWER($${paramIndex})
+            OR LOWER("User".role_id::text) LIKE LOWER($${paramIndex})
+            OR LOWER("User".designation_id::text) LIKE LOWER($${paramIndex})
+            OR LOWER("User".first_name) LIKE LOWER($${paramIndex})
+            OR LOWER("User".last_name) LIKE LOWER($${paramIndex})
+            OR LOWER("User".email) LIKE LOWER($${paramIndex})
+            OR LOWER("User".contact_no) LIKE LOWER($${paramIndex})
+            OR LOWER("User".user_name) LIKE LOWER($${paramIndex})
+            OR LOWER("User".code) LIKE LOWER($${paramIndex})
+            OR LOWER("User".created_by::text) LIKE LOWER($${paramIndex})
+            OR LOWER("User".updated_by::text) LIKE LOWER($${paramIndex})
+            OR LOWER("User".first_name || ' ' || "User".last_name) LIKE LOWER($${paramIndex})
+            OR LOWER("Designation".designation) LIKE LOWER($${paramIndex})
+          )
+        `);
+        values.push(`%${term}%`);
+        paramIndex++;
+      }
+    });
+
+    if (conditions.length > 0) {
+      queryText += ' AND (' + conditions.join(' OR ') + ')';
+    }
+
+    const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
+
+    queryText += `
+      ORDER BY "User"."created_at" DESC
+      LIMIT $${paramIndex}
+      OFFSET $${paramIndex + 1}
+    `;
+    values.push(limitNum, offset);
+
+    const countResult = await executeQuery(countQuery, values.slice(0, -2));
+    const searchResult = await executeQuery(queryText, values);
+
+    const totalItems = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(totalItems / limitNum);
+
+    const data = {
+      totalCount: totalItems,
+      totalPages,
+      Users: searchResult.rows,
+    };
+    return data;
+  } catch (error) {
+    console.error(error.message);
+    throw error.message;
+  }
+};
 const getUserByIdDao = async (conn, ids) => {
   try {
     let baseQuery = `

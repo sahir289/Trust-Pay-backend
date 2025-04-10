@@ -7,6 +7,7 @@ import {
   updateVendor,
   getVendorById,
   getVendorCodes,
+  getVendorsBySearch,
 } from './vendorController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -51,7 +52,11 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.VENDOR)],
   tryCatchHandler(getVendors),
 );
-
+router.get(
+  '/search',
+  [isAuthenticated, authorized(AccessRoles.VENDOR)],
+  tryCatchHandler(getVendorsBySearch),
+);
 /**
  * @swagger
  * /vendors:

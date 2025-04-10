@@ -102,6 +102,105 @@ const getResetHistoryDao = async (
   }
 };
 
+const getResetHistoryBySearchDao = async (
+  company_id,
+  searchTerms,
+  limitNum,
+  offset,
+) => {
+  console.log('getResetHistoryBySearchDao', searchTerms);
+  try {
+    const conditions = [];
+    const values = [company_id];
+    let paramIndex = 2;
+
+    // Default columns with table aliases
+  
+
+let queryText = `
+      SELECT 
+        rdh.*,
+        p.merchant_order_id,
+        json_build_object(
+          'status', p.status,
+          'user_submitted_utr', p.user_submitted_utr
+        ) AS new_details,
+        json_build_object(
+          'amount', br.amount,
+          'utr', br.utr,
+          'previous_status', rdh.pre_status
+        ) AS previous_details
+      FROM public."ResetDataHistory" rdh
+      JOIN public."Payin" p ON rdh.payin_id = p.id
+      LEFT JOIN LATERAL (
+    SELECT utr, amount
+    FROM public."BankResponse" 
+    WHERE bank_id = p.bank_acc_id
+    ORDER BY created_at DESC  
+    LIMIT 1
+) br ON true
+    WHERE rdh.is_obsolete = false
+      AND rdh.company_id = $1
+    `;
+
+    searchTerms.forEach((term) => {
+      if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+        const boolValue = term.toLowerCase() === 'true';
+        conditions.push(`rdh.is_obsolete = $${paramIndex}`);
+        values.push(boolValue);
+        paramIndex++;
+      } else {
+        conditions.push(`
+          (
+            LOWER(rdh.id::text) LIKE LOWER($${paramIndex})
+            OR LOWER(rdh.sno::text) LIKE LOWER($${paramIndex})
+            OR LOWER(rdh.payin_id::text) LIKE LOWER($${paramIndex})
+            OR LOWER(rdh.created_by) LIKE LOWER($${paramIndex})
+            OR LOWER(rdh.updated_by) LIKE LOWER($${paramIndex})
+            OR LOWER(p.merchant_order_id) LIKE LOWER($${paramIndex})
+            OR LOWER(p.status) LIKE LOWER($${paramIndex})
+            OR LOWER(p.user_submitted_utr) LIKE LOWER($${paramIndex})
+            OR LOWER(br.utr) LIKE LOWER($${paramIndex})
+            OR LOWER(br.amount::text) LIKE LOWER($${paramIndex})
+            OR LOWER(rdh.pre_status) LIKE LOWER($${paramIndex})
+            OR LOWER(rdh.config->>'from_UI') LIKE LOWER($${paramIndex})
+          )
+        `);
+        values.push(`%${term}%`);
+        paramIndex++;
+      }
+    });
+
+    if (conditions.length > 0) {
+      queryText += ' AND (' + conditions.join(' OR ') + ')';
+    }
+
+    const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
+
+    queryText += `
+      ORDER BY rdh.created_at DESC
+      LIMIT $${values.length + 1}
+      OFFSET $${values.length + 2}
+    `;
+    values.push(limitNum, offset);
+    console.log('Query Parameters:', limitNum, offset);
+    
+    const countResult = await executeQuery(countQuery, values.slice(0, -2));
+    const searchResult = await executeQuery(queryText, values);
+
+    const totalItems = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(totalItems / limitNum);
+
+    return {
+      totalCount: totalItems,
+      totalPages,
+      resetHistory: searchResult.rows,
+    };
+  } catch (error) {
+    console.error('Error in getResetHistoryBySearchDao:', error);
+    throw new Error('Error executing reset history query');
+  }
+};
 const createResetHistoryDao = async (payload) => {
   try {
     const tableName = 'ResetDataHistory';
@@ -142,5 +241,6 @@ export {
   getResetHistoryDao,
   createResetHistoryDao,
   updateResetHistoryDao,
+  getResetHistoryBySearchDao,
   deleteResetHistoryDao,
 };

@@ -14,7 +14,9 @@ import {
   getBankMessageServices,
   createBankResponseService,
   updateBankResponseService,
+  getBankResponseBySearchService,
 } from './bankResponseServices.js';
+import{ BadRequestError } from '../../utils/appErrors.js';
 
 import { transactionWrapper } from '../../utils/db.js';
 
@@ -27,6 +29,26 @@ const getBankResponse = async (req, res) => {
   };
   const data = await getBankResponseService(payload, role, page, limit, search);
   return sendSuccess(res, data, 'Bank response retrieved successfully');
+};
+
+const getBankResponseBySearch = async (req, res) => {
+  const { company_id, role } = req.user;
+  const { search, page = 1, limit = 10 } = req.query;
+  if (!search) {
+    throw new BadRequestError('search is required');
+  }
+  const data = await getBankResponseBySearchService(
+    {
+      company_id,
+      search,
+      page,
+      limit,
+      ...req.query,
+    },
+    role,
+  );
+  console.log('get Bank Response successfully');
+  return sendSuccess(res, data, 'BankResponse fetched successfully');
 };
 
 const createBankResponse = async (req, res) => {
@@ -137,5 +159,6 @@ export {
   createBankResponse,
   updateBankResponse,
   getBankMessage,
+  getBankResponseBySearch,
   resetBankResponse,
 };
