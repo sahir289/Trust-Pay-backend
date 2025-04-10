@@ -114,8 +114,14 @@ let queryText = `
         ) AS previous_details
       FROM public."ResetDataHistory" rdh
       JOIN public."Payin" p ON rdh.payin_id = p.id
-      LEFT JOIN public."BankResponse" br ON p.bank_acc_id = br.bank_id
-      WHERE rdh.is_obsolete = false
+      LEFT JOIN LATERAL (
+    SELECT utr, amount
+    FROM public."BankResponse" 
+    WHERE bank_id = p.bank_acc_id
+    ORDER BY created_at DESC  
+    LIMIT 1
+) br ON true
+    WHERE rdh.is_obsolete = false
       AND rdh.company_id = $1
     `;
 
