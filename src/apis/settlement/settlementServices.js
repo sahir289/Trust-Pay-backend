@@ -113,7 +113,6 @@ const getSettlementsBySearchService = async (
   // user_id,
 ) => {
   try {
-    console.log(filters, 'filters');
     const pageNum = parseInt(filters.page);
     const limitNum = parseInt(filters.limit);
     if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
