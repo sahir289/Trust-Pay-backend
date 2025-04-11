@@ -82,7 +82,6 @@ const getSettlementsBySearch = async (req, res) => {
     },
     role,
   );
-  console.log('get settlements successfully');
   return sendSuccess(res, data, 'settlements fetched successfully');
 };
 const createSettlementController = async (req, res) => {

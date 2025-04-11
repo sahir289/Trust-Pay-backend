@@ -1,4 +1,4 @@
-import {  BadRequestError, InternalServerError } from '../../utils/appErrors.js';
+import {  BadRequestError, InternalServerError, NotFoundError } from '../../utils/appErrors.js';
 import {
   createSettlementDao,
   deleteSettlementDao,
@@ -146,35 +146,10 @@ const getSettlementsBySearchService = async (
 
     return data;
   } catch (error) {
-    console.error('Error while fetching chargeback by search', error);
+    logger.error('Error while fetching chargeback by search', error);
     throw new InternalServerError(error.message);
   }
 };
-
-// const getSettlementServiceJoined = async (req) => {
-//   try {
-//     const settlementData = await settlementJoindao(
-//       "Settlement",
-//       [
-//         { tableName: "BankAccount", id: "user_id" },
-//       ],
-//       req.query.page || 1,
-//       req.query.pageSize || 10,
-//       req.query.sortBy || "created_at",
-//       req.query.sortOrder || "DESC"
-//     );
-
-//     if (!settlementData || settlementData.length === 0) {
-//       throw new BadRequestError('Error getting settlements');
-//     }
-
-//     return settlementData
-
-//   } catch (error) {
-//     console.error('Error getting settlements:', error);
-//     throw new BadRequestError('Error getting settlements');
-//   }
-// }
 
 const createSettlementService = async (payload) => {
   try {
@@ -208,25 +183,27 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       }
 
       const calculationData = await getCalculationforCronDao(data[0].user_table_id);
-      if (calculationData.length > 0) {
-        const calc = calculationData[0];
-        const count = calc.total_settlement_count + 1;
-        const amountCalculation = calc.total_settlement_amount + payload?.amount;
-        const currentBalance = calc.current_balance - payload?.amount;
-        const netBalance = calc.net_balance - payload?.amount;
-
-        await updateCalculationDao(
-          { id: calc.id },
-          {
-            total_settlement_count: count,
-            total_settlement_amount: amountCalculation,
-            current_balance: currentBalance,
-            net_balance: netBalance,
-          },
-          conn
-        );
+      if (Array.isArray(calculationData) && calculationData.length > 0) {
+        const {
+          id,
+          total_settlement_count,
+          total_settlement_amount,
+          current_balance,
+          net_balance
+        } = calculationData[0];
+      
+        const amount = payload?.amount || 0;
+      
+        const updatedCalculation = {
+          total_settlement_count: total_settlement_count + 1,
+          total_settlement_amount: total_settlement_amount + amount,
+          current_balance: current_balance - amount,
+          net_balance: net_balance - amount,
+        };
+      
+        await updateCalculationDao({ id }, updatedCalculation, conn);
       } else {
-        console.log('no data in calculation');
+        throw new NotFoundError('No calculation data available for update.');
       }
 
       const merchantData = await getMerchantsDao(

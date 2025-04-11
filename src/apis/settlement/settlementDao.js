@@ -201,8 +201,6 @@ const getSettlementsBySearchDao = async (
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
 
-    // console.log(countResult, searchResult, 'searchResult');
-
     const totalItems = parseInt(countResult.rows[0].total);
     const totalPages = Math.ceil(totalItems / limitNum);
 
@@ -212,25 +210,10 @@ const getSettlementsBySearchDao = async (
       settlements: searchResult.rows,
     };
   } catch (error) {
-    console.error('Error in getSettlementsBySearchDao:', error.message);
+    logger.error('Error in getSettlementsBySearchDao:', error.message);
     throw error.message;
   }
 };
-
-// const settlementJoindao = async (
-//   baseTable,
-//   filters,
-//   page,
-//   pageSize,
-//   sortBy,
-//   sortOrder,
-//   columns = [],
-// ) => {
-//   const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.MERCHANT}" WHERE 1=1`;
-//   const [sql, queryParams] = await buildJoinQuery(baseTable, filters, baseQuery, page, pageSize, sortBy, sortOrder);
-//   const result = await executeQuery(sql, queryParams);
-//   return result.rows;
-// };
 
 const getSettlementDaoforInternalTransfer = async (utr, method) => {
   try {
