@@ -306,12 +306,7 @@ export const getPayoutsBySearchDao = async (
     `;
     values.push(limitNum, offset);
 
-    console.log('values', values);
-    console.log('queryText', queryText);
-    console.log('countQuery', countQuery);
-    console.log('conditions', conditions);
-    console.log('filters', filters);
-    console.log('searchTerms', searchTerms);
+   
 
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
