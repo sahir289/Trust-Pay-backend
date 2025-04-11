@@ -68,7 +68,7 @@ const getSettlementController = async (req, res) => {
 };
 const getSettlementsBySearch = async (req, res) => {
   const { company_id,role} = req.user;
-  const { search, page = 1, limit = 10  } = req.query;
+  const { search, page = 1, limit = 10 ,role_name } = req.query;
   if (!search) {
     throw new BadRequestError('search is required');
   }
@@ -78,6 +78,7 @@ const getSettlementsBySearch = async (req, res) => {
       search,
       page,
       limit,
+      role_name,
       ...req.query,
     },
     role,

@@ -69,6 +69,7 @@ const getBankResponseBySearchDao = async (
         br.amount,
         br.upi_short_code,
         br.utr,
+        br.sno,
         br.is_used,
         br.created_at,
         br.updated_at,
@@ -76,8 +77,8 @@ const getBankResponseBySearchDao = async (
         br.config,
         br.updated_by,
         ba.user_id ,
-        ba.nick_name ,
-        ba.bank_name ,
+        ba.nick_name,
+        ba.bank_name,
         v.code 
       FROM public."BankResponse" br 
       JOIN public."BankAccount" ba ON br.bank_id = ba.id
@@ -109,7 +110,6 @@ const getBankResponseBySearchDao = async (
             OR LOWER(br.updated_by) LIKE LOWER($${paramIndex})
             OR LOWER(ba.user_id::text) LIKE LOWER($${paramIndex})
             OR LOWER(ba.nick_name) LIKE LOWER($${paramIndex})
-            OR LOWER(ba.bank_name) LIKE LOWER($${paramIndex})
             OR LOWER(v.code) LIKE LOWER($${paramIndex})
           )
         `);

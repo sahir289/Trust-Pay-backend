@@ -91,7 +91,7 @@ export const getUsersBySearchDao = async (
         "User".created_at,
         "User".updated_at,
         "User".first_name || ' ' || "User".last_name AS full_name,
-        "Designation".designation AS designation_name 
+        "Designation".designation AS Designation 
       FROM "User" 
       LEFT JOIN "Designation" ON "User".designation_id = "Designation".id 
       WHERE 1=1 
