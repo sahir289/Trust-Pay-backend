@@ -217,21 +217,6 @@ const getSettlementsBySearchDao = async (
   }
 };
 
-// const settlementJoindao = async (
-//   baseTable,
-//   filters,
-//   page,
-//   pageSize,
-//   sortBy,
-//   sortOrder,
-//   columns = [],
-// ) => {
-//   const baseQuery = `SELECT ${columns.length ? columns.join(', ') : "*"} FROM "${tableName.MERCHANT}" WHERE 1=1`;
-//   const [sql, queryParams] = await buildJoinQuery(baseTable, filters, baseQuery, page, pageSize, sortBy, sortOrder);
-//   const result = await executeQuery(sql, queryParams);
-//   return result.rows;
-// };
-
 const getSettlementDaoforInternalTransfer = async (utr, method) => {
   try {
     let baseQuery = `SELECT id, user_id, status, amount, method, config, approved_at, rejected_at, created_by, created_at, updated_at, company_id, is_obsolete, updated_by FROM "${tableName.SETTLEMENT}"

@@ -1,5 +1,6 @@
 import {
   CREATE_BANK_RESPONSE_SCHEMA,
+  RESET_BANK_RESPONSE_SCHEMA,
   UPDATE_BANK_RESPONSE_SCHEMA,
   VALIDATE_BANK_RESPONSE_BY_ID,
   // VALIDATE_BANK_RESPONSE_QUERY,
@@ -86,21 +87,6 @@ const updateBankResponse = async (req, res) => {
   return sendSuccess(res, {}, 'BankResponse updated successfully');
 };
 
-const updateBankResponseUTR = async (req, res) => {
-  const { role } = req.user;
-  const { error: bodyError } = UPDATE_BANK_RESPONSE_SCHEMA.validate(req.body);
-  if (bodyError) {
-    throw new ValidationError(bodyError);
-  }
-  const { company_id } = req.user;
-  const { utr } = req.params;
-  const { amount } = req.body;
-  const ids = { utr, company_id };
-  await updateBankResponseService(ids, {is_used : false, amount: amount }, role);
- 
-  return sendSuccess(res, {}, 'BankResponse updated successfully');
-};
-
 const getBankMessage = async (req, res) => {
   const { company_id } = req.user;
   const { role } = req.user;
@@ -118,8 +104,15 @@ const getBankMessage = async (req, res) => {
 };
 
 const resetBankResponse = async (req, res) => {
-  const { company_id, user_id } = req.user;
+  const { company_id, user_name } = req.user;
   const { id } = req.params;
+  const { amount, previousAmount } = req.body;
+
+  const { error: bodyError } = RESET_BANK_RESPONSE_SCHEMA.validate(req.body);
+  if (bodyError) {
+    throw new ValidationError(bodyError);
+  }
+
   const botRes = await getBankResponseDao({ id: id, company_id: company_id });
   let getallPayinDataByUtr;
   getallPayinDataByUtr = await getPayInUrlsDao({
@@ -133,8 +126,19 @@ const resetBankResponse = async (req, res) => {
   if (!hasSuccess) {
     const data = {
       is_used: false,
-      updated_by: user_id,
+      updated_by: user_name,
+      config: {
+        ...(botRes.config || {}),
+        previousAmount: typeof previousAmount === 'number' && !isNaN(previousAmount)
+          ? previousAmount
+          : botRes.amount,
+      },
     };
+
+    if (typeof amount === 'number' && !isNaN(amount)) {
+      data.amount = amount;
+    }
+
     await updateBotResponseDao(id, data);
 
     const isEqualUTR = getallPayinDataByUtr?.some(
@@ -148,11 +152,11 @@ const resetBankResponse = async (req, res) => {
       const updatePayinData = {
         status: 'ASSIGNED',
         user_submitted_utr: null,
-        updated_by: user_id,
+        updated_by: user_name,
       };
       await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData);
     }
-    return sendSuccess(res, 'Bot response Reset successful');
+    return sendSuccess(res, {}, `Bot response Reset successful. Previous Amount: ${data.previousAmount}`);
   } else {
     const successPayinDataID = getallPayinDataByUtr?.filter(
       (item) => item.status === 'SUCCESS',
@@ -160,7 +164,7 @@ const resetBankResponse = async (req, res) => {
     return sendSuccess(
       res,
       {},
-      `UTR of this entry is already used with ${successPayinDataID[0]?.merchant_order_id} Merchant Order ID, No Changes Applied`,
+      `UTR of this entry is already used with ${successPayinDataID[0]?.merchant_order_id} Merchant Order ID, No Changes Applied. Previous Amount: ${botRes.amount}`,
     );
   }
 };
@@ -172,5 +176,4 @@ export {
   getBankMessage,
   getBankResponseBySearch,
   resetBankResponse,
-  updateBankResponseUTR
 };
