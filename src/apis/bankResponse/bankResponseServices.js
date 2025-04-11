@@ -793,6 +793,7 @@ const getBankResponseService = async (payload, role, page, limit, search) => {
     throw new InternalServerError(error);
   }
 };
+
 const getBankResponseBySearchService = async  (
    filters,
     role,

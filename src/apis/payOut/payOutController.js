@@ -90,7 +90,6 @@ const updatePayout = async (req, res) => {
   payload.updated_by = user_id;
   const ids = { id, company_id };
   await transactionWrapper(updatePayoutService)(ids, payload, role);
-  console.log('Payout updated successfully');
   return sendSuccess(res, {}, 'Payout updated successfully');
 };
 
