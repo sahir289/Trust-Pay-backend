@@ -121,8 +121,12 @@ export const getCalculationsSumDao = async (filters) => {
   } = filters;
 
   const dateFormat = 'MM-DD-YYYY';
-  const startDate = start ? dayjs(start).format(dateFormat) : dayjs().subtract(7, 'd').format(dateFormat);
-  const endDate = end ? dayjs(end).format(dateFormat) : dayjs().format(dateFormat);
+  const startDate = start
+    ? dayjs(start).format(dateFormat)
+    : dayjs().subtract(7, 'd').format(dateFormat);
+  const endDate = end
+  ? dayjs(end).endOf('day').toISOString() // Include the full day
+  : dayjs().endOf('day').toISOString(); 
   let vendorData = {}, merchantData = {}, netBalance = {};
   let hierarchyUsers = [], userCodes = users ? users.split(", ") : [];
   const checkForHierarchy = [Role.MERCHANT_ADMIN, Role.VENDOR_ADMIN].includes(designation);
@@ -135,7 +139,7 @@ export const getCalculationsSumDao = async (filters) => {
   }
 
 
-  const groupBy = ` GROUP BY DATE_TRUNC('day', c.created_at) ORDER BY DATE_TRUNC('day', c.created_at);`
+  const groupBy = ` GROUP BY DATE_TRUNC('day', c.created_at) ORDER BY DATE_TRUNC('day', c.created_at)DESC;`
 
   // Base Query for Aggregated Calculations
   let baseQuery = `
@@ -154,7 +158,8 @@ export const getCalculationsSumDao = async (filters) => {
         SUM(c.total_reverse_payout_count) AS total_reverse_payout_count,
         SUM(c.total_reverse_payout_amount) AS total_reverse_payout_amount,
         SUM(c.total_reverse_payout_commission) AS total_reverse_payout_commission,
-        SUM(c.current_balance) AS current_balance
+        SUM(c.current_balance) AS current_balance,
+        SUM(c.net_balance) AS net_balance
     FROM "${tableName.CALCULATION}" c
     JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
     JOIN "${tableName.ROLE}" r ON u.role_id = r.id

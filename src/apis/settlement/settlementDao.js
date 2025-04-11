@@ -201,8 +201,6 @@ const getSettlementsBySearchDao = async (
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
 
-    // console.log(countResult, searchResult, 'searchResult');
-
     const totalItems = parseInt(countResult.rows[0].total);
     const totalPages = Math.ceil(totalItems / limitNum);
 
@@ -212,7 +210,7 @@ const getSettlementsBySearchDao = async (
       settlements: searchResult.rows,
     };
   } catch (error) {
-    console.error('Error in getSettlementsBySearchDao:', error.message);
+    logger.error('Error in getSettlementsBySearchDao:', error.message);
     throw error.message;
   }
 };
