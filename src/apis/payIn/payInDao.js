@@ -292,6 +292,7 @@ if (filters.status) {
             OR LOWER(b.nick_name) LIKE LOWER($${paramIndex})
             OR LOWER(br.utr) LIKE LOWER($${paramIndex})
             OR LOWER(m.code) LIKE LOWER($${paramIndex})
+            OR LOWER(v.code) LIKE LOWER($${paramIndex})
             OR p.amount::text LIKE $${paramIndex}
             OR br.amount::text LIKE $${paramIndex}
             OR LOWER(p.config->>'user') LIKE LOWER($${paramIndex})
