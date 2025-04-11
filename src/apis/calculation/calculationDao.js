@@ -128,7 +128,7 @@ export const getCalculationsSumDao = async (filters) => {
   ? dayjs(end).endOf('day').toISOString() // Include the full day
   : dayjs().endOf('day').toISOString(); 
   let vendorData = {}, merchantData = {}, netBalance = {};
-  let hierarchyUsers = [], userCodes = users ? users.split(", ") : [];
+  let hierarchyUsers = [], userCodes = users ? users.split(",") : [];
   const checkForHierarchy = [Role.MERCHANT_ADMIN, Role.VENDOR_ADMIN].includes(designation);
 
   // Fetch hierarchy users if applicable
