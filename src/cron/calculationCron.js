@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import moment from 'moment-timezone';
+// import config from '../config/config.js';
 import { 
   // executeQuery, 
   transactionWrapper 
@@ -10,15 +11,19 @@ import { getUsersForCronDao } from '../apis/users/userDao.js';
 // import { Role, tableName } from '../constants/index.js';
 // import dayjs from 'dayjs';
 
-cron.schedule(
-  '0 0 * * *',
-  () => {
-    collectCalculationData('Asia/Kolkata');
-  },
-  {
-    timezone: 'Asia/Kolkata',
-  },
-);
+// Only run cron jobs in development environment
+// if (config.env === 'development') {
+  cron.schedule(
+    '0 0 * * *',
+    () => {
+      console.log('Running cron job in development mode');
+      collectCalculationData('Asia/Kolkata');
+    },
+    {
+      timezone: 'Asia/Kolkata',
+    },
+  );
+// }
 const collectCalculationData = async (timezone = 'Asia/Kolkata') => {
   const startTime = moment().tz(timezone, true);
   try {

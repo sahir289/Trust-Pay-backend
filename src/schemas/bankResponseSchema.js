@@ -7,6 +7,7 @@ export const CREATE_BANK_RESPONSE_SCHEMA = Joi.object({
 export const UPDATE_BANK_RESPONSE_SCHEMA = Joi.object({
   amount: Joi.number().optional().label('amount'),
   utr: Joi.string().optional().label('utr'),
+  is_used : Joi.boolean().optional().label('is_used'),
 });
 
 export const VALIDATE_BANK_RESPONSE_BY_ID = Joi.object({

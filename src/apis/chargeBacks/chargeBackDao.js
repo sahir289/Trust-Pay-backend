@@ -51,9 +51,11 @@ export const getChargeBackDao = async (
       },
       dateRange: (filters, conditions, queryParams) => {
         if (!filters.startDate || !filters.endDate) return;
-        const nextParamIdx = queryParams.length + 1;
-        conditions.push(`cb.created_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`);
-        queryParams.push(filters.startDate, filters.endDate);
+        const startDate = new Date(filters.startDate);
+        const endDate = new Date(filters.endDate);
+        const idx = queryParams.length + 1;
+        conditions.push(`cb.created_at BETWEEN $${idx} AND $${idx + 1}`); 
+        queryParams.push(startDate, endDate);
       },
       pagination: (page, pageSize, queryParams, limitconditionRef) => {
         if (!page || !pageSize) return;

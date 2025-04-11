@@ -1322,12 +1322,7 @@ export const telegramCheckUTRService = async (
   company_id,
   updated_by,
 ) => {
-  //already sucess bank_mismatch with merchant order id //
-  //pending - without/with checkutr - utr //
-  //utr doesnt match //
-  //dropped- url expire - dropped - amount/bank //
-
-  const bankResponse = await getBankResponseDao({ utr });
+  const bankResponse = await getBankResponseDao({ utr: utr });
   let otherBankResponse = {};
   const payIn = await getPayInUrlDao({ merchant_order_id });
 
@@ -1440,19 +1435,24 @@ const checkIsPayInExpired = (payIn) => {
 
 const updateCalculationTable = async (user_id, data, conn) => {
   if (user_id) {
-    const calculation = await getCalculationforCronDao(user_id);
-    if (!calculation[0]) {
+    const calculationData = await getCalculationforCronDao(user_id);
+    if (!calculationData[0]) {
       throw new NotFoundError('Calculation not found!');
     }
-    const calculationId = calculation[0].id;
+    let count = calculationData[0].total_settlement_count + 1;
+    let amountCalculation =
+      calculationData[0].total_payin_amount + data?.amount;
+    let currentBalance = Number(calculationData[0].current_balance) || 0  + data?.amount;
+    let netBalance = calculationData[0].net_balance + data?.amount;
+    const calculationId = calculationData[0].id;
     await updateCalculationBalanceDao(
       { id: calculationId },
       {
-        total_payin_count: 1,
-        total_payin_amount: data.amount,
+        total_payin_count: count,
+        total_payin_amount: amountCalculation,
         total_payin_commission: data.payinCommission,
-        current_balance: data.amount,
-        net_balance: data.amount,
+        current_balance: currentBalance,
+        net_balance: netBalance,
       },
       conn,
     );

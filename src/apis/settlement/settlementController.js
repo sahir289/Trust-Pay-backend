@@ -83,7 +83,6 @@ const getSettlementsBySearch = async (req, res) => {
     },
     role,
   );
-  console.log('get settlements successfully');
   return sendSuccess(res, data, 'settlements fetched successfully');
 };
 const createSettlementController = async (req, res) => {
@@ -96,8 +95,24 @@ const createSettlementController = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
+  const data = {
+    method: payload.method,
+    amount: payload.amount,
+    user_id: payload.user_id,
+    company_id,
+    created_by: user_id,
+    status: "INITIATED",
+    config: {
+     
+       ifsc :  payload.ifsc,
+       acc_no:  payload.acc_no,
+       acc_holder_name: payload.acc_holder_name,
+       bank_name:  payload.bank_name
+      
+    }
+  };
   // const data =
-  await createSettlementService(payload);
+  await createSettlementService(data);
   sendSuccess(res, {}, 'Created settlement');
 };
 
