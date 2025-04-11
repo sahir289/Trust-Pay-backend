@@ -202,7 +202,6 @@ export const getPayinsBySearchDao = async (
     const values = [filters.company_id];
     let paramIndex = 2;
     let commissionSelect = '';
-
     // Define commissionSelect without leading commas
     if (role === 'MERCHANT') {
       commissionSelect = `
@@ -262,13 +261,12 @@ export const getPayinsBySearchDao = async (
       WHERE p.is_obsolete = false
       AND p.company_id = $1
     `;
-
-    if (filters.status) {
-      queryText += ` AND p.status = $${paramIndex}`;
-      values.push(filters.status);
-      paramIndex++;
-    }
-
+if (filters.status) {
+  const statusArray = filters.status.split(',').map((s) => s.trim());
+  queryText += ` AND p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
+  values.push(...statusArray);
+  paramIndex += statusArray.length;
+}
     searchTerms.forEach((term) => {
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
         const boolValue = term.toLowerCase() === 'true';
