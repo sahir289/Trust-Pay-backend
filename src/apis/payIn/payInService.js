@@ -1322,12 +1322,7 @@ export const telegramCheckUTRService = async (
   company_id,
   updated_by,
 ) => {
-  //already sucess bank_mismatch with merchant order id //
-  //pending - without/with checkutr - utr //
-  //utr doesnt match //
-  //dropped- url expire - dropped - amount/bank //
-
-  const bankResponse = await getBankResponseDao({ utr });
+  const bankResponse = await getBankResponseDao({ utr: utr });
   let otherBankResponse = {};
   const payIn = await getPayInUrlDao({ merchant_order_id });
 
