@@ -67,6 +67,8 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
   tryCatchHandler(getBankResponse),
 );
+
+
 router.get(
   '/search',
   [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],

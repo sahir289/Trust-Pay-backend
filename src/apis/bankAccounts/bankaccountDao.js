@@ -61,12 +61,11 @@ const getBankaccountDao = async (filters, page, limit, role) => {
       commissionSelect = '';
     } else if (role === 'VENDOR') {
       commissionSelect =
-        'ifsc_code, ba.payin_count, ba.balance, ba.today_balance, ba.bank_used_for, ';
+        'ifsc_code, ba.payin_count, ba.balance, ba.today_balance, ba.bank_used_for, creator.user_name AS created_by, updater.user_name AS updated_by,  ';
     } else {
       commissionSelect = `
         ba.user_id, ba.ifsc, ba.min, 
-        ba.max, ba.payin_count, ba.balance, ba.today_balance, ba.bank_used_for, ba.created_by, 
-        ba.updated_by, ba.created_at, ba.updated_at
+        ba.max, ba.payin_count, ba.balance, ba.today_balance, ba.bank_used_for, creator.user_name AS created_by, updater.user_name AS updated_by, ba.created_at, ba.updated_at
       `;
     }
     const baseQuery = `SELECT 
@@ -97,6 +96,10 @@ const getBankaccountDao = async (filters, page, limit, role) => {
                     SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
           )
       ) m ON TRUE
+       LEFT JOIN public."User" creator 
+        ON ba.created_by = creator.id
+      LEFT JOIN public."User" updater 
+        ON ba.updated_by = updater.id
       WHERE 
           ${conditions.join(' AND ')}
       ORDER BY 
@@ -142,8 +145,8 @@ const getBankAccountsBySearchDao = async (
         ba.balance, 
         ba.today_balance, 
         ba.bank_used_for, 
-        ba.created_by, 
-        ba.updated_by, 
+        creator.user_name AS created_by, 
+        updater.user_name AS updated_by, 
         ba.created_at, 
         ba.updated_at,
       `;
@@ -183,6 +186,10 @@ const getBankAccountsBySearchDao = async (
           SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
         )
       ) m ON TRUE
+      LEFT JOIN public."User" creator 
+        ON ba.created_by = creator.id
+      LEFT JOIN public."User" updater 
+        ON ba.updated_by = updater.id
       WHERE 1=1
     `;
 
@@ -232,8 +239,8 @@ const getBankAccountsBySearchDao = async (
               OR ba.today_balance::text LIKE $${paramIndex}
               OR LOWER(ba.bank_used_for) LIKE LOWER($${paramIndex})
               ${role !== 'VENDOR' ? `
-                OR LOWER(ba.created_by::text) LIKE LOWER($${paramIndex})
-                OR LOWER(ba.updated_by::text) LIKE LOWER($${paramIndex})
+                OR LOWER(creator.user_name) LIKE LOWER($${paramIndex})
+                OR LOWER(updater.user_name) LIKE LOWER($${paramIndex})
               ` : ''}
             ` : role === 'VENDOR' ? `
               OR LOWER(ba.ifsc_code) LIKE LOWER($${paramIndex})
