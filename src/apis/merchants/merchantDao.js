@@ -153,8 +153,8 @@ export const getMerchantsBySearchDao = async (
         "Merchant".is_demo, 
         "Merchant".balance, 
         "Merchant".config, 
-        "Merchant".created_by, 
-        "Merchant".updated_by, 
+        creator.user_name as created_by, 
+        creator.user_name as updated_by, 
         "Merchant".created_at, 
         "Merchant".updated_at, 
         "User".designation_id, 
@@ -162,7 +162,9 @@ export const getMerchantsBySearchDao = async (
         "Designation".designation AS designation_name 
       FROM "Merchant" 
       JOIN "User" ON "Merchant".user_id = "User".id 
-      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id 
+      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
+      LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
+      LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
       WHERE 1=1 
       AND "Merchant".is_obsolete = false 
       AND "Merchant"."company_id" = $1

@@ -31,6 +31,7 @@ const getBankResponse = async (req, res) => {
   return sendSuccess(res, data, 'Bank response retrieved successfully');
 };
 
+
 const getBankResponseBySearch = async (req, res) => {
   const { company_id, role } = req.user;
   const { search, page = 1, limit = 10 } = req.query;
