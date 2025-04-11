@@ -7,7 +7,20 @@ export const CREATE_BANK_RESPONSE_SCHEMA = Joi.object({
 export const UPDATE_BANK_RESPONSE_SCHEMA = Joi.object({
   amount: Joi.number().optional().label('amount'),
   utr: Joi.string().optional().label('utr'),
-  is_used : Joi.boolean().optional().label('is_used'),
+  is_used: Joi.boolean().optional().label('is_used'),
+});
+
+export const RESET_BANK_RESPONSE_SCHEMA = Joi.object({
+  amount: Joi.alternatives().try(
+    Joi.number().strict(),
+    Joi.string().allow('').optional()
+  ).optional(),
+  is_used: Joi.boolean().optional(),
+  updated_by: Joi.string().optional(),
+  previousAmount: Joi.alternatives().try(
+    Joi.number().strict(),
+    Joi.string().allow('').optional()
+  ).optional(),
 });
 
 export const VALIDATE_BANK_RESPONSE_BY_ID = Joi.object({
