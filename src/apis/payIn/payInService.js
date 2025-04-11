@@ -74,12 +74,11 @@ export const generatePayInUrlByHashService = async (req) => {
     throw new BadRequestError('Missing required query parameters: user_id, code, or ot');
   }
   const x_api_key = req.headers['x-api-key'];
-  const merchantArr = await getMerchantsDao({ code });
-  const bankAssigned = await getMerchantBankDao({ config_merchants_contains: merchantArr[0].id });
-
-  if (bankAssigned.length <= 0) {
-    throw new InternalServerError('No Bank Assigned to Merchant')
-  }
+  // const merchantArr = await getMerchantsDao({ code });
+  // const bankAssigned = await getMerchantBankDao({ config_merchants_contains: merchantArr[0].id });
+  // if (bankAssigned.length <= 0) {
+  //   throw new InternalServerError('No Bank Assigned to Merchant')
+  // }
 
   let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
   if (amount) {
@@ -110,24 +109,17 @@ export const generatePayInUrlService = async (payload, created_by) => {
     api_key,
     x_api_key,
   } = payload;
+
   const merchant_order_id = order_id ? order_id : uuidv4();
-
   const merchantArr = await getMerchantsDao({ code });
-  const banks = await getMerchantBankDao({ config_merchants_contains: merchantArr[0].id });
-
-  if (banks.length < 1) {
-    throw new NotFoundError('No Bank Assigned to Merchant')
-  }
   const merchant = merchantArr[0];
+
+  let conn;
+  conn = await getConnection();
+
   if (!merchant) {
     throw new NotFoundError('Merchant does not exist');
-  }
-
-  const bankAssigned = await getMerchantBankDao({ config_merchants_contains: merchant.id });
-
-  if (bankAssigned.length < 0) {
-    throw new InternalServerError('No Bank Assigned to Merchant')
-  }
+  } 
 
   const merchantAPIKey = merchant.config?.keys;
 
@@ -177,7 +169,20 @@ export const generatePayInUrlService = async (payload, created_by) => {
   };
 
   const result = await generatePayInUrlDao(data);
-  expirePayInIfNeeded(result.id);
+  const bankAssigned = await getMerchantBankDao({ config_merchants_contains: merchant.id });
+  if (bankAssigned.length === 0) {
+      setTimeout(async () => {
+          const updated= await updatePayInUrlDao(result.id, {
+            is_url_expires: true,
+            one_time_used: true,
+            status: Status.DROPPED
+          }, conn);
+          console.log('updated', updated);
+      }, 1000);
+      throw new NotFoundError('No Bank Assigned to Merchant')
+    } 
+
+  expirePayInIfNeeded(result.id, code);
   return result;
 };
 
