@@ -65,6 +65,12 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         conditions.push(`p.created_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`);
         queryParams.push(filters.startDate, filters.endDate);
       },
+      bankName: (filters, conditions, queryParams) => {
+        if (!filters.nick_name) return;
+        const nextParamIdx = queryParams.length + 1;
+        conditions.push(`LOWER(b.nick_name) LIKE LOWER($${nextParamIdx})`);
+        queryParams.push(filters.nick_name);
+      },
       status: (filters, conditions, queryParams) => {
         if (!filters.status) return;
         const statusArray = filters.status.split(',').map(s => s.trim());
@@ -86,6 +92,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
     // Apply the filters
     conditionBuilders.search(filters, PAYIN);
     conditionBuilders.dateRange(filters, conditions, queryParams);
+    conditionBuilders.bankName(filters, conditions, queryParams);
     conditionBuilders.status(filters, conditions, queryParams);
     conditionBuilders.pagination(page, limit, queryParams, limitcondition);
 
@@ -261,12 +268,12 @@ export const getPayinsBySearchDao = async (
       WHERE p.is_obsolete = false
       AND p.company_id = $1
     `;
-if (filters.status) {
-  const statusArray = filters.status.split(',').map((s) => s.trim());
-  queryText += ` AND p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
-  values.push(...statusArray);
-  paramIndex += statusArray.length;
-}
+    if (filters.status) {
+      const statusArray = filters.status.split(',').map((s) => s.trim());
+      queryText += ` AND p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
+      values.push(...statusArray);
+      paramIndex += statusArray.length;
+    }
     searchTerms.forEach((term) => {
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
         const boolValue = term.toLowerCase() === 'true';
@@ -393,7 +400,7 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
     conn = await getConnection();
     console.log(conn)
     const result = await conn.query(baseQuery, [merchantOrderId]);
-    
+
     return result.rows;
   } catch (error) {
     const errorMessage = `Error fetching payin details for merchantOrderId ${merchantOrderId}: ${error.message}`;

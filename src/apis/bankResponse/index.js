@@ -33,7 +33,6 @@ const router = express.Router();
  */
 router.post(
   '/create-message',
-  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
   tryCatchHandler(createBankResponse),
 );
 
