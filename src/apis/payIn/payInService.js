@@ -977,7 +977,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
       amount: bankResponse.amount,
     });
     await updateCalculationTable(
-      bankResponse.user_id,
+      bank.user_id,
       {
         payinCommission: vendorCommission,
         amount: bankResponse.amount,
@@ -1353,7 +1353,7 @@ export const disputeDuplicateTransactionService = async (
       {},
     );
     await updateCalculationTable(
-      bankResponse.user_id,
+      bank.user_id,
       {
         payinCommission: vendorPayinCommission,
         amount: toAmount,
@@ -1400,14 +1400,6 @@ export const telegramCheckUTRService = async (
     updated_by,
   });
 
-  if (payIn.status === 'DROPPED') {
-    await updatePayInUrlDao(
-      { merchant_order_id: merchant_order_id },
-      { user_submitted_utr: bankResponse.utr },
-    );
-    return { message: `${utr} paired with ${merchant_order_id}` };
-  }
-
   if (payIn.bank_response_id) {
     otherBankResponse =
       (await getBankResponseDao({ id: payIn.bank_response_id })) || {};
@@ -1444,7 +1436,6 @@ export const telegramCheckUTRService = async (
     conn,
     {
       userSubmittedUtr: utr,
-      // merchantOrderId: payIn.id,
       merchantOrderId: merchant_order_id,
       amount: payIn.amount,
     },
@@ -1477,7 +1468,6 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
     one_time_used: true,
   });
   const result = {
-    code: payIn.upi_short_code,
     return_url: config.return_url,
     notify_url: config.notify_url,
     expiryTime: payIn.expiration_date,
