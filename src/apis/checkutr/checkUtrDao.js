@@ -113,7 +113,7 @@ const getCheckUtrBySearchDao = async (company_id, searchTerms, limitNum, offset)
         "BankResponse".upi_short_code 
       FROM "CheckUtrHistory" 
       JOIN "Payin" ON "CheckUtrHistory".payin_id = "Payin".id 
-      LEFT JOIN "BankResponse" ON "Payin".bank_acc_id = "BankResponse".bank_id 
+      LEFT JOIN "BankResponse" ON "Payin".bank_response_id = "BankResponse".id 
       WHERE 1=1 
       AND "CheckUtrHistory".is_obsolete = false 
       AND "CheckUtrHistory"."company_id" = $1
