@@ -15,7 +15,6 @@ const getCheckUtrDao = async (
   columns = []
 ) => {
   try {
-    console.log(filters, page, pageSize, sortBy, sortOrder, columns);
     const { BANK_RESPONSE, CHECK_UTR_HISTORY, PAYIN } = tableName;
 
     // Default columns if none provided
@@ -81,10 +80,6 @@ const getCheckUtrDao = async (
     const offset = (page - 1) * pageSize;
     sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     queryParams.push(pageSize, offset);
-
-    // Log final query for debugging
-    console.log('Final SQL:', sql);
-    console.log('Query Params:', queryParams);
 
     // Execute query
     const result = await executeQuery(sql, queryParams);
