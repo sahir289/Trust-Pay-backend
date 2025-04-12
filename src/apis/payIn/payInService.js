@@ -790,7 +790,7 @@ export const getPayinsService = async (
 
 export const getPayinsBySearchService = async (
   filters,
-  // role,
+  role,
   // designation,
   // user_id,
 ) => {
@@ -819,10 +819,11 @@ export const getPayinsBySearchService = async (
     // TODO: add designation constants
 
     const data = await getPayinsBySearchDao(
-      filters.company_id,
+      filters,
       searchTerms,
       limitNum,
       offset,
+      role
       // filterColumns,
     );
 

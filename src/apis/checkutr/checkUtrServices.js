@@ -18,7 +18,7 @@ const getCheckUtrService = async (id, page, limit) => {
   }
 };
 
-const getCheckUtrBySearchService = async (company_id, page, limit) => {
+const getCheckUtrBySearchService = async (company_id, search, page, limit) => {
   try {
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);

@@ -156,38 +156,78 @@ export const getPayoutsDao = async (filters, company_id, page, limit, role, conn
   }
 };
 export const getPayoutsBySearchDao = async (
-  company_id,
+  filters,
   searchTerms,
   limitNum,
   offset,
+  role,
 ) => {
   try {
     const conditions = [];
-    const values = [company_id];
+    const values = [filters.company_id];
     let paramIndex = 2;
+    let commissionSelect = '';
+
+    if (role === 'MERCHANT') {
+      commissionSelect = `
+        p.payout_merchant_commission, 
+        p.merchant_order_id, 
+        json_build_object(
+          'merchant_code', m.code,
+          'return_url', m.config->>'return_url',
+          'notify_url', m.config->>'notify_url'
+        ) AS merchant_details
+      `;
+    } else if (role === 'VENDOR') {
+      commissionSelect = `
+        p.payout_vendor_commission, 
+        v.code AS vendor_code, 
+        v.id AS vendor_id, 
+        v.user_id AS vendor_user_id
+      `;
+    } else {
+      commissionSelect = `
+        p.merchant_id, 
+        p.payout_merchant_commission, 
+        p.payout_vendor_commission, 
+        p.approved_at, 
+        p.created_by, 
+        p.updated_by, 
+        p.created_at, 
+        v.code AS vendor_code, 
+        v.id AS vendor_id, 
+        v.user_id AS vendor_user_id,
+        p.updated_at, 
+        json_build_object(
+          'merchant_code', m.code,
+          'return_url', m.config->>'return_url',
+          'notify_url', m.config->>'notify_url',
+          'public_key', m.config->'keys'->>'public',
+          'private_key', m.config->'keys'->>'private'
+        ) AS merchant_details
+      `;
+    }
 
     let queryText = `
-      SELECT 
-        p.id,
+      SELECT DISTINCT ON (p.id) 
+        p.id, 
         p.sno,
-        p.user,
-        p.bank_acc_id,
+        p.user,    
+        p.bank_acc_id, 
         p.amount,
-        p.status,
+        p.status, 
         p.merchant_order_id,
-        p.failed_reason,
-        p.currency,
-        p.upi_id,
-        p.utr_id,
+        p.failed_reason, 
+        p.currency, 
+        p.upi_id, 
+        p.utr_id, 
         p.rejected_reason,
-        p.payout_merchant_commission,
-        p.payout_vendor_commission,
-        p.created_at,
-        p.updated_at,
         p.config AS payout_details,
-        b.nick_name AS bank_nickname,
-        m.code AS merchant_code,
-        v.code AS vendor_code,
+        ${commissionSelect},
+        b.id AS bank_table_id, 
+        b.user_id, 
+        b.nick_name,
+        m.id AS merchant_table_id,
         json_build_object(
           'account_holder_name', p.acc_holder_name,
           'account_no', p.acc_no,
@@ -202,18 +242,34 @@ export const getPayoutsBySearchDao = async (
       AND p.company_id = $1
     `;
 
-    searchTerms.forEach((term) => {
-      if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-        const boolValue = term.toLowerCase() === 'true';
-        conditions.push(`(p.is_obsolete = $${paramIndex})`);
-        values.push(boolValue);
-        paramIndex++;
+    if (filters.status) {
+      let statusArray;
+
+      if (Array.isArray(filters.status)) {
+        statusArray = filters.status
+          .map((s) => String(s).trim())
+          .filter((s) => s);
       } else {
+        statusArray = filters.status
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s);
+      }
+      statusArray = [...new Set(statusArray)];
+
+      if (statusArray.length > 0) {
+        queryText += ` AND p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
+        values.push(...statusArray);
+        paramIndex += statusArray.length;
+      }
+    }
+
+    searchTerms.forEach((term) => {
+      if (term.toLowerCase() !== 'true' && term.toLowerCase() !== 'false') {
         conditions.push(`
           (
             LOWER(p.id::text) LIKE LOWER($${paramIndex})
             OR LOWER(p.user) LIKE LOWER($${paramIndex})
-            OR LOWER(p.status) LIKE LOWER($${paramIndex})
             OR LOWER(p.merchant_order_id) LIKE LOWER($${paramIndex})
             OR LOWER(p.failed_reason) LIKE LOWER($${paramIndex})
             OR LOWER(p.currency) LIKE LOWER($${paramIndex})
@@ -244,11 +300,13 @@ export const getPayoutsBySearchDao = async (
     const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
 
     queryText += `
-      ORDER BY p.created_at DESC
-      LIMIT $${values.length + 1}
-      OFFSET $${values.length + 2}
+      ORDER BY p.id, p.created_at DESC
+      LIMIT $${paramIndex}
+      OFFSET $${paramIndex + 1}
     `;
     values.push(limitNum, offset);
+
+   
 
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
@@ -259,14 +317,14 @@ export const getPayoutsBySearchDao = async (
     const data = {
       totalCount: totalItems,
       totalPages,
-      payouts: searchResult.rows,
+      payout: searchResult.rows,
     };
     return data;
   } catch (error) {
     console.error('Error in getPayoutsBySearchDao:', error);
-    throw error.message;
+    throw new Error(error.message);
   }
-};  
+};
 export const getPayoutsCronDao = async (conn, payload) => {
   try {
     let baseQuery = `SELECT * FROM public."Payout" 

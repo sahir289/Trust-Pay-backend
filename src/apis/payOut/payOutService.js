@@ -178,7 +178,7 @@ const getPayoutsBySearchService = async (
       // TODO: add designation constants
   
       const data = await getPayoutsBySearchDao(
-        filters.company_id,
+        filters,
         searchTerms,
         limitNum,
         offset,

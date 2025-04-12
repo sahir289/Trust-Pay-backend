@@ -194,19 +194,16 @@ export const getChargeBacksBySearchDao = async (
       SELECT 
         "${CHARGE_BACK}".id,
         "${CHARGE_BACK}".sno,
-        "${CHARGE_BACK}".merchant_user_id,
-        "${CHARGE_BACK}".vendor_user_id,
-        "${CHARGE_BACK}".payin_id,
         "${CHARGE_BACK}".bank_acc_id,
         "${CHARGE_BACK}".amount,
-        "${CHARGE_BACK}".when,
+        "${CHARGE_BACK}".reference_date,
         "${CHARGE_BACK}".created_by,
         "${CHARGE_BACK}".updated_by,
         "${CHARGE_BACK}".created_at,
         "${CHARGE_BACK}".updated_at,
         ${joins[0].columnAs[0]},  -- vendor_name
         ${joins[1].columnAs[0]},  -- merchant_name
-        "${PAYIN}".user AS payin_user,
+        "${PAYIN}".user AS user,
         "${PAYIN}".merchant_order_id
       FROM "${CHARGE_BACK}"
       ${joins
@@ -247,7 +244,7 @@ export const getChargeBacksBySearchDao = async (
             OR LOWER("${CHARGE_BACK}".payin_id::text) LIKE LOWER($${paramIndex})
             OR LOWER("${CHARGE_BACK}".bank_acc_id::text) LIKE LOWER($${paramIndex})
             OR LOWER("${CHARGE_BACK}".amount::text) LIKE LOWER($${paramIndex})
-            OR LOWER("${CHARGE_BACK}".when::text) LIKE LOWER($${paramIndex})
+            OR LOWER("${CHARGE_BACK}".reference_date::text) LIKE LOWER($${paramIndex})
             OR LOWER("${CHARGE_BACK}".created_by::text) LIKE LOWER($${paramIndex})
             OR LOWER("${CHARGE_BACK}".updated_by::text) LIKE LOWER($${paramIndex})
             OR LOWER("${VENDOR}".code) LIKE LOWER($${paramIndex})
