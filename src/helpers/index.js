@@ -6,7 +6,7 @@ import { verifyToken } from '../utils/auth.js';
 import { logger } from '../utils/logger.js';
 
 // Function to calculate balances based on role
-export const calculateBalances = (calc, prevCalc, isMerchant) => {
+export const calculateBalances = (calc, prevCalc, isMerchant, isReverse, amount = 0) => {
   const baseCalculation =
     calc.total_payin_amount -
     calc.total_payout_amount -
@@ -17,14 +17,19 @@ export const calculateBalances = (calc, prevCalc, isMerchant) => {
     calc.total_reverse_payout_amount;
   return {
     currentBalance: isMerchant
-      ? baseCalculation - calc.total_settlement_amount
-      : baseCalculation + calc.total_settlement_amount,
+      ? isReverse
+        ? baseCalculation - calc.total_settlement_amount
+        : baseCalculation + calc.total_settlement_amount
+      : isReverse ? baseCalculation + calc.total_settlement_amount
+      : baseCalculation - calc.total_settlement_amount,
+
     netBalance:
       prevCalc.net_balance +
-      baseCalculation +
-      (isMerchant
-        ? -calc.total_settlement_amount
-        : calc.total_settlement_amount),
+      (isMerchant ? isReverse
+        ? + amount - calc.total_settlement_amount
+        : - amount + calc.total_settlement_amount
+        : isReverse ? + amount + calc.total_settlement_amount
+        : - amount - calc.total_settlement_amount) ,
   };
 };
 

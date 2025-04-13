@@ -1,4 +1,4 @@
-import {  BadRequestError, InternalServerError, NotFoundError } from '../../utils/appErrors.js';
+import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
 import {
   createSettlementDao,
   deleteSettlementDao,
@@ -164,47 +164,57 @@ const createSettlementService = async (payload) => {
 const updateSettlementService = async (conn, ids, payload, role) => {
   try {
     payload.config = payload.config || {};
+    const data = await getSettlementDao(
+      {
+        id: ids.id,
+        company_id: ids.company_id,
+      },
+      null,
+      null,
+      null,
+      null
+    );
+    const calculationData = await getCalculationforCronDao(data[0].user_table_id);
+    const {
+      id,
+      total_settlement_count,
+      total_settlement_amount,
+      current_balance,
+      net_balance
+    } = calculationData[0];
 
     if (payload.config.reference_id) {
       payload.status = 'SUCCESS';
-      const data = await getSettlementDao(
-        {
-          id: ids.id,
-          company_id: ids.company_id,
-        },
-        null,
-        null,
-        null,
-        null
-      );
-
       if (!data) {
         throw new InternalServerError('no data found');
       }
+      let updatedCalculation;
+      const merchant_data = await getMerchantsDao(
+        { user_id: data[0].user_table_id })
+      if (merchant_data.length > 0) {
+        if (Array.isArray(calculationData) && calculationData.length > 0) {
 
-      const calculationData = await getCalculationforCronDao(data[0].user_table_id);
-      if (Array.isArray(calculationData) && calculationData.length > 0) {
-        const {
-          id,
-          total_settlement_count,
-          total_settlement_amount,
-          current_balance,
-          net_balance
-        } = calculationData[0];
-      
-        const amount = payload?.amount || 0;
-      
-        const updatedCalculation = {
-          total_settlement_count: total_settlement_count + 1,
-          total_settlement_amount: total_settlement_amount + amount,
-          current_balance: current_balance - amount,
-          net_balance: net_balance - amount,
-        };
-      
-        await updateCalculationDao({ id }, updatedCalculation, conn);
+          const amount = payload?.amount || 0;
+          updatedCalculation = {
+            total_settlement_count: total_settlement_count + 1,
+            total_settlement_amount: total_settlement_amount + amount,
+            current_balance: current_balance - amount,
+            net_balance: net_balance - amount,
+          };
+        }
       } else {
-        throw new NotFoundError('No calculation data available for update.');
+        if (Array.isArray(calculationData) && calculationData.length > 0) {
+          const amount = payload?.amount || 0;
+          updatedCalculation = {
+            total_settlement_count: total_settlement_count + 1,
+            total_settlement_amount: total_settlement_amount + amount,
+            current_balance: current_balance + amount,
+            net_balance: net_balance + amount,
+          };
+        }
       }
+
+      await updateCalculationDao({ id }, updatedCalculation, conn);
 
       const merchantData = await getMerchantsDao(
         { user_id: data[0].user_table_id },
@@ -221,10 +231,8 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           null,
           role
         );
-        console.log('bankData_bank_account', bankData);
 
         if (bankData.length > 0) {
-          console.log('bankData__bank_account', bankData);
           const bankAcc = bankData[0].balance - payload?.amount;
           await updateBankaccountDao(
             { id: bankData[0].id },
@@ -249,8 +257,50 @@ const updateSettlementService = async (conn, ids, payload, role) => {
     }
 
     if (payload.status === 'INITIATED') {
-      payload.config.reference_id = '';
-      payload.config.rejected_reason = '';
+      const merchant_data = await getMerchantsDao(
+        { user_id: data[0].user_table_id })
+      if (merchant_data.length > 0) {
+        payload.config.reference_id = '';
+        payload.config.rejected_reason = '';
+        let updatedCalculation
+        const {
+          total_settlement_count,
+          total_settlement_amount,
+          current_balance,
+          net_balance
+        } = calculationData[0];
+
+        const amount = payload?.amount || 0;
+
+        updatedCalculation = {
+          total_settlement_count: total_settlement_count + 1,
+          total_settlement_amount: total_settlement_amount + amount,
+          current_balance: current_balance + amount,
+          net_balance: net_balance + amount,
+        };
+        await updateCalculationDao({ id }, updatedCalculation, conn);
+
+      } else {
+        payload.config.reference_id = '';
+        payload.config.rejected_reason = '';
+        let updatedCalculation
+        const {
+          total_settlement_count,
+          total_settlement_amount,
+          current_balance,
+          net_balance
+        } = calculationData[0];
+
+        const amount = payload?.amount || 0;
+
+        updatedCalculation = {
+          total_settlement_count: total_settlement_count + 1,
+          total_settlement_amount: total_settlement_amount + amount,
+          current_balance: current_balance - amount,
+          net_balance: net_balance - amount,
+        };
+        await updateCalculationDao({ id }, updatedCalculation, conn);
+      }
     }
     const updateData = await updateSettlementDao(
       conn,
