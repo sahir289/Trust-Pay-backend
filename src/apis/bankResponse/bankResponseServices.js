@@ -43,7 +43,9 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
         : columns.BANK_RESPONSE;
 
   let amount, upi_short_code, utr, bank_id, from_UI
+  console.log(payload);
   const splitData = payload.split(' ');
+  console.log(splitData);
   amount = parseFloat(splitData[0]);
   upi_short_code = splitData.length > 1 ? splitData[1] : "";
   utr = splitData[2];
