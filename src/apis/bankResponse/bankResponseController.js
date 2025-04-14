@@ -20,6 +20,7 @@ import {
 import{ BadRequestError } from '../../utils/appErrors.js';
 
 import { transactionWrapper } from '../../utils/db.js';
+import { Role } from '../../constants/index.js';
 
 const getBankResponse = async (req, res) => {
   const { role, company_id } = req.user;
@@ -65,6 +66,22 @@ const createBankResponse = async (req, res) => {
     company_id,
     role,
     user_name,
+  );
+  sendSuccess(res, result);
+};
+
+const createBankBotResponse = async (req, res) => {
+  const { x_auth_token } = req.headers;
+  const payload = req.body?.body;
+  const { error } = CREATE_BANK_RESPONSE_SCHEMA.validate(req.body);
+  if (error) {
+    throw new ValidationError(error);
+  }
+  const result = await transactionWrapper(createBankResponseService)(
+    payload,
+    x_auth_token,
+    Role.BOT,
+    null,
   );
   sendSuccess(res, result);
 };
@@ -173,6 +190,7 @@ const resetBankResponse = async (req, res) => {
 export {
   getBankResponse,
   createBankResponse,
+  createBankBotResponse,
   updateBankResponse,
   getBankMessage,
   getBankResponseBySearch,

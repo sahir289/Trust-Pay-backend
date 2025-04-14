@@ -46,6 +46,7 @@ export const Role = {
   MERCHANT_OPERATIONS: 'MERCHANT_OPERATIONS',
   VENDOR: 'VENDOR',
   VENDOR_OPERATIONS: 'VENDOR_OPERATIONS',
+  BOT: 'BOT',
 };
 
 export const columns = {
