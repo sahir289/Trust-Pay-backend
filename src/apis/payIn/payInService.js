@@ -906,7 +906,7 @@ export const processPayInService = async (conn, payload, updated_by) => {
   }
 
   if (!bankResponse || Object.keys(bankResponse).length === 0) {
-    bankResponse = (await getBankResponseDao({ utr: userSubmittedUtr })) || {};
+    bankResponse = (await getBankResponseDao({ utr: userSubmittedUtr ,status:"/success" })) || {};
   }
 
   if (bankResponse.id) {
