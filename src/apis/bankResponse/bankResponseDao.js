@@ -256,7 +256,6 @@ const createBankResponseDao = async (conn, data) => {
     data.id = generateUUID();
 
     const [sql, params] = buildInsertQuery(tableName.BANK_RESPONSE, data);
-    console.log(sql, params);
     let result;
     if (conn && conn.query) {
       result = await conn.query(sql, params); // Use connection to execute query
