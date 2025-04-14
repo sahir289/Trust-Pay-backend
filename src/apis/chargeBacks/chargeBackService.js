@@ -23,6 +23,7 @@ import { filterResponse } from '../../helpers/index.js';
 import { getCalculationforCronDao } from '../calculation/calculationDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
+import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
 const createChargeBackService = async (payload, PayinDetails, role, company_id, user_id) => {
   let conn;
   try {
@@ -38,22 +39,49 @@ const createChargeBackService = async (payload, PayinDetails, role, company_id, 
     let userId = PayinDetails[0].merchant_user_id;
     const CalculationUser = await getCalculationforCronDao(userId);
     if (CalculationUser) {
-      let count = Number(1);
-      let amount = Number(payload.amount);
-      let currentBalance = -Number(payload.amount);
-      let net_balance = -Number(payload.amount);
+      const merchantData = await getMerchantsDao(
+        { user_id: userId })
 
-      let Id = CalculationUser[0].id;
-      await updateCalculationBalanceDao(
-        { id: Id },
-        {
-          total_chargeback_count: count,
-          total_chargeback_amount: amount,
-          current_balance: currentBalance,
-          net_balance: net_balance,
-        },
-        conn,
-      );
+      if (merchantData) {
+        await updateMerchantDao(
+          { user_id: userId }, { balance: merchantData[0].balance - payload.amount }, conn
+        );
+
+        let count = Number(1);
+        let amount = Number(payload.amount);
+        let currentBalance = - Number(payload.amount);
+        let net_balance = - Number(payload.amount);
+
+        let Id = CalculationUser[0].id;
+        await updateCalculationBalanceDao(
+          { id: Id },
+          {
+            total_chargeback_count: count,
+            total_chargeback_amount: amount,
+            current_balance: currentBalance,
+            net_balance: net_balance,
+          },
+          conn,
+        );
+      }
+      else {
+        let count = Number(1);
+        let amount = Number(payload.amount);
+        let currentBalance = + Number(payload.amount);
+        let net_balance = + Number(payload.amount);
+
+        let Id = CalculationUser[0].id;
+        await updateCalculationBalanceDao(
+          { id: Id },
+          {
+            total_chargeback_count: count,
+            total_chargeback_amount: amount,
+            current_balance: currentBalance,
+            net_balance: net_balance,
+          },
+          conn,
+        );
+      }
     }
     payload.vendor_user_id = PayinDetails[0].vendor_user_id;
     payload.merchant_user_id = PayinDetails[0].merchant_user_id;

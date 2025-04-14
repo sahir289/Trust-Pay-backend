@@ -412,6 +412,8 @@ const updatePayoutCalculations = async (
     updatedCalculation,
     cal,
     isMerchant,
+    isReverse,
+    amount
   );
 
   await updateCalculationDao(
