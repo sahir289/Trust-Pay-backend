@@ -62,10 +62,10 @@ ORDER BY m.code ASC;`;
 
 export const getMerchantsDao = async (
   filters,
-  page,
-  pageSize,
-  sortBy,
-  sortOrder,
+  page = 0,
+  pageSize = 10,
+  sortBy = 'created_at',
+  sortOrder = 'ASC',
   // columns to select from db (optional)
   columns = [],
 ) => {
