@@ -71,6 +71,7 @@ const createBankResponse = async (req, res) => {
 };
 
 const createBankBotResponse = async (req, res) => {
+  console.log(req)
   const { x_auth_token } = req.headers;
   console.log(x_auth_token);
   const payload = req.body?.body;
