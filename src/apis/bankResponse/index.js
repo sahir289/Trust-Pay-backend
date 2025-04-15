@@ -7,10 +7,35 @@ import {
   getBankMessage,
   updateBankResponse,
   getBankResponseBySearch,
+  createBankBotResponse,
 } from './bankResponseController.js';
 import { isAuthenticated, authorized } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   name: BankResponse
+ *   description: Api endpoints for managing bankResponse
+ */
+
+/**
+ * @swagger
+ * /bankResponse:
+ *   get:
+ *     summary: Get all bankResponse
+ *     tags: [BankResponse]
+ *     responses:
+ *       200:
+ *         description: A list of bankResponse
+ *       500:
+ *         description: Internal server error
+ */
+router.post(
+  '/create-bot-message',
+  tryCatchHandler(createBankBotResponse),
+);
 
 /**
  * @swagger
