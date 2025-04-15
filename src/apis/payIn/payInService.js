@@ -837,7 +837,7 @@ export const processPayInService = async (conn, payload, updated_by, tele_check)
   });
   const updatePayInData = {
     amount,
-    user_submitted_utr: userSubmittedUtr,
+    user_submitted_utr: payIn?.user_submitted_utr ? userSubmittedUtr : null,
     is_url_expires: true,
     one_time_used: true,
     duration,
