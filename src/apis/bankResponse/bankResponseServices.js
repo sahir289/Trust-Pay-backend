@@ -41,13 +41,36 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
         ? vendorColumns.BANK_RESPONSE
         : columns.BANK_RESPONSE;
 
-  let amount, upi_short_code, utr, bank_id, from_UI
+  let amount, upi_short_code, utr, bank_id, from_UI;
   const splitData = payload.split(' ');
+
   amount = parseFloat(splitData[0]);
   upi_short_code = splitData.length > 1 ? splitData[1] : "";
   utr = splitData[2];
   bank_id = splitData[3];
   from_UI = splitData[4];
+
+  // UTR validation when from_UI is true
+  if (from_UI) {
+    // Check if multiple UTRs are allowed (contains valid separators)
+    const validSeparators = [',', ';', '|'];
+    const hasSeparators = validSeparators.some(sep => utr.includes(sep));
+
+    if (hasSeparators) {
+      // Split UTRs by any valid separator and validate each
+      const utrArray = utr.split(/[,;|]/).map(u => u.trim()).filter(u => u);
+      const invalidUtr = utrArray.some(u => !/^[a-zA-Z0-9]+$/.test(u));
+
+      if (invalidUtr) {
+        return {message: 'UTRs can only contain alphanumeric characters.'};
+      }
+    } else {
+      // Single UTR: allow only alphanumeric, no special characters
+      if (!/^[a-zA-Z0-9]+$/.test(utr)) {
+        return {message: 'UTR can only contain alphanumeric characters.'};
+      }
+    }
+  }
 
   const created_by = name ? name : 'Bank Response';
   const updated_by = name ? name : 'Bank Response';
@@ -391,7 +414,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                 await updateMerchantDao({ id: checkPayInUtr[0]?.merchant_id }, {
                   balance: merchatnData.balance + parseFloat(amount),
                 }, conn);
-                  //  userId pass always in updateCalculationTable
+                //  userId pass always in updateCalculationTable
                 await updateCalculationTable(merchatnData.user_id, {
                   payinMerchantCommission,
                   amount: botRes.amount,
@@ -453,7 +476,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                 await updateBotResponseDao(botRes.id, { is_used: true }, conn);
                 return { message: `Entry is in DISPUTE with ${updatePayInDataRes[0]?.merchant_order_id}` }
               }
-            } 
+            }
           }
           else {
             const existingResponse = await getBankResponseDao(
@@ -643,7 +666,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
               await updateMerchantDao({ id: checkPayInUtr[0]?.merchant_id }, {
                 balance: merchatnData[0].balance + parseFloat(amount),
               }, conn);
-                  //  userId pass always in updateCalculationTable
+              //  userId pass always in updateCalculationTable
               await updateCalculationTable(merchatnData[0].user_id, {
                 payinCommission: payinMerchantCommission,
                 amount: botRes.amount,
@@ -687,7 +710,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
             await updateMerchantDao({ id: checkPayInUtr[0]?.merchant_id }, {
               balance: merchatnData.balance + parseFloat(amount),
             }, conn);
-              //  userId pass always in updateCalculationTable
+            //  userId pass always in updateCalculationTable
             await updateCalculationTable(merchatnData.user_id, {
               payinMerchantCommission,
               amount: botRes.amount,
@@ -769,7 +792,7 @@ const updateCalculationTable = async (user_id, data, conn) => {
     let count = calculationData[0].total_settlement_count + 1;
     let amountCalculation =
       calculationData[0].total_payin_amount + data?.amount;
-    let currentBalance = Number(calculationData[0].current_balance) || 0  + data?.amount;
+    let currentBalance = Number(calculationData[0].current_balance) || 0 + data?.amount;
     let netBalance = calculationData[0].net_balance + data?.amount;
     const calculationId = calculationData[0].id;
     await updateCalculationBalanceDao(
@@ -821,49 +844,49 @@ const getBankResponseService = async (payload, role, page, limit, search) => {
   }
 };
 
-const getBankResponseBySearchService = async  (
-   filters,
-    role,
-    // designation,
-    // user_id,
-  ) => {
-    try {
-      const pageNum = parseInt(filters.page);
-      const limitNum = parseInt(filters.limit);
-      if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
-        throw new BadRequestError('Invalid pagination parameters');
-      }
-      const searchTerms = filters.search
-        .split(',')
-        .map((term) => term.trim())
-        .filter((term) => term.length > 0);
-  
-      if (searchTerms.length === 0) {
-        throw new BadRequestError('Please provide valid search terms');
-      }
-      const offset = (pageNum - 1) * limitNum;
-  
-      const filterColumns =
-        role === Role.MERCHANT
-          ? merchantColumns.SETTLEMENT
-          : role === Role.VENDOR
-            ? vendorColumns.SETTLEMENT
-            : columns.SETTLEMENT;
-  
-      const data = await getBankResponseBySearchDao(
-        filters.company_id,
-        searchTerms,
-        limitNum,
-        offset,
-        filterColumns,
-      );
-  
-      return data;
-    } catch (error) {
-      console.error('Error while fetching Payin by search', error);
-      throw new InternalServerError(error.message);
+const getBankResponseBySearchService = async (
+  filters,
+  role,
+  // designation,
+  // user_id,
+) => {
+  try {
+    const pageNum = parseInt(filters.page);
+    const limitNum = parseInt(filters.limit);
+    if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
+      throw new BadRequestError('Invalid pagination parameters');
     }
-  };
+    const searchTerms = filters.search
+      .split(',')
+      .map((term) => term.trim())
+      .filter((term) => term.length > 0);
+
+    if (searchTerms.length === 0) {
+      throw new BadRequestError('Please provide valid search terms');
+    }
+    const offset = (pageNum - 1) * limitNum;
+
+    const filterColumns =
+      role === Role.MERCHANT
+        ? merchantColumns.SETTLEMENT
+        : role === Role.VENDOR
+          ? vendorColumns.SETTLEMENT
+          : columns.SETTLEMENT;
+
+    const data = await getBankResponseBySearchDao(
+      filters.company_id,
+      searchTerms,
+      limitNum,
+      offset,
+      filterColumns,
+    );
+
+    return data;
+  } catch (error) {
+    console.error('Error while fetching Payin by search', error);
+    throw new InternalServerError(error.message);
+  }
+};
 const updateBankResponseService = async (id, payload, role) => {
   let conn;
   try {
