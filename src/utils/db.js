@@ -339,8 +339,8 @@ export const buildAndExecuteUpdateQuery = async (
     const query = `UPDATE "${tableName}" SET ${setClause.join(', ')} WHERE ${whereClause.join(' AND ')} ${returningClause}`;
 
     // Log the query and parameters for debugging
-    console.log('Executing SQL:', query);
-    console.log('With Parameters:', values);
+    // console.log('Executing SQL:', query);
+    // console.log('With Parameters:', values);
 
     // Execute the query
     const result = conn

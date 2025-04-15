@@ -1,5 +1,4 @@
 import { BadRequestError, InternalServerError, NotFoundError } from '../../utils/appErrors.js';
-
 import {
   getBankResponseDao,
   createBankResponseDao,
@@ -23,7 +22,7 @@ import {
   updateMerchantDao,
 } from '../merchants/merchantDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
-import { getVendorsDao } from '../vendors/vendorDao.js';
+import { getVendorsDao,updateVendorDao } from '../vendors/vendorDao.js';
 import {
   columns,
   merchantColumns,
@@ -143,13 +142,41 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
     } else {
       botRes = await createBankResponseDao(conn, updatedData);
     }
-
+    
     if (updatedData.status === '/repeated') {
       return {
         message: `Entry with REPEATED UTR Added ${updatedData.utr}`,
       };
     }
-
+    if (botRes.status === '/success') {
+      const bankdetails = await getBankaccountDao({
+        id: botRes?.bank_id, company_id: companyId
+      }, null, null, role);
+      await updateBankaccountDao(
+        { id: botRes?.bank_id },
+        {
+          balance: parseFloat(bankdetails[0].balance) + parseFloat(botRes.amount),
+          today_balance: parseFloat(bankdetails[0].today_balance) + parseFloat(botRes.amount),
+          payin_count:parseFloat(bankdetails[0].payin_count+1)
+        },
+        conn,
+      );
+      const vendor = await getVendorsDao(
+        {
+          user_id: bankdetails[0].user_id,
+        },
+        null,
+        null,
+        null,
+        null,
+      );
+      
+     await updateVendorDao({id: vendor[0].id}, {
+        balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount)
+      },conn);
+        }
+      
+    
     const checkPayInUtr = await getPayInUrlsDao({ user_submitted_utr: utr });
     if (checkPayInUtr?.length > 0) {
       if (upi_short_code && isValidAmountCode) {
@@ -292,19 +319,19 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                     conn
                   );
 
-                  if (checkPayInUtr[0]?.bank_acc_id) {
-                    const bankdetails = await getBankaccountDao({
-                      id: isBankExist?.id, company_id: companyId
-                    }, null, null, role);
-                    await updateBankaccountDao(
-                      { id: checkPayInUtr[0]?.bank_acc_id },
-                      {
-                        balance: bankdetails.balance + parseFloat(amount),
-                        today_balance:
-                          bankdetails.balance + parseFloat(amount),
-                      }, conn
-                    );
-                  }
+                  // if (checkPayInUtr[0]?.bank_acc_id) {
+                  //   const bankdetails = await getBankaccountDao({
+                  //     id: isBankExist?.id, company_id: companyId
+                  //   }, null, null, role);
+                  //   await updateBankaccountDao(
+                  //     { id: checkPayInUtr[0]?.bank_acc_id },
+                  //     {
+                  //       balance: bankdetails.balance + parseFloat(amount),
+                  //       today_balance:
+                  //         bankdetails.balance + parseFloat(amount),
+                  //     }, conn
+                  //   );
+                  // }
                   await updateBotResponseDao(botRes.id, { is_used: true }, conn);
                   const merchatnData = await getMerchantsDao({
                     id: checkPayInUtr[0]?.merchant_id,
@@ -348,15 +375,15 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                   payInData, conn
                 );
 
-                if (checkPayInUtr[0]?.bank_acc_id) {
-                  const bankdetails = await getBankaccountDao({
-                    id: isBankExist?.id, company_id: companyId
-                  }, null, null, role);
-                  await updateBankaccountDao({ id: checkPayInUtr[0]?.bank_acc_id }, {
-                    balance: bankdetails.balance + parseFloat(amount),
-                    today_balance: bankdetails.balance + parseFloat(amount),
-                  }, conn);
-                }
+                // if (checkPayInUtr[0]?.bank_acc_id) {
+                //   const bankdetails = await getBankaccountDao({
+                //     id: isBankExist?.id, company_id: companyId
+                //   }, null, null, role);
+                //   await updateBankaccountDao({ id: checkPayInUtr[0]?.bank_acc_id }, {
+                //     balance: bankdetails.balance + parseFloat(amount),
+                //     today_balance: bankdetails.balance + parseFloat(amount),
+                //   }, conn);
+                // }
                 await updateBotResponseDao(botRes.id, { is_used: true }, conn);
                 const merchatnData = await getMerchantsDao({
                   id: checkPayInUtr[0]?.merchant_id,
@@ -588,23 +615,23 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
                 conn,
               );
 
-              if (checkPayInUtr[0]?.bank_acc_id) {
-                const bankdetails = await getBankaccountDao({
-                  id: checkPayInUtr[0]?.bank_acc_id, company_id: companyId
-                }, null, null, role);
-                await updateBankaccountDao({ id: checkPayInUtr[0]?.bank_acc_id }, {
-                  balance: bankdetails[0].balance + parseFloat(amount),
-                  today_balance: bankdetails[0].balance + parseFloat(amount),
-                }, conn);    
-                await updateCalculationTable(
-                  bankdetails[0]?.user_id,
-                  {
-                    payinCommission: payinVendorCommission,
-                    amount: botRes.amount,
-                  },
-                  conn,
-                );
-              }
+              // if (checkPayInUtr[0]?.bank_acc_id) {
+              //   const bankdetails = await getBankaccountDao({
+              //     id: checkPayInUtr[0]?.bank_acc_id, company_id: companyId
+              //   }, null, null, role);
+              //   await updateBankaccountDao({ id: checkPayInUtr[0]?.bank_acc_id }, {
+              //     balance: bankdetails[0].balance + parseFloat(amount),
+              //     today_balance: bankdetails[0].balance + parseFloat(amount),
+              //   }, conn);    
+              //   await updateCalculationTable(
+              //     bankdetails[0]?.user_id,
+              //     {
+              //       payinCommission: payinVendorCommission,
+              //       amount: botRes.amount,
+              //     },
+              //     conn,
+              //   );
+              // }
               await updateBotResponseDao(botRes.id, { is_used: true }, conn);
 
               const merchatnData = await getMerchantsDao({
@@ -637,22 +664,22 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
               config: { from_UI: from_UI },
               bank_response_id: botRes.id
             };
+            // const updatePayInDataRes =
+              await updatePayInUrlDao(
+  checkPayInUtr[0]?.id,
+  payInData,
+  conn,
+);
 
-            const updatePayInDataRes = await updatePayInUrlDao(
-              checkPayInUtr[0]?.id,
-              payInData,
-              conn,
-            );
-
-            if (checkPayInUtr[0]?.bank_acc_id) {
-              const bankdetails = await getBankaccountDao({
-                id: updatePayInDataRes?.bank_acc_id, company_id: companyId
-              }, null, null, role);
-              await updateBankaccountDao({ id: checkPayInUtr[0]?.bank_acc_id }, {
-                balance: bankdetails.balance + parseFloat(amount),
-                today_balance: bankdetails.balance + parseFloat(amount),
-              }, conn);
-            }
+            // if (checkPayInUtr[0]?.bank_acc_id) {
+            //   const bankdetails = await getBankaccountDao({
+            //     id: updatePayInDataRes?.bank_acc_id, company_id: companyId
+            //   }, null, null, role);
+            //   await updateBankaccountDao({ id: checkPayInUtr[0]?.bank_acc_id }, {
+            //     balance: bankdetails.balance + parseFloat(amount),
+            //     today_balance: bankdetails.balance + parseFloat(amount),
+            //   }, conn);
+            // }
             await updateBotResponseDao(botRes.id, { is_used: true }, conn);
             const merchatnData = await getMerchantsDao({
               id: checkPayInUtr[0]?.merchant_id,
