@@ -816,11 +816,11 @@ export const getPayinsBySearchService = async (
   }
 };
 
-export const processPayInService = async (conn, payload, updated_by) => {
+export const processPayInService = async (conn, payload, updated_by, tele_check) => {
   const { userSubmittedUtr, merchantOrderId, amount } = payload;
   // validate payIn
   // throw error if not exist or expires
-  const payIn = await getPayInUrlService(merchantOrderId, conn);
+  const payIn = await getPayInUrlService(merchantOrderId, conn, tele_check);
   const banks = await getBankaccountDao({
     id: payIn.bank_acc_id,
     company_id: payIn.company_id,
