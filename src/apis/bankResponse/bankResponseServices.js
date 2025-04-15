@@ -63,12 +63,12 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
       const invalidUtr = utrArray.some(u => !/^[a-zA-Z0-9]+$/.test(u));
 
       if (invalidUtr) {
-        throw new Error('UTRs can only contain alphanumeric characters.');
+        return {message: 'UTRs can only contain alphanumeric characters.'};
       }
     } else {
       // Single UTR: allow only alphanumeric, no special characters
       if (!/^[a-zA-Z0-9]+$/.test(utr)) {
-        throw new Error('UTR can only contain alphanumeric characters.');
+        return {message: 'UTR can only contain alphanumeric characters.'};
       }
     }
   }
