@@ -28,11 +28,14 @@ import {
   columns,
   merchantColumns,
   Role,
+  Status,
+  tableName,
   vendorColumns,
 } from '../../constants/index.js';
 import { getCalculationforCronDao, updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { filterResponse } from '../../helpers/index.js';
+import { notifyNewTableEntry } from '../../utils/sockets.js';
 
 const createBankResponseService = async (conn, payload, companyId, role, name) => {
   const filterColumns =
@@ -42,719 +45,257 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
         ? vendorColumns.BANK_RESPONSE
         : columns.BANK_RESPONSE;
 
-  let amount, upi_short_code, utr, bank_id, from_UI;
   const splitData = payload.split(' ');
+  const amount = parseFloat(splitData[0]);
+  const upi_short_code = splitData.length > 1 ? splitData[1] : "";
+  const utr = splitData[2];
+  const bank_id = splitData[3];
+  const from_UI = splitData[4];
 
-  amount = parseFloat(splitData[0]);
-  upi_short_code = splitData.length > 1 ? splitData[1] : "";
-  utr = splitData[2];
-  bank_id = splitData[3];
-  from_UI = splitData[4];
+  // Early validation
+  const isValidAmount = amount > 1 && amount < 500000;
+  if (!isValidAmount) {
+    return { message: 'Invalid data received' };
+  }
 
-  // UTR validation when from_UI is true
-  if (from_UI) {
-    // Check if multiple UTRs are allowed (contains valid separators)
+  // UTR validation
+  const validateUTR = (utr, from_UI) => {
+    if (!from_UI) return true;
     const validSeparators = [',', ';', '|'];
     const hasSeparators = validSeparators.some(sep => utr.includes(sep));
-
     if (hasSeparators) {
-      // Split UTRs by any valid separator and validate each
       const utrArray = utr.split(/[,;|]/).map(u => u.trim()).filter(u => u);
-      const invalidUtr = utrArray.some(u => !/^[a-zA-Z0-9]+$/.test(u));
-
-      if (invalidUtr) {
-        return {message: 'UTRs can only contain alphanumeric characters.'};
-      }
-    } else {
-      // Single UTR: allow only alphanumeric, no special characters
-      if (!/^[a-zA-Z0-9]+$/.test(utr)) {
-        return {message: 'UTR can only contain alphanumeric characters.'};
-      }
+      return !utrArray.some(u => !/^[a-zA-Z0-9]+$/.test(u));
     }
+    return /^[a-zA-Z0-9]+$/.test(utr);
+  };
+
+  if (!validateUTR(utr, from_UI)) {
+    return { message: 'UTRs can only contain alphanumeric characters.' };
   }
 
-  const created_by = name ? name : 'Bank Response';
-  const updated_by = name ? name : 'Bank Response';
+  const created_by = name || 'Bank Response';
+  const updated_by = name || 'Bank Response';
   const company_id = companyId;
-  const isValidAmount = amount > 1 && amount < 500000;
-  let isValidAmountCode
-  if (upi_short_code) {
-    isValidAmountCode =
-      upi_short_code !== 'nil' && upi_short_code.length === 5;
-  }
-  const acceptedStatus = [
-    'SUCCESS',
-    'DISPUTE',
-    'BANK_MISMATCH',
-    'FAILED',
-    'DUPLICATE',
-  ];
+  const isValidAmountCode = upi_short_code && upi_short_code !== 'nil' && upi_short_code.length === 5;
+  const acceptedStatus = [Status.SUCCESS, Status.DISPUTE, Status.BANK_MISMATCH, 'FAILED', 'DUPLICATE'];
 
-  if (isValidAmount) {
-    const utrAlreadyExist = await getBankResponseDao(
-      { utr: utr, company_id: company_id },
+  const utrAlreadyExist = await getBankResponseDao(
+    { utr, company_id },
+    null,
+    null,
+    null,
+    null,
+    filterColumns
+  );
+
+  const updatedData = {
+    status: utrAlreadyExist ? '/repeated' : '/success',
+    amount,
+    utr,
+    bank_id,
+    config: { from_UI },
+    is_used: 'false',
+    created_by,
+    updated_by,
+    company_id,
+    ...(isValidAmountCode && { upi_short_code }),
+  };
+
+  if (isValidAmountCode) {
+    const isAmountCodeExist = await getBankResponseDao(
+      { upi_short_code, company_id },
       null,
       null,
       null,
       null,
       filterColumns
     );
-    const updatedData = {
-      status: utrAlreadyExist ? '/repeated' : '/success',
-      amount,
-      utr,
-      bank_id,
-      config: { from_UI: from_UI },
-      is_used: 'false',
-      created_by,
-      updated_by,
-      company_id,
-    };
-
-    if (isValidAmountCode) {
-      updatedData.upi_short_code = upi_short_code;
-    }
-
-    const isAmountCodeExist = await getBankResponseDao(
-      { upi_short_code: upi_short_code, company_id: company_id },
-      null,
-      null,
-      null,
-      null,
-      filterColumns,
-    );
-
     if (isAmountCodeExist) {
-      // const botRes =
-      await getBankResponseDao(
-        {
-          status: updatedData.status,
-          amount: updatedData.amount,
-          utr: updatedData.utr,
-          bank_id: updatedData.bank_id,
-          is_used: updatedData.is_used,
-          created_by: updatedData.created_by,
-          company_id: updatedData.company_id,
-        },
-        null,
-        null,
-        null,
-        null,
-        filterColumns,
-      );
       return { message: 'Amount code already exist' };
     }
+  }
 
-    let botRes;
-    const utrinternalTransfer = await getSettlementDaoforInternalTransfer(
-      utr,
-      ['INTERNAL_QR_TRANSFER', 'INTERNAL_BANK_TRANSFER'],
+  const sendNotification = async (status, data) => {
+    await notifyNewTableEntry(tableName.BANK_RESPONSE, status, data);
+  };
+
+  let botRes;
+  const utrinternalTransfer = await getSettlementDaoforInternalTransfer(
+    utr,
+    ['INTERNAL_QR_TRANSFER', 'INTERNAL_BANK_TRANSFER']
+  );
+
+  if (utrinternalTransfer) {
+    updatedData.status = '/internalTransfer';
+    botRes = await createBankResponseDao(conn, updatedData);
+    await sendNotification(updatedData.status.replace('/', ''), {
+      id: botRes.id,
+      utr: botRes.utr,
+      amount: botRes.amount,
+      bank_id: botRes.bank_id,
+      company_id: botRes.company_id,
+      created_by: botRes.created_by,
+    });
+  } else {
+    botRes = await createBankResponseDao(conn, updatedData);
+    await sendNotification(updatedData.status.replace('/', ''), {
+      id: botRes.id,
+      utr: botRes.utr,
+      amount: botRes.amount,
+      bank_id: botRes.bank_id,
+      company_id: botRes.company_id,
+      created_by: botRes.created_by,
+    });
+  }
+
+  if (updatedData.status === '/repeated') {
+    return { message: `Entry with REPEATED UTR Added ${utr}` };
+  }
+
+  const checkPayInUtr = await getPayInUrlsDao({ user_submitted_utr: utr });
+  if (checkPayInUtr?.length > 0) {
+    const payInUtr = checkPayInUtr[0];
+    if (upi_short_code && isValidAmountCode) {
+      const getDataByUtr = await getBankResponseDaoAll(
+        { utr: payInUtr.user_submitted_utr, company_id },
+        null,
+        null,
+        null,
+        null,
+        filterColumns
+      );
+      const botUtrIsUsed = getDataByUtr.rows.length > 1 && getDataByUtr.some(item => item.is_used);
+      if (!acceptedStatus.includes(payInUtr.status) && botUtrIsUsed) {
+        return { message: `The entry is already ${payInUtr.status} with UTR` };
+      }
+    }
+
+    const isBankExist = await getBankaccountDao({ id: bank_id, company_id }, null, null, role);
+    if (!isBankExist || payInUtr.bank_acc_id !== bank_id) {
+      if (payInUtr.user_submitted_utr && payInUtr.user_submitted_utr !== utr) {
+        return { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${payInUtr.user_submitted_utr}` };
+      }
+      const payInData = {
+        status: Status.BANK_MISMATCH,
+        is_notified: true,
+        user_submitted_utr: botRes.utr,
+        bank_response_id: botRes.id,
+        approved_at: new Date(),
+        config: { from_UI },
+      };
+      const updatePayInDataRes = await updatePayInUrlDao(payInUtr.id, payInData, conn);
+      await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+      await sendNotification(Status.BANK_MISMATCH, {
+        id: payInUtr.id,
+        user_submitted_utr: botRes.utr,
+        bank_response_id: botRes.id,
+        merchant_order_id: updatePayInDataRes?.merchant_order_id,
+      });
+      return { message: `Bank Mismatch with ${updatePayInDataRes?.merchant_order_id}` };
+    }
+
+    const existingResponse = await getBankResponseDao(
+      { utr, is_used: true, company_id },
+      null,
+      null,
+      null,
+      null,
+      filterColumns
     );
+    if (existingResponse?.length > 0) {
+      return { message: `The UTR already exists` };
+    }
 
-    if (utrinternalTransfer) {
-      const updatedData = {
-        status: '/internalTransfer',
-        amount: amount,
-        utr: utr,
-        bank_id: bank_id,
-        is_used: false,
-        created_by: created_by,
-        company_id: company_id,
-        config: { from_UI: from_UI }
+    const merchantData = await getMerchantsDao({ id: payInUtr.merchant_id }, null, null, null, null);
+    const payinMerchantCommission = calculateCommission(botRes.amount, merchantData.payin_commission);
+    const bankAccountDetails = await getBankaccountDao({ id: payInUtr.bank_acc_id, company_id }, null, null, role);
+    const vendorData = await getVendorsDao({ user_id: bankAccountDetails.user_id }, null, null, null, null);
+    const payinVendorCommission = calculateCommission(botRes.amount, vendorData.payin_commission);
+
+    const durMs = new Date() - payInUtr.created_at;
+    const durSeconds = Math.floor((durMs / 1000) % 60).toString().padStart(2, '0');
+    const durMinutes = Math.floor((durSeconds / 60) % 60).toString().padStart(2, '0');
+    const durHours = Math.floor((durMinutes / 60) % 24).toString().padStart(2, '0');
+    const duration = `${durHours}:${durMinutes}:${durSeconds}`;
+
+    if (payInUtr.amount === amount) {
+      if (payInUtr.user_submitted_utr && payInUtr.user_submitted_utr !== utr) {
+        return { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${payInUtr.user_submitted_utr}` };
+      }
+      const payInData = {
+        status: Status.SUCCESS,
+        is_notified: true,
+        user_submitted_utr: botRes.utr,
+        approved_at: new Date(),
+        duration,
+        payin_merchant_commission: payinMerchantCommission,
+        payin_vendor_commission: payinVendorCommission,
+        config: { from_UI },
+        bank_response_id: botRes.id,
       };
-      botRes = await createBankResponseDao(conn, updatedData);
+      await updatePayInUrlDao(payInUtr.id, payInData, conn);
+      if (payInUtr.bank_acc_id) {
+        await updateBankaccountDao(
+          { id: payInUtr.bank_acc_id },
+          {
+            balance: bankAccountDetails.balance + amount,
+            today_balance: bankAccountDetails.balance + amount,
+          },
+          conn
+        );
+      }
+      await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+      await updateMerchantDao(
+        { id: payInUtr.merchant_id },
+        { balance: merchantData.balance + amount },
+        conn
+        );
+      await updateCalculationTable(merchantData.user_id, {
+        payinMerchantCommission,
+        amount: botRes.amount,
+      });
+      await updateCalculationTable(vendorData.user_id, {
+        payinCommission: payinVendorCommission,
+        amount: botRes.amount,
+      }, conn);
+      await sendNotification(Status.SUCCESS, {
+        id: payInUtr.id,
+        user_submitted_utr: botRes.utr,
+        bank_response_id: botRes.id,
+        merchant_id: payInUtr.merchant_id,
+        amount: botRes.amount,
+      });
+      return { message: `Successfully Created The Entry` };
     } else {
-      botRes = await createBankResponseDao(conn, updatedData);
-    }
-
-    if (updatedData.status === '/repeated') {
-      return {
-        message: `Entry with REPEATED UTR Added ${updatedData.utr}`,
+      if (payInUtr.user_submitted_utr && payInUtr.user_submitted_utr !== utr) {
+        return { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${payInUtr.user_submitted_utr}` };
+      }
+      const payInData = {
+        status: Status.DISPUTE,
+        is_notified: true,
+        user_submitted_utr: botRes.utr,
+        bank_response_id: botRes.id,
+        approved_at: new Date(),
+        duration,
+        payin_merchant_commission: payinMerchantCommission,
+        payin_vendor_commission: payinVendorCommission,
+        config: { from_UI },
       };
+      const updatePayInDataRes = await updatePayInUrlDao(payInUtr.id, payInData, conn);
+      await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+      await sendNotification(Status.DISPUTE, {
+        id: payInUtr.id,
+        user_submitted_utr: botRes.utr,
+        bank_response_id: botRes.id,
+        merchant_order_id: updatePayInDataRes?.merchant_order_id,
+      });
+      return { message: `Entry is in Dispute with ${updatePayInDataRes?.merchant_order_id}` };
     }
-
-    const checkPayInUtr = await getPayInUrlsDao({ user_submitted_utr: utr });
-    if (checkPayInUtr?.length > 0) {
-      if (upi_short_code && isValidAmountCode) {
-        const getDataByUtr = await getBankResponseDaoAll(
-          { utr: checkPayInUtr[0]?.user_submitted_utr, company_id: company_id },
-          null,
-          null,
-          null,
-          null,
-          filterColumns,
-        );
-        let botUtrIsUsed
-        if (getDataByUtr.rows.length > 1) {
-          botUtrIsUsed = getDataByUtr?.some((item) => item.is_used); //isused- true and bankresponse entry and payin status - pending , assigned , initiated, dropped
-        }
-        if (
-          !acceptedStatus.includes(checkPayInUtr[0]?.status) &&
-          botUtrIsUsed
-        ) {
-          return {
-            message: `The entry is already ${checkPayInUtr[0]?.status} with UTR`,
-          }
-        } else {
-          if (!botUtrIsUsed) {
-            // We check bank exist here as we have to add the data to the res no matter what comes.
-            const isBankExist = await getBankaccountDao({ id: bank_id, company_id: companyId }, null, null, role);
-            if (checkPayInUtr[0].bank_acc_id !== isBankExist?.id) {
-              if (checkPayInUtr[0]?.user_submitted_utr) {
-                if (checkPayInUtr[0]?.user_submitted_utr == utr) {
-                  const payInData = {
-                    status: 'BANK_MISMATCH',
-                    is_notified: true,
-                    user_submitted_utr: botRes?.utr,
-                    bank_response_id: botRes?.id,
-                    approved_at: new Date(),
-                    config: { from_UI: from_UI },
-
-                  };
-                  const updatePayInDataRes =
-                    await updatePayInUrlDao(
-                      checkPayInUtr[0]?.id,
-                      payInData,
-                      conn,
-                    );
-                  await updateBotResponseDao(botRes.id, { is_used: true }, conn);
-
-                  return { message: `Bank Mismatch with ${updatePayInDataRes?.merchant_order_id}` };
-                } else {
-                  return { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr[0]?.user_submitted_utr}` };
-                }
-              } else {
-                const payInData = {
-                  status: 'BANK_MISMATCH',
-                  is_notified: true,
-                  user_submitted_utr: botRes?.utr,
-                  bank_response_id: botRes?.id,
-                  approved_at: new Date(),
-                  config: { from_UI: from_UI },
-                };
-
-                const updatePayInDataRes = await updatePayInUrlDao(
-                  checkPayInUtr[0]?.id,
-                  payInData,
-                  conn,
-                );
-
-                await updateBotResponseDao(botRes.id, { is_used: true }, conn);
-
-                return { message: `entry in bank mismatch with ${updatePayInDataRes?.merchant_order_id}` };
-              }
-            }
-            const existingResponse = await getBankResponseDao(
-              {
-                utr: utr,
-                is_used: true,
-                company_id: company_id,
-              },
-              null,
-              null,
-              null,
-              null,
-              filterColumns,
-            );
-            if (existingResponse?.length > 0) {
-              return {
-                message: `The UTR already exists`,
-              };
-            }
-            const getMerchantToGetPayinCommissionRes = await getMerchantsDao({
-              id: checkPayInUtr[0]?.merchant_id,
-            }, null, null, null, null);
-
-            const payinMerchantCommission = calculateCommission(
-              botRes?.amount,
-              getMerchantToGetPayinCommissionRes?.payin_commission,
-            );
-            const bankAccountDetails = await getBankaccountDao({
-              id: checkPayInUtr[0].bank_acc_id, company_id: companyId
-            }, null, null, role);
-
-            const getVendorToGetPayinComission = await getVendorsDao({
-              user_id: bankAccountDetails[0].user_id,
-            }, null, null, null, null);
-
-            const payinVendorCommission = calculateCommission(
-              Number(botRes?.amount),
-              Number(getVendorToGetPayinComission[0]?.payin_commission),
-            );
-            const durMs = new Date() - checkPayInUtr[0]?.created_at;
-            const durSeconds = Math.floor((durMs / 1000) % 60)
-              .toString()
-              .padStart(2, '0');
-            const durMinutes = Math.floor((durSeconds / 60) % 60)
-              .toString()
-              .padStart(2, '0');
-            const durHours = Math.floor((durMinutes / 60) % 24)
-              .toString()
-              .padStart(2, '0');
-            const duration = `${durHours}:${durMinutes}:${durSeconds}`;
-
-            if (checkPayInUtr[0]?.amount == amount) {
-              if (checkPayInUtr[0]?.user_submitted_utr) {
-                if (checkPayInUtr[0]?.user_submitted_utr == utr) {
-                  const payInData = {
-                    status: 'SUCCESS',
-                    is_notified: true,
-                    // is_used: true,
-                    user_submitted_utr: botRes?.utr,
-                    approved_at: new Date(),
-                    duration: duration,
-                    payin_merchant_commission: payinMerchantCommission,
-                    payin_vendor_commission: payinVendorCommission,
-                    config: { from_UI: from_UI },
-                    bank_response_id: botRes.id
-                  };
-
-                  await updatePayInUrlDao(
-                    checkPayInUtr[0]?.id,
-                    payInData,
-                    conn
-                  );
-
-                  if (checkPayInUtr[0]?.bank_acc_id) {
-                    const bankdetails = await getBankaccountDao({
-                      id: isBankExist?.id, company_id: companyId
-                    }, null, null, role);
-                    await updateBankaccountDao(
-                      { id: checkPayInUtr[0]?.bank_acc_id },
-                      {
-                        balance: bankdetails.balance + parseFloat(amount),
-                        today_balance:
-                          bankdetails.balance + parseFloat(amount),
-                      }, conn
-                    );
-                  }
-                  await updateBotResponseDao(botRes.id, { is_used: true }, conn);
-                  const merchatnData = await getMerchantsDao({
-                    id: checkPayInUtr[0]?.merchant_id,
-                  }, null, null, null, null);
-                  // const updateMerchantData =
-                  await updateMerchantDao({ id: checkPayInUtr[0]?.merchant_id }, {
-                    balance: merchatnData.balance + parseFloat(amount),
-                  }, conn);
-                  //  userId pass always in updateCalculationTable
-                  await updateCalculationTable(merchatnData.user_id, {
-                    payinMerchantCommission,
-                    amount: botRes.amount,
-                  });
-                  await updateCalculationTable(
-                    botRes.user_id,
-                    {
-                      payinCommission: payinVendorCommission,
-                      amount: botRes.amount,
-                    },
-                    conn,
-                  );
-                  return { message: `Successfully Created The Entry` }
-                } else {
-                  return { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr[0]?.user_submitted_utr}` };
-                }
-              } else {
-                const payInData = {
-                  status: 'SUCCESS',
-                  is_notified: true,
-                  user_submitted_utr: botRes?.utr,
-                  approved_at: new Date(),
-                  duration: duration,
-                  payin_merchant_commission: payinMerchantCommission,
-                  payin_vendor_commission: payinVendorCommission,
-                  config: { from_UI: from_UI },
-                  bank_response_id: botRes.id
-                };
-
-                await updatePayInUrlDao(
-                  checkPayInUtr[0]?.id,
-                  payInData, conn
-                );
-
-                if (checkPayInUtr[0]?.bank_acc_id) {
-                  const bankdetails = await getBankaccountDao({
-                    id: isBankExist?.id, company_id: companyId
-                  }, null, null, role);
-                  await updateBankaccountDao({ id: checkPayInUtr[0]?.bank_acc_id }, {
-                    balance: bankdetails.balance + parseFloat(amount),
-                    today_balance: bankdetails.balance + parseFloat(amount),
-                  }, conn);
-                }
-                await updateBotResponseDao(botRes.id, { is_used: true }, conn);
-                const merchatnData = await getMerchantsDao({
-                  id: checkPayInUtr[0]?.merchant_id,
-                }, null, null, null, null);
-                await updateMerchantDao({ id: checkPayInUtr[0]?.merchant_id }, {
-                  balance: merchatnData.balance + parseFloat(amount),
-                }, conn);
-                //  userId pass always in updateCalculationTable
-                await updateCalculationTable(merchatnData.user_id, {
-                  payinMerchantCommission,
-                  amount: botRes.amount,
-                });
-                await updateCalculationTable(
-                  botRes.user_id,
-                  {
-                    payinCommission: payinVendorCommission,
-                    amount: botRes.amount,
-                  },
-                  conn,
-                );
-                return { message: `Successfully Created The Entry` }
-              }
-            } else {
-              if (checkPayInUtr[0]?.user_submitted_utr) {
-                if (checkPayInUtr[0]?.user_submitted_utr == utr) {
-                  const payInData = {
-                    status: 'DISPUTE',
-                    is_notified: true,
-                    user_submitted_utr: botRes?.utr,
-                    bank_response_id: botRes?.id,
-                    approved_at: new Date(),
-                    duration: duration,
-                    payin_merchant_commission: payinMerchantCommission,
-                    payin_vendor_commission: payinVendorCommission,
-                    config: { from_UI: from_UI },
-                  };
-                  const updatePayInDataRes = await updatePayInUrlDao(
-                    checkPayInUtr[0]?.id,
-                    payInData,
-                    conn,
-                  );
-
-                  await updateBotResponseDao(botRes.id, { is_used: true }, conn);
-
-                  return { message: `Entry is in Dispute with ${updatePayInDataRes?.merchant_order_id}` }
-                } else {
-                  return { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr[0]?.user_submitted_utr}` };
-                }
-              } else {
-                const payInData = {
-                  status: 'DISPUTE',
-                  is_notified: true,
-                  user_submitted_utr: botRes?.utr,
-                  bank_response_id: botRes?.id,
-                  approved_at: new Date(),
-                  duration: duration,
-                  payin_merchant_commission: payinMerchantCommission,
-                  payin_vendor_commission: payinVendorCommission,
-                  config: { from_UI: from_UI },
-                };
-                const updatePayInDataRes =
-                  await updatePayInUrlDao(
-                    checkPayInUtr[0]?.id,
-                    payInData,
-                    conn,
-                  );
-                await updateBotResponseDao(botRes.id, { is_used: true }, conn);
-                return { message: `Entry is in DISPUTE with ${updatePayInDataRes[0]?.merchant_order_id}` }
-              }
-            }
-          }
-          else {
-            const existingResponse = await getBankResponseDao(
-              {
-                utr: utr,
-                is_used: true,
-                company_id: company_id,
-              },
-              null,
-              null,
-              null,
-              null,
-              filterColumns,
-            );
-            if (existingResponse?.length > 0) {
-              return {
-                message: `The UTR already exists`,
-              };
-            }
-          }
-        }
-      }
-      else {
-        if (!acceptedStatus.includes(checkPayInUtr[0]?.status)) {
-          const isBankExist = await getBankaccountDao({ id: bank_id, company_id: companyId }, null, null, role);
-          if (!isBankExist) {
-            if (checkPayInUtr[0]?.user_submitted_utr) {
-              if (checkPayInUtr[0]?.user_submitted_utr == utr) {
-                const payInData = {
-                  status: 'BANK_MISMATCH',
-                  is_notified: true,
-                  user_submitted_utr: botRes?.utr,
-                  bank_response_id: botRes?.id,
-                  approved_at: new Date(),
-                  config: { from_UI: from_UI },
-                };
-                const updatePayInDataRes = await updatePayInUrlDao(
-                  checkPayInUtr[0]?.id,
-                  payInData,
-                  conn,
-                );
-
-                await updateBotResponseDao(botRes.id, { is_used: true }, conn);
-                return { message: `entry in bank Mismatch with ${updatePayInDataRes?.merchant_order_id}` }
-              } else {
-                return { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr[0]?.user_submitted_utr}` };
-              }
-            } else {
-              const payInData = {
-                status: 'BANK_MISMATCH',
-                is_notified: true,
-                user_submitted_utr: botRes?.utr,
-                bank_response_id: botRes?.id,
-                approved_at: new Date(),
-                config: { from_UI: from_UI },
-              };
-
-              const updatePayInDataRes = await updatePayInUrlDao(
-                checkPayInUtr[0]?.id,
-                payInData,
-                conn,
-              );
-
-              await updateBotResponseDao(botRes.id, { is_used: true }, conn);
-
-              return { message: `entry in bank mismatch with ${updatePayInDataRes?.merchant_order_id}` }
-            }
-          }
-
-          if (checkPayInUtr[0].bank_acc_id !== isBankExist[0].id) {
-            if (checkPayInUtr[0]?.user_submitted_utr) {
-              if (checkPayInUtr[0]?.user_submitted_utr == utr) {
-                const payInData = {
-                  status: 'BANK_MISMATCH',
-                  is_notified: true,
-                  user_submitted_utr: botRes?.utr,
-                  bank_response_id: botRes?.id,
-                  approved_at: new Date(),
-                  config: { from_UI: from_UI },
-                };
-
-                const updatePayInDataRes = await updatePayInUrlDao(
-                  checkPayInUtr[0]?.id,
-                  payInData,
-                  conn,
-                );
-                await updateBotResponseDao(botRes.id, { is_used: true }, conn);
-                return { message: `Bank Mismatch created with ${updatePayInDataRes?.merchant_order_id}` }
-              }
-            } else {
-              return { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr[0]?.user_submitted_utr}` };
-            }
-          }
-        }
-
-        // check if duplicate and return error
-        const existingResponse = await getBankResponseDao(
-          { utr: utr, is_used: true, company_id: company_id },
-          null,
-          null,
-          null,
-          null,
-          filterColumns,
-        );
-        if (existingResponse?.length > 0) {
-          return {
-            message: `The UTR already exists`,
-          };
-        }
-
-        const getMerchantToGetPayinCommissionRes = await getMerchantsDao({
-          id: checkPayInUtr[0]?.merchant_id,
-        }, null, null, null, null);
-        const payinMerchantCommission = calculateCommission(
-          Number(botRes?.amount),
-          Number(getMerchantToGetPayinCommissionRes[0].payin_commission),
-        );
-        const bankAccountDetails = await getBankaccountDao({
-          id: checkPayInUtr[0].bank_acc_id, company_id: companyId
-        }, null, null, role);
-        const getVendorToGetPayinComission = await getVendorsDao({
-          user_id: bankAccountDetails[0].user_id,
-        }, null, null, null, null);
-        const payinVendorCommission = calculateCommission(
-          Number(botRes?.amount),
-          Number(getVendorToGetPayinComission[0]?.payin_commission),
-        );
-
-        const durMs = new Date() - checkPayInUtr[0]?.created_at;
-        const durSeconds = Math.floor((durMs / 1000) % 60)
-          .toString()
-          .padStart(2, '0');
-        const durMinutes = Math.floor((durSeconds / 60) % 60)
-          .toString()
-          .padStart(2, '0');
-        const durHours = Math.floor((durMinutes / 60) % 24)
-          .toString()
-          .padStart(2, '0');
-        const duration = `${durHours}:${durMinutes}:${durSeconds}`;
-
-        if (checkPayInUtr[0]?.amount == amount) {
-          if (checkPayInUtr[0]?.user_submitted_utr) {
-            if (checkPayInUtr[0]?.user_submitted_utr == utr) {
-              const payInData = {
-                status: 'SUCCESS',
-                is_notified: true,
-                user_submitted_utr: botRes?.utr,
-                approved_at: new Date(),
-                duration: duration,
-                payin_merchant_commission: payinMerchantCommission,
-                payin_vendor_commission: payinVendorCommission,
-                config: { from_UI: from_UI },
-                bank_response_id: botRes.id
-              };
-
-              await updatePayInUrlDao(
-                checkPayInUtr[0]?.id,
-                payInData,
-                conn,
-              );
-
-              if (checkPayInUtr[0]?.bank_acc_id) {
-                const bankdetails = await getBankaccountDao({
-                  id: checkPayInUtr[0]?.bank_acc_id, company_id: companyId
-                }, null, null, role);
-                await updateBankaccountDao({ id: checkPayInUtr[0]?.bank_acc_id }, {
-                  balance: bankdetails[0].balance + parseFloat(amount),
-                  today_balance: bankdetails[0].balance + parseFloat(amount),
-                }, conn);
-                await updateCalculationTable(
-                  bankdetails[0]?.user_id,
-                  {
-                    payinCommission: payinVendorCommission,
-                    amount: botRes.amount,
-                  },
-                  conn,
-                );
-              }
-              await updateBotResponseDao(botRes.id, { is_used: true }, conn);
-
-              const merchatnData = await getMerchantsDao({
-                id: checkPayInUtr[0]?.merchant_id,
-              }, null, null, null, null);
-              if (!merchatnData) {
-                return { message: `No Entry found in Bank Response table with ${botRes.id}` }
-              }
-              await updateMerchantDao({ id: checkPayInUtr[0]?.merchant_id }, {
-                balance: merchatnData[0].balance + parseFloat(amount),
-              }, conn);
-              //  userId pass always in updateCalculationTable
-              await updateCalculationTable(merchatnData[0].user_id, {
-                payinCommission: payinMerchantCommission,
-                amount: botRes.amount,
-              });
-              return { message: `Successfully Created The Entry` }
-            } else {
-              return { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr[0]?.user_submitted_utr}` };
-            }
-          } else {
-            const payInData = {
-              status: 'SUCCESS',
-              is_notified: true,
-              user_submitted_utr: botRes?.utr,
-              approved_at: new Date(),
-              duration: duration,
-              payin_merchant_commission: payinMerchantCommission,
-              payin_vendor_commission: payinVendorCommission,
-              config: { from_UI: from_UI },
-              bank_response_id: botRes.id
-            };
-
-            const updatePayInDataRes = await updatePayInUrlDao(
-              checkPayInUtr[0]?.id,
-              payInData,
-              conn,
-            );
-
-            if (checkPayInUtr[0]?.bank_acc_id) {
-              const bankdetails = await getBankaccountDao({
-                id: updatePayInDataRes?.bank_acc_id, company_id: companyId
-              }, null, null, role);
-              await updateBankaccountDao({ id: checkPayInUtr[0]?.bank_acc_id }, {
-                balance: bankdetails.balance + parseFloat(amount),
-                today_balance: bankdetails.balance + parseFloat(amount),
-              }, conn);
-            }
-            await updateBotResponseDao(botRes.id, { is_used: true }, conn);
-            const merchatnData = await getMerchantsDao({
-              id: checkPayInUtr[0]?.merchant_id,
-            }, null, null, null, null);
-            await updateMerchantDao({ id: checkPayInUtr[0]?.merchant_id }, {
-              balance: merchatnData.balance + parseFloat(amount),
-            }, conn);
-            //  userId pass always in updateCalculationTable
-            await updateCalculationTable(merchatnData.user_id, {
-              payinMerchantCommission,
-              amount: botRes.amount,
-            });
-            await updateCalculationTable(
-              botRes.user_id,
-              {
-                payinCommission: payinVendorCommission,
-                amount: botRes.amount,
-              },
-              conn,
-            );
-            return { message: `Successfully Created The Entry` }
-          }
-        } else {
-          if (checkPayInUtr[0]?.user_submitted_utr) {
-            if (checkPayInUtr[0]?.user_submitted_utr == utr) {
-              const payInData = {
-                status: 'DISPUTE',
-                is_notified: true,
-                user_submitted_utr: botRes?.utr,
-                bank_response_id: botRes?.id,
-                approved_at: new Date(),
-                duration: duration,
-                payin_merchant_commission: payinMerchantCommission,
-                payin_vendor_commission: payinVendorCommission,
-                config: { from_UI: from_UI },
-              };
-              await updatePayInUrlDao(
-                checkPayInUtr[0]?.id,
-                payInData,
-                conn
-              );
-
-              await updateBotResponseDao(botRes.id, { is_used: true }, conn);
-              return { message: `Amount is in DISPUTE with : ${checkPayInUtr[0]?.user_submitted_utr}` }
-            } else {
-              return { message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${checkPayInUtr[0]?.user_submitted_utr}` };
-            }
-          } else {
-            const payInData = {
-              status: 'DISPUTE',
-              is_notified: true,
-              user_submitted_utr: botRes?.utr,
-              bank_response_id: botRes?.id,
-              approved_at: new Date(),
-              duration: duration,
-              payin_merchant_commission: payinMerchantCommission,
-              payin_vendor_commission: payinVendorCommission,
-              config: { from_UI: from_UI },
-            };
-            await updatePayInUrlDao(
-              checkPayInUtr[0]?.id,
-              payInData,
-              conn,
-            );
-
-            await updateBotResponseDao({ id: botRes?.id }, { is_used: true, config: { from_UI: from_UI } }, conn);
-            return { message: `Entry in dispute with ${botRes?.id}` }
-          }
-        }
-      }
-    }
-    return { message: `Entry created successfully` }
   }
-  else {
-    return {
-      message: 'Invalid data received',
-    };
-  }
-}
+
+  return { message: `Entry created successfully` };
+};
 
 const updateCalculationTable = async (user_id, data, conn) => {
   if (user_id) {

@@ -19,30 +19,20 @@ const initializeSocket = (server) => {
     logger.log(message);
 
     socket.on('user-login', (userId) => {
-      // Get existing sockets for this user
       const existingSockets = userSockets.get(userId) || [];
-
-      // Force logout all other sessions except the current one
       existingSockets.forEach((existingSocketId) => {
         if (existingSocketId !== socket.id) {
           ioInstance.to(existingSocketId).emit('forceLogout');
           logger.log(chalk.yellow(`Forced logout for user ${userId} on socket ${existingSocketId}`));
         }
       });
-
-      // Update userSockets: keep only the current socket
       userSockets.set(userId, [socket.id]);
       const loginMessage = chalk.bold.green(`User ${userId} associated with socket ${socket.id}`);
       logger.log(loginMessage);
-
-      // Send confirmation to the current client
       socket.emit('login-success', { userId, socketId: socket.id });
     });
 
-    // Send test message on connection
     socket.emit('new-entry', { message: 'Hello from server!!!', data: {} });
-
-    // Broadcast message to all clients
     ioInstance.emit('broadcast-message', {
       message: 'A new client has connected!',
     });
@@ -84,7 +74,7 @@ const forceLogoutUser = (userId) => {
       ioInstance.to(socketId).emit('forceLogout');
       logger.log(chalk.yellow(`User ${userId} forced to logout on socket ${socketId}`));
     });
-    userSockets.delete(userId); // Clear all sockets for this user
+    userSockets.delete(userId);
   } else {
     logger.error(`No active sockets found for user ${userId}`);
   }
@@ -106,4 +96,23 @@ const deactivateBank = (nickName, bankId, isWarning = false) => {
   });
 };
 
-export { initializeSocket, forceLogoutUser, deactivateBank };
+// New function to emit event when a specific entry is added to a table
+const notifyNewTableEntry = async(tableName, entryType, entryData) => {
+  if (!ioInstance) {
+    logger.error('Socket.IO not initialized');
+    return;
+  }
+
+  const eventName = 'newTableEntry';
+  const payload = {
+    tableName,
+    entryType,
+    entryData,
+    timestamp: new Date().toISOString(),
+  };
+
+  logger.log(chalk.bold.cyan(`Emitting ${eventName} for table ${tableName}, type ${entryType}`));
+  ioInstance.emit(eventName, payload); // Broadcast to all connected clients
+};
+
+export { initializeSocket, forceLogoutUser, deactivateBank, notifyNewTableEntry };
