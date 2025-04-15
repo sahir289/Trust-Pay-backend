@@ -889,7 +889,7 @@ export const processPayInService = async (conn, payload, updated_by, tele_check)
   }
 
   if (!bankResponse || Object.keys(bankResponse).length === 0) {
-    bankResponse = (await getBankResponseDao({ utr: userSubmittedUtr })) || {};
+    bankResponse = (await getBankResponseDao({ utr: userSubmittedUtr ,status:"/success" })) || {};
   }
 
   if (bankResponse.id) {
