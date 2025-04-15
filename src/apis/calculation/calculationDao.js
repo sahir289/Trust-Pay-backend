@@ -123,7 +123,7 @@ export const getCalculationsSumDao = async (filters) => {
   const dateFormat = 'MM-DD-YYYY';
   const startDate = start
     ? dayjs(start).format(dateFormat)
-    : dayjs().subtract(7, 'd').format(dateFormat);
+    : dayjs().format(dateFormat);
   const endDate = end
   ? dayjs(end).endOf('day').toISOString() // Include the full day
   : dayjs().endOf('day').toISOString(); 
