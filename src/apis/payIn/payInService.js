@@ -64,7 +64,7 @@ import {
 import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
-import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
+// import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
 import { expirePayInIfNeeded, stringifyJSON } from '../../utils/index.js';
 import { createHash } from '../../utils/hashUtils.js';
 Cashfree.XClientId = config.cashFreeClientId;
