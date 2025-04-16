@@ -269,9 +269,9 @@ export const assignedBankToPayInUrlService = async (
 
   const enabledBanks = banks.filter((bank) => {
     if (
-      bank.is_enabled &&
-      bank.bank_used_for !== 'PayIn' &&
-      bank.bank_used_for !== 'payIn'
+      !bank.is_enabled &&
+      (bank.bank_used_for !== 'PayIn' ||
+      bank.bank_used_for !== 'payIn')
     ) {
       return false;
     }
@@ -280,11 +280,11 @@ export const assignedBankToPayInUrlService = async (
       case BankTypes.UPI:
         return bank.is_qr;
       case BankTypes.PHONE_PE:
-        return bank.config?.is_phone;
+        return bank.config?.is_phonepay;
       case BankTypes.BANK_TRANSFER:
         return bank.is_bank;
       case BankTypes.INTENT:
-        return bank.config?.allow_intent;
+        return bank.config?.is_intent;
       default:
         return false;
     }
@@ -1459,6 +1459,11 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
     config: updatedConfig,
     one_time_used: true,
   });
+
+  const banks = await getMerchantBankDao({
+    config_merchants_contains: merchant[0].id,
+  });
+
   const result = {
     code: payIn.upi_short_code,
     return_url: config.return_url,
@@ -1469,6 +1474,9 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
     status: payIn.status,
     min_amount: merchant[0].min_payin,
     max_amount: merchant[0].max_payin,
+    is_qr: banks.some(bank => bank.is_qr),
+    is_phonepay: banks.some(bank => bank.config?.is_phonepay),
+    is_bank: banks.some(bank => bank.is_bank)
   };
   return result;
 };
