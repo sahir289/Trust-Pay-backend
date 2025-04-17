@@ -20,6 +20,9 @@ function config(Env) {
       temp_token: Env?.TEMP_TOKEN,
       temp_token_expires: Env?.TEMP_TOKEN_EXPIRES,
     },
+    telegram: {
+      telegram_url : Env?.TELEGRAM_URL,
+    },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,
     accessTokenSecretKey: Env?.ACCESS_TOKEN_SECRET_KEY,
