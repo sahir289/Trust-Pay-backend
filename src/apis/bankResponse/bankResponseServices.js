@@ -177,11 +177,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
   const vendor = await getVendorsDao(
     {
       user_id: bankdetails[0].user_id,
-    },
-    null,
-    null,
-    null,
-    null,
+    }
   );
   await updateVendorDao(
     { id: vendor[0].id },
