@@ -15,6 +15,7 @@ import {
 } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
 import { InternalServerError } from '../../utils/appErrors.js';
+import { logger } from '../../utils/logger.js';
 // Service to fetch calculation data
 const getCalculationService = async (filters, role) => {
 
@@ -35,7 +36,7 @@ const getCalculationService = async (filters, role) => {
       filterColumns
     );
   } catch (error) {
-    console.error('Error while fetching calculation data:', error);
+    logger.error('Error while fetching calculation data:', 'error', error);
     throw new InternalServerError(error);
   }
 };
@@ -50,7 +51,7 @@ const createCalculationService = async (conn, payload, role) => {
           ? vendorColumns.CALCULATION
           : columns.CALCULATION;
     const data = await createCalculationDao(conn, payload); // Ensuring transaction safety
-    const finalResult = await filterResponse(data, filterColumns);
+    const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
     console.error('Error while creating calculation record:', error);
@@ -71,8 +72,16 @@ const updateCalculationService = async (conn, filters, payload, role) => {
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
-    console.error('Error while updating calculation record:', error);
+    logger.error('Error while updating calculation record:', error);
     throw new InternalServerError(error);
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        logger.error('Error while releasing the connection:', releaseError);
+      }
+    }
   }
 };
 

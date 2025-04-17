@@ -12,6 +12,7 @@ import {
   
 } from '../../schemas/calculationSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import { logger } from '../../utils/logger.js';
 const getCalculationById = async (req, res) => {
   // Validate request parameters using Joi schema
   // const { role } = req.user;
@@ -28,10 +29,11 @@ const getCalculationById = async (req, res) => {
     },
     role,
   );
-  console.info('Get Calculation successfully', 'info');
+  logger.info('Get Calculation successfully', 'info');
   // Respond with the calculation data
   return sendSuccess(res, data, 'Get Calculation successfully');
 };
+
 const getCalculation = async (req, res) => {
 
   // You can add additional validation here if needed, depending on the request
@@ -47,7 +49,7 @@ const getCalculation = async (req, res) => {
     },
     role,
   );
-  console.info('Get Calculations successfully', 'info');
+  logger.info('Get Calculations successfully', data);
   return sendSuccess(res, data, 'Get Calculations successfully');
 };
 
