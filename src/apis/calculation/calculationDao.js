@@ -121,13 +121,15 @@ export const getCalculationsSumDao = async (filters) => {
     company_id
   } = filters;
 
-  const dateFormat = 'MM-DD-YYYY';
+  // const dateFormat = 'MM-DD-YYYY';
   const startDate = start
-    ? dayjs(start).format(dateFormat)
-    : dayjs().format(dateFormat);
-  const endDate = end
-  ? dayjs(end).endOf('day').toISOString() // Include the full day
-  : dayjs().endOf('day').toISOString(); 
+  ? dayjs(start).toISOString()
+  : dayjs().startOf('day').toISOString();
+
+const endDate = end
+  ? dayjs(end).endOf('day').toISOString()
+  : dayjs().endOf('day').toISOString();
+
   let vendorData = {}, merchantData = {}, netBalance = {};
   let hierarchyUsers = [], userCodes = users ? users.split(",") : [];
   const checkForHierarchy = [Role.MERCHANT_ADMIN, Role.VENDOR_ADMIN].includes(designation);
@@ -142,25 +144,25 @@ export const getCalculationsSumDao = async (filters) => {
 
   const groupBy = ` GROUP BY DATE_TRUNC('day', c.created_at) ORDER BY DATE_TRUNC('day', c.created_at)DESC;`
 
-  // Base Query for Aggregated Calculations
+  // Modified Base Query with numeric casting
   let baseQuery = `
     SELECT 
        DATE_TRUNC('day', c.created_at)::DATE AS date,
-        SUM(c.total_payin_count) AS total_payin_count,
-        SUM(c.total_payin_amount) AS total_payin_amount,
-        SUM(c.total_payin_commission) AS total_payin_commission,
-        SUM(c.total_payout_count) AS total_payout_count,
-        SUM(c.total_payout_amount) AS total_payout_amount,
-        SUM(c.total_payout_commission) AS total_payout_commission,
-        SUM(c.total_settlement_count) AS total_settlement_count,
-        SUM(c.total_settlement_amount) AS total_settlement_amount,
-        SUM(c.total_chargeback_count) AS total_chargeback_count,
-        SUM(c.total_chargeback_amount) AS total_chargeback_amount,
-        SUM(c.total_reverse_payout_count) AS total_reverse_payout_count,
-        SUM(c.total_reverse_payout_amount) AS total_reverse_payout_amount,
-        SUM(c.total_reverse_payout_commission) AS total_reverse_payout_commission,
-        SUM(c.current_balance) AS current_balance,
-        SUM(c.net_balance) AS net_balance
+        CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
+        CAST(ROUND(SUM(c.total_payin_amount)::NUMERIC, 2) AS FLOAT) AS total_payin_amount,
+        CAST(ROUND(SUM(c.total_payin_commission)::NUMERIC, 2) AS FLOAT) AS total_payin_commission,
+        CAST(SUM(c.total_payout_count) AS INTEGER) AS total_payout_count,
+        CAST(ROUND(SUM(c.total_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_payout_amount,
+        CAST(ROUND(SUM(c.total_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_payout_commission,
+        CAST(SUM(c.total_settlement_count) AS INTEGER) AS total_settlement_count,
+        CAST(ROUND(SUM(c.total_settlement_amount)::NUMERIC, 2) AS FLOAT) AS total_settlement_amount,
+        CAST(SUM(c.total_chargeback_count) AS INTEGER) AS total_chargeback_count,
+        CAST(ROUND(SUM(c.total_chargeback_amount)::NUMERIC, 2) AS FLOAT) AS total_chargeback_amount,
+        CAST(SUM(c.total_reverse_payout_count) AS INTEGER) AS total_reverse_payout_count,
+        CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_amount,
+        CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
+        CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
+        CAST(ROUND(SUM(c.net_balance)::NUMERIC, 2) AS FLOAT) AS net_balance
     FROM "${tableName.CALCULATION}" c
     JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
     JOIN "${tableName.ROLE}" r ON u.role_id = r.id
@@ -263,10 +265,74 @@ export const getCalculationsSumDao = async (filters) => {
   netBalance.vendor = (await executeQuery(vendorCalQuery)).rows[0]?.net_balance_sum || 0;
   netBalance.merchant = (await executeQuery(merchantCalQuery)).rows[0]?.net_balance_sum || 0;
 
+  // Add merchant total calculations query
+  let merchantTotalQuery = `
+    SELECT 
+      CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
+      CAST(ROUND(SUM(c.total_payin_amount)::NUMERIC, 2) AS FLOAT) AS total_payin_amount,
+      CAST(ROUND(SUM(c.total_payin_commission)::NUMERIC, 2) AS FLOAT) AS total_payin_commission,
+      CAST(SUM(c.total_payout_count) AS INTEGER) AS total_payout_count,
+      CAST(ROUND(SUM(c.total_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_payout_amount,
+      CAST(ROUND(SUM(c.total_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_payout_commission,
+      CAST(SUM(c.total_settlement_count) AS INTEGER) AS total_settlement_count,
+      CAST(ROUND(SUM(c.total_settlement_amount)::NUMERIC, 2) AS FLOAT) AS total_settlement_amount,
+      CAST(SUM(c.total_chargeback_count) AS INTEGER) AS total_chargeback_count,
+      CAST(ROUND(SUM(c.total_chargeback_amount)::NUMERIC, 2) AS FLOAT) AS total_chargeback_amount,
+      CAST(SUM(c.total_reverse_payout_count) AS INTEGER) AS total_reverse_payout_count,
+      CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_amount,
+      CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
+      CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
+      CAST(ROUND(SUM(c.net_balance)::NUMERIC, 2) AS FLOAT) AS net_balance
+    FROM "${tableName.CALCULATION}" c
+    JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE 
+    JOIN "${tableName.ROLE}" r ON u.role_id = r.id
+    WHERE c.created_at BETWEEN '${startDate}' AND '${endDate}'
+    AND r.role = 'MERCHANT'
+  `;
+
+  // Add vendor total calculations query
+  let vendorTotalQuery = `
+    SELECT 
+      CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
+      CAST(ROUND(SUM(c.total_payin_amount)::NUMERIC, 2) AS FLOAT) AS total_payin_amount,
+      CAST(ROUND(SUM(c.total_payin_commission)::NUMERIC, 2) AS FLOAT) AS total_payin_commission,
+      CAST(SUM(c.total_payout_count) AS INTEGER) AS total_payout_count,
+      CAST(ROUND(SUM(c.total_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_payout_amount,
+      CAST(ROUND(SUM(c.total_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_payout_commission,
+      CAST(SUM(c.total_settlement_count) AS INTEGER) AS total_settlement_count,
+      CAST(ROUND(SUM(c.total_settlement_amount)::NUMERIC, 2) AS FLOAT) AS total_settlement_amount,
+      CAST(SUM(c.total_chargeback_count) AS INTEGER) AS total_chargeback_count,
+      CAST(ROUND(SUM(c.total_chargeback_amount)::NUMERIC, 2) AS FLOAT) AS total_chargeback_amount,
+      CAST(SUM(c.total_reverse_payout_count) AS INTEGER) AS total_reverse_payout_count,
+      CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_amount,
+      CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
+      CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
+      CAST(ROUND(SUM(c.net_balance)::NUMERIC, 2) AS FLOAT) AS net_balance
+    FROM "${tableName.CALCULATION}" c
+    JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
+    JOIN "${tableName.ROLE}" r ON u.role_id = r.id
+    WHERE c.created_at BETWEEN '${startDate}' AND '${endDate}'
+    AND r.role = 'VENDOR'
+  `;
+
+  // Add company_id conditions if needed
+  if (company_id) {
+    merchantTotalQuery += ` AND c.company_id = '${company_id}'`;
+    vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
+  }
+
+  // Execute total calculations queries
+  const [merchantTotal, vendorTotal] = await Promise.all([
+    executeQuery(merchantTotalQuery),
+    executeQuery(vendorTotalQuery)
+  ]);
+
   return {
     vendor: vendorData,
     merchant: merchantData,
     netBalance,
+    merchantTotalCalculations: merchantTotal.rows[0] || {},
+    vendorTotalCalculations: vendorTotal.rows[0] || {}
   };
 };
 

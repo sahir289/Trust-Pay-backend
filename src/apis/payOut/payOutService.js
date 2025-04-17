@@ -64,6 +64,8 @@ const createPayoutService = async (conn, headers, payload, role) => {
     const merchant_order_id = payload.merchant_order_id ?? uuidv4();
     delete payload.code;
     payload.merchant_id = details[0].id;
+    payload.payout_merchant_commission =
+      details[0].payout_commission || 0;
     payload.merchant_order_id = merchant_order_id;
 
     if (!x_api_key || !merchantAPIKey) {
@@ -238,6 +240,12 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (!bankData) {
       throw new NotFoundError('Bank not found!');
     }
+    if (bankData.is_obsolete) {
+      throw new BadRequestError('Bank account is obsolete');
+    }
+    if (bankData.is_blocked) {
+      throw new BadRequestError('Bank account is blocked');
+    }
 
     const [merchantArr, vendorArr, userArr] = await Promise.all([
       getMerchantsDao({ id: data.merchant_id }, null, null, null, null),
@@ -256,12 +264,20 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       throw new NotFoundError('Vendor not found!');
     }
 
+    // Calculate merchant commission based on percentage
+    const merchantCommissionPercent = Number(data.payout_merchant_commission) || 0;
+    const merchantCommissionAmount = (Number(data.amount) * merchantCommissionPercent) / 100;
+
+    // Calculate vendor commission based on percentage
+    const vendorCommissionPercent = Number(vendor.payout_commission) || 0;
+    const vendorCommissionAmount = (Number(data.amount) * vendorCommissionPercent) / 100;
+
     if (data.status === Status.APPROVED) {
       const netBalance = await updatePayoutCalculations(
         merchant.user_id,
         data.approved_at,
         Number(data.amount),
-        Number(data.payout_merchant_commission),
+        merchantCommissionAmount,
         true,
         false,
         conn,
@@ -270,7 +286,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         vendor.user_id,
         data.approved_at,
         Number(data.amount),
-        Number(data.payout_vendor_commission),
+        vendorCommissionAmount,
         false,
         false,
         conn,
@@ -284,14 +300,6 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         conn,
       );
 
-      const merchantCommission = calculateCommission(
-        Number(data.amount),
-        Number(data.payout_merchant_commission),
-      );
-      const vendorCommission = calculateCommission(
-        Number(data.amount),
-        Number(data.commission),
-      );
       await updateMerchantDao(
         { id: merchant.id },
         { balance: netBalance },
@@ -304,7 +312,10 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       );
       await updatePayoutDao(
         ids,
-        { payout_merchant_commission: merchantCommission, payout_vendor_commission: vendorCommission },
+        { 
+          payout_merchant_commission: merchantCommissionPercent,
+          payout_vendor_commission: vendorCommissionPercent 
+        },
         conn
       );
     } else if (data.status === Status.REJECTED) {
@@ -321,7 +332,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         vendor.user_id,
         data.rejected_at,
         Number(data.amount),
-        Number(data.payout_vendor_commission),
+        Number(vendorCommissionAmount),
         false,
         true,
         conn,
