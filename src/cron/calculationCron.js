@@ -37,7 +37,7 @@ const collectCalculationData = async (timezone = 'Asia/Kolkata') => {
             user_id: calculation[0].user_id,
             role_id: calculation[0].role_id,
             company_id: calculation[0].company_id,
-            net_balance: calculation[0].net_balance,
+            net_balance: parseFloat(calculation[0].net_balance),
             config: calculation[0].config,
           };
           await processUpdate(resetData);

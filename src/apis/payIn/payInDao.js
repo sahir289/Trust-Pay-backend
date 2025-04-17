@@ -120,6 +120,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         p.merchant_order_id,
         json_build_object(
           'merchant_code', r.code,
+          'dispute',r.dispute_enabled,
           'return_url', r.config->>'return_url',
           'notify_url', r.config->>'notify_url'
         ) AS merchant_details
@@ -134,6 +135,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         p.payin_merchant_commission,
         json_build_object(
           'merchant_code', r.code,
+          'dispute',r.dispute_enabled,
           'return_url', r.config->>'return_url',
           'notify_url', r.config->>'notify_url'
         ) AS merchant_details,
@@ -216,6 +218,8 @@ export const getPayinsBySearchDao = async (
         p.merchant_order_id,
         json_build_object(
           'merchant_code', m.code,
+          'dispute',m.dispute_enabled,
+
           'return_url', m.config->>'return_url',
           'notify_url', m.config->>'notify_url'
         ) AS merchant_details`;
@@ -228,6 +232,7 @@ export const getPayinsBySearchDao = async (
         p.payin_merchant_commission,
         json_build_object(
           'merchant_code', m.code,
+          'dispute',m.dispute_enabled,
           'return_url', m.config->>'return_url',
           'notify_url', m.config->>'notify_url'
         ) AS merchant_details,
