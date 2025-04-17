@@ -275,6 +275,7 @@ export const getPayoutsBySearchDao = async (
             OR LOWER(p.currency) LIKE LOWER($${paramIndex})
             OR LOWER(p.upi_id) LIKE LOWER($${paramIndex})
             OR LOWER(p.utr_id) LIKE LOWER($${paramIndex})
+             OR LOWER(p.status) LIKE LOWER($${paramIndex})
             OR LOWER(p.rejected_reason) LIKE LOWER($${paramIndex})
             OR LOWER(b.nick_name) LIKE LOWER($${paramIndex})
             OR LOWER(m.code) LIKE LOWER($${paramIndex})
