@@ -9,6 +9,7 @@ import { Role, tableName } from '../../constants/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { NotFoundError } from '../../utils/appErrors.js';
 import dayjs from "dayjs";
+import { logger } from '../../utils/logger.js';
 
 const getCalculationDao = async (
   filters,
@@ -321,7 +322,7 @@ const updateCalculationDao = async (id, data, conn) => {
     }
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
-    console.error('Error updating calculation:', error); // Log the error for debugging
+    logger.error('Error updating calculation:', error); // Log the error for debugging
     throw error.message;
   }
 };
