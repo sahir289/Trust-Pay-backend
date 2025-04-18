@@ -293,8 +293,7 @@ const createUserDao = async (payload,conn) => {
     let result;
     ///temperary for conn ...in future can excute to query in if condition
     if (conn) {
-      // result = await conn.query(sql, values);
-      result = await executeQuery(sql, values);
+      result = await conn.query(sql, values);
     }
     else {
       result = await executeQuery(sql, values);

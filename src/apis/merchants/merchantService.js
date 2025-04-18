@@ -26,20 +26,23 @@ import {
   columns,
   merchantColumns,
   // Method,
-  Role,
+  Role
 } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
 // Create Merchant Service
-const createMerchantService = async (conn, payload, role) => {
+
+const createMerchantService = async (conn, payload) => {
   try {
-    const filterColumns =
-      role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
-    const parentId = payload.parentId;
+   
+    const parentId = payload.created_by;
     delete payload.parentId;
     let Role_id = payload.role_id;
+    let userRole = payload.role;
+    let userDesignation = payload.designation;
     delete payload.role_id;
+    delete payload.role;
     const data = await createMerchantDao(payload, conn);
     const calculationPayload = {
       role_id: Role_id,
@@ -47,29 +50,47 @@ const createMerchantService = async (conn, payload, role) => {
       company_id: data.company_id,
     };
     await createCalculationDao(conn, calculationPayload);
-    // const role = await getRoleDao({ id: payload.role_id });
-    if (role === Role.MERCHANT) {
+    if (userRole === Role.MERCHANT) {
       await createUserHierarchyDao(
         {
           user_id: data.user_id,
-          role_id: data.role_id,
+          // role_id: Role_id,
           created_by: data.created_by,
           updated_by: data.updated_by,
           company_id: data.company_id,
         },
         conn,
       );
-    } else if (role === Role.SUB_MERCHANT) {
-      const hierarchy = await getUserHierarchysDao({ user_id: parentId });
-      await updateUserHierarchyDao(hierarchy.id, {
-        config: {
-          child: [...(hierarchy?.config?.child || []), data.id], // Use spread operator to add new element
-        },
-      });
     }
+   if (userDesignation === Role.SUB_MERCHANT) {
+     try {
+       const hierarchy = await getUserHierarchysDao({ user_id: parentId });
+       if (!hierarchy || !hierarchy[0]?.id) {
+         console.error('No hierarchy found for parentId:', parentId);
+         return;
+       }
+      //  {"child":{"operations":[]},"siblings":{"sub_merchants":["19fb0634-31cc-41f3-a09f-29b524e4aee5","972d353d-158f-4013-93d6-a17f7e606800"]}}
+       const currentChildren =
+         hierarchy[0]?.config?.siblings?.sub_merchants || [];
+       if (currentChildren.includes(data.id)) {
+         console.log(`Child ID ${data.id} already exists in hierarchy`);
+         return;
+       }
+       await updateUserHierarchyDao(
+         { id: hierarchy[0].id },
+         {
+           config: {
+             siblings:{ sub_merchants: [...currentChildren, data.id] },
+           },
+         },
+         conn
+       );
+     } catch (error) {
+       console.error('Error updating hierarchy:', error);
+     }
+   }
     console.log('Merchant created successfully');
-    const finalResult = filterResponse(data, filterColumns);
-    return finalResult;
+    return data;
   } catch (error) {
     console.error('Error while creating merchant', error);
     throw new InternalServerError(error);

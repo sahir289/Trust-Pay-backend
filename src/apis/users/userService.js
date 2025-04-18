@@ -10,6 +10,8 @@ import {
   updateUserDao,
   getUsersBySearchDao
 } from './userDao.js';
+import { getDesignationDao } from '../designation/designationDao.js';
+import { getRoleDao } from '../roles/rolesDao.js';
 import { filterResponse } from '../../helpers/index.js';
 import {
   columns,
@@ -21,6 +23,8 @@ import { createMerchantService } from '../merchants/merchantService.js';
 import { createVendorService } from '../vendors/vendorService.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
+import { getUserHierarchysDao, updateUserHierarchyDao } from '../userHierarchy/userHierarchyDao.js';
+
 const getUsersService = async (ids, role, page, limit) => {
   try {
     const filterColumns =
@@ -137,12 +141,12 @@ const getUsersByUserNameService = async (username, ids, role) => {
 
 const createUserService = async (conn, payload, role) => {
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.USER
-        : role === Role.VENDOR
-          ? vendorColumns.USER
-          : columns.USER;
+    // const filterColumns =
+    //   role === Role.MERCHANT
+    //     ? merchantColumns.USER
+    //     : role === Role.VENDOR
+    //       ? vendorColumns.USER
+    //       : columns.USER;
     const { user_name } = payload;
     const user = await getUsersByUserNameDao(
       payload.company_id,
@@ -178,68 +182,98 @@ const createUserService = async (conn, payload, role) => {
     delete payload.return;
     delete payload.site;
     const User = await createUserDao(userPayload, conn);
-    const userRole = await getUsersByUserNameDao(
-      payload,
-      user_name,
-    );
+    
+    const userRole = await getRoleDao({ id: payload.role_id });
+    const userDesignation = await getDesignationDao({ id: payload.designation_id });
+    ///for operations
+
     if (
-      userRole.role === Role.MERCHANT) {
-      const Private = generateUUID();
-      const Public = generateUUID();
-      const merchantPayload = {
-        user_id: User.id,
+      (userDesignation[0].designation == Role.VENDOR_OPERATIONS) ||
+      (userDesignation[0].designation == Role.VENDOR_OPERATIONS)
+    ) {
+      const hierarchy = await getUserHierarchysDao({
+        user_id: payload.created_by,
+      });
+      //  {"child":{"operations":[]},"siblings":{"sub_merchants":["19fb0634-31cc-41f3-a09f-29b524e4aee5","972d353d-158f-4013-93d6-a17f7e606800"]}}
+      const hierarchyConfig = hierarchy[0]?.config;
+      const currentChildren = hierarchy[0]?.config?.child?.operations || [];
+      await updateUserHierarchyDao(
+        { id: hierarchy[0].id },
+        {
+          config: {
+            ...hierarchyConfig,
+            child: { operations: [...currentChildren, User[0].id] },
+          },
+        },
+        conn
+      );
+    };
+
+///for merchant sub-merchant
+if (
+  userDesignation[0].designation === Role.MERCHANT ||
+  userDesignation[0].designation === Role.SUB_MERCHANT
+) {
+  const Private = generateUUID();
+  const Public = generateUUID();
+  const merchantPayload = {
+    user_id: User[0].id,
+    role_id: payload.role_id,
+    role: userRole[0].role,
+    designation: userDesignation[0].designation,
+    company_id: payload.company_id,
+    first_name: payload.first_name,
+    last_name: payload.last_name,
+    code: payload.code,
+    balance: Number(0),
+    min_payin: Number(payload.min_payin),
+    max_payin: Number(payload.max_payin),
+    payin_commission: Number(payload.payin_commission),
+    min_payout: Number(payload.min_payout),
+    max_payout: Number(payload.max_payout),
+    payout_commission: Number(payload.payout_commission),
+    created_by: payload.created_by,
+    updated_by: payload.updated_by,
+    config: {
+      urls: {
+        payin_notify: payin_notify,
+        payout_notify: payout_notify,
+        return: Return,
+        site: site,
+      },
+      keys: {
+        private: Private,
+        public: Public,
+      },
+      allow_intent: false,
+    },
+  };
+  await createMerchantService(conn, merchantPayload);
+}
+///for vendor
+    if (userDesignation[0].designation === Role.VENDOR) {
+      const vendorPayload = {
+        user_id: User[0].id,
         role_id: payload.role_id,
         company_id: payload.company_id,
         first_name: payload.first_name,
         last_name: payload.last_name,
         code: payload.code,
         balance: Number(0),
-        min_payin: Number(payload.min_payin),
-        max_payin: Number(payload.max_payin),
         payin_commission: Number(payload.payin_commission),
-        min_payout: Number(payload.min_payout),
-        max_payout: Number(payload.max_payout),
         payout_commission: Number(payload.payout_commission),
         created_by: payload.created_by,
         updated_by: payload.updated_by,
-        config: {
-          urls: {
-            payin_notify: payin_notify,
-            payout_notify: payout_notify,
-            return: Return,
-            site: site,
-          },
-          keys: {
-            private: Private,
-            public: Public,
-          },
-          allow_intent: false,
-        },
-      };
-      await createMerchantService(conn, merchantPayload, role);
-    }
-
-    if (userRole.role === Role.VENDOR) {
-      const vendorPayload ={
-        user_id: User.id,
-        role_id: payload.role_id,
-        company_id: payload.company_id,
-        first_name: payload.first_name,
-        last_name: payload.last_name,
-        code: payload.code,
-        balance: Number(0),
-        payin_commission: Number(payload.payin_commission),
-        payout_commission: Number(payload.payout_commission),
-        created_by: payload.created_by,
-        updated_by:payload.updated_by
       };
       await createVendorService(conn, vendorPayload, role);
     }
 
 
     console.log('User Created Successfully');
-    const finalResult = filterResponse(User, filterColumns);
-    return finalResult;
+    // const finalResult = filterResponse(User, filterColumns);
+              return Error;
+
+    // return User;
   } catch (error) {
     console.error('error getting while creating user', error);
     throw new InternalServerError(error);
