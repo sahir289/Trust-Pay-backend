@@ -95,7 +95,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
     amount,
     utr,
     bank_id,
-    config: { from_UI },
+    // config: { from_UI },
     is_used: 'false',
     created_by,
     updated_by,
@@ -216,7 +216,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
         user_submitted_utr: botRes.utr,
         bank_response_id: botRes.id,
         approved_at: new Date(),
-        config: { from_UI },
+        // config: { from_UI },
       };
       const updatePayInDataRes = await updatePayInUrlDao(payInUtr.id, payInData, conn);
       await updateBotResponseDao(botRes.id, { is_used: true }, conn);
@@ -265,7 +265,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
         duration,
         payin_merchant_commission: payinMerchantCommission,
         payin_vendor_commission: payinVendorCommission,
-        config: { from_UI },
+        // config: { from_UI },
         bank_response_id: botRes.id,
       };
       await updatePayInUrlDao(payInUtr.id, payInData, conn);
@@ -314,7 +314,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
         duration,
         payin_merchant_commission: payinMerchantCommission,
         payin_vendor_commission: payinVendorCommission,
-        config: { from_UI },
+        // config: { from_UI },
       };
       const updatePayInDataRes = await updatePayInUrlDao(payInUtr.id, payInData, conn);
       await updateBotResponseDao(botRes.id, { is_used: true }, conn);
