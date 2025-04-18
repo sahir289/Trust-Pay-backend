@@ -88,11 +88,28 @@ export const VALIDATE_PROCESS_PAYIN = Joi.object({
 });
 
 export const VALIDATE_PROCESS_PAYIN_BY_IMAGE = Joi.object({
-  merchantOrderId: Joi.string()
-    .guid({ version: ['uuidv4'] })
-    .label('merchantOrderId')
-    .required(),
-  amount: Joi.number().label('amount').min(1).required(),
+  file: Joi.any() 
+    .required()
+    .meta({ type: 'file' })
+    .description('Image file to be uploaded')
+    .custom((value, helpers) => {
+      const validMimeTypes = ['image/jpeg', 'image/png', 'image/gif'];
+      if (!validMimeTypes.includes(value.mimetype)) {
+        return helpers.error('file.invalidType', { value });
+      }
+
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (value.size > maxSize) {
+        return helpers.error('file.tooLarge', { value });
+      }
+
+      return value;
+    })
+    .messages({
+      'file.invalidType': 'File must be a valid image (jpeg, png, or gif)',
+      'file.tooLarge': 'File size must not exceed 5MB',
+      // 'any.required': 'File is required',
+    }),
 });
 
 export const VALIDATE_DISPUTE_DUPLICATE_TRANSACTION = Joi.object({

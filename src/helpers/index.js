@@ -89,16 +89,16 @@ export const getTelegramImageBase64 = async (filePath) => {
 
 export const getImageContentFromOCr = async (image) => {
   if (!image) {
-    console.log('No image provided for OCR!');
+    logger.log('No image provided for OCR!');
     return;
   }
 
-  const res = await axios.post('http://34.228.18.32:8000/ocr', {
+  const res = await axios.post(`${config.ocr.url}`, {
     image,
   });
 
   if (res.data.status === 'failure') {
-    console.log('Unable to get content from image with ocr', res.data);
+    logger.log('Unable to get content from image with ocr', res.data);
     return;
   }
 
