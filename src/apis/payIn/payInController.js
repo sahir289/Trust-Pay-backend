@@ -12,7 +12,6 @@ import {
   VALIDATE_PAY_IN_INTENT_GENERATE_ORDER,
   VALIDATE_PAYIN_SCHEMA,
   VALIDATE_PROCESS_PAYIN,
-  VALIDATE_PROCESS_PAYIN_BY_IMAGE,
   VALIDATE_RESET_DEPOSIT,
   VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS,
   VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS,
@@ -299,13 +298,9 @@ export const processPayInByImage = async (req, res) => {
     ...req.body,
     ...req.params,
   };
-  const joiValidation = VALIDATE_PROCESS_PAYIN_BY_IMAGE.validate(payload);
-  if (joiValidation.error) {
-    throw new ValidationError(joiValidation.error);
-  }
 
   if (!req.file) {
-    throw BadRequestError('Image File not found!');
+    throw new BadRequestError('Image File not found!');
   }
 
   const command = new GetObjectCommand({
@@ -322,7 +317,7 @@ export const processPayInByImage = async (req, res) => {
     fileKey: req.file.key,
   });
 
-  sendSuccess(res, data);
+  return sendSuccess(res, data, 'PayIn processed successfully');
 };
 
 export const disputeDuplicateTransaction = async (req, res) => {

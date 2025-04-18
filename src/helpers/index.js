@@ -89,16 +89,16 @@ export const getTelegramImageBase64 = async (filePath) => {
 
 export const getImageContentFromOCr = async (image) => {
   if (!image) {
-    console.log('No image provided for OCR!');
+    logger.log('No image provided for OCR!');
     return;
   }
 
-  const res = await axios.post('http://34.228.18.32:8000/ocr', {
+  const res = await axios.post(`${config.ocr.url}`, {
     image,
   });
 
   if (res.data.status === 'failure') {
-    console.log('Unable to get content from image with ocr', res.data);
+    logger.log('Unable to get content from image with ocr', res.data);
     return;
   }
 
@@ -137,10 +137,9 @@ export const streamToBase64 = (readableStream) => {
 //   }
 
 export const filterResponse = (data, keys) => {
-  logger.log(data, keys, 'Initial check');
-
+  
   if (Array.isArray(data)) {
-    logger.log(data, keys, "Data is an array");
+    logger.log( "Data is an array");
 
     return data.map((item) => {
       const filteredItem = {};
@@ -154,19 +153,19 @@ export const filterResponse = (data, keys) => {
       return filteredItem;
     });
   } else if (typeof data === 'object' && data !== null) {
-    logger.error(data, keys, 'Data is an object');
+    logger.error('Data is an object');
 
     const filteredItem = {};
     keys.forEach((key) => {
       if (Object.prototype.hasOwnProperty.call(data, key)) {
         filteredItem[key] = data[key];
       } else {
-        logger.error(data, key, 'Key not found in object');
+        logger.error('Key not found in object');
       }
     });
     return filteredItem;
   } else {
-    logger.error(data, keys, 'Data is neither an array nor an object');
+    logger.error('Data is neither an array nor an object');
     return null;
   }
 };

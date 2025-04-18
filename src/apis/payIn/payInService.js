@@ -459,7 +459,7 @@ export const updatePaymentNotificationStatusService = async (
       company_id,
     });
 
-    return await merchantPayinCallback(payIn.config?.urls?.payin_notify, {
+    return await merchantPayinCallback(payIn.config?.urls?.notify, {
       status: payIn.status,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
@@ -486,7 +486,7 @@ export const updatePaymentNotificationStatusService = async (
       throw new NotFoundError('Merchant or payout notify URL not found.');
     }
 
-    return await merchantPayoutCallback(merchant.config.urls.payout_notify, {
+    return await merchantPayoutCallback(payout.config?.urls?.notify, {
       code: merchant.code,
       merchantOrderId: payout.merchant_order_id,
       payoutId: payout.id,
@@ -1149,6 +1149,7 @@ export const processPayInByImageService = async (conn, payload) => {
   return await processPayInService(conn, {
     ...payload,
     userSubmittedUtr: content.utr,
+    amount: content.amount,
   });
 };
 

@@ -53,10 +53,15 @@ export const getUserHierarchysDao = async (
   }
 };
 
-export const updateUserHierarchyDao = async (id, data) => {
+export const updateUserHierarchyDao = async (id, data,conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data, id);
-    const result = await executeQuery(sql, params);
+    let result;
+    if (conn) {
+      result = await conn.query(sql, params);
+       return result.rows[0];
+    }
+   result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     console.error('Error in updateUserHierarchyDao:', error);

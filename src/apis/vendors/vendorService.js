@@ -8,7 +8,7 @@ import {
   rollback,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
-
+import { createUserHierarchyDao } from '../userHierarchy/userHierarchyDao.js';
 import {
   createVendorDao,
   deleteVendorDao,
@@ -20,10 +20,8 @@ import {
 import { BadRequestError } from '../../utils/appErrors.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 
-const createVendorService = async (conn, payload, roleIs) => {
+const createVendorService = async (conn, payload) => {
   try {
-    const filterColumns =
-      roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
     let role_id = payload.role_id;
     delete payload.role_id;
     const data = await createVendorDao(payload, conn);
@@ -33,9 +31,18 @@ const createVendorService = async (conn, payload, roleIs) => {
       company_id: data.company_id,
     };
     await createCalculationDao(conn, calculationPayload);
+    await createUserHierarchyDao(
+            {
+              user_id: data.user_id,
+              // role_id: Role_id,
+              created_by: data.created_by,
+              updated_by: data.updated_by,
+              company_id: data.company_id,
+            },
+            conn,
+          );
     console.log('Vendor created successfully', 'info');
-    const finalResult = filterResponse(data, filterColumns);
-    return finalResult;
+    return data;
   } catch (error) {
     console.log('Error while creating Vendor', 'error', error);
     throw new InternalServerError(error);

@@ -75,7 +75,7 @@ export const getPayoutsDao = async (filters, company_id, page, limit, role, conn
     } else if (role === 'VENDOR') {
       commissionSelect = `u.payout_vendor_commission, v.code AS vendor_code, 
           v.id AS vendor_id, 
-          v.user_id AS vendor_user_id,`;
+          v.user_id AS vendor_user_id`;
     } else {
       commissionSelect = `
         u.merchant_id, 
