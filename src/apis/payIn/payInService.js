@@ -1149,6 +1149,7 @@ export const processPayInByImageService = async (conn, payload) => {
   return await processPayInService(conn, {
     ...payload,
     userSubmittedUtr: content.utr,
+    amount: content.amount,
   });
 };
 

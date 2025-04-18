@@ -23,6 +23,9 @@ function config(Env) {
     telegram: {
       telegram_url : Env?.TELEGRAM_URL,
     },
+    ocr: {
+      url: Env?.OCR_URL,
+    },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,
     accessTokenSecretKey: Env?.ACCESS_TOKEN_SECRET_KEY,
@@ -33,7 +36,8 @@ function config(Env) {
     clientEmail: Env?.CLIENT_EMAIL,
     bucketName: Env?.BUCKET_NAME,
     bucketRegion: Env?.BUCKET_REGION,
-    secretKeyS3: Env?.SECRET_ACCESS_KEY,
+    accessKeyS3:Env?.ACCESS_KEY,
+    secretKeyS3:Env?.SECRET_ACCESS_KEY,
     telegramBotToken: Env?.TELEGRAM_BOT_TOKEN,
     telegramAlertsBotToken: Env?.TELEGRAM_ALERTS_BOT_TOKEN, // currently not in use
     telegramRatioAlertsChatId: Env?.TELEGRAM_RATIO_ALERTS_CHAT_ID,
