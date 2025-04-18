@@ -35,7 +35,6 @@ import { logger } from '../../utils/logger.js';
 
 const createMerchantService = async (conn, payload) => {
   try {
-   
     const parentId = payload.created_by;
     delete payload.parentId;
     let Role_id = payload.role_id;
@@ -43,6 +42,7 @@ const createMerchantService = async (conn, payload) => {
     let userDesignation = payload.designation;
     delete payload.role_id;
     delete payload.role;
+    delete payload.designation;
     const data = await createMerchantDao(payload, conn);
     const calculationPayload = {
       role_id: Role_id,

@@ -217,7 +217,7 @@ if (
   const Private = generateUUID();
   const Public = generateUUID();
   const merchantPayload = {
-    user_id: User[0].id,
+    user_id: User.id,
     role_id: payload.role_id,
     role: userRole[0].role,
     designation: userDesignation[0].designation,
