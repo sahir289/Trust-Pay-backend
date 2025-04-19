@@ -182,7 +182,6 @@ const createUserService = async (conn, payload, role) => {
     delete payload.return;
     delete payload.site;
     const User = await createUserDao(userPayload, conn);
-    
     const userRole = await getRoleDao({ id: payload.role_id });
     const userDesignation = await getDesignationDao({ id: payload.designation_id });
     ///for operations
@@ -202,7 +201,7 @@ const createUserService = async (conn, payload, role) => {
         {
           config: {
             ...hierarchyConfig,
-            child: { operations: [...currentChildren, User[0].id] },
+            child: { operations: [...currentChildren, User.id] },
           },
         },
         conn
@@ -253,7 +252,7 @@ if (
 ///for vendor
     if (userDesignation[0].designation === Role.VENDOR) {
       const vendorPayload = {
-        user_id: User[0].id,
+        user_id: User.id,
         role_id: payload.role_id,
         company_id: payload.company_id,
         first_name: payload.first_name,
