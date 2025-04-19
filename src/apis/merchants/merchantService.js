@@ -35,7 +35,6 @@ import { logger } from '../../utils/logger.js';
 
 const createMerchantService = async (conn, payload) => {
   try {
-   
     const parentId = payload.created_by;
     delete payload.parentId;
     let Role_id = payload.role_id;
@@ -43,6 +42,7 @@ const createMerchantService = async (conn, payload) => {
     let userDesignation = payload.designation;
     delete payload.role_id;
     delete payload.role;
+    delete payload.designation;
     const data = await createMerchantDao(payload, conn);
     const calculationPayload = {
       role_id: Role_id,
@@ -72,14 +72,12 @@ const createMerchantService = async (conn, payload) => {
       //  {"child":{"operations":[]},"siblings":{"sub_merchants":["19fb0634-31cc-41f3-a09f-29b524e4aee5","972d353d-158f-4013-93d6-a17f7e606800"]}}
        const currentChildren =
          hierarchy[0]?.config?.siblings?.sub_merchants || [];
-       if (currentChildren.includes(data.id)) {
-         console.log(`Child ID ${data.id} already exists in hierarchy`);
-         return;
-       }
+       const userConfig = hierarchy[0]?.config;
        await updateUserHierarchyDao(
          { id: hierarchy[0].id },
          {
            config: {
+             ...userConfig,
              siblings:{ sub_merchants: [...currentChildren, data.id] },
            },
          },
