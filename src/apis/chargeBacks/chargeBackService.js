@@ -24,6 +24,7 @@ import { getCalculationforCronDao } from '../calculation/calculationDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
 import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
+import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 const createChargeBackService = async (payload, PayinDetails, role, company_id, user_id) => {
   let conn;
   try {
@@ -114,7 +115,8 @@ const getChargeBacksService = async (
   filters,
   role,
   page,
-  limit
+  limit,
+  user_id,
 ) => {
   try {
     // Determine columns based on role
@@ -124,6 +126,28 @@ const getChargeBacksService = async (
         : role === Role.VENDOR
           ? vendorColumns.CHARGE_BACK
           : columns.CHARGE_BACK;
+
+          if(role == Role.MERCHANT){
+            filters.merchant_user_id = [user_id]
+          }
+          if (role == Role.VENDOR) {
+            filters.vendor_user_id = [user_id];
+          }
+
+              if (role === Role.MERCHANT) {
+                // user_id is unique
+                const userHierarchys = await getUserHierarchysDao({ user_id });
+                if (userHierarchys || userHierarchys.length > 0) {           
+                const userHierarchy = userHierarchys[0];
+          
+                if (
+                  userHierarchy?.config ||
+                  Array.isArray(userHierarchy?.config?.siblings?.sub_merchants)
+                ) {
+                  filters.merchant_user_id = [...filters.merchant_user_id, ...(userHierarchy?.config?.siblings?.sub_merchants ?? [])];
+                }
+              }
+              }
 
     // Parse and validate pagination parameters
     const pageNumber = Math.max(1, parseInt(String(page), 10) || 1);
