@@ -13,6 +13,7 @@ import {
 import config from '../config/config.js';
 import { getConnection } from '../utils/db.js';
 import { getVendorsDao } from '../apis/vendors/vendorDao.js';
+import { logger } from '../utils/logger.js';
 
 cron.schedule('0 0 * * *', () => {
   gatherAllData('Asia/Kolkata');
