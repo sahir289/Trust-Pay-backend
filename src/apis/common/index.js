@@ -42,7 +42,7 @@ const router = express.Router();
  */
 router.get(
   '/count/:tableName',
-  [isAuthenticated, authorized(AccessRoles.USER)],
+  [isAuthenticated, authorized(AccessRoles.ALL)],
   getTotalCount,
 );
 

@@ -72,13 +72,19 @@ export const getChargeBackDao = async (
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null) return;
       const nextParamIdx = queryParams.length + 1;
-      const isMultiValue = typeof value === 'string' && value.includes(',');
-      const valueArray = isMultiValue ? value.split(',').map(v => v.trim()) : [value];
-      const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
-      conditions.push(isMultiValue
-        ? `cb.${key} IN (${placeholders})`
-        : `cb.${key} = $${nextParamIdx}`);
-      queryParams.push(...valueArray);
+
+      // Special handling for arrays (like merchant_user_id)
+      if (Array.isArray(value)) {
+        const placeholders = value.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+        conditions.push(`cb.${key} IN (${placeholders})`);
+        queryParams.push(...value);
+      } else {
+        const isMultiValue = typeof value === 'string' && value.includes(',');
+        const valueArray = isMultiValue ? value.split(',').map(v => v.trim()) : [value];
+        const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+        conditions.push(isMultiValue ? `cb.${key} IN (${placeholders})` : `cb.${key} = $${nextParamIdx}`);
+        queryParams.push(...valueArray);
+      }
     });
 
     const tableAlias = 'cb';
