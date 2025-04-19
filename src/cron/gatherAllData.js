@@ -45,7 +45,7 @@ if (type === 'H') {
   sDate = currentDate.clone().subtract(1, 'day').toDate();
   eDate = currentDate.clone().toDate();
 }
-    console.log('cron_started');
+    logger.info('cron_started');
     const merchants = await getMerchantsDao({});
     let merchant = [];
     let totalpayinsMerchant = 0;
