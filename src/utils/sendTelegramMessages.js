@@ -3,81 +3,94 @@ import { logger } from './logger.js';
 
 const telegramSender = createTelegramSender();
 
+
 export async function sendTelegramDashboardReportMessage(
   chatId,
   merchant,
-  merchantpayout,
-  settlementdata,
-  chargebackData,
-  payInBanksdata,
-  payOutBanksdata,
-  totalPayInSum,
-  totalPayOutSum,
-  settlements,
-  chargebacks,
-  // type,
+  totalpayinsMerchant,
+  totalpayoutsMerchant,
+  vendorObjpayIn,
+  vendorObjpayOut,
+  totalBankDepositAllVendors,
+  totalBankWithdrawalAllVendors,
   TELEGRAM_BOT_TOKEN,
+  type,
 ) {
   const currentDate = new Date().toISOString().split('T')[0];
-  // const now = new Date();
-  // const istTime = new Date(
-  //   now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
-  // );
+  const now = new Date();
+  const istTime = new Date(
+    now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+  );
 
-  // let startHour = istTime.getHours() - 1;
-  // let endHour = (startHour + 1) % 24; // Wrap around if it's 23 (to handle midnight)
+    console.log(JSON.stringify(vendorObjpayIn, null, 2), 'vendorObjpayIn_vendorObjpayOut');
+  let startHour = istTime.getHours() - 1;
+  let endHour = (startHour + 1) % 24;
 
-  // const startAmpm = startHour >= 12 ? "PM" : "AM";
-  // const endAmpm = endHour >= 12 ? "PM" : "AM";
+  const startAmpm = startHour >= 12 ? "PM" : "AM";
+  const endAmpm = endHour >= 12 ? "PM" : "AM";
 
   // Convert hours to 12-hour format
-  // startHour = startHour % 12 || 12;
-  // endHour = endHour % 12 || 12;
+  startHour = startHour % 12 || 12;
+  endHour = endHour % 12 || 12;
 
-  // const formattedTime = `${startHour}${startAmpm}-${endHour}${endAmpm}`;
+  const formattedTime = `${startHour}${startAmpm}-${endHour}${endAmpm}`;
   const timeStamp =
-    //  type === "Hourly Report" ? formattedTime :
-    currentDate;
+    type === "Hourly Report" ? formattedTime :
+      currentDate;
 
-  const merchantPayInDetails = (merchant || [])
+  const merchantPayInDetails = merchant
     .map(
       (m) =>
-        `<b>Merchant:</b> ${m.merchantId} | <b>PayIn:</b> ${m.payInSum} | <b>Count:</b> ${m.payInCount}`,
-    )
-    .join('\n');
-  const merchantPayOutDetails = (merchantpayout || [])
-    .map(
-      (m) =>
-        `<b>Merchant:</b> ${m.merchantId} | <b>PayOut:</b> ${m.payOut} | <b>Count:</b> ${m.payInEachCount}`,
-    )
-    .join('\n');
-  const bankPayInDetails = (payInBanksdata || [])
-    .map(
-      (m) =>
-        `<b>Bank:</b> ${m.bankID} | <b>BankPayOut:</b> ${m.payInBalance} | <b>Count:</b> ${m.payInToday}`,
+        `${m.merchantId}: ₹ ${m.totalPayin.toLocaleString('en-IN', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} (${m.totalPayinCount})`
     )
     .join('\n');
 
-  const bankPayOutDetails = (payOutBanksdata || [])
-    .map(
-      (m) =>
-        `<b>Bank:</b> ${m.payoutbankId} | <b>BankPayIn:</b> ${m.payoutbankBalance} | <b>Count:</b> ${m.payoutbankToday}`,
-    )
-    .join('\n');
+  const merchantPayOutDetails = merchant.map(
+    (m) =>
+      `${m.merchantId}: ₹ ${m.totalPayout.toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} (${m.totalPayoutCount})`
+  )
 
-  const settlementInDetails = (settlementdata || [])
-    .map(
-      (m) =>
-        `<b>Settlement:</b> ${m.settlementdataId} | <b>Balance:</b> ${m.settlementdataBalance} `,
-    )
-    .join('\n');
+  const vendorDetails = Object.entries(vendorObjpayIn)
+    .map(([vendorCode, { banks }]) => {
+      if (banks.length === 0) {
+        return `<b>${vendorCode}</b>: No bank accounts`;
+      }
+      const bankDetails = banks
+        .map(
+          (bank) =>
+            `  ${bank.bankName}: ₹ ${bank.TotalDeposit === null ? 'N/A' : bank.TotalDeposit.toLocaleString('en-IN', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })} (${bank.TotalCount})`
+        )
+        .join('\n');
+      return `<b>${vendorCode}</b>:\n${bankDetails}`;
+    })
+    .join('\n\n');
 
-  const chargebackDetails = (chargebackData || [])
-    .map(
-      (m) =>
-        `<b>ChargeBack:</b> ${m.chargebackDataID} | <b>Balance:</b> ${m.chargebackDataBalance} | <b>Today Balance:</b> ${m.chargebackDataToday}| <b>Bank :</b> ${m.chargeBank} `,
-    )
-    .join('\n');
+    const vendorDetailsPayout = Object.entries(vendorObjpayOut)
+    .map(([vendorCode, { banks }]) => {
+      if (banks.length === 0) {
+        return `<b>${vendorCode}</b>: No bank accounts`;
+      }
+      const bankDetails = banks
+        .map(
+          (bank) =>
+            `  ${bank.bankName}: ₹ ${bank.TotalDeposit === null ? 'N/A' : bank.TotalDeposit.toLocaleString('en-IN', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })} (${bank.TotalCount})`
+        )
+        .join('\n');
+      return `<b>${vendorCode}</b>:\n${bankDetails}`;
+    })
+    .join('\n\n');
 
   const message = `
   <b>
@@ -86,36 +99,26 @@ export async function sendTelegramDashboardReportMessage(
   
   <b>💰 Deposits</b>
 
-  <b>✅ Sub-Merchant-wise PayIn Details</b>${merchantPayInDetails}
+  ${merchantPayInDetails}
 
-  <b>Total Deposits:</b> ${totalPayInSum}
-  
+  <b>Total Deposits:</b> ${totalpayinsMerchant}
+
   <b>🏦 Withdrawals</b>
 
-  <b>✅ Sub-Merchant-wise PayOut Details</b>${merchantPayOutDetails}
+  ${merchantPayOutDetails}
 
-  <b>Total Withdrawals:</b> ${totalPayOutSum}
-  
+  <b>Total Deposits:</b> ${totalpayoutsMerchant}
+
   <b>✅ Bank Account Deposits</b>
+  ${vendorDetails}
 
-  <b>✅ Bank PayIn Details</b>
-  ${bankPayInDetails}
-  
+  <b>Total Bank Account Deposits: </b> ${totalBankDepositAllVendors}
 
-  
-  <b>✅ Bank PayOut Account Withdrawals</b>${bankPayOutDetails}
-  
- 
-  
-  <b>✅ Settlement</b>
-  <b>✅ Settlement</b>${settlementInDetails}
+   <b>✅ Bank Account Deposits</b>
+  ${vendorDetailsPayout}
 
-  <b>Total Settlement </b> ${settlements}
-  
-  <b>✅ ChargeBack </b>
-    <b>✅ ChargeBack</b>${chargebackDetails}
-
-  <b>Total ChargeBack </b> ${chargebacks}`;
+  <b>Total Bank Account Withdrawal: </b> ${totalBankWithdrawalAllVendors}
+`;
 
   const success = await telegramSender(chatId, message, null, TELEGRAM_BOT_TOKEN);
   logger.log(success ? 'Sent!' : 'Not sent.');

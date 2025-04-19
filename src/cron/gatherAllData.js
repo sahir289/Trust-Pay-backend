@@ -1,284 +1,144 @@
-// import cron from 'node-cron';
+import cron from 'node-cron';
 import { getMerchantsDao } from '../apis/merchants/merchantDao.js';
 import { getPayInUrlsDao } from '../apis/payIn/payInDao.js';
 import { getCalculationDao } from '../apis/calculation/calculationDao.js';
-import { getPayoutsCronDao } from '../apis/payOut/payOutDao.js';
+// import { getPayoutsCronDao } from '../apis/payOut/payOutDao.js';
 import moment from 'moment-timezone';
-import { getUserHierarchysDao } from '../apis/userHierarchy/userHierarchyDao.js';
 import { getBankaccountDao } from '../apis/bankAccounts/bankaccountDao.js';
-import { getChargeBackDao } from '../apis/chargeBacks/chargeBackDao.js';
 import {
-  sendTelegramDashboardMerchantGroupingReportMessage,
+  // sendTelegramDashboardMerchantGroupingReportMessage,
   sendTelegramDashboardReportMessage,
   sendTelegramDashboardSuccessRatioMessage,
 } from '../utils/sendTelegramMessages.js';
-import { getSettlementDao } from '../apis/settlement/settlementDao.js';
 import config from '../config/config.js';
 import { getConnection } from '../utils/db.js';
+import { getVendorsDao } from '../apis/vendors/vendorDao.js';
+import { logger } from '../utils/logger.js';
 
-// cron.schedule('0 0 * * *', () => {
-//   gatherAllData('Asia/Kolkata');
-// });
+cron.schedule('0 0 * * *', () => {
+  gatherAllData('Asia/Kolkata');
+});
 
-// cron.schedule('0 1-23 * * *', () => {
-//   gatherAllData('H', 'Asia/Kolkata');
-// });
+cron.schedule('0 1-23 * * *', () => {
+  gatherAllData('H', 'Asia/Kolkata');
+});
 
-const gatherAllData = async (type = 'H', timezone = 'Asia/Kolkata') => {
+const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
   let conn;
   try {
     conn = await getConnection();
-    // let startDate;
-    // let endDate;
-    // let oneHourAgo;
+
+    let sDate;
+    let eDate;
     if (typeof timezone !== 'string') {
       timezone = 'Asia/Kolkata';
     }
 
     const currentDate = moment().tz(timezone, true);
 
-    if (type === 'H') {
-      // startDate =
-      currentDate.clone().startOf('day').toDate();
-      // endDate =
-      currentDate.clone().toDate();
-      // oneHourAgo =
-      currentDate.clone().subtract(1, 'hour').toDate();
-    }
-
-    //   if (type === "N") {
-    //     startDate = currentDate
-    //       .clone()
-    //       .subtract(1, "day")
-    //       .startOf("day")
-    //       .toDate();
-    //     endDate = currentDate.clone().subtract(1, "day").endOf("day").toDate();
-    // End of yesterday at 11:59 PM
-    //   }
-    console.log('cron started');
+if (type === 'H') {
+  sDate = currentDate.clone().startOf('day').toDate();
+  eDate = currentDate.clone().toDate();
+} else if (type === 'N') {
+  sDate = currentDate.clone().subtract(1, 'day').startOf('day').toDate();
+  eDate = currentDate.clone().subtract(1, 'day').endOf('day').toDate();
+} else {
+  sDate = currentDate.clone().subtract(1, 'day').toDate();
+  eDate = currentDate.clone().toDate();
+}
+    logger.info('cron_started');
     const merchants = await getMerchantsDao({});
-    const payins = await getPayInUrlsDao({ status: 'SUCCESS' });
-    let payInSum = 0;
-    // let payIn = 0;
-    // let payInEachCount = 0;
-    let payInCount = 0;
     let merchant = [];
-    let configs = [];
-    for (const payin of payins) {
-      const userId = await getMerchantsDao({ id: payin.merchant_id });
+    let totalpayinsMerchant = 0;
+    let totalpayoutsMerchant = 0;
 
-      const groupMerchants = await getUserHierarchysDao({
-        user_id: userId[0].user_id,
+    for (const merch of merchants) {
+      const calculationData = await getCalculationDao({ user_id: merch.user_id, sDate, eDate  });
+      merchant.push({
+        merchantId: merch.code,
+        totalPayin: calculationData.total_payin_amount || 0,
+        totalPayinCount: calculationData.total_payin_count || 0,
+        totalPayout: calculationData.total_payout_amount || 0,
+        totalPayoutCount: calculationData.total_payout_countv || 0,
       });
-      if (groupMerchants.length > 0) {
-        for (let groupmerchant of groupMerchants) {
-          const config = groupmerchant.config;
-          configs.push({ config: config });
-          const values = Object.values(config).flat();
-
-          for (let value of values) {
-            const merchantData = await getMerchantsDao({ user_id: value });
-            const totalPayindataArray = await getCalculationDao({
-              user_id: value,
-            });
-
-            console.log(
-              'totalPayindataArray for user_id:',
-              value,
-              totalPayindataArray,
-            );
-
-            if (
-              Array.isArray(totalPayindataArray) &&
-              totalPayindataArray.length > 0
-            ) {
-              for (const totalPayindata of totalPayindataArray) {
-                console.log(
-                  'totalPayindata.total_payin_amount:',
-                  totalPayindata.total_payin_amount,
-                );
-                console.log(
-                  'totalPayindata.total_payin_count:',
-                  totalPayindata.total_payin_count,
-                );
-
-                payInSum += totalPayindata.total_payin_amount || 0;
-                payInCount += totalPayindata.total_payin_count || 0;
-
-                console.log('Updated payInSum:', payInSum);
-                console.log('Updated payInCount:', payInCount);
-              }
-            }
-
-            merchant.push({
-              merchantId: merchantData[0].code,
-              payInSum,
-              payInCount,
-            });
-          }
-        }
-      }
+      totalpayinsMerchant = totalpayinsMerchant + calculationData.total_payin_amount
+      totalpayoutsMerchant = totalpayoutsMerchant + calculationData.total_payout_amount
     }
 
-    const totalPayins = await getPayInUrlsDao({ status: 'SUCCESS' });
-    let totalPayInSum = 0;
-    let totalPayInCount = 0;
-    let totalPayInEachCount = 0;
-    let totalPayIn = 0;
-    let totalPayinsMerchant = [];
-
-    for (const totalPayin of totalPayins) {
-      const userId = await getMerchantsDao({ id: totalPayin.merchant_id });
-      for (let userid of userId) {
-        const totalPayindataArray = await getCalculationDao({
-          user_id: userId.user_id,
-        });
-        if (
-          Array.isArray(totalPayindataArray) &&
-          totalPayindataArray.length > 0
-        ) {
-          for (const totalPayindata of totalPayindataArray) {
-            totalPayInSum += totalPayindata.total_payin_amount || 0;
-            totalPayInCount += totalPayindata.total_payin_count || 0;
-            totalPayIn = totalPayindata.total_payin_amount || 0;
-            totalPayInEachCount = totalPayindata.total_payin_count || 0;
-          }
-        }
-
-        totalPayinsMerchant.push({
-          merchantId: userid.code,
-          totalPayIn,
-          totalPayInEachCount,
-        });
-      }
-    }
-
-    const payouts = await getPayoutsCronDao(conn, 'SUCCESS' );
-    let payOutSum = 0;
-    let payOutCount = 0;
-    // let payOut = 0;
-    // let payOutCountEach = 0;
-    let payoutconfigs = [];
-    let merchantpayout = [];
-    for (const payout of payouts) {
-      const userId = await getMerchantsDao({ id: payout.merchant_id });
-      // for (let userid of userId) {
-
-      const groupMerchants = await getUserHierarchysDao({
-        user_id: userId[0].user_id,
+    const vendorData = await getVendorsDao({}, null, null, "created_at", "DESC")
+    let vendorObjpayIn = {}
+    let vendorArray = []
+    let vendorObjpayOut = []
+    let totalBankDepositAllVendors = 0;
+    let totalBankWithdrawalAllVendors = 0;
+    for (const vendorDetail of vendorData) {
+      const banksData = await getBankaccountDao(
+        { user_id: vendorDetail.user_id, bank_used_for: 'PayIn' },
+        null,
+        null,
+        'ADMIN'
+      );
+      let totalBankDeposit = 0;
+      const banks = banksData.map(bankData => {
+        return {
+          bankName: bankData.nick_name,
+          TotalDeposit: bankData.balance,
+          TotalCount: bankData.payin_count
+        };
       });
-      if (groupMerchants.length > 0) {
-        for (let groupmerchant of groupMerchants) {
-          const config = groupmerchant.config;
-          payoutconfigs.push({ config: config });
-          const values = Object.values(config).flat();
-          for (let value of values) {
-            const merchant_id = await getMerchantsDao({ user_id: value });
+      totalBankDepositAllVendors += totalBankDeposit;
+      const vendorEntry = { banks };
+      vendorObjpayIn[vendorDetail.code] = vendorEntry;
+      vendorArray.push(vendorEntry);
+    }
+    for (const vendorDetail of vendorData) {
+      const banksData = await getBankaccountDao(
+        { user_id: vendorDetail.user_id, bank_used_for: 'PayOut' },
+        null,
+        null,
+        'ADMIN'
+      );
+      let totalBankDepositPayout = 0
+      const banks = banksData.map(bankData => {
+        return {
+          bankName: bankData.nick_name,
+          TotalDeposit: bankData.balance,
+          TotalCount: bankData.payin_count
+        };
+      });
+      totalBankWithdrawalAllVendors += totalBankDepositPayout;
+      const vendorEntry = { banks };
+      vendorObjpayOut[vendorDetail.code] = vendorEntry;
+      vendorArray.push(vendorEntry);
+    }
 
-            const totalPayoutdataArray = await getCalculationDao({
-              user_id: value,
-            });
-            if (
-              Array.isArray(totalPayoutdataArray) &&
-              totalPayoutdataArray.length > 0
-            ) {
-              for (const totalPayindata of totalPayoutdataArray) {
-                payOutSum += totalPayindata.total_payout_amount || 0;
-                payOutCount += totalPayindata.total_payout_count || 0;
-                // payOut = totalPayindata.total_payout_amount || 0;
-                // payOutCountEach = totalPayindata.total_payout_count || 0;
-              }
-            }
-            merchantpayout.push({
-              merchantId: merchant_id[0].code,
-              payOutSum,
-              payOutCount,
-            });
-          }
-        }
-      }
-    }
-    const totalPayouts = await getPayInUrlsDao({ status: 'SUCCESS' });
-    let totalPayOutSum = 0;
-    let totalPayOutCount = 0;
-    // let totalPayOutEach = 0;
-    // let totalPayOutCountEach = 0;
-    let merchantTotalPayout = [];
-    for (const totalPayout of totalPayouts) {
-      const userId = await getMerchantsDao({ id: totalPayout.merchant_id });
-      for (let userid of userId) {
-        const totalPayoutdataArray = await getCalculationDao({
-          user_id: userid.user_id,
-        });
-        if (
-          Array.isArray(totalPayoutdataArray) &&
-          totalPayoutdataArray.length > 0
-        ) {
-          for (const totalPayoutdata of totalPayoutdataArray) {
-            totalPayOutSum += totalPayoutdata.total_payin_amount || 0;
-            totalPayOutCount += totalPayoutdata.total_payin_count || 0;
-            // totalPayOutEach = totalPayoutdata.total_payin_amount || 0;
-            // totalPayOutCountEach = totalPayoutdata.total_payin_count || 0;
-          }
-        }
-        merchantTotalPayout.push({
-          merchantId: userid.code,
-          totalPayOutSum,
-          totalPayOutCount,
-        });
-      }
-    }
-    let payInBanks = await getBankaccountDao({ bank_used_for: 'payIn' }, null,null,"ADMIN");
+    // let settlements = await getSettlementDao({});
+    // let settlementdata = [];
+    // if (settlements) {
+    //   for (let settlement of settlements) {
+    //     settlementdata.push({
+    //       settlementdataId: settlement.id,
+    //       settlementdataBalance: settlement.amount,
+    //     });
+    //   }
+    // } else {
+    //   console.log('no settlement banks data');
+    // }
+    // let chargebacks = await getChargeBackDao({}, null, null);
+    // let chargebackData = [];
+    // if (chargebacks) {
+    //   for (let chargeback of chargebacks) {
+    //     chargebackData.push({
+    //       chargebackDataID: chargeback.id,
+    //       chargebackDataBalance: chargeback.amount,
+    //       chargebackDataToday: chargeback.when,
+    //       chargeBank: chargeback.bank_acc_id,
+    //     });
+    //   }
+    // } else {
+    //   console.log('no chargeback banks data');
+    // }
 
-    let payInBanksdata = [];
-    if (Array.isArray(payInBanks)) {
-      for (let payInBank of payInBanks) {
-        payInBanksdata.push({
-          bankID: payInBank.id,
-          payInBalance: payInBank.balance,
-          payInToday: payInBank.today_balance,
-        });
-      }
-    } else {
-      console.log('no payin banks data');
-    }
-    let payOutBanks = await getBankaccountDao({ bank_used_for: 'payOut' }, null,null,"ADMIN");
-    let payOutBanksdata = [];
-    if (Array.isArray(payOutBanks) && payOutBanks.length > 0) {
-      payOutBanksdata = payOutBanks.map((payoutbank) => ({
-        payoutbankId: payoutbank.id,
-        payoutbankBalance: payoutbank.balance,
-        payoutbankToday: payoutbank.today_balance,
-      }));
-    } else {
-      console.log('no payiout banks data');
-    }
-    let settlements = await getSettlementDao({});
-    let settlementdata = [];
-    if (settlements) {
-      for (let settlement of settlements) {
-        settlementdata.push({
-          settlementdataId: settlement.id,
-          settlementdataBalance: settlement.amount,
-        });
-      }
-    } else {
-      console.log('no settlement banks data');
-    }
-    let chargebacks = await getChargeBackDao({});
-    let chargebackData = [];
-    if (chargebacks) {
-      for (let chargeback of chargebacks) {
-        chargebackData.push({
-          chargebackDataID: chargeback.id,
-          chargebackDataBalance: chargeback.amount,
-          chargebackDataToday: chargeback.when,
-          chargeBank: chargeback.bank_acc_id,
-        });
-      }
-    } else {
-      console.log('no settlement banks data');
-    }
 
     const formattedSuccessRatiosByMerchant = async () => {
       try {
@@ -322,7 +182,6 @@ const gatherAllData = async (type = 'H', timezone = 'Asia/Kolkata') => {
         });
 
         const fullMessages = [];
-        // process only merchants with transactions available
         for (const merchant of merchantsWithTransactions) {
           const merchantTransactions = transactionsByMerchant[merchant.id];
 
@@ -392,72 +251,45 @@ const gatherAllData = async (type = 'H', timezone = 'Asia/Kolkata') => {
         await sendTelegramDashboardReportMessage(
           config?.telegramDashboardChatId,
           merchant,
-          merchantpayout,
-          settlementdata,
-          chargebackData,
-          payInBanksdata,
-          payOutBanksdata,
-          formatePrice(totalPayInSum),
-          formatePrice(totalPayInCount),
-          formatePrice(totalPayOutSum),
-          formatePrice(totalPayOutCount),
-          formatePrice(payInBanks),
-          formatePrice(payOutBanks),
-          formatePrice(settlements),
-          formatePrice(chargebacks),
-          type === 'H' ? 'Hourly Report' : 'Daily Report',
-          // totalPayInSum,
-          // totalPayInCount,
-          // totalPayOutSum,
-          // totalPayOutCount,
-          // payInBanks,
-          // payOutBanks,
-          // settlements,
-          // chargebacks,
-
+          totalpayinsMerchant,
+          totalpayoutsMerchant,
+          vendorObjpayIn,
+          vendorObjpayOut,
+          totalBankDepositAllVendors,
+          totalBankWithdrawalAllVendors,
           config?.telegramBotToken,
+          type === 'H' ? 'Hourly Report' : 'Daily Report',
         );
 
-        await sendTelegramDashboardMerchantGroupingReportMessage(
-          config?.telegramDashboardMerchantGroupingChatId,
-          formatePrice(totalPayInSum),
-          formatePrice(totalPayOutSum),
-          formatePrice(totalPayInCount),
-          formatePrice(totalPayOutCount),
-          type === 'H' ? 'Hourly Report' : 'Daily Report',
-          // totalPayInSum,
-          // totalPayOutSum,
-          // totalPayInCount,
-          // totalPayOutCount,
+        // await sendTelegramDashboardMerchantGroupingReportMessage(
+        //   config?.telegramDashboardMerchantGroupingChatId,
+        //   formatePrice(totalPayInSum),
+        //   formatePrice(totalPayOutSum),
+        //   formatePrice(totalPayInCount),
+        //   formatePrice(totalPayOutCount),
+        //   type === 'H' ? 'Hourly Report' : 'Daily Report',
+        //   // totalPayInSum,
+        //   // totalPayOutSum,
+        //   // totalPayInCount,
+        //   // totalPayOutCount,
 
-          totalPayinsMerchant,
-          merchantTotalPayout,
+        //   totalPayinsMerchant,
+        //   merchantTotalPayout,
 
-          config?.telegramBotToken,
-        );
+        //   config?.telegramBotToken,
+        // );
       } catch (error) {
         console.error('Error ', error.message);
       }
     };
     formattedSuccessRatiosByMerchant();
-  } catch(error) {
+  } catch (error) {
     console.error(error);
   } finally {
-    if(conn){
+    if (conn) {
       conn.release();
     }
   }
-  const formatePrice = (price, currencySymbol = '₹') => {
-    const numericPrice = Number(price);
-    if (isNaN(numericPrice)) {
-      console.error('Invalid price:', price);
-      return `${currencySymbol} 0.00`; // Return default value to avoid errors
-    }
-    return `${currencySymbol} ${Number(price).toLocaleString('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-  };
 };
 
 export default gatherAllData;

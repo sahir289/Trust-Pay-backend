@@ -22,13 +22,15 @@ const getCalculationDao = async (
   try {
     // if simple user is querying then filter object must have user_id to bind result
     let baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.CALCULATION}" WHERE 1=1`;
-    const { role, designation, startDate, endDate, includeSubVendors, includeSubMerchant, user_id } = filters;
+    const { role, designation, startDate, endDate, sDate, eDate,  includeSubVendors, includeSubMerchant, user_id } = filters;
     let users = filters.users || "";
     delete filters.designation;
     delete filters.users;
     delete filters.role;
     delete filters.startDate;
     delete filters.endDate;
+    delete filters.sDate
+    delete filters.eDate
     users = users.split(",");
 
     // scenarios for super admin
@@ -88,6 +90,10 @@ const getCalculationDao = async (
 
     if (startDate && endDate) {
       baseQuery += ` AND created_at BETWEEN '${new Date(startDate).toISOString()}'::TIMESTAMPTZ AND '${new Date(endDate).toISOString()}'::TIMESTAMPTZ`
+    }
+
+    if (sDate && eDate) {
+      baseQuery += ` AND updated_at BETWEEN '${new Date(sDate).toISOString()}'::TIMESTAMPTZ AND '${new Date(eDate).toISOString()}'::TIMESTAMPTZ`
     }
 
     const [sql, queryParams] = buildSelectQuery(
