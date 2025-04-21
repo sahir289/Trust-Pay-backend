@@ -35,7 +35,7 @@ import { logger } from '../../utils/logger.js';
   
 const createMerchantService = async (conn, payload) => {
   try {
-    const parentId = payload.created_by;
+    const parentId = payload.parent_id;
     delete payload.parentId;
     let Role_id = payload.role_id;
     let userRole = payload.role;

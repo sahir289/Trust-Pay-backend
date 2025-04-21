@@ -11,6 +11,7 @@ import { logger } from '../../utils/logger.js';
 
 export const createMerchantDao = async (data, conn) => {
   try {
+    delete data.parent_id;
     const [sql, params] = buildInsertQuery(tableName.MERCHANT, data);
     if (conn && conn.query) {
       const result = await conn.query(sql, params);

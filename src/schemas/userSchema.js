@@ -33,7 +33,6 @@ export const CREATE_USER_SCHEMA = Joi.object({
     .max(100)
     .label('payin_commission')
     .optional(),
-
   min_payout: Joi.number().min(0).label('min_payout').optional(),
   max_payout: Joi.number()
     .min(Joi.ref('min_payout'))
@@ -50,6 +49,7 @@ export const CREATE_USER_SCHEMA = Joi.object({
   return: Joi.string().uri().label('return').optional(),
   site: Joi.string().uri().label('site').optional(),
   config: Joi.object().label('config').optional(),
+  parent_id: Joi.string().label('parent_id').optional(),
 });
 
 

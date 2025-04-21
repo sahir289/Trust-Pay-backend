@@ -23,7 +23,6 @@ export async function sendTelegramDashboardReportMessage(
     now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
   );
 
-  console.log(JSON.stringify(vendorObjpayIn, null, 2), 'vendorObjpayIn_vendorObjpayOut');
   let startHour = istTime.getHours() - 1;
   let endHour = (startHour + 1) % 24;
 
@@ -49,13 +48,15 @@ export async function sendTelegramDashboardReportMessage(
     )
     .join('\n');
 
-  const merchantPayOutDetails = merchant.map(
-    (m) =>
-      `${m.merchantId}: ₹ ${m.totalPayout.toLocaleString('en-IN', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })} (${m.totalPayoutCount})`
-  )
+    const merchantPayOutDetails = merchant
+    .map(
+      (m) =>
+        `${m.merchantId}: ₹ ${m.totalPayout.toLocaleString('en-IN', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} (${m.totalPayoutCount})`
+    )
+    .join('\n'); 
 
   const vendorDetails = Object.entries(vendorObjpayIn)
     .map(([vendorCode, { banks }]) => {
@@ -65,7 +66,7 @@ export async function sendTelegramDashboardReportMessage(
       const bankDetails = banks
         .map(
           (bank) =>
-            `  ${bank.bankName}: ₹ ${bank.TotalDeposit === null ? 'N/A' : bank.TotalDeposit.toLocaleString('en-IN', {
+            `  ${bank.bankName}: ₹ ${bank.TotalDeposit === null ? '0' : bank.TotalDeposit.toLocaleString('en-IN', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })} (${bank.TotalCount})`
@@ -83,7 +84,7 @@ export async function sendTelegramDashboardReportMessage(
       const bankDetails = banks
         .map(
           (bank) =>
-            `  ${bank.bankName}: ₹ ${bank.TotalDeposit === null ? 'N/A' : bank.TotalDeposit.toLocaleString('en-IN', {
+            `  ${bank.bankName}: ₹ ${bank.TotalDeposit === null ? '0' : bank.TotalDeposit.toLocaleString('en-IN', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })} (${bank.TotalCount})`
@@ -93,32 +94,32 @@ export async function sendTelegramDashboardReportMessage(
     })
     .join('\n\n');
 
-  const message = `
-  <b>
+    const message = `
+    <b>(${timeStamp}) IST</b>
+    
+<b>💰 Deposits</b>
 
-  (${timeStamp}) IST</b>
-  
-  <b>💰 Deposits</b>
+${merchantPayInDetails}
+    
+<b>Total Deposits:</b> ${totalpayinsMerchant}
+    
+<b>🏦 Withdrawals</b>
 
-  ${merchantPayInDetails}
+${merchantPayOutDetails}
+    
+<b>Total Withdrawals:</b> ${totalpayoutsMerchant}
+    
+<b>✅ Bank Account Deposits</b>
 
-  <b>Total Deposits:</b> ${totalpayinsMerchant}
+${vendorDetails}
+    
+<b>Total Bank Account Deposits:</b> ${totalBankDepositAllVendors}
+    
+<b>✅ Bank Account Withdrawals</b>
 
-  <b>🏦 Withdrawals</b>
-
-  ${merchantPayOutDetails}
-
-  <b>Total Deposits:</b> ${totalpayoutsMerchant}
-
-  <b>✅ Bank Account Deposits</b>
-  ${vendorDetails}
-
-  <b>Total Bank Account Deposits: </b> ${totalBankDepositAllVendors}
-
-   <b>✅ Bank Account Deposits</b>
-  ${vendorDetailsPayout}
-
-  <b>Total Bank Account Withdrawal: </b> ${totalBankWithdrawalAllVendors}
+${vendorDetailsPayout}
+    
+<b>Total Bank Account Withdrawals:</b> ${totalBankWithdrawalAllVendors}
 `;
 
   const success = await telegramSender(chatId, message, null, TELEGRAM_BOT_TOKEN);

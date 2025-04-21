@@ -824,7 +824,7 @@ export const getPayinsBySearchService = async (
   }
 };
 
-export const processPayInService = async (conn, payload, updated_by, tele_check = false) => {
+export const processPayInService = async (conn, payload, updated_by, tele_check = true) => {
   const { userSubmittedUtr, merchantOrderId, amount, from_telegram, telegramMessage, telegramBotToken } = payload;
   // validate payIn
   // throw error if not exist or expires
@@ -857,6 +857,10 @@ export const processPayInService = async (conn, payload, updated_by, tele_check 
   if (payIn.bank_response_id) {
     bankResponse =
       (await getBankResponseDao({ id: payIn.bank_response_id })) || {};
+  }
+  else if (!bankResponse || !bankResponse.utr) {
+    bankResponse =
+      (await getBankResponseDao({ utr: userSubmittedUtr, status: "/success" })) || {};
   }
   const result = {
     status: payIn.status,
@@ -1073,7 +1077,7 @@ export const telegramResponseService = async (conn, message) => {
   const TELEGRAM_BOT_TOKEN = config.telegramOcrBotToken;
 
   if (!photo) {
-    console.error('No Telegram Message Photo found!', message);
+    logger.error('No Telegram Message Photo found!', message);
     return;
   }
 
@@ -1114,7 +1118,7 @@ export const telegramResponseService = async (conn, message) => {
     user_submitted_utr: content.utr,
   });
   const otherBotResponsePayins = await getPayInUrlsDao({
-    bank_response_id: bankResponse.id,
+    bank_response_id: bankResponse?.id,
   });
 
   if (!payIn) {
@@ -1193,8 +1197,9 @@ export const telegramResponseService = async (conn, message) => {
 export const processPayInByImageService = async (conn, payload) => {
   const { base64Image, merchantOrderId } = payload;
   const content = await getImageContentFromOCr(base64Image);
+  let payInData;
+  payInData = await getPayInUrlService(merchantOrderId);
   if (!content) {
-    const payInData = await getPayInUrlService(merchantOrderId);
     const payIn = await updatePayInUrlDao(payInData.id, {
       status: Status.IMG_PENDING,
       amount: payload.amount,
@@ -1214,7 +1219,7 @@ export const processPayInByImageService = async (conn, payload) => {
   return await processPayInService(conn, {
     ...payload,
     userSubmittedUtr: content.utr,
-    amount: content.amount,
+    amount: payInData.amount,
   });
 };
 
