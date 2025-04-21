@@ -60,13 +60,28 @@ const getBankaccountDao = async (filters, page, limit, role) => {
     if (role === 'MERCHANT') {
       commissionSelect = '';
     } else if (role === 'VENDOR') {
-      commissionSelect =
-        'ifsc_code, ba.payin_count, ba.balance, ba.today_balance, ba.bank_used_for, creator.user_name AS created_by, updater.user_name AS updated_by,  ';
+      commissionSelect = `
+        ba.ifsc AS ifsc_code, 
+        ba.payin_count, 
+        ba.balance, 
+        ba.today_balance, 
+        ba.bank_used_for, 
+        creator.user_name AS created_by, 
+        updater.user_name AS updated_by`;
     } else {
       commissionSelect = `
-        ba.user_id, ba.ifsc, ba.min, 
-        ba.max, ba.payin_count, ba.balance, ba.today_balance, ba.bank_used_for, creator.user_name AS created_by, updater.user_name AS updated_by, ba.created_at, ba.updated_at
-      `;
+        ba.user_id, 
+        ba.ifsc, 
+        ba.min, 
+        ba.max, 
+        ba.payin_count, 
+        ba.balance, 
+        ba.today_balance, 
+        ba.bank_used_for, 
+        creator.user_name AS created_by, 
+        updater.user_name AS updated_by, 
+        ba.created_at, 
+        ba.updated_at`;
     }
     const baseQuery = `SELECT 
         ba.id, 
@@ -80,8 +95,8 @@ const getBankaccountDao = async (filters, page, limit, role) => {
         ba.is_qr, 
         ba.is_bank, 
         ba.is_enabled, 
-        ba.config,  
-        ${commissionSelect},
+        ba.config,
+        ${commissionSelect ? `${commissionSelect},` : ''}
         v.code AS Vendor, 
         COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details
       FROM 
