@@ -858,6 +858,10 @@ export const processPayInService = async (conn, payload, updated_by, tele_check 
     bankResponse =
       (await getBankResponseDao({ id: payIn.bank_response_id })) || {};
   }
+  else if (!bankResponse || !bankResponse.utr) {
+    bankResponse =
+      (await getBankResponseDao({ utr: userSubmittedUtr, status: "/success" })) || {};
+  }
   const result = {
     status: payIn.status,
     merchantOrderId: payIn.merchant_order_id,
