@@ -187,7 +187,7 @@ const createUserService = async (conn, payload, role) => {
     ///for operations
 
     if (
-      (userDesignation[0].designation == Role.VENDOR_OPERATIONS) ||
+      (userDesignation[0].designation == Role.MERCHANT_OPERATIONS) ||
       (userDesignation[0].designation == Role.VENDOR_OPERATIONS)
     ) {
       const hierarchy = await getUserHierarchysDao({
