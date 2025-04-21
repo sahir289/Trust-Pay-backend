@@ -1114,7 +1114,7 @@ export const telegramResponseService = async (conn, message) => {
     user_submitted_utr: content.utr,
   });
   const otherBotResponsePayins = await getPayInUrlsDao({
-    bank_response_id: bankResponse.id,
+    bank_response_id: bankResponse?.id,
   });
 
   if (!payIn) {

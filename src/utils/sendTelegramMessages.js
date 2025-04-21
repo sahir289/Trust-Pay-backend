@@ -23,7 +23,6 @@ export async function sendTelegramDashboardReportMessage(
     now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
   );
 
-  console.log(JSON.stringify(vendorObjpayIn, null, 2), 'vendorObjpayIn_vendorObjpayOut');
   let startHour = istTime.getHours() - 1;
   let endHour = (startHour + 1) % 24;
 
