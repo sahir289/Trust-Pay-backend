@@ -98,21 +98,25 @@ export async function sendTelegramDashboardReportMessage(
     <b>(${timeStamp}) IST</b>
     
 <b>💰 Deposits</b>
+
 ${merchantPayInDetails}
     
 <b>Total Deposits:</b> ${totalpayinsMerchant}
     
 <b>🏦 Withdrawals</b>
+
 ${merchantPayOutDetails}
     
 <b>Total Withdrawals:</b> ${totalpayoutsMerchant}
     
 <b>✅ Bank Account Deposits</b>
+
 ${vendorDetails}
     
 <b>Total Bank Account Deposits:</b> ${totalBankDepositAllVendors}
     
 <b>✅ Bank Account Withdrawals</b>
+
 ${vendorDetailsPayout}
     
 <b>Total Bank Account Withdrawals:</b> ${totalBankWithdrawalAllVendors}
