@@ -68,7 +68,7 @@ const getChargeBacksById = async (req, res) => {
   return sendSuccess(res, result, 'ChargeBack created successfully');
 };
 const getChargeBacksBySearch = async (req, res) => {
-  const { company_id, role} = req.user;
+  const { company_id, role, user_id, designation } = req.user;
   const { search, page = 1, limit = 10 } = req.query;
   if (!search) {
     throw new BadRequestError('search is required');
@@ -82,14 +82,14 @@ const getChargeBacksBySearch = async (req, res) => {
       ...req.query,
     },
     role,
-    // designation,
-    // user_id,
+    designation,
+    user_id,
   );
   console.log('get chargbacks successfully');
   return sendSuccess(res, data, 'chargbacks fetched successfully');
 };
 const getChargeBacks = async (req, res) => {
-  const { company_id, role, user_id } = req.user;
+  const { company_id, role, user_id, designation } = req.user;
   const { page, limit, ...rest } = req.query;
   const data = await getChargeBacksService(
     {
@@ -101,6 +101,7 @@ const getChargeBacks = async (req, res) => {
     page,
     limit,
     user_id,
+    designation
   );
   // Log success message
   // Send success response

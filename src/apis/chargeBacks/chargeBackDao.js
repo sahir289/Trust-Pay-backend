@@ -229,6 +229,16 @@ export const getChargeBacksBySearchDao = async (
       paramIndex++;
     }
 
+    // Handle merchant_user_id array
+    if (filters && Array.isArray(filters.merchant_user_id) && filters.merchant_user_id.length > 0) {
+      const placeholders = filters.merchant_user_id
+        .map((_, idx) => `$${paramIndex + idx}`)
+        .join(', ');
+      queryText += ` AND "${CHARGE_BACK}".merchant_user_id IN (${placeholders})`;
+      values.push(...filters.merchant_user_id);
+      paramIndex += filters.merchant_user_id.length;
+    }
+
     // Build search conditions across all relevant fields
     searchTerms.forEach((term) => {
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
