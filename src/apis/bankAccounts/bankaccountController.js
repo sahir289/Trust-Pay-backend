@@ -25,7 +25,7 @@ import {
 
 const getBankaccount = async (req, res) => {
   const { company_id } = req.user;
-  const { role } = req.user;
+  const { role, user_id, designation } = req.user;
   const { page, limit, bank_used_for } = req.query;
   const filters = {
     bank_used_for,
@@ -36,6 +36,8 @@ const getBankaccount = async (req, res) => {
     role,
     page,
     limit,
+    user_id,
+    designation
   );
   logger.log('get Banks successfully', role);
   return sendSuccess(res, data, 'get Banks successfully');
