@@ -25,6 +25,7 @@ import {
   vendorColumns,
 } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
+import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 
 const getSettlementServiceById = async (ids) => {
   try {
@@ -48,7 +49,7 @@ const getSettlementServiceById = async (ids) => {
   }
 };
 
-const getSettlementService = async (ids, filters, page, limit, sortBy, sortOrder) => {
+const getSettlementService = async (ids, filters, page, limit, sortBy, sortOrder, role, user_id) => {
   try {
     // Validate required parameters
     if (!ids?.company_id) {
@@ -67,6 +68,25 @@ const getSettlementService = async (ids, filters, page, limit, sortBy, sortOrder
       }
     })();
 
+    if(role == Role.MERCHANT){
+      filters.user_id = [user_id]
+    }
+    if (role == Role.VENDOR) {
+      filters.user_id = [user_id]
+    }
+    if (role === Role.MERCHANT) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      if (userHierarchys || userHierarchys.length > 0) {
+        const userHierarchy = userHierarchys[0];
+
+        if (
+          userHierarchy?.config ||
+          Array.isArray(userHierarchy?.config?.siblings?.sub_merchants)
+        ) {
+          filters.user_id = [...filters.user_id, ...(userHierarchy?.config?.siblings?.sub_merchants ?? [])];
+        }
+      }
+    }
     // Prepare filter object, ensuring all properties are included
     const daoFilters = {
       company_id: ids.company_id,
