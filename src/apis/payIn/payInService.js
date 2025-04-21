@@ -1073,7 +1073,7 @@ export const telegramResponseService = async (conn, message) => {
   const TELEGRAM_BOT_TOKEN = config.telegramOcrBotToken;
 
   if (!photo) {
-    console.error('No Telegram Message Photo found!', message);
+    logger.error('No Telegram Message Photo found!', message);
     return;
   }
 
@@ -1193,8 +1193,9 @@ export const telegramResponseService = async (conn, message) => {
 export const processPayInByImageService = async (conn, payload) => {
   const { base64Image, merchantOrderId } = payload;
   const content = await getImageContentFromOCr(base64Image);
+  let payInData;
+  payInData = await getPayInUrlService(merchantOrderId);
   if (!content) {
-    const payInData = await getPayInUrlService(merchantOrderId);
     const payIn = await updatePayInUrlDao(payInData.id, {
       status: Status.IMG_PENDING,
       amount: payload.amount,
@@ -1214,7 +1215,7 @@ export const processPayInByImageService = async (conn, payload) => {
   return await processPayInService(conn, {
     ...payload,
     userSubmittedUtr: content.utr,
-    amount: content.amount,
+    amount: payInData.amount,
   });
 };
 
