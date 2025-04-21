@@ -78,7 +78,7 @@ const createMerchantService = async (conn, payload) => {
          {
            config: {
              ...userConfig,
-             siblings:{ sub_merchants: [...currentChildren, data.id] },
+             siblings:{ sub_merchants: [...currentChildren, data.user_id] },
            },
          },
          conn

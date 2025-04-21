@@ -117,6 +117,7 @@ const getChargeBacksService = async (
   page,
   limit,
   user_id,
+  desingnation
 ) => {
   try {
     // Determine columns based on role
@@ -134,7 +135,7 @@ const getChargeBacksService = async (
             filters.vendor_user_id = [user_id];
           }
 
-              if (role === Role.MERCHANT) {
+              if (role === Role.MERCHANT || desingnation === Role.MERCHANT_OPERATIONS) {
                 // user_id is unique
                 const userHierarchys = await getUserHierarchysDao({ user_id });
                 if (userHierarchys || userHierarchys.length > 0) {           
@@ -188,8 +189,8 @@ const getChargeBacksService = async (
 const getChargeBacksBySearchService = async (
   filters,
   role,
-  // designation,
-  // user_id,
+  designation,
+  user_id,
 ) => {
   try {
     const pageNum = parseInt(filters.page);
@@ -214,6 +215,28 @@ const getChargeBacksBySearchService = async (
          ? vendorColumns.CHARGE_BACK
          : columns.CHARGE_BACK;
     // TODO: add designation constants
+
+    if(role == Role.MERCHANT){
+      filters.merchant_user_id = [user_id]
+    }
+    if (role == Role.VENDOR) {
+      filters.vendor_user_id = [user_id];
+    }
+
+        if (role === Role.MERCHANT || designation === Role.MERCHANT_OPERATIONS) {
+          // user_id is unique
+          const userHierarchys = await getUserHierarchysDao({ user_id });
+          if (userHierarchys || userHierarchys.length > 0) {           
+          const userHierarchy = userHierarchys[0];
+    
+          if (
+            userHierarchy?.config ||
+            Array.isArray(userHierarchy?.config?.siblings?.sub_merchants)
+          ) {
+            filters.merchant_user_id = [...filters.merchant_user_id, ...(userHierarchy?.config?.siblings?.sub_merchants ?? [])];
+          }
+        }
+        }
 
     const data = await getChargeBacksBySearchDao(
       filters,
