@@ -824,7 +824,7 @@ export const getPayinsBySearchService = async (
   }
 };
 
-export const processPayInService = async (conn, payload, updated_by, tele_check = false) => {
+export const processPayInService = async (conn, payload, updated_by, tele_check = true) => {
   const { userSubmittedUtr, merchantOrderId, amount, from_telegram, telegramMessage, telegramBotToken } = payload;
   // validate payIn
   // throw error if not exist or expires
