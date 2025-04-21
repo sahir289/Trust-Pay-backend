@@ -328,7 +328,7 @@ const updateBotResponseDao = async (id, data, conn) => {
       id,
     });
     let result;
-    console.log(sql, params);
+    
     if (conn && conn.query) {
       result = await conn.query(sql, params); // Use connection to execute query
     } else {
