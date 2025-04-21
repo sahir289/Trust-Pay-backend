@@ -103,8 +103,8 @@ const getMerchantsBySearch = async (req, res) => {
 }
 
 const getMerchantCodes = async (req, res) => {
-  const { company_id } = req.user;
-  const data = await getMerchantsServiceCode(company_id);
+  const { company_id ,role,user_id } = req.user;
+  const data = await getMerchantsServiceCode(company_id,role,user_id);
   console.log('get Merchants successfully');
   return sendSuccess(res, data, 'Merchants fetched successfully');
 };

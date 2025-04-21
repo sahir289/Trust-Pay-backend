@@ -8,7 +8,6 @@ import {
   buildAndExecuteUpdateQuery,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
-import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 export const createMerchantDao = async (data, conn) => {
   try {
@@ -25,7 +24,7 @@ export const createMerchantDao = async (data, conn) => {
   }
 };
 
-export const getMerchantsCodeDao = async (conn, company_id) => {
+export const getMerchantsCodeDao = async (conn, filters) => {
   try {
     const baseQuery = `SELECT 
     m.code AS label,  -- Parent Merchant Name
@@ -49,10 +48,13 @@ LEFT JOIN public."Merchant" sm
     )  
 WHERE m.company_id = $1
 AND m.is_obsolete = FALSE  
-GROUP BY m.id, m.code, m.user_id
-ORDER BY m.code ASC;`;
-    const queryParams = [company_id];
-    const result = await conn.query(baseQuery, queryParams);
+GROUP BY m.id, m.code, m.user_id`
+    let [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      tableName.VENDOR,
+    );
+    const result = await conn.query(sql, queryParams);
     return result.rows;
   } catch (error) {
     console.error('Error fetching company:', error);
@@ -100,10 +102,10 @@ export const getMerchantsDao = async (
       columns?.length ? columns : '*',
       joins,
     );
-    if (filters.search) {
-      filters.or = buildSearchFilterObj(filters.search, MERCHANT);
-      delete filters.search;
-    }
+    // if (filters.search) {
+    //   filters.or = buildSearchFilterObj(filters.search, MERCHANT);
+    //   delete filters.search;
+    // }
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,

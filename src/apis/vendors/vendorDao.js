@@ -6,7 +6,7 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
-import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
+// import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { logger } from '../../utils/logger.js';
 
 export const createVendorDao = async (data, conn) => {
@@ -25,7 +25,7 @@ export const createVendorDao = async (data, conn) => {
 };
 
 export const getVendorsCodeDao = async (
-  company_id,conn
+  filters,conn
 ) => {
   try {
     const baseQuery = `
@@ -36,19 +36,20 @@ export const getVendorsCodeDao = async (
         FROM 
             "${tableName.VENDOR}" 
         WHERE 
-            company_id = $1 
-            AND is_obsolete = FALSE 
-        ORDER BY 
-            code ASC;
-    `;
-    const result = await conn.query(baseQuery, [company_id]);
+            is_obsolete = FALSE 
+    `
+     let [sql, queryParams] = buildSelectQuery(
+       baseQuery,
+       filters,
+       tableName.VENDOR,
+     );
+    const result = await conn.query(sql, queryParams);
     logger.log('Fetched Vendors:', result.rows.length, 'rows');
     return result.rows;
   } catch (error) {
     logger.error('Error executing vendor query:', error);
     throw new Error('Database query failed'); // Re-throwing for upstream handling
   }
-
 };
 
 
@@ -63,7 +64,6 @@ export const getVendorsDao = async (
 ) => {
   try {
     const { USER, VENDOR, DESIGNATION } = tableName;
-
     const joins = [
       {
         table: USER,
@@ -92,10 +92,7 @@ export const getVendorsDao = async (
       columns.length ? columns : '*',
       joins,
     );
-    if (filters.search) {
-      filters.or = buildSearchFilterObj(filters.search, VENDOR);
-      delete filters.search;
-    }
+    
     // logger.log(JSON.stringify(filters, undefined, 4));
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
@@ -151,9 +148,14 @@ export const getVendorsBySearchDao = async (
       AND "Vendor".is_obsolete = false 
       AND "Vendor"."company_id" = $1
     `;
-
+console.log(filters,'hey users')
+      if (filters.user_id) {
+        queryText += ` AND "Vendor"."user_id" = $${paramIndex}`;
+        values.push(filters.user_id);
+        paramIndex += 1;
+      }
     searchTerms.forEach((term) => {
-    
+  
       // Handle boolean terms
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
         const boolValue = term.toLowerCase() === 'true';
@@ -197,7 +199,7 @@ export const getVendorsBySearchDao = async (
       OFFSET $${paramIndex + 1}
     `;
     values.push(limitNum, offset);
-
+console.log(queryText,values)
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
 

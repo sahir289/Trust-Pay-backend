@@ -330,7 +330,7 @@ export const getPayinsBySearchDao = async (
     `;
 
     values.push(limitNum, offset);
-
+console.log(queryText)
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
 

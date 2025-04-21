@@ -53,6 +53,24 @@ export const getUserHierarchysDao = async (
   }
 };
 
+export const getHierarchyByChildDao = async (childId) => {
+  try {
+    const query = `
+      SELECT *
+      FROM "${tableName.USER_HIERARCHY}"
+      WHERE (config::jsonb)->'child'->>'operations' IS NOT NULL
+        AND (config::jsonb)->'child'->'operations' @> to_jsonb(ARRAY[$1]::uuid[]);
+    `;
+    const values = [childId];
+    const result = await executeQuery(query, values);
+    return result.rows[0]; // Fixed comma to semicolon
+  } catch (error) {
+    console.error('getHierarchyByChildDao error:', error.message);
+    throw new Error(`Failed to fetch hierarchy: ${error.message}`); // Improved error handling
+  }
+};
+
+
 export const updateUserHierarchyDao = async (id, data,conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data, id);

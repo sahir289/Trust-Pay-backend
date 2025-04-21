@@ -19,6 +19,7 @@ import {
 } from './vendorDao.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
+import { getHierarchyByChildDao } from '../userHierarchy/userHierarchyDao.js';
 
 const createVendorService = async (conn, payload) => {
   try {
@@ -49,26 +50,53 @@ const createVendorService = async (conn, payload) => {
   }
 };
 
-const getVendorsService = async (filters, roleIs, page, limit) => {
+const getVendorsService = async (filters, roleIs, page, limit,user_id,designation) => {
   try {
     const filterColumns =
-      roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
-      const pageNumber = parseInt(page, 10) || 1;
-      const pageSize = parseInt(limit, 10) || 10;
-    return await getVendorsDao(filters , pageNumber, pageSize, null, null, filterColumns);
+    roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
+    const pageNumber = parseInt(page, 10) || 1;
+    const pageSize = parseInt(limit, 10) || 10;
+    let parentUserId;
+    if (designation === Role.VENDOR_OPERATIONS) {
+    const UserHierarchy = await getHierarchyByChildDao(user_id);
+     parentUserId = UserHierarchy.user_id
+    }
+    else {
+      parentUserId=user_id
+    }
+    if (designation !== 'ADMIN') {
+      filters.user_id = parentUserId;
+    }
+    return await getVendorsDao(
+      filters,
+      pageNumber,
+      pageSize,
+      null,
+      null,
+      filterColumns,
+    );
   } catch (error) {
     console.error('Error while fetching vendors', error);
     throw new InternalServerError(error);
   }
 };
 
-const getVendorsCodeService = async (company_id) => {
+const getVendorsCodeService = async (filters,role,user_id) => {
   let conn;
   try {
     conn = await getConnection(); // Get DB connection
     await beginTransaction(conn); // Start transaction
-
-    const data = await getVendorsCodeDao(company_id, conn);
+     let parentUserId;
+     if (role === 'VENDOR') {
+       const UserHierarchy = await getHierarchyByChildDao(user_id);
+       parentUserId = UserHierarchy.user_id;
+     } else {
+       parentUserId = user_id;
+     }
+     if (role !== 'ADMIN' || role !== 'TRANSACTIONS') {
+       filters.user_id = parentUserId;
+     }
+    const data = await getVendorsCodeDao(filters, conn);
 
     await commit(conn); // Commit transaction
     return data;
@@ -94,8 +122,9 @@ const getVendorsCodeService = async (company_id) => {
 };
 const getVendorsBySearchService = async (
   filters,
-  // designation,
-  // user_id,
+  role,
+  designation,
+  user_id,
 ) => {
   try {
     const pageNum = parseInt(filters.page);
@@ -113,16 +142,26 @@ const getVendorsBySearchService = async (
     }
     const offset = (pageNum - 1) * limitNum;
 
-    // const filterColumns =
-    //   role === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
+    const filterColumns =
+      role === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
     // TODO: add designation constants
-   
+   let parentUserId;
+   if (designation === 'VENDOR_OPERATIONS') {
+     const UserHierarchy = await getHierarchyByChildDao(user_id);
+     parentUserId = UserHierarchy.user_id;
+   } else {
+     parentUserId = user_id;
+   }
+   if (designation !== 'ADMIN') {
+     filters.user_id = parentUserId;
+   }
+    console.log(filters);
     const data = await getVendorsBySearchDao(
       filters,
       searchTerms,
       limitNum,
       offset,
-      // filterColumns,
+      filterColumns,
     );
 
     return data;
