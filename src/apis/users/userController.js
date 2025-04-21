@@ -24,7 +24,7 @@ const getUsers = async (req, res) => {
     },
     role, page,limit,
   );
-  console.log('getUsers successfully');
+  logger.log('getUsers successfully');
   return sendSuccess(res, data, 'getUsers successfully');
 };
 
@@ -54,11 +54,11 @@ const getUsersByUserName = async (req, res) => {
   const { username } = req.body;
   const ids = { company_id };
   if (!username) {
-    console.error('Username is required');
+    logger.error('Username is required');
     throw new BadRequestError('Username is required');
   }
   const data = await getUsersByUserNameService(username, ids, role);
-  console.log('getUsers successfully');
+  logger.log('getUsers successfully');
   return sendSuccess(res, data, 'getUsers successfully');
 };
 
@@ -67,7 +67,7 @@ const getUserById = async (req, res) => {
   const { id } = req.params;
   const ids = { role_id, designation_id, company_id, id };
   const data = await getUserByIdService(ids, role);
-  console.log('get User by id successfully');
+  logger.log('get User by id successfully');
   return sendSuccess(res, data, 'getting User by id successfully');
 };
 
@@ -76,14 +76,14 @@ const createUser = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const { role, company_id, user_id } = req.user;
+  const { role, designation, company_id, user_id } = req.user;
   let payload = req.body;
   payload.is_enabled = true;
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
-  await transactionWrapper(createUserService)(payload, role);
-  console.log('Create user successfully');
+  await transactionWrapper(createUserService)(payload, role, designation);
+  logger.log('Create user successfully');
   return sendSuccess(res, {}, 'Create user successfully');
 };
 
@@ -94,7 +94,7 @@ const updateUser = async (req, res) => {
   const id = req.params.id;
   const ids = { id, company_id };
   await userUpdateService(ids ,payload, role);
-  console.log('update user successfully');
+  logger.log('update user successfully');
   return sendSuccess(res, {}, 'update user successfully');
 };
 
