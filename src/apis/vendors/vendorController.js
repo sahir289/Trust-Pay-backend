@@ -37,22 +37,21 @@ const createVendor = async (req, res) => {
 };
 
 const getVendors = async (req, res) => {
-  const { company_id, role } = req.user;
-  const {page, limit, search } = req.query;
+  const { company_id, role, user_id, designation } = req.user;
+  const {page, limit } = req.query;
   const data = await getVendorsService(
     {
       company_id,
-      ...(search ? { search } : {}),
       ...req.query,
     },
-    role, page,limit,
+    role, page,limit,user_id,designation
   );
   logger.log('get Vendors successfully');
   return sendSuccess(res, data, 'Vendors fetched successfully');
 };
 
 const getVendorsBySearch = async (req, res) => {
-  const { company_id, role} = req.user;
+  const { company_id, role, designation, user_id } = req.user;
   const { search, page = 1, limit = 10 } = req.query;
   if (!search) {
     throw new BadRequestError('search is required');
@@ -66,20 +65,21 @@ const getVendorsBySearch = async (req, res) => {
       ...req.query,
     },
     role,
-    // designation,
-    // user_id,
+    designation,
+    user_id,
   );
   logger.log('get Vendors successfully');
   return sendSuccess(res, data, 'Vendors fetched successfully');
 };
 
 const getVendorCodes = async (req, res) => {
-  const { company_id } = req.user;
+  const { company_id, user_id, role,designation } = req.user;
   // let search = req.query.search;
   const data = await getVendorsCodeService(
-    
-      company_id,
-    
+    { company_id },
+    role,
+    user_id,
+    designation
   );
   // Log success message
   logger.log('get Vendors successfully');

@@ -8,7 +8,7 @@ import {
   rollback,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
-import { createUserHierarchyDao } from '../userHierarchy/userHierarchyDao.js';
+import { createUserHierarchyDao, getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import {
   createVendorDao,
   deleteVendorDao,
@@ -49,26 +49,57 @@ const createVendorService = async (conn, payload) => {
   }
 };
 
-const getVendorsService = async (filters, roleIs, page, limit) => {
+const getVendorsService = async (filters, roleIs, page, limit,user_id,designation) => {
   try {
     const filterColumns =
-      roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
-      const pageNumber = parseInt(page, 10) || 1;
-      const pageSize = parseInt(limit, 10) || 10;
-    return await getVendorsDao(filters , pageNumber, pageSize, null, null, filterColumns);
+    roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
+    const pageNumber = parseInt(page, 10) || 1;
+    const pageSize = parseInt(limit, 10) || 10;
+    let parentUserId;
+    if (roleIs === Role.VENDOR) {
+      if (designation === Role.VENDOR_OPERATIONS) {
+        const UserHierarchy = await getUserHierarchysDao({ user_id });
+        const userHierarchy = UserHierarchy[0];
+        parentUserId = userHierarchy?.config?.parent;
+        filters.user_id = parentUserId;
+      }
+      else {
+        parentUserId = user_id;
+        filters.user_id = parentUserId;
+      }
+    }
+    return await getVendorsDao(
+      filters,
+      pageNumber,
+      pageSize,
+      null,
+      null,
+      filterColumns,
+    );
   } catch (error) {
     console.error('Error while fetching vendors', error);
     throw new InternalServerError(error);
   }
 };
 
-const getVendorsCodeService = async (company_id) => {
+const getVendorsCodeService = async (filters, roleIs, user_id, designation) => {
   let conn;
   try {
     conn = await getConnection(); // Get DB connection
     await beginTransaction(conn); // Start transaction
-
-    const data = await getVendorsCodeDao(company_id, conn);
+    let parentUserId;
+    if (roleIs === Role.VENDOR) {
+      if (designation === Role.VENDOR_OPERATIONS) {
+        const UserHierarchy = await getUserHierarchysDao({ user_id });
+        const userHierarchy = UserHierarchy[0];
+        parentUserId = userHierarchy?.config?.parent;
+        filters.user_id = parentUserId;
+      } else {
+        parentUserId = user_id;
+        filters.user_id = parentUserId;
+      }
+    }
+    const data = await getVendorsCodeDao(filters, conn);
 
     await commit(conn); // Commit transaction
     return data;
@@ -85,7 +116,7 @@ const getVendorsCodeService = async (company_id) => {
   } finally {
     if (conn) {
       try {
-         conn.release(); // Ensure connection is released
+        conn.release(); // Ensure connection is released
       } catch (releaseError) {
         console.error('Error releasing connection:', releaseError);
       }
@@ -94,8 +125,9 @@ const getVendorsCodeService = async (company_id) => {
 };
 const getVendorsBySearchService = async (
   filters,
-  // designation,
-  // user_id,
+  role,
+  designation,
+  user_id,
 ) => {
   try {
     const pageNum = parseInt(filters.page);
@@ -113,16 +145,27 @@ const getVendorsBySearchService = async (
     }
     const offset = (pageNum - 1) * limitNum;
 
-    // const filterColumns =
-    //   role === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
+    const filterColumns =
+      role === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
     // TODO: add designation constants
-   
+   let parentUserId;
+   if (role === Role.VENDOR) {
+     if (designation === Role.VENDOR_OPERATIONS) {
+       const UserHierarchy = await getUserHierarchysDao({ user_id });
+       const userHierarchy = UserHierarchy[0];
+       parentUserId = userHierarchy?.config?.parent;
+       filters.user_id = parentUserId;
+     } else {
+       parentUserId = user_id;
+       filters.user_id = parentUserId;
+     }
+   }
     const data = await getVendorsBySearchDao(
       filters,
       searchTerms,
       limitNum,
       offset,
-      // filterColumns,
+      filterColumns,
     );
 
     return data;

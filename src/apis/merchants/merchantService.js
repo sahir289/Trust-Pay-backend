@@ -32,7 +32,7 @@ import { filterResponse } from '../../helpers/index.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
 // Create Merchant Service
-
+  
 const createMerchantService = async (conn, payload) => {
   try {
     const parentId = payload.parent_id;
@@ -62,7 +62,7 @@ const createMerchantService = async (conn, payload) => {
         conn,
       );
     }
-   if (userDesignation === Role.SUB_MERCHANT) {
+   if (userDesignation === Role.MERCHANT) {
      try {
        const hierarchy = await getUserHierarchysDao({ user_id: parentId });
        if (!hierarchy || !hierarchy[0]?.id) {
@@ -107,25 +107,54 @@ const getMerchantsService = async (
   try {
     const filterColumns =
       role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
-    // TODO: add designation constants
-    if (role === Role.MERCHANT && designation === Role.MERCHANT_ADMIN) {
-      // user_id is unique
-      const userHierarchys = await getUserHierarchysDao({ user_id });
-      const userHierarchy = userHierarchys[0];
 
-      if (
-        !userHierarchy ||
-        !userHierarchy.config ||
-        !Array.isArray(userHierarchy.config[user_id])
-      ) {
-        return [];
-      }
-      // only send merchant underlings if Requested person is Merchant Admin
-      filters.user_id = userHierarchy.config[user_id];
-    }
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
 
+    let userIdFilter = Array.isArray(user_id)
+      ? [...user_id]
+      : user_id
+        ? [user_id]
+        : [];
+    if (role === Role.MERCHANT) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchy = userHierarchys[0];
+      if (designation === Role.MERCHANT || designation === Role.SUB_MERCHANT) {
+        
+        if (userHierarchy?.config?.siblings?.sub_merchants) {
+          const subMerchants =
+            userHierarchy?.config?.siblings?.sub_merchants ?? [];
+          userIdFilter = [...new Set([...userIdFilter, ...subMerchants])];
+
+        }
+      } else if (designation === Role.MERCHANT_OPERATIONS) {
+        const parentUserId = userHierarchy?.config?.parent;
+        if (parentUserId && !userIdFilter.includes(parentUserId)) {
+          userIdFilter.push(parentUserId);
+        }
+        if (parentUserId) {
+          const parentHierarchys = await getUserHierarchysDao({
+            user_id: parentUserId,
+          });
+          const parentHierarchy = parentHierarchys[0];
+          if (parentHierarchy?.config?.siblings?.sub_merchants) {
+            const subMerchants =
+              parentHierarchy?.config?.siblings?.sub_merchants ?? [];
+            userIdFilter = [...new Set([...userIdFilter, ...subMerchants])];
+
+          }
+        }
+      }
+    }
+
+    if (userIdFilter.length > 0) {
+      filters.user_id =
+        userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
+    }
+
+    if (role === Role.ADMIN) {
+      delete filters.user_id;
+    }
     const data = await getMerchantsDao(
       filters,
       pageNumber,
@@ -135,28 +164,33 @@ const getMerchantsService = async (
       filterColumns,
     );
 
-    // TODO: add designation constants
-    if (role === Role.ADMIN && designation === Role.ADMIN) {
+    // Handle sub-merchants for specific roles and designations
+    if (
+      (role === Role.ADMIN ) &&
+      (designation === Role.ADMIN ||
+        designation === Role.TRANSACTIONS)
+    ) {
       for (const merchant of data) {
-        // user_id is unique
         const userHierarchys = await getUserHierarchysDao({
           user_id: merchant.user_id,
         });
         const userHierarchy = userHierarchys[0];
 
-        if (
-          !userHierarchy ||
-          !userHierarchy.config ||
-          !Array.isArray(userHierarchy.config[merchant.user_id])
-        ) {
+        if (!userHierarchy?.config?.siblings?.sub_merchants) {
           merchant.subMerchants = [];
           continue;
         }
-        // if Requested Person is Admin Admin then also send merchant underlings
-        merchant.subMerchants = await getMerchantsDao({
-          user_id: userHierarchy.config[merchant.user_id],
+
+        const subMerchants =
+          userHierarchy?.config?.siblings?.sub_merchants ?? [];
+        const singleSubMerchant =
+          subMerchants.length === 1 ? subMerchants[0] : subMerchants;
+
+        const heir = await getMerchantsDao({
+          user_id: singleSubMerchant,
           company_id: filters.company_id,
         });
+        merchant.subMerchants = heir;
       }
     }
 
@@ -176,9 +210,11 @@ const getMerchantsBySearchService = async (
   try {
     const pageNum = parseInt(filters.page);
     const limitNum = parseInt(filters.limit);
+
     if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
       throw new BadRequestError('Invalid pagination parameters');
     }
+
     const searchTerms = filters.search
       .split(',')
       .map((term) => term.trim())
@@ -187,62 +223,93 @@ const getMerchantsBySearchService = async (
     if (searchTerms.length === 0) {
       throw new BadRequestError('Please provide valid search terms');
     }
+
     const offset = (pageNum - 1) * limitNum;
+    const filterColumns =
+      role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
 
-    const filterColumns = role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
-    // TODO: add designation constants
-    if (role === Role.MERCHANT && designation === Role.MERCHANT_ADMIN) {
-      // user_id is unique
-      const userHierarchies = await getUserHierarchysDao({ user_id });
-      const userHierarchy = userHierarchies[0];
+    // Prepare userIdFilter logic
+    let userIdFilter = Array.isArray(user_id)
+      ? [...user_id]
+      : user_id
+        ? [user_id]
+        : [];
 
-      if (
-        !userHierarchy ||
-        !userHierarchy.config ||
-        !Array.isArray(userHierarchy.config[user_id])
-      ) {
-        return [];
+    
+    if (role === Role.MERCHANT) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchy = userHierarchys[0];
+
+      if (designation === Role.MERCHANT) {
+        if (userHierarchy?.config?.siblings?.sub_merchants) {
+          const subMerchants =
+            userHierarchy?.config?.siblings?.sub_merchants ?? [];
+          userIdFilter = [...new Set([...userIdFilter, ...subMerchants])];
+        }
+      } else if (designation === Role.MERCHANT_OPERATIONS) {
+      console.log(userHierarchy);
+        const parentUserId = userHierarchy?.config?.parent;
+       if (parentUserId && !userIdFilter.includes(parentUserId)) {
+          userIdFilter.push(parentUserId);
+
+        }
+        if (parentUserId) {
+          const parentHierarchys = await getUserHierarchysDao({
+            user_id: parentUserId,
+          });
+          const parentHierarchy = parentHierarchys[0];
+          if (parentHierarchy?.config?.siblings?.sub_merchants) {
+            const subMerchants =
+              parentHierarchy?.config?.siblings?.sub_merchants ?? [];
+            userIdFilter = [...new Set([...userIdFilter, ...subMerchants])];
+
+          }
+        }
       }
-      // only send merchant underlings if Requested person is Merchant Admin
-      filters.user_id = userHierarchy.config[user_id];
     }
 
+    if (userIdFilter.length > 0) {
+      filters.user_id =
+        userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
+    }
+ if (role === Role.ADMIN) {
+   delete filters.user_id;
+ }
+    // Get paginated merchants matching search terms and userId filters
     const data = await getMerchantsBySearchDao(
       filters,
       searchTerms,
       limitNum,
       offset,
       filterColumns,
-      user_id
     );
 
-    // TODO: add designation constants
-    if (role === Role.ADMIN && designation === Role.ADMIN) {
+    // Handle subMerchants (only for ADMIN roles)
+    if (
+      role === Role.ADMIN &&
+      (designation === Role.ADMIN || designation === Role.TRANSACTIONS)
+    ) {
       for (const merchant of data.merchants) {
-        // user_id is unique
         const userHierarchys = await getUserHierarchysDao({
           user_id: merchant.user_id,
         });
         const userHierarchy = userHierarchys[0];
 
-        if (
-          !userHierarchy ||
-          !userHierarchy.config ||
-          !Array.isArray(userHierarchy.config[merchant.user_id])
-        ) {
+        const subMerchants =
+          userHierarchy?.config?.siblings?.sub_merchants ?? [];
+
+        if (subMerchants.length === 0) {
           merchant.subMerchants = [];
           continue;
         }
-        // if Requested Person is Admin Admin then also send merchant underlings
-        merchant.subMerchants = await getMerchantsBySearchDao(
-          {
-            user_id: userHierarchy.config[merchant.user_id],
-            company_id: filters.company_id,
-          },
-          searchTerms,
-          limitNum,
-          offset,
-        );
+
+        // Get all subMerchants without pagination or search filters
+        const heir = await getMerchantsDao({
+          user_id: subMerchants.length === 1 ? subMerchants[0] : subMerchants,
+          company_id: filters.company_id,
+        });
+
+        merchant.subMerchants = heir;
       }
     }
 
@@ -253,15 +320,77 @@ const getMerchantsBySearchService = async (
   }
 };
 
-const getMerchantsServiceCode = async (company_id) => {
+
+const getMerchantsServiceCode = async (filters,role,designation,user_id) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
+   let userIdFilter = Array.isArray(user_id)
+     ? [...user_id]
+     : user_id
+       ? [user_id]
+       : [];
+     if (role === Role.MERCHANT) {
+       const userHierarchys = await getUserHierarchysDao({ user_id });
+       const userHierarchy = userHierarchys[0];
 
+       if (designation === Role.MERCHANT) {
+         if (userHierarchy?.config?.siblings?.sub_merchants) {
+           const subMerchants =
+             userHierarchy?.config?.siblings?.sub_merchants ?? [];
+           userIdFilter = [...new Set([...userIdFilter, ...subMerchants])];
+         }
+       } else if (designation === Role.MERCHANT_OPERATIONS) {
+         const parentUserId = userHierarchy?.config?.parent;
+         if (parentUserId && !userIdFilter.includes(parentUserId)) {
+           userIdFilter.push(parentUserId);
+         }
+         if (parentUserId) {
+           const parentHierarchys = await getUserHierarchysDao({
+             user_id: parentUserId,
+           });
+           const parentHierarchy = parentHierarchys[0];
+           if (parentHierarchy?.config?.siblings?.sub_merchants) {
+             const subMerchants =
+               parentHierarchy?.config?.siblings?.sub_merchants ?? [];
+             userIdFilter = [...new Set([...userIdFilter, ...subMerchants])];
+           }
+         }
+       }
+     }
+ if (userIdFilter.length > 0) {
+   filters.user_id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
+ }
+  if (role === Role.ADMIN) {
+       delete filters.user_id;
+     }
     // Fetch the merchant codes
-    const codes = await getMerchantsCodeDao(conn, company_id);
+    const codes = await getMerchantsCodeDao(conn, filters);
+ if (
+   role === Role.ADMIN &&
+   (designation === Role.ADMIN || designation === Role.TRANSACTIONS)
+ ) {
+   for (const merchant of codes) {
+     const userHierarchys = await getUserHierarchysDao({
+       user_id: merchant.value,
+     });
+     const userHierarchy = userHierarchys[0];
+     if (!userHierarchy?.config?.siblings?.sub_merchants) {
+       merchant.submerchants = [];
+       continue;
+     }
+     const submerchants = userHierarchy?.config?.siblings?.sub_merchants ?? [];
+     const singleSubMerchant =
+       submerchants.length === 1 ? submerchants[0] : submerchants;
 
+     const heir = await getMerchantsCodeDao(conn,{
+       user_id: singleSubMerchant,
+       company_id: filters.company_id,
+     });
+     merchant.submerchants = heir;
+   }
+ }
     await commit(conn);
     return codes;
   } catch (error) {

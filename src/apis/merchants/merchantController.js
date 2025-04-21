@@ -54,7 +54,6 @@ const createMerchant = async (req, res) => {
       created_by: user_id,
       updated_by: user_id,
     };
-    console.log(finalPayload, "finalPayload")
 
     await transactionWrapper(createMerchantService)(finalPayload, role);
 
@@ -89,7 +88,6 @@ const getMerchantsBySearch = async (req, res) => {
   const data = await getMerchantsBySearchService(
     {
       company_id,
-      user_id,
       search,
       page,
       limit,
@@ -97,15 +95,16 @@ const getMerchantsBySearch = async (req, res) => {
     },
     role,
     designation,
+    user_id,
   );
   logger.log('get Merchants successfully');
   return sendSuccess(res, data, 'Merchants fetched successfully');
 }
 
 const getMerchantCodes = async (req, res) => {
-  const { company_id } = req.user;
-  const data = await getMerchantsServiceCode(company_id);
-  console.log('get Merchants successfully');
+  const { company_id ,role,user_id,designation } = req.user;
+  const data = await getMerchantsServiceCode({ company_id },role,designation,user_id);
+  logger.log('get Merchants successfully');
   return sendSuccess(res, data, 'Merchants fetched successfully');
 };
 
@@ -119,7 +118,7 @@ const getMerchantsById = async (req, res) => {
   // Fetch merchants data from the service
   const data = await getMerchantByIdService({ id, company_id }, role, true);
   // Log success message
-  console.log('get Merchant successfully', data);
+  logger.info('get Merchant successfully', data);
 
   // Send success response
   return sendSuccess(res, data, 'Merchant fetched successfully');
@@ -142,7 +141,7 @@ const updateMerchant = async (req, res) => {
   // Call the service to update the Merchant
   await updateMerchantService(ids, payload, role);
   // Log success message
-  console.log('Merchant updated successfully');
+  logger.info('Merchant updated successfully');
   // Send a success response to the client
   return sendSuccess(res, {}, 'Merchant updated successfully');
 };
@@ -159,7 +158,7 @@ const deleteMerchant = async (req, res) => {
   const ids = { id, company_id };
   await deleteMerchantService(ids, updated_by, role);
   // Log success message
-  console.log('Merchant deleted successfully');
+  logger.info('Merchant deleted successfully');
 
   // Send a success response to the client
   return sendSuccess(res, {}, 'Merchant deleted successfully');

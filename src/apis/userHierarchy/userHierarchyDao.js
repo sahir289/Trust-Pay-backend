@@ -53,6 +53,9 @@ export const getUserHierarchysDao = async (
   }
 };
 
+
+
+
 export const updateUserHierarchyDao = async (id, data,conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data, id);
