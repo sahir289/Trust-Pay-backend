@@ -8,7 +8,7 @@ import {
   getUsersByUserNameDao,
   getUsersDao,
   updateUserDao,
-  getUsersBySearchDao
+  getUsersBySearchDao,
 } from './userDao.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
@@ -23,7 +23,10 @@ import { createMerchantService } from '../merchants/merchantService.js';
 import { createVendorService } from '../vendors/vendorService.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
-import { getUserHierarchysDao, updateUserHierarchyDao } from '../userHierarchy/userHierarchyDao.js';
+import {
+  getUserHierarchysDao,
+  updateUserHierarchyDao,
+} from '../userHierarchy/userHierarchyDao.js';
 
 const getUsersService = async (ids, role, page, limit) => {
   try {
@@ -33,18 +36,22 @@ const getUsersService = async (ids, role, page, limit) => {
         : role === Role.VENDOR
           ? vendorColumns.USER
           : columns.USER;
-          const pageNumber = parseInt(page, 10) || 1;
-          const pageSize = parseInt(limit, 10) || 10;
-    return await getUsersDao(ids, pageNumber, pageSize, null, null, filterColumns);
+    const pageNumber = parseInt(page, 10) || 1;
+    const pageSize = parseInt(limit, 10) || 10;
+    return await getUsersDao(
+      ids,
+      pageNumber,
+      pageSize,
+      null,
+      null,
+      filterColumns,
+    );
   } catch (error) {
     console.error('error getting while fetching user', error);
     throw new InternalServerError(error);
   }
 };
-const getUsersBySearchService = async (
-  filters,
-  role,
-) => {
+const getUsersBySearchService = async (filters, role) => {
   try {
     const pageNum = parseInt(filters.page);
     const limitNum = parseInt(filters.limit);
@@ -139,7 +146,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
   }
 };
 
-const createUserService = async (conn, payload, role) => {
+const createUserService = async (conn, payload, role, designation) => {
   try {
     // const filterColumns =
     //   role === Role.MERCHANT
@@ -148,16 +155,13 @@ const createUserService = async (conn, payload, role) => {
     //       ? vendorColumns.USER
     //       : columns.USER;
     const { user_name } = payload;
-    const user = await getUsersByUserNameDao(
-      payload.company_id,
-      user_name,
-    );
+    const user = await getUsersByUserNameDao(payload.company_id, user_name);
     if (user?.user_name || user?.email || user?.contact_no) {
       throw new InternalServerError('User already exists');
     }
     const password = await createHash(payload.password);
     payload.password = password;
-   
+
     const userPayload = {
       code: payload.code,
       role_id: payload.role_id,
@@ -171,7 +175,7 @@ const createUserService = async (conn, payload, role) => {
       is_enabled: payload.is_enabled,
       company_id: payload.company_id,
       created_by: payload.created_by,
-      updated_by:payload.updated_by
+      updated_by: payload.updated_by,
     };
     const payin_notify = payload.payin_notify;
     const payout_notify = payload.payout_notify;
@@ -183,15 +187,20 @@ const createUserService = async (conn, payload, role) => {
     delete payload.site;
     const User = await createUserDao(userPayload, conn);
     const userRole = await getRoleDao({ id: payload.role_id });
-    const userDesignation = await getDesignationDao({ id: payload.designation_id });
+    const userDesignation = await getDesignationDao({
+      id: payload.designation_id,
+    });
     ///for operations
 
     if (
-      (userDesignation[0].designation == Role.MERCHANT_OPERATIONS) ||
-      (userDesignation[0].designation == Role.VENDOR_OPERATIONS)
+      userDesignation[0].designation == Role.MERCHANT_OPERATIONS ||
+      userDesignation[0].designation == Role.VENDOR_OPERATIONS
     ) {
       const hierarchy = await getUserHierarchysDao({
-        user_id: payload.created_by,
+        user_id:
+          (role == Role.ADMIN || designation == Role.MERCHANT || designation == Role.SUB_MERCHANT || designation == Role.VENDOR)
+            ? payload?.parent_id
+            : payload.created_by,
       });
       //  {"child":{"operations":[]},"siblings":{"sub_merchants":["19fb0634-31cc-41f3-a09f-29b524e4aee5","972d353d-158f-4013-93d6-a17f7e606800"]}}
       const hierarchyConfig = hierarchy[0]?.config;
@@ -204,52 +213,56 @@ const createUserService = async (conn, payload, role) => {
             child: { operations: [...currentChildren, User.id] },
           },
         },
-        conn
+        conn,
       );
-    };
+    }
 
-///for merchant sub-merchant
-if (
-  userDesignation[0].designation === Role.MERCHANT ||
-  userDesignation[0].designation === Role.SUB_MERCHANT
-) {
-  const Private = generateUUID();
-  const Public = generateUUID();
-  const merchantPayload = {
-    user_id: User.id,
-    role_id: payload.role_id,
-    role: userRole[0].role,
-    designation: userDesignation[0].designation,
-    company_id: payload.company_id,
-    first_name: payload.first_name,
-    last_name: payload.last_name,
-    code: payload.code,
-    balance: Number(0),
-    min_payin: Number(payload.min_payin),
-    max_payin: Number(payload.max_payin),
-    payin_commission: Number(payload.payin_commission),
-    min_payout: Number(payload.min_payout),
-    max_payout: Number(payload.max_payout),
-    payout_commission: Number(payload.payout_commission),
-    created_by: payload.created_by,
-    updated_by: payload.updated_by,
-    config: {
-      urls: {
-        payin_notify: payin_notify,
-        payout_notify: payout_notify,
-        return: Return,
-        site: site,
-      },
-      keys: {
-        private: Private,
-        public: Public,
-      },
-      allow_intent: false,
-    },
-  };
-  await createMerchantService(conn, merchantPayload);
-}
-///for vendor
+    ///for merchant sub-merchant
+    if (
+      userDesignation[0].designation === Role.MERCHANT ||
+      userDesignation[0].designation === Role.SUB_MERCHANT
+    ) {
+      const Private = generateUUID();
+      const Public = generateUUID();
+      const merchantPayload = {
+        user_id: User.id,
+        role_id: payload.role_id,
+        role: userRole[0].role,
+        designation: userDesignation[0].designation,
+        company_id: payload.company_id,
+        first_name: payload.first_name,
+        last_name: payload.last_name,
+        code: payload.code,
+        balance: Number(0),
+        min_payin: Number(payload.min_payin),
+        max_payin: Number(payload.max_payin),
+        payin_commission: Number(payload.payin_commission),
+        min_payout: Number(payload.min_payout),
+        max_payout: Number(payload.max_payout),
+        payout_commission: Number(payload.payout_commission),
+        parent_id:
+        (role == Role.ADMIN || designation == Role.MERCHANT)
+            ? payload?.parent_id
+            : payload.created_by,
+        created_by: payload.created_by,
+        updated_by: payload.updated_by,
+        config: {
+          urls: {
+            payin_notify: payin_notify,
+            payout_notify: payout_notify,
+            return: Return,
+            site: site,
+          },
+          keys: {
+            private: Private,
+            public: Public,
+          },
+          allow_intent: false,
+        },
+      };
+      await createMerchantService(conn, merchantPayload);
+    }
+    ///for vendor
     if (userDesignation[0].designation === Role.VENDOR) {
       const vendorPayload = {
         user_id: User.id,
@@ -267,10 +280,9 @@ if (
       await createVendorService(conn, vendorPayload, role);
     }
 
-
     console.log('User Created Successfully');
     // const finalResult = filterResponse(User, filterColumns);
-              return Error;
+    return Error;
 
     // return User;
   } catch (error) {
@@ -278,7 +290,6 @@ if (
     throw new InternalServerError(error);
   }
 };
-
 
 const userUpdateService = async (ids, payload, role) => {
   try {
@@ -297,7 +308,6 @@ const userUpdateService = async (ids, payload, role) => {
     throw new InternalServerError(error);
   }
 };
-
 
 export {
   getUsersService,
