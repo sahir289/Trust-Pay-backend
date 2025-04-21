@@ -1139,7 +1139,7 @@ export const telegramResponseService = async (conn, message) => {
   const payIn = await getPayInUrlDao({ merchant_order_id: message.caption });
   const bankResponse = await getBankResponseDao({ utr: content.utr });
   const otheBankResponsePayIns = await getPayInUrlsDao({
-    bank_response_id: payIn.bank_response_id,
+    bank_response_id: payIn?.bank_response_id,
   });
   const otherUtrPayIns = await getPayInUrlsDao({
     user_submitted_utr: content.utr,
