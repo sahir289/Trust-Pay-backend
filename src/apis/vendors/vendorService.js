@@ -8,7 +8,7 @@ import {
   rollback,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
-import { createUserHierarchyDao } from '../userHierarchy/userHierarchyDao.js';
+import { createUserHierarchyDao, getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import {
   createVendorDao,
   deleteVendorDao,
@@ -19,7 +19,6 @@ import {
 } from './vendorDao.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
-import { getHierarchyByChildDao } from '../userHierarchy/userHierarchyDao.js';
 
 const createVendorService = async (conn, payload) => {
   try {
@@ -57,15 +56,17 @@ const getVendorsService = async (filters, roleIs, page, limit,user_id,designatio
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
     let parentUserId;
-    if (designation === Role.VENDOR_OPERATIONS) {
-    const UserHierarchy = await getHierarchyByChildDao(user_id);
-     parentUserId = UserHierarchy.user_id
-    }
-    else {
-      parentUserId=user_id
-    }
-    if (designation !== 'ADMIN') {
-      filters.user_id = parentUserId;
+    if (roleIs === Role.VENDOR) {
+      if (designation === Role.VENDOR_OPERATIONS) {
+        const UserHierarchy = await getUserHierarchysDao({ user_id });
+        const userHierarchy = UserHierarchy[0];
+        parentUserId = userHierarchy?.config?.parent;
+        filters.user_id = parentUserId;
+      }
+      else {
+        parentUserId = user_id;
+        filters.user_id = parentUserId;
+      }
     }
     return await getVendorsDao(
       filters,
@@ -81,21 +82,23 @@ const getVendorsService = async (filters, roleIs, page, limit,user_id,designatio
   }
 };
 
-const getVendorsCodeService = async (filters,role,user_id) => {
+const getVendorsCodeService = async (filters, roleIs, user_id, designation) => {
   let conn;
   try {
     conn = await getConnection(); // Get DB connection
     await beginTransaction(conn); // Start transaction
-     let parentUserId;
-     if (role === 'VENDOR') {
-       const UserHierarchy = await getHierarchyByChildDao(user_id);
-       parentUserId = UserHierarchy.user_id;
-     } else {
-       parentUserId = user_id;
-     }
-     if (role !== 'ADMIN' || role !== 'TRANSACTIONS') {
-       filters.user_id = parentUserId;
-     }
+    let parentUserId;
+    if (roleIs === Role.VENDOR) {
+      if (designation === Role.VENDOR_OPERATIONS) {
+        const UserHierarchy = await getUserHierarchysDao({ user_id });
+        const userHierarchy = UserHierarchy[0];
+        parentUserId = userHierarchy?.config?.parent;
+        filters.user_id = parentUserId;
+      } else {
+        parentUserId = user_id;
+        filters.user_id = parentUserId;
+      }
+    }
     const data = await getVendorsCodeDao(filters, conn);
 
     await commit(conn); // Commit transaction
@@ -113,7 +116,7 @@ const getVendorsCodeService = async (filters,role,user_id) => {
   } finally {
     if (conn) {
       try {
-         conn.release(); // Ensure connection is released
+        conn.release(); // Ensure connection is released
       } catch (releaseError) {
         console.error('Error releasing connection:', releaseError);
       }
@@ -146,16 +149,17 @@ const getVendorsBySearchService = async (
       role === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
     // TODO: add designation constants
    let parentUserId;
-   if (designation === 'VENDOR_OPERATIONS') {
-     const UserHierarchy = await getHierarchyByChildDao(user_id);
-     parentUserId = UserHierarchy.user_id;
-   } else {
-     parentUserId = user_id;
+   if (role === Role.VENDOR) {
+     if (designation === Role.VENDOR_OPERATIONS) {
+       const UserHierarchy = await getUserHierarchysDao({ user_id });
+       const userHierarchy = UserHierarchy[0];
+       parentUserId = userHierarchy?.config?.parent;
+       filters.user_id = parentUserId;
+     } else {
+       parentUserId = user_id;
+       filters.user_id = parentUserId;
+     }
    }
-   if (designation !== 'ADMIN') {
-     filters.user_id = parentUserId;
-   }
-    console.log(filters);
     const data = await getVendorsBySearchDao(
       filters,
       searchTerms,

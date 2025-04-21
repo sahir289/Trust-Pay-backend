@@ -73,10 +73,13 @@ const getVendorsBySearch = async (req, res) => {
 };
 
 const getVendorCodes = async (req, res) => {
-  const { company_id, user_id, role } = req.user;
+  const { company_id, user_id, role,designation } = req.user;
   // let search = req.query.search;
   const data = await getVendorsCodeService(
-    {company_id},role,user_id
+    { company_id },
+    role,
+    user_id,
+    designation
   );
   // Log success message
   logger.log('get Vendors successfully');

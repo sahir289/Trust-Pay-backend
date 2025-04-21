@@ -19,48 +19,40 @@ export const createMerchantDao = async (data, conn) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in createMerchantDao:', error);
+    logger.error('Error in createMerchantDao:', error);
     throw error.message;
   }
 };
 
 export const getMerchantsCodeDao = async (conn, filters) => {
   try {
-    const baseQuery = `SELECT 
-    m.code AS label,  -- Parent Merchant Name
-    m.user_id AS value,  -- Parent User ID
-    m.id AS merchant_id,  -- Parent Merchant ID
-    COALESCE(
-        json_agg(
-            json_build_object(
-                'label', sm.code,  --child
-                'value',sm.user_id, --child
-                'merchant_id', sm.id --child
-            )
-        ) FILTER (WHERE sm.id IS NOT NULL), '[]'
-    ) AS submerchants
-FROM public."Merchant" m
-LEFT JOIN public."UserHierarchy" uh 
-    ON uh.config::jsonb ? m.user_id::TEXT  
-LEFT JOIN public."Merchant" sm 
-    ON sm.user_id IN (
-        SELECT jsonb_array_elements_text(uh.config::jsonb->m.user_id::TEXT) 
-    )  
-WHERE m.company_id = $1
-AND m.is_obsolete = FALSE  
-GROUP BY m.id, m.code, m.user_id`
+    const baseQuery = `
+      SELECT 
+        code AS label, 
+        user_id AS value, 
+        id AS merchant_id 
+      FROM 
+        "${tableName.MERCHANT}" 
+      WHERE 
+        is_obsolete = FALSE
+    `;
+
     let [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
-      tableName.VENDOR,
+      tableName.MERCHANT,
     );
+
     const result = await conn.query(sql, queryParams);
+    logger.log('Fetched Merchants:', result.rows.length, 'rows');
+
     return result.rows;
   } catch (error) {
-    console.error('Error fetching company:', error);
-    throw error.message;
+    logger.error('Error executing merchant query:', error);
+    throw new Error('Database query failed');
   }
 };
+
 
 export const getMerchantsDao = async (
   filters,
@@ -119,7 +111,7 @@ export const getMerchantsDao = async (
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
-    console.error('Error in getMerchantsDao:', error);
+    logger.error('Error in getMerchantsDao:', error);
     throw error.message;
   }
 };
@@ -129,10 +121,9 @@ export const getMerchantsBySearchDao = async (
   searchTerms,
   limitNum,
   offset,
-  // user_id
 ) => {
   try {
-   const conditions = [];
+    const conditions = [];
     const values = [filters.company_id];
     let paramIndex = 2;
 
@@ -156,7 +147,7 @@ export const getMerchantsBySearchDao = async (
         "Merchant".balance, 
         "Merchant".config, 
         creator.user_name as created_by, 
-        creator.user_name as updated_by, 
+        updater.user_name as updated_by, 
         "Merchant".created_at, 
         "Merchant".updated_at, 
         "User".designation_id, 
@@ -167,15 +158,28 @@ export const getMerchantsBySearchDao = async (
       LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
       LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
       LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
-      WHERE 1=1 
-      AND "Merchant".is_obsolete = false 
-      AND "Merchant"."company_id" = $1
+      WHERE "Merchant".is_obsolete = false
+        AND "Merchant"."company_id" = $1
     `;
 
-    searchTerms.forEach(term => {
-      // it will handle boolean terms
+    if (filters.user_id) {
+      if (Array.isArray(filters.user_id)) {
+        const placeholders = filters.user_id
+          .map((_, i) => `$${paramIndex + i}`)
+          .join(', ');
+        queryText += ` AND "Merchant"."user_id" IN (${placeholders})`;
+        values.push(...filters.user_id);
+        paramIndex += filters.user_id.length;
+      } else {
+        queryText += ` AND "Merchant"."user_id" = $${paramIndex}`;
+        values.push(filters.user_id);
+        paramIndex++;
+      }
+    }
+
+    searchTerms.forEach((term) => {
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-        const boolValue = term.toLowerCase() === 'true';
+        const boolVal = term.toLowerCase() === 'true';
         conditions.push(`
           (
             "Merchant".is_test_mode = $${paramIndex}
@@ -185,10 +189,9 @@ export const getMerchantsBySearchDao = async (
             OR ("Merchant".config->'allow_intent')::boolean = $${paramIndex}
           )
         `);
-        values.push(boolValue);
+        values.push(boolVal);
         paramIndex++;
       } else {
-        // it will handle text/numeric terms including JSON fields
         conditions.push(`
           (
             LOWER("Merchant".id::text) LIKE LOWER($${paramIndex})
@@ -202,8 +205,8 @@ export const getMerchantsBySearchDao = async (
             OR "Merchant".min_payout::text LIKE $${paramIndex}
             OR "Merchant".max_payout::text LIKE $${paramIndex}
             OR "Merchant".payout_commission::text LIKE $${paramIndex}
-            OR LOWER("Merchant".created_by::text) LIKE LOWER($${paramIndex})
-            OR LOWER("Merchant".updated_by::text) LIKE LOWER($${paramIndex})
+            OR LOWER(creator.user_name) LIKE LOWER($${paramIndex})
+            OR LOWER(updater.user_name) LIKE LOWER($${paramIndex})
             OR LOWER("User".first_name || ' ' || "User".last_name) LIKE LOWER($${paramIndex})
             OR LOWER("Designation".designation) LIKE LOWER($${paramIndex})
             OR LOWER("Merchant".config->'keys'->>'public') LIKE LOWER($${paramIndex})
@@ -223,33 +226,30 @@ export const getMerchantsBySearchDao = async (
       queryText += ' AND (' + conditions.join(' OR ') + ')';
     }
 
-   const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
+    const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) AS count_table`;
 
     queryText += `
       ORDER BY "Merchant"."created_at" DESC
       LIMIT $${paramIndex}
       OFFSET $${paramIndex + 1}
     `;
+
     values.push(limitNum, offset);
 
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
 
-    // Calculate pagination metadata
-    const totalItems = parseInt(countResult.rows[0].total);
-    const totalPages = Math.ceil(totalItems / limitNum);
-
-    const data = {
-      totalCount: totalItems,
-      totalPages,
+    return {
+      totalCount: parseInt(countResult.rows[0].total),
+      totalPages: Math.ceil(countResult.rows[0].total / limitNum),
       merchants: searchResult.rows,
     };
-    return data;
   } catch (error) {
-    logger.error(error.message);
-    throw error.message;
+    logger.error('Error in getMerchantsBySearchDao', error.message);
+    throw new Error(error.message);
   }
 };
+
 
 export const updateMerchantDao = async (ids, data, conn) => {
   return await buildAndExecuteUpdateQuery('Merchant', data, ids, {}, { returnUpdated: true }, conn);
@@ -261,7 +261,7 @@ export const deleteMerchantDao = async (ids, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in deleteMerchantDao:', error);
+    logger.error('Error in deleteMerchantDao:', error);
     throw error.message;
   }
 };
@@ -286,7 +286,7 @@ export const updateMerchantBalanceDao = async (
     const result = await executeQuery(sql, params);
     return result[0];
   } catch (error) {
-    console.error('Error in updateMerchantBalanceDao:', error);
+    logger.error('Error in updateMerchantBalanceDao:', error);
     throw error.message;
   }
 };
@@ -302,7 +302,7 @@ export const getMerchantByCodeAndApiKey = async (code, publicKey) => {
     const result = await executeQuery(query, params);
     return result.rows[0]; // Return the first matching merchant
   } catch (error) {
-    console.error('Error fetching merchant by code and API key:', error);
+    logger.error('Error fetching merchant by code and API key:', error);
     throw error.message;
   }
 };

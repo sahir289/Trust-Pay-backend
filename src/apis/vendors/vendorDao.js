@@ -148,7 +148,6 @@ export const getVendorsBySearchDao = async (
       AND "Vendor".is_obsolete = false 
       AND "Vendor"."company_id" = $1
     `;
-console.log(filters,'hey users')
       if (filters.user_id) {
         queryText += ` AND "Vendor"."user_id" = $${paramIndex}`;
         values.push(filters.user_id);
@@ -199,7 +198,6 @@ console.log(filters,'hey users')
       OFFSET $${paramIndex + 1}
     `;
     values.push(limitNum, offset);
-console.log(queryText,values)
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
 
