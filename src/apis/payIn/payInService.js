@@ -53,11 +53,15 @@ import {
 } from '../../helpers/index.js';
 import {
   sendAlreadyConfirmedMessageTelegramBot,
+  sendBankMismatchMessageTelegramBot,
+  sendDisputeMessageTelegramBot,
+  sendDuplicateMessageTelegramBot,
   sendErrorMessageNoDepositFoundTelegramBot,
   sendErrorMessageNoMerchantOrderIdFoundTelegramBot,
   sendErrorMessageTelegram,
   sendErrorMessageUtrOrAmountNotFoundImgTelegramBot,
   sendMerchantOrderIDStatusDuplicateTelegramMessage,
+  sendSuccessMessageTelegramBot,
   sendTelegramMessage,
 } from '../../utils/sendTelegramMessages.js';
 
@@ -67,6 +71,7 @@ import { createResetHistoryService } from '../resetHistory/resetServices.js';
 // import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
 import { expirePayInIfNeeded, stringifyJSON } from '../../utils/index.js';
 import { createHash } from '../../utils/hashUtils.js';
+import { logger } from '../../utils/logger.js';
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
@@ -121,7 +126,7 @@ export const generatePayInUrlService = async (payload, created_by) => {
 
   if (!merchant) {
     throw new NotFoundError('Merchant does not exist');
-  } 
+  }
 
   const merchantAPIKey = merchant.config?.keys;
 
@@ -274,7 +279,7 @@ export const assignedBankToPayInUrlService = async (
     if (
       !bank.is_enabled &&
       (bank.bank_used_for !== 'PayIn' ||
-      bank.bank_used_for !== 'payIn')
+        bank.bank_used_for !== 'payIn')
     ) {
       return false;
     }
@@ -568,7 +573,7 @@ export const updateDepositStatusService = async (
   }
   const updatePayInData = {
     status:
-    bankResponse.nick_name !== nick_name
+      bankResponse.nick_name !== nick_name
         ? Status.BANK_MISMATCH
         : successData.length
           ? Status.DUPLICATE
@@ -819,8 +824,8 @@ export const getPayinsBySearchService = async (
   }
 };
 
-export const processPayInService = async (conn, payload, updated_by, tele_check) => {
-  const { userSubmittedUtr, merchantOrderId, amount } = payload;
+export const processPayInService = async (conn, payload, updated_by, tele_check = true) => {
+  const { userSubmittedUtr, merchantOrderId, amount, from_telegram, telegramMessage, telegramBotToken } = payload;
   // validate payIn
   // throw error if not exist or expires
   const payIn = await getPayInUrlService(merchantOrderId, conn, tele_check);
@@ -852,6 +857,10 @@ export const processPayInService = async (conn, payload, updated_by, tele_check)
   if (payIn.bank_response_id) {
     bankResponse =
       (await getBankResponseDao({ id: payIn.bank_response_id })) || {};
+  }
+  else if (!bankResponse || !bankResponse.utr) {
+    bankResponse =
+      (await getBankResponseDao({ utr: userSubmittedUtr, status: "/success" })) || {};
   }
   const result = {
     status: payIn.status,
@@ -892,7 +901,7 @@ export const processPayInService = async (conn, payload, updated_by, tele_check)
   }
 
   if (!bankResponse || Object.keys(bankResponse).length === 0) {
-    bankResponse = (await getBankResponseDao({ utr: userSubmittedUtr ,status:"/success" })) || {};
+    bankResponse = (await getBankResponseDao({ utr: userSubmittedUtr, status: "/success" })) || {};
   }
 
   if (bankResponse.id) {
@@ -908,10 +917,23 @@ export const processPayInService = async (conn, payload, updated_by, tele_check)
       bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
     merchantPayinCallback(payIn.config?.urls?.payin_notify, result);
-    return {
-      ...result,
-      message: 'Bank Mismatched',
-    };
+    if (from_telegram) {
+      const botBank = await getBankaccountDao({ id: bankResponse.bank_id });
+      await sendBankMismatchMessageTelegramBot(
+        telegramMessage.chat.id,
+        bank.nick_name,
+        botBank[0].nick_name,
+        telegramBotToken,
+        telegramMessage.message_id
+      );
+      return true;
+    }
+    else {
+      return {
+        ...result,
+        message: 'Bank Mismatched',
+      };
+    }
   }
 
   if (bankResponse.id) {
@@ -990,7 +1012,48 @@ export const processPayInService = async (conn, payload, updated_by, tele_check)
 
   await updatePayInUrlDao(payIn.id, updatePayInData, conn);
   merchantPayinCallback(payIn.config?.urls?.payin_notify, result);
-  return result;
+
+  if (from_telegram) {
+    if (!updatePayInData?.status || !telegramMessage?.chat?.id || !telegramBotToken) {
+      throw new Error('Missing required parameters');
+    }
+
+    try {
+      switch (updatePayInData.status) {
+        case Status.DISPUTE:
+          await sendDisputeMessageTelegramBot(
+            telegramMessage.chat.id,
+            updatePayInData.amount,
+            bankResponse.amount,
+            telegramBotToken,
+            telegramMessage.message_id
+          );
+          break;
+        case Status.DUPLICATE:
+          await sendDuplicateMessageTelegramBot(
+            telegramMessage.chat.id,
+            updatePayInData.user_submitted_utr,
+            updatePayInData.merchantOrderId,
+            telegramBotToken,
+            telegramMessage.message_id
+          );
+          break;
+        default:
+          await sendSuccessMessageTelegramBot(
+            telegramMessage.chat.id,
+            bankResponse.utr,
+            updatePayInData.merchantOrderId,
+            telegramBotToken,
+            telegramMessage.message_id
+          );
+          break;
+      }
+    } catch (error) {
+      logger.error('Error handling Telegram message:', error);
+    }
+  } else {
+    return result;
+  }
 };
 
 const calculateCommissions = async (merchantId, vendorId, amount) => {
@@ -1014,7 +1077,7 @@ export const telegramResponseService = async (conn, message) => {
   const TELEGRAM_BOT_TOKEN = config.telegramOcrBotToken;
 
   if (!photo) {
-    console.error('No Telegram Message Photo found!', message);
+    logger.error('No Telegram Message Photo found!', message);
     return;
   }
 
@@ -1053,6 +1116,9 @@ export const telegramResponseService = async (conn, message) => {
   });
   const otherUtrPayIns = await getPayInUrlsDao({
     user_submitted_utr: content.utr,
+  });
+  const otherBotResponsePayins = await getPayInUrlsDao({
+    bank_response_id: bankResponse?.id,
   });
 
   if (!payIn) {
@@ -1105,31 +1171,35 @@ export const telegramResponseService = async (conn, message) => {
   }
 
   const duplicateEntry =
-    otheBankResponsePayIns.length > 1 ? otheBankResponsePayIns : otherUtrPayIns;
+    otheBankResponsePayIns.length > 1 ? otheBankResponsePayIns : otherUtrPayIns.length > 0 ? otherUtrPayIns : otherBotResponsePayins;
   if (bankResponse.is_used || duplicateEntry.length) {
     sendAlreadyConfirmedMessageTelegramBot(
       message.chat.id,
       content.utr,
       TELEGRAM_BOT_TOKEN,
       message.message_id,
-      otherUtrPayIns,
+      duplicateEntry,
       payIn,
     );
     return;
   }
 
   await processPayInService(conn, {
-    amount: content.amount,
-    payIn: payIn.id,
+    amount: payIn.amount,
+    merchantOrderId: message.caption,
     userSubmittedUtr: content.utr,
+    from_telegram: true,
+    telegramMessage: message,
+    telegramBotToken: TELEGRAM_BOT_TOKEN,
   });
 };
 
 export const processPayInByImageService = async (conn, payload) => {
   const { base64Image, merchantOrderId } = payload;
   const content = await getImageContentFromOCr(base64Image);
+  let payInData;
+  payInData = await getPayInUrlService(merchantOrderId);
   if (!content) {
-    const payInData = await getPayInUrlService(merchantOrderId);
     const payIn = await updatePayInUrlDao(payInData.id, {
       status: Status.IMG_PENDING,
       amount: payload.amount,
@@ -1149,7 +1219,7 @@ export const processPayInByImageService = async (conn, payload) => {
   return await processPayInService(conn, {
     ...payload,
     userSubmittedUtr: content.utr,
-    amount: content.amount,
+    amount: payInData.amount,
   });
 };
 
@@ -1333,12 +1403,12 @@ export const disputeDuplicateTransactionService = async (
   }
 
   if (updateBalance) {
-  //   await updateBanktBalanceDao({ id: bankId }, toAmount, updated_by, conn);
-  // await updateBankaccountService(
-  //   conn,
-  //   { id: bank.id, company_id: payIn.company_id },
-  //   {},
-  // );
+    //   await updateBanktBalanceDao({ id: bankId }, toAmount, updated_by, conn);
+    // await updateBankaccountService(
+    //   conn,
+    //   { id: bank.id, company_id: payIn.company_id },
+    //   {},
+    // );
     await updateCalculationTable(
       bank.user_id,
       {

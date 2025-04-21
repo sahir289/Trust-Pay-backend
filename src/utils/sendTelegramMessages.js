@@ -1,3 +1,4 @@
+import { getBankResponseDao } from '../apis/bankResponse/bankResponseDao.js';
 import { createTelegramSender } from '../helpers/telegramApi.js';
 import { logger } from './logger.js';
 
@@ -22,7 +23,6 @@ export async function sendTelegramDashboardReportMessage(
     now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
   );
 
-    console.log(JSON.stringify(vendorObjpayIn, null, 2), 'vendorObjpayIn_vendorObjpayOut');
   let startHour = istTime.getHours() - 1;
   let endHour = (startHour + 1) % 24;
 
@@ -74,7 +74,7 @@ export async function sendTelegramDashboardReportMessage(
     })
     .join('\n\n');
 
-    const vendorDetailsPayout = Object.entries(vendorObjpayOut)
+  const vendorDetailsPayout = Object.entries(vendorObjpayOut)
     .map(([vendorCode, { banks }]) => {
       if (banks.length === 0) {
         return `<b>${vendorCode}</b>: No bank accounts`;
@@ -199,9 +199,9 @@ export async function sendTelegramDashboardMerchantGroupingReportMessage(
   <b>Total Bank Account Withdrawals:</b> ${merchantAllPayOutDetails}
       `;
 
-      const success = await telegramSender(chatId, message, null, TELEGRAM_BOT_TOKEN);
-      logger.log(success ? 'Sent!' : 'Not sent.');
-      return success;
+  const success = await telegramSender(chatId, message, null, TELEGRAM_BOT_TOKEN);
+  logger.log(success ? 'Sent!' : 'Not sent.');
+  return success;
 }
 
 export async function sendTelegramDashboardSuccessRatioMessage(
@@ -232,7 +232,7 @@ export async function sendTelegramMessage(
       <b>UTR-IDS:</b> ${data?.utr}
       <b>Time Stamp:</b> ${data?.timeStamp}
     `;
-    const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
@@ -297,6 +297,74 @@ export async function sendErrorMessageNoDepositFoundTelegramBot(
   return success;
 }
 
+export async function sendSuccessMessageTelegramBot(
+  chatId,
+  utr,
+  merchantOrderId,
+  TELEGRAM_BOT_TOKEN,
+  replyToMessageId,
+) {
+  // Construct the error message
+  let message = `✅ UTR ${utr} is confirmed with this orderId ${merchantOrderId}`;
+
+  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  logger.log(success ? 'Sent!' : 'Not sent.');
+  return success;
+}
+
+export async function sendDisputeMessageTelegramBot(
+  chatId,
+  disputedAmount,
+  amount,
+  TELEGRAM_BOT_TOKEN,
+  replyToMessageId,
+) {
+  // Construct the error message
+  let message = `
+              AMOUNT DISPUTED: 
+                    ⛔ Requested Amount: ${disputedAmount}
+                    ✅ Received Amount: ${amount}
+            `;
+
+  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  logger.log(success ? 'Sent!' : 'Not sent.');
+  return success;
+}
+
+export async function sendDuplicateMessageTelegramBot(
+  chatId,
+  utr,
+  merchantOrderId,
+  TELEGRAM_BOT_TOKEN,
+  replyToMessageId,
+) {
+  // Construct the error message
+  let message = `🚨 OrderId ${merchantOrderId} is Duplicate as UTR ${utr} is already confirmed with `;
+
+  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  logger.log(success ? 'Sent!' : 'Not sent.');
+  return success;
+}
+
+export async function sendBankMismatchMessageTelegramBot(
+  chatId,
+  bankNameFromMerchant,
+  bankNameFromBank,
+  TELEGRAM_BOT_TOKEN,
+  replyToMessageId,
+) {
+  // Construct the error message
+  let message = `
+              BANK MISMATCH :
+                  ⛔ Amount should be credited in : ${bankNameFromMerchant}
+                  ✅ Amount credited in : ${bankNameFromBank}
+            `;
+
+  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  logger.log(success ? 'Sent!' : 'Not sent.');
+  return success;
+}
+
 export async function sendAlreadyConfirmedMessageTelegramBot(
   chatId,
   utr,
@@ -325,12 +393,27 @@ export async function sendAlreadyConfirmedMessageTelegramBot(
       message = `🚨 UTR ${utr} is already ${payinData.status} with this orderId ${payinData.merchant_order_id}`;
     }
   } else {
-    if (getPayInData.status === 'SUCCESS') {
-      message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
-                is Already Confirmed with UTR: ${getPayInData.user_submitted_utr}`;
-    } else {
-      message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
-                is Already Marked ${getPayInData.status} with UTR: ${getPayInData.user_submitted_utr}`;
+    if (getPayInData.user_submitted_utr) {
+      if (getPayInData.status === 'SUCCESS') {
+        message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
+                  is Already Confirmed with UTR: ${getPayInData.user_submitted_utr}`;
+      } else {
+        message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
+                  is Already Marked ${getPayInData.status} with UTR: ${getPayInData.user_submitted_utr}`;
+      }
+    }
+    else {
+      const botResponse = await getBankResponseDao({
+        id: getPayInData.bank_response_id,
+        company_id: getPayInData.company_id,
+      })
+      if (getPayInData.status === 'SUCCESS') {
+        message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
+                  is Already Confirmed with UTR: ${botResponse.user_submitted_utr}`;
+      } else {
+        message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
+                  is Already Marked ${getPayInData.status} with UTR: ${botResponse.utr}`;
+      }
     }
   }
 
@@ -367,12 +450,27 @@ export async function sendMerchantOrderIDStatusDuplicateTelegramMessage(
       message = `🚨 UTR ${utr} is already ${payinData.status} with this orderId ${payinData.merchant_order_id}`;
     }
   } else {
-    if (getPayInData.status === 'SUCCESS') {
-      message = `✅ Merchant Order ID: ${getPayInData.merchant_order_id}
-                is Already Confirmed with UTR: ${getPayInData.user_submitted_utr}`;
-    } else {
-      message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
-                is Already Marked ${getPayInData.status} with UTR: ${getPayInData.user_submitted_utr}`;
+    if (getPayInData.user_submitted_utr) {
+      if (getPayInData.status === 'SUCCESS') {
+        message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
+                  is Already Confirmed with UTR: ${getPayInData.user_submitted_utr}`;
+      } else {
+        message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
+                  is Already Marked ${getPayInData.status} with UTR: ${getPayInData.user_submitted_utr}`;
+      }
+    }
+    else {
+      const botResponse = await getBankResponseDao({
+        id: getPayInData.bank_response_id,
+        company_id: getPayInData.company_id,
+      })
+      if (getPayInData.status === 'SUCCESS') {
+        message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
+                  is Already Confirmed with UTR: ${botResponse.user_submitted_utr}`;
+      } else {
+        message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
+                  is Already Marked ${getPayInData.status} with UTR: ${botResponse.utr}`;
+      }
     }
   }
 
