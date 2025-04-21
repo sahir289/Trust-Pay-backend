@@ -86,7 +86,7 @@ router.get(
  */
 router.get(
   '/banknames',
-  [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)],
+  [isAuthenticated, authorized(AccessRoles.ALL)],
   tryCatchHandler(getBankaccountNickName),
 );
 
