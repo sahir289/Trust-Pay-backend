@@ -57,13 +57,18 @@ const getSettlementDao = async (
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null) return;
       const nextParamIdx = queryParams.length + 1;
-      const isMultiValue = typeof value === 'string' && value.includes(',');
-      const valueArray = isMultiValue ? value.split(',').map(v => v.trim()) : [value];
-      const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
-      conditions.push(isMultiValue
-        ? `s.${key} IN (${placeholders})`
-        : `s.${key} = $${nextParamIdx}`);
-      queryParams.push(...valueArray);
+
+      if (Array.isArray(value)) {
+        const placeholders = value.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+        conditions.push(`s.${key} IN (${placeholders})`);
+        queryParams.push(...value);
+      } else {
+        const isMultiValue = typeof value === 'string' && value.includes(',');
+        const valueArray = isMultiValue ? value.split(',').map(v => v.trim()) : [value];
+        const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+        conditions.push(isMultiValue ? `s.${key} IN (${placeholders})` : `s.${key} = $${nextParamIdx}`);
+        queryParams.push(...valueArray);
+      }
     });
 
     const columnSelection = columns.length > 0 
