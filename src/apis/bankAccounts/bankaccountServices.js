@@ -1,3 +1,4 @@
+import { Role } from '../../constants/index.js';
 import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
 import {
   beginTransaction,
@@ -26,8 +27,14 @@ const getBankaccountService = async (
   role,
   page,
   limit,
+  user_id,
 ) => {
   try {
+
+        if (role == Role.VENDOR) {
+          filters.user_id = [user_id];
+        }
+
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
     return await getBankaccountDao(
