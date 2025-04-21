@@ -53,16 +53,29 @@ if (type === 'H') {
     let totalpayoutsMerchant = 0;
 
     for (const merch of merchants) {
-      const calculationData = await getCalculationDao({ user_id: merch.user_id, sDate, eDate  });
+      const calculationData = await getCalculationDao({ user_id: merch.user_id, sDate, eDate });    
+      let totalPayinAmount = 0;
+      let totalPayinCount = 0;
+      let totalPayoutAmount = 0;
+      let totalPayoutCount = 0;
+    
+      for (const data of calculationData) {
+        totalPayinAmount += data.total_payin_amount || 0;
+        totalPayinCount += data.total_payin_count || 0;
+        totalPayoutAmount += data.total_payout_amount || 0;
+        totalPayoutCount += data.total_payout_count || 0; 
+      }
+    
       merchant.push({
         merchantId: merch.code,
-        totalPayin: calculationData.total_payin_amount || 0,
-        totalPayinCount: calculationData.total_payin_count || 0,
-        totalPayout: calculationData.total_payout_amount || 0,
-        totalPayoutCount: calculationData.total_payout_countv || 0,
+        totalPayin: totalPayinAmount,
+        totalPayinCount: totalPayinCount,
+        totalPayout: totalPayoutAmount,
+        totalPayoutCount: totalPayoutCount,
       });
-      totalpayinsMerchant = totalpayinsMerchant + calculationData.total_payin_amount
-      totalpayoutsMerchant = totalpayoutsMerchant + calculationData.total_payout_amount
+    
+      totalpayinsMerchant += totalPayinAmount;
+      totalpayoutsMerchant += totalPayoutAmount;
     }
 
     const vendorData = await getVendorsDao({}, null, null, "created_at", "DESC")
