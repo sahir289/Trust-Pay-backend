@@ -27,7 +27,7 @@ const getSettlementControllerById = async (req, res) => {
 
 const getSettlementController = async (req, res) => {
   // Extract user data and query parameters
-  const { company_id } = req.user || {};
+  const { company_id , user_id , role } = req.user || {};
   const {
     role_name,
     page = 1,
@@ -56,7 +56,9 @@ const getSettlementController = async (req, res) => {
     pageNum,
     limitNum,
     sortBy,
-    sortOrder
+    sortOrder,
+    role,
+    user_id
   );
 
   if (!settlementData || settlementData.length === 0) {
