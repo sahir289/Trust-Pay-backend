@@ -36,7 +36,6 @@ import {
   // updateBanktBalanceDao,
 } from '../bankAccounts/bankaccountDao.js';
 import {
-  getBankResponseByUTR,
   getBankResponseDao,
   updateBotResponseDao,
 } from '../bankResponse/bankResponseDao.js';
@@ -543,10 +542,10 @@ export const updateDepositStatusService = async (
   }
 
   //call the Bank Res API
-  const bankResponse = await getBankResponseByUTR(
+  const bankResponse = await getBankResponseDao({
+    id: payInData.bank_response_id,
     company_id,
-    payInData.user_submitted_utr,
-  );
+  });
 
   if (!bankResponse) {
     throw new NotFoundError('No bank response found!');
@@ -579,9 +578,10 @@ export const updateDepositStatusService = async (
   if (bankResponse.is_used) {
     successData = await getOtherSuccessPayIns(bankResponse);
   }
+
   const updatePayInData = {
     status:
-      bankResponse.nick_name !== nick_name
+      bank.nick_name != nick_name
         ? Status.BANK_MISMATCH
         : successData.length
           ? Status.DUPLICATE
@@ -1493,6 +1493,7 @@ export const disputeDuplicateTransactionService = async (
       is_notified: true,
       duration,
       status: newStatus,
+      bank_response_id: payIn.bank_response_id,
       updated_by,
     });
 
