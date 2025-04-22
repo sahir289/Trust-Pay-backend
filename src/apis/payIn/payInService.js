@@ -5,7 +5,13 @@ import { v4 as uuidv4 } from 'uuid';
 import config from '../../config/config.js';
 import { razorpay } from '../../webhooks/razorPay.js';
 import { getPayoutsDao } from '../payOut/payOutDao.js';
-import { BankTypes, Currency, Status, Type } from '../../constants/index.js';
+import {
+  BankTypes,
+  Currency,
+  Role,
+  Status,
+  Type,
+} from '../../constants/index.js';
 import { calculateCommission, calculateDuration } from '../../helpers/index.js';
 import {
   merchantPayinCallback,
@@ -72,6 +78,7 @@ import { createResetHistoryService } from '../resetHistory/resetServices.js';
 import { expirePayInIfNeeded, stringifyJSON } from '../../utils/index.js';
 import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
+import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
@@ -761,9 +768,67 @@ export const getPayinsService = async (
   limit,
   filters,
   role,
+  user_id,
+  designation,
 ) => {
   let conn;
   try {
+    const fetchMerchantIds = async (user_ids) => {
+      const merchants = await getMerchantsDao({ user_id: user_ids });
+      return merchants.map((merchant) => merchant.id);
+    };
+
+    const fetchBankIds = async (user_id) => {
+      const banks = await getBankaccountDao({
+        user_id,
+        bank_used_for: 'PayIn',
+      });
+      return banks.map((bank) => bank.id);
+    };
+
+    let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
+
+    if (role === Role.MERCHANT) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchy = userHierarchys?.[0];
+
+      if (designation === Role.MERCHANT && userHierarchy) {
+        const subMerchants =
+          userHierarchy?.config?.siblings?.sub_merchants ?? [];
+        if (Array.isArray(subMerchants) && subMerchants.length > 0) {
+          merchant_user_id = [...merchant_user_id, ...subMerchants];
+          filters.merchant_id = await fetchMerchantIds(merchant_user_id);
+        } else {
+          filters.merchant_id = await fetchMerchantIds([user_id]);
+        }
+      } else if (designation === Role.SUB_MERCHANT) {
+        filters.merchant_id = await fetchMerchantIds([user_id]);
+      } else if (designation === Role.MERCHANT_OPERATIONS && userHierarchy) {
+        const parentID = userHierarchy?.config?.parent;
+        if (parentID) {
+          const parentHierarchys = await getUserHierarchysDao({
+            user_id: parentID,
+          });
+          const parentHierarchy = parentHierarchys?.[0];
+          const subMerchants =
+            parentHierarchy?.config?.siblings?.sub_merchants ?? [];
+
+          const userIdFilter = [...new Set([parentID, ...subMerchants])];
+          filters.merchant_id = await fetchMerchantIds(userIdFilter);
+        }
+      }
+    } else if (role === Role.VENDOR) {
+      if (designation === Role.VENDOR) {
+        filters.bank_acc_id = await fetchBankIds(user_id);
+      } else if (designation === Role.VENDOR_OPERATIONS) {
+        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const parentID = userHierarchys?.[0]?.config?.parent;
+        if (parentID) {
+          filters.bank_acc_id = await fetchBankIds(parentID);
+        }
+      }
+    }
+
     conn = await getConnection();
     return await getPayInsDao(filters, company_id, page, limit, role);
   } catch (error) {
@@ -782,10 +847,66 @@ export const getPayinsService = async (
 export const getPayinsBySearchService = async (
   filters,
   role,
-  // designation,
-  // user_id,
+  user_id,
+  designation,
 ) => {
   try {
+    const fetchMerchantIds = async (user_ids) => {
+      const merchants = await getMerchantsDao({ user_id: user_ids });
+      return merchants.map((merchant) => merchant.id);
+    };
+
+    const fetchBankIds = async (user_id) => {
+      const banks = await getBankaccountDao({
+        user_id,
+        bank_used_for: 'PayIn',
+      });
+      return banks.map((bank) => bank.id);
+    };
+
+    let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
+
+    if (role === Role.MERCHANT) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchy = userHierarchys?.[0];
+
+      if (designation === Role.MERCHANT && userHierarchy) {
+        const subMerchants =
+          userHierarchy?.config?.siblings?.sub_merchants ?? [];
+        if (Array.isArray(subMerchants) && subMerchants.length > 0) {
+          merchant_user_id = [...merchant_user_id, ...subMerchants];
+          filters.merchant_id = await fetchMerchantIds(merchant_user_id);
+        } else {
+          filters.merchant_id = await fetchMerchantIds([user_id]);
+        }
+      } else if (designation === Role.SUB_MERCHANT) {
+        filters.merchant_id = await fetchMerchantIds([user_id]);
+      } else if (designation === Role.MERCHANT_OPERATIONS && userHierarchy) {
+        const parentID = userHierarchy?.config?.parent;
+        if (parentID) {
+          const parentHierarchys = await getUserHierarchysDao({
+            user_id: parentID,
+          });
+          const parentHierarchy = parentHierarchys?.[0];
+          const subMerchants =
+            parentHierarchy?.config?.siblings?.sub_merchants ?? [];
+
+          const userIdFilter = [...new Set([parentID, ...subMerchants])];
+          filters.merchant_id = await fetchMerchantIds(userIdFilter);
+        }
+      }
+    } else if (role === Role.VENDOR) {
+      if (designation === Role.VENDOR) {
+        filters.bank_acc_id = await fetchBankIds(user_id);
+      } else if (designation === Role.VENDOR_OPERATIONS) {
+        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const parentID = userHierarchys?.[0]?.config?.parent;
+        if (parentID) {
+          filters.bank_acc_id = await fetchBankIds(parentID);
+        }
+      }
+    }
+
     const pageNum = parseInt(filters.page);
     const limitNum = parseInt(filters.limit);
     if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
@@ -856,12 +977,13 @@ export const processPayInService = async (
   const otherPayIns = await getPayInUrlsDao({
     user_submitted_utr: userSubmittedUtr,
   });
+  console.log(tele_check, 'tele_check');
   const updatePayInData = {
     amount,
     user_submitted_utr: tele_check
       ? userSubmittedUtr
       : payIn?.user_submitted_utr
-        ? userSubmittedUtr
+        ? payIn?.user_submitted_utr
         : null,
     is_url_expires: true,
     one_time_used: true,
@@ -1068,7 +1190,6 @@ export const processPayInService = async (
         default:
           await sendSuccessMessageTelegramBot(
             telegramMessage.chat.id,
-            bankResponse.utr,
             payIn.merchant_order_id,
             telegramBotToken,
             telegramMessage.message_id,
