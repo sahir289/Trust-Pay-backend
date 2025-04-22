@@ -218,11 +218,21 @@ const createUserService = async (conn, payload, role, designation) => {
       },
       conn,
     );
-    if(userDesignation[0].designation == 'VENDOR_OPERATIONS' || userDesignation[0].designation == 'MERCHANT_OPERATIONS'){
-    await createUserHierarchyDao(
-      { user_id: User.id, created_by : payload.created_by , updated_by: payload.updated_by, company_id: payload.company_id },
-      conn,
-    );
+    if(userDesignation[0].designation == Role.VENDOR_OPERATIONS || userDesignation[0].designation == Role.MERCHANT_OPERATIONS){
+      if (designation == Role.VENDOR || designation == Role.MERCHANT) {
+        await createUserHierarchyDao(
+          { user_id: User.id, created_by : payload.created_by , updated_by: payload.updated_by, company_id: payload.company_id , 
+            config: { parent: hierarchy[0].id } },
+          conn,
+        );
+      }
+      if(role == Role.ADMIN){
+        await createUserHierarchyDao(
+          { user_id: User.id, created_by : payload.created_by , updated_by: payload.updated_by, company_id: payload.company_id , 
+            config: { parent: payload.parent_id } },
+          conn,
+        );
+      }
   }}
 
   ///for merchant sub-merchant
