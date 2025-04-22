@@ -27,7 +27,7 @@ const getSettlementControllerById = async (req, res) => {
 
 const getSettlementController = async (req, res) => {
   // Extract user data and query parameters
-  const { company_id , user_id , role } = req.user || {};
+  const { company_id , user_id , role, designation } = req.user || {};
   const {
     role_name,
     page = 1,
@@ -58,7 +58,8 @@ const getSettlementController = async (req, res) => {
     sortBy,
     sortOrder,
     role,
-    user_id
+    user_id, 
+    designation
   );
 
   if (!settlementData || settlementData.length === 0) {
@@ -69,7 +70,7 @@ const getSettlementController = async (req, res) => {
   return sendSuccess(res, settlementData, 'Settlements retrieved successfully');
 };
 const getSettlementsBySearch = async (req, res) => {
-  const { company_id,role} = req.user;
+  const { company_id, role, user_id, designation} = req.user;
   const { search, page = 1, limit = 10 ,role_name } = req.query;
   if (!search) {
     throw new BadRequestError('search is required');
@@ -84,6 +85,8 @@ const getSettlementsBySearch = async (req, res) => {
       ...req.query,
     },
     role,
+    designation,
+    user_id,
   );
   return sendSuccess(res, data, 'settlements fetched successfully');
 };

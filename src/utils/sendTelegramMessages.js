@@ -59,14 +59,16 @@ export async function sendTelegramDashboardReportMessage(
     .join('\n'); 
 
   const vendorDetails = Object.entries(vendorObjpayIn)
+  // .filter(([_, { banks }]) => banks.length > 0) 
     .map(([vendorCode, { banks }]) => {
-      if (banks.length === 0) {
-        return `<b>${vendorCode}</b>: No bank accounts`;
-      }
+      // if (banks.length === 0) {
+      //   return `<b>${vendorCode}</b>: No bank accounts`;
+      // }
       const bankDetails = banks
-        .map(
-          (bank) =>
-            `  ${bank.bankName}: ₹ ${bank.TotalDeposit === null ? '0' : bank.TotalDeposit.toLocaleString('en-IN', {
+      .filter((bank) => bank.TotalDeposit !== null) 
+      .map(
+        (bank) =>
+          `  ${bank.bankName}: ₹ ${bank.TotalDeposit.toLocaleString('en-IN', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })} (${bank.TotalCount})`
@@ -77,14 +79,16 @@ export async function sendTelegramDashboardReportMessage(
     .join('\n\n');
 
   const vendorDetailsPayout = Object.entries(vendorObjpayOut)
+  // .filter(([_, { banks }]) => banks.length > 0) 
     .map(([vendorCode, { banks }]) => {
-      if (banks.length === 0) {
-        return `<b>${vendorCode}</b>: No bank accounts`;
-      }
+      // if (banks.length === 0) {
+      //   return `<b>${vendorCode}</b>: No bank accounts`;
+      // }
       const bankDetails = banks
-        .map(
-          (bank) =>
-            `  ${bank.bankName}: ₹ ${bank.TotalDeposit === null ? '0' : bank.TotalDeposit.toLocaleString('en-IN', {
+      .filter((bank) => bank.TotalDeposit !== null || bank.TotalDeposit !== 0) 
+      .map(
+        (bank) =>
+          `  ${bank.bankName}: ₹ ${bank.TotalDeposit.toLocaleString('en-IN', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })} (${bank.TotalCount})`
@@ -101,25 +105,25 @@ export async function sendTelegramDashboardReportMessage(
 
 ${merchantPayInDetails}
     
-<b>Total Deposits:</b> ${totalpayinsMerchant}
+<b>Total Deposits:</b> ₹ ${totalpayinsMerchant}
     
 <b>🏦 Withdrawals</b>
 
 ${merchantPayOutDetails}
     
-<b>Total Withdrawals:</b> ${totalpayoutsMerchant}
+<b>Total Withdrawals:</b> ₹ ${totalpayoutsMerchant}
     
 <b>✅ Bank Account Deposits</b>
 
 ${vendorDetails}
     
-<b>Total Bank Account Deposits:</b> ${totalBankDepositAllVendors}
+<b>Total Bank Account Deposits:</b> ₹ ${totalBankDepositAllVendors}
     
 <b>✅ Bank Account Withdrawals</b>
 
 ${vendorDetailsPayout}
     
-<b>Total Bank Account Withdrawals:</b> ${totalBankWithdrawalAllVendors}
+<b>Total Bank Account Withdrawals:</b> ₹ ${totalBankWithdrawalAllVendors}
 `;
 
   const success = await telegramSender(chatId, message, null, TELEGRAM_BOT_TOKEN);
@@ -301,13 +305,12 @@ export async function sendErrorMessageNoDepositFoundTelegramBot(
 
 export async function sendSuccessMessageTelegramBot(
   chatId,
-  utr,
   merchantOrderId,
   TELEGRAM_BOT_TOKEN,
   replyToMessageId,
 ) {
   // Construct the error message
-  let message = `✅ UTR ${utr} is confirmed with this orderId ${merchantOrderId}`;
+  let message = `💵 Order No. ${merchantOrderId} is confirmed! ✅`;
 
   const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
   logger.log(success ? 'Sent!' : 'Not sent.');

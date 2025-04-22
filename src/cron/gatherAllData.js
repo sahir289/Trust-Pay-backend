@@ -76,6 +76,7 @@ if (type === 'H') {
     
       totalpayinsMerchant += totalPayinAmount;
       totalpayoutsMerchant += totalPayoutAmount;
+      merchant.sort((a, b) => a.merchantId.localeCompare(b.merchantId));
     }
 
     const vendorData = await getVendorsDao({}, null, null, "created_at", "DESC")
@@ -84,6 +85,7 @@ if (type === 'H') {
     let vendorObjpayOut = []
     let totalBankDepositAllVendors = 0;
     let totalBankWithdrawalAllVendors = 0;
+    const vendorEntries = [];
     for (const vendorDetail of vendorData) {
       const banksData = await getBankaccountDao(
         { user_id: vendorDetail.user_id, bank_used_for: 'PayIn' },
@@ -91,19 +93,39 @@ if (type === 'H') {
         null,
         'ADMIN'
       );
-      let totalBankDeposit = 0;
-      const banks = banksData.map(bankData => {
-        return {
-          bankName: bankData.nick_name,
-          TotalDeposit: bankData.balance,
-          TotalCount: bankData.payin_count
-        };
+      
+      const banks = banksData
+      .filter(bankData => bankData.balance !== 0)
+      .map(bankData => {
+          return {
+            bankName: bankData.nick_name,
+            TotalDeposit: bankData.balance,
+            TotalCount: bankData.payin_count
+          };
+        
       });
-      totalBankDepositAllVendors += totalBankDeposit;
-      const vendorEntry = { banks };
-      vendorObjpayIn[vendorDetail.code] = vendorEntry;
-      vendorArray.push(vendorEntry);
+      if (banks.length === 0) continue;
+      totalBankDepositAllVendors = banksData.reduce(
+        (acc, bankData) => acc + bankData.balance,
+        0
+      );
+      vendorEntries.push({
+        code: vendorDetail.code,
+        name: vendorDetail.name, // If you have a `name` field to sort by
+        banks
+      });
+      // const vendorEntry = { banks };
+      // vendorObjpayIn[vendorDetail.code] = vendorEntry;
+      // if(banks){
+      //   vendorArray.push(vendorEntry);
+      // }
     }
+    vendorEntries.sort((a, b) => a.name?.localeCompare(b.name) ?? a.code.localeCompare(b.code));
+    for (const vendorEntry of vendorEntries) {
+      vendorObjpayIn[vendorEntry.code] = { banks: vendorEntry.banks };
+      vendorArray.push({ banks: vendorEntry.banks });
+    }
+
     for (const vendorDetail of vendorData) {
       const banksData = await getBankaccountDao(
         { user_id: vendorDetail.user_id, bank_used_for: 'PayOut' },
@@ -112,17 +134,26 @@ if (type === 'H') {
         'ADMIN'
       );
       let totalBankDepositPayout = 0
-      const banks = banksData.map(bankData => {
+      const banks = banksData
+      .filter(bankData => bankData.balance !== 0)
+      .map(bankData => {
         return {
           bankName: bankData.nick_name,
           TotalDeposit: bankData.balance,
           TotalCount: bankData.payin_count
         };
       });
+      if (banks.length === 0) continue;
+      totalBankWithdrawalAllVendors = banksData.reduce(
+        (acc, bankData) => acc + bankData.balance,
+        0
+      );
       totalBankWithdrawalAllVendors += totalBankDepositPayout;
       const vendorEntry = { banks };
       vendorObjpayOut[vendorDetail.code] = vendorEntry;
-      vendorArray.push(vendorEntry);
+      if(banks.length > 0){
+        vendorArray.push(vendorEntry);
+      }
     }
 
     // let settlements = await getSettlementDao({});
@@ -185,14 +216,14 @@ if (type === 'H') {
         );
 
         // Check transactions for each merchant
-        merchants.forEach((merchant) => {
-          const transactions = transactionsByMerchant[merchant.id];
-          if (!transactions) {
-            console.log(merchant.id, 'has no transactions available.');
-          } else {
-            console.log('transactions for merchant');
-          }
-        });
+        // merchants.forEach((merchant) => {
+        //   const transactions = transactionsByMerchant[merchant.id];
+        //   if (!transactions) {
+        //     console.log(merchant.id, 'has no transactions available.');
+        //   } else {
+        //     console.log('transactions for merchant');
+        //   }
+        // });
 
         const fullMessages = [];
         for (const merchant of merchantsWithTransactions) {

@@ -49,7 +49,7 @@ const getSettlementServiceById = async (ids) => {
   }
 };
 
-const getSettlementService = async (ids, filters, page, limit, sortBy, sortOrder, role, user_id) => {
+const getSettlementService = async (ids, filters, page, limit, sortBy, sortOrder, role, user_id, designation) => {
   try {
     // Validate required parameters
     if (!ids?.company_id) {
@@ -74,7 +74,7 @@ const getSettlementService = async (ids, filters, page, limit, sortBy, sortOrder
     if (role == Role.VENDOR) {
       filters.user_id = [user_id]
     }
-    if (role === Role.MERCHANT) {
+    if (role === Role.MERCHANT || designation === Role.MERCHANT_OPERATIONS) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
       if (userHierarchys || userHierarchys.length > 0) {
         const userHierarchy = userHierarchys[0];
@@ -129,8 +129,8 @@ const getSettlementService = async (ids, filters, page, limit, sortBy, sortOrder
 const getSettlementsBySearchService = async (
   filters,
   role,
-  // designation,
-  // user_id,
+  designation,
+  user_id,
 ) => {
   try {
     const pageNum = parseInt(filters.page);
@@ -154,7 +154,27 @@ const getSettlementsBySearchService = async (
         : role === Role.VENDOR
           ? vendorColumns.SETTLEMENT
           : columns.SETTLEMENT;
-    // TODO: add designation constants
+
+    if (role == Role.MERCHANT) {
+      filters.user_id = [user_id]
+    }
+    if (role == Role.VENDOR) {
+      filters.user_id = [user_id];
+    }
+
+    if (role === Role.MERCHANT || designation === Role.MERCHANT_OPERATIONS) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      if (userHierarchys || userHierarchys.length > 0) {
+        const userHierarchy = userHierarchys[0];
+
+        if (
+          userHierarchy?.config ||
+          Array.isArray(userHierarchy?.config?.siblings?.sub_merchants)
+        ) {
+          filters.user_id = [...filters.user_id, ...(userHierarchy?.config?.siblings?.sub_merchants ?? [])];
+        }
+      }
+    }
 
     const data = await getSettlementsBySearchDao(
       filters,
