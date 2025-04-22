@@ -216,14 +216,14 @@ if (type === 'H') {
         );
 
         // Check transactions for each merchant
-        merchants.forEach((merchant) => {
-          const transactions = transactionsByMerchant[merchant.id];
-          if (!transactions) {
-            console.log(merchant.id, 'has no transactions available.');
-          } else {
-            console.log('transactions for merchant');
-          }
-        });
+        // merchants.forEach((merchant) => {
+        //   const transactions = transactionsByMerchant[merchant.id];
+        //   if (!transactions) {
+        //     console.log(merchant.id, 'has no transactions available.');
+        //   } else {
+        //     console.log('transactions for merchant');
+        //   }
+        // });
 
         const fullMessages = [];
         for (const merchant of merchantsWithTransactions) {

@@ -24,6 +24,7 @@ import { createVendorService } from '../vendors/vendorService.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
 import {
+  createUserHierarchyDao,
   getUserHierarchysDao,
   updateUserHierarchyDao,
 } from '../userHierarchy/userHierarchyDao.js';
@@ -217,7 +218,12 @@ const createUserService = async (conn, payload, role, designation) => {
       },
       conn,
     );
-  }
+    if(userDesignation[0].designation == 'VENDOR_OPERATIONS' || userDesignation[0].designation == 'MERCHANT_OPERATIONS'){
+    await createUserHierarchyDao(
+      { user_id: User.id, created_by : payload.created_by , updated_by: payload.updated_by, company_id: payload.company_id },
+      conn,
+    );
+  }}
 
   ///for merchant sub-merchant
   if (
