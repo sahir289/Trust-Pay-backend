@@ -289,6 +289,20 @@ export async function sendErrorMessageTelegram(
   return success;
 }
 
+export async function sendUTRMismatchErrorMessageTelegram(
+  chatId,
+  userSubmittedUtr,
+  TELEGRAM_BOT_TOKEN,
+  replyToMessageId,
+) {
+  // Construct the error message
+  const message = `⛔ UTR does not match with the UTR submitted by the user - ${userSubmittedUtr}`;
+
+  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  logger.log(success ? 'Sent!' : 'Not sent.');
+  return success;
+}
+
 export async function sendErrorMessageNoDepositFoundTelegramBot(
   chatId,
   Utr,

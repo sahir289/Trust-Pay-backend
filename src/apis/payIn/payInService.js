@@ -68,6 +68,7 @@ import {
   sendMerchantOrderIDStatusDuplicateTelegramMessage,
   sendSuccessMessageTelegramBot,
   sendTelegramMessage,
+  sendUTRMismatchErrorMessageTelegram,
 } from '../../utils/sendTelegramMessages.js';
 
 import { getConnection } from '../../utils/db.js';
@@ -717,6 +718,7 @@ export const resetDepositService = async (
     status: calculateStatus(payIn.created_at),
     payin_merchant_commission: null,
     user_submitted_utr: null,
+    bank_response_id: null,
     duration: null,
     updated_by,
   };
@@ -1306,7 +1308,17 @@ export const telegramResponseService = async (conn, message) => {
     return;
   }
 
-  if (payIn.status === Status.DISPUTE) {
+  if (payIn.status === Status.PENDING && (payIn.user_submitted_utr !== content.utr)) {
+    sendUTRMismatchErrorMessageTelegram(
+      message.chat?.id,
+      payIn.user_submitted_utr,
+      TELEGRAM_BOT_TOKEN,
+      message.message_id,
+    );
+    return;
+  }
+
+  if (payIn.status === Status.DUPLICATE) {
     sendMerchantOrderIDStatusDuplicateTelegramMessage(
       message.chat.id,
       payIn,
