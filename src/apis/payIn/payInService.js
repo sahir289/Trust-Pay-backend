@@ -1669,7 +1669,10 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
   }
 
   if (payIn.one_time_used === true) {
-    throw new BadRequestError('This payin url is already used');
+    const result = {
+      redirect_url: payIn.config?.urls?.return,
+    };
+    return { error: `This payin url is already used`, result };
   }
 
   const updatedConfig = stringifyJSON({
@@ -1687,8 +1690,6 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
   });
 
   const result = {
-    return_url: config.return_url,
-    notify_url: config.notify_url,
     expiryTime: payIn.expiration_date,
     amount: payIn.amount,
     one_time_used: payIn.one_time_used,
@@ -1698,6 +1699,7 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
     is_qr: banks.some((bank) => bank.is_qr),
     is_phonepay: banks.some((bank) => bank.config?.is_phonepay),
     is_bank: banks.some((bank) => bank.is_bank),
+    redirect_url: payIn.config?.urls?.return,
   };
   return result;
 };
