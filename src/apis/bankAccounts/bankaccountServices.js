@@ -12,6 +12,7 @@ import {
   getBankResponseDaoAll,
   updateBotResponseDao,
 } from '../bankResponse/bankResponseDao.js';
+import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import {
   getBankaccountDao,
   createBankaccountDao,
@@ -28,12 +29,20 @@ const getBankaccountService = async (
   page,
   limit,
   user_id,
+  designation
 ) => {
   try {
 
-        if (role == Role.VENDOR) {
-          filters.user_id = [user_id];
-        }
+    if (role == Role.VENDOR) {
+      filters.user_id = [user_id];
+    }
+    const userHierarchys = await getUserHierarchysDao({ user_id });
+    if (designation == Role.VENDOR_OPERATIONS) {
+      const parentID = userHierarchys[0]?.config?.parent;
+      if (parentID ) {
+        filters.user_id = [parentID];      
+      }
+    }
 
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
