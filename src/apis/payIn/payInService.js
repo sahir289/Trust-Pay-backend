@@ -977,12 +977,13 @@ export const processPayInService = async (
   const otherPayIns = await getPayInUrlsDao({
     user_submitted_utr: userSubmittedUtr,
   });
+  console.log(tele_check, 'tele_check');
   const updatePayInData = {
     amount,
     user_submitted_utr: tele_check
       ? userSubmittedUtr
       : payIn?.user_submitted_utr
-        ? userSubmittedUtr
+        ? payIn?.user_submitted_utr
         : null,
     is_url_expires: true,
     one_time_used: true,

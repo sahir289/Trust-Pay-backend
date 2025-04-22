@@ -310,7 +310,7 @@ export async function sendSuccessMessageTelegramBot(
   replyToMessageId,
 ) {
   // Construct the error message
-  let message = `✅ This OrderId ${merchantOrderId} is confirmed`;
+  let message = `💵 Order No. ${merchantOrderId} is confirmed! ✅`;
 
   const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
   logger.log(success ? 'Sent!' : 'Not sent.');
