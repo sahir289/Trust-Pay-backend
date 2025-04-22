@@ -96,20 +96,24 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
     conditionBuilders.status(filters, conditions, queryParams);
     conditionBuilders.pagination(page, limit, queryParams, limitcondition);
 
-    // Handle dynamic filters
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null) return;
-
       const nextParamIdx = queryParams.length + 1;
-      const isMultiValue = typeof value === 'string' && value.includes(',');
-      const valueArray = isMultiValue ? value.split(',').map(v => v.trim()) : [value];
-      const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
-
-      conditions.push(isMultiValue
-        ? `p.${key} IN (${placeholders})`
-        : `p.${key} = $${nextParamIdx}`);
-
-      queryParams.push(...valueArray);
+    
+      // Special handling for arrays
+      if (Array.isArray(value)) {
+        const placeholders = value.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+        conditions.push(`p.${key} IN (${placeholders})`);
+        queryParams.push(...value);
+      } else {
+        const isMultiValue = typeof value === 'string' && value.includes(',');
+        const valueArray = isMultiValue ? value.split(',').map(v => v.trim()) : [value];
+        const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+        conditions.push(isMultiValue 
+          ? `p.${key} IN (${placeholders})` 
+          : `p.${key} = $${nextParamIdx}`);
+        queryParams.push(...valueArray);
+      }
     });
 
     // Build role-based select fields

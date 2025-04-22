@@ -10,7 +10,7 @@ import {
   deleteChargeBackDao,
   getChargeBackDao,
   updateChargeBackDao,
-  getChargeBacksBySearchDao
+  getChargeBacksBySearchDao,
 } from './chargeBackDao.js';
 import {
   columns,
@@ -23,9 +23,18 @@ import { filterResponse } from '../../helpers/index.js';
 import { getCalculationforCronDao } from '../calculation/calculationDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
-import { getMerchantsDao, updateMerchantDao } from '../merchants/merchantDao.js';
+import {
+  getMerchantsDao,
+  updateMerchantDao,
+} from '../merchants/merchantDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
-const createChargeBackService = async (payload, PayinDetails, role, company_id, user_id) => {
+const createChargeBackService = async (
+  payload,
+  PayinDetails,
+  role,
+  company_id,
+  user_id,
+) => {
   let conn;
   try {
     const filterColumns =
@@ -40,18 +49,19 @@ const createChargeBackService = async (payload, PayinDetails, role, company_id, 
     let userId = PayinDetails[0].merchant_user_id;
     const CalculationUser = await getCalculationforCronDao(userId);
     if (CalculationUser) {
-      const merchantData = await getMerchantsDao(
-        { user_id: userId })
+      const merchantData = await getMerchantsDao({ user_id: userId });
 
       if (merchantData) {
         await updateMerchantDao(
-          { user_id: userId }, { balance: merchantData[0].balance - payload.amount }, conn
+          { user_id: userId },
+          { balance: merchantData[0].balance - payload.amount },
+          conn,
         );
 
         let count = Number(1);
         let amount = Number(payload.amount);
-        let currentBalance = - Number(payload.amount);
-        let net_balance = - Number(payload.amount);
+        let currentBalance = -Number(payload.amount);
+        let net_balance = -Number(payload.amount);
 
         let Id = CalculationUser[0].id;
         await updateCalculationBalanceDao(
@@ -64,12 +74,11 @@ const createChargeBackService = async (payload, PayinDetails, role, company_id, 
           },
           conn,
         );
-      }
-      else {
+      } else {
         let count = Number(1);
         let amount = Number(payload.amount);
-        let currentBalance = + Number(payload.amount);
-        let net_balance = + Number(payload.amount);
+        let currentBalance = +Number(payload.amount);
+        let net_balance = +Number(payload.amount);
 
         let Id = CalculationUser[0].id;
         await updateCalculationBalanceDao(
@@ -117,7 +126,7 @@ const getChargeBacksService = async (
   page,
   limit,
   user_id,
-  desingnation
+  desingnation,
 ) => {
   try {
     // Determine columns based on role
@@ -128,31 +137,37 @@ const getChargeBacksService = async (
           ? vendorColumns.CHARGE_BACK
           : columns.CHARGE_BACK;
 
-          if(role == Role.MERCHANT){
-            filters.merchant_user_id = [user_id]
-          }
-          if (role == Role.VENDOR) {
-            filters.vendor_user_id = [user_id];
-          }
+    if (role == Role.MERCHANT) {
+      filters.merchant_user_id = [user_id];
+    }
+    if (role == Role.VENDOR) {
+      filters.vendor_user_id = [user_id];
+    }
 
-              if (role === Role.MERCHANT || desingnation === Role.MERCHANT_OPERATIONS) {
-                // user_id is unique
-                const userHierarchys = await getUserHierarchysDao({ user_id });
-                if (userHierarchys || userHierarchys.length > 0) {           
-                const userHierarchy = userHierarchys[0];
-          
-                if (
-                  userHierarchy?.config ||
-                  Array.isArray(userHierarchy?.config?.siblings?.sub_merchants)
-                ) {
-                  filters.merchant_user_id = [...filters.merchant_user_id, ...(userHierarchy?.config?.siblings?.sub_merchants ?? [])];
-                }
-              }
-              }
+    if (role === Role.MERCHANT || desingnation === Role.MERCHANT_OPERATIONS) {
+      // user_id is unique
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      if (userHierarchys || userHierarchys.length > 0) {
+        const userHierarchy = userHierarchys[0];
+
+        if (
+          userHierarchy?.config ||
+          Array.isArray(userHierarchy?.config?.siblings?.sub_merchants)
+        ) {
+          filters.merchant_user_id = [
+            ...filters.merchant_user_id,
+            ...(userHierarchy?.config?.siblings?.sub_merchants ?? []),
+          ];
+        }
+      }
+    }
 
     // Parse and validate pagination parameters
     const pageNumber = Math.max(1, parseInt(String(page), 10) || 1);
-    const pageSize = Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)); // Added upper limit
+    const pageSize = Math.max(
+      1,
+      Math.min(100, parseInt(String(limit), 10) || 10),
+    ); // Added upper limit
 
     // Call DAO with all required parameters
     const chargeBacks = await getChargeBackDao(
@@ -162,14 +177,14 @@ const getChargeBacksService = async (
       'sno',
       'DESC',
       filterColumns,
-      role
+      role,
     );
 
     logger.info('Fetched ChargeBacks successfully', {
       role,
       page: pageNumber,
       limit: pageSize,
-      filterCount: Object.keys(filters).length
+      filterCount: Object.keys(filters).length,
     });
 
     return chargeBacks;
@@ -179,10 +194,10 @@ const getChargeBacksService = async (
       role,
       filters,
       page,
-      limit
+      limit,
     });
     throw new InternalServerError(
-      error instanceof Error ? error.message : 'Failed to fetch chargebacks'
+      error instanceof Error ? error.message : 'Failed to fetch chargebacks',
     );
   }
 };
@@ -208,35 +223,38 @@ const getChargeBacksBySearchService = async (
     }
     const offset = (pageNum - 1) * limitNum;
 
-   const filterColumns =
-     role === Role.MERCHANT
-       ? merchantColumns.CHARGE_BACK
-       : role === Role.VENDOR
-         ? vendorColumns.CHARGE_BACK
-         : columns.CHARGE_BACK;
+    const filterColumns =
+      role === Role.MERCHANT
+        ? merchantColumns.CHARGE_BACK
+        : role === Role.VENDOR
+          ? vendorColumns.CHARGE_BACK
+          : columns.CHARGE_BACK;
     // TODO: add designation constants
 
-    if(role == Role.MERCHANT){
-      filters.merchant_user_id = [user_id]
+    if (role == Role.MERCHANT) {
+      filters.merchant_user_id = [user_id];
     }
     if (role == Role.VENDOR) {
       filters.vendor_user_id = [user_id];
     }
 
-        if (role === Role.MERCHANT || designation === Role.MERCHANT_OPERATIONS) {
-          // user_id is unique
-          const userHierarchys = await getUserHierarchysDao({ user_id });
-          if (userHierarchys || userHierarchys.length > 0) {           
-          const userHierarchy = userHierarchys[0];
-    
-          if (
-            userHierarchy?.config ||
-            Array.isArray(userHierarchy?.config?.siblings?.sub_merchants)
-          ) {
-            filters.merchant_user_id = [...filters.merchant_user_id, ...(userHierarchy?.config?.siblings?.sub_merchants ?? [])];
-          }
+    if (role === Role.MERCHANT || designation === Role.MERCHANT_OPERATIONS) {
+      // user_id is unique
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      if (userHierarchys || userHierarchys.length > 0) {
+        const userHierarchy = userHierarchys[0];
+
+        if (
+          userHierarchy?.config ||
+          Array.isArray(userHierarchy?.config?.siblings?.sub_merchants)
+        ) {
+          filters.merchant_user_id = [
+            ...filters.merchant_user_id,
+            ...(userHierarchy?.config?.siblings?.sub_merchants ?? []),
+          ];
         }
-        }
+      }
+    }
 
     const data = await getChargeBacksBySearchDao(
       filters,

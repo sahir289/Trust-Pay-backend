@@ -305,13 +305,12 @@ export async function sendErrorMessageNoDepositFoundTelegramBot(
 
 export async function sendSuccessMessageTelegramBot(
   chatId,
-  utr,
   merchantOrderId,
   TELEGRAM_BOT_TOKEN,
   replyToMessageId,
 ) {
   // Construct the error message
-  let message = `✅ UTR ${utr} is confirmed with this orderId ${merchantOrderId}`;
+  let message = `✅ This OrderId ${merchantOrderId} is confirmed`;
 
   const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
   logger.log(success ? 'Sent!' : 'Not sent.');
