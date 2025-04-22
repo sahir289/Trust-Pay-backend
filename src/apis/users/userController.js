@@ -14,22 +14,22 @@ import { transactionWrapper } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 const getUsers = async (req, res) => {
   // const reqBody = req.body;
-  const { role, company_id } = req.user;
-  const {page, limit, search} = req.query;
+  const { role, company_id,user_id,designation } = req.user;
+  const {page, limit} = req.query;
   const data = await getUsersService(
     {
       company_id,
-      ...(search ? { search } : {}),
       ...req.query,
     },
-    role, page,limit,
+    role, page, limit,
+    designation,user_id
   );
   logger.log('getUsers successfully');
   return sendSuccess(res, data, 'getUsers successfully');
 };
 
 const getUsersBySearch = async (req, res) => {
-  const { company_id, role } = req.user;
+  const { company_id, role, designation, user_id } = req.user;
   const { search, page = 1, limit = 10 } = req.query;
   if (!search) {
     throw new BadRequestError('search is required');
@@ -43,7 +43,8 @@ const getUsersBySearch = async (req, res) => {
       ...req.query,
     },
     role,
-   
+    designation,
+    user_id,
   );
   logger.log('get Users successfully');
   return sendSuccess(res, data, 'Users fetched successfully');

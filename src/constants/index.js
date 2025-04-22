@@ -308,6 +308,7 @@ export const merchantColumns = {
   MERCHANT: [
     'first_name',
     'last_name',
+    'user_id',
     'code',
     'min_payin',
     'max_payin',
@@ -343,7 +344,7 @@ export const merchantColumns = {
     'net_balance',
     'total_reverse_payout_count',
     'total_reverse_payout_amount',
-    'total_reverse_payout_commission'
+    'total_reverse_payout_commission',
   ],
   COMPLAINTS: ['sno', 'status', 'email', 'config'],
   PAYIN: [

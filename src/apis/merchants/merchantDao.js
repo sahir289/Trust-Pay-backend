@@ -27,7 +27,7 @@ export const createMerchantDao = async (data, conn) => {
 
 export const getMerchantsCodeDao = async (conn, filters) => {
   try {
-    const baseQuery = `
+    let sql = `
       SELECT 
         code AS label, 
         user_id AS value, 
@@ -36,17 +36,28 @@ export const getMerchantsCodeDao = async (conn, filters) => {
         "${tableName.MERCHANT}" 
       WHERE 
         is_obsolete = FALSE
+        
     `;
+    const queryParams = [];
+    let paramIndex = 1;
 
-    let [sql, queryParams] = buildSelectQuery(
-      baseQuery,
-      filters,
-      tableName.MERCHANT,
-    );
+    if (filters.company_id) {
+      sql += ` AND "company_id" = $${paramIndex++}`;
+      queryParams.push(filters.company_id);
+    }
+    if (filters.user_id) {
+      if (Array.isArray(filters.user_id)) {
+        sql += ` AND "user_id" = ANY($${paramIndex++})`;
+        queryParams.push(filters.user_id);
+      } else {
+        sql += ` AND "user_id" = $${paramIndex++}`;
+        queryParams.push(filters.user_id);
+      }
+    }
 
+    sql += ` ORDER BY "code" ASC`;
     const result = await conn.query(sql, queryParams);
     logger.log('Fetched Merchants:', result.rows.length, 'rows');
-
     return result.rows;
   } catch (error) {
     logger.error('Error executing merchant query:', error);

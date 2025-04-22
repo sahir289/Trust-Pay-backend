@@ -98,6 +98,23 @@ export const getUsersBySearchDao = async (
         AND "User".is_obsolete = false 
         AND "User"."company_id" = $1
     `;
+
+if (filters.id) {
+  if (Array.isArray(filters.id)) {
+    const placeholders = filters.id
+      .map((_, i) => `$${paramIndex + i}`)
+      .join(', ');
+    queryText += ` AND "User"."id" IN (${placeholders})`;
+    values.push(...filters.id);
+    paramIndex += filters.id.length;
+  } else {
+    queryText += ` AND "User"."id" = $${paramIndex}`;
+    values.push(filters.id);
+    paramIndex++;
+  }
+}
+
+
     searchTerms.forEach((term) => {
 
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
