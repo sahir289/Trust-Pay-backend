@@ -159,6 +159,15 @@ const getSettlementsBySearchDao = async (
       paramIndex++;
     }
 
+    if (filters && Array.isArray(filters.user_id) && filters.user_id.length > 0) {
+      const placeholders = filters.user_id
+        .map((_, idx) => `$${paramIndex + idx}`)
+        .join(', ');
+      queryText += ` AND s.user_id IN (${placeholders})`;
+      values.push(...filters.user_id);
+      paramIndex += filters.user_id.length;
+    }
+    
     // Handle search terms
     searchTerms.forEach((term) => {
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
