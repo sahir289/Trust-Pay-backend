@@ -12,10 +12,10 @@ export const getTotalCountService = async (tablename, role, filters, userInfo) =
     const isOperations = userInfo.designation === Role.MERCHANT_OPERATIONS || userInfo.designation === Role.VENDOR_OPERATIONS;
     let userIdFilter = [];
 
-    // Helper to fetch user hierarchy
+    // user hierarchy
     const getHierarchy = async (userId) => (await getUserHierarchysDao({ user_id: userId }))?.[0];
 
-    // Helper to fetch sub-merchants and operations
+    // sub-merchants and operations
     const getSubMerchantsAndOps = async (hierarchy, includeOps = true) => {
       const subMerchants = hierarchy?.config?.siblings?.sub_merchants ?? [];
       const ops = includeOps ? (hierarchy?.config?.child?.operations ?? []) : [];
@@ -49,7 +49,7 @@ export const getTotalCountService = async (tablename, role, filters, userInfo) =
 
     const hierarchy = await getHierarchy(userInfo.user_id);
 
-    // Case 1: USER table
+    // USER table
     if (tablename === tableName.USER) {
       userIdFilter = await applyUserFilter(hierarchy, true);
       if (isOperations && role === Role.MERCHANT) {
@@ -62,13 +62,13 @@ export const getTotalCountService = async (tablename, role, filters, userInfo) =
       filters.id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
 
-    // Case 2: MERCHANT or VENDOR table
+    // MERCHANT or VENDOR table
     if (tablename === tableName.MERCHANT || tablename === tableName.VENDOR) {
       userIdFilter = isOperations ? [hierarchy?.config?.parent].filter(Boolean) : [userInfo.user_id];
       filters.user_id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
 
-    // Case 3: CHARGE_BACK table
+    // CHARGE_BACK table
     if (tablename === tableName.CHARGE_BACK) {
       userIdFilter = isOperations ? [hierarchy?.config?.parent].filter(Boolean) : [userInfo.user_id];
       userIdFilter.push(...(hierarchy?.config?.siblings?.sub_merchants ?? []));
@@ -76,7 +76,7 @@ export const getTotalCountService = async (tablename, role, filters, userInfo) =
       filters[filterKey] = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
 
-    // Case 4: SETTLEMENT table
+    //SETTLEMENT table
     if (tablename === tableName.SETTLEMENT) {
       userIdFilter = [userInfo.user_id];
       if (userInfo.userRole === Role.MERCHANT) {
@@ -85,7 +85,7 @@ export const getTotalCountService = async (tablename, role, filters, userInfo) =
       filters.user_id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
 
-    // Case 5: PAYIN table
+    // PAYIN table
     if (tablename === tableName.PAYIN) {
       if (userInfo.userRole === Role.MERCHANT) {
         userIdFilter = [userInfo.user_id];
@@ -112,7 +112,7 @@ export const getTotalCountService = async (tablename, role, filters, userInfo) =
       }
     }
 
-    // Case 6: PAYOUT table
+    //  PAYOUT table
     if (tablename === tableName.PAYOUT) {
       if (userInfo.userRole === Role.MERCHANT) {
         userIdFilter = [userInfo.user_id];
@@ -137,7 +137,7 @@ export const getTotalCountService = async (tablename, role, filters, userInfo) =
       }
     }
 
-    // Case 7: BANK_ACCOUNT table
+    // BANK_ACCOUNT table
     if (tablename === tableName.BANK_ACCOUNT && userInfo.userRole === Role.VENDOR) {
       userIdFilter = isOperations ? [hierarchy?.config?.parent].filter(Boolean) : [userInfo.user_id];
       filters.user_id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
