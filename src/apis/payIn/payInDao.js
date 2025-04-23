@@ -46,7 +46,14 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
     const queryParams = [company_id];
     const limitcondition = { value: '' };
 
-    const handledKeys = new Set(['search', 'startDate', 'endDate', 'status', 'sortBy', 'sortOrder']);
+    const handledKeys = new Set([
+      'search',
+      'startDate',
+      'endDate',
+      'status',
+      'sortBy',
+      'sortOrder',
+    ]);
 
     const conditionBuilders = {
       search: (filters, PAYIN) => {
@@ -62,7 +69,9 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
       dateRange: (filters, conditions, queryParams) => {
         if (!filters.startDate || !filters.endDate) return;
         const nextParamIdx = queryParams.length + 1;
-        conditions.push(`p.created_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`);
+        conditions.push(
+          `p.created_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
+        );
         queryParams.push(filters.startDate, filters.endDate);
       },
       bankName: (filters, conditions, queryParams) => {
@@ -73,12 +82,16 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
       },
       status: (filters, conditions, queryParams) => {
         if (!filters.status) return;
-        const statusArray = filters.status.split(',').map(s => s.trim());
+        const statusArray = filters.status.split(',').map((s) => s.trim());
         const nextParamIdx = queryParams.length + 1;
-        const placeholders = statusArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
-        conditions.push(statusArray.length > 1
-          ? `p.status IN (${placeholders})`
-          : `p.status = $${nextParamIdx}`);
+        const placeholders = statusArray
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        conditions.push(
+          statusArray.length > 1
+            ? `p.status IN (${placeholders})`
+            : `p.status = $${nextParamIdx}`,
+        );
         queryParams.push(...statusArray);
       },
       pagination: (page, limit, queryParams, limitconditionRef) => {
@@ -86,7 +99,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         const nextParamIdx = queryParams.length + 1;
         limitconditionRef.value = `LIMIT $${nextParamIdx} OFFSET $${nextParamIdx + 1}`;
         queryParams.push(limit, (page - 1) * limit);
-      }
+      },
     };
 
     // Apply the filters
@@ -99,19 +112,27 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null) return;
       const nextParamIdx = queryParams.length + 1;
-    
+
       // Special handling for arrays
       if (Array.isArray(value)) {
-        const placeholders = value.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+        const placeholders = value
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
         conditions.push(`p.${key} IN (${placeholders})`);
         queryParams.push(...value);
       } else {
         const isMultiValue = typeof value === 'string' && value.includes(',');
-        const valueArray = isMultiValue ? value.split(',').map(v => v.trim()) : [value];
-        const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
-        conditions.push(isMultiValue 
-          ? `p.${key} IN (${placeholders})` 
-          : `p.${key} = $${nextParamIdx}`);
+        const valueArray = isMultiValue
+          ? value.split(',').map((v) => v.trim())
+          : [value];
+        const placeholders = valueArray
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        conditions.push(
+          isMultiValue
+            ? `p.${key} IN (${placeholders})`
+            : `p.${key} = $${nextParamIdx}`,
+        );
         queryParams.push(...valueArray);
       }
     });
@@ -190,7 +211,9 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
     const expectedParamCount = (baseQuery.match(/\$\d+/g) || []).length;
     if (expectedParamCount !== queryParams.length) {
       logger.warn('⚠️ Placeholder count does not match parameter count!');
-      logger.warn(`Expected: ${expectedParamCount}, Got: ${queryParams.length}`);
+      logger.warn(
+        `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
+      );
     }
 
     const result = await executeQuery(baseQuery, queryParams);
@@ -334,7 +357,6 @@ export const getPayinsBySearchDao = async (
     `;
 
     values.push(limitNum, offset);
-console.log(queryText)
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
 
@@ -407,7 +429,7 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
 
   try {
     conn = await getConnection();
-    console.log(conn)
+    console.log(conn);
     const result = await conn.query(baseQuery, [merchantOrderId]);
 
     return result.rows;

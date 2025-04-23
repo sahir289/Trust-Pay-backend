@@ -25,7 +25,14 @@ export const createPayoutDao = async (conn, data) => {
   }
 };
 
-export const getPayoutsDao = async (filters, company_id, page, limit, role, conn) => {
+export const getPayoutsDao = async (
+  filters,
+  company_id,
+  page,
+  limit,
+  role,
+  conn,
+) => {
   try {
     if (typeof company_id === 'string') {
       company_id = company_id.trim();
@@ -33,31 +40,50 @@ export const getPayoutsDao = async (filters, company_id, page, limit, role, conn
 
     let conditions = [`u.is_obsolete = false`];
     let queryParams = [];
-    if(company_id){
+    if (company_id) {
       conditions.push(`u.company_id = '${company_id}'`);
     }
     let limitcondition = '';
 
     if (filters?.startDate && filters?.endDate) {
-      conditions.push(`u.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`);
+      conditions.push(
+        `u.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`,
+      );
       queryParams.push(filters.startDate, filters.endDate);
     }
-    
+
     if (page && limit) {
       limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
       queryParams.push(limit, (page - 1) * limit);
     }
-    Object.keys(filters).forEach((key) => {
-      delete filters.page
-      delete filters.limit
-      const value = filters[key];
-      if (value !== null && value !== undefined && value !== '') {
-        if (Array.isArray(value)) {
-          conditions.push(`u."${key}" = ANY($${queryParams.length + 1})`);
-        } else {
-          conditions.push(`u."${key}" = $${queryParams.length + 1}`);
-        }
-        queryParams.push(value);
+
+    const handledKeys = new Set(['page', 'limit']);
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (handledKeys.has(key) || value == null || value === '') return;
+      const nextParamIdx = queryParams.length + 1;
+
+      // Handle arrays and comma-separated strings
+      if (Array.isArray(value)) {
+        const placeholders = value
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        conditions.push(`u."${key}" IN (${placeholders})`);
+        queryParams.push(...value);
+      } else {
+        const isMultiValue = typeof value === 'string' && value.includes(',');
+        const valueArray = isMultiValue
+          ? value.split(',').map((v) => v.trim())
+          : [value];
+        const placeholders = valueArray
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        conditions.push(
+          isMultiValue
+            ? `u."${key}" IN (${placeholders})`
+            : `u."${key}" = $${nextParamIdx}`,
+        );
+        queryParams.push(...valueArray);
       }
     });
 
@@ -307,8 +333,6 @@ export const getPayoutsBySearchDao = async (
     `;
     values.push(limitNum, offset);
 
-   
-
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
 
@@ -352,7 +376,7 @@ export const updatePayoutDao = async (ids, data, conn) => {
       // Get existing config first to merge with new config
       const existingData = await executeQuery(
         `SELECT config FROM "${tableName.PAYOUT}" WHERE id = $1`,
-        [ids.id]
+        [ids.id],
       );
 
       if (existingData.rows.length > 0) {
@@ -360,7 +384,7 @@ export const updatePayoutDao = async (ids, data, conn) => {
         // Merge existing config with new config
         updateData.config = {
           ...existingConfig,
-          ...updateData.config
+          ...updateData.config,
         };
       }
     }
@@ -372,7 +396,7 @@ export const updatePayoutDao = async (ids, data, conn) => {
       ids,
       {}, // No special fields
       { returnUpdated: true },
-      conn
+      conn,
     );
   } catch (error) {
     console.error('Error occurred while updating payout:', error);
