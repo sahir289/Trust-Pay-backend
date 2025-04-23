@@ -43,6 +43,7 @@ export const getVendorsCodeDao = async (
        filters,
        tableName.VENDOR,
      );
+    sql = sql.replace(/\s*ORDER BY\s+.*$/i, '') + ' ORDER BY "code" ASC';
     const result = await conn.query(sql, queryParams);
     logger.log('Fetched Vendors:', result.rows.length, 'rows');
     return result.rows;

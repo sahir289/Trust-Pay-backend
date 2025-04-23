@@ -46,6 +46,7 @@ import {
   vendorColumns,
 } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
+import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 
 const createPayoutService = async (conn, headers, payload, role) => {
   try {
@@ -64,8 +65,7 @@ const createPayoutService = async (conn, headers, payload, role) => {
     const merchant_order_id = payload.merchant_order_id ?? uuidv4();
     delete payload.code;
     payload.merchant_id = details[0].id;
-    payload.payout_merchant_commission =
-      details[0].payout_commission || 0;
+    payload.payout_merchant_commission = details[0].payout_commission || 0;
     payload.merchant_order_id = merchant_order_id;
     payload.config = JSON.stringify({
       urls: {
@@ -132,9 +132,70 @@ const createPayoutService = async (conn, headers, payload, role) => {
   }
 };
 
-const getPayoutsService = async (company_id, page, limit, filters, role) => {
+const getPayoutsService = async (
+  company_id,
+  page,
+  limit,
+  filters,
+  role,
+  user_id,
+  designation,
+) => {
   let conn;
   try {
+    const fetchMerchantIds = async (user_ids) => {
+      const merchants = await getMerchantsDao({ user_id: user_ids });
+      return merchants.map((merchant) => merchant.id);
+    };
+
+    const fetchVendorIds = async (user_ids) => {
+      const vendors = await getVendorsDao({ user_id: user_ids });
+      return vendors.map((vendor) => vendor.id);
+    };
+
+    let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
+
+    if (role === Role.MERCHANT) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchy = userHierarchys?.[0];
+
+      if (designation === Role.MERCHANT && userHierarchy) {
+        const subMerchants =
+          userHierarchy?.config?.siblings?.sub_merchants ?? [];
+        if (Array.isArray(subMerchants) && subMerchants.length > 0) {
+          merchant_user_id = [...merchant_user_id, ...subMerchants];
+          filters.merchant_id = await fetchMerchantIds(merchant_user_id);
+        } else {
+          filters.merchant_id = await fetchMerchantIds([user_id]);
+        }
+      } else if (designation === Role.SUB_MERCHANT) {
+        filters.merchant_id = await fetchMerchantIds([user_id]);
+      } else if (designation === Role.MERCHANT_OPERATIONS && userHierarchy) {
+        const parentID = userHierarchy?.config?.parent;
+        if (parentID) {
+          const parentHierarchys = await getUserHierarchysDao({
+            user_id: parentID,
+          });
+          const parentHierarchy = parentHierarchys?.[0];
+          const subMerchants =
+            parentHierarchy?.config?.siblings?.sub_merchants ?? [];
+
+          const userIdFilter = [...new Set([parentID, ...subMerchants])];
+          filters.merchant_id = await fetchMerchantIds(userIdFilter);
+        }
+      }
+    } else if (role === Role.VENDOR) {
+      if (designation === Role.VENDOR) {
+        filters.vendor_id = await fetchVendorIds([user_id]);
+      } else if (designation === Role.VENDOR_OPERATIONS) {
+        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const parentID = userHierarchys?.[0]?.config?.parent;
+        if (parentID) {
+          filters.vendor_id = await fetchVendorIds([parentID]);
+        }
+      }
+    }
+
     conn = await getConnection();
     await beginTransaction(conn);
     const data = await getPayoutsDao(
@@ -160,47 +221,101 @@ const getPayoutsService = async (company_id, page, limit, filters, role) => {
 const getPayoutsBySearchService = async (
   filters,
   role,
-  ) => {
-    try {
-      const pageNum = parseInt(filters.page);
-      const limitNum = parseInt(filters.limit);
-      if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
-        throw new BadRequestError('Invalid pagination parameters');
+  user_id,
+  designation,
+) => {
+  try {
+    const fetchMerchantIds = async (user_ids) => {
+      const merchants = await getMerchantsDao({ user_id: user_ids });
+      return merchants.map((merchant) => merchant.id);
+    };
+
+    const fetchVendorIds = async (user_ids) => {
+      const vendors = await getVendorsDao({ user_id: user_ids });
+      return vendors.map((vendor) => vendor.id);
+    };
+
+    let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
+
+    if (role === Role.MERCHANT) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchy = userHierarchys?.[0];
+
+      if (designation === Role.MERCHANT && userHierarchy) {
+        const subMerchants =
+          userHierarchy?.config?.siblings?.sub_merchants ?? [];
+        if (Array.isArray(subMerchants) && subMerchants.length > 0) {
+          merchant_user_id = [...merchant_user_id, ...subMerchants];
+          filters.merchant_id = await fetchMerchantIds(merchant_user_id);
+        } else {
+          filters.merchant_id = await fetchMerchantIds([user_id]);
+        }
+      } else if (designation === Role.SUB_MERCHANT) {
+        filters.merchant_id = await fetchMerchantIds([user_id]);
+      } else if (designation === Role.MERCHANT_OPERATIONS && userHierarchy) {
+        const parentID = userHierarchy?.config?.parent;
+        if (parentID) {
+          const parentHierarchys = await getUserHierarchysDao({
+            user_id: parentID,
+          });
+          const parentHierarchy = parentHierarchys?.[0];
+          const subMerchants =
+            parentHierarchy?.config?.siblings?.sub_merchants ?? [];
+
+          const userIdFilter = [...new Set([parentID, ...subMerchants])];
+          filters.merchant_id = await fetchMerchantIds(userIdFilter);
+        }
       }
-      const searchTerms = filters.search
-        .split(',')
-        .map((term) => term.trim())
-        .filter((term) => term.length > 0);
-  
-      if (searchTerms.length === 0) {
-        throw new BadRequestError('Please provide valid search terms');
+    } else if (role === Role.VENDOR) {
+      if (designation === Role.VENDOR) {
+        filters.vendor_id = await fetchVendorIds([user_id]);
+      } else if (designation === Role.VENDOR_OPERATIONS) {
+        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const parentID = userHierarchys?.[0]?.config?.parent;
+        if (parentID) {
+          filters.vendor_id = await fetchVendorIds([parentID]);
+        }
       }
-      const offset = (pageNum - 1) * limitNum;
-  
-      // const filterColumns =
-      //   role === Role.MERCHANT
-      //     ? merchantColumns.SETTLEMENT
-      //     : role === Role.VENDOR
-      //       ? vendorColumns.SETTLEMENT
-      //       : columns.SETTLEMENT;
-      // TODO: add designation constants
-  
-      const data = await getPayoutsBySearchDao(
-        filters,
-        searchTerms,
-        limitNum,
-        offset,
-        role
-        // filterColumns,
-      );
-  
-      return data;
-    } catch (error) {
-      console.error('Error while fetching Payout by search', error);
-      throw new InternalServerError(error.message);
     }
-  };
-  
+
+    const pageNum = parseInt(filters.page);
+    const limitNum = parseInt(filters.limit);
+    if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
+      throw new BadRequestError('Invalid pagination parameters');
+    }
+    const searchTerms = filters.search
+      .split(',')
+      .map((term) => term.trim())
+      .filter((term) => term.length > 0);
+
+    if (searchTerms.length === 0) {
+      throw new BadRequestError('Please provide valid search terms');
+    }
+    const offset = (pageNum - 1) * limitNum;
+
+    // const filterColumns =
+    //   role === Role.MERCHANT
+    //     ? merchantColumns.SETTLEMENT
+    //     : role === Role.VENDOR
+    //       ? vendorColumns.SETTLEMENT
+    //       : columns.SETTLEMENT;
+    // TODO: add designation constants
+
+    const data = await getPayoutsBySearchDao(
+      filters,
+      searchTerms,
+      limitNum,
+      offset,
+      role,
+      // filterColumns,
+    );
+
+    return data;
+  } catch (error) {
+    console.error('Error while fetching Payout by search', error);
+    throw new InternalServerError(error.message);
+  }
+};
 
 const updatePayoutService = async (conn, ids, payload, role) => {
   try {
@@ -271,12 +386,15 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
 
     // Calculate merchant commission based on percentage
-    const merchantCommissionPercent = Number(data.payout_merchant_commission) || 0;
-    const merchantCommissionAmount = (Number(data.amount) * merchantCommissionPercent) / 100;
+    const merchantCommissionPercent =
+      Number(data.payout_merchant_commission) || 0;
+    const merchantCommissionAmount =
+      (Number(data.amount) * merchantCommissionPercent) / 100;
 
     // Calculate vendor commission based on percentage
     const vendorCommissionPercent = Number(vendor.payout_commission) || 0;
-    const vendorCommissionAmount = (Number(data.amount) * vendorCommissionPercent) / 100;
+    const vendorCommissionAmount =
+      (Number(data.amount) * vendorCommissionPercent) / 100;
 
     if (data.status === Status.APPROVED) {
       const netBalance = await updatePayoutCalculations(
@@ -318,11 +436,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       );
       await updatePayoutDao(
         ids,
-        { 
+        {
           payout_merchant_commission: merchantCommissionPercent,
-          payout_vendor_commission: vendorCommissionPercent 
+          payout_vendor_commission: vendorCommissionPercent,
         },
-        conn
+        conn,
       );
     } else if (data.status === Status.REJECTED) {
       const netBalance = await updatePayoutCalculations(
@@ -430,7 +548,7 @@ const updatePayoutCalculations = async (
     cal,
     isMerchant,
     isReverse,
-    amount
+    amount,
   );
 
   await updateCalculationDao(
