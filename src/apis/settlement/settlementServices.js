@@ -49,7 +49,7 @@ const getSettlementServiceById = async (ids) => {
   }
 };
 
-const getSettlementService = async (ids, filters, page, limit, sortBy, sortOrder, role, user_id, designation) => {
+const getSettlementService = async (ids, filters, page, limit, sortBy, sortOrder, role, user_id) => {
   try {
     // Validate required parameters
     if (!ids?.company_id) {
@@ -74,7 +74,7 @@ const getSettlementService = async (ids, filters, page, limit, sortBy, sortOrder
     if (role == Role.VENDOR) {
       filters.user_id = [user_id]
     }
-    if (role === Role.MERCHANT || designation === Role.MERCHANT_OPERATIONS) {
+    if (role === Role.MERCHANT) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
       if (userHierarchys || userHierarchys.length > 0) {
         const userHierarchy = userHierarchys[0];
