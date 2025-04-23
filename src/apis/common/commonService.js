@@ -7,7 +7,6 @@ import { getVendorsDao } from '../vendors/vendorDao.js';
 
 export const getTotalCountService = async (tablename, role, filters, userInfo) => {
   try {
-    console.log({ filters, userInfo, tablename, role });
 
     const isMerchantOrVendor = userInfo.userRole === Role.MERCHANT || userInfo.userRole === Role.VENDOR;
     const isOperations = userInfo.designation === Role.MERCHANT_OPERATIONS || userInfo.designation === Role.VENDOR_OPERATIONS;
@@ -28,16 +27,12 @@ export const getTotalCountService = async (tablename, role, filters, userInfo) =
       return [...subMerchants, ...ops, ...subOps];
     };
 
-    // Helper to fetch merchant IDs
     const fetchMerchantIds = async (userIds) => (await getMerchantsDao({ user_id: userIds })).map(m => m.id);
 
-    // Helper to fetch bank IDs
     const fetchBankIds = async (userId) => (await getBankaccountDao({ user_id: userId, bank_used_for: 'PayIn' })).map(b => b.id);
 
-    // Helper to fetch vendor IDs
     const fetchVendorIds = async (userIds) => (await getVendorsDao({ user_id: userIds })).map(v => v.id);
 
-    // Common logic for user filtering
     const applyUserFilter = async (hierarchy, includeParent = false) => {
       userIdFilter.push(userInfo.user_id);
       if (includeParent && isOperations) {
@@ -102,6 +97,7 @@ export const getTotalCountService = async (tablename, role, filters, userInfo) =
           userIdFilter.push(...(await fetchMerchantIds([userInfo.user_id])));
         } else if (isOperations) {
           const parentId = hierarchy?.config?.parent;
+          userIdFilter.push(parentId);
           if (parentId) {
             const parentHierarchy = await getHierarchy(parentId);
             const subMerchants = parentHierarchy?.config?.siblings?.sub_merchants ?? [];
@@ -147,7 +143,6 @@ export const getTotalCountService = async (tablename, role, filters, userInfo) =
       filters.user_id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
 
-    console.log({ filters });
     return await getTotalCountDao(tablename, role, filters);
   } catch (error) {
     console.error(`Error in getTotalCountService for table ${tablename}:`, error);
