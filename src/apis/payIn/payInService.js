@@ -1409,7 +1409,7 @@ export const processPayInByImageService = async (conn, payload) => {
   const content = await getImageContentFromOCr(base64Image);
   let payInData;
   payInData = await getPayInUrlService(merchantOrderId);
-  if (!content) {
+  if (!content || !content.utr) {
     const payIn = await updatePayInUrlDao(payInData.id, {
       status: Status.IMG_PENDING,
       amount: payload.amount,
@@ -1419,7 +1419,7 @@ export const processPayInByImageService = async (conn, payload) => {
     });
 
     return {
-      status: 'Not Found',
+      status: 'IMG_PENDING',
       amount: payload.amount,
       merchant_order_id: merchantOrderId,
       return_url: payIn.config?.urls?.return,
