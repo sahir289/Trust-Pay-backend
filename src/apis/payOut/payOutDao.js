@@ -5,6 +5,7 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
+import { logger } from '../../utils/logger.js';
 
 export const createPayoutDao = async (conn, data) => {
   try {
@@ -181,6 +182,7 @@ export const getPayoutsDao = async (
     throw error.message;
   }
 };
+
 export const getPayoutsBySearchDao = async (
   filters,
   searchTerms,
@@ -189,11 +191,42 @@ export const getPayoutsBySearchDao = async (
   role,
 ) => {
   try {
-    const conditions = [];
-    const values = [filters.company_id];
+    const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
+    const queryParams = [filters.company_id];
     let paramIndex = 2;
-    let commissionSelect = '';
+    const handledKeys = new Set(['status']);
+    const validColumns = new Set([
+      'id',
+      'sno',
+      'user',
+      'bank_acc_id',
+      'amount',
+      'status',
+      'merchant_order_id',
+      'failed_reason',
+      'currency',
+      'upi_id',
+      'utr_id',
+      'rejected_reason',
+      'config',
+      'payout_merchant_commission',
+      'payout_vendor_commission',
+      'approved_at',
+      'created_by',
+      'updated_by',
+      'created_at',
+      'updated_at',
+      'is_obsolete',
+      'company_id',
+      'merchant_id',
+      'vendor_id',
+      'acc_holder_name',
+      'acc_no',
+      'ifsc_code',
+      'bank_name',
+    ]);
 
+    let commissionSelect = '';
     if (role === 'MERCHANT') {
       commissionSelect = `
         p.payout_merchant_commission, 
@@ -264,13 +297,11 @@ export const getPayoutsBySearchDao = async (
       LEFT JOIN public."Merchant" m ON p.merchant_id = m.id
       LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
       LEFT JOIN public."Vendor" v ON p.vendor_id = v.id
-      WHERE p.is_obsolete = false 
-      AND p.company_id = $1
+      WHERE ${conditions.join(' AND ')}
     `;
 
     if (filters.status) {
       let statusArray;
-
       if (Array.isArray(filters.status)) {
         statusArray = filters.status
           .map((s) => String(s).trim())
@@ -282,10 +313,9 @@ export const getPayoutsBySearchDao = async (
           .filter((s) => s);
       }
       statusArray = [...new Set(statusArray)];
-
       if (statusArray.length > 0) {
         queryText += ` AND p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
-        values.push(...statusArray);
+        queryParams.push(...statusArray);
         paramIndex += statusArray.length;
       }
     }
@@ -301,7 +331,7 @@ export const getPayoutsBySearchDao = async (
             OR LOWER(p.currency) LIKE LOWER($${paramIndex})
             OR LOWER(p.upi_id) LIKE LOWER($${paramIndex})
             OR LOWER(p.utr_id) LIKE LOWER($${paramIndex})
-             OR LOWER(p.status) LIKE LOWER($${paramIndex})
+            OR LOWER(p.status) LIKE LOWER($${paramIndex})
             OR LOWER(p.rejected_reason) LIKE LOWER($${paramIndex})
             OR LOWER(b.nick_name) LIKE LOWER($${paramIndex})
             OR LOWER(m.code) LIKE LOWER($${paramIndex})
@@ -315,41 +345,78 @@ export const getPayoutsBySearchDao = async (
             OR LOWER(p.bank_name) LIKE LOWER($${paramIndex})
           )
         `);
-        values.push(`%${term}%`);
+        queryParams.push(`%${term}%`);
         paramIndex++;
       }
     });
 
-    if (conditions.length > 0) {
-      queryText += ' AND (' + conditions.join(' OR ') + ')';
+    Object.entries(filters).forEach(([key, value]) => {
+      if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
+        if (!validColumns.has(key) && key !== 'status') {
+          logger.warn(`Invalid filter key ignored: ${key}`);
+        }
+        return;
+      }
+      const nextParamIdx = queryParams.length + 1;
+      if (Array.isArray(value)) {
+        const placeholders = value
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        conditions.push(`p.${key} IN (${placeholders})`);
+        queryParams.push(...value);
+      } else {
+        const isMultiValue = typeof value === 'string' && value.includes(',');
+        const valueArray = isMultiValue
+          ? value.split(',').map((v) => v.trim())
+          : [value];
+        const placeholders = valueArray
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        conditions.push(
+          isMultiValue
+            ? `p.${key} IN (${placeholders})`
+            : `p.${key} = $${nextParamIdx}`,
+        );
+        queryParams.push(...valueArray);
+      }
+    });
+
+    if (conditions.length > 2) {
+      queryText += ' AND (' + conditions.slice(2).join(' AND ') + ')';
     }
 
     const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
 
     queryText += `
       ORDER BY p.id, p.created_at DESC
-      LIMIT $${paramIndex}
-      OFFSET $${paramIndex + 1}
+      LIMIT $${queryParams.length + 1}
+      OFFSET $${queryParams.length + 2}
     `;
-    values.push(limitNum, offset);
+    queryParams.push(limitNum, offset);
 
-    const countResult = await executeQuery(countQuery, values.slice(0, -2));
-    const searchResult = await executeQuery(queryText, values);
+    const expectedParamCount = (queryText.match(/\$\d+/g) || []).length;
+    if (expectedParamCount !== queryParams.length) {
+      logger.warn('⚠️ Placeholder count does not match parameter count!');
+      logger.warn(`Expected: ${expectedParamCount}, Got: ${queryParams.length}`);
+    }
+
+    const countResult = await executeQuery(countQuery, queryParams.slice(0, -2));
+    const searchResult = await executeQuery(queryText, queryParams);
 
     const totalItems = parseInt(countResult.rows[0].total);
     const totalPages = Math.ceil(totalItems / limitNum);
 
-    const data = {
+    return {
       totalCount: totalItems,
       totalPages,
       payout: searchResult.rows,
     };
-    return data;
   } catch (error) {
-    console.error('Error in getPayoutsBySearchDao:', error);
-    throw new Error(error.message);
+    logger.error('Error in getPayoutsBySearchDao:', error);
+    throw error.message;
   }
 };
+
 export const getPayoutsCronDao = async (conn, payload) => {
   try {
     let baseQuery = `SELECT * FROM public."Payout" 

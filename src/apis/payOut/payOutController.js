@@ -66,7 +66,7 @@ const getPayouts = async (req, res) => {
 };
 
 const getPayoutsBySearch = async (req, res) => {
-  const { company_id, role } = req.user;
+  const { company_id, role, user_id, designation } = req.user;
   const { search, page = 1, limit = 10 } = req.query;
   if (!search) {
     throw new BadRequestError('search is required');
@@ -80,6 +80,8 @@ const getPayoutsBySearch = async (req, res) => {
       ...req.query,
     },
     role,
+    user_id,
+    designation,
   );
   console.log('get Payouts successfully');
   return sendSuccess(res, data, 'Payouts fetched successfully');
