@@ -390,8 +390,17 @@ export const checkPayInStatusService = async (
     id: payInId,
     merchant_order_id: merchantOrderId,
   });
+
   if (!payIn) {
     throw new NotFoundError('payIn not found');
+  }
+
+  let botResponse;
+  if (payIn.bank_response_id) {
+    botResponse = await getBankResponseDao({
+      id: payIn.bank_response_id,
+      company_id: payIn.company_id,
+    });
   }
 
   return {
@@ -399,6 +408,7 @@ export const checkPayInStatusService = async (
     merchantOrderId: payIn.merchant_order_id,
     amount: payIn.amount,
     payinId: payIn.id,
+    utr_id: [Status.INITIATED, Status.ASSIGNED, Status.DROPPED].includes(payIn.status) ? null : botResponse.utr ? botResponse.utr : payIn.user_submitted_utr,
   };
 };
 
