@@ -36,7 +36,6 @@ const createPayout = async (req, res) => {
   return sendSuccess(res, {}, 'Payout created successfully');
 };
 
-
 const getPayoutsById = async (req, res) => {
   const joiValidation = VALIDATE_PAYOUT_BY_ID.validate(req.params);
   if (joiValidation.error) {
@@ -50,16 +49,24 @@ const getPayoutsById = async (req, res) => {
 };
 
 const getPayouts = async (req, res) => {
-  const { company_id, role } = req.user;  
-  const {page, limit} = req.query;
+  const { company_id, role, user_id, designation } = req.user;
+  const { page, limit } = req.query;
   delete req.query.limit;
   delete req.query.page;
-  const data = await getPayoutsService(company_id ,page,limit, req.query, role);
+  const data = await getPayoutsService(
+    company_id,
+    page,
+    limit,
+    req.query,
+    role,
+    user_id,
+    designation,
+  );
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };
- 
+
 const getPayoutsBySearch = async (req, res) => {
-  const { company_id, role } = req.user;
+  const { company_id, role, user_id, designation } = req.user;
   const { search, page = 1, limit = 10 } = req.query;
   if (!search) {
     throw new BadRequestError('search is required');
@@ -73,6 +80,8 @@ const getPayoutsBySearch = async (req, res) => {
       ...req.query,
     },
     role,
+    user_id,
+    designation,
   );
   console.log('get Payouts successfully');
   return sendSuccess(res, data, 'Payouts fetched successfully');
@@ -84,7 +93,7 @@ const updatePayout = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  
+
   const { id } = req.params;
   const { company_id, role, user_id } = req.user;
   payload.updated_by = user_id;
@@ -111,4 +120,11 @@ const deletePayout = async (req, res) => {
   return sendSuccess(res, {}, 'Payout deleted successfully');
 };
 
-export { createPayout,getPayoutsBySearch, getPayouts, updatePayout, deletePayout, getPayoutsById };
+export {
+  createPayout,
+  getPayoutsBySearch,
+  getPayouts,
+  updatePayout,
+  deletePayout,
+  getPayoutsById,
+};

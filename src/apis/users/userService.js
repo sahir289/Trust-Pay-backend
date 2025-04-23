@@ -325,8 +325,8 @@ const createUserService = async (conn, payload, role, designation) => {
   ///for operations
 
   if (
-    userDesignation[0].designation == Role.MERCHANT_OPERATIONS ||
-    userDesignation[0].designation == Role.VENDOR_OPERATIONS
+    userDesignation[0]?.designation == Role.MERCHANT_OPERATIONS ||
+    userDesignation[0]?.designation == Role.VENDOR_OPERATIONS
   ) {
     const hierarchy = await getUserHierarchysDao({
       user_id:
@@ -360,8 +360,8 @@ const createUserService = async (conn, payload, role, designation) => {
 
   ///for merchant sub-merchant
   if (
-    userDesignation[0].designation === Role.MERCHANT ||
-    userDesignation[0].designation === Role.SUB_MERCHANT
+    userDesignation[0]?.designation === Role.MERCHANT ||
+    userDesignation[0]?.designation === Role.SUB_MERCHANT
   ) {
     const Private = generateUUID();
     const Public = generateUUID();
@@ -404,7 +404,7 @@ const createUserService = async (conn, payload, role, designation) => {
     await createMerchantService(conn, merchantPayload);
   }
   ///for vendor
-  if (userDesignation[0].designation === Role.VENDOR) {
+  if (userDesignation[0]?.designation === Role.VENDOR) {
     const vendorPayload = {
       user_id: User.id,
       role_id: payload.role_id,
