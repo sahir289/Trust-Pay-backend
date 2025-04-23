@@ -59,3 +59,12 @@ export const VALIDATE_PAYOUT_BY_ID = Joi.object({
       'any.required': 'ID is required',
     }),
 });
+
+export const VALIDATE_CHECK_PAY_OUT_STATUS = Joi.object({
+  payOutId: Joi.string()
+    .guid({ version: ['uuidv4'] })
+    .label('payOutId')
+    .required(),
+  merchantCode: Joi.string().label('merchantCode').required(),
+  merchantOrderId: Joi.string().label('merchantOrderId').required(),
+});

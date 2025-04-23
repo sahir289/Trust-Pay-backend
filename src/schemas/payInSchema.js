@@ -8,7 +8,7 @@ export const ASSIGN_PAYIN_SCHEMA = Joi.object({
   api_key: Joi.string().label('api_key').optional(),
   merchant_order_id: Joi.string().label('merchant_order_id').optional(),
   user_id: Joi.string().label('user_id').required(),
-  key: Joi.string().label('key').required(),
+  key: Joi.string().label('key').optional(),
   hash_code: Joi.string().label('hash_code').optional(),
 });
 

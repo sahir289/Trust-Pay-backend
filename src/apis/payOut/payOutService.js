@@ -73,6 +73,9 @@ const createPayoutService = async (conn, headers, payload, role) => {
         notify: callbackUrl || details[0].config?.urls?.payin_notify || '',
       },
     });
+    payload.company_id = details[0].company_id;
+    payload.created_by = user_id ? user_id : null;
+    payload.updated_by = user_id ? user_id : null;
 
     if (!x_api_key || !merchantAPIKey) {
       throw new BadRequestError(400, 'Missing API key or Merchant Keys');
@@ -843,9 +846,47 @@ const ekoWalletBalanceEnquiryInternally = async () => {
   }
 };
 
+// Public API Used by Merchants
+const checkPayOutStatusService = async (
+  payOutId,
+  merchantCode,
+  merchantOrderId,
+  api_key,
+) => {
+  const merchantArr = await getMerchantsDao({ code: merchantCode });
+  const merchant = merchantArr[0];
+  if (!merchant) {
+    throw new NotFoundError('Merchant does not exist');
+  }
+
+  const merchantConfig = merchant.config || {};
+
+  if (api_key != merchantConfig.keys?.private && api_key != merchantConfig.keys?.public) {
+    throw new BadRequestError(403, 'Enter a valid API key');
+  }
+  
+  const payOut = await getPayoutsDao({
+    id: payOutId,
+    merchant_order_id: merchantOrderId,
+  });
+
+  if (!payOut) {
+    throw new NotFoundError('payOut not found');
+  }
+
+  return {
+    status: payOut[0].status,
+    merchantOrderId: payOut[0].merchant_order_id,
+    amount: payOut[0].amount,
+    payoutId: payOut[0].id,
+    utr_id: payOut[0].utr_id,
+  };
+};
+
 export {
   createPayoutService,
   getPayoutsService,
+  checkPayOutStatusService,
   getPayoutsBySearchService,
   updatePayoutService,
   deletePayoutService,

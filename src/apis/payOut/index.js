@@ -7,6 +7,7 @@ import {
   updatePayout,
   getPayoutsById,
   getPayoutsBySearch,
+  checkPayOutStatus,
 } from './payOutController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -121,9 +122,34 @@ router.get(
  */
 router.post(
   '/create-payout',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  // [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(createPayout),
 );
+
+/**
+ * @swagger
+ * /payout/check-payout-status:
+ *   post:
+ *     summary: Check Pay-Out Status
+ *     description: Checks the status of a specific Pay-In URL.
+ *     tags: [PayOut]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               payInId:
+ *                 type: string
+ *                 example: "12345"
+ *     responses:
+ *       200:
+ *         description: Pay-Out status retrieved successfully.
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/check-payout-status', tryCatchHandler(checkPayOutStatus));
 
 /**
  * @swagger

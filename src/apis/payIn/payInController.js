@@ -60,8 +60,10 @@ export const generatePayInUrl = async (req, res) => {
   const x_api_key = req.headers['x-api-key'];
   const { code, key, hash_code } = payload;
 
+  const apiKey = key ? key : x_api_key;
+
   // Fetch the merchant using the code and API public key
-  const merchant = await getMerchantByCodeAndApiKey(code, key);
+  const merchant = await getMerchantByCodeAndApiKey(code, apiKey);
   if (!merchant) {
     throw new BadRequestError('Invalid merchant code or API key');
   }
