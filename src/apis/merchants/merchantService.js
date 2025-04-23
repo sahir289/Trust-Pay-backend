@@ -347,7 +347,13 @@ return {
 };
 
 
-const getMerchantsServiceCode = async (filters, role, designation, user_id,includeSubMerchants) => {
+const getMerchantsServiceCode = async (
+  filters,
+  role,
+  designation,
+  user_id,
+  includeSubMerchants,
+) => {
   let conn;
   try {
     conn = await getConnection();
@@ -372,7 +378,6 @@ const getMerchantsServiceCode = async (filters, role, designation, user_id,inclu
         if (parentUserId && !userIdFilter.includes(parentUserId)) {
           userIdFilter.push(parentUserId);
         }
-
         if (parentUserId) {
           const parentHierarchys = await getUserHierarchysDao({
             user_id: parentUserId,
@@ -394,51 +399,7 @@ const getMerchantsServiceCode = async (filters, role, designation, user_id,inclu
       delete filters.user_id;
     }
 
-    const codes = await getMerchantsCodeDao(conn, filters);
-   if (
-     role === Role.ADMIN &&
-     (designation === Role.ADMIN || designation === Role.TRANSACTIONS) &&
-     includeSubMerchants
-   ) {
-     const subMerchantMap = {};
-     const allSubMerchantIds = [];
-
-     for (const merchant of codes) {
-       const userHierarchys = await getUserHierarchysDao({
-         user_id: merchant.value,
-       });
-       const subMerchants =
-         userHierarchys?.[0]?.config?.siblings?.sub_merchants ?? [];
-
-       if (subMerchants.length) {
-         subMerchantMap[merchant.value] = subMerchants;
-         allSubMerchantIds.push(...subMerchants);
-       }
-     }
-
-     const uniqueSubMerchantIds = [...new Set(allSubMerchantIds)];
-     const allSubMerchants = uniqueSubMerchantIds.length
-       ? await getMerchantsCodeDao(conn, {
-           user_id: uniqueSubMerchantIds,
-           company_id: filters.company_id,
-         })
-       : [];
-
-     // Group by user_id for fast lookup
-     const subMerchantGroup = {};
-     for (const sm of allSubMerchants) {
-       subMerchantGroup[sm.value] = sm;
-     }
-
-     // Assign subMerchants
-     for (const merchant of codes) {
-       const ids = subMerchantMap[merchant.value] ?? [];
-       merchant.submerchants = ids
-         .map((id) => subMerchantGroup[id])
-         .filter(Boolean);
-     }
-   }
-
+    const codes = await getMerchantsCodeDao(conn, filters, includeSubMerchants);
     await commit(conn);
     return codes;
   } catch (error) {
