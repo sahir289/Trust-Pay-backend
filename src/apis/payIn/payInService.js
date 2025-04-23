@@ -381,16 +381,17 @@ export const checkPayInStatusService = async (
   }
 
   const merchantConfig = merchant.config || {};
+
+  if (api_key != merchantConfig.keys?.private && api_key != merchantConfig.keys?.public) {
+    throw new BadRequestError(403, 'Enter a valid API key');
+  }
+  
   const payIn = await getPayInUrlDao({
     id: payInId,
     merchant_order_id: merchantOrderId,
   });
   if (!payIn) {
     throw new NotFoundError('payIn not found');
-  }
-
-  if (api_key != merchantConfig.keys?.private) {
-    throw new BadRequestError('Invalid PayIn!');
   }
 
   return {
