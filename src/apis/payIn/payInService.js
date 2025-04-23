@@ -1259,20 +1259,15 @@ export const telegramResponseService = async (conn, message) => {
     return;
   }
 
-  const payIn = await getPayInUrlDao({ merchant_order_id: message.caption });
-  const bankResponse = await getBankResponseDao({ utr: content.utr });
-  const otheBankResponsePayIns = await getPayInUrlsDao({
-    bank_response_id: payIn?.bank_response_id,
-  });
-  const otherUtrPayIns = await getPayInUrlsDao({
-    user_submitted_utr: content.utr,
-  });
-  const otherBotResponsePayins = await getPayInUrlsDao({
-    bank_response_id: bankResponse?.id,
-  });
+  // Fetch initial data concurrently
+  const [payIn, bankResponse] = await Promise.all([
+    getPayInUrlDao({ merchant_order_id: message.caption }),
+    getBankResponseDao({ utr: content.utr }),
+  ]);
 
+  // Early validation for missing critical data
   if (!payIn) {
-    sendErrorMessageTelegram(
+    await sendErrorMessageTelegram(
       message.chat?.id,
       message.caption,
       TELEGRAM_BOT_TOKEN,
@@ -1282,7 +1277,7 @@ export const telegramResponseService = async (conn, message) => {
   }
 
   if (!bankResponse) {
-    sendErrorMessageNoDepositFoundTelegramBot(
+    await sendErrorMessageNoDepositFoundTelegramBot(
       message.chat?.id,
       content.utr,
       TELEGRAM_BOT_TOKEN,
@@ -1291,13 +1286,37 @@ export const telegramResponseService = async (conn, message) => {
     return;
   }
 
+  // Fetch related pay-in URLs concurrently
+  const [otherBankResponsePayIns, otherUtrPayIns, otherBotResponsePayIns] =
+    await Promise.all([
+      payIn.bank_response_id
+        ? getPayInUrlsDao({ bank_response_id: payIn.bank_response_id })
+        : Promise.resolve([]),
+      getPayInUrlsDao({ user_submitted_utr: content.utr }),
+      bankResponse.id
+        ? getPayInUrlsDao({ bank_response_id: bankResponse.id })
+        : Promise.resolve([]),
+    ]);
+
+  // Check for duplicates
+  const hasDuplicate = otherUtrPayIns.some(
+    (item) => item.status === Status.DUPLICATE,
+  );
+
+  // Conditionally refresh otherBotResponsePayIns only if duplicate is found
+  const updatedBotResponsePayIns =
+    hasDuplicate || bankResponse.id
+      ? await getPayInUrlsDao({ bank_response_id: bankResponse.id })
+      : otherBotResponsePayIns;
+
+  // Handle already notified or confirmed cases
   if (
     payIn.is_notified &&
     [Status.SUCCESS, Status.BANK_MISMATCH, Status.DISPUTE].includes(
       payIn.status,
     )
   ) {
-    sendAlreadyConfirmedMessageTelegramBot(
+    await sendAlreadyConfirmedMessageTelegramBot(
       message.chat.id,
       content.utr,
       TELEGRAM_BOT_TOKEN,
@@ -1308,9 +1327,14 @@ export const telegramResponseService = async (conn, message) => {
     return;
   }
 
-  if (payIn.status === Status.PENDING && (payIn.user_submitted_utr !== content.utr)) {
-    sendUTRMismatchErrorMessageTelegram(
+  // Handle UTR mismatch
+  if (
+    payIn.status === Status.PENDING &&
+    payIn.user_submitted_utr !== content.utr
+  ) {
+    await sendUTRMismatchErrorMessageTelegram(
       message.chat?.id,
+      content.utr,
       payIn.user_submitted_utr,
       TELEGRAM_BOT_TOKEN,
       message.message_id,
@@ -1318,26 +1342,43 @@ export const telegramResponseService = async (conn, message) => {
     return;
   }
 
+  // Handle duplicate status
   if (payIn.status === Status.DUPLICATE) {
-    sendMerchantOrderIDStatusDuplicateTelegramMessage(
-      message.chat.id,
-      payIn,
-      content.utr,
-      TELEGRAM_BOT_TOKEN,
-      message.message_id,
-      otherUtrPayIns,
-    );
-    return;
+    if (hasDuplicate) {
+      await sendMerchantOrderIDStatusDuplicateTelegramMessage(
+        message.chat.id,
+        payIn,
+        content.utr,
+        TELEGRAM_BOT_TOKEN,
+        message.message_id,
+        otherBotResponsePayIns,
+      );
+      return;
+    }
+    else {
+      await sendMerchantOrderIDStatusDuplicateTelegramMessage(
+        message.chat.id,
+        payIn,
+        content.utr,
+        TELEGRAM_BOT_TOKEN,
+        message.message_id,
+        otherUtrPayIns,
+      );
+      return;
+    }
   }
 
+  // Determine duplicate entries
   const duplicateEntry =
-    otheBankResponsePayIns.length > 1
-      ? otheBankResponsePayIns
+    otherBankResponsePayIns.length > 1
+      ? otherBankResponsePayIns
       : otherUtrPayIns.length > 0
         ? otherUtrPayIns
-        : otherBotResponsePayins;
+        : updatedBotResponsePayIns;
+
+  // Handle used bank response or duplicate entries
   if (bankResponse.is_used || duplicateEntry.length) {
-    sendAlreadyConfirmedMessageTelegramBot(
+    await sendAlreadyConfirmedMessageTelegramBot(
       message.chat.id,
       content.utr,
       TELEGRAM_BOT_TOKEN,

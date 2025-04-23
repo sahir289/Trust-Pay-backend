@@ -291,12 +291,13 @@ export async function sendErrorMessageTelegram(
 
 export async function sendUTRMismatchErrorMessageTelegram(
   chatId,
+  utr,
   userSubmittedUtr,
   TELEGRAM_BOT_TOKEN,
   replyToMessageId,
 ) {
   // Construct the error message
-  const message = `⛔ UTR does not match with the UTR submitted by the user - ${userSubmittedUtr}`;
+  const message = `⛔ UTR - ${utr} does not match with the UTR submitted by the user - ${userSubmittedUtr}`;
 
   const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
   logger.log(success ? 'Sent!' : 'Not sent.');
@@ -414,7 +415,7 @@ export async function sendAlreadyConfirmedMessageTelegramBot(
   } else {
     if (getPayInData.user_submitted_utr) {
       if (getPayInData.status === 'SUCCESS') {
-        message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
+        message = `✅ Merchant Order ID: ${getPayInData.merchant_order_id}
                   is Already Confirmed with UTR: ${getPayInData.user_submitted_utr}`;
       } else {
         message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
@@ -427,8 +428,8 @@ export async function sendAlreadyConfirmedMessageTelegramBot(
         company_id: getPayInData.company_id,
       })
       if (getPayInData.status === 'SUCCESS') {
-        message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
-                  is Already Confirmed with UTR: ${botResponse.user_submitted_utr}`;
+        message = `✅ Merchant Order ID: ${getPayInData.merchant_order_id}
+                  is Already Confirmed with UTR: ${botResponse.utr}`;
       } else {
         message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
                   is Already Marked ${getPayInData.status} with UTR: ${botResponse.utr}`;
@@ -471,7 +472,7 @@ export async function sendMerchantOrderIDStatusDuplicateTelegramMessage(
   } else {
     if (getPayInData.user_submitted_utr) {
       if (getPayInData.status === 'SUCCESS') {
-        message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
+        message = `✅ Merchant Order ID: ${getPayInData.merchant_order_id}
                   is Already Confirmed with UTR: ${getPayInData.user_submitted_utr}`;
       } else {
         message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
@@ -484,7 +485,7 @@ export async function sendMerchantOrderIDStatusDuplicateTelegramMessage(
         company_id: getPayInData.company_id,
       })
       if (getPayInData.status === 'SUCCESS') {
-        message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
+        message = `✅ Merchant Order ID: ${getPayInData.merchant_order_id}
                   is Already Confirmed with UTR: ${botResponse.user_submitted_utr}`;
       } else {
         message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
