@@ -36,6 +36,7 @@ import { getCalculationforCronDao, updateCalculationBalanceDao } from '../calcul
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { filterResponse } from '../../helpers/index.js';
 import { notifyNewTableEntry } from '../../utils/sockets.js';
+import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
 
 const createBankResponseService = async (conn, payload, companyId, role, name) => {
   
@@ -165,7 +166,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
     null,
     role,
   );
-  await updateBankaccountDao(
+ await updateBankaccountDao(
     { id: botRes?.bank_id },
     {
       balance: parseFloat(bankdetails[0].balance) + parseFloat(botRes.amount),
@@ -173,6 +174,11 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
       payin_count: parseFloat(bankdetails[0].payin_count + 1),
     },
     conn,
+  );
+  await updateBankaccountService(
+    conn,
+    { id: botRes?.bank_id, company_id: companyId },
+    {},
   );
   const vendor = await getVendorsDao(
     {

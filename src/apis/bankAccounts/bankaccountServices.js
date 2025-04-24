@@ -153,6 +153,7 @@ const updateBankaccountService = async (conn, ids, payload) => {
       }
     }
 
+    const payloadData = JSON.parse(JSON.stringify(payload));
     if (Object.keys(payload).length > 0) {
       result = await updateBankaccountDao(
         { id: ids.id, company_id: ids.company_id },
@@ -160,17 +161,16 @@ const updateBankaccountService = async (conn, ids, payload) => {
         conn,
       );
     }
-
-    if (payload?.config?.is_freezed === true) {
+    if (payloadData?.config?.is_freeze === true) {
       const bankResponse = await getBankResponseDaoAll({
         bank_id: ids.id,
         is_used: false,
-      });
-      if (bankResponse.length > 0) {
-        for (let i = 0; i < bankResponse.length; i++) {
-          await updateBotResponseDao(bankResponse[i].id, {
+      },null,null,null,null);
+      if (bankResponse.rows.length > 0) {
+        for (let i = 0; i < bankResponse.rows.length; i++) {          
+          await updateBotResponseDao(bankResponse.rows[i].id, {
             status: '/freezed',
-          });
+          });        
         }
       }
     }
