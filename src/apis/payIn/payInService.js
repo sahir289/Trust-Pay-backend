@@ -1529,11 +1529,11 @@ export const disputeDuplicateTransactionService = async (
     }
 
     if (payIn.merchant_id != payInData.merchant_id) {
-      throw BadRequestError('Merchant Mismatched');
+      throw new BadRequestError('Merchant Mismatched');
     }
 
-    if (payIn.user_submitted_utr != bankResponse.utr) {
-      throw BadRequestError(
+    if (payIn.user_submitted_utr && (payIn.user_submitted_utr != bankResponse.utr)) {
+      throw new BadRequestError(
         `UTR ${payIn.user_submitted_utr} MisMatches with ${bankResponse.utr} User Submitted UTR `,
       );
     }
