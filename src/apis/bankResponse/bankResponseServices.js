@@ -155,7 +155,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
     return { message: `Entry with REPEATED UTR Added ${utr}` };
   }
 
-  ////for bank account
+  ////for bank account ////vendor calculation 
   if (botRes.status === '/success') {
   const bankdetails = await getBankaccountDao(
     {
@@ -191,7 +191,17 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
       balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount),
     },
     conn,
+    );
+    const payinVendorCommission = calculateCommission(
+    botRes.amount,
+    vendor[0].payin_commission,
   );
+
+  await updateCalculationTable(vendor[0].user_id, {
+        payinCommission: payinVendorCommission,
+        amount: botRes.amount,
+  });
+     
 }
   const checkPayInUtr = await getPayInUrlsDao({ user_submitted_utr: utr });
   if (checkPayInUtr?.length > 0) {
@@ -246,16 +256,11 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
     if (existingResponse?.length > 0) {
       return { message: `The UTR already exists` };
     }
-    console.log('payInUtr', payInUtr);
     const merchantData = await getMerchantsDao({ id: payInUtr.merchant_id }, null, null, null, null);
     const payinMerchantCommission = calculateCommission(botRes.amount, merchantData[0].payin_commission);
-    console.log('payinMerchantCommission', payinMerchantCommission);
     const bankAccountDetails = await getBankaccountDao({ id: payInUtr.bank_acc_id, company_id }, null, null, role);
-    console.log('bankAccountDetails', bankAccountDetails);
     const vendorData = await getVendorsDao({ user_id: bankAccountDetails[0].user_id }, null, null, null, null);
-    console.log('vendorData', vendorData);
     const payinVendorCommission = calculateCommission(botRes.amount, vendorData[0].payin_commission);
-    console.log('payinVendorCommission', payinVendorCommission);
     const durMs = new Date() - payInUtr.created_at;
     const durSeconds = Math.floor((durMs / 1000) % 60).toString().padStart(2, '0');
     const durMinutes = Math.floor((durSeconds / 60) % 60).toString().padStart(2, '0');
@@ -294,8 +299,6 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
         { balance: merchantData[0].balance + amount },
         conn
         );
-        console.log(vendorData[0], "merchantData.balance")
-        console.log(merchantData[0], "merchantData.user_id")
       await updateCalculationTable(merchantData[0].user_id, {
         payinCommission:payinMerchantCommission,
         amount: botRes.amount,
@@ -340,10 +343,8 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
 };
 
 const updateCalculationTable = async (user_id, data, conn) => {
-    console.log(data, "dataaaa")
   if (user_id) {
     const calculationData = await getCalculationforCronDao(user_id);
-    console.log(calculationData, "calculationData")
     if (!calculationData[0]) {
       throw new NotFoundError('Calculation not found!');
     }
@@ -359,7 +360,7 @@ const updateCalculationTable = async (user_id, data, conn) => {
       { id: calculationId },
       {
         total_payin_count: 1,
-        total_payin_amount: data.amount - data.payinCommission,
+        total_payin_amount: data.amount,
         total_payin_commission: data.payinCommission,
         current_balance: data.amount,
         net_balance: data.amount,
