@@ -7,6 +7,8 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 
+const IST = 'Asia/Kolkata';
+
 export const createPayoutDao = async (conn, data) => {
   try {
     // Ensure `config` is initialized if not provided
@@ -153,7 +155,11 @@ export const getPayoutsDao = async (
             'account_no', u.acc_no,
             'ifsc_code', u.ifsc_code,
             'bank_name', u.bank_name
-          ) AS user_bank_details
+          ) AS user_bank_details,
+          u.created_at AT TIME ZONE '${IST}' as created_at,
+          u.updated_at AT TIME ZONE '${IST}' as updated_at,
+          u.approved_at AT TIME ZONE '${IST}' as approved_at,
+          u.rejected_at AT TIME ZONE '${IST}' as rejected_at
         FROM public."Payout" u
         LEFT JOIN public."Merchant" r ON u.merchant_id = r.id
         LEFT JOIN public."BankAccount" b ON u.bank_acc_id = b.id
@@ -292,7 +298,11 @@ export const getPayoutsBySearchDao = async (
           'account_no', p.acc_no,
           'ifsc_code', p.ifsc_code,
           'bank_name', p.bank_name
-        ) AS user_bank_details
+        ) AS user_bank_details,
+        p.created_at AT TIME ZONE '${IST}' as created_at,
+        p.updated_at AT TIME ZONE '${IST}' as updated_at,
+        p.approved_at AT TIME ZONE '${IST}' as approved_at,
+        p.rejected_at AT TIME ZONE '${IST}' as rejected_at
       FROM public."Payout" p
       LEFT JOIN public."Merchant" m ON p.merchant_id = m.id
       LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
