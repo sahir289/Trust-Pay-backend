@@ -33,7 +33,13 @@ export const getTotalCountDao = async (tableName, role, filters) => {
            const placeholders = value.map(() => `$${paramIndex++}`).join(',');
            query += ` AND "${column}" IN (${placeholders})`;
            params.push(...value);
-         } else {
+         }
+         else if(filters?.startDate && filters?.endDate) {
+           // Handle date range condition
+           query += ` AND created_at BETWEEN $${params.length + 1} AND $${params.length + 2}`;
+           params.push(filters.startDate, filters.endDate);
+         }
+         else {
            // Single value condition
            query += ` AND "${column}" = $${paramIndex++}`;
            params.push(value);
