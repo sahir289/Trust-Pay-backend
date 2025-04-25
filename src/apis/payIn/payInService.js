@@ -382,10 +382,13 @@ export const checkPayInStatusService = async (
 
   const merchantConfig = merchant.config || {};
 
-  if (api_key != merchantConfig.keys?.private && api_key != merchantConfig.keys?.public) {
+  if (
+    api_key != merchantConfig.keys?.private &&
+    api_key != merchantConfig.keys?.public
+  ) {
     throw new BadRequestError(403, 'Enter a valid API key');
   }
-  
+
   const payIn = await getPayInUrlDao({
     id: payInId,
     merchant_order_id: merchantOrderId,
@@ -408,7 +411,13 @@ export const checkPayInStatusService = async (
     merchantOrderId: payIn.merchant_order_id,
     amount: payIn.amount,
     payinId: payIn.id,
-    utr_id: [Status.INITIATED, Status.ASSIGNED, Status.DROPPED].includes(payIn.status) ? null : botResponse.utr ? botResponse.utr : payIn.user_submitted_utr,
+    utr_id: [Status.INITIATED, Status.ASSIGNED, Status.DROPPED].includes(
+      payIn.status,
+    )
+      ? null
+      : botResponse.utr
+        ? botResponse.utr
+        : payIn.user_submitted_utr,
   };
 };
 
@@ -593,12 +602,12 @@ export const updateDepositStatusService = async (
 
   const updatePayInData = {
     status:
-      bank.nick_name != nick_name
+      bank.id != bankResponse.bank_id
         ? Status.BANK_MISMATCH
-        : successData.length
-          ? Status.DUPLICATE
-          : parseFloat(bankResponse.amount) !== parseFloat(payInData.amount)
-            ? Status.DISPUTE
+        : parseFloat(bankResponse.amount) !== parseFloat(payInData.amount)
+          ? Status.DISPUTE
+          : successData.length
+            ? Status.DUPLICATE
             : Status.SUCCESS,
     bank_acc_id: bank.id,
     duration: duration,
@@ -1365,8 +1374,7 @@ export const telegramResponseService = async (conn, message) => {
         otherBotResponsePayIns,
       );
       return;
-    }
-    else {
+    } else {
       await sendMerchantOrderIDStatusDuplicateTelegramMessage(
         message.chat.id,
         payIn,
@@ -1532,7 +1540,10 @@ export const disputeDuplicateTransactionService = async (
       throw new BadRequestError('Merchant Mismatched');
     }
 
-    if (payIn.user_submitted_utr && (payIn.user_submitted_utr != bankResponse.utr)) {
+    if (
+      payIn.user_submitted_utr &&
+      payIn.user_submitted_utr != bankResponse.utr
+    ) {
       throw new BadRequestError(
         `UTR ${payIn.user_submitted_utr} MisMatches with ${bankResponse.utr} User Submitted UTR `,
       );
