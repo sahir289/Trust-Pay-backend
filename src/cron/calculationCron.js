@@ -1,34 +1,43 @@
 import cron from 'node-cron';
-import moment from 'moment-timezone';
-// import config from '../config/config.js';
-import { 
-  // executeQuery, 
-  transactionWrapper 
-} from '../utils/db.js';
-import { createCalculationDao } from '../apis/calculation/calculationDao.js';
-import { getCalculationforCronDao } from '../apis/calculation/calculationDao.js';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc.js';
+import timezone from 'dayjs/plugin/timezone.js';
+import { transactionWrapper } from '../utils/db.js';
+import { createCalculationDao, getCalculationforCronDao } from '../apis/calculation/calculationDao.js';
 import { getUsersForCronDao } from '../apis/users/userDao.js';
-// import { Role, tableName } from '../constants/index.js';
-// import dayjs from 'dayjs';
+
+// Initialize dayjs plugins
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+const IST = 'Asia/Kolkata';
 
 // Only run cron jobs in development environment
 // if (config.env === 'development') {
-  cron.schedule(
-    '0 0 * * *',
-    () => {
-      console.log('Running cron job in development mode');
-      collectCalculationData('Asia/Kolkata');
-    },
-    {
-      timezone: 'Asia/Kolkata',
-    },
-  );
+cron.schedule(
+  '0 0 * * *',
+  () => {
+    console.log('Running cron job in development mode');
+    collectCalculationData();
+  },
+  {
+    timezone: IST,
+  },
+);
 // }
-const collectCalculationData = async (timezone = 'Asia/Kolkata') => {
-  const startTime = moment().tz(timezone, true);
+
+const collectCalculationData = async () => {
   try {
     const users = (await transactionWrapper(getUsersForCronDao)()) || [];
     const usersArray = users || [];
+
+    // Create IST time in the exact format we want
+    const currentTime = dayjs()
+      .tz(IST)
+      .format('YYYY-MM-DDTHH:mm:ssZ'); // Will create: 2025-04-23T19:26:00+05:30
+
+    console.log('Current time in IST:', currentTime);
+
     for (const user of usersArray) {
       try {
         const calculation = await getCalculationforCronDao(user.id);
@@ -39,6 +48,7 @@ const collectCalculationData = async (timezone = 'Asia/Kolkata') => {
             company_id: calculation[0].company_id,
             net_balance: parseFloat(calculation[0].net_balance),
             config: calculation[0].config,
+            created_at: currentTime  // Store exact IST time
           };
           await processUpdate(resetData);
         }
@@ -49,7 +59,7 @@ const collectCalculationData = async (timezone = 'Asia/Kolkata') => {
         );
       }
     }
-    console.info('Cron job executed successfully for all users.', startTime);
+    console.info('Cron job executed successfully for all users at:', currentTime);
   } catch (error) {
     console.error('Error while collecting user data:', error?.message);
   }

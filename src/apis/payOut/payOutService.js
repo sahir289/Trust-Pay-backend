@@ -73,6 +73,9 @@ const createPayoutService = async (conn, headers, payload, role) => {
         notify: callbackUrl || details[0].config?.urls?.payin_notify || '',
       },
     });
+    payload.company_id = details[0].company_id;
+    payload.created_by = user_id ? user_id : null;
+    payload.updated_by = user_id ? user_id : null;
 
     if (!x_api_key || !merchantAPIKey) {
       throw new BadRequestError(400, 'Missing API key or Merchant Keys');
@@ -148,11 +151,6 @@ const getPayoutsService = async (
       return merchants.map((merchant) => merchant.id);
     };
 
-    const fetchVendorIds = async (user_ids) => {
-      const vendors = await getVendorsDao({ user_id: user_ids });
-      return vendors.map((vendor) => vendor.id);
-    };
-
     let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
 
     if (role === Role.MERCHANT) {
@@ -186,12 +184,12 @@ const getPayoutsService = async (
       }
     } else if (role === Role.VENDOR) {
       if (designation === Role.VENDOR) {
-        filters.vendor_id = await fetchVendorIds([user_id]);
+        filters.vendor_id = user_id;
       } else if (designation === Role.VENDOR_OPERATIONS) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
         const parentID = userHierarchys?.[0]?.config?.parent;
         if (parentID) {
-          filters.vendor_id = await fetchVendorIds([parentID]);
+          filters.vendor_id = parentID;
         }
       }
     }
@@ -268,12 +266,12 @@ const getPayoutsBySearchService = async (
       }
     } else if (role === Role.VENDOR) {
       if (designation === Role.VENDOR) {
-        filters.vendor_id = await fetchVendorIds([user_id]);
+        filters.vendor_id = user_id;
       } else if (designation === Role.VENDOR_OPERATIONS) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
         const parentID = userHierarchys?.[0]?.config?.parent;
         if (parentID) {
-          filters.vendor_id = await fetchVendorIds([parentID]);
+          filters.vendor_id = parentID;
         }
       }
     }
@@ -843,9 +841,47 @@ const ekoWalletBalanceEnquiryInternally = async () => {
   }
 };
 
+// Public API Used by Merchants
+const checkPayOutStatusService = async (
+  payOutId,
+  merchantCode,
+  merchantOrderId,
+  api_key,
+) => {
+  const merchantArr = await getMerchantsDao({ code: merchantCode });
+  const merchant = merchantArr[0];
+  if (!merchant) {
+    throw new NotFoundError('Merchant does not exist');
+  }
+
+  const merchantConfig = merchant.config || {};
+
+  if (api_key != merchantConfig.keys?.private && api_key != merchantConfig.keys?.public) {
+    throw new BadRequestError(403, 'Enter a valid API key');
+  }
+  
+  const payOut = await getPayoutsDao({
+    id: payOutId,
+    merchant_order_id: merchantOrderId,
+  });
+
+  if (!payOut) {
+    throw new NotFoundError('payOut not found');
+  }
+
+  return {
+    status: payOut[0].status,
+    merchantOrderId: payOut[0].merchant_order_id,
+    amount: payOut[0].amount,
+    payoutId: payOut[0].id,
+    utr_id: payOut[0].utr_id,
+  };
+};
+
 export {
   createPayoutService,
   getPayoutsService,
+  checkPayOutStatusService,
   getPayoutsBySearchService,
   updatePayoutService,
   deletePayoutService,

@@ -155,7 +155,7 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
     return { message: `Entry with REPEATED UTR Added ${utr}` };
   }
 
-  ////for bank account
+  ////for bank account ////vendor calculation 
   if (botRes.status === '/success') {
   const bankdetails = await getBankaccountDao(
     {
@@ -191,7 +191,17 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
       balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount),
     },
     conn,
+    );
+    const payinVendorCommission = calculateCommission(
+    botRes.amount,
+    vendor[0].payin_commission,
   );
+
+  await updateCalculationTable(vendor[0].user_id, {
+        payinCommission: payinVendorCommission,
+        amount: botRes.amount,
+  });
+     
 }
   const checkPayInUtr = await getPayInUrlsDao({ user_submitted_utr: utr });
   if (checkPayInUtr?.length > 0) {
@@ -246,13 +256,11 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
     if (existingResponse?.length > 0) {
       return { message: `The UTR already exists` };
     }
-
     const merchantData = await getMerchantsDao({ id: payInUtr.merchant_id }, null, null, null, null);
-    const payinMerchantCommission = calculateCommission(botRes.amount, merchantData.payin_commission);
+    const payinMerchantCommission = calculateCommission(botRes.amount, merchantData[0].payin_commission);
     const bankAccountDetails = await getBankaccountDao({ id: payInUtr.bank_acc_id, company_id }, null, null, role);
-    const vendorData = await getVendorsDao({ user_id: bankAccountDetails.user_id }, null, null, null, null);
-    const payinVendorCommission = calculateCommission(botRes.amount, vendorData.payin_commission);
-
+    const vendorData = await getVendorsDao({ user_id: bankAccountDetails[0].user_id }, null, null, null, null);
+    const payinVendorCommission = calculateCommission(botRes.amount, vendorData[0].payin_commission);
     const durMs = new Date() - payInUtr.created_at;
     const durSeconds = Math.floor((durMs / 1000) % 60).toString().padStart(2, '0');
     const durMinutes = Math.floor((durSeconds / 60) % 60).toString().padStart(2, '0');
@@ -288,17 +296,14 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
       await updateBotResponseDao(botRes.id, { is_used: true }, conn);
       await updateMerchantDao(
         { id: payInUtr.merchant_id },
-        { balance: merchantData.balance + amount },
+        { balance: merchantData[0].balance + amount },
         conn
         );
-      await updateCalculationTable(merchantData.user_id, {
-        payinMerchantCommission,
+      await updateCalculationTable(merchantData[0].user_id, {
+        payinCommission:payinMerchantCommission,
         amount: botRes.amount,
       });
-      await updateCalculationTable(vendorData.user_id, {
-        payinCommission: payinVendorCommission,
-        amount: botRes.amount,
-      }, conn);
+     
       await sendNotification(Status.SUCCESS, {
         id: payInUtr.id,
         user_submitted_utr: botRes.utr,
@@ -343,20 +348,22 @@ const updateCalculationTable = async (user_id, data, conn) => {
     if (!calculationData[0]) {
       throw new NotFoundError('Calculation not found!');
     }
-    let count = calculationData[0].total_settlement_count + 1;
-    let amountCalculation =
-      calculationData[0].total_payin_amount + data?.amount;
-    let currentBalance = Number(calculationData[0].current_balance) || 0 + data?.amount;
-    let netBalance = calculationData[0].net_balance + data?.amount;
+    // let count = calculationData[0].total_settlement_count + 1;
+    // let commissionCalculation =
+    //  calculationData[0].total_payin_commission + data?.payinCommission; 
+    // let amountCalculation =
+    //   calculationData[0].total_payin_amount + data?.amount - commissionCalculation;
+    // let currentBalance = Number(calculationData[0].current_balance) || 0 + data?.amount;
+    // let netBalance = calculationData[0].net_balance + data?.amount;
     const calculationId = calculationData[0].id;
     await updateCalculationBalanceDao(
       { id: calculationId },
       {
-        total_payin_count: count,
-        total_payin_amount: amountCalculation,
+        total_payin_count: 1,
+        total_payin_amount: data.amount,
         total_payin_commission: data.payinCommission,
-        current_balance: currentBalance,
-        net_balance: netBalance,
+        current_balance: data.amount,
+        net_balance: data.amount,
       },
       conn,
     );

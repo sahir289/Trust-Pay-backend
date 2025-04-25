@@ -126,7 +126,7 @@ const getChargeBacksService = async (
   page,
   limit,
   user_id,
-  desingnation,
+  // desingnation,
 ) => {
   try {
     // Determine columns based on role
@@ -144,7 +144,7 @@ const getChargeBacksService = async (
       filters.vendor_user_id = [user_id];
     }
 
-    if (role === Role.MERCHANT || desingnation === Role.MERCHANT_OPERATIONS) {
+    if (role === Role.MERCHANT ) {
       // user_id is unique
       const userHierarchys = await getUserHierarchysDao({ user_id });
       if (userHierarchys || userHierarchys.length > 0) {

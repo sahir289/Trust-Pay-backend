@@ -11,6 +11,8 @@ import { NotFoundError } from '../../utils/appErrors.js';
 import dayjs from "dayjs";
 import { logger } from '../../utils/logger.js';
 
+const IST = 'Asia/Kolkata';
+
 const getCalculationDao = async (
   filters,
   page,
@@ -127,17 +129,15 @@ export const getCalculationsSumDao = async (filters) => {
     company_id
   } = filters;
 
-  // const dateFormat = 'MM-DD-YYYY';
   const startDate = start
-  ? dayjs(start).toISOString()
-  : dayjs().startOf('day').toISOString();
+    ? dayjs(start).tz(IST).startOf('day').toISOString()
+    : dayjs().tz(IST).startOf('day').toISOString();
 
-const endDate = end
-  ? dayjs(end).endOf('day').toISOString()
-  : dayjs().endOf('day').toISOString();
-
+  const endDate = end
+    ? dayjs(end).tz(IST).endOf('day').toISOString()
+    : dayjs().tz(IST).endOf('day').toISOString();
   let vendorData = {}, merchantData = {}, netBalance = {};
-  let hierarchyUsers = [], userCodes = users ? users.split(",") : [];
+  let hierarchyUsers = [], userCodes = users ? users.split(", ") : [];
   const checkForHierarchy = [Role.MERCHANT_ADMIN, Role.VENDOR_ADMIN].includes(designation);
 
   // Fetch hierarchy users if applicable

@@ -381,16 +381,29 @@ export const checkPayInStatusService = async (
   }
 
   const merchantConfig = merchant.config || {};
+
+  if (
+    api_key != merchantConfig.keys?.private &&
+    api_key != merchantConfig.keys?.public
+  ) {
+    throw new BadRequestError(403, 'Enter a valid API key');
+  }
+
   const payIn = await getPayInUrlDao({
     id: payInId,
     merchant_order_id: merchantOrderId,
   });
+
   if (!payIn) {
     throw new NotFoundError('payIn not found');
   }
 
-  if (api_key != merchantConfig.keys?.private) {
-    throw new BadRequestError('Invalid PayIn!');
+  let botResponse;
+  if (payIn.bank_response_id) {
+    botResponse = await getBankResponseDao({
+      id: payIn.bank_response_id,
+      company_id: payIn.company_id,
+    });
   }
 
   return {
@@ -398,6 +411,13 @@ export const checkPayInStatusService = async (
     merchantOrderId: payIn.merchant_order_id,
     amount: payIn.amount,
     payinId: payIn.id,
+    utr_id: [Status.INITIATED, Status.ASSIGNED, Status.DROPPED].includes(
+      payIn.status,
+    )
+      ? null
+      : botResponse.utr
+        ? botResponse.utr
+        : payIn.user_submitted_utr,
   };
 };
 
@@ -560,20 +580,20 @@ export const updateDepositStatusService = async (
     throw new NotFoundError('Bank not found!');
   }
 
-  const vendors = await getVendorsDao({
-    user_id: bank.user_id,
-    company_id,
-  });
-  const vendor = vendors[0];
+  // const vendors = await getVendorsDao({
+  //   user_id: bank.user_id,
+  //   company_id,
+  // });
+  // const vendor = vendors[0];
   //calculate the payin commission
   const payinCommission = calculateCommission(
     bankResponse.amount,
     merchant.payin_commission,
   );
-  const vendorPayinCommission = calculateCommission(
-    bankResponse.amount,
-    vendor.payin_commission,
-  );
+  // const vendorPayinCommission = calculateCommission(
+  //   bankResponse.amount,
+  //   vendor.payin_commission,
+  // );
 
   let successData = [];
   if (bankResponse.is_used) {
@@ -582,12 +602,12 @@ export const updateDepositStatusService = async (
 
   const updatePayInData = {
     status:
-      bank.nick_name != nick_name
+      bank.id != bankResponse.bank_id
         ? Status.BANK_MISMATCH
-        : successData.length
-          ? Status.DUPLICATE
-          : parseFloat(bankResponse.amount) !== parseFloat(payInData.amount)
-            ? Status.DISPUTE
+        : parseFloat(bankResponse.amount) !== parseFloat(payInData.amount)
+          ? Status.DISPUTE
+          : successData.length
+            ? Status.DUPLICATE
             : Status.SUCCESS,
     bank_acc_id: bank.id,
     duration: duration,
@@ -596,8 +616,6 @@ export const updateDepositStatusService = async (
 
   if (updatePayInData.status === Status.SUCCESS) {
     updatePayInData.payin_merchant_commission = payinCommission;
-    updatePayInData.payin_vendor_commission = vendorPayinCommission;
-    updatePayInData.bank_acc_id = bankResponse.bank_id;
     // update merchant caclulation table
     await updateCalculationTable(
       merchant.user_id,
@@ -609,14 +627,14 @@ export const updateDepositStatusService = async (
     );
 
     // update vendor caclulation table
-    await updateCalculationTable(
-      bank.user_id,
-      {
-        amount: payInData.amount,
-        payinCommission: vendorPayinCommission,
-      },
-      conn,
-    );
+    // await updateCalculationTable(
+    //   bank.user_id,
+    //   {
+    //     amount: payInData.amount,
+    //     payinCommission: vendorPayinCommission,
+    //   },
+    //   conn,
+    // );
 
     // update merchant balance
     await updateMerchantBalanceDao(
@@ -979,7 +997,6 @@ export const processPayInService = async (
   const otherPayIns = await getPayInUrlsDao({
     user_submitted_utr: userSubmittedUtr,
   });
-  console.log(tele_check, 'tele_check');
   const updatePayInData = {
     amount,
     user_submitted_utr: tele_check
@@ -1116,29 +1133,28 @@ export const processPayInService = async (
     //   updated_by,
     //   conn,
     // );
-
-    const commissions = await calculateCommissions(
-      payIn.merchant_id,
-      bank.user_id,
-      bankResponse.amount,
-    );
-    const merchantCommission = commissions.payin_merchant_commission;
-    const vendorCommission = commissions.payin_vendor_commission;
-    updatePayInData.payin_merchant_commission = merchantCommission;
-    updatePayInData.payin_vendor_commission = vendorCommission;
+   
     const merchant = await getMerchantsDao({ id: payIn.merchant_id });
-    await updateCalculationTable(merchant.user_id, {
-      merchantCommission,
-      amount: bankResponse.amount,
-    });
-    await updateCalculationTable(
-      bank.user_id,
-      {
-        payinCommission: vendorCommission,
-        amount: bankResponse.amount,
-      },
-      conn,
-    );
+     const commissions = calculateCommission(
+      bankResponse.amount,
+       Number(merchant[0].payin_commission),
+     );
+   await updateCalculationTable(
+     merchant[0].user_id,
+     {
+       payinCommission: Number(commissions),
+       amount: Number(bankResponse.amount),
+     },
+     conn,
+   );
+    // await updateCalculationTable(
+    //   bank.user_id,
+    //   {
+    //     payinCommission: vendorCommission,
+    //     amount: bankResponse.amount,
+    //   },
+    //   conn,
+    // );
   }
 
   // if (updatePayInData.status === Status.DISPUTE) {
@@ -1206,21 +1222,21 @@ export const processPayInService = async (
   }
 };
 
-const calculateCommissions = async (merchantId, vendorId, amount) => {
-  const merchant = await getMerchantsDao({ id: merchantId });
-  const vendor = await getVendorsDao({ user_id: vendorId });
+// const calculateCommissions = async (merchantId, vendorId, amount) => {
+//   const merchant = await getMerchantsDao({ id: merchantId });
+//   const vendor = await getVendorsDao({ user_id: vendorId });
 
-  return {
-    payin_merchant_commission: calculateCommission(
-      amount,
-      merchant[0]?.payin_commission,
-    ),
-    payin_vendor_commission: calculateCommission(
-      amount,
-      vendor[0]?.payin_commission,
-    ),
-  };
-};
+//   return {
+//     payin_merchant_commission: calculateCommission(
+//       amount,
+//       merchant[0]?.payin_commission,
+//     ),
+//     payin_vendor_commission: calculateCommission(
+//       amount,
+//       vendor[0]?.payin_commission,
+//     ),
+//   };
+// };
 
 export const telegramResponseService = async (conn, message) => {
   const { photo } = message;
@@ -1354,8 +1370,7 @@ export const telegramResponseService = async (conn, message) => {
         otherBotResponsePayIns,
       );
       return;
-    }
-    else {
+    } else {
       await sendMerchantOrderIDStatusDuplicateTelegramMessage(
         message.chat.id,
         payIn,
@@ -1518,11 +1533,14 @@ export const disputeDuplicateTransactionService = async (
     }
 
     if (payIn.merchant_id != payInData.merchant_id) {
-      throw BadRequestError('Merchant Mismatched');
+      throw new BadRequestError('Merchant Mismatched');
     }
 
-    if (payIn.user_submitted_utr != bankResponse.utr) {
-      throw BadRequestError(
+    if (
+      payIn.user_submitted_utr &&
+      payIn.user_submitted_utr != bankResponse.utr
+    ) {
+      throw new BadRequestError(
         `UTR ${payIn.user_submitted_utr} MisMatches with ${bankResponse.utr} User Submitted UTR `,
       );
     }
@@ -1613,22 +1631,23 @@ export const disputeDuplicateTransactionService = async (
     });
   }
 
-  if (updateBalance) {
-    //   await updateBanktBalanceDao({ id: bankId }, toAmount, updated_by, conn);
-    // await updateBankaccountService(
-    //   conn,
-    //   { id: bank.id, company_id: payIn.company_id },
-    //   {},
-    // );
-    await updateCalculationTable(
-      bank.user_id,
-      {
-        payinCommission: vendorPayinCommission,
-        amount: toAmount,
-      },
-      conn,
-    );
-  }
+  // if (updateBalance) {
+
+  //   //   await updateBanktBalanceDao({ id: bankId }, toAmount, updated_by, conn);
+  //   // await updateBankaccountService(
+  //   //   conn,
+  //   //   { id: bank.id, company_id: payIn.company_id },
+  //   //   {},
+  //   // );
+  //   await updateCalculationTable(
+  //     bank.user_id,
+  //     {
+  //       payinCommission: vendorPayinCommission,
+  //       amount: toAmount,
+  //     },
+  //     conn,
+  //   );
+  // }
 
   // const entryType = oldPayInData.status === 'DUPLICATE' ? 'Duplicate Entry' : 'Dispute Entry';
   // await sendTelegramDisputeMessage(
@@ -1773,21 +1792,21 @@ const updateCalculationTable = async (user_id, data, conn) => {
     if (!calculationData[0]) {
       throw new NotFoundError('Calculation not found!');
     }
-    let count = calculationData[0].total_settlement_count + 1;
-    let amountCalculation =
-      calculationData[0].total_payin_amount + data?.amount;
-    let currentBalance =
-      Number(calculationData[0].current_balance) || 0 + data?.amount;
-    let netBalance = calculationData[0].net_balance + data?.amount;
+    // let count = calculationData[0].total_settlement_count + 1;
+    // let amountCalculation =
+    //   calculationData[0].total_payin_amount + data?.amount;
+    // let currentBalance =
+    //   Number(calculationData[0].current_balance) || 0 + data?.amount;
+    // let netBalance = calculationData[0].net_balance + data?.amount;
     const calculationId = calculationData[0].id;
     await updateCalculationBalanceDao(
       { id: calculationId },
       {
-        total_payin_count: count,
-        total_payin_amount: amountCalculation,
+        total_payin_count: 1,
+        total_payin_amount: data.amount,
         total_payin_commission: data.payinCommission,
-        current_balance: currentBalance,
-        net_balance: netBalance,
+        current_balance: data.amount,
+        net_balance: data.amount,
       },
       conn,
     );
