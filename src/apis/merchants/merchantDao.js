@@ -25,28 +25,69 @@ export const createMerchantDao = async (data, conn) => {
   }
 };
 
-export const getMerchantsCodeDao = async (conn, filters) => {
+export const getMerchantsCodeDao = async (
+  conn,
+  filters,
+  includeSubMerchants = false,
+) => {
   try {
-    const baseQuery = `
+    let sql = `
       SELECT 
-        code AS label, 
-        user_id AS value, 
-        id AS merchant_id 
+        m.code AS label, 
+        m.user_id AS value, 
+        m.id AS merchant_id,
+        ${
+          includeSubMerchants
+            ? `
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'label', sm.code,
+                    'value', sm.user_id,
+                    'merchant_id', sm.id
+                  )
+                ) FILTER (WHERE sm.id IS NOT NULL),
+                '[]'::json
+              ) AS submerchants
+            `
+            : `'[]'::json AS submerchants`
+        }
       FROM 
-        "${tableName.MERCHANT}" 
+        "${tableName.MERCHANT}" m
+      LEFT JOIN "${tableName.USER_HIERARCHY}" uh 
+        ON uh.user_id = m.user_id
+      LEFT JOIN "${tableName.MERCHANT}" sm 
+        ON sm.user_id IN (
+          SELECT json_array_elements_text(uh.config -> 'siblings' -> 'sub_merchants')
+          FROM "${tableName.USER_HIERARCHY}" uh_sub
+          WHERE uh_sub.user_id = m.user_id
+          AND uh_sub.config -> 'siblings' -> 'sub_merchants' IS NOT NULL
+        )
+        AND sm.company_id = m.company_id
+        AND sm.is_obsolete = FALSE
       WHERE 
-        is_obsolete = FALSE
+        m.is_obsolete = FALSE
     `;
+    const queryParams = [];
+    let paramIndex = 1;
 
-    let [sql, queryParams] = buildSelectQuery(
-      baseQuery,
-      filters,
-      tableName.MERCHANT,
-    );
+    if (filters.company_id) {
+      sql += ` AND m.company_id = $${paramIndex++}`;
+      queryParams.push(filters.company_id);
+    }
+    if (filters.user_id) {
+      if (Array.isArray(filters.user_id)) {
+        sql += ` AND m.user_id = ANY($${paramIndex++})`;
+        queryParams.push(filters.user_id);
+      } else {
+        sql += ` AND m.user_id = $${paramIndex++}`;
+        queryParams.push(filters.user_id);
+      }
+    }
 
+    sql += ` GROUP BY m.id, m.code, m.user_id ORDER BY m.code ASC`;
     const result = await conn.query(sql, queryParams);
     logger.log('Fetched Merchants:', result.rows.length, 'rows');
-
     return result.rows;
   } catch (error) {
     logger.error('Error executing merchant query:', error);

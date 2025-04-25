@@ -46,7 +46,14 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
     const queryParams = [company_id];
     const limitcondition = { value: '' };
 
-    const handledKeys = new Set(['search', 'startDate', 'endDate', 'status', 'sortBy', 'sortOrder']);
+    const handledKeys = new Set([
+      'search',
+      'startDate',
+      'endDate',
+      'status',
+      'sortBy',
+      'sortOrder',
+    ]);
 
     const conditionBuilders = {
       search: (filters, PAYIN) => {
@@ -62,7 +69,9 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
       dateRange: (filters, conditions, queryParams) => {
         if (!filters.startDate || !filters.endDate) return;
         const nextParamIdx = queryParams.length + 1;
-        conditions.push(`p.created_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`);
+        conditions.push(
+          `p.created_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
+        );
         queryParams.push(filters.startDate, filters.endDate);
       },
       bankName: (filters, conditions, queryParams) => {
@@ -73,12 +82,16 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
       },
       status: (filters, conditions, queryParams) => {
         if (!filters.status) return;
-        const statusArray = filters.status.split(',').map(s => s.trim());
+        const statusArray = filters.status.split(',').map((s) => s.trim());
         const nextParamIdx = queryParams.length + 1;
-        const placeholders = statusArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
-        conditions.push(statusArray.length > 1
-          ? `p.status IN (${placeholders})`
-          : `p.status = $${nextParamIdx}`);
+        const placeholders = statusArray
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        conditions.push(
+          statusArray.length > 1
+            ? `p.status IN (${placeholders})`
+            : `p.status = $${nextParamIdx}`,
+        );
         queryParams.push(...statusArray);
       },
       pagination: (page, limit, queryParams, limitconditionRef) => {
@@ -86,7 +99,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         const nextParamIdx = queryParams.length + 1;
         limitconditionRef.value = `LIMIT $${nextParamIdx} OFFSET $${nextParamIdx + 1}`;
         queryParams.push(limit, (page - 1) * limit);
-      }
+      },
     };
 
     // Apply the filters
@@ -96,20 +109,32 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
     conditionBuilders.status(filters, conditions, queryParams);
     conditionBuilders.pagination(page, limit, queryParams, limitcondition);
 
-    // Handle dynamic filters
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null) return;
-
       const nextParamIdx = queryParams.length + 1;
-      const isMultiValue = typeof value === 'string' && value.includes(',');
-      const valueArray = isMultiValue ? value.split(',').map(v => v.trim()) : [value];
-      const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
 
-      conditions.push(isMultiValue
-        ? `p.${key} IN (${placeholders})`
-        : `p.${key} = $${nextParamIdx}`);
-
-      queryParams.push(...valueArray);
+      // Special handling for arrays
+      if (Array.isArray(value)) {
+        const placeholders = value
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        conditions.push(`p.${key} IN (${placeholders})`);
+        queryParams.push(...value);
+      } else {
+        const isMultiValue = typeof value === 'string' && value.includes(',');
+        const valueArray = isMultiValue
+          ? value.split(',').map((v) => v.trim())
+          : [value];
+        const placeholders = valueArray
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        conditions.push(
+          isMultiValue
+            ? `p.${key} IN (${placeholders})`
+            : `p.${key} = $${nextParamIdx}`,
+        );
+        queryParams.push(...valueArray);
+      }
     });
 
     // Build role-based select fields
@@ -186,7 +211,9 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
     const expectedParamCount = (baseQuery.match(/\$\d+/g) || []).length;
     if (expectedParamCount !== queryParams.length) {
       logger.warn('⚠️ Placeholder count does not match parameter count!');
-      logger.warn(`Expected: ${expectedParamCount}, Got: ${queryParams.length}`);
+      logger.warn(
+        `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
+      );
     }
 
     const result = await executeQuery(baseQuery, queryParams);
@@ -199,6 +226,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
     throw error.message;
   }
 };
+
 export const getPayinsBySearchDao = async (
   filters,
   searchTerms,
@@ -207,19 +235,47 @@ export const getPayinsBySearchDao = async (
   role,
 ) => {
   try {
-    const conditions = [];
-    const values = [filters.company_id];
+    const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
+    const queryParams = [filters.company_id];
     let paramIndex = 2;
-    let commissionSelect = '';
+    const handledKeys = new Set(['status']);
+    // Valid columns in the Payin table
+    const validColumns = new Set([
+      'id',
+      'sno',
+      'upi_short_code',
+      'amount',
+      'status',
+      'merchant_order_id',
+      'is_notified',
+      'user_submitted_utr',
+      'user',
+      'user_submitted_image',
+      'duration',
+      'config',
+      'payin_merchant_commission',
+      'payin_vendor_commission',
+      'approved_at',
+      'created_by',
+      'updated_by',
+      'created_at',
+      'updated_at',
+      'is_obsolete',
+      'company_id',
+      'merchant_id',
+      'bank_acc_id',
+      'bank_response_id',
+    ]);
+
     // Define commissionSelect without leading commas
+    let commissionSelect = '';
     if (role === 'MERCHANT') {
       commissionSelect = `
         p.payin_merchant_commission,
         p.merchant_order_id,
         json_build_object(
           'merchant_code', m.code,
-          'dispute',m.dispute_enabled,
-
+          'dispute', m.dispute_enabled,
           'return_url', m.config->>'return_url',
           'notify_url', m.config->>'notify_url'
         ) AS merchant_details`;
@@ -232,7 +288,7 @@ export const getPayinsBySearchDao = async (
         p.payin_merchant_commission,
         json_build_object(
           'merchant_code', m.code,
-          'dispute',m.dispute_enabled,
+          'dispute', m.dispute_enabled,
           'return_url', m.config->>'return_url',
           'notify_url', m.config->>'notify_url'
         ) AS merchant_details,
@@ -270,15 +326,18 @@ export const getPayinsBySearchDao = async (
       LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
       LEFT JOIN public."BankResponse" br ON p.bank_response_id = br.id
       LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
-      WHERE p.is_obsolete = false
-      AND p.company_id = $1
+      WHERE ${conditions.join(' AND ')}
     `;
+
+    // Handle status filter
     if (filters.status) {
       const statusArray = filters.status.split(',').map((s) => s.trim());
       queryText += ` AND p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
-      values.push(...statusArray);
+      queryParams.push(...statusArray);
       paramIndex += statusArray.length;
     }
+
+    // Handle search terms
     searchTerms.forEach((term) => {
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
         const boolValue = term.toLowerCase() === 'true';
@@ -289,7 +348,7 @@ export const getPayinsBySearchDao = async (
             OR p.one_time_used = $${paramIndex}
           )
         `);
-        values.push(boolValue);
+        queryParams.push(boolValue);
         paramIndex++;
       } else {
         conditions.push(`
@@ -312,27 +371,71 @@ export const getPayinsBySearchDao = async (
             OR LOWER(p.config->'urls'->>'notify') LIKE LOWER($${paramIndex})
           )
         `);
-        values.push(`%${term}%`);
+        queryParams.push(`%${term}%`);
         paramIndex++;
       }
     });
 
-    if (conditions.length > 0) {
-      queryText += ' AND (' + conditions.join(' OR ') + ')';
+    // Handle additional filters dynamically
+    Object.entries(filters).forEach(([key, value]) => {
+      if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
+        if (!validColumns.has(key) && key !== 'status') {
+          logger.warn(`Invalid filter key ignored: ${key}`);
+        }
+        return;
+      }
+      const nextParamIdx = queryParams.length + 1;
+
+      // Special handling for arrays
+      if (Array.isArray(value)) {
+        const placeholders = value
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        conditions.push(`p.${key} IN (${placeholders})`);
+        queryParams.push(...value);
+      } else {
+        const isMultiValue = typeof value === 'string' && value.includes(',');
+        const valueArray = isMultiValue
+          ? value.split(',').map((v) => v.trim())
+          : [value];
+        const placeholders = valueArray
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        conditions.push(
+          isMultiValue
+            ? `p.${key} IN (${placeholders})`
+            : `p.${key} = $${nextParamIdx}`,
+        );
+        queryParams.push(...valueArray);
+      }
+    });
+
+    if (conditions.length > 2) { // Beyond the initial is_obsolete and company_id
+      queryText += ' AND (' + conditions.slice(2).join(' AND ') + ')';
     }
 
+    // Count query
     const countQuery = `SELECT COUNT(*) AS total FROM (${queryText}) AS count_table`;
 
+    // Append pagination
     queryText += `
       ORDER BY p.created_at DESC
-      LIMIT $${values.length + 1}
-      OFFSET $${values.length + 2}
+      LIMIT $${queryParams.length + 1}
+      OFFSET $${queryParams.length + 2}
     `;
 
-    values.push(limitNum, offset);
-console.log(queryText)
-    const countResult = await executeQuery(countQuery, values.slice(0, -2));
-    const searchResult = await executeQuery(queryText, values);
+    queryParams.push(limitNum, offset);
+
+    // Debug log: Check if placeholders match params
+    const expectedParamCount = (queryText.match(/\$\d+/g) || []).length;
+    if (expectedParamCount !== queryParams.length) {
+      logger.warn('⚠️ Placeholder count does not match parameter count!');
+      logger.warn(`Expected: ${expectedParamCount}, Got: ${queryParams.length}`);
+    }
+
+    // Execute queries
+    const countResult = await executeQuery(countQuery, queryParams.slice(0, -2));
+    const searchResult = await executeQuery(queryText, queryParams);
 
     const totalItems = parseInt(countResult.rows[0].total);
     const totalPages = Math.ceil(totalItems / limitNum);
@@ -403,7 +506,7 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
 
   try {
     conn = await getConnection();
-    console.log(conn)
+    console.log(conn);
     const result = await conn.query(baseQuery, [merchantOrderId]);
 
     return result.rows;

@@ -14,14 +14,20 @@ import config from '../config/config.js';
 import { getConnection } from '../utils/db.js';
 import { getVendorsDao } from '../apis/vendors/vendorDao.js';
 import { logger } from '../utils/logger.js';
+import { getUserHierarchysDao } from '../apis/userHierarchy/userHierarchyDao.js';
 
-cron.schedule('0 0 * * *', () => {
-  gatherAllData('Asia/Kolkata');
-});
+//run only on server - side /production level
+if (process.env.NODE_ENV === 'production') {
+  cron.schedule('0 0 * * *', () => {
+    gatherAllData('Asia/Kolkata');
+  });
 
-cron.schedule('0 1-23 * * *', () => {
-  gatherAllData('H', 'Asia/Kolkata');
-});
+  cron.schedule('0 1-23 * * *', () => {
+    gatherAllData('H', 'Asia/Kolkata');
+  });
+} else {
+  console.log('Cron jobs are disabled in non-production environments.');
+}
 
 const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
   let conn;
@@ -51,7 +57,12 @@ if (type === 'H') {
     let merchant = [];
     let totalpayinsMerchant = 0;
     let totalpayoutsMerchant = 0;
-
+    const allHierarchies = await getUserHierarchysDao({});
+    const subMerchantIds = new Set();
+    allHierarchies.forEach(hierarchy => {
+      const subMerchants = hierarchy?.config?.siblings?.sub_merchants || [];
+      subMerchants.forEach(subMerchantId => subMerchantIds.add(subMerchantId));
+    });
     for (const merch of merchants) {
       const calculationData = await getCalculationDao({ user_id: merch.user_id, sDate, eDate });    
       let totalPayinAmount = 0;
@@ -65,7 +76,8 @@ if (type === 'H') {
         totalPayoutAmount += data.total_payout_amount || 0;
         totalPayoutCount += data.total_payout_count || 0; 
       }
-    
+    //submerchants removed
+    if(!subMerchantIds.has(merch.user_id)){
       merchant.push({
         merchantId: merch.code,
         totalPayin: totalPayinAmount,
@@ -73,6 +85,7 @@ if (type === 'H') {
         totalPayout: totalPayoutAmount,
         totalPayoutCount: totalPayoutCount,
       });
+    }
     
       totalpayinsMerchant += totalPayinAmount;
       totalpayoutsMerchant += totalPayoutAmount;
@@ -216,14 +229,14 @@ if (type === 'H') {
         );
 
         // Check transactions for each merchant
-        merchants.forEach((merchant) => {
-          const transactions = transactionsByMerchant[merchant.id];
-          if (!transactions) {
-            console.log(merchant.id, 'has no transactions available.');
-          } else {
-            console.log('transactions for merchant');
-          }
-        });
+        // merchants.forEach((merchant) => {
+        //   const transactions = transactionsByMerchant[merchant.id];
+        //   if (!transactions) {
+        //     console.log(merchant.id, 'has no transactions available.');
+        //   } else {
+        //     console.log('transactions for merchant');
+        //   }
+        // });
 
         const fullMessages = [];
         for (const merchant of merchantsWithTransactions) {

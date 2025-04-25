@@ -46,8 +46,7 @@ import { logger } from '../../utils/logger.js';
 
 //  To Generate Url
 export const generateHashForPayIn = async (req, res) => {
-  
-  const updateRes = await generatePayInUrlByHashService(req)
+  const updateRes = await generatePayInUrlByHashService(req);
 
   return sendSuccess(res, updateRes, 'PayIn hash generated successfully');
 };
@@ -61,8 +60,10 @@ export const generatePayInUrl = async (req, res) => {
   const x_api_key = req.headers['x-api-key'];
   const { code, key, hash_code } = payload;
 
+  const apiKey = key ? key : x_api_key;
+
   // Fetch the merchant using the code and API public key
-  const merchant = await getMerchantByCodeAndApiKey(code, key);
+  const merchant = await getMerchantByCodeAndApiKey(code, apiKey);
   if (!merchant) {
     throw new BadRequestError('Invalid merchant code or API key');
   }
@@ -73,7 +74,10 @@ export const generatePayInUrl = async (req, res) => {
   const decodedHashCode = hash_code ? decodeURIComponent(hash_code) : null;
 
   // Compare the provided hash with the generated hash
-  if (decodedHashCode && !compareHash(`${code}:${merchant.config.keys.private}`, decodedHashCode)) {
+  if (
+    decodedHashCode &&
+    !compareHash(`${code}:${merchant.config.keys.private}`, decodedHashCode)
+  ) {
     throw new BadRequestError('Hash code does not match');
   }
 
@@ -229,26 +233,33 @@ export const resetDeposit = async (req, res) => {
   );
   if (data.error) {
     sendError(res, data);
-  }
-  else {
+  } else {
     sendSuccess(res, data, 'PayIn reset successful');
   }
 };
 export const getPayins = async (req, res) => {
-  const { company_id, role } = req.user;
-  const { page, limit, search, sortBy, sortOrder, status, ...rest } = req.query;
+  const { company_id, role, user_id, designation } = req.user;
+  const { page, limit, sortBy, sortOrder, status, ...rest } = req.query;
   const filters = {
     sortBy,
     sortOrder,
     status,
-    ...rest
+    ...rest,
   };
-  const data = await getPayinsService(company_id, page, limit, filters, role, search);
+  const data = await getPayinsService(
+    company_id,
+    page,
+    limit,
+    filters,
+    role,
+    user_id,
+    designation,
+  );
   return sendSuccess(res, data, 'PayIns fetched successfully');
 };
 
 export const getPayinsBySearch = async (req, res) => {
-  const { company_id,role } = req.user;
+  const { company_id, role, user_id, designation } = req.user;
   const { search, page = 1, limit = 10 } = req.query;
   if (!search) {
     throw new BadRequestError('search is required');
@@ -262,6 +273,8 @@ export const getPayinsBySearch = async (req, res) => {
       ...req.query,
     },
     role,
+    user_id,
+    designation,
   );
   console.log('get Payins successfully');
   return sendSuccess(res, data, 'Payins fetched successfully');
