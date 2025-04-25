@@ -419,7 +419,6 @@ const deleteCalculationDao = async (conn, id, data) => {
 
 
 export const updateCalculationBalanceDao = async (filters, data, conn) => {
-  console.log("dataqqq", data);
   try {
     const specialFields = {};
     Object.keys(data).forEach((el) => {
