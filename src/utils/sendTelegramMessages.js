@@ -140,24 +140,27 @@ export async function sendTelegramDashboardMerchantGroupingReportMessage(
   totalPayinsMerchant,
   merchantTotalPayout,
   TELEGRAM_BOT_TOKEN,
-  // type,
+  type,
 ) {
   const currentDate = new Date().toISOString().split('T')[0];
-  // const now = new Date();
-  // const istTime = new Date(
-  //   now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
-  // );
+  const now = new Date();
+  const istTime = new Date(
+    now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+  );
 
-  // let startHour = istTime.getHours() - 1;
-  // let endHour = (startHour + 1) % 24; // Wrap around if it's 23 (to handle midnight)
+  let startHour = istTime.getHours() - 1;
+  let endHour = (startHour + 1) % 24; 
 
-  // const startAmpm = startHour >= 12 ? "PM" : "AM";
-  // const endAmpm = endHour >= 12 ? "PM" : "AM";
+  const startAmpm = startHour >= 12 ? "PM" : "AM";
+  const endAmpm = endHour >= 12 ? "PM" : "AM";
 
   // Convert hours to 12-hour format
-  // startHour = startHour % 12 || 12;
-  // endHour = endHour % 12 || 12;
-
+  startHour = startHour % 12 || 12;
+  endHour = endHour % 12 || 12;
+  const formattedTime = `${startHour}${startAmpm}-${endHour}${endAmpm}`;
+  const timeStamp =
+    type === "Hourly Report" ? formattedTime :
+      currentDate;
   //   const merchantAllPayinDetails = totalPayinsMerchant.map(m =>
   //     `<b>Merchant:</b> ${m.merchantId} | <b>PayIn:</b> ${m.totalPayIn} | <b>Count:</b> ${m.totalPayInEachCount}`
   // ).join("\n");
@@ -175,9 +178,7 @@ export async function sendTelegramDashboardMerchantGroupingReportMessage(
     .join('\n');
 
   // const formattedTime = `${startHour}${startAmpm}-${endHour}${endAmpm}`;
-  const timeStamp =
-    //  type === "Hourly Report" ? formattedTime :
-    currentDate;
+
 
   const message = `
   <b>
