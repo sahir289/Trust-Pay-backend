@@ -271,7 +271,7 @@ export const getCalculationsSumDao = async (filters) => {
   netBalance.vendor = (await executeQuery(vendorCalQuery)).rows[0]?.net_balance_sum || 0;
   netBalance.merchant = (await executeQuery(merchantCalQuery)).rows[0]?.net_balance_sum || 0;
 
-  // Add merchant total calculations query
+  // Modify total calculations query for merchants based on role
   let merchantTotalQuery = `
     SELECT 
       CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
@@ -321,16 +321,22 @@ export const getCalculationsSumDao = async (filters) => {
     AND r.role = 'VENDOR'
   `;
 
-  // Add company_id conditions if needed
-  if (company_id) {
+  // Add role-based conditions
+  if (role === Role.MERCHANT) {
+    merchantTotalQuery += ` AND c.user_id = '${user_id}'`;
+    vendorTotalQuery = null; // Merchant shouldn't see vendor totals
+  } else if (role === Role.VENDOR) {
+    vendorTotalQuery += ` AND c.user_id = '${user_id}'`;
+    merchantTotalQuery = null; // Vendor shouldn't see merchant totals
+  } else if (role === Role.ADMIN) {
     merchantTotalQuery += ` AND c.company_id = '${company_id}'`;
     vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
   }
 
-  // Execute total calculations queries
+  // Execute queries based on role
   const [merchantTotal, vendorTotal] = await Promise.all([
-    executeQuery(merchantTotalQuery),
-    executeQuery(vendorTotalQuery)
+    merchantTotalQuery ? executeQuery(merchantTotalQuery) : Promise.resolve({ rows: [{}] }),
+    vendorTotalQuery ? executeQuery(vendorTotalQuery) : Promise.resolve({ rows: [{}] })
   ]);
 
   return {
