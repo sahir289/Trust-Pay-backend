@@ -527,9 +527,6 @@ const updatedCommissionTotal = isReverse
   ? cal[`total_${prefix}payout_commission`] - signedCommission
   : cal[`total_${prefix}payout_commission`] + signedCommission;
 
-  console.log(cal[`total_${prefix}payout_commission`], 'aadsdfsf');
-  console.log(updatedCommissionTotal, 'updatedCommissionTotal');
-
   const updatedCalculation = {
     ...cal,
     [`total_${prefix}payout_count`]: cal[`total_${prefix}payout_count`] + 1,
