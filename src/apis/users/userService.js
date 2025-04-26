@@ -341,7 +341,7 @@ const createUserService = async (conn, payload, role, designation) => {
     const hierarchyConfig = hierarchy[0]?.config;
     const currentChildren = hierarchy[0]?.config?.child?.operations || [];
     await updateUserHierarchyDao(
-      { id: hierarchy[0].id },
+      { id: hierarchy[0]?.id },
       {
         config: {
           ...hierarchyConfig,
