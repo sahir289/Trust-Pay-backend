@@ -9,6 +9,8 @@ import { getConnection } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
+const IST = 'Asia/Kolkata';
+
 export const generatePayInUrlDao = async (data) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.PAYIN, data);
@@ -194,7 +196,9 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
           json_build_object(
             'utr', br.utr,
             'amount', br.amount
-          ) AS bank_res_details
+          ) AS bank_res_details,
+          p.created_at AT TIME ZONE 'UTC' AT TIME ZONE '${IST}' as created_at,
+          p.updated_at AT TIME ZONE 'UTC' AT TIME ZONE '${IST}' as updated_at
         FROM public."Payin" p
         LEFT JOIN public."Merchant" r ON p.merchant_id = r.id
         LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
@@ -320,7 +324,9 @@ export const getPayinsBySearchDao = async (
         json_build_object(
           'utr', br.utr,
           'amount', br.amount
-        ) AS bank_res_details
+        ) AS bank_res_details,
+        p.created_at AT TIME ZONE 'UTC' AT TIME ZONE '${IST}' as created_at,
+        p.updated_at AT TIME ZONE 'UTC' AT TIME ZONE '${IST}' as updated_at
       FROM public."Payin" p
       LEFT JOIN public."Merchant" m ON p.merchant_id = m.id
       LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
