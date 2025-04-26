@@ -143,6 +143,21 @@ export const getTotalCountService = async (tablename, role, filters, userInfo) =
       filters.user_id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
 
+    // MERCHANT_REPORT table
+    if (tablename === tableName.CALCULATION && userInfo.userRole === Role.MERCHANT) {
+      userIdFilter = [userInfo.user_id];
+      if (userInfo.userRole === Role.MERCHANT) {
+        userIdFilter.push(...(hierarchy?.config?.siblings?.sub_merchants ?? []));
+      }
+      filters.user_id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
+    }
+
+    // VENDOR_REPORT table
+    if (tablename === tableName.CALCULATION && userInfo.userRole === Role.VENDOR) {
+      userIdFilter = isOperations ? [hierarchy?.config?.parent].filter(Boolean) : [userInfo.user_id];
+      filters.user_id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
+    }
+
     return await getTotalCountDao(tablename, role, filters);
   } catch (error) {
     console.error(`Error in getTotalCountService for table ${tablename}:`, error);
