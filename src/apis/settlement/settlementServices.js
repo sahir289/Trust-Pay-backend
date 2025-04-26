@@ -8,6 +8,7 @@ import {
 } from './settlementDao.js';
 import {
   getCalculationforCronDao,
+  updateCalculationBalanceDao,
   updateCalculationDao,
 } from '../calculation/calculationDao.js';
 import {
@@ -216,11 +217,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
     );
     const calculationData = await getCalculationforCronDao(data[0].user_table_id);
     const {
-      id,
-      total_settlement_count,
-      total_settlement_amount,
-      current_balance,
-      net_balance
+      id
     } = calculationData[0];
 
     if (payload.config.reference_id) {
@@ -233,29 +230,27 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         { user_id: data[0].user_table_id })
       if (merchant_data.length > 0) {
         if (Array.isArray(calculationData) && calculationData.length > 0) {
-
           const amount = payload?.amount || 0;
           updatedCalculation = {
-            total_settlement_count: total_settlement_count + 1,
-            total_settlement_amount: total_settlement_amount + amount,
-            current_balance: current_balance - amount,
-            net_balance: net_balance - amount,
+            total_settlement_count: 1,
+            total_settlement_amount: amount,
+            current_balance:  - amount,
+            net_balance:  - amount,
           };
         }
       } else {
         if (Array.isArray(calculationData) && calculationData.length > 0) {
           const amount = payload?.amount || 0;
           updatedCalculation = {
-            total_settlement_count: total_settlement_count + 1,
-            total_settlement_amount: total_settlement_amount + amount,
-            current_balance: current_balance + amount,
-            net_balance: net_balance + amount,
+            total_settlement_count:  + 1,
+            total_settlement_amount:  + amount,
+            current_balance:  + amount,
+            net_balance:  + amount,
           };
         }
       }
 
-      await updateCalculationDao({ id }, updatedCalculation, conn);
-
+      await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
       const merchantData = await getMerchantsDao(
         { user_id: data[0].user_table_id },
         null,
@@ -303,43 +298,27 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         payload.config.reference_id = '';
         payload.config.rejected_reason = '';
         let updatedCalculation
-        const {
-          total_settlement_count,
-          total_settlement_amount,
-          current_balance,
-          net_balance
-        } = calculationData[0];
-
         const amount = payload?.amount || 0;
-
         updatedCalculation = {
-          total_settlement_count: total_settlement_count + 1,
-          total_settlement_amount: total_settlement_amount + amount,
-          current_balance: current_balance + amount,
-          net_balance: net_balance + amount,
+          total_settlement_count:   1,
+          total_settlement_amount:   - amount,
+          current_balance:   amount,
+          net_balance:   amount,
         };
-        await updateCalculationDao({ id }, updatedCalculation, conn);
+        await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
 
       } else {
         payload.config.reference_id = '';
         payload.config.rejected_reason = '';
         let updatedCalculation
-        const {
-          total_settlement_count,
-          total_settlement_amount,
-          current_balance,
-          net_balance
-        } = calculationData[0];
-
         const amount = payload?.amount || 0;
-
         updatedCalculation = {
-          total_settlement_count: total_settlement_count + 1,
-          total_settlement_amount: total_settlement_amount + amount,
-          current_balance: current_balance - amount,
-          net_balance: net_balance - amount,
+          total_settlement_count:  1,
+          total_settlement_amount:   amount,
+          current_balance:  - amount,
+          net_balance:  - amount,
         };
-        await updateCalculationDao({ id }, updatedCalculation, conn);
+        await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
       }
     }
     const updateData = await updateSettlementDao(
