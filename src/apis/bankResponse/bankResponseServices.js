@@ -356,14 +356,15 @@ const updateCalculationTable = async (user_id, data, conn) => {
     // let currentBalance = Number(calculationData[0].current_balance) || 0 + data?.amount;
     // let netBalance = calculationData[0].net_balance + data?.amount;
     const calculationId = calculationData[0].id;
+    const totalAmount = (Number(data.amount) - Number(data.payinCommission));
     await updateCalculationBalanceDao(
       { id: calculationId },
       {
         total_payin_count: 1,
         total_payin_amount: data.amount,
         total_payin_commission: data.payinCommission,
-        current_balance: data.amount,
-        net_balance: data.amount,
+        current_balance:totalAmount,
+        net_balance:totalAmount,
       },
       conn,
     );
