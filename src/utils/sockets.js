@@ -10,7 +10,7 @@ const initializeSocket = (server) => {
   console.log(`CORS origins: ${config?.reactFrontOrigin}, ${config?.reactPaymentOrigin}`);
   ioInstance = new Server(server, {
     cors: {
-      origin: "*",
+      origin: [`${config?.reactFrontOrigin}`, `${config?.reactPaymentOrigin}`],
       methods: ['GET', 'POST'],
     },
   });
