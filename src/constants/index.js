@@ -72,6 +72,7 @@ export const columns = {
     'updated_by',
     'created_at',
     'updated_at',
+    'subMerchants',
   ],
   USER: [
     'id',
@@ -318,6 +319,7 @@ export const merchantColumns = {
     'payout_commission',
     'balance',
     'config',
+    'subMerchants',
   ],
   USER: [
     'first_name',
