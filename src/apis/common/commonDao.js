@@ -24,16 +24,24 @@ export const getTotalCountDao = async (tableName, role, filters) => {
       params.push(role);
       paramIndex++;
     }
-
+    if (filters?.startDate && filters?.endDate) {
+      query += ` AND created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      params.push(filters.startDate, filters.endDate);
+      paramIndex += 2;
+    }
     // Dynamically add filters to query
      if (filters) {
        Object.entries(filters).forEach(([column, value]) => {
+         if (column === 'startDate' || column === 'endDate') {
+          return; 
+        }
          if (Array.isArray(value)) {
            // Handle multiple values using SQL IN clause
            const placeholders = value.map(() => `$${paramIndex++}`).join(',');
            query += ` AND "${column}" IN (${placeholders})`;
            params.push(...value);
-         } else {
+         }
+         else {
            // Single value condition
            query += ` AND "${column}" = $${paramIndex++}`;
            params.push(value);

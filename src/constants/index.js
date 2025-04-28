@@ -130,7 +130,7 @@ export const columns = {
     'updated_at',
     'total_reverse_payout_count',
     'total_reverse_payout_amount',
-    'total_reverse_payout_commission'
+    'total_reverse_payout_commission',
   ],
   COMPLAINTS: [
     'id',
@@ -142,7 +142,7 @@ export const columns = {
     'created_at',
     'updated_at',
   ],
-  DESIGNATION: ['id', 'designation','role_id', 'created_at', 'updated_at'],
+  DESIGNATION: ['id', 'designation', 'role_id', 'created_at', 'updated_at'],
   PAYIN: [
     'id',
     'sno',
@@ -434,7 +434,7 @@ export const vendorColumns = {
     'net_balance',
     'total_reverse_payout_count',
     'total_reverse_payout_amount',
-    'total_reverse_payout_commission'
+    'total_reverse_payout_commission',
   ],
   COMPLAINTS: ['sno', 'status', 'email', 'config'],
   PAYIN: [
@@ -508,7 +508,13 @@ export const vendorColumns = {
     'balance',
     'config',
   ],
-  CHARGE_BACK: ['sno', 'vendor_user_id', 'bank_acc_id', 'amount', 'reference_date'],
+  CHARGE_BACK: [
+    'sno',
+    'vendor_user_id',
+    'bank_acc_id',
+    'amount',
+    'reference_date',
+  ],
 };
 export const tableName = {
   USER: 'User',
@@ -548,7 +554,7 @@ export const AccessRoles = {
     Role.SUB_MERCHANT,
     Role.VENDOR,
     Role.VENDOR_OPERATIONS,
-    ],
+  ],
   USER: [
     Role.ADMIN,
     Role.TRANSACTIONS,
@@ -617,9 +623,9 @@ export const AccessRoles = {
     CREATE_DELETE: [Role.ADMIN, Role.TRANSACTIONS],
     UPDATE_READ: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANT],
   },
-  RESET_DATA_HISTORY: [Role.ADMIN],
-  CHECK_UTR_HISTORY: [Role.ADMIN],
-  BANK_RESPONSE: [Role.ADMIN],
+  RESET_DATA_HISTORY: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS],
+  CHECK_UTR_HISTORY: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS],
+  BANK_RESPONSE: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS],
   BANK_ACCOUNT: [
     Role.ADMIN,
     Role.OPERATIONS,
@@ -635,7 +641,7 @@ export const AccessRoles = {
       Role.MERCHANT,
       Role.VENDOR,
     ],
-    CREATE_DELETE: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANT,],
+    CREATE_DELETE: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANT],
     UPDATE_READ: [
       Role.ADMIN,
       Role.TRANSACTIONS,
@@ -647,11 +653,24 @@ export const AccessRoles = {
   CALCULATION: [
     Role.ADMIN,
     Role.TRANSACTIONS,
+    Role.OPERATIONS,
     Role.MERCHANT,
     Role.VENDOR,
   ],
-  ROLES: [Role.ADMIN, Role.TRANSACTIONS, Role.SUB_MERCHANT, Role.MERCHANT , Role.VENDOR],
-  DESIGNATION: [Role.ADMIN, Role.TRANSACTIONS, Role.SUB_MERCHANT, Role.MERCHANT , Role.VENDOR],
+  ROLES: [
+    Role.ADMIN,
+    Role.TRANSACTIONS,
+    Role.SUB_MERCHANT,
+    Role.MERCHANT,
+    Role.VENDOR,
+  ],
+  DESIGNATION: [
+    Role.ADMIN,
+    Role.TRANSACTIONS,
+    Role.SUB_MERCHANT,
+    Role.MERCHANT,
+    Role.VENDOR,
+  ],
   COMPLAINTS: [Role.ADMIN],
 };
 export const COUNTRIES = ['India', 'United Arab Emirates', 'Pakistan'];

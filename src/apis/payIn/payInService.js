@@ -979,6 +979,8 @@ export const processPayInService = async (
     from_telegram,
     telegramMessage,
     telegramBotToken,
+    user_submitted_image,
+    // : payload.fileKey
   } = payload;
   // validate payIn
   // throw error if not exist or expires
@@ -1007,7 +1009,7 @@ export const processPayInService = async (
     is_url_expires: true,
     one_time_used: true,
     duration,
-    user_submitted_image: null,
+    user_submitted_image: user_submitted_image  || null,
     is_notified: true,
     updated_by: updated_by || '',
   };
@@ -1445,6 +1447,7 @@ export const processPayInByImageService = async (conn, payload) => {
     ...payload,
     userSubmittedUtr: content.utr,
     amount: payInData.amount,
+    user_submitted_image: payload.fileKey,
   });
 };
 

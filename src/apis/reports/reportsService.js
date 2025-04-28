@@ -152,15 +152,15 @@ const getMerchantReportService = async (req, res) => {
         dataArray.push(result);
       }
       else{
-        for (const user_id of userIds) {
-        const result = await getVendorReportDao(
-          user_id,
+        const userIds = typeof code === 'string' ? code.split(',').map(id => id.trim()) : Array.isArray(code) ? code : [code];
+         result = await getVendorReportDao(
+          userIds,
           startDate,
           endDate,
           company_id, page, limit, role
         );
         dataArray.push(result);
-      }}
+      }
       return sendSuccess(res, result, 'Reports fetched successfully');
    
   } catch (error) {
