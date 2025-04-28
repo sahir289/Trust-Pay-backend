@@ -4,7 +4,7 @@ import { logoutSet } from '../middlewares/auth.js';
 import { AuthenticationError } from '../utils/appErrors.js';
 import { verifyToken } from '../utils/auth.js';
 import { logger } from '../utils/logger.js';
-
+import { BadRequestError } from '../utils/appErrors.js';
 // Function to calculate balances based on role
 export const calculateBalances = (calc, prevCalc, isMerchant, isReverse, amount = 0) => {
   const baseCalculation =
@@ -35,7 +35,30 @@ export const calculateBalances = (calc, prevCalc, isMerchant, isReverse, amount 
 
 export const calculateCommission = (amount, percentage) => {
   const numAmount = Number(amount);
-  return (numAmount * percentage) / 100;
+  const percent = Number(percentage);
+  return (numAmount * percent) / 100;
+};
+
+export const calculateTwoNumbers = (data1, data, operator) => {
+  const numAmount = Number(data1);
+  const numAmount1 = Number(data);
+  if (isNaN(numAmount)) {
+    throw new BadRequestError('Invalid first amount');
+  }
+  if (isNaN(numAmount1)) {
+    throw new BadRequestError('Invalid second amount');
+  }
+  if (operator === '+') {
+    return numAmount + numAmount1;
+  } else if (operator === '-') {
+    return numAmount - numAmount1;
+  }
+  else if (operator === '/') {
+    return numAmount / numAmount1;
+  }
+  else {
+    throw new BadRequestError('Invalid operator. Use "+" or "-"');
+  }
 };
 
 export const calculateDuration = (createdAt) => {

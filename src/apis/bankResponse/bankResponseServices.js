@@ -166,6 +166,9 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
     null,
     role,
   );
+  if (isNaN(bankdetails[0].balance) || isNaN(bankdetails[0].today_balance)) {
+    throw new BadRequestError('Invalid amount or commission');
+  }
  await updateBankaccountDao(
     { id: botRes?.bank_id },
     {
@@ -185,6 +188,9 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
       user_id: bankdetails[0].user_id,
     }
   );
+  if (isNaN(vendor[0].balance)) {
+    throw new BadRequestError('Invalid amount or commission');
+  }
   await updateVendorDao(
     { id: vendor[0].id },
     {
@@ -294,9 +300,13 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
       //   );
       // }
       await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+      const  merchnatData = merchantData[0].balance + amount 
+      if(isNaN(merchnatData)) {
+        throw new BadRequestError('Invalid amount or commission');
+      }
       await updateMerchantDao(
         { id: payInUtr.merchant_id },
-        { balance: merchantData[0].balance + amount },
+        { balance: merchnatData},
         conn
         );
       await updateCalculationTable(merchantData[0].user_id, {
@@ -343,6 +353,9 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
 };
 
 const updateCalculationTable = async (user_id, data, conn) => {
+  if (isNaN(data.amount - data.payinCommission)) {
+    throw new BadRequestError('Invalid amount or commission');
+  }
   if (user_id) {
     const calculationData = await getCalculationforCronDao(user_id);
     if (!calculationData[0]) {
@@ -356,14 +369,15 @@ const updateCalculationTable = async (user_id, data, conn) => {
     // let currentBalance = Number(calculationData[0].current_balance) || 0 + data?.amount;
     // let netBalance = calculationData[0].net_balance + data?.amount;
     const calculationId = calculationData[0].id;
+    const totalAmount = (Number(data.amount) - Number(data.payinCommission));
     await updateCalculationBalanceDao(
       { id: calculationId },
       {
         total_payin_count: 1,
         total_payin_amount: data.amount,
         total_payin_commission: data.payinCommission,
-        current_balance: data.amount,
-        net_balance: data.amount,
+        current_balance:totalAmount,
+        net_balance:totalAmount,
       },
       conn,
     );
