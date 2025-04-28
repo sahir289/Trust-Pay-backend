@@ -394,17 +394,14 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     // const vendorCommissionPercent = Number(vendor.payout_commission) || 0;
     // const vendorCommissionAmount =
     //   (Number(data.amount) * vendorCommissionPercent) / 100;
-  console.log(data,"updated payout")
  const merchantCommission = calculateCommission(
    data.amount,
   merchant.payout_commission,
  );
-  console.log(merchantCommission,"merchant commission");
  const vendorCommission = calculateCommission(
    data.amount,
    vendor.payout_commission,
  );
-  console.log(vendorCommission, 'merchant commission');
     if (data.status === Status.APPROVED) {
        await updateCalculationTable(
          merchant.user_id,
@@ -451,16 +448,29 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         },
         conn,
       );
-  await updateMerchantDao(
+      // got DB Error when balance is NAN
+      const merchantBalance = Number(merchant.balance) - Number(data.amount) 
+      if (isNaN(merchantBalance)) {
+        throw new BadRequestError('Invalid merchant balance');
+      }
+      else {
+    await updateMerchantDao(
     { id: merchant.id },
-    { balance: Number(merchant.balance) - Number(data.amount) },
+    { balance: merchantBalance },
     conn,
-  );
+  );}
+    // got DB Error when balance is NAN
+    const vendorBalance = Number(vendor.balance) - Number(data.amount)
+    if (isNaN(vendorBalance)) {
+      throw new BadRequestError('Invalid vendor balance');
+    }
+    else {
    await updateVendorDao(
      { id: vendor.id },
-     { balance: Number(vendor.balance) - Number(data.amount) },
+     { balance: vendorBalance },
      conn,
-   );
+    );
+    }
       await updatePayoutDao(
         ids,
         {
@@ -488,19 +498,28 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         false,
         conn,
       );
-      console.log(typeof merchant.balance, typeof data.amount,"type");
+      const merchantBalance = Number(merchant.balance + data.amount) 
+      if (isNaN(merchantBalance)) {
+        throw new BadRequestError('Invalid merchant balance');
+      }
+      else {
     const log = await updateMerchantDao(
       { id: merchant.id, company_id: merchant.company_id },
-      { balance: Number(merchant.balance + data.amount) },
+      { balance: merchantBalance},
       conn,
     );
-      console.log(log, "update merchant");
+  }
+      const vendorBalance = Number(vendor.balance + data.amount)
+      if (isNaN(vendorBalance)) {
+        throw new BadRequestError('Invalid vendor balance');
+      }
+      else {
      const merchan = await updateVendorDao(
        { id: vendor.id },
-       { balance: Number(vendor.balance + data.amount) },
+       { balance: vendorBalance},
        conn,
      );
-      console.log(merchan, 'update merchant');
+    }
 
       const vend = await updateBankaccountDao(
         { id: bankData.id },
@@ -510,7 +529,6 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         },
         conn,
       );
-      console.log(vend,"vendor update");
     }
     await merchantPayoutCallback(data.config?.urls?.payout_notify, {
       code: data.code,
@@ -587,11 +605,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
 ///for update payout calculation of payout
 const updateCalculationTable = async (user_id, data, isApproved, conn) => {
-  console.log(isApproved, 'isApproved');
-
+ if (isNaN(data.amount - data.payoutCommission)) {
+    throw new BadRequestError('Invalid amount or commission');
+  }
   if (user_id) {
     const calculationData = await getCalculationforCronDao(user_id);
-    console.log(calculationData,"previous calculation");
     if (!calculationData[0]) {
       throw new NotFoundError('Calculation not found!');
     }
@@ -604,10 +622,6 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
       return;
     }
     const totalAmountData = Number(data.amount - data.payoutCommission);
-    console.log(totalAmountData, 'asadsds');
-    console.log(typeof data.amount, typeof data.payoutCommission);
-    console.log(data,"hey data from  the data")
-    console.log(totalAmountData, "asadsds");
     let payload;
     if (isApproved) {
       payload = {
@@ -681,9 +695,6 @@ const activateEkoService = async (req, res) => {
     .update(secretKeyTimestamp.toString())
     .digest('base64');
 
-  // may be in future this will need
-  // console.log('Secret Key:', secretKey);
-  // console.log('Secret Timestamp:', secretKeyTimestamp);
 
   const encodedParams = new URLSearchParams();
   encodedParams.set('service_code', config?.ekoServiceCode);

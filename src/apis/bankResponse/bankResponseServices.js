@@ -166,6 +166,9 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
     null,
     role,
   );
+  if (isNaN(bankdetails[0].balance) || isNaN(bankdetails[0].today_balance)) {
+    throw new BadRequestError('Invalid amount or commission');
+  }
  await updateBankaccountDao(
     { id: botRes?.bank_id },
     {
@@ -185,6 +188,9 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
       user_id: bankdetails[0].user_id,
     }
   );
+  if (isNaN(vendor[0].balance)) {
+    throw new BadRequestError('Invalid amount or commission');
+  }
   await updateVendorDao(
     { id: vendor[0].id },
     {
@@ -294,9 +300,13 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
       //   );
       // }
       await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+      const  merchnatData = merchantData[0].balance + amount 
+      if(isNaN(merchnatData)) {
+        throw new BadRequestError('Invalid amount or commission');
+      }
       await updateMerchantDao(
         { id: payInUtr.merchant_id },
-        { balance: merchantData[0].balance + amount },
+        { balance: merchnatData},
         conn
         );
       await updateCalculationTable(merchantData[0].user_id, {
@@ -343,6 +353,9 @@ const createBankResponseService = async (conn, payload, companyId, role, name) =
 };
 
 const updateCalculationTable = async (user_id, data, conn) => {
+  if (isNaN(data.amount - data.payinCommission)) {
+    throw new BadRequestError('Invalid amount or commission');
+  }
   if (user_id) {
     const calculationData = await getCalculationforCronDao(user_id);
     if (!calculationData[0]) {

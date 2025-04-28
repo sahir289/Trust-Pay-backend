@@ -1790,6 +1790,10 @@ const checkIsPayInExpired = (payIn) => {
 };
 
 const updateCalculationTable = async (user_id, data, conn) => {
+
+  if (isNaN((Number(data.amount) - Number(data.payinCommission)))) {
+    throw new BadRequestError('Invalid amount or commission');
+  }
   if (user_id) {
     const calculationData = await getCalculationforCronDao(user_id);
     if (!calculationData[0]) {
