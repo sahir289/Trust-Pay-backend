@@ -7,7 +7,7 @@ const userSockets = new Map();
 let ioInstance = null;
 
 const initializeSocket = (server) => {
-  logger.log(`CORS origins: ${config?.reactFrontOrigin}, ${config?.reactPaymentOrigin}`);
+  console.log(`CORS origins: ${config?.reactFrontOrigin}, ${config?.reactPaymentOrigin}`);
   ioInstance = new Server(server, {
     cors: {
       origin: [`${config?.reactFrontOrigin}`, `${config?.reactPaymentOrigin}`],
