@@ -62,11 +62,11 @@ const createMerchantService = async (conn, payload) => {
         conn,
       );
     }
-   if (userDesignation === Role.MERCHANT) {
+   if (userDesignation === Role.MERCHANT || userDesignation === Role.SUB_MERCHANT) {
      try {
        const hierarchy = await getUserHierarchysDao({ user_id: parentId });
        if (!hierarchy || !hierarchy[0]?.id) {
-         console.error('No hierarchy found for parentId:', parentId);
+         logger.error('No hierarchy found for parentId:', parentId);
          return;
        }
       //  {"child":{"operations":[]},"siblings":{"sub_merchants":["19fb0634-31cc-41f3-a09f-29b524e4aee5","972d353d-158f-4013-93d6-a17f7e606800"]}}
@@ -84,13 +84,13 @@ const createMerchantService = async (conn, payload) => {
          conn
        );
      } catch (error) {
-       console.error('Error updating hierarchy:', error);
+       logger.error('Error updating hierarchy:', error);
      }
    }
-    console.log('Merchant created successfully');
+    logger.log('Merchant created successfully');
     return data;
   } catch (error) {
-    console.error('Error while creating merchant', error);
+    logger.error('Error while creating merchant', error);
     throw new InternalServerError(error);
   }
 };
@@ -205,7 +205,7 @@ const getMerchantsService = async (
 
     
   } catch (error) {
-    console.error('Error while fetching merchants', error);
+    logger.error('Error while fetching merchants', error);
     throw new InternalServerError(error);
   }
 };
@@ -407,17 +407,17 @@ const getMerchantsServiceCode = async (
       try {
         await rollback(conn);
       } catch (rollbackError) {
-        console.error('Error during transaction rollback', rollbackError);
+        logger.error('Error during transaction rollback', rollbackError);
       }
     }
-    console.error('Error while getting merchants codes', error);
+    logger.error('Error while getting merchants codes', error);
     throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
         conn.release();
       } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
+        logger.error('Error while releasing the connection', releaseError);
       }
     }
   }
@@ -430,11 +430,11 @@ const updateMerchantService = async (ids, payload, role) => {
     const filterColumns =
       role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
     const data = await updateMerchantDao(ids, payload); // Adjust DAO call for update
-    console.log('Merchant updated successfully');
+    logger.log('Merchant updated successfully');
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
-    console.error('Error while updating merchant', error);
+    logger.error('Error while updating merchant', error);
     throw new InternalServerError(error);
   }
 };
@@ -451,7 +451,7 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
     const payload = { is_obsolete: true, updated_by };
     const data = await deleteMerchantDao(ids, payload); // Adjust DAO call for delete
     await commit(conn); // Commit the transaction
-    console.log('Merchant deleted successfully');
+    logger.log('Merchant deleted successfully');
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -459,17 +459,17 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
       try {
         await rollback(conn); // Rollback the transaction in case of error
       } catch (rollbackError) {
-        console.error('Error during transaction rollback', rollbackError);
+        logger.error('Error during transaction rollback', rollbackError);
       }
     }
-    console.error('Error while deleting merchant', error);
+    logger.error('Error while deleting merchant', error);
     throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
         conn.release(); // Release the connection back to the pool
       } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
+        logger.error('Error while releasing the connection', releaseError);
       }
     }
   }
