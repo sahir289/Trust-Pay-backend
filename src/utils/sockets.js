@@ -105,6 +105,7 @@ const notifyNewTableEntry = async(tableName, entryType, entryData) => {
   }
 
   const eventName = 'newTableEntry';
+  console.log(eventName, 'eventName');
   const payload = {
     tableName,
     entryType,
