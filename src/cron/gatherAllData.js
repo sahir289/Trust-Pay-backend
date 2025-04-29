@@ -26,7 +26,7 @@ if (process.env.NODE_ENV === 'production') {
     gatherAllData('H', 'Asia/Kolkata');
   });
 } else {
-  logger.log('Cron jobs are disabled in non-production environments.');
+  logger.error('Cron jobs are disabled in non-production environments.');
 }
 
 const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
