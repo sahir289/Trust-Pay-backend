@@ -322,11 +322,13 @@ export const merchantColumns = {
     'subMerchants',
   ],
   USER: [
+    'id', // -- while enabling user id going undefined
     'first_name',
     'last_name',
     'email',
     'contact_no',
     'user_name',
+    'is_enabled',
     'code',
     'config',
   ],

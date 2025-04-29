@@ -289,8 +289,8 @@ export const processPayIn = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-
-  const data = await transactionWrapper(processPayInService)(payload);
+//added check for manually utr for uplaoded screenshot
+  const data = await transactionWrapper(processPayInService)(payload, payload.code, false, true );
   sendSuccess(res, data);
 };
 

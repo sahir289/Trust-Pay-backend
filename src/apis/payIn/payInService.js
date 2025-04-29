@@ -971,6 +971,7 @@ export const processPayInService = async (
   payload,
   updated_by,
   tele_check = true,
+  img_utr = false,
 ) => {
   const {
     userSubmittedUtr,
@@ -1001,11 +1002,13 @@ export const processPayInService = async (
   });
   const updatePayInData = {
     amount,
-    user_submitted_utr: tele_check
+    //img_utr only for updating utr directly when image uploaded
+    user_submitted_utr: tele_check || img_utr
       ? userSubmittedUtr
       : payIn?.user_submitted_utr
         ? payIn?.user_submitted_utr
         : null,
+    status : img_utr && payIn.status === Status.IMG_PENDING ? 'PENDING' : payIn.status,
     is_url_expires: true,
     one_time_used: true,
     duration,
