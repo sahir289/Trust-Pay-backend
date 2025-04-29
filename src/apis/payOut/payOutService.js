@@ -58,7 +58,7 @@ const createPayoutService = async (conn, headers, payload, role) => {
           : columns.PAYOUT;
     const { code, amount, x_api_key, returnUrl, callbackUrl } = payload;
     const details = await getMerchantsDao({ code });
-    const { full_name, config } = details[0];
+    const { full_name, config, user_id } = details[0];
     const merchantAPIKey = config?.keys;
     const payoutAmount = Number(amount);
     const balanceRestriction = config.balanceRestriction;
