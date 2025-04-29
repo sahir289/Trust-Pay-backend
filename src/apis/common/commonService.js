@@ -44,7 +44,12 @@ export const getTotalCountService = async (tablename, role, filters, userInfo) =
     };
 
     if (!isMerchantOrVendor) {
-      return await getTotalCountDao(tablename, role, filters);
+      return await getTotalCountDao(
+        tablename,
+        role,
+        filters,
+        userInfo.userRole,
+      );
     }
 
     const hierarchy = await getHierarchy(userInfo.user_id);
