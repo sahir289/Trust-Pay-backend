@@ -58,7 +58,7 @@ const createPayoutService = async (conn, headers, payload, role) => {
           : columns.PAYOUT;
     const { code, amount, x_api_key, returnUrl, callbackUrl } = payload;
     const details = await getMerchantsDao({ code });
-    const { user_id, config } = details[0];
+    const { full_name, config } = details[0];
     const merchantAPIKey = config?.keys;
     const payoutAmount = Number(amount);
     const balanceRestriction = config.balanceRestriction;
@@ -73,8 +73,8 @@ const createPayoutService = async (conn, headers, payload, role) => {
       },
     });
     payload.company_id = details[0].company_id;
-    payload.created_by = user_id ? user_id : null;
-    payload.updated_by = user_id ? user_id : null;
+    payload.created_by = full_name ? full_name : null;
+    payload.updated_by = full_name ? full_name : null;
 
     if (!x_api_key || !merchantAPIKey) {
       throw new BadRequestError(400, 'Missing API key or Merchant Keys');
