@@ -1,0 +1,38 @@
+import { getMerchantByUserIdDao } from '../apis/merchants/merchantDao.js';
+import { getUserHierarchysDao } from "../apis/userHierarchy/userHierarchyDao.js";
+
+export async function enhanceMerchantsWithSubMerchants(data) {
+  const subMerchantUserIds = new Set();
+  for (const merchant of data) {
+    const userHierarchys = await getUserHierarchysDao({
+      user_id: merchant.user_id,
+    });
+      const userHierarchy = userHierarchys[0];
+    if (userHierarchy?.config?.siblings?.sub_merchants) {
+      const subMerchants = userHierarchy.config.siblings.sub_merchants;
+      subMerchants.forEach((id) => subMerchantUserIds.add(id));
+    }
+  }
+  const result = [];
+  for (const merchant of data) {
+    if (subMerchantUserIds.has(merchant.user_id)) {
+      continue;
+    }
+    const userHierarchys = await getUserHierarchysDao({
+      user_id: merchant.user_id,
+    });
+      const userHierarchy = userHierarchys[0];
+    if (!userHierarchy?.config?.siblings?.sub_merchants) {
+      merchant.subMerchants = [];
+      result.push(merchant);
+      continue;
+    }
+      const subMerchantIds = userHierarchy.config.siblings.sub_merchants;
+    const heir = await getMerchantByUserIdDao(
+      subMerchantIds.length === 1 ? subMerchantIds[0] : subMerchantIds,
+    );
+    merchant.subMerchants = heir;
+    result.push(merchant);
+  }
+    return result;
+}
