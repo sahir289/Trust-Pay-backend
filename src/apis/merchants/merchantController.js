@@ -56,7 +56,7 @@ const createMerchant = async (req, res) => {
     };
     await transactionWrapper(createMerchantService)(finalPayload, role);
 
-    logger.info('Merchant created successfully', { company_id, user_id });
+    logger.info('Merchant created successfully', { company_id, user_name });
     return sendSuccess(res, null, 'Merchant created successfully');
 };
 
