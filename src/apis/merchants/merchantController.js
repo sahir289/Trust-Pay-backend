@@ -20,7 +20,7 @@ import { logger } from '../../utils/logger.js';
 
 const createMerchant = async (req, res) => {
     const { body: payload, user } = req;
-    const { company_id, user_id, role } = user;
+    const { company_id, user_name, role } = user;
     const { secretKey, publicKey } = createHashApiKey();
 
     // transform payload in a single, immutable operation
@@ -51,10 +51,9 @@ const createMerchant = async (req, res) => {
     const finalPayload = {
       ...cleanedPayload,
       company_id,
-      created_by: user_id,
-      updated_by: user_id,
+      created_by: user_name,
+      updated_by: user_name,
     };
-
     await transactionWrapper(createMerchantService)(finalPayload, role);
 
     logger.info('Merchant created successfully', { company_id, user_id });
@@ -142,8 +141,8 @@ const updateMerchant = async (req, res) => {
     throw new ValidationError(bodyError);
   }
   const { id } = req.params;
-  const { company_id, user_id, role } = req.user;
-  payload.updated_by = user_id;
+  const { company_id, user_name, role } = req.user;
+  payload.updated_by = user_name;
   const ids = { id, company_id };
   // Call the service to update the Merchant
   await updateMerchantService(ids, payload, role);
