@@ -27,11 +27,13 @@ export async function enhanceMerchantsWithSubMerchants(data) {
       result.push(merchant);
       continue;
     }
-      const subMerchantIds = userHierarchy.config.siblings.sub_merchants;
-    const heir = await getMerchantByUserIdDao(
-      subMerchantIds.length === 1 ? subMerchantIds[0] : subMerchantIds,
-    );
-    merchant.subMerchants = heir;
+    const subMerchantIds = userHierarchy.config.siblings.sub_merchants;
+   const heirs = [];
+   for (const id of subMerchantIds) {
+     const heir = await getMerchantByUserIdDao(id);
+     heirs.push(heir);
+   }
+    merchant.subMerchants = heirs;
     result.push(merchant);
   }
     return result;
