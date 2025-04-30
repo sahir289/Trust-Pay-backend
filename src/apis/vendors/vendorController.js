@@ -24,10 +24,10 @@ const createVendor = async (req, res) => {
   }
   let payload = req.body;
   const { role } = req.user;
-  const { company_id, user_id } = req.user;
+  const { company_id, user_name } = req.user;
   payload.company_id = company_id;
-  payload.created_by = user_id;
-  payload.updated_by = user_id;
+  payload.created_by = user_name;
+  payload.updated_by = user_name;
   // Call the service to create the Vendor
   await transactionWrapper(createVendorService)(payload, role);
   // Log success message

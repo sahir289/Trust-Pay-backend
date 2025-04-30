@@ -229,7 +229,7 @@ export const resetDeposit = async (req, res) => {
   const data = await transactionWrapper(resetDepositService)(
     merchant_order_id,
     req.user.company_id,
-    req.user.user_id,
+    req.user.user_name,
   );
   if (data.error) {
     sendError(res, data);
@@ -362,7 +362,7 @@ export const telegramCheckUTR = async (req, res) => {
     utr,
     merchantOrderId,
     req.user.company_id,
-    req.user.user_id,
+    req.user.user_name,
   );
   sendSuccess(res, result);
 };
