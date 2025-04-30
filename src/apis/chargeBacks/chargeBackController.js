@@ -39,14 +39,14 @@ const createChargeBack = async (req, res) => {
   if (isAlreadyExit.length > 0) {
     throw new NotFoundError('ChargeBack already exist');
   }
-  const { company_id, role, user_id } = req.user;
+  const { company_id, role, user_name } = req.user;
   // Call the service to create the ChargeBack
   const result = await createChargeBackService(
     payload,
     PayinDetails,
     role,
     company_id,
-    user_id,
+    user_name,
   );
   console.log('ChargeBack created successfully', 'info', result);
   return sendSuccess(res, {}, 'ChargeBack created successfully');

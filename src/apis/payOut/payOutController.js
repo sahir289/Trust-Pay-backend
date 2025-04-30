@@ -26,10 +26,10 @@ const createPayout = async (req, res) => {
   const x_api_key = req.headers['x-api-key'];
   let payload = req.body;
   if (req.user) {
-    const { company_id, role, user_id } = req.user;
+    const { company_id, role, user_name } = req.user;
     payload.company_id = company_id;
-    payload.created_by = user_id;
-    payload.updated_by = user_id;
+    payload.created_by = user_name;
+    payload.updated_by = user_name;
     payload.x_api_key = x_api_key;
     await transactionWrapper(createPayoutService)(req.headers, payload, role);
   }
@@ -102,8 +102,8 @@ const updatePayout = async (req, res) => {
   }
 
   const { id } = req.params;
-  const { company_id, role, user_id } = req.user;
-  payload.updated_by = user_id;
+  const { company_id, role, user_name } = req.user;
+  payload.updated_by = user_name;
   const ids = { id, company_id };
   await transactionWrapper(updatePayoutService)(ids, payload, role);
   return sendSuccess(res, {}, 'Payout updated successfully');

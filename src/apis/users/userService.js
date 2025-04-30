@@ -293,7 +293,6 @@ const createUserService = async (conn, payload, role) => {
   }
   const password = await createHash(payload.password);
   payload.password = password;
-
   const userPayload = {
     code: payload.code,
     role_id: payload.role_id,
