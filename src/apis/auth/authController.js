@@ -19,8 +19,8 @@ const loginController = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  console.log(payload, "hey payload data");
   const data = await loginService(payload, clientIP);
+  ///for first login user
   if (data.isLoginFirst) {
       return sendSuccess(res, data, "user's first login");
   }

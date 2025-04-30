@@ -22,20 +22,7 @@ import { forceLogoutUser } from '../../utils/sockets.js';
 const loginService = async (config, clientIP) => {
   let ids = {};
   try {
-    const user = await getUsersByUserNameDao(ids, config.username);
-    if (user.config.isLoginFirst) {
-      const loginFirstObj = {
-        id: user.id,
-        isLoginFirst : user.config.isLoginFirst
-      }
-      const updateUser = await updateUserDao(
-        { id: user.id },
-        { config: { isLoginFirst:true} },
-      );
-      if (updateUser) {
-        return loginFirstObj;
-     }
-    }
+    const user = await getUsersByUserNameDao(ids, config.username);   
     if (!user) {
       throw new NotFoundError('User not found');
     }
@@ -58,6 +45,22 @@ const loginService = async (config, clientIP) => {
     // }
 
     // const loginData = await addLoginDao(user.id, config, user.company);
+
+    ///for first login data
+     if (user.config.isLoginFirst) {
+       const loginFirstObj = {
+         id: user.id,
+         isLoginFirst: user.config.isLoginFirst,
+       };
+       const updateUser = await updateUserDao(
+         { id: user.id },
+         { config: { isLoginFirst: false } },
+       );
+       if (updateUser) {
+         return loginFirstObj;
+       }
+     }
+    
     const sessionId = generateUUID();
 
     await deleteUserSessionsDao(user.id, user.company_id);

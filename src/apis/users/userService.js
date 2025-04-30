@@ -10,7 +10,6 @@ import {
   getUsersByUserNameDao,
   getUsersDao,
   updateUserDao,
-  getIsFirstLoginUserDao,
   getUsersBySearchDao,
 } from './userDao.js';
 import { getDesignationDao } from '../designation/designationDao.js';
@@ -287,41 +286,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
   }
 };
 
-const getIsFirstLoginUserService = async (payload) => {
-  let conn;
-  console.log(payload,"hey user")
-  let ids = {};
-  try {
-    const user = await getUsersByUserNameDao(ids, payload.user_name);
-     if (!user) {
-       throw new NotFoundError('User not found');
-     }
-     if (!user.is_enabled) {
-       throw new AccessDeniedError('User is not enabled'); // 403 Forbidden - The user exists but is not verified.
-     }
-    console.log(payload.password, user?.password,"hey");
-    
-    const isPasswordValid = await verifyHash(payload.password, user?.password);
-    console.log(isPasswordValid);
-    if (isPasswordValid) {
-      throw new AuthenticationError('Invalid credentials'); // 401 Unauthorized - The provided credentials (password) are invalid.
-    }
-   conn = await getConnection();
-   const data = await getIsFirstLoginUserDao(payload.user_name, conn);
-   return data
-  } catch (error) {
-    logger.error('error getting while fetching user', error);
-    throw new InternalServerError(error);
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
-  }
-};
+
 const createUserService = async (conn, payload, role) => {
   // const filterColumns =
   //   role === Role.MERCHANT
@@ -504,5 +469,5 @@ export {
   getUsersByUserNameService,
   createUserService,
   userUpdateService,
-  getIsFirstLoginUserService,
+  
 };
