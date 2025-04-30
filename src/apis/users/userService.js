@@ -2,12 +2,15 @@ import { InternalServerError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
 import { getConnection } from '../../utils/db.js';
 import { generateUUID } from '../../utils/generateUUID.js';
+import { generatePassword } from '../../utils/generatePassword.js';
+import { sendCredentialsEmail } from '../../utils/sendMailler.js';
 import {
   createUserDao,
   getUserByIdDao,
   getUsersByUserNameDao,
   getUsersDao,
   updateUserDao,
+  getIsFirstLoginUserDao,
   getUsersBySearchDao,
 } from './userDao.js';
 import { getDesignationDao } from '../designation/designationDao.js';
@@ -28,6 +31,12 @@ import {
   getUserHierarchysDao,
   updateUserHierarchyDao,
 } from '../userHierarchy/userHierarchyDao.js';
+import {
+  AccessDeniedError,
+  AuthenticationError,
+  NotFoundError,
+} from '../../utils/appErrors.js';
+import { verifyHash } from '../../utils/bcryptPassword.js';
 
 const getUsersService = async (
   ids,
@@ -109,7 +118,6 @@ const getUsersService = async (
       userIdFilter = [...new Set(userIdFilter)];
       ids.id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
-
     return await getUsersDao(
       ids,
       pageNumber,
@@ -262,7 +270,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
           ? vendorColumns.USER
           : columns.USER;
     conn = await getConnection();
-    const data = await getUsersByUserNameDao(conn, ids, username);
+    const data = await getUsersByUserNameDao(ids, username,conn);
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -279,6 +287,41 @@ const getUsersByUserNameService = async (username, ids, role) => {
   }
 };
 
+const getIsFirstLoginUserService = async (payload) => {
+  let conn;
+  console.log(payload,"hey user")
+  let ids = {};
+  try {
+    const user = await getUsersByUserNameDao(ids, payload.user_name);
+     if (!user) {
+       throw new NotFoundError('User not found');
+     }
+     if (!user.is_enabled) {
+       throw new AccessDeniedError('User is not enabled'); // 403 Forbidden - The user exists but is not verified.
+     }
+    console.log(payload.password, user?.password,"hey");
+    
+    const isPasswordValid = await verifyHash(payload.password, user?.password);
+    console.log(isPasswordValid);
+    if (isPasswordValid) {
+      throw new AuthenticationError('Invalid credentials'); // 401 Unauthorized - The provided credentials (password) are invalid.
+    }
+   conn = await getConnection();
+   const data = await getIsFirstLoginUserDao(payload.user_name, conn);
+   return data
+  } catch (error) {
+    logger.error('error getting while fetching user', error);
+    throw new InternalServerError(error);
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        logger.error('Error while releasing the connection', releaseError);
+      }
+    }
+  }
+};
 const createUserService = async (conn, payload, role) => {
   // const filterColumns =
   //   role === Role.MERCHANT
@@ -291,9 +334,9 @@ const createUserService = async (conn, payload, role) => {
   if (user?.user_name || user?.email || user?.contact_no) {
     throw new InternalServerError('User already exists');
   }
-  const password = await createHash(payload.password);
-  payload.password = password;
-
+  const Password = generatePassword();
+  const hashPassword = await createHash(Password);
+  payload.password = hashPassword;
   const userPayload = {
     code: payload.code,
     role_id: payload.role_id,
@@ -308,6 +351,7 @@ const createUserService = async (conn, payload, role) => {
     company_id: payload.company_id,
     created_by: payload.created_by,
     updated_by: payload.updated_by,
+    config:{"isLoginFirst":true}
   };
   const payin_notify = payload.payin_notify;
   const payout_notify = payload.payout_notify;
@@ -318,6 +362,15 @@ const createUserService = async (conn, payload, role) => {
   delete payload.return;
   delete payload.site;
   const User = await createUserDao(userPayload, conn);
+
+  if (User) {
+    sendCredentialsEmail({
+      email: userPayload.email,
+      username: userPayload.user_name,
+      password: Password,
+    });
+  }
+
   const userRole = await getRoleDao({ id: payload.role_id });
   const userDesignation = await getDesignationDao({
     id: payload.designation_id,
@@ -451,4 +504,5 @@ export {
   getUsersByUserNameService,
   createUserService,
   userUpdateService,
+  getIsFirstLoginUserService,
 };

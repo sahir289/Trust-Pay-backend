@@ -6,7 +6,7 @@ import {
   getUsersByUserNameService,
   getUsersService,
   userUpdateService,
-  getUsersBySearchService
+  getUsersBySearchService,
 } from './userService.js';
 import { CREATE_USER_SCHEMA } from '../../schemas/userSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
@@ -99,4 +99,11 @@ const updateUser = async (req, res) => {
   return sendSuccess(res, {}, 'update user successfully');
 };
 
-export { getUsers,getUsersBySearch, getUserById, getUsersByUserName, createUser, updateUser };
+export {
+  getUsers,
+  getUsersBySearch,
+  getUserById,
+  getUsersByUserName,
+  createUser,
+  updateUser,
+};

@@ -19,12 +19,16 @@ const loginController = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
+  console.log(payload, "hey payload data");
   const data = await loginService(payload, clientIP);
-  res.cookie('refreshToken', data.refreshToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'Strict',
-  });
+  if (data.isLoginFirst) {
+      return sendSuccess(res, data, "user's first login");
+  }
+    res.cookie('refreshToken', data.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Strict',
+    });
   const token = {
     accessToken: data.tokenInfo.accessToken,
     sessionId: data.sessionId,

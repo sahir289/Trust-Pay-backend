@@ -8,7 +8,7 @@ import {
 import { createHash, verifyHash } from '../../utils/bcryptPassword.js';
 import os from 'os';
 import { getConnection } from '../../utils/db.js';
-import { getUserByIdDao, getUsersByUserNameDao } from '../users/userDao.js';
+import { getUserByIdDao, getUsersByUserNameDao,updateUserDao } from '../users/userDao.js';
 import { generateUserToken } from '../../utils/auth.js';
 import {
   addLoginDao,
@@ -23,6 +23,19 @@ const loginService = async (config, clientIP) => {
   let ids = {};
   try {
     const user = await getUsersByUserNameDao(ids, config.username);
+    if (user.config.isLoginFirst) {
+      const loginFirstObj = {
+        id: user.id,
+        isLoginFirst : user.config.isLoginFirst
+      }
+      const updateUser = await updateUserDao(
+        { id: user.id },
+        { config: { isLoginFirst:true} },
+      );
+      if (updateUser) {
+        return loginFirstObj;
+     }
+    }
     if (!user) {
       throw new NotFoundError('User not found');
     }
