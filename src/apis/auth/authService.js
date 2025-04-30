@@ -20,13 +20,14 @@ import { generateUUID } from '../../utils/generateUUID.js';
 import { forceLogoutUser } from '../../utils/sockets.js';
 
 const loginService = async (config, clientIP) => {
+  let conn;
   let ids = {};
   try {
-    const user = await getUsersByUserNameDao(ids, config.username);   
+
+    const user = await getUsersByUserNameDao(ids, config.username);
     if (!user) {
       throw new NotFoundError('User not found');
     }
-
     if (!user.is_enabled) {
       throw new AccessDeniedError('User is not enabled'); // 403 Forbidden - The user exists but is not verified.
     }
@@ -47,20 +48,22 @@ const loginService = async (config, clientIP) => {
     // const loginData = await addLoginDao(user.id, config, user.company);
 
     ///for first login data
-     if (user.config.isLoginFirst) {
-       const loginFirstObj = {
-         id: user.id,
-         isLoginFirst: user.config.isLoginFirst,
-       };
-       const updateUser = await updateUserDao(
-         { id: user.id },
-         { config: { isLoginFirst: false } },
-       );
-       if (updateUser) {
-         return loginFirstObj;
-       }
-     }
-    
+    conn = await getConnection();
+    if (user.config.isLoginFirst) {
+      const loginFirstObj = {
+        id: user.id,
+        isLoginFirst: user.config.isLoginFirst,
+      };
+      const updateUser = await updateUserDao(
+        { id: user.id },
+        { config: { isLoginFirst: false } },
+        conn
+      );
+      if (updateUser) {
+        return loginFirstObj;
+      }
+    }
+
     const sessionId = generateUUID();
 
     await deleteUserSessionsDao(user.id, user.company_id);
@@ -90,7 +93,15 @@ const loginService = async (config, clientIP) => {
   } catch (error) {
     console.error('error getting while logging in', error);
     throw new BadRequestError('Error getting while logging in');
-  } 
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.error('Error while releasing the connection', releaseError);
+      }
+    }
+  }
 };
 
 const refreshTokenService = async (refreshToken) => {

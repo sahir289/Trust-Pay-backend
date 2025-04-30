@@ -439,18 +439,12 @@ const createUserService = async (conn, payload, role) => {
   return Error;
 };
 
-const userUpdateService = async (ids, payload, role) => {
+const userUpdateService = async (conn,ids, payload) => {
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.USER
-        : role === Role.VENDOR
-          ? vendorColumns.USER
-          : columns.USER;
-    const User = await updateUserDao(ids, payload);
+   
+    const User = await updateUserDao(ids, payload,conn);
     logger.log('User Updated Successfully');
-    const finalResult = filterResponse(User, filterColumns);
-    return finalResult;
+    return User;
   } catch (error) {
     logger.error('error getting while updating user', error);
     throw new InternalServerError(error);

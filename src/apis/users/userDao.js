@@ -295,7 +295,6 @@ const createUserDao = async (payload,conn) => {
     // INSERT INTO public."User" (role_id, company_id, designation_id, first_name, last_name, email, contact_no, user_name, password, code, is_enabled,created_by,updated_by)
     // VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,$12,$13) RETURNING id 
     // `;
-
     // const values = [
     //   payload.role_id,
     //   payload.company_id,
@@ -346,9 +345,15 @@ const getUsersForCronDao = async (conn) => {
   }
 };
 
-const updateUserDao = async (ids, data) => {
+const updateUserDao = async (ids, data,conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.USER, data, ids);
+
+     if (conn && conn.query) {
+       const result = await conn.query(sql, params);
+       return result.rows[0];
+     }
+  
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
@@ -356,6 +361,8 @@ const updateUserDao = async (ids, data) => {
     throw error.message;
   }
 }
+
+
 
 export {
   getUsersDao,
