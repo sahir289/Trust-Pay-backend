@@ -30,8 +30,9 @@ export async function enhanceMerchantsWithSubMerchants(data) {
     const subMerchantIds = userHierarchy.config.siblings.sub_merchants;
    const heirs = [];
    for (const id of subMerchantIds) {
-     const heir = await getMerchantByUserIdDao(id);
-     heirs.push(heir);
+       const heir = await getMerchantByUserIdDao(id);
+      let heir1=heir[0]
+     heirs.push(heir1);
    }
     merchant.subMerchants = heirs;
     result.push(merchant);
