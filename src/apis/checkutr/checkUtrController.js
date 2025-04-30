@@ -39,10 +39,10 @@ const createCheckUtr = async (req, res) => {
     payload.merchant_order_id,
   );
   payload.payin_id = payinData[0].payin_id;
-  const { company_id, user_name } = req.user;
+  const { company_id, user_id } = req.user;
   payload.company_id = company_id;
-  payload.created_by = user_name;
-  payload.updated_by = user_name;
+  payload.created_by = user_id;
+  payload.updated_by = user_id;
   delete payload.merchant_order_id;
   if (!payload) {
     throw new BadRequestError('payload is required');

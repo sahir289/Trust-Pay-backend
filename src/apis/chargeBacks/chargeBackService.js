@@ -34,7 +34,7 @@ const createChargeBackService = async (
   PayinDetails,
   role,
   company_id,
-  user_name,
+  user_id,
 ) => {
   let conn;
   try {
@@ -50,8 +50,8 @@ const createChargeBackService = async (
     payload.merchant_user_id = PayinDetails[0].merchant_user_id;
     payload.payin_id = PayinDetails[0].payin_id;
     payload.bank_acc_id = PayinDetails[0].bank_acc_id;
-    payload.created_by = user_name;
-    payload.updated_by = user_name;
+    payload.created_by = user_id;
+    payload.updated_by = user_id;
     payload.company_id = company_id;
     delete payload.merchant_order_id;
     ///create chargeback
