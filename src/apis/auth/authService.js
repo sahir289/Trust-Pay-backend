@@ -8,34 +8,57 @@ import {
 import { createHash, verifyHash } from '../../utils/bcryptPassword.js';
 import os from 'os';
 import { getConnection } from '../../utils/db.js';
-import { getUserByIdDao, getUsersByUserNameDao } from '../users/userDao.js';
+import {
+  getUserByIdDao,
+  getUsersByUserNameDao,
+  updateUserDao,
+  getUsersByEmailDao,
+} from '../users/userDao.js';
 import { generateUserToken } from '../../utils/auth.js';
 import {
   addLoginDao,
   deleteUserSessionsDao,
   getRefreshTokenDao,
   getSessionByIdDao,
+  changePasswordDao,
 } from './authDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
+import { generateOTP } from '../../utils/generateOtp.js';
 import { forceLogoutUser } from '../../utils/sockets.js';
-
+import { sendOTP } from '../../utils/sendMailer.js';
 const loginService = async (config, clientIP) => {
+  let conn;
   let ids = {};
   try {
+    
     const user = await getUsersByUserNameDao(ids, config.username);
-    if (!user) {
-      throw new NotFoundError('User not found');
+
+    if (config.newPassword) {
+      const isPasswordValid = await verifyHash(config.password, user?.password);
+      if (isPasswordValid) {
+        const hashedPassword = await createHash(config.newPassword);
+        await updateUserDao(
+          { id: user.id },
+          { password: hashedPassword },
+          conn,
+        );
+      }
+    }    
+    else {
+      if (!user) {
+        throw new NotFoundError('User not found');
+      }
+      if (!user.is_enabled) {
+        throw new AccessDeniedError('User is not enabled'); // 403 Forbidden - The user exists but is not verified.
+      }
+      const isPasswordValid = await verifyHash(config.password, user?.password);
+      if (!isPasswordValid) {
+        throw new AuthenticationError('Invalid credentials'); // 401 Unauthorized - The provided credentials (password) are invalid.
+      }
     }
 
-    if (!user.is_enabled) {
-      throw new AccessDeniedError('User is not enabled'); // 403 Forbidden - The user exists but is not verified.
-    }
-
-    const isPasswordValid = await verifyHash(config.password, user?.password);
-    if (!isPasswordValid) {
-      throw new AuthenticationError('Invalid credentials'); // 401 Unauthorized - The provided credentials (password) are invalid.
-    }
-
+    config.password = config.newPassword;
+    delete config.newPassword;
     // const isRequestVerified = processRequest(
     //   config.source,
     //   user.role_name
@@ -45,6 +68,24 @@ const loginService = async (config, clientIP) => {
     // }
 
     // const loginData = await addLoginDao(user.id, config, user.company);
+
+    ///for first login data
+    conn = await getConnection();
+    if (user.config.isLoginFirst) {
+      const loginFirstObj = {
+        id: user.id,
+        isLoginFirst: user.config.isLoginFirst,
+      };
+      const updateUser = await updateUserDao(
+        { id: user.id },
+        { config: { isLoginFirst: false } },
+        conn
+      );
+      if (updateUser) {
+        return loginFirstObj;
+      }
+    }
+
     const sessionId = generateUUID();
 
     await deleteUserSessionsDao(user.id, user.company_id);
@@ -74,7 +115,15 @@ const loginService = async (config, clientIP) => {
   } catch (error) {
     console.error('error getting while logging in', error);
     throw new BadRequestError('Error getting while logging in');
-  } 
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.error('Error while releasing the connection', releaseError);
+      }
+    }
+  }
 };
 
 const refreshTokenService = async (refreshToken) => {
@@ -120,6 +169,70 @@ const logoutService = async (decodeToken, session_id) => {
   }
 };
 
+const changePasswordService = async (payload) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    const userDetials = {user_name:payload.user_name, password:payload.oldPassword}
+    const verified = await verificationService(payload.user_id, userDetials);
+    if (!verified) {
+       throw new AuthenticationError('Invalid Password');
+    }
+    const newPassword =await createHash(payload.password)
+    const user = await changePasswordDao(payload.user_id,newPassword);
+    return user;
+  } catch (error) {
+    console.log('Error getting while changing password', error);
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.error('Error while releasing the connection', releaseError);
+      }
+    }
+  }
+};
 
+const verificationService = async (id, payload) => {
+try {
+ const userDetails = await getUsersByUserNameDao(id, payload.user_name );
+ const isPasswordValid = await verifyHash(payload.password, userDetails.password);
+ if (!isPasswordValid) {
+   throw new AuthenticationError('Invalid Password');
+ }
+  return userDetails;
+   } catch (error) {
+  console.log('Error getting while changing password', error);
+   } 
+}
 
-export { loginService, refreshTokenService, logoutService };
+const forgetPasswordService = async (user_name, email) => {
+  try {
+    let userDetails;
+    if (user_name) {
+      userDetails = await getUsersByUserNameDao({}, user_name);
+    }
+    else {
+      userDetails = await getUsersByEmailDao(email);
+    }
+    if (!userDetails) {
+         throw new AuthenticationError(`INvalid`);
+    }
+    const otp = generateOTP();
+    await sendOTP(userDetails.email, otp);
+    
+    return userDetails;
+  } catch (error) {
+    console.log('Error getting while changing password', error);
+  }
+};
+ 
+export {
+  loginService,
+  refreshTokenService,
+  changePasswordService,
+  verificationService,
+  logoutService,
+  forgetPasswordService
+};

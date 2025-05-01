@@ -6,7 +6,7 @@ import {
   getUsersByUserNameService,
   getUsersService,
   userUpdateService,
-  getUsersBySearchService
+  getUsersBySearchService,
 } from './userService.js';
 import { CREATE_USER_SCHEMA } from '../../schemas/userSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
@@ -89,14 +89,21 @@ const createUser = async (req, res) => {
 };
 
 const updateUser = async (req, res) => {
-  const { role, company_id, user_id } = req.user;
+  const { company_id, user_id } = req.user;
   let payload = req.body;
   payload.updated_by = user_id;
   const id = req.params.id;
   const ids = { id, company_id };
-  await userUpdateService(ids ,payload, role);
+    await transactionWrapper(userUpdateService)(ids, payload);
   logger.log('update user successfully');
   return sendSuccess(res, {}, 'update user successfully');
 };
 
-export { getUsers,getUsersBySearch, getUserById, getUsersByUserName, createUser, updateUser };
+export {
+  getUsers,
+  getUsersBySearch,
+  getUserById,
+  getUsersByUserName,
+  createUser,
+  updateUser,
+};

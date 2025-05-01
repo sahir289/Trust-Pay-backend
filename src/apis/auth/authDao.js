@@ -71,10 +71,22 @@ const deleteUserSessionsDao = async (user_id, company_id) => {
   }
 };
 
+const changePasswordDao =async (id, password) => {
+   try {
+     const query = `UPDATE "${tableName.USER}" SET password = $2 WHERE id = $1 RETURNING id`
+     const result = await executeQuery(query, [id, password]);
+     return result;
+  } catch (error) {
+    console.error('Getting error while deleting user session', error);
+    throw error.message;
+  }
+}
+
 export {
   addLoginDao,
   getRefreshTokenDao,
   getLoginDao,
   getSessionByIdDao,
   deleteUserSessionsDao,
+  changePasswordDao
 };
