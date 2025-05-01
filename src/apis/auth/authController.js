@@ -1,9 +1,8 @@
 import { logoutSet } from '../../middlewares/auth.js';
 import { INSERT_AUTH_SCHEMA } from '../../schemas/authSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
-import { verifyHash } from '../../utils/bcryptPassword.js';
 // import { verifyToken } from '../../utils/auth.js';
-import { sendSuccess, sendError } from '../../utils/responseHandlers.js';
+import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   loginService,
   // logoutService,
@@ -87,7 +86,6 @@ const changedPassword= await changePasswordService({ user_id, user_name, passwor
 const verfyUserController = async (req, res) => {
   const { email } = req.body;
   const verfyUser = await verfyUserService(email);
-  console.log(verfyUser,"hii user from the user of data");
   if (!verfyUser) {
     throw new BadRequestError("Invalid User's Info");
   }
