@@ -256,7 +256,8 @@ const verfyOtpService = async (otp) => {
      }
      else {
        await updateUserOtpDao({ user_id: userDetails.user_id }, { is_used: true });
-       return userDetails.user_id;
+       return {id:userDetails.user_id
+     };
      }
    } catch (error) {
      console.log('Error while verifying otp', error);
