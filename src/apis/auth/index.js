@@ -62,7 +62,7 @@ router.post('/logout', isAuthenticated, tryCatchHandler(logoutController));
 
 router.post('/otp_verification', tryCatchHandler(verfyOtpController)); 
 
-router.post('/forget_password', tryCatchHandler(forgetPasswordController)); 
+router.post('/reset_password', tryCatchHandler(forgetPasswordController)); 
 
 router.post('/user_verification', tryCatchHandler(verfyUserController)); 
 
