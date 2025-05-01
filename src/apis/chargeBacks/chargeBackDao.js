@@ -30,7 +30,7 @@ export const getChargeBackDao = async (
   role
 ) => {
   try {
-    const { VENDOR, CHARGE_BACK, MERCHANT, PAYIN } = tableName;
+    const { VENDOR, CHARGE_BACK, MERCHANT, PAYIN, USER } = tableName;
 
     const conditions = [`cb.is_obsolete = false`];
     const queryParams = [];
@@ -122,9 +122,12 @@ export const getChargeBackDao = async (
         v.code AS vendor_name,
       `;
     }
+    //created and updated by with user name
     additionalColumns += `
       v.code AS vendor_name,
-      p.user AS user
+      p.user AS user,
+      u.user_name AS createdby_username,
+      uu.user_name AS updatedby_username
     `;
 
     // Combine all columns
@@ -142,6 +145,8 @@ export const getChargeBackDao = async (
       LEFT JOIN public."${VENDOR}" v ON cb.vendor_user_id = v.user_id
       LEFT JOIN public."${MERCHANT}" m ON cb.merchant_user_id = m.user_id
       LEFT JOIN public."${PAYIN}" p ON cb.payin_id = p.id
+      LEFT JOIN public."${USER}" u ON cb.created_by = u.id 
+      LEFT JOIN public."${USER}" uu ON cb.updated_by = uu.id
       WHERE ${conditions.join(' AND ')}
       ORDER BY ${qualifiedSortBy} ${sortOrder}
       ${limitcondition.value}

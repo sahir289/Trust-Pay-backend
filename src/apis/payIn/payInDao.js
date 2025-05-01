@@ -192,6 +192,8 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
           p.duration,
           p.config AS payin_details,
           b.nick_name,
+          u.user_name AS createdby_username,  
+          uu.user_name AS updatedby_username,      
           ${commissionSelect},
           json_build_object(
             'utr', br.utr,
@@ -204,6 +206,8 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
         LEFT JOIN public."BankResponse" br ON p.bank_response_id = br.id
         LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
+        LEFT JOIN public."User" u ON p.created_by = u.id 
+        LEFT JOIN public."User" uu ON p.updated_by = uu.id
         WHERE ${conditions.join(' AND ')}
       )
       SELECT * FROM filtered_payins

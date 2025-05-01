@@ -98,59 +98,80 @@ export const getMerchantsCodeDao = async (
 
 export const getMerchantsDao = async (
   filters,
-  page = 0,
+  page = 1,
   pageSize = 10,
   sortBy = 'created_at',
-  sortOrder = 'ASC',
-  // columns to select from db (optional)
-  columns = [],
+  sortOrder = 'DESC',
+  columns = []
 ) => {
   try {
-    const { USER, MERCHANT, DESIGNATION } = tableName;
+    //used raw query as builjoin doesnt accpet alias
+    const values = [];
+    const offset = (page - 1) * pageSize;
 
-    const joins = [
-      {
-        table: USER,
-        // first is source key
-        // second is target key
-        keys: ['user_id', 'id'],
-        type: 'JOIN',
-        columns: ['designation_id'],
-        columnAs: [
-          `"${USER}".first_name || ' ' || "${USER}".last_name AS full_name`,
-        ],
-      },
-      {
-        table: DESIGNATION,
-        // first is source key
-        // second is target key
-        keys: [`designation_id`, 'id'],
-        type: 'LEFT JOIN',
-        columnAs: [`"${DESIGNATION}".designation AS designation_name`],
-        referenceTable: USER,
-      },
-    ];
+    if (!filters.company_id) {
+      throw new Error('Missing required filter: company_id');
+    }
 
-    const baseQuery = buildJoinQuery(
-      MERCHANT,
-      columns?.length ? columns : '*',
-      joins,
-    );
-    // if (filters.search) {
-    //   filters.or = buildSearchFilterObj(filters.search, MERCHANT);
-    //   delete filters.search;
-    // }
-    const [sql, queryParams] = buildSelectQuery(
-      baseQuery,
-      filters,
-      page,
-      pageSize,
-      sortBy,
-      sortOrder,
-      tableName.MERCHANT,
-    );
-    // Execute query
-    const result = await executeQuery(sql, queryParams);
+    const whereClauses = [`"Merchant".is_obsolete = false`];
+
+    values.push(filters.company_id);
+    whereClauses.push(`"Merchant".company_id = $${values.length}`);
+
+    if (filters.startDate && filters.endDate) {
+      values.push(filters.startDate);
+      values.push(filters.endDate);
+      whereClauses.push(`"Merchant".created_at BETWEEN $${values.length - 1} AND $${values.length}`);
+    }
+
+    if (filters.or && typeof filters.or === 'object') {
+      const orConditions = [];
+      for (const key in filters.or) {
+        const value = filters.or[key];
+        values.push(value);
+        orConditions.push(`"Merchant"."${key}" = $${values.length}`);
+      }
+      if (orConditions.length > 0) {
+        whereClauses.push(`(${orConditions.join(' OR ')})`);
+      }
+    }
+
+    const where = `WHERE ${whereClauses.join(' AND ')}`;
+
+    // const selectCols = columns.length
+    //   ? columns.map(col => `"Merchant".${col}`).join(', ')
+    //   : `"Merchant".* , 
+    //      "User".designation_id, 
+    //      "User".first_name || ' ' || "User".last_name AS full_name, 
+    //      "Designation".designation AS designation_name`;
+    const baseJoinCols = `
+         u.user_name AS createdby_username,
+         uu.user_name AS updatedby_username,
+         "User".designation_id,
+         "User".first_name || ' ' || "User".last_name AS full_name,
+         "Designation".designation AS designation_name
+       `;
+
+  const selectCols = columns.length
+  ? [...columns.map(col => `"Merchant".${col}`), baseJoinCols].join(', ')
+  : `"Merchant".*, ${baseJoinCols}`;
+  
+    const sql = `
+      SELECT 
+        ${selectCols}
+      FROM "Merchant"
+      JOIN "User" ON "Merchant".user_id = "User".id
+      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
+      LEFT JOIN public."User" u ON "Merchant".created_by = u.id 
+      LEFT JOIN public."User" uu ON "Merchant".updated_by = uu.id
+      ${where}
+      ORDER BY "Merchant"."${sortBy}" ${sortOrder === 'ASC' ? 'ASC' : 'DESC'}
+      LIMIT $${values.length + 1}
+      OFFSET $${values.length + 2}
+    `;
+
+    values.push(pageSize, offset);
+    const result = await executeQuery(sql, values);
     return result.rows;
   } catch (error) {
     logger.error('Error in getMerchantsDao:', error);
