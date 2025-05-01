@@ -192,8 +192,8 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
           p.duration,
           p.config AS payin_details,
           b.nick_name,
-          u.user_name AS createdby_username,  
-          uu.user_name AS updatedby_username,      
+          u.user_name AS created_by,  
+          uu.user_name AS updated_by,      
           ${commissionSelect},
           json_build_object(
             'utr', br.utr,

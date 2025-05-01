@@ -7,7 +7,6 @@ import {
   buildSelectQuery,
   buildInsertQuery,
   buildUpdateQuery,
-  buildJoinQuery,
 } from '../../utils/db.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { logger } from '../../utils/logger.js';
@@ -157,10 +156,6 @@ const getBankResponseDaoAll = async (
   columns = [],
 ) => {
   try {
-    //changed to raw query , as build join function doesnt accept alias 
-    const values = [];
-    const offset = (page - 1) * pageSize;
-
     const selectCols = columns.length
       ? columns.map(col => `"BankResponse".${col}`).join(', ')
       : [
@@ -169,51 +164,39 @@ const getBankResponseDaoAll = async (
           `"BankAccount".nick_name`,
           `"BankAccount".bank_name`,
           `"Vendor".code`,
-          `u.user_name AS createdby_username`,
-          `uu.user_name AS updatedby_username`
+          `u.user_name AS created_by`,
+          `uu.user_name AS updated_by`
         ].join(', ');
 
-    const whereClauses = [`"BankResponse".is_obsolete = false`];
-
     if (filters.search) {
-      const orConditions = [];
       const searchValue = filters.search.trim();
-      values.push(searchValue);
-      orConditions.push(`"BankResponse"."reference_id" = $${values.length}`);
-      orConditions.push(`"BankResponse"."status" = $${values.length}`);
-      whereClauses.push(`(${orConditions.join(' OR ')})`);
+      filters.or = {
+        reference_id: searchValue,
+        status: searchValue
+      };
+      delete filters.search;
     }
 
-    for (const key in filters) {
-      if (key === 'search' || key === 'startDate' || key === 'endDate') continue;
-      values.push(filters[key]);
-      whereClauses.push(`"BankResponse"."${key}" = $${values.length}`);
-    }
-
-    if (filters.startDate && filters.endDate) {
-      values.push(filters.startDate);
-      values.push(filters.endDate);
-      whereClauses.push(`"BankResponse".created_at BETWEEN $${values.length - 1} AND $${values.length}`);
-    }
-
-    const where = `WHERE ${whereClauses.join(' AND ')}`;
-
-    const sql = `
+    const baseQuery = `
       SELECT ${selectCols}
       FROM "BankResponse"
       JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
       LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
       LEFT JOIN public."User" u ON "BankResponse".created_by = u.id 
       LEFT JOIN public."User" uu ON "BankResponse".updated_by = uu.id
-      ${where}
-      ORDER BY "BankResponse"."${sortBy}" ${sortOrder === 'ASC' ? 'ASC' : 'DESC'}
-      LIMIT $${values.length + 1}
-      OFFSET $${values.length + 2}
     `;
 
-    values.push(pageSize, offset);
+    const [query, values] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      'BankResponse' 
+    );
 
-    const result = await executeQuery(sql, values);
+    const result = await executeQuery(query, values);
     return { totalCount: result.rows.length, rows: result.rows };
   } catch (error) {
     logger.error('Error getting Bank Response:', error);

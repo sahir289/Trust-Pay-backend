@@ -148,8 +148,8 @@ export const getPayoutsDao = async (
           b.id AS bank_table_id, 
           b.user_id, 
           b.nick_name,
-          us.user_name AS createdby_username,  
-          uu.user_name AS updatedby_username,  
+          us.user_name AS created_by,  
+          uu.user_name AS updated_by,  
           r.id AS merchant_table_id,
           ve.code AS vendor_code,
           json_build_object(

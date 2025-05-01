@@ -126,8 +126,8 @@ export const getChargeBackDao = async (
     additionalColumns += `
       v.code AS vendor_name,
       p.user AS user,
-      u.user_name AS createdby_username,
-      uu.user_name AS updatedby_username
+      u.user_name AS created_by,
+      uu.user_name AS updated_by
     `;
 
     // Combine all columns

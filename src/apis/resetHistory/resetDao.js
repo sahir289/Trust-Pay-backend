@@ -44,8 +44,8 @@ const getResetHistoryDao = async (
           )
       END AS previous_details,
       "${PAYIN}".merchant_order_id AS merchant_order_id,
-      created_user.user_name AS createdby_username,
-      updated_user.user_name AS updatedby_username
+      created_user.user_name AS created_by,
+      updated_user.user_name AS updated_by
     FROM "${RESET_DATA_HISTORY}"
     JOIN "${PAYIN}" ON "${RESET_DATA_HISTORY}".payin_id = "${PAYIN}".id
     LEFT JOIN "${BANK_RESPONSE}" ON "${PAYIN}".bank_response_id = "${BANK_RESPONSE}".id

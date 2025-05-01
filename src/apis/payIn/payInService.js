@@ -99,6 +99,18 @@ export const generatePayInUrlByHashService = async (req) => {
   if (bankAssigned.length <= 0) {
     throw new InternalServerError('No Bank Assigned to Merchant');
   }
+
+// bank is not enabled or no method is enabled for payment - no payment link generates
+ bankAssigned.every(bank => {
+    const config = bank.config || {};
+    if (bank.is_enabled === false) {
+      throw new InternalServerError('Bank assigned to this merchant is not anabled!');
+    }
+    if (config.is_phonepay === false && bank.is_qr === false && bank.is_bank === false)
+    {
+      throw new InternalServerError('No payment methods enebled for assigned bank!');
+    }
+  });
   let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
   if (amount) {
     query += `&amount=${amount}`;
