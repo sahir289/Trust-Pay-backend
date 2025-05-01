@@ -9,7 +9,8 @@ import {
   refreshTokenService,
   changePasswordService,
   verificationService,
-  verfyUserService
+  verfyUserService,
+  verfyOtpService,
 } from './authService.js';
 
 const loginController = async (req, res) => {
@@ -25,7 +26,6 @@ const loginController = async (req, res) => {
   if (data.isLoginFirst) {
       return sendSuccess(res, data, "user's first login");
   }
-
     res.cookie('refreshToken', data.refreshToken, {
       httpOnly: true,
       secure: true,
@@ -91,6 +91,15 @@ const verfyUserController = async (req, res) => {
   }
   return sendSuccess(res, {}, 'Verified User Successfully');
 };
+const verfyOtpController = async (req, res) => {
+  const { otp } = req.body;
+  const verfyUser = await verfyOtpService(otp);
+  if (!verfyUser) {
+    throw new BadRequestError("Invalid User's Info");
+  }
+  return sendSuccess(res, {}, 'Verified Otp Successfully');
+};
+
 export {
   loginController,
   refreshTokenController,
@@ -98,4 +107,5 @@ export {
   logoutController,
   verificationController,
   verfyUserController,
+  verfyOtpController,
 };

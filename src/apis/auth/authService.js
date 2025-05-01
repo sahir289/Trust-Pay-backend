@@ -22,7 +22,7 @@ import {
   getSessionByIdDao,
   changePasswordDao,
 } from './authDao.js';
-import { createUserOtpDao } from '../userOtp/userOtpDao.js';
+import { createUserOtpDao ,getUserOtpDao,updateUserOtpDao} from '../userOtp/userOtpDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { generateOTP } from '../../utils/generateOtp.js';
 import { forceLogoutUser } from '../../utils/sockets.js';
@@ -229,12 +229,34 @@ const verfyUserService = async ( email) => {
     console.log('Error while verifying user', error);
   }
 };
- 
+const verfyOtpService = async (otp) => {
+   try {
+     let userDetails = await getUserOtpDao(otp);
+     if (!userDetails) {
+        throw new AuthenticationError(`Please Enter Vaild OTP`);
+     }
+     const expiration = userDetails?.expiration_time;
+     const now = new Date();
+     if (now >= expiration) {
+       throw new AuthenticationError(`Expired Otp`);
+     }
+     else if (userDetails.is_used) {
+       throw new AuthenticationError(`Please Enter New Otp`);
+     }
+     else {
+       await updateUserOtpDao({ user_id: userDetails.user_id }, { is_used: true });
+       return true;
+     }
+   } catch (error) {
+     console.log('Error while verifying otp', error);
+   }
+ }
 export {
   loginService,
   refreshTokenService,
   changePasswordService,
   verificationService,
   logoutService,
-  verfyUserService
+  verfyUserService,
+  verfyOtpService
 };

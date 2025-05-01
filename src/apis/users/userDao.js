@@ -234,7 +234,7 @@ const getUserByIdDao = async (conn, ids) => {
 const getUsersByEmailDao = async (email) => {
     try {
       const baseQuery = `
-       SELECT 
+      SELECT 
         id, 
         email, 
         password,  

@@ -21,33 +21,33 @@ const createUserOtpDao = async (payload, conn) => {
     throw error.message;
   }
 };
-const getUserOtpDao = async (user_id) => {
+const getUserOtpDao = async (otp) => {
   try {
     const baseQuery = `
   SELECT 
-   'id',
-    'user_id',
-    'is_used',
-    'otp',
-    'expiration_time',
-    'created_at',
-    'updated_at'
-FROM public."UserOtp" 
-WHERE email = $1
-AND is_enabled = true
+   id,
+   user_id,
+   is_used,
+   otp,
+   expiration_time,
+   created_at,
+   updated_at
+FROM public."UserOtp"
+WHERE otp = $1
 ORDER BY created_at DESC
-LIMIT 1;
+LIMIT 1
 `;
-    const result = await executeQuery(baseQuery, [user_id]);
+      const result = await executeQuery(baseQuery, [otp]);
+      console.log(result.rows, 'hey result from the result of data');
     return result.rows[0];
   } catch (error) {
     console.error('Error in getUserOtpDao:', error);
     throw error.message;
   }
 };
-const updateUserOtpDao = async (ids, data, conn) => {
+const updateUserOtpDao = async (user_id, data, conn) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.USER_OTP, data, ids);
+    const [sql, params] = buildUpdateQuery(tableName.USER_OTP, data, user_id);
     if (conn && conn.query) {
       const result = await conn.query(sql, params);
       return result.rows[0];
