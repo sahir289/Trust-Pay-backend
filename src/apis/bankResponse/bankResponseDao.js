@@ -7,7 +7,6 @@ import {
   buildSelectQuery,
   buildInsertQuery,
   buildUpdateQuery,
-  buildJoinQuery,
 } from '../../utils/db.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { logger } from '../../utils/logger.js';

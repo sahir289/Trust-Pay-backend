@@ -1,7 +1,6 @@
 import { tableName } from '../../constants/index.js';
 import {
   buildInsertQuery,
-  buildJoinQuery,
   buildSelectQuery,
   buildUpdateQuery,
   executeQuery,
@@ -62,41 +61,10 @@ export const getVendorsDao = async (
   sortOrder = 'DESC'
 ) => {
   try {
-    // changed to raw query as build join not accepting alias
-    const offset = (page - 1) * pageSize;
-    const values = [];
-    const whereClauses = ['"Vendor".is_obsolete = false'];
-
     if (!filters.company_id) {
       throw new Error('Missing required filter: company_id');
     }
-    values.push(filters.company_id);
-    whereClauses.push(`"Vendor"."company_id" = $${values.length}`);
-
-    if (filters.startDate && filters.endDate) {
-      values.push(filters.startDate);
-      values.push(filters.endDate);
-      whereClauses.push(`"Vendor"."created_at" BETWEEN $${values.length - 1} AND $${values.length}`);
-    }
-
-    if (filters.or && typeof filters.or === 'object') {
-      const orConditions = [];
-      for (const key in filters.or) {
-        const value = filters.or[key];
-        values.push(value);
-        orConditions.push(`"Vendor"."${key}" = $${values.length}`);
-      }
-      if (orConditions.length > 0) {
-        whereClauses.push(`(${orConditions.join(' OR ')})`);
-      }
-    }
-
-    const where = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
-    const orderClause = sortBy
-      ? `ORDER BY "Vendor"."${sortBy}" ${sortOrder === 'ASC' ? 'ASC' : 'DESC'}`
-      : 'ORDER BY "Vendor"."created_at" DESC';
-
-    const sql = `
+    const baseQuery = `
       SELECT 
         "Vendor".id,
         "Vendor".user_id,
@@ -121,20 +89,26 @@ export const getVendorsDao = async (
       LEFT JOIN "Designation" AS d ON user_main.designation_id = d.id
       LEFT JOIN "User" AS u ON "Vendor".created_by = u.id
       LEFT JOIN "User" AS uu ON "Vendor".updated_by = uu.id
-      ${where}
-      ${orderClause}
-      LIMIT $${values.length + 1}
-      OFFSET $${values.length + 2}
     `;
 
-    values.push(pageSize, offset);
-    const result = await executeQuery(sql, values);
+    const [query, values] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      'Vendor' 
+    );
+
+    const result = await executeQuery(query, values);
     return result.rows;
   } catch (error) {
     logger.error('Error in getVendorsDao:', error);
     throw error.message;
   }
 };
+
 
 export const getVendorsBySearchDao = async (
   filters,
