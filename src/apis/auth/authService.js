@@ -8,7 +8,12 @@ import {
 import { createHash, verifyHash } from '../../utils/bcryptPassword.js';
 import os from 'os';
 import { getConnection } from '../../utils/db.js';
-import { getUserByIdDao, getUsersByUserNameDao,updateUserDao } from '../users/userDao.js';
+import {
+  getUserByIdDao,
+  getUsersByUserNameDao,
+  updateUserDao,
+  getUsersByEmailDao,
+} from '../users/userDao.js';
 import { generateUserToken } from '../../utils/auth.js';
 import {
   addLoginDao,
@@ -18,8 +23,9 @@ import {
   changePasswordDao,
 } from './authDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
+import { generateOTP } from '../../utils/generateOtp.js';
 import { forceLogoutUser } from '../../utils/sockets.js';
-
+import { sendOTP } from '../../utils/sendMailer.js';
 const loginService = async (config, clientIP) => {
   let conn;
   let ids = {};
@@ -189,7 +195,6 @@ const changePasswordService = async (payload) => {
 };
 
 const verificationService = async (id, payload) => {
-  console.log(id,payload,"hii ids from the user of the data")
 try {
  const userDetails = await getUsersByUserNameDao(id, payload.user_name );
  const isPasswordValid = await verifyHash(payload.password, userDetails.password);
@@ -202,6 +207,26 @@ try {
    } 
 }
 
+const forgetPasswordService = async (user_name, email) => {
+  try {
+    let userDetails;
+    if (user_name) {
+      userDetails = await getUsersByUserNameDao({}, user_name);
+    }
+    else {
+      userDetails = await getUsersByEmailDao(email);
+    }
+    if (!userDetails) {
+         throw new AuthenticationError(`INvalid`);
+    }
+    const otp = generateOTP();
+    await sendOTP(userDetails.email, otp);
+    
+    return userDetails;
+  } catch (error) {
+    console.log('Error getting while changing password', error);
+  }
+};
  
 export {
   loginService,
@@ -209,4 +234,5 @@ export {
   changePasswordService,
   verificationService,
   logoutService,
+  forgetPasswordService
 };

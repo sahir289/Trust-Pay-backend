@@ -9,6 +9,7 @@ import {
   refreshTokenService,
   changePasswordService,
   verificationService,
+  forgetPasswordService
 } from './authService.js';
 
 const loginController = async (req, res) => {
@@ -76,10 +77,25 @@ const { user_id,user_name } = req.user;
 const { oldPassword, password } = req.body;
 const changedPassword= await changePasswordService({ user_id, user_name, password, oldPassword });
   if (!changedPassword) {
-    return sendError(res, 401, 'Verification failed: Invalid old password');
+        throw new BadRequestError('Invalid old password');
   }
   return sendSuccess(res, {}, 'Password Changed Successfully');
 };
 
 
-export { loginController, refreshTokenController,changePasswordController, logoutController, verificationController };
+const forgetPasswordController = async (req, res) => {
+  const { email, user_name } = req.body;
+  await forgetPasswordService(user_name,email);
+  // if (!forgetPassword) {
+  //   throw new BadRequestError('Unauthorized');
+  // }
+  return sendSuccess(res, {}, 'Password Changed Successfully');
+};
+export {
+  loginController,
+  refreshTokenController,
+  changePasswordController,
+  logoutController,
+  verificationController,
+  forgetPasswordController,
+};

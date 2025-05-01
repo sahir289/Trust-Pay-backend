@@ -231,6 +231,27 @@ const getUserByIdDao = async (conn, ids) => {
   }
 };
 
+const getUsersByEmailDao = async (email) => {
+    try {
+      const baseQuery = `
+       SELECT 
+        id, 
+        email, 
+        password,  
+        user_name,  
+        code
+      FROM public."User" 
+      WHERE email = $1
+      AND is_enabled = true
+    `;
+      const result = await executeQuery(baseQuery, [email]);
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error in getUsersByEmailDao:', error);
+      throw error.message;
+    }
+};
+
 
 const getUsersByUserNameDao = async (ids, username) => {
   try {
@@ -371,5 +392,6 @@ export {
   getUsersByUserNameDao,
   createUserDao,
   updateUserDao,
+  getUsersByEmailDao,
 };
 

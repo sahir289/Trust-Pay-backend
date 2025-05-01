@@ -3,7 +3,7 @@ import { createHash } from '../../utils/bcryptPassword.js';
 import { getConnection } from '../../utils/db.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { generatePassword } from '../../utils/generatePassword.js';
-import { sendCredentialsEmail } from '../../utils/sendMailler.js';
+import { sendCredentialsEmail } from '../../utils/sendMailer.js';
 import {
   createUserDao,
   getUserByIdDao,
@@ -294,7 +294,7 @@ const createUserService = async (conn, payload, role) => {
   if (user?.user_name || user?.email || user?.contact_no) {
     throw new InternalServerError('User already exists');
   }
-  const Password = generatePassword();
+  const Password = generatePassword(user_name);
   const hashPassword = await createHash(Password);
   payload.password = hashPassword;
   const userPayload = {
