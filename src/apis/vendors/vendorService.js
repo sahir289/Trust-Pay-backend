@@ -75,7 +75,7 @@ const getVendorsService = async (filters, roleIs, page, limit,user_id,designatio
       null,
       null,
       filterColumns,
-      roleIs   //-role specific payouts
+      roleIs   //-role specific details
     );
   } catch (error) {
     console.error('Error while fetching vendors', error);

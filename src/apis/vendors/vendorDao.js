@@ -89,7 +89,7 @@ export const getVendorsDao = async (
       LEFT JOIN "User" AS u ON "Vendor".created_by = u.id
       LEFT JOIN "User" AS uu ON "Vendor".updated_by = uu.id
     `;
-    //vendor login specific details
+    //vendor details login specific
   if (role == Role.ADMIN) {
     baseQuery += `
         WHERE "User".designation_id = (SELECT id FROM "Designation" WHERE designation = 'VENDOR')
