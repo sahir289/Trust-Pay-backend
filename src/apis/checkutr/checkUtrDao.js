@@ -31,8 +31,8 @@ const getCheckUtrDao = async (
           'requested_amount', "${PAYIN}".amount,
           'user_submitted_utr', "${PAYIN}".user_submitted_utr
         ) AS payin_details,
-         u.user_name AS createdby_username,
-         uu.user_name AS updatedby_username,
+         u.user_name AS created_by,
+         uu.user_name AS updated_by,
         CASE
           WHEN "${BANK_RESPONSE}".id IS NOT NULL THEN
             json_build_object(

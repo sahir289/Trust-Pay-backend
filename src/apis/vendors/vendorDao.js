@@ -82,8 +82,8 @@ export const getVendorsDao = async (
         user_main.designation_id,
         user_main.first_name || ' ' || user_main.last_name AS full_name,
         d.designation AS designation_name,
-        u.user_name AS createdby_username,
-        uu.user_name AS updatedby_username
+        u.user_name AS created_by,
+        uu.user_name AS updated_by
       FROM "Vendor"
       JOIN "User" AS user_main ON "Vendor".user_id = user_main.id
       LEFT JOIN "Designation" AS d ON user_main.designation_id = d.id
