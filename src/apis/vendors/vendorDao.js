@@ -1,4 +1,4 @@
-import { tableName } from '../../constants/index.js';
+import { Role, tableName } from '../../constants/index.js';
 import {
   buildInsertQuery,
   buildSelectQuery,
@@ -58,12 +58,10 @@ export const getVendorsDao = async (
   page = 1,
   pageSize = 10,
   sortBy = 'created_at',
-  sortOrder = 'DESC'
+  sortOrder = 'DESC',
+  role
 ) => {
   try {
-    if (!filters.company_id) {
-      throw new Error('Missing required filter: company_id');
-    }
     const baseQuery = `
       SELECT 
         "Vendor".id,
@@ -79,6 +77,7 @@ export const getVendorsDao = async (
         "Vendor".config,
         "Vendor".created_at,
         "Vendor".updated_at,
+        "Vendor".company_id,
         user_main.designation_id,
         user_main.first_name || ' ' || user_main.last_name AS full_name,
         d.designation AS designation_name,
@@ -90,7 +89,12 @@ export const getVendorsDao = async (
       LEFT JOIN "User" AS u ON "Vendor".created_by = u.id
       LEFT JOIN "User" AS uu ON "Vendor".updated_by = uu.id
     `;
-
+    //when vendor login added get login specific payouts
+  if (role == Role.ADMIN) {
+    baseQuery += `
+        WHERE "User".designation_id = (SELECT id FROM "Designation" WHERE designation = 'VENDOR')
+      `;
+  }
     const [query, values] = buildSelectQuery(
       baseQuery,
       filters,
