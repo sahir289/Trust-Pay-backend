@@ -3,6 +3,7 @@ import Joi from 'joi';
 const INSERT_AUTH_SCHEMA = Joi.object({
   username: Joi.string().label('username').required(),
   password: Joi.string().label('password').required(),
+  newPassword: Joi.string().label('newPassword').optional(),
   confirmOverRide: Joi.boolean().label('confirmOverRide').optional(),
   // clientIp : Joi.string().label('clientIp').optional(),
   // otp: Joi.string().label('otp').required(),

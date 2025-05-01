@@ -5,6 +5,7 @@ import {
   logoutController,
   refreshTokenController,
   verificationController,
+  changePasswordController,
 } from './authController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
@@ -55,6 +56,8 @@ router.post('/refresh-token', tryCatchHandler(refreshTokenController));
  *                   example: "logout successfully!"
  */
 router.post('/logout', isAuthenticated, tryCatchHandler(logoutController));
+
+router.post('/change-password',isAuthenticated, tryCatchHandler(changePasswordController)); 
 
 router.post('/password-verification', isAuthenticated, tryCatchHandler(verificationController)) ;
 

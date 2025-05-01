@@ -1,14 +1,14 @@
 import { logoutSet } from '../../middlewares/auth.js';
 import { INSERT_AUTH_SCHEMA } from '../../schemas/authSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
-import { verifyHash } from '../../utils/bcryptPassword.js';
 // import { verifyToken } from '../../utils/auth.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getUsersByUserNameDao } from '../users/userDao.js';
+import { sendSuccess, sendError } from '../../utils/responseHandlers.js';
 import {
   loginService,
   // logoutService,
   refreshTokenService,
+  changePasswordService,
+  verificationService,
 } from './authService.js';
 
 const loginController = async (req, res) => {
@@ -24,6 +24,7 @@ const loginController = async (req, res) => {
   if (data.isLoginFirst) {
       return sendSuccess(res, data, "user's first login");
   }
+
     res.cookie('refreshToken', data.refreshToken, {
       httpOnly: true,
       secure: true,
@@ -63,12 +64,22 @@ const verificationController =async(req, res) => {
   const { user_name } = req.user;
   const { password } = req.body;
   let ids = {};
-  const userDetails = await getUsersByUserNameDao( ids, user_name);
-  const isPasswordValid = await verifyHash(password, userDetails.password);
-  if(!isPasswordValid){
-    throw new BadRequestError('Invalid Password');
-  }
-  return sendSuccess(res, {}, 'verification successfully');
-}
+  const validate = await verificationService(ids, { user_name, password })
+ if (!validate) {
+   return sendError(res, 401, 'Verification failed: Invalid password');
+ }
 
-export { loginController, refreshTokenController, logoutController, verificationController };
+ return sendSuccess(res, {}, 'Verification successful');
+}
+const changePasswordController = async (req, res) => {
+const { user_id,user_name } = req.user;
+const { oldPassword, password } = req.body;
+const changedPassword= await changePasswordService({ user_id, user_name, password, oldPassword });
+  if (!changedPassword) {
+    return sendError(res, 401, 'Verification failed: Invalid old password');
+  }
+  return sendSuccess(res, {}, 'Password Changed Successfully');
+};
+
+
+export { loginController, refreshTokenController,changePasswordController, logoutController, verificationController };
