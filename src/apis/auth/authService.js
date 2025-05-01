@@ -207,7 +207,18 @@ try {
   console.log('Error getting while changing password', error);
    } 
 }
-
+const forgetPasswordService = async (payload) => {
+  try {
+    const hashPassword = await createHash(payload.password)
+    const user =await updateUserDao(
+    { id: payload.user_id },
+    { password: hashPassword },
+    );
+    return user;
+  } catch (error) {
+    console.log('Error getting while forgetting password', error);
+  }
+};
 const verfyUserService = async ( email) => {
   try {
     let userDetails = await getUsersByEmailDao(email);
@@ -245,7 +256,7 @@ const verfyOtpService = async (otp) => {
      }
      else {
        await updateUserOtpDao({ user_id: userDetails.user_id }, { is_used: true });
-       return true;
+       return userDetails.user_id;
      }
    } catch (error) {
      console.log('Error while verifying otp', error);
@@ -258,5 +269,6 @@ export {
   verificationService,
   logoutService,
   verfyUserService,
-  verfyOtpService
+  verfyOtpService,
+  forgetPasswordService
 };

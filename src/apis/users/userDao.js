@@ -348,7 +348,7 @@ const getUsersForCronDao = async (conn) => {
   }
 };
 
-const updateUserDao = async (ids, data,conn) => {
+const updateUserDao = async (ids, data, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.USER, data, ids);
 
