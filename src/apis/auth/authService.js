@@ -22,6 +22,7 @@ import {
   getSessionByIdDao,
   changePasswordDao,
 } from './authDao.js';
+import { createUserOtpDao } from '../userOtp/userOtpDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { generateOTP } from '../../utils/generateOtp.js';
 import { forceLogoutUser } from '../../utils/sockets.js';
@@ -207,24 +208,25 @@ try {
    } 
 }
 
-const forgetPasswordService = async (user_name, email) => {
+const verfyUserService = async ( email) => {
   try {
-    let userDetails;
-    if (user_name) {
-      userDetails = await getUsersByUserNameDao({}, user_name);
-    }
-    else {
-      userDetails = await getUsersByEmailDao(email);
-    }
+    let userDetails = await getUsersByEmailDao(email);
     if (!userDetails) {
-         throw new AuthenticationError(`INvalid`);
+      throw new AuthenticationError(`Invalid User`);
     }
     const otp = generateOTP();
     await sendOTP(userDetails.email, otp);
-    
-    return userDetails;
+    const now = new Date();
+    const expirationDate = new Date(now.getTime() + 10 * 60 * 1000); 
+    const payload = {
+      user_id: userDetails.id,
+      otp: otp,
+      expiration_time: expirationDate,
+    };
+    await createUserOtpDao(payload);
+    return true;
   } catch (error) {
-    console.log('Error getting while changing password', error);
+    console.log('Error while verifying user', error);
   }
 };
  
@@ -234,5 +236,5 @@ export {
   changePasswordService,
   verificationService,
   logoutService,
-  forgetPasswordService
+  verfyUserService
 };

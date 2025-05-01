@@ -88,5 +88,6 @@ export {
   getLoginDao,
   getSessionByIdDao,
   deleteUserSessionsDao,
-  changePasswordDao
+  changePasswordDao,
+  
 };

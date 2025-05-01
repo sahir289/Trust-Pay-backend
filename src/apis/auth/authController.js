@@ -1,6 +1,7 @@
 import { logoutSet } from '../../middlewares/auth.js';
 import { INSERT_AUTH_SCHEMA } from '../../schemas/authSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import { verifyHash } from '../../utils/bcryptPassword.js';
 // import { verifyToken } from '../../utils/auth.js';
 import { sendSuccess, sendError } from '../../utils/responseHandlers.js';
 import {
@@ -9,7 +10,7 @@ import {
   refreshTokenService,
   changePasswordService,
   verificationService,
-  forgetPasswordService
+  verfyUserService
 } from './authService.js';
 
 const loginController = async (req, res) => {
@@ -67,7 +68,7 @@ const verificationController =async(req, res) => {
   let ids = {};
   const validate = await verificationService(ids, { user_name, password })
  if (!validate) {
-   return sendError(res, 401, 'Verification failed: Invalid password');
+        throw new BadRequestError('Invalid password');
  }
 
  return sendSuccess(res, {}, 'Verification successful');
@@ -83,13 +84,14 @@ const changedPassword= await changePasswordService({ user_id, user_name, passwor
 };
 
 
-const forgetPasswordController = async (req, res) => {
-  const { email, user_name } = req.body;
-  await forgetPasswordService(user_name,email);
-  // if (!forgetPassword) {
-  //   throw new BadRequestError('Unauthorized');
-  // }
-  return sendSuccess(res, {}, 'Password Changed Successfully');
+const verfyUserController = async (req, res) => {
+  const { email } = req.body;
+  const verfyUser = await verfyUserService(email);
+  console.log(verfyUser,"hii user from the user of data");
+  if (!verfyUser) {
+    throw new BadRequestError("Invalid User's Info");
+  }
+  return sendSuccess(res, {}, 'Verified User Successfully');
 };
 export {
   loginController,
@@ -97,5 +99,5 @@ export {
   changePasswordController,
   logoutController,
   verificationController,
-  forgetPasswordController,
+  verfyUserController,
 };

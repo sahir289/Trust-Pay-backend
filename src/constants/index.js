@@ -50,6 +50,15 @@ export const Role = {
 };
 
 export const columns = {
+  USER_OTP: [
+    'id',
+    'user_id',
+    'is_used',
+    'otp',
+    'expiration_time',
+    'created_at',
+    'updated_at',
+  ],
   MERCHANT: [
     'id',
     'user_id',
@@ -539,6 +548,7 @@ export const tableName = {
   RESET_DATA_HISTORY: 'ResetDataHistory',
   BANK_RESPONSE: 'BankResponse',
   ACCESS_TOKEN: 'AccessToken',
+  USER_OTP: 'UserOtp',
 };
 
 export const BankTypes = {
