@@ -62,7 +62,7 @@ export const getVendorsDao = async (
   role
 ) => {
   try {
-    const baseQuery = `
+    let baseQuery = `
       SELECT 
         "Vendor".id,
         "Vendor".user_id,
