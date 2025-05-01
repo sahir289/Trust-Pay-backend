@@ -15,7 +15,7 @@ const getCheckUtrDao = async (
   columns = []
 ) => {
   try {
-    const { BANK_RESPONSE, CHECK_UTR_HISTORY, PAYIN } = tableName;
+    const { BANK_RESPONSE, CHECK_UTR_HISTORY, PAYIN, USER } = tableName;
 
     // Default columns if none provided
     const selectColumns = columns?.length
@@ -31,6 +31,8 @@ const getCheckUtrDao = async (
           'requested_amount', "${PAYIN}".amount,
           'user_submitted_utr', "${PAYIN}".user_submitted_utr
         ) AS payin_details,
+         u.user_name AS created_by,
+         uu.user_name AS updated_by,
         CASE
           WHEN "${BANK_RESPONSE}".id IS NOT NULL THEN
             json_build_object(
@@ -49,6 +51,8 @@ const getCheckUtrDao = async (
         ON "${CHECK_UTR_HISTORY}".payin_id = "${PAYIN}".id
       LEFT JOIN "${BANK_RESPONSE}" 
         ON "${PAYIN}".bank_response_id = "${BANK_RESPONSE}".id
+      LEFT JOIN "${USER}" u ON "${CHECK_UTR_HISTORY}".created_by = u.id 
+      LEFT JOIN "${USER}" uu ON "${CHECK_UTR_HISTORY}".updated_by = uu.id
     `;
 
     // Handle filters

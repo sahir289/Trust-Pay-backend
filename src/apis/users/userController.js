@@ -77,21 +77,21 @@ const createUser = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const { role, company_id, user_id } = req.user;
+  const { role, company_id, user_id, designation } = req.user;
   let payload = req.body;
   payload.is_enabled = true;
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
-  await transactionWrapper(createUserService)(payload, role);
+  await transactionWrapper(createUserService)(payload, role, designation);
   logger.log('Create user successfully');
   return sendSuccess(res, {}, 'Create user successfully');
 };
 
 const updateUser = async (req, res) => {
-  const { company_id, user_name } = req.user;
+  const { company_id, user_id } = req.user;
   let payload = req.body;
-  payload.updated_by = user_name;
+  payload.updated_by = user_id;
   const id = req.params.id;
   const ids = { id, company_id };
     await transactionWrapper(userUpdateService)(ids, payload);

@@ -7,7 +7,6 @@ import {
   buildSelectQuery,
   buildInsertQuery,
   buildUpdateQuery,
-  buildJoinQuery,
 } from '../../utils/db.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { logger } from '../../utils/logger.js';
@@ -150,56 +149,56 @@ const getBankResponseBySearchDao = async (
 };
 const getBankResponseDaoAll = async (
   filters,
-  page,
-  pageSize,
-  sortBy,
-  sortOrder,
+  page = 1,
+  pageSize = 10,
+  sortBy = 'created_at',
+  sortOrder = 'DESC',
   columns = [],
 ) => {
   try {
-    const { BANK_ACCOUNT, BANK_RESPONSE, VENDOR } = tableName;
-    const joins = [
-      {
-        table: BANK_ACCOUNT,
-        // first is source key
-        // second is target key
-        keys: ['bank_id', 'id'],
-        type: 'JOIN',
-        columns: ['user_id', 'nick_name', 'bank_name'],
-      },
-      {
-        table: VENDOR,
-        // first is source key
-        // second is target key
-        keys: [`user_id`, 'user_id'],
-        columns: ['code'],
-        type: 'LEFT JOIN',
-        referenceTable: BANK_ACCOUNT,
-      },
-    ];
-    const baseQuery = buildJoinQuery(
-      BANK_RESPONSE,
-      columns.length ? columns : '*',
-      joins,
-    );
+    const selectCols = columns.length
+      ? columns.map(col => `"BankResponse".${col}`).join(', ')
+      : [
+          `"BankResponse".*`,
+          `"BankAccount".user_id`,
+          `"BankAccount".nick_name`,
+          `"BankAccount".bank_name`,
+          `"Vendor".code`,
+          `u.user_name AS created_by`,
+          `uu.user_name AS updated_by`
+        ].join(', ');
 
     if (filters.search) {
-      filters.or = buildSearchFilterObj(filters.search, BANK_RESPONSE);
+      const searchValue = filters.search.trim();
+      filters.or = {
+        reference_id: searchValue,
+        status: searchValue
+      };
       delete filters.search;
     }
 
-    const [sql, queryParams] = buildSelectQuery(
+    const baseQuery = `
+      SELECT ${selectCols}
+      FROM "BankResponse"
+      JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
+      LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
+      LEFT JOIN public."User" u ON "BankResponse".created_by = u.id 
+      LEFT JOIN public."User" uu ON "BankResponse".updated_by = uu.id
+    `;
+
+    const [query, values] = buildSelectQuery(
       baseQuery,
       filters,
       page,
       pageSize,
       sortBy,
       sortOrder,
-      tableName.BANK_RESPONSE,
+      'BankResponse' 
     );
-    const result = await executeQuery(sql, queryParams);
+
+    const result = await executeQuery(query, values);
     return { totalCount: result.rows.length, rows: result.rows };
-  } catch(error) {
+  } catch (error) {
     logger.error('Error getting Bank Response:', error);
     throw error.message;
   }
