@@ -150,7 +150,7 @@ export const getMerchantByUserIdDao = async (userId) => {
 };
 export const getMerchantsDao = async (
   filters,
-  page = 0,
+  page = 1,
   pageSize = 10,
   sortBy = 'created_at',
   sortOrder = 'ASC',
@@ -158,7 +158,7 @@ export const getMerchantsDao = async (
   role
 ) => {
   try {
-
+//changed created_by to createdby_username , because same names were conflicting at other places ,using same createdby_username in every api to avoid this
   let baseQuery = `
   SELECT 
     "Merchant".id, 
@@ -179,8 +179,8 @@ export const getMerchantsDao = async (
     "Merchant".balance, 
     "Merchant".config, 
     "Merchant".company_id, 
-    creator.user_name AS created_by, 
-    updater.user_name AS updated_by, 
+    creator.user_name AS createdby_username, 
+    updater.user_name AS updatedby_username, 
     "Merchant".created_at, 
     "Merchant".updated_at, 
     "User".designation_id, 

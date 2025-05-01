@@ -96,6 +96,8 @@ const getBankaccountDao = async (filters, page, limit, role) => {
         ba.is_bank, 
         ba.is_enabled, 
         ba.config,
+        creator.user_name AS createdby_username,
+        updater.user_name AS updatedby_username,
         ${commissionSelect ? `${commissionSelect},` : ''}
         v.code AS Vendor, 
         COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details

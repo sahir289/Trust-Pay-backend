@@ -150,56 +150,72 @@ const getBankResponseBySearchDao = async (
 };
 const getBankResponseDaoAll = async (
   filters,
-  page,
-  pageSize,
-  sortBy,
-  sortOrder,
+  page = 1,
+  pageSize = 10,
+  sortBy = 'created_at',
+  sortOrder = 'DESC',
   columns = [],
 ) => {
   try {
-    const { BANK_ACCOUNT, BANK_RESPONSE, VENDOR } = tableName;
-    const joins = [
-      {
-        table: BANK_ACCOUNT,
-        // first is source key
-        // second is target key
-        keys: ['bank_id', 'id'],
-        type: 'JOIN',
-        columns: ['user_id', 'nick_name', 'bank_name'],
-      },
-      {
-        table: VENDOR,
-        // first is source key
-        // second is target key
-        keys: [`user_id`, 'user_id'],
-        columns: ['code'],
-        type: 'LEFT JOIN',
-        referenceTable: BANK_ACCOUNT,
-      },
-    ];
-    const baseQuery = buildJoinQuery(
-      BANK_RESPONSE,
-      columns.length ? columns : '*',
-      joins,
-    );
+    //changed to raw query , as build join function doesnt accept alias 
+    const values = [];
+    const offset = (page - 1) * pageSize;
+
+    const selectCols = columns.length
+      ? columns.map(col => `"BankResponse".${col}`).join(', ')
+      : [
+          `"BankResponse".*`,
+          `"BankAccount".user_id`,
+          `"BankAccount".nick_name`,
+          `"BankAccount".bank_name`,
+          `"Vendor".code`,
+          `u.user_name AS createdby_username`,
+          `uu.user_name AS updatedby_username`
+        ].join(', ');
+
+    const whereClauses = [`"BankResponse".is_obsolete = false`];
 
     if (filters.search) {
-      filters.or = buildSearchFilterObj(filters.search, BANK_RESPONSE);
-      delete filters.search;
+      const orConditions = [];
+      const searchValue = filters.search.trim();
+      values.push(searchValue);
+      orConditions.push(`"BankResponse"."reference_id" = $${values.length}`);
+      orConditions.push(`"BankResponse"."status" = $${values.length}`);
+      whereClauses.push(`(${orConditions.join(' OR ')})`);
     }
 
-    const [sql, queryParams] = buildSelectQuery(
-      baseQuery,
-      filters,
-      page,
-      pageSize,
-      sortBy,
-      sortOrder,
-      tableName.BANK_RESPONSE,
-    );
-    const result = await executeQuery(sql, queryParams);
+    for (const key in filters) {
+      if (key === 'search' || key === 'startDate' || key === 'endDate') continue;
+      values.push(filters[key]);
+      whereClauses.push(`"BankResponse"."${key}" = $${values.length}`);
+    }
+
+    if (filters.startDate && filters.endDate) {
+      values.push(filters.startDate);
+      values.push(filters.endDate);
+      whereClauses.push(`"BankResponse".created_at BETWEEN $${values.length - 1} AND $${values.length}`);
+    }
+
+    const where = `WHERE ${whereClauses.join(' AND ')}`;
+
+    const sql = `
+      SELECT ${selectCols}
+      FROM "BankResponse"
+      JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
+      LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
+      LEFT JOIN public."User" u ON "BankResponse".created_by = u.id 
+      LEFT JOIN public."User" uu ON "BankResponse".updated_by = uu.id
+      ${where}
+      ORDER BY "BankResponse"."${sortBy}" ${sortOrder === 'ASC' ? 'ASC' : 'DESC'}
+      LIMIT $${values.length + 1}
+      OFFSET $${values.length + 2}
+    `;
+
+    values.push(pageSize, offset);
+
+    const result = await executeQuery(sql, values);
     return { totalCount: result.rows.length, rows: result.rows };
-  } catch(error) {
+  } catch (error) {
     logger.error('Error getting Bank Response:', error);
     throw error.message;
   }
