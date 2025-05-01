@@ -17,7 +17,8 @@ const collectBankData = async (timezone = 'Asia/Kolkata') => {
   let conn;
   try {
     conn = await getConnection();
-    const sql = 'UPDATE public."BankAccount" SET today_balance = 0';
+    //added payin_count to update everyday
+    const sql = 'UPDATE public."BankAccount" SET today_balance = 0 , payin_count = 0 ';
     await conn.query(sql);
     console.info(
       'Successfully updated today_balance for all bank accounts.',
