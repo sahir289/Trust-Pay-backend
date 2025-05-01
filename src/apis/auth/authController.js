@@ -96,7 +96,7 @@ const verfyOtpController = async (req, res) => {
   const { otp } = req.body;
   const verfyUser = await verfyOtpService(otp);
   if (!verfyUser) {
-    throw new BadRequestError("Invalid User's Info");
+    throw new BadRequestError("Invalid OTP");
   }
   return sendSuccess(res, verfyUser, 'Verified Otp Successfully');
 };
