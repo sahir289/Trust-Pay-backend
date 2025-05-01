@@ -1793,6 +1793,10 @@ const checkIsPayInExpired = (payIn) => {
 };
 
 const updateCalculationTable = async (user_id, data, conn) => {
+
+  if (isNaN((Number(data.amount) - Number(data.payinCommission)))) {
+    throw new BadRequestError('Invalid amount or commission');
+  }
   if (user_id) {
     const calculationData = await getCalculationforCronDao(user_id);
     if (!calculationData[0]) {
@@ -1804,6 +1808,7 @@ const updateCalculationTable = async (user_id, data, conn) => {
     // let currentBalance =
     //   Number(calculationData[0].current_balance) || 0 + data?.amount;
     // let netBalance = calculationData[0].net_balance + data?.amount;
+    const totalAmount = (Number(data.amount) - Number(data.payinCommission));
     const calculationId = calculationData[0].id;
     await updateCalculationBalanceDao(
       { id: calculationId },
@@ -1811,8 +1816,8 @@ const updateCalculationTable = async (user_id, data, conn) => {
         total_payin_count: 1,
         total_payin_amount: data.amount,
         total_payin_commission: data.payinCommission,
-        current_balance: data.amount,
-        net_balance: data.amount,
+        current_balance: totalAmount,
+        net_balance: totalAmount,
       },
       conn,
     );

@@ -62,11 +62,11 @@ const createMerchantService = async (conn, payload) => {
         conn,
       );
     }
-   if (userDesignation === Role.MERCHANT) {
+   if (userDesignation === Role.MERCHANT || userDesignation === Role.SUB_MERCHANT) {
      try {
        const hierarchy = await getUserHierarchysDao({ user_id: parentId });
        if (!hierarchy || !hierarchy[0]?.id) {
-         console.error('No hierarchy found for parentId:', parentId);
+         logger.error('No hierarchy found for parentId:', parentId);
          return;
        }
       //  {"child":{"operations":[]},"siblings":{"sub_merchants":["19fb0634-31cc-41f3-a09f-29b524e4aee5","972d353d-158f-4013-93d6-a17f7e606800"]}}
@@ -84,13 +84,13 @@ const createMerchantService = async (conn, payload) => {
          conn
        );
      } catch (error) {
-       console.error('Error updating hierarchy:', error);
+       logger.error('Error updating hierarchy:', error);
      }
    }
-    console.log('Merchant created successfully');
+    logger.log('Merchant created successfully');
     return data;
   } catch (error) {
-    console.error('Error while creating merchant', error);
+    logger.error('Error while creating merchant', error);
     throw new InternalServerError(error);
   }
 };
@@ -106,8 +106,7 @@ const getMerchantsService = async (
 ) => {
   try {
     const filterColumns =
-      role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
-
+    role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
 
@@ -156,56 +155,14 @@ const getMerchantsService = async (
       pageSize,
       'updated_at',
       null,
-      filterColumns,
+      role
     );
-    const subMerchantUserIds = new Set();
-
-    for (const merchant of data) {
-      const userHierarchys = await getUserHierarchysDao({
-        user_id: merchant.user_id,
-      });
-      const userHierarchy = userHierarchys[0];
-
-      if (userHierarchy?.config?.siblings?.sub_merchants) {
-        const subMerchants = userHierarchy.config.siblings.sub_merchants;
-        subMerchants.forEach((id) => subMerchantUserIds.add(id));
-      }
-    }
-
-    const result = [];
-    for (const merchant of data) {
-      if (subMerchantUserIds.has(merchant.user_id)) {
-        continue;
-      }
-
-      const userHierarchys = await getUserHierarchysDao({
-        user_id: merchant.user_id,
-      });
-      const userHierarchy = userHierarchys[0];
-
-      if (!userHierarchy?.config?.siblings?.sub_merchants) {
-        merchant.subMerchants = [];
-        result.push(merchant);
-        continue;
-      }
-
-      const subMerchantIds = userHierarchy.config.siblings.sub_merchants;
-      const heir = await getMerchantsDao({
-        user_id:
-          subMerchantIds.length === 1 ? subMerchantIds[0] : subMerchantIds,
-        company_id: filters.company_id,
-      });
-
-      merchant.subMerchants = heir;
-      result.push(merchant);
-    }
-
-  
-    return result;
-
+   
+const finalResult = filterResponse(data, filterColumns);
+return finalResult;
     
   } catch (error) {
-    console.error('Error while fetching merchants', error);
+    logger.error('Error while fetching merchants', error);
     throw new InternalServerError(error);
   }
 };
@@ -234,8 +191,6 @@ const getMerchantsBySearchService = async (
     }
 
     const offset = (pageNum - 1) * limitNum;
-    const filterColumns =
-      role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
 
     // Prepare userIdFilter logic
     let userIdFilter = Array.isArray(user_id)
@@ -287,59 +242,12 @@ const getMerchantsBySearchService = async (
       searchTerms,
       limitNum,
       offset,
-      filterColumns,
+      role
     );
-const merchants = data.merchants;
-const merchantMap = new Map();
-const subMerchantUserIds = new Set();
-let topLevelMerchantCount = 0;
 
-// First pass: build merchant map and identify all sub-merchants
-for (const merchant of merchants) {
-  merchantMap.set(merchant.user_id, merchant);
 
-  const userHierarchys = await getUserHierarchysDao({
-    user_id: merchant.user_id,
-  });
-  const userHierarchy = userHierarchys[0];
 
-  if (userHierarchy?.config?.siblings?.sub_merchants) {
-    userHierarchy.config.siblings.sub_merchants.forEach((id) => {
-      subMerchantUserIds.add(id);
-    });
-  }
-}
-
-const organizedMerchants = [];
-for (const merchant of merchants) {
-  if (subMerchantUserIds.has(merchant.user_id)) {
-    continue;
-  }
-
-  topLevelMerchantCount++; 
-
-  const userHierarchys = await getUserHierarchysDao({
-    user_id: merchant.user_id,
-  });
-  const userHierarchy = userHierarchys[0];
-
-  merchant.subMerchants = [];
-
-  if (userHierarchy?.config?.siblings?.sub_merchants) {
-    const subMerchantIds = userHierarchy.config.siblings.sub_merchants;
-    merchant.subMerchants = subMerchantIds
-      .map((id) => merchantMap.get(id))
-      .filter(Boolean);
-  }
-
-  organizedMerchants.push(merchant);
-}
-
-return {
-  totalCount: topLevelMerchantCount, // Updated count
-  totalPages: data.totalPages,
-  merchants: organizedMerchants,
-};
+    return data;
   } catch (error) {
     logger.error('Error while fetching merchants by search', error);
     throw new InternalServerError(error.message);
@@ -407,17 +315,17 @@ const getMerchantsServiceCode = async (
       try {
         await rollback(conn);
       } catch (rollbackError) {
-        console.error('Error during transaction rollback', rollbackError);
+        logger.error('Error during transaction rollback', rollbackError);
       }
     }
-    console.error('Error while getting merchants codes', error);
+    logger.error('Error while getting merchants codes', error);
     throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
         conn.release();
       } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
+        logger.error('Error while releasing the connection', releaseError);
       }
     }
   }
@@ -430,11 +338,11 @@ const updateMerchantService = async (ids, payload, role) => {
     const filterColumns =
       role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
     const data = await updateMerchantDao(ids, payload); // Adjust DAO call for update
-    console.log('Merchant updated successfully');
+    logger.log('Merchant updated successfully');
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
-    console.error('Error while updating merchant', error);
+    logger.error('Error while updating merchant', error);
     throw new InternalServerError(error);
   }
 };
@@ -451,7 +359,7 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
     const payload = { is_obsolete: true, updated_by };
     const data = await deleteMerchantDao(ids, payload); // Adjust DAO call for delete
     await commit(conn); // Commit the transaction
-    console.log('Merchant deleted successfully');
+    logger.log('Merchant deleted successfully');
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -459,17 +367,17 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
       try {
         await rollback(conn); // Rollback the transaction in case of error
       } catch (rollbackError) {
-        console.error('Error during transaction rollback', rollbackError);
+        logger.error('Error during transaction rollback', rollbackError);
       }
     }
-    console.error('Error while deleting merchant', error);
+    logger.error('Error while deleting merchant', error);
     throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
         conn.release(); // Release the connection back to the pool
       } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
+        logger.error('Error while releasing the connection', releaseError);
       }
     }
   }

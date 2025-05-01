@@ -1,14 +1,13 @@
-import { tableName } from '../../constants/index.js';
+import { tableName,Role } from '../../constants/index.js';
 import {
   buildInsertQuery,
-  buildJoinQuery,
   buildSelectQuery,
   buildUpdateQuery,
   executeQuery,
   buildAndExecuteUpdateQuery,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
-
+import { enhanceMerchantsWithSubMerchants } from '../../utils/enhanceSubMerchant.js';
 export const createMerchantDao = async (data, conn) => {
   try {
     delete data.parent_id;
@@ -94,85 +93,123 @@ export const getMerchantsCodeDao = async (
     throw new Error('Database query failed');
   }
 };
+// get merchant with user_id  to get submerchant for user hierachys
+export const getMerchantByUserIdDao = async (userId) => {
+  try {
+    const sql = `
+      SELECT 
+        "Merchant".id, 
+        "Merchant".user_id, 
+        "Merchant".first_name, 
+        "Merchant".last_name, 
+        "Merchant".code, 
+        "Merchant".min_payin, 
+        "Merchant".max_payin, 
+        "Merchant".payin_commission, 
+        "Merchant".min_payout, 
+        "Merchant".max_payout, 
+        "Merchant".payout_commission, 
+        "Merchant".is_test_mode, 
+        "Merchant".is_enabled, 
+        "Merchant".dispute_enabled, 
+        "Merchant".is_demo, 
+        "Merchant".balance, 
+        "Merchant".config, 
+        creator.user_name AS created_by, 
+        updater.user_name AS updated_by, 
+        "Merchant".created_at, 
+        "Merchant".updated_at, 
+        "User".designation_id, 
+        "User".first_name || ' ' || "User".last_name AS full_name, 
+        "Designation".designation AS designation_name 
+      FROM "Merchant" 
+      JOIN "User" ON "Merchant".user_id = "User".id 
+      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
+      LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
+      LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
+      WHERE  "Merchant".is_obsolete = false 
+      AND "Merchant"."user_id" = $1
+      ORDER BY "Merchant"."created_at" ASC;
+    `;
 
+    // Query parameters
+    const queryParams = [userId];
 
+    // Execute query
+    const result = await executeQuery(sql, queryParams);
+
+    // Return the rows (merchant data)
+    return result.rows;
+  } catch (error) {
+    logger.error(
+      `Error in getMerchantByUserIdDao for user_id ${userId}:`,
+      error,
+    );
+    throw error.message;
+  }
+};
 export const getMerchantsDao = async (
   filters,
   page = 1,
   pageSize = 10,
   sortBy = 'created_at',
-  sortOrder = 'DESC',
-  columns = []
+  sortOrder = 'ASC',
+  // columns to select from db (optional)
+  role
 ) => {
   try {
-    //used raw query as builjoin doesnt accpet alias
-    const values = [];
-    const offset = (page - 1) * pageSize;
-
-    if (!filters.company_id) {
-      throw new Error('Missing required filter: company_id');
-    }
-
-    const whereClauses = [`"Merchant".is_obsolete = false`];
-
-    values.push(filters.company_id);
-    whereClauses.push(`"Merchant".company_id = $${values.length}`);
-
-    if (filters.startDate && filters.endDate) {
-      values.push(filters.startDate);
-      values.push(filters.endDate);
-      whereClauses.push(`"Merchant".created_at BETWEEN $${values.length - 1} AND $${values.length}`);
-    }
-
-    if (filters.or && typeof filters.or === 'object') {
-      const orConditions = [];
-      for (const key in filters.or) {
-        const value = filters.or[key];
-        values.push(value);
-        orConditions.push(`"Merchant"."${key}" = $${values.length}`);
-      }
-      if (orConditions.length > 0) {
-        whereClauses.push(`(${orConditions.join(' OR ')})`);
-      }
-    }
-
-    const where = `WHERE ${whereClauses.join(' AND ')}`;
-
-    // const selectCols = columns.length
-    //   ? columns.map(col => `"Merchant".${col}`).join(', ')
-    //   : `"Merchant".* , 
-    //      "User".designation_id, 
-    //      "User".first_name || ' ' || "User".last_name AS full_name, 
-    //      "Designation".designation AS designation_name`;
-    const baseJoinCols = `
-         u.user_name AS createdby_username,
-         uu.user_name AS updatedby_username,
-         "User".designation_id,
-         "User".first_name || ' ' || "User".last_name AS full_name,
-         "Designation".designation AS designation_name
-       `;
-
-  const selectCols = columns.length
-  ? [...columns.map(col => `"Merchant".${col}`), baseJoinCols].join(', ')
-  : `"Merchant".*, ${baseJoinCols}`;
-  
-    const sql = `
-      SELECT 
-        ${selectCols}
-      FROM "Merchant"
-      JOIN "User" ON "Merchant".user_id = "User".id
-      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
-      LEFT JOIN public."User" u ON "Merchant".created_by = u.id 
-      LEFT JOIN public."User" uu ON "Merchant".updated_by = uu.id
-      ${where}
-      ORDER BY "Merchant"."${sortBy}" ${sortOrder === 'ASC' ? 'ASC' : 'DESC'}
-      LIMIT $${values.length + 1}
-      OFFSET $${values.length + 2}
-    `;
-
-    values.push(pageSize, offset);
-    const result = await executeQuery(sql, values);
-    return result.rows;
+//changed created_by to createdby_username , because same names were conflicting at other places ,using same createdby_username in every api to avoid this
+  let baseQuery = `
+  SELECT 
+    "Merchant".id, 
+    "Merchant".user_id, 
+    "Merchant".first_name, 
+    "Merchant".last_name, 
+    "Merchant".code, 
+    "Merchant".min_payin, 
+    "Merchant".max_payin, 
+    "Merchant".payin_commission, 
+    "Merchant".min_payout, 
+    "Merchant".max_payout, 
+    "Merchant".payout_commission, 
+    "Merchant".is_test_mode, 
+    "Merchant".is_enabled, 
+    "Merchant".dispute_enabled, 
+    "Merchant".is_demo, 
+    "Merchant".balance, 
+    "Merchant".config, 
+    "Merchant".company_id, 
+    creator.user_name AS createdby_username, 
+    updater.user_name AS updatedby_username, 
+    "Merchant".created_at, 
+    "Merchant".updated_at, 
+    "User".designation_id, 
+    "User".first_name || ' ' || "User".last_name AS full_name, 
+    "Designation".designation AS designation_name 
+  FROM "Merchant" 
+  JOIN "User" ON "Merchant".user_id = "User".id 
+  LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
+  LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
+  LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
+      `
+  if (role == Role.ADMIN) {
+    baseQuery += `
+        WHERE "User".designation_id = (SELECT id FROM "Designation" WHERE designation = 'MERCHANT')
+      `;
+  }
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      tableName.MERCHANT,
+    );
+    // Execute query
+    const result = await executeQuery(sql, queryParams);
+    const data = await enhanceMerchantsWithSubMerchants(result.rows);
+    return data;
   } catch (error) {
     logger.error('Error in getMerchantsDao:', error);
     throw error.message;
@@ -184,12 +221,14 @@ export const getMerchantsBySearchDao = async (
   searchTerms,
   limitNum,
   offset,
+  role,
 ) => {
   try {
     const conditions = [];
     const values = [filters.company_id];
     let paramIndex = 2;
 
+    // Base query for merchants
     let queryText = `
       SELECT 
         "Merchant".id, 
@@ -209,6 +248,7 @@ export const getMerchantsBySearchDao = async (
         "Merchant".is_demo, 
         "Merchant".balance, 
         "Merchant".config, 
+        "Merchant".company_id, 
         creator.user_name as created_by, 
         updater.user_name as updated_by, 
         "Merchant".created_at, 
@@ -224,6 +264,16 @@ export const getMerchantsBySearchDao = async (
       WHERE "Merchant".is_obsolete = false
         AND "Merchant"."company_id" = $1
     `;
+
+    // Apply designation filter for ADMIN role, but allow sub-merchants in search
+    if (role === Role.ADMIN) {
+      queryText += `
+        AND (
+          "User".designation_id = (SELECT id FROM "Designation" WHERE designation = 'MERCHANT')
+          OR "User".designation_id = (SELECT id FROM "Designation" WHERE designation = 'SUB_MERCHANT')
+        )
+      `;
+    }
 
     if (filters.user_id) {
       if (Array.isArray(filters.user_id)) {
@@ -298,21 +348,19 @@ export const getMerchantsBySearchDao = async (
     `;
 
     values.push(limitNum, offset);
-
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
-
+    const data = await enhanceMerchantsWithSubMerchants(searchResult.rows);
     return {
       totalCount: parseInt(countResult.rows[0].total),
       totalPages: Math.ceil(countResult.rows[0].total / limitNum),
-      merchants: searchResult.rows,
+      merchants: data,
     };
   } catch (error) {
     logger.error('Error in getMerchantsBySearchDao', error.message);
     throw new Error(error.message);
   }
 };
-
 
 export const updateMerchantDao = async (ids, data, conn) => {
   return await buildAndExecuteUpdateQuery('Merchant', data, ids, {}, { returnUpdated: true }, conn);

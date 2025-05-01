@@ -119,7 +119,7 @@ const getUsersService = async (
       filterColumns,
     );
   } catch (error) {
-    console.error('error getting while fetching user', error);
+    logger.error('error getting while fetching user', error);
     throw new InternalServerError(error);
   }
 };
@@ -235,18 +235,18 @@ const getUserByIdService = async (ids, role) => {
     conn = await getConnection();
     const result = await getUserByIdDao(conn, ids);
 
-    console.log('get User by id successfully');
+    logger.log('get User by id successfully');
     const finalResult = filterResponse(result, filterColumns);
     return finalResult;
   } catch (error) {
-    console.error('error getting while getting user by id', error);
+    logger.error('error getting while getting user by id', error);
     throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
         conn.release();
       } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
+        logger.error('Error while releasing the connection', releaseError);
       }
     }
   }
@@ -266,20 +266,20 @@ const getUsersByUserNameService = async (username, ids, role) => {
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
-    console.error('error getting while fetching user', error);
+    logger.error('error getting while fetching user', error);
     throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
         conn.release();
       } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
+        logger.error('Error while releasing the connection', releaseError);
       }
     }
   }
 };
 
-const createUserService = async (conn, payload, role, designation) => {
+const createUserService = async (conn, payload, role) => {
   // const filterColumns =
   //   role === Role.MERCHANT
   //     ? merchantColumns.USER
@@ -328,13 +328,7 @@ const createUserService = async (conn, payload, role, designation) => {
     userDesignation[0]?.designation == Role.VENDOR_OPERATIONS
   ) {
     const hierarchy = await getUserHierarchysDao({
-      user_id:
-        role == Role.ADMIN ||
-        designation == Role.MERCHANT ||
-        designation == Role.SUB_MERCHANT ||
-        designation == Role.VENDOR
-          ? payload?.parent_id
-          : payload.created_by,
+      user_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
     });
     //  {"child":{"operations":[]},"siblings":{"sub_merchants":["19fb0634-31cc-41f3-a09f-29b524e4aee5","972d353d-158f-4013-93d6-a17f7e606800"]}}
     const hierarchyConfig = hierarchy[0]?.config;
@@ -349,13 +343,22 @@ const createUserService = async (conn, payload, role, designation) => {
       },
       conn,
     );
-    if(userDesignation[0].designation == Role.VENDOR_OPERATIONS || userDesignation[0].designation == Role.MERCHANT_OPERATIONS){
-        await createUserHierarchyDao(
-          { user_id: User.id, created_by : payload.created_by , updated_by: payload.updated_by, company_id: payload.company_id , 
-            config: { parent: payload.parent_id } },
-          conn,
-        );
-  }}
+    if (
+      userDesignation[0].designation == Role.VENDOR_OPERATIONS ||
+      userDesignation[0].designation == Role.MERCHANT_OPERATIONS
+    ) {
+      await createUserHierarchyDao(
+        {
+          user_id: User.id,
+          created_by: payload.created_by,
+          updated_by: payload.updated_by,
+          company_id: payload.company_id,
+          config: { parent: payload.parent_id },
+        },
+        conn,
+      );
+    }
+  }
 
   ///for merchant sub-merchant
   if (
@@ -380,10 +383,7 @@ const createUserService = async (conn, payload, role, designation) => {
       min_payout: Number(payload.min_payout),
       max_payout: Number(payload.max_payout),
       payout_commission: Number(payload.payout_commission),
-      parent_id:
-        role == Role.ADMIN || designation == Role.MERCHANT
-          ? payload?.parent_id
-          : payload.created_by,
+      parent_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
       created_by: payload.created_by,
       updated_by: payload.updated_by,
       config: {
@@ -420,7 +420,7 @@ const createUserService = async (conn, payload, role, designation) => {
     await createVendorService(conn, vendorPayload, role);
   }
 
-  console.log('User Created Successfully');
+  logger.log('User Created Successfully');
   // const finalResult = filterResponse(User, filterColumns);
   return Error;
 };
@@ -434,11 +434,11 @@ const userUpdateService = async (ids, payload, role) => {
           ? vendorColumns.USER
           : columns.USER;
     const User = await updateUserDao(ids, payload);
-    console.log('User Updated Successfully');
+    logger.log('User Updated Successfully');
     const finalResult = filterResponse(User, filterColumns);
     return finalResult;
   } catch (error) {
-    console.error('error getting while updating user', error);
+    logger.error('error getting while updating user', error);
     throw new InternalServerError(error);
   }
 };
