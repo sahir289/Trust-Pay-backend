@@ -12,7 +12,6 @@ import {
   getUserByIdDao,
   getUsersByUserNameDao,
   updateUserDao,
-  getUsersByEmailDao,
 } from '../users/userDao.js';
 import { generateUserToken } from '../../utils/auth.js';
 import {
@@ -22,6 +21,7 @@ import {
   getSessionByIdDao,
   changePasswordDao,
 } from './authDao.js';
+import { createUserOtpDao ,getUserOtpDao,updateUserOtpDao} from '../userOtp/userOtpDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { generateOTP } from '../../utils/generateOtp.js';
 import { forceLogoutUser } from '../../utils/sockets.js';
@@ -206,33 +206,69 @@ try {
   console.log('Error getting while changing password', error);
    } 
 }
-
-const forgetPasswordService = async (user_name, email) => {
+const forgetPasswordService = async (payload) => {
   try {
-    let userDetails;
-    if (user_name) {
-      userDetails = await getUsersByUserNameDao({}, user_name);
-    }
-    else {
-      userDetails = await getUsersByEmailDao(email);
-    }
-    if (!userDetails) {
-         throw new AuthenticationError(`INvalid`);
-    }
-    const otp = generateOTP();
-    await sendOTP(userDetails.email, otp);
-    
-    return userDetails;
+    const hashPassword = await createHash(payload.password)
+    const user =await updateUserDao(
+    { id: payload.user_id },
+    { password: hashPassword },
+    );
+    return user;
   } catch (error) {
-    console.log('Error getting while changing password', error);
+    console.log('Error getting while forgetting password', error);
   }
 };
- 
+const verfyUserService = async ( user_name) => {
+  try {
+    let userDetails = await getUsersByUserNameDao({},user_name);
+    if (!userDetails) {
+      throw new AuthenticationError(`Invalid User`);
+    }
+    const otp = generateOTP();
+    await sendOTP(userDetails.email, otp, userDetails.user_name);
+    const now = new Date();
+    const expirationDate = new Date(now.getTime() + 10 * 60 * 1000); 
+    const payload = {
+      user_id: userDetails.id,
+      otp: otp,
+      expiration_time: expirationDate,
+    };
+    await createUserOtpDao(payload);
+    return true;
+  } catch (error) {
+    console.log('Error while verifying user', error);
+  }
+};
+const verfyOtpService = async (otp) => {
+   try {
+     let userDetails = await getUserOtpDao(otp);
+     if (!userDetails) {
+        throw new AuthenticationError(`Please Enter Vaild OTP`);
+     }
+     const expiration = userDetails?.expiration_time;
+     const now = new Date();
+     if (now >= expiration) {
+       throw new AuthenticationError(`Expired Otp`);
+     }
+     else if (userDetails.is_used) {
+       throw new AuthenticationError(`Please Enter New Otp`);
+     }
+     else {
+       await updateUserOtpDao({ user_id: userDetails.user_id }, { is_used: true });
+       return {id:userDetails.user_id
+     };
+     }
+   } catch (error) {
+     console.log('Error while verifying otp', error);
+   }
+ }
 export {
   loginService,
   refreshTokenService,
   changePasswordService,
   verificationService,
   logoutService,
+  verfyUserService,
+  verfyOtpService,
   forgetPasswordService
 };
