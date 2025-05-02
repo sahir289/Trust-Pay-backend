@@ -283,6 +283,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
 
 
 const createUserService = async (conn, payload, role) => {
+  try{
   // const filterColumns =
   //   role === Role.MERCHANT
   //     ? merchantColumns.USER
@@ -435,7 +436,16 @@ const createUserService = async (conn, payload, role) => {
 
   logger.log('User Created Successfully');
   // const finalResult = filterResponse(User, filterColumns);
-  return Error;
+  return User;
+  } catch (error) {
+    logger.error('Error in createUserService:', error);
+     if (
+       error instanceof InternalServerError
+     ) {
+       throw error;
+     }
+    throw new InternalServerError(error);
+  }
 };
 
 const userUpdateService = async (conn,ids, payload) => {
