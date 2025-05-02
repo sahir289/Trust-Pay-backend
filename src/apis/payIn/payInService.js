@@ -1156,6 +1156,19 @@ export const processPayInService = async (
       bankResponse.amount,
        Number(merchant[0].payin_commission),
      );
+     updatePayInData.payin_merchant_commission = Number(commissions);
+     const bank = await getBankaccountDao({
+      id: bankResponse.bank_id
+    })
+       const vendors = await getVendorsDao({
+        user_id: bank[0].user_id,
+  });
+    const vendor = vendors[0];
+    const vendorCommission = calculateCommission(
+      bankResponse.amount,
+      Number(vendor.payin_commission),
+    )
+    updatePayInData.payin_vendor_commission = Number(vendorCommission);
    await updateCalculationTable(
      merchant[0].user_id,
      {
@@ -1684,6 +1697,7 @@ export const telegramCheckUTRService = async (
   company_id,
   updated_by,
 ) => {
+
   const bankResponse = await getBankResponseDao({ utr: utr });
   let otherBankResponse = {};
   const payIn = await getPayInUrlDao({ merchant_order_id });
