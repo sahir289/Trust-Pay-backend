@@ -345,7 +345,6 @@ const createUserService = async (conn, payload, role) => {
     const hierarchy = await getUserHierarchysDao({
       user_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
     });
-    //  {"child":{"operations":[]},"siblings":{"sub_merchants":["19fb0634-31cc-41f3-a09f-29b524e4aee5","972d353d-158f-4013-93d6-a17f7e606800"]}}
     const hierarchyConfig = hierarchy[0]?.config;
     const currentChildren = hierarchy[0]?.config?.child?.operations || [];
     await updateUserHierarchyDao(
