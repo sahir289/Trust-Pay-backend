@@ -439,6 +439,11 @@ const createUserService = async (conn, payload, role) => {
   return User;
   } catch (error) {
     logger.error('Error in createUserService:', error);
+     if (
+       error instanceof InternalServerError
+     ) {
+       throw error;
+     }
     throw new InternalServerError(error);
   }
 };
