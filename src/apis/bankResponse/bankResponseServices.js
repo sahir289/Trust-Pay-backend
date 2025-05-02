@@ -412,7 +412,7 @@ const getBankResponseService = async (payload, role, page, limit, search) => {
       ...(search ? { search } : {}),
       ...filters,
     }
-    return await getBankResponseDaoAll(filters, page, limit, 'updated_by', null, filterColumns);
+    return await getBankResponseDaoAll(filters, page, limit, 'updated_at', 'DESC', filterColumns);
   } catch (error) {
     logger.error('Error in getBankResponseService:', error);
     throw new InternalServerError(error);
