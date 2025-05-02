@@ -68,6 +68,6 @@ router.post('/user_verification', tryCatchHandler(verfyUserController));
 
 router.post('/change-password',isAuthenticated, tryCatchHandler(changePasswordController)); 
 
-router.post('/password-verification', isAuthenticated, tryCatchHandler(verificationController)) ;
+router.post('/password-verification', isAuthenticated, tryCatchHandler(verificationController));
 
 export default router;

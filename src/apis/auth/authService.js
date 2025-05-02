@@ -209,10 +209,7 @@ try {
 const forgetPasswordService = async (payload) => {
   try {
     const hashPassword = await createHash(payload.password)
-    const user =await updateUserDao(
-    { id: payload.user_id },
-    { password: hashPassword },
-    );
+    const user =await updateUserDao({ id: payload.user_id },{ password: hashPassword });
     return user;
   } catch (error) {
     console.log('Error getting while forgetting password', error);
@@ -225,7 +222,7 @@ const verfyUserService = async ( user_name) => {
       throw new AuthenticationError(`Invalid User`);
     }
     const otp = generateOTP();
-    await sendOTP(userDetails.email, otp, userDetails.user_name);
+    await sendOTP(userDetails.email, otp, userDetails.user_name,userDetails.designation);
     const now = new Date();
     const expirationDate = new Date(now.getTime() + 10 * 60 * 1000); 
     const payload = {

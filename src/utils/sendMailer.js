@@ -45,16 +45,21 @@ export const sendCredentialsEmail = async ({ email, username, password }) => {
   }
 };
 
-export const sendOTP = async (email, otp, user_name) => {
-const subject = 'Password Reset Request';
-const text = `Hello ${user_name},\n\nYou requested a password reset. Your OTP is: ${otp}\n\nThis OTP is valid for 10 minutes. Do not share it with anyone.\n\nIf you didn't request this, please ignore this email.`;
+export const sendOTP = async (email, otp, user_name, designation) => {
+  const subject = 'Password Reset Request';
+  const text = `Hello ${user_name},\n\nYou requested a password reset. Your OTP is: ${otp}\n\nThis OTP is valid for 10 minutes. Do not share it with anyone.\n\nRequest Details:\n- User: ${user_name}\n- Designation: ${designation}\n\nIf you didn't request this, please ignore this email.`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #2c3e50;">Password Reset Request</h2>
-      <p>Hello ${user_name}</p>
+      <p>Hello ${user_name},</p>
       <p>You requested a password reset. Here is your OTP:</p>
       <p style="font-size: 24px; font-weight: bold; color: #3498db;">${otp}</p>
       <p><em>This OTP is valid for 10 minutes. Do not share it with anyone.</em></p>
+      <h4>Request Details:</h4>
+      <ul>
+        <li><strong>User:</strong> ${user_name}</li>
+        <li><strong>Designation:</strong> ${designation}</li>
+      </ul>
       <hr style="border: 1px solid #eee;">
       <p style="font-size: 12px; color: #7f8c8d;">
         If you didn't request this, please ignore this email or contact support immediately.
@@ -72,10 +77,10 @@ const text = `Hello ${user_name},\n\nYou requested a password reset. Your OTP is
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log('OTP sent to:', email); 
+    console.log('OTP sent to:', email);
     return { success: true };
   } catch (error) {
-    console.error('Failed to send OTP:', error.message); 
+    console.error('Failed to send OTP:', error.message);
     throw new Error('Failed to send OTP. Please try again later.');
   }
 };
