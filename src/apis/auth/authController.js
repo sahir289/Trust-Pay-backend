@@ -85,8 +85,8 @@ const changedPassword= await changePasswordService({ user_id, user_name, passwor
 
 
 const verfyUserController = async (req, res) => {
-  const { email } = req.body;
-  const verfyUser = await verfyUserService(email);
+  const { user_name } = req.body;
+  const verfyUser = await verfyUserService(user_name);
   if (!verfyUser) {
     throw new BadRequestError("Invalid User's Info");
   }

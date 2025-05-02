@@ -12,7 +12,6 @@ import {
   getUserByIdDao,
   getUsersByUserNameDao,
   updateUserDao,
-  getUsersByEmailDao,
 } from '../users/userDao.js';
 import { generateUserToken } from '../../utils/auth.js';
 import {
@@ -219,14 +218,14 @@ const forgetPasswordService = async (payload) => {
     console.log('Error getting while forgetting password', error);
   }
 };
-const verfyUserService = async ( email) => {
+const verfyUserService = async ( user_name) => {
   try {
-    let userDetails = await getUsersByEmailDao(email);
+    let userDetails = await getUsersByUserNameDao({},user_name);
     if (!userDetails) {
       throw new AuthenticationError(`Invalid User`);
     }
     const otp = generateOTP();
-    await sendOTP(userDetails.email, otp);
+    await sendOTP(userDetails.email, otp, userDetails.user_name);
     const now = new Date();
     const expirationDate = new Date(now.getTime() + 10 * 60 * 1000); 
     const payload = {

@@ -45,14 +45,13 @@ export const sendCredentialsEmail = async ({ email, username, password }) => {
   }
 };
 
-export const sendOTP = async ( email, otp ) => {
-  const subject = 'Password Reset Request';
-  const text = `Hello,\n\nYou requested a password reset. Your OTP is: ${otp}\n\nThis OTP is valid for 10 minutes. Do not share it with anyone.\n\nIf you didn't request this, please ignore this email.`;
-
+export const sendOTP = async (email, otp, user_name) => {
+const subject = 'Password Reset Request';
+const text = `Hello ${user_name},\n\nYou requested a password reset. Your OTP is: ${otp}\n\nThis OTP is valid for 10 minutes. Do not share it with anyone.\n\nIf you didn't request this, please ignore this email.`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #2c3e50;">Password Reset Request</h2>
-      <p>Hello,</p>
+      <p>Hello ${user_name}</p>
       <p>You requested a password reset. Here is your OTP:</p>
       <p style="font-size: 24px; font-weight: bold; color: #3498db;">${otp}</p>
       <p><em>This OTP is valid for 10 minutes. Do not share it with anyone.</em></p>
