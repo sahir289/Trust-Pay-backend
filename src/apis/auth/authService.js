@@ -46,14 +46,18 @@ const loginService = async (config, clientIP) => {
     }    
     else {
       if (!user) {
-        throw new NotFoundError('User not found');
+       throw new NotFoundError(
+       'Invalid Credentials. Please check your credentials and try again.',
+        );
       }
       if (!user.is_enabled) {
-        throw new AccessDeniedError('User is not enabled'); // 403 Forbidden - The user exists but is not verified.
+        throw new AccessDeniedError('User is not active'); 
       }
-      const isPasswordValid = await verifyHash(config.password, user?.password);
+      const isPasswordValid = await verifyHash(config?.password, user?.password);
       if (!isPasswordValid) {
-        throw new AuthenticationError('Invalid credentials'); // 401 Unauthorized - The provided credentials (password) are invalid.
+      throw new NotFoundError(
+     'Invalid Credentials. Please check your credentials and try again.',
+      );
       }
     }
 
@@ -113,8 +117,10 @@ const loginService = async (config, clientIP) => {
       sessionId,
     };
   } catch (error) {
-    console.error('error getting while logging in', error);
-    throw new BadRequestError('Error getting while logging in');
+   if (error instanceof NotFoundError || error instanceof AccessDeniedError) {
+     throw error; 
+   }
+   throw new BadRequestError('Error getting while logging in');
   } finally {
     if (conn) {
       try {
@@ -209,10 +215,7 @@ try {
 const forgetPasswordService = async (payload) => {
   try {
     const hashPassword = await createHash(payload.password)
-    const user =await updateUserDao(
-    { id: payload.user_id },
-    { password: hashPassword },
-    );
+    const user =await updateUserDao({ id: payload.user_id },{ password: hashPassword });
     return user;
   } catch (error) {
     console.log('Error getting while forgetting password', error);
@@ -225,7 +228,7 @@ const verfyUserService = async ( user_name) => {
       throw new AuthenticationError(`Invalid User`);
     }
     const otp = generateOTP();
-    await sendOTP(userDetails.email, otp, userDetails.user_name);
+    await sendOTP(userDetails.email, otp, userDetails.user_name,userDetails.designation);
     const now = new Date();
     const expirationDate = new Date(now.getTime() + 10 * 60 * 1000); 
     const payload = {
