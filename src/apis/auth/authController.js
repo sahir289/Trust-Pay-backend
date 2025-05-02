@@ -106,7 +106,7 @@ const forgetPasswordController = async (req, res) => {
   if (!verfyUser) {
     throw new BadRequestError("Invalid User's Info");
   }
-  return sendSuccess(res, {}, 'Password Forget Successfully');
+  return sendSuccess(res, {}, 'Password Reset Successfully');
 };
 
 export {
