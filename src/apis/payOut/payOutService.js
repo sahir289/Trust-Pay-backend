@@ -950,7 +950,13 @@ const checkPayOutStatusService = async (
   if (!payOut) {
     throw new NotFoundError('payOut not found');
   }
-
+  
+  //check is payout detials belongs to that merchant or not
+  if (!(payOut.merchant_id === merchant.id)) {
+  throw new BadRequestError(
+    '`merchant_order_id and payOut ID do not belong to the specified merchant`',
+  );
+ }
   return {
     status: payOut[0].status,
     merchantOrderId: payOut[0].merchant_order_id,
