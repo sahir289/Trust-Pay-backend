@@ -1,5 +1,5 @@
 import config from '../../config/config.js';
-import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import { BadRequestError, InternalServerError, ValidationError } from '../../utils/appErrors.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import {
   ASSIGN_PAYIN_SCHEMA,
@@ -40,9 +40,10 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { decodeAuthToken, streamToBase64 } from '../../helpers/index.js';
 import { s3 } from '../../helpers/Aws.js';
 import { AUTH_HEADER_KEY } from '../../utils/constants.js';
-import { getMerchantByCodeAndApiKey } from '../merchants/merchantDao.js';
+import { getMerchantByCodeAndApiKey, getMerchantsDao } from '../merchants/merchantDao.js';
 import { createHash, compareHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
+import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
 
 //  To Generate Url
 export const generateHashForPayIn = async (req, res) => {
@@ -67,6 +68,25 @@ export const generatePayInUrl = async (req, res) => {
   if (!merchant) {
     throw new BadRequestError('Invalid merchant code or API key');
   }
+
+  // bank is not enabled or no method is enabled for payment - no payment link generates
+  const merchantArr = await getMerchantsDao({ code });
+  const bankAssigned = await getMerchantBankDao({
+    config_merchants_contains: merchantArr[0].id,
+  });
+  if (bankAssigned.length <= 0) {
+    throw new InternalServerError('No Bank Assigned to Merchant');
+  }
+ bankAssigned.every(bank => {
+    const config = bank.config || {};
+    if (bank.is_enabled === false) {
+     throw new InternalServerError('Bank assigned to this merchant is not enabled!');
+    }
+    if (config.is_phonepay === false && bank.is_qr === false && bank.is_bank === false)
+    {
+      throw new InternalServerError('No payment methods enebled for assigned bank!');
+    }
+  });
 
   // Create a deterministic hash
   const generatedHash = createHash(`${code}`);

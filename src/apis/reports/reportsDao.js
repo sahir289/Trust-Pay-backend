@@ -1,8 +1,11 @@
+import dayjs from 'dayjs';
 import { tableName } from '../../constants/index.js';
 import {
   buildSelectQuery,
   executeQuery,
 } from '../../utils/db.js';
+
+const IST = 'Asia/Kolkata';
 
 const getPayInMerchantReportDao = async (
   merchant_id,
@@ -152,7 +155,6 @@ const getPayOutMerchantReportDao = async (
           'notify_url', me.config->>'notify_url'
       ) AS merchant_details, 
       po.payout_vendor_commission, 
-      ve.code as vendor_code,
       po.approved_at, 
       po.created_by, 
       po.updated_by, 
@@ -168,6 +170,7 @@ WITH filtered_payins AS (
         po.status,
         po.merchant_order_id,
         po.user,
+        ve.code as vendor_code,
         po.config AS payout_details,
         b.nick_name,
         ${commissionSelect},
@@ -216,7 +219,6 @@ const getPayOutVendorReportDao = async (id, startDate, endDate, company_id) => {
       'notify_url', me.config->>'notify_url'
   ) AS merchant_details, 
   po.payout_vendor_commission, 
-  ve.code as vendor_code,
   po.approved_at, 
   po.created_by, 
   po.updated_by, 
@@ -232,6 +234,7 @@ WITH filtered_payins AS (
     po.status,
     po.merchant_order_id,
     po.user,
+    ve.code as vendor_code,
     po.config AS payout_details,
     b.nick_name,
     ${commissionSelect},
@@ -318,19 +321,14 @@ const getPayOutAll = async (filters, page, pageSize, sortBy, sortOrder) => {
   }
 };
 
-const getMerchantReportDao = async (userIds, startDate, endDate, company_id, page, limit) => {
+const getMerchantReportDao = async (company_id, userIds, startDate, endDate, page, limit) => {
   try {
     if (!startDate || !endDate) {
       throw new Error("Both startDate and endDate must be provided.");
     }
-
-    const formattedStartDate = new Date(startDate);
-    const formattedEndDate = new Date(endDate);
-
-    if (isNaN(formattedStartDate.getTime()) || isNaN(formattedEndDate.getTime())) {
-      throw new Error("Invalid date format for startDate or endDate");
-    }
-
+    //date formatting
+    const formattedStartDate = dayjs().tz(IST).startOf('day').toISOString();
+    const formattedEndDate = dayjs().tz(IST).endOf('day').toISOString();    
     let query = `
       WITH filtered_merchants AS (
         SELECT DISTINCT ON (c.id)
@@ -362,24 +360,21 @@ const getMerchantReportDao = async (userIds, startDate, endDate, company_id, pag
     let parameters = [company_id];
     let paramIndex = parameters.length + 1;
     if (userIds) {
-      query += ` AND c.user_id = ANY($2)`;
+      query += ` AND c.user_id = ANY($${paramIndex})`;
       parameters.push(userIds);
       paramIndex++;
     }
-
-    query += ` AND c.created_at BETWEEN $${paramIndex}::TIMESTAMPTZ AND $${paramIndex + 1}::TIMESTAMPTZ 
-      ORDER BY c.id, m.code ASC
-    ) 
-    SELECT * FROM filtered_merchants ORDER BY code NULLS LAST`;
-
-    parameters.push(
-      formattedStartDate.toISOString(),
-      formattedEndDate.toISOString()
-    );
-
+    
+    query += ` AND c.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+    parameters.push(formattedStartDate, formattedEndDate);
+    paramIndex += 2;    
+    query += `
+        ORDER BY c.id, m.code ASC
+      ) 
+      SELECT * FROM filtered_merchants ORDER BY code NULLS LAST`;    
     if (page && limit) {
       const offset = (parseInt(page) - 1) * parseInt(limit);
-      query += ` LIMIT $${parameters.length + 1} OFFSET $${parameters.length + 2};`;
+      query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       parameters.push(parseInt(limit), offset);
     }
 
@@ -393,10 +388,10 @@ const getMerchantReportDao = async (userIds, startDate, endDate, company_id, pag
 
 
 const getVendorReportDao = async (
+  company_id,
   userIds,
   startDate,
   endDate,
-  company_id,
   page,
   limit
 ) => {
@@ -404,16 +399,9 @@ const getVendorReportDao = async (
     if (!startDate || !endDate) {
       throw new Error("Both startDate and endDate must be provided.");
     }
-
-    const formattedStartDate = new Date(startDate);
-    const formattedEndDate = new Date(endDate);
-
-    if (
-      isNaN(formattedStartDate.getTime()) ||
-      isNaN(formattedEndDate.getTime())
-    ) {
-      throw new Error("Invalid date format for startDate or endDate");
-    }
+    //date formatting
+    const formattedStartDate = dayjs().tz(IST).startOf('day').toISOString();
+    const formattedEndDate = dayjs().tz(IST).endOf('day').toISOString();
 
     let query = `
 WITH filtered_vendors AS (
@@ -443,7 +431,7 @@ WITH filtered_vendors AS (
   WHERE c.company_id = $1`;
 
     let parameters = [company_id];
-    let paramIndex = 2;
+    let paramIndex = parameters.length + 1;
 
     if (userIds) {
       query += ` AND c.user_id = ANY($${paramIndex})`;
@@ -451,10 +439,10 @@ WITH filtered_vendors AS (
       paramIndex++;
     }
 
-    query += ` AND c.created_at BETWEEN $${paramIndex}::TIMESTAMPTZ AND $${paramIndex + 1}::TIMESTAMPTZ`;
+    query += ` AND c.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
     parameters.push(
-      formattedStartDate.toISOString(),
-      formattedEndDate.toISOString()
+      formattedStartDate,
+      formattedEndDate
     );
     paramIndex += 2;
 

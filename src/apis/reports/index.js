@@ -4,7 +4,6 @@ import {
   getMerchantReportService,
   getPayInReportService,
   getPayOutReportService,
-  getVendorReportService,
 } from './reportsService.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
@@ -115,37 +114,6 @@ router.get(
   isAuthenticated,
   tryCatchHandler(getMerchantReportService),
 );
-
-/**
- * @swagger
- * /reports/get-all-vendors:
- *   get:
- *     summary: Get all vendors
- *     description: Fetches a list of all vendors.
- *     tags: [Reports]
- *     responses:
- *       200:
- *         description: List of all vendors.
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: integer
- *                     example: 123
- *                   vendorCode:
- *                     type: string
- *                     example: "VEND001"
- *       500:
- *         description: Server error
- */
-router.get(
-  '/get-vendors-reports',
-  isAuthenticated,
-  tryCatchHandler(getVendorReportService),
-);
+//handled same with above function
 
 export default router;
