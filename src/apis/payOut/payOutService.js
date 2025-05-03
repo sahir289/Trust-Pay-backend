@@ -127,7 +127,6 @@ const createPayoutService = async (conn, headers, payload, role) => {
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
-    console.log('Error while creating Payout', 'error', error);
      if (error instanceof BadRequestError) {
        throw error;
      }
