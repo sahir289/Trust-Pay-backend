@@ -19,7 +19,8 @@ import {
 } from './vendorDao.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
-
+import {updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
+import {updateUserDao } from '../users/userDao.js';
 const createVendorService = async (conn, payload) => {
   try {
     let role_id = payload.role_id;
@@ -222,11 +223,25 @@ const deleteVendorService = async (ids, role) => {
   try {
     const filterColumns =
       role === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
-
     conn = await getConnection();
     await beginTransaction(conn); // Start a transaction
     const payload = { is_obsolete: true };
     const data = await deleteVendorDao(ids, payload); // Adjust DAO call for delete
+    //delete banks and childs for particular user
+    if (data) {
+      await updateUserDao({ id: ids.user_id }, payload, conn)
+      await updateBankaccountDao({ user_id: ids.user_id }, payload, conn)
+      //for childs user hierachys
+       const UserHierarchy = await getUserHierarchysDao({
+         user_id: ids.user_id,
+       });
+       if (UserHierarchy[0]?.config?.child?.operations) {
+         const userIds = UserHierarchy[0].config.child.operations;
+         for (const userId of userIds) {
+           await updateUserDao({ id: userId }, payload, conn);
+         }
+       }
+    }
     await commit(conn); // Commit the transaction
     console.log('Vendor deleted successfully', 'info');
     const finalResult = filterResponse(data, filterColumns);
