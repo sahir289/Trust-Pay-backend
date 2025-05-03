@@ -6,7 +6,7 @@ import {
   getUsersByUserNameService,
   getUsersService,
   userUpdateService,
-  getUsersBySearchService
+  getUsersBySearchService,
 } from './userService.js';
 import { CREATE_USER_SCHEMA } from '../../schemas/userSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
@@ -77,26 +77,33 @@ const createUser = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const { role, company_id, user_id } = req.user;
+  const { role, company_id, user_id, designation } = req.user;
   let payload = req.body;
   payload.is_enabled = true;
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
-  await transactionWrapper(createUserService)(payload, role);
+  await transactionWrapper(createUserService)(payload, role, designation);
   logger.log('Create user successfully');
   return sendSuccess(res, {}, 'Create user successfully');
 };
 
 const updateUser = async (req, res) => {
-  const { role, company_id, user_name } = req.user;
+  const { company_id, user_id } = req.user;
   let payload = req.body;
-  payload.updated_by = user_name;
+  payload.updated_by = user_id;
   const id = req.params.id;
   const ids = { id, company_id };
-  await userUpdateService(ids ,payload, role);
+    await transactionWrapper(userUpdateService)(ids, payload);
   logger.log('update user successfully');
   return sendSuccess(res, {}, 'update user successfully');
 };
 
-export { getUsers,getUsersBySearch, getUserById, getUsersByUserName, createUser, updateUser };
+export {
+  getUsers,
+  getUsersBySearch,
+  getUserById,
+  getUsersByUserName,
+  createUser,
+  updateUser,
+};

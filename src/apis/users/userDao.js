@@ -1,6 +1,6 @@
 import { tableName } from '../../constants/index.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-import { buildSelectQuery, buildUpdateQuery, executeQuery,buildJoinQuery } from '../../utils/db.js';
+import { buildSelectQuery, buildUpdateQuery, executeQuery,buildJoinQuery ,buildInsertQuery} from '../../utils/db.js';
 
 const getUsersDao = async (
   filters,
@@ -231,6 +231,9 @@ const getUserByIdDao = async (conn, ids) => {
   }
 };
 
+
+
+
 const getUsersByUserNameDao = async (ids, username) => {
   try {
     let baseQuery = `
@@ -288,32 +291,15 @@ const getUsersByUserNameDao = async (ids, username) => {
 
 const createUserDao = async (payload,conn) => {
   try {
+    const [sql, params] = buildInsertQuery(tableName.USER, payload);
 
-    const sql = `
-    INSERT INTO public."User" (role_id, company_id, designation_id, first_name, last_name, email, contact_no, user_name, password, code, is_enabled)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id 
-    `;
-
-    const values = [
-      payload.role_id,
-      payload.company_id,
-      payload.designation_id,
-      payload.first_name,
-      payload.last_name,
-      payload.email,
-      payload.contact_no,
-      payload.user_name,
-      payload.password,
-      payload.code,
-      payload.is_enabled,
-    ];
     let result;
     ///temperary for conn ...in future can excute to query in if condition
     if (conn) {
-      result = await conn.query(sql, values);
+      result = await conn.query(sql, params);
     }
     else {
-      result = await executeQuery(sql, values);
+      result = await executeQuery(sql, params);
     }
     console.log(
       `User with username: ${payload.user_name} created successfully`,
@@ -343,16 +329,24 @@ const getUsersForCronDao = async (conn) => {
   }
 };
 
-const updateUserDao = async (ids, data) => {
+const updateUserDao = async (ids, data, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.USER, data, ids);
+
+     if (conn && conn.query) {
+       const result = await conn.query(sql, params);
+       return result.rows[0];
+     }
+  
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in updateMerchantDao:', error);
+    console.error('Error in updateUserDao:', error);
     throw error.message;
   }
 }
+
+
 
 export {
   getUsersDao,
@@ -361,5 +355,6 @@ export {
   getUsersByUserNameDao,
   createUserDao,
   updateUserDao,
+  
 };
 

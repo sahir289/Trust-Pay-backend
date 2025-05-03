@@ -1,14 +1,17 @@
 import { logoutSet } from '../../middlewares/auth.js';
 import { INSERT_AUTH_SCHEMA } from '../../schemas/authSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
-import { verifyHash } from '../../utils/bcryptPassword.js';
 // import { verifyToken } from '../../utils/auth.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getUsersByUserNameDao } from '../users/userDao.js';
 import {
   loginService,
   // logoutService,
   refreshTokenService,
+  changePasswordService,
+  verificationService,
+  verfyUserService,
+  verfyOtpService,
+  forgetPasswordService
 } from './authService.js';
 
 const loginController = async (req, res) => {
@@ -20,11 +23,15 @@ const loginController = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const data = await loginService(payload, clientIP);
-  res.cookie('refreshToken', data.refreshToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'Strict',
-  });
+  ///for first login user
+  if (data.isLoginFirst) {
+      return sendSuccess(res, data, "user's first login");
+  }
+    res.cookie('refreshToken', data.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Strict',
+    });
   const token = {
     accessToken: data.tokenInfo.accessToken,
     sessionId: data.sessionId,
@@ -59,12 +66,56 @@ const verificationController =async(req, res) => {
   const { user_name } = req.user;
   const { password } = req.body;
   let ids = {};
-  const userDetails = await getUsersByUserNameDao( ids, user_name);
-  const isPasswordValid = await verifyHash(password, userDetails.password);
-  if(!isPasswordValid){
-    throw new BadRequestError('Invalid Password');
-  }
-  return sendSuccess(res, {}, 'verification successfully');
-}
+  const validate = await verificationService(ids, { user_name, password })
+ if (!validate) {
+        throw new BadRequestError('Invalid password');
+ }
 
-export { loginController, refreshTokenController, logoutController, verificationController };
+ return sendSuccess(res, {}, 'Verification successful');
+}
+const changePasswordController = async (req, res) => {
+const { user_id,user_name } = req.user;
+const { oldPassword, password } = req.body;
+const changedPassword= await changePasswordService({ user_id, user_name, password, oldPassword });
+  if (!changedPassword) {
+        throw new BadRequestError('Invalid old password');
+  }
+  return sendSuccess(res, {}, 'Password Changed Successfully');
+};
+
+
+const verfyUserController = async (req, res) => {
+  const { user_name } = req.body;
+  const verfyUser = await verfyUserService(user_name);
+  if (!verfyUser) {
+    throw new BadRequestError("Invalid User's Info");
+  }
+  return sendSuccess(res, {}, 'Verified User Successfully');
+};
+const verfyOtpController = async (req, res) => {
+  const { otp } = req.body;
+  const verfyUser = await verfyOtpService(otp);
+  if (!verfyUser) {
+    throw new BadRequestError("Invalid OTP");
+  }
+  return sendSuccess(res, verfyUser, 'Verified Otp Successfully');
+};
+const forgetPasswordController = async (req, res) => {
+  const { password,user_id} = req.body;
+  const verfyUser = await forgetPasswordService({password,user_id});
+  if (!verfyUser) {
+    throw new BadRequestError("Invalid User's Info");
+  }
+  return sendSuccess(res, {}, 'Password Reset Successfully');
+};
+
+export {
+  loginController,
+  refreshTokenController,
+  changePasswordController,
+  logoutController,
+  verificationController,
+  verfyUserController,
+  verfyOtpController,
+  forgetPasswordController
+};

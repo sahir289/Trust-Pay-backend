@@ -2,6 +2,8 @@ import { InternalServerError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
 import { getConnection } from '../../utils/db.js';
 import { generateUUID } from '../../utils/generateUUID.js';
+import { generatePassword } from '../../utils/generatePassword.js';
+import { sendCredentialsEmail } from '../../utils/sendMailer.js';
 import {
   createUserDao,
   getUserByIdDao,
@@ -28,6 +30,7 @@ import {
   getUserHierarchysDao,
   updateUserHierarchyDao,
 } from '../userHierarchy/userHierarchyDao.js';
+
 
 const getUsersService = async (
   ids,
@@ -109,7 +112,6 @@ const getUsersService = async (
       userIdFilter = [...new Set(userIdFilter)];
       ids.id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
-
     return await getUsersDao(
       ids,
       pageNumber,
@@ -262,7 +264,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
           ? vendorColumns.USER
           : columns.USER;
     conn = await getConnection();
-    const data = await getUsersByUserNameDao(conn, ids, username);
+    const data = await getUsersByUserNameDao(ids, username,conn);
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -279,7 +281,9 @@ const getUsersByUserNameService = async (username, ids, role) => {
   }
 };
 
+
 const createUserService = async (conn, payload, role) => {
+  try{
   // const filterColumns =
   //   role === Role.MERCHANT
   //     ? merchantColumns.USER
@@ -291,8 +295,9 @@ const createUserService = async (conn, payload, role) => {
   if (user?.user_name || user?.email || user?.contact_no) {
     throw new InternalServerError('User already exists');
   }
-  const password = await createHash(payload.password);
-  payload.password = password;
+  const Password = generatePassword(user_name);
+  const hashPassword = await createHash(Password);
+  payload.password = hashPassword;
   const userPayload = {
     code: payload.code,
     role_id: payload.role_id,
@@ -307,6 +312,7 @@ const createUserService = async (conn, payload, role) => {
     company_id: payload.company_id,
     created_by: payload.created_by,
     updated_by: payload.updated_by,
+    config:{"isLoginFirst":true}
   };
   const payin_notify = payload.payin_notify;
   const payout_notify = payload.payout_notify;
@@ -317,6 +323,15 @@ const createUserService = async (conn, payload, role) => {
   delete payload.return;
   delete payload.site;
   const User = await createUserDao(userPayload, conn);
+
+  if (User) {
+    sendCredentialsEmail({
+      email: userPayload.email,
+      username: userPayload.user_name,
+      password: Password,
+    });
+  }
+
   const userRole = await getRoleDao({ id: payload.role_id });
   const userDesignation = await getDesignationDao({
     id: payload.designation_id,
@@ -330,7 +345,6 @@ const createUserService = async (conn, payload, role) => {
     const hierarchy = await getUserHierarchysDao({
       user_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
     });
-    //  {"child":{"operations":[]},"siblings":{"sub_merchants":["19fb0634-31cc-41f3-a09f-29b524e4aee5","972d353d-158f-4013-93d6-a17f7e606800"]}}
     const hierarchyConfig = hierarchy[0]?.config;
     const currentChildren = hierarchy[0]?.config?.child?.operations || [];
     await updateUserHierarchyDao(
@@ -422,21 +436,24 @@ const createUserService = async (conn, payload, role) => {
 
   logger.log('User Created Successfully');
   // const finalResult = filterResponse(User, filterColumns);
-  return Error;
+  return User;
+  } catch (error) {
+    logger.error('Error in createUserService:', error);
+     if (
+       error instanceof InternalServerError
+     ) {
+       throw error;
+     }
+    throw new InternalServerError(error);
+  }
 };
 
-const userUpdateService = async (ids, payload, role) => {
+const userUpdateService = async (conn,ids, payload) => {
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.USER
-        : role === Role.VENDOR
-          ? vendorColumns.USER
-          : columns.USER;
-    const User = await updateUserDao(ids, payload);
+   
+    const User = await updateUserDao(ids, payload,conn);
     logger.log('User Updated Successfully');
-    const finalResult = filterResponse(User, filterColumns);
-    return finalResult;
+    return User;
   } catch (error) {
     logger.error('error getting while updating user', error);
     throw new InternalServerError(error);

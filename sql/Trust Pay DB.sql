@@ -333,6 +333,16 @@ CREATE TABLE "Complaints" (
   "updated_by" varchar
 );
 
+CREATE TABLE "UserOtp" (
+  "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
+  "user_id" varchar NOT NULL,
+  "otp" INTEGER NOT NULL,
+  "expiration_time" TIMESTAMPTZ NOT NULL,
+  "is_used" boolean DEFAULT false,
+  "created_at" TIMESTAMPTZ DEFAULT (now()),
+  "updated_at" TIMESTAMPTZ DEFAULT (now()),
+);
+
 CREATE INDEX ON "Company" ("email");
 
 CREATE INDEX ON "Company" ("contact_no");
@@ -501,6 +511,8 @@ CREATE INDEX ON "Complaints" ("company_id");
 
 CREATE INDEX ON "Complaints" ("payin_id");
 
+CREATE INDEX ON "UserOtp" ("user_id");
+
 COMMENT ON COLUMN "Merchant"."config" IS 'site_url, notify_url, return_url, payout_notify_url, api_key, secret_key, public_api_key, banks, "beneficiary": [{bankname, ifsc, account_name_holder, method}]';
 
 COMMENT ON COLUMN "Vendor"."config" IS '"beneficiary": [{bankname, ifsc, account_name_holder, method}]';
@@ -604,3 +616,5 @@ ALTER TABLE "ResetDataHistory" ADD FOREIGN KEY ("company_id") REFERENCES "Compan
 ALTER TABLE "Complaints" ADD FOREIGN KEY ("payin_id") REFERENCES "Payin" ("id");
 
 ALTER TABLE "Complaints" ADD FOREIGN KEY ("company_id") REFERENCES "Company" ("id");
+
+ALTER TABLE "UserOtp" ADD FOREIGN KEY ("user_id") REFERENCES "User" ("id");

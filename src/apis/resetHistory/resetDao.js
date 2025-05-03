@@ -14,7 +14,7 @@ const getResetHistoryDao = async (
   columns = []
 ) => {
   try {
-    const { BANK_RESPONSE, RESET_DATA_HISTORY, PAYIN } = tableName;
+    const { BANK_RESPONSE, RESET_DATA_HISTORY, PAYIN, USER } = tableName;
 
     // Default columns if none provided
     const selectColumns = columns.length
@@ -43,10 +43,14 @@ const getResetHistoryDao = async (
             'previous_status', "${RESET_DATA_HISTORY}".pre_status
           )
       END AS previous_details,
-      "${PAYIN}".merchant_order_id AS merchant_order_id
+      "${PAYIN}".merchant_order_id AS merchant_order_id,
+      created_user.user_name AS created_by,
+      updated_user.user_name AS updated_by
     FROM "${RESET_DATA_HISTORY}"
     JOIN "${PAYIN}" ON "${RESET_DATA_HISTORY}".payin_id = "${PAYIN}".id
     LEFT JOIN "${BANK_RESPONSE}" ON "${PAYIN}".bank_response_id = "${BANK_RESPONSE}".id
+    LEFT JOIN "${USER}" AS created_user ON "${RESET_DATA_HISTORY}".created_by = created_user.id 
+    LEFT JOIN "${USER}" AS updated_user ON "${RESET_DATA_HISTORY}".updated_by = updated_user.id
   `;
 
     // Handle filters

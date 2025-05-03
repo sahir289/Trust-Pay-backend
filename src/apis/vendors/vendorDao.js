@@ -1,7 +1,6 @@
-import { tableName } from '../../constants/index.js';
+import { Role, tableName } from '../../constants/index.js';
 import {
   buildInsertQuery,
-  buildJoinQuery,
   buildSelectQuery,
   buildUpdateQuery,
   executeQuery,
@@ -56,62 +55,64 @@ export const getVendorsCodeDao = async (
 
 export const getVendorsDao = async (
   filters,
-  page,
-  pageSize,
-  sortBy,
-  sortOrder,
-  // columns to select from db (optional)
-  columns = [],
+  page = 1,
+  pageSize = 10,
+  sortBy = 'created_at',
+  sortOrder = 'DESC',
+  role
 ) => {
   try {
-    const { USER, VENDOR, DESIGNATION } = tableName;
-    const joins = [
-      {
-        table: USER,
-        // first is source key
-        // second is target key
-        keys: ['user_id', 'id'],
-        type: 'JOIN',
-        columns: ['designation_id'],
-        columnAs: [
-          `"${USER}".first_name || ' ' || "${USER}".last_name AS full_name`,
-        ],
-      },
-      {
-        table: DESIGNATION,
-        // first is source key
-        // second is target key
-        keys: [`designation_id`, 'id'],
-        type: 'LEFT JOIN',
-        columnAs: [`"${DESIGNATION}".designation AS designation_name`],
-        referenceTable: USER,
-      },
-    ];
-
-    const baseQuery = buildJoinQuery(
-      VENDOR,
-      columns.length ? columns : '*',
-      joins,
-    );
-    
-    // logger.log(JSON.stringify(filters, undefined, 4));
-    const [sql, queryParams] = buildSelectQuery(
+    let baseQuery = `
+      SELECT 
+        "Vendor".id,
+        "Vendor".user_id,
+        "Vendor".first_name,
+        "Vendor".last_name,
+        "Vendor".code,
+        "Vendor".payin_commission,
+        "Vendor".payout_commission,
+        "Vendor".balance,
+        "Vendor".created_by,
+        "Vendor".updated_by,
+        "Vendor".config,
+        "Vendor".created_at,
+        "Vendor".updated_at,
+        "Vendor".company_id,
+        user_main.designation_id,
+        user_main.first_name || ' ' || user_main.last_name AS full_name,
+        d.designation AS designation_name,
+        u.user_name AS created_by,
+        uu.user_name AS updated_by
+      FROM "Vendor"
+      JOIN "User" AS user_main ON "Vendor".user_id = user_main.id
+      LEFT JOIN "Designation" AS d ON user_main.designation_id = d.id
+      LEFT JOIN "User" AS u ON "Vendor".created_by = u.id
+      LEFT JOIN "User" AS uu ON "Vendor".updated_by = uu.id
+    `;
+    //vendor details login specific
+  if (role == Role.ADMIN) {
+    baseQuery += `
+        WHERE "User".designation_id = (SELECT id FROM "Designation" WHERE designation = 'VENDOR')
+      `;
+  }
+    const [query, values] = buildSelectQuery(
       baseQuery,
       filters,
       page,
       pageSize,
       sortBy,
       sortOrder,
-      tableName.VENDOR,
+      'Vendor' 
     );
-    // Execute query
-    const result = await executeQuery(sql, queryParams);
+
+    const result = await executeQuery(query, values);
     return result.rows;
   } catch (error) {
     logger.error('Error in getVendorsDao:', error);
     throw error.message;
   }
 };
+
 
 export const getVendorsBySearchDao = async (
   filters,

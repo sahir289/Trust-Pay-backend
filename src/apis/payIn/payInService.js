@@ -99,6 +99,18 @@ export const generatePayInUrlByHashService = async (req) => {
   if (bankAssigned.length <= 0) {
     throw new InternalServerError('No Bank Assigned to Merchant');
   }
+
+// bank is not enabled or no method is enabled for payment - no payment link generates
+ bankAssigned.every(bank => {
+    const config = bank.config || {};
+    if (bank.is_enabled === false) {
+      throw new InternalServerError('Bank assigned to this merchant is not anabled!');
+    }
+    if (config.is_phonepay === false && bank.is_qr === false && bank.is_bank === false)
+    {
+      throw new InternalServerError('No payment methods enebled for assigned bank!');
+    }
+  });
   let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
   if (amount) {
     query += `&amount=${amount}`;
@@ -1151,6 +1163,19 @@ export const processPayInService = async (
       bankResponse.amount,
        Number(merchant[0].payin_commission),
      );
+     updatePayInData.payin_merchant_commission = Number(commissions);
+     const bank = await getBankaccountDao({
+      id: bankResponse.bank_id
+    })
+       const vendors = await getVendorsDao({
+        user_id: bank[0].user_id,
+  });
+    const vendor = vendors[0];
+    const vendorCommission = calculateCommission(
+      bankResponse.amount,
+      Number(vendor.payin_commission),
+    )
+    updatePayInData.payin_vendor_commission = Number(vendorCommission);
    await updateCalculationTable(
      merchant[0].user_id,
      {
@@ -1679,6 +1704,7 @@ export const telegramCheckUTRService = async (
   company_id,
   updated_by,
 ) => {
+
   const bankResponse = await getBankResponseDao({ utr: utr });
   let otherBankResponse = {};
   const payIn = await getPayInUrlDao({ merchant_order_id });

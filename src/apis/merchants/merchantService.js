@@ -153,7 +153,7 @@ const getMerchantsService = async (
       filters,
       pageNumber,
       pageSize,
-      null,
+      'updated_at',
       null,
       role
     );

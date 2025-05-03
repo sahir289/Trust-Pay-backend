@@ -5,6 +5,10 @@ import {
   logoutController,
   refreshTokenController,
   verificationController,
+  changePasswordController,
+  verfyUserController,
+  verfyOtpController,
+  forgetPasswordController,
 } from './authController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
@@ -56,6 +60,14 @@ router.post('/refresh-token', tryCatchHandler(refreshTokenController));
  */
 router.post('/logout', isAuthenticated, tryCatchHandler(logoutController));
 
-router.post('/password-verification', isAuthenticated, tryCatchHandler(verificationController)) ;
+router.post('/otp_verification', tryCatchHandler(verfyOtpController)); 
+
+router.post('/reset_password', tryCatchHandler(forgetPasswordController)); 
+
+router.post('/user_verification', tryCatchHandler(verfyUserController)); 
+
+router.post('/change-password',isAuthenticated, tryCatchHandler(changePasswordController)); 
+
+router.post('/password-verification', isAuthenticated, tryCatchHandler(verificationController));
 
 export default router;
