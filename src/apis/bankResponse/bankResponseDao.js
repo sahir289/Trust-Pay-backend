@@ -14,7 +14,7 @@ import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 
 const getBankResponseDao = async (
   filters,
-  startDate =new Date(),
+  startDate = new Date(),
   endDate = new Date(),
   page = 0,
   pageSize = 10,
@@ -35,7 +35,7 @@ const getBankResponseDao = async (
       baseQuery,
       filters,
       page,
-      pageSize
+      pageSize,
     );
     if (startDate && endDate) {
       baseQuery += ` AND created_at BETWEEN $${Object.keys(queryParams).length + 1} AND $${Object.keys(queryParams).length + 2}`;
@@ -157,7 +157,7 @@ const getBankResponseDaoAll = async (
 ) => {
   try {
     const selectCols = columns.length
-      ? columns.map(col => `"BankResponse".${col}`).join(', ')
+      ? columns.map((col) => `"BankResponse".${col}`).join(', ')
       : [
           `"BankResponse".*`,
           `"BankAccount".user_id`,
@@ -165,14 +165,14 @@ const getBankResponseDaoAll = async (
           `"BankAccount".bank_name`,
           `"Vendor".code`,
           `u.user_name AS created_by`,
-          `uu.user_name AS updated_by`
+          `uu.user_name AS updated_by`,
         ].join(', ');
 
     if (filters.search) {
       const searchValue = filters.search.trim();
       filters.or = {
         reference_id: searchValue,
-        status: searchValue
+        status: searchValue,
       };
       delete filters.search;
     }
@@ -193,7 +193,7 @@ const getBankResponseDaoAll = async (
       pageSize,
       sortBy,
       sortOrder,
-      'BankResponse' 
+      'BankResponse',
     );
 
     const result = await executeQuery(query, values);
@@ -204,10 +204,7 @@ const getBankResponseDaoAll = async (
   }
 };
 
-const getBankResponseByUTR = async (
-  company_id,
-  utr,
-) => {
+const getBankResponseByUTR = async (company_id, utr) => {
   try {
     const baseQuery = `SELECT 
         br.id, 
@@ -243,12 +240,11 @@ const getBankResponseByUTR = async (
     const queryParams = [company_id, utr];
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows[0];
-  } catch(error) {
+  } catch (error) {
     logger.error('Error getting Bank Response by utr', error);
     throw error.message;
   }
 };
-
 
 const createBankResponseDao = async (conn, data) => {
   try {
@@ -327,7 +323,7 @@ const updateBotResponseDao = async (id, data, conn) => {
       id,
     });
     let result;
-    
+
     if (conn && conn.query) {
       result = await conn.query(sql, params); // Use connection to execute query
     } else {
