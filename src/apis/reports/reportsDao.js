@@ -324,6 +324,7 @@ const getMerchantReportDao = async (company_id, userIds, startDate, endDate, pag
     if (!startDate || !endDate) {
       throw new Error("Both startDate and endDate must be provided.");
     }   
+    //date formatted from service
     let query = `
       WITH filtered_merchants AS (
         SELECT DISTINCT ON (c.id)

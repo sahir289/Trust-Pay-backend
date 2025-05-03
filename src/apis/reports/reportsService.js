@@ -20,7 +20,7 @@ const getPayInReportService = async (req, res) => {
   try {
     const { company_id } = req.user;
     const { code, startDate, endDate } = req.query;
-    //for same date take 24 hours range
+    //for same date take 24 hours range  -- dates formatting as per db -- for both vendor and merchant
     const startDateTime = moment.tz(`${startDate} 00:00:00`, 'Asia/Kolkata').toISOString();
     const endDateTime = moment.tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString();
     let result = [];
