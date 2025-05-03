@@ -20,7 +20,7 @@ const getPayInReportService = async (req, res) => {
   try {
     const { company_id } = req.user;
     const { code, startDate, endDate } = req.query;
-    //for same date take 24 hours range
+    //for same date take 24 hours range  -- dates formatting as per db -- for both vendor and merchant
     const startDateTime = moment.tz(`${startDate} 00:00:00`, 'Asia/Kolkata').toISOString();
     const endDateTime = moment.tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString();
     let result = [];
@@ -138,10 +138,13 @@ const getMerchantReportService = async (req, res) => {
     let endDateTime
   
     if (startDateTime === endDateTime) {
-       startDateTime = dayjs(startDate).tz(IST).toISOString();
-       endDateTime = dayjs(endDate).tz(IST).endOf('day').toISOString();
+      startDateTime = dayjs(startDate).tz(IST).toISOString();
+      endDateTime = dayjs(endDate).tz(IST).endOf('day').toISOString();
     }
-
+    else{
+      startDateTime = startDate;
+      endDateTime = endDate;
+    }
     let dataArray = [];
     let result
       const userIds = typeof code === 'string' ? code.split(',').map(id => id.trim()) : Array.isArray(code) ? code : [code];
@@ -149,7 +152,7 @@ const getMerchantReportService = async (req, res) => {
          result = await getMerchantReportDao(
           company_id,
           userIds,
-          startDate, endDate
+          startDateTime, endDateTime
           , page, limit
         ); 
         dataArray.push(result);
@@ -159,7 +162,7 @@ const getMerchantReportService = async (req, res) => {
          result = await getVendorReportDao(
           company_id,
           userIds,
-          startDate, endDate
+          startDateTime, endDateTime
           , page, limit
         );
         dataArray.push(result);

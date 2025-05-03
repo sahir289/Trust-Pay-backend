@@ -1,11 +1,9 @@
-import dayjs from 'dayjs';
 import { tableName } from '../../constants/index.js';
 import {
   buildSelectQuery,
   executeQuery,
 } from '../../utils/db.js';
 
-const IST = 'Asia/Kolkata';
 
 const getPayInMerchantReportDao = async (
   merchant_id,
@@ -325,10 +323,8 @@ const getMerchantReportDao = async (company_id, userIds, startDate, endDate, pag
   try {
     if (!startDate || !endDate) {
       throw new Error("Both startDate and endDate must be provided.");
-    }
-    //date formatting
-    const formattedStartDate = dayjs().tz(IST).startOf('day').toISOString();
-    const formattedEndDate = dayjs().tz(IST).endOf('day').toISOString();    
+    }   
+    //date formatted from service
     let query = `
       WITH filtered_merchants AS (
         SELECT DISTINCT ON (c.id)
@@ -366,7 +362,7 @@ const getMerchantReportDao = async (company_id, userIds, startDate, endDate, pag
     }
     
     query += ` AND c.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
-    parameters.push(formattedStartDate, formattedEndDate);
+    parameters.push(startDate, endDate);
     paramIndex += 2;    
     query += `
         ORDER BY c.id, m.code ASC
@@ -400,9 +396,6 @@ const getVendorReportDao = async (
       throw new Error("Both startDate and endDate must be provided.");
     }
     //date formatting
-    const formattedStartDate = dayjs().tz(IST).startOf('day').toISOString();
-    const formattedEndDate = dayjs().tz(IST).endOf('day').toISOString();
-
     let query = `
 WITH filtered_vendors AS (
   SELECT DISTINCT ON (c.id)
@@ -441,8 +434,8 @@ WITH filtered_vendors AS (
 
     query += ` AND c.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
     parameters.push(
-      formattedStartDate,
-      formattedEndDate
+      startDate,
+      endDate
     );
     paramIndex += 2;
 
