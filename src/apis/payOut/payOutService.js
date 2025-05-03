@@ -77,19 +77,17 @@ const createPayoutService = async (conn, headers, payload, role) => {
     payload.updated_by = user_id ? user_id : null;
 
     if (!x_api_key || !merchantAPIKey) {
-      throw new BadRequestError(400, 'Missing API key or Merchant Keys');
+      throw new BadRequestError('Missing API key or Merchant Keys');
     }
 
     if (
       x_api_key !== merchantAPIKey?.private &&
       x_api_key !== merchantAPIKey?.public
     ) {
-      throw new BadRequestError(403, 'Enter a valid API key');
+      throw new BadRequestError('Enter a valid API key');
     }
-
     if (amount < details[0].min_payout || amount > details[0].max_payout) {
       throw new BadRequestError(
-        400,
         `Amount should be between ${details[0].min_payout} and ${details[0].max_payout}`,
       );
     }
@@ -129,7 +127,9 @@ const createPayoutService = async (conn, headers, payload, role) => {
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
-    console.log('Error while creating Payout', 'error', error);
+     if (error instanceof BadRequestError) {
+       throw error;
+     }
     throw new InternalServerError(error);
   }
 };
