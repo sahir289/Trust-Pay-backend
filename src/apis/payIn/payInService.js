@@ -410,6 +410,13 @@ export const checkPayInStatusService = async (
     throw new NotFoundError('payIn not found');
   }
 
+  //check is payIn detials belongs to that merchant or not
+  if (!(payIn.merchant_id === merchant.id)) {
+    throw new BadRequestError(
+      '`merchant_order_id and payIn ID do not belong to the specified merchant`',
+    );
+  }
+
   let botResponse;
   if (payIn.bank_response_id) {
     botResponse = await getBankResponseDao({
