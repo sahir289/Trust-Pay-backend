@@ -19,6 +19,7 @@ import { logger } from '../../utils/logger.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 
 const createPayout = async (req, res) => {
+  console.log(res);
   const joiValidation = PAYOUT_DETAILS_SCHEMA.validate(req.body);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
@@ -49,6 +50,7 @@ const createPayout = async (req, res) => {
     result = await transactionWrapper(createPayoutService)(
       req.headers,
       payload,
+      null,
       res,
     );
   }
