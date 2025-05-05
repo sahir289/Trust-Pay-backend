@@ -530,7 +530,7 @@ export const checkPayInStatusService = async (
       ? null
       : botResponse?.amount
         ? botResponse?.amount
-        : payIn.amount,
+        : null,
     payinId: payIn.id,
     req_amount: payIn.amount,
     utr_id: [Status.INITIATED, Status.ASSIGNED, Status.DROPPED, Status.IMG_PENDING].includes(
