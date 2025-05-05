@@ -26,26 +26,48 @@ const createPayout = async (req, res) => {
   const x_api_key = req.headers['x-api-key'];
   let payload = req.body;
   if (!payload.user_id && !payload.user) {
-    throw new BadRequestError('user_id is required');
+    throw new ValidationError('user_id is required');
   }
   payload.user = payload.user_id ? payload.user_id : payload.user;
   delete payload?.user_id;
+
+  let result = {};
   if (req.user) {
     const { company_id, role, user_id } = req.user;
     payload.company_id = company_id;
     payload.created_by = user_id;
     payload.updated_by = user_id;
     payload.x_api_key = x_api_key;
-    await transactionWrapper(createPayoutService)(req.headers, payload, role);
-  }
-  else {
+    result = await transactionWrapper(createPayoutService)(
+      req.headers,
+      payload,
+      role,
+      res,
+    );
+  } else {
     payload.x_api_key = x_api_key;
-    await transactionWrapper(createPayoutService)(req.headers, payload);
+    result = await transactionWrapper(createPayoutService)(
+      req.headers,
+      payload,
+      res,
+    );
   }
   // Log success message
   logger.log('Payout created successfully');
+
+  const updateRes = {
+    merchantOrderId: result.merchant_order_id,
+    payoutId: result.id,
+    amount: result.amount,
+  };
+
   // Send a success response to the client
-  return sendSuccess(res, {}, 'Payout created successfully');
+  // return sendSuccess(res, updateRes, 'Payout created successfully');
+  return res.status(200).json({
+    message: 'Payout created successfully',
+    statusCode: 200,
+    data: updateRes,
+  });
 };
 
 const getPayoutsById = async (req, res) => {
@@ -132,7 +154,6 @@ const deletePayout = async (req, res) => {
   return sendSuccess(res, {}, 'Payout deleted successfully');
 };
 
-
 export const checkPayOutStatus = async (req, res) => {
   const joiValidation = VALIDATE_CHECK_PAY_OUT_STATUS.validate(req.body);
   if (joiValidation.error) {
@@ -144,6 +165,7 @@ export const checkPayOutStatus = async (req, res) => {
     req.body.merchantCode,
     req.body.merchantOrderId,
     api_key,
+    res
   );
   sendSuccess(res, data);
 };

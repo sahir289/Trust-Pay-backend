@@ -48,7 +48,8 @@ import {
 import { filterResponse } from '../../helpers/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
-const createPayoutService = async (conn, headers, payload, role) => {
+import { logger } from '../../utils/logger.js';
+const createPayoutService = async (conn, headers, payload, role, res) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -72,7 +73,9 @@ const createPayoutService = async (conn, headers, payload, role) => {
         notify: callbackUrl || details[0].config?.urls?.payin_notify || '',
       },
     });
-    payload.company_id = payload.company_id? payload.company_id : details[0].company_id;
+    payload.company_id = payload.company_id
+      ? payload.company_id
+      : details[0].company_id;
     payload.created_by = payload.created_by ? payload.created_by : user_id;
     payload.updated_by = payload.updated_by ? payload.updated_by : user_id;
 
@@ -82,23 +85,59 @@ const createPayoutService = async (conn, headers, payload, role) => {
     );
 
     if (isOrderIdExist.length > 0) {
-      throw new BadRequestError('Merchant Order ID already exists');
+      // throw new BadRequestError('Merchant Order ID already exists');
+      return res.status(400).json({
+        error: {
+          status: 400,
+          message: 'Merchant Order ID already exists',
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
     }
 
     if (!x_api_key || !merchantAPIKey) {
-      throw new BadRequestError('Missing API key or Merchant Keys');
+      // throw new BadRequestError('Missing API key or Merchant Keys');
+      return res.status(400).json({
+        error: {
+          status: 404,
+          message: 'Enter valid Api key',
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
     }
 
     if (
       x_api_key !== merchantAPIKey?.private &&
       x_api_key !== merchantAPIKey?.public
     ) {
-      throw new BadRequestError('Enter a valid API key');
+      // throw new BadRequestError('Enter a valid API key');
+      return res.status(400).json({
+        error: {
+          status: 404,
+          message: 'Enter valid Api key',
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
     }
     if (amount < details[0].min_payout || amount > details[0].max_payout) {
-      throw new BadRequestError(
-        `Amount should be between ${details[0].min_payout} and ${details[0].max_payout}`,
-      );
+      // throw new BadRequestError(
+      //   `Amount should be between ${details[0].min_payout} and ${details[0].max_payout}`,
+      // );
+      return res.status(400).json({
+        error: {
+          status: 400,
+          message: `Amount should be between ${details[0].min_payout} and ${details[0].max_payout}`,
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
     }
 
     if (payload.merchant_order_id) {
@@ -111,7 +150,16 @@ const createPayoutService = async (conn, headers, payload, role) => {
         conn,
       );
       if (data.length > 0) {
-        throw new DuplicateDataError('Merchant Order ID already exists');
+        // throw new DuplicateDataError('Merchant Order ID already exists');
+        return res.status(400).json({
+          error: {
+            status: 400,
+            message: 'Merchant Order ID already exists',
+            additionalInfo: {},
+            level: 'info',
+            timestamp: new Date().toISOString(),
+          },
+        });
       }
     }
 
@@ -120,19 +168,46 @@ const createPayoutService = async (conn, headers, payload, role) => {
     if (balanceRestriction) {
       const { totalNetBalance } = await getCalculationDao({ user_id });
       if (totalNetBalance < payoutAmount) {
-        throw new BadRequestError('Insufficient Balance to create Payout');
+        // throw new BadRequestError('Insufficient Balance to create Payout');
+        return res.status(400).json({
+          error: {
+            status: 400,
+            message: 'Insufficient Balance to create Payout',
+            additionalInfo: {},
+            level: 'info',
+            timestamp: new Date().toISOString(),
+          },
+        });
       }
       const ekoBalanceEnquiry = await ekoWalletBalanceEnquiryInternally();
       if (Number(ekoBalanceEnquiry.data.balance) < payoutAmount) {
-        throw new BadRequestError('Insufficient Balance in Wallet');
+        // throw new BadRequestError('Insufficient Balance in Wallet');
+        return res.status(400).json({
+          error: {
+            status: 400,
+            message: 'Insufficient Balance in Wallet',
+            additionalInfo: {},
+            level: 'info',
+            timestamp: new Date().toISOString(),
+          },
+        });
       }
     }
 
     if (!code) {
-      throw new BadRequestError('Merchant does not exist');
+      // throw new BadRequestError('Merchant does not exist');
+      return res.status(400).json({
+        error: {
+          status: 404,
+          message: 'Merchant does not exist',
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
     }
 
-    console.log('Payout created successfully', 'info');
+    logger.log('Payout created successfully', 'info');
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -930,11 +1005,21 @@ const checkPayOutStatusService = async (
   merchantCode,
   merchantOrderId,
   api_key,
+  res,
 ) => {
   const merchantArr = await getMerchantsDao({ code: merchantCode });
   const merchant = merchantArr[0];
   if (!merchant) {
-    throw new NotFoundError('Merchant does not exist');
+    // throw new NotFoundError('Merchant does not exist');
+    return res.status(400).json({
+      error: {
+        status: 400,
+        message: 'Merchant Order ID already exists',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 
   const merchantConfig = merchant.config || {};
@@ -943,7 +1028,16 @@ const checkPayOutStatusService = async (
     api_key != merchantConfig.keys?.private &&
     api_key != merchantConfig.keys?.public
   ) {
-    throw new BadRequestError(403, 'Enter a valid API key');
+    // throw new BadRequestError(403, 'Enter a valid API key');
+    return res.status(400).json({
+      error: {
+        status: 404,
+        message: 'Enter valid Api key',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 
   const payOut = await getPayoutsDao({
@@ -952,14 +1046,33 @@ const checkPayOutStatusService = async (
   });
 
   if (!payOut) {
-    throw new NotFoundError('payOut not found');
+    // throw new NotFoundError('payOut not found');
+    return res.status(400).json({
+      error: {
+        status: 404,
+        message: 'Payout not found',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 
   //check is payout detials belongs to that merchant or not
   if (!(payOut.merchant_id === merchant.id)) {
-    throw new BadRequestError(
-      '`merchant_order_id and payOut ID do not belong to the specified merchant`',
-    );
+    // throw new BadRequestError(
+    //   '`merchant_order_id and payOut ID do not belong to the specified merchant`',
+    // );
+    return res.status(400).json({
+      error: {
+        status: 404,
+        message:
+          'merchant_order_id and payIn ID do not belong to the specified merchant',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
   return {
     status: payOut[0].status,

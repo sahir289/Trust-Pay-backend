@@ -1,5 +1,5 @@
 import config from '../../config/config.js';
-import { BadRequestError, InternalServerError, ValidationError } from '../../utils/appErrors.js';
+import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import {
   ASSIGN_PAYIN_SCHEMA,
@@ -40,7 +40,10 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { decodeAuthToken, streamToBase64 } from '../../helpers/index.js';
 import { s3 } from '../../helpers/Aws.js';
 import { AUTH_HEADER_KEY } from '../../utils/constants.js';
-import { getMerchantByCodeAndApiKey, getMerchantsDao } from '../merchants/merchantDao.js';
+import {
+  getMerchantByCodeAndApiKey,
+  getMerchantsDao,
+} from '../merchants/merchantDao.js';
 import { createHash, compareHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
@@ -62,11 +65,32 @@ export const generatePayInUrl = async (req, res) => {
   const { code, key, hash_code } = payload;
 
   const apiKey = key ? key : x_api_key;
+  if (!apiKey) {
+    // throw new BadRequestError('Enter valid Api key');
+    return res.status(400).json({
+      error: {
+        status: 404,
+        message: 'Enter valid Api key',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
 
   // Fetch the merchant using the code and API public key
   const merchant = await getMerchantByCodeAndApiKey(code, apiKey);
   if (!merchant) {
-    throw new BadRequestError('Invalid merchant code or API key');
+    // throw new BadRequestError('Invalid merchant code or API key');
+    return res.status(400).json({
+      error: {
+        status: 400,
+        message: 'Invalid merchant code or API key',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 
   // bank is not enabled or no method is enabled for payment - no payment link generates
@@ -75,16 +99,50 @@ export const generatePayInUrl = async (req, res) => {
     config_merchants_contains: merchantArr[0].id,
   });
   if (bankAssigned.length <= 0) {
-    throw new InternalServerError('No Bank Assigned to Merchant');
+    // throw new InternalServerError('No Bank Assigned to Merchant');
+    return res.status(400).json({
+      error: {
+        status: 404,
+        message: 'Bank Account has not been linked with Merchant',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
- bankAssigned.every(bank => {
+  bankAssigned.every((bank) => {
     const config = bank.config || {};
     if (bank.is_enabled === false) {
-     throw new InternalServerError('Bank assigned to this merchant is not enabled!');
+      // throw new InternalServerError(
+      //   'Bank assigned to this merchant is not enabled!',
+      // );
+      return res.status(400).json({
+        error: {
+          status: 404,
+          message: 'Bank Account has not been linked with Merchant',
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
     }
-    if (config.is_phonepay === false && bank.is_qr === false && bank.is_bank === false)
-    {
-      throw new InternalServerError('No payment methods enebled for assigned bank!');
+    if (
+      config.is_phonepay === false &&
+      bank.is_qr === false &&
+      bank.is_bank === false
+    ) {
+      // throw new InternalServerError(
+      //   'No payment methods enabled for assigned bank!',
+      // );
+      return res.status(400).json({
+        error: {
+          status: 404,
+          message: 'Bank Account has not been linked with Merchant',
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
     }
   });
 
@@ -98,7 +156,16 @@ export const generatePayInUrl = async (req, res) => {
     decodedHashCode &&
     !compareHash(`${code}:${merchant.config.keys.private}`, decodedHashCode)
   ) {
-    throw new BadRequestError('Hash code does not match');
+    // throw new BadRequestError('Hash code does not match');
+    return res.status(400).json({
+      error: {
+        status: 400,
+        message: 'Hash code does not match',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 
   const token = req.headers[AUTH_HEADER_KEY];
@@ -109,6 +176,7 @@ export const generatePayInUrl = async (req, res) => {
       x_api_key: x_api_key ? x_api_key : key,
     },
     tokenData.user_id,
+    res,
   );
 
   // create some kind of hash to secure the next public API flow
@@ -118,16 +186,22 @@ export const generatePayInUrl = async (req, res) => {
       : `?order=${result.merchant_order_id}`;
   const updateRes = {
     expirationDate: result.expiration_date,
-    merchantOrderId: result.merchant_order_id,
     payInUrl: `${config.reactPaymentOrigin}/transaction/${generatedHash}${queryStr}`, // Use env
     payinId: result.id,
+    merchantOrderId: result.merchant_order_id,
   };
 
-  return sendSuccess(
-    res,
-    updateRes,
-    'PayIn is generated & url is sent successfully',
-  );
+  // return sendSuccess(
+  //   res,
+  //   updateRes,
+  //   'PayIn is generated & url is sent successfully',
+  // );
+
+  return res.status(200).json({
+    message: 'PayIn is generated & url is sent successfully',
+    statusCode: 200,
+    data: updateRes,
+  });
 };
 
 /**
@@ -183,6 +257,7 @@ export const checkPayInStatus = async (req, res) => {
     req.body.merchantCode,
     req.body.merchantOrderId,
     api_key,
+    res
   );
   sendSuccess(res, data);
 };
@@ -309,8 +384,13 @@ export const processPayIn = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-//added check for manually utr for uplaoded screenshot
-  const data = await transactionWrapper(processPayInService)(payload, payload.code, false, true );
+  //added check for manually utr for uplaoded screenshot
+  const data = await transactionWrapper(processPayInService)(
+    payload,
+    payload.code,
+    false,
+    true,
+  );
   sendSuccess(res, data);
 };
 
