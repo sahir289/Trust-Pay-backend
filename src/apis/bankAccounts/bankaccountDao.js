@@ -340,7 +340,7 @@ const getBankaccountDaoNickName = async (conn, company_id, type) => {
   return { totalCount: result.rowCount, bankNames: result.rows };
 };
 
-const updateBankaccountDao = async (id, payload, conn) => {
+const updateBankaccountDao = async (id, payload, conn,isParentDeleted) => {
   try {
     // Handle nested JSON updates for the `config` column
     if (payload.config && typeof payload.config === 'object') {
@@ -353,6 +353,15 @@ const updateBankaccountDao = async (id, payload, conn) => {
       };
     }
 
+    // if vendor delete then this config updated
+    if (isParentDeleted) {
+      const [sql, params] = buildUpdateQuery(
+        tableName.BANK_ACCOUNT,
+        payload,
+        id,
+      );
+      return await conn.query(sql, params);
+    }
     // Use buildAndExecuteUpdateQuery to update the bank account
     return await buildAndExecuteUpdateQuery(
       tableName.BANK_ACCOUNT,
