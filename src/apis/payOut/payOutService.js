@@ -211,6 +211,7 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
+    logger.log(error)
     if (error instanceof BadRequestError) {
       throw error;
     }
@@ -1059,7 +1060,7 @@ const checkPayOutStatusService = async (
   }
 
   //check is payout detials belongs to that merchant or not
-  if (!(payOut.merchant_id === merchant.id)) {
+  if (!(payOut[0].merchant_id === merchant.id)) {
     // throw new BadRequestError(
     //   '`merchant_order_id and payOut ID do not belong to the specified merchant`',
     // );
