@@ -524,10 +524,16 @@ export const checkPayInStatusService = async (
   return {
     status: payIn.status,
     merchantOrderId: payIn.merchant_order_id,
-    amount: botResponse?.amount ? botResponse?.amount : payIn.amount,
+    amount: [Status.INITIATED, Status.ASSIGNED, Status.DROPPED, Status.DUPLICATE].includes(
+      payIn.status,
+    )
+      ? null
+      : botResponse?.amount
+        ? botResponse?.amount
+        : payIn.amount,
     payinId: payIn.id,
     req_amount: payIn.amount,
-    utr_id: [Status.INITIATED, Status.ASSIGNED, Status.DROPPED].includes(
+    utr_id: [Status.INITIATED, Status.ASSIGNED, Status.DROPPED, Status.IMG_PENDING].includes(
       payIn.status,
     )
       ? " "
