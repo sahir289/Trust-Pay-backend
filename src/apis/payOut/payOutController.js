@@ -65,7 +65,7 @@ const createPayout = async (req, res) => {
   // return sendSuccess(res, updateRes, 'Payout created successfully');
   return res.status(200).json({
     message: 'Payout created successfully',
-    statusCode: 200,
+    statusCode: 201,
     data: updateRes,
   });
 };
