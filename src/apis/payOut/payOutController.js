@@ -25,6 +25,11 @@ const createPayout = async (req, res) => {
   }
   const x_api_key = req.headers['x-api-key'];
   let payload = req.body;
+  if (!payload.user_id && !payload.user) {
+    throw new BadRequestError('user_id is required');
+  }
+  payload.user = payload.user_id ? payload.user_id : payload.user;
+  delete payload?.user_id;
   if (req.user) {
     const { company_id, role, user_id } = req.user;
     payload.company_id = company_id;

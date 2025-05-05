@@ -72,9 +72,18 @@ const createPayoutService = async (conn, headers, payload, role) => {
         notify: callbackUrl || details[0].config?.urls?.payin_notify || '',
       },
     });
-    payload.company_id = details[0].company_id;
-    payload.created_by = user_id ? user_id : null;
-    payload.updated_by = user_id ? user_id : null;
+    payload.company_id = payload.company_id? payload.company_id : details[0].company_id;
+    payload.created_by = payload.created_by ? payload.created_by : user_id;
+    payload.updated_by = payload.updated_by ? payload.updated_by : user_id;
+
+    const isOrderIdExist = await getPayoutsDao(
+      { merchant_order_id: merchant_order_id },
+      payload.company_id,
+    );
+
+    if (isOrderIdExist.length > 0) {
+      throw new BadRequestError('Merchant Order ID already exists');
+    }
 
     if (!x_api_key || !merchantAPIKey) {
       throw new BadRequestError('Missing API key or Merchant Keys');
@@ -127,9 +136,9 @@ const createPayoutService = async (conn, headers, payload, role) => {
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
-     if (error instanceof BadRequestError) {
-       throw error;
-     }
+    if (error instanceof BadRequestError) {
+      throw error;
+    }
     throw new InternalServerError(error);
   }
 };
@@ -394,33 +403,33 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     // const vendorCommissionPercent = Number(vendor.payout_commission) || 0;
     // const vendorCommissionAmount =
     //   (Number(data.amount) * vendorCommissionPercent) / 100;
- const merchantCommission = calculateCommission(
-   data.amount,
-  merchant.payout_commission,
- );
- const vendorCommission = calculateCommission(
-   data.amount,
-   vendor.payout_commission,
- );
+    const merchantCommission = calculateCommission(
+      data.amount,
+      merchant.payout_commission,
+    );
+    const vendorCommission = calculateCommission(
+      data.amount,
+      vendor.payout_commission,
+    );
     if (data.status === Status.APPROVED) {
-       await updateCalculationTable(
-         merchant.user_id,
-         {
-           payoutCommission: merchantCommission,
-           amount: data.amount,
-         },
-         true,
-         conn,
-       );
-       await updateCalculationTable(
-         vendor.user_id,
-         {
-           payoutCommission: vendorCommission,
-           amount: data.amount,
-         },
-         true,
-         conn,
-       );
+      await updateCalculationTable(
+        merchant.user_id,
+        {
+          payoutCommission: merchantCommission,
+          amount: data.amount,
+        },
+        true,
+        conn,
+      );
+      await updateCalculationTable(
+        vendor.user_id,
+        {
+          payoutCommission: vendorCommission,
+          amount: data.amount,
+        },
+        true,
+        conn,
+      );
       // const netBalance = await updatePayoutCalculations(
       //   merchant.user_id,
       //   data.approved_at,
@@ -439,8 +448,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       //   false,
       //   conn,
       // );
-  
-  await updateBankaccountDao(
+
+      await updateBankaccountDao(
         { id: bankData.id },
         {
           today_balance: Number(bankData.today_balance) - Number(data.amount),
@@ -449,28 +458,27 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         conn,
       );
       // got DB Error when balance is NAN
-      const merchantBalance = Number(merchant.balance) - Number(data.amount) 
+      const merchantBalance = Number(merchant.balance) - Number(data.amount);
       if (isNaN(merchantBalance)) {
         throw new BadRequestError('Invalid merchant balance');
+      } else {
+        await updateMerchantDao(
+          { id: merchant.id },
+          { balance: merchantBalance },
+          conn,
+        );
       }
-      else {
-    await updateMerchantDao(
-    { id: merchant.id },
-    { balance: merchantBalance },
-    conn,
-  );}
-    // got DB Error when balance is NAN
-    const vendorBalance = Number(vendor.balance) - Number(data.amount)
-    if (isNaN(vendorBalance)) {
-      throw new BadRequestError('Invalid vendor balance');
-    }
-    else {
-   await updateVendorDao(
-     { id: vendor.id },
-     { balance: vendorBalance },
-     conn,
-    );
-    }
+      // got DB Error when balance is NAN
+      const vendorBalance = Number(vendor.balance) - Number(data.amount);
+      if (isNaN(vendorBalance)) {
+        throw new BadRequestError('Invalid vendor balance');
+      } else {
+        await updateVendorDao(
+          { id: vendor.id },
+          { balance: vendorBalance },
+          conn,
+        );
+      }
       await updatePayoutDao(
         ids,
         {
@@ -498,33 +506,31 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         false,
         conn,
       );
-      const merchantBalance = Number(merchant.balance + data.amount) 
+      const merchantBalance = Number(merchant.balance + data.amount);
       if (isNaN(merchantBalance)) {
         throw new BadRequestError('Invalid merchant balance');
+      } else {
+        const log = await updateMerchantDao(
+          { id: merchant.id, company_id: merchant.company_id },
+          { balance: merchantBalance },
+          conn,
+        );
       }
-      else {
-    const log = await updateMerchantDao(
-      { id: merchant.id, company_id: merchant.company_id },
-      { balance: merchantBalance},
-      conn,
-    );
-  }
-      const vendorBalance = Number(vendor.balance + data.amount)
+      const vendorBalance = Number(vendor.balance + data.amount);
       if (isNaN(vendorBalance)) {
         throw new BadRequestError('Invalid vendor balance');
+      } else {
+        const merchan = await updateVendorDao(
+          { id: vendor.id },
+          { balance: vendorBalance },
+          conn,
+        );
       }
-      else {
-     const merchan = await updateVendorDao(
-       { id: vendor.id },
-       { balance: vendorBalance},
-       conn,
-     );
-    }
 
       const vend = await updateBankaccountDao(
         { id: bankData.id },
         {
-          today_balance: Number(bankData.today_balance+ data.amount),
+          today_balance: Number(bankData.today_balance + data.amount),
           balance: Number(bankData.balance + data.amount),
         },
         conn,
@@ -605,7 +611,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
 ///for update payout calculation of payout
 const updateCalculationTable = async (user_id, data, isApproved, conn) => {
- if (isNaN(data.amount - data.payoutCommission)) {
+  if (isNaN(data.amount - data.payoutCommission)) {
     throw new BadRequestError('Invalid amount or commission');
   }
   if (user_id) {
@@ -631,8 +637,7 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
         current_balance: totalAmountData,
         net_balance: totalAmountData,
       };
-    }
-    else {
+    } else {
       payload = {
         total_reverse_payout_count: 1,
         total_reverse_payout_amount: data.amount,
@@ -642,11 +647,11 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
       };
     }
 
-const TotalAmount = await updateCalculationBalanceDao(
-  { id: calculationId },
-  payload,
-  conn,
-);
+    const TotalAmount = await updateCalculationBalanceDao(
+      { id: calculationId },
+      payload,
+      conn,
+    );
   }
 };
 const processEkoPayout = async (singleWithdrawData, payload) => {
@@ -694,7 +699,6 @@ const activateEkoService = async (req, res) => {
     .createHmac('sha256', encodedKey)
     .update(secretKeyTimestamp.toString())
     .digest('base64');
-
 
   const encodedParams = new URLSearchParams();
   encodedParams.set('service_code', config?.ekoServiceCode);
@@ -941,7 +945,7 @@ const checkPayOutStatusService = async (
   ) {
     throw new BadRequestError(403, 'Enter a valid API key');
   }
-  
+
   const payOut = await getPayoutsDao({
     id: payOutId,
     merchant_order_id: merchantOrderId,
@@ -950,13 +954,13 @@ const checkPayOutStatusService = async (
   if (!payOut) {
     throw new NotFoundError('payOut not found');
   }
-  
+
   //check is payout detials belongs to that merchant or not
   if (!(payOut.merchant_id === merchant.id)) {
-  throw new BadRequestError(
-    '`merchant_order_id and payOut ID do not belong to the specified merchant`',
-  );
- }
+    throw new BadRequestError(
+      '`merchant_order_id and payOut ID do not belong to the specified merchant`',
+    );
+  }
   return {
     status: payOut[0].status,
     merchantOrderId: payOut[0].merchant_order_id,

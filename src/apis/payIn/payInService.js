@@ -145,6 +145,12 @@ export const generatePayInUrlService = async (payload, created_by) => {
   const merchantArr = await getMerchantsDao({ code });
   const merchant = merchantArr[0];
 
+  const isOrderIdExist = await getPayInUrlDao({merchant_order_id: order_id});
+
+  if (isOrderIdExist) {
+    throw new BadRequestError('Merchant Order ID already exists');
+  }
+
   if (!merchant) {
     throw new NotFoundError('Merchant does not exist');
   }
@@ -428,7 +434,8 @@ export const checkPayInStatusService = async (
   return {
     status: payIn.status,
     merchantOrderId: payIn.merchant_order_id,
-    amount: payIn.amount,
+    amount: botResponse?.amount ? botResponse?.amount : payIn.amount,
+    req_amount: payIn.amount,
     payinId: payIn.id,
     utr_id: [Status.INITIATED, Status.ASSIGNED, Status.DROPPED].includes(
       payIn.status,
