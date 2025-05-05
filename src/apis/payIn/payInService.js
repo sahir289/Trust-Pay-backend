@@ -100,15 +100,22 @@ export const generatePayInUrlByHashService = async (req) => {
     throw new InternalServerError('No Bank Assigned to Merchant');
   }
 
-// bank is not enabled or no method is enabled for payment - no payment link generates
- bankAssigned.every(bank => {
+  // bank is not enabled or no method is enabled for payment - no payment link generates
+  bankAssigned.every((bank) => {
     const config = bank.config || {};
     if (bank.is_enabled === false) {
-      throw new InternalServerError('Bank assigned to this merchant is not anabled!');
+      throw new InternalServerError(
+        'Bank assigned to this merchant is not anabled!',
+      );
     }
-    if (config.is_phonepay === false && bank.is_qr === false && bank.is_bank === false)
-    {
-      throw new InternalServerError('No payment methods enebled for assigned bank!');
+    if (
+      config.is_phonepay === false &&
+      bank.is_qr === false &&
+      bank.is_bank === false
+    ) {
+      throw new InternalServerError(
+        'No payment methods enebled for assigned bank!',
+      );
     }
   });
   let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
@@ -128,7 +135,7 @@ export const generatePayInUrlByHashService = async (req) => {
   return updateRes;
 };
 
-export const generatePayInUrlService = async (payload, created_by) => {
+export const generatePayInUrlService = async (payload, created_by, res) => {
   const {
     code,
     user_id,
@@ -145,8 +152,32 @@ export const generatePayInUrlService = async (payload, created_by) => {
   const merchantArr = await getMerchantsDao({ code });
   const merchant = merchantArr[0];
 
+  const isOrderIdExist = await getPayInUrlDao({ merchant_order_id: order_id });
+
+  if (isOrderIdExist) {
+    // throw new BadRequestError('Merchant Order ID already exists');
+    return res.status(400).json({
+      error: {
+        status: 400,
+        message: 'Merchant Order ID already exists',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+
   if (!merchant) {
-    throw new NotFoundError('Merchant does not exist');
+    // throw new NotFoundError('Merchant does not exist');
+    return res.status(400).json({
+      error: {
+        status: 400,
+        message: 'Merchant does not exist',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 
   const merchantAPIKey = merchant.config?.keys;
@@ -156,7 +187,16 @@ export const generatePayInUrlService = async (payload, created_by) => {
     api_key != merchantAPIKey?.private &&
     api_key != merchantAPIKey?.public
   ) {
-    throw new BadRequestError('Enter valid Api key');
+    // throw new BadRequestError('Enter valid Api key');
+    return res.status(400).json({
+      error: {
+        status: 404,
+        message: 'Enter valid Api key',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 
   if (
@@ -164,13 +204,31 @@ export const generatePayInUrlService = async (payload, created_by) => {
     x_api_key != merchantAPIKey?.private &&
     x_api_key != merchantAPIKey?.public
   ) {
-    throw new BadRequestError('Enter valid Api key');
+    // throw new BadRequestError('Enter valid Api key');
+    return res.status(400).json({
+      error: {
+        status: 404,
+        message: 'Enter valid Api key',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 
   if (amount < merchant.min_payin || amount > merchant.max_payin) {
-    throw new BadRequestError(
-      `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
-    );
+    // throw new BadRequestError(
+    //   `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
+    // );
+    return res.status(400).json({
+      error: {
+        status: 400,
+        message: `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 
   const expirationDate =
@@ -385,11 +443,21 @@ export const checkPayInStatusService = async (
   merchantCode,
   merchantOrderId,
   api_key,
+  res,
 ) => {
   const merchantArr = await getMerchantsDao({ code: merchantCode });
   const merchant = merchantArr[0];
   if (!merchant) {
-    throw new NotFoundError('Merchant does not exist');
+    // throw new NotFoundError('Merchant does not exist');
+    return res.status(400).json({
+      error: {
+        status: 400,
+        message: 'Merchant Order ID already exists',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 
   const merchantConfig = merchant.config || {};
@@ -398,7 +466,16 @@ export const checkPayInStatusService = async (
     api_key != merchantConfig.keys?.private &&
     api_key != merchantConfig.keys?.public
   ) {
-    throw new BadRequestError(403, 'Enter a valid API key');
+    // throw new BadRequestError(403, 'Enter a valid API key');
+    return res.status(400).json({
+      error: {
+        status: 404,
+        message: 'Enter valid Api key',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 
   const payIn = await getPayInUrlDao({
@@ -407,14 +484,33 @@ export const checkPayInStatusService = async (
   });
 
   if (!payIn) {
-    throw new NotFoundError('payIn not found');
+    // throw new NotFoundError('payIn not found');
+    return res.status(400).json({
+      error: {
+        status: 404,
+        message: 'PayIn not found',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 
   //check is payIn detials belongs to that merchant or not
   if (!(payIn.merchant_id === merchant.id)) {
-    throw new BadRequestError(
-      '`merchant_order_id and payIn ID do not belong to the specified merchant`',
-    );
+    // throw new BadRequestError(
+    //   '`merchant_order_id and payIn ID do not belong to the specified merchant`',
+    // );
+    return res.status(400).json({
+      error: {
+        status: 404,
+        message:
+          'merchant_order_id and payIn ID do not belong to the specified merchant',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 
   let botResponse;
@@ -428,12 +524,13 @@ export const checkPayInStatusService = async (
   return {
     status: payIn.status,
     merchantOrderId: payIn.merchant_order_id,
-    amount: payIn.amount,
+    amount: botResponse?.amount ? botResponse?.amount : payIn.amount,
     payinId: payIn.id,
+    req_amount: payIn.amount,
     utr_id: [Status.INITIATED, Status.ASSIGNED, Status.DROPPED].includes(
       payIn.status,
     )
-      ? null
+      ? " "
       : botResponse?.utr
         ? botResponse?.utr
         : payIn.user_submitted_utr,
@@ -1022,16 +1119,18 @@ export const processPayInService = async (
   const updatePayInData = {
     amount,
     //img_utr only for updating utr directly when image uploaded
-    user_submitted_utr: tele_check || img_utr
-      ? userSubmittedUtr
-      : payIn?.user_submitted_utr
-        ? payIn?.user_submitted_utr
-        : null,
-    status : img_utr && payIn.status === Status.IMG_PENDING ? 'PENDING' : payIn.status,
+    user_submitted_utr:
+      tele_check || img_utr
+        ? userSubmittedUtr
+        : payIn?.user_submitted_utr
+          ? payIn?.user_submitted_utr
+          : null,
+    status:
+      img_utr && payIn.status === Status.IMG_PENDING ? 'PENDING' : payIn.status,
     is_url_expires: true,
     one_time_used: true,
     duration,
-    user_submitted_image: user_submitted_image  || null,
+    user_submitted_image: user_submitted_image || null,
     is_notified: true,
     updated_by: updated_by || '',
   };
@@ -1157,33 +1256,33 @@ export const processPayInService = async (
     //   updated_by,
     //   conn,
     // );
-   
+
     const merchant = await getMerchantsDao({ id: payIn.merchant_id });
-     const commissions = calculateCommission(
+    const commissions = calculateCommission(
       bankResponse.amount,
-       Number(merchant[0].payin_commission),
-     );
-     updatePayInData.payin_merchant_commission = Number(commissions);
-     const bank = await getBankaccountDao({
-      id: bankResponse.bank_id
-    })
-       const vendors = await getVendorsDao({
-        user_id: bank[0].user_id,
-  });
+      Number(merchant[0].payin_commission),
+    );
+    updatePayInData.payin_merchant_commission = Number(commissions);
+    const bank = await getBankaccountDao({
+      id: bankResponse.bank_id,
+    });
+    const vendors = await getVendorsDao({
+      user_id: bank[0].user_id,
+    });
     const vendor = vendors[0];
     const vendorCommission = calculateCommission(
       bankResponse.amount,
       Number(vendor.payin_commission),
-    )
+    );
     updatePayInData.payin_vendor_commission = Number(vendorCommission);
-   await updateCalculationTable(
-     merchant[0].user_id,
-     {
-       payinCommission: Number(commissions),
-       amount: Number(bankResponse.amount),
-     },
-     conn,
-   );
+    await updateCalculationTable(
+      merchant[0].user_id,
+      {
+        payinCommission: Number(commissions),
+        amount: Number(bankResponse.amount),
+      },
+      conn,
+    );
     // await updateCalculationTable(
     //   bank.user_id,
     //   {
@@ -1704,7 +1803,6 @@ export const telegramCheckUTRService = async (
   company_id,
   updated_by,
 ) => {
-
   const bankResponse = await getBankResponseDao({ utr: utr });
   let otherBankResponse = {};
   const payIn = await getPayInUrlDao({ merchant_order_id });
@@ -1826,8 +1924,7 @@ const checkIsPayInExpired = (payIn) => {
 };
 
 const updateCalculationTable = async (user_id, data, conn) => {
-
-  if (isNaN((Number(data.amount) - Number(data.payinCommission)))) {
+  if (isNaN(Number(data.amount) - Number(data.payinCommission))) {
     throw new BadRequestError('Invalid amount or commission');
   }
   if (user_id) {
@@ -1841,7 +1938,7 @@ const updateCalculationTable = async (user_id, data, conn) => {
     // let currentBalance =
     //   Number(calculationData[0].current_balance) || 0 + data?.amount;
     // let netBalance = calculationData[0].net_balance + data?.amount;
-    const totalAmount = (Number(data.amount) - Number(data.payinCommission));
+    const totalAmount = Number(data.amount) - Number(data.payinCommission);
     const calculationId = calculationData[0].id;
     await updateCalculationBalanceDao(
       { id: calculationId },
