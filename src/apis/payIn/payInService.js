@@ -434,8 +434,8 @@ export const checkPayInStatusService = async (
       payIn.status,
     )
       ? null
-      : botResponse.utr
-        ? botResponse.utr
+      : botResponse?.utr
+        ? botResponse?.utr
         : payIn.user_submitted_utr,
   };
 };
