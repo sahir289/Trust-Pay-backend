@@ -1080,7 +1080,7 @@ const checkPayOutStatusService = async (
     merchantOrderId: payOut[0].merchant_order_id,
     amount: payOut[0].amount,
     payoutId: payOut[0].id,
-    utr_id: payOut[0].utr_id,
+    utr_id: payOut[0].utr_id ? payOut[0].utr_id : " ",
   };
 };
 
