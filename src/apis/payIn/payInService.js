@@ -525,8 +525,8 @@ export const checkPayInStatusService = async (
     status: payIn.status,
     merchantOrderId: payIn.merchant_order_id,
     amount: botResponse?.amount ? botResponse?.amount : payIn.amount,
-    req_amount: payIn.amount,
     payinId: payIn.id,
+    req_amount: payIn.amount,
     utr_id: [Status.INITIATED, Status.ASSIGNED, Status.DROPPED].includes(
       payIn.status,
     )
