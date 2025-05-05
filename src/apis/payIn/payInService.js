@@ -530,7 +530,7 @@ export const checkPayInStatusService = async (
     utr_id: [Status.INITIATED, Status.ASSIGNED, Status.DROPPED].includes(
       payIn.status,
     )
-      ? null
+      ? " "
       : botResponse?.utr
         ? botResponse?.utr
         : payIn.user_submitted_utr,
