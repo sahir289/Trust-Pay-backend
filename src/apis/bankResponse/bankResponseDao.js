@@ -178,6 +178,7 @@ const getBankResponseDaoAll = async (
     }
 
     if (filters.start_date && filters.end_date) {
+      //merchant codes shown between date range selcted for bank account reports
       baseQuery = `
         AND "BankResponse".created_at BETWEEN $${filters.start_date} AND $${filters.end_date}
         WHERE EXISTS (

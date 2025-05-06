@@ -107,6 +107,7 @@ export const generatePayInUrlByHashService = async (req, res) => {
       // throw new InternalServerError(
       //   'Bank assigned to this merchant is not enabled!',
       // );
+      // error handling
       return res.status(400).json({
         error: {
           status: 404,
