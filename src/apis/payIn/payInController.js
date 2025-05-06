@@ -326,13 +326,14 @@ export const resetDeposit = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
+  console.log(merchant_order_id, 'merchant_order__id')
   const data = await transactionWrapper(resetDepositService)(
     merchant_order_id,
     req.user.company_id,
     req.user.user_id,
   );
   if (data.error) {
-    sendError(res, data);
+    sendError(res, { error: data.error }, data.error, data.status || 400);  //-- send error status along with error messge
   } else {
     sendSuccess(res, data, 'PayIn reset successful');
   }
