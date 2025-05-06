@@ -83,7 +83,7 @@ Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
 
-export const generatePayInUrlByHashService = async (req) => {
+export const generatePayInUrlByHashService = async (req, res) => {
   const { user_id, code, ot, key, amount } = req.query;
 
   if (!user_id || !code || !ot) {
@@ -104,18 +104,36 @@ export const generatePayInUrlByHashService = async (req) => {
   bankAssigned.every((bank) => {
     const config = bank.config || {};
     if (bank.is_enabled === false) {
-      throw new InternalServerError(
-        'Bank assigned to this merchant is not anabled!',
-      );
+      // throw new InternalServerError(
+      //   'Bank assigned to this merchant is not enabled!',
+      // );
+      return res.status(400).json({
+        error: {
+          status: 404,
+          message: 'Bank Account has not been linked with Merchant',
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
     }
     if (
       config.is_phonepay === false &&
       bank.is_qr === false &&
       bank.is_bank === false
     ) {
-      throw new InternalServerError(
-        'No payment methods enebled for assigned bank!',
-      );
+      // throw new InternalServerError(
+      //   'No payment methods enabled for assigned bank!',
+      // );
+      return res.status(400).json({
+        error: {
+          status: 404,
+          message: 'Bank Account has not been linked with Merchant',
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
     }
   });
   let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
