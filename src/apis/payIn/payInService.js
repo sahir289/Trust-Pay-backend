@@ -858,10 +858,11 @@ export const resetDepositService = async (
   ]);
 
   if (nonResettableStatuses.has(payIn.status)) {
-    return {
-      error: `The Order Id: ${payIn.merchant_order_id} with Status: ${payIn.status} cannot be reset!`,
-    };
-  }
+      return {
+        error: `The Order Id: ${payIn.merchant_order_id} with Status: ${payIn.status} cannot be reset!`,
+        status: 400,  //-- sending status code along with message
+      };
+    }
 
   const condition = {
     company_id,
