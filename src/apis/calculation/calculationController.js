@@ -4,6 +4,7 @@ import {
   createCalculationService,
   updateCalculationService,
   deleteCalculationService,
+  calculateSuccessRatiosService,
 } from './calculationService.js';
 import { transactionWrapper } from '../../utils/db.js';
 import {
@@ -109,6 +110,17 @@ const deleteCalculation = async (req, res) => {
   await transactionWrapper(deleteCalculationService)(ids, role);
   console.info('Delete Calculation successfully', 'info');
   return sendSuccess(res, {}, 'Delete Calculation successfully');
+};
+
+export const calculateSuccessRatios = async (req, res) => {
+  try {
+    const { date } = req.query;
+    const data = await calculateSuccessRatiosService(date);
+    return sendSuccess(res, data, 'Dashboard data fetched successfully');
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    throw error;
+  }
 };
 export {
   getCalculationById,

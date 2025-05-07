@@ -283,6 +283,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
 
 
 const createUserService = async (conn, payload, role) => {
+  try{
   // const filterColumns =
   //   role === Role.MERCHANT
   //     ? merchantColumns.USER
@@ -344,7 +345,6 @@ const createUserService = async (conn, payload, role) => {
     const hierarchy = await getUserHierarchysDao({
       user_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
     });
-    //  {"child":{"operations":[]},"siblings":{"sub_merchants":["19fb0634-31cc-41f3-a09f-29b524e4aee5","972d353d-158f-4013-93d6-a17f7e606800"]}}
     const hierarchyConfig = hierarchy[0]?.config;
     const currentChildren = hierarchy[0]?.config?.child?.operations || [];
     await updateUserHierarchyDao(
@@ -436,7 +436,16 @@ const createUserService = async (conn, payload, role) => {
 
   logger.log('User Created Successfully');
   // const finalResult = filterResponse(User, filterColumns);
-  return Error;
+  return User;
+  } catch (error) {
+    logger.error('Error in createUserService:', error);
+     if (
+       error instanceof InternalServerError
+     ) {
+       throw error;
+     }
+    throw new InternalServerError(error);
+  }
 };
 
 const userUpdateService = async (conn,ids, payload) => {

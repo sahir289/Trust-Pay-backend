@@ -34,9 +34,7 @@ const getBankaccountDao = async (filters, page, limit, role) => {
       // delete filters.endDate
     }
     if (filters?.bank_used_for) {
-      conditions.push(
-        `ba.bank_used_for = $${queryParams.length + 1}`,
-      );
+      conditions.push(`ba.bank_used_for = $${queryParams.length + 1}`);
       queryParams.push(filters?.bank_used_for);
       // delete filters.bank_used_for
     }
@@ -66,6 +64,7 @@ const getBankaccountDao = async (filters, page, limit, role) => {
         ba.balance, 
         ba.today_balance, 
         ba.bank_used_for, 
+        ba.user_id,
         creator.user_name AS created_by, 
         updater.user_name AS updated_by`;
     } else {
@@ -138,7 +137,7 @@ const getBankAccountsBySearchDao = async (
   searchTerms,
   limitNum,
   offset,
-  bank_used_for
+  bank_used_for,
 ) => {
   try {
     let commissionSelect = '';
@@ -216,7 +215,7 @@ const getBankAccountsBySearchDao = async (
       paramIndex++;
     }
 
-    searchTerms.forEach(term => {
+    searchTerms.forEach((term) => {
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
         const boolValue = term.toLowerCase() === 'true';
         searchConditions.push(`
@@ -246,7 +245,9 @@ const getBankAccountsBySearchDao = async (
               FROM jsonb_array_elements_text((ba.config->'merchants')::jsonb) AS merchant_id
               WHERE LOWER(merchant_id) LIKE LOWER($${paramIndex})
             )
-            ${role !== 'MERCHANT' ? `
+            ${
+              role !== 'MERCHANT'
+                ? `
               OR LOWER(ba.user_id::text) LIKE LOWER($${paramIndex})
               OR LOWER(ba.ifsc) LIKE LOWER($${paramIndex})
               OR ba.min::text LIKE $${paramIndex}
@@ -255,17 +256,25 @@ const getBankAccountsBySearchDao = async (
               OR ba.balance::text LIKE $${paramIndex}
               OR ba.today_balance::text LIKE $${paramIndex}
               OR LOWER(ba.bank_used_for) LIKE LOWER($${paramIndex})
-              ${role !== 'VENDOR' ? `
+              ${
+                role !== 'VENDOR'
+                  ? `
                 OR LOWER(creator.user_name) LIKE LOWER($${paramIndex})
                 OR LOWER(updater.user_name) LIKE LOWER($${paramIndex})
-              ` : ''}
-            ` : role === 'VENDOR' ? `
+              `
+                  : ''
+              }
+            `
+                : role === 'VENDOR'
+                  ? `
               OR LOWER(ba.ifsc_code) LIKE LOWER($${paramIndex})
               OR ba.payin_count::text LIKE $${paramIndex}
               OR ba.balance::text LIKE $${paramIndex}
               OR ba.today_balance::text LIKE $${paramIndex}
               OR LOWER(ba.bank_used_for) LIKE LOWER($${paramIndex})
-            ` : ''}
+            `
+                  : ''
+            }
             OR LOWER(m.merchant_details::text) LIKE LOWER($${paramIndex})
           )
         `);
@@ -333,26 +342,105 @@ const createBankaccountDao = async (payload) => {
   }
 };
 
-const getBankaccountDaoNickName = async (conn, company_id, type) => {
-  const baseQuery = `SELECT nick_name as label, id as value FROM "${tableName.BANK_ACCOUNT}" WHERE company_id = $1 AND bank_used_for= $2 AND is_obsolete = false`;
-  const queryParams = [company_id, type];
-  const result = await conn.query(baseQuery, queryParams);
-  return { totalCount: result.rowCount, bankNames: result.rows };
+const getBankAccountDaoNickName = async (
+  conn,
+  company_id,
+  type,
+  filters = {},
+) => {
+  try {
+    // Initialize query components
+    let whereConditions = [
+      'company_id = $1',
+      'bank_used_for = $2',
+      'is_obsolete = false',
+    ];
+    let queryParams = [company_id, type];
+
+    // Handle filters
+    if (Object.keys(filters).length > 0) {
+      Object.entries(filters).forEach(([key, value]) => {
+        let paramValue = value;
+        // If value is an array, take the first element (adjust based on requirements)
+        if (Array.isArray(value) && value.length > 0) {
+          paramValue = value[0]; // Extract first element
+          if (paramValue == null) {
+            return; // Skip if first element is null/undefined
+          }
+        }
+        whereConditions.push(`"${key}" = $${queryParams.length + 1}`);
+        queryParams.push(paramValue);
+      });
+    }
+
+    // Construct base query with dynamic WHERE clause
+    let baseQuery = `
+      SELECT nick_name AS label, id AS value 
+      FROM "${tableName.BANK_ACCOUNT}" 
+      WHERE ${whereConditions.join(' AND ')}
+      ORDER BY nick_name ASC
+    `;
+
+    // Execute query
+    const result = await conn.query(baseQuery, queryParams);
+
+    return {
+      totalCount: result.rowCount,
+      bankNames: result.rows,
+    };
+  } catch (error) {
+    console.error('Error querying bank accounts:', error.message, error.stack);
+    throw new Error('Failed to retrieve bank account nicknames');
+  }
 };
 
-const updateBankaccountDao = async (id, payload, conn) => {
+const updateBankaccountDao = async (id, payload, conn, isParentDeleted) => {
   try {
+    // Fetch existing bank config to merge with added_at
+    const existingBankArr = await getBankaccountDao({
+      id: id.id,
+      company_id: id.company_id,
+    });
+    const existingBank = existingBankArr[0];
+
     // Handle nested JSON updates for the `config` column
     if (payload.config && typeof payload.config === 'object') {
       const configUpdates = payload.config;
       delete payload.config; // Remove `config` from the main payload
 
       // Merge the new `config` data into the existing JSON structure
-      payload.config = {
-        ...configUpdates,
-      };
+      const safeConfig = {};
+      //added merchant_added key in config
+      for (const key in configUpdates) {
+        if (
+          key === 'merchant_added' &&
+          typeof configUpdates[key] === 'object'
+        ) {
+          const rawAddedAt = configUpdates[key];
+          const existingAddedAt = existingBank?.config?.merchant_added || {};
+
+          const updatedAddedAt = {
+            ...existingAddedAt,
+            ...rawAddedAt,
+          };
+
+          safeConfig['merchant_added'] = updatedAddedAt;
+        } else {
+          safeConfig[key] = configUpdates[key];
+        }
+      }
+      payload.config = safeConfig;
     }
 
+    // if vendor delete then this config updated
+    if (isParentDeleted) {
+      const [sql, params] = buildUpdateQuery(
+        tableName.BANK_ACCOUNT,
+        payload,
+        id,
+      );
+      return await conn.query(sql, params);
+    }
     // Use buildAndExecuteUpdateQuery to update the bank account
     return await buildAndExecuteUpdateQuery(
       tableName.BANK_ACCOUNT,
@@ -415,5 +503,5 @@ export {
   updateBankaccountDao,
   deleteBankaccountDao,
   getMerchantBankDao,
-  getBankaccountDaoNickName,
+  getBankAccountDaoNickName,
 };
