@@ -81,7 +81,8 @@ const getSettlementDao = async (
         u.role_id,
         u.designation_id,
         r.role,
-        u.id AS user_table_id
+        u.id AS user_table_id,
+        u.code  
       FROM public."${SETTLEMENT}" s
       JOIN public."${USER}" u ON s.user_id = u.id
       LEFT JOIN public."${ROLE}" r ON u.role_id = r.id

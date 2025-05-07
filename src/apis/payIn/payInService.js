@@ -87,9 +87,16 @@ export const generatePayInUrlByHashService = async (req, res) => {
   const { user_id, code, ot, key, amount } = req.query;
 
   if (!user_id || !code || !ot) {
-    throw new BadRequestError(
-      'Missing required query parameters: user_id, code, or ot',
-    );
+    //-- correct error handling
+    return res.status(400).json({
+      error: {
+        status: 400,
+        message: 'Missing required query parameters: user_id, code, or ot',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
   const x_api_key = req.headers['x-api-key'];
   const merchantArr = await getMerchantsDao({ code });
@@ -97,7 +104,16 @@ export const generatePayInUrlByHashService = async (req, res) => {
     config_merchants_contains: merchantArr[0].id,
   });
   if (bankAssigned.length <= 0) {
-    throw new InternalServerError('No Bank Assigned to Merchant');
+       //-- correct error handling
+    return res.status(400).json({
+      error: {
+        status: 404,
+        message: 'Bank Account has not been linked with Merchant',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 
   // bank is not enabled or no method is enabled for payment - no payment link generates
@@ -886,32 +902,18 @@ export const resetDepositService = async (
   if (bankResponse && bankResponse.is_used) {
     // check if any entry exists
     const payInSuccess = await getOtherSuccessPayIns(bankResponse);
+    ///for update bankresponse with id
+    const id = bankResponse.id;
     if (!payInSuccess.length) {
       await updateBotResponseDao(
-        { id: bankResponse.id },
+       id,
         { is_used: false },
         conn,
       );
     }
   }
 
-  // update bank balance
-  // const banks = await getBankaccountDao({ id: payIn.bank_acc_id });
-  // const bank = banks[0];
-
-  // if (bank && payIn.status !== Status.PENDING && bankResponse) {
-  //   await updateBanktBalanceDao(
-  //     { id: bank.id },
-  //     bankResponse.amount,
-  //     updated_by,
-  //     conn,
-  //   );
-  //   await updateBankaccountService(
-  //     conn,
-  //     { id: bank.id, company_id: payIn.company_id },
-  //     {},
-  //   );
-  // }
+ 
   return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 };
 
