@@ -14,6 +14,10 @@ export const CREATE_SETTLEMENT_SCHEMA = Joi.object({
   acc_no: Joi.number().label('acc_no').optional(),
   ifsc: Joi.string().label('ifsc').optional(),
   created_by: Joi.string().label('created_by').optional(),
+  //---allow description for cash / AED settlements
+  description: Joi.string().label('description').optional(),
+  // --allow wallet balance for crypto
+  wallet_balance: Joi.string().label('wallet_balance').optional(),
   config: Joi.object({
     reference_id: Joi.string().label('reference_id').optional(),
   })

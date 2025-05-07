@@ -108,7 +108,8 @@ const createSettlementController = async (req, res) => {
     created_by: user_id,
     status: "INITIATED",
     config: {
-     
+       wallet_balance : payload.wallet_balance, //--wallet balance also added in config
+       description : payload.description,  //--description also added in config
        ifsc :  payload.ifsc,
        acc_no:  payload.acc_no,
        acc_holder_name: payload.acc_holder_name,
