@@ -886,32 +886,18 @@ export const resetDepositService = async (
   if (bankResponse && bankResponse.is_used) {
     // check if any entry exists
     const payInSuccess = await getOtherSuccessPayIns(bankResponse);
+    ///for update bankresponse with id
+    const id = bankResponse.id;
     if (!payInSuccess.length) {
       await updateBotResponseDao(
-        { id: bankResponse.id },
+       id,
         { is_used: false },
         conn,
       );
     }
   }
 
-  // update bank balance
-  // const banks = await getBankaccountDao({ id: payIn.bank_acc_id });
-  // const bank = banks[0];
-
-  // if (bank && payIn.status !== Status.PENDING && bankResponse) {
-  //   await updateBanktBalanceDao(
-  //     { id: bank.id },
-  //     bankResponse.amount,
-  //     updated_by,
-  //     conn,
-  //   );
-  //   await updateBankaccountService(
-  //     conn,
-  //     { id: bank.id, company_id: payIn.company_id },
-  //     {},
-  //   );
-  // }
+ 
   return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 };
 
