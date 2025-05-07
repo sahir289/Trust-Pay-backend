@@ -122,8 +122,6 @@ export const getCalculationsSumDao = async (filters) => {
     designation,
     startDate: start,
     endDate: end,
-    includeSubVendors,
-    includeSubMerchant,
     user_id,
     users,
     company_id
@@ -138,14 +136,17 @@ export const getCalculationsSumDao = async (filters) => {
     : dayjs().tz(IST).endOf('day').toISOString();
   let vendorData = {}, merchantData = {}, netBalance = {};
   let hierarchyUsers = [], userCodes = users ? users.split(", ") : [];
-  const checkForHierarchy = [Role.MERCHANT_ADMIN, Role.VENDOR_ADMIN].includes(designation);
 
-  // Fetch hierarchy users if applicable
-  if (designation && checkForHierarchy && (includeSubMerchant || includeSubVendors)) {
-    const hierarchy = await getUserHierarchysDao({ user_id });
-    if (!hierarchy) throw NotFoundError('Sub Merchants not found!');
-    hierarchyUsers = hierarchy.config[user_id] || [];
-  }
+  let effectiveUserId = user_id;
+
+if (designation === Role.MERCHANT_OPERATIONS) {
+const hierarchy = await getUserHierarchysDao({ user_id });
+const parentId = hierarchy?.[0]?.config?.parent;
+if (parentId) {
+effectiveUserId = parentId;
+logger.info('Using parent merchant ID:', parentId);
+}
+}
 
 
   const groupBy = ` GROUP BY DATE_TRUNC('day', c.created_at) ORDER BY DATE_TRUNC('day', c.created_at)DESC;`
@@ -223,13 +224,13 @@ export const getCalculationsSumDao = async (filters) => {
   // query for merchant only role
   if (role === Role.MERCHANT) {
     const mQuery = `${merchantQuery}  AND c.user_id = $1  AND c.company_id = $2  ${groupBy}`;
-    merchantData = (await executeQuery(mQuery, [user_id, company_id])).rows;
+    merchantData = (await executeQuery(mQuery, [effectiveUserId, company_id])).rows;
   }
 
   // query for vendor only role
   if (role === Role.VENDOR) {
     const vQuery = `${vendorQuery}  AND c.user_id = $1  AND c.company_id = $2  ${groupBy}`;
-    vendorData = (await executeQuery(vQuery, [user_id, company_id])).rows;
+    vendorData = (await executeQuery(vQuery, [effectiveUserId, company_id])).rows;
   }
 
   // Fetch Latest Calculation Entry for Vendors & Merchants
@@ -240,7 +241,7 @@ export const getCalculationsSumDao = async (filters) => {
       JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
       JOIN "${tableName.ROLE}" r ON u.role_id = r.id AND r.role = 'PLACE_ROLE_HERE'
       WHERE c.is_obsolete = FALSE 
-      AND c.user_id = '${user_id}'
+      AND c.user_id = '${effectiveUserId}'
       AND c.company_id = '${company_id}'
       ${endDateConditon}
       ORDER BY c.created_at DESC LIMIT 1
@@ -323,10 +324,10 @@ export const getCalculationsSumDao = async (filters) => {
 
   // Add role-based conditions
   if (role === Role.MERCHANT) {
-    merchantTotalQuery += ` AND c.user_id = '${user_id}'`;
+    merchantTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
     vendorTotalQuery = null; // Merchant shouldn't see vendor totals
   } else if (role === Role.VENDOR) {
-    vendorTotalQuery += ` AND c.user_id = '${user_id}'`;
+    vendorTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
     merchantTotalQuery = null; // Vendor shouldn't see merchant totals
   } else if (role === Role.ADMIN) {
     merchantTotalQuery += ` AND c.company_id = '${company_id}'`;
