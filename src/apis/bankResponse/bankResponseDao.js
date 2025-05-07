@@ -1,3 +1,4 @@
+import dayjs from 'dayjs';
 import { tableName } from '../../constants/index.js';
 import { InternalServerError } from '../../utils/appErrors.js';
 // import { generateUUID } from '../utils/generateUUID.js';
@@ -11,6 +12,8 @@ import {
 import { generateUUID } from '../../utils/generateUUID.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
+
+const IST = 'Asia/Kolkata';
 
 const getBankResponseDao = async (
   filters,
@@ -147,6 +150,79 @@ const getBankResponseBySearchDao = async (
     throw new Error('Error executing query');
   }
 };
+
+const getClaimResponseDao = async (filters) => {
+  try {
+    // Convert input date to IST and handle both date formats
+    const selectedDate = filters.date ? 
+      dayjs.tz(filters.date, IST) : 
+      dayjs().tz(IST);
+
+    const baseQuery = `
+      WITH claimed_data AS (
+        SELECT 
+          COALESCE(SUM(amount), 0) as claimed_amount,
+          COUNT(*) as claimed_count
+        FROM "BankResponse"
+        WHERE is_used = true 
+        AND status = '/success'
+        AND created_at >= $1
+        AND company_id = $2
+        AND is_obsolete = false
+      ),
+      unclaimed_24h AS (
+        SELECT 
+          COALESCE(SUM(amount), 0) as unclaimed_24h_amount,
+          COUNT(*) as unclaimed_24h_count
+        FROM "BankResponse"
+        WHERE is_used = false 
+        AND status = '/success'
+        AND created_at >= $1
+        AND company_id = $2
+        AND is_obsolete = false
+      ),
+      total_unclaimed AS (
+        SELECT 
+          COALESCE(SUM(amount), 0) as total_unclaimed_amount,
+          COUNT(*) as total_unclaimed_count
+        FROM "BankResponse"
+        WHERE is_used = false 
+        AND status = '/success'
+        AND company_id = $2
+        AND is_obsolete = false
+      )
+      SELECT 
+        claimed_amount,
+        claimed_count,
+        unclaimed_24h_amount,
+        unclaimed_24h_count,
+        total_unclaimed_amount,
+        total_unclaimed_count
+      FROM claimed_data, unclaimed_24h, total_unclaimed
+    `;
+
+    const result = await executeQuery(baseQuery, [selectedDate, filters.company_id]);
+    
+    return {
+      claimed24h: {
+        amount: parseFloat(result.rows[0].claimed_amount) || 0,
+        count: parseInt(result.rows[0].claimed_count) || 0,
+      },
+      unclaimed24h: {
+        amount: parseFloat(result.rows[0].unclaimed_24h_amount) || 0,
+        count: parseInt(result.rows[0].unclaimed_24h_count) || 0
+      },
+      totalUnclaimed: {
+        amount: parseFloat(result.rows[0].total_unclaimed_amount) || 0,
+        count: parseInt(result.rows[0].total_unclaimed_count) || 0
+      }
+    };
+  } catch (error) {
+    logger.error('Error getting claim response:', error);
+    throw error.message;
+  }
+};
+
 const getBankResponseDaoAll = async (
   filters,
   page = 1,
@@ -341,6 +417,7 @@ const updateBotResponseDao = async (id, data, conn) => {
 
 export {
   getBankResponseDao,
+  getClaimResponseDao,
   createBankResponseDao,
   getBankResponseDaoAll,
   getBankResponseByUTR,

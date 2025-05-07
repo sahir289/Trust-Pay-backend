@@ -8,6 +8,7 @@ import {
   updateBankResponse,
   getBankResponseBySearch,
   createBankBotResponse,
+  getClaimResponse,
 } from './bankResponseController.js';
 import { isAuthenticated, authorized } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -19,6 +20,12 @@ const router = express.Router();
  *   name: BankResponse
  *   description: Api endpoints for managing bankResponse
  */
+
+router.get(
+  '/claim',
+  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+  tryCatchHandler(getClaimResponse),
+);
 
 /**
  * @swagger
