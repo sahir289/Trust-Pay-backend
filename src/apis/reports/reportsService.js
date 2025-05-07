@@ -34,7 +34,7 @@ const getPayInReportService = async (req, res) => {
 
     const merchantReports = await Promise.all(
       merchantData
-        .map((merchant_id, index) => {
+        .map((merchant_id) => {
           if (merchant_id?.length > 0) {
             return getPayInMerchantReportDao(merchant_id[0].id, startDateTime, endDateTime, company_id);
           }
@@ -61,7 +61,7 @@ const getPayInReportService = async (req, res) => {
     );
 
     const vendorReports = await Promise.all(
-      vendorBankData.flatMap((bankData, index) => {
+      vendorBankData.flatMap((bankData) => {
         if (bankData?.length > 0) {
           return bankData.map(bank =>
             getPayInVendorReportDao(bank.id, startDate, endDate, company_id)
@@ -102,7 +102,7 @@ const getPayOutReportService = async (req, res) => {
 
     const merchantReports = await Promise.all(
       merchantData
-        .map((merchant_id, index) => {
+        .map((merchant_id) => {
           if (merchant_id?.length > 0) {
             return getPayOutMerchantReportDao(merchant_id[0].id, startDateTime, endDateTime, company_id);
           }
@@ -119,7 +119,7 @@ const getPayOutReportService = async (req, res) => {
 
     const vendorReports = await Promise.all(
       vendorData
-        .map((vendor_id, index) => {
+        .map((vendor_id) => {
           if (vendor_id?.length > 0) {
             return getPayOutVendorReportDao(vendor_id[0].id, startDateTime, endDateTime, company_id);
           }
