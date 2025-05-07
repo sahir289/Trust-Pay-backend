@@ -217,7 +217,7 @@ router.put(
  *         description: Vendor not found.
  */
 router.delete(
-  '/delete-vendor/:id',
+  '/delete-vendor/:user_id',
   [isAuthenticated, authorized(AccessRoles.VENDOR)],
   tryCatchHandler(deleteVendor),
 );

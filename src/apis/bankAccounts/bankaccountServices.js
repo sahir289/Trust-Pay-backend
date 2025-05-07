@@ -95,12 +95,7 @@ const getBankaccountServiceNickName = async (company_id, type) => {
     const result = await getBankaccountDaoNickName(
       conn,
       company_id,
-      type,
-      null,
-      null,
-      null,
-      null,
-      null,
+      type
     );
     await commit(conn);
     return result;
@@ -139,18 +134,34 @@ const updateBankaccountService = async (conn, ids, payload) => {
   try {
     let result;
 
-    if (Object.keys(payload).length === 0) {
-      const bank = await getBankaccountDao({
-        id: ids.id,
-        company_id: ids.company_id,
-      });
+    const bank = await getBankaccountDao({
+      id: ids.id,
+      company_id: ids.company_id,
+    });
 
+    if (Object.keys(payload).length === 0) {
       if (bank[0].today_balance >= bank[0].config?.max_limit) {
         payload.is_enabled = false;
         deactivateBank(bank[0].nick_name, ids.id);
       } else if (bank[0].today_balance === bank[0].config?.max_limit) {
         deactivateBank(bank[0].nick_name, ids.id, true);
       }
+    }
+
+     //added merchant_added key in config which contains date on which merchant is added along with its id
+     if (payload?.config?.merchant_added) {
+      const existingMerchantDetails = bank?.config?.merchant_added || {};
+      const newMerchantDetails = {};
+
+      for (const key in payload.config.merchant_added) {
+        const merchantId = key.replace(/^\[?"?|"?\]$/g, ''); 
+        newMerchantDetails[merchantId] = payload.config.merchant_added[key];
+      }
+
+      payload.config.merchant_added = {
+        ...existingMerchantDetails,
+        ...newMerchantDetails,
+      };
     }
 
     const payloadData = JSON.parse(JSON.stringify(payload));
@@ -165,7 +176,7 @@ const updateBankaccountService = async (conn, ids, payload) => {
       const bankResponse = await getBankResponseDaoAll({
         bank_id: ids.id,
         is_used: false,
-      },null,null,null,null);
+      });
       if (bankResponse.rows.length > 0) {
         for (let i = 0; i < bankResponse.rows.length; i++) {          
           await updateBotResponseDao(bankResponse.rows[i].id, {

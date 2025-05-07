@@ -17,7 +17,7 @@ const IST = 'Asia/Kolkata';
 
 const getBankResponseDao = async (
   filters,
-  startDate =new Date(),
+  startDate = new Date(),
   endDate = new Date(),
   page = 0,
   pageSize = 10,
@@ -38,7 +38,7 @@ const getBankResponseDao = async (
       baseQuery,
       filters,
       page,
-      pageSize
+      pageSize,
     );
     if (startDate && endDate) {
       baseQuery += ` AND created_at BETWEEN $${Object.keys(queryParams).length + 1} AND $${Object.keys(queryParams).length + 2}`;
@@ -233,28 +233,43 @@ const getBankResponseDaoAll = async (
 ) => {
   try {
     const selectCols = columns.length
-      ? columns.map(col => `"BankResponse".${col}`).join(', ')
+      ? columns.map((col) => `"BankResponse".${col}`).join(', ')
       : [
           `"BankResponse".*`,
           `"BankAccount".user_id`,
           `"BankAccount".nick_name`,
           `"BankAccount".bank_name`,
-          `"Vendor".code`,
+          `"Vendor".code AS vendor_code`,
           `u.user_name AS created_by`,
-          `uu.user_name AS updated_by`
+          `uu.user_name AS updated_by`,
         ].join(', ');
-
+  let baseQuery;
     if (filters.search) {
       const searchValue = filters.search.trim();
       filters.or = {
         reference_id: searchValue,
-        status: searchValue
+        status: searchValue,
       };
       delete filters.search;
     }
 
-    const baseQuery = `
-      SELECT ${selectCols}
+    if (filters.start_date && filters.end_date) {
+      //merchant codes shown between date range selcted for bank account reports
+      baseQuery = `
+        AND "BankResponse".created_at BETWEEN $${filters.start_date} AND $${filters.end_date}
+        WHERE EXISTS (
+          SELECT 1 FROM jsonb_each_text("BankAccount".config -> 'details' -> 'merchant_added') AS j(k, v)
+          WHERE v::timestamp BETWEEN $${filters.start_date} AND $${filters.end_date}
+        )
+      `;
+      delete filters.start_date;
+      delete filters.end_date;
+    }
+
+    baseQuery = `
+      SELECT ${selectCols}, 
+        "BankAccount".config AS details,
+        "BankAccount".nick_name
       FROM "BankResponse"
       JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
       LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
@@ -269,7 +284,7 @@ const getBankResponseDaoAll = async (
       pageSize,
       sortBy,
       sortOrder,
-      'BankResponse' 
+      'BankResponse',
     );
 
     const result = await executeQuery(query, values);
@@ -280,10 +295,7 @@ const getBankResponseDaoAll = async (
   }
 };
 
-const getBankResponseByUTR = async (
-  company_id,
-  utr,
-) => {
+const getBankResponseByUTR = async (company_id, utr) => {
   try {
     const baseQuery = `SELECT 
         br.id, 
@@ -319,12 +331,11 @@ const getBankResponseByUTR = async (
     const queryParams = [company_id, utr];
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows[0];
-  } catch(error) {
+  } catch (error) {
     logger.error('Error getting Bank Response by utr', error);
     throw error.message;
   }
 };
-
 
 const createBankResponseDao = async (conn, data) => {
   try {
@@ -403,7 +414,7 @@ const updateBotResponseDao = async (id, data, conn) => {
       id,
     });
     let result;
-    
+
     if (conn && conn.query) {
       result = await conn.query(sql, params); // Use connection to execute query
     } else {

@@ -28,7 +28,7 @@ export const sendCredentialsEmail = async ({ email, username, password }) => {
   `;
 
   const mailOptions = {
-    from: '"TrustPay Admin" <shadow77278837@gmail.com>',
+    from: '"PG Admin" <shadow77278837@gmail.com>',
     to: email,
     subject,
     text,

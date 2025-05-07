@@ -237,7 +237,10 @@ const createBankResponseService = async (
   }
   const checkPayInUtr = await getPayInUrlsDao({ user_submitted_utr: utr });
   if (checkPayInUtr?.length > 0) {
-    const payInUtr = checkPayInUtr.length === 1 ? checkPayInUtr[0] : checkPayInUtr[checkPayInUtr.length - 1];
+    const payInUtr =
+      checkPayInUtr.length === 1
+        ? checkPayInUtr[0]
+        : checkPayInUtr[checkPayInUtr.length - 1];
     if (upi_short_code && isValidAmountCode) {
       const getDataByUtr = await getBankResponseDaoAll(
         { utr: payInUtr.user_submitted_utr, company_id },
@@ -520,13 +523,23 @@ const getBankResponseService = async (payload, role, page, limit, search) => {
         bank_id: payload.bank_id || undefined,
         is_used,
         company_id: payload.company_id || undefined,
+         //start and end date bank reponse report
+         start_date: payload.start_date || undefined,
+         end_date : payload.end_date || undefined,
       }).filter(([, v]) => v !== undefined),
     );
     filters = {
       ...(search ? { search } : {}),
       ...filters,
-    }
-    return await getBankResponseDaoAll(filters, page, limit, 'updated_at', 'DESC', filterColumns);
+    };
+    return await getBankResponseDaoAll(
+      filters,
+      page,
+      limit,
+       payload.sort_by || 'updated_at',
+      'DESC',
+      filterColumns,
+    );
   } catch (error) {
     logger.error('Error in getBankResponseService:', error);
     throw new InternalServerError(error);
