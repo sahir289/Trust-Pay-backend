@@ -1,5 +1,4 @@
 import { tableName } from '../../constants/index.js';
-import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { buildSelectQuery, buildUpdateQuery, executeQuery,buildJoinQuery ,buildInsertQuery} from '../../utils/db.js';
 
 const getUsersDao = async (
@@ -32,18 +31,32 @@ const getUsersDao = async (
         referenceTable: USER,
       },
     ];
+
       const baseQuery = buildJoinQuery(
         USER,
         columns.length ? columns : '*',
         joins,
       );
-      if (filters.search) {
-        filters.or = buildSearchFilterObj(filters.search, USER);
-        delete filters.search;
-      }
+   let basequery = baseQuery
+      .replace(
+        '"User".created_at',
+        '"User".created_at AT TIME ZONE \'Asia/Kolkata\' AS created_at',
+      )
+      .replace(
+        '"User".updated_at',
+        '"User".updated_at AT TIME ZONE \'Asia/Kolkata\' AS updated_at',
+      )
+      .replace(
+        '"User".last_login',
+        '"User".last_login AT TIME ZONE \'Asia/Kolkata\' AS last_login',
+      )
+      .replace(
+        '"User".last_logout',
+        '"User".last_logout AT TIME ZONE \'Asia/Kolkata\' AS last_logout',
+      );
     //TODO: columns.ROLE dynamic search
     const [sql, queryParams] = buildSelectQuery(
-      baseQuery,
+      basequery,
       filters,
       page,
       pageSize,
@@ -88,8 +101,8 @@ export const getUsersBySearchDao = async (
         "User".config,
         "User".created_by,
         "User".updated_by,
-        "User".created_at,
-        "User".updated_at,
+        "User".created_at AT TIME ZONE 'Asia/Kolkata' AS created_at, 
+        "User".updated_at AT TIME ZONE 'Asia/Kolkata' AS updated_at,
         "User".first_name || ' ' || "User".last_name AS full_name,
         "Designation".designation AS Designation 
       FROM "User" 

@@ -15,11 +15,22 @@ const getResetHistoryDao = async (
 ) => {
   try {
     const { BANK_RESPONSE, RESET_DATA_HISTORY, PAYIN, USER } = tableName;
+ const timestampColumns = ['created_at', 'updated_at'];
 
+ // Helper function to apply time zone conversion
+ const getColumnWithTZ = (col, table = RESET_DATA_HISTORY) => {
+   if (timestampColumns.includes(col)) {
+     return `"${table}".${col} AT TIME ZONE 'UTC' AS "${col}"`;
+   }
+   return `"${table}".${col}`;
+ };
+
+ // Build select columns with time zone conversion
+ const selectColumns = columns.length
+   ? columns.map((col) => getColumnWithTZ(col, RESET_DATA_HISTORY)).join(', ')
+   : `"${RESET_DATA_HISTORY}".*`;
     // Default columns if none provided
-    const selectColumns = columns.length
-      ? columns.map(col => `"${RESET_DATA_HISTORY}".${col}`).join(', ')
-      : `"${RESET_DATA_HISTORY}".*`;
+   
 
     // Base query with DISTINCT ON (sno)
     let sql = `

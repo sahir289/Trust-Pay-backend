@@ -6,7 +6,7 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-
+import getColumnWithTZ from '../../utils/timeZoneIST.js';
 // Create ChargeBack entry
 export const createChargeBackDao = async (data) => {
   try {
@@ -87,7 +87,7 @@ export const getChargeBackDao = async (
       }
     });
 
-    const tableAlias = 'cb';
+    // const tableAlias = 'cb';
 
     // Filter out unwanted columns
     columns = columns.filter(col => 
@@ -98,10 +98,19 @@ export const getChargeBackDao = async (
 
     // Default columns if none provided
     const defaultColumns = ['id', 'payin_id', 'amount'];
-    const baseColumns = columns.length 
-      ? columns.map(col => `${tableAlias}.${col}`).join(', ')
-      : defaultColumns.map(col => `${tableAlias}.${col}`).join(', ');
 
+    // aryan commented this code for IST time if someone want to change if u have valid reason then uncomment this and comment new one
+    
+    // const baseColumns = columns.length
+    //   ? columns.map(col => `${tableAlias}.${col}`).join(', ')
+    //   : defaultColumns.map(col => `${tableAlias}.${col}`).join(', ');
+
+    
+    ///for IST TIME
+  const baseColumns = columns.length
+  ? columns.map(getColumnWithTZ).join(', ')
+  : defaultColumns.map(getColumnWithTZ).join(', ');
+    
     // Additional columns based on role
     let additionalColumns = '';
     if (role !== 'VENDOR') {

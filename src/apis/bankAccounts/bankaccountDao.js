@@ -80,8 +80,8 @@ const getBankaccountDao = async (filters, page, limit, role) => {
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
-        ba.created_at, 
-        ba.updated_at`;
+       ba.created_at AT TIME ZONE 'Asia/Kolkata' AS created_at, 
+       ba.updated_at AT TIME ZONE 'Asia/Kolkata' AS updated_at`;
     }
     const baseQuery = `SELECT 
         ba.id, 
@@ -124,6 +124,7 @@ const getBankaccountDao = async (filters, page, limit, role) => {
           ba.updated_at DESC  
       ${limitcondition};
       `;
+    console.log(baseQuery)
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {

@@ -181,8 +181,8 @@ export const getMerchantsDao = async (
     "Merchant".company_id, 
     creator.user_name AS created_by, 
     updater.user_name AS updated_by, 
-    "Merchant".created_at, 
-    "Merchant".updated_at, 
+    "Merchant".created_at AT TIME ZONE 'Asia/Kolkata' AS created_at, 
+    "Merchant".updated_at AT TIME ZONE 'Asia/Kolkata' AS updated_at,
     "User".designation_id, 
     "User".first_name || ' ' || "User".last_name AS full_name, 
     "Designation".designation AS designation_name 
@@ -251,8 +251,8 @@ export const getMerchantsBySearchDao = async (
         "Merchant".company_id, 
         creator.user_name as created_by, 
         updater.user_name as updated_by, 
-        "Merchant".created_at, 
-        "Merchant".updated_at, 
+        "Merchant".created_at AT TIME ZONE 'Asia/Kolkata' AS created_at, 
+        "Merchant".updated_at AT TIME ZONE 'Asia/Kolkata' AS updated_at,
         "User".designation_id, 
         "User".first_name || ' ' || "User".last_name AS full_name, 
         "Designation".designation AS designation_name 
