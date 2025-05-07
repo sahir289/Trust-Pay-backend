@@ -670,6 +670,8 @@ export const AccessRoles = {
     Role.OPERATIONS,
     Role.MERCHANT,
     Role.VENDOR,
+    Role.MERCHANT_OPERATIONS,
+    Role.VENDOR_OPERATIONS,
   ],
   ROLES: [
     Role.ADMIN,
