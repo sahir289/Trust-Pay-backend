@@ -6,10 +6,17 @@ import {
   createCalculation,
   updateCalculation,
   deleteCalculation,
+  calculateSuccessRatios,
 } from './calculationController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
+
+router.get(
+  '/success_ratio',
+//   [isAuthenticated, authorized(AccessRoles.DASHBOARD)],
+  tryCatchHandler(calculateSuccessRatios)
+);
 
 /**
  * @swagger
