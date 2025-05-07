@@ -50,7 +50,7 @@ import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
 
 //  To Generate Url
 export const generateHashForPayIn = async (req, res) => {
-  const updateRes = await generatePayInUrlByHashService(req);
+  const updateRes = await generatePayInUrlByHashService(req,res);     //-- sending res to resolve
 
   return sendSuccess(res, updateRes, 'PayIn hash generated successfully');
 };
@@ -326,7 +326,6 @@ export const resetDeposit = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  console.log(merchant_order_id, 'merchant_order__id')
   const data = await transactionWrapper(resetDepositService)(
     merchant_order_id,
     req.user.company_id,
