@@ -163,11 +163,11 @@ const getBankResponseDaoAll = async (
           `"BankAccount".user_id`,
           `"BankAccount".nick_name`,
           `"BankAccount".bank_name`,
-          `"Vendor".code`,
+          `"Vendor".code AS vendor_code`,
           `u.user_name AS created_by`,
           `uu.user_name AS updated_by`,
         ].join(', ');
-
+  let baseQuery;
     if (filters.search) {
       const searchValue = filters.search.trim();
       filters.or = {
@@ -177,8 +177,23 @@ const getBankResponseDaoAll = async (
       delete filters.search;
     }
 
-    const baseQuery = `
-      SELECT ${selectCols}
+    if (filters.start_date && filters.end_date) {
+      //merchant codes shown between date range selcted for bank account reports
+      baseQuery = `
+        AND "BankResponse".created_at BETWEEN $${filters.start_date} AND $${filters.end_date}
+        WHERE EXISTS (
+          SELECT 1 FROM jsonb_each_text("BankAccount".config -> 'details' -> 'merchant_added') AS j(k, v)
+          WHERE v::timestamp BETWEEN $${filters.start_date} AND $${filters.end_date}
+        )
+      `;
+      delete filters.start_date;
+      delete filters.end_date;
+    }
+
+    baseQuery = `
+      SELECT ${selectCols}, 
+        "BankAccount".config AS details,
+        "BankAccount".nick_name
       FROM "BankResponse"
       JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
       LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
