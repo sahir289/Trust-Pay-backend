@@ -23,23 +23,29 @@ import dayjs from 'dayjs';
 
 // Service to fetch calculation data
 const getCalculationService = async (filters, role) => {
-
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.CALCULATION
-        : role === Role.VENDOR
-          ? vendorColumns.CALCULATION
-          : columns.CALCULATION;
+    // Validate required fields
+    if (!filters || !role) {
+      throw new Error('Missing required parameters');
+    }
+
           
-    return await getCalculationsSumDao(
-      { ...filters, role },
-      null,
-      null,
-      null,
-      null,
-      filterColumns
-    );
+    const result = await getCalculationsSumDao({
+      ...filters,
+      role
+    });
+
+    return result || {
+      vendor: [],
+      merchant: [],
+      netBalance: {
+        vendor: 0,
+        merchant: 0
+      },
+      merchantTotalCalculations: {},
+      vendorTotalCalculations: {}
+    };
+
   } catch (error) {
     logger.error('Error while fetching calculation data:', 'error', error);
     throw new InternalServerError(error);
