@@ -18,7 +18,7 @@ import {
   createBankaccountDao,
   updateBankaccountDao,
   deleteBankaccountDao,
-  getBankaccountDaoNickName,
+  getBankAccountDaoNickName,
   getBankAccountsBySearchDao,
 } from './bankaccountDao.js';
 
@@ -87,15 +87,29 @@ const getBankAccountBySearchService = async (
   }
 };
 
-const getBankaccountServiceNickName = async (company_id, type) => {
+const getBankaccountServiceNickName = async (company_id, type, role, user_id, designation) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await getBankaccountDaoNickName(
+
+    let filters = {};
+    if (role == Role.VENDOR) {
+      filters.user_id = [user_id];
+    }
+    const userHierarchys = await getUserHierarchysDao({ user_id });
+    if (designation == Role.VENDOR_OPERATIONS) {
+      const parentID = userHierarchys[0]?.config?.parent;
+      if (parentID ) {
+        filters.user_id = [parentID];      
+      }
+    }
+
+    const result = await getBankAccountDaoNickName(
       conn,
       company_id,
-      type
+      type,
+      filters
     );
     await commit(conn);
     return result;
@@ -107,7 +121,6 @@ const getBankaccountServiceNickName = async (company_id, type) => {
         console.error('Error during transaction rollback', rollbackError);
       }
     }
-    console.error('Error while deleting ChargeBack', error);
     throw new InternalServerError(error);
   } finally {
     if (conn) {
