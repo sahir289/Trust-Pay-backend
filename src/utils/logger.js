@@ -95,7 +95,7 @@ class Logger {
     });
   }
 
-  log(level, message, statusCode, data) {
+  log(level, message, data, statusCode) {
     // Debug: Log arguments to diagnose issues
     originalLog(
       chalk.gray(
