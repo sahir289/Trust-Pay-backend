@@ -172,8 +172,8 @@ export default Logger;
 const winstonLogger = new Logger();
 
 export const logger = {
-  log: (message, statusCode, data) => winstonLogger.log('info', message, statusCode, data),
-  info: (message, statusCode, data) => winstonLogger.log('info', message, statusCode, data),
-  warn: (message, statusCode, data) => winstonLogger.log('warn', message, statusCode, data),
-  error: (message, statusCode, data) => winstonLogger.log('error', message, statusCode, data),
+  log: (message, data) => winstonLogger.log('info', message, data),
+  info: (message, data) => winstonLogger.log('info', message, data),
+  warn: (message, data) => winstonLogger.log('warn', message, data),
+  error: (message, data) => winstonLogger.log('error', message, data),
 };
