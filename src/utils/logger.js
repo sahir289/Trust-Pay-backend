@@ -149,7 +149,6 @@ class Logger {
     // Format args for console output
     const consoleArgs = [
       finalMessage,
-      ...(typeof finalStatusCode === 'number' ? [finalStatusCode] : []),
       ...(Object.keys(finalData).length > 0 ? [JSON.stringify(finalData, null, 2).slice(0, 1000)] : []),
     ];
     originalLog(`${typeChalk} : ${timestamp} ::`, ...consoleArgs);
