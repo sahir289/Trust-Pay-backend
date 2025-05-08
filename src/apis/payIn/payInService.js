@@ -1955,23 +1955,26 @@ export const generateUpiUrlService = async (payload) => {
   const params = {
     appid: 'inb_admin',
     tr: transactionId,
-    am: parseFloat(payload.amount).toFixed(2),
-    mc: payload.merchantCode,
+    am: parseFloat(payload.amount).toFixed(2),  
+    mc: payload.merchantCode || '',
     pa: payload.payeeVPA,
-    pn: payload.payeeName,
-    tn: payload.transactionNote,
-    cu: 'INR',
-    bn: payload.businessName,
+    pn: (payload.payeeName || '') + ' ',     
+    tn: payload.transactionNote || '',
+    cu: '',                          
+    bn: (payload.businessName || '') + ' ',   
     mode: '01',
     purpose: ''
   };
+  
 
-   const encodedParams = querystring.stringify(params);
+  let encodedParams = querystring.stringify(params);
 
-   const phonepeUrl = `phonepe://pay?${encodedParams}`;
-   const gpayUrl = `gpay://upi/pay?${encodedParams}`;
-   const paytmUrl = `paytm://upi/pay?${encodedParams}`;
-   const genericUpiUrl = `upi://pay?${encodedParams}`;
+  encodedParams += `&am=${parseFloat(payload.amount).toFixed(2)}`;
+  
+  const phonepeUrl = `phonepe://pay?${encodedParams}`;
+  const gpayUrl = `gpay://upi/pay?${encodedParams}`;
+  const paytmUrl = `paytm://upi/pay?${encodedParams}`;
+  const genericUpiUrl = `upi://pay?${encodedParams}`;
 
    const phonepeQr = await QRCode.toDataURL(phonepeUrl);
   const gpayQr = await QRCode.toDataURL(gpayUrl);
