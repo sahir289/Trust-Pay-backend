@@ -72,18 +72,20 @@ class Logger {
     this.#logger = createLogger({
       format: format.combine(
         format.errors({ stack: true }),
-        format.timestamp({
-          format: () => new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }),
+        format.printf(({ message, statusCode, data }) => {
+          return JSON.stringify({
+            message,
+            statusCode: statusCode || 200, // Default statusCode if not provided
+            data: data || {},
+          });
         }),
-        format.metadata(),
-        format.json(),
       ),
       transports,
       exitOnError: false,
     });
   }
 
-  log(level, ...args) {
+  log(level, message, statusCode, data) {
     const typeChalk =
       level === 'error'
         ? chalk.red(level)
@@ -105,25 +107,33 @@ class Logger {
       .toLocaleString('en-US', options)
       .replace(',', '');
 
-    // Handle args: If only one arg and it's an object, treat it as metadata
-    let message = '';
-    let metadata = {};
-    if (args.length === 1 && typeof args[0] === 'object' && !Array.isArray(args[0])) {
-      metadata = args[0];
-      message = 'Log event'; // Default message
-    } else {
-      message = args[0] || '';
-      metadata = args.length > 1 && typeof args[1] === 'object' ? args[1] : {};
+    // Handle arguments
+    let finalMessage = message || 'Log event';
+    let finalStatusCode = statusCode || 200;
+    let finalData = data || {};
+
+    // If message is an object and statusCode/data are not provided, treat message as data
+    if (typeof message === 'object' && !Array.isArray(message) && !statusCode && !data) {
+      finalData = message;
+      finalMessage = 'Log event';
+      finalStatusCode = 200;
     }
 
     // Format args for console output
-    const formattedArgs = args.map((arg) =>
-      typeof arg === 'object' ? JSON.stringify(arg, null, 2).slice(0, 1000) : arg,
-    );
-    originalLog(`${typeChalk} : ${timestamp} ::`, ...formattedArgs);
+    const consoleArgs = [
+      finalMessage,
+      ...(typeof finalStatusCode === 'number' ? [finalStatusCode] : []),
+      ...(Object.keys(finalData).length > 0 ? [JSON.stringify(finalData, null, 2).slice(0, 1000)] : []),
+    ];
+    originalLog(`${typeChalk} : ${timestamp} ::`, ...consoleArgs);
 
     // Log to Winston
-    this.#logger.log(level, message, metadata);
+    this.#logger.log({
+      level,
+      message: finalMessage,
+      statusCode: finalStatusCode,
+      data: finalData,
+    });
   }
 }
 
@@ -131,8 +141,8 @@ export default Logger;
 const winstonLogger = new Logger();
 
 export const logger = {
-  log: (...args) => winstonLogger.log('info', ...args),
-  info: (...args) => winstonLogger.log('info', ...args),
-  warn: (...args) => winstonLogger.log('warn', ...args),
-  error: (...args) => winstonLogger.log('error', ...args),
+  log: (message, statusCode, data) => winstonLogger.log('info', message, statusCode, data),
+  info: (message, statusCode, data) => winstonLogger.log('info', message, statusCode, data),
+  warn: (message, statusCode, data) => winstonLogger.log('warn', message, statusCode, data),
+  error: (message, statusCode, data) => winstonLogger.log('error', message, statusCode, data),
 };
