@@ -10,6 +10,7 @@ export const ASSIGN_PAYIN_SCHEMA = Joi.object({
   user_id: Joi.string().label('user_id').required(),
   key: Joi.string().label('key').optional(),
   hash_code: Joi.string().label('hash_code').optional(),
+  returnUrl: Joi.string().label('returnUrl').optional(),
 });
 
 export const VALIDATE_PAYIN_SCHEMA = Joi.object({
