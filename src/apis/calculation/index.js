@@ -12,9 +12,8 @@ import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
 
-router.get(
+router.post(
   '/success_ratio',
-//   [isAuthenticated, authorized(AccessRoles.DASHBOARD)],
   tryCatchHandler(calculateSuccessRatios)
 );
 

@@ -658,7 +658,7 @@ export const updatePaymentNotificationStatusService = async (
       payinId: payIn.id,
       req_amount: payIn.amount,
       amount: bankResponse?.amount || null,
-      utr_id: payIn.utr || '',
+      utr_id: bankResponse?.utr ? bankResponse.utr : payIn.user_submitted_utr, //--utr_id either bankres and payin
     });
   }
 
