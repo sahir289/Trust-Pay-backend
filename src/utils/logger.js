@@ -19,8 +19,13 @@ class Logger {
   #logger;
   constructor() {
     // Create log directory if it doesn't exist
-    if (!fs.existsSync(logDir)) {
-      fs.mkdirSync(logDir);
+    try {
+      if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir);
+        originalLog(chalk.green(`Created log directory: ${logDir}`));
+      }
+    } catch (err) {
+      originalLog(chalk.red(`Failed to create log directory: ${err.message}`));
     }
 
     // Define transports
@@ -57,9 +62,14 @@ class Logger {
         awsAccessKeyId: accessKeyId,
         awsSecretAccessKey: secretAccessKey,
         retentionInDays: 7,
-        onError: (err) => originalLog(chalk.red('CloudWatch logging error:'), err),
+        onError: (err) => originalLog(chalk.red(`CloudWatch logging error: ${err.message}`)),
       };
-      transports.push(new CloudWatchTransport(cloudWatchConfig));
+      try {
+        transports.push(new CloudWatchTransport(cloudWatchConfig));
+        originalLog(chalk.green('CloudWatch transport initialized'));
+      } catch (err) {
+        originalLog(chalk.red(`Failed to initialize CloudWatch transport: ${err.message}`));
+      }
     } else {
       originalLog(
         chalk.yellow(
@@ -74,8 +84,8 @@ class Logger {
         format.errors({ stack: true }),
         format.printf(({ message, statusCode, data }) => {
           return JSON.stringify({
-            message,
-            statusCode: statusCode || 200, // Default statusCode if not provided
+            message: message || 'Log event',
+            statusCode: statusCode || 200,
             data: data || {},
           });
         }),
@@ -86,6 +96,13 @@ class Logger {
   }
 
   log(level, message, statusCode, data) {
+    // Debug: Log arguments to diagnose issues
+    originalLog(
+      chalk.gray(
+        `DEBUG: level=${level}, message=${JSON.stringify(message)}, statusCode=${statusCode}, data=${JSON.stringify(data)}`,
+      ),
+    );
+
     const typeChalk =
       level === 'error'
         ? chalk.red(level)
@@ -112,11 +129,21 @@ class Logger {
     let finalStatusCode = statusCode || 200;
     let finalData = data || {};
 
-    // If message is an object and statusCode/data are not provided, treat message as data
-    if (typeof message === 'object' && !Array.isArray(message) && !statusCode && !data) {
+    // Backward compatibility: Handle old usage patterns
+    if (arguments.length === 2 && typeof message === 'string' && typeof statusCode === 'object') {
+      // Case: logger.info('message', { data })
+      finalData = statusCode;
+      finalStatusCode = 200;
+    } else if (arguments.length === 1 && typeof message === 'object' && !Array.isArray(message)) {
+      // Case: logger.info({ data })
       finalData = message;
       finalMessage = 'Log event';
       finalStatusCode = 200;
+    } else if (arguments.length === 2 && typeof message === 'object' && !Array.isArray(message)) {
+      // Case: logger.info({ data }, statusCode)
+      finalData = message;
+      finalStatusCode = statusCode || 200;
+      finalMessage = 'Log event';
     }
 
     // Format args for console output
@@ -128,12 +155,16 @@ class Logger {
     originalLog(`${typeChalk} : ${timestamp} ::`, ...consoleArgs);
 
     // Log to Winston
-    this.#logger.log({
-      level,
-      message: finalMessage,
-      statusCode: finalStatusCode,
-      data: finalData,
-    });
+    try {
+      this.#logger.log({
+        level,
+        message: finalMessage,
+        statusCode: finalStatusCode,
+        data: finalData,
+      });
+    } catch (err) {
+      originalLog(chalk.red(`Winston logging error: ${err.message}`));
+    }
   }
 }
 
