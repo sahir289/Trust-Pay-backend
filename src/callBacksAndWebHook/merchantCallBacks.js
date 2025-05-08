@@ -7,6 +7,7 @@ const sendMerchantNotification = (url, data, type) => {
     return Promise.reject(new Error('Notify URL not found!'));
   }
 
+  console.log(data);
   logger.info(`Sending ${type} Notification to Merchant`, {
     notify_url: url,
     notify_data: data,
@@ -23,7 +24,7 @@ const sendMerchantNotification = (url, data, type) => {
         return response.data;
       } else {
         logger.error(`${type} Notification received invalid response`, {
-          response: response || 'undefined',
+          response: response,
         });
         throw new Error('Invalid response from server');
       }
