@@ -95,11 +95,11 @@ class Logger {
     });
   }
 
-  log(level, message, data, statusCode) {
+  log(level, message, data) {
     // Debug: Log arguments to diagnose issues
     originalLog(
       chalk.gray(
-        `DEBUG: level=${level}, message=${JSON.stringify(message)}, statusCode=${statusCode}, data=${JSON.stringify(data)}`,
+        `DEBUG: level=${level}, message=${JSON.stringify(message)}, statusCode=${JSON.stringify(data?.status)}, data=${JSON.stringify(data?.data)}`,
       ),
     );
 
@@ -126,13 +126,13 @@ class Logger {
 
     // Handle arguments
     let finalMessage = message || 'Log event';
-    let finalStatusCode = statusCode || 200;
+    let finalStatusCode = data?.status || 200;
     let finalData = data || {};
 
     // Backward compatibility: Handle old usage patterns
     if (arguments.length === 2 && typeof message === 'string' && typeof statusCode === 'object') {
       // Case: logger.info('message', { data })
-      finalData = statusCode;
+      finalData = data?.status;
       finalStatusCode = 200;
     } else if (arguments.length === 1 && typeof message === 'object' && !Array.isArray(message)) {
       // Case: logger.info({ data })
@@ -142,7 +142,7 @@ class Logger {
     } else if (arguments.length === 2 && typeof message === 'object' && !Array.isArray(message)) {
       // Case: logger.info({ data }, statusCode)
       finalData = message;
-      finalStatusCode = statusCode || 200;
+      finalStatusCode = data?.status || 200;
       finalMessage = 'Log event';
     }
 
