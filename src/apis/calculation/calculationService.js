@@ -115,8 +115,14 @@ const deleteCalculationService = async (conn, id, role) => {
   }
 };
 
-const calculateSuccessRatios = async (merchants, date) => {
+const calculateSuccessRatios = async (merchants, date, user_id) => {
   try {
+    const targetMerchant = merchants.find(m => m.user_id === user_id);
+    if (!targetMerchant) {
+      logger.warn(`No merchant found for user_id: ${user_id}`);
+      return null;
+    }
+
     const selectedDate = date ? dayjs(date) : dayjs();
     const isCurrentDate = selectedDate.isSame(dayjs(), 'day');
 
@@ -128,87 +134,87 @@ const calculateSuccessRatios = async (merchants, date) => {
       { label: 'Last 3h', duration: 3 * 60 * 60 * 1000 },
       { label: 'Last 24h', duration: 24 * 60 * 60 * 1000 },
     ] : [
-      { label: '00:00 - 04:00', start: 0, end: 4 },
-      { label: '04:00 - 08:00', start: 4, end: 8 },
-      { label: '08:00 - 12:00', start: 8, end: 12 },
-      { label: '12:00 - 16:00', start: 12, end: 16 },
-      { label: '16:00 - 20:00', start: 16, end: 20 },
-      { label: '20:00 - 24:00', start: 20, end: 24 }
+      { label: '04:00', start: 0, end: 4 },
+      { label: '08:00', start: 4, end: 8 },
+      { label: '12:00', start: 8, end: 12 },
+      { label: '16:00', start: 12, end: 16 },
+      { label: '20:00', start: 16, end: 20 },
+      { label: '24:00', start: 20, end: 24 }
     ];
 
-    const allPayins = await getPayInUrlsDao({});
-    const transactionsByMerchant = allPayins.reduce((map, payin) => {
-      if (!map[payin.merchant_id]) map[payin.merchant_id] = [];
-      map[payin.merchant_id].push({
-        updated_at: new Date(payin.updated_at),
-        status: payin.status,
-        user_submitted_utr: payin.user_submitted_utr,
-      });
-      return map;
-    }, {});
+    // Modified: Use merchant_id instead of user_id
+    const allPayins = await getPayInUrlsDao({ 
+      merchant_id: targetMerchant.id
+    });
 
-    const merchantsWithTransactions = merchants.filter(
-      (merchant) => Array.isArray(transactionsByMerchant[merchant.id]) && 
-                    transactionsByMerchant[merchant.id].length > 0
-    );
+    // Process only the target merchant's transactions
+    const merchantTransactions = allPayins.map(payin => ({
+      updated_at: new Date(payin.updated_at),
+      status: payin.status,
+      user_submitted_utr: payin.user_submitted_utr,
+    }));
 
-    const ratios = merchantsWithTransactions.map(merchant => {
-      const merchantTransactions = transactionsByMerchant[merchant.id];
-      const stats = intervals.map(interval => {
-        let filteredTx;
-        
-        if (isCurrentDate) {
-          // Current date logic (using time windows from now)
-          const startTime = new Date(dayjs().valueOf() - interval.duration);
-          filteredTx = merchantTransactions.filter(tx => tx.updated_at >= startTime);
-        } else {
-          // Previous date logic (using fixed time slots)
-          const startTime = selectedDate.hour(interval.start).startOf('hour').toDate();
-          const endTime = selectedDate.hour(interval.end).startOf('hour').toDate();
-          filteredTx = merchantTransactions.filter(tx => 
-            tx.updated_at >= startTime && tx.updated_at < endTime
-          );
-        }
+    const stats = intervals.map(interval => {
+      let filteredTx;
+      
+      if (isCurrentDate) {
+        const startTime = new Date(dayjs().valueOf() - interval.duration);
+        filteredTx = merchantTransactions.filter(tx => tx.updated_at >= startTime);
+      } else {
+        const startTime = selectedDate.hour(interval.start).startOf('hour').toDate();
+        const endTime = selectedDate.hour(interval.end).startOf('hour').toDate();
+        filteredTx = merchantTransactions.filter(tx => 
+          tx.updated_at >= startTime && tx.updated_at < endTime
+        );
+      }
 
-        const total = filteredTx.length;
-        const success = filteredTx.filter(tx => tx.status === 'SUCCESS').length;
-        const utrSubmitted = filteredTx.filter(tx => tx.user_submitted_utr?.length > 0).length;
-        
-        return {
-          interval: interval.label,
-          total,
-          success,
-          utrSubmitted,
-          successRatio: total === 0 ? 0 : (success / total) * 100,
-          utrRatio: total === 0 ? 0 : (utrSubmitted / total) * 100
-        };
-      });
-
+      const total = filteredTx.length;
+      const success = filteredTx.filter(tx => tx.status === 'SUCCESS').length;
+      const utrSubmitted = filteredTx.filter(tx => tx.user_submitted_utr?.length > 0).length;
+      
       return {
-        merchantCode: merchant.code,
-        stats,
-        date: selectedDate.format('YYYY-MM-DD')
+        interval: interval.label,
+        total,
+        success,
+        utrSubmitted,
+        successRatio: total === 0 ? 0 : (success / total) * 100,
+        utrRatio: total === 0 ? 0 : (utrSubmitted / total) * 100
       };
     });
 
-    return ratios;
+    return [{
+      merchantCode: targetMerchant.code,
+      stats,
+      date: selectedDate.format('YYYY-MM-DD')
+    }];
+
   } catch (error) {
     logger.error('Error calculating success ratios:', error);
     throw error;
   }
 };
 
-const calculateSuccessRatiosService = async (date) => {
+const calculateSuccessRatiosService = async (date, user_ids) => {
   let conn;
   try {
     conn = await getConnection();
-    const merchants = await getMerchantsDao({});
-    const successRatios = await calculateSuccessRatios(merchants, date);
     
-    return { successRatios };
+    // Get merchants data using user_ids
+    const merchants = await getMerchantsDao({ 
+      user_id: user_ids 
+    });
 
+    // Process each merchant in parallel using user_ids
+    const successRatiosPromises = user_ids.map(async (userId) => {
+      return calculateSuccessRatios(merchants, date, userId);
+    });
+
+    const results = await Promise.all(successRatiosPromises);
+    const successRatios = results.filter(Boolean).flat();
+
+    return { successRatios };
   } catch (error) {
-    logger.error('Error in gatherAllData:', error);
+    logger.error('Error in calculateSuccessRatiosService:', error);
     throw error;
   } finally {
     if (conn) {
