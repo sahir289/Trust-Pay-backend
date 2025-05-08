@@ -1949,6 +1949,12 @@ export const generateUpiUrlService = async (payload) => {
   if (isNaN(payload.amount) || payload.amount <= 0) {
     return new BadRequestError('Invalid amount');
   }
+
+  // const vpaRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
+  // if (!vpaRegex.test(payload.payeeVPA)) {
+  //   return new BadRequestError('Invalid VPA format');
+  // }
+
   const uuid = generateUUID();
   const transactionId = `IND${uuid.replace(/-/g, '')}`.slice(0, 32);
 
@@ -1968,8 +1974,6 @@ export const generateUpiUrlService = async (payload) => {
   
 
   let encodedParams = querystring.stringify(params);
-
-  encodedParams += `&am=${parseFloat(payload.amount).toFixed(2)}`;
   
   const phonepeUrl = `phonepe://pay?${encodedParams}`;
   const gpayUrl = `gpay://upi/pay?${encodedParams}`;
