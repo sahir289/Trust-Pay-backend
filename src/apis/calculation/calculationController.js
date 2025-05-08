@@ -114,14 +114,20 @@ const deleteCalculation = async (req, res) => {
 
 export const calculateSuccessRatios = async (req, res) => {
   try {
-    const { date } = req.query;
-    const data = await calculateSuccessRatiosService(date);
-    return sendSuccess(res, data, 'Dashboard data fetched successfully');
+    const { date, user_ids } = req.body;
+    
+    if (!user_ids || !Array.isArray(user_ids) || user_ids.length === 0) {
+      throw new BadRequestError('user_ids array is required');
+    }
+
+    const data = await calculateSuccessRatiosService(date, user_ids);
+    return sendSuccess(res, data, 'Success ratios fetched successfully');
   } catch (error) {
-    console.error('Error fetching dashboard data:', error);
+    logger.error('Error fetching success ratio data:', error);
     throw error;
   }
 };
+
 export {
   getCalculationById,
   getCalculation,
