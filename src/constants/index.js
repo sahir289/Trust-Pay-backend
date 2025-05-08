@@ -549,6 +549,7 @@ export const tableName = {
   BANK_RESPONSE: 'BankResponse',
   ACCESS_TOKEN: 'AccessToken',
   USER_OTP: 'UserOtp',
+  BENEFICIARY_ACCOUNTS: 'BeneficiaryAccounts',
 };
 
 export const BankTypes = {
@@ -688,6 +689,13 @@ export const AccessRoles = {
     Role.VENDOR,
   ],
   COMPLAINTS: [Role.ADMIN],
+  BENEFICIARY_ACCOUNTS: [
+    Role.ADMIN,
+    Role.TRANSACTIONS,
+    Role.OPERATIONS,
+    Role.MERCHANT,
+    Role.VENDOR,
+  ],
 };
 export const COUNTRIES = ['India', 'United Arab Emirates', 'Pakistan'];
 
