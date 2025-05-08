@@ -18,9 +18,9 @@ const sendMerchantNotification = (url, data, type) => {
       if (response && response.status === 200) {
         logger.info(`${type} Notification Sent Successfully`, {
           status: response.status,
-          data: data ,
+          data: data,
         });
-        return response.data ;
+        return response.data;
       } else {
         logger.error(`${type} Notification received invalid response`, {
           response: response || 'undefined',

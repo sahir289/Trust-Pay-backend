@@ -5,54 +5,80 @@ import CloudWatchTransport from 'winston-cloudwatch';
 import appConfig from '../config/config.js';
 import chalk from 'chalk';
 
-const env = appConfig?.env;
-const aws = appConfig?.aws;
+const env = appConfig?.env || 'development';
+const aws = appConfig?.aws || {};
 const logDir = 'log';
 
 const originalLog = console.log;
 
+// Validate AWS configuration
+const { cloudWatchLogGroup, region, accessKeyId, secretAccessKey } = aws;
+const hasCloudWatchConfig = cloudWatchLogGroup && region && accessKeyId && secretAccessKey;
+
 class Logger {
   #logger;
   constructor() {
+    // Create log directory if it doesn't exist
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir);
     }
 
-    // AWS CloudWatch Transport Configuration
-    const cloudWatchConfig = {
-      logGroupName: aws.cloudWatchLogGroup, // Log group name in CloudWatch
-      logStreamName: `${env}-logs`, // Stream name (e.g., environment-specific)
-      awsRegion: aws.region, // AWS region (e.g., 'us-east-1')
-      awsAccessKeyId: aws.accessKeyId, // From appConfig or environment variables
-      awsSecretAccessKey: aws.secretAccessKey, // From appConfig or environment variables
-      retentionInDays: 7, // Optional: Retain logs for 7 days
-    };
+    // Define transports
+    const transports = [
+      new DailyRotate({
+        filename: `${logDir}/%DATE%-error-results.log`,
+        datePattern: 'YYYY-MM-DD',
+        level: 'error',
+        maxFiles: '14d',
+        maxSize: '20m',
+      }),
+      new DailyRotate({
+        filename: `${logDir}/%DATE%-info-results.log`,
+        datePattern: 'YYYY-MM-DD',
+        level: 'info',
+        maxFiles: '14d',
+        maxSize: '20m',
+      }),
+      new DailyRotate({
+        filename: `${logDir}/%DATE%-warn-results.log`,
+        datePattern: 'YYYY-MM-DD',
+        level: 'warn',
+        maxFiles: '14d',
+        maxSize: '20m',
+      }),
+    ];
 
+    // Add CloudWatch transport if configuration is complete
+    if (hasCloudWatchConfig) {
+      const cloudWatchConfig = {
+        logGroupName: cloudWatchLogGroup,
+        logStreamName: `${env}-logs`,
+        awsRegion: region,
+        awsAccessKeyId: accessKeyId,
+        awsSecretAccessKey: secretAccessKey,
+        retentionInDays: 7,
+        onError: (err) => originalLog(chalk.red('CloudWatch logging error:'), err),
+      };
+      transports.push(new CloudWatchTransport(cloudWatchConfig));
+    } else {
+      originalLog(
+        chalk.yellow(
+          'Warning: CloudWatch transport skipped due to missing AWS configuration (cloudWatchLogGroup, region, accessKeyId, or secretAccessKey)',
+        ),
+      );
+    }
+
+    // Initialize Winston logger
     this.#logger = createLogger({
       format: format.combine(
         format.errors({ stack: true }),
-        format.timestamp({ format: 'YYYY-MM-DD hh:mm:ss' }),
-        format.metadata(), // Capture additional arguments as metadata
-        format.json(), // Serialize all fields (message, metadata, stack) as JSON
+        format.timestamp({
+          format: () => new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }),
+        }),
+        format.metadata(),
+        format.json(),
       ),
-      transports: [
-        new DailyRotate({
-          filename: `${logDir}/%DATE%-error-results.log`,
-          datePattern: 'YYYY-MM-DD',
-          level: 'error',
-        }),
-        new DailyRotate({
-          filename: `${logDir}/%DATE%-info-results.log`,
-          datePattern: 'YYYY-MM-DD',
-          level: 'info',
-        }),
-        new DailyRotate({
-          filename: `${logDir}/%DATE%-warning-results.log`,
-          datePattern: 'YYYY-MM-DD',
-          level: 'warning',
-        }),
-        new CloudWatchTransport(cloudWatchConfig),
-      ],
+      transports,
       exitOnError: false,
     });
   }
@@ -61,7 +87,7 @@ class Logger {
     const typeChalk =
       level === 'error'
         ? chalk.red(level)
-        : level === 'warning'
+        : level === 'warn'
           ? chalk.yellowBright(level)
           : chalk.cyanBright(level);
     const options = {
@@ -79,13 +105,24 @@ class Logger {
       .toLocaleString('en-US', options)
       .replace(',', '');
 
+    // Handle args: If only one arg and it's an object, treat it as metadata
+    let message = '';
+    let metadata = {};
+    if (args.length === 1 && typeof args[0] === 'object' && !Array.isArray(args[0])) {
+      metadata = args[0];
+      message = 'Log event'; // Default message
+    } else {
+      message = args[0] || '';
+      metadata = args.length > 1 && typeof args[1] === 'object' ? args[1] : {};
+    }
+
+    // Format args for console output
     const formattedArgs = args.map((arg) =>
-      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg,
+      typeof arg === 'object' ? JSON.stringify(arg, null, 2).slice(0, 1000) : arg,
     );
     originalLog(`${typeChalk} : ${timestamp} ::`, ...formattedArgs);
 
-    const message = args[0] || '';
-    const metadata = args.length > 1 ? args[1] : {};
+    // Log to Winston
     this.#logger.log(level, message, metadata);
   }
 }
@@ -98,4 +135,4 @@ export const logger = {
   info: (...args) => winstonLogger.log('info', ...args),
   warn: (...args) => winstonLogger.log('warn', ...args),
   error: (...args) => winstonLogger.log('error', ...args),
-}
+};
