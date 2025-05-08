@@ -139,7 +139,7 @@ export const getCalculationsSumDao = async (filters) => {
 
   let effectiveUserId = user_id;
 
-if (designation === Role.MERCHANT_OPERATIONS) {
+if (designation === Role.MERCHANT_OPERATIONS || designation === Role.VENDOR_OPERATIONS) {
 const hierarchy = await getUserHierarchysDao({ user_id });
 const parentId = hierarchy?.[0]?.config?.parent;
 if (parentId) {
