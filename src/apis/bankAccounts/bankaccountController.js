@@ -102,12 +102,12 @@ const createBankaccount = async (req, res) => {
     : (payload.config = {});
   delete payload.is_phonepay;
   delete payload.is_intent;
-  const { user_id, company_id, role } = req.user;
+  const { user_id, company_id, designation,} = req.user;
   payload.created_by = user_id;
   payload.updated_by = user_id;
   payload.company_id = company_id;
   // const data =
-  await createBankaccountService(payload, role);
+  await createBankaccountService(payload,designation,user_id);
   console.log('get Banks successfully');
   return sendSuccess(res, {}, 'Created Banks successfully');
 };
