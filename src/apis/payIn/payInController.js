@@ -219,6 +219,7 @@ export const validatePayInUrl = async (req, res) => {
     req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
 
   const result = await verifyPayinsService(merchantOrderId, user_location);
+      sendNewSuccess(res, result, 'Payment Url is correct');
 
   return sendSuccess(res, result, 'Payment Url is correct');
 };
@@ -250,6 +251,7 @@ export const assignedBankToPayInUrl = async (req, res) => {
     req.body.amount,
     req.body.type,
   );
+    sendNewSuccess(res, result, 'Bank account is assigned');
   return sendSuccess(res, result, 'Bank account is assigned');
 };
 
@@ -412,6 +414,7 @@ export const processPayIn = async (req, res) => {
     false,
     true,
   );
+  sendNewSuccess(res, data, 'PayIn processed successfully');
   sendSuccess(res, data, 'PayIn processed successfully');
 };
 
