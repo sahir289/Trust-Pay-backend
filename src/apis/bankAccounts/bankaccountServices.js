@@ -21,7 +21,6 @@ import {
   getBankaccountDaoNickName,
   getBankAccountsBySearchDao,
 } from './bankaccountDao.js';
-
 const getBankaccountService = async (
   filters,
   company_id,
@@ -120,8 +119,14 @@ const getBankaccountServiceNickName = async (company_id, type) => {
   }
 };
 
-const createBankaccountService = async (payload) => {
+const createBankaccountService = async (payload, designation, user_id) => {
   try {
+    //child add bankaccount for its parent
+    if (designation === Role.VENDOR_OPERATIONS) {
+      const childHierarchy = await getUserHierarchysDao({ user_id });
+      const parentUserId = childHierarchy[0].config.parent;
+      payload.user_id = parentUserId;
+    }
     const result = await createBankaccountDao(payload);
     return result;
   } catch (error) {
