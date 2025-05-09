@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { createLogger, format } from 'winston';
 import DailyRotate from 'winston-daily-rotate-file';
-import CloudWatchTransport from 'winston-cloudwatch';
+import { CloudWatchLogsClient, PutLogEventsCommand, CreateLogStreamCommand } from '@aws-sdk/client-cloudwatch-logs';
 import appConfig from '../config/config.js';
 import chalk from 'chalk';
 
@@ -14,6 +14,67 @@ const originalLog = console.log;
 // Validate AWS configuration
 const { cloudWatchLogGroup, region, accessKeyId, secretAccessKey } = aws;
 const hasCloudWatchConfig = cloudWatchLogGroup && region && accessKeyId && secretAccessKey;
+
+class CloudWatchTransport {
+  constructor(config) {
+    this.logGroupName = config.logGroupName;
+    this.logStreamName = config.logStreamName;
+    this.client = new CloudWatchLogsClient({
+      region: config.awsRegion,
+      credentials: {
+        accessKeyId: config.awsAccessKeyId,
+        secretAccessKey: config.awsSecretAccessKey,
+      },
+    });
+    this.sequenceToken = null;
+    this.initializeLogStream();
+  }
+
+  async initializeLogStream() {
+    try {
+      await this.client.send(
+        new CreateLogStreamCommand({
+          logGroupName: this.logGroupName,
+          logStreamName: this.logStreamName,
+        })
+      );
+      originalLog(chalk.green(`CloudWatch log stream ${this.logStreamName} initialized`));
+    } catch (err) {
+      if (err.name !== 'ResourceAlreadyExistsException') {
+        originalLog(chalk.red(`Failed to create CloudWatch log stream: ${err.message}`));
+      }
+    }
+  }
+
+  async log(info, callback) {
+    try {
+      const logEvent = {
+        message: JSON.stringify({
+          level: info.level,
+          message: info.message,
+          statusCode: info.statusCode,
+          data: info.data,
+          timestamp: new Date().toISOString(),
+        }),
+        timestamp: Date.now(),
+      };
+
+      const params = {
+        logGroupName: this.logGroupName,
+        logStreamName: this.logStreamName,
+        logEvents: [logEvent],
+        sequenceToken: this.sequenceToken,
+      };
+
+      const response = await this.client.send(new PutLogEventsCommand(params));
+      this.sequenceToken = response.nextSequenceToken;
+      callback();
+    } catch (err) {
+      originalLog(chalk.red(`CloudWatch log error: ${err.message}`));
+      callback(err);
+    }
+  }
+}
 
 class Logger {
   #logger;
@@ -57,12 +118,10 @@ class Logger {
     if (hasCloudWatchConfig) {
       const cloudWatchConfig = {
         logGroupName: cloudWatchLogGroup,
-        logStreamName: `${env}-logs`,
+        logStreamName: `${env}-logs-${Date.now()}`,
         awsRegion: region,
         awsAccessKeyId: accessKeyId,
         awsSecretAccessKey: secretAccessKey,
-        retentionInDays: 7,
-        onError: (err) => originalLog(chalk.red(`CloudWatch logging error: ${err.message}`)),
       };
       try {
         transports.push(new CloudWatchTransport(cloudWatchConfig));
@@ -130,10 +189,10 @@ class Logger {
     let finalData = data || {};
 
     // Backward compatibility: Handle old usage patterns
-    if (arguments.length === 2 && typeof message === 'string' && typeof statusCode === 'object') {
+    if (arguments.length === 2 && typeof message === 'string' && typeof data === 'object') {
       // Case: logger.info('message', { data })
-      finalData = data?.status;
-      finalStatusCode = 200;
+      finalData = data?.data || data;
+      finalStatusCode = data?.status || 200;
     } else if (arguments.length === 1 && typeof message === 'object' && !Array.isArray(message)) {
       // Case: logger.info({ data })
       finalData = message;
