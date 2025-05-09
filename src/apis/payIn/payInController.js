@@ -469,7 +469,7 @@ export const disputeDuplicateTransaction = async (req, res) => {
     req.user.company_id,
     req.user.user_id,
   );
-  sendSuccess(res, data);
+  sendSuccess(res, data, 'PayIn Updated successfully');
 };
 
 export const telegramCheckUTR = async (req, res) => {
