@@ -133,8 +133,14 @@ const getBankaccountServiceNickName = async (company_id, type, role, user_id, de
   }
 };
 
-const createBankaccountService = async (payload) => {
+const createBankaccountService = async (payload, designation, user_id) => {
   try {
+    //child add bankaccount for its parent
+    if (designation === Role.VENDOR_OPERATIONS) {
+      const childHierarchy = await getUserHierarchysDao({ user_id });
+      const parentUserId = childHierarchy[0].config.parent;
+      payload.user_id = parentUserId;
+    }
     const result = await createBankaccountDao(payload);
     return result;
   } catch (error) {

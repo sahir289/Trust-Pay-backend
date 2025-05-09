@@ -641,7 +641,6 @@ export const updatePaymentNotificationStatusService = async (
     throw new Error('Invalid notification type.');
   }
 
-  let data;
   if (type === Type.PAYIN) {
     const payIn = await updatePayInUrlDao(payInId, { is_notified: true });
     if (!payIn) {
@@ -653,7 +652,7 @@ export const updatePaymentNotificationStatusService = async (
       company_id,
     });
 
-    data = await merchantPayinCallback(payIn.config?.urls?.notify, {
+    return await merchantPayinCallback(payIn.config?.urls?.notify, {
       status: payIn.status,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
@@ -679,7 +678,7 @@ export const updatePaymentNotificationStatusService = async (
       throw new NotFoundError('Merchant or payout notify URL not found.');
     }
 
-    data = await merchantPayoutCallback(payout.config?.urls?.notify, {
+    return await merchantPayoutCallback(payout.config?.urls?.notify, {
       code: merchant.code,
       merchantOrderId: payout.merchant_order_id,
       payoutId: payout.id,
@@ -689,7 +688,7 @@ export const updatePaymentNotificationStatusService = async (
     });
   }
 
-  return data;
+  return {};
 };
 
 export const updateDepositStatusService = async (
