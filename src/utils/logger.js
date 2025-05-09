@@ -32,10 +32,11 @@ class Logger {
       format: format.combine(
         format.errors({ stack: true }),
         format.timestamp({ format: 'YYYY-MM-DD hh:mm:ss' }),
-        format.printf(
-          (info) =>
-            `${info.timestamp} ${info.level}: ${info.message} ${info.splat || ''} ${info.stack || ''}`,
-        ),
+        format.json(),
+        // format.printf(
+        //   (info) =>
+        //     `${info.timestamp} ${info.level}: ${info.message} ${info.splat || ''} ${info.stack || ''}`,
+        // ),
       ),
       transports: [
         new DailyRotate({
