@@ -1,4 +1,4 @@
-import { logger } from "./logger.js";
+import { logger } from './logger.js';
 
 const sendSuccess = (
   res,
@@ -33,9 +33,9 @@ const sendSuccess = (
 
 const sendError = (
   res,
-  error = undefined,
-  message = undefined,
-  statusCode = 500,
+  error,
+  message,
+  statusCode,
 ) => {
   const finalRes = {
     error: {},
@@ -44,9 +44,9 @@ const sendError = (
   };
 
   if (message) {
-    finalRes.meta.message = message;
+    finalRes.error.message = message;
   }
-  if (error) {
+  if (error && typeof error === 'object' && Object.keys(error).length > 0) {
     finalRes.error = { ...error };
   }
   logger.error(message);

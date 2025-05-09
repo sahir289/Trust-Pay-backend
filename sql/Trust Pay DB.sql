@@ -343,6 +343,32 @@ CREATE TABLE "UserOtp" (
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
 );
 
+CREATE TABLE
+  public."BeneficiaryAccounts" (
+    id character varying NOT NULL DEFAULT uuid_generate_v4 (),
+    user_id character varying NOT NULL,
+    bank_name character varying NOT NULL,
+    acc_holder_name character varying(255) NOT NULL,
+    acc_no character varying NOT NULL,
+    ifsc character varying NOT NULL,
+    upi_id character varying NULL DEFAULT ''::character varying,
+    created_at timestamp(6)
+    with
+      time zone NOT NULL DEFAULT now(),
+      config json NOT NULL DEFAULT '{}'::json,
+      updated_at timestamp(6)
+    with
+      time zone NOT NULL DEFAULT now(),
+      created_by character varying NULL,
+      updated_by character varying NULL,
+      is_obsolete boolean NOT NULL DEFAULT false
+  );
+
+ALTER TABLE
+  public."BeneficiaryAccounts"
+ADD
+  CONSTRAINT "BeneficiaryAccounts_pkey" PRIMARY KEY (id)
+
 CREATE INDEX ON "Company" ("email");
 
 CREATE INDEX ON "Company" ("contact_no");
@@ -513,6 +539,10 @@ CREATE INDEX ON "Complaints" ("payin_id");
 
 CREATE INDEX ON "UserOtp" ("user_id");
 
+CREATE INDEX ON "BeneficiaryAccounts" ("user_id");
+
+CREATE INDEX ON "BeneficiaryAccounts" ("acc_no");
+
 COMMENT ON COLUMN "Merchant"."config" IS 'site_url, notify_url, return_url, payout_notify_url, api_key, secret_key, public_api_key, banks, "beneficiary": [{bankname, ifsc, account_name_holder, method}]';
 
 COMMENT ON COLUMN "Vendor"."config" IS '"beneficiary": [{bankname, ifsc, account_name_holder, method}]';
@@ -618,3 +648,5 @@ ALTER TABLE "Complaints" ADD FOREIGN KEY ("payin_id") REFERENCES "Payin" ("id");
 ALTER TABLE "Complaints" ADD FOREIGN KEY ("company_id") REFERENCES "Company" ("id");
 
 ALTER TABLE "UserOtp" ADD FOREIGN KEY ("user_id") REFERENCES "User" ("id");
+
+ALTER TABLE "BeneficiaryAccounts" ADD FOREIGN KEY ("user_id") REFERENCES "User" ("id");

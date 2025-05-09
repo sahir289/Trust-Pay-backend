@@ -7,9 +7,10 @@ import { logger } from './logger.js';
 const { Pool } = pkg;
 const pool = new Pool({
   connectionString: `${config.databaseUrl}?options=-c%20timezone%3DAsia%2FKolkata`,
-  ssl: {
-    rejectUnauthorized: false, // Set to true in production with valid certificates
-  },
+  ssl:
+    config.env === 'production'
+      ? { rejectUnauthorized: true }
+      : { rejectUnauthorized: false },
 });
 
 pool.on('error', async (err) => {
@@ -111,7 +112,10 @@ export const executeQuery = async (query, queryParams = []) => {
       logger.error(`\nQuery: ${query}\nParams: [${queryParams}]`);
 
       // Retry only for transient errors
-      if (error.message.includes('Connection terminated unexpectedly') && attempt < maxRetries) {
+      if (
+        error.message.includes('Connection terminated unexpectedly') &&
+        attempt < maxRetries
+      ) {
         logger.warn(`Retrying query (Attempt ${attempt + 1})...`);
         await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second before retrying
         continue;
@@ -200,7 +204,6 @@ export const buildSelectQuery = (
       values.push(value);
     }
     query += ` AND (${orConditions.join(' OR ')})`;
-    
   }
 
   // Apply sorting and pagination
@@ -257,7 +260,7 @@ export const buildUpdateQuery = (
   data,
   whereCondition,
   specialFields = {},
-  options = { returnUpdated: true } // Option to control RETURNING clause
+  options = { returnUpdated: true }, // Option to control RETURNING clause
 ) => {
   const values = [];
   const setClause = Object.entries(data).map(([key, value]) => {
@@ -284,7 +287,7 @@ export const buildAndExecuteUpdateQuery = async (
   whereCondition,
   specialFields = {},
   options = { returnUpdated: true }, // Option to control RETURNING clause
-  conn = null // Optional database connection
+  conn = null, // Optional database connection
 ) => {
   try {
     const values = [];
@@ -297,8 +300,14 @@ export const buildAndExecuteUpdateQuery = async (
       const processNestedKeys = (obj, parentKey = []) => {
         Object.entries(obj).forEach(([key, value]) => {
           const currentPath = [...parentKey, key];
-          if (typeof value === 'object' && !Array.isArray(value)) {
-            // Recursively process nested objects
+          // merging merchant_added object
+          if (key === 'merchant_added' && typeof value === 'object' && !Array.isArray(value)) {
+            const path = currentPath.join(',');
+            const mergeSnippet = `coalesce(${jsonbSetQuery}#>'{${path}}', '{}'::jsonb) || $${index}::jsonb`;
+            jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', ${mergeSnippet})`;
+            values.push(JSON.stringify(value));
+            index++;
+          } else if (typeof value === 'object' && !Array.isArray(value)) {            // Recursively process nested objects
             processNestedKeys(value, currentPath);
           } else {
             // Add jsonb_set for the current key
@@ -320,7 +329,7 @@ export const buildAndExecuteUpdateQuery = async (
       setClause.push(
         specialFields[key]
           ? `"${key}" = "${key}" ${specialFields[key]} $${index}` // Use specified operator (e.g., "+", "-")
-          : `"${key}" = $${index}`
+          : `"${key}" = $${index}`,
       );
       values.push(value);
       index++;
@@ -348,8 +357,12 @@ export const buildAndExecuteUpdateQuery = async (
       : await executeQuery(query, values); // Use default pool connection
 
     if (!result || !result.rows || result.rows.length === 0) {
-      console.warn('No rows updated. Please check the provided IDs and conditions.');
-      throw new Error('No rows updated. Please check the provided IDs and conditions.');
+      console.warn(
+        'No rows updated. Please check the provided IDs and conditions.',
+      );
+      throw new Error(
+        'No rows updated. Please check the provided IDs and conditions.',
+      );
     }
 
     return result.rows[0]; // Return the updated row
@@ -480,54 +493,71 @@ export const buildJoinQuery = (table, columns = '*', joins = []) => {
   return `SELECT ${selectCols.join(', ')} FROM "${table}" ${joinClauses.join(' ')} WHERE 1=1`;
 };
 
-const executePaginatedQuery = async ({ baseQuery, countQuery, params = [], page = 1, limit = 10 }) => {
+const executePaginatedQuery = async ({
+  baseQuery,
+  countQuery,
+  params = [],
+  page = 1,
+  limit = 10,
+}) => {
   // Convert page and limit to integers
   const pageNum = parseInt(page, 10) || 1;
   const limitNum = parseInt(limit, 10) || 10;
   const offset = (pageNum - 1) * limitNum;
-  console.log(typeof offset, offset, pageNum, "offset");
+  console.log(typeof offset, offset, pageNum, 'offset');
 
   // Base query params include limit and offset
-  const validParams = params.filter(param => param !== undefined);
+  const validParams = params.filter((param) => param !== undefined);
   const baseQueryParams = [...validParams, limitNum, offset];
-  console.log(baseQueryParams, "baseQueryParams")
+  console.log(baseQueryParams, 'baseQueryParams');
   // Count query params exclude limit and offset
   const countQueryParams = [...params];
 
   const limitPlaceholder = `$${baseQueryParams.length - 1 + 1}`; // Correct index
-  const offsetPlaceholder = `$${baseQueryParams.length + 1}`; 
+  const offsetPlaceholder = `$${baseQueryParams.length + 1}`;
 
-  console.log(`${baseQuery} LIMIT $${limitPlaceholder.length - 1} OFFSET $${offsetPlaceholder.length}`, '-------')
+  console.log(
+    `${baseQuery} LIMIT $${limitPlaceholder.length - 1} OFFSET $${offsetPlaceholder.length}`,
+    '-------',
+  );
 
   const [result, countResult] = await Promise.all([
-      executeQuery(`${baseQuery} LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}`, baseQueryParams),
-      executeQuery(countQuery, countQueryParams) // Use only the params needed for countQuery
+    executeQuery(
+      `${baseQuery} LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}`,
+      baseQueryParams,
+    ),
+    executeQuery(countQuery, countQueryParams), // Use only the params needed for countQuery
   ]);
 
   return {
-      rows: result.rows,
-      totalCount: parseInt(countResult.rows[0].total)
+    rows: result.rows,
+    totalCount: parseInt(countResult.rows[0].total),
   };
 };
 
-const buildSearchConditions = (searchTerms, searchableFields, paramStart = 1) => {
-  if (!searchTerms?.length) return { conditions: [], params: [], nextParam: paramStart };
+const buildSearchConditions = (
+  searchTerms,
+  searchableFields,
+  paramStart = 1,
+) => {
+  if (!searchTerms?.length)
+    return { conditions: [], params: [], nextParam: paramStart };
 
   const params = [];
   let paramCount = paramStart;
 
-  const conditions = searchTerms.map(term => {
-      const fieldConditions = searchableFields.map(field =>
-          `${field} ILIKE '%' || $${paramCount++} || '%'`
-      );
-      params.push(term);
-      return `(${fieldConditions.join(' OR ')})`
+  const conditions = searchTerms.map((term) => {
+    const fieldConditions = searchableFields.map(
+      (field) => `${field} ILIKE '%' || $${paramCount++} || '%'`,
+    );
+    params.push(term);
+    return `(${fieldConditions.join(' OR ')})`;
   });
 
   return {
-      conditions: conditions.length ? [`(${conditions.join(' AND ')})`] : [],
-      params,
-      nextParam: paramCount
+    conditions: conditions.length ? [`(${conditions.join(' AND ')})`] : [],
+    params,
+    nextParam: paramCount,
   };
 };
 
@@ -536,24 +566,24 @@ const buildFilterConditions = (filters, fieldMap, paramStart = 1) => {
   let paramCount = paramStart;
 
   const conditions = Object.entries(filters)
-      .filter(([_, value]) => value !== undefined && value !== null)
-      .map(([key, value]) => {
-          const field = fieldMap[key];
-          if (!field) return null;
-          params.push(value);
-          return `${field} = $${paramCount++}`;
-      })
-      .filter(Boolean);
+    .filter(([_, value]) => value !== undefined && value !== null)
+    .map(([key, value]) => {
+      const field = fieldMap[key];
+      if (!field) return null;
+      params.push(value);
+      return `${field} = $${paramCount++}`;
+    })
+    .filter(Boolean);
 
   return { conditions, params, nextParam: paramCount };
 };
 
-const generateQuery = (baseQuery, options={}) => {
+const generateQuery = (baseQuery, options = {}) => {
   // Default options
   const {
-      tableName = "CheckUtrHistory",
-      sortOrder = "DESC",
-      companyIdParam = "$1"
+    tableName = 'CheckUtrHistory',
+    sortOrder = 'DESC',
+    companyIdParam = '$1',
   } = options;
 
   // Build the additional conditions
@@ -567,7 +597,7 @@ const generateQuery = (baseQuery, options={}) => {
   const finalQuery = `${baseQuery} ${additionalConditions}`;
 
   return finalQuery;
-}
+};
 
 export {
   pool,

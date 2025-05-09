@@ -5,65 +5,91 @@ import CloudWatchTransport from 'winston-cloudwatch';
 import appConfig from '../config/config.js';
 import chalk from 'chalk';
 
-const env = appConfig?.env;
-const aws = appConfig?.aws;
+const env = appConfig?.env || 'development';
+const aws = appConfig?.aws || {};
 const logDir = 'log';
 
 const originalLog = console.log;
 
+// Validate AWS configuration
+const { cloudWatchLogGroup, region, accessKeyId, secretAccessKey } = aws;
+const hasCloudWatchConfig = cloudWatchLogGroup && region && accessKeyId && secretAccessKey;
+
 class Logger {
   #logger;
   constructor() {
+    // Create log directory if it doesn't exist
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir);
     }
 
-    // AWS CloudWatch Transport Configuration
-    const cloudWatchConfig = {
-      logGroupName: aws.cloudWatchLogGroup, // Log group name in CloudWatch
-      logStreamName: `${env}-logs`, // Stream name (e.g., environment-specific)
-      awsRegion: aws.region, // AWS region (e.g., 'us-east-1')
-      awsAccessKeyId: aws.accessKeyId, // From appConfig or environment variables
-      awsSecretAccessKey: aws.secretAccessKey, // From appConfig or environment variables
-      retentionInDays: 7, // Optional: Retain logs for 7 days
-    };
+    // Define transports
+    const transports = [
+      new DailyRotate({
+        filename: `${logDir}/%DATE%-error-results.log`,
+        datePattern: 'YYYY-MM-DD',
+        level: 'error',
+        maxFiles: '14d',
+        maxSize: '20m',
+      }),
+      new DailyRotate({
+        filename: `${logDir}/%DATE%-info-results.log`,
+        datePattern: 'YYYY-MM-DD',
+        level: 'info',
+        maxFiles: '14d',
+        maxSize: '20m',
+      }),
+      new DailyRotate({
+        filename: `${logDir}/%DATE%-warn-results.log`,
+        datePattern: 'YYYY-MM-DD',
+        level: 'warn',
+        maxFiles: '14d',
+        maxSize: '20m',
+      }),
+    ];
 
+    // Add CloudWatch transport if configuration is complete
+    if (hasCloudWatchConfig) {
+      const cloudWatchConfig = {
+        logGroupName: cloudWatchLogGroup,
+        logStreamName: `${env}-logs`,
+        awsRegion: region,
+        awsAccessKeyId: accessKeyId,
+        awsSecretAccessKey: secretAccessKey,
+        retentionInDays: 7,
+        onError: (err) => originalLog(chalk.red('CloudWatch logging error:'), err),
+      };
+      transports.push(new CloudWatchTransport(cloudWatchConfig));
+    } else {
+      originalLog(
+        chalk.yellow(
+          'Warning: CloudWatch transport skipped due to missing AWS configuration (cloudWatchLogGroup, region, accessKeyId, or secretAccessKey)',
+        ),
+      );
+    }
+
+    // Initialize Winston logger
     this.#logger = createLogger({
       format: format.combine(
         format.errors({ stack: true }),
-        format.timestamp({ format: 'YYYY-MM-DD hh:mm:ss' }),
-        format.printf(
-          (info) =>
-            `${info.timestamp} ${info.level}: ${info.message} ${info.splat || ''} ${info.stack || ''}`,
-        ),
+        format.printf(({ message, statusCode, data }) => {
+          return JSON.stringify({
+            message,
+            statusCode: statusCode || 200, // Default statusCode if not provided
+            data: data || {},
+          });
+        }),
       ),
-      transports: [
-        new DailyRotate({
-          filename: `${logDir}/%DATE%-error-results.log`,
-          datePattern: 'YYYY-MM-DD',
-          level: 'error',
-        }),
-        new DailyRotate({
-          filename: `${logDir}/%DATE%-info-results.log`,
-          datePattern: 'YYYY-MM-DD',
-          level: 'info',
-        }),
-        new DailyRotate({
-          filename: `${logDir}/%DATE%-warning-results.log`,
-          datePattern: 'YYYY-MM-DD',
-          level: 'warning',
-        }),
-        new CloudWatchTransport(cloudWatchConfig),
-      ],
+      transports,
       exitOnError: false,
     });
   }
 
-  log(level, ...args) {
+  log(level, message, statusCode, data) {
     const typeChalk =
       level === 'error'
         ? chalk.red(level)
-        : level === 'warning'
+        : level === 'warn'
           ? chalk.yellowBright(level)
           : chalk.cyanBright(level);
     const options = {
@@ -80,8 +106,34 @@ class Logger {
     const timestamp = new Date()
       .toLocaleString('en-US', options)
       .replace(',', '');
-    originalLog(`${typeChalk} : ${timestamp} ::`, ...args);
-    this.#logger.log(level, args.shift(), args);
+
+    // Handle arguments
+    let finalMessage = message || 'Log event';
+    let finalStatusCode = statusCode || 200;
+    let finalData = data || {};
+
+    // If message is an object and statusCode/data are not provided, treat message as data
+    if (typeof message === 'object' && !Array.isArray(message) && !statusCode && !data) {
+      finalData = message;
+      finalMessage = 'Log event';
+      finalStatusCode = 200;
+    }
+
+    // Format args for console output
+    const consoleArgs = [
+      finalMessage,
+      ...(typeof finalStatusCode === 'number' ? [finalStatusCode] : []),
+      ...(Object.keys(finalData).length > 0 ? [JSON.stringify(finalData, null, 2).slice(0, 1000)] : []),
+    ];
+    originalLog(`${typeChalk} : ${timestamp} ::`, ...consoleArgs);
+
+    // Log to Winston
+    this.#logger.log({
+      level,
+      message: finalMessage,
+      statusCode: finalStatusCode,
+      data: finalData,
+    });
   }
 }
 
@@ -89,8 +141,8 @@ export default Logger;
 const winstonLogger = new Logger();
 
 export const logger = {
-  log: (...args) => winstonLogger.log('info', ...args),
-  info: (...args) => winstonLogger.log('info', ...args),
-  warn: (...args) => winstonLogger.log('warn', ...args),
-  error: (...args) => winstonLogger.log('error', ...args),
-}
+  log: (message, statusCode, data) => winstonLogger.log('info', message, statusCode, data),
+  info: (message, statusCode, data) => winstonLogger.log('info', message, statusCode, data),
+  warn: (message, statusCode, data) => winstonLogger.log('warn', message, statusCode, data),
+  error: (message, statusCode, data) => winstonLogger.log('error', message, statusCode, data),
+};

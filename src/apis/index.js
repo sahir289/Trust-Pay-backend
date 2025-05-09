@@ -24,6 +24,7 @@ import { swaggerSpecs } from '../../swaggerConfig.js';
 import resetHistory from './resetHistory/index.js';
 import checkUtr from './checkutr/index.js';
 import common from './common/index.js';
+import beneficiaryAccounts from './beneficiaryAccounts/index.js';
 
 const parentRouter = express.Router();
 const router = express.Router();
@@ -48,6 +49,7 @@ router.use('/payout', payOut);
 router.use('/reports', reports);
 router.use('/checkUtr', checkUtr);
 router.use('/resetHistory' , resetHistory)
+router.use('/beneficiaryAccounts' , beneficiaryAccounts)
 // Public routes (no authorization required)
 router.use('/ping', ping);
 router.use('/auth', auth);

@@ -6,21 +6,22 @@ import {
   // VALIDATE_BANK_RESPONSE_QUERY,
 } from '../../schemas/bankResponseSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
+import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { getPayInUrlsDao, updatePayInUrlDao } from '../payIn/payInDao.js';
 import { getBankResponseDao, updateBotResponseDao } from './bankResponseDao.js';
 
 import {
   getBankResponseService,
+  getClaimResponseService,
   getBankMessageServices,
   createBankResponseService,
   updateBankResponseService,
   getBankResponseBySearchService,
 } from './bankResponseServices.js';
-import{ BadRequestError } from '../../utils/appErrors.js';
+import { BadRequestError } from '../../utils/appErrors.js';
 
 import { transactionWrapper } from '../../utils/db.js';
-import { Role } from '../../constants/index.js';
+import { Role, Status } from '../../constants/index.js';
 
 const getBankResponse = async (req, res) => {
   const { role, company_id } = req.user;
@@ -33,6 +34,22 @@ const getBankResponse = async (req, res) => {
   return sendSuccess(res, data, 'Bank response retrieved successfully');
 };
 
+const getClaimResponse = async (req, res) => {
+  const { role, company_id } = req.user;
+  const { page, limit, search } = req.query;
+  const payload = {
+    ...req.query,
+    company_id,
+  };
+  const data = await getClaimResponseService(
+    payload,
+    role,
+    page,
+    limit,
+    search,
+  );
+  return sendSuccess(res, data, 'Bank response retrieved successfully');
+};
 
 const getBankResponseBySearch = async (req, res) => {
   const { company_id, role } = req.user;
@@ -101,7 +118,7 @@ const updateBankResponse = async (req, res) => {
   const { id } = req.params;
   const ids = { id, company_id };
   await updateBankResponseService(ids, payload, role);
- 
+
   return sendSuccess(res, {}, 'BankResponse updated successfully');
 };
 
@@ -124,7 +141,7 @@ const getBankMessage = async (req, res) => {
 const resetBankResponse = async (req, res) => {
   const { company_id, user_name } = req.user;
   const { id } = req.params;
-  const { amount, previousAmount } = req.body;
+  const { amount } = req.body;
 
   const { error: bodyError } = RESET_BANK_RESPONSE_SCHEMA.validate(req.body);
   if (bodyError) {
@@ -132,24 +149,47 @@ const resetBankResponse = async (req, res) => {
   }
 
   const botRes = await getBankResponseDao({ id: id, company_id: company_id });
+  const previousAmount = botRes?.amount;
   let getallPayinDataByUtr;
   getallPayinDataByUtr = await getPayInUrlsDao({
     user_submitted_utr: botRes.utr,
   });
 
+  if (getallPayinDataByUtr?.length === 0) {
+    getallPayinDataByUtr = await getPayInUrlsDao({
+      bank_response_id: botRes.id,
+    });
+  }
+
   const hasSuccess = getallPayinDataByUtr?.some(
-    (item) => item.status === 'SUCCESS',
+    (item) => item.status === Status.SUCCESS,
   );
 
+  let hasSuccessData = false;
   if (!hasSuccess) {
+    const getAllPayinDataByBotResponse = await getPayInUrlsDao({
+      bank_response_id: botRes.id,
+    });
+
+    hasSuccessData = getAllPayinDataByBotResponse?.some(
+      (item) => item.status === Status.SUCCESS,
+    );
+  }
+
+  if (!hasSuccess && !hasSuccessData) {
     const data = {
       is_used: false,
       updated_by: user_name,
       config: {
         ...(botRes.config || {}),
-        previousAmount: typeof previousAmount === 'number' && !isNaN(previousAmount)
-          ? previousAmount
-          : botRes.amount,
+        ...(amount
+          ? {
+              previousAmount:
+                typeof previousAmount === 'number' && !isNaN(previousAmount)
+                  ? previousAmount
+                  : botRes.amount,
+            }
+          : {}),
       },
     };
 
@@ -159,36 +199,117 @@ const resetBankResponse = async (req, res) => {
 
     await updateBotResponseDao(id, data);
 
-    const isEqualUTR = getallPayinDataByUtr?.some(
-      (item) => item.user_submitted_utr === botRes.utr,
-    );
-    if (isEqualUTR) {
-      const updatePayinID = getallPayinDataByUtr?.filter(
-        (item) =>
-          item.user_submitted_utr === botRes.utr && item.status !== 'FAILED',
+    if (amount) {
+      const isEqualUTR = getallPayinDataByUtr?.some(
+        (item) => item.user_submitted_utr === botRes.utr,
       );
-      const updatePayinData = {
-        status: 'ASSIGNED',
-        user_submitted_utr: null,
-        updated_by: user_name,
-      };
-      await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData);
+      const isEqualBotResponse = getallPayinDataByUtr?.some(
+        (item) => item.bank_response_id === botRes.id,
+      );
+      if (isEqualUTR) {
+        const updatePayinID = getallPayinDataByUtr?.filter(
+          (item) =>
+            item.user_submitted_utr === botRes.utr &&
+            item.status !== Status.FAILED,
+        );
+        const updatePayinData = {
+          status:
+            new Date().getTime() -
+              new Date(updatePayinID[0].created_at).getTime() <
+            10 * 60 * 1000
+              ? Status.ASSIGNED
+              : Status.DROPPED,
+          user_submitted_utr: null,
+          bank_response_id: null,
+          updated_by: user_name,
+        };
+        await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData);
+      } else if (isEqualBotResponse) {
+        const updatePayinID = getallPayinDataByUtr?.filter(
+          (item) =>
+            item.bank_response_id === botRes.id &&
+            item.status !== Status.FAILED,
+        );
+        const updatePayinData = {
+          status:
+            new Date().getTime() -
+              new Date(updatePayinID[0].created_at).getTime() <
+            10 * 60 * 1000
+              ? Status.ASSIGNED
+              : Status.DROPPED,
+          user_submitted_utr: null,
+          bank_response_id: null,
+          updated_by: user_name,
+        };
+        await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData);
+      }
+      return sendSuccess(
+        res,
+        {},
+        `Bot response Reset successful. Previous Amount: ${data.previousAmount}`,
+      );
+    } else {
+      const isEqualUTR = getallPayinDataByUtr?.some(
+        (item) => item.user_submitted_utr === botRes.utr,
+      );
+      const isEqualBotResponse = getallPayinDataByUtr?.some(
+        (item) => item.bank_response_id === botRes.id,
+      );
+      if (isEqualUTR) {
+        const updatePayinID = getallPayinDataByUtr?.filter(
+          (item) =>
+            item.user_submitted_utr === botRes.utr &&
+            item.status !== Status.FAILED,
+        );
+        const updatePayinData = {
+          status:
+            new Date().getTime() -
+              new Date(updatePayinID[0].created_at).getTime() <
+            10 * 60 * 1000
+              ? Status.ASSIGNED
+              : Status.DROPPED,
+          user_submitted_utr: null,
+          bank_response_id: null,
+          updated_by: user_name,
+        };
+        await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData);
+      } else if (isEqualBotResponse) {
+        const updatePayinID = getallPayinDataByUtr?.filter(
+          (item) =>
+            item.bank_response_id === botRes.id &&
+            item.status !== Status.FAILED,
+        );
+        const updatePayinData = {
+          status:
+            new Date().getTime() -
+              new Date(updatePayinID[0].created_at).getTime() <
+            10 * 60 * 1000
+              ? Status.ASSIGNED
+              : Status.DROPPED,
+          user_submitted_utr: null,
+          bank_response_id: null,
+          updated_by: user_name,
+        };
+        await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData);
+      }
+      return sendSuccess(res, {}, `Bot response Reset successful`);
     }
-    return sendSuccess(res, {}, `Bot response Reset successful. Previous Amount: ${data.previousAmount}`);
   } else {
     const successPayinDataID = getallPayinDataByUtr?.filter(
       (item) => item.status === 'SUCCESS',
     );
-    return sendSuccess(
+    return sendError(
       res,
       {},
-      `UTR of this entry is already used with ${successPayinDataID[0]?.merchant_order_id} Merchant Order ID, No Changes Applied. Previous Amount: ${botRes.amount}`,
+      `UTR of this entry is already confirmed with ${successPayinDataID[0]?.merchant_order_id} Merchant Order ID, No Changes Applied. Previous Amount: ${botRes.amount}`,
+      400,
     );
   }
 };
 
 export {
   getBankResponse,
+  getClaimResponse,
   createBankResponse,
   createBankBotResponse,
   updateBankResponse,

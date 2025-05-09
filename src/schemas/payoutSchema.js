@@ -5,13 +5,15 @@ export const PAYOUT_DETAILS_SCHEMA = Joi.object({
   method: Joi.string().label('method').optional(),
   bank_acc_id: Joi.string().label('bank_acc_id').optional(),
   reason: Joi.string().label('reason').optional(),
-  user: Joi.string().label('user').required(),
+  user_id: Joi.string().label('user_id').optional(),
+  user: Joi.string().label('user').optional(),
   code: Joi.string().label('code').required(),
   acc_holder_name: Joi.string().label('acc_holder_name').required(),
   acc_no: Joi.string().label('acc_no').required(),
   bank_name: Joi.string().label('bank_name').required(),
   amount: Joi.number().label('amount').required(),
   utr_id: Joi.string().label('utr_id').optional(),
+  merchant_order_id: Joi.string().label('merchant_order_id').optional(),
 });
 
 export const UPDATE_DETAILS_SCHEMA = Joi.object({

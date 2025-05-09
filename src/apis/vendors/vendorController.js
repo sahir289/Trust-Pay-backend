@@ -127,15 +127,11 @@ const updateVendor = async (req, res) => {
 };
 
 const deleteVendor = async (req, res) => {
-  const { error: idError } = VALIDATE_VENDOR_BY_ID.validate(req.params);
-  if (idError) {
-    throw new ValidationError(idError);
-  }
   const { role } = req.user;
-  const { id } = req.params; // Assuming the Vendor ID is passed as a parameter
+  const { user_id } = req.params; // Assuming the Vendor ID is passed as a parameter
   // Call the service to delete the Vendor
   const { company_id } = req.user;
-  const ids = { company_id, id };
+  const ids = { company_id, user_id };
   await deleteVendorService(ids, role);
   // Log success message
   logger.log('Vendor deleted successfully');

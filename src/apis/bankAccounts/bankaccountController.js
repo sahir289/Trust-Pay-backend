@@ -62,8 +62,8 @@ const getBankAccountBySearch = async (req, res) => {
 
 const getBankaccountNickName = async (req, res) => {
   const { type } = req.query;
-  const { company_id } = req.user;
-  const data = await getBankaccountServiceNickName(company_id, type);
+  const { company_id, role, user_id, designation } = req.user;
+  const data = await getBankaccountServiceNickName(company_id, type, role, user_id, designation);
   return sendSuccess(res, data, 'get Banks successfully');
 };
 
