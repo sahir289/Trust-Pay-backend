@@ -1,6 +1,6 @@
 import config from '../../config/config.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
-import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
+import { sendError, sendSuccess,sendNewSuccess } from '../../utils/responseHandlers.js';
 import {
   ASSIGN_PAYIN_SCHEMA,
   VALIDATE_ASSIGNED_BANT_TO_PAY,
@@ -190,6 +190,7 @@ export const generatePayInUrl = async (req, res) => {
     payInUrl: `${config.reactPaymentOrigin}/transaction/${generatedHash}${queryStr}`, // Use env
     payinId: result.id,
     merchantOrderId: result.merchant_order_id,
+    status:result.status
   };
 
   // return sendSuccess(
@@ -197,12 +198,12 @@ export const generatePayInUrl = async (req, res) => {
   //   updateRes,
   //   'PayIn is generated & url is sent successfully',
   // );
-
-  return res.status(200).json({
-    message: 'PayIn is generated & url is sent successfully',
-    statusCode: 200,
-    data: updateRes,
-  });
+  return sendNewSuccess(res, updateRes, 'PayIn is generated & url is sent successfully');
+  // return res.status(200).json({
+  //   message: 'PayIn is generated & url is sent successfully',
+  //   statusCode: 200,
+  //   data: updateRes,
+  // });
 };
 
 /**
@@ -274,12 +275,12 @@ export const checkPayInStatus = async (req, res) => {
     api_key,
     res
   );
-  // sendSuccess(res, data);
-  return res.status(200).json({
-    message: 'PayIn status fetched successfully',
-    statusCode: 200,
-    data,
-  });
+  return sendNewSuccess(res, data, 'PayIn status fetched successfully');
+  // return res.status(200).json({
+  //   message: 'PayIn status fetched successfully',
+  //   statusCode: 200,
+  //   data,
+  // });
 };
 
 export const payInIntentGenerateOrder = async (req, res) => {
@@ -411,11 +412,11 @@ export const processPayIn = async (req, res) => {
     false,
     true,
   );
-  sendSuccess(res, data);
+  sendSuccess(res, data, 'PayIn processed successfully');
 };
 
 export const telegramOCR = async (req, res) => {
-  sendSuccess(res, 'API Called Successfully!');
+  sendSuccess(res,{}, 'API Called Successfully!');
   const message = req.body.message;
 
   if (!message || typeof message !== 'object') {
@@ -484,5 +485,5 @@ export const telegramCheckUTR = async (req, res) => {
     req.user.company_id,
     req.user.user_id,
   );
-  sendSuccess(res, result);
+  sendSuccess(res, result, 'telegramCheckUTR Successfully');
 };
