@@ -34,6 +34,7 @@ import {
   updatePaymentNotificationStatusService,
   getPayinsBySearchService,
   verifyPayinsService,
+  generateUpiUrlService,
 } from './payInService.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
@@ -50,7 +51,7 @@ import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
 
 //  To Generate Url
 export const generateHashForPayIn = async (req, res) => {
-  const updateRes = await generatePayInUrlByHashService(req);
+  const updateRes = await generatePayInUrlByHashService(req,res);     //-- sending res to resolve
 
   return sendSuccess(res, updateRes, 'PayIn hash generated successfully');
 };
@@ -221,6 +222,20 @@ export const validatePayInUrl = async (req, res) => {
   return sendSuccess(res, result, 'Payment Url is correct');
 };
 
+export const generateUpiUrl = async (req, res) => {
+
+  const payload = req.body;
+
+  // const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
+  // if (joiValidation.error) {
+  //   throw new ValidationError(joiValidation.error);
+  // }
+
+  const result = await generateUpiUrlService(payload);
+
+  return sendSuccess(res, result, 'UPI Url is generated successfully');
+};
+
 export const assignedBankToPayInUrl = async (req, res) => {
   const joiValidation = VALIDATE_ASSIGNED_BANT_TO_PAY.validate({
     ...req.params,
@@ -326,7 +341,6 @@ export const resetDeposit = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  console.log(merchant_order_id, 'merchant_order__id')
   const data = await transactionWrapper(resetDepositService)(
     merchant_order_id,
     req.user.company_id,

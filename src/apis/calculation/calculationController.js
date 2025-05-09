@@ -4,6 +4,7 @@ import {
   createCalculationService,
   updateCalculationService,
   deleteCalculationService,
+  calculateSuccessRatiosService,
 } from './calculationService.js';
 import { transactionWrapper } from '../../utils/db.js';
 import {
@@ -110,6 +111,23 @@ const deleteCalculation = async (req, res) => {
   console.info('Delete Calculation successfully', 'info');
   return sendSuccess(res, {}, 'Delete Calculation successfully');
 };
+
+export const calculateSuccessRatios = async (req, res) => {
+  try {
+    const { date, user_ids } = req.body;
+    
+    if (!user_ids || !Array.isArray(user_ids) || user_ids.length === 0) {
+      throw new BadRequestError('user_ids array is required');
+    }
+
+    const data = await calculateSuccessRatiosService(date, user_ids);
+    return sendSuccess(res, data, 'Success ratios fetched successfully');
+  } catch (error) {
+    logger.error('Error fetching success ratio data:', error);
+    throw error;
+  }
+};
+
 export {
   getCalculationById,
   getCalculation,

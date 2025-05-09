@@ -12,6 +12,7 @@ import {
   updateBotResponseDao,
   getBankResponseDaoAll,
   updateBankResponseDao,
+  getClaimResponseDao,
   getBankResponseBySearchDao,
 } from './bankResponseDao.js';
 import { logger } from '../../utils/logger.js';
@@ -466,6 +467,34 @@ const updateCalculationTable = async (user_id, data, conn) => {
   }
 };
 
+const getClaimResponseService = async (payload, role, page, limit, search) => {
+  try {
+    const filterColumns =
+      role === Role.MERCHANT
+        ? merchantColumns.BANK_RESPONSE
+        : role === Role.VENDOR
+          ? vendorColumns.BANK_RESPONSE
+          : columns.BANK_RESPONSE;
+
+          console.log('payload', payload);
+
+    let filters = Object.fromEntries(
+      Object.entries({
+        date: payload.date|| undefined,
+        company_id: payload.company_id || undefined,
+      }).filter(([, v]) => v !== undefined),
+    );
+    filters = {
+      ...(search ? { search } : {}),
+      ...filters,
+    }
+    return await getClaimResponseDao(filters, page, limit, 'updated_at', 'DESC', filterColumns);
+  } catch (error) {
+    logger.error('Error in getBankResponseService:', error);
+    throw new InternalServerError(error);
+  }
+};
+
 const getBankResponseService = async (payload, role, page, limit, search) => {
   try {
     const filterColumns =
@@ -653,6 +682,7 @@ const resetBankResponseService = async (id, userData) => {
 
 export {
   getBankResponseService,
+  getClaimResponseService,
   createBankResponseService,
   updateBankResponseService,
   getBankMessageServices,

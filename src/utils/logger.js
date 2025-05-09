@@ -60,6 +60,7 @@ class Logger {
   }
 
   log(level, ...args) {
+    console.log(args);
     const typeChalk =
       level === 'error'
         ? chalk.red(level)

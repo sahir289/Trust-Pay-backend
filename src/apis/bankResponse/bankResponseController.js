@@ -12,6 +12,7 @@ import { getBankResponseDao, updateBotResponseDao } from './bankResponseDao.js';
 
 import {
   getBankResponseService,
+  getClaimResponseService,
   getBankMessageServices,
   createBankResponseService,
   updateBankResponseService,
@@ -30,6 +31,23 @@ const getBankResponse = async (req, res) => {
     company_id,
   };
   const data = await getBankResponseService(payload, role, page, limit, search);
+  return sendSuccess(res, data, 'Bank response retrieved successfully');
+};
+
+const getClaimResponse = async (req, res) => {
+  const { role, company_id } = req.user;
+  const { page, limit, search } = req.query;
+  const payload = {
+    ...req.query,
+    company_id,
+  };
+  const data = await getClaimResponseService(
+    payload,
+    role,
+    page,
+    limit,
+    search,
+  );
   return sendSuccess(res, data, 'Bank response retrieved successfully');
 };
 
@@ -291,6 +309,7 @@ const resetBankResponse = async (req, res) => {
 
 export {
   getBankResponse,
+  getClaimResponse,
   createBankResponse,
   createBankBotResponse,
   updateBankResponse,

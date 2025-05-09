@@ -7,14 +7,17 @@ const sendMerchantNotification = async (url, data, type) => {
       logger.error(`No URL provided for ${type} Notification`);
       throw new Error('Notify Url not found!');
     }
-    console.info(`Sending ${type} Notification to Merchant`, {
+    logger.info(`Sending ${type} Notification to Merchant`, {
       notify_url: url,
       notify_data: data,
     });
     const response = await axios.post(url, data);
+    console.log(response)
     logger.info(`${type} Notification Sent Successfully`, {
+      //send dat in logs
       status: response.status,
-      data: response.data,
+      url: url,
+      data: data,
     });
     return response.data;
   } catch (error) {
