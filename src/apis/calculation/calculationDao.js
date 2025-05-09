@@ -117,44 +117,174 @@ const getCalculationDao = async (
 };
 
 export const getCalculationsSumDao = async (filters) => {
-  const {
-    role,
-    designation,
-    startDate: start,
-    endDate: end,
-    user_id,
-    users,
-    company_id
-  } = filters;
+  try {
+    const {
+      role,
+      designation,
+      startDate: start,
+      endDate: end,
+      user_id,
+      users,
+      company_id
+    } = filters;
 
-  const startDate = start
-    ? dayjs(start).tz(IST).startOf('day').toISOString()
-    : dayjs().tz(IST).startOf('day').toISOString();
+    const startDate = start
+      ? dayjs(start).tz(IST).startOf('day').toISOString()
+      : dayjs().tz(IST).startOf('day').toISOString();
 
-  const endDate = end
-    ? dayjs(end).tz(IST).endOf('day').toISOString()
-    : dayjs().tz(IST).endOf('day').toISOString();
-  let vendorData = {}, merchantData = {}, netBalance = {};
-  let hierarchyUsers = [], userCodes = users ? users.split(", ") : [];
+    const endDate = end
+      ? dayjs(end).tz(IST).endOf('day').toISOString()
+      : dayjs().tz(IST).endOf('day').toISOString();
+    let vendorData = {}, merchantData = {}, netBalance = {};
+    let hierarchyUsers = [];
 
-  let effectiveUserId = user_id;
+    // Fix the userCodes array creation
+    let userCodes = [];
+    if (users) {
+      // Handle both comma-with-space and comma-only separators
+      userCodes = users.split(/\s*,\s*/).filter(id => id.trim());
+      logger.info('Processed user codes:', userCodes);
+    }
 
-if (designation === Role.MERCHANT_OPERATIONS || designation === Role.VENDOR_OPERATIONS) {
-const hierarchy = await getUserHierarchysDao({ user_id });
-const parentId = hierarchy?.[0]?.config?.parent;
-if (parentId) {
-effectiveUserId = parentId;
-logger.info('Using parent merchant ID:', parentId);
-}
-}
+    let effectiveUserId = user_id;
 
+    if (designation === Role.MERCHANT_OPERATIONS || designation === Role.VENDOR_OPERATIONS) {
+      const hierarchy = await getUserHierarchysDao({ user_id });
+      const parentId = hierarchy?.[0]?.config?.parent;
+      if (parentId) {
+        effectiveUserId = parentId;
+        logger.info('Using parent merchant ID:', parentId);
+      }
+    }
 
-  const groupBy = ` GROUP BY DATE_TRUNC('day', c.created_at) ORDER BY DATE_TRUNC('day', c.created_at)DESC;`
+    const groupBy = ` GROUP BY DATE_TRUNC('day', c.created_at) ORDER BY DATE_TRUNC('day', c.created_at)DESC;`
 
-  // Modified Base Query with numeric casting
-  let baseQuery = `
-    SELECT 
-       (DATE_TRUNC('day', c.created_at) AT TIME ZONE '${IST}') AS date,
+    // Modified Base Query with numeric casting
+    let baseQuery = `
+      SELECT 
+         (DATE_TRUNC('day', c.created_at) AT TIME ZONE '${IST}') AS date,
+          CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
+          CAST(ROUND(SUM(c.total_payin_amount)::NUMERIC, 2) AS FLOAT) AS total_payin_amount,
+          CAST(ROUND(SUM(c.total_payin_commission)::NUMERIC, 2) AS FLOAT) AS total_payin_commission,
+          CAST(SUM(c.total_payout_count) AS INTEGER) AS total_payout_count,
+          CAST(ROUND(SUM(c.total_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_payout_amount,
+          CAST(ROUND(SUM(c.total_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_payout_commission,
+          CAST(SUM(c.total_settlement_count) AS INTEGER) AS total_settlement_count,
+          CAST(ROUND(SUM(c.total_settlement_amount)::NUMERIC, 2) AS FLOAT) AS total_settlement_amount,
+          CAST(SUM(c.total_chargeback_count) AS INTEGER) AS total_chargeback_count,
+          CAST(ROUND(SUM(c.total_chargeback_amount)::NUMERIC, 2) AS FLOAT) AS total_chargeback_amount,
+          CAST(SUM(c.total_reverse_payout_count) AS INTEGER) AS total_reverse_payout_count,
+          CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_amount,
+          CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
+          CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
+          CAST(ROUND(SUM(c.net_balance)::NUMERIC, 2) AS FLOAT) AS net_balance
+      FROM "${tableName.CALCULATION}" c
+      JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
+      JOIN "${tableName.ROLE}" r ON u.role_id = r.id
+    `;
+
+    // Queries for Different Roles
+    let merchantQuery = `${baseQuery} 
+      JOIN "${tableName.MERCHANT}" m ON m.user_id = c.user_id
+      WHERE c.is_obsolete = FALSE 
+      AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
+      AND r.role = 'MERCHANT' `;
+    let vendorQuery = `${baseQuery} 
+      JOIN "${tableName.VENDOR}" v ON v.user_id = c.user_id
+      WHERE c.is_obsolete = FALSE 
+      AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
+      AND r.role = 'VENDOR' `;
+
+    // Include hierarchy filtering (match against `code` column)
+    if (hierarchyUsers.length) {
+      merchantQuery += `
+        AND EXISTS (
+          SELECT 1 FROM merchant m
+          WHERE m.user_id = ANY(ARRAY[${hierarchyUsers.map((el=> `'${el}'`))}])
+        )`;
+
+      vendorQuery += `
+        AND EXISTS (
+          SELECT 1 FROM vendor v
+          WHERE v.user_id = ANY(ARRAY[${hierarchyUsers.map((el=> `'${el}'`))}])
+        )`;
+    }
+
+    // Modified user code condition for merchant and vendor queries
+    if (userCodes.length > 0) {
+      const userCodeParams = userCodes.map(code => `'${code}'`).join(',');
+      merchantQuery += ` AND m.code = ANY(ARRAY[${userCodeParams}]) `;
+      vendorQuery += ` AND v.code = ANY(ARRAY[${userCodeParams}]) `;
+    }
+
+    // Admin Query
+    if (Role.ADMIN === role) {
+      const vQuery = `${vendorQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
+      const mQuery = `${merchantQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
+      merchantData = (await executeQuery(mQuery, [])).rows;
+      vendorData = (await executeQuery(vQuery, [])).rows;
+    }
+
+    // Super Admin Query
+    if (Role.SUPER_ADMIN === role) {
+      merchantData = (await executeQuery(`${merchantQuery}  ${groupBy}`, [])).rows;
+      vendorData = (await executeQuery(`${vendorQuery}  ${groupBy}`, [])).rows;
+    }
+
+    // query for merchant only role
+    if (role === Role.MERCHANT) {
+      const mQuery = `${merchantQuery}  AND c.user_id = $1  AND c.company_id = $2  ${groupBy}`;
+      merchantData = (await executeQuery(mQuery, [effectiveUserId, company_id])).rows;
+    }
+
+    // query for vendor only role
+    if (role === Role.VENDOR) {
+      const vQuery = `${vendorQuery}  AND c.user_id = $1  AND c.company_id = $2  ${groupBy}`;
+      vendorData = (await executeQuery(vQuery, [effectiveUserId, company_id])).rows;
+    }
+
+    // Fetch Latest Calculation Entry for Vendors & Merchants
+    const endDateConditon = ` AND DATE(c.created_at) = '${endDate}' `;
+    const calBaseQuery = `
+        SELECT net_balance AS net_balance_sum
+        FROM "${tableName.CALCULATION}" c
+        JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
+        JOIN "${tableName.ROLE}" r ON u.role_id = r.id AND r.role = 'PLACE_ROLE_HERE'
+        WHERE c.is_obsolete = FALSE 
+        AND c.user_id = '${effectiveUserId}'
+        AND c.company_id = '${company_id}'
+        ${endDateConditon}
+        ORDER BY c.created_at DESC LIMIT 1
+      `
+    let vendorCalQuery = calBaseQuery.replace('PLACE_ROLE_HERE', Role.VENDOR), 
+    merchantCalQuery = calBaseQuery.replace('PLACE_ROLE_HERE', Role.MERCHANT);
+
+    if ([Role.SUPER_ADMIN, Role.ADMIN].includes(role)) {
+      const condition = role === Role.ADMIN ? ` AND c.company_id = '${company_id}' ${endDateConditon} ` : ` ${endDateConditon} `;
+      const baseCalQuery = `
+        WITH LatestEntries AS (
+          SELECT DISTINCT ON (user_id) *
+          FROM "Calculation" c
+          JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
+          JOIN "${tableName.ROLE}" r ON u.role_id = r.id AND r.role = 'PLACE_ROLE_HERE'
+          WHERE c.is_obsolete = FALSE
+          ${condition}
+          ORDER BY c.user_id, c.created_at DESC
+        )
+        SELECT 
+            SUM(net_balance) AS net_balance_sum
+        FROM LatestEntries;
+      `
+      vendorCalQuery =  baseCalQuery.replace('PLACE_ROLE_HERE', Role.VENDOR);
+      merchantCalQuery = baseCalQuery.replace('PLACE_ROLE_HERE', Role.MERCHANT);
+    }
+
+    netBalance.vendor = (await executeQuery(vendorCalQuery)).rows[0]?.net_balance_sum || 0;
+    netBalance.merchant = (await executeQuery(merchantCalQuery)).rows[0]?.net_balance_sum || 0;
+
+    // Modify total calculations query for merchants based on role
+    let merchantTotalQuery = `
+      SELECT 
         CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
         CAST(ROUND(SUM(c.total_payin_amount)::NUMERIC, 2) AS FLOAT) AS total_payin_amount,
         CAST(ROUND(SUM(c.total_payin_commission)::NUMERIC, 2) AS FLOAT) AS total_payin_commission,
@@ -170,183 +300,67 @@ logger.info('Using parent merchant ID:', parentId);
         CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
         CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
         CAST(ROUND(SUM(c.net_balance)::NUMERIC, 2) AS FLOAT) AS net_balance
-    FROM "${tableName.CALCULATION}" c
-    JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
-    JOIN "${tableName.ROLE}" r ON u.role_id = r.id
-  `;
+      FROM "${tableName.CALCULATION}" c
+      JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE 
+      JOIN "${tableName.ROLE}" r ON u.role_id = r.id
+      WHERE c.created_at BETWEEN '${startDate}' AND '${endDate}'
+      AND r.role = 'MERCHANT'
+    `;
 
-  // Queries for Different Roles
-  let merchantQuery = `${baseQuery} 
-    JOIN "${tableName.MERCHANT}" m ON m.user_id = c.user_id
-    WHERE c.is_obsolete = FALSE 
-    AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
-    AND r.role = 'MERCHANT' `;
-  let vendorQuery = `${baseQuery} 
-    JOIN "${tableName.VENDOR}" v ON v.user_id = c.user_id
-    WHERE c.is_obsolete = FALSE 
-    AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
-    AND r.role = 'VENDOR' `;
-
-  // Include hierarchy filtering (match against `code` column)
-  if (hierarchyUsers.length) {
-    merchantQuery += `
-      AND EXISTS (
-        SELECT 1 FROM merchant m
-        WHERE m.user_id = ANY(ARRAY[${hierarchyUsers.map((el=> `'${el}'`))}])
-      )`;
-
-    vendorQuery += `
-      AND EXISTS (
-        SELECT 1 FROM vendor v
-        WHERE v.user_id = ANY(ARRAY[${hierarchyUsers.map((el=> `'${el}'`))}])
-      )`;
-  }
-
-  if (userCodes.length) {
-    merchantQuery += ` AND m.code = ANY(ARRAY[${userCodes.map((el=> `'${el}'`))}]) `;
-    vendorQuery += ` AND v.code = ANY(ARRAY[${userCodes.map((el=> `'${el}'`))}]) `;
-  }
-
-  // Admin Query
-  if (Role.ADMIN === role) {
-    const vQuery = `${vendorQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
-    const mQuery = `${merchantQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
-    merchantData = (await executeQuery(mQuery, [])).rows;
-    vendorData = (await executeQuery(vQuery, [])).rows;
-  }
-
-  // Super Admin Query
-  if (Role.SUPER_ADMIN === role) {
-    merchantData = (await executeQuery(`${merchantQuery}  ${groupBy}`, [])).rows;
-    vendorData = (await executeQuery(`${vendorQuery}  ${groupBy}`, [])).rows;
-  }
-
-  // query for merchant only role
-  if (role === Role.MERCHANT) {
-    const mQuery = `${merchantQuery}  AND c.user_id = $1  AND c.company_id = $2  ${groupBy}`;
-    merchantData = (await executeQuery(mQuery, [effectiveUserId, company_id])).rows;
-  }
-
-  // query for vendor only role
-  if (role === Role.VENDOR) {
-    const vQuery = `${vendorQuery}  AND c.user_id = $1  AND c.company_id = $2  ${groupBy}`;
-    vendorData = (await executeQuery(vQuery, [effectiveUserId, company_id])).rows;
-  }
-
-  // Fetch Latest Calculation Entry for Vendors & Merchants
-  const endDateConditon = ` AND DATE(c.created_at) = '${endDate}' `;
-  const calBaseQuery = `
-      SELECT net_balance AS net_balance_sum
+    // Add vendor total calculations query
+    let vendorTotalQuery = `
+      SELECT 
+        CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
+        CAST(ROUND(SUM(c.total_payin_amount)::NUMERIC, 2) AS FLOAT) AS total_payin_amount,
+        CAST(ROUND(SUM(c.total_payin_commission)::NUMERIC, 2) AS FLOAT) AS total_payin_commission,
+        CAST(SUM(c.total_payout_count) AS INTEGER) AS total_payout_count,
+        CAST(ROUND(SUM(c.total_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_payout_amount,
+        CAST(ROUND(SUM(c.total_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_payout_commission,
+        CAST(SUM(c.total_settlement_count) AS INTEGER) AS total_settlement_count,
+        CAST(ROUND(SUM(c.total_settlement_amount)::NUMERIC, 2) AS FLOAT) AS total_settlement_amount,
+        CAST(SUM(c.total_chargeback_count) AS INTEGER) AS total_chargeback_count,
+        CAST(ROUND(SUM(c.total_chargeback_amount)::NUMERIC, 2) AS FLOAT) AS total_chargeback_amount,
+        CAST(SUM(c.total_reverse_payout_count) AS INTEGER) AS total_reverse_payout_count,
+        CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_amount,
+        CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
+        CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
+        CAST(ROUND(SUM(c.net_balance)::NUMERIC, 2) AS FLOAT) AS net_balance
       FROM "${tableName.CALCULATION}" c
       JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
-      JOIN "${tableName.ROLE}" r ON u.role_id = r.id AND r.role = 'PLACE_ROLE_HERE'
-      WHERE c.is_obsolete = FALSE 
-      AND c.user_id = '${effectiveUserId}'
-      AND c.company_id = '${company_id}'
-      ${endDateConditon}
-      ORDER BY c.created_at DESC LIMIT 1
-    `
-  let vendorCalQuery = calBaseQuery.replace('PLACE_ROLE_HERE', Role.VENDOR), 
-  merchantCalQuery = calBaseQuery.replace('PLACE_ROLE_HERE', Role.MERCHANT);
+      JOIN "${tableName.ROLE}" r ON u.role_id = r.id
+      WHERE c.created_at BETWEEN '${startDate}' AND '${endDate}'
+      AND r.role = 'VENDOR'
+    `;
 
-  if ([Role.SUPER_ADMIN, Role.ADMIN].includes(role)) {
-    const condition = role === Role.ADMIN ? ` AND c.company_id = '${company_id}' ${endDateConditon} ` : ` ${endDateConditon} `;
-    const baseCalQuery = `
-      WITH LatestEntries AS (
-        SELECT DISTINCT ON (user_id) *
-        FROM "Calculation" c
-        JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
-        JOIN "${tableName.ROLE}" r ON u.role_id = r.id AND r.role = 'PLACE_ROLE_HERE'
-        WHERE c.is_obsolete = FALSE
-        ${condition}
-        ORDER BY c.user_id, c.created_at DESC
-      )
-      SELECT 
-          SUM(net_balance) AS net_balance_sum
-      FROM LatestEntries;
-    `
-    vendorCalQuery =  baseCalQuery.replace('PLACE_ROLE_HERE', Role.VENDOR);
-    merchantCalQuery = baseCalQuery.replace('PLACE_ROLE_HERE', Role.MERCHANT);
+    // Add role-based conditions
+    if (role === Role.MERCHANT) {
+      merchantTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
+      vendorTotalQuery = null; // Merchant shouldn't see vendor totals
+    } else if (role === Role.VENDOR) {
+      vendorTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
+      merchantTotalQuery = null; // Vendor shouldn't see merchant totals
+    } else if (role === Role.ADMIN) {
+      merchantTotalQuery += ` AND c.company_id = '${company_id}'`;
+      vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
+    }
+
+    // Execute queries based on role
+    const [merchantTotal, vendorTotal] = await Promise.all([
+      merchantTotalQuery ? executeQuery(merchantTotalQuery) : Promise.resolve({ rows: [{}] }),
+      vendorTotalQuery ? executeQuery(vendorTotalQuery) : Promise.resolve({ rows: [{}] })
+    ]);
+
+    return {
+      vendor: vendorData,
+      merchant: merchantData,
+      netBalance,
+      merchantTotalCalculations: merchantTotal.rows[0] || {},
+      vendorTotalCalculations: vendorTotal.rows[0] || {}
+    };
+  } catch (error) {
+    logger.error('Error getting calculation data:', error);
+    throw error;
   }
-
-  netBalance.vendor = (await executeQuery(vendorCalQuery)).rows[0]?.net_balance_sum || 0;
-  netBalance.merchant = (await executeQuery(merchantCalQuery)).rows[0]?.net_balance_sum || 0;
-
-  // Modify total calculations query for merchants based on role
-  let merchantTotalQuery = `
-    SELECT 
-      CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
-      CAST(ROUND(SUM(c.total_payin_amount)::NUMERIC, 2) AS FLOAT) AS total_payin_amount,
-      CAST(ROUND(SUM(c.total_payin_commission)::NUMERIC, 2) AS FLOAT) AS total_payin_commission,
-      CAST(SUM(c.total_payout_count) AS INTEGER) AS total_payout_count,
-      CAST(ROUND(SUM(c.total_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_payout_amount,
-      CAST(ROUND(SUM(c.total_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_payout_commission,
-      CAST(SUM(c.total_settlement_count) AS INTEGER) AS total_settlement_count,
-      CAST(ROUND(SUM(c.total_settlement_amount)::NUMERIC, 2) AS FLOAT) AS total_settlement_amount,
-      CAST(SUM(c.total_chargeback_count) AS INTEGER) AS total_chargeback_count,
-      CAST(ROUND(SUM(c.total_chargeback_amount)::NUMERIC, 2) AS FLOAT) AS total_chargeback_amount,
-      CAST(SUM(c.total_reverse_payout_count) AS INTEGER) AS total_reverse_payout_count,
-      CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_amount,
-      CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
-      CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
-      CAST(ROUND(SUM(c.net_balance)::NUMERIC, 2) AS FLOAT) AS net_balance
-    FROM "${tableName.CALCULATION}" c
-    JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE 
-    JOIN "${tableName.ROLE}" r ON u.role_id = r.id
-    WHERE c.created_at BETWEEN '${startDate}' AND '${endDate}'
-    AND r.role = 'MERCHANT'
-  `;
-
-  // Add vendor total calculations query
-  let vendorTotalQuery = `
-    SELECT 
-      CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
-      CAST(ROUND(SUM(c.total_payin_amount)::NUMERIC, 2) AS FLOAT) AS total_payin_amount,
-      CAST(ROUND(SUM(c.total_payin_commission)::NUMERIC, 2) AS FLOAT) AS total_payin_commission,
-      CAST(SUM(c.total_payout_count) AS INTEGER) AS total_payout_count,
-      CAST(ROUND(SUM(c.total_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_payout_amount,
-      CAST(ROUND(SUM(c.total_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_payout_commission,
-      CAST(SUM(c.total_settlement_count) AS INTEGER) AS total_settlement_count,
-      CAST(ROUND(SUM(c.total_settlement_amount)::NUMERIC, 2) AS FLOAT) AS total_settlement_amount,
-      CAST(SUM(c.total_chargeback_count) AS INTEGER) AS total_chargeback_count,
-      CAST(ROUND(SUM(c.total_chargeback_amount)::NUMERIC, 2) AS FLOAT) AS total_chargeback_amount,
-      CAST(SUM(c.total_reverse_payout_count) AS INTEGER) AS total_reverse_payout_count,
-      CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_amount,
-      CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
-      CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
-      CAST(ROUND(SUM(c.net_balance)::NUMERIC, 2) AS FLOAT) AS net_balance
-    FROM "${tableName.CALCULATION}" c
-    JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
-    JOIN "${tableName.ROLE}" r ON u.role_id = r.id
-    WHERE c.created_at BETWEEN '${startDate}' AND '${endDate}'
-    AND r.role = 'VENDOR'
-  `;
-
-  // Add role-based conditions
-  if (role === Role.MERCHANT) {
-    merchantTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
-    vendorTotalQuery = null; // Merchant shouldn't see vendor totals
-  } else if (role === Role.VENDOR) {
-    vendorTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
-    merchantTotalQuery = null; // Vendor shouldn't see merchant totals
-  } else if (role === Role.ADMIN) {
-    merchantTotalQuery += ` AND c.company_id = '${company_id}'`;
-    vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
-  }
-
-  // Execute queries based on role
-  const [merchantTotal, vendorTotal] = await Promise.all([
-    merchantTotalQuery ? executeQuery(merchantTotalQuery) : Promise.resolve({ rows: [{}] }),
-    vendorTotalQuery ? executeQuery(vendorTotalQuery) : Promise.resolve({ rows: [{}] })
-  ]);
-
-  return {
-    vendor: vendorData,
-    merchant: merchantData,
-    netBalance,
-    merchantTotalCalculations: merchantTotal.rows[0] || {},
-    vendorTotalCalculations: vendorTotal.rows[0] || {}
-  };
 };
 
 ////for cron job to update net_balance
