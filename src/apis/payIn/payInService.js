@@ -1958,45 +1958,64 @@ export const generateUpiUrlService = async (payload) => {
   const uuid = generateUUID();
   const transactionId = `IND${uuid.replace(/-/g, '')}`.slice(0, 32);
 
+  // const params = {
+  //   appid: 'inb_admin',
+  //   tr: transactionId,
+  //   am: parseFloat(payload.amount).toFixed(2),  
+  //   mc: payload.merchantCode || '',
+  //   pa: payload.payeeVPA,
+  //   pn: (payload.payeeName || '') + ' ',     
+  //   tn: payload.transactionNote || '',
+  //   cu: 'INR',                          
+  //   bn: (payload.businessName || '') + ' ',   
+  //   mode: '01',
+  //   purpose: ''
+  // };
+  
+
+  // let encodedParams = querystring.stringify(params);
+  
+  // const phonepeUrl = `phonepe://pay?${encodedParams}`;
+  // const gpayUrl = `gpay://upi/pay?${encodedParams}`;
+  // const paytmUrl = `paytm://upi/pay?${encodedParams}`;
+  // const genericUpiUrl = `upi://pay?${encodedParams}`;
+
+  //  const phonepeQr = await QRCode.toDataURL(phonepeUrl);
+  // const gpayQr = await QRCode.toDataURL(gpayUrl);
+  // const paytmQr = await QRCode.toDataURL(paytmUrl);
+  // const genericUpiQr = await QRCode.toDataURL(genericUpiUrl);
+
+  // return {
+  //   phonepeUrl,
+  //   phonepeQr,
+  //   gpayUrl,
+  //   gpayQr,
+  //   paytmUrl,
+  //   paytmQr,
+  //   genericUpiUrl,
+  //   genericUpiQr,
+  //   transactionId
+  // }
+  // return data;
+
   const params = {
-    appid: 'inb_admin',
+    pa: payload.payeeVPA,                                 
+    pn: payload.payeeName?.trim() || 'Payee',            
     tr: transactionId,
-    am: parseFloat(payload.amount).toFixed(2),  
-    mc: payload.merchantCode || '',
-    pa: payload.payeeVPA,
-    pn: (payload.payeeName || '') + ' ',     
-    tn: payload.transactionNote || '',
-    cu: '',                          
-    bn: (payload.businessName || '') + ' ',   
-    mode: '01',
-    purpose: ''
+    am: parseFloat(payload.amount).toFixed(2),
+    tn: payload.transactionNote?.trim() || 'Payment',    
+    cu: 'INR',                                            
   };
   
 
-  let encodedParams = querystring.stringify(params);
+  const upiUrl = `upi://pay?${querystring.stringify(params)}`;
   
-  const phonepeUrl = `phonepe://pay?${encodedParams}`;
-  const gpayUrl = `gpay://upi/pay?${encodedParams}`;
-  const paytmUrl = `paytm://upi/pay?${encodedParams}`;
-  const genericUpiUrl = `upi://pay?${encodedParams}`;
-
-   const phonepeQr = await QRCode.toDataURL(phonepeUrl);
-  const gpayQr = await QRCode.toDataURL(gpayUrl);
-  const paytmQr = await QRCode.toDataURL(paytmUrl);
-  const genericUpiQr = await QRCode.toDataURL(genericUpiUrl);
-
+  const upiQr = await QRCode.toDataURL(upiUrl);
   return {
-    phonepeUrl,
-    phonepeQr,
-    gpayUrl,
-    gpayQr,
-    paytmUrl,
-    paytmQr,
-    genericUpiUrl,
-    genericUpiQr,
+    upiUrl,
+    upiQr,
     transactionId
-  }
-  // return data;
+  };
 }
 
 const checkIsPayInExpired = (payIn) => {
