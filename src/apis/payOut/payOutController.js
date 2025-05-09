@@ -176,7 +176,6 @@ const deletePayout = async (req, res) => {
   //   statusCode: 200,
   //   data,
   // });
-
 };
 
 export {
