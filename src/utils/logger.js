@@ -26,6 +26,7 @@ class Logger {
       awsAccessKeyId: aws.accessKeyId, // From appConfig or environment variables
       awsSecretAccessKey: aws.secretAccessKey, // From appConfig or environment variables
       retentionInDays: 7, // Optional: Retain logs for 7 days
+      jsonMessage: true,
     };
 
     this.#logger = createLogger({
