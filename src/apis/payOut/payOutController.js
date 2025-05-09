@@ -1,5 +1,5 @@
 import { transactionWrapper } from '../../utils/db.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
+import { sendSuccess, sendNewSuccess } from '../../utils/responseHandlers.js';
 import {
   createPayoutService,
   deletePayoutService,
@@ -64,14 +64,14 @@ const createPayout = async (req, res) => {
   };
 
   // Send a success response to the client
-  // return sendSuccess(res, updateRes, 'Payout created successfully');
-  return res.status(200).json({
-    message: 'Payout created successfully',
-    statusCode: 201,
-    data: updateRes,
-  });
-};
-
+  return sendNewSuccess(res, updateRes, 'Payout created successfully', 201);
+  //   return res.status(200).json({
+  //     message: 'Payout created successfully',
+  //     statusCode: 201,
+  //     data: updateRes,
+  //   });
+  // };
+}
 const getPayoutsById = async (req, res) => {
   const joiValidation = VALIDATE_PAYOUT_BY_ID.validate(req.params);
   if (joiValidation.error) {
@@ -156,7 +156,7 @@ const deletePayout = async (req, res) => {
   return sendSuccess(res, {}, 'Payout deleted successfully');
 };
 
-export const checkPayOutStatus = async (req, res) => {
+ const checkPayOutStatus = async (req, res) => {
   const joiValidation = VALIDATE_CHECK_PAY_OUT_STATUS.validate(req.body);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
@@ -170,16 +170,18 @@ export const checkPayOutStatus = async (req, res) => {
     res
   );
   // sendSuccess(res, data);
-  return res.status(200).json({
-    message: 'PayOut status fetched successfully',
-    statusCode: 200,
-    data,
-  });
+    return sendNewSuccess(res, data, 'PayOut status fetched successfully',200);
+  // return res.status(200).json({
+  //   message: 'PayOut status fetched successfully',
+  //   statusCode: 200,
+  //   data,
+  // });
 };
 
 export {
   createPayout,
-  getPayoutsBySearch,
+   getPayoutsBySearch,
+  checkPayOutStatus,
   getPayouts,
   updatePayout,
   deletePayout,

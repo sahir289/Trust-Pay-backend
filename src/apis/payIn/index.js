@@ -18,7 +18,8 @@ import {
   updatePaymentNotificationStatus,
   validatePayInUrl,
   generateHashForPayIn,
-  getPayinsBySearch
+  getPayinsBySearch,
+  generateUpiUrl
 } from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
@@ -75,6 +76,34 @@ router.get('/generate-payin', tryCatchHandler(generatePayInUrl));
  *         description: Pay-In URL not found
  */
 router.get('/validate-payIn-url/:merchantOrderId', tryCatchHandler(validatePayInUrl));
+
+/**
+ * @swagger
+ * /payin/generate-upi-url:
+ *   post:
+ *     summary: Generate UPI app URL.
+ *     description: Generate UPI app URL for user redirection.
+ *     tags: [PayIn]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:
+ *                 type: number
+ *               userId:
+ *                 type: string
+ *               merchantCode:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Pay-In URL generated successfully.
+ *       404:
+ *         description: Pay-In URL not found.
+ */
+router.post('/generate-upi-url', tryCatchHandler(generateUpiUrl));
 
 /**
  * @swagger
@@ -294,6 +323,7 @@ router.put(
  *         description: Pay-In URL not found
  */
 router.post('/reset-payment', tryCatchHandler(resetDeposit));
+
 /**
  * @swagger
  * /payin/dispute-duplicate/{payInId}:

@@ -42,16 +42,16 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
 
     const currentDate = moment().tz(timezone, true);
 
-if (type === 'H') {
-  sDate = currentDate.clone().startOf('day').toDate();
-  eDate = currentDate.clone().toDate();
-} else if (type === 'N') {
-  sDate = currentDate.clone().subtract(1, 'day').startOf('day').toDate();
-  eDate = currentDate.clone().subtract(1, 'day').endOf('day').toDate();
-} else {
-  sDate = currentDate.clone().subtract(1, 'day').toDate();
-  eDate = currentDate.clone().toDate();
-}
+    if (type === 'H') {
+      sDate = currentDate.clone().startOf('day').toDate();
+      eDate = currentDate.clone().toDate();
+    } else if (type === 'N') {
+      sDate = currentDate.clone().subtract(1, 'day').startOf('day').toDate();
+      eDate = currentDate.clone().subtract(1, 'day').endOf('day').toDate();
+    } else {
+      sDate = currentDate.clone().subtract(1, 'day').toDate();
+      eDate = currentDate.clone().toDate();
+    }
     logger.info('cron_started');
     const merchants = await getMerchantsDao({});
     let merchant = [];
@@ -59,43 +59,55 @@ if (type === 'H') {
     let totalpayoutsMerchant = 0;
     const allHierarchies = await getUserHierarchysDao({});
     const subMerchantIds = new Set();
-    allHierarchies.forEach(hierarchy => {
+    allHierarchies.forEach((hierarchy) => {
       const subMerchants = hierarchy?.config?.siblings?.sub_merchants || [];
-      subMerchants.forEach(subMerchantId => subMerchantIds.add(subMerchantId));
+      subMerchants.forEach((subMerchantId) =>
+        subMerchantIds.add(subMerchantId),
+      );
     });
     for (const merch of merchants) {
-      const calculationData = await getCalculationDao({ user_id: merch.user_id, sDate, eDate });    
+      const calculationData = await getCalculationDao({
+        user_id: merch.user_id,
+        sDate,
+        eDate,
+      });
       let totalPayinAmount = 0;
       let totalPayinCount = 0;
       let totalPayoutAmount = 0;
       let totalPayoutCount = 0;
-    
+
       for (const data of calculationData) {
         totalPayinAmount += data.total_payin_amount || 0;
         totalPayinCount += data.total_payin_count || 0;
         totalPayoutAmount += data.total_payout_amount || 0;
-        totalPayoutCount += data.total_payout_count || 0; 
+        totalPayoutCount += data.total_payout_count || 0;
       }
-    //submerchants removed
-    if(!subMerchantIds.has(merch.user_id)){
-      merchant.push({
-        merchantId: merch.code,
-        totalPayin: totalPayinAmount,
-        totalPayinCount: totalPayinCount,
-        totalPayout: totalPayoutAmount,
-        totalPayoutCount: totalPayoutCount,
-      });
-    }
-    
+      //submerchants removed
+      if (!subMerchantIds.has(merch.user_id)) {
+        merchant.push({
+          merchantId: merch.code,
+          totalPayin: totalPayinAmount,
+          totalPayinCount: totalPayinCount,
+          totalPayout: totalPayoutAmount,
+          totalPayoutCount: totalPayoutCount,
+        });
+      }
+
       totalpayinsMerchant += totalPayinAmount;
       totalpayoutsMerchant += totalPayoutAmount;
       merchant.sort((a, b) => a.merchantId.localeCompare(b.merchantId));
     }
 
-    const vendorData = await getVendorsDao({}, null, null, "created_at", "DESC")
-    let vendorObjpayIn = {}
-    let vendorArray = []
-    let vendorObjpayOut = []
+    const vendorData = await getVendorsDao(
+      {},
+      null,
+      null,
+      'created_at',
+      'DESC',
+    );
+    let vendorObjpayIn = {};
+    let vendorArray = [];
+    let vendorObjpayOut = [];
     let totalBankDepositAllVendors = 0;
     let totalBankWithdrawalAllVendors = 0;
     const vendorEntries = [];
@@ -104,28 +116,27 @@ if (type === 'H') {
         { user_id: vendorDetail.user_id, bank_used_for: 'PayIn' },
         null,
         null,
-        'ADMIN'
+        'ADMIN',
       );
-      
+
       const banks = banksData
-      .filter(bankData => bankData.balance !== 0)
-      .map(bankData => {
+        .filter((bankData) => bankData.balance !== 0)
+        .map((bankData) => {
           return {
             bankName: bankData.nick_name,
             TotalDeposit: bankData.balance,
-            TotalCount: bankData.payin_count
+            TotalCount: bankData.payin_count,
           };
-        
-      });
+        });
       if (banks.length === 0) continue;
       totalBankDepositAllVendors = banksData.reduce(
         (acc, bankData) => acc + bankData.balance,
-        0
+        0,
       );
       vendorEntries.push({
         code: vendorDetail.code,
         name: vendorDetail.name, // If you have a `name` field to sort by
-        banks
+        banks,
       });
       // const vendorEntry = { banks };
       // vendorObjpayIn[vendorDetail.code] = vendorEntry;
@@ -133,7 +144,9 @@ if (type === 'H') {
       //   vendorArray.push(vendorEntry);
       // }
     }
-    vendorEntries.sort((a, b) => a.name?.localeCompare(b.name) ?? a.code.localeCompare(b.code));
+    vendorEntries.sort(
+      (a, b) => a.name?.localeCompare(b.name) ?? a.code.localeCompare(b.code),
+    );
     for (const vendorEntry of vendorEntries) {
       vendorObjpayIn[vendorEntry.code] = { banks: vendorEntry.banks };
       vendorArray.push({ banks: vendorEntry.banks });
@@ -144,27 +157,27 @@ if (type === 'H') {
         { user_id: vendorDetail.user_id, bank_used_for: 'PayOut' },
         null,
         null,
-        'ADMIN'
+        'ADMIN',
       );
-      let totalBankDepositPayout = 0
+      let totalBankDepositPayout = 0;
       const banks = banksData
-      .filter(bankData => bankData.balance !== 0)
-      .map(bankData => {
-        return {
-          bankName: bankData.nick_name,
-          TotalDeposit: bankData.balance,
-          TotalCount: bankData.payin_count
-        };
-      });
+        .filter((bankData) => bankData.balance !== 0)
+        .map((bankData) => {
+          return {
+            bankName: bankData.nick_name,
+            TotalDeposit: bankData.balance,
+            TotalCount: bankData.payin_count,
+          };
+        });
       if (banks.length === 0) continue;
       totalBankWithdrawalAllVendors = banksData.reduce(
         (acc, bankData) => acc + bankData.balance,
-        0
+        0,
       );
       totalBankWithdrawalAllVendors += totalBankDepositPayout;
       const vendorEntry = { banks };
       vendorObjpayOut[vendorDetail.code] = vendorEntry;
-      if(banks.length > 0){
+      if (banks.length > 0) {
         vendorArray.push(vendorEntry);
       }
     }
@@ -195,7 +208,6 @@ if (type === 'H') {
     // } else {
     //   console.log('no chargeback banks data');
     // }
-
 
     const formattedSuccessRatiosByMerchant = async () => {
       try {

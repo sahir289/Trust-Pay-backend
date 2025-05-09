@@ -197,7 +197,7 @@ const createBankResponseService = async (
     if (isNaN(bankdetails[0].balance) || isNaN(bankdetails[0].today_balance)) {
       throw new BadRequestError('Invalid amount or commission');
     }
-    await updateBankaccountDao(
+    const res = await updateBankaccountDao(
       { id: botRes?.bank_id },
       {
         balance: parseFloat(bankdetails[0].balance) + parseFloat(botRes.amount),
@@ -207,10 +207,11 @@ const createBankResponseService = async (
       },
       conn,
     );
+    console.log(res, 'res');
     await updateBankaccountService(
       conn,
       { id: botRes?.bank_id, company_id: companyId },
-      {},
+      {latest_balance: res.today_balance},
     );
     const vendor = await getVendorsDao({
       user_id: bankdetails[0].user_id,
@@ -527,7 +528,7 @@ const getBankResponseService = async (payload, role, page, limit, search) => {
       filters,
       page,
       limit,
-       payload.sort_by || 'updated_at',
+       payload.sort_by || 'created_at',
       'DESC',
       filterColumns,
     );

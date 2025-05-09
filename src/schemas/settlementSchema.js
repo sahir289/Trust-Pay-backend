@@ -7,7 +7,9 @@ export const CREATE_SETTLEMENT_SCHEMA = Joi.object({
     .optional(),
   merchant: Joi.string().label('merchant').optional(),
   status: Joi.string().label('status').optional(),
-  amount: Joi.number().label('amount').optional(),
+  //added fields
+  amount: Joi.number().label('utr').optional(),
+  utr: Joi.number().label('amount').optional(),
   method: Joi.string().label('method').optional(),
   bank_name: Joi.string().label('bank_name').optional(),
   acc_holder_name: Joi.string().label('acc_holder_name').optional(),

@@ -26,11 +26,28 @@ const sendSuccess = (
   if (page) {
     finalRes = { ...finalRes, page };
   }
-
-  logger.info(message);
+  logger.info(finalRes.message, {
+    status: finalRes.statusCode,
+    data: finalRes.data,
+  });
   return res.status(status).json(finalRes);
 };
 
+const sendNewSuccess = (
+  res,
+  data = {},
+  message = '',
+  status = 200,
+
+) => {
+  const finalRes = {
+    message: message || '',
+    statusCode: status,
+    data: data || {},
+  };
+  logger.info(finalRes.message, {status:finalRes.statusCode,data:finalRes.data});
+  return res.status(200).json(finalRes);
+};
 const sendError = (
   res,
   error,
@@ -53,4 +70,4 @@ const sendError = (
   return res.status(statusCode).json(finalRes);
 };
 
-export { sendSuccess, sendError };
+export { sendSuccess, sendError, sendNewSuccess };

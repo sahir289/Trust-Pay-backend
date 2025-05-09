@@ -2,6 +2,8 @@ import dayjs from 'dayjs';
 import { nanoid } from 'nanoid';
 import { Cashfree } from 'cashfree-pg';
 import { v4 as uuidv4 } from 'uuid';
+// import querystring from 'querystring';
+import QRCode from 'qrcode';
 import config from '../../config/config.js';
 import { razorpay } from '../../webhooks/razorPay.js';
 import { getPayoutsDao } from '../payOut/payOutDao.js';
@@ -79,6 +81,7 @@ import { expirePayInIfNeeded, stringifyJSON } from '../../utils/index.js';
 import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
+import { generateUUID } from '../../utils/generateUUID.js';
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
@@ -104,7 +107,7 @@ export const generatePayInUrlByHashService = async (req, res) => {
     config_merchants_contains: merchantArr[0].id,
   });
   if (bankAssigned.length <= 0) {
-       //-- correct error handling
+    //-- correct error handling
     return res.status(400).json({
       error: {
         status: 404,
@@ -329,7 +332,7 @@ export const getPayInUrlService = async (id, conn, tele_check = true) => {
       req_amount: payIn.amount,
       utr_id: payIn.utr,
     });
-    throw new InternalServerError('PayIn Expired');
+    // throw new InternalServerError('PayIn Expired');
   }
 
   return payIn;
@@ -388,28 +391,31 @@ export const assignedBankToPayInUrlService = async (
   const banks = await getMerchantBankDao({
     config_merchants_contains: merchant.id,
   });
-
-  const enabledBanks = banks.filter((bank) => {
-    if (
-      !bank.is_enabled &&
-      (bank.bank_used_for !== 'PayIn' || bank.bank_used_for !== 'payIn')
-    ) {
-      return false;
+  //only enabled banks assigned
+const enabledBanks = banks.filter((bank) => {
+  const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
+  const isActive = bank.is_enabled && isPayInBank;
+  const hasAnyMethod =
+    bank.is_qr ||
+    bank.is_bank ||
+    bank.config?.is_phonepay ||
+    bank.config?.is_intent;
+    if(isActive){
+      switch (type) {
+        case BankTypes.UPI:
+          return bank.is_qr;
+        case BankTypes.PHONE_PE:
+          return bank.config?.is_phonepay;
+        case BankTypes.BANK_TRANSFER:
+          return bank.is_bank;
+        case BankTypes.INTENT:
+          return bank.config?.is_intent;
+        default:
+          return false;
+      }
     }
-
-    switch (type) {
-      case BankTypes.UPI:
-        return bank.is_qr;
-      case BankTypes.PHONE_PE:
-        return bank.config?.is_phonepay;
-      case BankTypes.BANK_TRANSFER:
-        return bank.is_bank;
-      case BankTypes.INTENT:
-        return bank.config?.is_intent;
-      default:
-        return false;
-    }
-  });
+  return isActive && hasAnyMethod;
+});
 
   if (!enabledBanks.length) {
     await updatePayInUrlDao(payIn.id, {
@@ -559,19 +565,25 @@ export const checkPayInStatusService = async (
   return {
     status: payIn.status,
     merchantOrderId: payIn.merchant_order_id,
-    amount: [Status.INITIATED, Status.ASSIGNED, Status.DROPPED, Status.DUPLICATE].includes(
-      payIn.status,
-    )
+    amount: [
+      Status.INITIATED,
+      Status.ASSIGNED,
+      Status.DROPPED,
+      Status.DUPLICATE,
+    ].includes(payIn.status)
       ? null
       : botResponse?.amount
         ? botResponse?.amount
         : null,
     payinId: payIn.id,
     req_amount: payIn.amount,
-    utr_id: [Status.INITIATED, Status.ASSIGNED, Status.DROPPED, Status.IMG_PENDING].includes(
-      payIn.status,
-    )
-      ? " "
+    utr_id: [
+      Status.INITIATED,
+      Status.ASSIGNED,
+      Status.DROPPED,
+      Status.IMG_PENDING,
+    ].includes(payIn.status)
+      ? ' '
       : botResponse?.utr
         ? botResponse?.utr
         : payIn.user_submitted_utr,
@@ -638,6 +650,7 @@ export const updatePaymentNotificationStatusService = async (
     throw new Error('Invalid notification type.');
   }
 
+  let data;
   if (type === Type.PAYIN) {
     const payIn = await updatePayInUrlDao(payInId, { is_notified: true });
     if (!payIn) {
@@ -649,7 +662,7 @@ export const updatePaymentNotificationStatusService = async (
       company_id,
     });
 
-    return await merchantPayinCallback(payIn.config?.urls?.notify, {
+    data = await merchantPayinCallback(payIn.config?.urls?.notify, {
       status: payIn.status,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
@@ -657,9 +670,7 @@ export const updatePaymentNotificationStatusService = async (
       amount: bankResponse?.amount || null,
       utr_id: bankResponse?.utr ? bankResponse.utr : payIn.user_submitted_utr, //--utr_id either bankres and payin
     });
-  }
-
-  if (type === Type.PAYOUT) {
+  } else if (type === Type.PAYOUT) {
     // find on the basis of payoutId
     const payouts = await getPayoutsDao({ id: payInId, company_id });
     const payout = payouts[0];
@@ -676,7 +687,7 @@ export const updatePaymentNotificationStatusService = async (
       throw new NotFoundError('Merchant or payout notify URL not found.');
     }
 
-    return await merchantPayoutCallback(payout.config?.urls?.notify, {
+    data = await merchantPayoutCallback(payout.config?.urls?.notify, {
       code: merchant.code,
       merchantOrderId: payout.merchant_order_id,
       payoutId: payout.id,
@@ -686,7 +697,7 @@ export const updatePaymentNotificationStatusService = async (
     });
   }
 
-  return {};
+  return data;
 };
 
 export const updateDepositStatusService = async (
@@ -874,11 +885,11 @@ export const resetDepositService = async (
   ]);
 
   if (nonResettableStatuses.has(payIn.status)) {
-      return {
-        error: `The Order Id: ${payIn.merchant_order_id} with Status: ${payIn.status} cannot be reset!`,
-        status: 400,  //-- sending status code along with message
-      };
-    }
+    return {
+      error: `The Order Id: ${payIn.merchant_order_id} with Status: ${payIn.status} cannot be reset!`,
+      status: 400, //-- sending status code along with message
+    };
+  }
 
   const condition = {
     company_id,
@@ -905,15 +916,10 @@ export const resetDepositService = async (
     ///for update bankresponse with id
     const id = bankResponse.id;
     if (!payInSuccess.length) {
-      await updateBotResponseDao(
-       id,
-        { is_used: false },
-        conn,
-      );
+      await updateBotResponseDao(id, { is_used: false }, conn);
     }
   }
 
- 
   return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 };
 
@@ -1684,21 +1690,18 @@ export const disputeDuplicateTransactionService = async (
       throw new NotFoundError('PayIn not found against merchant order id');
     }
 
-    if (
-      ![
-        Status.DUPLICATE,
-        Status.PENDING,
-        Status.ASSIGNED,
-        Status.DISPUTE,
-      ].includes(payIn.status)
-    ) {
-      throw new BadRequestError(
-        'PayIn Status is not DUPLICATE, PENDING, ASSIGNED against merchant order id',
-      );
+    if (payInData.merchant_id !== payIn.merchant_id) {
+      throw new BadRequestError('Please provide valid merchant order id');
     }
 
-    if (payIn.merchant_id != payInData.merchant_id) {
-      throw new BadRequestError('Merchant Mismatched');
+    if (
+      ![Status.ASSIGNED, Status.PENDING, Status.DROPPED].includes(
+        payInData.status,
+      )
+    ) {
+      throw new BadRequestError(
+        `PayIn Status: ${payInData.status} is not Accepted`,
+      );
     }
 
     if (
@@ -1715,6 +1718,7 @@ export const disputeDuplicateTransactionService = async (
     }
   }
 
+  let response = {};
   if (!makeItSuccess) {
     const newStatus =
       payInData.bank_acc_id != payIn.bank_acc_id
@@ -1723,7 +1727,7 @@ export const disputeDuplicateTransactionService = async (
           ? Status.DISPUTE
           : Status.SUCCESS;
     // make new pay in success
-    await updatePayInUrlDao(payInData.id, {
+    response = await updatePayInUrlDao(payInData.id, {
       is_url_expires: true,
       one_time_used: true,
       is_notified: true,
@@ -1799,11 +1803,11 @@ export const disputeDuplicateTransactionService = async (
   // if (updateBalance) {
 
   //   //   await updateBanktBalanceDao({ id: bankId }, toAmount, updated_by, conn);
-  //   // await updateBankaccountService(
-  //   //   conn,
-  //   //   { id: bank.id, company_id: payIn.company_id },
-  //   //   {},
-  //   // );
+    // await updateBankaccountService(
+    //   conn,
+    //   { id: bank.id, company_id: payIn.company_id },
+    //   {},
+    // );
   //   await updateCalculationTable(
   //     bank.user_id,
   //     {
@@ -1822,6 +1826,7 @@ export const disputeDuplicateTransactionService = async (
   //     config?.telegramBotToken,
   //     entryType,
   //   );
+  return response;
 };
 
 export const telegramCheckUTRService = async (
@@ -1926,7 +1931,14 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
   const banks = await getMerchantBankDao({
     config_merchants_contains: merchant[0].id,
   });
-
+  //only banks assigned
+  const enabledBanks = banks.filter((bank) => {
+    const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
+    const isActive = bank.is_enabled && isPayInBank;
+    const hasAnyMethod =
+      bank.is_qr || bank.is_bank || bank.config?.is_phonepay || bank.config?.is_intent;
+    return isActive && hasAnyMethod;
+  });
   const result = {
     expiryTime: payIn.expiration_date,
     amount: payIn.amount,
@@ -1934,12 +1946,90 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
     status: payIn.status,
     min_amount: merchant[0].min_payin,
     max_amount: merchant[0].max_payin,
-    is_qr: banks.some((bank) => bank.is_qr),
-    is_phonepay: banks.some((bank) => bank.config?.is_phonepay),
-    is_bank: banks.some((bank) => bank.is_bank),
+    //only methods from enabled banks checked
+    is_qr: enabledBanks.some((bank) => bank.is_qr),
+    is_phonepay: enabledBanks.some((bank) => bank.config?.is_phonepay),
+    is_bank: enabledBanks.some((bank) => bank.is_bank),
     redirect_url: payIn.config?.urls?.return,
   };
   return result;
+};
+
+export const generateUpiUrlService = async (payload) => {
+  if (isNaN(payload.amount) || payload.amount <= 0) {
+    return new BadRequestError('Invalid amount');
+  }
+
+  // const vpaRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
+  // if (!vpaRegex.test(payload.payeeVPA)) {
+  //   return new BadRequestError('Invalid VPA format');
+  // }
+
+  const uuid = generateUUID();
+  const transactionId = `IND${uuid.replace(/-/g, '')}`.slice(0, 32);
+
+  // const params = {
+  //   appid: 'inb_admin',
+  //   tr: transactionId,
+  //   am: parseFloat(payload.amount).toFixed(2),
+  //   mc: payload.merchantCode || '',
+  //   pa: payload.payeeVPA,
+  //   pn: (payload.payeeName || '') + ' ',
+  //   tn: payload.transactionNote || '',
+  //   cu: 'INR',
+  //   bn: (payload.businessName || '') + ' ',
+  //   mode: '01',
+  //   purpose: ''
+  // };
+
+  // let encodedParams = querystring.stringify(params);
+
+  // const phonepeUrl = `phonepe://pay?${encodedParams}`;
+  // const gpayUrl = `gpay://upi/pay?${encodedParams}`;
+  // const paytmUrl = `paytm://upi/pay?${encodedParams}`;
+  // const genericUpiUrl = `upi://pay?${encodedParams}`;
+
+  //  const phonepeQr = await QRCode.toDataURL(phonepeUrl);
+  // const gpayQr = await QRCode.toDataURL(gpayUrl);
+  // const paytmQr = await QRCode.toDataURL(paytmUrl);
+  // const genericUpiQr = await QRCode.toDataURL(genericUpiUrl);
+
+  // return {
+  //   phonepeUrl,
+  //   phonepeQr,
+  //   gpayUrl,
+  //   gpayQr,
+  //   paytmUrl,
+  //   paytmQr,
+  //   genericUpiUrl,
+  //   genericUpiQr,
+  //   transactionId
+  // }
+  // return data;
+
+
+  const params = {
+    pa: payload.payeeVPA,
+    pn: payload.payeeName?.trim() || 'Payee',
+    tr: transactionId,
+    am: parseFloat(payload.amount).toFixed(2),
+    tn: payload.transactionNote?.trim() || 'Payment',
+    cu: 'INR',
+  };
+  
+  const upiParams = Object.entries(params)
+  .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
+  .join('&');
+  const upiUrl = `upi://pay?${upiParams}`;
+
+  // const upiUrl = `upi://pay?${querystring.stringify(params)}`; 
+  
+  const upiQr = await QRCode.toDataURL(upiUrl);
+  return {
+    upiUrl,
+    upiQr,
+    transactionId,
+  };
 };
 
 const checkIsPayInExpired = (payIn) => {

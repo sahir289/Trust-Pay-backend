@@ -26,16 +26,18 @@ class Logger {
       awsAccessKeyId: aws.accessKeyId, // From appConfig or environment variables
       awsSecretAccessKey: aws.secretAccessKey, // From appConfig or environment variables
       retentionInDays: 7, // Optional: Retain logs for 7 days
+      jsonMessage: true,
     };
 
     this.#logger = createLogger({
       format: format.combine(
         format.errors({ stack: true }),
         format.timestamp({ format: 'YYYY-MM-DD hh:mm:ss' }),
-        format.printf(
-          (info) =>
-            `${info.timestamp} ${info.level}: ${info.message} ${info.splat || ''} ${info.stack || ''}`,
-        ),
+        format.json(),
+        // format.printf(
+        //   (info) =>
+        //     `${info.timestamp} ${info.level}: ${info.message} ${info.splat || ''} ${info.stack || ''}`,
+        // ),
       ),
       transports: [
         new DailyRotate({
