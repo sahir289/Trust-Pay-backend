@@ -251,7 +251,7 @@ export const assignedBankToPayInUrl = async (req, res) => {
     req.body.amount,
     req.body.type,
   );
-    sendNewSuccess(res, result, 'Bank account is assigned');
+    // sendNewSuccess(res, result, 'Bank account is assigned');
   return sendSuccess(res, result, 'Bank account is assigned');
 };
 
@@ -414,7 +414,7 @@ export const processPayIn = async (req, res) => {
     false,
     true,
   );
-  sendNewSuccess(res, data, 'PayIn processed successfully');
+  // sendNewSuccess(res, data, 'PayIn processed successfully');
   sendSuccess(res, data, 'PayIn processed successfully');
 };
 

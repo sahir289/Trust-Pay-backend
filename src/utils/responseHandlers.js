@@ -26,8 +26,8 @@ const sendSuccess = (
   if (page) {
     finalRes = { ...finalRes, page };
   }
-  logger.info(finalRes.message, {
-    status: finalRes.statusCode,
+  logger.info(message, {
+    status: status,
     data: finalRes.data,
   });
   return res.status(status).json(finalRes);
@@ -38,14 +38,16 @@ const sendNewSuccess = (
   data = {},
   message = '',
   status = 200,
-
 ) => {
   const finalRes = {
     message: message || '',
     statusCode: status,
     data: data || {},
   };
-  logger.info(finalRes.message, {status:finalRes.statusCode,data:finalRes.data});
+  logger.info(message, {
+    status: status,
+    data: finalRes.data,
+  });
   return res.status(200).json(finalRes);
 };
 const sendError = (
