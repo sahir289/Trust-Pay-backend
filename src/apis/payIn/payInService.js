@@ -2008,7 +2008,7 @@ export const generateUpiUrlService = async (payload) => {
   };
   
 
-  const upiUrl = `upi://pay?${querystring.stringify(params)}`;
+  const upiUrl = `upi://pay?${querystring.stringify(params)}`; 
   
   const upiQr = await QRCode.toDataURL(upiUrl);
   return {
