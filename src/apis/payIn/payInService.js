@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import { nanoid } from 'nanoid';
 import { Cashfree } from 'cashfree-pg';
 import { v4 as uuidv4 } from 'uuid';
-import querystring from 'querystring';
+// import querystring from 'querystring';
 import QRCode from 'qrcode';
 import config from '../../config/config.js';
 import { razorpay } from '../../webhooks/razorPay.js';
@@ -2005,6 +2005,7 @@ export const generateUpiUrlService = async (payload) => {
   // }
   // return data;
 
+
   const params = {
     pa: payload.payeeVPA,
     pn: payload.payeeName?.trim() || 'Payee',
@@ -2013,9 +2014,14 @@ export const generateUpiUrlService = async (payload) => {
     tn: payload.transactionNote?.trim() || 'Payment',
     cu: 'INR',
   };
+  
+  const upiParams = Object.entries(params)
+  .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
+  .join('&');
+  const upiUrl = `upi://pay?${upiParams}`;
 
-  const upiUrl = `upi://pay?${querystring.stringify(params)}`;
-
+  // const upiUrl = `upi://pay?${querystring.stringify(params)}`; 
+  
   const upiQr = await QRCode.toDataURL(upiUrl);
   return {
     upiUrl,
