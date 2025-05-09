@@ -34,7 +34,7 @@ class Logger {
         format.timestamp({ format: 'YYYY-MM-DD hh:mm:ss' }),
         format.printf(
           (info) =>
-            `${info.timestamp} ${info.level}: ${info.message} ${info.splat || ''} ${info.stack || ''}`,
+            `${info.timestamp} ${info.level}: ${info.message} : ${info.data} ${info.splat || ''} ${info.stack || ''}`,
         ),
       ),
       transports: [
