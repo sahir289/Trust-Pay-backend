@@ -15,6 +15,7 @@ import {
   updateSettlementService,
 } from './settlementServices.js';
 import { BadRequestError } from '../../utils/appErrors.js';
+import { getBankResponseDao } from '../bankResponse/bankResponseDao.js';
 const getSettlementControllerById = async (req, res) => {
   const { id } = req.params;
   
@@ -100,6 +101,27 @@ const createSettlementController = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
+  //-- utr and amount for internal tranfer case
+  if(payload.amount && payload.utr ){
+    const bankRes = await getBankResponseDao({utr: payload.utr})
+    if(!bankRes ){
+      return res.status(400).json({
+        error: {
+          status: 404,
+          message: 'No entry found.!',
+        },
+      });
+    }
+    if(bankRes.utr !== payload.utr){
+      return res.status(400).json({
+        error: {
+          status: 404,
+          message: 'Amount are in mismatch!',
+        },
+      });
+    }
+  }
+
   const data = {
     method: payload.method,
     amount: payload.amount,
@@ -113,8 +135,9 @@ const createSettlementController = async (req, res) => {
        ifsc :  payload.ifsc,
        acc_no:  payload.acc_no,
        acc_holder_name: payload.acc_holder_name,
-       bank_name:  payload.bank_name
-      
+       bank_name:  payload.bank_name,
+       amount: payload.amount,
+       utr: payload.utr      
     }
   };
   // const data =

@@ -14,7 +14,6 @@ const methodNotFound = (req, res, next) => {
 const addLogIdInRequest = (req, res, next) => {
   req.identifier = generateUUID();
   const { identifier, url, body } = req;
-  console.log(req.headers, "req.headersreq.headers")
 
   let logString = `Request uuid [${identifier}] :: ${url} :: ${req.headers['user-agent']}`;
   if (url && !url.includes('/auth/')) {
