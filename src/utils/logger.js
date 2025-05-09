@@ -32,8 +32,10 @@ class Logger {
       format: format.combine(
         format.errors({ stack: true }),
         format.timestamp({ format: 'YYYY-MM-DD hh:mm:ss' }),
-        format.metadata(), // Capture additional arguments as metadata
-        format.json(), // Serialize all fields (message, metadata, stack) as JSON
+        format.printf(
+          (info) =>
+            `${info.timestamp} ${info.level}: ${info.message} ${info.splat || ''} ${info.stack || ''}`,
+        ),
       ),
       transports: [
         new DailyRotate({
@@ -78,15 +80,8 @@ class Logger {
     const timestamp = new Date()
       .toLocaleString('en-US', options)
       .replace(',', '');
-
-    const formattedArgs = args.map((arg) =>
-      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg,
-    );
-    originalLog(`${typeChalk} : ${timestamp} ::`, ...formattedArgs);
-
-    const message = args[0] || '';
-    const metadata = args.length > 1 ? args[1] : {};
-    this.#logger.log(level, message, metadata);
+    originalLog(`${typeChalk} : ${timestamp} ::`, ...args);
+    this.#logger.log(level, args.shift(), args);
   }
 }
 
