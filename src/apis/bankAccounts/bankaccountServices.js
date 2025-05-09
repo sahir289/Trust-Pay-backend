@@ -158,11 +158,13 @@ const updateBankaccountService = async (conn, ids, payload) => {
       company_id: ids.company_id,
     });
 
-    if (Object.keys(payload).length === 0) {
-      if (bank[0].today_balance >= bank[0].config?.max_limit) {
+    if (Object.keys(payload).length === 1 && payload.latest_balance) {
+      if (payload.latest_balance >= bank[0].config?.max_limit) {
+        delete payload.latest_balance;
         payload.is_enabled = false;
         deactivateBank(bank[0].nick_name, ids.id);
-      } else if (bank[0].today_balance === bank[0].config?.max_limit) {
+      } else if (payload.latest_balance === bank[0].config?.max_limit) {
+        delete payload.latest_balance;
         deactivateBank(bank[0].nick_name, ids.id, true);
       }
     }

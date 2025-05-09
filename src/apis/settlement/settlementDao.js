@@ -21,8 +21,12 @@ const getSettlementDao = async (
     const conditions = [`s.is_obsolete = false`];
     const queryParams = [];
     const limitcondition = { value: '' };
-
-    const handledKeys = new Set(['search', 'sortBy', 'sortOrder', 'role']);
+    //fields added for getting data on codes and dates
+    const handledKeys = new Set(['search', 'sortBy', 'sortOrder', 'role', 'vendor_codes', 'merchant_codes', 'start_date', 'end_date', 'user_id']);
+    const isUUID = (value) => {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      return typeof value === 'string' && uuidRegex.test(value);
+    };
 
     const conditionBuilders = {
       search: (filters, SETTLEMENT) => {
@@ -42,6 +46,39 @@ const getSettlementDao = async (
         queryParams.push(filters.role);
         delete filters.role;
       },
+      //--merchant_codes and vendor codes and dates filetring
+      vendor_codes: (filters, conditions, queryParams) => {
+        if (!filters.vendor_codes) return;
+        const nextParamIdx = queryParams.length + 1;
+        const isMultiValue = typeof filters.vendor_codes === 'string' && filters.vendor_codes.includes(',');
+        const valueArray = isMultiValue ? filters.vendor_codes.split(',').map(v => v.trim()) : [filters.vendor_codes];
+        const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+        const column = valueArray.every(isUUID) ? 'u.id' : 'u.code';
+        conditions.push(`${column} IN (${placeholders})`);
+        queryParams.push(...valueArray);
+        delete filters.vendor_codes;
+      },
+      merchant_codes: (filters, conditions, queryParams) => {
+        if (!filters.merchant_codes) return;
+        const nextParamIdx = queryParams.length + 1;
+        const isMultiValue = typeof filters.merchant_codes === 'string' && filters.merchant_codes.includes(',');
+        const valueArray = isMultiValue ? filters.merchant_codes.split(',').map(v => v.trim()) : [filters.merchant_codes];
+        const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+        const column = valueArray.every(isUUID) ? 'u.id' : 'u.code';
+        conditions.push(`${column} IN (${placeholders})`);
+        queryParams.push(...valueArray);
+        delete filters.merchant_codes;
+      },
+      date_range: (filters, conditions, queryParams) => {
+        const { start_date, end_date } = filters;
+        if (start_date && end_date) {
+          const nextParamIdx = queryParams.length + 1;
+          conditions.push(`s.created_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`);
+          queryParams.push(start_date, end_date);
+          delete filters.start_date;
+          delete filters.end_date;
+        }
+      },      
       pagination: (page, pageSize, queryParams, limitconditionRef) => {
         if (!page || !pageSize) return;
         const nextParamIdx = queryParams.length + 1;
@@ -52,6 +89,9 @@ const getSettlementDao = async (
 
     conditionBuilders.search(filters, SETTLEMENT);
     conditionBuilders.role(filters, conditions, queryParams);
+    conditionBuilders.vendor_codes(filters, conditions, queryParams);
+    conditionBuilders.merchant_codes(filters, conditions, queryParams);
+    conditionBuilders.date_range(filters, conditions, queryParams);
     conditionBuilders.pagination(page, pageSize, queryParams, limitcondition);
 
     Object.entries(filters).forEach(([key, value]) => {
