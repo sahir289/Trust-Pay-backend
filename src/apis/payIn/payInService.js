@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import { nanoid } from 'nanoid';
 import { Cashfree } from 'cashfree-pg';
 import { v4 as uuidv4 } from 'uuid';
-import querystring from 'querystring';
+// import querystring from 'querystring';
 import QRCode from 'qrcode';
 import config from '../../config/config.js';
 import { razorpay } from '../../webhooks/razorPay.js';
@@ -107,7 +107,7 @@ export const generatePayInUrlByHashService = async (req, res) => {
     config_merchants_contains: merchantArr[0].id,
   });
   if (bankAssigned.length <= 0) {
-       //-- correct error handling
+    //-- correct error handling
     return res.status(400).json({
       error: {
         status: 404,
@@ -565,19 +565,25 @@ export const checkPayInStatusService = async (
   return {
     status: payIn.status,
     merchantOrderId: payIn.merchant_order_id,
-    amount: [Status.INITIATED, Status.ASSIGNED, Status.DROPPED, Status.DUPLICATE].includes(
-      payIn.status,
-    )
+    amount: [
+      Status.INITIATED,
+      Status.ASSIGNED,
+      Status.DROPPED,
+      Status.DUPLICATE,
+    ].includes(payIn.status)
       ? null
       : botResponse?.amount
         ? botResponse?.amount
         : null,
     payinId: payIn.id,
     req_amount: payIn.amount,
-    utr_id: [Status.INITIATED, Status.ASSIGNED, Status.DROPPED, Status.IMG_PENDING].includes(
-      payIn.status,
-    )
-      ? " "
+    utr_id: [
+      Status.INITIATED,
+      Status.ASSIGNED,
+      Status.DROPPED,
+      Status.IMG_PENDING,
+    ].includes(payIn.status)
+      ? ' '
       : botResponse?.utr
         ? botResponse?.utr
         : payIn.user_submitted_utr,
@@ -664,8 +670,7 @@ export const updatePaymentNotificationStatusService = async (
       amount: bankResponse?.amount || null,
       utr_id: bankResponse?.utr ? bankResponse.utr : payIn.user_submitted_utr, //--utr_id either bankres and payin
     });
-  }
-  else if (type === Type.PAYOUT) {
+  } else if (type === Type.PAYOUT) {
     // find on the basis of payoutId
     const payouts = await getPayoutsDao({ id: payInId, company_id });
     const payout = payouts[0];
@@ -880,11 +885,11 @@ export const resetDepositService = async (
   ]);
 
   if (nonResettableStatuses.has(payIn.status)) {
-      return {
-        error: `The Order Id: ${payIn.merchant_order_id} with Status: ${payIn.status} cannot be reset!`,
-        status: 400,  //-- sending status code along with message
-      };
-    }
+    return {
+      error: `The Order Id: ${payIn.merchant_order_id} with Status: ${payIn.status} cannot be reset!`,
+      status: 400, //-- sending status code along with message
+    };
+  }
 
   const condition = {
     company_id,
@@ -911,15 +916,10 @@ export const resetDepositService = async (
     ///for update bankresponse with id
     const id = bankResponse.id;
     if (!payInSuccess.length) {
-      await updateBotResponseDao(
-       id,
-        { is_used: false },
-        conn,
-      );
+      await updateBotResponseDao(id, { is_used: false }, conn);
     }
   }
 
- 
   return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 };
 
@@ -1690,21 +1690,18 @@ export const disputeDuplicateTransactionService = async (
       throw new NotFoundError('PayIn not found against merchant order id');
     }
 
-    if (
-      ![
-        Status.DUPLICATE,
-        Status.PENDING,
-        Status.ASSIGNED,
-        Status.DISPUTE,
-      ].includes(payIn.status)
-    ) {
-      throw new BadRequestError(
-        'PayIn Status is not DUPLICATE, PENDING, ASSIGNED against merchant order id',
-      );
+    if (payInData.merchant_id !== payIn.merchant_id) {
+      throw new BadRequestError('Please provide valid merchant order id');
     }
 
-    if (payIn.merchant_id != payInData.merchant_id) {
-      throw new BadRequestError('Merchant Mismatched');
+    if (
+      ![Status.ASSIGNED, Status.PENDING, Status.DROPPED].includes(
+        payInData.status,
+      )
+    ) {
+      throw new BadRequestError(
+        `PayIn Status: ${payInData.status} is not Accepted`,
+      );
     }
 
     if (
@@ -1969,46 +1966,69 @@ export const generateUpiUrlService = async (payload) => {
   const uuid = generateUUID();
   const transactionId = `IND${uuid.replace(/-/g, '')}`.slice(0, 32);
 
+  // const params = {
+  //   appid: 'inb_admin',
+  //   tr: transactionId,
+  //   am: parseFloat(payload.amount).toFixed(2),
+  //   mc: payload.merchantCode || '',
+  //   pa: payload.payeeVPA,
+  //   pn: (payload.payeeName || '') + ' ',
+  //   tn: payload.transactionNote || '',
+  //   cu: 'INR',
+  //   bn: (payload.businessName || '') + ' ',
+  //   mode: '01',
+  //   purpose: ''
+  // };
+
+  // let encodedParams = querystring.stringify(params);
+
+  // const phonepeUrl = `phonepe://pay?${encodedParams}`;
+  // const gpayUrl = `gpay://upi/pay?${encodedParams}`;
+  // const paytmUrl = `paytm://upi/pay?${encodedParams}`;
+  // const genericUpiUrl = `upi://pay?${encodedParams}`;
+
+  //  const phonepeQr = await QRCode.toDataURL(phonepeUrl);
+  // const gpayQr = await QRCode.toDataURL(gpayUrl);
+  // const paytmQr = await QRCode.toDataURL(paytmUrl);
+  // const genericUpiQr = await QRCode.toDataURL(genericUpiUrl);
+
+  // return {
+  //   phonepeUrl,
+  //   phonepeQr,
+  //   gpayUrl,
+  //   gpayQr,
+  //   paytmUrl,
+  //   paytmQr,
+  //   genericUpiUrl,
+  //   genericUpiQr,
+  //   transactionId
+  // }
+  // return data;
+
+
   const params = {
-    appid: 'inb_admin',
-    tr: transactionId,
-    am: parseFloat(payload.amount).toFixed(2),  
-    mc: payload.merchantCode || '',
     pa: payload.payeeVPA,
-    pn: (payload.payeeName || '') + ' ',     
-    tn: payload.transactionNote || '',
-    cu: '',                          
-    bn: (payload.businessName || '') + ' ',   
-    mode: '01',
-    purpose: ''
+    pn: payload.payeeName?.trim() || 'Payee',
+    tr: transactionId,
+    am: parseFloat(payload.amount).toFixed(2),
+    tn: payload.transactionNote?.trim() || 'Payment',
+    cu: 'INR',
   };
   
+  const upiParams = Object.entries(params)
+  .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
+  .join('&');
+  const upiUrl = `upi://pay?${upiParams}`;
 
-  let encodedParams = querystring.stringify(params);
+  // const upiUrl = `upi://pay?${querystring.stringify(params)}`; 
   
-  const phonepeUrl = `phonepe://pay?${encodedParams}`;
-  const gpayUrl = `gpay://upi/pay?${encodedParams}`;
-  const paytmUrl = `paytm://upi/pay?${encodedParams}`;
-  const genericUpiUrl = `upi://pay?${encodedParams}`;
-
-   const phonepeQr = await QRCode.toDataURL(phonepeUrl);
-  const gpayQr = await QRCode.toDataURL(gpayUrl);
-  const paytmQr = await QRCode.toDataURL(paytmUrl);
-  const genericUpiQr = await QRCode.toDataURL(genericUpiUrl);
-
+  const upiQr = await QRCode.toDataURL(upiUrl);
   return {
-    phonepeUrl,
-    phonepeQr,
-    gpayUrl,
-    gpayQr,
-    paytmUrl,
-    paytmQr,
-    genericUpiUrl,
-    genericUpiQr,
-    transactionId
-  }
-  // return data;
-}
+    upiUrl,
+    upiQr,
+    transactionId,
+  };
+};
 
 const checkIsPayInExpired = (payIn) => {
   if (Number(payIn.expiration_date) < Date.now() || payIn.is_url_expires) {
