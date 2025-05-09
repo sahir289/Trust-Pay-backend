@@ -536,7 +536,7 @@ const getBankResponseService = async (payload, role, page, limit, search) => {
       filters,
       page,
       limit,
-       payload.sort_by || 'updated_at',
+       payload.sort_by || 'created_at',
       'DESC',
       filterColumns,
     );

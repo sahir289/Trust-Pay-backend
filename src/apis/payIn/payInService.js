@@ -391,28 +391,31 @@ export const assignedBankToPayInUrlService = async (
   const banks = await getMerchantBankDao({
     config_merchants_contains: merchant.id,
   });
-
-  const enabledBanks = banks.filter((bank) => {
-    if (
-      !bank.is_enabled &&
-      (bank.bank_used_for !== 'PayIn' || bank.bank_used_for !== 'payIn')
-    ) {
-      return false;
+  //only enabled banks assigned
+const enabledBanks = banks.filter((bank) => {
+  const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
+  const isActive = bank.is_enabled && isPayInBank;
+  const hasAnyMethod =
+    bank.is_qr ||
+    bank.is_bank ||
+    bank.config?.is_phonepay ||
+    bank.config?.is_intent;
+    if(isActive){
+      switch (type) {
+        case BankTypes.UPI:
+          return bank.is_qr;
+        case BankTypes.PHONE_PE:
+          return bank.config?.is_phonepay;
+        case BankTypes.BANK_TRANSFER:
+          return bank.is_bank;
+        case BankTypes.INTENT:
+          return bank.config?.is_intent;
+        default:
+          return false;
+      }
     }
-
-    switch (type) {
-      case BankTypes.UPI:
-        return bank.is_qr;
-      case BankTypes.PHONE_PE:
-        return bank.config?.is_phonepay;
-      case BankTypes.BANK_TRANSFER:
-        return bank.is_bank;
-      case BankTypes.INTENT:
-        return bank.config?.is_intent;
-      default:
-        return false;
-    }
-  });
+  return isActive && hasAnyMethod;
+});
 
   if (!enabledBanks.length) {
     await updatePayInUrlDao(payIn.id, {
@@ -1929,7 +1932,14 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
   const banks = await getMerchantBankDao({
     config_merchants_contains: merchant[0].id,
   });
-
+  //only banks assigned
+  const enabledBanks = banks.filter((bank) => {
+    const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
+    const isActive = bank.is_enabled && isPayInBank;
+    const hasAnyMethod =
+      bank.is_qr || bank.is_bank || bank.config?.is_phonepay || bank.config?.is_intent;
+    return isActive && hasAnyMethod;
+  });
   const result = {
     expiryTime: payIn.expiration_date,
     amount: payIn.amount,
@@ -1937,9 +1947,10 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
     status: payIn.status,
     min_amount: merchant[0].min_payin,
     max_amount: merchant[0].max_payin,
-    is_qr: banks.some((bank) => bank.is_qr),
-    is_phonepay: banks.some((bank) => bank.config?.is_phonepay),
-    is_bank: banks.some((bank) => bank.is_bank),
+    //only methods from enabled banks checked
+    is_qr: enabledBanks.some((bank) => bank.is_qr),
+    is_phonepay: enabledBanks.some((bank) => bank.config?.is_phonepay),
+    is_bank: enabledBanks.some((bank) => bank.is_bank),
     redirect_url: payIn.config?.urls?.return,
   };
   return result;
