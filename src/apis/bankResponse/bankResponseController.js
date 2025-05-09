@@ -40,7 +40,7 @@ const getClaimResponse = async (req, res) => {
     ...req.query,
     company_id,
   };
-  const data = await getClaimResponseService(payload, role, page, limit, search);
+  const data = await getClaimResponseService(payload);
   return sendSuccess(res, data, 'Bank response retrieved successfully');
 };
 
