@@ -36,7 +36,12 @@ const getBankaccountDao = async (filters, page, limit, role) => {
     if (filters?.bank_used_for) {
       conditions.push(`ba.bank_used_for = $${queryParams.length + 1}`);
       queryParams.push(filters?.bank_used_for);
-      // delete filters.bank_used_for
+    }
+
+    // Nickname filter 
+    if (filters?.nick_name) {
+      conditions.push(`ba.nick_name= $${queryParams.length + 1}`);
+      queryParams.push(filters.nick_name);
     }
     if (filters && Object.keys(filters).length > 0) {
       Object.keys(filters).forEach((key) => {

@@ -215,10 +215,8 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       null
     );
     const calculationData = await getCalculationforCronDao(data[0].user_table_id);
-    const {
-      id
-    } = calculationData[0];
 
+    
     if (payload.config.reference_id) {
       payload.status = 'SUCCESS';
       if (!data) {
@@ -249,14 +247,19 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         }
       }
 
-      await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
-      const merchantData = await getMerchantsDao(
-        { user_id: data[0].user_table_id },
-        null,
-        null,
-        null,
-        null
-      );
+        //if calculation data not exists dont update    
+        if(calculationData.length > 0){
+          const {id} = calculationData[0];
+          await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
+        }
+          const merchantData = 
+          await getMerchantsDao(
+            { user_id: data[0].user_table_id },
+            null,
+            null,
+            null,
+            null
+          );
 
       if (data[0].role === Role.VENDOR) {
         const bankData = await getBankaccountDao(
@@ -304,7 +307,10 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           current_balance:   amount,
           net_balance:   amount,
         };
-        await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
+        //if calculation data not exists dont update    
+        if(calculationData.length > 0){
+          const {id} = calculationData[0];
+        await updateCalculationBalanceDao({ id }, updatedCalculation, conn);}
 
       } else {
         payload.config.reference_id = '';
@@ -317,7 +323,10 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           current_balance:  - amount,
           net_balance:  - amount,
         };
-        await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
+        //if calculation data not exists dont update    
+        if(calculationData.length > 0){
+          const {id} = calculationData[0];
+        await updateCalculationBalanceDao({ id }, updatedCalculation, conn);}
       }
     }
     const updateData = await updateSettlementDao(
