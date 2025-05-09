@@ -43,9 +43,12 @@ export const UPDATE_SETTLEMENT_SCHEMA = Joi.object({
     reference_id: Joi.string().allow('').label('reference_id').optional(),
     rejected_reason: Joi.string().allow('').label('rejected_reason').optional(),
     ifsc: Joi.string().label('ifsc').optional(),
+    utr: Joi.string().label('utr').optional(),  //-- allow adding in config
+    amount: Joi.number().label('amount').optional(),  //-- allow adding in config
     acc_no: Joi.number().label('acc_no').optional(),
     acc_holder_name: Joi.string().label('acc_holder_name').optional(),
     bank_name: Joi.string().label('bank_name').optional(),
+    description: Joi.string().label('description').optional(),  //-- allow adding in config
   }).label('config').optional(),
 
 });

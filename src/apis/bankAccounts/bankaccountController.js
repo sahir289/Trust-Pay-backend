@@ -13,7 +13,7 @@ import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { getMerchantBankDao } from './bankaccountDao.js';
+import { getBankaccountDao, getMerchantBankDao } from './bankaccountDao.js';
 import {
   getBankaccountService,
   createBankaccountService,
@@ -102,10 +102,23 @@ const createBankaccount = async (req, res) => {
     : (payload.config = {});
   delete payload.is_phonepay;
   delete payload.is_intent;
-  const { user_id, company_id, designation,} = req.user;
+  const { user_id, company_id, designation, role} = req.user;
   payload.created_by = user_id;
   payload.updated_by = user_id;
   payload.company_id = company_id;
+  //error for nick name must be unique
+  const unique = await getBankaccountDao({nick_name : payload.nick_name},null,null,role )
+  if(unique.length>0){
+    return res.status(400).json({
+      error: {
+        status: 400,
+        message: 'Nick Name Must Be Unique',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
   // const data =
   await createBankaccountService(payload,designation,user_id);
   console.log('get Banks successfully');
