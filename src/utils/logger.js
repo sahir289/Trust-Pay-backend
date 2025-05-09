@@ -5,7 +5,7 @@ import CloudWatchTransport from 'winston-cloudwatch';
 import appConfig from '../config/config.js';
 import chalk from 'chalk';
 
-const env = appConfig?.nodeProductionLogs;
+const env = appConfig?.env;
 const aws = appConfig?.aws;
 const logDir = 'log';
 
