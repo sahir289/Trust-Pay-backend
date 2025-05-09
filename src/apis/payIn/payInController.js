@@ -311,7 +311,7 @@ export const updatePaymentNotificationStatus = async (req, res) => {
     req.body.type,
     req.user.company_id,
   );
-  sendSuccess(res, data, 'Merchant Notified successfully');
+  sendSuccess(res, data);
 };
 
 export const updateDepositStatus = async (req, res) => {
