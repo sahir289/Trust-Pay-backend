@@ -34,7 +34,6 @@ const getResetHistoryBySearch = async (req, res) => {
     },
     role,
   );
-  console.log('get reset history successfully');
   return sendSuccess(res, data, 'History fetched successfully');
 };
 const createResetHistory = async (req, res) => {
@@ -50,7 +49,6 @@ const createResetHistory = async (req, res) => {
       throw new InternalServerError('payload is required');
     }
     const data = await createResetHistoryService(payload);
-    console.log('reset history successfully');
     return sendSuccess(res, data, 'reset history successfully');
   } catch (error) {
     console.error('error getting while fetching reports', error);

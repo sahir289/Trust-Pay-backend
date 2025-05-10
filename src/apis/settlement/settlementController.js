@@ -142,8 +142,8 @@ const createSettlementController = async (req, res) => {
     }
   };
   // const data =
-  await createSettlementService(data);
-  sendSuccess(res, {}, 'Created settlement');
+ const settlement= await createSettlementService(data);
+  sendSuccess(res, settlement, 'Created Settlement Successfully');
 };
 
 const updateSettlementController = async (req, res) => {
@@ -171,8 +171,8 @@ const deleteSettlementController = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   // const updatedData =
-  await transactionWrapper(deleteSettlementService)(ids);
-  sendSuccess(res, 'Deleted settlement');
+  const settlement=await transactionWrapper(deleteSettlementService)(ids);
+  sendSuccess(res, { id: settlement.id ,deleted_by:settlement.updated_by}, 'Deleted settlement Successfully');
 };
 
 export {

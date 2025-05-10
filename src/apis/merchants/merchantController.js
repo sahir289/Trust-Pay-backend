@@ -141,15 +141,18 @@ const updateMerchant = async (req, res) => {
     throw new ValidationError(bodyError);
   }
   const { id } = req.params;
-  const { company_id,  user_id, role } = req.user;
+  const { company_id,  user_id, role ,user_name} = req.user;
   payload.updated_by = user_id;
   const ids = { id, company_id };
   // Call the service to update the Merchant
-  await updateMerchantService(ids, payload, role);
+ const merchant= await updateMerchantService(ids, payload, role);
   // Log success message
-  logger.info('Merchant updated successfully');
   // Send a success response to the client
-  return sendSuccess(res, {}, 'Merchant updated successfully');
+  return sendSuccess(
+    res,
+    { id: merchant.id, updated_by: user_name },
+    'Merchant updated successfully',
+  );
 };
 
 const deleteMerchant = async (req, res) => {
@@ -159,15 +162,18 @@ const deleteMerchant = async (req, res) => {
   }
   const { id } = req.params; // Assuming the Merchant ID is passed as a parameter
   // Call the service to delete the Merchant
-  const { company_id, user_id } = req.user;
+  const { company_id, user_id ,user_name} = req.user;
   const updated_by = user_id;
   const ids = { id, company_id };
-  await deleteMerchantService(ids, updated_by, role);
+  const merchant=await deleteMerchantService(ids, updated_by, role);
   // Log success message
-  logger.info('Merchant deleted successfully');
 
   // Send a success response to the client
-  return sendSuccess(res, {}, 'Merchant deleted successfully');
+  return sendSuccess(
+    res,
+    { id: merchant.id, deleted_by: user_name },
+    'Merchant deleted successfully',
+  );
 };
 
 export {

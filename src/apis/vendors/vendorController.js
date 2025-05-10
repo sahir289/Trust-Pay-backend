@@ -29,11 +29,10 @@ const createVendor = async (req, res) => {
   payload.created_by = user_id;
   payload.updated_by = user_id;
   // Call the service to create the Vendor
-  await transactionWrapper(createVendorService)(payload, role);
+ const vendor= await transactionWrapper(createVendorService)(payload, role);
   // Log success message
-  logger.log('Vendor created successfully');
   // Send a success response to the client
-  return sendSuccess(res, 'Vendor created successfully');
+  return sendSuccess(res,{id:vendor.id}, 'Vendor created successfully');
 };
 
 const getVendors = async (req, res) => {
@@ -104,7 +103,7 @@ const getVendorById = async (req, res) => {
 
 const updateVendor = async (req, res) => {
   // Validate Vendor ID (from params)
-  const { role } = req.user;
+  const { role,user_name } = req.user;
   const { error: idError } = VALIDATE_VENDOR_BY_ID.validate(req.params);
   if (idError) {
     throw new ValidationError(idError);
@@ -119,24 +118,30 @@ const updateVendor = async (req, res) => {
   const { id } = req.params; // Assuming the Vendor ID is passed as a parameter
   // Call the service to update the Vendor
   const ids = { id, company_id };
-  await updateVendorService(ids, payload, role);
+  const vendor=await updateVendorService(ids, payload, role);
   // Log success message
-  logger.log('Vendor updated successfully');
   // Send a success response to the client
-  return sendSuccess(res, {}, 'Vendor updated successfully');
+  return sendSuccess(
+    res,
+    { id:vendor.id, updated_by:user_name },
+    'Vendor updated successfully',
+  );
 };
 
 const deleteVendor = async (req, res) => {
-  const { role } = req.user;
+  const { role,user_name } = req.user;
   const { user_id } = req.params; // Assuming the Vendor ID is passed as a parameter
   // Call the service to delete the Vendor
   const { company_id } = req.user;
   const ids = { company_id, user_id };
-  await deleteVendorService(ids, role);
-  // Log success message
-  logger.log('Vendor deleted successfully');
+  const vendor=await deleteVendorService(ids, role);
   // Send a success response to the client
-  return sendSuccess(res, {}, 'Vendor deleted successfully');
+  console.log(vendor, 'hey vendor from the vendor');
+  return sendSuccess(
+    res,
+    {id: vendor.id, deleted_by:user_name},
+    'Vendor deleted successfully',
+  );
 };
 
 export { createVendor,getVendorsBySearch, getVendors,getVendorCodes, getVendorById, updateVendor, deleteVendor };
