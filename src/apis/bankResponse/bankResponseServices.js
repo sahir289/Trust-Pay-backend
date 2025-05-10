@@ -197,7 +197,7 @@ const createBankResponseService = async (
     if (isNaN(bankdetails[0].balance) || isNaN(bankdetails[0].today_balance)) {
       throw new BadRequestError('Invalid amount or commission');
     }
-    await updateBankaccountDao(
+    const res = await updateBankaccountDao(
       { id: botRes?.bank_id },
       {
         balance: parseFloat(bankdetails[0].balance) + parseFloat(botRes.amount),
@@ -207,10 +207,11 @@ const createBankResponseService = async (
       },
       conn,
     );
+    console.log(res, 'res');
     await updateBankaccountService(
       conn,
       { id: botRes?.bank_id, company_id: companyId },
-      {},
+      {latest_balance: res.today_balance},
     );
     const vendor = await getVendorsDao({
       user_id: bankdetails[0].user_id,
@@ -467,16 +468,8 @@ const updateCalculationTable = async (user_id, data, conn) => {
   }
 };
 
-const getClaimResponseService = async (payload, role, page, limit, search) => {
+const getClaimResponseService = async (payload) => {
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.BANK_RESPONSE
-        : role === Role.VENDOR
-          ? vendorColumns.BANK_RESPONSE
-          : columns.BANK_RESPONSE;
-
-          console.log('payload', payload);
 
     let filters = Object.fromEntries(
       Object.entries({
@@ -485,10 +478,9 @@ const getClaimResponseService = async (payload, role, page, limit, search) => {
       }).filter(([, v]) => v !== undefined),
     );
     filters = {
-      ...(search ? { search } : {}),
       ...filters,
     }
-    return await getClaimResponseDao(filters, page, limit, 'updated_at', 'DESC', filterColumns);
+    return await getClaimResponseDao(filters);
   } catch (error) {
     logger.error('Error in getBankResponseService:', error);
     throw new InternalServerError(error);

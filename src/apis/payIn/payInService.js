@@ -332,7 +332,7 @@ export const getPayInUrlService = async (id, conn, tele_check = true) => {
       req_amount: payIn.amount,
       utr_id: payIn.utr,
     });
-    throw new InternalServerError('PayIn Expired');
+    // throw new InternalServerError('PayIn Expired');
   }
 
   return payIn;
@@ -1718,6 +1718,7 @@ export const disputeDuplicateTransactionService = async (
     }
   }
 
+  let response = {};
   if (!makeItSuccess) {
     const newStatus =
       payInData.bank_acc_id != payIn.bank_acc_id
@@ -1726,7 +1727,7 @@ export const disputeDuplicateTransactionService = async (
           ? Status.DISPUTE
           : Status.SUCCESS;
     // make new pay in success
-    await updatePayInUrlDao(payInData.id, {
+    response = await updatePayInUrlDao(payInData.id, {
       is_url_expires: true,
       one_time_used: true,
       is_notified: true,
@@ -1802,11 +1803,11 @@ export const disputeDuplicateTransactionService = async (
   // if (updateBalance) {
 
   //   //   await updateBanktBalanceDao({ id: bankId }, toAmount, updated_by, conn);
-  //   // await updateBankaccountService(
-  //   //   conn,
-  //   //   { id: bank.id, company_id: payIn.company_id },
-  //   //   {},
-  //   // );
+    // await updateBankaccountService(
+    //   conn,
+    //   { id: bank.id, company_id: payIn.company_id },
+    //   {},
+    // );
   //   await updateCalculationTable(
   //     bank.user_id,
   //     {
@@ -1825,6 +1826,7 @@ export const disputeDuplicateTransactionService = async (
   //     config?.telegramBotToken,
   //     entryType,
   //   );
+  return response;
 };
 
 export const telegramCheckUTRService = async (
