@@ -160,14 +160,13 @@ const updateBankaccountService = async (conn, ids, payload) => {
 
     if (Object.keys(payload).length === 1 && payload.latest_balance) {
       if (payload.latest_balance >= bank[0].config?.max_limit) {
-        delete payload.latest_balance;
         payload.is_enabled = false;
         deactivateBank(bank[0].nick_name, ids.id);
       } else if (payload.latest_balance === bank[0].config?.max_limit) {
-        delete payload.latest_balance;
         deactivateBank(bank[0].nick_name, ids.id, true);
       }
     }
+    delete payload.latest_balance;
 
      //added merchant_added key in config which contains date on which merchant is added along with its id
      if (payload?.config?.merchant_added) {
