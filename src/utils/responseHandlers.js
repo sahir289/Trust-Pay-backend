@@ -3,10 +3,10 @@ import { logger } from './logger.js';
 const sendSuccess = (
   res,
   Data = {},
-  message = "",
+  message = '',
   status = 200,
   total,
-  page,
+  page
 ) => {
   let finalRes = {
     error: {},
@@ -26,11 +26,8 @@ const sendSuccess = (
   if (page) {
     finalRes = { ...finalRes, page };
   }
-  const data = finalRes.data;
-  logger.info(message, 
-    status,
-    data,
-  );
+
+  logger.info(message, { status, data: finalRes.data });
 
   return res.status(status).json(finalRes);
 };

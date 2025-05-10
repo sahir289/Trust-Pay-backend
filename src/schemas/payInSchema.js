@@ -38,7 +38,7 @@ export const VALIDATE_EXPIRE_PAY_IN_URL = Joi.object({
 });
 
 export const VALIDATE_CHECK_PAY_IN_STATUS = Joi.object({
-  payInId: Joi.string()
+  payinId: Joi.string()
     .guid({ version: ['uuidv4'] })
     .label('payInId')
     .required(),

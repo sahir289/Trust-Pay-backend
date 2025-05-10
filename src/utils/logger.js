@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { createLogger, format } from 'winston';
+import winston, { createLogger, format } from 'winston';
 import DailyRotate from 'winston-daily-rotate-file';
 import CloudWatchTransport from 'winston-cloudwatch';
 import appConfig from '../config/config.js';
@@ -8,8 +8,6 @@ import chalk from 'chalk';
 const env = appConfig?.env;
 const aws = appConfig?.aws;
 const logDir = 'log';
-
-const originalLog = console.log;
 
 class Logger {
   #logger;
@@ -20,24 +18,21 @@ class Logger {
 
     // AWS CloudWatch Transport Configuration
     const cloudWatchConfig = {
-      logGroupName: aws.cloudWatchLogGroup, // Log group name in CloudWatch
-      logStreamName: `${env}-logs`, // Stream name (e.g., environment-specific)
-      awsRegion: aws.region, // AWS region (e.g., 'us-east-1')
-      awsAccessKeyId: aws.accessKeyId, // From appConfig or environment variables
-      awsSecretAccessKey: aws.secretAccessKey, // From appConfig or environment variables
-      retentionInDays: 7, // Optional: Retain logs for 7 days
+      logGroupName: aws.cloudWatchLogGroup,
+      logStreamName: `${env}-logs`,
+      awsRegion: aws.region,
+      awsAccessKeyId: aws.accessKeyId,
+      awsSecretAccessKey: aws.secretAccessKey,
+      retentionInDays: 7,
       jsonMessage: true,
     };
 
     this.#logger = createLogger({
       format: format.combine(
         format.errors({ stack: true }),
-        format.timestamp({ format: 'YYYY-MM-DD hh:mm:ss' }),
-        format.json(),
-        // format.printf(
-        //   (info) =>
-        //     `${info.timestamp} ${info.level}: ${info.message} ${info.splat || ''} ${info.stack || ''}`,
-        // ),
+        format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+        format.metadata({ fillExcept: ['message', 'level', 'timestamp', 'stack'] }), // it will flatten metadata
+        format.json()
       ),
       transports: [
         new DailyRotate({
@@ -53,37 +48,82 @@ class Logger {
         new DailyRotate({
           filename: `${logDir}/%DATE%-warning-results.log`,
           datePattern: 'YYYY-MM-DD',
-          level: 'warning',
+          level: 'warn',
         }),
         new CloudWatchTransport(cloudWatchConfig),
       ],
       exitOnError: false,
     });
+
+    // Add console transport for development with custom formatting
+    if (env === 'development') {
+      this.#logger.add(
+        new winston.transports.Console({
+          format: format.combine(
+            format.colorize(),
+            format.timestamp({
+              format: () => {
+                const options = {
+                  weekday: 'short',
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: false,
+                  timeZone: 'Asia/Kolkata',
+                };
+                return new Date()
+                  .toLocaleString('en-US', options)
+                  .replace(',', '');
+              },
+            }),
+            format.metadata({ fillExcept: ['message', 'level', 'timestamp', 'stack'] }),
+            format.printf(({ timestamp, level, message, metadata }) => {
+              const typeChalk =
+                level === 'error'
+                  ? chalk.red(level)
+                  : level === 'warn'
+                    ? chalk.yellowBright(level)
+                    : chalk.cyanBright(level);
+
+              // it will only include metaString if metadata has meaningful data
+              const metaString = (() => {
+                if (!metadata || Object.keys(metadata).length === 0) {
+                  return '';
+                }
+                // check if metadata only contains an empty metadata object
+                if (
+                  Object.keys(metadata).length === 1 &&
+                  metadata.metadata &&
+                  Object.keys(metadata.metadata).length === 0
+                ) {
+                  return '';
+                }
+                return JSON.stringify(metadata);
+              })();
+
+              return `[${typeChalk}] [${timestamp}] ${message} ${metaString}`.trim();
+            })
+          ),
+        })
+      );
+    }
   }
 
-  log(level, ...args) {
-    const typeChalk =
-      level === 'error'
-        ? chalk.red(level)
-        : level === 'warning'
-          ? chalk.yellowBright(level)
-          : chalk.cyanBright(level);
-    const options = {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-      timeZone: 'Asia/Kolkata',
-    };
-    const timestamp = new Date()
-      .toLocaleString('en-US', options)
-      .replace(',', '');
-    originalLog(`${typeChalk} : ${timestamp} ::`, ...args);
-    this.#logger.log(level, args.shift(), args);
+  log(level, message, meta) {
+    // Handle cases where message is an object and no meta is provided
+    if (typeof message === 'object' && !meta) {
+      meta = message;
+      message = 'Log entry';
+    }
+    // Only pass meta to winston if it has meaningful data
+    if (meta && Object.keys(meta).length > 0) {
+      this.#logger.log(level, message, meta);
+    } else {
+      this.#logger.log(level, message);
+    }
   }
 }
 
@@ -91,8 +131,8 @@ export default Logger;
 const winstonLogger = new Logger();
 
 export const logger = {
-  log: (...args) => winstonLogger.log('info', ...args),
-  info: (...args) => winstonLogger.log('info', ...args),
-  warn: (...args) => winstonLogger.log('warn', ...args),
-  error: (...args) => winstonLogger.log('error', ...args),
-}
+  log: (message, meta) => winstonLogger.log('info', message, meta),
+  info: (message, meta) => winstonLogger.log('info', message, meta),
+  warn: (message, meta) => winstonLogger.log('warn', message, meta),
+  error: (message, meta) => winstonLogger.log('error', message, meta),
+};

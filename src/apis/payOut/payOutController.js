@@ -162,7 +162,7 @@ const deletePayout = async (req, res) => {
   }
   const api_key = req.headers['x-api-key'];
   const data = await checkPayOutStatusService(
-    req.body.payOutId,
+    req.body.payoutId,
     req.body.merchantCode,
     req.body.merchantOrderId,
     api_key,
