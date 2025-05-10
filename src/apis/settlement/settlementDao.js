@@ -270,7 +270,7 @@ const getSettlementsBySearchDao = async (
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
 
-    const totalItems = parseInt(countResult.rows[0].total, 10);
+    const totalItems = parseInt(countResult.rows[0].total);
     const totalPages = Math.ceil(totalItems / limitNum);
 
     return {
