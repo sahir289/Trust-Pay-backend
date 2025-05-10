@@ -97,7 +97,7 @@ const createSettlementController = async (req, res) => {
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.status = "INITIATED";
-  payload.user_id = user_id !== null ? user_id : payload.user_id;   // no codes sent when vendor login
+  payload.user_id = payload.user_id === null ? user_id : payload.user_id;   // no codes sent when vendor login
   const joiValidation = CREATE_SETTLEMENT_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
