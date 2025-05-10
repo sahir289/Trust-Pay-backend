@@ -41,6 +41,7 @@ export const UPDATE_SETTLEMENT_SCHEMA = Joi.object({
   updated_by: Joi.string().label('updated_by').optional(),
   config: Joi.object({
     reference_id: Joi.string().allow('').label('reference_id').optional(),
+    wallet_balance: Joi.string().allow('').label('wallet_balance').optional(),
     rejected_reason: Joi.string().allow('').label('rejected_reason').optional(),
     ifsc: Joi.string().label('ifsc').optional(),
     utr: Joi.string().label('utr').optional(),  //-- allow adding in config
