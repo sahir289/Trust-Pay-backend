@@ -97,7 +97,7 @@ const createBankBotResponse = async (req, res) => {
 };
 
 const updateBankResponse = async (req, res) => {
-  const { role } = req.user;
+  const { role ,user_name} = req.user;
   const { error: idError } = VALIDATE_BANK_RESPONSE_BY_ID.validate(req.params);
   if (idError) {
     throw new ValidationError(idError);
@@ -113,7 +113,7 @@ const updateBankResponse = async (req, res) => {
   const updateResponse=await updateBankResponseService(ids, payload, role);
   return sendSuccess(
     res,
-    { id: updateResponse.id, updated_by: updateResponse.updated_by},
+    { id: updateResponse.id, updated_by: user_name },
     'BankResponse updated successfully',
   );
 };
