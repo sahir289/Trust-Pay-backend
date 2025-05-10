@@ -86,7 +86,7 @@ const createBeneficiaryAccount = async (req, res) => {
   payload.created_by = user_id;
   payload.updated_by = user_id;
   // const data =
-  await createBeneficiaryAccountService(payload, role);
+  await transactionWrapper(createBeneficiaryAccountService)(payload, role);
   logger.log('Created Beneficiary successfully');
   return sendSuccess(res, {}, 'Created Beneficiary successfully');
 };

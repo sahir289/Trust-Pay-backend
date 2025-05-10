@@ -179,9 +179,10 @@ const getBeneficiaryAccountServiceByBankName = async (
   }
 };
 
-const createBeneficiaryAccountService = async (payload) => {
+const createBeneficiaryAccountService = async (conn, payload) => {
   try {
-    const role_id = await getUserByIdDao(payload.user_id);
+    const userRole = await getUserByIdDao(conn, {id: payload.user_id});
+    const role_id = await getRoleDao({role: userRole[0].role});
     payload.role_id = role_id[0]?.id;
     const result = await createBeneficiaryAccountDao(payload);
     return result;
