@@ -2,11 +2,11 @@ import { logger } from './logger.js';
 
 const sendSuccess = (
   res,
-  data = undefined,
-  message = undefined,
+  Data = {},
+  message = '',
   status = 200,
   total,
-  page,
+  page
 ) => {
   let finalRes = {
     error: {},
@@ -17,8 +17,8 @@ const sendSuccess = (
   if (message) {
     finalRes.meta.message = message;
   }
-  if (data) {
-    finalRes.data = data;
+  if (Data) {
+    finalRes.data = Data;
   }
   if (total) {
     finalRes = { ...finalRes, total };
@@ -26,30 +26,31 @@ const sendSuccess = (
   if (page) {
     finalRes = { ...finalRes, page };
   }
-  logger.info(message, {
-    status: status,
-    data: finalRes.data,
-  });
+
+  logger.info(message, { status, data: finalRes.data });
+
   return res.status(status).json(finalRes);
 };
 
 const sendNewSuccess = (
   res,
-  data = {},
+  Data = {},
   message = '',
   status = 200,
 ) => {
   const finalRes = {
     message: message || '',
     statusCode: status,
-    data: data || {},
+    data: Data || {},
   };
-  logger.info(message, {
-    status: status,
-    data: finalRes.data,
-  });
+  const data = finalRes.data;
+  logger.info(message, 
+    status,
+    data
+  );
   return res.status(200).json(finalRes);
 };
+
 const sendError = (
   res,
   error,

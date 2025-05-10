@@ -45,7 +45,7 @@ router.use('/bankResponse', bankResponse);
 router.use('/company', company);
 router.use('/settlement', settlement);
 router.use('/userHierarchy', userHierarchy);
-router.use('/payout', payOut);
+router.use('/payOut', payOut);
 router.use('/reports', reports);
 router.use('/checkUtr', checkUtr);
 router.use('/resetHistory' , resetHistory)

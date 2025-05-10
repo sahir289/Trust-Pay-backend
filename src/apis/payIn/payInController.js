@@ -190,7 +190,7 @@ export const generatePayInUrl = async (req, res) => {
     payInUrl: `${config.reactPaymentOrigin}/transaction/${generatedHash}${queryStr}`, // Use env
     payinId: result.id,
     merchantOrderId: result.merchant_order_id,
-    status:result.status
+    status: result.status
   };
 
   // return sendSuccess(
@@ -219,8 +219,7 @@ export const validatePayInUrl = async (req, res) => {
     req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
 
   const result = await verifyPayinsService(merchantOrderId, user_location);
-      sendNewSuccess(res, result, 'Payment Url is correct');
-
+  result.merchant_order_id = merchantOrderId;
   return sendSuccess(res, result, 'Payment Url is correct');
 };
 
@@ -251,6 +250,9 @@ export const assignedBankToPayInUrl = async (req, res) => {
     req.body.amount,
     req.body.type,
   );
+  result.merchantOrderId = req.params.merchantOrderId;
+  result.amount = req.body.amount;
+  result.type = req.body.type;
     // sendNewSuccess(res, result, 'Bank account is assigned');
   return sendSuccess(res, result, 'Bank account is assigned');
 };
@@ -271,7 +273,7 @@ export const checkPayInStatus = async (req, res) => {
   }
   const api_key = req.headers['x-api-key'];
   const data = await checkPayInStatusService(
-    req.body.payInId,
+    req.body.payinId,
     req.body.merchantCode,
     req.body.merchantOrderId,
     api_key,
