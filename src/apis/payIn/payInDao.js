@@ -223,7 +223,6 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
       );
     }
-
     const result = await executeQuery(baseQuery, queryParams);
 
     return {

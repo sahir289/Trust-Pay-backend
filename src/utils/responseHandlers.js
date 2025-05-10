@@ -50,6 +50,7 @@ const sendNewSuccess = (
   });
   return res.status(200).json(finalRes);
 };
+
 const sendError = (
   res,
   error,

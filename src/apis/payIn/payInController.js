@@ -190,7 +190,6 @@ export const generatePayInUrl = async (req, res) => {
     payInUrl: `${config.reactPaymentOrigin}/transaction/${generatedHash}${queryStr}`, // Use env
     payinId: result.id,
     merchantOrderId: result.merchant_order_id,
-    status:result.status
   };
 
   // return sendSuccess(
