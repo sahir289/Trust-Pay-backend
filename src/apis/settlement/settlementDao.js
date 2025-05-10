@@ -177,6 +177,7 @@ const getSettlementsBySearchDao = async (
         u.role_id,
         u.designation_id,
         u.id AS user_table_id,
+        u.code,
         u.first_name || ' ' || u.last_name AS full_name,
         r.role AS role_name
       FROM "${SETTLEMENT}" s
@@ -188,7 +189,6 @@ const getSettlementsBySearchDao = async (
 
     // Handle additional filters
     if (filters.role_name) {
-      console.log(filters.role_name, 'filters.role_name');
       queryText += ` AND r.role = $${paramIndex}`;
       values.push(filters.role_name);
       paramIndex++;
@@ -208,8 +208,20 @@ const getSettlementsBySearchDao = async (
       values.push(...filters.user_id);
       paramIndex += filters.user_id.length;
     }
-    
-    // Handle search terms
+
+    if (filters.user_codes) {
+      const codeArray = Array.isArray(filters.user_codes)
+        ? filters.user_codes
+        : filters.user_codes.split(',').map(c => c.trim()).filter(Boolean);
+
+      if (codeArray.length > 0) {
+        const placeholders = codeArray.map((_, idx) => `$${paramIndex + idx}`).join(', ');
+        queryText += ` AND u.code IN (${placeholders})`;
+        values.push(...codeArray);
+        paramIndex += codeArray.length;
+      }
+    }
+
     searchTerms.forEach((term) => {
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
         const boolValue = term.toLowerCase() === 'true';
@@ -228,6 +240,7 @@ const getSettlementsBySearchDao = async (
             OR LOWER(s.amount::text) LIKE LOWER($${paramIndex})
             OR LOWER(s.status) LIKE LOWER($${paramIndex})
             OR LOWER(s.method) LIKE LOWER($${paramIndex})
+            OR LOWER(u.code) LIKE LOWER($${paramIndex})
             OR LOWER(u.first_name || ' ' || u.last_name) LIKE LOWER($${paramIndex})
             OR LOWER(r.role) LIKE LOWER($${paramIndex})
             OR LOWER(COALESCE(s.config->>'reference_id', '')) LIKE LOWER($${paramIndex})
@@ -257,7 +270,7 @@ const getSettlementsBySearchDao = async (
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
 
-    const totalItems = parseInt(countResult.rows[0].total);
+    const totalItems = parseInt(countResult.rows[0].total, 10);
     const totalPages = Math.ceil(totalItems / limitNum);
 
     return {
