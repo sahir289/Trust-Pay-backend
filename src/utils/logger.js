@@ -112,9 +112,18 @@ class Logger {
     }
   }
 
-  log(level, message, meta = {}) {
-    // log to winston with structured metadata
-    this.#logger.log(level, message, meta);
+  log(level, message, meta) {
+    // Handle cases where message is an object and no meta is provided
+    if (typeof message === 'object' && !meta) {
+      meta = message;
+      message = 'Log entry';
+    }
+    // Only pass meta to winston if it has meaningful data
+    if (meta && Object.keys(meta).length > 0) {
+      this.#logger.log(level, message, meta);
+    } else {
+      this.#logger.log(level, message);
+    }
   }
 }
 
