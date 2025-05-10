@@ -273,7 +273,7 @@ export const checkPayInStatus = async (req, res) => {
   }
   const api_key = req.headers['x-api-key'];
   const data = await checkPayInStatusService(
-    req.body.payInId,
+    req.body.payinId,
     req.body.merchantCode,
     req.body.merchantOrderId,
     api_key,
