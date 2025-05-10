@@ -13,15 +13,30 @@ const methodNotFound = (req, res, next) => {
 
 const addLogIdInRequest = (req, res, next) => {
   req.identifier = generateUUID();
-  const { identifier, url, body } = req;
 
-  let logString = `Request uuid [${identifier}] :: ${url} :: ${req.headers['user-agent']}`;
-  if (url && !url.includes('/auth/')) {
-    logString = `${logString} :: ${JSON.stringify(body)}`;
+  const logData = {
+    Request_uuid: req.identifier,
+    url: req.originalUrl,
+    userAgent: req.headers['user-agent'],
+    method: req.method,
+    hostname: req.hostname,
+    ip: req.ip || req.connection?.remoteAddress,
+    body: req.body,
+    query: req.query,
+    params: req.params,
+    timestamp: new Date().toISOString(),
+  };
+
+  if (req.originalUrl && !req.originalUrl.includes('/auth/')) {
+    logData.body = req.body;
+  } else {
+    delete logData.body;
   }
 
-  logger.log(logString);
+  logger.log(logData);
+
   next();
 };
+
 
 export { methodNotFound, addLogIdInRequest };
