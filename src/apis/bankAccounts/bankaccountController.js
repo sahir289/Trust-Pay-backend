@@ -102,7 +102,7 @@ const createBankaccount = async (req, res) => {
     : (payload.config = {});
   delete payload.is_phonepay;
   delete payload.is_intent;
-  const { user_id, company_id, designation, role} = req.user;
+  const { user_id, company_id, designation, role,user_name} = req.user;
   payload.created_by = user_id;
   payload.updated_by = user_id;
   payload.company_id = company_id;
@@ -120,13 +120,17 @@ const createBankaccount = async (req, res) => {
     });
   }
   // const data =
-  await createBankaccountService(payload,designation,user_id);
-  console.log('get Banks successfully');
-  return sendSuccess(res, {}, 'Created Banks successfully');
+ const bankDetail= await createBankaccountService(payload,designation,user_id);
+  return sendSuccess(
+    res,
+    { id: bankDetail.id, created_by: user_name},
+    'Created Banks successfully',
+  );
 };
 
 const updateBankaccount = async (req, res) => {
   const { id } = req.params;
+  const { user_name } = req.user;
   let payload = req.body;
   const joiValidation = UPDATE_BANK_ACCOUNT_SCHEMA.validate(req.body);
   if (joiValidation.error) {
@@ -136,9 +140,12 @@ const updateBankaccount = async (req, res) => {
   payload.updated_by = user_id;
   const ids = { id, company_id };
   // const data =
-  await transactionWrapper(updateBankaccountService)(ids, payload);
-  console.log('get Banks successfully');
-  return sendSuccess(res, {}, 'Updated Banks successfully');
+ const updatebank= await transactionWrapper(updateBankaccountService)(ids, payload);
+  return sendSuccess(
+    res,
+    { id: updatebank.id, updated_by: user_name },
+    'Updated Banks successfully',
+  );
 };
 
 const getMerchantBank = async (req, res) => {
@@ -156,12 +163,6 @@ const getMerchantBank = async (req, res) => {
   //   company_id,
   //   user_id
   // }, role);
-  console.log(
-    { company_id: company_id, user_id: user_id },
-    role,
-    req.user,
-    'company_iduser_id',
-  );
   const bankRes = await getMerchantBankDao(
     { company_id: company_id, user_id: user_id },
     null,
@@ -179,11 +180,15 @@ const deleteBankaccount = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const { company_id } = req.user;
+  const { company_id, user_name } = req.user;
   const ids = { id, company_id };
   // const data =
-  await transactionWrapper(deleteBankaccountService)(ids);
-  return sendSuccess(res, {}, 'deleted Banks successfully');
+  const deletebank = await transactionWrapper(deleteBankaccountService)(ids);
+  return sendSuccess(
+    res,
+    { id: deletebank.id, deleted_by: user_name },
+    'Deleted Banks Successfully',
+  );
 };
 export {
   getBankaccount,

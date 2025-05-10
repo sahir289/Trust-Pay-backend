@@ -16,6 +16,7 @@ import {
 } from './settlementServices.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getBankResponseDao } from '../bankResponse/bankResponseDao.js';
+import logger from '../../utils/logger.js';
 const getSettlementControllerById = async (req, res) => {
   const { id } = req.params;
   
@@ -142,8 +143,9 @@ const createSettlementController = async (req, res) => {
     }
   };
   // const data =
-  await createSettlementService(data);
-  sendSuccess(res, {}, 'Created settlement');
+  const settlement = await createSettlementService(data);
+  logger.info("Created Settlement Successfully", settlement);
+  sendSuccess(res, {}, 'Created Settlement Successfully');
 };
 
 const updateSettlementController = async (req, res) => {
@@ -158,12 +160,13 @@ const updateSettlementController = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const data = await transactionWrapper(updateSettlementService)(ids, payload, role);
-  sendSuccess(res, data, 'Updated settlement');
+  logger.info('Created Settlement Successfully', data);
+  sendSuccess(res, {}, 'Updated settlement');
 };
 
 const deleteSettlementController = async (req, res) => {
   const { id } = req.params;
-  const { company_id, user_id } = req.user;
+  const { company_id, user_id,user_name } = req.user;
   const { role } = req.user;
   const ids = { id, company_id, user_id, role };
   const joiValidation = VALIDATE_SETTLEMENT_BY_ID_DELETE.validate(id);
@@ -171,8 +174,12 @@ const deleteSettlementController = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   // const updatedData =
-  await transactionWrapper(deleteSettlementService)(ids);
-  sendSuccess(res, 'Deleted settlement');
+  const settlement=await transactionWrapper(deleteSettlementService)(ids);
+  sendSuccess(
+    res,
+    { id: settlement.id, deleted_by: user_name },
+    'Deleted settlement Successfully',
+  );
 };
 
 export {

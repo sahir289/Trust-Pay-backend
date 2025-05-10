@@ -39,7 +39,7 @@ const createChargeBack = async (req, res) => {
   if (isAlreadyExit.length > 0) {
     throw new NotFoundError('ChargeBack already exist');
   }
-  const { company_id, role, user_id } = req.user;
+  const { company_id, role, user_id, user_name } = req.user;
   // Call the service to create the ChargeBack
   const result = await createChargeBackService(
     payload,
@@ -48,8 +48,11 @@ const createChargeBack = async (req, res) => {
     company_id,
     user_id,
   );
-  console.log('ChargeBack created successfully', 'info', result);
-  return sendSuccess(res, {}, 'ChargeBack created successfully');
+  return sendSuccess(
+    res,
+    { id: result.id, created_by: user_name },
+    'ChargeBack created successfully',
+  );
 };
 
 const getChargeBacksById = async (req, res) => {
@@ -124,7 +127,7 @@ const updateChargeBack = async (req, res) => {
   }
   const payload = req.body;
   const { id } = req.params;
-  const { company_id, role, user_id } = req.user;
+  const { company_id, role, user_id,user_name } = req.user;
   // Call the service to update the ChargeBack
   payload.updated_by = user_id;
   const result = await updateChargeBackService(
@@ -133,9 +136,12 @@ const updateChargeBack = async (req, res) => {
     role,
   );
   // Log success message
-  console.log('ChargeBack updated successfully', result);
   // Send a success response to the client
-  return sendSuccess(res, {}, 'ChargeBack updated successfully');
+  return sendSuccess(
+    res,
+    { id: result.id, updated_by: user_name },
+    'ChargeBack updated successfully',
+  );
 };
 
 const deleteChargeBack = async (req, res) => {
@@ -144,7 +150,7 @@ const deleteChargeBack = async (req, res) => {
     throw new ValidationError(error);
   }
   const { id } = req.params; // Assuming the ChargeBack ID is passed as a parameter
-  const { company_id, role, user_id } = req.user;
+  const { company_id, role, user_id,user_name } = req.user;
   // Call the service to delete the ChargeBack
   const result = await deleteChargeBackService(
     { id, company_id },
@@ -152,9 +158,12 @@ const deleteChargeBack = async (req, res) => {
     role,
   );
   // Log success message
-  console.log('ChargeBack deleted successfully', result);
   // Send a success response to the client
-  return sendSuccess(res, {}, 'ChargeBack deleted successfully');
+  return sendSuccess(
+    res,
+    { id: result.id, deleted_by: user_name },
+    'ChargeBack deleted successfully',
+  );
 };
 
 export {

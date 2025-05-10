@@ -39,7 +39,7 @@ const createCheckUtr = async (req, res) => {
     payload.merchant_order_id,
   );
   payload.payin_id = payinData[0].payin_id;
-  const { company_id, user_id } = req.user;
+  const { company_id, user_id,user_name } = req.user;
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
@@ -47,9 +47,12 @@ const createCheckUtr = async (req, res) => {
   if (!payload) {
     throw new BadRequestError('payload is required');
   }
-  await createCheckUtrService(payload);
-  logger.log('Check Utr successfully');
-  return sendSuccess(res, {}, 'Check Utr successfully');
+  const checkUtr = await createCheckUtrService(payload);
+  return sendSuccess(
+    res,
+    { id: checkUtr.id, created_by: user_name },
+    'Check Utr successfully',
+  );
 };
 
 const updateCheckUtr = async (req, res) => {
