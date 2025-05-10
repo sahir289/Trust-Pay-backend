@@ -48,8 +48,10 @@ const sendNewSuccess = (
     status: status,
     data: finalRes.data,
   });
+  console.log(finalRes);
   return res.status(200).json(finalRes);
 };
+
 const sendError = (
   res,
   error,
