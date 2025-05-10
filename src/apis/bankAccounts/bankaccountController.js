@@ -130,6 +130,7 @@ const createBankaccount = async (req, res) => {
 
 const updateBankaccount = async (req, res) => {
   const { id } = req.params;
+  const { user_name } = req.user;
   let payload = req.body;
   const joiValidation = UPDATE_BANK_ACCOUNT_SCHEMA.validate(req.body);
   if (joiValidation.error) {
@@ -140,7 +141,11 @@ const updateBankaccount = async (req, res) => {
   const ids = { id, company_id };
   // const data =
  const updatebank= await transactionWrapper(updateBankaccountService)(ids, payload);
-  return sendSuccess(res, { id: updatebank.id, updated_by: updatebank.updated_by }, 'Updated Banks successfully');
+  return sendSuccess(
+    res,
+    { id: updatebank.id, updated_by: user_name },
+    'Updated Banks successfully',
+  );
 };
 
 const getMerchantBank = async (req, res) => {
@@ -175,11 +180,15 @@ const deleteBankaccount = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const { company_id } = req.user;
+  const { company_id, user_name } = req.user;
   const ids = { id, company_id };
   // const data =
   const deletebank = await transactionWrapper(deleteBankaccountService)(ids);
-  return sendSuccess(res, {id:deletebank.id,deleted_by:deletebank.updated_by}, 'Deleted Banks Successfully');
+  return sendSuccess(
+    res,
+    { id: deletebank.id, deleted_by: user_name },
+    'Deleted Banks Successfully',
+  );
 };
 export {
   getBankaccount,

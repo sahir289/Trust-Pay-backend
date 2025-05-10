@@ -92,13 +92,17 @@ const createUser = async (req, res) => {
 };
 
 const updateUser = async (req, res) => {
-  const { company_id, user_id } = req.user;
+  const { company_id, user_id,user_name } = req.user;
   let payload = req.body;
   payload.updated_by = user_id;
   const id = req.params.id;
   const ids = { id, company_id };
    const user= await transactionWrapper(userUpdateService)(ids, payload);
-  return sendSuccess(res, {id:user.id,updated_by:user.updated_by}, 'Update user successfully');
+  return sendSuccess(
+    res,
+    { id: user.id, updated_by: user_name },
+    'Update user successfully',
+  );
 };
 
 export {
