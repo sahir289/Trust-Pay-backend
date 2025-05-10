@@ -43,11 +43,7 @@ const sendNewSuccess = (
     statusCode: status,
     data: Data || {},
   };
-  const data = finalRes.data;
-  logger.info(message, 
-    status,
-    data
-  );
+  logger.info(message, { status, data: finalRes.data });
   return res.status(200).json(finalRes);
 };
 

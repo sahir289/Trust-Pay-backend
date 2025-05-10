@@ -130,11 +130,15 @@ const updatePayout = async (req, res) => {
   }
 
   const { id } = req.params;
-  const { company_id, role, user_id } = req.user;
+  const { company_id, role, user_id,user_name } = req.user;
   payload.updated_by = user_id;
   const ids = { id, company_id };
-  await transactionWrapper(updatePayoutService)(ids, payload, role);
-  return sendSuccess(res, {}, 'Payout updated successfully');
+ const update= await transactionWrapper(updatePayoutService)(ids, payload, role);
+  return sendSuccess(
+    res,
+    { id: update.id, updated_by: user_name },
+    'Payout updated successfully',
+  );
 };
 
 const deletePayout = async (req, res) => {
