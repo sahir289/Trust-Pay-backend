@@ -44,7 +44,9 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs) => {
       params.push(role);
       paramIndex++;
     }
-
+    if (filters.nick_name) {
+      delete filters.nick_name
+    }
     if (filters?.startDate && filters?.endDate) {
       query += ` AND created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       params.push(filters.startDate, filters.endDate);
@@ -69,7 +71,6 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs) => {
         }
       });
     }
-
     const result = await executeQuery(query, params);
     return parseInt(result.rows[0].count, 10); // Ensure the count is returned as an integer
   } catch (error) {
