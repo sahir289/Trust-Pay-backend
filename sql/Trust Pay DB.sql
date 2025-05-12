@@ -1,3 +1,9 @@
+-- Set the schema search path to 'public' (or your desired schema)
+SET search_path TO public;
+
+-- Create the schema if it doesn't exist (optional, since 'public' exists by default)
+CREATE SCHEMA IF NOT EXISTS public;
+
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -17,7 +23,7 @@ CREATE TABLE "Role" (
   "role" varchar NOT NULL,
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
-  "is_obsolete" boolean DEFAULT false,
+  "is_obsolete" boolean DEFAULT false
 );
 
 -- Designation Table
@@ -27,7 +33,7 @@ CREATE TABLE "Designation" (
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
   "is_obsolete" boolean DEFAULT false,
-  "role_id" varchar NOT NULL, -- Added to match foreign key constraint
+  "role_id" varchar NOT NULL
 );
 
 -- User Table
@@ -238,7 +244,7 @@ CREATE TABLE "Payout" (
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
   "company_id" varchar NOT NULL,
-  "is_obsolete" boolean DEFAULT false,
+  "is_obsolete" boolean DEFAULT false
 );
 
 -- Settlement Table
@@ -354,7 +360,7 @@ CREATE TABLE "Complaints" (
   "updated_by" varchar
 );
 
--- UserOtp Table (Fixed missing comma)
+-- UserOtp Table
 CREATE TABLE "UserOtp" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
   "user_id" varchar NOT NULL,
@@ -365,7 +371,7 @@ CREATE TABLE "UserOtp" (
   "updated_at" TIMESTAMPTZ DEFAULT (now())
 );
 
--- BeneficiaryAccounts Table (Fixed missing commas and syntax)
+-- BeneficiaryAccounts Table
 CREATE TABLE "BeneficiaryAccounts" (
   "id" varchar NOT NULL DEFAULT (uuid_generate_v4()),
   "user_id" varchar NOT NULL,
@@ -415,7 +421,6 @@ CREATE INDEX ON "AccessToken" ("company_id");
 CREATE INDEX ON "AccessToken" ("is_obsolete");
 CREATE INDEX ON "UserHierarchy" ("user_id");
 CREATE INDEX ON "UserHierarchy" ("company_id");
-CREATE INDEX ON "UserHierarchy" ("role_id");
 CREATE INDEX ON "UserHierarchy" ("is_obsolete");
 CREATE INDEX ON "BankAccount" ("bank_used_for");
 CREATE INDEX ON "BankAccount" ("user_id");
