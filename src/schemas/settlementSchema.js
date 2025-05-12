@@ -46,7 +46,7 @@ export const UPDATE_SETTLEMENT_SCHEMA = Joi.object({
     ifsc: Joi.string().label('ifsc').optional(),
     utr: Joi.string().label('utr').optional(),  //-- allow adding in config
     amount: Joi.number().label('amount').optional(),  //-- allow adding in config
-    acc_no: Joi.number().label('acc_no').optional(),
+    acc_no: Joi.string().label('acc_no').optional(),  // --sent as string 
     acc_holder_name: Joi.string().label('acc_holder_name').optional(),
     bank_name: Joi.string().label('bank_name').optional(),
     description: Joi.string().label('description').optional(),  //-- allow adding in config
