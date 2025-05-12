@@ -18,7 +18,6 @@ CREATE TABLE "Role" (
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
   "is_obsolete" boolean DEFAULT false,
-  "company_id" varchar NOT NULL -- Added to match foreign key constraint
 );
 
 -- Designation Table
@@ -29,7 +28,6 @@ CREATE TABLE "Designation" (
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
   "is_obsolete" boolean DEFAULT false,
   "role_id" varchar NOT NULL, -- Added to match foreign key constraint
-  "company_id" varchar NOT NULL -- Added to match foreign key constraint
 );
 
 -- User Table
@@ -75,7 +73,6 @@ CREATE TABLE "Merchant" (
   "is_demo" boolean DEFAULT false,
   "balance" float NOT NULL,
   "company_id" varchar NOT NULL,
-  "role_id" varchar NOT NULL, -- Added to match foreign key constraint
   "config" json NOT NULL DEFAULT '{}',
   "created_by" varchar,
   "updated_by" varchar,
@@ -100,7 +97,6 @@ CREATE TABLE "Vendor" (
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
   "company_id" varchar NOT NULL,
-  "role_id" varchar NOT NULL, -- Added to match foreign key constraint
   "is_obsolete" boolean DEFAULT false
 );
 
@@ -126,7 +122,6 @@ CREATE TABLE "UserHierarchy" (
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
   "company_id" varchar NOT NULL,
-  "role_id" varchar NOT NULL, -- Added to match foreign key constraint
   "is_obsolete" boolean DEFAULT false
 );
 
@@ -244,7 +239,6 @@ CREATE TABLE "Payout" (
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
   "company_id" varchar NOT NULL,
   "is_obsolete" boolean DEFAULT false,
-  "from_bank_acc_id" varchar -- Added to match foreign key constraint
 );
 
 -- Settlement Table
@@ -403,7 +397,6 @@ CREATE INDEX ON "User" ("is_obsolete");
 CREATE INDEX ON "User" ("is_enabled");
 CREATE INDEX ON "Merchant" ("code");
 CREATE INDEX ON "Merchant" ("company_id");
-CREATE INDEX ON "Merchant" ("role_id");
 CREATE INDEX ON "Merchant" ("user_id");
 CREATE INDEX ON "Merchant" ("is_obsolete");
 CREATE INDEX ON "Merchant" ("is_enabled");
@@ -412,12 +405,10 @@ CREATE INDEX ON "Merchant" ("dispute_enabled");
 CREATE INDEX ON "Merchant" ("is_demo");
 CREATE INDEX ON "Vendor" ("code");
 CREATE INDEX ON "Vendor" ("company_id");
-CREATE INDEX ON "Vendor" ("role_id");
 CREATE INDEX ON "Vendor" ("user_id");
 CREATE INDEX ON "Vendor" ("is_obsolete");
 CREATE INDEX ON "Role" ("is_obsolete");
 CREATE INDEX ON "Designation" ("role_id");
-CREATE INDEX ON "Designation" ("company_id");
 CREATE INDEX ON "Designation" ("is_obsolete");
 CREATE INDEX ON "AccessToken" ("user_id");
 CREATE INDEX ON "AccessToken" ("company_id");
@@ -445,7 +436,6 @@ CREATE INDEX ON "Payout" ("currency");
 CREATE INDEX ON "Payout" ("company_id");
 CREATE INDEX ON "Payout" ("merchant_id");
 CREATE INDEX ON "Payout" ("bank_acc_id");
-CREATE INDEX ON "Payout" ("from_bank_acc_id");
 CREATE INDEX ON "Payout" ("is_obsolete");
 CREATE INDEX ON "Settlement" ("status");
 CREATE INDEX ON "Settlement" ("method");
@@ -494,18 +484,13 @@ ALTER TABLE "User" ADD FOREIGN KEY ("company_id") REFERENCES "Company" ("id");
 ALTER TABLE "User" ADD FOREIGN KEY ("role_id") REFERENCES "Role" ("id");
 ALTER TABLE "User" ADD FOREIGN KEY ("designation_id") REFERENCES "Designation" ("id");
 ALTER TABLE "Merchant" ADD FOREIGN KEY ("user_id") REFERENCES "User" ("id");
-ALTER TABLE "Merchant" ADD FOREIGN KEY ("role_id") REFERENCES "Role" ("id");
 ALTER TABLE "Merchant" ADD FOREIGN KEY ("company_id") REFERENCES "Company" ("id");
 ALTER TABLE "Vendor" ADD FOREIGN KEY ("user_id") REFERENCES "User" ("id");
-ALTER TABLE "Vendor" ADD FOREIGN KEY ("role_id") REFERENCES "Role" ("id");
 ALTER TABLE "Vendor" ADD FOREIGN KEY ("company_id") REFERENCES "Company" ("id");
-ALTER TABLE "Role" ADD FOREIGN KEY ("company_id") REFERENCES "Company" ("id");
 ALTER TABLE "Designation" ADD FOREIGN KEY ("role_id") REFERENCES "Role" ("id");
-ALTER TABLE "Designation" ADD FOREIGN KEY ("company_id") REFERENCES "Company" ("id");
 ALTER TABLE "AccessToken" ADD FOREIGN KEY ("user_id") REFERENCES "User" ("id");
 ALTER TABLE "AccessToken" ADD FOREIGN KEY ("company_id") REFERENCES "Company" ("id");
 ALTER TABLE "UserHierarchy" ADD FOREIGN KEY ("user_id") REFERENCES "User" ("id");
-ALTER TABLE "UserHierarchy" ADD FOREIGN KEY ("role_id") REFERENCES "Role" ("id");
 ALTER TABLE "UserHierarchy" ADD FOREIGN KEY ("company_id") REFERENCES "Company" ("id");
 ALTER TABLE "BankAccount" ADD FOREIGN KEY ("user_id") REFERENCES "User" ("id");
 ALTER TABLE "BankAccount" ADD FOREIGN KEY ("company_id") REFERENCES "Company" ("id");
@@ -513,7 +498,7 @@ ALTER TABLE "Payin" ADD FOREIGN KEY ("bank_acc_id") REFERENCES "BankAccount" ("i
 ALTER TABLE "Payin" ADD FOREIGN KEY ("merchant_id") REFERENCES "Merchant" ("id");
 ALTER TABLE "Payin" ADD FOREIGN KEY ("bank_response_id") REFERENCES "BankResponse" ("id");
 ALTER TABLE "Payin" ADD FOREIGN KEY ("company_id") REFERENCES "Company" ("id");
-ALTER TABLE "Payout" ADD FOREIGN KEY ("from_bank_acc_id") REFERENCES "BankAccount" ("id");
+ALTER TABLE "Payout" ADD FOREIGN KEY ("bank_acc_id") REFERENCES "BankAccount" ("id");
 ALTER TABLE "Payout" ADD FOREIGN KEY ("merchant_id") REFERENCES "Merchant" ("id");
 ALTER TABLE "Payout" ADD FOREIGN KEY ("company_id") REFERENCES "Company" ("id");
 ALTER TABLE "Settlement" ADD FOREIGN KEY ("user_id") REFERENCES "User" ("id");
