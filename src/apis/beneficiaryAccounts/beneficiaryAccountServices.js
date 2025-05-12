@@ -181,6 +181,7 @@ const getBeneficiaryAccountServiceByBankName = async (
 
 const createBeneficiaryAccountService = async (conn, payload) => {
   try {
+    payload.user_id = payload.user_id ? payload.user_id : payload.created_by;
     const userRole = await getUserByIdDao(conn, {id: payload.user_id});
     const role_id = await getRoleDao({role: userRole[0].role});
     payload.role_id = role_id[0]?.id;

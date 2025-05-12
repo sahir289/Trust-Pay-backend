@@ -20,6 +20,13 @@ export const getTotalCountService = async (
       userInfo.designation === Role.VENDOR_OPERATIONS;
     let userIdFilter = [];
 
+    if (filters?.beneficiary_role) {
+      const role_id = await getRoleDao({ role: filters.beneficiary_role });
+      filters.role_id = role_id[0]?.id;
+      delete filters.beneficiary_role;
+      delete filters.company_id;
+    }
+
     // user hierarchy
     const getHierarchy = async (userId) =>
       (await getUserHierarchysDao({ user_id: userId }))?.[0];

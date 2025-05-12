@@ -661,7 +661,7 @@ export const updatePaymentNotificationStatusService = async (
       id: payIn.bank_response_id,
       company_id,
     });
-
+    
     data = await merchantPayinCallback(payIn.config?.urls?.notify, {
       status: payIn.status,
       merchantOrderId: payIn.merchant_order_id,
@@ -677,13 +677,12 @@ export const updatePaymentNotificationStatusService = async (
     if (!payout) {
       throw new NotFoundError('Payout data not found.');
     }
-
     const merchants = await getMerchantsDao({
       id: payout.merchant_id,
       company_id,
     });
     const merchant = merchants[0];
-    if (!merchant || !merchant.config?.urls?.payout_notify) {
+    if (!merchant ) {
       throw new NotFoundError('Merchant or payout notify URL not found.');
     }
     //take url either from payout or merchant

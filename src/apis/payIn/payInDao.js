@@ -55,6 +55,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
       'status',
       'sortBy',
       'sortOrder',
+      'nick_name'
     ]);
 
     const conditionBuilders = {
@@ -224,7 +225,6 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
       );
     }
     const result = await executeQuery(baseQuery, queryParams);
-
     return {
       payins: result.rows,
     };
