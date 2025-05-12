@@ -386,6 +386,7 @@ CREATE TABLE "BeneficiaryAccounts" (
   "created_by" varchar,
   "updated_by" varchar,
   "is_obsolete" boolean NOT NULL DEFAULT false,
+  "role_id" varchar NOT NULL,
   CONSTRAINT "BeneficiaryAccounts_pkey" PRIMARY KEY ("id")
 );
 
@@ -525,3 +526,4 @@ ALTER TABLE "Complaints" ADD FOREIGN KEY ("payin_id") REFERENCES "Payin" ("id");
 ALTER TABLE "Complaints" ADD FOREIGN KEY ("company_id") REFERENCES "Company" ("id");
 ALTER TABLE "UserOtp" ADD FOREIGN KEY ("user_id") REFERENCES "User" ("id");
 ALTER TABLE "BeneficiaryAccounts" ADD FOREIGN KEY ("user_id") REFERENCES "User" ("id");
+ALTER TABLE "BeneficiaryAccounts" ADD FOREIGN KEY ("role_id") REFERENCES "Role" ("id");
