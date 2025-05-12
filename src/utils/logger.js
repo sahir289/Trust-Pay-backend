@@ -26,9 +26,18 @@ class Logger {
       retentionInDays: 7,
       jsonMessage: true,
     };
+    
+    // custom format to add IP address to metadata
+    const addIpFormat = format((info) => {
+      if (info.metadata && info.metadata.ip) {
+        info.ip = info.metadata.ip;
+      }
+      return info;
+    });
 
     this.#logger = createLogger({
       format: format.combine(
+        addIpFormat(),
         format.errors({ stack: true }),
         format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
         format.metadata({ fillExcept: ['message', 'level', 'timestamp', 'stack'] }), // it will flatten metadata

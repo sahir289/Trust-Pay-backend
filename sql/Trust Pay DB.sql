@@ -80,7 +80,7 @@ CREATE TABLE "Role" (
   "role" varchar NOT NULL,
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
-  "is_obsolete" boolean DEFAULT false,
+  "is_obsolete" boolean DEFAULT false
 );
 
 CREATE TABLE "Designation" (
@@ -343,25 +343,20 @@ CREATE TABLE "UserOtp" (
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
 );
 
-CREATE TABLE
-  public."BeneficiaryAccounts" (
-    id character varying NOT NULL DEFAULT uuid_generate_v4 (),
-    user_id character varying NOT NULL,
-    bank_name character varying NOT NULL,
-    acc_holder_name character varying(255) NOT NULL,
-    acc_no character varying NOT NULL,
-    ifsc character varying NOT NULL,
-    upi_id character varying NULL DEFAULT ''::character varying,
-    created_at timestamp(6)
-    with
-      time zone NOT NULL DEFAULT now(),
-      config json NOT NULL DEFAULT '{}'::json,
-      updated_at timestamp(6)
-    with
-      time zone NOT NULL DEFAULT now(),
-      created_by character varying NULL,
-      updated_by character varying NULL,
-      is_obsolete boolean NOT NULL DEFAULT false
+CREATE TABLE "BeneficiaryAccounts" (
+    "id" character varying NOT NULL DEFAULT uuid_generate_v4 (),
+    "user_id" character varying NOT NULL,
+    "bank_name" character varying NOT NULL,
+    "acc_holder_name" character varying(255) NOT NULL,
+    "acc_no" character varying NOT NULL,
+    "ifsc" character varying NOT NULL,
+    "upi_id" character varying NULL DEFAULT ''::character varying,
+    "created_at" TIMESTAMPTZ DEFAULT (now())
+    "config" json NOT NULL DEFAULT '{}',
+    "updated_at" TIMESTAMPTZ DEFAULT (now())
+    "created_by" varchar,
+    "updated_by" varchar,
+    "is_obsolete" boolean NOT NULL DEFAULT false
   );
 
 ALTER TABLE
