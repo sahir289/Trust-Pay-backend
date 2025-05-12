@@ -83,7 +83,7 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
     payload.config = JSON.stringify({
       urls: {
         return: returnUrl || details[0].config?.urls?.return || '',
-        notify: callbackUrl || details[0].config?.urls?.payin_notify || '',
+        notify: callbackUrl || details[0].config?.urls?.payout_notify || '',
       },
     });
     payload.company_id = payload.company_id
