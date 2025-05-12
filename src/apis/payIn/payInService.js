@@ -686,7 +686,7 @@ export const updatePaymentNotificationStatusService = async (
       throw new NotFoundError('Merchant or payout notify URL not found.');
     }
     //take url either from payout or merchant
-    data = await merchantPayoutCallback(payout.config?.urls?.notify || merchant.config?.urls?.payout_notify, {
+    data = await merchantPayoutCallback(payout.config?.urls?.notify , {
       code: merchant.code,
       merchantOrderId: payout.merchant_order_id,
       payoutId: payout.id,
