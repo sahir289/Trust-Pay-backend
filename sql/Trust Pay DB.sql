@@ -110,12 +110,12 @@ CREATE TABLE "Vendor" (
 CREATE TABLE "AccessToken" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
   "user_id" varchar NOT NULL,
-  "access_token" json NOT NULL,
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
   "company_id" varchar NOT NULL,
   "is_obsolete" boolean DEFAULT false,
-  "config" json NOT NULL DEFAULT '{}'
+  "config" json NOT NULL DEFAULT '{}',
+  "session_id" varchar
 );
 
 -- UserHierarchy Table
@@ -386,6 +386,7 @@ CREATE TABLE "BeneficiaryAccounts" (
   "created_by" varchar,
   "updated_by" varchar,
   "is_obsolete" boolean NOT NULL DEFAULT false,
+  "role_id" varchar NOT NULL,
   CONSTRAINT "BeneficiaryAccounts_pkey" PRIMARY KEY ("id")
 );
 
@@ -525,3 +526,4 @@ ALTER TABLE "Complaints" ADD FOREIGN KEY ("payin_id") REFERENCES "Payin" ("id");
 ALTER TABLE "Complaints" ADD FOREIGN KEY ("company_id") REFERENCES "Company" ("id");
 ALTER TABLE "UserOtp" ADD FOREIGN KEY ("user_id") REFERENCES "User" ("id");
 ALTER TABLE "BeneficiaryAccounts" ADD FOREIGN KEY ("user_id") REFERENCES "User" ("id");
+ALTER TABLE "BeneficiaryAccounts" ADD FOREIGN KEY ("role_id") REFERENCES "Role" ("id");
