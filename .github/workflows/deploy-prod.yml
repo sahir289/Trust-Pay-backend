@@ -1,9 +1,9 @@
-name: Deploying to EC2 staging
+name: Deploying to EC2 Prod
 
 on:
   push:
     branches:
-      - trust-pay-stg
+      - main
 
 jobs:
   deploy:
@@ -18,7 +18,7 @@ jobs:
         PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
         HOST: ${{ secrets.EC2_HOST }}
         USER: ${{ secrets.EC2_USER }}
-        TARGET_DIR: /home/ubuntu/trust-pay/Trust-Pay-backend
+        TARGET_DIR: /home/ubuntu/Trust-Pay-backend
       run: |
         echo "PRIVATE_KEY is set: $([ -n "$PRIVATE_KEY" ] && echo 'yes' || echo 'no')"
         echo "HOST is set: $([ -n "$HOST" ] && echo 'yes' || echo 'no')"
@@ -32,7 +32,7 @@ jobs:
         PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
         HOST: ${{ secrets.EC2_HOST }}
         USER: ${{ secrets.EC2_USER }}
-        TARGET_DIR: /home/ubuntu/trust-pay/Trust-Pay-backend
+        TARGET_DIR: /home/ubuntu/Trust-Pay-backend
       run: |
         echo "Deploy secrets check:"
         echo "TARGET_DIR is set: $([ -n "$TARGET_DIR" ] && echo 'yes' || echo 'no')"
@@ -44,5 +44,5 @@ jobs:
         echo "Testing SSH connection..."
         ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "whoami" || { echo "SSH connection failed"; exit 1; }
         echo "Deploying to EC2..."
-        ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "cd '$TARGET_DIR' && pwd && git fetch origin && git status && git pull origin trust-pay-stg --verbose && git log -1 --oneline && npm install && pm2 restart all" || { echo "Deployment failed"; exit 1; }
+        ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "cd '$TARGET_DIR' && pwd && git fetch origin && git status && git pull origin main --verbose && git log -1 --oneline && npm install && pm2 restart all" || { echo "Deployment failed"; exit 1; }
         rm -f private_key
