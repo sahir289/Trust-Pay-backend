@@ -39,6 +39,20 @@ const getSettlementDao = async (
           delete filters.search;
         }
       },
+      //login wise fetching settlement
+      user_id: (filters, conditions, queryParams) => {
+        if (!filters.user_id) return;
+        const nextParamIdx = queryParams.length + 1;
+        if (Array.isArray(filters.user_id)) {
+          const placeholders = filters.user_id.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+          conditions.push(`s.user_id IN (${placeholders})`);
+          queryParams.push(...filters.user_id);
+        } else {
+          conditions.push(`s.user_id = $${nextParamIdx}`);
+          queryParams.push(filters.user_id);
+        }
+        delete filters.user_id;
+      },
       role: (filters, conditions, queryParams) => {
         if (!filters.role) return;
         const nextParamIdx = queryParams.length + 1;
@@ -89,6 +103,7 @@ const getSettlementDao = async (
 
     conditionBuilders.search(filters, SETTLEMENT);
     conditionBuilders.role(filters, conditions, queryParams);
+    conditionBuilders.user_id(filters, conditions, queryParams); 
     conditionBuilders.vendor_codes(filters, conditions, queryParams);
     conditionBuilders.merchant_codes(filters, conditions, queryParams);
     conditionBuilders.date_range(filters, conditions, queryParams);
