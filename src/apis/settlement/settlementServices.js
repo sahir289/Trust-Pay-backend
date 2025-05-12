@@ -215,8 +215,11 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       null
     );
     const calculationData = await getCalculationforCronDao(data[0].user_table_id);
+// if status is success and updating , it will directly be in rejected
+    if(payload.status === 'SUCCESS'){
+      payload.status = 'REJECTED';
+    }
 
-    
     if (payload.config.reference_id) {
       payload.status = 'SUCCESS';
       if (!data) {

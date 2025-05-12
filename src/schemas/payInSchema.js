@@ -74,6 +74,15 @@ export const VALIDATE_RESET_DEPOSIT = Joi.object({
     .label('merchant_order_id')
     .required(),
 });
+//schema for process payin
+export const PROCESS_PAYIN_IMAGE = Joi.object({
+  amount: Joi.number()
+    .label('amount')
+    .required(),
+    file: Joi.object({
+      key: Joi.string().required(),
+    }).label('file').required(),
+});
 
 export const VALIDATE_PROCESS_PAYIN = Joi.object({
   merchantOrderId: Joi.string()

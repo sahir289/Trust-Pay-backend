@@ -3,6 +3,7 @@ import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { sendError, sendSuccess,sendNewSuccess } from '../../utils/responseHandlers.js';
 import {
   ASSIGN_PAYIN_SCHEMA,
+  PROCESS_PAYIN_IMAGE,
   VALIDATE_ASSIGNED_BANT_TO_PAY,
   VALIDATE_CHECK_PAY_IN_STATUS,
   // VALIDATE_CHECK_PAY_IN_STATUS,
@@ -437,7 +438,11 @@ export const processPayInByImage = async (req, res) => {
     ...req.body,
     ...req.params,
   };
-
+  //added validation for fixinf db error
+  const joiValidation = PROCESS_PAYIN_IMAGE.validate(req.body);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
   if (!req.file) {
     throw new BadRequestError('Image File not found!');
   }
