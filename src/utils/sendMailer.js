@@ -15,16 +15,38 @@ const transporter = nodemailer.createTransport({
  * @param {string} param0.username - Username to send
  * @param {string} param0.password - Password to send
  */
+//environment based redirection
+let redirectingUrl ;
+if (process.env.NODE_ENV === 'production') {
+  redirectingUrl  = "https://trustpays24.com/auth/transaction-list"
+}
+else if (process.env.NODE_ENV === 'staging'){
+  redirectingUrl = "https://staging.trustpays24.com/auth/transaction-list"
+}
+//format the UI of mail
 export const sendCredentialsEmail = async ({ email, username, password }) => {
-  const subject = 'Your Login Credentials';
-  const text = `Hello,\n\nYour account has been created.\nUsername: ${username}\nPassword: ${password}\n\nPlease log in and change your password.`;
+  const subject = 'Your Account Credentials';
+  const text = `Hello,\n\nYour account has been created successfully.\n\nUsername: ${username}\nPassword: ${password}\n\nPlease log in and change your password immediately for security.\n\nBest regards,\nPG Admin Team`;
 
   const html = `
-    <p>Hello,</p>
-    <p>Your account has been created.</p>
-    <p><strong>Username:</strong> ${username}</p>
-    <p><strong>Password:</strong> ${password}</p>
-    <p>Please log in and change your password.</p>
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f7fa;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <img src="https://via.placeholder.com/150x50?text=PG+Logo" alt="PG Logo" style="max-width: 150px;">
+      </div>
+      <div style="background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h2 style="color: #1a202c; font-size: 24px; margin-bottom: 20px;">Welcome to Your Account</h2>
+        <p style="color: #4a5568; line-height: 1.6; margin-bottom: 20px;">Your account has been created successfully. Below are your login credentials:</p>
+        <div style="background-color: #f7fafc; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+          <p style="margin: 0; color: #2d3748;"><strong>Login Url:</strong> ${redirectingUrl}</p>
+          <p style="margin: 10px 0 0; color: #2d3748;"><strong>Username:</strong> ${username}</p>
+          <p style="margin: 10px 0 0; color: #2d3748;"><strong>Password:</strong> ${password}</p>
+        </div>
+        <p style="color: #4a5568; line-height: 1.6;">For security, please <a href=${redirectingUrl} style="color: #3182ce; text-decoration: none; font-weight: 500;">log in</a> and change your password immediately.</p>
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+        <p style="color: #718096; font-size: 12px; text-align: center;">If you have any questions, contact our support team at support@pgadmin.com.</p>
+      </div>
+      <p style="color: #718096; font-size: 12px; text-align: center; margin-top: 20px;">&copy; ${new Date().getFullYear()} PG Admin. All rights reserved.</p>
+    </div>
   `;
 
   const mailOptions = {
@@ -37,7 +59,6 @@ export const sendCredentialsEmail = async ({ email, username, password }) => {
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent:', info.response);
     return info;
   } catch (error) {
     console.error('Email sending failed:', error);
@@ -46,24 +67,33 @@ export const sendCredentialsEmail = async ({ email, username, password }) => {
 };
 
 export const sendOTP = async (email, otp, user_name, designation) => {
-  const subject = 'Password Reset Request';
-  const text = `Hello ${user_name},\n\nYou requested a password reset. Your OTP is: ${otp}\n\nThis OTP is valid for 10 minutes. Do not share it with anyone.\n\nRequest Details:\n- User: ${user_name}\n- Designation: ${designation}\n\nIf you didn't request this, please ignore this email.`;
+  const subject = 'Password Reset OTP';
+  const text = `Hello ${user_name},\n\nYou have requested a password reset. Your OTP is: ${otp}\n\nThis OTP is valid for 10 minutes. Do not share it with anyone.\n\nRequest Details:\n- User: ${user_name}\n- Designation: ${designation}\n\nIf you didn't request this, please contact support@pgadmin.com.\n\nBest regards,\nTrustPay Admin Team`;
+//format UI of Mail
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #2c3e50;">Password Reset Request</h2>
-      <p>Hello ${user_name},</p>
-      <p>You requested a password reset. Here is your OTP:</p>
-      <p style="font-size: 24px; font-weight: bold; color: #3498db;">${otp}</p>
-      <p><em>This OTP is valid for 10 minutes. Do not share it with anyone.</em></p>
-      <h4>Request Details:</h4>
-      <ul>
-        <li><strong>User:</strong> ${user_name}</li>
-        <li><strong>Designation:</strong> ${designation}</li>
-      </ul>
-      <hr style="border: 1px solid #eee;">
-      <p style="font-size: 12px; color: #7f8c8d;">
-        If you didn't request this, please ignore this email or contact support immediately.
-      </p>
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f7fa;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <img src="https://via.placeholder.com/150x50?text=TrustPay+Logo" alt="TrustPay Logo" style="max-width: 150px;">
+      </div>
+      <div style="background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h2 style="color: #1a202c; font-size: 24px; margin-bottom: 20px;">Password Reset Request</h2>
+        <p style="color: #4a5568; line-height: 1.6; margin-bottom: 20px;">Hello ${user_name},</p>
+        <p style="color: #4a5568; line-height: 1.6; margin-bottom: 20px;">You have requested a password reset. Your one-time password (OTP) is:</p>
+        <div style="text-align: center; margin: 20px 0;">
+          <span style="display: inline-block; font-size: 28px; font-weight: bold; color: #3182ce; letter-spacing: 4px; background-color: #edf2f7; padding: 10px 20px; border-radius: 6px;">${otp}</span>
+        </div>
+        <p style="color: #4a5568; font-style: italic; margin-bottom: 20px;">This OTP is valid for 10 minutes. Do not share it with anyone.</p>
+        <h4 style="color: #2d3748; font-size: 16px; margin-bottom: 10px;">Request Details:</h4>
+        <ul style="color: #4a5568; line-height: 1.6; margin-bottom: 20px; padding-left: 20px;">
+          <li><strong>User:</strong> ${user_name}</li>
+          <li><strong>Designation:</strong> ${designation}</li>
+        </ul>
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+        <p style="color: #718096; font-size: 12px; text-align: center;">
+          If you didn’t request this, please <a href="mailto:support@pgadmin.com" style="color: #3182ce; text-decoration: none;">contact support</a> immediately.
+        </p>
+      </div>
+      <p style="color: #718096; font-size: 12px; text-align: center; margin-top: 20px;">&copy; ${new Date().getFullYear()} TrustPay Admin. All rights reserved.</p>
     </div>
   `;
 
