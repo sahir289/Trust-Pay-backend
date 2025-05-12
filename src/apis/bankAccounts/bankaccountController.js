@@ -39,7 +39,6 @@ const getBankaccount = async (req, res) => {
     user_id,
     designation
   );
-  logger.log('get Banks successfully', role);
   return sendSuccess(res, data, 'get Banks successfully');
 };
 
@@ -77,7 +76,6 @@ const getBankaccountById = async (req, res) => {
     },
     role,
   );
-  console.log('get Bank successfully');
   return sendSuccess(res, data, 'get Bank successfully');
 };
 

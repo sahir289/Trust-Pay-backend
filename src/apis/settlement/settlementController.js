@@ -94,7 +94,7 @@ const getSettlementsBySearch = async (req, res) => {
 };
 const createSettlementController = async (req, res) => {
   const payload = req.body;
-  const { company_id, user_id } = req.user;
+  const { company_id, user_id, user_name } = req.user;
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.status = "INITIATED";
@@ -144,13 +144,13 @@ const createSettlementController = async (req, res) => {
   };
   // const data =
   const settlement = await createSettlementService(data);
-  sendSuccess(res, {}, 'Created Settlement Successfully');
+  sendSuccess(res, {id:settlement.id,created_by:user_name}, 'Created Settlement Successfully');
   logger.info("Created Settlement Successfully", settlement);
 };
 
 const updateSettlementController = async (req, res) => {
   const { id, user_id } = req.params;
-  const { role } = req.user;
+  const { role,user_name } = req.user;
   const payload = { ...req.body };
   payload.updated_by = user_id;
   const { company_id } = req.user;
@@ -160,8 +160,12 @@ const updateSettlementController = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const data = await transactionWrapper(updateSettlementService)(ids, payload, role);
-  logger.info('Created Settlement Successfully', data);
-  sendSuccess(res, {}, 'Updated settlement');
+  sendSuccess(
+    res,
+    { id: data.id, updated_by: user_name },
+    'Updated settlement',
+  );
+    logger.info('Created Settlement Successfully', data);
 };
 
 const deleteSettlementController = async (req, res) => {
