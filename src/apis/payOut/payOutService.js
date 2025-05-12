@@ -59,6 +59,19 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
           : columns.PAYOUT;
     const { code, amount, x_api_key, returnUrl, callbackUrl } = payload;
     const details = await getMerchantsDao({ code });
+
+    if (!details[0] || details[0].length === 0) {
+      // throw new BadRequestError('Merchant does not exist');
+      return res.status(400).json({
+        error: {
+          status: 404,
+          message: 'Please enter valid code',
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
     const { config, user_id } = details[0];
     const merchantAPIKey = config?.keys;
     const payoutAmount = Number(amount);
@@ -78,12 +91,11 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
       : details[0].company_id;
     payload.created_by = payload.created_by ? payload.created_by : user_id;
     payload.updated_by = payload.updated_by ? payload.updated_by : user_id;
-
     const isOrderIdExist = await getPayoutsDao(
       { merchant_order_id: merchant_order_id },
       payload.company_id,
     );
-
+   
     if (isOrderIdExist.length > 0) {
       // throw new BadRequestError('Merchant Order ID already exists');
       return res.status(400).json({
@@ -193,7 +205,6 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
         });
       }
     }
-
     if (!code) {
       // throw new BadRequestError('Merchant does not exist');
       return res.status(400).json({
@@ -207,11 +218,11 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
       });
     }
 
-    logger.log('Payout created successfully', 'info');
+    logger.info('Payout created successfully');
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
-    logger.log(error)
+    logger.error(error)
     if (error instanceof BadRequestError) {
       throw error;
     }
