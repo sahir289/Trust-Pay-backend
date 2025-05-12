@@ -110,12 +110,12 @@ CREATE TABLE "Vendor" (
 CREATE TABLE "AccessToken" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
   "user_id" varchar NOT NULL,
-  "access_token" json NOT NULL,
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
   "company_id" varchar NOT NULL,
   "is_obsolete" boolean DEFAULT false,
-  "config" json NOT NULL DEFAULT '{}'
+  "config" json NOT NULL DEFAULT '{}',
+  "session_id" varchar
 );
 
 -- UserHierarchy Table
