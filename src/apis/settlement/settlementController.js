@@ -145,7 +145,7 @@ const createSettlementController = async (req, res) => {
   // const data =
   const settlement = await createSettlementService(data);
   sendSuccess(res, {}, 'Created Settlement Successfully');
-    logger.info('Created Settlement Successfully', settlement);
+  logger.info("Created Settlement Successfully", settlement);
 };
 
 const updateSettlementController = async (req, res) => {

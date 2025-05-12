@@ -8,12 +8,12 @@ export const CREATE_SETTLEMENT_SCHEMA = Joi.object({
   merchant: Joi.string().label('merchant').optional(),
   status: Joi.string().label('status').optional(),
   //added fields
-  amount: Joi.number().label('utr').optional(),
-  utr: Joi.number().label('amount').optional(),
+  amount: Joi.number().label('amount').optional(),
+  utr: Joi.string().label('utr').optional(),
   method: Joi.string().label('method').optional(),
   bank_name: Joi.string().label('bank_name').optional(),
   acc_holder_name: Joi.string().label('acc_holder_name').optional(),
-  acc_no: Joi.number().label('acc_no').optional(),
+  acc_no: Joi.string().label('acc_no').optional(),
   ifsc: Joi.string().label('ifsc').optional(),
   created_by: Joi.string().label('created_by').optional(),
   //---allow description for cash / AED settlements
