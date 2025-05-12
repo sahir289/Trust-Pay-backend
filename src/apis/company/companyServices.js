@@ -31,7 +31,6 @@ const createCompanyService = async (conn, payload) => {
       email: payload.email,
       contact_no: payload.contact_no,
     });
-    console.log('Company created:', company);
     let role = []; 
     let designations = [];
 
@@ -80,7 +79,7 @@ const createCompanyService = async (conn, payload) => {
       user_id: user.id,
     };
   } catch (error) {
-    console.error('Error while creating company:', error.message, error.stack);
+    console.error('Error while creating company:', error);
     throw new InternalServerError(error);
   }
 };
