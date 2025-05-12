@@ -79,7 +79,6 @@ const getPayoutsById = async (req, res) => {
   const { id } = req.params;
   const { company_id, role } = req.user;
   const data = await getPayoutsService({ id, company_id }, role);
-  logger.info('getting Payouts successfully');
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };
 

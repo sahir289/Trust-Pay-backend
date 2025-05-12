@@ -67,7 +67,6 @@ const getChargeBacksById = async (req, res) => {
     role,
   );
 
-  console.log('ChargeBack created successfully', 'info', result);
   return sendSuccess(res, result, 'ChargeBack created successfully');
 };
 const getChargeBacksBySearch = async (req, res) => {

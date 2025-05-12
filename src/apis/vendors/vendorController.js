@@ -96,7 +96,6 @@ const getVendorById = async (req, res) => {
   // Fetch vendors data from the service
   const data = await getVendorsService({ id, company_id }, role);
   // Log success message
-  logger.log('get vendor successfully', data);
   // Send success response
   return sendSuccess(res, data, ' Vendor fetched successfully');
 };
@@ -136,7 +135,6 @@ const deleteVendor = async (req, res) => {
   const ids = { company_id, user_id };
   const vendor=await deleteVendorService(ids, role);
   // Send a success response to the client
-  console.log(vendor, 'hey vendor from the vendor');
   return sendSuccess(
     res,
     {id: vendor.id, deleted_by:user_name},
