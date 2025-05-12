@@ -612,7 +612,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         conn,
       );
     }
-    await merchantPayoutCallback(data.config?.urls?.payout_notify, {
+    ///url condition change
+    await merchantPayoutCallback(data.config?.urls?.notify, {
       code: data.code,
       merchantOrderId: data.merchant_order_id,
       payoutId: data.id,
