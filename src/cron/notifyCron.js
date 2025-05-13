@@ -1,74 +1,84 @@
 import cron from 'node-cron';
 import moment from 'moment-timezone';
 import { getPayInUrlsDao, updatePayInUrlDao } from '../apis/payIn/payInDao.js';
-import axios from 'axios';
-
+import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.js';
+import { logger } from '../utils/logger.js';
 cron.schedule('*/10 * * * * *', () => {
   collectPayinData('Asia/Kolkata');
 });
 
 const collectPayinData = async (timezone = 'Asia/Kolkata') => {
   const currentTime = moment().tz(timezone, true);
-  try {
-    const startTime = currentTime.clone().subtract(10, 'minutes').toDate();
-    const payins = await getPayInUrlsDao({
-      status: 'DROPPED',
-      is_notified: 'false',
-      updated_at: startTime,
-    });
+  const expireTime = currentTime
+    .clone()
+    .subtract(10, 'minutes')
+    .toISOString();
 
-    if (!payins.length) {
-      return;
+  try {
+    // Get payins already DROPPED but not notified
+    const payinsDropped = await getPayInUrlsDao({
+      status: ['FAILED','DROPPED'],
+      is_notified: 'false',
+    });
+    // Update INITIATED payins older than 10 minutes
+    const payinsInitiated = await getPayInUrlsDao({ status: 'INITIATED' });
+    for (const payin of payinsInitiated) {
+      if (new Date(payin?.created_at) < new Date(expireTime)) {
+        await updatePayInUrlDao(payin.id, {
+          status: 'FAILED',
+          is_url_expires: true,
+        });
+        logger.log(`INITIATED PayIn ${payin.id} FAILED due to timeout`);
+      }
     }
-    await processPayinNotifications(payins);
-  } catch {
-    console.error('Error while collecting payin data:');
+
+    // Update ASSIGNED payins older than 10 minutes
+    const payinsAssigned = await getPayInUrlsDao({ status: 'ASSIGNED' });
+    for (const payin of payinsAssigned) {
+      if (new Date(payin?.created_at) < new Date(expireTime)) {
+        const updatedData = {
+          status: 'DROPPED',
+          is_url_expires: true,
+        };
+        await updatePayInUrlDao(payin.id, updatedData);
+        logger.log(`ASSIGNED PayIn ${payin.id} dropped due to timeout`);
+      }
+    }
+    // Process notifications for dropped but unnotified payins
+    if (payinsDropped?.length) {
+      await processPayinNotifications(payinsDropped);
+    }
+  } catch (error) {
+    logger.error('Error while collecting payin data:', error);
   }
 };
 
 async function processPayinNotifications(payins) {
   for (const payin of payins) {
     const notificationData = {
-      status: 'DROPPED',
-      merchantOrderId: payin.merchant_order_id || null,
-      payinId: payin.id || null,
+      status: payin.status,
+      merchantOrderId: payin?.merchant_order_id || null,
+      payinId: payin?.id || null,
       amount: null,
-      requestedAmount: payin.amount || null,
-      utrId: payin.user_submitted_utr || null,
+      requestedAmount: payin?.amount || null,
+      utrId: payin?.user_submitted_utr || null,
     };
-
     try {
-      console.info('Simulating notification to merchant', {
-        notify_url: payin.config.notify_url,
-        notify_data: notificationData,
-      });
-
-      if (payin.config.notify_url) {
-        try {
-          const notifyMerchant = await axios.post(
-            payin.config.notify_url,
-            notificationData,
-          );
-          console.info('Notification sent successfully', {
-            status: notifyMerchant.status,
-            data: notifyMerchant.data,
-          });
-          await updatePayInUrlDao(payin.id, { is_notified: 'true' });
-        } catch (error) {
-          console.error(
-            'Error sending notification to merchant:',
-            error?.message,
-          );
-          // If required, add retry logic here
-        }
-      } else {
-        console.warn('Notify URL is missing for payin', { payinId: payin.id });
+      if (payin?.config?.urls?.notify) {
+       await merchantPayinCallback(
+         payin?.config?.urls?.notify,
+         notificationData,
+       );
+       await updatePayInUrlDao(payin.id, { is_notified: 'true' });
+      }
+        else {
+        logger.warn('Notify URL is missing for payin', { payinId: payin?.id });
       }
     } catch (error) {
-      console.error('Error processing payin:', {
+      logger.error('Error processing payin:', {
         error: error.message,
-        payinId: payin.id,
-        notify_url: payin.config.notify_url,
+        payinId: payin?.id,
+        notify_url: payin?.config?.urls?.notify,
       });
     }
   }

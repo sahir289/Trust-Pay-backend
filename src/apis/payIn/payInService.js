@@ -77,7 +77,7 @@ import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
 // import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
-import { expirePayInIfNeeded, stringifyJSON } from '../../utils/index.js';
+import {  stringifyJSON } from '../../utils/index.js';
 import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
@@ -293,7 +293,7 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
   };
 
   const result = await generatePayInUrlDao(data);
-  expirePayInIfNeeded(result.id, code);
+  // expirePayInIfNeeded(result.id, code);
   return result;
 };
 
@@ -1951,7 +1951,7 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
     is_bank: enabledBanks.some((bank) => bank.is_bank),
     redirect_url: payIn.config?.urls?.return,
   };
-  expirePayInIfNeeded(payIn.id);
+  // expirePayInIfNeeded(payIn.id);
   return result;
 };
 
