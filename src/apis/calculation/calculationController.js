@@ -50,7 +50,7 @@ const getCalculation = async (req, res) => {
     },
     role,
   );
-  logger.info('Get Calculations successfully', data);
+  logger.info('Get Calculations successfully');
   return sendSuccess(res, data, 'Get Calculations successfully');
 };
 

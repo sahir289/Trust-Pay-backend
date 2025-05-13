@@ -11,7 +11,6 @@ import {
 } from '../../schemas/bankAccoountSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
-import { logger } from '../../utils/logger.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getBankaccountDao, getMerchantBankDao } from './bankaccountDao.js';
 import {
@@ -39,7 +38,6 @@ const getBankaccount = async (req, res) => {
     user_id,
     designation
   );
-  logger.log('get Banks successfully', role);
   return sendSuccess(res, data, 'get Banks successfully');
 };
 
@@ -77,7 +75,6 @@ const getBankaccountById = async (req, res) => {
     },
     role,
   );
-  console.log('get Bank successfully');
   return sendSuccess(res, data, 'get Bank successfully');
 };
 

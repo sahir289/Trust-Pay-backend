@@ -217,7 +217,7 @@ router.post(
   '/create-user',
   [isAuthenticated, authorized(AccessRoles.USER)],
   tryCatchHandler(createUser),
-);
+); 
 
 /**
  * @swagger

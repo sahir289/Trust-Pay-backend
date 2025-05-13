@@ -4,12 +4,21 @@ import config from '../config/config.js';
 import chalk from 'chalk';
 import { DbError } from './appErrors.js';
 import { logger } from './logger.js';
+import fs from 'fs';
+import path from 'path';
+// import { fileURLToPath } from 'url';
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
 const { Pool } = pkg;
+
 const pool = new Pool({
   connectionString: `${config.databaseUrl}?options=-c%20timezone%3DAsia%2FKolkata`,
   ssl:
-    config.env === 'production'
-      ? { rejectUnauthorized: true }
+    config.env === 'production' 
+      ? {
+          rejectUnauthorized: false,
+          // ca: fs.readFileSync(path.join(__dirname, '/Users/mac/Downloads/ap-south-1-bundle.pem')).toString(),
+        }
       : { rejectUnauthorized: false },
 });
 

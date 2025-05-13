@@ -23,6 +23,7 @@ import {
 } from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
+import getUserLocationMiddleware from '../../middlewares/locationRestrict.js';
 const router = express.Router();
 
 // Public API's
@@ -75,7 +76,7 @@ router.get('/generate-payin', tryCatchHandler(generatePayInUrl));
  *       404:
  *         description: Pay-In URL not found
  */
-router.get('/validate-payIn-url/:merchantOrderId', tryCatchHandler(validatePayInUrl));
+router.get('/validate-payIn-url/:merchantOrderId',getUserLocationMiddleware, tryCatchHandler(validatePayInUrl));
 
 /**
  * @swagger

@@ -448,7 +448,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (payload?.config?.method === Method.EKO)
       await processEkoPayout(singleWithdrawData, payload);
     const data = await updatePayoutDao(ids, payload, conn);
-    if (!data.approved_at) return;
+    if (!data.approved_at) return data;
     const bankDataArr = await getBankaccountDao(
       { id: data.bank_acc_id },
       null,
