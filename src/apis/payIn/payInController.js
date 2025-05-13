@@ -112,41 +112,42 @@ export const generatePayInUrl = async (req, res) => {
       },
     });
   }
-  bankAssigned.every((bank) => {
+  //loop over each and cehck
+
+  const allBanksDisabled = bankAssigned.every(bank => bank.is_enabled === false);
+  if (allBanksDisabled) {
+    // throw new InternalServerError(
+    //   'Bank assigned to this merchant is not enabled!',
+    // );
+    // error handling
+    return res.status(400).json({
+      error: {
+        status: 404,
+        message: 'Bank Account has not been linked with Merchant',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+  const allPaymentOptionsDisabled = bankAssigned.every(bank => {
+    if (!bank.is_enabled) return true; 
     const config = bank.config || {};
-    if (bank.is_enabled === false) {
-      // throw new InternalServerError(
-      //   'Bank assigned to this merchant is not enabled!',
-      // );
-      return res.status(400).json({
-        error: {
-          status: 404,
-          message: 'Bank Account has not been linked with Merchant',
-          additionalInfo: {},
-          level: 'info',
-          timestamp: new Date().toISOString(),
-        },
-      });
-    }
-    if (
-      config.is_phonepay === false &&
-      bank.is_qr === false &&
-      bank.is_bank === false
-    ) {
-      // throw new InternalServerError(
-      //   'No payment methods enabled for assigned bank!',
-      // );
-      return res.status(400).json({
-        error: {
-          status: 404,
-          message: 'Bank Account has not been linked with Merchant',
-          additionalInfo: {},
-          level: 'info',
-          timestamp: new Date().toISOString(),
-        },
-      });
-    }
+    const isPhonepay = config.is_phonepay || false; 
+    return isPhonepay === false && bank.is_qr === false && bank.is_bank === false;
   });
+  
+  if (allPaymentOptionsDisabled) {
+    return res.status(400).json({
+      error: {
+        status: 404,
+        message: 'Bank Account has not been linked with Merchant',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
 
   // Create a deterministic hash
   const generatedHash = createHash(`${code}`);

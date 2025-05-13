@@ -21,10 +21,10 @@ const transporter = nodemailer.createTransport({
 //environment based redirection
 let redirectingUrl ;
 if (process.env.NODE_ENV === 'production') {
-  redirectingUrl  = "https://trustpays24.com/auth/transaction-list"
+  redirectingUrl  = "https://trustpays24.com/"
 }
 else if (process.env.NODE_ENV === 'staging'){
-  redirectingUrl = "https://staging.trustpays24.com/auth/transaction-list"
+  redirectingUrl = "https://staging.trustpays24.com/"
 }
 //format the UI of mail
 export const sendCredentialsEmail = async ({ email, username, password }) => {
