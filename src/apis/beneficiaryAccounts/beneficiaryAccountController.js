@@ -18,10 +18,13 @@ import {
 
 const getBeneficiaryAccount = async (req, res) => {
   const { role, user_id, designation } = req.user;
-  const { page, limit, beneficiary_role } = req.query;
+  const { page, limit, beneficiary_role, beneficiary_user_id } = req.query;
   const filters = {
     beneficiary_role,
   };
+  if (beneficiary_user_id) {
+    filters.user_id = beneficiary_user_id;
+  }
   const data = await getBeneficiaryAccountService(
     filters,
     role,
