@@ -1,10 +1,13 @@
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  //added required mail
+  host: 'smtp.zoho.com',
+  port: 465,
+  secure: true, 
   auth: {
-    user: 'shadow77278837@gmail.com',
-    pass: 'mowq yseg qlsb fjkv', // Use environment variable in production!
+    user: 'support@trustpays24.com',
+    pass: 'aBSs KhuS niTX',
   },
 });
 
@@ -34,23 +37,24 @@ export const sendCredentialsEmail = async ({ email, username, password }) => {
         <img src="https://via.placeholder.com/150x50?text=PG+Logo" alt="PG Logo" style="max-width: 150px;">
       </div>
       <div style="background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h2 style="color: #1a202c; font-size: 24px; margin-bottom: 20px;">Welcome to Your Account</h2>
-        <p style="color: #4a5568; line-height: 1.6; margin-bottom: 20px;">Your account has been created successfully. Below are your login credentials:</p>
+      <p style="color: #4a5568; line-height: 1.6; margin-bottom: 20px;">Hello, Greetings of the day</p>
+        <h2 style="color: #1a202c; font-size: 24px; margin-bottom: 20px;">Welcome to TrustPays a fast, secure and reliable Payment Gateway.</h2>
+        <p style="color: #4a5568; line-height: 1.6; margin-bottom: 20px;">You can sign in to your TrustPays account using the following credentials:</p>
         <div style="background-color: #f7fafc; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
           <p style="margin: 0; color: #2d3748;"><strong>Login Url:</strong> ${redirectingUrl}</p>
           <p style="margin: 10px 0 0; color: #2d3748;"><strong>Username:</strong> ${username}</p>
           <p style="margin: 10px 0 0; color: #2d3748;"><strong>Password:</strong> ${password}</p>
         </div>
-        <p style="color: #4a5568; line-height: 1.6;">For security, please <a href=${redirectingUrl} style="color: #3182ce; text-decoration: none; font-weight: 500;">log in</a> and change your password immediately.</p>
         <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
-        <p style="color: #718096; font-size: 12px; text-align: center;">If you have any questions, contact our support team at support@pgadmin.com.</p>
+        <p style="color: #718096; font-size: 12px; text-align: left;">Thank you</p>
+        <p style="color: #718096; font-size: 12px; text-align: left;">TrustPay team</p>
       </div>
       <p style="color: #718096; font-size: 12px; text-align: center; margin-top: 20px;">&copy; ${new Date().getFullYear()} PG Admin. All rights reserved.</p>
     </div>
   `;
 
   const mailOptions = {
-    from: '"PG Admin" <shadow77278837@gmail.com>',
+    from: '"PG Admin" <support@trustpays24.com>',
     to: email,
     subject,
     text,
@@ -98,7 +102,7 @@ export const sendOTP = async (email, otp, user_name, designation) => {
   `;
 
   const mailOptions = {
-    from: '"TrustPay Admin" <shadow77278837@gmail.com>',
+    from: '"TrustPay Admin" <support@trustpays24.com>',
     to: email,
     subject,
     text,
