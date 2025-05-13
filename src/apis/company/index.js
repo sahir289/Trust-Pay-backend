@@ -146,7 +146,6 @@ router.get(
  */
 router.post(
   '/create-company',
-  [isAuthenticated, authorized(AccessRoles.COMPANY)],
   tryCatchHandler(createCompany),
 );
 
