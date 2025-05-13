@@ -10,7 +10,7 @@ const getDesignationDao = async (
   filters,
 ) => {
   try {
-    const baseQuery = `SELECT id FROM "${tableName.DESIGNATION}" WHERE 1=1`;
+    const baseQuery = `SELECT * FROM "${tableName.DESIGNATION}" WHERE 1=1`;
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
