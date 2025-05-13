@@ -52,8 +52,8 @@ import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
 
 //  To Generate Url
 export const generateHashForPayIn = async (req, res) => {
-  const updateRes = await generatePayInUrlByHashService(req,res);     //-- sending res to resolve
 
+  const updateRes = await generatePayInUrlByHashService(req,res);     //-- sending res to resolve
   return sendSuccess(res, updateRes, 'PayIn hash generated successfully');
 };
 
@@ -216,9 +216,8 @@ export const validatePayInUrl = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const user_location =
-    req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
-
+  const user_location = req.user_location;
+    // req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
   const result = await verifyPayinsService(merchantOrderId, user_location);
   result.merchant_order_id = merchantOrderId;
   return sendSuccess(res, result, 'Payment Url is correct');
