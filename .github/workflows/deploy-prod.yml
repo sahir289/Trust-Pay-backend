@@ -55,4 +55,4 @@ jobs:
           npm install && \
           pm2 restart all
         " || { echo "Deployment failed"; exit 1; }
-        rm -f private_key
+        rm -f private_key 
