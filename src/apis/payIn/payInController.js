@@ -439,7 +439,8 @@ export const processPayInByImage = async (req, res) => {
     ...req.params,
   };
   //added validation for fixinf db error
-  const joiValidation = PROCESS_PAYIN_IMAGE.validate(req.body);
+  const joiValidation = PROCESS_PAYIN_IMAGE.validate( {...req.body,
+    file: { key: req.file?.key }});  //proper validation
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
