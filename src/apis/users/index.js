@@ -216,7 +216,7 @@ router.get(
 router.post(
   '/create-user',
   [isAuthenticated, authorized(AccessRoles.USER)],
-  tryCatchHandler(createUser),
+  tryCatchHandler(createUser), 
 ); 
 
 /**
