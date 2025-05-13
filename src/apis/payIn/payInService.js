@@ -120,9 +120,9 @@ export const generatePayInUrlByHashService = async (req, res) => {
   }
 
   // bank is not enabled or no method is enabled for payment - no payment link generates
-  bankAssigned.every((bank) => {
-    const config = bank.config || {};
-    if (bank.is_enabled === false) {
+//loop over each and cehck
+  const allBanksDisabled = bankAssigned.every(bank => bank.is_enabled === false);
+    if (allBanksDisabled) {
       // throw new InternalServerError(
       //   'Bank assigned to this merchant is not enabled!',
       // );
@@ -137,14 +137,15 @@ export const generatePayInUrlByHashService = async (req, res) => {
         },
       });
     }
-    if (
-      config.is_phonepay === false &&
-      bank.is_qr === false &&
-      bank.is_bank === false
-    ) {
-      // throw new InternalServerError(
-      //   'No payment methods enabled for assigned bank!',
-      // );
+    //loop over evrey bank
+    const allPaymentOptionsDisabled = bankAssigned.every(bank => {
+      if (!bank.is_enabled) return true; 
+      const config = bank.config || {};
+      const isPhonepay = config.is_phonepay || false; 
+      return isPhonepay === false && bank.is_qr === false && bank.is_bank === false;
+    });
+    
+    if (allPaymentOptionsDisabled) {
       return res.status(400).json({
         error: {
           status: 404,
@@ -155,7 +156,7 @@ export const generatePayInUrlByHashService = async (req, res) => {
         },
       });
     }
-  });
+    
   let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
   if (amount) {
     query += `&amount=${amount}`;
@@ -368,6 +369,7 @@ export const assignedBankToPayInUrlService = async (
   type,
 ) => {
   // Validate the PayIn URL
+  
   const payIn = await getPayInUrlService(merchantOrderId);
   const payInConfig = payIn.config || {};
   checkIsPayInExpired(payIn);
@@ -376,7 +378,7 @@ export const assignedBankToPayInUrlService = async (
   }
   const merchantArr = await getMerchantsDao({ id: payIn.merchant_id });
   const merchant = merchantArr[0] || {};
-
+console.log(merchantArr, 'merchantArr________OrderId')
   if (!merchant) {
     // throw new NotFoundError('No merchant found');
     return { message: `No merchant found` };
@@ -392,30 +394,34 @@ export const assignedBankToPayInUrlService = async (
     config_merchants_contains: merchant.id,
   });
   //only enabled banks assigned
-const enabledBanks = banks.filter((bank) => {
-  const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
-  const isActive = bank.is_enabled && isPayInBank;
-  const hasAnyMethod =
-    bank.is_qr ||
-    bank.is_bank ||
-    bank.config?.is_phonepay ||
-    bank.config?.is_intent;
-    if(isActive){
-      switch (type) {
-        case BankTypes.UPI:
-          return bank.is_qr;
-        case BankTypes.PHONE_PE:
-          return bank.config?.is_phonepay;
-        case BankTypes.BANK_TRANSFER:
-          return bank.is_bank;
-        case BankTypes.INTENT:
-          return bank.config?.is_intent;
-        default:
-          return false;
-      }
+  const enabledBanks = banks.filter((bank) => {
+    const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
+    const isActive = bank.is_enabled && isPayInBank;
+  
+    if (!isActive) return false;
+  
+    const config = bank.config || {};
+    const hasAnyMethod =
+      bank.is_qr ||
+      bank.is_bank ||
+      config.is_phonepay ||
+      config.is_intent || false;
+  
+    if (!hasAnyMethod) return false;
+  
+    switch (type) {
+      case BankTypes.UPI:
+        return bank.is_qr;
+      case BankTypes.PHONE_PE:
+        return config.is_phonepay || false;
+      case BankTypes.BANK_TRANSFER:
+        return bank.is_bank;
+      case BankTypes.INTENT:
+        return config.is_intent || false;
+      default:
+        return false;
     }
-  return isActive && hasAnyMethod;
-});
+  });
 
   if (!enabledBanks.length) {
     await updatePayInUrlDao(payIn.id, {
@@ -432,8 +438,10 @@ const enabledBanks = banks.filter((bank) => {
     throw new NotFoundError(`No enabled bank found!`);
   }
   // Randomly assign one enabled bank account
+  console.log(enabledBanks, 'enabled____Banks')
   const selectedBankDetails =
     enabledBanks[Math.floor(Math.random() * enabledBanks.length)];
+    console.log(selectedBankDetails, 'selected_______BankDetails')
   const updatePayIn = await updatePayInUrlDao(payIn.id, {
     amount: parseFloat(amount),
     status: Status.ASSIGNED,
