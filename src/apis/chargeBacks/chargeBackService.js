@@ -73,8 +73,8 @@ const createChargeBackService = async (
           {
             total_chargeback_count: 1,
             total_chargeback_amount: amount,
-            current_balance: amount,
-            net_balance: amount,
+            current_balance:  - amount,
+            net_balance: - amount,
           },
           conn,
         );
@@ -94,9 +94,9 @@ const createChargeBackService = async (
           { id: VendorId },
           {
             total_chargeback_count: 1,
-            total_chargeback_amount: -amount,
-            current_balance: -amount,
-            net_balance: -amount,
+            total_chargeback_amount: amount,
+            current_balance: amount,
+            net_balance: amount,
           },
           conn,
         );
