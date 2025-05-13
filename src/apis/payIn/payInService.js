@@ -437,10 +437,8 @@ export const assignedBankToPayInUrlService = async (
     throw new NotFoundError(`No enabled bank found!`);
   }
   // Randomly assign one enabled bank account
-  console.log(enabledBanks, 'enabled____Banks')
   const selectedBankDetails =
     enabledBanks[Math.floor(Math.random() * enabledBanks.length)];
-    console.log(selectedBankDetails, 'selected_______BankDetails')
   const updatePayIn = await updatePayInUrlDao(payIn.id, {
     amount: parseFloat(amount),
     status: Status.ASSIGNED,
