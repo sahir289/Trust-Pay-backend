@@ -35,11 +35,9 @@ const createCompany = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const { role } = req.user;
-  // const data =
-  await transactionWrapper(createCompanyService)(payload, role);
-  console.log('Create Company successfully');
-  return sendSuccess(res, {}, 'Create Company successfully');
+
+  const data=await transactionWrapper(createCompanyService)(payload);
+  return sendSuccess(res,  data , 'Create Company successfully');
 };
 
 const updateCompany = async (req, res) => {

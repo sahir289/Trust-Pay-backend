@@ -1956,6 +1956,7 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
     is_bank: enabledBanks.some((bank) => bank.is_bank),
     redirect_url: payIn.config?.urls?.return,
   };
+  expirePayInIfNeeded(payIn.id);
   return result;
 };
 

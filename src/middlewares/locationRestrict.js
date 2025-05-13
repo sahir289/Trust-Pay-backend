@@ -5,10 +5,13 @@ import { logger } from '../utils/logger.js';
 const BLOCK_LAT = process.env.BLOCK_LAT;
 const BLOCK_LONG = process.env.BLOCK_LONG;
 const PROXY_CHECK_URL = process.env.PROXY_CHECK_URL;
+const TestingIp = process.env.LOCAL_IP;
 const getUserLocationMiddleware = async (req, res, next) => {
   let userIp =
     req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
-
+  if (userIp == "::1") {
+      userIp = TestingIp;
+  }
     const userIpShouldBlock = '13.41.235.43'
     if (userIp === userIpShouldBlock) {
       logger.warn('Fraud User. Access denied.', userIp);
@@ -21,7 +24,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
   try {
     // Get the user's IP address (checking for reverse proxy headers)
     // Send a request to proxycheck.io to fetch the geolocation data
-    const url = PROXY_CHECK_URL.replace('${userIp}', userIp);
+   let url = PROXY_CHECK_URL.replace('$%7BuserIp%7D', userIp);
     const response = await axios.get(url);
 
     const userData = response.data[userIp];

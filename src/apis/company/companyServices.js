@@ -7,7 +7,10 @@ import {
 } from './companyDao.js';
 import { createUserService } from '../users/userService.js';
 import { createDesignationService } from '../designation/designationServices.js';
-import { createRoleDao } from '../roles/rolesDao.js';
+import { createRoleDao, getRoleDao } from '../roles/rolesDao.js';
+import { RoleIs,DesignationIs } from '../../constants/index.js';
+import { getDesignationDao } from '../designation/designationDao.js';
+
 const getCompanyService = async (id) => {
   try {
     const result = await getCompanyDao(id);
@@ -20,39 +23,62 @@ const getCompanyService = async (id) => {
 
 const createCompanyService = async (conn, payload) => {
   try {
-    const result = await createCompanyDao(conn, payload);
-    const roleName = {
-      role: 'Admin',
-      company_id: result.id,
-      created_by: result.id,
-    };
-    const role = await createRoleDao(conn, roleName);
-    const DesignationPayload = {
-      role_id: role.id,
-      company_id: result.id,
-      designation: role.role,
-    };
-    const Designation = await createDesignationService(
-      conn,
-      DesignationPayload,
-    );
-    const UserPayload = {
-      role_id: role.id,
-      company_id: result.id,
-      designation_id: Designation.id,
-      user_name: payload.first_name,
-      email: payload.email,
-      contact_no: result.contact_no,
-      password: '12345',
+    // Validate payload
+    // Create company
+    const company = await createCompanyDao(conn, {
       first_name: payload.first_name,
       last_name: payload.last_name,
+      email: payload.email,
+      contact_no: payload.contact_no,
+    });
+    let role = []; 
+    let designations = [];
+
+    if (!role.length>0) {
+          let roles = [];
+       for (const roleName of Object.values(RoleIs)) {
+         const role = await createRoleDao(conn, {
+           role: roleName,
+         });
+         roles.push(role);
+       }
+       // Create all designations
+       for (const designationName of Object.values(DesignationIs)) {
+         const designation = await createDesignationService(conn, {
+           designation: designationName,
+         });
+         designations.push(designation);
+       }
+      role =await getRoleDao({ role: RoleIs.ADMIN });
+      designations =await getDesignationDao({designation:DesignationIs.ADMIN})
+    }
+   role = await getRoleDao({ role: RoleIs.ADMIN });
+     designations = await getDesignationDao({
+      designation: DesignationIs.ADMIN,
+    });
+    
+    const userPayload = {
+      role_id: role[0].id,
+      company_id: company.id,
+      designation_id: designations[0].id,
+      user_name: payload.first_name,
+      email: payload.email,
+      contact_no: company.contact_no,
+      first_name: payload.first_name,
+      last_name: payload.last_name,
+      is_enabled:true,
       code: payload.first_name.split('').reverse().join(''),
     };
-    // const userCreated =
-    await createUserService(conn, UserPayload);
-    return result;
+    // Create user
+    const user = await createUserService(conn, userPayload);
+    // Return result
+    return {
+      company_id: company.id,
+      role_ids: role.map((role) => role.id),
+      designation_ids: designations.map((designation) => designation.id),
+      user_id: user.id,
+    };
   } catch (error) {
-    // Rollback transaction in case of an error
     console.error('Error while creating company:', error);
     throw new InternalServerError(error);
   }

@@ -14,7 +14,7 @@ const { Pool } = pkg;
 const pool = new Pool({
   connectionString: `${config.databaseUrl}?options=-c%20timezone%3DAsia%2FKolkata`,
   ssl:
-    config.env === 'production'
+    config.env === 'production' 
       ? {
           rejectUnauthorized: false,
           // ca: fs.readFileSync(path.join(__dirname, '/Users/mac/Downloads/ap-south-1-bundle.pem')).toString(),
