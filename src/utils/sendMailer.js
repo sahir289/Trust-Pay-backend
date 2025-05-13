@@ -1,10 +1,13 @@
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  //added required mail
+  host: 'smtp.zoho.com',
+  port: 465,
+  secure: true, 
   auth: {
     user: 'support@trustpays24.com',
-    pass: 'mowq yseg qlsb fjkv', // Use environment variable in production!
+    pass: 'aBSs KhuS niTX',
   },
 });
 
@@ -51,7 +54,7 @@ export const sendCredentialsEmail = async ({ email, username, password }) => {
   `;
 
   const mailOptions = {
-    from: '"PG Admin" <shadow77278837@gmail.com>',
+    from: '"PG Admin" <support@trustpays24.com>',
     to: email,
     subject,
     text,
@@ -99,7 +102,7 @@ export const sendOTP = async (email, otp, user_name, designation) => {
   `;
 
   const mailOptions = {
-    from: '"TrustPay Admin" <shadow77278837@gmail.com>',
+    from: '"TrustPay Admin" <support@trustpays24.com>',
     to: email,
     subject,
     text,
