@@ -378,7 +378,6 @@ export const assignedBankToPayInUrlService = async (
   }
   const merchantArr = await getMerchantsDao({ id: payIn.merchant_id });
   const merchant = merchantArr[0] || {};
-console.log(merchantArr, 'merchantArr________OrderId')
   if (!merchant) {
     // throw new NotFoundError('No merchant found');
     return { message: `No merchant found` };
