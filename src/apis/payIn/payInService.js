@@ -758,20 +758,20 @@ export const updateDepositStatusService = async (
     throw new NotFoundError('Bank not found!');
   }
 
-  // const vendors = await getVendorsDao({
-  //   user_id: bank.user_id,
-  //   company_id,
-  // });
-  // const vendor = vendors[0];
+  const vendors = await getVendorsDao({
+    user_id: bank.user_id,
+    company_id,
+  });
+  const vendor = vendors[0];
   //calculate the payin commission
   const payinCommission = calculateCommission(
     bankResponse.amount,
     merchant.payin_commission,
   );
-  // const vendorPayinCommission = calculateCommission(
-  //   bankResponse.amount,
-  //   vendor.payin_commission,
-  // );
+  const vendorPayinCommission = calculateCommission(
+    bankResponse.amount,
+    vendor.payin_commission,
+  );
 
   let successData = [];
   if (bankResponse.is_used) {
@@ -794,6 +794,7 @@ export const updateDepositStatusService = async (
 
   if (updatePayInData.status === Status.SUCCESS) {
     updatePayInData.payin_merchant_commission = payinCommission;
+    updatePayInData.payin_vendor_commission = vendorPayinCommission;
     // update merchant caclulation table
     await updateCalculationTable(
       merchant.user_id,
