@@ -77,7 +77,7 @@ import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
 // import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
-import { expirePayInIfNeeded, stringifyJSON } from '../../utils/index.js';
+import {  stringifyJSON } from '../../utils/index.js';
 import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
@@ -294,7 +294,7 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
   };
 
   const result = await generatePayInUrlDao(data);
-  expirePayInIfNeeded(result.id, code);
+  // expirePayInIfNeeded(result.id, code);
   return result;
 };
 
@@ -386,7 +386,7 @@ export const assignedBankToPayInUrlService = async (
   const minPayIn = Number(merchant.min_payin);
   const amt = Number(amount);
 
-  if (amt >= maxPayIn || amt <= minPayIn) {
+  if (amt > maxPayIn || amt < minPayIn) {  //-- exact amounts should also be considered
     return { message: `Amount must be between ${minPayIn} and ${maxPayIn}` };
   }
   const banks = await getMerchantBankDao({
@@ -1956,7 +1956,7 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
     is_bank: enabledBanks.some((bank) => bank.is_bank),
     redirect_url: payIn.config?.urls?.return,
   };
-  expirePayInIfNeeded(payIn.id);
+  // expirePayInIfNeeded(payIn.id);
   return result;
 };
 
