@@ -48,7 +48,7 @@ CREATE TABLE "User" (
   "contact_no" varchar UNIQUE NOT NULL,
   "user_name" varchar UNIQUE NOT NULL,
   "password" varchar NOT NULL,
-  "code" varchar UNIQUE NOT NULL,
+  "code" varchar UNIQUE,
   "is_enabled" boolean DEFAULT true,
   "last_login" TIMESTAMPTZ,
   "last_logout" TIMESTAMPTZ,
