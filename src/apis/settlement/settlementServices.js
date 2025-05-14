@@ -26,6 +26,7 @@ import {
 } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
+import { getBankResponseByUTR, updateBankResponseDao } from '../bankResponse/bankResponseDao.js';
 
 const getSettlementServiceById = async (ids) => {
   try {
@@ -193,6 +194,12 @@ const getSettlementsBySearchService = async (
 
 const createSettlementService = async (payload) => {
   try {
+    if (payload.method === 'INTERNAL_QR_TRANSFER' || payload.method === 'INTERNAL_BANK_TRANSFER') {
+      const bankResponses = await getBankResponseByUTR(payload?.config?.utr)
+      await updateBankResponseDao({id: bankResponses.id}, {status: '/internalTransfer'})
+      payload.status = 'SUCCESS';
+    }
+
     const data = await createSettlementDao(payload);
     return data;
   } catch (error) {
