@@ -1,6 +1,7 @@
 import { tableName } from '../../constants/index.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { buildSelectQuery, buildUpdateQuery, executeQuery,buildJoinQuery ,buildInsertQuery} from '../../utils/db.js';
+import { logger } from '../../utils/logger.js';
 
 const getUsersDao = async (
   filters,
@@ -55,7 +56,7 @@ const getUsersDao = async (
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
-    console.error('Error in get Users Dao:', error);
+    logger.error('Error in get Users Dao:', error);
     throw error.message;
   }
 };
@@ -176,7 +177,7 @@ if (filters.id) {
     };
     return data;
   } catch (error) {
-    console.error(error.message);
+    logger.error(error.message);
     throw error.message;
   }
 };
@@ -221,12 +222,12 @@ const getUserByIdDao = async (conn, ids) => {
     }
     const result = await conn.query(baseQuery, queryParams);
     if (result.rowCount === 0) {
-      console.error('No user found with the provided id and filters');
+      logger.error('No user found with the provided id and filters');
       return [];
     }
     return result.rows;
   } catch (error) {
-    console.error('error getting while fetching user', error);
+    logger.error('error getting while fetching user', error);
     throw error.message;
   }
 };
@@ -279,12 +280,12 @@ const getUsersByUserNameDao = async (ids, username) => {
 
     const result = await executeQuery(baseQuery, queryParams);
     if (result.rowCount === 0) {
-      console.log(`No user found with username: ${username}`);
+      logger.info(`No user found with username: ${username}`);
       return null;
     }
     return result.rows[0];
   } catch (error) {
-    console.error(`Error fetching user by username: ${username}`, error);
+    logger.error(`Error fetching user by username: ${username}`, error);
     throw error.message;
   }
 };
@@ -301,14 +302,14 @@ const createUserDao = async (payload,conn) => {
     else {
       result = await executeQuery(sql, params);
     }
-    console.log(
+    logger.info(
       `User with username: ${payload.user_name} created successfully`,
     );
 
     return result.rows[0];
 
   } catch (error) {
-    console.error(`Error creating user: ${payload.user_name}`, error);
+    logger.error(`Error creating user: ${payload.user_name}`, error);
     throw error.message;
   }
 };
@@ -319,12 +320,12 @@ const getUsersForCronDao = async (conn) => {
     const sql = `SELECT id  FROM public."User" where is_obsolete = false`;
     const result = await conn.query(sql);
     if (result.rows.length === 0) {
-      console.log('No users Found');
+      logger.info('No users Found');
       return [];
     }
     return result.rows;
   } catch (error) {
-    console.error('error getting users', error);
+    logger.error('error getting users', error);
     throw error.message;
   }
 };
@@ -341,7 +342,7 @@ const updateUserDao = async (ids, data, conn) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in updateUserDao:', error);
+    logger.error('Error in updateUserDao:', error);
     throw error.message;
   }
 }
