@@ -157,7 +157,6 @@ const getMerchantReportService = async (req, res) => {
       startDateTime = startDate;
       endDateTime = endDate;
     }
-    let dataArray = [];
     let result
       const userIds = typeof code === 'string' ? code.split(',').map(id => id.trim()) : Array.isArray(code) ? code : [code];
       if(role_name === 'MERCHANT'){
