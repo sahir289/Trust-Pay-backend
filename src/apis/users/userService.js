@@ -412,6 +412,7 @@ const createUserService = async (conn, payload, role) => {
           public: Public,
         },
         allow_intent: false,
+        allow_payout: false,
       },
     };
     await createMerchantService(conn, merchantPayload);
