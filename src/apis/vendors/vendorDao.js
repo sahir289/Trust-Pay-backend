@@ -62,7 +62,7 @@ export const getVendorsDao = async (
   role
 ) => {
   try {
-    let baseQuery = `
+     let baseQuery = `
       SELECT 
         "Vendor".id,
         "Vendor".user_id,
@@ -82,16 +82,20 @@ export const getVendorsDao = async (
         d.designation AS designation_name,
         u.user_name AS created_by,
         uu.user_name AS updated_by,
-        (SELECT net_balance 
-     FROM "Calculation" 
-     WHERE "Calculation".user_id = "Vendor".user_id 
-     ORDER BY "Calculation".updated_at DESC 
-     LIMIT 1) AS balance
+        (
+          SELECT net_balance 
+          FROM "Calculation" 
+          WHERE "Calculation".user_id = "Vendor".user_id 
+          ORDER BY "Calculation".updated_at DESC 
+          LIMIT 1
+        ) AS balance
       FROM "Vendor"
       JOIN "User" AS user_main ON "Vendor".user_id = user_main.id
       LEFT JOIN "Designation" AS d ON user_main.designation_id = d.id
       LEFT JOIN "User" AS u ON "Vendor".created_by = u.id
       LEFT JOIN "User" AS uu ON "Vendor".updated_by = uu.id
+      WHERE 1=1
+        AND "Vendor".is_obsolete = false
     `;
     //vendor details login specific
   if (role == Role.ADMIN) {
@@ -108,7 +112,6 @@ export const getVendorsDao = async (
       sortOrder,
       'Vendor' 
     );
-
     const result = await executeQuery(query, values);
     return result.rows;
   } catch (error) {
@@ -146,11 +149,13 @@ export const getVendorsBySearchDao = async (
         "User".designation_id, 
         "User".first_name || ' ' || "User".last_name AS full_name, 
         "Designation".designation AS designation_name,
-         (SELECT net_balance 
-     FROM "Calculation" 
-     WHERE "Calculation".user_id = "Vendor".user_id 
-     ORDER BY "Calculation".updated_at DESC 
-     LIMIT 1) AS balance
+         (
+          SELECT net_balance 
+          FROM "Calculation" 
+          WHERE "Calculation".user_id = "Vendor".user_id 
+          ORDER BY "Calculation".updated_at DESC 
+          LIMIT 1
+        ) AS balance
       FROM "Vendor" 
       JOIN "User" ON "Vendor".user_id = "User".id 
       LEFT JOIN "Designation" ON "User".designation_id = "Designation".id 
@@ -164,6 +169,7 @@ export const getVendorsBySearchDao = async (
         paramIndex += 1;
       }
     searchTerms.forEach((term) => {
+  
       // Handle boolean terms
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
         const boolValue = term.toLowerCase() === 'true';
@@ -173,8 +179,8 @@ export const getVendorsBySearchDao = async (
         values.push(boolValue);
         paramIndex++;
       } else {
-        // Handle text/numeric terms including JSON fields and balance
-        conditions.push(`
+    // Handle text/numeric terms including JSON fields and balance
+    conditions.push(`
       (
         LOWER("Vendor".id::text) LIKE LOWER($${paramIndex})
         OR LOWER("Vendor".user_id::text) LIKE LOWER($${paramIndex})
@@ -197,10 +203,10 @@ export const getVendorsBySearchDao = async (
         ) LIKE $${paramIndex}
       )
     `);
-        values.push(`%${term}%`);
-        paramIndex++;
-      }
-    });
+    values.push(`%${term}%`);
+    paramIndex++;
+  }
+})
 
     if (conditions.length > 0) {
       queryText += ' AND (' + conditions.join(' OR ') + ')';

@@ -154,53 +154,58 @@ export const getMerchantsDao = async (
   pageSize = 10,
   sortBy = 'created_at',
   sortOrder = 'ASC',
-  // columns to select from db (optional)
-  role
+  role,
 ) => {
   try {
-//changed created_by to createdby_username , because same names were conflicting at other places ,using same createdby_username in every api to avoid this
- let baseQuery = `
-  SELECT 
-    "Merchant".id, 
-    "Merchant".user_id, 
-    "Merchant".first_name, 
-    "Merchant".last_name, 
-    "Merchant".code, 
-    "Merchant".min_payin, 
-    "Merchant".max_payin, 
-    "Merchant".payin_commission, 
-    "Merchant".min_payout, 
-    "Merchant".max_payout, 
-    "Merchant".payout_commission, 
-    "Merchant".is_test_mode, 
-    "Merchant".is_enabled, 
-    "Merchant".dispute_enabled, 
-    "Merchant".is_demo, 
-    "Merchant".config, 
-    "Merchant".company_id, 
-    creator.user_name AS created_by, 
-    updater.user_name AS updated_by, 
-    "Merchant".created_at, 
-    "Merchant".updated_at, 
-    "User".designation_id, 
-    "User".first_name || ' ' || "User".last_name AS full_name, 
-    "Designation".designation AS designation_name,
-    (SELECT net_balance 
-     FROM "Calculation" 
-     WHERE "Calculation".user_id = "Merchant".user_id 
-     ORDER BY "Calculation".updated_at DESC 
-     LIMIT 1) AS balance
-  FROM "Merchant" 
-  JOIN "User" ON "Merchant".user_id = "User".id 
-  LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
-  LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
-  LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
-`;
-  if (role == Role.ADMIN) {
-    baseQuery += `
-        WHERE "User".designation_id = (SELECT id FROM "Designation" WHERE designation = 'MERCHANT')
+    let baseQuery = `
+      SELECT 
+        "Merchant".id, 
+        "Merchant".user_id, 
+        "Merchant".first_name, 
+        "Merchant".last_name, 
+        "Merchant".code, 
+        "Merchant".min_payin, 
+        "Merchant".max_payin, 
+        "Merchant".payin_commission, 
+        "Merchant".min_payout, 
+        "Merchant".max_payout, 
+        "Merchant".payout_commission, 
+        "Merchant".is_test_mode, 
+        "Merchant".is_enabled, 
+        "Merchant".dispute_enabled, 
+        "Merchant".is_demo, 
+        "Merchant".config, 
+        "Merchant".company_id, 
+        creator.user_name AS created_by, 
+        updater.user_name AS updated_by, 
+        "Merchant".created_at, 
+        "Merchant".updated_at, 
+        "User".designation_id, 
+        "User".first_name || ' ' || "User".last_name AS full_name, 
+        "Designation".designation AS designation_name,
+        (
+          SELECT net_balance 
+          FROM "Calculation" 
+          WHERE "Calculation".user_id = "Merchant".user_id 
+          ORDER BY "Calculation".updated_at DESC 
+          LIMIT 1
+        ) AS balance
+      FROM "Merchant" 
+      JOIN "User" ON "Merchant".user_id = "User".id 
+      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
+      LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
+      LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
+      WHERE 1=1
+    `;
+
+    if (role === Role.ADMIN) {
+      baseQuery += `
+        AND "User".designation_id = (
+          SELECT id FROM "Designation" WHERE designation = 'MERCHANT'
+        )
       `;
-  }
+    }
+
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
@@ -210,7 +215,7 @@ export const getMerchantsDao = async (
       sortOrder,
       tableName.MERCHANT,
     );
-    // Execute query
+
     const result = await executeQuery(sql, queryParams);
     const data = await enhanceMerchantsWithSubMerchants(result.rows);
     return data;
@@ -219,6 +224,7 @@ export const getMerchantsDao = async (
     throw error.message;
   }
 };
+
 
 export const getMerchantsBySearchDao = async (
   filters,

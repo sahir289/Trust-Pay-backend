@@ -59,7 +59,7 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
           : columns.PAYOUT;
     const { code, amount, x_api_key, returnUrl, callbackUrl } = payload;
     const details = await getMerchantsDao({ code });
-
+    
     if (!details[0] || details[0].length === 0) {
       // throw new BadRequestError('Merchant does not exist');
       return res.status(400).json({
@@ -423,7 +423,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     //     : role === Role.VENDOR
     //       ? vendorColumns.PAYOUT
     //       : columns.PAYOUT;
-
+     
+    
     if (payload?.utr_id && !payload.status)
       Object.assign(payload, {
         status: Status.APPROVED,
@@ -445,6 +446,18 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       null,
       conn,
     );
+    const merchantArr = await getMerchantsDao({
+      id: singleWithdrawData.merchant_id,
+    });
+    const merchant = merchantArr[0];
+    if (!merchant) {
+      throw new NotFoundError('Merchant not found!');
+    }
+    if(!merchant?.config?.allow_payout && merchant.balance<0 && payload.status === Status.APPROVED)
+    {
+      throw new BadRequestError('Insufficient Balance');
+   }
+
     if (payload?.config?.method === Method.EKO)
       await processEkoPayout(singleWithdrawData, payload);
     const data = await updatePayoutDao(ids, payload, conn);
@@ -466,15 +479,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       throw new BadRequestError('Bank account is blocked');
     }
 
-    const [merchantArr, vendorArr, userArr] = await Promise.all([
-      getMerchantsDao({ id: data.merchant_id }),
+    const [ vendorArr] = await Promise.all([
       getVendorsDao({ user_id: bankData.user_id }),
     ]);
-    const merchant = merchantArr[0];
     const vendor = vendorArr[0];
-    if (!merchant) {
-      throw new NotFoundError('Merchant not found!');
-    }
+    
 
     if (!vendor) {
       throw new NotFoundError('Vendor not found!');
@@ -636,7 +645,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     return data;
   } catch (error) {
     console.error('Error in getPayoutsService:', error);
-    throw new InternalServerError(error);
+    throw new InternalServerError(error.message);
   }
 };
 
