@@ -15,9 +15,9 @@ jobs:
 
     - name: Debug Secrets
       env:
-        PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
-        HOST: ${{ secrets.EC2_HOST }}
-        USER: ${{ secrets.EC2_USER }}
+        PRIVATE_KEY: ${{ secrets.EC2_PROD_SSH_KEY }}
+        HOST: ${{ secrets.EC2_PROD_HOST }}
+        USER: ${{ secrets.EC2_PROD_USER }}
         TARGET_DIR: /home/ubuntu/Trust-Pay-backend
       run: |
         echo "PRIVATE_KEY is set: $([ -n "$PRIVATE_KEY" ] && echo 'yes' || echo 'no')"
@@ -29,9 +29,9 @@ jobs:
 
     - name: Deploy to EC2
       env:
-        PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
-        HOST: ${{ secrets.EC2_HOST }}
-        USER: ${{ secrets.EC2_USER }}
+        PRIVATE_KEY: ${{ secrets.EC2_PROD_SSH_KEY }}
+        HOST: ${{ secrets.EC2_PROD_HOST }}
+        USER: ${{ secrets.EC2_PROD_USER }}
         TARGET_DIR: /home/ubuntu/Trust-Pay-backend
       run: |
         echo "Deploy secrets check:"
