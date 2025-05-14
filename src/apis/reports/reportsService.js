@@ -167,7 +167,6 @@ const getMerchantReportService = async (req, res) => {
           startDateTime, endDateTime
           , page, limit
         ); 
-        dataArray.push(result);
       }
       else{
         const userIds = typeof code === 'string' ? code.split(',').map(id => id.trim()) : Array.isArray(code) ? code : [code];
@@ -177,7 +176,6 @@ const getMerchantReportService = async (req, res) => {
           startDateTime, endDateTime
           , page, limit
         );
-        dataArray.push(result);
       }
       return sendSuccess(res, result, 'Reports fetched successfully');
    
