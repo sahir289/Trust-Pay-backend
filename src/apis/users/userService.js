@@ -324,13 +324,7 @@ const createUserService = async (conn, payload, role) => {
   delete payload.site;
   const User = await createUserDao(userPayload, conn);
 
-  if (User) {
-    sendCredentialsEmail({
-      email: userPayload.email,
-      username: userPayload.user_name,
-      password: Password,
-    });
-  }
+  const designation = await getDesignationDao({id: payload.designation_id});
 
   const userRole = await getRoleDao({ id: payload.role_id });
   const userDesignation = await getDesignationDao({
@@ -374,6 +368,7 @@ const createUserService = async (conn, payload, role) => {
     }
   }
 
+  let merchant = {};
   ///for merchant sub-merchant
   if (
     userDesignation[0]?.designation === Role.MERCHANT ||
@@ -415,7 +410,7 @@ const createUserService = async (conn, payload, role) => {
         allow_payout: false,
       },
     };
-    await createMerchantService(conn, merchantPayload);
+   merchant =  await createMerchantService(conn, merchantPayload);
   }
   ///for vendor
   if (userDesignation[0]?.designation === Role.VENDOR) {
@@ -433,6 +428,18 @@ const createUserService = async (conn, payload, role) => {
       updated_by: payload.updated_by,
     };
     await createVendorService(conn, vendorPayload, role);
+  }
+
+  if (User) {
+    sendCredentialsEmail({
+      email: User.email,
+      username: User.user_name,
+      password: Password,
+      code: merchant?.config ? User.code : '',
+      secretKey: merchant?.config ? merchant.config.keys.private : '',
+      publicKey: merchant?.config ? merchant.config.keys.public : '',
+      designation: designation[0]?.designation,
+    });
   }
 
   logger.log('User Created Successfully');

@@ -37,7 +37,7 @@ import {
 import config from '../../config/config.js';
 import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
 import { getUserByIdDao } from '../users/userDao.js';
-import { Status, Method } from '../../constants/index.js';
+import { Status, Method, tableName } from '../../constants/index.js';
 import { calculateBalances, calculateCommission } from '../../helpers/index.js';
 import {
   columns,
@@ -49,6 +49,7 @@ import { filterResponse } from '../../helpers/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
+import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 const createPayoutService = async (conn, headers, payload, role, res) => {
   try {
     const filterColumns =
@@ -517,7 +518,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         true,
         conn,
       );
-      await updateCalculationTable(
+      const vendorCalculation = await updateCalculationTable(
         vendor.user_id,
         {
           payoutCommission: vendorCommission,
@@ -526,6 +527,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         true,
         conn,
       );
+      await notifyNewCalculationTableEntry(tableName.CALCULATION, vendorCalculation);
       // const netBalance = await updatePayoutCalculations(
       //   merchant.user_id,
       //   data.approved_at,
@@ -593,7 +595,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         false,
         conn,
       );
-      await updateCalculationTable(
+      const vendorCalculation = await updateCalculationTable(
         vendor.user_id,
         {
           payoutCommission: vendorCommission,
@@ -602,6 +604,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         false,
         conn,
       );
+      await notifyNewCalculationTableEntry(tableName.CALCULATION, vendorCalculation);
       const merchantBalance = Number(merchant.balance + data.amount);
       if (isNaN(merchantBalance)) {
         throw new BadRequestError('Invalid merchant balance');
@@ -744,11 +747,12 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
       };
     }
 
-    const TotalAmount = await updateCalculationBalanceDao(
+    const response = await updateCalculationBalanceDao(
       { id: calculationId },
       payload,
       conn,
     );
+    return response;
   }
 };
 const processEkoPayout = async (singleWithdrawData, payload) => {

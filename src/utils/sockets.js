@@ -2,6 +2,11 @@ import { Server } from 'socket.io';
 import config from '../config/config.js';
 import chalk from 'chalk';
 import { logger } from './logger.js';
+import {
+  getBankaccountDao,
+  updateBankaccountDao,
+} from '../apis/bankAccounts/bankaccountDao.js';
+import { getUserByIdDao } from '../apis/users/userDao.js';
 
 const userSockets = new Map();
 let ioInstance = null;
@@ -23,11 +28,17 @@ const initializeSocket = (server) => {
       existingSockets.forEach((existingSocketId) => {
         if (existingSocketId !== socket.id) {
           ioInstance.to(existingSocketId).emit('forceLogout');
-          logger.log(chalk.yellow(`Forced logout for user ${userId} on socket ${existingSocketId}`));
+          logger.log(
+            chalk.yellow(
+              `Forced logout for user ${userId} on socket ${existingSocketId}`,
+            ),
+          );
         }
       });
       userSockets.set(userId, [socket.id]);
-      const loginMessage = chalk.bold.green(`User ${userId} associated with socket ${socket.id}`);
+      const loginMessage = chalk.bold.green(
+        `User ${userId} associated with socket ${socket.id}`,
+      );
       logger.log(loginMessage);
       socket.emit('login-success', { userId, socketId: socket.id });
     });
@@ -46,13 +57,21 @@ const initializeSocket = (server) => {
         const updatedSockets = socketIds.filter((id) => id !== socket.id);
         if (updatedSockets.length > 0) {
           userSockets.set(userId, updatedSockets);
-          logger.log(chalk.blue(`User ${userId} disconnected, remaining sockets: ${updatedSockets}`));
+          logger.log(
+            chalk.blue(
+              `User ${userId} disconnected, remaining sockets: ${updatedSockets}`,
+            ),
+          );
         } else {
           userSockets.delete(userId);
-          logger.log(chalk.blue(`User ${userId} disconnected, no remaining sockets`));
+          logger.log(
+            chalk.blue(`User ${userId} disconnected, no remaining sockets`),
+          );
         }
       }
-      const disconnectMessage = chalk.bold.red(`Client disconnected: ${socket.id}`);
+      const disconnectMessage = chalk.bold.red(
+        `Client disconnected: ${socket.id}`,
+      );
       logger.log(disconnectMessage);
     });
   });
@@ -72,7 +91,9 @@ const forceLogoutUser = (userId) => {
   if (socketIds.length > 0) {
     socketIds.forEach((socketId) => {
       ioInstance.to(socketId).emit('forceLogout');
-      logger.log(chalk.yellow(`User ${userId} forced to logout on socket ${socketId}`));
+      logger.log(
+        chalk.yellow(`User ${userId} forced to logout on socket ${socketId}`),
+      );
     });
     userSockets.delete(userId);
   } else {
@@ -85,26 +106,26 @@ const deactivateBank = (nickName, bankId, isWarning = false) => {
     logger.error('Socket.IO not initialized');
     return;
   }
-  
+
   ioInstance.emit(isWarning ? 'bankStatusWarning' : 'bankStatusUpdate', {
-    message: isWarning 
+    message: isWarning
       ? `The Bank with the ${nickName} will be Deactivate soon as the Balance will soon reach the Daily Limit`
       : `The Bank with the ${nickName} id Deactivate`,
     bankId,
     nickname: nickName,
-    isEnabled: !isWarning ? false : undefined
+    isEnabled: !isWarning ? false : undefined,
   });
 };
 
 // New function to emit event when a specific entry is added to a table
-const notifyNewTableEntry = async(tableName, entryType, entryData) => {
+const notifyNewTableEntry = async (tableName, entryType, entryData) => {
   if (!ioInstance) {
     logger.error('Socket.IO not initialized');
     return;
   }
 
   const eventName = 'newTableEntry';
-  console.log(eventName, 'eventName');
+  logger.info(eventName, 'eventName');
   const payload = {
     tableName,
     entryType,
@@ -112,8 +133,51 @@ const notifyNewTableEntry = async(tableName, entryType, entryData) => {
     timestamp: new Date().toISOString(),
   };
 
-  logger.log(chalk.bold.cyan(`Emitting ${eventName} for table ${tableName}, type ${entryType}`));
+  logger.log(
+    chalk.bold.cyan(
+      `Emitting ${eventName} for table ${tableName}, type ${entryType}`,
+    ),
+  );
   ioInstance.emit(eventName, payload); // Broadcast to all connected clients
 };
 
-export { initializeSocket, forceLogoutUser, deactivateBank, notifyNewTableEntry };
+// New function to emit event when a specific entry is added to a Calculation table
+const notifyNewCalculationTableEntry = async (tableName, entryData) => {
+  if (!ioInstance) {
+    logger.error('Socket.IO not initialized');
+    return;
+  }
+
+  if (entryData && entryData.net_balance <= 0) {
+    const banks = await getBankaccountDao({ user_id: entryData.user_id });
+    const bankIds = banks.map((bank) => bank.id);
+    const bankNickNames = banks.map((bank) => bank.nick_name);
+    const user = await getUserByIdDao(entryData.user_id);
+    bankIds.forEach(async (bankId) => {
+      try {
+        await updateBankaccountDao(
+          { id: bankId, company_id: entryData.company_id },
+          { is_enabled: false },
+        );
+        logger.info(`Successfully disabled bank account with ID ${bankId}`);
+      } catch (error) {
+        logger.error(`Failed to update bank account with ID ${bankId}:`, error);
+      }
+    });
+
+    const eventName = 'newCalculationTableEntry';
+    logger.info(eventName, 'eventName');
+    logger.log(chalk.bold.cyan(`Emitting ${eventName} for table ${tableName}`));
+    ioInstance.emit(eventName, {
+      message: `Due to Insufficient Balance in ${user} account ${bankNickNames} has been Deactivated`,
+    }); // Broadcast to all connected clients
+  }
+};
+
+export {
+  initializeSocket,
+  forceLogoutUser,
+  deactivateBank,
+  notifyNewTableEntry,
+  notifyNewCalculationTableEntry,
+};

@@ -137,7 +137,7 @@ const updateBankaccount = async (req, res) => {
   payload.updated_by = user_id;
   const ids = { id, company_id };
   // const data =
- const updatebank= await transactionWrapper(updateBankaccountService)(ids, payload);
+ const updatebank= await transactionWrapper(updateBankaccountService)(ids, payload, res);
   return sendSuccess(
     res,
     { id: updatebank.id, updated_by: user_name },

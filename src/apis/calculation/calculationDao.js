@@ -463,7 +463,7 @@ export const updateCalculationBalanceDao = async (filters, data, conn) => {
       return result.rows[0];
     }
     const result = await executeQuery(sql, params);
-    return result[0];
+    return result.rows[0];
   } catch (error) {
     console.error('Error updating calculation:', error);
     throw error.message;
