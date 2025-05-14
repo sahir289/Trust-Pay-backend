@@ -14,7 +14,7 @@ export const CREATE_USER_SCHEMA = Joi.object({
   last_name: Joi.string().label('last_name').required(),
   email: Joi.string().email().label('email').required(),
   contact_no: Joi.string()
-    .pattern(/^\d{10,15}$/)
+    .pattern(/^\d{10,12}$/)
     .label('contact_no')
     .required(), // Allows 10-15 digit numbers
   user_name: Joi.string().label('user_name').required(),

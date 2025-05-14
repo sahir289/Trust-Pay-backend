@@ -149,7 +149,7 @@ export const generatePayInUrlByHashService = async (req, res) => {
       return res.status(400).json({
         error: {
           status: 404,
-          message: 'Bank Account has not been linked with Merchant',
+          message: 'No Payment Methods Enabled!',
           additionalInfo: {},
           level: 'info',
           timestamp: new Date().toISOString(),
@@ -386,7 +386,7 @@ export const assignedBankToPayInUrlService = async (
   const minPayIn = Number(merchant.min_payin);
   const amt = Number(amount);
 
-  if (amt >= maxPayIn || amt <= minPayIn) {
+  if (amt > maxPayIn || amt < minPayIn) {  //-- exact amounts should also be considered
     return { message: `Amount must be between ${minPayIn} and ${maxPayIn}` };
   }
   const banks = await getMerchantBankDao({

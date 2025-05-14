@@ -123,7 +123,7 @@ export const generatePayInUrl = async (req, res) => {
     return res.status(400).json({
       error: {
         status: 404,
-        message: 'Bank Account has not been linked with Merchant',
+        message: 'No Payment Methods Enabled!',
         additionalInfo: {},
         level: 'info',
         timestamp: new Date().toISOString(),

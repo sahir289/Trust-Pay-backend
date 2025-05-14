@@ -24,7 +24,7 @@ const addLogIdInRequest = (req, res, next) => {
     body: req.body,
     query: req.query,
     params: req.params,
-    timestamp: new Date().toISOString(),
+    timestamp: new Date().toISOString(), 
   };
 
   if (req.originalUrl && !req.originalUrl.includes('/auth/')) {

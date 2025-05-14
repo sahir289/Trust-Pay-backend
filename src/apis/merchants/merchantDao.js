@@ -159,7 +159,7 @@ export const getMerchantsDao = async (
 ) => {
   try {
 //changed created_by to createdby_username , because same names were conflicting at other places ,using same createdby_username in every api to avoid this
-  let baseQuery = `
+ let baseQuery = `
   SELECT 
     "Merchant".id, 
     "Merchant".user_id, 
@@ -176,7 +176,6 @@ export const getMerchantsDao = async (
     "Merchant".is_enabled, 
     "Merchant".dispute_enabled, 
     "Merchant".is_demo, 
-    "Merchant".balance, 
     "Merchant".config, 
     "Merchant".company_id, 
     creator.user_name AS created_by, 
@@ -185,13 +184,18 @@ export const getMerchantsDao = async (
     "Merchant".updated_at, 
     "User".designation_id, 
     "User".first_name || ' ' || "User".last_name AS full_name, 
-    "Designation".designation AS designation_name 
+    "Designation".designation AS designation_name,
+    (SELECT net_balance 
+     FROM "Calculation" 
+     WHERE "Calculation".user_id = "Merchant".user_id 
+     ORDER BY "Calculation".updated_at DESC 
+     LIMIT 1) AS balance
   FROM "Merchant" 
   JOIN "User" ON "Merchant".user_id = "User".id 
   LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
   LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
   LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
-      `
+`;
   if (role == Role.ADMIN) {
     baseQuery += `
         WHERE "User".designation_id = (SELECT id FROM "Designation" WHERE designation = 'MERCHANT')
@@ -228,7 +232,6 @@ export const getMerchantsBySearchDao = async (
     const values = [filters.company_id];
     let paramIndex = 2;
 
-    // Base query for merchants
     let queryText = `
       SELECT 
         "Merchant".id, 
@@ -246,26 +249,30 @@ export const getMerchantsBySearchDao = async (
         "Merchant".is_enabled, 
         "Merchant".dispute_enabled, 
         "Merchant".is_demo, 
-        "Merchant".balance, 
         "Merchant".config, 
         "Merchant".company_id, 
-        creator.user_name as created_by, 
-        updater.user_name as updated_by, 
+        creator.user_name AS created_by, 
+        updater.user_name AS updated_by, 
         "Merchant".created_at, 
         "Merchant".updated_at, 
         "User".designation_id, 
         "User".first_name || ' ' || "User".last_name AS full_name, 
-        "Designation".designation AS designation_name 
+        "Designation".designation AS designation_name,
+        (SELECT net_balance 
+         FROM "Calculation" 
+         WHERE "Calculation".user_id = "Merchant".user_id 
+         ORDER BY "Calculation".updated_at DESC 
+         LIMIT 1) AS balance
       FROM "Merchant" 
       JOIN "User" ON "Merchant".user_id = "User".id 
       LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
       LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
       LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
-      WHERE "Merchant".is_obsolete = false
-        AND "Merchant"."company_id" = $1
+      WHERE "Merchant".is_obsolete = false 
+      AND "Merchant"."company_id" = $1
     `;
 
-    // Apply designation filter for ADMIN role, but allow sub-merchants in search
+    // Apply designation filter for ADMIN role
     if (role === Role.ADMIN) {
       queryText += `
         AND (
@@ -275,6 +282,7 @@ export const getMerchantsBySearchDao = async (
       `;
     }
 
+    // Filter by user_id if provided
     if (filters.user_id) {
       if (Array.isArray(filters.user_id)) {
         const placeholders = filters.user_id
@@ -292,7 +300,7 @@ export const getMerchantsBySearchDao = async (
 
     searchTerms.forEach((term) => {
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-        const boolVal = term.toLowerCase() === 'true';
+        const boolValue = term.toLowerCase() === 'true';
         conditions.push(`
           (
             "Merchant".is_test_mode = $${paramIndex}
@@ -302,7 +310,7 @@ export const getMerchantsBySearchDao = async (
             OR ("Merchant".config->'allow_intent')::boolean = $${paramIndex}
           )
         `);
-        values.push(boolVal);
+        values.push(boolValue);
         paramIndex++;
       } else {
         conditions.push(`
@@ -328,6 +336,13 @@ export const getMerchantsBySearchDao = async (
             OR LOWER("Merchant".config->'urls'->>'return') LIKE LOWER($${paramIndex})
             OR LOWER("Merchant".config->'urls'->>'payin_notify') LIKE LOWER($${paramIndex})
             OR LOWER("Merchant".config->'urls'->>'payout_notify') LIKE LOWER($${paramIndex})
+            OR (
+              SELECT net_balance::text 
+              FROM "Calculation" 
+              WHERE "Calculation".user_id = "Merchant".user_id 
+              ORDER BY "Calculation".updated_at DESC 
+              LIMIT 1
+            ) LIKE $${paramIndex}
           )
         `);
         values.push(`%${term}%`);
@@ -350,15 +365,22 @@ export const getMerchantsBySearchDao = async (
     values.push(limitNum, offset);
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
+
+    // Calculate pagination metadata
+    const totalItems = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(totalItems / limitNum);
+
+    // Enhance with sub-merchants
     const data = await enhanceMerchantsWithSubMerchants(searchResult.rows);
+
     return {
-      totalCount: parseInt(countResult.rows[0].total),
-      totalPages: Math.ceil(countResult.rows[0].total / limitNum),
+      totalCount: totalItems,
+      totalPages,
       merchants: data,
     };
   } catch (error) {
     logger.error('Error in getMerchantsBySearchDao', error.message);
-    throw new Error(error.message);
+    throw error.message;
   }
 };
 
