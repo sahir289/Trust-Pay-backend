@@ -303,6 +303,7 @@ export const getCalculationsSumDao = async (filters) => {
       FROM "${tableName.CALCULATION}" c
       JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE 
       JOIN "${tableName.ROLE}" r ON u.role_id = r.id
+      JOIN "${tableName.MERCHANT}" m ON c.user_id = m.user_id
       WHERE c.created_at BETWEEN '${startDate}' AND '${endDate}'
       AND r.role = 'MERCHANT'
     `;
@@ -328,6 +329,7 @@ export const getCalculationsSumDao = async (filters) => {
       FROM "${tableName.CALCULATION}" c
       JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
       JOIN "${tableName.ROLE}" r ON u.role_id = r.id
+      JOIN "${tableName.VENDOR}" v ON c.user_id = v.user_id
       WHERE c.created_at BETWEEN '${startDate}' AND '${endDate}'
       AND r.role = 'VENDOR'
     `;
@@ -340,6 +342,11 @@ export const getCalculationsSumDao = async (filters) => {
       vendorTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
       merchantTotalQuery = null; // Vendor shouldn't see merchant totals
     } else if (role === Role.ADMIN) {
+      if (userCodes?.length > 0) {
+        const userCodeParams = userCodes.map(code => `'${code}'`).join(',');
+        merchantTotalQuery += ` AND m.code = ANY(ARRAY[${userCodeParams}]) `;
+        vendorTotalQuery += ` AND v.code = ANY(ARRAY[${userCodeParams}]) `;
+      }
       merchantTotalQuery += ` AND c.company_id = '${company_id}'`;
       vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
     }
