@@ -71,7 +71,6 @@ export const getVendorsDao = async (
         "Vendor".code,
         "Vendor".payin_commission,
         "Vendor".payout_commission,
-        "Vendor".balance,
         "Vendor".created_by,
         "Vendor".updated_by,
         "Vendor".config,
@@ -82,7 +81,12 @@ export const getVendorsDao = async (
         user_main.first_name || ' ' || user_main.last_name AS full_name,
         d.designation AS designation_name,
         u.user_name AS created_by,
-        uu.user_name AS updated_by
+        uu.user_name AS updated_by,
+        (SELECT net_balance 
+     FROM "Calculation" 
+     WHERE "Calculation".user_id = "Vendor".user_id 
+     ORDER BY "Calculation".updated_at DESC 
+     LIMIT 1) AS balance
       FROM "Vendor"
       JOIN "User" AS user_main ON "Vendor".user_id = user_main.id
       LEFT JOIN "Designation" AS d ON user_main.designation_id = d.id
@@ -134,7 +138,6 @@ export const getVendorsBySearchDao = async (
         "Vendor".code, 
         "Vendor".payin_commission, 
         "Vendor".payout_commission, 
-        "Vendor".balance, 
         "Vendor".config, 
         "Vendor".created_by, 
         "Vendor".updated_by, 
@@ -142,7 +145,12 @@ export const getVendorsBySearchDao = async (
         "Vendor".updated_at, 
         "User".designation_id, 
         "User".first_name || ' ' || "User".last_name AS full_name, 
-        "Designation".designation AS designation_name 
+        "Designation".designation AS designation_name,
+         (SELECT net_balance 
+     FROM "Calculation" 
+     WHERE "Calculation".user_id = "Vendor".user_id 
+     ORDER BY "Calculation".updated_at DESC 
+     LIMIT 1) AS balance
       FROM "Vendor" 
       JOIN "User" ON "Vendor".user_id = "User".id 
       LEFT JOIN "Designation" ON "User".designation_id = "Designation".id 
@@ -156,7 +164,6 @@ export const getVendorsBySearchDao = async (
         paramIndex += 1;
       }
     searchTerms.forEach((term) => {
-  
       // Handle boolean terms
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
         const boolValue = term.toLowerCase() === 'true';
@@ -166,23 +173,30 @@ export const getVendorsBySearchDao = async (
         values.push(boolValue);
         paramIndex++;
       } else {
-        // Handle text/numeric terms including JSON fields
+        // Handle text/numeric terms including JSON fields and balance
         conditions.push(`
-          (
-            LOWER("Vendor".id::text) LIKE LOWER($${paramIndex})
-            OR LOWER("Vendor".user_id::text) LIKE LOWER($${paramIndex})
-            OR LOWER("Vendor".first_name) LIKE LOWER($${paramIndex})
-            OR LOWER("Vendor".last_name) LIKE LOWER($${paramIndex})
-            OR LOWER("Vendor".code) LIKE LOWER($${paramIndex})
-            OR "Vendor".payin_commission::text LIKE $${paramIndex}
-            OR "Vendor".payout_commission::text LIKE $${paramIndex}
-            OR LOWER("Vendor".created_by::text) LIKE LOWER($${paramIndex})
-            OR LOWER("Vendor".updated_by::text) LIKE LOWER($${paramIndex})
-            OR LOWER("User".first_name || ' ' || "User".last_name) LIKE LOWER($${paramIndex})
-            OR LOWER("Designation".designation) LIKE LOWER($${paramIndex})
-            OR LOWER("Vendor".config->>'utr') LIKE LOWER($${paramIndex})
-          )
-        `);
+      (
+        LOWER("Vendor".id::text) LIKE LOWER($${paramIndex})
+        OR LOWER("Vendor".user_id::text) LIKE LOWER($${paramIndex})
+        OR LOWER("Vendor".first_name) LIKE LOWER($${paramIndex})
+        OR LOWER("Vendor".last_name) LIKE LOWER($${paramIndex})
+        OR LOWER("Vendor".code) LIKE LOWER($${paramIndex})
+        OR "Vendor".payin_commission::text LIKE $${paramIndex}
+        OR "Vendor".payout_commission::text LIKE $${paramIndex}
+        OR LOWER("Vendor".created_by::text) LIKE LOWER($${paramIndex})
+        OR LOWER("Vendor".updated_by::text) LIKE LOWER($${paramIndex})
+        OR LOWER("User".first_name || ' ' || "User".last_name) LIKE LOWER($${paramIndex})
+        OR LOWER("Designation".designation) LIKE LOWER($${paramIndex})
+        OR LOWER("Vendor".config->>'utr') LIKE LOWER($${paramIndex})
+        OR (
+          SELECT net_balance::text 
+          FROM "Calculation" 
+          WHERE "Calculation".user_id = "Vendor".user_id 
+          ORDER BY "Calculation".updated_at DESC 
+          LIMIT 1
+        ) LIKE $${paramIndex}
+      )
+    `);
         values.push(`%${term}%`);
         paramIndex++;
       }
