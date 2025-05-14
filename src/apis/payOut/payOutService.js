@@ -448,7 +448,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       conn,
     );
     const merchantArr = await getMerchantsDao({
-      id: singleWithdrawData.merchant_id,
+      id: singleWithdrawData[0].merchant_id,
     });
     const merchant = merchantArr[0];
     if (!merchant) {
