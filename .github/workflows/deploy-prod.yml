@@ -45,4 +45,4 @@ jobs:
         ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "whoami" || { echo "SSH connection failed"; exit 1; }
         echo "Deploying to EC2..."
         ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "cd '$TARGET_DIR' && pwd && git fetch origin && git status && git pull origin trust-pay-stg --verbose && git log -1 --oneline && npm install && pm2 restart all" || { echo "Deployment failed"; exit 1; }
-        rm -f private_key
+        rm -f private_key 
