@@ -1855,6 +1855,12 @@ export const telegramCheckUTRService = async (
       message: `${utr} UTR Does Not match with ${payIn.merchant_order_id} Merchant Order ID`,
     };
   }
+  else if (payIn?.user_submitted_utr && (utr !== payIn?.user_submitted_utr)) {
+    return {
+      message: `${utr} UTR Does Not match with ${payIn.merchant_order_id} Merchant Order ID`,
+    };
+  }
+
   if (!payIn) {
     // throw new NotFoundError('Merchant Order ID not found in Payin');
     return { error: `Merchant Order ID not found in Payin` };
