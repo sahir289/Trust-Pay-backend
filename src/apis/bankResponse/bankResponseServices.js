@@ -48,7 +48,7 @@ import {
   rollback,
 } from '../../utils/db.js';
 import { filterResponse } from '../../helpers/index.js';
-import { notifyNewCalculationTableEntry, notifyNewTableEntry } from '../../utils/sockets.js';
+import { notifyNewTableEntry } from '../../utils/sockets.js';
 import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
 
 const createBankResponseService = async (
@@ -230,11 +230,11 @@ const createBankResponseService = async (
       vendor[0].payin_commission,
     );
 
-    const vendorCalculation = await updateCalculationTable(vendor[0].user_id, {
+    await updateCalculationTable(vendor[0].user_id, {
       payinCommission: payinVendorCommission,
       amount: botRes.amount,
     });
-    await notifyNewCalculationTableEntry(tableName.CALCULATION, vendorCalculation);
+    // await notifyNewCalculationTableEntry(tableName.CALCULATION, vendorCalculation);
   }
   const checkPayInUtr = await getPayInUrlsDao({ user_submitted_utr: utr });
   if (checkPayInUtr?.length > 0) {

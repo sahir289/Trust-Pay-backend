@@ -49,7 +49,7 @@ import { filterResponse } from '../../helpers/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
-import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
+// import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 const createPayoutService = async (conn, headers, payload, role, res) => {
   try {
     const filterColumns =
@@ -518,7 +518,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         true,
         conn,
       );
-      const vendorCalculation = await updateCalculationTable(
+      await updateCalculationTable(
         vendor.user_id,
         {
           payoutCommission: vendorCommission,
@@ -527,7 +527,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         true,
         conn,
       );
-      await notifyNewCalculationTableEntry(tableName.CALCULATION, vendorCalculation);
+      // await notifyNewCalculationTableEntry(tableName.CALCULATION, vendorCalculation);
       // const netBalance = await updatePayoutCalculations(
       //   merchant.user_id,
       //   data.approved_at,
@@ -595,7 +595,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         false,
         conn,
       );
-      const vendorCalculation = await updateCalculationTable(
+      await updateCalculationTable(
         vendor.user_id,
         {
           payoutCommission: vendorCommission,
@@ -604,7 +604,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         false,
         conn,
       );
-      await notifyNewCalculationTableEntry(tableName.CALCULATION, vendorCalculation);
+      // await notifyNewCalculationTableEntry(tableName.CALCULATION, vendorCalculation);
       const merchantBalance = Number(merchant.balance + data.amount);
       if (isNaN(merchantBalance)) {
         throw new BadRequestError('Invalid merchant balance');

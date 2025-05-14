@@ -2,11 +2,11 @@ import { Server } from 'socket.io';
 import config from '../config/config.js';
 import chalk from 'chalk';
 import { logger } from './logger.js';
-import {
-  getBankaccountDao,
-  updateBankaccountDao,
-} from '../apis/bankAccounts/bankaccountDao.js';
-import { getUserByIdDao } from '../apis/users/userDao.js';
+// import {
+//   getBankaccountDao,
+//   updateBankaccountDao,
+// } from '../apis/bankAccounts/bankaccountDao.js';
+// import { getUserByIdDao } from '../apis/users/userDao.js';
 
 const userSockets = new Map();
 let ioInstance = null;
@@ -142,42 +142,42 @@ const notifyNewTableEntry = async (tableName, entryType, entryData) => {
 };
 
 // New function to emit event when a specific entry is added to a Calculation table
-const notifyNewCalculationTableEntry = async (tableName, entryData) => {
-  if (!ioInstance) {
-    logger.error('Socket.IO not initialized');
-    return;
-  }
+// const notifyNewCalculationTableEntry = async (tableName, entryData) => {
+//   if (!ioInstance) {
+//     logger.error('Socket.IO not initialized');
+//     return;
+//   }
 
-  if (entryData && entryData.net_balance <= 0) {
-    const banks = await getBankaccountDao({ user_id: entryData.user_id });
-    const bankIds = banks.map((bank) => bank.id);
-    const bankNickNames = banks.map((bank) => bank.nick_name);
-    const user = await getUserByIdDao(entryData.user_id);
-    bankIds.forEach(async (bankId) => {
-      try {
-        await updateBankaccountDao(
-          { id: bankId, company_id: entryData.company_id },
-          { is_enabled: false },
-        );
-        logger.info(`Successfully disabled bank account with ID ${bankId}`);
-      } catch (error) {
-        logger.error(`Failed to update bank account with ID ${bankId}:`, error);
-      }
-    });
+//   if (entryData && entryData.net_balance <= 0) {
+//     const banks = await getBankaccountDao({ user_id: entryData.user_id });
+//     const bankIds = banks.map((bank) => bank.id);
+//     const bankNickNames = banks.map((bank) => bank.nick_name);
+//     const user = await getUserByIdDao(entryData.user_id);
+//     bankIds.forEach(async (bankId) => {
+//       try {
+//         await updateBankaccountDao(
+//           { id: bankId, company_id: entryData.company_id },
+//           { is_enabled: false },
+//         );
+//         logger.info(`Successfully disabled bank account with ID ${bankId}`);
+//       } catch (error) {
+//         logger.error(`Failed to update bank account with ID ${bankId}:`, error);
+//       }
+//     });
 
-    const eventName = 'newCalculationTableEntry';
-    logger.info(eventName, 'eventName');
-    logger.log(chalk.bold.cyan(`Emitting ${eventName} for table ${tableName}`));
-    ioInstance.emit(eventName, {
-      message: `Due to Insufficient Balance in ${user} account ${bankNickNames} has been Deactivated`,
-    }); // Broadcast to all connected clients
-  }
-};
+//     const eventName = 'newCalculationTableEntry';
+//     logger.info(eventName, 'eventName');
+//     logger.log(chalk.bold.cyan(`Emitting ${eventName} for table ${tableName}`));
+//     ioInstance.emit(eventName, {
+//       message: `Due to Insufficient Balance in ${user} account ${bankNickNames} has been Deactivated`,
+//     }); // Broadcast to all connected clients
+//   }
+// };
 
 export {
   initializeSocket,
   forceLogoutUser,
   deactivateBank,
   notifyNewTableEntry,
-  notifyNewCalculationTableEntry,
+  // notifyNewCalculationTableEntry,
 };
