@@ -721,7 +721,7 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
       payload = {
         total_payout_count: 1,
         total_payout_amount: data.amount,
-        total_payout_commission: data.payoutCommission,
+        total_payout_commission: - data.payoutCommission,
         current_balance: - totalAmountData,
         net_balance: - totalAmountData,
       };
@@ -729,7 +729,7 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
       payload = {
         total_reverse_payout_count: 1,
         total_reverse_payout_amount: data.amount,
-        total_reverse_payout_commission: -data.payoutCommission,
+        total_reverse_payout_commission: data.payoutCommission,
         current_balance: totalAmountData,
         net_balance: totalAmountData,
       };
