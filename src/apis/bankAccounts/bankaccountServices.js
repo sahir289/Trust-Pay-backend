@@ -7,13 +7,13 @@ import {
   rollback,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
-import { sendError } from '../../utils/responseHandlers.js';
+// import { sendError } from '../../utils/responseHandlers.js';
 import { deactivateBank } from '../../utils/sockets.js';
 import {
   getBankResponseDaoAll,
   updateBotResponseDao,
 } from '../bankResponse/bankResponseDao.js';
-import { getCalculationDao } from '../calculation/calculationDao.js';
+// import { getCalculationDao } from '../calculation/calculationDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import {
   getBankaccountDao,
@@ -168,7 +168,7 @@ const createBankaccountService = async (payload, designation, user_id) => {
   }
 };
 
-const updateBankaccountService = async (conn, ids, payload, res) => {
+const updateBankaccountService = async (conn, ids, payload) => {
   try {
     let result;
 
@@ -177,14 +177,14 @@ const updateBankaccountService = async (conn, ids, payload, res) => {
       company_id: ids.company_id,
     });
 
-    if (payload?.is_enabled) {
-      const vendorBalance = await getCalculationDao({
-        user_id: bank[0]?.user_id,
-      });
-      if (vendorBalance[0]?.net_balance <= 0) {
-        return sendError(res, {}, 'Insufficient balance in vendor account', 400);
-      }
-    }
+    // if (payload?.is_enabled) {
+    //   const vendorBalance = await getCalculationDao({
+    //     user_id: bank[0]?.user_id,
+    //   });
+    //   if (vendorBalance[0]?.net_balance <= 0) {
+    //     return sendError(res, {}, 'Insufficient balance in vendor account', 400);
+    //   }
+    // }
 
     if (Object.keys(payload).length === 1 && payload.latest_balance) {
       if (payload.latest_balance >= bank[0].config?.max_limit) {
