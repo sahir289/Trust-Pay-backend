@@ -23,7 +23,7 @@ const addLogIdInRequest = (req, res, next) => {
     ip: req.headers['x-forwarded-for'] || req.ip || req.connection?.remoteAddress,
     body: req.body,
     query: req.query,
-    params: req.params,
+    params: req.params, 
     timestamp: new Date().toISOString(),
   };
 
