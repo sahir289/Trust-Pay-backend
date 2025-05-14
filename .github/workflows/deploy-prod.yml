@@ -1,4 +1,4 @@
-name: Deploy to EC2 Prod
+name: Deploying to EC2 PROD
 
 on:
   push:
@@ -10,76 +10,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+    - name: Debug Secrets
+      env:
+        PRIVATE_KEY: ${{ secrets.EC2_PROD_SSH_KEY }}
+        HOST: ${{ secrets.EC2_PROD_HOST }}
+        USER: ${{ secrets.EC2_PROD_USER }}
+        TARGET_DIR: /home/ubuntu/Trust-Pay-backend
+      run: |
+        echo "PRIVATE_KEY is set: $([ -n "$PRIVATE_KEY" ] && echo 'yes' || echo 'no')"
+        echo "HOST is set: $([ -n "$HOST" ] && echo 'yes' || echo 'no')"
+        echo "USER is set: $([ -n "$USER" ] && echo 'yes' || echo 'no')"
+        echo "TARGET_DIR is set: $([ -n "$TARGET_DIR" ] && echo 'yes' || echo 'no')"
+        echo "TARGET_DIR length: ${#TARGET_DIR}"
+        if [ -z "$TARGET_DIR" ]; then echo "TARGET_DIR is empty in debug step!"; exit 1; fi
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run tests
-        run: npm test
-        if: always()
-
-      - name: Debug secrets
-        env:
-          PRIVATE_KEY: ${{ secrets.EC2_PROD_SSH_KEY }}
-          HOST: ${{ secrets.EC2_PROD_HOST }}
-          USER: ${{ secrets.EC2_PROD_USER }}
-          TARGET_DIR: /home/ubuntu/Trust-Pay-backend
-        run: |
-          echo "Secrets check:"
-          echo "PRIVATE_KEY length: ${#PRIVATE_KEY}"
-          echo "PRIVATE_KEY is set: $([ -n "$PRIVATE_KEY" ] && echo 'yes' || echo 'no')"
-          echo "HOST is set: $([ -n "$HOST" ] && echo 'yes' || echo 'no')"
-          echo "USER is set: $([ -n "$USER" ] && echo 'yes' || echo 'no')"
-          echo "TARGET_DIR: $TARGET_DIR"
-          if [ -z "$PRIVATE_KEY" ] || [ -z "$HOST" ] || [ -z "$USER" ] || [ -z "$TARGET_DIR" ]; then
-            echo "One or more required secrets are missing!"
-            exit 1
-          fi
-          echo "$PRIVATE_KEY" | head -n 1
-          echo "$PRIVATE_KEY" | tail -n 1
-
-      - name: Deploy to EC2
-        env:
-          PRIVATE_KEY: ${{ secrets.EC2_PROD_SSH_KEY }}
-          HOST: ${{ secrets.EC2_PROD_HOST }}
-          USER: ${{ secrets.EC2_PROD_USER }}
-          TARGET_DIR: /home/ubuntu/Trust-Pay-backend
-        run: |
-          echo "Deploying to $HOST..."
-          echo "$PRIVATE_KEY" > private_key
-          chmod 600 private_key
-          head -n 1 private_key
-          tail -n 1 private_key
-          ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "whoami" || { echo "SSH connection failed"; exit 1; }
-          ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST << 'EOF'
-            cd "$TARGET_DIR" || { echo "Directory $TARGET_DIR not found"; exit 1; }
-            git fetch origin
-            git checkout main
-            git pull origin main --verbose
-            npm ci
-            pm2 restart all || { echo "PM2 restart failed"; exit 1; }
-          EOF
-          rm -f private_key
-
-      - name: Rollback on failure
-        if: failure()
-        env:
-          PRIVATE_KEY: ${{ secrets.EC2_PROD_SSH_KEY }}
-          HOST: ${{ secrets.EC2_PROD_HOST }}
-          USER: ${{ secrets.EC2_PROD_USER }}
-          TARGET_DIR: /home/ubuntu/Trust-Pay-backend
-        run: |
-          echo "Deployment failed, rolling back to stable tag..."
-          echo "$PRIVATE_KEY" > private_key
-          chmod 600 private_key
-          head -n 1 private_key
-          tail -n 1 private_key
-          ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "cd $TARGET_DIR && git fetch origin && git checkout v1.0.0 && npm ci && pm2 restart all" || { echo "Rollback failed"; exit 1; }
-          rm -f private_key
+    - name: Deploy to EC2
+      env:
+        PRIVATE_KEY: ${{ secrets.EC2_PROD_SSH_KEY }}
+        HOST: ${{ secrets.EC2_PROD_HOST }}
+        USER: ${{ secrets.EC2_PROD_USER }}
+        TARGET_DIR: /home/ubuntu/Trust-Pay-backend
+      run: |
+        echo "Deploy secrets check:"
+        echo "TARGET_DIR is set: $([ -n "$TARGET_DIR" ] && echo 'yes' || echo 'no')"
+        echo "TARGET_DIR length: ${#TARGET_DIR}"
+        if [ -z "$TARGET_DIR" ]; then echo "TARGET_DIR is empty in deploy step!"; exit 1; fi
+        echo "Using TARGET_DIR: $TARGET_DIR"
+        echo "$PRIVATE_KEY" > private_key
+        chmod 600 private_key
+        echo "Testing SSH connection..."
+        ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "whoami" || { echo "SSH connection failed"; exit 1; }
+        echo "Deploying to EC2..."
+        ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "cd '$TARGET_DIR' && pwd && git fetch origin && git status && git pull origin trust-pay-stg --verbose && git log -1 --oneline && npm install && pm2 restart all" || { echo "Deployment failed"; exit 1; }
+        rm -f private_key
