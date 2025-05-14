@@ -16,7 +16,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '23'
+          node-version: '20'
 
       - name: Install dependencies
         run: npm ci
@@ -29,10 +29,11 @@ jobs:
         env:
           PRIVATE_KEY: ${{ secrets.EC2_PROD_SSH_KEY }}
           HOST: ${{ secrets.EC2_PROD_HOST }}
-          USER: ${{ secrets.EC2_PROD_USER }} 
+          USER: ${{ secrets.EC2_PROD_USER }}
           TARGET_DIR: /home/ubuntu/Trust-Pay-backend
         run: |
           echo "Secrets check:"
+          echo "PRIVATE_KEY length: ${#PRIVATE_KEY}"
           echo "PRIVATE_KEY is set: $([ -n "$PRIVATE_KEY" ] && echo 'yes' || echo 'no')"
           echo "HOST is set: $([ -n "$HOST" ] && echo 'yes' || echo 'no')"
           echo "USER is set: $([ -n "$USER" ] && echo 'yes' || echo 'no')"
@@ -41,6 +42,8 @@ jobs:
             echo "One or more required secrets are missing!"
             exit 1
           fi
+          echo "$PRIVATE_KEY" | head -n 1
+          echo "$PRIVATE_KEY" | tail -n 1
 
       - name: Deploy to EC2
         env:
@@ -52,6 +55,8 @@ jobs:
           echo "Deploying to $HOST..."
           echo "$PRIVATE_KEY" > private_key
           chmod 600 private_key
+          head -n 1 private_key
+          tail -n 1 private_key
           ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "whoami" || { echo "SSH connection failed"; exit 1; }
           ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST << 'EOF'
             cd "$TARGET_DIR" || { echo "Directory $TARGET_DIR not found"; exit 1; }
@@ -64,15 +69,17 @@ jobs:
           rm -f private_key
 
       - name: Rollback on failure
-        if: failure() # Runs only if the previous step fails
+        if: failure()
         env:
           PRIVATE_KEY: ${{ secrets.EC2_PROD_SSH_KEY }}
           HOST: ${{ secrets.EC2_PROD_HOST }}
           USER: ${{ secrets.EC2_PROD_USER }}
           TARGET_DIR: /home/ubuntu/Trust-Pay-backend
         run: |
-          echo "Deployment failed, rolling back to previous commit..."
+          echo "Deployment failed, rolling back to stable tag..."
           echo "$PRIVATE_KEY" > private_key
           chmod 600 private_key
-          ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "cd $TARGET_DIR && git checkout HEAD^ && npm ci && pm2 restart all" || { echo "Rollback failed"; exit 1; }
+          head -n 1 private_key
+          tail -n 1 private_key
+          ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "cd $TARGET_DIR && git fetch origin && git checkout v1.0.0 && npm ci && pm2 restart all" || { echo "Rollback failed"; exit 1; }
           rm -f private_key
