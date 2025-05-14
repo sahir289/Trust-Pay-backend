@@ -87,7 +87,7 @@ const getBankAccountBySearchService = async (
   }
 };
 
-const getBankaccountServiceNickName = async (company_id, type, role, user_id, designation) => {
+const getBankaccountServiceNickName = async (company_id, type, role, user_id, designation, user) => {
   let conn;
   try {
     conn = await getConnection();
@@ -96,6 +96,9 @@ const getBankaccountServiceNickName = async (company_id, type, role, user_id, de
     let filters = {};
     if (role == Role.VENDOR) {
       filters.user_id = [user_id];
+    }
+    if (user) {
+      filters.user_id = [user];
     }
     const userHierarchys = await getUserHierarchysDao({ user_id });
     if (designation == Role.VENDOR_OPERATIONS) {

@@ -231,6 +231,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       if (merchant_data.length > 0) {
         if (Array.isArray(calculationData) && calculationData.length > 0) {
           const amount = payload?.amount || 0;
+          // calcultion for merchant APPROVE settlement
           updatedCalculation = {
             total_settlement_count: 1,
             total_settlement_amount: amount,
@@ -241,11 +242,12 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       } else {
         if (Array.isArray(calculationData) && calculationData.length > 0) {
           const amount = payload?.amount || 0;
+          // calcution for vendor APPROVE settlement
           updatedCalculation = {
-            total_settlement_count:  + 1,
-            total_settlement_amount:  + amount,
-            current_balance:  + amount,
-            net_balance:  + amount,
+            total_settlement_count:  1,
+            total_settlement_amount:  amount,
+            current_balance:  - amount,
+            net_balance:  - amount,
           };
         }
       }
@@ -304,6 +306,9 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         payload.config.rejected_reason = '';
         let updatedCalculation
         const amount = payload?.amount || 0;
+
+        // calcultion for merchant rejected Settlement
+
         updatedCalculation = {
           total_settlement_count:   1,
           total_settlement_amount:   - amount,
@@ -316,15 +321,17 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         await updateCalculationBalanceDao({ id }, updatedCalculation, conn);}
 
       } else {
+
+        // calcution for vendor rejected Settlement
         payload.config.reference_id = '';
         payload.config.rejected_reason = '';
         let updatedCalculation
         const amount = payload?.amount || 0;
         updatedCalculation = {
           total_settlement_count:  1,
-          total_settlement_amount:   amount,
-          current_balance:  - amount,
-          net_balance:  - amount,
+          total_settlement_amount:   - amount,
+          current_balance:   amount,
+          net_balance:   amount,
         };
         //if calculation data not exists dont update    
         if(calculationData.length > 0){
