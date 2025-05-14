@@ -1627,6 +1627,7 @@ export const processPayInByImageService = async (conn, payload) => {
     userSubmittedUtr: content.utr,
     amount: payInData.amount,
     user_submitted_image: payload.fileKey,
+    tele_check: false,
   });
 };
 
