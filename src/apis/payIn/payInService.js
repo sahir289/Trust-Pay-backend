@@ -648,7 +648,7 @@ export const payInIntentGenerateOrderService = async (
     requestBody,
   ).catch((err) => {
     const data = err?.response?.data || {};
-    console.error(data);
+    logger.error(data);
     throw new Error('Error while creating CashFree Order');
   });
 
@@ -1015,7 +1015,6 @@ export const getPayinsService = async (
       }
     } else if (role === Role.VENDOR) {
       if (designation === Role.VENDOR) {
-        console.log(user_id, 'user_id');
         filters.bank_acc_id = await fetchBankIds(user_id);
       } else if (designation === Role.VENDOR_OPERATIONS) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
@@ -1035,7 +1034,7 @@ export const getPayinsService = async (
       try {
         conn.release();
       } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
+        logger.error('Error while releasing the connection', releaseError);
       }
     }
   }
@@ -1147,7 +1146,7 @@ export const getPayinsBySearchService = async (
 
     return data;
   } catch (error) {
-    console.error('Error while fetching Payin by search', error);
+    logger.error('Error while fetching Payin by search', error);
     throw new InternalServerError(error.message);
   }
 };
