@@ -960,6 +960,7 @@ export const getPayinsService = async (
     };
 
     const fetchBankIds = async (user_id) => {
+      console.log(user_id);
       const banks = await getBankaccountDao({
         user_id,
         bank_used_for: 'PayIn',
