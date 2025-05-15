@@ -1054,11 +1054,19 @@ export const getPayinsBySearchService = async (
     };
 
     const fetchBankIds = async (user_id) => {
-      const banks = await getBankaccountDao({
-        user_id,
-        bank_used_for: 'PayIn',
-      });
-      return banks.map((bank) => bank.id);
+      try {
+        const banks = await getBankaccountDao({
+          user_id,
+          bank_used_for: 'PayIn',
+        });
+        if (!banks || banks.length === 0) {
+          throw new NotFoundError('No bank account found for this user');
+        }
+        return banks.map((bank) => bank.id);
+      } catch (error) {
+        logger.error('Error fetching bank IDs:', error);
+        throw new InternalServerError('Error fetching bank IDs');
+      }
     };
 
     let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
