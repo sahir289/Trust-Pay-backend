@@ -247,6 +247,10 @@ export const getTotalCountService = async (
         userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
 
+    if (Array.isArray(filters?.bank_acc_id) && filters.bank_acc_id.length === 0) {
+      delete filters.bank_acc_id;
+    }
+
     return await getTotalCountDao(tablename, role, filters);
   } catch (error) {
     console.error(

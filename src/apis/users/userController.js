@@ -7,6 +7,7 @@ import {
   getUsersService,
   userUpdateService,
   getUsersBySearchService,
+  sendMailService,
 } from './userService.js';
 import { CREATE_USER_SCHEMA } from '../../schemas/userSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
@@ -105,6 +106,17 @@ const updateUser = async (req, res) => {
   );
 };
 
+const sendMail = async (req, res) => {
+  const { user_name } = req.user;
+  let payload = req.body;
+  await sendMailService(payload);
+  return sendSuccess(
+    res,
+    { mail_sent_by: user_name },
+    'Mail send successfully',
+  );
+};
+
 export {
   getUsers,
   getUsersBySearch,
@@ -112,4 +124,5 @@ export {
   getUsersByUserName,
   createUser,
   updateUser,
+  sendMail,
 };

@@ -188,7 +188,7 @@ CREATE TABLE "Payin" (
   "qr_params" varchar,
   "amount" float NOT NULL,
   "status" varchar NOT NULL,
-  "is_notified" boolean DEFAULT false,
+  "is_notified" boolean NOT NULL DEFAULT false,
   "user_submitted_utr" varchar,
   "currency" varchar NOT NULL,
   "merchant_order_id" varchar NOT NULL,
@@ -201,7 +201,7 @@ CREATE TABLE "Payin" (
   "user_submitted_image" varchar,
   "duration" varchar,
   "is_url_expires" boolean DEFAULT false,
-  "expiration_date" TIMESTAMPTZ,
+  "expiration_date" TIMESTAMPTZ NOT NULL,
   "one_time_used" boolean DEFAULT false,
   "approved_at" TIMESTAMPTZ,
   "failed_at" TIMESTAMPTZ,
@@ -209,7 +209,7 @@ CREATE TABLE "Payin" (
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
   "company_id" varchar NOT NULL,
-  "is_obsolete" boolean DEFAULT false,
+  "is_obsolete" boolean NOT NULL DEFAULT false,
   "created_by" varchar,
   "updated_by" varchar
 );
@@ -437,6 +437,7 @@ CREATE INDEX ON "Payin" ("is_obsolete");
 CREATE INDEX ON "Payin" ("is_notified");
 CREATE INDEX ON "Payin" ("is_url_expires");
 CREATE INDEX ON "Payin" ("one_time_used");
+CREATE INDEX ON "Payin" ("sno");
 CREATE INDEX ON "Payout" ("status");
 CREATE INDEX ON "Payout" ("currency");
 CREATE INDEX ON "Payout" ("company_id");
