@@ -144,8 +144,7 @@ const getMerchantReportService = async (req, res) => {
     const { company_id } = req.user;
     const { code, startDate, endDate, role_name, page, limit } = req.query;
     //for same date take 24 hours range
-    let startDateTime 
-    let endDateTime
+
   
     let result
       const userIds = typeof code === 'string' ? code.split(',').map(id => id.trim()) : Array.isArray(code) ? code : [code];
@@ -162,7 +161,7 @@ const getMerchantReportService = async (req, res) => {
          result = await getVendorReportDao(
           company_id,
           userIds,
-          startDateTime, endDateTime
+          startDate, endDate
           , page, limit
         );
       }
