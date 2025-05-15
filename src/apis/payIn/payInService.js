@@ -42,6 +42,7 @@ import {
   updateBotResponseDao,
 } from '../bankResponse/bankResponseDao.js';
 import {
+  getMerchantsByCodeDao,
   getMerchantsDao,
   updateMerchantBalanceDao,
 } from '../merchants/merchantDao.js';
@@ -102,7 +103,7 @@ export const generatePayInUrlByHashService = async (req, res) => {
     });
   }
   const x_api_key = req.headers['x-api-key'];
-  const merchantArr = await getMerchantsDao({ code });
+  const merchantArr = await getMerchantsByCodeDao(code);
   const bankAssigned = await getMerchantBankDao({
     config_merchants_contains: merchantArr[0].id,
   });
@@ -149,7 +150,7 @@ export const generatePayInUrlByHashService = async (req, res) => {
       return res.status(400).json({
         error: {
           status: 404,
-          message: 'Bank Account has not been linked with Merchant',
+          message: 'No Payment Methods Enabled!',
           additionalInfo: {},
           level: 'info',
           timestamp: new Date().toISOString(),
@@ -175,127 +176,132 @@ export const generatePayInUrlByHashService = async (req, res) => {
 };
 
 export const generatePayInUrlService = async (payload, created_by, res) => {
-  const {
-    code,
-    user_id,
-    merchant_order_id: order_id,
-    amount,
-    returnUrl,
-    callbackUrl,
-    ot,
-    api_key,
-    x_api_key,
-  } = payload;
+  try {
+    const {
+      code,
+      user_id,
+      merchant_order_id: order_id,
+      amount,
+      returnUrl,
+      callbackUrl,
+      ot,
+      api_key,
+      x_api_key,
+    } = payload;
+    const merchant_order_id = order_id ? order_id : uuidv4();
+    const merchantArr = await getMerchantsByCodeDao(code);
+    const merchant = merchantArr[0];
+  
+    const isOrderIdExist = await getPayInUrlDao({ merchant_order_id: order_id });
+  
+    if (isOrderIdExist) {
+      // throw new BadRequestError('Merchant Order ID already exists');
+      return res.status(400).json({
+        error: {
+          status: 400,
+          message: 'Merchant Order ID already exists',
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+  
+    if (!merchant) {
+      // throw new NotFoundError('Merchant does not exist');
+      return res.status(400).json({
+        error: {
+          status: 400,
+          message: 'Merchant does not exist',
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+  
+    const merchantAPIKey = merchant.config?.keys;
+  
+    if (
+      api_key &&
+      api_key != merchantAPIKey?.private &&
+      api_key != merchantAPIKey?.public
+    ) {
+      // throw new BadRequestError('Enter valid Api key');
+      return res.status(400).json({
+        error: {
+          status: 404,
+          message: 'Enter valid Api key',
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+  
+    if (
+      !api_key &&
+      x_api_key != merchantAPIKey?.private &&
+      x_api_key != merchantAPIKey?.public
+    ) {
+      // throw new BadRequestError('Enter valid Api key');
+      return res.status(400).json({
+        error: {
+          status: 404,
+          message: 'Enter valid Api key 2',
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+  
+    if (amount < merchant.min_payin || amount > merchant.max_payin) {
+      // throw new BadRequestError(
+      //   `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
+      // );
 
-  const merchant_order_id = order_id ? order_id : uuidv4();
-  const merchantArr = await getMerchantsDao({ code });
-  const merchant = merchantArr[0];
+      return res.status(400).json({
+        error: {
+          status: 400,
+          message: `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
 
-  const isOrderIdExist = await getPayInUrlDao({ merchant_order_id: order_id });
+    const expirationDate =
+      ot === 'y'
+        ? dayjs().add(10, 'minutes').toISOString()
+        : dayjs().add(30, 'days').toISOString();
+    const data = {
+      upi_short_code: nanoid(5), // code added by us
+      amount: amount || 0, // as starting amount will be zero
+      status: Status.INITIATED,
+      currency: Currency.INR,
+      merchant_order_id, // for time being we are using this
+      user: user_id,
+      merchant_id: merchant.id,
+      expiration_date: expirationDate,
+      company_id: merchant.company_id,
+      config: JSON.stringify({
+        urls: {
+          return: returnUrl || merchant.config?.urls?.return || '',
+          notify: callbackUrl || merchant.config?.urls?.payin_notify || '',
+        },
+      }),
+      created_by,
+    };
 
-  if (isOrderIdExist) {
-    // throw new BadRequestError('Merchant Order ID already exists');
-    return res.status(400).json({
-      error: {
-        status: 400,
-        message: 'Merchant Order ID already exists',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const result = await generatePayInUrlDao(data);
+    // expirePayInIfNeeded(result.id, code);
+    return result;
+  } catch (error) {
+    throw new BadRequestError(error.message);
   }
 
-  if (!merchant) {
-    // throw new NotFoundError('Merchant does not exist');
-    return res.status(400).json({
-      error: {
-        status: 400,
-        message: 'Merchant does not exist',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
-  }
-
-  const merchantAPIKey = merchant.config?.keys;
-
-  if (
-    api_key &&
-    api_key != merchantAPIKey?.private &&
-    api_key != merchantAPIKey?.public
-  ) {
-    // throw new BadRequestError('Enter valid Api key');
-    return res.status(400).json({
-      error: {
-        status: 404,
-        message: 'Enter valid Api key',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
-  }
-
-  if (
-    !api_key &&
-    x_api_key != merchantAPIKey?.private &&
-    x_api_key != merchantAPIKey?.public
-  ) {
-    // throw new BadRequestError('Enter valid Api key');
-    return res.status(400).json({
-      error: {
-        status: 404,
-        message: 'Enter valid Api key',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
-  }
-
-  if (amount < merchant.min_payin || amount > merchant.max_payin) {
-    // throw new BadRequestError(
-    //   `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
-    // );
-    return res.status(400).json({
-      error: {
-        status: 400,
-        message: `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
-  }
-
-  const expirationDate =
-    ot === 'y'
-      ? dayjs().add(10, 'minutes').toISOString()
-      : dayjs().add(30, 'days').toISOString();
-  const data = {
-    upi_short_code: nanoid(5), // code added by us
-    amount: amount || 0, // as starting amount will be zero
-    status: Status.INITIATED,
-    currency: Currency.INR,
-    merchant_order_id, // for time being we are using this
-    user: user_id,
-    merchant_id: merchant.id,
-    expiration_date: expirationDate,
-    company_id: merchant.company_id,
-    config: JSON.stringify({
-      urls: {
-        return: returnUrl || merchant.config?.urls?.return || '',
-        notify: callbackUrl || merchant.config?.urls?.payin_notify || '',
-      },
-    }),
-    created_by,
-  };
-
-  const result = await generatePayInUrlDao(data);
-  // expirePayInIfNeeded(result.id, code);
-  return result;
 };
 
 export const getPayInUrlService = async (id, conn, tele_check = true) => {
@@ -386,7 +392,7 @@ export const assignedBankToPayInUrlService = async (
   const minPayIn = Number(merchant.min_payin);
   const amt = Number(amount);
 
-  if (amt >= maxPayIn || amt <= minPayIn) {
+  if (amt > maxPayIn || amt < minPayIn) {  //-- exact amounts should also be considered
     return { message: `Amount must be between ${minPayIn} and ${maxPayIn}` };
   }
   const banks = await getMerchantBankDao({
@@ -752,20 +758,20 @@ export const updateDepositStatusService = async (
     throw new NotFoundError('Bank not found!');
   }
 
-  // const vendors = await getVendorsDao({
-  //   user_id: bank.user_id,
-  //   company_id,
-  // });
-  // const vendor = vendors[0];
+  const vendors = await getVendorsDao({
+    user_id: bank.user_id,
+    company_id,
+  });
+  const vendor = vendors[0];
   //calculate the payin commission
   const payinCommission = calculateCommission(
     bankResponse.amount,
     merchant.payin_commission,
   );
-  // const vendorPayinCommission = calculateCommission(
-  //   bankResponse.amount,
-  //   vendor.payin_commission,
-  // );
+  const vendorPayinCommission = calculateCommission(
+    bankResponse.amount,
+    vendor.payin_commission,
+  );
 
   let successData = [];
   if (bankResponse.is_used) {
@@ -788,6 +794,7 @@ export const updateDepositStatusService = async (
 
   if (updatePayInData.status === Status.SUCCESS) {
     updatePayInData.payin_merchant_commission = payinCommission;
+    updatePayInData.payin_vendor_commission = vendorPayinCommission;
     // update merchant caclulation table
     await updateCalculationTable(
       merchant.user_id,
@@ -1848,6 +1855,12 @@ export const telegramCheckUTRService = async (
       message: `${utr} UTR Does Not match with ${payIn.merchant_order_id} Merchant Order ID`,
     };
   }
+  else if (payIn?.user_submitted_utr && (utr !== payIn?.user_submitted_utr)) {
+    return {
+      message: `${utr} UTR Does Not match with ${payIn.merchant_order_id} Merchant Order ID`,
+    };
+  }
+
   if (!payIn) {
     // throw new NotFoundError('Merchant Order ID not found in Payin');
     return { error: `Merchant Order ID not found in Payin` };

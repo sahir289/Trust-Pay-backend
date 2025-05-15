@@ -37,7 +37,7 @@ import {
 import config from '../../config/config.js';
 import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
 import { getUserByIdDao } from '../users/userDao.js';
-import { Status, Method } from '../../constants/index.js';
+import { Status, Method, tableName } from '../../constants/index.js';
 import { calculateBalances, calculateCommission } from '../../helpers/index.js';
 import {
   columns,
@@ -49,6 +49,7 @@ import { filterResponse } from '../../helpers/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
+// import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 const createPayoutService = async (conn, headers, payload, role, res) => {
   try {
     const filterColumns =
@@ -59,7 +60,7 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
           : columns.PAYOUT;
     const { code, amount, x_api_key, returnUrl, callbackUrl } = payload;
     const details = await getMerchantsDao({ code });
-
+    
     if (!details[0] || details[0].length === 0) {
       // throw new BadRequestError('Merchant does not exist');
       return res.status(400).json({
@@ -423,7 +424,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     //     : role === Role.VENDOR
     //       ? vendorColumns.PAYOUT
     //       : columns.PAYOUT;
-
+     
+    
     if (payload?.utr_id && !payload.status)
       Object.assign(payload, {
         status: Status.APPROVED,
@@ -445,6 +447,18 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       null,
       conn,
     );
+    const merchantArr = await getMerchantsDao({
+      id: singleWithdrawData[0].merchant_id,
+    });
+    const merchant = merchantArr[0];
+    if (!merchant) {
+      throw new NotFoundError('Merchant not found!');
+    }
+    if(!merchant?.config?.allow_payout && merchant.balance<0 && payload.status === Status.APPROVED)
+    {
+      throw new BadRequestError('Insufficient Balance');
+   }
+
     if (payload?.config?.method === Method.EKO)
       await processEkoPayout(singleWithdrawData, payload);
     const data = await updatePayoutDao(ids, payload, conn);
@@ -466,15 +480,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       throw new BadRequestError('Bank account is blocked');
     }
 
-    const [merchantArr, vendorArr, userArr] = await Promise.all([
-      getMerchantsDao({ id: data.merchant_id }),
+    const [ vendorArr] = await Promise.all([
       getVendorsDao({ user_id: bankData.user_id }),
     ]);
-    const merchant = merchantArr[0];
     const vendor = vendorArr[0];
-    if (!merchant) {
-      throw new NotFoundError('Merchant not found!');
-    }
+    
 
     if (!vendor) {
       throw new NotFoundError('Vendor not found!');
@@ -517,6 +527,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         true,
         conn,
       );
+      // await notifyNewCalculationTableEntry(tableName.CALCULATION, vendorCalculation);
       // const netBalance = await updatePayoutCalculations(
       //   merchant.user_id,
       //   data.approved_at,
@@ -593,6 +604,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         false,
         conn,
       );
+      // await notifyNewCalculationTableEntry(tableName.CALCULATION, vendorCalculation);
       const merchantBalance = Number(merchant.balance + data.amount);
       if (isNaN(merchantBalance)) {
         throw new BadRequestError('Invalid merchant balance');
@@ -636,7 +648,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     return data;
   } catch (error) {
     console.error('Error in getPayoutsService:', error);
-    throw new InternalServerError(error);
+    throw new InternalServerError(error.message);
   }
 };
 
@@ -735,11 +747,12 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
       };
     }
 
-    const TotalAmount = await updateCalculationBalanceDao(
+    const response = await updateCalculationBalanceDao(
       { id: calculationId },
       payload,
       conn,
     );
+    return response;
   }
 };
 const processEkoPayout = async (singleWithdrawData, payload) => {

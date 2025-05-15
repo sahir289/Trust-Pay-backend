@@ -7,11 +7,13 @@ import {
   rollback,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
+// import { sendError } from '../../utils/responseHandlers.js';
 import { deactivateBank } from '../../utils/sockets.js';
 import {
   getBankResponseDaoAll,
   updateBotResponseDao,
 } from '../bankResponse/bankResponseDao.js';
+// import { getCalculationDao } from '../calculation/calculationDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import {
   getBankaccountDao,
@@ -29,18 +31,17 @@ const getBankaccountService = async (
   page,
   limit,
   user_id,
-  designation
+  designation,
 ) => {
   try {
-
     if (role == Role.VENDOR) {
       filters.user_id = [user_id];
     }
     const userHierarchys = await getUserHierarchysDao({ user_id });
     if (designation == Role.VENDOR_OPERATIONS) {
       const parentID = userHierarchys[0]?.config?.parent;
-      if (parentID ) {
-        filters.user_id = [parentID];      
+      if (parentID) {
+        filters.user_id = [parentID];
       }
     }
 
@@ -72,22 +73,37 @@ const getBankAccountBySearchService = async (
     if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
       throw new BadRequestError('Invalid pagination parameters');
     }
-    const searchTerms = search.split(',')
-      .map(term => term.trim())
-      .filter(term => term.length > 0);
+    const searchTerms = search
+      .split(',')
+      .map((term) => term.trim())
+      .filter((term) => term.length > 0);
 
     if (searchTerms.length === 0) {
       throw new BadRequestError('Please provide valid search items');
     }
     const offset = (pageNum - 1) * limitNum;
-    return await getBankAccountsBySearchDao(company_id, role, searchTerms, limitNum, offset, bank_used_for);
+    return await getBankAccountsBySearchDao(
+      company_id,
+      role,
+      searchTerms,
+      limitNum,
+      offset,
+      bank_used_for,
+    );
   } catch (error) {
     logger.error('error getting while getting check utr by search', error);
     throw new InternalServerError(error.message);
   }
 };
 
-const getBankaccountServiceNickName = async (company_id, type, role, user_id, designation, user) => {
+const getBankaccountServiceNickName = async (
+  company_id,
+  type,
+  role,
+  user_id,
+  designation,
+  user,
+) => {
   let conn;
   try {
     conn = await getConnection();
@@ -103,8 +119,8 @@ const getBankaccountServiceNickName = async (company_id, type, role, user_id, de
     const userHierarchys = await getUserHierarchysDao({ user_id });
     if (designation == Role.VENDOR_OPERATIONS) {
       const parentID = userHierarchys[0]?.config?.parent;
-      if (parentID ) {
-        filters.user_id = [parentID];      
+      if (parentID) {
+        filters.user_id = [parentID];
       }
     }
 
@@ -112,7 +128,7 @@ const getBankaccountServiceNickName = async (company_id, type, role, user_id, de
       conn,
       company_id,
       type,
-      filters
+      filters,
     );
     await commit(conn);
     return result;
@@ -161,6 +177,15 @@ const updateBankaccountService = async (conn, ids, payload) => {
       company_id: ids.company_id,
     });
 
+    // if (payload?.is_enabled) {
+    //   const vendorBalance = await getCalculationDao({
+    //     user_id: bank[0]?.user_id,
+    //   });
+    //   if (vendorBalance[0]?.net_balance <= 0) {
+    //     return sendError(res, {}, 'Insufficient balance in vendor account', 400);
+    //   }
+    // }
+
     if (Object.keys(payload).length === 1 && payload.latest_balance) {
       if (payload.latest_balance >= bank[0].config?.max_limit) {
         payload.is_enabled = false;
@@ -171,13 +196,13 @@ const updateBankaccountService = async (conn, ids, payload) => {
     }
     delete payload.latest_balance;
 
-     //added merchant_added key in config which contains date on which merchant is added along with its id
-     if (payload?.config?.merchant_added) {
+    //added merchant_added key in config which contains date on which merchant is added along with its id
+    if (payload?.config?.merchant_added) {
       const existingMerchantDetails = bank?.config?.merchant_added || {};
       const newMerchantDetails = {};
 
       for (const key in payload.config.merchant_added) {
-        const merchantId = key.replace(/^\[?"?|"?\]$/g, ''); 
+        const merchantId = key.replace(/^\[?"?|"?\]$/g, '');
         newMerchantDetails[merchantId] = payload.config.merchant_added[key];
       }
 
@@ -201,10 +226,10 @@ const updateBankaccountService = async (conn, ids, payload) => {
         is_used: false,
       });
       if (bankResponse.rows.length > 0) {
-        for (let i = 0; i < bankResponse.rows.length; i++) {          
+        for (let i = 0; i < bankResponse.rows.length; i++) {
           await updateBotResponseDao(bankResponse.rows[i].id, {
             status: '/freezed',
-          });        
+          });
         }
       }
     }

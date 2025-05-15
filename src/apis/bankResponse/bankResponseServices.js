@@ -207,7 +207,6 @@ const createBankResponseService = async (
       },
       conn,
     );
-    console.log(res, 'res');
     await updateBankaccountService(
       conn,
       { id: botRes?.bank_id, company_id: companyId },
@@ -235,6 +234,7 @@ const createBankResponseService = async (
       payinCommission: payinVendorCommission,
       amount: botRes.amount,
     });
+    // await notifyNewCalculationTableEntry(tableName.CALCULATION, vendorCalculation);
   }
   const checkPayInUtr = await getPayInUrlsDao({ user_submitted_utr: utr });
   if (checkPayInUtr?.length > 0) {
@@ -454,7 +454,7 @@ const updateCalculationTable = async (user_id, data, conn) => {
     // let netBalance = calculationData[0].net_balance + data?.amount;
     const calculationId = calculationData[0].id;
     const totalAmount = Number(data.amount) - Number(data.payinCommission);
-    await updateCalculationBalanceDao(
+    const response =  await updateCalculationBalanceDao(
       { id: calculationId },
       {
         total_payin_count: 1,
@@ -465,6 +465,7 @@ const updateCalculationTable = async (user_id, data, conn) => {
       },
       conn,
     );
+    return response;
   }
 };
 

@@ -295,7 +295,7 @@ const getBankResponseDaoAll = async (
   }
 };
 
-const getBankResponseByUTR = async (company_id, utr) => {
+const getBankResponseByUTR = async (utr) => {
   try {
     const baseQuery = `SELECT 
         br.id, 
@@ -324,11 +324,11 @@ const getBankResponseByUTR = async (company_id, utr) => {
     WHERE 
         1=1 
         AND br.is_obsolete = false 
-        AND br.company_id = $1 
-        AND br.utr = $2 
+        AND br.status = '/success'
+        AND br.utr = $1 
     ORDER BY 
         br.created_at DESC`;
-    const queryParams = [company_id, utr];
+    const queryParams = [utr];
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows[0];
   } catch (error) {

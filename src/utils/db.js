@@ -2,7 +2,7 @@
 import pkg from 'pg';
 import config from '../config/config.js';
 import chalk from 'chalk';
-import { DbError } from './appErrors.js';
+import { DbError, InternalServerError } from './appErrors.js';
 import { logger } from './logger.js';
 import fs from 'fs';
 import path from 'path';
@@ -402,7 +402,7 @@ export const transactionWrapper =
           logger.error('Rollback failed:', rollbackError);
         }
       }
-      throw new DbError(error.message); // Rethrow error
+      throw new InternalServerError(error.message); // Rethrow error
     } finally {
       if (conn) {
         logger.log('Releasing connection');

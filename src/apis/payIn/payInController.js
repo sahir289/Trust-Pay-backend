@@ -123,7 +123,7 @@ export const generatePayInUrl = async (req, res) => {
     return res.status(400).json({
       error: {
         status: 404,
-        message: 'Bank Account has not been linked with Merchant',
+        message: 'No Payment Methods Enabled!',
         additionalInfo: {},
         level: 'info',
         timestamp: new Date().toISOString(),
@@ -176,7 +176,7 @@ export const generatePayInUrl = async (req, res) => {
   const result = await generatePayInUrlService(
     {
       ...payload,
-      x_api_key: x_api_key ? x_api_key : key,
+      api_key: apiKey
     },
     tokenData.user_id,
     res,
@@ -185,27 +185,18 @@ export const generatePayInUrl = async (req, res) => {
   // create some kind of hash to secure the next public API flow
   const queryStr =
     payload.isTest && (payload.isTest === 'true' || payload.isTest === true)
-      ? `?t=true&order=${result.merchant_order_id}`
-      : `?order=${result.merchant_order_id}`;
+      ? `?t=true&order=${result?.merchant_order_id}`
+      : `?order=${result?.merchant_order_id}`;
+    
   const updateRes = {
-    expirationDate: result.expiration_date,
+    expirationDate: result?.expiration_date,
     payInUrl: `${config.reactPaymentOrigin}/transaction/${generatedHash}${queryStr}`, // Use env
-    payinId: result.id,
-    merchantOrderId: result.merchant_order_id,
-    status: result.status
+    payinId: result?.id,
+    merchantOrderId: result?.merchant_order_id,
+    status: result?.status
   };
 
-  // return sendSuccess(
-  //   res,
-  //   updateRes,
-  //   'PayIn is generated & url is sent successfully',
-  // );
   return sendNewSuccess(res, updateRes, 'PayIn is generated & url is sent successfully');
-  // return res.status(200).json({
-  //   message: 'PayIn is generated & url is sent successfully',
-  //   statusCode: 200,
-  //   data: updateRes,
-  // });
 };
 
 /**
