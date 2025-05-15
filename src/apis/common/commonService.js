@@ -5,6 +5,8 @@ import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
+import { InternalServerError, NotFoundError } from '../../utils/appErrors.js';
+import { logger } from '../../utils/logger.js';
 
 export const getTotalCountService = async (
   tablename,
@@ -48,10 +50,21 @@ export const getTotalCountService = async (
     const fetchMerchantIds = async (userIds) =>
       (await getMerchantsDao({ user_id: userIds })).map((m) => m.id);
 
-    const fetchBankIds = async (userId) =>
-      (
-        await getBankaccountDao({ user_id: userId, bank_used_for: 'PayIn' })
-      ).map((b) => b.id);
+    const fetchBankIds = async (user_id) => {
+      try {
+        const banks = await getBankaccountDao({
+          user_id,
+          bank_used_for: 'PayIn',
+        });
+        if (!banks || banks.length === 0) {
+          throw new NotFoundError('No bank account found for this user');
+        }
+        return banks.map((bank) => bank.id);
+      } catch (error) {
+        logger.error('Error fetching bank IDs:', error);
+        throw new InternalServerError('Error fetching bank IDs');
+      }
+    };
 
     const fetchVendorIds = async (userIds) =>
       (await getVendorsDao({ user_id: userIds })).map((v) => v.id);
@@ -245,10 +258,6 @@ export const getTotalCountService = async (
         : [userInfo.user_id];
       filters.user_id =
         userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
-    }
-
-    if (Array.isArray(filters?.bank_acc_id) && filters.bank_acc_id.length === 0) {
-      delete filters.bank_acc_id;
     }
 
     return await getTotalCountDao(tablename, role, filters);

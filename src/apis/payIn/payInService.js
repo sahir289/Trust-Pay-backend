@@ -961,7 +961,6 @@ export const getPayinsService = async (
 ) => {
   let conn;
   try {
-    console.log(role, 'role', designation, 'designation');
     const fetchMerchantIds = async (user_ids) => {
       const merchants = await getMerchantsDao({ user_id: user_ids });
       return merchants.map((merchant) => merchant.id);
@@ -969,18 +968,16 @@ export const getPayinsService = async (
 
     const fetchBankIds = async (user_id) => {
       try {
-        console.log(user_id);
         const banks = await getBankaccountDao({
           user_id,
           bank_used_for: 'PayIn',
         });
-        console.log(banks, 'banks');
         if (!banks || banks.length === 0) {
           throw new NotFoundError('No bank account found for this user');
         }
         return banks.map((bank) => bank.id);
       } catch (error) {
-        console.error('Error fetching bank IDs:', error);
+        logger.error('Error fetching bank IDs:', error);
         throw new InternalServerError('Error fetching bank IDs');
       }
     };
@@ -1027,13 +1024,6 @@ export const getPayinsService = async (
           filters.bank_acc_id = await fetchBankIds(parentID);
         }
       }
-    }
-
-    if (
-      Array.isArray(filters?.bank_acc_id) &&
-      filters.bank_acc_id.length === 0
-    ) {
-      delete filters.bank_acc_id;
     }
 
     conn = await getConnection();
