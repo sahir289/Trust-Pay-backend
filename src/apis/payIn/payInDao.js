@@ -55,7 +55,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
       'status',
       'sortBy',
       'sortOrder',
-      'nick_name'
+      'nick_name',
     ]);
 
     const conditionBuilders = {
@@ -105,7 +105,6 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
       },
     };
 
-    // Apply the filters
     conditionBuilders.search(filters, PAYIN);
     conditionBuilders.dateRange(filters, conditions, queryParams);
     conditionBuilders.bankName(filters, conditions, queryParams);
@@ -116,7 +115,6 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
       if (handledKeys.has(key) || value == null) return;
       const nextParamIdx = queryParams.length + 1;
 
-      // Special handling for arrays
       if (Array.isArray(value)) {
         const placeholders = value
           .map((_, idx) => `$${nextParamIdx + idx}`)
@@ -140,7 +138,6 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
       }
     });
 
-    // Build role-based select fields
     let commissionSelect = '';
     if (role === 'MERCHANT') {
       commissionSelect = `
@@ -148,7 +145,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         p.merchant_order_id,
         json_build_object(
           'merchant_code', r.code,
-          'dispute',r.dispute_enabled,
+          'dispute', r.dispute_enabled,
           'return_url', r.config->>'return_url',
           'notify_url', r.config->>'notify_url'
         ) AS merchant_details
@@ -163,7 +160,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         p.payin_merchant_commission,
         json_build_object(
           'merchant_code', r.code,
-          'dispute',r.dispute_enabled,
+          'dispute', r.dispute_enabled,
           'return_url', r.config->>'return_url',
           'notify_url', r.config->>'notify_url'
         ) AS merchant_details,
@@ -202,7 +199,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
           ) AS bank_res_details,
           p.created_at AT TIME ZONE 'UTC' AT TIME ZONE '${IST}' as created_at,
           p.updated_at AT TIME ZONE 'UTC' AT TIME ZONE '${IST}' as updated_at
-        FROM public."Payin" p
+        FROM public."${PAYIN}" p
         LEFT JOIN public."Merchant" r ON p.merchant_id = r.id
         LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
         LEFT JOIN public."BankResponse" br ON p.bank_response_id = br.id
@@ -216,7 +213,9 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
       ${limitcondition.value}
     `;
 
-    // Debug log: Check if placeholders match params
+    console.log('Generated Query:', baseQuery); // Debug
+    console.log('Query Params:', queryParams); // Debug
+
     const expectedParamCount = (baseQuery.match(/\$\d+/g) || []).length;
     if (expectedParamCount !== queryParams.length) {
       logger.warn('⚠️ Placeholder count does not match parameter count!');
@@ -224,6 +223,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
       );
     }
+
     const result = await executeQuery(baseQuery, queryParams);
     return {
       payins: result.rows,
