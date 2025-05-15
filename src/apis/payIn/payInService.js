@@ -2059,7 +2059,7 @@ const checkIsPayInExpired = (payIn) => {
   return false;
 };
 
-const updateCalculationTable = async (user_id, data, conn) => {
+export const updateCalculationTable = async (user_id, data, conn) => {
   if (isNaN(Number(data.amount) - Number(data.payinCommission))) {
     throw new BadRequestError('Invalid amount or commission');
   }
