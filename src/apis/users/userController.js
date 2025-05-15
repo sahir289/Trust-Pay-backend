@@ -112,7 +112,7 @@ const sendMail = async (req, res) => {
   await sendMailService(payload);
   return sendSuccess(
     res,
-    { updated_by: user_name },
+    { mail_sent_by: user_name },
     'Mail send successfully',
   );
 };
