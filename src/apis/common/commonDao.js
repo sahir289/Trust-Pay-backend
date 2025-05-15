@@ -85,7 +85,6 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs) => {
     }
 
     const result = await executeQuery(query, params);
-    console.log(query, params, result.rows,  '______________')
     return parseInt(result.rows[0].count, 10); // Ensure the count is returned as an integer
   } catch (error) {
     if (error.code === '42P01') {
