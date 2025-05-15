@@ -1012,6 +1012,10 @@ export const getPayinsService = async (
       }
     }
 
+    if (Array.isArray(filters?.bank_acc_id) && filters.bank_acc_id.length === 0) {
+      delete filters.bank_acc_id;
+    }
+
     console.log(filters, 'filters');
 
     conn = await getConnection();
