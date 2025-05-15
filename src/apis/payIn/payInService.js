@@ -1059,6 +1059,7 @@ export const getPayinsBySearchService = async (
           user_id,
           bank_used_for: 'PayIn',
         });
+        console.log(banks, 'banks');
         if (!banks || banks.length === 0) {
           throw new NotFoundError('No bank account found for this user');
         }
