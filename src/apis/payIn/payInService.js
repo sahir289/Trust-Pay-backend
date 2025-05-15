@@ -1060,6 +1060,7 @@ export const getPayinsBySearchService = async (
         });
         console.log(banks, 'banks');
         if (!banks || banks.length === 0) {
+          console.log("here")
           throw new NotFoundError('No bank account found for this user');
         }
         return banks.map((bank) => bank.id);
