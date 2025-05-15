@@ -527,7 +527,7 @@ export const vendorColumns = {
     'status',
     'bank_id',
     'amount',
-    'api_short_code',
+    // 'api_short_code',
     'utr',
     'is_used',
     'config',
@@ -660,7 +660,7 @@ export const AccessRoles = {
   },
   RESET_DATA_HISTORY: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS],
   CHECK_UTR_HISTORY: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS],
-  BANK_RESPONSE: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS],
+  BANK_RESPONSE: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS, Role.VENDOR, Role.VENDOR_OPERATIONS],
   BANK_ACCOUNT: [
     Role.ADMIN,
     Role.OPERATIONS,
