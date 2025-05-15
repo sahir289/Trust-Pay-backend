@@ -78,7 +78,7 @@ import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
 // import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
-import {  stringifyJSON } from '../../utils/index.js';
+import { stringifyJSON } from '../../utils/index.js';
 import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
@@ -121,43 +121,47 @@ export const generatePayInUrlByHashService = async (req, res) => {
   }
 
   // bank is not enabled or no method is enabled for payment - no payment link generates
-//loop over each and cehck
-  const allBanksDisabled = bankAssigned.every(bank => bank.is_enabled === false);
-    if (allBanksDisabled) {
-      // throw new InternalServerError(
-      //   'Bank assigned to this merchant is not enabled!',
-      // );
-      // error handling
-      return res.status(400).json({
-        error: {
-          status: 404,
-          message: 'Bank Account has not been linked with Merchant',
-          additionalInfo: {},
-          level: 'info',
-          timestamp: new Date().toISOString(),
-        },
-      });
-    }
-    //loop over evrey bank
-    const allPaymentOptionsDisabled = bankAssigned.every(bank => {
-      if (!bank.is_enabled) return true; 
-      const config = bank.config || {};
-      const isPhonepay = config.is_phonepay || false; 
-      return isPhonepay === false && bank.is_qr === false && bank.is_bank === false;
+  //loop over each and cehck
+  const allBanksDisabled = bankAssigned.every(
+    (bank) => bank.is_enabled === false,
+  );
+  if (allBanksDisabled) {
+    // throw new InternalServerError(
+    //   'Bank assigned to this merchant is not enabled!',
+    // );
+    // error handling
+    return res.status(400).json({
+      error: {
+        status: 404,
+        message: 'Bank Account has not been linked with Merchant',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
     });
-    
-    if (allPaymentOptionsDisabled) {
-      return res.status(400).json({
-        error: {
-          status: 404,
-          message: 'No Payment Methods Enabled!',
-          additionalInfo: {},
-          level: 'info',
-          timestamp: new Date().toISOString(),
-        },
-      });
-    }
-    
+  }
+  //loop over evrey bank
+  const allPaymentOptionsDisabled = bankAssigned.every((bank) => {
+    if (!bank.is_enabled) return true;
+    const config = bank.config || {};
+    const isPhonepay = config.is_phonepay || false;
+    return (
+      isPhonepay === false && bank.is_qr === false && bank.is_bank === false
+    );
+  });
+
+  if (allPaymentOptionsDisabled) {
+    return res.status(400).json({
+      error: {
+        status: 404,
+        message: 'No Payment Methods Enabled!',
+        additionalInfo: {},
+        level: 'info',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  }
+
   let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
   if (amount) {
     query += `&amount=${amount}`;
@@ -191,9 +195,11 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
     const merchant_order_id = order_id ? order_id : uuidv4();
     const merchantArr = await getMerchantsByCodeDao(code);
     const merchant = merchantArr[0];
-  
-    const isOrderIdExist = await getPayInUrlDao({ merchant_order_id: order_id });
-  
+
+    const isOrderIdExist = await getPayInUrlDao({
+      merchant_order_id: order_id,
+    });
+
     if (isOrderIdExist) {
       // throw new BadRequestError('Merchant Order ID already exists');
       return res.status(400).json({
@@ -206,7 +212,7 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
         },
       });
     }
-  
+
     if (!merchant) {
       // throw new NotFoundError('Merchant does not exist');
       return res.status(400).json({
@@ -219,9 +225,9 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
         },
       });
     }
-  
+
     const merchantAPIKey = merchant.config?.keys;
-  
+
     if (
       api_key &&
       api_key != merchantAPIKey?.private &&
@@ -238,7 +244,7 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
         },
       });
     }
-  
+
     if (
       !api_key &&
       x_api_key != merchantAPIKey?.private &&
@@ -255,7 +261,7 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
         },
       });
     }
-  
+
     if (amount < merchant.min_payin || amount > merchant.max_payin) {
       // throw new BadRequestError(
       //   `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
@@ -301,7 +307,6 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
   } catch (error) {
     throw new BadRequestError(error.message);
   }
-
 };
 
 export const getPayInUrlService = async (id, conn, tele_check = true) => {
@@ -375,7 +380,7 @@ export const assignedBankToPayInUrlService = async (
   type,
 ) => {
   // Validate the PayIn URL
-  
+
   const payIn = await getPayInUrlService(merchantOrderId);
   const payInConfig = payIn.config || {};
   checkIsPayInExpired(payIn);
@@ -392,7 +397,8 @@ export const assignedBankToPayInUrlService = async (
   const minPayIn = Number(merchant.min_payin);
   const amt = Number(amount);
 
-  if (amt > maxPayIn || amt < minPayIn) {  //-- exact amounts should also be considered
+  if (amt > maxPayIn || amt < minPayIn) {
+    //-- exact amounts should also be considered
     return { message: `Amount must be between ${minPayIn} and ${maxPayIn}` };
   }
   const banks = await getMerchantBankDao({
@@ -402,18 +408,19 @@ export const assignedBankToPayInUrlService = async (
   const enabledBanks = banks.filter((bank) => {
     const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
     const isActive = bank.is_enabled && isPayInBank;
-  
+
     if (!isActive) return false;
-  
+
     const config = bank.config || {};
     const hasAnyMethod =
       bank.is_qr ||
       bank.is_bank ||
       config.is_phonepay ||
-      config.is_intent || false;
-  
+      config.is_intent ||
+      false;
+
     if (!hasAnyMethod) return false;
-  
+
     switch (type) {
       case BankTypes.UPI:
         return bank.is_qr;
@@ -672,7 +679,7 @@ export const updatePaymentNotificationStatusService = async (
       id: payIn.bank_response_id,
       company_id,
     });
-    
+
     data = await merchantPayinCallback(payIn.config?.urls?.notify, {
       status: payIn.status,
       merchantOrderId: payIn.merchant_order_id,
@@ -693,10 +700,10 @@ export const updatePaymentNotificationStatusService = async (
       company_id,
     });
     const merchant = merchants[0];
-    if (!merchant ) {
+    if (!merchant) {
       throw new NotFoundError('Merchant or payout notify URL not found.');
     }
-///payout notify url change
+    ///payout notify url change
     data = await merchantPayoutCallback(payouts[0].payout_details.urls.notify, {
       code: merchant.code,
       merchantOrderId: payout.merchant_order_id,
@@ -961,16 +968,21 @@ export const getPayinsService = async (
     };
 
     const fetchBankIds = async (user_id) => {
-      console.log(user_id);
-      const banks = await getBankaccountDao({
-        user_id,
-        bank_used_for: 'PayIn',
-      });
-      console.log(banks, 'banks');
-      if (!banks || banks.length === 0) {
-        throw new NotFoundError('No bank account found for this user');
+      try {
+        console.log(user_id);
+        const banks = await getBankaccountDao({
+          user_id,
+          bank_used_for: 'PayIn',
+        });
+        console.log(banks, 'banks');
+        if (!banks || banks.length === 0) {
+          throw new NotFoundError('No bank account found for this user');
+        }
+        return banks.map((bank) => bank.id);
+      } catch (error) {
+        console.error('Error fetching bank IDs:', error);
+        throw new InternalServerError('Error fetching bank IDs');
       }
-      return banks.map((bank) => bank.id);
     };
 
     let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
@@ -1017,7 +1029,10 @@ export const getPayinsService = async (
       }
     }
 
-    if (Array.isArray(filters?.bank_acc_id) && filters.bank_acc_id.length === 0) {
+    if (
+      Array.isArray(filters?.bank_acc_id) &&
+      filters.bank_acc_id.length === 0
+    ) {
       delete filters.bank_acc_id;
     }
 
@@ -1825,11 +1840,11 @@ export const disputeDuplicateTransactionService = async (
   // if (updateBalance) {
 
   //   //   await updateBanktBalanceDao({ id: bankId }, toAmount, updated_by, conn);
-    // await updateBankaccountService(
-    //   conn,
-    //   { id: bank.id, company_id: payIn.company_id },
-    //   {},
-    // );
+  // await updateBankaccountService(
+  //   conn,
+  //   { id: bank.id, company_id: payIn.company_id },
+  //   {},
+  // );
   //   await updateCalculationTable(
   //     bank.user_id,
   //     {
@@ -1865,8 +1880,7 @@ export const telegramCheckUTRService = async (
     return {
       message: `${utr} UTR Does Not match with ${payIn.merchant_order_id} Merchant Order ID`,
     };
-  }
-  else if (payIn?.user_submitted_utr && (utr !== payIn?.user_submitted_utr)) {
+  } else if (payIn?.user_submitted_utr && utr !== payIn?.user_submitted_utr) {
     return {
       message: `${utr} UTR Does Not match with ${payIn.merchant_order_id} Merchant Order ID`,
     };
@@ -1964,7 +1978,10 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
     const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
     const isActive = bank.is_enabled && isPayInBank;
     const hasAnyMethod =
-      bank.is_qr || bank.is_bank || bank.config?.is_phonepay || bank.config?.is_intent;
+      bank.is_qr ||
+      bank.is_bank ||
+      bank.config?.is_phonepay ||
+      bank.config?.is_intent;
     return isActive && hasAnyMethod;
   });
   const result = {
@@ -2036,7 +2053,6 @@ export const generateUpiUrlService = async (payload) => {
   // }
   // return data;
 
-
   const params = {
     pa: payload.payeeVPA,
     pn: payload.payeeName?.trim() || 'Payee',
@@ -2045,14 +2061,14 @@ export const generateUpiUrlService = async (payload) => {
     tn: payload.transactionNote?.trim() || 'Payment',
     cu: 'INR',
   };
-  
+
   const upiParams = Object.entries(params)
-  .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
-  .join('&');
+    .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
+    .join('&');
   const upiUrl = `upi://pay?${upiParams}`;
 
-  // const upiUrl = `upi://pay?${querystring.stringify(params)}`; 
-  
+  // const upiUrl = `upi://pay?${querystring.stringify(params)}`;
+
   const upiQr = await QRCode.toDataURL(upiUrl);
   return {
     upiUrl,
