@@ -1002,6 +1002,7 @@ export const getPayinsService = async (
       }
     } else if (role === Role.VENDOR) {
       if (designation === Role.VENDOR) {
+        console.log(user_id, 'user_id');
         filters.bank_acc_id = await fetchBankIds(user_id);
       } else if (designation === Role.VENDOR_OPERATIONS) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
