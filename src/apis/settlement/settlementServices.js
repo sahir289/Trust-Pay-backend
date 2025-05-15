@@ -192,18 +192,42 @@ const getSettlementsBySearchService = async (
   }
 };
 
-const createSettlementService = async (payload) => {
+const createSettlementService = async (conn, payload) => {
   try {
     if (payload.method === 'INTERNAL_QR_TRANSFER' || payload.method === 'INTERNAL_BANK_TRANSFER') {
       const bankResponses = await getBankResponseByUTR(payload?.config?.utr)
-      await updateBankResponseDao({id: bankResponses.id}, {status: '/internalTransfer'})
-      payload.status = 'SUCCESS';
+      if (bankResponses.is_used === false) {
+        await updateBankResponseDao({id: bankResponses.id}, {status: '/internalTransfer'})
+        
+        // Get calculation data for updating balance
+        const calculationData = await getCalculationforCronDao(payload.user_id);
+        if (calculationData.length > 0) {
+
+          const updatedCalculation = {
+            total_settlement_count:  1,
+            total_settlement_amount:  payload.amount,
+            current_balance:   payload.amount,
+            net_balance:   payload.amount,
+          };
+
+          // Update calculation balance
+          await updateCalculationBalanceDao(
+            { id: calculationData[0].id },
+            updatedCalculation,
+            conn
+          );
+        }
+
+        payload.status = 'SUCCESS';
+      } else {
+        throw new BadRequestError('utr is already used');
+      }
     }
 
     const data = await createSettlementDao(payload);
     return data;
   } catch (error) {
-    console.log('Error while creating Settlement', 'error', error);
+    logger.error('Error while creating Settlement', error);
     throw new InternalServerError(error);
   }
 };
@@ -253,8 +277,8 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           updatedCalculation = {
             total_settlement_count:  1,
             total_settlement_amount:  amount,
-            current_balance:  - amount,
-            net_balance:  - amount,
+            current_balance:   amount,
+            net_balance:   amount,
           };
         }
       }
@@ -337,8 +361,8 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         updatedCalculation = {
           total_settlement_count:  1,
           total_settlement_amount:   - amount,
-          current_balance:   amount,
-          net_balance:   amount,
+          current_balance:  - amount,
+          net_balance:  - amount,
         };
         //if calculation data not exists dont update    
         if(calculationData.length > 0){

@@ -3,39 +3,36 @@
 import { AUTH_HEADER_KEY } from '../utils/constants.js';
 import { AccessDeniedError, AuthenticationError } from '../utils/appErrors.js';
 import { verifyToken } from '../utils/auth.js';
-// import { getLoginDao } from '../apis/auth/authDao.js';
+import { getSessionByIdDao } from '../apis/auth/authDao.js';
+import { logger } from '../utils/logger.js';
 
 const logoutSet = new Set();
 
-const isAuthenticated = (req, res, next) => {
+const isAuthenticated = async (req, res, next) => {
   const token = req.header(AUTH_HEADER_KEY);
 
   if (!token) {
     throw new AuthenticationError('No token provided');
   }
 
-  if (logoutSet.has(token)) {
-    throw new AuthenticationError('Token expired or User logged out.');
-  }
-
   try {
+    logger.error(`Validating token for session: ${token.slice(0, 10)}...`);
     const decoded = verifyToken(token);
-    // in future need to keep check with session_id if user is logged out or not
-    // console.log(decoded, "decoddeeed")
-    // const user = await getLoginDao(decoded.user_id, decoded.company_id);
-    // if(!user){
-    //   throw new NotFoundError('User Not Found');
-    // }
-    // console.log(user, "user here")
-    // const sessionId = user?.config.session_id;
-    // // console.log(sessionId, decoded.session_id, "decoded.session_id")
-    // if(sessionId !== decoded.session_id){
-    //   throw new AuthenticationError('Token expired or User logged in somewhere else.');
-    // } else {
-    // }
+    const session = await getSessionByIdDao(decoded);
+    if (!session) {
+      throw new AuthenticationError('No active session found');
+    }
+
+    const config = JSON.parse(session.config);
+
+    if (config.token?.access_token !== token) {
+      throw new AuthenticationError('Invalid or expired session');
+    }
     req.user = decoded;
+    req.session_id = session.session_id;
     next();
   } catch (error) {
+    logger.error('Error in authentication middleware:', error);
     if (error.message === 'Token expired') {
       throw new AccessDeniedError('Session expired. Please log in again.');
     }

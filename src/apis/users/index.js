@@ -7,6 +7,7 @@ import {
   getUsersByUserName,
   updateUser,
   getUsersBySearch,
+  sendMail,
 } from './userController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -267,6 +268,51 @@ router.put(
   '/update-user/:id',
   [isAuthenticated, authorized(AccessRoles.USER)],
   tryCatchHandler(updateUser),
+ )
+
+/**
+ * @swagger
+ * /users/send-mail:
+ *   post:
+ *     summary: send new mail
+ *     description: Returns users filtered by username.
+ *     tags:
+ *       - Users
+ *     parameters:
+ *       - in: query
+ *         user_id: user_id
+ *         role_id: role_id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The username to filter users by.
+ *     responses:
+ *       200:
+ *         description: A filtered list of users.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "send mail successfully"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 1
+ *                       username:
+ *                         type: string
+ *                         example: "john_doe"
+ */
+router.post(
+  '/send-mail',
+  [isAuthenticated, authorized(AccessRoles.USER)],
+  tryCatchHandler(sendMail),
  )
 
 export default router;

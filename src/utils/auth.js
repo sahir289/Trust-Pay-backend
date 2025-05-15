@@ -5,6 +5,7 @@ import { BadRequestError } from './appErrors.js';
 import { verifyHash } from './bcryptPassword.js';
 import { getLoginDao } from '../apis/auth/authDao.js';
 import { generateUUID } from './generateUUID.js';
+import { logger } from './logger.js';
 
 const createNewToken = (data) => {
   const accessToken = jwt.sign(data, config.jwt.jwt_secret, {
@@ -56,7 +57,7 @@ const verifyToken = (token) => {
     if (err.name === 'TokenExpiredError') {
       throw new BadRequestError('Token expired');
     }
-    console.error('Token expired', err);
+    logger.error('Token Expired', err);
     return false;
   }
 };

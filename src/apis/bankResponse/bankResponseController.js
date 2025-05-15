@@ -287,7 +287,7 @@ const resetBankResponse = async (req, res) => {
       return sendSuccess(
         res,
         {},
-        `Bot response Reset successful. Previous Amount: ${data.previousAmount}`,
+        `Bot response Reset successful. Previous Amount: ${data.config.previousAmount}`, //previousAmount was undefined
       );
     } else {
       const isEqualUTR = getallPayinDataByUtr?.some(

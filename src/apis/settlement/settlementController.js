@@ -143,7 +143,7 @@ const createSettlementController = async (req, res) => {
     }
   };
   // const data =
-  const settlement = await createSettlementService(data);
+  const settlement = await transactionWrapper(createSettlementService)(data);
   sendSuccess(res, {id:settlement.id,created_by:user_name}, 'Created Settlement Successfully');
   logger.info("Created Settlement Successfully", settlement);
 };

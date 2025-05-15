@@ -360,8 +360,8 @@ const getMerchantReportDao = async (company_id, userIds, startDate, endDate, pag
       parameters.push(userIds);
       paramIndex++;
     }
-    
-    query += ` AND c.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+    //take indian timezone
+    query += `AND (c.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
     parameters.push(startDate, endDate);
     paramIndex += 2;    
     query += `
@@ -421,7 +421,7 @@ WITH filtered_vendors AS (
     v.user_id AS vendor_user_id
   FROM public."Calculation" c
   LEFT JOIN public."Vendor" v ON c.user_id = v.user_id
-  WHERE c.company_id = $1`;
+  WHERE c.company_id = $1 AND c.is_obsolete = false`;
 
     let parameters = [company_id];
     let paramIndex = parameters.length + 1;
@@ -431,8 +431,7 @@ WITH filtered_vendors AS (
       parameters.push(userIds);
       paramIndex++;
     }
-
-    query += ` AND c.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+    query += `AND (c.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
     parameters.push(
       startDate,
       endDate

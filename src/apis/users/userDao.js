@@ -233,8 +233,6 @@ const getUserByIdDao = async (conn, ids) => {
 };
 
 
-
-
 const getUsersByUserNameDao = async (ids, username) => {
   try {
     let baseQuery = `
