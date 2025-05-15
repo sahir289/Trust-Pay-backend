@@ -58,7 +58,7 @@ export const sendCredentialsEmail = async ({
       <div style="background-color: #f1f5f9; padding: 16px; border-radius: 6px; margin-top: 16px;">
         <p style="margin: 8px 0; color: #2d3748;"><strong>Login URL:</strong> <a href="${redirectingUrl}" style="color: #3182ce;">${redirectingUrl}</a></p>
         <p style="margin: 8px 0; color: #2d3748;"><strong>Username:</strong> ${username}</p>
-        <p style="margin: 8px 0; color: #2d3748;"><strong>Password:</strong> ${password}</p>
+        ${ password ? `<p style="margin: 8px 0; color: #2d3748;"><strong>Password:</strong> ${password}</p>` : ''}
       </div>
       ${
         designation && [Role.MERCHANT, Role.SUB_MERCHANT].includes(designation)
@@ -96,7 +96,16 @@ export const sendCredentialsEmail = async ({
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    logger.info('Credentials email sent:', info.messageId);
+    const Data = {
+      messageId: info.messageId,
+      username,
+      password,
+      code,
+      secretKey,
+      publicKey,
+    }
+    const status = 200
+    logger.info('Credentials email sent:', {status, data: Data});
     return info;
   } catch (error) {
     logger.error('Failed to send credentials email:', error);
