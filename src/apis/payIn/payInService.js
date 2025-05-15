@@ -960,12 +960,10 @@ export const getPayinsService = async (
     };
 
     const fetchBankIds = async (user_id) => {
-      console.log(user_id, 'user_id');
       const banks = await getBankaccountDao({
         user_id,
         bank_used_for: 'PayIn',
       });
-      console.log(banks, 'banks');
       return banks.map((bank) => bank.id);
     };
 
@@ -1015,8 +1013,6 @@ export const getPayinsService = async (
     if (Array.isArray(filters?.bank_acc_id) && filters.bank_acc_id.length === 0) {
       delete filters.bank_acc_id;
     }
-
-    console.log(filters, 'filters');
 
     conn = await getConnection();
     return await getPayInsDao(filters, company_id, page, limit, role);
