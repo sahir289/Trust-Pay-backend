@@ -203,10 +203,9 @@ const resetBankResponse = async (req, res) => {
     }
    
     const update = await updateBotResponseDao(id, data);
-    if (update) {
+    if (update.config.previousAmount) {
       const bankdetails = await getBankaccountDao({ id: botRes.bank_id });
       const bank = bankdetails[0];
-      const calculation = await getCalculationforCronDao(bank.user_id);
       const vendor = await getVendorsDao({ user_id: bank.user_id });
       const vendorData = vendor[0];
       let updatedAmount;
@@ -219,9 +218,9 @@ const resetBankResponse = async (req, res) => {
         updatedAmount,
         vendorData.payin_commission,
       );
-      await updateCalculationTable(calculation[0].user_id, {
+      await updateCalculationTable(vendorData.user_id, {
         payinCommission: payinVendorCommission,
-        amount: parseFloat(updatedAmount) + parseFloat(payinVendorCommission),
+        amount: updatedAmount,
       });      
       const newBalance = parseFloat(bank.balance) + parseFloat(updatedAmount);
       const newTodayBalance =
