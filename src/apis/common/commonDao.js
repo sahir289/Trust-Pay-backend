@@ -52,14 +52,18 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs) => {
       params.push(filters.startDate, filters.endDate);
       paramIndex += 2;
     }
-//user_ids coming as array when serach in reports
+//user_ids coming as array when serach in reports -- modified for timezone
     if (Array.isArray(filters.user_id) && filters.user_id.length > 0) {
-      const userPlaceholders = filters.user_id.map((_, i) => `$${paramIndex + i}`).join(',');
-      query += ` AND "user_id" IN (${userPlaceholders})`;
-      params.push(...filters.user_id);
-      paramIndex += filters.user_id.length;
+      query += ` AND "${tablename}".user_id = ANY($${paramIndex})`;
+      params.push(filters.user_id);
+      paramIndex++;
+      if (filters?.startDate && filters?.endDate) {
+        query += ` AND ("${tablename}".created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+        params.push(filters.startDate, filters.endDate);
+        paramIndex += 2;
+      }
       delete filters.user_id;
-    }    
+    }
 
     // Dynamically add filters to query
     if (filters) {
@@ -80,6 +84,7 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs) => {
       });
     }
     const result = await executeQuery(query, params);
+    console.log(query, params, result.rows,  '______________')
     return parseInt(result.rows[0].count, 10); // Ensure the count is returned as an integer
   } catch (error) {
     if (error.code === '42P01') {

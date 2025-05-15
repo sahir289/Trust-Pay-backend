@@ -5,7 +5,6 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { getMerchantsDao } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
-import dayjs from "dayjs";
 import {
   getMerchantReportDao,
   getPayInMerchantReportDao,
@@ -14,7 +13,6 @@ import {
   getPayOutVendorReportDao,
   getVendorReportDao,
 } from './reportsDao.js';
-const IST = 'Asia/Kolkata';
 
 const getPayInReportService = async (req, res) => {
   try {
@@ -149,21 +147,13 @@ const getMerchantReportService = async (req, res) => {
     let startDateTime 
     let endDateTime
   
-    if (startDateTime === endDateTime) {
-      startDateTime = dayjs(startDate).tz(IST).toISOString();
-      endDateTime = dayjs(endDate).tz(IST).endOf('day').toISOString();
-    }
-    else{
-      startDateTime = startDate;
-      endDateTime = endDate;
-    }
     let result
       const userIds = typeof code === 'string' ? code.split(',').map(id => id.trim()) : Array.isArray(code) ? code : [code];
       if(role_name === 'MERCHANT'){
          result = await getMerchantReportDao(
           company_id,
           userIds,
-          startDateTime, endDateTime
+          startDate, endDate
           , page, limit
         ); 
       }
