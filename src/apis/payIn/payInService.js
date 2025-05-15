@@ -966,6 +966,9 @@ export const getPayinsService = async (
         user_id,
         bank_used_for: 'PayIn',
       });
+      if (!banks || banks.length === 0) {
+        throw new NotFoundError('No bank account found for this user');
+      }
       return banks.map((bank) => bank.id);
     };
 
