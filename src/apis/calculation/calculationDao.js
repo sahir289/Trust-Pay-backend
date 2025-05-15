@@ -243,9 +243,50 @@ export const getCalculationsSumDao = async (filters) => {
       vendorData = (await executeQuery(vQuery, [effectiveUserId, company_id])).rows;
     }
 
-    // Fetch Latest Calculation Entry for Vendors & Merchants
-    const endDateConditon = ` AND DATE(c.created_at) = '${endDate}' `;
-    const calBaseQuery = `
+    if ([Role.SUPER_ADMIN, Role.ADMIN].includes(role)) {
+      const condition = role === Role.ADMIN ? ` AND c.company_id = '${company_id}' ` : '';
+      const baseCalQuery = `
+        WITH LatestBalances AS (
+          SELECT 
+            c.user_id,
+            c.net_balance,
+            r.role,
+            m.code as merchant_code,
+            v.code as vendor_code,
+            ROW_NUMBER() OVER (PARTITION BY c.user_id ORDER BY c.created_at DESC) as rn
+          FROM "${tableName.CALCULATION}" c
+          JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
+          JOIN "${tableName.ROLE}" r ON u.role_id = r.id 
+          LEFT JOIN "${tableName.MERCHANT}" m ON m.user_id = c.user_id
+          LEFT JOIN "${tableName.VENDOR}" v ON v.user_id = c.user_id
+          WHERE c.is_obsolete = FALSE
+          AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
+          ${condition}
+          ${userCodes.length > 0 ? `AND (m.code = ANY(ARRAY[${userCodes.map(code => `'${code}'`).join(',')}]) 
+            OR v.code = ANY(ARRAY[${userCodes.map(code => `'${code}'`).join(',')}]))` : ''}
+        )
+        SELECT 
+          role,
+          CAST(ROUND(SUM(net_balance)::NUMERIC, 2) AS FLOAT) as net_balance_sum
+        FROM LatestBalances 
+        WHERE rn = 1
+        GROUP BY role`;
+
+      const balanceResult = await executeQuery(baseCalQuery);
+      
+      // Process results into netBalance object
+      netBalance = balanceResult.rows.reduce((acc, row) => {
+        if (row.role === Role.VENDOR) {
+          acc.vendor = row.net_balance_sum || 0;
+        } else if (row.role === Role.MERCHANT) {
+          acc.merchant = row.net_balance_sum || 0;
+        }
+        return acc;
+      }, { vendor: 0, merchant: 0 });
+    } else {
+      // For non-admin roles, use existing query logic
+      const endDateConditon = ` AND DATE(c.created_at) = '${endDate}' `;
+      const calBaseQuery = `
         SELECT net_balance AS net_balance_sum
         FROM "${tableName.CALCULATION}" c
         JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
@@ -255,32 +296,14 @@ export const getCalculationsSumDao = async (filters) => {
         AND c.company_id = '${company_id}'
         ${endDateConditon}
         ORDER BY c.created_at DESC LIMIT 1
-      `
-    let vendorCalQuery = calBaseQuery.replace('PLACE_ROLE_HERE', Role.VENDOR), 
-    merchantCalQuery = calBaseQuery.replace('PLACE_ROLE_HERE', Role.MERCHANT);
+      `;
+      
+      let vendorCalQuery = calBaseQuery.replace('PLACE_ROLE_HERE', Role.VENDOR);
+      let merchantCalQuery = calBaseQuery.replace('PLACE_ROLE_HERE', Role.MERCHANT);
 
-    if ([Role.SUPER_ADMIN, Role.ADMIN].includes(role)) {
-      const condition = role === Role.ADMIN ? ` AND c.company_id = '${company_id}' ${endDateConditon} ` : ` ${endDateConditon} `;
-      const baseCalQuery = `
-        WITH LatestEntries AS (
-          SELECT DISTINCT ON (user_id) *
-          FROM "Calculation" c
-          JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
-          JOIN "${tableName.ROLE}" r ON u.role_id = r.id AND r.role = 'PLACE_ROLE_HERE'
-          WHERE c.is_obsolete = FALSE
-          ${condition}
-          ORDER BY c.user_id, c.created_at DESC
-        )
-        SELECT 
-            SUM(net_balance) AS net_balance_sum
-        FROM LatestEntries;
-      `
-      vendorCalQuery =  baseCalQuery.replace('PLACE_ROLE_HERE', Role.VENDOR);
-      merchantCalQuery = baseCalQuery.replace('PLACE_ROLE_HERE', Role.MERCHANT);
+      netBalance.vendor = (await executeQuery(vendorCalQuery)).rows[0]?.net_balance_sum || 0;
+      netBalance.merchant = (await executeQuery(merchantCalQuery)).rows[0]?.net_balance_sum || 0;
     }
-
-    netBalance.vendor = (await executeQuery(vendorCalQuery)).rows[0]?.net_balance_sum || 0;
-    netBalance.merchant = (await executeQuery(merchantCalQuery)).rows[0]?.net_balance_sum || 0;
 
     // Modify total calculations query for merchants based on role
     let merchantTotalQuery = `
@@ -365,6 +388,7 @@ export const getCalculationsSumDao = async (filters) => {
       vendorTotalCalculations: vendorTotal.rows[0] || {}
     };
   } catch (error) {
+    console.error('Error fetching calculation data:', error);
     logger.error('Error getting calculation data:', error);
     throw error;
   }

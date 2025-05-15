@@ -253,8 +253,8 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           updatedCalculation = {
             total_settlement_count:  1,
             total_settlement_amount:  amount,
-            current_balance:  - amount,
-            net_balance:  - amount,
+            current_balance:   amount,
+            net_balance:   amount,
           };
         }
       }
@@ -337,8 +337,8 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         updatedCalculation = {
           total_settlement_count:  1,
           total_settlement_amount:   - amount,
-          current_balance:   amount,
-          net_balance:   amount,
+          current_balance:  - amount,
+          net_balance:  - amount,
         };
         //if calculation data not exists dont update    
         if(calculationData.length > 0){
