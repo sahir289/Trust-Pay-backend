@@ -954,6 +954,7 @@ export const getPayinsService = async (
 ) => {
   let conn;
   try {
+    console.log(role, 'role', designation, 'designation');
     const fetchMerchantIds = async (user_ids) => {
       const merchants = await getMerchantsDao({ user_id: user_ids });
       return merchants.map((merchant) => merchant.id);
