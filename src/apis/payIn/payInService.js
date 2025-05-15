@@ -1010,6 +1010,8 @@ export const getPayinsService = async (
       }
     }
 
+    console.log(filters, 'filters');
+
     conn = await getConnection();
     return await getPayInsDao(filters, company_id, page, limit, role);
   } catch (error) {
