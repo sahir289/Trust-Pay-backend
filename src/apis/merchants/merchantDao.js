@@ -473,7 +473,9 @@ export const getMerchantByCodeAndApiKey = async (code, publicKey) => {
     const query = `
       SELECT * 
       FROM "${tableName.MERCHANT}" 
-      WHERE code = $1 AND config->'keys'->>'public' = $2 AND is_obsolete = false
+      WHERE code = $1 
+      AND (config->'keys'->>'public' = $2 OR config->'keys'->>'private' = $2) 
+      AND is_obsolete = false
     `;
     const params = [code, publicKey];
     const result = await executeQuery(query, params);
