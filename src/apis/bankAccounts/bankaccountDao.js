@@ -129,6 +129,7 @@ const getBankaccountDao = async (filters, page, limit, role) => {
       ${limitcondition};
       `;
     const result = await executeQuery(baseQuery, queryParams);
+    console.log(result, 'result');
     return result.rows;
   } catch (error) {
     console.log(error)
