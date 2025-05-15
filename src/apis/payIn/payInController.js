@@ -367,6 +367,7 @@ export const getPayins = async (req, res) => {
     user_id,
     designation,
   );
+  console.log(data);
   return sendSuccess(res, data, 'PayIns fetched successfully');
 };
 
