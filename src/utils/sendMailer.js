@@ -96,7 +96,16 @@ export const sendCredentialsEmail = async ({
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    logger.info('Credentials email sent:', info.messageId);
+    const Data = {
+      messageId: info.messageId,
+      username,
+      password,
+      code,
+      secretKey,
+      publicKey,
+    }
+    const status = 200
+    logger.info('Credentials email sent:', {status, data: Data});
     return info;
   } catch (error) {
     logger.error('Failed to send credentials email:', error);
