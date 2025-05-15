@@ -30,6 +30,7 @@ import {
   getUserHierarchysDao,
   updateUserHierarchyDao,
 } from '../userHierarchy/userHierarchyDao.js';
+import { getMerchantByUserIdDao } from '../merchants/merchantDao.js';
 
 
 const getUsersService = async (
@@ -468,6 +469,31 @@ const userUpdateService = async (conn,ids, payload) => {
   }
 };
 
+const sendMailService = async (payload) => {
+  try {
+    const {user_id} = payload;
+    const user = await getUsersDao({id: user_id});
+    const role = await getRoleDao({ id: user[0].role_id });
+    const designation = await getDesignationDao({ id: user[0].designation_id });
+    let merchant;
+    if (role[0].role === Role.MERCHANT) {
+      merchant = await getMerchantByUserIdDao(user_id);
+    }
+    return await sendCredentialsEmail({
+      email: user[0].email,
+      username: user[0].user_name,
+      password: payload.password,
+      code: merchant[0]?.config ? user[0].code : '',
+      secretKey: merchant[0]?.config ? merchant[0].config.keys.private : '',
+      publicKey: merchant[0]?.config ? merchant[0].config.keys.public : '',
+      designation: designation[0].designation,
+    });
+  } catch (error) {
+    logger.error('error getting while sending mail', error);
+    throw new InternalServerError(error);
+  }
+};
+
 export {
   getUsersService,
   getUserByIdService,
@@ -475,4 +501,5 @@ export {
   getUsersByUserNameService,
   createUserService,
   userUpdateService,
+  sendMailService,
 };
