@@ -336,7 +336,7 @@ export const getPayInUrlService = async (id, conn, tele_check = true) => {
       conn,
     );
     // Notifying merchant about expired URL
-    merchantPayinCallback(config.urls?.payin_notify, {
+    merchantPayinCallback(config.urls?.notify, {
       status: Status.DROPPED,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
@@ -363,8 +363,7 @@ export const expirePayInUrlService = async (payInId) => {
     is_url_expires: true,
     status: Status.DROPPED,
   });
-
-  merchantPayinCallback(config.urls?.payin_notify, {
+  merchantPayinCallback(config.urls?.notify, {
     status: Status.DROPPED,
     merchantOrderId: payIn.merchant_order_id,
     payinId: payIn.id,
@@ -440,7 +439,7 @@ export const assignedBankToPayInUrlService = async (
       is_url_expires: true,
       status: Status.DROPPED,
     });
-    merchantPayinCallback(payInConfig.urls?.payin_notify, {
+    merchantPayinCallback(payInConfig.urls?.notify, {
       status: Status.DROPPED,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
@@ -860,8 +859,7 @@ export const updateDepositStatusService = async (
   //   { id: bank.id, company_id: payInData.company_id },
   //   {},
   // );
-
-  merchantPayinCallback(updatePayInRes.config?.urls?.payin_notify, {
+  merchantPayinCallback(updatePayInRes.config?.urls?.notify, {
     status: updatePayInRes.status,
     merchantOrderId: updatePayInRes.merchant_order_id,
     payinId: updatePayInRes.id,
@@ -1235,7 +1233,7 @@ export const processPayInService = async (
       result.utr_id =
         bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
     }
-    merchantPayinCallback(payIn.config?.urls?.payin_notify, result);
+    merchantPayinCallback(payIn.config?.urls?.notify, result);
     return result;
   }
 
@@ -1245,7 +1243,7 @@ export const processPayInService = async (
     result.utr_id =
       bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-    merchantPayinCallback(payIn.config?.urls?.payin_notify, result);
+    merchantPayinCallback(payIn.config?.urls?.notify, result);
     return {
       ...result,
       message: 'Duplicate entry found!',
@@ -1272,7 +1270,7 @@ export const processPayInService = async (
     result.utr_id =
       bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-    merchantPayinCallback(payIn.config?.urls?.payin_notify, result);
+    merchantPayinCallback(payIn.config?.urls?.notify, result);
 
     if (from_telegram) {
       const botBank = await getBankaccountDao({ id: bankResponse.bank_id });
@@ -1379,7 +1377,7 @@ export const processPayInService = async (
   // }
 
   await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-  merchantPayinCallback(payIn.config?.urls?.payin_notify, result);
+  merchantPayinCallback(payIn.config?.urls?.notify, result);
 
   if (from_telegram) {
     if (
@@ -1778,8 +1776,7 @@ export const disputeDuplicateTransactionService = async (
     } else {
       updateBalance = false;
     }
-
-    merchantPayinCallback(payIn.config?.urls?.payin_notify, {
+    merchantPayinCallback(payIn.config?.urls?.notify, {
       status: newStatus,
       merchantOrderId: merchantOrderId,
       payinId: payInData.id,
@@ -1813,7 +1810,7 @@ export const disputeDuplicateTransactionService = async (
   //   updated_by,
   //   conn,
   // );
-  merchantPayinCallback(payIn.config?.urls?.payin_notify, {
+  merchantPayinCallback(payIn.config?.urls?.notify, {
     status: updatePayload.status,
     merchantOrderId: payIn.merchant_order_id,
     payinId: payIn.id,
