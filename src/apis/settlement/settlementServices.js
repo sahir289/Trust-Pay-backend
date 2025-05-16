@@ -205,9 +205,9 @@ const createSettlementService = async (conn, payload) => {
 
           const updatedCalculation = {
             total_settlement_count:  1,
-            total_settlement_amount:  payload.amount,
-            current_balance:   payload.amount,
-            net_balance:   payload.amount,
+            total_settlement_amount: payload.amount,
+            current_balance:  payload.amount,
+            net_balance:  payload.amount,
           };
 
           // Update calculation balance
@@ -276,9 +276,9 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           // calcution for vendor APPROVE settlement
           updatedCalculation = {
             total_settlement_count:  1,
-            total_settlement_amount:  amount,
-            current_balance:   amount,
-            net_balance:   amount,
+            total_settlement_amount: - amount,
+            current_balance:  - amount,
+            net_balance: -  amount,
           };
         }
       }
@@ -360,10 +360,11 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         const amount = payload?.amount || 0;
         updatedCalculation = {
           total_settlement_count:  1,
-          total_settlement_amount:   - amount,
-          current_balance:  - amount,
-          net_balance:  - amount,
+          total_settlement_amount:   amount,
+          current_balance:   amount,
+          net_balance:   amount,
         };
+        
         //if calculation data not exists dont update    
         if(calculationData.length > 0){
           const {id} = calculationData[0];
