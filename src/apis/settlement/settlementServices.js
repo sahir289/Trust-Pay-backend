@@ -205,9 +205,9 @@ const createSettlementService = async (conn, payload) => {
 
           const updatedCalculation = {
             total_settlement_count:  1,
-            total_settlement_amount: payload.amount,
-            current_balance:  payload.amount,
-            net_balance:  payload.amount,
+            total_settlement_amount: - payload.amount,
+            current_balance:   - payload.amount,
+            net_balance: - payload.amount,
           };
 
           // Update calculation balance
