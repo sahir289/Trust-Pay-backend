@@ -3,7 +3,7 @@ import {
   InternalServerError,
   NotFoundError,
 } from '../../utils/appErrors.js';
-
+import { merchantPayinCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
 import {
   getBankResponseDao,
   createBankResponseDao,
@@ -285,6 +285,15 @@ const createBankResponseService = async (
         conn,
       );
       await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+      if (updatePayInDataRes) {
+        merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
+          status: updatePayInDataRes.status,
+          merchantOrderId: updatePayInDataRes.merchant_order_id,
+          payinId: updatePayInDataRes.id,
+          amount: updatePayInDataRes.amount,
+          utr_id: updatePayInDataRes.utr,
+        });
+     }
       await sendNotification(Status.BANK_MISMATCH, {
         id: payInUtr.id,
         user_submitted_utr: botRes.utr,
@@ -364,18 +373,21 @@ const createBankResponseService = async (
         // config: { from_UI },
         bank_response_id: botRes.id,
       };
-      await updatePayInUrlDao(payInUtr.id, payInData, conn);
-      // if (payInUtr.bank_acc_id) {
-      //   await updateBankaccountDao(
-      //     { id: payInUtr.bank_acc_id },
-      //     {
-      //       balance: bankAccountDetails.balance + amount,
-      //       today_balance: bankAccountDetails.balance + amount,
-      //     },
-      //     conn
-      //   );
-      // }
+      const updatePayin = await updatePayInUrlDao(payInUtr.id, payInData, conn);
       await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+      if (updatePayin) {
+         merchantPayinCallback(updatePayin.config.urls?.notify, {
+           status: updatePayin.status,
+           merchantOrderId: updatePayin.merchant_order_id,
+           payinId: updatePayin.id,
+           amount: updatePayin.amount,
+           utr_id: updatePayin.utr,
+         });
+         return {
+           message: `✅ UTR ${utr} matches the User Submitted UTR: ${payInUtr.user_submitted_utr} and the payment was successful.`,
+         };
+      }
+      
       const merchnatData = merchantData[0].balance + amount;
       if (isNaN(merchnatData)) {
         throw new BadRequestError('Invalid amount or commission');
@@ -389,14 +401,7 @@ const createBankResponseService = async (
         payinCommission: payinMerchantCommission,
         amount: botRes.amount,
       });
-
-      await sendNotification(Status.SUCCESS, {
-        id: payInUtr.id,
-        user_submitted_utr: botRes.utr,
-        bank_response_id: botRes.id,
-        merchant_id: payInUtr.merchant_id,
-        amount: botRes.amount,
-      });
+    
       return { message: `Successfully Created The Entry` };
     } else {
       if (payInUtr.user_submitted_utr && payInUtr.user_submitted_utr !== utr) {
@@ -421,6 +426,17 @@ const createBankResponseService = async (
         conn,
       );
       await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+      if (updatePayInDataRes) {
+         merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
+           status: updatePayInDataRes.status,
+           merchantOrderId: updatePayInDataRes.merchant_order_id,
+           payinId: updatePayInDataRes.id,
+           req_amount: updatePayInDataRes.amount,
+           amount: botRes.amount,
+           utr_id: updatePayInDataRes.utr,
+         });
+      }
+       
       await sendNotification(Status.DISPUTE, {
         id: payInUtr.id,
         user_submitted_utr: botRes.utr,
