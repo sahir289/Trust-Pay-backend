@@ -973,12 +973,12 @@ export const getPayinsService = async (
           bank_used_for: 'PayIn',
         });
         if (!banks || banks.length === 0) {
-          throw new NotFoundError('No bank account found for this user');
+          return [];
         }
         return banks.map((bank) => bank.id);
       } catch (error) {
-        logger.error('Error fetching bank IDs:', error);
-        throw new InternalServerError('Error fetching bank IDs');
+        logger.error('Error fetching PayIn:', error);
+        return [];
       }
     };
 
@@ -1025,10 +1025,14 @@ export const getPayinsService = async (
       }
     }
 
+    if ((designation === Role.VENDOR || designation === Role.VENDOR_OPERATIONS) && Array.isArray(filters.bank_acc_id) && filters.bank_acc_id.length === 0) {
+      return []
+    }
+
     conn = await getConnection();
     return await getPayInsDao(filters, company_id, page, limit, role);
   } catch (error) {
-    throw new InternalServerError(error);
+    throw new InternalServerError(error.message);
   } finally {
     if (conn) {
       try {
@@ -1058,15 +1062,13 @@ export const getPayinsBySearchService = async (
           user_id,
           bank_used_for: 'PayIn',
         });
-        console.log(banks, 'banks');
         if (!banks || banks.length === 0) {
-          console.log("here")
-          throw new NotFoundError('No bank account found for this user');
+          return [];
         }
         return banks.map((bank) => bank.id);
       } catch (error) {
-        logger.error('Error fetching bank IDs:', error);
-        throw new InternalServerError('Error fetching bank IDs');
+        logger.error('Error fetching PayIn:', error);
+        return [];
       }
     };
 
@@ -1128,13 +1130,10 @@ export const getPayinsBySearchService = async (
     }
     const offset = (pageNum - 1) * limitNum;
 
-    // const filterColumns =
-    //   role === Role.MERCHANT
-    //     ? merchantColumns.SETTLEMENT
-    //     : role === Role.VENDOR
-    //       ? vendorColumns.SETTLEMENT
-    //       : columns.SETTLEMENT;
-    // TODO: add designation constants
+
+    if ((designation === Role.VENDOR || designation === Role.VENDOR_OPERATIONS) && Array.isArray(filters.bank_acc_id) && filters.bank_acc_id.length === 0) {
+      return []
+    }
 
     const data = await getPayinsBySearchDao(
       filters,

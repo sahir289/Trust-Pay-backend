@@ -1,5 +1,6 @@
 import { executeQuery } from '../../utils/db.js';
 import { Role, tableName } from '../../constants/index.js';
+import { logger } from '../../utils/logger.js';
 
 export const getTotalCountDao = async (tablename, role, filters, roleIs) => {
   try {
@@ -52,7 +53,7 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs) => {
       params.push(filters.startDate, filters.endDate);
       paramIndex += 2;
     }
-//user_ids coming as array when serach in reports -- modified for timezone
+    //user_ids coming as array when serach in reports -- modified for timezone
     if (Array.isArray(filters.user_id) && filters.user_id.length > 0) {
       query += ` AND "${tablename}".user_id = ANY($${paramIndex})`;
       params.push(filters.user_id);
@@ -88,10 +89,10 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs) => {
     return parseInt(result.rows[0].count, 10); // Ensure the count is returned as an integer
   } catch (error) {
     if (error.code === '42P01') {
-      console.error(`Table "${tablename}" does not exist in the database.`);
+      logger.error(`Table "${tablename}" does not exist in the database.`);
       throw new Error(`Table "${tablename}" does not exist.`);
     }
-    console.error(`Error fetching total count for table ${tablename}:`, error);
+    logger.error(`Error fetching total count for table ${tablename}:`, error);
     throw error.message;
   }
 };

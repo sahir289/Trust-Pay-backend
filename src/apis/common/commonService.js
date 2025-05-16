@@ -5,7 +5,7 @@ import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
-import { InternalServerError, NotFoundError } from '../../utils/appErrors.js';
+import { InternalServerError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
 
 export const getTotalCountService = async (
@@ -56,13 +56,10 @@ export const getTotalCountService = async (
           user_id,
           bank_used_for: 'PayIn',
         });
-        if (!banks || banks.length === 0) {
-          throw new NotFoundError('No bank account found for this user');
-        }
-        return banks.map((bank) => bank.id);
+        return banks?.map((bank) => bank.id) || [];
       } catch (error) {
-        logger.error('Error fetching bank IDs:', error);
-        throw new InternalServerError('Error fetching bank IDs');
+        logger.error(`Error fetching bank IDs for user_id: ${user_id}`, error);
+        return [];
       }
     };
 
@@ -134,7 +131,7 @@ export const getTotalCountService = async (
         userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
 
-    //SETTLEMENT table
+    // SETTLEMENT table
     if (tablename === tableName.SETTLEMENT) {
       userIdFilter = [userInfo.user_id];
       if (userInfo.userRole === Role.MERCHANT) {
@@ -179,13 +176,25 @@ export const getTotalCountService = async (
         const targetId = isOperations
           ? hierarchy?.config?.parent
           : userInfo.user_id;
-        if (targetId) userIdFilter.push(...(await fetchBankIds(targetId)));
-        filters.bank_acc_id =
-          userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
+        logger.info(`Fetching bank IDs for targetId: ${targetId}`);
+        if (targetId) {
+          const bankIds = await fetchBankIds(targetId);
+          if (bankIds.length > 0) {
+            userIdFilter.push(...bankIds);
+            filters.bank_acc_id =
+              userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
+          } else {
+            logger.warn(`No PayIn bank accounts found for user_id: ${targetId}`);
+            filters.bank_acc_id = null; // Handle case with no bank accounts
+          }
+        } else {
+          logger.warn(`No targetId available for PAYIN filtering`);
+          filters.bank_acc_id = null;
+        }
       }
     }
 
-    //  PAYOUT table
+    // PAYOUT table
     if (tablename === tableName.PAYOUT) {
       if (userInfo.userRole === Role.MERCHANT) {
         userIdFilter = [userInfo.user_id];
@@ -260,12 +269,14 @@ export const getTotalCountService = async (
         userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
 
+    logger.info(`Filters applied: ${JSON.stringify(filters)}`);
+
     return await getTotalCountDao(tablename, role, filters);
   } catch (error) {
-    console.error(
+    logger.error(
       `Error in getTotalCountService for table ${tablename}:`,
       error,
     );
-    throw error;
+    throw new InternalServerError(error.message);
   }
 };
