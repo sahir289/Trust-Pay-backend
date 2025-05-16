@@ -1,7 +1,7 @@
 // import jwt from 'jsonwebtoken';
 // import config from '../config/config.js';
 import { AUTH_HEADER_KEY } from '../utils/constants.js';
-import { AccessDeniedError, AuthenticationError } from '../utils/appErrors.js';
+import {  AccessDeniedError, AuthenticationError } from '../utils/appErrors.js';
 import { verifyToken } from '../utils/auth.js';
 import { getSessionByIdDao } from '../apis/auth/authDao.js';
 import { logger } from '../utils/logger.js';
@@ -15,6 +15,10 @@ const isAuthenticated = async (req, res, next) => {
     throw new AuthenticationError('No token provided');
   }
 
+  if (logoutSet.has(token)) {
+    throw new AuthenticationError('Token expired or User logged out.');
+  }
+
   try {
     logger.error(`Validating token for session: ${token.slice(0, 10)}...`);
     const decoded = verifyToken(token);
@@ -23,13 +27,7 @@ const isAuthenticated = async (req, res, next) => {
       throw new AuthenticationError('No active session found');
     }
 
-    const config = JSON.parse(session.config);
-
-    if (config.token?.access_token !== token) {
-      throw new AuthenticationError('Invalid or expired session');
-    }
     req.user = decoded;
-    req.session_id = session.session_id;
     next();
   } catch (error) {
     logger.error('Error in authentication middleware:', error);
@@ -39,6 +37,7 @@ const isAuthenticated = async (req, res, next) => {
     throw new AuthenticationError('Invalid token', error);
   }
 };
+
 
 const authorized = (allowedRoles = []) => (req, res, next) => {
   try {
