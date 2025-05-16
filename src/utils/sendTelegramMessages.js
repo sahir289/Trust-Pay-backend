@@ -234,6 +234,7 @@ export async function sendTelegramMessage(
   TELEGRAM_BOT_TOKEN,
   replyToMessageId,
 ) {
+  console.log(chatId, data, TELEGRAM_BOT_TOKEN, replyToMessageId);
   const message = `
       <b>UPI-AMOUNT:</b> ${data?.amount}
       <b>UTR-IDS:</b> ${data?.utr}
