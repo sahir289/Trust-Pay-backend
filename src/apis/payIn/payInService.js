@@ -1443,7 +1443,7 @@ export const processPayInService = async (
 
 export const telegramResponseService = async (conn, message) => {
   const { photo } = message;
-  console.log("message received");
+  console.log(message, "message received");
   const TELEGRAM_BOT_TOKEN = config.telegramOcrBotToken;
   console.log(TELEGRAM_BOT_TOKEN, 'TELEGRAM_BOT_TOKEN');
 
