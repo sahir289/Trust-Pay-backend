@@ -1010,6 +1010,10 @@ export const getPayinsService = async (
       }
     }
 
+    if (Array.isArray(filters?.bank_acc_id) && filters.bank_acc_id.length === 0) {
+      delete filters.bank_acc_id;
+    }
+
     conn = await getConnection();
     return await getPayInsDao(filters, company_id, page, limit, role);
   } catch (error) {
