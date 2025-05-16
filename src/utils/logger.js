@@ -65,7 +65,7 @@ class Logger {
     });
 
     // Add console transport for development with custom formatting
-    // if (env === 'development') {
+
       this.#logger.add(
         new winston.transports.Console({
           format: format.combine(
@@ -118,7 +118,6 @@ class Logger {
           ),
         })
       );
-    // }
   }
 
   log(level, message, meta) {
