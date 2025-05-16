@@ -443,6 +443,7 @@ export const assignedBankToPayInUrlService = async (
       status: Status.DROPPED,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
+      amount:null,
       req_amount: payIn.amount,
       utr_id: payIn.utr,
     });
@@ -683,8 +684,8 @@ export const updatePaymentNotificationStatusService = async (
       status: payIn.status,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
-      req_amount: payIn.amount,
       amount: bankResponse?.amount || null,
+      req_amount: payIn.amount,
       utr_id: bankResponse?.utr ? bankResponse.utr : payIn.user_submitted_utr, //--utr_id either bankres and payin
     });
   } else if (type === Type.PAYOUT) {

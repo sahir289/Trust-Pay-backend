@@ -290,7 +290,8 @@ const createBankResponseService = async (
           status: updatePayInDataRes.status,
           merchantOrderId: updatePayInDataRes.merchant_order_id,
           payinId: updatePayInDataRes.id,
-          amount: updatePayInDataRes.amount,
+          amount: botRes.amount,
+          req_amount: updatePayInDataRes.amount,
           utr_id: updatePayInDataRes.utr,
         });
      }
@@ -380,7 +381,8 @@ const createBankResponseService = async (
            status: updatePayin.status,
            merchantOrderId: updatePayin.merchant_order_id,
            payinId: updatePayin.id,
-           amount: updatePayin.amount,
+           amount: botRes.amount,
+           req_amount: updatePayin.amount,
            utr_id: updatePayin.utr,
          });
          return {
@@ -431,8 +433,8 @@ const createBankResponseService = async (
            status: updatePayInDataRes.status,
            merchantOrderId: updatePayInDataRes.merchant_order_id,
            payinId: updatePayInDataRes.id,
-           req_amount: updatePayInDataRes.amount,
            amount: botRes.amount,
+           req_amount: updatePayInDataRes.amount,
            utr_id: updatePayInDataRes.utr,
          });
       }
