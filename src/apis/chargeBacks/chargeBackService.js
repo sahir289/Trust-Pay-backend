@@ -95,8 +95,8 @@ const createChargeBackService = async (
           {
             total_chargeback_count: 1,
             total_chargeback_amount: amount,
-            current_balance: amount,
-            net_balance: amount,
+            current_balance:  - amount,
+            net_balance:  - amount,
           },
           conn,
         );
