@@ -5,6 +5,7 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
+import { logger } from '../../utils/logger.js';
 
 const getDesignationDao = async (
   filters,
@@ -18,7 +19,7 @@ const getDesignationDao = async (
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
-    console.error('Error in getDesignationDao:', error);
+    logger.error('Error in getDesignationDao:', error);
     throw error.message;
   }
 };
@@ -33,7 +34,7 @@ const createDesignationDao = async (conn, payload) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in createDesignationDao:', error);
+    logger.error('Error in createDesignationDao:', error);
     throw error.message;
   }
 };
@@ -44,7 +45,7 @@ const updateDesignationDao = async (id, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in updateDesignationDao:', error);
+    logger.error('Error in updateDesignationDao:', error);
     throw error.message;
   }
 };
@@ -55,7 +56,7 @@ const deleteDesignationDao = async (id, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in deleteDesignationDao:', error);
+    logger.error('Error in deleteDesignationDao:', error);
     throw error.message;
   }
 };
