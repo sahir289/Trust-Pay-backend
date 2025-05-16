@@ -31,7 +31,6 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
         logger.log(`INITIATED PayIn ${payin.id} FAILED due to timeout`);
       }
     }
-
     // Update ASSIGNED payins older than 10 minutes
     const payinsAssigned = await getPayInUrlsDao({ status: 'ASSIGNED' });
     for (const payin of payinsAssigned) {
