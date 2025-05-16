@@ -154,8 +154,8 @@ const getSettlementDao = async (
       ${limitcondition.value}
     `;
 
-    console.log('Final Query:', finalQuery); // Debug query
-    console.log('Query Params:', queryParams); // Debug params
+    // console.log('Final Query:', finalQuery); // Debug query
+    // console.log('Query Params:', queryParams); // Debug params
 
     const result = await executeQuery(finalQuery, queryParams);
     return result.rows;
