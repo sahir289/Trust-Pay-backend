@@ -146,7 +146,7 @@ const getSettlementDao = async (
          FROM public."${SETTLEMENT}" s
       JOIN public."${USER}" u ON s.user_id = u.id
       LEFT JOIN public."${ROLE}" r ON u.role_id = r.id
-      LEFT JOIN public."${BENEFICIARY_ACCOUNTS}" ba ON s.config->>'bank_name' = ba.id
+      LEFT JOIN public."${BENEFICIARY_ACCOUNTS}" ba ON s.config->>'bank_id' = ba.id
       WHERE ${conditions.join(' AND ')}
     `;
 
