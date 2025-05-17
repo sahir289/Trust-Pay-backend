@@ -425,6 +425,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     //       ? vendorColumns.PAYOUT
     //       : columns.PAYOUT;
      
+
+    const payoutDetails = await getPayoutsDao({utr_id: payload.utr_id}, ids.company_id);
+    if(payoutDetails.length > 0) {
+      throw new BadRequestError('UTR already exists');
+    }
     
     if (payload?.utr_id && !payload.status)
       Object.assign(payload, {

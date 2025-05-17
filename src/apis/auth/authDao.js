@@ -1,6 +1,7 @@
 import { tableName } from '../../constants/index.js';
 import { DbError } from '../../utils/appErrors.js';
 import { executeQuery } from '../../utils/db.js';
+import { logger } from '../../utils/logger.js';
 
 const addLoginDao = async (user_id, config, company_id, sessionId) => {
   try {
@@ -18,7 +19,7 @@ const addLoginDao = async (user_id, config, company_id, sessionId) => {
     const result = await executeQuery(sql, values);
     return result.rows?.[0] || undefined;
   } catch (error) {
-    console.error('Error in adding login details', error);
+    logger.error('Error in adding login details', error);
     throw error;
   }
 };
@@ -29,7 +30,7 @@ const getRefreshTokenDao = async (hashedToken, company_id) => {
     const result = await executeQuery(query, [hashedToken, company_id]);
     return result.rows?.[0] || undefined;
   } catch (error) {
-    console.error('Error in getting refresh token', error);
+    logger.error('Error in getting refresh token', error);
     throw new DbError('Error executing query to get refresh token');
   }
 };
@@ -40,33 +41,57 @@ const getLoginDao = async (user_id, company_id) => {
     const result = await executeQuery(query, [user_id, company_id]);
     return result.rows?.[0] || undefined;
   } catch (error) {
-    console.error('Error in getting login details', error);
-    throw new DbError('Error executing query to get login info');
-  }
-};
-
-const getSessionByIdDao = async (decodeToken, session_id, company_id) => {
-  try {
-    const query = `SELECT config FROM "${tableName.ACCESS_TOKEN}" WHERE user_id=$1 AND company_id=$2`;
-    const result = await executeQuery(query, [
-      decodeToken,
-      session_id,
-      company_id,
-    ]);
-    return result.rows?.[0] || undefined;
-  } catch (error) {
-    console.error('Error in getting login details', error);
+    logger.error('Error in getting login details', error);
     throw new DbError(error.message);
   }
 };
 
-const deleteUserSessionsDao = async (user_id, company_id) => {
+const getSessionByIdDao = async (decodeToken) => {
   try {
-    const query = `UPDATE "${tableName.ACCESS_TOKEN}" SET is_obsolete = TRUE WHERE user_id = $1 AND company_id = $2`;
-    const result = await executeQuery(query, [user_id, company_id]);
+    const query = `SELECT session_id, config FROM "${tableName.ACCESS_TOKEN}" WHERE user_id=$1 AND company_id=$2 and is_obsolete = false`;
+
+    const result = await executeQuery(query, [
+      decodeToken.user_id,
+      decodeToken.company_id,
+    ]);
     return result.rows?.[0] || undefined;
   } catch (error) {
-    console.error('Getting error while deleting user session', error);
+    logger.error('Error in getting session details', error);
+    throw new DbError(error.message);
+  }
+};
+
+const updateSessionDao = async (user_id, company_id, session_id, config) => {
+  const configData = JSON.stringify(config, (key, value) =>
+    typeof value === 'object' && value !== null
+      ? JSON.stringify(value)
+      : value,
+  );
+  try {
+    const query = `UPDATE "${tableName.ACCESS_TOKEN}" 
+                   SET config = $1 
+                   WHERE user_id = $2 AND company_id = $3 AND session_id = $4 AND is_obsolete = false`;
+    await executeQuery(query, [configData, user_id, company_id, session_id]);
+  } catch (error) {
+    logger.error('Error updating session', error);
+    throw new DbError(error.message);
+  }
+};
+
+const deleteUserSessionsDao = async (user_id, company_id, session_id) => {
+  try {
+    let query = `UPDATE "${tableName.ACCESS_TOKEN}" SET is_obsolete = true WHERE user_id = $1 AND company_id = $2`;
+    const params = [user_id, company_id];
+
+    if (session_id) {
+      query += ` AND session_id = $3`;
+      params.push(session_id);
+    }
+
+    const result = await executeQuery(query, params);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error while deleting user session:', error);
     throw error.message;
   }
 };
@@ -77,7 +102,7 @@ const changePasswordDao =async (id, password) => {
      const result = await executeQuery(query, [id, password]);
      return result;
   } catch (error) {
-    console.error('Getting error while deleting user session', error);
+    logger.error('Getting error while deleting user session', error);
     throw error.message;
   }
 }
@@ -87,6 +112,7 @@ export {
   getRefreshTokenDao,
   getLoginDao,
   getSessionByIdDao,
+  updateSessionDao,
   deleteUserSessionsDao,
   changePasswordDao,
   

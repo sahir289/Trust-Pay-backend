@@ -38,13 +38,13 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role) => {
     let commissionSelect = '';
     if (role === Role.MERCHANT) {
       commissionSelect = `
-        bea.ifsc AS ifsc_code,
+        bea.ifsc AS ifsc,
         bea.user_id,
         creator.user_name AS created_by, 
         updater.user_name AS updated_by`;
     } else if (role === Role.VENDOR) {
       commissionSelect = `
-        bea.ifsc AS ifsc_code,
+        bea.ifsc AS ifsc,
         bea.user_id,
         creator.user_name AS created_by, 
         updater.user_name AS updated_by`;

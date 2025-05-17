@@ -2,6 +2,7 @@ import express from 'express';
 import collectBankData from './bankCron.js';
 import collectCalculationData from './calculationCron.js';
 import collectPayinData from './notifyCron.js';
+// import  checkPendingStatus  from './pendingPayinCron.js';
 const router = express.Router();
 
 /**
@@ -65,7 +66,18 @@ router.get(
   },
   collectCalculationData,
 );
-
+// router.get(
+//   '/checkPendingStatus',
+//   (req, res) => {
+//     checkPendingStatus('Asia/Kolkata');
+//     console.log(
+//       'Calling pending payins CRONJOB with timezone: Asia/Kolkata',
+//     );
+//     res.json({ message: 'Cron job is running for pending status' });
+//   },
+//   checkPendingStatus,
+// );
+// ;
 /**
  * @swagger
  * /notifyPayinDroppedCron:

@@ -9,7 +9,7 @@ import { ValidationError } from '../../utils/appErrors.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { getPayInUrlsDao, updatePayInUrlDao } from '../payIn/payInDao.js';
 import { getBankResponseDao, updateBotResponseDao } from './bankResponseDao.js';
-
+import { updateCalculationTable } from '../payIn/payInService.js';
 import {
   getBankResponseService,
   getClaimResponseService,
@@ -22,7 +22,15 @@ import { BadRequestError } from '../../utils/appErrors.js';
 
 import { transactionWrapper } from '../../utils/db.js';
 import { Role, Status } from '../../constants/index.js';
+import { calculateCommission } from '../../utils/calculation.js';
+import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
+// import { getBankAccountService } from '../bankAccounts/bankaccountService.js';
 
+import {
+  getBankaccountDao,
+  updateBankaccountDao,
+} from '../bankAccounts/bankaccountDao.js';
+import { getVendorsDao } from '../vendors/vendorDao.js';
 const getBankResponse = async (req, res) => {
   const { role, company_id } = req.user;
   const { page, limit, search } = req.query;
@@ -138,12 +146,12 @@ const resetBankResponse = async (req, res) => {
   const { company_id, user_name } = req.user;
   const { id } = req.params;
   const { amount } = req.body;
-
+   
   const { error: bodyError } = RESET_BANK_RESPONSE_SCHEMA.validate(req.body);
   if (bodyError) {
     throw new ValidationError(bodyError);
   }
-
+  
   const botRes = await getBankResponseDao({ id: id, company_id: company_id });
   const previousAmount = botRes?.amount;
   let getallPayinDataByUtr;
@@ -192,8 +200,43 @@ const resetBankResponse = async (req, res) => {
     if (typeof amount === 'number' && !isNaN(amount)) {
       data.amount = amount;
     }
-
-    await updateBotResponseDao(id, data);
+   
+    const update = await updateBotResponseDao(id, data);
+    if (update.config.previousAmount) {
+      const bankdetails = await getBankaccountDao({ id: botRes.bank_id });
+      const bank = bankdetails[0];
+      const vendor = await getVendorsDao({ user_id: bank.user_id });
+      const vendorData = vendor[0];
+      let updatedAmount;
+      if (botRes.amount > update.amount) {
+        updatedAmount = `-${Math.abs(botRes.amount - update.amount)}`;
+      } else {
+        updatedAmount = `+${Math.abs(update.amount - botRes.amount)}`;
+      }
+      const payinVendorCommission = calculateCommission(
+        updatedAmount,
+        vendorData.payin_commission,
+      );
+      await updateCalculationTable(vendorData.user_id, {
+        payinCommission: payinVendorCommission,
+        amount: updatedAmount,
+      });      
+      const newBalance = parseFloat(bank.balance) + parseFloat(updatedAmount);
+      const newTodayBalance =
+        parseFloat(bank.today_balance) + parseFloat(updatedAmount);
+      const res = await updateBankaccountDao(
+        { id: bank.id },
+        {
+          balance: newBalance,
+          today_balance: newTodayBalance,
+        },
+      );
+      await updateBankaccountService(
+        undefined,
+        { id: bank.id, company_id: res.company_id },
+        { latest_balance: res.today_balance },
+      );
+    }
 
     if (amount) {
       const isEqualUTR = getallPayinDataByUtr?.some(
