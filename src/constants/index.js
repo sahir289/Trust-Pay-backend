@@ -15,6 +15,7 @@ export const Status = {
   FAILED: 'FAILED',
   USER_DROPPED: 'USER_DROPPED',
   APPROVED: 'APPROVED',
+  BOT: '/success',
 };
 
 export const Currency = {

@@ -22,6 +22,7 @@ import {
   columns,
   merchantColumns,
   Role,
+  Status,
   vendorColumns,
 } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
@@ -196,7 +197,7 @@ const createSettlementService = async (conn, payload) => {
   try {
     if (payload.method === 'INTERNAL_QR_TRANSFER' || payload.method === 'INTERNAL_BANK_TRANSFER') {
       const bankResponses = await getBankResponseByUTR(payload?.config?.utr)
-      if (bankResponses.is_used === false) {
+      if (bankResponses.is_used === false && bankResponses.status === Status.BOT) {
         await updateBankResponseDao({id: bankResponses.id}, {status: '/internalTransfer'})
         
         // Get calculation data for updating balance
@@ -245,6 +246,9 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       null,
       null
     );
+    if (data.config.reference_id === payload.config.reference_id) {
+      throw new BadRequestError('UTR already exists');
+    }
     const calculationData = await getCalculationforCronDao(data[0].user_table_id);
 // if status is success and updating , it will directly be in rejected
     if(payload.status === 'SUCCESS'){
