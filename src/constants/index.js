@@ -450,6 +450,7 @@ export const vendorColumns = {
     'user_name',
     'code',
     'config',
+    'craeted_at', //-- need bank details within date range
   ],
   SETTLEMENT: ['id', 'sno', 'status', 'amount', 'method', 'config'],
   CALCULATION: [
