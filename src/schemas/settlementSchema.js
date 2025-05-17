@@ -51,6 +51,7 @@ export const UPDATE_SETTLEMENT_SCHEMA = Joi.object({
     acc_holder_name: Joi.string().label('acc_holder_name').optional(),
     bank_name: Joi.string().label('bank_name').optional(),
     bank_id:Joi.string().label('bank_name').optional(),
+    beneficiary_bank_name: Joi.string().label('beneficiary_bank_name').optional(),
     description: Joi.string().label('description').optional(),  //-- allow adding in config
   }).label('config').optional(),
 
