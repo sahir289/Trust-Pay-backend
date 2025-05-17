@@ -16,7 +16,7 @@ const getSettlementDao = async (
   columns = []
 ) => {
   try {
-    const { SETTLEMENT, USER, ROLE } = tableName;
+    const { SETTLEMENT, USER, ROLE, BENEFICIARY_ACCOUNTS } = tableName;
 
     const conditions = [`s.is_obsolete = false`];
     const queryParams = [];
@@ -129,16 +129,24 @@ const getSettlementDao = async (
     const columnSelection = columns.length > 0 
       ? columns.map(col => `s.${col}`).join(', ')
       : `s.*`;
+//fetching bank name 
     const baseQuery = `
       SELECT DISTINCT ON (s.sno)
         ${columnSelection},
         u.role_id,
         u.designation_id,
+        r.role,
         u.id AS user_table_id,
-        u.code
+        u.code,
+        jsonb_set(
+        s.config::jsonb,
+        '{beneficiary_bank_name}',
+        to_jsonb(COALESCE(ba.bank_name, s.config->>'bank_name'))
+        ) AS config
          FROM public."${SETTLEMENT}" s
       JOIN public."${USER}" u ON s.user_id = u.id
       LEFT JOIN public."${ROLE}" r ON u.role_id = r.id
+      LEFT JOIN public."${BENEFICIARY_ACCOUNTS}" ba ON s.config->>'bank_name' = ba.id
       WHERE ${conditions.join(' AND ')}
     `;
 
