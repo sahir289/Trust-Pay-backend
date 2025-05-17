@@ -59,7 +59,7 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs) => {
       params.push(filters.user_id);
       paramIndex++;
       if (filters?.startDate && filters?.endDate) {
-        query += ` AND ("${tablename}".created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+        query += ` AND "${tablename}".created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
         params.push(filters.startDate, filters.endDate);
         paramIndex += 2;
       }

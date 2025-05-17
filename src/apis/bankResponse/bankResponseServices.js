@@ -250,6 +250,7 @@ const createBankResponseService = async (
         null,
         null,
         filterColumns,
+        role,
       );
       const botUtrIsUsed =
         getDataByUtr.rows.length > 1 &&
@@ -550,6 +551,7 @@ const getBankResponseService = async (payload, role, page, limit, search) => {
        payload.sort_by || 'created_at',
       'DESC',
       filterColumns,
+      role,
     );
   } catch (error) {
     logger.error('Error in getBankResponseService:', error);
