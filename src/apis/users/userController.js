@@ -25,7 +25,6 @@ const getUsers = async (req, res) => {
     role, page, limit,
     designation,user_id
   );
-  logger.log('getUsers successfully');
   return sendSuccess(res, data, 'getUsers successfully');
 };
 
@@ -47,7 +46,6 @@ const getUsersBySearch = async (req, res) => {
     designation,
     user_id,
   );
-  logger.log('get Users successfully');
   return sendSuccess(res, data, 'Users fetched successfully');
 };
 
@@ -60,7 +58,6 @@ const getUsersByUserName = async (req, res) => {
     throw new BadRequestError('Username is required');
   }
   const data = await getUsersByUserNameService(username, ids, role);
-  logger.log('getUsers successfully');
   return sendSuccess(res, data, 'getUsers successfully');
 };
 
@@ -69,7 +66,6 @@ const getUserById = async (req, res) => {
   const { id } = req.params;
   const ids = { role_id, designation_id, company_id, id };
   const data = await getUserByIdService(ids, role);
-  logger.log('get User by id successfully');
   return sendSuccess(res, data, 'getting User by id successfully');
 };
 

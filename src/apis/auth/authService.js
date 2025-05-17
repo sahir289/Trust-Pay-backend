@@ -8,28 +8,30 @@ import {
 import { createHash, verifyHash } from '../../utils/bcryptPassword.js';
 import os from 'os';
 import { getConnection } from '../../utils/db.js';
-import {
-  getUserByIdDao,
-  getUsersByUserNameDao,
-  updateUserDao,
-} from '../users/userDao.js';
+import { getUsersByUserNameDao, updateUserDao } from '../users/userDao.js';
 import { generateUserToken } from '../../utils/auth.js';
 import {
   addLoginDao,
   deleteUserSessionsDao,
-  getRefreshTokenDao,
   getSessionByIdDao,
   changePasswordDao,
 } from './authDao.js';
-import { createUserOtpDao ,getUserOtpDao,updateUserOtpDao} from '../userOtp/userOtpDao.js';
+import {
+  createUserOtpDao,
+  getUserOtpDao,
+  updateUserOtpDao,
+} from '../userOtp/userOtpDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { generateOTP } from '../../utils/generateOtp.js';
 import { forceLogoutUser } from '../../utils/sockets.js';
 import { sendOTP } from '../../utils/sendMailer.js';
+import { logger } from '../../utils/logger.js';
+import { compareHash } from '../../utils/hashUtils.js';
+
 const loginService = async (config, clientIP) => {
   let conn;
   try {
-    let user = await getUsersByUserNameDao({},config.username);
+    let user = await getUsersByUserNameDao({}, config.username);
     if (!user) {
       throw new NotFoundError(
         'Invalid Credentials. Please check your credentials and try again.',
@@ -38,6 +40,7 @@ const loginService = async (config, clientIP) => {
     if (!user.is_enabled) {
       throw new AccessDeniedError('User is not active');
     }
+
     let isLoginSecondFlag = false;
     // Handle password update for newPassword
     if (config.newPassword) {
@@ -48,7 +51,7 @@ const loginService = async (config, clientIP) => {
         );
       }
       const hashedPassword = await createHash(config.newPassword);
-      conn = await getConnection(); 
+      conn = await getConnection();
       await updateUserDao(
         { id: user.id },
         {
@@ -78,9 +81,21 @@ const loginService = async (config, clientIP) => {
     }
 
     // Proceed with session and token generation for non-first login
-    conn = conn || (await getConnection()); 
-    const sessionId = generateUUID();
+    conn = conn || (await getConnection());
+    const userDetails = {
+      user_id: user.id,
+      company_id: user.company_id,
+    };
 
+    const userSession = await getSessionByIdDao(userDetails);
+
+    let sessionId;
+    // if user session already exists, skipping session creation
+    if (userSession) {
+      sessionId = userSession.session_id;
+    } else {
+      sessionId = generateUUID();
+    }
     await deleteUserSessionsDao(user.id, user.company_id);
 
     const tokenInfo = generateUserToken(user);
@@ -93,12 +108,15 @@ const loginService = async (config, clientIP) => {
         network_interface: Object.values(os.networkInterfaces())[0]?.[0],
         cpu_cores: os.cpus()[0],
       },
-      token: { refresh_token: hashedToken },
+      token: {
+        access_token: tokenInfo.accessToken,
+        refresh_token: hashedToken,
+      },
       confirm_over_ride: config.confirmOverRide,
     };
     await addLoginDao(user.id, newConfig, user.company_id, sessionId);
 
-    // **Notify previous sessions to log out**
+    // notify previous sessions to log out
     forceLogoutUser(user.id);
 
     return {
@@ -106,39 +124,42 @@ const loginService = async (config, clientIP) => {
       sessionId,
     };
   } catch (error) {
-   if (error instanceof NotFoundError || error instanceof AccessDeniedError) {
-     throw error; 
-   }
-   throw new BadRequestError('Error getting while logging in');
+    throw new BadRequestError('Error getting while logging in', error);
   } finally {
     if (conn) {
       try {
         conn.release();
       } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
+        logger.error('Error while releasing the connection', releaseError);
       }
     }
   }
 };
 
-const refreshTokenService = async (refreshToken) => {
+const refreshTokenService = async (user_id, company_id, refreshToken) => {
   let conn;
   try {
-    const hashedToken = await createHash(refreshToken);
-    const storedToken = await getRefreshTokenDao(hashedToken);
-    if (!storedToken) {
-      throw new BadRequestError('Invalid Refresh Token');
+    const session = await getSessionByIdDao({ user_id, company_id });
+    if (!session) {
+      throw new AuthenticationError('No active session found');
     }
-    const user = await getUserByIdDao(conn, storedToken.user_id);
-    const tokenInfo = generateUserToken(user);
-    return tokenInfo;
+
+    const config = JSON.parse(session.config);
+    const isValid = compareHash(refreshToken, config.token.refresh_token);
+    if (!isValid) {
+      throw new AuthenticationError('Invalid refresh token');
+    }
+    return session;
   } catch (error) {
-    console.log('Error getting while getting refresh token', error);
-  } if (conn) {
-    try {
-      conn.release();
-    } catch (releaseError) {
-      console.error('Error while releasing the connection', releaseError);
+    logger.log('Error getting :', error);
+    throw new BadRequestError(error.message);
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        logger.error('Error while releasing the connection', releaseError);
+      }
     }
   }
 };
@@ -147,18 +168,20 @@ const logoutService = async (decodeToken, session_id) => {
   let conn;
   try {
     conn = await getConnection();
-    console.log(decodeToken, session_id);
-    const user = await getSessionByIdDao(conn, decodeToken, session_id);
-    const tokenInfo = generateUserToken(user);
-    return tokenInfo;
+    const data = await deleteUserSessionsDao(
+      decodeToken.user_id,
+      decodeToken.company_id,
+      session_id,
+    );
+    return data;
   } catch (error) {
-    console.log('Error getting while getting refresh token', error);
+    logger.error('Error getting while logout', error);
   } finally {
     if (conn) {
       try {
         conn.release();
       } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
+        logger.error('Error while releasing the connection', releaseError);
       }
     }
   }
@@ -168,13 +191,16 @@ const changePasswordService = async (payload) => {
   let conn;
   try {
     conn = await getConnection();
-    const userDetials = {user_name:payload.user_name, password:payload.oldPassword}
+    const userDetials = {
+      user_name: payload.user_name,
+      password: payload.oldPassword,
+    };
     const verified = await verificationService(payload.user_id, userDetials);
     if (!verified) {
-       throw new AuthenticationError('Invalid Password');
+      throw new AuthenticationError('Invalid Password');
     }
-    const newPassword =await createHash(payload.password)
-    const user = await changePasswordDao(payload.user_id,newPassword);
+    const newPassword = await createHash(payload.password);
+    const user = await changePasswordDao(payload.user_id, newPassword);
     return user;
   } catch (error) {
     console.log('Error getting while changing password', error);
@@ -189,37 +215,48 @@ const changePasswordService = async (payload) => {
   }
 };
 
-const verificationService = async (id, payload) => {
-try {
- const userDetails = await getUsersByUserNameDao(id, payload.user_name );
- const isPasswordValid = await verifyHash(payload.password, userDetails.password);
- if (!isPasswordValid) {
-   throw new AuthenticationError('Invalid Password');
- }
-  return userDetails;
-   } catch (error) {
-  console.log('Error getting while changing password', error);
-   } 
-}
+const verificationService = async (ids, payload) => {
+  try {
+    const userDetails = await getUsersByUserNameDao(ids, payload.user_name);
+    const isPasswordValid = await verifyHash(
+      payload.password,
+      userDetails.password,
+    );
+    if (!isPasswordValid) {
+      throw new AuthenticationError('Invalid Password');
+    }
+    return userDetails;
+  } catch (error) {
+    console.log('Error getting while changing password', error);
+  }
+};
 const forgetPasswordService = async (payload) => {
   try {
-    const hashPassword = await createHash(payload.password)
-    const user =await updateUserDao({ id: payload.user_id },{ password: hashPassword });
+    const hashPassword = await createHash(payload.password);
+    const user = await updateUserDao(
+      { id: payload.user_id },
+      { password: hashPassword },
+    );
     return user;
   } catch (error) {
     console.log('Error getting while forgetting password', error);
   }
 };
-const verfyUserService = async ( user_name) => {
+const verfyUserService = async (user_name) => {
   try {
-    let userDetails = await getUsersByUserNameDao({},user_name);
+    let userDetails = await getUsersByUserNameDao({}, user_name);
     if (!userDetails) {
       throw new AuthenticationError(`Invalid User`);
     }
     const otp = generateOTP();
-    await sendOTP(userDetails.email, otp, userDetails.user_name,userDetails.designation);
+    await sendOTP(
+      userDetails.email,
+      otp,
+      userDetails.user_name,
+      userDetails.designation,
+    );
     const now = new Date();
-    const expirationDate = new Date(now.getTime() + 10 * 60 * 1000); 
+    const expirationDate = new Date(now.getTime() + 10 * 60 * 1000);
     const payload = {
       user_id: userDetails.id,
       otp: otp,
@@ -232,28 +269,28 @@ const verfyUserService = async ( user_name) => {
   }
 };
 const verfyOtpService = async (otp) => {
-   try {
-     let userDetails = await getUserOtpDao(otp);
-     if (!userDetails) {
-        throw new AuthenticationError(`Please Enter Vaild OTP`);
-     }
-     const expiration = userDetails?.expiration_time;
-     const now = new Date();
-     if (now >= expiration) {
-       throw new AuthenticationError(`Expired Otp`);
-     }
-     else if (userDetails.is_used) {
-       throw new AuthenticationError(`Please Enter New Otp`);
-     }
-     else {
-       await updateUserOtpDao({ user_id: userDetails.user_id }, { is_used: true });
-       return {id:userDetails.user_id
-     };
-     }
-   } catch (error) {
-     console.log('Error while verifying otp', error);
-   }
- }
+  try {
+    let userDetails = await getUserOtpDao(otp);
+    if (!userDetails) {
+      throw new AuthenticationError(`Please Enter Vaild OTP`);
+    }
+    const expiration = userDetails?.expiration_time;
+    const now = new Date();
+    if (now >= expiration) {
+      throw new AuthenticationError(`Expired Otp`);
+    } else if (userDetails.is_used) {
+      throw new AuthenticationError(`Please Enter New Otp`);
+    } else {
+      await updateUserOtpDao(
+        { user_id: userDetails.user_id },
+        { is_used: true },
+      );
+      return { id: userDetails.user_id };
+    }
+  } catch (error) {
+    console.log('Error while verifying otp', error);
+  }
+};
 export {
   loginService,
   refreshTokenService,
@@ -262,5 +299,5 @@ export {
   logoutService,
   verfyUserService,
   verfyOtpService,
-  forgetPasswordService
+  forgetPasswordService,
 };

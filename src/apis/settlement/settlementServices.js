@@ -22,6 +22,7 @@ import {
   columns,
   merchantColumns,
   Role,
+  Status,
   vendorColumns,
 } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
@@ -203,7 +204,7 @@ const createSettlementService = async (conn, payload) => {
         throw new NotFoundError('Bank response not found for the provided UTR');
       }
 
-      if (bankResponses.is_used === false) {
+      if (bankResponses.is_used === false && bankResponses.status === Status.BOT) {
         // Get vendor and calculation data
         const [vendorData, calculationData] = await Promise.all([
           getVendorsDao({ user_id: payload.user_id }),
@@ -277,6 +278,10 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       null,
       null
     );
+    //getting error refernce_id undefined fixed when approving settleemnt
+    if (payload.config.reference_id !== undefined && data[0]?.config?.reference_id === payload.config.reference_id) { 
+      throw new BadRequestError(`UTR already exists`);
+    }
     const calculationData = await getCalculationforCronDao(data[0].user_table_id);
 // if status is success and updating , it will directly be in rejected
     if(payload.status === 'SUCCESS'){

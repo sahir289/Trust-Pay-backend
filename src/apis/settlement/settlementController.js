@@ -138,6 +138,7 @@ const createSettlementController = async (req, res) => {
        acc_no:  payload.acc_no,
        acc_holder_name: payload.acc_holder_name,
        bank_name:  payload.bank_name,
+       bank_id:  payload.bank_id,
        amount: payload.amount,
        utr: payload.utr      
     }

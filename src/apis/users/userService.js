@@ -238,7 +238,6 @@ const getUserByIdService = async (ids, role) => {
     conn = await getConnection();
     const result = await getUserByIdDao(conn, ids);
 
-    logger.log('get User by id successfully');
     const finalResult = filterResponse(result, filterColumns);
     return finalResult;
   } catch (error) {

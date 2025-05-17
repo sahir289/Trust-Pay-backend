@@ -15,6 +15,7 @@ export const Status = {
   FAILED: 'FAILED',
   USER_DROPPED: 'USER_DROPPED',
   APPROVED: 'APPROVED',
+  BOT: '/success',
 };
 
 export const Currency = {
@@ -450,6 +451,7 @@ export const vendorColumns = {
     'user_name',
     'code',
     'config',
+    'craeted_at', //-- need bank details within date range
   ],
   SETTLEMENT: ['id', 'sno', 'status', 'amount', 'method', 'config'],
   CALCULATION: [
@@ -527,7 +529,7 @@ export const vendorColumns = {
     'status',
     'bank_id',
     'amount',
-    'api_short_code',
+    // 'api_short_code',
     'utr',
     'is_used',
     'config',
