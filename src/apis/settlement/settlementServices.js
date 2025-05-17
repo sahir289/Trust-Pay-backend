@@ -247,7 +247,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       null
     );
     //getting error refernce_id undefined fixed when approving settleemnt
-    if (data[0].config.reference_id === payload.config.reference_id) { 
+    if (payload.config.reference_id !== undefined && data[0]?.config?.reference_id === payload.config.reference_id) { 
       throw new BadRequestError(`UTR already exists`);
     }
     const calculationData = await getCalculationforCronDao(data[0].user_table_id);
