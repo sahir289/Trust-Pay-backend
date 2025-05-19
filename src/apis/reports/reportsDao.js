@@ -130,7 +130,7 @@ WITH filtered_payins AS (
       parameters.push(startDate, endDate);
     }
 
-    query += ` ORDER BY u.id DESC ) SELECT * FROM filtered_payins ORDER BY updated_at DESC;`;  //--sorting by codes than created_at
+    query += ` ORDER BY pi.id DESC ) SELECT * FROM filtered_payins ORDER BY updated_at DESC;`;  //--sorting by codes than created_at
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
@@ -198,7 +198,7 @@ WITH filtered_payins AS (
       parameters.push(startDate, endDate);
     }
 
-    query += ` ORDER BY u.id DESC ) SELECT * FROM filtered_payins ORDER BY updated_at DESC;`;  //--sorting by codes than created_at
+    query += ` ORDER BY po.id DESC ) SELECT * FROM filtered_payins ORDER BY updated_at DESC;`;  //--sorting by codes than created_at
 
     const result = await executeQuery(query, parameters);
     return result.rows;
@@ -262,7 +262,7 @@ if (startDate && endDate) {
   parameters.push(startDate, endDate);
 }
 
-query += ` ORDER BY u.id DESC ) SELECT * FROM filtered_payins ORDER BY updated_at DESC;`;  //--sorting by codes than created_at
+query += ` ORDER BY po.id DESC ) SELECT * FROM filtered_payins ORDER BY updated_at DESC;`;  //--sorting by codes than created_at
 
 const result = await executeQuery(query, parameters);
 return result.rows;
