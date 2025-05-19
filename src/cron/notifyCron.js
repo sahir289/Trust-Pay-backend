@@ -13,7 +13,6 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
     .clone()
     .subtract(10, 'minutes')
     .toISOString();
-
   try {
     // Get payins already DROPPED but not notified
     const payinsDropped = await getPayInUrlsDao({
@@ -23,7 +22,7 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
     // Update INITIATED payins older than 10 minutes
     const payinsInitiated = await getPayInUrlsDao({ status: 'INITIATED' });
     for (const payin of payinsInitiated) {
-      if (new Date(payin?.created_at) < new Date(expireTime)) {
+      if (new Date(payin?.created_at) <= new Date(expireTime)) {
         await updatePayInUrlDao(payin.id, {
           status: 'FAILED',
           is_url_expires: true,
@@ -34,7 +33,7 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
     // Update ASSIGNED payins older than 10 minutes
     const payinsAssigned = await getPayInUrlsDao({ status: 'ASSIGNED' });
     for (const payin of payinsAssigned) {
-      if (new Date(payin?.created_at) < new Date(expireTime)) {
+      if (new Date(payin?.updated_at) <= new Date(expireTime)) {
         const updatedData = {
           status: 'DROPPED',
           is_url_expires: true,
