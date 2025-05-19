@@ -19,7 +19,9 @@ import {
   validatePayInUrl,
   generateHashForPayIn,
   getPayinsBySearch,
-  generateUpiUrl
+  generateUpiUrl,
+  updateUtrPayins,
+  checkPendingPayinStatus,
 } from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
@@ -374,6 +376,13 @@ router.put(
  *         description: Internal server error
  */
 router.get('/', tryCatchHandler(getPayins));
+
+router.put('/updateFailedPayinUtr/:id', tryCatchHandler(updateUtrPayins));
+
+router.post(
+  '/checkPendingPayinStatus',
+  tryCatchHandler(checkPendingPayinStatus),
+);
 
 router.get('/search', tryCatchHandler(getPayinsBySearch));
 
