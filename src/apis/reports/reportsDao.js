@@ -1,4 +1,4 @@
-import { tableName } from '../../constants/index.js';
+import { Role, tableName } from '../../constants/index.js';
 import {
   buildSelectQuery,
   executeQuery,
@@ -9,9 +9,10 @@ const getPayInMerchantReportDao = async (
   merchant_id,
   startDate,
   endDate,
-  company_id
+  company_id, role
 ) => {
   try {
+
     let commissionSelect = `u.payin_merchant_commission,
         json_build_object(
           'merchant_code', r.code,
@@ -24,6 +25,11 @@ const getPayInMerchantReportDao = async (
       u.updated_by, 
       u.created_at, 
       u.updated_at`;
+
+      if(role === Role.ADMIN){
+        commissionSelect += `v.code AS vendor_code,
+      u.payin_vendor_commission `;
+      }
 
     let query = `
 WITH filtered_payins AS (
@@ -49,6 +55,7 @@ WITH filtered_payins AS (
         FROM public."Payin" u
         LEFT JOIN public."Merchant" r ON u.merchant_id = r.id
         LEFT JOIN public."BankAccount" b ON u.bank_acc_id = b.id
+        LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
         LEFT JOIN public."BankResponse" br ON u.bank_response_id = br.id
         WHERE u.company_id = $1`;
 
@@ -103,7 +110,9 @@ WITH filtered_payins AS (
         pi.user_submitted_image,
         pi.duration,
         pi.config AS payin_details,
-        b.nick_name, m.code AS merchant_code,
+        b.nick_name,
+        v.code AS vendor_code,
+
         ${commissionSelect},
         json_build_object(
             'utr', br.utr,
@@ -143,7 +152,7 @@ const getPayOutMerchantReportDao = async (
   merchant_id,
   startDate,
   endDate,
-  company_id,
+  company_id, role
 ) => {
   try {
     let commissionSelect = `po.payout_merchant_commission,
@@ -159,6 +168,9 @@ const getPayOutMerchantReportDao = async (
       po.created_at, 
       po.updated_at`;
 
+      if(role === Role.ADMIN){
+        commissionSelect += ` ve.code AS vendor_code`;
+      }
     let query = `
 WITH filtered_payins AS (
         SELECT DISTINCT ON (po.id)
@@ -168,7 +180,6 @@ WITH filtered_payins AS (
         po.status,
         po.merchant_order_id,
         po.user,
-        ve.code as vendor_code,
         po.config AS payout_details,
         b.nick_name,
         ${commissionSelect},
@@ -208,22 +219,34 @@ WITH filtered_payins AS (
   }
 };
 
-const getPayOutVendorReportDao = async (id, startDate, endDate, company_id) => {
+const getPayOutVendorReportDao = async (id, startDate, endDate, company_id, role) => {
   try {
-    let commissionSelect = `po.payout_merchant_commission,
+    let commissionSelect =``;
+    if (role === Role.MERCHANT) {
+      commissionSelect += `po.payout_merchant_commission,
+    json_build_object(
+      'merchant_code', me.merchant_code,
+      'return_url', me.config->>'return_url',
+      'notify_url', me.config->>'notify_url'
+  ) AS merchant_details`};
+    if (role === Role.VENDOR) {
+      commissionSelect +=`ve.code AS vendor_code`};
+    if (role === Role.ADMIN) {
+      commissionSelect += `po.payout_merchant_commission,
     json_build_object(
       'merchant_code', me.code,
       'return_url', me.config->>'return_url',
       'notify_url', me.config->>'notify_url'
   ) AS merchant_details, 
+   ve.code AS vendor_code,
   po.payout_vendor_commission, 
   po.approved_at, 
   po.created_by, 
   po.updated_by, 
   po.created_at, 
   po.updated_at`;
-
-let query = `
+    }
+    let query = `
 WITH filtered_payins AS (
     SELECT DISTINCT ON (po.id)
     po.id,
@@ -232,7 +255,6 @@ WITH filtered_payins AS (
     po.status,
     po.merchant_order_id,
     po.user,
-    ve.code as vendor_code,
     po.config AS payout_details,
     b.nick_name,
     ${commissionSelect},
@@ -248,24 +270,24 @@ WITH filtered_payins AS (
     LEFT JOIN public."Vendor" ve ON ve.user_id = b.user_id
     WHERE po.company_id = $1`;
 
-let parameters = [company_id];
-let paramIndex = parameters.length + 1;
+    let parameters = [company_id];
+    let paramIndex = parameters.length + 1;
 
-if (id) {
-  query += ` AND po.vendor_id = $${paramIndex}`;
-  parameters.push(id);
-  paramIndex++;
-}
+    if (id) {
+      query += ` AND po.vendor_id = $${paramIndex}`;
+      parameters.push(id);
+      paramIndex++;
+    }
 
-if (startDate && endDate) {
-  query += ` AND po.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
-  parameters.push(startDate, endDate);
-}
+    if (startDate && endDate) {
+      query += ` AND po.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      parameters.push(startDate, endDate);
+    }
 
-query += ` ORDER BY po.id DESC ) SELECT * FROM filtered_payins ORDER BY updated_at DESC;`;  //--sorting by codes than created_at
+    query += ` ORDER BY po.id DESC ) SELECT * FROM filtered_payins ORDER BY updated_at DESC;`;  //--sorting by codes than created_at
 
-const result = await executeQuery(query, parameters);
-return result.rows;
+    const result = await executeQuery(query, parameters);
+    return result.rows;
   } catch (error) {
     console.error('Error in getPayOutVendorReportDao:', error);
     throw error.message;
@@ -296,7 +318,6 @@ const getPayinReportDao = async (
     throw error.message;
   }
 };
-
 
 const getPayOutAll = async (filters, page, pageSize, sortBy, sortOrder) => {
   try {
