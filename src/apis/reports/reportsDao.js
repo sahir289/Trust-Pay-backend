@@ -24,7 +24,7 @@ const getPayInMerchantReportDao = async (
       u.created_by, 
       u.updated_by, 
       u.created_at, 
-      u.updated_at,`;
+      u.updated_at`;
 
       if(role === Role.ADMIN){
         commissionSelect += `v.code AS vendor_code,
