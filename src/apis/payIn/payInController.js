@@ -36,6 +36,8 @@ import {
   getPayinsBySearchService,
   verifyPayinsService,
   generateUpiUrlService,
+  updateUtrPayinService,
+  checkPendingPayinStatusService,
 } from './payInService.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
@@ -475,6 +477,34 @@ export const disputeDuplicateTransaction = async (req, res) => {
   sendSuccess(res, data, 'PayIn Updated successfully');
 };
 
+export const updateUtrPayins = async (req, res) => {
+  const { id } = req.params;
+  const { user_id,company_id,user_name } = req.user;
+  const data = await transactionWrapper(updateUtrPayinService)(
+    id,
+    user_id,
+    company_id,
+  );
+  sendSuccess(
+    res,
+    { id: data.id, updated_by: user_name },
+    'PayIn Updated successfully',
+  );
+};
+export const checkPendingPayinStatus = async (req, res) => {
+  const  payload  = req.body;
+  const { user_id, company_id, user_name } = req.user;
+  const data = await transactionWrapper(checkPendingPayinStatusService)(
+    user_id,
+    company_id,
+    payload
+  );
+  sendSuccess(
+    res,
+    { id: data.id, checked_by: user_name },
+    'PayIn Status Checked Successfully',
+  );
+};
 export const telegramCheckUTR = async (req, res) => {
   const { utr, merchantOrderId } = req.body;
   const joiValidation = VALIDATE_CHECK_UTR.validate(req.body);
