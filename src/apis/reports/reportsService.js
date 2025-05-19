@@ -16,7 +16,7 @@ import {
 
 const getPayInReportService = async (req, res) => {
   try {
-    const { company_id } = req.user;
+    const { company_id, role } = req.user;
     const { code, startDate, endDate } = req.query;
     //for same date take 24 hours range  -- dates formatting as per db -- for both vendor and merchant
     const startDateTime = moment.tz(`${startDate} 00:00:00`, 'Asia/Kolkata').toISOString();
@@ -34,7 +34,7 @@ const getPayInReportService = async (req, res) => {
       merchantData
         .map((merchant_id) => {
           if (merchant_id?.length > 0) {
-            return getPayInMerchantReportDao(merchant_id[0].id, startDateTime, endDateTime, company_id);
+            return getPayInMerchantReportDao(merchant_id[0].id, startDateTime, endDateTime, company_id, role);
           }
           return null;
         })
@@ -84,7 +84,7 @@ const getPayInReportService = async (req, res) => {
 
 const getPayOutReportService = async (req, res) => {
   try {
-    const { company_id } = req.user;
+    const { company_id, role } = req.user;
     const { code, startDate, endDate } = req.query;
     //optimised apis for faster 
     const startDateTime = moment.tz(`${startDate} 00:00:00`, 'Asia/Kolkata').toISOString();
@@ -102,7 +102,7 @@ const getPayOutReportService = async (req, res) => {
       merchantData
         .map((merchant_id) => {
           if (merchant_id?.length > 0) {
-            return getPayOutMerchantReportDao(merchant_id[0].id, startDateTime, endDateTime, company_id);
+            return getPayOutMerchantReportDao(merchant_id[0].id, startDateTime, endDateTime, company_id, role);
           }
           return null;
         })
@@ -119,7 +119,7 @@ const getPayOutReportService = async (req, res) => {
       vendorData
         .map((vendor_id) => {
           if (vendor_id?.length > 0) {
-            return getPayOutVendorReportDao(vendor_id[0].id, startDateTime, endDateTime, company_id);
+            return getPayOutVendorReportDao(vendor_id[0].id, startDateTime, endDateTime, company_id, role);
           }
           return null;
         })
