@@ -28,7 +28,7 @@ import beneficiaryAccounts from './beneficiaryAccounts/index.js';
 
 const parentRouter = express.Router();
 const router = express.Router();
-parentRouter.use('/v1', router);
+parentRouter.use('/v1', router); 
 
 // Apply authorization middleware for specific routes
 router.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
