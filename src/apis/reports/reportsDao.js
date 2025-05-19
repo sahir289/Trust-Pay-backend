@@ -15,7 +15,7 @@ const getPayInMerchantReportDao = async (
 
     let commissionSelect = `u.payin_merchant_commission,
         json_build_object(
-          'merchant_code', r.code AS merchant_code,
+          'merchant_code', r.code,
           'return_url', r.config->>'return_url',
           'notify_url', r.config->>'notify_url'
       ) AS merchant_details, 
@@ -24,15 +24,11 @@ const getPayInMerchantReportDao = async (
       u.created_by, 
       u.updated_by, 
       u.created_at, 
-      u.updated_at`;
+      u.updated_at,`;
 
       if(role === Role.ADMIN){
-        commissionSelect += `, v.code AS vendor_code, json_build_object(
-          'merchant_code', r.code AS merchant_code,
-          'return_url', r.config->>'return_url',
-          'notify_url', r.config->>'notify_url'
-      ) AS merchant_details, 
-      u.payin_vendor_commission, `;
+        commissionSelect += `v.code AS vendor_code,
+      u.payin_vendor_commission `;
       }
 
     let query = `
@@ -161,7 +157,7 @@ const getPayOutMerchantReportDao = async (
   try {
     let commissionSelect = `po.payout_merchant_commission,
         json_build_object(
-          'merchant_code', me.code as merchant_code,
+          'merchant_code', me.code,
           'return_url', me.config->>'return_url',
           'notify_url', me.config->>'notify_url'
       ) AS merchant_details, 
@@ -173,7 +169,7 @@ const getPayOutMerchantReportDao = async (
       po.updated_at`;
 
       if(role === Role.ADMIN){
-        commissionSelect += `, ve.code AS vendor_code`;
+        commissionSelect += ` ve.code AS vendor_code`;
       }
     let query = `
 WITH filtered_payins AS (
@@ -184,7 +180,6 @@ WITH filtered_payins AS (
         po.status,
         po.merchant_order_id,
         po.user,
-        ve.code as vendor_code,
         po.config AS payout_details,
         b.nick_name,
         ${commissionSelect},
@@ -235,15 +230,15 @@ const getPayOutVendorReportDao = async (id, startDate, endDate, company_id, role
       'notify_url', me.config->>'notify_url'
   ) AS merchant_details`};
     if (role === Role.VENDOR) {
-      commissionSelect +=`ve.code as vendor_code`};
+      commissionSelect +=`ve.code AS vendor_code`};
     if (role === Role.ADMIN) {
       commissionSelect += `po.payout_merchant_commission,
     json_build_object(
-      'merchant_code', me.code as merchant_code,
+      'merchant_code', me.code,
       'return_url', me.config->>'return_url',
       'notify_url', me.config->>'notify_url'
   ) AS merchant_details, 
-   ve.code as vendor_code,
+   ve.code AS vendor_code,
   po.payout_vendor_commission, 
   po.approved_at, 
   po.created_by, 
