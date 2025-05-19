@@ -57,7 +57,7 @@ const verifyToken = (token) => {
     if (err.name === 'TokenExpiredError') {
       throw new BadRequestError('Token expired');
     }
-    logger.error('Token Expired', err);
+    logger.error('Token Expired:', err);
     return false;
   }
 };

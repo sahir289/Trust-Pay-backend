@@ -1,4 +1,4 @@
-import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
+import { BadRequestError, InternalServerError, NotFoundError } from '../../utils/appErrors.js';
 import {
   createSettlementDao,
   deleteSettlementDao,
@@ -22,11 +22,15 @@ import {
   columns,
   merchantColumns,
   Role,
+  Status,
   vendorColumns,
 } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { getBankResponseByUTR, updateBankResponseDao } from '../bankResponse/bankResponseDao.js';
+import { getVendorsDao, updateVendorBalanceDao } from '../vendors/vendorDao.js';
+import { calculateCommission } from '../../utils/calculation.js';
+
 
 const getSettlementServiceById = async (ids) => {
   try {
@@ -195,40 +199,69 @@ const getSettlementsBySearchService = async (
 const createSettlementService = async (conn, payload) => {
   try {
     if (payload.method === 'INTERNAL_QR_TRANSFER' || payload.method === 'INTERNAL_BANK_TRANSFER') {
-      const bankResponses = await getBankResponseByUTR(payload?.config?.utr)
-      if (bankResponses.is_used === false) {
-        await updateBankResponseDao({id: bankResponses.id}, {status: '/internalTransfer'})
-        
-        // Get calculation data for updating balance
-        const calculationData = await getCalculationforCronDao(payload.user_id);
-        if (calculationData.length > 0) {
+      const bankResponses = await getBankResponseByUTR(payload?.config?.utr);
+      if (!bankResponses) {
+        throw new NotFoundError('Bank response not found for the provided UTR');
+      }
 
-          const updatedCalculation = {
-            total_settlement_count:  1,
-            total_settlement_amount: - payload.amount,
-            current_balance:   - payload.amount,
-            net_balance: - payload.amount,
-          };
+      if (bankResponses.is_used === false && bankResponses.status === Status.BOT) {
+        // Get vendor and calculation data
+        const [vendorData, calculationData] = await Promise.all([
+          getVendorsDao({ user_id: payload.user_id }),
+          getCalculationforCronDao(payload.user_id)
+        ]);
 
-          // Update calculation balance
-          await updateCalculationBalanceDao(
-            { id: calculationData[0].id },
-            updatedCalculation,
-            conn
-          );
+        if (!vendorData?.length) {
+          throw new NotFoundError('Vendor not found');
+        }
+        if (!calculationData?.length) {
+          throw new NotFoundError('Calculation data not found');
         }
 
-        payload.status = 'SUCCESS';
-      } else {
-        throw new BadRequestError('utr is already used');
-      }
-    }
+        // console.log(vendorData,"vendorData", calculationData, 'calculation data',bankResponses,"bankResponses");
 
-    const data = await createSettlementDao(payload);
-    return data;
+        const VendorCommission = vendorData[0].payin_commission || 0;
+        const commission = calculateCommission(
+          payload.amount,
+          VendorCommission,
+        );
+
+
+        // Update vendor balance - Fix: Pass number instead of object
+        const vendorAcc = vendorData[0].balance + payload.amount;
+        await updateVendorBalanceDao(
+          { id: vendorData[0].id }, 
+          Number(vendorAcc),
+          payload.updated_by,
+          conn
+        );
+
+        await updateBankResponseDao({id: bankResponses.id}, {status: '/internalTransfer'});
+        console.log(vendorData,"vendorData", calculationData, 'Bank response updated successfully');
+        // Update calculation
+        const updatedCalculation = {
+          total_settlement_count: 1,
+          total_settlement_amount: -payload.amount,
+          total_settlement_commission: commission,
+          current_balance: -payload.amount + commission,
+          net_balance: -payload.amount + commission,
+        };
+
+        await updateCalculationBalanceDao(
+          { id: calculationData[0].id },
+          updatedCalculation,
+          conn
+        );
+
+        payload.status = 'SUCCESS';
+        return await createSettlementDao(payload);
+      }
+      
+      throw new BadRequestError('UTR is already used');
+    }
   } catch (error) {
     logger.error('Error while creating Settlement', error);
-    throw new InternalServerError(error);
+    throw new InternalServerError(error.message || 'Failed to create settlement');
   }
 };
 
@@ -245,6 +278,10 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       null,
       null
     );
+    //getting error refernce_id undefined fixed when approving settleemnt
+    if (payload.config.reference_id !== undefined && data[0]?.config?.reference_id === payload.config.reference_id) { 
+      throw new BadRequestError(`UTR already exists`);
+    }
     const calculationData = await getCalculationforCronDao(data[0].user_table_id);
 // if status is success and updating , it will directly be in rejected
     if(payload.status === 'SUCCESS'){
@@ -352,19 +389,54 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         await updateCalculationBalanceDao({ id }, updatedCalculation, conn);}
 
       } else {
-
         // calcution for vendor rejected Settlement
         payload.config.reference_id = '';
         payload.config.rejected_reason = '';
         let updatedCalculation
         const amount = payload?.amount || 0;
-        updatedCalculation = {
-          total_settlement_count:  1,
-          total_settlement_amount: -  amount,
-          current_balance:  - amount,
-          net_balance: -  amount,
-        };
-        
+        if(data[0].method === 'INTERNAL_QR_TRANSFER' || data[0].method === 'INTERNAL_BANK_TRANSFER'){
+          console.log(ids.id,'Vendor not founddddddd');
+          const [vendorData, calculationData] = await Promise.all([
+            getVendorsDao({ user_id: data[0].user_table_id }),
+            getCalculationforCronDao(data[0].user_table_id)
+          ]);
+  
+          if (!vendorData?.length) {
+            throw new NotFoundError('Vendor not found');
+          }
+          if (!calculationData?.length) {
+            throw new NotFoundError('Calculation data not found');
+          }
+  
+          const VendorCommission = vendorData[0].payin_commission || 0;
+          const commission = calculateCommission(
+            payload.amount,
+            VendorCommission,
+          );
+                  // Update vendor balance - Fix: Pass number instead of object
+        const vendorAcc = vendorData[0].balance + payload.amount;
+        await updateVendorBalanceDao(
+          { id: vendorData[0].id }, 
+          Number(vendorAcc),
+          payload.updated_by,
+          conn
+        );
+
+          updatedCalculation = {
+            total_settlement_count:  1,
+            total_settlement_amount: -  amount,
+            total_settlement_commission: commission,
+            current_balance: - amount,
+            net_balance: - amount,
+          }
+        } else {
+          updatedCalculation = {
+            total_settlement_count:  1,
+            total_settlement_amount: -  amount,
+            current_balance:  - amount,
+            net_balance: -  amount,
+          };
+        }
         //if calculation data not exists dont update    
         if(calculationData.length > 0){
           const {id} = calculationData[0];

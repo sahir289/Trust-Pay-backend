@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { tableName } from '../../constants/index.js';
+import { Role, tableName } from '../../constants/index.js';
 import { InternalServerError } from '../../utils/appErrors.js';
 // import { generateUUID } from '../utils/generateUUID.js';
 
@@ -12,6 +12,7 @@ import {
 import { generateUUID } from '../../utils/generateUUID.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
+import { getUTCDayRange } from '../../utils/dateFormattingToUTC.js';
 
 const IST = 'Asia/Kolkata';
 
@@ -230,6 +231,7 @@ const getBankResponseDaoAll = async (
   sortBy = 'created_at',
   sortOrder = 'DESC',
   columns = [],
+  role,
 ) => {
   try {
     const selectCols = columns.length
@@ -252,8 +254,7 @@ const getBankResponseDaoAll = async (
       };
       delete filters.search;
     }
-
-    if (filters.start_date && filters.end_date) {
+    if (filters.start_date && filters.end_date && role !== Role.VENDOR) {
       //merchant codes shown between date range selcted for bank account reports
       baseQuery = `
         AND "BankResponse".created_at BETWEEN $${filters.start_date} AND $${filters.end_date}
@@ -267,7 +268,7 @@ const getBankResponseDaoAll = async (
     }
 
     baseQuery = `
-      SELECT ${selectCols}, 
+      SELECT ${selectCols}, "BankResponse".created_at,
         "BankAccount".config AS details,
         "BankAccount".nick_name
       FROM "BankResponse"
@@ -277,6 +278,16 @@ const getBankResponseDaoAll = async (
       LEFT JOIN public."User" uu ON "BankResponse".updated_by = uu.id
     `;
 
+    if (filters.start_date && filters.end_date && role === Role.VENDOR) {
+      const { start } = getUTCDayRange(filters.start_date );
+      const { end } = getUTCDayRange( filters.end_date);
+      baseQuery += `
+        WHERE "BankResponse".created_at BETWEEN '${start}' AND '${end}'
+      `;
+      delete filters.start_date;
+      delete filters.end_date;
+    }
+    
     const [query, values] = buildSelectQuery(
       baseQuery,
       filters,

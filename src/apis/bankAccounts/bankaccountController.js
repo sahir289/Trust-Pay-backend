@@ -127,7 +127,7 @@ const createBankaccount = async (req, res) => {
 
 const updateBankaccount = async (req, res) => {
   const { id } = req.params;
-  const { user_name } = req.user;
+  const { user_name, role } = req.user;
   let payload = req.body;
   const joiValidation = UPDATE_BANK_ACCOUNT_SCHEMA.validate(req.body);
   if (joiValidation.error) {
@@ -137,7 +137,7 @@ const updateBankaccount = async (req, res) => {
   payload.updated_by = user_id;
   const ids = { id, company_id };
   // const data =
- const updatebank= await transactionWrapper(updateBankaccountService)(ids, payload);
+ const updatebank= await transactionWrapper(updateBankaccountService)(ids, payload, role);
   return sendSuccess(
     res,
     { id: updatebank.id, updated_by: user_name },

@@ -361,7 +361,7 @@ const getMerchantReportDao = async (company_id, userIds, startDate, endDate, pag
       paramIndex++;
     }
     //take indian timezone
-    query += `AND (c.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+    query += `AND c.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
     parameters.push(startDate, endDate);
     paramIndex += 2;    
     query += `
@@ -431,7 +431,7 @@ WITH filtered_vendors AS (
       parameters.push(userIds);
       paramIndex++;
     }
-    query += `AND (c.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+    query += `AND c.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
     parameters.push(
       startDate,
       endDate
