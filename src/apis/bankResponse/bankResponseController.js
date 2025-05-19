@@ -143,7 +143,7 @@ const getBankMessage = async (req, res) => {
 };
 
 const resetBankResponse = async (req, res) => {
-  const { company_id, user_name } = req.user;
+  const { company_id, user_name, role } = req.user;
   const { id } = req.params;
   const { amount } = req.body;
    
@@ -234,7 +234,7 @@ const resetBankResponse = async (req, res) => {
       await updateBankaccountService(
         undefined,
         { id: bank.id, company_id: res.company_id },
-        { latest_balance: res.today_balance },
+        { latest_balance: res.today_balance },role
       );
     }
 

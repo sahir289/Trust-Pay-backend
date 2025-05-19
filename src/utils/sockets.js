@@ -101,7 +101,7 @@ const forceLogoutUser = (userId) => {
   }
 };
 
-const deactivateBank = (nickName, bankId, isWarning = false) => {
+const deactivateBank = (nickName, bankId, userId, isWarning = false) => {
   if (!ioInstance) {
     logger.error('Socket.IO not initialized');
     return;
@@ -113,6 +113,7 @@ const deactivateBank = (nickName, bankId, isWarning = false) => {
       : `The Bank with the ${nickName} id Deactivate`,
     bankId,
     nickname: nickName,
+    userId: userId, //send userid to show notification only to vendor whose bank status is updated
     isEnabled: !isWarning ? false : undefined,
   });
 };

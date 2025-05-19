@@ -210,7 +210,7 @@ const createBankResponseService = async (
     await updateBankaccountService(
       conn,
       { id: botRes?.bank_id, company_id: companyId },
-      {latest_balance: res.today_balance},
+      {latest_balance: res.today_balance}, role
     );
     const vendor = await getVendorsDao({
       user_id: bankdetails[0].user_id,
