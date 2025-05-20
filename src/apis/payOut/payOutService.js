@@ -73,6 +73,20 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
         },
       });
     }
+
+    if(details[0]?.balance<0 && !details[0]?.config?.allow_payout)
+    {
+      return res.status(400).json({
+        error: {
+          status: 400,
+          message: 'Merchant balance is less than payout amount',
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+
     const { config, user_id } = details[0];
     const merchantAPIKey = config?.keys;
     const payoutAmount = Number(amount);
@@ -425,11 +439,12 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     //       ? vendorColumns.PAYOUT
     //       : columns.PAYOUT;
      
-
+    if (payload?.utr_id) {
     const payoutDetails = await getPayoutsDao({utr_id: payload.utr_id}, ids.company_id);
     if(payoutDetails.length > 0) {
       throw new BadRequestError('UTR already exists');
     }
+  }
     
     if (payload?.utr_id && !payload.status)
       Object.assign(payload, {
@@ -459,10 +474,10 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (!merchant) {
       throw new NotFoundError('Merchant not found!');
     }
-    if(!merchant?.config?.allow_payout && merchant.balance<0 && payload.status === Status.APPROVED)
-    {
-      throw new BadRequestError('Insufficient Balance');
-   }
+  //   if(!merchant?.config?.allow_payout && merchant.balance<0 && payload.status === Status.APPROVED)
+  //   {
+  //     throw new BadRequestError('Insufficient Balance');
+  //  }
 
     if (payload?.config?.method === Method.EKO)
       await processEkoPayout(singleWithdrawData, payload);
