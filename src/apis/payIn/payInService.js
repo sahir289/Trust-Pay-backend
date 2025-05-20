@@ -1951,10 +1951,11 @@ export const getPayinsServiceById = async (id) => {
   return await getPayInUrlDao({ id });
 };
 
-export const updateUtrPayinService = async (conn, id,user_id) => {
+export const updateUtrPayinService = async (conn, id,user_id,utr) => {
   try {
+    const updatedUtr = utr && !utr.endsWith('FAILED') ? utr + 'FAILED' : utr;
     const payload = {
-      user_submitted_utr: null,
+      user_submitted_utr: updatedUtr,
       updated_by: user_id,
     };
     const updateUtr = await updatePayInUrlDao(

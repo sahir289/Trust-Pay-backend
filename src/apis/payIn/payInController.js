@@ -479,11 +479,12 @@ export const disputeDuplicateTransaction = async (req, res) => {
 
 export const updateUtrPayins = async (req, res) => {
   const { id } = req.params;
-  const { user_id,company_id,user_name } = req.user;
+  const { utr } = req.body;
+  const { user_id,user_name } = req.user;
   const data = await transactionWrapper(updateUtrPayinService)(
     id,
     user_id,
-    company_id,
+    utr
   );
   sendSuccess(
     res,
