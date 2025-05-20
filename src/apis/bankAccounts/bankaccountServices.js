@@ -177,14 +177,16 @@ const updateBankaccountService = async (conn, ids, payload, role) => {
       company_id: ids.company_id,
     });
 
-    // if (payload?.is_enabled) {
-    //   const vendorBalance = await getCalculationDao({
-    //     user_id: bank[0]?.user_id,
-    //   });
-    //   if (vendorBalance[0]?.net_balance <= 0) {
-    //     return sendError(res, {}, 'Insufficient balance in vendor account', 400);
-    //   }
-    // }
+    if (payload?.is_enabled === false) {
+      // Clear merchants array when bank is disabled
+      payload = {
+        ...payload,
+        config: {
+          ...payload.config,
+          merchants: []
+        }
+      };
+    }
 
 
     //show notification only to vendor whose bank status is updated
