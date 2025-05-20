@@ -289,7 +289,21 @@ export async function sendErrorMessageTelegram(
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
-
+export const sendPaymentFailedMessageTelegramBot = async (
+  chatId,
+  merchantOrderIdTele,
+  TELEGRAM_BOT_TOKEN,
+  replyToMessageId,
+) => {
+  const message = `⛔ Payment for Merchant Order ID ${merchantOrderIdTele} has already failed.`;
+    const success = await telegramSender(
+      chatId,
+      message,
+      replyToMessageId,
+      TELEGRAM_BOT_TOKEN,
+    );
+    return success;
+};
 export async function sendUTRMismatchErrorMessageTelegram(
   chatId,
   utr,
