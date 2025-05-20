@@ -164,11 +164,11 @@ const getPayOutMerchantReportDao = async (
       po.created_by, 
       po.updated_by, 
       po.created_at, 
-      po.updated_at`;
+      po.updated_at,`;
 
       if(role === Role.ADMIN){
         commissionSelect += ` ve.code AS vendor_code,
-        po.payout_vendor_commission; `
+        po.payout_vendor_commission `
       }
     let query = `
 WITH filtered_payins AS (
