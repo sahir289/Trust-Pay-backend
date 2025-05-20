@@ -86,10 +86,16 @@ export const PROCESS_PAYIN_IMAGE = Joi.object({
 });
 
 export const VALIDATE_PROCESS_PAYIN = Joi.object({
-  merchantOrderId: Joi.string()
-    .label('merchantOrderId')
-    .required(),
-  userSubmittedUtr: Joi.string().label('userSubmittedUtr').required(),
+  merchantOrderId: Joi.string().label('merchantOrderId').required(),
+  userSubmittedUtr: Joi.string()
+    .pattern(/^[A-Za-z0-9]*$/)
+    .label('userSubmittedUtr')
+    .required()
+    .messages({
+      'string.pattern.base':
+        '"userSubmittedUtr" must contain only letters and numbers (no spaces)',
+      'string.empty': '"userSubmittedUtr" is required',
+    }),
   amount: Joi.number().label('amount').min(1).required(),
   code: Joi.string().label('code').optional(),
 });
