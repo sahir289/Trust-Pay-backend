@@ -67,7 +67,7 @@ import {
   sendErrorMessageNoDepositFoundTelegramBot,
   sendErrorMessageNoMerchantOrderIdFoundTelegramBot,
   sendErrorMessageTelegram,
-  sendPaymentFailedMessageTelegramBot,
+  sendPaymentStatusMessageTelegramBot,
   sendErrorMessageUtrOrAmountNotFoundImgTelegramBot,
   sendMerchantOrderIDStatusDuplicateTelegramMessage,
   sendSuccessMessageTelegramBot,
@@ -1496,15 +1496,6 @@ export const telegramResponseService = async (conn, message) => {
     );
     return;
   }
-  if (payIn.status === Status.FAILED) {
-    await sendPaymentFailedMessageTelegramBot(
-      message.chat?.id,
-      message.caption,
-      TELEGRAM_BOT_TOKEN,
-      message.message_id,
-    );
-    return;
-  }
   if (!bankResponse) {
     await sendErrorMessageNoDepositFoundTelegramBot(
       message.chat?.id,
@@ -1514,7 +1505,26 @@ export const telegramResponseService = async (conn, message) => {
     );
     return;
   }
-
+  if (payIn.status === Status.FAILED) {
+    await sendPaymentStatusMessageTelegramBot(
+      message.chat?.id,
+      message.caption,
+      TELEGRAM_BOT_TOKEN,
+      message.message_id,
+      Status.FAILED,
+    );
+    return;
+  }
+  if (payIn.status === Status.INITIATED) {
+    await sendPaymentStatusMessageTelegramBot(
+      message.chat?.id,
+      message.caption,
+      TELEGRAM_BOT_TOKEN,
+      message.message_id,
+      Status.INITIATED,
+    );
+    return;
+  }
   // Fetch related pay-in URLs concurrently
   const [otherBankResponsePayIns, otherUtrPayIns, otherBotResponsePayIns] =
     await Promise.all([
