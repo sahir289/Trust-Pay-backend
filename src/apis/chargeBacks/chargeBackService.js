@@ -284,9 +284,9 @@ const blockChargebackUserService = async (ids) => {
       const merchant = await getMerchantsDao({code}); 
       const merchantId = payindata.payins[0].merchant_id
       const userId = payindata.payins[0].user
-      const existingBlockedUsers = merchant.config?.blocked_users || [];
+      const existingBlockedUsers = merchant[0].config?.blocked_users || [];
       const alreadyExists = existingBlockedUsers.some(
-        (entry) => entry.user_id === userId && entry.user_ip === userIp
+        (entry) => entry.userId === userId && entry.user_ip === userIp
       );
       let merchantDetails;
       let updatedBlockedUsers;
@@ -294,7 +294,7 @@ const blockChargebackUserService = async (ids) => {
          updatedBlockedUsers = [...existingBlockedUsers, {  userId, user_ip: userIp }];
         
         const updatedConfig = {
-          ...merchant.config,
+          ...merchant[0].config,
           blocked_users: updatedBlockedUsers,
         };   
         merchantDetails = await updateMerchantDao(
@@ -302,12 +302,12 @@ const blockChargebackUserService = async (ids) => {
           { config: updatedConfig } 
         );
       }
-      else {
+      else if(alreadyExists) {
         const updatedBlockedUsers = existingBlockedUsers.filter(
-          (entry) => !(entry.user_id === userId && entry.user_ip === userIp)
+          (entry) => !(entry.userId === userId && entry.user_ip === userIp)
         );
         const updatedConfig = {
-          ...merchant.config,
+          ...merchant[0].config,
           blocked_users: updatedBlockedUsers,
         };
         merchantDetails = await updateMerchantDao({ id: merchantId }, { config: updatedConfig });
