@@ -289,13 +289,14 @@ export async function sendErrorMessageTelegram(
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
-export const sendPaymentFailedMessageTelegramBot = async (
+export const sendPaymentStatusMessageTelegramBot = async (
   chatId,
   merchantOrderIdTele,
   TELEGRAM_BOT_TOKEN,
   replyToMessageId,
+  Status
 ) => {
-  const message = `⛔ Payment for Merchant Order ID ${merchantOrderIdTele} has already failed.`;
+  const message = `⛔ Payment for Merchant Order ID ${merchantOrderIdTele} has already ${Status}.`;
     const success = await telegramSender(
       chatId,
       message,
