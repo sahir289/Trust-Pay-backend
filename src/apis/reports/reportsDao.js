@@ -19,7 +19,6 @@ const getPayInMerchantReportDao = async (
           'return_url', r.config->>'return_url',
           'notify_url', r.config->>'notify_url'
       ) AS merchant_details, 
-      u.payin_vendor_commission, 
       u.approved_at, 
       u.created_by, 
       u.updated_by, 
@@ -27,7 +26,7 @@ const getPayInMerchantReportDao = async (
       u.updated_at`;
 
       if(role === Role.ADMIN){
-        commissionSelect += `v.code AS vendor_code,
+        commissionSelect += `, v.code AS vendor_code,
       u.payin_vendor_commission `;
       }
 
@@ -86,7 +85,7 @@ WITH filtered_payins AS (
 
 const getPayInVendorReportDao = async (id, startDate, endDate, company_id) => {
   try {
-    let commissionSelect = `pi.payin_merchant_commission,
+    let commissionSelect = `
       pi.payin_vendor_commission, 
       v.code AS vendor_code,
       pi.approved_at, 
@@ -161,7 +160,6 @@ const getPayOutMerchantReportDao = async (
           'return_url', me.config->>'return_url',
           'notify_url', me.config->>'notify_url'
       ) AS merchant_details, 
-      po.payout_vendor_commission, 
       po.approved_at, 
       po.created_by, 
       po.updated_by, 
@@ -169,7 +167,8 @@ const getPayOutMerchantReportDao = async (
       po.updated_at`;
 
       if(role === Role.ADMIN){
-        commissionSelect += ` ve.code AS vendor_code`;
+        commissionSelect += ` , ve.code AS vendor_code,
+        po.payout_vendor_commission `
       }
     let query = `
 WITH filtered_payins AS (
@@ -182,13 +181,7 @@ WITH filtered_payins AS (
         po.user,
         po.config AS payout_details,
         b.nick_name,
-        ${commissionSelect},
-         json_build_object(
-            'account_holder_name', po.acc_holder_name,
-            'account_no', po.acc_no,
-            'ifsc_code', po.ifsc_code,
-            'bank_name', po.bank_name
-          ) AS user_bank_details
+        ${commissionSelect}
         FROM public."Payout" po
         LEFT JOIN public."Merchant" me ON po.merchant_id = me.id
         LEFT JOIN public."BankAccount" b ON po.bank_acc_id = b.id
@@ -230,7 +223,7 @@ const getPayOutVendorReportDao = async (id, startDate, endDate, company_id, role
       'notify_url', me.config->>'notify_url'
   ) AS merchant_details`};
     if (role === Role.VENDOR) {
-      commissionSelect +=`ve.code AS vendor_code`};
+      commissionSelect +=`ve.code AS vendor_code, po.payout_vendor_commission`};
     if (role === Role.ADMIN) {
       commissionSelect += `po.payout_merchant_commission,
     json_build_object(
@@ -257,13 +250,7 @@ WITH filtered_payins AS (
     po.user,
     po.config AS payout_details,
     b.nick_name,
-    ${commissionSelect},
-     json_build_object(
-        'account_holder_name', po.acc_holder_name,
-        'account_no', po.acc_no,
-        'ifsc_code', po.ifsc_code,
-        'bank_name', po.bank_name
-      ) AS user_bank_details
+    ${commissionSelect}
     FROM public."Payout" po
     LEFT JOIN public."Merchant" me ON po.merchant_id = me.id
     LEFT JOIN public."BankAccount" b ON po.bank_acc_id = b.id

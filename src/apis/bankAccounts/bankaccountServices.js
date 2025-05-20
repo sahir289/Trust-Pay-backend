@@ -186,10 +186,17 @@ const updateBankaccountService = async (conn, ids, payload, role) => {
     //   }
     // }
 
+
+    //show notification only to vendor whose bank status is updated
+    let userId = bank[0].user_id;
+    const userHierarchys = await getUserHierarchysDao({ user_id: userId });
+    if (role === Role.VENDOR_OPERATIONS) {
+      userId = userHierarchys[0]?.config?.parent;
+    }
     if (Object.keys(payload).length === 1 && payload.latest_balance) {
       if (payload.latest_balance >= bank[0].config?.max_limit) {
         payload.is_enabled = false;
-        deactivateBank(bank[0].nick_name, ids.id);
+        deactivateBank(bank[0].nick_name, ids.id, userId);
       } else if (payload.latest_balance === bank[0].config?.max_limit) {
         deactivateBank(bank[0].nick_name, ids.id, true);
       }
