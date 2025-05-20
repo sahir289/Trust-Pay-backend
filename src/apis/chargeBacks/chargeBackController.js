@@ -5,6 +5,7 @@ import {
   updateChargeBackService,
   deleteChargeBackService,
   getChargeBacksBySearchService,
+  blockChargebackUserService,
 } from './chargeBackService.js';
 import {
   VALIDATE_CHARGEBACK_BY_ID,
@@ -110,6 +111,38 @@ const getChargeBacks = async (req, res) => {
   return sendSuccess(res, data, 'ChargeBacks fetched successfully');
 };
 
+ 
+const blockChargebackUser = async (req, res) => {
+  const { error: paramsError } = VALIDATE_DELETE_CHARGEBACK.validate(
+    req.params,
+  );
+  if (paramsError) {
+    throw new ValidationError(paramsError);
+  }
+  const { error: bodyError } = VALIDATE_UPDATE_CHARGEBACK_SCHEMA.validate(
+    req.body,
+  );
+  if (bodyError) {
+    throw new ValidationError(bodyError);
+  }
+  const payload = req.body;
+  const { id } = req.params;
+  const { company_id, role, user_id,user_name } = req.user;
+  payload.updated_by = user_id;
+  const result = await blockChargebackUserService(
+    { id, company_id },
+    payload,
+    role,
+  );
+  return sendSuccess(
+    res,
+    { id: result.id, updated_by: user_name },
+    'User Blocked Successfully',
+  );
+};
+
+
+
 const updateChargeBack = async (req, res) => {
   const { error: paramsError } = VALIDATE_DELETE_CHARGEBACK.validate(
     req.params,
@@ -172,4 +205,5 @@ export {
   updateChargeBack,
   getChargeBacksBySearch,
   deleteChargeBack,
+  blockChargebackUser,
 };

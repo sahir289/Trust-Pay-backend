@@ -6,7 +6,8 @@ import {
   getChargeBacks,
   updateChargeBack,
   getChargeBacksById,
-  getChargeBacksBySearch
+  getChargeBacksBySearch,
+  blockChargebackUser
 } from './chargeBackController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -214,6 +215,12 @@ router.put(
   '/update-chargeback/:id',
   [isAuthenticated, authorized(AccessRoles.CHARGE_BACK.UPDATE_READ)],
   tryCatchHandler(updateChargeBack),
+);
+
+router.put(
+  '/blockuser-chargeback/:id',
+  [isAuthenticated, authorized(AccessRoles.CHARGE_BACK.UPDATE_READ)],
+  tryCatchHandler(blockChargebackUser),
 );
 
 /**
