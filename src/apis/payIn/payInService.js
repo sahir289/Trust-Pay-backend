@@ -67,6 +67,7 @@ import {
   sendErrorMessageNoDepositFoundTelegramBot,
   sendErrorMessageNoMerchantOrderIdFoundTelegramBot,
   sendErrorMessageTelegram,
+  sendPaymentFailedMessageTelegramBot,
   sendErrorMessageUtrOrAmountNotFoundImgTelegramBot,
   sendMerchantOrderIDStatusDuplicateTelegramMessage,
   sendSuccessMessageTelegramBot,
@@ -1495,7 +1496,15 @@ export const telegramResponseService = async (conn, message) => {
     );
     return;
   }
-
+  if (payIn.status === Status.FAILED) {
+    await sendPaymentFailedMessageTelegramBot(
+      message.chat?.id,
+      message.caption,
+      TELEGRAM_BOT_TOKEN,
+      message.message_id,
+    );
+    return;
+  }
   if (!bankResponse) {
     await sendErrorMessageNoDepositFoundTelegramBot(
       message.chat?.id,
