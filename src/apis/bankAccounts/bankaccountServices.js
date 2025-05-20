@@ -177,14 +177,16 @@ const updateBankaccountService = async (conn, ids, payload, role) => {
       company_id: ids.company_id,
     });
 
-    // if (payload?.is_enabled) {
-    //   const vendorBalance = await getCalculationDao({
-    //     user_id: bank[0]?.user_id,
-    //   });
-    //   if (vendorBalance[0]?.net_balance <= 0) {
-    //     return sendError(res, {}, 'Insufficient balance in vendor account', 400);
-    //   }
-    // }
+    if (payload?.is_enabled === false) {
+      // Clear merchants array when bank is disabled
+      payload = {
+        ...payload,
+        config: {
+          ...payload.config,
+          merchants: []
+        }
+      };
+    }
 
     if (Object.keys(payload).length === 1 && payload.latest_balance) {
       if (payload.latest_balance >= bank[0].config?.max_limit) {
