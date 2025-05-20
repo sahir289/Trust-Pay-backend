@@ -23,10 +23,10 @@ const getPayInMerchantReportDao = async (
       u.created_by, 
       u.updated_by, 
       u.created_at, 
-      u.updated_at,`;
+      u.updated_at`;
 
       if(role === Role.ADMIN){
-        commissionSelect += `v.code AS vendor_code,
+        commissionSelect += `, v.code AS vendor_code,
       u.payin_vendor_commission `;
       }
 
@@ -164,10 +164,10 @@ const getPayOutMerchantReportDao = async (
       po.created_by, 
       po.updated_by, 
       po.created_at, 
-      po.updated_at,`;
+      po.updated_at`;
 
       if(role === Role.ADMIN){
-        commissionSelect += ` ve.code AS vendor_code,
+        commissionSelect += ` , ve.code AS vendor_code,
         po.payout_vendor_commission `
       }
     let query = `
