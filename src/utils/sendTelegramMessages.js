@@ -295,7 +295,7 @@ export const sendPaymentFailedMessageTelegramBot = async (
   TELEGRAM_BOT_TOKEN,
   replyToMessageId,
 ) => {
-  const message = `⛔ Payment for Merchant Order ID ${merchantOrderIdTele} has already failed. We cannot proceed`;
+  const message = `⛔ Payment for Merchant Order ID ${merchantOrderIdTele} has already failed.`;
     const success = await telegramSender(
       chatId,
       message,
