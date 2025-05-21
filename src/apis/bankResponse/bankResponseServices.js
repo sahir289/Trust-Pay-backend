@@ -73,9 +73,9 @@ const createBankResponseService = async (
   const from_UI = splitData[4];
 
   // Early validation
-  const isValidAmount = amount > 1 && amount < 500000;
+  const isValidAmount = amount >= 1 && amount <= 500000;
   if (!isValidAmount) {
-    return { message: 'Invalid data received' };
+    return { error: `amount must be between 1 and 500000` };
   }
 
   // UTR validation
