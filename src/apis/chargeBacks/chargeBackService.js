@@ -290,7 +290,17 @@ const blockChargebackUserService = async (ids) => {
       );
       let merchantDetails;
       let updatedBlockedUsers;
-      if (!alreadyExists) {
+       if(alreadyExists) {
+        const updatedBlockedUsers = existingBlockedUsers.filter(
+          (entry) => !(entry.userId === userId && entry.user_ip === userIp)
+        );
+        const updatedConfig = {
+          ...merchant[0].config,
+          blocked_users: updatedBlockedUsers,
+        };
+        merchantDetails = await updateMerchantDao({ id: merchantId }, { config: updatedConfig });
+      }
+      else {
          updatedBlockedUsers = [...existingBlockedUsers, {  userId, user_ip: userIp }];
         
         const updatedConfig = {
@@ -302,16 +312,7 @@ const blockChargebackUserService = async (ids) => {
           { config: updatedConfig } 
         );
       }
-      else if(alreadyExists) {
-        const updatedBlockedUsers = existingBlockedUsers.filter(
-          (entry) => !(entry.userId === userId && entry.user_ip === userIp)
-        );
-        const updatedConfig = {
-          ...merchant[0].config,
-          blocked_users: updatedBlockedUsers,
-        };
-        merchantDetails = await updateMerchantDao({ id: merchantId }, { config: updatedConfig });
-      }
+     
     await commit(conn); 
     return merchantDetails;
   } catch (error) {
