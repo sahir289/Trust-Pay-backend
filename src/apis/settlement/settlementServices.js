@@ -199,7 +199,7 @@ const getSettlementsBySearchService = async (
 const createSettlementService = async (conn, payload) => {
   try {
     if (payload.method === 'INTERNAL_QR_TRANSFER' || payload.method === 'INTERNAL_BANK_TRANSFER') {
-      const bankResponses = await getBankResponseByUTR(payload?.config?.utr);
+      const bankResponses = await getBankResponseByUTR(payload?.config?.reference_id);
       if (!bankResponses) {
         throw new NotFoundError('Bank response not found for the provided UTR');
       }
@@ -237,7 +237,6 @@ const createSettlementService = async (conn, payload) => {
         );
 
         await updateBankResponseDao({id: bankResponses.id}, {status: '/internalTransfer'});
-        console.log(vendorData,"vendorData", calculationData, 'Bank response updated successfully');
         // Update calculation
         const updatedCalculation = {
           total_settlement_count: 1,
@@ -259,6 +258,7 @@ const createSettlementService = async (conn, payload) => {
       
       throw new BadRequestError('UTR is already used');
     }
+    return await createSettlementDao(payload);
   } catch (error) {
     logger.error('Error while creating Settlement', error);
     throw new InternalServerError(error.message || 'Failed to create settlement');
