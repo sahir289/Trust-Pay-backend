@@ -2153,6 +2153,14 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
     user: user_location,
   });
   const merchant = await getMerchantsDao({ id: payIn.merchant_id });
+  const blockedUsers = merchant[0].config.blocked_users;
+  if (Array.isArray(blockedUsers)) {
+    const isUserBlocked = blockedUsers.some(user => user.userId === payIn.user);
+    const isIpBlocked = blockedUsers.some(user => user.userIp === user_location.user_ip);  
+    if (isUserBlocked || isIpBlocked) {
+      throw new BadRequestError('User Access Denied !');
+    }
+  }
   await updatePayInUrlDao(payIn.id, {
     config: updatedConfig,
     one_time_used: true,
