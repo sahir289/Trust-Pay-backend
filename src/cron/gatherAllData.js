@@ -120,17 +120,17 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
       );
 
       const banks = banksData
-        .filter((bankData) => bankData.balance !== 0)
+        .filter((bankData) => bankData.today_balance !== 0)   //report start from 12am so today balance
         .map((bankData) => {
           return {
             bankName: bankData.nick_name,
-            TotalDeposit: bankData.balance,
+            TotalDeposit: bankData.today_balance,
             TotalCount: bankData.payin_count,
           };
         });
       if (banks.length === 0) continue;
       totalBankDepositAllVendors = banksData.reduce(
-        (acc, bankData) => acc + bankData.balance,
+        (acc, bankData) => acc + bankData.today_balance,
         0,
       );
       vendorEntries.push({
@@ -161,17 +161,17 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
       );
       let totalBankDepositPayout = 0;
       const banks = banksData
-        .filter((bankData) => bankData.balance !== 0)
+        .filter((bankData) => bankData.today_balance !== 0)
         .map((bankData) => {
           return {
             bankName: bankData.nick_name,
-            TotalDeposit: bankData.balance,
+            TotalDeposit: bankData.today_balance,
             TotalCount: bankData.payin_count,
           };
         });
       if (banks.length === 0) continue;
       totalBankWithdrawalAllVendors = banksData.reduce(
-        (acc, bankData) => acc + bankData.balance,
+        (acc, bankData) => acc + bankData.today_balance,
         0,
       );
       totalBankWithdrawalAllVendors += totalBankDepositPayout;

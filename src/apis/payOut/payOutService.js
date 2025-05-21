@@ -49,6 +49,7 @@ import { filterResponse } from '../../helpers/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
+import { updatePayout } from '../../utils/sockets.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 const createPayoutService = async (conn, headers, payload, role, res) => {
   try {
@@ -582,7 +583,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
           conn,
         );
       }
-      await updatePayoutDao(
+      const upadtedpayout = await updatePayoutDao(
         ids,
         {
           payout_merchant_commission: merchantCommission,
@@ -590,6 +591,9 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         },
         conn,
       );
+      if(upadtedpayout){
+        updatePayout(upadtedpayout.id, merchant.code, upadtedpayout.merchant_order_id)
+      }
     } else if (data.status === Status.REJECTED && data.approved_at !== null) {
       await updateCalculationTable(
         merchant.user_id,
