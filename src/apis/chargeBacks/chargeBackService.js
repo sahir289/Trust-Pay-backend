@@ -29,6 +29,7 @@ import {
 } from '../merchants/merchantDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { getVendorsDao,updateVendorDao } from '../vendors/vendorDao.js';
+import { getPayInsDao } from '../payIn/payInDao.js';
 const createChargeBackService = async (
   payload,
   PayinDetails,
@@ -267,6 +268,74 @@ const getChargeBacksBySearchService = async (
     throw new InternalServerError(error.message);
   }
 };
+
+const blockChargebackUserService = async (ids) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn); 
+      const id = ids.id
+      const chargebackdata = await getChargeBackDao({id},1,10,'created_at','DESC')
+      const payinId = chargebackdata[0].payin_id
+      const companyId = ids.company_id
+      const payindata = await getPayInsDao({id: payinId},companyId)
+      const code = payindata.payins[0].merchant_details.merchant_code
+      const userIp = payindata.payins[0].payin_details?.user?.user_ip
+      const merchant = await getMerchantsDao({code}); 
+      const merchantId = payindata.payins[0].merchant_id
+      const userId = payindata.payins[0].user
+      const existingBlockedUsers = merchant[0].config?.blocked_users || [];
+      const alreadyExists = existingBlockedUsers.some(
+        (entry) => entry.userId === userId && entry.user_ip === userIp
+      );
+      let merchantDetails;
+      let updatedBlockedUsers;
+       if(alreadyExists) {
+        const updatedBlockedUsers = existingBlockedUsers.filter(
+          (entry) => !(entry.userId === userId && entry.user_ip === userIp)
+        );
+        const updatedConfig = {
+          ...merchant[0].config,
+          blocked_users: updatedBlockedUsers,
+        };
+        merchantDetails = await updateMerchantDao({ id: merchantId }, { config: updatedConfig });
+      }
+      else {
+         updatedBlockedUsers = [...existingBlockedUsers, {  userId, user_ip: userIp }];
+        
+        const updatedConfig = {
+          ...merchant[0].config,
+          blocked_users: updatedBlockedUsers,
+        };   
+        merchantDetails = await updateMerchantDao(
+          { id: merchantId },
+          { config: updatedConfig } 
+        );
+      }
+     
+    await commit(conn); 
+    return merchantDetails;
+  } catch (error) {
+    if (conn) {
+      try {
+        await rollback(conn); 
+      } catch (rollbackError) {
+        console.error('Error during transaction rollback', rollbackError);
+      }
+    }
+    console.error('Error while updating ChargeBack', error);
+    throw new InternalServerError(error);
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        console.error('Error while releasing the connection', releaseError);
+      }
+    }
+  }
+};
+
 const updateChargeBackService = async (ids, payload, role) => {
   let conn;
   try {
@@ -349,4 +418,5 @@ export {
   getChargeBacksBySearchService,
   updateChargeBackService,
   deleteChargeBackService,
+  blockChargebackUserService,
 };
