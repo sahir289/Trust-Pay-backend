@@ -161,6 +161,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
     if (role === 'MERCHANT') {
       commissionSelect = `
         p.payin_merchant_commission,
+        p.merchant_id,
         p.merchant_order_id,
         json_build_object(
           'merchant_code', r.code,
@@ -184,6 +185,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
           'notify_url', r.config->>'notify_url'
         ) AS merchant_details,
         p.payin_vendor_commission,
+        p.merchant_id,
         v.code AS vendor_code,
         p.approved_at,
         p.created_by,
