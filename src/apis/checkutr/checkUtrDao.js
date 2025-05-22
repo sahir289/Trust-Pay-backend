@@ -193,7 +193,7 @@ const createCheckUtrDao = async (payload) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error creating CheckUtr:', error);
-    throw error; // Rethrow the error to propagate it
+    throw error.message; // Rethrow the error to propagate it
   }
 };
 
@@ -204,7 +204,7 @@ const updateCheckUtrDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating CheckUtr:', error);
-    throw error; // Rethrow the error to propagate it
+    throw error.message;; // Rethrow the error to propagate it
   }
 };
 
@@ -215,7 +215,7 @@ const deleteCheckUtrDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error deleting CheckUtr:', error);
-    throw error; // Rethrow the error to propagate it
+    throw error.message; // Rethrow the error to propagate it
   }
 };
 

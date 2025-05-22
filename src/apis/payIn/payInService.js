@@ -1888,23 +1888,27 @@ export const telegramCheckUTRService = async (
   company_id,
   updated_by,
 ) => {
-  const bankResponse = await getBankResponseDao({ utr: utr });
-  let otherBankResponse = {};
-  const payIn = await getPayInUrlDao({ merchant_order_id });
-  if (!bankResponse) {
+  try{
+    const bankResponse = await getBankResponseDao({ utr: utr });
+    let otherBankResponse = {};
+    const payIn = await getPayInUrlDao({ merchant_order_id });
+    if (!bankResponse) {
     return {
-      message: `${utr} UTR Does Not match with ${payIn.merchant_order_id} Merchant Order ID`,
+      error: `UTR ${utr} not found`,
     };
-  } else if (payIn?.user_submitted_utr && utr !== payIn?.user_submitted_utr) {
+    }
+    else if (bankResponse.status !== "/success") {
+      return { error: `UTR ${utr} found with ${bankResponse.status} STATUS` };
+    }
+    else if (!payIn) {
+      return { error: `MerchantOrderID ${merchant_order_id}  not found` };
+    }
+    else if (payIn?.user_submitted_utr && utr !== payIn?.user_submitted_utr) {
     return {
-      message: `${utr} UTR Does Not match with ${payIn.merchant_order_id} Merchant Order ID`,
+      message: `${utr} UTR Does Not match with ${payIn?.merchant_order_id} Merchant Order ID`,
     };
-  }
-
-  if (!payIn) {
-    // throw new NotFoundError('Merchant Order ID not found in Payin');
-    return { error: `Merchant Order ID not found in Payin` };
-  }
+    }
+  
   await createCheckUtrService({
     payin_id: payIn.id,
     utr,
@@ -1955,6 +1959,10 @@ export const telegramCheckUTRService = async (
     updated_by,
     false,
   );
+} catch (error) {
+  logger.error('Error in telegramCheckUTRService:', error);
+  throw new InternalServerError(error)
+}
 };
 
 export const getPayinsServiceById = async (id) => {
