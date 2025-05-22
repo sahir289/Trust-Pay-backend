@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-escape */
 import {
   BadRequestError,
   InternalServerError,
@@ -50,6 +51,7 @@ import {
 import { filterResponse } from '../../helpers/index.js';
 import { notifyNewTableEntry } from '../../utils/sockets.js';
 import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
+import PDFParser from 'pdf2json';
 
 const createBankResponseService = async (
   conn,
@@ -210,7 +212,8 @@ const createBankResponseService = async (
     await updateBankaccountService(
       conn,
       { id: botRes?.bank_id, company_id: companyId },
-      {latest_balance: res.today_balance}, role
+      { latest_balance: res.today_balance },
+      role,
     );
     const vendor = await getVendorsDao({
       user_id: bankdetails[0].user_id,
@@ -295,7 +298,7 @@ const createBankResponseService = async (
           req_amount: updatePayInDataRes.amount,
           utr_id: updatePayInDataRes.utr,
         });
-     }
+      }
       await sendNotification(Status.BANK_MISMATCH, {
         id: payInUtr.id,
         user_submitted_utr: botRes.utr,
@@ -378,19 +381,19 @@ const createBankResponseService = async (
       const updatePayin = await updatePayInUrlDao(payInUtr.id, payInData, conn);
       await updateBotResponseDao(botRes.id, { is_used: true }, conn);
       if (updatePayin) {
-         merchantPayinCallback(updatePayin.config.urls?.notify, {
-           status: updatePayin.status,
-           merchantOrderId: updatePayin.merchant_order_id,
-           payinId: updatePayin.id,
-           amount: botRes.amount,
-           req_amount: updatePayin.amount,
-           utr_id: updatePayin.utr,
-         });
-         return {
-           message: `✅ UTR ${utr} matches the User Submitted UTR: ${payInUtr.user_submitted_utr} and the payment was successful.`,
-         };
+        merchantPayinCallback(updatePayin.config.urls?.notify, {
+          status: updatePayin.status,
+          merchantOrderId: updatePayin.merchant_order_id,
+          payinId: updatePayin.id,
+          amount: botRes.amount,
+          req_amount: updatePayin.amount,
+          utr_id: updatePayin.utr,
+        });
+        return {
+          message: `✅ UTR ${utr} matches the User Submitted UTR: ${payInUtr.user_submitted_utr} and the payment was successful.`,
+        };
       }
-      
+
       const merchnatData = merchantData[0].balance + amount;
       if (isNaN(merchnatData)) {
         throw new BadRequestError('Invalid amount or commission');
@@ -404,7 +407,7 @@ const createBankResponseService = async (
         payinCommission: payinMerchantCommission,
         amount: botRes.amount,
       });
-    
+
       return { message: `Successfully Created The Entry` };
     } else {
       if (payInUtr.user_submitted_utr && payInUtr.user_submitted_utr !== utr) {
@@ -430,16 +433,16 @@ const createBankResponseService = async (
       );
       await updateBotResponseDao(botRes.id, { is_used: true }, conn);
       if (updatePayInDataRes) {
-         merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
-           status: updatePayInDataRes.status,
-           merchantOrderId: updatePayInDataRes.merchant_order_id,
-           payinId: updatePayInDataRes.id,
-           amount: botRes.amount,
-           req_amount: updatePayInDataRes.amount,
-           utr_id: updatePayInDataRes.utr,
-         });
+        merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
+          status: updatePayInDataRes.status,
+          merchantOrderId: updatePayInDataRes.merchant_order_id,
+          payinId: updatePayInDataRes.id,
+          amount: botRes.amount,
+          req_amount: updatePayInDataRes.amount,
+          utr_id: updatePayInDataRes.utr,
+        });
       }
-       
+
       await sendNotification(Status.DISPUTE, {
         id: payInUtr.id,
         user_submitted_utr: botRes.utr,
@@ -473,7 +476,7 @@ const updateCalculationTable = async (user_id, data, conn) => {
     // let netBalance = calculationData[0].net_balance + data?.amount;
     const calculationId = calculationData[0].id;
     const totalAmount = Number(data.amount) - Number(data.payinCommission);
-    const response =  await updateCalculationBalanceDao(
+    const response = await updateCalculationBalanceDao(
       { id: calculationId },
       {
         total_payin_count: 1,
@@ -490,16 +493,15 @@ const updateCalculationTable = async (user_id, data, conn) => {
 
 const getClaimResponseService = async (payload) => {
   try {
-
     let filters = Object.fromEntries(
       Object.entries({
-        date: payload.date|| undefined,
+        date: payload.date || undefined,
         company_id: payload.company_id || undefined,
       }).filter(([, v]) => v !== undefined),
     );
     filters = {
       ...filters,
-    }
+    };
     return await getClaimResponseDao(filters);
   } catch (error) {
     logger.error('Error in getBankResponseService:', error);
@@ -535,9 +537,9 @@ const getBankResponseService = async (payload, role, page, limit, search) => {
         bank_id: payload.bank_id || undefined,
         is_used,
         company_id: payload.company_id || undefined,
-         //start and end date bank reponse report
-         start_date: payload.start_date || undefined,
-         end_date : payload.end_date || undefined,
+        //start and end date bank reponse report
+        start_date: payload.start_date || undefined,
+        end_date: payload.end_date || undefined,
       }).filter(([, v]) => v !== undefined),
     );
     filters = {
@@ -548,7 +550,7 @@ const getBankResponseService = async (payload, role, page, limit, search) => {
       filters,
       page,
       limit,
-       payload.sort_by || 'created_at',
+      payload.sort_by || 'sno',
       'DESC',
       filterColumns,
       role,
@@ -598,7 +600,7 @@ const getBankResponseBySearchService = async (
 
     return data;
   } catch (error) {
-    console.error('Error while fetching Payin by search', error);
+    logger.error('Error while fetching Payin by search', error);
     throw new InternalServerError(error.message);
   }
 };
@@ -615,7 +617,7 @@ const updateBankResponseService = async (id, payload, role) => {
     await beginTransaction(conn); // Start a transaction
     const data = await updateBankResponseDao(id, payload, conn); // Adjust DAO call for update
     await commit(conn); // Commit the transaction
-    console.log('BankResponse updated successfully', 'info');
+    logger.info('BankResponse updated successfully', 'info');
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -623,21 +625,21 @@ const updateBankResponseService = async (id, payload, role) => {
       try {
         await rollback(conn); // Rollback the transaction in case of error
       } catch (rollbackError) {
-        console.log(
+        logger.info(
           'Error during transaction rollback',
           'error',
           rollbackError,
         );
       }
     }
-    console.log('Error while updating BankResponse', 'error', error);
+    logger.info('Error while updating BankResponse', 'error', error);
     throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
         conn.release(); // Release the connection back to the pool
       } catch (releaseError) {
-        console.log(
+        logger.info(
           'Error while releasing the connection',
           'error',
           releaseError,
@@ -677,7 +679,7 @@ const getBankMessageServices = async (
       filterColumns,
     );
   } catch (error) {
-    console.error('Error while getting BankResponse', 'error', error);
+    logger.error('Error while getting BankResponse', 'error', error);
     throw new BadRequestError('Error occurred while getting BankResponse');
   }
 };
@@ -685,11 +687,359 @@ const getBankMessageServices = async (
 const resetBankResponseService = async (id, userData) => {
   try {
     const data = await resetBankResponseDao(id, userData);
-    logger.log('Deleted BankResponse successfully', 'info');
+    logger.info('Deleted BankResponse successfully', 'info');
     return data;
   } catch (error) {
-    console.error('Error while updating BankResponse', 'error', error);
+    logger.error('Error while updating BankResponse', 'error', error);
     throw new BadRequestError('Error occurred while updating BankResponse');
+  }
+};
+
+// Function to clean and normalize text
+function cleanText(text) {
+  return text
+    .replace(/[\n\r]+/g, ' ') // Replace newlines with spaces
+    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+    .trim();
+}
+
+// Function to extract reference number (UTR, NEFT, IMPS)
+function extractReferenceNumber(description) {
+  // UPI: 12-digit number
+  const upiMatch = description.match(/UPI[:\/]([0-9]{12})/i);
+  if (upiMatch) return upiMatch[1];
+
+  // NEFT: 10-16 digit alphanumeric
+  const neftMatch = description.match(
+    /NEFT[\/-](?:CR|INWARD)?[\/-]?([A-Za-z0-9]{10,16})/i,
+  );
+  if (neftMatch) return neftMatch[1];
+
+  // IMPS: 10-12 digit number
+  const impsMatch = description.match(/IMPS[\/:]([0-9]{10,12})/i);
+  if (impsMatch) return impsMatch[1];
+
+  return null;
+}
+
+// Function to parse amount (handles INR prefix, commas, and signs)
+function parseAmount(amount) {
+  if (!amount || amount === '-' || amount === 'NIL') return null;
+  const isNegative = amount.startsWith('-');
+  const cleaned = amount.replace(/[^0-9.]/g, '');
+  const value = parseFloat(cleaned);
+  return isNegative ? -value : value;
+}
+
+// Function to format transaction as space-separated string
+function formatTransaction(transaction) {
+  return `${transaction.amount} undefined ${transaction.utr} ${transaction.bank_id} ${transaction.isProcessed}`;
+}
+
+// Function to extract credited transactions from PDF buffer
+async function extractCreditedTransactions(pdfBuffer, bankId) {
+  try {
+    const parser = new PDFParser();
+    const data = await new Promise((resolve, reject) => {
+      parser.on('pdfParser_dataReady', (pdfData) => resolve(pdfData));
+      parser.on('pdfParser_dataError', (err) => reject(err));
+      parser.parseBuffer(pdfBuffer);
+    });
+
+    const transactions = [];
+    let isTransactionSection = false;
+    let headers = [];
+    let amountColumnIndex = -1;
+    let balanceColumnIndex = -1;
+    let previousBalance = null;
+    let rowAccumulator = [];
+    let currentRow = [];
+
+    // Iterate through pages
+    for (const page of data.Pages) {
+      let currentTransaction = {};
+
+      // Iterate through text elements
+      for (const text of page.Texts) {
+        const decodedText = decodeURIComponent(text.R[0].T);
+        const cleanedText = cleanText(decodedText);
+        if (!cleanedText) continue;
+
+        // Detect start of transaction table
+        if (
+          !isTransactionSection &&
+          (/Date/i.test(cleanedText) ||
+            /(Amount|Balance|Transaction|Credit|Credits|Debit|Debits)/i.test(
+              cleanedText,
+            ))
+        ) {
+          isTransactionSection = true;
+          headers = cleanedText.split(/\s+/).filter((h) => h);
+          amountColumnIndex = headers.findIndex((h) =>
+            /Amount|Transaction|Credit|Credits/i.test(h),
+          );
+          balanceColumnIndex = headers.findIndex((h) => /Balance/i.test(h));
+          continue;
+        }
+
+        // Check if the text is a date to start a new row
+        if (
+          cleanedText.match(/^\d{2}[,\/-]\d{2}[,\/-]\d{4}$/) ||
+          cleanedText.match(/^\d{2}\s+[A-Za-z]{3}\s+\d{4}$/)
+        ) {
+          if (currentRow.length > 0) {
+            // Process the previous row
+            const columns = currentRow
+              .join(' ')
+              .split(/\s+/)
+              .filter((c) => c);
+
+            if (
+              columns[0].match(/^\d{2}[,\/-]\d{2}[,\/-]\d{4}$/) ||
+              columns[0].match(/^\d{2}\s+[A-Za-z]{3}\s+\d{4}$/)
+            ) {
+              isTransactionSection = true;
+              if (Object.keys(currentTransaction).length > 0) {
+                transactions.push(currentTransaction);
+              }
+              currentTransaction = { date: columns[0] };
+
+              // Combine description until numeric value
+              let descriptionParts = [];
+              let i = 1;
+              while (
+                i < columns.length &&
+                !columns[i].match(/^-?\d+[,.]?\d*$/) &&
+                !columns[i].match(/^INR\s*\d+[,.]?\d*$/)
+              ) {
+                descriptionParts.push(columns[i]);
+                i++;
+              }
+              currentTransaction.description = descriptionParts.join(' ');
+              currentTransaction.referenceNumber = extractReferenceNumber(
+                currentTransaction.description,
+              );
+
+              // Assign amount and balance
+              if (amountColumnIndex !== -1 && columns[amountColumnIndex]) {
+                currentTransaction.amount = parseAmount(
+                  columns[amountColumnIndex],
+                );
+              } else {
+                for (let j = columns.length - 1; j >= 1; j--) {
+                  if (
+                    columns[j].match(/^-?\d+[,.]?\d*$/) ||
+                    columns[j].match(/^INR\s*\d+[,.]?\d*$/)
+                  ) {
+                    if (!currentTransaction.balance) {
+                      currentTransaction.amount = parseAmount(columns[j]);
+                      break;
+                    }
+                  }
+                }
+              }
+
+              if (balanceColumnIndex !== -1 && columns[balanceColumnIndex]) {
+                currentTransaction.balance = parseAmount(
+                  columns[balanceColumnIndex],
+                );
+              } else {
+                for (let j = columns.length - 1; j >= 1; j--) {
+                  if (
+                    columns[j].match(/^-?\d+[,.]?\d*$/) &&
+                    !currentTransaction.amount
+                  ) {
+                    currentTransaction.balance = parseAmount(columns[j]);
+                    break;
+                  }
+                }
+              }
+
+              // Infer amount from balance change
+              if (
+                !currentTransaction.amount &&
+                currentTransaction.balance &&
+                previousBalance !== null
+              ) {
+                const balanceChange =
+                  currentTransaction.balance - previousBalance;
+                if (balanceChange > 0) {
+                  currentTransaction.amount = balanceChange;
+                }
+              }
+
+              // Fallback: Check description for credit keywords
+              if (
+                !currentTransaction.amount &&
+                currentTransaction.description.match(/Received|Deposit|Credit/i)
+              ) {
+                const amountMatch =
+                  currentTransaction.description.match(/(\d+[,.]?\d*)/);
+                if (amountMatch)
+                  currentTransaction.amount = parseFloat(amountMatch[1]);
+              }
+
+              // Add bank_id and isProcessed
+              currentTransaction.bank_id = bankId;
+              currentTransaction.isProcessed = true;
+
+              previousBalance = currentTransaction.balance || previousBalance;
+            }
+          }
+          // Start a new row
+          currentRow = [cleanedText];
+        } else if (isTransactionSection) {
+          // Add to current row
+          currentRow.push(cleanedText);
+        } else {
+          // Accumulate non-transaction text
+          rowAccumulator.push(cleanedText);
+        }
+      }
+
+      // Process the last row
+      if (currentRow.length > 0) {
+        const columns = currentRow
+          .join(' ')
+          .split(/\s+/)
+          .filter((c) => c);
+
+        if (
+          columns[0].match(/^\d{2}[,\/-]\d{2}[,\/-]\d{4}$/) ||
+          columns[0].match(/^\d{2}\s+[A-Za-z]{3}\s+\d{4}$/)
+        ) {
+          if (Object.keys(currentTransaction).length > 0) {
+            transactions.push(currentTransaction);
+          }
+          currentTransaction = { date: columns[0] };
+
+          let descriptionParts = [];
+          let i = 1;
+          while (
+            i < columns.length &&
+            !columns[i].match(/^-?\d+[,.]?\d*$/) &&
+            !columns[i].match(/^INR\s*\d+[,.]?\d*$/)
+          ) {
+            descriptionParts.push(columns[i]);
+            i++;
+          }
+          currentTransaction.description = descriptionParts.join(' ');
+          currentTransaction.referenceNumber = extractReferenceNumber(
+            currentTransaction.description,
+          );
+
+          if (amountColumnIndex !== -1 && columns[amountColumnIndex]) {
+            currentTransaction.amount = parseAmount(columns[amountColumnIndex]);
+          } else {
+            for (let j = columns.length - 1; j >= 1; j--) {
+              if (
+                columns[j].match(/^-?\d+[,.]?\d*$/) ||
+                columns[j].match(/^INR\s*\d+[,.]?\d*$/)
+              ) {
+                if (!currentTransaction.balance) {
+                  currentTransaction.amount = parseAmount(columns[j]);
+                  break;
+                }
+              }
+            }
+          }
+
+          if (balanceColumnIndex !== -1 && columns[balanceColumnIndex]) {
+            currentTransaction.balance = parseAmount(
+              columns[balanceColumnIndex],
+            );
+          } else {
+            for (let j = columns.length - 1; j >= 1; j--) {
+              if (
+                columns[j].match(/^-?\d+[,.]?\d*$/) &&
+                !currentTransaction.amount
+              ) {
+                currentTransaction.balance = parseAmount(columns[j]);
+                break;
+              }
+            }
+          }
+
+          if (
+            !currentTransaction.amount &&
+            currentTransaction.balance &&
+            previousBalance !== null
+          ) {
+            const balanceChange = currentTransaction.balance - previousBalance;
+            if (balanceChange > 0) {
+              currentTransaction.amount = balanceChange;
+            }
+          }
+
+          if (
+            !currentTransaction.amount &&
+            currentTransaction.description.match(/Received|Deposit|Credit/i)
+          ) {
+            const amountMatch =
+              currentTransaction.description.match(/(\d+[,.]?\d*)/);
+            if (amountMatch)
+              currentTransaction.amount = parseFloat(amountMatch[1]);
+          }
+
+          // Add bank_id and isProcessed
+          currentTransaction.bank_id = bankId;
+          currentTransaction.isProcessed = true;
+
+          previousBalance = currentTransaction.balance || previousBalance;
+          transactions.push(currentTransaction);
+        }
+      }
+    }
+
+    // Filter credited transactions and format as strings
+    const creditedTransactions = transactions
+      .filter((t) => t.amount && t.amount > 0 && t.referenceNumber) // Exclude utr == "N/A"
+      .map((t) => ({
+        amount: t.amount,
+        utr: t.referenceNumber,
+        bank_id: t.bank_id,
+        isProcessed: t.isProcessed,
+      }))
+      .map((t) => formatTransaction(t));
+
+    console.log('Credited Transactions:', creditedTransactions);
+    return creditedTransactions;
+  } catch (error) {
+    logger.error('Error in extractCreditedTransactions:', error);
+    throw new Error(`Error processing PDF: ${error.message}`);
+  }
+}
+
+// Main service function
+const importBankResponseService = async (
+  conn,
+  payload,
+  companyId,
+  role,
+  name,
+) => {
+  try {
+    // Validate payload
+    if (!payload || !payload.pdfBuffer) {
+      throw new Error('No valid PDF buffer provided in payload');
+    }
+
+    // Extract credited transactions
+    const creditedTransactions = await extractCreditedTransactions(
+      payload.pdfBuffer,
+      payload.bank_id,
+    );
+
+    for (const transaction of creditedTransactions) {
+      await createBankResponseService(conn, transaction, companyId, role, name);
+    }
+
+    return {
+      message: `${payload.fileType} imported successfully`,
+    };
+  } catch (error) {
+    logger.error('Error in importBankResponseService:', error);
+    throw new Error(`Failed to process bank statement: ${error.message}`);
   }
 };
 
@@ -701,4 +1051,5 @@ export {
   getBankMessageServices,
   getBankResponseBySearchService,
   resetBankResponseService,
+  importBankResponseService,
 };

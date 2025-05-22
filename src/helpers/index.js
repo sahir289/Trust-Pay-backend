@@ -149,6 +149,15 @@ export const streamToBase64 = (readableStream) => {
   });
 };
 
+export async function streamToBuffer(stream) {
+  const chunks = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  const buffer = globalThis.Buffer.concat(chunks);
+  return buffer;
+}
+
 // export const filterResponse = async (data, key) => {
 //     console.log(data, key,"datakey")
 //     if (typeof data === 'object' && data !== null && key in data) {

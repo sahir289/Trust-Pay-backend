@@ -1,5 +1,6 @@
 import {
   CREATE_BANK_RESPONSE_SCHEMA,
+  IMPORT_BANK_RESPONSE_SCHEMA,
   RESET_BANK_RESPONSE_SCHEMA,
   UPDATE_BANK_RESPONSE_SCHEMA,
   VALIDATE_BANK_RESPONSE_BY_ID,
@@ -17,6 +18,7 @@ import {
   createBankResponseService,
   updateBankResponseService,
   getBankResponseBySearchService,
+  importBankResponseService,
 } from './bankResponseServices.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 
@@ -31,6 +33,10 @@ import {
   updateBankaccountDao,
 } from '../bankAccounts/bankaccountDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
+import config from '../../config/config.js';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { s3 } from '../../helpers/Aws.js';
+import { streamToBuffer } from '../../helpers/index.js';
 const getBankResponse = async (req, res) => {
   const { role, company_id } = req.user;
   const { page, limit, search } = req.query;
@@ -85,7 +91,7 @@ const createBankResponse = async (req, res) => {
     role,
     user_name,
   );
-  sendSuccess(res, result,"Created Bank Response successfully");
+  sendSuccess(res, result, 'Created Bank Response successfully');
 };
 
 const createBankBotResponse = async (req, res) => {
@@ -105,7 +111,7 @@ const createBankBotResponse = async (req, res) => {
 };
 
 const updateBankResponse = async (req, res) => {
-  const { role ,user_name} = req.user;
+  const { role, user_name } = req.user;
   const { error: idError } = VALIDATE_BANK_RESPONSE_BY_ID.validate(req.params);
   if (idError) {
     throw new ValidationError(idError);
@@ -118,7 +124,7 @@ const updateBankResponse = async (req, res) => {
   const { company_id } = req.user;
   const { id } = req.params;
   const ids = { id, company_id };
-  const updateResponse=await updateBankResponseService(ids, payload, role);
+  const updateResponse = await updateBankResponseService(ids, payload, role);
   return sendSuccess(
     res,
     { id: updateResponse.id, updated_by: user_name },
@@ -146,12 +152,12 @@ const resetBankResponse = async (req, res) => {
   const { company_id, user_name, role } = req.user;
   const { id } = req.params;
   const { amount } = req.body;
-   
+
   const { error: bodyError } = RESET_BANK_RESPONSE_SCHEMA.validate(req.body);
   if (bodyError) {
     throw new ValidationError(bodyError);
   }
-  
+
   const botRes = await getBankResponseDao({ id: id, company_id: company_id });
   const previousAmount = botRes?.amount;
   let getallPayinDataByUtr;
@@ -200,7 +206,7 @@ const resetBankResponse = async (req, res) => {
     if (typeof amount === 'number' && !isNaN(amount)) {
       data.amount = amount;
     }
-   
+
     const update = await updateBotResponseDao(id, data);
     if (update.config.previousAmount) {
       const bankdetails = await getBankaccountDao({ id: botRes.bank_id });
@@ -220,7 +226,7 @@ const resetBankResponse = async (req, res) => {
       await updateCalculationTable(vendorData.user_id, {
         payinCommission: payinVendorCommission,
         amount: updatedAmount,
-      });      
+      });
       const newBalance = parseFloat(bank.balance) + parseFloat(updatedAmount);
       const newTodayBalance =
         parseFloat(bank.today_balance) + parseFloat(updatedAmount);
@@ -234,7 +240,8 @@ const resetBankResponse = async (req, res) => {
       await updateBankaccountService(
         undefined,
         { id: bank.id, company_id: res.company_id },
-        { latest_balance: res.today_balance },role
+        { latest_balance: res.today_balance },
+        role,
       );
     }
 
@@ -346,6 +353,48 @@ const resetBankResponse = async (req, res) => {
   }
 };
 
+const importBankResponse = async (req, res) => {
+  const { role, user_name, company_id } = req.user;
+  const payload = {
+    ...req.body,
+    ...req.params,
+  };
+
+  const { error } = IMPORT_BANK_RESPONSE_SCHEMA.validate({
+    ...req.body,
+    file: { key: req.file?.key },
+  });
+
+  if (error) {
+    throw new ValidationError(error);
+  }
+
+  if (!req.file) {
+    throw new BadRequestError('PDF File not found!');
+  }
+
+  const command = new GetObjectCommand({
+    Bucket: config.bucketName,
+    Key: req.file.key,
+  });
+
+  const { Body } = await s3.send(command);
+  // Convert S3 Body (ReadableStream) to Buffer
+  const pdfBuffer = await streamToBuffer(Body);
+
+  const result = await transactionWrapper(importBankResponseService)(
+    {
+      ...payload,
+      pdfBuffer, // Pass the buffer directly
+      file: { key: req.file?.key },
+    },
+    company_id,
+    role,
+    user_name,
+  );
+  sendSuccess(res, result, 'Created Bank Response successfully');
+};
+
 export {
   getBankResponse,
   getClaimResponse,
@@ -355,4 +404,5 @@ export {
   getBankMessage,
   getBankResponseBySearch,
   resetBankResponse,
+  importBankResponse,
 };
