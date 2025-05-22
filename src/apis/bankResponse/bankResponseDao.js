@@ -48,7 +48,8 @@ const getBankResponseDao = async (
     }
     const result = await executeQuery(sql, queryParams);
     return result.rows[0];
-  } catch {
+  } catch(error) {
+    logger.error('Error in getBankResponseBySearchDao:', error);
     throw new InternalServerError('Error executing query');
   }
 };
