@@ -62,9 +62,9 @@ export const getMerchantsCodeDao = async (
           AND uh_sub.config -> 'siblings' -> 'sub_merchants' IS NOT NULL
         )
         AND sm.company_id = m.company_id
-        AND sm.is_obsolete = FALSE
+        AND sm.is_obsolete = false
       WHERE 
-        m.is_obsolete = FALSE
+        m.is_obsolete = false
     `;
     const queryParams = [];
     let paramIndex = 1;
@@ -85,6 +85,7 @@ export const getMerchantsCodeDao = async (
 
     sql += ` GROUP BY m.id, m.code, m.user_id ORDER BY m.code ASC`;
     const result = await conn.query(sql, queryParams);
+    console.log(sql, queryParams, 'sql___queryParams' )
     logger.log('Fetched Merchants:', result.rows.length, 'rows');
     return result.rows;
   } catch (error) {
@@ -196,14 +197,14 @@ export const getMerchantsDao = async (
       LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
       WHERE 1=1
     `;
-
-    if (role === Role.ADMIN) {
-      baseQuery += `
-        AND "User".designation_id = (
-          SELECT id FROM "Designation" WHERE designation = 'MERCHANT'
-        )
-      `;
-      }
+    //get all merchants in clients
+    // if (role === Role.ADMIN) {
+    //   baseQuery += `
+    //     AND "User".designation_id = (
+    //       SELECT id FROM "Designation" WHERE designation = 'MERCHANT'
+    //     )
+    //   `;
+    //   }
 
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
