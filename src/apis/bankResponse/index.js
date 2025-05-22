@@ -9,9 +9,11 @@ import {
   getBankResponseBySearch,
   createBankBotResponse,
   getClaimResponse,
+  importBankResponse,
 } from './bankResponseController.js';
 import { isAuthenticated, authorized } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
+import { multerUpload } from '../../utils/index.js';
 const router = express.Router();
 
 /**
@@ -204,6 +206,13 @@ router.put(
   '/reset-message/:id',
   [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
   tryCatchHandler(resetBankResponse),
+);
+
+router.post(
+  '/import-bank-response',
+  multerUpload.single('file'),
+  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+  tryCatchHandler(importBankResponse),
 );
 
 export default router;

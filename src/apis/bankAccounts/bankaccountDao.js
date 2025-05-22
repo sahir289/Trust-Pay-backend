@@ -14,10 +14,10 @@ const getBankaccountDao = async (filters, page, limit, role) => {
   try {
     let queryParams = [];
     let conditions = [`ba.is_obsolete = false`];
-    if (filters.company_id) {
-      queryParams.push(filters.company_id);
-      conditions.push(`ba.company_id = $1`);
-    }
+    // if (filters.company_id) {
+    //   queryParams.push(filters.company_id);
+    //   conditions.push(`ba.company_id = $1`);
+    // }
     let limitcondition = '';
 
     if (page && limit) {

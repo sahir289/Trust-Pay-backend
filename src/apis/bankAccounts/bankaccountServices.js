@@ -188,7 +188,6 @@ const updateBankaccountService = async (conn, ids, payload, role) => {
       };
     }
 
-
     //show notification only to vendor whose bank status is updated
     let userId = bank[0].user_id;
     const userHierarchys = await getUserHierarchysDao({ user_id: userId });
