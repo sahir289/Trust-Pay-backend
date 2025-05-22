@@ -2,15 +2,21 @@ import cron from 'node-cron';
 import moment from 'moment-timezone';
 import { getConnection } from '../utils/db.js';
 
-cron.schedule(
-  '0 0 * * *',
-  () => {
-    collectBankData('Asia/Kolkata');
-  },
-  {
-    timezone: 'Asia/Kolkata',
-  },
-);
+if (process.env.NODE_ENV == 'production') {
+  console.log('Running cron job in production environment');
+  cron.schedule(
+    '0 0 * * *',
+    () => {
+      collectBankData('Asia/Kolkata');
+    },
+    {
+      timezone: 'Asia/Kolkata',
+    },
+  );
+}
+else {
+  console.error('Cron jobs are disabled in non-production environments.');
+}
 
 const collectBankData = async (timezone = 'Asia/Kolkata') => {
   const startTime = moment().tz(timezone, true);

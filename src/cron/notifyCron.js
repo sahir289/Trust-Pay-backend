@@ -3,9 +3,17 @@ import moment from 'moment-timezone';
 import { getPayInUrlsDao, updatePayInUrlDao } from '../apis/payIn/payInDao.js';
 import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.js';
 import { logger } from '../utils/logger.js';
+
+if (process.env.NODE_ENV == 'production') {
+
 cron.schedule('*/10 * * * * *', () => {
   collectPayinData('Asia/Kolkata');
 });
+logger.log('Running cron job in production environment');
+}else {
+  logger.error('Cron jobs are disabled in non-production environments.');
+}
+
 
 const collectPayinData = async (timezone = 'Asia/Kolkata') => {
   const currentTime = moment().tz(timezone, true);
