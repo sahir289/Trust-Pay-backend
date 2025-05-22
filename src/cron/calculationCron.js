@@ -5,6 +5,7 @@ import timezone from 'dayjs/plugin/timezone.js';
 import { transactionWrapper } from '../utils/db.js';
 import { createCalculationDao, getCalculationforCronDao } from '../apis/calculation/calculationDao.js';
 import { getUsersForCronDao } from '../apis/users/userDao.js';
+import { logger } from '../utils/logger.js';
 
 // Initialize dayjs plugins
 dayjs.extend(utc);
@@ -13,18 +14,20 @@ dayjs.extend(timezone);
 const IST = 'Asia/Kolkata';
 
 // Only run cron jobs in development environment
-// if (config.env === 'development') {
+if (process.env.NODE_ENV == 'production') {
 cron.schedule(
   '0 0 * * *',
   () => {
-    console.log('Running cron job in development mode');
+    logger.log('Running cron job in production mode');
     collectCalculationData();
   },
   {
     timezone: IST,
   },
 );
-// }
+}else {
+  logger.error('Cron jobs are disabled in non-production environments.');
+}
 
 const collectCalculationData = async () => {
   try {
