@@ -380,20 +380,14 @@ const createBankResponseService = async (
       };
       const updatePayin = await updatePayInUrlDao(payInUtr.id, payInData, conn);
       await updateBotResponseDao(botRes.id, { is_used: true }, conn);
-      if (updatePayin) {
-        merchantPayinCallback(updatePayin.config.urls?.notify, {
-          status: updatePayin.status,
-          merchantOrderId: updatePayin.merchant_order_id,
-          payinId: updatePayin.id,
-          amount: botRes.amount,
-          req_amount: updatePayin.amount,
-          utr_id: updatePayin.utr,
-        });
-        return {
-          message: `✅ UTR ${utr} matches the User Submitted UTR: ${payInUtr.user_submitted_utr} and the payment was successful.`,
-        };
-      }
-
+         merchantPayinCallback(updatePayin.config.urls?.notify, {
+           status: updatePayin.status,
+           merchantOrderId: updatePayin.merchant_order_id,
+           payinId: updatePayin.id,
+           amount: botRes.amount,
+           req_amount: updatePayin.amount,
+           utr_id: updatePayin.utr,
+         });
       const merchnatData = merchantData[0].balance + amount;
       if (isNaN(merchnatData)) {
         throw new BadRequestError('Invalid amount or commission');
@@ -407,7 +401,11 @@ const createBankResponseService = async (
         payinCommission: payinMerchantCommission,
         amount: botRes.amount,
       });
-
+      if (updatePayin) {
+        return {
+          message: `✅ UTR ${utr} matches the User Submitted UTR: ${payInUtr.user_submitted_utr} and the payment was successful.`,
+        };
+      }
       return { message: `Successfully Created The Entry` };
     } else {
       if (payInUtr.user_submitted_utr && payInUtr.user_submitted_utr !== utr) {
@@ -467,13 +465,6 @@ const updateCalculationTable = async (user_id, data, conn) => {
     if (!calculationData[0]) {
       throw new NotFoundError('Calculation not found!');
     }
-    // let count = calculationData[0].total_settlement_count + 1;
-    // let commissionCalculation =
-    //  calculationData[0].total_payin_commission + data?.payinCommission;
-    // let amountCalculation =
-    //   calculationData[0].total_payin_amount + data?.amount - commissionCalculation;
-    // let currentBalance = Number(calculationData[0].current_balance) || 0 + data?.amount;
-    // let netBalance = calculationData[0].net_balance + data?.amount;
     const calculationId = calculationData[0].id;
     const totalAmount = Number(data.amount) - Number(data.payinCommission);
     const response = await updateCalculationBalanceDao(
