@@ -383,10 +383,10 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
         allMerchantIds.push(idid.id);
       }
     }
+    
+    //------remove from bank assigned to merchant which are deleteed--------------------
+    
     ids.id = allMerchantIds;
-
-//------remove from bank assigned to merchant which are deleteed--------------------
-
     const merchant_id = [merchantDetails[0].id, ...subMerchantIds]
     const bankDetails = await getBankaccountDao({ merchant_id }, null, null, roleIs)
     const userId = [merchantDetails[0].id]
@@ -414,8 +414,8 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
     const data = await deleteMerchantDao(ids, payload); // Adjust DAO call for delete
     await commit(conn); // Commit the transaction
     logger.log('Merchant deleted successfully');
-    const finalResult = filterResponse(data, filterColumns);
-    return finalResult;
+    // const finalResult = filterResponse(data, filterColumns);
+    return data;
   } catch (error) {
     if (conn) {
       try {

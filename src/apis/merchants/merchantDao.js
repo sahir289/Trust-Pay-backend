@@ -432,11 +432,36 @@ export const updateMerchantDao = async (ids, data, conn) => {
   return await buildAndExecuteUpdateQuery('Merchant', data, ids, {}, { returnUpdated: true }, conn);
 };
 
-export const deleteMerchantDao = async (ids, data) => {
+export const deleteMerchantDao = async (ids, data, options = { returnUpdated: true }) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.MERCHANT, data, ids);
-    const result = await executeQuery(sql, params);
-    return result.rows[0];
+    const { id, company_id } = ids;
+    const idArray = Array.isArray(id) ? id : [id];
+    
+    // force obsolete to true for delete operation
+    const is_obsolete = true;
+    const updated_by = data.updated_by;
+
+    const values = [
+      is_obsolete,
+      updated_by,
+      idArray,
+      company_id
+    ];
+
+    const returningClause = options.returnUpdated ? 'RETURNING *' : '';
+
+    const sql = `
+      UPDATE "Merchant"
+      SET "is_obsolete" = $1,
+          "updated_by" = $2
+      WHERE "id" = ANY($3)
+        AND "company_id" = $4
+      ${returningClause}
+    `;
+
+    const result = await executeQuery(sql, values);
+
+    return result.rows;
   } catch (error) {
     logger.error('Error in deleteMerchantDao:', error);
     throw error.message;
