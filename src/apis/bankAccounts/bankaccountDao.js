@@ -360,7 +360,7 @@ const getBankAccountDaoNickName = async (
       'bank_used_for = $2',
       'is_obsolete = false',
       'is_enabled = true',
-      'config->>\'is_freeze\' IS NULL OR config->>\'is_freeze\' != \'true\' OR config->>\'is_freeze\' = \'false\'',
+      '(config->>\'is_freeze\' IS NULL OR config->>\'is_freeze\' != \'true\' OR config->>\'is_freeze\' = \'false\')',
     ];
     let queryParams = [company_id, type];
 
@@ -379,7 +379,7 @@ const getBankAccountDaoNickName = async (
         queryParams.push(paramValue);
       });
     }
-
+  
     // Construct base query with dynamic WHERE clause
     let baseQuery = `
       SELECT nick_name AS label, id AS value 
@@ -387,10 +387,8 @@ const getBankAccountDaoNickName = async (
       WHERE ${whereConditions.join(' AND ')}
       ORDER BY nick_name ASC
     `;
-
     // Execute query
     const result = await conn.query(baseQuery, queryParams);
-
     return {
       totalCount: result.rowCount,
       bankNames: result.rows,
