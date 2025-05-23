@@ -113,7 +113,6 @@ const getBankaccountServiceNickName = async (
     if (role == Role.VENDOR) {
       filters.user_id = [user_id];
     }
-    console.log(filters, 'hey filters');
     if (user) {
       filters.user_id = [user];
     }
