@@ -352,8 +352,6 @@ const updateMerchantService = async (ids, payload, role) => {
 const deleteMerchantService = async (ids, updated_by, roleIs) => {
   let conn;
   try {
-    const filterColumns =
-      roleIs === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
     conn = await getConnection();
     await beginTransaction(conn); // Start a transaction
     const id = ids.id
