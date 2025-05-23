@@ -153,6 +153,11 @@ const updateSettlementController = async (req, res) => {
   const { id, user_id } = req.params;
   const { role,user_name } = req.user;
   const payload = { ...req.body };
+  for (const key in payload.config) {
+    if (payload.config[key] === null) {
+      delete payload.config[key];
+    }
+  }
   payload.updated_by = user_id;
   const { company_id } = req.user;
   const ids = { id, company_id, role };
