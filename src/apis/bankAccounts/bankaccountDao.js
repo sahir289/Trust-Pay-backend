@@ -43,6 +43,11 @@ const getBankaccountDao = async (filters, page, limit, role) => {
       conditions.push(`ba.nick_name= $${queryParams.length + 1}`);
       queryParams.push(filters.nick_name);
     }
+    if (filters?.merchant_id) {
+      queryParams.push(filters.merchant_id);  
+      conditions.push(`(ba.config->'merchants')::jsonb ?| $${queryParams.length}::text[]`);
+      delete filters.merchant_id;
+    }
     if (filters && Object.keys(filters).length > 0) {
       Object.keys(filters).forEach((key) => {
         delete filters?.page;
