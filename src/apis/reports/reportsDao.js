@@ -180,6 +180,12 @@ WITH filtered_payins AS (
         po.merchant_order_id,
         po.user,
         po.config AS payout_details,
+        json_build_object(
+            'account_holder_name', po.acc_holder_name,
+            'account_no', po.acc_no,
+            'ifsc_code', po.ifsc_code,
+            'bank_name', po.bank_name
+          ) AS user_bank_details,
         b.nick_name,
         ${commissionSelect}
         FROM public."Payout" po
@@ -249,6 +255,12 @@ WITH filtered_payins AS (
     po.merchant_order_id,
     po.user,
     po.config AS payout_details,
+    json_build_object(
+            'account_holder_name', po.acc_holder_name,
+            'account_no', po.acc_no,
+            'ifsc_code', po.ifsc_code,
+            'bank_name', po.bank_name
+          ) AS user_bank_details,
     b.nick_name,
     ${commissionSelect}
     FROM public."Payout" po
