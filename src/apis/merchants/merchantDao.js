@@ -437,7 +437,6 @@ export const deleteMerchantDao = async (ids, data, options = { returnUpdated: tr
     const { id, company_id } = ids;
     const idArray = Array.isArray(id) ? id : [id];
     
-    // force obsolete to true for delete operation
     const is_obsolete = true;
     const updated_by = data.updated_by;
 

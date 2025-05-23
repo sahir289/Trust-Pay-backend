@@ -414,7 +414,6 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
     const data = await deleteMerchantDao(ids, payload); // Adjust DAO call for delete
     await commit(conn); // Commit the transaction
     logger.log('Merchant deleted successfully');
-    // const finalResult = filterResponse(data, filterColumns);
     return data;
   } catch (error) {
     if (conn) {
