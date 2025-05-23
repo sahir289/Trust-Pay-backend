@@ -31,6 +31,7 @@ import {
 import { filterResponse } from '../../helpers/index.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
+import { getBankaccountDao, updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 // Create Merchant Service
   
 const createMerchantService = async (conn, payload) => {
@@ -355,7 +356,60 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
       roleIs === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
     conn = await getConnection();
     await beginTransaction(conn); // Start a transaction
+    const id = ids.id
+    const merchantDetails = await getMerchantsDao(
+      { id },
+      1,
+      10,
+      'updated_at',
+      null,
+      roleIs)
 
+//------delete merchant and submerchant--------------------
+
+    const user_id = merchantDetails[0].user_id
+    const submerchants = await getUserHierarchysDao({ user_id })
+    const subMerchantIds = submerchants[0].config?.siblings?.sub_merchants || [];
+    const operationIds = submerchants[0].config?.child?.operations || [];
+    const allMerchantIds = [merchantDetails[0].id];      // start with this id
+    const allIds = [ ...subMerchantIds, ...operationIds];
+    for (const id of allIds) {
+      const idid = await getMerchantsDao({ user_id: id }); 
+      if (Array.isArray(idid)) {
+        for (const merchant of idid) {
+          allMerchantIds.push(merchant.id);
+        }
+      } else if (idid && idid.id) {
+        allMerchantIds.push(idid.id);
+      }
+    }
+    ids.id = allMerchantIds;
+
+//------remove from bank assigned to merchant which are deleteed--------------------
+
+    const merchant_id = [merchantDetails[0].id, ...subMerchantIds]
+    const bankDetails = await getBankaccountDao({ merchant_id }, null, null, roleIs)
+    const userId = [merchantDetails[0].id]
+    for (const subMerchantId of subMerchantIds) {
+      const idid = await getMerchantsDao({ user_id: subMerchantId });
+      if (Array.isArray(idid)) {
+        for (const merchant of idid) {
+          userId.push(merchant.id);
+        }
+      } else if (idid && idid.id) {
+        userId.push(idid.id);
+      }
+    }
+    for (const bank of bankDetails) {
+      const currentMerchants = bank.config?.merchants || [];
+      const filteredMerchants = currentMerchants.filter(m => !userId.includes(m));        const bankId = bank.id;
+        await updateBankaccountDao(
+          { id: bankId, company_id: ids.company_id },
+          { config: { merchants: filteredMerchants } },
+          conn
+        );
+    }
+    
     const payload = { is_obsolete: true, updated_by };
     const data = await deleteMerchantDao(ids, payload); // Adjust DAO call for delete
     await commit(conn); // Commit the transaction
