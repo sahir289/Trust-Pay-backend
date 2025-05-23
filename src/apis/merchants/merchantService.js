@@ -32,6 +32,7 @@ import { filterResponse } from '../../helpers/index.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
 import { getBankaccountDao, updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
+import { updateUserDao } from '../users/userDao.js';
 // Create Merchant Service
   
 const createMerchantService = async (conn, payload) => {
@@ -400,14 +401,17 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
     }
     for (const bank of bankDetails) {
       const currentMerchants = bank.config?.merchants || [];
-      const filteredMerchants = currentMerchants.filter(m => !userId.includes(m));        const bankId = bank.id;
+      const filteredMerchants = currentMerchants.filter(m => !userId.includes(m));        
+      const bankId = bank.id;
         await updateBankaccountDao(
           { id: bankId, company_id: ids.company_id },
           { config: { merchants: filteredMerchants } },
           conn
         );
     }
-    
+    //delete user of merchant also
+    const userIds = [merchantDetails[0].user_id, ...subMerchantIds, ...operationIds]
+    await updateUserDao({ id: userIds }, { is_obsolete: true }, conn)  
     const payload = { is_obsolete: true, updated_by };
     const data = await deleteMerchantDao(ids, payload); // Adjust DAO call for delete
     await commit(conn); // Commit the transaction
