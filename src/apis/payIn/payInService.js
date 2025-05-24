@@ -1791,15 +1791,34 @@ export const disputeDuplicateTransactionService = async (
           ? Status.DISPUTE
           : Status.SUCCESS;
     // make new pay in success
-    response = await updatePayInUrlDao(payInData.id, {
-      is_url_expires: true,
-      one_time_used: true,
-      is_notified: true,
-      duration,
-      status: newStatus,
-      bank_response_id: payIn.bank_response_id,
-      updated_by,
-    });
+    if (newStatus === Status.SUCCESS) {
+      response = await updatePayInUrlDao(payInData.id, {
+        is_url_expires: true,
+        one_time_used: true,
+        is_notified: true,
+        duration,
+        status: newStatus,
+        payin_merchant_commission: payinCommission,
+        payin_vendor_commission: vendorPayinCommission,
+        bank_response_id: payIn.bank_response_id,
+        updated_by,
+      });
+      await updateCalculationTable(merchant.user_id, {
+        payinCommission,
+        amount: toAmount,
+      });
+    }
+    else {
+      response = await updatePayInUrlDao(payInData.id, {
+        is_url_expires: true,
+        one_time_used: true,
+        is_notified: true,
+        duration,
+        status: newStatus,
+        bank_response_id: payIn.bank_response_id,
+        updated_by,
+      });
+   }
 
     if ([Status.BANK_MISMATCH, Status.SUCCESS].includes(newStatus)) {
       bankId = payInData.bank_acc_id;
@@ -1982,6 +2001,7 @@ export const updateUtrPayinService = async (conn, id, user_id, utr) => {
     const updatedUtr = utr && !utr.endsWith('FAILED') ? utr + 'FAILED' : utr;
     const payload = {
       user_submitted_utr: updatedUtr,
+      bank_response_id:null,
       updated_by: user_id,
     };
     const updateUtr = await updatePayInUrlDao(id, payload, conn);
@@ -2307,12 +2327,7 @@ export const updateCalculationTable = async (user_id, data, conn) => {
     if (!calculationData[0]) {
       throw new NotFoundError('Calculation not found!');
     }
-    // let count = calculationData[0].total_settlement_count + 1;
-    // let amountCalculation =
-    //   calculationData[0].total_payin_amount + data?.amount;
-    // let currentBalance =
-    //   Number(calculationData[0].current_balance) || 0 + data?.amount;
-    // let netBalance = calculationData[0].net_balance + data?.amount;
+   
     const totalAmount = Number(data.amount) - Number(data.payinCommission);
     const calculationId = calculationData[0].id;
     await updateCalculationBalanceDao(
