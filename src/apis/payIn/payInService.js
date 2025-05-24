@@ -2391,9 +2391,6 @@ const updateCalculationBalances = async (
     total_payin_amount: amountDiff,
     current_balance: amountDiff - commission,
     net_balance: amountDiff - commission,
-    config: {
-      user_id: user_id,
-    },
   };
 
   // Update current calculation
@@ -2410,9 +2407,6 @@ const updateCalculationBalances = async (
         { id: calc.id },
         {
           net_balance: amountDiff - commission,
-          config: {
-            user_id: user_id,
-          },
         },
         conn,
       );
@@ -2542,7 +2536,6 @@ export const updatePayInService = async (
           vendorCalculations,
           amountDiff,
           vendorCommission,
-          user_id,
           conn,
         ),
         updateCalculationBalances(
@@ -2550,7 +2543,6 @@ export const updatePayInService = async (
           merchantCalculations,
           amountDiff,
           merchantCommission,
-          user_id,
           conn,
         ),
       ]);
