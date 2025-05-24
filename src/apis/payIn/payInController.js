@@ -1,6 +1,10 @@
 import config from '../../config/config.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
-import { sendError, sendSuccess,sendNewSuccess } from '../../utils/responseHandlers.js';
+import {
+  sendError,
+  sendSuccess,
+  sendNewSuccess,
+} from '../../utils/responseHandlers.js';
 import {
   ASSIGN_PAYIN_SCHEMA,
   PROCESS_PAYIN_IMAGE,
@@ -56,8 +60,7 @@ import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
 
 //  To Generate Url
 export const generateHashForPayIn = async (req, res) => {
-
-  const updateRes = await generatePayInUrlByHashService(req,res);     //-- sending res to resolve
+  const updateRes = await generatePayInUrlByHashService(req, res); //-- sending res to resolve
   return sendSuccess(res, updateRes, 'PayIn hash generated successfully');
 };
 
@@ -118,7 +121,9 @@ export const generatePayInUrl = async (req, res) => {
   }
   //loop over each and cehck
 
-  const allBanksDisabled = bankAssigned.every(bank => bank.is_enabled === false);
+  const allBanksDisabled = bankAssigned.every(
+    (bank) => bank.is_enabled === false,
+  );
   if (allBanksDisabled) {
     // throw new InternalServerError(
     //   'Bank assigned to this merchant is not enabled!',
@@ -134,13 +139,15 @@ export const generatePayInUrl = async (req, res) => {
       },
     });
   }
-  const allPaymentOptionsDisabled = bankAssigned.every(bank => {
-    if (!bank.is_enabled) return true; 
+  const allPaymentOptionsDisabled = bankAssigned.every((bank) => {
+    if (!bank.is_enabled) return true;
     const config = bank.config || {};
-    const isPhonepay = config.is_phonepay || false; 
-    return isPhonepay === false && bank.is_qr === false && bank.is_bank === false;
+    const isPhonepay = config.is_phonepay || false;
+    return (
+      isPhonepay === false && bank.is_qr === false && bank.is_bank === false
+    );
   });
-  
+
   if (allPaymentOptionsDisabled) {
     return res.status(400).json({
       error: {
@@ -180,7 +187,7 @@ export const generatePayInUrl = async (req, res) => {
   const result = await generatePayInUrlService(
     {
       ...payload,
-      api_key: apiKey
+      api_key: apiKey,
     },
     tokenData.user_id,
     res,
@@ -191,16 +198,20 @@ export const generatePayInUrl = async (req, res) => {
     payload.isTest && (payload.isTest === 'true' || payload.isTest === true)
       ? `?t=true&order=${result?.merchant_order_id}`
       : `?order=${result?.merchant_order_id}`;
-    
+
   const updateRes = {
     expirationDate: result?.expiration_date,
     payInUrl: `${config.reactPaymentOrigin}/transaction/${generatedHash}${queryStr}`, // Use env
     payinId: result?.id,
     merchantOrderId: result?.merchant_order_id,
-    status: result?.status
+    status: result?.status,
   };
 
-  return sendNewSuccess(res, updateRes, 'PayIn is generated & url is sent successfully');
+  return sendNewSuccess(
+    res,
+    updateRes,
+    'PayIn is generated & url is sent successfully',
+  );
 };
 
 /**
@@ -213,14 +224,13 @@ export const validatePayInUrl = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const user_location = req.user_location;
-    // req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
+  // req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
   const result = await verifyPayinsService(merchantOrderId, user_location);
   result.merchant_order_id = merchantOrderId;
   return sendSuccess(res, result, 'Payment Url is correct');
 };
 
 export const generateUpiUrl = async (req, res) => {
-
   const payload = req.body;
 
   // const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
@@ -249,7 +259,7 @@ export const assignedBankToPayInUrl = async (req, res) => {
   result.merchantOrderId = req.params.merchantOrderId;
   result.amount = req.body.amount;
   result.type = req.body.type;
-    // sendNewSuccess(res, result, 'Bank account is assigned');
+  // sendNewSuccess(res, result, 'Bank account is assigned');
   return sendSuccess(res, result, 'Bank account is assigned');
 };
 
@@ -273,7 +283,7 @@ export const checkPayInStatus = async (req, res) => {
     req.body.merchantCode,
     req.body.merchantOrderId,
     api_key,
-    res
+    res,
   );
   return sendNewSuccess(res, data, 'PayIn status fetched successfully');
   // return res.status(200).json({
@@ -348,7 +358,7 @@ export const resetDeposit = async (req, res) => {
     req.user.user_id,
   );
   if (data.error) {
-    sendError(res, { error: data.error }, data.error, data.status || 400);  //-- send error status along with error messge
+    sendError(res, { error: data.error }, data.error, data.status || 400); //-- send error status along with error messge
   } else {
     sendSuccess(res, data, 'PayIn reset successful');
   }
@@ -417,7 +427,7 @@ export const processPayIn = async (req, res) => {
 };
 
 export const telegramOCR = async (req, res) => {
-  sendSuccess(res,{}, 'API Called Successfully!');
+  sendSuccess(res, {}, 'API Called Successfully!');
   const message = req.body.message;
 
   if (!message || typeof message !== 'object') {
@@ -434,8 +444,10 @@ export const processPayInByImage = async (req, res) => {
     ...req.params,
   };
   //added validation for fixinf db error
-  const joiValidation = PROCESS_PAYIN_IMAGE.validate( {...req.body,
-    file: { key: req.file?.key }});  //proper validation
+  const joiValidation = PROCESS_PAYIN_IMAGE.validate({
+    ...req.body,
+    file: { key: req.file?.key },
+  }); //proper validation
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
@@ -482,11 +494,11 @@ export const disputeDuplicateTransaction = async (req, res) => {
 export const updateUtrPayins = async (req, res) => {
   const { id } = req.params;
   const { utr } = req.body;
-  const { user_id,user_name } = req.user;
+  const { user_id, user_name } = req.user;
   const data = await transactionWrapper(updateUtrPayinService)(
     id,
     user_id,
-    utr
+    utr,
   );
   sendSuccess(
     res,
@@ -496,12 +508,12 @@ export const updateUtrPayins = async (req, res) => {
 };
 
 export const checkPendingPayinStatus = async (req, res) => {
-  const  payload  = req.body;
+  const payload = req.body;
   const { user_id, company_id, user_name } = req.user;
   const data = await transactionWrapper(checkPendingPayinStatusService)(
     user_id,
     company_id,
-    payload
+    payload,
   );
   sendSuccess(
     res,
@@ -529,8 +541,8 @@ export const updatePayIn = async (req, res) => {
   const payload = {
     ...req.body,
   };
-  const merchant_order_id = req.params.merchant_order_id;
-  const { user_id } = req.user;
+  const { merchant_order_id } = req.params;
+  const { user_id, company_id } = req.user;
   const joiValidation = VALIDATE_UPDATE_PAYIN_SCHEMA.validate({
     ...req.body,
     merchant_order_id,
@@ -542,6 +554,7 @@ export const updatePayIn = async (req, res) => {
     payload,
     merchant_order_id,
     user_id,
+    company_id,
   );
   sendSuccess(res, data, 'PayIn Updated successfully');
 };
