@@ -343,7 +343,7 @@ const resetBankResponse = async (req, res) => {
       ),
       updateBankResponseDao(
         { id: botRes.id, company_id: company_id },
-        { bank_acc_id: bank_id, updated_by: user_id },
+        { bank_id: bank_id, updated_by: user_id },
       ),
     ]);
   } else {
