@@ -1807,8 +1807,7 @@ export const disputeDuplicateTransactionService = async (
         payinCommission,
         amount: toAmount,
       });
-    }
-    else {
+    } else {
       response = await updatePayInUrlDao(payInData.id, {
         is_url_expires: true,
         one_time_used: true,
@@ -1818,7 +1817,7 @@ export const disputeDuplicateTransactionService = async (
         bank_response_id: payIn.bank_response_id,
         updated_by,
       });
-   }
+    }
 
     if ([Status.BANK_MISMATCH, Status.SUCCESS].includes(newStatus)) {
       bankId = payInData.bank_acc_id;
@@ -2001,7 +2000,7 @@ export const updateUtrPayinService = async (conn, id, user_id, utr) => {
     const updatedUtr = utr && !utr.endsWith('FAILED') ? utr + 'FAILED' : utr;
     const payload = {
       user_submitted_utr: updatedUtr,
-      bank_response_id:null,
+      bank_response_id: null,
       updated_by: user_id,
     };
     const updateUtr = await updatePayInUrlDao(id, payload, conn);
@@ -2327,7 +2326,7 @@ export const updateCalculationTable = async (user_id, data, conn) => {
     if (!calculationData[0]) {
       throw new NotFoundError('Calculation not found!');
     }
-   
+
     const totalAmount = Number(data.amount) - Number(data.payinCommission);
     const calculationId = calculationData[0].id;
     await updateCalculationBalanceDao(
@@ -2384,7 +2383,7 @@ const updateCalculationBalances = async (
   commission,
   conn,
 ) => {
-  if (!nextCalculations.length && !currentCalculation) return;
+  if (!currentCalculation) return;
 
   const updates = {
     total_payin_commission: amountDiff > 0 ? commission : -commission,
@@ -2400,13 +2399,15 @@ const updateCalculationBalances = async (
     conn,
   );
 
-  // Update subsequent calculations
-  for (const calc of nextCalculations) {
-    await updateCalculationBalanceDao(
-      { id: calc.id },
-      { net_balance: amountDiff - commission },
-      conn,
-    );
+  if (nextCalculations.length > 0) {
+    // Update subsequent calculations
+    for (const calc of nextCalculations) {
+      await updateCalculationBalanceDao(
+        { id: calc.id },
+        { net_balance: amountDiff - commission },
+        conn,
+      );
+    }
   }
 };
 
@@ -2502,7 +2503,7 @@ export const updatePayInService = async (
         (calc) => approvedDate < getDateWithoutTime(calc.created_at),
       );
 
-      if (!vendorCalculations[0] || !merchantCalculations[0]) {
+      if (!vendorCurrentCalculations[0] || !merchantCurrentCalculations[0]) {
         throw new NotFoundError('Matching calculation not found');
       }
 
@@ -2522,7 +2523,7 @@ export const updatePayInService = async (
           conn,
         ),
         updateVendorDao(
-          {id: vendor[0].user_id, company_id: company_id},
+          { id: vendor[0].user_id, company_id: company_id },
           { balance: vendor[0].balance + amountDiff },
           conn,
         ),
@@ -2544,7 +2545,11 @@ export const updatePayInService = async (
     }
     // Handle UTR updates
     else if (payload?.utr) {
-      await updateBankResponseDao({ id: bankResponse.id, company_id: company_id }, { utr: payload.utr }, conn);
+      await updateBankResponseDao(
+        { id: bankResponse.id, company_id: company_id },
+        { utr: payload.utr },
+        conn,
+      );
     }
     // Handle bank account ID updates
     else if (payload?.bank_acc_id) {
