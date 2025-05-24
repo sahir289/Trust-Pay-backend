@@ -6,10 +6,18 @@ import {
   VALIDATE_BANK_RESPONSE_BY_ID,
   // VALIDATE_BANK_RESPONSE_QUERY,
 } from '../../schemas/bankResponseSchema.js';
-import { ValidationError } from '../../utils/appErrors.js';
-import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
-import { getPayInUrlsDao, updatePayInUrlDao } from '../payIn/payInDao.js';
-import { getBankResponseDao, updateBotResponseDao } from './bankResponseDao.js';
+import { NotFoundError, ValidationError } from '../../utils/appErrors.js';
+import { sendSuccess } from '../../utils/responseHandlers.js';
+import {
+  getPayInUrlDao,
+  getPayInUrlsDao,
+  updatePayInUrlDao,
+} from '../payIn/payInDao.js';
+import {
+  getBankResponseDao,
+  updateBankResponseDao,
+  updateBotResponseDao,
+} from './bankResponseDao.js';
 import { updateCalculationTable } from '../payIn/payInService.js';
 import {
   getBankResponseService,
@@ -149,9 +157,9 @@ const getBankMessage = async (req, res) => {
 };
 
 const resetBankResponse = async (req, res) => {
-  const { company_id, user_name, role } = req.user;
+  const { company_id, user_name, role, user_id } = req.user;
   const { id } = req.params;
-  const { amount } = req.body;
+  const { amount, utr, bank_id } = req.body;
 
   const { error: bodyError } = RESET_BANK_RESPONSE_SCHEMA.validate(req.body);
   if (bodyError) {
@@ -171,186 +179,230 @@ const resetBankResponse = async (req, res) => {
     });
   }
 
-  const hasSuccess = getallPayinDataByUtr?.some(
-    (item) => item.status === Status.SUCCESS,
-  );
+  // const hasSuccess = getallPayinDataByUtr?.some(
+  //   (item) => item.status === Status.SUCCESS,
+  // );
 
-  let hasSuccessData = false;
-  if (!hasSuccess) {
-    const getAllPayinDataByBotResponse = await getPayInUrlsDao({
-      bank_response_id: botRes.id,
+  // let hasSuccessData = false;
+  // if (!hasSuccess) {
+  // const getAllPayinDataByBotResponse = await getPayInUrlsDao({
+  //   bank_response_id: botRes.id,
+  // });
+
+  // hasSuccessData = getAllPayinDataByBotResponse?.some(
+  //   (item) => item.status === Status.SUCCESS,
+  // );
+  // }
+
+  // if (!hasSuccess && !hasSuccessData) {
+  const data = {
+    is_used: false,
+    updated_by: user_name,
+    config: {
+      ...(botRes.config || {}),
+      ...(amount
+        ? {
+            previousAmount:
+              typeof previousAmount === 'number' && !isNaN(previousAmount)
+                ? previousAmount
+                : botRes.amount,
+          }
+        : {}),
+    },
+  };
+
+  if (typeof amount === 'number' && !isNaN(amount)) {
+    data.amount = amount;
+  }
+
+  const update = await updateBotResponseDao(id, data);
+  if (update.config.previousAmount) {
+    const bankdetails = await getBankaccountDao({ id: botRes.bank_id });
+    const bank = bankdetails[0];
+    const vendor = await getVendorsDao({ user_id: bank.user_id });
+    const vendorData = vendor[0];
+    let updatedAmount;
+    if (botRes.amount > update.amount) {
+      updatedAmount = `-${Math.abs(botRes.amount - update.amount)}`;
+    } else {
+      updatedAmount = `+${Math.abs(update.amount - botRes.amount)}`;
+    }
+    const payinVendorCommission = calculateCommission(
+      updatedAmount,
+      vendorData.payin_commission,
+    );
+    await updateCalculationTable(vendorData.user_id, {
+      payinCommission: payinVendorCommission,
+      amount: updatedAmount,
     });
-
-    hasSuccessData = getAllPayinDataByBotResponse?.some(
-      (item) => item.status === Status.SUCCESS,
+    const newBalance = parseFloat(bank.balance) + parseFloat(updatedAmount);
+    const newTodayBalance =
+      parseFloat(bank.today_balance) + parseFloat(updatedAmount);
+    const res = await updateBankaccountDao(
+      { id: bank.id },
+      {
+        balance: newBalance,
+        today_balance: newTodayBalance,
+      },
+    );
+    await updateBankaccountService(
+      undefined,
+      { id: bank.id, company_id: res.company_id },
+      { latest_balance: res.today_balance },
+      role,
     );
   }
 
-  if (!hasSuccess && !hasSuccessData) {
-    const data = {
-      is_used: false,
-      updated_by: user_name,
-      config: {
-        ...(botRes.config || {}),
-        ...(amount
-          ? {
-              previousAmount:
-                typeof previousAmount === 'number' && !isNaN(previousAmount)
-                  ? previousAmount
-                  : botRes.amount,
-            }
-          : {}),
-      },
-    };
-
-    if (typeof amount === 'number' && !isNaN(amount)) {
-      data.amount = amount;
-    }
-
-    const update = await updateBotResponseDao(id, data);
-    if (update.config.previousAmount) {
-      const bankdetails = await getBankaccountDao({ id: botRes.bank_id });
-      const bank = bankdetails[0];
-      const vendor = await getVendorsDao({ user_id: bank.user_id });
-      const vendorData = vendor[0];
-      let updatedAmount;
-      if (botRes.amount > update.amount) {
-        updatedAmount = `-${Math.abs(botRes.amount - update.amount)}`;
-      } else {
-        updatedAmount = `+${Math.abs(update.amount - botRes.amount)}`;
-      }
-      const payinVendorCommission = calculateCommission(
-        updatedAmount,
-        vendorData.payin_commission,
-      );
-      await updateCalculationTable(vendorData.user_id, {
-        payinCommission: payinVendorCommission,
-        amount: updatedAmount,
-      });
-      const newBalance = parseFloat(bank.balance) + parseFloat(updatedAmount);
-      const newTodayBalance =
-        parseFloat(bank.today_balance) + parseFloat(updatedAmount);
-      const res = await updateBankaccountDao(
-        { id: bank.id },
-        {
-          balance: newBalance,
-          today_balance: newTodayBalance,
-        },
-      );
-      await updateBankaccountService(
-        undefined,
-        { id: bank.id, company_id: res.company_id },
-        { latest_balance: res.today_balance },
-        role,
-      );
-    }
-
-    if (amount) {
-      const isEqualUTR = getallPayinDataByUtr?.some(
-        (item) => item.user_submitted_utr === botRes.utr,
-      );
-      const isEqualBotResponse = getallPayinDataByUtr?.some(
-        (item) => item.bank_response_id === botRes.id,
-      );
-      if (isEqualUTR) {
-        const updatePayinID = getallPayinDataByUtr?.filter(
-          (item) =>
-            item.user_submitted_utr === botRes.utr &&
-            item.status !== Status.FAILED,
-        );
-        const updatePayinData = {
-          status:
-            new Date().getTime() -
-              new Date(updatePayinID[0].created_at).getTime() <
-            10 * 60 * 1000
-              ? Status.ASSIGNED
-              : Status.DROPPED,
-          user_submitted_utr: null,
-          bank_response_id: null,
-          updated_by: user_name,
-        };
-        await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData);
-      } else if (isEqualBotResponse) {
-        const updatePayinID = getallPayinDataByUtr?.filter(
-          (item) =>
-            item.bank_response_id === botRes.id &&
-            item.status !== Status.FAILED,
-        );
-        const updatePayinData = {
-          status:
-            new Date().getTime() -
-              new Date(updatePayinID[0].created_at).getTime() <
-            10 * 60 * 1000
-              ? Status.ASSIGNED
-              : Status.DROPPED,
-          user_submitted_utr: null,
-          bank_response_id: null,
-          updated_by: user_name,
-        };
-        await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData);
-      }
-      return sendSuccess(
-        res,
-        {},
-        `Bot response Reset successful. Previous Amount: ${data.config.previousAmount}`, //previousAmount was undefined
-      );
-    } else {
-      const isEqualUTR = getallPayinDataByUtr?.some(
-        (item) => item.user_submitted_utr === botRes.utr,
-      );
-      const isEqualBotResponse = getallPayinDataByUtr?.some(
-        (item) => item.bank_response_id === botRes.id,
-      );
-      if (isEqualUTR) {
-        const updatePayinID = getallPayinDataByUtr?.filter(
-          (item) =>
-            item.user_submitted_utr === botRes.utr &&
-            item.status !== Status.FAILED,
-        );
-        const updatePayinData = {
-          status:
-            new Date().getTime() -
-              new Date(updatePayinID[0].created_at).getTime() <
-            10 * 60 * 1000
-              ? Status.ASSIGNED
-              : Status.DROPPED,
-          user_submitted_utr: null,
-          bank_response_id: null,
-          updated_by: user_name,
-        };
-        await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData);
-      } else if (isEqualBotResponse) {
-        const updatePayinID = getallPayinDataByUtr?.filter(
-          (item) =>
-            item.bank_response_id === botRes.id &&
-            item.status !== Status.FAILED,
-        );
-        const updatePayinData = {
-          status:
-            new Date().getTime() -
-              new Date(updatePayinID[0].created_at).getTime() <
-            10 * 60 * 1000
-              ? Status.ASSIGNED
-              : Status.DROPPED,
-          user_submitted_utr: null,
-          bank_response_id: null,
-          updated_by: user_name,
-        };
-        await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData);
-      }
-      return sendSuccess(res, {}, `Bot response Reset successful`);
-    }
-  } else {
-    const successPayinDataID = getallPayinDataByUtr?.filter(
-      (item) => item.status === 'SUCCESS',
+  if (amount) {
+    const isEqualUTR = getallPayinDataByUtr?.some(
+      (item) => item.user_submitted_utr === botRes.utr,
     );
-    return sendError(
+    const isEqualBotResponse = getallPayinDataByUtr?.some(
+      (item) => item.bank_response_id === botRes.id,
+    );
+    if (isEqualUTR) {
+      const updatePayinID = getallPayinDataByUtr?.filter(
+        (item) =>
+          item.user_submitted_utr === botRes.utr &&
+          item.status !== Status.FAILED,
+      );
+      const updatePayinData = {
+        status:
+          new Date().getTime() -
+            new Date(updatePayinID[0].created_at).getTime() <
+          10 * 60 * 1000
+            ? Status.ASSIGNED
+            : Status.DROPPED,
+        user_submitted_utr: null,
+        bank_response_id: null,
+        updated_by: user_name,
+      };
+      await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData);
+    } else if (isEqualBotResponse) {
+      const updatePayinID = getallPayinDataByUtr?.filter(
+        (item) =>
+          item.bank_response_id === botRes.id && item.status !== Status.FAILED,
+      );
+      const updatePayinData = {
+        status:
+          new Date().getTime() -
+            new Date(updatePayinID[0].created_at).getTime() <
+          10 * 60 * 1000
+            ? Status.ASSIGNED
+            : Status.DROPPED,
+        user_submitted_utr: null,
+        bank_response_id: null,
+        updated_by: user_name,
+      };
+      await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData);
+    }
+    return sendSuccess(
       res,
       {},
-      `UTR of this entry is already confirmed with ${successPayinDataID[0]?.merchant_order_id} Merchant Order ID, No Changes Applied. Previous Amount: ${botRes.amount}`,
-      400,
+      `Bot response Reset successful. Previous Amount: ${data.config.previousAmount}`, //previousAmount was undefined
     );
+  } else if (utr) {
+    const payIn = getPayInUrlDao({ user_submitted_utr: utr });
+    if (payIn && payIn.user_submitted_utr) {
+      await updatePayInUrlDao(payIn.id, {
+        user_submitted_utr: utr,
+        updated_by: user_id,
+      });
+    }
+    await updateBotResponseDao(id, { utr: utr, updated_by: user_id });
+  } else if (bank_id) {
+    const [prevBank, newBank] = await Promise.all([
+      getBankaccountDao({ id: botRes.bank_id }),
+      getBankaccountDao({ id: bank_id }),
+    ]);
+
+    if (!prevBank[0] || !newBank[0]) {
+      throw new NotFoundError('Bank account not found');
+    }
+
+    if (newBank[0].id === prevBank[0].id) {
+      throw new BadRequestError('Please provide a different bank account ID');
+    }
+
+    await Promise.all([
+      updateBankaccountDao(
+        { id: prevBank[0].id, company_id: company_id },
+        {
+          balance: prevBank[0].balance - botRes.amount,
+          today_balance: prevBank[0].today_balance - botRes.amount,
+          updated_by: user_id,
+        },
+      ),
+      updateBankaccountDao(
+        { id: newBank[0].id, company_id: company_id },
+        {
+          balance: newBank[0].balance + botRes.amount,
+          today_balance: newBank[0].today_balance + botRes.amount,
+          updated_by: user_id,
+        },
+      ),
+      updateBankResponseDao(
+        { id: botRes.id, company_id: company_id },
+        { bank_acc_id: bank_id, updated_by: user_id },
+      ),
+    ]);
+  } else {
+    const isEqualUTR = getallPayinDataByUtr?.some(
+      (item) => item.user_submitted_utr === botRes.utr,
+    );
+    const isEqualBotResponse = getallPayinDataByUtr?.some(
+      (item) => item.bank_response_id === botRes.id,
+    );
+    if (isEqualUTR) {
+      const updatePayinID = getallPayinDataByUtr?.filter(
+        (item) =>
+          item.user_submitted_utr === botRes.utr &&
+          item.status !== Status.FAILED,
+      );
+      const updatePayinData = {
+        status:
+          new Date().getTime() -
+            new Date(updatePayinID[0].created_at).getTime() <
+          10 * 60 * 1000
+            ? Status.ASSIGNED
+            : Status.DROPPED,
+        user_submitted_utr: null,
+        bank_response_id: null,
+        updated_by: user_name,
+      };
+      await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData);
+    } else if (isEqualBotResponse) {
+      const updatePayinID = getallPayinDataByUtr?.filter(
+        (item) =>
+          item.bank_response_id === botRes.id && item.status !== Status.FAILED,
+      );
+      const updatePayinData = {
+        status:
+          new Date().getTime() -
+            new Date(updatePayinID[0].created_at).getTime() <
+          10 * 60 * 1000
+            ? Status.ASSIGNED
+            : Status.DROPPED,
+        user_submitted_utr: null,
+        bank_response_id: null,
+        updated_by: user_name,
+      };
+      await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData);
+    }
+    return sendSuccess(res, {}, `Bot response Reset successful`);
   }
+  // }
+  // else {
+  //   const successPayinDataID = getallPayinDataByUtr?.filter(
+  //     (item) => item.status === 'SUCCESS',
+  //   );
+  //   return sendError(
+  //     res,
+  //     {},
+  //     `UTR of this entry is already confirmed with ${successPayinDataID[0]?.merchant_order_id} Merchant Order ID, No Changes Applied. Previous Amount: ${botRes.amount}`,
+  //     400,
+  //   );
+  // }
 };
 
 const importBankResponse = async (req, res) => {
