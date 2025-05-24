@@ -2595,7 +2595,7 @@ export const updatePayInService = async (
         ),
         updateBankResponseDao(
           { id: bankResponse.id, company_id: company_id },
-          { bank_acc_id: payload.bank_acc_id, updated_by: user_id },
+          { bank_id: payload.bank_acc_id, updated_by: user_id },
           conn,
         ),
       ]);
