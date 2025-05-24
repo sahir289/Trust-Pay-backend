@@ -35,10 +35,12 @@ import {
 import {
   getBankaccountDao,
   getMerchantBankDao,
+  updateBankaccountDao,
   // updateBanktBalanceDao,
 } from '../bankAccounts/bankaccountDao.js';
 import {
   getBankResponseDao,
+  updateBankResponseDao,
   updateBotResponseDao,
 } from '../bankResponse/bankResponseDao.js';
 import {
@@ -52,6 +54,7 @@ import {
 } from '../calculation/calculationDao.js';
 import {
   getVendorsDao,
+  updateVendorDao,
   // updateVendorBalanceDao
 } from '../vendors/vendorDao.js';
 import {
@@ -1987,6 +1990,7 @@ export const updateUtrPayinService = async (conn, id,user_id,utr) => {
     throw error.message;
   }
 };
+
 export const checkPendingPayinStatusService = async (
   conn,
   user_id,
@@ -2339,4 +2343,101 @@ const getOtherSuccessPayIns = async (bankResponse, includeSuccess = true) => {
   }
 
   return successData;
+};
+
+export const updatePayInService = async (payload, merchant_order_id, user_id, conn) => {
+  try {
+    const payIn = await getPayInUrlDao({ merchant_order_id });
+    if (!payIn) {
+      throw new BadRequestError('Invalid merchant order id');
+    }
+
+    const bankResponse = await getBankResponseDao({ id: payIn.bank_response_id });
+    if (!bankResponse) {
+      throw new NotFoundError('Bank Response not found!');
+    }
+
+    // Handle amount updates
+    if (payload?.amount && !isNaN(payload.amount) && payload.amount !== bankResponse.amount) {
+      const amountDiff = payload.amount - bankResponse.amount;
+      await updateBankResponseDao(bankResponse.id, { amount: payload.amount }, conn);
+
+      // Update bank account balances
+      const bank = await getBankaccountDao({ id: bankResponse.bank_id });
+      const bankUpdates = {
+        balance: bank[0].balance + amountDiff,
+        today_balance: bank[0].today_balance + amountDiff
+      };
+      await updateBankaccountDao(bankResponse.bank_id, bankUpdates, conn);
+
+      // Update vendor balance
+      const vendor = await getVendorsDao({ user_id: bank[0].user_id });
+      await updateVendorDao(vendor[0].user_id, { 
+        balance: vendor[0].balance + amountDiff 
+      }, conn);
+
+      // Update vendor calculations
+      const vendorCommission = calculateCommission(Math.abs(amountDiff), vendor[0].payin_commission);
+      await updateCalculationTable(
+        vendor[0].user_id,
+        {
+          total_payin_commission: amountDiff > 0 ? vendorCommission : -vendorCommission,
+          total_payin_amount: amountDiff
+        },
+        conn
+      );
+
+      // Update merchant calculations
+      const merchant = await getMerchantsDao({ id: payIn.merchant_id });
+      const merchantCommission = calculateCommission(Math.abs(amountDiff), merchant[0].payin_commission);
+      await updateCalculationTable(
+        merchant[0].user_id,
+        {
+          total_payin_commission: amountDiff > 0 ? merchantCommission : -merchantCommission,
+          total_payin_amount: amountDiff
+        },
+        conn
+      );
+    }
+    // Handle UTR updates
+    else if (payload?.utr) {
+      await updateBankResponseDao(bankResponse.id, { utr: payload.utr }, conn);
+    }
+    // Handle bank account ID updates
+    else if (payload?.bank_acc_id) {
+      const [prevBank, newBank] = await Promise.all([
+        getBankaccountDao({ id: bankResponse.bank_id }),
+        getBankaccountDao({ id: payload.bank_acc_id })
+      ]);
+
+      if (newBank[0].user_id !== prevBank[0].user_id) {
+        throw new BadRequestError('Bank account does not belong to the same vendor');
+      }
+      if (newBank[0].id === prevBank[0].id) {
+        throw new BadRequestError('Please provide different bank account id');
+      }
+
+      await Promise.all([
+        updateBankaccountDao(prevBank[0].id, {
+          balance: prevBank[0].balance - bankResponse.amount,
+          today_balance: prevBank[0].today_balance - bankResponse.amount
+        }, conn),
+        updateBankaccountDao(newBank[0].id, {
+          balance: newBank[0].balance + bankResponse.amount,
+          today_balance: newBank[0].today_balance + bankResponse.amount
+        }, conn),
+        updateBankResponseDao(bankResponse.id, { bank_acc_id: payload.bank_acc_id }, conn)
+      ]);
+    }
+
+    // Update pay-in details
+    await updatePayInUrlDao(payIn.id, {
+      ...payload,
+      updated_by: user_id,
+      user_submitted_utr: payload.utr
+    }, conn);
+  } catch (error) {
+    logger.error('Error in updatePayInService:', error);
+    throw new InternalServerError(error);
+  }
 };

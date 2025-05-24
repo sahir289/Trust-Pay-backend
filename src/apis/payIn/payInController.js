@@ -15,6 +15,7 @@ import {
   VALIDATE_PROCESS_PAYIN,
   VALIDATE_RESET_DEPOSIT,
   VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS,
+  VALIDATE_UPDATE_PAYIN_SCHEMA,
   VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS,
 } from '../../schemas/payInSchema.js';
 import {
@@ -38,6 +39,7 @@ import {
   generateUpiUrlService,
   updateUtrPayinService,
   checkPendingPayinStatusService,
+  updatePayInService,
 } from './payInService.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
@@ -492,6 +494,7 @@ export const updateUtrPayins = async (req, res) => {
     'PayIn Updated successfully',
   );
 };
+
 export const checkPendingPayinStatus = async (req, res) => {
   const  payload  = req.body;
   const { user_id, company_id, user_name } = req.user;
@@ -506,6 +509,7 @@ export const checkPendingPayinStatus = async (req, res) => {
     'PayIn Status Checked Successfully',
   );
 };
+
 export const telegramCheckUTR = async (req, res) => {
   const { utr, merchantOrderId } = req.body;
   const joiValidation = VALIDATE_CHECK_UTR.validate(req.body);
@@ -519,4 +523,25 @@ export const telegramCheckUTR = async (req, res) => {
     req.user.user_id,
   );
   sendSuccess(res, result, 'telegramCheckUTR Successfully');
+};
+
+export const updatePayIn = async (req, res) => {
+  const payload = {
+    ...req.body,
+  };
+  const merchant_order_id = req.params.merchant_order_id;
+  const { user_id } = req.user;
+  const joiValidation = VALIDATE_UPDATE_PAYIN_SCHEMA.validate({
+    ...req.body,
+    merchant_order_id,
+  });
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  const data = await transactionWrapper(updatePayInService)(
+    payload,
+    merchant_order_id,
+    user_id,
+  );
+  sendSuccess(res, data, 'PayIn Updated successfully');
 };

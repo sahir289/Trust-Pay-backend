@@ -386,4 +386,6 @@ router.post(
 
 router.get('/search', tryCatchHandler(getPayinsBySearch));
 
+router.get('updatePayin/:id', tryCatchHandler(updateDepositStatus));
+
 export default router;
