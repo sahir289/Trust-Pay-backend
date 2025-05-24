@@ -1993,6 +1993,7 @@ export const updateUtrPayinService = async (conn, id,user_id,utr) => {
     const updatedUtr = utr && !utr.endsWith('FAILED') ? utr + 'FAILED' : utr;
     const payload = {
       user_submitted_utr: updatedUtr,
+      bank_response_id:null,
       updated_by: user_id,
     };
     const updateUtr = await updatePayInUrlDao(
