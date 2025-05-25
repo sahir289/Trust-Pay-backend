@@ -22,6 +22,7 @@ import {
   generateUpiUrl,
   updateUtrPayins,
   checkPendingPayinStatus,
+  updatePayIn,
 } from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
@@ -385,5 +386,7 @@ router.post(
 );
 
 router.get('/search', tryCatchHandler(getPayinsBySearch));
+
+router.put('/updatePayin/:merchant_order_id', tryCatchHandler(updatePayIn));
 
 export default router;

@@ -1,10 +1,14 @@
-import { BadRequestError, InternalServerError, NotFoundError } from '../../utils/appErrors.js';
+import {
+  BadRequestError,
+  InternalServerError,
+  NotFoundError,
+} from '../../utils/appErrors.js';
 import {
   createSettlementDao,
   deleteSettlementDao,
   getSettlementDao,
   updateSettlementDao,
-  getSettlementsBySearchDao
+  getSettlementsBySearchDao,
 } from './settlementDao.js';
 import {
   getCalculationforCronDao,
@@ -27,10 +31,12 @@ import {
 } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
-import { getBankResponseByUTR, updateBankResponseDao } from '../bankResponse/bankResponseDao.js';
+import {
+  getBankResponseByUTR,
+  updateBankResponseDao,
+} from '../bankResponse/bankResponseDao.js';
 import { getVendorsDao, updateVendorBalanceDao } from '../vendors/vendorDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
-
 
 const getSettlementServiceById = async (ids) => {
   try {
@@ -54,7 +60,16 @@ const getSettlementServiceById = async (ids) => {
   }
 };
 
-const getSettlementService = async (ids, filters, page, limit, sortBy, sortOrder, role, user_id) => {
+const getSettlementService = async (
+  ids,
+  filters,
+  page,
+  limit,
+  sortBy,
+  sortOrder,
+  role,
+  user_id,
+) => {
   try {
     // Validate required parameters
     if (!ids?.company_id) {
@@ -73,11 +88,11 @@ const getSettlementService = async (ids, filters, page, limit, sortBy, sortOrder
       }
     })();
 
-    if(role == Role.MERCHANT){
-      filters.user_id = [user_id]
+    if (role == Role.MERCHANT) {
+      filters.user_id = [user_id];
     }
     if (role == Role.VENDOR) {
-      filters.user_id = [user_id]
+      filters.user_id = [user_id];
     }
     if (role === Role.MERCHANT) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
@@ -88,7 +103,10 @@ const getSettlementService = async (ids, filters, page, limit, sortBy, sortOrder
           userHierarchy?.config ||
           Array.isArray(userHierarchy?.config?.siblings?.sub_merchants)
         ) {
-          filters.user_id = [...filters.user_id, ...(userHierarchy?.config?.siblings?.sub_merchants ?? [])];
+          filters.user_id = [
+            ...filters.user_id,
+            ...(userHierarchy?.config?.siblings?.sub_merchants ?? []),
+          ];
         }
       }
     }
@@ -96,7 +114,7 @@ const getSettlementService = async (ids, filters, page, limit, sortBy, sortOrder
     const daoFilters = {
       company_id: ids.company_id,
       ...(ids.role_name && { role: ids.role_name }),
-      ...filters
+      ...filters,
     };
 
     // Call DAO with validated parameters
@@ -106,27 +124,26 @@ const getSettlementService = async (ids, filters, page, limit, sortBy, sortOrder
       limit,
       sortBy || 'sno',
       sortOrder || 'DESC',
-      filterColumns
+      filterColumns,
     );
 
     return settlementData;
-
   } catch (error) {
     // Handle and rethrow errors with appropriate context
     if (error instanceof BadRequestError) {
       throw error;
     }
 
-    console.log(error)
-    
+    console.log(error);
+
     logger.error('Error in getSettlementService:', {
       error: error,
       ids,
       filters,
       page,
-      limit
+      limit,
     });
-    
+
     throw new InternalServerError('Failed to retrieve settlements: ' + error);
   }
 };
@@ -161,7 +178,7 @@ const getSettlementsBySearchService = async (
           : columns.SETTLEMENT;
 
     if (role == Role.MERCHANT) {
-      filters.user_id = [user_id]
+      filters.user_id = [user_id];
     }
     if (role == Role.VENDOR) {
       filters.user_id = [user_id];
@@ -176,7 +193,10 @@ const getSettlementsBySearchService = async (
           userHierarchy?.config ||
           Array.isArray(userHierarchy?.config?.siblings?.sub_merchants)
         ) {
-          filters.user_id = [...filters.user_id, ...(userHierarchy?.config?.siblings?.sub_merchants ?? [])];
+          filters.user_id = [
+            ...filters.user_id,
+            ...(userHierarchy?.config?.siblings?.sub_merchants ?? []),
+          ];
         }
       }
     }
@@ -198,17 +218,25 @@ const getSettlementsBySearchService = async (
 
 const createSettlementService = async (conn, payload) => {
   try {
-    if (payload.method === 'INTERNAL_QR_TRANSFER' || payload.method === 'INTERNAL_BANK_TRANSFER') {
-      const bankResponses = await getBankResponseByUTR(payload?.config?.reference_id);
+    if (
+      payload.method === 'INTERNAL_QR_TRANSFER' ||
+      payload.method === 'INTERNAL_BANK_TRANSFER'
+    ) {
+      const bankResponses = await getBankResponseByUTR(
+        payload?.config?.reference_id,
+      );
       if (!bankResponses) {
         throw new NotFoundError('Bank response not found for the provided UTR');
       }
 
-      if (bankResponses.is_used === false && bankResponses.status === Status.BOT) {
+      if (
+        bankResponses.is_used === false &&
+        bankResponses.status === Status.BOT
+      ) {
         // Get vendor and calculation data
         const [vendorData, calculationData] = await Promise.all([
           getVendorsDao({ user_id: payload.user_id }),
-          getCalculationforCronDao(payload.user_id)
+          getCalculationforCronDao(payload.user_id),
         ]);
 
         if (!vendorData?.length) {
@@ -226,17 +254,19 @@ const createSettlementService = async (conn, payload) => {
           VendorCommission,
         );
 
-
         // Update vendor balance - Fix: Pass number instead of object
         const vendorAcc = vendorData[0].balance + payload.amount;
         await updateVendorBalanceDao(
-          { id: vendorData[0].id }, 
+          { id: vendorData[0].id },
           Number(vendorAcc),
           payload.updated_by,
-          conn
+          conn,
         );
 
-        await updateBankResponseDao({id: bankResponses.id}, {status: '/internalTransfer'});
+        await updateBankResponseDao(
+          { id: bankResponses.id },
+          { status: '/internalTransfer' },
+        );
         // Update calculation
         const updatedCalculation = {
           total_settlement_count: 1,
@@ -249,19 +279,21 @@ const createSettlementService = async (conn, payload) => {
         await updateCalculationBalanceDao(
           { id: calculationData[0].id },
           updatedCalculation,
-          conn
+          conn,
         );
 
-        payload.status = 'SUCCESS';
+        payload.status = Status.SUCCESS;
         return await createSettlementDao(payload);
       }
-      
+
       throw new BadRequestError('UTR is already used');
     }
     return await createSettlementDao(payload);
   } catch (error) {
     logger.error('Error while creating Settlement', error);
-    throw new InternalServerError(error.message || 'Failed to create settlement');
+    throw new InternalServerError(
+      error.message || 'Failed to create settlement',
+    );
   }
 };
 
@@ -276,26 +308,32 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       null,
       null,
       null,
-      null
+      null,
     );
     //getting error refernce_id undefined fixed when approving settleemnt
-    if (payload.config.reference_id !== undefined && data[0]?.config?.reference_id === payload.config.reference_id) { 
+    if (
+      payload.config.reference_id !== undefined &&
+      data[0]?.config?.reference_id === payload.config.reference_id
+    ) {
       throw new BadRequestError(`UTR already exists`);
     }
-    const calculationData = await getCalculationforCronDao(data[0].user_table_id);
-// if status is success and updating , it will directly be in rejected
-    if(payload.status === 'SUCCESS'){
-      payload.status = 'REJECTED';
+    const calculationData = await getCalculationforCronDao(
+      data[0].user_table_id,
+    );
+    // if status is success and updating , it will directly be in rejected
+    if (payload.status === Status.SUCCESS) {
+      payload.status = Status.REJECTED;
     }
 
     if (payload.config.reference_id) {
-      payload.status = 'SUCCESS';
+      payload.status = Status.SUCCESS;
       if (!data) {
         throw new InternalServerError('no data found');
       }
       let updatedCalculation;
-      const merchant_data = await getMerchantsDao(
-        { user_id: data[0].user_table_id })
+      const merchant_data = await getMerchantsDao({
+        user_id: data[0].user_table_id,
+      });
       if (merchant_data.length > 0) {
         if (Array.isArray(calculationData) && calculationData.length > 0) {
           const amount = payload?.amount || 0;
@@ -303,8 +341,8 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           updatedCalculation = {
             total_settlement_count: 1,
             total_settlement_amount: amount,
-            current_balance:  - amount,
-            net_balance:  - amount,
+            current_balance: -amount,
+            net_balance: -amount,
           };
         }
       } else {
@@ -312,34 +350,33 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           const amount = payload?.amount || 0;
           // calcution for vendor APPROVE settlement
           updatedCalculation = {
-            total_settlement_count:  1,
-            total_settlement_amount:  amount,
-            current_balance:   amount,
-            net_balance:   amount,
+            total_settlement_count: 1,
+            total_settlement_amount: amount,
+            current_balance: amount,
+            net_balance: amount,
           };
         }
       }
 
-        //if calculation data not exists dont update    
-        if(calculationData.length > 0){
-          const {id} = calculationData[0];
-          await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
-        }
-          const merchantData = 
-          await getMerchantsDao(
-            { user_id: data[0].user_table_id },
-            null,
-            null,
-            null,
-            null
-          );
+      //if calculation data not exists dont update
+      if (calculationData.length > 0) {
+        const { id } = calculationData[0];
+        await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
+      }
+      const merchantData = await getMerchantsDao(
+        { user_id: data[0].user_table_id },
+        null,
+        null,
+        null,
+        null,
+      );
 
       if (data[0].role === Role.VENDOR) {
         const bankData = await getBankaccountDao(
           { user_id: data[0].user_table_id },
           null,
           null,
-          role
+          role,
         );
 
         if (bankData.length > 0) {
@@ -347,7 +384,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           await updateBankaccountDao(
             { id: bankData[0].id },
             { balance: bankAcc },
-            conn
+            conn,
           );
         } else {
           console.error('No data in bank accounts');
@@ -357,96 +394,100 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         await updateMerchantDao(
           { id: merchantData[0].id },
           { balance: merchantAcc },
-          conn
+          conn,
         );
       }
     }
 
     if (payload.config.rejected_reason) {
-      payload.status = 'REJECTED';
+      payload.status = Status.REJECTED;
     }
 
-    if (payload.status === 'INITIATED') {
-      const merchant_data = await getMerchantsDao(
-        { user_id: data[0].user_table_id })
+    if (payload.status === Status.INITIATED) {
+      const merchant_data = await getMerchantsDao({
+        user_id: data[0].user_table_id,
+      });
       if (merchant_data.length > 0) {
         payload.config.reference_id = '';
         payload.config.rejected_reason = '';
-        let updatedCalculation
+        let updatedCalculation;
         const amount = payload?.amount || 0;
 
         // calcultion for merchant rejected Settlement
 
         updatedCalculation = {
-          total_settlement_count:   1,
-          total_settlement_amount:   - amount,
-          current_balance:   amount,
-          net_balance:   amount,
+          total_settlement_count: 1,
+          total_settlement_amount: -amount,
+          current_balance: amount,
+          net_balance: amount,
         };
-        //if calculation data not exists dont update    
-        if(calculationData.length > 0){
-          const {id} = calculationData[0];
-        await updateCalculationBalanceDao({ id }, updatedCalculation, conn);}
-
+        //if calculation data not exists dont update
+        if (calculationData.length > 0) {
+          const { id } = calculationData[0];
+          await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
+        }
       } else {
         // calcution for vendor rejected Settlement
         payload.config.reference_id = '';
         payload.config.rejected_reason = '';
-        let updatedCalculation
+        let updatedCalculation;
         const amount = payload?.amount || 0;
-        if(data[0].method === 'INTERNAL_QR_TRANSFER' || data[0].method === 'INTERNAL_BANK_TRANSFER'){
-          console.log(ids.id,'Vendor not founddddddd');
+        if (
+          data[0].method === 'INTERNAL_QR_TRANSFER' ||
+          data[0].method === 'INTERNAL_BANK_TRANSFER'
+        ) {
           const [vendorData, calculationData] = await Promise.all([
             getVendorsDao({ user_id: data[0].user_table_id }),
-            getCalculationforCronDao(data[0].user_table_id)
+            getCalculationforCronDao(data[0].user_table_id),
           ]);
-  
+
           if (!vendorData?.length) {
             throw new NotFoundError('Vendor not found');
           }
           if (!calculationData?.length) {
             throw new NotFoundError('Calculation data not found');
           }
-  
+
           const VendorCommission = vendorData[0].payin_commission || 0;
           const commission = calculateCommission(
             payload.amount,
             VendorCommission,
           );
-                  // Update vendor balance - Fix: Pass number instead of object
-        const vendorAcc = vendorData[0].balance + payload.amount;
-        await updateVendorBalanceDao(
-          { id: vendorData[0].id }, 
-          Number(vendorAcc),
-          payload.updated_by,
-          conn
-        );
+          // Update vendor balance - Fix: Pass number instead of object
+          const vendorAcc = vendorData[0].balance + payload.amount;
+          await updateVendorBalanceDao(
+            { id: vendorData[0].id },
+            Number(vendorAcc),
+            payload.updated_by,
+            conn,
+          );
 
           updatedCalculation = {
-            total_settlement_count:  1,
-            total_settlement_amount: -  amount,
+            total_settlement_count: 1,
+            total_settlement_amount: -amount,
             total_settlement_commission: commission,
-            current_balance: - amount,
-            net_balance: - amount,
-          }
+            current_balance: -amount,
+            net_balance: -amount,
+          };
         } else {
           updatedCalculation = {
-            total_settlement_count:  1,
-            total_settlement_amount: -  amount,
-            current_balance:  - amount,
-            net_balance: -  amount,
+            total_settlement_count: 1,
+            total_settlement_amount: -amount,
+            current_balance: -amount,
+            net_balance: -amount,
           };
         }
-        //if calculation data not exists dont update    
-        if(calculationData.length > 0){
-          const {id} = calculationData[0];
-        await updateCalculationBalanceDao({ id }, updatedCalculation, conn);}
+        //if calculation data not exists dont update
+        if (calculationData.length > 0) {
+          const { id } = calculationData[0];
+          await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
+        }
       }
     }
     const updateData = await updateSettlementDao(
       conn,
       { id: ids.id, company_id: ids.company_id },
-      payload
+      payload,
     );
     return updateData;
   } catch (error) {

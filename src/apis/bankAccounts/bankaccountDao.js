@@ -336,7 +336,7 @@ const getMerchantBankDao = async (filters) => {
     const result = await executeQuery(sql, parameters);
     return result.rows;
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     throw error.message;
   }
 };
@@ -347,7 +347,7 @@ const createBankaccountDao = async (payload) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     throw error.message;
   }
 };
@@ -399,7 +399,7 @@ const getBankAccountDaoNickName = async (
       bankNames: result.rows,
     };
   } catch (error) {
-    console.error('Error querying bank accounts:', error.message, error.stack);
+    logger.error('Error querying bank accounts:', error.message, error.stack);
     throw new Error('Failed to retrieve bank account nicknames');
   }
 };
@@ -461,7 +461,7 @@ const updateBankaccountDao = async (id, payload, conn, isParentDeleted) => {
       conn, // Use the provided connection
     );
   } catch (error) {
-    console.error('Error in updateBankaccountDao:', error);
+    logger.error('Error in updateBankaccountDao:', error);
     throw error.message;
   }
 };
@@ -501,7 +501,7 @@ export const updateBanktBalanceDao = async (
     const result = await executeQuery(sql, params);
     return result[0];
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     throw error.message;
   }
 };

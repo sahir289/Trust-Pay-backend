@@ -139,3 +139,12 @@ export const VALIDATE_CHECK_UTR = Joi.object({
   utr: Joi.string().label('utr').required(),
   merchantOrderId: Joi.string().label('merchantOrderId').required(),
 });
+
+export const VALIDATE_UPDATE_PAYIN_SCHEMA = Joi.object({
+  merchant_order_id: Joi.string()
+    .label('merchant_order_id')
+    .required(),
+  amount: Joi.number().positive().label('amount').optional(),
+  utr: Joi.string().label('utr').optional(),
+  bank_acc_id: Joi.string().label('bank_id').optional(),
+});

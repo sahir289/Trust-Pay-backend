@@ -417,6 +417,24 @@ export const getCalculationforCronDao = async (userId) => {
   }
 };
 
+export const getAllCalculationforCronDao = async (userId) => {
+  try {
+    const sql = `
+      SELECT *
+      FROM public."Calculation" 
+      WHERE is_obsolete = false 
+      AND user_id = $1
+      ORDER BY created_at DESC 
+    `;
+    // Ensure userId is correctly passed as an array
+    const result = await executeQuery(sql, [userId]);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching Calculation', error);
+    throw error.message;
+  }
+};
+
 const createCalculationDao = async (conn, data) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.CALCULATION, data);

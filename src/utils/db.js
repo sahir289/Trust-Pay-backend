@@ -60,7 +60,7 @@ const getConnection = async () => {
   for (let retryCount = 0; retryCount < maxRetries; retryCount++) {
     try {
       const client = await pool.connect();
-      logger.log(chalk.bgCyanBright('Database connected successfully'));
+      logger.info(chalk.bgCyanBright('Database connected successfully'));
       return client;
     } catch (error) {
       const delay = baseDelay * Math.pow(2, retryCount);
@@ -81,7 +81,7 @@ const getConnection = async () => {
 const beginTransaction = async (client) => {
   try {
     await client.query('BEGIN');
-    logger.log('Transaction started');
+    logger.info('Transaction started');
   } catch (error) {
     logger.error('Error starting transaction', error);
     throw new DbError('Failed to start transaction');
@@ -91,7 +91,7 @@ const beginTransaction = async (client) => {
 const commit = async (client) => {
   try {
     await client.query('COMMIT');
-    logger.log('Transaction committed');
+    logger.info('Transaction committed');
   } catch (error) {
     logger.error('Error committing transaction', error);
     throw new DbError('Failed to commit transaction');
@@ -101,7 +101,7 @@ const commit = async (client) => {
 const rollback = async (client, throwError = true) => {
   try {
     await client.query('ROLLBACK');
-    logger.log('Transaction rolled back');
+    logger.info('Transaction rolled back');
   } catch (error) {
     logger.error('Error rolling back transaction', error);
     if (throwError) {
@@ -356,17 +356,13 @@ export const buildAndExecuteUpdateQuery = async (
     // Build the final query
     const query = `UPDATE "${tableName}" SET ${setClause.join(', ')} WHERE ${whereClause.join(' AND ')} ${returningClause}`;
 
-    // Log the query and parameters for debugging
-    console.log('Executing SQL:', query);
-    console.log('With Parameters:', values);
-
     // Execute the query
     const result = conn
       ? await conn.query(query, values) // Use provided connection
       : await executeQuery(query, values); // Use default pool connection
 
     if (!result || !result.rows || result.rows.length === 0) {
-      console.warn(
+      logger.warn(
         'No rows updated. Please check the provided IDs and conditions.',
       );
       throw new Error(
@@ -376,7 +372,7 @@ export const buildAndExecuteUpdateQuery = async (
 
     return result.rows[0]; // Return the updated row
   } catch (error) {
-    console.error('Error in buildAndExecuteUpdateQuery:', error);
+    logger.error('Error in buildAndExecuteUpdateQuery:', error);
     throw new Error(error.message || 'Error updating the database.');
   }
 };
@@ -405,7 +401,7 @@ export const transactionWrapper =
       throw new InternalServerError(error.message); // Rethrow error
     } finally {
       if (conn) {
-        logger.log('Releasing connection');
+        logger.info('Releasing connection');
         conn.release(); // Always release connection
       }
     }
@@ -513,19 +509,19 @@ const executePaginatedQuery = async ({
   const pageNum = parseInt(page, 10) || 1;
   const limitNum = parseInt(limit, 10) || 10;
   const offset = (pageNum - 1) * limitNum;
-  console.log(typeof offset, offset, pageNum, 'offset');
+  logger.info(typeof offset, offset, pageNum, 'offset');
 
   // Base query params include limit and offset
   const validParams = params.filter((param) => param !== undefined);
   const baseQueryParams = [...validParams, limitNum, offset];
-  console.log(baseQueryParams, 'baseQueryParams');
+  logger.info(baseQueryParams, 'baseQueryParams');
   // Count query params exclude limit and offset
   const countQueryParams = [...params];
 
   const limitPlaceholder = `$${baseQueryParams.length - 1 + 1}`; // Correct index
   const offsetPlaceholder = `$${baseQueryParams.length + 1}`;
 
-  console.log(
+  logger.info(
     `${baseQuery} LIMIT $${limitPlaceholder.length - 1} OFFSET $${offsetPlaceholder.length}`,
     '-------',
   );
