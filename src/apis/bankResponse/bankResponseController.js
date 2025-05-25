@@ -7,7 +7,7 @@ import {
   // VALIDATE_BANK_RESPONSE_QUERY,
 } from '../../schemas/bankResponseSchema.js';
 import { NotFoundError, ValidationError } from '../../utils/appErrors.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
+import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import {
   getPayInUrlDao,
   getPayInUrlsDao,
@@ -179,22 +179,22 @@ const resetBankResponse = async (req, res) => {
     });
   }
 
-  // const hasSuccess = getallPayinDataByUtr?.some(
-  //   (item) => item.status === Status.SUCCESS,
-  // );
+  const hasSuccess = getallPayinDataByUtr?.some(
+    (item) => item.status === Status.SUCCESS,
+  );
 
-  // let hasSuccessData = false;
-  // if (!hasSuccess) {
-  // const getAllPayinDataByBotResponse = await getPayInUrlsDao({
-  //   bank_response_id: botRes.id,
-  // });
+  let hasSuccessData = false;
+  if (!hasSuccess) {
+  const getAllPayinDataByBotResponse = await getPayInUrlsDao({
+    bank_response_id: botRes.id,
+  });
 
-  // hasSuccessData = getAllPayinDataByBotResponse?.some(
-  //   (item) => item.status === Status.SUCCESS,
-  // );
-  // }
+  hasSuccessData = getAllPayinDataByBotResponse?.some(
+    (item) => item.status === Status.SUCCESS,
+  );
+  }
 
-  // if (!hasSuccess && !hasSuccessData) {
+  if (!hasSuccess && !hasSuccessData) {
   const data = {
     is_used: false,
     updated_by: user_name,
@@ -391,18 +391,18 @@ const resetBankResponse = async (req, res) => {
     }
   }
   return sendSuccess(res, {}, `Bot response Reset successful`);
-  // }
-  // else {
-  //   const successPayinDataID = getallPayinDataByUtr?.filter(
-  //     (item) => item.status === 'SUCCESS',
-  //   );
-  //   return sendError(
-  //     res,
-  //     {},
-  //     `UTR of this entry is already confirmed with ${successPayinDataID[0]?.merchant_order_id} Merchant Order ID, No Changes Applied. Previous Amount: ${botRes.amount}`,
-  //     400,
-  //   );
-  // }
+  }
+  else {
+    const successPayinDataID = getallPayinDataByUtr?.filter(
+      (item) => item.status === 'SUCCESS',
+    );
+    return sendError(
+      res,
+      {},
+      `UTR of this entry is already confirmed with ${successPayinDataID[0]?.merchant_order_id} Merchant Order ID, No Changes Applied. Previous Amount: ${botRes.amount}`,
+      400,
+    );
+  }
 };
 
 const importBankResponse = async (req, res) => {
