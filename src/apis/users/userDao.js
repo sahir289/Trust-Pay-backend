@@ -259,7 +259,7 @@ const getUsersByUserNameDao = async (ids, username) => {
       FROM public."User" u
       LEFT JOIN public."Role" r ON u.role_id = r.id 
       LEFT JOIN public."Designation" d ON u.designation_id = d.id 
-      WHERE u.user_name = $1 AND u.is_obsolete = false
+      WHERE u.user_name = $1 AND u.is_obsolete = false;
     `;
 
     const queryParams = [username];
