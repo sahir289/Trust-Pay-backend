@@ -82,7 +82,8 @@ const getBankResponseBySearchDao = async (
         ba.user_id ,
         ba.nick_name,
         ba.bank_name,
-        v.code 
+        v.code,
+        v.user_id AS vendor_user_id 
       FROM public."BankResponse" br 
       JOIN public."BankAccount" ba ON br.bank_id = ba.id
       LEFT JOIN public."Vendor" v ON ba.user_id = v.user_id
@@ -270,7 +271,8 @@ const getBankResponseDaoAll = async (
     baseQuery = `
       SELECT ${selectCols}, "BankResponse".created_at,
         "BankAccount".config AS details,
-        "BankAccount".nick_name
+        "BankAccount".nick_name,
+        "Vendor".user_id AS vendor_user_id
       FROM "BankResponse"
       JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
       LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id

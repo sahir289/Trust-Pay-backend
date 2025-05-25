@@ -389,8 +389,8 @@ const resetBankResponse = async (req, res) => {
       };
       await updatePayInUrlDao(updatePayinID[0]?.id, updatePayinData);
     }
-    return sendSuccess(res, {}, `Bot response Reset successful`);
   }
+  return sendSuccess(res, {}, `Bot response Reset successful`);
   // }
   // else {
   //   const successPayinDataID = getallPayinDataByUtr?.filter(

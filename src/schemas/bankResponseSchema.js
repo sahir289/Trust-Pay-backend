@@ -14,6 +14,10 @@ export const RESET_BANK_RESPONSE_SCHEMA = Joi.object({
   amount: Joi.alternatives()
     .try(Joi.number().strict(), Joi.string().allow('').optional())
     .optional(),
+  utr: Joi.string().optional(),
+  bank_id: Joi.string()
+    .guid({ version: ['uuidv4'] })
+    .optional(),
   is_used: Joi.boolean().optional(),
   updated_by: Joi.string().optional(),
   previousAmount: Joi.alternatives()
