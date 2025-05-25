@@ -281,7 +281,6 @@ const blockChargebackUserService = async (ids) => {
       const payindata = await getPayInsDao({id: payinId},companyId)
       const code = payindata.payins[0].merchant_details.merchant_code
       const userIp = payindata.payins[0].payin_details?.user?.user_ip
-      // const userIp= filters.user_location.user_ip
       const merchant = await getMerchantsDao({code}); 
       const merchantId = payindata.payins[0].merchant_id
       const userId = payindata.payins[0].user
