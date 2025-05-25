@@ -127,10 +127,10 @@ const blockChargebackUser = async (req, res) => {
   }
   const payload = req.body;
   const { id } = req.params;
-  const { company_id, role, user_id,user_name, user_location } = req.user;
+  const { company_id, role, user_id,user_name } = req.user;
   payload.updated_by = user_id;
   const result = await blockChargebackUserService(
-    { id, company_id , user_location},
+    { id, company_id },
     payload,
     role,
   );
