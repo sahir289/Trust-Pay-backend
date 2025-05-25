@@ -2164,7 +2164,7 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
   const blockedUsers = merchant[0].config.blocked_users;
   if (Array.isArray(blockedUsers)) {
     const isUserBlocked = blockedUsers.some(user => user.userId === payIn.user);
-    const isIpBlocked = blockedUsers.some(user => user.userIp === user_location.user_ip);  
+    const isIpBlocked = blockedUsers.some(user => user.user_ip === user_location.user_ip);  
     if (isUserBlocked || isIpBlocked) {
       throw new BadRequestError('User Access Denied !');
     }
