@@ -2377,6 +2377,7 @@ const updateCalculationBalances = async (
   nextCalculations,
   amountDiff,
   commission,
+  user_id,
   conn,
 ) => {
   if (!currentCalculation) return;
@@ -2400,7 +2401,9 @@ const updateCalculationBalances = async (
     for (const calc of nextCalculations) {
       await updateCalculationBalanceDao(
         { id: calc.id },
-        { net_balance: amountDiff - commission },
+        {
+          net_balance: amountDiff - commission,
+        },
         conn,
       );
     }
@@ -2507,7 +2510,7 @@ export const updatePayInService = async (
       await Promise.all([
         updateBankResponseDao(
           { id: bankResponse.id, company_id: company_id },
-          { amount: payload.amount },
+          { amount: payload.amount, updated_by: user_id, },
           conn,
         ),
         updateBankaccountDao(
@@ -2515,12 +2518,13 @@ export const updatePayInService = async (
           {
             balance: bank[0].balance + amountDiff,
             today_balance: bank[0].today_balance + amountDiff,
+            updated_by: user_id,
           },
           conn,
         ),
         updateVendorDao(
           { id: vendor[0].user_id, company_id: company_id },
-          { balance: vendor[0].balance + amountDiff },
+          { balance: vendor[0].balance + amountDiff, updated_by: user_id },
           conn,
         ),
         updateCalculationBalances(
@@ -2543,7 +2547,7 @@ export const updatePayInService = async (
     else if (payload?.utr) {
       await updateBankResponseDao(
         { id: bankResponse.id, company_id: company_id },
-        { utr: payload.utr },
+        { utr: payload.utr, updated_by: user_id },
         conn,
       );
     }
@@ -2572,6 +2576,7 @@ export const updatePayInService = async (
           {
             balance: prevBank[0].balance - bankResponse.amount,
             today_balance: prevBank[0].today_balance - bankResponse.amount,
+            updated_by: user_id,
           },
           conn,
         ),
@@ -2580,24 +2585,26 @@ export const updatePayInService = async (
           {
             balance: newBank[0].balance + bankResponse.amount,
             today_balance: newBank[0].today_balance + bankResponse.amount,
+            updated_by: user_id,
           },
           conn,
         ),
         updateBankResponseDao(
           { id: bankResponse.id, company_id: company_id },
-          { bank_acc_id: payload.bank_acc_id },
+          { bank_id: payload.bank_acc_id, updated_by: user_id },
           conn,
         ),
       ]);
     }
 
+    delete payload.utr;
     // Update pay-in details
     await updatePayInUrlDao(
       payIn.id,
       {
         ...payload,
         updated_by: user_id,
-        user_submitted_utr: payload.utr,
+        user_submitted_utr: payIn.user_submitted_utr ? payload.utr : null,
         payin_merchant_commission:
           amountDiff > 0
             ? payIn.payin_merchant_commission + merchantCommission
