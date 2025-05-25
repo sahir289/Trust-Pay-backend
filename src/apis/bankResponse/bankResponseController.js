@@ -374,7 +374,7 @@ const resetBankResponse = async (req, res) => {
     } else if (isEqualBotResponse) {
       const updatePayinID = getallPayinDataByUtr?.filter(
         (item) =>
-          item.bank_response_id === botRes.id && item.status !== Status.FAILED,
+          item.bank_response_id === botRes.id && [Status.FAILED, Status.DISPUTE, Status.BANK_MISMATCH].includes(item.status),
       );
       const updatePayinData = {
         status:
