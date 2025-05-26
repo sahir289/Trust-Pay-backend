@@ -321,7 +321,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       data[0].user_table_id,
     );
     // if status is success and updating , it will directly be in rejected
-    if (payload.status === Status.SUCCESS) {
+    if (data[0].status === Status.SUCCESS) {
       payload.status = Status.REJECTED;
     }
 
