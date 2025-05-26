@@ -9,12 +9,12 @@ import {
   getBankResponseDao,
   createBankResponseDao,
   getBankMessageDao,
-  resetBankResponseDao,
   updateBotResponseDao,
   getBankResponseDaoAll,
   updateBankResponseDao,
   getClaimResponseDao,
   getBankResponseBySearchDao,
+  resetBankResponseDao,
 } from './bankResponseDao.js';
 import { logger } from '../../utils/logger.js';
 import {
@@ -39,6 +39,7 @@ import {
   vendorColumns,
 } from '../../constants/index.js';
 import {
+  getAllCalculationforCronDao,
   getCalculationforCronDao,
   updateCalculationBalanceDao,
 } from '../calculation/calculationDao.js';
@@ -675,14 +676,252 @@ const getBankMessageServices = async (
   }
 };
 
-const resetBankResponseService = async (id, userData) => {
+const resetBankResponseService = async (conn, id, userData) => {
+  const { company_id, user_name, user_id, role, amount, utr, bank_id } = userData;
+
   try {
-    const data = await resetBankResponseDao(id, userData);
-    logger.info('Deleted BankResponse successfully', 'info');
-    return data;
+    // Fetch bank response
+    const botRes = await getBankResponseDao({ id, company_id });
+    if (!botRes) {
+      logger.error(`Bank response not found for ID: ${id}`);
+      throw new NotFoundError('Bank response not found');
+    }
+
+    // Check for successful pay-in
+    let payInData = await getPayInUrlsDao({ user_submitted_utr: botRes.utr });
+    if (!payInData?.length) {
+      payInData = await getPayInUrlsDao({ bank_response_id: botRes.id });
+    }
+
+    const hasSuccess = payInData?.some((item) => item.status === Status.SUCCESS);
+    if (hasSuccess) {
+      const successPayIn = payInData.find((item) => item.status === Status.SUCCESS);
+      logger.warn(`UTR already confirmed for Merchant Order ID: ${successPayIn.merchant_order_id}`, 'warn');
+      throw new BadRequestError(
+        `UTR is already confirmed with Merchant Order ID ${successPayIn.merchant_order_id}. No changes applied. Previous Amount: ${botRes.amount}`,
+      );
+    }
+
+    // Prepare base update data
+    let updateData = {
+      is_used: false,
+      updated_by: user_name,
+      config: botRes.config || {},
+    };
+
+    // Handle specific updates based on input
+    let message = 'Bot response reset successful';
+    if (typeof amount === 'number' && !isNaN(amount)) {
+      ({ updateData, message } = await handleAmountUpdate({
+        botRes,
+        amount,
+        user_name,
+        company_id,
+        role,
+        payInData,
+      }));
+    } else if (utr) {
+      await handleUtrUpdate({ botRes, utr, user_id, payInData });
+    } else if (bank_id) {
+      await handleBankIdUpdate({ botRes, bank_id, company_id, user_id, conn });
+    } else {
+      await updatePayInData({ payInData, user_name, botRes });
+      await resetBankResponseDao(id, userData);
+    }
+
+    // Update bot response
+    await updateBotResponseDao(id, updateData);
+    logger.info(`Bank response reset successful for ID: ${id}`, 'info');
+
+    return { message };
   } catch (error) {
-    logger.error('Error while updating BankResponse', 'error', error);
-    throw new BadRequestError('Error occurred while updating BankResponse');
+    logger.error(`Error resetting bank response for ID: ${id}`, 'error', error);
+    throw error; // Re-throw to preserve specific error details
+  }
+};
+
+// Handle amount update
+const handleAmountUpdate = async ({ botRes, amount, user_name, role, payInData }) => {
+  const previousAmount = botRes.amount;
+  const updateData = {
+    is_used: false,
+    updated_by: user_name,
+    config: { ...(botRes.config || {}), previousAmount },
+    amount,
+  };
+
+  if (amount !== previousAmount) {
+    const bankDetails = await getBankaccountDao({ id: botRes.bank_id });
+    if (!bankDetails[0]) throw new NotFoundError('Bank account not found');
+
+    const bank = bankDetails[0];
+    const vendor = await getVendorsDao({ user_id: bank.user_id });
+    if (!vendor[0]) throw new NotFoundError('Vendor not found');
+
+    const updatedAmount =
+      botRes.amount > amount
+        ? `-${Math.abs(botRes.amount - amount)}`
+        : `+${Math.abs(amount - botRes.amount)}`;
+
+    const payinCommission = calculateCommission(updatedAmount, vendor[0].payin_commission);
+
+    await Promise.all([
+      updateCalculationTable(vendor[0].user_id, {
+        payinCommission,
+        amount: updatedAmount,
+      }),
+      updateBankaccountDao(
+        { id: bank.id },
+        {
+          balance: parseFloat(bank.balance) + parseFloat(updatedAmount),
+          today_balance: parseFloat(bank.today_balance) + parseFloat(updatedAmount),
+        },
+      ).then((res) =>
+        updateBankaccountService(
+          undefined,
+          { id: bank.id, company_id: res.company_id },
+          { latest_balance: res.today_balance },
+          role,
+        ),
+      ),
+      updatePayInData({ payInData, user_name, botRes }),
+    ]);
+  }
+
+  return { updateData, message: `Bot response reset successful. Previous Amount: ${previousAmount}` };
+};
+
+// Handle UTR update
+const handleUtrUpdate = async ({ botRes, utr, user_id, payInData }) => {
+  const payIn = await getPayInUrlsDao({ user_submitted_utr: utr });
+  if (payIn?.length && payIn[0].user_submitted_utr) {
+    await updatePayInUrlDao(payIn[0].id, {
+      user_submitted_utr: utr,
+      updated_by: user_id,
+    });
+  }
+  await updatePayInData({ payInData, user_name: user_id, botRes });
+};
+
+// Handle bank ID update
+const handleBankIdUpdate = async ({ botRes, bank_id, company_id, user_id, conn }) => {
+  const [prevBank, newBank] = await Promise.all([
+    getBankaccountDao({ id: botRes.bank_id }),
+    getBankaccountDao({ id: bank_id }),
+  ]);
+
+  if (!prevBank[0] || !newBank[0]) throw new NotFoundError('Bank account not found');
+  if (newBank[0].id === prevBank[0].id) {
+    throw new BadRequestError('Please provide a different bank account ID');
+  }
+
+  const [prevVendor, newVendor] = await Promise.all([
+    getVendorsDao({ user_id: prevBank[0].user_id }),
+    getVendorsDao({ user_id: newBank[0].user_id }),
+  ]);
+
+  if (!prevVendor[0] || !newVendor[0]) throw new NotFoundError('Vendor not found');
+
+  const [prevVendorCalc, newVendorCalc] = await Promise.all([
+    getAllCalculationforCronDao(prevVendor[0].user_id),
+    getAllCalculationforCronDao(newVendor[0].user_id),
+  ]);
+
+  if (!prevVendorCalc[0] || !newVendorCalc[0]) {
+    throw new NotFoundError('Calculation data not found');
+  }
+
+  const approvedDate = getDateWithoutTime(botRes.created_at);
+  const prevVendorCurrentCalcs = prevVendorCalc.filter(
+    (calc) => approvedDate === getDateWithoutTime(calc.created_at),
+  );
+  const newVendorCurrentCalcs = newVendorCalc.filter(
+    (calc) => approvedDate === getDateWithoutTime(calc.created_at),
+  );
+  const prevVendorNextCurrentCalcs = prevVendorCalc.filter(
+    (calc) => approvedDate < getDateWithoutTime(calc.created_at),
+  );
+  const newVendorNextCurrentCalcs = newVendorCalc.filter(
+    (calc) => approvedDate < getDateWithoutTime(calc.created_at),
+  );
+
+  if (!prevVendorCurrentCalcs[0] || !newVendorCurrentCalcs[0]) {
+    throw new NotFoundError('Matching calculation not found');
+  }
+
+  const prevVendorCommission = calculateCommission(
+    Math.abs(botRes.amount),
+    prevVendor[0].payin_commission,
+  );
+  const newVendorCommission = calculateCommission(
+    Math.abs(botRes.amount),
+    newVendor[0].payin_commission,
+  );
+
+  await Promise.all([
+    updateBankaccountDao(
+      { id: prevBank[0].id, company_id },
+      {
+        balance: prevBank[0].balance - botRes.amount,
+        today_balance: prevBank[0].today_balance - botRes.amount,
+        updated_by: user_id,
+      },
+    ),
+    updateBankaccountDao(
+      { id: newBank[0].id, company_id },
+      {
+        balance: newBank[0].balance + botRes.amount,
+        today_balance: newBank[0].today_balance + botRes.amount,
+        updated_by: user_id,
+      },
+    ),
+    updateCalculationBalances(
+      prevVendorCurrentCalcs,
+      prevVendorNextCurrentCalcs,
+      -botRes.amount,
+      prevVendorCommission,
+      conn,
+    ),
+    updateCalculationBalances(
+      newVendorCurrentCalcs,
+      newVendorNextCurrentCalcs,
+      botRes.amount,
+      newVendorCommission,
+      conn,
+    ),
+  ]);
+};
+
+// Update pay-in data
+const updatePayInData = async ({ payInData, user_name, botRes }) => {
+  const isEqualUTR = payInData?.some((item) => item.user_submitted_utr === botRes.utr);
+  const isEqualBotResponse = payInData?.some((item) => item.bank_response_id === botRes.id);
+
+  let updatePayinID;
+  if (isEqualUTR) {
+    updatePayinID = payInData.filter(
+      (item) => item.user_submitted_utr === botRes.utr && item.status !== Status.FAILED,
+    );
+  } else if (isEqualBotResponse) {
+    updatePayinID = payInData.filter(
+      (item) =>
+        item.bank_response_id === botRes.id &&
+        [Status.FAILED, Status.DISPUTE, Status.BANK_MISMATCH].includes(item.status),
+    );
+  }
+
+  if (updatePayinID?.length) {
+    const updatePayinData = {
+      status:
+        new Date().getTime() - new Date(updatePayinID[0].created_at).getTime() <
+        10 * 60 * 1000
+          ? Status.ASSIGNED
+          : Status.DROPPED,
+      user_submitted_utr: null,
+      bank_response_id: null,
+      updated_by: user_name,
+    };
+    await updatePayInUrlDao(updatePayinID[0].id, updatePayinData);
   }
 };
 
@@ -1031,6 +1270,57 @@ const importBankResponseService = async (
   } catch (error) {
     logger.error('Error in importBankResponseService:', error);
     throw new Error(`Failed to process bank statement: ${error.message}`);
+  }
+};
+
+// Helper function to compare dates without time
+const getDateWithoutTime = (date) => {
+  return new Date(date)
+    .toLocaleDateString('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+    .split('/')
+    .join('-');
+};
+
+// Helper function to update calculation balances
+const updateCalculationBalances = async (
+  currentCalculation,
+  nextCalculations,
+  amountDiff,
+  commission,
+  conn,
+) => {
+  if (!currentCalculation) return;
+
+  const updates = {
+    total_payin_commission: amountDiff > 0 ? commission : -commission,
+    total_payin_amount: amountDiff,
+    current_balance: amountDiff - commission,
+    net_balance: amountDiff - commission,
+  };
+
+  // Update current calculation
+  await updateCalculationBalanceDao(
+    { id: currentCalculation[0].id },
+    updates,
+    conn,
+  );
+
+  if (nextCalculations.length > 0) {
+    // Update subsequent calculations
+    for (const calc of nextCalculations) {
+      await updateCalculationBalanceDao(
+        { id: calc.id },
+        {
+          net_balance: amountDiff - commission,
+        },
+        conn,
+      );
+    }
   }
 };
 
