@@ -28,7 +28,6 @@ import { getVendorsDao, updateVendorDao } from '../vendors/vendorDao.js';
 import {
   getCalculationDao,
   getCalculationforCronDao,
-  updateCalculationDao,
 } from '../calculation/calculationDao.js';
 import {
   updateBankaccountDao,
@@ -36,9 +35,8 @@ import {
 } from '../bankAccounts/bankaccountDao.js';
 import config from '../../config/config.js';
 import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
-import { getUserByIdDao } from '../users/userDao.js';
 import { Status, Method, tableName } from '../../constants/index.js';
-import { calculateBalances, calculateCommission } from '../../helpers/index.js';
+import { calculateCommission } from '../../helpers/index.js';
 import {
   columns,
   merchantColumns,
@@ -433,20 +431,13 @@ const getPayoutsBySearchService = async (
 
 const updatePayoutService = async (conn, ids, payload, role) => {
   try {
-    // const filterColumns =
-    //   role === Role.MERCHANT
-    //     ? merchantColumns.PAYOUT
-    //     : role === Role.VENDOR
-    //       ? vendorColumns.PAYOUT
-    //       : columns.PAYOUT;
-     
+   
     if (payload?.utr_id) {
     const payoutDetails = await getPayoutsDao({utr_id: payload.utr_id}, ids.company_id);
     if(payoutDetails.length > 0) {
       throw new BadRequestError('UTR already exists');
     }
-  }
-    
+    }
     if (payload?.utr_id && !payload.status)
       Object.assign(payload, {
         status: Status.APPROVED,
@@ -603,6 +594,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         {
           payout_merchant_commission: merchantCommission,
           payout_vendor_commission: vendorCommission,
+          vendor_id:vendor.id
         },
         conn,
       );
