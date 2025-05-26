@@ -103,6 +103,17 @@ export const getVendorsDao = async (
         WHERE "User".designation_id = (SELECT id FROM "Designation" WHERE designation = 'VENDOR')
       `;
   }
+  const value = [];
+  let paramIndex = 1;
+
+  if (filters.id) {
+    baseQuery += `
+      AND "Vendor".id = $${paramIndex}
+    `;
+    value.push(filters.id);
+    paramIndex++;
+  }
+
     const [query, values] = buildSelectQuery(
       baseQuery,
       filters,

@@ -100,9 +100,9 @@ export const getPayoutsDao = async (
         ) AS merchant_details
       `;
     } else if (role === 'VENDOR') {
-      commissionSelect = `u.payout_vendor_commission, v.code AS vendor_code, 
-          v.id AS vendor_id, 
-          v.user_id AS vendor_user_id`;
+      commissionSelect = `u.payout_vendor_commission, ve.code AS vendor_code, 
+          ve.id AS vendor_id, 
+          ve.user_id AS vendor_user_id`;
     } else {
       commissionSelect = `
         u.merchant_id, 
@@ -112,7 +112,7 @@ export const getPayoutsDao = async (
         u.created_by, 
         u.updated_by, 
         u.created_at, 
-        v.code AS vendor_code, 
+        ve.code AS vendor_code, 
         ve.id AS vendor_id, 
         ve.user_id AS vendor_user_id,
         u.updated_at, 
@@ -163,7 +163,6 @@ export const getPayoutsDao = async (
         FROM public."Payout" u
         LEFT JOIN public."Merchant" r ON u.merchant_id = r.id
         LEFT JOIN public."BankAccount" b ON u.bank_acc_id = b.id
-        LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
         LEFT JOIN public."Vendor" ve ON u.vendor_id = ve.id
         LEFT JOIN public."User" us ON u.created_by = us.id 
         LEFT JOIN public."User" uu ON u.updated_by = uu.id

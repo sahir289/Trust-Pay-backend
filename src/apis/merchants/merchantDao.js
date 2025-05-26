@@ -252,10 +252,13 @@ export const getMerchantsByCodeDao = async (code) => {
   LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
   LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
   LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
-  WHERE "Merchant".code = $1
 `;
 
-    const queryParams = [code];
+let queryParams = [];
+if (code) {
+      baseQuery += ` WHERE "Merchant".code = $1`;
+      queryParams = [code.trim()];
+    }
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
