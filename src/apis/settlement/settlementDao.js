@@ -138,11 +138,16 @@ SELECT DISTINCT ON (s.sno)
         r.role,
         u.id AS user_table_id,
         u.code,
-        jsonb_set(
-        s.config::jsonb,
-        '{beneficiary_bank_name}',
-        to_jsonb(COALESCE(ba.bank_name, s.config->>'bank_name'))
-        ) AS config
+       CASE
+        WHEN s.config->>'bank_id' IS NOT NULL THEN
+            jsonb_set(
+                s.config::jsonb,
+                '{beneficiary_bank_name}',
+                to_jsonb(COALESCE(ba.bank_name, s.config->>'bank_name'))
+            )       
+        ELSE
+            s.config::jsonb
+        END AS config
          FROM public."${SETTLEMENT}" s
       JOIN public."${USER}" u ON s.user_id = u.id
       LEFT JOIN public."${ROLE}" r ON u.role_id = r.id
