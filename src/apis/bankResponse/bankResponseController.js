@@ -150,12 +150,11 @@ const resetBankResponseController = async (req, res) => {
     }
 
     // Call service to handle the reset logic
-    const result = await transactionWrapper(resetBankResponseService)({
+    const result = await transactionWrapper(resetBankResponseService)(id, {
       company_id,
       user_name,
       user_id,
       role,
-      bank_response_id: id,
       amount,
       utr,
       bank_id,

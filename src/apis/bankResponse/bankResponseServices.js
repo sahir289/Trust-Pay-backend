@@ -721,16 +721,14 @@ const resetBankResponseService = async (conn, id, userData) => {
         payInData,
       }));
     } else if (utr) {
-      await handleUtrUpdate({ botRes, utr, user_id, payInData });
+      await handleUtrUpdate({ botRes,  utr, user_id, user_name, conn });
     } else if (bank_id) {
-      await handleBankIdUpdate({ botRes, bank_id, company_id, user_id, conn });
+      await handleBankIdUpdate({ botRes, bank_id, company_id, user_id, user_name, conn });
     } else {
       await updatePayInData({ payInData, user_name, botRes });
-      await resetBankResponseDao(id, userData);
+      await resetBankResponseDao(id, updateData);
     }
 
-    // Update bot response
-    await updateBotResponseDao(id, updateData);
     logger.info(`Bank response reset successful for ID: ${id}`, 'info');
 
     return { message };
@@ -792,7 +790,7 @@ const handleAmountUpdate = async ({ botRes, amount, user_name, role, payInData }
 };
 
 // Handle UTR update
-const handleUtrUpdate = async ({ botRes, utr, user_id, payInData }) => {
+const handleUtrUpdate = async ({ botRes,  utr, user_id, user_name, conn }) => {
   const payIn = await getPayInUrlsDao({ user_submitted_utr: utr });
   if (payIn?.length && payIn[0].user_submitted_utr) {
     await updatePayInUrlDao(payIn[0].id, {
@@ -800,11 +798,11 @@ const handleUtrUpdate = async ({ botRes, utr, user_id, payInData }) => {
       updated_by: user_id,
     });
   }
-  await updatePayInData({ payInData, user_name: user_id, botRes });
+  await updateBotResponseDao(botRes.id, { utr: utr, updated_by: user_name }, conn);
 };
 
 // Handle bank ID update
-const handleBankIdUpdate = async ({ botRes, bank_id, company_id, user_id, conn }) => {
+const handleBankIdUpdate = async ({ botRes, bank_id, company_id, user_id, user_name, conn }) => {
   const [prevBank, newBank] = await Promise.all([
     getBankaccountDao({ id: botRes.bank_id }),
     getBankaccountDao({ id: bank_id }),
@@ -875,6 +873,7 @@ const handleBankIdUpdate = async ({ botRes, bank_id, company_id, user_id, conn }
         updated_by: user_id,
       },
     ),
+    await updateBotResponseDao(botRes.id, { bank_id: newBank[0].id, updated_by: user_name }, conn),
     updateCalculationBalances(
       prevVendorCurrentCalcs,
       prevVendorNextCurrentCalcs,
