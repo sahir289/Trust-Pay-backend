@@ -28,12 +28,12 @@ import { s3 } from '../../helpers/Aws.js';
 import { streamToBuffer } from '../../helpers/index.js';
 const getBankResponse = async (req, res) => {
   const { role, company_id } = req.user;
-  const { page, limit, search } = req.query;
+  const { page, limit, search, updated } = req.query;
   const payload = {
     ...req.query,
     company_id,
   };
-  const data = await getBankResponseService(payload, role, page, limit, search);
+  const data = await getBankResponseService(payload, role, page, limit, search, updated);
   return sendSuccess(res, data, 'Bank response retrieved successfully');
 };
 

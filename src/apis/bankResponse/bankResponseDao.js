@@ -234,7 +234,7 @@ const getBankResponseDaoAll = async (
   start_date,
   end_date,
   columns = [],
-  // role,
+  updated,
 ) => {
   try {
     const selectCols = columns.length
@@ -280,6 +280,14 @@ const getBankResponseDaoAll = async (
       } else {
         baseQuery += ` WHERE "BankResponse".is_obsolete = false `;
       }
+       // Handle updated entries
+    if (updated) {
+      const whereClause = baseQuery.includes('WHERE') ? 'AND' : 'WHERE';
+      baseQuery += `
+        ${whereClause} "BankResponse".updated_at IS NOT NULL 
+        AND "BankResponse".updated_at != "BankResponse".created_at
+      `;
+    }
 
     const [query, queryValues] = buildSelectQuery(
       baseQuery,
