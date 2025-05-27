@@ -10,9 +10,9 @@ import {
 import { BadRequestError } from '../../utils/appErrors.js';
 const getResetHistoryService = async (id, page, limit) => {
   try {
-    const pageNumber = parseInt(page, 10) || 1;
-      const pageSize = parseInt(limit, 10) || 10;
-    const result = await getResetHistoryDao({company_id: id} , pageNumber, pageSize);
+    // const pageNumber = parseInt(page, 10) || 1;
+    // const pageSize = parseInt(limit, 10) || 10;
+    const result = await getResetHistoryDao({company_id: id} , page, limit);
     return result;
   } catch (error) {
     console.error('error getting while reset history', error);
