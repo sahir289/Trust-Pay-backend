@@ -231,10 +231,10 @@ const getBankResponseDaoAll = async (
   pageSize = 10,
   sortBy = 'created_at',
   sortOrder = 'DESC',
-  start_date,
-  end_date,
   columns = [],
   updated,
+  start_date,
+  end_date,
 ) => {
   try {
     const selectCols = columns.length
