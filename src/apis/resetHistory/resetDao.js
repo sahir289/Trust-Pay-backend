@@ -16,6 +16,7 @@ const getResetHistoryDao = async (
   columns = [], 
 ) => {
   try {
+    console.log(startDate, endDate,sortBy,sortOrder, 'startDate, endDate,startDate, endDate,')
     const { BANK_RESPONSE, RESET_DATA_HISTORY, PAYIN, USER } = tableName;
     //reset pagination if page and limit is null
     let queryParams = [];
