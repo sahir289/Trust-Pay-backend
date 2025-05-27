@@ -213,9 +213,26 @@ export const getCalculationsSumDao = async (filters) => {
 
     // Modified user code condition for merchant and vendor queries
     if (userCodes.length > 0) {
-      const userCodeParams = userCodes.map(code => `'${code}'`).join(',');
-      merchantQuery += ` AND m.code = ANY(ARRAY[${userCodeParams}]) `;
-      vendorQuery += ` AND v.code = ANY(ARRAY[${userCodeParams}]) `;
+            // If userCodes are provided, filter by them
+            let userIds = [];
+            if (userCodes.length > 0) {
+              // Get user hierarchy to validate access
+        
+              // Process each userCode if provided
+              if (userCodes?.length > 0) {
+                for (const userCode of userCodes) {
+                  if (userCode) {
+                    const userHierarchys = await getUserHierarchysDao({ user_id: userCode });
+                    const allowedSubmerchants = userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
+                    // Combine current userCode with its submerchants
+                    userIds = [...new Set([...userIds, userCode, ...allowedSubmerchants])];
+                  }
+                }
+              }
+            }        
+      const userCodeParams = userIds.map(code => `'${code}'`).join(',');
+      merchantQuery += ` AND m.user_id = ANY(ARRAY[${userCodeParams}]) `;
+      vendorQuery += ` AND v.user_id = ANY(ARRAY[${userCodeParams}]) `;
     }
 
     // Admin Query
@@ -234,8 +251,26 @@ export const getCalculationsSumDao = async (filters) => {
 
     // query for merchant only role
     if (role === Role.MERCHANT) {
-      const mQuery = `${merchantQuery}  AND c.user_id = $1  AND c.company_id = $2  ${groupBy}`;
-      merchantData = (await executeQuery(mQuery, [effectiveUserId, company_id])).rows;
+      // Get user hierarchy to validate submerchant access
+      const userHierarchys = await getUserHierarchysDao({ user_id: effectiveUserId });
+      let userIds = [effectiveUserId]; // Always include merchant's own ID
+
+      // Handle userCodes for merchant totals
+      if (userCodes?.length > 0) {
+        // Get allowed submerchant IDs from hierarchy
+        const allowedSubmerchants = userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
+        // Only include valid submerchant IDs
+        const validUserIds = userCodes.filter(id => allowedSubmerchants.includes(id));
+        userIds = [...userIds, ...validUserIds]; // Include both merchant and valid submerchant IDs
+      }
+
+      // Create the query with proper type casting for array elements
+      const mQuery = `${merchantQuery} 
+        AND c.user_id = ANY(ARRAY[${userIds.map(id => `'${id}'::text`).join(',')}])
+        AND c.company_id = $1
+        ${groupBy}`;
+      
+      merchantData = (await executeQuery(mQuery, [company_id])).rows;
     }
 
     // query for vendor only role
@@ -263,8 +298,8 @@ export const getCalculationsSumDao = async (filters) => {
           WHERE c.is_obsolete = FALSE
           AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
           ${condition}
-          ${userCodes.length > 0 ? `AND (m.code = ANY(ARRAY[${userCodes.map(code => `'${code}'`).join(',')}]) 
-            OR v.code = ANY(ARRAY[${userCodes.map(code => `'${code}'`).join(',')}]))` : ''}
+          ${userCodes.length > 0 ? `AND (m.user_id = ANY(ARRAY[${userCodes.map(code => `'${code}'`).join(',')}]) 
+            OR v.user_id = ANY(ARRAY[${userCodes.map(code => `'${code}'`).join(',')}]))` : ''}
         )
         SELECT 
           role,
@@ -362,17 +397,49 @@ export const getCalculationsSumDao = async (filters) => {
 
     // Add role-based conditions
     if (role === Role.MERCHANT) {
-      merchantTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
+      // Get user hierarchy to validate submerchant access
+      const userHierarchys = await getUserHierarchysDao({ user_id: effectiveUserId });
+      let userIds = [effectiveUserId]; // Always include merchant's own ID
+
+      // Handle userCodes for merchant totals
+      if (userCodes?.length > 0) {
+        // Get allowed submerchant IDs from hierarchy
+        const allowedSubmerchants = userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
+        // Only include valid submerchant IDs
+        const validUserIds = userCodes.filter(id => allowedSubmerchants.includes(id));
+        userIds = [...new Set([ ...validUserIds])]; // Remove duplicates
+      }
+
+      // Add filter to merchant total query
+      merchantTotalQuery += ` AND m.user_id = ANY(ARRAY['${userIds.join("','")}']) `;
+      merchantTotalQuery += ` AND c.company_id = '${company_id}'`;
       vendorTotalQuery = null; // Merchant shouldn't see vendor totals
     } else if (role === Role.VENDOR) {
       vendorTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
       merchantTotalQuery = null; // Vendor shouldn't see merchant totals
     } else if (role === Role.ADMIN) {
+      // Get user hierarchy to validate access
+      let userIds = [];
+
+      // Process each userCode if provided
       if (userCodes?.length > 0) {
-        const userCodeParams = userCodes.map(code => `'${code}'`).join(',');
-        merchantTotalQuery += ` AND m.code = ANY(ARRAY[${userCodeParams}]) `;
-        vendorTotalQuery += ` AND v.code = ANY(ARRAY[${userCodeParams}]) `;
+        for (const userCode of userCodes) {
+          if (userCode) {
+            const userHierarchys = await getUserHierarchysDao({ user_id: userCode });
+            const allowedSubmerchants = userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
+            // Combine current userCode with its submerchants
+            userIds = [...new Set([...userIds, userCode, ...allowedSubmerchants])];
+          }
+        }
+
+        // Add filters to queries using proper array syntax
+        if (userIds.length > 0) {
+          const userIdsFormatted = userIds.map(id => `'${id}'`).join(',');
+          merchantTotalQuery += ` AND m.user_id = ANY(ARRAY[${userIdsFormatted}]) `;
+          vendorTotalQuery += ` AND v.user_id = ANY(ARRAY[${userCodes.map(code => `'${code}'`).join(',')}]) `;
+        }
       }
+
       merchantTotalQuery += ` AND c.company_id = '${company_id}'`;
       vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
     }
@@ -393,7 +460,7 @@ export const getCalculationsSumDao = async (filters) => {
   } catch (error) {
     console.error('Error fetching calculation data:', error);
     logger.error('Error getting calculation data:', error);
-    throw error;
+    throw error.message;
   }
 };
 
