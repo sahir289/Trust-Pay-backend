@@ -85,11 +85,17 @@ export const getTotalCountService = async (
         }
         delete filters.company_id;
       }
+      let updated = false;
+      if (filters?.updated) {
+        updated = filters.updated;
+        delete filters.updated;
+      }
       return await getTotalCountDao(
         tablename,
         role,
         filters,
         userInfo.userRole,
+        updated,
       );
     }
 
@@ -184,7 +190,9 @@ export const getTotalCountService = async (
             filters.bank_acc_id =
               userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
           } else {
-            logger.warn(`No PayIn bank accounts found for user_id: ${targetId}`);
+            logger.warn(
+              `No PayIn bank accounts found for user_id: ${targetId}`,
+            );
             filters.bank_acc_id = null; // Handle case with no bank accounts
           }
         } else {
@@ -271,7 +279,12 @@ export const getTotalCountService = async (
 
     logger.info(`Filters applied: ${JSON.stringify(filters)}`);
 
-    return await getTotalCountDao(tablename, role, filters);
+    let updated = false;
+    if (filters?.updated) {
+      updated = filters.updated;
+      delete filters.updated;
+    }
+    return await getTotalCountDao(tablename, role, filters, updated);
   } catch (error) {
     logger.error(
       `Error in getTotalCountService for table ${tablename}:`,

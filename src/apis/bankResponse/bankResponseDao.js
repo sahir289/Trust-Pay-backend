@@ -233,6 +233,7 @@ const getBankResponseDaoAll = async (
   sortOrder = 'DESC',
   columns = [],
   role,
+  updated,
 ) => {
   try {
     const selectCols = columns.length
@@ -244,9 +245,18 @@ const getBankResponseDaoAll = async (
           `"BankAccount".bank_name`,
           `"Vendor".code AS vendor_code`,
         ].join(', ');
-        // `u.user_name AS created_by`,
-        // `uu.user_name AS updated_by`,
-  let baseQuery;
+
+    let baseQuery = `
+      SELECT ${selectCols}, "BankResponse".created_at,
+        "BankAccount".config AS details,
+        "BankAccount".nick_name,
+        "Vendor".user_id AS vendor_user_id
+      FROM "BankResponse"
+      JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
+      LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
+    `;
+
+    // Handle search filter
     if (filters.search) {
       const searchValue = filters.search.trim();
       filters.or = {
@@ -255,41 +265,40 @@ const getBankResponseDaoAll = async (
       };
       delete filters.search;
     }
+
+    // Handle date range for non-vendor roles
     if (filters.start_date && filters.end_date && role !== Role.VENDOR) {
-      //merchant codes shown between date range selcted for bank account reports
-      baseQuery = `
-        AND "BankResponse".created_at BETWEEN $${filters.start_date} AND $${filters.end_date}
+      baseQuery += `
         WHERE EXISTS (
           SELECT 1 FROM jsonb_each_text("BankAccount".config -> 'details' -> 'merchant_added') AS j(k, v)
           WHERE v::timestamp BETWEEN $${filters.start_date} AND $${filters.end_date}
         )
+        AND "BankResponse".created_at BETWEEN $${filters.start_date} AND $${filters.end_date}
       `;
       delete filters.start_date;
       delete filters.end_date;
     }
 
-    baseQuery = `
-      SELECT ${selectCols}, "BankResponse".created_at,
-        "BankAccount".config AS details,
-        "BankAccount".nick_name,
-        "Vendor".user_id AS vendor_user_id
-      FROM "BankResponse"
-      JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
-      LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
-      `;
-      // LEFT JOIN public."User" u ON "BankResponse".created_by = u.id 
-      // LEFT JOIN public."User" uu ON "BankResponse".updated_by = uu.id
-
+    // Handle date range for vendor role
     if (filters.start_date && filters.end_date && role === Role.VENDOR) {
-      const { start } = getUTCDayRange(filters.start_date );
-      const { end } = getUTCDayRange( filters.end_date);
+      const { start } = getUTCDayRange(filters.start_date);
+      const { end } = getUTCDayRange(filters.end_date);
       baseQuery += `
         WHERE "BankResponse".created_at BETWEEN '${start}' AND '${end}'
       `;
       delete filters.start_date;
       delete filters.end_date;
     }
-    
+
+    // Handle updated entries
+    if (updated) {
+      const whereClause = baseQuery.includes('WHERE') ? 'AND' : 'WHERE';
+      baseQuery += `
+        ${whereClause} "BankResponse".updated_at IS NOT NULL 
+        AND "BankResponse".updated_at != "BankResponse".created_at
+      `;
+    }
+
     const [query, values] = buildSelectQuery(
       baseQuery,
       filters,

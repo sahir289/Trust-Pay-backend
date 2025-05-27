@@ -381,14 +381,14 @@ const createBankResponseService = async (
       };
       const updatePayin = await updatePayInUrlDao(payInUtr.id, payInData, conn);
       await updateBotResponseDao(botRes.id, { is_used: true }, conn);
-         merchantPayinCallback(updatePayin.config.urls?.notify, {
-           status: updatePayin.status,
-           merchantOrderId: updatePayin.merchant_order_id,
-           payinId: updatePayin.id,
-           amount: botRes.amount,
-           req_amount: updatePayin.amount,
-           utr_id: updatePayin.utr,
-         });
+      merchantPayinCallback(updatePayin.config.urls?.notify, {
+        status: updatePayin.status,
+        merchantOrderId: updatePayin.merchant_order_id,
+        payinId: updatePayin.id,
+        amount: botRes.amount,
+        req_amount: updatePayin.amount,
+        utr_id: updatePayin.utr,
+      });
       const merchnatData = merchantData[0].balance + amount;
       if (isNaN(merchnatData)) {
         throw new BadRequestError('Invalid amount or commission');
@@ -501,7 +501,7 @@ const getClaimResponseService = async (payload) => {
   }
 };
 
-const getBankResponseService = async (payload, role, page, limit, search) => {
+const getBankResponseService = async (payload, role, page, limit, search, updated) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -546,6 +546,7 @@ const getBankResponseService = async (payload, role, page, limit, search) => {
       'DESC',
       filterColumns,
       role,
+      updated,
     );
   } catch (error) {
     logger.error('Error in getBankResponseService:', error);
@@ -677,7 +678,8 @@ const getBankMessageServices = async (
 };
 
 const resetBankResponseService = async (conn, id, userData) => {
-  const { company_id, user_name, user_id, role, amount, utr, bank_id } = userData;
+  const { company_id, user_name, user_id, role, amount, utr, bank_id } =
+    userData;
 
   try {
     // Fetch bank response
@@ -693,10 +695,17 @@ const resetBankResponseService = async (conn, id, userData) => {
       payInData = await getPayInUrlsDao({ bank_response_id: botRes.id });
     }
 
-    const hasSuccess = payInData?.some((item) => item.status === Status.SUCCESS);
+    const hasSuccess = payInData?.some(
+      (item) => item.status === Status.SUCCESS,
+    );
     if (hasSuccess) {
-      const successPayIn = payInData.find((item) => item.status === Status.SUCCESS);
-      logger.warn(`UTR already confirmed for Merchant Order ID: ${successPayIn.merchant_order_id}`, 'warn');
+      const successPayIn = payInData.find(
+        (item) => item.status === Status.SUCCESS,
+      );
+      logger.warn(
+        `UTR already confirmed for Merchant Order ID: ${successPayIn.merchant_order_id}`,
+        'warn',
+      );
       throw new BadRequestError(
         `UTR is already confirmed with Merchant Order ID ${successPayIn.merchant_order_id}. No changes applied. Previous Amount: ${botRes.amount}`,
       );
@@ -719,12 +728,19 @@ const resetBankResponseService = async (conn, id, userData) => {
         company_id,
         role,
         payInData,
-        conn
+        conn,
       }));
     } else if (utr) {
-      await handleUtrUpdate({ botRes,  utr, user_id, user_name, conn });
+      await handleUtrUpdate({ botRes, utr, user_id, user_name, conn });
     } else if (bank_id) {
-      await handleBankIdUpdate({ botRes, bank_id, company_id, user_id, user_name, conn });
+      await handleBankIdUpdate({
+        botRes,
+        bank_id,
+        company_id,
+        user_id,
+        user_name,
+        conn,
+      });
     } else {
       await updatePayInData({ payInData, user_name, botRes });
       await resetBankResponseDao(id, updateData);
@@ -740,11 +756,19 @@ const resetBankResponseService = async (conn, id, userData) => {
 };
 
 // Handle amount update
-const handleAmountUpdate = async ({ botRes, amount, user_name, role, payInData, conn }) => {
+const handleAmountUpdate = async ({
+  botRes,
+  amount,
+  user_name,
+  role,
+  payInData,
+  conn,
+}) => {
   const previousAmount = botRes.amount;
+  const previousUpdater = botRes.updated_by;
   const updateData = {
     updated_by: user_name,
-    config: { ...(botRes.config || {}), previousAmount },
+    config: { ...(botRes.config || {}), previousAmount, previousUpdater },
     amount,
   };
 
@@ -761,7 +785,10 @@ const handleAmountUpdate = async ({ botRes, amount, user_name, role, payInData, 
         ? `-${Math.abs(botRes.amount - amount)}`
         : `+${Math.abs(amount - botRes.amount)}`;
 
-    const payinCommission = calculateCommission(updatedAmount, vendor[0].payin_commission);
+    const payinCommission = calculateCommission(
+      updatedAmount,
+      vendor[0].payin_commission,
+    );
 
     await Promise.all([
       updateCalculationTable(vendor[0].user_id, {
@@ -772,7 +799,8 @@ const handleAmountUpdate = async ({ botRes, amount, user_name, role, payInData, 
         { id: bank.id },
         {
           balance: parseFloat(bank.balance) + parseFloat(updatedAmount),
-          today_balance: parseFloat(bank.today_balance) + parseFloat(updatedAmount),
+          today_balance:
+            parseFloat(bank.today_balance) + parseFloat(updatedAmount),
         },
       ).then((res) =>
         updateBankaccountService(
@@ -787,11 +815,21 @@ const handleAmountUpdate = async ({ botRes, amount, user_name, role, payInData, 
     ]);
   }
 
-  return { updateData, message: `Bot response reset successful. Previous Amount: ${previousAmount}` };
+  return {
+    updateData,
+    message: `Bot response reset successful. Previous Amount: ${previousAmount}`,
+  };
 };
 
 // Handle UTR update
-const handleUtrUpdate = async ({ botRes,  utr, user_id, user_name, conn }) => {
+const handleUtrUpdate = async ({ botRes, utr, user_id, user_name, conn }) => {
+  const previousUTR = botRes.utr;
+  const previousUpdater = botRes.updated_by;
+  const updateData = {
+    utr: utr,
+    updated_by: user_name,
+    config: { ...(botRes.config || {}), previousUTR, previousUpdater },
+  };
   const payIn = await getPayInUrlsDao({ user_submitted_utr: utr });
   if (payIn?.length && payIn[0].user_submitted_utr) {
     await updatePayInUrlDao(payIn[0].id, {
@@ -799,17 +837,36 @@ const handleUtrUpdate = async ({ botRes,  utr, user_id, user_name, conn }) => {
       updated_by: user_id,
     });
   }
-  await updateBotResponseDao(botRes.id, { utr: utr, updated_by: user_name }, conn);
+  await updateBotResponseDao(
+    botRes.id,
+    updateData,
+    conn,
+  );
 };
 
 // Handle bank ID update
-const handleBankIdUpdate = async ({ botRes, bank_id, company_id, user_id, user_name, conn }) => {
+const handleBankIdUpdate = async ({
+  botRes,
+  bank_id,
+  company_id,
+  user_id,
+  user_name,
+  conn,
+}) => {
   const [prevBank, newBank] = await Promise.all([
     getBankaccountDao({ id: botRes.bank_id }),
     getBankaccountDao({ id: bank_id }),
   ]);
+  const previousBank = prevBank[0].nick_name;
+  const previousUpdater = botRes.updated_by;
+  const updateData = {
+    bank_id: newBank[0].id,
+    updated_by: user_name,
+    config: { ...(botRes.config || {}), previousBank, previousUpdater },
+  };
 
-  if (!prevBank[0] || !newBank[0]) throw new NotFoundError('Bank account not found');
+  if (!prevBank[0] || !newBank[0])
+    throw new NotFoundError('Bank account not found');
   if (newBank[0].id === prevBank[0].id) {
     throw new BadRequestError('Please provide a different bank account ID');
   }
@@ -819,7 +876,8 @@ const handleBankIdUpdate = async ({ botRes, bank_id, company_id, user_id, user_n
     getVendorsDao({ user_id: newBank[0].user_id }),
   ]);
 
-  if (!prevVendor[0] || !newVendor[0]) throw new NotFoundError('Vendor not found');
+  if (!prevVendor[0] || !newVendor[0])
+    throw new NotFoundError('Vendor not found');
 
   const [prevVendorCalc, newVendorCalc] = await Promise.all([
     getAllCalculationforCronDao(prevVendor[0].user_id),
@@ -874,7 +932,11 @@ const handleBankIdUpdate = async ({ botRes, bank_id, company_id, user_id, user_n
         updated_by: user_id,
       },
     ),
-    updateBotResponseDao(botRes.id, { bank_id: newBank[0].id, updated_by: user_name }, conn),
+    updateBotResponseDao(
+      botRes.id,
+      updateData,
+      conn,
+    ),
     updateCalculationBalances(
       prevVendorCurrentCalcs,
       prevVendorNextCurrentCalcs,
@@ -894,19 +956,26 @@ const handleBankIdUpdate = async ({ botRes, bank_id, company_id, user_id, user_n
 
 // Update pay-in data
 const updatePayInData = async ({ payInData, user_name, botRes }) => {
-  const isEqualUTR = payInData?.some((item) => item.user_submitted_utr === botRes.utr);
-  const isEqualBotResponse = payInData?.some((item) => item.bank_response_id === botRes.id);
+  const isEqualUTR = payInData?.some(
+    (item) => item.user_submitted_utr === botRes.utr,
+  );
+  const isEqualBotResponse = payInData?.some(
+    (item) => item.bank_response_id === botRes.id,
+  );
 
   let updatePayinID;
   if (isEqualUTR) {
     updatePayinID = payInData.filter(
-      (item) => item.user_submitted_utr === botRes.utr && item.status !== Status.FAILED,
+      (item) =>
+        item.user_submitted_utr === botRes.utr && item.status !== Status.FAILED,
     );
   } else if (isEqualBotResponse) {
     updatePayinID = payInData.filter(
       (item) =>
         item.bank_response_id === botRes.id &&
-        [Status.FAILED, Status.DISPUTE, Status.BANK_MISMATCH].includes(item.status),
+        [Status.FAILED, Status.DISPUTE, Status.BANK_MISMATCH].includes(
+          item.status,
+        ),
     );
   }
 
