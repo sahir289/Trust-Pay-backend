@@ -48,8 +48,7 @@ export const getVendorsCodeDao = async (
     return result.rows;
   } catch (error) {
     logger.error('Error executing vendor query:', error);
-    throw new Error('Database query failed'); // Re-throwing for upstream handling
-  }
+    throw error.message;  }
 };
 
 
