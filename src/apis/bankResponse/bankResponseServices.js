@@ -530,8 +530,6 @@ const getBankResponseService = async (payload, role, page, limit, search) => {
         is_used,
         company_id: payload.company_id || undefined,
         //start and end date bank reponse report
-        start_date: payload.start_date || undefined,
-        end_date: payload.end_date || undefined,
       }).filter(([, v]) => v !== undefined),
     );
     filters = {
@@ -544,6 +542,8 @@ const getBankResponseService = async (payload, role, page, limit, search) => {
       limit,
       payload.sort_by || 'sno',
       'DESC',
+      payload.startDate || undefined,
+      payload.endDate || undefined,
       filterColumns,
       role,
     );

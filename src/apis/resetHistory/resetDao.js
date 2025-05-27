@@ -4,14 +4,15 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
+import moment from 'moment-timezone';
 
 const getResetHistoryDao = async (
   filters = {},
   page ,
-  pageSize ,
+  pageSize ,startDate, endDate,
   sortBy = 'sno',
-  sortOrder = 'DESC',
-  columns = []
+  sortOrder = 'DESC', 
+  columns = [], 
 ) => {
   try {
     const { BANK_RESPONSE, RESET_DATA_HISTORY, PAYIN, USER } = tableName;
@@ -86,6 +87,15 @@ const getResetHistoryDao = async (
     if (page && pageSize) {
       limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
       queryParams.push(pageSize, (page - 1) * pageSize);
+    }
+    if (startDate && endDate) {
+
+      const startDateTime = moment.tz(`${startDate} 00:00:00`, 'Asia/Kolkata').toISOString(true);
+      const endDateTime = moment.tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString(true);
+         
+      sql += ` AND "${RESET_DATA_HISTORY}".created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      queryParams.push(startDateTime, endDateTime);
+      paramIndex++;
     }
 
     // Sorting

@@ -10,8 +10,8 @@ import {
 const getResetHistory = async (req, res) => {
   try {
     const { company_id } = req.user;
-    const {page, limit} = req.query;
-    const data = await getResetHistoryService(company_id,  page,limit,);
+    const {page, limit,startDate, endDate} = req.query;
+    const data = await getResetHistoryService(company_id,  page,limit,startDate, endDate);
     return sendSuccess(res, data, 'reset history successfully');
   } catch (error) {
     console.error('error getting while fetching reports', error);
