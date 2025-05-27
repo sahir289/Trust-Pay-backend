@@ -281,7 +281,7 @@ WITH filtered_payins AS (
       parameters.push(startDate, endDate);
     }
 
-    query += ` ORDER BY po.id DESC ) SELECT * FROM filtered_payins ORDER BY sno DESC;`;  //--sorting by codes than created_at
+    query += ` ORDER BY po.id DESC ) SELECT * FROM filtered_payins ORDER BY sno ASC;`;  //--sorting by codes than created_at
 
     const result = await executeQuery(query, parameters);
     return result.rows;

@@ -9,9 +9,10 @@ import moment from 'moment-timezone';
 const getResetHistoryDao = async (
   filters = {},
   page ,
-  pageSize ,startDate, endDate,
+  pageSize ,
   sortBy = 'sno',
   sortOrder = 'DESC', 
+  startDate, endDate,
   columns = [], 
 ) => {
   try {
