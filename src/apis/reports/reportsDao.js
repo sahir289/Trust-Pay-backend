@@ -3,6 +3,7 @@ import {
   buildSelectQuery,
   executeQuery,
 } from '../../utils/db.js';
+import { getVendorsDao } from '../vendors/vendorDao.js';
 
 
 const getPayInMerchantReportDao = async (
@@ -204,7 +205,7 @@ WITH filtered_payins AS (
     }
 
     if (startDate && endDate) {
-      query += ` AND po.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      query += ` AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       parameters.push(startDate, endDate);
     }
 
@@ -227,9 +228,9 @@ const getPayOutVendorReportDao = async (id, startDate, endDate, company_id, role
       'merchant_code', me.merchant_code,
       'return_url', me.config->>'return_url',
       'notify_url', me.config->>'notify_url'
-  ) AS merchant_details`};
+  ) AS merchant_details, po.created_at`};
     if (role === Role.VENDOR) {
-      commissionSelect +=`ve.code AS vendor_code, po.payout_vendor_commission`};
+      commissionSelect +=`ve.code AS vendor_code,po.vendor_id, po.payout_vendor_commission, po.created_at`};
     if (role === Role.ADMIN) {
       commissionSelect += `po.payout_merchant_commission,
     json_build_object(
@@ -254,6 +255,8 @@ WITH filtered_payins AS (
     po.status,
     po.merchant_order_id,
     po.user,
+    po.vendor_id,
+    ve.id,
     po.config AS payout_details,
     json_build_object(
             'account_holder_name', po.acc_holder_name,
@@ -267,23 +270,19 @@ WITH filtered_payins AS (
     LEFT JOIN public."Merchant" me ON po.merchant_id = me.id
     LEFT JOIN public."BankAccount" b ON po.bank_acc_id = b.id
     LEFT JOIN public."Vendor" ve ON ve.user_id = b.user_id
-    WHERE po.company_id = $1`;
+    WHERE po.company_id = $1 AND po.vendor_id = $2`;
 
-    let parameters = [company_id];
+    const vendor_details = await getVendorsDao({id: id}, null,null)
+    let parameters = [company_id, vendor_details[0].id];
     let paramIndex = parameters.length + 1;
 
-    if (id) {
-      query += ` AND po.vendor_id = $${paramIndex}`;
-      parameters.push(id);
-      paramIndex++;
-    }
 
     if (startDate && endDate) {
-      query += ` AND po.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      query += ` AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       parameters.push(startDate, endDate);
     }
 
-    query += ` ORDER BY po.id DESC ) SELECT * FROM filtered_payins ORDER BY updated_at DESC;`;  //--sorting by codes than created_at
+    query += ` ORDER BY po.id DESC ) SELECT * FROM filtered_payins ORDER BY created_at DESC;`;  //--sorting by codes than created_at
 
     const result = await executeQuery(query, parameters);
     return result.rows;

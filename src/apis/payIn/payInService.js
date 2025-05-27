@@ -1800,6 +1800,7 @@ export const disputeDuplicateTransactionService = async (
         is_notified: true,
         duration,
         status: newStatus,
+        approved_at: new Date(),
         payin_merchant_commission: payinCommission,
         payin_vendor_commission: vendorPayinCommission,
         bank_response_id: payIn.bank_response_id,
