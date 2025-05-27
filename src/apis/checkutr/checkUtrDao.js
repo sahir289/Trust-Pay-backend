@@ -8,14 +8,21 @@ import { logger } from '../../utils/logger.js';
 
 const getCheckUtrDao = async (
   filters = {},
-  page = 1,
-  pageSize = 10,
+  page,
+  pageSize,
   sortBy = 'sno',
   sortOrder = 'DESC',
   columns = []
 ) => {
   try {
     const { BANK_RESPONSE, CHECK_UTR_HISTORY, PAYIN, USER } = tableName;
+    //reset pagination if page and limit is not present
+    let queryParams = [];
+    let limitcondition = '';
+    if (page && pageSize) {
+      limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+      queryParams.push(pageSize, (page - 1) * pageSize);
+    }
 
     // Default columns if none provided
     const selectColumns = columns?.length
@@ -57,7 +64,6 @@ const getCheckUtrDao = async (
 
     // Handle filters
     const whereClauses = [];
-    const queryParams = [];
     let paramIndex = 1;
 
     if (filters.search) {
@@ -78,12 +84,12 @@ const getCheckUtrDao = async (
     const validSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     const validColumns = ['sno', 'payin_id']; // Add all valid columns here
     const effectiveSortBy = validColumns.includes(sortBy) ? sortBy : 'sno';
-    sql += ` ORDER BY "${CHECK_UTR_HISTORY}".${effectiveSortBy} ${validSortOrder}`;
+    sql += ` ORDER BY "${CHECK_UTR_HISTORY}".${effectiveSortBy} ${validSortOrder} ${limitcondition}`;
 
     // Pagination
-    const offset = (page - 1) * pageSize;
-    sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    queryParams.push(pageSize, offset);
+    // const offset = (page - 1) * pageSize;
+    // sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    // queryParams.push(pageSize, offset);
 
     // Execute query
     const result = await executeQuery(sql, queryParams);

@@ -7,14 +7,21 @@ import {
 
 const getResetHistoryDao = async (
   filters = {},
-  page = 1,
-  pageSize = 10,
+  page ,
+  pageSize ,
   sortBy = 'sno',
   sortOrder = 'DESC',
   columns = []
 ) => {
   try {
     const { BANK_RESPONSE, RESET_DATA_HISTORY, PAYIN, USER } = tableName;
+    //reset pagination if page and limit is null
+    let queryParams = [];
+    let limitcondition = '';
+    if (page && pageSize) {
+      limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+      queryParams.push(pageSize, (page - 1) * pageSize);
+    }
 
     // Default columns if none provided
     const selectColumns = columns.length
@@ -55,8 +62,7 @@ const getResetHistoryDao = async (
 
     // Handle filters
     const whereClauses = [];
-    const queryParams = [];
-    let paramIndex = 1;
+    let paramIndex = 3;
 
     if (filters.search) {
       // Assuming search applies to a few key fields (e.g., utr, merchant_order_id)
@@ -84,13 +90,13 @@ const getResetHistoryDao = async (
 
     // Sorting
     const validSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    sql += ` ORDER BY "${RESET_DATA_HISTORY}".${sortBy} ${validSortOrder}`;
+    sql += ` ORDER BY "${RESET_DATA_HISTORY}".${sortBy} ${validSortOrder} ${limitcondition}`;
 
     // Pagination
-    const offset = (page - 1) * pageSize;
-    sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    queryParams.push(pageSize, offset);
-    paramIndex += 2;
+    // const offset = (page - 1) * pageSize;
+    // sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    // queryParams.push(pageSize, offset);
+    // paramIndex += 2;
 
     // Execute both queries
     const [result] = await Promise.all([
