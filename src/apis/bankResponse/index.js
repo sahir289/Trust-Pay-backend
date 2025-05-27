@@ -2,7 +2,6 @@ import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import {
   createBankResponse,
-  resetBankResponse,
   getBankResponse,
   getBankMessage,
   updateBankResponse,
@@ -10,6 +9,7 @@ import {
   createBankBotResponse,
   getClaimResponse,
   importBankResponse,
+  resetBankResponseController,
 } from './bankResponseController.js';
 import { isAuthenticated, authorized } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -205,7 +205,7 @@ router.put(
 router.put(
   '/reset-message/:id',
   [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
-  tryCatchHandler(resetBankResponse),
+  tryCatchHandler(resetBankResponseController),
 );
 
 router.post(
