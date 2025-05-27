@@ -17,11 +17,6 @@ const getResetHistoryDao = async (
     const { BANK_RESPONSE, RESET_DATA_HISTORY, PAYIN, USER } = tableName;
     //reset pagination if page and limit is null
     let queryParams = [];
-    let limitcondition = '';
-    if (page && pageSize) {
-      limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
-      queryParams.push(pageSize, (page - 1) * pageSize);
-    }
 
     // Default columns if none provided
     const selectColumns = columns.length
@@ -62,7 +57,7 @@ const getResetHistoryDao = async (
 
     // Handle filters
     const whereClauses = [];
-    let paramIndex = 3;
+    let paramIndex = 1;
 
     if (filters.search) {
       // Assuming search applies to a few key fields (e.g., utr, merchant_order_id)
@@ -86,6 +81,11 @@ const getResetHistoryDao = async (
 
     if (whereClauses.length > 0) {
       sql += ` WHERE ${whereClauses.join(' AND ')}`;
+    }
+    let limitcondition = '';
+    if (page && pageSize) {
+      limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+      queryParams.push(pageSize, (page - 1) * pageSize);
     }
 
     // Sorting
