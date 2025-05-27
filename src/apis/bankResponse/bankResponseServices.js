@@ -719,6 +719,7 @@ const resetBankResponseService = async (conn, id, userData) => {
         company_id,
         role,
         payInData,
+        conn
       }));
     } else if (utr) {
       await handleUtrUpdate({ botRes,  utr, user_id, user_name, conn });
@@ -739,10 +740,9 @@ const resetBankResponseService = async (conn, id, userData) => {
 };
 
 // Handle amount update
-const handleAmountUpdate = async ({ botRes, amount, user_name, role, payInData }) => {
+const handleAmountUpdate = async ({ botRes, amount, user_name, role, payInData, conn }) => {
   const previousAmount = botRes.amount;
   const updateData = {
-    is_used: false,
     updated_by: user_name,
     config: { ...(botRes.config || {}), previousAmount },
     amount,
@@ -783,6 +783,7 @@ const handleAmountUpdate = async ({ botRes, amount, user_name, role, payInData }
         ),
       ),
       updatePayInData({ payInData, user_name, botRes }),
+      updateBotResponseDao(botRes.id, updateData, conn),
     ]);
   }
 
@@ -873,7 +874,7 @@ const handleBankIdUpdate = async ({ botRes, bank_id, company_id, user_id, user_n
         updated_by: user_id,
       },
     ),
-    await updateBotResponseDao(botRes.id, { bank_id: newBank[0].id, updated_by: user_name }, conn),
+    updateBotResponseDao(botRes.id, { bank_id: newBank[0].id, updated_by: user_name }, conn),
     updateCalculationBalances(
       prevVendorCurrentCalcs,
       prevVendorNextCurrentCalcs,
