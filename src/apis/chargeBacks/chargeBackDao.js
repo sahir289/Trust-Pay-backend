@@ -30,8 +30,7 @@ export const getChargeBackDao = async (
   role
 ) => {
   try {
-    const { VENDOR, CHARGE_BACK, MERCHANT, PAYIN, USER } = tableName;
-
+    const { VENDOR, CHARGE_BACK, MERCHANT, PAYIN, USER, BANK_ACCOUNT } = tableName;
     const conditions = [`cb.is_obsolete = false`];
     const queryParams = [];
     const limitcondition = { value: '' };
@@ -126,9 +125,12 @@ export const getChargeBackDao = async (
     additionalColumns += `
       v.code AS vendor_name,
       p.user AS user,
-      m.config,
       u.user_name AS created_by,
-      uu.user_name AS updated_by
+      uu.user_name AS updated_by,
+      ba.nick_name AS bank_name,
+      p.user_submitted_utr AS utr,
+      cb.created_at,
+      jsonb_build_object('blocked_users', m.config->'blocked_users') AS config
     `;
 
     // Combine all columns
@@ -148,6 +150,7 @@ export const getChargeBackDao = async (
       LEFT JOIN public."${PAYIN}" p ON cb.payin_id = p.id
       LEFT JOIN public."${USER}" u ON cb.created_by = u.id 
       LEFT JOIN public."${USER}" uu ON cb.updated_by = uu.id
+      LEFT JOIN public."${BANK_ACCOUNT}" ba ON cb.bank_acc_id = ba.id
       WHERE ${conditions.join(' AND ')}
       ORDER BY ${qualifiedSortBy} ${sortOrder}
       ${limitcondition.value}
@@ -163,7 +166,7 @@ export const getChargeBackDao = async (
     return result.rows;
   } catch (error) {
     logger.error('Error fetching ChargeBack entries:', error);
-    throw error.message;
+    throw error;
   }
 };
 

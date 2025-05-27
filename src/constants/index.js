@@ -549,6 +549,7 @@ export const vendorColumns = {
     'bank_acc_id',
     'amount',
     'reference_date',
+    'created_at',
   ],
 };
 export const tableName = {
