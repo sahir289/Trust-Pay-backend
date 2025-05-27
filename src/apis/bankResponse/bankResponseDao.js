@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { Role, tableName } from '../../constants/index.js';
+import {  tableName } from '../../constants/index.js';
 import { InternalServerError } from '../../utils/appErrors.js';
 // import { generateUUID } from '../utils/generateUUID.js';
 
@@ -12,7 +12,7 @@ import {
 import { generateUUID } from '../../utils/generateUUID.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-import { getUTCDayRange } from '../../utils/dateFormattingToUTC.js';
+import moment from 'moment-timezone';
 
 const IST = 'Asia/Kolkata';
 
@@ -232,8 +232,9 @@ const getBankResponseDaoAll = async (
   sortBy = 'created_at',
   sortOrder = 'DESC',
   columns = [],
-  role,
   updated,
+  start_date,
+  end_date,
 ) => {
   try {
     const selectCols = columns.length
@@ -245,8 +246,10 @@ const getBankResponseDaoAll = async (
           `"BankAccount".bank_name`,
           `"Vendor".code AS vendor_code`,
         ].join(', ');
-
-    let baseQuery = `
+        // `u.user_name AS created_by`,
+        // `uu.user_name AS updated_by`,
+  let baseQuery;    
+    baseQuery = `
       SELECT ${selectCols}, "BankResponse".created_at,
         "BankAccount".config AS details,
         "BankAccount".nick_name,
@@ -254,43 +257,30 @@ const getBankResponseDaoAll = async (
       FROM "BankResponse"
       JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
       LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
-    `;
-
-    // Handle search filter
-    if (filters.search) {
-      const searchValue = filters.search.trim();
-      filters.or = {
-        reference_id: searchValue,
-        status: searchValue,
-      };
-      delete filters.search;
-    }
-
-    // Handle date range for non-vendor roles
-    if (filters.start_date && filters.end_date && role !== Role.VENDOR) {
-      baseQuery += `
-        WHERE EXISTS (
-          SELECT 1 FROM jsonb_each_text("BankAccount".config -> 'details' -> 'merchant_added') AS j(k, v)
-          WHERE v::timestamp BETWEEN $${filters.start_date} AND $${filters.end_date}
-        )
-        AND "BankResponse".created_at BETWEEN $${filters.start_date} AND $${filters.end_date}
       `;
-      delete filters.start_date;
-      delete filters.end_date;
-    }
+      // LEFT JOIN public."User" u ON "BankResponse".created_by = u.id 
+      // LEFT JOIN public."User" uu ON "BankResponse".updated_by = uu.id
+      if (filters.search) {
+        const searchValue = filters.search.trim();
+        filters.or = {
+          reference_id: searchValue,
+          status: searchValue,
+        };
+        delete filters.search;
+      }
 
-    // Handle date range for vendor role
-    if (filters.start_date && filters.end_date && role === Role.VENDOR) {
-      const { start } = getUTCDayRange(filters.start_date);
-      const { end } = getUTCDayRange(filters.end_date);
-      baseQuery += `
-        WHERE "BankResponse".created_at BETWEEN '${start}' AND '${end}'
-      `;
-      delete filters.start_date;
-      delete filters.end_date;
-    }
-
-    // Handle updated entries
+      if (start_date && end_date) {
+        const start = moment.tz(`${start_date} 00:00:00`, 'Asia/Kolkata').toISOString(true);
+        const end = moment.tz(`${end_date} 23:59:59.999`, 'Asia/Kolkata').toISOString(true);
+        
+        baseQuery += `
+          WHERE "BankResponse".is_obsolete = false
+          AND "BankResponse".created_at BETWEEN '${start}' AND '${end}'
+        `;
+      } else {
+        baseQuery += ` WHERE "BankResponse".is_obsolete = false `;
+      }
+       // Handle updated entries
     if (updated) {
       const whereClause = baseQuery.includes('WHERE') ? 'AND' : 'WHERE';
       baseQuery += `
@@ -299,7 +289,7 @@ const getBankResponseDaoAll = async (
       `;
     }
 
-    const [query, values] = buildSelectQuery(
+    const [query, queryValues] = buildSelectQuery(
       baseQuery,
       filters,
       page,
@@ -309,7 +299,7 @@ const getBankResponseDaoAll = async (
       'BankResponse',
     );
 
-    const result = await executeQuery(query, values);
+    const result = await executeQuery(query, queryValues);
     return { totalCount: result.rows.length, rows: result.rows };
   } catch (error) {
     logger.error('Error getting Bank Response:', error);
