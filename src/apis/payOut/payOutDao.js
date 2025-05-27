@@ -41,36 +41,39 @@ export const getPayoutsDao = async (
 
     let conditions = [`u.is_obsolete = false`];
     let queryParams = [];
+    let paramIndex = 1; 
     if (company_id) {
-      conditions.push(`u.company_id = '${company_id}'`);
+      conditions.push(`u.company_id = $${paramIndex}`);
+      queryParams.push(company_id);
+      paramIndex++;
     }
     let limitcondition = '';
 
     if (filters?.startDate && filters?.endDate) {
       conditions.push(
-        `u.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`,
+        `u.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
       );
       queryParams.push(filters.startDate, filters.endDate);
+      paramIndex += 2;
     }
 
     if (page && limit) {
-      limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+      limitcondition = `LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       queryParams.push(limit, (page - 1) * limit);
+      paramIndex += 2;
     }
 
-    const handledKeys = new Set(['page', 'limit']);
-
+    const handledKeys = new Set(['page', 'limit', 'startDate', 'endDate']);
     Object.entries(filters).forEach(([key, value]) => {
-      if (handledKeys.has(key) || value == null || value === '') return;
-      const nextParamIdx = queryParams.length + 1;
-
-      // Handle arrays and comma-separated strings
+      if (handledKeys.has(key) || value == null || value === '') return;  
+      const nextParamIdx = paramIndex;
       if (Array.isArray(value)) {
         const placeholders = value
           .map((_, idx) => `$${nextParamIdx + idx}`)
           .join(', ');
         conditions.push(`u."${key}" IN (${placeholders})`);
         queryParams.push(...value);
+        paramIndex += value.length;
       } else {
         const isMultiValue = typeof value === 'string' && value.includes(',');
         const valueArray = isMultiValue
@@ -79,12 +82,21 @@ export const getPayoutsDao = async (
         const placeholders = valueArray
           .map((_, idx) => `$${nextParamIdx + idx}`)
           .join(', ');
-        conditions.push(
-          isMultiValue
-            ? `u."${key}" IN (${placeholders})`
-            : `u."${key}" = $${nextParamIdx}`,
-        );
+        if (key === 'startDate' || key === 'endDate') {
+          conditions.push(
+            isMultiValue
+              ? `u."${key}"`
+              : `u."${key}"`,
+          );
+        } else {
+          conditions.push(
+            isMultiValue
+              ? `u."${key}" IN (${placeholders})`
+              : `u."${key}" = $${nextParamIdx}`,
+          );
+        }
         queryParams.push(...valueArray);
+        paramIndex += valueArray.length;
       }
     });
 
@@ -100,9 +112,9 @@ export const getPayoutsDao = async (
         ) AS merchant_details
       `;
     } else if (role === 'VENDOR') {
-      commissionSelect = `u.payout_vendor_commission, v.code AS vendor_code, 
-          v.id AS vendor_id, 
-          v.user_id AS vendor_user_id`;
+      commissionSelect = `u.payout_vendor_commission, ve.code AS vendor_code, 
+          ve.id AS vendor_id, 
+          ve.user_id AS vendor_user_id`;
     } else {
       commissionSelect = `
         u.merchant_id, 
@@ -112,7 +124,7 @@ export const getPayoutsDao = async (
         u.created_by, 
         u.updated_by, 
         u.created_at, 
-        v.code AS vendor_code, 
+        ve.code AS vendor_code, 
         ve.id AS vendor_id, 
         ve.user_id AS vendor_user_id,
         u.updated_at, 
@@ -149,7 +161,6 @@ export const getPayoutsDao = async (
           us.user_name AS created_by,  
           uu.user_name AS updated_by,  
           r.id AS merchant_table_id,
-          ve.code AS vendor_code,
           json_build_object(
             'account_holder_name', u.acc_holder_name,
             'account_no', u.acc_no,
@@ -163,7 +174,6 @@ export const getPayoutsDao = async (
         FROM public."Payout" u
         LEFT JOIN public."Merchant" r ON u.merchant_id = r.id
         LEFT JOIN public."BankAccount" b ON u.bank_acc_id = b.id
-        LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
         LEFT JOIN public."Vendor" ve ON u.vendor_id = ve.id
         LEFT JOIN public."User" us ON u.created_by = us.id 
         LEFT JOIN public."User" uu ON u.updated_by = uu.id

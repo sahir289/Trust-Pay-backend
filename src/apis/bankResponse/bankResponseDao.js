@@ -243,9 +243,9 @@ const getBankResponseDaoAll = async (
           `"BankAccount".nick_name`,
           `"BankAccount".bank_name`,
           `"Vendor".code AS vendor_code`,
-          `u.user_name AS created_by`,
-          `uu.user_name AS updated_by`,
         ].join(', ');
+        // `u.user_name AS created_by`,
+        // `uu.user_name AS updated_by`,
   let baseQuery;
     if (filters.search) {
       const searchValue = filters.search.trim();
@@ -276,9 +276,9 @@ const getBankResponseDaoAll = async (
       FROM "BankResponse"
       JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
       LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
-      LEFT JOIN public."User" u ON "BankResponse".created_by = u.id 
-      LEFT JOIN public."User" uu ON "BankResponse".updated_by = uu.id
-    `;
+      `;
+      // LEFT JOIN public."User" u ON "BankResponse".created_by = u.id 
+      // LEFT JOIN public."User" uu ON "BankResponse".updated_by = uu.id
 
     if (filters.start_date && filters.end_date && role === Role.VENDOR) {
       const { start } = getUTCDayRange(filters.start_date );

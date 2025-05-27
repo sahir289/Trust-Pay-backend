@@ -39,6 +39,7 @@ export async function sendTelegramDashboardReportMessage(
       currentDate;
 
   const merchantPayInDetails = merchant
+  .filter(m => m.totalPayin !== 0)
     .map(
       (m) =>
         `${m.merchantId}: ₹ ${m.totalPayin.toLocaleString('en-IN', {
@@ -49,6 +50,7 @@ export async function sendTelegramDashboardReportMessage(
     .join('\n');
 
     const merchantPayOutDetails = merchant
+    .filter(m => m.totalPayout !== 0)
     .map(
       (m) =>
         `${m.merchantId}: ₹ ${m.totalPayout.toLocaleString('en-IN', {

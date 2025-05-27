@@ -904,6 +904,8 @@ export const resetDepositService = async (
     Status.ASSIGNED,
     Status.DROPPED,
     Status.INITIATED,
+    Status.BANK_MISMATCH,
+    Status.DISPUTE,
   ]);
 
   if (nonResettableStatuses.has(payIn.status)) {
