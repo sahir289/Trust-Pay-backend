@@ -516,3 +516,19 @@ export async function sendMerchantOrderIDStatusDuplicateTelegramMessage(
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
+
+export async function sendBankNotAssignedAlertTelegram(
+  chatId,
+  code,
+  TELEGRAM_BOT_TOKEN
+) {
+  // Construct the alert message
+  const message = `<b>⛔ Bank not Assigned with :</b> ${code}`;
+
+  try {
+    const success = await telegramSender(chatId, message, TELEGRAM_BOT_TOKEN);
+    logger.log(success ? 'Sent!' : 'Not sent.');
+  } catch (error) {
+    console.error("Error sending bank not assigned alert to Telegram:", error);
+  }
+}

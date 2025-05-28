@@ -57,6 +57,7 @@ import {
 import { createHash, compareHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
+import { sendBankNotAssignedAlertTelegram } from '../../utils/sendTelegramMessages.js';
 
 //  To Generate Url
 export const generateHashForPayIn = async (req, res) => {
@@ -108,7 +109,11 @@ export const generatePayInUrl = async (req, res) => {
     config_merchants_contains: merchantArr[0].id,
   });
   if (bankAssigned.length <= 0) {
-    // throw new InternalServerError('No Bank Assigned to Merchant');
+    await sendBankNotAssignedAlertTelegram(
+      config?.telegramBankAlertChatId,
+      code,
+      config?.telegramBotToken,
+    );
     return res.status(400).json({
       error: {
         status: 404,
@@ -149,6 +154,11 @@ export const generatePayInUrl = async (req, res) => {
   });
 
   if (allPaymentOptionsDisabled) {
+    await sendBankNotAssignedAlertTelegram(
+      config?.telegramBankAlertChatId,
+      code,
+      config?.telegramBotToken,
+    );
     return res.status(400).json({
       error: {
         status: 404,
