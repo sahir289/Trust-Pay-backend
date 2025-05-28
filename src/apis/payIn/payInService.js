@@ -805,6 +805,7 @@ export const updateDepositStatusService = async (
   };
 
   if (updatePayInData.status === Status.SUCCESS) {
+    updatePayInData.approved_at = new Date();
     updatePayInData.payin_merchant_commission = payinCommission;
     updatePayInData.payin_vendor_commission = vendorPayinCommission;
     // update merchant caclulation table
