@@ -842,7 +842,7 @@ const handleUtrUpdate = async ({ botRes, utr, user_id, user_name, conn }) => {
       config: { ...(botRes.config || {}), previousUTR, previousUpdater },
     };
     const payIn = await getPayInUrlsDao({ user_submitted_utr: utr });
-    if (payIn?.length && payIn[0].user_submitted_utr) {
+    if (payIn?.length && payIn[0].user_submitted_utr && ![Status.SUCCESS, Status.FAILED].includes(payIn[0].status)) {
       await updatePayInUrlDao(payIn[0].id, {
         user_submitted_utr: utr,
         updated_by: user_id,
