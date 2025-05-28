@@ -50,7 +50,7 @@ const getBankResponseDao = async (
     return result.rows[0];
   } catch (error) {
     logger.error('Error in getBankResponseDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -150,7 +150,7 @@ const getBankResponseBySearchDao = async (
     return data;
   } catch (error) {
     logger.error('Error in getBankResponseBySearchDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -222,7 +222,7 @@ const getClaimResponseDao = async (filters) => {
     };
   } catch (error) {
     logger.error('Error getting claim response:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -304,7 +304,7 @@ const getBankResponseDaoAll = async (
     return { totalCount: result.rows.length, rows: result.rows };
   } catch (error) {
     logger.error('Error getting Bank Response:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -364,7 +364,7 @@ const createBankResponseDao = async (conn, data) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error in createBankResponseDao:', error);
-    throw error.message;
+    throw error;;
   }
 };
 
@@ -379,7 +379,7 @@ export const updateBankResponseDao = async (id, data, conn) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateBankResponseDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -407,7 +407,7 @@ const getBankMessageDao = async (
     return result.rows;
   } catch (error) {
     logger.error('Error in getBankMessageDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -420,7 +420,7 @@ const resetBankResponseDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error in resetBankResponseDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -439,7 +439,7 @@ const updateBotResponseDao = async (id, data, conn) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateBotResponseDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 

@@ -1,7 +1,7 @@
 /* eslint-disable no-useless-escape */
 import {
   BadRequestError,
-  InternalServerError,
+  // InternalServerError,
   NotFoundError,
 } from '../../utils/appErrors.js';
 import { merchantPayinCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
@@ -79,7 +79,7 @@ const createBankResponseService = async (
     // Early validation
     const isValidAmount = amount >= 1 && amount <= 500000;
     if (!isValidAmount) {
-      return { error: `amount must be between 1 and 500000` };
+      throw new BadRequestError(`amount must be between 1 and 500000`);
     }
 
     // UTR validation
@@ -458,7 +458,7 @@ const createBankResponseService = async (
   }
     catch (error) {
       logger.error('Error in createBankResponseService:', error.message);
-      throw new InternalServerError(error);
+      throw error;
     }
 };
 
@@ -502,7 +502,7 @@ const getClaimResponseService = async (payload) => {
     return await getClaimResponseDao(filters);
   } catch (error) {
     logger.error('Error in getBankResponseService:', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -554,7 +554,7 @@ const getBankResponseService = async (payload, role, page, limit, search, update
     );
   } catch (error) {
     logger.error('Error in getBankResponseService:', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -598,7 +598,7 @@ const getBankResponseBySearchService = async (
     return data;
   } catch (error) {
     logger.error('Error while fetching Payin by search', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 const updateBankResponseService = async (id, payload, role) => {
@@ -630,7 +630,7 @@ const updateBankResponseService = async (id, payload, role) => {
       }
     }
     logger.info('Error while updating BankResponse', 'error', error);
-    throw new InternalServerError(error);
+    throw error;
   } finally {
     if (conn) {
       try {
@@ -677,7 +677,7 @@ const getBankMessageServices = async (
     );
   } catch (error) {
     logger.error('Error while getting BankResponse', 'error', error.message);
-    throw new InternalServerError(error);
+    throw error;
     ;
   }
 };
@@ -756,7 +756,7 @@ const resetBankResponseService = async (conn, id, userData) => {
     return { message };
   } catch (error) {
     logger.error(`Error resetting bank response for ID: ${id}`, 'error', error.message);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -827,7 +827,7 @@ const handleAmountUpdate = async ({
     };
   } catch (error) {
     logger.error('Error in handle bank resp. amount update:', error.message);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -851,7 +851,7 @@ const handleUtrUpdate = async ({ botRes, utr, user_id, user_name, conn }) => {
     await updateBotResponseDao(botRes.id, updateData, conn);
   } catch (error) {
     logger.error('Error in handle bank utr update:', error.message);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -966,7 +966,7 @@ const handleBankIdUpdate = async ({
     ]);
   } catch (error) {
     logger.error('Error in handle bank id update:', error.message);
-    throw new InternalServerError(error);
+    throw error;
    }
 };
 
@@ -1012,7 +1012,7 @@ const updatePayInData = async ({ payInData, user_name, botRes }) => {
   }
   catch (error) {
     logger.error('Error in updatePayin Data', error.message);
-      throw new InternalServerError(error);
+      throw error;
     }
 };
 
@@ -1327,7 +1327,7 @@ async function extractCreditedTransactions(pdfBuffer, bankId) {
     return creditedTransactions;
   } catch (error) {
     logger.error('Error in extractCreditedTransactions:', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 }
 
@@ -1360,7 +1360,7 @@ const importBankResponseService = async (
     };
   } catch (error) {
     logger.error('Error in importBankResponseService:', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
