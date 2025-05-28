@@ -4,7 +4,6 @@ import { logger } from './logger.js';
 
 const telegramSender = createTelegramSender();
 
-
 export async function sendTelegramDashboardReportMessage(
   chatId,
   merchant,
@@ -20,60 +19,58 @@ export async function sendTelegramDashboardReportMessage(
   const currentDate = new Date().toISOString().split('T')[0];
   const now = new Date();
   const istTime = new Date(
-    now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+    now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }),
   );
 
   let startHour = istTime.getHours() - 1;
   let endHour = (startHour + 1) % 24;
 
-  const startAmpm = startHour >= 12 ? "PM" : "AM";
-  const endAmpm = endHour >= 12 ? "PM" : "AM";
+  const startAmpm = startHour >= 12 ? 'PM' : 'AM';
+  const endAmpm = endHour >= 12 ? 'PM' : 'AM';
 
   // Convert hours to 12-hour format
   startHour = startHour % 12 || 12;
   endHour = endHour % 12 || 12;
 
   const formattedTime = `${startHour}${startAmpm}-${endHour}${endAmpm}`;
-  const timeStamp =
-    type === "Hourly Report" ? formattedTime :
-      currentDate;
+  const timeStamp = type === 'Hourly Report' ? formattedTime : currentDate;
 
   const merchantPayInDetails = merchant
-  .filter(m => m.totalPayin !== 0)
+    .filter((m) => m.totalPayin !== 0)
     .map(
       (m) =>
         `${m.merchantId}: ₹ ${m.totalPayin.toLocaleString('en-IN', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
-        })} (${m.totalPayinCount})`
+        })} (${m.totalPayinCount})`,
     )
     .join('\n');
 
-    const merchantPayOutDetails = merchant
-    .filter(m => m.totalPayout !== 0)
+  const merchantPayOutDetails = merchant
+    .filter((m) => m.totalPayout !== 0)
     .map(
       (m) =>
         `${m.merchantId}: ₹ ${m.totalPayout.toLocaleString('en-IN', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
-        })} (${m.totalPayoutCount})`
+        })} (${m.totalPayoutCount})`,
     )
-    .join('\n'); 
+    .join('\n');
 
   const vendorDetails = Object.entries(vendorObjpayIn)
-  // .filter(([_, { banks }]) => banks.length > 0) 
+    // .filter(([_, { banks }]) => banks.length > 0)
     .map(([vendorCode, { banks }]) => {
       // if (banks.length === 0) {
       //   return `<b>${vendorCode}</b>: No bank accounts`;
       // }
       const bankDetails = banks
-      .filter((bank) => bank.TotalDeposit !== null) 
-      .map(
-        (bank) =>
-          `  ${bank.bankName}: ₹ ${bank.TotalDeposit.toLocaleString('en-IN', {
+        .filter((bank) => bank.TotalDeposit !== null)
+        .map(
+          (bank) =>
+            `  ${bank.bankName}: ₹ ${bank.TotalDeposit.toLocaleString('en-IN', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
-            })} (${bank.TotalCount})`
+            })} (${bank.TotalCount})`,
         )
         .join('\n');
       return `<b>${vendorCode}</b>:\n${bankDetails}`;
@@ -81,26 +78,26 @@ export async function sendTelegramDashboardReportMessage(
     .join('\n\n');
 
   const vendorDetailsPayout = Object.entries(vendorObjpayOut)
-  // .filter(([_, { banks }]) => banks.length > 0) 
+    // .filter(([_, { banks }]) => banks.length > 0)
     .map(([vendorCode, { banks }]) => {
       // if (banks.length === 0) {
       //   return `<b>${vendorCode}</b>: No bank accounts`;
       // }
       const bankDetails = banks
-      .filter((bank) => bank.TotalDeposit !== null || bank.TotalDeposit !== 0) 
-      .map(
-        (bank) =>
-          `  ${bank.bankName}: ₹ ${bank.TotalDeposit.toLocaleString('en-IN', {
+        .filter((bank) => bank.TotalDeposit !== null || bank.TotalDeposit !== 0)
+        .map(
+          (bank) =>
+            `  ${bank.bankName}: ₹ ${bank.TotalDeposit.toLocaleString('en-IN', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
-            })} (${bank.TotalCount})`
+            })} (${bank.TotalCount})`,
         )
         .join('\n');
       return `<b>${vendorCode}</b>:\n${bankDetails}`;
     })
     .join('\n\n');
 
-    const message = `
+  const message = `
     <b>(${timeStamp}) IST</b>
     
 <b>💰 Deposits</b>
@@ -128,7 +125,12 @@ ${vendorDetailsPayout}
 <b>Total Bank Account Withdrawals:</b> ₹ ${totalBankWithdrawalAllVendors}
 `;
 
-  const success = await telegramSender(chatId, message, null, TELEGRAM_BOT_TOKEN);
+  const success = await telegramSender(
+    chatId,
+    message,
+    null,
+    TELEGRAM_BOT_TOKEN,
+  );
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
@@ -147,26 +149,26 @@ export async function sendTelegramDashboardMerchantGroupingReportMessage(
   const currentDate = new Date().toISOString().split('T')[0];
   const now = new Date();
   const istTime = new Date(
-    now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+    now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }),
   );
 
   let startHour = istTime.getHours() - 1;
-  let endHour = (startHour + 1) % 24; 
+  let endHour = (startHour + 1) % 24;
 
-  const startAmpm = startHour >= 12 ? "PM" : "AM";
-  const endAmpm = endHour >= 12 ? "PM" : "AM";
+  const startAmpm = startHour >= 12 ? 'PM' : 'AM';
+  const endAmpm = endHour >= 12 ? 'PM' : 'AM';
 
   // Convert hours to 12-hour format
   startHour = startHour % 12 || 12;
   endHour = endHour % 12 || 12;
   const formattedTime = `${startHour}${startAmpm}-${endHour}${endAmpm}`;
-  const timeStamp =
-    type === "Hourly Report" ? formattedTime :
-      currentDate;
+  const timeStamp = type === 'Hourly Report' ? formattedTime : currentDate;
   //   const merchantAllPayinDetails = totalPayinsMerchant.map(m =>
   //     `<b>Merchant:</b> ${m.merchantId} | <b>PayIn:</b> ${m.totalPayIn} | <b>Count:</b> ${m.totalPayInEachCount}`
   // ).join("\n");
-  const merchantAllPayinDetails = (Array.isArray(totalPayinsMerchant) ? totalPayinsMerchant : [])
+  const merchantAllPayinDetails = (
+    Array.isArray(totalPayinsMerchant) ? totalPayinsMerchant : []
+  )
     .map(
       (m) =>
         `<b>Merchant:</b> ${m.merchantId} | <b>PayIn:</b> ${m.totalPayIn} | <b>Count:</b> ${m.totalPayInEachCount}`,
@@ -180,7 +182,6 @@ export async function sendTelegramDashboardMerchantGroupingReportMessage(
     .join('\n');
 
   // const formattedTime = `${startHour}${startAmpm}-${endHour}${endAmpm}`;
-
 
   const message = `
   <b>
@@ -208,7 +209,12 @@ export async function sendTelegramDashboardMerchantGroupingReportMessage(
   <b>Total Bank Account Withdrawals:</b> ${merchantAllPayOutDetails}
       `;
 
-  const success = await telegramSender(chatId, message, null, TELEGRAM_BOT_TOKEN);
+  const success = await telegramSender(
+    chatId,
+    message,
+    null,
+    TELEGRAM_BOT_TOKEN,
+  );
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
@@ -217,7 +223,7 @@ export async function sendTelegramDashboardSuccessRatioMessage(
   chatId,
   // merchantCode,
   fullMessage,
-  TELEGRAM_BOT_TOKEN
+  TELEGRAM_BOT_TOKEN,
 ) {
   const message = fullMessage
     .map(({ merchantCode, intervalDetails, intervalDetailsUtr }) => {
@@ -225,7 +231,12 @@ export async function sendTelegramDashboardSuccessRatioMessage(
     })
     .join('\n\n');
 
-  const success = await telegramSender(chatId, message, null, TELEGRAM_BOT_TOKEN);
+  const success = await telegramSender(
+    chatId,
+    message,
+    null,
+    TELEGRAM_BOT_TOKEN,
+  );
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
@@ -241,7 +252,12 @@ export async function sendTelegramMessage(
       <b>UTR-IDS:</b> ${data?.utr}
       <b>Time Stamp:</b> ${data?.timeStamp}
     `;
-  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  const success = await telegramSender(
+    chatId,
+    message,
+    replyToMessageId,
+    TELEGRAM_BOT_TOKEN,
+  );
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
@@ -254,7 +270,12 @@ export async function sendErrorMessageUtrOrAmountNotFoundImgTelegramBot(
   // Construct the error message
   const message = `⛔ Please check this slip `;
 
-  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  const success = await telegramSender(
+    chatId,
+    message,
+    replyToMessageId,
+    TELEGRAM_BOT_TOKEN,
+  );
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
@@ -273,7 +294,12 @@ export async function sendErrorMessageNoMerchantOrderIdFoundTelegramBot(
     message = `⛔ Please mention Merchant Order Id`; // If withoutImage is true, set this message
   }
 
-  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  const success = await telegramSender(
+    chatId,
+    message,
+    replyToMessageId,
+    TELEGRAM_BOT_TOKEN,
+  );
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
@@ -287,7 +313,12 @@ export async function sendErrorMessageTelegram(
   // Construct the error message
   const message = `⛔ No Merchant Order ID ${merchantOrderIdTele} found. Please recheck input`;
 
-  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  const success = await telegramSender(
+    chatId,
+    message,
+    replyToMessageId,
+    TELEGRAM_BOT_TOKEN,
+  );
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
@@ -296,16 +327,16 @@ export const sendPaymentStatusMessageTelegramBot = async (
   merchantOrderIdTele,
   TELEGRAM_BOT_TOKEN,
   replyToMessageId,
-  Status
+  Status,
 ) => {
   const message = `⛔ Payment for Merchant Order ID ${merchantOrderIdTele} has already ${Status}.`;
-    const success = await telegramSender(
-      chatId,
-      message,
-      replyToMessageId,
-      TELEGRAM_BOT_TOKEN,
-    );
-    return success;
+  const success = await telegramSender(
+    chatId,
+    message,
+    replyToMessageId,
+    TELEGRAM_BOT_TOKEN,
+  );
+  return success;
 };
 export async function sendUTRMismatchErrorMessageTelegram(
   chatId,
@@ -317,7 +348,12 @@ export async function sendUTRMismatchErrorMessageTelegram(
   // Construct the error message
   const message = `⛔ UTR - ${utr} does not match with the UTR submitted by the user - ${userSubmittedUtr}`;
 
-  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  const success = await telegramSender(
+    chatId,
+    message,
+    replyToMessageId,
+    TELEGRAM_BOT_TOKEN,
+  );
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
@@ -331,7 +367,12 @@ export async function sendErrorMessageNoDepositFoundTelegramBot(
   // Construct the error message
   const message = `⛔ No deposit with UTR ${Utr} found. Please check  `;
 
-  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  const success = await telegramSender(
+    chatId,
+    message,
+    replyToMessageId,
+    TELEGRAM_BOT_TOKEN,
+  );
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
@@ -345,7 +386,12 @@ export async function sendSuccessMessageTelegramBot(
   // Construct the error message
   let message = `💵 Order No. ${merchantOrderId} is confirmed! ✅`;
 
-  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  const success = await telegramSender(
+    chatId,
+    message,
+    replyToMessageId,
+    TELEGRAM_BOT_TOKEN,
+  );
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
@@ -364,7 +410,12 @@ export async function sendDisputeMessageTelegramBot(
                     ✅ Received Amount: ${amount}
             `;
 
-  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  const success = await telegramSender(
+    chatId,
+    message,
+    replyToMessageId,
+    TELEGRAM_BOT_TOKEN,
+  );
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
@@ -379,7 +430,12 @@ export async function sendDuplicateMessageTelegramBot(
   // Construct the error message
   let message = `🚨 OrderId ${merchantOrderId} is Duplicate as UTR ${utr} is already confirmed with `;
 
-  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  const success = await telegramSender(
+    chatId,
+    message,
+    replyToMessageId,
+    TELEGRAM_BOT_TOKEN,
+  );
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
@@ -398,7 +454,12 @@ export async function sendBankMismatchMessageTelegramBot(
                   ✅ Amount credited in : ${bankNameFromBank}
             `;
 
-  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  const success = await telegramSender(
+    chatId,
+    message,
+    replyToMessageId,
+    TELEGRAM_BOT_TOKEN,
+  );
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
@@ -439,12 +500,11 @@ export async function sendAlreadyConfirmedMessageTelegramBot(
         message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
                   is Already Marked ${getPayInData.status} with UTR: ${getPayInData.user_submitted_utr}`;
       }
-    }
-    else {
+    } else {
       const botResponse = await getBankResponseDao({
         id: getPayInData.bank_response_id,
         company_id: getPayInData.company_id,
-      })
+      });
       if (getPayInData.status === 'SUCCESS') {
         message = `✅ Merchant Order ID: ${getPayInData.merchant_order_id}
                   is Already Confirmed with UTR: ${botResponse.utr}`;
@@ -455,7 +515,12 @@ export async function sendAlreadyConfirmedMessageTelegramBot(
     }
   }
 
-  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  const success = await telegramSender(
+    chatId,
+    message,
+    replyToMessageId,
+    TELEGRAM_BOT_TOKEN,
+  );
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
@@ -496,12 +561,11 @@ export async function sendMerchantOrderIDStatusDuplicateTelegramMessage(
         message = `🚨 Merchant Order ID: ${getPayInData.merchant_order_id}
                   is Already Marked ${getPayInData.status} with UTR: ${getPayInData.user_submitted_utr}`;
       }
-    }
-    else {
+    } else {
       const botResponse = await getBankResponseDao({
         id: getPayInData.bank_response_id,
         company_id: getPayInData.company_id,
-      })
+      });
       if (getPayInData.status === 'SUCCESS') {
         message = `✅ Merchant Order ID: ${getPayInData.merchant_order_id}
                   is Already Confirmed with UTR: ${botResponse.user_submitted_utr}`;
@@ -512,7 +576,12 @@ export async function sendMerchantOrderIDStatusDuplicateTelegramMessage(
     }
   }
 
-  const success = await telegramSender(chatId, message, replyToMessageId, TELEGRAM_BOT_TOKEN);
+  const success = await telegramSender(
+    chatId,
+    message,
+    replyToMessageId,
+    TELEGRAM_BOT_TOKEN,
+  );
   logger.log(success ? 'Sent!' : 'Not sent.');
   return success;
 }
@@ -520,7 +589,7 @@ export async function sendMerchantOrderIDStatusDuplicateTelegramMessage(
 export async function sendBankNotAssignedAlertTelegram(
   chatId,
   code,
-  TELEGRAM_BOT_TOKEN
+  TELEGRAM_BOT_TOKEN,
 ) {
   // Construct the alert message
   const message = `<b>⛔ Bank not Assigned with :</b> ${code}`;
@@ -529,6 +598,47 @@ export async function sendBankNotAssignedAlertTelegram(
     const success = await telegramSender(chatId, message, TELEGRAM_BOT_TOKEN);
     logger.log(success ? 'Sent!' : 'Not sent.');
   } catch (error) {
-    console.error("Error sending bank not assigned alert to Telegram:", error);
+    console.error('Error sending bank not assigned alert to Telegram:', error);
   }
+}
+
+export async function sendTelegramDisputeMessage(
+  chatId,
+  oldData,
+  newData,
+  nick_name,
+  TELEGRAM_BOT_TOKEN,
+) {
+  const message = `
+        <b><u>Dispute Entry:</u></b> 
+            <b>📋 Status:</b> ⛔ DISPUTE
+            <b>🧾 UTR:</b> ${oldData.user_submitted_utr}
+            <b>⛔ Amount:</b> ${oldData.amount}
+            <b>💳 UPI Short Code:</b> ${oldData.upi_short_code}
+            <b>🏦 Bank Name:</b> ${nick_name}
+            <b>Merchant Order Id:</b> ${oldData.merchant_order_id}
+            <b>PayIn Id:</b> ${oldData.id}
+            <b>Merchant Id:</b> ${oldData.merchant_id}
+            <b>User Id:</b> ${oldData.user}
+
+        <b><u>New Entry:</u></b> 
+            <b>📋 Status:</b> ${
+              newData.status === 'SUCCESS' ? '✅ SUCCESS' : newData.status
+            }
+            <b>🧾 UTR:</b> ${newData.user_submitted_utr}
+            <b>✅ Amount:</b> ${newData.amount}
+            <b>💳 UPI Short Code:</b> ${newData.upi_short_code}
+            <b>🏦 Bank Name:</b> ${nick_name}
+            <b>Merchant Order Id:</b> ${newData.merchant_order_id}
+            <b>PayIn Id:</b> ${newData.id}
+            <b>Merchant Id:</b> ${newData.merchant_id}
+            <b>User Id:</b> ${newData.user}
+    `;
+  const success = await telegramSender(
+    chatId,
+    message,
+    null,
+    TELEGRAM_BOT_TOKEN,
+  );
+  logger.log(success ? 'Sent!' : 'Not sent.');
 }
