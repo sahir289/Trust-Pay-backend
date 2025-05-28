@@ -522,7 +522,8 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
       ba.user_id AS vendor_user_id,
       m.user_id AS merchant_user_id,
       p.created_at,
-      p.status
+      p.status,
+      p.user_submitted_utr
     FROM public."Payin" p
     LEFT JOIN public."BankAccount" ba ON p.bank_acc_id = ba.id
     JOIN public."Merchant" m ON p.merchant_id = m.id
