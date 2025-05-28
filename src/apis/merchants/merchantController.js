@@ -4,6 +4,7 @@ import {
   createMerchantService,
   deleteMerchantService,
   getMerchantByIdService,
+  getMerchantsByCodeService,
   getMerchantsBySearchService,
   getMerchantsService,
   getMerchantsServiceCode,
@@ -73,6 +74,13 @@ const getMerchants = async (req, res) => {
     designation,
     user_id,
   );
+  logger.log('get Merchants successfully');
+  return sendSuccess(res, data, 'Merchants fetched successfully');
+};
+
+const getMerchantByCode = async (req, res) => {
+  const { code } = req.query;
+  const data = await getMerchantsByCodeService(code);
   logger.log('get Merchants successfully');
   return sendSuccess(res, data, 'Merchants fetched successfully');
 };
@@ -183,4 +191,5 @@ export {
   deleteMerchant,
   getMerchantsById,
   getMerchantCodes,
+  getMerchantByCode,
 };
