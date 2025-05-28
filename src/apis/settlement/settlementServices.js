@@ -78,7 +78,7 @@ const getSettlementService = async (
 
     // Determine column selection based on role
     const filterColumns = (() => {
-      switch (ids.role_name) {
+      switch (ids.role) {
         case Role.MERCHANT:
           return merchantColumns.SETTLEMENT;
         case Role.VENDOR:
