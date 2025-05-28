@@ -232,7 +232,7 @@ const updateBankaccountService = async (conn, ids, payload, role) => {
       const bankResponse = await getBankResponseDaoAll({
         bank_id: ids.id,
         is_used: false,
-      }, role);
+      });
       if (bankResponse.rows.length > 0) {
         for (let i = 0; i < bankResponse.rows.length; i++) {
           await updateBotResponseDao(bankResponse.rows[i].id, {

@@ -8,11 +8,11 @@ import {
   getResetHistoryDao,
 } from './resetDao.js';
 import { BadRequestError } from '../../utils/appErrors.js';
-const getResetHistoryService = async (id, page, limit) => {
+const getResetHistoryService = async (id, page, limit,sortBy,sortOrder, startDate, endDate) => {
   try {
     // const pageNumber = parseInt(page, 10) || 1;
     // const pageSize = parseInt(limit, 10) || 10;
-    const result = await getResetHistoryDao({company_id: id} , page, limit);
+    const result = await getResetHistoryDao({company_id: id} , page, limit,sortBy, sortOrder ,startDate, endDate);
     return result;
   } catch (error) {
     console.error('error getting while reset history', error);

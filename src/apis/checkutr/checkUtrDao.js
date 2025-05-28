@@ -5,6 +5,7 @@ import {
   executeQuery,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
+import moment from 'moment-timezone';
 
 const getCheckUtrDao = async (
   filters = {},
@@ -65,7 +66,14 @@ const getCheckUtrDao = async (
     // Handle filters
     const whereClauses = [];
     let paramIndex = 1;
-
+    if (filters.startDate && filters.endDate) {
+      const startDateTime = moment.tz(`${filters.startDate} 00:00:00`, 'Asia/Kolkata').toISOString(true);
+      const endDateTime = moment.tz(`${filters.endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString(true);
+         
+      sql += ` WHERE "${CHECK_UTR_HISTORY}".created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      queryParams.push(startDateTime, endDateTime);
+      paramIndex++;
+    }
     if (filters.search) {
       whereClauses.push(`
         ("${CHECK_UTR_HISTORY}".payin_id::text ILIKE $${paramIndex}
