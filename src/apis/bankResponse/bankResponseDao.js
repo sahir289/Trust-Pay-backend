@@ -319,14 +319,13 @@ const getBankResponseDaoAll = async (
     if (filters.company_id) {
       whereConditions.push(`"BankResponse"."company_id" = '${filters.company_id}'`);
     }
-    if (updated) {
-      const whereClause = baseQuery.includes('WHERE') ? 'AND' : 'WHERE';
-      baseQuery += `
-        ${whereClause} "BankResponse".updated_at IS NOT NULL 
-        AND "BankResponse".updated_at != "BankResponse".created_at
-      `;
-    }
 
+    if (updated) {
+      whereConditions.push(
+        `"BankResponse".updated_at IS NOT NULL 
+        AND "BankResponse".updated_at != "BankResponse".created_at`
+      );
+    }
 
     if (whereConditions.length) {
       baseQuery += ' WHERE ' + whereConditions.join(' AND ');
