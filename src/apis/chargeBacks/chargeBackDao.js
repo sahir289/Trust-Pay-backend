@@ -31,7 +31,7 @@ export const getChargeBackDao = async (
   role
 ) => {
   try {
-    const { VENDOR, CHARGE_BACK, MERCHANT, PAYIN, USER, BANK_ACCOUNT } = tableName;
+    const { VENDOR, CHARGE_BACK, MERCHANT, PAYIN, USER, BANK_ACCOUNT, BANK_RESPONSE } = tableName;
     const conditions = [`cb.is_obsolete = false`];
     const queryParams = [];
     const limitcondition = { value: '' };
@@ -145,7 +145,7 @@ export const getChargeBackDao = async (
       u.user_name AS created_by,
       uu.user_name AS updated_by,
       ba.nick_name AS bank_name,
-      p.user_submitted_utr AS utr,
+      COALESCE(p.user_submitted_utr, br.utr) AS utr,
       cb.created_at,
       jsonb_build_object('blocked_users', m.config->'blocked_users') AS config
     `;
@@ -165,6 +165,7 @@ export const getChargeBackDao = async (
       LEFT JOIN public."${VENDOR}" v ON cb.vendor_user_id = v.user_id
       LEFT JOIN public."${MERCHANT}" m ON cb.merchant_user_id = m.user_id
       LEFT JOIN public."${PAYIN}" p ON cb.payin_id = p.id
+      LEFT JOIN "${BANK_RESPONSE}" br ON p.bank_response_id = br.id
       LEFT JOIN public."${USER}" u ON cb.created_by = u.id 
       LEFT JOIN public."${USER}" uu ON cb.updated_by = uu.id
       LEFT JOIN public."${BANK_ACCOUNT}" ba ON cb.bank_acc_id = ba.id
@@ -207,7 +208,7 @@ export const getChargeBacksBySearchDao = async (
 ) => {
   console.log(filters,'filters',searchTerms,' searchTerms');
   try {
-    const { VENDOR, CHARGE_BACK, MERCHANT, PAYIN, BANK_ACCOUNT } = tableName;
+    const { VENDOR, CHARGE_BACK, MERCHANT, PAYIN, BANK_ACCOUNT, BANK_RESPONSE } = tableName;
     const conditions = [];
     const values = [];
     let paramIndex = 1;
@@ -227,12 +228,13 @@ export const getChargeBacksBySearchDao = async (
         "${MERCHANT}".code AS merchant_name,
         "${PAYIN}".user AS user,
         "${PAYIN}".merchant_order_id,
-        "${PAYIN}".user_submitted_utr AS utr,
+        COALESCE("${PAYIN}".user_submitted_utr, "${BANK_RESPONSE}".utr) AS utr,
         "${BANK_ACCOUNT}".nick_name AS bank_name
       FROM "${CHARGE_BACK}"
       LEFT JOIN "${VENDOR}" ON "${CHARGE_BACK}".vendor_user_id = "${VENDOR}".user_id
       LEFT JOIN "${MERCHANT}" ON "${CHARGE_BACK}".merchant_user_id = "${MERCHANT}".user_id
       LEFT JOIN "${PAYIN}" ON "${CHARGE_BACK}".payin_id = "${PAYIN}".id
+      LEFT JOIN "${BANK_RESPONSE}" ON "${PAYIN}".bank_response_id = "${BANK_RESPONSE}".id
       LEFT JOIN "${BANK_ACCOUNT}" ON "${CHARGE_BACK}".bank_acc_id = "${BANK_ACCOUNT}".id
     `;
     queryText += ` WHERE "${CHARGE_BACK}".is_obsolete = false`;
@@ -240,6 +242,17 @@ export const getChargeBacksBySearchDao = async (
     if (filters && filters.company_id) {
       queryText += ` AND "${CHARGE_BACK}".company_id = $${paramIndex}`;
       values.push(filters.company_id);
+      paramIndex++;
+    }
+
+    if (filters && filters.vendor_user_id) {
+      queryText += ` AND "${CHARGE_BACK}".vendor_user_id = $${paramIndex}`;
+      values.push(filters.vendor_user_id);
+      paramIndex++;
+    }
+    if (filters && filters.merchant_user_id) {
+      queryText += ` AND "${CHARGE_BACK}".merchant_user_id = $${paramIndex}`;
+      values.push(filters.merchant_user_id);
       paramIndex++;
     }
 
@@ -314,6 +327,7 @@ export const getChargeBacksBySearchDao = async (
             OR LOWER("${PAYIN}".user) LIKE LOWER($${paramIndex})
             OR LOWER("${PAYIN}".merchant_order_id) LIKE LOWER($${paramIndex})
             OR LOWER("${PAYIN}".user_submitted_utr) LIKE LOWER($${paramIndex})
+            OR LOWER("${BANK_RESPONSE}".utr) LIKE LOWER($${paramIndex})
             OR LOWER("${BANK_ACCOUNT}".nick_name) LIKE LOWER($${paramIndex})
           )
         `);
