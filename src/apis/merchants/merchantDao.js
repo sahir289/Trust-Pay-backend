@@ -146,7 +146,7 @@ export const getMerchantByUserIdDao = async (userId) => {
       LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
       LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
       WHERE  "Merchant".is_obsolete = false 
-      AND "Merchant"."user_id" = $1
+      AND "Merchant"."user_id" ${Array.isArray(userId) ? '= ANY($1)' : '= $1'}
       ORDER BY "Merchant"."created_at" ASC;
     `;
 
@@ -163,7 +163,7 @@ export const getMerchantByUserIdDao = async (userId) => {
       `Error in getMerchantByUserIdDao for user_id ${userId}:`,
       error,
     );
-    throw error.message;
+    throw error;
   }
 };
 export const getMerchantsDao = async (
@@ -223,7 +223,7 @@ export const getMerchantsDao = async (
         )
       `;
     }
-
+  
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
@@ -233,7 +233,6 @@ export const getMerchantsDao = async (
       sortOrder,
       tableName.MERCHANT,
     );
-
     const result = await executeQuery(sql, queryParams);
     const data = await enhanceMerchantsWithSubMerchants(result.rows);
     return data;
