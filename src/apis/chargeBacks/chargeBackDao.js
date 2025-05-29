@@ -6,7 +6,7 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-import moment from 'moment-timezone';
+import dayjs from 'dayjs';
 
 // Create ChargeBack entry
 export const createChargeBackDao = async (data) => {
@@ -51,8 +51,8 @@ export const getChargeBackDao = async (
       },
       dateRange: (filters, conditions, queryParams) => {
         if (!filters.startDate || !filters.endDate) return;
-        const startDate = moment.tz(`${filters.startDate} 00:00:00`, 'Asia/Kolkata').toISOString();
-        const endDate = moment.tz(`${filters.endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString();    
+        const startDate = dayjs.tz(`${filters.startDate} 00:00:00`, 'Asia/Kolkata').toISOString();
+        const endDate = dayjs.tz(`${filters.endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString();    
         const idx = queryParams.length + 1;
         conditions.push(`cb.created_at BETWEEN $${idx} AND $${idx + 1}`); 
         queryParams.push(startDate, endDate);
