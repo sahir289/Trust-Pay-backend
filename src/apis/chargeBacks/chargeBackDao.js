@@ -65,6 +65,22 @@ export const getChargeBackDao = async (
       }
     };
 
+    // Handle bank_name filter properly
+    const bankName = filters.bank_name;
+    const utr = filters.utr;
+    if (bankName) {
+      const nextParamIdx = queryParams.length + 1;
+      conditions.push(`ba.bank_name = $${nextParamIdx}`);
+      queryParams.push(bankName);
+    } else if (utr) {
+      const nextParamIdx = queryParams.length + 1;
+      conditions.push(`p.user_submitted_utr = $${nextParamIdx}`);
+      queryParams.push(utr);
+    }
+    delete filters.bank_name;
+    delete filters.utr; // Remove from filters object
+
+    // Handle search filters
     conditionBuilders.search(filters, CHARGE_BACK);
     conditionBuilders.dateRange(filters, conditions, queryParams);
     conditionBuilders.pagination(page, pageSize, queryParams, limitcondition);
@@ -153,9 +169,19 @@ export const getChargeBackDao = async (
       LEFT JOIN public."${USER}" uu ON cb.updated_by = uu.id
       LEFT JOIN public."${BANK_ACCOUNT}" ba ON cb.bank_acc_id = ba.id
       WHERE ${conditions.join(' AND ')}
+      ${bankName ? `AND ba.nick_name = $${queryParams.length + 1}` : ''}
+      ${utr ? `AND p.user_submitted_utr = $${queryParams.length + 1}` : ''}
       ORDER BY ${qualifiedSortBy} ${sortOrder}
       ${limitcondition.value}
     `;
+    // Add bank_name to params if it exists
+    if (bankName) {
+      queryParams.push(bankName);
+    }
+    // Add utr to params if it exists
+    if (utr) {
+      queryParams.push(utr);
+    }
 
     const expectedParamCount = (baseQuery.match(/\$\d+/g) || []).length;
     if (expectedParamCount !== queryParams.length) {
@@ -179,32 +205,12 @@ export const getChargeBacksBySearchDao = async (
   limitNum,
   offset,
 ) => {
+  console.log(filters,'filters',searchTerms,' searchTerms');
   try {
-    const { VENDOR, CHARGE_BACK, MERCHANT, PAYIN } = tableName;
+    const { VENDOR, CHARGE_BACK, MERCHANT, PAYIN, BANK_ACCOUNT } = tableName;
     const conditions = [];
     const values = [];
     let paramIndex = 1;
-
-    const joins = [
-      {
-        table: VENDOR,
-        keys: ['vendor_user_id', 'user_id'],
-        type: 'LEFT JOIN',
-        columnAs: [`"${VENDOR}".code AS vendor_name`],
-      },
-      {
-        table: MERCHANT,
-        keys: ['merchant_user_id', 'user_id'],
-        type: 'LEFT JOIN',
-        columnAs: [`"${MERCHANT}".code AS merchant_name`],
-      },
-      {
-        table: PAYIN,
-        keys: ['payin_id', 'id'],
-        type: 'LEFT JOIN',
-        columns: ['user', 'merchant_order_id'],
-      },
-    ];
 
     let queryText = `
       SELECT 
@@ -217,27 +223,47 @@ export const getChargeBacksBySearchDao = async (
         "${CHARGE_BACK}".updated_by,
         "${CHARGE_BACK}".created_at,
         "${CHARGE_BACK}".updated_at,
-        ${joins[0].columnAs[0]},  -- vendor_name
-        ${joins[1].columnAs[0]},  -- merchant_name
+        "${VENDOR}".code AS vendor_name,
+        "${MERCHANT}".code AS merchant_name,
         "${PAYIN}".user AS user,
-        "${PAYIN}".merchant_order_id
+        "${PAYIN}".merchant_order_id,
+        "${PAYIN}".user_submitted_utr AS utr,
+        "${BANK_ACCOUNT}".nick_name AS bank_name
       FROM "${CHARGE_BACK}"
-      ${joins
-        .map(
-          (join) => `
-        ${join.type} "${join.table}"
-        ON "${CHARGE_BACK}"."${join.keys[0]}" = "${join.table}"."${join.keys[1]}"
-      `,
-        )
-        .join('')}
-      WHERE 1=1
+      LEFT JOIN "${VENDOR}" ON "${CHARGE_BACK}".vendor_user_id = "${VENDOR}".user_id
+      LEFT JOIN "${MERCHANT}" ON "${CHARGE_BACK}".merchant_user_id = "${MERCHANT}".user_id
+      LEFT JOIN "${PAYIN}" ON "${CHARGE_BACK}".payin_id = "${PAYIN}".id
+      LEFT JOIN "${BANK_ACCOUNT}" ON "${CHARGE_BACK}".bank_acc_id = "${BANK_ACCOUNT}".id
     `;
+    queryText += ` WHERE "${CHARGE_BACK}".is_obsolete = false`;
 
     if (filters && filters.company_id) {
       queryText += ` AND "${CHARGE_BACK}".company_id = $${paramIndex}`;
       values.push(filters.company_id);
       paramIndex++;
     }
+
+    if (filters && filters.amount) {
+      const amount = parseFloat(filters.amount);
+      if (!isNaN(amount)) {
+        queryText += ` AND "${CHARGE_BACK}".amount = $${paramIndex}`;
+        values.push(amount);
+        paramIndex++;
+      }
+    }
+
+    if(filters && filters.utr) {
+      queryText += ` AND "${PAYIN}".user_submitted_utr = $${paramIndex}`;
+      values.push(filters.utr);
+      paramIndex++;
+    }
+
+    if(filters && filters.bank_name) {
+      queryText += ` AND "${BANK_ACCOUNT}".nick_name = $${paramIndex}`;
+      values.push(filters.bank_name);
+      paramIndex++;
+    }
+
 
     // Handle merchant_user_id array
     if (filters && Array.isArray(filters.merchant_user_id) && filters.merchant_user_id.length > 0) {
@@ -247,6 +273,16 @@ export const getChargeBacksBySearchDao = async (
       queryText += ` AND "${CHARGE_BACK}".merchant_user_id IN (${placeholders})`;
       values.push(...filters.merchant_user_id);
       paramIndex += filters.merchant_user_id.length;
+    }
+
+    // Handle vendor_user_id array
+    if (filters && Array.isArray(filters.vendor_user_id) && filters.vendor_user_id.length > 0) {
+      const placeholders = filters.vendor_user_id
+        .map((_, idx) => `$${paramIndex + idx}`)
+        .join(', ');
+      queryText += ` AND "${CHARGE_BACK}".vendor_user_id IN (${placeholders})`;
+      values.push(...filters.vendor_user_id);
+      paramIndex += filters.vendor_user_id.length;
     }
 
     // Build search conditions across all relevant fields
@@ -277,6 +313,8 @@ export const getChargeBacksBySearchDao = async (
             OR LOWER("${MERCHANT}".code) LIKE LOWER($${paramIndex})
             OR LOWER("${PAYIN}".user) LIKE LOWER($${paramIndex})
             OR LOWER("${PAYIN}".merchant_order_id) LIKE LOWER($${paramIndex})
+            OR LOWER("${PAYIN}".user_submitted_utr) LIKE LOWER($${paramIndex})
+            OR LOWER("${BANK_ACCOUNT}".nick_name) LIKE LOWER($${paramIndex})
           )
         `);
         values.push(`%${term}%`);

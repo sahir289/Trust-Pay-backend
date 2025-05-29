@@ -261,10 +261,11 @@ export const getCalculationsSumDao = async (filters) => {
           LEFT JOIN "${tableName.MERCHANT}" m ON m.user_id = c.user_id
           LEFT JOIN "${tableName.VENDOR}" v ON v.user_id = c.user_id
           WHERE c.is_obsolete = FALSE
+          AND u.is_obsolete = FALSE
           AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
           ${condition}
           ${userCodes.length > 0 ? `AND (m.code = ANY(ARRAY[${userCodes.map(code => `'${code}'`).join(',')}]) 
-            OR v.code = ANY(ARRAY[${userCodes.map(code => `'${code}'`).join(',')}]))` : ''}
+            OR v.code = ANY(ARRAY[${userCodes.map(code => `'${code}'`).join(',')}]))` : 'AND m.is_obsolete = FALSE OR v.is_obsolete = FALSE'}  
         )
         SELECT 
           role,
