@@ -1,6 +1,6 @@
 import dayjs from 'dayjs';
 import {  tableName } from '../../constants/index.js';
-import { InternalServerError } from '../../utils/appErrors.js';
+// import { InternalServerError } from '../../utils/appErrors.js';
 // import { generateUUID } from '../utils/generateUUID.js';
 
 import {
@@ -48,8 +48,9 @@ const getBankResponseDao = async (
     }
     const result = await executeQuery(sql, queryParams);
     return result.rows[0];
-  } catch {
-    throw new InternalServerError('Error executing query');
+  } catch (error) {
+    logger.error('Error in getBankResponseDao:', error);
+    throw error;
   }
 };
 
@@ -149,7 +150,7 @@ const getBankResponseBySearchDao = async (
     return data;
   } catch (error) {
     logger.error('Error in getBankResponseBySearchDao:', error);
-    throw new Error('Error executing query');
+    throw error;
   }
 };
 
@@ -221,7 +222,7 @@ const getClaimResponseDao = async (filters) => {
     };
   } catch (error) {
     logger.error('Error getting claim response:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -303,7 +304,7 @@ const getBankResponseDaoAll = async (
     return { totalCount: result.rows.length, rows: result.rows };
   } catch (error) {
     logger.error('Error getting Bank Response:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -361,8 +362,9 @@ const createBankResponseDao = async (conn, data) => {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
     return result.rows[0];
-  } catch {
-    throw new InternalServerError('Error executing query');
+  } catch (error) {
+    logger.error('Error in createBankResponseDao:', error);
+    throw error;;
   }
 };
 
@@ -376,8 +378,8 @@ export const updateBankResponseDao = async (id, data, conn) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in updateBankResponseDao:', error);
-    throw error.message;
+    logger.error('Error in updateBankResponseDao:', error);
+    throw error;
   }
 };
 
@@ -403,8 +405,9 @@ const getBankMessageDao = async (
     const values = [bank_id, startDate, endDate, 10, 0, company_id];
     const result = await executeQuery(query, values);
     return result.rows;
-  } catch {
-    throw new InternalServerError('Error executing query');
+  } catch (error) {
+    logger.error('Error in getBankMessageDao:', error);
+    throw error;
   }
 };
 
@@ -415,8 +418,9 @@ const resetBankResponseDao = async (id, data) => {
     });
     const result = await executeQuery(sql, params);
     return result.rows[0];
-  } catch {
-    throw new InternalServerError('Error executing query');
+  } catch (error) {
+    logger.error('Error in resetBankResponseDao:', error);
+    throw error;
   }
 };
 
@@ -433,8 +437,9 @@ const updateBotResponseDao = async (id, data, conn) => {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
     return result.rows[0];
-  } catch {
-    throw new InternalServerError('Error executing query');
+  } catch (error) {
+    logger.error('Error in updateBotResponseDao:', error);
+    throw error;
   }
 };
 
