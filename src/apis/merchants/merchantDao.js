@@ -28,8 +28,16 @@ export const getMerchantsCodeDao = async (
   conn,
   filters,
   includeSubMerchants = false,
+  includeOnlyMerchants = false,
 ) => {
   try {
+    //includeSubMerchants  convert string to boolean
+    if (includeSubMerchants) {
+      includeSubMerchants = includeSubMerchants.toLowerCase() === 'true';
+    }
+    if (includeOnlyMerchants) {
+      includeOnlyMerchants = includeOnlyMerchants.toLowerCase() === 'true';
+    }
     let sql = `
       SELECT 
         m.code AS label, 
@@ -69,7 +77,17 @@ export const getMerchantsCodeDao = async (
     `;
     const queryParams = [];
     let paramIndex = 1;
-
+    if (includeOnlyMerchants) {
+      sql += `
+      AND m.user_id IN (
+          SELECT u.id 
+          FROM "${tableName.USER}" u
+          JOIN "${tableName.DESIGNATION}" d 
+            ON u.designation_id = d.id 
+          WHERE d.designation = 'MERCHANT'
+        )
+      `;
+    }
     if (filters.company_id) {
       sql += ` AND m.company_id = $${paramIndex++}`;
       queryParams.push(filters.company_id);
@@ -90,7 +108,7 @@ export const getMerchantsCodeDao = async (
     return result.rows;
   } catch (error) {
     logger.error('Error executing merchant query:', error);
-    throw new Error('Database query failed');
+    throw error.message;
   }
 };
 // get merchant with user_id  to get submerchant for user hierachys

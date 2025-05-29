@@ -264,6 +264,7 @@ const getMerchantsServiceCode = async (
   designation,
   user_id,
   includeSubMerchants,
+  includeOnlyMerchants,
 ) => {
   let conn;
   try {
@@ -310,7 +311,12 @@ const getMerchantsServiceCode = async (
       delete filters.user_id;
     }
 
-    const codes = await getMerchantsCodeDao(conn, filters, includeSubMerchants);
+    const codes = await getMerchantsCodeDao(
+      conn,
+      filters,
+      includeSubMerchants,
+      includeOnlyMerchants,
+    );
     await commit(conn);
     return codes;
   } catch (error) {

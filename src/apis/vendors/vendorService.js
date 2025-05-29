@@ -173,7 +173,7 @@ const getVendorsBySearchService = async (
     return data;
   } catch (error) {
     logger.error('Error while fetching vendors by search', error);
-    throw new InternalServerError(error.message);
+    throw new InternalServerError(error);
   }
 };
 
