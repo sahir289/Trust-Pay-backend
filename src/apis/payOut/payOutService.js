@@ -172,6 +172,7 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
         payload.company_id,
         null,
         null,
+        null,
         role,
         conn,
       );
@@ -248,6 +249,7 @@ const getPayoutsService = async (
   company_id,
   page,
   limit,
+  sortOrder,
   filters,
   role,
   user_id,
@@ -315,6 +317,7 @@ const getPayoutsService = async (
       company_id,
       page,
       limit,
+      sortOrder,
       role,
       conn,
     );
@@ -453,6 +456,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
     const singleWithdrawData = await getPayoutsDao(
       ids,
+      null,
       null,
       null,
       null,
