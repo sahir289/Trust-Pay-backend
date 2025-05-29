@@ -12,14 +12,14 @@ import { logger } from '../../utils/logger.js';
 
 const getCheckUtr = async (req, res) => {
   const { company_id } = req.user;
-  const { page, limit } = req.query;
+  const { page, limit, sortOrder } = req.query;
   delete req.query.page;
   delete req.query.limit;
   const filters = {
     company_id,
     ...req.query,
   };
-  const data = await getCheckUtrService(filters, page, limit);
+  const data = await getCheckUtrService(filters, page, limit, sortOrder);
   return sendSuccess(res, data, 'get checkutr successfully');
 };
 

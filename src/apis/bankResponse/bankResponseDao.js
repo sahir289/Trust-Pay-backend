@@ -1,6 +1,6 @@
 import dayjs from 'dayjs';
-import { Role, tableName } from '../../constants/index.js';
-import { InternalServerError } from '../../utils/appErrors.js';
+import {  tableName } from '../../constants/index.js';
+// import { InternalServerError } from '../../utils/appErrors.js';
 // import { generateUUID } from '../utils/generateUUID.js';
 
 import {
@@ -12,7 +12,7 @@ import {
 import { generateUUID } from '../../utils/generateUUID.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-import { getUTCDayRange } from '../../utils/dateFormattingToUTC.js';
+import moment from 'moment-timezone';
 
 const IST = 'Asia/Kolkata';
 
@@ -48,8 +48,9 @@ const getBankResponseDao = async (
     }
     const result = await executeQuery(sql, queryParams);
     return result.rows[0];
-  } catch {
-    throw new InternalServerError('Error executing query');
+  } catch (error) {
+    logger.error('Error in getBankResponseDao:', error);
+    throw error;
   }
 };
 
@@ -149,7 +150,7 @@ const getBankResponseBySearchDao = async (
     return data;
   } catch (error) {
     logger.error('Error in getBankResponseBySearchDao:', error);
-    throw new Error('Error executing query');
+    throw error;
   }
 };
 
@@ -221,7 +222,7 @@ const getClaimResponseDao = async (filters) => {
     };
   } catch (error) {
     logger.error('Error getting claim response:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -229,12 +230,15 @@ const getBankResponseDaoAll = async (
   filters,
   page = 1,
   pageSize = 10,
+  columns = [],
+  updated,
   sortBy = 'created_at',
   sortOrder = 'DESC',
-  columns = [],
-  role,
+  start_date,
+  end_date,
 ) => {
   try {
+    console.log(sortBy, sortOrder, 'sorting_' )
     const selectCols = columns.length
       ? columns.map((col) => `"BankResponse".${col}`).join(', ')
       : [
@@ -244,31 +248,34 @@ const getBankResponseDaoAll = async (
           `"BankAccount".bank_name`,
           `"Vendor".code AS vendor_code`,
         ].join(', ');
-        // `u.user_name AS created_by`,
-        // `uu.user_name AS updated_by`,
-  let baseQuery;
-    if (filters.search) {
-      const searchValue = filters.search.trim();
-      filters.or = {
-        reference_id: searchValue,
-        status: searchValue,
-      };
-      delete filters.search;
-    }
-    if (filters.start_date && filters.end_date && role !== Role.VENDOR) {
-      //merchant codes shown between date range selcted for bank account reports
-      baseQuery = `
-        AND "BankResponse".created_at BETWEEN $${filters.start_date} AND $${filters.end_date}
-        WHERE EXISTS (
-          SELECT 1 FROM jsonb_each_text("BankAccount".config -> 'details' -> 'merchant_added') AS j(k, v)
-          WHERE v::timestamp BETWEEN $${filters.start_date} AND $${filters.end_date}
-        )
-      `;
-      delete filters.start_date;
-      delete filters.end_date;
-    }
 
-    baseQuery = `
+    const start = moment.tz(`${start_date} 00:00:00`, 'Asia/Kolkata').toISOString(true);
+    const end = moment.tz(`${end_date} 23:59:59.999`, 'Asia/Kolkata').toISOString(true);
+    let baseQueryDate = `
+      WITH filtered_accounts AS (
+        SELECT 
+          "BankAccount".*, 
+          jsonb_object_agg(key, value) FILTER (
+            WHERE key ~ '^\\d{4}-\\d{2}-\\d{2}' 
+              AND (key)::timestamp BETWEEN '${start}'::timestamp AND '${end}'::timestamp
+          ) AS filtered_merchant_added
+        FROM "BankAccount",
+             jsonb_each(("BankAccount".config -> 'merchant_added')::jsonb)
+        GROUP BY "BankAccount".id
+      )
+      SELECT ${selectCols}, 
+             "BankResponse".created_at,
+             jsonb_set("BankAccount".config::jsonb, '{merchant_added}', COALESCE(filtered_merchant_added, '{}'::jsonb)) AS details,
+             "BankAccount".nick_name,
+             "Vendor".user_id AS vendor_user_id
+      FROM "BankResponse"
+      JOIN filtered_accounts AS "BankAccount" 
+        ON "BankResponse".bank_id = "BankAccount".id
+      LEFT JOIN "Vendor" 
+        ON "BankAccount".user_id = "Vendor".user_id
+    `;
+
+   let  baseQuery = `
       SELECT ${selectCols}, "BankResponse".created_at,
         "BankAccount".config AS details,
         "BankAccount".nick_name,
@@ -277,21 +284,49 @@ const getBankResponseDaoAll = async (
       JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
       LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
       `;
-      // LEFT JOIN public."User" u ON "BankResponse".created_by = u.id 
-      // LEFT JOIN public."User" uu ON "BankResponse".updated_by = uu.id
+ 
 
-    if (filters.start_date && filters.end_date && role === Role.VENDOR) {
-      const { start } = getUTCDayRange(filters.start_date );
-      const { end } = getUTCDayRange( filters.end_date);
-      baseQuery += `
-        WHERE "BankResponse".created_at BETWEEN '${start}' AND '${end}'
-      `;
-      delete filters.start_date;
-      delete filters.end_date;
+    const whereConditions = [];
+
+    if (start_date && end_date) {
+      whereConditions.push(`"BankResponse".created_at BETWEEN '${start}' AND '${end}'`);
     }
-    
-    const [query, values] = buildSelectQuery(
-      baseQuery,
+
+    if (filters.search) {
+      const searchValue = filters.search.trim();
+      filters.or = {
+        reference_id: searchValue,
+        status: searchValue,
+      };
+      delete filters.search;
+    }
+
+    whereConditions.push(`"BankResponse".is_obsolete = false`);
+
+    if (filters.bank_id) {
+      whereConditions.push(`"BankResponse"."bank_id" = '${filters.bank_id}'`);
+    }
+
+    if (filters.company_id) {
+      whereConditions.push(`"BankResponse"."company_id" = '${filters.company_id}'`);
+    }
+    if (updated) {
+      const whereClause = baseQuery.includes('WHERE') ? 'AND' : 'WHERE';
+      baseQuery += `
+        ${whereClause} "BankResponse".updated_at IS NOT NULL 
+        AND "BankResponse".updated_at != "BankResponse".created_at
+      `;
+    }
+
+
+    if (whereConditions.length) {
+      baseQuery += ' WHERE ' + whereConditions.join(' AND ');
+      baseQueryDate += ' WHERE ' + whereConditions.join(' AND ');
+    }
+    const queryIs = start && end ? baseQueryDate : baseQuery
+    console.log(queryIs, 'sdfghj')
+    const [query, queryValues] = buildSelectQuery(
+      queryIs,
       filters,
       page,
       pageSize,
@@ -300,11 +335,11 @@ const getBankResponseDaoAll = async (
       'BankResponse',
     );
 
-    const result = await executeQuery(query, values);
+    const result = await executeQuery(query, queryValues);
     return { totalCount: result.rows.length, rows: result.rows };
   } catch (error) {
     logger.error('Error getting Bank Response:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -362,8 +397,9 @@ const createBankResponseDao = async (conn, data) => {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
     return result.rows[0];
-  } catch {
-    throw new InternalServerError('Error executing query');
+  } catch (error) {
+    logger.error('Error in createBankResponseDao:', error);
+    throw error;;
   }
 };
 
@@ -377,8 +413,8 @@ export const updateBankResponseDao = async (id, data, conn) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in updateBankResponseDao:', error);
-    throw error.message;
+    logger.error('Error in updateBankResponseDao:', error);
+    throw error;
   }
 };
 
@@ -404,8 +440,9 @@ const getBankMessageDao = async (
     const values = [bank_id, startDate, endDate, 10, 0, company_id];
     const result = await executeQuery(query, values);
     return result.rows;
-  } catch {
-    throw new InternalServerError('Error executing query');
+  } catch (error) {
+    logger.error('Error in getBankMessageDao:', error);
+    throw error;
   }
 };
 
@@ -416,8 +453,9 @@ const resetBankResponseDao = async (id, data) => {
     });
     const result = await executeQuery(sql, params);
     return result.rows[0];
-  } catch {
-    throw new InternalServerError('Error executing query');
+  } catch (error) {
+    logger.error('Error in resetBankResponseDao:', error);
+    throw error;
   }
 };
 
@@ -434,8 +472,9 @@ const updateBotResponseDao = async (id, data, conn) => {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
     return result.rows[0];
-  } catch {
-    throw new InternalServerError('Error executing query');
+  } catch (error) {
+    logger.error('Error in updateBotResponseDao:', error);
+    throw error;
   }
 };
 

@@ -77,6 +77,7 @@ import {
   sendSuccessMessageTelegramBot,
   sendTelegramMessage,
   sendUTRMismatchErrorMessageTelegram,
+  sendTelegramDisputeMessage,
 } from '../../utils/sendTelegramMessages.js';
 
 import { getConnection } from '../../utils/db.js';
@@ -805,6 +806,7 @@ export const updateDepositStatusService = async (
   };
 
   if (updatePayInData.status === Status.SUCCESS) {
+    updatePayInData.approved_at = new Date();
     updatePayInData.payin_merchant_commission = payinCommission;
     updatePayInData.payin_vendor_commission = vendorPayinCommission;
     // update merchant caclulation table
@@ -1884,32 +1886,13 @@ export const disputeDuplicateTransactionService = async (
     });
   }
 
-  // if (updateBalance) {
-
-  //   //   await updateBanktBalanceDao({ id: bankId }, toAmount, updated_by, conn);
-  // await updateBankaccountService(
-  //   conn,
-  //   { id: bank.id, company_id: payIn.company_id },
-  //   {},
-  // );
-  //   await updateCalculationTable(
-  //     bank.user_id,
-  //     {
-  //       payinCommission: vendorPayinCommission,
-  //       amount: toAmount,
-  //     },
-  //     conn,
-  //   );
-  // }
-
-  // const entryType = oldPayInData.status === 'DUPLICATE' ? 'Duplicate Entry' : 'Dispute Entry';
-  // await sendTelegramDisputeMessage(
-  //     config?.telegramDuplicateDisputeChatId,
-  //     oldPayInData,
-  //     duplicateDisputeTransactionRes,
-  //     config?.telegramBotToken,
-  //     entryType,
-  //   );
+  await sendTelegramDisputeMessage(
+    config?.telegramDuplicateDisputeChatId,
+    payIn,
+    response,
+    bank.nick_name,
+    config?.telegramBotToken,
+  );
   return response;
 };
 

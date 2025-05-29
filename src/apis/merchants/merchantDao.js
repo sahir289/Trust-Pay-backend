@@ -28,15 +28,24 @@ export const getMerchantsCodeDao = async (
   conn,
   filters,
   includeSubMerchants = false,
+  includeOnlyMerchants = false,
 ) => {
   try {
+    //includeSubMerchants  convert string to boolean
+    if (includeSubMerchants) {
+      includeSubMerchants = includeSubMerchants.toLowerCase() === 'true';
+    }
+    if (includeOnlyMerchants) {
+      includeOnlyMerchants = includeOnlyMerchants.toLowerCase() === 'true';
+    }
     let sql = `
       SELECT 
         m.code AS label, 
         m.user_id AS value, 
         m.id AS merchant_id,
-        ${includeSubMerchants
-        ? `
+        ${
+          includeSubMerchants
+            ? `
               COALESCE(
                 json_agg(
                   json_build_object(
@@ -48,8 +57,8 @@ export const getMerchantsCodeDao = async (
                 '[]'::json
               ) AS submerchants
             `
-        : `'[]'::json AS submerchants`
-      }
+            : `'[]'::json AS submerchants`
+        }
       FROM 
         "${tableName.MERCHANT}" m
       LEFT JOIN "${tableName.USER_HIERARCHY}" uh 
@@ -68,7 +77,17 @@ export const getMerchantsCodeDao = async (
     `;
     const queryParams = [];
     let paramIndex = 1;
-
+    if (includeOnlyMerchants) {
+      sql += `
+      AND m.user_id IN (
+          SELECT u.id 
+          FROM "${tableName.USER}" u
+          JOIN "${tableName.DESIGNATION}" d 
+            ON u.designation_id = d.id 
+          WHERE d.designation = 'MERCHANT'
+        )
+      `;
+    }
     if (filters.company_id) {
       sql += ` AND m.company_id = $${paramIndex++}`;
       queryParams.push(filters.company_id);
@@ -89,7 +108,7 @@ export const getMerchantsCodeDao = async (
     return result.rows;
   } catch (error) {
     logger.error('Error executing merchant query:', error);
-    throw new Error('Database query failed');
+    throw error.message;
   }
 };
 // get merchant with user_id  to get submerchant for user hierachys
@@ -203,7 +222,7 @@ export const getMerchantsDao = async (
           SELECT id FROM "Designation" WHERE designation = 'MERCHANT'
         )
       `;
-      }
+    }
 
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
@@ -254,8 +273,8 @@ export const getMerchantsByCodeDao = async (code) => {
   LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
 `;
 
-let queryParams = [];
-if (code) {
+    let queryParams = [];
+    if (code) {
       baseQuery += ` WHERE "Merchant".code = $1`;
       queryParams = [code.trim()];
     }
@@ -432,23 +451,29 @@ export const getMerchantsBySearchDao = async (
 };
 
 export const updateMerchantDao = async (ids, data, conn) => {
-  return await buildAndExecuteUpdateQuery('Merchant', data, ids, {}, { returnUpdated: true }, conn);
+  return await buildAndExecuteUpdateQuery(
+    'Merchant',
+    data,
+    ids,
+    {},
+    { returnUpdated: true },
+    conn,
+  );
 };
 
-export const deleteMerchantDao = async (ids, data, options = { returnUpdated: true }) => {
+export const deleteMerchantDao = async (
+  ids,
+  data,
+  options = { returnUpdated: true },
+) => {
   try {
     const { id, company_id } = ids;
     const idArray = Array.isArray(id) ? id : [id];
-    
+
     const is_obsolete = true;
     const updated_by = data.updated_by;
 
-    const values = [
-      is_obsolete,
-      updated_by,
-      idArray,
-      company_id
-    ];
+    const values = [is_obsolete, updated_by, idArray, company_id];
 
     const returningClause = options.returnUpdated ? 'RETURNING *' : '';
 
@@ -510,5 +535,45 @@ export const getMerchantByCodeAndApiKey = async (code, publicKey) => {
   } catch (error) {
     logger.error('Error fetching merchant by code and API key:', error);
     throw error.message;
+  }
+};
+
+export const getMerchantsDaoArray = async (company_id,code) => {
+  try {
+    let baseQuery = `
+      SELECT 
+        "Merchant".id, 
+        "Merchant".user_id, 
+        "Merchant".first_name, 
+        "Merchant".last_name, 
+        "Merchant".code, 
+        "Merchant".min_payin, 
+        "Merchant".max_payin, 
+        "Merchant".payin_commission, 
+        "Merchant".min_payout, 
+        "Merchant".max_payout, 
+        "Merchant".config, 
+        "Merchant".company_id, 
+        creator.user_name AS created_by, 
+        updater.user_name AS updated_by, 
+        "Merchant".created_at, 
+        "Merchant".updated_at, 
+        "User".designation_id, 
+        "User".first_name || ' ' || "User".last_name AS full_name, 
+        "Designation".designation AS designation_name
+      FROM "Merchant" 
+      JOIN "User" ON "Merchant".user_id = "User".id 
+      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
+      LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
+      LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
+      WHERE "Merchant".company_id = $1 AND "Merchant".user_id = ANY($2)
+    `;
+    
+    let queryParams = [company_id, code]; 
+    const result = await executeQuery(baseQuery, queryParams);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error fetching merchant by code and API key:', error);
+    throw error; 
   }
 };

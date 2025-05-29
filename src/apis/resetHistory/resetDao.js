@@ -4,17 +4,22 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
+import moment from 'moment-timezone';
 
 const getResetHistoryDao = async (
   filters = {},
-  page = 1,
-  pageSize = 10,
+  page ,
+  pageSize ,
   sortBy = 'sno',
-  sortOrder = 'DESC',
-  columns = []
+  sortOrder = 'DESC', 
+  startDate, endDate,
+  columns = [], 
 ) => {
   try {
+    console.log(startDate, endDate,sortBy,sortOrder, 'startDate, endDate,startDate, endDate,')
     const { BANK_RESPONSE, RESET_DATA_HISTORY, PAYIN, USER } = tableName;
+    //reset pagination if page and limit is null
+    let queryParams = [];
 
     // Default columns if none provided
     const selectColumns = columns.length
@@ -55,7 +60,6 @@ const getResetHistoryDao = async (
 
     // Handle filters
     const whereClauses = [];
-    const queryParams = [];
     let paramIndex = 1;
 
     if (filters.search) {
@@ -81,16 +85,30 @@ const getResetHistoryDao = async (
     if (whereClauses.length > 0) {
       sql += ` WHERE ${whereClauses.join(' AND ')}`;
     }
+    let limitcondition = '';
+    if (page && pageSize) {
+      limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+      queryParams.push(pageSize, (page - 1) * pageSize);
+    }
+    if (startDate && endDate) {
+
+      const startDateTime = moment.tz(`${startDate} 00:00:00`, 'Asia/Kolkata').toISOString(true);
+      const endDateTime = moment.tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString(true);
+         
+      sql += ` AND "${RESET_DATA_HISTORY}".created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      queryParams.push(startDateTime, endDateTime);
+      paramIndex++;
+    }
 
     // Sorting
     const validSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    sql += ` ORDER BY "${RESET_DATA_HISTORY}".${sortBy} ${validSortOrder}`;
+    sql += ` ORDER BY "${RESET_DATA_HISTORY}".${sortBy} ${validSortOrder} ${limitcondition}`;
 
     // Pagination
-    const offset = (page - 1) * pageSize;
-    sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    queryParams.push(pageSize, offset);
-    paramIndex += 2;
+    // const offset = (page - 1) * pageSize;
+    // sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    // queryParams.push(pageSize, offset);
+    // paramIndex += 2;
 
     // Execute both queries
     const [result] = await Promise.all([

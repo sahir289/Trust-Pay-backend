@@ -2,7 +2,7 @@ import { executeQuery } from '../../utils/db.js';
 import { Role, tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 
-export const getTotalCountDao = async (tablename, role, filters, roleIs) => {
+export const getTotalCountDao = async (tablename, role, filters, roleIs, updated = false) => {
   try {
     // Validate table name to prevent SQL injection
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tablename)) {
@@ -45,15 +45,26 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs) => {
       params.push(role);
       paramIndex++;
     }
+
+    // Handle updated entries
+    if (updated) {
+      query += ` AND "${tablename}".updated_at IS NOT NULL 
+        AND "${tablename}".updated_at != "${tablename}".created_at`;
+    }
+
+    // Handle nickname filter
     if (filters.nick_name) {
       delete filters.nick_name;
     }
+
+    // Handle date range
     if (filters?.startDate && filters?.endDate) {
       query += ` AND created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       params.push(filters.startDate, filters.endDate);
       paramIndex += 2;
     }
-    //user_ids coming as array when serach in reports -- modified for timezone
+
+    // Handle user_id array
     if (Array.isArray(filters.user_id) && filters.user_id.length > 0) {
       query += ` AND "${tablename}".user_id = ANY($${paramIndex})`;
       params.push(filters.user_id);
@@ -66,7 +77,7 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs) => {
       delete filters.user_id;
     }
 
-    // Dynamically add filters to query
+    // Dynamically add remaining filters
     if (filters) {
       Object.entries(filters).forEach(([column, value]) => {
         if (column === 'startDate' || column === 'endDate') {
@@ -91,6 +102,10 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs) => {
     if (error.code === '42P01') {
       logger.error(`Table "${tablename}" does not exist in the database.`);
       throw new Error(`Table "${tablename}" does not exist.`);
+    }
+    if (error.code === '42703') {
+      logger.error(`Column updated_at or created_at does not exist in table "${tablename}".`);
+      throw new Error(`Cannot filter updated entries: table "${tablename}" lacks required columns.`);
     }
     logger.error(`Error fetching total count for table ${tablename}:`, error);
     throw error.message;

@@ -48,8 +48,7 @@ export const getVendorsCodeDao = async (
     return result.rows;
   } catch (error) {
     logger.error('Error executing vendor query:', error);
-    throw new Error('Database query failed'); // Re-throwing for upstream handling
-  }
+    throw error.message;  }
 };
 
 
@@ -297,5 +296,49 @@ export const updateVendorBalanceDao = async (
   } catch (error) {
     logger.error('Error in updateVendorBalanceDao:', error);
     throw error.message;
+  }
+};
+
+export const getVendorsDaoArray = async (company_id,code) => {
+  try {
+    console.log(code, 'codecode')
+    let baseQuery = `
+      SELECT 
+       "Vendor".id, 
+        "Vendor".user_id, 
+        "Vendor".first_name, 
+        "Vendor".last_name, 
+        "Vendor".code, 
+        "Vendor".payin_commission, 
+        "Vendor".payout_commission, 
+        "Vendor".config, 
+        "Vendor".created_by, 
+        "Vendor".updated_by, 
+        "Vendor".created_at, 
+        "Vendor".updated_at, 
+        "User".designation_id, 
+        "User".first_name || ' ' || "User".last_name AS full_name, 
+          "Designation".designation AS designation_name,
+         (
+          SELECT net_balance 
+          FROM "Calculation" 
+          WHERE "Calculation".user_id = "Vendor".user_id 
+          ORDER BY "Calculation".updated_at DESC 
+          LIMIT 1
+        ) AS balance
+           FROM "Vendor" 
+      JOIN "User" ON "Vendor".user_id = "User".id 
+      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id 
+      WHERE "Vendor".is_obsolete = false 
+      AND "Vendor"."company_id" = $1
+      AND "Vendor".user_id = ANY($2)
+    `;
+    
+    let queryParams = [company_id, code]; 
+    const result = await executeQuery(baseQuery, queryParams);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error fetching merchant by code and API key:', error);
+    throw error; 
   }
 };
