@@ -506,7 +506,7 @@ const getClaimResponseService = async (payload) => {
   }
 };
 
-const getBankResponseService = async (payload, role, page, limit, search, updated) => {
+const getBankResponseService = async (payload, role, page, limit, search, updated ,sortBy, sortOrder) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -545,10 +545,10 @@ const getBankResponseService = async (payload, role, page, limit, search, update
       filters,
       page,
       limit,
-      payload.sort_by || 'sno',
-      'DESC',
       filterColumns,
       updated,
+      sortBy || 'sno',
+      sortOrder || 'DESC',
       payload.startDate || undefined,
       payload.endDate || undefined,
     );

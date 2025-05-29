@@ -31,6 +31,7 @@ export const getPayoutsDao = async (
   company_id,
   page,
   limit,
+  sortOrder='DESC',
   role,
   conn,
 ) => {
@@ -183,7 +184,7 @@ export const getPayoutsDao = async (
         SELECT COUNT(*) AS total FROM filtered_payOuts
       )
       SELECT * FROM filtered_payOuts, total_count
-      ORDER BY sno DESC
+      ORDER BY sno ${sortOrder}
       ${limitcondition}
     `;
 

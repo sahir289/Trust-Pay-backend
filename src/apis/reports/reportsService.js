@@ -3,8 +3,8 @@ import moment from 'moment-timezone';
 import { InternalServerError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
-import { getMerchantsDao } from '../merchants/merchantDao.js';
-import { getVendorsDao } from '../vendors/vendorDao.js';
+import { getMerchantsDaoArray } from '../merchants/merchantDao.js';
+import { getVendorsDaoArray } from '../vendors/vendorDao.js';
 import {
   getMerchantReportDao,
   getPayInMerchantReportDao,
@@ -18,63 +18,26 @@ const getPayInReportService = async (req, res) => {
   try {
     const { company_id, role } = req.user;
     const { code, startDate, endDate } = req.query;
-    //for same date take 24 hours range  -- dates formatting as per db -- for both vendor and merchant
     const startDateTime = moment.tz(`${startDate} 00:00:00`, 'Asia/Kolkata').toISOString();
     const endDateTime = moment.tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString();
-    //optimised apis for faster 
     const codes = code.split(',');
-    const result = [];
-
-    const [merchantData, vendorData] = await Promise.all([
-      Promise.all(codes.map(codeItem => getMerchantsDao({ user_id: codeItem }, null, null, null, null))),
-      Promise.all(codes.map(codeItem => getVendorsDao({ user_id: codeItem }, null, null, null, null)))
-    ]);
-
-    const merchantReports = await Promise.all(
-      merchantData
-        .map((merchant_id) => {
-          if (merchant_id?.length > 0) {
-            return getPayInMerchantReportDao(merchant_id[0].id, startDateTime, endDateTime, company_id, role);
-          }
-          return null;
-        })
-        .filter(Boolean)
-    );
-
-    merchantReports.forEach(report => {
-      if (report) {
-        result.push(...(Array.isArray(report) ? report : [report]));
-      }
-    });
-
-    const vendorBankData = await Promise.all(
-      vendorData
-        .map((vendor_id, index) => {
-          if (vendor_id?.length > 0) {
-            return getBankaccountDao({ user_id: codes[index] }, null, null, "ADMIN");
-          }
-          return null;
-        })
-        .filter(Boolean)
-    );
-
-    const vendorReports = await Promise.all(
-      vendorBankData.flatMap((bankData) => {
-        if (bankData?.length > 0) {
-          return bankData.map(bank =>
-            getPayInVendorReportDao(bank.id, startDate, endDate, company_id)
-          );
+        let merchantIds = []
+        let vendorIds = []
+        let bankIds = []
+        let result;
+        const merchantDetails  =  await getMerchantsDaoArray(company_id, codes)
+        merchantIds = merchantDetails.map(merchant => merchant.id);
+        if(merchantIds.length>0){
+          result =   await getPayInMerchantReportDao(merchantIds, startDateTime, endDateTime, company_id, role);
         }
-        return [];
-      })
-    );
+        else{
 
-    vendorReports.forEach(report => {
-      if (report) {
-        result.push(...(Array.isArray(report) ? report : [report]));
-      }
-    });
-
+          const vendorDetails  =  await getVendorsDaoArray(company_id, codes)
+          bankIds = vendorDetails.map(banks => banks.user_id)
+          const bankDetails  =  await getBankaccountDao({user_id:bankIds})
+          vendorIds = bankDetails.map(merchant => merchant.id);
+          result =   await getPayInVendorReportDao(vendorIds, startDateTime, endDateTime, company_id, role);
+        }
     return sendSuccess(res, result, "Got Pay-In report");
   } catch (error) {
     console.error("Error while fetching reports", error);
@@ -91,47 +54,19 @@ const getPayOutReportService = async (req, res) => {
     const endDateTime = moment.tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString();
 
     const codes = code.split(',');
-    const result = [];
-
-    const [merchantData, vendorData] = await Promise.all([
-      Promise.all(codes.map(codeItem => getMerchantsDao({ user_id: codeItem }, null, null, null, null))),
-      Promise.all(codes.map(codeItem => getVendorsDao({ user_id: codeItem }, null, null, null, null)))
-    ]);
-
-    const merchantReports = await Promise.all(
-      merchantData
-        .map((merchant_id) => {
-          if (merchant_id?.length > 0) {
-            return getPayOutMerchantReportDao(merchant_id[0].id, startDateTime, endDateTime, company_id, role);
-          }
-          return null;
-        })
-        .filter(Boolean)
-    );
-
-    merchantReports.forEach(report => {
-      if (report) {
-        result.push(...(Array.isArray(report) ? report : [report]));
-      }
-    });
-
-    const vendorReports = await Promise.all(
-      vendorData
-        .map((vendor_id) => {
-          if (vendor_id?.length > 0) {
-            return getPayOutVendorReportDao(vendor_id[0].id, startDateTime, endDateTime, company_id, role);
-          }
-          return null;
-        })
-        .filter(Boolean)
-    );
-
-    vendorReports.forEach(report => {
-      if (report) {
-        result.push(...(Array.isArray(report) ? report : [report]));
-      }
-    });
-
+    let merchantIds = []
+    let vendorIds = []
+    let result;
+    const merchantDetails  =  await getMerchantsDaoArray(company_id, codes)
+    merchantIds = merchantDetails.map(merchant => merchant.id);
+    if(merchantIds.length>0){
+      result =   await getPayOutMerchantReportDao(merchantIds, startDateTime, endDateTime, company_id, role);     
+    } 
+    else  {
+      const vendorDetails  =  await getVendorsDaoArray(company_id, codes)
+      vendorIds = vendorDetails.map(merchant => merchant.id);
+      result =   await getPayOutVendorReportDao(vendorIds, startDateTime, endDateTime, company_id, role);
+    }
     return sendSuccess(res, result, 'Payouts created successfully');
   } catch (error) {
     console.error('Error while fetching reports:', error);
