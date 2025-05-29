@@ -28,12 +28,14 @@ import { s3 } from '../../helpers/Aws.js';
 import { streamToBuffer } from '../../helpers/index.js';
 const getBankResponse = async (req, res) => {
   const { role, company_id } = req.user;
-  const { page, limit, search, updated } = req.query;
+  const { page, limit, search, updated, sortOrder, sortBy } = req.query;
+  delete req.query.sortOrder;
+  delete req.query.sortBy;
   const payload = {
     ...req.query,
-    company_id,
+    company_id
   };
-  const data = await getBankResponseService(payload, role, page, limit, search, updated);
+  const data = await getBankResponseService(payload, role, page, limit, search, updated,sortBy,sortOrder );
   return sendSuccess(res, data, 'Bank response retrieved successfully');
 };
 

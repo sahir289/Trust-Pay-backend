@@ -124,6 +124,7 @@ const getChargeBacksService = async (
   page,
   limit,
   user_id,
+  sortOrder ='DESC'
   // desingnation,
 ) => {
   try {
@@ -173,7 +174,7 @@ const getChargeBacksService = async (
       pageNumber,
       pageSize,
       'sno',
-      'DESC',
+      sortOrder,
       filterColumns,
       role,
     );
