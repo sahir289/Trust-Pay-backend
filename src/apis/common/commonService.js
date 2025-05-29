@@ -1,6 +1,6 @@
 import { getTotalCountDao } from './commonDao.js';
 import { tableName, Role } from '../../constants/index.js';
-import { getMerchantsDao } from '../merchants/merchantDao.js';
+import { getMerchantByUserIdDao } from '../merchants/merchantDao.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
@@ -48,8 +48,7 @@ export const getTotalCountService = async (
     };
 
     const fetchMerchantIds = async (userIds) =>
-      (await getMerchantsDao({ user_id: userIds })).map((m) => m.id);
-
+      (await getMerchantByUserIdDao(userIds)).map((m) => m.id);
     const fetchBankIds = async (user_id) => {
       try {
         const banks = await getBankaccountDao({
@@ -278,7 +277,6 @@ export const getTotalCountService = async (
     }
 
     logger.info(`Filters applied: ${JSON.stringify(filters)}`);
-
     let updated = false;
     if (filters?.updated) {
       updated = filters.updated;
