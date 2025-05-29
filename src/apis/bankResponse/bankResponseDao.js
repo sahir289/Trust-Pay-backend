@@ -12,7 +12,7 @@ import {
 import { generateUUID } from '../../utils/generateUUID.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-import moment from 'moment-timezone';
+import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 
 const IST = 'Asia/Kolkata';
 
@@ -238,7 +238,12 @@ const getBankResponseDaoAll = async (
   end_date,
 ) => {
   try {
-    console.log(sortBy, sortOrder, 'sorting_' )
+    let bankId;
+    let bankDetails;
+    if(filters?.bank_id){
+     bankId = filters?.bank_id
+       bankDetails = await getBankaccountDao({id:bankId}, null,null);
+    }
     const selectCols = columns.length
       ? columns.map((col) => `"BankResponse".${col}`).join(', ')
       : [
@@ -248,9 +253,13 @@ const getBankResponseDaoAll = async (
           `"BankAccount".bank_name`,
           `"Vendor".code AS vendor_code`,
         ].join(', ');
-
-    const start = moment.tz(`${start_date} 00:00:00`, 'Asia/Kolkata').toISOString(true);
-    const end = moment.tz(`${end_date} 23:59:59.999`, 'Asia/Kolkata').toISOString(true);
+        
+    let start;
+    let end;
+    if (start_date && end_date) {
+      start = dayjs.tz(`${start_date} 00:00:00`, IST).utc().format(); // UTC ISO string
+      end = dayjs.tz(`${end_date} 23:59:59.999`, IST).utc().format();
+    }
     let baseQueryDate = `
       WITH filtered_accounts AS (
         SELECT 
@@ -323,8 +332,7 @@ const getBankResponseDaoAll = async (
       baseQuery += ' WHERE ' + whereConditions.join(' AND ');
       baseQueryDate += ' WHERE ' + whereConditions.join(' AND ');
     }
-    const queryIs = start && end ? baseQueryDate : baseQuery
-    console.log(queryIs, 'sdfghj')
+    const queryIs = (start && end && bankDetails?.config?.merchant_added) ? baseQueryDate : baseQuery
     const [query, queryValues] = buildSelectQuery(
       queryIs,
       filters,
@@ -334,7 +342,6 @@ const getBankResponseDaoAll = async (
       sortOrder,
       'BankResponse',
     );
-
     const result = await executeQuery(query, queryValues);
     return { totalCount: result.rows.length, rows: result.rows };
   } catch (error) {
