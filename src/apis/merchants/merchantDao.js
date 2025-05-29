@@ -255,6 +255,7 @@ export const getMerchantsByCodeDao = async (code) => {
     "Merchant".min_payin, 
     "Merchant".max_payin, 
     "Merchant".payin_commission, 
+    "Merchant".payout_commission, 
     "Merchant".min_payout, 
     "Merchant".max_payout, 
     "Merchant".config, 
