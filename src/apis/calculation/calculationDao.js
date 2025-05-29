@@ -212,31 +212,31 @@ export const getCalculationsSumDao = async (filters) => {
     }
 
     // Modified user code condition for merchant and vendor queries
-    if (userCodes.length > 0) {
-            // If userCodes are provided, filter by them
-            let userIds = [];
-            if (userCodes.length > 0) {
-              // Get user hierarchy to validate access
-        
-              // Process each userCode if provided
-              if (userCodes?.length > 0) {
-                for (const userCode of userCodes) {
-                  if (userCode) {
-                    const userHierarchys = await getUserHierarchysDao({ user_id: userCode });
-                    const allowedSubmerchants = userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
-                    // Combine current userCode with its submerchants
-                    userIds = [...new Set([...userIds, userCode, ...allowedSubmerchants])];
-                  }
-                }
-              }
-            }        
-      const userCodeParams = userIds.map(code => `'${code}'`).join(',');
-      merchantQuery += ` AND m.user_id = ANY(ARRAY[${userCodeParams}]) `;
-      vendorQuery += ` AND v.user_id = ANY(ARRAY[${userCodeParams}]) `;
-    }
-
+    
     // Admin Query
     if (Role.ADMIN === role) {
+      if (userCodes.length > 0) {
+              // If userCodes are provided, filter by them
+              let userIds = [];
+              if (userCodes.length > 0) {
+                // Get user hierarchy to validate access
+          
+                // Process each userCode if provided
+                if (userCodes?.length > 0) {
+                  for (const userCode of userCodes) {
+                    if (userCode) {
+                      const userHierarchys = await getUserHierarchysDao({ user_id: userCode });
+                      const allowedSubmerchants = userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
+                      // Combine current userCode with its submerchants
+                      userIds = [...new Set([ userCode, ...allowedSubmerchants])];
+                    }
+                  }
+                }
+              }        
+        const userCodeParams = userIds.map(code => `'${code}'`).join(',');
+        merchantQuery += ` AND m.user_id = ANY(ARRAY[${userCodeParams}]) `;
+        vendorQuery += ` AND v.user_id = ANY(ARRAY[${userCodeParams}]) `;
+      }
       const vQuery = `${vendorQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
       const mQuery = `${merchantQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
       merchantData = (await executeQuery(mQuery, [])).rows;
@@ -261,7 +261,7 @@ export const getCalculationsSumDao = async (filters) => {
         const allowedSubmerchants = userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
         // Only include valid submerchant IDs
         const validUserIds = userCodes.filter(id => allowedSubmerchants.includes(id));
-        userIds = [...userIds, ...validUserIds]; // Include both merchant and valid submerchant IDs
+        userIds = [ ...userCodes, ...validUserIds]; // Include both merchant and valid submerchant IDs
       }
 
       // Create the query with proper type casting for array elements
@@ -281,6 +281,23 @@ export const getCalculationsSumDao = async (filters) => {
 
     if ([Role.SUPER_ADMIN, Role.ADMIN].includes(role)) {
       const condition = role === Role.ADMIN ? ` AND c.company_id = '${company_id}' ` : '';
+        // If userCodes are provided, filter by them
+        let userIds = [];
+        if (userCodes.length > 0) {
+          // Get user hierarchy to validate access
+    
+          // Process each userCode if provided
+          if (userCodes?.length > 0) {
+            for (const userCode of userCodes) {
+              if (userCode) {
+                const userHierarchys = await getUserHierarchysDao({ user_id: userCode });
+                const allowedSubmerchants = userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
+                // Combine current userCode with its submerchants
+                userIds = [...new Set([ userCode, ...allowedSubmerchants])];
+              }
+            }
+          }
+        }  
       const baseCalQuery = `
         WITH LatestBalances AS (
           SELECT 
@@ -299,7 +316,7 @@ export const getCalculationsSumDao = async (filters) => {
           AND u.is_obsolete = FALSE
           AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
           ${condition}
-          ${userCodes.length > 0 ? `AND (m.user_id = ANY(ARRAY[${userCodes.map(code => `'${code}'`).join(',')}]) 
+          ${userIds.length > 0 ? `AND (m.user_id = ANY(ARRAY[${userIds.map(code => `'${code}'`).join(',')}]) 
             OR v.user_id = ANY(ARRAY[${userCodes.map(code => `'${code}'`).join(',')}]))` : ''}
         )
         SELECT 
@@ -321,20 +338,37 @@ export const getCalculationsSumDao = async (filters) => {
         return acc;
       }, { vendor: 0, merchant: 0 });
     } else {
+      const userHierarchys = await getUserHierarchysDao({ user_id: effectiveUserId });
+      let userIds = [effectiveUserId]; // Always include merchant's own ID
+
+      // Handle userCodes for merchant totals
+      if (userCodes?.length > 0) {
+        // Get allowed submerchant IDs from hierarchy
+        const allowedSubmerchants = userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
+        // Only include valid submerchant IDs
+        const validUserIds = userCodes.filter(id => allowedSubmerchants.includes(id));
+        userIds = [...new Set([ ...userCodes, ...validUserIds])]; // Remove duplicates
+      }
       // For non-admin roles, use existing query logic
+      console.log('Using userIds for net balance:', userIds);
       const endDateConditon = ` AND DATE(c.created_at) = '${endDate}' `;
       const calBaseQuery = `
-        SELECT net_balance AS net_balance_sum
-        FROM "${tableName.CALCULATION}" c
-        JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
-        JOIN "${tableName.ROLE}" r ON u.role_id = r.id AND r.role = 'PLACE_ROLE_HERE'
-        WHERE c.is_obsolete = FALSE 
-        AND c.user_id = '${effectiveUserId}'
-        AND c.company_id = '${company_id}'
-        ${endDateConditon}
-        ORDER BY c.created_at DESC LIMIT 1
-      `;
-      
+        WITH LatestCalculations AS (
+          SELECT DISTINCT ON (c.user_id) 
+            c.user_id,
+            c.net_balance
+          FROM "${tableName.CALCULATION}" c
+          JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
+          JOIN "${tableName.ROLE}" r ON u.role_id = r.id AND r.role = 'PLACE_ROLE_HERE'
+          WHERE c.is_obsolete = FALSE 
+          AND c.user_id = ANY(ARRAY[${userIds.map(id => `'${id}'`).join(',')}])
+          AND c.company_id = '${company_id}'
+          ${endDateConditon}
+          ORDER BY c.user_id, c.created_at DESC
+        )
+        SELECT COALESCE(SUM(net_balance), 0) as net_balance_sum
+        FROM LatestCalculations`;
+
       let vendorCalQuery = calBaseQuery.replace('PLACE_ROLE_HERE', Role.VENDOR);
       let merchantCalQuery = calBaseQuery.replace('PLACE_ROLE_HERE', Role.MERCHANT);
 
@@ -408,7 +442,7 @@ export const getCalculationsSumDao = async (filters) => {
         const allowedSubmerchants = userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
         // Only include valid submerchant IDs
         const validUserIds = userCodes.filter(id => allowedSubmerchants.includes(id));
-        userIds = [...new Set([ ...validUserIds])]; // Remove duplicates
+        userIds = [...new Set([ ...userCodes,...validUserIds])]; // Remove duplicates
       }
 
       // Add filter to merchant total query
@@ -429,7 +463,7 @@ export const getCalculationsSumDao = async (filters) => {
             const userHierarchys = await getUserHierarchysDao({ user_id: userCode });
             const allowedSubmerchants = userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
             // Combine current userCode with its submerchants
-            userIds = [...new Set([...userIds, userCode, ...allowedSubmerchants])];
+            userIds = [...new Set([userCode, ...allowedSubmerchants])];
           }
         }
 
