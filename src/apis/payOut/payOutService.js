@@ -172,7 +172,7 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
         payload.company_id,
         null,
         null,
-        null,
+        'DESC',
         role,
         conn,
       );
@@ -459,7 +459,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       null,
       null,
       null,
-      null,
+      'DESC',
       null,
       conn,
     );
