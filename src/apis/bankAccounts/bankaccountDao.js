@@ -364,9 +364,11 @@ const getBankAccountDaoNickName = async (
       'company_id = $1',
       'bank_used_for = $2',
       'is_obsolete = false',
-      'is_enabled = true',
       '(config->>\'is_freeze\' IS NULL OR config->>\'is_freeze\' != \'true\' OR config->>\'is_freeze\' = \'false\')',
     ];
+    if (type !== 'PayIn') {
+      whereConditions.push('is_enabled = true');
+    }
     let queryParams = [company_id, type];
 
     // Handle filters

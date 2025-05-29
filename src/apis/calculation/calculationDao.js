@@ -162,7 +162,7 @@ export const getCalculationsSumDao = async (filters) => {
     // Modified Base Query with numeric casting
     let baseQuery = `
       SELECT 
-         (DATE_TRUNC('day', c.created_at)) AS created_at,
+         (DATE_TRUNC('day', c.created_at)) AS date,
           CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
           CAST(ROUND(SUM(c.total_payin_amount)::NUMERIC, 2) AS FLOAT) AS total_payin_amount,
           CAST(ROUND(SUM(c.total_payin_commission)::NUMERIC, 2) AS FLOAT) AS total_payin_commission,
@@ -261,10 +261,11 @@ export const getCalculationsSumDao = async (filters) => {
           LEFT JOIN "${tableName.MERCHANT}" m ON m.user_id = c.user_id
           LEFT JOIN "${tableName.VENDOR}" v ON v.user_id = c.user_id
           WHERE c.is_obsolete = FALSE
+          AND u.is_obsolete = FALSE
           AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
           ${condition}
           ${userCodes.length > 0 ? `AND (m.code = ANY(ARRAY[${userCodes.map(code => `'${code}'`).join(',')}]) 
-            OR v.code = ANY(ARRAY[${userCodes.map(code => `'${code}'`).join(',')}]))` : ''}
+            OR v.code = ANY(ARRAY[${userCodes.map(code => `'${code}'`).join(',')}]))` : 'AND m.is_obsolete = FALSE OR v.is_obsolete = FALSE'}  
         )
         SELECT 
           role,

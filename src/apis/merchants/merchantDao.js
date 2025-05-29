@@ -43,8 +43,9 @@ export const getMerchantsCodeDao = async (
         m.code AS label, 
         m.user_id AS value, 
         m.id AS merchant_id,
-        ${includeSubMerchants
-        ? `
+        ${
+          includeSubMerchants
+            ? `
               COALESCE(
                 json_agg(
                   json_build_object(
@@ -221,7 +222,7 @@ export const getMerchantsDao = async (
           SELECT id FROM "Designation" WHERE designation = 'MERCHANT'
         )
       `;
-      }
+    }
 
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
@@ -272,8 +273,8 @@ export const getMerchantsByCodeDao = async (code) => {
   LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
 `;
 
-let queryParams = [];
-if (code) {
+    let queryParams = [];
+    if (code) {
       baseQuery += ` WHERE "Merchant".code = $1`;
       queryParams = [code.trim()];
     }
@@ -450,23 +451,29 @@ export const getMerchantsBySearchDao = async (
 };
 
 export const updateMerchantDao = async (ids, data, conn) => {
-  return await buildAndExecuteUpdateQuery('Merchant', data, ids, {}, { returnUpdated: true }, conn);
+  return await buildAndExecuteUpdateQuery(
+    'Merchant',
+    data,
+    ids,
+    {},
+    { returnUpdated: true },
+    conn,
+  );
 };
 
-export const deleteMerchantDao = async (ids, data, options = { returnUpdated: true }) => {
+export const deleteMerchantDao = async (
+  ids,
+  data,
+  options = { returnUpdated: true },
+) => {
   try {
     const { id, company_id } = ids;
     const idArray = Array.isArray(id) ? id : [id];
-    
+
     const is_obsolete = true;
     const updated_by = data.updated_by;
 
-    const values = [
-      is_obsolete,
-      updated_by,
-      idArray,
-      company_id
-    ];
+    const values = [is_obsolete, updated_by, idArray, company_id];
 
     const returningClause = options.returnUpdated ? 'RETURNING *' : '';
 

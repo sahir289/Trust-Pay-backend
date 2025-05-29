@@ -5,17 +5,25 @@ import {
   executeQuery,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
+import moment from 'moment-timezone';
 
 const getCheckUtrDao = async (
   filters = {},
-  page = 1,
-  pageSize = 10,
+  page,
+  pageSize,
   sortBy = 'sno',
   sortOrder = 'DESC',
   columns = []
 ) => {
   try {
     const { BANK_RESPONSE, CHECK_UTR_HISTORY, PAYIN, USER } = tableName;
+    //reset pagination if page and limit is not present
+    let queryParams = [];
+    let limitcondition = '';
+    if (page && pageSize) {
+      limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+      queryParams.push(pageSize, (page - 1) * pageSize);
+    }
 
     // Default columns if none provided
     const selectColumns = columns?.length
@@ -57,9 +65,15 @@ const getCheckUtrDao = async (
 
     // Handle filters
     const whereClauses = [];
-    const queryParams = [];
     let paramIndex = 1;
-
+    if (filters.startDate && filters.endDate) {
+      const startDateTime = moment.tz(`${filters.startDate} 00:00:00`, 'Asia/Kolkata').toISOString(true);
+      const endDateTime = moment.tz(`${filters.endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString(true);
+         
+      sql += ` WHERE "${CHECK_UTR_HISTORY}".created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      queryParams.push(startDateTime, endDateTime);
+      paramIndex++;
+    }
     if (filters.search) {
       whereClauses.push(`
         ("${CHECK_UTR_HISTORY}".payin_id::text ILIKE $${paramIndex}
@@ -78,12 +92,12 @@ const getCheckUtrDao = async (
     const validSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     const validColumns = ['sno', 'payin_id']; // Add all valid columns here
     const effectiveSortBy = validColumns.includes(sortBy) ? sortBy : 'sno';
-    sql += ` ORDER BY "${CHECK_UTR_HISTORY}".${effectiveSortBy} ${validSortOrder}`;
+    sql += ` ORDER BY "${CHECK_UTR_HISTORY}".${effectiveSortBy} ${validSortOrder} ${limitcondition}`;
 
     // Pagination
-    const offset = (page - 1) * pageSize;
-    sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    queryParams.push(pageSize, offset);
+    // const offset = (page - 1) * pageSize;
+    // sql += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    // queryParams.push(pageSize, offset);
 
     // Execute query
     const result = await executeQuery(sql, queryParams);
