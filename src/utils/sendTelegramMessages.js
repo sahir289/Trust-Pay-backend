@@ -16,6 +16,30 @@ export async function sendTelegramDashboardReportMessage(
   TELEGRAM_BOT_TOKEN,
   type,
 ) {
+  totalBankWithdrawalAllVendors = totalBankWithdrawalAllVendors.toLocaleString(
+    'en-IN',
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    },
+  );
+  totalBankDepositAllVendors = totalBankDepositAllVendors.toLocaleString(
+    'en-IN',
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    },
+  );
+  // Format totalpayinsMerchant and totalpayoutsMerchant with commas and two decimal places
+  totalpayinsMerchant = totalpayinsMerchant.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  totalpayoutsMerchant = totalpayoutsMerchant.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
   const currentDate = new Date().toISOString().split('T')[0];
   const now = new Date();
   const istTime = new Date(
@@ -146,6 +170,22 @@ export async function sendTelegramDashboardMerchantGroupingReportMessage(
   TELEGRAM_BOT_TOKEN,
   type,
 ) {
+  totalPayinsMerchant = totalPayinsMerchant.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  merchantTotalPayout = merchantTotalPayout.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  totalPayInSum = totalPayInSum.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  totalPayOutSum = totalPayOutSum.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
   const currentDate = new Date().toISOString().split('T')[0];
   const now = new Date();
   const istTime = new Date(
