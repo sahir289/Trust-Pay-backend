@@ -6,7 +6,8 @@ import {
 import { tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-
+import dayjs from 'dayjs';
+const IST = 'Asia/Kolkata';
 const getSettlementDao = async (
   filters,
   page,
@@ -82,13 +83,18 @@ const getSettlementDao = async (
         conditions.push(`${column} IN (${placeholders})`);
         queryParams.push(...valueArray);
         delete filters.merchant_codes;
-      },
+    },
       date_range: (filters, conditions, queryParams) => {
         const { start_date, end_date } = filters;
+        let start;
+        let end;
+        start = dayjs.tz(`${start_date} 00:00:00`, IST).utc().format(); // UTC ISO string
+        end = dayjs.tz(`${end_date} 23:59:59.999`, IST).utc().format();
+
         if (start_date && end_date) {
           const nextParamIdx = queryParams.length + 1;
           conditions.push(`s.created_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`);
-          queryParams.push(start_date, end_date);
+          queryParams.push(start, end);
           delete filters.start_date;
           delete filters.end_date;
         }
