@@ -178,7 +178,7 @@ export const generatePayInUrl = async (req, res) => {
   // Compare the provided hash with the generated hash
   if (
     decodedHashCode &&
-    !compareHash(`${code}:${merchant.config.keys.private}`, decodedHashCode)
+    !compareHash(`${code}:${merchant.config.keys.public}`, decodedHashCode)
   ) {
     // throw new BadRequestError('Hash code does not match');
     return res.status(400).json({
