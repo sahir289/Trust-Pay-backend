@@ -1,5 +1,5 @@
-import { logger } from "../../utils/logger";
-import { getNotificationsDao } from "./notificationDao";
+import { logger } from "../../utils/logger.js";
+import { getNotificationsDao } from "./notificationDao.js";
 
 export const getNotificationsService = async (payload) => {
     try {

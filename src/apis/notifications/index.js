@@ -1,7 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { authorized, isAuthenticated } from '../../middlewares/auth.js';
-import { AccessRoles } from '../../constants/index.js';
+import { isAuthenticated } from '../../middlewares/auth.js';
 import { getNotifications } from './notificationController.js';
 
 const router = express.Router();
@@ -10,8 +9,8 @@ const router = express.Router();
  * @swagger
  * /notifications:
  *   get:
- *     summary: Retrieve all merchants
- *     description: Returns a list of all merchants.
+ *     summary: Retrieve all Notification
+ *     description: Returns a list of all Notifications.
  *     tags:
  *       - Notifications
  *     responses:
@@ -32,10 +31,6 @@ const router = express.Router();
  *                     type: string
  *                     example: "active"
  */
-router.get(
-  '/',
-  [isAuthenticated, authorized(AccessRoles.MERCHANT)],
-  tryCatchHandler(getNotifications),
-);
+router.get('/', isAuthenticated, tryCatchHandler(getNotifications));
 
 export default router;

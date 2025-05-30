@@ -1,6 +1,6 @@
-import { tableName } from '../../constants';
-import { buildInsertQuery, executeQuery } from '../../utils/db';
-import { logger } from '../../utils/logger';
+import { tableName } from '../../constants/index.js';
+import { buildInsertQuery, executeQuery } from '../../utils/db.js';
+import { logger } from '../../utils/logger.js';
 
 export const getNotificationsDao = async (userId) => {
   try {
