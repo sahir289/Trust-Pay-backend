@@ -291,7 +291,7 @@ const createUserService = async (conn, payload, role) => {
   //       ? vendorColumns.USER
   //       : columns.USER;
   const { user_name } = payload;
-  const user = await getUsersByUserNameDao(payload.company_id, user_name);
+  const user = await getUsersByUserNameDao({company_id: payload.company_id}, user_name);
   if (user?.user_name || user?.email || user?.contact_no) {
     throw new InternalServerError('User already exists');
   }
