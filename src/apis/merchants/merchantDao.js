@@ -294,6 +294,8 @@ export const getMerchantByCodeDao = async (code) => {
         "Merchant".code, 
         "Merchant".payin_commission, 
         "Merchant".payout_commission,
+        "Merchant".min_payin,
+        "Merchant".max_payin,
         ("Merchant".config->'keys'->>'public') AS public_key
       FROM "Merchant" 
     `;
