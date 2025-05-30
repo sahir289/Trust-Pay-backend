@@ -331,7 +331,7 @@ const getBankResponseDaoAll = async (
       baseQuery += ' WHERE ' + whereConditions.join(' AND ');
       baseQueryDate += ' WHERE ' + whereConditions.join(' AND ');
     }
-    const queryIs = (start && end && bankDetails?.config?.merchant_added) ? baseQueryDate : baseQuery
+    const queryIs = (start && end && bankDetails[0]?.config?.merchant_added) ? baseQueryDate : baseQuery
     const [query, queryValues] = buildSelectQuery(
       queryIs,
       filters,
