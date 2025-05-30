@@ -95,8 +95,8 @@ Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
 
 export const generatePayInUrlByHashService = async (req, res) => {
-  const { user_id, code, ot, key, amount } = req.query;
-
+  const { user_id, code, ot, amount } = req.query;
+  const key = req.headers['x-api-key'];
   if (!user_id || !code || !ot) {
     //-- correct error handling
     return res.status(400).json({
@@ -261,7 +261,7 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
       return res.status(400).json({
         error: {
           status: 404,
-          message: 'Enter valid Api key 2',
+          message: 'Enter valid Api key',
           additionalInfo: {},
           level: 'info',
           timestamp: new Date().toISOString(),
