@@ -2,6 +2,7 @@ import { tableName } from '../../constants/index.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { buildSelectQuery, buildUpdateQuery, executeQuery,buildJoinQuery ,buildInsertQuery} from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
+import { InternalServerError } from '../../utils/appErrors.js';
 
 const getUsersDao = async (
   filters,
@@ -306,9 +307,17 @@ const createUserDao = async (payload,conn) => {
 
     return result.rows[0];
 
-  } catch (error) {
-    logger.error(`Error creating user: ${payload.user_name}`, error);
-    throw error.message;
+  } catch (err) {
+    logger.error(`Error creating user: ${payload.user_name}`, err);
+    if (err.message.includes('User_email_key')) {
+      throw new InternalServerError('Email Entered is Duplicate!');
+    } else if (err.message.includes('User_user_name_key')) {
+      throw new InternalServerError('Username Entered is Duplicate!');
+    } else if (err.message.includes('User_contact_no_key')) {
+      throw new InternalServerError('Contact No. Entered is Duplicate!');
+    } else {
+      throw err.message;
+    }
   }
 };
 
