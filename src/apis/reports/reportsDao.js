@@ -268,6 +268,7 @@ const getPayOutVendorReportDao = async (id, startDate, endDate, company_id, role
         po.user,
         po.vendor_id,
         ve.id,
+        po.utr_id,
         po.config AS payout_details,
         json_build_object(
           'account_holder_name', po.acc_holder_name,

@@ -1,5 +1,4 @@
-
-import moment from 'moment-timezone';
+import dayjs from 'dayjs';
 import { InternalServerError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
@@ -18,8 +17,11 @@ const getPayInReportService = async (req, res) => {
   try {
     const { company_id, role } = req.user;
     const { code, startDate, endDate } = req.query;
-    const startDateTime = moment.tz(`${startDate} 00:00:00`, 'Asia/Kolkata').toISOString();
-    const endDateTime = moment.tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString();
+    let startDateTime, endDateTime;
+    if(startDate && endDate){
+     startDateTime = dayjs.tz(`${startDate} 00:00:00`, 'Asia/Kolkata').toISOString();
+     endDateTime = dayjs.tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString();
+    }
     const codes = code.split(',');
         let merchantIds = []
         let vendorIds = []
@@ -50,8 +52,8 @@ const getPayOutReportService = async (req, res) => {
     const { company_id, role } = req.user;
     const { code, startDate, endDate } = req.query;
     //optimised apis for faster 
-    const startDateTime = moment.tz(`${startDate} 00:00:00`, 'Asia/Kolkata').toISOString();
-    const endDateTime = moment.tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString();
+    const startDateTime = dayjs.tz(`${startDate} 00:00:00`, 'Asia/Kolkata').toISOString();
+    const endDateTime = dayjs.tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString();
 
     const codes = code.split(',');
     let merchantIds = []

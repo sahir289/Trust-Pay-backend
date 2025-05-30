@@ -208,6 +208,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
           p.user,
           p.user_submitted_image,
           p.duration,
+          p.is_url_expires,
           p.config AS payin_details,
           b.nick_name,
           u.user_name AS created_by,  
