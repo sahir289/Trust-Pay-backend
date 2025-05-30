@@ -310,18 +310,19 @@ const getBankResponseDaoAll = async (
     if (filters.company_id) {
       whereConditions.push(`"BankResponse"."company_id" = '${filters.company_id}'`);
     }
+
+    if (whereConditions.length) {
+      baseQuery += ' WHERE ' + whereConditions.join(' AND ');
+      baseQueryDate += ' WHERE ' + whereConditions.join(' AND ');
+    }
+
     if (updated) {
+      // Check if the query already contains a WHERE clause
       const whereClause = baseQuery.includes('WHERE') ? 'AND' : 'WHERE';
       baseQuery += `
         ${whereClause} "BankResponse".updated_at IS NOT NULL 
         AND "BankResponse".updated_at != "BankResponse".created_at
       `;
-    }
-
-
-    if (whereConditions.length) {
-      baseQuery += ' WHERE ' + whereConditions.join(' AND ');
-      baseQueryDate += ' WHERE ' + whereConditions.join(' AND ');
     }
     const queryIs = start && end ? baseQueryDate : baseQuery
     console.log(queryIs, 'sdfghj')
