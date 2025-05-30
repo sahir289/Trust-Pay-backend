@@ -177,7 +177,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
       commissionSelect = `
         p.payin_merchant_commission,
         json_build_object(
-          'merchant_code', r.code,
+          'merchant_code', COALESCE(r.config->>'sub_code', r.code),
           'dispute', r.dispute_enabled,
           'return_url', r.config->>'return_url',
           'notify_url', r.config->>'notify_url'
@@ -312,7 +312,7 @@ export const getPayinsBySearchDao = async (
       commissionSelect = `
         p.payin_merchant_commission,
         json_build_object(
-          'merchant_code', m.code,
+          'merchant_code', COALESCE(m.config->>'sub_code', m.code),
           'dispute', m.dispute_enabled,
           'return_url', m.config->>'return_url',
           'notify_url', m.config->>'notify_url'

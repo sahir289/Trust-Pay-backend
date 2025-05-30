@@ -13,6 +13,7 @@ import { CREATE_USER_SCHEMA } from '../../schemas/userSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
+import { getUsersContactDao } from './userDao.js';
 const getUsers = async (req, res) => {
   // const reqBody = req.body;
   const { role, company_id,user_id,designation } = req.user;
@@ -74,8 +75,13 @@ const createUser = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const { role, company_id, user_id, designation,user_name } = req.user;
+  const { role, company_id, user_id, designation, user_name } = req.user;
   let payload = req.body;
+  const verifyContact = await getUsersContactDao(company_id, payload.contact_no);
+  if (verifyContact) {
+    throw new BadRequestError('Contact number already exists');
+  }
+  
   payload.is_enabled = true;
   payload.company_id = company_id;
   payload.created_by = user_id;
