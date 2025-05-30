@@ -567,6 +567,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       await updateBankaccountDao(
         { id: bankData.id },
         {
+          payin_count: Number(bankData.payin_count) + 1,
           today_balance: Number(bankData.today_balance) - Number(data.amount),
           balance: Number(bankData.balance) - Number(data.amount),
         },
