@@ -21,8 +21,6 @@ import {
   getBankaccountDao,
   updateBankaccountDao,
 } from '../bankAccounts/bankaccountDao.js';
-import { getSettlementDaoforInternalTransfer } from '../settlement/settlementDao.js';
-// import axios from 'axios';
 import { getPayInUrlsDao, updatePayInUrlDao } from '../payIn/payInDao.js';
 import {
   getMerchantsDao,
@@ -155,13 +153,7 @@ const createBankResponseService = async (
     };
 
     let botRes;
-    const utrinternalTransfer = await getSettlementDaoforInternalTransfer(utr, [
-      'INTERNAL_QR_TRANSFER',
-      'INTERNAL_BANK_TRANSFER',
-    ]);
 
-    if (utrinternalTransfer) {
-      updatedData.status = '/internalTransfer';
       botRes = await createBankResponseDao(conn, updatedData);
       await sendNotification(updatedData.status.replace('/', ''), {
         id: botRes.id,
@@ -171,17 +163,6 @@ const createBankResponseService = async (
         company_id: botRes.company_id,
         created_by: botRes.created_by,
       });
-    } else {
-      botRes = await createBankResponseDao(conn, updatedData);
-      await sendNotification(updatedData.status.replace('/', ''), {
-        id: botRes.id,
-        utr: botRes.utr,
-        amount: botRes.amount,
-        bank_id: botRes.bank_id,
-        company_id: botRes.company_id,
-        created_by: botRes.created_by,
-      });
-    }
 
     if (updatedData.status === '/repeated') {
       return { message: `Entry with REPEATED UTR Added ${utr}` };
