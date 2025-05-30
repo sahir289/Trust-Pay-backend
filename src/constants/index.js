@@ -573,6 +573,7 @@ export const tableName = {
   ACCESS_TOKEN: 'AccessToken',
   USER_OTP: 'UserOtp',
   BENEFICIARY_ACCOUNTS: 'BeneficiaryAccounts',
+  NOTIFICATIONS: 'Notifications',
 };
 
 export const BankTypes = {
