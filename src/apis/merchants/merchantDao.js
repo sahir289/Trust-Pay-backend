@@ -146,7 +146,7 @@ export const getMerchantByUserIdDao = async (userId) => {
       LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
       LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
       WHERE  "Merchant".is_obsolete = false 
-      AND "Merchant"."user_id" = $1
+      AND "Merchant"."user_id" ${Array.isArray(userId) ? '= ANY($1)' : '= $1'}
       ORDER BY "Merchant"."created_at" ASC;
     `;
 
@@ -163,7 +163,7 @@ export const getMerchantByUserIdDao = async (userId) => {
       `Error in getMerchantByUserIdDao for user_id ${userId}:`,
       error,
     );
-    throw error.message;
+    throw error;
   }
 };
 export const getMerchantsDao = async (
@@ -223,7 +223,7 @@ export const getMerchantsDao = async (
         )
       `;
     }
-
+  
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
@@ -233,7 +233,6 @@ export const getMerchantsDao = async (
       sortOrder,
       tableName.MERCHANT,
     );
-
     const result = await executeQuery(sql, queryParams);
     const data = await enhanceMerchantsWithSubMerchants(result.rows);
     return data;
@@ -246,32 +245,58 @@ export const getMerchantsDao = async (
 export const getMerchantsByCodeDao = async (code) => {
   try {
     let baseQuery = `
-  SELECT 
-    "Merchant".id, 
-    "Merchant".user_id, 
-    "Merchant".first_name, 
-    "Merchant".last_name, 
-    "Merchant".code, 
-    "Merchant".min_payin, 
-    "Merchant".max_payin, 
-    "Merchant".payin_commission, 
-    "Merchant".min_payout, 
-    "Merchant".max_payout, 
-    "Merchant".config, 
-    "Merchant".company_id, 
-    creator.user_name AS created_by, 
-    updater.user_name AS updated_by, 
-    "Merchant".created_at, 
-    "Merchant".updated_at, 
-    "User".designation_id, 
-    "User".first_name || ' ' || "User".last_name AS full_name, 
-    "Designation".designation AS designation_name
-  FROM "Merchant" 
-  JOIN "User" ON "Merchant".user_id = "User".id 
-  LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
-  LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
-  LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
-`;
+    SELECT 
+      "Merchant".id, 
+      "Merchant".user_id, 
+      "Merchant".first_name, 
+      "Merchant".last_name, 
+      "Merchant".code, 
+      "Merchant".min_payin, 
+      "Merchant".max_payin, 
+      "Merchant".payin_commission, 
+      "Merchant".payout_commission, 
+      "Merchant".min_payout, 
+      "Merchant".max_payout, 
+      "Merchant".config, 
+      "Merchant".company_id, 
+      creator.user_name AS created_by, 
+      updater.user_name AS updated_by, 
+      "Merchant".created_at, 
+      "Merchant".updated_at, 
+      "User".designation_id, 
+      "User".first_name || ' ' || "User".last_name AS full_name, 
+      "Designation".designation AS designation_name
+    FROM "Merchant" 
+    JOIN "User" ON "Merchant".user_id = "User".id 
+    LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
+    LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
+    LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
+  `;
+
+    let queryParams = [];
+    if (code) {
+      baseQuery += ` WHERE "Merchant".code = $1`;
+      queryParams = [code.trim()];
+    }
+    const result = await executeQuery(baseQuery, queryParams);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in getMerchants By Code Dao:', error);
+    throw error.message;
+  }
+};
+
+export const getMerchantByCodeDao = async (code) => {
+  try {
+    let baseQuery = `
+      SELECT 
+        "Merchant".id,
+        "Merchant".code, 
+        "Merchant".payin_commission, 
+        "Merchant".payout_commission,
+        ("Merchant".config->'keys'->>'public') AS public_key
+      FROM "Merchant" 
+    `;
 
     let queryParams = [];
     if (code) {

@@ -46,6 +46,7 @@ import {
 import {
   getMerchantsByCodeDao,
   getMerchantsDao,
+  getMerchantByUserIdDao,
   updateMerchantBalanceDao,
 } from '../merchants/merchantDao.js';
 import {
@@ -970,7 +971,7 @@ export const getPayinsService = async (
   let conn;
   try {
     const fetchMerchantIds = async (user_ids) => {
-      const merchants = await getMerchantsDao({ user_id: user_ids });
+      const merchants = await getMerchantByUserIdDao( user_ids);
       return merchants.map((merchant) => merchant.id);
     };
 
@@ -1064,7 +1065,7 @@ export const getPayinsBySearchService = async (
 ) => {
   try {
     const fetchMerchantIds = async (user_ids) => {
-      const merchants = await getMerchantsDao({ user_id: user_ids });
+      const merchants = await getMerchantByUserIdDao( user_ids);
       return merchants.map((merchant) => merchant.id);
     };
 

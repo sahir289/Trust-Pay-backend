@@ -4,7 +4,7 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
-import moment from 'moment-timezone';
+import dayjs from 'dayjs';
 
 const getResetHistoryDao = async (
   filters = {},
@@ -92,8 +92,8 @@ const getResetHistoryDao = async (
     }
     if (startDate && endDate) {
 
-      const startDateTime = moment.tz(`${startDate} 00:00:00`, 'Asia/Kolkata').toISOString(true);
-      const endDateTime = moment.tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString(true);
+      const startDateTime = dayjs.tz(`${startDate} 00:00:00`, 'Asia/Kolkata').toISOString(true);
+      const endDateTime = dayjs.tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString(true);
          
       sql += ` AND "${RESET_DATA_HISTORY}".created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       queryParams.push(startDateTime, endDateTime);

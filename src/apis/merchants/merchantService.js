@@ -12,7 +12,7 @@ import {
 import {
   createMerchantDao,
   deleteMerchantDao,
-  getMerchantsByCodeDao,
+  getMerchantByCodeDao,
   getMerchantsBySearchDao,
   getMerchantsCodeDao,
   getMerchantsDao,
@@ -520,7 +520,7 @@ const getMerchantsByCodeService = async (code) => {
     if (!code) {
       throw new BadRequestError('Code is required');
     }
-    const data = await getMerchantsByCodeDao(code);
+    const data = await getMerchantByCodeDao(code);
     if (data.length === 0) {
       throw new NotFoundError('Merchant not found');
     }
