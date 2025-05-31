@@ -59,7 +59,7 @@ export const getPayoutsDao = async (
       end = dayjs.tz(`${filters?.endDate} 23:59:59.999`, IST).utc().format();
 
       conditions.push(
-        `u.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+        `u.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
       );
       queryParams.push(start, end);
       paramIndex += 2;
