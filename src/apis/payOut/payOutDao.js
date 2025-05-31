@@ -6,6 +6,8 @@ import {
   executeQuery,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
+import dayjs from 'dayjs';
+const IST = 'Asia/Kolkata';
 
 export const createPayoutDao = async (conn, data) => {
   try {
@@ -51,10 +53,15 @@ export const getPayoutsDao = async (
     let limitcondition = '';
 
     if (filters?.startDate && filters?.endDate) {
+      let start;
+      let end;
+      start = dayjs.tz(`${filters?.startDate} 00:00:00`, IST).utc().format(); // UTC ISO string
+      end = dayjs.tz(`${filters?.endDate} 23:59:59.999`, IST).utc().format();
+
       conditions.push(
         `u.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
       );
-      queryParams.push(filters.startDate, filters.endDate);
+      queryParams.push(start, end);
       paramIndex += 2;
     }
 

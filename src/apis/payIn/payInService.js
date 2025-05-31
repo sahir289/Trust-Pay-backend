@@ -95,8 +95,7 @@ Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
 
 export const generatePayInUrlByHashService = async (req, res) => {
-  const { user_id, code, ot, amount } = req.query;
-  const key = req.headers['x-api-key'];
+  const { user_id, code, ot, key, amount } = req.query;
   if (!user_id || !code || !ot) {
     //-- correct error handling
     return res.status(400).json({
@@ -109,7 +108,7 @@ export const generatePayInUrlByHashService = async (req, res) => {
       },
     });
   }
-  const x_api_key = req.headers['x-api-key'];
+  // const x_api_key = req.headers['x-api-key'];
   const merchantArr = await getMerchantsByCodeDao(code);
   const bankAssigned = await getMerchantBankDao({
     config_merchants_contains: merchantArr[0].id,
@@ -175,7 +174,7 @@ export const generatePayInUrlByHashService = async (req, res) => {
   }
 
   // Create a deterministic hash
-  const hash = createHash(`${code}:${x_api_key}`);
+  const hash = createHash(`${code}:${key}`);
 
   // Encode the hash to make it URL-safe
   const encodedHash = encodeURIComponent(hash);
