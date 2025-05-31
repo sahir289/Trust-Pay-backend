@@ -137,7 +137,7 @@ export const getPayoutsDao = async (
         ve.user_id AS vendor_user_id,
         u.updated_at, 
         json_build_object(
-          'merchant_code', r.code,
+          'merchant_code', COALESCE(r.config->>'sub_code', r.code),
           'return_url', r.config->>'return_url',
           'notify_url', r.config->>'notify_url',
           'public_key', r.config->'keys'->>'public',
@@ -284,7 +284,7 @@ export const getPayoutsBySearchDao = async (
         v.user_id AS vendor_user_id,
         p.updated_at, 
         json_build_object(
-          'merchant_code', m.code,
+          'merchant_code', COALESCE(m.config->>'sub_code', m.code),
           'return_url', m.config->>'return_url',
           'notify_url', m.config->>'notify_url',
           'public_key', m.config->'keys'->>'public',

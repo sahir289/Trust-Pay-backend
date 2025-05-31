@@ -284,14 +284,9 @@ const getUsersByUserNameService = async (username, ids, role) => {
 
 const createUserService = async (conn, payload, role) => {
   try{
-  // const filterColumns =
-  //   role === Role.MERCHANT
-  //     ? merchantColumns.USER
-  //     : role === Role.VENDOR
-  //       ? vendorColumns.USER
-  //       : columns.USER;
   const { user_name } = payload;
-  const user = await getUsersByUserNameDao(payload.company_id, user_name);
+  let company_id = payload.company_id;
+  const user = await getUsersByUserNameDao(company_id, user_name);
   if (user?.user_name || user?.email || user?.contact_no) {
     throw new InternalServerError('User already exists');
   }
@@ -299,7 +294,6 @@ const createUserService = async (conn, payload, role) => {
   const hashPassword = await createHash(Password);
   payload.password = hashPassword;
   const userPayload = {
-    code: payload.code,
     role_id: payload.role_id,
     designation_id: payload.designation_id,
     first_name: payload.first_name,
@@ -374,6 +368,15 @@ const createUserService = async (conn, payload, role) => {
     userDesignation[0]?.designation === Role.MERCHANT ||
     userDesignation[0]?.designation === Role.SUB_MERCHANT
   ) {
+    let userCode;
+    let sub_code;
+    if(userDesignation[0]?.designation === Role.SUB_MERCHANT) {
+      const user_id = payload?.parent_id
+        ? payload?.parent_id
+        : payload.created_by;
+       userCode = await getMerchantByUserIdDao(user_id);
+       sub_code = `${userCode[0].code}(${payload.code})`;
+    }
     const Private = generateUUID();
     const Public = generateUUID();
     const merchantPayload = {
@@ -408,6 +411,7 @@ const createUserService = async (conn, payload, role) => {
         },
         allow_intent: false,
         allow_payout: false,
+        ...(sub_code && { sub_code })
       },
     };
    merchant =  await createMerchantService(conn, merchantPayload);

@@ -141,6 +141,11 @@ export const getChargeBackDao = async (
     //created and updated by with user name
     additionalColumns += `
       v.code AS vendor_name,
+       CASE 
+    WHEN m.config->>'sub_code' IS NOT NULL AND m.config->>'sub_code' != '' 
+    THEN m.config->>'sub_code' 
+    ELSE m.code 
+  END AS merchant_name,
       p.user AS user,
       u.user_name AS created_by,
       uu.user_name AS updated_by,
