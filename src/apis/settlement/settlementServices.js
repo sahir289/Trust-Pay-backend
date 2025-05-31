@@ -207,12 +207,13 @@ const getSettlementsBySearchService = async (
       limitNum,
       offset,
       filterColumns,
+      role
     );
 
     return data;
   } catch (error) {
     logger.error('Error while fetching chargeback by search', error);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
 
