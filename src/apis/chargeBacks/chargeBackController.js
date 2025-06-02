@@ -174,11 +174,7 @@ const blockChargebackUser = async (req, res) => {
     'User Blocked Successfully',
   );}
   catch (error) {
-    if (error instanceof ValidationError) {
-      throw error;
-    } else {
       throw new BadRequestError(error.message || 'An error occurred while blocking the user');
-    }
   }
 };
 
