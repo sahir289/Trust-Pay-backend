@@ -154,15 +154,15 @@ const createBankResponseService = async (
 
     let botRes;
 
-      botRes = await createBankResponseDao(conn, updatedData);
-      await sendNotification(updatedData.status.replace('/', ''), {
-        id: botRes.id,
-        utr: botRes.utr,
-        amount: botRes.amount,
-        bank_id: botRes.bank_id,
-        company_id: botRes.company_id,
-        created_by: botRes.created_by,
-      });
+    botRes = await createBankResponseDao(conn, updatedData);
+    await sendNotification(updatedData.status.replace('/', ''), {
+      id: botRes.id,
+      utr: botRes.utr,
+      amount: botRes.amount,
+      bank_id: botRes.bank_id,
+      company_id: botRes.company_id,
+      created_by: botRes.created_by,
+    });
 
     if (updatedData.status === '/repeated') {
       return { message: `Entry with REPEATED UTR Added ${utr}` };
@@ -179,15 +179,20 @@ const createBankResponseService = async (
         null,
         role,
       );
-      if (isNaN(bankdetails[0].balance) || isNaN(bankdetails[0].today_balance)) {
+      if (
+        isNaN(bankdetails[0].balance) ||
+        isNaN(bankdetails[0].today_balance)
+      ) {
         throw new BadRequestError('Invalid amount or commission');
       }
       const res = await updateBankaccountDao(
         { id: botRes?.bank_id },
         {
-          balance: parseFloat(bankdetails[0].balance) + parseFloat(botRes.amount),
+          balance:
+            parseFloat(bankdetails[0].balance) + parseFloat(botRes.amount),
           today_balance:
-            parseFloat(bankdetails[0].today_balance) + parseFloat(botRes.amount),
+            parseFloat(bankdetails[0].today_balance) +
+            parseFloat(botRes.amount),
           payin_count: parseFloat(bankdetails[0].payin_count + 1),
         },
         conn,
@@ -241,7 +246,9 @@ const createBankResponseService = async (
           getDataByUtr.rows.length > 1 &&
           getDataByUtr.some((item) => item.is_used);
         if (!acceptedStatus.includes(payInUtr.status) && botUtrIsUsed) {
-          return { message: `The entry is already ${payInUtr.status} with UTR` };
+          return {
+            message: `The entry is already ${payInUtr.status} with UTR`,
+          };
         }
       }
 
@@ -252,7 +259,10 @@ const createBankResponseService = async (
         role,
       );
       if (!isBankExist || payInUtr.bank_acc_id !== bank_id) {
-        if (payInUtr.user_submitted_utr && payInUtr.user_submitted_utr !== utr) {
+        if (
+          payInUtr.user_submitted_utr &&
+          payInUtr.user_submitted_utr !== utr
+        ) {
           return {
             message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${payInUtr.user_submitted_utr}`,
           };
@@ -344,7 +354,10 @@ const createBankResponseService = async (
       const duration = `${durHours}:${durMinutes}:${durSeconds}`;
 
       if (payInUtr.amount === amount) {
-        if (payInUtr.user_submitted_utr && payInUtr.user_submitted_utr !== utr) {
+        if (
+          payInUtr.user_submitted_utr &&
+          payInUtr.user_submitted_utr !== utr
+        ) {
           return {
             message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${payInUtr.user_submitted_utr}`,
           };
@@ -360,7 +373,11 @@ const createBankResponseService = async (
           // config: { from_UI },
           bank_response_id: botRes.id,
         };
-        const updatePayin = await updatePayInUrlDao(payInUtr.id, payInData, conn);
+        const updatePayin = await updatePayInUrlDao(
+          payInUtr.id,
+          payInData,
+          conn,
+        );
         await updateBotResponseDao(botRes.id, { is_used: true }, conn);
         merchantPayinCallback(updatePayin.config.urls?.notify, {
           status: updatePayin.status,
@@ -390,7 +407,10 @@ const createBankResponseService = async (
         }
         return { message: `Successfully Created The Entry` };
       } else {
-        if (payInUtr.user_submitted_utr && payInUtr.user_submitted_utr !== utr) {
+        if (
+          payInUtr.user_submitted_utr &&
+          payInUtr.user_submitted_utr !== utr
+        ) {
           return {
             message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${payInUtr.user_submitted_utr}`,
           };
@@ -436,11 +456,10 @@ const createBankResponseService = async (
     }
 
     return { message: `Entry created successfully` };
+  } catch (error) {
+    logger.error('Error in createBankResponseService:', error.message);
+    throw error;
   }
-    catch (error) {
-      logger.error('Error in createBankResponseService:', error.message);
-      throw error;
-    }
 };
 
 const updateCalculationTable = async (user_id, data, conn) => {
@@ -487,7 +506,16 @@ const getClaimResponseService = async (payload) => {
   }
 };
 
-const getBankResponseService = async (payload, role, page, limit, search, updated ,sortBy, sortOrder) => {
+const getBankResponseService = async (
+  payload,
+  role,
+  page,
+  limit,
+  search,
+  updated,
+  sortBy,
+  sortOrder,
+) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -659,7 +687,6 @@ const getBankMessageServices = async (
   } catch (error) {
     logger.error('Error while getting BankResponse', 'error', error.message);
     throw error;
-    ;
   }
 };
 
@@ -736,7 +763,11 @@ const resetBankResponseService = async (conn, id, userData) => {
 
     return { message };
   } catch (error) {
-    logger.error(`Error resetting bank response for ID: ${id}`, 'error', error.message);
+    logger.error(
+      `Error resetting bank response for ID: ${id}`,
+      'error',
+      error.message,
+    );
     throw error;
   }
 };
@@ -823,7 +854,11 @@ const handleUtrUpdate = async ({ botRes, utr, user_id, user_name, conn }) => {
       config: { ...(botRes.config || {}), previousUTR, previousUpdater },
     };
     const payIn = await getPayInUrlsDao({ user_submitted_utr: utr });
-    if (payIn?.length && payIn[0].user_submitted_utr && ![Status.SUCCESS, Status.FAILED].includes(payIn[0].status)) {
+    if (
+      payIn?.length &&
+      payIn[0].user_submitted_utr &&
+      ![Status.SUCCESS, Status.FAILED].includes(payIn[0].status)
+    ) {
       await updatePayInUrlDao(payIn[0].id, {
         user_submitted_utr: utr,
         updated_by: user_id,
@@ -925,11 +960,7 @@ const handleBankIdUpdate = async ({
           updated_by: user_id,
         },
       ),
-      updateBotResponseDao(
-        botRes.id,
-        updateData,
-        conn,
-      ),
+      updateBotResponseDao(botRes.id, updateData, conn),
       updateCalculationBalances(
         prevVendorCurrentCalcs,
         prevVendorNextCurrentCalcs,
@@ -948,7 +979,7 @@ const handleBankIdUpdate = async ({
   } catch (error) {
     logger.error('Error in handle bank id update:', error.message);
     throw error;
-   }
+  }
 };
 
 // Update pay-in data
@@ -965,7 +996,8 @@ const updatePayInData = async ({ payInData, user_name, botRes }) => {
     if (isEqualUTR) {
       updatePayinID = payInData.filter(
         (item) =>
-          item.user_submitted_utr === botRes.utr && item.status !== Status.FAILED,
+          item.user_submitted_utr === botRes.utr &&
+          item.status !== Status.FAILED,
       );
     } else if (isEqualBotResponse) {
       updatePayinID = payInData.filter(
@@ -980,8 +1012,9 @@ const updatePayInData = async ({ payInData, user_name, botRes }) => {
     if (updatePayinID?.length) {
       const updatePayinData = {
         status:
-          new Date().getTime() - new Date(updatePayinID[0].created_at).getTime() <
-            10 * 60 * 1000
+          new Date().getTime() -
+            new Date(updatePayinID[0].created_at).getTime() <
+          10 * 60 * 1000
             ? Status.ASSIGNED
             : Status.DROPPED,
         user_submitted_utr: null,
@@ -990,11 +1023,10 @@ const updatePayInData = async ({ payInData, user_name, botRes }) => {
       };
       await updatePayInUrlDao(updatePayinID[0].id, updatePayinData);
     }
-  }
-  catch (error) {
+  } catch (error) {
     logger.error('Error in updatePayin Data', error.message);
-      throw error;
-    }
+    throw error;
+  }
 };
 
 // Function to clean and normalize text
