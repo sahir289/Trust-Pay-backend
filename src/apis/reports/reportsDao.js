@@ -400,7 +400,7 @@ const getMerchantReportDao = async (company_id, userIds, startDate, endDate, pag
     parameters.push(startDate, endDate);
     paramIndex += 2;    
     query += `
-        ORDER BY c.id, m.code ASC
+        ORDER BY c.id, m.code ASC, c.created_at DESC
       ) 
       SELECT * FROM filtered_merchants ORDER BY code NULLS LAST`;    
     if (page && limit) {

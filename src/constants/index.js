@@ -140,7 +140,7 @@ export const columns = {
     'updated_by',
     'created_at',
     'updated_at',
-    'company_id',
+    // 'company_id',
   ],
   CALCULATION: [
     'id',
