@@ -435,15 +435,26 @@ const createUserService = async (conn, payload, role) => {
   }
 
   if (User) {
-    sendCredentialsEmail({
-      email: User.email,
-      username: User.user_name,
-      password: Password,
-      code: merchant?.config ? User.code : '',
-      secretKey: merchant?.config ? merchant.config.keys.private : '',
-      publicKey: merchant?.config ? merchant.config.keys.public : '',
-      designation: designation[0]?.designation,
-    });
+    try {
+      const data = await sendCredentialsEmail({
+        email: User.email,
+        username: User.user_name,
+        password: Password,
+        code: merchant?.config ? User.code : '',
+        secretKey: merchant?.config ? merchant.config.keys.private : '',
+        publicKey: merchant?.config ? merchant.config.keys.public : '',
+        designation: designation[0]?.designation,
+      });
+    console.log(data, "sending email");
+
+
+      if(!data) {
+        throw new InternalServerError('Failed to send email');
+      }
+    } catch (error) {
+      throw new InternalServerError(error);
+    }
+    
   }
 
   logger.log('User Created Successfully');
@@ -451,11 +462,11 @@ const createUserService = async (conn, payload, role) => {
   return User;
   } catch (error) {
     logger.error('Error in createUserService:', error);
-     if (
-       error instanceof InternalServerError
-     ) {
-       throw error;
-     }
+    //  if (
+    //    error instanceof InternalServerError
+    //  ) {
+    //    throw error;
+    //  }
     throw new InternalServerError(error);
   }
 };

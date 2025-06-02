@@ -1,17 +1,17 @@
 import nodemailer from 'nodemailer';
 import path from 'path';
 import { logger } from '../utils/logger.js';
+import { SESClient,  } from '@aws-sdk/client-ses';
 
 const pngLogoPath = path.resolve('./src/assets/images/TrustPays24.png');
 
+const ses = new SESClient({ region: 'ap-south-1', credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  } });
+
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
+  SES: { ses, aws: { SESClient } },
 });
 
 const Role = {
@@ -80,7 +80,7 @@ export const sendCredentialsEmail = async ({
   `;
 
   const mailOptions = {
-    from: `"TrustPay Admin" <${process.env.SMTP_USER}>`,
+    from: `"TrustPay Admin" <${process.env.SES_FROM_EMAIL}>`,
     to: email,
     subject,
     text,
@@ -93,9 +93,13 @@ export const sendCredentialsEmail = async ({
       },
     ],
   };
-
+  console.log('Transporter:', transporter);
+  console.log('Mail Options:', mailOptions);
+  console.log('Data variables:', { username, password, code, secretKey, publicKey });
   try {
+
     const info = await transporter.sendMail(mailOptions);
+    console.log(info, "info here");
     const Data = {
       messageId: info.messageId,
       username,
@@ -108,8 +112,9 @@ export const sendCredentialsEmail = async ({
     logger.info('Credentials email sent:', {status, data: Data});
     return info;
   } catch (error) {
+    console.error("Error sending email:", error);
     logger.error('Failed to send credentials email:', error);
-    throw new Error('Failed to send credentials email. Please try again later.');
+    throw error;
   }
 };
 
