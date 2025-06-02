@@ -53,6 +53,24 @@ export const getPayInUrlDao = async (filters) => {
   }
 };
 
+export const getPayInDaoByCode = async (filters) => {
+  try {
+    const sql = `
+    SELECT r.code, p.config, p.merchant_id, p.user
+    FROM "${tableName.PAYIN}" p
+    LEFT JOIN public."Merchant" r ON p.merchant_id = r.id
+    WHERE p.id = $1
+      AND p.company_id = $2
+  `;
+  const params = [filters.id, filters.company_id];  
+    const result = await executeQuery(sql, params);
+    return result.rows;    
+  } catch (error) {
+    console.error('Error getting PayIn URL:', error);
+    throw error.message;
+  }
+};
+
 export const getPayInsDao = async (filters, company_id, page, limit, role) => {
   try {
     const { PAYIN } = tableName;
@@ -138,6 +156,21 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
           .join(', ');
         conditions.push(`p.${key} IN (${placeholders})`);
         queryParams.push(...value);
+      }
+      else if (key === 'user_ids') {
+        const isMultiValue = typeof value === 'string' && value.includes(',');
+        const valueArray = isMultiValue
+          ? value.split(',').map((v) => v.trim())
+          : [value];
+        const placeholders = valueArray
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        conditions.push(
+          isMultiValue
+            ? `b.user_id IN (${placeholders})`
+            : `b.user_id = $${nextParamIdx}`,
+        );
+        queryParams.push(...valueArray);
       } else {
         const isMultiValue = typeof value === 'string' && value.includes(',');
         const valueArray = isMultiValue
@@ -241,7 +274,6 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
       );
     }
-
     const result = await executeQuery(baseQuery, queryParams);
     return {
       payins: result.rows,
