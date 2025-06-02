@@ -1214,7 +1214,7 @@ export const processPayInService = async (
     is_url_expires: true,
     one_time_used: true,
     duration,
-    user_submitted_image: user_submitted_image || null,
+    user_submitted_image: user_submitted_image ,
     is_notified: true,
     updated_by: updated_by || '',
   };
