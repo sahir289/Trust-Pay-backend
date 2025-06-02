@@ -62,33 +62,33 @@ export async function sendTelegramDashboardReportMessage(
   const merchantPayInDetails = merchant
     .filter((m) => m.totalPayin !== 0)
     .map(
-      (m) =>
-        `${m.merchantId}: ₹ ${m.totalPayin.toLocaleString('en-IN', {
+      (m, index) =>
+        `${index + 1}. ${m.merchantId}: ₹ ${m.totalPayin.toLocaleString('en-IN', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
-        })} (${m.totalPayinCount})`,
+        })} (${m.totalPayinCount}),`,
     )
     .join('\n');
 
   const merchantPayOutDetails = merchant
     .filter((m) => m.totalPayout !== 0)
     .map(
-      (m) =>
-        `${m.merchantId}: ₹ ${m.totalPayout.toLocaleString('en-IN', {
+      (m, index) =>
+        `${index + 1}. ${m.merchantId}: ₹ ${m.totalPayout.toLocaleString('en-IN', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
-        })} (${m.totalPayoutCount})`,
+        })} (${m.totalPayoutCount}),`,
     )
     .join('\n');
 
   const vendorDetails = Object.entries(vendorObjpayIn)
     // .filter(([_, { banks }]) => banks.length > 0)
-    .map(([vendorCode, { banks }]) => {
+    .map(([vendorCode, { banks }], index) => {
       // if (banks.length === 0) {
       //   return `<b>${vendorCode}</b>: No bank accounts`;
       // }
       const bankDetails = banks
-        .filter((bank) => bank.TotalDeposit !== null)
+        .filter((bank) => bank.TotalDeposit !== null && bank.TotalDeposit !== 0)
         .map(
           (bank) =>
             `  ${bank.bankName}: ₹ ${bank.TotalDeposit.toLocaleString('en-IN', {
@@ -97,13 +97,14 @@ export async function sendTelegramDashboardReportMessage(
             })} (${bank.TotalCount})`,
         )
         .join('\n');
-      return `<b>${vendorCode}</b>:\n${bankDetails}`;
-    })
+        return bankDetails ? `${index + 1}. ${vendorCode}: ${bankDetails},` : '';
+      })
+    .filter(Boolean)
     .join('\n\n');
 
   const vendorDetailsPayout = Object.entries(vendorObjpayOut)
     // .filter(([_, { banks }]) => banks.length > 0)
-    .map(([vendorCode, { banks }]) => {
+    .map(([vendorCode, { banks }], index) => {
       // if (banks.length === 0) {
       //   return `<b>${vendorCode}</b>: No bank accounts`;
       // }
@@ -117,8 +118,9 @@ export async function sendTelegramDashboardReportMessage(
             })} (${bank.TotalCount})`,
         )
         .join('\n');
-      return `<b>${vendorCode}</b>:\n${bankDetails}`;
-    })
+        return bankDetails ? `${index + 1}. ${vendorCode}: ${bankDetails},` : '';
+      })
+    .filter(Boolean)
     .join('\n\n');
 
   const message = `
