@@ -284,8 +284,7 @@ const blockChargebackUserService = async (ids) => {
       const userIp = payindata[0].config?.user?.user_ip
       const merchant = await getMerchantsDao({code}); 
       if (!merchant || merchant.length === 0) {
-        await rollback(conn);
-        throw new Error('Merchant not found for the given code!');
+        throw new BadRequestError('Merchant not found for the given code!');
       }
       const merchantId = payindata[0].merchant_id
       const userId = payindata[0].user

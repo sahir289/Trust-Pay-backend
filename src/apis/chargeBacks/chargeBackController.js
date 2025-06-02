@@ -146,10 +146,7 @@ const getChargeBacks = async (req, res) => {
   return sendSuccess(res, data, 'ChargeBacks fetched successfully');
 };
 const blockChargebackUser = async (req, res) => {
-  try{
-  const { error: paramsError } = VALIDATE_DELETE_CHARGEBACK.validate(
-    req.params,
-  );
+  const { error: paramsError } = VALIDATE_DELETE_CHARGEBACK.validate(req.params);
   if (paramsError) {
     throw new ValidationError(paramsError);
   }
@@ -172,10 +169,7 @@ const blockChargebackUser = async (req, res) => {
     res,
     { id: result.id, updated_by: user_name },
     'User Blocked Successfully',
-  );}
-  catch (error) {
-      throw new BadRequestError(error.message || 'An error occurred while blocking the user');
-  }
+  );
 };
 
 const updateChargeBack = async (req, res) => {
