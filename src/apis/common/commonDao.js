@@ -8,7 +8,7 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs, updated
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tablename)) {
       throw new Error(`Invalid table name: ${tablename}`);
     }
-
+    delete filters.user_ids;  ///temperary
     // Base query
     let query;
     let params = [];
