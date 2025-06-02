@@ -1,11 +1,7 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import {
-  getMerchantReportService,
-  getPayInReportService,
-  getPayOutReportService,
-} from './reportsService.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
+import { getClientsAccountReportController, getPayInReportController, getPayOutReportController } from './reportsController.js';
 
 /**
  * @swagger
@@ -48,7 +44,7 @@ const router = express.Router();
 router.get(
   '/get-payouts-report',
   isAuthenticated,
-  tryCatchHandler(getPayOutReportService),
+  tryCatchHandler(getPayOutReportController),
 );
 
 /**
@@ -80,7 +76,7 @@ router.get(
 router.get(
   '/get-payins-reports',
   isAuthenticated,
-  tryCatchHandler(getPayInReportService),
+  tryCatchHandler(getPayInReportController),
 );
 
 /**
@@ -110,9 +106,9 @@ router.get(
  *         description: Server error
  */
 router.get(
-  '/get-merchants-reports',
+  '/get-accounts-reports',
   isAuthenticated,
-  tryCatchHandler(getMerchantReportService),
+  tryCatchHandler(getClientsAccountReportController),
 );
 //handled same with above function
 

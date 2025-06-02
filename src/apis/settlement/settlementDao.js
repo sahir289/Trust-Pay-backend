@@ -5,7 +5,7 @@ import {
 } from '../../utils/db.js';
 import { tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
-import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
+// import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import dayjs from 'dayjs';
 const IST = 'Asia/Kolkata';
 const getSettlementDao = async (
@@ -17,7 +17,7 @@ const getSettlementDao = async (
   columns = []
 ) => {
   try {
-    const { SETTLEMENT, USER, ROLE, BENEFICIARY_ACCOUNTS } = tableName;
+    const { SETTLEMENT, USER, ROLE, BENEFICIARY_ACCOUNTS,MERCHANT,VENDOR } = tableName;
 
     const conditions = [`s.is_obsolete = false`];
     const queryParams = [];
@@ -30,16 +30,16 @@ const getSettlementDao = async (
     };
 
     const conditionBuilders = {
-      search: (filters, SETTLEMENT) => {
-        if (!filters.search || typeof filters.search !== 'string') return;
-        try {
-          filters.or = buildSearchFilterObj(filters.search, SETTLEMENT);
-          delete filters.search;
-        } catch (error) {
-          logger.warn(`Invalid search filter: ${filters.search}`, error);
-          delete filters.search;
-        }
-      },
+      // search: (filters, SETTLEMENT) => {
+      //   if (!filters.search || typeof filters.search !== 'string') return;
+      //   try {
+      //     filters.or = buildSearchFilterObj(filters.search, SETTLEMENT);
+      //     delete filters.search;
+      //   } catch (error) {
+      //     logger.warn(`Invalid search filter: ${filters.search}`, error);
+      //     delete filters.search;
+      //   }
+      // },
       //login wise fetching settlement
       user_id: (filters, conditions, queryParams) => {
         if (!filters.user_id) return;
@@ -86,7 +86,6 @@ const getSettlementDao = async (
     },
       date_range: (filters, conditions, queryParams) => {
         const { start_date, end_date } = filters;
-        
         if (start_date && end_date) {
           let start;
           let end;
@@ -107,7 +106,7 @@ const getSettlementDao = async (
       }
     };
 
-    conditionBuilders.search(filters, SETTLEMENT);
+    // conditionBuilders.search(filters, SETTLEMENT);
     conditionBuilders.role(filters, conditions, queryParams);
     conditionBuilders.user_id(filters, conditions, queryParams); 
     conditionBuilders.vendor_codes(filters, conditions, queryParams);
@@ -137,29 +136,38 @@ const getSettlementDao = async (
 //fetching bank name 
 const baseQuery = `
 SELECT DISTINCT ON (s.sno)
-        ${columnSelection},
-        u.role_id,
-        u.designation_id,
-        r.role,
-        u.id AS user_table_id,
-        u.code,
-       CASE
-        WHEN s.config->>'bank_id' IS NOT NULL THEN
-            jsonb_set(
-                s.config::jsonb,
-                '{beneficiary_bank_name}',
-                to_jsonb(COALESCE(ba.bank_name, s.config->>'bank_name'))
-            )       
-        ELSE
-            s.config::jsonb
-        END AS config
-         FROM public."${SETTLEMENT}" s
-      JOIN public."${USER}" u ON s.user_id = u.id
-      LEFT JOIN public."${ROLE}" r ON u.role_id = r.id
-      LEFT JOIN public."${BENEFICIARY_ACCOUNTS}" ba ON s.config->>'bank_id' = ba.id
-      WHERE ${conditions.join(' AND ')}
+  ${columnSelection},
+  CASE
+    WHEN r.role = 'MERCHANT' THEN 
+      COALESCE(m.config->>'sub_code', m.code)
+    WHEN r.role = 'VENDOR' THEN 
+      v.code
+    WHEN r.role = 'ADMIN' THEN 
+      COALESCE(m.config->>'sub_code', m.code)
+    ELSE NULL
+  END AS code,
+  CASE
+    WHEN s.config->>'bank_id' IS NOT NULL THEN
+      jsonb_set(
+        s.config::jsonb,
+        '{beneficiary_bank_name}',
+        to_jsonb(COALESCE(ba.bank_name, s.config->>'bank_name'))
+      )       
+    ELSE
+      s.config::jsonb
+  END AS config,
+  COALESCE(u.user_name, s.created_by::text) AS created_by,
+  COALESCE(u.user_name, s.updated_by::text) AS updated_by
+FROM public."${SETTLEMENT}" s
+JOIN public."${USER}" u ON s.user_id = u.id
+LEFT JOIN public."${ROLE}" r ON u.role_id = r.id
+LEFT JOIN public."${BENEFICIARY_ACCOUNTS}" ba ON s.config->>'bank_id' = ba.id
+LEFT JOIN public."${MERCHANT}" m ON u.id = m.user_id AND r.role IN ('MERCHANT', 'ADMIN')
+LEFT JOIN public."${VENDOR}" v ON u.id = v.user_id AND r.role = 'VENDOR'
+LEFT JOIN public."${USER}" uc ON s.created_by = uc.id
+LEFT JOIN public."${USER}" uu ON s.updated_by = uu.id
+WHERE ${conditions.join(' AND ')}
 `;
-
     const sortClause = sortBy && sortOrder 
       ? `ORDER BY s.${sortBy} ${sortOrder.toUpperCase()}`
       : 'ORDER BY s.sno DESC';
@@ -169,10 +177,11 @@ SELECT DISTINCT ON (s.sno)
       ${sortClause}
       ${limitcondition.value}
     `;
+    
 
-    // console.log('FinalQuery', finalQuery); // Debug query
-    // console.log('QueryParams', queryParams); // Debug params
 
+   
+   
     const result = await executeQuery(finalQuery, queryParams);
     return result.rows;
 
@@ -186,36 +195,49 @@ const getSettlementsBySearchDao = async (
   searchTerms,
   limitNum,
   offset,
+  columns,
+  role
 ) => {
   try {
-    const { USER, SETTLEMENT, ROLE } = tableName;
+    const { SETTLEMENT, USER, ROLE, MERCHANT, VENDOR, BENEFICIARY_ACCOUNTS } =
+      tableName;
     const conditions = [];
-    const values = [filters.company_id];
-    let paramIndex = 2;
+    const values = [filters.company_id,role];
+    let paramIndex = 3;
 
     let queryText = `
-      SELECT 
-        s.id,
-        s.user_id,
-        s.sno,
-        s.company_id,
-        s.amount,
-        s.status,
-        s.config,
-        s.method,
-        s.created_at,
-        s.updated_at,
-        u.role_id,
-        u.designation_id,
-        u.id AS user_table_id,
-        u.code,
-        u.first_name || ' ' || u.last_name AS full_name,
-        r.role AS role_name
+    SELECT 
+    ${columns.map((col) => `s.${col}`).join(', ')},
+   CASE
+  WHEN $2 = 'MERCHANT' THEN COALESCE(m.config->>'sub_code', m.code)
+  WHEN $2 = 'VENDOR' THEN v.code
+  WHEN $2 = 'ADMIN' THEN 
+    CASE 
+      WHEN r.role = 'VENDOR' THEN v.code
+      ELSE COALESCE(m.config->>'sub_code', m.code)
+    END
+  ELSE NULL
+END AS code,
+    CASE
+    WHEN s.config->>'bank_id' IS NOT NULL THEN
+      jsonb_set(
+        s.config::jsonb,
+        '{beneficiary_bank_name}',
+        to_jsonb(COALESCE(ba.bank_name, s.config->>'bank_name'))
+      )       
+    ELSE
+      s.config::jsonb
+  END AS config,
+     COALESCE(u.user_name, s.created_by::text) AS created_by,
+  COALESCE(u.user_name, s.updated_by::text) AS updated_by
       FROM "${SETTLEMENT}" s
       JOIN "${USER}" u ON s.user_id = u.id
       LEFT JOIN "${ROLE}" r ON u.role_id = r.id
+      LEFT JOIN public."${BENEFICIARY_ACCOUNTS}" ba ON s.config->>'bank_id' = ba.id
+      LEFT JOIN public."${MERCHANT}" m ON u.id = m.user_id AND r.role IN ('MERCHANT', 'ADMIN')
+      LEFT JOIN public."${VENDOR}" v ON u.id = v.user_id AND r.role = 'VENDOR'
       WHERE s.is_obsolete = false 
-        AND s.company_id = $1
+      AND s.company_id = $1
     `;
 
     // Handle additional filters
@@ -297,10 +319,10 @@ const getSettlementsBySearchDao = async (
     values.push(limitNum, offset);
 
     // Optional: log for debugging
-
+    console.log(countQuery, queryText);
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
-
+   
     const totalItems = parseInt(countResult.rows[0].total);
     const totalPages = Math.ceil(totalItems / limitNum);
 
@@ -311,7 +333,7 @@ const getSettlementsBySearchDao = async (
     };
   } catch (error) {
     logger.error('Error in getSettlementsBySearchDao:', error.message);
-    throw error.message;
+    throw error
   }
 };
 
