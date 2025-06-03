@@ -493,6 +493,7 @@ const getClaimResponseService = async (payload) => {
     let filters = Object.fromEntries(
       Object.entries({
         date: payload.date || undefined,
+        bank_id: payload.bank_id || undefined,
         company_id: payload.company_id || undefined,
       }).filter(([, v]) => v !== undefined),
     );
