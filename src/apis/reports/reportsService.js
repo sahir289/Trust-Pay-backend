@@ -286,7 +286,7 @@ const getClientsAccountReportService = async (req) => {
 
         result = Object.values(parentMap)
           .map(({ ...rest }) => rest)
-          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
       } else {
         result = [];
         logger.warn('parentData is not an array:', parentData);
