@@ -94,11 +94,13 @@ export async function sendTelegramDashboardReportMessage(
             `  ${bank.bankName}: ₹ ${bank.TotalDeposit.toLocaleString('en-IN', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
-            })} (${bank.TotalCount})`,
+            })} (${bank.TotalCount})`
         )
-        .join('\n');
-        return bankDetails ? `${index + 1}. ${vendorCode}: ${bankDetails},` : '';
-      })
+        .join('\n'); // join each bank with a new line
+  
+      // Only include vendors with valid bank details
+      return bankDetails ? `${index + 1}. ${vendorCode}:\n${bankDetails}` : '';
+    })
     .filter(Boolean)
     .join('\n\n');
 
@@ -115,10 +117,10 @@ export async function sendTelegramDashboardReportMessage(
             `  ${bank.bankName}: ₹ ${bank.TotalDeposit.toLocaleString('en-IN', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
-            })} (${bank.TotalCount})`,
+            })} (${bank.TotalCount})`
         )
         .join('\n');
-        return bankDetails ? `${index + 1}. ${vendorCode}: ${bankDetails},` : '';
+        return bankDetails ? `${index + 1}. ${vendorCode}: ${bankDetails}` : '';
       })
     .filter(Boolean)
     .join('\n\n');
