@@ -2377,10 +2377,8 @@ const updateCalculationBalances = async (
     total_payin_amount: amountDiff,
     current_balance: amountDiff - commission,
     net_balance: amountDiff - commission,
-    total_adjustment_amount: amountDiff,
-    total_adjustment_commission: amountDiff > 0 ? commission : -commission,
-    total_adjustment_count: 1,
   };
+  const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
 
   // Update current calculation
   await updateCalculationBalanceDao(
@@ -2392,10 +2390,20 @@ const updateCalculationBalances = async (
   if (nextCalculations.length > 0) {
     // Update subsequent calculations
     for (const calc of nextCalculations) {
+  const calculationDate = dayjs(calc.created_at).tz('Asia/Kolkata').format('YYYY-MM-DD');
+      let data = {}
+      if (calculationDate === todayDate) {
+         data = {
+          total_adjustment_amount: amountDiff,
+          total_adjustment_commission: amountDiff > 0 ? commission : -commission,
+          total_adjustment_count: 1,
+        };
+      }
       await updateCalculationBalanceDao(
         { id: calc.id },
         {
           net_balance: amountDiff - commission,
+          ...data,
         },
         conn,
       );
