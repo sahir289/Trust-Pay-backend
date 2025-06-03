@@ -296,11 +296,6 @@ export const checkPayInStatus = async (req, res) => {
     res,
   );
   return sendNewSuccess(res, data, 'PayIn status fetched successfully');
-  // return res.status(200).json({
-  //   message: 'PayIn status fetched successfully',
-  //   statusCode: 200,
-  //   data,
-  // });
 };
 
 export const payInIntentGenerateOrder = async (req, res) => {

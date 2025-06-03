@@ -325,7 +325,7 @@ const createUserDao = async (payload,conn) => {
 
   } catch (error) {
     logger.error(`Error creating user: ${payload.user_name}`, error);
-    throw error.message;
+    throw error;
   }
 };
 
