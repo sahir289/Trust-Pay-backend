@@ -96,6 +96,7 @@ export const VALIDATE_PROCESS_PAYIN = Joi.object({
         '"userSubmittedUtr" must contain only letters and numbers (no spaces)',
       'string.empty': '"userSubmittedUtr" is required',
     }),
+  user_submitted_image: Joi.string(),
   amount: Joi.number().label('amount').min(1).required(),
   code: Joi.string().label('code').optional(),
 });

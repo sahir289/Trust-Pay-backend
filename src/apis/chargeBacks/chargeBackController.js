@@ -18,7 +18,7 @@ import { getPayinDetailsByMerchantOrderId } from '../payIn/payInDao.js';
 import { NotFoundError } from '../../utils/appErrors.js';
 import { getChargeBackDao } from './chargeBackDao.js';
 import { BadRequestError } from '../../utils/appErrors.js';
-import { getBankResponseDao } from '../bankResponse/bankResponseDao.js';
+import { getBankResponseDaoById } from '../bankResponse/bankResponseDao.js';
 
 import { Status } from '../../constants/index.js';
 const createChargeBack = async (req, res) => {
@@ -56,16 +56,30 @@ const createChargeBack = async (req, res) => {
     );
   }
   if (
-    PayinDetails[0].status === Status.FAILED && !PayinDetails[0].user_submitted_utr
+    PayinDetails[0].status === Status.FAILED && !PayinDetails[0].bank_response_id
   ) {
     throw new NotFoundError(`No Utr Found for this Payin`);
   }
-  if (PayinDetails[0].status == Status.BANK_MISMATCH) {
-    let bankResponse;
-    if (PayinDetails[0].user_submitted_utr) {
-      bankResponse = await getBankResponseDao({
-        utr: PayinDetails[0].user_submitted_utr,
-        company_id,
+  let bankResponse;
+  if (PayinDetails[0].bank_response_id) {
+     bankResponse = await getBankResponseDaoById({
+      id: PayinDetails[0].bank_response_id,
+      company_id: req.user.company_id,
+    });
+    if (bankResponse) {
+      PayinDetails[0].vendor_user_id = bankResponse.user_id;
+      PayinDetails[0].bank_acc_id = bankResponse.bank_id;
+      PayinDetails[0].user_submitted_utr = bankResponse.utr;
+    }
+  }
+  if (
+    PayinDetails[0].status == Status.BANK_MISMATCH ||
+    PayinDetails[0].status == Status.FAILED
+  ) {
+    if (PayinDetails[0].bank_response_id) {
+      bankResponse = await getBankResponseDaoById({
+        id: PayinDetails[0].bank_response_id,
+        company_id: req.user.company_id,
       });
     }
     if (bankResponse?.bank_id) {
@@ -146,9 +160,7 @@ const getChargeBacks = async (req, res) => {
   return sendSuccess(res, data, 'ChargeBacks fetched successfully');
 };
 const blockChargebackUser = async (req, res) => {
-  const { error: paramsError } = VALIDATE_DELETE_CHARGEBACK.validate(
-    req.params,
-  );
+  const { error: paramsError } = VALIDATE_DELETE_CHARGEBACK.validate(req.params);
   if (paramsError) {
     throw new ValidationError(paramsError);
   }

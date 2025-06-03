@@ -9,7 +9,7 @@ const getPayInMerchantReportDao = async (
   merchant_id,
   startDate,
   endDate,
-  company_id, role
+  company_id, role,status
 ) => {
   try {
 
@@ -71,10 +71,15 @@ const getPayInMerchantReportDao = async (
       parameters.push(merchant_id);
       paramIndex++;
     }
-
+    if (status) {
+      status = [status]
+      query += ` AND u.Status = ANY($${paramIndex})`;
+      parameters.push(status);
+      paramIndex++;
+    }
 
     if (startDate && endDate) {
-      query += ` AND u.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      query += ` AND u.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       parameters.push(startDate, endDate);
     }
 
@@ -83,12 +88,12 @@ const getPayInMerchantReportDao = async (
     return result.rows;
   } catch (error) {
     console.error("Error in getPayInMerchantReportDao:", error);
-    throw new Error(error.message);
+    throw error;
   }
 };
 
 
-const getPayInVendorReportDao = async (id, startDate, endDate, company_id) => {
+const getPayInVendorReportDao = async (id, startDate, endDate, company_id,role,status) => {
   try {
 
     const commissionSelect = `
@@ -135,9 +140,18 @@ const getPayInVendorReportDao = async (id, startDate, endDate, company_id) => {
       parameters.push(id);
       paramIndex++;
     }
-
+    if (status) {
+      if (Array.isArray(status)) {
+        query += ` AND pi.status = ANY($${paramIndex})`;
+        parameters.push(status);
+      } else {
+        query += ` AND pi.status = $${paramIndex}`;
+        parameters.push(status);
+      }
+      paramIndex++;
+    } 
     if (startDate && endDate) {
-      query += ` AND pi.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      query += ` AND pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       parameters.push(startDate, endDate);
     }
 
@@ -147,7 +161,7 @@ const getPayInVendorReportDao = async (id, startDate, endDate, company_id) => {
     return result.rows;
   } catch (error) {
     console.error('Error in getPayInVendorReportDao:', error);
-    throw new Error(`Failed to fetch pay-in vendor report: ${error.message}`, { cause: error });
+    throw error;
   }
 };
 
@@ -207,7 +221,7 @@ const getPayOutMerchantReportDao = async (
     }
 
     if (startDate && endDate) {
-      query += ` AND po.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      query += ` AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       parameters.push(startDate, endDate);
     }
 
@@ -217,7 +231,7 @@ const getPayOutMerchantReportDao = async (
     return result.rows;
   } catch (error) {
     console.error('Error in getPayOutMerchantReportDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -294,7 +308,7 @@ const getPayOutVendorReportDao = async (id, startDate, endDate, company_id, role
       paramIndex++;
     }
     if (startDate && endDate) {
-      query += ` AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      query += ` AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       parameters.push(startDate, endDate);
     }
 
@@ -304,7 +318,7 @@ const getPayOutVendorReportDao = async (id, startDate, endDate, company_id, role
     return result.rows;
   } catch (error) {
     console.error('Error in getPayOutVendorReportDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -329,7 +343,7 @@ const getPayinReportDao = async (
     return result.rows;
   } catch (error) {
     console.error('Error in getPayOutVendorReportDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -350,7 +364,7 @@ const getPayOutAll = async (filters, page, pageSize, sortBy, sortOrder) => {
     return result.rows;
   } catch (error) {
     console.error('Error in getPayOutVendorReportDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -381,6 +395,7 @@ const getMerchantReportDao = async (company_id, userIds, startDate, endDate, pag
           c.total_reverse_payout_count, 
           c.total_reverse_payout_amount,
           c.total_reverse_payout_commission, 
+          (c.total_adjustment_amount + c.total_adjustment_commission) AS adjustment_amount_combined, 
           m.code, 
           m.user_id AS merchant_user_id
         FROM public."Calculation" c
@@ -400,7 +415,7 @@ const getMerchantReportDao = async (company_id, userIds, startDate, endDate, pag
     parameters.push(startDate, endDate);
     paramIndex += 2;    
     query += `
-        ORDER BY c.id, m.code ASC, c.created_at DESC
+        ORDER BY c.id DESC, m.code ASC, c.created_at ASC
       ) 
       SELECT * FROM filtered_merchants ORDER BY code NULLS LAST`;    
     if (page && limit) {
@@ -413,7 +428,7 @@ const getMerchantReportDao = async (company_id, userIds, startDate, endDate, pag
     return result.rows;
   } catch (error) {
     console.error("Error in getMerchantReportDao:", error.message);
-    throw new Error(error.message);
+    throw error;
   }
 };
 
@@ -452,6 +467,7 @@ WITH filtered_vendors AS (
     c.total_reverse_payout_count,
     c.total_reverse_payout_amount,
     c.total_reverse_payout_commission,
+    (c.total_adjustment_amount + c.total_adjustment_commission) AS adjustment_amount_combined, 
     v.code,
     v.user_id AS vendor_user_id
   FROM public."Calculation" c
@@ -477,7 +493,7 @@ WITH filtered_vendors AS (
     ORDER BY c.id, v.code ASC
 )
 SELECT * FROM filtered_vendors
-ORDER BY code ASC NULLS LAST`;
+ORDER BY created_at ASC`;
 
     if (page && limit) {
       const offset = (page - 1) * limit;
@@ -489,7 +505,7 @@ ORDER BY code ASC NULLS LAST`;
     return result.rows;
   } catch (error) {
     console.error("Error in getVendorReportDao:", error);
-    throw error.message || error;
+    throw error;
   }
 };
 
