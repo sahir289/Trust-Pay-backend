@@ -74,7 +74,7 @@ const getPayInMerchantReportDao = async (
 
 
     if (startDate && endDate) {
-      query += ` AND u.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      query += ` AND u.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       parameters.push(startDate, endDate);
     }
 
@@ -137,7 +137,7 @@ const getPayInVendorReportDao = async (id, startDate, endDate, company_id) => {
     }
 
     if (startDate && endDate) {
-      query += ` AND pi.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      query += ` AND pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       parameters.push(startDate, endDate);
     }
 
@@ -207,7 +207,7 @@ const getPayOutMerchantReportDao = async (
     }
 
     if (startDate && endDate) {
-      query += ` AND po.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      query += ` AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       parameters.push(startDate, endDate);
     }
 
