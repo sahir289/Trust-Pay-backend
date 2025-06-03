@@ -6,6 +6,8 @@ import {
   executeQuery,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
+import dayjs from 'dayjs';
+const IST = 'Asia/Kolkata';
 
 export const createPayoutDao = async (conn, data) => {
   try {
@@ -31,6 +33,7 @@ export const getPayoutsDao = async (
   company_id,
   page,
   limit,
+  sortOrder='DESC',
   role,
   conn,
 ) => {
@@ -50,10 +53,15 @@ export const getPayoutsDao = async (
     let limitcondition = '';
 
     if (filters?.startDate && filters?.endDate) {
+      let start;
+      let end;
+      start = dayjs.tz(`${filters?.startDate} 00:00:00`, IST).utc().format(); // UTC ISO string
+      end = dayjs.tz(`${filters?.endDate} 23:59:59.999`, IST).utc().format();
+
       conditions.push(
-        `u.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+        `u.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
       );
-      queryParams.push(filters.startDate, filters.endDate);
+      queryParams.push(start, end);
       paramIndex += 2;
     }
 
@@ -129,7 +137,7 @@ export const getPayoutsDao = async (
         ve.user_id AS vendor_user_id,
         u.updated_at, 
         json_build_object(
-          'merchant_code', r.code,
+          'merchant_code', COALESCE(r.config->>'sub_code', r.code),
           'return_url', r.config->>'return_url',
           'notify_url', r.config->>'notify_url',
           'public_key', r.config->'keys'->>'public',
@@ -183,7 +191,7 @@ export const getPayoutsDao = async (
         SELECT COUNT(*) AS total FROM filtered_payOuts
       )
       SELECT * FROM filtered_payOuts, total_count
-      ORDER BY sno DESC
+      ORDER BY sno ${sortOrder}
       ${limitcondition}
     `;
 
@@ -276,7 +284,7 @@ export const getPayoutsBySearchDao = async (
         v.user_id AS vendor_user_id,
         p.updated_at, 
         json_build_object(
-          'merchant_code', m.code,
+          'merchant_code', COALESCE(m.config->>'sub_code', m.code),
           'return_url', m.config->>'return_url',
           'notify_url', m.config->>'notify_url',
           'public_key', m.config->'keys'->>'public',

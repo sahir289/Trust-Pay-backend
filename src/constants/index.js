@@ -140,7 +140,7 @@ export const columns = {
     'updated_by',
     'created_at',
     'updated_at',
-    'company_id',
+    // 'company_id',
   ],
   CALCULATION: [
     'id',
@@ -573,6 +573,7 @@ export const tableName = {
   ACCESS_TOKEN: 'AccessToken',
   USER_OTP: 'UserOtp',
   BENEFICIARY_ACCOUNTS: 'BeneficiaryAccounts',
+  NOTIFICATIONS: 'Notifications',
 };
 
 export const BankTypes = {

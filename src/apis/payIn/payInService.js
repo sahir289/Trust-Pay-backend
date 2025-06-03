@@ -46,6 +46,7 @@ import {
 import {
   getMerchantsByCodeDao,
   getMerchantsDao,
+  getMerchantByUserIdDao,
   updateMerchantBalanceDao,
 } from '../merchants/merchantDao.js';
 import {
@@ -77,6 +78,7 @@ import {
   sendSuccessMessageTelegramBot,
   sendTelegramMessage,
   sendUTRMismatchErrorMessageTelegram,
+  sendTelegramDisputeMessage,
 } from '../../utils/sendTelegramMessages.js';
 
 import { getConnection } from '../../utils/db.js';
@@ -94,7 +96,6 @@ Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
 
 export const generatePayInUrlByHashService = async (req, res) => {
   const { user_id, code, ot, key, amount } = req.query;
-
   if (!user_id || !code || !ot) {
     //-- correct error handling
     return res.status(400).json({
@@ -107,7 +108,7 @@ export const generatePayInUrlByHashService = async (req, res) => {
       },
     });
   }
-  const x_api_key = req.headers['x-api-key'];
+  // const x_api_key = req.headers['x-api-key'];
   const merchantArr = await getMerchantsByCodeDao(code);
   const bankAssigned = await getMerchantBankDao({
     config_merchants_contains: merchantArr[0].id,
@@ -173,7 +174,7 @@ export const generatePayInUrlByHashService = async (req, res) => {
   }
 
   // Create a deterministic hash
-  const hash = createHash(`${code}:${x_api_key}`);
+  const hash = createHash(`${code}:${key}`);
 
   // Encode the hash to make it URL-safe
   const encodedHash = encodeURIComponent(hash);
@@ -259,7 +260,7 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
       return res.status(400).json({
         error: {
           status: 404,
-          message: 'Enter valid Api key 2',
+          message: 'Enter valid Api key',
           additionalInfo: {},
           level: 'info',
           timestamp: new Date().toISOString(),
@@ -969,7 +970,7 @@ export const getPayinsService = async (
   let conn;
   try {
     const fetchMerchantIds = async (user_ids) => {
-      const merchants = await getMerchantsDao({ user_id: user_ids });
+      const merchants = await getMerchantByUserIdDao( user_ids);
       return merchants.map((merchant) => merchant.id);
     };
 
@@ -1063,7 +1064,7 @@ export const getPayinsBySearchService = async (
 ) => {
   try {
     const fetchMerchantIds = async (user_ids) => {
-      const merchants = await getMerchantsDao({ user_id: user_ids });
+      const merchants = await getMerchantByUserIdDao( user_ids);
       return merchants.map((merchant) => merchant.id);
     };
 
@@ -1213,7 +1214,7 @@ export const processPayInService = async (
     is_url_expires: true,
     one_time_used: true,
     duration,
-    user_submitted_image: user_submitted_image || null,
+    user_submitted_image: user_submitted_image ,
     is_notified: true,
     updated_by: updated_by || '',
   };
@@ -1885,32 +1886,13 @@ export const disputeDuplicateTransactionService = async (
     });
   }
 
-  // if (updateBalance) {
-
-  //   //   await updateBanktBalanceDao({ id: bankId }, toAmount, updated_by, conn);
-  // await updateBankaccountService(
-  //   conn,
-  //   { id: bank.id, company_id: payIn.company_id },
-  //   {},
-  // );
-  //   await updateCalculationTable(
-  //     bank.user_id,
-  //     {
-  //       payinCommission: vendorPayinCommission,
-  //       amount: toAmount,
-  //     },
-  //     conn,
-  //   );
-  // }
-
-  // const entryType = oldPayInData.status === 'DUPLICATE' ? 'Duplicate Entry' : 'Dispute Entry';
-  // await sendTelegramDisputeMessage(
-  //     config?.telegramDuplicateDisputeChatId,
-  //     oldPayInData,
-  //     duplicateDisputeTransactionRes,
-  //     config?.telegramBotToken,
-  //     entryType,
-  //   );
+  await sendTelegramDisputeMessage(
+    config?.telegramDuplicateDisputeChatId,
+    payIn,
+    response,
+    bank.nick_name,
+    config?.telegramBotToken,
+  );
   return response;
 };
 
@@ -2395,6 +2377,9 @@ const updateCalculationBalances = async (
     total_payin_amount: amountDiff,
     current_balance: amountDiff - commission,
     net_balance: amountDiff - commission,
+    total_adjustment_amount: amountDiff,
+    total_adjustment_commission: amountDiff > 0 ? commission : -commission,
+    total_adjustment_count: 1,
   };
 
   // Update current calculation

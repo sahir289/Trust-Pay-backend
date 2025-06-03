@@ -5,7 +5,10 @@ import {
 } from '../../utils/db.js';
 import { tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
-import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
+// import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
+import dayjs from 'dayjs';
+
+const IST = 'Asia/Kolkata';
 
 const getSettlementDao = async (
   filters,
@@ -13,38 +16,52 @@ const getSettlementDao = async (
   pageSize,
   sortBy,
   sortOrder,
-  columns = []
+  columns = [],
 ) => {
   try {
-    const { SETTLEMENT, USER, ROLE, BENEFICIARY_ACCOUNTS } = tableName;
+    const { SETTLEMENT, USER, ROLE, BENEFICIARY_ACCOUNTS, MERCHANT, VENDOR } =
+      tableName;
 
     const conditions = [`s.is_obsolete = false`];
     const queryParams = [];
     const limitcondition = { value: '' };
     //fields added for getting data on codes and dates
-    const handledKeys = new Set(['search', 'sortBy', 'sortOrder', 'role', 'vendor_codes', 'merchant_codes', 'start_date', 'end_date', 'user_id']);
+    const handledKeys = new Set([
+      'search',
+      'sortBy',
+      'sortOrder',
+      'role',
+      'vendor_codes',
+      'merchant_codes',
+      'start_date',
+      'end_date',
+      'user_id',
+    ]);
     const isUUID = (value) => {
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       return typeof value === 'string' && uuidRegex.test(value);
     };
 
     const conditionBuilders = {
-      search: (filters, SETTLEMENT) => {
-        if (!filters.search || typeof filters.search !== 'string') return;
-        try {
-          filters.or = buildSearchFilterObj(filters.search, SETTLEMENT);
-          delete filters.search;
-        } catch (error) {
-          logger.warn(`Invalid search filter: ${filters.search}`, error);
-          delete filters.search;
-        }
-      },
+      // search: (filters, SETTLEMENT) => {
+      //   if (!filters.search || typeof filters.search !== 'string') return;
+      //   try {
+      //     filters.or = buildSearchFilterObj(filters.search, SETTLEMENT);
+      //     delete filters.search;
+      //   } catch (error) {
+      //     logger.warn(`Invalid search filter: ${filters.search}`, error);
+      //     delete filters.search;
+      //   }
+      // },
       //login wise fetching settlement
       user_id: (filters, conditions, queryParams) => {
         if (!filters.user_id) return;
         const nextParamIdx = queryParams.length + 1;
         if (Array.isArray(filters.user_id)) {
-          const placeholders = filters.user_id.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+          const placeholders = filters.user_id
+            .map((_, idx) => `$${nextParamIdx + idx}`)
+            .join(', ');
           conditions.push(`s.user_id IN (${placeholders})`);
           queryParams.push(...filters.user_id);
         } else {
@@ -64,9 +81,15 @@ const getSettlementDao = async (
       vendor_codes: (filters, conditions, queryParams) => {
         if (!filters.vendor_codes) return;
         const nextParamIdx = queryParams.length + 1;
-        const isMultiValue = typeof filters.vendor_codes === 'string' && filters.vendor_codes.includes(',');
-        const valueArray = isMultiValue ? filters.vendor_codes.split(',').map(v => v.trim()) : [filters.vendor_codes];
-        const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+        const isMultiValue =
+          typeof filters.vendor_codes === 'string' &&
+          filters.vendor_codes.includes(',');
+        const valueArray = isMultiValue
+          ? filters.vendor_codes.split(',').map((v) => v.trim())
+          : [filters.vendor_codes];
+        const placeholders = valueArray
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
         const column = valueArray.every(isUUID) ? 'u.id' : 'u.code';
         conditions.push(`${column} IN (${placeholders})`);
         queryParams.push(...valueArray);
@@ -75,9 +98,15 @@ const getSettlementDao = async (
       merchant_codes: (filters, conditions, queryParams) => {
         if (!filters.merchant_codes) return;
         const nextParamIdx = queryParams.length + 1;
-        const isMultiValue = typeof filters.merchant_codes === 'string' && filters.merchant_codes.includes(',');
-        const valueArray = isMultiValue ? filters.merchant_codes.split(',').map(v => v.trim()) : [filters.merchant_codes];
-        const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+        const isMultiValue =
+          typeof filters.merchant_codes === 'string' &&
+          filters.merchant_codes.includes(',');
+        const valueArray = isMultiValue
+          ? filters.merchant_codes.split(',').map((v) => v.trim())
+          : [filters.merchant_codes];
+        const placeholders = valueArray
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
         const column = valueArray.every(isUUID) ? 'u.id' : 'u.code';
         conditions.push(`${column} IN (${placeholders})`);
         queryParams.push(...valueArray);
@@ -86,24 +115,30 @@ const getSettlementDao = async (
       date_range: (filters, conditions, queryParams) => {
         const { start_date, end_date } = filters;
         if (start_date && end_date) {
+          let start;
+          let end;
+          start = dayjs.tz(`${start_date} 00:00:00`, IST).utc().format(); // UTC ISO string
+          end = dayjs.tz(`${end_date} 23:59:59.999`, IST).utc().format();
           const nextParamIdx = queryParams.length + 1;
-          conditions.push(`s.created_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`);
-          queryParams.push(start_date, end_date);
+          conditions.push(
+            `s.created_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
+          );
+          queryParams.push(start, end);
           delete filters.start_date;
           delete filters.end_date;
         }
-      },      
+      },
       pagination: (page, pageSize, queryParams, limitconditionRef) => {
         if (!page || !pageSize) return;
         const nextParamIdx = queryParams.length + 1;
         limitconditionRef.value = `LIMIT $${nextParamIdx} OFFSET $${nextParamIdx + 1}`;
         queryParams.push(pageSize, (page - 1) * pageSize);
-      }
+      },
     };
 
-    conditionBuilders.search(filters, SETTLEMENT);
+    // conditionBuilders.search(filters, SETTLEMENT);
     conditionBuilders.role(filters, conditions, queryParams);
-    conditionBuilders.user_id(filters, conditions, queryParams); 
+    conditionBuilders.user_id(filters, conditions, queryParams);
     conditionBuilders.vendor_codes(filters, conditions, queryParams);
     conditionBuilders.merchant_codes(filters, conditions, queryParams);
     conditionBuilders.date_range(filters, conditions, queryParams);
@@ -114,50 +149,79 @@ const getSettlementDao = async (
       const nextParamIdx = queryParams.length + 1;
 
       if (Array.isArray(value)) {
-        const placeholders = value.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+        const placeholders = value
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
         conditions.push(`s.${key} IN (${placeholders})`);
         queryParams.push(...value);
       } else {
         const isMultiValue = typeof value === 'string' && value.includes(',');
-        const valueArray = isMultiValue ? value.split(',').map(v => v.trim()) : [value];
-        const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
-        conditions.push(isMultiValue ? `s.${key} IN (${placeholders})` : `s.${key} = $${nextParamIdx}`);
+        const valueArray = isMultiValue
+          ? value.split(',').map((v) => v.trim())
+          : [value];
+        const placeholders = valueArray
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        conditions.push(
+          isMultiValue
+            ? `s.${key} IN (${placeholders})`
+            : `s.${key} = $${nextParamIdx}`,
+        );
         queryParams.push(...valueArray);
       }
     });
-
-    const columnSelection = columns.length > 0 
-      ? columns.map(col => `s.${col}`).join(', ')
-      : `s.*`;
-//fetching bank name 
-const baseQuery = `
-SELECT DISTINCT ON (s.sno)
-        ${columnSelection},
-        u.role_id,
-        u.designation_id,
-        r.role,
-        u.id AS user_table_id,
-        u.code,
-       CASE
+    const columnSelection =
+      columns.length > 0 ? columns.map((col) => `s.${col}`).join(', ') : `s.*`;
+    //fetching bank name
+    const baseQuery = `
+    SELECT DISTINCT ON (s.sno)
+      ${columnSelection},
+      CASE
+        WHEN r.role = 'MERCHANT' THEN 
+          COALESCE(m.config->>'sub_code', m.code)
+        WHEN r.role = 'VENDOR' THEN 
+          v.code
+        WHEN r.role = 'ADMIN' THEN 
+          COALESCE(m.config->>'sub_code', m.code)
+        ELSE NULL
+      END AS code,
+      CASE
         WHEN s.config->>'bank_id' IS NOT NULL THEN
-            jsonb_set(
-                s.config::jsonb,
-                '{beneficiary_bank_name}',
-                to_jsonb(COALESCE(ba.bank_name, s.config->>'bank_name'))
-            )       
+          (
+            SELECT jsonb_build_object(
+              'beneficiary_bank_name', COALESCE(ba.bank_name, s.config->>'bank_name', ''),
+              'acc_holder_name', COALESCE(ba.acc_holder_name, ''),
+              'acc_no', COALESCE(ba.acc_no, ''),
+              'ifsc', COALESCE(ba.ifsc, '')
+              ${Object.keys(filters).length > 0 ? ', ' + Object.keys(filters)
+                .filter(key => !['beneficiary_bank_name', 'acc_holder_name', 'acc_no', 'ifsc'].includes(key))
+                .map(key => `'${key}', COALESCE(s.config->>'${key}', '')`)
+                .join(', ') : ''}
+            ) || (
+              SELECT jsonb_object_agg(key, value)
+              FROM jsonb_each(s.config::jsonb)
+              WHERE key NOT IN ('beneficiary_bank_name', 'acc_holder_name', 'acc_no', 'ifsc'${Object.keys(filters).length > 0 ? ', ' + Object.keys(filters).map(key => `'${key}'`).join(', ') : ''})
+            )
+          )
         ELSE
-            s.config::jsonb
-        END AS config
-         FROM public."${SETTLEMENT}" s
-      JOIN public."${USER}" u ON s.user_id = u.id
-      LEFT JOIN public."${ROLE}" r ON u.role_id = r.id
-      LEFT JOIN public."${BENEFICIARY_ACCOUNTS}" ba ON s.config->>'bank_id' = ba.id
-      WHERE ${conditions.join(' AND ')}
-`;
-
-    const sortClause = sortBy && sortOrder 
-      ? `ORDER BY s.${sortBy} ${sortOrder.toUpperCase()}`
-      : 'ORDER BY s.sno DESC';
+          s.config::jsonb
+      END AS config,
+      COALESCE(u.user_name, s.created_by::text) AS created_by,
+      COALESCE(u.user_name, s.updated_by::text) AS updated_by
+    FROM public."${SETTLEMENT}" s
+    JOIN public."${USER}" u ON s.user_id = u.id
+    LEFT JOIN public."${ROLE}" r ON u.role_id = r.id
+    LEFT JOIN public."${BENEFICIARY_ACCOUNTS}" ba ON s.config->>'bank_id' = ba.id
+    LEFT JOIN public."${MERCHANT}" m ON u.id = m.user_id AND r.role IN ('MERCHANT', 'ADMIN')
+    LEFT JOIN public."${VENDOR}" v ON u.id = v.user_id AND r.role = 'VENDOR'
+    LEFT JOIN public."${USER}" uc ON s.created_by = uc.id
+    LEFT JOIN public."${USER}" uu ON s.updated_by = uu.id
+    WHERE ${conditions.join(' AND ')}
+    `;
+    const sortClause =
+      sortBy && sortOrder
+        ? `ORDER BY s.${sortBy} ${sortOrder.toUpperCase()}`
+        : 'ORDER BY s.sno DESC';
 
     const finalQuery = `
       ${baseQuery}
@@ -165,52 +229,73 @@ SELECT DISTINCT ON (s.sno)
       ${limitcondition.value}
     `;
 
-    // console.log('Final Query:', finalQuery); // Debug query
-    // console.log('Query Params:', queryParams); // Debug params
-
     const result = await executeQuery(finalQuery, queryParams);
     return result.rows;
-
   } catch (error) {
     logger.error('Error in getSettlementDao:', error);
     throw error.message;
   }
 };
+
 const getSettlementsBySearchDao = async (
   filters,
   searchTerms,
   limitNum,
   offset,
+  columns,
+  role,
 ) => {
   try {
-    const { USER, SETTLEMENT, ROLE } = tableName;
+    const { SETTLEMENT, USER, ROLE, MERCHANT, VENDOR, BENEFICIARY_ACCOUNTS } =
+      tableName;
     const conditions = [];
-    const values = [filters.company_id];
-    let paramIndex = 2;
+    const values = [filters.company_id, role];
+    let paramIndex = 3;
 
     let queryText = `
-      SELECT 
-        s.id,
-        s.user_id,
-        s.sno,
-        s.company_id,
-        s.amount,
-        s.status,
-        s.config,
-        s.method,
-        s.created_at,
-        s.updated_at,
-        u.role_id,
-        u.designation_id,
-        u.id AS user_table_id,
-        u.code,
-        u.first_name || ' ' || u.last_name AS full_name,
-        r.role AS role_name
+    SELECT 
+    ${columns.map((col) => `s.${col}`).join(', ')},
+   CASE
+  WHEN $2 = 'MERCHANT' THEN COALESCE(m.config->>'sub_code', m.code)
+  WHEN $2 = 'VENDOR' THEN v.code
+  WHEN $2 = 'ADMIN' THEN 
+    CASE 
+      WHEN r.role = 'VENDOR' THEN v.code
+      ELSE COALESCE(m.config->>'sub_code', m.code)
+    END
+  ELSE NULL
+END AS code,
+    CASE
+        WHEN s.config->>'bank_id' IS NOT NULL THEN
+          (
+            SELECT jsonb_build_object(
+              'beneficiary_bank_name', COALESCE(ba.bank_name, s.config->>'bank_name', ''),
+              'acc_holder_name', COALESCE(ba.acc_holder_name, ''),
+              'acc_no', COALESCE(ba.acc_no, ''),
+              'ifsc', COALESCE(ba.ifsc, '')
+              ${Object.keys(filters).length > 0 ? ', ' + Object.keys(filters)
+                .filter(key => !['beneficiary_bank_name', 'acc_holder_name', 'acc_no', 'ifsc'].includes(key))
+                .map(key => `'${key}', COALESCE(s.config->>'${key}', '')`)
+                .join(', ') : ''}
+            ) || (
+              SELECT jsonb_object_agg(key, value)
+              FROM jsonb_each(s.config::jsonb)
+              WHERE key NOT IN ('beneficiary_bank_name', 'acc_holder_name', 'acc_no', 'ifsc'${Object.keys(filters).length > 0 ? ', ' + Object.keys(filters).map(key => `'${key}'`).join(', ') : ''})
+            )
+          )
+        ELSE
+          s.config::jsonb
+      END AS config,
+     COALESCE(u.user_name, s.created_by::text) AS created_by,
+  COALESCE(u.user_name, s.updated_by::text) AS updated_by
       FROM "${SETTLEMENT}" s
       JOIN "${USER}" u ON s.user_id = u.id
       LEFT JOIN "${ROLE}" r ON u.role_id = r.id
+      LEFT JOIN public."${BENEFICIARY_ACCOUNTS}" ba ON s.config->>'bank_id' = ba.id
+      LEFT JOIN public."${MERCHANT}" m ON u.id = m.user_id AND r.role IN ('MERCHANT', 'ADMIN')
+      LEFT JOIN public."${VENDOR}" v ON u.id = v.user_id AND r.role = 'VENDOR'
       WHERE s.is_obsolete = false 
-        AND s.company_id = $1
+      AND s.company_id = $1
     `;
 
     // Handle additional filters
@@ -226,7 +311,11 @@ const getSettlementsBySearchDao = async (
       paramIndex++;
     }
 
-    if (filters && Array.isArray(filters.user_id) && filters.user_id.length > 0) {
+    if (
+      filters &&
+      Array.isArray(filters.user_id) &&
+      filters.user_id.length > 0
+    ) {
       const placeholders = filters.user_id
         .map((_, idx) => `$${paramIndex + idx}`)
         .join(', ');
@@ -238,10 +327,15 @@ const getSettlementsBySearchDao = async (
     if (filters.user_codes) {
       const codeArray = Array.isArray(filters.user_codes)
         ? filters.user_codes
-        : filters.user_codes.split(',').map(c => c.trim()).filter(Boolean);
+        : filters.user_codes
+            .split(',')
+            .map((c) => c.trim())
+            .filter(Boolean);
 
       if (codeArray.length > 0) {
-        const placeholders = codeArray.map((_, idx) => `$${paramIndex + idx}`).join(', ');
+        const placeholders = codeArray
+          .map((_, idx) => `$${paramIndex + idx}`)
+          .join(', ');
         queryText += ` AND u.code IN (${placeholders})`;
         values.push(...codeArray);
         paramIndex += codeArray.length;
@@ -292,7 +386,7 @@ const getSettlementsBySearchDao = async (
     values.push(limitNum, offset);
 
     // Optional: log for debugging
-
+    console.log(countQuery, queryText);
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
 
@@ -306,7 +400,7 @@ const getSettlementsBySearchDao = async (
     };
   } catch (error) {
     logger.error('Error in getSettlementsBySearchDao:', error.message);
-    throw error.message;
+    throw error;
   }
 };
 

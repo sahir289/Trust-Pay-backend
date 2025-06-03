@@ -22,6 +22,7 @@ import {
 } from './payOutDao.js';
 import {
   getMerchantsDao,
+  getMerchantByUserIdDao,
   updateMerchantDao,
 } from '../merchants/merchantDao.js';
 import { getVendorsDao, updateVendorDao } from '../vendors/vendorDao.js';
@@ -172,6 +173,7 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
         payload.company_id,
         null,
         null,
+        'DESC',
         role,
         conn,
       );
@@ -248,6 +250,7 @@ const getPayoutsService = async (
   company_id,
   page,
   limit,
+  sortOrder,
   filters,
   role,
   user_id,
@@ -256,7 +259,7 @@ const getPayoutsService = async (
   let conn;
   try {
     const fetchMerchantIds = async (user_ids) => {
-      const merchants = await getMerchantsDao({ user_id: user_ids });
+      const merchants = await getMerchantByUserIdDao(user_ids);
       return merchants.map((merchant) => merchant.id);
     };
 
@@ -315,6 +318,7 @@ const getPayoutsService = async (
       company_id,
       page,
       limit,
+      sortOrder,
       role,
       conn,
     );
@@ -338,7 +342,7 @@ const getPayoutsBySearchService = async (
 ) => {
   try {
     const fetchMerchantIds = async (user_ids) => {
-      const merchants = await getMerchantsDao({ user_id: user_ids });
+      const merchants = await getMerchantByUserIdDao( user_ids);
       return merchants.map((merchant) => merchant.id);
     };
 
@@ -456,6 +460,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       null,
       null,
       null,
+      'DESC',
       null,
       conn,
     );
@@ -562,6 +567,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       await updateBankaccountDao(
         { id: bankData.id },
         {
+          payin_count: Number(bankData.payin_count) + 1,
           today_balance: Number(bankData.today_balance) - Number(data.amount),
           balance: Number(bankData.balance) - Number(data.amount),
         },

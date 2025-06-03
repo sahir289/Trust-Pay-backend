@@ -57,6 +57,7 @@ import {
 import { createHash, compareHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
+import { sendBankNotAssignedAlertTelegram } from '../../utils/sendTelegramMessages.js';
 
 //  To Generate Url
 export const generateHashForPayIn = async (req, res) => {
@@ -108,7 +109,11 @@ export const generatePayInUrl = async (req, res) => {
     config_merchants_contains: merchantArr[0].id,
   });
   if (bankAssigned.length <= 0) {
-    // throw new InternalServerError('No Bank Assigned to Merchant');
+    await sendBankNotAssignedAlertTelegram(
+      config?.telegramBankAlertChatId,
+      code,
+      config?.telegramBotToken,
+    );
     return res.status(400).json({
       error: {
         status: 404,
@@ -149,6 +154,11 @@ export const generatePayInUrl = async (req, res) => {
   });
 
   if (allPaymentOptionsDisabled) {
+    await sendBankNotAssignedAlertTelegram(
+      config?.telegramBankAlertChatId,
+      code,
+      config?.telegramBotToken,
+    );
     return res.status(400).json({
       error: {
         status: 404,
@@ -168,7 +178,7 @@ export const generatePayInUrl = async (req, res) => {
   // Compare the provided hash with the generated hash
   if (
     decodedHashCode &&
-    !compareHash(`${code}:${merchant.config.keys.private}`, decodedHashCode)
+    !compareHash(`${code}:${merchant.config.keys.public}`, decodedHashCode)
   ) {
     // throw new BadRequestError('Hash code does not match');
     return res.status(400).json({
@@ -286,11 +296,6 @@ export const checkPayInStatus = async (req, res) => {
     res,
   );
   return sendNewSuccess(res, data, 'PayIn status fetched successfully');
-  // return res.status(200).json({
-  //   message: 'PayIn status fetched successfully',
-  //   statusCode: 200,
-  //   data,
-  // });
 };
 
 export const payInIntentGenerateOrder = async (req, res) => {

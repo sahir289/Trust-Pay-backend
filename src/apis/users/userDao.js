@@ -3,6 +3,23 @@ import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { buildSelectQuery, buildUpdateQuery, executeQuery,buildJoinQuery ,buildInsertQuery} from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 
+export const getUsersContactDao = async (company_id, contact_no) => {
+  try {
+    const sql = `
+      SELECT id
+      FROM "${tableName.USER}" 
+      WHERE is_obsolete = FALSE
+        AND company_id = $1
+        AND contact_no = $2
+    `;
+    const result = await executeQuery(sql, [company_id, contact_no]);
+    return result.rows.length > 0;
+  } catch (error) {
+    logger.error('Error executing user contact query:', error);
+    throw error.message;
+  }
+};
+
 const getUsersDao = async (
   filters,
   page,
@@ -308,7 +325,7 @@ const createUserDao = async (payload,conn) => {
 
   } catch (error) {
     logger.error(`Error creating user: ${payload.user_name}`, error);
-    throw error.message;
+    throw error;
   }
 };
 

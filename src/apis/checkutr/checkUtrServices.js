@@ -8,9 +8,9 @@ import {
   updateCheckUtrDao,
 } from './checkUtrDao.js';
 
-const getCheckUtrService = async (id, page, limit) => {
+const getCheckUtrService = async (id, page, limit, sortOrder) => {
   try {
-    const result = await getCheckUtrDao(id, page, limit, 'sno', 'DESC', null);
+    const result = await getCheckUtrDao(id, page, limit, 'sno', sortOrder, null);
     return result;
   } catch (error) {
     logger.error('error getting while check utr', error);

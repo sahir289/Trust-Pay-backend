@@ -53,6 +53,24 @@ export const getPayInUrlDao = async (filters) => {
   }
 };
 
+export const getPayInDaoByCode = async (filters) => {
+  try {
+    const sql = `
+    SELECT r.code, p.config, p.merchant_id, p.user
+    FROM "${tableName.PAYIN}" p
+    LEFT JOIN public."Merchant" r ON p.merchant_id = r.id
+    WHERE p.id = $1
+      AND p.company_id = $2
+  `;
+  const params = [filters.id, filters.company_id];  
+    const result = await executeQuery(sql, params);
+    return result.rows;    
+  } catch (error) {
+    console.error('Error getting PayIn URL:', error);
+    throw error.message;
+  }
+};
+
 export const getPayInsDao = async (filters, company_id, page, limit, role) => {
   try {
     const { PAYIN } = tableName;
@@ -138,6 +156,21 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
           .join(', ');
         conditions.push(`p.${key} IN (${placeholders})`);
         queryParams.push(...value);
+      }
+      else if (key === 'user_ids') {
+        const isMultiValue = typeof value === 'string' && value.includes(',');
+        const valueArray = isMultiValue
+          ? value.split(',').map((v) => v.trim())
+          : [value];
+        const placeholders = valueArray
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        conditions.push(
+          isMultiValue
+            ? `b.user_id IN (${placeholders})`
+            : `b.user_id = $${nextParamIdx}`,
+        );
+        queryParams.push(...valueArray);
       } else {
         const isMultiValue = typeof value === 'string' && value.includes(',');
         const valueArray = isMultiValue
@@ -177,7 +210,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
       commissionSelect = `
         p.payin_merchant_commission,
         json_build_object(
-          'merchant_code', r.code,
+          'merchant_code', COALESCE(r.config->>'sub_code', r.code),
           'dispute', r.dispute_enabled,
           'return_url', r.config->>'return_url',
           'notify_url', r.config->>'notify_url'
@@ -208,6 +241,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
           p.user,
           p.user_submitted_image,
           p.duration,
+          p.is_url_expires,
           p.config AS payin_details,
           b.nick_name,
           u.user_name AS created_by,  
@@ -240,7 +274,6 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
       );
     }
-
     const result = await executeQuery(baseQuery, queryParams);
     return {
       payins: result.rows,
@@ -311,7 +344,7 @@ export const getPayinsBySearchDao = async (
       commissionSelect = `
         p.payin_merchant_commission,
         json_build_object(
-          'merchant_code', m.code,
+          'merchant_code', COALESCE(m.config->>'sub_code', m.code),
           'dispute', m.dispute_enabled,
           'return_url', m.config->>'return_url',
           'notify_url', m.config->>'notify_url'
@@ -522,7 +555,9 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
       ba.user_id AS vendor_user_id,
       m.user_id AS merchant_user_id,
       p.created_at,
-      p.status
+      p.status,
+      p.user_submitted_utr,
+      p.bank_response_id
     FROM public."Payin" p
     LEFT JOIN public."BankAccount" ba ON p.bank_acc_id = ba.id
     JOIN public."Merchant" m ON p.merchant_id = m.id
@@ -533,7 +568,7 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
 
   try {
     conn = await getConnection();
-    console.log(conn);
+    // console.log(conn);
     const result = await conn.query(baseQuery, [merchantOrderId]);
 
     return result.rows;
