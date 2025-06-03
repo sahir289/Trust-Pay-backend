@@ -33,12 +33,12 @@ const loginService = async (config, clientIP) => {
   try {
     let user = await getUsersByUserNameDao({}, config.username);
     if (!user) {
-      throw new NotFoundError(
-        'Invalid Credentials. Please check your credentials and try again.',
-      );
+      throw new NotFoundError('User Not Found.');
     }
     if (!user.is_enabled) {
-      throw new AccessDeniedError('User is not active');
+      throw new AccessDeniedError(
+        'User not active. Please contact Support Team',
+      );
     }
 
     let isLoginSecondFlag = false;
@@ -46,9 +46,7 @@ const loginService = async (config, clientIP) => {
     if (config.newPassword) {
       const isPasswordValid = await verifyHash(config.password, user.password);
       if (!isPasswordValid) {
-        throw new NotFoundError(
-          'Invalid current password. Please check your credentials and try again.',
-        );
+        throw new NotFoundError('Invalid current password. Please try again.');
       }
       const hashedPassword = await createHash(config.newPassword);
       conn = await getConnection();
@@ -65,9 +63,7 @@ const loginService = async (config, clientIP) => {
       // Verify password for regular login
       const isPasswordValid = await verifyHash(config.password, user.password);
       if (!isPasswordValid) {
-        throw new NotFoundError(
-          'Invalid Credentials. Please check your credentials and try again.',
-        );
+        throw new NotFoundError('Invalid Credentials. Please try again.');
       }
     }
 
@@ -124,7 +120,8 @@ const loginService = async (config, clientIP) => {
       sessionId,
     };
   } catch (error) {
-    throw new BadRequestError('Error getting while logging in', error);
+    logger.error('Error in login service:', error);
+    throw error;
   } finally {
     if (conn) {
       try {
