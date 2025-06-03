@@ -493,6 +493,7 @@ const getClaimResponseService = async (payload) => {
     let filters = Object.fromEntries(
       Object.entries({
         date: payload.date || undefined,
+        bank_id: payload.bank_id || undefined,
         company_id: payload.company_id || undefined,
       }).filter(([, v]) => v !== undefined),
     );
@@ -550,13 +551,14 @@ const getBankResponseService = async (
       ...(search ? { search } : {}),
       ...filters,
     };
+    sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
     return await getBankResponseDaoAll(
       filters,
       page,
       limit,
       filterColumns,
       updated,
-      sortBy || 'sno',
+      sortBy,
       sortOrder || 'DESC',
       payload.startDate || undefined,
       payload.endDate || undefined,
