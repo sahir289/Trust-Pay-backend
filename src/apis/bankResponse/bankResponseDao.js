@@ -54,6 +54,27 @@ const getBankResponseDao = async (
   }
 };
 
+export const getBankResponseDaoById = async (filters) => {
+  try {
+   const base=` SELECT 
+    br.id,
+    br.bank_id,
+    br.utr,
+    ba.user_id
+  FROM "${tableName.BANK_RESPONSE}" br
+  LEFT JOIN "${tableName.BANK_ACCOUNT}" ba ON ba.id = br.bank_id
+  WHERE br.id = $1 AND ba.company_id = $2`
+
+    const result = await executeQuery(base, [filters.id,filters.company_id]);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error in getBankResponseDaoById:', error);
+    throw error;
+  }
+};
+
+
+
 const getBankResponseBySearchDao = async (
   company_id,
   searchTerm,
