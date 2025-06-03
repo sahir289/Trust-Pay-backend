@@ -298,7 +298,7 @@ const getClientsAccountReportService = async (req) => {
         startDate,
         endDate,
         page,
-        limit,
+        limit
       );
     }
 
