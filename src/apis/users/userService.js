@@ -353,7 +353,11 @@ const createUserService = async (conn, payload, role) => {
             created_by: payload.created_by,
             updated_by: payload.updated_by,
             company_id: payload.company_id,
-            config: { parent: payload.parent_id },
+            config: { 
+              parent: payload?.parent_id
+                ? payload?.parent_id
+                : payload.created_by,
+            }, 
           },
           conn,
         );
