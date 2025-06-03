@@ -141,7 +141,7 @@ const getClientsAccountReportService = async (req) => {
       startDate,
       endDate,
       page,
-      limit,
+      limit
     );
     let childData = [];
     if (subMerchants.length > 0) {
@@ -151,7 +151,7 @@ const getClientsAccountReportService = async (req) => {
         startDate,
         endDate,
         page,
-        limit,
+        limit
       );
     }
 
@@ -249,10 +249,12 @@ const getClientsAccountReportService = async (req) => {
           userHierarchy,
         });
       }
-
       result = Object.values(parentMap)
         .map(({ ...rest }) => rest)
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        .sort((a, b) => {
+             new Date(a.created_at) - new Date(b.created_at) 
+        });        
+
     } else {
       result = [];
       logger.warn('parentData is not an array:', parentData);
@@ -264,10 +266,9 @@ const getClientsAccountReportService = async (req) => {
       startDate,
       endDate,
       page,
-      limit,
+      limit
     );
   }
-
   return result;
 };
 

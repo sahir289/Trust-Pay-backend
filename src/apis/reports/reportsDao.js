@@ -74,7 +74,7 @@ const getPayInMerchantReportDao = async (
 
 
     if (startDate && endDate) {
-      query += ` AND u.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      query += ` AND u.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       parameters.push(startDate, endDate);
     }
 
@@ -137,7 +137,7 @@ const getPayInVendorReportDao = async (id, startDate, endDate, company_id) => {
     }
 
     if (startDate && endDate) {
-      query += ` AND pi.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      query += ` AND pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       parameters.push(startDate, endDate);
     }
 
@@ -207,7 +207,7 @@ const getPayOutMerchantReportDao = async (
     }
 
     if (startDate && endDate) {
-      query += ` AND po.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      query += ` AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       parameters.push(startDate, endDate);
     }
 
@@ -294,7 +294,7 @@ const getPayOutVendorReportDao = async (id, startDate, endDate, company_id, role
       paramIndex++;
     }
     if (startDate && endDate) {
-      query += ` AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      query += ` AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       parameters.push(startDate, endDate);
     }
 
@@ -381,6 +381,7 @@ const getMerchantReportDao = async (company_id, userIds, startDate, endDate, pag
           c.total_reverse_payout_count, 
           c.total_reverse_payout_amount,
           c.total_reverse_payout_commission, 
+          (c.total_adjustment_amount + c.total_adjustment_commission) AS adjustment_amount_combined, 
           m.code, 
           m.user_id AS merchant_user_id
         FROM public."Calculation" c
@@ -400,7 +401,7 @@ const getMerchantReportDao = async (company_id, userIds, startDate, endDate, pag
     parameters.push(startDate, endDate);
     paramIndex += 2;    
     query += `
-        ORDER BY c.id, m.code ASC, c.created_at DESC
+        ORDER BY c.id, c.created_at ASC
       ) 
       SELECT * FROM filtered_merchants ORDER BY code NULLS LAST`;    
     if (page && limit) {
@@ -452,6 +453,7 @@ WITH filtered_vendors AS (
     c.total_reverse_payout_count,
     c.total_reverse_payout_amount,
     c.total_reverse_payout_commission,
+    (c.total_adjustment_amount + c.total_adjustment_commission) AS adjustment_amount_combined, 
     v.code,
     v.user_id AS vendor_user_id
   FROM public."Calculation" c
@@ -477,7 +479,7 @@ WITH filtered_vendors AS (
     ORDER BY c.id, v.code ASC
 )
 SELECT * FROM filtered_vendors
-ORDER BY code ASC NULLS LAST`;
+ORDER BY created_at ASC`;
 
     if (page && limit) {
       const offset = (page - 1) * limit;
