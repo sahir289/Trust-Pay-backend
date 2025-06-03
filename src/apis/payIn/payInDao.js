@@ -538,7 +538,8 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
       m.user_id AS merchant_user_id,
       p.created_at,
       p.status,
-      p.user_submitted_utr
+      p.user_submitted_utr,
+      p.bank_response_id
     FROM public."Payin" p
     LEFT JOIN public."BankAccount" ba ON p.bank_acc_id = ba.id
     JOIN public."Merchant" m ON p.merchant_id = m.id
@@ -549,7 +550,7 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
 
   try {
     conn = await getConnection();
-    console.log(conn);
+    // console.log(conn);
     const result = await conn.query(baseQuery, [merchantOrderId]);
 
     return result.rows;
