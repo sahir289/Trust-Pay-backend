@@ -202,6 +202,9 @@ export const getCalculationsSumDao = async (filters) => {
           CAST(SUM(c.total_reverse_payout_count) AS INTEGER) AS total_reverse_payout_count,
           CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_amount,
           CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
+          CAST(SUM(c.total_adjustment_count) AS INTEGER) AS total_adjustment_count,
+          CAST(ROUND(SUM(c.total_adjustment_amount)::NUMERIC, 2) AS FLOAT) AS total_adjustment_amount,
+          CAST(ROUND(SUM(c.total_adjustment_commission)::NUMERIC, 2) AS FLOAT) AS total_adjustment_commission,
           CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
           CAST(ROUND(SUM(c.net_balance)::NUMERIC, 2) AS FLOAT) AS net_balance
       FROM "${tableName.CALCULATION}" c
@@ -438,6 +441,9 @@ export const getCalculationsSumDao = async (filters) => {
         CAST(SUM(c.total_reverse_payout_count) AS INTEGER) AS total_reverse_payout_count,
         CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_amount,
         CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
+        CAST(SUM(c.total_adjustment_count) AS INTEGER) AS total_adjustment_count,
+        CAST(ROUND(SUM(c.total_adjustment_amount)::NUMERIC, 2) AS FLOAT) AS total_adjustment_amount,
+        CAST(ROUND(SUM(c.total_adjustment_commission)::NUMERIC, 2) AS FLOAT) AS total_adjustment_commission,
         CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
         CAST(ROUND(SUM(c.net_balance)::NUMERIC, 2) AS FLOAT) AS net_balance
       FROM "${tableName.CALCULATION}" c
@@ -465,6 +471,9 @@ export const getCalculationsSumDao = async (filters) => {
         CAST(SUM(c.total_reverse_payout_count) AS INTEGER) AS total_reverse_payout_count,
         CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_amount,
         CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
+        CAST(SUM(c.total_adjustment_count) AS INTEGER) AS total_adjustment_count,
+        CAST(ROUND(SUM(c.total_adjustment_amount)::NUMERIC, 2) AS FLOAT) AS total_adjustment_amount,
+        CAST(ROUND(SUM(c.total_adjustment_commission)::NUMERIC, 2) AS FLOAT) AS total_adjustment_commission,
         CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
         CAST(ROUND(SUM(c.net_balance)::NUMERIC, 2) AS FLOAT) AS net_balance
       FROM "${tableName.CALCULATION}" c
