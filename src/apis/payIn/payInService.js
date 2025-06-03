@@ -2377,6 +2377,9 @@ const updateCalculationBalances = async (
     total_payin_amount: amountDiff,
     current_balance: amountDiff - commission,
     net_balance: amountDiff - commission,
+    total_adjustment_amount: amountDiff,
+    total_adjustment_commission: amountDiff > 0 ? commission : -commission,
+    total_adjustment_count: 1,
   };
 
   // Update current calculation

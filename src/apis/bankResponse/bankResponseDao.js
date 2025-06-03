@@ -54,6 +54,27 @@ const getBankResponseDao = async (
   }
 };
 
+export const getBankResponseDaoById = async (filters) => {
+  try {
+   const base=` SELECT 
+    br.id,
+    br.bank_id,
+    br.utr,
+    ba.user_id
+  FROM "${tableName.BANK_RESPONSE}" br
+  LEFT JOIN "${tableName.BANK_ACCOUNT}" ba ON ba.id = br.bank_id
+  WHERE br.id = $1 AND ba.company_id = $2`
+
+    const result = await executeQuery(base, [filters.id,filters.company_id]);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error in getBankResponseDaoById:', error);
+    throw error;
+  }
+};
+
+
+
 const getBankResponseBySearchDao = async (
   company_id,
   searchTerm,
@@ -159,7 +180,15 @@ const getClaimResponseDao = async (filters) => {
     // Convert input date to IST and handle both date formats
     const selectedDate = filters.date ? 
       dayjs.tz(filters.date, IST) : 
-      dayjs().tz(IST);
+      dayjs().tz(IST)
+
+    // Add bank_id condition only if it exists in filters
+    const bankIdCondition = filters.bank_id ? `AND bank_id = $3` : '';
+    const params = [selectedDate, filters.company_id];
+    // Add bank_id to params if it exists
+    if (filters.bank_id) {
+      params.push(filters.bank_id);
+    }
 
     const baseQuery = `
       WITH claimed_data AS (
@@ -171,6 +200,7 @@ const getClaimResponseDao = async (filters) => {
         AND status = '/success'
         AND created_at >= $1
         AND company_id = $2
+        ${bankIdCondition}
         AND is_obsolete = false
       ),
       unclaimed_24h AS (
@@ -182,6 +212,7 @@ const getClaimResponseDao = async (filters) => {
         AND status = '/success'
         AND created_at >= $1
         AND company_id = $2
+        ${bankIdCondition}
         AND is_obsolete = false
       ),
       total_unclaimed AS (
@@ -192,6 +223,7 @@ const getClaimResponseDao = async (filters) => {
         WHERE is_used = false 
         AND status = '/success'
         AND company_id = $2
+        ${bankIdCondition}
         AND is_obsolete = false
       )
       SELECT 
@@ -204,7 +236,7 @@ const getClaimResponseDao = async (filters) => {
       FROM claimed_data, unclaimed_24h, total_unclaimed
     `;
 
-    const result = await executeQuery(baseQuery, [selectedDate, filters.company_id]);
+    const result = await executeQuery(baseQuery, params);
     
     return {
       claimed24h: {

@@ -32,7 +32,6 @@ import {
 } from '../userHierarchy/userHierarchyDao.js';
 import { getMerchantByUserIdDao } from '../merchants/merchantDao.js';
 
-
 const getUsersService = async (
   ids,
   role,
@@ -264,7 +263,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
           ? vendorColumns.USER
           : columns.USER;
     conn = await getConnection();
-    const data = await getUsersByUserNameDao(ids, username,conn);
+    const data = await getUsersByUserNameDao(ids, username, conn);
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -281,189 +280,192 @@ const getUsersByUserNameService = async (username, ids, role) => {
   }
 };
 
-
 const createUserService = async (conn, payload, role) => {
-  try{
-  const { user_name } = payload;
-  let company_id = payload.company_id;
-  const user = await getUsersByUserNameDao(company_id, user_name);
-  if (user?.user_name || user?.email || user?.contact_no) {
-    throw new InternalServerError('User already exists');
-  }
-  const Password = generatePassword(user_name);
-  const hashPassword = await createHash(Password);
-  payload.password = hashPassword;
-  const userPayload = {
-    role_id: payload.role_id,
-    designation_id: payload.designation_id,
-    first_name: payload.first_name,
-    last_name: payload.last_name,
-    email: payload.email,
-    contact_no: payload.contact_no,
-    user_name: payload.user_name,
-    password: payload.password,
-    is_enabled: payload.is_enabled,
-    company_id: payload.company_id,
-    created_by: payload.created_by,
-    updated_by: payload.updated_by,
-    config:{"isLoginFirst":true}
-  };
-  const payin_notify = payload.payin_notify;
-  const payout_notify = payload.payout_notify;
-  const Return = payload.return;
-  const site = payload.site;
-  delete payload.payin_notify;
-  delete payload.payout_notify;
-  delete payload.return;
-  delete payload.site;
-  const User = await createUserDao(userPayload, conn);
+  try {
+    const { user_name } = payload;
+    let company_id = payload.company_id;
+    const user = await getUsersByUserNameDao(company_id, user_name);
+    if (user?.user_name || user?.email || user?.contact_no) {
+      throw new InternalServerError('User already exists');
+    }
+    const Password = generatePassword(user_name);
+    const hashPassword = await createHash(Password);
+    payload.password = hashPassword;
+    const userPayload = {
+      role_id: payload.role_id,
+      designation_id: payload.designation_id,
+      first_name: payload.first_name,
+      last_name: payload.last_name,
+      email: payload.email,
+      contact_no: payload.contact_no,
+      user_name: payload.user_name,
+      password: payload.password,
+      is_enabled: payload.is_enabled,
+      company_id: payload.company_id,
+      created_by: payload.created_by,
+      updated_by: payload.updated_by,
+      config: { isLoginFirst: true },
+    };
+    const payin_notify = payload.payin_notify;
+    const payout_notify = payload.payout_notify;
+    const Return = payload.return;
+    const site = payload.site;
+    delete payload.payin_notify;
+    delete payload.payout_notify;
+    delete payload.return;
+    delete payload.site;
+    const User = await createUserDao(userPayload, conn);
 
-  const designation = await getDesignationDao({id: payload.designation_id});
+    const designation = await getDesignationDao({ id: payload.designation_id });
 
-  const userRole = await getRoleDao({ id: payload.role_id });
-  const userDesignation = await getDesignationDao({
-    id: payload.designation_id,
-  });
-  ///for operations
-
-  if (
-    userDesignation[0]?.designation == Role.MERCHANT_OPERATIONS ||
-    userDesignation[0]?.designation == Role.VENDOR_OPERATIONS
-  ) {
-    const hierarchy = await getUserHierarchysDao({
-      user_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
+    const userRole = await getRoleDao({ id: payload.role_id });
+    const userDesignation = await getDesignationDao({
+      id: payload.designation_id,
     });
-    const hierarchyConfig = hierarchy[0]?.config;
-    const currentChildren = hierarchy[0]?.config?.child?.operations || [];
-    await updateUserHierarchyDao(
-      { id: hierarchy[0]?.id },
-      {
-        config: {
-          ...hierarchyConfig,
-          child: { operations: [...currentChildren, User.id] },
-        },
-      },
-      conn,
-    );
+    ///for operations
+
     if (
-      userDesignation[0].designation == Role.VENDOR_OPERATIONS ||
-      userDesignation[0].designation == Role.MERCHANT_OPERATIONS
+      userDesignation[0]?.designation == Role.MERCHANT_OPERATIONS ||
+      userDesignation[0]?.designation == Role.VENDOR_OPERATIONS
     ) {
-      await createUserHierarchyDao(
+      const hierarchy = await getUserHierarchysDao({
+        user_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
+      });
+      const hierarchyConfig = hierarchy[0]?.config;
+      const currentChildren = hierarchy[0]?.config?.child?.operations || [];
+      await updateUserHierarchyDao(
+        { id: hierarchy[0]?.id },
         {
-          user_id: User.id,
-          created_by: payload.created_by,
-          updated_by: payload.updated_by,
-          company_id: payload.company_id,
-          config: { parent: payload.parent_id },
+          config: {
+            ...hierarchyConfig,
+            child: { operations: [...currentChildren, User.id] },
+          },
         },
         conn,
       );
+      if (
+        userDesignation[0].designation == Role.VENDOR_OPERATIONS ||
+        userDesignation[0].designation == Role.MERCHANT_OPERATIONS
+      ) {
+        await createUserHierarchyDao(
+          {
+            user_id: User.id,
+            created_by: payload.created_by,
+            updated_by: payload.updated_by,
+            company_id: payload.company_id,
+            config: { parent: payload.parent_id },
+          },
+          conn,
+        );
+      }
     }
-  }
 
-  let merchant = {};
-  ///for merchant sub-merchant
-  if (
-    userDesignation[0]?.designation === Role.MERCHANT ||
-    userDesignation[0]?.designation === Role.SUB_MERCHANT
-  ) {
-    let userCode;
-    let sub_code;
-    if(userDesignation[0]?.designation === Role.SUB_MERCHANT) {
-      const user_id = payload?.parent_id
-        ? payload?.parent_id
-        : payload.created_by;
-       userCode = await getMerchantByUserIdDao(user_id);
-       sub_code = `${userCode[0].code}(${payload.code})`;
+    let merchant = {};
+    ///for merchant sub-merchant
+    if (
+      userDesignation[0]?.designation === Role.MERCHANT ||
+      userDesignation[0]?.designation === Role.SUB_MERCHANT
+    ) {
+      let userCode;
+      let sub_code;
+      if (userDesignation[0]?.designation === Role.SUB_MERCHANT) {
+        const user_id = payload?.parent_id
+          ? payload?.parent_id
+          : payload.created_by;
+        userCode = await getMerchantByUserIdDao(user_id);
+        sub_code = `${userCode[0].code}(${payload.code})`;
+      }
+      const Private = generateUUID();
+      const Public = generateUUID();
+      const merchantPayload = {
+        user_id: User.id,
+        role_id: payload.role_id,
+        role: userRole[0].role,
+        designation: userDesignation[0].designation,
+        company_id: payload.company_id,
+        first_name: payload.first_name,
+        last_name: payload.last_name,
+        code: payload.code,
+        balance: Number(0),
+        min_payin: Number(payload.min_payin),
+        max_payin: Number(payload.max_payin),
+        payin_commission: Number(payload.payin_commission),
+        min_payout: Number(payload.min_payout),
+        max_payout: Number(payload.max_payout),
+        payout_commission: Number(payload.payout_commission),
+        parent_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
+        created_by: payload.created_by,
+        updated_by: payload.updated_by,
+        config: {
+          urls: {
+            payin_notify: payin_notify,
+            payout_notify: payout_notify,
+            return: Return,
+            site: site,
+          },
+          keys: {
+            private: Private,
+            public: Public,
+          },
+          allow_intent: false,
+          allow_payout: false,
+          ...(sub_code && { sub_code }),
+        },
+      };
+      merchant = await createMerchantService(conn, merchantPayload);
     }
-    const Private = generateUUID();
-    const Public = generateUUID();
-    const merchantPayload = {
-      user_id: User.id,
-      role_id: payload.role_id,
-      role: userRole[0].role,
-      designation: userDesignation[0].designation,
-      company_id: payload.company_id,
-      first_name: payload.first_name,
-      last_name: payload.last_name,
-      code: payload.code,
-      balance: Number(0),
-      min_payin: Number(payload.min_payin),
-      max_payin: Number(payload.max_payin),
-      payin_commission: Number(payload.payin_commission),
-      min_payout: Number(payload.min_payout),
-      max_payout: Number(payload.max_payout),
-      payout_commission: Number(payload.payout_commission),
-      parent_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
-      created_by: payload.created_by,
-      updated_by: payload.updated_by,
-      config: {
-        urls: {
-          payin_notify: payin_notify,
-          payout_notify: payout_notify,
-          return: Return,
-          site: site,
-        },
-        keys: {
-          private: Private,
-          public: Public,
-        },
-        allow_intent: false,
-        allow_payout: false,
-        ...(sub_code && { sub_code })
-      },
-    };
-   merchant =  await createMerchantService(conn, merchantPayload);
-  }
-  ///for vendor
-  if (userDesignation[0]?.designation === Role.VENDOR) {
-    const vendorPayload = {
-      user_id: User.id,
-      role_id: payload.role_id,
-      company_id: payload.company_id,
-      first_name: payload.first_name,
-      last_name: payload.last_name,
-      code: payload.code,
-      balance: Number(0),
-      payin_commission: Number(payload.payin_commission),
-      payout_commission: Number(payload.payout_commission),
-      created_by: payload.created_by,
-      updated_by: payload.updated_by,
-    };
-    await createVendorService(conn, vendorPayload, role);
-  }
+    ///for vendor
+    if (userDesignation[0]?.designation === Role.VENDOR) {
+      const vendorPayload = {
+        user_id: User.id,
+        role_id: payload.role_id,
+        company_id: payload.company_id,
+        first_name: payload.first_name,
+        last_name: payload.last_name,
+        code: payload.code,
+        balance: Number(0),
+        payin_commission: Number(payload.payin_commission),
+        payout_commission: Number(payload.payout_commission),
+        created_by: payload.created_by,
+        updated_by: payload.updated_by,
+      };
+      await createVendorService(conn, vendorPayload, role);
+    }
 
-  if (User) {
-    sendCredentialsEmail({
-      email: User.email,
-      username: User.user_name,
-      password: Password,
-      code: merchant?.config ? User.code : '',
-      secretKey: merchant?.config ? merchant.config.keys.private : '',
-      publicKey: merchant?.config ? merchant.config.keys.public : '',
-      designation: designation[0]?.designation,
-    });
-  }
+    if (User) {
+      try {
+        const data = await sendCredentialsEmail({
+          email: User.email,
+          username: User.user_name,
+          password: Password,
+          code: merchant?.config ? User.code : '',
+          secretKey: merchant?.config ? merchant.config.keys.private : '',
+          publicKey: merchant?.config ? merchant.config.keys.public : '',
+          designation: designation[0]?.designation,
+        });
+        console.log(data, 'sending email');
 
-  logger.log('User Created Successfully');
-  // const finalResult = filterResponse(User, filterColumns);
-  return User;
+        if (!data) {
+          throw new InternalServerError('Failed to send email');
+        }
+      } catch (error) {
+        throw new InternalServerError(error);
+      }
+    }
+
+    logger.log('User Created Successfully');
+    // const finalResult = filterResponse(User, filterColumns);
+    return User;
   } catch (error) {
     logger.error('Error in createUserService:', error);
-     if (
-       error instanceof InternalServerError
-     ) {
-       throw error;
-     }
-    throw new InternalServerError(error);
+
+    throw error;
   }
 };
 
-const userUpdateService = async (conn,ids, payload) => {
+const userUpdateService = async (conn, ids, payload) => {
   try {
-   
-    const User = await updateUserDao(ids, payload,conn);
+    const User = await updateUserDao(ids, payload, conn);
     logger.log('User Updated Successfully');
     return User;
   } catch (error) {
@@ -474,8 +476,8 @@ const userUpdateService = async (conn,ids, payload) => {
 
 const sendMailService = async (payload) => {
   try {
-    const {user_id} = payload;
-    const user = await getUsersDao({id: user_id});
+    const { user_id } = payload;
+    const user = await getUsersDao({ id: user_id });
     const role = await getRoleDao({ id: user[0].role_id });
     const designation = await getDesignationDao({ id: user[0].designation_id });
     let merchant;

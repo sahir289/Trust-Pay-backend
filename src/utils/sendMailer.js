@@ -1,18 +1,21 @@
-import nodemailer from 'nodemailer';
-import path from 'path';
+// import nodemailer from 'nodemailer';
+// import path from 'path';
 import { logger } from '../utils/logger.js';
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 
-const pngLogoPath = path.resolve('./src/assets/images/TrustPays24.png');
+// const pngLogoPath = path.resolve('./src/assets/images/TrustPays24.png');
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+const sesClient = new SESClient({
+  region: process.env.SMTP_REGION,
+  credentials: {
+    accessKeyId: process.env.SMTP_ACCESSS_KEY_ID,
+    secretAccessKey: process.env.SMTP_SECRET_ACCESS_KEY,
   },
 });
+
+// const transporter = nodemailer.createTransport({
+//   SES: { ses, aws: { SESClient } },
+// });
 
 const Role = {
   MERCHANT: 'MERCHANT',
@@ -58,7 +61,7 @@ export const sendCredentialsEmail = async ({
       <div style="background-color: #f1f5f9; padding: 16px; border-radius: 6px; margin-top: 16px;">
         <p style="margin: 8px 0; color: #2d3748;"><strong>Login URL:</strong> <a href="${redirectingUrl}" style="color: #3182ce;">${redirectingUrl}</a></p>
         <p style="margin: 8px 0; color: #2d3748;"><strong>Username:</strong> ${username}</p>
-        ${ password ? `<p style="margin: 8px 0; color: #2d3748;"><strong>Password:</strong> ${password}</p>` : ''}
+        ${password ? `<p style="margin: 8px 0; color: #2d3748;"><strong>Password:</strong> ${password}</p>` : ''}
       </div>
       ${
         designation && [Role.MERCHANT, Role.SUB_MERCHANT].includes(designation)
@@ -79,23 +82,48 @@ export const sendCredentialsEmail = async ({
   </div>
   `;
 
-  const mailOptions = {
-    from: `"TrustPay Admin" <${process.env.SMTP_USER}>`,
-    to: email,
-    subject,
-    text,
-    html,
-    attachments: [
-      {
-        filename: 'TrustPays24_Logo.png',
-        path: pngLogoPath,
-        cid: 'trustpays-logo',
+  // const mailOptions = {
+  //   from: `"TrustPay Admin" <${process.env.SES_FROM_EMAIL}>`,
+  //   to: email,
+  //   subject,
+  //   text,
+  //   html,
+  //   attachments: [
+  //     {
+  //       filename: 'TrustPays24_Logo.png',
+  //       path: pngLogoPath,
+  //       cid: 'trustpays-logo',
+  //     },
+  //   ],
+  // };
+
+  const params = {
+    Source: process.env.SES_FROM_EMAIL,
+    Destination: {
+      ToAddresses: [email], 
+    },
+    Message: {
+      Subject: {
+        Data: subject,
+        Charset: 'UTF-8',
       },
-    ],
+      Body: {
+        Html: {
+          Data: html,
+          Charset: 'UTF-8',
+        },
+        
+        Text: {
+          Data: text,
+          Charset: 'UTF-8',
+        },
+      },
+    },
   };
 
   try {
-    const info = await transporter.sendMail(mailOptions);
+    const sendEmail = new SendEmailCommand(params);
+    const info = await sesClient.send(sendEmail);
     const Data = {
       messageId: info.messageId,
       username,
@@ -103,13 +131,13 @@ export const sendCredentialsEmail = async ({
       code,
       secretKey,
       publicKey,
-    }
-    const status = 200
-    logger.info('Credentials email sent:', {status, data: Data});
+    };
+    const status = 200;
+    logger.info('Credentials email sent:', { status, data: Data });
     return info;
   } catch (error) {
     logger.error('Failed to send credentials email:', error);
-    throw new Error('Failed to send credentials email. Please try again later.');
+    throw error;
   }
 };
 
@@ -152,27 +180,53 @@ export const sendOTP = async (email, otp, user_name, designation) => {
   </div>
   `;
 
-  const mailOptions = {
-    from: `"TrustPay Admin" <${process.env.SMTP_USER}>`,
-    to: email,
-    subject,
-    text,
-    html,
-    attachments: [
-      {
-        filename: 'TrustPays24_Logo.png',
-        path: pngLogoPath,
-        cid: 'trustpays-logo',
+  // const mailOptions = {
+  //   from: `"TrustPay Admin" <${process.env.SMTP_USER}>`,
+  //   to: email,
+  //   subject,
+  //   text,
+  //   html,
+  //   attachments: [
+  //     {
+  //       filename: 'TrustPays24_Logo.png',
+  //       path: pngLogoPath,
+  //       cid: 'trustpays-logo',
+  //     },
+  //   ],
+  // };
+
+  const params = {
+    Source: process.env.SES_FROM_EMAIL,
+    Destination: {
+      ToAddresses: [email], 
+    },
+    Message: {
+      Subject: {
+        Data: subject,
+        Charset: 'UTF-8',
       },
-    ],
+      Body: {
+        Html: {
+          Data: html,
+          Charset: 'UTF-8',
+        },
+        
+        Text: {
+          Data: text,
+          Charset: 'UTF-8',
+        },
+      },
+    },
   };
 
   try {
-    const info = await transporter.sendMail(mailOptions);
+    const sendEmail = new SendEmailCommand(params);
+    const info = await sesClient.send(sendEmail);
+
     logger.info('OTP email sent:', info.messageId);
     return { success: true };
   } catch (error) {
     logger.error('Failed to send OTP email:', error);
-    throw new Error('Failed to send OTP email. Please try again later.');
+    throw new Error('Failed to send OTP. Please try again later.');
   }
 };
