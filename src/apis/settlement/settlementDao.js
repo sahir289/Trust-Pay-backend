@@ -452,7 +452,6 @@ const createSettlementDao = async (payload) => {
 
 const updateSettlementDao = async (conn, id, data) => {
   try {
-    console.log(data, "hey data");
     const [sql, params] = buildUpdateQuery(tableName.SETTLEMENT, data, id);
     let result;
     if (conn && conn.query) {
