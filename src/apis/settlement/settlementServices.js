@@ -69,6 +69,7 @@ const getSettlementService = async (
   sortOrder,
   role,
   user_id,
+  designation,
 ) => {
   try {
     // Validate required parameters
@@ -88,25 +89,44 @@ const getSettlementService = async (
       }
     })();
 
-    if (role == Role.MERCHANT) {
+    if (role == Role.MERCHANT && designation != Role.MERCHANT_OPERATIONS) {
       filters.user_id = [user_id];
     }
-    if (role == Role.VENDOR) {
+    if (role == Role.VENDOR && designation != Role.VENDOR_OPERATIONS) {
       filters.user_id = [user_id];
     }
     if (role === Role.MERCHANT) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
-      if (userHierarchys || userHierarchys.length > 0) {
-        const userHierarchy = userHierarchys[0];
-
-        if (
-          userHierarchy?.config ||
-          Array.isArray(userHierarchy?.config?.siblings?.sub_merchants)
-        ) {
-          filters.user_id = [
-            ...filters.user_id,
-            ...(userHierarchy?.config?.siblings?.sub_merchants ?? []),
-          ];
+      // if (userHierarchys || userHierarchys.length > 0) {
+      //   const userHierarchy = userHierarchys[0];
+      //   if (
+      //     userHierarchy?.config ||
+      //     Array.isArray(userHierarchy?.config?.siblings?.sub_merchants)
+      //   ) {
+      //     filters.user_id = [
+      //       ...filters.user_id,
+      //       ...(userHierarchy?.config?.siblings?.sub_merchants ?? []),
+      //     ];
+      //   }
+      // }
+      if (designation === Role.MERCHANT_OPERATIONS) {
+        const userHierarchys = await getUserHierarchysDao({ user_id });
+        if (userHierarchys || userHierarchys.length > 0) {
+          const userHierarchy = userHierarchys[0];
+          if (userHierarchy?.config?.parent) {
+            filters.user_id = [userHierarchy?.config?.parent ?? null];
+          }
+        }
+      }
+    } else if (role === Role.VENDOR) {
+      if (designation === Role.VENDOR_OPERATIONS) {
+        const userHierarchys = await getUserHierarchysDao({ user_id });
+        if (userHierarchys || userHierarchys.length > 0) {
+          const userHierarchy = userHierarchys[0];
+          if (userHierarchy?.config?.parent) {
+            filters.user_id = [
+              userHierarchy?.config?.parent ?? null
+            ];
+          }
         }
       }
     }
@@ -133,8 +153,6 @@ const getSettlementService = async (
     if (error instanceof BadRequestError) {
       throw error;
     }
-
-    console.log(error);
 
     logger.error('Error in getSettlementService:', {
       error: error,
@@ -199,6 +217,26 @@ const getSettlementsBySearchService = async (
           ];
         }
       }
+      if (designation === Role.MERCHANT_OPERATIONS) {
+        if (userHierarchys || userHierarchys.length > 0) {
+          const userHierarchy = userHierarchys[0];
+          // console.log(userHierarchy?.config?.parent, 'shjdhjhju');
+          if (userHierarchy?.config?.parent) {
+            filters.user_id = [userHierarchy?.config?.parent ?? null];
+          }
+        }
+      }
+    } else if (role === Role.VENDOR) {
+      if (designation === Role.VENDOR_OPERATIONS) {
+        const userHierarchys = await getUserHierarchysDao({ user_id });
+        if (userHierarchys || userHierarchys.length > 0) {
+          const userHierarchy = userHierarchys[0];
+          // console.log(userHierarchy?.config?.parent, 'shjdhjhju');
+          if (userHierarchy?.config?.parent) {
+            filters.user_id = [userHierarchy?.config?.parent ?? null];
+          }
+        }
+      }
     }
 
     const data = await getSettlementsBySearchDao(
@@ -239,7 +277,6 @@ const createSettlementService = async (conn, payload) => {
           getVendorsDao({ user_id: payload.user_id }),
           getCalculationforCronDao(payload.user_id),
         ]);
-
         if (!vendorData?.length) {
           throw new NotFoundError('Vendor not found');
         }
