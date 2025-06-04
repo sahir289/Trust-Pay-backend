@@ -203,8 +203,8 @@ const getSettlementDao = async (
         ELSE
           s.config::jsonb
       END AS config,
-      COALESCE(u.user_name, s.created_by::text) AS created_by,
-      COALESCE(u.user_name, s.updated_by::text) AS updated_by
+      COALESCE(uc.user_name, s.created_by::text) AS created_by,
+      COALESCE(uu.user_name, s.updated_by::text) AS updated_by
     FROM public."${SETTLEMENT}" s
     JOIN public."${USER}" u ON s.user_id = u.id
     LEFT JOIN public."${ROLE}" r ON u.role_id = r.id
