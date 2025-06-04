@@ -194,6 +194,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         p.payin_merchant_commission,
         p.merchant_id,
         p.merchant_order_id,
+        p.config AS payin_details,
         json_build_object(
           'merchant_code', r.code,
           'dispute', r.dispute_enabled,
@@ -216,6 +217,10 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
           'notify_url', r.config->>'notify_url'
         ) AS merchant_details,
         p.payin_vendor_commission,
+        p.config AS payin_details,
+        p.merchant_order_id,
+        u.user_name AS created_by,  
+        uu.user_name AS updated_by,
         p.merchant_id,
         v.code AS vendor_code,
         v.user_id AS vendor_user_id,
@@ -235,17 +240,13 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
           p.upi_short_code,
           p.amount,
           p.status,
-          p.merchant_order_id,
           p.is_notified,
           p.user_submitted_utr,
           p.user,
           p.user_submitted_image,
           p.duration,
           p.is_url_expires,
-          p.config AS payin_details,
-          b.nick_name,
-          u.user_name AS created_by,  
-          uu.user_name AS updated_by,      
+          b.nick_name,      
           ${commissionSelect},
           json_build_object(
             'utr', br.utr,
@@ -330,6 +331,7 @@ export const getPayinsBySearchDao = async (
       commissionSelect = `
         p.payin_merchant_commission,
         p.merchant_order_id,
+        p.config AS payin_details,
         json_build_object(
           'merchant_code', m.code,
           'dispute', m.dispute_enabled,
@@ -349,6 +351,8 @@ export const getPayinsBySearchDao = async (
           'return_url', m.config->>'return_url',
           'notify_url', m.config->>'notify_url'
         ) AS merchant_details,
+        p.merchant_order_id,
+        p.config AS payin_details,
         p.payin_vendor_commission,
         v.code AS vendor_code,
         v.user_id AS vendor_user_id,
@@ -366,13 +370,11 @@ export const getPayinsBySearchDao = async (
         p.upi_short_code,
         p.amount,
         p.status,
-        p.merchant_order_id,
         p.is_notified,
         p.user_submitted_utr,
         p.user,
         p.user_submitted_image,
         p.duration,
-        p.config AS payin_details,
         b.nick_name
         ${commissionSelect ? `,${commissionSelect}` : ''},
         json_build_object(

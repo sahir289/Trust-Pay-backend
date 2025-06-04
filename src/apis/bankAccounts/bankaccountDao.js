@@ -73,10 +73,11 @@ const getBankaccountDao = async (filters, page, limit, role) => {
         ba.payin_count, 
         ba.balance, 
         ba.today_balance, 
-        ba.bank_used_for, 
-        ba.user_id,
-        creator.user_name AS created_by, 
-        updater.user_name AS updated_by`;
+        ba.bank_used_for,
+        ba.config->>'is_freeze' AS freezed,
+        ba.config->>'is_intent' AS intent,
+        ba.config->>'is_phonepay' AS phonepe,
+        ba.config->>'max_limit' AS daily_limit`;
     } else {
       commissionSelect = `
         ba.user_id, 
@@ -89,6 +90,8 @@ const getBankaccountDao = async (filters, page, limit, role) => {
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
+        COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details,
+        ba.config,
         ba.created_at, 
         ba.updated_at`;
     }
@@ -104,12 +107,8 @@ const getBankaccountDao = async (filters, page, limit, role) => {
         ba.is_qr, 
         ba.is_bank, 
         ba.is_enabled, 
-        ba.config,
-        creator.user_name AS created_by,
-        updater.user_name AS updated_by,
         ${commissionSelect ? `${commissionSelect},` : ''}
-        v.code AS Vendor, 
-        COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details
+        v.code AS Vendor 
       FROM 
           public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
@@ -160,6 +159,10 @@ const getBankAccountsBySearchDao = async (
         ba.balance, 
         ba.today_balance, 
         ba.bank_used_for, 
+        ba.config->>'is_freeze' AS freezed,
+        ba.config->>'is_intent' AS intent,
+        ba.config->>'is_phonepay' AS phonepe,
+        ba.config->>'max_limit' AS daily_limit
       `;
     } else {
       commissionSelect = `
@@ -173,6 +176,8 @@ const getBankAccountsBySearchDao = async (
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
+        COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details,
+        ba.config,
         ba.created_at, 
         ba.updated_at,
       `;
@@ -195,11 +200,9 @@ const getBankAccountsBySearchDao = async (
         ba.bank_name, 
         ba.is_qr, 
         ba.is_bank, 
-        ba.is_enabled, 
-        ba.config,  
+        ba.is_enabled,
         ${commissionSelect}
-        v.code AS Vendor, 
-        COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details
+        v.code AS Vendor
       FROM 
         public."BankAccount" ba
       LEFT JOIN public."Vendor" v 

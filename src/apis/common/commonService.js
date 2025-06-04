@@ -250,6 +250,18 @@ export const getTotalCountService = async (
       }
     }
 
+    // Beneficiary table
+    if (tablename === tableName.BENEFICIARY_ACCOUNTS) {
+      userIdFilter = [userInfo.user_id];
+      if (userInfo.userRole === Role.MERCHANT) {
+        userIdFilter.push(
+          ...(hierarchy?.config?.siblings?.sub_merchants ?? []),
+        );
+      }
+      filters.user_id =
+        userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
+    }
+
     // BANK_ACCOUNT table
     if (
       tablename === tableName.BANK_ACCOUNT &&
