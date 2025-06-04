@@ -115,7 +115,7 @@ const getPayOutReportService = async (req) => {
 
 const getClientsAccountReportService = async (req) => {
   try {
-    const { company_id } = req.user;
+    const { company_id, role } = req.user;
     const { code, startDate, endDate, role_name, page, limit } = req.query;
 
     let result;
@@ -159,6 +159,7 @@ const getClientsAccountReportService = async (req) => {
         endDate,
         page,
         limit,
+        role
       );
       let childData = [];
       if (subMerchants.length > 0) {
@@ -169,6 +170,7 @@ const getClientsAccountReportService = async (req) => {
           endDate,
           page,
           limit,
+          role
         );
       }
 
@@ -298,7 +300,8 @@ const getClientsAccountReportService = async (req) => {
         startDate,
         endDate,
         page,
-        limit
+        limit,
+        role,
       );
     }
 

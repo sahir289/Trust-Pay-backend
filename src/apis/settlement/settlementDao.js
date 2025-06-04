@@ -19,9 +19,7 @@ const getSettlementDao = async (
   columns = [],
 ) => {
   try {
-    const { SETTLEMENT, USER, ROLE, BENEFICIARY_ACCOUNTS, MERCHANT, VENDOR } =
-      tableName;
-
+    const { SETTLEMENT, USER, ROLE, BENEFICIARY_ACCOUNTS, MERCHANT, VENDOR } =tableName;
     const conditions = [`s.is_obsolete = false`];
     const queryParams = [];
     const limitcondition = { value: '' };
@@ -44,17 +42,7 @@ const getSettlementDao = async (
     };
 
     const conditionBuilders = {
-      // search: (filters, SETTLEMENT) => {
-      //   if (!filters.search || typeof filters.search !== 'string') return;
-      //   try {
-      //     filters.or = buildSearchFilterObj(filters.search, SETTLEMENT);
-      //     delete filters.search;
-      //   } catch (error) {
-      //     logger.warn(`Invalid search filter: ${filters.search}`, error);
-      //     delete filters.search;
-      //   }
-      // },
-      //login wise fetching settlement
+      
       user_id: (filters, conditions, queryParams) => {
         if (!filters.user_id) return;
         const nextParamIdx = queryParams.length + 1;
@@ -215,8 +203,8 @@ const getSettlementDao = async (
         ELSE
           s.config::jsonb
       END AS config,
-      COALESCE(u.user_name, s.created_by::text) AS created_by,
-      COALESCE(u.user_name, s.updated_by::text) AS updated_by
+      COALESCE(uc.user_name, s.created_by::text) AS created_by,
+      COALESCE(uu.user_name, s.updated_by::text) AS updated_by
     FROM public."${SETTLEMENT}" s
     JOIN public."${USER}" u ON s.user_id = u.id
     LEFT JOIN public."${ROLE}" r ON u.role_id = r.id

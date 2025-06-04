@@ -38,23 +38,18 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role) => {
     let commissionSelect = '';
     if (role === Role.MERCHANT) {
       commissionSelect = `
-        bea.ifsc AS ifsc,
-        bea.user_id,
-        creator.user_name AS created_by, 
-        updater.user_name AS updated_by`;
+        bea.ifsc AS ifsc`;
     } else if (role === Role.VENDOR) {
       commissionSelect = `
-        bea.ifsc AS ifsc,
-        bea.user_id,
-        creator.user_name AS created_by, 
-        updater.user_name AS updated_by`;
+        bea.ifsc AS ifsc`;
     } else {
       commissionSelect = `
         bea.user_id, 
         bea.ifsc, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
-        bea.created_at, 
+        bea.created_at,
+        bea.config,
         bea.updated_at`;
     }
     const baseQuery = `SELECT 
@@ -63,9 +58,6 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role) => {
         bea.acc_holder_name,
         bea.acc_no, 
         bea.bank_name,
-        bea.config,
-        creator.user_name AS created_by,
-        updater.user_name AS updated_by,
         ${commissionSelect ? `${commissionSelect},` : ''}
         v.code AS Vendor,
         m.code AS Merchant
@@ -113,6 +105,7 @@ const getBeneficiaryAccountBySearchDao = async (
       commissionSelect = `
         bea.user_id, 
         bea.ifsc, 
+        bea.config, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
         bea.created_at, 
@@ -131,8 +124,7 @@ const getBeneficiaryAccountBySearchDao = async (
         bea.upi_id,
         bea.acc_holder_name,
         bea.acc_no, 
-        bea.bank_name,
-        bea.config,  
+        bea.bank_name, 
         ${commissionSelect}
         v.code AS Vendor, 
         m.code AS Merchant

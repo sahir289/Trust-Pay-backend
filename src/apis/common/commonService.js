@@ -138,11 +138,24 @@ export const getTotalCountService = async (
 
     // SETTLEMENT table
     if (tablename === tableName.SETTLEMENT) {
-      userIdFilter = [userInfo.user_id];
-      if (userInfo.userRole === Role.MERCHANT) {
+      // if (userInfo.userRole === Role.MERCHANT) {
+      //   userIdFilter.push(
+      //     ...(hierarchy?.config?.siblings?.sub_merchants ?? []),
+      //   );
+      // }
+      if (userInfo.userRole === Role.MERCHANT && userInfo.designation === Role.MERCHANT_OPERATIONS) {
         userIdFilter.push(
-          ...(hierarchy?.config?.siblings?.sub_merchants ?? []),
+          hierarchy?.config?.parent ?? null,
         );
+      }
+      else if (
+        userInfo.userRole === Role.VENDOR &&
+        userInfo.designation === Role.VENDOR_OPERATIONS
+      ) {
+        userIdFilter.push(hierarchy?.config?.parent ?? null);
+      }
+      else {
+        userIdFilter = [userInfo.user_id];
       }
       filters.user_id =
         userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
@@ -235,6 +248,18 @@ export const getTotalCountService = async (
         filters.vendor_id =
           userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
       }
+    }
+
+    // Beneficiary table
+    if (tablename === tableName.BENEFICIARY_ACCOUNTS) {
+      userIdFilter = [userInfo.user_id];
+      if (userInfo.userRole === Role.MERCHANT) {
+        userIdFilter.push(
+          ...(hierarchy?.config?.siblings?.sub_merchants ?? []),
+        );
+      }
+      filters.user_id =
+        userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
 
     // BANK_ACCOUNT table

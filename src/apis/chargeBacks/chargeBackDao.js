@@ -109,7 +109,8 @@ export const getChargeBackDao = async (
     columns = columns.filter(col => 
       col !== 'merchant_user_id' && 
       col !== 'payin_id' && 
-      col !== 'vendor_user_id'
+      col !== 'vendor_user_id' &&
+      col !== 'bank_acc_id'
     );
 
     // Default columns if none provided
@@ -123,36 +124,34 @@ export const getChargeBackDao = async (
     if (role !== 'VENDOR') {
       additionalColumns = `
         m.code AS merchant_name,
+        p.user AS user,
         p.merchant_order_id AS merchant_order_id,
       `;
     }
     else if (role !== 'MERCHANT') {
-      additionalColumns += `
-        v.code AS vendor_name,
-      `;
+      additionalColumns += ``;
     }
     else {
       additionalColumns = `
         m.code AS merchant_name,
         p.merchant_order_id AS merchant_order_id,
         v.code AS vendor_name,
-      `;
-    }
-    //created and updated by with user name
-    additionalColumns += `
-      v.code AS vendor_name,
        CASE 
     WHEN m.config->>'sub_code' IS NOT NULL AND m.config->>'sub_code' != '' 
     THEN m.config->>'sub_code' 
     ELSE m.code 
   END AS merchant_name,
-      p.user AS user,
-      u.user_name AS created_by,
-      uu.user_name AS updated_by,
+        p.user AS user,
+        u.user_name AS created_by,
+        uu.user_name AS updated_by,
+        jsonb_build_object('blocked_users', m.config->'blocked_users') AS config,
+      `;
+    }
+    //created and updated by with user name
+    additionalColumns += `
       ba.nick_name AS bank_name,
       COALESCE(p.user_submitted_utr, br.utr) AS utr,
-      cb.created_at,
-      jsonb_build_object('blocked_users', m.config->'blocked_users') AS config
+      cb.created_at
     `;
 
     // Combine all columns
@@ -211,7 +210,6 @@ export const getChargeBacksBySearchDao = async (
   limitNum,
   offset,
 ) => {
-  console.log(filters,'filters',searchTerms,' searchTerms');
   try {
     const { VENDOR, CHARGE_BACK, MERCHANT, PAYIN, BANK_ACCOUNT, BANK_RESPONSE } = tableName;
     const conditions = [];
