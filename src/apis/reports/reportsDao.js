@@ -274,7 +274,7 @@ const getPayOutVendorReportDao = async (id, startDate, endDate, company_id, role
 
     let query = `
       SELECT 
-        po.id,
+        po.id AS payout_id,
         po.sno,
         po.amount,
         po.status,
