@@ -1,4 +1,4 @@
-import { tableName } from '../../constants/index.js';
+import { Role, tableName } from '../../constants/index.js';
 import {
   buildInsertQuery,
   buildUpdateQuery,
@@ -121,14 +121,14 @@ export const getChargeBackDao = async (
 
     // Additional columns based on role
     let additionalColumns = '';
-    if (role !== 'VENDOR') {
+    if (role === Role.MERCHANT) {
       additionalColumns = `
         m.code AS merchant_name,
         p.user AS user,
         p.merchant_order_id AS merchant_order_id,
       `;
     }
-    else if (role !== 'MERCHANT') {
+    else if (role === Role.VENDOR) {
       additionalColumns += ``;
     }
     else {
