@@ -23,9 +23,7 @@ export const createVendorDao = async (data, conn) => {
   }
 };
 
-export const getVendorsCodeDao = async (
-  filters,conn
-) => {
+export const getVendorsCodeDao = async (filters, conn) => {
   try {
     const baseQuery = `
         SELECT 
@@ -36,21 +34,21 @@ export const getVendorsCodeDao = async (
             "${tableName.VENDOR}" 
         WHERE 
             is_obsolete = FALSE 
-    `
-     let [sql, queryParams] = buildSelectQuery(
-       baseQuery,
-       filters,
-       tableName.VENDOR,
-     );
+    `;
+    let [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      tableName.VENDOR,
+    );
     sql = sql.replace(/\s*ORDER BY\s+.*$/i, '') + ' ORDER BY "code" ASC';
     const result = await conn.query(sql, queryParams);
     logger.log('Fetched Vendors:', result.rows.length, 'rows');
     return result.rows;
   } catch (error) {
     logger.error('Error executing vendor query:', error);
-    throw error.message;  }
+    throw error.message;
+  }
 };
-
 
 export const getVendorsDao = async (
   filters,
@@ -58,60 +56,78 @@ export const getVendorsDao = async (
   pageSize = 10,
   sortBy = 'created_at',
   sortOrder = 'DESC',
-  role
+  role,
 ) => {
   try {
-     let baseQuery = `
-      SELECT 
-        "Vendor".id,
-        "Vendor".user_id,
-        "Vendor".first_name,
-        "Vendor".last_name,
-        "Vendor".code,
-        "Vendor".payin_commission,
-        "Vendor".payout_commission,
-        "Vendor".created_by,
-        "Vendor".updated_by,
-        "Vendor".config,
-        "Vendor".created_at,
-        "Vendor".updated_at,
-        "Vendor".company_id,
-        user_main.designation_id,
-        user_main.first_name || ' ' || user_main.last_name AS full_name,
-        d.designation AS designation_name,
-        u.user_name AS created_by,
-        uu.user_name AS updated_by,
-        (
-          SELECT net_balance 
-          FROM "Calculation" 
-          WHERE "Calculation".user_id = "Vendor".user_id 
-          ORDER BY "Calculation".updated_at DESC 
-          LIMIT 1
-        ) AS balance
+    let baseQuery;
+    // Build base query based on role
+    // Define columns to select
+    const columns = [
+      `"Vendor".id`,
+      `"Vendor".first_name`,
+      `"Vendor".last_name`,
+      `"Vendor".code`,
+      `"Vendor".payin_commission`,
+      `"Vendor".payout_commission`,
+      `"Vendor".created_at`,
+      `"Vendor".updated_at`,
+      `user_main.first_name || ' ' || user_main.last_name AS full_name`,
+      `d.designation AS designation_name`,
+      `(SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".updated_at DESC LIMIT 1) AS balance`,
+    ];
+
+    // Add extra columns for admin
+    if (role === Role.ADMIN) {
+      columns.push(
+        `"Vendor".created_by`,
+        `"Vendor".updated_by`,
+        `"Vendor".user_id`,
+        `"Vendor".company_id`,
+        `user_main.designation_id`,
+        `u.user_name AS created_by`,
+        `uu.user_name AS updated_by`,
+      );
+    }
+
+    // Build FROM/JOIN clause
+    let fromClause = `
       FROM "Vendor"
       JOIN "User" AS user_main ON "Vendor".user_id = user_main.id
       LEFT JOIN "Designation" AS d ON user_main.designation_id = d.id
+    `;
+
+    if (role === Role.ADMIN) {
+      fromClause += `
       LEFT JOIN "User" AS u ON "Vendor".created_by = u.id
       LEFT JOIN "User" AS uu ON "Vendor".updated_by = uu.id
-      WHERE 1=1
-        AND "Vendor".is_obsolete = false
-    `;
-    //vendor details login specific
-  if (role == Role.ADMIN) {
-    baseQuery += `
-        WHERE "User".designation_id = (SELECT id FROM "Designation" WHERE designation = 'VENDOR')
       `;
-  }
-  const value = [];
-  let paramIndex = 1;
+    }
 
-  if (filters.id) {
-    baseQuery += `
+    // Build WHERE clause
+    let whereClause = `
+      WHERE "Vendor".is_obsolete = false
+    `;
+    if (role === Role.ADMIN) {
+      whereClause += `
+      AND user_main.designation_id = (SELECT id FROM "Designation" WHERE designation = 'VENDOR')
+      `;
+    }
+
+    baseQuery = `
+      SELECT ${columns.join(',\n')}
+      ${fromClause}
+      ${whereClause}
+    `;
+    const value = [];
+    let paramIndex = 1;
+
+    if (filters.id) {
+      baseQuery += `
       AND "Vendor".id = $${paramIndex}
     `;
-    value.push(filters.id);
-    paramIndex++;
-  }
+      value.push(filters.id);
+      paramIndex++;
+    }
 
     const [query, values] = buildSelectQuery(
       baseQuery,
@@ -120,7 +136,7 @@ export const getVendorsDao = async (
       pageSize,
       sortBy,
       sortOrder,
-      'Vendor' 
+      'Vendor',
     );
     const result = await executeQuery(query, values);
     return result.rows;
@@ -129,7 +145,6 @@ export const getVendorsDao = async (
     throw error.message;
   }
 };
-
 
 export const getVendorsBySearchDao = async (
   filters,
@@ -142,44 +157,54 @@ export const getVendorsBySearchDao = async (
     const values = [filters.company_id];
     let paramIndex = 2;
 
+    // Build base SELECT columns based on role
+    const columns = [
+      `"Vendor".id`,
+      `"Vendor".first_name`,
+      `"Vendor".last_name`,
+      `"Vendor".code`,
+      `"Vendor".payin_commission`,
+      `"Vendor".payout_commission`,
+      `"Vendor".created_at`,
+      `"Vendor".updated_at`,
+      `"user_main".first_name || ' ' || "user_main".last_name AS full_name`,
+      `"d".designation AS designation_name`,
+      `(SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".updated_at DESC LIMIT 1) AS balance`,
+    ];
+
+    // Add extra columns for admin
+    if (filters.role === Role.ADMIN) {
+      columns.push(
+      `"Vendor".created_by`,
+      `"Vendor".updated_by`,
+      `"Vendor".user_id`,
+      `"Vendor".company_id`,
+      `"user_main".designation_id`,
+      `u.user_name AS created_by`,
+      `uu.user_name AS updated_by,`,
+      );
+    }
+
     let queryText = `
       SELECT 
-        "Vendor".id, 
-        "Vendor".user_id, 
-        "Vendor".first_name, 
-        "Vendor".last_name, 
-        "Vendor".code, 
-        "Vendor".payin_commission, 
-        "Vendor".payout_commission, 
-        "Vendor".config, 
-        "Vendor".created_by, 
-        "Vendor".updated_by, 
-        "Vendor".created_at, 
-        "Vendor".updated_at, 
-        "User".designation_id, 
-        "User".first_name || ' ' || "User".last_name AS full_name, 
-        "Designation".designation AS designation_name,
-         (
-          SELECT net_balance 
-          FROM "Calculation" 
-          WHERE "Calculation".user_id = "Vendor".user_id 
-          ORDER BY "Calculation".updated_at DESC 
-          LIMIT 1
-        ) AS balance
-      FROM "Vendor" 
-      JOIN "User" ON "Vendor".user_id = "User".id 
-      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id 
-      WHERE 1=1 
-      AND "Vendor".is_obsolete = false 
+      ${columns.join(',\n')}
+      FROM "Vendor"
+      JOIN "User" AS user_main ON "Vendor".user_id = user_main.id
+      LEFT JOIN "Designation" AS d ON user_main.designation_id = d.id
+      ${filters.role === Role.ADMIN
+      ? `LEFT JOIN "User" AS u ON "Vendor".created_by = u.id
+         LEFT JOIN "User" AS uu ON "Vendor".updated_by = uu.id`
+      : ''
+      }
+      WHERE "Vendor".is_obsolete = false
       AND "Vendor"."company_id" = $1
     `;
-      if (filters.user_id) {
-        queryText += ` AND "Vendor"."user_id" = $${paramIndex}`;
-        values.push(filters.user_id);
-        paramIndex += 1;
-      }
+    if (filters.user_id) {
+      queryText += ` AND "Vendor"."user_id" = $${paramIndex}`;
+      values.push(filters.user_id);
+      paramIndex += 1;
+    }
     searchTerms.forEach((term) => {
-  
       // Handle boolean terms
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
         const boolValue = term.toLowerCase() === 'true';
@@ -189,8 +214,8 @@ export const getVendorsBySearchDao = async (
         values.push(boolValue);
         paramIndex++;
       } else {
-    // Handle text/numeric terms including JSON fields and balance
-    conditions.push(`
+        // Handle text/numeric terms including JSON fields and balance
+        conditions.push(`
       (
         LOWER("Vendor".id::text) LIKE LOWER($${paramIndex})
         OR LOWER("Vendor".user_id::text) LIKE LOWER($${paramIndex})
@@ -201,8 +226,8 @@ export const getVendorsBySearchDao = async (
         OR "Vendor".payout_commission::text LIKE $${paramIndex}
         OR LOWER("Vendor".created_by::text) LIKE LOWER($${paramIndex})
         OR LOWER("Vendor".updated_by::text) LIKE LOWER($${paramIndex})
-        OR LOWER("User".first_name || ' ' || "User".last_name) LIKE LOWER($${paramIndex})
-        OR LOWER("Designation".designation) LIKE LOWER($${paramIndex})
+        OR LOWER("user_main".first_name || ' ' || "user_main".last_name) LIKE LOWER($${paramIndex})
+        OR LOWER("d".designation) LIKE LOWER($${paramIndex})
         OR LOWER("Vendor".config->>'utr') LIKE LOWER($${paramIndex})
         OR (
           SELECT net_balance::text 
@@ -213,10 +238,10 @@ export const getVendorsBySearchDao = async (
         ) LIKE $${paramIndex}
       )
     `);
-    values.push(`%${term}%`);
-    paramIndex++;
-  }
-})
+        values.push(`%${term}%`);
+        paramIndex++;
+      }
+    });
 
     if (conditions.length > 0) {
       queryText += ' AND (' + conditions.join(' OR ') + ')';
@@ -299,9 +324,9 @@ export const updateVendorBalanceDao = async (
   }
 };
 
-export const getVendorsDaoArray = async (company_id,code) => {
+export const getVendorsDaoArray = async (company_id, code) => {
   try {
-    console.log(code, 'codecode')
+    console.log(code, 'codecode');
     let baseQuery = `
       SELECT 
        "Vendor".id, 
@@ -333,12 +358,12 @@ export const getVendorsDaoArray = async (company_id,code) => {
       AND "Vendor"."company_id" = $1
       AND "Vendor".user_id = ANY($2)
     `;
-    
-    let queryParams = [company_id, code]; 
+
+    let queryParams = [company_id, code];
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching merchant by code and API key:', error);
-    throw error; 
+    throw error;
   }
 };
