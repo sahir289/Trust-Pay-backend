@@ -3,7 +3,6 @@ import { getMerchantsDao } from '../apis/merchants/merchantDao.js';
 import { getPayInUrlsDao } from '../apis/payIn/payInDao.js';
 import { getCalculationDao } from '../apis/calculation/calculationDao.js';
 // import { getPayoutsCronDao } from '../apis/payOut/payOutDao.js';
-import moment from 'moment-timezone';
 import { getBankaccountDao } from '../apis/bankAccounts/bankaccountDao.js';
 import {
   // sendTelegramDashboardMerchantGroupingReportMessage,
@@ -15,6 +14,8 @@ import { getConnection } from '../utils/db.js';
 import { getVendorsDao } from '../apis/vendors/vendorDao.js';
 import { logger } from '../utils/logger.js';
 import { getUserHierarchysDao } from '../apis/userHierarchy/userHierarchyDao.js';
+import dayjs from 'dayjs';
+
 
 //run only on server - side /production level
 if (process.env.NODE_ENV === 'production') {
@@ -40,8 +41,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
       timezone = 'Asia/Kolkata';
     }
 
-    const currentDate = moment().tz(timezone, true);
-
+    const currentDate = dayjs().tz(timezone); 
     if (type === 'H') {
       sDate = currentDate.clone().startOf('day').toDate();
       eDate = currentDate.clone().toDate();
@@ -53,7 +53,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
       eDate = currentDate.clone().toDate();
     }
     logger.info('cron_started');
-    const merchants = await getMerchantsDao({});
+    const merchants = await getMerchantsDao({}, null,null);
     let merchant = [];
     let totalpayinsMerchant = 0;
     let totalpayoutsMerchant = 0;
@@ -119,20 +119,19 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
         'ADMIN',
       );
 
-      const banks = banksData
-        .filter((bankData) => bankData.today_balance !== 0)   //report start from 12am so today balance
-        .map((bankData) => {
-          return {
+      const banks = [];
+      for (const bankData of banksData) {
+        if (bankData.today_balance !== 0) {
+          banks.push({
             bankName: bankData.nick_name,
             TotalDeposit: bankData.today_balance,
             TotalCount: bankData.payin_count,
-          };
-        });
+          });
+          totalBankDepositAllVendors += bankData.today_balance;
+        }
+      }
       if (banks.length === 0) continue;
-      totalBankDepositAllVendors = banksData.reduce(
-        (acc, bankData) => acc + bankData.today_balance,
-        0,
-      );
+    
       vendorEntries.push({
         code: vendorDetail.code,
         name: vendorDetail.name, // If you have a `name` field to sort by
@@ -159,27 +158,23 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
         null,
         'ADMIN',
       );
-      let totalBankDepositPayout = 0;
-      const banks = banksData
-        .filter((bankData) => bankData.today_balance !== 0)
-        .map((bankData) => {
-          return {
+    
+      const banks = [];
+      for (const bankData of banksData) {
+        if (bankData.today_balance !== 0) {
+          banks.push({
             bankName: bankData.nick_name,
             TotalDeposit: bankData.today_balance,
             TotalCount: bankData.payin_count,
-          };
-        });
+          });
+          totalBankWithdrawalAllVendors += bankData.today_balance;
+        }
+      } 
       if (banks.length === 0) continue;
-      totalBankWithdrawalAllVendors = banksData.reduce(
-        (acc, bankData) => acc + bankData.today_balance,
-        0,
-      );
-      totalBankWithdrawalAllVendors += totalBankDepositPayout;
+    
       const vendorEntry = { banks };
       vendorObjpayOut[vendorDetail.code] = vendorEntry;
-      if (banks.length > 0) {
-        vendorArray.push(vendorEntry);
-      }
+      vendorArray.push(vendorEntry);
     }
 
     // let settlements = await getSettlementDao({});
