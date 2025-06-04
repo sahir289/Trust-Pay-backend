@@ -1904,7 +1904,7 @@ export const telegramCheckUTRService = async (
   updated_by,
 ) => {
   try {
-    const bankResponse = await getBankResponseDao({ utr: utr });
+    const bankResponse = await getBankResponseDao({ utr: utr, status: '/success' });
     let otherBankResponse = {};
     const payIn = await getPayInUrlDao({ merchant_order_id });
     if (!bankResponse) {
