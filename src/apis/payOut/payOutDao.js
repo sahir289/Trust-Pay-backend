@@ -113,6 +113,7 @@ export const getPayoutsDao = async (
       commissionSelect = `
         u.payout_merchant_commission, 
         u.merchant_order_id,
+        u.user,
         json_build_object(
           'merchant_code', r.code,
           'return_url', r.config->>'return_url',
@@ -134,6 +135,7 @@ export const getPayoutsDao = async (
         u.created_by, 
         u.updated_by, 
         u.created_at, 
+        u.user,
         ve.code AS vendor_code, 
         ve.id AS vendor_id, 
         ve.user_id AS vendor_user_id,
@@ -157,8 +159,7 @@ export const getPayoutsDao = async (
       WITH filtered_payOuts AS (
         SELECT DISTINCT ON (u.id) 
           u.id, 
-          u.sno,
-          u.user, 
+          u.sno, 
           u.amount,
           u.status, 
           u.failed_reason, 
@@ -256,6 +257,7 @@ export const getPayoutsBySearchDao = async (
       commissionSelect = `
         p.payout_merchant_commission, 
         p.merchant_order_id, 
+        p.user, 
         json_build_object(
           'merchant_code', m.code,
           'return_url', m.config->>'return_url',
@@ -278,6 +280,7 @@ export const getPayoutsBySearchDao = async (
         p.approved_at, 
         p.created_by, 
         p.updated_by, 
+        p.user, 
         p.created_at, 
         v.code AS vendor_code, 
         v.id AS vendor_id, 
@@ -299,7 +302,6 @@ export const getPayoutsBySearchDao = async (
       SELECT DISTINCT ON (p.id) 
         p.id, 
         p.sno,
-        p.user, 
         p.amount,
         p.status, 
         p.failed_reason, 

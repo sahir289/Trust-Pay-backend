@@ -193,6 +193,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
       commissionSelect = `
         p.payin_merchant_commission,
         p.merchant_id,
+        p.user,
         p.merchant_order_id,
         p.config AS payin_details,
         json_build_object(
@@ -219,11 +220,14 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         p.payin_vendor_commission,
         p.config AS payin_details,
         p.merchant_order_id,
+        p.user,
         u.user_name AS created_by,  
         uu.user_name AS updated_by,
         p.merchant_id,
         v.code AS vendor_code,
         v.user_id AS vendor_user_id,
+        p.upi_short_code,
+        p.is_url_expires,
         p.approved_at,
         p.created_by,
         p.updated_by,
@@ -237,15 +241,12 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         SELECT DISTINCT ON (p.id)
           p.id,
           p.sno,
-          p.upi_short_code,
           p.amount,
           p.status,
           p.is_notified,
           p.user_submitted_utr,
-          p.user,
           p.user_submitted_image,
           p.duration,
-          p.is_url_expires,
           b.nick_name,      
           ${commissionSelect},
           json_build_object(
@@ -331,6 +332,7 @@ export const getPayinsBySearchDao = async (
       commissionSelect = `
         p.payin_merchant_commission,
         p.merchant_order_id,
+        p.user,
         p.config AS payin_details,
         json_build_object(
           'merchant_code', m.code,
@@ -356,8 +358,11 @@ export const getPayinsBySearchDao = async (
         p.payin_vendor_commission,
         v.code AS vendor_code,
         v.user_id AS vendor_user_id,
+        p.upi_short_code,
+        p.is_url_expires,
         p.approved_at,
         p.created_by,
+        p.user,
         p.updated_by,
         p.created_at,
         p.updated_at`;
@@ -367,12 +372,10 @@ export const getPayinsBySearchDao = async (
       SELECT
         p.id,
         p.sno,
-        p.upi_short_code,
         p.amount,
         p.status,
         p.is_notified,
         p.user_submitted_utr,
-        p.user,
         p.user_submitted_image,
         p.duration,
         b.nick_name
