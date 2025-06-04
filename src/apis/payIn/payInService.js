@@ -2,8 +2,8 @@ import dayjs from 'dayjs';
 import { nanoid } from 'nanoid';
 import { Cashfree } from 'cashfree-pg';
 import { v4 as uuidv4 } from 'uuid';
-// import querystring from 'querystring';
-import QRCode from 'qrcode';
+import querystring from 'querystring';
+// import QRCode from 'qrcode';
 import config from '../../config/config.js';
 import { razorpay } from '../../webhooks/razorPay.js';
 import { getPayoutsDao } from '../payOut/payOutDao.js';
@@ -2223,75 +2223,79 @@ export const generateUpiUrlService = async (payload) => {
     return new BadRequestError('Invalid amount');
   }
 
-  // const vpaRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
-  // if (!vpaRegex.test(payload.payeeVPA)) {
-  //   return new BadRequestError('Invalid VPA format');
-  // }
+  const vpaRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
+  if (!vpaRegex.test(payload.payeeVPA)) {
+    return new BadRequestError('Invalid VPA format');
+  }
 
   const uuid = generateUUID();
   const transactionId = `IND${uuid.replace(/-/g, '')}`.slice(0, 32);
 
-  // const params = {
-  //   appid: 'inb_admin',
-  //   tr: transactionId,
-  //   am: parseFloat(payload.amount).toFixed(2),
-  //   mc: payload.merchantCode || '',
-  //   pa: payload.payeeVPA,
-  //   pn: (payload.payeeName || '') + ' ',
-  //   tn: payload.transactionNote || '',
-  //   cu: 'INR',
-  //   bn: (payload.businessName || '') + ' ',
-  //   mode: '01',
-  //   purpose: ''
-  // };
-
-  // let encodedParams = querystring.stringify(params);
-
-  // const phonepeUrl = `phonepe://pay?${encodedParams}`;
-  // const gpayUrl = `gpay://upi/pay?${encodedParams}`;
-  // const paytmUrl = `paytm://upi/pay?${encodedParams}`;
-  // const genericUpiUrl = `upi://pay?${encodedParams}`;
+  const params = {
+    tr: transactionId,
+    am: parseFloat(payload.amount).toFixed(2),
+    pa: payload.payeeVPA,
+    pn: payload.payeeName?.trim() || '',
+    tn: payload.transactionNote?.trim() || '',
+    cu: 'INR'
+  };
+  
+  // Optional fields — only add them if they exist
+  if (payload.merchantCode) params.mc = payload.merchantCode;
+  if (payload.businessName) params.bn = payload.businessName.trim();
+  if (payload.mode) params.mode = payload.mode;
+  if (payload.purpose) params.purpose = payload.purpose;
+  // appid is optional and specific to Paytm — only add if necessary
+  params.appid = 'inb_admin';
+  
+  const encodedParams = querystring.stringify(params);
+  
+  // UPI deep links
+  const paytmUrl = `paytm://upi/pay?${encodedParams}`;
+  const phonepeUrl = `phonepe://pay?${encodedParams}`;
+  const gpayUrl = `gpay://upi/pay?${encodedParams}`;
+  const genericUpiUrl = `upi://pay?${encodedParams}`;
 
   //  const phonepeQr = await QRCode.toDataURL(phonepeUrl);
   // const gpayQr = await QRCode.toDataURL(gpayUrl);
   // const paytmQr = await QRCode.toDataURL(paytmUrl);
   // const genericUpiQr = await QRCode.toDataURL(genericUpiUrl);
 
-  // return {
-  //   phonepeUrl,
-  //   phonepeQr,
-  //   gpayUrl,
-  //   gpayQr,
-  //   paytmUrl,
-  //   paytmQr,
-  //   genericUpiUrl,
-  //   genericUpiQr,
-  //   transactionId
-  // }
+  return {
+    phonepeUrl,
+    // phonepeQr,
+    gpayUrl,
+    // gpayQr,
+    paytmUrl,
+    // paytmQr,
+    genericUpiUrl,
+    // genericUpiQr,
+    transactionId
+  }
   // return data;
 
-  const params = {
-    pa: payload.payeeVPA,
-    pn: payload.payeeName?.trim() || 'Payee',
-    tr: transactionId,
-    am: parseFloat(payload.amount).toFixed(2),
-    tn: payload.transactionNote?.trim() || 'Payment',
-    cu: 'INR',
-  };
+  // const params = {
+  //   pa: payload.payeeVPA,
+  //   pn: payload.payeeName?.trim() || 'Payee',
+  //   tr: transactionId,
+  //   am: parseFloat(payload.amount).toFixed(2),
+  //   tn: payload.transactionNote?.trim() || 'Payment',
+  //   cu: 'INR',
+  // };
 
-  const upiParams = Object.entries(params)
-    .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
-    .join('&');
-  const upiUrl = `upi://pay?${upiParams}`;
+  // const upiParams = Object.entries(params)
+  //   .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
+  //   .join('&');
+  // const upiUrl = `upi://pay?${upiParams}`;
 
   // const upiUrl = `upi://pay?${querystring.stringify(params)}`;
 
-  const upiQr = await QRCode.toDataURL(upiUrl);
-  return {
-    upiUrl,
-    upiQr,
-    transactionId,
-  };
+  // const upiQr = await QRCode.toDataURL(upiUrl);
+  // return {
+  //   upiUrl,
+  //   upiQr,
+  //   transactionId,
+  // };
 };
 
 const checkIsPayInExpired = (payIn) => {
