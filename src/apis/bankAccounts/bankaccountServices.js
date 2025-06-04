@@ -52,6 +52,7 @@ const getBankaccountService = async (
       pageNumber,
       pageSize,
       role,
+      designation,
     );
   } catch (error) {
     logger.error('error getting while  getting banks', error);
@@ -66,6 +67,7 @@ const getBankAccountBySearchService = async (
   bank_used_for,
   page,
   limit,
+  designation
 ) => {
   try {
     const pageNum = parseInt(page);
@@ -89,6 +91,7 @@ const getBankAccountBySearchService = async (
       limitNum,
       offset,
       bank_used_for,
+      designation
     );
   } catch (error) {
     logger.error('error getting while getting check utr by search', error);
