@@ -17,6 +17,8 @@ import {
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getBankResponseDao } from '../bankResponse/bankResponseDao.js';
 import logger from '../../utils/logger.js';
+import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
+import { Role } from '../../constants/index.js';
 const getSettlementControllerById = async (req, res) => {
   const { id } = req.params;
   const { company_id } = req.user;
@@ -95,11 +97,26 @@ const getSettlementsBySearch = async (req, res) => {
 
 const createSettlementController = async (req, res) => {
   const payload = req.body;
-  const { company_id, user_id, user_name } = req.user;
+  const { company_id, user_id, user_name ,designation } = req.user;
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.status = 'INITIATED';
-  payload.user_id = payload.user_id === null ? user_id : payload.user_id; // no codes sent when vendor login
+  let User_id = user_id;
+  if (
+    designation === Role.MERCHANT_OPERATIONS ||
+    designation === Role.VENDOR_OPERATIONS
+  ) {
+    const userHierarchys = await getUserHierarchysDao({ user_id });    
+    if (userHierarchys || userHierarchys.length > 0) {
+      const userHierarchy = userHierarchys[0];
+      if (userHierarchy?.config?.parent) {
+        User_id = userHierarchy?.config?.parent ?? null;
+      }
+    }
+  }
+
+  payload.user_id = payload.user_id === null ? User_id : payload.user_id; // no codes sent when vendor login
+
   const joiValidation = CREATE_SETTLEMENT_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);

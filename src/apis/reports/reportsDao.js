@@ -283,7 +283,7 @@ const getPayOutVendorReportDao = async (
 
     let query = `
       SELECT 
-        po.id,
+        po.id AS payout_id,
         po.sno,
         po.amount,
         po.status,

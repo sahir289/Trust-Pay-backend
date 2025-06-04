@@ -19,9 +19,7 @@ const getSettlementDao = async (
   columns = [],
 ) => {
   try {
-    const { SETTLEMENT, USER, ROLE, BENEFICIARY_ACCOUNTS, MERCHANT, VENDOR } =
-      tableName;
-
+    const { SETTLEMENT, USER, ROLE, BENEFICIARY_ACCOUNTS, MERCHANT, VENDOR } =tableName;
     const conditions = [`s.is_obsolete = false`];
     const queryParams = [];
     const limitcondition = { value: '' };
@@ -44,17 +42,7 @@ const getSettlementDao = async (
     };
 
     const conditionBuilders = {
-      // search: (filters, SETTLEMENT) => {
-      //   if (!filters.search || typeof filters.search !== 'string') return;
-      //   try {
-      //     filters.or = buildSearchFilterObj(filters.search, SETTLEMENT);
-      //     delete filters.search;
-      //   } catch (error) {
-      //     logger.warn(`Invalid search filter: ${filters.search}`, error);
-      //     delete filters.search;
-      //   }
-      // },
-      //login wise fetching settlement
+      
       user_id: (filters, conditions, queryParams) => {
         if (!filters.user_id) return;
         const nextParamIdx = queryParams.length + 1;
