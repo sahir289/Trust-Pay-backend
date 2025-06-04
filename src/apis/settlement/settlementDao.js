@@ -58,7 +58,16 @@ const getSettlementDao = async (
       user_id: (filters, conditions, queryParams) => {
         if (!filters.user_id) return;
         const nextParamIdx = queryParams.length + 1;
-        if (Array.isArray(filters.user_id)) {
+        if (typeof filters.user_id === 'string') {
+          const userIds = filters.user_id.split(',').map(id => id.trim()).filter(id => id);
+          if (userIds.length > 0) {
+            const placeholders = userIds
+              .map((_, idx) => `$${nextParamIdx + idx}`)
+              .join(', ');
+            conditions.push(`s.user_id IN (${placeholders})`);
+            queryParams.push(...userIds);
+          }
+        } else if (Array.isArray(filters.user_id)) {
           const placeholders = filters.user_id
             .map((_, idx) => `$${nextParamIdx + idx}`)
             .join(', ');
