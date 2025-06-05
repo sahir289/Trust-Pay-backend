@@ -173,8 +173,8 @@ const createSettlementController = async (req, res) => {
 };
 
 const updateSettlementController = async (req, res) => {
-  const { id, user_id } = req.params;
-  const { role, user_name } = req.user;
+  const { id } = req.params;
+  const { role, user_name, user_id } = req.user;
   const payload = { ...req.body };
   payload.updated_by = user_id;
   const { company_id } = req.user;

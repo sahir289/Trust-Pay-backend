@@ -607,7 +607,9 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       if(upadtedpayout){
         updatePayout(upadtedpayout.id, merchant.code, upadtedpayout.merchant_order_id)
       }
-    } else if (data.status === Status.REJECTED && data.approved_at !== null) {
+    }
+
+    else if (data.status === Status.REVERSED && data.approved_at !== null) {
       await updateCalculationTable(
         merchant.user_id,
         {
