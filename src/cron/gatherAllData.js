@@ -3,7 +3,6 @@ import { getMerchantsDao } from '../apis/merchants/merchantDao.js';
 import { getPayInUrlsDao } from '../apis/payIn/payInDao.js';
 import { getCalculationDao } from '../apis/calculation/calculationDao.js';
 // import { getPayoutsCronDao } from '../apis/payOut/payOutDao.js';
-import moment from 'moment-timezone';
 import { getBankaccountDao } from '../apis/bankAccounts/bankaccountDao.js';
 import {
   // sendTelegramDashboardMerchantGroupingReportMessage,
@@ -15,6 +14,8 @@ import { getConnection } from '../utils/db.js';
 import { getVendorsDao } from '../apis/vendors/vendorDao.js';
 import { logger } from '../utils/logger.js';
 import { getUserHierarchysDao } from '../apis/userHierarchy/userHierarchyDao.js';
+import dayjs from 'dayjs';
+
 
 //run only on server - side /production level
 if (process.env.NODE_ENV === 'production') {
@@ -40,8 +41,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
       timezone = 'Asia/Kolkata';
     }
 
-    const currentDate = moment().tz(timezone, true);
-
+    const currentDate = dayjs().tz(timezone); 
     if (type === 'H') {
       sDate = currentDate.clone().startOf('day').toDate();
       eDate = currentDate.clone().toDate();
@@ -53,7 +53,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
       eDate = currentDate.clone().toDate();
     }
     logger.info('cron_started');
-    const merchants = await getMerchantsDao({});
+    const merchants = await getMerchantsDao({}, null,null);
     let merchant = [];
     let totalpayinsMerchant = 0;
     let totalpayoutsMerchant = 0;
@@ -98,89 +98,101 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
       merchant.sort((a, b) => a.merchantId.localeCompare(b.merchantId));
     }
 
-    const vendorData = await getVendorsDao(
-      {},
-      null,
-      null,
-      'created_at',
-      'DESC',
-    );
     let vendorObjpayIn = {};
-    let vendorArray = [];
     let vendorObjpayOut = [];
     let totalBankDepositAllVendors = 0;
     let totalBankWithdrawalAllVendors = 0;
-    const vendorEntries = [];
-    for (const vendorDetail of vendorData) {
-      const banksData = await getBankaccountDao(
-        { user_id: vendorDetail.user_id, bank_used_for: 'PayIn' },
-        null,
-        null,
-        'ADMIN',
-      );
 
-      const banks = banksData
-        .filter((bankData) => bankData.today_balance !== 0)   //report start from 12am so today balance
-        .map((bankData) => {
-          return {
-            bankName: bankData.nick_name,
-            TotalDeposit: bankData.today_balance,
-            TotalCount: bankData.payin_count,
-          };
-        });
-      if (banks.length === 0) continue;
-      totalBankDepositAllVendors = banksData.reduce(
-        (acc, bankData) => acc + bankData.today_balance,
-        0,
+      const banksData = await getBankaccountDao(
+        { bank_used_for: 'PayIn' },
+        null,
+        null,
+        'ADMIN'
       );
-      vendorEntries.push({
-        code: vendorDetail.code,
-        name: vendorDetail.name, // If you have a `name` field to sort by
-        banks,
+    const banks = banksData
+      .filter(({ today_balance }) => today_balance !== 0)
+      .map(({ user_id,  nick_name, today_balance, payin_count }) => {
+        totalBankDepositAllVendors += today_balance;
+        return {
+          user_id,
+          bankName: nick_name,
+          TotalDeposit: today_balance,
+          TotalCount: payin_count,
+        };
       });
-      // const vendorEntry = { banks };
-      // vendorObjpayIn[vendorDetail.code] = vendorEntry;
-      // if(banks){
-      //   vendorArray.push(vendorEntry);
-      // }
-    }
-    vendorEntries.sort(
-      (a, b) => a.name?.localeCompare(b.name) ?? a.code.localeCompare(b.code),
-    );
-    for (const vendorEntry of vendorEntries) {
-      vendorObjpayIn[vendorEntry.code] = { banks: vendorEntry.banks };
-      vendorArray.push({ banks: vendorEntry.banks });
-    }
 
-    for (const vendorDetail of vendorData) {
-      const banksData = await getBankaccountDao(
-        { user_id: vendorDetail.user_id, bank_used_for: 'PayOut' },
+    let vendorData
+
+    for (const bank of banks) {
+      vendorData= await getVendorsDao(
+        { user_id: bank.user_id },
         null,
         null,
-        'ADMIN',
+        'created_at',
+        'DESC',
       );
-      let totalBankDepositPayout = 0;
-      const banks = banksData
-        .filter((bankData) => bankData.today_balance !== 0)
-        .map((bankData) => {
-          return {
-            bankName: bankData.nick_name,
-            TotalDeposit: bankData.today_balance,
-            TotalCount: bankData.payin_count,
-          };
+      if (vendorData.length > 0) {
+        const vendor = vendorData[0]; 
+        const vendorCode = vendor.code;
+    
+        if (!vendorObjpayIn[vendorCode]) {
+          vendorObjpayIn[vendorCode] = { banks: [] };
+        }
+    
+        vendorObjpayIn[vendorCode].banks.push({
+          bankName: bank.bankName,
+          TotalDeposit: bank.TotalDeposit,
+          TotalCount: bank.TotalCount,
         });
-      if (banks.length === 0) continue;
-      totalBankWithdrawalAllVendors = banksData.reduce(
-        (acc, bankData) => acc + bankData.today_balance,
-        0,
-      );
-      totalBankWithdrawalAllVendors += totalBankDepositPayout;
-      const vendorEntry = { banks };
-      vendorObjpayOut[vendorDetail.code] = vendorEntry;
-      if (banks.length > 0) {
-        vendorArray.push(vendorEntry);
       }
     }
+  
+    // for (const vendorEntry of vendorEntries) {
+    //   vendorObjpayIn[vendorEntry.code] = { banks: vendorEntry.banks };
+    //   vendorArray.push({ banks: vendorEntry.banks });
+    // }
+
+    const banksDataOut = await getBankaccountDao(
+      { bank_used_for: 'PayOut' },
+      null,
+      null,
+      'ADMIN'
+    );
+    const banksOut = banksDataOut
+    .filter(({ today_balance }) => today_balance !== 0)
+    .map(({ user_id,  nick_name, today_balance, payin_count }) => {
+      totalBankWithdrawalAllVendors += today_balance;
+      return {
+        user_id,
+        bankName: nick_name,
+        TotalDeposit: today_balance,
+        TotalCount: payin_count,
+      };
+    });
+    let vendorDataOut
+    for(const banksO of banksOut){
+      vendorDataOut= await getVendorsDao(
+        { user_id: banksO.user_id },
+        null,
+        null,
+        'created_at',
+        'DESC',
+      );
+      if (vendorDataOut.length > 0) {
+        const vendor = vendorDataOut[0]; 
+        const vendorCode = vendor.code;
+        if (!vendorObjpayOut[vendorCode]) {
+          vendorObjpayOut[vendorCode] = { banks: [] };
+        }
+    
+        vendorObjpayOut[vendorCode].banks.push({
+          bankName: banksO.bankName,
+          TotalDeposit: banksO.TotalDeposit,
+          TotalCount: banksO.TotalCount,
+        });
+      }
+    }
+   
 
     // let settlements = await getSettlementDao({});
     // let settlementdata = [];
