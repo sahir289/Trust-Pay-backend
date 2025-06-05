@@ -83,6 +83,7 @@ export async function sendTelegramDashboardReportMessage(
 
   const vendorDetails = Object.entries(vendorObjpayIn)
     // .filter(([_, { banks }]) => banks.length > 0)
+    .sort(([vendorCodeA], [vendorCodeB]) => vendorCodeA.localeCompare(vendorCodeB))
     .map(([vendorCode, { banks }], index) => {
       // if (banks.length === 0) {
       //   return `<b>${vendorCode}</b>: No bank accounts`;
@@ -103,8 +104,10 @@ export async function sendTelegramDashboardReportMessage(
     .join('\n\n');
 
     const vendorDetailsPayout = Object.entries(vendorObjpayOut)
+    .sort(([vendorCodeA], [vendorCodeB]) => vendorCodeA.localeCompare(vendorCodeB))
     .map(([vendorCode, { banks }],index) => {
       const bankDetails = banks
+      .sort((a, b) => a.bankName.localeCompare(b.bankName))
         .filter((bank) => bank.TotalDeposit !== null && bank.TotalDeposit !== 0)
         .map(
           (bank) =>
