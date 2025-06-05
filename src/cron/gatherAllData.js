@@ -161,7 +161,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
     const banksOut = banksDataOut
     .filter(({ today_balance }) => today_balance !== 0)
     .map(({ user_id,  nick_name, today_balance, payin_count }) => {
-      totalBankDepositAllVendors += today_balance;
+      totalBankWithdrawalAllVendors += today_balance;
       return {
         user_id,
         bankName: nick_name,
