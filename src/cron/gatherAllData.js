@@ -18,7 +18,7 @@ import dayjs from 'dayjs';
 
 
 //run only on server - side /production level
-// if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'production') {
   cron.schedule('0 0 * * *', () => {
     gatherAllData('Asia/Kolkata');
   });
@@ -26,9 +26,9 @@ import dayjs from 'dayjs';
   cron.schedule('0 1-23 * * *', () => {
     gatherAllData('H', 'Asia/Kolkata');
   });
-// } else {
-//   logger.error('Cron jobs are disabled in non-production environments.');
-// }
+} else {
+  logger.error('Cron jobs are disabled in non-production environments.');
+}
 
 const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
   let conn;
