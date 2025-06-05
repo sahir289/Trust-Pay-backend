@@ -97,8 +97,6 @@ export async function sendTelegramDashboardReportMessage(
             })} (${bank.TotalCount})`
         )
         .join('\n'); // join each bank with a new line
-  
-      // Only include vendors with valid bank details
       return bankDetails ? `${index + 1}. ${vendorCode}:\n${bankDetails}` : '';
     })
     .filter(Boolean)

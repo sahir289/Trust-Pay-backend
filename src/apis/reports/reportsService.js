@@ -73,7 +73,7 @@ const getPayInReportService = async (req) => {
 const getPayOutReportService = async (req) => {
   try{
   const { company_id, role } = req.user;
-  const { code, startDate, endDate } = req.query;
+  const { code, startDate, endDate, status } = req.query;
   const startDateTime = dayjs
     .tz(`${startDate} 00:00:00`, 'Asia/Kolkata')
     .toISOString();
@@ -93,7 +93,7 @@ const getPayOutReportService = async (req) => {
       startDateTime,
       endDateTime,
       company_id,
-      role,
+      role,status
     );
   } else {
     const vendorDetails = await getVendorsDaoArray(company_id, codes);
@@ -103,7 +103,7 @@ const getPayOutReportService = async (req) => {
       startDateTime,
       endDateTime,
       company_id,
-      role,
+      role,status
     );
   }
   return result;

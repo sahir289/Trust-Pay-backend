@@ -69,8 +69,13 @@ const getPayInMerchantReportDao = async (
       paramIndex++;
     }
     if (status) {
-      status = [status];
-      query += ` AND u.Status = ANY($${paramIndex})`;
+      if (typeof status === 'string') {
+        status = status.split(',').map(s => s.trim());
+      }
+      if (!Array.isArray(status)) {
+        status = [status];
+      }
+      query += ` AND u.status = ANY($${paramIndex})`;
       parameters.push(status);
       paramIndex++;
     }
@@ -143,13 +148,14 @@ const getPayInVendorReportDao = async (
       paramIndex++;
     }
     if (status) {
-      if (Array.isArray(status)) {
-        query += ` AND pi.status = ANY($${paramIndex})`;
-        parameters.push(status);
-      } else {
-        query += ` AND pi.status = $${paramIndex}`;
-        parameters.push(status);
+      if (typeof status === 'string') {
+        status = status.split(',').map(s => s.trim());
       }
+      if (!Array.isArray(status)) {
+        status = [status];
+      }
+      query += ` AND pi.status = ANY($${paramIndex})`;
+      parameters.push(status);
       paramIndex++;
     }
     if (startDate && endDate) {
@@ -173,6 +179,7 @@ const getPayOutMerchantReportDao = async (
   endDate,
   company_id,
   role,
+  status
 ) => {
   try {
     let commissionSelect = `po.payout_merchant_commission,
@@ -222,7 +229,17 @@ const getPayOutMerchantReportDao = async (
       parameters.push(merchant_id);
       paramIndex++;
     }
-
+    if (status) {
+      if (typeof status === 'string') {
+        status = status.split(',').map(s => s.trim());
+      }
+      if (!Array.isArray(status)) {
+        status = [status];
+      }
+      query += ` AND po.status = ANY($${paramIndex})`;
+      parameters.push(status);
+      paramIndex++;
+    }
     if (startDate && endDate) {
       query += ` AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       parameters.push(startDate, endDate);
@@ -244,6 +261,7 @@ const getPayOutVendorReportDao = async (
   endDate,
   company_id,
   role,
+  status
 ) => {
   try {
     let commissionSelect = '';
@@ -314,6 +332,17 @@ const getPayOutVendorReportDao = async (
       const vendorIds = Array.isArray(id) ? id : [id];
       query += ` AND po.vendor_id = ANY($${paramIndex})`;
       parameters.push(vendorIds);
+      paramIndex++;
+    }
+    if (status) {
+      if (typeof status === 'string') {
+        status = status.split(',').map(s => s.trim());
+      }
+      if (!Array.isArray(status)) {
+        status = [status];
+      }
+      query += ` AND po.status = ANY($${paramIndex})`;
+      parameters.push(status);
       paramIndex++;
     }
     if (startDate && endDate) {
