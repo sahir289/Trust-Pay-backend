@@ -64,6 +64,7 @@ export const getVendorsDao = async (
     // Define columns to select
     const columns = [
       `"Vendor".id`,
+      `"Vendor".user_id`,
       `"Vendor".first_name`,
       `"Vendor".last_name`,
       `"Vendor".code`,
