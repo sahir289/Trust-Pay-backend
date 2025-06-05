@@ -179,6 +179,8 @@ const updateSettlementController = async (req, res) => {
   payload.updated_by = user_id;
   const { company_id } = req.user;
   const ids = { id, company_id, role };
+  ///temperary deleting this ..we need to refact get settlement dao query
+  delete payload.config.company_id;
   const joiValidation = UPDATE_SETTLEMENT_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
