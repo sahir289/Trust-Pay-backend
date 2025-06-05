@@ -99,11 +99,9 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
     }
 
     let vendorObjpayIn = {};
-    let vendorArray = [];
     let vendorObjpayOut = [];
     let totalBankDepositAllVendors = 0;
     let totalBankWithdrawalAllVendors = 0;
-    const vendorEntries = [];
 
       const banksData = await getBankaccountDao(
         { bank_used_for: 'PayIn' },
