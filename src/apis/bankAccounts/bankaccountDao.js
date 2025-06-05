@@ -91,7 +91,7 @@ const getBankaccountDao = async (filters, page, limit, role, designation) => {
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
-        ${designation === Role.ADMIN ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
+        ${designation === Role.ADMIN || Role.OPERATIONS || Role.TRANSACTIONS ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
         ba.created_at, 
         ba.updated_at`;
     }
