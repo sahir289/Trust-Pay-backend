@@ -118,6 +118,11 @@ const getBankResponseBySearchDao = async (
       values.push(filters.is_used);
       paramIndex++;
     }
+    if(filters.bank_id){
+      queryText += ` AND br.bank_id = $${paramIndex}`;
+      values.push(filters.bank_id);
+      paramIndex++;
+    }
 
     searchTerm.forEach((term) => {
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
