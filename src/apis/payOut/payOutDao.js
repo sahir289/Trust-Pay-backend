@@ -124,6 +124,193 @@ export const getPayoutsDao = async (
       commissionSelect = `
         u.payout_vendor_commission, 
         ve.code AS vendor_code,
+        ve.id AS vendor_id, 
+        ve.user_id AS vendor_user_id,
+        u.config->>'method' AS payout_method`;
+    } else {
+      commissionSelect = `
+        u.merchant_id, 
+        u.payout_merchant_commission, 
+        u.payout_vendor_commission,     
+        u.bank_acc_id,
+        u.approved_at, 
+        u.created_by, 
+        u.updated_by, 
+        u.created_at, 
+        u.user,
+        ve.code AS vendor_code, 
+        ve.id AS vendor_id, 
+        ve.user_id AS vendor_user_id,
+        u.config AS payout_details,
+        u.merchant_order_id,
+        u.updated_at,
+        b.user_id, 
+        us.user_name AS created_by,  
+        uu.user_name AS updated_by,
+        json_build_object(
+          'merchant_code', COALESCE(r.config->>'sub_code', r.code),
+          'return_url', r.config->>'return_url',
+          'notify_url', r.config->>'notify_url',
+          'public_key', r.config->'keys'->>'public',
+          'private_key', r.config->'keys'->>'private'
+        ) AS merchant_details
+      `;
+    }
+
+    let baseQuery = `
+      WITH filtered_payOuts AS (
+        SELECT DISTINCT ON (u.id) 
+          u.id, 
+          u.sno, 
+          u.bank_acc_id, 
+          u.amount,
+          u.status, 
+          u.merchant_order_id,
+          u.failed_reason, 
+          u.currency, 
+          u.upi_id, 
+          u.utr_id, 
+          u.rejected_reason,
+          ${commissionSelect}, 
+          b.id AS bank_table_id, 
+          b.user_id,
+          b.nick_name,
+          json_build_object(
+            'account_holder_name', u.acc_holder_name,
+            'account_no', u.acc_no,
+            'ifsc_code', u.ifsc_code,
+            'bank_name', u.bank_name
+          ) AS user_bank_details,
+          u.created_at,
+          u.updated_at,
+          u.approved_at,
+          u.rejected_at
+        FROM public."Payout" u
+        LEFT JOIN public."Merchant" r ON u.merchant_id = r.id
+        LEFT JOIN public."BankAccount" b ON u.bank_acc_id = b.id
+        LEFT JOIN public."Vendor" ve ON u.vendor_id = ve.id
+        LEFT JOIN public."User" us ON u.created_by = us.id 
+        LEFT JOIN public."User" uu ON u.updated_by = uu.id
+        WHERE ${conditions.join(' AND ')}  
+      ),
+      total_count AS (
+        SELECT COUNT(*) AS total FROM filtered_payOuts
+      )
+      SELECT * FROM filtered_payOuts, total_count
+      ORDER BY sno ${sortOrder}
+      ${limitcondition}
+    `;
+
+    let result;
+
+    if (conn && conn.query) {
+      result = await conn.query(baseQuery, queryParams);
+    } else {
+      result = await executeQuery(baseQuery, queryParams);
+    }
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getPayoutsDao:', error);
+    throw error.message;
+  }
+};
+
+export const getAllPayoutsDao = async (
+  filters,
+  company_id,
+  page,
+  limit,
+  sortOrder='DESC',
+  role,
+  conn,
+) => {
+  try {
+    if (typeof company_id === 'string') {
+      company_id = company_id.trim();
+    }
+
+    let conditions = [`u.is_obsolete = false`];
+    let queryParams = [];
+    let paramIndex = 1; 
+    if (company_id) {
+      conditions.push(`u.company_id = $${paramIndex}`);
+      queryParams.push(company_id);
+      paramIndex++;
+    }
+    let limitcondition = '';
+
+    if (filters?.startDate && filters?.endDate) {
+      let start;
+      let end;
+      start = dayjs.tz(`${filters?.startDate} 00:00:00`, IST).utc().format(); // UTC ISO string
+      end = dayjs.tz(`${filters?.endDate} 23:59:59.999`, IST).utc().format();
+
+      conditions.push(
+        `u.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+      );
+      queryParams.push(start, end);
+      paramIndex += 2;
+    }
+
+    if (page && limit) {
+      limitcondition = `LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+      queryParams.push(limit, (page - 1) * limit);
+      paramIndex += 2;
+    }
+
+    const handledKeys = new Set(['page', 'limit', 'startDate', 'endDate']);
+    Object.entries(filters).forEach(([key, value]) => {
+      if (handledKeys.has(key) || value == null || value === '') return;  
+      const nextParamIdx = paramIndex;
+      if (Array.isArray(value)) {
+        const placeholders = value
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        conditions.push(`u."${key}" IN (${placeholders})`);
+        queryParams.push(...value);
+        paramIndex += value.length;
+      } else {
+        const isMultiValue = typeof value === 'string' && value.includes(',');
+        const valueArray = isMultiValue
+          ? value.split(',').map((v) => v.trim())
+          : [value];
+        const placeholders = valueArray
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        if (key === 'startDate' || key === 'endDate') {
+          conditions.push(
+            isMultiValue
+              ? `u."${key}"`
+              : `u."${key}"`,
+          );
+        } else {
+          conditions.push(
+            isMultiValue
+              ? `u."${key}" IN (${placeholders})`
+              : `u."${key}" = $${nextParamIdx}`,
+          );
+        }
+        queryParams.push(...valueArray);
+        paramIndex += valueArray.length;
+      }
+    });
+
+    let commissionSelect = '';
+    if (role === 'MERCHANT') {
+      commissionSelect = `
+        u.payout_merchant_commission, 
+        u.merchant_order_id,
+        u.user,
+        json_build_object(
+          'merchant_code', r.code,
+          'return_url', r.config->>'return_url',
+          'notify_url', r.config->>'notify_url'
+        ) AS merchant_details
+      `;
+    } else if (role === 'VENDOR') {
+      commissionSelect = `
+        u.payout_vendor_commission, 
+        ve.code AS vendor_code,
         u.config->>'method' AS payout_method`;
     } else {
       commissionSelect = `

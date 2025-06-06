@@ -19,6 +19,7 @@ import {
   getPayoutsDao,
   getPayoutsBySearchDao,
   updatePayoutDao,
+  getAllPayoutsDao,
 } from './payOutDao.js';
 import {
   getMerchantsDao,
@@ -313,7 +314,7 @@ const getPayoutsService = async (
 
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await getPayoutsDao(
+    const data = await getAllPayoutsDao(
       filters,
       company_id,
       page,
