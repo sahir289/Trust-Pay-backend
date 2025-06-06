@@ -52,9 +52,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
       sDate = currentDate.clone().subtract(1, 'day').toDate();
       eDate = currentDate.clone().toDate();
     }
-     const currentTime = dayjs()
-          .tz(IST)
-          .format('YYYY-MM-DDTHH:mm:ssZ');
+
     logger.info('cron_started');
     const merchants = await getMerchantsDao({}, null,null);
     let merchant = [];
