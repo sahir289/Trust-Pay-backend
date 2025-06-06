@@ -12,6 +12,7 @@ import {
 import {
   createMerchantDao,
   deleteMerchantDao,
+  getAllMerchantsDao,
   getMerchantByCodeDao,
   getMerchantsBySearchDao,
   getMerchantsCodeDao,
@@ -158,7 +159,7 @@ const getMerchantsService = async (
     if (role === Role.ADMIN) {
       delete filters.user_id;
     }
-    let data = await getMerchantsDao(
+    let data = await getAllMerchantsDao(
       filters,
       pageNumber,
       pageSize,
