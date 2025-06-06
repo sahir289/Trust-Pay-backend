@@ -125,7 +125,7 @@ const notifyNewTableEntry = async (tableName, entryType, entryData) => {
     return;
   }
 
-  const eventName = 'newTableEntry';
+  const eventName = `newTableEntry${tableName}`;
   logger.info(eventName, 'eventName');
   const payload = {
     tableName,
@@ -154,7 +154,6 @@ const updatePayout = (id, code, merchant_order_id) => {
     code: code,
   });
 };
-
 
 // New function to emit event when a specific entry is added to a Calculation table
 // const notifyNewCalculationTableEntry = async (tableName, entryData) => {

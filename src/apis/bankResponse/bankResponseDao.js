@@ -9,11 +9,11 @@ import {
   buildInsertQuery,
   buildUpdateQuery,
 } from '../../utils/db.js';
-import { generateUUID } from '../../utils/generateUUID.js';
+// import { generateUUID } from '../../utils/generateUUID.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
-
+import { notifyNewTableEntry } from '../../utils/sockets.js';
 const IST = 'Asia/Kolkata';
 
 const getBankResponseDao = async (
@@ -425,8 +425,7 @@ const getBankResponseByUTR = async (utr) => {
 
 const createBankResponseDao = async (conn, data) => {
   try {
-    data.id = generateUUID();
-
+    // data.id = generateUUID();
     const [sql, params] = buildInsertQuery(tableName.BANK_RESPONSE, data);
     let result;
     if (conn && conn.query) {
@@ -446,9 +445,17 @@ export const updateBankResponseDao = async (id, data, conn) => {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, id);
     if (conn && conn.query) {
       const result = await conn.query(sql, params);
+      const sendNotification = async (status, data) => {
+        await notifyNewTableEntry(tableName.BANK_RESPONSE, status, data);
+      };
+      await sendNotification(result?.rows[0]?.status.replace('/', ''), data);
       return result.rows[0];
     }
     const result = await executeQuery(sql, params);
+    const sendNotification = async (status, data) => {
+      await notifyNewTableEntry(tableName.BANK_RESPONSE, status, data);
+    };
+    await sendNotification(result?.rows[0]?.status.replace('/', ''), data);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateBankResponseDao:', error);
@@ -490,6 +497,10 @@ const resetBankResponseDao = async (id, data) => {
       id,
     });
     const result = await executeQuery(sql, params);
+    const sendNotification = async (status, data) => {
+      await notifyNewTableEntry(tableName.BANK_RESPONSE, status, data);
+    };
+    await sendNotification(result?.rows[0]?.status.replace('/', ''), data);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in resetBankResponseDao:', error);
@@ -503,12 +514,19 @@ const updateBotResponseDao = async (id, data, conn) => {
       id,
     });
     let result;
-
     if (conn && conn.query) {
       result = await conn.query(sql, params); // Use connection to execute query
     } else {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
+    const sendNotification = async (status, data) => {
+      await notifyNewTableEntry(tableName.BANK_RESPONSE, status, data);
+    };
+    console.log(result.rows[0]);
+    await sendNotification(
+      result?.rows[0]?.status.replace('/', ''),
+      result.rows[0],
+    );
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateBotResponseDao:', error);
