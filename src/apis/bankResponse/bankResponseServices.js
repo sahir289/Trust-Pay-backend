@@ -528,12 +528,6 @@ const getBankResponseService = async (
     const sno = Number(payload.sno) > 0 ? Number(payload.sno) : undefined;
     const amount =
       Number(payload.amount) > 0 ? Number(payload.amount) : undefined;
-    const is_used =
-      payload.is_used === 'Used'
-        ? true
-        : payload.is_used === 'Unused'
-          ? false
-          : undefined;
 
     let filters = Object.fromEntries(
       Object.entries({
