@@ -166,7 +166,84 @@ export const getMerchantByUserIdDao = async (userId) => {
     throw error;
   }
 };
+
 export const getMerchantsDao = async (
+  filters,
+  page = 1,
+  pageSize = 10,
+  sortBy = 'created_at',
+  sortOrder = 'ASC',
+  role,
+) => {
+  try {
+    let baseQuery = `
+      SELECT 
+        "Merchant".id, 
+        "Merchant".user_id, 
+        "Merchant".first_name, 
+        "Merchant".last_name, 
+        "Merchant".code, 
+        "Merchant".min_payin, 
+        "Merchant".max_payin, 
+        "Merchant".payin_commission, 
+        "Merchant".min_payout, 
+        "Merchant".max_payout, 
+        "Merchant".payout_commission, 
+        "Merchant".is_test_mode, 
+        "Merchant".is_enabled, 
+        "Merchant".dispute_enabled, 
+        "Merchant".is_demo, 
+        "Merchant".config, 
+        "Merchant".company_id, 
+        creator.user_name AS created_by, 
+        updater.user_name AS updated_by, 
+        "Merchant".created_at, 
+        "Merchant".updated_at, 
+        "User".designation_id, 
+        "User".first_name || ' ' || "User".last_name AS full_name, 
+        "Designation".designation AS designation_name,
+        (
+          SELECT net_balance 
+          FROM "Calculation" 
+          WHERE "Calculation".user_id = "Merchant".user_id 
+          ORDER BY "Calculation".updated_at DESC 
+          LIMIT 1
+        ) AS balance
+      FROM "Merchant" 
+      JOIN "User" ON "Merchant".user_id = "User".id 
+      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
+      LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
+      LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
+      WHERE 1=1
+    `;
+
+    if (role === Role.ADMIN) {
+      baseQuery += `
+        AND "User".designation_id = (
+          SELECT id FROM "Designation" WHERE designation = 'MERCHANT'
+        )
+      `;
+    }
+  
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      tableName.MERCHANT,
+    );
+    const result = await executeQuery(sql, queryParams);
+    const data = await enhanceMerchantsWithSubMerchants(result.rows);
+    return data;
+  } catch (error) {
+    logger.error('Error in getMerchantsDao:', error);
+    throw error.message;
+  }
+};
+
+export const getAllMerchantsDao = async (
   filters,
   page = 1,
   pageSize = 10,
