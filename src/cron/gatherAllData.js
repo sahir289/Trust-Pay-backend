@@ -20,7 +20,7 @@ import dayjs from 'dayjs';
 //run only on server - side /production level
 if (process.env.NODE_ENV === 'production') {
   cron.schedule('0 0 * * *', () => {
-    gatherAllData('Asia/Kolkata');
+    gatherAllData('N','Asia/Kolkata');
   });
 
   cron.schedule('0 1-23 * * *', () => {
@@ -52,6 +52,9 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
       sDate = currentDate.clone().subtract(1, 'day').toDate();
       eDate = currentDate.clone().toDate();
     }
+     const currentTime = dayjs()
+          .tz(IST)
+          .format('YYYY-MM-DDTHH:mm:ssZ');
     logger.info('cron_started');
     const merchants = await getMerchantsDao({}, null,null);
     let merchant = [];
