@@ -542,9 +542,8 @@ const getBankResponseService = async (
         amount,
         utr: payload.utr || undefined,
         bank_id: payload.bank_id || undefined,
-        is_used,
+        is_used : payload.is_used || undefined,
         company_id: payload.company_id || undefined,
-        //start and end date bank reponse report
       }).filter(([, v]) => v !== undefined),
     );
     filters = {
