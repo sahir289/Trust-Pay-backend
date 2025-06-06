@@ -22,6 +22,7 @@ import {
   deleteBankaccountDao,
   getBankAccountDaoNickName,
   getBankAccountsBySearchDao,
+  getAllBankaccountDao,
 } from './bankaccountDao.js';
 
 const getBankaccountService = async (
@@ -47,7 +48,7 @@ const getBankaccountService = async (
 
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
-    return await getBankaccountDao(
+    return await getAllBankaccountDao(
       { company_id, ...filters },
       pageNumber,
       pageSize,

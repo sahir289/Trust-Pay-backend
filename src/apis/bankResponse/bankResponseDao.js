@@ -177,15 +177,13 @@ const getBankResponseBySearchDao = async (
 
 const getClaimResponseDao = async (filters) => {
   try {
-    // Convert input date to IST and handle both date formats
-    const selectedDate = filters.date ? 
-      dayjs.tz(filters.date, IST) : 
-      dayjs().tz(IST)
+    // Convert input date to IST (defaults to now)
+    const selectedDate = filters.date
+      ? dayjs.tz(filters.date, IST)
+      : dayjs().tz(IST);
 
-    // Add bank_id condition only if it exists in filters
     const bankIdCondition = filters.bank_id ? `AND bank_id = $3` : '';
-    const params = [selectedDate, filters.company_id];
-    // Add bank_id to params if it exists
+    const params = [selectedDate.format('YYYY-MM-DD'), filters.company_id];
     if (filters.bank_id) {
       params.push(filters.bank_id);
     }
@@ -193,64 +191,109 @@ const getClaimResponseDao = async (filters) => {
     const baseQuery = `
       WITH claimed_data AS (
         SELECT 
-          COALESCE(SUM(amount), 0) as claimed_amount,
-          COUNT(*) as claimed_count
+          COALESCE(SUM(amount), 0) AS claimed_amount,
+          COUNT(*) AS claimed_count
         FROM "BankResponse"
         WHERE is_used = true 
-        AND status = '/success'
-        AND created_at >= $1
-        AND company_id = $2
-        ${bankIdCondition}
-        AND is_obsolete = false
+          AND status = '/success'
+          AND created_at >= $1
+          AND company_id = $2
+          ${bankIdCondition}
+          AND is_obsolete = false
       ),
       unclaimed_24h AS (
         SELECT 
-          COALESCE(SUM(amount), 0) as unclaimed_24h_amount,
-          COUNT(*) as unclaimed_24h_count
+          COALESCE(SUM(amount), 0) AS unclaimed_24h_amount,
+          COUNT(*) AS unclaimed_24h_count
         FROM "BankResponse"
         WHERE is_used = false 
-        AND status = '/success'
-        AND created_at >= $1
-        AND company_id = $2
-        ${bankIdCondition}
-        AND is_obsolete = false
+          AND status = '/success'
+          AND created_at >= $1
+          AND company_id = $2
+          ${bankIdCondition}
+          AND is_obsolete = false
       ),
       total_unclaimed AS (
         SELECT 
-          COALESCE(SUM(amount), 0) as total_unclaimed_amount,
-          COUNT(*) as total_unclaimed_count
+          COALESCE(SUM(amount), 0) AS total_unclaimed_amount,
+          COUNT(*) AS total_unclaimed_count
         FROM "BankResponse"
         WHERE is_used = false 
-        AND status = '/success'
-        AND company_id = $2
-        ${bankIdCondition}
-        AND is_obsolete = false
+          AND status = '/success'
+          AND company_id = $2
+          ${bankIdCondition}
+          AND is_obsolete = false
+      ),
+      banks_unclaims_amount AS (
+        SELECT 
+          b.bank_name,
+          b.nick_name,
+          COALESCE(SUM(br.amount), 0) AS amount,
+          COUNT(br.id) AS count
+        FROM "BankAccount" b
+        LEFT JOIN "BankResponse" br
+          ON b.id = br.bank_id
+          AND br.is_used = false 
+          AND br.status = '/success'
+          AND br.company_id = $2
+          AND br.is_obsolete = false
+          AND b.bank_used_for = 'PayIn'
+          ${bankIdCondition ? `AND ${bankIdCondition.replace(/^AND /, '')}` : ''}
+        WHERE b.company_id = $2
+        GROUP BY b.bank_name, b.nick_name
       )
+
       SELECT 
-        claimed_amount,
-        claimed_count,
-        unclaimed_24h_amount,
-        unclaimed_24h_count,
-        total_unclaimed_amount,
-        total_unclaimed_count
-      FROM claimed_data, unclaimed_24h, total_unclaimed
+        cd.claimed_amount,
+        cd.claimed_count,
+        u24.unclaimed_24h_amount,
+        u24.unclaimed_24h_count,
+        tu.total_unclaimed_amount,
+        tu.total_unclaimed_count,
+        bua.bank_name,
+        bua.nick_name,
+        bua.amount,
+        bua.count
+      FROM claimed_data cd, unclaimed_24h u24, total_unclaimed tu
+      LEFT JOIN banks_unclaims_amount bua ON TRUE;
     `;
 
     const result = await executeQuery(baseQuery, params);
-    
+
+    if (!result || result.rows.length === 0) {
+      return {
+        claimed24h: { amount: 0, count: 0 },
+        unclaimed24h: { amount: 0, count: 0 },
+        totalUnclaimed: { amount: 0, count: 0 },
+        banks_unclaims_amount: [],
+      };
+    }
+
+    const firstRow = result.rows[0];
+
+    const banks_unclaims_amount = result.rows
+      .filter(row => row.bank_name) // avoid null rows
+      .map(row => ({
+        bank_name: row.bank_name,
+        nick_name: row.nick_name,
+        amount: parseFloat(row.amount) || 0,
+        count: parseInt(row.count) || 0,
+      }));
+
     return {
       claimed24h: {
-        amount: parseFloat(result.rows[0].claimed_amount) || 0,
-        count: parseInt(result.rows[0].claimed_count) || 0,
+        amount: parseFloat(firstRow.claimed_amount) || 0,
+        count: parseInt(firstRow.claimed_count) || 0,
       },
       unclaimed24h: {
-        amount: parseFloat(result.rows[0].unclaimed_24h_amount) || 0,
-        count: parseInt(result.rows[0].unclaimed_24h_count) || 0
+        amount: parseFloat(firstRow.unclaimed_24h_amount) || 0,
+        count: parseInt(firstRow.unclaimed_24h_count) || 0,
       },
       totalUnclaimed: {
-        amount: parseFloat(result.rows[0].total_unclaimed_amount) || 0,
-        count: parseInt(result.rows[0].total_unclaimed_count) || 0
-      }
+        amount: parseFloat(firstRow.total_unclaimed_amount) || 0,
+        count: parseInt(firstRow.total_unclaimed_count) || 0,
+      },
+      banks_unclaims_amount,
     };
   } catch (error) {
     logger.error('Error getting claim response:', error);
@@ -363,7 +406,7 @@ const getBankResponseDaoAll = async (
       baseQuery += ' WHERE ' + whereConditions.join(' AND ');
       baseQueryDate += ' WHERE ' + whereConditions.join(' AND ');
     }
-    const queryIs = (start && end && bankDetails[0]?.config?.merchant_added) ? baseQueryDate : baseQuery
+    const queryIs = (start && end && bankDetails && bankDetails[0]?.config?.merchant_added) ? baseQueryDate : baseQuery
     const [query, queryValues] = buildSelectQuery(
       queryIs,
       filters,

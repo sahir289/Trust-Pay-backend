@@ -24,8 +24,8 @@ import {
   updatePayInUrlDao,
   getPayInUrlDao,
   getPayInUrlsDao,
-  getPayInsDao,
   getPayinsBySearchDao,
+  getAllPayInsDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -1042,7 +1042,7 @@ export const getPayinsService = async (
     }
 
     conn = await getConnection();
-    return await getPayInsDao(filters, company_id, page, limit, role);
+    return await getAllPayInsDao(filters, company_id, page, limit, role);
   } catch (error) {
     throw new InternalServerError(error.message);
   } finally {
