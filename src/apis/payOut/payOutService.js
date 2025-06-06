@@ -409,14 +409,6 @@ const getPayoutsBySearchService = async (
     }
     const offset = (pageNum - 1) * limitNum;
 
-    // const filterColumns =
-    // role === Role.MERCHANT
-    // ? merchantColumns.SETTLEMENT
-    // : role === Role.VENDOR
-    // ? vendorColumns.SETTLEMENT
-    // : columns.SETTLEMENT;
-    // TODO: add designation constants
-
     const data = await getPayoutsBySearchDao(
       filters,
       searchTerms,
@@ -471,10 +463,6 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (!merchant) {
       throw new NotFoundError('Merchant not found!');
     }
-  //   if(!merchant?.config?.allow_payout && merchant.balance<0 && payload.status === Status.APPROVED)
-  //   {
-  //     throw new BadRequestError('Insufficient Balance');
-  //  }
 
     if (payload?.config?.method === Method.EKO)
       await processEkoPayout(singleWithdrawData, payload);
@@ -507,16 +495,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       throw new NotFoundError('Vendor not found!');
     }
 
-    // Calculate merchant commission based on percentage
-    // const merchantCommissionPercent =
-    //   Number(data.payout_merchant_commission) || 0;
-    // const merchantCommissionAmount =
-    //   (Number(data.amount) * merchantCommissionPercent) / 100;
 
-    // // Calculate vendor commission based on percentage
-    // const vendorCommissionPercent = Number(vendor.payout_commission) || 0;
-    // const vendorCommissionAmount =
-    //   (Number(data.amount) * vendorCommissionPercent) / 100;
     const merchantCommission = calculateCommission(
       data.amount,
       merchant.payout_commission,
@@ -544,25 +523,6 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         true,
         conn,
       );
-      // await notifyNewCalculationTableEntry(tableName.CALCULATION, vendorCalculation);
-      // const netBalance = await updatePayoutCalculations(
-      //   merchant.user_id,
-      //   data.approved_at,
-      //   Number(data.amount),
-      //   merchantCommissionAmount,
-      //   true,
-      //   false,
-      //   conn,
-      // );
-      // const netVendorBalance = await updatePayoutCalculations(
-      //   vendor.user_id,
-      //   data.approved_at,
-      //   Number(data.amount),
-      //   vendorCommissionAmount,
-      //   false,
-      //   false,
-      //   conn,
-      // );
 
       await updateBankaccountDao(
         { id: bankData.id },
@@ -674,62 +634,6 @@ const updatePayoutService = async (conn, ids, payload, role) => {
   }
 };
 
-// Function to update calculations
-// const updatePayoutCalculations = async (
-//   userId,
-//   date,
-//   amount,
-//   commission,
-//   isMerchant,
-//   isReverse = false,
-//   conn,
-// ) => {
-//   const currentCalculation = await getCalculationforCronDao(userId);
-//   const cal = currentCalculation[0];
-//   if (!cal) {
-//     throw Error('Calculation not found!');
-//   }
-//   const prefix = isReverse ? 'reverse_' : '';
-// const signedCommission = Math.abs(commission);
-
-// // Calculate updated commission total based on reverse flag
-// const updatedCommissionTotal = isReverse
-//   ? cal[`total_${prefix}payout_commission`] - signedCommission
-//   : cal[`total_${prefix}payout_commission`] + signedCommission;
-
-//   const updatedCalculation = {
-//     ...cal,
-//     [`total_${prefix}payout_count`]: cal[`total_${prefix}payout_count`] + 1,
-//     [`total_${prefix}payout_amount`]:
-//       cal[`total_${prefix}payout_amount`] + amount,
-//     [`total_${prefix}payout_commission`]: updatedCommissionTotal,
-//   };
-
-//   const { currentBalance, netBalance } = calculateBalances(
-//     updatedCalculation,
-//     cal,
-//     isMerchant,
-//     isReverse,
-//     amount,
-//   );
-
-//   await updateCalculationDao(
-//     { id: cal.id },
-//     {
-//       [`total_${prefix}payout_count`]:
-//         updatedCalculation[`total_${prefix}payout_count`],
-//       [`total_${prefix}payout_amount`]:
-//         updatedCalculation[`total_${prefix}payout_amount`],
-//       [`total_${prefix}payout_commission`]:
-//         updatedCalculation[`total_${prefix}payout_commission`],
-//       current_balance: Number(currentBalance),
-//       net_balance: Number(netBalance),
-//     },
-//     conn,
-//   );
-
-//   return Number(netBalance);
-// };
 
 ///for update payout calculation of payout
 const updateCalculationTable = async (user_id, data, isApproved, conn) => {
