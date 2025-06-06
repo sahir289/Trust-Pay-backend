@@ -76,14 +76,14 @@ export const getBankResponseDaoById = async (filters) => {
 
 
 const getBankResponseBySearchDao = async (
-  company_id,
+  filters,
   searchTerm,
   limitNum,
   offset,
 ) => {
   try {
     const conditions = [];
-    const values = [company_id];
+    const values = [filters.company_id];
     let paramIndex = 2;
 
     let queryText = `
@@ -112,6 +112,12 @@ const getBankResponseBySearchDao = async (
       WHERE br.is_obsolete = false
       AND br.company_id = $1  
     `;
+
+    if(filters.is_used){
+      queryText += ` AND br.is_used = $${paramIndex}`;
+      values.push(filters.is_used);
+      paramIndex++;
+    }
 
     searchTerm.forEach((term) => {
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {

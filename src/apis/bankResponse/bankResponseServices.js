@@ -598,7 +598,7 @@ const getBankResponseBySearchService = async (
           : columns.SETTLEMENT;
 
     const data = await getBankResponseBySearchDao(
-      filters.company_id,
+      filters,
       searchTerms,
       limitNum,
       offset,
