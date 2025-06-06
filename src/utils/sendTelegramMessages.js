@@ -49,8 +49,8 @@ export async function sendTelegramDashboardReportMessage(
   let startHour = istTime.getHours() - 1;
   let endHour = (startHour + 1) % 24;
 
-  const startAmpm = startHour >= 12 ? 'PM' : 'AM';
-  const endAmpm = endHour >= 12 ? 'PM' : 'AM';
+  const startAmpm = startHour >= 12 ? 'AM' : 'PM';
+  const endAmpm = endHour >= 12 ? 'AM' : 'PM';
 
   // Convert hours to 12-hour format
   startHour = startHour % 12 || 12;
