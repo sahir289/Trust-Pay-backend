@@ -356,7 +356,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       throw new BadRequestError(`UTR already exists`);
     }
     const calculationData = await getCalculationforCronDao(
-      data[0].user_table_id,
+      data[0].user_id,
     );
     // if status is success and updating , it will directly be in rejected
     if (data[0].status === Status.SUCCESS) {
@@ -370,7 +370,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       }
       let updatedCalculation;
       const merchant_data = await getMerchantsDao({
-        user_id: data[0].user_table_id,
+        user_id: data[0].user_id,
       });
       if (merchant_data.length > 0) {
         if (Array.isArray(calculationData) && calculationData.length > 0) {
@@ -402,7 +402,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
       }
       const merchantData = await getMerchantsDao(
-        { user_id: data[0].user_table_id },
+        { user_id: data[0].user_id },
         null,
         null,
         null,
@@ -411,7 +411,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
 
       if (data[0].role === Role.VENDOR) {
         const bankData = await getBankaccountDao(
-          { user_id: data[0].user_table_id },
+          { user_id: data[0].user_id },
           null,
           null,
           role,
@@ -443,7 +443,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
 
     if (payload.status === Status.INITIATED) {
       const merchant_data = await getMerchantsDao({
-        user_id: data[0].user_table_id,
+        user_id: data[0].user_id,
       });
       if (merchant_data.length > 0) {
         payload.config.reference_id = '';
@@ -475,8 +475,8 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           data[0].method === 'INTERNAL_BANK_TRANSFER'
         ) {
           const [vendorData, calculationData] = await Promise.all([
-            getVendorsDao({ user_id: data[0].user_table_id }),
-            getCalculationforCronDao(data[0].user_table_id),
+            getVendorsDao({ user_id: data[0].user_id }),
+            getCalculationforCronDao(data[0].user_id),
           ]);
 
           if (!vendorData?.length) {
