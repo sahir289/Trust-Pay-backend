@@ -2248,7 +2248,7 @@ export const generateUpiUrlService = async (payload) => {
   if (payload.businessName) params.bn = payload.businessName.trim();
   if (payload.mode) params.mode = payload.mode;
   if (payload.purpose) params.purpose = payload.purpose;
-  params.appid = 'inb_admin'; // Optional, Paytm-specific
+  // params.appid = 'inb_admin'; // Optional, Paytm-specific
 
   const encodedParams = querystring.stringify(params);
 
