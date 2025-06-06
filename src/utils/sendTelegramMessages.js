@@ -83,6 +83,7 @@ export async function sendTelegramDashboardReportMessage(
 
   const vendorDetails = Object.entries(vendorObjpayIn)
     // .filter(([_, { banks }]) => banks.length > 0)
+    .sort(([vendorCodeA], [vendorCodeB]) => vendorCodeA.localeCompare(vendorCodeB))
     .map(([vendorCode, { banks }], index) => {
       // if (banks.length === 0) {
       //   return `<b>${vendorCode}</b>: No bank accounts`;
@@ -97,21 +98,17 @@ export async function sendTelegramDashboardReportMessage(
             })} (${bank.TotalCount})`
         )
         .join('\n'); // join each bank with a new line
-  
-      // Only include vendors with valid bank details
       return bankDetails ? `${index + 1}. ${vendorCode}:\n${bankDetails}` : '';
     })
     .filter(Boolean)
     .join('\n\n');
 
-  const vendorDetailsPayout = Object.entries(vendorObjpayOut)
-    // .filter(([_, { banks }]) => banks.length > 0)
-    .map(([vendorCode, { banks }], index) => {
-      // if (banks.length === 0) {
-      //   return `<b>${vendorCode}</b>: No bank accounts`;
-      // }
+    const vendorDetailsPayout = Object.entries(vendorObjpayOut)
+    .sort(([vendorCodeA], [vendorCodeB]) => vendorCodeA.localeCompare(vendorCodeB))
+    .map(([vendorCode, { banks }],index) => {
       const bankDetails = banks
-        .filter((bank) => bank.TotalDeposit !== null || bank.TotalDeposit !== 0)
+      .sort((a, b) => a.bankName.localeCompare(b.bankName))
+        .filter((bank) => bank.TotalDeposit !== null && bank.TotalDeposit !== 0)
         .map(
           (bank) =>
             `  ${bank.bankName}: ₹ ${bank.TotalDeposit.toLocaleString('en-IN', {
@@ -120,8 +117,8 @@ export async function sendTelegramDashboardReportMessage(
             })} (${bank.TotalCount})`
         )
         .join('\n');
-        return bankDetails ? `${index + 1}. ${vendorCode}: ${bankDetails}` : '';
-      })
+      return bankDetails ? `${index + 1}. ${vendorCode}:\n${bankDetails}` : '';
+    })
     .filter(Boolean)
     .join('\n\n');
 

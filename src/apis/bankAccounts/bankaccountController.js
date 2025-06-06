@@ -42,7 +42,7 @@ const getBankaccount = async (req, res) => {
 };
 
 const getBankAccountBySearch = async (req, res) => {
-  const { company_id, role } = req.user;
+  const { company_id, role, designation } = req.user;
   const { search, bank_used_for, page = 1, limit = 10 } = req.query;
   if (!search) {
     throw new BadRequestError('search is required');
@@ -54,6 +54,7 @@ const getBankAccountBySearch = async (req, res) => {
     bank_used_for,
     page,
     limit,
+    designation
   );
   return sendSuccess(res, data, 'get Banks by search successfully');
 };

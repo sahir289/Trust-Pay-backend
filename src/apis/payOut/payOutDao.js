@@ -112,7 +112,8 @@ export const getPayoutsDao = async (
     if (role === 'MERCHANT') {
       commissionSelect = `
         u.payout_merchant_commission, 
-        u.merchant_order_id, 
+        u.merchant_order_id,
+        u.user,
         json_build_object(
           'merchant_code', r.code,
           'return_url', r.config->>'return_url',
@@ -120,22 +121,30 @@ export const getPayoutsDao = async (
         ) AS merchant_details
       `;
     } else if (role === 'VENDOR') {
-      commissionSelect = `u.payout_vendor_commission, ve.code AS vendor_code, 
-          ve.id AS vendor_id, 
-          ve.user_id AS vendor_user_id`;
+      commissionSelect = `
+        u.payout_vendor_commission, 
+        ve.code AS vendor_code,
+        u.config->>'method' AS payout_method`;
     } else {
       commissionSelect = `
         u.merchant_id, 
         u.payout_merchant_commission, 
-        u.payout_vendor_commission, 
+        u.payout_vendor_commission,     
+        u.bank_acc_id,
         u.approved_at, 
         u.created_by, 
         u.updated_by, 
         u.created_at, 
+        u.user,
         ve.code AS vendor_code, 
         ve.id AS vendor_id, 
         ve.user_id AS vendor_user_id,
-        u.updated_at, 
+        u.config AS payout_details,
+        u.merchant_order_id,
+        u.updated_at,
+        b.user_id, 
+        us.user_name AS created_by,  
+        uu.user_name AS updated_by,
         json_build_object(
           'merchant_code', COALESCE(r.config->>'sub_code', r.code),
           'return_url', r.config->>'return_url',
@@ -150,25 +159,16 @@ export const getPayoutsDao = async (
       WITH filtered_payOuts AS (
         SELECT DISTINCT ON (u.id) 
           u.id, 
-          u.sno,
-          u.user,    
-          u.bank_acc_id, 
+          u.sno, 
           u.amount,
           u.status, 
-          u.merchant_order_id,
           u.failed_reason, 
           u.currency, 
           u.upi_id, 
           u.utr_id, 
           u.rejected_reason,
-          u.config AS payout_details,
-          ${commissionSelect},
-          b.id AS bank_table_id, 
-          b.user_id, 
+          ${commissionSelect}, 
           b.nick_name,
-          us.user_name AS created_by,  
-          uu.user_name AS updated_by,  
-          r.id AS merchant_table_id,
           json_build_object(
             'account_holder_name', u.acc_holder_name,
             'account_no', u.acc_no,
@@ -257,6 +257,7 @@ export const getPayoutsBySearchDao = async (
       commissionSelect = `
         p.payout_merchant_commission, 
         p.merchant_order_id, 
+        p.user, 
         json_build_object(
           'merchant_code', m.code,
           'return_url', m.config->>'return_url',
@@ -266,23 +267,27 @@ export const getPayoutsBySearchDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payout_vendor_commission, 
-        v.code AS vendor_code, 
-        v.id AS vendor_id, 
-        v.user_id AS vendor_user_id
+        v.code AS vendor_code,
+        p.config->>'method' AS payout_method
       `;
     } else {
       commissionSelect = `
         p.merchant_id, 
         p.payout_merchant_commission, 
         p.payout_vendor_commission, 
+        p.merchant_order_id,
+        p.bank_acc_id,
         p.approved_at, 
         p.created_by, 
         p.updated_by, 
+        p.user, 
         p.created_at, 
         v.code AS vendor_code, 
         v.id AS vendor_id, 
         v.user_id AS vendor_user_id,
-        p.updated_at, 
+        p.config AS payout_details,
+        p.updated_at,
+        b.user_id, 
         json_build_object(
           'merchant_code', COALESCE(m.config->>'sub_code', m.code),
           'return_url', m.config->>'return_url',
@@ -297,22 +302,15 @@ export const getPayoutsBySearchDao = async (
       SELECT DISTINCT ON (p.id) 
         p.id, 
         p.sno,
-        p.user,    
-        p.bank_acc_id, 
         p.amount,
         p.status, 
-        p.merchant_order_id,
         p.failed_reason, 
         p.currency, 
         p.upi_id, 
         p.utr_id, 
         p.rejected_reason,
-        p.config AS payout_details,
         ${commissionSelect},
-        b.id AS bank_table_id, 
-        b.user_id, 
         b.nick_name,
-        m.id AS merchant_table_id,
         json_build_object(
           'account_holder_name', p.acc_holder_name,
           'account_no', p.acc_no,

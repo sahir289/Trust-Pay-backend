@@ -1,4 +1,4 @@
-import { tableName } from '../../constants/index.js';
+import { Role, tableName } from '../../constants/index.js';
 
 import {
   buildInsertQuery,
@@ -10,7 +10,7 @@ import {
 import { DbError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
 
-const getBankaccountDao = async (filters, page, limit, role) => {
+const getBankaccountDao = async (filters, page, limit, role, designation) => {
   try {
     let queryParams = [];
     let conditions = [`ba.is_obsolete = false`];
@@ -73,11 +73,13 @@ const getBankaccountDao = async (filters, page, limit, role) => {
         ba.payin_count, 
         ba.balance, 
         ba.today_balance, 
-        ba.bank_used_for, 
-        ba.user_id,
-        creator.user_name AS created_by, 
-        updater.user_name AS updated_by`;
+        ba.bank_used_for,
+        ba.config->>'is_freeze' AS freezed,
+        ba.config->>'is_intent' AS intent,
+        ba.config->>'is_phonepay' AS phonepe,
+        ba.config->>'max_limit' AS daily_limit`;
     } else {
+      // Only include Merchant_Details and config if designation is 'Admin'
       commissionSelect = `
         ba.user_id, 
         ba.ifsc, 
@@ -89,6 +91,7 @@ const getBankaccountDao = async (filters, page, limit, role) => {
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
+        ${designation === Role.ADMIN || Role.OPERATIONS || Role.TRANSACTIONS ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
         ba.created_at, 
         ba.updated_at`;
     }
@@ -104,12 +107,8 @@ const getBankaccountDao = async (filters, page, limit, role) => {
         ba.is_qr, 
         ba.is_bank, 
         ba.is_enabled, 
-        ba.config,
-        creator.user_name AS created_by,
-        updater.user_name AS updated_by,
         ${commissionSelect ? `${commissionSelect},` : ''}
-        v.code AS Vendor, 
-        COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details
+        v.code AS Vendor 
       FROM 
           public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
@@ -148,6 +147,7 @@ const getBankAccountsBySearchDao = async (
   limitNum,
   offset,
   bank_used_for,
+  designation
 ) => {
   try {
     let commissionSelect = '';
@@ -160,6 +160,10 @@ const getBankAccountsBySearchDao = async (
         ba.balance, 
         ba.today_balance, 
         ba.bank_used_for, 
+        ba.config->>'is_freeze' AS freezed,
+        ba.config->>'is_intent' AS intent,
+        ba.config->>'is_phonepay' AS phonepe,
+        ba.config->>'max_limit' AS daily_limit
       `;
     } else {
       commissionSelect = `
@@ -173,6 +177,7 @@ const getBankAccountsBySearchDao = async (
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
+        ${designation === Role.ADMIN ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
         ba.created_at, 
         ba.updated_at,
       `;
@@ -195,11 +200,9 @@ const getBankAccountsBySearchDao = async (
         ba.bank_name, 
         ba.is_qr, 
         ba.is_bank, 
-        ba.is_enabled, 
-        ba.config,  
+        ba.is_enabled,
         ${commissionSelect}
-        v.code AS Vendor, 
-        COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details
+        v.code AS Vendor
       FROM 
         public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
