@@ -432,14 +432,13 @@ const getPayoutsBySearchService = async (
 
 const updatePayoutService = async (conn, ids, payload, role) => {
   try {
-   
     if (payload?.utr_id) {
     const payoutDetails = await getPayoutsDao({utr_id: payload.utr_id}, ids.company_id);
     if(payoutDetails.length > 0) {
       throw new BadRequestError('UTR already exists');
     }
     }
-    if (payload?.utr_id && !payload.status)
+    if (payload?.utr_id && !payload.status && payload?.bank_acc_id)
       Object.assign(payload, {
         status: Status.APPROVED,
         approved_at: new Date().toISOString(),
@@ -472,6 +471,10 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (payload?.config?.method === Method.EKO)
       await processEkoPayout(singleWithdrawData, payload);
     const data = await updatePayoutDao(ids, payload, conn);
+    let checkPayload = { utr_id: payload.utr_id, updated_by: payload.updated_by };
+    if (JSON.stringify(payload) === JSON.stringify(checkPayload)) {
+      return data;
+    }
     if (!data.approved_at) return data;
     const bankDataArr = await getBankaccountDao(
       { id: data.bank_acc_id },
