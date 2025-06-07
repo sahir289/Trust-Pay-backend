@@ -528,12 +528,6 @@ const getBankResponseService = async (
     const sno = Number(payload.sno) > 0 ? Number(payload.sno) : undefined;
     const amount =
       Number(payload.amount) > 0 ? Number(payload.amount) : undefined;
-    const is_used =
-      payload.is_used === 'Used'
-        ? true
-        : payload.is_used === 'Unused'
-          ? false
-          : undefined;
 
     let filters = Object.fromEntries(
       Object.entries({
@@ -542,9 +536,8 @@ const getBankResponseService = async (
         amount,
         utr: payload.utr || undefined,
         bank_id: payload.bank_id || undefined,
-        is_used,
+        is_used : payload.is_used || undefined,
         company_id: payload.company_id || undefined,
-        //start and end date bank reponse report
       }).filter(([, v]) => v !== undefined),
     );
     filters = {
@@ -599,7 +592,7 @@ const getBankResponseBySearchService = async (
           : columns.SETTLEMENT;
 
     const data = await getBankResponseBySearchDao(
-      filters.company_id,
+      filters,
       searchTerms,
       limitNum,
       offset,
