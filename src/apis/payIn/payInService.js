@@ -81,7 +81,7 @@ import {
   sendTelegramDisputeMessage,
 } from '../../utils/sendTelegramMessages.js';
 import { tableName } from '../../constants/index.js';
-import { notifyNewTableEntry } from '../../utils/sockets.js';
+import { newTableEntry } from '../../utils/sockets.js';
 import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
@@ -307,21 +307,10 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
       }),
       created_by,
     };
-    const sendNotification = async (status, data) => {
-      await notifyNewTableEntry(tableName.PAYIN, status, data);
-    };
     const result = await generatePayInUrlDao(data);
-    await sendNotification(data.status, {
-      amount: data.amount,
-      status: data.status,
-      currency: data.currency,
-      merchant_order_id: data.merchant_order_id,
-      user: data.user,
-      merchant_id: data.merchant_id,
-      expiration_date: data.expiration_date,
-      company_id: data.company_id,
-      config:data.config
-    });
+    if (result) {
+      await newTableEntry(tableName.PAYIN);
+    }
     // expirePayInIfNeeded(result.id, code);
     return result;
   } catch (error) {

@@ -8,7 +8,7 @@ import {
 import { getConnection } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-import { notifyNewTableEntry } from '../../utils/sockets.js';
+import { newTableEntry } from '../../utils/sockets.js';
 export const generatePayInUrlDao = async (data) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.PAYIN, data);
@@ -750,18 +750,16 @@ export const updatePayInUrlDao = async (id, data, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
     if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      const sendNotification = async (status, data) => {
-        await notifyNewTableEntry(tableName.PAYIN, status, data);
-      };
-      await sendNotification(result.rows[0].status, result.rows[0]);
-      return result.rows[0];
+    const result = await conn.query(sql, params);
+    if (result.rows[0]) {
+        await newTableEntry(tableName.PAYIN);
+    }
+    return result.rows[0];
     }
     const result = await executeQuery(sql, params);
-    const sendNotification = async (status, data) => {
-      await notifyNewTableEntry(tableName.PAYIN, status, data);
-    };
-    await sendNotification(result.rows[0].status, result.rows[0]);
+    if (result.rows[0]) {
+      await newTableEntry(tableName.PAYIN);
+    }
     return result.rows[0];
   } catch (error) {
     console.error('Error updating PayIn URL:', error);
