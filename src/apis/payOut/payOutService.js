@@ -625,6 +625,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         conn,
       );
     }
+    await newTableEntry(tableName.PAYOUT);
     ///url condition change
     await merchantPayoutCallback(data.config?.urls?.notify, {
       code: data.code,
@@ -636,7 +637,6 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     });
     // const finalResult = filterResponse(data, filterColumns);
     //sockets call
-      await newTableEntry(tableName.PAYOUT);
     return data;
   } catch (error) {
     console.error('Error in getPayoutsService:', error);
