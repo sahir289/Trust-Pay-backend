@@ -499,15 +499,11 @@ export const updateBankResponseDao = async (id, data, conn) => {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, id);
     if (conn && conn.query) {
       const result = await conn.query(sql, params);
-      if (result.rows[0]) {
         await newTableEntry(tableName.BANK_RESPONSE);
-      }
       return result.rows[0];
     }
     const result = await executeQuery(sql, params);
-    if (result.rows[0]) {
-      await newTableEntry(tableName.BANK_RESPONSE);
-    }
+    await newTableEntry(tableName.BANK_RESPONSE);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateBankResponseDao:', error);
@@ -549,9 +545,7 @@ const resetBankResponseDao = async (id, data) => {
       id,
     });
     const result = await executeQuery(sql, params);
-    if (result.rows[0]) {
       await newTableEntry(tableName.BANK_RESPONSE);
-    }
     return result.rows[0];
   } catch (error) {
     logger.error('Error in resetBankResponseDao:', error);
@@ -570,9 +564,7 @@ const updateBotResponseDao = async (id, data, conn) => {
     } else {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
-    if (result.rows[0]) {
       await newTableEntry(tableName.BANK_RESPONSE);
-    }
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateBotResponseDao:', error);
