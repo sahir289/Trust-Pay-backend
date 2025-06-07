@@ -50,6 +50,7 @@ import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
 import { updatePayout } from '../../utils/sockets.js';
+import { newTableEntry } from '../../utils/sockets.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 const createPayoutService = async (conn, headers, payload, role, res) => {
   try {
@@ -237,6 +238,9 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
 
     logger.info('Payout created successfully');
     const finalResult = filterResponse(data, filterColumns);
+    if (data) {
+      await newTableEntry(tableName.PAYOUT);
+    }
     return finalResult;
   } catch (error) {
     logger.error(error)
@@ -630,6 +634,10 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       utr_id: data.utr_id || '',
     });
     // const finalResult = filterResponse(data, filterColumns);
+    //sockets call
+    if (data) {
+      await newTableEntry(tableName.PAYOUT);
+    }
     return data;
   } catch (error) {
     console.error('Error in getPayoutsService:', error);

@@ -9,11 +9,11 @@ import {
   buildInsertQuery,
   buildUpdateQuery,
 } from '../../utils/db.js';
-import { generateUUID } from '../../utils/generateUUID.js';
+// import { generateUUID } from '../../utils/generateUUID.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
-
+import { newTableEntry } from '../../utils/sockets.js';
 const IST = 'Asia/Kolkata';
 
 const getBankResponseDao = async (
@@ -479,8 +479,7 @@ const getBankResponseByUTR = async (utr) => {
 
 const createBankResponseDao = async (conn, data) => {
   try {
-    data.id = generateUUID();
-
+    // data.id = generateUUID();
     const [sql, params] = buildInsertQuery(tableName.BANK_RESPONSE, data);
     let result;
     if (conn && conn.query) {
@@ -500,9 +499,15 @@ export const updateBankResponseDao = async (id, data, conn) => {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, id);
     if (conn && conn.query) {
       const result = await conn.query(sql, params);
+      if (result.rows[0]) {
+        await newTableEntry(tableName.BANK_RESPONSE);
+      }
       return result.rows[0];
     }
     const result = await executeQuery(sql, params);
+    if (result.rows[0]) {
+      await newTableEntry(tableName.BANK_RESPONSE);
+    }
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateBankResponseDao:', error);
@@ -544,6 +549,9 @@ const resetBankResponseDao = async (id, data) => {
       id,
     });
     const result = await executeQuery(sql, params);
+    if (result.rows[0]) {
+      await newTableEntry(tableName.BANK_RESPONSE);
+    }
     return result.rows[0];
   } catch (error) {
     logger.error('Error in resetBankResponseDao:', error);
@@ -557,11 +565,13 @@ const updateBotResponseDao = async (id, data, conn) => {
       id,
     });
     let result;
-
     if (conn && conn.query) {
       result = await conn.query(sql, params); // Use connection to execute query
     } else {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
+    }
+    if (result.rows[0]) {
+      await newTableEntry(tableName.BANK_RESPONSE);
     }
     return result.rows[0];
   } catch (error) {

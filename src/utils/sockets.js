@@ -125,7 +125,7 @@ const notifyNewTableEntry = async (tableName, entryType, entryData) => {
     return;
   }
 
-  const eventName = 'newTableEntry';
+  const eventName = `newTableEntry${tableName}`;
   logger.info(eventName, 'eventName');
   const payload = {
     tableName,
@@ -141,6 +141,15 @@ const notifyNewTableEntry = async (tableName, entryType, entryData) => {
   );
   ioInstance.emit(eventName, payload); // Broadcast to all connected clients
 };
+// New function to emit event when a specific entry is updated/added in a table
+const newTableEntry = async (tableName) => {
+  if (!ioInstance) {
+    logger.error('Socket.IO not initialized');
+    return;
+  }
+  const eventName = `newTableEntry${tableName}`;
+  ioInstance.emit(eventName); 
+};
 //update payour socket notification
 const updatePayout = (id, code, merchant_order_id) => {
   if (!ioInstance) {
@@ -154,7 +163,6 @@ const updatePayout = (id, code, merchant_order_id) => {
     code: code,
   });
 };
-
 
 // New function to emit event when a specific entry is added to a Calculation table
 // const notifyNewCalculationTableEntry = async (tableName, entryData) => {
@@ -195,5 +203,6 @@ export {
   deactivateBank,
   notifyNewTableEntry,
   updatePayout,
+  newTableEntry,
   // notifyNewCalculationTableEntry,
 };

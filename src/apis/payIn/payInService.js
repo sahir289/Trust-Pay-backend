@@ -80,7 +80,8 @@ import {
   sendUTRMismatchErrorMessageTelegram,
   sendTelegramDisputeMessage,
 } from '../../utils/sendTelegramMessages.js';
-
+import { tableName } from '../../constants/index.js';
+import { newTableEntry } from '../../utils/sockets.js';
 import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
@@ -306,8 +307,10 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
       }),
       created_by,
     };
-
     const result = await generatePayInUrlDao(data);
+    if (result) {
+      await newTableEntry(tableName.PAYIN);
+    }
     // expirePayInIfNeeded(result.id, code);
     return result;
   } catch (error) {
