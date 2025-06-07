@@ -148,7 +148,8 @@ const newTableEntry = async (tableName) => {
     return;
   }
   const eventName = `newTableEntry${tableName}`;
-  ioInstance.emit(eventName); 
+  logger.log(chalk.bold.cyan(`Emitting ${eventName} for table ${tableName}`));
+  ioInstance.emit(eventName);
 };
 //update payour socket notification
 // const updatePayout = (id, code, merchant_order_id) => {
