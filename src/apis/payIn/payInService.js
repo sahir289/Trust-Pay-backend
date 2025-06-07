@@ -308,9 +308,7 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
       created_by,
     };
     const result = await generatePayInUrlDao(data);
-    if (result) {
-      await newTableEntry(tableName.PAYIN);
-    }
+    await newTableEntry(tableName.PAYIN);
     // expirePayInIfNeeded(result.id, code);
     return result;
   } catch (error) {

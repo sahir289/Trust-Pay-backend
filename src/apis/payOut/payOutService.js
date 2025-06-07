@@ -238,9 +238,7 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
 
     logger.info('Payout created successfully');
     const finalResult = filterResponse(data, filterColumns);
-    if (data) {
-      await newTableEntry(tableName.PAYOUT);
-    }
+    await newTableEntry(tableName.PAYOUT);
     return finalResult;
   } catch (error) {
     logger.error(error)
@@ -638,9 +636,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     });
     // const finalResult = filterResponse(data, filterColumns);
     //sockets call
-    if (data) {
       await newTableEntry(tableName.PAYOUT);
-    }
     return data;
   } catch (error) {
     console.error('Error in getPayoutsService:', error);

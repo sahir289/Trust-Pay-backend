@@ -751,15 +751,11 @@ export const updatePayInUrlDao = async (id, data, conn) => {
     const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
     if (conn && conn.query) {
     const result = await conn.query(sql, params);
-    if (result.rows[0]) {
-        await newTableEntry(tableName.PAYIN);
-    }
+    await newTableEntry(tableName.PAYIN);
     return result.rows[0];
     }
     const result = await executeQuery(sql, params);
-    if (result.rows[0]) {
-      await newTableEntry(tableName.PAYIN);
-    }
+    await newTableEntry(tableName.PAYIN);
     return result.rows[0];
   } catch (error) {
     console.error('Error updating PayIn URL:', error);
