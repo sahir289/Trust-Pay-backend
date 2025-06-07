@@ -151,18 +151,18 @@ const newTableEntry = async (tableName) => {
   ioInstance.emit(eventName); 
 };
 //update payour socket notification
-const updatePayout = (id, code, merchant_order_id) => {
-  if (!ioInstance) {
-    logger.error('Socket.IO not initialized');
-    return;
-  }
-  ioInstance.emit('updatedPayout', {
-    message: `Payout for merchant ${code} with order id ${merchant_order_id} has been updated!`,
-    payoutId: id,
-    merchant_order_id: merchant_order_id,
-    code: code,
-  });
-};
+// const updatePayout = (id, code, merchant_order_id) => {
+//   if (!ioInstance) {
+//     logger.error('Socket.IO not initialized');
+//     return;
+//   }
+//   ioInstance.emit('updatedPayout', {
+//     message: `Payout for merchant ${code} with order id ${merchant_order_id} has been updated!`,
+//     payoutId: id,
+//     merchant_order_id: merchant_order_id,
+//     code: code,
+//   });
+// };
 
 // New function to emit event when a specific entry is added to a Calculation table
 // const notifyNewCalculationTableEntry = async (tableName, entryData) => {
@@ -202,7 +202,7 @@ export {
   forceLogoutUser,
   deactivateBank,
   notifyNewTableEntry,
-  updatePayout,
+  // updatePayout,
   newTableEntry,
   // notifyNewCalculationTableEntry,
 };
