@@ -89,12 +89,20 @@ export const getTotalCountService = async (
         updated = filters.updated;
         delete filters.updated;
       }
+      // Handle updatedPayin filter
+      let updatedPayin = false;
+      if (filters?.updatedPayin) {
+        updatedPayin = filters.updatedPayin;
+        delete filters.updatedPayin;
+      }
+
       return await getTotalCountDao(
         tablename,
         role,
         filters,
         userInfo.userRole,
         updated,
+        updatedPayin,
       );
     }
 

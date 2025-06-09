@@ -2,7 +2,7 @@ import { executeQuery } from '../../utils/db.js';
 import { Role, tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 
-export const getTotalCountDao = async (tablename, role, filters, roleIs, updated = false) => {
+export const getTotalCountDao = async (tablename, role, filters, roleIs, updated = false, updatedPayin = false) => {
   try {
     // Validate table name to prevent SQL injection
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tablename)) {
@@ -35,6 +35,12 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs, updated
       `;
     }
 
+    // Handle updatedPayin filter specifically for Payin table
+    if (tablename === 'Payin' && filters.updatedPayin) {
+      query += ` AND (config->>'history' IS NOT NULL AND config::jsonb ? 'history')`;
+      delete filters.updatedPayin;  // Remove from filters to avoid SQL error
+    }
+
     // Add role-based filtering for 'Settlement'
     if (tableName && role) {
       query += ` AND EXISTS (
@@ -50,6 +56,13 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs, updated
     if (updated) {
       query += ` AND "${tablename}".updated_at IS NOT NULL 
         AND "${tablename}".updated_at != "${tablename}".created_at`;
+    }
+
+    if (updatedPayin) {
+      // query += ` AND "${tablename}".approved_at IS NOT NULL
+      // AND "${tablename}".approved_at < "${tablename}".updated_at`;
+      // query += ` AND "${tablename}".config->>'history' IS NOT NULL 
+      //   AND "${tablename}".config::jsonb ? 'history'`;
     }
 
     // Handle nickname filter
@@ -80,8 +93,8 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs, updated
     // Dynamically add remaining filters
     if (filters) {
       Object.entries(filters).forEach(([column, value]) => {
-        if (column === 'startDate' || column === 'endDate') {
-          return;
+        if (column === 'startDate' || column === 'endDate' || column === 'updatedPayin') {
+          return; // Skip these special filters
         }
         if (Array.isArray(value)) {
           // Handle multiple values using SQL IN clause

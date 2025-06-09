@@ -132,6 +132,13 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         );
         queryParams.push(...statusArray);
       },
+      updated: (filters, conditions) => {
+        if (!filters.updatedPayin) return;
+        conditions.push(
+          `(p.config->>'history' IS NOT NULL AND p.config::jsonb ? 'history')`,
+        );
+        delete filters.updatedPayin;
+      },
       pagination: (page, limit, queryParams, limitconditionRef) => {
         if (!page || !limit) return;
         const nextParamIdx = queryParams.length + 1;
@@ -145,6 +152,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
     conditionBuilders.bankName(filters, conditions, queryParams);
     conditionBuilders.status(filters, conditions, queryParams);
     conditionBuilders.pagination(page, limit, queryParams, limitcondition);
+    conditionBuilders.updated(filters, conditions, queryParams);
 
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null) return;
@@ -232,7 +240,36 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         p.created_by,
         p.updated_by,
         p.created_at,
-        p.updated_at
+        p.updated_at,
+        CASE 
+          WHEN p.config::jsonb ? 'history' 
+          THEN (
+            SELECT json_agg(
+              json_build_object(
+                'updated_by', upd_user.user_name,
+                'updated_at', h->>'updated_at',
+                'bank_acc_id', h->>'bank_acc_id',
+                'nick_name', h->>'nick_name',
+                'user', p.user,
+                'amount', h->>'amount',
+                'status', p.status,
+                'merchant_order_id', p.merchant_order_id,
+                'bank_res_details', json_build_object(
+                  'utr', h->>'utr',
+                  'amount', h->>'amount'
+                ),
+                'merchant_details', json_build_object(
+                  'merchant_code', COALESCE(r.config->>'sub_code', r.code)
+                ),
+                'payin_vendor_commission', h->>'payin_vendor_commission',
+                'payin_merchant_commission', h->>'payin_merchant_commission'
+              ) ORDER BY (h->>'updated_at')::timestamp DESC
+            )
+            FROM jsonb_array_elements(p.config::jsonb->'history') AS h
+            LEFT JOIN public."User" upd_user ON upd_user.id = (h->>'updated_by')::text
+          )
+          ELSE NULL
+        END AS history
       `;
     }
 
@@ -253,6 +290,35 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
             'utr', br.utr,
             'amount', br.amount
           ) AS bank_res_details,
+          CASE 
+          WHEN p.config::jsonb ? 'history' 
+          THEN (
+            SELECT json_agg(
+              json_build_object(
+                'updated_by', upd_user.user_name,
+                'updated_at', h->>'updated_at',
+                'bank_acc_id', h->>'bank_acc_id',
+                'nick_name', h->>'nick_name',
+                'user', p.user,
+                'amount', h->>'amount',
+                'status', p.status,
+                'merchant_order_id', p.merchant_order_id,
+                'bank_res_details', json_build_object(
+                  'utr', h->>'utr',
+                  'amount', h->>'amount'
+                ),
+                'merchant_details', json_build_object(
+                  'merchant_code', COALESCE(r.config->>'sub_code', r.code)
+                ),
+                'payin_vendor_commission', h->>'payin_vendor_commission',
+                'payin_merchant_commission', h->>'payin_merchant_commission'
+              ) ORDER BY (h->>'updated_at')::timestamp DESC
+            )
+            FROM jsonb_array_elements(p.config::jsonb->'history') AS h
+            LEFT JOIN public."User" upd_user ON upd_user.id = (h->>'updated_by')::text
+          )
+          ELSE NULL
+        END AS history,
           p.created_at,
           p.updated_at
         FROM public."${PAYIN}" p
@@ -385,12 +451,43 @@ export const getPayinsBySearchDao = async (
           'amount', br.amount
         ) AS bank_res_details,
         p.created_at,
-        p.updated_at
+        p.updated_at,
+        CASE 
+          WHEN p.config::jsonb ? 'history' 
+          THEN (
+            SELECT json_agg(
+              json_build_object(
+                'updated_by', upd_user.user_name,
+                'updated_at', h->>'updated_at',
+                'amount', h->>'amount',
+                'bank_acc_id', h->>'bank_acc_id',
+                'user', p.user,
+                'nick_name', h->>'nick_name',
+                'status', p.status,
+                'merchant_order_id', p.merchant_order_id,
+                'bank_res_details', json_build_object(
+                  'utr', h->>'utr',
+                  'amount', h->>'amount'
+                ),
+                'merchant_details', json_build_object(
+                  'merchant_code', COALESCE(m.config->>'sub_code', m.code)
+                ),
+                'payin_vendor_commission', h->>'payin_vendor_commission',
+                'payin_merchant_commission', h->>'payin_merchant_commission'
+              ) ORDER BY (h->>'updated_at')::timestamp DESC
+            )
+            FROM jsonb_array_elements(p.config::jsonb->'history') AS h
+            LEFT JOIN public."User" upd_user ON upd_user.id = (h->>'updated_by')::text
+          )
+          ELSE NULL
+        END AS history
       FROM public."Payin" p
       LEFT JOIN public."Merchant" m ON p.merchant_id = m.id
       LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
       LEFT JOIN public."BankResponse" br ON p.bank_response_id = br.id
       LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
+      LEFT JOIN public."User" u ON p.created_by = u.id 
+      LEFT JOIN public."User" uu ON p.updated_by = uu.id
       WHERE ${conditions.join(' AND ')}
     `;
 
