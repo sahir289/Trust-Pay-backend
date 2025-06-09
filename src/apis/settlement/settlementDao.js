@@ -270,23 +270,47 @@ END AS code,
               'acc_holder_name', COALESCE(ba.acc_holder_name, ''),
               'acc_no', COALESCE(ba.acc_no, ''),
               'ifsc', COALESCE(ba.ifsc, '')
-              ${Object.keys(filters).length > 0 ? ', ' + Object.keys(filters)
-                .filter(key => !['beneficiary_bank_name', 'acc_holder_name', 'acc_no', 'ifsc'].includes(key))
-                .map(key => `'${key}', COALESCE(s.config->>'${key}', '')`)
-                .join(', ') : ''}
+              ${
+                Object.keys(filters).length > 0
+                  ? ', ' +
+                    Object.keys(filters)
+                      .filter(
+                        (key) =>
+                          ![
+                            'beneficiary_bank_name',
+                            'acc_holder_name',
+                            'acc_no',
+                            'ifsc',
+                          ].includes(key),
+                      )
+                      .map(
+                        (key) => `'${key}', COALESCE(s.config->>'${key}', '')`,
+                      )
+                      .join(', ')
+                  : ''
+              }
             ) || (
               SELECT jsonb_object_agg(key, value)
               FROM jsonb_each(s.config::jsonb)
-              WHERE key NOT IN ('beneficiary_bank_name', 'acc_holder_name', 'acc_no', 'ifsc'${Object.keys(filters).length > 0 ? ', ' + Object.keys(filters).map(key => `'${key}'`).join(', ') : ''})
+              WHERE key NOT IN ('beneficiary_bank_name', 'acc_holder_name', 'acc_no', 'ifsc'${
+                Object.keys(filters).length > 0
+                  ? ', ' +
+                    Object.keys(filters)
+                      .map((key) => `'${key}'`)
+                      .join(', ')
+                  : ''
+              })
             )
           )
         ELSE
           s.config::jsonb
       END AS config,
-     COALESCE(u.user_name, s.created_by::text) AS created_by,
-  COALESCE(u.user_name, s.updated_by::text) AS updated_by
+     COALESCE(uc.user_name, s.created_by::text) AS created_by,
+     COALESCE(uu.user_name, s.updated_by::text) AS updated_by
       FROM "${SETTLEMENT}" s
       JOIN "${USER}" u ON s.user_id = u.id
+      LEFT JOIN public."${USER}" uc ON s.created_by = uc.id
+      LEFT JOIN public."${USER}" uu ON s.updated_by = uu.id
       LEFT JOIN "${ROLE}" r ON u.role_id = r.id
       LEFT JOIN public."${BENEFICIARY_ACCOUNTS}" ba ON s.config->>'bank_id' = ba.id
       LEFT JOIN public."${MERCHANT}" m ON u.id = m.user_id AND r.role IN ('MERCHANT', 'ADMIN')

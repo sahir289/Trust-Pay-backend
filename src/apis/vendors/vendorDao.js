@@ -64,6 +64,102 @@ export const getVendorsDao = async (
     // Define columns to select
     const columns = [
       `"Vendor".id`,
+      `"Vendor".user_id`,
+      `"Vendor".first_name`,
+      `"Vendor".last_name`,
+      `"Vendor".code`,
+      `"Vendor".payin_commission`,
+      `"Vendor".payout_commission`,
+      `"Vendor".created_at`,
+      `"Vendor".updated_at`,
+      `user_main.first_name || ' ' || user_main.last_name AS full_name`,
+      `d.designation AS designation_name`,
+      `(SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".updated_at DESC LIMIT 1) AS balance`,
+    ];
+
+    // Add extra columns for admin
+    if (role === Role.ADMIN) {
+      columns.push(
+        `"Vendor".created_by`,
+        `"Vendor".updated_by`,
+        `"Vendor".company_id`,
+        `user_main.designation_id`,
+        `u.user_name AS created_by`,
+        `uu.user_name AS updated_by`,
+      );
+    }
+
+    // Build FROM/JOIN clause
+    let fromClause = `
+      FROM "Vendor"
+      JOIN "User" AS user_main ON "Vendor".user_id = user_main.id
+      LEFT JOIN "Designation" AS d ON user_main.designation_id = d.id
+    `;
+
+    if (role === Role.ADMIN) {
+      fromClause += `
+      LEFT JOIN "User" AS u ON "Vendor".created_by = u.id
+      LEFT JOIN "User" AS uu ON "Vendor".updated_by = uu.id
+      `;
+    }
+
+    // Build WHERE clause
+    let whereClause = `
+      WHERE "Vendor".is_obsolete = false
+    `;
+    if (role === Role.ADMIN) {
+      whereClause += `
+      AND user_main.designation_id = (SELECT id FROM "Designation" WHERE designation = 'VENDOR')
+      `;
+    }
+
+    baseQuery = `
+      SELECT ${columns.join(',\n')}
+      ${fromClause}
+      ${whereClause}
+    `;
+    const value = [];
+    let paramIndex = 1;
+
+    if (filters.id) {
+      baseQuery += `
+      AND "Vendor".id = $${paramIndex}
+    `;
+      value.push(filters.id);
+      paramIndex++;
+    }
+
+    const [query, values] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      'Vendor',
+    );
+    const result = await executeQuery(query, values);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in getVendorsDao:', error);
+    throw error.message;
+  }
+};
+
+export const getAllVendorsDao = async (
+  filters,
+  page = 1,
+  pageSize = 10,
+  sortBy = 'created_at',
+  sortOrder = 'DESC',
+  role,
+) => {
+  try {
+    let baseQuery;
+    // Build base query based on role
+    // Define columns to select
+    const columns = [
+      `"Vendor".id`,
       `"Vendor".first_name`,
       `"Vendor".last_name`,
       `"Vendor".code`,

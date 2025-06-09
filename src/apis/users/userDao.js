@@ -78,6 +78,64 @@ const getUsersDao = async (
   }
 };
 
+const getAllUsersDao = async (
+  filters,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+  columns = [],
+) => {
+  try {
+    const { USER, ROLE, DESIGNATION } = tableName;
+    const joins = [
+      {
+        table: ROLE,
+        // first is source key
+        // second is target key
+        keys: ['role_id', 'id'],
+        type: 'JOIN',
+        columns: ['role'],
+        columnAs: [`"${ROLE}".role AS Role`],
+      },
+      {
+        table: DESIGNATION,
+        // first is source key
+        // second is target key
+        keys: [`designation_id`, 'id'],
+        type: 'LEFT JOIN',
+        columnAs: [`"${DESIGNATION}".designation AS Designation`],
+        referenceTable: USER,
+      },
+    ];
+      const baseQuery = buildJoinQuery(
+        USER,
+        columns.length ? columns : '*',
+        joins,
+      );
+      if (filters.search) {
+        filters.or = buildSearchFilterObj(filters.search, USER);
+        delete filters.search;
+      }
+    //TODO: columns.ROLE dynamic search
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      USER,
+    );
+    
+    const result = await executeQuery(sql, queryParams);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in get Users Dao:', error);
+    throw error.message;
+  }
+};
+
 export const getUsersBySearchDao = async (
   filters,
   searchTerms,
@@ -366,6 +424,7 @@ const updateUserDao = async (ids, data, conn) => {
 
 export {
   getUsersDao,
+  getAllUsersDao,
   getUserByIdDao,
   getUsersForCronDao,
   getUsersByUserNameDao,

@@ -24,8 +24,8 @@ import {
   updatePayInUrlDao,
   getPayInUrlDao,
   getPayInUrlsDao,
-  getPayInsDao,
   getPayinsBySearchDao,
+  getAllPayInsDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -80,7 +80,8 @@ import {
   sendUTRMismatchErrorMessageTelegram,
   sendTelegramDisputeMessage,
 } from '../../utils/sendTelegramMessages.js';
-
+import { tableName } from '../../constants/index.js';
+import { newTableEntry } from '../../utils/sockets.js';
 import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
@@ -306,8 +307,8 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
       }),
       created_by,
     };
-
     const result = await generatePayInUrlDao(data);
+    await newTableEntry(tableName.PAYIN);
     // expirePayInIfNeeded(result.id, code);
     return result;
   } catch (error) {
@@ -970,7 +971,7 @@ export const getPayinsService = async (
   let conn;
   try {
     const fetchMerchantIds = async (user_ids) => {
-      const merchants = await getMerchantByUserIdDao( user_ids);
+      const merchants = await getMerchantByUserIdDao(user_ids);
       return merchants.map((merchant) => merchant.id);
     };
 
@@ -1042,7 +1043,7 @@ export const getPayinsService = async (
     }
 
     conn = await getConnection();
-    return await getPayInsDao(filters, company_id, page, limit, role);
+    return await getAllPayInsDao(filters, company_id, page, limit, role);
   } catch (error) {
     throw new InternalServerError(error.message);
   } finally {
@@ -1064,7 +1065,7 @@ export const getPayinsBySearchService = async (
 ) => {
   try {
     const fetchMerchantIds = async (user_ids) => {
-      const merchants = await getMerchantByUserIdDao( user_ids);
+      const merchants = await getMerchantByUserIdDao(user_ids);
       return merchants.map((merchant) => merchant.id);
     };
 
@@ -1214,7 +1215,7 @@ export const processPayInService = async (
     is_url_expires: true,
     one_time_used: true,
     duration,
-    user_submitted_image: user_submitted_image ,
+    user_submitted_image: user_submitted_image,
     is_notified: true,
     updated_by: updated_by || '',
   };
@@ -1857,7 +1858,7 @@ export const disputeDuplicateTransactionService = async (
     updatePayload.status = Status.FAILED;
   }
 
-  await updatePayInUrlDao(payIn.id, updatePayload);
+  response = await updatePayInUrlDao(payIn.id, updatePayload);
   // await updateVendorBalanceDao(
   //   { user_id: bankResponse.user_id },
   //   toAmount,
@@ -1904,7 +1905,10 @@ export const telegramCheckUTRService = async (
   updated_by,
 ) => {
   try {
-    const bankResponse = await getBankResponseDao({ utr: utr, status: '/success' });
+    const bankResponse = await getBankResponseDao({
+      utr: utr,
+      status: '/success',
+    });
     let otherBankResponse = {};
     const payIn = await getPayInUrlDao({ merchant_order_id });
     if (!bankResponse) {
@@ -2237,29 +2241,24 @@ export const generateUpiUrlService = async (payload) => {
     pa: payload.payeeVPA,
     pn: payload.payeeName?.trim() || '',
     tn: payload.transactionNote?.trim() || '',
-    cu: 'INR'
+    cu: 'INR',
   };
-  
-  // Optional fields — only add them if they exist
+
+  // Optional fields
   if (payload.merchantCode) params.mc = payload.merchantCode;
   if (payload.businessName) params.bn = payload.businessName.trim();
   if (payload.mode) params.mode = payload.mode;
   if (payload.purpose) params.purpose = payload.purpose;
-  // appid is optional and specific to Paytm — only add if necessary
-  params.appid = 'inb_admin';
-  
-  const encodedParams = querystring.stringify(params);
-  
-  // UPI deep links
-  const paytmUrl = `paytm://upi/pay?${encodedParams}`;
-  const phonepeUrl = `phonepe://pay?${encodedParams}`;
-  const gpayUrl = `gpay://upi/pay?${encodedParams}`;
-  const genericUpiUrl = `upi://pay?${encodedParams}`;
+  // params.appid = 'inb_admin'; // Optional, Paytm-specific
 
-  //  const phonepeQr = await QRCode.toDataURL(phonepeUrl);
-  // const gpayQr = await QRCode.toDataURL(gpayUrl);
-  // const paytmQr = await QRCode.toDataURL(paytmUrl);
-  // const genericUpiQr = await QRCode.toDataURL(genericUpiUrl);
+  const encodedParams = querystring.stringify(params);
+
+  // Intent UPI links
+  const paytmUrl = `upi://pay?${encodedParams}&ap=net.one97.paytm`;
+  const gpayUrl = `upi://pay?${encodedParams}&ap=com.google.android.apps.nbu.paisa.user`;
+  const phonepeUrl = `upi://pay?${encodedParams}&ap=com.phonepe.app`;
+  const genericUpiUrl = `upi://pay?${encodedParams}`
+
 
   return {
     phonepeUrl,
@@ -2270,8 +2269,8 @@ export const generateUpiUrlService = async (payload) => {
     // paytmQr,
     genericUpiUrl,
     // genericUpiQr,
-    transactionId
-  }
+    transactionId,
+  };
   // return data;
 
   // const params = {
@@ -2394,12 +2393,15 @@ const updateCalculationBalances = async (
   if (nextCalculations.length > 0) {
     // Update subsequent calculations
     for (const calc of nextCalculations) {
-  const calculationDate = dayjs(calc.created_at).tz('Asia/Kolkata').format('YYYY-MM-DD');
-      let data = {}
+      const calculationDate = dayjs(calc.created_at)
+        .tz('Asia/Kolkata')
+        .format('YYYY-MM-DD');
+      let data = {};
       if (calculationDate === todayDate) {
-         data = {
+        data = {
           total_adjustment_amount: amountDiff,
-          total_adjustment_commission: amountDiff > 0 ? commission : -commission,
+          total_adjustment_commission:
+            amountDiff > 0 ? commission : -commission,
           total_adjustment_count: 1,
         };
       }
@@ -2515,7 +2517,7 @@ export const updatePayInService = async (
       await Promise.all([
         updateBankResponseDao(
           { id: bankResponse.id, company_id: company_id },
-          { amount: payload.amount, updated_by: user_id, },
+          { amount: payload.amount, updated_by: user_id },
           conn,
         ),
         updateBankaccountDao(

@@ -11,6 +11,7 @@ import {
   getChargeBackDao,
   updateChargeBackDao,
   getChargeBacksBySearchDao,
+  getAllChargeBackDao,
 } from './chargeBackDao.js';
 import {
   columns,
@@ -169,7 +170,7 @@ const getChargeBacksService = async (
     ); // Added upper limit
 
     // Call DAO with all required parameters
-    const chargeBacks = await getChargeBackDao(
+    const chargeBacks = await getAllChargeBackDao(
       filters,
       pageNumber,
       pageSize,
