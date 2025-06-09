@@ -123,7 +123,7 @@ const createSettlementController = async (req, res) => {
   }
   //-- utr and amount for internal tranfer case
   if (payload.amount && payload.utr) {
-    const bankRes = await getBankResponseDao({ utr: payload.utr });
+    const bankRes = await getBankResponseDao({ utr: payload.utr , status :'/success'});
     if (!bankRes) {
       return res.status(400).json({
         error: {
