@@ -95,35 +95,88 @@ const getBeneficiaryAccountService = async (
 const getBeneficiaryAccountBySearchService = async (
   role,
   search,
-  bank_used_for,
+  filters,
   page,
   limit,
+  user_id,
+  designation,
 ) => {
   try {
+    let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
+
+    if (role === Role.MERCHANT) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchy = userHierarchys?.[0];
+
+      if (designation === Role.MERCHANT && userHierarchy) {
+        const subMerchants =
+          userHierarchy?.config?.siblings?.sub_merchants ?? [];
+        if (Array.isArray(subMerchants) && subMerchants.length > 0) {
+          merchant_user_id = [...merchant_user_id, ...subMerchants];
+          filters.user_id = [merchant_user_id];
+        } else {
+          filters.user_id = [user_id];
+        }
+      } else if (designation === Role.SUB_MERCHANT) {
+        filters.user_id = [user_id];
+      } else if (designation === Role.MERCHANT_OPERATIONS && userHierarchy) {
+        const parentID = userHierarchy?.config?.parent;
+        if (parentID) {
+          const parentHierarchys = await getUserHierarchysDao({
+            user_id: parentID,
+          });
+          const parentHierarchy = parentHierarchys?.[0];
+          const subMerchants =
+            parentHierarchy?.config?.siblings?.sub_merchants ?? [];
+          const userIdFilter = [...new Set([parentID, ...subMerchants])];
+          filters.user_id = [userIdFilter];
+        }
+      }
+    } else if (role === Role.VENDOR) {
+      if (designation == Role.VENDOR) {
+        filters.user_id = [user_id];
+      } else if (designation == Role.VENDOR_OPERATIONS) {
+        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const parentID = userHierarchys[0]?.config?.parent;
+        if (parentID) {
+          filters.user_id = [parentID];
+        }
+      }
+    }
+
+    if (filters?.beneficiary_role) {
+      const role_id = await getRoleDao({ role: filters.beneficiary_role });
+      filters.role_id = role_id[0]?.id;
+      delete filters.beneficiary_role;
+    }
+
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
       throw new BadRequestError('Invalid pagination parameters');
     }
+
     const searchTerms = search
       .split(',')
       .map((term) => term.trim())
       .filter((term) => term.length > 0);
-
     if (searchTerms.length === 0) {
       throw new BadRequestError('Please provide valid search items');
     }
-    const offset = (pageNum - 1) * limitNum;
-    return await getBeneficiaryAccountBySearchDao(
+
+
+    const result = await getBeneficiaryAccountBySearchDao(
       role,
       searchTerms,
+      pageNum,
       limitNum,
-      offset,
-      bank_used_for,
+      filters,
     );
+
+    return result;
   } catch (error) {
-    logger.error('error getting while getting check utr by search', error);
-    throw new InternalServerError(error.message);
+    console.error('Error in get BeneficiaryAccountBySearchService:', error);
+    throw error;
   }
 };
 
