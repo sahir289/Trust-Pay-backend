@@ -266,20 +266,22 @@ export async function sendTelegramDashboardSuccessRatioMessage(
   fullMessage,
   TELEGRAM_BOT_TOKEN,
 ) {
-  const message = fullMessage
-    .map(({ merchantCode, intervalDetails, intervalDetailsUtr }) => {
-      return `🔔<b>${merchantCode}</b> - SR 🔔\n\n<b>Payin SR:</b>\n${intervalDetails}\n\n<b>UTR SR:</b>\n${intervalDetailsUtr}`;
+  const results = await Promise.all(
+    fullMessage.map(async ({ merchantCode, intervalDetails, intervalDetailsUtr }) => {
+      const message = `🔔<b>${merchantCode}</b> - SR 🔔\n\n<b>Payin SR:</b>\n${intervalDetails}\n\n<b>UTR SR:</b>\n${intervalDetailsUtr}`;
+      const success = await telegramSender(
+        chatId,
+        message,
+        null,
+        TELEGRAM_BOT_TOKEN,
+      );
+      logger.log(success ? `Sent message for ${merchantCode}!` : `Failed to send message for ${merchantCode}.`);
+      return success;
     })
-    .join('\n\n');
-
-  const success = await telegramSender(
-    chatId,
-    message,
-    null,
-    TELEGRAM_BOT_TOKEN,
   );
-  logger.log(success ? 'Sent!' : 'Not sent.');
-  return success;
+  const allSuccessful = results.every(success => success);
+  logger.log(allSuccessful ? 'All messages sent!' : 'Some messages failed to send.');
+  return allSuccessful;
 }
 
 export async function sendTelegramMessage(
