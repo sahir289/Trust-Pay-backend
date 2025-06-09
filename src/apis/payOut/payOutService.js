@@ -33,7 +33,8 @@ import {
 } from '../calculation/calculationDao.js';
 import {
   updateBankaccountDao,
-  getBankaccountDao,
+  // getBankaccountDao,
+  getBankByIdDao,
 } from '../bankAccounts/bankaccountDao.js';
 import config from '../../config/config.js';
 import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
@@ -474,12 +475,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       return data;
     }
     if (!data.approved_at) return data;
-    const bankDataArr = await getBankaccountDao(
-      { id: data.bank_acc_id },
-      null,
-      null,
-      role,
-    );
+    const bankDataArr = await  getBankByIdDao (
+      { id: data.bank_acc_id });
     const bankData = bankDataArr[0];
     if (!bankData) {
       throw new NotFoundError('Bank not found!');
@@ -490,9 +487,10 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (bankData.is_blocked) {
       throw new BadRequestError('Bank account is blocked');
     }
-    const [ vendorArr] = await Promise.all([
-      getVendorsDao({ id: data.vendor_id }),
+    const [vendorArr] = await Promise.all([
+      getVendorsDao({ user_id: bankData.user_id }),
     ]);
+
     const vendor = vendorArr[0];
     if (!vendor) {
       throw new NotFoundError('Vendor not found!');
@@ -535,27 +533,27 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         conn,
       );
       // got DB Error when balance is NAN
-      const merchantBalance = Number(merchant.balance) - Number(data.amount);
-      if (isNaN(merchantBalance)) {
-        throw new BadRequestError('Invalid merchant balance');
-      } else {
-        await updateMerchantDao(
-          { id: merchant.id },
-          { balance: merchantBalance },
-          conn,
-        );
-      }
-      // got DB Error when balance is NAN
-      const vendorBalance = Number(vendor.balance) - Number(data.amount);
-      if (isNaN(vendorBalance)) {
-        throw new BadRequestError('Invalid vendor balance');
-      } else {
-        await updateVendorDao(
-          { id: vendor.id },
-          { balance: vendorBalance },
-          conn,
-        );
-      }
+      // const merchantBalance = Number(merchant.balance) - Number(data.amount);
+      // if (isNaN(merchantBalance)) {
+      //   throw new BadRequestError('Invalid merchant balance');
+      // } else {
+      //   await updateMerchantDao(
+      //     { id: merchant.id },
+      //     { balance: merchantBalance },
+      //     conn,
+      //   );
+      // }
+      // // got DB Error when balance is NAN
+      // const vendorBalance = Number(vendor.balance) - Number(data.amount);
+      // if (isNaN(vendorBalance)) {
+      //   throw new BadRequestError('Invalid vendor balance');
+      // } else {
+      //   await updateVendorDao(
+      //     { id: vendor.id },
+      //     { balance: vendorBalance },
+      //     conn,
+      //   );
+      // }
       const upadtedpayout = await updatePayoutDao(
         ids,
         {
@@ -590,26 +588,26 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         conn,
       );
       // await notifyNewCalculationTableEntry(tableName.CALCULATION, vendorCalculation);
-      const merchantBalance = Number(merchant.balance + data.amount);
-      if (isNaN(merchantBalance)) {
-        throw new BadRequestError('Invalid merchant balance');
-      } else {
-        const log = await updateMerchantDao(
-          { id: merchant.id, company_id: merchant.company_id },
-          { balance: merchantBalance },
-          conn,
-        );
-      }
-      const vendorBalance = Number(vendor.balance + data.amount);
-      if (isNaN(vendorBalance)) {
-        throw new BadRequestError('Invalid vendor balance');
-      } else {
-        const merchan = await updateVendorDao(
-          { id: vendor.id },
-          { balance: vendorBalance },
-          conn,
-        );
-      }
+      // const merchantBalance = Number(merchant.balance + data.amount);
+      // if (isNaN(merchantBalance)) {
+      //   throw new BadRequestError('Invalid merchant balance');
+      // } else {
+      //   const log = await updateMerchantDao(
+      //     { id: merchant.id, company_id: merchant.company_id },
+      //     { balance: merchantBalance },
+      //     conn,
+      //   );
+      // }
+      // const vendorBalance = Number(vendor.balance + data.amount);
+      // if (isNaN(vendorBalance)) {
+      //   throw new BadRequestError('Invalid vendor balance');
+      // } else {
+      //   const merchan = await updateVendorDao(
+      //     { id: vendor.id },
+      //     { balance: vendorBalance },
+      //     conn,
+      //   );
+      // }
 
       const vend = await updateBankaccountDao(
         { id: bankData.id },
