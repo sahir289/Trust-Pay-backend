@@ -490,18 +490,13 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (bankData.is_blocked) {
       throw new BadRequestError('Bank account is blocked');
     }
-
     const [ vendorArr] = await Promise.all([
-      getVendorsDao({ user_id: bankData.user_id }),
+      getVendorsDao({ id: data.vendor_id }),
     ]);
     const vendor = vendorArr[0];
-    
-
     if (!vendor) {
       throw new NotFoundError('Vendor not found!');
     }
-
-
     const merchantCommission = calculateCommission(
       data.amount,
       merchant.payout_commission,
