@@ -80,7 +80,8 @@ import {
   sendUTRMismatchErrorMessageTelegram,
   sendTelegramDisputeMessage,
 } from '../../utils/sendTelegramMessages.js';
-
+import { tableName } from '../../constants/index.js';
+import { newTableEntry } from '../../utils/sockets.js';
 import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
@@ -306,8 +307,8 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
       }),
       created_by,
     };
-
     const result = await generatePayInUrlDao(data);
+    await newTableEntry(tableName.PAYIN);
     // expirePayInIfNeeded(result.id, code);
     return result;
   } catch (error) {
@@ -2248,20 +2249,16 @@ export const generateUpiUrlService = async (payload) => {
   if (payload.businessName) params.bn = payload.businessName.trim();
   if (payload.mode) params.mode = payload.mode;
   if (payload.purpose) params.purpose = payload.purpose;
-  params.appid = 'inb_admin'; // Optional, Paytm-specific
+  // params.appid = 'inb_admin'; // Optional, Paytm-specific
 
   const encodedParams = querystring.stringify(params);
 
   // Intent UPI links
-  const paytmUrl = `intent://upi/pay?${encodedParams}#Intent;scheme=upi;package=net.one97.paytm;end;`;
-  const gpayUrl = `intent://upi/pay?${encodedParams}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end;`;
-  const phonepeUrl = `intent://upi/pay?${encodedParams}#Intent;scheme=upi;package=com.phonepe.app;end;`;
-  const genericUpiUrl = `intent://upi/pay?${encodedParams}#Intent;scheme=upi;end;`;
+  const paytmUrl = `upi://pay?${encodedParams}&ap=net.one97.paytm`;
+  const gpayUrl = `upi://pay?${encodedParams}&ap=com.google.android.apps.nbu.paisa.user`;
+  const phonepeUrl = `upi://pay?${encodedParams}&ap=com.phonepe.app`;
+  const genericUpiUrl = `upi://pay?${encodedParams}`
 
-  //  const phonepeQr = await QRCode.toDataURL(phonepeUrl);
-  // const gpayQr = await QRCode.toDataURL(gpayUrl);
-  // const paytmQr = await QRCode.toDataURL(paytmUrl);
-  // const genericUpiQr = await QRCode.toDataURL(genericUpiUrl);
 
   return {
     phonepeUrl,

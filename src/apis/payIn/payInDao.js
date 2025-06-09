@@ -8,7 +8,7 @@ import {
 import { getConnection } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-
+import { newTableEntry } from '../../utils/sockets.js';
 export const generatePayInUrlDao = async (data) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.PAYIN, data);
@@ -750,10 +750,12 @@ export const updatePayInUrlDao = async (id, data, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
     if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
+    const result = await conn.query(sql, params);
+    await newTableEntry(tableName.PAYIN);
+    return result.rows[0];
     }
     const result = await executeQuery(sql, params);
+    await newTableEntry(tableName.PAYIN);
     return result.rows[0];
   } catch (error) {
     console.error('Error updating PayIn URL:', error);
