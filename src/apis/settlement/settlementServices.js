@@ -358,10 +358,6 @@ const updateSettlementService = async (conn, ids, payload, role) => {
     const calculationData = await getCalculationforCronDao(
       data[0].user_id,
     );
-    // if status is success and updating , it will directly be in rejected
-    if (data[0].status === Status.SUCCESS) {
-      payload.status = Status.REJECTED;
-    }
 
     if (payload.config.reference_id) {
       payload.status = Status.SUCCESS;
@@ -446,8 +442,9 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         user_id: data[0].user_id,
       });
       if (merchant_data.length > 0) {
-        payload.config.reference_id = '';
-        payload.config.rejected_reason = '';
+        // payload.config.reference_id = '';
+        // payload.config.rejected_reason = '';
+        payload.status = Status.REJECTED;
         let updatedCalculation;
         const amount = payload?.amount || 0;
 

@@ -204,9 +204,6 @@ const getAllBankaccountDao = async (filters, page, limit, role, designation) => 
         ba.balance, 
         ba.today_balance, 
         ba.bank_used_for,
-        ba.config->>'is_freeze' AS freezed,
-        ba.config->>'is_intent' AS intent,
-        ba.config->>'is_phonepay' AS phonepe,
         ba.config->>'max_limit' AS daily_limit`;
     } else {
       // Only include Merchant_Details and config if designation is 'Admin'
@@ -217,6 +214,9 @@ const getAllBankaccountDao = async (filters, page, limit, role, designation) => 
         ba.max, 
         ba.payin_count, 
         ba.balance, 
+        ba.is_qr, 
+        ba.is_bank, 
+        ba.is_enabled, 
         ba.today_balance, 
         ba.bank_used_for, 
         creator.user_name AS created_by, 
@@ -234,9 +234,6 @@ const getAllBankaccountDao = async (filters, page, limit, role, designation) => 
         ba.nick_name, 
         ba.acc_no, 
         ba.bank_name, 
-        ba.is_qr, 
-        ba.is_bank, 
-        ba.is_enabled, 
         ${commissionSelect ? `${commissionSelect},` : ''}
         v.code AS Vendor 
       FROM 
