@@ -443,7 +443,7 @@ const createUserService = async (conn, payload, role) => {
           email: User.email,
           username: User.user_name,
           password: Password,
-          code: merchant?.config ? User.code : '',
+          code: merchant?.config ? merchant.code : '',
           secretKey: merchant?.config ? merchant.config.keys.private : '',
           publicKey: merchant?.config ? merchant.config.keys.public : '',
           designation: designation[0]?.designation,

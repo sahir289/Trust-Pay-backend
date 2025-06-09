@@ -70,7 +70,7 @@ const createMerchantService = async (conn, payload) => {
       );
     }
     if (
-      userDesignation === Role.MERCHANT ||
+      // userDesignation === Role.MERCHANT ||
       userDesignation === Role.SUB_MERCHANT
     ) {
       try {
