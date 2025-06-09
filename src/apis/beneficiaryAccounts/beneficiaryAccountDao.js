@@ -236,11 +236,8 @@ const getBeneficiaryAccountBySearchDao = async (
       bankAccounts: searchResult.rows,
     };
   } catch (error) {
-    logger.error('Error in getBeneficiaryAccountBySearchDao:', {
-      error: error.message,
-      stack: error.stack,
-    });
-    throw new Error('Failed to fetch beneficiary accounts');
+    logger.error('Error in get Beneficiary Account By SearchDao:',error);
+    throw error;
   }
 };
 
