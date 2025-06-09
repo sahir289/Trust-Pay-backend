@@ -272,7 +272,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
               const startTime = new Date(now - duration);
 
               const filteredTransactions = merchantTransactions.filter(
-                (tx) => tx.updatedAt >= startTime,
+                (tx) => tx.updated_at >= startTime,
               );
 
               const total = filteredTransactions.length;
@@ -295,7 +295,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
               const startTime = new Date(now - duration);
 
               const filteredTransactions = merchantTransactions.filter(
-                (tx) => tx.updatedAt >= startTime,
+                (tx) => tx.updated_at >= startTime,
               );
 
               const total = filteredTransactions.length;
