@@ -7,6 +7,7 @@ import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
 import { InternalServerError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
+import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
 
 export const getTotalCountService = async (
   tablename,
@@ -27,6 +28,31 @@ export const getTotalCountService = async (
       filters.role_id = role_id[0]?.id;
       delete filters.beneficiary_role;
       delete filters.company_id;
+    }
+
+    if (tablename === tableName.CHARGE_BACK && filters?.bank_name) {
+      const bank = await getBankaccountDao(
+        { nick_name: filters.bank_name },
+        1,
+        10,
+        role,
+        userInfo.designation,
+      );
+      delete filters.bank_name; // Remove bank_name from filters
+      if (bank && bank.length > 0) {
+        filters.bank_acc_id = bank.map((b) => b.id);
+      } else {
+        filters.bank_acc_id = [];
+      }
+    }
+    else if (tablename === tableName.CHARGE_BACK && filters?.utr) {
+      const bankResponse = await getBankResponseByUTR(filters.utr);
+      delete filters.utr; // Remove utr from filters
+      if (bankResponse && bankResponse.length > 0) {
+        filters.bank_acc_id = bankResponse.map((b) => b.id);
+      } else {
+        filters.bank_acc_id = [];
+      }
     }
 
     // user hierarchy
@@ -143,18 +169,17 @@ export const getTotalCountService = async (
       //     ...(hierarchy?.config?.siblings?.sub_merchants ?? []),
       //   );
       // }
-      if (userInfo.userRole === Role.MERCHANT && userInfo.designation === Role.MERCHANT_OPERATIONS) {
-        userIdFilter.push(
-          hierarchy?.config?.parent ?? null,
-        );
-      }
-      else if (
+      if (
+        userInfo.userRole === Role.MERCHANT &&
+        userInfo.designation === Role.MERCHANT_OPERATIONS
+      ) {
+        userIdFilter.push(hierarchy?.config?.parent ?? null);
+      } else if (
         userInfo.userRole === Role.VENDOR &&
         userInfo.designation === Role.VENDOR_OPERATIONS
       ) {
         userIdFilter.push(hierarchy?.config?.parent ?? null);
-      }
-      else {
+      } else {
         userIdFilter = [userInfo.user_id];
       }
       filters.user_id =
