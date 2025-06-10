@@ -123,9 +123,7 @@ const getSettlementService = async (
         if (userHierarchys || userHierarchys.length > 0) {
           const userHierarchy = userHierarchys[0];
           if (userHierarchy?.config?.parent) {
-            filters.user_id = [
-              userHierarchy?.config?.parent ?? null
-            ];
+            filters.user_id = [userHierarchy?.config?.parent ?? null];
           }
         }
       }
@@ -245,7 +243,7 @@ const getSettlementsBySearchService = async (
       limitNum,
       offset,
       filterColumns,
-      role
+      role,
     );
 
     return data;
@@ -348,10 +346,12 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       null,
       null,
     );
-    //getting error refernce_id undefined fixed when approving settleemnt
+    console.log(payload.config, 'payload.config in update settlement');
+    //getting error reference_id undefined fixed when approving settlement
     if (
       payload.config.reference_id !== undefined &&
-      data[0]?.config?.reference_id === payload.config.reference_id
+      data[0]?.config?.reference_id === payload.config.reference_id &&
+      (payload.config.reference_id !== '' || !payload.config.rejected_reason)
     ) {
       throw new BadRequestError(`UTR already exists`);
     }

@@ -217,7 +217,7 @@ const getBeneficiaryAccountServiceByBankName = async (
       try {
         await rollback(conn);
       } catch (rollbackError) {
-        console.error('Error during transaction rollback', rollbackError);
+        logger.error('Error during transaction rollback', rollbackError);
       }
     }
     throw new InternalServerError(error);
@@ -226,7 +226,7 @@ const getBeneficiaryAccountServiceByBankName = async (
       try {
         conn.release();
       } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
+        logger.error('Error while releasing the connection', releaseError);
       }
     }
   }
@@ -241,7 +241,7 @@ const createBeneficiaryAccountService = async (conn, payload) => {
     const result = await createBeneficiaryAccountDao(payload);
     return result;
   } catch (error) {
-    console.error('error getting while  creating banks', error);
+    logger.error('error getting while  creating banks', error);
     throw new BadRequestError('Error getting while  creating banks');
   }
 };
@@ -272,7 +272,7 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
     }
     return result;
   } catch (error) {
-    console.error('error getting while  updating banks', error);
+    logger.error('error getting while  updating banks', error);
     throw new BadRequestError('Error getting while  updating banks');
   }
 };
@@ -287,7 +287,7 @@ const deleteBeneficiaryAccountService = async (conn, ids) => {
     );
     return result;
   } catch (error) {
-    console.error('error getting while deleting banks', error);
+    logger.error('error getting while deleting banks', error);
     throw new BadRequestError('Error getting while  deleting banks');
   }
 };
