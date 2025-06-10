@@ -126,7 +126,7 @@ const getChargeBacksService = async (
   limit,
   user_id,
   sortOrder ='DESC'
-  // desingnation,
+  // designation,
 ) => {
   try {
     // Determine columns based on role

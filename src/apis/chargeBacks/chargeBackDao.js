@@ -248,11 +248,12 @@ export const getAllChargeBackDao = async (
     // Handle bank_name filter properly
     const bankName = filters.bank_name;
     const utr = filters.utr;
-    if (bankName) {
-      const nextParamIdx = queryParams.length + 1;
-      conditions.push(`ba.bank_name = $${nextParamIdx}`);
-      queryParams.push(bankName);
-    } else if (utr) {
+    // if (bankName) {
+    //   const nextParamIdx = queryParams.length + 1;
+    //   conditions.push(`ba.bank_name = $${nextParamIdx}`);
+    //   queryParams.push(bankName);
+    // } else 
+    if (utr) {
       const nextParamIdx = queryParams.length + 1;
       conditions.push(`p.user_submitted_utr = $${nextParamIdx}`);
       queryParams.push(utr);
@@ -428,11 +429,11 @@ export const getChargeBacksBySearchDao = async (
       paramIndex++;
     }
 
-    if (filters && filters.vendor_user_id) {
-      queryText += ` AND "${CHARGE_BACK}".vendor_user_id = $${paramIndex}`;
-      values.push(filters.vendor_user_id);
-      paramIndex++;
-    }
+    // if (filters && filters.vendor_user_id) {
+    //   queryText += ` AND "${CHARGE_BACK}".vendor_user_id = $${paramIndex}`;
+    //   values.push(filters.vendor_user_id);
+    //   paramIndex++;
+    // }
     if (filters && filters.merchant_user_id) {
       queryText += ` AND "${CHARGE_BACK}".merchant_user_id = $${paramIndex}`;
       values.push(filters.merchant_user_id);
