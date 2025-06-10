@@ -346,7 +346,6 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       null,
       null,
     );
-    console.log(payload.config, 'payload.config in update settlement');
     //getting error reference_id undefined fixed when approving settlement
     if (
       payload.config.reference_id !== undefined &&
@@ -471,6 +470,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           data[0].method === 'INTERNAL_QR_TRANSFER' ||
           data[0].method === 'INTERNAL_BANK_TRANSFER'
         ) {
+          payload.status = Status.REJECTED;
           const [vendorData, calculationData] = await Promise.all([
             getVendorsDao({ user_id: data[0].user_id }),
             getCalculationforCronDao(data[0].user_id),
