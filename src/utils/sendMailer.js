@@ -47,6 +47,7 @@ export const sendCredentialsEmail = async ({
 
   const redirectingUrl = process.env.FRONTEND_URL;
   const baseUrl = process.env.BASE_URL;
+  const apiDocsUrl = process.env.API_DOCS_URL;
 
   const html = `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9fafb;">
@@ -71,6 +72,7 @@ export const sendCredentialsEmail = async ({
               <p style="margin: 8px 0; color: #2d3748;"><strong>Code:</strong> ${code}</p>
               <p style="margin: 8px 0; color: #2d3748;"><strong>API Key:</strong> ${secretKey}</p>
               <p style="margin: 8px 0; color: #2d3748;"><strong>Public API Key:</strong> ${publicKey}</p>
+              <p style="margin: 8px 0; color: #2d3748;"><strong>API Docs:</strong> <a href="${apiDocsUrl}" style="color: #3182ce;">${apiDocsUrl}</a></p>
             </div>
           `
           : ''
