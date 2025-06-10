@@ -33,13 +33,17 @@ const getSettlementController = async (req, res) => {
   const { company_id, user_id, role, designation } = req.user || {};
   const {
     role_name,
-    page = 1,
-    limit = 10,
+    page,
+    limit,
     search,
     sortBy,
     sortOrder,
     ...filters
   } = req.query;
+
+  const parsedPage = page === 'no_pagination' ? null : Number(page) || 1;
+  const parsedLimit = limit === 'no_pagination' ? null : Number(limit) || 10;
+  
 
   // Prepare filters object
   const filterParams = {
@@ -49,8 +53,8 @@ const getSettlementController = async (req, res) => {
   };
 
   // Convert page and limit to numbers
-  const pageNum = parseInt(page, 10);
-  const limitNum = parseInt(limit, 10);
+  const pageNum = parseInt(parsedPage, 10);
+  const limitNum = parseInt(parsedLimit, 10);
 
   // Call service with structured parameters
   const settlementData = await getSettlementService(
