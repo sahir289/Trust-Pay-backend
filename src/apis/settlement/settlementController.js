@@ -19,6 +19,7 @@ import { getBankResponseDao } from '../bankResponse/bankResponseDao.js';
 import logger from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { Role } from '../../constants/index.js';
+import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 const getSettlementControllerById = async (req, res) => {
   const { id } = req.params;
   const { company_id } = req.user;
@@ -129,6 +130,16 @@ const createSettlementController = async (req, res) => {
         error: {
           status: 404,
           message: 'No entry found.!',
+        },
+      });
+    }
+    const bankRess = await  getBankaccountDao({ id: bankRes.bank_id });
+    if(payload.user_id !== bankRess[0].user_id) {
+      //--bank id mismatch with utr
+      return res.status(400).json({
+        error: {
+          status: 404,
+          message: 'vendor code is not matching with utr',
         },
       });
     }
