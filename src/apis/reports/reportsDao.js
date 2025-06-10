@@ -241,7 +241,11 @@ const getPayOutMerchantReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
-      query += ` AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      if (status && status.includes('APPROVED')) {
+        query += ` AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      } else {
+        query += ` AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      }
       parameters.push(startDate, endDate);
     }
 
@@ -346,7 +350,11 @@ const getPayOutVendorReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
-      query += ` AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      if (status && status.includes('APPROVED')) {
+        query += ` AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      } else {
+        query += ` AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      }
       parameters.push(startDate, endDate);
     }
 

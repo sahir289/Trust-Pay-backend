@@ -163,8 +163,8 @@ const getChargeBacksService = async (
     }
 
     // Parse and validate pagination parameters
-    const pageNumber = Math.max(1, parseInt(String(page), 10) || 1);
-    const pageSize = Math.max(
+    const pageNumber = page === 'no_pagination' ? null : Math.max(1, parseInt(String(page), 10) || 1);
+    const pageSize = limit === 'no_pagination' ? null : Math.max(
       1,
       Math.min(100, parseInt(String(limit), 10) || 10),
     ); // Added upper limit
