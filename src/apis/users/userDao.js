@@ -3,7 +3,82 @@ import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { buildSelectQuery, buildUpdateQuery, executeQuery,buildJoinQuery ,buildInsertQuery} from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 
+export const getUsersContactDao = async (company_id, contact_no) => {
+  try {
+    const sql = `
+      SELECT id
+      FROM "${tableName.USER}" 
+      WHERE is_obsolete = FALSE
+        AND company_id = $1
+        AND contact_no = $2
+    `;
+    const result = await executeQuery(sql, [company_id, contact_no]);
+    return result.rows.length > 0;
+  } catch (error) {
+    logger.error('Error executing user contact query:', error);
+    throw error.message;
+  }
+};
+
 const getUsersDao = async (
+  filters,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+  columns = [],
+) => {
+  try {
+    const { USER, ROLE, DESIGNATION } = tableName;
+    const joins = [
+      {
+        table: ROLE,
+        // first is source key
+        // second is target key
+        keys: ['role_id', 'id'],
+        type: 'JOIN',
+        columns: ['role'],
+        columnAs: [`"${ROLE}".role AS Role`],
+      },
+      {
+        table: DESIGNATION,
+        // first is source key
+        // second is target key
+        keys: [`designation_id`, 'id'],
+        type: 'LEFT JOIN',
+        columnAs: [`"${DESIGNATION}".designation AS Designation`],
+        referenceTable: USER,
+      },
+    ];
+      const baseQuery = buildJoinQuery(
+        USER,
+        columns.length ? columns : '*',
+        joins,
+      );
+      if (filters.search) {
+        filters.or = buildSearchFilterObj(filters.search, USER);
+        delete filters.search;
+      }
+    //TODO: columns.ROLE dynamic search
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      USER,
+    );
+    
+    const result = await executeQuery(sql, queryParams);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in get Users Dao:', error);
+    throw error.message;
+  }
+};
+
+const getAllUsersDao = async (
   filters,
   page,
   pageSize,
@@ -308,7 +383,7 @@ const createUserDao = async (payload,conn) => {
 
   } catch (error) {
     logger.error(`Error creating user: ${payload.user_name}`, error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -349,6 +424,7 @@ const updateUserDao = async (ids, data, conn) => {
 
 export {
   getUsersDao,
+  getAllUsersDao,
   getUserByIdDao,
   getUsersForCronDao,
   getUsersByUserNameDao,

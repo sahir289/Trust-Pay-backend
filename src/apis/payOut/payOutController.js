@@ -84,13 +84,15 @@ const getPayoutsById = async (req, res) => {
 
 const getPayouts = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
-  const { page, limit } = req.query;
+  const { page, limit, sortOrder } = req.query;
   delete req.query.limit;
+  delete req.query.sortOrder;
   delete req.query.page;
   const data = await getPayoutsService(
     company_id,
     page,
     limit,
+    sortOrder,
     req.query,
     role,
     user_id,

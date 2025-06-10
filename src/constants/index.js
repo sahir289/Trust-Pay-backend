@@ -140,7 +140,7 @@ export const columns = {
     'updated_by',
     'created_at',
     'updated_at',
-    'company_id',
+    // 'company_id',
   ],
   CALCULATION: [
     'id',
@@ -360,7 +360,6 @@ export const merchantColumns = {
     'user_name',
     'is_enabled',
     'code',
-    'config',
   ],
   SETTLEMENT: ['id', 'sno', 'status', 'amount', 'method', 'config'],
   CALCULATION: [
@@ -450,7 +449,6 @@ export const vendorColumns = {
     'contact_no',
     'user_name',
     'code',
-    'config',
     'created_at', //-- need bank details within date range
   ],
   SETTLEMENT: ['id', 'sno', 'status', 'amount', 'method', 'config'],
@@ -573,6 +571,7 @@ export const tableName = {
   ACCESS_TOKEN: 'AccessToken',
   USER_OTP: 'UserOtp',
   BENEFICIARY_ACCOUNTS: 'BeneficiaryAccounts',
+  NOTIFICATIONS: 'Notifications',
 };
 
 export const BankTypes = {

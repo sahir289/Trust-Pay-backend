@@ -38,23 +38,18 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role) => {
     let commissionSelect = '';
     if (role === Role.MERCHANT) {
       commissionSelect = `
-        bea.ifsc AS ifsc,
-        bea.user_id,
-        creator.user_name AS created_by, 
-        updater.user_name AS updated_by`;
+        bea.ifsc AS ifsc`;
     } else if (role === Role.VENDOR) {
       commissionSelect = `
-        bea.ifsc AS ifsc,
-        bea.user_id,
-        creator.user_name AS created_by, 
-        updater.user_name AS updated_by`;
+        bea.ifsc AS ifsc`;
     } else {
       commissionSelect = `
         bea.user_id, 
         bea.ifsc, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
-        bea.created_at, 
+        bea.created_at,
+        bea.config,
         bea.updated_at`;
     }
     const baseQuery = `SELECT 
@@ -63,9 +58,6 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role) => {
         bea.acc_holder_name,
         bea.acc_no, 
         bea.bank_name,
-        bea.config,
-        creator.user_name AS created_by,
-        updater.user_name AS updated_by,
         ${commissionSelect ? `${commissionSelect},` : ''}
         v.code AS Vendor,
         m.code AS Merchant
@@ -92,27 +84,44 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role) => {
     throw error.message;
   }
 };
-
 const getBeneficiaryAccountBySearchDao = async (
   role,
-  searchTerms,
-  limitNum,
-  offset,
+  searchTerms = [],
+  page = 1,
+  limit = 10,
+  filters = {},
 ) => {
   try {
+    let queryParams = [];
+    let conditions = [`bea.is_obsolete = false`];
+    let paramIndex = 1;
+
+    if (
+      filters &&
+      typeof filters === 'object' &&
+      Object.keys(filters).length > 0
+    ) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          if (Array.isArray(value)) {
+            conditions.push(`bea."${key}" = ANY($${paramIndex})`);
+            queryParams.push(value);
+          } else {
+            conditions.push(`bea."${key}" = $${paramIndex}`);
+            queryParams.push(value);
+          }
+          paramIndex++;
+        }
+      });
+    }
     let commissionSelect = '';
-    if (role === Role.MERCHANT) {
-      commissionSelect = `
-        bea.ifsc_code,
-      `;
-    } else if (role === Role.VENDOR) {
-      commissionSelect = `
-        bea.ifsc_code,
-      `;
+    if (role === 'MERCHANT' || role === 'VENDOR') {
+      commissionSelect = `bea.ifsc,`;
     } else {
       commissionSelect = `
         bea.user_id, 
         bea.ifsc, 
+        bea.config, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
         bea.created_at, 
@@ -120,19 +129,13 @@ const getBeneficiaryAccountBySearchDao = async (
       `;
     }
 
-    const conditions = [];
-    const searchConditions = [];
-    const values = [];
-    let paramIndex = 2;
-
     let baseQuery = `
       SELECT 
         bea.id, 
         bea.upi_id,
         bea.acc_holder_name,
         bea.acc_no, 
-        bea.bank_name,
-        bea.config,  
+        bea.bank_name, 
         ${commissionSelect}
         v.code AS Vendor, 
         m.code AS Merchant
@@ -149,54 +152,57 @@ const getBeneficiaryAccountBySearchDao = async (
       WHERE 1=1
     `;
 
-    searchTerms.forEach((term) => {
-      if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-        const boolValue = term.toLowerCase() === 'true';
-        searchConditions.push(`
-          (
-            bea.is_qr = $${paramIndex}
-            OR bea.is_bank = $${paramIndex}
-            OR bea.is_enabled = $${paramIndex}
-          )
-        `);
-        values.push(boolValue);
-        paramIndex++;
-      } else {
-        searchConditions.push(`
-          (
-            LOWER(bea.id::text) LIKE LOWER($${paramIndex})
-            OR LOWER(bea.upi_id) LIKE LOWER($${paramIndex})
-            OR LOWER(bea.acc_holder_name) LIKE LOWER($${paramIndex})
-            OR LOWER(bea.acc_no) LIKE LOWER($${paramIndex})
-            OR LOWER(bea.bank_name) LIKE LOWER($${paramIndex})
-            OR LOWER(v.code) LIKE LOWER($${paramIndex})
-            OR LOWER(m.code) LIKE LOWER($${paramIndex})
-            ${
-              role !== 'MERCHANT'
-                ? `
-              OR LOWER(bea.user_id::text) LIKE LOWER($${paramIndex})
-              OR LOWER(bea.ifsc) LIKE LOWER($${paramIndex})
+    const searchConditions = [];
+    if (Array.isArray(searchTerms) && searchTerms.length > 0) {
+      searchTerms.forEach((term) => {
+        if (typeof term !== 'string') return;
+        if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+          const boolValue = term.toLowerCase() === 'true';
+          searchConditions.push(`
+            (
+              bea.is_qr = $${paramIndex}
+              OR bea.is_bank = $${paramIndex}
+              OR bea.is_enabled = $${paramIndex}
+            )
+          `);
+          queryParams.push(boolValue);
+        } else {
+          searchConditions.push(`
+            (
+              LOWER(bea.id::text) LIKE LOWER($${paramIndex})
+              OR LOWER(bea.upi_id) LIKE LOWER($${paramIndex})
+              OR LOWER(bea.acc_holder_name) LIKE LOWER($${paramIndex})
+              OR LOWER(bea.acc_no) LIKE LOWER($${paramIndex})
+              OR LOWER(bea.bank_name) LIKE LOWER($${paramIndex})
+              OR LOWER(v.code) LIKE LOWER($${paramIndex})
+              OR LOWER(m.code) LIKE LOWER($${paramIndex})
               ${
-                role !== 'VENDOR'
+                role !== 'MERCHANT'
                   ? `
-                OR LOWER(creator.user_name) LIKE LOWER($${paramIndex})
-                OR LOWER(updater.user_name) LIKE LOWER($${paramIndex})
+                OR LOWER(bea.user_id::text) LIKE LOWER($${paramIndex})
+                OR LOWER(bea.ifsc) LIKE LOWER($${paramIndex})
+                ${
+                  role !== 'VENDOR'
+                    ? `
+                  OR LOWER(creator.user_name) LIKE LOWER($${paramIndex})
+                  OR LOWER(updater.user_name) LIKE LOWER($${paramIndex})
+                `
+                    : ''
+                }
               `
-                  : ''
+                  : role === 'VENDOR'
+                    ? `
+                OR LOWER(bea.ifsc) LIKE LOWER($${paramIndex})
+              `
+                    : ''
               }
-            `
-                : role === 'VENDOR'
-                  ? `
-              OR LOWER(bea.ifsc_code) LIKE LOWER($${paramIndex})
-            `
-                  : ''
-            }
-          )
-        `);
-        values.push(`%${term}%`);
+            )
+          `);
+          queryParams.push(`%${term}%`);
+        }
         paramIndex++;
-      }
-    });
+      });
+    }
 
     if (conditions.length > 0) {
       baseQuery += ' AND ' + conditions.join(' AND ');
@@ -206,30 +212,32 @@ const getBeneficiaryAccountBySearchDao = async (
     }
 
     const countQuery = `SELECT COUNT(*) as total FROM (${baseQuery}) as count_table`;
+    const countResult = await executeQuery(countQuery, queryParams);
 
+    const offset = (page - 1) * limit;
     baseQuery += `
       ORDER BY 
         bea.updated_at DESC
       LIMIT $${paramIndex}
       OFFSET $${paramIndex + 1}
     `;
-    values.push(limitNum, offset);
+    queryParams.push(limit, offset);
 
-    const countResult = await executeQuery(countQuery, values.slice(0, -2));
-    const searchResult = await executeQuery(baseQuery, values);
+    const searchResult = await executeQuery(baseQuery, queryParams);
 
     const totalItems = parseInt(countResult.rows[0].total);
-    const totalPages = Math.ceil(totalItems / limitNum);
+    const totalPages = totalItems > 0 ? Math.ceil(totalItems / limit) : 0;
 
-    const data = {
+   
+
+    return {
       totalCount: totalItems,
       totalPages,
       bankAccounts: searchResult.rows,
     };
-    return data;
   } catch (error) {
-    logger.error('Error in getBeneficiaryAccountBySearchDao:', error);
-    throw error.message;
+    logger.error('Error in get Beneficiary Account By SearchDao:',error);
+    throw error;
   }
 };
 

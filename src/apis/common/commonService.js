@@ -1,12 +1,13 @@
 import { getTotalCountDao } from './commonDao.js';
 import { tableName, Role } from '../../constants/index.js';
-import { getMerchantsDao } from '../merchants/merchantDao.js';
+import { getMerchantByUserIdDao } from '../merchants/merchantDao.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
 import { InternalServerError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
+import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
 
 export const getTotalCountService = async (
   tablename,
@@ -29,6 +30,31 @@ export const getTotalCountService = async (
       delete filters.company_id;
     }
 
+    if (tablename === tableName.CHARGE_BACK && filters?.bank_name) {
+      const bank = await getBankaccountDao(
+        { nick_name: filters.bank_name },
+        1,
+        10,
+        role,
+        userInfo.designation,
+      );
+      delete filters.bank_name; // Remove bank_name from filters
+      if (bank && bank.length > 0) {
+        filters.bank_acc_id = bank.map((b) => b.id);
+      } else {
+        filters.bank_acc_id = [];
+      }
+    }
+    else if (tablename === tableName.CHARGE_BACK && filters?.utr) {
+      const bankResponse = await getBankResponseByUTR(filters.utr);
+      delete filters.utr; // Remove utr from filters
+      if (bankResponse && bankResponse.length > 0) {
+        filters.bank_acc_id = bankResponse.map((b) => b.id);
+      } else {
+        filters.bank_acc_id = [];
+      }
+    }
+
     // user hierarchy
     const getHierarchy = async (userId) =>
       (await getUserHierarchysDao({ user_id: userId }))?.[0];
@@ -48,8 +74,7 @@ export const getTotalCountService = async (
     };
 
     const fetchMerchantIds = async (userIds) =>
-      (await getMerchantsDao({ user_id: userIds })).map((m) => m.id);
-
+      (await getMerchantByUserIdDao(userIds)).map((m) => m.id);
     const fetchBankIds = async (user_id) => {
       try {
         const banks = await getBankaccountDao({
@@ -139,11 +164,23 @@ export const getTotalCountService = async (
 
     // SETTLEMENT table
     if (tablename === tableName.SETTLEMENT) {
-      userIdFilter = [userInfo.user_id];
-      if (userInfo.userRole === Role.MERCHANT) {
-        userIdFilter.push(
-          ...(hierarchy?.config?.siblings?.sub_merchants ?? []),
-        );
+      // if (userInfo.userRole === Role.MERCHANT) {
+      //   userIdFilter.push(
+      //     ...(hierarchy?.config?.siblings?.sub_merchants ?? []),
+      //   );
+      // }
+      if (
+        userInfo.userRole === Role.MERCHANT &&
+        userInfo.designation === Role.MERCHANT_OPERATIONS
+      ) {
+        userIdFilter.push(hierarchy?.config?.parent ?? null);
+      } else if (
+        userInfo.userRole === Role.VENDOR &&
+        userInfo.designation === Role.VENDOR_OPERATIONS
+      ) {
+        userIdFilter.push(hierarchy?.config?.parent ?? null);
+      } else {
+        userIdFilter = [userInfo.user_id];
       }
       filters.user_id =
         userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
@@ -238,6 +275,18 @@ export const getTotalCountService = async (
       }
     }
 
+    // Beneficiary table
+    if (tablename === tableName.BENEFICIARY_ACCOUNTS) {
+      userIdFilter = [userInfo.user_id];
+      if (userInfo.userRole === Role.MERCHANT) {
+        userIdFilter.push(
+          ...(hierarchy?.config?.siblings?.sub_merchants ?? []),
+        );
+      }
+      filters.user_id =
+        userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
+    }
+
     // BANK_ACCOUNT table
     if (
       tablename === tableName.BANK_ACCOUNT &&
@@ -278,7 +327,6 @@ export const getTotalCountService = async (
     }
 
     logger.info(`Filters applied: ${JSON.stringify(filters)}`);
-
     let updated = false;
     if (filters?.updated) {
       updated = filters.updated;

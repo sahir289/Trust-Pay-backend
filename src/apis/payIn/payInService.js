@@ -2,8 +2,8 @@ import dayjs from 'dayjs';
 import { nanoid } from 'nanoid';
 import { Cashfree } from 'cashfree-pg';
 import { v4 as uuidv4 } from 'uuid';
-// import querystring from 'querystring';
-import QRCode from 'qrcode';
+import querystring from 'querystring';
+// import QRCode from 'qrcode';
 import config from '../../config/config.js';
 import { razorpay } from '../../webhooks/razorPay.js';
 import { getPayoutsDao } from '../payOut/payOutDao.js';
@@ -24,8 +24,8 @@ import {
   updatePayInUrlDao,
   getPayInUrlDao,
   getPayInUrlsDao,
-  getPayInsDao,
   getPayinsBySearchDao,
+  getAllPayInsDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -46,6 +46,7 @@ import {
 import {
   getMerchantsByCodeDao,
   getMerchantsDao,
+  getMerchantByUserIdDao,
   updateMerchantBalanceDao,
 } from '../merchants/merchantDao.js';
 import {
@@ -77,8 +78,10 @@ import {
   sendSuccessMessageTelegramBot,
   sendTelegramMessage,
   sendUTRMismatchErrorMessageTelegram,
+  sendTelegramDisputeMessage,
 } from '../../utils/sendTelegramMessages.js';
-
+import { tableName } from '../../constants/index.js';
+import { newTableEntry } from '../../utils/sockets.js';
 import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
@@ -94,7 +97,6 @@ Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
 
 export const generatePayInUrlByHashService = async (req, res) => {
   const { user_id, code, ot, key, amount } = req.query;
-
   if (!user_id || !code || !ot) {
     //-- correct error handling
     return res.status(400).json({
@@ -107,7 +109,7 @@ export const generatePayInUrlByHashService = async (req, res) => {
       },
     });
   }
-  const x_api_key = req.headers['x-api-key'];
+  // const x_api_key = req.headers['x-api-key'];
   const merchantArr = await getMerchantsByCodeDao(code);
   const bankAssigned = await getMerchantBankDao({
     config_merchants_contains: merchantArr[0].id,
@@ -173,7 +175,7 @@ export const generatePayInUrlByHashService = async (req, res) => {
   }
 
   // Create a deterministic hash
-  const hash = createHash(`${code}:${x_api_key}`);
+  const hash = createHash(`${code}:${key}`);
 
   // Encode the hash to make it URL-safe
   const encodedHash = encodeURIComponent(hash);
@@ -259,7 +261,7 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
       return res.status(400).json({
         error: {
           status: 404,
-          message: 'Enter valid Api key 2',
+          message: 'Enter valid Api key',
           additionalInfo: {},
           level: 'info',
           timestamp: new Date().toISOString(),
@@ -305,8 +307,8 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
       }),
       created_by,
     };
-
     const result = await generatePayInUrlDao(data);
+    await newTableEntry(tableName.PAYIN);
     // expirePayInIfNeeded(result.id, code);
     return result;
   } catch (error) {
@@ -969,7 +971,7 @@ export const getPayinsService = async (
   let conn;
   try {
     const fetchMerchantIds = async (user_ids) => {
-      const merchants = await getMerchantsDao({ user_id: user_ids });
+      const merchants = await getMerchantByUserIdDao(user_ids);
       return merchants.map((merchant) => merchant.id);
     };
 
@@ -1041,7 +1043,7 @@ export const getPayinsService = async (
     }
 
     conn = await getConnection();
-    return await getPayInsDao(filters, company_id, page, limit, role);
+    return await getAllPayInsDao(filters, company_id, page, limit, role);
   } catch (error) {
     throw new InternalServerError(error.message);
   } finally {
@@ -1063,7 +1065,7 @@ export const getPayinsBySearchService = async (
 ) => {
   try {
     const fetchMerchantIds = async (user_ids) => {
-      const merchants = await getMerchantsDao({ user_id: user_ids });
+      const merchants = await getMerchantByUserIdDao(user_ids);
       return merchants.map((merchant) => merchant.id);
     };
 
@@ -1213,7 +1215,7 @@ export const processPayInService = async (
     is_url_expires: true,
     one_time_used: true,
     duration,
-    user_submitted_image: user_submitted_image || null,
+    user_submitted_image: user_submitted_image,
     is_notified: true,
     updated_by: updated_by || '',
   };
@@ -1856,7 +1858,7 @@ export const disputeDuplicateTransactionService = async (
     updatePayload.status = Status.FAILED;
   }
 
-  await updatePayInUrlDao(payIn.id, updatePayload);
+  response = await updatePayInUrlDao(payIn.id, updatePayload);
   // await updateVendorBalanceDao(
   //   { user_id: bankResponse.user_id },
   //   toAmount,
@@ -1885,32 +1887,13 @@ export const disputeDuplicateTransactionService = async (
     });
   }
 
-  // if (updateBalance) {
-
-  //   //   await updateBanktBalanceDao({ id: bankId }, toAmount, updated_by, conn);
-  // await updateBankaccountService(
-  //   conn,
-  //   { id: bank.id, company_id: payIn.company_id },
-  //   {},
-  // );
-  //   await updateCalculationTable(
-  //     bank.user_id,
-  //     {
-  //       payinCommission: vendorPayinCommission,
-  //       amount: toAmount,
-  //     },
-  //     conn,
-  //   );
-  // }
-
-  // const entryType = oldPayInData.status === 'DUPLICATE' ? 'Duplicate Entry' : 'Dispute Entry';
-  // await sendTelegramDisputeMessage(
-  //     config?.telegramDuplicateDisputeChatId,
-  //     oldPayInData,
-  //     duplicateDisputeTransactionRes,
-  //     config?.telegramBotToken,
-  //     entryType,
-  //   );
+  await sendTelegramDisputeMessage(
+    config?.telegramDuplicateDisputeChatId,
+    payIn,
+    response,
+    bank.nick_name,
+    config?.telegramBotToken,
+  );
   return response;
 };
 
@@ -1922,7 +1905,10 @@ export const telegramCheckUTRService = async (
   updated_by,
 ) => {
   try {
-    const bankResponse = await getBankResponseDao({ utr: utr });
+    const bankResponse = await getBankResponseDao({
+      utr: utr,
+      status: '/success',
+    });
     let otherBankResponse = {};
     const payIn = await getPayInUrlDao({ merchant_order_id });
     if (!bankResponse) {
@@ -2241,75 +2227,74 @@ export const generateUpiUrlService = async (payload) => {
     return new BadRequestError('Invalid amount');
   }
 
-  // const vpaRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
-  // if (!vpaRegex.test(payload.payeeVPA)) {
-  //   return new BadRequestError('Invalid VPA format');
-  // }
+  const vpaRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
+  if (!vpaRegex.test(payload.payeeVPA)) {
+    return new BadRequestError('Invalid VPA format');
+  }
 
   const uuid = generateUUID();
   const transactionId = `IND${uuid.replace(/-/g, '')}`.slice(0, 32);
 
-  // const params = {
-  //   appid: 'inb_admin',
-  //   tr: transactionId,
-  //   am: parseFloat(payload.amount).toFixed(2),
-  //   mc: payload.merchantCode || '',
-  //   pa: payload.payeeVPA,
-  //   pn: (payload.payeeName || '') + ' ',
-  //   tn: payload.transactionNote || '',
-  //   cu: 'INR',
-  //   bn: (payload.businessName || '') + ' ',
-  //   mode: '01',
-  //   purpose: ''
-  // };
-
-  // let encodedParams = querystring.stringify(params);
-
-  // const phonepeUrl = `phonepe://pay?${encodedParams}`;
-  // const gpayUrl = `gpay://upi/pay?${encodedParams}`;
-  // const paytmUrl = `paytm://upi/pay?${encodedParams}`;
-  // const genericUpiUrl = `upi://pay?${encodedParams}`;
-
-  //  const phonepeQr = await QRCode.toDataURL(phonepeUrl);
-  // const gpayQr = await QRCode.toDataURL(gpayUrl);
-  // const paytmQr = await QRCode.toDataURL(paytmUrl);
-  // const genericUpiQr = await QRCode.toDataURL(genericUpiUrl);
-
-  // return {
-  //   phonepeUrl,
-  //   phonepeQr,
-  //   gpayUrl,
-  //   gpayQr,
-  //   paytmUrl,
-  //   paytmQr,
-  //   genericUpiUrl,
-  //   genericUpiQr,
-  //   transactionId
-  // }
-  // return data;
-
   const params = {
-    pa: payload.payeeVPA,
-    pn: payload.payeeName?.trim() || 'Payee',
     tr: transactionId,
     am: parseFloat(payload.amount).toFixed(2),
-    tn: payload.transactionNote?.trim() || 'Payment',
+    pa: payload.payeeVPA,
+    pn: payload.payeeName?.trim() || '',
+    tn: payload.transactionNote?.trim() || '',
     cu: 'INR',
   };
 
-  const upiParams = Object.entries(params)
-    .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
-    .join('&');
-  const upiUrl = `upi://pay?${upiParams}`;
+  // Optional fields
+  if (payload.merchantCode) params.mc = payload.merchantCode;
+  if (payload.businessName) params.bn = payload.businessName.trim();
+  if (payload.mode) params.mode = payload.mode;
+  if (payload.purpose) params.purpose = payload.purpose;
+  // params.appid = 'inb_admin'; // Optional, Paytm-specific
+
+  const encodedParams = querystring.stringify(params);
+
+  // Intent UPI links
+  const paytmUrl = `upi://pay?${encodedParams}&ap=net.one97.paytm`;
+  const gpayUrl = `upi://pay?${encodedParams}&ap=com.google.android.apps.nbu.paisa.user`;
+  const phonepeUrl = `upi://pay?${encodedParams}&ap=com.phonepe.app`;
+  const genericUpiUrl = `upi://pay?${encodedParams}`
+
+
+  return {
+    phonepeUrl,
+    // phonepeQr,
+    gpayUrl,
+    // gpayQr,
+    paytmUrl,
+    // paytmQr,
+    genericUpiUrl,
+    // genericUpiQr,
+    transactionId,
+  };
+  // return data;
+
+  // const params = {
+  //   pa: payload.payeeVPA,
+  //   pn: payload.payeeName?.trim() || 'Payee',
+  //   tr: transactionId,
+  //   am: parseFloat(payload.amount).toFixed(2),
+  //   tn: payload.transactionNote?.trim() || 'Payment',
+  //   cu: 'INR',
+  // };
+
+  // const upiParams = Object.entries(params)
+  //   .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
+  //   .join('&');
+  // const upiUrl = `upi://pay?${upiParams}`;
 
   // const upiUrl = `upi://pay?${querystring.stringify(params)}`;
 
-  const upiQr = await QRCode.toDataURL(upiUrl);
-  return {
-    upiUrl,
-    upiQr,
-    transactionId,
-  };
+  // const upiQr = await QRCode.toDataURL(upiUrl);
+  // return {
+  //   upiUrl,
+  //   upiQr,
+  //   transactionId,
+  // };
 };
 
 const checkIsPayInExpired = (payIn) => {
@@ -2396,6 +2381,7 @@ const updateCalculationBalances = async (
     current_balance: amountDiff - commission,
     net_balance: amountDiff - commission,
   };
+  const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
 
   // Update current calculation
   await updateCalculationBalanceDao(
@@ -2407,10 +2393,23 @@ const updateCalculationBalances = async (
   if (nextCalculations.length > 0) {
     // Update subsequent calculations
     for (const calc of nextCalculations) {
+      const calculationDate = dayjs(calc.created_at)
+        .tz('Asia/Kolkata')
+        .format('YYYY-MM-DD');
+      let data = {};
+      if (calculationDate === todayDate) {
+        data = {
+          total_adjustment_amount: amountDiff,
+          total_adjustment_commission:
+            amountDiff > 0 ? commission : -commission,
+          total_adjustment_count: 1,
+        };
+      }
       await updateCalculationBalanceDao(
         { id: calc.id },
         {
           net_balance: amountDiff - commission,
+          ...data,
         },
         conn,
       );
@@ -2518,7 +2517,7 @@ export const updatePayInService = async (
       await Promise.all([
         updateBankResponseDao(
           { id: bankResponse.id, company_id: company_id },
-          { amount: payload.amount, updated_by: user_id, },
+          { amount: payload.amount, updated_by: user_id },
           conn,
         ),
         updateBankaccountDao(

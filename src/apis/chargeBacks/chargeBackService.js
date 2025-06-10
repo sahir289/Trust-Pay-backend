@@ -11,6 +11,7 @@ import {
   getChargeBackDao,
   updateChargeBackDao,
   getChargeBacksBySearchDao,
+  getAllChargeBackDao,
 } from './chargeBackDao.js';
 import {
   columns,
@@ -29,7 +30,7 @@ import {
 } from '../merchants/merchantDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { getVendorsDao,updateVendorDao } from '../vendors/vendorDao.js';
-import { getPayInsDao } from '../payIn/payInDao.js';
+import { getPayInDaoByCode } from '../payIn/payInDao.js';
 const createChargeBackService = async (
   payload,
   PayinDetails,
@@ -124,7 +125,8 @@ const getChargeBacksService = async (
   page,
   limit,
   user_id,
-  // desingnation,
+  sortOrder ='DESC'
+  // designation,
 ) => {
   try {
     // Determine columns based on role
@@ -161,19 +163,19 @@ const getChargeBacksService = async (
     }
 
     // Parse and validate pagination parameters
-    const pageNumber = Math.max(1, parseInt(String(page), 10) || 1);
-    const pageSize = Math.max(
+    const pageNumber = page === 'no_pagination' ? null : Math.max(1, parseInt(String(page), 10) || 1);
+    const pageSize = limit === 'no_pagination' ? null : Math.max(
       1,
       Math.min(100, parseInt(String(limit), 10) || 10),
     ); // Added upper limit
 
     // Call DAO with all required parameters
-    const chargeBacks = await getChargeBackDao(
+    const chargeBacks = await getAllChargeBackDao(
       filters,
       pageNumber,
       pageSize,
       'sno',
-      'DESC',
+      sortOrder,
       filterColumns,
       role,
     );
@@ -278,13 +280,16 @@ const blockChargebackUserService = async (ids) => {
       const chargebackdata = await getChargeBackDao({id},1,10,'created_at','DESC')
       const payinId = chargebackdata[0].payin_id
       const companyId = ids.company_id
-      const payindata = await getPayInsDao({id: payinId},companyId)
-      const code = payindata.payins[0].merchant_details.merchant_code
-      const userIp = payindata.payins[0].payin_details?.user?.user_ip
+      const payindata = await getPayInDaoByCode({id: payinId, company_id: companyId})
+      const code = payindata[0].code
+      const userIp = payindata[0].config?.user?.user_ip
       const merchant = await getMerchantsDao({code}); 
-      const merchantId = payindata.payins[0].merchant_id
-      const userId = payindata.payins[0].user
-      const existingBlockedUsers = merchant[0].config?.blocked_users || [];
+      if (!merchant || merchant.length === 0) {
+        throw new BadRequestError('Merchant not found for the given code!');
+      }
+      const merchantId = payindata[0].merchant_id
+      const userId = payindata[0].user
+      const existingBlockedUsers = merchant[0]?.config?.blocked_users || [];
       const alreadyExists = existingBlockedUsers.some(
         (entry) => entry.userId === userId && entry.user_ip === userIp
       );
@@ -299,18 +304,20 @@ const blockChargebackUserService = async (ids) => {
           blocked_users: updatedBlockedUsers,
         };
         merchantDetails = await updateMerchantDao({ id: merchantId }, { config: updatedConfig });
+        await updateChargeBackDao({ id: chargebackdata[0].id }, { config: updatedConfig }); 
       }
       else {
-         updatedBlockedUsers = [...existingBlockedUsers, {  userId, user_ip: userIp }];
-        
-        const updatedConfig = {
-          ...merchant[0].config,
-          blocked_users: updatedBlockedUsers,
-        };   
-        merchantDetails = await updateMerchantDao(
-          { id: merchantId },
-          { config: updatedConfig } 
-        );
+         updatedBlockedUsers = [...existingBlockedUsers, {  userId: userId, user_ip: userIp }];
+         const updatedConfig = {
+           ...merchant[0].config,
+           blocked_users: updatedBlockedUsers,
+          };   
+          
+          merchantDetails = await updateMerchantDao(
+            { id: merchantId },
+            { config: updatedConfig } 
+          );
+          await updateChargeBackDao({ id: chargebackdata[0].id }, { config: updatedConfig }); 
       }
      
     await commit(conn); 
@@ -322,6 +329,7 @@ const blockChargebackUserService = async (ids) => {
       } catch (rollbackError) {
         console.error('Error during transaction rollback', rollbackError);
       }
+      throw error;
     }
     console.error('Error while updating ChargeBack', error);
     throw new InternalServerError(error);

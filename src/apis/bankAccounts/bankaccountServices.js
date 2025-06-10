@@ -22,6 +22,7 @@ import {
   deleteBankaccountDao,
   getBankAccountDaoNickName,
   getBankAccountsBySearchDao,
+  getAllBankaccountDao,
 } from './bankaccountDao.js';
 
 const getBankaccountService = async (
@@ -47,11 +48,12 @@ const getBankaccountService = async (
 
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
-    return await getBankaccountDao(
+    return await getAllBankaccountDao(
       { company_id, ...filters },
       pageNumber,
       pageSize,
       role,
+      designation,
     );
   } catch (error) {
     logger.error('error getting while  getting banks', error);
@@ -66,6 +68,7 @@ const getBankAccountBySearchService = async (
   bank_used_for,
   page,
   limit,
+  designation
 ) => {
   try {
     const pageNum = parseInt(page);
@@ -89,6 +92,7 @@ const getBankAccountBySearchService = async (
       limitNum,
       offset,
       bank_used_for,
+      designation
     );
   } catch (error) {
     logger.error('error getting while getting check utr by search', error);

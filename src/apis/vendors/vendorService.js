@@ -13,9 +13,9 @@ import {
   createVendorDao,
   deleteVendorDao,
   getVendorsCodeDao,
-  getVendorsDao,
   getVendorsBySearchDao,
   updateVendorDao,
+  getAllVendorsDao,
 } from './vendorDao.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
@@ -69,7 +69,7 @@ const getVendorsService = async (filters, roleIs, page, limit,user_id,designatio
         filters.user_id = parentUserId;
       }
     }
-    return await getVendorsDao(
+    return await getAllVendorsDao(
       filters,
       pageNumber,
       pageSize,
@@ -173,7 +173,7 @@ const getVendorsBySearchService = async (
     return data;
   } catch (error) {
     logger.error('Error while fetching vendors by search', error);
-    throw new InternalServerError(error.message);
+    throw new InternalServerError(error);
   }
 };
 

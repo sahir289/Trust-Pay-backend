@@ -69,6 +69,7 @@ const getSettlementService = async (
   sortOrder,
   role,
   user_id,
+  designation,
 ) => {
   try {
     // Validate required parameters
@@ -88,25 +89,42 @@ const getSettlementService = async (
       }
     })();
 
-    if (role == Role.MERCHANT) {
+    if (role == Role.MERCHANT && designation != Role.MERCHANT_OPERATIONS) {
       filters.user_id = [user_id];
     }
-    if (role == Role.VENDOR) {
+    if (role == Role.VENDOR && designation != Role.VENDOR_OPERATIONS) {
       filters.user_id = [user_id];
     }
     if (role === Role.MERCHANT) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
-      if (userHierarchys || userHierarchys.length > 0) {
-        const userHierarchy = userHierarchys[0];
-
-        if (
-          userHierarchy?.config ||
-          Array.isArray(userHierarchy?.config?.siblings?.sub_merchants)
-        ) {
-          filters.user_id = [
-            ...filters.user_id,
-            ...(userHierarchy?.config?.siblings?.sub_merchants ?? []),
-          ];
+      // if (userHierarchys || userHierarchys.length > 0) {
+      //   const userHierarchy = userHierarchys[0];
+      //   if (
+      //     userHierarchy?.config ||
+      //     Array.isArray(userHierarchy?.config?.siblings?.sub_merchants)
+      //   ) {
+      //     filters.user_id = [
+      //       ...filters.user_id,
+      //       ...(userHierarchy?.config?.siblings?.sub_merchants ?? []),
+      //     ];
+      //   }
+      // }
+      if (designation === Role.MERCHANT_OPERATIONS) {
+        const userHierarchys = await getUserHierarchysDao({ user_id });
+        if (userHierarchys || userHierarchys.length > 0) {
+          const userHierarchy = userHierarchys[0];
+          if (userHierarchy?.config?.parent) {
+            filters.user_id = [userHierarchy?.config?.parent ?? null];
+          }
+        }
+      }
+    } else if (role === Role.VENDOR) {
+      if (designation === Role.VENDOR_OPERATIONS) {
+        const userHierarchys = await getUserHierarchysDao({ user_id });
+        if (userHierarchys || userHierarchys.length > 0) {
+          const userHierarchy = userHierarchys[0];
+          if (userHierarchy?.config?.parent) {
+            filters.user_id = [userHierarchy?.config?.parent ?? null];
+          }
         }
       }
     }
@@ -133,8 +151,6 @@ const getSettlementService = async (
     if (error instanceof BadRequestError) {
       throw error;
     }
-
-    console.log(error);
 
     logger.error('Error in getSettlementService:', {
       error: error,
@@ -199,6 +215,26 @@ const getSettlementsBySearchService = async (
           ];
         }
       }
+      if (designation === Role.MERCHANT_OPERATIONS) {
+        if (userHierarchys || userHierarchys.length > 0) {
+          const userHierarchy = userHierarchys[0];
+          // console.log(userHierarchy?.config?.parent, 'shjdhjhju');
+          if (userHierarchy?.config?.parent) {
+            filters.user_id = [userHierarchy?.config?.parent ?? null];
+          }
+        }
+      }
+    } else if (role === Role.VENDOR) {
+      if (designation === Role.VENDOR_OPERATIONS) {
+        const userHierarchys = await getUserHierarchysDao({ user_id });
+        if (userHierarchys || userHierarchys.length > 0) {
+          const userHierarchy = userHierarchys[0];
+          // console.log(userHierarchy?.config?.parent, 'shjdhjhju');
+          if (userHierarchy?.config?.parent) {
+            filters.user_id = [userHierarchy?.config?.parent ?? null];
+          }
+        }
+      }
     }
 
     const data = await getSettlementsBySearchDao(
@@ -207,12 +243,13 @@ const getSettlementsBySearchService = async (
       limitNum,
       offset,
       filterColumns,
+      role,
     );
 
     return data;
   } catch (error) {
     logger.error('Error while fetching chargeback by search', error);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
 
@@ -238,7 +275,6 @@ const createSettlementService = async (conn, payload) => {
           getVendorsDao({ user_id: payload.user_id }),
           getCalculationforCronDao(payload.user_id),
         ]);
-
         if (!vendorData?.length) {
           throw new NotFoundError('Vendor not found');
         }
@@ -310,20 +346,17 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       null,
       null,
     );
-    //getting error refernce_id undefined fixed when approving settleemnt
+    //getting error reference_id undefined fixed when approving settlement
     if (
       payload.config.reference_id !== undefined &&
-      data[0]?.config?.reference_id === payload.config.reference_id
+      data[0]?.config?.reference_id === payload.config.reference_id &&
+      (payload.config.reference_id !== '' || !payload.config.rejected_reason)
     ) {
       throw new BadRequestError(`UTR already exists`);
     }
     const calculationData = await getCalculationforCronDao(
-      data[0].user_table_id,
+      data[0].user_id,
     );
-    // if status is success and updating , it will directly be in rejected
-    if (data[0].status === Status.SUCCESS) {
-      payload.status = Status.REJECTED;
-    }
 
     if (payload.config.reference_id) {
       payload.status = Status.SUCCESS;
@@ -332,7 +365,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       }
       let updatedCalculation;
       const merchant_data = await getMerchantsDao({
-        user_id: data[0].user_table_id,
+        user_id: data[0].user_id,
       });
       if (merchant_data.length > 0) {
         if (Array.isArray(calculationData) && calculationData.length > 0) {
@@ -364,7 +397,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
       }
       const merchantData = await getMerchantsDao(
-        { user_id: data[0].user_table_id },
+        { user_id: data[0].user_id },
         null,
         null,
         null,
@@ -373,7 +406,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
 
       if (data[0].role === Role.VENDOR) {
         const bankData = await getBankaccountDao(
-          { user_id: data[0].user_table_id },
+          { user_id: data[0].user_id },
           null,
           null,
           role,
@@ -405,11 +438,12 @@ const updateSettlementService = async (conn, ids, payload, role) => {
 
     if (payload.status === Status.INITIATED) {
       const merchant_data = await getMerchantsDao({
-        user_id: data[0].user_table_id,
+        user_id: data[0].user_id,
       });
       if (merchant_data.length > 0) {
-        payload.config.reference_id = '';
-        payload.config.rejected_reason = '';
+        // payload.config.reference_id = '';
+        // payload.config.rejected_reason = '';
+        payload.status = Status.REJECTED;
         let updatedCalculation;
         const amount = payload?.amount || 0;
 
@@ -436,9 +470,10 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           data[0].method === 'INTERNAL_QR_TRANSFER' ||
           data[0].method === 'INTERNAL_BANK_TRANSFER'
         ) {
+          payload.status = Status.REJECTED;
           const [vendorData, calculationData] = await Promise.all([
-            getVendorsDao({ user_id: data[0].user_table_id }),
-            getCalculationforCronDao(data[0].user_table_id),
+            getVendorsDao({ user_id: data[0].user_id }),
+            getCalculationforCronDao(data[0].user_id),
           ]);
 
           if (!vendorData?.length) {
