@@ -38,7 +38,7 @@ export const createNotifications = async (req, res) => {
 export const deleteNotifications = async (req, res) => {
   const { userId, company_id } = req.user;
   const payload = req.body;
-  console.log(payload, 'payloadd');
+  console.log(payload, 'payload');
   const notifications = await createNotificationsService(userId, company_id);
 
   return sendSuccess(res, notifications, 'Notifications Deleted successfully');
