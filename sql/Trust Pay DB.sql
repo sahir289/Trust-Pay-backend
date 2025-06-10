@@ -289,11 +289,41 @@ CREATE TABLE "Calculation" (
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
   "company_id" varchar NOT NULL,
+  "total_settlement_commission" float DEFAULT 0,
+  "total_adjustment_amount" float DEFAULT 0,
+  "total_adjustment_count" integer DEFAULT 0,
+  "total_adjustment_commission" float DEFAULT 0,
   "is_obsolete" boolean DEFAULT false,
   "config" json NOT NULL DEFAULT '{}',
   "created_by" varchar,
   "updated_by" varchar
 );
+
+CREATE TABLE Notification (
+  "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
+  "user_id" varchar NOT NULL,
+  "message" text NOT NULL,
+  "created_at" TIMESTAMPTZ DEFAULT (now()),
+  "updated_at" TIMESTAMPTZ DEFAULT (now()),
+  "company_id" varchar NOT NULL,
+  "is_obsolete" boolean DEFAULT false,
+  "config" json NOT NULL DEFAULT '{}'
+);
+
+CREATE TABLE "NotificationRecipients" (
+  "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
+  "notification_id" varchar NOT NULL,
+  "recipient_id" varchar NOT NULL,
+  "is_read" boolean DEFAULT false,
+  "read_at" TIMESTAMPTZ,
+  "designation_id" varchar,
+  "created_at" TIMESTAMPTZ DEFAULT (now()),
+  "updated_at" TIMESTAMPTZ DEFAULT (now()),
+  "company_id" varchar NOT NULL,
+  "is_obsolete" boolean DEFAULT false,
+  "config" json NOT NULL DEFAULT '{}'
+)
+
 
 -- ChargeBack Table
 CREATE TABLE "ChargeBack" (
