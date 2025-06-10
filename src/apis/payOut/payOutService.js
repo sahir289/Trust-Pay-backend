@@ -329,7 +329,7 @@ const getPayoutsService = async (
     await commit(conn);
     return { totalCount: data[0]?.total, payout: data };
   } catch (error) {
-    console.error('Error in getPayoutsService:', error);
+    logger.error('Error in getPayoutsService:', error);
     throw new InternalServerError(error);
   } finally {
     if (conn) {
@@ -424,7 +424,7 @@ const getPayoutsBySearchService = async (
 
     return data;
   } catch (error) {
-    console.error('Error while fetching Payout by search', error);
+    logger.error('Error while fetching Payout by search', error);
     throw new InternalServerError(error.message);
   }
 };
@@ -432,10 +432,10 @@ const getPayoutsBySearchService = async (
 const updatePayoutService = async (conn, ids, payload, role) => {
   try {
     if (payload?.utr_id) {
-    const payoutDetails = await getPayoutsDao({utr_id: payload.utr_id}, ids.company_id);
-    if(payoutDetails.length > 0) {
-      throw new BadRequestError('UTR already exists');
-    }
+      const payoutDetails = await getPayoutsDao({ utr_id: payload.utr_id }, ids.company_id);
+      if (payoutDetails.length > 0) {
+        throw new BadRequestError('UTR already exists');
+      }
     }
     if (payload?.utr_id && !payload.status && payload?.bank_acc_id)
       Object.assign(payload, {
@@ -450,18 +450,15 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (payload.status === Status.INITIATED)
       Object.assign(payload, { utr_id: '', rejected_reason: '' });
 
-    const singleWithdrawData = await getPayoutsDao(
-      ids,
-      null,
-      null,
-      null,
-      'DESC',
-      null,
-      conn,
-    );
-    const merchantArr = await getMerchantsDao({
-      id: singleWithdrawData[0].merchant_id,
-    });
+    // Fetch payout and merchant in parallel for performance
+    const [singleWithdrawDataArr] = await Promise.all([
+      getPayoutsDao(ids, null, null, null, 'DESC', null, conn),
+    ]);
+    const singleWithdrawData = singleWithdrawDataArr[0];
+    if (!singleWithdrawData) {
+      throw new NotFoundError('Payout not found!');
+    }
+    const merchantArr = await getMerchantsDao({ id: singleWithdrawData.merchant_id });
     const merchant = merchantArr[0];
     if (!merchant) {
       throw new NotFoundError('Merchant not found!');
@@ -475,8 +472,9 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       return data;
     }
     if (!data.approved_at) return data;
-    const bankDataArr = await  getBankByIdDao (
-      { id: data.bank_acc_id });
+
+    // Fetch bank data first, then get vendor using bankData.user_id
+    const bankDataArr = await getBankByIdDao({ id: data.bank_acc_id });
     const bankData = bankDataArr[0];
     if (!bankData) {
       throw new NotFoundError('Bank not found!');
@@ -487,10 +485,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (bankData.is_blocked) {
       throw new BadRequestError('Bank account is blocked');
     }
-    const [vendorArr] = await Promise.all([
-      getVendorsDao({ user_id: bankData.user_id }),
-    ]);
-
+    const vendorArr = await getVendorsDao({ user_id: bankData.user_id });
     const vendor = vendorArr[0];
     if (!vendor) {
       throw new NotFoundError('Vendor not found!');
@@ -504,122 +499,75 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       vendor.payout_commission,
     );
     if (data.status === Status.APPROVED) {
-      await updateCalculationTable(
-        merchant.user_id,
-        {
-          payoutCommission: merchantCommission,
-          amount: data.amount,
-        },
-        true,
-        conn,
-      );
-      await updateCalculationTable(
-        vendor.user_id,
-        {
-          payoutCommission: vendorCommission,
-          amount: data.amount,
-        },
-        true,
-        conn,
-      );
-
-      await updateBankaccountDao(
-        { id: bankData.id },
-        {
-          payin_count: Number(bankData.payin_count) + 1,
-          today_balance: Number(bankData.today_balance) - Number(data.amount),
-          balance: Number(bankData.balance) - Number(data.amount),
-        },
-        conn,
-      );
-      // got DB Error when balance is NAN
-      // const merchantBalance = Number(merchant.balance) - Number(data.amount);
-      // if (isNaN(merchantBalance)) {
-      //   throw new BadRequestError('Invalid merchant balance');
-      // } else {
-      //   await updateMerchantDao(
-      //     { id: merchant.id },
-      //     { balance: merchantBalance },
-      //     conn,
-      //   );
-      // }
-      // // got DB Error when balance is NAN
-      // const vendorBalance = Number(vendor.balance) - Number(data.amount);
-      // if (isNaN(vendorBalance)) {
-      //   throw new BadRequestError('Invalid vendor balance');
-      // } else {
-      //   await updateVendorDao(
-      //     { id: vendor.id },
-      //     { balance: vendorBalance },
-      //     conn,
-      //   );
-      // }
-      const upadtedpayout = await updatePayoutDao(
-        ids,
-        {
-          payout_merchant_commission: merchantCommission,
-          payout_vendor_commission: vendorCommission,
-          vendor_id:vendor.id
-        },
-        conn,
-      );
-      // if(upadtedpayout){
-      //   updatePayout(upadtedpayout.id, merchant.code, upadtedpayout.merchant_order_id)
-      // }
-    }
-
-    else if (data.status === Status.REVERSED && data.approved_at !== null) {
-      await updateCalculationTable(
-        merchant.user_id,
-        {
-          payoutCommission: merchantCommission,
-          amount: data.amount,
-        },
-        false,
-        conn,
-      );
-      await updateCalculationTable(
-        vendor.user_id,
-        {
-          payoutCommission: vendorCommission,
-          amount: data.amount,
-        },
-        false,
-        conn,
-      );
-      // await notifyNewCalculationTableEntry(tableName.CALCULATION, vendorCalculation);
-      // const merchantBalance = Number(merchant.balance + data.amount);
-      // if (isNaN(merchantBalance)) {
-      //   throw new BadRequestError('Invalid merchant balance');
-      // } else {
-      //   const log = await updateMerchantDao(
-      //     { id: merchant.id, company_id: merchant.company_id },
-      //     { balance: merchantBalance },
-      //     conn,
-      //   );
-      // }
-      // const vendorBalance = Number(vendor.balance + data.amount);
-      // if (isNaN(vendorBalance)) {
-      //   throw new BadRequestError('Invalid vendor balance');
-      // } else {
-      //   const merchan = await updateVendorDao(
-      //     { id: vendor.id },
-      //     { balance: vendorBalance },
-      //     conn,
-      //   );
-      // }
-
-      const vend = await updateBankaccountDao(
-        { id: bankData.id },
-        {
-          today_balance: Number(bankData.today_balance + data.amount),
-          balance: Number(bankData.balance + data.amount),
-        },
-        conn,
-      );
+      await Promise.all([
+        updateCalculationTable(
+          merchant.user_id,
+          {
+            payoutCommission: merchantCommission,
+            amount: data.amount,
+          },
+          true,
+          conn,
+        ),
+        updateCalculationTable(
+          vendor.user_id,
+          {
+            payoutCommission: vendorCommission,
+            amount: data.amount,
+          },
+          true,
+          conn,
+        ),
+        updateBankaccountDao(
+          { id: bankData.id },
+          {
+            payin_count: Number(bankData.payin_count) + 1,
+            today_balance: Number(bankData.today_balance) - Number(data.amount),
+            balance: Number(bankData.balance) - Number(data.amount),
+          },
+          conn,
+        ),
+        updatePayoutDao(
+          ids,
+          {
+            payout_merchant_commission: merchantCommission,
+            payout_vendor_commission: vendorCommission,
+            vendor_id: vendor.id,
+          },
+          conn,
+        ),
+      ]);
+    } else if (data.status === Status.REVERSED && data.approved_at !== null) {
+      await Promise.all([
+        updateCalculationTable(
+          merchant.user_id,
+          {
+            payoutCommission: merchantCommission,
+            amount: data.amount,
+          },
+          false,
+          conn,
+        ),
+        updateCalculationTable(
+          vendor.user_id,
+          {
+            payoutCommission: vendorCommission,
+            amount: data.amount,
+          },
+          false,
+          conn,
+        ),
+        updateBankaccountDao(
+          { id: bankData.id },
+          {
+            today_balance: Number(bankData.today_balance + data.amount),
+            balance: Number(bankData.balance + data.amount),
+          },
+          conn,
+        ),
+      ]);
     }
     await newTableEntry(tableName.PAYOUT);
-    ///url condition change
     await merchantPayoutCallback(data.config?.urls?.notify, {
       code: data.code,
       merchantOrderId: data.merchant_order_id,
@@ -628,11 +576,9 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       status: data.status,
       utr_id: data.utr_id || '',
     });
-    // const finalResult = filterResponse(data, filterColumns);
-    //sockets call
     return data;
   } catch (error) {
-    console.error('Error in getPayoutsService:', error);
+    logger.error('Error in updatePayoutService:', error);
     throw new InternalServerError(error.message);
   }
 };
@@ -653,7 +599,7 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
       typeof data.amount === 'undefined' ||
       typeof data.payoutCommission === 'undefined'
     ) {
-      console.error('Missing required properties in data');
+      logger.error('Missing required properties in data');
       return;
     }
     const totalAmountData = Number(data.amount + data.payoutCommission);
@@ -701,7 +647,7 @@ const processEkoPayout = async (singleWithdrawData, payload) => {
         rejected_at: isSuccess ? null : new Date().toISOString(),
         utr_id: ekoResponse?.data?.tid,
       });
-      console.info(`Payment initiated: ${ekoResponse?.message}`);
+      logger.info(`Payment initiated: ${ekoResponse?.message}`);
     } else {
       let getEkoPayoutStatus = null;
       if (ekoResponse.status === 1328) {
@@ -713,10 +659,10 @@ const processEkoPayout = async (singleWithdrawData, payload) => {
         rejected_at: new Date().toISOString(),
         utr_id: getEkoPayoutStatus?.data?.tid || null,
       });
-      console.error(`Payment rejected by eko due to ${ekoResponse?.message}`);
+      logger.error(`Payment rejected by eko due to ${ekoResponse?.message}`);
     }
   } catch (error) {
-    console.error('Error processing Eko method:', error);
+    logger.error('Error processing Eko method:', error);
   }
 };
 
@@ -755,13 +701,13 @@ const activateEkoService = async (req, res) => {
     try {
       parsedData = JSON.parse(responseText);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
       parsedData = responseText;
     }
 
     return parsedData;
   } catch (error) {
-    console.error(error);
+    logger.error(error);
   }
 };
 
@@ -819,12 +765,12 @@ const createEkoWithdraw = async (payload, client_ref_id) => {
     try {
       parsedData = JSON.parse(responseText);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
       parsedData = responseText;
     }
     return parsedData;
   } catch (error) {
-    console.error(error);
+    logger.error(error);
   }
 };
 
@@ -859,12 +805,12 @@ const ekoPayoutStatus = async (id, res) => {
     try {
       parsedData = JSON.parse(responseText);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
       parsedData = responseText;
     }
     return parsedData;
   } catch (error) {
-    console.error(error);
+    logger.error(error);
   }
 };
 
@@ -883,7 +829,7 @@ const deletePayoutService = async (id, updated_by, role) => {
     payload.updated_by = updated_by;
     const data = await deletePayoutDao(id, payload); // Adjust DAO call for delete
     await commit(conn); // Commit the transaction
-    console.log('Payout deleted successfully', 'info');
+    logger.info('Payout deleted successfully', 'info');
     const finalResult = await filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -891,21 +837,21 @@ const deletePayoutService = async (id, updated_by, role) => {
       try {
         await rollback(conn); // Rollback the transaction in case of error
       } catch (rollbackError) {
-        console.log(
+        logger.error(
           'Error during transaction rollback',
           'error',
           rollbackError,
         );
       }
     }
-    console.log('Error while deleting Payout', 'error', error);
+    logger.error('Error while deleting Payout', 'error', error);
     throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
         conn.release(); // Release the connection back to the pool
       } catch (releaseError) {
-        console.log(
+        logger.error(
           'Error while releasing the connection',
           'error',
           releaseError,
@@ -945,12 +891,12 @@ const ekoWalletBalanceEnquiryInternally = async () => {
     try {
       parsedData = JSON.parse(responseText);
     } catch (err) {
-      console.error(err);
+      logger.error(err);
       parsedData = responseText;
     }
     return parsedData;
   } catch (error) {
-    console.error(error);
+    logger.error(error);
   }
 };
 
