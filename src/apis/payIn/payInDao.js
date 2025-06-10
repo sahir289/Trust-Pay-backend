@@ -406,6 +406,7 @@ export const getAllPayInsDao = async (filters, company_id, page, limit, role) =>
     let commissionSelect = '';
     if (role === 'MERCHANT') {
       commissionSelect = `
+        p.is_notified,
         p.payin_merchant_commission,
         p.merchant_id,
         p.user,
@@ -425,6 +426,7 @@ export const getAllPayInsDao = async (filters, company_id, page, limit, role) =>
       `;
     } else {
       commissionSelect = `
+        p.is_notified,
         p.payin_merchant_commission,
         json_build_object(
           'merchant_code', COALESCE(r.config->>'sub_code', r.code),
@@ -458,7 +460,6 @@ export const getAllPayInsDao = async (filters, company_id, page, limit, role) =>
           p.sno,
           p.amount,
           p.status,
-          p.is_notified,
           p.user_submitted_utr,
           p.user_submitted_image,
           p.duration,
