@@ -1764,7 +1764,7 @@ export const disputeDuplicateTransactionService = async (
     }
 
     if (
-      ![Status.ASSIGNED, Status.PENDING, Status.DROPPED].includes(
+      ![Status.ASSIGNED, Status.DROPPED].includes(
         payInData.status,
       )
     ) {
