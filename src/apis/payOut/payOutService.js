@@ -576,6 +576,10 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
 
     else if (data.status === Status.REVERSED && data.approved_at !== null) {
+      const payOutStatus = await getPayoutsDao({ id: data.id }, ids.company_id)
+      if(payOutStatus[0].status === Status.REVERSED){
+        throw new NotFoundError('Payout Already Reversed!');
+      }
       await updateCalculationTable(
         merchant.user_id,
         {
