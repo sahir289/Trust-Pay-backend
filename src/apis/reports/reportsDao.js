@@ -1,4 +1,4 @@
-import { Role, tableName } from '../../constants/index.js';
+import { Role, Status, tableName } from '../../constants/index.js';
 import { buildSelectQuery, executeQuery } from '../../utils/db.js';
 
 const getPayInMerchantReportDao = async (
@@ -81,7 +81,22 @@ const getPayInMerchantReportDao = async (
     }
 
     if (startDate && endDate) {
-      query += ` AND u.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      switch(status){
+        case Status.APPROVED:
+          query += `AND (u.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`;
+          break;
+        case Status.REVERSED:
+          query += `AND (u.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              ) AND u.approved_at NOT NULL`;
+          break;
+        case Status.REJECTED :
+          query += `AND (u.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`
+        default : 
+          query += `AND (u.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`
+      }
       parameters.push(startDate, endDate);
     }
 
@@ -159,7 +174,22 @@ const getPayInVendorReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
-      query += ` AND pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      switch(status){
+        case Status.APPROVED:
+          query += `AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`;
+          break;
+        case Status.REVERSED:
+          query += `AND (pi.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              ) AND po.approved_at NOT NULL`;
+          break;
+        case Status.REJECTED :
+          query += `AND (pi.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`
+        default : 
+          query += `AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`
+      }
       parameters.push(startDate, endDate);
     }
 
@@ -241,16 +271,26 @@ const getPayOutMerchantReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
-      if (status && status.includes('APPROVED')) {
-        query += ` AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
-      } else {
-        query += ` AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      switch(status){
+        case Status.APPROVED:
+          query += `AND (po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`;
+          break;
+        case Status.REVERSED:
+          query += `AND (po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              ) AND po.approved_at NOT NULL`;
+          break;
+        case Status.REJECTED :
+          query += `AND (po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`
+        default : 
+          query += `AND (po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`
       }
       parameters.push(startDate, endDate);
     }
 
     query += ` ORDER BY sno ASC;`; //--sorting by codes than created_at
-
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
@@ -350,10 +390,21 @@ const getPayOutVendorReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
-      if (status && status.includes('APPROVED')) {
-        query += ` AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
-      } else {
-        query += ` AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      switch(status){
+        case Status.APPROVED:
+          query += `AND (po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`;
+          break;
+        case Status.REVERSED:
+          query += `AND (po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              ) AND po.approved_at NOT NULL`;
+          break;
+        case Status.REJECTED :
+          query += `AND (po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`
+        default : 
+          query += `AND (po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`
       }
       parameters.push(startDate, endDate);
     }
