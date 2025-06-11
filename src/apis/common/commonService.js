@@ -311,11 +311,16 @@ export const getTotalCountService = async (
 
     logger.info(`Filters applied: ${JSON.stringify(filters)}`);
     let updated = false;
+    let updatedPayin = false;
     if (filters?.updated) {
       updated = filters.updated;
       delete filters.updated;
     }
-    return await getTotalCountDao(tablename, role, filters, updated);
+    if (filters?.updatedPayin) {
+      updatedPayin = filters.updatedPayin;
+      delete filters.updatedPayin;
+    }
+    return await getTotalCountDao(tablename, role, filters, updated, updatedPayin);
   } catch (error) {
     logger.error(
       `Error in getTotalCountService for table ${tablename}:`,

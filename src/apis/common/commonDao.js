@@ -35,12 +35,6 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs, updated
       `;
     }
 
-    // Handle updatedPayin filter specifically for Payin table
-    if (tablename === 'Payin' && filters.updatedPayin) {
-      query += ` AND (config->>'history' IS NOT NULL AND config::jsonb ? 'history')`;
-      delete filters.updatedPayin;  // Remove from filters to avoid SQL error
-    }
-
     // Add role-based filtering for 'Settlement'
     if (tableName && role) {
       query += ` AND EXISTS (
@@ -61,8 +55,8 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs, updated
     if (updatedPayin) {
       // query += ` AND "${tablename}".approved_at IS NOT NULL
       // AND "${tablename}".approved_at < "${tablename}".updated_at`;
-      // query += ` AND "${tablename}".config->>'history' IS NOT NULL 
-      //   AND "${tablename}".config::jsonb ? 'history'`;
+      query += ` AND "${tablename}".config->>'history' IS NOT NULL 
+        AND "${tablename}".config::jsonb ? 'history'`;
     }
 
     // Handle nickname filter
