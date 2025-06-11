@@ -93,8 +93,8 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getNotificationsById));
  *                     example: "active"
  */
 
-router.post('/', isAuthenticated, tryCatchHandler(createNotifications));
+router.post('/create-notification', isAuthenticated, tryCatchHandler(createNotifications));
 
-router.delete('/:id', isAuthenticated, tryCatchHandler(deleteNotifications));
+router.delete('/delete-notification/:id', isAuthenticated, tryCatchHandler(deleteNotifications));
 
 export default router;

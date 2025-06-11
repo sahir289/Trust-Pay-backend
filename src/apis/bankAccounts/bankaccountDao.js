@@ -469,7 +469,21 @@ const getMerchantBankDao = async (filters) => {
     throw error.message;
   }
 };
-
+const getBankByIdDao = async (filters) => {
+  try {
+    const query = `SELECT  min,
+  max,
+  is_enabled,
+  payin_count,
+  balance,today_balance, user_id ,id FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
+    const [sql, parameters] = buildSelectQuery(query, filters);
+    const result = await executeQuery(sql, parameters);
+    return result.rows;
+  } catch (error) {
+    logger.error(error);
+    throw error.message;
+  }
+};
 const createBankaccountDao = async (payload) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.BANK_ACCOUNT, payload);
@@ -646,4 +660,5 @@ export {
   deleteBankaccountDao,
   getMerchantBankDao,
   getBankAccountDaoNickName,
+  getBankByIdDao,
 };

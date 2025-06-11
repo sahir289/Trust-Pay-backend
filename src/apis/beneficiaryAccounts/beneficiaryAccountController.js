@@ -38,17 +38,25 @@ const getBeneficiaryAccount = async (req, res) => {
 };
 
 const getBeneficiaryAccountBySearch = async (req, res) => {
-  const { role } = req.user;
-  const { search, bank_used_for, page = 1, limit = 10 } = req.query;
+  const { role, user_id, designation } = req.user;
+  const { search,page, limit, beneficiary_role, beneficiary_user_id } = req.query;
+  const filters = {
+    beneficiary_role,
+  };
+  if (beneficiary_user_id) {
+    filters.user_id = beneficiary_user_id;
+  }
   if (!search) {
     throw new BadRequestError('search is required');
   }
   const data = await getBeneficiaryAccountBySearchService(
     role,
     search,
-    bank_used_for,
+    filters,
     page,
     limit,
+    user_id,
+    designation,
   );
   return sendSuccess(res, data, 'get Beneficiary by search successfully');
 };
