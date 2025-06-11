@@ -82,7 +82,7 @@ const getPayInMerchantReportDao = async (
 
     if (startDate && endDate) {
       switch(status){
-        case Status.APPROVED:
+        case Status.SUCCESS:
           query += `AND (u.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               )`;
           break;
@@ -175,7 +175,7 @@ const getPayInVendorReportDao = async (
     }
     if (startDate && endDate) {
       switch(status){
-        case Status.APPROVED:
+        case Status.SUCCESS:
           query += `AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               )`;
           break;
