@@ -104,6 +104,8 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
         notify: notifyUrl || details[0].config?.urls?.payout_notify || '',
       },
     });
+    delete payload.returnUrl;
+    delete payload.notifyUrl;
     payload.company_id = payload.company_id
       ? payload.company_id
       : details[0].company_id;
