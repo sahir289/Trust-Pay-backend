@@ -14,6 +14,7 @@ export const PAYOUT_DETAILS_SCHEMA = Joi.object({
   amount: Joi.number().label('amount').required(),
   utr_id: Joi.string().label('utr_id').optional(),
   merchant_order_id: Joi.string().label('merchant_order_id').optional(),
+  notifyUrl: Joi.string().uri().label('notify_url').optional(),
 });
 
 export const UPDATE_DETAILS_SCHEMA = Joi.object({
