@@ -61,7 +61,7 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
         : role === Role.VENDOR
           ? vendorColumns.PAYOUT
           : columns.PAYOUT;
-    const { code, amount, x_api_key, returnUrl, callbackUrl } = payload;
+    const { code, amount, x_api_key, returnUrl, notifyUrl } = payload;
     const details = await getMerchantsDao({ code });
     
     if (!details[0] || details[0].length === 0) {
@@ -101,7 +101,7 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
     payload.config = JSON.stringify({
       urls: {
         return: returnUrl || details[0].config?.urls?.return || '',
-        notify: callbackUrl || details[0].config?.urls?.payout_notify || '',
+        notify: notifyUrl || details[0].config?.urls?.payout_notify || '',
       },
     });
     payload.company_id = payload.company_id
