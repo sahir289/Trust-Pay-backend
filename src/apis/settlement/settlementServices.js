@@ -37,6 +37,7 @@ import {
 } from '../bankResponse/bankResponseDao.js';
 import { getVendorsDao, updateVendorBalanceDao } from '../vendors/vendorDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
+import { checkLockEdit } from '../../utils/advisoryLock.js';
 
 const getSettlementServiceById = async (ids) => {
   try {
@@ -335,6 +336,7 @@ const createSettlementService = async (conn, payload) => {
 
 const updateSettlementService = async (conn, ids, payload, role) => {
   try {
+    await checkLockEdit(conn,ids.id);
     payload.config = payload.config || {};
     const data = await getSettlementDao(
       {
@@ -527,7 +529,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
     return updateData;
   } catch (error) {
     console.log('Error while updating Settlement', 'error', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 

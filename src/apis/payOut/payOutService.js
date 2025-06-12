@@ -52,6 +52,7 @@ import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
 // import { updatePayout } from '../../utils/sockets.js';
 import { newTableEntry } from '../../utils/sockets.js';
+import { checkLockEdit } from '../../utils/advisoryLock.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 const createPayoutService = async (conn, headers, payload, role, res) => {
   try {
@@ -431,6 +432,7 @@ const getPayoutsBySearchService = async (
 
 const updatePayoutService = async (conn, ids, payload, role) => {
   try {
+    await checkLockEdit(conn,ids.id);
     if (payload?.utr_id) {
       const payoutDetails = await getPayoutsDao({ utr_id: payload.utr_id }, ids.company_id);
       if (payoutDetails.length > 0) {
