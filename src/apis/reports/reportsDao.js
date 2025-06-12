@@ -70,7 +70,7 @@ const getPayInMerchantReportDao = async (
     }
     if (status) {
       if (typeof status === 'string') {
-        status = status.split(',').map(s => s.trim());
+        status = status.split(',').map((s) => s.trim());
       }
       if (!Array.isArray(status)) {
         status = [status];
@@ -81,7 +81,7 @@ const getPayInMerchantReportDao = async (
     }
 
     if (startDate && endDate) {
-      switch(status){
+      switch (status) {
         case Status.SUCCESS:
           query += `AND (u.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               )`;
@@ -90,12 +90,13 @@ const getPayInMerchantReportDao = async (
           query += `AND (u.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               ) AND u.approved_at NOT NULL`;
           break;
-        case Status.REJECTED :
+        case Status.REJECTED:
           query += `AND (u.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`
-        default : 
+              )`;
+          break;
+        default:
           query += `AND (u.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`
+              )`;
       }
       parameters.push(startDate, endDate);
     }
@@ -164,7 +165,7 @@ const getPayInVendorReportDao = async (
     }
     if (status) {
       if (typeof status === 'string') {
-        status = status.split(',').map(s => s.trim());
+        status = status.split(',').map((s) => s.trim());
       }
       if (!Array.isArray(status)) {
         status = [status];
@@ -174,7 +175,7 @@ const getPayInVendorReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
-      switch(status){
+      switch (status) {
         case Status.SUCCESS:
           query += `AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               )`;
@@ -183,12 +184,13 @@ const getPayInVendorReportDao = async (
           query += `AND (pi.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               ) AND po.approved_at NOT NULL`;
           break;
-        case Status.REJECTED :
+        case Status.REJECTED:
           query += `AND (pi.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`
-        default : 
+              )`;
+          break;
+        default:
           query += `AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`
+              )`;
       }
       parameters.push(startDate, endDate);
     }
@@ -209,7 +211,7 @@ const getPayOutMerchantReportDao = async (
   endDate,
   company_id,
   role,
-  status
+  status,
 ) => {
   try {
     let commissionSelect = `po.payout_merchant_commission,
@@ -261,7 +263,7 @@ const getPayOutMerchantReportDao = async (
     }
     if (status) {
       if (typeof status === 'string') {
-        status = status.split(',').map(s => s.trim());
+        status = status.split(',').map((s) => s.trim());
       }
       if (!Array.isArray(status)) {
         status = [status];
@@ -271,7 +273,7 @@ const getPayOutMerchantReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
-      switch(status){
+      switch (status) {
         case Status.APPROVED:
           query += `AND (po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               )`;
@@ -280,12 +282,13 @@ const getPayOutMerchantReportDao = async (
           query += `AND (po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               ) AND po.approved_at NOT NULL`;
           break;
-        case Status.REJECTED :
+        case Status.REJECTED:
           query += `AND (po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`
-        default : 
+              )`;
+          break;
+        default:
           query += `AND (po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`
+              )`;
       }
       parameters.push(startDate, endDate);
     }
@@ -305,7 +308,7 @@ const getPayOutVendorReportDao = async (
   endDate,
   company_id,
   role,
-  status
+  status,
 ) => {
   try {
     let commissionSelect = '';
@@ -380,7 +383,7 @@ const getPayOutVendorReportDao = async (
     }
     if (status) {
       if (typeof status === 'string') {
-        status = status.split(',').map(s => s.trim());
+        status = status.split(',').map((s) => s.trim());
       }
       if (!Array.isArray(status)) {
         status = [status];
@@ -390,7 +393,7 @@ const getPayOutVendorReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
-      switch(status){
+      switch (status) {
         case Status.APPROVED:
           query += `AND (po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               )`;
@@ -399,12 +402,13 @@ const getPayOutVendorReportDao = async (
           query += `AND (po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               ) AND po.approved_at NOT NULL`;
           break;
-        case Status.REJECTED :
+        case Status.REJECTED:
           query += `AND (po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`
-        default : 
+              )`;
+          break;
+        default:
           query += `AND (po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`
+              )`;
       }
       parameters.push(startDate, endDate);
     }
