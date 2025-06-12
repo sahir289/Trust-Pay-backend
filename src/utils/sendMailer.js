@@ -48,17 +48,18 @@ export const sendCredentialsEmail = async ({
   const redirectingUrl = process.env.FRONTEND_URL;
   const baseUrl = process.env.BASE_URL;
   const apiDocsUrl = process.env.API_DOCS_URL;
+  const name = process.env.APP_NAME;
 
   const html = `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9fafb;">
     <div style="display: flex; align-items: center; margin-bottom: 24px;">
-      <img src="cid:trustpays-logo" alt="TrustPays Logo" style="height: 65px; max-height: 65px; margin-right: 8px;">
-      <h2 style="font-size: 22px; color: #1a202c; margin: 0; line-height: 65px;">TrustPays</h2>
+      <img src="cid:trustpays-logo" alt="${name} Logo" style="height: 65px; max-height: 65px; margin-right: 8px;">
+      <h2 style="font-size: 22px; color: #1a202c; margin: 0; line-height: 65px;">${name}</h2>
     </div>
     <div style="background-color: #ffffff; padding: 24px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
       <p style="font-size: 16px; color: #2d3748;">Hello, Greetings of the day,</p>
-      <h2 style="font-size: 22px; color: #1a202c;">Welcome to TrustPays – a fast, secure, and reliable Payment Gateway.</h2>
-      <p style="font-size: 15px; color: #4a5568;">You can sign in to your TrustPays account using the credentials below:</p>
+      <h2 style="font-size: 22px; color: #1a202c;">Welcome to ${name} – a fast, secure, and reliable Payment Gateway.</h2>
+      <p style="font-size: 15px; color: #4a5568;">You can sign in to your ${name} account using the credentials below:</p>
       <div style="background-color: #f1f5f9; padding: 16px; border-radius: 6px; margin-top: 16px;">
         <p style="margin: 8px 0; color: #2d3748;"><strong>Login URL:</strong> <a href="${redirectingUrl}" style="color: #3182ce;">${redirectingUrl}</a></p>
         <p style="margin: 8px 0; color: #2d3748;"><strong>Username:</strong> ${username}</p>
@@ -80,7 +81,7 @@ export const sendCredentialsEmail = async ({
       <p style="font-size: 14px; color: #718096; margin-top: 20px;">Please log in and change your password immediately for security.</p>
       <p style="font-size: 14px; color: #718096;">Thank you,<br>TrustPay Team</p>
     </div>
-    <p style="text-align: center; font-size: 12px; color: #a0aec0; margin-top: 20px;">© ${new Date().getFullYear()} TrustPays. All rights reserved.</p>
+    <p style="text-align: center; font-size: 12px; color: #a0aec0; margin-top: 20px;">© ${new Date().getFullYear()} ${name}. All rights reserved.</p>
   </div>
   `;
 
@@ -157,8 +158,8 @@ export const sendOTP = async (email, otp, user_name, designation) => {
   const html = `
   <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f7fa;">
     <div style="display: flex; align-items: center; margin-bottom: 20px;">
-      <img src="cid:trustpays-logo" alt="TrustPays Logo" style="height: 65px; max-height: 65px; margin-right: 8px;">
-      <h2 style="font-size: 22px; color: #1a202c; margin: 0; line-height: 65px;">TrustPays</h2>
+      <img src="cid:trustpays-logo" alt="${name} Logo" style="height: 65px; max-height: 65px; margin-right: 8px;">
+      <h2 style="font-size: 22px; color: #1a202c; margin: 0; line-height: 65px;">${name}</h2>
     </div>
     <div style="background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
       <h2 style="color: #1a202c; font-size: 24px; margin-bottom: 20px;">Password Reset Request</h2>
