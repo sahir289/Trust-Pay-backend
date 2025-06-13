@@ -478,14 +478,12 @@ const updateSettlementService = async (conn, ids, payload, role) => {
             getVendorsDao({ user_id: data[0].user_id }),
             getCalculationforCronDao(data[0].user_id),
           ]);
-
           if (!vendorData?.length) {
             throw new NotFoundError('Vendor not found');
           }
           if (!calculationData?.length) {
             throw new NotFoundError('Calculation data not found');
           }
-
           const VendorCommission = vendorData[0].payin_commission || 0;
           const commission = calculateCommission(
             payload.amount,
@@ -531,9 +529,11 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           'Cannot change payout status from rejected to approved',
         );
       }
-      if (
+      if(
         data[0].status === Status.SUCCESS &&
-        payload.status === Status.REJECTED
+        payload.status === Status.REJECTED &&
+        data[0].method !== 'INTERNAL_QR_TRANSFER' &&
+        data[0].method !== 'INTERNAL_BANK_TRANSFER'
       ) {
         throw new BadRequestError(
           'Cannot change payout status from approved to rejected',
