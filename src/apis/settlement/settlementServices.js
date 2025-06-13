@@ -529,16 +529,16 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           'Cannot change payout status from rejected to approved',
         );
       }
-      if(
-        data[0].status === Status.SUCCESS &&
-        payload.status === Status.REJECTED &&
-        data[0].method !== 'INTERNAL_QR_TRANSFER' &&
-        data[0].method !== 'INTERNAL_BANK_TRANSFER'
-      ) {
-        throw new BadRequestError(
-          'Cannot change payout status from approved to rejected',
-        );
-      }
+      // if(
+      //   data[0].status === Status.SUCCESS &&
+      //   payload.status === Status.REJECTED &&
+      //   data[0].method !== 'INTERNAL_QR_TRANSFER' &&
+      //   data[0].method !== 'INTERNAL_BANK_TRANSFER'
+      // ) {
+      //   throw new BadRequestError(
+      //     'Cannot change payout status from approved to rejected',
+      //   );
+      // }
       if (payload.status === data[0].status) {
         throw new BadRequestError(
           'Payout status cannot be updated to the same value',
