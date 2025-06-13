@@ -164,6 +164,7 @@ const getBeneficiaryAccountBySearchService = async (
       throw new BadRequestError('Please provide valid search items');
     }
 
+
     const result = await getBeneficiaryAccountBySearchDao(
       role,
       searchTerms,

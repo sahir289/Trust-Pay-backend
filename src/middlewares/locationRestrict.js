@@ -34,16 +34,16 @@ const getUserLocationMiddleware = async (req, res, next) => {
     const { latitude, longitude, vpn, region, country } = userData;
     if (vpn === 'yes') {
       logger.warn('VPN detected. Access denied.', userData);
-      return res.status(403).send('403: Access denied');
+      return res.status(403).send('VPN is Not Allowed!');
     }
     if (country === 'India' && restrictedStates.includes(region)) {
       logger.error(`Access restricted for users in ${region}.`, userData);
-      return res.status(403).send('403: Access denied');
+      return res.status(403).send('Region is Restricted!');
     }
 
     if (!COUNTRIES.includes(country) && !europeanCountries.includes(country)) {
       logger.error(`Access restricted for users from ${country}.`, userData);
-      return res.status(403).send('403: Access denied');
+      return res.status(403).send('Country is Restricted!');
     }
     if (!isNaN(latitude) && !isNaN(longitude)) {
       // Check if the user is in the restricted region
@@ -57,7 +57,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
         )
       ) {
         logger.error('Access restricted in your region.', userData);
-        return res.status(403).send('403: Access denied');
+        return res.status(403).send('Access restricted in your region!');
       }
     } else {
       logger.warn('Invalid latitude/longitude data received.');
