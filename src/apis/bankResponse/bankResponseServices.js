@@ -24,7 +24,6 @@ import {
 import { getPayInUrlsDao, updatePayInUrlDao } from '../payIn/payInDao.js';
 import {
   getMerchantsDao,
-  updateMerchantDao,
 } from '../merchants/merchantDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
 import { getVendorsDao, updateVendorDao } from '../vendors/vendorDao.js';
