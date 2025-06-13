@@ -12,6 +12,7 @@ const sesClient = new SESClient({
     secretAccessKey: process.env.SMTP_SECRET_ACCESS_KEY,
   },
 });
+const name = process.env.APP_NAME;
 
 // const transporter = nodemailer.createTransport({
 //   SES: { ses, aws: { SESClient } },
@@ -48,7 +49,6 @@ export const sendCredentialsEmail = async ({
   const redirectingUrl = process.env.FRONTEND_URL;
   const baseUrl = process.env.BASE_URL;
   const apiDocsUrl = process.env.API_DOCS_URL;
-  const name = process.env.APP_NAME;
 
   const html = `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9fafb;">
@@ -169,11 +169,6 @@ export const sendOTP = async (email, otp, user_name, designation) => {
         <span style="display: inline-block; font-size: 28px; font-weight: bold; color: #3182ce; letter-spacing: 4px; background-color: #edf2f7; padding: 10px 20px; border-radius: 6px;">${otp}</span>
       </div>
       <p style="color: #4a5568; font-style: italic; margin-bottom: 20px;">This OTP is valid for 10 minutes. Do not share it with anyone.</p>
-      <h4 style="color: #2d3748; font-size: 16px; margin-bottom: 10px;">Request Details:</h4>
-      <ul style="color: #4a5568; line-height: 1.6; margin-bottom: 20px; padding-left: 20px;">
-        <li><strong>User:</strong> ${user_name}</li>
-        <li><strong>Designation:</strong> ${designation}</li>
-      </ul>
       <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
       <p style="color: #718096; font-size: 12px; text-align: center;">
         If you didn’t request this, please <a href="mailto:${process.env.SMTP_USER}" style="color: #3182ce; text-decoration: none;">contact support</a> immediately.
@@ -182,6 +177,12 @@ export const sendOTP = async (email, otp, user_name, designation) => {
     <p style="color: #718096; font-size: 12px; text-align: center; margin-top: 20px;">© ${new Date().getFullYear()} TrustPay Admin. All rights reserved.</p>
   </div>
   `;
+
+  // <h4 style="color: #2d3748; font-size: 16px; margin-bottom: 10px;">Request Details:</h4>
+  //     <ul style="color: #4a5568; line-height: 1.6; margin-bottom: 20px; padding-left: 20px;">
+  //       <li><strong>User:</strong> ${user_name}</li>
+  //       <li><strong>Designation:</strong> ${designation}</li>
+  //     </ul>
 
   // const mailOptions = {
   //   from: `"TrustPay Admin" <${process.env.SMTP_USER}>`,

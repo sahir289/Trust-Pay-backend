@@ -240,7 +240,7 @@ const createBeneficiaryAccountService = async (conn, payload) => {
     payload.role_id = role_id[0]?.id;
     const userRoleName = role_id[0]?.role;
     if (userRoleName === Role.VENDOR) {
-      payload.config = { type: payload?.type || '' };
+      payload.config = { type: payload?.type || '', balance: 0};
       delete payload.type;
     }
     if ([Role.VENDOR, Role.MERCHANT].includes(userRoleName)) {
