@@ -348,6 +348,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       null,
       null,
     );
+    
     //getting error reference_id undefined fixed when approving settlement
     if (
       payload.config.reference_id !== undefined &&
@@ -477,14 +478,12 @@ const updateSettlementService = async (conn, ids, payload, role) => {
             getVendorsDao({ user_id: data[0].user_id }),
             getCalculationforCronDao(data[0].user_id),
           ]);
-
           if (!vendorData?.length) {
             throw new NotFoundError('Vendor not found');
           }
           if (!calculationData?.length) {
             throw new NotFoundError('Calculation data not found');
           }
-
           const VendorCommission = vendorData[0].payin_commission || 0;
           const commission = calculateCommission(
             payload.amount,
@@ -519,6 +518,31 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           const { id } = calculationData[0];
           await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
         }
+      }
+    }
+    if (payload.status) {
+      if (
+        data[0].status === Status.REJECTED &&
+        payload.status === Status.SUCCESS
+      ) {
+        throw new BadRequestError(
+          'Cannot change payout status from rejected to approved',
+        );
+      }
+      if(
+        data[0].status === Status.SUCCESS &&
+        payload.status === Status.REJECTED &&
+        data[0].method !== 'INTERNAL_QR_TRANSFER' &&
+        data[0].method !== 'INTERNAL_BANK_TRANSFER'
+      ) {
+        throw new BadRequestError(
+          'Cannot change payout status from approved to rejected',
+        );
+      }
+      if (payload.status === data[0].status) {
+        throw new BadRequestError(
+          'Payout status cannot be updated to the same value',
+        );
       }
     }
     const updateData = await updateSettlementDao(

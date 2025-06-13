@@ -434,7 +434,7 @@ const getPayoutsBySearchService = async (
 
 const updatePayoutService = async (conn, ids, payload, role) => {
   try {
-    await checkLockEdit(conn,ids.id);
+    await checkLockEdit(conn, ids.id);
     if (payload?.utr_id) {
       const payoutDetails = await getPayoutsDao({ utr_id: payload.utr_id }, ids.company_id);
       if (payoutDetails.length > 0) {
@@ -470,6 +470,30 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
     if (payload?.config?.method === Method.EKO)
       await processEkoPayout(singleWithdrawData, payload);
+    if (payload.status) {
+      const payout = await getPayoutsDao({ id: ids.id }, ids.company_id);
+      if (
+        payout[0].status === Status.REJECTED &&
+        payload.status === Status.APPROVED
+      ) {
+        throw new BadRequestError(
+          'Cannot change payout status from rejected to approved',
+        );
+      }
+      if (
+        payout[0].status === Status.APPROVED &&
+        payload.status === Status.REJECTED
+      ) {
+        throw new BadRequestError(
+          'Cannot change payout status from approved to rejected',
+        );
+      }
+      if (payload.status === payout[0].status) {
+        throw new BadRequestError(
+          'Payout status cannot be updated to the same value',
+        );
+      }
+}
     const data = await updatePayoutDao(ids, payload, conn);
     let checkPayload = { utr_id: payload.utr_id, updated_by: payload.updated_by };
     if (JSON.stringify(payload) === JSON.stringify(checkPayload)) {
