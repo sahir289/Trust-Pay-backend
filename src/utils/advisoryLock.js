@@ -1,7 +1,7 @@
 import { BadRequestError } from './appErrors.js';
 import { logger } from './logger.js';
 
-export async function checkLockEdit(conn, id) {
+export async function checkLockEdit(conn,id,payin) {
     try {
         const lockKey = parseInt(id.replace(/-/g, ''), 16) % 1000000;
         const lockResult = await conn.query(
@@ -13,7 +13,9 @@ export async function checkLockEdit(conn, id) {
                 'This record is currently being updated by another user. Please try again later.',
             );
         }
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        if (!payin) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
         return true
     } catch (error) {
         logger.error('Error while attempting to check lock for ID', error);
