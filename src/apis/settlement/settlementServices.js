@@ -462,8 +462,9 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         }
       } else {
         // calcution for vendor rejected Settlement
-        payload.config.reference_id = '';
-        payload.config.rejected_reason = '';
+        // payload.config.reference_id = '';
+        // payload.config.rejected_reason = '';
+        payload.status = Status.REJECTED;
         let updatedCalculation;
         const amount = payload?.amount || 0;
         if (
