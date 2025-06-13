@@ -501,10 +501,10 @@ const updateSettlementService = async (conn, ids, payload, role) => {
 
           updatedCalculation = {
             total_settlement_count: 1,
-            total_settlement_amount: -amount,
-            total_settlement_commission: commission,
-            current_balance: -amount,
-            net_balance: -amount,
+            total_settlement_commission: -commission,
+            total_settlement_amount: amount,
+            current_balance: amount - commission,
+            net_balance: amount - commission,
           };
         } else {
           updatedCalculation = {
