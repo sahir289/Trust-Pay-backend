@@ -348,6 +348,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       null,
       null,
     );
+    
     //getting error reference_id undefined fixed when approving settlement
     if (
       payload.config.reference_id !== undefined &&
@@ -519,6 +520,29 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           const { id } = calculationData[0];
           await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
         }
+      }
+    }
+    if (payload.status) {
+      if (
+        data[0].status === Status.REJECTED &&
+        payload.status === Status.SUCCESS
+      ) {
+        throw new BadRequestError(
+          'Cannot change payout status from rejected to approved',
+        );
+      }
+      if (
+        data[0].status === Status.SUCCESS &&
+        payload.status === Status.REJECTED
+      ) {
+        throw new BadRequestError(
+          'Cannot change payout status from approved to rejected',
+        );
+      }
+      if (payload.status === data[0].status) {
+        throw new BadRequestError(
+          'Payout status cannot be updated to the same value',
+        );
       }
     }
     const updateData = await updateSettlementDao(
