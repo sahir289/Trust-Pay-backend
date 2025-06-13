@@ -120,9 +120,19 @@ const createBankResponseService = async (
       null,
       filterColumns,
     );
+    const shortCodeExist = await getBankResponseDao(
+      { upi_short_code, company_id },
+      null,
+      null,
+      null,
+      null,
+      filterColumns,
+    );
+
+    const isRepeated = utrAlreadyExist || shortCodeExist;
 
     const updatedData = {
-      status: utrAlreadyExist ? '/repeated' : '/success',
+      status: isRepeated ? '/repeated' : '/success',
       amount,
       utr,
       bank_id,
@@ -134,19 +144,19 @@ const createBankResponseService = async (
       ...(isValidAmountCode && { upi_short_code }),
     };
 
-    if (isValidAmountCode) {
-      const isAmountCodeExist = await getBankResponseDao(
-        { upi_short_code, company_id },
-        null,
-        null,
-        null,
-        null,
-        filterColumns,
-      );
-      if (isAmountCodeExist) {
-        return { message: 'Amount code already exist' };
-      }
-    }
+    // if (isValidAmountCode) {
+    //   const isAmountCodeExist = await getBankResponseDao(
+    //     { upi_short_code, company_id },
+    //     null,
+    //     null,
+    //     null,
+    //     null,
+    //     filterColumns,
+    //   );
+      // if (isAmountCodeExist) {
+      //   return { message: 'Amount code already exist' };
+      // }
+    // }
 
     const sendNotification = async (status, data) => {
       await notifyNewTableEntry(tableName.BANK_RESPONSE, status, data);
@@ -238,9 +248,9 @@ const createBankResponseService = async (
           { utr: payInUtr.user_submitted_utr, company_id },
           null,
           null,
-          null,
-          null,
           filterColumns,
+          null,
+          null,
         );
         const botUtrIsUsed =
           getDataByUtr.rows.length > 1 &&
@@ -353,7 +363,7 @@ const createBankResponseService = async (
         .padStart(2, '0');
       const duration = `${durHours}:${durMinutes}:${durSeconds}`;
 
-      if (payInUtr.amount === amount) {
+      if (payInUtr.amount === amount && !upi_short_code || (payInUtr.amount === amount && upi_short_code === payInUtr.upi_short_code)) {
         if (
           payInUtr.user_submitted_utr &&
           payInUtr.user_submitted_utr !== utr
@@ -362,6 +372,16 @@ const createBankResponseService = async (
             message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${payInUtr.user_submitted_utr}`,
           };
         }
+
+        if (
+          payInUtr.upi_short_code &&
+          upi_short_code !== payInUtr.upi_short_code
+        ) {
+          return {
+            message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`,
+          };
+        }
+
         const payInData = {
           status: Status.SUCCESS,
           is_notified: true,
@@ -371,6 +391,7 @@ const createBankResponseService = async (
           payin_merchant_commission: payinMerchantCommission,
           payin_vendor_commission: payinVendorCommission,
           // config: { from_UI },
+          upi_short_code: botRes.upi_short_code,
           bank_response_id: botRes.id,
         };
         const updatePayin = await updatePayInUrlDao(
@@ -391,19 +412,26 @@ const createBankResponseService = async (
         if (isNaN(merchnatData)) {
           throw new BadRequestError('Invalid amount or commission');
         }
-        await updateMerchantDao(
-          { id: payInUtr.merchant_id },
-          { balance: merchnatData },
-          conn,
-        );
+        // await updateMerchantDao(
+        //   { id: payInUtr.merchant_id },
+        //   { balance: merchnatData },
+        //   conn,
+        // );
         await updateCalculationTable(merchantData[0].user_id, {
           payinCommission: payinMerchantCommission,
           amount: botRes.amount,
         });
         if (updatePayin) {
-          return {
-            message: `✅ UTR ${utr} matches the User Submitted UTR: ${payInUtr.user_submitted_utr} and the payment was successful.`,
-          };
+          if(upi_short_code){
+            return {
+              message: `✅ Amount Code ${upi_short_code} matches the User Submitted Amount Code: ${payInUtr.upi_short_code} and the payment was successful.`,
+            };
+          }
+          else{
+            return {
+              message: `✅ UTR ${utr} matches the User Submitted UTR: ${payInUtr.user_submitted_utr} and the payment was successful.`,
+            };
+          }
         }
         return { message: `Successfully Created The Entry` };
       } else {

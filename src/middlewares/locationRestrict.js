@@ -38,12 +38,12 @@ const getUserLocationMiddleware = async (req, res, next) => {
     }
     if (country === 'India' && restrictedStates.includes(region)) {
       logger.error(`Access restricted for users in ${region}.`, userData);
-      return res.status(403).send('Region is Restricted!');
+      return res.status(403).send('Access Denied!');
     }
 
     if (!COUNTRIES.includes(country) && !europeanCountries.includes(country)) {
       logger.error(`Access restricted for users from ${country}.`, userData);
-      return res.status(403).send('Country is Restricted!');
+      return res.status(403).send('Access Denied!');
     }
     if (!isNaN(latitude) && !isNaN(longitude)) {
       // Check if the user is in the restricted region
@@ -57,7 +57,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
         )
       ) {
         logger.error('Access restricted in your region.', userData);
-        return res.status(403).send('Access restricted in your region!');
+        return res.status(403).send('Access Denied!');
       }
     } else {
       logger.warn('Invalid latitude/longitude data received.');
