@@ -23,6 +23,10 @@ export const CREATE_SETTLEMENT_SCHEMA = Joi.object({
   wallet_balance: Joi.string().label('wallet_balance').optional(),
   config: Joi.object({
     reference_id: Joi.string().label('reference_id').optional(),
+    debit_credit: Joi.string()
+      .valid('RECEIVED', 'SENT')
+      .label('debit_credit')
+      .optional(),
   })
     .label('config')
     .optional(),
@@ -53,6 +57,10 @@ export const UPDATE_SETTLEMENT_SCHEMA = Joi.object({
     bank_id:Joi.string().label('bank_name').optional(),
     beneficiary_bank_name: Joi.string().label('beneficiary_bank_name').optional(),
     description: Joi.string().label('description').optional(),  //-- allow adding in config
+    debit_credit: Joi.string()
+    .valid('RECEIVED', 'SENT')
+    .label('debit_credit')
+    .optional(),
   }).label('config').optional(),
 
 });
