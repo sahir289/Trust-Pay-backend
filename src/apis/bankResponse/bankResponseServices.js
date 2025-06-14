@@ -102,7 +102,8 @@ const createBankResponseService = async (
     const updated_by = name || 'Bank Response';
     const company_id = companyId;
     const isValidAmountCode =
-      upi_short_code && upi_short_code !== 'nil' && upi_short_code.length === 5;
+    !!(upi_short_code && upi_short_code !== 'nil' && upi_short_code.length === 5);
+    
     const acceptedStatus = [
       Status.SUCCESS,
       Status.DISPUTE,
@@ -266,10 +267,10 @@ const createBankResponseService = async (
       if (!isBankExist || payInUtr.bank_acc_id !== bank_id) {
         if (
           (payInUtr.user_submitted_utr &&
-          payInUtr.user_submitted_utr !== utr) || (isValidAmountCode &&
+          payInUtr.user_submitted_utr !== utr) || (isValidAmountCode && payInUtr.upi_short_code &&
             upi_short_code !== payInUtr.upi_short_code)
         ) {
-          if (isValidAmountCode) {
+          if (isValidAmountCode && payInUtr.upi_short_code) {
             return {
               message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`
             }
@@ -371,10 +372,10 @@ const createBankResponseService = async (
 
         if (
           (payInUtr.user_submitted_utr &&
-          payInUtr.user_submitted_utr !== utr) || (isValidAmountCode &&
+          payInUtr.user_submitted_utr !== utr) || (isValidAmountCode && payInUtr.upi_short_code &&
             upi_short_code !== payInUtr.upi_short_code)
         ) {
-          if (isValidAmountCode) {
+          if (isValidAmountCode && payInUtr.upi_short_code) {
             return {
               message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`
             }
@@ -434,7 +435,7 @@ const createBankResponseService = async (
           amount: botRes.amount,
         });
         if (updatePayin) {
-          if(upi_short_code){
+          if(isValidAmountCode && payInUtr.upi_short_code){
             return {
               message: `✅ Amount Code ${upi_short_code} matches the User Submitted Amount Code: ${payInUtr.upi_short_code} and the payment was successful.`,
             };
@@ -449,10 +450,10 @@ const createBankResponseService = async (
       } else {
         if (
           (payInUtr.user_submitted_utr &&
-          payInUtr.user_submitted_utr !== utr) || (isValidAmountCode &&
+          payInUtr.user_submitted_utr !== utr) || (isValidAmountCode && payInUtr.upi_short_code &&
             upi_short_code !== payInUtr.upi_short_code)
         ) {
-          if (isValidAmountCode) {
+          if (isValidAmountCode && payInUtr.upi_short_code) {
             return {
               message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`
             }
