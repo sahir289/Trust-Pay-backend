@@ -282,6 +282,9 @@ const createBeneficiaryAccountService = async (conn, payload) => {
         result.push(created);
       }
     } else {
+      if (Array.isArray(payload.user_id)) {
+        payload.user_id = payload.user_id[0];
+      }
       result = await createBeneficiaryAccountDao(payload);
     }
     return result;
