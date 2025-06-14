@@ -33,6 +33,7 @@ import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import {
   getBankResponseByUTR,
+  getInternalBankResponseByUTR,
   updateBankResponseDao,
 } from '../bankResponse/bankResponseDao.js';
 import { getVendorsDao, updateVendorBalanceDao } from '../vendors/vendorDao.js';
@@ -325,6 +326,8 @@ const createSettlementService = async (conn, payload) => {
 
       throw new BadRequestError('UTR is already used');
     }
+    // For other methods, proceed with settlement creation
+    
     return await createSettlementDao(payload);
   } catch (error) {
     logger.error('Error while creating Settlement', error);
@@ -485,6 +488,19 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           if (!calculationData?.length) {
             throw new NotFoundError('Calculation data not found');
           }
+          const bankResponses = await getInternalBankResponseByUTR(
+            data[0]?.config?.reference_id,
+          );
+          if (!bankResponses) {
+            throw new NotFoundError('Bank response not found for the provided UTR');
+          }
+          if (bankResponses.is_used === true) {
+            throw new BadRequestError('UTR is already used');
+          }
+          await updateBankResponseDao(
+            { id: bankResponses.id },
+            { status: '/success' },
+          );
           const VendorCommission = vendorData[0].payin_commission || 0;
           const commission = calculateCommission(
             payload.amount,
