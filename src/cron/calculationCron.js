@@ -18,7 +18,7 @@ if (process.env.NODE_ENV == 'production') {
 cron.schedule(
   '0 0 * * *',
   () => {
-    logger.log('Running cron job in production mode');
+    logger.info('Running cron job in production mode');
     collectCalculationData();
   },
   {
@@ -38,7 +38,7 @@ const collectCalculationData = async () => {
     const currentTime = dayjs()
       .tz(IST)
       .format('YYYY-MM-DDTHH:mm:ssZ'); // Will create: 2025-04-23T19:26:00+05:30
-    logger.log(`Calculation Cron Running Current time in IST: ${currentTime}`);
+    logger.info(`Calculation Cron Running Current time in IST: ${currentTime}`);
 
     for (const user of usersArray) {
       try {
