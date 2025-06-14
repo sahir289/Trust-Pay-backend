@@ -719,7 +719,7 @@ export const AccessRoles = {
     Role.VENDOR,
   ],
 };
-export const COUNTRIES = ['India', 'United Arab Emirates', 'Pakistan'];
+export const COUNTRIES = ['India', 'United Arab Emirates', 'Pakistan','Brazil']; ///add brazil for temp
 
 export const europeanCountries = [
   'Albania',

@@ -465,8 +465,9 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         }
       } else {
         // calcution for vendor rejected Settlement
-        payload.config.reference_id = '';
-        payload.config.rejected_reason = '';
+        // payload.config.reference_id = '';
+        // payload.config.rejected_reason = '';
+        payload.status = Status.REJECTED;
         let updatedCalculation;
         const amount = payload?.amount || 0;
         if (
@@ -500,10 +501,10 @@ const updateSettlementService = async (conn, ids, payload, role) => {
 
           updatedCalculation = {
             total_settlement_count: 1,
-            total_settlement_amount: -amount,
-            total_settlement_commission: commission,
-            current_balance: -amount,
-            net_balance: -amount,
+            total_settlement_commission: -commission,
+            total_settlement_amount: amount,
+            current_balance: amount - commission,
+            net_balance: amount - commission,
           };
         } else {
           updatedCalculation = {
@@ -529,16 +530,16 @@ const updateSettlementService = async (conn, ids, payload, role) => {
           'Cannot change payout status from rejected to approved',
         );
       }
-      if(
-        data[0].status === Status.SUCCESS &&
-        payload.status === Status.REJECTED &&
-        data[0].method !== 'INTERNAL_QR_TRANSFER' &&
-        data[0].method !== 'INTERNAL_BANK_TRANSFER'
-      ) {
-        throw new BadRequestError(
-          'Cannot change payout status from approved to rejected',
-        );
-      }
+      // if(
+      //   data[0].status === Status.SUCCESS &&
+      //   payload.status === Status.REJECTED &&
+      //   data[0].method !== 'INTERNAL_QR_TRANSFER' &&
+      //   data[0].method !== 'INTERNAL_BANK_TRANSFER'
+      // ) {
+      //   throw new BadRequestError(
+      //     'Cannot change payout status from approved to rejected',
+      //   );
+      // }
       if (payload.status === data[0].status) {
         throw new BadRequestError(
           'Payout status cannot be updated to the same value',

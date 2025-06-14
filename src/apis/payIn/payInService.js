@@ -7,6 +7,7 @@ import querystring from 'querystring';
 import config from '../../config/config.js';
 import { razorpay } from '../../webhooks/razorPay.js';
 import { getPayoutsDao } from '../payOut/payOutDao.js';
+import { checkLockEdit } from '../../utils/advisoryLock.js';
 import {
   BankTypes,
   Currency,
@@ -1187,6 +1188,9 @@ export const processPayInService = async (
   // validate payIn
   // throw error if not exist or expires
   const payIn = await getPayInUrlService(merchantOrderId, conn, tele_check);
+  //lock payin transaction
+  const lockKey = `${payIn.bank_acc_id}${userSubmittedUtr}`;
+  await checkLockEdit(conn, lockKey , true);
   const banks = await getBankaccountDao({
     id: payIn?.bank_acc_id,
     company_id: payIn.company_id,

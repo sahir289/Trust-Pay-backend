@@ -14,7 +14,10 @@ CREATE TABLE "Company" (
   "last_name" varchar NOT NULL,
   "email" varchar UNIQUE NOT NULL,
   "contact_no" varchar UNIQUE NOT NULL,
-  "config" json NOT NULL DEFAULT '{}'
+  "config" json NOT NULL DEFAULT '{}',
+  "created_at" TIMESTAMPTZ DEFAULT (now()),
+  "updated_at" TIMESTAMPTZ DEFAULT (now()),
+  "is_obsolete" boolean DEFAULT false
 );
 
 -- Role Table
@@ -313,10 +316,6 @@ CREATE TABLE Notification (
 CREATE TABLE "NotificationRecipients" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
   "notification_id" varchar NOT NULL,
-  "recipient_id" varchar NOT NULL,
-  "is_read" boolean DEFAULT false,
-  "read_at" TIMESTAMPTZ,
-  "designation_id" varchar,
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
   "company_id" varchar NOT NULL,

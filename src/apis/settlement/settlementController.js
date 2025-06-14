@@ -175,6 +175,7 @@ const createSettlementController = async (req, res) => {
       bank_id: payload.bank_id,
       amount: payload.amount,
       reference_id: payload.utr,
+      debit_credit: payload.config?.debit_credit ?? 'RECEIVED',
     },
   };
   // const data =
