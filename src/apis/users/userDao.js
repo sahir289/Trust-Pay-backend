@@ -275,14 +275,26 @@ const getUserByIdDao = async (conn, ids) => {
         u.updated_by, 
         u.created_at, 
         u.updated_at, 
-        r.role , 
-        d.designation   
+        r.role, 
+        d.designation
       FROM public."User" u
       LEFT JOIN public."Role" r ON u.role_id = r.id 
-      LEFT JOIN public."Designation" d ON u.designation_id = d.id  
-      WHERE u.id = $1 AND u.is_obsolete = false
+      LEFT JOIN public."Designation" d ON u.designation_id = d.id
+      WHERE u.is_obsolete = false
     `;
-    const queryParams = [ids.id];
+
+    let queryParams = [];
+
+    if (ids.id) {
+      if (Array.isArray(ids.id)) {
+        const placeholders = ids.id.map((_, idx) => `$${queryParams.length + idx + 1}`).join(', ');
+        baseQuery += ` AND u.id IN (${placeholders})`;
+        queryParams.push(...ids.id);
+      } else {
+        baseQuery += ` AND u.id = $${queryParams.length + 1}`;
+        queryParams.push(ids.id);
+      }
+    }
     if (ids.role_id) {
       baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
       queryParams.push(ids.role_id);

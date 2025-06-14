@@ -361,12 +361,12 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
         //   config?.telegramBotToken,
         // );
       } catch (error) {
-        console.error('Error ', error.message);
+        logger.error('Error ', error.message);
       }
     };
     formattedSuccessRatiosByMerchant();
   } catch (error) {
-    console.error(error);
+    logger.error(error);
   } finally {
     if (conn) {
       conn.release();
