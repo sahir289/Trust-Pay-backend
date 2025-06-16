@@ -1,5 +1,9 @@
 import { tableName } from '../../constants/index.js';
-import { buildInsertQuery, executeQuery } from '../../utils/db.js';
+import {
+  buildInsertQuery,
+  buildUpdateQuery,
+  executeQuery,
+} from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 
 export const getNotificationsDao = async (user_id, company_id) => {
@@ -16,6 +20,7 @@ export const getNotificationsDao = async (user_id, company_id) => {
         LEFT JOIN "User" u ON u."id" = n.user_id
         WHERE n.user_id = $1
         AND n.company_id = $2
+        AND n.is_obsolete = false
         ORDER BY
             n.created_at DESC
         `;
@@ -27,12 +32,15 @@ export const getNotificationsDao = async (user_id, company_id) => {
     return result.rows;
   } catch (error) {
     logger.error('Error in get Notifications Dao:', error);
-    throw new error.message;
+    throw new error.message();
   }
 };
 
 export const getNotificationByIdDao = async (id, user_id, company_id) => {
   try {
+    const isArray = Array.isArray(id);
+    const ids = isArray ? id : [id];
+    const placeholders = ids.map((_, idx) => `$${idx + 1}`).join(', ');
     const sql = `
         SELECT
             n.id,
@@ -43,13 +51,14 @@ export const getNotificationByIdDao = async (id, user_id, company_id) => {
         FROM
             public."Notifications" n
         LEFT JOIN "User" u ON u."id" = n.user_id
-        WHERE n.id = $1
-        AND n.user_id = $2
-        AND n.company_id = $3
+        WHERE n.id ${isArray ? `IN (${placeholders})` : `= ${placeholders}`}
+        AND n.user_id = $${ids.length + 1}
+        AND n.company_id = $${ids.length + 2}
+        AND n.is_obsolete = false
         ORDER BY
             n.created_at DESC;
-            `;
-    const values = [id, user_id, company_id];
+    `;
+    const values = [...ids, user_id, company_id];
     const result = await executeQuery(sql, values);
 
     if (result.rows.length === 0) {
@@ -58,7 +67,70 @@ export const getNotificationByIdDao = async (id, user_id, company_id) => {
     return result.rows;
   } catch (error) {
     logger.error('Error in get Notification by Id Dao:', error);
-    throw new error.message;
+    throw new error.message();
+  }
+};
+
+export const getNotificationRecipientByNotificationDao = async (company_id) => {
+  try {
+    const sql = `
+        SELECT
+            nr.id,
+            nr.notification_id,
+            nr.created_at,
+            nr.updated_at,
+            nr.config
+        FROM
+            public."NotificationsRecipients" nr
+        AND nr.company_id = ${company_id}
+        AND nr.is_obsolete = false
+        ORDER BY
+            nr.created_at DESC;
+    `;
+    const values = [company_id];
+    const result = await executeQuery(sql, values);
+
+    if (result.rows.length === 0) {
+      return [];
+    }
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in get NotificationRecipient by Notification Id Dao:', error);
+    throw new error.message();
+  }
+};
+
+export const getNotificationRecipientByNotificationIdDao = async (id, company_id) => {
+  try {
+    // If id is an array, use IN clause; else, use equality
+    const isArray = Array.isArray(id);
+    const ids = isArray ? id : [id];
+    const placeholders = ids.map((_, idx) => `$${idx + 1}`).join(', ');
+    const sql = `
+        SELECT
+            nr.id,
+            nr.notification_id,
+            nr.created_at,
+            nr.updated_at,
+            nr.config
+        FROM
+            public."NotificationsRecipients" nr
+        WHERE nr.notification_id ${isArray ? `IN (${placeholders})` : `= ${placeholders}`}
+        AND nr.company_id = $${ids.length + 1}
+        AND nr.is_obsolete = false
+        ORDER BY
+            nr.created_at DESC;
+    `;
+    const values = [...ids, company_id];
+    const result = await executeQuery(sql, values);
+
+    if (result.rows.length === 0) {
+      return [];
+    }
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in get NotificationRecipient by Notification Id Dao:', error);
+    throw new error.message();
   }
 };
 
@@ -74,6 +146,40 @@ export const createNotificationsDao = async (payload) => {
     return result.rows;
   } catch (error) {
     logger.error('Error in get Notifications Dao:', error);
-    throw new error.message;
+    throw new error.message();
+  }
+};
+
+export const createNotificationsRecipientDao = async (payload) => {
+  try {
+    const [sql, params] = buildInsertQuery(tableName.NOTIFICATIONS_RECIPIENT, payload);
+    const result = await executeQuery(sql, params);
+
+    if (result.rows.length === 0) {
+      return [];
+    }
+    logger.info('Notification Recipient created successfully:', result.rows[0]);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in get Notifications Recipient Dao:', error);
+    throw new error.message();
+  }
+};
+
+export const updateNotificationsDao = async (id, payload) => {
+  try {
+    const [sql, params] = buildUpdateQuery(tableName.NOTIFICATIONS_RECIPIENT, payload, {
+      id,
+    });
+    const result = await executeQuery(sql, params);
+
+    if (result.rows.length === 0) {
+      return [];
+    }
+    logger.info('Notification created successfully:', result.rows[0]);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in get Notifications Dao:', error);
+    throw new error.message();
   }
 };
