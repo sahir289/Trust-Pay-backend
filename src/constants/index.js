@@ -572,7 +572,7 @@ export const tableName = {
   USER_OTP: 'UserOtp',
   BENEFICIARY_ACCOUNTS: 'BeneficiaryAccounts',
   NOTIFICATIONS: 'Notifications',
-  NOTIFICATIONS_RECIPIENT: 'NotificationsRecipients',
+  NOTIFICATION_RECIPIENTS: 'NotificationRecipients',
 };
 
 export const BankTypes = {

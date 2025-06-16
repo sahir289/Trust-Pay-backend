@@ -1,5 +1,7 @@
 import { InternalServerError, NotFoundError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
+import { getDesignationDao } from '../designation/designationDao.js';
+import { getUserByIdDao } from '../users/userDao.js';
 import {
   createNotificationsDao,
   createNotificationsRecipientDao,
@@ -17,8 +19,8 @@ export const getNotificationsService = async (user_id, company_id) => {
 
     // Filter recipients where config contains the user_id
     const filteredRecipients = notificationRecipients.filter((recipient) => {
-      if (Array.isArray(recipient.config)) {
-        return recipient.config.some(
+      if (Array.isArray(recipient.config.recipients)) {
+        return recipient.config.recipients.some(
           (cfg) => cfg.recipient_id === user_id && cfg.is_read === 'false',
         );
       }
@@ -56,8 +58,8 @@ export const getNotificationByIdService = async (id, userId, company_id) => {
 
     // Filter recipients where config contains the userId
     const filteredRecipients = notificationRecipients.filter((recipient) => {
-      if (Array.isArray(recipient.config)) {
-        return recipient.config.some(
+      if (Array.isArray(recipient.config.recipients)) {
+        return recipient.config.recipients.some(
           (cfg) => cfg.recipient_id === userId && cfg.is_read === 'false',
         );
       }
@@ -88,6 +90,7 @@ export const getNotificationByIdService = async (id, userId, company_id) => {
 };
 
 export const createNotificationsService = async (
+  conn,
   payload,
   user_id,
   company_id,
@@ -101,21 +104,30 @@ export const createNotificationsService = async (
     };
     const notifications = await createNotificationsDao(newPayload);
 
-    await Promise.all(
-      recipient_ids.map((recipient_id) => {
-        const recipientPayload = {
-          notification_id: notifications.id,
-          company_id: company_id,
-          config: {
-            recipient_id,
-            designation_id: payload.designation_id || null,
-            is_read: 'false',
-            read_at: null,
-          },
+    const users = await getUserByIdDao(conn, {
+      user_id: recipient_ids,
+      company_id,
+    });
+
+    const recipients = await Promise.all(
+      recipient_ids.map(async (recipient_id) => {
+        const user = users.find((u) => u.id === recipient_id);
+        const designation = await getDesignationDao({ designation: user?.designation });
+        return {
+          recipient_id,
+          designation_id: designation[0]?.id,
+          is_read: 'false',
+          read_at: null,
         };
-        return createNotificationsRecipientDao(recipientPayload);
-      }),
+      })
     );
+
+    const recipientPayload = {
+      notification_id: notifications[0].id,
+      company_id: company_id,
+      config: {recipients},
+    };
+    await createNotificationsRecipientDao(recipientPayload);
     return notifications;
   } catch (error) {
     logger.error('Error while creating Notifications', error);
@@ -136,22 +148,35 @@ export const updateNotificationsService = async (id, user_id, company_id) => {
     // Update only the recipient config for the current user_id, keeping other config data intact
     const updatedNotifications = await Promise.all(
       notificationRecipients.map(async (recipient) => {
-        if (Array.isArray(recipient.config)) {
+        if (Array.isArray(recipient.config.recipients)) {
           // Find and update the config object for the current user_id
-          const updatedConfig = recipient.config.map((cfg) =>
+          const updatedRecipients = recipient.config.recipients.map((cfg) =>
             cfg.recipient_id === user_id
               ? { ...cfg, is_read: 'true', read_at: new Date() }
               : cfg,
           );
           return updateNotificationsDao(recipient.id, {
-            config: updatedConfig,
+            config: { recipients: updatedRecipients },
           });
         }
         // If config is not an array, just return the original recipient
         return recipient;
       }),
     );
-    const notifications = updatedNotifications;
+    // Only include the recipient config for the current user_id in the response
+    const notifications = updatedNotifications[0].map((recipient) => {
+      if (Array.isArray(recipient.config.recipients)) {
+      return {
+        ...recipient,
+        config: {
+        recipients: recipient.config.recipients.filter(
+          (cfg) => cfg.recipient_id === user_id
+        ),
+        },
+      };
+      }
+      return recipient;
+    });
 
     return notifications;
   } catch (error) {
