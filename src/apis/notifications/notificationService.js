@@ -27,14 +27,14 @@ export const getNotificationsService = async (user_id, company_id) => {
       return false;
     });
 
+    if (filteredRecipients.length === 0) {
+      throw new NotFoundError('No unread notifications found for the user');
+    }
+
     // Get notification IDs from filtered recipients
     const notificationIds = filteredRecipients.map(
       (recipient) => recipient.notification_id,
     );
-
-    if (notificationIds.length === 0) {
-      throw new NotFoundError('No notifications found for the user');
-    }
 
     // Fetch notifications by IDs
     const notifications = await getNotificationByIdDao(
@@ -66,14 +66,14 @@ export const getNotificationByIdService = async (id, userId, company_id) => {
       return false;
     });
 
+    if (filteredRecipients.length === 0) {
+      throw new NotFoundError('No unread notifications found for the user');
+    }
+
     // Get notification IDs from filtered recipients
     const notificationIds = filteredRecipients.map(
       (recipient) => recipient.notification_id,
     );
-
-    if (notificationIds.length === 0) {
-      throw new NotFoundError('No notifications found for the user');
-    }
 
     // Fetch notifications by IDs
     const notifications = await getNotificationByIdDao(
