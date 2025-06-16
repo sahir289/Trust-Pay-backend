@@ -1,11 +1,8 @@
 import Joi from 'joi';
 
 export const BENEFICIARY_ACCOUNT_SCHEMA = Joi.object({
-  user_id: Joi.alternatives()
-  .try(
-    Joi.string().guid({ version: ['uuidv4'] }),
+  user_id: 
     Joi.array().items(Joi.string().guid({ version: ['uuidv4'] }))
-  )
   .label('user_id')
   .optional(),
   upi_id: Joi.string().label('upi_id').optional(),
