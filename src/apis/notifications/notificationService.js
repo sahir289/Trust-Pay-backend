@@ -46,7 +46,7 @@ export const getNotificationsService = async (user_id, company_id) => {
     return notifications;
   } catch (error) {
     logger.error('Error while getting Notifications', error);
-    throw new error();
+    throw error
   }
 };
 
@@ -85,7 +85,7 @@ export const getNotificationByIdService = async (id, userId, company_id) => {
     return notifications;
   } catch (error) {
     logger.error('Error while getting Notifications', error);
-    throw new error();
+    throw error
   }
 };
 
@@ -181,6 +181,6 @@ export const updateNotificationsService = async (id, user_id, company_id) => {
     return notifications;
   } catch (error) {
     logger.error('Error while updating Notifications', error);
-    throw new error();
+    throw error
   }
 };
