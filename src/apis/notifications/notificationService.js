@@ -39,7 +39,6 @@ export const getNotificationsService = async (user_id, company_id) => {
     // Fetch notifications by IDs
     const notifications = await getNotificationByIdDao(
       notificationIds,
-      user_id,
       company_id,
     );
 

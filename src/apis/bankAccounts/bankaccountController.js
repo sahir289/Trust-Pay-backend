@@ -118,7 +118,7 @@ const createBankaccount = async (req, res) => {
     });
   }
   // const data =
- const bankDetail= await createBankaccountService(payload,designation,user_id);
+ const bankDetail= await transactionWrapper(createBankaccountService)(payload,designation,user_id, company_id);
   return sendSuccess(
     res,
     { id: bankDetail.id, created_by: user_name},

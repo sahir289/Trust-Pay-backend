@@ -36,38 +36,37 @@ export const getNotificationsDao = async (user_id, company_id) => {
   }
 };
 
-export const getNotificationByIdDao = async (id, user_id, company_id) => {
+export const getNotificationByIdDao = async (id, company_id) => {
   try {
-    const isArray = Array.isArray(id);
-    const ids = isArray ? id : [id];
-    const placeholders = ids.map((_, idx) => `$${idx + 1}`).join(', ');
-    const sql = `
-        SELECT
-            n.id,
-            n.message,
-            u."first_name" || ' ' || u."last_name" AS user,
-            n.created_at,
-            n.config
-        FROM
-            public."Notifications" n
-        LEFT JOIN "User" u ON u."id" = n.user_id
-        WHERE n.id ${isArray ? `IN (${placeholders})` : `= ${placeholders}`}
-        AND n.user_id = $${ids.length + 1}
-        AND n.company_id = $${ids.length + 2}
-        AND n.is_obsolete = false
-        ORDER BY
-            n.created_at DESC;
-    `;
-    const values = [...ids, user_id, company_id];
-    const result = await executeQuery(sql, values);
+    const ids = Array.isArray(id)
+      ? id.map(x => (typeof x === 'string' ? x : x.id))
+      : [typeof id === 'string' ? id : id.id];
 
-    if (result.rows.length === 0) {
-      return [];
-    }
-    return result.rows;
+    const isMultiple = ids.length > 1;
+    const idPlaceholders = ids.map((_, idx) => `$${idx + 1}`).join(', ');
+
+    const sql = `
+      SELECT
+        n.id,
+        n.message,
+        u."first_name" || ' ' || u."last_name" AS user,
+        n.created_at,
+        n.config
+      FROM
+        public."Notifications" n
+      LEFT JOIN "User" u ON u."id" = n.user_id
+      WHERE n.id ${isMultiple ? `IN (${idPlaceholders})` : `= $1`}
+        AND n.company_id = $${ids.length + 1}
+        AND n.is_obsolete = false
+      ORDER BY
+        n.created_at DESC;
+    `;
+    const values = [...ids, company_id];
+    const result = await executeQuery(sql, values);
+    return result.rows || [];
   } catch (error) {
-    logger.error('Error in get Notification by Id Dao:', error);
-    throw new error.message();
+    logger.error('Error in getNotificationByIdDao:', error);
+    throw error;
   }
 };
 
