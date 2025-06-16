@@ -9,11 +9,11 @@ import {
   buildInsertQuery,
   buildUpdateQuery,
 } from '../../utils/db.js';
-import { generateUUID } from '../../utils/generateUUID.js';
+// import { generateUUID } from '../../utils/generateUUID.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
-
+import { newTableEntry } from '../../utils/sockets.js';
 const IST = 'Asia/Kolkata';
 
 const getBankResponseDao = async (
@@ -77,14 +77,14 @@ export const getBankResponseDaoById = async (filters) => {
 
 
 const getBankResponseBySearchDao = async (
-  company_id,
+  filters,
   searchTerm,
   limitNum,
   offset,
 ) => {
   try {
     const conditions = [];
-    const values = [company_id];
+    const values = [filters.company_id];
     let paramIndex = 2;
 
     let queryText = `
@@ -113,6 +113,17 @@ const getBankResponseBySearchDao = async (
       WHERE br.is_obsolete = false
       AND br.company_id = $1  
     `;
+
+    if(filters.is_used){
+      queryText += ` AND br.is_used = $${paramIndex}`;
+      values.push(filters.is_used);
+      paramIndex++;
+    }
+    if(filters.bank_id){
+      queryText += ` AND br.bank_id = $${paramIndex}`;
+      values.push(filters.bank_id);
+      paramIndex++;
+    }
 
     searchTerm.forEach((term) => {
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
@@ -467,10 +478,51 @@ const getBankResponseByUTR = async (utr) => {
   }
 };
 
+const getInternalBankResponseByUTR = async (utr) => {
+  try {
+    const baseQuery = `SELECT 
+        br.id, 
+        br.sno, 
+        br.status, 
+        br.bank_id, 
+        br.amount, 
+        br.upi_short_code, 
+        br.utr, 
+        br.is_used, 
+        br.created_at, 
+        br.updated_at, 
+        br.created_by, 
+        br.config, 
+        br.updated_by, 
+        "BankAccount".user_id, 
+        "BankAccount".nick_name, 
+        "BankAccount".bank_name, 
+        "Vendor".code 
+    FROM 
+        "BankResponse" AS br 
+    JOIN 
+        "BankAccount" ON br.bank_id = "BankAccount".id 
+    LEFT JOIN 
+        "Vendor" ON "BankAccount".user_id = "Vendor".user_id 
+    WHERE 
+        1=1 
+        AND br.is_obsolete = false 
+        AND br.status = '/internalTransfer'
+        AND br.utr = $1 
+    ORDER BY 
+        br.created_at DESC`;
+    const queryParams = [utr];
+    const result = await executeQuery(baseQuery, queryParams);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error getting Bank Response by utr', error);
+    throw error.message;
+  }
+};
+
 const createBankResponseDao = async (conn, data) => {
   try {
-    data.id = generateUUID();
-
+    // data.id = generateUUID();
     const [sql, params] = buildInsertQuery(tableName.BANK_RESPONSE, data);
     let result;
     if (conn && conn.query) {
@@ -490,9 +542,11 @@ export const updateBankResponseDao = async (id, data, conn) => {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, id);
     if (conn && conn.query) {
       const result = await conn.query(sql, params);
+        await newTableEntry(tableName.BANK_RESPONSE);
       return result.rows[0];
     }
     const result = await executeQuery(sql, params);
+    await newTableEntry(tableName.BANK_RESPONSE);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateBankResponseDao:', error);
@@ -534,6 +588,7 @@ const resetBankResponseDao = async (id, data) => {
       id,
     });
     const result = await executeQuery(sql, params);
+      await newTableEntry(tableName.BANK_RESPONSE);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in resetBankResponseDao:', error);
@@ -547,12 +602,12 @@ const updateBotResponseDao = async (id, data, conn) => {
       id,
     });
     let result;
-
     if (conn && conn.query) {
       result = await conn.query(sql, params); // Use connection to execute query
     } else {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
+      await newTableEntry(tableName.BANK_RESPONSE);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateBotResponseDao:', error);
@@ -563,6 +618,7 @@ const updateBotResponseDao = async (id, data, conn) => {
 export {
   getBankResponseDao,
   getClaimResponseDao,
+  getInternalBankResponseByUTR,
   createBankResponseDao,
   getBankResponseDaoAll,
   getBankResponseByUTR,

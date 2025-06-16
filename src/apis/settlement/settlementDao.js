@@ -463,7 +463,7 @@ const updateSettlementDao = async (conn, id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error(error);
-    throw error.message;
+    throw error;
   }
 };
 

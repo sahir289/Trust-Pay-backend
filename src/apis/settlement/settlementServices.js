@@ -33,10 +33,12 @@ import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import {
   getBankResponseByUTR,
+  getInternalBankResponseByUTR,
   updateBankResponseDao,
 } from '../bankResponse/bankResponseDao.js';
 import { getVendorsDao, updateVendorBalanceDao } from '../vendors/vendorDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
+import { checkLockEdit } from '../../utils/advisoryLock.js';
 
 const getSettlementServiceById = async (ids) => {
   try {
@@ -123,9 +125,7 @@ const getSettlementService = async (
         if (userHierarchys || userHierarchys.length > 0) {
           const userHierarchy = userHierarchys[0];
           if (userHierarchy?.config?.parent) {
-            filters.user_id = [
-              userHierarchy?.config?.parent ?? null
-            ];
+            filters.user_id = [userHierarchy?.config?.parent ?? null];
           }
         }
       }
@@ -245,7 +245,7 @@ const getSettlementsBySearchService = async (
       limitNum,
       offset,
       filterColumns,
-      role
+      role,
     );
 
     return data;
@@ -326,6 +326,8 @@ const createSettlementService = async (conn, payload) => {
 
       throw new BadRequestError('UTR is already used');
     }
+    // For other methods, proceed with settlement creation
+    
     return await createSettlementDao(payload);
   } catch (error) {
     logger.error('Error while creating Settlement', error);
@@ -337,6 +339,7 @@ const createSettlementService = async (conn, payload) => {
 
 const updateSettlementService = async (conn, ids, payload, role) => {
   try {
+    await checkLockEdit(conn,ids.id);
     payload.config = payload.config || {};
     const data = await getSettlementDao(
       {
@@ -348,20 +351,18 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       null,
       null,
     );
-    //getting error refernce_id undefined fixed when approving settleemnt
+    
+    //getting error reference_id undefined fixed when approving settlement
     if (
       payload.config.reference_id !== undefined &&
-      data[0]?.config?.reference_id === payload.config.reference_id
+      data[0]?.config?.reference_id === payload.config.reference_id &&
+      (payload.config.reference_id !== '' || !payload.config.rejected_reason)
     ) {
       throw new BadRequestError(`UTR already exists`);
     }
     const calculationData = await getCalculationforCronDao(
-      data[0].user_table_id,
+      data[0].user_id,
     );
-    // if status is success and updating , it will directly be in rejected
-    if (data[0].status === Status.SUCCESS) {
-      payload.status = Status.REJECTED;
-    }
 
     if (payload.config.reference_id) {
       payload.status = Status.SUCCESS;
@@ -370,7 +371,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       }
       let updatedCalculation;
       const merchant_data = await getMerchantsDao({
-        user_id: data[0].user_table_id,
+        user_id: data[0].user_id,
       });
       if (merchant_data.length > 0) {
         if (Array.isArray(calculationData) && calculationData.length > 0) {
@@ -402,7 +403,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
       }
       const merchantData = await getMerchantsDao(
-        { user_id: data[0].user_table_id },
+        { user_id: data[0].user_id },
         null,
         null,
         null,
@@ -411,7 +412,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
 
       if (data[0].role === Role.VENDOR) {
         const bankData = await getBankaccountDao(
-          { user_id: data[0].user_table_id },
+          { user_id: data[0].user_id },
           null,
           null,
           role,
@@ -443,11 +444,12 @@ const updateSettlementService = async (conn, ids, payload, role) => {
 
     if (payload.status === Status.INITIATED) {
       const merchant_data = await getMerchantsDao({
-        user_id: data[0].user_table_id,
+        user_id: data[0].user_id,
       });
       if (merchant_data.length > 0) {
-        payload.config.reference_id = '';
-        payload.config.rejected_reason = '';
+        // payload.config.reference_id = '';
+        // payload.config.rejected_reason = '';
+        payload.status = Status.REJECTED;
         let updatedCalculation;
         const amount = payload?.amount || 0;
 
@@ -466,26 +468,39 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         }
       } else {
         // calcution for vendor rejected Settlement
-        payload.config.reference_id = '';
-        payload.config.rejected_reason = '';
+        // payload.config.reference_id = '';
+        // payload.config.rejected_reason = '';
+        payload.status = Status.REJECTED;
         let updatedCalculation;
         const amount = payload?.amount || 0;
         if (
           data[0].method === 'INTERNAL_QR_TRANSFER' ||
           data[0].method === 'INTERNAL_BANK_TRANSFER'
         ) {
+          payload.status = Status.REJECTED;
           const [vendorData, calculationData] = await Promise.all([
-            getVendorsDao({ user_id: data[0].user_table_id }),
-            getCalculationforCronDao(data[0].user_table_id),
+            getVendorsDao({ user_id: data[0].user_id }),
+            getCalculationforCronDao(data[0].user_id),
           ]);
-
           if (!vendorData?.length) {
             throw new NotFoundError('Vendor not found');
           }
           if (!calculationData?.length) {
             throw new NotFoundError('Calculation data not found');
           }
-
+          const bankResponses = await getInternalBankResponseByUTR(
+            data[0]?.config?.reference_id,
+          );
+          if (!bankResponses) {
+            throw new NotFoundError('Bank response not found for the provided UTR');
+          }
+          if (bankResponses.is_used === true) {
+            throw new BadRequestError('UTR is already used');
+          }
+          await updateBankResponseDao(
+            { id: bankResponses.id },
+            { status: '/success' },
+          );
           const VendorCommission = vendorData[0].payin_commission || 0;
           const commission = calculateCommission(
             payload.amount,
@@ -502,10 +517,10 @@ const updateSettlementService = async (conn, ids, payload, role) => {
 
           updatedCalculation = {
             total_settlement_count: 1,
-            total_settlement_amount: -amount,
-            total_settlement_commission: commission,
-            current_balance: -amount,
-            net_balance: -amount,
+            total_settlement_commission: -commission,
+            total_settlement_amount: amount,
+            current_balance: amount - commission,
+            net_balance: amount - commission,
           };
         } else {
           updatedCalculation = {
@@ -522,6 +537,31 @@ const updateSettlementService = async (conn, ids, payload, role) => {
         }
       }
     }
+    if (payload.status) {
+      if (
+        data[0].status === Status.REJECTED &&
+        payload.status === Status.SUCCESS
+      ) {
+        throw new BadRequestError(
+          'Cannot change payout status from rejected to approved',
+        );
+      }
+      // if(
+      //   data[0].status === Status.SUCCESS &&
+      //   payload.status === Status.REJECTED &&
+      //   data[0].method !== 'INTERNAL_QR_TRANSFER' &&
+      //   data[0].method !== 'INTERNAL_BANK_TRANSFER'
+      // ) {
+      //   throw new BadRequestError(
+      //     'Cannot change payout status from approved to rejected',
+      //   );
+      // }
+      if (payload.status === data[0].status) {
+        throw new BadRequestError(
+          'Payout status cannot be updated to the same value',
+        );
+      }
+    }
     const updateData = await updateSettlementDao(
       conn,
       { id: ids.id, company_id: ids.company_id },
@@ -530,7 +570,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
     return updateData;
   } catch (error) {
     console.log('Error while updating Settlement', 'error', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 

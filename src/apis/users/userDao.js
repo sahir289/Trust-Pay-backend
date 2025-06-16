@@ -78,6 +78,64 @@ const getUsersDao = async (
   }
 };
 
+const getAllUsersDao = async (
+  filters,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+  columns = [],
+) => {
+  try {
+    const { USER, ROLE, DESIGNATION } = tableName;
+    const joins = [
+      {
+        table: ROLE,
+        // first is source key
+        // second is target key
+        keys: ['role_id', 'id'],
+        type: 'JOIN',
+        columns: ['role'],
+        columnAs: [`"${ROLE}".role AS Role`],
+      },
+      {
+        table: DESIGNATION,
+        // first is source key
+        // second is target key
+        keys: [`designation_id`, 'id'],
+        type: 'LEFT JOIN',
+        columnAs: [`"${DESIGNATION}".designation AS Designation`],
+        referenceTable: USER,
+      },
+    ];
+      const baseQuery = buildJoinQuery(
+        USER,
+        columns.length ? columns : '*',
+        joins,
+      );
+      if (filters.search) {
+        filters.or = buildSearchFilterObj(filters.search, USER);
+        delete filters.search;
+      }
+    //TODO: columns.ROLE dynamic search
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      USER,
+    );
+    
+    const result = await executeQuery(sql, queryParams);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in get Users Dao:', error);
+    throw error.message;
+  }
+};
+
 export const getUsersBySearchDao = async (
   filters,
   searchTerms,
@@ -217,14 +275,26 @@ const getUserByIdDao = async (conn, ids) => {
         u.updated_by, 
         u.created_at, 
         u.updated_at, 
-        r.role , 
-        d.designation   
+        r.role, 
+        d.designation
       FROM public."User" u
       LEFT JOIN public."Role" r ON u.role_id = r.id 
-      LEFT JOIN public."Designation" d ON u.designation_id = d.id  
-      WHERE u.id = $1 AND u.is_obsolete = false
+      LEFT JOIN public."Designation" d ON u.designation_id = d.id
+      WHERE u.is_obsolete = false
     `;
-    const queryParams = [ids.id];
+
+    let queryParams = [];
+
+    if (ids.id) {
+      if (Array.isArray(ids.id)) {
+        const placeholders = ids.id.map((_, idx) => `$${queryParams.length + idx + 1}`).join(', ');
+        baseQuery += ` AND u.id IN (${placeholders})`;
+        queryParams.push(...ids.id);
+      } else {
+        baseQuery += ` AND u.id = $${queryParams.length + 1}`;
+        queryParams.push(ids.id);
+      }
+    }
     if (ids.role_id) {
       baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
       queryParams.push(ids.role_id);
@@ -366,6 +436,7 @@ const updateUserDao = async (ids, data, conn) => {
 
 export {
   getUsersDao,
+  getAllUsersDao,
   getUserByIdDao,
   getUsersForCronDao,
   getUsersByUserNameDao,

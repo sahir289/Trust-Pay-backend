@@ -12,6 +12,7 @@ const sesClient = new SESClient({
     secretAccessKey: process.env.SMTP_SECRET_ACCESS_KEY,
   },
 });
+const name = process.env.APP_NAME;
 
 // const transporter = nodemailer.createTransport({
 //   SES: { ses, aws: { SESClient } },
@@ -47,17 +48,18 @@ export const sendCredentialsEmail = async ({
 
   const redirectingUrl = process.env.FRONTEND_URL;
   const baseUrl = process.env.BASE_URL;
+  const apiDocsUrl = process.env.API_DOCS_URL;
 
   const html = `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9fafb;">
     <div style="display: flex; align-items: center; margin-bottom: 24px;">
-      <img src="cid:trustpays-logo" alt="TrustPays Logo" style="height: 65px; max-height: 65px; margin-right: 8px;">
-      <h2 style="font-size: 22px; color: #1a202c; margin: 0; line-height: 65px;">TrustPays</h2>
+      <img src="cid:trustpays-logo" alt="${name} Logo" style="height: 65px; max-height: 65px; margin-right: 8px;">
+      <h2 style="font-size: 22px; color: #1a202c; margin: 0; line-height: 65px;">${name}</h2>
     </div>
     <div style="background-color: #ffffff; padding: 24px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
       <p style="font-size: 16px; color: #2d3748;">Hello, Greetings of the day,</p>
-      <h2 style="font-size: 22px; color: #1a202c;">Welcome to TrustPays – a fast, secure, and reliable Payment Gateway.</h2>
-      <p style="font-size: 15px; color: #4a5568;">You can sign in to your TrustPays account using the credentials below:</p>
+      <h2 style="font-size: 22px; color: #1a202c;">Welcome to ${name} – a fast, secure, and reliable Payment Gateway.</h2>
+      <p style="font-size: 15px; color: #4a5568;">You can sign in to your ${name} account using the credentials below:</p>
       <div style="background-color: #f1f5f9; padding: 16px; border-radius: 6px; margin-top: 16px;">
         <p style="margin: 8px 0; color: #2d3748;"><strong>Login URL:</strong> <a href="${redirectingUrl}" style="color: #3182ce;">${redirectingUrl}</a></p>
         <p style="margin: 8px 0; color: #2d3748;"><strong>Username:</strong> ${username}</p>
@@ -71,6 +73,7 @@ export const sendCredentialsEmail = async ({
               <p style="margin: 8px 0; color: #2d3748;"><strong>Code:</strong> ${code}</p>
               <p style="margin: 8px 0; color: #2d3748;"><strong>API Key:</strong> ${secretKey}</p>
               <p style="margin: 8px 0; color: #2d3748;"><strong>Public API Key:</strong> ${publicKey}</p>
+              <p style="margin: 8px 0; color: #2d3748;"><strong>API Docs:</strong> <a href="${apiDocsUrl}" style="color: #3182ce;">${apiDocsUrl}</a></p>
             </div>
           `
           : ''
@@ -78,7 +81,7 @@ export const sendCredentialsEmail = async ({
       <p style="font-size: 14px; color: #718096; margin-top: 20px;">Please log in and change your password immediately for security.</p>
       <p style="font-size: 14px; color: #718096;">Thank you,<br>TrustPay Team</p>
     </div>
-    <p style="text-align: center; font-size: 12px; color: #a0aec0; margin-top: 20px;">© ${new Date().getFullYear()} TrustPays. All rights reserved.</p>
+    <p style="text-align: center; font-size: 12px; color: #a0aec0; margin-top: 20px;">© ${new Date().getFullYear()} ${name}. All rights reserved.</p>
   </div>
   `;
 
@@ -155,8 +158,8 @@ export const sendOTP = async (email, otp, user_name, designation) => {
   const html = `
   <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f7fa;">
     <div style="display: flex; align-items: center; margin-bottom: 20px;">
-      <img src="cid:trustpays-logo" alt="TrustPays Logo" style="height: 65px; max-height: 65px; margin-right: 8px;">
-      <h2 style="font-size: 22px; color: #1a202c; margin: 0; line-height: 65px;">TrustPays</h2>
+      <img src="cid:trustpays-logo" alt="${name} Logo" style="height: 65px; max-height: 65px; margin-right: 8px;">
+      <h2 style="font-size: 22px; color: #1a202c; margin: 0; line-height: 65px;">${name}</h2>
     </div>
     <div style="background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
       <h2 style="color: #1a202c; font-size: 24px; margin-bottom: 20px;">Password Reset Request</h2>
@@ -166,11 +169,6 @@ export const sendOTP = async (email, otp, user_name, designation) => {
         <span style="display: inline-block; font-size: 28px; font-weight: bold; color: #3182ce; letter-spacing: 4px; background-color: #edf2f7; padding: 10px 20px; border-radius: 6px;">${otp}</span>
       </div>
       <p style="color: #4a5568; font-style: italic; margin-bottom: 20px;">This OTP is valid for 10 minutes. Do not share it with anyone.</p>
-      <h4 style="color: #2d3748; font-size: 16px; margin-bottom: 10px;">Request Details:</h4>
-      <ul style="color: #4a5568; line-height: 1.6; margin-bottom: 20px; padding-left: 20px;">
-        <li><strong>User:</strong> ${user_name}</li>
-        <li><strong>Designation:</strong> ${designation}</li>
-      </ul>
       <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
       <p style="color: #718096; font-size: 12px; text-align: center;">
         If you didn’t request this, please <a href="mailto:${process.env.SMTP_USER}" style="color: #3182ce; text-decoration: none;">contact support</a> immediately.
@@ -179,6 +177,12 @@ export const sendOTP = async (email, otp, user_name, designation) => {
     <p style="color: #718096; font-size: 12px; text-align: center; margin-top: 20px;">© ${new Date().getFullYear()} TrustPay Admin. All rights reserved.</p>
   </div>
   `;
+
+  // <h4 style="color: #2d3748; font-size: 16px; margin-bottom: 10px;">Request Details:</h4>
+  //     <ul style="color: #4a5568; line-height: 1.6; margin-bottom: 20px; padding-left: 20px;">
+  //       <li><strong>User:</strong> ${user_name}</li>
+  //       <li><strong>Designation:</strong> ${designation}</li>
+  //     </ul>
 
   // const mailOptions = {
   //   from: `"TrustPay Admin" <${process.env.SMTP_USER}>`,

@@ -9,7 +9,7 @@ if (process.env.NODE_ENV == 'production') {
 cron.schedule('*/10 * * * * *', () => {
   collectPayinData('Asia/Kolkata');
 });
-logger.log('Running cron job in production environment');
+logger.info('Running cron job in production environment');
 }else {
   logger.error('Cron jobs are disabled in non-production environments.');
 }
@@ -35,7 +35,7 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
           status: 'FAILED',
           is_url_expires: true,
         });
-        logger.log(`INITIATED PayIn ${payin.id} FAILED due to timeout`);
+        logger.info(`INITIATED PayIn ${payin.id} FAILED due to timeout`);
       }
     }
     // Update ASSIGNED payins older than 10 minutes
@@ -47,7 +47,7 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
           is_url_expires: true,
         };
         await updatePayInUrlDao(payin.id, updatedData);
-        logger.log(`ASSIGNED PayIn ${payin.id} dropped due to timeout`);
+        logger.info(`ASSIGNED PayIn ${payin.id} dropped due to timeout`);
       }
     }
     // Process notifications for dropped but unnotified payins

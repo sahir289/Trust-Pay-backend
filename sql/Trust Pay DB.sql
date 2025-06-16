@@ -14,7 +14,10 @@ CREATE TABLE "Company" (
   "last_name" varchar NOT NULL,
   "email" varchar UNIQUE NOT NULL,
   "contact_no" varchar UNIQUE NOT NULL,
-  "config" json NOT NULL DEFAULT '{}'
+  "config" json NOT NULL DEFAULT '{}',
+  "created_at" TIMESTAMPTZ DEFAULT (now()),
+  "updated_at" TIMESTAMPTZ DEFAULT (now()),
+  "is_obsolete" boolean DEFAULT false
 );
 
 -- Role Table
@@ -289,11 +292,37 @@ CREATE TABLE "Calculation" (
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "updated_at" TIMESTAMPTZ DEFAULT (now()),
   "company_id" varchar NOT NULL,
+  "total_settlement_commission" float DEFAULT 0,
+  "total_adjustment_amount" float DEFAULT 0,
+  "total_adjustment_count" integer DEFAULT 0,
+  "total_adjustment_commission" float DEFAULT 0,
   "is_obsolete" boolean DEFAULT false,
   "config" json NOT NULL DEFAULT '{}',
   "created_by" varchar,
   "updated_by" varchar
 );
+
+CREATE TABLE Notification (
+  "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
+  "user_id" varchar NOT NULL,
+  "message" text NOT NULL,
+  "created_at" TIMESTAMPTZ DEFAULT (now()),
+  "updated_at" TIMESTAMPTZ DEFAULT (now()),
+  "company_id" varchar NOT NULL,
+  "is_obsolete" boolean DEFAULT false,
+  "config" json NOT NULL DEFAULT '{}'
+);
+
+CREATE TABLE "NotificationRecipients" (
+  "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
+  "notification_id" varchar NOT NULL,
+  "created_at" TIMESTAMPTZ DEFAULT (now()),
+  "updated_at" TIMESTAMPTZ DEFAULT (now()),
+  "company_id" varchar NOT NULL,
+  "is_obsolete" boolean DEFAULT false,
+  "config" json NOT NULL DEFAULT '{}'
+)
+
 
 -- ChargeBack Table
 CREATE TABLE "ChargeBack" (

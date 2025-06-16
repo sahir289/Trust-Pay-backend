@@ -19,6 +19,7 @@ import { getBankResponseDao } from '../bankResponse/bankResponseDao.js';
 import logger from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { Role } from '../../constants/index.js';
+import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 const getSettlementControllerById = async (req, res) => {
   const { id } = req.params;
   const { company_id } = req.user;
@@ -33,13 +34,17 @@ const getSettlementController = async (req, res) => {
   const { company_id, user_id, role, designation } = req.user || {};
   const {
     role_name,
-    page = 1,
-    limit = 10,
+    page,
+    limit,
     search,
     sortBy,
     sortOrder,
     ...filters
   } = req.query;
+
+  const parsedPage = page === 'no_pagination' ? null : Number(page) || 1;
+  const parsedLimit = limit === 'no_pagination' ? null : Number(limit) || 10;
+  
 
   // Prepare filters object
   const filterParams = {
@@ -49,8 +54,8 @@ const getSettlementController = async (req, res) => {
   };
 
   // Convert page and limit to numbers
-  const pageNum = parseInt(page, 10);
-  const limitNum = parseInt(limit, 10);
+  const pageNum = parseInt(parsedPage, 10);
+  const limitNum = parseInt(parsedLimit, 10);
 
   // Call service with structured parameters
   const settlementData = await getSettlementService(
@@ -123,12 +128,22 @@ const createSettlementController = async (req, res) => {
   }
   //-- utr and amount for internal tranfer case
   if (payload.amount && payload.utr) {
-    const bankRes = await getBankResponseDao({ utr: payload.utr });
+    const bankRes = await getBankResponseDao({ utr: payload.utr , status :'/success'});
     if (!bankRes) {
       return res.status(400).json({
         error: {
           status: 404,
           message: 'No entry found.!',
+        },
+      });
+    }
+    const bankRess = await  getBankaccountDao({ id: bankRes.bank_id });
+    if(payload.user_id !== bankRess[0].user_id) {
+      //--bank id mismatch with utr
+      return res.status(400).json({
+        error: {
+          status: 404,
+          message: 'vendor code is not matching with utr',
         },
       });
     }
@@ -160,6 +175,7 @@ const createSettlementController = async (req, res) => {
       bank_id: payload.bank_id,
       amount: payload.amount,
       reference_id: payload.utr,
+      debit_credit: payload.config?.debit_credit ?? 'RECEIVED',
     },
   };
   // const data =

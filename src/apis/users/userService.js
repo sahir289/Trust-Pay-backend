@@ -11,6 +11,7 @@ import {
   getUsersDao,
   updateUserDao,
   getUsersBySearchDao,
+  getAllUsersDao,
 } from './userDao.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
@@ -112,7 +113,7 @@ const getUsersService = async (
       userIdFilter = [...new Set(userIdFilter)];
       ids.id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
-    return await getUsersDao(
+    return await getAllUsersDao(
       ids,
       pageNumber,
       pageSize,
@@ -442,7 +443,7 @@ const createUserService = async (conn, payload, role) => {
           email: User.email,
           username: User.user_name,
           password: Password,
-          code: merchant?.config ? User.code : '',
+          code: merchant?.config ? merchant.code : '',
           secretKey: merchant?.config ? merchant.config.keys.private : '',
           publicKey: merchant?.config ? merchant.config.keys.public : '',
           designation: designation[0]?.designation,

@@ -45,7 +45,7 @@ const createChargeBack = async (req, res) => {
     'DESC',
   );
   if (isAlreadyExit.length > 0) {
-    throw new NotFoundError('ChargeBack already exist');
+    throw new NotFoundError(`ChargeBack with ${payload.merchant_order_id} already exist`);
   }
   if (
     PayinDetails[0].status === Status.ASSIGNED ||

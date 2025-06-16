@@ -262,24 +262,29 @@ export async function sendTelegramDashboardMerchantGroupingReportMessage(
 
 export async function sendTelegramDashboardSuccessRatioMessage(
   chatId,
-  // merchantCode,
   fullMessage,
   TELEGRAM_BOT_TOKEN,
 ) {
-  const message = fullMessage
-    .map(({ merchantCode, intervalDetails, intervalDetailsUtr }) => {
-      return `🔔<b>${merchantCode}</b> - SR 🔔\n\n<b>Payin SR:</b>\n${intervalDetails}\n\n<b>UTR SR:</b>\n${intervalDetailsUtr}`;
-    })
-    .join('\n\n');
-
-  const success = await telegramSender(
-    chatId,
-    message,
-    null,
-    TELEGRAM_BOT_TOKEN,
-  );
-  logger.log(success ? 'Sent!' : 'Not sent.');
-  return success;
+  const BATCH_SIZE = 5; 
+  const DELAY_MS = 2000; 
+  //telegram API couldnot process too many message processing at once
+  for (let i = 0; i < fullMessage.length; i += BATCH_SIZE) {
+    const batch = fullMessage.slice(i, i + BATCH_SIZE);
+    await Promise.all(batch.map(async ({ merchantCode, intervalDetails, intervalDetailsUtr }) => {
+      const message = `🔔<b>${merchantCode}</b> - SR 🔔\n\n<b>Payin SR:</b>\n${intervalDetails}\n\n<b>UTR SR:</b>\n${intervalDetailsUtr}`;
+      try {
+        const success = await telegramSender(chatId, message, null, TELEGRAM_BOT_TOKEN);
+        logger.log(success ? `Sent message for ${merchantCode}!` : `Failed to send message for ${merchantCode}.`);
+        return success;
+      } catch (error) {
+        logger.error(`Error sending message for ${merchantCode}: ${error.message}`);
+        return false;
+      }
+    }));
+    if (i + BATCH_SIZE < fullMessage.length) {
+      await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+    }
+  }
 }
 
 export async function sendTelegramMessage(

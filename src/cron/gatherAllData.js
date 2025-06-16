@@ -20,7 +20,7 @@ import dayjs from 'dayjs';
 //run only on server - side /production level
 if (process.env.NODE_ENV === 'production') {
   cron.schedule('0 0 * * *', () => {
-    gatherAllData('Asia/Kolkata');
+    gatherAllData('N','Asia/Kolkata');
   });
 
   cron.schedule('0 1-23 * * *', () => {
@@ -52,6 +52,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
       sDate = currentDate.clone().subtract(1, 'day').toDate();
       eDate = currentDate.clone().toDate();
     }
+
     logger.info('cron_started');
     const merchants = await getMerchantsDao({}, null,null);
     let merchant = [];
@@ -271,7 +272,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
               const startTime = new Date(now - duration);
 
               const filteredTransactions = merchantTransactions.filter(
-                (tx) => tx.updatedAt >= startTime,
+                (tx) => tx.updated_at >= startTime,
               );
 
               const total = filteredTransactions.length;
@@ -294,7 +295,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
               const startTime = new Date(now - duration);
 
               const filteredTransactions = merchantTransactions.filter(
-                (tx) => tx.updatedAt >= startTime,
+                (tx) => tx.updated_at >= startTime,
               );
 
               const total = filteredTransactions.length;
@@ -360,12 +361,12 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
         //   config?.telegramBotToken,
         // );
       } catch (error) {
-        console.error('Error ', error.message);
+        logger.error('Error ', error.message);
       }
     };
     formattedSuccessRatiosByMerchant();
   } catch (error) {
-    console.error(error);
+    logger.error(error);
   } finally {
     if (conn) {
       conn.release();

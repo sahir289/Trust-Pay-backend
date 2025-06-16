@@ -109,6 +109,187 @@ export const getChargeBackDao = async (
     columns = columns.filter(col => 
       col !== 'merchant_user_id' && 
       col !== 'payin_id' && 
+      col !== 'bank_acc_id'
+    );
+
+    // Default columns if none provided
+    const defaultColumns = ['id', 'payin_id', 'amount'];
+    const baseColumns = columns.length 
+      ? columns.map(col => `${tableAlias}.${col}`).join(', ')
+      : defaultColumns.map(col => `${tableAlias}.${col}`).join(', ');
+
+    // Additional columns based on role
+    let additionalColumns = '';
+    if (role === Role.MERCHANT) {
+      additionalColumns = `
+        m.code AS merchant_name,
+        p.user AS user,
+        p.merchant_order_id AS merchant_order_id,
+      `;
+    }
+    else if (role === Role.VENDOR) {
+      additionalColumns += ``;
+    }
+    else {
+      additionalColumns = `
+        m.code AS merchant_name,
+        p.merchant_order_id AS merchant_order_id,
+        v.code AS vendor_name,
+       CASE 
+    WHEN m.config->>'sub_code' IS NOT NULL AND m.config->>'sub_code' != '' 
+    THEN m.config->>'sub_code' 
+    ELSE m.code 
+  END AS merchant_name,
+        p.user AS user,
+        u.user_name AS created_by,
+        uu.user_name AS updated_by,
+        jsonb_build_object('blocked_users', m.config->'blocked_users') AS config,
+      `;
+    }
+    //created and updated by with user name
+    additionalColumns += `
+      ba.nick_name AS bank_name,
+      COALESCE(p.user_submitted_utr, br.utr) AS utr,
+      cb.created_at
+    `;
+
+    // Combine all columns
+    const allColumns = [baseColumns];
+    if (additionalColumns) allColumns.push(additionalColumns);
+
+    // Ensure sortBy is fully qualified if it's a simple column name
+    const validSortColumns = ['id', 'sno', 'payin_id', 'amount', 'created_at', 'updated_at'];
+    const qualifiedSortBy = validSortColumns.includes(sortBy) ? `cb.${sortBy}` : sortBy;
+
+    const baseQuery = `
+      SELECT
+        ${allColumns.join(', ')}
+      FROM public."${CHARGE_BACK}" cb
+      LEFT JOIN public."${VENDOR}" v ON cb.vendor_user_id = v.user_id
+      LEFT JOIN public."${MERCHANT}" m ON cb.merchant_user_id = m.user_id
+      LEFT JOIN public."${PAYIN}" p ON cb.payin_id = p.id
+      LEFT JOIN "${BANK_RESPONSE}" br ON p.bank_response_id = br.id
+      LEFT JOIN public."${USER}" u ON cb.created_by = u.id 
+      LEFT JOIN public."${USER}" uu ON cb.updated_by = uu.id
+      LEFT JOIN public."${BANK_ACCOUNT}" ba ON cb.bank_acc_id = ba.id
+      WHERE ${conditions.join(' AND ')}
+      ${bankName ? `AND ba.nick_name = $${queryParams.length + 1}` : ''}
+      ${utr ? `AND p.user_submitted_utr = $${queryParams.length + 1}` : ''}
+      ORDER BY ${qualifiedSortBy} ${sortOrder}
+      ${limitcondition.value}
+    `;
+    // Add bank_name to params if it exists
+    if (bankName) {
+      queryParams.push(bankName);
+    }
+    // Add utr to params if it exists
+    if (utr) {
+      queryParams.push(utr);
+    }
+
+    const expectedParamCount = (baseQuery.match(/\$\d+/g) || []).length;
+    if (expectedParamCount !== queryParams.length) {
+      logger.warn('⚠️ Placeholder count does not match parameter count!');
+      logger.warn(`Expected: ${expectedParamCount}, Got: ${queryParams.length}`);
+    }
+
+    const result = await executeQuery(baseQuery, queryParams);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error fetching ChargeBack entries:', error);
+    throw error;
+  }
+};
+
+export const getAllChargeBackDao = async (
+  filters,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+  columns = [],
+  role
+) => {
+  try {
+    const { VENDOR, CHARGE_BACK, MERCHANT, PAYIN, USER, BANK_ACCOUNT, BANK_RESPONSE } = tableName;
+    const conditions = [`cb.is_obsolete = false`];
+    const queryParams = [];
+    const limitcondition = { value: '' };
+
+    const handledKeys = new Set(['search', 'startDate', 'endDate']);
+
+    const conditionBuilders = {
+      search: (filters, CHARGE_BACK) => {
+        if (!filters.search || typeof filters.search !== 'string') return;
+        try {
+          filters.or = buildSearchFilterObj(filters.search, CHARGE_BACK);
+          delete filters.search;
+        } catch (error) {
+          console.warn(`Invalid search filter: ${filters.search}`, error);
+          delete filters.search;
+        }
+      },
+      dateRange: (filters, conditions, queryParams) => {
+        if (!filters.startDate || !filters.endDate) return;
+        const startDate = dayjs.tz(`${filters.startDate} 00:00:00`, 'Asia/Kolkata').toISOString();
+        const endDate = dayjs.tz(`${filters.endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString();    
+        const idx = queryParams.length + 1;
+        conditions.push(`cb.created_at BETWEEN $${idx} AND $${idx + 1}`); 
+        queryParams.push(startDate, endDate);
+      },
+      pagination: (page, pageSize, queryParams, limitconditionRef) => {
+        if (!page || !pageSize) return;
+        const nextParamIdx = queryParams.length + 1;
+        limitconditionRef.value = `LIMIT $${nextParamIdx} OFFSET $${nextParamIdx + 1}`;
+        queryParams.push(pageSize, (page - 1) * pageSize);
+      }
+    };
+
+    // Handle bank_name filter properly
+    const bankName = filters.bank_name;
+    const utr = filters.utr;
+    // if (bankName) {
+    //   const nextParamIdx = queryParams.length + 1;
+    //   conditions.push(`ba.bank_name = $${nextParamIdx}`);
+    //   queryParams.push(bankName);
+    // } else 
+    if (utr) {
+      const nextParamIdx = queryParams.length + 1;
+      conditions.push(`p.user_submitted_utr = $${nextParamIdx}`);
+      queryParams.push(utr);
+    }
+    delete filters.bank_name;
+    delete filters.utr; // Remove from filters object
+
+    // Handle search filters
+    conditionBuilders.search(filters, CHARGE_BACK);
+    conditionBuilders.dateRange(filters, conditions, queryParams);
+    conditionBuilders.pagination(page, pageSize, queryParams, limitcondition);
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (handledKeys.has(key) || value == null) return;
+      const nextParamIdx = queryParams.length + 1;
+
+      // Special handling for arrays (like merchant_user_id)
+      if (Array.isArray(value)) {
+        const placeholders = value.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+        conditions.push(`cb.${key} IN (${placeholders})`);
+        queryParams.push(...value);
+      } else {
+        const isMultiValue = typeof value === 'string' && value.includes(',');
+        const valueArray = isMultiValue ? value.split(',').map(v => v.trim()) : [value];
+        const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+        conditions.push(isMultiValue ? `cb.${key} IN (${placeholders})` : `cb.${key} = $${nextParamIdx}`);
+        queryParams.push(...valueArray);
+      }
+    });
+
+    const tableAlias = 'cb';
+
+    // Filter out unwanted columns
+    columns = columns.filter(col => 
+      col !== 'merchant_user_id' && 
+      col !== 'payin_id' && 
       col !== 'vendor_user_id' &&
       col !== 'bank_acc_id'
     );
@@ -248,11 +429,11 @@ export const getChargeBacksBySearchDao = async (
       paramIndex++;
     }
 
-    if (filters && filters.vendor_user_id) {
-      queryText += ` AND "${CHARGE_BACK}".vendor_user_id = $${paramIndex}`;
-      values.push(filters.vendor_user_id);
-      paramIndex++;
-    }
+    // if (filters && filters.vendor_user_id) {
+    //   queryText += ` AND "${CHARGE_BACK}".vendor_user_id = $${paramIndex}`;
+    //   values.push(filters.vendor_user_id);
+    //   paramIndex++;
+    // }
     if (filters && filters.merchant_user_id) {
       queryText += ` AND "${CHARGE_BACK}".merchant_user_id = $${paramIndex}`;
       values.push(filters.merchant_user_id);

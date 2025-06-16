@@ -8,18 +8,26 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs, updated
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tablename)) {
       throw new Error(`Invalid table name: ${tablename}`);
     }
-    delete filters.user_ids;  ///temperary
+    // delete filters.user_ids;  ///temperary
     // Base query
     let query;
     let params = [];
     let paramIndex = 1;
-
+    //handle userIds for filters of vendor
+    let joins= '';
+    if (filters.user_ids) {
+      joins = `
+        LEFT JOIN "BankAccount" ON "${tablename}".bank_acc_id = "BankAccount".id
+        LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
+      `;
+    }  
     if (roleIs === Role.ADMIN && tablename === tableName.MERCHANT) {
       query = `
         SELECT COUNT(*) AS count 
         FROM "${tablename}" 
         JOIN "User" ON "${tablename}".user_id = "User".id 
         LEFT JOIN "Designation" ON "User".designation_id = "Designation".id 
+        ${joins}
         WHERE "${tablename}".is_obsolete = false 
         AND "Designation".designation = 'MERCHANT' 
         AND "Merchant".company_id = $${paramIndex}
@@ -31,8 +39,16 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs, updated
       query = `
         SELECT COUNT(*) AS count 
         FROM "${tablename}" 
-        WHERE is_obsolete = false
+         ${joins}
+        WHERE "${tablename}".is_obsolete = false
       `;
+    }
+     
+    if (filters.user_ids) {
+      query += ` AND "Vendor".user_id = ANY($${paramIndex})`;
+      params.push(filters.user_ids);
+      paramIndex++;
+      delete filters.user_ids;
     }
 
     // Add role-based filtering for 'Settlement'
@@ -93,11 +109,11 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs, updated
         if (Array.isArray(value)) {
           // Handle multiple values using SQL IN clause
           const placeholders = value.map(() => `$${paramIndex++}`).join(',');
-          query += ` AND "${column}" IN (${placeholders})`;
+          query += ` AND "${tablename}"."${column}" IN (${placeholders})`;
           params.push(...value);
         } else {
           // Single value condition
-          query += ` AND "${column}" = $${paramIndex++}`;
+          query += ` AND "${tablename}"."${column}" = $${paramIndex++}`;
           params.push(value);
         }
       });

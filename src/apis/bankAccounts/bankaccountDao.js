@@ -140,6 +140,133 @@ const getBankaccountDao = async (filters, page, limit, role, designation) => {
   }
 };
 
+const getAllBankaccountDao = async (filters, page, limit, role, designation) => {
+  try {
+    let queryParams = [];
+    let conditions = [`ba.is_obsolete = false`];
+    // if (filters.company_id) {
+    //   queryParams.push(filters.company_id);
+    //   conditions.push(`ba.company_id = $1`);
+    // }
+    let limitcondition = '';
+
+    if (page && limit) {
+      limitcondition = `LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+      queryParams.push(limit, (page - 1) * limit);
+    }
+
+    if (filters?.startDate && filters?.endDate) {
+      conditions.push(
+        `ba.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`,
+      );
+      queryParams.push(filters?.startDate, filters?.endDate);
+      // delete filters.startDate
+      // delete filters.endDate
+    }
+    if (filters?.bank_used_for) {
+      conditions.push(`ba.bank_used_for = $${queryParams.length + 1}`);
+      queryParams.push(filters?.bank_used_for);
+    }
+
+    // Nickname filter 
+    if (filters?.nick_name) {
+      conditions.push(`ba.nick_name= $${queryParams.length + 1}`);
+      queryParams.push(filters.nick_name);
+    }
+    if (filters?.merchant_id) {
+      queryParams.push(filters.merchant_id);  
+      conditions.push(`(ba.config->'merchants')::jsonb ?| $${queryParams.length}::text[]`);
+      delete filters.merchant_id;
+    }
+    if (filters && Object.keys(filters).length > 0) {
+      Object.keys(filters).forEach((key) => {
+        delete filters?.page;
+        delete filters?.limit;
+        const value = filters[key];
+        if (value !== null && value !== undefined && value !== '') {
+          if (Array.isArray(value)) {
+            conditions.push(`ba."${key}" = ANY($${queryParams.length + 1})`);
+            queryParams.push(value);
+          } else {
+            conditions.push(`ba."${key}" = $${queryParams.length + 1}`);
+            queryParams.push(value);
+          }
+        }
+      });
+    }
+    let commissionSelect = '';
+    if (role === 'MERCHANT') {
+      commissionSelect = '';
+    } else if (role === 'VENDOR') {
+      commissionSelect = `
+        ba.ifsc AS ifsc_code, 
+        ba.payin_count, 
+        ba.balance, 
+        ba.today_balance, 
+        ba.bank_used_for,
+        ba.config->>'max_limit' AS daily_limit`;
+    } else {
+      // Only include Merchant_Details and config if designation is 'Admin'
+      commissionSelect = `
+        ba.user_id, 
+        ba.ifsc, 
+        ba.min, 
+        ba.max, 
+        ba.payin_count, 
+        ba.balance, 
+        ba.is_qr, 
+        ba.is_bank, 
+        ba.is_enabled, 
+        ba.today_balance, 
+        ba.bank_used_for, 
+        creator.user_name AS created_by, 
+        updater.user_name AS updated_by, 
+        ${designation === Role.ADMIN || Role.OPERATIONS || Role.TRANSACTIONS ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
+        ba.created_at, 
+        ba.updated_at`;
+    }
+    const baseQuery = `SELECT 
+        ba.id, 
+        ba.sno, 
+        ba.upi_id,
+        ba.acc_holder_name,
+        ba.upi_params, 
+        ba.nick_name, 
+        ba.acc_no, 
+        ba.bank_name, 
+        ${commissionSelect ? `${commissionSelect},` : ''}
+        v.code AS Vendor 
+      FROM 
+          public."BankAccount" ba
+      LEFT JOIN public."Vendor" v 
+          ON ba.user_id = v.user_id
+      LEFT JOIN LATERAL (
+          SELECT 
+              jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
+          FROM public."Merchant" m
+          WHERE m.id::text IN (
+                    SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
+          )
+      ) m ON TRUE
+       LEFT JOIN public."User" creator 
+        ON ba.created_by = creator.id
+      LEFT JOIN public."User" updater 
+        ON ba.updated_by = updater.id
+      WHERE 
+          ${conditions.join(' AND ')}
+      ORDER BY 
+          ba.is_enabled DESC,  
+          ba.updated_at DESC  
+      ${limitcondition};
+      `;
+    const result = await executeQuery(baseQuery, queryParams);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in get BankAccount Dao:', error);
+    throw error.message;
+  }
+};
+
 const getBankAccountsBySearchDao = async (
   company_id,
   role,
@@ -167,7 +294,6 @@ const getBankAccountsBySearchDao = async (
       `;
     } else {
       commissionSelect = `
-        ba.user_id, 
         ba.ifsc, 
         ba.min, 
         ba.max, 
@@ -343,7 +469,21 @@ const getMerchantBankDao = async (filters) => {
     throw error.message;
   }
 };
-
+const getBankByIdDao = async (filters) => {
+  try {
+    const query = `SELECT  min,
+  max,
+  is_enabled,
+  payin_count,
+  balance,today_balance, user_id ,id FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
+    const [sql, parameters] = buildSelectQuery(query, filters);
+    const result = await executeQuery(sql, parameters);
+    return result.rows;
+  } catch (error) {
+    logger.error(error);
+    throw error.message;
+  }
+};
 const createBankaccountDao = async (payload) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.BANK_ACCOUNT, payload);
@@ -514,9 +654,11 @@ export const updateBanktBalanceDao = async (
 export {
   getBankaccountDao,
   getBankAccountsBySearchDao,
+  getAllBankaccountDao,
   createBankaccountDao,
   updateBankaccountDao,
   deleteBankaccountDao,
   getMerchantBankDao,
   getBankAccountDaoNickName,
+  getBankByIdDao,
 };

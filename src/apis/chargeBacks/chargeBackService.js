@@ -11,6 +11,7 @@ import {
   getChargeBackDao,
   updateChargeBackDao,
   getChargeBacksBySearchDao,
+  getAllChargeBackDao,
 } from './chargeBackDao.js';
 import {
   columns,
@@ -125,7 +126,7 @@ const getChargeBacksService = async (
   limit,
   user_id,
   sortOrder ='DESC'
-  // desingnation,
+  // designation,
 ) => {
   try {
     // Determine columns based on role
@@ -162,14 +163,14 @@ const getChargeBacksService = async (
     }
 
     // Parse and validate pagination parameters
-    const pageNumber = Math.max(1, parseInt(String(page), 10) || 1);
-    const pageSize = Math.max(
+    const pageNumber = page === 'no_pagination' ? null : Math.max(1, parseInt(String(page), 10) || 1);
+    const pageSize = limit === 'no_pagination' ? null : Math.max(
       1,
       Math.min(100, parseInt(String(limit), 10) || 10),
     ); // Added upper limit
 
     // Call DAO with all required parameters
-    const chargeBacks = await getChargeBackDao(
+    const chargeBacks = await getAllChargeBackDao(
       filters,
       pageNumber,
       pageSize,
