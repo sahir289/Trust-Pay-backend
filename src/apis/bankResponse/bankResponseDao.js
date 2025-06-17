@@ -60,6 +60,7 @@ export const getBankResponseDaoById = async (filters) => {
     br.id,
     br.bank_id,
     br.utr,
+    ba.nick_name,
     ba.user_id
   FROM "${tableName.BANK_RESPONSE}" br
   LEFT JOIN "${tableName.BANK_ACCOUNT}" ba ON ba.id = br.bank_id
@@ -477,6 +478,48 @@ const getBankResponseByUTR = async (utr) => {
   }
 };
 
+const getInternalBankResponseByUTR = async (utr) => {
+  try {
+    const baseQuery = `SELECT 
+        br.id, 
+        br.sno, 
+        br.status, 
+        br.bank_id, 
+        br.amount, 
+        br.upi_short_code, 
+        br.utr, 
+        br.is_used, 
+        br.created_at, 
+        br.updated_at, 
+        br.created_by, 
+        br.config, 
+        br.updated_by, 
+        "BankAccount".user_id, 
+        "BankAccount".nick_name, 
+        "BankAccount".bank_name, 
+        "Vendor".code 
+    FROM 
+        "BankResponse" AS br 
+    JOIN 
+        "BankAccount" ON br.bank_id = "BankAccount".id 
+    LEFT JOIN 
+        "Vendor" ON "BankAccount".user_id = "Vendor".user_id 
+    WHERE 
+        1=1 
+        AND br.is_obsolete = false 
+        AND br.status = '/internalTransfer'
+        AND br.utr = $1 
+    ORDER BY 
+        br.created_at DESC`;
+    const queryParams = [utr];
+    const result = await executeQuery(baseQuery, queryParams);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error getting Bank Response by utr', error);
+    throw error.message;
+  }
+};
+
 const createBankResponseDao = async (conn, data) => {
   try {
     // data.id = generateUUID();
@@ -575,6 +618,7 @@ const updateBotResponseDao = async (id, data, conn) => {
 export {
   getBankResponseDao,
   getClaimResponseDao,
+  getInternalBankResponseByUTR,
   createBankResponseDao,
   getBankResponseDaoAll,
   getBankResponseByUTR,

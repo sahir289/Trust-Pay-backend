@@ -6,6 +6,7 @@ import {
   deleteNotifications,
   getNotifications,
   getNotificationsById,
+  updateNotifications,
 } from './notificationController.js';
 
 const router = express.Router();
@@ -94,6 +95,8 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getNotificationsById));
  */
 
 router.post('/create-notification', isAuthenticated, tryCatchHandler(createNotifications));
+
+router.put('/update-notification', isAuthenticated, tryCatchHandler(updateNotifications));
 
 router.delete('/delete-notification/:id', isAuthenticated, tryCatchHandler(deleteNotifications));
 
