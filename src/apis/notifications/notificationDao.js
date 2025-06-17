@@ -188,7 +188,7 @@ export const createNotificationsDao = async (payload) => {
       return [];
     }
     logger.info('Notification created successfully:', result.rows[0]);
-    await newTableEntry(tableName.NOTIFICATIONS, 'create');
+    await newTableEntry(tableName.NOTIFICATIONS);
     return result.rows;
   } catch (error) {
     logger.error('Error in get Notifications Dao:', error);
@@ -229,7 +229,7 @@ export const updateNotificationsDao = async (id, payload) => {
     if (result.rows.length === 0) {
       return [];
     }
-    await newTableEntry(tableName.NOTIFICATIONS, 'update');
+    await newTableEntry(tableName.NOTIFICATIONS);
     logger.info('Notification created successfully:', result.rows[0]);
     return result.rows;
   } catch (error) {
