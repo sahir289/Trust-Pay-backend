@@ -285,7 +285,6 @@ const createBeneficiaryAccountService = async (conn, payload) => {
       if (Array.isArray(payload.user_id)) {
         payload.user_id = payload.user_id[0];
       }
-      console.log(payload, 'payload______2')
       result = await createBeneficiaryAccountDao(payload);
     }
     return result;
