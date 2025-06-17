@@ -7,12 +7,14 @@ import {
   updatePayoutService,
   getPayoutsBySearchService,
   checkPayOutStatusService,
+  walletsPayoutsService,
 } from './payOutService.js';
 import {
   PAYOUT_DETAILS_SCHEMA,
   UPDATE_DETAILS_SCHEMA,
   VALIDATE_CHECK_PAY_OUT_STATUS,
   VALIDATE_PAYOUT_BY_ID,
+  WALLET_PAYOUT_DETAILS_SCHEMA,
 } from '../../schemas/payoutSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
@@ -100,6 +102,29 @@ const getPayouts = async (req, res) => {
   );
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };
+
+  const walletsPayouts = async (req, res) => {
+    const joiValidation = WALLET_PAYOUT_DETAILS_SCHEMA.validate(req.body);
+    if (joiValidation.error) {
+      throw new ValidationError(joiValidation.error);
+    }
+    const { company_id } = req.user;
+    const payload = req.body;
+    payload.company_id = company_id;
+
+    let result = await transactionWrapper(walletsPayoutsService)(
+        payload,
+        res,
+      );
+    // Log success message
+    logger.log('Payout created successfully');
+    const updateRes = {
+      data: result,
+    };
+  
+    // Send a success response to the client
+    return sendNewSuccess(res, updateRes, 'Payout created successfully', 201);
+  }
 
 const getPayoutsBySearch = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
@@ -190,4 +215,5 @@ export {
   updatePayout,
   deletePayout,
   getPayoutsById,
+  walletsPayouts,
 };

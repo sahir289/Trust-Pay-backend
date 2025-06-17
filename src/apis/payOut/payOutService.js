@@ -20,6 +20,7 @@ import {
   getPayoutsBySearchDao,
   updatePayoutDao,
   getAllPayoutsDao,
+  getPayoutBankDetailsDao,
 } from './payOutDao.js';
 import {
   getMerchantsDao,
@@ -54,6 +55,57 @@ import { logger } from '../../utils/logger.js';
 import { newTableEntry } from '../../utils/sockets.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
+
+const walletsPayoutsService = async (conn, payload, res) => {
+  try {
+    const { amount, mode, payOutids } = payload;
+
+    if (!amount || !mode) {
+      return res.status(400).json({
+        error: {
+          status: 400,
+          message: 'Amount and TransactionType are required',
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+
+    const bankInfo = await getPayoutBankDetailsDao(
+      { payOutids },
+      payload.company_id,
+    );
+    console.log('bankInfo', bankInfo);
+    
+    if (!bankInfo[0]) {
+      return res.status(400).json({
+        error: {
+          status: 400,
+          message: 'Bank account not found',
+          additionalInfo: {},
+          level: 'info',
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+
+    // Return data instead of sending response
+    return {
+      status: 200,
+      message: 'Bank account found',
+      data: bankInfo
+    };
+
+  } catch (error) {
+    logger.error(error)
+    if (error instanceof BadRequestError) {
+      throw error;
+    }
+    throw new InternalServerError(error);
+  }
+};
+
 const createPayoutService = async (conn, headers, payload, role, res) => {
   try {
     const filterColumns =
@@ -1019,4 +1071,5 @@ export {
   getPayoutsBySearchService,
   updatePayoutService,
   deletePayoutService,
+  walletsPayoutsService,
 };

@@ -17,6 +17,15 @@ export const PAYOUT_DETAILS_SCHEMA = Joi.object({
   notifyUrl: Joi.string().uri().label('notify_url').optional(),
 });
 
+export const WALLET_PAYOUT_DETAILS_SCHEMA = Joi.object({
+  amount: Joi.number().label('amount').required(),
+  mode: Joi.string().label('transaction_type').required(),
+  payOutids: Joi.array()
+    .items(Joi.string().guid({ version: ['uuidv4'] }))
+    .label('payOutids')
+    .required(),
+});
+
 export const UPDATE_DETAILS_SCHEMA = Joi.object({
   user: Joi.string().label('user').optional(),
   amount: Joi.number().label('amount').optional(),
