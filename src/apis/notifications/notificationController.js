@@ -42,7 +42,7 @@ export const createNotifications = async (req, res) => {
 
 export const updateNotifications = async (req, res) => {
   const { user_id, company_id } = req.user;
-  const id = req.body;
+  const { id } = req.body;
   const notifications = await updateNotificationsService(
     id,
     user_id,

@@ -136,7 +136,7 @@ export const createNotificationsService = async (
 
 export const updateNotificationsService = async (id, user_id, company_id) => {
   try {
-    const ids = typeof id === 'string' ? id.split(',') : Array.isArray(id) ? id : [id];
+    const ids = Array.isArray(id) ? id : [id];
     const notificationRecipients =
       await getNotificationRecipientByNotificationIdDao(ids, company_id);
 
