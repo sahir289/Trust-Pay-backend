@@ -60,6 +60,7 @@ export const getBankResponseDaoById = async (filters) => {
     br.id,
     br.bank_id,
     br.utr,
+    ba.nick_name,
     ba.user_id
   FROM "${tableName.BANK_RESPONSE}" br
   LEFT JOIN "${tableName.BANK_ACCOUNT}" ba ON ba.id = br.bank_id

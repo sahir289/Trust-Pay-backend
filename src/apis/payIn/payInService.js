@@ -41,6 +41,7 @@ import {
 } from '../bankAccounts/bankaccountDao.js';
 import {
   getBankResponseDao,
+  getBankResponseDaoById,
   updateBankResponseDao,
   updateBotResponseDao,
 } from '../bankResponse/bankResponseDao.js';
@@ -2572,6 +2573,8 @@ export const updatePayInService = async (
       if (!prevBank[0] || !newBank[0]) {
         throw new NotFoundError('Bank account not found');
       }
+      console.log('prevBank', prevBank);
+      console.log('newBank', newBank);
       if (newBank[0].user_id !== prevBank[0].user_id) {
         throw new BadRequestError(
           'Bank account does not belong to the same vendor',
@@ -2609,6 +2612,47 @@ export const updatePayInService = async (
     }
 
     delete payload.utr;
+
+    const bankResponseId = await getPayInUrlDao({ merchant_order_id });
+    if (!bankResponseId) {
+      throw new NotFoundError('Bank Response ID not found for this pay-in');
+    }
+    const bankResponseData = await getBankResponseDaoById({ id: bankResponseId.bank_response_id, company_id: company_id });
+    const payInBank = await getBankaccountDao({ id: payIn.bank_acc_id, company_id: company_id });
+    if (!payInBank[0]) {
+      throw new NotFoundError('Bank Response not found for this pay-in');
+    }  
+        // Parse existing config and add update history
+        let existingConfig = {};
+        try {
+          existingConfig = typeof payIn.config === 'string' ? 
+            JSON.parse(payIn.config) : 
+            payIn.config || {};
+        } catch (e) {
+          console.error('Error parsing existing config:', e);
+          existingConfig = {};
+        }
+        // Add update history to config
+        const updateHistory = {
+          updated_by: user_id,
+          updated_at: new Date(),
+          amount: payIn.amount,
+          utr: bankResponseData?.utr,
+          bank_acc_id: payInBank[0]?.id,
+          nick_name: payInBank[0]?.nick_name,        
+          payin_vendor_commission: payIn.payin_vendor_commission,
+          payin_merchant_commission: payIn.payin_merchant_commission,
+        };
+    
+        // Create new config object
+        const newConfig = {
+          ...existingConfig,
+          history: Array.isArray(existingConfig.history) ? 
+            [...existingConfig.history, updateHistory] :
+            [updateHistory],
+          urls: existingConfig.urls || {}
+        };
+
     // Update pay-in details
     await updatePayInUrlDao(
       payIn.id,
@@ -2616,6 +2660,7 @@ export const updatePayInService = async (
         ...payload,
         updated_by: user_id,
         user_submitted_utr: payIn.user_submitted_utr ? payload.utr : null,
+        config: newConfig,
         payin_merchant_commission:
           amountDiff > 0
             ? payIn.payin_merchant_commission + merchantCommission
