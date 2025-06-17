@@ -124,14 +124,14 @@ const getPayoutsBySearch = async (req, res) => {
 };
 
 const updatePayout = async (req, res) => {
+  const { company_id, role, user_id,user_name } = req.user;
+  const { id } = req.params;
   const payload = req.body;
   const joiValidation = UPDATE_DETAILS_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
 
-  const { id } = req.params;
-  const { company_id, role, user_id,user_name } = req.user;
   payload.updated_by = user_id;
   const ids = { id, company_id };
  const update= await transactionWrapper(updatePayoutService)(ids, payload, role);
