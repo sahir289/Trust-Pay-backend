@@ -142,12 +142,12 @@ const notifyNewTableEntry = async (tableName, entryType, entryData) => {
   ioInstance.emit(eventName, payload); // Broadcast to all connected clients
 };
 // New function to emit event when a specific entry is updated/added in a table
-const newTableEntry = async (tableName) => {
+const newTableEntry = async (tableName, type) => {
   if (!ioInstance) {
     logger.error('Socket.IO not initialized');
     return;
   }
-  const eventName = `newTableEntry${tableName}`;
+  const eventName = type ? `newTableEntry${tableName}_withType_${type}` : `newTableEntry${tableName}`;
   logger.log(chalk.bold.cyan(`Emitting ${eventName} for table ${tableName}`));
   ioInstance.emit(eventName);
 };

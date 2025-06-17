@@ -3,6 +3,7 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   createNotificationsService,
   getNotificationByIdService,
+  getNotificationCountsService,
   getNotificationsService,
   updateNotificationsService,
 } from './notificationService.js';
@@ -10,6 +11,12 @@ import {
 export const getNotifications = async (req, res) => {
   const { user_id, company_id } = req.user;
   const notifications = await getNotificationsService(user_id, company_id);
+  return sendSuccess(res, notifications, 'Notifications fetched successfully');
+};
+
+export const getNotificationCounts = async (req, res) => {
+  const { user_id, company_id } = req.user;
+  const notifications = await getNotificationCountsService(user_id, company_id);
   return sendSuccess(res, notifications, 'Notifications fetched successfully');
 };
 

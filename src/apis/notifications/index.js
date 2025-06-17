@@ -4,6 +4,7 @@ import { isAuthenticated } from '../../middlewares/auth.js';
 import {
   createNotifications,
   deleteNotifications,
+  getNotificationCounts,
   getNotifications,
   getNotificationsById,
   updateNotifications,
@@ -93,6 +94,7 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getNotificationsById));
  *                     type: string
  *                     example: "active"
  */
+router.get('/get-count', isAuthenticated, tryCatchHandler(getNotificationCounts));
 
 router.post('/create-notification', isAuthenticated, tryCatchHandler(createNotifications));
 
