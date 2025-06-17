@@ -259,13 +259,13 @@ const updateBankaccountService = async (conn, ids, payload, role) => {
         }
       }
     }
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: payload.company_id,
-      message: `The bank account with nick name ${result.nick_name} has been updated.`,
-      payloadUserId: payload.user_id,
-      actorUserId: payload.updated_by,
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: payload.company_id,
+    //   message: `The bank account with nick name ${result.nick_name} has been updated.`,
+    //   payloadUserId: payload.user_id,
+    //   actorUserId: payload.updated_by,
+    // });
     return result;
   } catch (error) {
     logger.error('error getting while  updating banks', error);
