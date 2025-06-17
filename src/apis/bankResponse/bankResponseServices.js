@@ -367,8 +367,7 @@ const createBankResponseService = async (
         .padStart(2, '0');
       const duration = `${durHours}:${durMinutes}:${durSeconds}`;
 
-
-      if (payInUtr.amount === amount && upi_short_code || (payInUtr.amount === amount && upi_short_code === payInUtr.upi_short_code)) {
+      if (payInUtr.amount === amount || (isValidAmountCode && isValidAmountCode === payInUtr.upi_short_code && payInUtr.amount === amount)) {
 
         if (
           (payInUtr.user_submitted_utr &&
