@@ -39,6 +39,7 @@ const router = express.Router();
  *                     example: "active"
  */
 router.get('/', isAuthenticated, tryCatchHandler(getNotifications));
+router.get('/get-count', isAuthenticated, tryCatchHandler(getNotificationCounts));
 
 /**
  * @swagger
@@ -94,7 +95,6 @@ router.get('/:id', isAuthenticated, tryCatchHandler(getNotificationsById));
  *                     type: string
  *                     example: "active"
  */
-router.get('/get-count', isAuthenticated, tryCatchHandler(getNotificationCounts));
 
 router.post('/create-notification', isAuthenticated, tryCatchHandler(createNotifications));
 

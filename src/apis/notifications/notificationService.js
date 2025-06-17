@@ -47,7 +47,7 @@ export const getNotificationsService = async (user_id, company_id) => {
     return notifications;
   } catch (error) {
     logger.error('Error while getting Notifications', error);
-    throw error
+    throw error;
   }
 };
 
@@ -86,7 +86,7 @@ export const getNotificationCountsService = async (user_id, company_id) => {
     return notifications;
   } catch (error) {
     logger.error('Error while getting Notifications', error);
-    throw error
+    throw error;
   }
 };
 
@@ -126,7 +126,7 @@ export const getNotificationByIdService = async (id, userId, company_id) => {
     return notifications;
   } catch (error) {
     logger.error('Error while getting Notifications', error);
-    throw error
+    throw error;
   }
 };
 
@@ -153,20 +153,22 @@ export const createNotificationsService = async (
     const recipients = await Promise.all(
       recipient_ids.map(async (recipient_id) => {
         const user = users.find((u) => u.id === recipient_id);
-        const designation = await getDesignationDao({ designation: user?.designation });
+        const designation = await getDesignationDao({
+          designation: user?.designation,
+        });
         return {
           recipient_id,
           designation_id: designation[0]?.id,
           is_read: 'false',
           read_at: null,
         };
-      })
+      }),
     );
 
     const recipientPayload = {
       notification_id: notifications[0].id,
       company_id: company_id,
-      config: {recipients},
+      config: { recipients },
     };
     await createNotificationsRecipientDao(recipientPayload);
     return notifications;
@@ -208,14 +210,14 @@ export const updateNotificationsService = async (id, user_id, company_id) => {
     // Only include the recipient config for the current user_id in the response
     const notifications = updatedNotifications[0].map((recipient) => {
       if (Array.isArray(recipient.config.recipients)) {
-      return {
-        ...recipient,
-        config: {
-        recipients: recipient.config.recipients.filter(
-          (cfg) => cfg.recipient_id === user_id
-        ),
-        },
-      };
+        return {
+          ...recipient,
+          config: {
+            recipients: recipient.config.recipients.filter(
+              (cfg) => cfg.recipient_id === user_id,
+            ),
+          },
+        };
       }
       return recipient;
     });
@@ -223,6 +225,6 @@ export const updateNotificationsService = async (id, user_id, company_id) => {
     return notifications;
   } catch (error) {
     logger.error('Error while updating Notifications', error);
-    throw error
+    throw error;
   }
 };

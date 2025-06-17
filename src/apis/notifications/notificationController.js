@@ -17,7 +17,7 @@ export const getNotifications = async (req, res) => {
 export const getNotificationCounts = async (req, res) => {
   const { user_id, company_id } = req.user;
   const notifications = await getNotificationCountsService(user_id, company_id);
-  return sendSuccess(res, notifications, 'Notifications fetched successfully');
+  return sendSuccess(res, notifications, 'Notifications Count fetched successfully');
 };
 
 export const getNotificationsById = async (req, res) => {
