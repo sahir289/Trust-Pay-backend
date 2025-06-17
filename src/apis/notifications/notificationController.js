@@ -1,8 +1,10 @@
+import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   createNotificationsService,
   getNotificationByIdService,
   getNotificationsService,
+  updateNotificationsService,
 } from './notificationService.js';
 
 export const getNotifications = async (req, res) => {
@@ -26,8 +28,23 @@ export const getNotificationsById = async (req, res) => {
 export const createNotifications = async (req, res) => {
   const { user_id, company_id } = req.user;
   const payload = req.body;
-  const notifications = await createNotificationsService(
+  const recipient_ids = payload.recipient_ids || [];
+  delete payload.recipient_ids;
+  const notifications = await transactionWrapper(createNotificationsService)(
     payload,
+    user_id,
+    company_id,
+    recipient_ids
+  );
+
+  return sendSuccess(res, notifications, 'Notifications Created successfully');
+};
+
+export const updateNotifications = async (req, res) => {
+  const { user_id, company_id } = req.user;
+  const id = req.body;
+  const notifications = await updateNotificationsService(
+    id,
     user_id,
     company_id,
   );
@@ -37,7 +54,7 @@ export const createNotifications = async (req, res) => {
 
 export const deleteNotifications = async (req, res) => {
   const { userId, company_id } = req.user;
-  const payload = req.body;
+  const payload = req.params;
   console.log(payload, 'payload');
   const notifications = await createNotificationsService(userId, company_id);
 

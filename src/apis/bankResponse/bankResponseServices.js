@@ -942,6 +942,7 @@ const handleBankIdUpdate = async ({
       updateBankaccountDao(
         { id: prevBank[0].id, company_id },
         {
+          payin_count: prevBank[0].payin_count - 1,
           balance: prevBank[0].balance - botRes.amount,
           today_balance: prevBank[0].today_balance - botRes.amount,
           updated_by: user_id,
@@ -950,6 +951,7 @@ const handleBankIdUpdate = async ({
       updateBankaccountDao(
         { id: newBank[0].id, company_id },
         {
+          payin_count: newBank[0].payin_count + 1,
           balance: newBank[0].balance + botRes.amount,
           today_balance: newBank[0].today_balance + botRes.amount,
           updated_by: user_id,
@@ -960,8 +962,9 @@ const handleBankIdUpdate = async ({
         prevVendorCurrentCalcs,
         prevVendorNextCurrentCalcs,
         -botRes.amount,
-        prevVendorCommission,
+        -prevVendorCommission,
         conn,
+        -1,
       ),
       updateCalculationBalances(
         newVendorCurrentCalcs,
@@ -969,6 +972,7 @@ const handleBankIdUpdate = async ({
         botRes.amount,
         newVendorCommission,
         conn,
+        1,
       ),
     ]);
   } catch (error) {
@@ -1392,11 +1396,13 @@ const updateCalculationBalances = async (
   amountDiff,
   commission,
   conn,
+  count = 0,
 ) => {
   if (!currentCalculation) return;
 
   const updates = {
-    total_payin_commission: amountDiff > 0 ? commission : -commission,
+    total_payin_count: count,
+    total_payin_commission: commission,
     total_payin_amount: amountDiff,
     current_balance: amountDiff - commission,
     net_balance: amountDiff - commission,
