@@ -1,4 +1,4 @@
-import { sendTelegramDashboardSuccessRatioMessage } from '../utils/sendTelegramMessages';
+import { sendTelegramDashboardSuccessRatioMessage } from '../utils/sendTelegramMessages.js';
 import { getPayInUrlsDao } from '../apis/payIn/payInDao.js';
 import cron from 'node-cron';
 import { getMerchantsDao } from '../apis/merchants/merchantDao.js';
@@ -107,6 +107,7 @@ const formattedSuccessRatiosByMerchant = async () => {
     logger.error('Error ', error.message);
   }
 };
+export default formattedSuccessRatiosByMerchant;
 
 //run only on server - side /production level
 if (process.env.NODE_ENV === 'production') {
