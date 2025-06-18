@@ -32,6 +32,7 @@ import {
   updateUserHierarchyDao,
 } from '../userHierarchy/userHierarchyDao.js';
 import { getMerchantByUserIdDao } from '../merchants/merchantDao.js';
+import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const getUsersService = async (
   ids,
@@ -448,7 +449,6 @@ const createUserService = async (conn, payload, role) => {
           publicKey: merchant?.config ? merchant.config.keys.public : '',
           designation: designation[0]?.designation,
         });
-        console.log(data, 'sending email');
 
         if (!data) {
           throw new InternalServerError('Failed to send email');
@@ -460,6 +460,13 @@ const createUserService = async (conn, payload, role) => {
 
     logger.log('User Created Successfully');
     // const finalResult = filterResponse(User, filterColumns);
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: payload.company_id,
+      message: `New User with username: ${payload.user_name} has been created.`,
+      payloadUserId: payload.created_by,
+      actorUserId: payload.created_by,
+    });
     return User;
   } catch (error) {
     logger.error('Error in createUserService:', error);
@@ -471,6 +478,13 @@ const createUserService = async (conn, payload, role) => {
 const userUpdateService = async (conn, ids, payload) => {
   try {
     const User = await updateUserDao(ids, payload, conn);
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: ids.company_id,
+      message: `New User with username: ${User.user_name} has been created.`,
+      payloadUserId: payload.updated_by,
+      actorUserId: payload.updated_by,
+    });
     logger.log('User Updated Successfully');
     return User;
   } catch (error) {

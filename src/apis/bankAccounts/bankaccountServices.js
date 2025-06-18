@@ -186,7 +186,14 @@ const createBankaccountService = async (
   }
 };
 
-const updateBankaccountService = async (conn, ids, payload, role) => {
+const updateBankaccountService = async (
+  conn,
+  ids,
+  payload,
+  role,
+  company_id,
+  user_id,
+) => {
   try {
     let result;
 
@@ -216,8 +223,22 @@ const updateBankaccountService = async (conn, ids, payload, role) => {
       if (payload.latest_balance >= bank[0].config?.max_limit) {
         payload.is_enabled = false;
         deactivateBank(bank[0].nick_name, ids.id, userId);
+        await notifyAdminsAndUsers({
+          conn,
+          company_id: company_id,
+          message: `The Bank with the ${bank[0].nick_name} id Deactivate`,
+          payloadUserId: user_id,
+          actorUserId: user_id,
+        });
       } else if (payload.latest_balance === bank[0].config?.max_limit) {
         deactivateBank(bank[0].nick_name, ids.id, true);
+        await notifyAdminsAndUsers({
+          conn,
+          company_id: company_id,
+          message: `The Bank with the ${bank[0].nick_name} will be Deactivate soon as the Balance will soon reach the Daily Limit`,
+          payloadUserId: user_id,
+          actorUserId: user_id,
+        });
       }
     }
     delete payload.latest_balance;
@@ -259,13 +280,13 @@ const updateBankaccountService = async (conn, ids, payload, role) => {
         }
       }
     }
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: payload.company_id,
-    //   message: `The bank account with nick name ${result.nick_name} has been updated.`,
-    //   payloadUserId: payload.user_id,
-    //   actorUserId: payload.updated_by,
-    // });
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: company_id,
+      message: `The bank account with nick name ${bank[0].nick_name} has been updated.`,
+      payloadUserId: user_id,
+      actorUserId: user_id,
+    });
     return result;
   } catch (error) {
     logger.error('error getting while  updating banks', error);
@@ -273,14 +294,21 @@ const updateBankaccountService = async (conn, ids, payload, role) => {
   }
 };
 
-const deleteBankaccountService = async (conn, ids) => {
+const deleteBankaccountService = async (conn, ids, user_id) => {
   try {
-    const payload = { is_obsolete: true };
+    const payload = { is_obsolete: true, updated_by: user_id };
     const result = await deleteBankaccountDao(
       conn,
       { id: ids.id, company_id: ids.company_id },
       payload,
     );
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: ids.company_id,
+      message: `Bank with nick name ${result.nick_name} has been deleted.`,
+      payloadUserId: user_id,
+      actorUserId: user_id,
+    });
     return result;
   } catch (error) {
     logger.error('error getting while deleting banks', error);

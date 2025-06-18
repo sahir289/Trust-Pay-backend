@@ -4,6 +4,7 @@ import { isAuthenticated } from '../../middlewares/auth.js';
 import {
   createNotifications,
   deleteNotifications,
+  getNotificationCounts,
   getNotifications,
   getNotificationsById,
   updateNotifications,
@@ -38,6 +39,7 @@ const router = express.Router();
  *                     example: "active"
  */
 router.get('/', isAuthenticated, tryCatchHandler(getNotifications));
+router.get('/get-count', isAuthenticated, tryCatchHandler(getNotificationCounts));
 
 /**
  * @swagger

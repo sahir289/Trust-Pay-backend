@@ -53,6 +53,7 @@ import { logger } from '../../utils/logger.js';
 // import { updatePayout } from '../../utils/sockets.js';
 import { newTableEntry } from '../../utils/sockets.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
+import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 const createPayoutService = async (conn, headers, payload, role, res) => {
   try {
@@ -64,7 +65,7 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
           : columns.PAYOUT;
     const { code, amount, x_api_key, returnUrl, notifyUrl } = payload;
     const details = await getMerchantsDao({ code });
-    
+
     if (!details[0] || details[0].length === 0) {
       // throw new BadRequestError('Merchant does not exist');
       return res.status(400).json({
@@ -78,8 +79,7 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
       });
     }
 
-    if(details[0]?.balance<0 && !details[0]?.config?.allow_payout)
-    {
+    if (details[0]?.balance < 0 && !details[0]?.config?.allow_payout) {
       return res.status(400).json({
         error: {
           status: 400,
@@ -116,7 +116,7 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
       { merchant_order_id: merchant_order_id },
       payload.company_id,
     );
-   
+
     if (isOrderIdExist.length > 0) {
       // throw new BadRequestError('Merchant Order ID already exists');
       return res.status(400).json({
@@ -243,9 +243,16 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
     logger.info('Payout created successfully');
     const finalResult = filterResponse(data, filterColumns);
     await newTableEntry(tableName.PAYOUT);
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: payload.company_id,
+      message: `PayOut with merchant order id: ${payload.merchant_order_id} has been initiated.`,
+      payloadUserId: details[0].user_id,
+      actorUserId: details[0].user_id,
+    });
     return finalResult;
   } catch (error) {
-    logger.error(error)
+    logger.error(error);
     if (error instanceof BadRequestError) {
       throw error;
     }
@@ -349,7 +356,7 @@ const getPayoutsBySearchService = async (
 ) => {
   try {
     const fetchMerchantIds = async (user_ids) => {
-      const merchants = await getMerchantByUserIdDao( user_ids);
+      const merchants = await getMerchantByUserIdDao(user_ids);
       return merchants.map((merchant) => merchant.id);
     };
 
@@ -436,7 +443,10 @@ const updatePayoutService = async (conn, ids, payload, role) => {
   try {
     await checkLockEdit(conn, ids.id);
     if (payload?.utr_id) {
-      const payoutDetails = await getPayoutsDao({ utr_id: payload.utr_id }, ids.company_id);
+      const payoutDetails = await getPayoutsDao(
+        { utr_id: payload.utr_id },
+        ids.company_id,
+      );
       if (payoutDetails.length > 0) {
         throw new BadRequestError('UTR already exists');
       }
@@ -462,7 +472,9 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (!singleWithdrawData) {
       throw new NotFoundError('Payout not found!');
     }
-    const merchantArr = await getMerchantsDao({ id: singleWithdrawData.merchant_id });
+    const merchantArr = await getMerchantsDao({
+      id: singleWithdrawData.merchant_id,
+    });
     const merchant = merchantArr[0];
     if (!merchant) {
       throw new NotFoundError('Merchant not found!');
@@ -493,9 +505,12 @@ const updatePayoutService = async (conn, ids, payload, role) => {
           'Payout status cannot be updated to the same value',
         );
       }
-}
+    }
     const data = await updatePayoutDao(ids, payload, conn);
-    let checkPayload = { utr_id: payload.utr_id, updated_by: payload.updated_by };
+    let checkPayload = {
+      utr_id: payload.utr_id,
+      updated_by: payload.updated_by,
+    };
     if (JSON.stringify(payload) === JSON.stringify(checkPayload)) {
       return data;
     }
@@ -604,13 +619,19 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       status: data.status,
       utr_id: data.utr_id || '',
     });
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: ids.company_id,
+      message: `PayOut with merchant order id: ${payload.merchant_order_id} has been updated.`,
+      payloadUserId: merchant.user_id,
+      actorUserId: vendor.user_id,
+    });
     return data;
   } catch (error) {
     logger.error('Error in updatePayoutService:', error);
     throw new InternalServerError(error.message);
   }
 };
-
 
 ///for update payout calculation of payout
 const updateCalculationTable = async (user_id, data, isApproved, conn) => {
@@ -636,15 +657,15 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
       payload = {
         total_payout_count: 1,
         total_payout_amount: data.amount,
-        total_payout_commission:  data.payoutCommission,
-        current_balance: - totalAmountData,
-        net_balance: - totalAmountData,
+        total_payout_commission: data.payoutCommission,
+        current_balance: -totalAmountData,
+        net_balance: -totalAmountData,
       };
     } else {
       payload = {
         total_reverse_payout_count: 1,
         total_reverse_payout_amount: data.amount,
-        total_reverse_payout_commission: - data.payoutCommission,
+        total_reverse_payout_commission: -data.payoutCommission,
         current_balance: totalAmountData,
         net_balance: totalAmountData,
       };
@@ -1008,7 +1029,7 @@ const checkPayOutStatusService = async (
     merchantOrderId: payOut[0].merchant_order_id,
     amount: payOut[0].amount,
     payoutId: payOut[0].id,
-    utr_id: payOut[0].utr_id ? payOut[0].utr_id : " ",
+    utr_id: payOut[0].utr_id ? payOut[0].utr_id : ' ',
   };
 };
 

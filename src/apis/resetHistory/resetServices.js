@@ -8,6 +8,7 @@ import {
   getResetHistoryDao,
 } from './resetDao.js';
 import { BadRequestError } from '../../utils/appErrors.js';
+import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 const getResetHistoryService = async (id, page, limit,sortBy,sortOrder, startDate, endDate) => {
   try {
     // const pageNumber = parseInt(page, 10) || 1;
@@ -67,9 +68,16 @@ const getResetHistoryBySearchService = async (filters) => {
     }
   };
 
-const createResetHistoryService = async (payload) => {
+const createResetHistoryService = async (conn, payload) => {
   try {
     const result = await createResetHistoryDao(payload);
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: payload.company_id,
+      message: `PayIn with merchant order id: ${payload.merchant_order_id} has been reset.`,
+      payloadUserId: payload.updated_by,
+      actorUserId: payload.updated_by,
+    });
     return result;
   } catch (error) {
     console.error('error getting while reset history', error);

@@ -1,5 +1,6 @@
 import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
+import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import {
   createCheckUtrDao,
   deleteCheckUtrDao,
@@ -10,7 +11,14 @@ import {
 
 const getCheckUtrService = async (id, page, limit, sortOrder) => {
   try {
-    const result = await getCheckUtrDao(id, page, limit, 'sno', sortOrder, null);
+    const result = await getCheckUtrDao(
+      id,
+      page,
+      limit,
+      'sno',
+      sortOrder,
+      null,
+    );
     return result;
   } catch (error) {
     logger.error('error getting while check utr', error);
@@ -25,24 +33,37 @@ const getCheckUtrBySearchService = async (company_id, search, page, limit) => {
     if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
       throw new BadRequestError('Invalid pagination parameters');
     }
-    const searchTerms = search.split(',')
-      .map(term => term.trim())
-      .filter(term => term.length > 0);
+    const searchTerms = search
+      .split(',')
+      .map((term) => term.trim())
+      .filter((term) => term.length > 0);
 
     if (searchTerms.length === 0) {
       throw new BadRequestError('Please provide valid search items');
     }
     const offset = (pageNum - 1) * limitNum;
-    return await getCheckUtrBySearchDao(company_id, searchTerms, limitNum, offset);
+    return await getCheckUtrBySearchDao(
+      company_id,
+      searchTerms,
+      limitNum,
+      offset,
+    );
   } catch (error) {
     logger.error('error getting while getting check utr by search', error);
     throw new InternalServerError(error);
   }
 };
 
-const createCheckUtrService = async (payload) => {
+const createCheckUtrService = async (conn, payload, merchant_order_id, utr) => {
   try {
     const result = await createCheckUtrDao(payload);
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: payload.company_id,
+      message: `Check UTR has been performed for merchant order ID: ${merchant_order_id} with UTR: ${utr}`,
+      payloadUserId: payload.updated_by,
+      actorUserId: payload.updated_by,
+    });
     return result;
   } catch (error) {
     console.error('error getting while check utr', error);
