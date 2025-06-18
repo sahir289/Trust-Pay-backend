@@ -2168,6 +2168,19 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
   }
 
   if (payIn.one_time_used === true) {
+    // If already used
+    const updatedConfig = stringifyJSON({
+      ...payIn.config,
+      user: user_location,
+      page_reload: true,
+      page_reload_count: (payIn.config?.page_reload_count || 0) + 1,
+    });
+
+    await updatePayInUrlDao(payIn.id, {
+      config: updatedConfig,
+      one_time_used: true,
+    });
+
     const result = {
       redirect_url: payIn.config?.urls?.return,
     };
