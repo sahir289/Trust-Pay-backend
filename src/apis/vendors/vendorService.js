@@ -8,7 +8,10 @@ import {
   rollback,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
-import { createUserHierarchyDao, getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
+import {
+  createUserHierarchyDao,
+  getUserHierarchysDao,
+} from '../userHierarchy/userHierarchyDao.js';
 import {
   createVendorDao,
   deleteVendorDao,
@@ -19,8 +22,9 @@ import {
 } from './vendorDao.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
-import {updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
-import {updateUserDao } from '../users/userDao.js';
+import { updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
+import { updateUserDao } from '../users/userDao.js';
+import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 const createVendorService = async (conn, payload) => {
   try {
     let role_id = payload.role_id;
@@ -28,21 +32,28 @@ const createVendorService = async (conn, payload) => {
     const data = await createVendorDao(payload, conn);
     const calculationPayload = {
       user_id: data.user_id,
-      role_id:role_id,
+      role_id: role_id,
       company_id: data.company_id,
     };
     await createCalculationDao(conn, calculationPayload);
     await createUserHierarchyDao(
-            {
-              user_id: data.user_id,
-              // role_id: Role_id,
-              created_by: data.created_by,
-              updated_by: data.updated_by,
-              company_id: data.company_id,
-            },
-            conn,
-          );
+      {
+        user_id: data.user_id,
+        // role_id: Role_id,
+        created_by: data.created_by,
+        updated_by: data.updated_by,
+        company_id: data.company_id,
+      },
+      conn,
+    );
     console.log('Vendor created successfully', 'info');
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: data.company_id,
+      message: `New Vendor with code: ${data.code} has been created.`,
+      payloadUserId: data.updated_by,
+      actorUserId: data.updated_by,
+    });
     return data;
   } catch (error) {
     console.log('Error while creating Vendor', 'error', error);
@@ -50,10 +61,17 @@ const createVendorService = async (conn, payload) => {
   }
 };
 
-const getVendorsService = async (filters, roleIs, page, limit,user_id,designation) => {
+const getVendorsService = async (
+  filters,
+  roleIs,
+  page,
+  limit,
+  user_id,
+  designation,
+) => {
   try {
     const filterColumns =
-    roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
+      roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
     let parentUserId;
@@ -63,8 +81,7 @@ const getVendorsService = async (filters, roleIs, page, limit,user_id,designatio
         const userHierarchy = UserHierarchy[0];
         parentUserId = userHierarchy?.config?.parent;
         filters.user_id = parentUserId;
-      }
-      else {
+      } else {
         parentUserId = user_id;
         filters.user_id = parentUserId;
       }
@@ -76,7 +93,7 @@ const getVendorsService = async (filters, roleIs, page, limit,user_id,designatio
       null,
       null,
       filterColumns,
-      roleIs   //-role specific details
+      roleIs, //-role specific details
     );
   } catch (error) {
     console.error('Error while fetching vendors', error);
@@ -150,18 +167,18 @@ const getVendorsBySearchService = async (
     const filterColumns =
       role === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
     // TODO: add designation constants
-   let parentUserId;
-   if (role === Role.VENDOR) {
-     if (designation === Role.VENDOR_OPERATIONS) {
-       const UserHierarchy = await getUserHierarchysDao({ user_id });
-       const userHierarchy = UserHierarchy[0];
-       parentUserId = userHierarchy?.config?.parent;
-       filters.user_id = parentUserId;
-     } else {
-       parentUserId = user_id;
-       filters.user_id = parentUserId;
-     }
-   }
+    let parentUserId;
+    if (role === Role.VENDOR) {
+      if (designation === Role.VENDOR_OPERATIONS) {
+        const UserHierarchy = await getUserHierarchysDao({ user_id });
+        const userHierarchy = UserHierarchy[0];
+        parentUserId = userHierarchy?.config?.parent;
+        filters.user_id = parentUserId;
+      } else {
+        parentUserId = user_id;
+        filters.user_id = parentUserId;
+      }
+    }
     const data = await getVendorsBySearchDao(
       filters,
       searchTerms,
@@ -188,6 +205,13 @@ const updateVendorService = async (id, payload, role) => {
     await commit(conn); // Commit the transaction
     console.log('Vendor updated successfully', 'info');
     const finalResult = filterResponse(data, filterColumns);
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: data.company_id,
+      message: `Vendor with code: ${data.code} has been updated.`,
+      payloadUserId: data.updated_by,
+      actorUserId: data.updated_by,
+    });
     return finalResult;
   } catch (error) {
     if (conn) {
@@ -227,23 +251,38 @@ const deleteVendorService = async (ids) => {
     const data = await deleteVendorDao(ids, payload); // Adjust DAO call for delete
     //delete banks and childs for particular user
     if (data) {
-      const payloadBank = { config:{ is_freeze: true, "isFromDeletedParent": true },is_qr:false,
-      is_bank:false,
-      is_enabled:false};
-      await updateUserDao({ id: ids.user_id }, payload, conn)
-      await updateBankaccountDao({ user_id: ids.user_id }, payloadBank, conn,true);
+      const payloadBank = {
+        config: { is_freeze: true, isFromDeletedParent: true },
+        is_qr: false,
+        is_bank: false,
+        is_enabled: false,
+      };
+      await updateUserDao({ id: ids.user_id }, payload, conn);
+      await updateBankaccountDao(
+        { user_id: ids.user_id },
+        payloadBank,
+        conn,
+        true,
+      );
       //for childs user hierachys
-       const UserHierarchy = await getUserHierarchysDao({
-         user_id: ids.user_id,
-       });
-       if (UserHierarchy[0]?.config?.child?.operations) {
-         const userIds = UserHierarchy[0].config.child.operations;
-         for (const userId of userIds) {
-           await updateUserDao({ id: userId }, payload, conn);
-         }
-       }
+      const UserHierarchy = await getUserHierarchysDao({
+        user_id: ids.user_id,
+      });
+      if (UserHierarchy[0]?.config?.child?.operations) {
+        const userIds = UserHierarchy[0].config.child.operations;
+        for (const userId of userIds) {
+          await updateUserDao({ id: userId }, payload, conn);
+        }
+      }
     }
     await commit(conn); // Commit the transaction
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: ids.company_id,
+      message: `Vendor with code: ${data.code} has been deleted.`,
+      payloadUserId: ids.updated_by,
+      actorUserId: ids.updated_by,
+    });
     console.log('Vendor deleted successfully', 'info');
     return data;
   } catch (error) {
@@ -281,5 +320,5 @@ export {
   updateVendorService,
   deleteVendorService,
   getVendorsBySearchService,
-  getVendorsCodeService
+  getVendorsCodeService,
 };

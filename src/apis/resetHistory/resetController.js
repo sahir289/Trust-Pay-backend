@@ -1,4 +1,5 @@
 import { InternalServerError, BadRequestError } from '../../utils/appErrors.js';
+import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   createResetHistoryService,
@@ -48,7 +49,7 @@ const createResetHistory = async (req, res) => {
       console.error('payload is required');
       throw new InternalServerError('payload is required');
     }
-    const data = await createResetHistoryService(payload);
+    const data = await transactionWrapper(createResetHistoryService)(payload);
     return sendSuccess(res, data, 'reset history successfully');
   } catch (error) {
     console.error('error getting while fetching reports', error);

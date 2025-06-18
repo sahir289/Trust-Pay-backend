@@ -39,6 +39,7 @@ import {
 import { getVendorsDao, updateVendorBalanceDao } from '../vendors/vendorDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
+import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const getSettlementServiceById = async (ids) => {
   try {
@@ -327,7 +328,14 @@ const createSettlementService = async (conn, payload) => {
       throw new BadRequestError('UTR is already used');
     }
     // For other methods, proceed with settlement creation
-    
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: payload.company_id,
+      message: `Settlement for Client: ${payload.user_id} has been created.`,
+      payloadUserId: payload.user_id,
+      actorUserId: payload.user_id,
+    });
+
     return await createSettlementDao(payload);
   } catch (error) {
     logger.error('Error while creating Settlement', error);
@@ -339,7 +347,7 @@ const createSettlementService = async (conn, payload) => {
 
 const updateSettlementService = async (conn, ids, payload, role) => {
   try {
-    await checkLockEdit(conn,ids.id);
+    await checkLockEdit(conn, ids.id);
     payload.config = payload.config || {};
     const data = await getSettlementDao(
       {
@@ -351,7 +359,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       null,
       null,
     );
-    
+
     //getting error reference_id undefined fixed when approving settlement
     if (
       payload.config.reference_id !== undefined &&
@@ -360,9 +368,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
     ) {
       throw new BadRequestError(`UTR already exists`);
     }
-    const calculationData = await getCalculationforCronDao(
-      data[0].user_id,
-    );
+    const calculationData = await getCalculationforCronDao(data[0].user_id);
 
     if (payload.config.reference_id) {
       payload.status = Status.SUCCESS;
@@ -492,7 +498,9 @@ const updateSettlementService = async (conn, ids, payload, role) => {
             data[0]?.config?.reference_id,
           );
           if (!bankResponses) {
-            throw new NotFoundError('Bank response not found for the provided UTR');
+            throw new NotFoundError(
+              'Bank response not found for the provided UTR',
+            );
           }
           if (bankResponses.is_used === true) {
             throw new BadRequestError('UTR is already used');
@@ -567,6 +575,13 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       { id: ids.id, company_id: ids.company_id },
       payload,
     );
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: payload.company_id,
+      message: `Settlement for Client: ${data[0].user_id} has been updated.`,
+      payloadUserId: payload.user_id,
+      actorUserId: payload.user_id,
+    });
     return updateData;
   } catch (error) {
     console.log('Error while updating Settlement', 'error', error);

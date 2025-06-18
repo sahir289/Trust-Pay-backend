@@ -19,6 +19,7 @@ import {
   getBeneficiaryAccountDaoByBankName,
   getBeneficiaryAccountBySearchDao,
 } from './beneficiaryAccountDao.js';
+import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const getBeneficiaryAccountService = async (
   filters,
@@ -284,6 +285,13 @@ const createBeneficiaryAccountService = async (conn, payload) => {
     } else {
       result = await createBeneficiaryAccountDao(payload);
     }
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: userRole[0].company_id,
+      message: `The new Beneficiary Account with Bank Name ${payload.bank_name} has been created.`,
+      payloadUserId: userIds,
+      actorUserId: userIds,
+    });
     return result;
   } catch (error) {
     logger.error('error getting while creating banks', error);
@@ -311,6 +319,13 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
     if (Object.keys(payload).length > 0) {
       result = await updateBeneficiaryAccountDao({ id: ids.id }, payload, conn);
     }
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: ids.company_id,
+      message: `The Beneficiary Account with Bank Name ${bank[0].bank_name} has been updated.`,
+      payloadUserId: payload.updated_by,
+      actorUserId: payload.updated_by,
+    });
     return result;
   } catch (error) {
     logger.error('error getting while  updating banks', error);

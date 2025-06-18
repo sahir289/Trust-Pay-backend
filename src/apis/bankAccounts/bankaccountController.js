@@ -178,10 +178,10 @@ const deleteBankaccount = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const { company_id, user_name } = req.user;
+  const { company_id, user_name, user_id } = req.user;
   const ids = { id, company_id };
   // const data =
-  const deletebank = await transactionWrapper(deleteBankaccountService)(ids);
+  const deletebank = await transactionWrapper(deleteBankaccountService)(ids, user_id);
   return sendSuccess(
     res,
     { id: deletebank.id, deleted_by: user_name },
