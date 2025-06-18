@@ -2,6 +2,8 @@ import express from 'express';
 import collectBankData from './bankCron.js';
 import collectCalculationData from './calculationCron.js';
 import collectPayinData from './notifyCron.js';
+import { logger } from '../utils/logger.js';
+import formattedSuccessRatiosByMerchant from './successRatioCron.js';
 // import  checkPendingStatus  from './pendingPayinCron.js';
 const router = express.Router();
 
@@ -29,7 +31,7 @@ router.get(
   '/bankCron',
   (req, res) => {
     collectBankData('Asia/Kolkata');
-    console.log('Calling collectBankData CRONJOB with timezone: Asia/Kolkata');
+    logger.info('Calling collectBankData CRONJOB with timezone: Asia/Kolkata');
     res.json({ message: 'Cron job is running for Banks' });
   },
   collectBankData,
@@ -59,7 +61,7 @@ router.get(
   '/calculationCron',
   (req, res) => {
     collectCalculationData('Asia/Kolkata');
-    console.log(
+    logger.info(
       'Calling collectCalculationData CRONJOB with timezone: Asia/Kolkata',
     );
     res.json({ message: 'Cron job is running for calculation' });
@@ -102,8 +104,17 @@ router.get(
   '/notifyPayinDroppedCron',
   (req, res) => {
     collectPayinData('Asia/Kolkata');
-    console.log('Calling collectPayinData CRONJOB with timezone: Asia/Kolkata');
+    logger.info('Calling collectPayinData CRONJOB with timezone: Asia/Kolkata');
     res.json({ message: 'Cron job is running for Notify-Url' });
+  },
+  collectPayinData,
+);
+router.get(
+  '/successRatioCron',
+  (req, res) => {
+    formattedSuccessRatiosByMerchant();
+    logger.info('Calling formattedSuccessRatiosByMerchant CRONJOB');
+    res.json({ message: 'Cron job is running for Success Ratio' });
   },
   collectPayinData,
 );

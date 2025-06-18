@@ -48,7 +48,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
       eDate = currentDate.clone().toDate();
     }
 
-    logger.info('cron_started');
+    logger.info('Dashboard Report CRON Started');
     const merchants = await getMerchantsDao({}, null, null);
     let merchant = [];
     let totalpayinsMerchant = 0;
@@ -196,8 +196,9 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
       config?.telegramBotToken,
       type === 'H' ? 'Hourly Report' : 'Daily Report',
     );
+    logger.info('Dashboard Report CRON Ended');
   } catch (error) {
-    console.error(error);
+    logger.error(error);
   } finally {
     if (conn) {
       conn.release();

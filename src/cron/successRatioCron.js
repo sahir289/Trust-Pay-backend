@@ -1,21 +1,13 @@
-import { sendTelegramDashboardSuccessRatioMessage } from '../utils/sendTelegramMessages';
+import { sendTelegramDashboardSuccessRatioMessage } from '../utils/sendTelegramMessages.js';
 import { getPayInUrlsDao } from '../apis/payIn/payInDao.js';
 import cron from 'node-cron';
 import { getMerchantsDao } from '../apis/merchants/merchantDao.js';
 import config from '../config/config.js';
 import { logger } from '../utils/logger.js';
 
-//run only on server - side /production level
-if (process.env.NODE_ENV === 'production') {
-  cron.schedule('*/10 * * * *', () => {
-    formattedSuccessRatiosByMerchant();
-  });
-} else {
-  logger.error('Cron jobs are disabled in non-production environments.');
-}
-
 const formattedSuccessRatiosByMerchant = async () => {
   try {
+    logger.info('Success Ratio CRON Started');
     const now = new Date();
     const intervals = [
       { label: 'Last 5m', duration: 5 * 60 * 1000 },
@@ -27,10 +19,10 @@ const formattedSuccessRatiosByMerchant = async () => {
     ];
 
     // fetch all transactions
-    const allPayins = await getPayInUrlsDao({});
+    const allPayIns = await getPayInUrlsDao({});
     const merchants = await getMerchantsDao({}, null, null);
     // group transactions by merchant_id
-    const transactionsByMerchant = allPayins.reduce((map, payin) => {
+    const transactionsByMerchant = allPayIns.reduce((map, payin) => {
       if (!map[payin.merchant_id]) map[payin.merchant_id] = [];
       map[payin.merchant_id].push({
         updated_at: new Date(payin.updated_at),
@@ -110,7 +102,18 @@ const formattedSuccessRatiosByMerchant = async () => {
       fullMessages,
       config?.telegramBotToken,
     );
+    logger.info('Success Ratio CRON Ended');
   } catch (error) {
     logger.error('Error ', error.message);
   }
 };
+export default formattedSuccessRatiosByMerchant;
+
+//run only on server - side /production level
+if (process.env.NODE_ENV === 'production') {
+  cron.schedule('*/10 * * * *', () => {
+    formattedSuccessRatiosByMerchant();
+  });
+} else {
+  logger.error('Cron jobs are disabled in non-production environments.');
+}
