@@ -136,6 +136,20 @@ const createBankResponseService = async (
       ...(isValidAmountCode && { upi_short_code }),
     };
 
+    if (isValidAmountCode) {
+      const isAmountCodeExist = await getBankResponseDao(
+        { upi_short_code, company_id },
+        null,
+        null,
+        null,
+        null,
+        filterColumns,
+      );
+      if (isAmountCodeExist) {
+        return { message: 'Amount code already exist' };
+      }
+    }
+
     const sendNotification = async (status, data) => {
       await notifyNewTableEntry(tableName.BANK_RESPONSE, status, data);
     };
