@@ -335,14 +335,14 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
       if (Object.keys(payload).length > 0) {
         result = await updateBeneficiaryAccountDao({ id: bank.id }, payload, conn);
       }
+      await notifyAdminsAndUsers({
+        conn,
+        company_id: ids.company_id,
+        message: `The Beneficiary Account with Bank Name ${bank.bank_name} has been updated.`,
+        payloadUserId: payload.updated_by,
+        actorUserId: payload.updated_by,
+      });
     }
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: ids.company_id,
-      message: `The Beneficiary Account with Bank Name ${bank[0].bank_name} has been updated.`,
-      payloadUserId: payload.updated_by,
-      actorUserId: payload.updated_by,
-    });
     return result;
   } catch (error) {
     logger.error('error getting while  updating banks', error);

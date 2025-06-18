@@ -25,10 +25,15 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role) => {
         delete filters?.limit;
         const value = filters[key];
         if (value !== null && value !== undefined && value !== '') {
-          if (Array.isArray(value)) {
+          if (key.includes('->>')) {
+            const [jsonField, jsonKey] = key.split('->>');
+            conditions.push(`bea.${jsonField}->>'${jsonKey}' = $${queryParams.length + 1}`);
+            queryParams.push(value);
+          }
+           else if (Array.isArray(value)) {
             conditions.push(`bea."${key}" = ANY($${queryParams.length + 1})`);
             queryParams.push(value);
-          } else {
+          }  else {
             conditions.push(`bea."${key}" = $${queryParams.length + 1}`);
             queryParams.push(value);
           }
