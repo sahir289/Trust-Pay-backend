@@ -432,7 +432,22 @@ const updateUserDao = async (ids, data, conn) => {
   }
 }
 
-
+const getAdminUserIdsDao = async (company_id) => {
+  try {
+    const sql = `
+      SELECT id
+      FROM "${tableName.USER}"
+      WHERE is_obsolete = FALSE
+        AND company_id = $1
+        AND role_id = (SELECT id FROM "${tableName.ROLE}" WHERE role = 'ADMIN')
+    `;
+    const result = await executeQuery(sql, [company_id]);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error executing getAdminUsersDao query:', error);
+    throw error.message;
+  }
+};
 
 export {
   getUsersDao,
@@ -440,8 +455,8 @@ export {
   getUserByIdDao,
   getUsersForCronDao,
   getUsersByUserNameDao,
+  getAdminUserIdsDao,
   createUserDao,
   updateUserDao,
-  
 };
 

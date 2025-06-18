@@ -1,4 +1,4 @@
-import { InternalServerError, NotFoundError } from '../../utils/appErrors.js';
+import { InternalServerError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { getUserByIdDao } from '../users/userDao.js';
@@ -6,6 +6,7 @@ import {
   createNotificationsDao,
   createNotificationsRecipientDao,
   getNotificationByIdDao,
+  getNotificationCountsByIdDao,
   getNotificationRecipientByNotificationDao,
   getNotificationRecipientByNotificationIdDao,
   updateNotificationsDao,
@@ -28,7 +29,8 @@ export const getNotificationsService = async (user_id, company_id) => {
     });
 
     if (filteredRecipients.length === 0) {
-      throw new NotFoundError('No unread notifications found for the user');
+      // throw new NotFoundError('No unread notifications found for the user');
+      return [];
     }
 
     // Get notification IDs from filtered recipients
@@ -39,14 +41,52 @@ export const getNotificationsService = async (user_id, company_id) => {
     // Fetch notifications by IDs
     const notifications = await getNotificationByIdDao(
       notificationIds,
-      user_id,
       company_id,
     );
 
     return notifications;
   } catch (error) {
     logger.error('Error while getting Notifications', error);
-    throw error
+    throw error;
+  }
+};
+
+export const getNotificationCountsService = async (user_id, company_id) => {
+  try {
+    // Get all notification recipients for the company
+    const notificationRecipients =
+      await getNotificationRecipientByNotificationDao(company_id);
+
+    // Filter recipients where config contains the user_id
+    const filteredRecipients = notificationRecipients.filter((recipient) => {
+      if (Array.isArray(recipient.config.recipients)) {
+        return recipient.config.recipients.some(
+          (cfg) => cfg.recipient_id === user_id && cfg.is_read === 'false',
+        );
+      }
+      return false;
+    });
+
+    if (filteredRecipients.length === 0) {
+      // throw new NotFoundError('No unread notifications found for the user');
+      return []; // Return an empty array if no unread notifications found
+    }
+
+    // Get notification IDs from filtered recipients
+    const notificationIds = filteredRecipients.map(
+      (recipient) => recipient.notification_id,
+    );
+
+    // Fetch notifications by IDs
+    const notifications = await getNotificationCountsByIdDao(
+      notificationIds,
+      company_id,
+    );
+
+    return notifications;
+  } catch (error) {
+    logger.error('Error while getting Notifications', error);
+    throw error;
   }
 };
 
@@ -67,7 +107,8 @@ export const getNotificationByIdService = async (id, userId, company_id) => {
     });
 
     if (filteredRecipients.length === 0) {
-      throw new NotFoundError('No unread notifications found for the user');
+      // throw new NotFoundError('No unread notifications found for the user');
+      return []; // Return an empty array if no unread notifications found
     }
 
     // Get notification IDs from filtered recipients
@@ -85,7 +126,7 @@ export const getNotificationByIdService = async (id, userId, company_id) => {
     return notifications;
   } catch (error) {
     logger.error('Error while getting Notifications', error);
-    throw error
+    throw error;
   }
 };
 
@@ -112,20 +153,22 @@ export const createNotificationsService = async (
     const recipients = await Promise.all(
       recipient_ids.map(async (recipient_id) => {
         const user = users.find((u) => u.id === recipient_id);
-        const designation = await getDesignationDao({ designation: user?.designation });
+        const designation = await getDesignationDao({
+          designation: user?.designation,
+        });
         return {
           recipient_id,
           designation_id: designation[0]?.id,
           is_read: 'false',
           read_at: null,
         };
-      })
+      }),
     );
 
     const recipientPayload = {
       notification_id: notifications[0].id,
       company_id: company_id,
-      config: {recipients},
+      config: { recipients },
     };
     await createNotificationsRecipientDao(recipientPayload);
     return notifications;
@@ -142,7 +185,8 @@ export const updateNotificationsService = async (id, user_id, company_id) => {
       await getNotificationRecipientByNotificationIdDao(ids, company_id);
 
     if (notificationRecipients.length === 0) {
-      throw new NotFoundError('Notification not found');
+      // throw new NotFoundError('Notification not found');
+      return []; // Return an empty array if no notifications found
     }
 
     // Update only the recipient config for the current user_id, keeping other config data intact
@@ -166,14 +210,14 @@ export const updateNotificationsService = async (id, user_id, company_id) => {
     // Only include the recipient config for the current user_id in the response
     const notifications = updatedNotifications[0].map((recipient) => {
       if (Array.isArray(recipient.config.recipients)) {
-      return {
-        ...recipient,
-        config: {
-        recipients: recipient.config.recipients.filter(
-          (cfg) => cfg.recipient_id === user_id
-        ),
-        },
-      };
+        return {
+          ...recipient,
+          config: {
+            recipients: recipient.config.recipients.filter(
+              (cfg) => cfg.recipient_id === user_id,
+            ),
+          },
+        };
       }
       return recipient;
     });
@@ -181,6 +225,6 @@ export const updateNotificationsService = async (id, user_id, company_id) => {
     return notifications;
   } catch (error) {
     logger.error('Error while updating Notifications', error);
-    throw error
+    throw error;
   }
 };

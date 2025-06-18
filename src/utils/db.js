@@ -14,7 +14,7 @@ const { Pool } = pkg;
 const pool = new Pool({
   connectionString: `${config.databaseUrl}?options=-c%20timezone%3DAsia%2FKolkata`,
   ssl:
-    config.env === 'production' 
+    config.env === 'production'
       ? {
           rejectUnauthorized: false,
           // ca: fs.readFileSync(path.join(__dirname, '/Users/mac/Downloads/ap-south-1-bundle.pem')).toString(),
@@ -310,13 +310,18 @@ export const buildAndExecuteUpdateQuery = async (
         Object.entries(obj).forEach(([key, value]) => {
           const currentPath = [...parentKey, key];
           // merging merchant_added object
-          if (key === 'merchant_added' && typeof value === 'object' && !Array.isArray(value)) {
+          if (
+            key === 'merchant_added' &&
+            typeof value === 'object' &&
+            !Array.isArray(value)
+          ) {
             const path = currentPath.join(',');
             const mergeSnippet = `coalesce(${jsonbSetQuery}#>'{${path}}', '{}'::jsonb) || $${index}::jsonb`;
             jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', ${mergeSnippet})`;
             values.push(JSON.stringify(value));
             index++;
-          } else if (typeof value === 'object' && !Array.isArray(value)) {            // Recursively process nested objects
+          } else if (typeof value === 'object' && !Array.isArray(value)) {
+            // Recursively process nested objects
             processNestedKeys(value, currentPath);
           } else {
             // Add jsonb_set for the current key

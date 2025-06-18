@@ -7,6 +7,7 @@ import {
   rollback,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
+import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // import { sendError } from '../../utils/responseHandlers.js';
 import { deactivateBank } from '../../utils/sockets.js';
 import {
@@ -68,7 +69,7 @@ const getBankAccountBySearchService = async (
   bank_used_for,
   page,
   limit,
-  designation
+  designation,
 ) => {
   try {
     const pageNum = parseInt(page);
@@ -92,7 +93,7 @@ const getBankAccountBySearchService = async (
       limitNum,
       offset,
       bank_used_for,
-      designation
+      designation,
     );
   } catch (error) {
     logger.error('error getting while getting check utr by search', error);
@@ -141,7 +142,7 @@ const getBankaccountServiceNickName = async (
       try {
         await rollback(conn);
       } catch (rollbackError) {
-        console.error('Error during transaction rollback', rollbackError);
+        logger.error('Error during transaction rollback', rollbackError);
       }
     }
     throw new InternalServerError(error);
@@ -150,13 +151,19 @@ const getBankaccountServiceNickName = async (
       try {
         conn.release();
       } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
+        logger.error('Error while releasing the connection', releaseError);
       }
     }
   }
 };
 
-const createBankaccountService = async (payload, designation, user_id) => {
+const createBankaccountService = async (
+  conn,
+  payload,
+  designation,
+  user_id,
+  company_id,
+) => {
   try {
     //child add bankaccount for its parent
     if (designation === Role.VENDOR_OPERATIONS) {
@@ -165,9 +172,16 @@ const createBankaccountService = async (payload, designation, user_id) => {
       payload.user_id = parentUserId;
     }
     const result = await createBankaccountDao(payload);
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: company_id,
+      message: `A new ${payload.bank_used_for} bank account with nick name ${payload.nick_name} has been created.`,
+      payloadUserId: payload.user_id,
+      actorUserId: user_id,
+    });
     return result;
   } catch (error) {
-    console.error('error getting while  creating banks', error);
+    logger.error('error getting while  creating banks', error);
     throw new BadRequestError('Error getting while  creating banks');
   }
 };
@@ -187,8 +201,8 @@ const updateBankaccountService = async (conn, ids, payload, role) => {
         ...payload,
         config: {
           ...payload.config,
-          merchants: []
-        }
+          merchants: [],
+        },
       };
     }
 
@@ -245,9 +259,16 @@ const updateBankaccountService = async (conn, ids, payload, role) => {
         }
       }
     }
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: payload.company_id,
+    //   message: `The bank account with nick name ${result.nick_name} has been updated.`,
+    //   payloadUserId: payload.user_id,
+    //   actorUserId: payload.updated_by,
+    // });
     return result;
   } catch (error) {
-    console.error('error getting while  updating banks', error);
+    logger.error('error getting while  updating banks', error);
     throw new BadRequestError('Error getting while  updating banks');
   }
 };
@@ -262,7 +283,7 @@ const deleteBankaccountService = async (conn, ids) => {
     );
     return result;
   } catch (error) {
-    console.error('error getting while deleting banks', error);
+    logger.error('error getting while deleting banks', error);
     throw new BadRequestError('Error getting while  deleting banks');
   }
 };

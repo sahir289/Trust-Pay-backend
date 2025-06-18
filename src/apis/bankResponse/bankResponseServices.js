@@ -24,7 +24,6 @@ import {
 import { getPayInUrlsDao, updatePayInUrlDao } from '../payIn/payInDao.js';
 import {
   getMerchantsDao,
-  updateMerchantDao,
 } from '../merchants/merchantDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
 import { getVendorsDao, updateVendorDao } from '../vendors/vendorDao.js';
@@ -103,16 +102,29 @@ const createBankResponseService = async (
     const updated_by = name || 'Bank Response';
     const company_id = companyId;
     const isValidAmountCode =
-      upi_short_code && upi_short_code !== 'nil' && upi_short_code.length === 5;
+    !!(upi_short_code && upi_short_code !== 'nil' && upi_short_code.length === 5);
+    
     const acceptedStatus = [
       Status.SUCCESS,
       Status.DISPUTE,
       Status.BANK_MISMATCH,
-      'FAILED',
-      'DUPLICATE',
+      Status.FAILED,
+      Status.DUPLICATE,
     ];
 
-    const utrAlreadyExist = await getBankResponseDao(
+    let  utrAlreadyExist
+    if(isValidAmountCode){
+      utrAlreadyExist = await getBankResponseDao(
+        { upi_short_code, company_id },
+        null,
+        null,
+        null,
+        null,
+        filterColumns,
+      );
+    }
+    else{
+    utrAlreadyExist = await getBankResponseDao(
       { utr, company_id },
       null,
       null,
@@ -120,9 +132,12 @@ const createBankResponseService = async (
       null,
       filterColumns,
     );
+  }
+   
+    const isRepeated = utrAlreadyExist;
 
     const updatedData = {
-      status: utrAlreadyExist ? '/repeated' : '/success',
+      status: isRepeated ? '/repeated' : '/success',
       amount,
       utr,
       bank_id,
@@ -134,19 +149,19 @@ const createBankResponseService = async (
       ...(isValidAmountCode && { upi_short_code }),
     };
 
-    if (isValidAmountCode) {
-      const isAmountCodeExist = await getBankResponseDao(
-        { upi_short_code, company_id },
-        null,
-        null,
-        null,
-        null,
-        filterColumns,
-      );
-      if (isAmountCodeExist) {
-        return { message: 'Amount code already exist' };
-      }
-    }
+    // if (isValidAmountCode) {
+    //   const isAmountCodeExist = await getBankResponseDao(
+    //     { upi_short_code, company_id },
+    //     null,
+    //     null,
+    //     null,
+    //     null,
+    //     filterColumns,
+    //   );
+    //   if (isAmountCodeExist) {
+    //     return { message: 'Amount code already exist' };
+    //   }
+    // }
 
     const sendNotification = async (status, data) => {
       await notifyNewTableEntry(tableName.BANK_RESPONSE, status, data);
@@ -165,7 +180,11 @@ const createBankResponseService = async (
     });
 
     if (updatedData.status === '/repeated') {
-      return { message: `Entry with REPEATED UTR Added ${utr}` };
+      if(upi_short_code){
+        return { message: `Entry with REPEATED AMOUNT CODE Added ${upi_short_code}` };
+      }else{
+        return { message: `Entry with REPEATED UTR Added ${utr}` };
+      }
     }
 
     ////for bank account ////vendor calculation
@@ -220,14 +239,20 @@ const createBankResponseService = async (
         botRes.amount,
         vendor[0].payin_commission,
       );
-
       await updateCalculationTable(vendor[0].user_id, {
         payinCommission: payinVendorCommission,
         amount: botRes.amount,
       });
       // await notifyNewCalculationTableEntry(tableName.CALCULATION, vendorCalculation);
     }
-    const checkPayInUtr = await getPayInUrlsDao({ user_submitted_utr: utr });
+
+    let checkPayInUtr;
+    if(isValidAmountCode){
+      checkPayInUtr = await getPayInUrlsDao({ upi_short_code: upi_short_code });
+    }
+    else{
+      checkPayInUtr = await getPayInUrlsDao({ user_submitted_utr: utr });
+    }
     if (checkPayInUtr?.length > 0) {
       const payInUtr =
         checkPayInUtr.length === 1
@@ -238,9 +263,9 @@ const createBankResponseService = async (
           { utr: payInUtr.user_submitted_utr, company_id },
           null,
           null,
-          null,
-          null,
           filterColumns,
+          null,
+          null,
         );
         const botUtrIsUsed =
           getDataByUtr.rows.length > 1 &&
@@ -260,12 +285,19 @@ const createBankResponseService = async (
       );
       if (!isBankExist || payInUtr.bank_acc_id !== bank_id) {
         if (
-          payInUtr.user_submitted_utr &&
-          payInUtr.user_submitted_utr !== utr
+          (payInUtr.user_submitted_utr !== utr) && isValidAmountCode &&  upi_short_code !== payInUtr.upi_short_code
+          || (isValidAmountCode && upi_short_code !== payInUtr.upi_short_code)
         ) {
-          return {
-            message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${payInUtr.user_submitted_utr}`,
-          };
+          if (isValidAmountCode && payInUtr.upi_short_code) {
+            return {
+              message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`
+            }
+          }
+          else {
+            return {
+              message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${payInUtr.user_submitted_utr}`,
+            };
+          }
         }
         const payInData = {
           status: Status.BANK_MISMATCH,
@@ -353,15 +385,32 @@ const createBankResponseService = async (
         .padStart(2, '0');
       const duration = `${durHours}:${durMinutes}:${durSeconds}`;
 
-      if (payInUtr.amount === amount) {
+      if (payInUtr.amount === amount || (isValidAmountCode && isValidAmountCode === payInUtr.upi_short_code && payInUtr.amount === amount)) {
         if (
-          payInUtr.user_submitted_utr &&
-          payInUtr.user_submitted_utr !== utr
+          (payInUtr.user_submitted_utr !== utr) && isValidAmountCode &&  upi_short_code !== payInUtr.upi_short_code
+          || (isValidAmountCode && upi_short_code !== payInUtr.upi_short_code)
         ) {
-          return {
-            message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${payInUtr.user_submitted_utr}`,
-          };
+          if (isValidAmountCode && payInUtr.upi_short_code) {
+            return {
+              message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`
+            }
+          }
+          else {
+            return {
+              message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${payInUtr.user_submitted_utr}`,
+            };
+          }
         }
+
+        // if (
+        //   isValidAmountCode &&
+        //   upi_short_code !== payInUtr.upi_short_code
+        // ) {
+        //   return {
+        //     message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`,
+        //   };
+        // }
+
         const payInData = {
           status: Status.SUCCESS,
           is_notified: true,
@@ -391,29 +440,43 @@ const createBankResponseService = async (
         if (isNaN(merchnatData)) {
           throw new BadRequestError('Invalid amount or commission');
         }
-        await updateMerchantDao(
-          { id: payInUtr.merchant_id },
-          { balance: merchnatData },
-          conn,
-        );
+        // await updateMerchantDao(
+        //   { id: payInUtr.merchant_id },
+        //   { balance: merchnatData },
+        //   conn,
+        // );
         await updateCalculationTable(merchantData[0].user_id, {
           payinCommission: payinMerchantCommission,
           amount: botRes.amount,
         });
         if (updatePayin) {
-          return {
-            message: `✅ UTR ${utr} matches the User Submitted UTR: ${payInUtr.user_submitted_utr} and the payment was successful.`,
-          };
+          if(isValidAmountCode && payInUtr.upi_short_code){
+            return {
+              message: `✅ Amount Code ${upi_short_code} matches the User Submitted Amount Code: ${payInUtr.upi_short_code} and the payment was successful.`,
+            };
+          }
+          else{
+            return {
+              message: `✅ UTR ${utr} matches the User Submitted UTR: ${payInUtr.user_submitted_utr} and the payment was successful.`,
+            };
+          }
         }
         return { message: `Successfully Created The Entry` };
       } else {
         if (
-          payInUtr.user_submitted_utr &&
-          payInUtr.user_submitted_utr !== utr
+          (payInUtr.user_submitted_utr !== utr) && isValidAmountCode &&  upi_short_code !== payInUtr.upi_short_code
+          || (isValidAmountCode && upi_short_code !== payInUtr.upi_short_code)
         ) {
-          return {
-            message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${payInUtr.user_submitted_utr}`,
-          };
+          if (isValidAmountCode && payInUtr.upi_short_code) {
+            return {
+              message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`
+            }
+          }
+          else {
+            return {
+              message: `⛔ UTR: ${utr} does not match with User Submitted UTR: ${payInUtr.user_submitted_utr}`,
+            };
+          }
         }
         const payInData = {
           status: Status.DISPUTE,
@@ -942,6 +1005,7 @@ const handleBankIdUpdate = async ({
       updateBankaccountDao(
         { id: prevBank[0].id, company_id },
         {
+          payin_count: prevBank[0].payin_count - 1,
           balance: prevBank[0].balance - botRes.amount,
           today_balance: prevBank[0].today_balance - botRes.amount,
           updated_by: user_id,
@@ -950,6 +1014,7 @@ const handleBankIdUpdate = async ({
       updateBankaccountDao(
         { id: newBank[0].id, company_id },
         {
+          payin_count: newBank[0].payin_count + 1,
           balance: newBank[0].balance + botRes.amount,
           today_balance: newBank[0].today_balance + botRes.amount,
           updated_by: user_id,
@@ -960,8 +1025,9 @@ const handleBankIdUpdate = async ({
         prevVendorCurrentCalcs,
         prevVendorNextCurrentCalcs,
         -botRes.amount,
-        prevVendorCommission,
+        -prevVendorCommission,
         conn,
+        -1,
       ),
       updateCalculationBalances(
         newVendorCurrentCalcs,
@@ -969,6 +1035,7 @@ const handleBankIdUpdate = async ({
         botRes.amount,
         newVendorCommission,
         conn,
+        1,
       ),
     ]);
   } catch (error) {
@@ -1392,11 +1459,13 @@ const updateCalculationBalances = async (
   amountDiff,
   commission,
   conn,
+  count = 0,
 ) => {
   if (!currentCalculation) return;
 
   const updates = {
-    total_payin_commission: amountDiff > 0 ? commission : -commission,
+    total_payin_count: count,
+    total_payin_commission: commission,
     total_payin_amount: amountDiff,
     current_balance: amountDiff - commission,
     net_balance: amountDiff - commission,
