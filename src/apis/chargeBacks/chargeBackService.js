@@ -384,7 +384,6 @@ const updateChargeBackService = async (ids, payload) => {
     if (createdAtDate !== today) {
       throw new BadRequestError('Chargeback data must be from today');
     }
-    console.log(chargebackdata, 'djbj jdfbj jfdj');
     conn = await getConnection();
     await beginTransaction(conn); // Start a transaction
     const data = await updateChargeBackDao(ids, payload); // Adjust DAO call for update
