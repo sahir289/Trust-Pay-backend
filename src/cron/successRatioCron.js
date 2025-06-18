@@ -16,6 +16,7 @@ if (process.env.NODE_ENV === 'production') {
 
 const formattedSuccessRatiosByMerchant = async () => {
   try {
+    logger.info('Success Ratio CRON Started');
     const now = new Date();
     const intervals = [
       { label: 'Last 5m', duration: 5 * 60 * 1000 },
@@ -110,6 +111,7 @@ const formattedSuccessRatiosByMerchant = async () => {
       fullMessages,
       config?.telegramBotToken,
     );
+    logger.info('Success Ratio CRON Ended');
   } catch (error) {
     logger.error('Error ', error.message);
   }
