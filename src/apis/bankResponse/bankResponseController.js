@@ -81,7 +81,7 @@ const getBankResponseBySearch = async (req, res) => {
 };
 
 const createBankResponse = async (req, res) => {
-  const { role, user_name, company_id } = req.user;
+  const { role, user_name, company_id, user_id } = req.user;
   const payload = req.body?.body;
   const { error } = CREATE_BANK_RESPONSE_SCHEMA.validate(req.body);
   if (error) {
@@ -92,6 +92,7 @@ const createBankResponse = async (req, res) => {
     company_id,
     role,
     user_name,
+    user_id,
   );
   sendSuccess(res, result, 'Created Bank Response successfully');
 };

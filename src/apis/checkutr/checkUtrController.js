@@ -9,6 +9,7 @@ import {
 } from './checkUtrServices.js';
 import { getPayinDetailsByMerchantOrderId } from '../payIn/payInDao.js';
 import { logger } from '../../utils/logger.js';
+import { transactionWrapper } from '../../utils/db.js';
 
 const getCheckUtr = async (req, res) => {
   const { company_id } = req.user;
@@ -43,11 +44,12 @@ const createCheckUtr = async (req, res) => {
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
+  const { merchant_order_id, utr } = payload;
   delete payload.merchant_order_id;
   if (!payload) {
     throw new BadRequestError('payload is required');
   }
-  const checkUtr = await createCheckUtrService(payload);
+  const checkUtr = await transactionWrapper(createCheckUtrService)(payload, merchant_order_id, utr);
   return sendSuccess(
     res,
     { id: checkUtr.id, created_by: user_name },
