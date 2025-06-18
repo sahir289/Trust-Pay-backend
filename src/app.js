@@ -21,7 +21,7 @@ app.use(express.static('public'));
 app.use(methodOverride());
 app.use(
   cors({
-    origin: [`${config?.reactFrontOrigin}`, `${config?.reactPaymentOrigin}`], // List all frontend URLs
+    origin: [`${config?.reactFrontOrigin}`, `${config?.reactPaymentOrigin}, '*'`], // List all frontend URLs
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
     credentials: true,
   }),
