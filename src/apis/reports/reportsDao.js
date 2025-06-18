@@ -79,24 +79,20 @@ const getPayInMerchantReportDao = async (
       parameters.push(status);
       paramIndex++;
     }
-
     if (startDate && endDate) {
       switch (status) {
         case Status.SUCCESS:
-          query += `AND (u.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+          query += `AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               )`;
           break;
-        case Status.REVERSED:
-          query += `AND (u.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              ) AND u.approved_at NOT NULL`;
+        case Status.FAILED || Status.DROPPED:
+          query += `AND (pi.failed_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
           break;
-        case Status.REJECTED:
-          query += `AND (u.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`;
+        case Status.INITIATED || Status.PENDING || Status.BANK_MISMATCH || Status.ASSIGNED || Status.DISPUTE || Status.DUPLICATE:
+          query += `AND (pi.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
           break;
         default:
-          query += `AND (u.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`;
+          query += ` AND (COALESCE(u.approved_at, u.failed_at) BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
       }
       parameters.push(startDate, endDate);
     }
@@ -180,17 +176,15 @@ const getPayInVendorReportDao = async (
           query += `AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               )`;
           break;
-        case Status.REVERSED:
-          query += `AND (pi.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              ) AND po.approved_at NOT NULL`;
+        case Status.FAILED || Status.DROPPED:
+          query += `AND (pi.failed_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
           break;
-        case Status.REJECTED:
-          query += `AND (pi.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`;
+        case Status.INITIATED || Status.PENDING || Status.BANK_MISMATCH || Status.ASSIGNED || Status.DISPUTE || Status.DUPLICATE:
+          query += `AND (pi.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
           break;
         default:
-          query += `AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`;
+          query += ` AND (COALESCE(u.approved_at, u.failed_at) BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+
       }
       parameters.push(startDate, endDate);
     }

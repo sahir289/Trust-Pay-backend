@@ -41,7 +41,7 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role) => {
         bea.ifsc AS ifsc`;
     } else if (role === Role.VENDOR) {
       commissionSelect = `
-        bea.ifsc AS ifsc`;
+        bea.ifsc AS ifsc, bea.config`;
     } else {
       commissionSelect = `
         bea.user_id, 

@@ -240,7 +240,7 @@ const createBeneficiaryAccountService = async (conn, payload) => {
     payload.role_id = role_id[0]?.id;
     const userRoleName = role_id[0]?.role;
     if (userRoleName === Role.VENDOR) {
-      payload.config = { type: payload?.type || '', balance: 0, today_balance: 0 };
+      payload.config = { type: payload?.config.type || '', balance: 0, today_balance: 0 };
       delete payload.type;
     }
     if ([Role.VENDOR, Role.MERCHANT].includes(userRoleName)) {
@@ -282,6 +282,9 @@ const createBeneficiaryAccountService = async (conn, payload) => {
         result.push(created);
       }
     } else {
+      if (Array.isArray(payload.user_id)) {
+        payload.user_id = payload.user_id[0];
+      }
       result = await createBeneficiaryAccountDao(payload);
     }
     return result;
