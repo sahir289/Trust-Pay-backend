@@ -154,7 +154,7 @@ const updateMerchant = async (req, res) => {
   payload.updated_by = user_id;
   const ids = { id, company_id };
   // Call the service to update the Merchant
- const merchant= await updateMerchantService(ids, payload, role);
+ const merchant= await transactionWrapper(updateMerchantService)(ids, payload, role);
   // Log success message
   // Send a success response to the client
   return sendSuccess(

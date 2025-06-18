@@ -50,6 +50,7 @@ import { filterResponse } from '../../helpers/index.js';
 import { notifyNewTableEntry } from '../../utils/sockets.js';
 import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
 import PDFParser from 'pdf2json';
+import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const createBankResponseService = async (
   conn,
@@ -57,6 +58,7 @@ const createBankResponseService = async (
   companyId,
   role,
   name,
+  user_id,
 ) => {
   try {
     const filterColumns =
@@ -221,6 +223,8 @@ const createBankResponseService = async (
         { id: botRes?.bank_id, company_id: companyId },
         { latest_balance: res.today_balance },
         role,
+        companyId,
+        user_id,
       );
       const vendor = await getVendorsDao({
         user_id: bankdetails[0].user_id,
@@ -517,6 +521,13 @@ const createBankResponseService = async (
         };
       }
     }
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: companyId,
+      message: `The entry with UTR ${utr} and Status ${botRes.status} has been created.`,
+      payloadUserId: user_id,
+      actorUserId: user_id,
+    });
 
     return { message: `Entry created successfully` };
   } catch (error) {
@@ -599,7 +610,7 @@ const getBankResponseService = async (
         amount,
         utr: payload.utr || undefined,
         bank_id: payload.bank_id || undefined,
-        is_used : payload.is_used || undefined,
+        is_used: payload.is_used || undefined,
         company_id: payload.company_id || undefined,
       }).filter(([, v]) => v !== undefined),
     );
@@ -799,6 +810,7 @@ const resetBankResponseService = async (conn, id, userData) => {
         company_id,
         role,
         payInData,
+        user_id,
         conn,
       }));
     } else if (utr) {
@@ -818,6 +830,13 @@ const resetBankResponseService = async (conn, id, userData) => {
     }
 
     logger.info(`Bank response reset successful for ID: ${id}`, 'info');
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: company_id,
+      message: `The entry with UTR ${botRes.utr} has been updated.`,
+      payloadUserId: user_id,
+      actorUserId: user_id,
+    });
 
     return { message };
   } catch (error) {
@@ -837,6 +856,7 @@ const handleAmountUpdate = async ({
   user_name,
   role,
   payInData,
+  user_id,
   conn,
 }) => {
   try {
@@ -880,10 +900,12 @@ const handleAmountUpdate = async ({
           },
         ).then((res) =>
           updateBankaccountService(
-            undefined,
+            conn,
             { id: bank.id, company_id: res.company_id },
             { latest_balance: res.today_balance },
             role,
+            res.company_id,
+            user_id,
           ),
         ),
         updatePayInData({ payInData, user_name, botRes }),

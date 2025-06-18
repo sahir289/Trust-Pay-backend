@@ -31,6 +31,7 @@ import {
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { getVendorsDao,updateVendorDao } from '../vendors/vendorDao.js';
 import { getPayInDaoByCode } from '../payIn/payInDao.js';
+import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 const createChargeBackService = async (
   payload,
   PayinDetails,
@@ -55,6 +56,7 @@ const createChargeBackService = async (
     payload.created_by = user_id;
     payload.updated_by = user_id;
     payload.company_id = company_id;
+    const merchantOrderId = PayinDetails[0].merchant_order_id;
     delete payload.merchant_order_id;
     ///create chargeback
     const data = await createChargeBackDao(payload);
@@ -104,6 +106,13 @@ const createChargeBackService = async (
         );
     await commit(conn); // Commit the transaction
     console.log('ChargeBack created successfully');
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: payload.company_id,
+      message: `The new ChargeBack of amount ${payload.amount} against Merchant Order ID ${merchantOrderId} has been created.`,
+      payloadUserId: payload.vendor_user_id,
+      actorUserId: payload.merchant_user_id,
+    });
     return data;
   } catch (error) {
     console.error('Error while creating ChargeBack', error);
@@ -271,7 +280,7 @@ const getChargeBacksBySearchService = async (
   }
 };
 
-const blockChargebackUserService = async (ids) => {
+const blockChargebackUserService = async (ids, payload) => {
   let conn;
   try {
     conn = await getConnection();
@@ -321,6 +330,13 @@ const blockChargebackUserService = async (ids) => {
       }
      
     await commit(conn); 
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: companyId,
+      message: `The user with ID ${userId} has been Blocked for ChargeBacks against Merchant Order Id ${payindata[0].merchant_order_id}.`,
+      payloadUserId: payload.updated_by,
+      actorUserId: payload.updated_by,
+    });
     return merchantDetails;
   } catch (error) {
     if (conn) {

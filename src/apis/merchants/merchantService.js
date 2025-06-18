@@ -37,7 +37,8 @@ import {
   getBankaccountDao,
   updateBankaccountDao,
 } from '../bankAccounts/bankaccountDao.js';
-import { updateUserDao } from '../users/userDao.js';
+import { getUserByIdDao, updateUserDao } from '../users/userDao.js';
+import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // Create Merchant Service
 
 const createMerchantService = async (conn, payload) => {
@@ -98,6 +99,13 @@ const createMerchantService = async (conn, payload) => {
       }
     }
     logger.log('Merchant created successfully');
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: payload.company_id,
+      message: `New Merchant with Code ${data.code} has been created.`,
+      payloadUserId: payload.updated_by,
+      actorUserId: userDesignation === Role.SUB_MERCHANT ? parentId : payload.updated_by,
+    });
     return data;
   } catch (error) {
     logger.error('Error while creating merchant', error);
@@ -342,13 +350,20 @@ const getMerchantsServiceCode = async (
 };
 
 // Update Merchant Service
-const updateMerchantService = async (ids, payload, role) => {
+const updateMerchantService = async (conn, ids, payload, role) => {
   try {
     const filterColumns =
       role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
     const data = await updateMerchantDao(ids, payload); // Adjust DAO call for update
     logger.log('Merchant updated successfully');
     const finalResult = filterResponse(data, filterColumns);
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: payload.company_id,
+      message: `Merchant with Code ${data.code} has been updated.`,
+      payloadUserId: payload.updated_by,
+      actorUserId: payload.updated_by,
+    });
     return finalResult;
   } catch (error) {
     logger.error('Error while updating merchant', error);
@@ -436,6 +451,15 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
     const data = await deleteMerchantDao(ids, payload); // Adjust DAO call for delete
     await commit(conn); // Commit the transaction
     logger.log('Merchant deleted successfully');
+    const userArr = await getUserByIdDao(userIds);
+    const userCodes = userArr.map((user) => user.code).join(', ');
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: ids.company_id,
+      message: `Merchants with Code ${userCodes} has been deleted.`,
+      payloadUserId: payload.updated_by,
+      actorUserId: payload.updated_by,
+    });
     return data;
   } catch (error) {
     if (conn) {

@@ -194,7 +194,7 @@ export const generatePayInUrl = async (req, res) => {
 
   const token = req.headers[AUTH_HEADER_KEY];
   const tokenData = decodeAuthToken(token);
-  const result = await generatePayInUrlService(
+  const result = await transactionWrapper(generatePayInUrlService)(
     {
       ...payload,
       api_key: apiKey,

@@ -93,6 +93,7 @@ import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
+import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
@@ -188,7 +189,7 @@ export const generatePayInUrlByHashService = async (req, res) => {
   return updateRes;
 };
 
-export const generatePayInUrlService = async (payload, created_by, res) => {
+export const generatePayInUrlService = async (conn, payload, created_by, res) => {
   try {
     const {
       code,
@@ -311,6 +312,13 @@ export const generatePayInUrlService = async (payload, created_by, res) => {
     };
     const result = await generatePayInUrlDao(data);
     await newTableEntry(tableName.PAYIN);
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: data.company_id,
+      message: `Payin with merchant order id: ${data.merchant_order_id} has been initiated.`,
+      payloadUserId: merchant.user_id,
+      actorUserId: merchant.user_id,
+    });
     // expirePayInIfNeeded(result.id, code);
     return result;
   } catch (error) {
@@ -1191,7 +1199,7 @@ export const processPayInService = async (
   const payIn = await getPayInUrlService(merchantOrderId, conn, tele_check);
   //lock payin transaction
   const lockKey = `${payIn.bank_acc_id}${userSubmittedUtr}`;
-  await checkLockEdit(conn, lockKey , true);
+  await checkLockEdit(conn, lockKey, true);
   const banks = await getBankaccountDao({
     id: payIn?.bank_acc_id,
     company_id: payIn.company_id,
@@ -1331,6 +1339,7 @@ export const processPayInService = async (
 
   result.status = updatePayInData.status;
 
+  let merchant;
   if (updatePayInData.status === Status.SUCCESS) {
     // update merchant balance
     await updateMerchantBalanceDao(
@@ -1347,7 +1356,7 @@ export const processPayInService = async (
     //   conn,
     // );
 
-    const merchant = await getMerchantsDao({ id: payIn.merchant_id });
+    merchant = await getMerchantsDao({ id: payIn.merchant_id });
     const commissions = calculateCommission(
       bankResponse.amount,
       Number(merchant[0].payin_commission),
@@ -1443,6 +1452,13 @@ export const processPayInService = async (
     } catch (error) {
       logger.error('Error handling Telegram message:', error);
     }
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: payIn.company_id,
+      message: `Payin with merchant order id: ${merchantOrderId} has been updated.`,
+      payloadUserId: merchant[0].user_id,
+      actorUserId: bank.user_id,
+    });
   } else {
     return result;
   }
@@ -1768,11 +1784,7 @@ export const disputeDuplicateTransactionService = async (
       throw new BadRequestError('Please provide valid merchant order id');
     }
 
-    if (
-      ![Status.ASSIGNED, Status.DROPPED].includes(
-        payInData.status,
-      )
-    ) {
+    if (![Status.ASSIGNED, Status.DROPPED].includes(payInData.status)) {
       throw new BadRequestError(
         `PayIn Status: ${payInData.status} is not Accepted`,
       );
@@ -1899,6 +1911,22 @@ export const disputeDuplicateTransactionService = async (
     bank.nick_name,
     config?.telegramBotToken,
   );
+  if (payInData.merchant_order_id !== payIn.merchant_order_id) {
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: payIn.company_id,
+      message: `Payin with merchant order id: ${payIn.merchant_order_id} has been Failed.`,
+      payloadUserId: merchant.user_id,
+      actorUserId: vendor.user_id,
+    });
+  }
+  await notifyAdminsAndUsers({
+    conn,
+    company_id: payIn.company_id,
+    message: `Payin with merchant order id: ${payInData.merchant_order_id} has been updated.`,
+    payloadUserId: merchant.user_id,
+    actorUserId: vendor.user_id,
+  });
   return response;
 };
 
@@ -2262,8 +2290,7 @@ export const generateUpiUrlService = async (payload) => {
   const paytmUrl = `upi://pay?${encodedParams}&ap=net.one97.paytm`;
   const gpayUrl = `upi://pay?${encodedParams}&ap=com.google.android.apps.nbu.paisa.user`;
   const phonepeUrl = `upi://pay?${encodedParams}&ap=com.phonepe.app`;
-  const genericUpiUrl = `upi://pay?${encodedParams}`
-
+  const genericUpiUrl = `upi://pay?${encodedParams}`;
 
   return {
     phonepeUrl,
@@ -2455,6 +2482,8 @@ export const updatePayInService = async (
     let amountDiff = 0;
     let vendorCommission = 0;
     let merchantCommission = 0;
+    let merchant_user_id = null;
+    let vendor_user_id = null;
     // Handle amount updates
     if (
       payload?.amount &&
@@ -2477,6 +2506,8 @@ export const updatePayInService = async (
         throw new NotFoundError('Bank, vendor, or merchant not found');
       }
 
+      merchant_user_id = merchant[0].user_id;
+      vendor_user_id = vendor[0].user_id;
       // Calculate commissions
       vendorCommission = calculateCommission(
         Math.abs(amountDiff),
@@ -2573,8 +2604,6 @@ export const updatePayInService = async (
       if (!prevBank[0] || !newBank[0]) {
         throw new NotFoundError('Bank account not found');
       }
-      console.log('prevBank', prevBank);
-      console.log('newBank', newBank);
       if (newBank[0].user_id !== prevBank[0].user_id) {
         throw new BadRequestError(
           'Bank account does not belong to the same vendor',
@@ -2617,41 +2646,48 @@ export const updatePayInService = async (
     if (!bankResponseId) {
       throw new NotFoundError('Bank Response ID not found for this pay-in');
     }
-    const bankResponseData = await getBankResponseDaoById({ id: bankResponseId.bank_response_id, company_id: company_id });
-    const payInBank = await getBankaccountDao({ id: payIn.bank_acc_id, company_id: company_id });
+    const bankResponseData = await getBankResponseDaoById({
+      id: bankResponseId.bank_response_id,
+      company_id: company_id,
+    });
+    const payInBank = await getBankaccountDao({
+      id: payIn.bank_acc_id,
+      company_id: company_id,
+    });
     if (!payInBank[0]) {
       throw new NotFoundError('Bank Response not found for this pay-in');
-    }  
-        // Parse existing config and add update history
-        let existingConfig = {};
-        try {
-          existingConfig = typeof payIn.config === 'string' ? 
-            JSON.parse(payIn.config) : 
-            payIn.config || {};
-        } catch (e) {
-          console.error('Error parsing existing config:', e);
-          existingConfig = {};
-        }
-        // Add update history to config
-        const updateHistory = {
-          updated_by: user_id,
-          updated_at: new Date(),
-          amount: payIn.amount,
-          utr: bankResponseData?.utr,
-          bank_acc_id: payInBank[0]?.id,
-          nick_name: payInBank[0]?.nick_name,        
-          payin_vendor_commission: payIn.payin_vendor_commission,
-          payin_merchant_commission: payIn.payin_merchant_commission,
-        };
-    
-        // Create new config object
-        const newConfig = {
-          ...existingConfig,
-          history: Array.isArray(existingConfig.history) ? 
-            [...existingConfig.history, updateHistory] :
-            [updateHistory],
-          urls: existingConfig.urls || {}
-        };
+    }
+    // Parse existing config and add update history
+    let existingConfig = {};
+    try {
+      existingConfig =
+        typeof payIn.config === 'string'
+          ? JSON.parse(payIn.config)
+          : payIn.config || {};
+    } catch (e) {
+      console.error('Error parsing existing config:', e);
+      existingConfig = {};
+    }
+    // Add update history to config
+    const updateHistory = {
+      updated_by: user_id,
+      updated_at: new Date(),
+      amount: payIn.amount,
+      utr: bankResponseData?.utr,
+      bank_acc_id: payInBank[0]?.id,
+      nick_name: payInBank[0]?.nick_name,
+      payin_vendor_commission: payIn.payin_vendor_commission,
+      payin_merchant_commission: payIn.payin_merchant_commission,
+    };
+
+    // Create new config object
+    const newConfig = {
+      ...existingConfig,
+      history: Array.isArray(existingConfig.history)
+        ? [...existingConfig.history, updateHistory]
+        : [updateHistory],
+      urls: existingConfig.urls || {},
+    };
 
     // Update pay-in details
     await updatePayInUrlDao(
@@ -2672,6 +2708,13 @@ export const updatePayInService = async (
       },
       conn,
     );
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: payIn.company_id,
+      message: `Payin with merchant order id: ${payIn.merchant_order_id} has been updated.`,
+      payloadUserId: merchant_user_id,
+      actorUserId: vendor_user_id,
+    });
   } catch (error) {
     logger.error(`Error in updatePayInService: ${error.message}`, {
       error,
