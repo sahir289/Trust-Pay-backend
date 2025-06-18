@@ -25,7 +25,7 @@ app.use(
       config?.reactFrontOrigin,
       config?.reactPaymentOrigin, 
       'http://localhost:5174',
-      'https://41db-217-165-4-212.ngrok-free.app',
+      'https://80xtd5ct-5174.inc1.devtunnels.ms',
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
     credentials: true,
