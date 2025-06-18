@@ -36,47 +36,52 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role) => {
       });
     }
     let commissionSelect = '';
+    //MAX(...) is used to satisfy SQL’s requirement when grouping — you must aggregate non-grouped columns.
+    //To keep one row per account, you must aggregate all non-grouped columns:
+    //If you don't use MAX(), you must include the column in GROUP BY, which will give multiple rows per account
+
+    let groupByColumns = ['bea.acc_no'];
+
     if (role === Role.MERCHANT) {
-      commissionSelect = `
-        bea.ifsc AS ifsc`;
+      commissionSelect = `MAX(bea.ifsc) AS ifsc`;
     } else if (role === Role.VENDOR) {
       commissionSelect = `
-        bea.ifsc AS ifsc, bea.config`;
+        MAX(bea.ifsc) AS ifsc,
+        MAX(bea.config->>'type') AS config_type,
+        MAX(bea.config->>'balance') AS config_balance,
+        MAX(bea.config->>'today_balance') AS config_today_balance`;
     } else {
       commissionSelect = `
-        bea.user_id, 
-        bea.ifsc, 
-        creator.user_name AS created_by, 
-        updater.user_name AS updated_by, 
-        bea.created_at,
-        bea.config,
-        bea.updated_at`;
+        MAX(bea.user_id) AS user_id,
+        MAX(bea.ifsc) AS ifsc,
+        MAX(creator.user_name) AS created_by,
+        MAX(updater.user_name) AS updated_by,
+        MAX(bea.created_at) AS created_at,
+        MAX(bea.config->>'type') AS config_type,
+        MAX(bea.config->>'balance') AS config_balance,
+        MAX(bea.config->>'today_balance') AS config_today_balance,
+        MAX(bea.updated_at) AS updated_at`;
     }
+
     const baseQuery = `SELECT 
-        bea.id,
-        bea.upi_id,
-        bea.acc_holder_name,
-        bea.acc_no, 
-        bea.bank_name,
-        ${commissionSelect ? `${commissionSelect},` : ''}
-        v.code AS Vendor,
-        m.code AS Merchant
-      FROM 
-          public."BeneficiaryAccounts" bea
-      LEFT JOIN public."Vendor" v 
-          ON bea.user_id = v.user_id
-      LEFT JOIN public."Merchant" m 
-          ON bea.user_id = m.user_id
-       LEFT JOIN public."User" creator 
-        ON bea.created_by = creator.id
-      LEFT JOIN public."User" updater 
-        ON bea.updated_by = updater.id
-      WHERE 
-          ${conditions.join(' AND ')}
-      ORDER BY 
-          bea.updated_at DESC  
-      ${limitcondition};
-      `;
+      bea.acc_no,
+      MAX(bea.id) AS id,
+      MAX(bea.upi_id) AS upi_id,
+      MAX(bea.acc_holder_name) AS acc_holder_name,
+      MAX(bea.bank_name) AS bank_name,
+      ${commissionSelect ? `${commissionSelect},` : ''}
+      ARRAY_AGG(DISTINCT v.code) AS vendors,
+    MAX(m.code) AS merchant
+    FROM public."BeneficiaryAccounts" bea
+    LEFT JOIN public."Vendor" v ON bea.user_id = v.user_id
+    LEFT JOIN public."Merchant" m ON bea.user_id = m.user_id
+    LEFT JOIN public."User" creator ON bea.created_by = creator.id
+    LEFT JOIN public."User" updater ON bea.updated_by = updater.id
+    WHERE ${conditions.join(' AND ')}
+    GROUP BY ${groupByColumns.join(', ')}
+    ORDER BY bea.acc_no
+    ${limitcondition};`;
+
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
