@@ -521,13 +521,13 @@ const createBankResponseService = async (
         };
       }
     }
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: companyId,
-      message: `The entry with UTR ${utr} and Status ${botRes.status} has been created.`,
-      payloadUserId: user_id,
-      actorUserId: user_id,
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: companyId,
+    //   message: `The entry with UTR ${utr} and Status ${botRes.status} has been created.`,
+    //   payloadUserId: user_id,
+    //   actorUserId: user_id,
+    // });
 
     return { message: `Entry created successfully` };
   } catch (error) {

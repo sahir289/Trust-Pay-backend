@@ -20,7 +20,7 @@ export async function notifyAdminsAndUsers({
   const recipientUsers = Array.from(
     new Set([
       ...adminUserIds,
-      payloadUserId,
+      ...payloadUserId,
       actorUserId,
       ...additionalRecipients,
     ].filter(id => id !== null && id !== undefined))
