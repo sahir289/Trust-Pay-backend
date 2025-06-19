@@ -212,7 +212,7 @@ export const generatePayInUrlService = async (
     const merchant_order_id = order_id ? order_id : uuidv4();
     const merchantArr = await getMerchantsByCodeDao(code);
     const merchant = merchantArr[0];
-    if (!fromUI && merchant.config.whitelist_ips) {
+    if (!fromUI && merchant?.config?.whitelist_ips) {
       let whitelist = merchant.config.whitelist_ips;
       // Normalize whitelist to array of trimmed strings
       if (typeof whitelist === 'string') {

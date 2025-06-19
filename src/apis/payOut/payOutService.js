@@ -87,7 +87,7 @@ const createPayoutService = async (
       });
     }
 
-    if (!fromUI && details[0].config.whitelist_ips) {
+    if (!fromUI && details[0]?.config?.whitelist_ips) {
       let whitelist = details[0].config.whitelist_ips;
       // Normalize whitelist to array of trimmed strings
       if (typeof whitelist === 'string') {
