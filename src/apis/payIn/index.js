@@ -83,7 +83,7 @@ router.get('/generate-payin', tryCatchHandler(generatePayInUrl));
  */
 router.get('/validate-payIn-url/:merchantOrderId/:oneTimeUsed',getUserLocationMiddleware, tryCatchHandler(validatePayInUrl));
 
-router.get('/payment-initiated/:merchantOrderId', tryCatchHandler(markPaymentInitiated));
+router.post('/payment-initiated/:merchantOrderId', tryCatchHandler(markPaymentInitiated));
 
 router.get('/check-payment-status/:merchantOrderId', tryCatchHandler(checkPaymentStatus));
 
