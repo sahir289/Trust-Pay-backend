@@ -25,6 +25,7 @@ app.use(
       config?.reactFrontOrigin,
       config?.reactPaymentOrigin, 
       'http://localhost:5174',
+      'https://80xtd5ct-5174.inc1.devtunnels.ms',
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
     credentials: true,
