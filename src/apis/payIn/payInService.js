@@ -2232,8 +2232,8 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
   const currentTime = Date.now();
   const validationGracePeriodMs = 10 * 1000; // 10 seconds for quick reloads
   const paymentGracePeriodMs = 2 * 60 * 1000; // 2 minutes for payment processing
-  const lastValidatedAt = payIn.config?.lastValidatedAt ? new Date(payIn.config.lastValidatedAt).getTime() : 0;
-  const paymentInitiatedAt = payIn.config?.paymentInitiatedAt ? new Date(payIn.config.paymentInitiatedAt).getTime() : 0;
+  const lastValidatedAt = payIn.config?.lastValidatedAt ? new Date(payIn.config.lastValidatedAt).getTime() : new Date().getTime();
+  const paymentInitiatedAt = payIn.config?.paymentInitiatedAt ? new Date(payIn.config.paymentInitiatedAt).getTime() : new Date().getTime();
 
   if (payIn.one_time_used === true) {
     // If already used, update reload count and return error
@@ -2257,7 +2257,7 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
   }
 
   // Check if payment is being processed
-  const isPaymentProcessing = paymentInitiatedAt && (currentTime - paymentInitiatedAt) < paymentGracePeriodMs;
+  const isPaymentProcessing = !!paymentInitiatedAt && (currentTime - paymentInitiatedAt) < paymentGracePeriodMs;
   const isWithinValidationGracePeriod = currentTime - lastValidatedAt < validationGracePeriodMs;
 
   if (!isPaymentProcessing && !isWithinValidationGracePeriod) {
