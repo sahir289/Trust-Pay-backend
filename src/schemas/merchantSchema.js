@@ -85,6 +85,7 @@ const VALIDATE_UPDATE_MERCHANT_STATUS = Joi.object({
   balance: Joi.number().min(0).optional(),
   config: Joi.object().optional(),
   is_obsolete: Joi.boolean().optional(),
+  whitelist_ips: Joi.string().optional(),
   updated_by: Joi.string()
     .guid({ version: ['uuidv4'] })
     .optional()
