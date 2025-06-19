@@ -187,17 +187,17 @@ const getBeneficiaryAccountBySearchDao = async (
 ) => {
   try {
     let queryParams = [];
-    let conditions = [`bea.is_obsolete = false`];
+    let conditions = [`sub.is_obsolete = false`];
     let paramIndex = 1;
 
     if (filters && typeof filters === 'object' && Object.keys(filters).length > 0) {
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== null && value !== undefined && value !== '') {
           if (Array.isArray(value)) {
-            conditions.push(`bea."${key}" = ANY($${paramIndex})`);
+            conditions.push(`sub."${key}" = ANY($${paramIndex})`);
             queryParams.push(value);
           } else {
-            conditions.push(`bea."${key}" = $${paramIndex}`);
+            conditions.push(`sub."${key}" = $${paramIndex}`);
             queryParams.push(value);
           }
           paramIndex++;
@@ -207,119 +207,203 @@ const getBeneficiaryAccountBySearchDao = async (
 
     let commissionSelect = '';
     if (role === 'MERCHANT') {
-      commissionSelect = `bea.ifsc AS ifsc,`;
+      commissionSelect = `sub.ifsc AS ifsc`;
     } else if (role === 'VENDOR') {
-      commissionSelect = `bea.ifsc AS ifsc, bea.config AS config,`;
+      commissionSelect = `sub.ifsc AS ifsc, sub.config AS config`;
     } else {
       commissionSelect = `
-        bea.user_id AS user_id,
-        bea.ifsc AS ifsc,
-        bea.config AS config,
-        creator.user_name AS created_by,
-        updater.user_name AS updated_by,
-        bea.created_at AS created_at,
-        bea.updated_at AS updated_at,
-      `;
+        sub.user_id AS user_id,
+        sub.ifsc AS ifsc,
+        sub.config AS config,
+        sub.created_by AS created_by,
+        sub.updated_by AS updated_by,
+        sub.created_at AS created_at,
+        sub.updated_at AS updated_at`;
     }
 
-    let baseQuery = `
-      SELECT 
-        bea.id, 
-        bea.upi_id,
-        bea.acc_holder_name,
-        bea.acc_no, 
-        bea.bank_name, 
-        ${commissionSelect}
-        v.code AS vendor, 
-        m.code AS merchant
-      FROM 
-        public."BeneficiaryAccounts" bea
-      LEFT JOIN public."Vendor" v 
-        ON bea.user_id = v.user_id
-      LEFT JOIN public."Merchant" m 
-        ON bea.user_id = m.user_id
-      LEFT JOIN public."User" creator 
-        ON bea.created_by = creator.id
-      LEFT JOIN public."User" updater 
-        ON bea.updated_by = updater.id
-      WHERE 1=1
-    `;
-
+    // Track search terms and their parameter indices
+    const searchTermIndices = [];
     const searchConditions = [];
     if (Array.isArray(searchTerms) && searchTerms.length > 0) {
       searchTerms.forEach((term) => {
         if (typeof term !== 'string') return;
-        if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-          const boolValue = term.toLowerCase() === 'true';
-          searchConditions.push(`
-            (
-              bea.is_qr = $${paramIndex}
-              OR bea.is_bank = $${paramIndex}
-              OR bea.is_enabled = $${paramIndex}
-            )
-          `);
-          queryParams.push(boolValue);
-        } else {
-          let configSearch = '';
-          if (role !== 'MERCHANT' && role !== 'VENDOR') {
-            configSearch = `OR LOWER(bea.config::text) LIKE LOWER($${paramIndex})`;
-          }
-          searchConditions.push(`
-            (
-              LOWER(bea.id::text) LIKE LOWER($${paramIndex})
-              OR LOWER(bea.upi_id) LIKE LOWER($${paramIndex})
-              OR LOWER(bea.acc_holder_name) LIKE LOWER($${paramIndex})
-              OR LOWER(bea.acc_no) LIKE LOWER($${paramIndex})
-              OR LOWER(bea.bank_name) LIKE LOWER($${paramIndex})
-              OR LOWER(v.code) LIKE LOWER($${paramIndex})
-              OR LOWER(m.code) LIKE LOWER($${paramIndex})
-              ${
-                role !== 'MERCHANT'
-                  ? `
-                OR LOWER(bea.user_id::text) LIKE LOWER($${paramIndex})
-                OR LOWER(bea.ifsc) LIKE LOWER($${paramIndex})
-                ${configSearch}
-                ${
-                  role !== 'VENDOR'
-                    ? `
-                  OR LOWER(COALESCE(creator.user_name, '')) LIKE LOWER($${paramIndex})
-                  OR LOWER(COALESCE(updater.user_name, '')) LIKE LOWER($${paramIndex})
-                `
-                    : ''
-                }
-              `
-                  : role === 'VENDOR'
-                    ? `
-                OR LOWER(bea.ifsc) LIKE LOWER($${paramIndex})
-                ${configSearch}
-              `
-                    : ''
-              }
-            )
-          `);
-          queryParams.push(`%${term}%`);
+        let configSearch = '';
+        if (role !== 'MERCHANT') {
+          configSearch = `OR LOWER(sub.config::text) LIKE LOWER($${paramIndex})`;
         }
+        searchConditions.push(`
+          (
+            LOWER(sub.id::text) LIKE LOWER($${paramIndex})
+            OR LOWER(sub.upi_id) LIKE LOWER($${paramIndex})
+            OR LOWER(sub.acc_holder_name) LIKE LOWER($${paramIndex})
+            OR LOWER(sub.acc_no) LIKE LOWER($${paramIndex})
+            OR LOWER(sub.bank_name) LIKE LOWER($${paramIndex})
+            OR LOWER(sub.vendors::text) LIKE LOWER($${paramIndex})
+            OR LOWER(sub.merchants::text) LIKE LOWER($${paramIndex})
+            ${
+              role !== 'MERCHANT'
+                ? `
+              OR LOWER(sub.user_id::text) LIKE LOWER($${paramIndex})
+              OR LOWER(sub.ifsc) LIKE LOWER($${paramIndex})
+              ${configSearch}
+              ${
+                role !== 'VENDOR'
+                  ? `
+                OR LOWER(COALESCE(sub.created_by, '')) LIKE LOWER($${paramIndex})
+                OR LOWER(COALESCE(sub.updated_by, '')) LIKE LOWER($${paramIndex})
+              `
+                  : ''
+              }`
+                : role === 'VENDOR'
+                  ? `
+              OR LOWER(sub.ifsc) LIKE LOWER($${paramIndex})
+              ${configSearch}`
+                  : ''
+            }
+          )`);
+        queryParams.push(`%${term}%`);
+        searchTermIndices.push({ term, paramIndex, isBoolean: false });
         paramIndex++;
       });
     }
 
-    if (conditions.length > 0) {
-      baseQuery += ' AND ' + conditions.join(' AND ');
-    }
-    if (searchConditions.length > 0) {
-      baseQuery += ' AND (' + searchConditions.join(' OR ') + ')';
+    // Compute matched_keywords
+    let matchedKeywordsSelect = '';
+    if (searchTermIndices.length > 0) {
+      const keywordCases = searchTermIndices
+        .map(({ term, paramIndex }) => `
+          CASE WHEN (
+            LOWER(sub.id::text) LIKE LOWER($${paramIndex})
+            OR LOWER(sub.upi_id) LIKE LOWER($${paramIndex})
+            OR LOWER(sub.acc_holder_name) LIKE LOWER($${paramIndex})
+            OR LOWER(sub.acc_no) LIKE LOWER($${paramIndex})
+            OR LOWER(sub.bank_name) LIKE LOWER($${paramIndex})
+            OR LOWER(sub.vendors::text) LIKE LOWER($${paramIndex})
+            OR LOWER(sub.merchants::text) LIKE LOWER($${paramIndex})
+            ${
+              role !== 'MERCHANT'
+                ? `
+              OR LOWER(sub.user_id::text) LIKE LOWER($${paramIndex})
+              OR LOWER(sub.ifsc) LIKE LOWER($${paramIndex})
+              ${role !== 'MERCHANT' ? `OR LOWER(sub.config::text) LIKE LOWER($${paramIndex})` : ''}
+              ${
+                role !== 'VENDOR'
+                  ? `
+                OR LOWER(COALESCE(sub.created_by, '')) LIKE LOWER($${paramIndex})
+                OR LOWER(COALESCE(sub.updated_by, '')) LIKE LOWER($${paramIndex})
+              `
+                  : ''
+              }`
+                : role === 'VENDOR'
+                  ? `
+              OR LOWER(sub.ifsc) LIKE LOWER($${paramIndex})
+              ${role === 'VENDOR' ? `OR LOWER(sub.config::text) LIKE LOWER($${paramIndex})` : ''}`
+                  : ''
+            }
+          ) THEN '${term}'::text END`);
+      matchedKeywordsSelect = keywordCases.length > 0
+        ? `,
+          ARRAY_REMOVE(ARRAY[${keywordCases.join(', ')}], NULL) AS matched_keywords`
+        : `,
+          ARRAY[]::text[] AS matched_keywords`;
+    } else {
+      matchedKeywordsSelect = `,
+        ARRAY[]::text[] AS matched_keywords`;
     }
 
-    const countQuery = `SELECT COUNT(*) as total FROM (${baseQuery}) as count_table`;
+    let baseQuery = `
+      SELECT 
+        sub.acc_no,
+        sub.id,
+        sub.upi_id,
+        sub.acc_holder_name,
+        sub.bank_name,
+        ${commissionSelect ? `${commissionSelect},` : ''}
+        sub.vendors,
+        sub.merchants
+        ${matchedKeywordsSelect}
+      FROM (
+        SELECT 
+          bea.acc_no,
+          MAX(bea.id) AS id,
+          MAX(bea.upi_id) AS upi_id,
+          MAX(bea.acc_holder_name) AS acc_holder_name,
+          MAX(bea.bank_name) AS bank_name,
+          MAX(bea.user_id) AS user_id,
+          MAX(bea.ifsc) AS ifsc,
+          json_agg(bea.config) AS config,
+          MAX(creator.user_name) AS created_by,
+          MAX(updater.user_name) AS updated_by,
+          MAX(bea.created_at) AS created_at,
+          MAX(bea.updated_at) AS updated_at,
+          ARRAY_AGG(DISTINCT v.code) FILTER (WHERE v.code IS NOT NULL) AS vendors,
+          ARRAY_AGG(DISTINCT m.code) FILTER (WHERE m.code IS NOT NULL) AS merchants,
+          MAX(bea.is_obsolete::int)::boolean AS is_obsolete,
+          MAX(bea.role_id) AS role_id
+        FROM 
+          public."BeneficiaryAccounts" bea
+        LEFT JOIN public."Vendor" v 
+          ON bea.user_id = v.user_id
+        LEFT JOIN public."Merchant" m 
+          ON bea.user_id = m.user_id
+        LEFT JOIN public."User" creator 
+          ON bea.created_by = creator.id
+        LEFT JOIN public."User" updater 
+          ON bea.updated_by = updater.id
+        GROUP BY bea.acc_no
+      ) sub
+      WHERE 1=1`;
+
+    if (conditions.length > 0) {
+      baseQuery += ` AND ${conditions.join(' AND ')}`;
+    }
+    if (searchConditions.length > 0) {
+      baseQuery += ` AND (${searchConditions.join(' OR ')})`;
+    }
+
+    const countQuery = `
+      SELECT COUNT(DISTINCT sub.acc_no) as total
+      FROM (
+        SELECT 
+          bea.acc_no,
+          MAX(bea.id) AS id,
+          MAX(bea.upi_id) AS upi_id,
+          MAX(bea.acc_holder_name) AS acc_holder_name,
+          MAX(bea.bank_name) AS bank_name,
+          MAX(bea.user_id) AS user_id,
+          MAX(bea.ifsc) AS ifsc,
+          json_agg(bea.config) AS config,
+          MAX(creator.user_name) AS created_by,
+          MAX(updater.user_name) AS updated_by,
+          MAX(bea.created_at) AS created_at,
+          MAX(bea.updated_at) AS updated_at,
+          ARRAY_AGG(DISTINCT v.code) FILTER (WHERE v.code IS NOT NULL) AS vendors,
+          ARRAY_AGG(DISTINCT m.code) FILTER (WHERE m.code IS NOT NULL) AS merchants,
+          MAX(bea.is_obsolete::int)::boolean AS is_obsolete,
+          MAX(bea.role_id) AS role_id
+        FROM public."BeneficiaryAccounts" bea
+        LEFT JOIN public."Vendor" v 
+          ON bea.user_id = v.user_id
+        LEFT JOIN public."Merchant" m 
+          ON bea.user_id = m.user_id
+        LEFT JOIN public."User" creator 
+          ON bea.created_by = creator.id
+        LEFT JOIN public."User" updater 
+          ON bea.updated_by = updater.id
+        GROUP BY bea.acc_no
+      ) sub
+      WHERE 1=1
+      ${conditions.length > 0 ? ` AND ${conditions.join(' AND ')}` : ''}
+      ${searchConditions.length > 0 ? ` AND (${searchConditions.join(' OR ')})` : ''}`;
+    console.log('Count Query:', countQuery);
     const countResult = await executeQuery(countQuery, queryParams);
 
     const offset = (page - 1) * limit;
     baseQuery += `
       ORDER BY 
-        bea.updated_at DESC
+        sub.updated_at DESC
       LIMIT $${paramIndex}
-      OFFSET $${paramIndex + 1}
-    `;
+      OFFSET $${paramIndex + 1}`;
     queryParams.push(limit, offset);
 
     const searchResult = await executeQuery(baseQuery, queryParams);
