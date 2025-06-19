@@ -28,6 +28,7 @@ const createPayout = async (req, res) => {
     userIp = TestingIp;
   }
   const fromUI = payload.fromUi || false;
+  delete payload.fromUi;
   const joiValidation = PAYOUT_DETAILS_SCHEMA.validate(req.body);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
