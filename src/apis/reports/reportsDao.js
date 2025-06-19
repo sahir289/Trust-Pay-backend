@@ -53,7 +53,7 @@ const getPayInMerchantReportDao = async (
         LEFT JOIN public."BankAccount" b ON u.bank_acc_id = b.id
         LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
         LEFT JOIN public."BankResponse" br ON u.bank_response_id = br.id
-        WHERE u.company_id = $1`;
+        WHERE u.company_id = $1 AND u.is_obsolete = false`;
 
     let parameters = [company_id];
     let paramIndex = parameters.length + 1;
@@ -149,7 +149,7 @@ const getPayInVendorReportDao = async (
         LEFT JOIN public."BankAccount" b ON pi.bank_acc_id = b.id
         LEFT JOIN public."BankResponse" br ON pi.bank_response_id = br.id
         LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
-        WHERE pi.company_id = $1`;
+        WHERE pi.company_id = $1 AND pi.is_obsolete = false`;
 
     let parameters = [company_id];
     let paramIndex = parameters.length + 1;
@@ -245,7 +245,7 @@ const getPayOutMerchantReportDao = async (
         LEFT JOIN public."Merchant" me ON po.merchant_id = me.id
         LEFT JOIN public."BankAccount" b ON po.bank_acc_id = b.id
         LEFT JOIN public."Vendor" ve ON ve.user_id = b.user_id
-        WHERE po.company_id = $1`;
+        WHERE po.company_id = $1  AND po.is_obsolete = false`;
 
     let parameters = [company_id];
     let paramIndex = parameters.length + 1;
@@ -364,7 +364,7 @@ const getPayOutVendorReportDao = async (
       LEFT JOIN public."Merchant" me ON po.merchant_id = me.id
       LEFT JOIN public."BankAccount" b ON po.bank_acc_id = b.id
       LEFT JOIN public."Vendor" ve ON ve.user_id = b.user_id
-      WHERE po.company_id = $1`;
+      WHERE po.company_id = $1 AND po.is_obsolete = false`;
 
     let parameters = [company_id];
     let paramIndex = parameters.length + 1;
@@ -503,7 +503,7 @@ const getMerchantReportDao = async (
         ${role === Role.ADMIN ? ', m.user_id AS merchant_user_id' : ''}
       FROM public."Calculation" c
       LEFT JOIN public."Merchant" m ON c.user_id = m.user_id
-      WHERE c.company_id = $1
+      WHERE c.company_id = $1 AND c.is_obsolete = false
     `;
 
     let parameters = [company_id];

@@ -15,6 +15,7 @@ export const BENEFICIARY_ACCOUNT_SCHEMA = Joi.object({
 });
 
 export const UPDATE_BENEFICIARY_ACCOUNT_SCHEMA = Joi.object({
+  config_uniquecode: Joi.string().label('config_uniquecode').optional(),
   upi_id: Joi.string().label('upi_id').optional(),
   acc_holder_name: Joi.string().label('acc_holder_name').optional(),
   acc_no: Joi.number().label('acc_no').optional(),

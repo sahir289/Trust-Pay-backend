@@ -18,6 +18,7 @@ import {
   deleteBankaccountDao,
   getBeneficiaryAccountDaoByBankName,
   getBeneficiaryAccountBySearchDao,
+  getBeneficiaryAccountDaoAll,
 } from './beneficiaryAccountDao.js';
 import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
@@ -73,20 +74,33 @@ const getBeneficiaryAccountService = async (
       }
     }
 
+    let role_id;
     if (filters?.beneficiary_role) {
-      const role_id = await getRoleDao({ role: filters.beneficiary_role });
+      role_id = await getRoleDao({ role: filters.beneficiary_role });
       filters.role_id = role_id[0]?.id;
       delete filters.beneficiary_role;
     }
 
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
-    return await getBeneficiaryAccountDao(
-      { ...filters },
-      pageNumber,
-      pageSize,
-      role,
-    );
+
+    if (role_id?.[0]?.role !== Role.VENDOR) {
+      return await getBeneficiaryAccountDao(
+        { ...filters },
+        pageNumber,
+        pageSize,
+        role,
+      );
+    }
+    else {
+      return await getBeneficiaryAccountDaoAll(
+        { ...filters },
+        pageNumber,
+        pageSize,
+        role,
+      );
+    }
+
   } catch (error) {
     logger.error('error getting while  getting banks', error);
     throw new InternalServerError(error);
@@ -241,7 +255,7 @@ const createBeneficiaryAccountService = async (conn, payload) => {
     payload.role_id = role_id[0]?.id;
     const userRoleName = role_id[0]?.role;
     if (userRoleName === Role.VENDOR) {
-      payload.config = { type: payload?.config.type || '', balance: 0, today_balance: 0 };
+      payload.config = { type: payload?.config.type || '', balance: 0, today_balance: 0, uniqueCode: payload?.config.uniqueCode };
       delete payload.type;
     }
     if ([Role.VENDOR, Role.MERCHANT].includes(userRoleName)) {
@@ -305,30 +319,30 @@ const createBeneficiaryAccountService = async (conn, payload) => {
 const updateBeneficiaryAccountService = async (conn, ids, payload) => {
   try {
     let result;
-
-    const bank = await getBeneficiaryAccountDao({
-      id: ids.id,
+    const banks = await getBeneficiaryAccountDao({
+       'config->>uniqueCode': payload.config_uniquecode
     });
-
-    if (Object.keys(payload).length === 0) {
-      if (bank[0].today_balance >= bank[0].config?.max_limit) {
-        payload.is_enabled = false;
-        deactivateBank(bank[0].nick_name, ids.id);
-      } else if (bank[0].today_balance === bank[0].config?.max_limit) {
-        deactivateBank(bank[0].nick_name, ids.id, true);
+    for (const bank of banks) {
+      if (Object.keys(payload).length === 0) {
+        if (bank.today_balance >= bank.config?.max_limit) {
+          payload.is_enabled = false;
+          deactivateBank(bank.nick_name, ids.id);
+        } else if (bank.today_balance === bank.config?.max_limit) {
+          deactivateBank(bank.nick_name, ids.id, true);
+        }
       }
+      delete payload.config_uniquecode;
+      if (Object.keys(payload).length > 0) {
+        result = await updateBeneficiaryAccountDao({ id: bank.id }, payload, conn);
+      }
+      await notifyAdminsAndUsers({
+        conn,
+        company_id: ids.company_id,
+        message: `The Beneficiary Account with Bank Name ${bank.bank_name} has been updated.`,
+        payloadUserId: payload.updated_by,
+        actorUserId: payload.updated_by,
+      });
     }
-
-    if (Object.keys(payload).length > 0) {
-      result = await updateBeneficiaryAccountDao({ id: ids.id }, payload, conn);
-    }
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: ids.company_id,
-      message: `The Beneficiary Account with Bank Name ${bank[0].bank_name} has been updated.`,
-      payloadUserId: payload.updated_by,
-      actorUserId: payload.updated_by,
-    });
     return result;
   } catch (error) {
     logger.error('error getting while  updating banks', error);
