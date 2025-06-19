@@ -247,7 +247,7 @@ const getBeneficiaryAccountServiceByBankName = async (
   }
 };
 
-const createBeneficiaryAccountService = async (conn, payload) => {
+const createBeneficiaryAccountService = async (conn, payload, company_id) => {
   try {
     payload.user_id = payload.user_id ? payload.user_id : payload.created_by;
     const userRole = await getUserByIdDao(conn, { id: payload.user_id });
@@ -293,21 +293,21 @@ const createBeneficiaryAccountService = async (conn, payload) => {
       delete payload.user_id; // Remove user_id from payload for bulk creation
       for (const uid of userIds) {
         const newPayload = { ...payload, user_id: uid };
-        const created = await createBeneficiaryAccountDao(newPayload);
+        const created = await createBeneficiaryAccountDao(conn, newPayload);
         result.push(created);
       }
     } else {
       if (Array.isArray(payload.user_id)) {
         payload.user_id = payload.user_id[0];
       }
-      result = await createBeneficiaryAccountDao(payload);
+      result = await createBeneficiaryAccountDao(conn, payload);
     }
     await notifyAdminsAndUsers({
       conn,
-      company_id: userRole[0].company_id,
+      company_id: company_id,
       message: `The new Beneficiary Account with Bank Name ${payload.bank_name} has been created.`,
       payloadUserId: userIds,
-      actorUserId: userIds,
+      actorUserId: payload.updated_by,
     });
     return result;
   } catch (error) {

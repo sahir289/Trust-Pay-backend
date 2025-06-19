@@ -424,10 +424,10 @@ const getBeneficiaryAccountBySearchDao = async (
   }
 };
 
-const createBeneficiaryAccountDao = async (payload) => {
+const createBeneficiaryAccountDao = async (conn, payload) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.BENEFICIARY_ACCOUNTS, payload);
-    const result = await executeQuery(sql, params);
+    const result = await conn.query(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error(error);

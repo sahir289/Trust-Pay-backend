@@ -189,7 +189,12 @@ export const generatePayInUrlByHashService = async (req, res) => {
   return updateRes;
 };
 
-export const generatePayInUrlService = async (conn, payload, created_by, res) => {
+export const generatePayInUrlService = async (
+  conn,
+  payload,
+  created_by,
+  res,
+) => {
   try {
     const {
       code,
@@ -312,14 +317,6 @@ export const generatePayInUrlService = async (conn, payload, created_by, res) =>
     };
     const result = await generatePayInUrlDao(data);
     await newTableEntry(tableName.PAYIN);
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: data.company_id,
-      message: `Payin with merchant order id: ${data.merchant_order_id} has been initiated.`,
-      payloadUserId: merchant.user_id,
-      actorUserId: merchant.user_id,
-    });
-    // expirePayInIfNeeded(result.id, code);
     return result;
   } catch (error) {
     throw new BadRequestError(error.message);
@@ -1452,13 +1449,22 @@ export const processPayInService = async (
     } catch (error) {
       logger.error('Error handling Telegram message:', error);
     }
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: payIn.company_id,
-      message: `Payin with merchant order id: ${merchantOrderId} has been updated.`,
-      payloadUserId: merchant[0].user_id,
-      actorUserId: bank.user_id,
-    });
+    if (
+      [
+        Status.SUCCESS,
+        Status.BANK_MISMATCH,
+        Status.DISPUTE,
+        Status.DROPPED,
+      ].includes(payIn.status)
+    ) {
+      await notifyAdminsAndUsers({
+        conn,
+        company_id: payIn.company_id,
+        message: `Payin with merchant order id: ${merchantOrderId} has been updated.`,
+        payloadUserId: merchant[0].user_id,
+        actorUserId: bank.user_id,
+      });
+    }
   } else {
     return result;
   }
