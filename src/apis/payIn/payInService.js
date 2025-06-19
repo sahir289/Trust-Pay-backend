@@ -2229,13 +2229,20 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
     throw new BadRequestError('Invalid merchant order id');
   }
 
+  const currentTime = Date.now();
+  const validationGracePeriodMs = 10 * 1000; // 10 seconds for quick reloads
+  const paymentGracePeriodMs = 2 * 60 * 1000; // 2 minutes for payment processing
+  const lastValidatedAt = payIn.config?.lastValidatedAt ? new Date(payIn.config.lastValidatedAt).getTime() : 0;
+  const paymentInitiatedAt = payIn.config?.paymentInitiatedAt ? new Date(payIn.config.paymentInitiatedAt).getTime() : 0;
+
   if (payIn.one_time_used === true) {
-    // If already used
+    // If already used, update reload count and return error
     const updatedConfig = stringifyJSON({
       ...payIn.config,
       user: user_location,
       page_reload: true,
       page_reload_count: (payIn.config?.page_reload_count || 0) + 1,
+      lastValidatedAt: new Date(currentTime).toISOString(),
     });
 
     await updatePayInUrlDao(payIn.id, {
@@ -2249,10 +2256,35 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
     return { error: `This payin url is already used`, result };
   }
 
-  const updatedConfig = stringifyJSON({
-    ...payIn.config,
-    user: user_location,
-  });
+  // Check if payment is being processed
+  const isPaymentProcessing = paymentInitiatedAt && (currentTime - paymentInitiatedAt) < paymentGracePeriodMs;
+  const isWithinValidationGracePeriod = currentTime - lastValidatedAt < validationGracePeriodMs;
+
+  if (!isPaymentProcessing && !isWithinValidationGracePeriod) {
+    // Mark as used if outside both grace periods
+    const updatedConfig = stringifyJSON({
+      ...payIn.config,
+      user: user_location,
+      lastValidatedAt: new Date(currentTime).toISOString(),
+    });
+
+    await updatePayInUrlDao(payIn.id, {
+      config: updatedConfig,
+      one_time_used: true,
+    });
+  } else {
+    // Update config without marking as used
+    const updatedConfig = stringifyJSON({
+      ...payIn.config,
+      user: user_location,
+      lastValidatedAt: new Date(currentTime).toISOString(),
+    });
+
+    await updatePayInUrlDao(payIn.id, {
+      config: updatedConfig,
+    });
+  }
+
   const merchant = await getMerchantsDao({ id: payIn.merchant_id });
   const blockedUsers = merchant[0].config.blocked_users;
   if (Array.isArray(blockedUsers)) {
@@ -2266,15 +2298,10 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
       throw new BadRequestError('User Access Denied !');
     }
   }
-  await updatePayInUrlDao(payIn.id, {
-    config: updatedConfig,
-    one_time_used: true,
-  });
 
   const banks = await getMerchantBankDao({
     config_merchants_contains: merchant[0].id,
   });
-  //only banks assigned
   const enabledBanks = banks.filter((bank) => {
     const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
     const isActive = bank.is_enabled && isPayInBank;
@@ -2285,6 +2312,7 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
       bank.config?.is_intent;
     return isActive && hasAnyMethod;
   });
+
   const result = {
     expiryTime: payIn.expiration_date,
     amount: payIn.amount,
@@ -2292,14 +2320,52 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
     status: payIn.status,
     min_amount: merchant[0].min_payin,
     max_amount: merchant[0].max_payin,
-    //only methods from enabled banks checked
     is_qr: enabledBanks.some((bank) => bank.is_qr),
     is_phonepay: enabledBanks.some((bank) => bank.config?.is_phonepay),
     is_bank: enabledBanks.some((bank) => bank.is_bank),
     redirect_url: payIn.config?.urls?.return,
+    paymentInitiatedAt: payIn.config?.paymentInitiatedAt,
   };
-  // expirePayInIfNeeded(payIn.id);
+
   return result;
+};
+
+export const markPaymentInitiatedService = async (merchantOrderId) => {
+  const payIn = await getPayInUrlService(merchantOrderId);
+
+  if (!payIn) {
+    throw new BadRequestError('Invalid merchant order id');
+  }
+
+  if (payIn.one_time_used === true) {
+    throw new BadRequestError('This payin url is already used');
+  }
+
+  const currentTime = Date.now();
+  const updatedConfig = stringifyJSON({
+    ...payIn.config,
+    paymentInitiatedAt: new Date(currentTime).toISOString(),
+  });
+
+  await updatePayInUrlDao(payIn.id, {
+    config: updatedConfig,
+  });
+
+  return { success: true };
+};
+
+export const checkPaymentStatusService = async (merchantOrderId) => {
+  const payIn = await getPayInUrlService(merchantOrderId);
+
+  if (!payIn) {
+    throw new BadRequestError('Invalid merchant order id');
+  }
+
+  return {
+    status: payIn.status, // e.g., 'PENDING', 'SUCCESS', 'FAILED'
+    one_time_used: payIn.one_time_used,
+    redirect_url: payIn.config?.urls?.return,
+  };
 };
 
 export const generateUpiUrlService = async (payload) => {

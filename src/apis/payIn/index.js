@@ -23,6 +23,8 @@ import {
   updateUtrPayins,
   checkPendingPayinStatus,
   updatePayIn,
+  markPaymentInitiated,
+  checkPaymentStatus,
 } from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
@@ -80,6 +82,10 @@ router.get('/generate-payin', tryCatchHandler(generatePayInUrl));
  *         description: Pay-In URL not found
  */
 router.get('/validate-payIn-url/:merchantOrderId',getUserLocationMiddleware, tryCatchHandler(validatePayInUrl));
+
+router.get('/payment-initiated/:merchantOrderId', tryCatchHandler(markPaymentInitiated));
+
+router.get('/check-payment-status/:merchantOrderId', tryCatchHandler(checkPaymentStatus));
 
 /**
  * @swagger
