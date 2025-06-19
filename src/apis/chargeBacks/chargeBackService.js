@@ -377,10 +377,6 @@ const updateChargeBackService = async (ids, payload) => {
       .toISOString()
       .split('T')[0];
     
-      console.log(
-        createdAtDate,
-        'dfkgjbj jb  djjgj dkjkj djjb dfjbj jfkjb jfdkjb',
-      );
     if (createdAtDate !== today) {
       throw new BadRequestError('Chargeback data must be from today');
     }
