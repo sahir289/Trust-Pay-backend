@@ -317,14 +317,6 @@ export const generatePayInUrlService = async (
     };
     const result = await generatePayInUrlDao(data);
     await newTableEntry(tableName.PAYIN);
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: data.company_id,
-    //   message: `Payin with merchant order id: ${data.merchant_order_id} has been initiated.`,
-    //   payloadUserId: merchant.user_id,
-    //   actorUserId: merchant.user_id,
-    // });
-    // expirePayInIfNeeded(result.id, code);
     return result;
   } catch (error) {
     throw new BadRequestError(error.message);
