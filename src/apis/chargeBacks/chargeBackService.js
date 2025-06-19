@@ -369,10 +369,7 @@ const updateChargeBackService = async (ids, payload) => {
       company_id: ids.company_id,
     });
     const chargeBack = chargebackdata[0];
-    // Get today's date in YYYY-MM-DD format
     const today = new Date().toISOString().split('T')[0];
-    console.log(today,"dfkgjbj jb  djjgj dkjkj djjb dfjbj jfkjb jfdkjb");
-    // Get chargebackdata.created_at date in YYYY-MM-DD format
     const createdAtDate = new Date(chargeBack.created_at)
       .toISOString()
       .split('T')[0];
@@ -381,8 +378,8 @@ const updateChargeBackService = async (ids, payload) => {
       throw new BadRequestError('Chargeback data must be from today');
     }
     conn = await getConnection();
-    await beginTransaction(conn); // Start a transaction
-    const data = await updateChargeBackDao(ids, payload); // Adjust DAO call for update
+    await beginTransaction(conn); 
+    const data = await updateChargeBackDao(ids, payload); 
     let MerchantuserId = data.merchant_user_id;
     const merchantCalculation = await getCalculationforCronDao(MerchantuserId);
     let amount = Number(data.amount - chargeBack.amount);
