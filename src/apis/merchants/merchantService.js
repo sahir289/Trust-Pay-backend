@@ -104,7 +104,8 @@ const createMerchantService = async (conn, payload) => {
       company_id: payload.company_id,
       message: `New Merchant with Code ${data.code} has been created.`,
       payloadUserId: payload.updated_by,
-      actorUserId: userDesignation === Role.SUB_MERCHANT ? parentId : payload.updated_by,
+      actorUserId:
+        userDesignation === Role.SUB_MERCHANT ? parentId : payload.updated_by,
     });
     return data;
   } catch (error) {
@@ -354,12 +355,17 @@ const updateMerchantService = async (conn, ids, payload, role) => {
   try {
     const filterColumns =
       role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
+    payload.config = {
+      ...payload.config,
+      whitelist_ips: payload?.whitelist_ips,
+    };
+    delete payload.whitelist_ips;
     const data = await updateMerchantDao(ids, payload); // Adjust DAO call for update
     logger.log('Merchant updated successfully');
     const finalResult = filterResponse(data, filterColumns);
     await notifyAdminsAndUsers({
       conn,
-      company_id: payload.company_id,
+      company_id: ids.company_id,
       message: `Merchant with Code ${data.code} has been updated.`,
       payloadUserId: payload.updated_by,
       actorUserId: payload.updated_by,
@@ -554,7 +560,7 @@ const getMerchantsByCodeService = async (code) => {
     logger.error('Error while fetching merchant by code', error);
     throw new InternalServerError(error);
   }
-}
+};
 
 export {
   createMerchantService,

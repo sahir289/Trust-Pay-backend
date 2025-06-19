@@ -50,6 +50,7 @@ export const CREATE_USER_SCHEMA = Joi.object({
   site: Joi.string().uri().label('site').optional(),
   config: Joi.object().label('config').optional(),
   parent_id: Joi.string().label('parent_id').optional(),
+  whitelist_ips: Joi.string().label('whitelist_ips').optional(),
 });
 
 

@@ -59,6 +59,8 @@ import { logger } from '../../utils/logger.js';
 import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
 import { sendBankNotAssignedAlertTelegram } from '../../utils/sendTelegramMessages.js';
 
+const TestingIp = process.env.LOCAL_IP;
+
 //  To Generate Url
 export const generateHashForPayIn = async (req, res) => {
   const updateRes = await generatePayInUrlByHashService(req, res); //-- sending res to resolve
@@ -67,6 +69,13 @@ export const generateHashForPayIn = async (req, res) => {
 
 export const generatePayInUrl = async (req, res) => {
   const payload = req.query;
+  let userIp =
+    req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
+  if (userIp == '::1') {
+    userIp = TestingIp;
+  }
+  const fromUI = payload.fromUi || false;
+  delete payload.fromUi; // remove from payload to avoid validation issues
   const joiValidation = ASSIGN_PAYIN_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
@@ -201,6 +210,8 @@ export const generatePayInUrl = async (req, res) => {
     },
     tokenData.user_id,
     res,
+    userIp,
+    fromUI,
   );
 
   // create some kind of hash to secure the next public API flow

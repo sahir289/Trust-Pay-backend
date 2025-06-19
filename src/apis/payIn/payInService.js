@@ -194,6 +194,8 @@ export const generatePayInUrlService = async (
   payload,
   created_by,
   res,
+  userIp,
+  fromUI,
 ) => {
   try {
     const {
@@ -210,6 +212,32 @@ export const generatePayInUrlService = async (
     const merchant_order_id = order_id ? order_id : uuidv4();
     const merchantArr = await getMerchantsByCodeDao(code);
     const merchant = merchantArr[0];
+    if (!fromUI && merchant.config.whitelist_ips) {
+      let whitelist = merchant.config.whitelist_ips;
+      // Normalize whitelist to array of trimmed strings
+      if (typeof whitelist === 'string') {
+        whitelist = whitelist
+          .split(',')
+          .map((ip) => ip.trim())
+          .filter(Boolean);
+      } else if (Array.isArray(whitelist)) {
+        whitelist = whitelist.map((ip) => String(ip).trim()).filter(Boolean);
+      } else {
+        whitelist = [];
+      }
+      // Check if userIp is in whitelist (if whitelist is not empty)
+      if (whitelist.length && !whitelist.includes(userIp)) {
+        return res.status(400).json({
+          error: {
+            status: 400,
+            message: 'IP not whitelisted',
+            additionalInfo: {},
+            level: 'info',
+            timestamp: new Date().toISOString(),
+          },
+        });
+      }
+    }
 
     const isOrderIdExist = await getPayInUrlDao({
       merchant_order_id: order_id,
