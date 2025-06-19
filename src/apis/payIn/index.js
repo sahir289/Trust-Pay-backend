@@ -81,7 +81,7 @@ router.get('/generate-payin', tryCatchHandler(generatePayInUrl));
  *       404:
  *         description: Pay-In URL not found
  */
-router.get('/validate-payIn-url/:merchantOrderId',getUserLocationMiddleware, tryCatchHandler(validatePayInUrl));
+router.get('/validate-payIn-url/:merchantOrderId/:oneTimeUsed',getUserLocationMiddleware, tryCatchHandler(validatePayInUrl));
 
 router.get('/payment-initiated/:merchantOrderId', tryCatchHandler(markPaymentInitiated));
 

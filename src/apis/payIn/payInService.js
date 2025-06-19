@@ -2222,7 +2222,7 @@ export const checkPendingPayinStatusService = async (
   }
 };
 
-export const verifyPayinsService = async (merchantOrderId, user_location) => {
+export const verifyPayinsService = async (merchantOrderId, user_location, oneTimeUsed) => {
   const payIn = await getPayInUrlService(merchantOrderId);
 
   if (!payIn) {
@@ -2270,7 +2270,7 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
 
     await updatePayInUrlDao(payIn.id, {
       config: updatedConfig,
-      one_time_used: true,
+      one_time_used: oneTimeUsed ? true : payIn.one_time_used,
     });
   } else {
     // Update config without marking as used
