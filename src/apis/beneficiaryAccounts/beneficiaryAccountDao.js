@@ -133,6 +133,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
     } else if (role === Role.VENDOR) {
       commissionSelect = `
         MAX(bea.ifsc) AS ifsc,
+        ARRAY_AGG(DISTINCT v.user_id) AS user_id,
         MAX(bea.config->>'type') AS config_type,
         MAX(bea.config->>'balance') AS config_balance,
         MAX(bea.config->>'today_balance') AS config_today_balance,
@@ -140,7 +141,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
 `;
     } else {
       commissionSelect = `
-        MAX(bea.user_id) AS user_id,
+      ARRAY_AGG(DISTINCT v.user_id) AS user_id,
         MAX(bea.ifsc) AS ifsc,
         MAX(creator.user_name) AS created_by,
         MAX(updater.user_name) AS updated_by,
