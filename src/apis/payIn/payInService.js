@@ -498,7 +498,6 @@ export const assignedBankToPayInUrlService = async (
     amount: parseFloat(amount),
     status: Status.ASSIGNED,
     bank_acc_id: selectedBankDetails.id,
-    one_time_used: true,
   });
   // expirePayInIfNeeded(payIn);
   delete updatePayIn.is_obsolete;
