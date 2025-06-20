@@ -168,7 +168,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
     LEFT JOIN public."User" updater ON bea.updated_by = updater.id
     WHERE ${conditions.join(' AND ')}
     GROUP BY ${groupByColumns.join(', ')}
-    ORDER BY bea.acc_no
+    ORDER BY MAX(bea.updated_at) DESC
     ${limitcondition};`;
 
     const result = await executeQuery(baseQuery, queryParams);
@@ -178,6 +178,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
     throw error.message;
   }
 };
+
 const getBeneficiaryAccountBySearchDao = async (
   role,
   searchTerms = [],
