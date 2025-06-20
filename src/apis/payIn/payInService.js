@@ -100,8 +100,6 @@ Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
 
 export const generatePayInUrlByHashService = async (conn, req, res) => {
   const { user_id, code, ot, key, amount } = req.query;
-  const companyId = req.user;
-  const notifyUserId = req.user.user_id;
   if (!user_id || !code || !ot) {
     //-- correct error handling
     return res.status(400).json({
@@ -122,10 +120,10 @@ export const generatePayInUrlByHashService = async (conn, req, res) => {
   if (bankAssigned.length <= 0) {
     await notifyAdminsAndUsers({
       conn,
-      company_id: companyId,
+      company_id: merchantArr[0].company_id,
       message: `Bank Account has not been linked with Merchant: ${code}`,
-      payloadUserId: notifyUserId,
-      actorUserId: notifyUserId,
+      payloadUserId: merchantArr[0].user_id,
+      actorUserId: merchantArr[0].user_id,
     });
     //-- correct error handling
     return res.status(400).json({
@@ -147,10 +145,10 @@ export const generatePayInUrlByHashService = async (conn, req, res) => {
   if (allBanksDisabled) {
     await notifyAdminsAndUsers({
       conn,
-      company_id: companyId,
+      company_id: merchantArr[0].company_id,
       message: `Bank Account has not been linked with Merchant: ${code}`,
-      payloadUserId: notifyUserId,
-      actorUserId: notifyUserId,
+      payloadUserId: merchantArr[0].user_id,
+      actorUserId: merchantArr[0].user_id,
     });
     // error handling
     return res.status(400).json({
