@@ -498,7 +498,6 @@ export const assignedBankToPayInUrlService = async (
     amount: parseFloat(amount),
     status: Status.ASSIGNED,
     bank_acc_id: selectedBankDetails.id,
-    one_time_used: true,
   });
   // expirePayInIfNeeded(payIn);
   delete updatePayIn.is_obsolete;
@@ -1818,12 +1817,21 @@ export const disputeDuplicateTransactionService = async (
       throw new BadRequestError('Please provide valid merchant order id');
     }
 
-    if (![Status.ASSIGNED, Status.DROPPED].includes(payInData.status)) {
+    if (![Status.ASSIGNED,Status.DROPPED,Status.DUPLICATE].includes(payInData.status)) {
       throw new BadRequestError(
         `PayIn Status: ${payInData.status} is not Accepted`,
       );
     }
 
+    if (payInData.status === Status.DUPLICATE) {
+      if (
+        payIn.user_submitted_utr != payInData.user_submitted_utr
+      ) {
+        throw new BadRequestError(
+          `UTR ${payIn.user_submitted_utr} MisMatches with ${payInData.user_submitted_utr} User Submitted UTR `,
+        );
+      }
+    }
     if (
       payIn.user_submitted_utr &&
       payIn.user_submitted_utr != bankResponse.utr
