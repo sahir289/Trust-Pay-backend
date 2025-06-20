@@ -98,7 +98,7 @@ Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
 
-export const generatePayInUrlByHashService = async (req, res) => {
+export const generatePayInUrlByHashService = async (conn, req, res) => {
   const { user_id, code, ot, key, amount } = req.query;
   if (!user_id || !code || !ot) {
     //-- correct error handling
@@ -118,6 +118,13 @@ export const generatePayInUrlByHashService = async (req, res) => {
     config_merchants_contains: merchantArr[0].id,
   });
   if (bankAssigned.length <= 0) {
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: merchantArr[0].company_id,
+      message: `Bank Account has not been linked with Merchant: ${code}`,
+      payloadUserId: merchantArr[0].user_id,
+      actorUserId: merchantArr[0].user_id,
+    });
     //-- correct error handling
     return res.status(400).json({
       error: {
@@ -136,9 +143,13 @@ export const generatePayInUrlByHashService = async (req, res) => {
     (bank) => bank.is_enabled === false,
   );
   if (allBanksDisabled) {
-    // throw new InternalServerError(
-    //   'Bank assigned to this merchant is not enabled!',
-    // );
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: merchantArr[0].company_id,
+      message: `Bank Account has not been linked with Merchant: ${code}`,
+      payloadUserId: merchantArr[0].user_id,
+      actorUserId: merchantArr[0].user_id,
+    });
     // error handling
     return res.status(400).json({
       error: {
@@ -1817,16 +1828,18 @@ export const disputeDuplicateTransactionService = async (
       throw new BadRequestError('Please provide valid merchant order id');
     }
 
-    if (![Status.ASSIGNED,Status.DROPPED,Status.DUPLICATE].includes(payInData.status)) {
+    if (
+      ![Status.ASSIGNED, Status.DROPPED, Status.DUPLICATE].includes(
+        payInData.status,
+      )
+    ) {
       throw new BadRequestError(
         `PayIn Status: ${payInData.status} is not Accepted`,
       );
     }
 
     if (payInData.status === Status.DUPLICATE) {
-      if (
-        payIn.user_submitted_utr != payInData.user_submitted_utr
-      ) {
+      if (payIn.user_submitted_utr != payInData.user_submitted_utr) {
         throw new BadRequestError(
           `UTR ${payIn.user_submitted_utr} MisMatches with ${payInData.user_submitted_utr} User Submitted UTR `,
         );
@@ -2000,13 +2013,18 @@ export const telegramCheckUTRService = async (
       };
     }
 
-    await createCheckUtrService({
-      payin_id: payIn.id,
+    await createCheckUtrService(
+      conn,
+      {
+        payin_id: payIn.id,
+        utr,
+        company_id: company_id,
+        created_by: updated_by,
+        updated_by,
+      },
+      merchant_order_id,
       utr,
-      company_id: company_id,
-      created_by: updated_by,
-      updated_by,
-    });
+    );
 
     if (payIn.bank_response_id) {
       otherBankResponse =
@@ -2230,7 +2248,11 @@ export const checkPendingPayinStatusService = async (
   }
 };
 
-export const verifyPayinsService = async (merchantOrderId, user_location, oneTimeUsed) => {
+export const verifyPayinsService = async (
+  merchantOrderId,
+  user_location,
+  oneTimeUsed,
+) => {
   const payIn = await getPayInUrlService(merchantOrderId);
 
   if (!payIn) {
@@ -2282,13 +2304,13 @@ export const verifyPayinsService = async (merchantOrderId, user_location, oneTim
   if (!updateResult) {
     throw new InternalServerError('Failed to update payin URL');
   }
-    if (oneTimeUsed === 'true' && updateResult.one_time_used) {
+  if (oneTimeUsed === 'true' && updateResult.one_time_used) {
     // If already used
     const result = {
       redirect_url: payIn.config?.urls?.return,
-    }
-    return { error: `This payin url is already used`, result};
-    }
+    };
+    return { error: `This payin url is already used`, result };
+  }
 
   const banks = await getMerchantBankDao({
     config_merchants_contains: merchant[0].id,

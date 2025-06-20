@@ -22,7 +22,7 @@ export const getNotificationsService = async (user_id, company_id) => {
     const filteredRecipients = notificationRecipients.filter((recipient) => {
       if (Array.isArray(recipient.config.recipients)) {
         return recipient.config.recipients.some(
-          (cfg) => cfg.recipient_id === user_id && cfg.is_read === 'false',
+          (cfg) => cfg.recipient_id === user_id,
         );
       }
       return false;
@@ -34,15 +34,36 @@ export const getNotificationsService = async (user_id, company_id) => {
     }
 
     // Get notification IDs from filtered recipients
-    const notificationIds = filteredRecipients.map(
-      (recipient) => recipient.notification_id,
-    );
+    // Separate unread and read notification IDs
+    const unreadIds = [];
+    const readIds = [];
+
+    filteredRecipients.forEach((recipient) => {
+      if (Array.isArray(recipient.config.recipients)) {
+      const userCfg = recipient.config.recipients.find(cfg => cfg.recipient_id === user_id);
+      if (userCfg) {
+        if (userCfg.is_read === 'false') {
+        unreadIds.push(recipient.notification_id);
+        } else {
+        readIds.push(recipient.notification_id);
+        }
+      }
+      }
+    });
+
+    // Combine unread first, then read
+    const notificationIds = [...unreadIds, ...readIds];
 
     // Fetch notifications by IDs
-    const notifications = await getNotificationByIdDao(
+    let notifications = await getNotificationByIdDao(
       notificationIds,
       company_id,
     );
+
+    // Ensure notifications are returned in the same order as notificationIds
+    notifications = notificationIds
+      .map(id => notifications.find(n => n.id === id))
+      .filter(Boolean);
 
     return notifications;
   } catch (error) {
@@ -100,7 +121,7 @@ export const getNotificationByIdService = async (id, userId, company_id) => {
     const filteredRecipients = notificationRecipients.filter((recipient) => {
       if (Array.isArray(recipient.config.recipients)) {
         return recipient.config.recipients.some(
-          (cfg) => cfg.recipient_id === userId && cfg.is_read === 'false',
+          (cfg) => cfg.recipient_id === userId,
         );
       }
       return false;

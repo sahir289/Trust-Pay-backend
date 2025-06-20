@@ -278,13 +278,6 @@ const createPayoutService = async (
     logger.info('Payout created successfully');
     const finalResult = filterResponse(data, filterColumns);
     await newTableEntry(tableName.PAYOUT);
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: payload.company_id,
-      message: `PayOut with merchant order id: ${payload.merchant_order_id} has been initiated.`,
-      payloadUserId: details[0].user_id,
-      actorUserId: details[0].user_id,
-    });
     return finalResult;
   } catch (error) {
     logger.error(error);
@@ -657,7 +650,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     await notifyAdminsAndUsers({
       conn,
       company_id: ids.company_id,
-      message: `PayOut with merchant order id: ${payload.merchant_order_id} has been updated.`,
+      message: `PayOut with merchant order id: ${payload.merchant_order_id} has been ${data.status}.`,
       payloadUserId: merchant.user_id,
       actorUserId: vendor.user_id,
     });
