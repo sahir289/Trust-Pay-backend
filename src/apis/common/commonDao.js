@@ -21,7 +21,15 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs, updated
         LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
       `;
     }  
-    if (roleIs === Role.ADMIN && tablename === tableName.MERCHANT) {
+    if (tablename === tableName.BENEFICIARY_ACCOUNTS && role !== Role.MERCHANT) {
+      query = `
+        SELECT COUNT(DISTINCT "${tablename}".acc_no) AS count 
+        FROM "${tablename}" 
+        ${joins}
+        WHERE "${tablename}".is_obsolete = false
+      `;
+    } 
+    else if (roleIs === Role.ADMIN && tablename === tableName.MERCHANT) {
       query = `
         SELECT COUNT(*) AS count 
         FROM "${tablename}" 
@@ -120,6 +128,7 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs, updated
     }
 
     const result = await executeQuery(query, params);
+    console.log(result.rows[0].count , 'rows_________00')
     return parseInt(result.rows[0].count, 10); // Ensure the count is returned as an integer
   } catch (error) {
     if (error.code === '42P01') {
