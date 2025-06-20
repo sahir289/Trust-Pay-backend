@@ -12,6 +12,8 @@ export const BENEFICIARY_ACCOUNT_SCHEMA = Joi.object({
   ifsc: Joi.string().label('ifsc').required(),
   bank_name: Joi.string().label('bank_name').required(),
   config: Joi.object().label('config').optional(),
+  config_type: Joi.string().label('config_type').optional(),
+
 });
 
 export const UPDATE_BENEFICIARY_ACCOUNT_SCHEMA = Joi.object({
@@ -22,6 +24,9 @@ export const UPDATE_BENEFICIARY_ACCOUNT_SCHEMA = Joi.object({
   ifsc: Joi.string().label('ifsc').optional(),
   bank_name: Joi.string().label('bank_name').optional(),
   config: Joi.object().label('config').optional(),
+  user_id: Joi.array().items(Joi.string())
+  .label('user_id')
+  .optional(),
 });
 
 export const VALIDATE_BENEFICIARY_ACCOUNT_BY_ID = Joi.string()

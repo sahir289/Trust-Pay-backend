@@ -322,6 +322,35 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
     const banks = await getBeneficiaryAccountDao({
        'config->>uniqueCode': payload.config_uniquecode
     });
+    const userRole = await getUserByIdDao(conn, { id: payload.user_id });
+    const role_id = await getRoleDao({ role: userRole[0].role });
+
+    if (payload?.user_id && Array.isArray(payload?.user_id)) {
+      for(const userId of payload?.user_id){
+        const alreadyExist = await getBeneficiaryAccountDao({
+          'config->>uniqueCode': payload.config_uniquecode, user_id: userId
+       });
+       if(alreadyExist.length>0){
+         const data = await updateBeneficiaryAccountDao({ user_id: userId }, {is_obsolete: true}, conn)
+          return data;
+      }
+      else{
+        const data = await createBeneficiaryAccountDao({
+          user_id: userId,
+          upi_id: banks[0].upi_id,
+          acc_holder_name: banks[0].acc_holder_name,
+          acc_no: banks[0].acc_no,
+          ifsc: banks[0].ifsc,
+          bank_name: banks[0].bank_name,
+          config: banks[0].config,
+          role_id: role_id[0].id
+         });
+         return data;
+
+        }
+      }
+
+    }
     for (const bank of banks) {
       if (Object.keys(payload).length === 0) {
         if (bank.today_balance >= bank.config?.max_limit) {
@@ -334,6 +363,7 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
       delete payload.config_uniquecode;
       if (Object.keys(payload).length > 0) {
         result = await updateBeneficiaryAccountDao({ id: bank.id }, payload, conn);
+        return result;
       }
       await notifyAdminsAndUsers({
         conn,
@@ -343,7 +373,7 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
         actorUserId: payload.updated_by,
       });
     }
-    return result;
+    
   } catch (error) {
     logger.error('error getting while  updating banks', error);
     throw new BadRequestError('Error getting while  updating banks');
