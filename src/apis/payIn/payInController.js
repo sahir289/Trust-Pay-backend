@@ -44,6 +44,8 @@ import {
   updateUtrPayinService,
   checkPendingPayinStatusService,
   updatePayInService,
+  markPaymentInitiatedService,
+  checkPaymentStatusService,
 } from './payInService.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
@@ -239,14 +241,36 @@ export const generatePayInUrl = async (req, res) => {
  * @type import('express').RequestHandler
  */
 export const validatePayInUrl = async (req, res) => {
-  const { merchantOrderId } = req.params;
+  const { merchantOrderId, oneTimeUsed } = req.params;
   const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
   const user_location = req.user_location;
   // req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
-  const result = await verifyPayinsService(merchantOrderId, user_location);
+  const result = await verifyPayinsService(merchantOrderId, user_location, oneTimeUsed);
+  result.merchant_order_id = merchantOrderId;
+  return sendSuccess(res, result, 'Payment Url is correct');
+};
+
+export const markPaymentInitiated = async (req, res) => {
+  const { merchantOrderId } = req.params;
+  const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  const result = await markPaymentInitiatedService(merchantOrderId);
+  result.merchant_order_id = merchantOrderId;
+  return sendSuccess(res, result, 'Payment Url is correct');
+};
+
+export const checkPaymentStatus = async (req, res) => {
+  const { merchantOrderId } = req.params;
+  const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  const result = await checkPaymentStatusService(merchantOrderId);
   result.merchant_order_id = merchantOrderId;
   return sendSuccess(res, result, 'Payment Url is correct');
 };
