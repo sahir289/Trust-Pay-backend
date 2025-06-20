@@ -2013,13 +2013,18 @@ export const telegramCheckUTRService = async (
       };
     }
 
-    await createCheckUtrService({
-      payin_id: payIn.id,
+    await createCheckUtrService(
+      conn,
+      {
+        payin_id: payIn.id,
+        utr,
+        company_id: company_id,
+        created_by: updated_by,
+        updated_by,
+      },
+      merchant_order_id,
       utr,
-      company_id: company_id,
-      created_by: updated_by,
-      updated_by,
-    });
+    );
 
     if (payIn.bank_response_id) {
       otherBankResponse =
