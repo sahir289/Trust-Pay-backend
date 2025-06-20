@@ -696,6 +696,7 @@ export const AccessRoles = {
     Role.VENDOR,
     Role.MERCHANT_OPERATIONS,
     Role.VENDOR_OPERATIONS,
+    Role.SUB_MERCHANT
   ],
   ROLES: [
     Role.ADMIN,
