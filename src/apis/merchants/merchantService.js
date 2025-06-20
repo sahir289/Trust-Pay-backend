@@ -355,10 +355,12 @@ const updateMerchantService = async (conn, ids, payload, role) => {
   try {
     const filterColumns =
       role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
-    payload.config = {
-      ...payload.config,
-      whitelist_ips: payload?.whitelist_ips,
-    };
+    if (payload?.whitelist_ips) {
+      payload.config = {
+        ...payload.config,
+        whitelist_ips: payload?.whitelist_ips,
+      };
+    }
     delete payload.whitelist_ips;
     const data = await updateMerchantDao(ids, payload); // Adjust DAO call for update
     logger.log('Merchant updated successfully');
