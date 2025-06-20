@@ -2,6 +2,7 @@ import { Role, tableName } from '../../constants/index.js';
 import {
   buildInsertQuery,
   buildUpdateQuery,
+  buildSelectQuery,
   executeQuery,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
@@ -16,6 +17,18 @@ export const createChargeBackDao = async (data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error creating ChargeBack entry:', error);
+    throw error.message;
+  }
+};
+
+export const getChargebackByIdDao = async (filters) => {
+  try {
+    const query = `SELECT id, sno, merchant_user_id, vendor_user_id, payin_id, bank_acc_id, amount, reference_date, created_by, updated_by, created_at, updated_at FROM "${tableName.CHARGE_BACK}" WHERE 1=1`;
+    const [sql, parameters] = buildSelectQuery(query, filters);
+    const result = await executeQuery(sql, parameters);
+    return result.rows;
+  } catch (error) {
+    logger.error(error);
     throw error.message;
   }
 };
@@ -560,7 +573,7 @@ export const updateChargeBackDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     console.error('Error updating ChargeBack entry:', error);
-    throw error.message;
+    throw error;
   }
 };
 

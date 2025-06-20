@@ -82,25 +82,18 @@ export const getNotificationCountsByIdDao = async (id, company_id) => {
 
     const sql = `
       SELECT
-        n.id,
-        n.message,
-        u."first_name" || ' ' || u."last_name" AS user,
-        n.created_at,
-        n.config
+        COUNT(*) AS count
       FROM
         public."Notifications" n
-      LEFT JOIN "User" u ON u."id" = n.user_id
       WHERE n.id ${isMultiple ? `IN (${idPlaceholders})` : `= $1`}
         AND n.company_id = $${ids.length + 1}
-        AND n.is_obsolete = false
-      ORDER BY
-        n.created_at DESC;
+        AND n.is_obsolete = false;
     `;
     const values = [...ids, company_id];
     const result = await executeQuery(sql, values);
-    return result.rows.length > 0 ? result.rows.length : 0;
+    return result.rows[0].count || '0';
   } catch (error) {
-    logger.error('Error in getNotificationByIdDao:', error);
+    logger.error('Error in getNotificationCountsByIdDao:', error);
     throw error;
   }
 };

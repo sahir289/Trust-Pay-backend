@@ -93,11 +93,11 @@ const createBeneficiaryAccount = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const { user_id, role } = req.user;
+  const { user_id, company_id } = req.user;
   payload.created_by = user_id;
   payload.updated_by = user_id;
   // const data =
-  await transactionWrapper(createBeneficiaryAccountService)(payload, role);
+  await transactionWrapper(createBeneficiaryAccountService)(payload, company_id);
   logger.log('Created Beneficiary successfully');
   return sendSuccess(res, {}, 'Created Beneficiary successfully');
 };

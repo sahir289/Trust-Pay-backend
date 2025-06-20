@@ -98,7 +98,7 @@ Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
 
-export const generatePayInUrlByHashService = async (req, res) => {
+export const generatePayInUrlByHashService = async (conn, req, res) => {
   const { user_id, code, ot, key, amount } = req.query;
   if (!user_id || !code || !ot) {
     //-- correct error handling
@@ -118,6 +118,13 @@ export const generatePayInUrlByHashService = async (req, res) => {
     config_merchants_contains: merchantArr[0].id,
   });
   if (bankAssigned.length <= 0) {
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: merchantArr[0].company_id,
+      message: `Bank Account has not been linked with Merchant: ${code}`,
+      payloadUserId: merchantArr[0].user_id,
+      actorUserId: merchantArr[0].user_id,
+    });
     //-- correct error handling
     return res.status(400).json({
       error: {
@@ -136,9 +143,13 @@ export const generatePayInUrlByHashService = async (req, res) => {
     (bank) => bank.is_enabled === false,
   );
   if (allBanksDisabled) {
-    // throw new InternalServerError(
-    //   'Bank assigned to this merchant is not enabled!',
-    // );
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: merchantArr[0].company_id,
+      message: `Bank Account has not been linked with Merchant: ${code}`,
+      payloadUserId: merchantArr[0].user_id,
+      actorUserId: merchantArr[0].user_id,
+    });
     // error handling
     return res.status(400).json({
       error: {
@@ -189,7 +200,14 @@ export const generatePayInUrlByHashService = async (req, res) => {
   return updateRes;
 };
 
-export const generatePayInUrlService = async (conn, payload, created_by, res) => {
+export const generatePayInUrlService = async (
+  conn,
+  payload,
+  created_by,
+  res,
+  userIp,
+  fromUI,
+) => {
   try {
     const {
       code,
@@ -205,6 +223,32 @@ export const generatePayInUrlService = async (conn, payload, created_by, res) =>
     const merchant_order_id = order_id ? order_id : uuidv4();
     const merchantArr = await getMerchantsByCodeDao(code);
     const merchant = merchantArr[0];
+    if (!fromUI && merchant?.config?.whitelist_ips) {
+      let whitelist = merchant.config.whitelist_ips;
+      // Normalize whitelist to array of trimmed strings
+      if (typeof whitelist === 'string') {
+        whitelist = whitelist
+          .split(',')
+          .map((ip) => ip.trim())
+          .filter(Boolean);
+      } else if (Array.isArray(whitelist)) {
+        whitelist = whitelist.map((ip) => String(ip).trim()).filter(Boolean);
+      } else {
+        whitelist = [];
+      }
+      // Check if userIp is in whitelist (if whitelist is not empty)
+      if (whitelist.length && !whitelist.includes(userIp)) {
+        return res.status(400).json({
+          error: {
+            status: 400,
+            message: 'IP not whitelisted',
+            additionalInfo: {},
+            level: 'info',
+            timestamp: new Date().toISOString(),
+          },
+        });
+      }
+    }
 
     const isOrderIdExist = await getPayInUrlDao({
       merchant_order_id: order_id,
@@ -312,14 +356,6 @@ export const generatePayInUrlService = async (conn, payload, created_by, res) =>
     };
     const result = await generatePayInUrlDao(data);
     await newTableEntry(tableName.PAYIN);
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: data.company_id,
-      message: `Payin with merchant order id: ${data.merchant_order_id} has been initiated.`,
-      payloadUserId: merchant.user_id,
-      actorUserId: merchant.user_id,
-    });
-    // expirePayInIfNeeded(result.id, code);
     return result;
   } catch (error) {
     throw new BadRequestError(error.message);
@@ -473,7 +509,6 @@ export const assignedBankToPayInUrlService = async (
     amount: parseFloat(amount),
     status: Status.ASSIGNED,
     bank_acc_id: selectedBankDetails.id,
-    one_time_used: true,
   });
   // expirePayInIfNeeded(payIn);
   delete updatePayIn.is_obsolete;
@@ -1452,13 +1487,22 @@ export const processPayInService = async (
     } catch (error) {
       logger.error('Error handling Telegram message:', error);
     }
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: payIn.company_id,
-      message: `Payin with merchant order id: ${merchantOrderId} has been updated.`,
-      payloadUserId: merchant[0].user_id,
-      actorUserId: bank.user_id,
-    });
+    if (
+      [
+        Status.SUCCESS,
+        Status.BANK_MISMATCH,
+        Status.DISPUTE,
+        Status.DROPPED,
+      ].includes(payIn.status)
+    ) {
+      await notifyAdminsAndUsers({
+        conn,
+        company_id: payIn.company_id,
+        message: `Payin with merchant order id: ${merchantOrderId} has been updated.`,
+        payloadUserId: merchant[0].user_id,
+        actorUserId: bank.user_id,
+      });
+    }
   } else {
     return result;
   }
@@ -1784,12 +1828,23 @@ export const disputeDuplicateTransactionService = async (
       throw new BadRequestError('Please provide valid merchant order id');
     }
 
-    if (![Status.ASSIGNED, Status.DROPPED].includes(payInData.status)) {
+    if (
+      ![Status.ASSIGNED, Status.DROPPED, Status.DUPLICATE].includes(
+        payInData.status,
+      )
+    ) {
       throw new BadRequestError(
         `PayIn Status: ${payInData.status} is not Accepted`,
       );
     }
 
+    if (payInData.status === Status.DUPLICATE) {
+      if (payIn.user_submitted_utr != payInData.user_submitted_utr) {
+        throw new BadRequestError(
+          `UTR ${payIn.user_submitted_utr} MisMatches with ${payInData.user_submitted_utr} User Submitted UTR `,
+        );
+      }
+    }
     if (
       payIn.user_submitted_utr &&
       payIn.user_submitted_utr != bankResponse.utr
@@ -1958,13 +2013,18 @@ export const telegramCheckUTRService = async (
       };
     }
 
-    await createCheckUtrService({
-      payin_id: payIn.id,
+    await createCheckUtrService(
+      conn,
+      {
+        payin_id: payIn.id,
+        utr,
+        company_id: company_id,
+        created_by: updated_by,
+        updated_by,
+      },
+      merchant_order_id,
       utr,
-      company_id: company_id,
-      created_by: updated_by,
-      updated_by,
-    });
+    );
 
     if (payIn.bank_response_id) {
       otherBankResponse =
@@ -2188,7 +2248,11 @@ export const checkPendingPayinStatusService = async (
   }
 };
 
-export const verifyPayinsService = async (merchantOrderId, user_location) => {
+export const verifyPayinsService = async (
+  merchantOrderId,
+  user_location,
+  oneTimeUsed,
+) => {
   const payIn = await getPayInUrlService(merchantOrderId);
 
   if (!payIn) {
@@ -2196,6 +2260,19 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
   }
 
   if (payIn.one_time_used === true) {
+    // If already used, update reload count and return error
+    const updatedConfig = stringifyJSON({
+      ...payIn.config,
+      user: user_location,
+      page_reload: true,
+      page_reload_count: (payIn.config?.page_reload_count || 0) + 1,
+    });
+
+    await updatePayInUrlDao(payIn.id, {
+      config: updatedConfig,
+      one_time_used: true,
+    });
+
     const result = {
       redirect_url: payIn.config?.urls?.return,
     };
@@ -2219,15 +2296,25 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
       throw new BadRequestError('User Access Denied !');
     }
   }
-  await updatePayInUrlDao(payIn.id, {
+  const updateResult = await updatePayInUrlDao(payIn.id, {
     config: updatedConfig,
-    one_time_used: true,
+    one_time_used: oneTimeUsed || false,
   });
+
+  if (!updateResult) {
+    throw new InternalServerError('Failed to update payin URL');
+  }
+  if (oneTimeUsed === 'true' && updateResult.one_time_used) {
+    // If already used
+    const result = {
+      redirect_url: payIn.config?.urls?.return,
+    };
+    return { error: `This payin url is already used`, result };
+  }
 
   const banks = await getMerchantBankDao({
     config_merchants_contains: merchant[0].id,
   });
-  //only banks assigned
   const enabledBanks = banks.filter((bank) => {
     const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
     const isActive = bank.is_enabled && isPayInBank;
@@ -2238,6 +2325,7 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
       bank.config?.is_intent;
     return isActive && hasAnyMethod;
   });
+
   const result = {
     expiryTime: payIn.expiration_date,
     amount: payIn.amount,
@@ -2245,14 +2333,51 @@ export const verifyPayinsService = async (merchantOrderId, user_location) => {
     status: payIn.status,
     min_amount: merchant[0].min_payin,
     max_amount: merchant[0].max_payin,
-    //only methods from enabled banks checked
     is_qr: enabledBanks.some((bank) => bank.is_qr),
     is_phonepay: enabledBanks.some((bank) => bank.config?.is_phonepay),
     is_bank: enabledBanks.some((bank) => bank.is_bank),
     redirect_url: payIn.config?.urls?.return,
   };
-  // expirePayInIfNeeded(payIn.id);
+
   return result;
+};
+
+export const markPaymentInitiatedService = async (merchantOrderId) => {
+  const payIn = await getPayInUrlService(merchantOrderId);
+
+  if (!payIn) {
+    throw new BadRequestError('Invalid merchant order id');
+  }
+
+  if (payIn.one_time_used === true) {
+    throw new BadRequestError('This payin url is already used');
+  }
+
+  const currentTime = Date.now();
+  const updatedConfig = stringifyJSON({
+    ...payIn.config,
+    paymentInitiatedAt: new Date(currentTime).toISOString(),
+  });
+
+  await updatePayInUrlDao(payIn.id, {
+    config: updatedConfig,
+  });
+
+  return { success: true };
+};
+
+export const checkPaymentStatusService = async (merchantOrderId) => {
+  const payIn = await getPayInUrlService(merchantOrderId);
+
+  if (!payIn) {
+    throw new BadRequestError('Invalid merchant order id');
+  }
+
+  return {
+    status: payIn.status, // e.g., 'PENDING', 'SUCCESS', 'FAILED'
+    one_time_used: payIn.one_time_used,
+    redirect_url: payIn.config?.urls?.return,
+  };
 };
 
 export const generateUpiUrlService = async (payload) => {

@@ -55,7 +55,15 @@ import { newTableEntry } from '../../utils/sockets.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
 import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
-const createPayoutService = async (conn, headers, payload, role, res) => {
+const createPayoutService = async (
+  conn,
+  headers,
+  payload,
+  role,
+  res,
+  userIp,
+  fromUI,
+) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -77,6 +85,33 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
           timestamp: new Date().toISOString(),
         },
       });
+    }
+
+    if (!fromUI && details[0]?.config?.whitelist_ips) {
+      let whitelist = details[0].config.whitelist_ips;
+      // Normalize whitelist to array of trimmed strings
+      if (typeof whitelist === 'string') {
+        whitelist = whitelist
+          .split(',')
+          .map((ip) => ip.trim())
+          .filter(Boolean);
+      } else if (Array.isArray(whitelist)) {
+        whitelist = whitelist.map((ip) => String(ip).trim()).filter(Boolean);
+      } else {
+        whitelist = [];
+      }
+      // Check if userIp is in whitelist (if whitelist is not empty)
+      if (whitelist.length && !whitelist.includes(userIp)) {
+        return res.status(400).json({
+          error: {
+            status: 400,
+            message: 'IP not whitelisted',
+            additionalInfo: {},
+            level: 'info',
+            timestamp: new Date().toISOString(),
+          },
+        });
+      }
     }
 
     if (details[0]?.balance < 0 && !details[0]?.config?.allow_payout) {
@@ -243,13 +278,6 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
     logger.info('Payout created successfully');
     const finalResult = filterResponse(data, filterColumns);
     await newTableEntry(tableName.PAYOUT);
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: payload.company_id,
-      message: `PayOut with merchant order id: ${payload.merchant_order_id} has been initiated.`,
-      payloadUserId: details[0].user_id,
-      actorUserId: details[0].user_id,
-    });
     return finalResult;
   } catch (error) {
     logger.error(error);
@@ -622,7 +650,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     await notifyAdminsAndUsers({
       conn,
       company_id: ids.company_id,
-      message: `PayOut with merchant order id: ${payload.merchant_order_id} has been updated.`,
+      message: `PayOut with merchant order id: ${payload.merchant_order_id} has been ${data.status}.`,
       payloadUserId: merchant.user_id,
       actorUserId: vendor.user_id,
     });

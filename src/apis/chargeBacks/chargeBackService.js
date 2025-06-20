@@ -11,6 +11,7 @@ import {
   getChargeBackDao,
   updateChargeBackDao,
   getChargeBacksBySearchDao,
+  getChargebackByIdDao,
   getAllChargeBackDao,
 } from './chargeBackDao.js';
 import {
@@ -29,7 +30,7 @@ import {
   updateMerchantDao,
 } from '../merchants/merchantDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
-import { getVendorsDao,updateVendorDao } from '../vendors/vendorDao.js';
+// import { getVendorsDao,updateVendorDao } from '../vendors/vendorDao.js';
 import { getPayInDaoByCode } from '../payIn/payInDao.js';
 import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 const createChargeBackService = async (
@@ -63,13 +64,13 @@ const createChargeBackService = async (
     // update calculations
     // update merchant calculations
     let MerchantuserId = data.merchant_user_id;
-    const merchantData = await getMerchantsDao({ user_id: MerchantuserId });
+    // const merchantData = await getMerchantsDao({ user_id: MerchantuserId });
     const merchantCalculation = await getCalculationforCronDao(MerchantuserId)
-    await updateMerchantDao(
-          { user_id: MerchantuserId },
-          { balance: merchantData[0].balance - payload.amount },
-          conn,
-        );
+    // await updateMerchantDao(
+    //       { user_id: MerchantuserId },
+    //       { balance: merchantData[0].balance - payload.amount },
+    //       conn,
+    //     );
         let amount = Number(payload.amount);
         let merchantId = merchantCalculation[0].id;
      await updateCalculationBalanceDao(
@@ -84,12 +85,12 @@ const createChargeBackService = async (
         );
         // update vendor calculations
     let VendorUserId = data.vendor_user_id;
-    const vendorData = await getVendorsDao({ user_id: VendorUserId });
-    await updateVendorDao(
-          { user_id: VendorUserId },
-          { balance: vendorData[0].balance - payload.amount },
-          conn
-         )
+    // const vendorData = await getVendorsDao({ user_id: VendorUserId });
+    // await updateVendorDao(
+    //       { user_id: VendorUserId },
+    //       { balance: vendorData[0].balance - payload.amount },
+    //       conn
+    //      )
     const vendorCalculation = await getCalculationforCronDao(
           VendorUserId
         )
@@ -360,22 +361,60 @@ const blockChargebackUserService = async (ids, payload) => {
   }
 };
 
-const updateChargeBackService = async (ids, payload, role) => {
+const updateChargeBackService = async (ids, payload) => {
   let conn;
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.CHARGE_BACK
-        : role === Role.VENDOR
-          ? vendorColumns.CHARGE_BACK
-          : columns.CHARGE_BACK;
+    const chargebackdata = await getChargebackByIdDao({
+      id: ids.id,
+      company_id: ids.company_id,
+    });
+    const chargeBack = chargebackdata[0];
+    const today = new Date().toISOString().split('T')[0];
+    const createdAtDate = new Date(chargeBack.created_at)
+      .toISOString()
+      .split('T')[0];
+    
+    if (createdAtDate !== today) {
+      throw new BadRequestError('Chargeback data must be from today');
+    }
     conn = await getConnection();
-    await beginTransaction(conn); // Start a transaction
-    const data = await updateChargeBackDao(ids, payload); // Adjust DAO call for update
+    await beginTransaction(conn); 
+    const data = await updateChargeBackDao(ids, payload); 
+    let MerchantuserId = data.merchant_user_id;
+    const merchantCalculation = await getCalculationforCronDao(MerchantuserId);
+    let amount = Number(data.amount - chargeBack.amount);
+    if (data.amount > chargeBack.amount) {
+      amount = Math.abs(amount);
+    } else {
+      amount = -Math.abs(amount);
+    }
+    let merchantId = merchantCalculation[0].id;
+    await updateCalculationBalanceDao(
+      { id: merchantId },
+      {
+        total_chargeback_count: 1,
+        total_chargeback_amount: amount,
+        current_balance: -amount,
+        net_balance: -amount,
+      },
+      conn,
+    );
+    // update vendor calculations
+    let VendorUserId = data.vendor_user_id;
+    const vendorCalculation = await getCalculationforCronDao(VendorUserId);
+    let VendorId = vendorCalculation[0].id;
+    await updateCalculationBalanceDao(
+      { id: VendorId },
+      {
+        total_chargeback_count: 1,
+        total_chargeback_amount: amount,
+        current_balance: -amount,
+        net_balance: -amount,
+      },
+      conn,
+    );
     await commit(conn); // Commit the transaction
-    console.log('ChargeBack updated successfully');
-    const finalResult = filterResponse(data, filterColumns);
-    return finalResult;
+    return data;
   } catch (error) {
     if (conn) {
       try {
@@ -385,7 +424,7 @@ const updateChargeBackService = async (ids, payload, role) => {
       }
     }
     console.error('Error while updating ChargeBack', error);
-    throw new InternalServerError(error);
+    throw error;
   } finally {
     if (conn) {
       try {

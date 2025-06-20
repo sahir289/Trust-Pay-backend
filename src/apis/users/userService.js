@@ -355,11 +355,11 @@ const createUserService = async (conn, payload, role) => {
             created_by: payload.created_by,
             updated_by: payload.updated_by,
             company_id: payload.company_id,
-            config: { 
+            config: {
               parent: payload?.parent_id
                 ? payload?.parent_id
                 : payload.created_by,
-            }, 
+            },
           },
           conn,
         );
@@ -408,6 +408,7 @@ const createUserService = async (conn, payload, role) => {
             payout_notify: payout_notify,
             return: Return,
             site: site,
+            whitelist_ips: payload.whitelist_ips,
           },
           keys: {
             private: Private,

@@ -44,8 +44,10 @@ import {
   updateUtrPayinService,
   checkPendingPayinStatusService,
   updatePayInService,
+  markPaymentInitiatedService,
+  checkPaymentStatusService,
 } from './payInService.js';
-import { transactionWrapper } from '../../utils/db.js';
+import { getConnection, transactionWrapper } from '../../utils/db.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { decodeAuthToken, streamToBase64 } from '../../helpers/index.js';
 import { s3 } from '../../helpers/Aws.js';
@@ -58,15 +60,28 @@ import { createHash, compareHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
 import { sendBankNotAssignedAlertTelegram } from '../../utils/sendTelegramMessages.js';
+import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+
+const TestingIp = process.env.LOCAL_IP;
 
 //  To Generate Url
 export const generateHashForPayIn = async (req, res) => {
-  const updateRes = await generatePayInUrlByHashService(req, res); //-- sending res to resolve
+  const updateRes = await transactionWrapper(generatePayInUrlByHashService)(
+    req,
+    res,
+  ); //-- sending res to resolve
   return sendSuccess(res, updateRes, 'PayIn hash generated successfully');
 };
 
 export const generatePayInUrl = async (req, res) => {
   const payload = req.query;
+  let userIp =
+    req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
+  if (userIp == '::1') {
+    userIp = TestingIp;
+  }
+  const fromUI = payload.fromUi || false;
+  delete payload.fromUi; // remove from payload to avoid validation issues
   const joiValidation = ASSIGN_PAYIN_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
@@ -108,12 +123,20 @@ export const generatePayInUrl = async (req, res) => {
   const bankAssigned = await getMerchantBankDao({
     config_merchants_contains: merchantArr[0].id,
   });
+  const conn = await getConnection();
   if (bankAssigned.length <= 0) {
     await sendBankNotAssignedAlertTelegram(
       config?.telegramBankAlertChatId,
       code,
       config?.telegramBotToken,
     );
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: merchantArr[0].company_id,
+      message: `Bank Account has not been linked with Merchant: ${code}`,
+      payloadUserId: merchantArr[0].user_id,
+      actorUserId: merchantArr[0].user_id,
+    });
     return res.status(400).json({
       error: {
         status: 404,
@@ -159,6 +182,13 @@ export const generatePayInUrl = async (req, res) => {
       code,
       config?.telegramBotToken,
     );
+    await notifyAdminsAndUsers({
+      conn,
+      company_id: merchantArr[0].company_id,
+      message: `Bank Account has not been linked with Merchant: ${code}`,
+      payloadUserId: merchantArr[0].user_id,
+      actorUserId: merchantArr[0].user_id,
+    });
     return res.status(400).json({
       error: {
         status: 404,
@@ -201,6 +231,8 @@ export const generatePayInUrl = async (req, res) => {
     },
     tokenData.user_id,
     res,
+    userIp,
+    fromUI,
   );
 
   // create some kind of hash to secure the next public API flow
@@ -228,14 +260,40 @@ export const generatePayInUrl = async (req, res) => {
  * @type import('express').RequestHandler
  */
 export const validatePayInUrl = async (req, res) => {
-  const { merchantOrderId } = req.params;
+  const { merchantOrderId, oneTimeUsed } = req.params;
   const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
   const user_location = req.user_location;
   // req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
-  const result = await verifyPayinsService(merchantOrderId, user_location);
+  const result = await verifyPayinsService(
+    merchantOrderId,
+    user_location,
+    oneTimeUsed,
+  );
+  result.merchant_order_id = merchantOrderId;
+  return sendSuccess(res, result, 'Payment Url is correct');
+};
+
+export const markPaymentInitiated = async (req, res) => {
+  const { merchantOrderId } = req.params;
+  const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  const result = await markPaymentInitiatedService(merchantOrderId);
+  result.merchant_order_id = merchantOrderId;
+  return sendSuccess(res, result, 'Payment Url is correct');
+};
+
+export const checkPaymentStatus = async (req, res) => {
+  const { merchantOrderId } = req.params;
+  const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  const result = await checkPaymentStatusService(merchantOrderId);
   result.merchant_order_id = merchantOrderId;
   return sendSuccess(res, result, 'Payment Url is correct');
 };

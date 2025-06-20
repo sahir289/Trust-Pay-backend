@@ -79,14 +79,14 @@ export const sendCredentialsEmail = async ({
           : ''
       }
       <p style="font-size: 14px; color: #718096; margin-top: 20px;">Please log in and change your password immediately for security.</p>
-      <p style="font-size: 14px; color: #718096;">Thank you,<br>TrustPay Team</p>
+      <p style="font-size: 14px; color: #718096;">Thank you,<br>${name} Team</p>
     </div>
     <p style="text-align: center; font-size: 12px; color: #a0aec0; margin-top: 20px;">© ${new Date().getFullYear()} ${name}. All rights reserved.</p>
   </div>
   `;
 
   // const mailOptions = {
-  //   from: `"TrustPay Admin" <${process.env.SES_FROM_EMAIL}>`,
+  //   from: `"${name} Admin" <${process.env.SES_FROM_EMAIL}>`,
   //   to: email,
   //   subject,
   //   text,
@@ -174,7 +174,7 @@ export const sendOTP = async (email, otp, user_name, designation) => {
         If you didn’t request this, please <a href="mailto:${process.env.SMTP_USER}" style="color: #3182ce; text-decoration: none;">contact support</a> immediately.
       </p>
     </div>
-    <p style="color: #718096; font-size: 12px; text-align: center; margin-top: 20px;">© ${new Date().getFullYear()} TrustPay Admin. All rights reserved.</p>
+    <p style="color: #718096; font-size: 12px; text-align: center; margin-top: 20px;">© ${new Date().getFullYear()} ${name} Admin. All rights reserved.</p>
   </div>
   `;
 
@@ -185,7 +185,7 @@ export const sendOTP = async (email, otp, user_name, designation) => {
   //     </ul>
 
   // const mailOptions = {
-  //   from: `"TrustPay Admin" <${process.env.SMTP_USER}>`,
+  //   from: `"${name} Admin" <${process.env.SMTP_USER}>`,
   //   to: email,
   //   subject,
   //   text,

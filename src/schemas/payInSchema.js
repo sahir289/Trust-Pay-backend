@@ -18,6 +18,7 @@ export const VALIDATE_PAYIN_SCHEMA = Joi.object({
   merchantOrderId: Joi.string()
     .label('merchantOrderId')
     .required(),
+  oneTimeUsed: Joi.boolean().optional(),
 });
 
 export const VALIDATE_ASSIGNED_BANT_TO_PAY = Joi.object({

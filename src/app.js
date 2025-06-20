@@ -21,7 +21,13 @@ app.use(express.static('public'));
 app.use(methodOverride());
 app.use(
   cors({
-    origin: [`${config?.reactFrontOrigin}`, `${config?.reactPaymentOrigin}`], // List all frontend URLs
+    origin: [
+      config?.reactFrontOrigin,
+      config?.reactPaymentOrigin, 
+      'http://localhost:5174',
+      'https://80xtd5ct-5174.inc1.devtunnels.ms',
+      'https://v3rfrvg0-5174.inc1.devtunnels.ms'
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
     credentials: true,
   }),
