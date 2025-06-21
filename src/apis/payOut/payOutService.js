@@ -650,7 +650,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     await notifyAdminsAndUsers({
       conn,
       company_id: ids.company_id,
-      message: `PayOut with merchant order id: ${payload.merchant_order_id} has been ${data.status}.`,
+      message: `PayOut with merchant order id: ${data.merchant_order_id} has been ${data.status}.`,
       payloadUserId: merchant.user_id,
       actorUserId: vendor.user_id,
     });
