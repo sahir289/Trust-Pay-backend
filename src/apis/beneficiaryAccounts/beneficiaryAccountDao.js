@@ -137,7 +137,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
         MAX(bea.config->>'type') AS config_type,
         MAX(bea.config->>'balance') AS config_balance,
         MAX(bea.config->>'today_balance') AS config_today_balance,
-        MAX(bea.config->>'uniqueCode') AS config_uniqueCode,
+        MAX(bea.config->>'uniqueCode') AS config_uniqueCode
 `;
     } else {
       commissionSelect = `
