@@ -320,41 +320,49 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
   try {
     let result;
     const banks = await getBeneficiaryAccountDao({
-       'config->>uniqueCode': payload.config_uniquecode
+      'config->>uniqueCode': payload.config_uniquecode
     });
+    let userRole
+    if (payload.user_id) {
 
-    const userRole = await getUserByIdDao(conn, { id: payload.user_id });
-    if (!userRole || userRole.length === 0 || !userRole[0].role) {
-      throw new BadRequestError('Invalid user role data');
-    }
-    const role_id = await getRoleDao({ role: userRole[0].role });
-
-    if (payload?.user_id && Array.isArray(payload?.user_id)) {
-      for(const userId of payload.user_id){
-        const alreadyExist = await getBeneficiaryAccountDao({
-          'config->>uniqueCode': payload.config_uniquecode, user_id: userId
-       });
-       if(alreadyExist.length>0){
-         const data = await updateBeneficiaryAccountDao({ user_id: userId }, {is_obsolete: true}, conn)
-          return data;
+      userRole = await getUserByIdDao(conn, { id: payload.user_id });
+      if (!userRole || userRole.length === 0 || !userRole[0].role) {
+        throw new BadRequestError('Invalid user role data');
       }
-      else{
-
-        const data = await createBeneficiaryAccountDao(conn, {
-          user_id: userId,
-          upi_id: banks[0].upi_id,
-          acc_holder_name: banks[0].acc_holder_name,
-          acc_no: banks[0].acc_no,
-          ifsc: banks[0].ifsc,
-          bank_name: banks[0].bank_name,
-          config: banks[0].config,
-          role_id: role_id[0].id
-         });
-         return data;
-
+      const role_id = await getRoleDao({ role: userRole[0].role });
+      if (payload?.user_id && Array.isArray(payload?.user_id)) {
+        for (const userId of payload.user_id) {
+          const alreadyExist = await getBeneficiaryAccountDao({
+            'config->>uniqueCode': payload.config_uniquecode, user_id: userId
+          });
+          if (alreadyExist.length > 0) {
+            const data = await updateBeneficiaryAccountDao({ user_id: userId }, { is_obsolete: true }, conn)
+            return data;
+          }
+        else{
+          const data = await createBeneficiaryAccountDao(conn, {
+            user_id: userId,
+            upi_id: banks[0].upi_id,
+            acc_holder_name: banks[0].acc_holder_name,
+            acc_no: banks[0].acc_no,
+            ifsc: banks[0].ifsc,
+            bank_name: banks[0].bank_name,
+            config: banks[0].config,
+            role_id: role_id[0].id
+           });
+           return data;
+  
+          }
         }
       }
-
+    }
+    if(payload.config_type){
+      const uniqueCodetype = payload.config_type;
+      if (uniqueCodetype) {
+        console.log()
+        payload.config.type = uniqueCodetype;
+        delete payload.config_type;
+      }
     }
     for (const bank of banks) {
       if (Object.keys(payload).length === 0) {
