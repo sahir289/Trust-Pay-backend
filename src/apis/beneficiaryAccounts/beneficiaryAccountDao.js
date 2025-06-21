@@ -133,6 +133,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
     } else if (role === Role.VENDOR) {
       commissionSelect = `
         MAX(bea.ifsc) AS ifsc,
+        ARRAY_AGG(DISTINCT v.user_id) AS user_id,
         MAX(bea.config->>'type') AS config_type,
         MAX(bea.config->>'balance') AS config_balance,
         MAX(bea.config->>'today_balance') AS config_today_balance,
@@ -140,7 +141,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
 `;
     } else {
       commissionSelect = `
-        MAX(bea.user_id) AS user_id,
+      ARRAY_AGG(DISTINCT v.user_id) AS user_id,
         MAX(bea.ifsc) AS ifsc,
         MAX(creator.user_name) AS created_by,
         MAX(updater.user_name) AS updated_by,
@@ -168,7 +169,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
     LEFT JOIN public."User" updater ON bea.updated_by = updater.id
     WHERE ${conditions.join(' AND ')}
     GROUP BY ${groupByColumns.join(', ')}
-    ORDER BY bea.acc_no
+    ORDER BY MAX(bea.updated_at) DESC
     ${limitcondition};`;
 
     const result = await executeQuery(baseQuery, queryParams);
@@ -178,6 +179,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
     throw error.message;
   }
 };
+
 const getBeneficiaryAccountBySearchDao = async (
   role,
   searchTerms = [],
@@ -187,7 +189,7 @@ const getBeneficiaryAccountBySearchDao = async (
 ) => {
   try {
     let queryParams = [];
-    let conditions = [`sub.is_obsolete = false`];
+    let conditions = [];
     let paramIndex = 1;
 
     if (filters && typeof filters === 'object' && Object.keys(filters).length > 0) {
@@ -209,12 +211,11 @@ const getBeneficiaryAccountBySearchDao = async (
     if (role === 'MERCHANT') {
       commissionSelect = `sub.ifsc AS ifsc`;
     } else if (role === 'VENDOR') {
-      commissionSelect = `sub.ifsc AS ifsc, sub.config AS config`;
+      commissionSelect = `sub.ifsc AS ifsc`;
     } else {
       commissionSelect = `
         sub.user_id AS user_id,
         sub.ifsc AS ifsc,
-        sub.config AS config,
         sub.created_by AS created_by,
         sub.updated_by AS updated_by,
         sub.created_at AS created_at,
@@ -227,10 +228,6 @@ const getBeneficiaryAccountBySearchDao = async (
     if (Array.isArray(searchTerms) && searchTerms.length > 0) {
       searchTerms.forEach((term) => {
         if (typeof term !== 'string') return;
-        let configSearch = '';
-        if (role !== 'MERCHANT') {
-          configSearch = `OR LOWER(sub.config::text) LIKE LOWER($${paramIndex})`;
-        }
         searchConditions.push(`
           (
             LOWER(sub.id::text) LIKE LOWER($${paramIndex})
@@ -245,7 +242,6 @@ const getBeneficiaryAccountBySearchDao = async (
                 ? `
               OR LOWER(sub.user_id::text) LIKE LOWER($${paramIndex})
               OR LOWER(sub.ifsc) LIKE LOWER($${paramIndex})
-              ${configSearch}
               ${
                 role !== 'VENDOR'
                   ? `
@@ -257,7 +253,7 @@ const getBeneficiaryAccountBySearchDao = async (
                 : role === 'VENDOR'
                   ? `
               OR LOWER(sub.ifsc) LIKE LOWER($${paramIndex})
-              ${configSearch}`
+              `
                   : ''
             }
           )`);
@@ -270,37 +266,35 @@ const getBeneficiaryAccountBySearchDao = async (
     // Compute matched_keywords
     let matchedKeywordsSelect = '';
     if (searchTermIndices.length > 0) {
-      const keywordCases = searchTermIndices
-        .map(({ term, paramIndex }) => `
-          CASE WHEN (
-            LOWER(sub.id::text) LIKE LOWER($${paramIndex})
-            OR LOWER(sub.upi_id) LIKE LOWER($${paramIndex})
-            OR LOWER(sub.acc_holder_name) LIKE LOWER($${paramIndex})
-            OR LOWER(sub.acc_no) LIKE LOWER($${paramIndex})
-            OR LOWER(sub.bank_name) LIKE LOWER($${paramIndex})
-            OR LOWER(sub.vendors::text) LIKE LOWER($${paramIndex})
-            OR LOWER(sub.merchants::text) LIKE LOWER($${paramIndex})
+      const keywordCases = searchTermIndices.map(({ term, paramIndex }) => `
+        CASE WHEN (
+          LOWER(sub.id::text) LIKE LOWER($${paramIndex})
+          OR LOWER(sub.upi_id) LIKE LOWER($${paramIndex})
+          OR LOWER(sub.acc_holder_name) LIKE LOWER($${paramIndex})
+          OR LOWER(sub.acc_no) LIKE LOWER($${paramIndex})
+          OR LOWER(sub.bank_name) LIKE LOWER($${paramIndex})
+          OR LOWER(sub.vendors::text) LIKE LOWER($${paramIndex})
+          OR LOWER(sub.merchants::text) LIKE LOWER($${paramIndex})
+          ${
+            role !== 'MERCHANT'
+              ? `
+            OR LOWER(sub.user_id::text) LIKE LOWER($${paramIndex})
+            OR LOWER(sub.ifsc) LIKE LOWER($${paramIndex})
             ${
-              role !== 'MERCHANT'
+              role !== 'VENDOR'
                 ? `
-              OR LOWER(sub.user_id::text) LIKE LOWER($${paramIndex})
-              OR LOWER(sub.ifsc) LIKE LOWER($${paramIndex})
-              ${role !== 'MERCHANT' ? `OR LOWER(sub.config::text) LIKE LOWER($${paramIndex})` : ''}
-              ${
-                role !== 'VENDOR'
-                  ? `
-                OR LOWER(COALESCE(sub.created_by, '')) LIKE LOWER($${paramIndex})
-                OR LOWER(COALESCE(sub.updated_by, '')) LIKE LOWER($${paramIndex})
-              `
-                  : ''
-              }`
-                : role === 'VENDOR'
-                  ? `
-              OR LOWER(sub.ifsc) LIKE LOWER($${paramIndex})
-              ${role === 'VENDOR' ? `OR LOWER(sub.config::text) LIKE LOWER($${paramIndex})` : ''}`
-                  : ''
-            }
-          ) THEN '${term}'::text END`);
+              OR LOWER(COALESCE(sub.created_by, '')) LIKE LOWER($${paramIndex})
+              OR LOWER(COALESCE(sub.updated_by, '')) LIKE LOWER($${paramIndex})
+            `
+                : ''
+            }`
+              : role === 'VENDOR'
+                ? `
+            OR LOWER(sub.ifsc) LIKE LOWER($${paramIndex})
+            `
+                : ''
+          }
+        ) THEN '${term}'::text END`);
       matchedKeywordsSelect = keywordCases.length > 0
         ? `,
           ARRAY_REMOVE(ARRAY[${keywordCases.join(', ')}], NULL) AS matched_keywords`
@@ -331,15 +325,13 @@ const getBeneficiaryAccountBySearchDao = async (
           MAX(bea.bank_name) AS bank_name,
           MAX(bea.user_id) AS user_id,
           MAX(bea.ifsc) AS ifsc,
-          json_agg(bea.config) AS config,
+          MAX(bea.role_id) AS role_id,
           MAX(creator.user_name) AS created_by,
           MAX(updater.user_name) AS updated_by,
           MAX(bea.created_at) AS created_at,
           MAX(bea.updated_at) AS updated_at,
           ARRAY_AGG(DISTINCT v.code) FILTER (WHERE v.code IS NOT NULL) AS vendors,
-          ARRAY_AGG(DISTINCT m.code) FILTER (WHERE m.code IS NOT NULL) AS merchants,
-          MAX(bea.is_obsolete::int)::boolean AS is_obsolete,
-          MAX(bea.role_id) AS role_id
+          ARRAY_AGG(DISTINCT m.code) FILTER (WHERE m.code IS NOT NULL) AS merchants
         FROM 
           public."BeneficiaryAccounts" bea
         LEFT JOIN public."Vendor" v 
@@ -350,6 +342,7 @@ const getBeneficiaryAccountBySearchDao = async (
           ON bea.created_by = creator.id
         LEFT JOIN public."User" updater 
           ON bea.updated_by = updater.id
+        WHERE bea.is_obsolete = false
         GROUP BY bea.acc_no
       ) sub
       WHERE 1=1`;
@@ -372,15 +365,13 @@ const getBeneficiaryAccountBySearchDao = async (
           MAX(bea.bank_name) AS bank_name,
           MAX(bea.user_id) AS user_id,
           MAX(bea.ifsc) AS ifsc,
-          json_agg(bea.config) AS config,
+          MAX(bea.role_id) AS role_id,
           MAX(creator.user_name) AS created_by,
           MAX(updater.user_name) AS updated_by,
           MAX(bea.created_at) AS created_at,
           MAX(bea.updated_at) AS updated_at,
           ARRAY_AGG(DISTINCT v.code) FILTER (WHERE v.code IS NOT NULL) AS vendors,
-          ARRAY_AGG(DISTINCT m.code) FILTER (WHERE m.code IS NOT NULL) AS merchants,
-          MAX(bea.is_obsolete::int)::boolean AS is_obsolete,
-          MAX(bea.role_id) AS role_id
+          ARRAY_AGG(DISTINCT m.code) FILTER (WHERE m.code IS NOT NULL) AS merchants
         FROM public."BeneficiaryAccounts" bea
         LEFT JOIN public."Vendor" v 
           ON bea.user_id = v.user_id
@@ -390,13 +381,14 @@ const getBeneficiaryAccountBySearchDao = async (
           ON bea.created_by = creator.id
         LEFT JOIN public."User" updater 
           ON bea.updated_by = updater.id
+        WHERE bea.is_obsolete = false
         GROUP BY bea.acc_no
       ) sub
       WHERE 1=1
       ${conditions.length > 0 ? ` AND ${conditions.join(' AND ')}` : ''}
       ${searchConditions.length > 0 ? ` AND (${searchConditions.join(' OR ')})` : ''}`;
     console.log('Count Query:', countQuery);
-    const countResult = await executeQuery(countQuery, queryParams);
+    const countResult = await executeQuery(countQuery, queryParams.slice(0, paramIndex - 1));
 
     const offset = (page - 1) * limit;
     baseQuery += `

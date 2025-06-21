@@ -125,7 +125,7 @@ const deleteBeneficiaryAccount = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const { company_id } = req.user;
-  const ids = { id, company_id };
+  const ids = { id, company_id};
   // const data =
   await transactionWrapper(deleteBeneficiaryAccountService)(ids);
   return sendSuccess(res, {}, 'deleted Beneficiary successfully');
