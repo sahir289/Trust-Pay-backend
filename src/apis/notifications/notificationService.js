@@ -213,6 +213,7 @@ export const createNotificationsService = async (
       config: { recipients },
     };
     await createNotificationsRecipientDao(recipientPayload);
+    await newTableEntry(tableName.NOTIFICATIONS);
     return notifications;
   } catch (error) {
     logger.error('Error while creating Notifications', error);
@@ -263,9 +264,7 @@ export const updateNotificationsService = async (id, user_id, company_id) => {
       }
       return recipient;
     });
-
     await newTableEntry(tableName.NOTIFICATIONS);
-
     return notifications;
   } catch (error) {
     logger.error('Error while updating Notifications', error);
