@@ -1,5 +1,7 @@
+import { tableName } from '../../constants/index.js';
 import { InternalServerError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
+import { newTableEntry } from '../../utils/sockets.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { getUserByIdDao } from '../users/userDao.js';
 import {
@@ -40,14 +42,16 @@ export const getNotificationsService = async (user_id, company_id) => {
 
     filteredRecipients.forEach((recipient) => {
       if (Array.isArray(recipient.config.recipients)) {
-      const userCfg = recipient.config.recipients.find(cfg => cfg.recipient_id === user_id);
-      if (userCfg) {
-        if (userCfg.is_read === 'false') {
-        unreadIds.push(recipient.notification_id);
-        } else {
-        readIds.push(recipient.notification_id);
+        const userCfg = recipient.config.recipients.find(
+          (cfg) => cfg.recipient_id === user_id,
+        );
+        if (userCfg) {
+          if (userCfg.is_read === 'false') {
+            unreadIds.push(recipient.notification_id);
+          } else {
+            readIds.push(recipient.notification_id);
+          }
         }
-      }
       }
     });
 
@@ -62,7 +66,24 @@ export const getNotificationsService = async (user_id, company_id) => {
 
     // Ensure notifications are returned in the same order as notificationIds
     notifications = notificationIds
-      .map(id => notifications.find(n => n.id === id))
+      .map((id) => {
+        const notification = notifications.find((n) => n.id === id);
+        if (!notification) return null;
+        // Find the recipient config for this user and notification
+        const recipient = filteredRecipients.find(
+          (r) => r.notification_id === id,
+        );
+        let is_read = null;
+        if (recipient && Array.isArray(recipient.config.recipients)) {
+          const userCfg = recipient.config.recipients.find(
+            (cfg) => cfg.recipient_id === user_id,
+          );
+          if (userCfg) {
+            is_read = userCfg.is_read;
+          }
+        }
+        return { ...notification, is_read };
+      })
       .filter(Boolean);
 
     return notifications;
@@ -242,6 +263,8 @@ export const updateNotificationsService = async (id, user_id, company_id) => {
       }
       return recipient;
     });
+
+    await newTableEntry(tableName.NOTIFICATIONS);
 
     return notifications;
   } catch (error) {

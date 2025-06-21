@@ -92,7 +92,9 @@ export const getNotificationCountsByIdDao = async (id, company_id) => {
       LEFT JOIN "User" u ON u."id" = n.user_id
       WHERE n.id ${isMultiple ? `IN (${idPlaceholders})` : `= $1`}
         AND n.company_id = $${ids.length + 1}
-        AND n.is_obsolete = false;
+        AND n.is_obsolete = false
+      ORDER BY
+        n.created_at DESC;
     `;
     const values = [...ids, company_id];
     const result = await executeQuery(sql, values);
