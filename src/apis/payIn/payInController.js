@@ -249,6 +249,8 @@ export const generatePayInUrl = async (req, res) => {
     status: result?.status,
   };
 
+  if (conn) conn.release();
+
   return sendNewSuccess(
     res,
     updateRes,

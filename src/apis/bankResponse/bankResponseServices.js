@@ -227,7 +227,7 @@ const createBankResponseService = async (
         { latest_balance: res.today_balance },
         role,
         companyId,
-        user_id,
+        bankdetails[0].user_id,
       );
       vendor = await getVendorsDao({
         user_id: bankdetails[0].user_id,
@@ -530,7 +530,7 @@ const createBankResponseService = async (
         };
       }
     }
-    if (created_by !== 'Bank Response' && updated_by !== 'Bank Response') {
+    if (role !== Role.BOT && created_by !== 'Bank Response' && updated_by !== 'Bank Response') {
       await notifyAdminsAndUsers({
         conn,
         company_id: companyId,
