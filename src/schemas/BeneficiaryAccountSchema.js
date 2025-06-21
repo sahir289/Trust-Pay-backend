@@ -30,9 +30,7 @@ export const UPDATE_BENEFICIARY_ACCOUNT_SCHEMA = Joi.object({
 });
 
 export const VALIDATE_BENEFICIARY_ACCOUNT_BY_ID = Joi.string()
-  .guid({ version: ['uuidv4'] })
   .optional()
   .messages({
-    'string.guid': 'ID must be a valid UUID',
     'any.optional': 'ID is optional',
   });
