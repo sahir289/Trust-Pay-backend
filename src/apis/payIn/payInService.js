@@ -426,7 +426,36 @@ export const assignedBankToPayInUrlService = async (
   const payInConfig = payIn.config || {};
   checkIsPayInExpired(payIn);
   if (payIn.status !== Status.INITIATED) {
-    throw new BadRequestError('PayIn has been confirmed already!');
+    if (payIn.status === Status.ASSIGNED) {
+
+      const bank = await getBankaccountDao({
+        id: payIn.bank_acc_id,
+        company_id: payIn.company_id,
+      });
+      let response;
+      if (type === BankTypes.BANK_TRANSFER) {
+        response = {
+          return: payIn.config?.urls?.return,
+          bank: {
+            nick_name: bank[0].nick_name,
+            acc_holder_name: bank[0].acc_holder_name,
+            acc_no: bank[0].acc_no,
+            ifsc: bank[0].ifsc,
+          },
+        };
+      } else {
+        response = {
+          return: payIn.config?.urls?.return,
+          bank: {
+            upi_id: bank[0].upi_id,
+          },
+        };
+      }
+      return response;
+    }
+    else {
+      throw new BadRequestError('PayIn has been confirmed already!');
+    }
   }
   const merchantArr = await getMerchantsDao({ id: payIn.merchant_id });
   const merchant = merchantArr[0] || {};
