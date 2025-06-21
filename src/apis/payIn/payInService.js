@@ -1972,7 +1972,8 @@ export const disputeDuplicateTransactionService = async (
       company_id: payIn.company_id,
       message: `Payin with merchant order id: ${payIn.merchant_order_id} has been Failed.`,
       payloadUserId: merchant.user_id,
-      actorUserId: vendor.user_id,
+      actorUserId: updated_by,
+      additionalRecipients: [vendor.user_id],
     });
   }
   await notifyAdminsAndUsers({
@@ -1980,7 +1981,8 @@ export const disputeDuplicateTransactionService = async (
     company_id: payIn.company_id,
     message: `Payin with merchant order id: ${payInData.merchant_order_id} has been updated.`,
     payloadUserId: merchant.user_id,
-    actorUserId: vendor.user_id,
+    actorUserId: updated_by,
+    additionalRecipients: [vendor.user_id],
   });
   return response;
 };
@@ -2607,8 +2609,17 @@ export const updatePayInService = async (
     let amountDiff = 0;
     let vendorCommission = 0;
     let merchantCommission = 0;
-    let merchant_user_id = null;
-    let vendor_user_id = null;
+
+    const [vendor, merchant] = await Promise.all([
+      getVendorsDao({
+        user_id: (await getBankaccountDao({ id: bankResponse.bank_id }))[0]
+          .user_id,
+      }),
+      getMerchantsDao({ id: payIn.merchant_id }),
+    ]);
+
+    const merchant_user_id = merchant[0].user_id;
+    const vendor_user_id = vendor[0].user_id;
     // Handle amount updates
     if (
       payload?.amount &&
@@ -2618,21 +2629,13 @@ export const updatePayInService = async (
       amountDiff = payload.amount - bankResponse.amount;
 
       // Fetch bank, vendor, and merchant data concurrently
-      const [bank, vendor, merchant] = await Promise.all([
+      const [bank] = await Promise.all([
         getBankaccountDao({ id: bankResponse.bank_id }),
-        getVendorsDao({
-          user_id: (await getBankaccountDao({ id: bankResponse.bank_id }))[0]
-            .user_id,
-        }),
-        getMerchantsDao({ id: payIn.merchant_id }),
       ]);
 
       if (!bank[0] || !vendor[0] || !merchant[0]) {
         throw new NotFoundError('Bank, vendor, or merchant not found');
       }
-
-      merchant_user_id = merchant[0].user_id;
-      vendor_user_id = vendor[0].user_id;
       // Calculate commissions
       vendorCommission = calculateCommission(
         Math.abs(amountDiff),
@@ -2838,7 +2841,8 @@ export const updatePayInService = async (
       company_id: payIn.company_id,
       message: `Payin with merchant order id: ${payIn.merchant_order_id} has been updated.`,
       payloadUserId: merchant_user_id,
-      actorUserId: vendor_user_id,
+      actorUserId: user_id,
+      additionalRecipients: [vendor_user_id],
     });
   } catch (error) {
     logger.error(`Error in updatePayInService: ${error.message}`, {

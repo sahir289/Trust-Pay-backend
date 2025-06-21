@@ -482,7 +482,7 @@ const userUpdateService = async (conn, ids, payload) => {
     await notifyAdminsAndUsers({
       conn,
       company_id: ids.company_id,
-      message: `New User with username: ${User.user_name} has been created.`,
+      message: `User with username: ${User.user_name} has been updated.`,
       payloadUserId: payload.updated_by,
       actorUserId: payload.updated_by,
     });
