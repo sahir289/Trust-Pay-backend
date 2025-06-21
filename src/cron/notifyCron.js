@@ -3,19 +3,26 @@ import moment from 'moment-timezone';
 import { getPayInUrlsDao, updatePayInUrlDao } from '../apis/payIn/payInDao.js';
 import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.js';
 import { logger } from '../utils/logger.js';
+import { newTableEntry } from '../utils/sockets.js';
+import { tableName } from '../constants/index.js';
 
 if (process.env.NODE_ENV == 'production') {
-
 cron.schedule('*/10 * * * * *', () => {
   collectPayinData('Asia/Kolkata');
 });
+cron.schedule('*/20 * * * * *', () => {
+  runNotificationCount();
+});
 logger.info('Running cron job in production environment');
-}else {
+} else {
   logger.error('Cron jobs are disabled in non-production environments.');
 }
 
-
+const runNotificationCount = async () => {
+  await newTableEntry(tableName.NOTIFICATIONS);
+}
 const collectPayinData = async (timezone = 'Asia/Kolkata') => {
+  await newTableEntry(tableName.PAYIN);
   const currentTime = moment().tz(timezone, true);
   const expireTime = currentTime
     .clone()
