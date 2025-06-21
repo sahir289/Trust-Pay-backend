@@ -1498,7 +1498,7 @@ export const processPayInService = async (
       await notifyAdminsAndUsers({
         conn,
         company_id: payIn.company_id,
-        message: `Payin with merchant order id: ${merchantOrderId} has been updated.`,
+        message: `Payin with merchant order id: ${payIn.merchant_order_id} has been updated.`,
         payloadUserId: merchant[0].user_id,
         actorUserId: bank.user_id,
       });

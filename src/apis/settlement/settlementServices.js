@@ -40,6 +40,7 @@ import { getVendorsDao, updateVendorBalanceDao } from '../vendors/vendorDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
 import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+import { getUsersDao } from '../users/userDao.js';
 
 const getSettlementServiceById = async (ids) => {
   try {
@@ -328,10 +329,11 @@ const createSettlementService = async (conn, payload) => {
       throw new BadRequestError('UTR is already used');
     }
     // For other methods, proceed with settlement creation
+    const [user] = await getUsersDao({ id: payload.user_id });
     await notifyAdminsAndUsers({
       conn,
       company_id: payload.company_id,
-      message: `Settlement for Client: ${payload.user_id} has been created.`,
+      message: `Settlement for Client: ${user.code} has been created.`,
       payloadUserId: payload.user_id,
       actorUserId: payload.user_id,
     });
@@ -577,8 +579,8 @@ const updateSettlementService = async (conn, ids, payload, role) => {
     );
     await notifyAdminsAndUsers({
       conn,
-      company_id: payload.company_id,
-      message: `Settlement for Client: ${data[0].user_id} has been updated.`,
+      company_id: ids.company_id,
+      message: `Settlement for Client: ${data[0].code} has been updated.`,
       payloadUserId: payload.user_id,
       actorUserId: payload.user_id,
     });
