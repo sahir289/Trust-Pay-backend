@@ -250,7 +250,7 @@ router.put(
  *         description: Internal server error
  */
 router.delete(
-  '/delete-beneficiary',
+  '/delete-beneficiary/:id',
   [isAuthenticated, authorized(AccessRoles.BENEFICIARY_ACCOUNTS)],
   tryCatchHandler(deleteBeneficiaryAccount),
 );

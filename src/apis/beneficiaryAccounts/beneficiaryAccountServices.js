@@ -397,28 +397,7 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
 
 const deleteBeneficiaryAccountService = async (conn, ids) => {
   try {
-    const userIds = ids.user_id?.split(',') || [];
-    if (userIds.length === 0) {
-      throw new BadRequestError('No user_id found in ids');
-    }
-    const firstUserId = userIds[0]; 
-    const userRoleData = await getUserByIdDao(conn, { id: firstUserId });
-    if (!userRoleData || userRoleData.length === 0 || !userRoleData[0].role) {
-      throw new BadRequestError('Invalid user role data');
-    }
-    const role_id = await getRoleDao({ role: userRoleData[0].role });
-    let allBeneficiaries
-    if(role_id[0].role === Role.VENDOR){
-       allBeneficiaries = await getBeneficiaryAccountDao({acc_no : ids.id}, null,null, Role.VENDOR)
-    }
-    else{
-      allBeneficiaries = await getBeneficiaryAccountDao({id : ids.id}, null,null, Role.MERCHANT)
-    }
-
-    let result;
-    for(const beneficiary of allBeneficiaries){
-       result = await deleteBankaccountDao(conn, { id: beneficiary.id }, {is_obsolete :true});
-    }
+    let result = await deleteBankaccountDao(conn, { acc_no: ids.id }, {is_obsolete :true});
     return result;
   } catch (error) {
     logger.error('error getting while deleting banks', error);
