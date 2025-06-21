@@ -226,7 +226,7 @@ const getBeneficiaryAccountBySearchDao = async (
     const searchTermIndices = [];
     const searchConditions = [];
     if (Array.isArray(searchTerms) && searchTerms.length > 0) {
-      searchTerms.forEach((term, index) => {
+      searchTerms.forEach((term) => {
         if (typeof term !== 'string') return;
         searchConditions.push(`
           (

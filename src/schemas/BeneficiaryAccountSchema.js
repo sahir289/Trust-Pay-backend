@@ -24,7 +24,7 @@ export const UPDATE_BENEFICIARY_ACCOUNT_SCHEMA = Joi.object({
   ifsc: Joi.string().label('ifsc').optional(),
   bank_name: Joi.string().label('bank_name').optional(),
   config: Joi.object().label('config').optional(),
-  config_type: Joi.string().label('config_type').optional(),  //for vendor beneficiary api is different so send
+  config_type: Joi.string().label('config_type').optional(),  
   user_id: Joi.array().items(Joi.string())
   .label('user_id')
   .optional(),

@@ -331,13 +331,15 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
       }
       const role_id = await getRoleDao({ role: userRole[0].role });
       if (payload?.user_id && Array.isArray(payload?.user_id)) {
+        const results = [];
+
         for (const userId of payload.user_id) {
           const alreadyExist = await getBeneficiaryAccountDao({
             'config->>uniqueCode': payload.config_uniquecode, user_id: userId
           });
           if (alreadyExist.length > 0) {
             const data = await updateBeneficiaryAccountDao({ user_id: userId }, { is_obsolete: true }, conn)
-            return data;
+            results.push(data);
           }
         else{
           const data = await createBeneficiaryAccountDao(conn, {
@@ -350,10 +352,10 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
             config: banks[0].config,
             role_id: role_id[0].id
            });
-           return data;
-  
+           results.push(data);
           }
         }
+        return results;
       }
     }
     if(payload.config_type){
