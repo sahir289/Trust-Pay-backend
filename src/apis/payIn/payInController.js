@@ -44,8 +44,6 @@ import {
   updateUtrPayinService,
   checkPendingPayinStatusService,
   updatePayInService,
-  markPaymentInitiatedService,
-  checkPaymentStatusService,
 } from './payInService.js';
 import { getConnection, transactionWrapper } from '../../utils/db.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
@@ -278,27 +276,6 @@ export const validatePayInUrl = async (req, res) => {
   return sendSuccess(res, result, 'Payment Url is correct');
 };
 
-export const markPaymentInitiated = async (req, res) => {
-  const { merchantOrderId } = req.params;
-  const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
-  if (joiValidation.error) {
-    throw new ValidationError(joiValidation.error);
-  }
-  const result = await markPaymentInitiatedService(merchantOrderId);
-  result.merchant_order_id = merchantOrderId;
-  return sendSuccess(res, result, 'Payment Url is correct');
-};
-
-export const checkPaymentStatus = async (req, res) => {
-  const { merchantOrderId } = req.params;
-  const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
-  if (joiValidation.error) {
-    throw new ValidationError(joiValidation.error);
-  }
-  const result = await checkPaymentStatusService(merchantOrderId);
-  result.merchant_order_id = merchantOrderId;
-  return sendSuccess(res, result, 'Payment Url is correct');
-};
 
 export const generateUpiUrl = async (req, res) => {
   const payload = req.body;
@@ -428,6 +405,7 @@ export const resetDeposit = async (req, res) => {
     sendSuccess(res, data, 'PayIn reset successful');
   }
 };
+
 export const getPayins = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
   const { page, limit, sortBy, sortOrder, status, ...rest } = req.query;

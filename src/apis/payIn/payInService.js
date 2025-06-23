@@ -438,7 +438,6 @@ export const assignedBankToPayInUrlService = async (
   checkIsPayInExpired(payIn);
   if (payIn.status !== Status.INITIATED) {
     if (payIn.status === Status.ASSIGNED) {
-
       const bank = await getBankaccountDao({
         id: payIn.bank_acc_id,
         company_id: payIn.company_id,
@@ -463,8 +462,7 @@ export const assignedBankToPayInUrlService = async (
         };
       }
       return response;
-    }
-    else {
+    } else {
       throw new BadRequestError('PayIn has been confirmed already!');
     }
   }
@@ -967,13 +965,16 @@ export const resetDepositService = async (
   if (!payIn) {
     throw new NotFoundError('PayIn not found');
   }
-  createResetHistoryService({
-    payin_id: payIn.id,
-    pre_status: payIn.status,
-    created_by: updated_by,
-    updated_by,
-    company_id,
-  });
+  createResetHistoryService(
+    {
+      payin_id: payIn.id,
+      pre_status: payIn.status,
+      created_by: updated_by,
+      updated_by,
+      company_id,
+    },
+    merchant_order_id,
+  );
 
   const nonResettableStatuses = new Set([
     Status.SUCCESS,
@@ -2292,13 +2293,12 @@ export const verifyPayinsService = async (
     throw new BadRequestError('Invalid merchant order id');
   }
 
-  if (payIn.one_time_used === true) {
+  if (payIn.one_time_used === true || oneTimeUsed === 'true') {
     // If already used, update reload count and return error
     const updatedConfig = stringifyJSON({
       ...payIn.config,
       user: user_location,
       page_reload: true,
-      page_reload_count: (payIn.config?.page_reload_count || 0) + 1,
     });
 
     await updatePayInUrlDao(payIn.id, {
@@ -2373,47 +2373,6 @@ export const verifyPayinsService = async (
   };
 
   return result;
-};
-
-export const markPaymentInitiatedService = async (merchantOrderId) => {
-  const payIn = await getPayInUrlService(merchantOrderId);
-
-  if (!payIn) {
-    throw new BadRequestError('Invalid merchant order id');
-  }
-
-  if (payIn.one_time_used === true) {
-    const result = {
-      redirect_url: payIn.config?.urls?.return,
-    }
-    return { error: `This payin url is already used`, result};
-  }
-
-  const currentTime = Date.now();
-  const updatedConfig = stringifyJSON({
-    ...payIn.config,
-    paymentInitiatedAt: new Date(currentTime).toISOString(),
-  });
-
-  await updatePayInUrlDao(payIn.id, {
-    config: updatedConfig,
-  });
-
-  return { success: true };
-};
-
-export const checkPaymentStatusService = async (merchantOrderId) => {
-  const payIn = await getPayInUrlService(merchantOrderId);
-
-  if (!payIn) {
-    throw new BadRequestError('Invalid merchant order id');
-  }
-
-  return {
-    status: payIn.status, // e.g., 'PENDING', 'SUCCESS', 'FAILED'
-    one_time_used: payIn.one_time_used,
-    redirect_url: payIn.config?.urls?.return,
-  };
 };
 
 export const generateUpiUrlService = async (payload) => {

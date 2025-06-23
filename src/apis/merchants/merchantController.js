@@ -174,7 +174,7 @@ const deleteMerchant = async (req, res) => {
   const { company_id, user_id ,user_name} = req.user;
   const updated_by = user_id;
   const ids = { id, company_id };
-  const merchant=await deleteMerchantService(ids, updated_by, role);
+  const merchant = await deleteMerchantService(ids, updated_by, role);
   // Log success message
 
   // Send a success response to the client
