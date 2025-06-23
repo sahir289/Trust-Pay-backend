@@ -25,6 +25,7 @@ import { createCalculationDao } from '../calculation/calculationDao.js';
 import { updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { updateUserDao } from '../users/userDao.js';
 import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+import { deleteBankaccountDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
 const createVendorService = async (conn, payload) => {
   try {
     let role_id = payload.role_id;
@@ -70,8 +71,6 @@ const getVendorsService = async (
   designation,
 ) => {
   try {
-    const filterColumns =
-      roleIs === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
     let parentUserId;
@@ -92,7 +91,6 @@ const getVendorsService = async (
       pageSize,
       null,
       null,
-      filterColumns,
       roleIs, //-role specific details
     );
   } catch (error) {
@@ -258,6 +256,7 @@ const deleteVendorService = async (ids) => {
         is_enabled: false,
       };
       await updateUserDao({ id: ids.user_id }, payload, conn);
+      await deleteBankaccountDao(conn, { user_id: ids.user_id }, {is_obsolete :true})
       await updateBankaccountDao(
         { user_id: ids.user_id },
         payloadBank,
