@@ -82,8 +82,8 @@ import {
   sendUTRMismatchErrorMessageTelegram,
   sendTelegramDisputeMessage,
 } from '../../utils/sendTelegramMessages.js';
-import { tableName } from '../../constants/index.js';
-import { newTableEntry } from '../../utils/sockets.js';
+// import { tableName } from '../../constants/index.js';
+// import { newTableEntry } from '../../utils/sockets.js';
 import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
