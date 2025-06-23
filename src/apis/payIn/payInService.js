@@ -82,8 +82,8 @@ import {
   sendUTRMismatchErrorMessageTelegram,
   sendTelegramDisputeMessage,
 } from '../../utils/sendTelegramMessages.js';
-// import { tableName } from '../../constants/index.js';
-// import { newTableEntry } from '../../utils/sockets.js';
+import { tableName } from '../../constants/index.js';
+import { newTableEntry } from '../../utils/sockets.js';
 import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
@@ -1473,6 +1473,7 @@ export const processPayInService = async (
   // }
 
   await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+  await newTableEntry(tableName.PAYIN);
   merchantPayinCallback(payIn.config?.urls?.notify, result);
 
   if (from_telegram) {
@@ -2013,6 +2014,7 @@ export const disputeDuplicateTransactionService = async (
     actorUserId: updated_by,
     additionalRecipients: [vendor.user_id],
   });
+  await newTableEntry(tableName.PAYIN);
   return response;
 };
 
@@ -2876,6 +2878,7 @@ export const updatePayInService = async (
       actorUserId: user_id,
       additionalRecipients: [vendor_user_id],
     });
+    await newTableEntry(tableName.PAYIN)
   } catch (error) {
     logger.error(`Error in updatePayInService: ${error.message}`, {
       error,
