@@ -22,7 +22,7 @@ const isAuthenticated = async (req, res, next) => {
       throw new AuthenticationError('Token expired or User logged out.');
     }
 
-    logger.error(`Validating token for session: ${token.slice(0, 10)}...`);
+    logger.info(`Validating token for session: ${token.slice(0, 10)}...`);
     const decoded = verifyToken(token);
 
     req.user = decoded;

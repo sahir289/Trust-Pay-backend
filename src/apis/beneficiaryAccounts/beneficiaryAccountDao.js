@@ -543,7 +543,7 @@ const updateBeneficiaryAccountDao = async (
   }
 };
 
-const deleteBankaccountDao = async (conn, id, data) => {
+const deleteBeneficiaryDao = async (conn, id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BENEFICIARY_ACCOUNTS, data, id);
     let result;
@@ -588,7 +588,7 @@ export {
   getBeneficiaryAccountBySearchDao,
   createBeneficiaryAccountDao,
   updateBeneficiaryAccountDao,
-  deleteBankaccountDao,
+  deleteBeneficiaryDao,
   getBeneficiaryAccountDaoAll,
   getBeneficiaryAccountDaoByBankName,
 };

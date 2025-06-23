@@ -25,6 +25,7 @@ import { getPayInUrlsDao, updatePayInUrlDao } from '../payIn/payInDao.js';
 import { getMerchantsDao } from '../merchants/merchantDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
 import { getVendorsDao, updateVendorDao } from '../vendors/vendorDao.js';
+import { newTableEntry } from '../../utils/sockets.js';
 import {
   columns,
   merchantColumns,
@@ -321,6 +322,7 @@ const createBankResponseService = async (
         );
         await updateBotResponseDao(botRes.id, { is_used: true }, conn);
         if (updatePayInDataRes) {
+          await newTableEntry(tableName.PAYIN);
           merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
             status: updatePayInDataRes.status,
             merchantOrderId: updatePayInDataRes.merchant_order_id,
@@ -441,6 +443,7 @@ const createBankResponseService = async (
           conn,
         );
         await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+        await newTableEntry(tableName.PAYIN);
         merchantPayinCallback(updatePayin.config.urls?.notify, {
           status: updatePayin.status,
           merchantOrderId: updatePayin.merchant_order_id,
@@ -509,6 +512,7 @@ const createBankResponseService = async (
         );
         await updateBotResponseDao(botRes.id, { is_used: true }, conn);
         if (updatePayInDataRes) {
+          await newTableEntry(tableName.PAYIN);
           merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
             status: updatePayInDataRes.status,
             merchantOrderId: updatePayInDataRes.merchant_order_id,
@@ -954,6 +958,7 @@ const handleUtrUpdate = async ({ botRes, utr, user_id, user_name, conn }) => {
         user_submitted_utr: utr,
         updated_by: user_id,
       });
+      await newTableEntry(tableName.PAYIN);
     }
     await updateBotResponseDao(botRes.id, updateData, conn);
   } catch (error) {
@@ -1117,6 +1122,7 @@ const updatePayInData = async ({ payInData, user_name, botRes }) => {
         updated_by: user_name,
       };
       await updatePayInUrlDao(updatePayinID[0].id, updatePayinData);
+      await newTableEntry(tableName.PAYIN);
     }
   } catch (error) {
     logger.error('Error in updatePayin Data', error.message);

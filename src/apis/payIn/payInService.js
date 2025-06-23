@@ -82,8 +82,8 @@ import {
   sendUTRMismatchErrorMessageTelegram,
   sendTelegramDisputeMessage,
 } from '../../utils/sendTelegramMessages.js';
-// import { tableName } from '../../constants/index.js';
-// import { newTableEntry } from '../../utils/sockets.js';
+import { tableName } from '../../constants/index.js';
+import { newTableEntry } from '../../utils/sockets.js';
 import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
@@ -1474,6 +1474,7 @@ export const processPayInService = async (
   // }
 
   await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+  await newTableEntry(tableName.PAYIN);
   merchantPayinCallback(payIn.config?.urls?.notify, result);
 
   if (from_telegram) {
@@ -2014,6 +2015,7 @@ export const disputeDuplicateTransactionService = async (
     actorUserId: updated_by,
     additionalRecipients: [vendor.user_id],
   });
+  await newTableEntry(tableName.PAYIN);
   return response;
 };
 
@@ -2291,13 +2293,12 @@ export const verifyPayinsService = async (
     throw new BadRequestError('Invalid merchant order id');
   }
 
-  if (payIn.one_time_used === true) {
+  if (payIn.one_time_used === true || oneTimeUsed === 'true') {
     // If already used, update reload count and return error
     const updatedConfig = stringifyJSON({
       ...payIn.config,
       user: user_location,
       page_reload: true,
-      page_reload_count: (payIn.config?.page_reload_count || 0) + 1,
     });
 
     await updatePayInUrlDao(payIn.id, {
@@ -2372,47 +2373,6 @@ export const verifyPayinsService = async (
   };
 
   return result;
-};
-
-export const markPaymentInitiatedService = async (merchantOrderId) => {
-  const payIn = await getPayInUrlService(merchantOrderId);
-
-  if (!payIn) {
-    throw new BadRequestError('Invalid merchant order id');
-  }
-
-  if (payIn.one_time_used === true) {
-    const result = {
-      redirect_url: payIn.config?.urls?.return,
-    };
-    return { error: `This payin url is already used`, result };
-  }
-
-  const currentTime = Date.now();
-  const updatedConfig = stringifyJSON({
-    ...payIn.config,
-    paymentInitiatedAt: new Date(currentTime).toISOString(),
-  });
-
-  await updatePayInUrlDao(payIn.id, {
-    config: updatedConfig,
-  });
-
-  return { success: true };
-};
-
-export const checkPaymentStatusService = async (merchantOrderId) => {
-  const payIn = await getPayInUrlService(merchantOrderId);
-
-  if (!payIn) {
-    throw new BadRequestError('Invalid merchant order id');
-  }
-
-  return {
-    status: payIn.status, // e.g., 'PENDING', 'SUCCESS', 'FAILED'
-    one_time_used: payIn.one_time_used,
-    redirect_url: payIn.config?.urls?.return,
-  };
 };
 
 export const generateUpiUrlService = async (payload) => {
@@ -2877,6 +2837,7 @@ export const updatePayInService = async (
       actorUserId: user_id,
       additionalRecipients: [vendor_user_id],
     });
+    await newTableEntry(tableName.PAYIN)
   } catch (error) {
     logger.error(`Error in updatePayInService: ${error.message}`, {
       error,
