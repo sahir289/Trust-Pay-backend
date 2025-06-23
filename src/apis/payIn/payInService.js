@@ -438,7 +438,6 @@ export const assignedBankToPayInUrlService = async (
   checkIsPayInExpired(payIn);
   if (payIn.status !== Status.INITIATED) {
     if (payIn.status === Status.ASSIGNED) {
-
       const bank = await getBankaccountDao({
         id: payIn.bank_acc_id,
         company_id: payIn.company_id,
@@ -463,8 +462,7 @@ export const assignedBankToPayInUrlService = async (
         };
       }
       return response;
-    }
-    else {
+    } else {
       throw new BadRequestError('PayIn has been confirmed already!');
     }
   }
@@ -967,13 +965,16 @@ export const resetDepositService = async (
   if (!payIn) {
     throw new NotFoundError('PayIn not found');
   }
-  createResetHistoryService({
-    payin_id: payIn.id,
-    pre_status: payIn.status,
-    created_by: updated_by,
-    updated_by,
-    company_id,
-  });
+  createResetHistoryService(
+    {
+      payin_id: payIn.id,
+      pre_status: payIn.status,
+      created_by: updated_by,
+      updated_by,
+      company_id,
+    },
+    merchant_order_id,
+  );
 
   const nonResettableStatuses = new Set([
     Status.SUCCESS,
@@ -2383,8 +2384,8 @@ export const markPaymentInitiatedService = async (merchantOrderId) => {
   if (payIn.one_time_used === true) {
     const result = {
       redirect_url: payIn.config?.urls?.return,
-    }
-    return { error: `This payin url is already used`, result};
+    };
+    return { error: `This payin url is already used`, result };
   }
 
   const currentTime = Date.now();

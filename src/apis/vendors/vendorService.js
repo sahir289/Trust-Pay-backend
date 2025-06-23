@@ -46,7 +46,7 @@ const createVendorService = async (conn, payload) => {
       },
       conn,
     );
-    console.log('Vendor created successfully', 'info');
+    logger.info('Vendor created successfully', 'info');
     await notifyAdminsAndUsers({
       conn,
       company_id: data.company_id,
@@ -56,7 +56,7 @@ const createVendorService = async (conn, payload) => {
     });
     return data;
   } catch (error) {
-    console.log('Error while creating Vendor', 'error', error);
+    logger.error('Error while creating Vendor', 'error', error);
     throw new InternalServerError(error);
   }
 };
@@ -96,7 +96,7 @@ const getVendorsService = async (
       roleIs, //-role specific details
     );
   } catch (error) {
-    console.error('Error while fetching vendors', error);
+    logger.error('Error while fetching vendors', error);
     throw new InternalServerError(error);
   }
 };
@@ -127,17 +127,17 @@ const getVendorsCodeService = async (filters, roleIs, user_id, designation) => {
       try {
         await rollback(conn); // Rollback in case of error
       } catch (rollbackError) {
-        console.error('Error during transaction rollback:', rollbackError);
+        logger.error('Error during transaction rollback:', rollbackError);
       }
     }
-    console.error('Error while fetching vendors:', error);
+    logger.error('Error while fetching vendors:', error);
     throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
         conn.release(); // Ensure connection is released
       } catch (releaseError) {
-        console.error('Error releasing connection:', releaseError);
+        logger.error('Error releasing connection:', releaseError);
       }
     }
   }
@@ -203,7 +203,7 @@ const updateVendorService = async (id, payload, role) => {
     await beginTransaction(conn); // Start a transaction
     const data = await updateVendorDao(id, payload, conn); // Adjust DAO call for update
     await commit(conn); // Commit the transaction
-    console.log('Vendor updated successfully', 'info');
+    logger.info('Vendor updated successfully', 'info');
     const finalResult = filterResponse(data, filterColumns);
     await notifyAdminsAndUsers({
       conn,
@@ -218,21 +218,21 @@ const updateVendorService = async (id, payload, role) => {
       try {
         await rollback(conn); // Rollback the transaction in case of error
       } catch (rollbackError) {
-        console.log(
+        logger.error(
           'Error during transaction rollback',
           'error',
           rollbackError,
         );
       }
     }
-    console.log('Error while updating Vendor', 'error', error);
+    logger.error('Error while updating Vendor', 'error', error);
     throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
         conn.release(); // Release the connection back to the pool
       } catch (releaseError) {
-        console.log(
+        logger.error(
           'Error while releasing the connection',
           'error',
           releaseError,
@@ -242,13 +242,13 @@ const updateVendorService = async (id, payload, role) => {
   }
 };
 
-const deleteVendorService = async (ids) => {
+const deleteVendorService = async (ids, user_id) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn); // Start a transaction
-    const payload = { is_obsolete: true };
-    const data = await deleteVendorDao(ids, payload); // Adjust DAO call for delete
+    const payload = { is_obsolete: true, updated_by: user_id };
+    const data = await deleteVendorDao(conn, ids, payload); // Adjust DAO call for delete
     //delete banks and childs for particular user
     if (data) {
       const payloadBank = {
@@ -256,6 +256,7 @@ const deleteVendorService = async (ids) => {
         is_qr: false,
         is_bank: false,
         is_enabled: false,
+        updated_by: user_id,
       };
       await updateUserDao({ id: ids.user_id }, payload, conn);
       await updateBankaccountDao(
@@ -275,36 +276,36 @@ const deleteVendorService = async (ids) => {
         }
       }
     }
-    await commit(conn); // Commit the transaction
     await notifyAdminsAndUsers({
       conn,
       company_id: ids.company_id,
       message: `Vendor with code: ${data.code} has been deleted.`,
-      payloadUserId: ids.updated_by,
-      actorUserId: ids.updated_by,
+      payloadUserId: user_id,
+      actorUserId: user_id,
     });
-    console.log('Vendor deleted successfully', 'info');
+    await commit(conn); // Commit the transaction
+    logger.info('Vendor deleted successfully', 'info');
     return data;
   } catch (error) {
     if (conn) {
       try {
         await rollback(conn); // Rollback the transaction in case of error
       } catch (rollbackError) {
-        console.log(
+        logger.error(
           'Error during transaction rollback',
           'error',
           rollbackError,
         );
       }
     }
-    console.log('Error while deleting Vendor', 'error', error);
+    logger.error('Error while deleting Vendor', 'error', error);
     throw new InternalServerError(error);
   } finally {
     if (conn) {
       try {
         conn.release(); // Release the connection back to the pool
       } catch (releaseError) {
-        console.log(
+        logger.error(
           'Error while releasing the connection',
           'error',
           releaseError,

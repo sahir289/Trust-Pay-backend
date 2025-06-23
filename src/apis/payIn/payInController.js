@@ -428,6 +428,7 @@ export const resetDeposit = async (req, res) => {
     sendSuccess(res, data, 'PayIn reset successful');
   }
 };
+
 export const getPayins = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
   const { page, limit, sortBy, sortOrder, status, ...rest } = req.query;
