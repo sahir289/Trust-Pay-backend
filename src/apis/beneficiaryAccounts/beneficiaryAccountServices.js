@@ -15,10 +15,10 @@ import {
   getBeneficiaryAccountDao,
   createBeneficiaryAccountDao,
   updateBeneficiaryAccountDao,
-  deleteBankaccountDao,
   getBeneficiaryAccountDaoByBankName,
   getBeneficiaryAccountBySearchDao,
   getBeneficiaryAccountDaoAll,
+  deleteBeneficiaryDao,
 } from './beneficiaryAccountDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
@@ -397,7 +397,7 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
 
 const deleteBeneficiaryAccountService = async (conn, ids) => {
   try {
-    let result = await deleteBankaccountDao(conn, { acc_no: ids.id }, {is_obsolete :true});
+    let result = await deleteBeneficiaryDao(conn, { acc_no: ids.id }, {is_obsolete :true});
     return result;
   } catch (error) {
     logger.error('error getting while deleting banks', error);

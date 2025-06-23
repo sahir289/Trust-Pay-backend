@@ -25,7 +25,7 @@ import { createCalculationDao } from '../calculation/calculationDao.js';
 import { updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { updateUserDao } from '../users/userDao.js';
 import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
-import { deleteBankaccountDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
+import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
 const createVendorService = async (conn, payload) => {
   try {
     let role_id = payload.role_id;
@@ -256,7 +256,7 @@ const deleteVendorService = async (ids) => {
         is_enabled: false,
       };
       await updateUserDao({ id: ids.user_id }, payload, conn);
-      await deleteBankaccountDao(conn, { user_id: ids.user_id }, {is_obsolete :true})
+      await deleteBeneficiaryDao(conn, { user_id: ids.user_id }, {is_obsolete :true})
       await updateBankaccountDao(
         { user_id: ids.user_id },
         payloadBank,
