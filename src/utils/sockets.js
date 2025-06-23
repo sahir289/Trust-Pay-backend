@@ -13,6 +13,7 @@ let ioInstance = null;
 
 const initializeSocket = (server) => {
   ioInstance = new Server(server, {
+    transports: ["polling", "websocket"],
     cors: {
       origin: [`${config?.reactFrontOrigin}`, `${config?.reactPaymentOrigin}`],
       methods: ['GET', 'POST'],
