@@ -384,10 +384,10 @@ export const updateVendorDao = async (id, data, conn) => {
   }
 };
 
-export const deleteVendorDao = async (id, data) => {
+export const deleteVendorDao = async (conn, id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await conn.query(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in deleteVendorDao:', error);

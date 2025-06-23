@@ -400,8 +400,8 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
     const user_id = merchantDetails[0].user_id;
     const submerchants = await getUserHierarchysDao({ user_id });
     const subMerchantIds =
-      submerchants[0].config?.siblings?.sub_merchants || [];
-    const operationIds = submerchants[0].config?.child?.operations || [];
+      submerchants[0]?.config?.siblings?.sub_merchants || [];
+    const operationIds = submerchants[0]?.config?.child?.operations || [];
     const allMerchantIds = [merchantDetails[0].id]; // start with this id
     const allIds = [...subMerchantIds, ...operationIds];
     for (const id of allIds) {
@@ -456,18 +456,21 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
     ];
     await updateUserDao({ id: userIds }, { is_obsolete: true }, conn);
     const payload = { is_obsolete: true, updated_by };
-    const data = await deleteMerchantDao(ids, payload); // Adjust DAO call for delete
-    await commit(conn); // Commit the transaction
+    const data = await deleteMerchantDao(conn, ids, payload); // Adjust DAO call for delete
     logger.log('Merchant deleted successfully');
-    const userArr = await getUserByIdDao(userIds);
+    const userArr = await getUserByIdDao(conn, {
+      id: userIds,
+      company_id: ids.company_id,
+    });
     const userCodes = userArr.map((user) => user.code).join(', ');
     await notifyAdminsAndUsers({
       conn,
       company_id: ids.company_id,
       message: `Merchants with Code ${userCodes} has been deleted.`,
-      payloadUserId: payload.updated_by,
-      actorUserId: payload.updated_by,
+      payloadUserId: updated_by,
+      actorUserId: updated_by,
     });
+    await commit(conn); // Commit the transaction
     return data;
   } catch (error) {
     if (conn) {
