@@ -2381,7 +2381,10 @@ export const markPaymentInitiatedService = async (merchantOrderId) => {
   }
 
   if (payIn.one_time_used === true) {
-    throw new BadRequestError('This payin url is already used');
+    const result = {
+      redirect_url: payIn.config?.urls?.return,
+    }
+    return { error: `This payin url is already used`, result};
   }
 
   const currentTime = Date.now();
