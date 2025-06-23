@@ -68,13 +68,13 @@ const getResetHistoryBySearchService = async (filters) => {
     }
   };
 
-const createResetHistoryService = async (conn, payload) => {
+const createResetHistoryService = async (conn, payload, merchant_order_id) => {
   try {
     const result = await createResetHistoryDao(payload);
     await notifyAdminsAndUsers({
       conn,
       company_id: payload.company_id,
-      message: `PayIn with merchant order id: ${payload.merchant_order_id} has been reset.`,
+      message: `PayIn with merchant order id: ${merchant_order_id} has been reset.`,
       payloadUserId: payload.updated_by,
       actorUserId: payload.updated_by,
     });

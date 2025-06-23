@@ -566,6 +566,7 @@ export const updateMerchantDao = async (ids, data, conn) => {
 };
 
 export const deleteMerchantDao = async (
+  conn,
   ids,
   data,
   options = { returnUpdated: true },
@@ -590,7 +591,7 @@ export const deleteMerchantDao = async (
       ${returningClause}
     `;
 
-    const result = await executeQuery(sql, values);
+    const result = await conn.query(sql, values);
 
     return result.rows;
   } catch (error) {
