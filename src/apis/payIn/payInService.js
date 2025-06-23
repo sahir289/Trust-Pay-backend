@@ -355,7 +355,7 @@ export const generatePayInUrlService = async (
       created_by,
     };
     const result = await generatePayInUrlDao(data);
-    await newTableEntry(tableName.PAYIN);
+    // await newTableEntry(tableName.PAYIN);
     return result;
   } catch (error) {
     throw new BadRequestError(error.message);
