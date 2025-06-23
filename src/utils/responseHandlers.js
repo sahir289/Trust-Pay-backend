@@ -29,6 +29,9 @@ const sendSuccess = (
   if (res.req.method != 'GET') {
     logger.info(message, { status, data: finalRes.data });
   }
+  else {
+    logger.info(message, { status });
+  }
   return res.status(status).json(finalRes);
 };
 const sendNewSuccess = (
