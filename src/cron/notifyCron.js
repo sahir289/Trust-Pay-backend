@@ -36,6 +36,13 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
           is_url_expires: true,
         });
         logger.info(`INITIATED PayIn ${payin.id} FAILED due to timeout`);
+      } else if (payin.config.page_reload) {
+        const updatedData = {
+          status: 'FAILED',
+          is_url_expires: true,
+        };
+        await updatePayInUrlDao(payin.id, updatedData);
+        logger.info(`INITIATED PayIn ${payin.id} FAILED due to page_reload`);
       }
     }
     // Update ASSIGNED payins older than 10 minutes
@@ -48,6 +55,14 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
         };
         await updatePayInUrlDao(payin.id, updatedData);
         logger.info(`ASSIGNED PayIn ${payin.id} dropped due to timeout`);
+      }
+      else if (payin.config.page_reload) {
+        const updatedData = {
+          status: 'DROPPED',
+          is_url_expires: true,
+        };
+        await updatePayInUrlDao(payin.id, updatedData);
+        logger.info(`ASSIGNED PayIn ${payin.id} dropped due to page_reload`);
       }
     }
     // Process notifications for dropped but unnotified payins
