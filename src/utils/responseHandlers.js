@@ -26,12 +26,14 @@ const sendSuccess = (
   if (page) {
     finalRes = { ...finalRes, page };
   }
-
-  logger.info(message, { status, data: finalRes.data });
-
+  if (res.req.method != 'GET') {
+    logger.info(message, { status, data: finalRes.data });
+  }
+  else {
+    logger.info(message, { status });
+  }
   return res.status(status).json(finalRes);
 };
-
 const sendNewSuccess = (
   res,
   Data = {},

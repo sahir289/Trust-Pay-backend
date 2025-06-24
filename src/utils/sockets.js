@@ -42,6 +42,9 @@ const initializeSocket = (server) => {
       );
       logger.log(loginMessage);
       socket.emit('login-success', { userId, socketId: socket.id });
+      const eventName = `newLogin`;
+      logger.log(chalk.bold.cyan(`Emitting ${eventName} for ${userId}`));
+      ioInstance.emit(eventName, userId);
     });
 
     socket.emit('new-entry', { message: 'Hello from server!!!', data: {} });
@@ -152,6 +155,17 @@ const newTableEntry = async (tableName) => {
   logger.log(chalk.bold.cyan(`Emitting ${eventName} for table ${tableName}`));
   ioInstance.emit(eventName);
 };
+
+
+const logOutUser = async (user_id,session_id) => {
+  if (!ioInstance) {
+    logger.error('Socket.IO not initialized');
+    return;
+  }
+  const eventName = `newlogout`;
+  logger.log(chalk.bold.cyan(`Emitting ${eventName} for ${user_id}`));
+  ioInstance.emit(eventName, user_id, session_id);
+};
 //update payour socket notification
 // const updatePayout = (id, code, merchant_order_id) => {
 //   if (!ioInstance) {
@@ -206,5 +220,6 @@ export {
   notifyNewTableEntry,
   // updatePayout,
   newTableEntry,
+  logOutUser,
   // notifyNewCalculationTableEntry,
 };
