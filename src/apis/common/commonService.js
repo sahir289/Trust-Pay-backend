@@ -26,6 +26,10 @@ export const getTotalCountService = async (
     if (filters?.beneficiary_role) {
       const role_id = await getRoleDao({ role: filters.beneficiary_role });
       filters.role_id = role_id[0]?.id;
+      if (filters.beneficiary_role === Role.VENDOR) {
+        const [adminRole] = await getRoleDao({ role: Role.ADMIN });
+        filters.role_id = [filters.role_id, adminRole?.id];
+      }
       delete filters.beneficiary_role;
       delete filters.company_id;
     }
@@ -44,8 +48,7 @@ export const getTotalCountService = async (
       } else {
         filters.bank_acc_id = [];
       }
-    }
-    else if (tablename === tableName.CHARGE_BACK && filters?.utr) {
+    } else if (tablename === tableName.CHARGE_BACK && filters?.utr) {
       const bankResponse = await getBankResponseByUTR(filters.utr);
       delete filters.utr; // Remove utr from filters
       if (bankResponse && bankResponse.length > 0) {
@@ -290,6 +293,9 @@ export const getTotalCountService = async (
         userIdFilter.push(
           ...(hierarchy?.config?.siblings?.sub_merchants ?? []),
         );
+      } else if (userInfo.userRole === Role.VENDOR) {
+        const [adminRole] = await getRoleDao({ role: Role.ADMIN });
+        userIdFilter.push(adminRole.id);
       }
       filters.user_id =
         userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
@@ -345,7 +351,13 @@ export const getTotalCountService = async (
       updatedPayin = filters.updatedPayin;
       delete filters.updatedPayin;
     }
-    return await getTotalCountDao(tablename, role, filters, updated, updatedPayin);
+    return await getTotalCountDao(
+      tablename,
+      role,
+      filters,
+      updated,
+      updatedPayin,
+    );
   } catch (error) {
     logger.error(
       `Error in getTotalCountService for table ${tablename}:`,

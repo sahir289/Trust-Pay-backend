@@ -17,7 +17,7 @@ import {
 } from './beneficiaryAccountServices.js';
 
 const getBeneficiaryAccount = async (req, res) => {
-  const { role, user_id, designation } = req.user;
+  const { role, user_id, designation, company_id } = req.user;
   const { page, limit, beneficiary_role, beneficiary_user_id } = req.query;
   const filters = {
     beneficiary_role,
@@ -32,13 +32,14 @@ const getBeneficiaryAccount = async (req, res) => {
     limit,
     user_id,
     designation,
+    company_id,
   );
   logger.log('get Beneficiary successfully', role);
   return sendSuccess(res, data, 'get Beneficiary successfully');
 };
 
 const getBeneficiaryAccountBySearch = async (req, res) => {
-  const { role, user_id, designation } = req.user;
+  const { role, user_id, designation, company_id } = req.user;
   const { search,page, limit, beneficiary_role, beneficiary_user_id } = req.query;
   const filters = {
     beneficiary_role,
@@ -57,6 +58,7 @@ const getBeneficiaryAccountBySearch = async (req, res) => {
     limit,
     user_id,
     designation,
+    company_id,
   );
   return sendSuccess(res, data, 'get Beneficiary by search successfully');
 };
@@ -98,8 +100,8 @@ const createBeneficiaryAccount = async (req, res) => {
   payload.updated_by = user_id;
   // const data =
   await transactionWrapper(createBeneficiaryAccountService)(payload, company_id);
-  logger.log('Created Beneficiary successfully');
-  return sendSuccess(res, {}, 'Created Beneficiary successfully');
+  logger.log('Beneficiary Created successfully');
+  return sendSuccess(res, {}, 'Beneficiary Created successfully');
 };
 
 const updateBeneficiaryAccount = async (req, res) => {
@@ -109,13 +111,13 @@ const updateBeneficiaryAccount = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const { company_id, user_id } = req.user;
+  const { company_id, user_id, role } = req.user;
   payload.updated_by = user_id;
   const ids = { id, company_id };
   // const data =
-  await transactionWrapper(updateBeneficiaryAccountService)(ids, payload);
-  logger.log('get Beneficiary successfully');
-  return sendSuccess(res, {}, 'Updated Beneficiary successfully');
+  await transactionWrapper(updateBeneficiaryAccountService)(ids, payload, role,);
+  logger.log('Beneficiary Updated successfully');
+  return sendSuccess(res, {}, 'Beneficiary Updated successfully');
 };
 
 const deleteBeneficiaryAccount = async (req, res) => {
