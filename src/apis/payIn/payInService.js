@@ -1891,6 +1891,7 @@ export const disputeDuplicateTransactionService = async (
   }
 
   let response = {};
+  let newEntryResponse = {};
   if (!makeItSuccess) {
     const newStatus =
       payInData.bank_acc_id != payIn.bank_acc_id
@@ -1900,7 +1901,7 @@ export const disputeDuplicateTransactionService = async (
           : Status.SUCCESS;
     // make new pay in success
     if (newStatus === Status.SUCCESS) {
-      response = await updatePayInUrlDao(payInData.id, {
+      newEntryResponse = await updatePayInUrlDao(payInData.id, {
         is_url_expires: true,
         one_time_used: true,
         is_notified: true,
@@ -1917,7 +1918,7 @@ export const disputeDuplicateTransactionService = async (
         amount: toAmount,
       });
     } else {
-      response = await updatePayInUrlDao(payInData.id, {
+      newEntryResponse = await updatePayInUrlDao(payInData.id, {
         is_url_expires: true,
         one_time_used: true,
         is_notified: true,
@@ -1994,27 +1995,49 @@ export const disputeDuplicateTransactionService = async (
     config?.telegramDuplicateDisputeChatId,
     payIn,
     response,
+    newEntryResponse,
     bank.nick_name,
     config?.telegramBotToken,
   );
-  if (payInData.merchant_order_id !== payIn.merchant_order_id) {
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: payIn.company_id,
-      message: `Payin with merchant order id: ${payIn.merchant_order_id} has been Failed.`,
-      payloadUserId: merchant.user_id,
-      actorUserId: updated_by,
-      additionalRecipients: [vendor.user_id],
-    });
-  }
-  await notifyAdminsAndUsers({
+  // Notify admins and users about payin status updates
+  const notifyPayload = {
     conn,
-    company_id: payIn.company_id,
-    message: `Payin with merchant order id: ${payInData.merchant_order_id} has been updated.`,
     payloadUserId: merchant.user_id,
     actorUserId: updated_by,
     additionalRecipients: [vendor.user_id],
-  });
+  };
+
+  const notifications = [];
+
+  if (
+    newEntryResponse &&
+    typeof newEntryResponse === 'object' &&
+    newEntryResponse.merchant_order_id !== undefined &&
+    response?.merchant_order_id !== newEntryResponse.merchant_order_id
+  ) {
+    notifications.push(
+      notifyAdminsAndUsers({
+        ...notifyPayload,
+        company_id: response.company_id,
+        message: `Payin with merchant order id: ${response.merchant_order_id} has been Failed.`,
+      }),
+      notifyAdminsAndUsers({
+        ...notifyPayload,
+        company_id: newEntryResponse.company_id,
+        message: `Payin with merchant order id: ${newEntryResponse.merchant_order_id} has been updated.`,
+      })
+    );
+  } else {
+    notifications.push(
+      notifyAdminsAndUsers({
+        ...notifyPayload,
+        company_id: response.company_id,
+        message: `Payin with merchant order id: ${response.merchant_order_id} has been updated.`,
+      })
+    );
+  }
+
+  await Promise.all(notifications);
   await newTableEntry(tableName.PAYIN);
   return response;
 };
