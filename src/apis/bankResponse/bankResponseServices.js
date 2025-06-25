@@ -534,13 +534,18 @@ const createBankResponseService = async (
         };
       }
     }
-    if (role !== Role.BOT && created_by !== 'Bank Response' && updated_by !== 'Bank Response') {
+    if (
+      role !== Role.BOT &&
+      created_by !== 'Bank Response' &&
+      updated_by !== 'Bank Response'
+    ) {
       await notifyAdminsAndUsers({
         conn,
         company_id: companyId,
         message: `The entry with UTR ${utr} and Status ${botRes.status} has been created.`,
         payloadUserId: vendor[0].user_id,
         actorUserId: user_id,
+        category: 'Data Entries',
       });
     }
 
@@ -809,11 +814,12 @@ const resetBankResponseService = async (conn, id, userData) => {
     }
 
     const changes = {
-        amount: botRes.amount,
-        utr: botRes.utr,
-        bank_id: botRes.bank_id,
-        config: botRes.config || {},
-        bank_name: (await getBankaccountDao({ id: botRes.bank_id }))[0]?.nick_name
+      amount: botRes.amount,
+      utr: botRes.utr,
+      bank_id: botRes.bank_id,
+      config: botRes.config || {},
+      bank_name: (await getBankaccountDao({ id: botRes.bank_id }))[0]
+        ?.nick_name,
     };
 
     // Prepare base update data
@@ -843,12 +849,12 @@ const resetBankResponseService = async (conn, id, userData) => {
     }
 
     if (utr) {
-      const utrResult = await handleUtrUpdate({ 
-        botRes, 
-        utr, 
-        user_id, 
-        user_name, 
-        conn 
+      const utrResult = await handleUtrUpdate({
+        botRes,
+        utr,
+        user_id,
+        user_name,
+        conn,
       });
       updateData = utrResult;
       changes.utr = utr;
@@ -868,7 +874,9 @@ const resetBankResponseService = async (conn, id, userData) => {
       updateData = bankResult;
       changes.bank_id = bank_id;
       changes.nick_name = newBank[0]?.nick_name;
-      changes.config.previousBank = (await getBankaccountDao({ id: botRes.bank_id }))[0]?.nick_name;
+      changes.config.previousBank = (
+        await getBankaccountDao({ id: botRes.bank_id })
+      )[0]?.nick_name;
     }
 
     if (!amount && !utr && !bank_id) {
@@ -883,6 +891,7 @@ const resetBankResponseService = async (conn, id, userData) => {
       message: `The entry with UTR ${botRes.utr} has been updated.`,
       payloadUserId: user_id,
       actorUserId: user_id,
+      category: 'Data Entries',
     });
 
     const results = {
@@ -890,7 +899,7 @@ const resetBankResponseService = async (conn, id, userData) => {
       id,
       data: changes,
       updated_by: user_name,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     };
 
     await newTableEntry(tableName.BANK_RESPONSE, results);

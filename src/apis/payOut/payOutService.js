@@ -653,6 +653,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       message: `PayOut with merchant order id: ${data.merchant_order_id} has been ${data.status}.`,
       payloadUserId: merchant.user_id,
       actorUserId: vendor.user_id,
+      category: 'Transaction',
+      subCategory: 'PayOut',
     });
     return data;
   } catch (error) {

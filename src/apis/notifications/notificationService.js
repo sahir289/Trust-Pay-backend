@@ -11,85 +11,77 @@ import {
   getNotificationCountsByIdDao,
   getNotificationRecipientByNotificationDao,
   getNotificationRecipientByNotificationIdDao,
+  getNotificationsByUserDao,
   updateNotificationsDao,
 } from './notificationDao.js';
 
-export const getNotificationsService = async (user_id, company_id) => {
+export const getNotificationsService = async (
+  user_id,
+  company_id,
+  { limit = 20, offset, cursor, category, sub_category } = {},
+) => {
+  // Input validation
+  if (isNaN(limit) || limit < 1) {
+    logger.warn('Invalid limit parameter', { limit });
+    throw new Error('Invalid limit parameter');
+  }
+  if (offset !== undefined && (isNaN(offset) || offset < 0)) {
+    logger.warn('Invalid offset parameter', { offset });
+    throw new Error('Invalid offset parameter');
+  }
+  if (
+    cursor !== undefined &&
+    (typeof cursor !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.*$/.test(cursor))
+  ) {
+    logger.warn('Invalid cursor parameter', { cursor });
+    throw new Error('Invalid cursor parameter');
+  }
+  if (offset !== undefined && cursor !== undefined) {
+    logger.warn('Cannot use both offset and cursor', { offset, cursor });
+    throw new Error('Cannot use both offset and cursor');
+  }
+
   try {
-    // Get all notification recipients for the company
-    const notificationRecipients =
-      await getNotificationRecipientByNotificationDao(company_id);
-
-    // Filter recipients where config contains the user_id
-    const filteredRecipients = notificationRecipients.filter((recipient) => {
-      if (Array.isArray(recipient.config.recipients)) {
-        return recipient.config.recipients.some(
-          (cfg) => cfg.recipient_id === user_id,
-        );
-      }
-      return false;
-    });
-
-    if (filteredRecipients.length === 0) {
-      // throw new NotFoundError('No unread notifications found for the user');
-      return [];
-    }
-
-    // Get notification IDs from filtered recipients
-    // Separate unread and read notification IDs
-    const unreadIds = [];
-    const readIds = [];
-
-    filteredRecipients.forEach((recipient) => {
-      if (Array.isArray(recipient.config.recipients)) {
-        const userCfg = recipient.config.recipients.find(
-          (cfg) => cfg.recipient_id === user_id,
-        );
-        if (userCfg) {
-          if (userCfg.is_read === 'false') {
-            unreadIds.push(recipient.notification_id);
-          } else {
-            readIds.push(recipient.notification_id);
-          }
-        }
-      }
-    });
-
-    // Combine unread first, then read
-    const notificationIds = [...unreadIds, ...readIds];
-
-    // Fetch notifications by IDs
-    let notifications = await getNotificationByIdDao(
-      notificationIds,
+    const notifications = await getNotificationsByUserDao(
+      user_id,
       company_id,
+      limit,
+      offset,
+      cursor,
+      category,
+      sub_category,
     );
 
-    // Ensure notifications are returned in the same order as notificationIds
-    notifications = notificationIds
-      .map((id) => {
-        const notification = notifications.find((n) => n.id === id);
-        if (!notification) return null;
-        // Find the recipient config for this user and notification
-        const recipient = filteredRecipients.find(
-          (r) => r.notification_id === id,
-        );
-        let is_read = null;
-        if (recipient && Array.isArray(recipient.config.recipients)) {
-          const userCfg = recipient.config.recipients.find(
-            (cfg) => cfg.recipient_id === user_id,
-          );
-          if (userCfg) {
-            is_read = userCfg.is_read;
-          }
-        }
-        return { ...notification, is_read };
-      })
-      .filter(Boolean);
+    // If notifications is already an array of notification objects, just wrap it in a group or return as is
+    const groupedNotifications = Array.isArray(notifications)
+      ? notifications
+      : [];
 
-    return notifications;
+    const hasMore = notifications[0]?.notifications?.length === limit;
+    const nextCursor =
+      notifications[0]?.notifications?.length > 0
+        ? notifications[0].notifications[notifications[0].notifications.length - 1].created_at
+        : null;
+
+    return {
+      groupedNotifications,
+      hasMore,
+      nextCursor,
+      nextOffset: offset !== undefined ? offset + limit : undefined,
+    };
   } catch (error) {
-    logger.error('Error while getting Notifications', error);
-    throw error;
+    logger.error('Error while getting Notifications', {
+      error,
+      user_id,
+      company_id,
+      limit,
+      offset,
+      cursor,
+      category,
+      sub_category,
+    });
+    throw new Error('Unable to retrieve notifications');
   }
 };
 
@@ -178,12 +170,18 @@ export const createNotificationsService = async (
   user_id,
   company_id,
   recipient_ids,
+  category,
+  subCategory = null,
 ) => {
   try {
     const newPayload = {
       ...payload,
       user_id,
       company_id,
+      config: {
+        category: category || 'Others',
+        sub_category: subCategory || null,
+      },
     };
     const notifications = await createNotificationsDao(newPayload);
 
@@ -264,7 +262,9 @@ export const updateNotificationsService = async (id, user_id, company_id) => {
       }
       return recipient;
     });
-    // await newTableEntry(tableName.NOTIFICATIONS);
+
+    await newTableEntry(tableName.NOTIFICATIONS);
+
     return notifications;
   } catch (error) {
     logger.error('Error while updating Notifications', error);

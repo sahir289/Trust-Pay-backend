@@ -124,6 +124,8 @@ export const generatePayInUrlByHashService = async (conn, req, res) => {
       message: `Bank Account has not been linked with Merchant: ${code}`,
       payloadUserId: merchantArr[0].user_id,
       actorUserId: merchantArr[0].user_id,
+      category: 'Transaction',
+      subCategory: 'PayIn',
     });
     //-- correct error handling
     return res.status(400).json({
@@ -149,6 +151,8 @@ export const generatePayInUrlByHashService = async (conn, req, res) => {
       message: `Bank Account has not been linked with Merchant: ${code}`,
       payloadUserId: merchantArr[0].user_id,
       actorUserId: merchantArr[0].user_id,
+      category: 'Transaction',
+      subCategory: 'PayIn',
     });
     // error handling
     return res.status(400).json({
@@ -1532,6 +1536,8 @@ export const processPayInService = async (
         message: `Payin with merchant order id: ${payIn.merchant_order_id} has been updated.`,
         payloadUserId: merchant[0].user_id,
         actorUserId: bank.user_id,
+        category: 'Transaction',
+        subCategory: 'PayIn',
       });
     }
   } else {
@@ -2005,6 +2011,8 @@ export const disputeDuplicateTransactionService = async (
     payloadUserId: merchant.user_id,
     actorUserId: updated_by,
     additionalRecipients: [vendor.user_id],
+    category: 'Transaction',
+    subCategory: 'PayIn',
   };
 
   const notifications = [];
@@ -2025,7 +2033,7 @@ export const disputeDuplicateTransactionService = async (
         ...notifyPayload,
         company_id: newEntryResponse.company_id,
         message: `Payin with merchant order id: ${newEntryResponse.merchant_order_id} has been updated.`,
-      })
+      }),
     );
   } else {
     notifications.push(
@@ -2033,7 +2041,7 @@ export const disputeDuplicateTransactionService = async (
         ...notifyPayload,
         company_id: response.company_id,
         message: `Payin with merchant order id: ${response.merchant_order_id} has been updated.`,
-      })
+      }),
     );
   }
 
@@ -2866,10 +2874,17 @@ export const updatePayInService = async (
       payloadUserId: merchant_user_id,
       actorUserId: user_id,
       additionalRecipients: [vendor_user_id],
+      category: 'Transaction',
+      subCategory: 'PayIn',
     });
-    await newTableEntry(tableName.PAYIN, {...updatedPayIn, nick_name: updatedBankAccIdData?.nick_name, bank_res_details: {
-      utr: bankResponseDataUtr?.utr || bankResponseData?.utr,
-      amount: updatedPayIn?.amount}});
+    await newTableEntry(tableName.PAYIN, {
+      ...updatedPayIn,
+      nick_name: updatedBankAccIdData?.nick_name,
+      bank_res_details: {
+        utr: bankResponseDataUtr?.utr || bankResponseData?.utr,
+        amount: updatedPayIn?.amount,
+      },
+    });
   } catch (error) {
     logger.error(`Error in updatePayInService: ${error.message}`, {
       error,
