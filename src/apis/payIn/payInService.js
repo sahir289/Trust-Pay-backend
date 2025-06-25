@@ -2577,6 +2577,8 @@ export const updatePayInService = async (
   company_id,
 ) => {
   try {
+    let bankResponseDataUtr;
+    let updatedBankAccIdData;
     // Validate payload
     if (!payload && (!payload.amount || !payload.utr || !payload.bank_acc_id)) {
       throw new BadRequestError(
@@ -2709,7 +2711,7 @@ export const updatePayInService = async (
     }
     // Handle UTR updates
     else if (payload?.utr) {
-      await updateBankResponseDao(
+      bankResponseDataUtr = await updateBankResponseDao(
         { id: bankResponse.id, company_id: company_id },
         { utr: payload.utr, updated_by: user_id },
         conn,
@@ -2734,7 +2736,8 @@ export const updatePayInService = async (
         throw new BadRequestError('Please provide a different bank account ID');
       }
 
-      await Promise.all([
+      // eslint-disable-next-line no-unused-vars
+      const [prevBankData, newBankData] = await Promise.all([
         updateBankaccountDao(
           { id: prevBank[0].id, company_id: company_id },
           {
@@ -2759,6 +2762,10 @@ export const updatePayInService = async (
           conn,
         ),
       ]);
+      if (!newBankData) {
+        throw new NotFoundError('Bank account not found');
+      }
+      updatedBankAccIdData = newBankData;
     }
 
     delete payload.utr;
@@ -2811,7 +2818,7 @@ export const updatePayInService = async (
     };
 
     // Update pay-in details
-    await updatePayInUrlDao(
+    const updatedPayIn = await updatePayInUrlDao(
       payIn.id,
       {
         ...payload,
@@ -2837,7 +2844,9 @@ export const updatePayInService = async (
       actorUserId: user_id,
       additionalRecipients: [vendor_user_id],
     });
-    await newTableEntry(tableName.PAYIN)
+    await newTableEntry(tableName.PAYIN, {...updatedPayIn, nick_name: updatedBankAccIdData?.nick_name, bank_res_details: {
+      utr: bankResponseDataUtr?.utr || bankResponseData?.utr,
+      amount: updatedPayIn?.amount}});
   } catch (error) {
     logger.error(`Error in updatePayInService: ${error.message}`, {
       error,

@@ -588,7 +588,6 @@ const resetBankResponseDao = async (id, data) => {
       id,
     });
     const result = await executeQuery(sql, params);
-      await newTableEntry(tableName.BANK_RESPONSE);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in resetBankResponseDao:', error);
