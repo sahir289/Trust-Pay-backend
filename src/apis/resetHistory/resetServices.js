@@ -77,6 +77,7 @@ const createResetHistoryService = async (conn, payload, merchant_order_id) => {
       message: `PayIn with merchant order id: ${merchant_order_id} has been reset.`,
       payloadUserId: payload.updated_by,
       actorUserId: payload.updated_by,
+      category: 'Data Entries',
     });
     return result;
   } catch (error) {

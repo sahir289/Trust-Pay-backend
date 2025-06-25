@@ -338,6 +338,7 @@ const createBeneficiaryAccountService = async (conn, payload, company_id) => {
       message: `The new Beneficiary Account with Bank Name ${payload.bank_name} has been created.`,
       payloadUserId: notifyIds,
       actorUserId: payload.updated_by,
+      category: 'Beneficiary Account',
     });
 
     return result;
@@ -374,6 +375,7 @@ const updateBeneficiaryAccountService = async (conn, ids, payload, role,) => {
       message: `The Beneficiary Account with Bank Name ${banks.bank_name} has been updated.`,
       payloadUserId: notifyIds,
       actorUserId: payload.updated_by,
+      category: 'Beneficiary Account',
     });
   } catch (error) {
     logger.error('error getting while updating banks', error);

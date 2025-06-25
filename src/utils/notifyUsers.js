@@ -9,6 +9,8 @@ export async function notifyAdminsAndUsers({
   payloadUserId,
   actorUserId,
   additionalRecipients = [],
+  category,
+  subCategory = null,
 }) {
   // Fetch admin user IDs for the company
   const adminUsers = await getAdminUserIdsDao(company_id);
@@ -33,5 +35,7 @@ export async function notifyAdminsAndUsers({
     actorUserId,
     company_id,
     recipientUsers,
+    category,
+    subCategory
   );
 }

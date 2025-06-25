@@ -336,6 +336,7 @@ const createSettlementService = async (conn, payload) => {
       message: `Settlement for Client: ${user.code} has been created.`,
       payloadUserId: payload.user_id,
       actorUserId: payload.user_id,
+      category: 'Settlement',
     });
 
     return await createSettlementDao(payload);
@@ -583,6 +584,7 @@ const updateSettlementService = async (conn, ids, payload, role) => {
       message: `Settlement for Client: ${data[0].code} has been updated.`,
       payloadUserId: payload.user_id,
       actorUserId: payload.user_id,
+      category: 'Settlement',
     });
     return updateData;
   } catch (error) {

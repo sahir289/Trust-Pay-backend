@@ -113,6 +113,7 @@ const createChargeBackService = async (
       message: `The new ChargeBack of amount ${payload.amount} against Merchant Order ID ${merchantOrderId} has been created.`,
       payloadUserId: payload.vendor_user_id,
       actorUserId: payload.merchant_user_id,
+      category: 'ChargeBack',
     });
     return data;
   } catch (error) {
@@ -337,6 +338,7 @@ const blockChargebackUserService = async (ids, payload) => {
       message: `The user with ID ${userId} has been Blocked for ChargeBacks against Merchant Order Id ${payindata[0].merchant_order_id}.`,
       payloadUserId: payload.updated_by,
       actorUserId: payload.updated_by,
+      category: 'ChargeBack',
     });
     return merchantDetails;
   } catch (error) {

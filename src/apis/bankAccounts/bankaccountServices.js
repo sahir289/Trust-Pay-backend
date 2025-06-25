@@ -178,6 +178,7 @@ const createBankaccountService = async (
       message: `A new ${payload.bank_used_for} bank account with nick name ${payload.nick_name} has been created.`,
       payloadUserId: payload.user_id,
       actorUserId: user_id,
+      category: 'Bank Account',
     });
     return result;
   } catch (error) {
@@ -229,6 +230,7 @@ const updateBankaccountService = async (
           message: `The Bank with the ${bank[0].nick_name} id Deactivate`,
           payloadUserId: user_id,
           actorUserId: user_id,
+          category: 'Bank Account',
         });
       } else if (payload.latest_balance === bank[0].config?.max_limit) {
         deactivateBank(bank[0].nick_name, ids.id, true);
@@ -238,6 +240,7 @@ const updateBankaccountService = async (
           message: `The Bank with the ${bank[0].nick_name} will be Deactivate soon as the Balance will soon reach the Daily Limit`,
           payloadUserId: user_id,
           actorUserId: user_id,
+          category: 'Bank Account',
         });
       }
     }
@@ -286,6 +289,7 @@ const updateBankaccountService = async (
       message: `The bank account with nick name ${bank[0].nick_name} has been updated.`,
       payloadUserId: user_id,
       actorUserId: user_id,
+      category: 'Bank Account',
     });
     return result;
   } catch (error) {
@@ -308,6 +312,7 @@ const deleteBankaccountService = async (conn, ids, user_id) => {
       message: `Bank with nick name ${result.nick_name} has been deleted.`,
       payloadUserId: user_id,
       actorUserId: user_id,
+      category: 'Bank Account',
     });
     return result;
   } catch (error) {
