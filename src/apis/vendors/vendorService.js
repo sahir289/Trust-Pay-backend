@@ -54,6 +54,8 @@ const createVendorService = async (conn, payload) => {
       message: `New Vendor with code: ${data.code} has been created.`,
       payloadUserId: data.updated_by,
       actorUserId: data.updated_by,
+      category: 'Client',
+      subCategory: 'Vendor'
     });
     return data;
   } catch (error) {
@@ -209,6 +211,8 @@ const updateVendorService = async (id, payload, role) => {
       message: `Vendor with code: ${data.code} has been updated.`,
       payloadUserId: data.updated_by,
       actorUserId: data.updated_by,
+      category: 'Client',
+      subCategory: 'Vendor'
     });
     return finalResult;
   } catch (error) {
@@ -281,6 +285,8 @@ const deleteVendorService = async (ids, user_id) => {
       message: `Vendor with code: ${data.code} has been deleted.`,
       payloadUserId: user_id,
       actorUserId: user_id,
+      category: 'Client',
+      subCategory: 'Vendor'
     });
     await commit(conn); // Commit the transaction
     logger.info('Vendor deleted successfully', 'info');

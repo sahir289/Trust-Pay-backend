@@ -534,13 +534,18 @@ const createBankResponseService = async (
         };
       }
     }
-    if (role !== Role.BOT && created_by !== 'Bank Response' && updated_by !== 'Bank Response') {
+    if (
+      role !== Role.BOT &&
+      created_by !== 'Bank Response' &&
+      updated_by !== 'Bank Response'
+    ) {
       await notifyAdminsAndUsers({
         conn,
         company_id: companyId,
         message: `The entry with UTR ${utr} and Status ${botRes.status} has been created.`,
         payloadUserId: vendor[0].user_id,
         actorUserId: user_id,
+        category: 'Data Entries',
       });
     }
 
@@ -808,6 +813,15 @@ const resetBankResponseService = async (conn, id, userData) => {
       );
     }
 
+    const changes = {
+      amount: botRes.amount,
+      utr: botRes.utr,
+      bank_id: botRes.bank_id,
+      config: botRes.config || {},
+      bank_name: (await getBankaccountDao({ id: botRes.bank_id }))[0]
+        ?.nick_name,
+    };
+
     // Prepare base update data
     let updateData = {
       is_used: false,
@@ -818,7 +832,7 @@ const resetBankResponseService = async (conn, id, userData) => {
     // Handle specific updates based on input
     let message = 'Bot response reset successful';
     if (typeof amount === 'number' && !isNaN(amount)) {
-      ({ updateData, message } = await handleAmountUpdate({
+      const result = await handleAmountUpdate({
         botRes,
         amount,
         user_name,
@@ -827,11 +841,29 @@ const resetBankResponseService = async (conn, id, userData) => {
         payInData,
         user_id,
         conn,
-      }));
-    } else if (utr) {
-      await handleUtrUpdate({ botRes, utr, user_id, user_name, conn });
-    } else if (bank_id) {
-      await handleBankIdUpdate({
+      });
+      updateData = result.updateData;
+      changes.config.previousAmount = botRes.amount;
+      changes.amount = amount;
+      message = result.message;
+    }
+
+    if (utr) {
+      const utrResult = await handleUtrUpdate({
+        botRes,
+        utr,
+        user_id,
+        user_name,
+        conn,
+      });
+      updateData = utrResult;
+      changes.utr = utr;
+      changes.config.previousUTR = botRes.utr;
+    }
+
+    if (bank_id) {
+      const newBank = await getBankaccountDao({ id: bank_id });
+      const bankResult = await handleBankIdUpdate({
         botRes,
         bank_id,
         company_id,
@@ -839,7 +871,15 @@ const resetBankResponseService = async (conn, id, userData) => {
         user_name,
         conn,
       });
-    } else {
+      updateData = bankResult;
+      changes.bank_id = bank_id;
+      changes.nick_name = newBank[0]?.nick_name;
+      changes.config.previousBank = (
+        await getBankaccountDao({ id: botRes.bank_id })
+      )[0]?.nick_name;
+    }
+
+    if (!amount && !utr && !bank_id) {
       await updatePayInData({ payInData, user_name, botRes });
       await resetBankResponseDao(id, updateData);
     }
@@ -851,9 +891,19 @@ const resetBankResponseService = async (conn, id, userData) => {
       message: `The entry with UTR ${botRes.utr} has been updated.`,
       payloadUserId: user_id,
       actorUserId: user_id,
+      category: 'Data Entries',
     });
 
-    return { message };
+    const results = {
+      message,
+      id,
+      data: changes,
+      updated_by: user_name,
+      updated_at: new Date().toISOString(),
+    };
+
+    await newTableEntry(tableName.BANK_RESPONSE, results);
+    return results;
   } catch (error) {
     logger.error(
       `Error resetting bank response for ID: ${id}`,

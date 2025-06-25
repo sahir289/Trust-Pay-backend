@@ -175,7 +175,7 @@ const resetBankResponseController = async (req, res) => {
     });
 
     // Send success response
-    return sendSuccess(res, {}, result.message);
+    return sendSuccess(res, result, result.message);
   } catch (error) {
     // Handle errors and send appropriate response
     return sendError(

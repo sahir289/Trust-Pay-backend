@@ -467,6 +467,7 @@ const createUserService = async (conn, payload, role) => {
       message: `New User with username: ${payload.user_name} has been created.`,
       payloadUserId: payload.created_by,
       actorUserId: payload.created_by,
+      category: 'User',
     });
     return User;
   } catch (error) {
@@ -485,6 +486,7 @@ const userUpdateService = async (conn, ids, payload) => {
       message: `User with username: ${User.user_name} has been updated.`,
       payloadUserId: payload.updated_by,
       actorUserId: payload.updated_by,
+      category: 'User',
     });
     logger.log('User Updated Successfully');
     return User;

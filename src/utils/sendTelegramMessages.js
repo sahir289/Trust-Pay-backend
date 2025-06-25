@@ -1,4 +1,5 @@
 import { getBankResponseDao } from '../apis/bankResponse/bankResponseDao.js';
+import { Status } from '../constants/index.js';
 import { createTelegramSender } from '../helpers/telegramApi.js';
 import { logger } from './logger.js';
 
@@ -651,35 +652,37 @@ export async function sendBankNotAssignedAlertTelegram(
 export async function sendTelegramDisputeMessage(
   chatId,
   oldData,
+  currentData,
   newData,
   nick_name,
   TELEGRAM_BOT_TOKEN,
 ) {
-  const message = `
-        <b><u>Dispute Entry:</u></b> 
-            <b>📋 Status:</b> ⛔ DISPUTE
-            <b>🧾 UTR:</b> ${oldData.user_submitted_utr}
-            <b>⛔ Amount:</b> ${oldData.amount}
-            <b>💳 UPI Short Code:</b> ${oldData.upi_short_code}
-            <b>🏦 Bank Name:</b> ${nick_name}
-            <b>Merchant Order Id:</b> ${oldData.merchant_order_id}
-            <b>PayIn Id:</b> ${oldData.id}
-            <b>Merchant Id:</b> ${oldData.merchant_id}
-            <b>User Id:</b> ${oldData.user}
+  const formatEntry = (label, data, utr) => `
+    <b><u>${label}:</u></b> 
+        <b>📋 Status:</b> ${data.status === Status.SUCCESS ? '✅ SUCCESS' : data.status === Status.DISPUTE ? '⛔ DISPUTE' : data.status === Status.FAILED ? '❌ FAILED' : data.status}
+        <b>🧾 UTR:</b> ${data.user_submitted_utr || utr}
+        <b>✅ Amount:</b> ${data.amount}
+        <b>💳 UPI Short Code:</b> ${data.upi_short_code}
+        <b>🏦 Bank Name:</b> ${nick_name}
+        <b>Merchant Order Id:</b> ${data.merchant_order_id}
+        <b>PayIn Id:</b> ${data.id}
+        <b>Merchant Id:</b> ${data.merchant_id}
+        <b>User Id:</b> ${data.user}
+  `;
 
-        <b><u>New Entry:</u></b> 
-            <b>📋 Status:</b> ${
-              newData.status === 'SUCCESS' ? '✅ SUCCESS' : newData.status
-            }
-            <b>🧾 UTR:</b> ${newData.user_submitted_utr}
-            <b>✅ Amount:</b> ${newData.amount}
-            <b>💳 UPI Short Code:</b> ${newData.upi_short_code}
-            <b>🏦 Bank Name:</b> ${nick_name}
-            <b>Merchant Order Id:</b> ${newData.merchant_order_id}
-            <b>PayIn Id:</b> ${newData.id}
-            <b>Merchant Id:</b> ${newData.merchant_id}
-            <b>User Id:</b> ${newData.user}
-    `;
+  let message = formatEntry('Dispute Entry', oldData);
+
+  if (
+    newData &&
+    typeof newData === 'object' &&
+    newData.merchant_order_id !== undefined &&
+    currentData?.merchant_order_id !== newData.merchant_order_id
+  ) {
+    message += formatEntry('Current Entry', currentData);
+    message += formatEntry('New Entry', newData, oldData.user_submitted_utr);
+  } else {
+    message += formatEntry('New Entry', currentData);
+  }
   const success = await telegramSender(
     chatId,
     message,

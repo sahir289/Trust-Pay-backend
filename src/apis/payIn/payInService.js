@@ -124,6 +124,8 @@ export const generatePayInUrlByHashService = async (conn, req, res) => {
       message: `Bank Account has not been linked with Merchant: ${code}`,
       payloadUserId: merchantArr[0].user_id,
       actorUserId: merchantArr[0].user_id,
+      category: 'Transaction',
+      subCategory: 'PayIn',
     });
     //-- correct error handling
     return res.status(400).json({
@@ -149,6 +151,8 @@ export const generatePayInUrlByHashService = async (conn, req, res) => {
       message: `Bank Account has not been linked with Merchant: ${code}`,
       payloadUserId: merchantArr[0].user_id,
       actorUserId: merchantArr[0].user_id,
+      category: 'Transaction',
+      subCategory: 'PayIn',
     });
     // error handling
     return res.status(400).json({
@@ -1532,6 +1536,8 @@ export const processPayInService = async (
         message: `Payin with merchant order id: ${payIn.merchant_order_id} has been updated.`,
         payloadUserId: merchant[0].user_id,
         actorUserId: bank.user_id,
+        category: 'Transaction',
+        subCategory: 'PayIn',
       });
     }
   } else {
@@ -1891,6 +1897,7 @@ export const disputeDuplicateTransactionService = async (
   }
 
   let response = {};
+  let newEntryResponse = {};
   if (!makeItSuccess) {
     const newStatus =
       payInData.bank_acc_id != payIn.bank_acc_id
@@ -1900,7 +1907,7 @@ export const disputeDuplicateTransactionService = async (
           : Status.SUCCESS;
     // make new pay in success
     if (newStatus === Status.SUCCESS) {
-      response = await updatePayInUrlDao(payInData.id, {
+      newEntryResponse = await updatePayInUrlDao(payInData.id, {
         is_url_expires: true,
         one_time_used: true,
         is_notified: true,
@@ -1917,7 +1924,7 @@ export const disputeDuplicateTransactionService = async (
         amount: toAmount,
       });
     } else {
-      response = await updatePayInUrlDao(payInData.id, {
+      newEntryResponse = await updatePayInUrlDao(payInData.id, {
         is_url_expires: true,
         one_time_used: true,
         is_notified: true,
@@ -1994,27 +2001,51 @@ export const disputeDuplicateTransactionService = async (
     config?.telegramDuplicateDisputeChatId,
     payIn,
     response,
+    newEntryResponse,
     bank.nick_name,
     config?.telegramBotToken,
   );
-  if (payInData.merchant_order_id !== payIn.merchant_order_id) {
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: payIn.company_id,
-      message: `Payin with merchant order id: ${payIn.merchant_order_id} has been Failed.`,
-      payloadUserId: merchant.user_id,
-      actorUserId: updated_by,
-      additionalRecipients: [vendor.user_id],
-    });
-  }
-  await notifyAdminsAndUsers({
+  // Notify admins and users about payin status updates
+  const notifyPayload = {
     conn,
-    company_id: payIn.company_id,
-    message: `Payin with merchant order id: ${payInData.merchant_order_id} has been updated.`,
     payloadUserId: merchant.user_id,
     actorUserId: updated_by,
     additionalRecipients: [vendor.user_id],
-  });
+    category: 'Transaction',
+    subCategory: 'PayIn',
+  };
+
+  const notifications = [];
+
+  if (
+    newEntryResponse &&
+    typeof newEntryResponse === 'object' &&
+    newEntryResponse.merchant_order_id !== undefined &&
+    response?.merchant_order_id !== newEntryResponse.merchant_order_id
+  ) {
+    notifications.push(
+      notifyAdminsAndUsers({
+        ...notifyPayload,
+        company_id: response.company_id,
+        message: `Payin with merchant order id: ${response.merchant_order_id} has been Failed.`,
+      }),
+      notifyAdminsAndUsers({
+        ...notifyPayload,
+        company_id: newEntryResponse.company_id,
+        message: `Payin with merchant order id: ${newEntryResponse.merchant_order_id} has been updated.`,
+      }),
+    );
+  } else {
+    notifications.push(
+      notifyAdminsAndUsers({
+        ...notifyPayload,
+        company_id: response.company_id,
+        message: `Payin with merchant order id: ${response.merchant_order_id} has been updated.`,
+      }),
+    );
+  }
+
+  await Promise.all(notifications);
   await newTableEntry(tableName.PAYIN);
   return response;
 };
@@ -2577,6 +2608,8 @@ export const updatePayInService = async (
   company_id,
 ) => {
   try {
+    let bankResponseDataUtr;
+    let updatedBankAccIdData;
     // Validate payload
     if (!payload && (!payload.amount || !payload.utr || !payload.bank_acc_id)) {
       throw new BadRequestError(
@@ -2709,7 +2742,7 @@ export const updatePayInService = async (
     }
     // Handle UTR updates
     else if (payload?.utr) {
-      await updateBankResponseDao(
+      bankResponseDataUtr = await updateBankResponseDao(
         { id: bankResponse.id, company_id: company_id },
         { utr: payload.utr, updated_by: user_id },
         conn,
@@ -2734,7 +2767,8 @@ export const updatePayInService = async (
         throw new BadRequestError('Please provide a different bank account ID');
       }
 
-      await Promise.all([
+      // eslint-disable-next-line no-unused-vars
+      const [prevBankData, newBankData] = await Promise.all([
         updateBankaccountDao(
           { id: prevBank[0].id, company_id: company_id },
           {
@@ -2759,6 +2793,10 @@ export const updatePayInService = async (
           conn,
         ),
       ]);
+      if (!newBankData) {
+        throw new NotFoundError('Bank account not found');
+      }
+      updatedBankAccIdData = newBankData;
     }
 
     delete payload.utr;
@@ -2811,7 +2849,7 @@ export const updatePayInService = async (
     };
 
     // Update pay-in details
-    await updatePayInUrlDao(
+    const updatedPayIn = await updatePayInUrlDao(
       payIn.id,
       {
         ...payload,
@@ -2836,8 +2874,17 @@ export const updatePayInService = async (
       payloadUserId: merchant_user_id,
       actorUserId: user_id,
       additionalRecipients: [vendor_user_id],
+      category: 'Transaction',
+      subCategory: 'PayIn',
     });
-    await newTableEntry(tableName.PAYIN)
+    await newTableEntry(tableName.PAYIN, {
+      ...updatedPayIn,
+      nick_name: updatedBankAccIdData?.nick_name,
+      bank_res_details: {
+        utr: bankResponseDataUtr?.utr || bankResponseData?.utr,
+        amount: updatedPayIn?.amount,
+      },
+    });
   } catch (error) {
     logger.error(`Error in updatePayInService: ${error.message}`, {
       error,

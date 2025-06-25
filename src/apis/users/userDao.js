@@ -319,7 +319,6 @@ const getUserByIdDao = async (conn, ids) => {
   }
 };
 
-
 const getUsersByUserNameDao = async (ids, username) => {
   try {
     let baseQuery = `
@@ -449,6 +448,45 @@ const getAdminUserIdsDao = async (company_id) => {
   }
 };
 
+const getUserByCompanyCreatedAtDao = async (company_id, role) => {
+  try {
+    const sql = `
+      SELECT u.id, u.created_at
+      FROM "User" u
+      LEFT JOIN "Company" c ON u."company_id" = c.id
+      LEFT JOIN "Role" r ON u."role_id" = r.id
+      WHERE u.is_obsolete = FALSE
+        AND c.id = $1
+        AND r.role = $2
+        AND (u.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = 
+            (c.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date;
+    `;
+    const result = await executeQuery(sql, [company_id, role]);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error executing getUserByCompanyCreatedAtDao query:', error);
+    throw error.message;
+  }
+}
+
+const getUserByRoleDao = async (company_id, role) => {
+  try {
+    const sql = `
+      SELECT u.id
+      FROM "${tableName.USER}" u
+      LEFT JOIN public."Role" r ON u.role_id = r.id
+      WHERE u.is_obsolete = FALSE
+        AND u.company_id = $1
+        AND r.role = $2
+    `;
+    const result = await executeQuery(sql, [company_id, role]);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error executing getUserByCompanyCreatedAtDao query:', error);
+    throw error.message;
+  }
+}
+
 export {
   getUsersDao,
   getAllUsersDao,
@@ -456,6 +494,8 @@ export {
   getUsersForCronDao,
   getUsersByUserNameDao,
   getAdminUserIdsDao,
+  getUserByCompanyCreatedAtDao,
+  getUserByRoleDao,
   createUserDao,
   updateUserDao,
 };

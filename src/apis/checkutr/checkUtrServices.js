@@ -63,6 +63,7 @@ const createCheckUtrService = async (conn, payload, merchant_order_id, utr) => {
       message: `Check UTR has been performed for merchant order ID: ${merchant_order_id} with UTR: ${utr}`,
       payloadUserId: payload.updated_by,
       actorUserId: payload.updated_by,
+      category: 'Data Entries',
     });
     return result;
   } catch (error) {

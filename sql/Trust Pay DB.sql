@@ -302,7 +302,7 @@ CREATE TABLE "Calculation" (
   "updated_by" varchar
 );
 
-CREATE TABLE Notification (
+CREATE TABLE "Notifications" (
   "id" varchar PRIMARY KEY DEFAULT (uuid_generate_v4()),
   "user_id" varchar NOT NULL,
   "message" text NOT NULL,

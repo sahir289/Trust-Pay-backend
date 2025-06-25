@@ -122,9 +122,6 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
       });
     }
     let commissionSelect = '';
-    //MAX(...) is used to satisfy SQL’s requirement when grouping — you must aggregate non-grouped columns.
-    //To keep one row per account, you must aggregate all non-grouped columns:
-    //If you don't use MAX(), you must include the column in GROUP BY, which will give multiple rows per account
 
     let groupByColumns = ['bea.acc_no'];
 
@@ -138,7 +135,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
         MAX(bea.config->>'balance') AS config_balance,
         MAX(bea.config->>'today_balance') AS config_today_balance,
         MAX(bea.config->>'uniqueCode') AS config_uniqueCode
-`;
+    `;
     } else {
       commissionSelect = `
       ARRAY_AGG(DISTINCT v.user_id) AS user_id,
