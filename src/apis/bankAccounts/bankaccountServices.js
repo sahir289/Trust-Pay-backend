@@ -296,7 +296,7 @@ const updateBankaccountService = async (
     return result;
   } catch (error) {
     logger.error('error getting while  updating banks', error);
-    throw new BadRequestError('Error getting while  updating banks');
+    throw error;
   }
 };
 

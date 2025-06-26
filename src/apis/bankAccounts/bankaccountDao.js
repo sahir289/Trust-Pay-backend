@@ -607,7 +607,7 @@ const updateBankaccountDao = async (id, payload, conn, isParentDeleted) => {
     );
   } catch (error) {
     logger.error('Error in updateBankaccountDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
