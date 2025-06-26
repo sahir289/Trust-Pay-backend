@@ -1,7 +1,7 @@
-import { tableName } from '../../constants/index.js';
+// import { tableName } from '../../constants/index.js';
 import { InternalServerError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
-import { newTableEntry } from '../../utils/sockets.js';
+// import { newTableEntry } from '../../utils/sockets.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { getUserByIdDao } from '../users/userDao.js';
 import {
@@ -213,7 +213,7 @@ export const createNotificationsService = async (
       config: { recipients },
     };
     await createNotificationsRecipientDao(recipientPayload);
-    await newTableEntry(tableName.NOTIFICATIONS);
+    // await newTableEntry(tableName.NOTIFICATIONS);
     return notifications;
   } catch (error) {
     logger.error('Error while creating Notifications', error);
