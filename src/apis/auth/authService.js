@@ -48,12 +48,7 @@ const loginService = async (config, clientIP) => {
       .then((designation) => {
         if (designation[0].designation === Role.ADMIN) {
           console.log(config.unique_admin_id, user.config.unique_admin_id);
-          if (!config.isAdminLogin) {
-            throw new BadRequestError(
-              'You are not authorized to access this account.',
-            );
-          }
-          if(config.isAdminLogin && !config.unique_admin_id) {
+          if (!config.unique_admin_id ) {
             throw new BadRequestError(
               'Unique admin ID is required for admin login.',
             );
