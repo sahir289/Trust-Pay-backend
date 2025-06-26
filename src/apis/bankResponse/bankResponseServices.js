@@ -963,16 +963,18 @@ const handleAmountUpdate = async ({
             today_balance:
               parseFloat(bank.today_balance) + parseFloat(updatedAmount),
           },
-        ).then((res) =>
-          updateBankaccountService(
-            conn,
-            { id: bank.id, company_id: res.company_id },
-            { latest_balance: res.today_balance },
-            role,
-            res.company_id,
-            user_id,
-          ),
-        ),
+        ).then((res) => {
+          if (res.is_enabled) {
+            updateBankaccountService(
+              conn,
+              { id: bank.id, company_id: res.company_id },
+              { latest_balance: res.today_balance },
+              role,
+              res.company_id,
+              user_id,
+            );
+          }
+        }),
         updatePayInData({ payInData, user_name, botRes }),
         updateBotResponseDao(botRes.id, updateData, conn),
       ]);
