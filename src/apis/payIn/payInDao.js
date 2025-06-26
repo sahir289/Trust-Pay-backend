@@ -936,7 +936,7 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
   } finally {
     if (conn) {
       try {
-        await conn.release();
+        conn.release();
       } catch (releaseError) {
         console.error('Error releasing connection:', releaseError);
       }

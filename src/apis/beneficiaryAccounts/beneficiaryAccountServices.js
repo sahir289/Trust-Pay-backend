@@ -317,7 +317,7 @@ const createBeneficiaryAccountService = async (conn, payload, company_id) => {
       payload.config = {
         type: payload?.type,
         initial_balance: payload?.initial_balance || 0,
-        closing_balance: 0,
+        closing_balance: payload?.initial_balance || 0,
         is_enabled: false,
       };
       delete payload.type; // Remove type if it's not needed in config
