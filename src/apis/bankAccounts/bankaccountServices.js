@@ -220,8 +220,8 @@ const updateBankaccountService = async (
     if (role === Role.VENDOR_OPERATIONS) {
       userId = userHierarchys[0]?.config?.parent;
     }
-    if (Object.keys(payload).length === 1 && payload.latest_balance) {
-      if (payload.latest_balance >= bank[0].config?.max_limit && payload.is_enabled !== false) {
+    if (Object.keys(payload).length === 1 && payload.latest_balance && payload.is_enabled) {
+      if (payload.latest_balance >= bank[0].config?.max_limit) {
         payload.is_enabled = false;
         deactivateBank(bank[0].nick_name, ids.id, userId);
         await notifyAdminsAndUsers({
