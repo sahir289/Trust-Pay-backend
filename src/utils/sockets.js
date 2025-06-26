@@ -13,7 +13,7 @@ let ioInstance = null;
 
 const initializeSocket = (server) => {
   ioInstance = new Server(server, {
-    transports: ["polling", "websocket"],
+    transports: ["websocket", "polling"],
     cors: {
       origin: [`${config?.reactFrontOrigin}`, `${config?.reactPaymentOrigin}`],
       methods: ['GET', 'POST'],
@@ -21,9 +21,11 @@ const initializeSocket = (server) => {
   });
 
   ioInstance.on('connection', (socket) => {
+    socket.on('pingCheck', () => {
+      socket.emit('pongCheck');
+    });
     const message = chalk.bold.cyan(`Client connected: ${socket.id}`);
     logger.log(message);
-
     socket.on('user-login', (userId) => {
       const existingSockets = userSockets.get(userId) || [];
       existingSockets.forEach((existingSocketId) => {
@@ -56,7 +58,8 @@ const initializeSocket = (server) => {
       logger.log(`Received from client:`, data);
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
+      logger.error(`Client disconnected: ${socket.id}, reason: ${reason}`);
       for (const [userId, socketIds] of userSockets.entries()) {
         const updatedSockets = socketIds.filter((id) => id !== socket.id);
         if (updatedSockets.length > 0) {
