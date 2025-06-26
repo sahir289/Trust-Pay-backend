@@ -231,6 +231,9 @@ const updateBankaccountService = async (
           payloadUserId: user_id,
           actorUserId: user_id,
           category: 'Bank Account',
+          subCategory: null,
+          additionalRecipients: [],
+          role,
         });
       } else if (payload.latest_balance === bank[0].config?.max_limit) {
         deactivateBank(bank[0].nick_name, ids.id, true);
@@ -241,6 +244,9 @@ const updateBankaccountService = async (
           payloadUserId: user_id,
           actorUserId: user_id,
           category: 'Bank Account',
+          subCategory: null,
+          additionalRecipients: [],
+          role,
         });
       }
     }
