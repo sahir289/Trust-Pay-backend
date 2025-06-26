@@ -227,7 +227,7 @@ const updateBankaccountService = async (
         await notifyAdminsAndUsers({
           conn,
           company_id: company_id,
-          message: `The Bank with the ${bank[0].nick_name} id Deactivate`,
+          message: `The Bank ${bank[0].nick_name} is Deactivated`,
           payloadUserId: user_id,
           actorUserId: user_id,
           category: 'Bank Account',
@@ -240,7 +240,7 @@ const updateBankaccountService = async (
         await notifyAdminsAndUsers({
           conn,
           company_id: company_id,
-          message: `The Bank with the ${bank[0].nick_name} will be Deactivate soon as the Balance will soon reach the Daily Limit`,
+          message: `The Bank ${bank[0].nick_name} will be Deactivate soon as the Balance will soon reach the Daily Limit`,
           payloadUserId: user_id,
           actorUserId: user_id,
           category: 'Bank Account',

@@ -115,8 +115,8 @@ const deactivateBank = (nickName, bankId, userId, isWarning = false) => {
 
   ioInstance.emit(isWarning ? 'bankStatusWarning' : 'bankStatusUpdate', {
     message: isWarning
-      ? `The Bank with the ${nickName} will be Deactivate soon as the Balance will soon reach the Daily Limit`
-      : `The Bank with the ${nickName} id Deactivate`,
+      ? `The Bank ${nickName} will be Deactivate soon as the Balance will soon reach the Daily Limit`
+      : `The Bank ${nickName} is Deactivated`,
     bankId,
     nickname: nickName,
     userId: userId, //send userid to show notification only to vendor whose bank status is updated
