@@ -69,13 +69,30 @@ const getBeneficiaryAccountService = async (
     } else if (role === Role.VENDOR) {
       if (designation == Role.VENDOR) {
         filters.user_id = [user_id];
+        const adminUser = await getUserByCompanyCreatedAtDao(
+          company_id,
+          Role.ADMIN,
+        );
+        filters.user_id = [filters.user_id, adminUser.id];
       } else if (designation == Role.VENDOR_OPERATIONS) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
         const parentID = userHierarchys[0]?.config?.parent;
         if (parentID) {
           filters.user_id = [parentID];
         }
+        const adminUser = await getUserByCompanyCreatedAtDao(
+          company_id,
+          Role.ADMIN,
+        );
+        filters.user_id = [filters.user_id, adminUser.id];
       }
+      const adminUser = await getUserByCompanyCreatedAtDao(
+        company_id,
+        Role.ADMIN,
+      );
+      filters.user_id = [...filters.user_id, adminUser.id];
+    } else if (role === Role.ADMIN && filters?.user_id) {
+      filters.user_id = [user_id];
       const adminUser = await getUserByCompanyCreatedAtDao(
         company_id,
         Role.ADMIN,
@@ -89,7 +106,7 @@ const getBeneficiaryAccountService = async (
       filters.role_id = role_id[0]?.id;
       if (filters.beneficiary_role === Role.VENDOR) {
         const [adminRole] = await getRoleDao({ role: Role.ADMIN });
-        filters.role_id = [ filters.role_id, adminRole?.id];
+        filters.role_id = [filters.role_id, adminRole?.id];
       }
       delete filters.beneficiary_role;
     }
@@ -162,12 +179,22 @@ const getBeneficiaryAccountBySearchService = async (
     } else if (role === Role.VENDOR) {
       if (designation == Role.VENDOR) {
         filters.user_id = [user_id];
+        const adminUser = await getUserByCompanyCreatedAtDao(
+          company_id,
+          Role.ADMIN,
+        );
+        filters.user_id = [...filters.user_id, adminUser.id];
       } else if (designation == Role.VENDOR_OPERATIONS) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
         const parentID = userHierarchys[0]?.config?.parent;
         if (parentID) {
           filters.user_id = [parentID];
         }
+        const adminUser = await getUserByCompanyCreatedAtDao(
+          company_id,
+          Role.ADMIN,
+        );
+        filters.user_id = [...filters.user_id, adminUser.id];
       }
       const adminUser = await getUserByCompanyCreatedAtDao(
         company_id,
@@ -182,7 +209,7 @@ const getBeneficiaryAccountBySearchService = async (
       filters.role_id = role_id[0]?.id;
       if (filters.beneficiary_role === Role.VENDOR) {
         const [adminRole] = await getRoleDao({ role: Role.ADMIN });
-        filters.role_id = [ filters.role_id, adminRole?.id];
+        filters.role_id = [filters.role_id, adminRole?.id];
       }
       delete filters.beneficiary_role;
     }
@@ -301,11 +328,13 @@ const createBeneficiaryAccountService = async (conn, payload, company_id) => {
         initial_balance: 0,
         closing_balance: 0,
       };
+      delete payload?.type;
       delete payload?.initial_balance; // Remove initial_balance if it's not needed in config
     } else if (roleObj.role === Role.MERCHANT) {
       payload.config = {
         type: 'Personal',
       };
+      delete payload?.type;
     }
 
     // Check for duplicates
@@ -348,7 +377,7 @@ const createBeneficiaryAccountService = async (conn, payload, company_id) => {
   }
 };
 
-const updateBeneficiaryAccountService = async (conn, ids, payload, role,) => {
+const updateBeneficiaryAccountService = async (conn, ids, payload, role) => {
   try {
     const [banks] = await getBeneficiaryAccountDao({
       id: ids.id,
@@ -365,8 +394,7 @@ const updateBeneficiaryAccountService = async (conn, ids, payload, role,) => {
       // Notify users
       const vendorUsers = await getUserByRoleDao(ids.company_id, Role.VENDOR);
       const vendorUserIds = vendorUsers.map((u) => u.id);
-      notifyIds =
-        role === Role.ADMIN ? vendorUserIds : [payload.updated_by];
+      notifyIds = role === Role.ADMIN ? vendorUserIds : [payload.updated_by];
     }
 
     await notifyAdminsAndUsers({
