@@ -44,8 +44,6 @@ const getUserHierarchys = async (req, res) => {
     role,page,limit,
   );
   // Log success message
-  console.log('get UserHierarchys successfully', data);
-  // Send success response
   return sendSuccess(res, data, 'UserHierarchy fetched successfully');
 };
 

@@ -27,6 +27,7 @@ import { forceLogoutUser } from '../../utils/sockets.js';
 import { sendOTP } from '../../utils/sendMailer.js';
 import { logger } from '../../utils/logger.js';
 import { compareHash } from '../../utils/hashUtils.js';
+import { logOutUser } from '../../utils/sockets.js';
 import { Role } from '../../constants/index.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 
@@ -196,6 +197,7 @@ const logoutService = async (decodeToken, session_id) => {
       decodeToken.company_id,
       session_id,
     );
+    await logOutUser(decodeToken.user_id, session_id);
     return data;
   } catch (error) {
     logger.error('Error getting while logout', error);

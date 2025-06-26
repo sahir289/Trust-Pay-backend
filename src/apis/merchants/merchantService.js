@@ -106,6 +106,8 @@ const createMerchantService = async (conn, payload) => {
       payloadUserId: payload.updated_by,
       actorUserId:
         userDesignation === Role.SUB_MERCHANT ? parentId : payload.updated_by,
+      category: 'Client',
+      subCategory: 'Merchant'
     });
     return data;
   } catch (error) {
@@ -371,6 +373,8 @@ const updateMerchantService = async (conn, ids, payload, role) => {
       message: `Merchant with Code ${data.code} has been updated.`,
       payloadUserId: payload.updated_by,
       actorUserId: payload.updated_by,
+      category: 'Client',
+      subCategory: 'Merchant'
     });
     return finalResult;
   } catch (error) {
@@ -469,6 +473,8 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
       message: `Merchants with Code ${userCodes} has been deleted.`,
       payloadUserId: updated_by,
       actorUserId: updated_by,
+      category: 'Client',
+      subCategory: 'Merchant'
     });
     await commit(conn); // Commit the transaction
     return data;

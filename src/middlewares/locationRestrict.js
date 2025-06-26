@@ -2,6 +2,7 @@ import axios from 'axios';
 import { europeanCountries } from '../constants/index.js';
 import { COUNTRIES } from '../constants/index.js';
 import { logger } from '../utils/logger.js';
+import { processPayInRestricted } from '../utils/updateRestrictedLocationPayin.js';
 const BLOCK_LAT = process.env.BLOCK_LAT;
 const BLOCK_LONG = process.env.BLOCK_LONG;
 const PROXY_CHECK_URL = process.env.PROXY_CHECK_URL;
@@ -33,18 +34,35 @@ const getUserLocationMiddleware = async (req, res, next) => {
     }
     const { latitude, longitude, vpn, region, country } = userData;
     if (vpn === 'yes') {
+      const id = req.params.merchantOrderId;
+      const url = await processPayInRestricted(id, 'VPN detected');
       logger.warn('VPN detected. Access denied.', userData);
-      return res.status(403).send('VPN is Not Allowed!');
-    }
+      return res.status(403).json({
+        error: { message: 'VPN is Not Allowed!', data: { url } },
+      });   }
     if (country === 'India' && restrictedStates.includes(region)) {
+      const id = req.params.merchantOrderId;
+      const url = await processPayInRestricted(
+        id,
+        `Restricted region: ${region}`,
+      );
       logger.error(`Access restricted for users in ${region}.`, userData);
-      return res.status(403).send('Access Denied!');
+      return res.status(403).json({
+        error: { message: 'Access Denied!', data: { url } },
+       
+      });
     }
 
     if (!COUNTRIES.includes(country) && !europeanCountries.includes(country)) {
+      const id = req.params.merchantOrderId;
+      const url = await processPayInRestricted(
+        id,
+        `Restricted country: ${country}`,
+      );
       logger.error(`Access restricted for users from ${country}.`, userData);
-      return res.status(403).send('Access Denied!');
-    }
+      return res.status(403).json({
+        error: { message: 'Access Denied!', data: { url } },
+      });    }
     if (!isNaN(latitude) && !isNaN(longitude)) {
       // Check if the user is in the restricted region
       if (

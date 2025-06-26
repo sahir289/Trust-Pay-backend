@@ -134,6 +134,8 @@ export const generatePayInUrl = async (req, res) => {
       message: `Bank Account has not been linked with Merchant: ${code}`,
       payloadUserId: merchantArr[0].user_id,
       actorUserId: merchantArr[0].user_id,
+      category: 'Transaction',
+      subCategory: 'PayIn',
     });
     return res.status(400).json({
       error: {
@@ -186,6 +188,8 @@ export const generatePayInUrl = async (req, res) => {
       message: `Bank Account has not been linked with Merchant: ${code}`,
       payloadUserId: merchantArr[0].user_id,
       actorUserId: merchantArr[0].user_id,
+      category: 'Transaction',
+      subCategory: 'PayIn',
     });
     return res.status(400).json({
       error: {
