@@ -2010,9 +2010,9 @@ export const disputeDuplicateTransactionService = async (
     conn,
     payloadUserId: merchant.user_id,
     actorUserId: updated_by,
-    additionalRecipients: [vendor.user_id],
     category: 'Transaction',
     subCategory: 'PayIn',
+    additionalRecipients: [vendor.user_id],
   };
 
   const notifications = [];
@@ -2873,9 +2873,9 @@ export const updatePayInService = async (
       message: `Payin with merchant order id: ${payIn.merchant_order_id} has been updated.`,
       payloadUserId: merchant_user_id,
       actorUserId: user_id,
-      additionalRecipients: [vendor_user_id],
       category: 'Transaction',
       subCategory: 'PayIn',
+      additionalRecipients: [vendor_user_id],
     });
     await newTableEntry(tableName.PAYIN, {
       ...updatedPayIn,

@@ -14,7 +14,7 @@ import {
   getNotificationsByUserDao,
   updateNotificationsDao,
 } from './notificationDao.js';
-
+import { Role } from '../../constants/index.js';
 export const getNotificationsService = async (
   user_id,
   company_id,
@@ -172,6 +172,7 @@ export const createNotificationsService = async (
   recipient_ids,
   category,
   subCategory = null,
+  role
 ) => {
   try {
     const newPayload = {
@@ -211,7 +212,9 @@ export const createNotificationsService = async (
       config: { recipients },
     };
     await createNotificationsRecipientDao(recipientPayload);
-    await newTableEntry(tableName.NOTIFICATIONS);
+    if (role !== Role.BOT) {
+      await newTableEntry(tableName.NOTIFICATIONS);
+    }
     return notifications;
   } catch (error) {
     logger.error('Error while creating Notifications', error);
