@@ -59,7 +59,6 @@ const initializeSocket = (server) => {
     });
 
     socket.on('disconnect', (reason) => {
-      logger.error(`Client disconnected: ${socket.id}, reason: ${reason}`);
       for (const [userId, socketIds] of userSockets.entries()) {
         const updatedSockets = socketIds.filter((id) => id !== socket.id);
         if (updatedSockets.length > 0) {
@@ -77,7 +76,7 @@ const initializeSocket = (server) => {
         }
       }
       const disconnectMessage = chalk.bold.red(
-        `Client disconnected: ${socket.id}`,
+        `Client disconnected: ${socket.id}, reason: ${reason}`,
       );
       logger.log(disconnectMessage);
     });
