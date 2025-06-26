@@ -217,15 +217,6 @@ export const createNotificationsService = async (
     logger.error('Error while creating Notifications', error);
     throw new InternalServerError(error);
   }
-  finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
-  }
 };
 
 export const updateNotificationsService = async (id, user_id, company_id) => {
