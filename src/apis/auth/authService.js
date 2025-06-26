@@ -27,6 +27,8 @@ import { forceLogoutUser } from '../../utils/sockets.js';
 import { sendOTP } from '../../utils/sendMailer.js';
 import { logger } from '../../utils/logger.js';
 import { compareHash } from '../../utils/hashUtils.js';
+import { Role } from '../../constants/index.js';
+import { getDesignationDao } from '../designation/designationDao.js';
 
 const loginService = async (config, clientIP) => {
   let conn;
@@ -40,6 +42,30 @@ const loginService = async (config, clientIP) => {
         'User not active. Please contact Support Team',
       );
     }
+
+    await getDesignationDao({ id: user.designation_id })
+      .then((designation) => {
+        if (designation[0].designation === Role.ADMIN) {
+          console.log(config.unique_admin_id, user.config.unique_admin_id);
+          if (!config.isAdminLogin) {
+            throw new BadRequestError(
+              'You are not authorized to access this account.',
+            );
+          }
+          if(config.isAdminLogin && !config.unique_admin_id) {
+            throw new BadRequestError(
+              'Unique admin ID is required for admin login.',
+            );
+          }
+          if (user.config.unique_admin_id !== config.unique_admin_id) {
+            throw new BadRequestError(
+              'You are not authorized to access this account.',
+            );
+          }
+        }
+      })
+
+
 
     let isLoginSecondFlag = false;
     // Handle password update for newPassword
