@@ -283,14 +283,16 @@ const updateBankaccountService = async (
         }
       }
     }
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: company_id,
-      message: `The bank account with nick name ${bank[0].nick_name} has been updated.`,
-      payloadUserId: user_id,
-      actorUserId: user_id,
-      category: 'Bank Account',
-    });
+    if (role !== Role.BOT) {
+      await notifyAdminsAndUsers({
+        conn,
+        company_id: company_id,
+        message: `The bank account with nick name ${bank[0].nick_name} has been updated.`,
+        payloadUserId: user_id,
+        actorUserId: user_id,
+        category: 'Bank Account',
+      });
+    }
     return result;
   } catch (error) {
     logger.error('error getting while  updating banks', error);
