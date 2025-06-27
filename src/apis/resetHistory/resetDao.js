@@ -228,7 +228,6 @@ const createResetHistoryDao = async (payload) => {
     const tableName = 'ResetDataHistory';
     const [sql, params] = buildInsertQuery(tableName, payload);
     const result = await executeQuery(sql, params);
-    console.log(result.rows[0], 'hey user from the user');
     return result.rows[0];
   } catch (error) {
     console.error('Error in createResetHistoryDao:', error);
