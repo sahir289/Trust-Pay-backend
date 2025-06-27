@@ -264,7 +264,8 @@ export const generatePayInUrl = async (req, res) => {
  * @type import('express').RequestHandler
  */
 export const validatePayInUrl = async (req, res) => {
-  const { merchantOrderId, oneTimeUsed } = req.params;
+  const { merchantOrderId } = req.params;
+  const oneTimeUsed = req.query.isReload || false; // default to false if not provided
   const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);

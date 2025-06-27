@@ -80,7 +80,7 @@ router.get('/generate-payin', tryCatchHandler(generatePayInUrl));
  *         description: Pay-In URL not found
  */
 router.get(
-  '/validate-payIn-url/:merchantOrderId/:oneTimeUsed',
+  '/validate-payIn-url/:merchantOrderId',
   getUserLocationMiddleware,
   tryCatchHandler(validatePayInUrl),
 );
