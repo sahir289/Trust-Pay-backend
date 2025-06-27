@@ -212,7 +212,8 @@ const getAllBankaccountDao = async (
         ba.ifsc AS ifsc_code, 
         ba.payin_count, 
         ba.balance, 
-        ba.today_balance, 
+        ba.today_balance,
+        ba.is_enabled,   
         ba.bank_used_for,
         ba.config->>'max_limit' AS daily_limit`;
     } else {
