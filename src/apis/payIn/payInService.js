@@ -1525,10 +1525,9 @@ export const processPayInService = async (
     }
     if (
       [
-        Status.SUCCESS,
         Status.BANK_MISMATCH,
         Status.DISPUTE,
-        Status.DROPPED,
+        Status.IMG_PENDING
       ].includes(payIn.status)
     ) {
       await notifyAdminsAndUsers({
