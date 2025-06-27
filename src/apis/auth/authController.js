@@ -78,9 +78,9 @@ const logoutController = async (req, res) => {
 };
 
 const verificationController = async (req, res) => {
-  const { user_name } = req.user;
+  const { user_name,user_id,company_id } = req.user;
   const { password } = req.body;
-  let ids = {};
+  let ids = { user_id, company_id };
   const validate = await verificationService(ids, { user_name, password });
   if (!validate) {
     throw new BadRequestError('Invalid password');
