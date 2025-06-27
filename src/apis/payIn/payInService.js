@@ -969,7 +969,8 @@ export const resetDepositService = async (
   if (!payIn) {
     throw new NotFoundError('PayIn not found');
   }
-  createResetHistoryService(
+  await createResetHistoryService(
+    conn,
     {
       payin_id: payIn.id,
       pre_status: payIn.status,
