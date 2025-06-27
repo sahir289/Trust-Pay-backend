@@ -13,6 +13,7 @@ import config from './config/config.js';
 import '../src/cron/gatherAllData.js';
 
 const app = express();
+export const usedTokens = new Set();
 
 app.use(cookieParser());
 app.use(bodyParser.json({ limit: '50mb', extended: true }));

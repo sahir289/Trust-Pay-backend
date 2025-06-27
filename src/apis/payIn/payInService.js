@@ -93,7 +93,7 @@ import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
-// import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+import { usedTokens } from '../../app.js';
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
@@ -2325,8 +2325,8 @@ export const verifyPayinsService = async (
     throw new BadRequestError('Invalid merchant order id');
   }
 
-  if (payIn.one_time_used === true || oneTimeUsed === 'true') {
-    // If already used, update reload count and return error
+  if (usedTokens.has(merchantOrderId) || payIn.one_time_used === true || oneTimeUsed === 'true') {
+    // Update config and one_time_used in a single DB call
     const updatedConfig = stringifyJSON({
       ...payIn.config,
       user: user_location,
@@ -2403,7 +2403,7 @@ export const verifyPayinsService = async (
     is_bank: enabledBanks.some((bank) => bank.is_bank),
     redirect_url: payIn.config?.urls?.return,
   };
-
+  usedTokens.add(merchantOrderId);
   return result;
 };
 
