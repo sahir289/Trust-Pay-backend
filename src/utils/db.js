@@ -2,10 +2,10 @@
 import pkg from 'pg';
 import config from '../config/config.js';
 import chalk from 'chalk';
-import { DbError, InternalServerError } from './appErrors.js';
+import { DbError } from './appErrors.js';
 import { logger } from './logger.js';
-import fs from 'fs';
-import path from 'path';
+// import fs from 'fs';
+// import path from 'path';
 // import { fileURLToPath } from 'url';
 // const __filename = fileURLToPath(import.meta.url);
 // const __dirname = path.dirname(__filename);
@@ -403,7 +403,7 @@ export const transactionWrapper =
           logger.error('Rollback failed:', rollbackError);
         }
       }
-      throw new InternalServerError(error.message); // Rethrow error
+      throw error;
     } finally {
       if (conn) {
         logger.info('Releasing connection');

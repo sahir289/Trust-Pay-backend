@@ -27,13 +27,14 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role) => {
         if (value !== null && value !== undefined && value !== '') {
           if (key.includes('->>')) {
             const [jsonField, jsonKey] = key.split('->>');
-            conditions.push(`bea.${jsonField}->>'${jsonKey}' = $${queryParams.length + 1}`);
+            conditions.push(
+              `bea.${jsonField}->>'${jsonKey}' = $${queryParams.length + 1}`,
+            );
             queryParams.push(value);
-          }
-           else if (Array.isArray(value)) {
+          } else if (Array.isArray(value)) {
             conditions.push(`bea."${key}" = ANY($${queryParams.length + 1})`);
             queryParams.push(value);
-          }  else {
+          } else {
             conditions.push(`bea."${key}" = $${queryParams.length + 1}`);
             queryParams.push(value);
           }
@@ -86,7 +87,7 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role) => {
     return result.rows;
   } catch (error) {
     logger.error('Error in get BeneficiaryAccount Dao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -108,10 +109,11 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
         if (value !== null && value !== undefined && value !== '') {
           if (key.includes('->>')) {
             const [jsonField, jsonKey] = key.split('->>');
-            conditions.push(`bea.${jsonField}->>'${jsonKey}' = $${queryParams.length + 1}`);
+            conditions.push(
+              `bea.${jsonField}->>'${jsonKey}' = $${queryParams.length + 1}`,
+            );
             queryParams.push(value);
-          }
-           else if (Array.isArray(value)) {
+          } else if (Array.isArray(value)) {
             conditions.push(`bea."${key}" = ANY($${queryParams.length + 1})`);
             queryParams.push(value);
           } else {
@@ -168,7 +170,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
     return result.rows;
   } catch (error) {
     logger.error('Error in get BeneficiaryAccount Dao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -184,7 +186,11 @@ const getBeneficiaryAccountBySearchDao = async (
     let conditions = [];
     let paramIndex = 1;
 
-    if (filters && typeof filters === 'object' && Object.keys(filters).length > 0) {
+    if (
+      filters &&
+      typeof filters === 'object' &&
+      Object.keys(filters).length > 0
+    ) {
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== null && value !== undefined && value !== '') {
           if (Array.isArray(value)) {
@@ -258,7 +264,8 @@ const getBeneficiaryAccountBySearchDao = async (
     // Compute matched_keywords
     let matchedKeywordsSelect = '';
     if (searchTermIndices.length > 0) {
-      const keywordCases = searchTermIndices.map(({ term, paramIndex }) => `
+      const keywordCases = searchTermIndices.map(
+        ({ term, paramIndex }) => `
         CASE WHEN (
           LOWER(sub.id::text) LIKE LOWER($${paramIndex})
           OR LOWER(sub.upi_id) LIKE LOWER($${paramIndex})
@@ -286,11 +293,13 @@ const getBeneficiaryAccountBySearchDao = async (
             `
                 : ''
           }
-        ) THEN '${term}'::text END`);
-      matchedKeywordsSelect = keywordCases.length > 0
-        ? `,
+        ) THEN '${term}'::text END`,
+      );
+      matchedKeywordsSelect =
+        keywordCases.length > 0
+          ? `,
           ARRAY_REMOVE(ARRAY[${keywordCases.join(', ')}], NULL) AS matched_keywords`
-        : `,
+          : `,
           ARRAY[]::text[] AS matched_keywords`;
     } else {
       matchedKeywordsSelect = `,
@@ -379,8 +388,11 @@ const getBeneficiaryAccountBySearchDao = async (
       WHERE 1=1
       ${conditions.length > 0 ? ` AND ${conditions.join(' AND ')}` : ''}
       ${searchConditions.length > 0 ? ` AND (${searchConditions.join(' OR ')})` : ''}`;
-    console.log('Count Query:', countQuery);
-    const countResult = await executeQuery(countQuery, queryParams.slice(0, paramIndex - 1));
+
+    const countResult = await executeQuery(
+      countQuery,
+      queryParams.slice(0, paramIndex - 1),
+    );
 
     const offset = (page - 1) * limit;
     baseQuery += `
@@ -395,27 +407,28 @@ const getBeneficiaryAccountBySearchDao = async (
     const totalItems = parseInt(countResult.rows[0].total);
     const totalPages = totalItems > 0 ? Math.ceil(totalItems / limit) : 0;
 
-   
-
     return {
       totalCount: totalItems,
       totalPages,
       bankAccounts: searchResult.rows,
     };
   } catch (error) {
-    logger.error('Error in get Beneficiary Account By SearchDao:',error);
+    logger.error('Error in get Beneficiary Account By SearchDao:', error);
     throw error;
   }
 };
 
 const createBeneficiaryAccountDao = async (conn, payload) => {
   try {
-    const [sql, params] = buildInsertQuery(tableName.BENEFICIARY_ACCOUNTS, payload);
+    const [sql, params] = buildInsertQuery(
+      tableName.BENEFICIARY_ACCOUNTS,
+      payload,
+    );
     const result = await conn.query(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error(error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -427,9 +440,7 @@ const getBeneficiaryAccountDaoByBankName = async (
 ) => {
   try {
     // Initialize query components
-    let whereConditions = [
-      'is_obsolete = false',
-    ];
+    let whereConditions = ['is_obsolete = false'];
     let queryParams = [];
 
     // Handle filters
@@ -465,7 +476,7 @@ const getBeneficiaryAccountDaoByBankName = async (
     };
   } catch (error) {
     logger.error('Error querying bank accounts:', error.message, error.stack);
-    throw new Error('Failed to retrieve bank account nicknames');
+    throw error;
   }
 };
 
@@ -531,13 +542,17 @@ const updateBeneficiaryAccountDao = async (
     );
   } catch (error) {
     logger.error('Error in updateBeneficiaryAccountDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
 const deleteBeneficiaryDao = async (conn, id, data) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.BENEFICIARY_ACCOUNTS, data, id);
+    const [sql, params] = buildUpdateQuery(
+      tableName.BENEFICIARY_ACCOUNTS,
+      data,
+      id,
+    );
     let result;
     if (conn && conn.query) {
       result = await conn.query(sql, params); // Use connection to execute query
@@ -571,7 +586,7 @@ export const updateBanktBalanceDao = async (
     return result[0];
   } catch (error) {
     logger.error(error);
-    throw error.message;
+    throw error;
   }
 };
 

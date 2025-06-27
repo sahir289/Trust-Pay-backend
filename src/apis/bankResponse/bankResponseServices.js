@@ -49,7 +49,7 @@ import { filterResponse } from '../../helpers/index.js';
 import { notifyNewTableEntry } from '../../utils/sockets.js';
 import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
 import PDFParser from 'pdf2json';
-import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+// import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const createBankResponseService = async (
   conn,
@@ -57,7 +57,7 @@ const createBankResponseService = async (
   companyId,
   role,
   name,
-  user_id,
+  // user_id,
 ) => {
   try {
     const filterColumns =
@@ -534,20 +534,20 @@ const createBankResponseService = async (
         };
       }
     }
-    if (
-      role !== Role.BOT &&
-      created_by !== 'Bank Response' &&
-      updated_by !== 'Bank Response'
-    ) {
-      await notifyAdminsAndUsers({
-        conn,
-        company_id: companyId,
-        message: `The entry with UTR ${utr} and Status ${botRes.status} has been created.`,
-        payloadUserId: vendor[0].user_id,
-        actorUserId: user_id,
-        category: 'Data Entries',
-      });
-    }
+    // if (
+    //   role !== Role.BOT &&
+    //   created_by !== 'Bank Response' &&
+    //   updated_by !== 'Bank Response'
+    // ) {
+    //   await notifyAdminsAndUsers({
+    //     conn,
+    //     company_id: companyId,
+    //     message: `The entry with UTR ${utr} and Status ${botRes.status} has been created.`,
+    //     payloadUserId: vendor[0].user_id,
+    //     actorUserId: user_id,
+    //     category: 'Data Entries',
+    //   });
+    // }
 
     return { message: `Entry created successfully` };
   } catch (error) {
@@ -727,7 +727,7 @@ const updateBankResponseService = async (id, payload, role) => {
         );
       }
     }
-    logger.info('Error while updating BankResponse', 'error', error);
+    logger.error('Error while updating BankResponse', error);
     throw error;
   } finally {
     if (conn) {
@@ -774,7 +774,7 @@ const getBankMessageServices = async (
       filterColumns,
     );
   } catch (error) {
-    logger.error('Error while getting BankResponse', 'error', error.message);
+    logger.error('Error while getting BankResponse', error);
     throw error;
   }
 };
@@ -885,14 +885,14 @@ const resetBankResponseService = async (conn, id, userData) => {
     }
 
     logger.info(`Bank response reset successful for ID: ${id}`, 'info');
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: company_id,
-      message: `The entry with UTR ${botRes.utr} has been updated.`,
-      payloadUserId: user_id,
-      actorUserId: user_id,
-      category: 'Data Entries',
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: company_id,
+    //   message: `The entry with UTR ${botRes.utr} has been updated.`,
+    //   payloadUserId: user_id,
+    //   actorUserId: user_id,
+    //   category: 'Data Entries',
+    // });
 
     const results = {
       message,
@@ -905,11 +905,7 @@ const resetBankResponseService = async (conn, id, userData) => {
     await newTableEntry(tableName.BANK_RESPONSE, results);
     return results;
   } catch (error) {
-    logger.error(
-      `Error resetting bank response for ID: ${id}`,
-      'error',
-      error.message,
-    );
+    logger.error(`Error resetting bank response for ID: ${id}`, error.message);
     throw error;
   }
 };
@@ -1487,7 +1483,6 @@ async function extractCreditedTransactions(pdfBuffer, bankId) {
       }))
       .map((t) => formatTransaction(t));
 
-    console.log('Credited Transactions:', creditedTransactions);
     return creditedTransactions;
   } catch (error) {
     logger.error('Error in extractCreditedTransactions:', error);
@@ -1506,7 +1501,7 @@ const importBankResponseService = async (
   try {
     // Validate payload
     if (!payload || !payload.pdfBuffer) {
-      throw new Error('No valid PDF buffer provided in payload');
+      throw new BadRequestError('No valid PDF buffer provided in payload');
     }
 
     // Extract credited transactions

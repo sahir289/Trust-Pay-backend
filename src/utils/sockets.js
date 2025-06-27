@@ -13,7 +13,7 @@ let ioInstance = null;
 
 const initializeSocket = (server) => {
   ioInstance = new Server(server, {
-    transports: ["websocket", "polling"],
+    transports: ['websocket', 'polling'],
     cors: {
       origin: [`${config?.reactFrontOrigin}`, `${config?.reactPaymentOrigin}`],
       methods: ['GET', 'POST'],
@@ -157,7 +157,6 @@ const newTableEntry = async (tableName, data) => {
   logger.log(chalk.bold.cyan(`Emitting ${eventName} for table ${tableName}`));
   ioInstance.emit(eventName, data);
 };
-
 
 const logOutUser = async (user_id) => {
   if (!ioInstance) {

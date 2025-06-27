@@ -15,16 +15,12 @@ export const ASSIGN_PAYIN_SCHEMA = Joi.object({
 });
 
 export const VALIDATE_PAYIN_SCHEMA = Joi.object({
-  merchantOrderId: Joi.string()
-    .label('merchantOrderId')
-    .required(),
+  merchantOrderId: Joi.string().label('merchantOrderId').required(),
   oneTimeUsed: Joi.boolean().optional(),
 });
 
 export const VALIDATE_ASSIGNED_BANT_TO_PAY = Joi.object({
-  merchantOrderId: Joi.string()
-    .label('merchantOrderId')
-    .required(),
+  merchantOrderId: Joi.string().label('merchantOrderId').required(),
   amount: Joi.number().positive().label('amount').required(),
   type: Joi.string()
     .valid(...Object.values(BankTypes))
@@ -65,25 +61,21 @@ export const VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS = Joi.object({
 });
 
 export const VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS = Joi.object({
-  merchantOrderId: Joi.string()
-    .label('merchantOrderId')
-    .required(),
+  merchantOrderId: Joi.string().label('merchantOrderId').required(),
   nick_name: Joi.string().label('nick_name').required(),
 });
 
 export const VALIDATE_RESET_DEPOSIT = Joi.object({
-  merchant_order_id: Joi.string()
-    .label('merchant_order_id')
-    .required(),
+  merchant_order_id: Joi.string().label('merchant_order_id').required(),
 });
 //schema for process payin
 export const PROCESS_PAYIN_IMAGE = Joi.object({
-  amount: Joi.number()
-    .label('amount')
+  amount: Joi.number().label('amount').required(),
+  file: Joi.object({
+    key: Joi.string().required(),
+  })
+    .label('file')
     .required(),
-    file: Joi.object({
-      key: Joi.string().required(),
-    }).label('file').required(),
 });
 
 export const VALIDATE_PROCESS_PAYIN = Joi.object({
@@ -103,7 +95,7 @@ export const VALIDATE_PROCESS_PAYIN = Joi.object({
 });
 
 export const VALIDATE_PROCESS_PAYIN_BY_IMAGE = Joi.object({
-  file: Joi.any() 
+  file: Joi.any()
     .required()
     .meta({ type: 'file' })
     .description('Image file to be uploaded')
@@ -143,9 +135,7 @@ export const VALIDATE_CHECK_UTR = Joi.object({
 });
 
 export const VALIDATE_UPDATE_PAYIN_SCHEMA = Joi.object({
-  merchant_order_id: Joi.string()
-    .label('merchant_order_id')
-    .required(),
+  merchant_order_id: Joi.string().label('merchant_order_id').required(),
   amount: Joi.number().positive().label('amount').optional(),
   utr: Joi.string().label('utr').optional(),
   bank_acc_id: Joi.string().label('bank_id').optional(),

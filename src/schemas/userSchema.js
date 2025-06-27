@@ -1,6 +1,5 @@
 import Joi from 'joi';
 
-
 export const CREATE_USER_SCHEMA = Joi.object({
   role_id: Joi.string()
     .guid({ version: ['uuidv4'] })
@@ -52,8 +51,6 @@ export const CREATE_USER_SCHEMA = Joi.object({
   parent_id: Joi.string().label('parent_id').optional(),
   whitelist_ips: Joi.string().label('whitelist_ips').optional(),
 });
-
-
 
 export const VALIDATE_USER_BY_ID = Joi.object({
   id: Joi.string()

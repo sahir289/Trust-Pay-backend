@@ -63,9 +63,7 @@ const getSessionByIdDao = async (decodeToken) => {
 
 const updateSessionDao = async (user_id, company_id, session_id, config) => {
   const configData = JSON.stringify(config, (key, value) =>
-    typeof value === 'object' && value !== null
-      ? JSON.stringify(value)
-      : value,
+    typeof value === 'object' && value !== null ? JSON.stringify(value) : value,
   );
   try {
     const query = `UPDATE "${tableName.ACCESS_TOKEN}" 
@@ -92,20 +90,20 @@ const deleteUserSessionsDao = async (user_id, company_id, session_id) => {
     return result.rows;
   } catch (error) {
     logger.error('Error while deleting user session:', error);
-    throw error.message;
+    throw error;
   }
 };
 
-const changePasswordDao =async (id, password) => {
-   try {
-     const query = `UPDATE "${tableName.USER}" SET password = $2 WHERE id = $1 RETURNING id`
-     const result = await executeQuery(query, [id, password]);
-     return result;
+const changePasswordDao = async (id, password) => {
+  try {
+    const query = `UPDATE "${tableName.USER}" SET password = $2 WHERE id = $1 RETURNING id`;
+    const result = await executeQuery(query, [id, password]);
+    return result;
   } catch (error) {
     logger.error('Getting error while deleting user session', error);
-    throw error.message;
+    throw error;
   }
-}
+};
 
 export {
   addLoginDao,
@@ -115,5 +113,4 @@ export {
   updateSessionDao,
   deleteUserSessionsDao,
   changePasswordDao,
-  
 };

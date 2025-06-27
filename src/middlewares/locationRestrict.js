@@ -10,14 +10,14 @@ const TestingIp = process.env.LOCAL_IP;
 const getUserLocationMiddleware = async (req, res, next) => {
   let userIp =
     req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
-  if (userIp == "::1") {
-      userIp = TestingIp;
+  if (userIp == '::1') {
+    userIp = TestingIp;
   }
-    const userIpShouldBlock = '13.41.235.43'
-    if (userIp === userIpShouldBlock) {
-      logger.warn('Fraud User. Access denied.', userIp);
-      return res.status(403).send('403: Access denied');
-    }
+  const userIpShouldBlock = '13.41.235.43';
+  if (userIp === userIpShouldBlock) {
+    logger.warn('Fraud User. Access denied.', userIp);
+    return res.status(403).send('403: Access denied');
+  }
 
   const restrictedLocation = { latitude: BLOCK_LAT, longitude: BLOCK_LONG };
   const radiusKm = 60;
@@ -25,7 +25,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
   try {
     // Get the user's IP address (checking for reverse proxy headers)
     // Send a request to proxycheck.io to fetch the geolocation data
-   let url = PROXY_CHECK_URL.replace('$%7BuserIp%7D', userIp);
+    let url = PROXY_CHECK_URL.replace('$%7BuserIp%7D', userIp);
     const response = await axios.get(url);
 
     const userData = response.data[userIp];
@@ -39,7 +39,8 @@ const getUserLocationMiddleware = async (req, res, next) => {
       logger.warn('VPN detected. Access denied.', userData);
       return res.status(403).json({
         error: { message: 'VPN is Not Allowed!', data: { url } },
-      });   }
+      });
+    }
     if (country === 'India' && restrictedStates.includes(region)) {
       const id = req.params.merchantOrderId;
       const url = await processPayInRestricted(
@@ -49,7 +50,6 @@ const getUserLocationMiddleware = async (req, res, next) => {
       logger.error(`Access restricted for users in ${region}.`, userData);
       return res.status(403).json({
         error: { message: 'Access Denied!', data: { url } },
-       
       });
     }
 
@@ -62,7 +62,8 @@ const getUserLocationMiddleware = async (req, res, next) => {
       logger.error(`Access restricted for users from ${country}.`, userData);
       return res.status(403).json({
         error: { message: 'Access Denied!', data: { url } },
-      });    }
+      });
+    }
     if (!isNaN(latitude) && !isNaN(longitude)) {
       // Check if the user is in the restricted region
       if (

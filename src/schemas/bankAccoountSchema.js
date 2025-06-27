@@ -10,9 +10,7 @@ export const BANK_ACCOUNT_SCHEMA = Joi.object({
   nick_name: Joi.string().label('nick_name').optional(),
   acc_holder_name: Joi.string().label('acc_holder_name').optional(),
   acc_no: Joi.string().label('acc_no').optional(),
-  ifsc: Joi.string()
-    .label('ifsc')
-    .optional(),
+  ifsc: Joi.string().label('ifsc').optional(),
   bank_name: Joi.string().label('bank_name').optional(),
   updated_by: Joi.string().label('updated_by').optional(),
   is_bank: Joi.boolean().label('is_bank').optional(),

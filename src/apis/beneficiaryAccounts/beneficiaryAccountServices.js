@@ -1,5 +1,5 @@
 import { Role } from '../../constants/index.js';
-import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
+import { BadRequestError } from '../../utils/appErrors.js';
 import {
   beginTransaction,
   commit,
@@ -12,7 +12,7 @@ import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import {
   getUserByCompanyCreatedAtDao,
   getUserByIdDao,
-  getUserByRoleDao,
+  // getUserByRoleDao,
 } from '../users/userDao.js';
 import {
   getBeneficiaryAccountDao,
@@ -23,7 +23,7 @@ import {
   getBeneficiaryAccountDaoAll,
   deleteBeneficiaryDao,
 } from './beneficiaryAccountDao.js';
-import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+// import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const getBeneficiaryAccountService = async (
   filters,
@@ -131,7 +131,7 @@ const getBeneficiaryAccountService = async (
     }
   } catch (error) {
     logger.error('error getting while  getting banks', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -238,7 +238,7 @@ const getBeneficiaryAccountBySearchService = async (
 
     return result;
   } catch (error) {
-    console.error('Error in get BeneficiaryAccountBySearchService:', error);
+    logger.error('Error in get BeneficiaryAccountBySearchService:', error);
     throw error;
   }
 };
@@ -283,7 +283,7 @@ const getBeneficiaryAccountServiceByBankName = async (
         logger.error('Error during transaction rollback', rollbackError);
       }
     }
-    throw new InternalServerError(error);
+    throw error;
   } finally {
     if (conn) {
       try {
@@ -357,18 +357,18 @@ const createBeneficiaryAccountService = async (conn, payload, company_id) => {
     const result = await createBeneficiaryAccountDao(conn, payload);
 
     // Notify users
-    const vendorUsers = await getUserByRoleDao(company_id, Role.VENDOR);
-    const vendorUserIds = vendorUsers.map((u) => u.id);
-    const notifyIds =
-      roleObj.role === Role.ADMIN ? vendorUserIds : [payload.user_id];
-    await notifyAdminsAndUsers({
-      conn,
-      company_id,
-      message: `The new Beneficiary Account with Bank Name ${payload.bank_name} has been created.`,
-      payloadUserId: notifyIds,
-      actorUserId: payload.updated_by,
-      category: 'Beneficiary Account',
-    });
+    // const vendorUsers = await getUserByRoleDao(company_id, Role.VENDOR);
+    // const vendorUserIds = vendorUsers.map((u) => u.id);
+    // const notifyIds =
+    //   roleObj.role === Role.ADMIN ? vendorUserIds : [payload.user_id];
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id,
+    //   message: `The new Beneficiary Account with Bank Name ${payload.bank_name} has been created.`,
+    //   payloadUserId: notifyIds,
+    //   actorUserId: payload.updated_by,
+    //   category: 'Beneficiary Account',
+    // });
 
     return result;
   } catch (error) {
@@ -377,7 +377,7 @@ const createBeneficiaryAccountService = async (conn, payload, company_id) => {
   }
 };
 
-const updateBeneficiaryAccountService = async (conn, ids, payload, role) => {
+const updateBeneficiaryAccountService = async (conn, ids, payload) => {
   try {
     const [banks] = await getBeneficiaryAccountDao({
       id: ids.id,
@@ -389,22 +389,22 @@ const updateBeneficiaryAccountService = async (conn, ids, payload, role) => {
 
     await updateBeneficiaryAccountDao(conn, { acc_no: ids.id }, payload);
 
-    let notifyIds = [];
-    if (role === Role.ADMIN) {
-      // Notify users
-      const vendorUsers = await getUserByRoleDao(ids.company_id, Role.VENDOR);
-      const vendorUserIds = vendorUsers.map((u) => u.id);
-      notifyIds = role === Role.ADMIN ? vendorUserIds : [payload.updated_by];
-    }
+    // let notifyIds = [];
+    // if (role === Role.ADMIN) {
+    // Notify users
+    // const vendorUsers = await getUserByRoleDao(ids.company_id, Role.VENDOR);
+    // const vendorUserIds = vendorUsers.map((u) => u.id);
+    // notifyIds = role === Role.ADMIN ? vendorUserIds : [payload.updated_by];
+    // }
 
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: ids.company_id,
-      message: `The Beneficiary Account with Bank Name ${banks.bank_name} has been updated.`,
-      payloadUserId: notifyIds,
-      actorUserId: payload.updated_by,
-      category: 'Beneficiary Account',
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: ids.company_id,
+    //   message: `The Beneficiary Account with Bank Name ${banks.bank_name} has been updated.`,
+    //   payloadUserId: notifyIds,
+    //   actorUserId: payload.updated_by,
+    //   category: 'Beneficiary Account',
+    // });
   } catch (error) {
     logger.error('error getting while updating banks', error);
     throw new BadRequestError('Error getting while updating banks');

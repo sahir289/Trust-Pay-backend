@@ -1,4 +1,4 @@
-import {  tableName } from '../../constants/index.js';
+import { tableName } from '../../constants/index.js';
 import {
   buildInsertQuery,
   buildSelectQuery,
@@ -7,20 +7,15 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 
-const getDesignationDao = async (
-  filters,
-) => {
+const getDesignationDao = async (filters) => {
   try {
     const baseQuery = `SELECT * FROM "${tableName.DESIGNATION}" WHERE 1=1`;
-    const [sql, queryParams] = buildSelectQuery(
-      baseQuery,
-      filters,
-    );
+    const [sql, queryParams] = buildSelectQuery(baseQuery, filters);
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
     logger.error('Error in getDesignationDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -35,7 +30,7 @@ const createDesignationDao = async (conn, payload) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error in createDesignationDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -46,7 +41,7 @@ const updateDesignationDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateDesignationDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -57,7 +52,7 @@ const deleteDesignationDao = async (id, data) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error in deleteDesignationDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 

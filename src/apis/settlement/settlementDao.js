@@ -19,7 +19,8 @@ const getSettlementDao = async (
   columns = [],
 ) => {
   try {
-    const { SETTLEMENT, USER, ROLE, BENEFICIARY_ACCOUNTS, MERCHANT, VENDOR } =tableName;
+    const { SETTLEMENT, USER, ROLE, BENEFICIARY_ACCOUNTS, MERCHANT, VENDOR } =
+      tableName;
     const conditions = [`s.is_obsolete = false`];
     const queryParams = [];
     const limitcondition = { value: '' };
@@ -42,12 +43,14 @@ const getSettlementDao = async (
     };
 
     const conditionBuilders = {
-      
       user_id: (filters, conditions, queryParams) => {
         if (!filters.user_id) return;
         const nextParamIdx = queryParams.length + 1;
         if (typeof filters.user_id === 'string') {
-          const userIds = filters.user_id.split(',').map(id => id.trim()).filter(id => id);
+          const userIds = filters.user_id
+            .split(',')
+            .map((id) => id.trim())
+            .filter((id) => id);
           if (userIds.length > 0) {
             const placeholders = userIds
               .map((_, idx) => `$${nextParamIdx + idx}`)
@@ -190,14 +193,36 @@ const getSettlementDao = async (
               'acc_holder_name', COALESCE(ba.acc_holder_name, ''),
               'acc_no', COALESCE(ba.acc_no, ''),
               'ifsc', COALESCE(ba.ifsc, '')
-              ${Object.keys(filters).length > 0 ? ', ' + Object.keys(filters)
-                .filter(key => !['beneficiary_bank_name', 'acc_holder_name', 'acc_no', 'ifsc'].includes(key))
-                .map(key => `'${key}', COALESCE(s.config->>'${key}', '')`)
-                .join(', ') : ''}
+              ${
+                Object.keys(filters).length > 0
+                  ? ', ' +
+                    Object.keys(filters)
+                      .filter(
+                        (key) =>
+                          ![
+                            'beneficiary_bank_name',
+                            'acc_holder_name',
+                            'acc_no',
+                            'ifsc',
+                          ].includes(key),
+                      )
+                      .map(
+                        (key) => `'${key}', COALESCE(s.config->>'${key}', '')`,
+                      )
+                      .join(', ')
+                  : ''
+              }
             ) || (
               SELECT jsonb_object_agg(key, value)
               FROM jsonb_each(s.config::jsonb)
-              WHERE key NOT IN ('beneficiary_bank_name', 'acc_holder_name', 'acc_no', 'ifsc'${Object.keys(filters).length > 0 ? ', ' + Object.keys(filters).map(key => `'${key}'`).join(', ') : ''})
+              WHERE key NOT IN ('beneficiary_bank_name', 'acc_holder_name', 'acc_no', 'ifsc'${
+                Object.keys(filters).length > 0
+                  ? ', ' +
+                    Object.keys(filters)
+                      .map((key) => `'${key}'`)
+                      .join(', ')
+                  : ''
+              })
             )
           )
         ELSE
@@ -230,7 +255,7 @@ const getSettlementDao = async (
     return result.rows;
   } catch (error) {
     logger.error('Error in getSettlementDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -407,7 +432,7 @@ END AS code,
     values.push(limitNum, offset);
 
     // Optional: log for debugging
-    console.log(countQuery, queryText);
+    logger.log(countQuery, queryText);
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
 
@@ -434,8 +459,8 @@ const getSettlementDaoforInternalTransfer = async (utr, method) => {
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
-    console.error(error);
-    throw error.message;
+    logger.error(error);
+    throw error;
   }
 };
 
@@ -445,8 +470,8 @@ const createSettlementDao = async (payload) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error(error);
-    throw error.message;
+    logger.error(error);
+    throw error;
   }
 };
 
@@ -462,7 +487,7 @@ const updateSettlementDao = async (conn, id, data) => {
 
     return result.rows[0];
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     throw error;
   }
 };
@@ -479,8 +504,8 @@ const deleteSettlementDao = async (conn, id, data) => {
 
     return result.rows[0];
   } catch (error) {
-    console.error(error);
-    throw error.message;
+    logger.error(error);
+    throw error;
   }
 };
 

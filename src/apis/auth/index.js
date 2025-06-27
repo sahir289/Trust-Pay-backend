@@ -60,14 +60,22 @@ router.post('/refresh-token', tryCatchHandler(refreshTokenController));
  */
 router.post('/logout', isAuthenticated, tryCatchHandler(logoutController));
 
-router.post('/otp_verification', tryCatchHandler(verfyOtpController)); 
+router.post('/otp_verification', tryCatchHandler(verfyOtpController));
 
-router.post('/reset_password', tryCatchHandler(forgetPasswordController)); 
+router.post('/reset_password', tryCatchHandler(forgetPasswordController));
 
-router.post('/user_verification', tryCatchHandler(verfyUserController)); 
+router.post('/user_verification', tryCatchHandler(verfyUserController));
 
-router.post('/change-password',isAuthenticated, tryCatchHandler(changePasswordController)); 
+router.post(
+  '/change-password',
+  isAuthenticated,
+  tryCatchHandler(changePasswordController),
+);
 
-router.post('/password-verification', isAuthenticated, tryCatchHandler(verificationController));
+router.post(
+  '/password-verification',
+  isAuthenticated,
+  tryCatchHandler(verificationController),
+);
 
 export default router;

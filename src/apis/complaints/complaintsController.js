@@ -15,13 +15,17 @@ import { ValidationError } from '../../utils/appErrors.js';
 
 const getComplaints = async (req, res) => {
   const { company_id } = req.user;
-  const {page, limit} = req.query;
+  const { page, limit } = req.query;
   // let search = req.query.search;
-  const data = await getComplaintsService({
-    company_id,
-    // TODO: search
-  },  page,limit,);
-  console.log('get complaints successfully');
+  const data = await getComplaintsService(
+    {
+      company_id,
+      // TODO: search
+    },
+    page,
+    limit,
+  );
+
   return sendSuccess(res, data, 'get complaints successfully');
 };
 
@@ -34,7 +38,7 @@ const getComplaintsById = async (req, res) => {
   const { company_id } = req.user;
 
   const data = await getComplaintsService({ id, company_id });
-  console.log('get complaint successfully');
+
   return sendSuccess(res, data, 'get complaint successfully');
 };
 
@@ -49,7 +53,7 @@ const createComplaints = async (req, res) => {
   payload.created_by = user_id;
   payload.updated_by = user_id;
   await createComplaintsService(payload);
-  console.log('create Complaints successfully', 'info');
+
   return sendSuccess(res, {}, 'Create Complaints successfully');
 };
 
@@ -69,7 +73,7 @@ const updateComplaints = async (req, res) => {
   const { company_id, user_id } = req.user;
   body.updated_by = user_id;
   await updateComplaintsService(params.id, company_id, body);
-  console.log('Update Complaints successfully', 'info');
+
   return sendSuccess(res, {}, 'Update Complaints successfully');
 };
 

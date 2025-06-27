@@ -40,7 +40,8 @@ const getBeneficiaryAccount = async (req, res) => {
 
 const getBeneficiaryAccountBySearch = async (req, res) => {
   const { role, user_id, designation, company_id } = req.user;
-  const { search,page, limit, beneficiary_role, beneficiary_user_id } = req.query;
+  const { search, page, limit, beneficiary_role, beneficiary_user_id } =
+    req.query;
   const filters = {
     beneficiary_role,
   };
@@ -99,7 +100,10 @@ const createBeneficiaryAccount = async (req, res) => {
   payload.created_by = user_id;
   payload.updated_by = user_id;
   // const data =
-  await transactionWrapper(createBeneficiaryAccountService)(payload, company_id);
+  await transactionWrapper(createBeneficiaryAccountService)(
+    payload,
+    company_id,
+  );
   logger.log('Beneficiary Created successfully');
   return sendSuccess(res, {}, 'Beneficiary Created successfully');
 };
@@ -115,7 +119,7 @@ const updateBeneficiaryAccount = async (req, res) => {
   payload.updated_by = user_id;
   const ids = { id, company_id };
   // const data =
-  await transactionWrapper(updateBeneficiaryAccountService)(ids, payload, role,);
+  await transactionWrapper(updateBeneficiaryAccountService)(ids, payload, role);
   logger.log('Beneficiary Updated successfully');
   return sendSuccess(res, {}, 'Beneficiary Updated successfully');
 };
@@ -127,7 +131,7 @@ const deleteBeneficiaryAccount = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const { company_id } = req.user;
-  const ids = { id, company_id};
+  const ids = { id, company_id };
   // const data =
   await transactionWrapper(deleteBeneficiaryAccountService)(ids);
   return sendSuccess(res, {}, 'deleted Beneficiary successfully');

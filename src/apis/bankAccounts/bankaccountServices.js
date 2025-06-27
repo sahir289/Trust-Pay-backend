@@ -7,7 +7,7 @@ import {
   rollback,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
-import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+// import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // import { sendError } from '../../utils/responseHandlers.js';
 import { deactivateBank } from '../../utils/sockets.js';
 import {
@@ -58,7 +58,7 @@ const getBankaccountService = async (
     );
   } catch (error) {
     logger.error('error getting while  getting banks', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -145,7 +145,7 @@ const getBankaccountServiceNickName = async (
         logger.error('Error during transaction rollback', rollbackError);
       }
     }
-    throw new InternalServerError(error);
+    throw error;
   } finally {
     if (conn) {
       try {
@@ -162,7 +162,7 @@ const createBankaccountService = async (
   payload,
   designation,
   user_id,
-  company_id,
+  // company_id,
 ) => {
   try {
     //child add bankaccount for its parent
@@ -172,14 +172,14 @@ const createBankaccountService = async (
       payload.user_id = parentUserId;
     }
     const result = await createBankaccountDao(payload);
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: company_id,
-      message: `A new ${payload.bank_used_for} bank account with nick name ${payload.nick_name} has been created.`,
-      payloadUserId: payload.user_id,
-      actorUserId: user_id,
-      category: 'Bank Account',
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: company_id,
+    //   message: `A new ${payload.bank_used_for} bank account with nick name ${payload.nick_name} has been created.`,
+    //   payloadUserId: payload.user_id,
+    //   actorUserId: user_id,
+    //   category: 'Bank Account',
+    // });
     return result;
   } catch (error) {
     logger.error('error getting while  creating banks', error);
@@ -192,8 +192,8 @@ const updateBankaccountService = async (
   ids,
   payload,
   role,
-  company_id,
-  user_id,
+  // company_id,
+  // user_id,
 ) => {
   try {
     let result;
@@ -224,30 +224,30 @@ const updateBankaccountService = async (
       if (payload.latest_balance >= bank[0].config?.max_limit) {
         payload.is_enabled = false;
         deactivateBank(bank[0].nick_name, ids.id, userId);
-        await notifyAdminsAndUsers({
-          conn,
-          company_id: company_id,
-          message: `The Bank with the ${bank[0].nick_name} id Deactivate`,
-          payloadUserId: user_id,
-          actorUserId: user_id,
-          category: 'Bank Account',
-          subCategory: null,
-          additionalRecipients: [],
-          role,
-        });
+        // await notifyAdminsAndUsers({
+        //   conn,
+        //   company_id: company_id,
+        //   message: `The Bank with the ${bank[0].nick_name} id Deactivate`,
+        //   payloadUserId: user_id,
+        //   actorUserId: user_id,
+        //   category: 'Bank Account',
+        //   subCategory: null,
+        //   additionalRecipients: [],
+        //   role,
+        // });
       } else if (payload.latest_balance === bank[0].config?.max_limit) {
         deactivateBank(bank[0].nick_name, ids.id, true);
-        await notifyAdminsAndUsers({
-          conn,
-          company_id: company_id,
-          message: `The Bank with the ${bank[0].nick_name} will be Deactivate soon as the Balance will soon reach the Daily Limit`,
-          payloadUserId: user_id,
-          actorUserId: user_id,
-          category: 'Bank Account',
-          subCategory: null,
-          additionalRecipients: [],
-          role,
-        });
+        // await notifyAdminsAndUsers({
+        //   conn,
+        //   company_id: company_id,
+        //   message: `The Bank with the ${bank[0].nick_name} will be Deactivate soon as the Balance will soon reach the Daily Limit`,
+        //   payloadUserId: user_id,
+        //   actorUserId: user_id,
+        //   category: 'Bank Account',
+        //   subCategory: null,
+        //   additionalRecipients: [],
+        //   role,
+        // });
       }
     }
     delete payload.latest_balance;
@@ -289,16 +289,16 @@ const updateBankaccountService = async (
         }
       }
     }
-    if (role !== Role.BOT) {
-      await notifyAdminsAndUsers({
-        conn,
-        company_id: company_id,
-        message: `The bank account with nick name ${bank[0].nick_name} has been updated.`,
-        payloadUserId: user_id,
-        actorUserId: user_id,
-        category: 'Bank Account',
-      });
-    }
+    // if (role !== Role.BOT) {
+    //   await notifyAdminsAndUsers({
+    //     conn,
+    //     company_id: company_id,
+    //     message: `The bank account with nick name ${bank[0].nick_name} has been updated.`,
+    //     payloadUserId: user_id,
+    //     actorUserId: user_id,
+    //     category: 'Bank Account',
+    //   });
+    // }
     return result;
   } catch (error) {
     logger.error('error getting while  updating banks', error);
@@ -314,14 +314,14 @@ const deleteBankaccountService = async (conn, ids, user_id) => {
       { id: ids.id, company_id: ids.company_id },
       payload,
     );
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: ids.company_id,
-      message: `Bank with nick name ${result.nick_name} has been deleted.`,
-      payloadUserId: user_id,
-      actorUserId: user_id,
-      category: 'Bank Account',
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: ids.company_id,
+    //   message: `Bank with nick name ${result.nick_name} has been deleted.`,
+    //   payloadUserId: user_id,
+    //   actorUserId: user_id,
+    //   category: 'Bank Account',
+    // });
     return result;
   } catch (error) {
     logger.error('error getting while deleting banks', error);

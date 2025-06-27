@@ -32,7 +32,7 @@ import {
   updateUserHierarchyDao,
 } from '../userHierarchy/userHierarchyDao.js';
 import { getMerchantByUserIdDao } from '../merchants/merchantDao.js';
-import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+// import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const getUsersService = async (
   ids,
@@ -124,7 +124,7 @@ const getUsersService = async (
     );
   } catch (error) {
     logger.error('error getting while fetching user', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -243,7 +243,7 @@ const getUserByIdService = async (ids, role) => {
     return finalResult;
   } catch (error) {
     logger.error('error getting while getting user by id', error);
-    throw new InternalServerError(error);
+    throw error;
   } finally {
     if (conn) {
       try {
@@ -270,7 +270,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
     return finalResult;
   } catch (error) {
     logger.error('error getting while fetching user', error);
-    throw new InternalServerError(error);
+    throw error;
   } finally {
     if (conn) {
       try {
@@ -455,20 +455,21 @@ const createUserService = async (conn, payload, role) => {
           throw new InternalServerError('Failed to send email');
         }
       } catch (error) {
-        throw new InternalServerError(error);
+        logger.log('Error while sending email:', error);
+        throw error;
       }
     }
 
     logger.log('User Created Successfully');
     // const finalResult = filterResponse(User, filterColumns);
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: payload.company_id,
-      message: `New User with username: ${payload.user_name} has been created.`,
-      payloadUserId: payload.created_by,
-      actorUserId: payload.created_by,
-      category: 'User',
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: payload.company_id,
+    //   message: `New User with username: ${payload.user_name} has been created.`,
+    //   payloadUserId: payload.created_by,
+    //   actorUserId: payload.created_by,
+    //   category: 'User',
+    // });
     return User;
   } catch (error) {
     logger.error('Error in createUserService:', error);
@@ -480,19 +481,19 @@ const createUserService = async (conn, payload, role) => {
 const userUpdateService = async (conn, ids, payload) => {
   try {
     const User = await updateUserDao(ids, payload, conn);
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: ids.company_id,
-      message: `User with username: ${User.user_name} has been updated.`,
-      payloadUserId: payload.updated_by,
-      actorUserId: payload.updated_by,
-      category: 'User',
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: ids.company_id,
+    //   message: `User with username: ${User.user_name} has been updated.`,
+    //   payloadUserId: payload.updated_by,
+    //   actorUserId: payload.updated_by,
+    //   category: 'User',
+    // });
     logger.log('User Updated Successfully');
     return User;
   } catch (error) {
     logger.error('error getting while updating user', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -516,7 +517,7 @@ const sendMailService = async (payload) => {
     });
   } catch (error) {
     logger.error('error getting while sending mail', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 

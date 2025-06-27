@@ -5,6 +5,7 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
+import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 export const createUserHierarchyDao = async (data, conn) => {
   try {
@@ -16,8 +17,8 @@ export const createUserHierarchyDao = async (data, conn) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in create UserHierarchy Dao:', error);
-    throw error.message;
+    logger.error('Error in create UserHierarchy Dao:', error);
+    throw error;
   }
 };
 
@@ -48,27 +49,24 @@ export const getUserHierarchysDao = async (
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
-    console.error('Error in get UserHierarchy Dao:', error);
-    throw error.message;
+    logger.error('Error in get UserHierarchy Dao:', error);
+    throw error;
   }
 };
 
-
-
-
-export const updateUserHierarchyDao = async (id, data,conn) => {
+export const updateUserHierarchyDao = async (id, data, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data, id);
     let result;
     if (conn) {
       result = await conn.query(sql, params);
-       return result.rows[0];
+      return result.rows[0];
     }
-   result = await executeQuery(sql, params);
+    result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in updateUserHierarchyDao:', error);
-    throw error.message;
+    logger.error('Error in updateUserHierarchyDao:', error);
+    throw error;
   }
 };
 
@@ -78,7 +76,7 @@ export const deleteUserHierarchyDao = async (id, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in deleteUserHierarchyDao:', error);
-    throw error.message;
+    logger.error('Error in deleteUserHierarchyDao:', error);
+    throw error;
   }
 };

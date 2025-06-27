@@ -35,8 +35,8 @@ import {
 import { getVendorsDao, updateVendorBalanceDao } from '../vendors/vendorDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
-import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
-import { getUsersDao } from '../users/userDao.js';
+// import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+// import { getUsersDao } from '../users/userDao.js';
 import {
   getBeneficiaryAccountDao,
   updateBeneficiaryAccountDao,
@@ -59,8 +59,8 @@ const getSettlementServiceById = async (ids) => {
       filterColumns,
     );
   } catch (error) {
-    console.error('error getting while  getting settlements', error);
-    throw new InternalServerError(error);
+    logger.error('error getting while  getting settlements', error);
+    throw error;
   }
 };
 
@@ -151,20 +151,8 @@ const getSettlementService = async (
 
     return settlementData;
   } catch (error) {
-    // Handle and rethrow errors with appropriate context
-    if (error instanceof BadRequestError) {
-      throw error;
-    }
-
-    logger.error('Error in getSettlementService:', {
-      error: error,
-      ids,
-      filters,
-      page,
-      limit,
-    });
-
-    throw new InternalServerError('Failed to retrieve settlements: ' + error);
+    logger.error('Error in getSettlementService:', error);
+    throw error;
   }
 };
 
@@ -222,7 +210,7 @@ const getSettlementsBySearchService = async (
       if (designation === Role.MERCHANT_OPERATIONS) {
         if (userHierarchys || userHierarchys.length > 0) {
           const userHierarchy = userHierarchys[0];
-          // console.log(userHierarchy?.config?.parent, 'shjdhjhju');
+
           if (userHierarchy?.config?.parent) {
             filters.user_id = [userHierarchy?.config?.parent ?? null];
           }
@@ -233,7 +221,7 @@ const getSettlementsBySearchService = async (
         const userHierarchys = await getUserHierarchysDao({ user_id });
         if (userHierarchys || userHierarchys.length > 0) {
           const userHierarchy = userHierarchys[0];
-          // console.log(userHierarchy?.config?.parent, 'shjdhjhju');
+
           if (userHierarchy?.config?.parent) {
             filters.user_id = [userHierarchy?.config?.parent ?? null];
           }
@@ -286,8 +274,6 @@ const createSettlementService = async (conn, payload) => {
           throw new NotFoundError('Calculation data not found');
         }
 
-        // console.log(vendorData,"vendorData", calculationData, 'calculation data',bankResponses,"bankResponses");
-
         const VendorCommission = vendorData[0].payin_commission || 0;
         const commission = calculateCommission(
           payload.amount,
@@ -329,15 +315,15 @@ const createSettlementService = async (conn, payload) => {
       throw new BadRequestError('UTR is already used');
     }
     // For other methods, proceed with settlement creation
-    const [user] = await getUsersDao({ id: payload.user_id });
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: payload.company_id,
-      message: `Settlement for Client: ${user.code} has been created.`,
-      payloadUserId: payload.user_id,
-      actorUserId: payload.user_id,
-      category: 'Settlement',
-    });
+    // const [user] = await getUsersDao({ id: payload.user_id });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: payload.company_id,
+    //   message: `Settlement for Client: ${user.code} has been created.`,
+    //   payloadUserId: payload.user_id,
+    //   actorUserId: payload.user_id,
+    //   category: 'Settlement',
+    // });
 
     return await createSettlementDao(payload);
   } catch (error) {
@@ -648,17 +634,17 @@ const updateSettlementService = async (conn, ids, payload) => {
       { id: ids.id, company_id: ids.company_id },
       payload,
     );
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: ids.company_id,
-      message: `Settlement for Client: ${data[0].code} has been updated.`,
-      payloadUserId: payload.user_id,
-      actorUserId: payload.user_id,
-      category: 'Settlement',
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: ids.company_id,
+    //   message: `Settlement for Client: ${data[0].code} has been updated.`,
+    //   payloadUserId: payload.user_id,
+    //   actorUserId: payload.user_id,
+    //   category: 'Settlement',
+    // });
     return updateData;
   } catch (error) {
-    console.log('Error while updating Settlement', 'error', error);
+    logger.error('Error while updating Settlement', 'error', error);
     throw error;
   }
 };
@@ -672,8 +658,8 @@ const deleteSettlementService = async (conn, ids) => {
     );
     return updatedData;
   } catch (error) {
-    console.error('error getting while deleting settlement', error);
-    throw new InternalServerError(error);
+    logger.error('error getting while deleting settlement', error);
+    throw error;
   }
 };
 

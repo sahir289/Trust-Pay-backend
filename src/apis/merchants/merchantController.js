@@ -20,44 +20,45 @@ import { createHashApiKey } from '../../utils/cryptoAlgorithm.js';
 import { logger } from '../../utils/logger.js';
 
 const createMerchant = async (req, res) => {
-    const { body: payload, user } = req;
-    const { company_id, user_id, role } = user;
-    const { secretKey, publicKey } = createHashApiKey();
+  const { body: payload, user } = req;
+  const { company_id, user_id, role } = user;
+  const { secretKey, publicKey } = createHashApiKey();
 
-    // transform payload in a single, immutable operation
-    let merchantData = {
-      ...payload,
-      config: {
-        ...payload.config,
-        urls: {
-          payin_notify: payload.payin_notify,
-          payout_notify: payload.payout_notify,
-          return: payload.return_url,
-          site: payload.site,
-        },
-        keys: {
-          private: secretKey,
-          public: publicKey,
-        },
+  // transform payload in a single, immutable operation
+  let merchantData = {
+    ...payload,
+    config: {
+      ...payload.config,
+      urls: {
+        payin_notify: payload.payin_notify,
+        payout_notify: payload.payout_notify,
+        return: payload.return_url,
+        site: payload.site,
       },
-    };
+      keys: {
+        private: secretKey,
+        public: publicKey,
+      },
+    },
+  };
 
-    // *** removed unnecessary fields using object destructuring as it is not needed in the service ***
-    const { payin_notify, payout_notify, return_url, site, ...cleanedPayload } = merchantData;
+  // *** removed unnecessary fields using object destructuring as it is not needed in the service ***
+  const { payin_notify, payout_notify, return_url, site, ...cleanedPayload } =
+    merchantData;
 
-    const validation = VALIDATE_MERCHANT_SCHEMA.validate(cleanedPayload);
-    if (validation.error) {
-      throw new ValidationError(validation.error);
-    }
-    const finalPayload = {
-      ...cleanedPayload,
-      company_id,
-      created_by: user_id,
-      updated_by: user_id,
-    };
-    await transactionWrapper(createMerchantService)(finalPayload, role);
+  const validation = VALIDATE_MERCHANT_SCHEMA.validate(cleanedPayload);
+  if (validation.error) {
+    throw new ValidationError(validation.error);
+  }
+  const finalPayload = {
+    ...cleanedPayload,
+    company_id,
+    created_by: user_id,
+    updated_by: user_id,
+  };
+  await transactionWrapper(createMerchantService)(finalPayload, role);
 
-    return sendSuccess(res, null, 'Merchant created successfully');
+  return sendSuccess(res, null, 'Merchant created successfully');
 };
 
 const getMerchants = async (req, res) => {
@@ -105,7 +106,7 @@ const getMerchantsBySearch = async (req, res) => {
   );
   logger.log('get Merchants successfully');
   return sendSuccess(res, data, 'Merchants fetched successfully');
-}
+};
 
 const getMerchantCodes = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
@@ -150,11 +151,15 @@ const updateMerchant = async (req, res) => {
     throw new ValidationError(bodyError);
   }
   const { id } = req.params;
-  const { company_id,  user_id, role ,user_name} = req.user;
+  const { company_id, user_id, role, user_name } = req.user;
   payload.updated_by = user_id;
   const ids = { id, company_id };
   // Call the service to update the Merchant
- const merchant= await transactionWrapper(updateMerchantService)(ids, payload, role);
+  const merchant = await transactionWrapper(updateMerchantService)(
+    ids,
+    payload,
+    role,
+  );
   // Log success message
   // Send a success response to the client
   return sendSuccess(
@@ -171,7 +176,7 @@ const deleteMerchant = async (req, res) => {
   }
   const { id } = req.params; // Assuming the Merchant ID is passed as a parameter
   // Call the service to delete the Merchant
-  const { company_id, user_id ,user_name} = req.user;
+  const { company_id, user_id, user_name } = req.user;
   const updated_by = user_id;
   const ids = { id, company_id };
   const merchant = await deleteMerchantService(ids, updated_by, role);

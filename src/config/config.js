@@ -21,7 +21,7 @@ function config(Env) {
       temp_token_expires: Env?.TEMP_TOKEN_EXPIRES,
     },
     telegram: {
-      telegram_url : Env?.TELEGRAM_URL,
+      telegram_url: Env?.TELEGRAM_URL,
     },
     ocr: {
       url: Env?.OCR_URL,
@@ -36,8 +36,8 @@ function config(Env) {
     clientEmail: Env?.CLIENT_EMAIL,
     bucketName: Env?.BUCKET_NAME,
     bucketRegion: Env?.BUCKET_REGION,
-    accessKeyS3:Env?.ACCESS_KEY,
-    secretKeyS3:Env?.SECRET_ACCESS_KEY,
+    accessKeyS3: Env?.ACCESS_KEY,
+    secretKeyS3: Env?.SECRET_ACCESS_KEY,
     telegramBotToken: Env?.TELEGRAM_BOT_TOKEN,
     telegramAlertsBotToken: Env?.TELEGRAM_ALERTS_BOT_TOKEN, // currently not in use
     telegramRatioAlertsChatId: Env?.TELEGRAM_RATIO_ALERTS_CHAT_ID,

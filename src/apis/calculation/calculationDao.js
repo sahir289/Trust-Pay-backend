@@ -131,8 +131,8 @@ const getCalculationDao = async (
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
-    console.error('Error fetching Calculation', error);
-    throw error.message;
+    logger.error('Error fetching Calculation', error);
+    throw error;
   }
 };
 
@@ -248,17 +248,20 @@ export const getCalculationsSumDao = async (filters) => {
         let userIds = []; // Initialize empty array for all IDs
         for (const userCode of userCodes) {
           if (userCode) {
-            const userHierarchys = await getUserHierarchysDao({ user_id: userCode });
-            const allowedSubmerchants = userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
+            const userHierarchys = await getUserHierarchysDao({
+              user_id: userCode,
+            });
+            const allowedSubmerchants =
+              userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
             // Add current userCode and its submerchants to userIds array
             userIds.push(userCode); // Add the main userCode
             userIds.push(...allowedSubmerchants); // Add all submerchants
           }
-        }     
+        }
         // Remove any duplicates
         userIds = [...new Set(userIds)];
-        
-        const userCodeParams = userIds.map(code => `'${code}'`).join(',');
+
+        const userCodeParams = userIds.map((code) => `'${code}'`).join(',');
         merchantQuery += ` AND m.user_id = ANY(ARRAY[${userCodeParams}]) `;
         vendorQuery += ` AND v.user_id = ANY(ARRAY[${userCodeParams}]) `;
       }
@@ -312,27 +315,31 @@ export const getCalculationsSumDao = async (filters) => {
     }
 
     if ([Role.SUPER_ADMIN, Role.ADMIN].includes(role)) {
-      const condition = role === Role.ADMIN ? ` AND c.company_id = '${company_id}' ` : '';
-        // If userCodes are provided, filter by them
-        let userIds = [];
-        if (userCodes.length > 0) {
-          // Get user hierarchy to validate access
-    
-          // Process each userCode if provided
-          if (userCodes?.length > 0) {
-            for (const userCode of userCodes) {
-              if (userCode) {
-                const userHierarchys = await getUserHierarchysDao({ user_id: userCode });
-                const allowedSubmerchants = userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
-                // Combine current userCode with its submerchants
-                userIds.push(userCode); // Add the main userCode
-                userIds.push(...allowedSubmerchants); // Add all submerchants
-              }
+      const condition =
+        role === Role.ADMIN ? ` AND c.company_id = '${company_id}' ` : '';
+      // If userCodes are provided, filter by them
+      let userIds = [];
+      if (userCodes.length > 0) {
+        // Get user hierarchy to validate access
+
+        // Process each userCode if provided
+        if (userCodes?.length > 0) {
+          for (const userCode of userCodes) {
+            if (userCode) {
+              const userHierarchys = await getUserHierarchysDao({
+                user_id: userCode,
+              });
+              const allowedSubmerchants =
+                userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
+              // Combine current userCode with its submerchants
+              userIds.push(userCode); // Add the main userCode
+              userIds.push(...allowedSubmerchants); // Add all submerchants
             }
           }
-          // Remove any duplicates
+        }
+        // Remove any duplicates
         userIds = [...new Set(userIds)];
-        }  
+      }
       const baseCalQuery = `
         WITH LatestBalances AS (
           SELECT 
@@ -351,8 +358,12 @@ export const getCalculationsSumDao = async (filters) => {
           AND u.is_obsolete = FALSE
           AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
           ${condition}
-          ${userIds.length > 0 ? `AND (m.user_id = ANY(ARRAY[${userIds.map(code => `'${code}'`).join(',')}]) 
-            OR v.user_id = ANY(ARRAY[${userCodes.map(code => `'${code}'`).join(',')}]))` : 'AND m.is_obsolete = FALSE OR v.is_obsolete = FALSE' }
+          ${
+            userIds.length > 0
+              ? `AND (m.user_id = ANY(ARRAY[${userIds.map((code) => `'${code}'`).join(',')}]) 
+            OR v.user_id = ANY(ARRAY[${userCodes.map((code) => `'${code}'`).join(',')}]))`
+              : 'AND m.is_obsolete = FALSE OR v.is_obsolete = FALSE'
+          }
         )
         SELECT 
           role,
@@ -393,7 +404,7 @@ export const getCalculationsSumDao = async (filters) => {
         userIds = [...new Set([...userCodes, ...validUserIds])]; // Remove duplicates
       }
       // For non-admin roles, use existing query logic
-      console.log('Using userIds for net balance:', userIds);
+
       const endDateConditon = ` AND DATE(c.created_at) = '${endDate}' `;
       const calBaseQuery = `
         WITH LatestCalculations AS (
@@ -530,7 +541,7 @@ export const getCalculationsSumDao = async (filters) => {
           }
         }
 
-        userIds = [...new Set(userIds)]; // Remove duplicates 
+        userIds = [...new Set(userIds)]; // Remove duplicates
 
         // Add filters to queries using proper array syntax
         if (userIds.length > 0) {
@@ -562,9 +573,8 @@ export const getCalculationsSumDao = async (filters) => {
       vendorTotalCalculations: vendorTotal.rows[0] || {},
     };
   } catch (error) {
-    console.error('Error fetching calculation data:', error);
     logger.error('Error getting calculation data:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -583,8 +593,8 @@ export const getCalculationforCronDao = async (userId) => {
     const result = await executeQuery(sql, [userId]);
     return result.rows;
   } catch (error) {
-    console.error('Error fetching Calculation', error);
-    throw error.message;
+    logger.error('Error fetching Calculation', error);
+    throw error;
   }
 };
 
@@ -601,8 +611,8 @@ export const getAllCalculationforCronDao = async (userId) => {
     const result = await executeQuery(sql, [userId]);
     return result.rows;
   } catch (error) {
-    console.error('Error fetching Calculation', error);
-    throw error.message;
+    logger.error('Error fetching Calculation', error);
+    throw error;
   }
 };
 
@@ -617,8 +627,8 @@ const createCalculationDao = async (conn, data) => {
     }
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
-    console.error('Error creating calculation:', error); // Log the error for debugging
-    throw error.message;
+    logger.error('Error creating calculation:', error); // Log the error for debugging
+    throw error;
   }
 };
 
@@ -634,7 +644,7 @@ const updateCalculationDao = async (id, data, conn) => {
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
     logger.error('Error updating calculation:', error); // Log the error for debugging
-    throw error.message;
+    throw error;
   }
 };
 
@@ -651,8 +661,8 @@ const deleteCalculationDao = async (conn, id, data) => {
 
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
-    console.error('Error deleting calculation:', error);
-    throw error.message;
+    logger.error('Error deleting calculation:', error);
+    throw error;
   }
 };
 
@@ -675,8 +685,8 @@ export const updateCalculationBalanceDao = async (filters, data, conn) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error updating calculation:', error);
-    throw error.message;
+    logger.error('Error updating calculation:', error);
+    throw error;
   }
 };
 

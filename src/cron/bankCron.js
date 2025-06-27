@@ -14,8 +14,7 @@ if (process.env.NODE_ENV == 'production') {
       timezone: 'Asia/Kolkata',
     },
   );
-}
-else {
+} else {
   logger.error('Cron jobs are disabled in non-production environments.');
 }
 
@@ -25,7 +24,8 @@ const collectBankData = async (timezone = 'Asia/Kolkata') => {
   try {
     conn = await getConnection();
     //added payin_count to update everyday
-    const sql = 'UPDATE public."BankAccount" SET today_balance = 0 , payin_count = 0 ';
+    const sql =
+      'UPDATE public."BankAccount" SET today_balance = 0 , payin_count = 0 ';
     await conn.query(sql);
     logger.info(
       'Successfully updated today_balance for all bank accounts.',

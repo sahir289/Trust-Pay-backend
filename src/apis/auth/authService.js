@@ -43,8 +43,8 @@ const loginService = async (config, clientIP) => {
       );
     }
 
-    if(user.designation === Role.ADMIN){
-      if (!config.unique_admin_id ) {
+    if (user.designation === Role.ADMIN) {
+      if (!config.unique_admin_id) {
         throw new BadRequestError(
           'Unique admin ID is required for admin login.',
         );
@@ -55,8 +55,6 @@ const loginService = async (config, clientIP) => {
         );
       }
     }
-
-
 
     let isLoginSecondFlag = false;
     // Handle password update for newPassword
@@ -166,7 +164,7 @@ const refreshTokenService = async (user_id, company_id, refreshToken) => {
     return session;
   } catch (error) {
     logger.log('Error getting :', error);
-    throw new BadRequestError(error.message);
+    throw error;
   } finally {
     if (conn) {
       try {
@@ -218,13 +216,14 @@ const changePasswordService = async (payload) => {
     const user = await changePasswordDao(payload.user_id, newPassword);
     return user;
   } catch (error) {
-    console.log('Error getting while changing password', error);
+    logger.error('Error getting while changing password', error);
+    throw error;
   } finally {
     if (conn) {
       try {
         conn.release();
       } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
+        logger.error('Error while releasing the connection', releaseError);
       }
     }
   }
@@ -242,7 +241,8 @@ const verificationService = async (ids, payload) => {
     }
     return userDetails;
   } catch (error) {
-    console.log('Error getting while changing password', error);
+    logger.error('Error getting while changing password', error);
+    throw error;
   }
 };
 const forgetPasswordService = async (payload) => {
@@ -254,7 +254,8 @@ const forgetPasswordService = async (payload) => {
     );
     return user;
   } catch (error) {
-    console.log('Error getting while forgetting password', error);
+    logger.error('Error getting while forgetting password', error);
+    throw error;
   }
 };
 const verfyUserService = async (user_name) => {
@@ -280,7 +281,8 @@ const verfyUserService = async (user_name) => {
     await createUserOtpDao(payload);
     return true;
   } catch (error) {
-    console.log('Error while verifying user', error);
+    logger.log('Error while verifying user', error);
+    throw error;
   }
 };
 const verfyOtpService = async (otp) => {
@@ -303,7 +305,8 @@ const verfyOtpService = async (otp) => {
       return { id: userDetails.user_id };
     }
   } catch (error) {
-    console.log('Error while verifying otp', error);
+    logger.log('Error while verifying otp', error);
+    throw error;
   }
 };
 export {

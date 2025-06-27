@@ -5,6 +5,7 @@ import {
   buildSelectQuery,
 } from '../../utils/db.js';
 import { tableName } from '../../constants/index.js';
+import { logger } from '../../utils/logger.js';
 // Get Complaints with pagination, sorting, and filtering
 const getComplaintsDao = async (filters, page, pageSize, sortBy, sortOrder) => {
   try {
@@ -22,8 +23,8 @@ const getComplaintsDao = async (filters, page, pageSize, sortBy, sortOrder) => {
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
-    console.error('Error fetching complaints:', error);
-    throw error.message;
+    logger.error('Error fetching complaints:', error);
+    throw error;
   }
 };
 
@@ -36,8 +37,8 @@ const createComplaintsDao = async (data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error creating complaint:', error);
-    throw error.message;
+    logger.error('Error creating complaint:', error);
+    throw error;
   }
 };
 
@@ -48,8 +49,8 @@ const updateComplaintsDao = async (id, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error updating complaint:', error);
-    throw error.message;
+    logger.error('Error updating complaint:', error);
+    throw error;
   }
 };
 
@@ -60,8 +61,8 @@ const deleteComplaintsDao = async (id, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error deleting complaint:', error);
-    throw error.message;
+    logger.error('Error deleting complaint:', error);
+    throw error;
   }
 };
 

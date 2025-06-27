@@ -4,6 +4,7 @@ import {
   executeQuery,
   buildUpdateQuery,
 } from '../../utils/db.js';
+import { logger } from '../../utils/logger.js';
 
 const createUserOtpDao = async (payload, conn) => {
   try {
@@ -14,11 +15,10 @@ const createUserOtpDao = async (payload, conn) => {
     } else {
       result = await executeQuery(sql, params);
     }
-    console.log(`OTP for user_id: ${payload.user_id} created successfully`);
     return result.rows[0];
   } catch (error) {
-    console.error(`Error creating OTP for user_id: ${payload.user_id}`, error);
-    throw error.message;
+    logger.error(`Error creating OTP for user_id: ${payload.user_id}`, error);
+    throw error;
   }
 };
 const getUserOtpDao = async (otp) => {
@@ -37,12 +37,11 @@ WHERE otp = $1
 ORDER BY created_at DESC
 LIMIT 1
 `;
-      const result = await executeQuery(baseQuery, [otp]);
-      console.log(result.rows, 'hey result from the result of data');
+    const result = await executeQuery(baseQuery, [otp]);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in getUserOtpDao:', error);
-    throw error.message;
+    logger.error('Error in getUserOtpDao:', error);
+    throw error;
   }
 };
 const updateUserOtpDao = async (user_id, data, conn) => {
@@ -55,10 +54,9 @@ const updateUserOtpDao = async (user_id, data, conn) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in updateUserOtpDao:', error);
-    throw error.message;
+    logger.error('Error in updateUserOtpDao:', error);
+    throw error;
   }
 };
-
 
 export { createUserOtpDao, updateUserOtpDao, getUserOtpDao };

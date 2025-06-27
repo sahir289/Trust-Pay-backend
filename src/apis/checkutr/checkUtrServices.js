@@ -1,6 +1,6 @@
 import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
-import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+// import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import {
   createCheckUtrDao,
   deleteCheckUtrDao,
@@ -22,7 +22,7 @@ const getCheckUtrService = async (id, page, limit, sortOrder) => {
     return result;
   } catch (error) {
     logger.error('error getting while check utr', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -50,25 +50,25 @@ const getCheckUtrBySearchService = async (company_id, search, page, limit) => {
     );
   } catch (error) {
     logger.error('error getting while getting check utr by search', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
-const createCheckUtrService = async (conn, payload, merchant_order_id, utr) => {
+const createCheckUtrService = async (conn, payload) => {
   try {
     const result = await createCheckUtrDao(payload);
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: payload.company_id,
-      message: `Check UTR has been performed for merchant order ID: ${merchant_order_id} with UTR: ${utr}`,
-      payloadUserId: payload.updated_by,
-      actorUserId: payload.updated_by,
-      category: 'Data Entries',
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: payload.company_id,
+    //   message: `Check UTR has been performed for merchant order ID: ${merchant_order_id} with UTR: ${utr}`,
+    //   payloadUserId: payload.updated_by,
+    //   actorUserId: payload.updated_by,
+    //   category: 'Data Entries',
+    // });
     return result;
   } catch (error) {
-    console.error('error getting while check utr', error);
-    throw new InternalServerError(error);
+    logger.error('error getting while check utr', error);
+    throw error;
   }
 };
 
@@ -77,8 +77,8 @@ const updateCheckUtrService = async (id, payload) => {
     const result = await updateCheckUtrDao(id, payload);
     return result;
   } catch (error) {
-    console.error('error getting while check utr', error);
-    throw new InternalServerError(error);
+    logger.error('error getting while check utr', error);
+    throw error;
   }
 };
 const deleteCheckUtrService = async (id) => {
@@ -86,7 +86,7 @@ const deleteCheckUtrService = async (id) => {
     const result = await deleteCheckUtrDao(id, { is_obsolete: true });
     return result;
   } catch (error) {
-    console.error('error getting while check utr', error);
+    logger.error('error getting while check utr', error);
     throw new InternalServerError('Error getting while check utr');
   }
 };

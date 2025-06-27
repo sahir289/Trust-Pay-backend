@@ -98,7 +98,7 @@ export const VALIDATE_BANK_RESPONSE_BY_BANK_ID = Joi.object({
 export const IMPORT_BANK_RESPONSE_SCHEMA = Joi.object({
   bank_id: Joi.string().required(),
   file: Joi.object({
-    key: Joi.string().required()
+    key: Joi.string().required(),
   }).required(),
   fileType: Joi.string().required(),
 });

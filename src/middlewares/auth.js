@@ -47,7 +47,6 @@ const authorized =
       // Check if the user's designation is included in the allowed roles
       if (!designation || !allowedRoles.includes(designation)) {
         throw new AuthenticationError('Access denied');
-
       }
       next();
     } catch (error) {

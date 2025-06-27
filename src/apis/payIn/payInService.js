@@ -93,7 +93,7 @@ import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
-import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+// import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
@@ -118,15 +118,15 @@ export const generatePayInUrlByHashService = async (conn, req, res) => {
     config_merchants_contains: merchantArr[0].id,
   });
   if (bankAssigned.length <= 0) {
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: merchantArr[0].company_id,
-      message: `Bank Account has not been linked with Merchant: ${code}`,
-      payloadUserId: merchantArr[0].user_id,
-      actorUserId: merchantArr[0].user_id,
-      category: 'Transaction',
-      subCategory: 'PayIn',
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: merchantArr[0].company_id,
+    //   message: `Bank Account has not been linked with Merchant: ${code}`,
+    //   payloadUserId: merchantArr[0].user_id,
+    //   actorUserId: merchantArr[0].user_id,
+    //   category: 'Transaction',
+    //   subCategory: 'PayIn',
+    // });
     //-- correct error handling
     return res.status(400).json({
       error: {
@@ -145,15 +145,15 @@ export const generatePayInUrlByHashService = async (conn, req, res) => {
     (bank) => bank.is_enabled === false,
   );
   if (allBanksDisabled) {
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: merchantArr[0].company_id,
-      message: `Bank Account has not been linked with Merchant: ${code}`,
-      payloadUserId: merchantArr[0].user_id,
-      actorUserId: merchantArr[0].user_id,
-      category: 'Transaction',
-      subCategory: 'PayIn',
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: merchantArr[0].company_id,
+    //   message: `Bank Account has not been linked with Merchant: ${code}`,
+    //   payloadUserId: merchantArr[0].user_id,
+    //   actorUserId: merchantArr[0].user_id,
+    //   category: 'Transaction',
+    //   subCategory: 'PayIn',
+    // });
     // error handling
     return res.status(400).json({
       error: {
@@ -748,14 +748,14 @@ export const updatePaymentNotificationStatusService = async (
   company_id,
 ) => {
   if (!Object.values(Type).includes(type)) {
-    throw new Error('Invalid notification type.');
+    throw new BadRequestError('Invalid notification type.');
   }
 
   let data;
   if (type === Type.PAYIN) {
     const payIn = await updatePayInUrlDao(payInId, { is_notified: true });
     if (!payIn) {
-      throw new Error('Payin data not found.');
+      throw new NotFoundError('Payin data not found.');
     }
 
     const bankResponse = await getBankResponseDao({
@@ -1487,7 +1487,7 @@ export const processPayInService = async (
       !telegramMessage?.chat?.id ||
       !telegramBotToken
     ) {
-      throw new Error('Missing required parameters');
+      throw new BadRequestError('Missing required parameters');
     }
 
     try {
@@ -1522,24 +1522,24 @@ export const processPayInService = async (
     } catch (error) {
       logger.error('Error handling Telegram message:', error);
     }
-    if (
-      [
-        Status.SUCCESS,
-        Status.BANK_MISMATCH,
-        Status.DISPUTE,
-        Status.DROPPED,
-      ].includes(payIn.status)
-    ) {
-      await notifyAdminsAndUsers({
-        conn,
-        company_id: payIn.company_id,
-        message: `Payin with merchant order id: ${payIn.merchant_order_id} has been updated.`,
-        payloadUserId: merchant[0].user_id,
-        actorUserId: bank.user_id,
-        category: 'Transaction',
-        subCategory: 'PayIn',
-      });
-    }
+    // if (
+    //   [
+    //     Status.SUCCESS,
+    //     Status.BANK_MISMATCH,
+    //     Status.DISPUTE,
+    //     Status.DROPPED,
+    //   ].includes(payIn.status)
+    // ) {
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: payIn.company_id,
+    //   message: `Payin with merchant order id: ${payIn.merchant_order_id} has been updated.`,
+    //   payloadUserId: merchant[0].user_id,
+    //   actorUserId: bank.user_id,
+    //   category: 'Transaction',
+    //   subCategory: 'PayIn',
+    // });
+    // }
   } else {
     return result;
   }
@@ -2006,46 +2006,46 @@ export const disputeDuplicateTransactionService = async (
     config?.telegramBotToken,
   );
   // Notify admins and users about payin status updates
-  const notifyPayload = {
-    conn,
-    payloadUserId: merchant.user_id,
-    actorUserId: updated_by,
-    category: 'Transaction',
-    subCategory: 'PayIn',
-    additionalRecipients: [vendor.user_id],
-  };
+  // const notifyPayload = {
+  //   conn,
+  //   payloadUserId: merchant.user_id,
+  //   actorUserId: updated_by,
+  //   category: 'Transaction',
+  //   subCategory: 'PayIn',
+  //   additionalRecipients: [vendor.user_id],
+  // };
 
-  const notifications = [];
+  // const notifications = [];
 
-  if (
-    newEntryResponse &&
-    typeof newEntryResponse === 'object' &&
-    newEntryResponse.merchant_order_id !== undefined &&
-    response?.merchant_order_id !== newEntryResponse.merchant_order_id
-  ) {
-    notifications.push(
-      notifyAdminsAndUsers({
-        ...notifyPayload,
-        company_id: response.company_id,
-        message: `Payin with merchant order id: ${response.merchant_order_id} has been Failed.`,
-      }),
-      notifyAdminsAndUsers({
-        ...notifyPayload,
-        company_id: newEntryResponse.company_id,
-        message: `Payin with merchant order id: ${newEntryResponse.merchant_order_id} has been updated.`,
-      }),
-    );
-  } else {
-    notifications.push(
-      notifyAdminsAndUsers({
-        ...notifyPayload,
-        company_id: response.company_id,
-        message: `Payin with merchant order id: ${response.merchant_order_id} has been updated.`,
-      }),
-    );
-  }
+  // if (
+  //   newEntryResponse &&
+  //   typeof newEntryResponse === 'object' &&
+  //   newEntryResponse.merchant_order_id !== undefined &&
+  //   response?.merchant_order_id !== newEntryResponse.merchant_order_id
+  // ) {
+  // notifications.push(
+  //   notifyAdminsAndUsers({
+  //     ...notifyPayload,
+  //     company_id: response.company_id,
+  //     message: `Payin with merchant order id: ${response.merchant_order_id} has been Failed.`,
+  //   }),
+  //   notifyAdminsAndUsers({
+  //     ...notifyPayload,
+  //     company_id: newEntryResponse.company_id,
+  //     message: `Payin with merchant order id: ${newEntryResponse.merchant_order_id} has been updated.`,
+  //   }),
+  // );
+  // } else {
+  // notifications.push(
+  //   notifyAdminsAndUsers({
+  //     ...notifyPayload,
+  //     company_id: response.company_id,
+  //     message: `Payin with merchant order id: ${response.merchant_order_id} has been updated.`,
+  //   }),
+  // );
+  // }
 
-  await Promise.all(notifications);
+  // await Promise.all(notifications);
   await newTableEntry(tableName.PAYIN);
   return response;
 };
@@ -2135,7 +2135,7 @@ export const telegramCheckUTRService = async (
     );
   } catch (error) {
     logger.error('Error in telegramCheckUTRService:', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -2154,8 +2154,8 @@ export const updateUtrPayinService = async (conn, id, user_id, utr) => {
     const updateUtr = await updatePayInUrlDao(id, payload, conn);
     return updateUtr;
   } catch (error) {
-    console.error('Error in updateUtrPayinService:', error.message);
-    throw error.message;
+    logger.error('Error in updateUtrPayinService:', error.message);
+    throw error;
   }
 };
 
@@ -2309,7 +2309,7 @@ export const checkPendingPayinStatusService = async (
     // If no bank response found, update with provided payload
   } catch (error) {
     logger.error('Error in checkPendingPayinStatusService:', error.message);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -2516,22 +2516,27 @@ export const updateCalculationTable = async (user_id, data, conn) => {
 };
 
 const getOtherSuccessPayIns = async (bankResponse, includeSuccess = true) => {
-  const extraCondition = {};
-  if (includeSuccess) {
-    extraCondition.status = Status.SUCCESS;
-  }
-  let successData = await getPayInUrlsDao({
-    bank_response_id: bankResponse.id,
-    ...extraCondition,
-  });
-  if (!successData.length) {
-    successData = await getPayInUrlsDao({
-      user_submitted_utr: bankResponse.utr,
+  try {
+    const extraCondition = {};
+    if (includeSuccess) {
+      extraCondition.status = Status.SUCCESS;
+    }
+    let successData = await getPayInUrlsDao({
+      bank_response_id: bankResponse.id,
       ...extraCondition,
     });
-  }
+    if (!successData.length) {
+      successData = await getPayInUrlsDao({
+        user_submitted_utr: bankResponse.utr,
+        ...extraCondition,
+      });
+    }
 
-  return successData;
+    return successData;
+  } catch (error) {
+    logger.error('Error in getOtherSuccessPayIns:', error);
+    throw error;
+  }
 };
 
 // Helper function to compare dates without time
@@ -2556,47 +2561,52 @@ const updateCalculationBalances = async (
   user_id,
   conn,
 ) => {
-  if (!currentCalculation) return;
+  try {
+    if (!currentCalculation) return;
 
-  const updates = {
-    total_payin_commission: amountDiff > 0 ? commission : -commission,
-    total_payin_amount: amountDiff,
-    current_balance: amountDiff - commission,
-    net_balance: amountDiff - commission,
-  };
-  const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
+    const updates = {
+      total_payin_commission: amountDiff > 0 ? commission : -commission,
+      total_payin_amount: amountDiff,
+      current_balance: amountDiff - commission,
+      net_balance: amountDiff - commission,
+    };
+    const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
 
-  // Update current calculation
-  await updateCalculationBalanceDao(
-    { id: currentCalculation[0].id },
-    updates,
-    conn,
-  );
+    // Update current calculation
+    await updateCalculationBalanceDao(
+      { id: currentCalculation[0].id },
+      updates,
+      conn,
+    );
 
-  if (nextCalculations.length > 0) {
-    // Update subsequent calculations
-    for (const calc of nextCalculations) {
-      const calculationDate = dayjs(calc.created_at)
-        .tz('Asia/Kolkata')
-        .format('YYYY-MM-DD');
-      let data = {};
-      if (calculationDate === todayDate) {
-        data = {
-          total_adjustment_amount: amountDiff,
-          total_adjustment_commission:
-            amountDiff > 0 ? commission : -commission,
-          total_adjustment_count: 1,
-        };
+    if (nextCalculations.length > 0) {
+      // Update subsequent calculations
+      for (const calc of nextCalculations) {
+        const calculationDate = dayjs(calc.created_at)
+          .tz('Asia/Kolkata')
+          .format('YYYY-MM-DD');
+        let data = {};
+        if (calculationDate === todayDate) {
+          data = {
+            total_adjustment_amount: amountDiff,
+            total_adjustment_commission:
+              amountDiff > 0 ? commission : -commission,
+            total_adjustment_count: 1,
+          };
+        }
+        await updateCalculationBalanceDao(
+          { id: calc.id },
+          {
+            net_balance: amountDiff - commission,
+            ...data,
+          },
+          conn,
+        );
       }
-      await updateCalculationBalanceDao(
-        { id: calc.id },
-        {
-          net_balance: amountDiff - commission,
-          ...data,
-        },
-        conn,
-      );
     }
+  } catch (error) {
+    logger.error('Error updating calculation balances:', error);
+    throw error;
   }
 };
 
@@ -2644,8 +2654,8 @@ export const updatePayInService = async (
       getMerchantsDao({ id: payIn.merchant_id }),
     ]);
 
-    const merchant_user_id = merchant[0].user_id;
-    const vendor_user_id = vendor[0].user_id;
+    // const merchant_user_id = merchant[0].user_id;
+    // const vendor_user_id = vendor[0].user_id;
     // Handle amount updates
     if (
       payload?.amount &&
@@ -2824,7 +2834,7 @@ export const updatePayInService = async (
           ? JSON.parse(payIn.config)
           : payIn.config || {};
     } catch (e) {
-      console.error('Error parsing existing config:', e);
+      logger.error('Error parsing existing config:', e);
       existingConfig = {};
     }
     // Add update history to config
@@ -2867,16 +2877,17 @@ export const updatePayInService = async (
       },
       conn,
     );
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: payIn.company_id,
-      message: `Payin with merchant order id: ${payIn.merchant_order_id} has been updated.`,
-      payloadUserId: merchant_user_id,
-      actorUserId: user_id,
-      category: 'Transaction',
-      subCategory: 'PayIn',
-      additionalRecipients: [vendor_user_id],
-    });
+
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: payIn.company_id,
+    //   message: `Payin with merchant order id: ${payIn.merchant_order_id} has been updated.`,
+    //   payloadUserId: merchant_user_id,
+    //   actorUserId: user_id,
+    //   category: 'Transaction',
+    //   subCategory: 'PayIn',
+    //   additionalRecipients: [vendor_user_id],
+    // });
     await newTableEntry(tableName.PAYIN, {
       ...updatedPayIn,
       nick_name: updatedBankAccIdData?.nick_name,
@@ -2891,8 +2902,6 @@ export const updatePayInService = async (
       merchant_order_id,
       user_id,
     });
-    throw error instanceof BadRequestError || error instanceof NotFoundError
-      ? error
-      : new InternalServerError('Failed to update pay-in service');
+    throw error;
   }
 };

@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import {  tableName } from '../../constants/index.js';
+import { tableName } from '../../constants/index.js';
 // import { InternalServerError } from '../../utils/appErrors.js';
 // import { generateUUID } from '../utils/generateUUID.js';
 
@@ -56,7 +56,7 @@ const getBankResponseDao = async (
 
 export const getBankResponseDaoById = async (filters) => {
   try {
-   const base=` SELECT 
+    const base = ` SELECT 
     br.id,
     br.bank_id,
     br.utr,
@@ -64,17 +64,15 @@ export const getBankResponseDaoById = async (filters) => {
     ba.user_id
   FROM "${tableName.BANK_RESPONSE}" br
   LEFT JOIN "${tableName.BANK_ACCOUNT}" ba ON ba.id = br.bank_id
-  WHERE br.id = $1 AND ba.company_id = $2`
+  WHERE br.id = $1 AND ba.company_id = $2`;
 
-    const result = await executeQuery(base, [filters.id,filters.company_id]);
+    const result = await executeQuery(base, [filters.id, filters.company_id]);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in getBankResponseDaoById:', error);
     throw error;
   }
 };
-
-
 
 const getBankResponseBySearchDao = async (
   filters,
@@ -114,12 +112,12 @@ const getBankResponseBySearchDao = async (
       AND br.company_id = $1  
     `;
 
-    if(filters.is_used){
+    if (filters.is_used) {
       queryText += ` AND br.is_used = $${paramIndex}`;
       values.push(filters.is_used);
       paramIndex++;
     }
-    if(filters.bank_id){
+    if (filters.bank_id) {
       queryText += ` AND br.bank_id = $${paramIndex}`;
       values.push(filters.bank_id);
       paramIndex++;
@@ -284,8 +282,8 @@ const getClaimResponseDao = async (filters) => {
     const firstRow = result.rows[0];
 
     const banks_unclaims_amount = result.rows
-      .filter(row => row.bank_name) // avoid null rows
-      .map(row => ({
+      .filter((row) => row.bank_name) // avoid null rows
+      .map((row) => ({
         bank_name: row.bank_name,
         nick_name: row.nick_name,
         amount: parseFloat(row.amount) || 0,
@@ -327,9 +325,9 @@ const getBankResponseDaoAll = async (
   try {
     let bankId;
     let bankDetails;
-    if(filters?.bank_id){
-     bankId = filters?.bank_id
-       bankDetails = await getBankaccountDao({id:bankId}, null,null);
+    if (filters?.bank_id) {
+      bankId = filters?.bank_id;
+      bankDetails = await getBankaccountDao({ id: bankId }, null, null);
     }
     const selectCols = columns.length
       ? columns.map((col) => `"BankResponse".${col}`).join(', ')
@@ -340,7 +338,7 @@ const getBankResponseDaoAll = async (
           `"BankAccount".bank_name`,
           `"Vendor".code AS vendor_code`,
         ].join(', ');
-        
+
     let start;
     let end;
     if (start_date && end_date) {
@@ -371,7 +369,7 @@ const getBankResponseDaoAll = async (
         ON "BankAccount".user_id = "Vendor".user_id
     `;
 
-   let  baseQuery = `
+    let baseQuery = `
       SELECT ${selectCols}, "BankResponse".created_at,
         "BankAccount".config AS details,
         "BankAccount".nick_name,
@@ -380,12 +378,13 @@ const getBankResponseDaoAll = async (
       JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
       LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
       `;
- 
 
     const whereConditions = [];
 
     if (start_date && end_date) {
-      whereConditions.push(`"BankResponse".created_at BETWEEN '${start}' AND '${end}'`);
+      whereConditions.push(
+        `"BankResponse".created_at BETWEEN '${start}' AND '${end}'`,
+      );
     }
 
     if (filters.search) {
@@ -404,13 +403,15 @@ const getBankResponseDaoAll = async (
     }
 
     if (filters.company_id) {
-      whereConditions.push(`"BankResponse"."company_id" = '${filters.company_id}'`);
+      whereConditions.push(
+        `"BankResponse"."company_id" = '${filters.company_id}'`,
+      );
     }
 
     if (updated) {
       whereConditions.push(
         `"BankResponse".updated_at IS NOT NULL 
-        AND "BankResponse".updated_at != "BankResponse".created_at`
+        AND "BankResponse".updated_at != "BankResponse".created_at`,
       );
     }
 
@@ -418,7 +419,10 @@ const getBankResponseDaoAll = async (
       baseQuery += ' WHERE ' + whereConditions.join(' AND ');
       baseQueryDate += ' WHERE ' + whereConditions.join(' AND ');
     }
-    const queryIs = (start && end && bankDetails && bankDetails[0]?.config?.merchant_added) ? baseQueryDate : baseQuery
+    const queryIs =
+      start && end && bankDetails && bankDetails[0]?.config?.merchant_added
+        ? baseQueryDate
+        : baseQuery;
     const [query, queryValues] = buildSelectQuery(
       queryIs,
       filters,
@@ -474,7 +478,7 @@ const getBankResponseByUTR = async (utr) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error getting Bank Response by utr', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -516,7 +520,7 @@ const getInternalBankResponseByUTR = async (utr) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error getting Bank Response by utr', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -533,7 +537,7 @@ const createBankResponseDao = async (conn, data) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error in createBankResponseDao:', error);
-    throw error;;
+    throw error;
   }
 };
 
@@ -542,7 +546,7 @@ export const updateBankResponseDao = async (id, data, conn) => {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, id);
     if (conn && conn.query) {
       const result = await conn.query(sql, params);
-        await newTableEntry(tableName.BANK_RESPONSE);
+      await newTableEntry(tableName.BANK_RESPONSE);
       return result.rows[0];
     }
     const result = await executeQuery(sql, params);
@@ -606,7 +610,7 @@ const updateBotResponseDao = async (id, data, conn) => {
     } else {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
-      await newTableEntry(tableName.BANK_RESPONSE);
+    await newTableEntry(tableName.BANK_RESPONSE);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateBotResponseDao:', error);

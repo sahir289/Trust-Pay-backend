@@ -76,7 +76,6 @@ const getBankResponseBySearch = async (req, res) => {
     },
     role,
   );
-  console.log('get Bank Response successfully');
   return sendSuccess(res, data, 'BankResponse fetched successfully');
 };
 

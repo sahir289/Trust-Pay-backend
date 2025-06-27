@@ -5,26 +5,22 @@ import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.
 import { logger } from '../utils/logger.js';
 
 if (process.env.NODE_ENV == 'production') {
-cron.schedule('*/10 * * * * *', () => {
-  collectPayinData('Asia/Kolkata');
-});
+  cron.schedule('*/10 * * * * *', () => {
+    collectPayinData('Asia/Kolkata');
+  });
 
-logger.info('Running cron job in production environment');
+  logger.info('Running cron job in production environment');
 } else {
   logger.error('Cron jobs are disabled in non-production environments.');
 }
 
-
 const collectPayinData = async (timezone = 'Asia/Kolkata') => {
   const currentTime = moment().tz(timezone, true);
-  const expireTime = currentTime
-    .clone()
-    .subtract(10, 'minutes')
-    .toISOString();
+  const expireTime = currentTime.clone().subtract(10, 'minutes').toISOString();
   try {
     // Get payins already DROPPED but not notified
     const payinsDropped = await getPayInUrlsDao({
-      status: ['FAILED','DROPPED'],
+      status: ['FAILED', 'DROPPED'],
       is_notified: 'false',
     });
     // Update INITIATED payins older than 10 minutes
@@ -55,8 +51,7 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
         };
         await updatePayInUrlDao(payin.id, updatedData);
         logger.info(`ASSIGNED PayIn ${payin.id} dropped due to timeout`);
-      }
-      else if (payin.config.page_reload) {
+      } else if (payin.config.page_reload) {
         const updatedData = {
           status: 'DROPPED',
           is_url_expires: true,
@@ -86,13 +81,12 @@ async function processPayinNotifications(payins) {
     };
     try {
       if (payin?.config?.urls?.notify) {
-       await merchantPayinCallback(
-         payin?.config?.urls?.notify,
-         notificationData,
-       );
-       await updatePayInUrlDao(payin.id, { is_notified: 'true' });
-      }
-        else {
+        await merchantPayinCallback(
+          payin?.config?.urls?.notify,
+          notificationData,
+        );
+        await updatePayInUrlDao(payin.id, { is_notified: 'true' });
+      } else {
         logger.warn('Notify URL is missing for payin', { payinId: payin?.id });
       }
     } catch (error) {

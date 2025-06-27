@@ -1,8 +1,6 @@
 /* eslint-disable no-unused-vars */
 // Import required functions and classes
-import {
-  updateBankaccountByIdDao,
-} from '../apis/bankAccounts/bankaccountDao';
+import { updateBankaccountByIdDao } from '../apis/bankAccounts/bankaccountDao';
 import { getMerchantsDao } from '../apis/merchants/merchantDao';
 import { getPayoutsDao, updatePayoutDao } from '../apis/payOut/payOutDao';
 import { NotFoundError } from '../utils/appErrors';
@@ -16,7 +14,7 @@ export const ekoTransactionStatusCallback = async (req, res) => {
   const tid = payload.tid;
 
   try {
-    const singleWithdrawData = await getPayoutsDao({id: tid});
+    const singleWithdrawData = await getPayoutsDao({ id: tid });
     if (!singleWithdrawData) {
       return NotFoundError('Payment not found');
     }

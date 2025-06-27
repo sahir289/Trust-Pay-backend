@@ -23,8 +23,8 @@ export const createPayoutDao = async (conn, data) => {
 
     return result.rows[0];
   } catch (error) {
-    console.error('Error in createPayoutDao:', error);
-    throw error.message;
+    logger.error('Error in createPayoutDao:', error);
+    throw error;
   }
 };
 
@@ -33,7 +33,7 @@ export const getPayoutsDao = async (
   company_id,
   page,
   limit,
-  sortOrder='DESC',
+  sortOrder = 'DESC',
   role,
   conn,
 ) => {
@@ -44,7 +44,7 @@ export const getPayoutsDao = async (
 
     let conditions = [`u.is_obsolete = false`];
     let queryParams = [];
-    let paramIndex = 1; 
+    let paramIndex = 1;
     if (company_id) {
       conditions.push(`u.company_id = $${paramIndex}`);
       queryParams.push(company_id);
@@ -73,7 +73,7 @@ export const getPayoutsDao = async (
 
     const handledKeys = new Set(['page', 'limit', 'startDate', 'endDate']);
     Object.entries(filters).forEach(([key, value]) => {
-      if (handledKeys.has(key) || value == null || value === '') return;  
+      if (handledKeys.has(key) || value == null || value === '') return;
       const nextParamIdx = paramIndex;
       if (Array.isArray(value)) {
         const placeholders = value
@@ -91,11 +91,7 @@ export const getPayoutsDao = async (
           .map((_, idx) => `$${nextParamIdx + idx}`)
           .join(', ');
         if (key === 'startDate' || key === 'endDate') {
-          conditions.push(
-            isMultiValue
-              ? `u."${key}"`
-              : `u."${key}"`,
-          );
+          conditions.push(isMultiValue ? `u."${key}"` : `u."${key}"`);
         } else {
           conditions.push(
             isMultiValue
@@ -210,8 +206,8 @@ export const getPayoutsDao = async (
     }
     return result.rows;
   } catch (error) {
-    console.error('Error in getPayoutsDao:', error);
-    throw error.message;
+    logger.error('Error in getPayoutsDao:', error);
+    throw error;
   }
 };
 
@@ -220,7 +216,7 @@ export const getAllPayoutsDao = async (
   company_id,
   page,
   limit,
-  sortOrder='DESC',
+  sortOrder = 'DESC',
   role,
   conn,
 ) => {
@@ -231,7 +227,7 @@ export const getAllPayoutsDao = async (
 
     let conditions = [`u.is_obsolete = false`];
     let queryParams = [];
-    let paramIndex = 1; 
+    let paramIndex = 1;
     if (company_id) {
       conditions.push(`u.company_id = $${paramIndex}`);
       queryParams.push(company_id);
@@ -260,7 +256,7 @@ export const getAllPayoutsDao = async (
 
     const handledKeys = new Set(['page', 'limit', 'startDate', 'endDate']);
     Object.entries(filters).forEach(([key, value]) => {
-      if (handledKeys.has(key) || value == null || value === '') return;  
+      if (handledKeys.has(key) || value == null || value === '') return;
       const nextParamIdx = paramIndex;
       if (Array.isArray(value)) {
         const placeholders = value
@@ -278,11 +274,7 @@ export const getAllPayoutsDao = async (
           .map((_, idx) => `$${nextParamIdx + idx}`)
           .join(', ');
         if (key === 'startDate' || key === 'endDate') {
-          conditions.push(
-            isMultiValue
-              ? `u."${key}"`
-              : `u."${key}"`,
-          );
+          conditions.push(isMultiValue ? `u."${key}"` : `u."${key}"`);
         } else {
           conditions.push(
             isMultiValue
@@ -391,8 +383,8 @@ export const getAllPayoutsDao = async (
     }
     return result.rows;
   } catch (error) {
-    console.error('Error in getPayoutsDao:', error);
-    throw error.message;
+    logger.error('Error in getPayoutsDao:', error);
+    throw error;
   }
 };
 
@@ -612,10 +604,15 @@ export const getPayoutsBySearchDao = async (
     const expectedParamCount = (queryText.match(/\$\d+/g) || []).length;
     if (expectedParamCount !== queryParams.length) {
       logger.warn('⚠️ Placeholder count does not match parameter count!');
-      logger.warn(`Expected: ${expectedParamCount}, Got: ${queryParams.length}`);
+      logger.warn(
+        `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
+      );
     }
 
-    const countResult = await executeQuery(countQuery, queryParams.slice(0, -2));
+    const countResult = await executeQuery(
+      countQuery,
+      queryParams.slice(0, -2),
+    );
     const searchResult = await executeQuery(queryText, queryParams);
 
     const totalItems = parseInt(countResult.rows[0].total);
@@ -628,7 +625,7 @@ export const getPayoutsBySearchDao = async (
     };
   } catch (error) {
     logger.error('Error in getPayoutsBySearchDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -643,8 +640,8 @@ export const getPayoutsCronDao = async (conn, payload) => {
     const result = await conn.query(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
-    console.error('Error in createPayoutDao:', error);
-    throw error.message;
+    logger.error('Error in createPayoutDao:', error);
+    throw error;
   }
 };
 
@@ -681,8 +678,8 @@ export const updatePayoutDao = async (ids, data, conn) => {
       conn,
     );
   } catch (error) {
-    console.error('Error occurred while updating payout:', error);
-    throw error.message;
+    logger.error('Error occurred while updating payout:', error);
+    throw error;
   }
 };
 
@@ -692,7 +689,7 @@ export const deletePayoutDao = async (ids, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error occurred while deleting payout:', error);
-    throw error.message;
+    logger.error('Error occurred while deleting payout:', error);
+    throw error;
   }
 };

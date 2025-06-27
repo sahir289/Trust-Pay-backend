@@ -1,4 +1,3 @@
-import { InternalServerError } from '../../utils/appErrors.js';
 import {
   beginTransaction,
   commit,
@@ -13,6 +12,7 @@ import {
 } from './userHierarchyDao.js';
 import { columns, merchantColumns, Role } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
+import { logger } from '../../utils/logger.js';
 const createUserHierarchyService = async (payload, role) => {
   let conn;
   try {
@@ -24,55 +24,49 @@ const createUserHierarchyService = async (payload, role) => {
     await beginTransaction(conn); // Start a transaction
     const data = await createUserHierarchyDao(payload);
     await commit(conn); // Commit the transaction
-    console.log('UserHierarchy created successfully', 'info');
-    const finalResult = await filterResponse(data, filterColumns);
+
+    const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
     if (conn) {
       try {
         await rollback(conn); // Rollback the transaction in case of error
       } catch (rollbackError) {
-        console.log(
-          'Error during transaction rollback',
-          'error',
-          rollbackError,
-        );
+        logger.log('Error during transaction rollback', rollbackError);
       }
     }
-    console.log('Error while creating UserHierarchy', 'error', error);
-    throw new InternalServerError(error);
+    logger.error('Error while creating UserHierarchy', error);
+    throw error;
   } finally {
     if (conn) {
       try {
         conn.release(); // Release the connection back to the pool
       } catch (releaseError) {
-        console.log(
-          'Error while releasing the connection',
-          'error',
-          releaseError,
-        );
+        logger.log('Error while releasing the connection', releaseError);
       }
     }
   }
 };
 
-const getUserHierarchyService = async (filters, role,  page, limit) => {
+const getUserHierarchyService = async (filters, role, page, limit) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.USER_HIERARCHY
         : columns.USER_HIERARCHY;
-        const pageNumber = parseInt(page, 10) || 1;
-        const pageSize = parseInt(limit, 10) || 10;
+    const pageNumber = parseInt(page, 10) || 1;
+    const pageSize = parseInt(limit, 10) || 10;
     return await getUserHierarchysDao(
-      filters, pageNumber, pageSize, 
+      filters,
+      pageNumber,
+      pageSize,
       null,
       null,
       filterColumns,
     );
   } catch (error) {
-    console.error('Error while fetching UserHierarchys', error);
-    throw new InternalServerError(error);
+    logger.error('Error while fetching UserHierarchys', error);
+    throw error;
   }
 };
 
@@ -87,7 +81,7 @@ const updateUserHierarchyService = async (id, payload, role) => {
     await beginTransaction(conn); // Start a transaction
     const data = await updateUserHierarchyDao(id, payload); // Adjust DAO call for update
     await commit(conn); // Commit the transaction
-    console.log('UserHierarchy updated successfully', 'info');
+
     const finalResult = await filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -95,25 +89,17 @@ const updateUserHierarchyService = async (id, payload, role) => {
       try {
         await rollback(conn); // Rollback the transaction in case of error
       } catch (rollbackError) {
-        console.log(
-          'Error during transaction rollback',
-          'error',
-          rollbackError,
-        );
+        logger.error('Error during transaction rollback', rollbackError);
       }
     }
-    console.log('Error while updating UserHierarchy', 'error', error);
-    throw new InternalServerError(error);
+    logger.error('Error while updating UserHierarchy', error);
+    throw error;
   } finally {
     if (conn) {
       try {
         conn.release(); // Release the connection back to the pool
       } catch (releaseError) {
-        console.log(
-          'Error while releasing the connection',
-          'error',
-          releaseError,
-        );
+        logger.error('Error while releasing the connection', releaseError);
       }
     }
   }
@@ -131,7 +117,6 @@ const deleteUserHierarchyService = async (ids, updated_by, role) => {
     const payload = { is_obsolete: true, updated_by };
     const data = await deleteUserHierarchyDao(ids, payload); // Adjust DAO call for delete
     await commit(conn); // Commit the transaction
-    console.log('UserHierarchy deleted successfully', 'info');
     const finalResult = await filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -139,25 +124,17 @@ const deleteUserHierarchyService = async (ids, updated_by, role) => {
       try {
         await rollback(conn); // Rollback the transaction in case of error
       } catch (rollbackError) {
-        console.log(
-          'Error during transaction rollback',
-          'error',
-          rollbackError,
-        );
+        logger.error('Error during transaction rollback', rollbackError);
       }
     }
-    console.log('Error while deleting UserHierarchy', 'error', error);
-    throw new InternalServerError(error);
+    logger.error('Error while deleting UserHierarchy', error);
+    throw error;
   } finally {
     if (conn) {
       try {
         conn.release(); // Release the connection back to the pool
       } catch (releaseError) {
-        console.log(
-          'Error while releasing the connection',
-          'error',
-          releaseError,
-        );
+        logger.error('Error while releasing the connection', releaseError);
       }
     }
   }

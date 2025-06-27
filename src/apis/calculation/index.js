@@ -12,10 +12,7 @@ import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
 
-router.post(
-  '/success_ratio',
-  tryCatchHandler(calculateSuccessRatios)
-);
+router.post('/success_ratio', tryCatchHandler(calculateSuccessRatios));
 
 /**
  * @swagger

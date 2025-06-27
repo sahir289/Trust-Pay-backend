@@ -6,7 +6,13 @@ import { verifyToken } from '../utils/auth.js';
 import { logger } from '../utils/logger.js';
 import { BadRequestError } from '../utils/appErrors.js';
 // Function to calculate balances based on role
-export const calculateBalances = (calc, prevCalc, isMerchant, isReverse, amount = 0) => {
+export const calculateBalances = (
+  calc,
+  prevCalc,
+  isMerchant,
+  isReverse,
+  amount = 0,
+) => {
   const baseCalculation =
     calc.total_payin_amount -
     calc.total_payout_amount -
@@ -20,16 +26,19 @@ export const calculateBalances = (calc, prevCalc, isMerchant, isReverse, amount 
       ? isReverse
         ? baseCalculation - calc.total_settlement_amount
         : baseCalculation + calc.total_settlement_amount
-      : isReverse ? baseCalculation + calc.total_settlement_amount
-      : baseCalculation - calc.total_settlement_amount,
+      : isReverse
+        ? baseCalculation + calc.total_settlement_amount
+        : baseCalculation - calc.total_settlement_amount,
 
     netBalance:
       prevCalc.net_balance +
-      (isMerchant ? isReverse
-        ? + amount - calc.total_settlement_amount
-        : - amount + calc.total_settlement_amount
-        : isReverse ? + amount + calc.total_settlement_amount
-        : - amount - calc.total_settlement_amount) ,
+      (isMerchant
+        ? isReverse
+          ? +amount - calc.total_settlement_amount
+          : -amount + calc.total_settlement_amount
+        : isReverse
+          ? +amount + calc.total_settlement_amount
+          : -amount - calc.total_settlement_amount),
   };
 };
 
@@ -52,11 +61,9 @@ export const calculateTwoNumbers = (data1, data, operator) => {
     return numAmount + numAmount1;
   } else if (operator === '-') {
     return numAmount - numAmount1;
-  }
-  else if (operator === '/') {
+  } else if (operator === '/') {
     return numAmount / numAmount1;
-  }
-  else {
+  } else {
     throw new BadRequestError('Invalid operator. Use "+" or "-"');
   }
 };
@@ -78,12 +85,12 @@ export const calculateDuration = (createdAt) => {
 
 export const getTelegramFilePath = async (fileId) => {
   if (!fileId) {
-    console.log('No telegram photo file id found!');
+    logger.error('No telegram photo file id found!');
     return;
   }
 
   if (!config.telegramOcrBotToken) {
-    console.log('Telegram Bot Token not foun!');
+    logger.error('Telegram Bot Token not foun!');
     return;
   }
 
@@ -94,12 +101,12 @@ export const getTelegramFilePath = async (fileId) => {
 
 export const getTelegramImageBase64 = async (filePath) => {
   if (!filePath) {
-    console.log('No telegram photo file path found!');
+    logger.error('No telegram photo file path found!');
     return;
   }
 
   if (!config.telegramOcrBotToken) {
-    console.log('Telegram Bot Token not foun!');
+    logger.error('Telegram Bot Token not foun!');
     return;
   }
   const url = `https://api.telegram.org/file/bot${config.telegramOcrBotToken}/${filePath}`;
@@ -159,9 +166,8 @@ export async function streamToBuffer(stream) {
 }
 
 // export const filterResponse = async (data, key) => {
-//     console.log(data, key,"datakey")
 //     if (typeof data === 'object' && data !== null && key in data) {
-//         console.log({[key]: data[key]},"datakey1")
+//         logger.log({[key]: data[key]},"datakey1")
 
 //       return { [key]: data[key] };
 //     }
@@ -169,9 +175,8 @@ export async function streamToBuffer(stream) {
 //   }
 
 export const filterResponse = (data, keys) => {
-  
   if (Array.isArray(data)) {
-    logger.log( "Data is an array");
+    logger.log('Data is an array');
 
     return data.map((item) => {
       const filteredItem = {};

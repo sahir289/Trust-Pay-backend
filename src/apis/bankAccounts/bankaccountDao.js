@@ -38,14 +38,16 @@ const getBankaccountDao = async (filters, page, limit, role, designation) => {
       queryParams.push(filters?.bank_used_for);
     }
 
-    // Nickname filter 
+    // Nickname filter
     if (filters?.nick_name) {
       conditions.push(`ba.nick_name= $${queryParams.length + 1}`);
       queryParams.push(filters.nick_name);
     }
     if (filters?.merchant_id) {
-      queryParams.push(filters.merchant_id);  
-      conditions.push(`(ba.config->'merchants')::jsonb ?| $${queryParams.length}::text[]`);
+      queryParams.push(filters.merchant_id);
+      conditions.push(
+        `(ba.config->'merchants')::jsonb ?| $${queryParams.length}::text[]`,
+      );
       delete filters.merchant_id;
     }
     if (filters && Object.keys(filters).length > 0) {
@@ -136,11 +138,17 @@ const getBankaccountDao = async (filters, page, limit, role, designation) => {
     return result.rows;
   } catch (error) {
     logger.error('Error in get BankAccount Dao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
-const getAllBankaccountDao = async (filters, page, limit, role, designation) => {
+const getAllBankaccountDao = async (
+  filters,
+  page,
+  limit,
+  role,
+  designation,
+) => {
   try {
     let queryParams = [];
     let conditions = [`ba.is_obsolete = false`];
@@ -168,14 +176,16 @@ const getAllBankaccountDao = async (filters, page, limit, role, designation) => 
       queryParams.push(filters?.bank_used_for);
     }
 
-    // Nickname filter 
+    // Nickname filter
     if (filters?.nick_name) {
       conditions.push(`ba.nick_name= $${queryParams.length + 1}`);
       queryParams.push(filters.nick_name);
     }
     if (filters?.merchant_id) {
-      queryParams.push(filters.merchant_id);  
-      conditions.push(`(ba.config->'merchants')::jsonb ?| $${queryParams.length}::text[]`);
+      queryParams.push(filters.merchant_id);
+      conditions.push(
+        `(ba.config->'merchants')::jsonb ?| $${queryParams.length}::text[]`,
+      );
       delete filters.merchant_id;
     }
     if (filters && Object.keys(filters).length > 0) {
@@ -263,7 +273,7 @@ const getAllBankaccountDao = async (filters, page, limit, role, designation) => 
     return result.rows;
   } catch (error) {
     logger.error('Error in get BankAccount Dao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -274,7 +284,7 @@ const getBankAccountsBySearchDao = async (
   limitNum,
   offset,
   bank_used_for,
-  designation
+  designation,
 ) => {
   try {
     let commissionSelect = '';
@@ -454,7 +464,7 @@ const getBankAccountsBySearchDao = async (
     return data;
   } catch (error) {
     logger.error('Error in getBankAccountsBySearchDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -466,7 +476,7 @@ const getMerchantBankDao = async (filters) => {
     return result.rows;
   } catch (error) {
     logger.error(error);
-    throw error.message;
+    throw error;
   }
 };
 const getBankByIdDao = async (filters) => {
@@ -481,7 +491,7 @@ const getBankByIdDao = async (filters) => {
     return result.rows;
   } catch (error) {
     logger.error(error);
-    throw error.message;
+    throw error;
   }
 };
 const createBankaccountDao = async (payload) => {
@@ -491,7 +501,7 @@ const createBankaccountDao = async (payload) => {
     return result.rows[0];
   } catch (error) {
     logger.error(error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -507,7 +517,7 @@ const getBankAccountDaoNickName = async (
       'company_id = $1',
       'bank_used_for = $2',
       'is_obsolete = false',
-      '(config->>\'is_freeze\' IS NULL OR config->>\'is_freeze\' != \'true\' OR config->>\'is_freeze\' = \'false\')',
+      "(config->>'is_freeze' IS NULL OR config->>'is_freeze' != 'true' OR config->>'is_freeze' = 'false')",
     ];
     if (type !== 'PayIn') {
       whereConditions.push('is_enabled = true');
@@ -529,7 +539,7 @@ const getBankAccountDaoNickName = async (
         queryParams.push(paramValue);
       });
     }
-  
+
     // Construct base query with dynamic WHERE clause
     let baseQuery = `
       SELECT nick_name AS label, id AS value 
@@ -545,7 +555,7 @@ const getBankAccountDaoNickName = async (
     };
   } catch (error) {
     logger.error('Error querying bank accounts:', error.message, error.stack);
-    throw new Error('Failed to retrieve bank account nicknames');
+    throw error;
   }
 };
 
@@ -647,7 +657,7 @@ export const updateBanktBalanceDao = async (
     return result[0];
   } catch (error) {
     logger.error(error);
-    throw error.message;
+    throw error;
   }
 };
 

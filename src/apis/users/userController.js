@@ -16,15 +16,18 @@ import { logger } from '../../utils/logger.js';
 import { getUsersContactDao } from './userDao.js';
 const getUsers = async (req, res) => {
   // const reqBody = req.body;
-  const { role, company_id,user_id,designation } = req.user;
-  const {page, limit} = req.query;
+  const { role, company_id, user_id, designation } = req.user;
+  const { page, limit } = req.query;
   const data = await getUsersService(
     {
       company_id,
       ...req.query,
     },
-    role, page, limit,
-    designation,user_id
+    role,
+    page,
+    limit,
+    designation,
+    user_id,
   );
   return sendSuccess(res, data, 'getUsers successfully');
 };
@@ -77,30 +80,37 @@ const createUser = async (req, res) => {
   }
   const { role, company_id, user_id, designation, user_name } = req.user;
   let payload = req.body;
-  const verifyContact = await getUsersContactDao(company_id, payload.contact_no);
+  const verifyContact = await getUsersContactDao(
+    company_id,
+    payload.contact_no,
+  );
   if (verifyContact) {
     throw new BadRequestError('Contact number already exists');
   }
-  
+
   payload.is_enabled = true;
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
-  const user = await transactionWrapper(createUserService)(payload, role, designation);
+  const user = await transactionWrapper(createUserService)(
+    payload,
+    role,
+    designation,
+  );
   return sendSuccess(
     res,
-    { id: user.id, created_by: user_name},
+    { id: user.id, created_by: user_name },
     'Create user successfully',
   );
 };
 
 const updateUser = async (req, res) => {
-  const { company_id, user_id,user_name } = req.user;
+  const { company_id, user_id, user_name } = req.user;
   let payload = req.body;
   payload.updated_by = user_id;
   const id = req.params.id;
   const ids = { id, company_id };
-   const user= await transactionWrapper(userUpdateService)(ids, payload);
+  const user = await transactionWrapper(userUpdateService)(ids, payload);
   return sendSuccess(
     res,
     { id: user.id, updated_by: user_name },

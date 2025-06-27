@@ -72,9 +72,6 @@ router.get(
 //   '/checkPendingStatus',
 //   (req, res) => {
 //     checkPendingStatus('Asia/Kolkata');
-//     console.log(
-//       'Calling pending payins CRONJOB with timezone: Asia/Kolkata',
-//     );
 //     res.json({ message: 'Cron job is running for pending status' });
 //   },
 //   checkPendingStatus,

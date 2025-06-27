@@ -144,10 +144,7 @@ router.get(
  *       500:
  *         description: Internal server error
  */
-router.post(
-  '/create-company',
-  tryCatchHandler(createCompany),
-);
+router.post('/create-company', tryCatchHandler(createCompany));
 
 /**
  * @swagger

@@ -36,8 +36,8 @@ const createCompany = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
 
-  const data=await transactionWrapper(createCompanyService)(payload);
-  return sendSuccess(res,  data , 'Create Company successfully');
+  const data = await transactionWrapper(createCompanyService)(payload);
+  return sendSuccess(res, data, 'Create Company successfully');
 };
 
 const updateCompany = async (req, res) => {
@@ -63,7 +63,7 @@ const deleteCompany = async (req, res) => {
   }
   const { id } = req.params;
   await deleteCompanyService({ id: id });
-  console.log('Delete Company successfully');
+
   return sendSuccess(res, {}, 'Delete Company successfully');
 };
 

@@ -41,10 +41,7 @@ router.get(
  *       500:
  *         description: Internal server error
  */
-router.post(
-  '/create-bot-message',
-  tryCatchHandler(createBankBotResponse),
-);
+router.post('/create-bot-message', tryCatchHandler(createBankBotResponse));
 
 /**
  * @swagger
@@ -101,7 +98,6 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
   tryCatchHandler(getBankResponse),
 );
-
 
 router.get(
   '/search',

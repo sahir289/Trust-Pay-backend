@@ -2,9 +2,7 @@ import cron from 'node-cron';
 import { getMerchantsDao } from '../apis/merchants/merchantDao.js';
 import { getCalculationDao } from '../apis/calculation/calculationDao.js';
 import { getBankaccountDao } from '../apis/bankAccounts/bankaccountDao.js';
-import {
-  sendTelegramDashboardReportMessage,
-} from '../utils/sendTelegramMessages.js';
+import { sendTelegramDashboardReportMessage } from '../utils/sendTelegramMessages.js';
 import config from '../config/config.js';
 import { getConnection } from '../utils/db.js';
 import { getVendorsDao } from '../apis/vendors/vendorDao.js';

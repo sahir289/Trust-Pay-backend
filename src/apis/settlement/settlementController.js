@@ -32,19 +32,11 @@ const getSettlementControllerById = async (req, res) => {
 const getSettlementController = async (req, res) => {
   // Extract user data and query parameters
   const { company_id, user_id, role, designation } = req.user || {};
-  const {
-    role_name,
-    page,
-    limit,
-    search,
-    sortBy,
-    sortOrder,
-    ...filters
-  } = req.query;
+  const { role_name, page, limit, search, sortBy, sortOrder, ...filters } =
+    req.query;
 
   const parsedPage = page === 'no_pagination' ? null : Number(page) || 1;
   const parsedLimit = limit === 'no_pagination' ? null : Number(limit) || 10;
-  
 
   // Prepare filters object
   const filterParams = {
@@ -102,7 +94,7 @@ const getSettlementsBySearch = async (req, res) => {
 
 const createSettlementController = async (req, res) => {
   const payload = req.body;
-  const { company_id, user_id, user_name ,designation } = req.user;
+  const { company_id, user_id, user_name, designation } = req.user;
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.status = 'INITIATED';
@@ -111,7 +103,7 @@ const createSettlementController = async (req, res) => {
     designation === Role.MERCHANT_OPERATIONS ||
     designation === Role.VENDOR_OPERATIONS
   ) {
-    const userHierarchys = await getUserHierarchysDao({ user_id });    
+    const userHierarchys = await getUserHierarchysDao({ user_id });
     if (userHierarchys || userHierarchys.length > 0) {
       const userHierarchy = userHierarchys[0];
       if (userHierarchy?.config?.parent) {
@@ -128,7 +120,10 @@ const createSettlementController = async (req, res) => {
   }
   //-- utr and amount for internal tranfer case
   if (payload.amount && payload.utr) {
-    const bankRes = await getBankResponseDao({ utr: payload.utr , status :'/success'});
+    const bankRes = await getBankResponseDao({
+      utr: payload.utr,
+      status: '/success',
+    });
     if (!bankRes) {
       return res.status(400).json({
         error: {
@@ -137,8 +132,8 @@ const createSettlementController = async (req, res) => {
         },
       });
     }
-    const bankRess = await  getBankaccountDao({ id: bankRes.bank_id });
-    if(payload.user_id !== bankRess[0].user_id) {
+    const bankRess = await getBankaccountDao({ id: bankRes.bank_id });
+    if (payload.user_id !== bankRess[0].user_id) {
       //--bank id mismatch with utr
       return res.status(400).json({
         error: {

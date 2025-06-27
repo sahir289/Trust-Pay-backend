@@ -1,6 +1,6 @@
 import { columns, Role, vendorColumns } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
-import { InternalServerError } from '../../utils/appErrors.js';
+
 import {
   beginTransaction,
   commit,
@@ -24,7 +24,7 @@ import { BadRequestError } from '../../utils/appErrors.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 import { updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { updateUserDao } from '../users/userDao.js';
-import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+// import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
 const createVendorService = async (conn, payload) => {
   try {
@@ -48,19 +48,19 @@ const createVendorService = async (conn, payload) => {
       conn,
     );
     logger.info('Vendor created successfully', 'info');
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: data.company_id,
-      message: `New Vendor with code: ${data.code} has been created.`,
-      payloadUserId: data.updated_by,
-      actorUserId: data.updated_by,
-      category: 'Client',
-      subCategory: 'Vendor'
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: data.company_id,
+    //   message: `New Vendor with code: ${data.code} has been created.`,
+    //   payloadUserId: data.updated_by,
+    //   actorUserId: data.updated_by,
+    //   category: 'Client',
+    //   subCategory: 'Vendor'
+    // });
     return data;
   } catch (error) {
-    logger.error('Error while creating Vendor', 'error', error);
-    throw new InternalServerError(error);
+    logger.error('Error while creating Vendor', error);
+    throw error;
   }
 };
 
@@ -97,7 +97,7 @@ const getVendorsService = async (
     );
   } catch (error) {
     logger.error('Error while fetching vendors', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -131,7 +131,7 @@ const getVendorsCodeService = async (filters, roleIs, user_id, designation) => {
       }
     }
     logger.error('Error while fetching vendors:', error);
-    throw new InternalServerError(error);
+    throw error;
   } finally {
     if (conn) {
       try {
@@ -190,7 +190,7 @@ const getVendorsBySearchService = async (
     return data;
   } catch (error) {
     logger.error('Error while fetching vendors by search', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -205,15 +205,15 @@ const updateVendorService = async (id, payload, role) => {
     await commit(conn); // Commit the transaction
     logger.info('Vendor updated successfully', 'info');
     const finalResult = filterResponse(data, filterColumns);
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: data.company_id,
-      message: `Vendor with code: ${data.code} has been updated.`,
-      payloadUserId: data.updated_by,
-      actorUserId: data.updated_by,
-      category: 'Client',
-      subCategory: 'Vendor'
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: data.company_id,
+    //   message: `Vendor with code: ${data.code} has been updated.`,
+    //   payloadUserId: data.updated_by,
+    //   actorUserId: data.updated_by,
+    //   category: 'Client',
+    //   subCategory: 'Vendor'
+    // });
     return finalResult;
   } catch (error) {
     if (conn) {
@@ -227,8 +227,8 @@ const updateVendorService = async (id, payload, role) => {
         );
       }
     }
-    logger.error('Error while updating Vendor', 'error', error);
-    throw new InternalServerError(error);
+    logger.error('Error while updating Vendor', error);
+    throw error;
   } finally {
     if (conn) {
       try {
@@ -261,7 +261,11 @@ const deleteVendorService = async (ids, user_id) => {
         updated_by: user_id,
       };
       await updateUserDao({ id: ids.user_id }, payload, conn);
-      await deleteBeneficiaryDao(conn, { user_id: ids.user_id }, {is_obsolete :true})
+      await deleteBeneficiaryDao(
+        conn,
+        { user_id: ids.user_id },
+        { is_obsolete: true },
+      );
       await updateBankaccountDao(
         { user_id: ids.user_id },
         payloadBank,
@@ -279,15 +283,15 @@ const deleteVendorService = async (ids, user_id) => {
         }
       }
     }
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: ids.company_id,
-      message: `Vendor with code: ${data.code} has been deleted.`,
-      payloadUserId: user_id,
-      actorUserId: user_id,
-      category: 'Client',
-      subCategory: 'Vendor'
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: ids.company_id,
+    //   message: `Vendor with code: ${data.code} has been deleted.`,
+    //   payloadUserId: user_id,
+    //   actorUserId: user_id,
+    //   category: 'Client',
+    //   subCategory: 'Vendor'
+    // });
     await commit(conn); // Commit the transaction
     logger.info('Vendor deleted successfully', 'info');
     return data;
@@ -303,8 +307,8 @@ const deleteVendorService = async (ids, user_id) => {
         );
       }
     }
-    logger.error('Error while deleting Vendor', 'error', error);
-    throw new InternalServerError(error);
+    logger.error('Error while deleting Vendor', error);
+    throw error;
   } finally {
     if (conn) {
       try {

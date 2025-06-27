@@ -30,9 +30,14 @@ const getCheckUtrBySearch = async (req, res) => {
   if (!search) {
     throw new BadRequestError('search is required');
   }
-  const data = await getCheckUtrBySearchService(company_id, search, page, limit);
+  const data = await getCheckUtrBySearchService(
+    company_id,
+    search,
+    page,
+    limit,
+  );
   return sendSuccess(res, data, 'get checkUtr by search successfully');
-}
+};
 
 const createCheckUtr = async (req, res) => {
   const payload = req.body;
@@ -40,7 +45,7 @@ const createCheckUtr = async (req, res) => {
     payload.merchant_order_id,
   );
   payload.payin_id = payinData[0].payin_id;
-  const { company_id, user_id,user_name } = req.user;
+  const { company_id, user_id, user_name } = req.user;
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
@@ -49,7 +54,11 @@ const createCheckUtr = async (req, res) => {
   if (!payload) {
     throw new BadRequestError('payload is required');
   }
-  const checkUtr = await transactionWrapper(createCheckUtrService)(payload, merchant_order_id, utr);
+  const checkUtr = await transactionWrapper(createCheckUtrService)(
+    payload,
+    merchant_order_id,
+    utr,
+  );
   return sendSuccess(
     res,
     { id: checkUtr.id, created_by: user_name },
@@ -74,4 +83,10 @@ const deleteCheckUtr = async (req, res) => {
   return sendSuccess(res, {}, 'Delete CheckUtr successfully');
 };
 
-export { getCheckUtr, getCheckUtrBySearch, createCheckUtr, updateCheckUtr, deleteCheckUtr };
+export {
+  getCheckUtr,
+  getCheckUtrBySearch,
+  createCheckUtr,
+  updateCheckUtr,
+  deleteCheckUtr,
+};

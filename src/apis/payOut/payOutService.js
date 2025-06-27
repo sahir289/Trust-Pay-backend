@@ -53,7 +53,7 @@ import { logger } from '../../utils/logger.js';
 // import { updatePayout } from '../../utils/sockets.js';
 import { newTableEntry } from '../../utils/sockets.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
-import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+// import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 const createPayoutService = async (
   conn,
@@ -281,10 +281,7 @@ const createPayoutService = async (
     return finalResult;
   } catch (error) {
     logger.error(error);
-    if (error instanceof BadRequestError) {
-      throw error;
-    }
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -368,7 +365,7 @@ const getPayoutsService = async (
     return { totalCount: data[0]?.total, payout: data };
   } catch (error) {
     logger.error('Error in getPayoutsService:', error);
-    throw new InternalServerError(error);
+    throw error;
   } finally {
     if (conn) {
       conn.release();
@@ -647,15 +644,15 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       status: data.status,
       utr_id: data.utr_id || '',
     });
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: ids.company_id,
-      message: `PayOut with merchant order id: ${data.merchant_order_id} has been ${data.status}.`,
-      payloadUserId: merchant.user_id,
-      actorUserId: vendor.user_id,
-      category: 'Transaction',
-      subCategory: 'PayOut',
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: ids.company_id,
+    //   message: `PayOut with merchant order id: ${data.merchant_order_id} has been ${data.status}.`,
+    //   payloadUserId: merchant.user_id,
+    //   actorUserId: vendor.user_id,
+    //   category: 'Transaction',
+    //   subCategory: 'PayOut',
+    // });
     return data;
   } catch (error) {
     logger.error('Error in updatePayoutService:', error);
@@ -924,7 +921,7 @@ const deletePayoutService = async (id, updated_by, role) => {
       }
     }
     logger.error('Error while deleting Payout', 'error', error);
-    throw new InternalServerError(error);
+    throw error;
   } finally {
     if (conn) {
       try {

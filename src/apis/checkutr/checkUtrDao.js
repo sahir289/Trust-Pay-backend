@@ -13,7 +13,7 @@ const getCheckUtrDao = async (
   pageSize,
   sortBy = 'sno',
   sortOrder = 'DESC',
-  columns = []
+  columns = [],
 ) => {
   try {
     const { BANK_RESPONSE, CHECK_UTR_HISTORY, PAYIN, USER } = tableName;
@@ -27,7 +27,7 @@ const getCheckUtrDao = async (
 
     // Default columns if none provided
     const selectColumns = columns?.length
-      ? columns.map(col => `"${CHECK_UTR_HISTORY}".${col}`).join(', ')
+      ? columns.map((col) => `"${CHECK_UTR_HISTORY}".${col}`).join(', ')
       : `"${CHECK_UTR_HISTORY}".*`;
 
     // Base query
@@ -67,9 +67,13 @@ const getCheckUtrDao = async (
     const whereClauses = [];
     let paramIndex = 1;
     if (filters.startDate && filters.endDate) {
-      const startDateTime = dayjs.tz(`${filters.startDate} 00:00:00`, 'Asia/Kolkata').toISOString(true);
-      const endDateTime = dayjs.tz(`${filters.endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString(true);
-         
+      const startDateTime = dayjs
+        .tz(`${filters.startDate} 00:00:00`, 'Asia/Kolkata')
+        .toISOString(true);
+      const endDateTime = dayjs
+        .tz(`${filters.endDate} 23:59:59.999`, 'Asia/Kolkata')
+        .toISOString(true);
+
       sql += ` WHERE "${CHECK_UTR_HISTORY}".created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       queryParams.push(startDateTime, endDateTime);
       paramIndex++;
@@ -101,18 +105,22 @@ const getCheckUtrDao = async (
 
     // Execute query
     const result = await executeQuery(sql, queryParams);
-    
-    return {
-      checkutr: result.rows
-    };
 
+    return {
+      checkutr: result.rows,
+    };
   } catch (error) {
     logger.error('Error getting all CheckUtr:', error);
     throw error;
   }
 };
 
-const getCheckUtrBySearchDao = async (company_id, searchTerms, limitNum, offset) => {
+const getCheckUtrBySearchDao = async (
+  company_id,
+  searchTerms,
+  limitNum,
+  offset,
+) => {
   try {
     const conditions = [];
     const values = [company_id];
@@ -137,7 +145,7 @@ const getCheckUtrBySearchDao = async (company_id, searchTerms, limitNum, offset)
       AND "CheckUtrHistory"."company_id" = $1
     `;
 
-    searchTerms.forEach(term => {
+    searchTerms.forEach((term) => {
       // here it will handle boolean terms separately
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
         const boolValue = term.toLowerCase() === 'true';
@@ -173,7 +181,7 @@ const getCheckUtrBySearchDao = async (company_id, searchTerms, limitNum, offset)
     }
 
     const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
-    
+
     queryText += `
       ORDER BY "CheckUtrHistory"."created_at" DESC
       LIMIT $${values.length + 1}
@@ -193,43 +201,49 @@ const getCheckUtrBySearchDao = async (company_id, searchTerms, limitNum, offset)
       checkUtr: searchResult.rows,
     };
     return data;
-    
   } catch (error) {
     logger.error(error);
-    throw error.message;
+    throw error;
   }
-}
+};
 
 const createCheckUtrDao = async (payload) => {
   try {
-    const [sql, params] = buildInsertQuery(tableName.CHECK_UTR_HISTORY, payload);
+    const [sql, params] = buildInsertQuery(
+      tableName.CHECK_UTR_HISTORY,
+      payload,
+    );
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error creating CheckUtr:', error);
-    throw error.message; // Rethrow the error to propagate it
+    throw error; // Rethrow the error to propagate it
   }
 };
 
 const updateCheckUtrDao = async (id, data) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.CHECK_UTR_HISTORY, data, { id });
+    const [sql, params] = buildUpdateQuery(tableName.CHECK_UTR_HISTORY, data, {
+      id,
+    });
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating CheckUtr:', error);
-    throw error.message;; // Rethrow the error to propagate it
+    throw error; // Rethrow the error to propagate it
   }
 };
 
 const deleteCheckUtrDao = async (id, data) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.CHECK_UTR_HISTORY, data, { id });
+    const [sql, params] = buildUpdateQuery(tableName.CHECK_UTR_HISTORY, data, {
+      id,
+    });
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error deleting CheckUtr:', error);
-    throw error.message; // Rethrow the error to propagate it
+    throw error; // Rethrow the error to propagate it
   }
 };
 

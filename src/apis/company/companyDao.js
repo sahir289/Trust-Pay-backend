@@ -5,6 +5,7 @@ import {
   executeQuery,
 } from '../../utils/db.js';
 import { tableName } from '../../constants/index.js';
+import { logger } from '../../utils/logger.js';
 
 const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
   try {
@@ -21,8 +22,8 @@ const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
     const result = await executeQuery(sql, queryParams);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
-    console.error('Error fetching company:', error);
-    throw error.message;
+    logger.error('Error fetching company:', error);
+    throw error;
   }
 };
 
@@ -36,8 +37,8 @@ const createCompanyDao = async (conn, payload) => {
     const result = await executeQuery(sql, params);
     return result.rows;
   } catch (error) {
-    console.error('Error fetching company:', error);
-    throw error.message;
+    logger.error('Error fetching company:', error);
+    throw error;
   }
 };
 
@@ -47,8 +48,8 @@ const updateCompanyDao = async (id, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error updating company:', error); // Log the error for debugging
-    throw error.message;
+    logger.error('Error updating company:', error); // Log the error for debugging
+    throw error;
   }
 };
 
@@ -58,8 +59,8 @@ const deleteCompanyDao = async (id, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error deleting company:', error); // Log the error for debugging
-    throw error.message;
+    logger.error('Error deleting company:', error); // Log the error for debugging
+    throw error;
   }
 };
 

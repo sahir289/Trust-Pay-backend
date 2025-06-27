@@ -1,5 +1,7 @@
 import { Role, Status, tableName } from '../../constants/index.js';
+import { BadRequestError } from '../../utils/appErrors.js';
 import { buildSelectQuery, executeQuery } from '../../utils/db.js';
+import { logger } from '../../utils/logger.js';
 
 const getPayInMerchantReportDao = async (
   merchant_id,
@@ -88,7 +90,12 @@ const getPayInMerchantReportDao = async (
         case Status.FAILED || Status.DROPPED:
           query += `AND (pi.failed_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
           break;
-        case Status.INITIATED || Status.PENDING || Status.BANK_MISMATCH || Status.ASSIGNED || Status.DISPUTE || Status.DUPLICATE:
+        case Status.INITIATED ||
+          Status.PENDING ||
+          Status.BANK_MISMATCH ||
+          Status.ASSIGNED ||
+          Status.DISPUTE ||
+          Status.DUPLICATE:
           query += `AND (pi.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
           break;
         default:
@@ -101,7 +108,7 @@ const getPayInMerchantReportDao = async (
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
-    console.error('Error in getPayInMerchantReportDao:', error);
+    logger.error('Error in getPayInMerchantReportDao:', error);
     throw error;
   }
 };
@@ -179,12 +186,16 @@ const getPayInVendorReportDao = async (
         case Status.FAILED || Status.DROPPED:
           query += `AND (pi.failed_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
           break;
-        case Status.INITIATED || Status.PENDING || Status.BANK_MISMATCH || Status.ASSIGNED || Status.DISPUTE || Status.DUPLICATE:
+        case Status.INITIATED ||
+          Status.PENDING ||
+          Status.BANK_MISMATCH ||
+          Status.ASSIGNED ||
+          Status.DISPUTE ||
+          Status.DUPLICATE:
           query += `AND (pi.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
           break;
         default:
           query += ` AND (COALESCE(u.approved_at, u.failed_at) BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
-
       }
       parameters.push(startDate, endDate);
     }
@@ -194,7 +205,7 @@ const getPayInVendorReportDao = async (
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
-    console.error('Error in getPayInVendorReportDao:', error);
+    logger.error('Error in getPayInVendorReportDao:', error);
     throw error;
   }
 };
@@ -291,7 +302,7 @@ const getPayOutMerchantReportDao = async (
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
-    console.error('Error in getPayOutMerchantReportDao:', error);
+    logger.error('Error in getPayOutMerchantReportDao:', error);
     throw error;
   }
 };
@@ -412,7 +423,7 @@ const getPayOutVendorReportDao = async (
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
-    console.error('Error in getPayOutVendorReportDao:', error);
+    logger.error('Error in getPayOutVendorReportDao:', error);
     throw error;
   }
 };
@@ -437,7 +448,7 @@ const getPayinReportDao = async (
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
-    console.error('Error in getPayOutVendorReportDao:', error);
+    logger.error('Error in getPayOutVendorReportDao:', error);
     throw error;
   }
 };
@@ -458,7 +469,7 @@ const getPayOutAll = async (filters, page, pageSize, sortBy, sortOrder) => {
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
-    console.error('Error in getPayOutVendorReportDao:', error);
+    logger.error('Error in getPayOutVendorReportDao:', error);
     throw error;
   }
 };
@@ -474,7 +485,7 @@ const getMerchantReportDao = async (
 ) => {
   try {
     if (!startDate || !endDate) {
-      throw new Error('Both startDate and endDate must be provided.');
+      throw new BadRequestError('Both startDate and endDate must be provided.');
     }
     //date formatted from service
     let query = `
@@ -530,7 +541,7 @@ const getMerchantReportDao = async (
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
-    console.error('Error in getMerchantReportDao:', error.message);
+    logger.error('Error in getMerchantReportDao:', error.message);
     throw error;
   }
 };
@@ -546,7 +557,7 @@ const getVendorReportDao = async (
 ) => {
   try {
     if (!startDate || !endDate) {
-      throw new Error('Both startDate and endDate must be provided.');
+      throw new BadRequestError('Both startDate and endDate must be provided.');
     }
     //date formatting
     let query = `
@@ -604,7 +615,7 @@ ORDER BY created_at ASC`;
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
-    console.error('Error in getVendorReportDao:', error);
+    logger.error('Error in getVendorReportDao:', error);
     throw error;
   }
 };

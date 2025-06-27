@@ -60,58 +60,57 @@ const getPayInReportService = async (req) => {
       );
     }
     return result;
-   
-  }
-  catch (error) {
+  } catch (error) {
     logger.error('Error while fetching report', error);
     // Handle and rethrow errors with appropriate context
-      throw error;
-    }
-  }
-
-
-const getPayOutReportService = async (req) => {
-  try{
-  const { company_id, role } = req.user;
-  const { code, startDate, endDate, status } = req.query;
-  const startDateTime = dayjs
-    .tz(`${startDate} 00:00:00`, 'Asia/Kolkata')
-    .toISOString();
-  const endDateTime = dayjs
-    .tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata')
-    .toISOString();
-
-  const codes = code.split(',');
-  let merchantIds = [];
-  let vendorIds = [];
-  let result;
-  const merchantDetails = await getMerchantsDaoArray(company_id, codes);
-  merchantIds = merchantDetails.map((merchant) => merchant.id);
-  if (merchantIds.length > 0) {
-    result = await getPayOutMerchantReportDao(
-      merchantIds,
-      startDateTime,
-      endDateTime,
-      company_id,
-      role,status
-    );
-  } else {
-    const vendorDetails = await getVendorsDaoArray(company_id, codes);
-    vendorIds = vendorDetails.map((merchant) => merchant.id);
-    result = await getPayOutVendorReportDao(
-      vendorIds,
-      startDateTime,
-      endDateTime,
-      company_id,
-      role,status
-    );
-  }
-  return result;
-} catch (error) {
-  logger.error('Error while fetching report', error);
     throw error;
   }
-}
+};
+
+const getPayOutReportService = async (req) => {
+  try {
+    const { company_id, role } = req.user;
+    const { code, startDate, endDate, status } = req.query;
+    const startDateTime = dayjs
+      .tz(`${startDate} 00:00:00`, 'Asia/Kolkata')
+      .toISOString();
+    const endDateTime = dayjs
+      .tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata')
+      .toISOString();
+
+    const codes = code.split(',');
+    let merchantIds = [];
+    let vendorIds = [];
+    let result;
+    const merchantDetails = await getMerchantsDaoArray(company_id, codes);
+    merchantIds = merchantDetails.map((merchant) => merchant.id);
+    if (merchantIds.length > 0) {
+      result = await getPayOutMerchantReportDao(
+        merchantIds,
+        startDateTime,
+        endDateTime,
+        company_id,
+        role,
+        status,
+      );
+    } else {
+      const vendorDetails = await getVendorsDaoArray(company_id, codes);
+      vendorIds = vendorDetails.map((merchant) => merchant.id);
+      result = await getPayOutVendorReportDao(
+        vendorIds,
+        startDateTime,
+        endDateTime,
+        company_id,
+        role,
+        status,
+      );
+    }
+    return result;
+  } catch (error) {
+    logger.error('Error while fetching report', error);
+    throw error;
+  }
+};
 
 const getClientsAccountReportService = async (req) => {
   try {
@@ -159,7 +158,7 @@ const getClientsAccountReportService = async (req) => {
         endDate,
         page,
         limit,
-        role
+        role,
       );
       let childData = [];
       if (subMerchants.length > 0) {
@@ -170,7 +169,7 @@ const getClientsAccountReportService = async (req) => {
           endDate,
           page,
           limit,
-          role
+          role,
         );
       }
 
@@ -311,7 +310,7 @@ const getClientsAccountReportService = async (req) => {
     // Handle and rethrow errors with appropriate context
     throw error;
   }
-}
+};
 
 export {
   getPayInReportService,

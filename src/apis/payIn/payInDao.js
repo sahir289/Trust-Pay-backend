@@ -1,4 +1,5 @@
 import { tableName } from '../../constants/index.js';
+import { BadRequestError } from '../../utils/appErrors.js';
 import {
   buildInsertQuery,
   buildSelectQuery,
@@ -15,8 +16,8 @@ export const generatePayInUrlDao = async (data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error generating PayIn URL:', error);
-    throw error.message;
+    logger.error('Error generating PayIn URL:', error);
+    throw error;
   }
 };
 export const getPayInCronDao = async (
@@ -35,8 +36,8 @@ export const getPayInCronDao = async (
     const result = await executeQuery(sql, queryParams);
     return result.rows[0];
   } catch (error) {
-    console.error('Error getting PayIn data:', error);
-   throw error.message;
+    logger.error('Error getting PayIn data:', error);
+    throw error;
   }
 };
 export const getPayInUrlDao = async (filters) => {
@@ -48,8 +49,8 @@ export const getPayInUrlDao = async (filters) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error getting PayIn URL:', error);
-    throw error.message;
+    logger.error('Error getting PayIn URL:', error);
+    throw error;
   }
 };
 
@@ -62,12 +63,12 @@ export const getPayInDaoByCode = async (filters) => {
     WHERE p.id = $1
       AND p.company_id = $2
   `;
-  const params = [filters.id, filters.company_id];  
+    const params = [filters.id, filters.company_id];
     const result = await executeQuery(sql, params);
-    return result.rows;    
+    return result.rows;
   } catch (error) {
-    console.error('Error getting PayIn URL:', error);
-    throw error.message;
+    logger.error('Error getting PayIn URL:', error);
+    throw error;
   }
 };
 
@@ -164,8 +165,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
           .join(', ');
         conditions.push(`p.${key} IN (${placeholders})`);
         queryParams.push(...value);
-      }
-      else if (key === 'user_ids') {
+      } else if (key === 'user_ids') {
         const isMultiValue = typeof value === 'string' && value.includes(',');
         const valueArray = isMultiValue
           ? value.split(',').map((v) => v.trim())
@@ -348,11 +348,17 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
     };
   } catch (error) {
     logger.error('Error getting PayIn URL:', error);
-    throw error.message;
+    throw error;
   }
 };
 
-export const getAllPayInsDao = async (filters, company_id, page, limit, role) => {
+export const getAllPayInsDao = async (
+  filters,
+  company_id,
+  page,
+  limit,
+  role,
+) => {
   try {
     const { PAYIN } = tableName;
 
@@ -445,8 +451,7 @@ export const getAllPayInsDao = async (filters, company_id, page, limit, role) =>
           .join(', ');
         conditions.push(`p.${key} IN (${placeholders})`);
         queryParams.push(...value);
-      }
-      else if (key === 'user_ids') {
+      } else if (key === 'user_ids') {
         const isMultiValue = typeof value === 'string' && value.includes(',');
         const valueArray = isMultiValue
           ? value.split(',').map((v) => v.trim())
@@ -601,7 +606,7 @@ export const getAllPayInsDao = async (filters, company_id, page, limit, role) =>
     };
   } catch (error) {
     logger.error('Error getting PayIn URL:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -825,7 +830,8 @@ export const getPayinsBySearchDao = async (
       }
     });
 
-    if (conditions.length > 2) { // Beyond the initial is_obsolete and company_id
+    if (conditions.length > 2) {
+      // Beyond the initial is_obsolete and company_id
       queryText += ' AND (' + conditions.slice(2).join(' AND ') + ')';
     }
 
@@ -845,11 +851,16 @@ export const getPayinsBySearchDao = async (
     const expectedParamCount = (queryText.match(/\$\d+/g) || []).length;
     if (expectedParamCount !== queryParams.length) {
       logger.warn('⚠️ Placeholder count does not match parameter count!');
-      logger.warn(`Expected: ${expectedParamCount}, Got: ${queryParams.length}`);
+      logger.warn(
+        `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
+      );
     }
 
     // Execute queries
-    const countResult = await executeQuery(countQuery, queryParams.slice(0, -2));
+    const countResult = await executeQuery(
+      countQuery,
+      queryParams.slice(0, -2),
+    );
     const searchResult = await executeQuery(queryText, queryParams);
 
     const totalItems = parseInt(countResult.rows[0].total);
@@ -862,7 +873,7 @@ export const getPayinsBySearchDao = async (
     };
   } catch (error) {
     logger.error('Error in getPayinSearch:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -876,8 +887,8 @@ export const getPayInUrlsDao = async (filters = {}) => {
     const result = await executeQuery(sql, params);
     return result.rows;
   } catch (error) {
-    console.error('Error getting PayIn URLs:', error);
-    throw error.message;
+    logger.error('Error getting PayIn URLs:', error);
+    throw error;
   }
 };
 
@@ -885,22 +896,22 @@ export const updatePayInUrlDao = async (id, data, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
     if (conn && conn.query) {
-    const result = await conn.query(sql, params);
-    // await newTableEntry(tableName.PAYIN);
-    return result.rows[0];
+      const result = await conn.query(sql, params);
+      // await newTableEntry(tableName.PAYIN);
+      return result.rows[0];
     }
     const result = await executeQuery(sql, params);
     // await newTableEntry(tableName.PAYIN);
     return result.rows[0];
   } catch (error) {
-    console.error('Error updating PayIn URL:', error);
-    throw error.message;
+    logger.error('Error updating PayIn URL:', error);
+    throw error;
   }
 };
 
 export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
   if (!merchantOrderId || typeof merchantOrderId !== 'string') {
-    throw new Error('Valid merchantOrderId is required');
+    throw new BadRequestError('Valid merchantOrderId is required');
   }
 
   let conn;
@@ -925,20 +936,19 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
 
   try {
     conn = await getConnection();
-    // console.log(conn);
     const result = await conn.query(baseQuery, [merchantOrderId]);
 
     return result.rows;
   } catch (error) {
     const errorMessage = `Error fetching payin details for merchantOrderId ${merchantOrderId}: ${error.message}`;
-    console.error(errorMessage);
-    throw new Error(errorMessage);
+    logger.error(errorMessage);
+    throw error;
   } finally {
     if (conn) {
       try {
         conn.release();
       } catch (releaseError) {
-        console.error('Error releasing connection:', releaseError);
+        logger.error('Error releasing connection:', releaseError);
       }
     }
   }

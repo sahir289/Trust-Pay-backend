@@ -10,16 +10,15 @@ import { transactionWrapper } from '../../utils/db.js';
 import {
   VALIDATE_CALCULATION_SCHEMA,
   VALIDATE_UPDATE_CALCULATION_STATUS,
-  
 } from '../../schemas/calculationSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
 const getCalculationById = async (req, res) => {
   // Validate request parameters using Joi schema
   // const { role } = req.user;
-  
+
   if (!req.params) {
-    throw new BadRequestError("User_id Required");
+    throw new BadRequestError('User_id Required');
   }
   const { user_id } = req.params;
   const { company_id, role } = req.user;
@@ -36,7 +35,6 @@ const getCalculationById = async (req, res) => {
 };
 
 const getCalculation = async (req, res) => {
-
   // You can add additional validation here if needed, depending on the request
   const { company_id, user_id, designation, role } = req.user;
   const data = await getCalculationService(
@@ -65,7 +63,7 @@ const createCalculation = async (req, res) => {
   // Validate the request body using Joi schema
   payload.company_id = company_id;
   if (!payload) {
-    console.error('payload is required');
+    logger.error('payload is required');
     return sendError(res, 'payload is required', 'Validation Error');
   }
   await transactionWrapper(createCalculationService)(payload, role);
@@ -74,9 +72,9 @@ const createCalculation = async (req, res) => {
 };
 
 const updateCalculation = async (req, res) => {
-    const { role } = req.user;
+  const { role } = req.user;
 
-// Validate the request body and params using Joi schema
+  // Validate the request body and params using Joi schema
   const { error: bodyError } = VALIDATE_UPDATE_CALCULATION_STATUS.validate(
     req.body,
   );
@@ -101,9 +99,9 @@ const updateCalculation = async (req, res) => {
 const deleteCalculation = async (req, res) => {
   const { role } = req.user;
   // Validate the request params using Joi schema
- if (!req.params) {
-   throw new BadRequestError('id Required');
- }
+  if (!req.params) {
+    throw new BadRequestError('id Required');
+  }
   const { company_id } = req.user;
   const { id } = req.params;
   const ids = { id, company_id };
@@ -115,7 +113,7 @@ const deleteCalculation = async (req, res) => {
 export const calculateSuccessRatios = async (req, res) => {
   try {
     const { date, user_ids } = req.body;
-    
+
     if (!user_ids || !Array.isArray(user_ids) || user_ids.length === 0) {
       throw new BadRequestError('user_ids array is required');
     }

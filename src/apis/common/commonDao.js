@@ -1,12 +1,20 @@
 import { executeQuery } from '../../utils/db.js';
 import { Role, tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
+import { BadRequestError } from '../../utils/appErrors.js';
 
-export const getTotalCountDao = async (tablename, role, filters, roleIs, updated = false, updatedPayin = false) => {
+export const getTotalCountDao = async (
+  tablename,
+  role,
+  filters,
+  roleIs,
+  updated = false,
+  updatedPayin = false,
+) => {
   try {
     // Validate table name to prevent SQL injection
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tablename)) {
-      throw new Error(`Invalid table name: ${tablename}`);
+      throw new BadRequestError(`Invalid table name: ${tablename}`);
     }
     // delete filters.user_ids;  ///temperary
     // Base query
@@ -14,22 +22,24 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs, updated
     let params = [];
     let paramIndex = 1;
     //handle userIds for filters of vendor
-    let joins= '';
+    let joins = '';
     if (filters.user_ids) {
       joins = `
         LEFT JOIN "BankAccount" ON "${tablename}".bank_acc_id = "BankAccount".id
         LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
       `;
-    }  
-    if (tablename === tableName.BENEFICIARY_ACCOUNTS && role !== Role.MERCHANT) {
+    }
+    if (
+      tablename === tableName.BENEFICIARY_ACCOUNTS &&
+      role !== Role.MERCHANT
+    ) {
       query = `
         SELECT COUNT(DISTINCT "${tablename}".acc_no) AS count 
         FROM "${tablename}" 
         ${joins}
         WHERE "${tablename}".is_obsolete = false
       `;
-    } 
-    else if (roleIs === Role.ADMIN && tablename === tableName.MERCHANT) {
+    } else if (roleIs === Role.ADMIN && tablename === tableName.MERCHANT) {
       query = `
         SELECT COUNT(*) AS count 
         FROM "${tablename}" 
@@ -51,7 +61,7 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs, updated
         WHERE "${tablename}".is_obsolete = false
       `;
     }
-     
+
     if (filters.user_ids) {
       query += ` AND "Vendor".user_id = ANY($${paramIndex})`;
       params.push(filters.user_ids);
@@ -111,7 +121,11 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs, updated
     // Dynamically add remaining filters
     if (filters) {
       Object.entries(filters).forEach(([column, value]) => {
-        if (column === 'startDate' || column === 'endDate' || column === 'updatedPayin') {
+        if (
+          column === 'startDate' ||
+          column === 'endDate' ||
+          column === 'updatedPayin'
+        ) {
           return; // Skip these special filters
         }
         if (Array.isArray(value)) {
@@ -132,13 +146,15 @@ export const getTotalCountDao = async (tablename, role, filters, roleIs, updated
   } catch (error) {
     if (error.code === '42P01') {
       logger.error(`Table "${tablename}" does not exist in the database.`);
-      throw new Error(`Table "${tablename}" does not exist.`);
+      throw error;
     }
     if (error.code === '42703') {
-      logger.error(`Column updated_at or created_at does not exist in table "${tablename}".`);
-      throw new Error(`Cannot filter updated entries: table "${tablename}" lacks required columns.`);
+      logger.error(
+        `Column updated_at or created_at does not exist in table "${tablename}".`,
+      );
+      throw error;
     }
     logger.error(`Error fetching total count for table ${tablename}:`, error);
-    throw error.message;
+    throw error;
   }
 };

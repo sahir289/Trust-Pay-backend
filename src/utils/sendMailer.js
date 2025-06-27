@@ -103,7 +103,7 @@ export const sendCredentialsEmail = async ({
   const params = {
     Source: process.env.SES_FROM_EMAIL,
     Destination: {
-      ToAddresses: [email], 
+      ToAddresses: [email],
     },
     Message: {
       Subject: {
@@ -115,7 +115,7 @@ export const sendCredentialsEmail = async ({
           Data: html,
           Charset: 'UTF-8',
         },
-        
+
         Text: {
           Data: text,
           Charset: 'UTF-8',
@@ -202,7 +202,7 @@ export const sendOTP = async (email, otp, user_name, designation) => {
   const params = {
     Source: process.env.SES_FROM_EMAIL,
     Destination: {
-      ToAddresses: [email], 
+      ToAddresses: [email],
     },
     Message: {
       Subject: {
@@ -214,7 +214,7 @@ export const sendOTP = async (email, otp, user_name, designation) => {
           Data: html,
           Charset: 'UTF-8',
         },
-        
+
         Text: {
           Data: text,
           Charset: 'UTF-8',
@@ -231,6 +231,6 @@ export const sendOTP = async (email, otp, user_name, designation) => {
     return { success: true };
   } catch (error) {
     logger.error('Failed to send OTP email:', error);
-    throw new Error('Failed to send OTP. Please try again later.');
+    throw error;
   }
 };

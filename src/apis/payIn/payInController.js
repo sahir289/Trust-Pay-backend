@@ -58,7 +58,7 @@ import { createHash, compareHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
 import { sendBankNotAssignedAlertTelegram } from '../../utils/sendTelegramMessages.js';
-import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+// import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const TestingIp = process.env.LOCAL_IP;
 
@@ -128,15 +128,15 @@ export const generatePayInUrl = async (req, res) => {
       code,
       config?.telegramBotToken,
     );
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: merchantArr[0].company_id,
-      message: `Bank Account has not been linked with Merchant: ${code}`,
-      payloadUserId: merchantArr[0].user_id,
-      actorUserId: merchantArr[0].user_id,
-      category: 'Transaction',
-      subCategory: 'PayIn',
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: merchantArr[0].company_id,
+    //   message: `Bank Account has not been linked with Merchant: ${code}`,
+    //   payloadUserId: merchantArr[0].user_id,
+    //   actorUserId: merchantArr[0].user_id,
+    //   category: 'Transaction',
+    //   subCategory: 'PayIn',
+    // });
     return res.status(400).json({
       error: {
         status: 404,
@@ -182,15 +182,15 @@ export const generatePayInUrl = async (req, res) => {
       code,
       config?.telegramBotToken,
     );
-    await notifyAdminsAndUsers({
-      conn,
-      company_id: merchantArr[0].company_id,
-      message: `Bank Account has not been linked with Merchant: ${code}`,
-      payloadUserId: merchantArr[0].user_id,
-      actorUserId: merchantArr[0].user_id,
-      category: 'Transaction',
-      subCategory: 'PayIn',
-    });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: merchantArr[0].company_id,
+    //   message: `Bank Account has not been linked with Merchant: ${code}`,
+    //   payloadUserId: merchantArr[0].user_id,
+    //   actorUserId: merchantArr[0].user_id,
+    //   category: 'Transaction',
+    //   subCategory: 'PayIn',
+    // });
     return res.status(400).json({
       error: {
         status: 404,
@@ -279,7 +279,6 @@ export const validatePayInUrl = async (req, res) => {
   result.merchant_order_id = merchantOrderId;
   return sendSuccess(res, result, 'Payment Url is correct');
 };
-
 
 export const generateUpiUrl = async (req, res) => {
   const payload = req.body;
@@ -449,7 +448,7 @@ export const getPayinsBySearch = async (req, res) => {
     user_id,
     designation,
   );
-  console.log('get Payins successfully');
+
   return sendSuccess(res, data, 'Payins fetched successfully');
 };
 
