@@ -18,12 +18,15 @@ import {
 
 const getBeneficiaryAccount = async (req, res) => {
   const { role, user_id, designation, company_id } = req.user;
-  const { page, limit, beneficiary_role, beneficiary_user_id } = req.query;
+  const { page, limit, beneficiary_role, beneficiary_user_id, is_enabled } = req.query;
   const filters = {
     beneficiary_role,
   };
   if (beneficiary_user_id) {
     filters.user_id = beneficiary_user_id;
+  }
+  if (is_enabled) {
+    filters['config->>is_enabled'] = is_enabled ? 'true' : 'false';
   }
   const data = await getBeneficiaryAccountService(
     filters,

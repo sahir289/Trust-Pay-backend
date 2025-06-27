@@ -90,14 +90,14 @@ const getBeneficiaryAccountService = async (
         company_id,
         Role.ADMIN,
       );
-      filters.user_id = [...filters.user_id, adminUser.id];
+      filters.user_id = [filters.user_id, adminUser.id];
     } else if (role === Role.ADMIN && filters?.user_id) {
-      filters.user_id = [user_id];
+      // filters.user_id = [user_id];
       const adminUser = await getUserByCompanyCreatedAtDao(
         company_id,
         Role.ADMIN,
       );
-      filters.user_id = [...filters.user_id, adminUser.id];
+      filters.user_id = [filters.user_id, adminUser.id];
     }
 
     let role_id;
@@ -114,21 +114,12 @@ const getBeneficiaryAccountService = async (
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
 
-    if (role_id?.[0]?.role !== Role.VENDOR) {
-      return await getBeneficiaryAccountDao(
-        { ...filters },
-        pageNumber,
-        pageSize,
-        role,
-      );
-    } else {
-      return await getBeneficiaryAccountDaoAll(
-        { ...filters },
-        pageNumber,
-        pageSize,
-        role,
-      );
-    }
+    return await getBeneficiaryAccountDaoAll(
+      { ...filters },
+      pageNumber,
+      pageSize,
+      role,
+    );
   } catch (error) {
     logger.error('error getting while  getting banks', error);
     throw error;
@@ -327,6 +318,7 @@ const createBeneficiaryAccountService = async (conn, payload, company_id) => {
         type: 'Personal',
         initial_balance: 0,
         closing_balance: 0,
+        is_enabled: true,
       };
       delete payload?.type;
       delete payload?.initial_balance; // Remove initial_balance if it's not needed in config
@@ -387,7 +379,7 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
       throw new BadRequestError('Beneficiary account not found');
     }
 
-    await updateBeneficiaryAccountDao(conn, { acc_no: ids.id }, payload);
+    return await updateBeneficiaryAccountDao({ id: ids.id }, payload, conn);
 
     // let notifyIds = [];
     // if (role === Role.ADMIN) {
