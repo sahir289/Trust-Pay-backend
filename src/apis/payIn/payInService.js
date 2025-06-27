@@ -375,7 +375,13 @@ export const getPayInUrlService = async (id, conn, tele_check = true) => {
   }
   // Skip expiration check if tele_check is false
   if (payIn.is_url_expires && tele_check) {
-    throw new InternalServerError('Url is expired');
+    if(payIn.one_time_used === true) {
+      const result = {
+        redirect_url: payIn.config?.urls?.return,
+      };
+      return { error: `Url is expired`, result };
+    }
+    
   }
   const config = payIn.config || {};
   if (
@@ -1267,6 +1273,15 @@ export const processPayInService = async (
   // validate payIn
   // throw error if not exist or expires
   const payIn = await getPayInUrlService(merchantOrderId, conn, tele_check);
+
+  console.log('payInnnn', payIn);
+
+  if(payIn.one_time_used === true) {
+    const result = {
+      redirect_url: payIn.config?.urls?.return,
+    };
+    return { error: `This payin url is already used`, result };
+  }
   //lock payin transaction
   const lockKey = `${payIn.bank_acc_id}${userSubmittedUtr}`;
   await checkLockEdit(conn, lockKey, true);
@@ -1766,6 +1781,13 @@ export const processPayInByImageService = async (conn, payload) => {
   const content = await getImageContentFromOCr(base64Image);
   let payInData;
   payInData = await getPayInUrlService(merchantOrderId);
+
+  if(payInData.one_time_used === true) {
+    const result = {
+      redirect_url: payInData.config?.urls?.return,
+    };
+    return { error: `This payin url is already used`, result };
+  }
   if (!content || !content.utr) {
     const payIn = await updatePayInUrlDao(payInData.id, {
       status: Status.IMG_PENDING,
