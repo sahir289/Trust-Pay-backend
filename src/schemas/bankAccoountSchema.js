@@ -5,7 +5,7 @@ export const BANK_ACCOUNT_SCHEMA = Joi.object({
     .guid({ version: ['uuidv4'] })
     .label('user_id')
     .optional(),
-  upi_id: Joi.string().label('upi_id').optional(),
+  upi_id: Joi.string().label('upi_id').allow(null, '').optional(),
   upi_params: Joi.string().label('upi_params').optional(),
   nick_name: Joi.string().label('nick_name').optional(),
   acc_holder_name: Joi.string().label('acc_holder_name').optional(),
@@ -30,7 +30,7 @@ export const BANK_ACCOUNT_SCHEMA = Joi.object({
 export const UPDATE_BANK_ACCOUNT_SCHEMA = Joi.object({
   is_intent: Joi.boolean().label('is_intent').optional(),
   is_phonepay: Joi.boolean().label('is_phonepay').optional(),
-  upi_id: Joi.string().label('upi_id').optional(),
+  upi_id: Joi.string().label('upi_id').allow(null, '').optional(),
   upi_params: Joi.string().label('upi_params').optional().allow(''),
   nick_name: Joi.string().label('nick_name').optional(),
   acc_holder_name: Joi.string().label('acc_holder_name').optional(),
