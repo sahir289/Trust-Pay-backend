@@ -130,7 +130,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
     let commissionSelect = '';
 
     if (role === Role.MERCHANT) {
-      commissionSelect = `MAX(bea.ifsc) AS ifsc`;
+      commissionSelect = `bea.ifsc AS ifsc`;
     } else if (role === Role.VENDOR) {
       commissionSelect = `
         bea.ifsc AS ifsc,
