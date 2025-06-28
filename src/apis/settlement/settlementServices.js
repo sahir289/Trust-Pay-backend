@@ -522,6 +522,7 @@ const updateSettlementService = async (conn, ids, payload) => {
           await updateBankResponseDao(
             { id: bankResponses.id },
             { status: '/success' },
+            conn
           );
           const VendorCommission = vendorData[0].payin_commission || 0;
           const commission = calculateCommission(
