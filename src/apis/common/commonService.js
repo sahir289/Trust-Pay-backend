@@ -8,6 +8,7 @@ import { getRoleDao } from '../roles/rolesDao.js';
 import { InternalServerError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
 import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
+import { getUserByCompanyCreatedAtDao } from '../users/userDao.js';
 
 export const getTotalCountService = async (
   tablename,
@@ -22,6 +23,7 @@ export const getTotalCountService = async (
       userInfo.designation === Role.MERCHANT_OPERATIONS ||
       userInfo.designation === Role.VENDOR_OPERATIONS;
     let userIdFilter = [];
+    const company_id = filters?.company_id;
 
     if (filters?.beneficiary_role) {
       const role_id = await getRoleDao({ role: filters.beneficiary_role });
@@ -288,14 +290,21 @@ export const getTotalCountService = async (
 
     // Beneficiary table
     if (tablename === tableName.BENEFICIARY_ACCOUNTS) {
-      userIdFilter = [userInfo.user_id];
+      userIdFilter = isOperations
+        ? [hierarchy?.config?.parent].filter(Boolean)
+        : [userInfo.user_id];
       if (userInfo.userRole === Role.MERCHANT) {
         userIdFilter.push(
           ...(hierarchy?.config?.siblings?.sub_merchants ?? []),
         );
       } else if (userInfo.userRole === Role.VENDOR) {
-        const [adminRole] = await getRoleDao({ role: Role.ADMIN });
-        userIdFilter.push(adminRole.id);
+        // const [adminRole] = await getRoleDao({ role: Role.ADMIN });
+        const adminUser = await getUserByCompanyCreatedAtDao(
+          company_id,
+          Role.ADMIN,
+        );
+        userIdFilter.push(adminUser.id);
+        filters['config->>is_enabled'] = 'true';
       }
       filters.user_id =
         userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
