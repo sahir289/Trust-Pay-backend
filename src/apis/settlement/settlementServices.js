@@ -536,6 +536,15 @@ const updateSettlementService = async (conn, ids, payload) => {
             payload.updated_by,
             conn,
           );
+
+          updatedCalculation = {
+            total_settlement_count: 1,
+            total_settlement_commission: -commission,
+            total_settlement_amount: amount,
+            current_balance: amount - commission,
+            net_balance: amount - commission,
+          };
+        } else {
           const [beneficiaryAcc] = await getBeneficiaryAccountDao({
             user_id: data[0].config.bank_id,
           });
@@ -545,13 +554,13 @@ const updateSettlementService = async (conn, ids, payload) => {
             data?.config?.debit_credit === 'send'
           ) {
             beneficiaryClosingBalance =
-              beneficiaryAcc.config?.closing_balance + payload?.amount;
+              beneficiaryAcc?.config?.closing_balance + payload?.amount;
           } else {
             beneficiaryClosingBalance =
-              beneficiaryAcc.config?.closing_balance - payload?.amount;
+              beneficiaryAcc?.config?.closing_balance - payload?.amount;
           }
           const beneficiaryUpdatedConfig = {
-            ...beneficiaryAcc.config,
+            ...beneficiaryAcc?.config,
             closing_balance: beneficiaryClosingBalance,
           };
           await updateBeneficiaryAccountDao(
@@ -576,20 +585,12 @@ const updateSettlementService = async (conn, ids, payload) => {
               beneficiary_initial_balance:
                 data.config?.initial_balance - payload?.amount === 0
                   ? data.config?.initial_balance
-                  : data.config?.initial_balance - payload?.amount,
+                  : Number(data.config?.initial_balance) - Number(payload?.amount),
               beneficiary_closing_balance:
-                data.config?.closing_balance - payload?.amount,
+                Number(data.config?.closing_balance) - Number(payload?.amount),
             };
           }
 
-          updatedCalculation = {
-            total_settlement_count: 1,
-            total_settlement_commission: -commission,
-            total_settlement_amount: amount,
-            current_balance: amount - commission,
-            net_balance: amount - commission,
-          };
-        } else {
           updatedCalculation = {
             total_settlement_count: 1,
             total_settlement_amount: -amount,
