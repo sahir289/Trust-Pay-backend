@@ -371,7 +371,7 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
       throw new BadRequestError('Beneficiary account not found');
     }
 
-    return await updateBeneficiaryAccountDao({ id: ids.id }, payload, conn);
+    return await updateBeneficiaryAccountDao({ id: ids.id, company_id: ids.company_id }, payload, conn);
 
     // let notifyIds = [];
     // if (role === Role.ADMIN) {
