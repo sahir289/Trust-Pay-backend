@@ -8,7 +8,6 @@ import {
   updateCheckUtrService,
 } from './checkUtrServices.js';
 import { getPayinDetailsByMerchantOrderId } from '../payIn/payInDao.js';
-import { logger } from '../../utils/logger.js';
 import { transactionWrapper } from '../../utils/db.js';
 
 const getCheckUtr = async (req, res) => {
@@ -79,7 +78,6 @@ const deleteCheckUtr = async (req, res) => {
     throw new BadRequestError('payload is required');
   }
   await deleteCheckUtrService(id);
-  logger.log('getUsers successfully');
   return sendSuccess(res, {}, 'Delete CheckUtr successfully');
 };
 

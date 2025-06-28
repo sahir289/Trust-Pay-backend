@@ -16,7 +16,7 @@ export const getTotalCountDao = async (
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tablename)) {
       throw new BadRequestError(`Invalid table name: ${tablename}`);
     }
-    // delete filters.user_ids;  ///temperary
+    // delete filters.user_ids;  // temporary
     // Base query
     let query;
     let params = [];
@@ -106,14 +106,16 @@ export const getTotalCountDao = async (
     }
 
     // Handle user_id array
-    if (Array.isArray(filters.user_id) && filters.user_id.length > 0) {
-      query += ` AND "${tablename}".user_id = ANY($${paramIndex})`;
-      params.push(filters.user_id);
-      paramIndex++;
-      if (filters?.startDate && filters?.endDate) {
-        query += ` AND "${tablename}".created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
-        params.push(filters.startDate, filters.endDate);
-        paramIndex += 2;
+    if (Array.isArray(filters.user_id)) {
+      if (filters.user_id.length > 0) {
+        query += ` AND "${tablename}".user_id = ANY($${paramIndex})`;
+        params.push(filters.user_id);
+        paramIndex++;
+        if (filters?.startDate && filters?.endDate) {
+          query += ` AND "${tablename}".created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+          params.push(filters.startDate, filters.endDate);
+          paramIndex += 2;
+        }
       }
       delete filters.user_id;
     }
@@ -133,6 +135,10 @@ export const getTotalCountDao = async (
           const placeholders = value.map(() => `$${paramIndex++}`).join(',');
           query += ` AND "${tablename}"."${column}" IN (${placeholders})`;
           params.push(...value);
+        } else if (column.includes('->>')) {
+          const [jsonField, jsonKey] = column.split('->>');
+          query += ` AND "${tablename}".${jsonField}->>'${jsonKey}' = $${paramIndex++}`;
+          params.push(value);
         } else {
           // Single value condition
           query += ` AND "${tablename}"."${column}" = $${paramIndex++}`;

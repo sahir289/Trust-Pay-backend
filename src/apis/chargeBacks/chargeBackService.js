@@ -191,12 +191,12 @@ const getChargeBacksService = async (
       role,
     );
 
-    logger.info('Fetched ChargeBacks successfully', {
-      role,
-      page: pageNumber,
-      limit: pageSize,
-      filterCount: Object.keys(filters).length,
-    });
+    // logger.info('Fetched ChargeBacks successfully', {
+    //   role,
+    //   page: pageNumber,
+    //   limit: pageSize,
+    //   filterCount: Object.keys(filters).length,
+    // });
 
     return chargeBacks;
   } catch (error) {

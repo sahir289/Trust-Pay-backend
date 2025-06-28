@@ -15,7 +15,6 @@ import {
 import { ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { BadRequestError } from '../../utils/appErrors.js';
-import { logger } from '../../utils/logger.js';
 
 const createVendor = async (req, res) => {
   const { error } = VALIDATE_VENDOR_SCHEMA.validate(req.body);
@@ -49,7 +48,6 @@ const getVendors = async (req, res) => {
     user_id,
     designation,
   );
-  logger.log('get Vendors successfully');
   return sendSuccess(res, data, 'Vendors fetched successfully');
 };
 
@@ -71,7 +69,6 @@ const getVendorsBySearch = async (req, res) => {
     designation,
     user_id,
   );
-  logger.log('get Vendors successfully');
   return sendSuccess(res, data, 'Vendors fetched successfully');
 };
 
@@ -85,7 +82,6 @@ const getVendorCodes = async (req, res) => {
     designation,
   );
   // Log success message
-  logger.log('get Vendors successfully');
   // Send success response
   return sendSuccess(res, data, 'Vendors fetched successfully');
 };

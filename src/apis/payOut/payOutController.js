@@ -131,7 +131,6 @@ const getPayoutsBySearch = async (req, res) => {
     user_id,
     designation,
   );
-  logger.log('get Payouts successfully');
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };
 
@@ -170,8 +169,6 @@ const deletePayout = async (req, res) => {
   // Call the service to delete the Payout
   await deletePayoutService(ids, updated_by, role);
   // Log success message
-  logger.log('Payout deleted successfully');
-
   // Send a success response to the client
   return sendSuccess(res, {}, 'Payout deleted successfully');
 };

@@ -114,8 +114,12 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
             );
             queryParams.push(value);
           } else if (Array.isArray(value)) {
-            conditions.push(`bea."${key}" = ANY($${queryParams.length + 1})`);
-            queryParams.push(value);
+            // Ensure array is not empty, is flat, and is a proper Postgres array
+            const flatArray = value.flat().filter(v => v !== null && v !== undefined && !Array.isArray(v));
+            if (flatArray.length > 0) {
+              conditions.push(`bea."${key}" = ANY($${queryParams.length + 1})`);
+              queryParams.push(flatArray);
+            }
           } else {
             conditions.push(`bea."${key}" = $${queryParams.length + 1}`);
             queryParams.push(value);
@@ -126,14 +130,11 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
     let commissionSelect = '';
 
     if (role === Role.MERCHANT) {
-      commissionSelect = `MAX(bea.ifsc) AS ifsc`;
+      commissionSelect = `bea.ifsc AS ifsc`;
     } else if (role === Role.VENDOR) {
       commissionSelect = `
         bea.ifsc AS ifsc,
-        v.user_id AS user_id,
-        bea.config->>'type' AS config_type,
-        bea.config->>'initial_balance' AS config_initial_balance,
-        bea.config->>'closing_balance' AS config_closing_balance,
+        v.user_id AS user_id
     `;
     } else {
       commissionSelect = `
@@ -145,6 +146,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
         bea.config->>'type' AS config_type,
         bea.config->>'initial_balance' AS config_initial_balance,
         bea.config->>'closing_balance' AS config_closing_balance,
+        bea.config,
         bea.updated_at AS updated_at`;
     }
 
@@ -156,7 +158,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
       bea.bank_name AS bank_name,
       ${commissionSelect ? `${commissionSelect},` : ''}
       v.code AS vendors,
-    m.code AS merchant
+      m.code AS merchant
     FROM public."BeneficiaryAccounts" bea
     LEFT JOIN public."Vendor" v ON bea.user_id = v.user_id
     LEFT JOIN public."Merchant" m ON bea.user_id = m.user_id
@@ -484,53 +486,9 @@ const updateBeneficiaryAccountDao = async (
   id,
   payload,
   conn,
-  isParentDeleted,
+  // isParentDeleted,
 ) => {
   try {
-    // Fetch existing bank config to merge with added_at
-    const existingBankArr = await getBeneficiaryAccountDao({
-      id: id.id,
-    });
-    const existingBank = existingBankArr[0];
-
-    // Handle nested JSON updates for the `config` column
-    if (payload.config && typeof payload.config === 'object') {
-      const configUpdates = payload.config;
-      delete payload.config; // Remove `config` from the main payload
-
-      // Merge the new `config` data into the existing JSON structure
-      const safeConfig = {};
-      //added merchant_added key in config
-      for (const key in configUpdates) {
-        if (
-          key === 'merchant_added' &&
-          typeof configUpdates[key] === 'object'
-        ) {
-          const rawAddedAt = configUpdates[key];
-          const existingAddedAt = existingBank?.config?.merchant_added || {};
-
-          const updatedAddedAt = {
-            ...existingAddedAt,
-            ...rawAddedAt,
-          };
-
-          safeConfig['merchant_added'] = updatedAddedAt;
-        } else {
-          safeConfig[key] = configUpdates[key];
-        }
-      }
-      payload.config = safeConfig;
-    }
-
-    // if vendor delete then this config updated
-    if (isParentDeleted) {
-      const [sql, params] = buildUpdateQuery(
-        tableName.BENEFICIARY_ACCOUNTS,
-        payload,
-        id,
-      );
-      return await conn.query(sql, params);
-    }
     // Use buildAndExecuteUpdateQuery to update the bank account
     return await buildAndExecuteUpdateQuery(
       tableName.BENEFICIARY_ACCOUNTS,

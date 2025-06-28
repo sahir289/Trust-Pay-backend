@@ -1,3 +1,4 @@
+import { Role } from '../../constants/index.js';
 import {
   BENEFICIARY_ACCOUNT_SCHEMA,
   UPDATE_BENEFICIARY_ACCOUNT_SCHEMA,
@@ -19,11 +20,18 @@ import {
 const getBeneficiaryAccount = async (req, res) => {
   const { role, user_id, designation, company_id } = req.user;
   const { page, limit, beneficiary_role, beneficiary_user_id } = req.query;
+  let { is_enabled } = req.query;
   const filters = {
     beneficiary_role,
   };
   if (beneficiary_user_id) {
     filters.user_id = beneficiary_user_id;
+  }
+  if (role === Role.VENDOR) {
+    is_enabled = true; // Vendor can only see enabled beneficiaries
+  }
+  if (is_enabled) {
+    filters['config->>is_enabled'] = is_enabled ? 'true' : 'false';
   }
   const data = await getBeneficiaryAccountService(
     filters,
@@ -86,7 +94,6 @@ const getBeneficiaryAccountById = async (req, res) => {
     },
     role,
   );
-  logger.log('get Bank successfully');
   return sendSuccess(res, data, 'get Bank successfully');
 };
 
@@ -99,12 +106,12 @@ const createBeneficiaryAccount = async (req, res) => {
   const { user_id, company_id } = req.user;
   payload.created_by = user_id;
   payload.updated_by = user_id;
+  payload.company_id = company_id;
   // const data =
   await transactionWrapper(createBeneficiaryAccountService)(
     payload,
     company_id,
   );
-  logger.log('Beneficiary Created successfully');
   return sendSuccess(res, {}, 'Beneficiary Created successfully');
 };
 
@@ -120,7 +127,6 @@ const updateBeneficiaryAccount = async (req, res) => {
   const ids = { id, company_id };
   // const data =
   await transactionWrapper(updateBeneficiaryAccountService)(ids, payload, role);
-  logger.log('Beneficiary Updated successfully');
   return sendSuccess(res, {}, 'Beneficiary Updated successfully');
 };
 

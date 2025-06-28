@@ -725,6 +725,7 @@ export const AccessRoles = {
     Role.OPERATIONS,
     Role.MERCHANT,
     Role.VENDOR,
+    Role.VENDOR_OPERATIONS,
   ],
 };
 export const COUNTRIES = [

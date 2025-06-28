@@ -29,7 +29,6 @@ const getCalculationById = async (req, res) => {
     },
     role,
   );
-  logger.info('Get Calculation successfully', 'info');
   // Respond with the calculation data
   return sendSuccess(res, data, 'Get Calculation successfully');
 };
@@ -48,7 +47,6 @@ const getCalculation = async (req, res) => {
     },
     role,
   );
-  logger.info('Get Calculations successfully');
   return sendSuccess(res, data, 'Get Calculations successfully');
 };
 
@@ -90,7 +88,6 @@ const updateCalculation = async (req, res) => {
   // Assuming the Payout ID is passed as a parameter
   // Call the service to update the Payout
   await transactionWrapper(updateCalculationService)(ids, payload, role);
-  console.info('Update Calculation successfully', 'info');
   return sendSuccess(res, {}, 'Update Calculation successfully');
 };
 
@@ -105,7 +102,6 @@ const deleteCalculation = async (req, res) => {
   const { id } = req.params;
   const ids = { id, company_id };
   await transactionWrapper(deleteCalculationService)(ids, role);
-  console.info('Delete Calculation successfully', 'info');
   return sendSuccess(res, {}, 'Delete Calculation successfully');
 };
 

@@ -400,14 +400,15 @@ export const updateDepositStatus = async (req, res) => {
 
 export const resetDeposit = async (req, res) => {
   const { merchant_order_id } = req.body;
+  const { company_id, user_id } = req.user;
   const joiValidation = VALIDATE_RESET_DEPOSIT.validate(req.body);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
   const data = await transactionWrapper(resetDepositService)(
     merchant_order_id,
-    req.user.company_id,
-    req.user.user_id,
+    company_id,
+    user_id,
   );
     sendSuccess(res, data, 'PayIn reset successful');
 };

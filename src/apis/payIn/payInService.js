@@ -325,7 +325,7 @@ export const getPayInUrlService = async (id, conn, tele_check = true) => {
   }
   // Skip expiration check if tele_check is false
   if (payIn.is_url_expires && tele_check) {
-    if(payIn.one_time_used === true) {
+    if(payIn.one_time_used === true || payIn.is_url_expires === true) {
       const result = {
         redirect_url: payIn.config?.urls?.return,
       };
@@ -910,7 +910,7 @@ export const resetDepositService = async (
       updated_by,
       company_id,
     },
-    merchant_order_id,
+    // merchant_order_id,
   );
 
   const nonResettableStatuses = new Set([
@@ -1197,7 +1197,7 @@ export const processPayInService = async (
   // throw error if not exist or expires
   const payIn = await getPayInUrlService(merchantOrderId, conn, tele_check);
 
-  if(payIn.one_time_used === true) {
+  if(payIn.one_time_used === true || payIn.is_url_expires === true) {
     const result = {
       redirect_url: payIn.config?.urls?.return,
     };
@@ -1703,7 +1703,7 @@ export const processPayInByImageService = async (conn, payload) => {
   let payInData;
   payInData = await getPayInUrlService(merchantOrderId);
 
-  if(payInData.one_time_used === true) {
+  if(payInData.one_time_used === true || payInData.is_url_expires === true) {
     const result = {
       redirect_url: payInData.config?.urls?.return,
     };
