@@ -712,7 +712,6 @@ const updateBankResponseService = async (id, payload, role) => {
     await beginTransaction(conn); // Start a transaction
     const data = await updateBankResponseDao(id, payload, conn); // Adjust DAO call for update
     await commit(conn); // Commit the transaction
-    logger.info('BankResponse updated successfully', 'info');
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -720,11 +719,7 @@ const updateBankResponseService = async (id, payload, role) => {
       try {
         await rollback(conn); // Rollback the transaction in case of error
       } catch (rollbackError) {
-        logger.info(
-          'Error during transaction rollback',
-          'error',
-          rollbackError,
-        );
+        logger.error('Error while rollback in BankResponse', rollbackError);
       }
     }
     logger.error('Error while updating BankResponse', error);
@@ -734,11 +729,7 @@ const updateBankResponseService = async (id, payload, role) => {
       try {
         conn.release(); // Release the connection back to the pool
       } catch (releaseError) {
-        logger.info(
-          'Error while releasing the connection',
-          'error',
-          releaseError,
-        );
+        logger.error('Error while release connection in BankResponse', releaseError);
       }
     }
   }
@@ -884,7 +875,7 @@ const resetBankResponseService = async (conn, id, userData) => {
       await resetBankResponseDao(id, updateData);
     }
 
-    logger.info(`Bank response reset successful for ID: ${id}`, 'info');
+    // logger.info(`Bank response reset successful for ID: ${id}`, 'info');
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: company_id,

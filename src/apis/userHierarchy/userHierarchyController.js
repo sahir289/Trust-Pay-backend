@@ -12,7 +12,6 @@ import {
   VALIDATE_USER_HIERARCHY_BY_ID,
 } from '../../schemas/userHierarchySchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
-import { logger } from '../../utils/logger.js';
 
 const createUserHierarchy = async (req, res) => {
   const { error } = VALIDATE_USER_HIERARCHY_SCHEMA.validate(req.body);
@@ -82,10 +81,9 @@ const updateUserHierarchy = async (req, res) => {
   payload.updated_by = user_id;
   const ids = { id, company_id };
   // Call the service to update the UserHierarchy
-  const result = await updateUserHierarchyService(ids, payload, role);
+   await updateUserHierarchyService(ids, payload, role);
 
   // Log success message
-  logger.log('UserHierarchy updated successfully', result);
 
   // Send a success response to the client
   return sendSuccess(res, {}, 'UserHierarchy updated successfully');
