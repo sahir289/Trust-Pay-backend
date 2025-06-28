@@ -9,6 +9,7 @@ import { getVendorsDao } from '../apis/vendors/vendorDao.js';
 import { logger } from '../utils/logger.js';
 import { getUserHierarchysDao } from '../apis/userHierarchy/userHierarchyDao.js';
 import dayjs from 'dayjs';
+import collectBankData from './bankCron.js';
 
 //run only on server - side /production level
 if (process.env.NODE_ENV === 'production') {
@@ -195,6 +196,11 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
       type === 'H' ? 'Hourly Report' : 'Daily Report',
     );
     logger.info('Dashboard Report CRON Ended');
+    if (type === 'N') {
+      logger.info('Bank CRON Started');
+      await collectBankData('Asia/Kolkata');
+      logger.info('Bank CRON Ended');
+    }
   } catch (error) {
     logger.error(error);
   } finally {

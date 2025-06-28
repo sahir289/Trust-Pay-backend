@@ -114,8 +114,12 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
             );
             queryParams.push(value);
           } else if (Array.isArray(value)) {
-            conditions.push(`bea."${key}" = ANY($${queryParams.length + 1})`);
-            queryParams.push(value);
+            // Ensure array is not empty, is flat, and is a proper Postgres array
+            const flatArray = value.flat().filter(v => v !== null && v !== undefined && !Array.isArray(v));
+            if (flatArray.length > 0) {
+              conditions.push(`bea."${key}" = ANY($${queryParams.length + 1})`);
+              queryParams.push(flatArray);
+            }
           } else {
             conditions.push(`bea."${key}" = $${queryParams.length + 1}`);
             queryParams.push(value);
@@ -133,7 +137,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
         v.user_id AS user_id,
         bea.config->>'type' AS config_type,
         bea.config->>'initial_balance' AS config_initial_balance,
-        bea.config->>'closing_balance' AS config_closing_balance,
+        bea.config->>'closing_balance' AS config_closing_balance
     `;
     } else {
       commissionSelect = `
@@ -157,7 +161,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
       bea.config,
       ${commissionSelect ? `${commissionSelect},` : ''}
       v.code AS vendors,
-    m.code AS merchant
+      m.code AS merchant
     FROM public."BeneficiaryAccounts" bea
     LEFT JOIN public."Vendor" v ON bea.user_id = v.user_id
     LEFT JOIN public."Merchant" m ON bea.user_id = m.user_id

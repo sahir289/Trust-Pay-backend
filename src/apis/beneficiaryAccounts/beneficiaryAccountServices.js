@@ -69,28 +69,18 @@ const getBeneficiaryAccountService = async (
     } else if (role === Role.VENDOR) {
       if (designation == Role.VENDOR) {
         filters.user_id = [user_id];
-        const adminUser = await getUserByCompanyCreatedAtDao(
-          company_id,
-          Role.ADMIN,
-        );
-        filters.user_id = [filters.user_id, adminUser.id];
       } else if (designation == Role.VENDOR_OPERATIONS) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
         const parentID = userHierarchys[0]?.config?.parent;
         if (parentID) {
           filters.user_id = [parentID];
         }
-        const adminUser = await getUserByCompanyCreatedAtDao(
-          company_id,
-          Role.ADMIN,
-        );
-        filters.user_id = [filters.user_id, adminUser.id];
       }
       const adminUser = await getUserByCompanyCreatedAtDao(
         company_id,
         Role.ADMIN,
       );
-      filters.user_id = [filters.user_id, adminUser.id];
+      filters.user_id = [...filters.user_id, adminUser.id];
     } else if (role === Role.ADMIN && filters?.user_id) {
       // filters.user_id = [user_id];
       const adminUser = await getUserByCompanyCreatedAtDao(
