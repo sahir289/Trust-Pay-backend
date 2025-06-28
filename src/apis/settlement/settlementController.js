@@ -16,7 +16,6 @@ import {
 } from './settlementServices.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getBankResponseDao } from '../bankResponse/bankResponseDao.js';
-import logger from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { Role } from '../../constants/index.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
@@ -180,7 +179,6 @@ const createSettlementController = async (req, res) => {
     { id: settlement.id, created_by: user_name },
     'Created Settlement Successfully',
   );
-  logger.info('Created Settlement Successfully', settlement);
 };
 
 const updateSettlementController = async (req, res) => {
@@ -206,7 +204,6 @@ const updateSettlementController = async (req, res) => {
     { id: data.id, updated_by: user_name },
     'Updated settlement',
   );
-  logger.info('Created Settlement Successfully', data);
 };
 
 const deleteSettlementController = async (req, res) => {

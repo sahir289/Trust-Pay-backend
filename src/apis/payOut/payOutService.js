@@ -275,7 +275,6 @@ const createPayoutService = async (
       });
     }
 
-    logger.info('Payout created successfully');
     const finalResult = filterResponse(data, filterColumns);
     await newTableEntry(tableName.PAYOUT);
     return finalResult;
@@ -905,7 +904,6 @@ const deletePayoutService = async (id, updated_by, role) => {
     payload.updated_by = updated_by;
     const data = await deletePayoutDao(id, payload); // Adjust DAO call for delete
     await commit(conn); // Commit the transaction
-    logger.info('Payout deleted successfully', 'info');
     const finalResult = await filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {

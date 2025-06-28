@@ -984,7 +984,7 @@ export const resetDepositService = async (
       updated_by,
       company_id,
     },
-    merchant_order_id,
+    // merchant_order_id,
   );
 
   const nonResettableStatuses = new Set([

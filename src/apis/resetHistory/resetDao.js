@@ -222,10 +222,14 @@ const getResetHistoryBySearchDao = async (
     throw error;
   }
 };
-const createResetHistoryDao = async (payload) => {
+const createResetHistoryDao = async (payload,conn) => {
   try {
     const tableName = 'ResetDataHistory';
     const [sql, params] = buildInsertQuery(tableName, payload);
+    if (conn && conn.query) {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
+    }
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
