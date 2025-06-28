@@ -639,17 +639,6 @@ const getBankResponseService = async (
       ...filters,
     };
     sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
-    console.log(await getBankResponseDaoAll(
-      filters,
-      page,
-      limit,
-      filterColumns,
-      updated,
-      sortBy,
-      sortOrder || 'DESC',
-      payload.startDate || undefined,
-      payload.endDate || undefined,
-    ));
     return await getBankResponseDaoAll(
       filters,
       page,
