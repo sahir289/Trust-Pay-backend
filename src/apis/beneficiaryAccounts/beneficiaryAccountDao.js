@@ -154,6 +154,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
       bea.upi_id AS upi_id,
       bea.acc_holder_name AS acc_holder_name,
       bea.bank_name AS bank_name,
+      bea.config,
       ${commissionSelect ? `${commissionSelect},` : ''}
       v.code AS vendors,
     m.code AS merchant
@@ -484,53 +485,9 @@ const updateBeneficiaryAccountDao = async (
   id,
   payload,
   conn,
-  isParentDeleted,
+  // isParentDeleted,
 ) => {
   try {
-    // Fetch existing bank config to merge with added_at
-    const existingBankArr = await getBeneficiaryAccountDao({
-      id: id.id,
-    });
-    const existingBank = existingBankArr[0];
-
-    // Handle nested JSON updates for the `config` column
-    if (payload.config && typeof payload.config === 'object') {
-      const configUpdates = payload.config;
-      delete payload.config; // Remove `config` from the main payload
-
-      // Merge the new `config` data into the existing JSON structure
-      const safeConfig = {};
-      //added merchant_added key in config
-      for (const key in configUpdates) {
-        if (
-          key === 'merchant_added' &&
-          typeof configUpdates[key] === 'object'
-        ) {
-          const rawAddedAt = configUpdates[key];
-          const existingAddedAt = existingBank?.config?.merchant_added || {};
-
-          const updatedAddedAt = {
-            ...existingAddedAt,
-            ...rawAddedAt,
-          };
-
-          safeConfig['merchant_added'] = updatedAddedAt;
-        } else {
-          safeConfig[key] = configUpdates[key];
-        }
-      }
-      payload.config = safeConfig;
-    }
-
-    // if vendor delete then this config updated
-    if (isParentDeleted) {
-      const [sql, params] = buildUpdateQuery(
-        tableName.BENEFICIARY_ACCOUNTS,
-        payload,
-        id,
-      );
-      return await conn.query(sql, params);
-    }
     // Use buildAndExecuteUpdateQuery to update the bank account
     return await buildAndExecuteUpdateQuery(
       tableName.BENEFICIARY_ACCOUNTS,
