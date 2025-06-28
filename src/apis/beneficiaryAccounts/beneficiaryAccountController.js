@@ -86,7 +86,6 @@ const getBeneficiaryAccountById = async (req, res) => {
     },
     role,
   );
-  logger.log('get Bank successfully');
   return sendSuccess(res, data, 'get Bank successfully');
 };
 
@@ -104,7 +103,6 @@ const createBeneficiaryAccount = async (req, res) => {
     payload,
     company_id,
   );
-  logger.log('Beneficiary Created successfully');
   return sendSuccess(res, {}, 'Beneficiary Created successfully');
 };
 
@@ -120,7 +118,6 @@ const updateBeneficiaryAccount = async (req, res) => {
   const ids = { id, company_id };
   // const data =
   await transactionWrapper(updateBeneficiaryAccountService)(ids, payload, role);
-  logger.log('Beneficiary Updated successfully');
   return sendSuccess(res, {}, 'Beneficiary Updated successfully');
 };
 

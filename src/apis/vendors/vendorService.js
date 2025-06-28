@@ -47,7 +47,6 @@ const createVendorService = async (conn, payload) => {
       },
       conn,
     );
-    logger.info('Vendor created successfully', 'info');
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: data.company_id,
@@ -203,7 +202,6 @@ const updateVendorService = async (id, payload, role) => {
     await beginTransaction(conn); // Start a transaction
     const data = await updateVendorDao(id, payload, conn); // Adjust DAO call for update
     await commit(conn); // Commit the transaction
-    logger.info('Vendor updated successfully', 'info');
     const finalResult = filterResponse(data, filterColumns);
     // await notifyAdminsAndUsers({
     //   conn,
@@ -293,7 +291,6 @@ const deleteVendorService = async (ids, user_id) => {
     //   subCategory: 'Vendor'
     // });
     await commit(conn); // Commit the transaction
-    logger.info('Vendor deleted successfully', 'info');
     return data;
   } catch (error) {
     if (conn) {
