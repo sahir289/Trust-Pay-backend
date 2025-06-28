@@ -12,37 +12,37 @@ const getPayInMerchantReportDao = async (
   status,
 ) => {
   try {
-    let commissionSelect = `u.payin_merchant_commission,
+    let commissionSelect = `pi.payin_merchant_commission,
         json_build_object(
           'merchant_code', r.code,
           'return_url', r.config->>'return_url',
           'notify_url', r.config->>'notify_url'
       ) AS merchant_details, 
-      u.approved_at, 
-      u.created_by, 
-      u.updated_by, 
-      u.created_at, 
-      u.updated_at`;
+      pi.approved_at, 
+      pi.created_by, 
+      pi.updated_by, 
+      pi.created_at, 
+      pi.updated_at`;
 
     if (role === Role.ADMIN) {
       commissionSelect += `, v.code AS vendor_code,
-      u.payin_vendor_commission `;
+      pi.payin_vendor_commission `;
     }
 
     let query = `
         SELECT 
-        u.id,
-        u.sno,
-        u.upi_short_code,
-        u.amount,
-        u.status,
-        u.merchant_order_id,
-        u.is_notified,
-        u.user_submitted_utr,
-        u.user,
-        u.user_submitted_image,
-        u.duration,
-        u.config AS payin_details,
+        pi.id,
+        pi.sno,
+        pi.upi_short_code,
+        pi.amount,
+        pi.status,
+        pi.merchant_order_id,
+        pi.is_notified,
+        pi.user_submitted_utr,
+        pi.user,
+        pi.user_submitted_image,
+        pi.duration,
+        pi.config AS payin_details,
         b.nick_name,
         ${commissionSelect},
         u.payin_merchant_commission, r.code AS merchant_code,
@@ -50,12 +50,12 @@ const getPayInMerchantReportDao = async (
             'utr', br.utr,
             'amount', br.amount
         ) AS bank_res_details
-        FROM public."Payin" u
-        LEFT JOIN public."Merchant" r ON u.merchant_id = r.id
-        LEFT JOIN public."BankAccount" b ON u.bank_acc_id = b.id
+        FROM public."Payin" pi
+        LEFT JOIN public."Merchant" r ON pi.merchant_id = r.id
+        LEFT JOIN public."BankAccount" b ON pi.bank_acc_id = b.id
         LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
-        LEFT JOIN public."BankResponse" br ON u.bank_response_id = br.id
-        WHERE u.company_id = $1 AND u.is_obsolete = false`;
+        LEFT JOIN public."BankResponse" br ON pi.bank_response_id = br.id
+        WHERE pi.company_id = $1 AND pi.is_obsolete = false`;
 
     let parameters = [company_id];
     let paramIndex = parameters.length + 1;
@@ -63,10 +63,10 @@ const getPayInMerchantReportDao = async (
     //   if(role === Role.ADMIN){
     //     commissionSelect += `,
     //  v.code AS vendor_code,
-    //   u.payin_vendor_commission `;
+    //   pi.payin_vendor_commission `;
     //   }
     if (merchant_id) {
-      query += ` AND u.merchant_id = ANY($${paramIndex})`;
+      query += ` AND pi.merchant_id = ANY($${paramIndex})`;
       parameters.push(merchant_id);
       paramIndex++;
     }
@@ -77,7 +77,7 @@ const getPayInMerchantReportDao = async (
       if (!Array.isArray(status)) {
         status = [status];
       }
-      query += ` AND u.status = ANY($${paramIndex})`;
+      query += ` AND pi.status = ANY($${paramIndex})`;
       parameters.push(status);
       paramIndex++;
     }
@@ -99,12 +99,12 @@ const getPayInMerchantReportDao = async (
           query += `AND (pi.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
           break;
         default:
-          query += ` AND (COALESCE(u.approved_at, u.failed_at) BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+          query += ` AND (COALESCE(pi.approved_at, pi.failed_at) BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
       }
       parameters.push(startDate, endDate);
     }
 
-    query += ` ORDER BY u.sno ASC;`;
+    query += ` ORDER BY pi.sno ASC;`;
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
@@ -195,7 +195,7 @@ const getPayInVendorReportDao = async (
           query += `AND (pi.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
           break;
         default:
-          query += ` AND (COALESCE(u.approved_at, u.failed_at) BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+          query += ` AND (COALESCE(pi.approved_at, pi.failed_at) BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
       }
       parameters.push(startDate, endDate);
     }
