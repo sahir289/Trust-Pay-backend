@@ -11,7 +11,7 @@ import {
 } from '../../schemas/bankAccoountSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
+import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { getBankaccountDao, getMerchantBankDao } from './bankaccountDao.js';
 import {
   getBankaccountService,
@@ -119,15 +119,7 @@ const createBankaccount = async (req, res) => {
     role,
   );
   if (unique.length > 0) {
-    return res.status(400).json({
-      error: {
-        status: 400,
-        message: 'Nick Name Must Be Unique',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    return sendError(res, 'Nick Name Must Be Unique', 400)
   }
   // const data =
   const bankDetail = await transactionWrapper(createBankaccountService)(

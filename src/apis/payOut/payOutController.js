@@ -1,5 +1,5 @@
 import { transactionWrapper } from '../../utils/db.js';
-import { sendSuccess, sendNewSuccess } from '../../utils/responseHandlers.js';
+import { sendSuccess, sendNewSuccess, sendError } from '../../utils/responseHandlers.js';
 import {
   createPayoutService,
   deletePayoutService,
@@ -76,13 +76,12 @@ const createPayout = async (req, res) => {
   };
 
   // Send a success response to the client
-  return sendNewSuccess(res, updateRes, 'Payout created successfully', 201);
-  //   return res.status(200).json({
-  //     message: 'Payout created successfully',
-  //     statusCode: 201,
-  //     data: updateRes,
-  //   });
-  // };
+  if (result.status === 400 || result.status === 404) {
+    return sendError(res, result.message, result.status);
+  }
+  else {
+    return sendNewSuccess(res, updateRes, 'Payout created successfully', 201);
+  }
 };
 const getPayoutsById = async (req, res) => {
   const joiValidation = VALIDATE_PAYOUT_BY_ID.validate(req.params);
@@ -188,15 +187,14 @@ const checkPayOutStatus = async (req, res) => {
     req.body.merchantCode,
     req.body.merchantOrderId,
     api_key,
-    res,
   );
   // sendSuccess(res, data);
-  return sendNewSuccess(res, data, 'PayOut status fetched successfully', 200);
-  // return res.status(200).json({
-  //   message: 'PayOut status fetched successfully',
-  //   statusCode: 200,
-  //   data,
-  // });
+  if (data.status === 400 || data.status === 404) {
+    return sendError(res, data.message, data.status);
+  }
+  else {
+    return sendNewSuccess(res, data, 'PayOut status fetched successfully');
+  }
 };
 
 export {

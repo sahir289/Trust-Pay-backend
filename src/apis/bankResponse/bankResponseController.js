@@ -7,7 +7,7 @@ import {
   // VALIDATE_BANK_RESPONSE_QUERY,
 } from '../../schemas/bankResponseSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
-import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
+import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   getBankResponseService,
   getClaimResponseService,
@@ -151,39 +151,28 @@ const getBankMessage = async (req, res) => {
 };
 
 const resetBankResponseController = async (req, res) => {
-  try {
-    const { company_id, user_name, role, user_id } = req.user;
-    const { id } = req.params;
-    const { amount, utr, bank_id } = req.body;
+  const { company_id, user_name, role, user_id } = req.user;
+  const { id } = req.params;
+  const { amount, utr, bank_id } = req.body;
 
-    // Validate request body
-    const { error } = RESET_BANK_RESPONSE_SCHEMA.validate(req.body);
-    if (error) {
-      throw new ValidationError(error);
-    }
-
-    // Call service to handle the reset logic
-    const result = await transactionWrapper(resetBankResponseService)(id, {
-      company_id,
-      user_name,
-      user_id,
-      role,
-      amount,
-      utr,
-      bank_id,
-    });
-
-    // Send success response
-    return sendSuccess(res, result, result.message);
-  } catch (error) {
-    // Handle errors and send appropriate response
-    return sendError(
-      res,
-      {},
-      error.message || 'An error occurred while resetting bank response',
-      error.statusCode || 500,
-    );
+  // Validate request body
+  const { error } = RESET_BANK_RESPONSE_SCHEMA.validate(req.body);
+  if (error) {
+    throw new ValidationError(error);
   }
+
+  // Call service to handle the reset logic
+  const result = await transactionWrapper(resetBankResponseService)(id, {
+    company_id,
+    user_name,
+    user_id,
+    role,
+    amount,
+    utr,
+    bank_id,
+  });
+
+  return sendSuccess(res, result, result.message);
 };
 
 const importBankResponse = async (req, res) => {

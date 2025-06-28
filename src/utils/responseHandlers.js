@@ -33,6 +33,7 @@ const sendSuccess = (
   }
   return res.status(status).json(finalRes);
 };
+
 const sendNewSuccess = (res, Data = {}, message = '', status = 200) => {
   const finalRes = {
     message: message || '',
@@ -43,21 +44,21 @@ const sendNewSuccess = (res, Data = {}, message = '', status = 200) => {
   return res.status(200).json(finalRes);
 };
 
-const sendError = (res, error, message, statusCode) => {
-  const finalRes = {
-    error: {},
-    meta: {},
-    data: {},
+const sendError = (res, message, statusCode) => {
+  const error = {
+    additionalInfo: {},
+    level: 'info',
+    timestamp: new Date().toISOString(),
   };
 
   if (message) {
-    finalRes.error.message = message;
+    error.message = message;
   }
-  if (error && typeof error === 'object' && Object.keys(error).length > 0) {
-    finalRes.error = { ...error };
+  if (statusCode) {
+    error.status = statusCode;
   }
-  logger.error(message);
-  return res.status(statusCode).json(finalRes);
+  logger.error(error);
+  return res.status(statusCode).json(error);
 };
 
 export { sendSuccess, sendError, sendNewSuccess };
