@@ -103,6 +103,7 @@ const getBeneficiaryAccountService = async (
 
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
+    filters.company_id = company_id;
 
     return await getBeneficiaryAccountDaoAll(
       { ...filters },
@@ -363,6 +364,7 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
   try {
     const [banks] = await getBeneficiaryAccountDao({
       id: ids.id,
+      company_id: ids.company_id,
     });
 
     if (!banks) {
@@ -397,7 +399,7 @@ const deleteBeneficiaryAccountService = async (conn, ids) => {
   try {
     let result = await deleteBeneficiaryDao(
       conn,
-      { id: ids.id },
+      { id: ids.id, company_id: ids.company_id },
       { is_obsolete: true },
     );
     return result;

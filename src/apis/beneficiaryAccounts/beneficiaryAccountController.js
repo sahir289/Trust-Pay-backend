@@ -106,6 +106,7 @@ const createBeneficiaryAccount = async (req, res) => {
   const { user_id, company_id } = req.user;
   payload.created_by = user_id;
   payload.updated_by = user_id;
+  payload.company_id = company_id;
   // const data =
   await transactionWrapper(createBeneficiaryAccountService)(
     payload,
