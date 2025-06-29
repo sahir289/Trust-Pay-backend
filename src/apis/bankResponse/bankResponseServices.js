@@ -52,7 +52,6 @@ import PDFParser from 'pdf2json';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const createBankResponseService = async (
-  conn,
   payload,
   companyId,
   role,
@@ -160,13 +159,23 @@ const createBankResponseService = async (
     let botRes;
 
     // Use a transaction for all DB operations for a single entry
-    let localConn = conn;
+    let localConn
     let shouldRelease = false;
     if (!localConn) {
-      localConn = await getConnection();
-      shouldRelease = true;
+      try {
+        localConn = await getConnection();
+        shouldRelease = true;
+      } catch (connErr) {
+        logger.error('Failed to get DB connection:', connErr);
+        throw connErr;
+      }
     }
+    logger.info('DB connection acquired:', !!localConn);
+
     try {
+      if (!localConn) {
+        throw new Error('No valid DB connection available');
+      }
       await beginTransaction(localConn);
 
       botRes = await createBankResponseDao(localConn, updatedData);
@@ -193,7 +202,7 @@ const createBankResponseService = async (
 
       ////for bank account ////vendor calculation
       if (botRes.status === '/success') {
-        const bankdetails = await getBankaccountDao(
+        const bankDetails = await getBankaccountDao(
           {
             id: botRes?.bank_id,
             company_id: companyId,
@@ -203,8 +212,8 @@ const createBankResponseService = async (
           role,
         );
         if (
-          isNaN(bankdetails[0].balance) ||
-          isNaN(bankdetails[0].today_balance)
+          isNaN(bankDetails[0].balance) ||
+          isNaN(bankDetails[0].today_balance)
         ) {
           throw new BadRequestError('Invalid amount or commission');
         }
@@ -212,11 +221,11 @@ const createBankResponseService = async (
           { id: botRes?.bank_id },
           {
             balance:
-              parseFloat(bankdetails[0].balance) + parseFloat(botRes.amount),
+              parseFloat(bankDetails[0].balance) + parseFloat(botRes.amount),
             today_balance:
-              parseFloat(bankdetails[0].today_balance) +
+              parseFloat(bankDetails[0].today_balance) +
               parseFloat(botRes.amount),
-            payin_count: parseFloat(bankdetails[0].payin_count + 1),
+            payin_count: parseFloat(bankDetails[0].payin_count + 1),
           },
           localConn,
         );
@@ -226,10 +235,10 @@ const createBankResponseService = async (
           { latest_balance: res.today_balance },
           role,
           companyId,
-          bankdetails[0].user_id,
+          bankDetails[0].user_id,
         );
         vendor = await getVendorsDao({
-          user_id: bankdetails[0].user_id,
+          user_id: bankDetails[0].user_id,
         });
         if (isNaN(vendor[0].balance)) {
           throw new BadRequestError('Invalid amount or commission');
@@ -450,8 +459,8 @@ const createBankResponseService = async (
             req_amount: updatePayin.amount,
             utr_id: updatePayin.utr,
           });
-          const merchnatData = merchantData[0].balance + amount;
-          if (isNaN(merchnatData)) {
+          const merchantDataBalance = merchantData[0].balance + amount;
+          if (isNaN(merchantDataBalance)) {
             throw new BadRequestError('Invalid amount or commission');
           }
           await updateCalculationTable(merchantData[0].user_id, {
@@ -535,6 +544,7 @@ const createBankResponseService = async (
       if (shouldRelease) localConn.release();
       return { message: `Entry created successfully` };
     } catch (err) {
+      logger.error('Error starting transaction:', err); // log full error
       if (localConn) {
         try {
           await rollback(localConn);
