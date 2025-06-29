@@ -529,19 +529,24 @@ const createBankResponseService = async (
       }
 
       await commit(localConn);
-      if (shouldRelease) localConn.release();
       return { message: `Entry created successfully` };
     } catch (err) {
-      logger.error('Error starting transaction:', err); // log full error
       if (localConn) {
         try {
           await rollback(localConn);
         } catch (rollbackErr) {
-          logger.error('Error during rollback in createBankResponseService:', rollbackErr);
+          logger.error('Error during rollback:', rollbackErr);
         }
-        if (shouldRelease) localConn.release();
       }
       throw err;
+    } finally {
+      if (shouldRelease && localConn) {
+        try {
+          localConn.release();
+        } catch (releaseErr) {
+          logger.error('Error releasing connection:', releaseErr);
+        }
+      }
     }
   } catch (error) {
     logger.error('Error in createBankResponseService:', error.message);
