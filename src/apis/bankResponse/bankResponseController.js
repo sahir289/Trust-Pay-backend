@@ -86,7 +86,7 @@ const createBankResponse = async (req, res) => {
   if (error) {
     throw new ValidationError(error);
   }
-  const result = await transactionWrapper(createBankResponseService)(
+  const result = await createBankResponseService(
     payload,
     company_id,
     role,
@@ -103,7 +103,7 @@ const createBankBotResponse = async (req, res) => {
   if (error) {
     throw new ValidationError(error);
   }
-  const result = await transactionWrapper(createBankResponseService)(
+  const result = await createBankResponseService(
     payload,
     x_auth_token,
     Role.BOT,

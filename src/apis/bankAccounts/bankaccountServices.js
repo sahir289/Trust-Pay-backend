@@ -307,14 +307,6 @@ const updateBankaccountService = async (
   } catch (error) {
     logger.error('error getting while  updating banks', error);
     throw error;
-  } finally{
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 
