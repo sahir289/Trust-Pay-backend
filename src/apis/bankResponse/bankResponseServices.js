@@ -333,7 +333,7 @@ const createBankResponseService = async (
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
           if (updatePayInDataRes) {
             await newTableEntry(tableName.PAYIN);
-            merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
+            await merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
               status: updatePayInDataRes.status,
               merchantOrderId: updatePayInDataRes.merchant_order_id,
               payinId: updatePayInDataRes.id,
@@ -451,7 +451,7 @@ const createBankResponseService = async (
           );
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
           await newTableEntry(tableName.PAYIN);
-          merchantPayinCallback(updatePayin.config.urls?.notify, {
+          await merchantPayinCallback(updatePayin.config.urls?.notify, {
             status: updatePayin.status,
             merchantOrderId: updatePayin.merchant_order_id,
             payinId: updatePayin.id,
@@ -516,7 +516,7 @@ const createBankResponseService = async (
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
           if (updatePayInDataRes) {
             await newTableEntry(tableName.PAYIN);
-            merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
+            await merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
               status: updatePayInDataRes.status,
               merchantOrderId: updatePayInDataRes.merchant_order_id,
               payinId: updatePayInDataRes.id,
