@@ -159,23 +159,11 @@ const createBankResponseService = async (
     let botRes;
 
     // Use a transaction for all DB operations for a single entry
-    let localConn
+    let localConn;
     let shouldRelease = false;
-    if (!localConn) {
-      try {
-        localConn = await getConnection();
-        shouldRelease = true;
-      } catch (connErr) {
-        logger.error('Failed to get DB connection:', connErr);
-        throw connErr;
-      }
-    }
-    logger.info('DB connection acquired:', !!localConn);
-
     try {
-      if (!localConn) {
-        throw new Error('No valid DB connection available');
-      }
+      localConn = await getConnection();
+      shouldRelease = true;
       await beginTransaction(localConn);
 
       botRes = await createBankResponseDao(localConn, updatedData);
