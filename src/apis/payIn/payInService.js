@@ -418,6 +418,8 @@ export const assignedBankToPayInUrlService = async (
           return: payIn.config?.urls?.return,
           bank: {
             upi_id: bank[0].upi_id,
+            acc_holder_name: bank[0].acc_holder_name,
+            code: payIn.upi_short_code,
           },
         };
       }
@@ -528,6 +530,8 @@ export const assignedBankToPayInUrlService = async (
       return: updatePayIn.config?.urls?.return,
       bank: {
         upi_id: selectedBankDetails.upi_id,
+        acc_holder_name: selectedBankDetails.acc_holder_name,
+        code: updatePayIn.upi_short_code,
       },
     };
   }
