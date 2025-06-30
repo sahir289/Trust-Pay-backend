@@ -46,7 +46,7 @@ import {
   rollback,
 } from '../../utils/db.js';
 import { filterResponse } from '../../helpers/index.js';
-import { notifyNewTableEntry } from '../../utils/sockets.js';
+// import { notifyNewTableEntry } from '../../utils/sockets.js';
 import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
 import PDFParser from 'pdf2json';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
@@ -167,21 +167,21 @@ const createBankResponseService = async (
     //   }
     // }
 
-    const sendNotification = async (status, data) => {
-      await notifyNewTableEntry(tableName.BANK_RESPONSE, status, data);
-    };
+    // const sendNotification = async (status, data) => {
+    //   await notifyNewTableEntry(tableName.BANK_RESPONSE, status, data);
+    // };
 
     let botRes;
 
     botRes = await createBankResponseDao(conn, updatedData);
-    await sendNotification(updatedData.status.replace('/', ''), {
-      id: botRes.id,
-      utr: botRes.utr,
-      amount: botRes.amount,
-      bank_id: botRes.bank_id,
-      company_id: botRes.company_id,
-      created_by: botRes.created_by,
-    });
+    // await sendNotification(updatedData.status.replace('/', ''), {
+    //   id: botRes.id,
+    //   utr: botRes.utr,
+    //   amount: botRes.amount,
+    //   bank_id: botRes.bank_id,
+    //   company_id: botRes.company_id,
+    //   created_by: botRes.created_by,
+    // });
 
     if (updatedData.status === '/repeated') {
       if (upi_short_code) {
@@ -322,7 +322,6 @@ const createBankResponseService = async (
         );
         await updateBotResponseDao(botRes.id, { is_used: true }, conn);
         if (updatePayInDataRes) {
-          await newTableEntry(tableName.PAYIN);
           merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
             status: updatePayInDataRes.status,
             merchantOrderId: updatePayInDataRes.merchant_order_id,
@@ -332,12 +331,12 @@ const createBankResponseService = async (
             utr_id: updatePayInDataRes.utr,
           });
         }
-        await sendNotification(Status.BANK_MISMATCH, {
-          id: payInUtr.id,
-          user_submitted_utr: botRes.utr,
-          bank_response_id: botRes.id,
-          merchant_order_id: updatePayInDataRes?.merchant_order_id,
-        });
+        // await sendNotification(Status.BANK_MISMATCH, {
+        //   id: payInUtr.id,
+        //   user_submitted_utr: botRes.utr,
+        //   bank_response_id: botRes.id,
+        //   merchant_order_id: updatePayInDataRes?.merchant_order_id,
+        // });
         return {
           message: `Bank Mismatch with ${updatePayInDataRes?.merchant_order_id}`,
         };
@@ -523,12 +522,12 @@ const createBankResponseService = async (
           });
         }
 
-        await sendNotification(Status.DISPUTE, {
-          id: payInUtr.id,
-          user_submitted_utr: botRes.utr,
-          bank_response_id: botRes.id,
-          merchant_order_id: updatePayInDataRes?.merchant_order_id,
-        });
+        // await sendNotification(Status.DISPUTE, {
+        //   id: payInUtr.id,
+        //   user_submitted_utr: botRes.utr,
+        //   bank_response_id: botRes.id,
+        //   merchant_order_id: updatePayInDataRes?.merchant_order_id,
+        // });
         return {
           message: `Entry is in Dispute with ${updatePayInDataRes?.merchant_order_id}`,
         };
@@ -892,7 +891,6 @@ const resetBankResponseService = async (conn, id, userData) => {
       updated_by: user_name,
       updated_at: new Date().toISOString(),
     };
-
     await newTableEntry(tableName.BANK_RESPONSE, results);
     return results;
   } catch (error) {
