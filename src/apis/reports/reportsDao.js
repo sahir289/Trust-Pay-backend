@@ -60,7 +60,6 @@ const getPayInMerchantReportDao = async (
     let parameters = [company_id];
     let paramIndex = parameters.length + 1;
 
-  
     if (merchant_id) {
       query += ` AND pi.merchant_id = ANY($${paramIndex})`;
       parameters.push(merchant_id);
@@ -103,7 +102,7 @@ const getPayInMerchantReportDao = async (
         query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
       }
       parameters.push(startDate, endDate);
-      paramIndex += 2; 
+      paramIndex += 2;
     }
     query += ` ORDER BY pi.sno ASC;`;
     const result = await executeQuery(query, parameters);
@@ -123,7 +122,6 @@ const getPayInVendorReportDao = async (
   status,
 ) => {
   try {
-
     const commissionSelect = `
       pi.payin_vendor_commission,
       pi.approved_at,
@@ -202,7 +200,7 @@ const getPayInVendorReportDao = async (
         query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
       }
       parameters.push(startDate, endDate);
-      paramIndex += 2; 
+      paramIndex += 2;
     }
 
     query += ` ORDER BY pi.sno ASC;`;
@@ -537,6 +535,8 @@ const getMerchantReportDao = async (
         ORDER BY c.id DESC, m.code ASC, c.created_at ASC
       ) 
       SELECT * FROM filtered_merchants ORDER BY code NULLS LAST`;
+
+    // Only apply database-level pagination if both page and limit are provided
     if (page && limit) {
       const offset = (parseInt(page) - 1) * parseInt(limit);
       query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
@@ -607,10 +607,11 @@ const getVendorReportDao = async (
 
     query += `
     ORDER BY c.id, v.code ASC
-)
-SELECT * FROM filtered_vendors
-ORDER BY created_at ASC`;
+    )
+    SELECT * FROM filtered_vendors
+    ORDER BY created_at ASC`;
 
+    // Only apply database-level pagination if both page and limit are provided
     if (page && limit) {
       const offset = (page - 1) * limit;
       query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;

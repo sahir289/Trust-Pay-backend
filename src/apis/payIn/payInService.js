@@ -2058,14 +2058,14 @@ export const telegramCheckUTRService = async (
     }
 
     if (
-      ![Status.PENDING, Status.ASSIGNED, Status.DROPPED].includes(payIn.status)
+      ![Status.ASSIGNED, Status.DROPPED].includes(payIn.status)
     ) {
       return {
         status: payIn.status,
         message: `PayIn is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
       };
     }
-    updatePayInUrlDao({ id: payIn.id }, { is_url_expires: false }, conn);
+    // updatePayInUrlDao({ id: payIn.id }, { is_url_expires: false }, conn);
 
     return await processPayInService(
       conn,
