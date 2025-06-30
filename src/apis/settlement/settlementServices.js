@@ -407,28 +407,42 @@ const updateSettlementService = async (conn, ids, payload) => {
 
       if (data[0].role === Role.VENDOR) {
         const vendorData = await getVendorsDao({ user_id: data[0].user_id });
-        const [beneficiaryAcc] = await getBeneficiaryAccountDao({
-          user_id: data[0].config.bank_id,
-        });
+        if (data[0].method === 'BANK') {
+          const [beneficiaryAcc] = await getBeneficiaryAccountDao({
+            user_id: data[0].config.bank_id,
+          });
 
-        const vendorBalance = vendorData[0].balance - payload?.amount;
+          let beneficiaryClosingBalance;
+          if (
+            payload?.config?.debit_credit &&
+            payload?.config?.debit_credit === 'send'
+          ) {
+            beneficiaryClosingBalance =
+              beneficiaryAcc.config?.closing_balance - payload?.amount;
+          } else {
+            beneficiaryClosingBalance =
+              beneficiaryAcc.config?.closing_balance + payload?.amount;
+          }
 
-        let beneficiaryClosingBalance;
-        if (
-          payload?.config?.debit_credit &&
-          payload?.config?.debit_credit === 'send'
-        ) {
-          beneficiaryClosingBalance =
-            beneficiaryAcc.config?.closing_balance - payload?.amount;
-        } else {
-          beneficiaryClosingBalance =
-            beneficiaryAcc.config?.closing_balance + payload?.amount;
+          const beneficiaryUpdatedConfig = {
+            ...beneficiaryAcc.config,
+            closing_balance: beneficiaryClosingBalance,
+          };
+          await updateBeneficiaryAccountDao(
+            { id: beneficiaryAcc.id, company_id: beneficiaryAcc.company_id },
+            beneficiaryUpdatedConfig,
+            conn,
+            false,
+          );
+
+          payload.config = {
+            ...payload.config,
+            beneficiary_initial_balance: beneficiaryAcc.config?.closing_balance,
+            beneficiary_closing_balance: beneficiaryClosingBalance,
+          };
         }
 
-        const beneficiaryUpdatedConfig = {
-          ...beneficiaryAcc.config,
-          closing_balance: beneficiaryClosingBalance,
-        };
+        const vendorBalance = vendorData[0].balance - payload?.amount;
 
         await updateVendorBalanceDao(
           { id: vendorData[0].id },
@@ -436,18 +450,6 @@ const updateSettlementService = async (conn, ids, payload) => {
           payload.user_id,
           conn,
         );
-        await updateBeneficiaryAccountDao(
-          { id: beneficiaryAcc.id, company_id: beneficiaryAcc.company_id },
-          beneficiaryUpdatedConfig,
-          conn,
-          false,
-        );
-
-        payload.config = {
-          ...payload.config,
-          beneficiary_initial_balance: beneficiaryAcc.config?.closing_balance,
-          beneficiary_closing_balance: beneficiaryClosingBalance,
-        };
       } else if (data[0].role === Role.MERCHANT) {
         const merchantAcc = merchantData[0].balance - payload?.amount;
         await updateMerchantDao(
@@ -469,7 +471,7 @@ const updateSettlementService = async (conn, ids, payload) => {
       if (merchant_data.length > 0) {
         // payload.config.reference_id = '';
         // payload.config.rejected_reason = '';
-        payload.status = Status.REJECTED;
+        payload.status = Status.REVERSED;
         let updatedCalculation;
         const amount = payload?.amount || 0;
 
@@ -497,7 +499,7 @@ const updateSettlementService = async (conn, ids, payload) => {
           data[0].method === 'INTERNAL_QR_TRANSFER' ||
           data[0].method === 'INTERNAL_BANK_TRANSFER'
         ) {
-          payload.status = Status.REJECTED;
+          payload.status = Status.REVERSED;
           const [vendorData, calculationData] = await Promise.all([
             getVendorsDao({ user_id: data[0].user_id }),
             getCalculationforCronDao(data[0].user_id),
@@ -522,7 +524,7 @@ const updateSettlementService = async (conn, ids, payload) => {
           await updateBankResponseDao(
             { id: bankResponses.id },
             { status: '/success' },
-            conn
+            conn,
           );
           const VendorCommission = vendorData[0].payin_commission || 0;
           const commission = calculateCommission(
@@ -546,50 +548,54 @@ const updateSettlementService = async (conn, ids, payload) => {
             net_balance: amount - commission,
           };
         } else {
-          const [beneficiaryAcc] = await getBeneficiaryAccountDao({
-            user_id: data[0].config.bank_id,
-          });
-          let beneficiaryClosingBalance;
-          if (
-            data?.config?.debit_credit &&
-            data?.config?.debit_credit === 'send'
-          ) {
-            beneficiaryClosingBalance =
-              beneficiaryAcc?.config?.closing_balance + payload?.amount;
-          } else {
-            beneficiaryClosingBalance =
-              beneficiaryAcc?.config?.closing_balance - payload?.amount;
-          }
-          const beneficiaryUpdatedConfig = {
-            ...beneficiaryAcc?.config,
-            closing_balance: beneficiaryClosingBalance,
-          };
-          await updateBeneficiaryAccountDao(
-            { id: beneficiaryAcc.id, company_id: beneficiaryAcc.company_id },
-            beneficiaryUpdatedConfig,
-            conn,
-            false,
-          );
+          if (data[0].role === Role.VENDOR && data[0].method === 'BANK') {
+            const [beneficiaryAcc] = await getBeneficiaryAccountDao({
+              user_id: data[0].config.bank_id,
+            });
+            let beneficiaryClosingBalance;
+            if (
+              data?.config?.debit_credit &&
+              data?.config?.debit_credit === 'send'
+            ) {
+              beneficiaryClosingBalance =
+                beneficiaryAcc?.config?.closing_balance + payload?.amount;
+            } else {
+              beneficiaryClosingBalance =
+                beneficiaryAcc?.config?.closing_balance - payload?.amount;
+            }
+            const beneficiaryUpdatedConfig = {
+              ...beneficiaryAcc?.config,
+              closing_balance: beneficiaryClosingBalance,
+            };
+            await updateBeneficiaryAccountDao(
+              { id: beneficiaryAcc.id, company_id: beneficiaryAcc.company_id },
+              beneficiaryUpdatedConfig,
+              conn,
+              false,
+            );
 
-          if (
-            data?.congig?.debit_credit &&
-            data?.config?.debit_credit === 'send'
-          ) {
-            payload.config = {
-              ...data.config,
-              beneficiary_closing_balance:
-                data.config?.closing_balance + payload?.amount,
-            };
-          } else {
-            payload.config = {
-              ...data.config,
-              beneficiary_initial_balance:
-                data.config?.initial_balance - payload?.amount === 0
-                  ? data.config?.initial_balance
-                  : Number(data.config?.initial_balance) - Number(payload?.amount),
-              beneficiary_closing_balance:
-                Number(data.config?.closing_balance) - Number(payload?.amount),
-            };
+            if (
+              data?.congig?.debit_credit &&
+              data?.config?.debit_credit === 'send'
+            ) {
+              payload.config = {
+                ...data.config,
+                beneficiary_closing_balance:
+                  data.config?.closing_balance + payload?.amount,
+              };
+            } else {
+              payload.config = {
+                ...data.config,
+                beneficiary_initial_balance:
+                  data.config?.initial_balance - payload?.amount === 0
+                    ? data.config?.initial_balance
+                    : Number(data.config?.initial_balance) -
+                      Number(payload?.amount),
+                beneficiary_closing_balance:
+                  Number(data.config?.closing_balance) -
+                  Number(payload?.amount),
+              };
+            }
           }
 
           updatedCalculation = {
