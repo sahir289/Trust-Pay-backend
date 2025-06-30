@@ -146,7 +146,7 @@ const getClientsAccountReportService = async (req) => {
         }
       }
 
-      // Fetch parent and child data
+      // Fetch parent and child data WITHOUT pagination to ensure proper merging
       const parentData = await getMerchantReportDao(
         company_id,
         typeof code === 'string'
@@ -156,8 +156,8 @@ const getClientsAccountReportService = async (req) => {
             : [code],
         startDate,
         endDate,
-        page,
-        limit,
+        null, // Remove page parameter
+        null, // Remove limit parameter  
         role,
       );
       let childData = [];
@@ -167,8 +167,8 @@ const getClientsAccountReportService = async (req) => {
           subMerchants,
           startDate,
           endDate,
-          page,
-          limit,
+          null, // Remove page parameter
+          null, // Remove limit parameter
           role,
         );
       }
@@ -288,6 +288,15 @@ const getClientsAccountReportService = async (req) => {
         result = Object.values(parentMap)
           .map(({ ...rest }) => rest)
           .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+        // Apply pagination to the final aggregated result
+        if (page && limit) {
+          const pageNum = parseInt(page);
+          const limitNum = parseInt(limit);
+          const startIndex = (pageNum - 1) * limitNum;
+          const endIndex = startIndex + limitNum;
+          result = result.slice(startIndex, endIndex);
+        }
       } else {
         result = [];
         logger.warn('parentData is not an array:', parentData);
