@@ -17,9 +17,9 @@ dayjs.extend(timezone);
 const IST = 'Asia/Kolkata';
 
 // Only run cron jobs in development environment
-// if (process.env.NODE_ENV == 'production') {
+if (process.env.NODE_ENV == 'production') {
   cron.schedule(
-    '08 19 * * *',
+    '20 19 * * *',
     () => {
       logger.info('Running calculation cron job in production mode');
       collectCalculationData();
@@ -28,9 +28,9 @@ const IST = 'Asia/Kolkata';
       timezone: IST,
     },
   );
-// } else {
-//   logger.error('Cron jobs are disabled in non-production environments.');
-// }
+} else {
+  logger.error('Cron jobs are disabled in non-production environments.');
+}
 
 const collectCalculationData = async () => {
   try {
