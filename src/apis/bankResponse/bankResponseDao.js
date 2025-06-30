@@ -13,7 +13,7 @@ import {
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
-import { newTableEntry } from '../../utils/sockets.js';
+// import { newTableEntry } from '../../utils/sockets.js';
 const IST = 'Asia/Kolkata';
 
 const getBankResponseDao = async (
@@ -552,11 +552,11 @@ export const updateBankResponseDao = async (id, data, conn) => {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, id);
     if (conn && conn.query) {
       const result = await conn.query(sql, params);
-      await newTableEntry(tableName.BANK_RESPONSE);
+      // await newTableEntry(tableName.BANK_RESPONSE);
       return result.rows[0];
     }
     const result = await executeQuery(sql, params);
-    await newTableEntry(tableName.BANK_RESPONSE);
+    // await newTableEntry(tableName.BANK_RESPONSE);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateBankResponseDao:', error);
@@ -616,7 +616,7 @@ const updateBotResponseDao = async (id, data, conn) => {
     } else {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
-    await newTableEntry(tableName.BANK_RESPONSE);
+    // await newTableEntry(tableName.BANK_RESPONSE);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateBotResponseDao:', error);
