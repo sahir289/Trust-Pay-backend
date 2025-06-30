@@ -60,11 +60,7 @@ const getPayInMerchantReportDao = async (
     let parameters = [company_id];
     let paramIndex = parameters.length + 1;
 
-    //   if(role === Role.ADMIN){
-    //     commissionSelect += `,
-    //  v.code AS vendor_code,
-    //   pi.payin_vendor_commission `;
-    //   }
+  
     if (merchant_id) {
       query += ` AND pi.merchant_id = ANY($${paramIndex})`;
       parameters.push(merchant_id);
@@ -82,27 +78,32 @@ const getPayInMerchantReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
-      if (status.includes(Status.SUCCESS)) {
-        query += `AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
-      } else if (
-        status.includes(Status.FAILED) ||
-        status.includes(Status.DROPPED)
-      ) {
-        query += `AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
-      } else if (
-        status.includes(Status.INITIATED) ||
-        status.includes(Status.PENDING) ||
-        status.includes(Status.BANK_MISMATCH) ||
-        status.includes(Status.ASSIGNED) ||
-        status.includes(Status.DISPUTE) ||
-        status.includes(Status.IMG_PENDING) ||
-        status.includes(Status.DUPLICATE)
-      ) {
-        query += `AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+      if (status && Array.isArray(status)) {
+        if (status.includes(Status.SUCCESS)) {
+          query += ` AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        } else if (
+          status.includes(Status.FAILED) ||
+          status.includes(Status.DROPPED)
+        ) {
+          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        } else if (
+          status.includes(Status.INITIATED) ||
+          status.includes(Status.PENDING) ||
+          status.includes(Status.BANK_MISMATCH) ||
+          status.includes(Status.ASSIGNED) ||
+          status.includes(Status.DISPUTE) ||
+          status.includes(Status.IMG_PENDING) ||
+          status.includes(Status.DUPLICATE)
+        ) {
+          query += ` AND (pi.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        } else {
+          query += ` AND (COALESCE(pi.approved_at, pi.failed_at) BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        }
       } else {
-        query += `AND (COALESCE(pi.approved_at, pi.failed_at) BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        query += ` AND (COALESCE(pi.approved_at, pi.failed_at) BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
       }
       parameters.push(startDate, endDate);
+      paramIndex += 2; 
     }
     query += ` ORDER BY pi.sno ASC;`;
     const result = await executeQuery(query, parameters);
@@ -179,27 +180,29 @@ const getPayInVendorReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
-      if (status.includes(Status.SUCCESS)) {
-        query += `AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
-      } else if (
-        status.includes(Status.FAILED) ||
-        status.includes(Status.DROPPED)
-      ) {
-        query += `AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
-      } else if (
-        status.includes(Status.INITIATED) ||
-        status.includes(Status.PENDING) ||
-        status.includes(Status.BANK_MISMATCH) ||
-        status.includes(Status.ASSIGNED) ||
-        status.includes(Status.DISPUTE) ||
-        status.includes(Status.IMG_PENDING) ||
-        status.includes(Status.DUPLICATE)
-      ) {
-        query += `AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+      if (status && Array.isArray(status)) {
+        if (status.includes(Status.SUCCESS)) {
+          query += ` AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        } else if (
+          status.includes(Status.FAILED) ||
+          status.includes(Status.DROPPED) ||
+          status.includes(Status.INITIATED) ||
+          status.includes(Status.PENDING) ||
+          status.includes(Status.BANK_MISMATCH) ||
+          status.includes(Status.ASSIGNED) ||
+          status.includes(Status.DISPUTE) ||
+          status.includes(Status.IMG_PENDING) ||
+          status.includes(Status.DUPLICATE)
+        ) {
+          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        } else {
+          query += ` AND (COALESCE(pi.approved_at, pi.failed_at) BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        }
       } else {
-        query += `AND (COALESCE(pi.approved_at, pi.failed_at) BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        query += ` AND (COALESCE(pi.approved_at, pi.failed_at) BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
       }
       parameters.push(startDate, endDate);
+      paramIndex += 2; 
     }
 
     query += ` ORDER BY pi.sno ASC;`;
