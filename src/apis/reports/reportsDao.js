@@ -82,28 +82,28 @@ const getPayInMerchantReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
-      switch (status) {
-        case Status.SUCCESS:
-          query += `AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`;
-          break;
-        case Status.FAILED || Status.DROPPED:
-          query += `AND (pi.failed_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
-          break;
-        case Status.INITIATED ||
-          Status.PENDING ||
-          Status.BANK_MISMATCH ||
-          Status.ASSIGNED ||
-          Status.DISPUTE ||
-          Status.DUPLICATE:
-          query += `AND (pi.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
-          break;
-        default:
-          query += ` AND (COALESCE(pi.approved_at, pi.failed_at) BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+      if (status.includes(Status.SUCCESS)) {
+        query += `AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+      } else if (
+        status.includes(Status.FAILED) ||
+        status.includes(Status.DROPPED)
+      ) {
+        query += `AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+      } else if (
+        status.includes(Status.INITIATED) ||
+        status.includes(Status.PENDING) ||
+        status.includes(Status.BANK_MISMATCH) ||
+        status.includes(Status.ASSIGNED) ||
+        status.includes(Status.DISPUTE) ||
+        status.includes(Status.IMG_PENDING) ||
+        status.includes(Status.DUPLICATE)
+      ) {
+        query += `AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+      } else {
+        query += `AND (COALESCE(pi.approved_at, pi.failed_at) BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
       }
       parameters.push(startDate, endDate);
     }
-
     query += ` ORDER BY pi.sno ASC;`;
     const result = await executeQuery(query, parameters);
     return result.rows;
@@ -179,30 +179,30 @@ const getPayInVendorReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
-      switch (status) {
-        case Status.SUCCESS:
-          query += `AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`;
-          break;
-        case Status.FAILED || Status.DROPPED:
-          query += `AND (pi.failed_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
-          break;
-        case Status.INITIATED ||
-          Status.PENDING ||
-          Status.BANK_MISMATCH ||
-          Status.ASSIGNED ||
-          Status.DISPUTE ||
-          Status.DUPLICATE:
-          query += `AND (pi.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
-          break;
-        default:
-          query += ` AND (COALESCE(pi.approved_at, pi.failed_at) BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+      if (status.includes(Status.SUCCESS)) {
+        query += `AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+      } else if (
+        status.includes(Status.FAILED) ||
+        status.includes(Status.DROPPED)
+      ) {
+        query += `AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+      } else if (
+        status.includes(Status.INITIATED) ||
+        status.includes(Status.PENDING) ||
+        status.includes(Status.BANK_MISMATCH) ||
+        status.includes(Status.ASSIGNED) ||
+        status.includes(Status.DISPUTE) ||
+        status.includes(Status.IMG_PENDING) ||
+        status.includes(Status.DUPLICATE)
+      ) {
+        query += `AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+      } else {
+        query += `AND (COALESCE(pi.approved_at, pi.failed_at) BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
       }
       parameters.push(startDate, endDate);
     }
 
     query += ` ORDER BY pi.sno ASC;`;
-
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
