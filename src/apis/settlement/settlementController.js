@@ -97,6 +97,7 @@ const createSettlementController = async (req, res) => {
   const { company_id, user_id, user_name, designation } = req.user;
   payload.company_id = company_id;
   payload.created_by = user_id;
+  payload.updated_by = user_id;
   payload.status = 'INITIATED';
   let User_id = user_id;
   if (
