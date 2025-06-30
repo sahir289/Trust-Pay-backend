@@ -361,6 +361,7 @@ const updateSettlementService = async (conn, ids, payload) => {
 
     if (payload.config.reference_id) {
       payload.status = Status.SUCCESS;
+      payload.approved_at = new Date();
       if (!data) {
         throw new InternalServerError('no data found');
       }
@@ -462,6 +463,7 @@ const updateSettlementService = async (conn, ids, payload) => {
 
     if (payload.config.rejected_reason) {
       payload.status = Status.REJECTED;
+      payload.rejected_at = new Date();
     }
 
     if (payload.status === Status.INITIATED) {
@@ -472,6 +474,7 @@ const updateSettlementService = async (conn, ids, payload) => {
         // payload.config.reference_id = '';
         // payload.config.rejected_reason = '';
         payload.status = Status.REVERSED;
+        payload.rejected_at = new Date();
         let updatedCalculation;
         const amount = payload?.amount || 0;
 
@@ -493,6 +496,7 @@ const updateSettlementService = async (conn, ids, payload) => {
         // payload.config.reference_id = '';
         // payload.config.rejected_reason = '';
         payload.status = Status.REVERSED;
+        payload.rejected_at = new Date();
         let updatedCalculation;
         const amount = payload?.amount || 0;
         if (
@@ -500,6 +504,7 @@ const updateSettlementService = async (conn, ids, payload) => {
           data[0].method === 'INTERNAL_BANK_TRANSFER'
         ) {
           payload.status = Status.REVERSED;
+          payload.rejected_at = new Date();
           const [vendorData, calculationData] = await Promise.all([
             getVendorsDao({ user_id: data[0].user_id }),
             getCalculationforCronDao(data[0].user_id),
