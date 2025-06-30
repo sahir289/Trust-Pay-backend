@@ -17,6 +17,7 @@ export const CREATE_SETTLEMENT_SCHEMA = Joi.object({
   bank_id: Joi.string().label('bank_name').optional(),
   ifsc: Joi.string().label('ifsc').optional(),
   created_by: Joi.string().label('created_by').optional(),
+  updated_by: Joi.string().label('updated_by').optional(),
   //---allow description for cash / AED settlements
   description: Joi.string().label('description').optional(),
   // --allow wallet balance for crypto
