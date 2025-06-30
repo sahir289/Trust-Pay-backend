@@ -98,19 +98,14 @@ Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
 
-export const generatePayInUrlByHashService = async (conn, req, res) => {
+export const generatePayInUrlByHashService = async (conn, req) => {
   const { user_id, code, ot, key, amount } = req.query;
   if (!user_id || !code || !ot) {
-    //-- correct error handling
-    return res.status(400).json({
-      error: {
-        status: 400,
-        message: 'Missing required query parameters: user_id, code, or ot',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const data = {
+      status: 400,
+      message: 'Missing required query parameters: user_id, code, or ot',
+    }
+    return data;
   }
   // const x_api_key = req.headers['x-api-key'];
   const merchantArr = await getMerchantsByCodeDao(code);
@@ -128,15 +123,11 @@ export const generatePayInUrlByHashService = async (conn, req, res) => {
     //   subCategory: 'PayIn',
     // });
     //-- correct error handling
-    return res.status(400).json({
-      error: {
-        status: 404,
-        message: 'Bank Account has not been linked with Merchant',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const data = {
+      status: 404,
+      message: 'Bank Account has not been linked with Merchant',
+    }
+    return data;
   }
 
   // bank is not enabled or no method is enabled for payment - no payment link generates
@@ -155,15 +146,11 @@ export const generatePayInUrlByHashService = async (conn, req, res) => {
     //   subCategory: 'PayIn',
     // });
     // error handling
-    return res.status(400).json({
-      error: {
-        status: 404,
-        message: 'Bank Account has not been linked with Merchant',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const data = {
+      status: 404,
+      message: 'Bank Account has not been linked with Merchant',
+    }
+    return data;
   }
   //loop over evrey bank
   const allPaymentOptionsDisabled = bankAssigned.every((bank) => {
@@ -176,15 +163,11 @@ export const generatePayInUrlByHashService = async (conn, req, res) => {
   });
 
   if (allPaymentOptionsDisabled) {
-    return res.status(400).json({
-      error: {
-        status: 404,
-        message: 'No Payment Methods Enabled!',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const data = {
+      status: 404,
+      message: 'No Payment Methods Enabled!',
+    }
+    return data;
   }
 
   let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
@@ -208,7 +191,6 @@ export const generatePayInUrlService = async (
   conn,
   payload,
   created_by,
-  res,
   userIp,
   fromUI,
 ) => {
@@ -242,15 +224,11 @@ export const generatePayInUrlService = async (
       }
       // Check if userIp is in whitelist (if whitelist is not empty)
       if (whitelist.length && !whitelist.includes(userIp)) {
-        return res.status(400).json({
-          error: {
-            status: 400,
-            message: 'IP not whitelisted',
-            additionalInfo: {},
-            level: 'info',
-            timestamp: new Date().toISOString(),
-          },
-        });
+        const data = {
+          status: 400,
+          message: 'IP not whitelisted',
+        }
+        return data;
       }
     }
 
@@ -259,29 +237,19 @@ export const generatePayInUrlService = async (
     });
 
     if (isOrderIdExist) {
-      // throw new BadRequestError('Merchant Order ID already exists');
-      return res.status(400).json({
-        error: {
-          status: 400,
-          message: 'Merchant Order ID already exists',
-          additionalInfo: {},
-          level: 'info',
-          timestamp: new Date().toISOString(),
-        },
-      });
+      const data = {
+        status: 400,
+        message: 'Merchant Order ID already exists',
+      }
+      return data;
     }
 
     if (!merchant) {
-      // throw new NotFoundError('Merchant does not exist');
-      return res.status(400).json({
-        error: {
-          status: 400,
-          message: 'Merchant does not exist',
-          additionalInfo: {},
-          level: 'info',
-          timestamp: new Date().toISOString(),
-        },
-      });
+      const data = {
+        status: 400,
+        message: 'Merchant does not exist',
+      }
+      return data;
     }
 
     const merchantAPIKey = merchant.config?.keys;
@@ -291,16 +259,11 @@ export const generatePayInUrlService = async (
       api_key != merchantAPIKey?.private &&
       api_key != merchantAPIKey?.public
     ) {
-      // throw new BadRequestError('Enter valid Api key');
-      return res.status(400).json({
-        error: {
-          status: 404,
-          message: 'Enter valid Api key',
-          additionalInfo: {},
-          level: 'info',
-          timestamp: new Date().toISOString(),
-        },
-      });
+      const data = {
+        status: 404,
+        message: 'Enter valid Api key',
+      }
+      return data;
     }
 
     if (
@@ -308,32 +271,19 @@ export const generatePayInUrlService = async (
       x_api_key != merchantAPIKey?.private &&
       x_api_key != merchantAPIKey?.public
     ) {
-      // throw new BadRequestError('Enter valid Api key');
-      return res.status(400).json({
-        error: {
-          status: 404,
-          message: 'Enter valid Api key',
-          additionalInfo: {},
-          level: 'info',
-          timestamp: new Date().toISOString(),
-        },
-      });
+      const data = {
+        status: 404,
+        message: 'Enter valid Api key',
+      }
+      return data;
     }
 
     if (amount < merchant.min_payin || amount > merchant.max_payin) {
-      // throw new BadRequestError(
-      //   `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
-      // );
-
-      return res.status(400).json({
-        error: {
-          status: 400,
-          message: `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
-          additionalInfo: {},
-          level: 'info',
-          timestamp: new Date().toISOString(),
-        },
-      });
+      const data = {
+        status: 400,
+        message: `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
+      }
+      return data;
     }
 
     const expirationDate =
@@ -399,7 +349,7 @@ export const getPayInUrlService = async (id, conn, tele_check = true) => {
       conn,
     );
     // Notifying merchant about expired URL
-    merchantPayinCallback(config.urls?.notify, {
+    await merchantPayinCallback(config.urls?.notify, {
       status: Status.DROPPED,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
@@ -426,7 +376,7 @@ export const expirePayInUrlService = async (payInId) => {
     is_url_expires: true,
     status: Status.DROPPED,
   });
-  merchantPayinCallback(config.urls?.notify, {
+  await merchantPayinCallback(config.urls?.notify, {
     status: Status.DROPPED,
     merchantOrderId: payIn.merchant_order_id,
     payinId: payIn.id,
@@ -468,6 +418,8 @@ export const assignedBankToPayInUrlService = async (
           return: payIn.config?.urls?.return,
           bank: {
             upi_id: bank[0].upi_id,
+            acc_holder_name: bank[0].acc_holder_name,
+            code: payIn.upi_short_code,
           },
         };
       }
@@ -529,7 +481,7 @@ export const assignedBankToPayInUrlService = async (
       is_url_expires: true,
       status: Status.DROPPED,
     });
-    merchantPayinCallback(payInConfig.urls?.notify, {
+    await merchantPayinCallback(payInConfig.urls?.notify, {
       status: Status.DROPPED,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
@@ -578,6 +530,8 @@ export const assignedBankToPayInUrlService = async (
       return: updatePayIn.config?.urls?.return,
       bank: {
         upi_id: selectedBankDetails.upi_id,
+        acc_holder_name: selectedBankDetails.acc_holder_name,
+        code: updatePayIn.upi_short_code,
       },
     };
   }
@@ -591,21 +545,15 @@ export const checkPayInStatusService = async (
   merchantCode,
   merchantOrderId,
   api_key,
-  res,
 ) => {
   const merchantArr = await getMerchantsDao({ code: merchantCode });
   const merchant = merchantArr[0];
   if (!merchant) {
-    // throw new NotFoundError('Merchant does not exist');
-    return res.status(400).json({
-      error: {
-        status: 400,
-        message: 'Merchant Order ID already exists',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const data = {
+      status: 400,
+      message: 'Merchant Order ID already exists',
+    }
+    return data;
   }
 
   const merchantConfig = merchant.config || {};
@@ -614,16 +562,11 @@ export const checkPayInStatusService = async (
     api_key != merchantConfig.keys?.private &&
     api_key != merchantConfig.keys?.public
   ) {
-    // throw new BadRequestError(403, 'Enter a valid API key');
-    return res.status(400).json({
-      error: {
-        status: 404,
-        message: 'Enter valid Api key',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const data = {
+      status: 404,
+      message: 'Enter valid Api key',
+    }
+    return data;
   }
 
   const payIn = await getPayInUrlDao({
@@ -632,33 +575,20 @@ export const checkPayInStatusService = async (
   });
 
   if (!payIn) {
-    // throw new NotFoundError('payIn not found');
-    return res.status(400).json({
-      error: {
-        status: 404,
-        message: 'PayIn not found',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const data = {
+      status: 404,
+      message: 'PayIn not found',
+    }
+    return data;
   }
 
   //check is payIn detials belongs to that merchant or not
   if (!(payIn.merchant_id === merchant.id)) {
-    // throw new BadRequestError(
-    //   '`merchant_order_id and payIn ID do not belong to the specified merchant`',
-    // );
-    return res.status(400).json({
-      error: {
-        status: 404,
-        message:
-          'merchant_order_id and payIn ID do not belong to the specified merchant',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const data = {
+      status: 404,
+      message: 'merchant_order_id and payIn ID do not belong to the specified merchant',
+    }
+    return data;
   }
 
   let botResponse;
@@ -950,7 +880,7 @@ export const updateDepositStatusService = async (
   //   { id: bank.id, company_id: payInData.company_id },
   //   {},
   // );
-  merchantPayinCallback(updatePayInRes.config?.urls?.notify, {
+  await merchantPayinCallback(updatePayInRes.config?.urls?.notify, {
     status: updatePayInRes.status,
     merchantOrderId: updatePayInRes.merchant_order_id,
     payinId: updatePayInRes.id,
@@ -998,10 +928,7 @@ export const resetDepositService = async (
   ]);
 
   if (nonResettableStatuses.has(payIn.status)) {
-    return {
-      error: `The Order Id: ${payIn.merchant_order_id} with Status: ${payIn.status} cannot be reset!`,
-      status: 400, //-- sending status code along with message
-    };
+    throw new BadRequestError(`The Order Id: ${payIn.merchant_order_id} with Status: ${payIn.status} cannot be reset!`);
   }
 
   const condition = {
@@ -1347,7 +1274,7 @@ export const processPayInService = async (
       result.utr_id =
         bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
     }
-    merchantPayinCallback(payIn.config?.urls?.notify, result);
+    await merchantPayinCallback(payIn.config?.urls?.notify, result);
     return result;
   }
 
@@ -1357,7 +1284,7 @@ export const processPayInService = async (
     result.utr_id =
       bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-    merchantPayinCallback(payIn.config?.urls?.notify, result);
+    await merchantPayinCallback(payIn.config?.urls?.notify, result);
     return {
       ...result,
       message: 'Duplicate entry found!',
@@ -1384,7 +1311,7 @@ export const processPayInService = async (
     result.utr_id =
       bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-    merchantPayinCallback(payIn.config?.urls?.notify, result);
+    await merchantPayinCallback(payIn.config?.urls?.notify, result);
 
     if (from_telegram) {
       const botBank = await getBankaccountDao({ id: bankResponse.bank_id });
@@ -1493,7 +1420,7 @@ export const processPayInService = async (
 
   await updatePayInUrlDao(payIn.id, updatePayInData, conn);
   await newTableEntry(tableName.PAYIN);
-  merchantPayinCallback(payIn.config?.urls?.notify, result);
+  await merchantPayinCallback(payIn.config?.urls?.notify, result);
 
   if (from_telegram) {
     if (
@@ -1962,7 +1889,7 @@ export const disputeDuplicateTransactionService = async (
     } else {
       updateBalance = false;
     }
-    merchantPayinCallback(payIn.config?.urls?.notify, {
+    await merchantPayinCallback(payIn.config?.urls?.notify, {
       status: newStatus,
       merchantOrderId: merchantOrderId,
       payinId: payInData.id,
@@ -1996,7 +1923,7 @@ export const disputeDuplicateTransactionService = async (
   //   updated_by,
   //   conn,
   // );
-  merchantPayinCallback(payIn.config?.urls?.notify, {
+  await merchantPayinCallback(payIn.config?.urls?.notify, {
     status: updatePayload.status,
     merchantOrderId: payIn.merchant_order_id,
     payinId: payIn.id,
@@ -2086,17 +2013,13 @@ export const telegramCheckUTRService = async (
     let otherBankResponse = {};
     const payIn = await getPayInUrlDao({ merchant_order_id });
     if (!bankResponse) {
-      return {
-        error: `UTR ${utr} not found`,
-      };
+      throw new NotFoundError(`UTR ${utr} not found`);
     } else if (bankResponse.status !== '/success') {
-      return { error: `UTR ${utr} found with ${bankResponse.status} STATUS` };
+      throw new BadRequestError(`UTR ${utr} found with ${bankResponse.status} STATUS`);
     } else if (!payIn) {
-      return { error: `MerchantOrderID ${merchant_order_id}  not found` };
+      throw new NotFoundError(`MerchantOrderID ${merchant_order_id}  not found`);
     } else if (payIn?.user_submitted_utr && utr !== payIn?.user_submitted_utr) {
-      return {
-        message: `${utr} UTR Does Not match with ${payIn?.merchant_order_id} Merchant Order ID`,
-      };
+      throw new BadRequestError(`${utr} UTR Does Not match with ${payIn?.merchant_order_id} Merchant Order ID`);
     }
 
     await createCheckUtrService(
@@ -2231,7 +2154,7 @@ export const checkPendingPayinStatusService = async (
         await updateBotResponseDao(bankResponse.id, { is_used: true }, conn);
 
         if (updatePayInDataRes) {
-          merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
+          await merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
             status: updatePayInDataRes.status,
             merchantOrderId: updatePayInDataRes.merchant_order_id,
             payinId: updatePayInDataRes.id,
@@ -2270,7 +2193,7 @@ export const checkPendingPayinStatusService = async (
         await updateBotResponseDao(bankResponse.id, { is_used: true }, conn);
 
         if (updatePayInDataRes) {
-          merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
+          await merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
             status: updatePayInDataRes.status,
             merchantOrderId: updatePayInDataRes.merchant_order_id,
             payinId: updatePayInDataRes.id,
@@ -2313,7 +2236,7 @@ export const checkPendingPayinStatusService = async (
         },
         conn,
       );
-      merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
+      await merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
         status: updatePayInDataRes.status,
         merchantOrderId: updatePayInDataRes.merchant_order_id,
         payinId: updatePayInDataRes.id,

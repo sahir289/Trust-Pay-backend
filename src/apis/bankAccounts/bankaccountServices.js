@@ -8,7 +8,6 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
-// import { sendError } from '../../utils/responseHandlers.js';
 import { deactivateBank } from '../../utils/sockets.js';
 import {
   getBankResponseDaoAll,

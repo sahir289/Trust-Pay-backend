@@ -59,5 +59,5 @@ export const payInUpdateCashfreeWebhook = async (req, res) => {
         ? updatePayinRes?.utr
         : '',
   };
-  merchantPayinCallback(updatePayinRes?.config?.notify_url, notifyData);
+  await merchantPayinCallback(updatePayinRes?.config?.notify_url, notifyData);
 };
