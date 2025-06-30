@@ -471,7 +471,7 @@ const updateSettlementService = async (conn, ids, payload) => {
       if (merchant_data.length > 0) {
         // payload.config.reference_id = '';
         // payload.config.rejected_reason = '';
-        payload.status = Status.REJECTED;
+        payload.status = Status.REVERSED;
         let updatedCalculation;
         const amount = payload?.amount || 0;
 
@@ -492,14 +492,14 @@ const updateSettlementService = async (conn, ids, payload) => {
         // calcution for vendor rejected Settlement
         // payload.config.reference_id = '';
         // payload.config.rejected_reason = '';
-        payload.status = Status.REJECTED;
+        payload.status = Status.REVERSED;
         let updatedCalculation;
         const amount = payload?.amount || 0;
         if (
           data[0].method === 'INTERNAL_QR_TRANSFER' ||
           data[0].method === 'INTERNAL_BANK_TRANSFER'
         ) {
-          payload.status = Status.REJECTED;
+          payload.status = Status.REVERSED;
           const [vendorData, calculationData] = await Promise.all([
             getVendorsDao({ user_id: data[0].user_id }),
             getCalculationforCronDao(data[0].user_id),
