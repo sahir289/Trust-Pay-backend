@@ -7,7 +7,7 @@ import {
   // VALIDATE_BANK_RESPONSE_QUERY,
 } from '../../schemas/bankResponseSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
-import {  sendSuccess } from '../../utils/responseHandlers.js';
+import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   getBankResponseService,
   getClaimResponseService,
@@ -87,7 +87,7 @@ const createBankResponse = async (req, res) => {
   if (error) {
     throw new ValidationError(error);
   }
-  const result = await transactionWrapper(createBankResponseService)(
+  const result = await createBankResponseService(
     payload,
     company_id,
     role,
@@ -105,7 +105,7 @@ const createBankBotResponse = async (req, res) => {
   if (error) {
     throw new ValidationError(error);
   }
-  const result = await transactionWrapper(createBankResponseService)(
+  const result = await createBankResponseService(
     payload,
     x_auth_token,
     Role.BOT,
@@ -154,29 +154,28 @@ const getBankMessage = async (req, res) => {
 };
 
 const resetBankResponseController = async (req, res) => {
-    const { company_id, user_name, role, user_id } = req.user;
-    const { id } = req.params;
-    const { amount, utr, bank_id } = req.body;
+  const { company_id, user_name, role, user_id } = req.user;
+  const { id } = req.params;
+  const { amount, utr, bank_id } = req.body;
 
-    // Validate request body
-    const { error } = RESET_BANK_RESPONSE_SCHEMA.validate(req.body);
-    if (error) {
-      throw new ValidationError(error);
-    }
+  // Validate request body
+  const { error } = RESET_BANK_RESPONSE_SCHEMA.validate(req.body);
+  if (error) {
+    throw new ValidationError(error);
+  }
 
-    // Call service to handle the reset logic
-    const result = await transactionWrapper(resetBankResponseService)(id, {
-      company_id,
-      user_name,
-      user_id,
-      role,
-      amount,
-      utr,
-      bank_id,
-    });
+  // Call service to handle the reset logic
+  const result = await transactionWrapper(resetBankResponseService)(id, {
+    company_id,
+    user_name,
+    user_id,
+    role,
+    amount,
+    utr,
+    bank_id,
+  });
 
-    // Send success response
-    return sendSuccess(res, result, result.message);
+  return sendSuccess(res, result, result.message);
 };
 
 const importBankResponse = async (req, res) => {

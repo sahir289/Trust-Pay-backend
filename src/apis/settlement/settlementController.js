@@ -3,7 +3,7 @@ import {
   UPDATE_SETTLEMENT_SCHEMA,
   VALIDATE_SETTLEMENT_BY_ID_DELETE,
 } from '../../schemas/settlementSchema.js';
-import { ValidationError } from '../../utils/appErrors.js';
+import { NotFoundError, ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
@@ -19,6 +19,7 @@ import { getBankResponseDao } from '../bankResponse/bankResponseDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { Role } from '../../constants/index.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
+import { logger } from '../../utils/logger.js';
 const getSettlementControllerById = async (req, res) => {
   const { id } = req.params;
   const { company_id } = req.user;
@@ -124,31 +125,14 @@ const createSettlementController = async (req, res) => {
       status: '/success',
     });
     if (!bankRes) {
-      return res.status(400).json({
-        error: {
-          status: 404,
-          message: 'No entry found.!',
-        },
-      });
+      throw new NotFoundError('No entry found!');
     }
     const bankRess = await getBankaccountDao({ id: bankRes.bank_id });
     if (payload.user_id !== bankRess[0].user_id) {
-      //--bank id mismatch with utr
-      return res.status(400).json({
-        error: {
-          status: 404,
-          message: 'vendor code is not matching with utr',
-        },
-      });
+      throw new NotFoundError('vendor code is not matching with utr');
     }
     if (bankRes.amount !== payload.amount) {
-      //--amount mismatch with utr
-      return res.status(400).json({
-        error: {
-          status: 404,
-          message: 'Amount is in mismatch!',
-        },
-      });
+      throw new NotFoundError('Amount is in mismatch!');
     }
   }
 
@@ -174,6 +158,7 @@ const createSettlementController = async (req, res) => {
   };
   // const data =
   const settlement = await transactionWrapper(createSettlementService)(data);
+  logger.info('Created Settlement Successfully', settlement);
   sendSuccess(
     res,
     { id: settlement.id, created_by: user_name },

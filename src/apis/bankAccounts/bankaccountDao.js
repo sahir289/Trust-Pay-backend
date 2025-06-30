@@ -605,7 +605,8 @@ const updateBankaccountDao = async (id, payload, conn, isParentDeleted) => {
         payload,
         id,
       );
-      return await conn.query(sql, params);
+      const result = conn.query(sql, params);
+      return result;
     }
     // Use buildAndExecuteUpdateQuery to update the bank account
     return await buildAndExecuteUpdateQuery(

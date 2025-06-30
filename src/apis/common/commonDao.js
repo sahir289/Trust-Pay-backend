@@ -135,6 +135,10 @@ export const getTotalCountDao = async (
           const placeholders = value.map(() => `$${paramIndex++}`).join(',');
           query += ` AND "${tablename}"."${column}" IN (${placeholders})`;
           params.push(...value);
+        } else if (column.includes('->>')) {
+          const [jsonField, jsonKey] = column.split('->>');
+          query += ` AND "${tablename}".${jsonField}->>'${jsonKey}' = $${paramIndex++}`;
+          params.push(value);
         } else {
           // Single value condition
           query += ` AND "${tablename}"."${column}" = $${paramIndex++}`;

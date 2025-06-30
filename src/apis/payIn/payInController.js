@@ -1,9 +1,9 @@
 import config from '../../config/config.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import {
-  sendError,
   sendSuccess,
   sendNewSuccess,
+  sendError,
 } from '../../utils/responseHandlers.js';
 import {
   ASSIGN_PAYIN_SCHEMA,
@@ -45,7 +45,7 @@ import {
   checkPendingPayinStatusService,
   updatePayInService,
 } from './payInService.js';
-import { getConnection, transactionWrapper } from '../../utils/db.js';
+import { transactionWrapper } from '../../utils/db.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { decodeAuthToken, streamToBase64 } from '../../helpers/index.js';
 import { s3 } from '../../helpers/Aws.js';
@@ -66,9 +66,14 @@ const TestingIp = process.env.LOCAL_IP;
 export const generateHashForPayIn = async (req, res) => {
   const updateRes = await transactionWrapper(generatePayInUrlByHashService)(
     req,
-    res,
   ); //-- sending res to resolve
-  return sendSuccess(res, updateRes, 'PayIn hash generated successfully');
+
+  if (updateRes.status === 400 || updateRes.status === 404) {
+    return sendError(res, updateRes.message, updateRes.status);
+  }
+  else {
+    return sendSuccess(res, updateRes, 'PayIn hash generated successfully');
+  }
 };
 
 export const generatePayInUrl = async (req, res) => {
@@ -90,30 +95,22 @@ export const generatePayInUrl = async (req, res) => {
   const apiKey = key ? key : x_api_key;
   if (!apiKey) {
     // throw new BadRequestError('Enter valid Api key');
-    return res.status(400).json({
-      error: {
-        status: 404,
-        message: 'Enter valid Api key',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    // return res.status(400).json({
+    //   error: {
+    //     status: 404,
+    //     message: 'Enter valid Api key',
+    //     additionalInfo: {},
+    //     level: 'info',
+    //     timestamp: new Date().toISOString(),
+    //   },
+    // });
+    return sendError(res, 'Enter valid Api key', 404);
   }
 
   // Fetch the merchant using the code and API public key
   const merchant = await getMerchantByCodeAndApiKey(code, apiKey);
   if (!merchant) {
-    // throw new BadRequestError('Invalid merchant code or API key');
-    return res.status(400).json({
-      error: {
-        status: 400,
-        message: 'Invalid merchant code or API key',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    return sendError(res, 'Invalid merchant code or API key', 400);
   }
 
   // bank is not enabled or no method is enabled for payment - no payment link generates
@@ -121,7 +118,6 @@ export const generatePayInUrl = async (req, res) => {
   const bankAssigned = await getMerchantBankDao({
     config_merchants_contains: merchantArr[0].id,
   });
-  const conn = await getConnection();
   if (bankAssigned.length <= 0) {
     await sendBankNotAssignedAlertTelegram(
       config?.telegramBankAlertChatId,
@@ -137,15 +133,16 @@ export const generatePayInUrl = async (req, res) => {
     //   category: 'Transaction',
     //   subCategory: 'PayIn',
     // });
-    return res.status(400).json({
-      error: {
-        status: 404,
-        message: 'Bank Account has not been linked with Merchant',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    // return res.status(400).json({
+    //   error: {
+    //     status: 404,
+    //     message: 'Bank Account has not been linked with Merchant',
+    //     additionalInfo: {},
+    //     level: 'info',
+    //     timestamp: new Date().toISOString(),
+    //   },
+    // });
+    return sendError(res, 'Bank Account has not been linked with Merchant', 404);
   }
   //loop over each and cehck
 
@@ -157,15 +154,17 @@ export const generatePayInUrl = async (req, res) => {
     //   'Bank assigned to this merchant is not enabled!',
     // );
     // error handling
-    return res.status(400).json({
-      error: {
-        status: 404,
-        message: 'No Payment Methods Enabled!',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    // return res.status(400).json({
+    //   error: {
+    //     status: 404,
+    //     message: 'No Payment Methods Enabled!',
+    //     additionalInfo: {},
+    //     level: 'info',
+    //     timestamp: new Date().toISOString(),
+    //   },
+    // });
+    return sendError(res, 'No Payment Methods Enabled!', 404);
+
   }
   const allPaymentOptionsDisabled = bankAssigned.every((bank) => {
     if (!bank.is_enabled) return true;
@@ -191,15 +190,17 @@ export const generatePayInUrl = async (req, res) => {
     //   category: 'Transaction',
     //   subCategory: 'PayIn',
     // });
-    return res.status(400).json({
-      error: {
-        status: 404,
-        message: 'Bank Account has not been linked with Merchant',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    // return res.status(400).json({
+    //   error: {
+    //     status: 404,
+    //     message: 'Bank Account has not been linked with Merchant',
+    //     additionalInfo: {},
+    //     level: 'info',
+    //     timestamp: new Date().toISOString(),
+    //   },
+    // });
+    return sendError(res, 'Bank Account has not been linked with Merchant', 404);
+
   }
 
   // Create a deterministic hash
@@ -213,15 +214,17 @@ export const generatePayInUrl = async (req, res) => {
     !compareHash(`${code}:${merchant.config.keys.public}`, decodedHashCode)
   ) {
     // throw new BadRequestError('Hash code does not match');
-    return res.status(400).json({
-      error: {
-        status: 400,
-        message: 'Hash code does not match',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    // return res.status(400).json({
+    //   error: {
+    //     status: 400,
+    //     message: 'Hash code does not match',
+    //     additionalInfo: {},
+    //     level: 'info',
+    //     timestamp: new Date().toISOString(),
+    //   },
+    // });
+    return sendError(res, 'Hash code does not match', 400);
+
   }
 
   const token = req.headers[AUTH_HEADER_KEY];
@@ -232,7 +235,6 @@ export const generatePayInUrl = async (req, res) => {
       api_key: apiKey,
     },
     tokenData.user_id,
-    res,
     userIp,
     fromUI,
   );
@@ -251,13 +253,12 @@ export const generatePayInUrl = async (req, res) => {
     status: result?.status,
   };
 
-  if (conn) conn.release();
-
-  return sendNewSuccess(
-    res,
-    updateRes,
-    'PayIn is generated & url is sent successfully',
-  );
+  if (result.status === 400 || result.status === 404) {
+    return sendError(res, result.message, result.status);
+  }
+  else {
+    return sendSuccess(res, updateRes, 'PayIn is generated & url is sent successfully');
+  }
 };
 
 /**
@@ -334,9 +335,14 @@ export const checkPayInStatus = async (req, res) => {
     req.body.merchantCode,
     req.body.merchantOrderId,
     api_key,
-    res,
   );
-  return sendNewSuccess(res, data, 'PayIn status fetched successfully');
+
+  if (data.status === 400 || data.status === 404) {
+    return sendError(res, data.message, data.status);
+  }
+  else {
+    return sendNewSuccess(res, data, 'PayIn status fetched successfully');
+  }
 };
 
 export const payInIntentGenerateOrder = async (req, res) => {
@@ -352,7 +358,7 @@ export const payInIntentGenerateOrder = async (req, res) => {
     amount,
     isRazorpay,
   );
-  sendSuccess(res, data);
+  return sendSuccess(res, data);
 };
 
 export const updatePaymentNotificationStatus = async (req, res) => {
@@ -404,11 +410,7 @@ export const resetDeposit = async (req, res) => {
     company_id,
     user_id,
   );
-  if (data.error) {
-    sendError(res, { error: data.error }, data.error, data.status || 400); //-- send error status along with error message
-  } else {
     sendSuccess(res, data, 'PayIn reset successful');
-  }
 };
 
 export const getPayins = async (req, res) => {
@@ -582,7 +584,7 @@ export const telegramCheckUTR = async (req, res) => {
     req.user.company_id,
     req.user.user_id,
   );
-  sendSuccess(res, result, 'telegramCheckUTR Successfully');
+  sendSuccess(res, result, result?.message || 'telegramCheckUTR Successfully');
 };
 
 export const updatePayIn = async (req, res) => {

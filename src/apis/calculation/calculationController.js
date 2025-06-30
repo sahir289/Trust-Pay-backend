@@ -1,4 +1,4 @@
-import { sendSuccess, sendError } from '../../utils/responseHandlers.js';
+import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   getCalculationService,
   createCalculationService,
@@ -62,7 +62,7 @@ const createCalculation = async (req, res) => {
   payload.company_id = company_id;
   if (!payload) {
     logger.error('payload is required');
-    return sendError(res, 'payload is required', 'Validation Error');
+    throw new BadRequestError('payload is required');
   }
   await transactionWrapper(createCalculationService)(payload, role);
   return sendSuccess(res, {}, 'Create Calculation successfully');
