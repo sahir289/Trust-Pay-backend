@@ -132,7 +132,7 @@ const getSettlementDao = async (
           }
           else {
             conditions.push(
-              `s.created_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
+              `s.updated_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
             ); 
           }
           queryParams.push(start, end);
