@@ -45,7 +45,7 @@ const getPayInMerchantReportDao = async (
         pi.config AS payin_details,
         b.nick_name,
         ${commissionSelect},
-        u.payin_merchant_commission, r.code AS merchant_code,
+        pi.payin_merchant_commission, r.code AS merchant_code,
         json_build_object(
             'utr', br.utr,
             'amount', br.amount
@@ -122,6 +122,7 @@ const getPayInVendorReportDao = async (
   status,
 ) => {
   try {
+
     const commissionSelect = `
       pi.payin_vendor_commission,
       pi.approved_at,
