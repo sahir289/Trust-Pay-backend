@@ -928,6 +928,7 @@ const handleAmountUpdate = async ({
     const updateData = {
       updated_by: user_name,
       config: { ...(botRes.config || {}), previousAmount, previousUpdater },
+      is_used: false,
       amount,
     };
 
