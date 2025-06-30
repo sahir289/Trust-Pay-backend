@@ -46,7 +46,7 @@ import {
   rollback,
 } from '../../utils/db.js';
 import { filterResponse } from '../../helpers/index.js';
-import { notifyNewTableEntry } from '../../utils/sockets.js';
+// import { notifyNewTableEntry } from '../../utils/sockets.js';
 import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
 import PDFParser from 'pdf2json';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
@@ -152,9 +152,23 @@ const createBankResponseService = async (
       ...(isValidAmountCode && { upi_short_code }),
     };
 
-    const sendNotification = async (status, data) => {
-      await notifyNewTableEntry(tableName.BANK_RESPONSE, status, data);
-    };
+    // if (isValidAmountCode) {
+    //   const isAmountCodeExist = await getBankResponseDao(
+    //     { upi_short_code, company_id },
+    //     null,
+    //     null,
+    //     null,
+    //     null,
+    //     filterColumns,
+    //   );
+    //   if (isAmountCodeExist) {
+    //     return { message: 'Amount code already exist' };
+    //   }
+    // }
+
+    // const sendNotification = async (status, data) => {
+    //   await notifyNewTableEntry(tableName.BANK_RESPONSE, status, data);
+    // };
 
     let botRes;
 
@@ -167,14 +181,14 @@ const createBankResponseService = async (
       await beginTransaction(localConn);
 
       botRes = await createBankResponseDao(localConn, updatedData);
-      await sendNotification(updatedData.status.replace('/', ''), {
-        id: botRes.id,
-        utr: botRes.utr,
-        amount: botRes.amount,
-        bank_id: botRes.bank_id,
-        company_id: botRes.company_id,
-        created_by: botRes.created_by,
-      });
+      // await sendNotification(updatedData.status.replace('/', ''), {
+      //   id: botRes.id,
+      //   utr: botRes.utr,
+      //   amount: botRes.amount,
+      //   bank_id: botRes.bank_id,
+      //   company_id: botRes.company_id,
+      //   created_by: botRes.created_by,
+      // });
 
       if (updatedData.status === '/repeated') {
         await commit(localConn);
@@ -330,12 +344,12 @@ const createBankResponseService = async (
               utr_id: updatePayInDataRes.utr,
             });
           }
-          await sendNotification(Status.BANK_MISMATCH, {
-            id: payInUtr.id,
-            user_submitted_utr: botRes.utr,
-            bank_response_id: botRes.id,
-            merchant_order_id: updatePayInDataRes?.merchant_order_id,
-          });
+          // await sendNotification(Status.BANK_MISMATCH, {
+          //   id: payInUtr.id,
+          //   user_submitted_utr: botRes.utr,
+          //   bank_response_id: botRes.id,
+          //   merchant_order_id: updatePayInDataRes?.merchant_order_id,
+          // });
           await commit(localConn);
           if (shouldRelease) localConn.release();
           return {
@@ -514,12 +528,12 @@ const createBankResponseService = async (
             });
           }
 
-          await sendNotification(Status.DISPUTE, {
-            id: payInUtr.id,
-            user_submitted_utr: botRes.utr,
-            bank_response_id: botRes.id,
-            merchant_order_id: updatePayInDataRes?.merchant_order_id,
-          });
+          // await sendNotification(Status.DISPUTE, {
+          //   id: payInUtr.id,
+          //   user_submitted_utr: botRes.utr,
+          //   bank_response_id: botRes.id,
+          //   merchant_order_id: updatePayInDataRes?.merchant_order_id,
+          // });
           await commit(localConn);
           if (shouldRelease) localConn.release();
           return {
@@ -890,7 +904,6 @@ const resetBankResponseService = async (conn, id, userData) => {
       updated_by: user_name,
       updated_at: new Date().toISOString(),
     };
-
     await newTableEntry(tableName.BANK_RESPONSE, results);
     return results;
   } catch (error) {
