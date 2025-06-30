@@ -245,6 +245,7 @@ const getPayOutMerchantReportDao = async (
         po.status,
         po.merchant_order_id,
         po.user,
+        po.utr_id,
         po.config AS payout_details,
         json_build_object(
             'account_holder_name', po.acc_holder_name,
