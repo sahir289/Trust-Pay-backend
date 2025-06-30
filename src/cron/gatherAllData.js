@@ -13,8 +13,8 @@ import collectBankData from './bankCron.js';
 
 //run only on server - side /production level
 if (process.env.NODE_ENV === 'production') {
-  cron.schedule('*/30 * * * *', () => {
-    logger.info('Running  geatherall cron job in production environmenttt');
+  cron.schedule('0 0 * * *', () => {
+    logger.info('Running  geather all cron job in production environment');
     gatherAllData('N', 'Asia/Kolkata');
   });
 
