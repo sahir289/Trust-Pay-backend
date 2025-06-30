@@ -127,7 +127,7 @@ const getSettlementDao = async (
           }
           else if (filters.status === Status.REJECTED) {
             conditions.push(
-              `s.rejected_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
+              `s.approved_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
             );
           }
           else {
