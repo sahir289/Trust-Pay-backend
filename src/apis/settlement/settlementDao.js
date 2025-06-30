@@ -3,7 +3,7 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
-import { tableName } from '../../constants/index.js';
+import { Status, tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import dayjs from 'dayjs';
@@ -120,9 +120,21 @@ const getSettlementDao = async (
           start = dayjs.tz(`${start_date} 00:00:00`, IST).utc().format(); // UTC ISO string
           end = dayjs.tz(`${end_date} 23:59:59.999`, IST).utc().format();
           const nextParamIdx = queryParams.length + 1;
-          conditions.push(
-            `s.created_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
-          );
+          if (filters.status === Status.SUCCESS) {
+            conditions.push(
+              `s.approved_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
+            );
+          }
+          else if (filters.status === Status.REJECTED) {
+            conditions.push(
+              `s.rejected_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
+            );
+          }
+          else {
+            conditions.push(
+              `s.created_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
+            ); 
+          }
           queryParams.push(start, end);
           delete filters.start_date;
           delete filters.end_date;
