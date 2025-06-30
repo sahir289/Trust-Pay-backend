@@ -68,7 +68,7 @@ export const VALIDATE_CHECK_PAY_OUT_STATUS = Joi.object({
   payoutId: Joi.string()
     .guid({ version: ['uuidv4'] })
     .label('payOutId')
-    .required(),
+    .optional(),
   merchantCode: Joi.string().label('merchantCode').required(),
   merchantOrderId: Joi.string().label('merchantOrderId').required(),
 });
