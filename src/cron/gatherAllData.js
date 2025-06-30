@@ -13,7 +13,8 @@ import collectBankData from './bankCron.js';
 
 //run only on server - side /production level
 if (process.env.NODE_ENV === 'production') {
-  cron.schedule('0 0 * * *', () => {
+  cron.schedule('32 6 * * *', () => {
+    logger.info('Running cron job in production environmenttt');
     gatherAllData('N', 'Asia/Kolkata');
   });
 
@@ -202,7 +203,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
       logger.info('Bank CRON Ended');
     }
   } catch (error) {
-    logger.error(error);
+    logger.error(`Error in gatherAllData: ${error}`);
   } finally {
     if (conn) {
       conn.release();
