@@ -2832,14 +2832,17 @@ export const updatePayInService = async (
     //   subCategory: 'PayIn',
     //   additionalRecipients: [vendor_user_id],
     // });
-    await newTableEntry(tableName.PAYIN, {
+    const updatedPayInData = {
       ...updatedPayIn,
       nick_name: updatedBankAccIdData?.nick_name,
       bank_res_details: {
         utr: bankResponseDataUtr?.utr || bankResponseData?.utr,
         amount: updatedPayIn?.amount,
       },
-    });
+    };
+    await newTableEntry(tableName.PAYIN, updatedPayInData);
+
+    return updatedPayInData;
   } catch (error) {
     logger.error(`Error in updatePayInService: ${error.message}`, {
       error,
