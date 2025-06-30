@@ -127,12 +127,17 @@ const getSettlementDao = async (
           }
           else if (filters.status === Status.REJECTED) {
             conditions.push(
-              `s.rejected_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
+              `s.rejected_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1} AND s.approved_at IS NULL`,
+            );
+          }
+          else if (filters.status === Status.REVERSED) {
+            conditions.push(
+              `(s.rejected_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1} AND s.approved_at IS NOT NULL)`,
             );
           }
           else {
             conditions.push(
-              `s.created_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
+              `s.updated_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
             ); 
           }
           queryParams.push(start, end);
