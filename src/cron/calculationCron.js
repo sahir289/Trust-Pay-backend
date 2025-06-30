@@ -19,7 +19,7 @@ const IST = 'Asia/Kolkata';
 // Only run cron jobs in development environment
 if (process.env.NODE_ENV == 'production') {
   cron.schedule(
-    '0 0 * * *',
+    '32 6 * * *',
     () => {
       logger.info('Running cron job in production mode');
       collectCalculationData();
