@@ -1201,7 +1201,7 @@ export const processPayInService = async (
   // throw error if not exist or expires
   const payIn = await getPayInUrlService(merchantOrderId, conn, tele_check);
 
-  if(payIn.one_time_used === true || payIn.is_url_expires === true) {
+  if((payIn.one_time_used === true || payIn.is_url_expires === true) && tele_check) {
     const result = {
       redirect_url: payIn.config?.urls?.return,
     };
