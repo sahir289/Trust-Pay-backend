@@ -257,7 +257,7 @@ export const generatePayInUrl = async (req, res) => {
     return sendError(res, result.message, result.status);
   }
   else {
-    return sendSuccess(res, updateRes, 'PayIn is generated & url is sent successfully');
+    return sendNewSuccess(res, updateRes, 'PayIn is generated & url is sent successfully');
   }
 };
 
