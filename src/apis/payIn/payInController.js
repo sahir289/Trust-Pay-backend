@@ -469,7 +469,7 @@ export const processPayIn = async (req, res) => {
   const data = await transactionWrapper(processPayInService)(
     payload,
     payload.code,
-    false,
+    true,
     true,
   );
   // sendNewSuccess(res, data, 'PayIn processed successfully');
