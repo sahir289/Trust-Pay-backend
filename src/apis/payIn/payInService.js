@@ -2125,12 +2125,15 @@ export const checkPendingPayinStatusService = async (
   conn,
   user_id,
   company_id,
+  user_name
 ) => {
   try {
-    const payins = await getPayInPendingDao({
-      company_id,
-      status: Status.PENDING,
-    });
+    const payins = await getPayInPendingDao(
+      {
+        company_id,
+        status: Status.PENDING,
+      }
+     );
     const processedPayinIds = [];
     for (const currentPayin of payins) {
       const duration = calculateDuration(currentPayin.created_at);
@@ -2147,7 +2150,7 @@ export const checkPendingPayinStatusService = async (
           id: currentPayin.bank_acc_id,
         });
         const merchantData = await getMerchantsByCodeDao(
-          currentPayin?.merchant_details?.merchant_code,
+          currentPayin?.merchant,
         );
         const vendor = await getVendorsDao({ user_id: bankDetails[0].user_id });
         const payinMerchantCommission = calculateCommission(
@@ -2176,7 +2179,7 @@ export const checkPendingPayinStatusService = async (
           );
           await updateBotResponseDao(
             bankResponse.id,
-            { is_used: true, updated_by: user_id },
+            { is_used: true, updated_by: user_name },
             conn,
           );
 
@@ -2219,7 +2222,7 @@ export const checkPendingPayinStatusService = async (
           );
           await updateBotResponseDao(
             bankResponse.id,
-            { is_used: true, updated_by: user_id },
+            { is_used: true, updated_by: user_name },
             conn,
           );
 
@@ -2262,7 +2265,7 @@ export const checkPendingPayinStatusService = async (
           );
           await updateBotResponseDao(
             bankResponse.id,
-            { is_used: true, updated_by: user_id },
+            { is_used: true, updated_by: user_name},
             conn,
           );
           await updateCalculationTable(
