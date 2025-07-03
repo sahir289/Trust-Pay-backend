@@ -293,18 +293,18 @@ const getSettlementsBySearchDao = async (
 
     let queryText = `
     SELECT 
-    ${columns.map((col) => `s.${col}`).join(', ')},
-   CASE
-  WHEN $2 = 'MERCHANT' THEN COALESCE(m.config->>'sub_code', m.code)
-  WHEN $2 = 'VENDOR' THEN v.code
-  WHEN $2 = 'ADMIN' THEN 
-    CASE 
-      WHEN r.role = 'VENDOR' THEN v.code
-      ELSE COALESCE(m.config->>'sub_code', m.code)
-    END
-  ELSE NULL
-END AS code,
+    ${columns.map((col) => `s.${col}`).join(', ')}${columns.length > 0 ? ',' : ''}
     CASE
+      WHEN $2 = 'MERCHANT' THEN COALESCE(m.config->>'sub_code', m.code)
+      WHEN $2 = 'VENDOR' THEN v.code
+      WHEN $2 = 'ADMIN' THEN 
+        CASE 
+          WHEN r.role = 'VENDOR' THEN v.code
+          ELSE COALESCE(m.config->>'sub_code', m.code)
+        END
+      ELSE NULL
+    END AS code,
+        CASE
         WHEN s.config->>'bank_id' IS NOT NULL THEN
           (
             SELECT jsonb_build_object(
@@ -347,8 +347,8 @@ END AS code,
         ELSE
           s.config::jsonb
       END AS config,
-     COALESCE(uc.user_name, s.created_by::text) AS created_by,
-     COALESCE(uu.user_name, s.updated_by::text) AS updated_by
+      COALESCE(uc.user_name, s.created_by::text) AS created_by,
+      COALESCE(uu.user_name, s.updated_by::text) AS updated_by
       FROM "${SETTLEMENT}" s
       JOIN "${USER}" u ON s.user_id = u.id
       LEFT JOIN public."${USER}" uc ON s.created_by = uc.id
@@ -418,7 +418,8 @@ END AS code,
       } else {
         conditions.push(`
           (
-            LOWER(s.id::text) LIKE LOWER($${paramIndex})
+            LOWER(s.sno::text) LIKE LOWER($${paramIndex})
+            OR LOWER(s.id::text) LIKE LOWER($${paramIndex})
             OR LOWER(s.user_id::text) LIKE LOWER($${paramIndex})
             OR LOWER(s.amount::text) LIKE LOWER($${paramIndex})
             OR LOWER(s.status) LIKE LOWER($${paramIndex})
