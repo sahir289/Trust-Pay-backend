@@ -173,6 +173,7 @@ const getSettlementsBySearchService = async (
       .map((term) => term.trim())
       .filter((term) => term.length > 0);
 
+    delete filters.search;
     if (searchTerms.length === 0) {
       throw new BadRequestError('Please provide valid search terms');
     }
