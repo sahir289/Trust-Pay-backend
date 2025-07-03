@@ -49,7 +49,7 @@ const loginService = async (config, clientIP) => {
           'Unique admin ID is required for admin login.',
         );
       }
-      if (user.config.unique_admin_id !== config.unique_admin_id) {
+      if (user.company_config.unique_admin_id !== config.unique_admin_id) {
         throw new BadRequestError(
           'You are not authorized to access this account.',
         );
