@@ -2394,7 +2394,12 @@ export const verifyPayinsService = async (
     is_bank: enabledBanks.some((bank) => bank.is_bank),
     redirect_url: payIn.config?.urls?.return,
   };
+  const response = {
+    ...result,
+    merchantOrderId
+  }
   usedTokens.add(merchantOrderId);
+  logger.info('PayIn URL verified successfully:', response);
   return result;
 };
 
