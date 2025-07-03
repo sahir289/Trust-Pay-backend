@@ -558,10 +558,11 @@ export const updateUtrPayins = async (req, res) => {
 };
 
 export const checkPendingPayinStatus = async (req, res) => {
-  const { user_id, company_id } = req.user;
+  const {user_name,user_id, company_id } = req.user;
   const data = await transactionWrapper(checkPendingPayinStatusService)(
     user_id,
     company_id,
+    user_name,
   );
   sendSuccess(res, data, 'PayIn Status Checked Successfully');
 };

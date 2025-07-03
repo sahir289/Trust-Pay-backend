@@ -53,16 +53,25 @@ export const getPayInUrlDao = async (filters) => {
     throw error;
   }
 };
-export const getPayInPendingDao = async (filters) => {
+export const getPayInPendingDao = async ({ company_id, status }) => {
   try {
-    const [sql, params] = buildSelectQuery(
-      `
-      SELECT * FROM "${tableName.PAYIN}"
-      WHERE 1=1
-        AND "updated_at" BETWEEN NOW() - INTERVAL '2 days' AND NOW()
-      `,
-      filters,
-    );
+    const sql = `
+      SELECT 
+        p.id,
+        p.created_at,
+        p.user_submitted_utr,
+        p.bank_acc_id,
+        p.amount,
+        p.merchant_order_id,
+        p.config,
+        m.code as merchant
+      FROM "${tableName.PAYIN}" p
+      JOIN "${tableName.MERCHANT}" m ON p.merchant_id = m.id
+      WHERE p.company_id = $1
+        AND p.status = $2
+        AND p.updated_at BETWEEN NOW() - INTERVAL '2 days' AND NOW()
+    `;
+    const params = [company_id, status];
     const result = await executeQuery(sql, params);
     return result.rows;
   } catch (error) {

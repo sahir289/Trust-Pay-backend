@@ -30,7 +30,6 @@ const createCompanyService = async (conn, payload) => {
       return code.match(/.{1,4}/g).join('-');
     }
     
-    console.log(generateFormatted16DigitCode());
     payload.config = {
       ...payload.config,
       unique_admin_id: generateFormatted16DigitCode(),
