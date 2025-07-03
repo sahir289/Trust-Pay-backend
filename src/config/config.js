@@ -10,7 +10,7 @@ function config(Env) {
       region: Env?.AWS_REGION || 'us-east-1',
       accessKeyId: Env?.ACCESS_KEY,
       secretAccessKey: Env.secretKeyS3,
-      cloudWatchLogGroup: '/new-trust-pay-stg-logs',
+      cloudWatchLogGroup: Env?.AWS_LOG_GROUP_NAME,
     },
     jwt: {
       jwt_secret: Env?.JWT_SECRET,

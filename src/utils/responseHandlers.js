@@ -46,16 +46,18 @@ const sendNewSuccess = (res, Data = {}, message = '', status = 200) => {
 
 const sendError = (res, message, statusCode) => {
   const error = {
-    additionalInfo: {},
-    level: 'info',
-    timestamp: new Date().toISOString(),
+    error: {
+      additionalInfo: {},
+      level: 'info',
+      timestamp: new Date().toISOString(),
+    },
   };
 
   if (message) {
-    error.message = message;
+    error.error.message = message;
   }
   if (statusCode) {
-    error.status = statusCode;
+    error.error.status = statusCode;
   }
   logger.error(error);
   return res.status(statusCode).json(error);
