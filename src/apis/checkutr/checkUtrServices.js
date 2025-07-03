@@ -9,10 +9,10 @@ import {
   updateCheckUtrDao,
 } from './checkUtrDao.js';
 
-const getCheckUtrService = async (id, page, limit, sortOrder) => {
+const getCheckUtrService = async (filters, page, limit, sortOrder) => {
   try {
     const result = await getCheckUtrDao(
-      id,
+      filters,
       page,
       limit,
       'sno',

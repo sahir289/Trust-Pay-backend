@@ -21,6 +21,8 @@ const VALIDATE_COMPANY_SCHEMA = Joi.object({
     'string.max': 'Contact Number must be less than 15 characters long',
     'any.required': 'Contact Number is required',
   }),
+  user_name: Joi.string().min(1).max(255).optional(),
+  code: Joi.string().min(1).max(255).optional(),
   config: Joi.object().default({}).messages({
     'object.base': 'Config must be a valid object',
   }),
