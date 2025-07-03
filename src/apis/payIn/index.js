@@ -387,7 +387,7 @@ router.get('/', tryCatchHandler(getPayins));
 
 router.put('/updateFailedPayinUtr/:id', tryCatchHandler(updateUtrPayins));
 
-router.post(
+router.get(
   '/checkPendingPayinStatus',
   tryCatchHandler(checkPendingPayinStatus),
 );

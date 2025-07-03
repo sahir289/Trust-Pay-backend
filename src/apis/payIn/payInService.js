@@ -27,6 +27,7 @@ import {
   getPayInUrlsDao,
   getPayinsBySearchDao,
   getAllPayInsDao,
+  getPayInPendingDao
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -2107,150 +2108,173 @@ export const checkPendingPayinStatusService = async (
   conn,
   user_id,
   company_id,
-  payload,
 ) => {
   try {
-    const currentPayin = payload;
-    const duration = calculateDuration(currentPayin.created_at);
-    const botResFilters = {
-      is_used: false,
-      status: '/success',
-      utr: currentPayin.user_submitted_utr,
-    };
-    const botRes = await getBankResponseDao(botResFilters);
-    let bot = [botRes];
-    if (botRes) {
-      const bankResponse = bot[0];
-      const bankDetails = await getBankaccountDao({
-        nick_name: currentPayin.nick_name,
-      });
-      const merchantData = await getMerchantsByCodeDao(
-        currentPayin?.merchant_details?.merchant_code,
-      );
-      const vendor = await getVendorsDao({ user_id: bankDetails[0].user_id });
-      const payinMerchantCommission = calculateCommission(
-        bankResponse.amount,
-        merchantData[0].payin_commission,
-      );
-      const payinVendorCommission = calculateCommission(
-        bankResponse.amount,
-        vendor[0].payin_commission,
-      );
-      // Check for bank ID mismatch
-      if (bankDetails[0].id !== bankResponse.bank_id) {
-        const payInData = {
-          status: Status.BANK_MISMATCH,
-          is_notified: true,
-          user_submitted_utr: bankResponse.utr,
-          bank_response_id: bankResponse.id,
-          approved_at: new Date(),
-          duration: duration,
-        };
-        const updatePayInDataRes = await updatePayInUrlDao(
-          payload.id,
-          payInData,
-          conn,
-        );
-        await updateBotResponseDao(bankResponse.id, { is_used: true }, conn);
-
-        if (updatePayInDataRes) {
-          await merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
-            status: updatePayInDataRes.status,
-            merchantOrderId: updatePayInDataRes.merchant_order_id,
-            payinId: updatePayInDataRes.id,
-            amount: bankResponse.amount,
-            req_amount: updatePayInDataRes.amount,
-            utr_id: updatePayInDataRes.utr,
-            duration: duration,
-          });
-        }
-
-        logger.warn(`Bank mismatch for payin ${payload}:`, {
-          payin_bank_id: currentPayin.bank_acc_id,
-          bank_response_bank_id: bankResponse.bank_id,
-        });
-
-        return updatePayInDataRes;
-      }
-
-      // Check for amount mismatch
-      if (currentPayin.amount !== bankResponse.amount) {
-        const payInData = {
-          status: Status.DISPUTE,
-          is_notified: true,
-          user_submitted_utr: bankResponse.utr,
-          bank_response_id: bankResponse.id,
-          approved_at: new Date(),
-          payin_merchant_commission: payinMerchantCommission,
-          payin_vendor_commission: payinVendorCommission,
-          duration: duration,
-        };
-        const updatePayInDataRes = await updatePayInUrlDao(
-          payload.id,
-          payInData,
-          conn,
-        );
-        await updateBotResponseDao(bankResponse.id, { is_used: true }, conn);
-
-        if (updatePayInDataRes) {
-          await merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
-            status: updatePayInDataRes.status,
-            merchantOrderId: updatePayInDataRes.merchant_order_id,
-            payinId: updatePayInDataRes.id,
-            amount: bankResponse.amount,
-            req_amount: updatePayInDataRes.amount,
-            utr_id: updatePayInDataRes.utr,
-            duration: duration,
-          });
-        }
-        logger.warn(`Amount dispute for payin ${payload}:`, {
-          payin_amount: currentPayin.amount,
-          bank_response_amount: bankResponse.amount,
-        });
-
-        return updatePayInDataRes;
-      }
-
-      // If checks pass, update with provided payload and mark as valid
-      const payInData = {
-        status: Status.SUCCESS,
-        is_notified: true,
-        user_submitted_utr: botRes.utr,
-        approved_at: new Date(),
-        duration: duration,
-        payin_merchant_commission: payinMerchantCommission,
-        payin_vendor_commission: payinVendorCommission,
-        bank_response_id: botRes.id,
+    const payins = await getPayInPendingDao({
+      company_id,
+      status: Status.PENDING,
+    });
+    const processedPayinIds = [];
+    for (const currentPayin of payins) {
+      const duration = calculateDuration(currentPayin.created_at);
+      const botResFilters = {
+        is_used: false,
+        status: '/success',
+        utr: currentPayin.user_submitted_utr,
       };
-      const updatePayInDataRes = await updatePayInUrlDao(
-        payload.id,
-        payInData,
-        conn,
-      );
-      await updateBotResponseDao(bankResponse.id, { is_used: true }, conn);
-      await updateCalculationTable(
-        merchantData[0].user_id,
-        {
-          amount: bankResponse.amount,
-          payinCommission: payinMerchantCommission,
-        },
-        conn,
-      );
-      await merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
-        status: updatePayInDataRes.status,
-        merchantOrderId: updatePayInDataRes.merchant_order_id,
-        payinId: updatePayInDataRes.id,
-        amount: bankResponse.amount,
-        req_amount: updatePayInDataRes.amount,
-        utr_id: updatePayInDataRes.utr,
-        duration: duration,
-      });
-      logger.log(`Valid match found for payin ${payload}`);
-      return updatePayInDataRes;
-    } else {
-      return payload.id;
+      const botRes = await getBankResponseDao(botResFilters);
+      let bot = [botRes];
+      if (botRes) {
+        const bankResponse = bot[0];
+        const bankDetails = await getBankaccountDao({
+          id: currentPayin.bank_acc_id,
+        });
+        const merchantData = await getMerchantsByCodeDao(
+          currentPayin?.merchant_details?.merchant_code,
+        );
+        const vendor = await getVendorsDao({ user_id: bankDetails[0].user_id });
+        const payinMerchantCommission = calculateCommission(
+          bankResponse.amount,
+          merchantData[0].payin_commission,
+        );
+        const payinVendorCommission = calculateCommission(
+          bankResponse.amount,
+          vendor[0].payin_commission,
+        );
+        // Check for bank ID mismatch
+        if (bankDetails[0].id !== bankResponse.bank_id) {
+          const payInData = {
+            status: Status.BANK_MISMATCH,
+            is_notified: true,
+            user_submitted_utr: bankResponse.utr,
+            bank_response_id: bankResponse.id,
+            approved_at: new Date(),
+            duration: duration,
+            updated_by: user_id
+          };
+          const updatePayInDataRes = await updatePayInUrlDao(
+            currentPayin.id,
+            payInData,
+            conn,
+          );
+          await updateBotResponseDao(
+            bankResponse.id,
+            { is_used: true, updated_by: user_id },
+            conn,
+          );
+       
+          if (updatePayInDataRes) {
+            await merchantPayinCallback(
+              updatePayInDataRes.config.urls?.notify,
+              {
+                status: updatePayInDataRes.status,
+                merchantOrderId: updatePayInDataRes.merchant_order_id,
+                payinId: updatePayInDataRes.id,
+                amount: bankResponse.amount,
+                req_amount: updatePayInDataRes.amount,
+                utr_id: updatePayInDataRes.utr,
+                duration: duration,
+              },
+            );
+          }
+          processedPayinIds.push(currentPayin.id);
+          logger.warn(`Bank mismatch for payin ${currentPayin.id}:`, {
+            payin_bank_id: currentPayin.bank_acc_id,
+            bank_response_bank_id: bankResponse.bank_id,
+          });
+        }
+
+        // Check for amount mismatch
+       else if (currentPayin.amount !== bankResponse.amount) {
+          const payInData = {
+            status: Status.DISPUTE,
+            is_notified: true,
+            user_submitted_utr: bankResponse.utr,
+            bank_response_id: bankResponse.id,
+            approved_at: new Date(),
+            payin_merchant_commission: payinMerchantCommission,
+            payin_vendor_commission: payinVendorCommission,
+            duration: duration,
+            updated_by: user_id,
+          };
+          const updatePayInDataRes = await updatePayInUrlDao(
+            currentPayin.id,
+            payInData,
+            conn,
+          );
+          await updateBotResponseDao(
+            bankResponse.id,
+            { is_used: true, updated_by: user_id },
+            conn,
+          );
+
+          if (updatePayInDataRes) {
+            await merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
+              status: updatePayInDataRes.status,
+              merchantOrderId: updatePayInDataRes.merchant_order_id,
+              payinId: updatePayInDataRes.id,
+              amount: bankResponse.amount,
+              req_amount: updatePayInDataRes.amount,
+              utr_id: updatePayInDataRes.utr,
+              duration: duration,
+            });
+          }
+          logger.warn(`Amount dispute for payin ${currentPayin.id}:`, {
+            payin_amount: currentPayin.amount,
+            bank_response_amount: bankResponse.amount,
+          });
+          processedPayinIds.push(currentPayin.id);
+        }
+
+        // If checks pass, update with provided payload and mark as valid
+        else {
+          const payInData = {
+            status: Status.SUCCESS,
+            is_notified: true,
+            user_submitted_utr: botRes.utr,
+            approved_at: new Date(),
+            duration: duration,
+            payin_merchant_commission: payinMerchantCommission,
+            payin_vendor_commission: payinVendorCommission,
+            bank_response_id: botRes.id,
+            updated_by: user_id,
+          };
+          const updatePayInDataRes = await updatePayInUrlDao(
+            currentPayin.id,
+            payInData,
+            conn,
+          );
+          await updateBotResponseDao(
+            bankResponse.id,
+            { is_used: true, updated_by: user_id },
+            conn,
+          );
+          await updateCalculationTable(
+            merchantData[0].user_id,
+            {
+              amount: bankResponse.amount,
+              payinCommission: payinMerchantCommission,
+            },
+            conn,
+          );
+          await merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
+            status: updatePayInDataRes.status,
+            merchantOrderId: updatePayInDataRes.merchant_order_id,
+            payinId: updatePayInDataRes.id,
+            amount: bankResponse.amount,
+            req_amount: updatePayInDataRes.amount,
+            utr_id: updatePayInDataRes.utr,
+            duration: duration,
+          });
+          processedPayinIds.push(currentPayin.id);
+          logger.log(`Valid match found for payin ${currentPayin.id}`);
+        }
+      }
     }
-    // If no bank response found, update with provided payload
+    if (processedPayinIds.length >= 1){
+      await newTableEntry(tableName.PAYIN)
+    }
+    return processedPayinIds;
   } catch (error) {
     logger.error('Error in checkPendingPayinStatusService:', error.message);
     throw error;

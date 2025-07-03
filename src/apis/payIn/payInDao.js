@@ -53,6 +53,23 @@ export const getPayInUrlDao = async (filters) => {
     throw error;
   }
 };
+export const getPayInPendingDao = async (filters) => {
+  try {
+    const [sql, params] = buildSelectQuery(
+      `
+      SELECT * FROM "${tableName.PAYIN}"
+      WHERE 1=1
+        AND "updated_at" BETWEEN NOW() - INTERVAL '2 days' AND NOW()
+      `,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error getting PayIn URL:', error);
+    throw error;
+  }
+};
 
 export const getPayInDaoByCode = async (filters) => {
   try {
