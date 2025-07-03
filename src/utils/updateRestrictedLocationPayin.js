@@ -35,7 +35,8 @@ async function processPayInRestricted(id, restrictionReason) {
     };
     await updatePayInUrlDao(payin.id, data);
     if (payin?.config?.urls?.notify) {
-      await merchantPayinCallback(payin.config.urls.notify, notificationData);
+      // This is async function but it's just the callback sending function there fore we are not using await
+      merchantPayinCallback(payin.config.urls.notify, notificationData);
     }
     await newTableEntry(tableName.PAYIN);
     return payin.config.urls.return;

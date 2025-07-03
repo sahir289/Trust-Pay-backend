@@ -264,7 +264,9 @@ const createBankResponseService = async (
 
       let checkPayInUtr;
       if (isValidAmountCode) {
-        checkPayInUtr = await getPayInUrlsDao({ upi_short_code: upi_short_code });
+        checkPayInUtr = await getPayInUrlsDao({
+          upi_short_code: upi_short_code,
+        });
       } else {
         checkPayInUtr = await getPayInUrlsDao({ user_submitted_utr: utr });
       }
@@ -335,7 +337,8 @@ const createBankResponseService = async (
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
           if (updatePayInDataRes) {
             await newTableEntry(tableName.PAYIN);
-            await merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
+            // This is async function but it's just the callback sending function there fore we are not using await
+            merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
               status: updatePayInDataRes.status,
               merchantOrderId: updatePayInDataRes.merchant_order_id,
               payinId: updatePayInDataRes.id,
@@ -453,7 +456,8 @@ const createBankResponseService = async (
           );
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
           await newTableEntry(tableName.PAYIN);
-          await merchantPayinCallback(updatePayin.config.urls?.notify, {
+          // This is async function but it's just the callback sending function there fore we are not using await
+          merchantPayinCallback(updatePayin.config.urls?.notify, {
             status: updatePayin.status,
             merchantOrderId: updatePayin.merchant_order_id,
             payinId: updatePayin.id,
@@ -518,7 +522,8 @@ const createBankResponseService = async (
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
           if (updatePayInDataRes) {
             await newTableEntry(tableName.PAYIN);
-            await merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
+            // This is async function but it's just the callback sending function there fore we are not using await
+            merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
               status: updatePayInDataRes.status,
               merchantOrderId: updatePayInDataRes.merchant_order_id,
               payinId: updatePayInDataRes.id,
@@ -741,7 +746,10 @@ const updateBankResponseService = async (id, payload, role) => {
       try {
         conn.release(); // Release the connection back to the pool
       } catch (releaseError) {
-        logger.error('Error while release connection in BankResponse', releaseError);
+        logger.error(
+          'Error while release connection in BankResponse',
+          releaseError,
+        );
       }
     }
   }
