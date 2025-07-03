@@ -69,14 +69,14 @@ export const calculateTwoNumbers = (data1, data, operator) => {
 };
 
 export const calculateDuration = (createdAt) => {
-  const durMs = new Date() - createdAt;
+  const durMs = new Date() - new Date(createdAt);
   const durSeconds = Math.floor((durMs / 1000) % 60)
     .toString()
     .padStart(2, '0');
-  const durMinutes = Math.floor((durSeconds / 60) % 60)
+  const durMinutes = Math.floor((durMs / (1000 * 60)) % 60)
     .toString()
     .padStart(2, '0');
-  const durHours = Math.floor((durMinutes / 60) % 24)
+  const durHours = Math.floor((durMs / (1000 * 60 * 60)) % 24)
     .toString()
     .padStart(2, '0');
   const duration = `${durHours}:${durMinutes}:${durSeconds}`;

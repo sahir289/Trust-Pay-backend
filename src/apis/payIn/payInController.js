@@ -558,18 +558,12 @@ export const updateUtrPayins = async (req, res) => {
 };
 
 export const checkPendingPayinStatus = async (req, res) => {
-  const payload = req.body;
-  const { user_id, company_id, user_name } = req.user;
+  const { user_id, company_id } = req.user;
   const data = await transactionWrapper(checkPendingPayinStatusService)(
     user_id,
     company_id,
-    payload,
   );
-  sendSuccess(
-    res,
-    { id: data.id, checked_by: user_name },
-    'PayIn Status Checked Successfully',
-  );
+  sendSuccess(res, data, 'PayIn Status Checked Successfully');
 };
 
 export const telegramCheckUTR = async (req, res) => {
