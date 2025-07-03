@@ -184,10 +184,14 @@ const blockChargebackUser = async (req, res) => {
     payload,
     role,
   );
+  let message = 'User Blocked Successfully';
+  if (Array.isArray(result.config.blocked_users) && result.config.blocked_users.length === 0) {
+    message = 'User Unblocked Successfully';
+  }
   return sendSuccess(
     res,
     { id: result.id, updated_by: user_name },
-    'User Blocked Successfully',
+    message,
   );
 };
 

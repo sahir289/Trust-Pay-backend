@@ -3,7 +3,6 @@ import { nanoid } from 'nanoid';
 import { Cashfree } from 'cashfree-pg';
 import { v4 as uuidv4 } from 'uuid';
 import querystring from 'querystring';
-// import QRCode from 'qrcode';
 import config from '../../config/config.js';
 import { razorpay } from '../../webhooks/razorPay.js';
 import { getPayoutsDao } from '../payOut/payOutDao.js';
@@ -27,7 +26,7 @@ import {
   getPayInUrlsDao,
   getPayinsBySearchDao,
   getAllPayInsDao,
-  getPayInPendingDao
+  getPayInPendingDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -105,7 +104,7 @@ export const generatePayInUrlByHashService = async (conn, req) => {
     const data = {
       status: 400,
       message: 'Missing required query parameters: user_id, code, or ot',
-    }
+    };
     return data;
   }
   // const x_api_key = req.headers['x-api-key'];
@@ -127,7 +126,7 @@ export const generatePayInUrlByHashService = async (conn, req) => {
     const data = {
       status: 404,
       message: 'Bank Account has not been linked with Merchant',
-    }
+    };
     return data;
   }
 
@@ -150,7 +149,7 @@ export const generatePayInUrlByHashService = async (conn, req) => {
     const data = {
       status: 404,
       message: 'Bank Account has not been linked with Merchant',
-    }
+    };
     return data;
   }
   //loop over evrey bank
@@ -167,7 +166,7 @@ export const generatePayInUrlByHashService = async (conn, req) => {
     const data = {
       status: 404,
       message: 'No Payment Methods Enabled!',
-    }
+    };
     return data;
   }
 
@@ -228,7 +227,7 @@ export const generatePayInUrlService = async (
         const data = {
           status: 400,
           message: 'IP not whitelisted',
-        }
+        };
         return data;
       }
     }
@@ -241,7 +240,7 @@ export const generatePayInUrlService = async (
       const data = {
         status: 400,
         message: 'Merchant Order ID already exists',
-      }
+      };
       return data;
     }
 
@@ -249,7 +248,7 @@ export const generatePayInUrlService = async (
       const data = {
         status: 400,
         message: 'Merchant does not exist',
-      }
+      };
       return data;
     }
 
@@ -263,7 +262,7 @@ export const generatePayInUrlService = async (
       const data = {
         status: 404,
         message: 'Enter valid Api key',
-      }
+      };
       return data;
     }
 
@@ -275,7 +274,7 @@ export const generatePayInUrlService = async (
       const data = {
         status: 404,
         message: 'Enter valid Api key',
-      }
+      };
       return data;
     }
 
@@ -283,7 +282,7 @@ export const generatePayInUrlService = async (
       const data = {
         status: 400,
         message: `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
-      }
+      };
       return data;
     }
 
@@ -326,13 +325,12 @@ export const getPayInUrlService = async (id, conn, tele_check = true) => {
   }
   // Skip expiration check if tele_check is false
   if (payIn.is_url_expires && tele_check) {
-    if(payIn.one_time_used === true || payIn.is_url_expires === true) {
+    if (payIn.one_time_used === true || payIn.is_url_expires === true) {
       const result = {
         redirect_url: payIn.config?.urls?.return,
       };
       return { error: `Url is expired`, result };
     }
-    
   }
   const config = payIn.config || {};
   if (
@@ -340,7 +338,6 @@ export const getPayInUrlService = async (id, conn, tele_check = true) => {
     payIn.status !== Status.INITIATED
   ) {
     // expire payIn
-    //  const updatedpayin=
     await updatePayInUrlDao(
       id,
       {
@@ -350,7 +347,8 @@ export const getPayInUrlService = async (id, conn, tele_check = true) => {
       conn,
     );
     // Notifying merchant about expired URL
-    await merchantPayinCallback(config.urls?.notify, {
+    // This is async function but it's just the callback sending function there fore we are not using await
+    merchantPayinCallback(config.urls?.notify, {
       status: Status.DROPPED,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
@@ -377,7 +375,8 @@ export const expirePayInUrlService = async (payInId) => {
     is_url_expires: true,
     status: Status.DROPPED,
   });
-  await merchantPayinCallback(config.urls?.notify, {
+  // This is async function but it's just the callback sending function there fore we are not using await
+  merchantPayinCallback(config.urls?.notify, {
     status: Status.DROPPED,
     merchantOrderId: payIn.merchant_order_id,
     payinId: payIn.id,
@@ -482,7 +481,8 @@ export const assignedBankToPayInUrlService = async (
       is_url_expires: true,
       status: Status.DROPPED,
     });
-    await merchantPayinCallback(payInConfig.urls?.notify, {
+    // This is async function but it's just the callback sending function there fore we are not using await
+    merchantPayinCallback(payInConfig.urls?.notify, {
       status: Status.DROPPED,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
@@ -553,7 +553,7 @@ export const checkPayInStatusService = async (
     const data = {
       status: 400,
       message: 'Merchant Order ID already exists',
-    }
+    };
     return data;
   }
 
@@ -566,7 +566,7 @@ export const checkPayInStatusService = async (
     const data = {
       status: 404,
       message: 'Enter valid Api key',
-    }
+    };
     return data;
   }
 
@@ -579,7 +579,7 @@ export const checkPayInStatusService = async (
     const data = {
       status: 404,
       message: 'PayIn not found',
-    }
+    };
     return data;
   }
 
@@ -587,8 +587,9 @@ export const checkPayInStatusService = async (
   if (!(payIn.merchant_id === merchant.id)) {
     const data = {
       status: 404,
-      message: 'merchant_order_id and payIn ID do not belong to the specified merchant',
-    }
+      message:
+        'merchant_order_id and payIn ID do not belong to the specified merchant',
+    };
     return data;
   }
 
@@ -881,7 +882,8 @@ export const updateDepositStatusService = async (
   //   { id: bank.id, company_id: payInData.company_id },
   //   {},
   // );
-  await merchantPayinCallback(updatePayInRes.config?.urls?.notify, {
+  // This is async function but it's just the callback sending function there fore we are not using await
+  merchantPayinCallback(updatePayInRes.config?.urls?.notify, {
     status: updatePayInRes.status,
     merchantOrderId: updatePayInRes.merchant_order_id,
     payinId: updatePayInRes.id,
@@ -929,7 +931,9 @@ export const resetDepositService = async (
   ]);
 
   if (nonResettableStatuses.has(payIn.status)) {
-    throw new BadRequestError(`The Order Id: ${payIn.merchant_order_id} with Status: ${payIn.status} cannot be reset!`);
+    throw new BadRequestError(
+      `The Order Id: ${payIn.merchant_order_id} with Status: ${payIn.status} cannot be reset!`,
+    );
   }
 
   const condition = {
@@ -1202,7 +1206,10 @@ export const processPayInService = async (
   // throw error if not exist or expires
   const payIn = await getPayInUrlService(merchantOrderId, conn, tele_check);
 
-  if((payIn.one_time_used === true || payIn.is_url_expires === true) && tele_check) {
+  if (
+    (payIn.one_time_used === true || payIn.is_url_expires === true) &&
+    tele_check
+  ) {
     const result = {
       redirect_url: payIn.config?.urls?.return,
     };
@@ -1275,7 +1282,8 @@ export const processPayInService = async (
       result.utr_id =
         bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
     }
-    await merchantPayinCallback(payIn.config?.urls?.notify, result);
+    // This is async function but it's just the callback sending function there fore we are not using await
+    merchantPayinCallback(payIn.config?.urls?.notify, result);
     return result;
   }
 
@@ -1285,7 +1293,8 @@ export const processPayInService = async (
     result.utr_id =
       bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-    await merchantPayinCallback(payIn.config?.urls?.notify, result);
+    // This is async function but it's just the callback sending function there fore we are not using await
+    merchantPayinCallback(payIn.config?.urls?.notify, result);
     return {
       ...result,
       message: 'Duplicate entry found!',
@@ -1312,7 +1321,8 @@ export const processPayInService = async (
     result.utr_id =
       bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-    await merchantPayinCallback(payIn.config?.urls?.notify, result);
+    // This is async function but it's just the callback sending function there fore we are not using await
+    merchantPayinCallback(payIn.config?.urls?.notify, result);
 
     if (from_telegram) {
       const botBank = await getBankaccountDao({ id: bankResponse.bank_id });
@@ -1421,7 +1431,8 @@ export const processPayInService = async (
 
   await updatePayInUrlDao(payIn.id, updatePayInData, conn);
   await newTableEntry(tableName.PAYIN);
-  await merchantPayinCallback(payIn.config?.urls?.notify, result);
+  // This is async function but it's just the callback sending function there fore we are not using await
+  merchantPayinCallback(payIn.config?.urls?.notify, result);
 
   if (from_telegram) {
     if (
@@ -1708,7 +1719,7 @@ export const processPayInByImageService = async (conn, payload) => {
   let payInData;
   payInData = await getPayInUrlService(merchantOrderId);
 
-  if(payInData.one_time_used === true || payInData.is_url_expires === true) {
+  if (payInData.one_time_used === true || payInData.is_url_expires === true) {
     const result = {
       redirect_url: payInData.config?.urls?.return,
     };
@@ -1890,7 +1901,8 @@ export const disputeDuplicateTransactionService = async (
     } else {
       updateBalance = false;
     }
-    await merchantPayinCallback(payIn.config?.urls?.notify, {
+    // This is async function but it's just the callback sending function there fore we are not using await
+    merchantPayinCallback(payIn.config?.urls?.notify, {
       status: newStatus,
       merchantOrderId: merchantOrderId,
       payinId: payInData.id,
@@ -1924,7 +1936,8 @@ export const disputeDuplicateTransactionService = async (
   //   updated_by,
   //   conn,
   // );
-  await merchantPayinCallback(payIn.config?.urls?.notify, {
+  // This is async function but it's just the callback sending function there fore we are not using await
+  merchantPayinCallback(payIn.config?.urls?.notify, {
     status: updatePayload.status,
     merchantOrderId: payIn.merchant_order_id,
     payinId: payIn.id,
@@ -2016,11 +2029,17 @@ export const telegramCheckUTRService = async (
     if (!bankResponse) {
       throw new NotFoundError(`UTR ${utr} not found`);
     } else if (bankResponse.status !== '/success') {
-      throw new BadRequestError(`UTR ${utr} found with ${bankResponse.status} STATUS`);
+      throw new BadRequestError(
+        `UTR ${utr} found with ${bankResponse.status} STATUS`,
+      );
     } else if (!payIn) {
-      throw new NotFoundError(`MerchantOrderID ${merchant_order_id}  not found`);
+      throw new NotFoundError(
+        `MerchantOrderID ${merchant_order_id}  not found`,
+      );
     } else if (payIn?.user_submitted_utr && utr !== payIn?.user_submitted_utr) {
-      throw new BadRequestError(`${utr} UTR Does Not match with ${payIn?.merchant_order_id} Merchant Order ID`);
+      throw new BadRequestError(
+        `${utr} UTR Does Not match with ${payIn?.merchant_order_id} Merchant Order ID`,
+      );
     }
 
     await createCheckUtrService(
@@ -2058,9 +2077,7 @@ export const telegramCheckUTRService = async (
       };
     }
 
-    if (
-      ![Status.ASSIGNED, Status.DROPPED].includes(payIn.status)
-    ) {
+    if (![Status.ASSIGNED, Status.DROPPED].includes(payIn.status)) {
       return {
         status: payIn.status,
         message: `PayIn is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
@@ -2153,7 +2170,7 @@ export const checkPendingPayinStatusService = async (
             bank_response_id: bankResponse.id,
             approved_at: new Date(),
             duration: duration,
-            updated_by: user_id
+            updated_by: user_id,
           };
           const updatePayInDataRes = await updatePayInUrlDao(
             currentPayin.id,
@@ -2165,20 +2182,18 @@ export const checkPendingPayinStatusService = async (
             { is_used: true, updated_by: user_name },
             conn,
           );
-       
+
           if (updatePayInDataRes) {
-            await merchantPayinCallback(
-              updatePayInDataRes.config.urls?.notify,
-              {
-                status: updatePayInDataRes.status,
-                merchantOrderId: updatePayInDataRes.merchant_order_id,
-                payinId: updatePayInDataRes.id,
-                amount: bankResponse.amount,
-                req_amount: updatePayInDataRes.amount,
-                utr_id: updatePayInDataRes.utr,
-                duration: duration,
-              },
-            );
+            // This is async function but it's just the callback sending function there fore we are not using await
+            merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
+              status: updatePayInDataRes.status,
+              merchantOrderId: updatePayInDataRes.merchant_order_id,
+              payinId: updatePayInDataRes.id,
+              amount: bankResponse.amount,
+              req_amount: updatePayInDataRes.amount,
+              utr_id: updatePayInDataRes.utr,
+              duration: duration,
+            });
           }
           processedPayinIds.push(currentPayin.id);
           logger.warn(`Bank mismatch for payin ${currentPayin.id}:`, {
@@ -2188,7 +2203,7 @@ export const checkPendingPayinStatusService = async (
         }
 
         // Check for amount mismatch
-       else if (currentPayin.amount !== bankResponse.amount) {
+        else if (currentPayin.amount !== bankResponse.amount) {
           const payInData = {
             status: Status.DISPUTE,
             is_notified: true,
@@ -2212,7 +2227,8 @@ export const checkPendingPayinStatusService = async (
           );
 
           if (updatePayInDataRes) {
-            await merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
+            // This is async function but it's just the callback sending function there fore we are not using await
+            merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
               status: updatePayInDataRes.status,
               merchantOrderId: updatePayInDataRes.merchant_order_id,
               payinId: updatePayInDataRes.id,
@@ -2260,7 +2276,8 @@ export const checkPendingPayinStatusService = async (
             },
             conn,
           );
-          await merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
+          // This is async function but it's just the callback sending function there fore we are not using await
+          merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
             status: updatePayInDataRes.status,
             merchantOrderId: updatePayInDataRes.merchant_order_id,
             payinId: updatePayInDataRes.id,
@@ -2274,8 +2291,8 @@ export const checkPendingPayinStatusService = async (
         }
       }
     }
-    if (processedPayinIds.length >= 1){
-      await newTableEntry(tableName.PAYIN)
+    if (processedPayinIds.length >= 1) {
+      await newTableEntry(tableName.PAYIN);
     }
     return processedPayinIds;
   } catch (error) {
@@ -2295,7 +2312,11 @@ export const verifyPayinsService = async (
     throw new BadRequestError('Invalid merchant order id');
   }
 
-  if (usedTokens.has(merchantOrderId) || payIn.one_time_used === true || oneTimeUsed === 'true') {
+  if (
+    usedTokens.has(merchantOrderId) ||
+    payIn.one_time_used === true ||
+    oneTimeUsed === 'true'
+  ) {
     // Update config and one_time_used in a single DB call
     const updatedConfig = stringifyJSON({
       ...payIn.config,

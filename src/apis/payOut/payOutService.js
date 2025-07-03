@@ -579,7 +579,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       ]);
     }
     await newTableEntry(tableName.PAYOUT);
-    await merchantPayoutCallback(data.config?.urls?.notify, {
+    // This is async function but it's just the callback sending function there fore we are not using await
+    merchantPayoutCallback(data.config?.urls?.notify, {
       code: data.code,
       merchantOrderId: data.merchant_order_id,
       payoutId: data.id,

@@ -286,6 +286,7 @@ const getBankAccountsBySearchDao = async (
   offset,
   bank_used_for,
   designation,
+  filters,
 ) => {
   try {
     let commissionSelect = '';
@@ -293,7 +294,7 @@ const getBankAccountsBySearchDao = async (
       commissionSelect = '';
     } else if (role === 'VENDOR') {
       commissionSelect = `
-        ba.ifsc_code, 
+        ba.ifsc, 
         ba.payin_count, 
         ba.balance, 
         ba.today_balance, 
@@ -316,7 +317,7 @@ const getBankAccountsBySearchDao = async (
         updater.user_name AS updated_by, 
         ${designation === Role.ADMIN ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
         ba.created_at, 
-        ba.updated_at,
+        ba.updated_at
       `;
     }
 
@@ -338,7 +339,7 @@ const getBankAccountsBySearchDao = async (
         ba.is_qr, 
         ba.is_bank, 
         ba.is_enabled,
-        ${commissionSelect}
+        ${commissionSelect},
         v.code AS Vendor
       FROM 
         public."BankAccount" ba
@@ -438,6 +439,21 @@ const getBankAccountsBySearchDao = async (
     }
     if (searchConditions.length > 0) {
       baseQuery += ' AND (' + searchConditions.join(' OR ') + ')';
+    }
+
+    if (filters && Object.keys(filters).length > 0) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          if (Array.isArray(value)) {
+            baseQuery += ` AND ba."${key}" = ANY($${paramIndex})`;
+            values.push(value);
+          } else {
+            baseQuery += ` AND ba."${key}" = $${paramIndex}`;
+            values.push(value);
+          }
+          paramIndex++;
+        }
+      });
     }
 
     const countQuery = `SELECT COUNT(*) as total FROM (${baseQuery}) as count_table`;
