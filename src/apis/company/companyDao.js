@@ -27,6 +27,23 @@ const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
   }
 };
 
+const getCompanyByIDDao = async (
+  filters,
+) => {
+  try {
+    const baseQuery = `SELECT id,config FROM "${tableName.COMPANY}" WHERE 1=1`;
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
+    );
+    const result = await executeQuery(sql, queryParams);
+    return result.rows.length > 0 ? result.rows : result.rows[0];
+  } catch (error) {
+    logger.error('Error fetching company:', error);
+    throw error;
+  }
+};
+
 const createCompanyDao = async (conn, payload) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.COMPANY, payload);
@@ -64,4 +81,10 @@ const deleteCompanyDao = async (id, data) => {
   }
 };
 
-export { getCompanyDao, createCompanyDao, updateCompanyDao, deleteCompanyDao };
+export {
+  getCompanyDao,
+  createCompanyDao,
+  updateCompanyDao,
+  deleteCompanyDao,
+  getCompanyByIDDao,
+};
