@@ -192,7 +192,7 @@ const createBankResponseService = async (
 
       if (updatedData.status === '/repeated') {
         await commit(localConn);
-        if (shouldRelease) localConn.release();
+        // if (shouldRelease) localConn.release();
         if (upi_short_code) {
           return {
             message: `Entry with REPEATED AMOUNT CODE Added ${upi_short_code}`,
@@ -289,7 +289,7 @@ const createBankResponseService = async (
             getDataByUtr.some((item) => item.is_used);
           if (!acceptedStatus.includes(payInUtr.status) && botUtrIsUsed) {
             await commit(localConn);
-            if (shouldRelease) localConn.release();
+            // if (shouldRelease) localConn.release();
             return {
               message: `The entry is already ${payInUtr.status} with UTR`,
             };
@@ -310,7 +310,7 @@ const createBankResponseService = async (
             (isValidAmountCode && upi_short_code !== payInUtr.upi_short_code)
           ) {
             await commit(localConn);
-            if (shouldRelease) localConn.release();
+            // if (shouldRelease) localConn.release();
             if (isValidAmountCode && payInUtr.upi_short_code) {
               return {
                 message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`,
@@ -354,7 +354,7 @@ const createBankResponseService = async (
           //   merchant_order_id: updatePayInDataRes?.merchant_order_id,
           // });
           await commit(localConn);
-          if (shouldRelease) localConn.release();
+          // if (shouldRelease) localConn.release();
           return {
             message: `Bank Mismatch with ${updatePayInDataRes?.merchant_order_id}`,
           };
@@ -370,7 +370,7 @@ const createBankResponseService = async (
         );
         if (existingResponse?.length > 0) {
           await commit(localConn);
-          if (shouldRelease) localConn.release();
+          // if (shouldRelease) localConn.release();
           return { message: `The UTR already exists` };
         }
         const merchantData = await getMerchantsDao(
@@ -426,7 +426,7 @@ const createBankResponseService = async (
             (isValidAmountCode && upi_short_code !== payInUtr.upi_short_code)
           ) {
             await commit(localConn);
-            if (shouldRelease) localConn.release();
+            // if (shouldRelease) localConn.release();
             if (isValidAmountCode && payInUtr.upi_short_code) {
               return {
                 message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`,
@@ -474,7 +474,7 @@ const createBankResponseService = async (
             amount: botRes.amount,
           });
           await commit(localConn);
-          if (shouldRelease) localConn.release();
+          // if (shouldRelease) localConn.release();
           if (isValidAmountCode && payInUtr.upi_short_code) {
             return {
               message: `✅ Amount Code ${upi_short_code} matches the User Submitted Amount Code: ${payInUtr.upi_short_code} and the payment was successful.`,
@@ -492,7 +492,7 @@ const createBankResponseService = async (
             (isValidAmountCode && upi_short_code !== payInUtr.upi_short_code)
           ) {
             await commit(localConn);
-            if (shouldRelease) localConn.release();
+            // if (shouldRelease) localConn.release();
             if (isValidAmountCode && payInUtr.upi_short_code) {
               return {
                 message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`,
@@ -540,7 +540,7 @@ const createBankResponseService = async (
           //   merchant_order_id: updatePayInDataRes?.merchant_order_id,
           // });
           await commit(localConn);
-          if (shouldRelease) localConn.release();
+          // if (shouldRelease) localConn.release();
           return {
             message: `Entry is in Dispute with ${updatePayInDataRes?.merchant_order_id}`,
           };
