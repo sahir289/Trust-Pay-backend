@@ -2130,7 +2130,7 @@ export const getPayinsServiceById = async (id) => {
     logger.error('Error in getPayinsServiceById:', error);
     throw error;
   }
-};
+}; 
 
 export const updateUtrPayinService = async (conn, id, user_id, utr) => {
   try {
