@@ -527,6 +527,7 @@ export const getPayoutsBySearchDao = async (
       }
     }
 
+    if (searchTerms.length > 0) {
     searchTerms.forEach((term) => {
       if (term.toLowerCase() !== 'true' && term.toLowerCase() !== 'false') {
         conditions.push(`
@@ -556,6 +557,7 @@ export const getPayoutsBySearchDao = async (
         paramIndex++;
       }
     });
+  }
 
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {

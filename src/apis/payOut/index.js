@@ -3,7 +3,7 @@ import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import {
   createPayout,
   deletePayout,
-  getPayouts,
+  // getPayouts,
   updatePayout,
   getPayoutsById,
   getPayoutsBySearch,
@@ -41,11 +41,11 @@ const router = express.Router();
  *       401:
  *         description: Unauthorized access
  */
-router.get(
-  '/',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(getPayouts),
-);
+// router.get(
+//   '/',
+//   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+//   tryCatchHandler(getPayouts),
+// );
 
 /**
  * @swagger
@@ -82,7 +82,7 @@ router.get(
  *         description: Unauthorized access
  */
 router.get(
-  '/search',
+  '/',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayoutsBySearch),
 );

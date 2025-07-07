@@ -783,6 +783,7 @@ export const getPayinsBySearchDao = async (
       paramIndex += statusArray.length;
     }
 
+    if (searchTerms && searchTerms.length > 0) {
     // Handle search terms
     searchTerms.forEach((term) => {
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
@@ -821,6 +822,7 @@ export const getPayinsBySearchDao = async (
         paramIndex++;
       }
     });
+  }
 
     // Handle additional filters dynamically
     Object.entries(filters).forEach(([key, value]) => {
