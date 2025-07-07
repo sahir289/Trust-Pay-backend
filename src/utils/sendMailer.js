@@ -21,6 +21,7 @@ const name = process.env.APP_NAME;
 const Role = {
   MERCHANT: 'MERCHANT',
   SUB_MERCHANT: 'SUB_MERCHANT',
+  ADMIN : 'ADMIN',
 };
 
 /**
@@ -42,6 +43,7 @@ export const sendCredentialsEmail = async ({
   secretKey,
   publicKey,
   designation,
+  unique_id,
 }) => {
   const subject = 'Your Account Credentials';
   const text = `Hello,\n\nYour account has been created successfully.\n\nUsername: ${username}\nPassword: ${password}\n\nPlease log in and change your password immediately for security.\n\nBest regards,\nPG Admin Team`;
@@ -74,6 +76,15 @@ export const sendCredentialsEmail = async ({
               <p style="margin: 8px 0; color: #2d3748;"><strong>API Key:</strong> ${secretKey}</p>
               <p style="margin: 8px 0; color: #2d3748;"><strong>Public API Key:</strong> ${publicKey}</p>
               <p style="margin: 8px 0; color: #2d3748;"><strong>API Docs:</strong> <a href="${apiDocsUrl}" style="color: #3182ce;">${apiDocsUrl}</a></p>
+            </div>
+          `
+          : ''
+      }
+      ${
+        designation && [Role.ADMIN].includes(designation)
+          ? `
+            <div style="background-color: #f1f5f9; padding: 16px; border-radius: 6px; margin-top: 16px;">
+              <p style="margin: 8px 0; color: #2d3748;"><strong>Unique_id:</strong> ${unique_id}</p>
             </div>
           `
           : ''
