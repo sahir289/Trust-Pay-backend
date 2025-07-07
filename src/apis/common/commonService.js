@@ -5,7 +5,6 @@ import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
-import { InternalServerError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
 import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
 import { getUserByCompanyCreatedAtDao } from '../users/userDao.js';
@@ -372,6 +371,6 @@ export const getTotalCountService = async (
       `Error in getTotalCountService for table ${tablename}:`,
       error,
     );
-    throw new InternalServerError(error.message);
+    throw error;;
   }
 };
