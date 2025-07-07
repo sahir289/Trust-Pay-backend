@@ -284,11 +284,17 @@ const getUsersByUserNameService = async (username, ids, role) => {
 
 const createUserService = async (conn, payload, role) => {
   try {
-    const { user_name } = payload;
+    const { user_name, email } = payload;
     let company_id = payload.company_id;
     const user = await getUsersByUserNameDao(company_id, user_name);
     if (user?.user_name || user?.email || user?.contact_no) {
-      throw new InternalServerError('User already exists');
+      throw new BadRequestError('User already exists');
+    }
+    else {
+      const verifyEmail = await getUsersDao({ email: email });
+      if (verifyEmail.length > 0) {
+        throw new BadRequestError('Email already exists');
+      }
     }
     const Password = generatePassword(user_name);
     const hashPassword = await createHash(Password);

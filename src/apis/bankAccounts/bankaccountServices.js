@@ -69,8 +69,20 @@ const getBankAccountBySearchService = async (
   page,
   limit,
   designation,
+  user_id,
 ) => {
   try {
+    const filters = {}
+    if (role == Role.VENDOR) {
+      filters.user_id = [user_id];
+    }
+    const userHierarchys = await getUserHierarchysDao({ user_id });
+    if (designation == Role.VENDOR_OPERATIONS) {
+      const parentID = userHierarchys[0]?.config?.parent;
+      if (parentID) {
+        filters.user_id = [parentID];
+      }
+    }
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
@@ -93,6 +105,7 @@ const getBankAccountBySearchService = async (
       offset,
       bank_used_for,
       designation,
+      filters,
     );
   } catch (error) {
     logger.error('error getting while getting check utr by search', error);

@@ -344,6 +344,7 @@ export const getCalculationsSumDao = async (filters) => {
         WITH LatestBalances AS (
           SELECT 
             c.user_id,
+            c.company_id,
             c.net_balance,
             r.role,
             m.code as merchant_code,
@@ -367,19 +368,20 @@ export const getCalculationsSumDao = async (filters) => {
         )
         SELECT 
           role,
+          company_id,
           CAST(ROUND(SUM(net_balance)::NUMERIC, 2) AS FLOAT) as net_balance_sum
         FROM LatestBalances 
         WHERE rn = 1
-        GROUP BY role`;
+        GROUP BY role, company_id`;
 
       const balanceResult = await executeQuery(baseCalQuery);
 
-      // Process results into netBalance object
+      // Process results into netBalance object with company filtering
       netBalance = balanceResult.rows.reduce(
         (acc, row) => {
-          if (row.role === Role.VENDOR) {
+          if (row.role === Role.VENDOR && (!company_id || row.company_id === company_id)) {
             acc.vendor = row.net_balance_sum || 0;
-          } else if (row.role === Role.MERCHANT) {
+          } else if (row.role === Role.MERCHANT && (!company_id || row.company_id === company_id)) {
             acc.merchant = row.net_balance_sum || 0;
           }
           return acc;

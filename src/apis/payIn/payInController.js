@@ -475,6 +475,23 @@ export const processPayIn = async (req, res) => {
   // sendNewSuccess(res, data, 'PayIn processed successfully');
   sendSuccess(res, data, 'PayIn processed successfully');
 };
+export const processPayInIMGUTR = async (req, res) => {
+  const payload = {
+    ...req.body,
+    ...req.params,
+  };
+  const joiValidation = VALIDATE_PROCESS_PAYIN.validate(payload);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  const data = await transactionWrapper(processPayInService)(
+    payload,
+    payload.code,
+    false, 
+    true,
+  );
+  sendSuccess(res, data, 'PayIn updated successfully');
+};
 
 export const telegramOCR = async (req, res) => {
   sendSuccess(res, {}, 'API Called Successfully!');
@@ -558,18 +575,13 @@ export const updateUtrPayins = async (req, res) => {
 };
 
 export const checkPendingPayinStatus = async (req, res) => {
-  const payload = req.body;
-  const { user_id, company_id, user_name } = req.user;
+  const {user_name,user_id, company_id } = req.user;
   const data = await transactionWrapper(checkPendingPayinStatusService)(
     user_id,
     company_id,
-    payload,
+    user_name,
   );
-  sendSuccess(
-    res,
-    { id: data.id, checked_by: user_name },
-    'PayIn Status Checked Successfully',
-  );
+  sendSuccess(res, data, 'PayIn Status Checked Successfully');
 };
 
 export const telegramCheckUTR = async (req, res) => {

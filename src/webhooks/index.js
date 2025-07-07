@@ -59,5 +59,6 @@ export const payInUpdateCashfreeWebhook = async (req, res) => {
         ? updatePayinRes?.utr
         : '',
   };
-  await merchantPayinCallback(updatePayinRes?.config?.notify_url, notifyData);
+  // This is async function but it's just the callback sending function there fore we are not using await
+  merchantPayinCallback(updatePayinRes?.config?.notify_url, notifyData);
 };

@@ -53,6 +53,32 @@ export const getPayInUrlDao = async (filters) => {
     throw error;
   }
 };
+export const getPayInPendingDao = async ({ company_id, status }) => {
+  try {
+    const sql = `
+      SELECT 
+        p.id,
+        p.created_at,
+        p.user_submitted_utr,
+        p.bank_acc_id,
+        p.amount,
+        p.merchant_order_id,
+        p.config,
+        m.code as merchant
+      FROM "${tableName.PAYIN}" p
+      JOIN "${tableName.MERCHANT}" m ON p.merchant_id = m.id
+      WHERE p.company_id = $1
+        AND p.status = $2
+        AND p.updated_at BETWEEN NOW() - INTERVAL '2 days' AND NOW()
+    `;
+    const params = [company_id, status];
+    const result = await executeQuery(sql, params);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error getting PayIn URL:', error);
+    throw error;
+  }
+};
 
 export const getPayInDaoByCode = async (filters) => {
   try {
