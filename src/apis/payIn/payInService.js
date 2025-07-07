@@ -99,6 +99,7 @@ Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
 
 export const generatePayInUrlByHashService = async (conn, req) => {
+  try{
   const { user_id, code, ot, key, amount } = req.query;
   if (!user_id || !code || !ot) {
     const data = {
@@ -185,6 +186,10 @@ export const generatePayInUrlByHashService = async (conn, req) => {
     payInUrl: `${config.reactPaymentOrigin}/transaction/${encodedHash}?${query}`,
   };
   return updateRes;
+} catch (error) {
+  logger.error('Error generating payin hash:', error);
+  throw error;
+}
 };
 
 export const generatePayInUrlService = async (
@@ -317,6 +322,7 @@ export const generatePayInUrlService = async (
 };
 
 export const getPayInUrlService = async (id, conn, tele_check = true) => {
+  try{
   const currentTime = Date.now();
   const payIn = await getPayInUrlDao({ merchant_order_id: id });
 
@@ -361,10 +367,15 @@ export const getPayInUrlService = async (id, conn, tele_check = true) => {
   }
 
   return payIn;
+}catch (error) {
+  logger.error('Error get payin url:', error);
+  throw error;
+}
 };
 
 // TODO: delete this API
 export const expirePayInUrlService = async (payInId) => {
+  try{
   // const currentTime = Date.now();
   const payIn = await getPayInUrlDao({ id: payInId });
   if (!payIn) {
@@ -384,6 +395,10 @@ export const expirePayInUrlService = async (payInId) => {
     req_amount: payIn.amount,
     utr_id: payIn.utr,
   });
+}catch (error) {
+  logger.error('Error expire payin url:', error);
+  throw error;
+}
 };
 
 export const assignedBankToPayInUrlService = async (
@@ -392,7 +407,7 @@ export const assignedBankToPayInUrlService = async (
   type,
 ) => {
   // Validate the PayIn URL
-
+try{
   const payIn = await getPayInUrlService(merchantOrderId);
   const payInConfig = payIn.config || {};
   checkIsPayInExpired(payIn);
@@ -537,6 +552,10 @@ export const assignedBankToPayInUrlService = async (
   }
 
   return response;
+} catch (error) {
+  logger.error('Error assigned payin url:', error);
+  throw error;
+}
 };
 
 // Public API Used by Merchants
@@ -546,6 +565,7 @@ export const checkPayInStatusService = async (
   merchantOrderId,
   api_key,
 ) => {
+  try{
   const merchantArr = await getMerchantsDao({ code: merchantCode });
   const merchant = merchantArr[0];
   if (!merchant) {
@@ -625,6 +645,10 @@ export const checkPayInStatusService = async (
         ? botResponse?.utr
         : payIn.user_submitted_utr,
   };
+} catch (error) {
+  logger.error('Error check payin:', error);
+  throw error;
+}
 };
 
 export const payInIntentGenerateOrderService = async (
@@ -633,6 +657,7 @@ export const payInIntentGenerateOrderService = async (
   isRazorpay,
 ) => {
   // validating if it exist
+  try{
   const payIn = await getPayInUrlService(payInId);
   checkIsPayInExpired(payIn);
   if (isRazorpay) {
@@ -676,6 +701,10 @@ export const payInIntentGenerateOrderService = async (
     cashFreeResponse,
     payInId,
   };
+}catch (error) {
+  logger.error('Error generate intent payin:', error);
+  throw error;
+}
 };
 
 export const updatePaymentNotificationStatusService = async (
@@ -683,6 +712,7 @@ export const updatePaymentNotificationStatusService = async (
   type,
   company_id,
 ) => {
+  try{
   if (!Object.values(Type).includes(type)) {
     throw new BadRequestError('Invalid notification type.');
   }
@@ -734,6 +764,10 @@ export const updatePaymentNotificationStatusService = async (
   }
 
   return data;
+} catch (error) {
+  logger.error('Error updating payment status notification:', error);
+  throw error;
+}
 };
 
 export const updateDepositStatusService = async (
@@ -743,6 +777,7 @@ export const updateDepositStatusService = async (
   company_id,
   updated_by,
 ) => {
+  try{
   const payInData = await getPayInUrlDao({
     merchant_order_id: merchantOrderId,
     company_id,
@@ -890,6 +925,10 @@ export const updateDepositStatusService = async (
   });
 
   return;
+}catch (error) {
+  logger.error('Error updating deposit status:', error);
+  throw error;
+}
 };
 
 export const resetDepositService = async (
@@ -898,6 +937,7 @@ export const resetDepositService = async (
   company_id,
   updated_by,
 ) => {
+  try{
   const payIn = await getPayInUrlDao({
     merchant_order_id: merchant_order_id,
     company_id: company_id,
@@ -961,6 +1001,10 @@ export const resetDepositService = async (
   }
 
   return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+}catch (error) {
+  logger.error('Error reset deposit service:', error);
+  throw error;
+}
 };
 
 const calculateStatus = (createdAt) => {
@@ -1187,6 +1231,7 @@ export const processPayInService = async (
   tele_check = true,
   img_utr = false,
 ) => {
+  try{
   const {
     userSubmittedUtr,
     merchantOrderId,
@@ -1484,6 +1529,10 @@ export const processPayInService = async (
   } else {
     return result;
   }
+}catch (error) {
+  logger.error('Error in process payin:', error);
+  throw error;
+}
 };
 
 // const calculateCommissions = async (merchantId, vendorId, amount) => {
@@ -1503,6 +1552,7 @@ export const processPayInService = async (
 // };
 
 export const telegramResponseService = async (conn, message) => {
+  try{
   const { photo } = message;
   const TELEGRAM_BOT_TOKEN = config.telegramOcrBotToken;
 
@@ -1699,9 +1749,14 @@ export const telegramResponseService = async (conn, message) => {
     null,
     false,
   );
+}catch (error) {
+  logger.error('Error in telegram response :', error);
+  throw error;
+}
 };
 
 export const processPayInByImageService = async (conn, payload) => {
+  try{
   const { base64Image, merchantOrderId } = payload;
   const content = await getImageContentFromOCr(base64Image);
   let payInData;
@@ -1736,6 +1791,10 @@ export const processPayInByImageService = async (conn, payload) => {
     amount: payInData.amount,
     user_submitted_image: payload.fileKey,
   });
+}catch (error) {
+  logger.error('Error in process payin by image :', error);
+  throw error;
+}
 };
 
 export const disputeDuplicateTransactionService = async (
@@ -1744,6 +1803,7 @@ export const disputeDuplicateTransactionService = async (
   company_id,
   updated_by,
 ) => {
+  try{
   const { payInId, merchantOrderId, confirmed, amount } = payload;
   const payIn = await getPayInUrlDao({ id: payInId, company_id });
 
@@ -1996,6 +2056,10 @@ export const disputeDuplicateTransactionService = async (
   // await Promise.all(notifications);
   await newTableEntry(tableName.PAYIN);
   return response;
+}catch (error) {
+  logger.error('Error in dispute duplicate transaction:', error);
+  throw error;
+}
 };
 
 export const telegramCheckUTRService = async (
@@ -2262,6 +2326,7 @@ export const verifyPayinsService = async (
   user_location,
   oneTimeUsed,
 ) => {
+  try {
   const payIn = await getPayInUrlService(merchantOrderId);
 
   if (!payIn) {
@@ -2334,23 +2399,28 @@ export const verifyPayinsService = async (
     return isActive && hasAnyMethod;
   });
 
-  const result = {
-    expiryTime: payIn.expiration_date,
-    amount: payIn.amount,
-    one_time_used: payIn.one_time_used,
-    status: payIn.status,
-    min_amount: merchant[0].min_payin,
-    max_amount: merchant[0].max_payin,
-    is_qr: enabledBanks.some((bank) => bank.is_qr),
-    is_phonepay: enabledBanks.some((bank) => bank.config?.is_phonepay),
-    is_bank: enabledBanks.some((bank) => bank.is_bank),
-    redirect_url: payIn.config?.urls?.return,
-  };
-  usedTokens.add(merchantOrderId);
-  return result;
+    const result = {
+      expiryTime: payIn.expiration_date,
+      amount: payIn.amount,
+      one_time_used: payIn.one_time_used,
+      status: payIn.status,
+      min_amount: merchant[0].min_payin,
+      max_amount: merchant[0].max_payin,
+      is_qr: enabledBanks.some((bank) => bank.is_qr),
+      is_phonepay: enabledBanks.some((bank) => bank.config?.is_phonepay),
+      is_bank: enabledBanks.some((bank) => bank.is_bank),
+      redirect_url: payIn.config?.urls?.return,
+    };
+    usedTokens.add(merchantOrderId);
+    return result;
+  } catch (error) {
+    logger.error('Error in verify Payin Service:', error.message);
+    throw error;
+  }
 };
 
 export const generateUpiUrlService = async (payload) => {
+  try{
   if (isNaN(payload.amount) || payload.amount <= 0) {
     return new BadRequestError('Invalid amount');
   }
@@ -2422,6 +2492,10 @@ export const generateUpiUrlService = async (payload) => {
   //   upiQr,
   //   transactionId,
   // };
+}catch (error) {
+  logger.error('Error in generate upi url :', error);
+  throw error;
+}
 };
 
 const checkIsPayInExpired = (payIn) => {
