@@ -192,7 +192,7 @@ const createBankResponseService = async (
 
       if (updatedData.status === '/repeated') {
         await commit(localConn);
-        if (shouldRelease) localConn.release();
+        // if (shouldRelease) localConn.release();
         if (upi_short_code) {
           return {
             message: `Entry with REPEATED AMOUNT CODE Added ${upi_short_code}`,
@@ -289,7 +289,7 @@ const createBankResponseService = async (
             getDataByUtr.some((item) => item.is_used);
           if (!acceptedStatus.includes(payInUtr.status) && botUtrIsUsed) {
             await commit(localConn);
-            if (shouldRelease) localConn.release();
+            // if (shouldRelease) localConn.release();
             return {
               message: `The entry is already ${payInUtr.status} with UTR`,
             };
@@ -310,7 +310,7 @@ const createBankResponseService = async (
             (isValidAmountCode && upi_short_code !== payInUtr.upi_short_code)
           ) {
             await commit(localConn);
-            if (shouldRelease) localConn.release();
+            // if (shouldRelease) localConn.release();
             if (isValidAmountCode && payInUtr.upi_short_code) {
               return {
                 message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`,
@@ -354,7 +354,7 @@ const createBankResponseService = async (
           //   merchant_order_id: updatePayInDataRes?.merchant_order_id,
           // });
           await commit(localConn);
-          if (shouldRelease) localConn.release();
+          // if (shouldRelease) localConn.release();
           return {
             message: `Bank Mismatch with ${updatePayInDataRes?.merchant_order_id}`,
           };
@@ -370,7 +370,7 @@ const createBankResponseService = async (
         );
         if (existingResponse?.length > 0) {
           await commit(localConn);
-          if (shouldRelease) localConn.release();
+          // if (shouldRelease) localConn.release();
           return { message: `The UTR already exists` };
         }
         const merchantData = await getMerchantsDao(
@@ -426,7 +426,7 @@ const createBankResponseService = async (
             (isValidAmountCode && upi_short_code !== payInUtr.upi_short_code)
           ) {
             await commit(localConn);
-            if (shouldRelease) localConn.release();
+            // if (shouldRelease) localConn.release();
             if (isValidAmountCode && payInUtr.upi_short_code) {
               return {
                 message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`,
@@ -474,7 +474,7 @@ const createBankResponseService = async (
             amount: botRes.amount,
           });
           await commit(localConn);
-          if (shouldRelease) localConn.release();
+          // if (shouldRelease) localConn.release();
           if (isValidAmountCode && payInUtr.upi_short_code) {
             return {
               message: `✅ Amount Code ${upi_short_code} matches the User Submitted Amount Code: ${payInUtr.upi_short_code} and the payment was successful.`,
@@ -492,7 +492,7 @@ const createBankResponseService = async (
             (isValidAmountCode && upi_short_code !== payInUtr.upi_short_code)
           ) {
             await commit(localConn);
-            if (shouldRelease) localConn.release();
+            // if (shouldRelease) localConn.release();
             if (isValidAmountCode && payInUtr.upi_short_code) {
               return {
                 message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`,
@@ -540,7 +540,7 @@ const createBankResponseService = async (
           //   merchant_order_id: updatePayInDataRes?.merchant_order_id,
           // });
           await commit(localConn);
-          if (shouldRelease) localConn.release();
+          // if (shouldRelease) localConn.release();
           return {
             message: `Entry is in Dispute with ${updatePayInDataRes?.merchant_order_id}`,
           };
@@ -574,28 +574,33 @@ const createBankResponseService = async (
 };
 
 const updateCalculationTable = async (user_id, data, conn) => {
-  if (isNaN(data.amount - data.payinCommission)) {
-    throw new BadRequestError('Invalid amount or commission');
-  }
-  if (user_id) {
-    const calculationData = await getCalculationforCronDao(user_id);
-    if (!calculationData[0]) {
-      throw new NotFoundError('Calculation not found!');
+  try {
+    if (isNaN(data.amount - data.payinCommission)) {
+      throw new BadRequestError('Invalid amount or commission');
     }
-    const calculationId = calculationData[0].id;
-    const totalAmount = Number(data.amount) - Number(data.payinCommission);
-    const response = await updateCalculationBalanceDao(
-      { id: calculationId },
-      {
-        total_payin_count: 1,
-        total_payin_amount: data.amount,
-        total_payin_commission: data.payinCommission,
-        current_balance: totalAmount,
-        net_balance: totalAmount,
-      },
-      conn,
-    );
-    return response;
+    if (user_id) {
+      const calculationData = await getCalculationforCronDao(user_id);
+      if (!calculationData[0]) {
+        throw new NotFoundError('Calculation not found!');
+      }
+      const calculationId = calculationData[0].id;
+      const totalAmount = Number(data.amount) - Number(data.payinCommission);
+      const response = await updateCalculationBalanceDao(
+        { id: calculationId },
+        {
+          total_payin_count: 1,
+          total_payin_amount: data.amount,
+          total_payin_commission: data.payinCommission,
+          current_balance: totalAmount,
+          net_balance: totalAmount,
+        },
+        conn,
+      );
+      return response;
+    }
+  } catch (error) {
+    logger.error('Error in updateCalculationTable:', error);
+    throw error;
   }
 };
 
@@ -1558,34 +1563,39 @@ const updateCalculationBalances = async (
   conn,
   count = 0,
 ) => {
-  if (!currentCalculation) return;
+  try {
+    if (!currentCalculation) return;
 
-  const updates = {
-    total_payin_count: count,
-    total_payin_commission: commission,
-    total_payin_amount: amountDiff,
-    current_balance: amountDiff - commission,
-    net_balance: amountDiff - commission,
-  };
+    const updates = {
+      total_payin_count: count,
+      total_payin_commission: commission,
+      total_payin_amount: amountDiff,
+      current_balance: amountDiff - commission,
+      net_balance: amountDiff - commission,
+    };
 
-  // Update current calculation
-  await updateCalculationBalanceDao(
-    { id: currentCalculation[0].id },
-    updates,
-    conn,
-  );
+    // Update current calculation
+    await updateCalculationBalanceDao(
+      { id: currentCalculation[0].id },
+      updates,
+      conn,
+    );
 
-  if (nextCalculations.length > 0) {
-    // Update subsequent calculations
-    for (const calc of nextCalculations) {
-      await updateCalculationBalanceDao(
-        { id: calc.id },
-        {
-          net_balance: amountDiff - commission,
-        },
-        conn,
-      );
+    if (nextCalculations.length > 0) {
+      // Update subsequent calculations
+      for (const calc of nextCalculations) {
+        await updateCalculationBalanceDao(
+          { id: calc.id },
+          {
+            net_balance: amountDiff - commission,
+          },
+          conn,
+        );
+      }
     }
+  } catch (error) {
+    logger.error('Error in updateCalculationBalances:', error);
+    throw error;
   }
 };
 

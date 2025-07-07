@@ -3,6 +3,7 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import methodOverride from 'method-override';
 import cookieParser from 'cookie-parser';
+import timeout from 'connect-timeout';
 import {
   methodNotFound,
   addLogIdInRequest,
@@ -31,6 +32,7 @@ app.use(express.json());
 
 app.use(addLogIdInRequest);
 app.use(apis);
+app.use(timeout('20s'));
 
 app.use(errorHandler);
 app.use(methodNotFound);

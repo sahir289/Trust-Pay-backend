@@ -32,6 +32,7 @@ import {
   updateUserHierarchyDao,
 } from '../userHierarchy/userHierarchyDao.js';
 import { getMerchantByUserIdDao } from '../merchants/merchantDao.js';
+import { getCompanyByIDDao } from '../company/companyDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const getUsersService = async (
@@ -330,47 +331,52 @@ const createUserService = async (conn, payload, role) => {
     const userDesignation = await getDesignationDao({
       id: payload.designation_id,
     });
-    ///for operations
-
-    if (
-      userDesignation[0]?.designation == Role.MERCHANT_OPERATIONS ||
-      userDesignation[0]?.designation == Role.VENDOR_OPERATIONS
-    ) {
-      const hierarchy = await getUserHierarchysDao({
-        user_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
-      });
-      const hierarchyConfig = hierarchy[0]?.config;
-      const currentChildren = hierarchy[0]?.config?.child?.operations || [];
-      await updateUserHierarchyDao(
-        { id: hierarchy[0]?.id },
-        {
-          config: {
-            ...hierarchyConfig,
-            child: { operations: [...currentChildren, User.id] },
-          },
-        },
-        conn,
-      );
+    let unique_id;
+    if (userDesignation[0]?.designation == Role.ADMIN) {
+      const company = await getCompanyByIDDao({ id: payload.company_id });
+      unique_id = company[0].config.unique_admin_id;
+    }
       if (
-        userDesignation[0].designation == Role.VENDOR_OPERATIONS ||
-        userDesignation[0].designation == Role.MERCHANT_OPERATIONS
+        userDesignation[0]?.designation == Role.MERCHANT_OPERATIONS ||
+        userDesignation[0]?.designation == Role.VENDOR_OPERATIONS
       ) {
-        await createUserHierarchyDao(
+        ///for operations
+
+        const hierarchy = await getUserHierarchysDao({
+          user_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
+        });
+        const hierarchyConfig = hierarchy[0]?.config;
+        const currentChildren = hierarchy[0]?.config?.child?.operations || [];
+        await updateUserHierarchyDao(
+          { id: hierarchy[0]?.id },
           {
-            user_id: User.id,
-            created_by: payload.created_by,
-            updated_by: payload.updated_by,
-            company_id: payload.company_id,
             config: {
-              parent: payload?.parent_id
-                ? payload?.parent_id
-                : payload.created_by,
+              ...hierarchyConfig,
+              child: { operations: [...currentChildren, User.id] },
             },
           },
           conn,
         );
+        if (
+          userDesignation[0].designation == Role.VENDOR_OPERATIONS ||
+          userDesignation[0].designation == Role.MERCHANT_OPERATIONS
+        ) {
+          await createUserHierarchyDao(
+            {
+              user_id: User.id,
+              created_by: payload.created_by,
+              updated_by: payload.updated_by,
+              company_id: payload.company_id,
+              config: {
+                parent: payload?.parent_id
+                  ? payload?.parent_id
+                  : payload.created_by,
+              },
+            },
+            conn,
+          );
+        }
       }
-    }
 
     let merchant = {};
     ///for merchant sub-merchant
@@ -455,6 +461,7 @@ const createUserService = async (conn, payload, role) => {
           secretKey: merchant?.config ? merchant.config.keys.private : '',
           publicKey: merchant?.config ? merchant.config.keys.public : '',
           designation: designation[0]?.designation,
+          unique_id,
         });
 
         if (!data) {
@@ -466,7 +473,6 @@ const createUserService = async (conn, payload, role) => {
       }
     }
 
-    logger.log('User Created Successfully');
     // const finalResult = filterResponse(User, filterColumns);
     // await notifyAdminsAndUsers({
     //   conn,
@@ -486,6 +492,12 @@ const createUserService = async (conn, payload, role) => {
 
 const userUpdateService = async (conn, ids, payload) => {
   try {
+    if (payload.email) {
+      const verifyEmail = await getUsersDao({ email: payload.email });
+      if (verifyEmail.length > 0) {
+        throw new BadRequestError('Email already Registered');
+      }
+    }
     const User = await updateUserDao(ids, payload, conn);
     // await notifyAdminsAndUsers({
     //   conn,
@@ -495,7 +507,6 @@ const userUpdateService = async (conn, ids, payload) => {
     //   actorUserId: payload.updated_by,
     //   category: 'User',
     // });
-    logger.log('User Updated Successfully');
     return User;
   } catch (error) {
     logger.error('error getting while updating user', error);
