@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import config from './src/config/config.js';
 import { initializeSocket } from './src/utils/sockets.js';
 import { logger } from './src/utils/logger.js';
+import { closePool } from './src/utils/db.js';
 
 const server = createServer(app);
 
@@ -26,21 +27,18 @@ const normalizePort = (val) => {
 
 const port = normalizePort(PORT);
 const onError = (error) => {
-  if (error.syscall !== 'listen') {
-    throw error;
-  }
+  if (error.syscall !== 'listen') return gracefulShutdown('Server error', error);
   switch (error.code) {
     case 'EACCES':
-      logger.error(`${port} requires elevated privileges`);
-      process.exit(1);
+      error.message = `${port} requires elevated privileges`;
       break;
     case 'EADDRINUSE':
-      logger.error(`${port} is already in use`);
-      process.exit(1);
+      error.message = `${port} is already in use`;
       break;
     default:
       throw error;
   }
+  gracefulShutdown('Server listen error', error);
 };
 
 const onListening = () => {
@@ -55,22 +53,65 @@ const onListening = () => {
   logger.log(styledMessage);
 };
 
-process.on('SIGINT', () => {
-  const message = chalk.bold.red('stopping the server');
-  logger.error(message);
-  process.exit();
-});
+// process.on('SIGINT', () => {
+//   const message = chalk.bold.red('stopping the server');
+//   logger.error(message);
+//   process.exit();
+// });
 
-process.on('uncaughtException', (err) => {
-  logger.error('There was an uncaught error', err);
-  process.exit(1);
-});
+// process.on('uncaughtException', (err) => {
+//   logger.error('There was an uncaught error', err);
+//   process.exit(1);
+// });
 
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  // maybe we will add cleanup or restart logic in future here
-});
+// process.on('unhandledRejection', (reason, promise) => {
+//   logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+// });
 
-server.listen(port);
+let shuttingDown = false;
+
+async function gracefulShutdown(label, err) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  const styledMessageError = chalk.bold.red(`${label}`);
+  
+  // console the error in stderr (synchronously) so PM2 always captures it
+  if (err) console.error(`${label}:`, err);
+
+  if (err) {
+    logger.error(styledMessageError, { message: err.message, stack: err.stack }); 
+  } else {
+    logger.warn(styledMessageError);
+  }
+
+  //  we need to close the resources (HTTP server, DB, etc.)
+  try {
+    await Promise.allSettled([
+      new Promise((res) => server.close(res)),
+      closePool(),
+      new Promise((res) => logger.on('finish', res)).then(() => logger.end()),
+    ]);
+  } finally {
+    process.exit(err ? 1 : 0);
+  }
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT received'));
+
+// docker / kubernetes or PM2 stop
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM received'));
+
+process.on('uncaughtException', (err) =>
+  gracefulShutdown('Uncaught Exception', err),
+);
+
+process.on('unhandledRejection', (reason) =>
+  gracefulShutdown(
+    'Unhandled Rejection',
+    reason instanceof Error ? reason : new Error(String(reason)), 
+  ),
+);
+
+server.listen(PORT, onListening);
 server.on('error', onError);
-server.on('listening', onListening);
+

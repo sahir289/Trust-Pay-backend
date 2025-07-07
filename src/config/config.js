@@ -4,7 +4,7 @@ dotenv.config({ path: '.env' });
 // Env file configuration
 function config(Env) {
   return {
-    env: Env?.ENV,
+    env: Env?.NODE_ENV,
     port: Env?.PORT,
     aws: {
       region: Env?.AWS_REGION || 'us-east-1',
