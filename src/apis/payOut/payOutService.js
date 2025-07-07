@@ -64,12 +64,12 @@ const createPayoutService = async (
   fromUI,
 ) => {
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.PAYOUT
-        : role === Role.VENDOR
-          ? vendorColumns.PAYOUT
-          : columns.PAYOUT;
+    // const filterColumns =
+    //   role === Role.MERCHANT
+    //     ? merchantColumns.PAYOUT
+    //     : role === Role.VENDOR
+    //       ? vendorColumns.PAYOUT
+    //       : columns.PAYOUT;
     const { code, amount, x_api_key, returnUrl, notifyUrl } = payload;
     const details = await getMerchantsDao({ code });
 
@@ -219,9 +219,9 @@ const createPayoutService = async (
       return data;
     }
 
-    const finalResult = filterResponse(data, filterColumns);
+    // const finalResult = filterResponse(data, filterColumns);
     await newTableEntry(tableName.PAYOUT);
-    return finalResult;
+    return data;
   } catch (error) {
     logger.error(error);
     throw error;
