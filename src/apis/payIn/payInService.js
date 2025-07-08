@@ -99,6 +99,7 @@ Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
 
 export const generatePayInUrlByHashService = async (conn, req) => {
+  try{
   const { user_id, code, ot, key, amount } = req.query;
   if (!user_id || !code || !ot) {
     const data = {
@@ -185,6 +186,10 @@ export const generatePayInUrlByHashService = async (conn, req) => {
     payInUrl: `${config.reactPaymentOrigin}/transaction/${encodedHash}?${query}`,
   };
   return updateRes;
+} catch (error) {
+  logger.error('Error generating payin hash:', error);
+  throw error;
+}
 };
 
 export const generatePayInUrlService = async (
@@ -317,6 +322,7 @@ export const generatePayInUrlService = async (
 };
 
 export const getPayInUrlService = async (id, conn, tele_check = true) => {
+  try{
   const currentTime = Date.now();
   const payIn = await getPayInUrlDao({ merchant_order_id: id });
 
@@ -360,10 +366,15 @@ export const getPayInUrlService = async (id, conn, tele_check = true) => {
   }
 
   return payIn;
+}catch (error) {
+  logger.error('Error get payin url:', error);
+  throw error;
+}
 };
 
 // TODO: delete this API
 export const expirePayInUrlService = async (payInId) => {
+  try{
   // const currentTime = Date.now();
   const payIn = await getPayInUrlDao({ id: payInId });
   if (!payIn) {
@@ -384,6 +395,10 @@ export const expirePayInUrlService = async (payInId) => {
     req_amount: payIn.amount,
     utr_id: payIn.utr,
   });
+}catch (error) {
+  logger.error('Error expire payin url:', error);
+  throw error;
+}
 };
 
 export const assignedBankToPayInUrlService = async (
@@ -392,7 +407,7 @@ export const assignedBankToPayInUrlService = async (
   type,
 ) => {
   // Validate the PayIn URL
-
+try{
   const payIn = await getPayInUrlService(merchantOrderId);
   const payInConfig = payIn.config || {};
   checkIsPayInExpired(payIn);
@@ -538,6 +553,10 @@ export const assignedBankToPayInUrlService = async (
   }
 
   return response;
+} catch (error) {
+  logger.error('Error assigned payin url:', error);
+  throw error;
+}
 };
 
 // Public API Used by Merchants
@@ -547,6 +566,7 @@ export const checkPayInStatusService = async (
   merchantOrderId,
   api_key,
 ) => {
+  try{
   const merchantArr = await getMerchantsDao({ code: merchantCode });
   const merchant = merchantArr[0];
   if (!merchant) {
@@ -627,6 +647,10 @@ export const checkPayInStatusService = async (
         ? botResponse?.utr
         : payIn.user_submitted_utr,
   };
+} catch (error) {
+  logger.error('Error check payin:', error);
+  throw error;
+}
 };
 
 export const payInIntentGenerateOrderService = async (
@@ -635,6 +659,7 @@ export const payInIntentGenerateOrderService = async (
   isRazorpay,
 ) => {
   // validating if it exist
+  try{
   const payIn = await getPayInUrlService(payInId);
   checkIsPayInExpired(payIn);
   if (isRazorpay) {
@@ -678,6 +703,10 @@ export const payInIntentGenerateOrderService = async (
     cashFreeResponse,
     payInId,
   };
+}catch (error) {
+  logger.error('Error generate intent payin:', error);
+  throw error;
+}
 };
 
 export const updatePaymentNotificationStatusService = async (
@@ -685,6 +714,7 @@ export const updatePaymentNotificationStatusService = async (
   type,
   company_id,
 ) => {
+  try{
   if (!Object.values(Type).includes(type)) {
     throw new BadRequestError('Invalid notification type.');
   }
@@ -736,6 +766,10 @@ export const updatePaymentNotificationStatusService = async (
   }
 
   return data;
+} catch (error) {
+  logger.error('Error updating payment status notification:', error);
+  throw error;
+}
 };
 
 export const updateDepositStatusService = async (
@@ -745,6 +779,7 @@ export const updateDepositStatusService = async (
   company_id,
   updated_by,
 ) => {
+  try{
   const payInData = await getPayInUrlDao({
     merchant_order_id: merchantOrderId,
     company_id,
@@ -889,10 +924,14 @@ export const updateDepositStatusService = async (
     payinId: updatePayInRes.id,
     req_amount: payInData.amount,
     amount: bankResponse.amount,
-    utr_id: updatePayInRes.user_submitted_utr || '',
+    utr_id: bankResponse.utr || '',
   });
 
   return;
+}catch (error) {
+  logger.error('Error updating deposit status:', error);
+  throw error;
+}
 };
 
 export const resetDepositService = async (
@@ -901,6 +940,7 @@ export const resetDepositService = async (
   company_id,
   updated_by,
 ) => {
+  try{
   const payIn = await getPayInUrlDao({
     merchant_order_id: merchant_order_id,
     company_id: company_id,
@@ -966,6 +1006,10 @@ export const resetDepositService = async (
   }
 
   return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+}catch (error) {
+  logger.error('Error reset deposit service:', error);
+  throw error;
+}
 };
 
 const calculateStatus = (createdAt) => {

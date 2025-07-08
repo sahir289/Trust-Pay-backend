@@ -941,6 +941,7 @@ const checkPayOutStatusService = async (
   merchantOrderId,
   api_key,
 ) => {
+  try{
   const merchantArr = await getMerchantsDao({ code: merchantCode });
   const merchant = merchantArr[0];
   if (!merchant) {
@@ -993,6 +994,10 @@ const checkPayOutStatusService = async (
     payoutId: payOut[0].id,
     utr_id: payOut[0].utr_id ? payOut[0].utr_id : ' ',
   };
+}catch(error){
+  logger.error('Error check payout status:', error);
+  throw error;
+}
 };
 
 export {
