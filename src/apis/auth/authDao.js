@@ -140,7 +140,7 @@ const getAllActiveSessionsDao = async (user_id, company_id) => {
     return result.rows || [];
   } catch (error) {
     logger.error('Error in getting all active sessions', error);
-    throw new DbError(error.message);
+    throw error;
   }
 };
 
