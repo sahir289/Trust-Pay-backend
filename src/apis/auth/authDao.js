@@ -11,9 +11,25 @@ const addLoginDao = async (user_id, config, company_id, sessionId, conn = null) 
         ? JSON.stringify(value)
         : value,
     );
+    
+    // First, ensure all existing sessions for this user are marked as obsolete
+    const cleanupSql = `
+      UPDATE public."AccessToken" 
+      SET is_obsolete = true 
+      WHERE user_id = $1 AND company_id = $2 AND is_obsolete = false
+    `;
+    
+    if (conn && conn.query) {
+      await conn.query(cleanupSql, [user_id, company_id]);
+    } else {
+      await executeQuery(cleanupSql, [user_id, company_id]);
+    }
+    
+    // Now insert the new session
     const sql = `
       INSERT INTO public."AccessToken" (user_id, company_id, config, session_id)
       VALUES ($1, $2, $3, $4)
+      RETURNING id, session_id
     `;
     const values = [user_id, company_id, configData, sessionId];
     
@@ -118,6 +134,17 @@ const changePasswordDao = async (id, password) => {
   }
 };
 
+const getAllActiveSessionsDao = async (user_id, company_id) => {
+  try {
+    const query = `SELECT session_id, config, created_at FROM "${tableName.ACCESS_TOKEN}" WHERE user_id=$1 AND company_id=$2 AND is_obsolete = false ORDER BY created_at DESC`;
+    const result = await executeQuery(query, [user_id, company_id]);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error in getting all active sessions', error);
+    throw new DbError(error.message);
+  }
+};
+
 export {
   addLoginDao,
   getRefreshTokenDao,
@@ -126,4 +153,5 @@ export {
   updateSessionDao,
   deleteUserSessionsDao,
   changePasswordDao,
+  getAllActiveSessionsDao,
 };

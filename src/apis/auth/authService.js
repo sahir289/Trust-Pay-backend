@@ -15,6 +15,7 @@ import {
   deleteUserSessionsDao,
   getSessionByIdDao,
   changePasswordDao,
+  getAllActiveSessionsDao,
 } from './authDao.js';
 import {
   createUserOtpDao,
@@ -95,29 +96,38 @@ const loginService = async (config, clientIP) => {
     conn = conn || (await getConnection());
     
     try {
-      // Start a transaction to ensure atomic session management
-      await conn.query('BEGIN');
+      // Start a transaction with serializable isolation to prevent race conditions
+      await conn.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
       
       const userDetails = {
         user_id: user.id,
         company_id: user.company_id,
       };
 
-      // Check for existing active sessions - enforce single session per user
+      // First, immediately invalidate ALL existing sessions for this user
+      // This prevents any race condition with multiple simultaneous logins
+      await deleteUserSessionsDao(user.id, user.company_id, null, conn);
+      
+      // Verify all sessions are cleared
+      const remainingSessions = await getAllActiveSessionsDao(user.id, user.company_id);
+      if (remainingSessions.length > 0) {
+        logger.warn(`Warning: ${remainingSessions.length} sessions still active for user ${user.id} after cleanup`);
+        // Force clear again if any remain
+        for (const session of remainingSessions) {
+          forceLogoutUser(user.id, session.session_id);
+        }
+      }
+      
+      // Check for any existing active sessions after deletion (should be none)
       const existingSession = await getSessionByIdDao(userDetails);
       if (existingSession) {
-        logger.info(`Existing session found for user: ${user.id}, session: ${existingSession.session_id}`);
+        logger.warn(`Found existing session during cleanup for user: ${user.id}, session: ${existingSession.session_id}`);
         
-        // First notify the previous session to logout via WebSocket with session details
+        // Notify the previous session to logout via WebSocket
         forceLogoutUser(user.id, existingSession.session_id);
         
-        // Add a small delay to ensure the WebSocket notification is sent
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Then force logout existing session in database
-        await deleteUserSessionsDao(user.id, user.company_id, null, conn);
-        
-        logger.info(`Previous session terminated for user: ${user.id}, session: ${existingSession.session_id}`);
+        // Force delete this specific session
+        await deleteUserSessionsDao(user.id, user.company_id, existingSession.session_id, conn);
       }
 
       // Generate new session ID and tokens
@@ -144,10 +154,30 @@ const loginService = async (config, clientIP) => {
       // Create new session - this should be the only active session
       await addLoginDao(user.id, newConfig, user.company_id, sessionId, conn);
       
+      // Verify only one session exists
+      const allActiveSessions = await getAllActiveSessionsDao(user.id, user.company_id);
+      if (allActiveSessions.length > 1) {
+        logger.error(`Critical: Multiple active sessions detected for user ${user.id}:`, 
+          allActiveSessions.map(s => s.session_id));
+        
+        // Emergency cleanup - keep only the newest session
+        for (let i = 1; i < allActiveSessions.length; i++) {
+          const oldSession = allActiveSessions[i];
+          await deleteUserSessionsDao(user.id, user.company_id, oldSession.session_id, conn);
+          forceLogoutUser(user.id, oldSession.session_id);
+          logger.warn(`Emergency cleanup: Removed duplicate session ${oldSession.session_id} for user ${user.id}`);
+        }
+      }
+      
       // Commit the transaction
       await conn.query('COMMIT');
 
       logger.info(`New session created for user: ${user.id}, session: ${sessionId}`);
+
+      // Final verification - notify any other sessions via WebSocket
+      setTimeout(() => {
+        forceLogoutUser(user.id, null, sessionId);
+      }, 1000);
 
       return {
         tokenInfo,
@@ -156,6 +186,15 @@ const loginService = async (config, clientIP) => {
     } catch (transactionError) {
       // Rollback the transaction on error
       await conn.query('ROLLBACK');
+      
+      // Handle serialization failures by retrying once
+      if (transactionError.code === '40001' || transactionError.message.includes('serialization failure')) {
+        logger.warn(`Serialization failure for user ${user.id}, retrying login...`);
+        // Add a small random delay to prevent thundering herd
+        await new Promise(resolve => setTimeout(resolve, Math.random() * 100 + 50));
+        throw new AuthenticationError('Login request conflict. Please try again.');
+      }
+      
       throw transactionError;
     }
   } catch (error) {
