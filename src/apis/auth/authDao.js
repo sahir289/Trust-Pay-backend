@@ -1,5 +1,4 @@
 import { tableName } from '../../constants/index.js';
-import { DbError } from '../../utils/appErrors.js';
 import { executeQuery } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 
@@ -31,7 +30,7 @@ const getRefreshTokenDao = async (hashedToken, company_id) => {
     return result.rows?.[0] || undefined;
   } catch (error) {
     logger.error('Error in getting refresh token', error);
-    throw new DbError('Error executing query to get refresh token');
+    throw error;
   }
 };
 
@@ -42,7 +41,7 @@ const getLoginDao = async (user_id, company_id) => {
     return result.rows?.[0] || undefined;
   } catch (error) {
     logger.error('Error in getting login details', error);
-    throw new DbError(error.message);
+    throw error;
   }
 };
 
@@ -57,7 +56,7 @@ const getSessionByIdDao = async (decodeToken) => {
     return result.rows?.[0] || undefined;
   } catch (error) {
     logger.error('Error in getting session details', error);
-    throw new DbError(error.message);
+    throw error;
   }
 };
 
@@ -72,7 +71,7 @@ const updateSessionDao = async (user_id, company_id, session_id, config) => {
     await executeQuery(query, [configData, user_id, company_id, session_id]);
   } catch (error) {
     logger.error('Error updating session', error);
-    throw new DbError(error.message);
+    throw error;
   }
 };
 
