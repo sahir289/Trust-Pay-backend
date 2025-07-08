@@ -924,7 +924,7 @@ export const updateDepositStatusService = async (
     payinId: updatePayInRes.id,
     req_amount: payInData.amount,
     amount: bankResponse.amount,
-    utr_id: updatePayInRes.user_submitted_utr || '',
+    utr_id: bankResponse.utr || '',
   });
 
   return;
