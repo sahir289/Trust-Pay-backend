@@ -25,6 +25,7 @@
     "body-parser": "^1.20.3",
     "cashfree-pg": "^4.3.10",
     "chalk": "^5.3.0",
+    "connect-timeout": "^1.9.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "cron": "^4.0.0",
