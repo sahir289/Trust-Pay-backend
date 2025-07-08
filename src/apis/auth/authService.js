@@ -93,47 +93,71 @@ const loginService = async (config, clientIP) => {
 
     // Proceed with session and token generation for non-first login
     conn = conn || (await getConnection());
-    const userDetails = {
-      user_id: user.id,
-      company_id: user.company_id,
-    };
+    
+    try {
+      // Start a transaction to ensure atomic session management
+      await conn.query('BEGIN');
+      
+      const userDetails = {
+        user_id: user.id,
+        company_id: user.company_id,
+      };
 
-    const userSession = await getSessionByIdDao(userDetails);
+      // Check for existing active sessions - enforce single session per user
+      const existingSession = await getSessionByIdDao(userDetails);
+      if (existingSession) {
+        logger.info(`Existing session found for user: ${user.id}, session: ${existingSession.session_id}`);
+        
+        // First notify the previous session to logout via WebSocket with session details
+        forceLogoutUser(user.id, existingSession.session_id);
+        
+        // Add a small delay to ensure the WebSocket notification is sent
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Then force logout existing session in database
+        await deleteUserSessionsDao(user.id, user.company_id, null, conn);
+        
+        logger.info(`Previous session terminated for user: ${user.id}, session: ${existingSession.session_id}`);
+      }
 
-    let sessionId;
-    // if user session already exists, skipping session creation
-    if (userSession) {
-      sessionId = userSession.session_id;
-    } else {
-      sessionId = generateUUID();
+      // Generate new session ID and tokens
+      const sessionId = generateUUID();
+      const tokenInfo = generateUserToken(user);
+      const hashedToken = await createHash(tokenInfo.refreshToken);
+      
+      const newConfig = {
+        user_info: {
+          user_ip: clientIP,
+          hostname: os.hostname(),
+          os_platform: os.platform(),
+          network_interface: Object.values(os.networkInterfaces())[0]?.[0],
+          cpu_cores: os.cpus()[0],
+        },
+        token: {
+          access_token: tokenInfo.accessToken,
+          refresh_token: hashedToken,
+        },
+        confirm_over_ride: config.confirmOverRide,
+        login_time: new Date().toISOString(),
+      };
+
+      // Create new session - this should be the only active session
+      await addLoginDao(user.id, newConfig, user.company_id, sessionId, conn);
+      
+      // Commit the transaction
+      await conn.query('COMMIT');
+
+      logger.info(`New session created for user: ${user.id}, session: ${sessionId}`);
+
+      return {
+        tokenInfo,
+        sessionId,
+      };
+    } catch (transactionError) {
+      // Rollback the transaction on error
+      await conn.query('ROLLBACK');
+      throw transactionError;
     }
-    await deleteUserSessionsDao(user.id, user.company_id);
-
-    const tokenInfo = generateUserToken(user);
-    const hashedToken = await createHash(tokenInfo.refreshToken);
-    const newConfig = {
-      user_info: {
-        user_ip: clientIP,
-        hostname: os.hostname(),
-        os_platform: os.platform(),
-        network_interface: Object.values(os.networkInterfaces())[0]?.[0],
-        cpu_cores: os.cpus()[0],
-      },
-      token: {
-        access_token: tokenInfo.accessToken,
-        refresh_token: hashedToken,
-      },
-      confirm_over_ride: config.confirmOverRide,
-    };
-    await addLoginDao(user.id, newConfig, user.company_id, sessionId);
-
-    // notify previous sessions to log out
-    forceLogoutUser(user.id);
-
-    return {
-      tokenInfo,
-      sessionId,
-    };
   } catch (error) {
     logger.error('Error in login service:', error);
     throw error;

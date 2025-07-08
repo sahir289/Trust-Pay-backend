@@ -85,20 +85,27 @@ const initializeSocket = (server) => {
   logger.log(initMessage);
 };
 
-const forceLogoutUser = (userId) => {
+const forceLogoutUser = (userId, sessionId = null) => {
   if (!ioInstance) {
     logger.error('Socket.IO not initialized');
     return;
   }
 
   const socketIds = userSockets.get(userId) || [];
-  logger.log(`Force logout for user ${userId}, sockets: ${socketIds}`);
+  const logMessage = sessionId 
+    ? `Force logout for user ${userId}, session ${sessionId}, sockets: ${socketIds}`
+    : `Force logout for user ${userId}, sockets: ${socketIds}`;
+  logger.log(logMessage);
 
   if (socketIds.length > 0) {
     socketIds.forEach((socketId) => {
-      ioInstance.to(socketId).emit('forceLogout');
+      ioInstance.to(socketId).emit('forceLogout', { 
+        reason: 'new_login',
+        sessionId: sessionId,
+        message: 'Your session has been terminated due to a new login from another device.'
+      });
       logger.log(
-        chalk.yellow(`User ${userId} forced to logout on socket ${socketId}`),
+        chalk.yellow(`User ${userId} forced to logout on socket ${socketId}${sessionId ? ` (session: ${sessionId})` : ''}`),
       );
     });
     userSockets.delete(userId);

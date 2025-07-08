@@ -3,7 +3,7 @@ import { DbError } from '../../utils/appErrors.js';
 import { executeQuery } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 
-const addLoginDao = async (user_id, config, company_id, sessionId) => {
+const addLoginDao = async (user_id, config, company_id, sessionId, conn = null) => {
   try {
     // const id = generateUUID();
     const configData = JSON.stringify(config, (key, value) =>
@@ -16,7 +16,14 @@ const addLoginDao = async (user_id, config, company_id, sessionId) => {
       VALUES ($1, $2, $3, $4)
     `;
     const values = [user_id, company_id, configData, sessionId];
-    const result = await executeQuery(sql, values);
+    
+    let result;
+    if (conn && conn.query) {
+      result = await conn.query(sql, values);
+    } else {
+      result = await executeQuery(sql, values);
+    }
+    
     return result.rows?.[0] || undefined;
   } catch (error) {
     logger.error('Error in adding login details', error);
@@ -76,7 +83,7 @@ const updateSessionDao = async (user_id, company_id, session_id, config) => {
   }
 };
 
-const deleteUserSessionsDao = async (user_id, company_id, session_id) => {
+const deleteUserSessionsDao = async (user_id, company_id, session_id, conn = null) => {
   try {
     let query = `UPDATE "${tableName.ACCESS_TOKEN}" SET is_obsolete = true WHERE user_id = $1 AND company_id = $2`;
     const params = [user_id, company_id];
@@ -86,7 +93,13 @@ const deleteUserSessionsDao = async (user_id, company_id, session_id) => {
       params.push(session_id);
     }
 
-    const result = await executeQuery(query, params);
+    let result;
+    if (conn && conn.query) {
+      result = await conn.query(query, params);
+    } else {
+      result = await executeQuery(query, params);
+    }
+    
     return result.rows;
   } catch (error) {
     logger.error('Error while deleting user session:', error);
