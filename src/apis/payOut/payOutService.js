@@ -2,7 +2,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import {
   BadRequestError,
-  DuplicateDataError,
   InternalServerError,
   NotFoundError,
 } from '../../utils/appErrors.js';
@@ -14,6 +13,7 @@ import {
   rollback,
 } from '../../utils/db.js';
 import {
+  assignedPayoutDao,
   createPayoutDao,
   deletePayoutDao,
   getPayoutsDao,
@@ -24,9 +24,8 @@ import {
 import {
   getMerchantsDao,
   getMerchantByUserIdDao,
-  updateMerchantDao,
 } from '../merchants/merchantDao.js';
-import { getVendorsDao, updateVendorDao } from '../vendors/vendorDao.js';
+import { getVendorsDao } from '../vendors/vendorDao.js';
 import {
   getCalculationDao,
   getCalculationforCronDao,
@@ -834,6 +833,22 @@ const ekoPayoutStatus = async (id, res) => {
   }
 };
 
+const assignedPayoutService = async (
+  conn,
+  id,
+  payload,
+  updated_by,
+  company_id
+) => {
+  try {
+    const data = await assignedPayoutDao(payload, id, updated_by,company_id, conn);
+    return data;
+  } catch (error) {
+    logger.error('Error while vendor assigning to Payout', error);
+    throw error;
+  }
+};
+
 const deletePayoutService = async (id, updated_by, role) => {
   let conn;
   try {
@@ -992,4 +1007,5 @@ export {
   getPayoutsBySearchService,
   updatePayoutService,
   deletePayoutService,
+  assignedPayoutService,
 };

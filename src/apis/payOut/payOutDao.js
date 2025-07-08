@@ -27,7 +27,40 @@ export const createPayoutDao = async (conn, data) => {
     throw error;
   }
 };
+export const assignedPayoutDao = async (
+  payoutData,
+  vendorId,
+  updated_by,
+  company_id,
+  conn,
+) => {
+  try {
+    console.log(payoutData, vendorId, updated_by, 'hey user from');
+    if (!Array.isArray(payoutData)) {
+      throw new Error('payoutData must be an array');
+    }
+    const results = [];
+    for (const data of payoutData) {
+      const updatedData = {
+        vendor_id: vendorId.id,
+        updated_by: updated_by,
+      };
+      const [sql, params] = buildUpdateQuery(tableName.PAYOUT, updatedData, {
+        id: data,
+        company_id
+      });
+      const result = conn
+        ? await conn.query(sql, params)
+        : await executeQuery(sql, params);
 
+      results.push(result.rows[0].id);
+    }
+    return results;
+  } catch (error) {
+    logger.error('Error in assignedPayoutDao:', error);
+    throw error;
+  }
+};
 export const getPayoutsDao = async (
   filters,
   company_id,

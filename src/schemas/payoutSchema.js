@@ -53,6 +53,13 @@ export const UPDATE_DETAILS_SCHEMA = Joi.object({
     .label('vendor_id')
     .optional(),
 });
+export const ASSIGNED_VENDOR_SCHEMA = Joi.object({
+  payouts_ids: Joi.array()
+    .items(
+      Joi.string().uuid({ version: ['uuidv4'] }),
+    )
+    .optional(), 
+});
 
 export const VALIDATE_PAYOUT_BY_ID = Joi.object({
   id: Joi.string()

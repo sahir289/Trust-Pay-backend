@@ -7,12 +7,14 @@ import {
   updatePayoutService,
   getPayoutsBySearchService,
   checkPayOutStatusService,
+  assignedPayoutService,
 } from './payOutService.js';
 import {
   PAYOUT_DETAILS_SCHEMA,
   UPDATE_DETAILS_SCHEMA,
   VALIDATE_CHECK_PAY_OUT_STATUS,
   VALIDATE_PAYOUT_BY_ID,
+  ASSIGNED_VENDOR_SCHEMA,
 } from '../../schemas/payoutSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
@@ -156,7 +158,29 @@ const updatePayout = async (req, res) => {
     'Payout updated successfully',
   );
 };
-
+const assignedPayout = async (req, res) => {
+  const { user_id, user_name ,company_id} = req.user;
+  const { id } = req.params;
+  const { payouts_ids } = req.body;
+  console.log(req.body)
+  const joiValidation = ASSIGNED_VENDOR_SCHEMA.validate(req.body);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+ const updated_by = user_id;
+  const ids = { id };
+  const update = await transactionWrapper(assignedPayoutService)(
+    ids,
+    payouts_ids,
+    updated_by,
+    company_id,
+  );
+  return sendSuccess(
+    res,
+    { ids: update, assigned_by: user_name },
+    'Payout assigned successfully',
+  );
+};
 const deletePayout = async (req, res) => {
   const joiValidation = VALIDATE_PAYOUT_BY_ID.validate(req.params);
   if (joiValidation.error) {
@@ -202,4 +226,5 @@ export {
   updatePayout,
   deletePayout,
   getPayoutsById,
+  assignedPayout
 };
