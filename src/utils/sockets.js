@@ -55,28 +55,45 @@ const initializeSocket = (server) => {
           s.userId === userId && s.id !== socket.id
         );
         
-        // Log the active sockets we found directly (more reliable than our map)
-        logger.log(chalk.bgRed.white(`[SOCKET] Found ${userActiveSockets.length} active sockets for user ${userId} by direct search, WILL DISCONNECT ALL OF THEM`));
+        // If we have a sessionId, only logout sockets from different sessions (different devices/browsers)
+        // If sessionId is the same, it means it's the same browser session (multiple tabs), so don't logout
+        const socketsToLogout = sessionId 
+          ? userActiveSockets.filter(s => s.sessionId !== sessionId)
+          : userActiveSockets; // If no sessionId provided, logout all (backward compatibility)
         
-        // Create a deterministic set of socket IDs to force logout - EXCLUDING our current socket
+        // Log what we found
+        logger.log(chalk.bgRed.white(`[SOCKET] Found ${userActiveSockets.length} active sockets for user ${userId}, will disconnect ${socketsToLogout.length} sockets from different sessions`));
+        
+        if (sessionId && socketsToLogout.length < userActiveSockets.length) {
+          const sameSessionSockets = userActiveSockets.length - socketsToLogout.length;
+          logger.log(chalk.bgGreen.white(`[SOCKET] Keeping ${sameSessionSockets} sockets from same session (same browser) for user ${userId}`));
+        }
+        
+        // Create a deterministic set of socket IDs to force logout - EXCLUDING current socket and same session sockets
         const allSocketsToLogout = new Set(
-          userActiveSockets.map(s => s.id)
+          socketsToLogout.map(s => s.id)
         );
         
         // IMPORTANT: Add this socket to our tracking map AFTER identifying old sockets
         // This prevents race conditions where multiple sockets login simultaneously
-        // Set ONLY the new socket for this user
-        userSockets.set(userId, [socket.id]);
+        // Include all sockets from the same session (same browser)
+        const sameSessionSockets = userActiveSockets.filter(s => 
+          sessionId && s.sessionId === sessionId
+        ).map(s => s.id);
         
-        // Force logout all existing sessions for this user EXCEPT the current socket
-        logger.log(chalk.bgYellow.black(`[SOCKET] Will force logout ${allSocketsToLogout.size} sockets for user ${userId}`));
+        // Set all sockets for this user from the same session
+        userSockets.set(userId, [socket.id, ...sameSessionSockets]);
+        
+        // Force logout existing sessions from different devices/browsers EXCEPT the current socket and same session sockets
+        logger.log(chalk.bgYellow.black(`[SOCKET] Will force logout ${allSocketsToLogout.size} sockets from different sessions for user ${userId}`));
         let forcedLogoutCount = 0;
         
-        // FIRST: Immediately broadcast a targeted message to all clients for this user
-        logger.log(chalk.yellow(`[SOCKET] Broadcasting global forceLogout for userId: ${userId}`));
+        // Only process sockets from different sessions (different devices/browsers)
+        if (allSocketsToLogout.size > 0) {
+          logger.log(chalk.yellow(`[SOCKET] Processing logout for ${allSocketsToLogout.size} sockets from different sessions for userId: ${userId}`));
         
-        // Loop through old sockets first
-        for (const existingSocketId of allSocketsToLogout) {
+          // Loop through old sockets from different sessions only
+          for (const existingSocketId of allSocketsToLogout) {
           if (existingSocketId === socket.id) continue; // Skip the current socket (redundant check)
           
           logger.log(chalk.red(`[SOCKET] Forcing logout on socket ${existingSocketId} for user ${userId}`));
@@ -120,24 +137,9 @@ const initializeSocket = (server) => {
             logger.warn(`[SOCKET] Could not find socket ${existingSocketId} to disconnect`);
           }
         }
-        
-        // Now, broadcast a system-wide message as a backup for any sockets we might have missed
-        ioInstance.emit('forceLogout', {
-          reason: 'new_login',
-          userId: userId,
-          message: 'Your session has been terminated due to a new login from another device.',
-          timestamp: new Date().toISOString(),
-          global: true
-        });
-        
-        // Send a broadcast specifically for this user to all connected sockets
-        // This is more aggressive than the targeted approach and will catch any sockets we missed
-        ioInstance.emit('forceLogout', { 
-          reason: 'follow_up',
-          userId: userId,
-          message: 'Your session has been terminated due to a new login from another device.',
-          timestamp: new Date().toISOString()
-        });
+        } else {
+          logger.log(chalk.green(`[SOCKET] No sockets from different sessions to logout for user ${userId} - all connections are from the same browser session`));
+        }
         
         // Clean up our socket map for other users to avoid stale entries
         for (const [mapUserId, socketsList] of userSockets.entries()) {
@@ -179,7 +181,7 @@ const initializeSocket = (server) => {
         }
         
         const loginMessage = chalk.bold.green(
-          `[SOCKET] User ${userId} associated with socket ${socket.id}, forced logout of ${forcedLogoutCount} previous connections`
+          `[SOCKET] User ${userId} associated with socket ${socket.id}, forced logout of ${forcedLogoutCount} connections from different devices/browsers`
         );
         logger.log(loginMessage);
         
@@ -239,30 +241,6 @@ const forceLogoutUser = async (userId, sessionId = null, excludeSessionId = null
   try {
     // Log with high visibility for debugging
     logger.log(chalk.bgRed.white(`[SOCKET] forceLogoutUser called for userId: ${userId}, sessionId: ${sessionId}, excludeSessionId: ${excludeSessionId}`));
-    
-    // First do an immediate broadcast to all sockets for this user
-    // This is the most reliable way to ensure all clients get the message
-    logger.log(chalk.red(`[SOCKET] Broadcasting GLOBAL forceLogout to ALL clients for user ${userId}`));
-    
-    // Broadcast with high signal-to-noise value using different event types
-    ioInstance.emit('forceLogout', { 
-      reason: 'global_force_logout',
-      userId: userId,
-      sessionId: sessionId,
-      message: 'Your session has been terminated due to a new login.',
-      timestamp: new Date().toISOString(),
-      global: true
-    });
-    
-    // Send additional event type for redundancy
-    ioInstance.emit('session-terminated', { 
-      reason: 'global_force_logout',
-      userId: userId,
-      sessionId: sessionId,
-      message: 'Your session has been terminated due to a new login.',
-      timestamp: new Date().toISOString(),
-      global: true
-    });
     
     // Get all connected sockets directly from Socket.IO
     const allSockets = await ioInstance.fetchSockets();
@@ -386,31 +364,9 @@ const forceLogoutUser = async (userId, sessionId = null, excludeSessionId = null
       }
     }
     
-    // Final broadcast to catch any sockets we might have missed
-    setTimeout(() => {
-      logger.log(chalk.yellow(`[SOCKET] Sending follow-up broadcast for user ${userId}`));
-      ioInstance.emit('forceLogout', { 
-        reason: 'follow_up',
-        userId: userId,
-        sessionId: sessionId,
-        message: 'Your session has been terminated.',
-        timestamp: new Date().toISOString()
-      });
-    }, 1000);
-    
   } catch (error) {
     logger.error(`[SOCKET] Error in forceLogoutUser: ${error.message}`);
     logger.error(error.stack);
-    
-    // Fallback to simpler broadcast method
-    logger.info(`[SOCKET] Falling back to simple broadcast for user ${userId}`);
-    ioInstance.emit('forceLogout', { 
-      reason: 'error_fallback',
-      userId: userId,
-      sessionId: sessionId,
-      message: 'Your session has been terminated due to a new login from another device.',
-      timestamp: new Date().toISOString()
-    });
   }
 
   // Always emit a global logout event for tracking purposes
