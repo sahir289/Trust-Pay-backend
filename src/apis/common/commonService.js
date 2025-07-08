@@ -348,7 +348,7 @@ export const getTotalCountService = async (
         userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
 
-    logger.info(`Filters applied: ${JSON.stringify(filters)}`);
+    // logger.info(`Filters applied: ${JSON.stringify(filters)}`);
     let updated = false;
     let updatedPayin = false;
     if (filters?.updated) {

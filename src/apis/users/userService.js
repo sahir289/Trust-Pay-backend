@@ -285,18 +285,18 @@ const getUsersByUserNameService = async (username, ids, role) => {
 
 const createUserService = async (conn, payload, role) => {
   try {
-    const { user_name, email } = payload;
+    const { user_name } = payload;
     let company_id = payload.company_id;
     const user = await getUsersByUserNameDao(company_id, user_name);
     if (user?.user_name || user?.email || user?.contact_no) {
       throw new BadRequestError('User already exists');
     }
-    else {
-      const verifyEmail = await getUsersDao({ email: email });
-      if (verifyEmail.length > 0) {
-        throw new BadRequestError('Email already exists');
-      }
-    }
+    // else {
+    //   const verifyEmail = await getUsersDao({ email: email });
+    //   if (verifyEmail.length > 0) {
+    //     throw new BadRequestError('Email already exists');
+    //   }
+    // }
     const Password = generatePassword(user_name);
     const hashPassword = await createHash(Password);
     payload.password = hashPassword;
@@ -492,12 +492,12 @@ const createUserService = async (conn, payload, role) => {
 
 const userUpdateService = async (conn, ids, payload) => {
   try {
-    if (payload.email) {
-      const verifyEmail = await getUsersDao({ email: payload.email });
-      if (verifyEmail.length > 0) {
-        throw new BadRequestError('Email already Registered');
-      }
-    }
+    // if (payload.email) {
+    //   const verifyEmail = await getUsersDao({ email: payload.email });
+    //   if (verifyEmail.length > 0) {
+    //     throw new BadRequestError('Email already Registered');
+    //   }
+    // }
     const User = await updateUserDao(ids, payload, conn);
     // await notifyAdminsAndUsers({
     //   conn,
