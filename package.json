@@ -33,6 +33,7 @@
     "dotenv": "^16.4.5",
     "eslint-config-node": "^4.1.0",
     "express": "^4.21.2",
+    "fast-safe-stringify": "^2.1.1",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
     "method-override": "^3.0.0",

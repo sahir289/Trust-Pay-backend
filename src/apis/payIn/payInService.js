@@ -305,7 +305,7 @@ export const generatePayInUrlService = async (
       merchant_id: merchant.id,
       expiration_date: expirationDate,
       company_id: merchant.company_id,
-      config: JSON.stringify({
+      config: stringifyJSON({
         urls: {
           return: returnUrl || merchant.config?.urls?.return || '',
           notify: callbackUrl || merchant.config?.urls?.payin_notify || '',

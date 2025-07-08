@@ -1,15 +1,22 @@
+import { stringifyJSON } from "./index.js";
+
 class HTTPError extends Error {
   statusCode = 500;
-
   name = '';
 
   constructor(message) {
+    let errorMessage = '';
     if (message instanceof Object) {
-      super(JSON.stringify(message));
+      try {
+        errorMessage = stringifyJSON(message);
+      } catch (err) {
+        errorMessage = 'Could not stringify message: ' + err.message;
+      }
     } else {
-      super(message);
+      errorMessage = message;
     }
-    // Maintains proper stack trace for where our error was thrown (only available on V8)
+
+    super(errorMessage);
     Error.captureStackTrace(this, this.constructor);
     this.name = this.constructor.name;
   }

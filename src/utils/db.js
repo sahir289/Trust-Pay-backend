@@ -4,6 +4,7 @@ import config from '../config/config.js';
 import chalk from 'chalk';
 import { DbError } from './appErrors.js';
 import { logger } from './logger.js';
+import { stringifyJSON } from './index.js';
 // import fs from 'fs';
 // import path from 'path';
 // import { fileURLToPath } from 'url';
@@ -336,7 +337,7 @@ export const buildAndExecuteUpdateQuery = async (
             const path = currentPath.join(',');
             const mergeSnippet = `coalesce(${jsonbSetQuery}#>'{${path}}', '{}'::jsonb) || $${index}::jsonb`;
             jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', ${mergeSnippet})`;
-            values.push(JSON.stringify(value));
+            values.push(stringifyJSON(value));
             index++;
           } else if (typeof value === 'object' && !Array.isArray(value)) {
             // Recursively process nested objects
@@ -345,7 +346,7 @@ export const buildAndExecuteUpdateQuery = async (
             // Add jsonb_set for the current key
             const path = currentPath.join(',');
             jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', $${index}::jsonb)`;
-            values.push(JSON.stringify(value));
+            values.push(stringifyJSON(value));
             index++;
           }
         });

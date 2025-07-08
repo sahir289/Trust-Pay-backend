@@ -1,16 +1,17 @@
 import { tableName } from '../../constants/index.js';
 import { executeQuery } from '../../utils/db.js';
+import { stringifyJSON } from '../../utils/index.js';
 import { logger } from '../../utils/logger.js';
 
 const addLoginDao = async (user_id, config, company_id, sessionId, conn = null) => {
   try {
     // const id = generateUUID();
-    const configData = JSON.stringify(config, (key, value) =>
+    const configData = stringifyJSON(config, (key, value) =>
       typeof value === 'object' && value !== null
-        ? JSON.stringify(value)
+        ? stringifyJSON(value)
         : value,
     );
-    
+
     // First, ensure all existing sessions for this user are marked as obsolete
     const cleanupSql = `
       UPDATE public."AccessToken" 
@@ -84,8 +85,8 @@ const getSessionByIdDao = async (decodeToken) => {
 };
 
 const updateSessionDao = async (user_id, company_id, session_id, config) => {
-  const configData = JSON.stringify(config, (key, value) =>
-    typeof value === 'object' && value !== null ? JSON.stringify(value) : value,
+  const configData = stringifyJSON(config, (key, value) =>
+    typeof value === 'object' && value !== null ? stringifyJSON(value) : value,
   );
   try {
     const query = `UPDATE "${tableName.ACCESS_TOKEN}" 
