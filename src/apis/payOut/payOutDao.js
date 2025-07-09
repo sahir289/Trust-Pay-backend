@@ -35,7 +35,6 @@ export const assignedPayoutDao = async (
   conn,
 ) => {
   try {
-    console.log(payoutData, vendorId, updated_by, 'hey user from');
     if (!Array.isArray(payoutData)) {
       throw new Error('payoutData must be an array');
     }

@@ -841,7 +841,8 @@ const assignedPayoutService = async (
   company_id
 ) => {
   try {
-    const data = await assignedPayoutDao(payload, id, updated_by,company_id, conn);
+    const data = await assignedPayoutDao(payload, id, updated_by, company_id, conn);
+    await newTableEntry(tableName.PAYOUT);
     return data;
   } catch (error) {
     logger.error('Error while vendor assigning to Payout', error);
