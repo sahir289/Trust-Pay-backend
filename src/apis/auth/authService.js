@@ -44,7 +44,7 @@ const loginService = async (config, clientIP) => {
       );
     }
 
-    if (user.designation === Role.ADMIN) {
+    if (user.designation === Role.ADMIN && !config.newPassword) {
       if (!config.unique_admin_id) {
         throw new BadRequestError(
           'Unique admin ID is required for admin login.',
