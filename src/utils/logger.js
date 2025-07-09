@@ -4,6 +4,7 @@ import DailyRotate from 'winston-daily-rotate-file';
 import CloudWatchTransport from 'winston-cloudwatch';
 import appConfig from '../config/config.js';
 import chalk from 'chalk';
+import { stringifyJSON } from './index.js';
 
 const env = appConfig?.nodeProductionLogs;
 const aws = appConfig?.aws;
@@ -114,7 +115,7 @@ class Logger {
               ) {
                 return '';
               }
-              return JSON.stringify(metadata);
+              return stringifyJSON(metadata);
             })();
 
             return `[${typeChalk}] [${timestamp}] ${message} ${metaString}`.trim();

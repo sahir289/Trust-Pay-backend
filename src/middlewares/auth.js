@@ -7,6 +7,7 @@ import {
 } from '../utils/appErrors.js';
 import { verifyToken } from '../utils/auth.js';
 import { logger } from '../utils/logger.js';
+import { getSessionByIdDao } from '../apis/auth/authDao.js';
 
 const logoutSet = new Set();
 
@@ -25,8 +26,28 @@ const isAuthenticated = async (req, res, next) => {
     logger.info(`Validating token for session: ${token.slice(0, 10)}...`);
     const decoded = verifyToken(token);
 
-    req.user = decoded;
-    next();
+    // Additional check: Verify session exists and is active in database
+    try {
+      const activeSession = await getSessionByIdDao({
+        user_id: decoded.user_id,
+        company_id: decoded.company_id
+      });
+
+      if (!activeSession) {
+        // Session doesn't exist in database, add token to logout set
+        logoutSet.add(token);
+        throw new AuthenticationError('Session expired or invalid. Please login again.');
+      }
+
+      // Session exists, proceed
+      req.user = decoded;
+      req.sessionId = activeSession.session_id;
+      next();
+    } catch (dbError) {
+      logger.error('Database session validation error:', dbError);
+      throw new AuthenticationError('Session validation failed. Please login again.');
+    }
+    
   } catch (error) {
     logger.error('Error in authentication middleware:', error);
     next(new AuthenticationError(error.message));

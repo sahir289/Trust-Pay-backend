@@ -52,6 +52,7 @@ import { logger } from '../../utils/logger.js';
 // import { updatePayout } from '../../utils/sockets.js';
 import { newTableEntry } from '../../utils/sockets.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
+import { stringifyJSON } from '../../utils/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 const createPayoutService = async (
@@ -119,7 +120,7 @@ const createPayoutService = async (
     delete payload.code;
     payload.merchant_id = details[0].id;
     payload.merchant_order_id = merchant_order_id;
-    payload.config = JSON.stringify({
+    payload.config = stringifyJSON({
       urls: {
         return: returnUrl || details[0].config?.urls?.return || '',
         notify: notifyUrl || details[0].config?.urls?.payout_notify || '',
@@ -478,7 +479,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       utr_id: payload.utr_id,
       updated_by: payload.updated_by,
     };
-    if (JSON.stringify(payload) === JSON.stringify(checkPayload)) {
+    if (stringifyJSON(payload) === stringifyJSON(checkPayload)) {
       return data;
     }
     if (!data.approved_at) return data;
