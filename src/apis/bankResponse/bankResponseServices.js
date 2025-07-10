@@ -193,7 +193,7 @@ const createBankResponseService = async (
       if (updatedData.status === '/repeated') {
         await commit(localConn);
         // if (shouldRelease) localConn.release();
-        if (upi_short_code) {
+        if (isValidAmountCode) {
           return {
             message: `Entry with REPEATED AMOUNT CODE Added ${upi_short_code}`,
           };
