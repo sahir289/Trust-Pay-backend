@@ -966,7 +966,7 @@ export const resetDepositService = async (
       company_id: company_id,
     });
     if (!payIn) {
-      throw new NotFoundError('PayIn not found');
+      throw new NotFoundError('Merchant Order ID not found');
     }
     await createResetHistoryService(
       conn,
