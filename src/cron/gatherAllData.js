@@ -8,24 +8,73 @@ import { getConnection } from '../utils/db.js';
 import { getVendorsDao } from '../apis/vendors/vendorDao.js';
 import { logger } from '../utils/logger.js';
 import { getUserHierarchysDao } from '../apis/userHierarchy/userHierarchyDao.js';
+import { getCompanyDao } from '../apis/company/companyDao.js';
 import dayjs from 'dayjs';
 import collectBankData from './bankCron.js';
 
 //run only on server - side /production level
 if (process.env.NODE_ENV === 'production') {
-  cron.schedule('0 0 * * *', () => {
-    logger.info('Running  geather all cron job in production environment');
-    gatherAllData('N', 'Asia/Kolkata');
+  cron.schedule('0 0 * * *', async () => {
+    logger.info('Running gather all cron job in production environment');
+    await gatherAllDataForAllCompanies('N', 'Asia/Kolkata');
   });
 
-  cron.schedule('0 1-23 * * *', () => {
-    gatherAllData('H', 'Asia/Kolkata');
+  cron.schedule('0 1-23 * * *', async () => {
+    await gatherAllDataForAllCompanies('H', 'Asia/Kolkata');
   });
 } else {
   logger.error('Cron jobs are disabled in non-production environments.');
 }
 
-const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
+// Function to gather data for all companies
+const gatherAllDataForAllCompanies = async (type = 'N', timezone = 'Asia/Kolkata') => {
+  try {
+    logger.info('Starting gather data for all companies');
+    
+    // Get all companies
+    const companies = await getCompanyDao({});
+    
+    if (!companies || companies.length === 0) {
+      logger.info('No companies found');
+      return;
+    }
+
+    // Process each company (sequential processing for safety)
+    // for (const company of companies) {
+    //   try {
+    //     logger.info(`Processing company: ${company.id}`);
+    //     await gatherAllData(company.id, type, timezone);
+    //   } catch (error) {
+    //     logger.error(`Error processing company ${company.id}: ${error}`);
+    //   }
+    // }
+    
+    // Alternative: Parallel processing (uncomment if you want faster processing)
+    await Promise.allSettled(
+      companies.map(async (company) => {
+        try {
+          logger.info(`Processing company: ${company.id}`);
+          await gatherAllData(company.id, type, timezone);
+        } catch (error) {
+          logger.error(`Error processing company ${company.id}: ${error}`);
+        }
+      })
+    );
+    
+    logger.info('Completed gather data for all companies');
+    
+    // Run bank CRON after all companies have been processed (only for daily reports)
+    if (type === 'N') {
+      logger.info('Bank CRON Started for all companies');
+      await collectBankData(timezone);
+      logger.info('Bank CRON Ended for all companies');
+    }
+  } catch (error) {
+    logger.error(`Error in gatherAllDataForAllCompanies: ${error}`);
+  }
+};
+
+const gatherAllData = async (company_id, type = 'N', timezone = 'Asia/Kolkata') => {
   let conn;
   try {
     conn = await getConnection();
@@ -48,12 +97,31 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
       eDate = currentDate.clone().toDate();
     }
 
-    logger.info('Dashboard Report CRON Started');
-    const merchants = await getMerchantsDao({}, null, null);
+    logger.info(`Dashboard Report CRON Started for company: ${company_id}`);
+    
+    // Get company details with config
+    const companies = await getCompanyDao({ id: company_id });
+    const company = companies && companies.length > 0 ? companies[0] : null;
+    
+    if (!company) {
+      logger.error(`Company not found: ${company_id}`);
+      return;
+    }
+
+    // Get company-specific configurations or fallback to global config
+    const telegramDashboardChatId = company.config?.telegramDashboardChatId || config?.telegramDashboardChatId;
+    const telegramBotToken = company.config?.telegramBotToken || config?.telegramBotToken;
+
+    if (!telegramDashboardChatId || !telegramBotToken) {
+      logger.warn(`Missing Telegram config for company ${company_id}, skipping report`);
+      return;
+    }
+
+    const merchants = await getMerchantsDao({ company_id: company_id }, null, null);
     let merchant = [];
     let totalpayinsMerchant = 0;
     let totalpayoutsMerchant = 0;
-    const allHierarchies = await getUserHierarchysDao({});
+    const allHierarchies = await getUserHierarchysDao({ company_id: company_id });
     const subMerchantIds = new Set();
     allHierarchies.forEach((hierarchy) => {
       const subMerchants = hierarchy?.config?.siblings?.sub_merchants || [];
@@ -64,6 +132,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
     for (const merch of merchants) {
       const calculationData = await getCalculationDao({
         user_id: merch.user_id,
+        company_id: company_id,
         sDate,
         eDate,
       });
@@ -100,7 +169,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
     let totalBankWithdrawalAllVendors = 0;
 
     const banksData = await getBankaccountDao(
-      { bank_used_for: 'PayIn' },
+      { bank_used_for: 'PayIn', company_id: company_id },
       null,
       null,
       'ADMIN',
@@ -121,7 +190,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
 
     for (const bank of banks) {
       vendorData = await getVendorsDao(
-        { user_id: bank.user_id },
+        { user_id: bank.user_id, company_id: company_id },
         null,
         null,
         'created_at',
@@ -144,7 +213,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
     }
 
     const banksDataOut = await getBankaccountDao(
-      { bank_used_for: 'PayOut' },
+      { bank_used_for: 'PayOut', company_id: company_id },
       null,
       null,
       'ADMIN',
@@ -163,7 +232,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
     let vendorDataOut;
     for (const banksO of banksOut) {
       vendorDataOut = await getVendorsDao(
-        { user_id: banksO.user_id },
+        { user_id: banksO.user_id, company_id: company_id },
         null,
         null,
         'created_at',
@@ -185,7 +254,7 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
     }
 
     await sendTelegramDashboardReportMessage(
-      config?.telegramDashboardChatId,
+      telegramDashboardChatId,
       merchant,
       totalpayinsMerchant,
       totalpayoutsMerchant,
@@ -193,17 +262,12 @@ const gatherAllData = async (type = 'N', timezone = 'Asia/Kolkata') => {
       vendorObjpayOut,
       totalBankDepositAllVendors,
       totalBankWithdrawalAllVendors,
-      config?.telegramBotToken,
+      telegramBotToken,
       type === 'H' ? 'Hourly Report' : 'Daily Report',
     );
-    logger.info('Dashboard Report CRON Ended');
-    if (type === 'N') {
-      logger.info('Bank CRON Started');
-      await collectBankData('Asia/Kolkata');
-      logger.info('Bank CRON Ended');
-    }
+    logger.info(`Dashboard Report CRON Ended for company: ${company_id}`);
   } catch (error) {
-    logger.error(`Error in gatherAllData: ${error}`);
+    logger.error(`Error in gatherAllData for company ${company_id}: ${error}`);
   } finally {
     if (conn) {
       conn.release();
