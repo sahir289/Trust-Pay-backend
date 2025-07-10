@@ -76,7 +76,7 @@ async function processPayinNotifications(payins) {
       merchantOrderId: payin?.merchant_order_id || null,
       payinId: payin?.id || null,
       amount: null,
-      requestedAmount: payin?.amount || null,
+      req_amount: payin?.amount || null,
       utrId: payin?.user_submitted_utr || null,
     };
     try {

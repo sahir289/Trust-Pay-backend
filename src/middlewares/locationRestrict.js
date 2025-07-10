@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { europeanCountries } from '../constants/index.js';
-import { COUNTRIES } from '../constants/index.js';
+// import { europeanCountries } from '../constants/index.js';
+// import { COUNTRIES } from '../constants/index.js';
 import { logger } from '../utils/logger.js';
 import { processPayInRestricted } from '../utils/updateRestrictedLocationPayin.js';
 const BLOCK_LAT = process.env.BLOCK_LAT;
@@ -53,17 +53,17 @@ const getUserLocationMiddleware = async (req, res, next) => {
       });
     }
 
-    if (!COUNTRIES.includes(country) && !europeanCountries.includes(country)) {
-      const id = req.params.merchantOrderId;
-      const url = await processPayInRestricted(
-        id,
-        `Restricted country: ${country}`,
-      );
-      logger.error(`Access restricted for users from ${country}.`, userData);
-      return res.status(403).json({
-        error: { message: 'Access Denied!', data: { url } },
-      });
-    }
+    // if (!COUNTRIES.includes(country) && !europeanCountries.includes(country)) {
+    //   const id = req.params.merchantOrderId;
+    //   const url = await processPayInRestricted(
+    //     id,
+    //     `Restricted country: ${country}`,
+    //   );
+    //   logger.error(`Access restricted for users from ${country}.`, userData);
+    //   return res.status(403).json({
+    //     error: { message: 'Access Denied!', data: { url } },
+    //   });
+    // }
     if (!isNaN(latitude) && !isNaN(longitude)) {
       // Check if the user is in the restricted region
       if (

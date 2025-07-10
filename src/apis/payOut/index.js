@@ -8,6 +8,7 @@ import {
   getPayoutsById,
   getPayoutsBySearch,
   checkPayOutStatus,
+  assignedPayout
 } from './payOutController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -192,7 +193,11 @@ router.put(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(updatePayout),
 );
-
+router.put(
+  '/assign-vendor-payout/:id',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(assignedPayout),
+);
 /**
  * @swagger
  * /payout/delete-payout/{id}:

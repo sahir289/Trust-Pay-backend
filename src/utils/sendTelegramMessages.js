@@ -667,7 +667,7 @@ export async function sendBankNotAssignedAlertTelegram(
   const message = `<b>⛔ Bank not Assigned with :</b> ${code}`;
 
   try {
-    const success = await telegramSender(chatId, message, TELEGRAM_BOT_TOKEN);
+    const success = await telegramSender(chatId, message, null, TELEGRAM_BOT_TOKEN);
     logger.log(success ? 'Sent!' : 'Not sent.');
   } catch (error) {
     logger.error('Error sending bank not assigned alert to Telegram:', error);

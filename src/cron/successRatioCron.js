@@ -2,12 +2,73 @@ import { sendTelegramDashboardSuccessRatioMessage } from '../utils/sendTelegramM
 import { getPayInUrlsDao } from '../apis/payIn/payInDao.js';
 import cron from 'node-cron';
 import { getMerchantsDao } from '../apis/merchants/merchantDao.js';
+import { getCompanyDao } from '../apis/company/companyDao.js';
 import config from '../config/config.js';
 import { logger } from '../utils/logger.js';
 
-const formattedSuccessRatiosByMerchant = async () => {
+// Function to process success ratios for all companies
+const formattedSuccessRatiosForAllCompanies = async () => {
   try {
-    logger.info('Success Ratio CRON Started');
+    logger.info('Starting success ratio processing for all companies');
+    
+    // Get all companies
+    const companies = await getCompanyDao({});
+    
+    if (!companies || companies.length === 0) {
+      logger.info('No companies found');
+      return;
+    }
+
+    // Process each company (sequential processing for safety)
+    // for (const company of companies) {
+    //   try {
+    //     logger.info(`Processing success ratios for company: ${company.id}`);
+    //     await formattedSuccessRatiosByMerchant(company.id);
+    //   } catch (error) {
+    //     logger.error(`Error processing success ratios for company ${company.id}: ${error}`);
+    //   }
+    // }
+    
+    // Alternative: Parallel processing (uncomment if you want faster processing)
+    await Promise.allSettled(
+      companies.map(async (company) => {
+        try {
+          logger.info(`Processing success ratios for company: ${company.id}`);
+          await formattedSuccessRatiosByMerchant(company.id);
+        } catch (error) {
+          logger.error(`Error processing success ratios for company ${company.id}: ${error}`);
+        }
+      })
+    );
+    
+    logger.info('Completed success ratio processing for all companies');
+  } catch (error) {
+    logger.error(`Error in formattedSuccessRatiosForAllCompanies: ${error}`);
+  }
+};
+
+const formattedSuccessRatiosByMerchant = async (company_id) => {
+  try {
+    logger.info(`Success Ratio CRON Started for company: ${company_id}`);
+    
+    // Get company details with config
+    const companies = await getCompanyDao({ id: company_id });
+    const company = companies && companies.length > 0 ? companies[0] : null;
+    
+    if (!company) {
+      logger.error(`Company not found: ${company_id}`);
+      return;
+    }
+
+    // Get company-specific configurations or fallback to global config
+    const telegramRatioAlertsChatId = company.config?.telegramRatioAlertsChatId || config?.telegramRatioAlertsChatId;
+    const telegramBotToken = company.config?.telegramBotToken || config?.telegramBotToken;
+
+    if (!telegramRatioAlertsChatId || !telegramBotToken) {
+      logger.warn(`Missing Telegram config for company ${company_id}, skipping success ratio report`);
+      return;
+    }
+
     const now = new Date();
     const intervals = [
       { label: 'Last 5m', duration: 5 * 60 * 1000 },
@@ -18,9 +79,9 @@ const formattedSuccessRatiosByMerchant = async () => {
       { label: 'Last 24h', duration: 24 * 60 * 60 * 1000 },
     ];
 
-    // fetch all transactions
-    const allPayIns = await getPayInUrlsDao({});
-    const merchants = await getMerchantsDao({}, null, null);
+    // fetch all transactions for the company
+    const allPayIns = await getPayInUrlsDao({ company_id: company_id });
+    const merchants = await getMerchantsDao({ company_id: company_id }, null, null);
     // group transactions by merchant_id
     const transactionsByMerchant = allPayIns.reduce((map, payin) => {
       if (!map[payin.merchant_id]) map[payin.merchant_id] = [];
@@ -98,21 +159,21 @@ const formattedSuccessRatiosByMerchant = async () => {
       fullMessages.push(fullMessage);
     }
     await sendTelegramDashboardSuccessRatioMessage(
-      config?.telegramRatioAlertsChatId,
+      telegramRatioAlertsChatId,
       fullMessages,
-      config?.telegramBotToken,
+      telegramBotToken,
     );
-    logger.info('Success Ratio CRON Ended');
+    logger.info(`Success Ratio CRON Ended for company: ${company_id}`);
   } catch (error) {
-    logger.error('Error ', error.message);
+    logger.error(`Error in success ratio processing for company ${company_id}: ${error.message}`);
   }
 };
-export default formattedSuccessRatiosByMerchant;
+export default formattedSuccessRatiosForAllCompanies;
 
 //run only on server - side /production level
 if (process.env.NODE_ENV === 'production') {
   cron.schedule('*/10 * * * *', () => {
-    formattedSuccessRatiosByMerchant();
+    formattedSuccessRatiosForAllCompanies();
   });
 } else {
   logger.error('Cron jobs are disabled in non-production environments.');

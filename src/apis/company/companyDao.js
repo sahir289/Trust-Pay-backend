@@ -9,7 +9,7 @@ import { logger } from '../../utils/logger.js';
 
 const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
   try {
-    const baseQuery = `SELECT id,first_name,last_name FROM "${tableName.COMPANY}" WHERE 1=1`;
+    const baseQuery = `SELECT id,first_name,last_name,config FROM "${tableName.COMPANY}" WHERE 1=1`;
     //TODO: columns.Company dynamic search
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
@@ -18,6 +18,23 @@ const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
       pageSize,
       sortBy,
       sortOrder,
+    );
+    const result = await executeQuery(sql, queryParams);
+    return result.rows.length > 0 ? result.rows : result.rows[0];
+  } catch (error) {
+    logger.error('Error fetching company:', error);
+    throw error;
+  }
+};
+
+const getCompanyByIDDao = async (
+  filters,
+) => {
+  try {
+    const baseQuery = `SELECT id,config FROM "${tableName.COMPANY}" WHERE 1=1`;
+    const [sql, queryParams] = buildSelectQuery(
+      baseQuery,
+      filters,
     );
     const result = await executeQuery(sql, queryParams);
     return result.rows.length > 0 ? result.rows : result.rows[0];
@@ -64,4 +81,10 @@ const deleteCompanyDao = async (id, data) => {
   }
 };
 
-export { getCompanyDao, createCompanyDao, updateCompanyDao, deleteCompanyDao };
+export {
+  getCompanyDao,
+  createCompanyDao,
+  updateCompanyDao,
+  deleteCompanyDao,
+  getCompanyByIDDao,
+};

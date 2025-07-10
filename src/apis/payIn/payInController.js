@@ -58,6 +58,7 @@ import { createHash, compareHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
 import { sendBankNotAssignedAlertTelegram } from '../../utils/sendTelegramMessages.js';
+import { getCompanyByIDDao } from '../company/companyDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const TestingIp = process.env.LOCAL_IP;
@@ -112,6 +113,9 @@ export const generatePayInUrl = async (req, res) => {
   if (!merchant) {
     return sendError(res, 'Invalid merchant code or API key', 400);
   }
+  const [company] = await getCompanyByIDDao({
+    id: merchant.company_id,
+  });
 
   // bank is not enabled or no method is enabled for payment - no payment link generates
   const merchantArr = await getMerchantsDao({ code });
@@ -120,9 +124,9 @@ export const generatePayInUrl = async (req, res) => {
   });
   if (bankAssigned.length <= 0) {
     await sendBankNotAssignedAlertTelegram(
-      config?.telegramBankAlertChatId,
+      company.config?.telegramBankAlertChatId,
       code,
-      config?.telegramBotToken,
+      company.config?.telegramBotToken,
     );
     // await notifyAdminsAndUsers({
     //   conn,
@@ -177,9 +181,9 @@ export const generatePayInUrl = async (req, res) => {
 
   if (allPaymentOptionsDisabled) {
     await sendBankNotAssignedAlertTelegram(
-      config?.telegramBankAlertChatId,
+      company.config?.telegramBankAlertChatId,
       code,
-      config?.telegramBotToken,
+      company.config?.telegramBotToken,
     );
     // await notifyAdminsAndUsers({
     //   conn,
