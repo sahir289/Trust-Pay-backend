@@ -44,7 +44,7 @@ export const createTelegramSender = () => {
     } catch (error) {
       logger.error(
         'Error sending message to Telegram:',
-        error?.message || 'Request failed with status code 429',
+        error?.data?.description || 'Request failed with status code 429',
       );
       sentMessages.delete(key); // we will remove key on failure to allow retry
       return false; // return false to indicate failure

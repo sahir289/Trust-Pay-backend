@@ -81,6 +81,7 @@ import {
   sendTelegramMessage,
   sendUTRMismatchErrorMessageTelegram,
   sendTelegramDisputeMessage,
+  sendBankNotAssignedAlertTelegram,
 } from '../../utils/sendTelegramMessages.js';
 import { tableName } from '../../constants/index.js';
 import { newTableEntry } from '../../utils/sockets.js';
@@ -114,7 +115,15 @@ export const generatePayInUrlByHashService = async (conn, req) => {
     const bankAssigned = await getMerchantBankDao({
       config_merchants_contains: merchantArr[0].id,
     });
+    const [company] = await getCompanyByIDDao({
+      id: merchantArr[0].company_id,
+    });
     if (bankAssigned.length <= 0) {
+      await sendBankNotAssignedAlertTelegram(
+        company.config?.telegramBankAlertChatId,
+        code,
+        company.config?.telegramBotToken,
+      );
       // await notifyAdminsAndUsers({
       //   conn,
       //   company_id: merchantArr[0].company_id,
@@ -138,6 +147,11 @@ export const generatePayInUrlByHashService = async (conn, req) => {
       (bank) => bank.is_enabled === false,
     );
     if (allBanksDisabled) {
+      await sendBankNotAssignedAlertTelegram(
+        company.config?.telegramBankAlertChatId,
+        code,
+        company.config?.telegramBotToken,
+      );
       // await notifyAdminsAndUsers({
       //   conn,
       //   company_id: merchantArr[0].company_id,
