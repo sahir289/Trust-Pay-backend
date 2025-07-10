@@ -9,7 +9,7 @@ import { logger } from '../../utils/logger.js';
 
 const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
   try {
-    const baseQuery = `SELECT id,first_name,last_name FROM "${tableName.COMPANY}" WHERE 1=1`;
+    const baseQuery = `SELECT id,first_name,last_name,config FROM "${tableName.COMPANY}" WHERE 1=1`;
     //TODO: columns.Company dynamic search
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
