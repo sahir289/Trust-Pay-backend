@@ -35,7 +35,6 @@ export const assignedPayoutDao = async (
   conn,
 ) => {
   try {
-    console.log(payoutData, vendorId, updated_by, 'hey user from');
     if (!Array.isArray(payoutData)) {
       throw new Error('payoutData must be an array');
     }
@@ -636,7 +635,6 @@ export const getPayoutsBySearchDao = async (
 
     const expectedParamCount = (queryText.match(/\$\d+/g) || []).length;
     if (expectedParamCount !== queryParams.length) {
-      logger.warn('⚠️ Placeholder count does not match parameter count!');
       logger.warn(
         `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
       );
