@@ -4,6 +4,7 @@ import {
   // InternalServerError,
   NotFoundError,
 } from '../../utils/appErrors.js';
+import dayjs from 'dayjs';
 import { merchantPayinCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
 import {
   getBankResponseDao,
@@ -962,12 +963,36 @@ const handleAmountUpdate = async ({
         updatedAmount,
         vendor[0].payin_commission,
       );
-
+      const [vendorCalculationData] =
+        await Promise.all([
+          getAllCalculationforCronDao(vendor[0].user_id),
+        ]);
+      if (!vendorCalculationData[0]) {
+        throw new NotFoundError('Calculation data not found');
+      }
+      const approvedDate = getDateWithoutTime(botRes.created_at);
+      const vendorCurrentCalculations = vendorCalculationData.filter(
+        (calc) => approvedDate === getDateWithoutTime(calc.created_at),
+      );
+      const vendorCalculations = vendorCalculationData.filter(
+        (calc) => approvedDate < getDateWithoutTime(calc.created_at),
+      );
+      if (!vendorCurrentCalculations[0]) {
+        throw new NotFoundError('Matching calculation not found');
+      }
+      // updateCalculationBalances;
       await Promise.all([
-        updateCalculationTable(vendor[0].user_id, {
+        // updateCalculationTable(vendor[0].user_id, {
+        //   payinCommission,
+        //   amount: updatedAmount,
+        // }),
+        updateCalculationBalances(
+          vendorCurrentCalculations,
+          vendorCalculations,
+          updatedAmount,
           payinCommission,
-          amount: updatedAmount,
-        }),
+          conn,
+        ),
         updateBankaccountDao(
           { id: bank.id },
           {
@@ -1063,7 +1088,7 @@ const handleBankIdUpdate = async ({
       getVendorsDao({ user_id: prevBank[0].user_id }),
       getVendorsDao({ user_id: newBank[0].user_id }),
     ]);
-
+console.log(prevVendor,newVendor,"hey user from the user to get data");
     if (!prevVendor[0] || !newVendor[0])
       throw new NotFoundError('Vendor not found');
 
@@ -1573,7 +1598,7 @@ const updateCalculationBalances = async (
       current_balance: amountDiff - commission,
       net_balance: amountDiff - commission,
     };
-
+const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
     // Update current calculation
     await updateCalculationBalanceDao(
       { id: currentCalculation[0].id },
@@ -1584,10 +1609,23 @@ const updateCalculationBalances = async (
     if (nextCalculations.length > 0) {
       // Update subsequent calculations
       for (const calc of nextCalculations) {
+          const calculationDate = dayjs(calc.created_at)
+                  .tz('Asia/Kolkata')
+            .format('YYYY-MM-DD');
+            let data = {};
+            if (calculationDate === todayDate) {
+              data = {
+                total_adjustment_amount: amountDiff,
+                total_adjustment_commission:
+                  amountDiff > 0 ? commission : -commission,
+                total_adjustment_count: 1,
+              };
+            }
         await updateCalculationBalanceDao(
           { id: calc.id },
           {
             net_balance: amountDiff - commission,
+            ...data,
           },
           conn,
         );
