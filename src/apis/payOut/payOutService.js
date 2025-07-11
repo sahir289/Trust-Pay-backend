@@ -2,7 +2,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import {
   BadRequestError,
-  DuplicateDataError,
   InternalServerError,
   NotFoundError,
 } from '../../utils/appErrors.js';
@@ -14,6 +13,7 @@ import {
   rollback,
 } from '../../utils/db.js';
 import {
+  assignedPayoutDao,
   createPayoutDao,
   deletePayoutDao,
   getPayoutsDao,
@@ -24,9 +24,8 @@ import {
 import {
   getMerchantsDao,
   getMerchantByUserIdDao,
-  updateMerchantDao,
 } from '../merchants/merchantDao.js';
-import { getVendorsDao, updateVendorDao } from '../vendors/vendorDao.js';
+import { getVendorsDao } from '../vendors/vendorDao.js';
 import {
   getCalculationDao,
   getCalculationforCronDao,
@@ -53,6 +52,7 @@ import { logger } from '../../utils/logger.js';
 // import { updatePayout } from '../../utils/sockets.js';
 import { newTableEntry } from '../../utils/sockets.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
+import { stringifyJSON } from '../../utils/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 const createPayoutService = async (
@@ -64,12 +64,12 @@ const createPayoutService = async (
   fromUI,
 ) => {
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.PAYOUT
-        : role === Role.VENDOR
-          ? vendorColumns.PAYOUT
-          : columns.PAYOUT;
+    // const filterColumns =
+    //   role === Role.MERCHANT
+    //     ? merchantColumns.PAYOUT
+    //     : role === Role.VENDOR
+    //       ? vendorColumns.PAYOUT
+    //       : columns.PAYOUT;
     const { code, amount, x_api_key, returnUrl, notifyUrl } = payload;
     const details = await getMerchantsDao({ code });
 
@@ -120,7 +120,7 @@ const createPayoutService = async (
     delete payload.code;
     payload.merchant_id = details[0].id;
     payload.merchant_order_id = merchant_order_id;
-    payload.config = JSON.stringify({
+    payload.config = stringifyJSON({
       urls: {
         return: returnUrl || details[0].config?.urls?.return || '',
         notify: notifyUrl || details[0].config?.urls?.payout_notify || '',
@@ -219,9 +219,9 @@ const createPayoutService = async (
       return data;
     }
 
-    const finalResult = filterResponse(data, filterColumns);
+    // const finalResult = filterResponse(data, filterColumns);
     await newTableEntry(tableName.PAYOUT);
-    return finalResult;
+    return data;
   } catch (error) {
     logger.error(error);
     throw error;
@@ -482,10 +482,20 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       utr_id: payload.utr_id,
       updated_by: payload.updated_by,
     };
-    if (JSON.stringify(payload) === JSON.stringify(checkPayload)) {
+    if (stringifyJSON(payload) === stringifyJSON(checkPayload)) {
       return data;
     }
-    if (!data.approved_at) return data;
+    if (!data.approved_at) {
+      merchantPayoutCallback(data.config?.urls?.notify, {
+        code: data.code,
+        merchantOrderId: data.merchant_order_id,
+        payoutId: data.id,
+        amount: data.amount,
+        status: data.status,
+        utr_id: data.utr_id || '',
+      });
+      return data;
+    } 
 
     // Fetch bank data first, then get vendor using bankData.user_id
     const bankDataArr = await getBankByIdDao({ id: data.bank_acc_id });
@@ -600,6 +610,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     //   category: 'Transaction',
     //   subCategory: 'PayOut',
     // });
+
     return data;
   } catch (error) {
     logger.error('Error in updatePayoutService:', error);
@@ -837,6 +848,23 @@ const ekoPayoutStatus = async (id, res) => {
   }
 };
 
+const assignedPayoutService = async (
+  conn,
+  id,
+  payload,
+  updated_by,
+  company_id
+) => {
+  try {
+    const data = await assignedPayoutDao(payload, id, updated_by, company_id, conn);
+    await newTableEntry(tableName.PAYOUT);
+    return data;
+  } catch (error) {
+    logger.error('Error while vendor assigning to Payout', error);
+    throw error;
+  }
+};
+
 const deletePayoutService = async (id, updated_by, role) => {
   let conn;
   try {
@@ -929,6 +957,7 @@ const checkPayOutStatusService = async (
   merchantOrderId,
   api_key,
 ) => {
+  try{
   const merchantArr = await getMerchantsDao({ code: merchantCode });
   const merchant = merchantArr[0];
   if (!merchant) {
@@ -981,6 +1010,10 @@ const checkPayOutStatusService = async (
     payoutId: payOut[0].id,
     utr_id: payOut[0].utr_id ? payOut[0].utr_id : ' ',
   };
+}catch(error){
+  logger.error('Error check payout status:', error);
+  throw error;
+}
 };
 
 export {
@@ -990,4 +1023,5 @@ export {
   getPayoutsBySearchService,
   updatePayoutService,
   deletePayoutService,
+  assignedPayoutService,
 };

@@ -7,7 +7,7 @@ import {
   buildAndExecuteUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
-import { DbError } from '../../utils/appErrors.js';
+
 import { logger } from '../../utils/logger.js';
 
 const getBankaccountDao = async (filters, page, limit, role, designation) => {
@@ -649,8 +649,9 @@ const deleteBankaccountDao = async (conn, id, data) => {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
     return result.rows[0];
-  } catch {
-    DbError('Error executing query');
+  } catch (error)  {
+    logger.error('Error in deleteBankaccountDao:', error);
+    throw error;
   }
 };
 

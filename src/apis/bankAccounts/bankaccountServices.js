@@ -6,6 +6,7 @@ import {
   getConnection,
   rollback,
 } from '../../utils/db.js';
+import { stringifyJSON } from '../../utils/index.js';
 import { logger } from '../../utils/logger.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import { deactivateBank } from '../../utils/sockets.js';
@@ -285,7 +286,7 @@ const updateBankaccountService = async (
       };
     }
 
-    const payloadData = JSON.parse(JSON.stringify(payload));
+    const payloadData = JSON.parse(stringifyJSON(payload));
     if (Object.keys(payload).length > 0) {
       result = await updateBankaccountDao(
         { id: ids.id, company_id: ids.company_id },

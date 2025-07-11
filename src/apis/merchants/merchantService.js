@@ -504,6 +504,7 @@ const getMerchantByIdService = async (
   role,
   addUserHierarchy = false,
 ) => {
+  try{
   const entryColumns =
     role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
   const filterColumns = entryColumns.includes('user_id')
@@ -555,6 +556,10 @@ const getMerchantByIdService = async (
   }
 
   return merchant;
+} catch (error) {
+  logger.error('Error while fetching merchant by ID', error);
+    throw error;
+}
 };
 
 const getMerchantsByCodeService = async (code) => {

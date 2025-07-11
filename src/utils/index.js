@@ -6,6 +6,7 @@ import { getPayInUrlDao, updatePayInUrlDao } from '../apis/payIn/payInDao.js';
 import { Status } from '../constants/index.js';
 import { BadRequestError } from './appErrors.js';
 import { logger } from './logger.js';
+import safeStringify from 'fast-safe-stringify';
 
 export const multerUpload = multer({
   storage: multerS3({
@@ -30,7 +31,7 @@ export const parseJSON = (data) => {
 
 export const stringifyJSON = (data) => {
   try {
-    return JSON.stringify(data);
+    return safeStringify(data);
   } catch (err) {
     logger.error(err);
     return '{}';

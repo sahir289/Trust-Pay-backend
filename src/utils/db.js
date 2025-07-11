@@ -4,6 +4,7 @@ import config from '../config/config.js';
 import chalk from 'chalk';
 import { DbError } from './appErrors.js';
 import { logger } from './logger.js';
+import { stringifyJSON } from './index.js';
 // import fs from 'fs';
 // import path from 'path';
 // import { fileURLToPath } from 'url';
@@ -12,7 +13,7 @@ import { logger } from './logger.js';
 const { Pool } = pkg;
 
 const pool = new Pool({
-  connectionString: `${config.databaseUrl}?options=-c%20timezone%3DAsia%2FKolkata`,
+  connectionString: `${config.databaseUrl}`,
   ssl:
     config.env === 'production'
       ? {
@@ -20,6 +21,14 @@ const pool = new Pool({
           // ca: fs.readFileSync(path.join(__dirname, '/Users/mac/Downloads/ap-south-1-bundle.pem')).toString(),
         }
       : { rejectUnauthorized: false },
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+  keepAlive: true,
+});
+
+pool.on('connect', (client) => {
+  client.query('SET TIME ZONE \'Asia/Kolkata\'');
 });
 
 pool.on('error', async (err) => {
@@ -77,6 +86,16 @@ const getConnection = async () => {
   logger.error('Database connection failed after multiple retries');
   throw new DbError('Database connection error');
 };
+
+export async function closePool() {
+  try {
+    await pool.end();
+    const styledMessageError = chalk.underline.red(`PostgreSQL connection pool closed`);
+    logger.info(styledMessageError);
+  } catch (err) {
+    logger.error('Error while closing PostgreSQL pool:', err);
+  }
+}
 
 const beginTransaction = async (client) => {
   try {
@@ -318,7 +337,7 @@ export const buildAndExecuteUpdateQuery = async (
             const path = currentPath.join(',');
             const mergeSnippet = `coalesce(${jsonbSetQuery}#>'{${path}}', '{}'::jsonb) || $${index}::jsonb`;
             jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', ${mergeSnippet})`;
-            values.push(JSON.stringify(value));
+            values.push(stringifyJSON(value));
             index++;
           } else if (typeof value === 'object' && !Array.isArray(value)) {
             // Recursively process nested objects
@@ -327,7 +346,7 @@ export const buildAndExecuteUpdateQuery = async (
             // Add jsonb_set for the current key
             const path = currentPath.join(',');
             jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', $${index}::jsonb)`;
-            values.push(JSON.stringify(value));
+            values.push(stringifyJSON(value));
             index++;
           }
         });
