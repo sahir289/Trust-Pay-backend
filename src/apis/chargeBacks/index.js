@@ -7,7 +7,7 @@ import {
   updateChargeBack,
   getChargeBacksById,
   getChargeBacksBySearch,
-  blockChargebackUser
+  blockChargebackUser,
 } from './chargeBackController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';

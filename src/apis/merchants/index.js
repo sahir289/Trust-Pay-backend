@@ -91,7 +91,6 @@ router.get(
   tryCatchHandler(getMerchantCodes),
 );
 
-
 /**
  * @swagger
  * /merchants/:id:

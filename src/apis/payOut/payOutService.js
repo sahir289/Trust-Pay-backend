@@ -2,7 +2,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import {
   BadRequestError,
-  DuplicateDataError,
   InternalServerError,
   NotFoundError,
 } from '../../utils/appErrors.js';
@@ -14,6 +13,7 @@ import {
   rollback,
 } from '../../utils/db.js';
 import {
+  assignedPayoutDao,
   createPayoutDao,
   deletePayoutDao,
   getPayoutsDao,
@@ -25,9 +25,8 @@ import {
 import {
   getMerchantsDao,
   getMerchantByUserIdDao,
-  updateMerchantDao,
 } from '../merchants/merchantDao.js';
-import { getVendorsDao, updateVendorDao } from '../vendors/vendorDao.js';
+import { getVendorsDao } from '../vendors/vendorDao.js';
 import {
   getCalculationDao,
   getCalculationforCronDao,
@@ -54,6 +53,8 @@ import { logger } from '../../utils/logger.js';
 // import { updatePayout } from '../../utils/sockets.js';
 import { newTableEntry } from '../../utils/sockets.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
+import { stringifyJSON } from '../../utils/index.js';
+// import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 const walletsPayoutsService = async (conn, payload, res) => {
@@ -106,41 +107,61 @@ const walletsPayoutsService = async (conn, payload, res) => {
   }
 };
 
-const createPayoutService = async (conn, headers, payload, role, res) => {
+const createPayoutService = async (
+  conn,
+  headers,
+  payload,
+  role,
+  userIp,
+  fromUI,
+) => {
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.PAYOUT
-        : role === Role.VENDOR
-          ? vendorColumns.PAYOUT
-          : columns.PAYOUT;
+    // const filterColumns =
+    //   role === Role.MERCHANT
+    //     ? merchantColumns.PAYOUT
+    //     : role === Role.VENDOR
+    //       ? vendorColumns.PAYOUT
+    //       : columns.PAYOUT;
     const { code, amount, x_api_key, returnUrl, notifyUrl } = payload;
     const details = await getMerchantsDao({ code });
-    
+
     if (!details[0] || details[0].length === 0) {
-      // throw new BadRequestError('Merchant does not exist');
-      return res.status(400).json({
-        error: {
-          status: 404,
-          message: 'Please enter valid code',
-          additionalInfo: {},
-          level: 'info',
-          timestamp: new Date().toISOString(),
-        },
-      });
+      const data = {
+        status: 404,
+        message: 'Please enter valid code',
+      }
+      return data;
     }
 
-    if(details[0]?.balance<0 && !details[0]?.config?.allow_payout)
-    {
-      return res.status(400).json({
-        error: {
+    if (!fromUI && details[0]?.config?.whitelist_ips) {
+      let whitelist = details[0].config.whitelist_ips;
+      // Normalize whitelist to array of trimmed strings
+      if (typeof whitelist === 'string') {
+        whitelist = whitelist
+          .split(',')
+          .map((ip) => ip.trim())
+          .filter(Boolean);
+      } else if (Array.isArray(whitelist)) {
+        whitelist = whitelist.map((ip) => String(ip).trim()).filter(Boolean);
+      } else {
+        whitelist = [];
+      }
+      // Check if userIp is in whitelist (if whitelist is not empty)
+      if (whitelist.length && !whitelist.includes(userIp)) {
+        const data = {
           status: 400,
-          message: 'Merchant balance is less than payout amount',
-          additionalInfo: {},
-          level: 'info',
-          timestamp: new Date().toISOString(),
-        },
-      });
+          message: 'IP not whitelisted',
+        }
+        return data;
+      }
+    }
+
+    if (details[0]?.balance < 0 && !details[0]?.config?.allow_payout) {
+      const data = {
+        status: 400,
+        message: 'Merchant balance is less than payout amount',
+      }
+      return data;
     }
 
     const { config, user_id } = details[0];
@@ -151,7 +172,7 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
     delete payload.code;
     payload.merchant_id = details[0].id;
     payload.merchant_order_id = merchant_order_id;
-    payload.config = JSON.stringify({
+    payload.config = stringifyJSON({
       urls: {
         return: returnUrl || details[0].config?.urls?.return || '',
         notify: notifyUrl || details[0].config?.urls?.payout_notify || '',
@@ -168,61 +189,39 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
       { merchant_order_id: merchant_order_id },
       payload.company_id,
     );
-   
+
     if (isOrderIdExist.length > 0) {
-      // throw new BadRequestError('Merchant Order ID already exists');
-      return res.status(400).json({
-        error: {
-          status: 400,
-          message: 'Merchant Order ID already exists',
-          additionalInfo: {},
-          level: 'info',
-          timestamp: new Date().toISOString(),
-        },
-      });
+      const data = {
+        status: 400,
+        message: 'Merchant Order ID already exists',
+      }
+      return data;
     }
 
     if (!x_api_key || !merchantAPIKey) {
-      // throw new BadRequestError('Missing API key or Merchant Keys');
-      return res.status(400).json({
-        error: {
-          status: 404,
-          message: 'Enter valid Api key',
-          additionalInfo: {},
-          level: 'info',
-          timestamp: new Date().toISOString(),
-        },
-      });
+      const data = {
+        status: 404,
+        message: 'Enter valid Api key',
+      }
+      return data;
     }
 
     if (
       x_api_key !== merchantAPIKey?.private &&
       x_api_key !== merchantAPIKey?.public
     ) {
-      // throw new BadRequestError('Enter a valid API key');
-      return res.status(400).json({
-        error: {
-          status: 404,
-          message: 'Enter valid Api key',
-          additionalInfo: {},
-          level: 'info',
-          timestamp: new Date().toISOString(),
-        },
-      });
+      const data = {
+        status: 404,
+        message: 'Enter valid Api key',
+      }
+      return data;
     }
     if (amount < details[0].min_payout || amount > details[0].max_payout) {
-      // throw new BadRequestError(
-      //   `Amount should be between ${details[0].min_payout} and ${details[0].max_payout}`,
-      // );
-      return res.status(400).json({
-        error: {
-          status: 400,
-          message: `Amount should be between ${details[0].min_payout} and ${details[0].max_payout}`,
-          additionalInfo: {},
-          level: 'info',
-          timestamp: new Date().toISOString(),
-        },
-      });
+      const data = {
+        status: 400,
+        message: `Amount should be between ${details[0].min_payout} and ${details[0].max_payout}`,
+      }
+      return data;
     }
 
     if (payload.merchant_order_id) {
@@ -236,16 +235,11 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
         conn,
       );
       if (data.length > 0) {
-        // throw new DuplicateDataError('Merchant Order ID already exists');
-        return res.status(400).json({
-          error: {
-            status: 400,
-            message: 'Merchant Order ID already exists',
-            additionalInfo: {},
-            level: 'info',
-            timestamp: new Date().toISOString(),
-          },
-        });
+        const data = {
+          status: 400,
+          message: 'Merchant Order ID already exists',
+        }
+        return data;
       }
     }
 
@@ -254,54 +248,35 @@ const createPayoutService = async (conn, headers, payload, role, res) => {
     if (balanceRestriction) {
       const { totalNetBalance } = await getCalculationDao({ user_id });
       if (totalNetBalance < payoutAmount) {
-        // throw new BadRequestError('Insufficient Balance to create Payout');
-        return res.status(400).json({
-          error: {
-            status: 400,
-            message: 'Insufficient Balance to create Payout',
-            additionalInfo: {},
-            level: 'info',
-            timestamp: new Date().toISOString(),
-          },
-        });
+        const data = {
+          status: 400,
+          message: 'Insufficient Balance to create Payout',
+        }
+        return data;
       }
       const ekoBalanceEnquiry = await ekoWalletBalanceEnquiryInternally();
       if (Number(ekoBalanceEnquiry.data.balance) < payoutAmount) {
-        // throw new BadRequestError('Insufficient Balance in Wallet');
-        return res.status(400).json({
-          error: {
-            status: 400,
-            message: 'Insufficient Balance in Wallet',
-            additionalInfo: {},
-            level: 'info',
-            timestamp: new Date().toISOString(),
-          },
-        });
+        const data = {
+          status: 400,
+          message: 'Insufficient Balance in Wallet',
+        }
+        return data;
       }
     }
     if (!code) {
-      // throw new BadRequestError('Merchant does not exist');
-      return res.status(400).json({
-        error: {
-          status: 404,
-          message: 'Merchant does not exist',
-          additionalInfo: {},
-          level: 'info',
-          timestamp: new Date().toISOString(),
-        },
-      });
+      const data = {
+        status: 404,
+        message: 'Merchant does not exist',
+      }
+      return data;
     }
 
-    logger.info('Payout created successfully');
-    const finalResult = filterResponse(data, filterColumns);
+    // const finalResult = filterResponse(data, filterColumns);
     await newTableEntry(tableName.PAYOUT);
-    return finalResult;
+    return data;
   } catch (error) {
-    logger.error(error)
-    if (error instanceof BadRequestError) {
-      throw error;
-    }
-    throw new InternalServerError(error);
+    logger.error(error);
+    throw error;
   }
 };
 
@@ -385,7 +360,7 @@ const getPayoutsService = async (
     return { totalCount: data[0]?.total, payout: data };
   } catch (error) {
     logger.error('Error in getPayoutsService:', error);
-    throw new InternalServerError(error);
+    throw error;
   } finally {
     if (conn) {
       conn.release();
@@ -401,7 +376,7 @@ const getPayoutsBySearchService = async (
 ) => {
   try {
     const fetchMerchantIds = async (user_ids) => {
-      const merchants = await getMerchantByUserIdDao( user_ids);
+      const merchants = await getMerchantByUserIdDao(user_ids);
       return merchants.map((merchant) => merchant.id);
     };
 
@@ -488,7 +463,10 @@ const updatePayoutService = async (conn, ids, payload, role) => {
   try {
     await checkLockEdit(conn, ids.id);
     if (payload?.utr_id) {
-      const payoutDetails = await getPayoutsDao({ utr_id: payload.utr_id }, ids.company_id);
+      const payoutDetails = await getPayoutsDao(
+        { utr_id: payload.utr_id },
+        ids.company_id,
+      );
       if (payoutDetails.length > 0) {
         throw new BadRequestError('UTR already exists');
       }
@@ -514,7 +492,9 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (!singleWithdrawData) {
       throw new NotFoundError('Payout not found!');
     }
-    const merchantArr = await getMerchantsDao({ id: singleWithdrawData.merchant_id });
+    const merchantArr = await getMerchantsDao({
+      id: singleWithdrawData.merchant_id,
+    });
     const merchant = merchantArr[0];
     if (!merchant) {
       throw new NotFoundError('Merchant not found!');
@@ -545,13 +525,26 @@ const updatePayoutService = async (conn, ids, payload, role) => {
           'Payout status cannot be updated to the same value',
         );
       }
-}
+    }
     const data = await updatePayoutDao(ids, payload, conn);
-    let checkPayload = { utr_id: payload.utr_id, updated_by: payload.updated_by };
-    if (JSON.stringify(payload) === JSON.stringify(checkPayload)) {
+    let checkPayload = {
+      utr_id: payload.utr_id,
+      updated_by: payload.updated_by,
+    };
+    if (stringifyJSON(payload) === stringifyJSON(checkPayload)) {
       return data;
     }
-    if (!data.approved_at) return data;
+    if (!data.approved_at) {
+      merchantPayoutCallback(data.config?.urls?.notify, {
+        code: data.code,
+        merchantOrderId: data.merchant_order_id,
+        payoutId: data.id,
+        amount: data.amount,
+        status: data.status,
+        utr_id: data.utr_id || '',
+      });
+      return data;
+    } 
 
     // Fetch bank data first, then get vendor using bankData.user_id
     const bankDataArr = await getBankByIdDao({ id: data.bank_acc_id });
@@ -648,7 +641,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       ]);
     }
     await newTableEntry(tableName.PAYOUT);
-    await merchantPayoutCallback(data.config?.urls?.notify, {
+    // This is async function but it's just the callback sending function there fore we are not using await
+    merchantPayoutCallback(data.config?.urls?.notify, {
       code: data.code,
       merchantOrderId: data.merchant_order_id,
       payoutId: data.id,
@@ -656,13 +650,22 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       status: data.status,
       utr_id: data.utr_id || '',
     });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: ids.company_id,
+    //   message: `PayOut with merchant order id: ${data.merchant_order_id} has been ${data.status}.`,
+    //   payloadUserId: merchant.user_id,
+    //   actorUserId: vendor.user_id,
+    //   category: 'Transaction',
+    //   subCategory: 'PayOut',
+    // });
+
     return data;
   } catch (error) {
     logger.error('Error in updatePayoutService:', error);
     throw new InternalServerError(error.message);
   }
 };
-
 
 ///for update payout calculation of payout
 const updateCalculationTable = async (user_id, data, isApproved, conn) => {
@@ -688,15 +691,15 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
       payload = {
         total_payout_count: 1,
         total_payout_amount: data.amount,
-        total_payout_commission:  data.payoutCommission,
-        current_balance: - totalAmountData,
-        net_balance: - totalAmountData,
+        total_payout_commission: data.payoutCommission,
+        current_balance: -totalAmountData,
+        net_balance: -totalAmountData,
       };
     } else {
       payload = {
         total_reverse_payout_count: 1,
         total_reverse_payout_amount: data.amount,
-        total_reverse_payout_commission: - data.payoutCommission,
+        total_reverse_payout_commission: -data.payoutCommission,
         current_balance: totalAmountData,
         net_balance: totalAmountData,
       };
@@ -894,6 +897,23 @@ const ekoPayoutStatus = async (id, res) => {
   }
 };
 
+const assignedPayoutService = async (
+  conn,
+  id,
+  payload,
+  updated_by,
+  company_id
+) => {
+  try {
+    const data = await assignedPayoutDao(payload, id, updated_by, company_id, conn);
+    await newTableEntry(tableName.PAYOUT);
+    return data;
+  } catch (error) {
+    logger.error('Error while vendor assigning to Payout', error);
+    throw error;
+  }
+};
+
 const deletePayoutService = async (id, updated_by, role) => {
   let conn;
   try {
@@ -909,7 +929,6 @@ const deletePayoutService = async (id, updated_by, role) => {
     payload.updated_by = updated_by;
     const data = await deletePayoutDao(id, payload); // Adjust DAO call for delete
     await commit(conn); // Commit the transaction
-    logger.info('Payout deleted successfully', 'info');
     const finalResult = await filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -925,7 +944,7 @@ const deletePayoutService = async (id, updated_by, role) => {
       }
     }
     logger.error('Error while deleting Payout', 'error', error);
-    throw new InternalServerError(error);
+    throw error;
   } finally {
     if (conn) {
       try {
@@ -986,21 +1005,16 @@ const checkPayOutStatusService = async (
   merchantCode,
   merchantOrderId,
   api_key,
-  res,
 ) => {
+  try{
   const merchantArr = await getMerchantsDao({ code: merchantCode });
   const merchant = merchantArr[0];
   if (!merchant) {
-    // throw new NotFoundError('Merchant does not exist');
-    return res.status(400).json({
-      error: {
-        status: 400,
-        message: 'Merchant Order ID already exists',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const data = {
+      status: 400,
+      message: 'Merchant Order ID already exists',
+    }
+    return data;
   }
 
   const merchantConfig = merchant.config || {};
@@ -1009,16 +1023,12 @@ const checkPayOutStatusService = async (
     api_key != merchantConfig.keys?.private &&
     api_key != merchantConfig.keys?.public
   ) {
-    // throw new BadRequestError(403, 'Enter a valid API key');
-    return res.status(400).json({
-      error: {
-        status: 404,
-        message: 'Enter valid Api key',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const data = {
+      status: 404,
+      message: 'Enter valid Api key',
+    }
+    return data;
+    
   }
 
   const payOut = await getPayoutsDao({
@@ -1027,41 +1037,32 @@ const checkPayOutStatusService = async (
   });
 
   if (!payOut) {
-    // throw new NotFoundError('payOut not found');
-    return res.status(400).json({
-      error: {
-        status: 404,
-        message: 'Payout not found',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const data = {
+      status: 404,
+      message: 'Payout not found',
+    }
+    return data;
   }
 
   //check is payout detials belongs to that merchant or not
   if (!(payOut[0].merchant_id === merchant.id)) {
-    // throw new BadRequestError(
-    //   '`merchant_order_id and payOut ID do not belong to the specified merchant`',
-    // );
-    return res.status(400).json({
-      error: {
-        status: 404,
-        message:
-          'merchant_order_id and payIn ID do not belong to the specified merchant',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const data = {
+      status: 404,
+      message: 'merchant_order_id and payIn ID do not belong to the specified merchant',
+    }
+    return data;
   }
   return {
     status: payOut[0].status,
     merchantOrderId: payOut[0].merchant_order_id,
     amount: payOut[0].amount,
     payoutId: payOut[0].id,
-    utr_id: payOut[0].utr_id ? payOut[0].utr_id : " ",
+    utr_id: payOut[0].utr_id ? payOut[0].utr_id : ' ',
   };
+}catch(error){
+  logger.error('Error check payout status:', error);
+  throw error;
+}
 };
 
 export {
@@ -1071,5 +1072,6 @@ export {
   getPayoutsBySearchService,
   updatePayoutService,
   deletePayoutService,
+  assignedPayoutService,
   walletsPayoutsService,
 };

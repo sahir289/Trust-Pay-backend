@@ -663,7 +663,13 @@ export const AccessRoles = {
   },
   RESET_DATA_HISTORY: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS],
   CHECK_UTR_HISTORY: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS],
-  BANK_RESPONSE: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS, Role.VENDOR, Role.VENDOR_OPERATIONS],
+  BANK_RESPONSE: [
+    Role.ADMIN,
+    Role.OPERATIONS,
+    Role.TRANSACTIONS,
+    Role.VENDOR,
+    Role.VENDOR_OPERATIONS,
+  ],
   BANK_ACCOUNT: [
     Role.ADMIN,
     Role.OPERATIONS,
@@ -696,6 +702,7 @@ export const AccessRoles = {
     Role.VENDOR,
     Role.MERCHANT_OPERATIONS,
     Role.VENDOR_OPERATIONS,
+    Role.SUB_MERCHANT,
   ],
   ROLES: [
     Role.ADMIN,
@@ -718,9 +725,15 @@ export const AccessRoles = {
     Role.OPERATIONS,
     Role.MERCHANT,
     Role.VENDOR,
+    Role.VENDOR_OPERATIONS,
   ],
 };
-export const COUNTRIES = ['India', 'United Arab Emirates', 'Pakistan','Brazil']; ///add brazil for temp
+export const COUNTRIES = [
+  'India',
+  'United Arab Emirates',
+  'Pakistan',
+  'Brazil',
+]; ///add brazil for temp
 
 export const europeanCountries = [
   'Albania',

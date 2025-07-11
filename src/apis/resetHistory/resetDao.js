@@ -5,25 +5,26 @@ import {
   executeQuery,
 } from '../../utils/db.js';
 import dayjs from 'dayjs';
+import { logger } from '../../utils/logger.js';
 
 const getResetHistoryDao = async (
   filters = {},
-  page ,
-  pageSize ,
+  page,
+  pageSize,
   sortBy = 'sno',
-  sortOrder = 'DESC', 
-  startDate, endDate,
-  columns = [], 
+  sortOrder = 'DESC',
+  startDate,
+  endDate,
+  columns = [],
 ) => {
   try {
-    console.log(startDate, endDate,sortBy,sortOrder, 'startDate, endDate,startDate, endDate,')
     const { BANK_RESPONSE, RESET_DATA_HISTORY, PAYIN, USER } = tableName;
     //reset pagination if page and limit is null
     let queryParams = [];
 
     // Default columns if none provided
     const selectColumns = columns.length
-      ? columns.map(col => `"${RESET_DATA_HISTORY}".${col}`).join(', ')
+      ? columns.map((col) => `"${RESET_DATA_HISTORY}".${col}`).join(', ')
       : `"${RESET_DATA_HISTORY}".*`;
 
     // Base query with DISTINCT ON (sno)
@@ -91,10 +92,13 @@ const getResetHistoryDao = async (
       queryParams.push(pageSize, (page - 1) * pageSize);
     }
     if (startDate && endDate) {
+      const startDateTime = dayjs
+        .tz(`${startDate} 00:00:00`, 'Asia/Kolkata')
+        .toISOString(true);
+      const endDateTime = dayjs
+        .tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata')
+        .toISOString(true);
 
-      const startDateTime = dayjs.tz(`${startDate} 00:00:00`, 'Asia/Kolkata').toISOString(true);
-      const endDateTime = dayjs.tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString(true);
-         
       sql += ` AND "${RESET_DATA_HISTORY}".created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
       queryParams.push(startDateTime, endDateTime);
       paramIndex++;
@@ -111,15 +115,13 @@ const getResetHistoryDao = async (
     // paramIndex += 2;
 
     // Execute both queries
-    const [result] = await Promise.all([
-      executeQuery(sql, queryParams),
-    ]);
+    const [result] = await Promise.all([executeQuery(sql, queryParams)]);
 
     return {
-      resetHistory: result.rows
+      resetHistory: result.rows,
     };
   } catch (error) {
-    console.error('Error getting CheckUtr:', error);
+    logger.error('Error getting CheckUtr:', error);
     throw error;
   }
 };
@@ -130,16 +132,14 @@ const getResetHistoryBySearchDao = async (
   limitNum,
   offset,
 ) => {
-  console.log('getResetHistoryBySearchDao', searchTerms);
   try {
     const conditions = [];
     const values = [company_id];
     let paramIndex = 2;
 
     // Default columns with table aliases
-  
 
-let queryText = `
+    let queryText = `
       SELECT 
         rdh.*,
         p.merchant_order_id,
@@ -205,8 +205,7 @@ let queryText = `
       OFFSET $${values.length + 2}
     `;
     values.push(limitNum, offset);
-    console.log('Query Parameters:', limitNum, offset);
-    
+
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
 
@@ -219,18 +218,22 @@ let queryText = `
       resetHistory: searchResult.rows,
     };
   } catch (error) {
-    console.error('Error in getResetHistoryBySearchDao:', error);
-    throw new Error('Error executing reset history query');
+    logger.error('Error in getResetHistoryBySearchDao:', error);
+    throw error;
   }
 };
-const createResetHistoryDao = async (payload) => {
+const createResetHistoryDao = async (payload,conn) => {
   try {
     const tableName = 'ResetDataHistory';
     const [sql, params] = buildInsertQuery(tableName, payload);
+    if (conn && conn.query) {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
+    }
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in createResetHistoryDao:', error);
+    logger.error('Error in createResetHistoryDao:', error);
     throw error;
   }
 };
@@ -242,7 +245,7 @@ const updateResetHistoryDao = async (id, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in updateResetHistoryDao:', error);
+    logger.error('Error in updateResetHistoryDao:', error);
     throw error;
   }
 };
@@ -254,7 +257,7 @@ const deleteResetHistoryDao = async (id, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error in deleteResetHistoryDao:', error);
+    logger.error('Error in deleteResetHistoryDao:', error);
     throw error;
   }
 };

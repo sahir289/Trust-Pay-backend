@@ -23,17 +23,14 @@ const createUserHierarchy = async (req, res) => {
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
-  // Call the service to create the UserHierarchy
-  const result = await createUserHierarchyService(payload, role);
-  // Log success message
-  console.log('User Hierarchy created successfully', result);
+  await createUserHierarchyService(payload, role);
   // Send a success response to the client
   return sendSuccess(res, {}, 'UserHierarchy created successfully');
 };
 
 const getUserHierarchys = async (req, res) => {
   const { company_id, role } = req.user;
-  const {page, limit} = req.query;
+  const { page, limit } = req.query;
   // const search = req.query.search;
   // Fetch vendors data from the service
   const data = await getUserHierarchyService(
@@ -41,11 +38,11 @@ const getUserHierarchys = async (req, res) => {
       company_id,
       ...req.query,
     },
-    role,page,limit,
+    role,
+    page,
+    limit,
   );
   // Log success message
-  console.log('get UserHierarchys successfully', data);
-  // Send success response
   return sendSuccess(res, data, 'UserHierarchy fetched successfully');
 };
 
@@ -60,9 +57,7 @@ const getUserHierarchysById = async (req, res) => {
   const ids = { id, company_id };
   const payload = {};
   const data = await getUserHierarchyService(ids, payload, role);
-  // Log success message
-  console.log('get UserHierarchy successfully', data);
-  // Send success response
+
   return sendSuccess(res, data, 'UserHierarchy fetched successfully');
 };
 
@@ -86,10 +81,9 @@ const updateUserHierarchy = async (req, res) => {
   payload.updated_by = user_id;
   const ids = { id, company_id };
   // Call the service to update the UserHierarchy
-  const result = await updateUserHierarchyService(ids, payload, role);
+   await updateUserHierarchyService(ids, payload, role);
 
   // Log success message
-  console.log('UserHierarchy updated successfully', result);
 
   // Send a success response to the client
   return sendSuccess(res, {}, 'UserHierarchy updated successfully');
@@ -110,10 +104,7 @@ const deleteUserHierarchy = async (req, res) => {
   const updated_by = user_id;
   const ids = { company_id, id };
   // Call the service to delete the UserHierarchy
-  const result = await deleteUserHierarchyService(ids, updated_by, role);
-
-  // Log success message
-  console.log('UserHierarchy deleted successfully', result);
+  await deleteUserHierarchyService(ids, updated_by, role);
 
   // Send a success response to the client
   return sendSuccess(res, {}, 'UserHierarchy deleted successfully');

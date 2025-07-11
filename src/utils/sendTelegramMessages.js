@@ -1,4 +1,5 @@
 import { getBankResponseDao } from '../apis/bankResponse/bankResponseDao.js';
+import { Status } from '../constants/index.js';
 import { createTelegramSender } from '../helpers/telegramApi.js';
 import { logger } from './logger.js';
 
@@ -63,10 +64,13 @@ export async function sendTelegramDashboardReportMessage(
     .filter((m) => m.totalPayin !== 0)
     .map(
       (m, index) =>
-        `${index + 1}. ${m.merchantId}: ₹ ${m.totalPayin.toLocaleString('en-IN', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })} (${m.totalPayinCount}),`,
+        `${index + 1}. ${m.merchantId}: ₹ ${m.totalPayin.toLocaleString(
+          'en-IN',
+          {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          },
+        )} (${m.totalPayinCount}),`,
     )
     .join('\n');
 
@@ -74,16 +78,21 @@ export async function sendTelegramDashboardReportMessage(
     .filter((m) => m.totalPayout !== 0)
     .map(
       (m, index) =>
-        `${index + 1}. ${m.merchantId}: ₹ ${m.totalPayout.toLocaleString('en-IN', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })} (${m.totalPayoutCount}),`,
+        `${index + 1}. ${m.merchantId}: ₹ ${m.totalPayout.toLocaleString(
+          'en-IN',
+          {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          },
+        )} (${m.totalPayoutCount}),`,
     )
     .join('\n');
 
   const vendorDetails = Object.entries(vendorObjpayIn)
     // .filter(([_, { banks }]) => banks.length > 0)
-    .sort(([vendorCodeA], [vendorCodeB]) => vendorCodeA.localeCompare(vendorCodeB))
+    .sort(([vendorCodeA], [vendorCodeB]) =>
+      vendorCodeA.localeCompare(vendorCodeB),
+    )
     .map(([vendorCode, { banks }], index) => {
       // if (banks.length === 0) {
       //   return `<b>${vendorCode}</b>: No bank accounts`;
@@ -95,7 +104,7 @@ export async function sendTelegramDashboardReportMessage(
             `  ${bank.bankName}: ₹ ${bank.TotalDeposit.toLocaleString('en-IN', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
-            })} (${bank.TotalCount})`
+            })} (${bank.TotalCount})`,
         )
         .join('\n'); // join each bank with a new line
       return bankDetails ? `${index + 1}. ${vendorCode}:\n${bankDetails}` : '';
@@ -103,18 +112,20 @@ export async function sendTelegramDashboardReportMessage(
     .filter(Boolean)
     .join('\n\n');
 
-    const vendorDetailsPayout = Object.entries(vendorObjpayOut)
-    .sort(([vendorCodeA], [vendorCodeB]) => vendorCodeA.localeCompare(vendorCodeB))
-    .map(([vendorCode, { banks }],index) => {
+  const vendorDetailsPayout = Object.entries(vendorObjpayOut)
+    .sort(([vendorCodeA], [vendorCodeB]) =>
+      vendorCodeA.localeCompare(vendorCodeB),
+    )
+    .map(([vendorCode, { banks }], index) => {
       const bankDetails = banks
-      .sort((a, b) => a.bankName.localeCompare(b.bankName))
+        .sort((a, b) => a.bankName.localeCompare(b.bankName))
         .filter((bank) => bank.TotalDeposit !== null && bank.TotalDeposit !== 0)
         .map(
           (bank) =>
             `  ${bank.bankName}: ₹ ${bank.TotalDeposit.toLocaleString('en-IN', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
-            })} (${bank.TotalCount})`
+            })} (${bank.TotalCount})`,
         )
         .join('\n');
       return bankDetails ? `${index + 1}. ${vendorCode}:\n${bankDetails}` : '';
@@ -265,24 +276,39 @@ export async function sendTelegramDashboardSuccessRatioMessage(
   fullMessage,
   TELEGRAM_BOT_TOKEN,
 ) {
-  const BATCH_SIZE = 5; 
-  const DELAY_MS = 2000; 
+  const BATCH_SIZE = 5;
+  const DELAY_MS = 2000;
   //telegram API couldnot process too many message processing at once
   for (let i = 0; i < fullMessage.length; i += BATCH_SIZE) {
     const batch = fullMessage.slice(i, i + BATCH_SIZE);
-    await Promise.all(batch.map(async ({ merchantCode, intervalDetails, intervalDetailsUtr }) => {
-      const message = `🔔<b>${merchantCode}</b> - SR 🔔\n\n<b>Payin SR:</b>\n${intervalDetails}\n\n<b>UTR SR:</b>\n${intervalDetailsUtr}`;
-      try {
-        const success = await telegramSender(chatId, message, null, TELEGRAM_BOT_TOKEN);
-        logger.log(success ? `Sent message for ${merchantCode}!` : `Failed to send message for ${merchantCode}.`);
-        return success;
-      } catch (error) {
-        logger.error(`Error sending message for ${merchantCode}: ${error.message}`);
-        return false;
-      }
-    }));
+    await Promise.all(
+      batch.map(
+        async ({ merchantCode, intervalDetails, intervalDetailsUtr }) => {
+          const message = `🔔<b>${merchantCode}</b> - SR 🔔\n\n<b>Payin SR:</b>\n${intervalDetails}\n\n<b>UTR SR:</b>\n${intervalDetailsUtr}`;
+          try {
+            const success = await telegramSender(
+              chatId,
+              message,
+              null,
+              TELEGRAM_BOT_TOKEN,
+            );
+            logger.log(
+              success
+                ? `Sent message for ${merchantCode}!`
+                : `Failed to send message for ${merchantCode}.`,
+            );
+            return success;
+          } catch (error) {
+            logger.error(
+              `Error sending message for ${merchantCode}: ${error.message}`,
+            );
+            return false;
+          }
+        },
+      ),
+    );
     if (i + BATCH_SIZE < fullMessage.length) {
-      await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+      await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
     }
   }
 }
@@ -641,45 +667,47 @@ export async function sendBankNotAssignedAlertTelegram(
   const message = `<b>⛔ Bank not Assigned with :</b> ${code}`;
 
   try {
-    const success = await telegramSender(chatId, message, TELEGRAM_BOT_TOKEN);
+    const success = await telegramSender(chatId, message, null, TELEGRAM_BOT_TOKEN);
     logger.log(success ? 'Sent!' : 'Not sent.');
   } catch (error) {
-    console.error('Error sending bank not assigned alert to Telegram:', error);
+    logger.error('Error sending bank not assigned alert to Telegram:', error);
   }
 }
 
 export async function sendTelegramDisputeMessage(
   chatId,
   oldData,
+  currentData,
   newData,
   nick_name,
   TELEGRAM_BOT_TOKEN,
 ) {
-  const message = `
-        <b><u>Dispute Entry:</u></b> 
-            <b>📋 Status:</b> ⛔ DISPUTE
-            <b>🧾 UTR:</b> ${oldData.user_submitted_utr}
-            <b>⛔ Amount:</b> ${oldData.amount}
-            <b>💳 UPI Short Code:</b> ${oldData.upi_short_code}
-            <b>🏦 Bank Name:</b> ${nick_name}
-            <b>Merchant Order Id:</b> ${oldData.merchant_order_id}
-            <b>PayIn Id:</b> ${oldData.id}
-            <b>Merchant Id:</b> ${oldData.merchant_id}
-            <b>User Id:</b> ${oldData.user}
+  const formatEntry = (label, data, utr) => `
+    <b><u>${label}:</u></b> 
+        <b>📋 Status:</b> ${data.status === Status.SUCCESS ? '✅ SUCCESS' : data.status === Status.DISPUTE ? '⛔ DISPUTE' : data.status === Status.FAILED ? '❌ FAILED' : data.status}
+        <b>🧾 UTR:</b> ${data.user_submitted_utr || utr}
+        <b>✅ Amount:</b> ${data.amount}
+        <b>💳 UPI Short Code:</b> ${data.upi_short_code}
+        <b>🏦 Bank Name:</b> ${nick_name}
+        <b>Merchant Order Id:</b> ${data.merchant_order_id}
+        <b>PayIn Id:</b> ${data.id}
+        <b>Merchant Id:</b> ${data.merchant_id}
+        <b>User Id:</b> ${data.user}
+  `;
 
-        <b><u>New Entry:</u></b> 
-            <b>📋 Status:</b> ${
-              newData.status === 'SUCCESS' ? '✅ SUCCESS' : newData.status
-            }
-            <b>🧾 UTR:</b> ${newData.user_submitted_utr}
-            <b>✅ Amount:</b> ${newData.amount}
-            <b>💳 UPI Short Code:</b> ${newData.upi_short_code}
-            <b>🏦 Bank Name:</b> ${nick_name}
-            <b>Merchant Order Id:</b> ${newData.merchant_order_id}
-            <b>PayIn Id:</b> ${newData.id}
-            <b>Merchant Id:</b> ${newData.merchant_id}
-            <b>User Id:</b> ${newData.user}
-    `;
+  let message = formatEntry('Dispute Entry', oldData);
+
+  if (
+    newData &&
+    typeof newData === 'object' &&
+    newData.merchant_order_id !== undefined &&
+    currentData?.merchant_order_id !== newData.merchant_order_id
+  ) {
+    message += formatEntry('Current Entry', currentData);
+    message += formatEntry('New Entry', newData, oldData.user_submitted_utr);
+  } else {
+    message += formatEntry('New Entry', currentData);
+  }
   const success = await telegramSender(
     chatId,
     message,

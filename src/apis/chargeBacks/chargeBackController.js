@@ -45,7 +45,9 @@ const createChargeBack = async (req, res) => {
     'DESC',
   );
   if (isAlreadyExit.length > 0) {
-    throw new NotFoundError(`ChargeBack with ${payload.merchant_order_id} already exist`);
+    throw new NotFoundError(
+      `ChargeBack with ${payload.merchant_order_id} already exist`,
+    );
   }
   if (
     PayinDetails[0].status === Status.ASSIGNED ||
@@ -56,13 +58,14 @@ const createChargeBack = async (req, res) => {
     );
   }
   if (
-    PayinDetails[0].status === Status.FAILED && !PayinDetails[0].bank_response_id
+    PayinDetails[0].status === Status.FAILED &&
+    !PayinDetails[0].bank_response_id
   ) {
     throw new NotFoundError(`No Utr Found for this Payin`);
   }
   let bankResponse;
   if (PayinDetails[0].bank_response_id) {
-     bankResponse = await getBankResponseDaoById({
+    bankResponse = await getBankResponseDaoById({
       id: PayinDetails[0].bank_response_id,
       company_id: req.user.company_id,
     });
@@ -136,12 +139,12 @@ const getChargeBacksBySearch = async (req, res) => {
     designation,
     user_id,
   );
-  console.log('get chargbacks successfully');
+
   return sendSuccess(res, data, 'chargbacks fetched successfully');
 };
 const getChargeBacks = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
-  const { page, limit,sortOrder, ...rest } = req.query;
+  const { page, limit, sortOrder, ...rest } = req.query;
   const data = await getChargeBacksService(
     {
       company_id: company_id,
@@ -153,14 +156,16 @@ const getChargeBacks = async (req, res) => {
     limit,
     user_id,
     sortOrder,
-    designation
+    designation,
   );
   // Log success message
   // Send success response
   return sendSuccess(res, data, 'ChargeBacks fetched successfully');
 };
 const blockChargebackUser = async (req, res) => {
-  const { error: paramsError } = VALIDATE_DELETE_CHARGEBACK.validate(req.params);
+  const { error: paramsError } = VALIDATE_DELETE_CHARGEBACK.validate(
+    req.params,
+  );
   if (paramsError) {
     throw new ValidationError(paramsError);
   }
@@ -172,17 +177,21 @@ const blockChargebackUser = async (req, res) => {
   }
   const payload = req.body;
   const { id } = req.params;
-  const { company_id, role, user_id,user_name } = req.user;
+  const { company_id, role, user_id, user_name } = req.user;
   payload.updated_by = user_id;
   const result = await blockChargebackUserService(
     { id, company_id },
     payload,
     role,
   );
+  let message = 'User Blocked Successfully';
+  if (Array.isArray(result.config.blocked_users) && result.config.blocked_users.length === 0) {
+    message = 'User Unblocked Successfully';
+  }
   return sendSuccess(
     res,
     { id: result.id, updated_by: user_name },
-    'User Blocked Successfully',
+    message,
   );
 };
 
@@ -202,7 +211,7 @@ const updateChargeBack = async (req, res) => {
   }
   const payload = req.body;
   const { id } = req.params;
-  const { company_id, role, user_id,user_name } = req.user;
+  const { company_id, role, user_id, user_name } = req.user;
   // Call the service to update the ChargeBack
   payload.updated_by = user_id;
   const result = await updateChargeBackService(
@@ -225,7 +234,7 @@ const deleteChargeBack = async (req, res) => {
     throw new ValidationError(error);
   }
   const { id } = req.params; // Assuming the ChargeBack ID is passed as a parameter
-  const { company_id, role, user_id,user_name } = req.user;
+  const { company_id, role, user_id, user_name } = req.user;
   // Call the service to delete the ChargeBack
   const result = await deleteChargeBackService(
     { id, company_id },

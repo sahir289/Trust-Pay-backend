@@ -1,4 +1,5 @@
 import { InternalServerError } from '../../utils/appErrors.js';
+import { logger } from '../../utils/logger.js';
 import {
   getComplaintsDao,
   createComplaintsDao,
@@ -7,13 +8,13 @@ import {
 } from './complaintsDao.js';
 
 // Service to get complaints
-const getComplaintsService = async (filters,  page,limit,) => {
+const getComplaintsService = async (filters, page, limit) => {
   try {
-    const data = await getComplaintsDao(filters,  page,limit,);
+    const data = await getComplaintsDao(filters, page, limit);
     return data;
   } catch (error) {
-    console.error('Error while fetching complaints', error);
-    throw new InternalServerError(error);
+    logger.error('Error while fetching complaints', error);
+    throw error;
   }
 };
 
@@ -23,8 +24,8 @@ const createComplaintsService = async (payload) => {
     const data = await createComplaintsDao(payload);
     return data;
   } catch (error) {
-    console.error('Error while creating complaint', error);
-    throw new InternalServerError(error);
+    logger.error('Error while creating complaint', error);
+    throw error;
   }
 };
 
@@ -37,8 +38,8 @@ const updateComplaintsService = async (id, company_id, body) => {
     const data = await updateComplaintsDao({ id, company_id }, body);
     return data;
   } catch (error) {
-    console.error('Error while updating complaint', error);
-    throw new InternalServerError(error);
+    logger.error('Error while updating complaint', error);
+    throw error;
   }
 };
 
@@ -48,8 +49,8 @@ const deleteComplaintsService = async (id, company_id, userData) => {
     const data = await deleteComplaintsDao({ id, company_id }, userData);
     return data;
   } catch (error) {
-    console.error('Error while deleting complaint', error);
-    throw new InternalServerError(error);
+    logger.error('Error while deleting complaint', error);
+    throw error;
   }
 };
 

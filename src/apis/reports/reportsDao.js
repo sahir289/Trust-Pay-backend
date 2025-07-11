@@ -1,5 +1,7 @@
 import { Role, Status, tableName } from '../../constants/index.js';
+import { BadRequestError } from '../../utils/appErrors.js';
 import { buildSelectQuery, executeQuery } from '../../utils/db.js';
+import { logger } from '../../utils/logger.js';
 
 const getPayInMerchantReportDao = async (
   merchant_id,
@@ -10,61 +12,56 @@ const getPayInMerchantReportDao = async (
   status,
 ) => {
   try {
-    let commissionSelect = `u.payin_merchant_commission,
+    let commissionSelect = `pi.payin_merchant_commission,
         json_build_object(
           'merchant_code', r.code,
           'return_url', r.config->>'return_url',
           'notify_url', r.config->>'notify_url'
       ) AS merchant_details, 
-      u.approved_at, 
-      u.created_by, 
-      u.updated_by, 
-      u.created_at, 
-      u.updated_at`;
+      pi.approved_at, 
+      pi.created_by, 
+      pi.updated_by, 
+      pi.created_at, 
+      pi.updated_at`;
 
     if (role === Role.ADMIN) {
       commissionSelect += `, v.code AS vendor_code,
-      u.payin_vendor_commission `;
+      pi.payin_vendor_commission `;
     }
 
     let query = `
         SELECT 
-        u.id,
-        u.sno,
-        u.upi_short_code,
-        u.amount,
-        u.status,
-        u.merchant_order_id,
-        u.is_notified,
-        u.user_submitted_utr,
-        u.user,
-        u.user_submitted_image,
-        u.duration,
-        u.config AS payin_details,
+        pi.id,
+        pi.sno,
+        pi.upi_short_code,
+        pi.amount,
+        pi.status,
+        pi.merchant_order_id,
+        pi.is_notified,
+        pi.user_submitted_utr,
+        pi.user,
+        pi.user_submitted_image,
+        pi.duration,
+        pi.config AS payin_details,
         b.nick_name,
         ${commissionSelect},
-        u.payin_merchant_commission, r.code AS merchant_code,
+        pi.payin_merchant_commission, r.code AS merchant_code,
         json_build_object(
             'utr', br.utr,
             'amount', br.amount
         ) AS bank_res_details
-        FROM public."Payin" u
-        LEFT JOIN public."Merchant" r ON u.merchant_id = r.id
-        LEFT JOIN public."BankAccount" b ON u.bank_acc_id = b.id
+        FROM public."Payin" pi
+        LEFT JOIN public."Merchant" r ON pi.merchant_id = r.id
+        LEFT JOIN public."BankAccount" b ON pi.bank_acc_id = b.id
         LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
-        LEFT JOIN public."BankResponse" br ON u.bank_response_id = br.id
-        WHERE u.company_id = $1`;
+        LEFT JOIN public."BankResponse" br ON pi.bank_response_id = br.id
+        WHERE pi.company_id = $1 AND pi.is_obsolete = false`;
 
     let parameters = [company_id];
     let paramIndex = parameters.length + 1;
 
-    //   if(role === Role.ADMIN){
-    //     commissionSelect += `,
-    //  v.code AS vendor_code,
-    //   u.payin_vendor_commission `;
-    //   }
     if (merchant_id) {
-      query += ` AND u.merchant_id = ANY($${paramIndex})`;
+      query += ` AND pi.merchant_id = ANY($${paramIndex})`;
       parameters.push(merchant_id);
       paramIndex++;
     }
@@ -75,37 +72,43 @@ const getPayInMerchantReportDao = async (
       if (!Array.isArray(status)) {
         status = [status];
       }
-      query += ` AND u.status = ANY($${paramIndex})`;
+      query += ` AND pi.status = ANY($${paramIndex})`;
       parameters.push(status);
       paramIndex++;
     }
-
     if (startDate && endDate) {
-      switch (status) {
-        case Status.SUCCESS:
-          query += `AND (u.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`;
-          break;
-        case Status.REVERSED:
-          query += `AND (u.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              ) AND u.approved_at NOT NULL`;
-          break;
-        case Status.REJECTED:
-          query += `AND (u.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`;
-          break;
-        default:
-          query += `AND (u.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`;
+      if (status && Array.isArray(status)) {
+        if (status.includes(Status.SUCCESS)) {
+          query += ` AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        } else if (
+          status.includes(Status.FAILED) ||
+          status.includes(Status.DROPPED)
+        ) {
+          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        } else if (
+          status.includes(Status.INITIATED) ||
+          status.includes(Status.PENDING) ||
+          status.includes(Status.BANK_MISMATCH) ||
+          status.includes(Status.ASSIGNED) ||
+          status.includes(Status.DISPUTE) ||
+          status.includes(Status.IMG_PENDING) ||
+          status.includes(Status.DUPLICATE)
+        ) {
+          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        } else {
+          query += ` AND (pi.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        }
+      } else {
+        query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
       }
       parameters.push(startDate, endDate);
+      paramIndex += 2;
     }
-
-    query += ` ORDER BY u.sno ASC;`;
+    query += ` ORDER BY pi.sno ASC;`;
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
-    console.error('Error in getPayInMerchantReportDao:', error);
+    logger.error('Error in getPayInMerchantReportDao:', error);
     throw error;
   }
 };
@@ -153,7 +156,7 @@ const getPayInVendorReportDao = async (
         LEFT JOIN public."BankAccount" b ON pi.bank_acc_id = b.id
         LEFT JOIN public."BankResponse" br ON pi.bank_response_id = br.id
         LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
-        WHERE pi.company_id = $1`;
+        WHERE pi.company_id = $1 AND pi.is_obsolete = false`;
 
     let parameters = [company_id];
     let paramIndex = parameters.length + 1;
@@ -175,32 +178,36 @@ const getPayInVendorReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
-      switch (status) {
-        case Status.SUCCESS:
-          query += `AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`;
-          break;
-        case Status.REVERSED:
-          query += `AND (pi.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              ) AND po.approved_at NOT NULL`;
-          break;
-        case Status.REJECTED:
-          query += `AND (pi.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`;
-          break;
-        default:
-          query += `AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              )`;
+      if (status && Array.isArray(status)) {
+        if (status.includes(Status.SUCCESS)) {
+          query += ` AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        } else if (
+          status.includes(Status.FAILED) ||
+          status.includes(Status.DROPPED) ||
+          status.includes(Status.INITIATED) ||
+          status.includes(Status.PENDING) ||
+          status.includes(Status.BANK_MISMATCH) ||
+          status.includes(Status.ASSIGNED) ||
+          status.includes(Status.DISPUTE) ||
+          status.includes(Status.IMG_PENDING) ||
+          status.includes(Status.DUPLICATE)
+        ) {
+          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        } else {
+          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        }
+      } else {
+        query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
       }
       parameters.push(startDate, endDate);
+      paramIndex += 2;
     }
 
     query += ` ORDER BY pi.sno ASC;`;
-
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
-    console.error('Error in getPayInVendorReportDao:', error);
+    logger.error('Error in getPayInVendorReportDao:', error);
     throw error;
   }
 };
@@ -238,6 +245,7 @@ const getPayOutMerchantReportDao = async (
         po.status,
         po.merchant_order_id,
         po.user,
+        po.utr_id,
         po.config AS payout_details,
         json_build_object(
             'account_holder_name', po.acc_holder_name,
@@ -251,7 +259,7 @@ const getPayOutMerchantReportDao = async (
         LEFT JOIN public."Merchant" me ON po.merchant_id = me.id
         LEFT JOIN public."BankAccount" b ON po.bank_acc_id = b.id
         LEFT JOIN public."Vendor" ve ON ve.user_id = b.user_id
-        WHERE po.company_id = $1`;
+        WHERE po.company_id = $1  AND po.is_obsolete = false`;
 
     let parameters = [company_id];
     let paramIndex = parameters.length + 1;
@@ -297,7 +305,7 @@ const getPayOutMerchantReportDao = async (
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
-    console.error('Error in getPayOutMerchantReportDao:', error);
+    logger.error('Error in getPayOutMerchantReportDao:', error);
     throw error;
   }
 };
@@ -370,7 +378,7 @@ const getPayOutVendorReportDao = async (
       LEFT JOIN public."Merchant" me ON po.merchant_id = me.id
       LEFT JOIN public."BankAccount" b ON po.bank_acc_id = b.id
       LEFT JOIN public."Vendor" ve ON ve.user_id = b.user_id
-      WHERE po.company_id = $1`;
+      WHERE po.company_id = $1 AND po.is_obsolete = false`;
 
     let parameters = [company_id];
     let paramIndex = parameters.length + 1;
@@ -418,7 +426,7 @@ const getPayOutVendorReportDao = async (
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
-    console.error('Error in getPayOutVendorReportDao:', error);
+    logger.error('Error in getPayOutVendorReportDao:', error);
     throw error;
   }
 };
@@ -443,7 +451,7 @@ const getPayinReportDao = async (
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
-    console.error('Error in getPayOutVendorReportDao:', error);
+    logger.error('Error in getPayOutVendorReportDao:', error);
     throw error;
   }
 };
@@ -464,7 +472,7 @@ const getPayOutAll = async (filters, page, pageSize, sortBy, sortOrder) => {
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
-    console.error('Error in getPayOutVendorReportDao:', error);
+    logger.error('Error in getPayOutVendorReportDao:', error);
     throw error;
   }
 };
@@ -480,7 +488,7 @@ const getMerchantReportDao = async (
 ) => {
   try {
     if (!startDate || !endDate) {
-      throw new Error('Both startDate and endDate must be provided.');
+      throw new BadRequestError('Both startDate and endDate must be provided.');
     }
     //date formatted from service
     let query = `
@@ -509,7 +517,7 @@ const getMerchantReportDao = async (
         ${role === Role.ADMIN ? ', m.user_id AS merchant_user_id' : ''}
       FROM public."Calculation" c
       LEFT JOIN public."Merchant" m ON c.user_id = m.user_id
-      WHERE c.company_id = $1
+      WHERE c.company_id = $1 AND c.is_obsolete = false
     `;
 
     let parameters = [company_id];
@@ -527,6 +535,8 @@ const getMerchantReportDao = async (
         ORDER BY c.id DESC, m.code ASC, c.created_at ASC
       ) 
       SELECT * FROM filtered_merchants ORDER BY code NULLS LAST`;
+
+    // Only apply database-level pagination if both page and limit are provided
     if (page && limit) {
       const offset = (parseInt(page) - 1) * parseInt(limit);
       query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
@@ -536,7 +546,7 @@ const getMerchantReportDao = async (
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
-    console.error('Error in getMerchantReportDao:', error.message);
+    logger.error('Error in getMerchantReportDao:', error.message);
     throw error;
   }
 };
@@ -552,7 +562,7 @@ const getVendorReportDao = async (
 ) => {
   try {
     if (!startDate || !endDate) {
-      throw new Error('Both startDate and endDate must be provided.');
+      throw new BadRequestError('Both startDate and endDate must be provided.');
     }
     //date formatting
     let query = `
@@ -597,10 +607,11 @@ const getVendorReportDao = async (
 
     query += `
     ORDER BY c.id, v.code ASC
-)
-SELECT * FROM filtered_vendors
-ORDER BY created_at ASC`;
+    )
+    SELECT * FROM filtered_vendors
+    ORDER BY created_at ASC`;
 
+    // Only apply database-level pagination if both page and limit are provided
     if (page && limit) {
       const offset = (page - 1) * limit;
       query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
@@ -610,7 +621,7 @@ ORDER BY created_at ASC`;
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
-    console.error('Error in getVendorReportDao:', error);
+    logger.error('Error in getVendorReportDao:', error);
     throw error;
   }
 };

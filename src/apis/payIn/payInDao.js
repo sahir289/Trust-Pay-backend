@@ -1,4 +1,5 @@
 import { tableName } from '../../constants/index.js';
+import { BadRequestError } from '../../utils/appErrors.js';
 import {
   buildInsertQuery,
   buildSelectQuery,
@@ -8,15 +9,15 @@ import {
 import { getConnection } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-import { newTableEntry } from '../../utils/sockets.js';
+// import { newTableEntry } from '../../utils/sockets.js';
 export const generatePayInUrlDao = async (data) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.PAYIN, data);
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error generating PayIn URL:', error);
-    throw error.message;
+    logger.error('Error generating PayIn URL:', error);
+    throw error;
   }
 };
 export const getPayInCronDao = async (
@@ -35,8 +36,8 @@ export const getPayInCronDao = async (
     const result = await executeQuery(sql, queryParams);
     return result.rows[0];
   } catch (error) {
-    console.error('Error getting PayIn data:', error);
-   throw error.message;
+    logger.error('Error getting PayIn data:', error);
+    throw error;
   }
 };
 export const getPayInUrlDao = async (filters) => {
@@ -48,8 +49,34 @@ export const getPayInUrlDao = async (filters) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error getting PayIn URL:', error);
-    throw error.message;
+    logger.error('Error getting PayIn URL:', error);
+    throw error;
+  }
+};
+export const getPayInPendingDao = async ({ company_id, status }) => {
+  try {
+    const sql = `
+      SELECT 
+        p.id,
+        p.created_at,
+        p.user_submitted_utr,
+        p.bank_acc_id,
+        p.amount,
+        p.merchant_order_id,
+        p.config,
+        m.code as merchant
+      FROM "${tableName.PAYIN}" p
+      JOIN "${tableName.MERCHANT}" m ON p.merchant_id = m.id
+      WHERE p.company_id = $1
+        AND p.status = $2
+        AND p.updated_at BETWEEN NOW() - INTERVAL '2 days' AND NOW()
+    `;
+    const params = [company_id, status];
+    const result = await executeQuery(sql, params);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error getting PayIn URL:', error);
+    throw error;
   }
 };
 
@@ -62,12 +89,12 @@ export const getPayInDaoByCode = async (filters) => {
     WHERE p.id = $1
       AND p.company_id = $2
   `;
-  const params = [filters.id, filters.company_id];  
+    const params = [filters.id, filters.company_id];
     const result = await executeQuery(sql, params);
-    return result.rows;    
+    return result.rows;
   } catch (error) {
-    console.error('Error getting PayIn URL:', error);
-    throw error.message;
+    logger.error('Error getting PayIn URL:', error);
+    throw error;
   }
 };
 
@@ -132,6 +159,13 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         );
         queryParams.push(...statusArray);
       },
+      updated: (filters, conditions) => {
+        if (!filters.updatedPayin) return;
+        conditions.push(
+          `(p.config->>'history' IS NOT NULL AND p.config::jsonb ? 'history')`,
+        );
+        delete filters.updatedPayin;
+      },
       pagination: (page, limit, queryParams, limitconditionRef) => {
         if (!page || !limit) return;
         const nextParamIdx = queryParams.length + 1;
@@ -145,6 +179,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
     conditionBuilders.bankName(filters, conditions, queryParams);
     conditionBuilders.status(filters, conditions, queryParams);
     conditionBuilders.pagination(page, limit, queryParams, limitcondition);
+    conditionBuilders.updated(filters, conditions, queryParams);
 
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null) return;
@@ -156,8 +191,7 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
           .join(', ');
         conditions.push(`p.${key} IN (${placeholders})`);
         queryParams.push(...value);
-      }
-      else if (key === 'user_ids') {
+      } else if (key === 'user_ids') {
         const isMultiValue = typeof value === 'string' && value.includes(',');
         const valueArray = isMultiValue
           ? value.split(',').map((v) => v.trim())
@@ -232,7 +266,36 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
         p.created_by,
         p.updated_by,
         p.created_at,
-        p.updated_at
+        p.updated_at,
+        CASE 
+          WHEN p.config::jsonb ? 'history' 
+          THEN (
+            SELECT json_agg(
+              json_build_object(
+                'updated_by', upd_user.user_name,
+                'updated_at', h->>'updated_at',
+                'bank_acc_id', h->>'bank_acc_id',
+                'nick_name', h->>'nick_name',
+                'user', p.user,
+                'amount', h->>'amount',
+                'status', p.status,
+                'merchant_order_id', p.merchant_order_id,
+                'bank_res_details', json_build_object(
+                  'utr', h->>'utr',
+                  'amount', h->>'amount'
+                ),
+                'merchant_details', json_build_object(
+                  'merchant_code', COALESCE(r.config->>'sub_code', r.code)
+                ),
+                'payin_vendor_commission', h->>'payin_vendor_commission',
+                'payin_merchant_commission', h->>'payin_merchant_commission'
+              ) ORDER BY (h->>'updated_at')::timestamp DESC
+            )
+            FROM jsonb_array_elements(p.config::jsonb->'history') AS h
+            LEFT JOIN public."User" upd_user ON upd_user.id = (h->>'updated_by')::text
+          )
+          ELSE NULL
+        END AS history
       `;
     }
 
@@ -253,6 +316,35 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
             'utr', br.utr,
             'amount', br.amount
           ) AS bank_res_details,
+          CASE 
+          WHEN p.config::jsonb ? 'history' 
+          THEN (
+            SELECT json_agg(
+              json_build_object(
+                'updated_by', upd_user.user_name,
+                'updated_at', h->>'updated_at',
+                'bank_acc_id', h->>'bank_acc_id',
+                'nick_name', h->>'nick_name',
+                'user', p.user,
+                'amount', h->>'amount',
+                'status', p.status,
+                'merchant_order_id', p.merchant_order_id,
+                'bank_res_details', json_build_object(
+                  'utr', h->>'utr',
+                  'amount', h->>'amount'
+                ),
+                'merchant_details', json_build_object(
+                  'merchant_code', COALESCE(r.config->>'sub_code', r.code)
+                ),
+                'payin_vendor_commission', h->>'payin_vendor_commission',
+                'payin_merchant_commission', h->>'payin_merchant_commission'
+              ) ORDER BY (h->>'updated_at')::timestamp DESC
+            )
+            FROM jsonb_array_elements(p.config::jsonb->'history') AS h
+            LEFT JOIN public."User" upd_user ON upd_user.id = (h->>'updated_by')::text
+          )
+          ELSE NULL
+        END AS history,
           p.created_at,
           p.updated_at
         FROM public."${PAYIN}" p
@@ -271,7 +363,6 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
 
     const expectedParamCount = (baseQuery.match(/\$\d+/g) || []).length;
     if (expectedParamCount !== queryParams.length) {
-      logger.warn('⚠️ Placeholder count does not match parameter count!');
       logger.warn(
         `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
       );
@@ -282,11 +373,17 @@ export const getPayInsDao = async (filters, company_id, page, limit, role) => {
     };
   } catch (error) {
     logger.error('Error getting PayIn URL:', error);
-    throw error.message;
+    throw error;
   }
 };
 
-export const getAllPayInsDao = async (filters, company_id, page, limit, role) => {
+export const getAllPayInsDao = async (
+  filters,
+  company_id,
+  page,
+  limit,
+  role,
+) => {
   try {
     const { PAYIN } = tableName;
 
@@ -347,6 +444,13 @@ export const getAllPayInsDao = async (filters, company_id, page, limit, role) =>
         );
         queryParams.push(...statusArray);
       },
+      updated: (filters, conditions) => {
+        if (!filters.updatedPayin) return;
+        conditions.push(
+          `(p.config->>'history' IS NOT NULL AND p.config::jsonb ? 'history')`,
+        );
+        delete filters.updatedPayin;
+      },
       pagination: (page, limit, queryParams, limitconditionRef) => {
         if (!page || !limit) return;
         const nextParamIdx = queryParams.length + 1;
@@ -359,6 +463,7 @@ export const getAllPayInsDao = async (filters, company_id, page, limit, role) =>
     conditionBuilders.dateRange(filters, conditions, queryParams);
     conditionBuilders.bankName(filters, conditions, queryParams);
     conditionBuilders.status(filters, conditions, queryParams);
+    conditionBuilders.updated(filters, conditions);
     conditionBuilders.pagination(page, limit, queryParams, limitcondition);
 
     Object.entries(filters).forEach(([key, value]) => {
@@ -371,8 +476,7 @@ export const getAllPayInsDao = async (filters, company_id, page, limit, role) =>
           .join(', ');
         conditions.push(`p.${key} IN (${placeholders})`);
         queryParams.push(...value);
-      }
-      else if (key === 'user_ids') {
+      } else if (key === 'user_ids') {
         const isMultiValue = typeof value === 'string' && value.includes(',');
         const valueArray = isMultiValue
           ? value.split(',').map((v) => v.trim())
@@ -469,6 +573,35 @@ export const getAllPayInsDao = async (filters, company_id, page, limit, role) =>
             'utr', br.utr,
             'amount', br.amount
           ) AS bank_res_details,
+          CASE 
+          WHEN p.config::jsonb ? 'history' 
+          THEN (
+            SELECT json_agg(
+              json_build_object(
+                'updated_by', upd_user.user_name,
+                'updated_at', h->>'updated_at',
+                'bank_acc_id', h->>'bank_acc_id',
+                'nick_name', h->>'nick_name',
+                'user', p.user,
+                'amount', h->>'amount',
+                'status', p.status,
+                'merchant_order_id', p.merchant_order_id,
+                'bank_res_details', json_build_object(
+                  'utr', h->>'utr',
+                  'amount', h->>'amount'
+                ),
+                'merchant_details', json_build_object(
+                  'merchant_code', COALESCE(r.config->>'sub_code', r.code)
+                ),
+                'payin_vendor_commission', h->>'payin_vendor_commission',
+                'payin_merchant_commission', h->>'payin_merchant_commission'
+              ) ORDER BY (h->>'updated_at')::timestamp DESC
+            )
+            FROM jsonb_array_elements(p.config::jsonb->'history') AS h
+            LEFT JOIN public."User" upd_user ON upd_user.id = (h->>'updated_by')::text
+          )
+          ELSE NULL
+        END AS history,
           p.created_at,
           p.updated_at
         FROM public."${PAYIN}" p
@@ -487,7 +620,6 @@ export const getAllPayInsDao = async (filters, company_id, page, limit, role) =>
 
     const expectedParamCount = (baseQuery.match(/\$\d+/g) || []).length;
     if (expectedParamCount !== queryParams.length) {
-      logger.warn('⚠️ Placeholder count does not match parameter count!');
       logger.warn(
         `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
       );
@@ -498,7 +630,7 @@ export const getAllPayInsDao = async (filters, company_id, page, limit, role) =>
     };
   } catch (error) {
     logger.error('Error getting PayIn URL:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -601,12 +733,43 @@ export const getPayinsBySearchDao = async (
           'amount', br.amount
         ) AS bank_res_details,
         p.created_at,
-        p.updated_at
+        p.updated_at,
+        CASE 
+          WHEN p.config::jsonb ? 'history' 
+          THEN (
+            SELECT json_agg(
+              json_build_object(
+                'updated_by', upd_user.user_name,
+                'updated_at', h->>'updated_at',
+                'amount', h->>'amount',
+                'bank_acc_id', h->>'bank_acc_id',
+                'user', p.user,
+                'nick_name', h->>'nick_name',
+                'status', p.status,
+                'merchant_order_id', p.merchant_order_id,
+                'bank_res_details', json_build_object(
+                  'utr', h->>'utr',
+                  'amount', h->>'amount'
+                ),
+                'merchant_details', json_build_object(
+                  'merchant_code', COALESCE(m.config->>'sub_code', m.code)
+                ),
+                'payin_vendor_commission', h->>'payin_vendor_commission',
+                'payin_merchant_commission', h->>'payin_merchant_commission'
+              ) ORDER BY (h->>'updated_at')::timestamp DESC
+            )
+            FROM jsonb_array_elements(p.config::jsonb->'history') AS h
+            LEFT JOIN public."User" upd_user ON upd_user.id = (h->>'updated_by')::text
+          )
+          ELSE NULL
+        END AS history
       FROM public."Payin" p
       LEFT JOIN public."Merchant" m ON p.merchant_id = m.id
       LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
       LEFT JOIN public."BankResponse" br ON p.bank_response_id = br.id
       LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
+      LEFT JOIN public."User" u ON p.created_by = u.id 
+      LEFT JOIN public."User" uu ON p.updated_by = uu.id
       WHERE ${conditions.join(' AND ')}
     `;
 
@@ -691,7 +854,8 @@ export const getPayinsBySearchDao = async (
       }
     });
 
-    if (conditions.length > 2) { // Beyond the initial is_obsolete and company_id
+    if (conditions.length > 2) {
+      // Beyond the initial is_obsolete and company_id
       queryText += ' AND (' + conditions.slice(2).join(' AND ') + ')';
     }
 
@@ -710,12 +874,16 @@ export const getPayinsBySearchDao = async (
     // Debug log: Check if placeholders match params
     const expectedParamCount = (queryText.match(/\$\d+/g) || []).length;
     if (expectedParamCount !== queryParams.length) {
-      logger.warn('⚠️ Placeholder count does not match parameter count!');
-      logger.warn(`Expected: ${expectedParamCount}, Got: ${queryParams.length}`);
+      logger.warn(
+        `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
+      );
     }
 
     // Execute queries
-    const countResult = await executeQuery(countQuery, queryParams.slice(0, -2));
+    const countResult = await executeQuery(
+      countQuery,
+      queryParams.slice(0, -2),
+    );
     const searchResult = await executeQuery(queryText, queryParams);
 
     const totalItems = parseInt(countResult.rows[0].total);
@@ -728,7 +896,7 @@ export const getPayinsBySearchDao = async (
     };
   } catch (error) {
     logger.error('Error in getPayinSearch:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -742,8 +910,8 @@ export const getPayInUrlsDao = async (filters = {}) => {
     const result = await executeQuery(sql, params);
     return result.rows;
   } catch (error) {
-    console.error('Error getting PayIn URLs:', error);
-    throw error.message;
+    logger.error('Error getting PayIn URLs:', error);
+    throw error;
   }
 };
 
@@ -751,22 +919,22 @@ export const updatePayInUrlDao = async (id, data, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
     if (conn && conn.query) {
-    const result = await conn.query(sql, params);
-    await newTableEntry(tableName.PAYIN);
-    return result.rows[0];
+      const result = await conn.query(sql, params);
+      // await newTableEntry(tableName.PAYIN);
+      return result.rows[0];
     }
     const result = await executeQuery(sql, params);
-    await newTableEntry(tableName.PAYIN);
+    // await newTableEntry(tableName.PAYIN);
     return result.rows[0];
   } catch (error) {
-    console.error('Error updating PayIn URL:', error);
-    throw error.message;
+    logger.error('Error updating PayIn URL:', error);
+    throw error;
   }
 };
 
 export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
   if (!merchantOrderId || typeof merchantOrderId !== 'string') {
-    throw new Error('Valid merchantOrderId is required');
+    throw new BadRequestError('Valid merchantOrderId is required');
   }
 
   let conn;
@@ -791,20 +959,19 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
 
   try {
     conn = await getConnection();
-    // console.log(conn);
     const result = await conn.query(baseQuery, [merchantOrderId]);
 
     return result.rows;
   } catch (error) {
     const errorMessage = `Error fetching payin details for merchantOrderId ${merchantOrderId}: ${error.message}`;
-    console.error(errorMessage);
-    throw new Error(errorMessage);
+    logger.error(errorMessage);
+    throw error;
   } finally {
     if (conn) {
       try {
-        await conn.release();
+        conn.release();
       } catch (releaseError) {
-        console.error('Error releasing connection:', releaseError);
+        logger.error('Error releasing connection:', releaseError);
       }
     }
   }

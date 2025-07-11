@@ -23,6 +23,7 @@ import {
   updateUtrPayins,
   checkPendingPayinStatus,
   updatePayIn,
+  processPayInIMGUTR,
 } from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
@@ -79,7 +80,11 @@ router.get('/generate-payin', tryCatchHandler(generatePayInUrl));
  *       404:
  *         description: Pay-In URL not found
  */
-router.get('/validate-payIn-url/:merchantOrderId',getUserLocationMiddleware, tryCatchHandler(validatePayInUrl));
+router.get(
+  '/validate-payIn-url/:merchantOrderId',
+  getUserLocationMiddleware,
+  tryCatchHandler(validatePayInUrl),
+);
 
 /**
  * @swagger
@@ -129,7 +134,10 @@ router.post('/generate-upi-url', tryCatchHandler(generateUpiUrl));
  *       404:
  *         description: Pay-In URL not found
  */
-router.post('/assign-bank/:merchantOrderId', tryCatchHandler(assignedBankToPayInUrl));
+router.post(
+  '/assign-bank/:merchantOrderId',
+  tryCatchHandler(assignedBankToPayInUrl),
+);
 
 /**
  * @swagger
@@ -378,9 +386,11 @@ router.put(
  */
 router.get('/', tryCatchHandler(getPayins));
 
+router.post('/processIMGUTR/:merchantOrderId', tryCatchHandler(processPayInIMGUTR));
+
 router.put('/updateFailedPayinUtr/:id', tryCatchHandler(updateUtrPayins));
 
-router.post(
+router.get(
   '/checkPendingPayinStatus',
   tryCatchHandler(checkPendingPayinStatus),
 );

@@ -2,6 +2,7 @@ import { Role, tableName } from '../../constants/index.js';
 import {
   buildInsertQuery,
   buildUpdateQuery,
+  buildSelectQuery,
   executeQuery,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
@@ -15,8 +16,20 @@ export const createChargeBackDao = async (data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error creating ChargeBack entry:', error);
-    throw error.message;
+    logger.error('Error creating ChargeBack entry:', error);
+    throw error;
+  }
+};
+
+export const getChargebackByIdDao = async (filters) => {
+  try {
+    const query = `SELECT id, sno, merchant_user_id, vendor_user_id, payin_id, bank_acc_id, amount, reference_date, created_by, updated_by, created_at, updated_at FROM "${tableName.CHARGE_BACK}" WHERE 1=1`;
+    const [sql, parameters] = buildSelectQuery(query, filters);
+    const result = await executeQuery(sql, parameters);
+    return result.rows;
+  } catch (error) {
+    logger.error(error);
+    throw error;
   }
 };
 
@@ -28,10 +41,18 @@ export const getChargeBackDao = async (
   sortBy,
   sortOrder,
   columns = [],
-  role
+  role,
 ) => {
   try {
-    const { VENDOR, CHARGE_BACK, MERCHANT, PAYIN, USER, BANK_ACCOUNT, BANK_RESPONSE } = tableName;
+    const {
+      VENDOR,
+      CHARGE_BACK,
+      MERCHANT,
+      PAYIN,
+      USER,
+      BANK_ACCOUNT,
+      BANK_RESPONSE,
+    } = tableName;
     const conditions = [`cb.is_obsolete = false`];
     const queryParams = [];
     const limitcondition = { value: '' };
@@ -51,10 +72,14 @@ export const getChargeBackDao = async (
       },
       dateRange: (filters, conditions, queryParams) => {
         if (!filters.startDate || !filters.endDate) return;
-        const startDate = dayjs.tz(`${filters.startDate} 00:00:00`, 'Asia/Kolkata').toISOString();
-        const endDate = dayjs.tz(`${filters.endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString();    
+        const startDate = dayjs
+          .tz(`${filters.startDate} 00:00:00`, 'Asia/Kolkata')
+          .toISOString();
+        const endDate = dayjs
+          .tz(`${filters.endDate} 23:59:59.999`, 'Asia/Kolkata')
+          .toISOString();
         const idx = queryParams.length + 1;
-        conditions.push(`cb.created_at BETWEEN $${idx} AND $${idx + 1}`); 
+        conditions.push(`cb.created_at BETWEEN $${idx} AND $${idx + 1}`);
         queryParams.push(startDate, endDate);
       },
       pagination: (page, pageSize, queryParams, limitconditionRef) => {
@@ -62,7 +87,7 @@ export const getChargeBackDao = async (
         const nextParamIdx = queryParams.length + 1;
         limitconditionRef.value = `LIMIT $${nextParamIdx} OFFSET $${nextParamIdx + 1}`;
         queryParams.push(pageSize, (page - 1) * pageSize);
-      }
+      },
     };
 
     // Handle bank_name filter properly
@@ -91,14 +116,24 @@ export const getChargeBackDao = async (
 
       // Special handling for arrays (like merchant_user_id)
       if (Array.isArray(value)) {
-        const placeholders = value.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+        const placeholders = value
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
         conditions.push(`cb.${key} IN (${placeholders})`);
         queryParams.push(...value);
       } else {
         const isMultiValue = typeof value === 'string' && value.includes(',');
-        const valueArray = isMultiValue ? value.split(',').map(v => v.trim()) : [value];
-        const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
-        conditions.push(isMultiValue ? `cb.${key} IN (${placeholders})` : `cb.${key} = $${nextParamIdx}`);
+        const valueArray = isMultiValue
+          ? value.split(',').map((v) => v.trim())
+          : [value];
+        const placeholders = valueArray
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        conditions.push(
+          isMultiValue
+            ? `cb.${key} IN (${placeholders})`
+            : `cb.${key} = $${nextParamIdx}`,
+        );
         queryParams.push(...valueArray);
       }
     });
@@ -106,17 +141,18 @@ export const getChargeBackDao = async (
     const tableAlias = 'cb';
 
     // Filter out unwanted columns
-    columns = columns.filter(col => 
-      col !== 'merchant_user_id' && 
-      col !== 'payin_id' && 
-      col !== 'bank_acc_id'
+    columns = columns.filter(
+      (col) =>
+        col !== 'merchant_user_id' &&
+        col !== 'payin_id' &&
+        col !== 'bank_acc_id',
     );
 
     // Default columns if none provided
     const defaultColumns = ['id', 'payin_id', 'amount'];
-    const baseColumns = columns.length 
-      ? columns.map(col => `${tableAlias}.${col}`).join(', ')
-      : defaultColumns.map(col => `${tableAlias}.${col}`).join(', ');
+    const baseColumns = columns.length
+      ? columns.map((col) => `${tableAlias}.${col}`).join(', ')
+      : defaultColumns.map((col) => `${tableAlias}.${col}`).join(', ');
 
     // Additional columns based on role
     let additionalColumns = '';
@@ -126,11 +162,9 @@ export const getChargeBackDao = async (
         p.user AS user,
         p.merchant_order_id AS merchant_order_id,
       `;
-    }
-    else if (role === Role.VENDOR) {
+    } else if (role === Role.VENDOR) {
       additionalColumns += ``;
-    }
-    else {
+    } else {
       additionalColumns = `
         m.code AS merchant_name,
         p.merchant_order_id AS merchant_order_id,
@@ -158,8 +192,17 @@ export const getChargeBackDao = async (
     if (additionalColumns) allColumns.push(additionalColumns);
 
     // Ensure sortBy is fully qualified if it's a simple column name
-    const validSortColumns = ['id', 'sno', 'payin_id', 'amount', 'created_at', 'updated_at'];
-    const qualifiedSortBy = validSortColumns.includes(sortBy) ? `cb.${sortBy}` : sortBy;
+    const validSortColumns = [
+      'id',
+      'sno',
+      'payin_id',
+      'amount',
+      'created_at',
+      'updated_at',
+    ];
+    const qualifiedSortBy = validSortColumns.includes(sortBy)
+      ? `cb.${sortBy}`
+      : sortBy;
 
     const baseQuery = `
       SELECT
@@ -189,8 +232,9 @@ export const getChargeBackDao = async (
 
     const expectedParamCount = (baseQuery.match(/\$\d+/g) || []).length;
     if (expectedParamCount !== queryParams.length) {
-      logger.warn('⚠️ Placeholder count does not match parameter count!');
-      logger.warn(`Expected: ${expectedParamCount}, Got: ${queryParams.length}`);
+      logger.warn(
+        `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
+      );
     }
 
     const result = await executeQuery(baseQuery, queryParams);
@@ -208,10 +252,18 @@ export const getAllChargeBackDao = async (
   sortBy,
   sortOrder,
   columns = [],
-  role
+  role,
 ) => {
   try {
-    const { VENDOR, CHARGE_BACK, MERCHANT, PAYIN, USER, BANK_ACCOUNT, BANK_RESPONSE } = tableName;
+    const {
+      VENDOR,
+      CHARGE_BACK,
+      MERCHANT,
+      PAYIN,
+      USER,
+      BANK_ACCOUNT,
+      BANK_RESPONSE,
+    } = tableName;
     const conditions = [`cb.is_obsolete = false`];
     const queryParams = [];
     const limitcondition = { value: '' };
@@ -231,10 +283,14 @@ export const getAllChargeBackDao = async (
       },
       dateRange: (filters, conditions, queryParams) => {
         if (!filters.startDate || !filters.endDate) return;
-        const startDate = dayjs.tz(`${filters.startDate} 00:00:00`, 'Asia/Kolkata').toISOString();
-        const endDate = dayjs.tz(`${filters.endDate} 23:59:59.999`, 'Asia/Kolkata').toISOString();    
+        const startDate = dayjs
+          .tz(`${filters.startDate} 00:00:00`, 'Asia/Kolkata')
+          .toISOString();
+        const endDate = dayjs
+          .tz(`${filters.endDate} 23:59:59.999`, 'Asia/Kolkata')
+          .toISOString();
         const idx = queryParams.length + 1;
-        conditions.push(`cb.created_at BETWEEN $${idx} AND $${idx + 1}`); 
+        conditions.push(`cb.created_at BETWEEN $${idx} AND $${idx + 1}`);
         queryParams.push(startDate, endDate);
       },
       pagination: (page, pageSize, queryParams, limitconditionRef) => {
@@ -242,7 +298,7 @@ export const getAllChargeBackDao = async (
         const nextParamIdx = queryParams.length + 1;
         limitconditionRef.value = `LIMIT $${nextParamIdx} OFFSET $${nextParamIdx + 1}`;
         queryParams.push(pageSize, (page - 1) * pageSize);
-      }
+      },
     };
 
     // Handle bank_name filter properly
@@ -252,7 +308,7 @@ export const getAllChargeBackDao = async (
     //   const nextParamIdx = queryParams.length + 1;
     //   conditions.push(`ba.bank_name = $${nextParamIdx}`);
     //   queryParams.push(bankName);
-    // } else 
+    // } else
     if (utr) {
       const nextParamIdx = queryParams.length + 1;
       conditions.push(`p.user_submitted_utr = $${nextParamIdx}`);
@@ -272,14 +328,24 @@ export const getAllChargeBackDao = async (
 
       // Special handling for arrays (like merchant_user_id)
       if (Array.isArray(value)) {
-        const placeholders = value.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
+        const placeholders = value
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
         conditions.push(`cb.${key} IN (${placeholders})`);
         queryParams.push(...value);
       } else {
         const isMultiValue = typeof value === 'string' && value.includes(',');
-        const valueArray = isMultiValue ? value.split(',').map(v => v.trim()) : [value];
-        const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
-        conditions.push(isMultiValue ? `cb.${key} IN (${placeholders})` : `cb.${key} = $${nextParamIdx}`);
+        const valueArray = isMultiValue
+          ? value.split(',').map((v) => v.trim())
+          : [value];
+        const placeholders = valueArray
+          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .join(', ');
+        conditions.push(
+          isMultiValue
+            ? `cb.${key} IN (${placeholders})`
+            : `cb.${key} = $${nextParamIdx}`,
+        );
         queryParams.push(...valueArray);
       }
     });
@@ -287,18 +353,19 @@ export const getAllChargeBackDao = async (
     const tableAlias = 'cb';
 
     // Filter out unwanted columns
-    columns = columns.filter(col => 
-      col !== 'merchant_user_id' && 
-      col !== 'payin_id' && 
-      col !== 'vendor_user_id' &&
-      col !== 'bank_acc_id'
+    columns = columns.filter(
+      (col) =>
+        col !== 'merchant_user_id' &&
+        col !== 'payin_id' &&
+        col !== 'vendor_user_id' &&
+        col !== 'bank_acc_id',
     );
 
     // Default columns if none provided
     const defaultColumns = ['id', 'payin_id', 'amount'];
-    const baseColumns = columns.length 
-      ? columns.map(col => `${tableAlias}.${col}`).join(', ')
-      : defaultColumns.map(col => `${tableAlias}.${col}`).join(', ');
+    const baseColumns = columns.length
+      ? columns.map((col) => `${tableAlias}.${col}`).join(', ')
+      : defaultColumns.map((col) => `${tableAlias}.${col}`).join(', ');
 
     // Additional columns based on role
     let additionalColumns = '';
@@ -308,11 +375,9 @@ export const getAllChargeBackDao = async (
         p.user AS user,
         p.merchant_order_id AS merchant_order_id,
       `;
-    }
-    else if (role === Role.VENDOR) {
+    } else if (role === Role.VENDOR) {
       additionalColumns += ``;
-    }
-    else {
+    } else {
       additionalColumns = `
         m.code AS merchant_name,
         p.merchant_order_id AS merchant_order_id,
@@ -340,8 +405,17 @@ export const getAllChargeBackDao = async (
     if (additionalColumns) allColumns.push(additionalColumns);
 
     // Ensure sortBy is fully qualified if it's a simple column name
-    const validSortColumns = ['id', 'sno', 'payin_id', 'amount', 'created_at', 'updated_at'];
-    const qualifiedSortBy = validSortColumns.includes(sortBy) ? `cb.${sortBy}` : sortBy;
+    const validSortColumns = [
+      'id',
+      'sno',
+      'payin_id',
+      'amount',
+      'created_at',
+      'updated_at',
+    ];
+    const qualifiedSortBy = validSortColumns.includes(sortBy)
+      ? `cb.${sortBy}`
+      : sortBy;
 
     const baseQuery = `
       SELECT
@@ -371,8 +445,9 @@ export const getAllChargeBackDao = async (
 
     const expectedParamCount = (baseQuery.match(/\$\d+/g) || []).length;
     if (expectedParamCount !== queryParams.length) {
-      logger.warn('⚠️ Placeholder count does not match parameter count!');
-      logger.warn(`Expected: ${expectedParamCount}, Got: ${queryParams.length}`);
+      logger.warn(
+        `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
+      );
     }
 
     const result = await executeQuery(baseQuery, queryParams);
@@ -383,8 +458,6 @@ export const getAllChargeBackDao = async (
   }
 };
 
-
-
 export const getChargeBacksBySearchDao = async (
   filters,
   searchTerms,
@@ -392,7 +465,14 @@ export const getChargeBacksBySearchDao = async (
   offset,
 ) => {
   try {
-    const { VENDOR, CHARGE_BACK, MERCHANT, PAYIN, BANK_ACCOUNT, BANK_RESPONSE } = tableName;
+    const {
+      VENDOR,
+      CHARGE_BACK,
+      MERCHANT,
+      PAYIN,
+      BANK_ACCOUNT,
+      BANK_RESPONSE,
+    } = tableName;
     const conditions = [];
     const values = [];
     let paramIndex = 1;
@@ -449,21 +529,24 @@ export const getChargeBacksBySearchDao = async (
       }
     }
 
-    if(filters && filters.utr) {
+    if (filters && filters.utr) {
       queryText += ` AND "${PAYIN}".user_submitted_utr = $${paramIndex}`;
       values.push(filters.utr);
       paramIndex++;
     }
 
-    if(filters && filters.bank_name) {
+    if (filters && filters.bank_name) {
       queryText += ` AND "${BANK_ACCOUNT}".nick_name = $${paramIndex}`;
       values.push(filters.bank_name);
       paramIndex++;
     }
 
-
     // Handle merchant_user_id array
-    if (filters && Array.isArray(filters.merchant_user_id) && filters.merchant_user_id.length > 0) {
+    if (
+      filters &&
+      Array.isArray(filters.merchant_user_id) &&
+      filters.merchant_user_id.length > 0
+    ) {
       const placeholders = filters.merchant_user_id
         .map((_, idx) => `$${paramIndex + idx}`)
         .join(', ');
@@ -473,7 +556,11 @@ export const getChargeBacksBySearchDao = async (
     }
 
     // Handle vendor_user_id array
-    if (filters && Array.isArray(filters.vendor_user_id) && filters.vendor_user_id.length > 0) {
+    if (
+      filters &&
+      Array.isArray(filters.vendor_user_id) &&
+      filters.vendor_user_id.length > 0
+    ) {
       const placeholders = filters.vendor_user_id
         .map((_, idx) => `$${paramIndex + idx}`)
         .join(', ');
@@ -547,8 +634,8 @@ export const getChargeBacksBySearchDao = async (
     };
     return data;
   } catch (error) {
-    console.error('Error fetching ChargeBacks by search:', error.message);
-    throw error.message;
+    logger.error('Error fetching ChargeBacks by search:', error.message);
+    throw error;
   }
 };
 
@@ -559,8 +646,8 @@ export const updateChargeBackDao = async (id, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error updating ChargeBack entry:', error);
-    throw error.message;
+    logger.error('Error updating ChargeBack entry:', error);
+    throw error;
   }
 };
 
@@ -571,7 +658,7 @@ export const deleteChargeBackDao = async (id, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error('Error deleting ChargeBack entry:', error);
-    throw error.message;
+    logger.error('Error deleting ChargeBack entry:', error);
+    throw error;
   }
 };

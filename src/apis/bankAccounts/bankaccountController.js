@@ -11,7 +11,7 @@ import {
 } from '../../schemas/bankAccoountSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
+import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { getBankaccountDao, getMerchantBankDao } from './bankaccountDao.js';
 import {
   getBankaccountService,
@@ -36,13 +36,13 @@ const getBankaccount = async (req, res) => {
     page,
     limit,
     user_id,
-    designation
+    designation,
   );
   return sendSuccess(res, data, 'get Banks successfully');
 };
 
 const getBankAccountBySearch = async (req, res) => {
-  const { company_id, role, designation } = req.user;
+  const { company_id, role, designation, user_id } = req.user;
   const { search, bank_used_for, page = 1, limit = 10 } = req.query;
   if (!search) {
     throw new BadRequestError('search is required');
@@ -54,7 +54,8 @@ const getBankAccountBySearch = async (req, res) => {
     bank_used_for,
     page,
     limit,
-    designation
+    designation,
+    user_id,
   );
   return sendSuccess(res, data, 'get Banks by search successfully');
 };
@@ -62,7 +63,14 @@ const getBankAccountBySearch = async (req, res) => {
 const getBankaccountNickName = async (req, res) => {
   const { type, user } = req.query;
   const { company_id, role, user_id, designation } = req.user;
-  const data = await getBankaccountServiceNickName(company_id, type, role, user_id, designation, user);
+  const data = await getBankaccountServiceNickName(
+    company_id,
+    type,
+    role,
+    user_id,
+    designation,
+    user,
+  );
   return sendSuccess(res, data, 'get Banks successfully');
 };
 
@@ -100,28 +108,30 @@ const createBankaccount = async (req, res) => {
     : (payload.config = {});
   delete payload.is_phonepay;
   delete payload.is_intent;
-  const { user_id, company_id, designation, role,user_name} = req.user;
+  const { user_id, company_id, designation, role, user_name } = req.user;
   payload.created_by = user_id;
   payload.updated_by = user_id;
   payload.company_id = company_id;
   //error for nick name must be unique
-  const unique = await getBankaccountDao({nick_name : payload.nick_name},null,null,role )
-  if(unique.length>0){
-    return res.status(400).json({
-      error: {
-        status: 400,
-        message: 'Nick Name Must Be Unique',
-        additionalInfo: {},
-        level: 'info',
-        timestamp: new Date().toISOString(),
-      },
-    });
+  const unique = await getBankaccountDao(
+    { nick_name: payload.nick_name },
+    null,
+    null,
+    role,
+  );
+  if (unique.length > 0) {
+    return sendError(res, 'Nick Name Must Be Unique', 400)
   }
   // const data =
- const bankDetail= await createBankaccountService(payload,designation,user_id);
+  const bankDetail = await transactionWrapper(createBankaccountService)(
+    payload,
+    designation,
+    user_id,
+    company_id,
+  );
   return sendSuccess(
     res,
-    { id: bankDetail.id, created_by: user_name},
+    { id: bankDetail.id, created_by: user_name },
     'Created Banks successfully',
   );
 };
@@ -138,7 +148,13 @@ const updateBankaccount = async (req, res) => {
   payload.updated_by = user_id;
   const ids = { id, company_id };
   // const data =
- const updatebank= await transactionWrapper(updateBankaccountService)(ids, payload, role);
+  const updatebank = await transactionWrapper(updateBankaccountService)(
+    ids,
+    payload,
+    role,
+    company_id,
+    user_id,
+  );
   return sendSuccess(
     res,
     { id: updatebank.id, updated_by: user_name },
@@ -178,10 +194,13 @@ const deleteBankaccount = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const { company_id, user_name } = req.user;
+  const { company_id, user_name, user_id } = req.user;
   const ids = { id, company_id };
   // const data =
-  const deletebank = await transactionWrapper(deleteBankaccountService)(ids);
+  const deletebank = await transactionWrapper(deleteBankaccountService)(
+    ids,
+    user_id,
+  );
   return sendSuccess(
     res,
     { id: deletebank.id, deleted_by: user_name },

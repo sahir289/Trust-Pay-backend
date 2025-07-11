@@ -60,58 +60,57 @@ const getPayInReportService = async (req) => {
       );
     }
     return result;
-   
-  }
-  catch (error) {
+  } catch (error) {
     logger.error('Error while fetching report', error);
     // Handle and rethrow errors with appropriate context
-      throw error;
-    }
-  }
-
-
-const getPayOutReportService = async (req) => {
-  try{
-  const { company_id, role } = req.user;
-  const { code, startDate, endDate, status } = req.query;
-  const startDateTime = dayjs
-    .tz(`${startDate} 00:00:00`, 'Asia/Kolkata')
-    .toISOString();
-  const endDateTime = dayjs
-    .tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata')
-    .toISOString();
-
-  const codes = code.split(',');
-  let merchantIds = [];
-  let vendorIds = [];
-  let result;
-  const merchantDetails = await getMerchantsDaoArray(company_id, codes);
-  merchantIds = merchantDetails.map((merchant) => merchant.id);
-  if (merchantIds.length > 0) {
-    result = await getPayOutMerchantReportDao(
-      merchantIds,
-      startDateTime,
-      endDateTime,
-      company_id,
-      role,status
-    );
-  } else {
-    const vendorDetails = await getVendorsDaoArray(company_id, codes);
-    vendorIds = vendorDetails.map((merchant) => merchant.id);
-    result = await getPayOutVendorReportDao(
-      vendorIds,
-      startDateTime,
-      endDateTime,
-      company_id,
-      role,status
-    );
-  }
-  return result;
-} catch (error) {
-  logger.error('Error while fetching report', error);
     throw error;
   }
-}
+};
+
+const getPayOutReportService = async (req) => {
+  try {
+    const { company_id, role } = req.user;
+    const { code, startDate, endDate, status } = req.query;
+    const startDateTime = dayjs
+      .tz(`${startDate} 00:00:00`, 'Asia/Kolkata')
+      .toISOString();
+    const endDateTime = dayjs
+      .tz(`${endDate} 23:59:59.999`, 'Asia/Kolkata')
+      .toISOString();
+
+    const codes = code.split(',');
+    let merchantIds = [];
+    let vendorIds = [];
+    let result;
+    const merchantDetails = await getMerchantsDaoArray(company_id, codes);
+    merchantIds = merchantDetails.map((merchant) => merchant.id);
+    if (merchantIds.length > 0) {
+      result = await getPayOutMerchantReportDao(
+        merchantIds,
+        startDateTime,
+        endDateTime,
+        company_id,
+        role,
+        status,
+      );
+    } else {
+      const vendorDetails = await getVendorsDaoArray(company_id, codes);
+      vendorIds = vendorDetails.map((merchant) => merchant.id);
+      result = await getPayOutVendorReportDao(
+        vendorIds,
+        startDateTime,
+        endDateTime,
+        company_id,
+        role,
+        status,
+      );
+    }
+    return result;
+  } catch (error) {
+    logger.error('Error while fetching report', error);
+    throw error;
+  }
+};
 
 const getClientsAccountReportService = async (req) => {
   try {
@@ -147,7 +146,7 @@ const getClientsAccountReportService = async (req) => {
         }
       }
 
-      // Fetch parent and child data
+      // Fetch parent and child data WITHOUT pagination to ensure proper merging
       const parentData = await getMerchantReportDao(
         company_id,
         typeof code === 'string'
@@ -157,9 +156,9 @@ const getClientsAccountReportService = async (req) => {
             : [code],
         startDate,
         endDate,
-        page,
-        limit,
-        role
+        null, // Remove page parameter
+        null, // Remove limit parameter  
+        role,
       );
       let childData = [];
       if (subMerchants.length > 0) {
@@ -168,9 +167,9 @@ const getClientsAccountReportService = async (req) => {
           subMerchants,
           startDate,
           endDate,
-          page,
-          limit,
-          role
+          null, // Remove page parameter
+          null, // Remove limit parameter
+          role,
         );
       }
 
@@ -289,6 +288,15 @@ const getClientsAccountReportService = async (req) => {
         result = Object.values(parentMap)
           .map(({ ...rest }) => rest)
           .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+        // Apply pagination to the final aggregated result
+        if (page && limit) {
+          const pageNum = parseInt(page);
+          const limitNum = parseInt(limit);
+          const startIndex = (pageNum - 1) * limitNum;
+          const endIndex = startIndex + limitNum;
+          result = result.slice(startIndex, endIndex);
+        }
       } else {
         result = [];
         logger.warn('parentData is not an array:', parentData);
@@ -311,7 +319,7 @@ const getClientsAccountReportService = async (req) => {
     // Handle and rethrow errors with appropriate context
     throw error;
   }
-}
+};
 
 export {
   getPayInReportService,

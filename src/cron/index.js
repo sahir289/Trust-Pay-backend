@@ -3,6 +3,7 @@ import collectBankData from './bankCron.js';
 import collectCalculationData from './calculationCron.js';
 import collectPayinData from './notifyCron.js';
 import { logger } from '../utils/logger.js';
+import formattedSuccessRatiosByMerchant from './successRatioCron.js';
 // import  checkPendingStatus  from './pendingPayinCron.js';
 const router = express.Router();
 
@@ -71,9 +72,6 @@ router.get(
 //   '/checkPendingStatus',
 //   (req, res) => {
 //     checkPendingStatus('Asia/Kolkata');
-//     console.log(
-//       'Calling pending payins CRONJOB with timezone: Asia/Kolkata',
-//     );
 //     res.json({ message: 'Cron job is running for pending status' });
 //   },
 //   checkPendingStatus,
@@ -105,6 +103,15 @@ router.get(
     collectPayinData('Asia/Kolkata');
     logger.info('Calling collectPayinData CRONJOB with timezone: Asia/Kolkata');
     res.json({ message: 'Cron job is running for Notify-Url' });
+  },
+  collectPayinData,
+);
+router.get(
+  '/successRatioCron',
+  (req, res) => {
+    formattedSuccessRatiosByMerchant();
+    logger.info('Calling formattedSuccessRatiosByMerchant CRONJOB');
+    res.json({ message: 'Cron job is running for Success Ratio' });
   },
   collectPayinData,
 );

@@ -8,7 +8,7 @@ import {
   updateCheckUtrService,
 } from './checkUtrServices.js';
 import { getPayinDetailsByMerchantOrderId } from '../payIn/payInDao.js';
-import { logger } from '../../utils/logger.js';
+import { transactionWrapper } from '../../utils/db.js';
 
 const getCheckUtr = async (req, res) => {
   const { company_id } = req.user;
@@ -29,9 +29,14 @@ const getCheckUtrBySearch = async (req, res) => {
   if (!search) {
     throw new BadRequestError('search is required');
   }
-  const data = await getCheckUtrBySearchService(company_id, search, page, limit);
+  const data = await getCheckUtrBySearchService(
+    company_id,
+    search,
+    page,
+    limit,
+  );
   return sendSuccess(res, data, 'get checkUtr by search successfully');
-}
+};
 
 const createCheckUtr = async (req, res) => {
   const payload = req.body;
@@ -39,15 +44,20 @@ const createCheckUtr = async (req, res) => {
     payload.merchant_order_id,
   );
   payload.payin_id = payinData[0].payin_id;
-  const { company_id, user_id,user_name } = req.user;
+  const { company_id, user_id, user_name } = req.user;
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
+  const { merchant_order_id, utr } = payload;
   delete payload.merchant_order_id;
   if (!payload) {
     throw new BadRequestError('payload is required');
   }
-  const checkUtr = await createCheckUtrService(payload);
+  const checkUtr = await transactionWrapper(createCheckUtrService)(
+    payload,
+    merchant_order_id,
+    utr,
+  );
   return sendSuccess(
     res,
     { id: checkUtr.id, created_by: user_name },
@@ -68,8 +78,13 @@ const deleteCheckUtr = async (req, res) => {
     throw new BadRequestError('payload is required');
   }
   await deleteCheckUtrService(id);
-  logger.log('getUsers successfully');
   return sendSuccess(res, {}, 'Delete CheckUtr successfully');
 };
 
-export { getCheckUtr, getCheckUtrBySearch, createCheckUtr, updateCheckUtr, deleteCheckUtr };
+export {
+  getCheckUtr,
+  getCheckUtrBySearch,
+  createCheckUtr,
+  updateCheckUtr,
+  deleteCheckUtr,
+};

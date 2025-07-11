@@ -217,8 +217,8 @@ router.get(
 router.post(
   '/create-user',
   [isAuthenticated, authorized(AccessRoles.USER)],
-  tryCatchHandler(createUser), 
-); 
+  tryCatchHandler(createUser),
+);
 
 /**
  * @swagger
@@ -243,8 +243,8 @@ router.post(
  *               username:
  *                 type: string
  *                 description: The new username for the user
- *     responses: 
- *       200:   
+ *     responses:
+ *       200:
  *         description: User updated successfully.
  *         content:
  *           application/json:
@@ -268,7 +268,7 @@ router.put(
   '/update-user/:id',
   [isAuthenticated, authorized(AccessRoles.USER)],
   tryCatchHandler(updateUser),
- )
+);
 
 /**
  * @swagger
@@ -313,6 +313,6 @@ router.post(
   '/send-mail',
   [isAuthenticated, authorized(AccessRoles.USER)],
   tryCatchHandler(sendMail),
- )
+);
 
 export default router;

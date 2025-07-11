@@ -110,7 +110,6 @@ const tables = {
  */
 
 export const buildSearchFilterObj = (search, tableName) => {
-  console.log(typeof(search), "search")
   if (typeof search !== 'string') {
     throw new BadRequestError('Invalid Search Type');
   }
@@ -135,15 +134,12 @@ export const buildSearchFilterObj = (search, tableName) => {
         ? Number(value)
         : value;
 
-
     const valueType =
       typeof toValue === 'boolean'
         ? DataTypes.BOOLEAN
         : typeof toValue === 'number'
           ? DataTypes.NUMBER
           : DataTypes.STRING;
-
-          console.log(valueType, "valueType")
 
     let matched = false;
 
@@ -192,13 +188,11 @@ export const buildFilterConditions = (
   baseConditions = [],
   baseParams = [],
 ) => {
-  // console.log(filters, tableConfigs, "--=-========")
   let conditions = [...baseConditions];
   let queryParams = [...baseParams];
 
   Object.keys(filters).forEach((key) => {
     const value = filters[key];
-    // console.log(value, 'value0000')
     if (
       value !== null &&
       value !== undefined &&

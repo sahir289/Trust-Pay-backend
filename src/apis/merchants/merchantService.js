@@ -38,6 +38,7 @@ import {
   updateBankaccountDao,
 } from '../bankAccounts/bankaccountDao.js';
 import { updateUserDao } from '../users/userDao.js';
+// import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // Create Merchant Service
 
 const createMerchantService = async (conn, payload) => {
@@ -98,10 +99,20 @@ const createMerchantService = async (conn, payload) => {
       }
     }
     logger.log('Merchant created successfully');
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: payload.company_id,
+    //   message: `New Merchant with Code ${data.code} has been created.`,
+    //   payloadUserId: payload.updated_by,
+    //   actorUserId:
+    //     userDesignation === Role.SUB_MERCHANT ? parentId : payload.updated_by,
+    //   category: 'Client',
+    //   subCategory: 'Merchant'
+    // });
     return data;
   } catch (error) {
     logger.error('Error while creating merchant', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -172,7 +183,7 @@ const getMerchantsService = async (
     return finalResult;
   } catch (error) {
     logger.error('Error while fetching merchants', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -329,7 +340,7 @@ const getMerchantsServiceCode = async (
       }
     }
     logger.error('Error while getting merchants codes', error);
-    throw new InternalServerError(error);
+    throw error;
   } finally {
     if (conn) {
       try {
@@ -342,17 +353,33 @@ const getMerchantsServiceCode = async (
 };
 
 // Update Merchant Service
-const updateMerchantService = async (ids, payload, role) => {
+const updateMerchantService = async (conn, ids, payload, role) => {
   try {
     const filterColumns =
       role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
+    if (payload?.whitelist_ips) {
+      payload.config = {
+        ...payload.config,
+        whitelist_ips: payload?.whitelist_ips,
+      };
+    }
+    delete payload.whitelist_ips;
     const data = await updateMerchantDao(ids, payload); // Adjust DAO call for update
     logger.log('Merchant updated successfully');
     const finalResult = filterResponse(data, filterColumns);
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: ids.company_id,
+    //   message: `Merchant with Code ${data.code} has been updated.`,
+    //   payloadUserId: payload.updated_by,
+    //   actorUserId: payload.updated_by,
+    //   category: 'Client',
+    //   subCategory: 'Merchant'
+    // });
     return finalResult;
   } catch (error) {
     logger.error('Error while updating merchant', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -377,8 +404,8 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
     const user_id = merchantDetails[0].user_id;
     const submerchants = await getUserHierarchysDao({ user_id });
     const subMerchantIds =
-      submerchants[0].config?.siblings?.sub_merchants || [];
-    const operationIds = submerchants[0].config?.child?.operations || [];
+      submerchants[0]?.config?.siblings?.sub_merchants || [];
+    const operationIds = submerchants[0]?.config?.child?.operations || [];
     const allMerchantIds = [merchantDetails[0].id]; // start with this id
     const allIds = [...subMerchantIds, ...operationIds];
     for (const id of allIds) {
@@ -433,9 +460,23 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
     ];
     await updateUserDao({ id: userIds }, { is_obsolete: true }, conn);
     const payload = { is_obsolete: true, updated_by };
-    const data = await deleteMerchantDao(ids, payload); // Adjust DAO call for delete
-    await commit(conn); // Commit the transaction
+    const data = await deleteMerchantDao(conn, ids, payload); // Adjust DAO call for delete
     logger.log('Merchant deleted successfully');
+    // const userArr = await getUserByIdDao(conn, {
+    //   id: userIds,
+    //   company_id: ids.company_id,
+    // });
+    // const userCodes = userArr.map((user) => user.code).join(', ');
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: ids.company_id,
+    //   message: `Merchants with Code ${userCodes} has been deleted.`,
+    //   payloadUserId: updated_by,
+    //   actorUserId: updated_by,
+    //   category: 'Client',
+    //   subCategory: 'Merchant'
+    // });
+    await commit(conn); // Commit the transaction
     return data;
   } catch (error) {
     if (conn) {
@@ -446,7 +487,7 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
       }
     }
     logger.error('Error while deleting merchant', error);
-    throw new InternalServerError(error);
+    throw error;
   } finally {
     if (conn) {
       try {
@@ -463,6 +504,7 @@ const getMerchantByIdService = async (
   role,
   addUserHierarchy = false,
 ) => {
+  try{
   const entryColumns =
     role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
   const filterColumns = entryColumns.includes('user_id')
@@ -514,6 +556,10 @@ const getMerchantByIdService = async (
   }
 
   return merchant;
+} catch (error) {
+  logger.error('Error while fetching merchant by ID', error);
+    throw error;
+}
 };
 
 const getMerchantsByCodeService = async (code) => {
@@ -528,9 +574,9 @@ const getMerchantsByCodeService = async (code) => {
     return data[0];
   } catch (error) {
     logger.error('Error while fetching merchant by code', error);
-    throw new InternalServerError(error);
+    throw error;
   }
-}
+};
 
 export {
   createMerchantService,

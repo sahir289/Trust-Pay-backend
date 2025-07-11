@@ -7,7 +7,7 @@ import {
   // VALIDATE_BANK_RESPONSE_QUERY,
 } from '../../schemas/bankResponseSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
-import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
+import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   getBankResponseService,
   getClaimResponseService,
@@ -21,11 +21,12 @@ import {
 import { BadRequestError } from '../../utils/appErrors.js';
 
 import { transactionWrapper } from '../../utils/db.js';
-import { Role } from '../../constants/index.js';
+import { Role, tableName } from '../../constants/index.js';
 import config from '../../config/config.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { s3 } from '../../helpers/Aws.js';
 import { streamToBuffer } from '../../helpers/index.js';
+import { newTableEntry } from '../../utils/sockets.js';
 const getBankResponse = async (req, res) => {
   const { role, company_id } = req.user;
   const { page, limit, search, updated, sortOrder, sortBy, ...rest } =
@@ -76,23 +77,24 @@ const getBankResponseBySearch = async (req, res) => {
     },
     role,
   );
-  console.log('get Bank Response successfully');
   return sendSuccess(res, data, 'BankResponse fetched successfully');
 };
 
 const createBankResponse = async (req, res) => {
-  const { role, user_name, company_id } = req.user;
+  const { role, user_name, company_id, user_id } = req.user;
   const payload = req.body?.body;
   const { error } = CREATE_BANK_RESPONSE_SCHEMA.validate(req.body);
   if (error) {
     throw new ValidationError(error);
   }
-  const result = await transactionWrapper(createBankResponseService)(
+  const result = await createBankResponseService(
     payload,
     company_id,
     role,
     user_name,
+    user_id,
   );
+  await newTableEntry(tableName.BANK_RESPONSE);
   sendSuccess(res, result, 'Created Bank Response successfully');
 };
 
@@ -103,12 +105,13 @@ const createBankBotResponse = async (req, res) => {
   if (error) {
     throw new ValidationError(error);
   }
-  const result = await transactionWrapper(createBankResponseService)(
+  const result = await createBankResponseService(
     payload,
     x_auth_token,
     Role.BOT,
     null,
   );
+  await newTableEntry(tableName.BANK_RESPONSE);
   sendSuccess(res, result, 'Created Bank Bot Response successfully');
 };
 
@@ -151,39 +154,28 @@ const getBankMessage = async (req, res) => {
 };
 
 const resetBankResponseController = async (req, res) => {
-  try {
-    const { company_id, user_name, role, user_id } = req.user;
-    const { id } = req.params;
-    const { amount, utr, bank_id } = req.body;
+  const { company_id, user_name, role, user_id } = req.user;
+  const { id } = req.params;
+  const { amount, utr, bank_id } = req.body;
 
-    // Validate request body
-    const { error } = RESET_BANK_RESPONSE_SCHEMA.validate(req.body);
-    if (error) {
-      throw new ValidationError(error);
-    }
-
-    // Call service to handle the reset logic
-    const result = await transactionWrapper(resetBankResponseService)(id, {
-      company_id,
-      user_name,
-      user_id,
-      role,
-      amount,
-      utr,
-      bank_id,
-    });
-
-    // Send success response
-    return sendSuccess(res, {}, result.message);
-  } catch (error) {
-    // Handle errors and send appropriate response
-    return sendError(
-      res,
-      {},
-      error.message || 'An error occurred while resetting bank response',
-      error.statusCode || 500,
-    );
+  // Validate request body
+  const { error } = RESET_BANK_RESPONSE_SCHEMA.validate(req.body);
+  if (error) {
+    throw new ValidationError(error);
   }
+
+  // Call service to handle the reset logic
+  const result = await transactionWrapper(resetBankResponseService)(id, {
+    company_id,
+    user_name,
+    user_id,
+    role,
+    amount,
+    utr,
+    bank_id,
+  });
+
+  return sendSuccess(res, result, result.message);
 };
 
 const importBankResponse = async (req, res) => {

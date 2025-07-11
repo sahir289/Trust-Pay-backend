@@ -1,4 +1,4 @@
-import { InternalServerError } from '../../utils/appErrors.js';
+import { logger } from '../../utils/logger.js';
 import {
   getDesignationDao,
   createDesignationDao,
@@ -6,13 +6,13 @@ import {
   deleteDesignationDao,
 } from './designationDao.js';
 
-const getDesignationService = async (user,  page,limit,) => {
+const getDesignationService = async (user, page, limit) => {
   try {
-    const result = await getDesignationDao(user,  page,limit,);
+    const result = await getDesignationDao(user, page, limit);
     return result;
   } catch (error) {
-    console.error('error getting while Designation', error);
-    throw new InternalServerError(error);
+    logger.error('error getting while Designation', error);
+    throw error;
   }
 };
 
@@ -21,8 +21,8 @@ const createDesignationService = async (conn, payload) => {
     const result = await createDesignationDao(conn, payload);
     return result;
   } catch (error) {
-    console.error('error getting while Designation', error);
-    throw new InternalServerError(error);
+    logger.error('error getting while Designation', error);
+    throw error;
   }
 };
 
@@ -31,8 +31,8 @@ const updateDesignationService = async (id, payload) => {
     const result = await updateDesignationDao(id, payload);
     return result;
   } catch (error) {
-    console.error('error getting while Designation', error);
-    throw new InternalServerError(error);
+    logger.error('error getting while Designation', error);
+    throw error;
   }
 };
 
@@ -43,8 +43,8 @@ const deleteDesignationService = async (id) => {
     });
     return result;
   } catch (error) {
-    console.error('error getting while Designation', error);
-    throw new InternalServerError(error);
+    logger.error('error getting while Designation', error);
+    throw error;
   }
 };
 

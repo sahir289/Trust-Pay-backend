@@ -29,9 +29,7 @@ export const WALLET_PAYOUT_DETAILS_SCHEMA = Joi.object({
 export const UPDATE_DETAILS_SCHEMA = Joi.object({
   user: Joi.string().label('user').optional(),
   amount: Joi.number().label('amount').optional(),
-  status: Joi.string()
-    .label('status')
-    .optional(),
+  status: Joi.string().label('status').optional(),
   currency: Joi.string().length(3).label('currency').optional(),
   acc_no: Joi.string().length(10).label('acc_no').optional(),
   acc_holder_name: Joi.string().label('acc_holder_name').optional(),
@@ -59,7 +57,17 @@ export const UPDATE_DETAILS_SCHEMA = Joi.object({
     .optional(),
   updated_by: Joi.string().label('updated_by').optional(),
   is_obsolete: Joi.boolean().label('is_obsolete').optional(),
-  vendor_id: Joi.alternatives().try(Joi.string(), Joi.valid(null)).label('vendor_id').optional(),
+  vendor_id: Joi.alternatives()
+    .try(Joi.string(), Joi.valid(null))
+    .label('vendor_id')
+    .optional(),
+});
+export const ASSIGNED_VENDOR_SCHEMA = Joi.object({
+  payouts_ids: Joi.array()
+    .items(
+      Joi.string().uuid({ version: ['uuidv4'] }),
+    )
+    .optional(), 
 });
 
 export const VALIDATE_PAYOUT_BY_ID = Joi.object({
@@ -76,7 +84,7 @@ export const VALIDATE_CHECK_PAY_OUT_STATUS = Joi.object({
   payoutId: Joi.string()
     .guid({ version: ['uuidv4'] })
     .label('payOutId')
-    .required(),
+    .optional(),
   merchantCode: Joi.string().label('merchantCode').required(),
   merchantOrderId: Joi.string().label('merchantOrderId').required(),
 });

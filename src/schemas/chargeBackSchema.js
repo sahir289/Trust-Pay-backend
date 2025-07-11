@@ -10,7 +10,7 @@ const VALIDATE_CHARGEBACK_SCHEMA = Joi.object({
   }),
   reference_date: Joi.date().required().messages({
     'any.required': 'Reference Date is required',
-  })
+  }),
 });
 
 // Validation Schema for Updating a ChargeBack

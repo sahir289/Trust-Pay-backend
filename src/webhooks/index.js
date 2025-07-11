@@ -2,13 +2,14 @@ import { updatePayInUrlDao } from '../apis/payIn/payInDao.js';
 import { getPayInUrlService } from '../apis/payIn/payInService.js';
 import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.js';
 import { Status } from '../constants/index.js';
+import { BadRequestError, NotFoundError } from '../utils/appErrors.js';
 
 export const payInUpdateCashfreeWebhook = async (req, res) => {
   const payload = req.body;
   res.json({ status: 200, message: 'Cash free Webhook Called successfully' });
   const payInDataById = await getPayInUrlService(payload.data.order.order_id);
   if (!payInDataById) {
-    throw new Error('Payment not found');
+    throw new NotFoundError('Payment not found');
   }
   const durMs = new Date() - payInDataById.createdAt;
   const durSeconds = Math.floor((durMs / 1000) % 60)
@@ -25,9 +26,8 @@ export const payInUpdateCashfreeWebhook = async (req, res) => {
     payload.data.payment.payment_status === Status.FAILED ||
     payload.data.payment.payment_status === Status.USER_DROPPED
   ) {
-    throw new Error(
-      'Payment Failed due to:',
-      payload.data.payment.payment_message,
+    throw new BadRequestError(
+      `Payment Failed due to: ${payload.data.payment.payment_message}`,
     );
   }
   const payInData = {
@@ -59,5 +59,6 @@ export const payInUpdateCashfreeWebhook = async (req, res) => {
         ? updatePayinRes?.utr
         : '',
   };
+  // This is async function but it's just the callback sending function there fore we are not using await
   merchantPayinCallback(updatePayinRes?.config?.notify_url, notifyData);
 };

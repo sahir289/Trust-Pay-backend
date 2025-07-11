@@ -20,7 +20,7 @@ export const createMerchantDao = async (data, conn) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error in createMerchantDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -108,7 +108,7 @@ export const getMerchantsCodeDao = async (
     return result.rows;
   } catch (error) {
     logger.error('Error executing merchant query:', error);
-    throw error.message;
+    throw error;
   }
 };
 // get merchant with user_id  to get submerchant for user hierachys
@@ -224,7 +224,7 @@ export const getMerchantsDao = async (
         )
       `;
     }
-  
+
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
@@ -239,7 +239,7 @@ export const getMerchantsDao = async (
     return data;
   } catch (error) {
     logger.error('Error in getMerchantsDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -300,7 +300,7 @@ export const getAllMerchantsDao = async (
         )
       `;
     }
-  
+
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
@@ -315,7 +315,7 @@ export const getAllMerchantsDao = async (
     return data;
   } catch (error) {
     logger.error('Error in getMerchantsDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -359,7 +359,7 @@ export const getMerchantsByCodeDao = async (code) => {
     return result.rows;
   } catch (error) {
     logger.error('Error in getMerchants By Code Dao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -386,7 +386,7 @@ export const getMerchantByCodeDao = async (code) => {
     return result.rows;
   } catch (error) {
     logger.error('Error in getMerchants By Code Dao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -550,7 +550,7 @@ export const getMerchantsBySearchDao = async (
     };
   } catch (error) {
     logger.error('Error in getMerchantsBySearchDao', error.message);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -566,6 +566,7 @@ export const updateMerchantDao = async (ids, data, conn) => {
 };
 
 export const deleteMerchantDao = async (
+  conn,
   ids,
   data,
   options = { returnUpdated: true },
@@ -590,12 +591,12 @@ export const deleteMerchantDao = async (
       ${returningClause}
     `;
 
-    const result = await executeQuery(sql, values);
+    const result = await conn.query(sql, values);
 
     return result.rows;
   } catch (error) {
     logger.error('Error in deleteMerchantDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -620,7 +621,7 @@ export const updateMerchantBalanceDao = async (
     return result[0];
   } catch (error) {
     logger.error('Error in updateMerchantBalanceDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -638,11 +639,11 @@ export const getMerchantByCodeAndApiKey = async (code, publicKey) => {
     return result.rows[0]; // Return the first matching merchant
   } catch (error) {
     logger.error('Error fetching merchant by code and API key:', error);
-    throw error.message;
+    throw error;
   }
 };
 
-export const getMerchantsDaoArray = async (company_id,code) => {
+export const getMerchantsDaoArray = async (company_id, code) => {
   try {
     let baseQuery = `
       SELECT 
@@ -672,12 +673,12 @@ export const getMerchantsDaoArray = async (company_id,code) => {
       LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
       WHERE "Merchant".company_id = $1 AND "Merchant".user_id = ANY($2)
     `;
-    
-    let queryParams = [company_id, code]; 
+
+    let queryParams = [company_id, code];
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching merchant by code and API key:', error);
-    throw error; 
+    throw error;
   }
 };

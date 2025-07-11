@@ -25,11 +25,11 @@ import resetHistory from './resetHistory/index.js';
 import checkUtr from './checkutr/index.js';
 import common from './common/index.js';
 import beneficiaryAccounts from './beneficiaryAccounts/index.js';
-import notifications from './notifications/index.js';
+// import notifications from './notifications/index.js';
 
 const parentRouter = express.Router();
 const router = express.Router();
-parentRouter.use('/v1', router); 
+parentRouter.use('/v1', router);
 
 // Apply authorization middleware for specific routes
 router.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
@@ -49,8 +49,8 @@ router.use('/userHierarchy', userHierarchy);
 router.use('/payOut', payOut);
 router.use('/reports', reports);
 router.use('/checkUtr', checkUtr);
-router.use('/resetHistory' , resetHistory)
-router.use('/beneficiaryAccounts' , beneficiaryAccounts)
+router.use('/resetHistory', resetHistory);
+router.use('/beneficiaryAccounts', beneficiaryAccounts);
 // Public routes (no authorization required)
 router.use('/ping', ping);
 router.use('/auth', auth);
@@ -58,6 +58,6 @@ router.use('/initialize-cronjob', gatherAllData);
 router.use('/complaints', complaints);
 router.use('/cron', cron);
 router.use('/common', common);
-router.use('/notifications', notifications);
+// router.use('/notifications', notifications);
 
 export default parentRouter;

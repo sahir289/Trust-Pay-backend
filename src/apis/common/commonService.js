@@ -5,9 +5,9 @@ import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
-import { InternalServerError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
 import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
+import { getUserByCompanyCreatedAtDao } from '../users/userDao.js';
 
 export const getTotalCountService = async (
   tablename,
@@ -22,10 +22,15 @@ export const getTotalCountService = async (
       userInfo.designation === Role.MERCHANT_OPERATIONS ||
       userInfo.designation === Role.VENDOR_OPERATIONS;
     let userIdFilter = [];
+    const company_id = filters?.company_id;
 
     if (filters?.beneficiary_role) {
       const role_id = await getRoleDao({ role: filters.beneficiary_role });
       filters.role_id = role_id[0]?.id;
+      if (filters.beneficiary_role === Role.VENDOR) {
+        const [adminRole] = await getRoleDao({ role: Role.ADMIN });
+        filters.role_id = [filters.role_id, adminRole?.id];
+      }
       delete filters.beneficiary_role;
       delete filters.company_id;
     }
@@ -44,8 +49,7 @@ export const getTotalCountService = async (
       } else {
         filters.bank_acc_id = [];
       }
-    }
-    else if (tablename === tableName.CHARGE_BACK && filters?.utr) {
+    } else if (tablename === tableName.CHARGE_BACK && filters?.utr) {
       const bankResponse = await getBankResponseByUTR(filters.utr);
       delete filters.utr; // Remove utr from filters
       if (bankResponse && bankResponse.length > 0) {
@@ -115,12 +119,20 @@ export const getTotalCountService = async (
         updated = filters.updated;
         delete filters.updated;
       }
+      // Handle updatedPayin filter
+      let updatedPayin = false;
+      if (filters?.updatedPayin) {
+        updatedPayin = filters.updatedPayin;
+        delete filters.updatedPayin;
+      }
+
       return await getTotalCountDao(
         tablename,
         role,
         filters,
         userInfo.userRole,
         updated,
+        updatedPayin,
       );
     }
 
@@ -277,11 +289,21 @@ export const getTotalCountService = async (
 
     // Beneficiary table
     if (tablename === tableName.BENEFICIARY_ACCOUNTS) {
-      userIdFilter = [userInfo.user_id];
+      userIdFilter = isOperations
+        ? [hierarchy?.config?.parent].filter(Boolean)
+        : [userInfo.user_id];
       if (userInfo.userRole === Role.MERCHANT) {
         userIdFilter.push(
           ...(hierarchy?.config?.siblings?.sub_merchants ?? []),
         );
+      } else if (userInfo.userRole === Role.VENDOR) {
+        // const [adminRole] = await getRoleDao({ role: Role.ADMIN });
+        const adminUser = await getUserByCompanyCreatedAtDao(
+          company_id,
+          Role.ADMIN,
+        );
+        userIdFilter.push(adminUser.id);
+        filters['config->>is_enabled'] = 'true';
       }
       filters.user_id =
         userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
@@ -326,18 +348,28 @@ export const getTotalCountService = async (
         userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
 
-    logger.info(`Filters applied: ${JSON.stringify(filters)}`);
     let updated = false;
+    let updatedPayin = false;
     if (filters?.updated) {
       updated = filters.updated;
       delete filters.updated;
     }
-    return await getTotalCountDao(tablename, role, filters, updated);
+    if (filters?.updatedPayin) {
+      updatedPayin = filters.updatedPayin;
+      delete filters.updatedPayin;
+    }
+    return await getTotalCountDao(
+      tablename,
+      role,
+      filters,
+      updated,
+      updatedPayin,
+    );
   } catch (error) {
     logger.error(
       `Error in getTotalCountService for table ${tablename}:`,
       error,
     );
-    throw new InternalServerError(error.message);
+    throw error;;
   }
 };

@@ -1,4 +1,4 @@
-import { InternalServerError } from '../../utils/appErrors.js';
+import { logger } from '../../utils/logger.js';
 import {
   getRoleDao,
   createRoleDao,
@@ -11,41 +11,39 @@ const getRoleService = async (filters) => {
     const data = await getRoleDao(filters);
     return data;
   } catch (error) {
-    console.error('Error while fetching role', error);
-    throw new InternalServerError(error);
+    logger.error('Error while fetching role', error);
+    throw error;
   }
 };
 
 const createRoleService = async (conn, payload) => {
   try {
     const data = await createRoleDao(conn, payload);
-    console.log('Created Role successfully', 'info');
+
     return data;
   } catch (error) {
-    console.error('Error while updating Role', 'error', error);
-    throw new InternalServerError(error);
+    logger.error('Error while updating Role', error);
+    throw error;
   }
 };
 
 const updateRoleService = async (conn, id, body) => {
   try {
     const data = await updateRoleDao(conn, id, body);
-    console.log('Updated Role successfully', 'info');
     return data;
   } catch (error) {
-    console.error('Error while updating Role', 'error', error);
-    throw new InternalServerError(error);
+    logger.error('Error while updating Role', 'error', error);
+    throw error;
   }
 };
 
 const deleteRoleService = async (id, userData) => {
   try {
     const data = await deleteRoleDao(id, userData);
-    console.log('Deleted Role successfully', 'info');
     return data;
   } catch (error) {
-    console.error('Error while updating Role', 'error', error);
-    throw new InternalServerError(error);
+    logger.error('Error while updating Role', 'error', error);
+    throw error;
   }
 };
 

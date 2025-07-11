@@ -6,6 +6,7 @@ import {
 } from '../../utils/db.js';
 import { tableName, columns } from '../../constants/index.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
+import { logger } from '../../utils/logger.js';
 
 const getRoleDao = async (
   filters,
@@ -34,8 +35,8 @@ const getRoleDao = async (
     const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
-    console.error('Error in getRolesDao:', error);
-    throw error.message;
+    logger.error('Error in getRolesDao:', error);
+    throw error;
   }
 };
 
@@ -49,8 +50,8 @@ const createRoleDao = async (conn, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error(error);
-    throw error.message;
+    logger.error(error);
+    throw error;
   }
 };
 
@@ -64,8 +65,8 @@ const updateRoleDao = async (conn, id, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error(error);
-    throw error.message;
+    logger.error(error);
+    throw error;
   }
 };
 
@@ -75,8 +76,8 @@ const deleteRoleDao = async (id, data) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error(error);
-    throw error.message;
+    logger.error(error);
+    throw error;
   }
 };
 

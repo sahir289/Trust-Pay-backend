@@ -1,5 +1,5 @@
 import { transactionWrapper } from '../../utils/db.js';
-import { sendSuccess, sendNewSuccess } from '../../utils/responseHandlers.js';
+import { sendSuccess, sendNewSuccess, sendError } from '../../utils/responseHandlers.js';
 import {
   createPayoutService,
   deletePayoutService,
@@ -7,6 +7,7 @@ import {
   updatePayoutService,
   getPayoutsBySearchService,
   checkPayOutStatusService,
+  assignedPayoutService,
   walletsPayoutsService,
 } from './payOutService.js';
 import {
@@ -14,19 +15,29 @@ import {
   UPDATE_DETAILS_SCHEMA,
   VALIDATE_CHECK_PAY_OUT_STATUS,
   VALIDATE_PAYOUT_BY_ID,
+  ASSIGNED_VENDOR_SCHEMA,
   WALLET_PAYOUT_DETAILS_SCHEMA,
 } from '../../schemas/payoutSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 
+const TestingIp = process.env.LOCAL_IP;
+
 const createPayout = async (req, res) => {
+  let payload = req.body;
+  let userIp =
+    req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
+  if (userIp == '::1') {
+    userIp = TestingIp;
+  }
+  const fromUI = payload.fromUi || false;
+  delete payload.fromUi;
   const joiValidation = PAYOUT_DETAILS_SCHEMA.validate(req.body);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
   const x_api_key = req.headers['x-api-key'];
-  let payload = req.body;
   if (!payload.user_id && !payload.user) {
     throw new ValidationError('user_id is required');
   }
@@ -45,6 +56,8 @@ const createPayout = async (req, res) => {
       payload,
       role,
       res,
+      userIp,
+      fromUI,
     );
   } else {
     payload.x_api_key = x_api_key;
@@ -53,6 +66,8 @@ const createPayout = async (req, res) => {
       payload,
       null,
       res,
+      userIp,
+      fromUI,
     );
   }
   // Log success message
@@ -65,14 +80,13 @@ const createPayout = async (req, res) => {
   };
 
   // Send a success response to the client
-  return sendNewSuccess(res, updateRes, 'Payout created successfully', 201);
-  //   return res.status(200).json({
-  //     message: 'Payout created successfully',
-  //     statusCode: 201,
-  //     data: updateRes,
-  //   });
-  // };
-}
+  if (result.status === 400 || result.status === 404) {
+    return sendError(res, result.message, result.status);
+  }
+  else {
+    return sendNewSuccess(res, updateRes, 'Payout created successfully', 201);
+  }
+};
 const getPayoutsById = async (req, res) => {
   const joiValidation = VALIDATE_PAYOUT_BY_ID.validate(req.params);
   if (joiValidation.error) {
@@ -144,29 +158,54 @@ const getPayoutsBySearch = async (req, res) => {
     user_id,
     designation,
   );
-  logger.log('get Payouts successfully');
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };
 
 const updatePayout = async (req, res) => {
+  const { company_id, role, user_id, user_name } = req.user;
+  const { id } = req.params;
   const payload = req.body;
   const joiValidation = UPDATE_DETAILS_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
 
-  const { id } = req.params;
-  const { company_id, role, user_id,user_name } = req.user;
   payload.updated_by = user_id;
   const ids = { id, company_id };
- const update= await transactionWrapper(updatePayoutService)(ids, payload, role);
+  const update = await transactionWrapper(updatePayoutService)(
+    ids,
+    payload,
+    role,
+  );
   return sendSuccess(
     res,
     { id: update.id, updated_by: user_name },
     'Payout updated successfully',
   );
 };
-
+const assignedPayout = async (req, res) => {
+  const { user_id, user_name ,company_id} = req.user;
+  const { id } = req.params;
+  const { payouts_ids } = req.body;
+  console.log(req.body)
+  const joiValidation = ASSIGNED_VENDOR_SCHEMA.validate(req.body);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+ const updated_by = user_id;
+  const ids = { id };
+  const update = await transactionWrapper(assignedPayoutService)(
+    ids,
+    payouts_ids,
+    updated_by,
+    company_id,
+  );
+  return sendSuccess(
+    res,
+    { ids: update, assigned_by: user_name },
+    'Payout assigned successfully',
+  );
+};
 const deletePayout = async (req, res) => {
   const joiValidation = VALIDATE_PAYOUT_BY_ID.validate(req.params);
   if (joiValidation.error) {
@@ -179,13 +218,11 @@ const deletePayout = async (req, res) => {
   // Call the service to delete the Payout
   await deletePayoutService(ids, updated_by, role);
   // Log success message
-  logger.log('Payout deleted successfully');
-
   // Send a success response to the client
   return sendSuccess(res, {}, 'Payout deleted successfully');
 };
 
- const checkPayOutStatus = async (req, res) => {
+const checkPayOutStatus = async (req, res) => {
   const joiValidation = VALIDATE_CHECK_PAY_OUT_STATUS.validate(req.body);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
@@ -196,24 +233,24 @@ const deletePayout = async (req, res) => {
     req.body.merchantCode,
     req.body.merchantOrderId,
     api_key,
-    res
   );
   // sendSuccess(res, data);
-    return sendNewSuccess(res, data, 'PayOut status fetched successfully',200);
-  // return res.status(200).json({
-  //   message: 'PayOut status fetched successfully',
-  //   statusCode: 200,
-  //   data,
-  // });
+  if (data.status === 400 || data.status === 404) {
+    return sendError(res, data.message, data.status);
+  }
+  else {
+    return sendNewSuccess(res, data, 'PayOut status fetched successfully');
+  }
 };
 
 export {
   createPayout,
-   getPayoutsBySearch,
+  getPayoutsBySearch,
   checkPayOutStatus,
   getPayouts,
   updatePayout,
   deletePayout,
   getPayoutsById,
+  assignedPayout
   walletsPayouts,
 };

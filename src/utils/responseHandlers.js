@@ -6,7 +6,7 @@ const sendSuccess = (
   message = '',
   status = 200,
   total,
-  page
+  page,
 ) => {
   let finalRes = {
     error: {},
@@ -26,18 +26,15 @@ const sendSuccess = (
   if (page) {
     finalRes = { ...finalRes, page };
   }
-
-  logger.info(message, { status, data: finalRes.data });
-
+  if (res.req.method != 'GET') {
+    logger.info(message, { status, data: finalRes.data });
+  } else {
+    logger.info(message, { status });
+  }
   return res.status(status).json(finalRes);
 };
 
-const sendNewSuccess = (
-  res,
-  Data = {},
-  message = '',
-  status = 200,
-) => {
+const sendNewSuccess = (res, Data = {}, message = '', status = 200) => {
   const finalRes = {
     message: message || '',
     statusCode: status,
@@ -47,26 +44,23 @@ const sendNewSuccess = (
   return res.status(200).json(finalRes);
 };
 
-const sendError = (
-  res,
-  error,
-  message,
-  statusCode,
-) => {
-  const finalRes = {
-    error: {},
-    meta: {},
-    data: {},
+const sendError = (res, message, statusCode) => {
+  const error = {
+    error: {
+      additionalInfo: {},
+      level: 'info',
+      timestamp: new Date().toISOString(),
+    },
   };
 
   if (message) {
-    finalRes.error.message = message;
+    error.error.message = message;
   }
-  if (error && typeof error === 'object' && Object.keys(error).length > 0) {
-    finalRes.error = { ...error };
+  if (statusCode) {
+    error.error.status = statusCode;
   }
-  logger.error(message);
-  return res.status(statusCode).json(finalRes);
+  logger.error(error);
+  return res.status(statusCode).json(error);
 };
 
 export { sendSuccess, sendError, sendNewSuccess };

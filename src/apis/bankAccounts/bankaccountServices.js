@@ -6,8 +6,9 @@ import {
   getConnection,
   rollback,
 } from '../../utils/db.js';
+import { stringifyJSON } from '../../utils/index.js';
 import { logger } from '../../utils/logger.js';
-// import { sendError } from '../../utils/responseHandlers.js';
+// import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import { deactivateBank } from '../../utils/sockets.js';
 import {
   getBankResponseDaoAll,
@@ -57,7 +58,7 @@ const getBankaccountService = async (
     );
   } catch (error) {
     logger.error('error getting while  getting banks', error);
-    throw new InternalServerError(error);
+    throw error;
   }
 };
 
@@ -68,9 +69,21 @@ const getBankAccountBySearchService = async (
   bank_used_for,
   page,
   limit,
-  designation
+  designation,
+  user_id,
 ) => {
   try {
+    const filters = {}
+    if (role == Role.VENDOR) {
+      filters.user_id = [user_id];
+    }
+    const userHierarchys = await getUserHierarchysDao({ user_id });
+    if (designation == Role.VENDOR_OPERATIONS) {
+      const parentID = userHierarchys[0]?.config?.parent;
+      if (parentID) {
+        filters.user_id = [parentID];
+      }
+    }
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
@@ -92,7 +105,8 @@ const getBankAccountBySearchService = async (
       limitNum,
       offset,
       bank_used_for,
-      designation
+      designation,
+      filters,
     );
   } catch (error) {
     logger.error('error getting while getting check utr by search', error);
@@ -141,22 +155,28 @@ const getBankaccountServiceNickName = async (
       try {
         await rollback(conn);
       } catch (rollbackError) {
-        console.error('Error during transaction rollback', rollbackError);
+        logger.error('Error during transaction rollback', rollbackError);
       }
     }
-    throw new InternalServerError(error);
+    throw error;
   } finally {
     if (conn) {
       try {
         conn.release();
       } catch (releaseError) {
-        console.error('Error while releasing the connection', releaseError);
+        logger.error('Error while releasing the connection', releaseError);
       }
     }
   }
 };
 
-const createBankaccountService = async (payload, designation, user_id) => {
+const createBankaccountService = async (
+  conn,
+  payload,
+  designation,
+  user_id,
+  // company_id,
+) => {
   try {
     //child add bankaccount for its parent
     if (designation === Role.VENDOR_OPERATIONS) {
@@ -165,14 +185,29 @@ const createBankaccountService = async (payload, designation, user_id) => {
       payload.user_id = parentUserId;
     }
     const result = await createBankaccountDao(payload);
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: company_id,
+    //   message: `A new ${payload.bank_used_for} bank account with nick name ${payload.nick_name} has been created.`,
+    //   payloadUserId: payload.user_id,
+    //   actorUserId: user_id,
+    //   category: 'Bank Account',
+    // });
     return result;
   } catch (error) {
-    console.error('error getting while  creating banks', error);
+    logger.error('error getting while  creating banks', error);
     throw new BadRequestError('Error getting while  creating banks');
   }
 };
 
-const updateBankaccountService = async (conn, ids, payload, role) => {
+const updateBankaccountService = async (
+  conn,
+  ids,
+  payload,
+  role,
+  // company_id,
+  // user_id,
+) => {
   try {
     let result;
 
@@ -187,8 +222,8 @@ const updateBankaccountService = async (conn, ids, payload, role) => {
         ...payload,
         config: {
           ...payload.config,
-          merchants: []
-        }
+          merchants: [],
+        },
       };
     }
 
@@ -198,12 +233,39 @@ const updateBankaccountService = async (conn, ids, payload, role) => {
     if (role === Role.VENDOR_OPERATIONS) {
       userId = userHierarchys[0]?.config?.parent;
     }
-    if (Object.keys(payload).length === 1 && payload.latest_balance) {
+    if (
+      Object.keys(payload).length === 1 &&
+      payload.latest_balance &&
+      bank[0].is_enabled &&
+      (bank[0].config?.max_limit && bank[0].config?.max_limit !== 0)
+    ) {
       if (payload.latest_balance >= bank[0].config?.max_limit) {
         payload.is_enabled = false;
         deactivateBank(bank[0].nick_name, ids.id, userId);
+        // await notifyAdminsAndUsers({
+        //   conn,
+        //   company_id: company_id,
+        //   message: `The Bank with the ${bank[0].nick_name} id Deactivate`,
+        //   payloadUserId: user_id,
+        //   actorUserId: user_id,
+        //   category: 'Bank Account',
+        //   subCategory: null,
+        //   additionalRecipients: [],
+        //   role,
+        // });
       } else if (payload.latest_balance === bank[0].config?.max_limit) {
         deactivateBank(bank[0].nick_name, ids.id, true);
+        // await notifyAdminsAndUsers({
+        //   conn,
+        //   company_id: company_id,
+        //   message: `The Bank with the ${bank[0].nick_name} will be Deactivate soon as the Balance will soon reach the Daily Limit`,
+        //   payloadUserId: user_id,
+        //   actorUserId: user_id,
+        //   category: 'Bank Account',
+        //   subCategory: null,
+        //   additionalRecipients: [],
+        //   role,
+        // });
       }
     }
     delete payload.latest_balance;
@@ -224,7 +286,7 @@ const updateBankaccountService = async (conn, ids, payload, role) => {
       };
     }
 
-    const payloadData = JSON.parse(JSON.stringify(payload));
+    const payloadData = JSON.parse(stringifyJSON(payload));
     if (Object.keys(payload).length > 0) {
       result = await updateBankaccountDao(
         { id: ids.id, company_id: ids.company_id },
@@ -245,24 +307,42 @@ const updateBankaccountService = async (conn, ids, payload, role) => {
         }
       }
     }
+    // if (role !== Role.BOT) {
+    //   await notifyAdminsAndUsers({
+    //     conn,
+    //     company_id: company_id,
+    //     message: `The bank account with nick name ${bank[0].nick_name} has been updated.`,
+    //     payloadUserId: user_id,
+    //     actorUserId: user_id,
+    //     category: 'Bank Account',
+    //   });
+    // }
     return result;
   } catch (error) {
-    console.error('error getting while  updating banks', error);
-    throw new BadRequestError('Error getting while  updating banks');
+    logger.error('error getting while  updating banks', error);
+    throw error;
   }
 };
 
-const deleteBankaccountService = async (conn, ids) => {
+const deleteBankaccountService = async (conn, ids, user_id) => {
   try {
-    const payload = { is_obsolete: true };
+    const payload = { is_obsolete: true, updated_by: user_id };
     const result = await deleteBankaccountDao(
       conn,
       { id: ids.id, company_id: ids.company_id },
       payload,
     );
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: ids.company_id,
+    //   message: `Bank with nick name ${result.nick_name} has been deleted.`,
+    //   payloadUserId: user_id,
+    //   actorUserId: user_id,
+    //   category: 'Bank Account',
+    // });
     return result;
   } catch (error) {
-    console.error('error getting while deleting banks', error);
+    logger.error('error getting while deleting banks', error);
     throw new BadRequestError('Error getting while  deleting banks');
   }
 };

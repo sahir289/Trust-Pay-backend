@@ -1,4 +1,3 @@
-import { InternalServerError } from '../../utils/appErrors.js';
 import {
   createCompanyDao,
   deleteCompanyDao,
@@ -6,18 +5,19 @@ import {
   updateCompanyDao,
 } from './companyDao.js';
 import { createUserService } from '../users/userService.js';
-import { createDesignationService } from '../designation/designationServices.js';
-import { createRoleDao, getRoleDao } from '../roles/rolesDao.js';
-import { RoleIs,DesignationIs } from '../../constants/index.js';
+// import { createDesignationService } from '../designation/designationServices.js';
+import { getRoleDao } from '../roles/rolesDao.js';
+import { RoleIs, DesignationIs } from '../../constants/index.js';
 import { getDesignationDao } from '../designation/designationDao.js';
+import { logger } from '../../utils/logger.js';
 
 const getCompanyService = async (id) => {
   try {
     const result = await getCompanyDao(id);
     return result;
   } catch (error) {
-    console.error('error getting while company', error);
-    throw new InternalServerError(error);
+    logger.error('error getting while company', error);
+    throw error;
   }
 };
 
@@ -25,48 +25,41 @@ const createCompanyService = async (conn, payload) => {
   try {
     // Validate payload
     // Create company
+    function generateFormatted16DigitCode() {
+      let code = Math.floor(Math.random() * 9e15 + 1e15).toString();
+      return code.match(/.{1,4}/g).join('-');
+    }
+    
+    payload.config = {
+      ...payload.config,
+      unique_admin_id: generateFormatted16DigitCode(),
+    };
+
     const company = await createCompanyDao(conn, {
       first_name: payload.first_name,
       last_name: payload.last_name,
       email: payload.email,
       contact_no: payload.contact_no,
+      config: payload.config || {},
     });
-    let role = []; 
+    let role = [];
     let designations = [];
 
-    if (!role.length>0) {
-          let roles = [];
-       for (const roleName of Object.values(RoleIs)) {
-         const role = await createRoleDao(conn, {
-           role: roleName,
-         });
-         roles.push(role);
-       }
-       // Create all designations
-       for (const designationName of Object.values(DesignationIs)) {
-         const designation = await createDesignationService(conn, {
-           designation: designationName,
-         });
-         designations.push(designation);
-       }
-      role =await getRoleDao({ role: RoleIs.ADMIN });
-      designations =await getDesignationDao({designation:DesignationIs.ADMIN})
-    }
-   role = await getRoleDao({ role: RoleIs.ADMIN });
-     designations = await getDesignationDao({
+    role = await getRoleDao({ role: RoleIs.ADMIN });
+    designations = await getDesignationDao({
       designation: DesignationIs.ADMIN,
     });
-    
+
     const userPayload = {
       role_id: role[0].id,
       company_id: company.id,
       designation_id: designations[0].id,
-      user_name: payload.first_name,
+      user_name: payload.user_name,
       email: payload.email,
       contact_no: company.contact_no,
       first_name: payload.first_name,
       last_name: payload.last_name,
-      is_enabled:true,
+      is_enabled: true,
       code: payload.first_name.split('').reverse().join(''),
     };
     // Create user
@@ -79,8 +72,8 @@ const createCompanyService = async (conn, payload) => {
       user_id: user.id,
     };
   } catch (error) {
-    console.error('Error while creating company:', error);
-    throw new InternalServerError(error);
+    logger.error('Error while creating company:', error);
+    throw error;
   }
 };
 
@@ -89,8 +82,8 @@ const updateCompanyService = async (id, payload) => {
     const result = updateCompanyDao(id, payload);
     return result;
   } catch (error) {
-    console.error('Error while creating company:', error);
-    throw new InternalServerError(error);
+    logger.error('Error while creating company:', error);
+    throw error;
   }
 };
 const deleteCompanyService = async (id) => {
@@ -98,8 +91,8 @@ const deleteCompanyService = async (id) => {
     const result = deleteCompanyDao(id, { is_obsolete: true });
     return result;
   } catch (error) {
-    console.error('Error while creating company:', error);
-    throw new InternalServerError(error);
+    logger.error('Error while creating company:', error);
+    throw error;
   }
 };
 

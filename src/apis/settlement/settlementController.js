@@ -3,7 +3,7 @@ import {
   UPDATE_SETTLEMENT_SCHEMA,
   VALIDATE_SETTLEMENT_BY_ID_DELETE,
 } from '../../schemas/settlementSchema.js';
-import { ValidationError } from '../../utils/appErrors.js';
+import { NotFoundError, ValidationError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
@@ -16,10 +16,10 @@ import {
 } from './settlementServices.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { getBankResponseDao } from '../bankResponse/bankResponseDao.js';
-import logger from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { Role } from '../../constants/index.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
+import { logger } from '../../utils/logger.js';
 const getSettlementControllerById = async (req, res) => {
   const { id } = req.params;
   const { company_id } = req.user;
@@ -32,19 +32,11 @@ const getSettlementControllerById = async (req, res) => {
 const getSettlementController = async (req, res) => {
   // Extract user data and query parameters
   const { company_id, user_id, role, designation } = req.user || {};
-  const {
-    role_name,
-    page,
-    limit,
-    search,
-    sortBy,
-    sortOrder,
-    ...filters
-  } = req.query;
+  const { role_name, page, limit, search, sortBy, sortOrder, ...filters } =
+    req.query;
 
   const parsedPage = page === 'no_pagination' ? null : Number(page) || 1;
   const parsedLimit = limit === 'no_pagination' ? null : Number(limit) || 10;
-  
 
   // Prepare filters object
   const filterParams = {
@@ -102,16 +94,17 @@ const getSettlementsBySearch = async (req, res) => {
 
 const createSettlementController = async (req, res) => {
   const payload = req.body;
-  const { company_id, user_id, user_name ,designation } = req.user;
+  const { company_id, user_id, user_name, designation } = req.user;
   payload.company_id = company_id;
   payload.created_by = user_id;
+  payload.updated_by = user_id;
   payload.status = 'INITIATED';
   let User_id = user_id;
   if (
     designation === Role.MERCHANT_OPERATIONS ||
     designation === Role.VENDOR_OPERATIONS
   ) {
-    const userHierarchys = await getUserHierarchysDao({ user_id });    
+    const userHierarchys = await getUserHierarchysDao({ user_id });
     if (userHierarchys || userHierarchys.length > 0) {
       const userHierarchy = userHierarchys[0];
       if (userHierarchy?.config?.parent) {
@@ -128,33 +121,19 @@ const createSettlementController = async (req, res) => {
   }
   //-- utr and amount for internal tranfer case
   if (payload.amount && payload.utr) {
-    const bankRes = await getBankResponseDao({ utr: payload.utr , status :'/success'});
+    const bankRes = await getBankResponseDao({
+      utr: payload.utr,
+      status: '/success',
+    });
     if (!bankRes) {
-      return res.status(400).json({
-        error: {
-          status: 404,
-          message: 'No entry found.!',
-        },
-      });
+      throw new NotFoundError('No entry found!');
     }
-    const bankRess = await  getBankaccountDao({ id: bankRes.bank_id });
-    if(payload.user_id !== bankRess[0].user_id) {
-      //--bank id mismatch with utr
-      return res.status(400).json({
-        error: {
-          status: 404,
-          message: 'vendor code is not matching with utr',
-        },
-      });
+    const bankRess = await getBankaccountDao({ id: bankRes.bank_id });
+    if (payload.user_id !== bankRess[0].user_id) {
+      throw new NotFoundError('vendor code is not matching with utr');
     }
     if (bankRes.amount !== payload.amount) {
-      //--amount mismatch with utr
-      return res.status(400).json({
-        error: {
-          status: 404,
-          message: 'Amount is in mismatch!',
-        },
-      });
+      throw new NotFoundError('Amount is in mismatch!');
     }
   }
 
@@ -180,12 +159,12 @@ const createSettlementController = async (req, res) => {
   };
   // const data =
   const settlement = await transactionWrapper(createSettlementService)(data);
+  logger.info('Created Settlement Successfully', settlement);
   sendSuccess(
     res,
     { id: settlement.id, created_by: user_name },
     'Created Settlement Successfully',
   );
-  logger.info('Created Settlement Successfully', settlement);
 };
 
 const updateSettlementController = async (req, res) => {
@@ -211,7 +190,6 @@ const updateSettlementController = async (req, res) => {
     { id: data.id, updated_by: user_name },
     'Updated settlement',
   );
-  logger.info('Created Settlement Successfully', data);
 };
 
 const deleteSettlementController = async (req, res) => {

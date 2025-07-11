@@ -21,6 +21,7 @@ const name = process.env.APP_NAME;
 const Role = {
   MERCHANT: 'MERCHANT',
   SUB_MERCHANT: 'SUB_MERCHANT',
+  ADMIN : 'ADMIN',
 };
 
 /**
@@ -42,6 +43,7 @@ export const sendCredentialsEmail = async ({
   secretKey,
   publicKey,
   designation,
+  unique_id,
 }) => {
   const subject = 'Your Account Credentials';
   const text = `Hello,\n\nYour account has been created successfully.\n\nUsername: ${username}\nPassword: ${password}\n\nPlease log in and change your password immediately for security.\n\nBest regards,\nPG Admin Team`;
@@ -78,15 +80,24 @@ export const sendCredentialsEmail = async ({
           `
           : ''
       }
+      ${
+        designation && [Role.ADMIN].includes(designation)
+          ? `
+            <div style="background-color: #f1f5f9; padding: 16px; border-radius: 6px; margin-top: 16px;">
+              <p style="margin: 8px 0; color: #2d3748;"><strong>Unique_id:</strong> ${unique_id}</p>
+            </div>
+          `
+          : ''
+      }
       <p style="font-size: 14px; color: #718096; margin-top: 20px;">Please log in and change your password immediately for security.</p>
-      <p style="font-size: 14px; color: #718096;">Thank you,<br>TrustPay Team</p>
+      <p style="font-size: 14px; color: #718096;">Thank you,<br>${name} Team</p>
     </div>
     <p style="text-align: center; font-size: 12px; color: #a0aec0; margin-top: 20px;">© ${new Date().getFullYear()} ${name}. All rights reserved.</p>
   </div>
   `;
 
   // const mailOptions = {
-  //   from: `"TrustPay Admin" <${process.env.SES_FROM_EMAIL}>`,
+  //   from: `"${name} Admin" <${process.env.SES_FROM_EMAIL}>`,
   //   to: email,
   //   subject,
   //   text,
@@ -103,7 +114,7 @@ export const sendCredentialsEmail = async ({
   const params = {
     Source: process.env.SES_FROM_EMAIL,
     Destination: {
-      ToAddresses: [email], 
+      ToAddresses: [email],
     },
     Message: {
       Subject: {
@@ -115,7 +126,7 @@ export const sendCredentialsEmail = async ({
           Data: html,
           Charset: 'UTF-8',
         },
-        
+
         Text: {
           Data: text,
           Charset: 'UTF-8',
@@ -174,7 +185,7 @@ export const sendOTP = async (email, otp, user_name, designation) => {
         If you didn’t request this, please <a href="mailto:${process.env.SMTP_USER}" style="color: #3182ce; text-decoration: none;">contact support</a> immediately.
       </p>
     </div>
-    <p style="color: #718096; font-size: 12px; text-align: center; margin-top: 20px;">© ${new Date().getFullYear()} TrustPay Admin. All rights reserved.</p>
+    <p style="color: #718096; font-size: 12px; text-align: center; margin-top: 20px;">© ${new Date().getFullYear()} ${name} Admin. All rights reserved.</p>
   </div>
   `;
 
@@ -185,7 +196,7 @@ export const sendOTP = async (email, otp, user_name, designation) => {
   //     </ul>
 
   // const mailOptions = {
-  //   from: `"TrustPay Admin" <${process.env.SMTP_USER}>`,
+  //   from: `"${name} Admin" <${process.env.SMTP_USER}>`,
   //   to: email,
   //   subject,
   //   text,
@@ -202,7 +213,7 @@ export const sendOTP = async (email, otp, user_name, designation) => {
   const params = {
     Source: process.env.SES_FROM_EMAIL,
     Destination: {
-      ToAddresses: [email], 
+      ToAddresses: [email],
     },
     Message: {
       Subject: {
@@ -214,7 +225,7 @@ export const sendOTP = async (email, otp, user_name, designation) => {
           Data: html,
           Charset: 'UTF-8',
         },
-        
+
         Text: {
           Data: text,
           Charset: 'UTF-8',
@@ -231,6 +242,6 @@ export const sendOTP = async (email, otp, user_name, designation) => {
     return { success: true };
   } catch (error) {
     logger.error('Failed to send OTP email:', error);
-    throw new Error('Failed to send OTP. Please try again later.');
+    throw error;
   }
 };

@@ -3,7 +3,7 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
-import { tableName } from '../../constants/index.js';
+import { Status, tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import dayjs from 'dayjs';
@@ -19,7 +19,8 @@ const getSettlementDao = async (
   columns = [],
 ) => {
   try {
-    const { SETTLEMENT, USER, ROLE, BENEFICIARY_ACCOUNTS, MERCHANT, VENDOR } =tableName;
+    const { SETTLEMENT, USER, ROLE, BENEFICIARY_ACCOUNTS, MERCHANT, VENDOR } =
+      tableName;
     const conditions = [`s.is_obsolete = false`];
     const queryParams = [];
     const limitcondition = { value: '' };
@@ -42,12 +43,14 @@ const getSettlementDao = async (
     };
 
     const conditionBuilders = {
-      
       user_id: (filters, conditions, queryParams) => {
         if (!filters.user_id) return;
         const nextParamIdx = queryParams.length + 1;
         if (typeof filters.user_id === 'string') {
-          const userIds = filters.user_id.split(',').map(id => id.trim()).filter(id => id);
+          const userIds = filters.user_id
+            .split(',')
+            .map((id) => id.trim())
+            .filter((id) => id);
           if (userIds.length > 0) {
             const placeholders = userIds
               .map((_, idx) => `$${nextParamIdx + idx}`)
@@ -117,9 +120,26 @@ const getSettlementDao = async (
           start = dayjs.tz(`${start_date} 00:00:00`, IST).utc().format(); // UTC ISO string
           end = dayjs.tz(`${end_date} 23:59:59.999`, IST).utc().format();
           const nextParamIdx = queryParams.length + 1;
-          conditions.push(
-            `s.created_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
-          );
+          if (filters.status === Status.SUCCESS) {
+            conditions.push(
+              `s.approved_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
+            );
+          }
+          else if (filters.status === Status.REJECTED) {
+            conditions.push(
+              `s.rejected_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1} AND s.approved_at IS NULL`,
+            );
+          }
+          else if (filters.status === Status.REVERSED) {
+            conditions.push(
+              `(s.rejected_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1} AND s.approved_at IS NOT NULL)`,
+            );
+          }
+          else {
+            conditions.push(
+              `s.updated_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
+            ); 
+          }
           queryParams.push(start, end);
           delete filters.start_date;
           delete filters.end_date;
@@ -190,14 +210,36 @@ const getSettlementDao = async (
               'acc_holder_name', COALESCE(ba.acc_holder_name, ''),
               'acc_no', COALESCE(ba.acc_no, ''),
               'ifsc', COALESCE(ba.ifsc, '')
-              ${Object.keys(filters).length > 0 ? ', ' + Object.keys(filters)
-                .filter(key => !['beneficiary_bank_name', 'acc_holder_name', 'acc_no', 'ifsc'].includes(key))
-                .map(key => `'${key}', COALESCE(s.config->>'${key}', '')`)
-                .join(', ') : ''}
+              ${
+                Object.keys(filters).length > 0
+                  ? ', ' +
+                    Object.keys(filters)
+                      .filter(
+                        (key) =>
+                          ![
+                            'beneficiary_bank_name',
+                            'acc_holder_name',
+                            'acc_no',
+                            'ifsc',
+                          ].includes(key),
+                      )
+                      .map(
+                        (key) => `'${key}', COALESCE(s.config->>'${key}', '')`,
+                      )
+                      .join(', ')
+                  : ''
+              }
             ) || (
               SELECT jsonb_object_agg(key, value)
               FROM jsonb_each(s.config::jsonb)
-              WHERE key NOT IN ('beneficiary_bank_name', 'acc_holder_name', 'acc_no', 'ifsc'${Object.keys(filters).length > 0 ? ', ' + Object.keys(filters).map(key => `'${key}'`).join(', ') : ''})
+              WHERE key NOT IN ('beneficiary_bank_name', 'acc_holder_name', 'acc_no', 'ifsc'${
+                Object.keys(filters).length > 0
+                  ? ', ' +
+                    Object.keys(filters)
+                      .map((key) => `'${key}'`)
+                      .join(', ')
+                  : ''
+              })
             )
           )
         ELSE
@@ -230,7 +272,7 @@ const getSettlementDao = async (
     return result.rows;
   } catch (error) {
     logger.error('Error in getSettlementDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -251,18 +293,18 @@ const getSettlementsBySearchDao = async (
 
     let queryText = `
     SELECT 
-    ${columns.map((col) => `s.${col}`).join(', ')},
-   CASE
-  WHEN $2 = 'MERCHANT' THEN COALESCE(m.config->>'sub_code', m.code)
-  WHEN $2 = 'VENDOR' THEN v.code
-  WHEN $2 = 'ADMIN' THEN 
-    CASE 
-      WHEN r.role = 'VENDOR' THEN v.code
-      ELSE COALESCE(m.config->>'sub_code', m.code)
-    END
-  ELSE NULL
-END AS code,
+    ${columns.map((col) => `s.${col}`).join(', ')}${columns.length > 0 ? ',' : ''}
     CASE
+      WHEN $2 = 'MERCHANT' THEN COALESCE(m.config->>'sub_code', m.code)
+      WHEN $2 = 'VENDOR' THEN v.code
+      WHEN $2 = 'ADMIN' THEN 
+        CASE 
+          WHEN r.role = 'VENDOR' THEN v.code
+          ELSE COALESCE(m.config->>'sub_code', m.code)
+        END
+      ELSE NULL
+    END AS code,
+        CASE
         WHEN s.config->>'bank_id' IS NOT NULL THEN
           (
             SELECT jsonb_build_object(
@@ -305,8 +347,8 @@ END AS code,
         ELSE
           s.config::jsonb
       END AS config,
-     COALESCE(uc.user_name, s.created_by::text) AS created_by,
-     COALESCE(uu.user_name, s.updated_by::text) AS updated_by
+      COALESCE(uc.user_name, s.created_by::text) AS created_by,
+      COALESCE(uu.user_name, s.updated_by::text) AS updated_by
       FROM "${SETTLEMENT}" s
       JOIN "${USER}" u ON s.user_id = u.id
       LEFT JOIN public."${USER}" uc ON s.created_by = uc.id
@@ -376,7 +418,8 @@ END AS code,
       } else {
         conditions.push(`
           (
-            LOWER(s.id::text) LIKE LOWER($${paramIndex})
+            LOWER(s.sno::text) LIKE LOWER($${paramIndex})
+            OR LOWER(s.id::text) LIKE LOWER($${paramIndex})
             OR LOWER(s.user_id::text) LIKE LOWER($${paramIndex})
             OR LOWER(s.amount::text) LIKE LOWER($${paramIndex})
             OR LOWER(s.status) LIKE LOWER($${paramIndex})
@@ -407,7 +450,7 @@ END AS code,
     values.push(limitNum, offset);
 
     // Optional: log for debugging
-    console.log(countQuery, queryText);
+    logger.log(countQuery, queryText);
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
     const searchResult = await executeQuery(queryText, values);
 
@@ -434,8 +477,8 @@ const getSettlementDaoforInternalTransfer = async (utr, method) => {
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
-    console.error(error);
-    throw error.message;
+    logger.error(error);
+    throw error;
   }
 };
 
@@ -445,8 +488,8 @@ const createSettlementDao = async (payload) => {
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
-    console.error(error);
-    throw error.message;
+    logger.error(error);
+    throw error;
   }
 };
 
@@ -462,7 +505,7 @@ const updateSettlementDao = async (conn, id, data) => {
 
     return result.rows[0];
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     throw error;
   }
 };
@@ -479,8 +522,8 @@ const deleteSettlementDao = async (conn, id, data) => {
 
     return result.rows[0];
   } catch (error) {
-    console.error(error);
-    throw error.message;
+    logger.error(error);
+    throw error;
   }
 };
 

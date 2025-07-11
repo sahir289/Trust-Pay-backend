@@ -1,7 +1,11 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
-import { getClientsAccountReportController, getPayInReportController, getPayOutReportController } from './reportsController.js';
+import {
+  getClientsAccountReportController,
+  getPayInReportController,
+  getPayOutReportController,
+} from './reportsController.js';
 
 /**
  * @swagger

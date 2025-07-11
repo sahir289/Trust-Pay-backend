@@ -19,7 +19,7 @@ export const createVendorDao = async (data, conn) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error in create Vendor Dao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -46,7 +46,7 @@ export const getVendorsCodeDao = async (filters, conn) => {
     return result.rows;
   } catch (error) {
     logger.error('Error executing vendor query:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -142,7 +142,7 @@ export const getVendorsDao = async (
     return result.rows;
   } catch (error) {
     logger.error('Error in getVendorsDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -238,7 +238,7 @@ export const getAllVendorsDao = async (
     return result.rows;
   } catch (error) {
     logger.error('Error in getVendorsDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -271,13 +271,13 @@ export const getVendorsBySearchDao = async (
     // Add extra columns for admin
     if (filters.role === Role.ADMIN) {
       columns.push(
-      `"Vendor".created_by`,
-      `"Vendor".updated_by`,
-      `"Vendor".user_id`,
-      `"Vendor".company_id`,
-      `"user_main".designation_id`,
-      `u.user_name AS created_by`,
-      `uu.user_name AS updated_by,`,
+        `"Vendor".created_by`,
+        `"Vendor".updated_by`,
+        `"Vendor".user_id`,
+        `"Vendor".company_id`,
+        `"user_main".designation_id`,
+        `u.user_name AS created_by`,
+        `uu.user_name AS updated_by,`,
       );
     }
 
@@ -287,10 +287,11 @@ export const getVendorsBySearchDao = async (
       FROM "Vendor"
       JOIN "User" AS user_main ON "Vendor".user_id = user_main.id
       LEFT JOIN "Designation" AS d ON user_main.designation_id = d.id
-      ${filters.role === Role.ADMIN
-      ? `LEFT JOIN "User" AS u ON "Vendor".created_by = u.id
+      ${
+        filters.role === Role.ADMIN
+          ? `LEFT JOIN "User" AS u ON "Vendor".created_by = u.id
          LEFT JOIN "User" AS uu ON "Vendor".updated_by = uu.id`
-      : ''
+          : ''
       }
       WHERE "Vendor".is_obsolete = false
       AND "Vendor"."company_id" = $1
@@ -366,7 +367,7 @@ export const getVendorsBySearchDao = async (
     return data;
   } catch (error) {
     logger.error(error.message);
-    throw error.message;
+    throw error;
   }
 };
 export const updateVendorDao = async (id, data, conn) => {
@@ -380,18 +381,18 @@ export const updateVendorDao = async (id, data, conn) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateVendorDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
-export const deleteVendorDao = async (id, data) => {
+export const deleteVendorDao = async (conn, id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await conn.query(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in deleteVendorDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
@@ -416,13 +417,12 @@ export const updateVendorBalanceDao = async (
     return result[0];
   } catch (error) {
     logger.error('Error in updateVendorBalanceDao:', error);
-    throw error.message;
+    throw error;
   }
 };
 
 export const getVendorsDaoArray = async (company_id, code) => {
   try {
-    console.log(code, 'codecode');
     let baseQuery = `
       SELECT 
        "Vendor".id, 

@@ -14,9 +14,10 @@ export const CREATE_SETTLEMENT_SCHEMA = Joi.object({
   bank_name: Joi.string().label('bank_name').optional(),
   acc_holder_name: Joi.string().label('acc_holder_name').optional(),
   acc_no: Joi.string().label('acc_no').optional(),
-  bank_id:Joi.string().label('bank_name').optional(),
+  bank_id: Joi.string().label('bank_name').optional(),
   ifsc: Joi.string().label('ifsc').optional(),
   created_by: Joi.string().label('created_by').optional(),
+  updated_by: Joi.string().label('updated_by').optional(),
   //---allow description for cash / AED settlements
   description: Joi.string().label('description').optional(),
   // --allow wallet balance for crypto
@@ -48,23 +49,26 @@ export const UPDATE_SETTLEMENT_SCHEMA = Joi.object({
     reference_id: Joi.string().allow('').label('reference_id').optional(),
     wallet_balance: Joi.string().allow('').label('wallet_balance').optional(),
     rejected_reason: Joi.string().allow('').label('rejected_reason').optional(),
-    ifsc: Joi.string().label('ifsc').optional(),
-    utr: Joi.string().label('utr').optional(),  //-- allow adding in config
-    amount: Joi.number().label('amount').optional(),  //-- allow adding in config
-    acc_no: Joi.string().label('acc_no').optional(),  // --sent as string 
-    acc_holder_name: Joi.string().label('acc_holder_name').optional(),
-    bank_name: Joi.string().label('bank_name').optional(),
-    bank_id:Joi.string().label('bank_name').optional(),
-    beneficiary_bank_name: Joi.string().label('beneficiary_bank_name').optional(),
-    description: Joi.string().label('description').optional(),  //-- allow adding in config
+    ifsc: Joi.string().allow('').label('ifsc').optional(),
+    utr: Joi.string().label('utr').optional(), //-- allow adding in config
+    amount: Joi.number().label('amount').optional(), //-- allow adding in config
+    acc_no: Joi.string().allow('').label('acc_no').optional(), // --sent as string
+    acc_holder_name: Joi.string().allow('').label('acc_holder_name').optional(),
+    bank_name: Joi.string().allow('').label('bank_name').optional(),
+    bank_id: Joi.string().label('bank_name').optional(),
+    beneficiary_bank_name: Joi.string()
+      .allow('')
+      .label('beneficiary_bank_name')
+      .optional(),
+    description: Joi.string().label('description').optional(), //-- allow adding in config
     debit_credit: Joi.string()
-    .valid('RECEIVED', 'SENT')
-    .label('debit_credit')
+      .valid('RECEIVED', 'SENT')
+      .label('debit_credit')
+      .optional(),
+  })
+    .label('config')
     .optional(),
-  }).label('config').optional(),
-
 });
-
 
 export const VALIDATE_SETTLEMENT_BY_ID = Joi.object({
   id: Joi.string()

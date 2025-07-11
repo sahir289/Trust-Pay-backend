@@ -4,6 +4,7 @@ import DailyRotate from 'winston-daily-rotate-file';
 import CloudWatchTransport from 'winston-cloudwatch';
 import appConfig from '../config/config.js';
 import chalk from 'chalk';
+import { stringifyJSON } from './index.js';
 
 const env = appConfig?.nodeProductionLogs;
 const aws = appConfig?.aws;
@@ -26,7 +27,7 @@ class Logger {
       retentionInDays: 7,
       jsonMessage: true,
     };
-    
+
     // custom format to add IP address to metadata
     const addIpFormat = format((info) => {
       if (info.metadata && info.metadata.ip) {
@@ -40,8 +41,10 @@ class Logger {
         addIpFormat(),
         format.errors({ stack: true }),
         format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-        format.metadata({ fillExcept: ['message', 'level', 'timestamp', 'stack'] }), // it will flatten metadata
-        format.json()
+        format.metadata({
+          fillExcept: ['message', 'level', 'timestamp', 'stack'],
+        }), // it will flatten metadata
+        format.json(),
       ),
       transports: [
         new DailyRotate({
@@ -66,58 +69,60 @@ class Logger {
 
     // Add console transport for development with custom formatting
 
-      this.#logger.add(
-        new winston.transports.Console({
-          format: format.combine(
-            format.colorize(),
-            format.timestamp({
-              format: () => {
-                const options = {
-                  weekday: 'short',
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit',
-                  hour12: false,
-                  timeZone: 'Asia/Kolkata',
-                };
-                return new Date()
-                  .toLocaleString('en-US', options)
-                  .replace(',', '');
-              },
-            }),
-            format.metadata({ fillExcept: ['message', 'level', 'timestamp', 'stack'] }),
-            format.printf(({ timestamp, level, message, metadata }) => {
-              const typeChalk =
-                level === 'error'
-                  ? chalk.red(level)
-                  : level === 'warn'
-                    ? chalk.yellowBright(level)
-                    : chalk.cyanBright(level);
+    this.#logger.add(
+      new winston.transports.Console({
+        format: format.combine(
+          format.colorize(),
+          format.timestamp({
+            format: () => {
+              const options = {
+                weekday: 'short',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+                timeZone: 'Asia/Kolkata',
+              };
+              return new Date()
+                .toLocaleString('en-US', options)
+                .replace(',', '');
+            },
+          }),
+          format.metadata({
+            fillExcept: ['message', 'level', 'timestamp', 'stack'],
+          }),
+          format.printf(({ timestamp, level, message, metadata }) => {
+            const typeChalk =
+              level === 'error'
+                ? chalk.red(level)
+                : level === 'warn'
+                  ? chalk.yellowBright(level)
+                  : chalk.cyanBright(level);
 
-              // it will only include metaString if metadata has meaningful data
-              const metaString = (() => {
-                if (!metadata || Object.keys(metadata).length === 0) {
-                  return '';
-                }
-                // check if metadata only contains an empty metadata object
-                if (
-                  Object.keys(metadata).length === 1 &&
-                  metadata.metadata &&
-                  Object.keys(metadata.metadata).length === 0
-                ) {
-                  return '';
-                }
-                return JSON.stringify(metadata);
-              })();
+            // it will only include metaString if metadata has meaningful data
+            const metaString = (() => {
+              if (!metadata || Object.keys(metadata).length === 0) {
+                return '';
+              }
+              // check if metadata only contains an empty metadata object
+              if (
+                Object.keys(metadata).length === 1 &&
+                metadata.metadata &&
+                Object.keys(metadata.metadata).length === 0
+              ) {
+                return '';
+              }
+              return stringifyJSON(metadata);
+            })();
 
-              return `[${typeChalk}] [${timestamp}] ${message} ${metaString}`.trim();
-            })
-          ),
-        })
-      );
+            return `[${typeChalk}] [${timestamp}] ${message} ${metaString}`.trim();
+          }),
+        ),
+      }),
+    );
   }
 
   log(level, message, meta) {

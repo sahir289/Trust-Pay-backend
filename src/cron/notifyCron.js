@@ -5,26 +5,22 @@ import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.
 import { logger } from '../utils/logger.js';
 
 if (process.env.NODE_ENV == 'production') {
+  cron.schedule('*/10 * * * * *', () => {
+    collectPayinData('Asia/Kolkata');
+  });
 
-cron.schedule('*/10 * * * * *', () => {
-  collectPayinData('Asia/Kolkata');
-});
-logger.info('Running cron job in production environment');
-}else {
+  logger.info('Running cron job in production environment');
+} else {
   logger.error('Cron jobs are disabled in non-production environments.');
 }
 
-
 const collectPayinData = async (timezone = 'Asia/Kolkata') => {
   const currentTime = moment().tz(timezone, true);
-  const expireTime = currentTime
-    .clone()
-    .subtract(10, 'minutes')
-    .toISOString();
+  const expireTime = currentTime.clone().subtract(10, 'minutes').toISOString();
   try {
     // Get payins already DROPPED but not notified
     const payinsDropped = await getPayInUrlsDao({
-      status: ['FAILED','DROPPED'],
+      status: ['FAILED', 'DROPPED'],
       is_notified: 'false',
     });
     // Update INITIATED payins older than 10 minutes
@@ -36,6 +32,13 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
           is_url_expires: true,
         });
         logger.info(`INITIATED PayIn ${payin.id} FAILED due to timeout`);
+      } else if (payin.config.page_reload) {
+        const updatedData = {
+          status: 'FAILED',
+          is_url_expires: true,
+        };
+        await updatePayInUrlDao(payin.id, updatedData);
+        logger.info(`INITIATED PayIn ${payin.id} FAILED due to page_reload`);
       }
     }
     // Update ASSIGNED payins older than 10 minutes
@@ -48,6 +51,13 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
         };
         await updatePayInUrlDao(payin.id, updatedData);
         logger.info(`ASSIGNED PayIn ${payin.id} dropped due to timeout`);
+      } else if (payin.config.page_reload) {
+        const updatedData = {
+          status: 'DROPPED',
+          is_url_expires: true,
+        };
+        await updatePayInUrlDao(payin.id, updatedData);
+        logger.info(`ASSIGNED PayIn ${payin.id} dropped due to page_reload`);
       }
     }
     // Process notifications for dropped but unnotified payins
@@ -66,18 +76,15 @@ async function processPayinNotifications(payins) {
       merchantOrderId: payin?.merchant_order_id || null,
       payinId: payin?.id || null,
       amount: null,
-      requestedAmount: payin?.amount || null,
+      req_amount: payin?.amount || null,
       utrId: payin?.user_submitted_utr || null,
     };
     try {
       if (payin?.config?.urls?.notify) {
-       await merchantPayinCallback(
-         payin?.config?.urls?.notify,
-         notificationData,
-       );
-       await updatePayInUrlDao(payin.id, { is_notified: 'true' });
-      }
-        else {
+        // This is async function but it's just the callback sending function there fore we are not using await
+        merchantPayinCallback(payin?.config?.urls?.notify, notificationData);
+        await updatePayInUrlDao(payin.id, { is_notified: 'true' });
+      } else {
         logger.warn('Notify URL is missing for payin', { payinId: payin?.id });
       }
     } catch (error) {
