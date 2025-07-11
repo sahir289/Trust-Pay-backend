@@ -325,7 +325,13 @@ const createSettlementService = async (conn, payload) => {
     //   actorUserId: payload.user_id,
     //   category: 'Settlement',
     // });
-
+    const adjustedValue =
+    payload.config.debit_credit === 'RECEIVED'
+      ? Number(payload.amount) > 0
+        ? -Number(payload.amount)
+        : Number(payload.amount)
+      : Math.abs(Number(payload.amount));
+    payload.amount = adjustedValue;
     return await createSettlementDao(payload);
   } catch (error) {
     logger.error('Error while creating Settlement', error);
