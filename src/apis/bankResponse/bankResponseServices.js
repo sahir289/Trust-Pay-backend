@@ -1088,7 +1088,6 @@ const handleBankIdUpdate = async ({
       getVendorsDao({ user_id: prevBank[0].user_id }),
       getVendorsDao({ user_id: newBank[0].user_id }),
     ]);
-console.log(prevVendor,newVendor,"hey user from the user to get data");
     if (!prevVendor[0] || !newVendor[0])
       throw new NotFoundError('Vendor not found');
 
