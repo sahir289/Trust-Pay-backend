@@ -1404,7 +1404,7 @@ export const processPayInService = async (
       } else {
         return {
           ...result,
-          message: 'Bank Mismatched',
+          message: `${payIn.merchant_order_id} is in Bank Mismatched with ${payIn.user_submitted_utr || bankResponse.utr} `,
         };
       }
     }
@@ -2152,7 +2152,7 @@ export const telegramCheckUTRService = async (
     // check old code flow
     if (payIn.status === Status.SUCCESS) {
       return {
-        message: `PayIn is already confirmed with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
+        message: `${payIn.merchant_order_id} is already confirmed with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
       };
     }
 
@@ -2169,7 +2169,7 @@ export const telegramCheckUTRService = async (
     if (![Status.ASSIGNED, Status.DROPPED].includes(payIn.status)) {
       return {
         status: payIn.status,
-        message: `PayIn is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
+        message: `${payIn.merchant_order_id} is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
       };
     }
     // updatePayInUrlDao({ id: payIn.id }, { is_url_expires: false }, conn);

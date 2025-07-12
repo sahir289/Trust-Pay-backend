@@ -414,7 +414,7 @@ export const resetDeposit = async (req, res) => {
     company_id,
     user_id,
   );
-    sendSuccess(res, data, 'PayIn reset successful');
+    sendSuccess(res, data, `${merchant_order_id} reset successful`);
 };
 
 export const getPayins = async (req, res) => {
@@ -600,7 +600,7 @@ export const telegramCheckUTR = async (req, res) => {
     req.user.company_id,
     req.user.user_id,
   );
-  sendSuccess(res, result, result?.message || 'telegramCheckUTR Successfully');
+  sendSuccess(res, result,result?.message || `${result.merchantOrderId} is successfully paird with ${result.utr_id} UTR`);
 };
 
 export const updatePayIn = async (req, res) => {
