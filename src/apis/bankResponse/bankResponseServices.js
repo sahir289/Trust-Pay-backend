@@ -117,6 +117,10 @@ const createBankResponseService = async (
       Status.DUPLICATE,
     ];
 
+    if(upi_short_code && !isValidAmountCode) {
+      throw new BadRequestError(`Please Enter valid Amount Code!`);
+    }
+    
     let utrAlreadyExist;
     if (isValidAmountCode) {
       utrAlreadyExist = await getBankResponseDao(
