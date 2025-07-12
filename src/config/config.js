@@ -71,6 +71,7 @@ function config(Env) {
       walletsPayoutsAgentCode: Env?.PAY_ASSIST_AGENT_CODE,
       walletsPayoutsAgent: Env?.PAY_ASSIST_AGENT,
       walletsPayoutsApiKey: Env?.PAY_ASSIST_API_KEY,
+      defaultBankId: Env?.PAY_ASSIST_DEFAULT_BANK_ID,
     },
   };
 }

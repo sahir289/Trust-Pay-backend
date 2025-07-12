@@ -61,6 +61,7 @@ import { checkLockEdit } from '../../utils/advisoryLock.js';
 import { stringifyJSON } from '../../utils/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import axios from 'axios';
+import { getUserByIdDao } from '../users/userDao.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
@@ -125,8 +126,15 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
             responseData,
             isApproved = false,
           ) => {
+            const bankId = config.PAY_ASSIST.defaultBankId
+            const [bankVendor] = await getBankByIdDao({ id: bankId });
+            const [vendor] = await getVendorsDao({
+              id: bankVendor.user_id,
+            });
             const updatePayload = {
               updated_by: updatedBy,
+              bank_acc_id: bankId,
+              vendor_id: vendor.id,
               config: {
                 method: 'PayAssist',
                 txnid: responseData.Response?.txnid,
@@ -136,7 +144,8 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
             if (isApproved) {
               Object.assign(updatePayload, {
                 status: Status.APPROVED,
-                utr_id: responseData.Response.refno || responseData.Response?.utr,
+                utr_id:
+                  responseData.Response.refno || responseData.Response?.utr,
                 approved_at: new Date().toISOString(),
               });
             } else {
