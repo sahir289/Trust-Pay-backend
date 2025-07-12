@@ -66,6 +66,12 @@ function config(Env) {
     key_secret: Env?.RAZOR_PAY_SECRET,
     cashFreeClientSecret: Env?.CLIENT_SECRET,
     cashFreeClientId: Env?.CLIENT_ID,
+    PAY_ASSIST: {
+      walletsPayoutsUrl: Env?.PAY_ASSIST_API_URL,
+      walletsPayoutsAgentCode: Env?.PAY_ASSIST_AGENT_CODE,
+      walletsPayoutsAgent: Env?.PAY_ASSIST_AGENT,
+      walletsPayoutsApiKey: Env?.PAY_ASSIST_API_KEY,
+    },
   };
 }
 

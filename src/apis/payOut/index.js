@@ -8,7 +8,9 @@ import {
   getPayoutsById,
   getPayoutsBySearch,
   checkPayOutStatus,
-  assignedPayout
+  walletsPayouts,
+  assignedPayout,
+  getWalletsBalance
 } from './payOutController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -87,6 +89,11 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayoutsBySearch),
 );
+router.get(
+  '/wallets-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getWalletsBalance),
+); 
 router.get(
   '/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -226,5 +233,17 @@ router.delete(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(deletePayout),
 );
+
+router.post(
+  '/wallets',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(walletsPayouts),
+); 
+
+// router.post(
+//   '/payouts',
+//   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+//   tryCatchHandler(createPayout),
+// );
 
 export default router;
