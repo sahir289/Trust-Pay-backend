@@ -162,7 +162,6 @@ const assignedPayout = async (req, res) => {
   const { user_id, user_name ,company_id} = req.user;
   const { id } = req.params;
   const { payouts_ids } = req.body;
-  console.log(req.body)
   const joiValidation = ASSIGNED_VENDOR_SCHEMA.validate(req.body);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);

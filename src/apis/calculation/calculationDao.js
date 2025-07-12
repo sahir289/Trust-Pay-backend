@@ -681,7 +681,6 @@ export const updateCalculationBalanceDao = async (filters, data, conn) => {
     );
     if (conn && conn.query) {
       const result = await conn.query(sql, params);
-      console.log(result.rows[0],"new");
       return result.rows[0];
     }
     const result = await executeQuery(sql, params);
