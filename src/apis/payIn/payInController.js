@@ -414,7 +414,7 @@ export const resetDeposit = async (req, res) => {
     company_id,
     user_id,
   );
-    sendSuccess(res, data, 'PayIn reset successful');
+    sendSuccess(res, data, `${merchant_order_id} reset successful`);
 };
 
 export const getPayins = async (req, res) => {
