@@ -20,6 +20,7 @@ import {
   getPayoutsBySearchDao,
   updatePayoutDao,
   getAllPayoutsDao,
+  getPayoutBankDetailsDao,
 } from './payOutDao.js';
 import {
   getMerchantsDao,
@@ -37,7 +38,12 @@ import {
 } from '../bankAccounts/bankaccountDao.js';
 import config from '../../config/config.js';
 import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
-import { Status, Method, tableName } from '../../constants/index.js';
+import {
+  Status,
+  Method,
+  tableName,
+  payAssistErrorCodeMap,
+} from '../../constants/index.js';
 import { calculateCommission } from '../../helpers/index.js';
 import {
   columns,
@@ -54,7 +60,163 @@ import { newTableEntry } from '../../utils/sockets.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
 import { stringifyJSON } from '../../utils/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+import axios from 'axios';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
+
+const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
+  try {
+    const { mode, payOutids } = payload;
+
+    if (!mode) {
+      return {
+        status: 400,
+        message: 'Amount and TransactionType are required',
+      };
+    }
+
+    const PayOuts = await getPayoutBankDetailsDao(
+      { payOutids: payOutids },
+      payload.company_id,
+    );
+
+    if (!PayOuts[0]) {
+      return {
+        status: 404,
+        message: 'Payout not found',
+      };
+    }
+
+    // Cache API configuration to avoid repeated property access
+    const apiConfig = {
+      headers: {
+        APIAGENT: config.PAY_ASSIST.walletsPayoutsAgent,
+        APIKEY: config.PAY_ASSIST.walletsPayoutsApiKey,
+      },
+      baseUrl: config.PAY_ASSIST.walletsPayoutsUrl,
+      agentCode: config.PAY_ASSIST.walletsPayoutsAgentCode,
+    };
+
+    // Use Promise.all to send all payout requests in parallel for better performance
+    const payOuts = await Promise.all(
+      PayOuts.map(async (info) => {
+        try {
+          const apiPayload = {
+            agent_id: apiConfig.agentCode,
+            mode: mode,
+            name: info.user_bank_details.account_holder_name,
+            account: info.user_bank_details.account_no,
+            bank: info.user_bank_details.bank_name,
+            ifsc: info.user_bank_details.ifsc_code,
+            mobile: '1234567890',
+            amount: info.amount,
+            latitude: '19.0760',
+            longitude: '72.8527',
+            apitxnid: info.id,
+          };
+
+          const response = await axios.post(
+            `${apiConfig.baseUrl}/payout`,
+            apiPayload,
+            { headers: apiConfig.headers },
+          );
+
+          // Helper function to handle payout updates
+          const handlePayoutUpdate = async (
+            responseData,
+            isApproved = false,
+          ) => {
+            const updatePayload = {
+              updated_by: updatedBy,
+              config: {
+                method: 'PayAssist',
+                txnid: responseData.Response?.txnid,
+              },
+            };
+
+            if (isApproved) {
+              Object.assign(updatePayload, {
+                status: Status.APPROVED,
+                utr_id: responseData.Response.refno || responseData.Response?.utr,
+                approved_at: new Date().toISOString(),
+              });
+            } else {
+              updatePayload.config.rejected_reason =
+                payAssistErrorCodeMap[responseData.ErrorCode] ||
+                'Server Unreachable';
+              updatePayload.rejected_at = new Date().toISOString();
+            }
+
+            await updatePayoutService(
+              conn,
+              { id: info.id, company_id: payload.company_id },
+              updatePayload,
+            );
+          };
+
+          // Handle response based on ErrorCode
+          const errorCode = response.data.ErrorCode;
+          let statusResponse = null;
+
+          if (errorCode === '12') {
+            // Transaction Under Process - check status
+            statusResponse = await axios.post(
+              `${apiConfig.baseUrl}/payoutStatus`,
+              { apitxnid: info.id }, // Include transaction ID in payload
+              { headers: apiConfig.headers },
+            );
+
+            if (statusResponse.data.ErrorCode === '0') {
+              await handlePayoutUpdate(statusResponse.data, true);
+            } else if (statusResponse.data.ErrorCode !== 'TUP') {
+              await handlePayoutUpdate(statusResponse.data, false);
+            }
+          } else {
+            if (statusResponse.data.ErrorCode === '0') {
+              await handlePayoutUpdate(statusResponse.data, true);
+            } else if (statusResponse.data.ErrorCode !== 'TUP') {
+              await handlePayoutUpdate(statusResponse.data, false);
+            }
+          }
+
+          // Return formatted response
+          const finalErrorCode =
+            errorCode === 'TUP'
+              ? statusResponse?.data?.ErrorCode || 'TUP'
+              : errorCode;
+
+          return {
+            id: info.id,
+            status: finalErrorCode === '0' ? Status.APPROVED : Status.REJECTED,
+            utr_id:
+              finalErrorCode === '0'
+                ? statusResponse?.data?.Response?.refno ||
+                  response.data.Response?.refno
+                : null,
+            rejected_reason:
+              finalErrorCode !== '0'
+                ? payAssistErrorCodeMap[finalErrorCode] || 'Server Unreachable'
+                : null,
+          };
+        } catch (error) {
+          logger.error(`Error processing payout ${info.id}:`, error);
+          // Return error response for this specific payout instead of failing entire batch
+          return {
+            id: info.id,
+            status: Status.REJECTED,
+            utr_id: null,
+            rejected_reason: 'API Request Failed',
+          };
+        }
+      }),
+    );
+
+    return payOuts;
+  } catch (error) {
+    logger.error('Error in walletsPayoutsService:', error);
+    throw error;
+  }
+};
+
 const createPayoutService = async (
   conn,
   headers,
@@ -77,7 +239,7 @@ const createPayoutService = async (
       const data = {
         status: 404,
         message: 'Please enter valid code',
-      }
+      };
       return data;
     }
 
@@ -99,7 +261,7 @@ const createPayoutService = async (
         const data = {
           status: 400,
           message: 'IP not whitelisted',
-        }
+        };
         return data;
       }
     }
@@ -108,7 +270,7 @@ const createPayoutService = async (
       const data = {
         status: 400,
         message: 'Merchant balance is less than payout amount',
-      }
+      };
       return data;
     }
 
@@ -142,7 +304,7 @@ const createPayoutService = async (
       const data = {
         status: 400,
         message: 'Merchant Order ID already exists',
-      }
+      };
       return data;
     }
 
@@ -150,7 +312,7 @@ const createPayoutService = async (
       const data = {
         status: 404,
         message: 'Enter valid Api key',
-      }
+      };
       return data;
     }
 
@@ -161,14 +323,14 @@ const createPayoutService = async (
       const data = {
         status: 404,
         message: 'Enter valid Api key',
-      }
+      };
       return data;
     }
     if (amount < details[0].min_payout || amount > details[0].max_payout) {
       const data = {
         status: 400,
         message: `Amount should be between ${details[0].min_payout} and ${details[0].max_payout}`,
-      }
+      };
       return data;
     }
 
@@ -186,7 +348,7 @@ const createPayoutService = async (
         const data = {
           status: 400,
           message: 'Merchant Order ID already exists',
-        }
+        };
         return data;
       }
     }
@@ -199,7 +361,7 @@ const createPayoutService = async (
         const data = {
           status: 400,
           message: 'Insufficient Balance to create Payout',
-        }
+        };
         return data;
       }
       const ekoBalanceEnquiry = await ekoWalletBalanceEnquiryInternally();
@@ -207,7 +369,7 @@ const createPayoutService = async (
         const data = {
           status: 400,
           message: 'Insufficient Balance in Wallet',
-        }
+        };
         return data;
       }
     }
@@ -215,7 +377,7 @@ const createPayoutService = async (
       const data = {
         status: 404,
         message: 'Merchant does not exist',
-      }
+      };
       return data;
     }
 
@@ -410,6 +572,8 @@ const getPayoutsBySearchService = async (
 const updatePayoutService = async (conn, ids, payload, role) => {
   try {
     await checkLockEdit(conn, ids.id);
+
+    // Early validation for UTR uniqueness
     if (payload?.utr_id) {
       const payoutDetails = await getPayoutsDao(
         { utr_id: payload.utr_id },
@@ -419,69 +583,95 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         throw new BadRequestError('UTR already exists');
       }
     }
-    if (payload?.utr_id && !payload.status && payload?.bank_acc_id)
+
+    // Set status based on payload conditions
+    if (payload?.utr_id && !payload.status && payload?.bank_acc_id) {
       Object.assign(payload, {
         status: Status.APPROVED,
         approved_at: new Date().toISOString(),
       });
-    if (payload?.config?.rejected_reason)
+    }
+    if (payload?.config?.rejected_reason) {
       Object.assign(payload, {
         status: Status.REJECTED,
         rejected_at: new Date().toISOString(),
       });
-    if (payload.status === Status.INITIATED)
+    }
+    if (payload.status === Status.INITIATED) {
       Object.assign(payload, { utr_id: '', rejected_reason: '' });
+    }
 
-    // Fetch payout and merchant in parallel for performance
-    const [singleWithdrawDataArr] = await Promise.all([
-      getPayoutsDao(ids, null, null, null, 'DESC', null, conn),
-    ]);
+    // Fetch payout data first
+    const singleWithdrawDataArr = await getPayoutsDao(
+      ids,
+      null,
+      null,
+      null,
+      'DESC',
+      null,
+      conn,
+    );
     const singleWithdrawData = singleWithdrawDataArr[0];
     if (!singleWithdrawData) {
       throw new NotFoundError('Payout not found!');
     }
-    const merchantArr = await getMerchantsDao({
-      id: singleWithdrawData.merchant_id,
-    });
-    const merchant = merchantArr[0];
-    if (!merchant) {
-      throw new NotFoundError('Merchant not found!');
-    }
 
-    if (payload?.config?.method === Method.EKO)
-      await processEkoPayout(singleWithdrawData, payload);
-    if (payload.status) {
-      const payout = await getPayoutsDao({ id: ids.id }, ids.company_id);
-      if (
-        payout[0].status === Status.REJECTED &&
-        payload.status === Status.APPROVED
-      ) {
+    // Status validation logic - consolidated
+    if (payload.status && singleWithdrawData.status !== payload.status) {
+      const currentStatus = singleWithdrawData.status;
+      const newStatus = payload.status;
+
+      const invalidTransitions = [
+        [Status.REJECTED, Status.APPROVED],
+        [Status.APPROVED, Status.REJECTED],
+      ];
+
+      const isInvalidTransition = invalidTransitions.some(
+        ([from, to]) => currentStatus === from && newStatus === to,
+      );
+
+      if (isInvalidTransition) {
         throw new BadRequestError(
-          'Cannot change payout status from rejected to approved',
+          `Cannot change payout status from ${currentStatus} to ${newStatus}`,
         );
       }
-      if (
-        payout[0].status === Status.APPROVED &&
-        payload.status === Status.REJECTED
-      ) {
-        throw new BadRequestError(
-          'Cannot change payout status from approved to rejected',
-        );
-      }
-      if (payload.status === payout[0].status) {
+
+      if (currentStatus === newStatus) {
         throw new BadRequestError(
           'Payout status cannot be updated to the same value',
         );
       }
     }
+
+    // Fetch related data in parallel
+    const [merchantArr, bankDataArr] = await Promise.all([
+      getMerchantsDao({ id: singleWithdrawData.merchant_id }),
+      singleWithdrawData.bank_acc_id
+        ? getBankByIdDao({ id: singleWithdrawData.bank_acc_id })
+        : Promise.resolve([]),
+    ]);
+
+    const merchant = merchantArr[0];
+    if (!merchant) {
+      throw new NotFoundError('Merchant not found!');
+    }
+
+    if (payload?.config?.method === Method.EKO) {
+      await processEkoPayout(singleWithdrawData, payload);
+    }
+
     const data = await updatePayoutDao(ids, payload, conn);
-    let checkPayload = {
+
+    // Early return for simple updates
+    const checkPayload = {
       utr_id: payload.utr_id,
       updated_by: payload.updated_by,
     };
     if (stringifyJSON(payload) === stringifyJSON(checkPayload)) {
       return data;
     }
+
+    // Early return if not approved
     if (!data.approved_at) {
       merchantPayoutCallback(data.config?.urls?.notify, {
         code: data.code,
@@ -492,10 +682,9 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         utr_id: data.utr_id || '',
       });
       return data;
-    } 
+    }
 
-    // Fetch bank data first, then get vendor using bankData.user_id
-    const bankDataArr = await getBankByIdDao({ id: data.bank_acc_id });
+    // Bank and vendor validation
     const bankData = bankDataArr[0];
     if (!bankData) {
       throw new NotFoundError('Bank not found!');
@@ -506,11 +695,14 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (bankData.is_blocked) {
       throw new BadRequestError('Bank account is blocked');
     }
+
     const vendorArr = await getVendorsDao({ user_id: bankData.user_id });
     const vendor = vendorArr[0];
     if (!vendor) {
       throw new NotFoundError('Vendor not found!');
     }
+
+    // Calculate commissions once
     const merchantCommission = calculateCommission(
       data.amount,
       merchant.payout_commission,
@@ -519,23 +711,19 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       data.amount,
       vendor.payout_commission,
     );
+
+    // Handle status-specific updates
     if (data.status === Status.APPROVED) {
       await Promise.all([
         updateCalculationTable(
           merchant.user_id,
-          {
-            payoutCommission: merchantCommission,
-            amount: data.amount,
-          },
+          { payoutCommission: merchantCommission, amount: data.amount },
           true,
           conn,
         ),
         updateCalculationTable(
           vendor.user_id,
-          {
-            payoutCommission: vendorCommission,
-            amount: data.amount,
-          },
+          { payoutCommission: vendorCommission, amount: data.amount },
           true,
           conn,
         ),
@@ -562,19 +750,13 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       await Promise.all([
         updateCalculationTable(
           merchant.user_id,
-          {
-            payoutCommission: merchantCommission,
-            amount: data.amount,
-          },
+          { payoutCommission: merchantCommission, amount: data.amount },
           false,
           conn,
         ),
         updateCalculationTable(
           vendor.user_id,
-          {
-            payoutCommission: vendorCommission,
-            amount: data.amount,
-          },
+          { payoutCommission: vendorCommission, amount: data.amount },
           false,
           conn,
         ),
@@ -588,8 +770,10 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         ),
       ]);
     }
+
     await newTableEntry(tableName.PAYOUT);
-    // This is async function but it's just the callback sending function there fore we are not using await
+
+    // Async callback - no await needed
     merchantPayoutCallback(data.config?.urls?.notify, {
       code: data.code,
       merchantOrderId: data.merchant_order_id,
@@ -598,15 +782,6 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       status: data.status,
       utr_id: data.utr_id || '',
     });
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: ids.company_id,
-    //   message: `PayOut with merchant order id: ${data.merchant_order_id} has been ${data.status}.`,
-    //   payloadUserId: merchant.user_id,
-    //   actorUserId: vendor.user_id,
-    //   category: 'Transaction',
-    //   subCategory: 'PayOut',
-    // });
 
     return data;
   } catch (error) {
@@ -617,49 +792,55 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
 ///for update payout calculation of payout
 const updateCalculationTable = async (user_id, data, isApproved, conn) => {
+  // Early validation
+  if (!user_id) {
+    logger.warn('No user_id provided to updateCalculationTable');
+    return;
+  }
+
+  if (
+    typeof data.amount === 'undefined' ||
+    typeof data.payoutCommission === 'undefined'
+  ) {
+    logger.error('Missing required properties in data');
+    return;
+  }
+
   if (isNaN(data.amount - data.payoutCommission)) {
     throw new BadRequestError('Invalid amount or commission');
   }
-  if (user_id) {
-    const calculationData = await getCalculationforCronDao(user_id);
-    if (!calculationData[0]) {
-      throw new NotFoundError('Calculation not found!');
-    }
-    const calculationId = calculationData[0].id;
-    if (
-      typeof data.amount === 'undefined' ||
-      typeof data.payoutCommission === 'undefined'
-    ) {
-      logger.error('Missing required properties in data');
-      return;
-    }
-    const totalAmountData = Number(data.amount + data.payoutCommission);
-    let payload;
-    if (isApproved) {
-      payload = {
+
+  const calculationData = await getCalculationforCronDao(user_id);
+  if (!calculationData[0]) {
+    throw new NotFoundError('Calculation not found!');
+  }
+
+  const calculationId = calculationData[0].id;
+  const totalAmountData = Number(data.amount + data.payoutCommission);
+
+  // Create payload based on approval status
+  const payload = isApproved
+    ? {
         total_payout_count: 1,
         total_payout_amount: data.amount,
         total_payout_commission: data.payoutCommission,
         current_balance: -totalAmountData,
         net_balance: -totalAmountData,
-      };
-    } else {
-      payload = {
+      }
+    : {
         total_reverse_payout_count: 1,
         total_reverse_payout_amount: data.amount,
         total_reverse_payout_commission: -data.payoutCommission,
         current_balance: totalAmountData,
         net_balance: totalAmountData,
       };
-    }
 
-    const response = await updateCalculationBalanceDao(
-      { id: calculationId },
-      payload,
-      conn,
-    );
-    return response;
-  }
+  const response = await updateCalculationBalanceDao(
+    { id: calculationId },
+    payload,
+    conn,
+  );
+  return response;
 };
 const processEkoPayout = async (singleWithdrawData, payload) => {
   try {
@@ -850,10 +1031,16 @@ const assignedPayoutService = async (
   id,
   payload,
   updated_by,
-  company_id
+  company_id,
 ) => {
   try {
-    const data = await assignedPayoutDao(payload, id, updated_by, company_id, conn);
+    const data = await assignedPayoutDao(
+      payload,
+      id,
+      updated_by,
+      company_id,
+      conn,
+    );
     await newTableEntry(tableName.PAYOUT);
     return data;
   } catch (error) {
@@ -954,63 +1141,81 @@ const checkPayOutStatusService = async (
   merchantOrderId,
   api_key,
 ) => {
-  try{
-  const merchantArr = await getMerchantsDao({ code: merchantCode });
-  const merchant = merchantArr[0];
-  if (!merchant) {
-    const data = {
-      status: 400,
-      message: 'Merchant Order ID already exists',
+  try {
+    const merchantArr = await getMerchantsDao({ code: merchantCode });
+    const merchant = merchantArr[0];
+    if (!merchant) {
+      const data = {
+        status: 400,
+        message: 'Merchant Order ID already exists',
+      };
+      return data;
     }
-    return data;
-  }
 
-  const merchantConfig = merchant.config || {};
+    const merchantConfig = merchant.config || {};
 
-  if (
-    api_key != merchantConfig.keys?.private &&
-    api_key != merchantConfig.keys?.public
-  ) {
-    const data = {
-      status: 404,
-      message: 'Enter valid Api key',
+    if (
+      api_key != merchantConfig.keys?.private &&
+      api_key != merchantConfig.keys?.public
+    ) {
+      const data = {
+        status: 404,
+        message: 'Enter valid Api key',
+      };
+      return data;
     }
-    return data;
-    
-  }
 
-  const payOut = await getPayoutsDao({
-    id: payOutId,
-    merchant_order_id: merchantOrderId,
-  });
+    const payOut = await getPayoutsDao({
+      id: payOutId,
+      merchant_order_id: merchantOrderId,
+    });
 
-  if (!payOut) {
-    const data = {
-      status: 404,
-      message: 'Payout not found',
+    if (!payOut) {
+      const data = {
+        status: 404,
+        message: 'Payout not found',
+      };
+      return data;
     }
-    return data;
-  }
 
-  //check is payout detials belongs to that merchant or not
-  if (!(payOut[0].merchant_id === merchant.id)) {
-    const data = {
-      status: 404,
-      message: 'merchant_order_id and payIn ID do not belong to the specified merchant',
+    //check is payout detials belongs to that merchant or not
+    if (!(payOut[0].merchant_id === merchant.id)) {
+      const data = {
+        status: 404,
+        message:
+          'merchant_order_id and payIn ID do not belong to the specified merchant',
+      };
+      return data;
     }
-    return data;
+    return {
+      status: payOut[0].status,
+      merchantOrderId: payOut[0].merchant_order_id,
+      amount: payOut[0].amount,
+      payoutId: payOut[0].id,
+      utr_id: payOut[0].utr_id ? payOut[0].utr_id : ' ',
+    };
+  } catch (error) {
+    logger.error('Error check payout status:', error);
+    throw error;
   }
-  return {
-    status: payOut[0].status,
-    merchantOrderId: payOut[0].merchant_order_id,
-    amount: payOut[0].amount,
-    payoutId: payOut[0].id,
-    utr_id: payOut[0].utr_id ? payOut[0].utr_id : ' ',
-  };
-}catch(error){
-  logger.error('Error check payout status:', error);
-  throw error;
-}
+};
+
+const getWalletsBalanceService = async () => {
+  try {
+    const response = await axios.get(
+      `${config.PAY_ASSIST.walletsPayoutsUrl}/checkBalance`,
+      {
+        headers: {
+          APIAGENT: config.PAY_ASSIST.walletsPayoutsAgent,
+          APIKEY: config.PAY_ASSIST.walletsPayoutsApiKey,
+        },
+      },
+    );
+    return { balance: response.data.Response.Balance };
+  } catch (error) {
+    logger.error(error);
+    throw error;
+  }
 };
 
 export {
@@ -1021,4 +1226,6 @@ export {
   updatePayoutService,
   deletePayoutService,
   assignedPayoutService,
+  walletsPayoutsService,
+  getWalletsBalanceService,
 };

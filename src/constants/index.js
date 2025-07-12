@@ -787,3 +787,11 @@ export const europeanCountries = [
   'United Kingdom',
   'Vatican City',
 ];
+
+export const payAssistErrorCodeMap = {
+  '11': 'Insufficient Funds',
+  '12': 'Transaction already exists',
+  '13': 'Insufficient Funds',
+  '14': 'Invalid Account Details',
+  '15': 'Invalid Account Details'
+};
