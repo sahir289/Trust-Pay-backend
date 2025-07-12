@@ -966,7 +966,7 @@ export const resetDepositService = async (
       company_id: company_id,
     });
     if (!payIn) {
-      throw new NotFoundError('PayIn not found');
+      throw new NotFoundError('Merchant Order ID not found');
     }
     await createResetHistoryService(
       conn,
@@ -1404,7 +1404,7 @@ export const processPayInService = async (
       } else {
         return {
           ...result,
-          message: 'Bank Mismatched',
+          message: `${payIn.merchant_order_id} is in Bank Mismatched with ${payIn.user_submitted_utr || bankResponse.utr} `,
         };
       }
     }
@@ -2152,7 +2152,7 @@ export const telegramCheckUTRService = async (
     // check old code flow
     if (payIn.status === Status.SUCCESS) {
       return {
-        message: `PayIn is already confirmed with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
+        message: `${payIn.merchant_order_id} is already confirmed with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
       };
     }
 
@@ -2169,7 +2169,7 @@ export const telegramCheckUTRService = async (
     if (![Status.ASSIGNED, Status.DROPPED].includes(payIn.status)) {
       return {
         status: payIn.status,
-        message: `PayIn is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
+        message: `${payIn.merchant_order_id} is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
       };
     }
     // updatePayInUrlDao({ id: payIn.id }, { is_url_expires: false }, conn);
@@ -2662,8 +2662,8 @@ const updateCalculationBalances = async (
   nextCalculations,
   amountDiff,
   commission,
-  user_id,
   conn,
+  count
 ) => {
   try {
     if (!currentCalculation) return;
@@ -2671,6 +2671,7 @@ const updateCalculationBalances = async (
     const updates = {
       total_payin_commission: amountDiff > 0 ? commission : -commission,
       total_payin_amount: amountDiff,
+      total_payin_count : count?count:0,
       current_balance: amountDiff - commission,
       net_balance: amountDiff - commission,
     };
@@ -2872,41 +2873,105 @@ export const updatePayInService = async (
       if (!prevBank[0] || !newBank[0]) {
         throw new NotFoundError('Bank account not found');
       }
-      if (newBank[0].user_id !== prevBank[0].user_id) {
-        throw new BadRequestError(
-          'Bank account does not belong to the same vendor',
-        );
-      }
+
       if (newBank[0].id === prevBank[0].id) {
         throw new BadRequestError('Please provide a different bank account ID');
       }
+      if (newBank[0].user_id !== prevBank[0].user_id) {
+        const [prevVendor, newVendor] = await Promise.all([
+          getVendorsDao({ user_id: prevBank[0].user_id }),
+          getVendorsDao({ user_id: newBank[0].user_id }),
+        ]);
 
-      // eslint-disable-next-line no-unused-vars
-      const [prevBankData, newBankData] = await Promise.all([
-        updateBankaccountDao(
-          { id: prevBank[0].id, company_id: company_id },
-          {
-            balance: prevBank[0].balance - bankResponse.amount,
-            today_balance: prevBank[0].today_balance - bankResponse.amount,
-            updated_by: user_id,
-          },
-          conn,
-        ),
-        updateBankaccountDao(
-          { id: newBank[0].id, company_id: company_id },
-          {
-            balance: newBank[0].balance + bankResponse.amount,
-            today_balance: newBank[0].today_balance + bankResponse.amount,
-            updated_by: user_id,
-          },
-          conn,
-        ),
-        updateBankResponseDao(
-          { id: bankResponse.id, company_id: company_id },
-          { bank_id: payload.bank_acc_id, updated_by: user_id },
-          conn,
-        ),
-      ]);
+        if (!prevVendor[0] || !newVendor[0]) {
+          throw new NotFoundError('Vendor not found');
+        }
+
+        const [prevVendorCalc, newVendorCalc] = await Promise.all([
+          getAllCalculationforCronDao(prevVendor[0].user_id),
+          getAllCalculationforCronDao(newVendor[0].user_id),
+        ]);
+
+
+        if (!prevVendorCalc[0] || !newVendorCalc[0]) {
+          throw new NotFoundError('Calculation data not found');
+        }
+
+        const approvedDate = getDateWithoutTime(bankResponse.created_at);
+
+        const prevVendorCurrentCalcs = prevVendorCalc.filter(
+          (calc) => approvedDate === getDateWithoutTime(calc.created_at),
+        );
+        const newVendorCurrentCalcs = newVendorCalc.filter(
+          (calc) => approvedDate === getDateWithoutTime(calc.created_at),
+        );
+
+        const prevVendorNextCurrentCalcs = prevVendorCalc.filter(
+          (calc) => approvedDate < getDateWithoutTime(calc.created_at),
+        );
+        const newVendorNextCurrentCalcs = newVendorCalc.filter(
+          (calc) => approvedDate < getDateWithoutTime(calc.created_at),
+        );
+
+        if (!prevVendorCurrentCalcs[0] || !newVendorCurrentCalcs[0]) {
+          throw new NotFoundError('Matching calculation not found');
+        }
+
+        const prevVendorCommission = calculateCommission(
+          Math.abs(bankResponse.amount),
+          prevVendor[0].payin_commission,
+        );
+        const newVendorCommission = calculateCommission(
+          Math.abs(bankResponse.amount),
+          newVendor[0].payin_commission,
+        );
+
+        await Promise.all([
+          updateCalculationBalances(
+            prevVendorCurrentCalcs,
+            prevVendorNextCurrentCalcs,
+            -bankResponse.amount,
+            -prevVendorCommission,
+            conn,
+            -1,
+          ),
+          updateCalculationBalances(
+            newVendorCurrentCalcs,
+            newVendorNextCurrentCalcs,
+            bankResponse.amount,
+            newVendorCommission,
+            conn,
+            1,
+          ),
+        ]);
+      }
+
+      const [newBankData] =
+        await Promise.all([
+          updateBankaccountDao(
+            { id: prevBank[0].id, company_id: company_id },
+            {
+              balance: prevBank[0].balance - bankResponse.amount,
+              today_balance: prevBank[0].today_balance - bankResponse.amount,
+              updated_by: user_id,
+            },
+            conn,
+          ),
+          updateBankaccountDao(
+            { id: newBank[0].id, company_id: company_id },
+            {
+              balance: newBank[0].balance + bankResponse.amount,
+              today_balance: newBank[0].today_balance + bankResponse.amount,
+              updated_by: user_id,
+            },
+            conn,
+          ),
+          updateBankResponseDao(
+            { id: bankResponse.id, company_id: company_id },
+            { bank_id: payload.bank_acc_id, updated_by: user_id },
+            conn,
+          ),
+        ]);
       if (!newBankData) {
         throw new NotFoundError('Bank account not found');
       }
