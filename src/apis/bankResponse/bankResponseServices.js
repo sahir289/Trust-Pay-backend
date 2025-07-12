@@ -1589,7 +1589,6 @@ const updateCalculationBalances = async (
 ) => {
   try {
     if (!currentCalculation) return;
-
     const updates = {
       total_payin_count: count,
       total_payin_commission: commission,
@@ -1615,8 +1614,7 @@ const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
             if (calculationDate === todayDate) {
               data = {
                 total_adjustment_amount: amountDiff,
-                total_adjustment_commission:
-                  amountDiff > 0 ? commission : -commission,
+                total_adjustment_commission:commission,
                 total_adjustment_count: 1,
               };
             }
