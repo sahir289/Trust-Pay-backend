@@ -129,7 +129,7 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
             const bankId = config.PAY_ASSIST.defaultBankId
             const [bankVendor] = await getBankByIdDao({ id: bankId });
             const [vendor] = await getVendorsDao({
-              id: bankVendor.user_id,
+              user_id: bankVendor.user_id,
             });
             const updatePayload = {
               updated_by: updatedBy,
