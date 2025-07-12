@@ -566,7 +566,6 @@ export const getCalculationsSumDao = async (filters) => {
         ? executeQuery(vendorTotalQuery)
         : Promise.resolve({ rows: [{}] }),
     ]);
-
     return {
       vendor: vendorData,
       merchant: merchantData,
