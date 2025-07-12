@@ -9,6 +9,7 @@ import {
   checkPayOutStatusService,
   assignedPayoutService,
   walletsPayoutsService,
+  getWalletsBalanceService,
 } from './payOutService.js';
 import {
   PAYOUT_DETAILS_SCHEMA,
@@ -45,7 +46,7 @@ const createPayout = async (req, res) => {
   delete payload?.user_id;
 
   let result = {};
-  if (req.user) {
+  if (req?.user) {
     const { company_id, role, user_id } = req.user;
     payload.company_id = company_id;
     payload.created_by = user_id;
@@ -122,22 +123,32 @@ const getPayouts = async (req, res) => {
     if (joiValidation.error) {
       throw new ValidationError(joiValidation.error);
     }
-    const { company_id } = req.user;
+    const { company_id, user_id } = req.user;
     const payload = req.body;
     payload.company_id = company_id;
 
     let result = await transactionWrapper(walletsPayoutsService)(
         payload,
+        user_id,
         res,
       );
     // Log success message
     logger.log('Payout created successfully');
     const updateRes = {
-      data: result,
+      balance: result,
     };
   
     // Send a success response to the client
     return sendNewSuccess(res, updateRes, 'Payout created successfully', 201);
+  }
+
+  const getWalletsBalance = async (req, res) => {
+    let result = await getWalletsBalanceService();
+    // Log success message
+    logger.log('Wallet Balance fetch successfully');
+  
+    // Send a success response to the client
+    return sendNewSuccess(res, result, 'Wallet Balance fetch successfully', 200);
   }
 
 const getPayoutsBySearch = async (req, res) => {
@@ -251,6 +262,7 @@ export {
   updatePayout,
   deletePayout,
   getPayoutsById,
-  assignedPayout
+  assignedPayout,
   walletsPayouts,
+  getWalletsBalance
 };

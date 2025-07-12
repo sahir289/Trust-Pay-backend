@@ -9,7 +9,8 @@ import {
   getPayoutsBySearch,
   checkPayOutStatus,
   walletsPayouts,
-  assignedPayout
+  assignedPayout,
+  getWalletsBalance
 } from './payOutController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -88,6 +89,11 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayoutsBySearch),
 );
+router.get(
+  '/wallets-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getWalletsBalance),
+); 
 router.get(
   '/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -232,7 +238,7 @@ router.post(
   '/wallets',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(walletsPayouts),
-);  
+); 
 
 // router.post(
 //   '/payouts',
