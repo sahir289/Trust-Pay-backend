@@ -966,7 +966,7 @@ export const resetDepositService = async (
       company_id: company_id,
     });
     if (!payIn) {
-      throw new NotFoundError('Merchant Order ID not found');
+      throw new NotFoundError('❌ Merchant Order ID not found');
     }
     await createResetHistoryService(
       conn,
@@ -992,7 +992,7 @@ export const resetDepositService = async (
 
     if (nonResettableStatuses.has(payIn.status)) {
       throw new BadRequestError(
-        `The Order Id: ${payIn.merchant_order_id} with Status: ${payIn.status} cannot be reset!`,
+        `❌ The Order Id: ${payIn.merchant_order_id} with Status: ${payIn.status} cannot be reset!`,
       );
     }
 
@@ -2116,14 +2116,14 @@ export const telegramCheckUTRService = async (
     let otherBankResponse = {};
     const payIn = await getPayInUrlDao({ merchant_order_id });
     if (!bankResponse) {
-      throw new NotFoundError(`UTR ${utr} not found`);
+      throw new NotFoundError(`❌ UTR ${utr} not found`);
     } else if (bankResponse.status !== '/success') {
       throw new BadRequestError(
-        `⚠️ UTR ${utr} found with ${bankResponse.status} STATUS`,
+        `❌ UTR ${utr} found with ${bankResponse.status} STATUS`,
       );
     } else if (!payIn) {
       throw new NotFoundError(
-        `❌ MerchantOrderID ${merchant_order_id}  not found`,
+        `❌ MerchantOrderID ${merchant_order_id} not found`,
       );
     } else if (payIn?.user_submitted_utr && utr !== payIn?.user_submitted_utr) {
       throw new BadRequestError(
