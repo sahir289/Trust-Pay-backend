@@ -143,7 +143,8 @@ const getPayouts = async (req, res) => {
   }
 
   const getWalletsBalance = async (req, res) => {
-    let result = await getWalletsBalanceService();
+    const { company_id } = req.user;
+    let result = await getWalletsBalanceService(company_id);
     // Log success message
     logger.log('Wallet Balance fetch successfully');
   
