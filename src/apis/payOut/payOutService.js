@@ -662,10 +662,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
 
     // Fetch related data in parallel
+    const bankID = payload.bank_acc_id || singleWithdrawData.bank_acc_id;
     const [merchantArr, bankDataArr] = await Promise.all([
       getMerchantsDao({ id: singleWithdrawData.merchant_id }),
-      payload.bank_acc_id
-        ? getBankByIdDao({ id: payload.bank_acc_id })
+      bankID
+        ? getBankByIdDao({ id: bankID })
         : Promise.resolve([]),
     ]);
 
