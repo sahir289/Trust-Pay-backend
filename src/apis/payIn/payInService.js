@@ -1404,7 +1404,7 @@ export const processPayInService = async (
       } else {
         return {
           ...result,
-          message: `${payIn.merchant_order_id} is in Bank Mismatched with ${payIn.user_submitted_utr || bankResponse.utr} `,
+          message: `⚠️ ${payIn.merchant_order_id} is in Bank Mismatched with ${payIn.user_submitted_utr || bankResponse.utr} `,
         };
       }
     }
@@ -2119,15 +2119,15 @@ export const telegramCheckUTRService = async (
       throw new NotFoundError(`UTR ${utr} not found`);
     } else if (bankResponse.status !== '/success') {
       throw new BadRequestError(
-        `UTR ${utr} found with ${bankResponse.status} STATUS`,
+        `⚠️ UTR ${utr} found with ${bankResponse.status} STATUS`,
       );
     } else if (!payIn) {
       throw new NotFoundError(
-        `MerchantOrderID ${merchant_order_id}  not found`,
+        `❌ MerchantOrderID ${merchant_order_id}  not found`,
       );
     } else if (payIn?.user_submitted_utr && utr !== payIn?.user_submitted_utr) {
       throw new BadRequestError(
-        `${utr} UTR Does Not match with ${payIn?.merchant_order_id} Merchant Order ID`,
+        `❌ ${utr} UTR Does Not match with ${payIn?.merchant_order_id} Merchant Order ID`,
       );
     }
 
@@ -2152,7 +2152,7 @@ export const telegramCheckUTRService = async (
     // check old code flow
     if (payIn.status === Status.SUCCESS) {
       return {
-        message: `${payIn.merchant_order_id} is already confirmed with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
+        message: `⚠️ ${payIn.merchant_order_id} is already confirmed with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
       };
     }
 
@@ -2162,14 +2162,14 @@ export const telegramCheckUTRService = async (
 
     if (isAlreadyExit) {
       return {
-        message: `Utr: ${utr} is ${isAlreadyExit.status} with ${isAlreadyExit.merchant_order_id}`,
+        message: `⚠️ Utr: ${utr} is ${isAlreadyExit.status} with ${isAlreadyExit.merchant_order_id}`,
       };
     }
 
     if (![Status.ASSIGNED, Status.DROPPED].includes(payIn.status)) {
       return {
         status: payIn.status,
-        message: `${payIn.merchant_order_id} is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
+        message: `⚠️ ${payIn.merchant_order_id} is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
       };
     }
     // updatePayInUrlDao({ id: payIn.id }, { is_url_expires: false }, conn);
