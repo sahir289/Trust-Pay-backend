@@ -141,9 +141,12 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
               vendor_id: vendor.id,
               config: {
                 method: 'PayAssist',
-                txnid: responseData.Response?.txnid,
               },
             };
+
+            if (responseData.Response?.txnid) {
+              updatePayload.config.txnid = responseData.Response.txnid;
+            }
 
             if (isApproved) {
               Object.assign(updatePayload, {
@@ -179,7 +182,15 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
             );
 
             if (statusResponse.data.ErrorCode === '0') {
-              await handlePayoutUpdate(statusResponse.data, true);
+              if (
+                statusResponse.data.Response.message ===
+                'Reason-Transaction Failed'
+              ) {
+                statusResponse.data.ErrorCode = '14';
+                await handlePayoutUpdate(statusResponse.data, false);
+              } else {
+                await handlePayoutUpdate(statusResponse.data, true);
+              }
             } else if (statusResponse.data.ErrorCode !== 'TUP') {
               await handlePayoutUpdate(statusResponse.data, false);
             }
