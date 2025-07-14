@@ -600,7 +600,7 @@ export const telegramCheckUTR = async (req, res) => {
     req.user.company_id,
     req.user.user_id,
   );
-  sendSuccess(res, result,result?.message || `✅ Order id ${result.merchantOrderId} confirmed.`);
+  sendSuccess(res, result,result?.message || `Order id ${result.merchantOrderId} confirmed.`);
 };
 
 export const updatePayIn = async (req, res) => {
