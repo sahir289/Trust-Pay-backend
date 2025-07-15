@@ -61,6 +61,7 @@ import { checkLockEdit } from '../../utils/advisoryLock.js';
 import { stringifyJSON } from '../../utils/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import axios from 'axios';
+import { getCompanyByIDDao } from '../company/companyDao.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
@@ -86,14 +87,18 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
       };
     }
 
+    const [company] = await getCompanyByIDDao({
+      id: payload.company_id,
+    });
+
     // Cache API configuration to avoid repeated property access
     const apiConfig = {
       headers: {
-        APIAGENT: config.PAY_ASSIST.walletsPayoutsAgent,
-        APIKEY: config.PAY_ASSIST.walletsPayoutsApiKey,
+        APIAGENT: company.config.PAY_ASSIST.walletsPayoutsAgent,
+        APIKEY: company.config.PAY_ASSIST.walletsPayoutsApiKey,
       },
-      baseUrl: config.PAY_ASSIST.walletsPayoutsUrl,
-      agentCode: config.PAY_ASSIST.walletsPayoutsAgentCode,
+      baseUrl: company.config.PAY_ASSIST.walletsPayoutsUrl,
+      agentCode: company.config.PAY_ASSIST.walletsPayoutsAgentCode,
     };
 
     // Use Promise.all to send all payout requests in parallel for better performance
@@ -125,18 +130,29 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
             responseData,
             isApproved = false,
           ) => {
+            const bankId = company.config.PAY_ASSIST.defaultBankId;
+            const [bankVendor] = await getBankByIdDao({ id: bankId });
+            const [vendor] = await getVendorsDao({
+              user_id: bankVendor.user_id,
+            });
             const updatePayload = {
               updated_by: updatedBy,
+              bank_acc_id: bankId,
+              vendor_id: vendor.id,
               config: {
                 method: 'PayAssist',
-                txnid: responseData.Response?.txnid,
               },
             };
+
+            if (responseData.Response?.txnid) {
+              updatePayload.config.txnid = responseData.Response.txnid;
+            }
 
             if (isApproved) {
               Object.assign(updatePayload, {
                 status: Status.APPROVED,
-                utr_id: responseData.Response.refno || responseData.Response?.utr,
+                utr_id:
+                  responseData.Response.refno || responseData.Response?.utr,
                 approved_at: new Date().toISOString(),
               });
             } else {
@@ -157,7 +173,7 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
           const errorCode = response.data.ErrorCode;
           let statusResponse = null;
 
-          if (errorCode === '12') {
+          if (errorCode) {
             // Transaction Under Process - check status
             statusResponse = await axios.post(
               `${apiConfig.baseUrl}/payoutStatus`,
@@ -166,13 +182,15 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
             );
 
             if (statusResponse.data.ErrorCode === '0') {
-              await handlePayoutUpdate(statusResponse.data, true);
-            } else if (statusResponse.data.ErrorCode !== 'TUP') {
-              await handlePayoutUpdate(statusResponse.data, false);
-            }
-          } else {
-            if (statusResponse.data.ErrorCode === '0') {
-              await handlePayoutUpdate(statusResponse.data, true);
+              if (
+                statusResponse.data.Response.message ===
+                'Reason-Transaction Failed'
+              ) {
+                statusResponse.data.ErrorCode = '14';
+                await handlePayoutUpdate(statusResponse.data, false);
+              } else {
+                await handlePayoutUpdate(statusResponse.data, true);
+              }
             } else if (statusResponse.data.ErrorCode !== 'TUP') {
               await handlePayoutUpdate(statusResponse.data, false);
             }
@@ -644,10 +662,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
 
     // Fetch related data in parallel
+    const bankID = payload.bank_acc_id || singleWithdrawData.bank_acc_id;
     const [merchantArr, bankDataArr] = await Promise.all([
       getMerchantsDao({ id: singleWithdrawData.merchant_id }),
-      singleWithdrawData.bank_acc_id
-        ? getBankByIdDao({ id: singleWithdrawData.bank_acc_id })
+      bankID
+        ? getBankByIdDao({ id: bankID })
         : Promise.resolve([]),
     ]);
 
@@ -1200,14 +1219,17 @@ const checkPayOutStatusService = async (
   }
 };
 
-const getWalletsBalanceService = async () => {
+const getWalletsBalanceService = async (company_id) => {
   try {
+    const [company] = await getCompanyByIDDao({
+      id: company_id,
+    });
     const response = await axios.get(
-      `${config.PAY_ASSIST.walletsPayoutsUrl}/checkBalance`,
+      `${company.config.PAY_ASSIST.walletsPayoutsUrl}/checkBalance`,
       {
         headers: {
-          APIAGENT: config.PAY_ASSIST.walletsPayoutsAgent,
-          APIKEY: config.PAY_ASSIST.walletsPayoutsApiKey,
+          APIAGENT: company.config.PAY_ASSIST.walletsPayoutsAgent,
+          APIKEY: company.config.PAY_ASSIST.walletsPayoutsApiKey,
         },
       },
     );

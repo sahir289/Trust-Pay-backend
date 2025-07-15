@@ -869,6 +869,13 @@ const resetBankResponseService = async (conn, id, userData) => {
     }
 
     if (utr) {
+      const bot = await getBankResponseDao({ utr: utr, company_id });
+      if (bot) {
+        logger.error(`Bank response found: ${utr}`);
+        throw new NotFoundError(
+          'This UTR has already been used. Please provide a new one.',
+        );
+      }
       const utrResult = await handleUtrUpdate({
         botRes,
         utr,
