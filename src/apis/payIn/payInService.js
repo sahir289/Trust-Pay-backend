@@ -1860,6 +1860,7 @@ export const disputeDuplicateTransactionService = async (
 
     const bankResponse = await getBankResponseDao({
       id: payIn.bank_response_id,
+      is_used: true,
       company_id,
     });
     const merchants = await getMerchantsDao({
@@ -2050,6 +2051,7 @@ export const disputeDuplicateTransactionService = async (
       response,
       newEntryResponse,
       bank.nick_name,
+      bankResponse.utr,
       company.config?.telegramBotToken,
     );
     // Notify admins and users about payin status updates
@@ -2096,7 +2098,7 @@ export const disputeDuplicateTransactionService = async (
     await newTableEntry(tableName.PAYIN);
     return response;
   } catch (error) {
-    logger.error('Error in disputeDuplicateTransactionService:', error);
+    logger.error('Error in disputeDuplicateTransactionService:', error.message);
     throw error;
   }
 };
@@ -2857,6 +2859,13 @@ export const updatePayInService = async (
     }
     // Handle UTR updates
     else if (payload?.utr) {
+      const bot = await getBankResponseDao({ utr: payload?.utr, company_id });
+      if (bot) {
+        logger.error(`Bank response found: ${payload?.utr}`);
+        throw new NotFoundError(
+          'This UTR has already been used. Please provide a new one.',
+        );
+      }
       bankResponseDataUtr = await updateBankResponseDao(
         { id: bankResponse.id, company_id: company_id },
         { utr: payload.utr, updated_by: user_id },
