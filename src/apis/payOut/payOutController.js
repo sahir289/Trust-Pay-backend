@@ -133,17 +133,18 @@ const getPayouts = async (req, res) => {
         res,
       );
     // Log success message
-    logger.log('Payout created successfully');
+    logger.log('Payout updated successfully');
     const updateRes = {
       balance: result,
     };
   
     // Send a success response to the client
-    return sendNewSuccess(res, updateRes, 'Payout created successfully', 201);
+    return sendNewSuccess(res, updateRes, 'Payout updated successfully', 201);
   }
 
   const getWalletsBalance = async (req, res) => {
-    let result = await getWalletsBalanceService();
+    const { company_id } = req.user;
+    let result = await getWalletsBalanceService(company_id);
     // Log success message
     logger.log('Wallet Balance fetch successfully');
   

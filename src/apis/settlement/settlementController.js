@@ -130,10 +130,10 @@ const createSettlementController = async (req, res) => {
     }
     const bankRess = await getBankaccountDao({ id: bankRes.bank_id });
     if (payload.user_id !== bankRess[0].user_id) {
-      throw new NotFoundError('vendor code is not matching with utr');
+      throw new NotFoundError('The vendor code does not match the UTR.');
     }
     if (bankRes.amount !== payload.amount) {
-      throw new NotFoundError('Amount is in mismatch!');
+      throw new NotFoundError('Amount is in mismatch! Please verify.');
     }
   }
 

@@ -1313,7 +1313,7 @@ export const processPayInService = async (
       is_url_expires: true,
       one_time_used: true,
       duration,
-      user_submitted_image: user_submitted_image,
+      user_submitted_image: user_submitted_image || payIn.user_submitted_image,
       is_notified: true,
       updated_by: updated_by || '',
     };
@@ -2125,7 +2125,7 @@ export const telegramCheckUTRService = async (
       );
     } else if (!payIn) {
       throw new NotFoundError(
-        `MerchantOrderID ${merchant_order_id}  not found`,
+        `MerchantOrderID ${merchant_order_id} not found`,
       );
     } else if (payIn?.user_submitted_utr && utr !== payIn?.user_submitted_utr) {
       throw new BadRequestError(
