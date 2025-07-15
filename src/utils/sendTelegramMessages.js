@@ -680,12 +680,13 @@ export async function sendTelegramDisputeMessage(
   currentData,
   newData,
   nick_name,
+  utr,
   TELEGRAM_BOT_TOKEN,
 ) {
   const formatEntry = (label, data, utr) => `
     <b><u>${label}:</u></b> 
         <b>📋 Status:</b> ${data.status === Status.SUCCESS ? '✅ SUCCESS' : data.status === Status.DISPUTE ? '⛔ DISPUTE' : data.status === Status.FAILED ? '❌ FAILED' : data.status}
-        <b>🧾 UTR:</b> ${data.user_submitted_utr || utr}
+        <b>🧾 UTR:</b> ${utr}
         <b>✅ Amount:</b> ${data.amount}
         <b>💳 UPI Short Code:</b> ${data.upi_short_code}
         <b>🏦 Bank Name:</b> ${nick_name}
@@ -695,7 +696,7 @@ export async function sendTelegramDisputeMessage(
         <b>User Id:</b> ${data.user}
   `;
 
-  let message = formatEntry('Dispute Entry', oldData);
+  let message = formatEntry('Dispute Entry', oldData,utr);
 
   if (
     newData &&
@@ -703,10 +704,10 @@ export async function sendTelegramDisputeMessage(
     newData.merchant_order_id !== undefined &&
     currentData?.merchant_order_id !== newData.merchant_order_id
   ) {
-    message += formatEntry('Current Entry', currentData);
-    message += formatEntry('New Entry', newData, oldData.user_submitted_utr);
+    message += formatEntry('Current Entry', currentData,utr);
+    message += formatEntry('New Entry', newData, utr);
   } else {
-    message += formatEntry('New Entry', currentData);
+    message += formatEntry('New Entry', currentData,utr);
   }
   const success = await telegramSender(
     chatId,
