@@ -482,10 +482,16 @@ const getSettlementDaoforInternalTransfer = async (utr, method) => {
   }
 };
 
-const createSettlementDao = async (payload) => {
+const createSettlementDao = async (payload, conn) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.SETTLEMENT, payload);
-    const result = await executeQuery(sql, params);
+    let result;
+    if (conn && conn.query) {
+      result = await conn.query(sql, params);
+    }
+    else {
+      result = await executeQuery(sql, params);
+    }
     return result.rows[0];
   } catch (error) {
     logger.error(error);
