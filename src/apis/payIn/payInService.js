@@ -1860,7 +1860,7 @@ export const disputeDuplicateTransactionService = async (
 
     const bankResponse = await getBankResponseDao({
       id: payIn.bank_response_id,
-      is_used: true,
+      // is_used: true,
       company_id,
     });
     const merchants = await getMerchantsDao({

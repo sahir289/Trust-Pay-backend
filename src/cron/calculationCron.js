@@ -50,7 +50,7 @@ const collectCalculationData = async () => {
             role_id: calculation[0].role_id,
             company_id: calculation[0].company_id,
             net_balance: parseFloat(calculation[0].net_balance),
-            config: calculation[0].config,
+            // config: calculation[0].config,
             created_at: currentTime, // Store exact IST time
           };
           await processUpdate(resetData);
