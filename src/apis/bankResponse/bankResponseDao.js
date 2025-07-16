@@ -413,6 +413,10 @@ const getBankResponseDaoAll = async (
         `"BankResponse"."company_id" = '${filters.company_id}'`,
       );
     }
+    
+    if (filters.status) {
+      filters.status = filters.status.split(',');
+    }
 
     if (updated) {
       whereConditions.push(
