@@ -50,24 +50,10 @@ const initializeSocket = (server) => {
         socket.sessionId = sessionId;
         socket.loginTime = Date.now();
 
-        // FIRST: Use our force logout function to ensure all existing sessions are terminated
-        // This is a more aggressive approach for maximum reliability
-        logger.log(
-          chalk.yellow(
-            `[SOCKET] Pre-emptively calling forceLogoutUser for ${userId} to ensure clean login`,
-          ),
-        );
-        
-        // Call our dedicated force logout function first
-        await forceLogoutUser(userId);
-        
-        // Small delay to ensure disconnection is processed
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        // Get all connected sockets across all namespaces
+        // Get all connected sockets across all namespaces FIRST
         const allSockets = await ioInstance.fetchSockets();
 
-        // Find all existing sockets for this user by checking socket.userId property
+        // Find all existing sockets for this user EXCLUDING the current socket
         const userActiveSockets = allSockets.filter(
           (s) => s.userId === userId && s.id !== socket.id,
         );
@@ -123,17 +109,15 @@ const initializeSocket = (server) => {
               existingSocket.emit('logout', logoutPayload); // Additional event for compatibility
               existingSocket.emit('disconnect-user', terminationPayload); // Another event type
               
-              // Force immediate disconnect - use setTimeout for next tick
-              setTimeout(() => {
-                if (existingSocket.connected) {
-                  existingSocket.disconnect(true);
-                  logger.log(
-                    chalk.red(
-                      `[SOCKET] Force disconnected socket ${existingSocket.id}`,
-                    ),
-                  );
-                }
-              }, 0);
+              // Force IMMEDIATE disconnect - no delay
+              if (existingSocket.connected) {
+                existingSocket.disconnect(true);
+                logger.log(
+                  chalk.red(
+                    `[SOCKET] IMMEDIATELY disconnected socket ${existingSocket.id}`,
+                  ),
+                );
+              }
               
             } catch (err) {
               logger.error(
