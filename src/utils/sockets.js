@@ -205,6 +205,12 @@ const initializeSocket = (server) => {
     });
 
     socket.on('disconnect', (reason) => {
+      // Don't emit logout events for server-side disconnects (server restart/stop)
+      const isServerSideDisconnect = reason === 'server disconnect' || 
+                                   reason === 'transport close' || 
+                                   reason === 'server shutting down' ||
+                                   reason === 'ping timeout';
+      
       for (const [userId, socketIds] of userSockets.entries()) {
         const updatedSockets = socketIds.filter((id) => id !== socket.id);
         if (updatedSockets.length > 0) {
@@ -219,6 +225,15 @@ const initializeSocket = (server) => {
           logger.log(
             chalk.blue(`User ${userId} disconnected, no remaining sockets`),
           );
+          
+          // Only emit logout events for client-side disconnects, not server restarts
+          if (!isServerSideDisconnect) {
+            logger.log(chalk.yellow(`[SOCKET] Emitting logout event for user ${userId} due to client disconnect`));
+            // You can add specific logout events here if needed
+            // ioInstance.emit('userLoggedOut', { userId, reason: 'client_disconnect' });
+          } else {
+            logger.log(chalk.gray(`[SOCKET] Skipping logout event for user ${userId} due to server-side disconnect: ${reason}`));
+          }
         }
       }
       const disconnectMessage = chalk.bold.red(
