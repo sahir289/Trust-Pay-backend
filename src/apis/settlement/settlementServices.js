@@ -17,7 +17,6 @@ import {
 } from '../calculation/calculationDao.js';
 import {
   getMerchantsDao,
-  updateMerchantDao,
 } from '../merchants/merchantDao.js';
 import {
   columns,
@@ -33,7 +32,7 @@ import {
   getInternalBankResponseByUTR,
   updateBankResponseDao,
 } from '../bankResponse/bankResponseDao.js';
-import { getVendorsDao, updateVendorBalanceDao } from '../vendors/vendorDao.js';
+import { getVendorsDao } from '../vendors/vendorDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
@@ -422,16 +421,16 @@ const updateSettlementService = async (conn, ids, payload) => {
         const { id } = calculationData[0];
         await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
       }
-      const merchantData = await getMerchantsDao(
-        { user_id: data[0].user_id },
-        null,
-        null,
-        null,
-        null,
-      );
+      // const merchantData = await getMerchantsDao(
+      //   { user_id: data[0].user_id },
+      //   null,
+      //   null,
+      //   null,
+      //   null,
+      // );
 
       if (data[0].role === Role.VENDOR) {
-        const vendorData = await getVendorsDao({ user_id: data[0].user_id });
+        // const vendorData = await getVendorsDao({ user_id: data[0].user_id });
         if (data[0].method === 'BANK') {
           const [beneficiaryAcc] = await getBeneficiaryAccountDao({
             user_id: data[0].config.bank_id,
@@ -466,23 +465,23 @@ const updateSettlementService = async (conn, ids, payload) => {
             beneficiary_closing_balance: beneficiaryClosingBalance,
           };
         }
-
-        const vendorBalance = vendorData[0].balance - payload?.amount;
-
-        await updateVendorBalanceDao(
-          { id: vendorData[0].id },
-          { balance: vendorBalance },
-          payload.user_id,
-          conn,
-        );
-      } else if (data[0].role === Role.MERCHANT) {
-        const merchantAcc = merchantData[0].balance - payload?.amount;
-        await updateMerchantDao(
-          { id: merchantData[0].id },
-          { balance: merchantAcc },
-          conn,
-        );
       }
+        // const vendorBalance = vendorData[0].balance - payload?.amount;
+
+        // await updateVendorBalanceDao(
+        //   { id: vendorData[0].id },
+        //   { balance: vendorBalance },
+        //   payload.user_id,
+        //   conn,
+        // );
+      // } else if (data[0].role === Role.MERCHANT) {
+      //   // const merchantAcc = merchantData[0].balance - payload?.amount;
+      //   // await updateMerchantDao(
+      //   //   { id: merchantData[0].id },
+      //   //   { balance: merchantAcc },
+      //   //   conn,
+      //   // );
+      // }
     }
 
     if (payload.config.rejected_reason) {
@@ -560,14 +559,35 @@ const updateSettlementService = async (conn, ids, payload) => {
             payload.amount,
             VendorCommission,
           );
-          // Update vendor balance - Fix: Pass number instead of object
-          const vendorAcc = vendorData[0].balance + payload.amount;
-          await updateVendorBalanceDao(
-            { id: vendorData[0].id },
-            Number(vendorAcc),
-            payload.updated_by,
+          const InternalSettlementConfig = {
+            total_internalSettlement_amount:
+              calculationData[0].config.total_internalSettlement_amount > 0
+                ? calculationData[0].config.total_internalSettlement_amount -
+                  payload.amount
+                : -payload.amount,
+            total_internalSettlement_count:
+              calculationData[0].config.total_internalSettlement_count > 0
+                ? calculationData[0].config.total_internalSettlement_count - 1
+                : -1,
+            total_internalSettlement_commission:
+              calculationData[0].config.total_internalSettlement_commission > 0
+                ? calculationData[0].config
+                    .total_internalSettlement_commission - commission
+                : -commission,
+          };
+          await updateCalculationDao(
+            { id: calculationData[0].id },
+            { config: InternalSettlementConfig },
             conn,
           );
+          // Update vendor balance - Fix: Pass number instead of object
+          // const vendorAcc = vendorData[0].balance + payload.amount;
+          // await updateVendorBalanceDao(
+          //   { id: vendorData[0].id },
+          //   Number(vendorAcc),
+          //   payload.updated_by,
+          //   conn,
+          // );
 
           updatedCalculation = {
             total_settlement_count: 1,
