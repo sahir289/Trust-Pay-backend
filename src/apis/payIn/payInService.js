@@ -206,7 +206,7 @@ export const generatePayInUrlService = async (
       merchant_order_id: order_id,
       amount,
       returnUrl,
-      callbackUrl,
+      notifyUrl,
       ot,
       api_key,
       x_api_key,
@@ -307,8 +307,8 @@ export const generatePayInUrlService = async (
       company_id: merchant.company_id,
       config: stringifyJSON({
         urls: {
-          return: returnUrl || merchant.config?.urls?.return || '',
-          notify: callbackUrl || merchant.config?.urls?.payin_notify || '',
+          return: returnUrl ? returnUrl : merchant.config?.urls?.return || '',
+          notify: notifyUrl ? notifyUrl : merchant.config?.urls?.payin_notify || '',
         },
       }),
       created_by,

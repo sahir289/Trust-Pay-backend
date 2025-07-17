@@ -482,7 +482,21 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (stringifyJSON(payload) === stringifyJSON(checkPayload)) {
       return data;
     }
-    if (!data.approved_at) return data;
+    
+    const notifyUrl = data.config?.urls?.notify || merchant.config?.urls?.payout_notify;
+
+    // Early return if not approved
+    if (!data.approved_at) {
+      merchantPayoutCallback(notifyUrl, {
+        code: data.code,
+        merchantOrderId: data.merchant_order_id,
+        payoutId: data.id,
+        amount: data.amount,
+        status: data.status,
+        utr_id: data.utr_id || '',
+      });
+      return data;
+    }
 
     // Fetch bank data first, then get vendor using bankData.user_id
     const bankDataArr = await getBankByIdDao({ id: data.bank_acc_id });
@@ -580,7 +594,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
     await newTableEntry(tableName.PAYOUT);
     // This is async function but it's just the callback sending function there fore we are not using await
-    merchantPayoutCallback(data.config?.urls?.notify, {
+    merchantPayoutCallback(notifyUrl, {
       code: data.code,
       merchantOrderId: data.merchant_order_id,
       payoutId: data.id,
