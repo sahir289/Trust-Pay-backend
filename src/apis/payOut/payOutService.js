@@ -705,8 +705,6 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       return data;
     }
 
-    // Fetch bank data first, then get vendor using bankData.user_id
-    const bankDataArr = await getBankByIdDao({ id: data.bank_acc_id });
     const bankData = bankDataArr[0];
     if (!bankData) {
       throw new NotFoundError('Bank not found!');
