@@ -50,6 +50,20 @@ const initializeSocket = (server) => {
         socket.sessionId = sessionId;
         socket.loginTime = Date.now();
 
+        // FIRST: Use our force logout function to ensure all existing sessions are terminated
+        // This is a more aggressive approach for maximum reliability
+        logger.log(
+          chalk.yellow(
+            `[SOCKET] Pre-emptively calling forceLogoutUser for ${userId} to ensure clean login`,
+          ),
+        );
+        
+        // Call our dedicated force logout function first
+        await forceLogoutUser(userId);
+        
+        // Small delay to ensure disconnection is processed
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         // Get all connected sockets across all namespaces
         const allSockets = await ioInstance.fetchSockets();
 
@@ -83,8 +97,8 @@ const initializeSocket = (server) => {
               ),
             );
 
-            // Send immediate logout notifications
-            existingSocket.emit('forceLogout', {
+            // Send multiple logout events for redundancy and immediate effect
+            const logoutPayload = {
               reason: 'new_login',
               userId: userId,
               sessionId: existingSessionId || 'unknown',
@@ -92,29 +106,55 @@ const initializeSocket = (server) => {
                 'Your session has been terminated due to a new login from another device.',
               timestamp: new Date().toISOString(),
               targeted: true,
-            });
+            };
 
-            existingSocket.emit('session-terminated', {
+            const terminationPayload = {
               reason: 'new_login',
               userId: userId,
               sessionId: existingSessionId || 'unknown',
               message: 'Please login again',
-            });
+            };
 
-            // Disconnect immediately
+            // Send events with immediate execution
             try {
-              if (existingSocket.connected) {
-                existingSocket.disconnect(true);
-                logger.log(
-                  chalk.red(
-                    `[SOCKET] Disconnected socket ${existingSocket.id}`,
-                  ),
-                );
-              }
+              // Send all logout events immediately
+              existingSocket.emit('forceLogout', logoutPayload);
+              existingSocket.emit('session-terminated', terminationPayload);
+              existingSocket.emit('logout', logoutPayload); // Additional event for compatibility
+              existingSocket.emit('disconnect-user', terminationPayload); // Another event type
+              
+              // Force immediate disconnect - use setTimeout for next tick
+              setTimeout(() => {
+                if (existingSocket.connected) {
+                  existingSocket.disconnect(true);
+                  logger.log(
+                    chalk.red(
+                      `[SOCKET] Force disconnected socket ${existingSocket.id}`,
+                    ),
+                  );
+                }
+              }, 0);
+              
             } catch (err) {
               logger.error(
-                `[SOCKET] Error disconnecting socket ${existingSocket.id}: ${err.message}`,
+                `[SOCKET] Error in force logout process for socket ${existingSocket.id}: ${err.message}`,
               );
+              
+              // Even if events fail, force disconnect
+              try {
+                if (existingSocket.connected) {
+                  existingSocket.disconnect(true);
+                  logger.log(
+                    chalk.red(
+                      `[SOCKET] Emergency disconnected socket ${existingSocket.id}`,
+                    ),
+                  );
+                }
+              } catch (disconnectErr) {
+                logger.error(
+                  `[SOCKET] Failed to emergency disconnect socket ${existingSocket.id}: ${disconnectErr.message}`,
+                );
+              }
             }
           }
         }
@@ -122,9 +162,20 @@ const initializeSocket = (server) => {
         // Add only this new socket to our tracking map since we disconnected all others
         userSockets.set(userId, [socket.id]);
 
+        // Join user to a specific room for targeted messaging
+        socket.join(`user_${userId}`);
+        
+        // Also emit to the user's room to ensure any remaining connections get the message
+        ioInstance.to(`user_${userId}`).emit('forceLogout', {
+          reason: 'new_login_room',
+          userId: userId,
+          message: 'Another device has logged in with your credentials.',
+          timestamp: new Date().toISOString(),
+        });
+
         logger.log(
           chalk.green(
-            `[SOCKET] User ${userId} logged in successfully with socket ${socket.id} - single device enforced`,
+            `[SOCKET] User ${userId} logged in successfully with socket ${socket.id} - single device enforced, joined room user_${userId}`,
           ),
         );
 
@@ -150,6 +201,14 @@ const initializeSocket = (server) => {
     });
 
     socket.on('disconnect', (reason) => {
+      // Leave user room on disconnect
+      if (socket.userId) {
+        socket.leave(`user_${socket.userId}`);
+        logger.log(
+          chalk.gray(`[SOCKET] Socket ${socket.id} left room user_${socket.userId}`),
+        );
+      }
+
       // Don't emit logout events for server-side disconnects (server restart/stop)
       const isServerSideDisconnect =
         reason === 'server disconnect' ||
