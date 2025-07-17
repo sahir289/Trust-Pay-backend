@@ -310,7 +310,10 @@ const forgetPasswordService = async (payload) => {
     const hashPassword = await createHash(payload.password);
     const user = await updateUserDao(
       { id: payload.user_id },
-      { password: hashPassword },
+      { 
+        password: hashPassword,
+        config: { isLoginFirst: false } 
+      },
     );
     return user;
   } catch (error) {
