@@ -656,7 +656,7 @@ export const AccessRoles = {
     Role.VENDOR,
     Role.VENDOR_OPERATIONS,
   ],
-  COMPANY: [Role.ADMIN],
+  COMPANY: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.VENDOR, Role.VENDOR_OPERATIONS],
   USER_HIERARCHY: {
     CREATE_DELETE: [Role.ADMIN, Role.TRANSACTIONS],
     UPDATE_READ: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANT],
@@ -787,3 +787,11 @@ export const europeanCountries = [
   'United Kingdom',
   'Vatican City',
 ];
+
+export const payAssistErrorCodeMap = {
+  '11': 'Insufficient Funds',
+  '12': 'Transaction already exists',
+  '13': 'Insufficient Funds',
+  '14': 'Invalid Account Details',
+  '15': 'Invalid Account Details'
+};

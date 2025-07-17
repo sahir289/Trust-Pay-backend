@@ -243,6 +243,50 @@ export const getPayoutsDao = async (
   }
 };
 
+export const getPayoutBankDetailsDao = async (filters, company_id) => {
+  try {
+    const conditions = [`u.is_obsolete = false`];
+    const queryParams = [];
+    let paramIndex = 1;
+
+    if (company_id) {
+      conditions.push(`u.company_id = $${paramIndex}`);
+      queryParams.push(company_id);
+      paramIndex++;
+    }
+
+    // Handle payOutids array
+    if (filters.payOutids && Array.isArray(filters.payOutids)) {
+      conditions.push(`u.id = ANY($${paramIndex})`);
+      queryParams.push(filters.payOutids);
+      paramIndex++;
+    }
+
+    const baseQuery = `
+      SELECT 
+        u.id,
+        u.amount,
+        u.status,
+        json_build_object(
+          'account_holder_name', u.acc_holder_name,
+          'account_no', u.acc_no,
+          'ifsc_code', u.ifsc_code,
+          'bank_name', u.bank_name
+        ) AS user_bank_details
+      FROM public."Payout" u
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY u.sno DESC
+    `;
+
+    const result = await executeQuery(baseQuery, queryParams);
+    return result.rows;
+
+  } catch (error) {
+    logger.error('Error in getPayoutBankDetailsDao:', error);
+    throw error.message;
+  }
+};
+
 export const getAllPayoutsDao = async (
   filters,
   company_id,

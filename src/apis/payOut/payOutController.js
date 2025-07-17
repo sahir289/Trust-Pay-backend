@@ -8,6 +8,8 @@ import {
   getPayoutsBySearchService,
   checkPayOutStatusService,
   assignedPayoutService,
+  walletsPayoutsService,
+  getWalletsBalanceService,
 } from './payOutService.js';
 import {
   PAYOUT_DETAILS_SCHEMA,
@@ -15,6 +17,7 @@ import {
   VALIDATE_CHECK_PAY_OUT_STATUS,
   VALIDATE_PAYOUT_BY_ID,
   ASSIGNED_VENDOR_SCHEMA,
+  WALLET_PAYOUT_DETAILS_SCHEMA,
 } from '../../schemas/payoutSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
@@ -43,7 +46,7 @@ const createPayout = async (req, res) => {
   delete payload?.user_id;
 
   let result = {};
-  if (req.user) {
+  if (req?.user) {
     const { company_id, role, user_id } = req.user;
     payload.company_id = company_id;
     payload.created_by = user_id;
@@ -115,6 +118,40 @@ const getPayouts = async (req, res) => {
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };
 
+  const walletsPayouts = async (req, res) => {
+    const joiValidation = WALLET_PAYOUT_DETAILS_SCHEMA.validate(req.body);
+    if (joiValidation.error) {
+      throw new ValidationError(joiValidation.error);
+    }
+    const { company_id, user_id } = req.user;
+    const payload = req.body;
+    payload.company_id = company_id;
+
+    let result = await transactionWrapper(walletsPayoutsService)(
+        payload,
+        user_id,
+        res,
+      );
+    // Log success message
+    logger.log('Payout updated successfully');
+    const updateRes = {
+      balance: result,
+    };
+  
+    // Send a success response to the client
+    return sendNewSuccess(res, updateRes, 'Payout updated successfully', 201);
+  }
+
+  const getWalletsBalance = async (req, res) => {
+    const { company_id } = req.user;
+    let result = await getWalletsBalanceService(company_id);
+    // Log success message
+    logger.log('Wallet Balance fetch successfully');
+  
+    // Send a success response to the client
+    return sendNewSuccess(res, result, 'Wallet Balance fetch successfully', 200);
+  }
+
 const getPayoutsBySearch = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
   const { search, page = 1, limit = 10 } = req.query;
@@ -162,7 +199,6 @@ const assignedPayout = async (req, res) => {
   const { user_id, user_name ,company_id} = req.user;
   const { id } = req.params;
   const { payouts_ids } = req.body;
-  console.log(req.body)
   const joiValidation = ASSIGNED_VENDOR_SCHEMA.validate(req.body);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
@@ -226,5 +262,7 @@ export {
   updatePayout,
   deletePayout,
   getPayoutsById,
-  assignedPayout
+  assignedPayout,
+  walletsPayouts,
+  getWalletsBalance
 };

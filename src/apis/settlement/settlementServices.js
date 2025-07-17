@@ -13,6 +13,7 @@ import {
 import {
   getCalculationforCronDao,
   updateCalculationBalanceDao,
+  updateCalculationDao
 } from '../calculation/calculationDao.js';
 import {
   getMerchantsDao,
@@ -282,13 +283,13 @@ const createSettlementService = async (conn, payload) => {
         );
 
         // Update vendor balance - Fix: Pass number instead of object
-        const vendorAcc = vendorData[0].balance + payload.amount;
-        await updateVendorBalanceDao(
-          { id: vendorData[0].id },
-          Number(vendorAcc),
-          payload.updated_by,
-          conn,
-        );
+        // const vendorAcc = vendorData[0].balance + payload.amount;
+        // await updateVendorBalanceDao(
+        //   { id: vendorData[0].id },
+        //   Number(vendorAcc),
+        //   payload.updated_by,
+        //   conn,
+        // );
 
         await updateBankResponseDao(
           { id: bankResponses.id },
@@ -308,9 +309,25 @@ const createSettlementService = async (conn, payload) => {
           updatedCalculation,
           conn,
         );
-
+     const InternalSettlementConfig = {
+          total_internalSettlement_amount:
+            calculationData[0].config.total_internalSettlement_amount > 0
+              ? calculationData[0].config.total_internalSettlement_amount +
+                payload.amount
+              : payload.amount,
+          total_internalSettlement_count:
+            calculationData[0].config.total_internalSettlement_count > 0
+              ? calculationData[0].config.total_internalSettlement_count + 1
+              : 1,
+          total_internalSettlement_commission:
+            calculationData[0].config.total_internalSettlement_commission > 0
+              ? calculationData[0].config.total_internalSettlement_commission +
+                commission
+              : commission,
+        };
+      await updateCalculationDao({id: calculationData[0].id},{config:InternalSettlementConfig},conn);
         payload.status = Status.SUCCESS;
-        return await createSettlementDao(payload);
+        return await createSettlementDao(payload,conn);
       }
 
       throw new BadRequestError('UTR is already used');
@@ -325,7 +342,13 @@ const createSettlementService = async (conn, payload) => {
     //   actorUserId: payload.user_id,
     //   category: 'Settlement',
     // });
-
+    const adjustedValue =
+    payload.config.debit_credit === 'RECEIVED'
+      ? Number(payload.amount) > 0
+        ? -Number(payload.amount)
+        : Number(payload.amount)
+      : Math.abs(Number(payload.amount));
+    payload.amount = adjustedValue;
     return await createSettlementDao(payload);
   } catch (error) {
     logger.error('Error while creating Settlement', error);
