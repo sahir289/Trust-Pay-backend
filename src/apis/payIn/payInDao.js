@@ -681,6 +681,7 @@ export const getPayinsBySearchDao = async (
         p.payin_merchant_commission,
         p.merchant_order_id,
         p.user,
+        p.is_notified,
         p.config AS payin_details,
         json_build_object(
           'merchant_code', m.code,
@@ -710,6 +711,7 @@ export const getPayinsBySearchDao = async (
         p.is_url_expires,
         p.approved_at,
         p.created_by,
+        p.is_notified,
         p.user,
         p.updated_by,
         p.created_at,
@@ -722,7 +724,6 @@ export const getPayinsBySearchDao = async (
         p.sno,
         p.amount,
         p.status,
-        p.is_notified,
         p.user_submitted_utr,
         p.user_submitted_image,
         p.duration,
