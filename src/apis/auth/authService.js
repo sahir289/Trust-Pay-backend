@@ -30,6 +30,7 @@ import { logger } from '../../utils/logger.js';
 import { compareHash } from '../../utils/hashUtils.js';
 import { logOutUser } from '../../utils/sockets.js';
 import { Role } from '../../constants/index.js';
+import { enforceSingleSession } from '../../middlewares/concurrentSessionMiddleware.js';
 
 const loginService = async (config, clientIP) => {
   let conn;
@@ -104,30 +105,31 @@ const loginService = async (config, clientIP) => {
         company_id: user.company_id,
       };
 
-      // First, immediately invalidate ALL existing sessions for this user
-      // This prevents any race condition with multiple simultaneous logins
-      await deleteUserSessionsDao(user.id, user.company_id, null, conn);
+      // Enhanced concurrent session enforcement
+      logger.info(`[LOGIN] Enforcing single session for user: ${user.id}`);
+      await enforceSingleSession(user.id, user.company_id, null, conn);
       
-      // Verify all sessions are cleared
+      // Double-check: ensure no active sessions remain
       const remainingSessions = await getAllActiveSessionsDao(user.id, user.company_id);
       if (remainingSessions.length > 0) {
-        logger.warn(`Warning: ${remainingSessions.length} sessions still active for user ${user.id} after cleanup`);
-        // Force clear again if any remain
+        logger.warn(`[LOGIN] Warning: ${remainingSessions.length} sessions still active after cleanup for user ${user.id}`);
+        
+        // Force cleanup of any remaining sessions
         for (const session of remainingSessions) {
+          await deleteUserSessionsDao(user.id, user.company_id, session.session_id, conn);
           forceLogoutUser(user.id, session.session_id);
+          logger.warn(`[LOGIN] Force removed session ${session.session_id} for user ${user.id}`);
         }
       }
       
-      // Check for any existing active sessions after deletion (should be none)
+      // Final verification - no sessions should exist
       const existingSession = await getSessionByIdDao(userDetails);
       if (existingSession) {
-        logger.warn(`Found existing session during cleanup for user: ${user.id}, session: ${existingSession.session_id}`);
+        logger.error(`[LOGIN] Critical: Session still exists after cleanup for user: ${user.id}, session: ${existingSession.session_id}`);
         
-        // Notify the previous session to logout via WebSocket
-        forceLogoutUser(user.id, existingSession.session_id);
-        
-        // Force delete this specific session
+        // Emergency cleanup
         await deleteUserSessionsDao(user.id, user.company_id, existingSession.session_id, conn);
+        forceLogoutUser(user.id, existingSession.session_id);
       }
 
       // Generate new session ID and tokens
