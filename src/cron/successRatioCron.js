@@ -131,7 +131,6 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
       const intervalDetailsUtr = intervals
         .map(({ label, duration }) => {
           const startTime = new Date(now - duration);
-          console.log(merchantTransactions);
           const filteredTransactions = merchantTransactions.filter(
             (tx) => tx.created_at >= startTime,
           );
