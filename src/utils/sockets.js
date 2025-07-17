@@ -65,83 +65,66 @@ const initializeSocket = (server) => {
           ),
         );
 
-        // IMMEDIATELY force logout all other sessions from different devices
+        // IMMEDIATELY force logout all other sessions - enforce single device login
         if (userActiveSockets.length > 0) {
           logger.log(
             chalk.bgRed.white(
-              `[SOCKET] IMMEDIATE logout of ${userActiveSockets.length} existing sockets for user ${userId}`,
+              `[SOCKET] IMMEDIATE logout of ${userActiveSockets.length} existing sockets for user ${userId} - enforcing single device login`,
             ),
           );
 
-          // Force logout each existing socket immediately
+          // Force logout ALL existing sockets immediately - no exceptions for same session
           for (const existingSocket of userActiveSockets) {
             const existingSessionId = existingSocket.sessionId;
 
-            // If we have sessionId, only logout sockets from different sessions
-            // If no sessionId, logout all existing sockets
-            const shouldLogout = !sessionId || existingSessionId !== sessionId;
+            logger.log(
+              chalk.red(
+                `[SOCKET] Force logging out socket ${existingSocket.id} with session ${existingSessionId} - new device login detected`,
+              ),
+            );
 
-            if (shouldLogout) {
-              logger.log(
-                chalk.red(
-                  `[SOCKET] Force logging out socket ${existingSocket.id} with session ${existingSessionId}`,
-                ),
-              );
+            // Send immediate logout notifications
+            existingSocket.emit('forceLogout', {
+              reason: 'new_login',
+              userId: userId,
+              sessionId: existingSessionId || 'unknown',
+              message:
+                'Your session has been terminated due to a new login from another device.',
+              timestamp: new Date().toISOString(),
+              targeted: true,
+            });
 
-              // Send immediate logout notifications
-              existingSocket.emit('forceLogout', {
-                reason: 'new_login',
-                userId: userId,
-                sessionId: existingSessionId || 'unknown',
-                message:
-                  'Your session has been terminated due to a new login from another device.',
-                timestamp: new Date().toISOString(),
-                targeted: true,
-              });
+            existingSocket.emit('session-terminated', {
+              reason: 'new_login',
+              userId: userId,
+              sessionId: existingSessionId || 'unknown',
+              message: 'Please login again',
+            });
 
-              existingSocket.emit('session-terminated', {
-                reason: 'new_login',
-                userId: userId,
-                sessionId: existingSessionId || 'unknown',
-                message: 'Please login again',
-              });
-
-              // Disconnect immediately
-              try {
-                if (existingSocket.connected) {
-                  existingSocket.disconnect(true);
-                  logger.log(
-                    chalk.red(
-                      `[SOCKET] Disconnected socket ${existingSocket.id}`,
-                    ),
-                  );
-                }
-              } catch (err) {
-                logger.error(
-                  `[SOCKET] Error disconnecting socket ${existingSocket.id}: ${err.message}`,
+            // Disconnect immediately
+            try {
+              if (existingSocket.connected) {
+                existingSocket.disconnect(true);
+                logger.log(
+                  chalk.red(
+                    `[SOCKET] Disconnected socket ${existingSocket.id}`,
+                  ),
                 );
               }
-            } else {
-              logger.log(
-                chalk.green(
-                  `[SOCKET] Keeping socket ${existingSocket.id} - same session ${existingSessionId}`,
-                ),
+            } catch (err) {
+              logger.error(
+                `[SOCKET] Error disconnecting socket ${existingSocket.id}: ${err.message}`,
               );
             }
           }
         }
 
-        // Add this socket to our tracking map
-        const sameSessionSockets = sessionId
-          ? userActiveSockets
-              .filter((s) => s.sessionId === sessionId && s.connected)
-              .map((s) => s.id)
-          : [];
-        userSockets.set(userId, [socket.id, ...sameSessionSockets]);
+        // Add only this new socket to our tracking map since we disconnected all others
+        userSockets.set(userId, [socket.id]);
 
         logger.log(
           chalk.green(
-            `[SOCKET] User ${userId} logged in successfully with socket ${socket.id}`,
+            `[SOCKET] User ${userId} logged in successfully with socket ${socket.id} - single device enforced`,
           ),
         );
 
