@@ -46,142 +46,49 @@ const initializeSocket = (server) => {
       
       // Critical section - handle the session management with care
       try {
-        // First, get all connected sockets across all namespaces
+        // Store socket metadata for better tracking
+        socket.userId = userId;
+        socket.sessionId = sessionId;
+        socket.loginTime = Date.now();
+        
+        // Get all connected sockets across all namespaces
         const allSockets = await ioInstance.fetchSockets();
         
         // Find all existing sockets for this user by checking socket.userId property
-        // This is more reliable than using our tracking map which might be stale
         const userActiveSockets = allSockets.filter(s => 
           s.userId === userId && s.id !== socket.id
         );
         
-        // If we have a sessionId, only logout sockets from different sessions (different devices/browsers)
-        // If sessionId is the same, it means it's the same browser session (multiple tabs), so don't logout
-        const socketsToLogout = sessionId 
-          ? userActiveSockets.filter(s => s.sessionId !== sessionId)
-          : userActiveSockets; // If no sessionId provided, logout all (backward compatibility)
-        
         // Log what we found
-        logger.log(chalk.bgRed.white(`[SOCKET] Found ${userActiveSockets.length} active sockets for user ${userId}, will disconnect ${socketsToLogout.length} sockets from different sessions`));
+        logger.log(chalk.bgBlue.white(`[SOCKET] Found ${userActiveSockets.length} existing sockets for user ${userId}`));
         
-        if (sessionId && socketsToLogout.length < userActiveSockets.length) {
-          const sameSessionSockets = userActiveSockets.length - socketsToLogout.length;
-          logger.log(chalk.bgGreen.white(`[SOCKET] Keeping ${sameSessionSockets} sockets from same session (same browser) for user ${userId}`));
-        }
-        
-        // Create a deterministic set of socket IDs to force logout - EXCLUDING current socket and same session sockets
-        const allSocketsToLogout = new Set(
-          socketsToLogout.map(s => s.id)
-        );
-        
-        // IMPORTANT: Add this socket to our tracking map AFTER identifying old sockets
-        // This prevents race conditions where multiple sockets login simultaneously
-        // Include all sockets from the same session (same browser)
-        const sameSessionSockets = userActiveSockets.filter(s => 
-          sessionId && s.sessionId === sessionId
-        ).map(s => s.id);
-        
-        // Set all sockets for this user from the same session
+        // Add this socket to our tracking map
+        const sameSessionSockets = sessionId 
+          ? userActiveSockets.filter(s => s.sessionId === sessionId).map(s => s.id)
+          : [];
         userSockets.set(userId, [socket.id, ...sameSessionSockets]);
         
-        // Force logout existing sessions from different devices/browsers EXCEPT the current socket and same session sockets
-        logger.log(chalk.bgYellow.black(`[SOCKET] Will force logout ${allSocketsToLogout.size} sockets from different sessions for user ${userId}`));
-        let forcedLogoutCount = 0;
-        
-        // Only process sockets from different sessions (different devices/browsers)
-        if (allSocketsToLogout.size > 0) {
-          logger.log(chalk.yellow(`[SOCKET] Processing logout for ${allSocketsToLogout.size} sockets from different sessions for userId: ${userId}`));
-        
-          // Loop through old sockets from different sessions only
-          for (const existingSocketId of allSocketsToLogout) {
-          if (existingSocketId === socket.id) continue; // Skip the current socket (redundant check)
-          
-          logger.log(chalk.red(`[SOCKET] Forcing logout on socket ${existingSocketId} for user ${userId}`));
-          
-          // Get the socket directly from the server
-          const oldSocket = ioInstance.sockets.sockets.get(existingSocketId);
-          if (oldSocket) {
-            // Emit targeted force logout events with complete metadata - send multiple event types for redundancy
-            logger.log(chalk.red(`[SOCKET] Sending forceLogout to socket ${existingSocketId}`));
-            
-            // Emit multiple event types with complete data for redundant notification
-            oldSocket.emit('forceLogout', {
-              reason: 'new_login',
-              userId: userId,
-              socketId: existingSocketId,
-              sessionId: oldSocket.sessionId, // Use this socket's session ID for accurate targeting
-              message: 'Your session has been terminated due to a new login from another device.',
-              timestamp: new Date().toISOString(),
-              targeted: true // Mark this as a targeted message
-            });
-            
-            oldSocket.emit('session-terminated', {
-              reason: 'new_login',
-              userId: userId,
-              message: 'Please login again',
-              sessionId: oldSocket.sessionId
-            });
-            
-            // IMMEDIATE DISCONNECT - don't wait
-            try {
-              if (oldSocket.connected) { // Check if still connected before disconnecting
-                oldSocket.disconnect(true);
-                logger.log(chalk.red(`[SOCKET] Immediately disconnected old socket ${existingSocketId}`));
-              }
-            } catch (err) {
-              logger.error(`[SOCKET] Error disconnecting socket ${existingSocketId}: ${err.message}`);
-            }
-            
-            forcedLogoutCount++;
-          } else {
-            logger.warn(`[SOCKET] Could not find socket ${existingSocketId} to disconnect`);
-          }
-        }
+        // Use our centralized forceLogoutUser function to handle session cleanup
+        // This will logout all other sessions except the current one (sessionId)
+        if (sessionId) {
+          // Logout all sessions from different devices/browsers, keep same session sockets
+          logger.log(chalk.yellow(`[SOCKET] Using forceLogoutUser to cleanup other sessions for user ${userId}, excluding session ${sessionId}`));
+          await forceLogoutUser(userId, null, sessionId);
         } else {
-          logger.log(chalk.green(`[SOCKET] No sockets from different sessions to logout for user ${userId} - all connections are from the same browser session`));
-        }
-        
-        // Clean up our socket map for other users to avoid stale entries
-        for (const [mapUserId, socketsList] of userSockets.entries()) {
-          if (mapUserId === userId) continue; // Skip our current user
+          // Backward compatibility - logout all other sessions if no sessionId provided
+          logger.log(chalk.yellow(`[SOCKET] Using forceLogoutUser to cleanup all other sessions for user ${userId} (no sessionId provided)`));
+          const socketsToLogout = userActiveSockets.filter(s => s.id !== socket.id);
           
-          // Check each socket in our map to see if it actually belongs to our current user
-          const updatedSockets = [];
-          for (const sid of socketsList) {
-            const s = ioInstance.sockets.sockets.get(sid);
-            if (s && s.userId === userId) {
-              // This socket belongs to our current user but is in the wrong map entry
-              logger.warn(`[SOCKET] Found misplaced socket ${sid} for user ${userId} in user ${mapUserId}'s entry`);
-              
-              // Force logout this misplaced socket
-              s.emit('forceLogout', {
-                reason: 'session_cleanup',
-                userId: userId,
-                message: 'Session cleanup due to inconsistent tracking',
-                targeted: true
-              });
-              
-              // Disconnect immediately
-              if (s.connected) {
-                s.disconnect(true);
-              }
-              forcedLogoutCount++;
-            } else if (s) {
-              // Valid socket that belongs to the right user
-              updatedSockets.push(sid);
+          // Force logout each old socket individually to be more precise
+          for (const oldSocket of socketsToLogout) {
+            if (oldSocket.sessionId) {
+              await forceLogoutUser(userId, oldSocket.sessionId);
             }
-          }
-          
-          // Update the map with cleaned up entries
-          if (updatedSockets.length === 0) {
-            userSockets.delete(mapUserId);
-          } else if (updatedSockets.length !== socketsList.length) {
-            userSockets.set(mapUserId, updatedSockets);
           }
         }
         
         const loginMessage = chalk.bold.green(
-          `[SOCKET] User ${userId} associated with socket ${socket.id}, forced logout of ${forcedLogoutCount} connections from different devices/browsers`
+          `[SOCKET] User ${userId} logged in with socket ${socket.id}, session management completed`
         );
         logger.log(loginMessage);
         
@@ -246,7 +153,7 @@ const initializeSocket = (server) => {
   logger.log(initMessage);
 };
 
-const forceLogoutUser = async (userId, sessionId = null, excludeSessionId = null) => {
+const forceLogoutUser = async (userId, targetSessionId = null, excludeSessionId = null) => {
   if (!ioInstance) {
     logger.error('Socket.IO not initialized');
     return;
@@ -255,28 +162,81 @@ const forceLogoutUser = async (userId, sessionId = null, excludeSessionId = null
   // This approach is more reliable than using our internal tracking map
   try {
     // Log with high visibility for debugging
-    logger.log(chalk.bgRed.white(`[SOCKET] forceLogoutUser called for userId: ${userId}, sessionId: ${sessionId}, excludeSessionId: ${excludeSessionId}`));
+    logger.log(chalk.bgRed.white(`[SOCKET] forceLogoutUser called for userId: ${userId}, targetSessionId: ${targetSessionId}, excludeSessionId: ${excludeSessionId}`));
     
     // Get all connected sockets directly from Socket.IO
     const allSockets = await ioInstance.fetchSockets();
     
     // Find sockets belonging to this user based on the userId property
-    const userSockets = allSockets.filter(socket => socket.userId === userId);
+    const userActiveSocketsList = allSockets.filter(socket => socket.userId === userId);
     
-    const logMessage = sessionId 
-      ? `Force logout for user ${userId}, session ${sessionId}, found ${userSockets.length} active sockets`
-      : `Force logout for user ${userId}, found ${userSockets.length} active sockets`;
+    const logMessage = targetSessionId 
+      ? `Force logout for user ${userId}, target session ${targetSessionId}, found ${userActiveSocketsList.length} active sockets`
+      : `Force logout for user ${userId}, found ${userActiveSocketsList.length} active sockets`;
     logger.log(chalk.bgRed.white(logMessage));
     
-    // If we have an excludeSessionId, handle targeted logout
-    if (excludeSessionId) {
+    // If we have a targetSessionId, only logout that specific session
+    if (targetSessionId && !excludeSessionId) {
+      logger.log(chalk.red(`[SOCKET] Targeted force logout for user ${userId}, targeting session ${targetSessionId}`));
+      
+      let disconnectedCount = 0;
+      
+      // Process each socket for this user
+      for (const socket of userActiveSocketsList) {
+        const socketSessionId = socket.sessionId;
+        
+        // Log every socket we find for debugging
+        logger.log(chalk.red(`[SOCKET] Checking socket ${socket.id} with sessionId ${socketSessionId} (targeting ${targetSessionId})`));
+        
+        // Only logout the socket with the matching session ID
+        if (socketSessionId !== targetSessionId) {
+          logger.log(chalk.green(`[SOCKET] Skipping socket ${socket.id} with non-matching session ID ${socketSessionId}`));
+          continue;
+        }
+        
+        // Send targeted messages to the specific socket
+        logger.log(chalk.red(`[SOCKET] Sending forceLogout to socket ${socket.id} for user ${userId}`));
+        
+        socket.emit('forceLogout', { 
+          reason: 'session_terminated',
+          userId: userId,
+          sessionId: socketSessionId || 'unknown',
+          message: 'Your session has been terminated.',
+          timestamp: new Date().toISOString(),
+          targeted: true
+        });
+        
+        socket.emit('session-terminated', {
+          reason: 'session_terminated',
+          userId: userId,
+          sessionId: socketSessionId || 'unknown',
+          message: 'Please login again'
+        });
+        
+        // IMMEDIATE DISCONNECT
+        try {
+          if (socket.connected) {
+            socket.disconnect(true);
+            logger.log(chalk.red(`[SOCKET] Disconnected socket ${socket.id} for user ${userId}`));
+          }
+        } catch (err) {
+          logger.error(`[SOCKET] Error disconnecting socket ${socket.id}: ${err.message}`);
+        }
+        
+        disconnectedCount++;
+      }
+      
+      logger.log(chalk.green(`[SOCKET] Successfully disconnected ${disconnectedCount} sockets for user ${userId}`));
+    }
+    // If we have an excludeSessionId, handle targeted logout (exclude specific session)
+    else if (excludeSessionId) {
       logger.log(chalk.red(`[SOCKET] Targeted force logout for user ${userId}, excluding session ${excludeSessionId}`));
       
       // Process directly found sockets - more reliable approach
       let disconnectedCount = 0;
       
       // Process each socket for this user
-      for (const socket of userSockets) {
+      for (const socket of userActiveSocketsList) {
         // Skip the socket with the session we want to exclude
         const socketSessionId = socket.sessionId;
         
@@ -328,7 +288,7 @@ const forceLogoutUser = async (userId, sessionId = null, excludeSessionId = null
       
       // Process each socket for this user
       let disconnectedCount = 0;
-      for (const socket of userSockets) {
+      for (const socket of userActiveSocketsList) {
         const socketSessionId = socket.sessionId || 'unknown';
         
         // Send targeted messages for reliability
@@ -363,10 +323,28 @@ const forceLogoutUser = async (userId, sessionId = null, excludeSessionId = null
     }
     
     // Cleanup the userSockets map
-    // If we're doing a complete logout (not excluding any session)
+    // If we're doing a complete logout (not excluding any session) or targeting a specific session
     if (!excludeSessionId) {
-      userSockets.delete(userId);
-      logger.log(chalk.yellow(`[SOCKET] Removed user ${userId} from socket tracking map`));
+      if (targetSessionId) {
+        // Remove only the targeted session from tracking
+        const currentTrackedSockets = userSockets.get(userId) || [];
+        const updatedSockets = currentTrackedSockets.filter(socketId => {
+          const socket = ioInstance.sockets.sockets.get(socketId);
+          return socket && socket.sessionId !== targetSessionId;
+        });
+        
+        if (updatedSockets.length > 0) {
+          userSockets.set(userId, updatedSockets);
+          logger.log(chalk.yellow(`[SOCKET] Updated socket map to exclude targeted session ${targetSessionId}`));
+        } else {
+          userSockets.delete(userId);
+          logger.log(chalk.yellow(`[SOCKET] Removed user ${userId} from socket tracking map - no remaining sessions`));
+        }
+      } else {
+        // Global logout - remove all
+        userSockets.delete(userId);
+        logger.log(chalk.yellow(`[SOCKET] Removed user ${userId} from socket tracking map`));
+      }
     } else {
       // If we're preserving a specific session, make sure the map only contains that one
       const preservedSockets = allSockets.filter(socket => 
@@ -376,6 +354,10 @@ const forceLogoutUser = async (userId, sessionId = null, excludeSessionId = null
       if (preservedSockets.length > 0) {
         userSockets.set(userId, preservedSockets.map(s => s.id));
         logger.log(chalk.yellow(`[SOCKET] Updated socket map to only include preserved session ${excludeSessionId}`));
+      } else {
+        // No sockets to preserve, remove the user from tracking
+        userSockets.delete(userId);
+        logger.log(chalk.yellow(`[SOCKET] No sockets to preserve, removed user ${userId} from socket tracking map`));
       }
     }
     
@@ -385,8 +367,8 @@ const forceLogoutUser = async (userId, sessionId = null, excludeSessionId = null
   }
 
   // Always emit a global logout event for tracking purposes
-  if (!excludeSessionId) {
-    ioInstance.emit('userLoggedOut', { userId, sessionId, reason: 'forced_logout' });
+  if (!excludeSessionId && !targetSessionId) {
+    ioInstance.emit('userLoggedOut', { userId, sessionId: targetSessionId, reason: 'forced_logout' });
   }
 };
 
