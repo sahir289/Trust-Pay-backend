@@ -242,6 +242,7 @@ const forceLogoutUser = async (userId, targetSessionId = null, excludeSessionId 
         
         // Log every socket we find for debugging
         logger.log(chalk.red(`[SOCKET] Checking socket ${socket.id} with sessionId ${socketSessionId} (excluding ${excludeSessionId})`));
+        logger.log(chalk.blue(`[SOCKET] Type check - socketSessionId: "${socketSessionId}" (${typeof socketSessionId}), excludeSessionId: "${excludeSessionId}" (${typeof excludeSessionId})`));
         
         if (socketSessionId && socketSessionId === excludeSessionId) {
           logger.log(chalk.green(`[SOCKET] Skipping socket ${socket.id} with matching session ID ${excludeSessionId}`));
