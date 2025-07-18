@@ -87,6 +87,7 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
       if (!map[payin.merchant_id]) map[payin.merchant_id] = [];
       map[payin.merchant_id].push({
         updated_at: new Date(payin.updated_at),
+        created_at: new Date(payin.created_at),
         status: payin.status,
         user_submitted_utr: payin.user_submitted_utr,
       });
@@ -108,7 +109,7 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
           const startTime = new Date(now - duration);
 
           const filteredTransactions = merchantTransactions.filter(
-            (tx) => tx.updated_at >= startTime,
+            (tx) => tx.created_at >= startTime,
           );
 
           const total = filteredTransactions.length;
@@ -116,10 +117,11 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
             (tx) => tx.status === 'SUCCESS',
           ).length;
 
-          const successRatio =
-            total === 0
-              ? '0.00%'
-              : Math.min(((success / total) * 100).toFixed(2), 100) + '%';
+          // Ensure success ratio is between 0 and 100
+          const successRatio = total === 0 
+            ? '0.00%'
+            : Math.min(Math.max(((success / total) * 100), 0), 100).toFixed(2) + '%';
+
           const statusIcon = success === 0 ? '⚠️' : '✅';
 
           return `${statusIcon} ${label}: ${success}/${total} = ${successRatio}`;
@@ -129,9 +131,8 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
       const intervalDetailsUtr = intervals
         .map(({ label, duration }) => {
           const startTime = new Date(now - duration);
-
           const filteredTransactions = merchantTransactions.filter(
-            (tx) => tx.updated_at >= startTime,
+            (tx) => tx.created_at >= startTime,
           );
 
           const total = filteredTransactions.length;
@@ -142,10 +143,10 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
 
           const statusIcon = utrSubmission === 0 ? '⚠️' : '✅';
 
-          const utrSubmissionRatio =
-            total === 0
-              ? '0.00%'
-              : Math.min(((utrSubmission / total) * 100).toFixed(2), 100) + '%';
+          // Ensure UTR submission ratio is between 0 and 100
+          const utrSubmissionRatio = total === 0
+            ? '0.00%'  
+            : Math.min(Math.max(((utrSubmission / total) * 100), 0), 100).toFixed(2) + '%';
 
           return `${statusIcon} ${label}: ${utrSubmission}/${total} = ${utrSubmissionRatio}`;
         })

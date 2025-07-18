@@ -119,11 +119,15 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
             apitxnid: info.id,
           };
 
+          logger.info(`Processing payout for ID ${info.id}:`, apiPayload);
+
           const response = await axios.post(
             `${apiConfig.baseUrl}/payout`,
             apiPayload,
             { headers: apiConfig.headers },
           );
+
+          logger.info(`Payout response for ID ${info.id}:`, response.data);
 
           // Helper function to handle payout updates
           const handlePayoutUpdate = async (
