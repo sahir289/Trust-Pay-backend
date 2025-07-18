@@ -105,7 +105,7 @@ const createBankResponseService = async (
     const company_id = companyId;
     const isValidAmountCode = !!(
       upi_short_code &&
-      upi_short_code !== 'nil' &&
+      // upi_short_code !== 'nil' &&
       upi_short_code.length === 5
     );
 
