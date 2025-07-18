@@ -8,8 +8,14 @@ import {
   changePasswordController,
   verfyUserController,
   verfyOtpController,
-  forgetPasswordController
+  forgetPasswordController,
 } from './authController.js';
+import {
+  getUserSessionsController,
+  terminateSessionController,
+  terminateAllOtherSessionsController,
+  checkConcurrentSessionsController
+} from './sessionController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 
 const router = express.Router();
@@ -77,5 +83,80 @@ router.post(
   isAuthenticated,
   tryCatchHandler(verificationController),
 );
+
+// Session management routes
+/**
+ * @swagger
+ * /sessions:
+ *   get:
+ *     summary: Get all active sessions
+ *     description: Returns all active sessions for the authenticated user
+ *     tags:
+ *       - Session Management
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Sessions retrieved successfully
+ */
+router.get('/sessions', isAuthenticated, tryCatchHandler(getUserSessionsController));
+
+/**
+ * @swagger
+ * /sessions/terminate:
+ *   post:
+ *     summary: Terminate a specific session
+ *     description: Terminates a specific session by session ID
+ *     tags:
+ *       - Session Management
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               session_id:
+ *                 type: string
+ *                 description: Session ID to terminate
+ *     responses:
+ *       200:
+ *         description: Session terminated successfully
+ */
+router.post('/sessions/terminate', isAuthenticated, tryCatchHandler(terminateSessionController));
+
+/**
+ * @swagger
+ * /sessions/terminate-all:
+ *   post:
+ *     summary: Terminate all other sessions
+ *     description: Terminates all other sessions except the current one
+ *     tags:
+ *       - Session Management
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: All other sessions terminated successfully
+ */
+router.post('/sessions/terminate-all', isAuthenticated, tryCatchHandler(terminateAllOtherSessionsController));
+
+/**
+ * @swagger
+ * /sessions/check-concurrent:
+ *   get:
+ *     summary: Check for concurrent sessions
+ *     description: Checks if the user has concurrent sessions active
+ *     tags:
+ *       - Session Management
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Concurrent session check completed
+ */
+router.get('/sessions/check-concurrent', isAuthenticated, tryCatchHandler(checkConcurrentSessionsController));
 
 export default router;
