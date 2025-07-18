@@ -15,7 +15,6 @@ import {
   deleteUserSessionsDao,
   getSessionByIdDao,
   changePasswordDao,
-  getAllActiveSessionsDao,
 } from './authDao.js';
 import {
   createUserOtpDao,
@@ -101,11 +100,6 @@ const loginService = async (config, clientIP, retryCount = 0) => {
       // We'll handle race conditions through application logic rather than serializable isolation
       await conn.query('BEGIN ISOLATION LEVEL READ COMMITTED');
       
-      const userDetails = {
-        user_id: user.id,
-        company_id: user.company_id,
-      };
-
       // First, immediately invalidate ALL existing sessions for this user
       // This prevents any race condition with multiple simultaneous logins
       await deleteUserSessionsDao(user.id, user.company_id, null, conn);
@@ -113,28 +107,6 @@ const loginService = async (config, clientIP, retryCount = 0) => {
       // Add a small delay to ensure any concurrent operations complete
       await new Promise(resolve => setTimeout(resolve, 50));
       
-      // Verify all sessions are cleared
-      const remainingSessions = await getAllActiveSessionsDao(user.id, user.company_id);
-      if (remainingSessions.length > 0) {
-        logger.warn(`Warning: ${remainingSessions.length} sessions still active for user ${user.id} after cleanup`);
-        // Force clear again if any remain
-        for (const session of remainingSessions) {
-          forceLogoutUser(user.id, session.session_id);
-        }
-      }
-      
-      // Check for any existing active sessions after deletion (should be none)
-      const existingSession = await getSessionByIdDao(userDetails);
-      if (existingSession) {
-        logger.warn(`Found existing session during cleanup for user: ${user.id}, session: ${existingSession.session_id}`);
-        
-        // Notify the previous session to logout via WebSocket
-        forceLogoutUser(user.id, existingSession.session_id);
-        
-        // Force delete this specific session
-        await deleteUserSessionsDao(user.id, user.company_id, existingSession.session_id, conn);
-      }
-
       // Generate new session ID and tokens first (before any DB operations)
       const sessionId = generateUUID();
       const tokenInfo = generateUserToken(user);
@@ -159,28 +131,13 @@ const loginService = async (config, clientIP, retryCount = 0) => {
       // Create new session - this should be the only active session
       await addLoginDao(user.id, newConfig, user.company_id, sessionId, conn);
       
-      // Double-check for any remaining sessions and clean them up
-      const allActiveSessions = await getAllActiveSessionsDao(user.id, user.company_id);
-      
-      if (allActiveSessions.length > 1) {
-        logger.warn(`Multiple sessions detected for user ${user.id}, cleaning up old sessions`);
-        
-        // Keep only the new session, remove all others
-        for (const session of allActiveSessions) {
-          if (session.session_id !== sessionId) {
-            await deleteUserSessionsDao(user.id, user.company_id, session.session_id, conn);
-            forceLogoutUser(user.id, session.session_id);
-            logger.info(`Cleaned up old session ${session.session_id} for user ${user.id}`);
-          }
-        }
-      }
-      
       // Commit the transaction
       await conn.query('COMMIT');
 
       logger.info(`New session created for user: ${user.id}, session: ${sessionId}`);
 
-      // Immediately notify any other sessions via WebSocket
+      // After successful login, force logout all other sessions for this user
+      // This is done AFTER the transaction to ensure we don't interfere with the login process
       forceLogoutUser(user.id, null, sessionId);
 
       return {
