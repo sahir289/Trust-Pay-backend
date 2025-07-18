@@ -180,10 +180,8 @@ const loginService = async (config, clientIP, retryCount = 0) => {
 
       logger.info(`New session created for user: ${user.id}, session: ${sessionId}`);
 
-      // Final verification - notify any other sessions via WebSocket
-      setTimeout(() => {
-        forceLogoutUser(user.id, null, sessionId);
-      }, 1000);
+      // Immediately notify any other sessions via WebSocket
+      forceLogoutUser(user.id, null, sessionId);
 
       return {
         tokenInfo,
