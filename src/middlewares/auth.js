@@ -8,7 +8,6 @@ import {
 import { verifyToken } from '../utils/auth.js';
 import { logger } from '../utils/logger.js';
 import { getSessionByIdDao } from '../apis/auth/authDao.js';
-import { checkConcurrentSessions } from './concurrentSessionMiddleware.js';
 
 const logoutSet = new Set();
 
@@ -43,13 +42,7 @@ const isAuthenticated = async (req, res, next) => {
       // Session exists, proceed
       req.user = decoded;
       req.sessionId = activeSession.session_id;
-      
-      // Check for concurrent sessions after setting user info
-      await checkConcurrentSessions(req, res, () => {
-        // Only call next() if concurrent session check passes
-        next();
-      });
-      
+      next();
     } catch (dbError) {
       logger.error('Database session validation error:', dbError);
       throw new AuthenticationError('Session validation failed. Please login again.');
