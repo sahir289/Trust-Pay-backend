@@ -82,84 +82,69 @@ const initializeSocket = (server) => {
           ),
         );
 
-        // ZERO-TOLERANCE POLICY: ANY duplicate session results in IMMEDIATE disconnection of ALL sessions
+        // NUCLEAR APPROACH: Disconnect ALL existing sessions but PRESERVE the new login
         if (userActiveSockets.length > 0) {
           logger.log(
             chalk.bgRed.white(
-              `[SOCKET] ZERO-TOLERANCE POLICY - User ${userId} attempting login with ${userActiveSockets.length} existing sessions. DISCONNECTING ALL SESSIONS INCLUDING THE NEW ONE.`,
+              `[SOCKET] NUCLEAR APPROACH - User ${userId} has ${userActiveSockets.length} existing sessions. TERMINATING ALL OLD SESSIONS, PRESERVING NEW LOGIN.`,
             ),
           );
 
-          // IMMEDIATELY disconnect ALL existing sessions
+          // IMMEDIATELY disconnect ALL existing sessions (but NOT the current new socket)
           for (const existingSocket of userActiveSockets) {
             logger.log(
               chalk.red(
-                `[SOCKET] ZERO-TOLERANCE - Disconnecting existing socket ${existingSocket.id}`,
+                `[SOCKET] NUCLEAR - Immediately terminating old session ${existingSocket.id}`,
               ),
             );
 
             try {
-              // Send force logout events
+              // Send multiple force logout events for maximum coverage
               existingSocket.emit('forceLogout', {
-                reason: 'zero_tolerance_multiple_sessions',
+                reason: 'nuclear_new_login_detected',
                 userId: userId,
                 sessionId: existingSocket.sessionId || 'unknown',
-                message: 'Multiple sessions detected - all sessions terminated.',
+                message: 'Your session has been terminated due to a new login from another device.',
                 timestamp: new Date().toISOString(),
                 immediate: true,
-                zeroTolerance: true,
+                nuclear: true,
               });
 
-              // IMMEDIATE disconnection
+              existingSocket.emit('session-terminated', {
+                reason: 'nuclear_new_login_detected',
+                userId: userId,
+                sessionId: existingSocket.sessionId || 'unknown',
+                message: 'Please login again',
+                immediate: true,
+                nuclear: true,
+              });
+
+              existingSocket.emit('newLogin', userId);
+
+              // IMMEDIATE disconnection of old session
               existingSocket.disconnect(true);
               
               logger.log(
                 chalk.red(
-                  `[SOCKET] ZERO-TOLERANCE - Disconnected existing socket ${existingSocket.id}`,
+                  `[SOCKET] NUCLEAR - Terminated old session ${existingSocket.id}`,
                 ),
               );
             } catch (error) {
-              logger.error(`[SOCKET] Error disconnecting existing socket ${existingSocket.id}: ${error.message}`);
+              logger.error(`[SOCKET] Error terminating old socket ${existingSocket.id}: ${error.message}`);
               try {
                 existingSocket.disconnect(true);
               } catch (disconnectError) {
-                logger.error(`[SOCKET] Error force disconnecting socket ${existingSocket.id}: ${disconnectError.message}`);
+                logger.error(`[SOCKET] Error force disconnecting old socket ${existingSocket.id}: ${disconnectError.message}`);
               }
             }
           }
-
-          // ALSO disconnect the new socket attempting to connect
+          
+          // Log successful preservation of new login
           logger.log(
-            chalk.red(
-              `[SOCKET] ZERO-TOLERANCE - Also disconnecting NEW socket ${socket.id} to enforce single session policy`,
+            chalk.bgGreen.white(
+              `[SOCKET] NUCLEAR - Successfully preserved new login for user ${userId} on socket ${socket.id}`,
             ),
           );
-
-          try {
-            socket.emit('forceLogout', {
-              reason: 'zero_tolerance_policy',
-              userId: userId,
-              sessionId: sessionId || 'unknown',
-              message: 'Multiple sessions detected - please try logging in again.',
-              timestamp: new Date().toISOString(),
-              immediate: true,
-              zeroTolerance: true,
-            });
-
-            // Disconnect the new socket as well
-            socket.disconnect(true);
-            
-            logger.log(
-              chalk.red(
-                `[SOCKET] ZERO-TOLERANCE - Disconnected new socket ${socket.id}`,
-              ),
-            );
-            
-            // Exit early - don't proceed with normal login flow
-            return;
-          } catch (error) {
-            logger.error(`[SOCKET] Error disconnecting new socket ${socket.id}: ${error.message}`);
-          }
         }
 
         // Add this socket to our tracking map
