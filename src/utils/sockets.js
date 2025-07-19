@@ -263,6 +263,7 @@ const initializeSocket = (server) => {
                 priority: 'CRITICAL'
               });
 
+              // FIXED: Only send newLogin to OLD sessions being terminated, not the new session
               existingSocket.emit('newLogin', userId);
               existingSocket.emit('newlogout', userId);
 
@@ -322,12 +323,7 @@ const initializeSocket = (server) => {
         );
         logger.log(loginMessage);
 
-        // Emit new login event
-        const eventName = `newLogin`;
-        logger.log(
-          chalk.bold.cyan(`[SOCKET] Emitting ${eventName} for ${userId}`),
-        );
-        ioInstance.emit(eventName, userId);
+        // FIXED: No longer emit global newLogin - we send it specifically to old sessions being terminated
       } catch (error) {
         logger.error(`[SOCKET] Error in login handler: ${error.message}`);
         logger.error(error.stack);
