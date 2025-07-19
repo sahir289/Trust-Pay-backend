@@ -298,11 +298,26 @@ const updateBankaccountService = async (
       const bankResponse = await getBankResponseDaoAll({
         bank_id: ids.id,
         is_used: false,
+        status: '/success',
       });
       if (bankResponse.rows.length > 0) {
         for (let i = 0; i < bankResponse.rows.length; i++) {
           await updateBotResponseDao(bankResponse.rows[i].id, {
             status: '/freezed',
+          });
+        }
+      }
+    }
+    if (payloadData?.config?.is_freeze === false) {
+      const bankResponse = await getBankResponseDaoAll({
+        bank_id: ids.id,
+        is_used: false,
+        status: '/freezed',
+      });
+      if (bankResponse.rows.length > 0) {
+        for (let i = 0; i < bankResponse.rows.length; i++) {
+          await updateBotResponseDao(bankResponse.rows[i].id, {
+            status: '/success',
           });
         }
       }
