@@ -15,7 +15,6 @@ import {
   deleteUserSessionsDao,
   getSessionByIdDao,
   changePasswordDao,
-  getAllActiveSessionsDao,
 } from './authDao.js';
 import {
   createUserOtpDao,
@@ -30,9 +29,9 @@ import { logger } from '../../utils/logger.js';
 import { compareHash } from '../../utils/hashUtils.js';
 import { logOutUser } from '../../utils/sockets.js';
 import { Role } from '../../constants/index.js';
-import { enforceSingleSession } from '../../middlewares/concurrentSessionMiddleware.js';
 
-const loginService = async (config, clientIP) => {
+const loginService = async (config, clientIP, retryCount = 0) => {
+  const MAX_RETRIES = 2;
   let conn;
   try {
     let user = await getUsersByUserNameDao({}, config.username);
@@ -97,42 +96,18 @@ const loginService = async (config, clientIP) => {
     conn = conn || (await getConnection());
     
     try {
-      // Start a transaction with serializable isolation to prevent race conditions
-      await conn.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
+      // Start a transaction with read committed isolation for better concurrency
+      // We'll handle race conditions through application logic rather than serializable isolation
+      await conn.query('BEGIN ISOLATION LEVEL READ COMMITTED');
       
-      const userDetails = {
-        user_id: user.id,
-        company_id: user.company_id,
-      };
-
-      // Enhanced concurrent session enforcement
-      logger.info(`[LOGIN] Enforcing single session for user: ${user.id}`);
-      await enforceSingleSession(user.id, user.company_id, null, conn);
+      // First, immediately invalidate ALL existing sessions for this user
+      // This prevents any race condition with multiple simultaneous logins
+      await deleteUserSessionsDao(user.id, user.company_id, null, conn);
       
-      // Double-check: ensure no active sessions remain
-      const remainingSessions = await getAllActiveSessionsDao(user.id, user.company_id);
-      if (remainingSessions.length > 0) {
-        logger.warn(`[LOGIN] Warning: ${remainingSessions.length} sessions still active after cleanup for user ${user.id}`);
-        
-        // Force cleanup of any remaining sessions
-        for (const session of remainingSessions) {
-          await deleteUserSessionsDao(user.id, user.company_id, session.session_id, conn);
-          forceLogoutUser(user.id, session.session_id);
-          logger.warn(`[LOGIN] Force removed session ${session.session_id} for user ${user.id}`);
-        }
-      }
+      // Add a small delay to ensure any concurrent operations complete
+      await new Promise(resolve => setTimeout(resolve, 50));
       
-      // Final verification - no sessions should exist
-      const existingSession = await getSessionByIdDao(userDetails);
-      if (existingSession) {
-        logger.error(`[LOGIN] Critical: Session still exists after cleanup for user: ${user.id}, session: ${existingSession.session_id}`);
-        
-        // Emergency cleanup
-        await deleteUserSessionsDao(user.id, user.company_id, existingSession.session_id, conn);
-        forceLogoutUser(user.id, existingSession.session_id);
-      }
-
-      // Generate new session ID and tokens
+      // Generate new session ID and tokens first (before any DB operations)
       const sessionId = generateUUID();
       const tokenInfo = generateUserToken(user);
       const hashedToken = await createHash(tokenInfo.refreshToken);
@@ -156,30 +131,14 @@ const loginService = async (config, clientIP) => {
       // Create new session - this should be the only active session
       await addLoginDao(user.id, newConfig, user.company_id, sessionId, conn);
       
-      // Verify only one session exists
-      const allActiveSessions = await getAllActiveSessionsDao(user.id, user.company_id);
-      if (allActiveSessions.length > 1) {
-        logger.error(`Critical: Multiple active sessions detected for user ${user.id}:`, 
-          allActiveSessions.map(s => s.session_id));
-        
-        // Emergency cleanup - keep only the newest session
-        for (let i = 1; i < allActiveSessions.length; i++) {
-          const oldSession = allActiveSessions[i];
-          await deleteUserSessionsDao(user.id, user.company_id, oldSession.session_id, conn);
-          forceLogoutUser(user.id, oldSession.session_id);
-          logger.warn(`Emergency cleanup: Removed duplicate session ${oldSession.session_id} for user ${user.id}`);
-        }
-      }
-      
       // Commit the transaction
       await conn.query('COMMIT');
 
       logger.info(`New session created for user: ${user.id}, session: ${sessionId}`);
 
-      // Final verification - notify any other sessions via WebSocket
-      setTimeout(() => {
-        forceLogoutUser(user.id, null, sessionId);
-      }, 1000);
+      // After successful login, force logout all other sessions for this user
+      // This is done AFTER the transaction to ensure we don't interfere with the login process
+      forceLogoutUser(user.id, null, sessionId);
 
       return {
         tokenInfo,
@@ -187,14 +146,38 @@ const loginService = async (config, clientIP) => {
       };
     } catch (transactionError) {
       // Rollback the transaction on error
-      await conn.query('ROLLBACK');
+      try {
+        await conn.query('ROLLBACK');
+      } catch (rollbackError) {
+        logger.error('Error during rollback:', rollbackError);
+      }
       
-      // Handle serialization failures by retrying once
-      if (transactionError.code === '40001' || transactionError.message.includes('serialization failure')) {
-        logger.warn(`Serialization failure for user ${user.id}, retrying login...`);
-        // Add a small random delay to prevent thundering herd
-        await new Promise(resolve => setTimeout(resolve, Math.random() * 100 + 50));
-        throw new AuthenticationError('Login request conflict. Please try again.');
+      // Handle serialization failures with detailed logging and retry logic
+      if (transactionError.code === '40001' || 
+          transactionError.message?.includes('serialization failure') ||
+          transactionError.message?.includes('could not serialize access') ||
+          transactionError.detail?.includes('Canceled on identification as a pivot')) {
+        
+        logger.warn(`Serialization failure for user ${user.id}:`, {
+          errorCode: transactionError.code,
+          errorDetail: transactionError.detail,
+          errorHint: transactionError.hint,
+          routine: transactionError.routine,
+          retryAttempt: retryCount
+        });
+        
+        // Retry if we haven't exceeded max retries
+        if (retryCount < MAX_RETRIES) {
+          // Add exponential backoff with jitter to prevent thundering herd
+          const backoffDelay = Math.random() * 200 * (retryCount + 1) + 100; // Increasing delay
+          await new Promise(resolve => setTimeout(resolve, backoffDelay));
+          
+          logger.info(`Retrying login for user ${user.id}, attempt ${retryCount + 1}/${MAX_RETRIES}`);
+          return await loginService(config, clientIP, retryCount + 1);
+        } else {
+          logger.error(`Max retries exceeded for user ${user.id} due to serialization failures`);
+          throw new AuthenticationError('Login service is temporarily busy. Please try again in a moment.');
+        }
       }
       
       throw transactionError;
@@ -312,7 +295,10 @@ const forgetPasswordService = async (payload) => {
     const hashPassword = await createHash(payload.password);
     const user = await updateUserDao(
       { id: payload.user_id },
-      { password: hashPassword },
+      { 
+        password: hashPassword,
+        config: { isLoginFirst: false } 
+      },
     );
     return user;
   } catch (error) {

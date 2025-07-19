@@ -116,7 +116,7 @@ const createBankResponseService = async (
       Status.FAILED,
       Status.DUPLICATE,
     ];
-    if(upi_short_code!=='undefined' && !isValidAmountCode) {
+    if(upi_short_code!=='undefined' && upi_short_code!=='nil' && !isValidAmountCode) {
       throw new BadRequestError(`Please Enter valid Amount Code!`);
     }
     
