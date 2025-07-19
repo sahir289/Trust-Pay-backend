@@ -111,24 +111,24 @@ const initializeSocket = (server) => {
           ),
         );
 
-        // SIMPLIFIED FORCE LOGOUT: Force logout ALL other sessions for this user
+        // ULTRA-AGGRESSIVE FORCE LOGOUT: Immediately disconnect ALL other sessions
         if (userActiveSockets.length > 0) {
           logger.log(
             chalk.bgRed.white(
-              `[SOCKET] SIMPLIFIED FORCE LOGOUT - Found ${userActiveSockets.length} existing sessions for user ${userId}. Forcing logout of ALL.`,
+              `[SOCKET] ULTRA-AGGRESSIVE FORCE LOGOUT - Found ${userActiveSockets.length} existing sessions for user ${userId}. IMMEDIATELY disconnecting ALL.`,
             ),
           );
 
-          // Force logout each existing session immediately with direct socket calls
+          // IMMEDIATELY force logout and disconnect each existing session
           for (const existingSocket of userActiveSockets) {
             logger.log(
               chalk.red(
-                `[SOCKET] Force logging out existing socket ${existingSocket.id} with session ${existingSocket.sessionId}`,
+                `[SOCKET] IMMEDIATELY disconnecting socket ${existingSocket.id} with session ${existingSocket.sessionId}`,
               ),
             );
 
             try {
-              // Send force logout event directly to the socket
+              // Send multiple force logout events for redundancy
               existingSocket.emit('forceLogout', {
                 reason: 'new_login_detected',
                 userId: userId,
@@ -136,30 +136,37 @@ const initializeSocket = (server) => {
                 message: 'Your session has been terminated due to a new login from another device.',
                 timestamp: new Date().toISOString(),
                 environment: isStaging ? 'staging' : 'local',
+                immediate: true,
               });
 
-              // Also send session-terminated for redundancy
               existingSocket.emit('session-terminated', {
                 reason: 'new_login_detected',
                 userId: userId,
                 sessionId: existingSocket.sessionId || 'unknown',
                 message: 'Please login again',
                 environment: isStaging ? 'staging' : 'local',
+                immediate: true,
               });
 
-              // Force disconnect the old socket after a brief delay to ensure events are sent
-              setTimeout(() => {
-                if (existingSocket.connected) {
-                  existingSocket.disconnect(true);
-                  logger.log(
-                    chalk.red(
-                      `[SOCKET] Disconnected old socket ${existingSocket.id}`,
-                    ),
-                  );
-                }
-              }, 100);
+              // Also emit to specific user (broadcast to all sockets for this user)
+              existingSocket.emit('newLogin', userId);
+
+              // IMMEDIATE disconnection - no delay
+              existingSocket.disconnect(true);
+              
+              logger.log(
+                chalk.red(
+                  `[SOCKET] IMMEDIATELY disconnected socket ${existingSocket.id}`,
+                ),
+              );
             } catch (error) {
               logger.error(`[SOCKET] Error forcing logout of socket ${existingSocket.id}: ${error.message}`);
+              // Still try to disconnect even if events failed
+              try {
+                existingSocket.disconnect(true);
+              } catch (disconnectError) {
+                logger.error(`[SOCKET] Error disconnecting socket ${existingSocket.id}: ${disconnectError.message}`);
+              }
             }
           }
         }
@@ -197,7 +204,7 @@ const initializeSocket = (server) => {
       logger.log(`Received from client:`, data);
     });
 
-    // Handle session heartbeat to validate active sessions
+    // Handle session heartbeat to validate active sessions - ULTRA AGGRESSIVE
     socket.on('sessionHeartbeat', async (data) => {
       const { userId } = data;
       
@@ -205,39 +212,78 @@ const initializeSocket = (server) => {
         return;
       }
 
-      // Check if there are multiple sessions for this user
-      const allSockets = await ioInstance.fetchSockets();
-      const userSockets = allSockets.filter(s => s.userId === userId);
-      
-      if (userSockets.length > 1) {
-        // Multiple sessions detected - force logout all except the most recent one
-        const sortedSockets = userSockets.sort((a, b) => (b.loginTime || 0) - (a.loginTime || 0));
-        const newestSocket = sortedSockets[0];
+      try {
+        // Check if there are multiple sessions for this user
+        const allSockets = await ioInstance.fetchSockets();
+        const userSockets = allSockets.filter(s => s.userId === userId);
         
-        // Force logout all other sessions
-        for (const oldSocket of sortedSockets.slice(1)) {
-          if (oldSocket.id !== newestSocket.id) {
-            logger.log(
-              chalk.red(
-                `[SOCKET] Heartbeat detected multiple sessions - forcing logout of socket ${oldSocket.id}`,
-              ),
-            );
-            
-            oldSocket.emit('forceLogout', {
-              reason: 'multiple_sessions_detected',
-              userId: userId,
-              sessionId: oldSocket.sessionId || 'unknown',
-              message: 'Multiple sessions detected - keeping only the newest session',
-              timestamp: new Date().toISOString(),
-            });
-            
-            setTimeout(() => {
-              if (oldSocket.connected) {
-                oldSocket.disconnect(true);
+        logger.log(
+          chalk.magenta(
+            `[SOCKET] Heartbeat check for user ${userId}: found ${userSockets.length} sessions`,
+          ),
+        );
+        
+        if (userSockets.length > 1) {
+          // Multiple sessions detected - IMMEDIATELY force logout all except the current one
+          logger.log(
+            chalk.bgRed.white(
+              `[SOCKET] HEARTBEAT - Multiple sessions detected for user ${userId}. Forcing logout of ${userSockets.length - 1} old sessions.`,
+            ),
+          );
+          
+          // Force logout all other sessions EXCEPT the one sending the heartbeat
+          for (const userSocket of userSockets) {
+            if (userSocket.id !== socket.id) {
+              logger.log(
+                chalk.red(
+                  `[SOCKET] HEARTBEAT - Immediately disconnecting old session ${userSocket.id}`,
+                ),
+              );
+              
+              try {
+                // Send multiple events for maximum coverage
+                userSocket.emit('forceLogout', {
+                  reason: 'multiple_sessions_detected_heartbeat',
+                  userId: userId,
+                  sessionId: userSocket.sessionId || 'unknown',
+                  message: 'Multiple sessions detected - keeping only the newest session',
+                  timestamp: new Date().toISOString(),
+                  immediate: true,
+                });
+                
+                userSocket.emit('session-terminated', {
+                  reason: 'multiple_sessions_detected_heartbeat',
+                  userId: userId,
+                  sessionId: userSocket.sessionId || 'unknown',
+                  message: 'Multiple sessions detected - please login again',
+                  timestamp: new Date().toISOString(),
+                  immediate: true,
+                });
+                
+                userSocket.emit('newLogin', userId);
+                
+                // IMMEDIATE disconnection
+                userSocket.disconnect(true);
+                
+                logger.log(
+                  chalk.red(
+                    `[SOCKET] HEARTBEAT - Immediately disconnected old session ${userSocket.id}`,
+                  ),
+                );
+              } catch (error) {
+                logger.error(`[SOCKET] HEARTBEAT - Error forcing logout of socket ${userSocket.id}: ${error.message}`);
+                // Still try to disconnect
+                try {
+                  userSocket.disconnect(true);
+                } catch (disconnectError) {
+                  logger.error(`[SOCKET] HEARTBEAT - Error disconnecting socket ${userSocket.id}: ${disconnectError.message}`);
+                }
               }
-            }, 100);
+            }
           }
         }
+      } catch (error) {
+        logger.error(`[SOCKET] Error in sessionHeartbeat handler: ${error.message}`);
       }
     });
 
@@ -290,6 +336,66 @@ const initializeSocket = (server) => {
   });
   const initMessage = chalk.magentaBright('WebSocket server initialized');
   logger.log(initMessage);
+
+  // ULTRA-AGGRESSIVE: Periodic cleanup to ensure no duplicate sessions persist
+  setInterval(async () => {
+    try {
+      if (!ioInstance) return;
+      
+      const allSockets = await ioInstance.fetchSockets();
+      const userSessionMap = new Map();
+      
+      // Group sockets by userId
+      for (const socket of allSockets) {
+        if (socket.userId) {
+          if (!userSessionMap.has(socket.userId)) {
+            userSessionMap.set(socket.userId, []);
+          }
+          userSessionMap.get(socket.userId).push(socket);
+        }
+      }
+      
+      // Check for users with multiple sessions
+      for (const [userId, userSockets] of userSessionMap) {
+        if (userSockets.length > 1) {
+          logger.log(
+            chalk.bgYellow.black(
+              `[SOCKET] PERIODIC CLEANUP - User ${userId} has ${userSockets.length} active sessions. Cleaning up.`,
+            ),
+          );
+          
+          // Sort by login time, keep the newest
+          const sortedSockets = userSockets.sort((a, b) => (b.loginTime || 0) - (a.loginTime || 0));
+          
+          // Force logout all older sessions (keep the first one, logout the rest)
+          for (const oldSocket of sortedSockets.slice(1)) {
+            logger.log(
+              chalk.yellow(
+                `[SOCKET] PERIODIC CLEANUP - Removing old session ${oldSocket.id} for user ${userId}`,
+              ),
+            );
+            
+            try {
+              oldSocket.emit('forceLogout', {
+                reason: 'periodic_cleanup_multiple_sessions',
+                userId: userId,
+                sessionId: oldSocket.sessionId || 'unknown',
+                message: 'Session cleanup - multiple sessions detected',
+                timestamp: new Date().toISOString(),
+                immediate: true,
+              });
+              
+              oldSocket.disconnect(true);
+            } catch (error) {
+              logger.error(`[SOCKET] PERIODIC CLEANUP - Error cleaning up socket ${oldSocket.id}: ${error.message}`);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      logger.error(`[SOCKET] Error in periodic cleanup: ${error.message}`);
+    }
+  }, 30000); // Run every 30 seconds
 };
 
 const forceLogoutUser = async (
