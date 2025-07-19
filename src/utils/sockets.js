@@ -38,24 +38,10 @@ const initializeSocket = (server) => {
         return;
       }
 
-      // Enhanced staging environment detection and logging
-      const environment = process.env.NODE_ENV || 'development';
-      const isStaging =
-        environment === 'production' ||
-        environment === 'staging' ||
-        process.env.VERCEL ||
-        process.env.NETLIFY ||
-        (typeof window !== 'undefined' &&
-          window.location.hostname !== 'localhost');
-
+      // Enhanced logging for all environments
       logger.log(
         chalk.bgBlue.white(
           `[SOCKET] User login event received for userId: ${userId}, sessionId: ${sessionId}, socketId: ${socket.id}`,
-        ),
-      );
-      logger.log(
-        chalk.magenta(
-          `[SOCKET] Environment: ${environment}, Is Staging: ${isStaging}`,
         ),
       );
       logger.log(
@@ -69,25 +55,10 @@ const initializeSocket = (server) => {
         ),
       );
 
-      if (isStaging) {
-        logger.log(
-          chalk.bgRed.white(
-            '[SOCKET] STAGING Environment detected - Enhanced logging enabled',
-          ),
-        );
-        logger.log(
-          chalk.red(
-            `[SOCKET] Socket headers: ${JSON.stringify(socket.handshake.headers, null, 2)}`,
-          ),
-        );
-      }
-
       // Store socket metadata for better tracking
       socket.userId = userId;
       socket.sessionId = sessionId;
       socket.loginTime = Date.now();
-      socket.environment = environment;
-      socket.isStaging = isStaging;
 
       // Critical section - handle the session management with care
       try {
@@ -207,6 +178,99 @@ const initializeSocket = (server) => {
 
     socket.on('client-message', (data) => {
       logger.log(`Received from client:`, data);
+    });
+
+    // Handle session heartbeat to validate active sessions - ULTIMATE APPROACH
+    socket.on('sessionHeartbeat', async (data) => {
+      const { userId } = data;
+      
+      if (!userId) {
+        return;
+      }
+
+      try {
+        // Check if there are multiple sessions for this user
+        const allSockets = await ioInstance.fetchSockets();
+        const userSockets = allSockets.filter(s => s.userId === userId);
+        
+        logger.log(
+          chalk.magenta(
+            `[SOCKET] Heartbeat check for user ${userId}: found ${userSockets.length} sessions`,
+          ),
+        );
+        
+        // ULTIMATE: If multiple sessions detected, ALWAYS keep only the newest one
+        if (userSockets.length > 1) {
+          logger.log(
+            chalk.bgRed.white(
+              `[SOCKET] ULTIMATE HEARTBEAT - Multiple sessions detected for user ${userId}. Keeping only the newest session, disconnecting ${userSockets.length - 1} old sessions.`,
+            ),
+          );
+          
+          // Get the newest session (highest loginTime)
+          const newestSession = userSockets.reduce((newest, current) => {
+            return (current.loginTime || 0) > (newest.loginTime || 0) ? current : newest;
+          });
+          
+          // Force logout all sessions EXCEPT the newest one
+          for (const userSocket of userSockets) {
+            if (userSocket.id !== newestSession.id) {
+              logger.log(
+                chalk.red(
+                  `[SOCKET] ULTIMATE HEARTBEAT - Disconnecting old session ${userSocket.id}`,
+                ),
+              );
+              
+              try {
+                userSocket.emit('forceLogout', {
+                  reason: 'ultimate_heartbeat_multiple_sessions',
+                  userId: userId,
+                  sessionId: userSocket.sessionId || 'unknown',
+                  message: 'Multiple sessions detected - keeping only the newest session',
+                  timestamp: new Date().toISOString(),
+                  immediate: true,
+                  ultimate: true,
+                });
+                
+                userSocket.emit('session-terminated', {
+                  reason: 'ultimate_heartbeat_multiple_sessions',
+                  userId: userId,
+                  sessionId: userSocket.sessionId || 'unknown',
+                  message: 'Multiple sessions detected - please login again',
+                  timestamp: new Date().toISOString(),
+                  immediate: true,
+                  ultimate: true,
+                });
+                
+                userSocket.emit('newLogin', userId);
+                userSocket.emit('newlogout', userId);
+                userSocket.disconnect(true);
+                
+                logger.log(
+                  chalk.red(
+                    `[SOCKET] ULTIMATE HEARTBEAT - Disconnected old session ${userSocket.id}`,
+                  ),
+                );
+              } catch (error) {
+                logger.error(`[SOCKET] ULTIMATE HEARTBEAT - Error forcing logout of socket ${userSocket.id}: ${error.message}`);
+                try {
+                  userSocket.disconnect(true);
+                } catch (disconnectError) {
+                  logger.error(`[SOCKET] ULTIMATE HEARTBEAT - Error disconnecting socket ${userSocket.id}: ${disconnectError.message}`);
+                }
+              }
+            }
+          }
+          
+          logger.log(
+            chalk.bgGreen.white(
+              `[SOCKET] ULTIMATE HEARTBEAT - Preserved newest session ${newestSession.id} for user ${userId}`,
+            ),
+          );
+        }
+      } catch (error) {
+        logger.error(`[SOCKET] Error in sessionHeartbeat handler: ${error.message}`);
+      }
     });
 
     socket.on('disconnect', (reason) => {
