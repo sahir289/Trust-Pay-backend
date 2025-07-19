@@ -21,6 +21,15 @@ const initializeSocket = (server) => {
   });
 
   ioInstance.on('connection', (socket) => {
+    // ULTIMATE NUCLEAR: Immediate enforcement on ANY new connection
+    socket.on('connect', () => {
+      logger.log(
+        chalk.bgRed.white(
+          `[SOCKET] ULTIMATE NUCLEAR - New connection detected: ${socket.id}`,
+        ),
+      );
+    });
+
     socket.on('pingCheck', () => {
       socket.emit('pongCheck');
     });
@@ -126,6 +135,49 @@ const initializeSocket = (server) => {
       if (!userId) {
         logger.error('[SOCKET] Missing userId in login event');
         return;
+      }
+
+      // ULTIMATE NUCLEAR: INSTANT PRE-TERMINATION - Kill ALL existing sessions for this user IMMEDIATELY
+      try {
+        const allSockets = await ioInstance.fetchSockets();
+        const existingUserSockets = allSockets.filter(s => s.userId === userId && s.id !== socket.id);
+        
+        if (existingUserSockets.length > 0) {
+          logger.log(
+            chalk.bgRed.white(
+              `[SOCKET] ULTIMATE NUCLEAR PRE-TERMINATION - Found ${existingUserSockets.length} existing sessions for user ${userId}. TERMINATING INSTANTLY.`,
+            ),
+          );
+          
+          // INSTANT parallel termination - no delays whatsoever
+          const instantTerminationPromises = existingUserSockets.map(async (existingSocket) => {
+            try {
+              existingSocket.emit('forceLogout', {
+                reason: 'ultimate_nuclear_pre_termination',
+                userId: userId,
+                message: 'New login detected - session terminated instantly',
+                nuclear: true,
+                ultraNuclear: true,
+                priority: 'CRITICAL',
+                instant: true
+              });
+              existingSocket.disconnect(true);
+            } catch (error) {
+              logger.error(`[SOCKET] Error in instant termination: ${error.message}`);
+            }
+          });
+          
+          // Wait for instant termination to complete
+          await Promise.allSettled(instantTerminationPromises);
+          
+          logger.log(
+            chalk.bgGreen.white(
+              `[SOCKET] ULTIMATE NUCLEAR PRE-TERMINATION - Successfully terminated ${existingUserSockets.length} sessions instantly`,
+            ),
+          );
+        }
+      } catch (error) {
+        logger.error(`[SOCKET] Error in instant pre-termination: ${error.message}`);
       }
 
       // Enhanced logging for all environments
@@ -249,21 +301,21 @@ const initializeSocket = (server) => {
         // Add this socket to our tracking map - only track the new socket
         userSockets.set(userId, [socket.id]);
 
-        // NUCLEAR: Ultra-aggressive cleanup - immediate socket operations
-        setTimeout(async () => {
-          try {
-            // Force logout other sessions immediately for maximum aggressiveness
-            await forceLogoutUser(userId, null, sessionId);
-            
-            logger.log(
-              chalk.bgMagenta.white(
-                `[SOCKET] NUCLEAR - Socket cleanup completed for user ${userId}`,
-              ),
-            );
-          } catch (cleanupError) {
-            logger.error(`[SOCKET] Error in nuclear socket cleanup: ${cleanupError.message}`);
-          }
-        }, 25); // Ultra-fast cleanup
+          // NUCLEAR: Ultra-aggressive cleanup - INSTANT socket operations
+          setTimeout(async () => {
+            try {
+              // Force logout other sessions immediately for maximum aggressiveness
+              await forceLogoutUser(userId, null, sessionId);
+              
+              logger.log(
+                chalk.bgMagenta.white(
+                  `[SOCKET] ULTIMATE NUCLEAR - Instant socket cleanup completed for user ${userId}`,
+                ),
+              );
+            } catch (cleanupError) {
+              logger.error(`[SOCKET] Error in ultimate nuclear socket cleanup: ${cleanupError.message}`);
+            }
+          }, 10); // ULTIMATE NUCLEAR: 10ms ultra-fast cleanup
 
         const loginMessage = chalk.bold.green(
           `[SOCKET] User ${userId} logged in with socket ${socket.id}, ${userActiveSockets.length} old sessions terminated`,
@@ -552,7 +604,7 @@ const initializeSocket = (server) => {
     } catch (error) {
       logger.error(`[SOCKET] Error in nuclear cleanup: ${error.message}`);
     }
-  }, 500); // NUCLEAR: Check every 500ms for ultra-aggressive enforcement
+  }, 100); // ULTIMATE NUCLEAR: Check every 100ms for ZERO timing windows
 };
 
 const forceLogoutUser = async (
