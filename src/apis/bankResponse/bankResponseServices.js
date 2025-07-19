@@ -130,6 +130,17 @@ const createBankResponseService = async (
         null,
         filterColumns,
       );
+      if (!utrAlreadyExist) {
+        utrAlreadyExist = await getBankResponseDao(
+          { utr, company_id },
+          null,
+          null,
+          null,
+          null,
+          filterColumns,
+        );
+      }
+
     } else {
       utrAlreadyExist = await getBankResponseDao(
         { utr, company_id },
