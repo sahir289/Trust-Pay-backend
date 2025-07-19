@@ -70,13 +70,26 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
     }
 
     const now = new Date();
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0); // Start of current day
+
+    // Define rolling intervals
+    const rollingIntervals = [
+      { label: 'Last 5m', duration: 5 * 60 * 1000, type: 'rolling' },
+      { label: 'Last 10m', duration: 10 * 60 * 1000, type: 'rolling' },
+      { label: 'Last 15m', duration: 15 * 60 * 1000, type: 'rolling' },
+      { label: 'Last 30m', duration: 30 * 60 * 1000, type: 'rolling' },
+      { label: 'Last 1h', duration: 60 * 60 * 1000, type: 'rolling' },
+      { label: 'Last 3h', duration: 3 * 60 * 60 * 1000, type: 'rolling' },
+      { label: 'Last 6h', duration: 6 * 60 * 60 * 1000, type: 'rolling' },
+      { label: 'Last 12h', duration: 12 * 60 * 60 * 1000, type: 'rolling' },
+      { label: 'Last 24h', duration: 24 * 60 * 60 * 1000, type: 'rolling' }
+    ];
+
+    // Combine intervals
     const intervals = [
-      { label: 'Last 5m', duration: 5 * 60 * 1000 },
-      { label: 'Last 15m', duration: 15 * 60 * 1000 },
-      { label: 'Last 30m', duration: 30 * 60 * 1000 },
-      { label: 'Last 1h', duration: 60 * 60 * 1000 },
-      { label: 'Last 3h', duration: 3 * 60 * 60 * 1000 },
-      { label: 'Last 24h', duration: 24 * 60 * 60 * 1000 },
+      { label: 'Today Total', startTime: startOfDay, endTime: now, type: 'daily' },
+      ...rollingIntervals,
     ];
 
     // fetch all transactions for the company
@@ -104,51 +117,75 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
     for (const merchant of merchantsWithTransactions) {
       const merchantTransactions = transactionsByMerchant[merchant.id];
 
-      const intervalDetails = intervals
-        .map(({ label, duration }) => {
-          const startTime = new Date(now - duration);
+      // Calculate today's total balance
+      const todayTransactions = merchantTransactions.filter(tx => {
+        const txDate = new Date(tx.created_at);
+        return txDate >= startOfDay && txDate <= now;
+      });
 
-          const filteredTransactions = merchantTransactions.filter(
-            (tx) => tx.created_at >= startTime,
-          );
+      const todaySuccessful = todayTransactions.filter(tx => tx.status === 'SUCCESS').length;
+      const todayTotal = todayTransactions.length;
+      const todayRatio = todayTotal === 0 
+        ? '0.00%'
+        : Math.min(Math.max(((todaySuccessful / todayTotal) * 100), 0), 100).toFixed(2) + '%';
 
-          const total = filteredTransactions.length;
-          const success = filteredTransactions.filter(
-            (tx) => tx.status === 'SUCCESS',
-          ).length;
+      // Format message with heading
+      const intervalDetails = `<b>📊 Today's Balance:</b> ${todaySuccessful}/${todayTotal} = ${todayRatio}\n\n` + 
+        intervals
+          .map(interval => {
+            const currentTime = new Date();
+            const filteredTransactions = merchantTransactions.filter(tx => {
+              const txTime = new Date(tx.created_at);
+              
+              if (interval.type === 'rolling') {
+                // For rolling windows (Last 5m, Last 10m, etc.)
+                return txTime >= new Date(currentTime - interval.duration);
+              } else {
+                // For hourly and daily intervals
+                return txTime >= interval.startTime && txTime <= interval.endTime;
+              }
+            });
 
-          // Ensure success ratio is between 0 and 100
-          const successRatio = total === 0 
-            ? '0.00%'
-            : Math.min(Math.max(((success / total) * 100), 0), 100).toFixed(2) + '%';
+            const total = filteredTransactions.length;
+            const success = filteredTransactions.filter(tx => tx.status === 'SUCCESS').length;
 
-          const statusIcon = success === 0 ? '⚠️' : '✅';
+            const successRatio = total === 0 
+              ? '0.00%'
+              : Math.min(Math.max(((success / total) * 100), 0), 100).toFixed(2) + '%';
 
-          return `${statusIcon} ${label}: ${success}/${total} = ${successRatio}`;
-        })
-        .join('\n');
+            const statusIcon = success === 0 ? '⚠️' : '✅';
+            return `${statusIcon} ${interval.label}: ${success}/${total} = ${successRatio}`;
+          })
+          .join('\n');
 
       const intervalDetailsUtr = intervals
-        .map(({ label, duration }) => {
-          const startTime = new Date(now - duration);
-          const filteredTransactions = merchantTransactions.filter(
-            (tx) => tx.created_at >= startTime,
-          );
+        .map((interval) => {
+          const currentTime = new Date();
+          // Filter transactions based on interval type
+          const filteredTransactions = merchantTransactions.filter(tx => {
+            const txTime = new Date(tx.created_at);
+            
+            if (interval.type === 'rolling') {
+              // For rolling windows (Last 5m, Last 10m, etc.)
+              return txTime >= new Date(currentTime - interval.duration);
+            } else if (interval.type === 'daily') {
+              // For today's total
+              return txTime >= interval.startTime && txTime <= interval.endTime;
+            }
+            return false;
+          });
 
           const total = filteredTransactions.length;
-
           const utrSubmission = filteredTransactions.filter(
-            (tx) => tx.user_submitted_utr && tx.user_submitted_utr.length > 0,
+            (tx) => tx.user_submitted_utr && tx.user_submitted_utr.length > 0
           ).length;
 
           const statusIcon = utrSubmission === 0 ? '⚠️' : '✅';
-
-          // Ensure UTR submission ratio is between 0 and 100
           const utrSubmissionRatio = total === 0
-            ? '0.00%'  
+            ? '0.00%'
             : Math.min(Math.max(((utrSubmission / total) * 100), 0), 100).toFixed(2) + '%';
 
-          return `${statusIcon} ${label}: ${utrSubmission}/${total} = ${utrSubmissionRatio}`;
+          return `${statusIcon} ${interval.label}: ${utrSubmission}/${total} = ${utrSubmissionRatio}`;
         })
         .join('\n');
 
