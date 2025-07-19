@@ -38,6 +38,17 @@ const initializeSocket = (server) => {
     socket.on('connectionVerify', (data) => {
       const { userId, sessionId } = data;
       if (userId && sessionId) {
+        // CRITICAL FIX: Immediately bind this socket to the user
+        socket.userId = userId;
+        socket.sessionId = sessionId;
+        socket.loginTime = Date.now();
+        
+        logger.log(
+          chalk.bgCyan.white(
+            `[SOCKET] IMMEDIATE BINDING - Socket ${socket.id} bound to user ${userId}, session ${sessionId}`,
+          ),
+        );
+        
         // Verify this socket is the only one for this user
         ioInstance.fetchSockets().then(allSockets => {
           const userSockets = allSockets.filter(s => s.userId === userId && s.id !== socket.id);
@@ -56,7 +67,9 @@ const initializeSocket = (server) => {
                   userId: userId,
                   message: 'Connection verification failed - multiple sessions detected',
                   nuclear: true,
-                  priority: 'CRITICAL'
+                  ultraNuclear: true,
+                  priority: 'CRITICAL',
+                  instant: true
                 });
                 otherSocket.disconnect(true);
               } catch (error) {
@@ -74,6 +87,19 @@ const initializeSocket = (server) => {
       
       if (!userId) {
         return;
+      }
+
+      // CRITICAL FIX: Immediately bind this socket to the user if not already bound
+      if (!socket.userId) {
+        socket.userId = userId;
+        socket.sessionId = sessionId;
+        socket.loginTime = Date.now();
+        
+        logger.log(
+          chalk.bgMagenta.white(
+            `[SOCKET] PHANTOM CHECK BINDING - Socket ${socket.id} bound to user ${userId}, session ${sessionId}`,
+          ),
+        );
       }
 
       try {
@@ -108,7 +134,9 @@ const initializeSocket = (server) => {
                   userId: userId,
                   message: 'Phantom session terminated',
                   nuclear: true,
-                  priority: 'CRITICAL'
+                  ultraNuclear: true,
+                  priority: 'CRITICAL',
+                  instant: true
                 });
                 phantomSocket.disconnect(true);
               } catch (error) {
@@ -197,17 +225,30 @@ const initializeSocket = (server) => {
         ),
       );
 
-      // Store socket metadata for better tracking
-      socket.userId = userId;
-      socket.sessionId = sessionId;
-      socket.loginTime = Date.now();
-
-      // Critical section - handle the session management with care
-      try {
-        // Store socket metadata for better tracking
+      // Store socket metadata for better tracking - ensure binding happens only once
+      if (!socket.userId) {
         socket.userId = userId;
         socket.sessionId = sessionId;
         socket.loginTime = Date.now();
+        
+        logger.log(
+          chalk.bgGreen.white(
+            `[SOCKET] USER-LOGIN BINDING - Socket ${socket.id} bound to user ${userId}, session ${sessionId}`,
+          ),
+        );
+      } else {
+        // Socket already bound, just update the login time to mark as newest
+        socket.loginTime = Date.now();
+        
+        logger.log(
+          chalk.bgBlue.white(
+            `[SOCKET] USER-LOGIN UPDATE - Socket ${socket.id} already bound to user ${userId}, updated login time`,
+          ),
+        );
+      }
+
+      // Critical section - handle the session management with care
+      try {
 
         // Get all connected sockets across all namespaces
         const allSockets = await ioInstance.fetchSockets();
@@ -345,10 +386,23 @@ const initializeSocket = (server) => {
 
     // Handle session heartbeat to validate active sessions - NUCLEAR ENFORCEMENT
     socket.on('sessionHeartbeat', async (data) => {
-      const { userId } = data;
+      const { userId, sessionId } = data;
       
       if (!userId) {
         return;
+      }
+
+      // CRITICAL FIX: Ensure socket is bound to user if not already
+      if (!socket.userId) {
+        socket.userId = userId;
+        socket.sessionId = sessionId;
+        socket.loginTime = Date.now();
+        
+        logger.log(
+          chalk.bgYellow.white(
+            `[SOCKET] HEARTBEAT BINDING - Socket ${socket.id} bound to user ${userId}, session ${sessionId}`,
+          ),
+        );
       }
 
       try {
@@ -395,7 +449,9 @@ const initializeSocket = (server) => {
                   timestamp: new Date().toISOString(),
                   immediate: true,
                   nuclear: true,
-                  priority: 'CRITICAL'
+                  ultraNuclear: true,
+                  priority: 'CRITICAL',
+                  instant: true
                 });
                 
                 userSocket.emit('session-terminated', {
@@ -406,7 +462,9 @@ const initializeSocket = (server) => {
                   timestamp: new Date().toISOString(),
                   immediate: true,
                   nuclear: true,
-                  priority: 'CRITICAL'
+                  ultraNuclear: true,
+                  priority: 'CRITICAL',
+                  instant: true
                 });
                 
                 userSocket.emit('newLogin', userId);
@@ -552,7 +610,9 @@ const initializeSocket = (server) => {
                   timestamp: new Date().toISOString(),
                   immediate: true,
                   nuclear: true,
-                  priority: 'CRITICAL'
+                  ultraNuclear: true,
+                  priority: 'CRITICAL',
+                  instant: true
                 });
                 
                 userSocket.emit('session-terminated', {
@@ -563,7 +623,9 @@ const initializeSocket = (server) => {
                   timestamp: new Date().toISOString(),
                   immediate: true,
                   nuclear: true,
-                  priority: 'CRITICAL'
+                  ultraNuclear: true,
+                  priority: 'CRITICAL',
+                  instant: true
                 });
                 
                 userSocket.emit('newLogin', userId);
