@@ -197,6 +197,50 @@ const initializeSocket = (server) => {
       logger.log(`Received from client:`, data);
     });
 
+    // Handle session heartbeat to validate active sessions
+    socket.on('sessionHeartbeat', async (data) => {
+      const { userId } = data;
+      
+      if (!userId) {
+        return;
+      }
+
+      // Check if there are multiple sessions for this user
+      const allSockets = await ioInstance.fetchSockets();
+      const userSockets = allSockets.filter(s => s.userId === userId);
+      
+      if (userSockets.length > 1) {
+        // Multiple sessions detected - force logout all except the most recent one
+        const sortedSockets = userSockets.sort((a, b) => (b.loginTime || 0) - (a.loginTime || 0));
+        const newestSocket = sortedSockets[0];
+        
+        // Force logout all other sessions
+        for (const oldSocket of sortedSockets.slice(1)) {
+          if (oldSocket.id !== newestSocket.id) {
+            logger.log(
+              chalk.red(
+                `[SOCKET] Heartbeat detected multiple sessions - forcing logout of socket ${oldSocket.id}`,
+              ),
+            );
+            
+            oldSocket.emit('forceLogout', {
+              reason: 'multiple_sessions_detected',
+              userId: userId,
+              sessionId: oldSocket.sessionId || 'unknown',
+              message: 'Multiple sessions detected - keeping only the newest session',
+              timestamp: new Date().toISOString(),
+            });
+            
+            setTimeout(() => {
+              if (oldSocket.connected) {
+                oldSocket.disconnect(true);
+              }
+            }, 100);
+          }
+        }
+      }
+    });
+
     socket.on('disconnect', (reason) => {
       // Don't emit logout events for server-side disconnects (server restart/stop)
       const isServerSideDisconnect =
