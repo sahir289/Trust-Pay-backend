@@ -111,74 +111,64 @@ const initializeSocket = (server) => {
           ),
         );
 
-        // Add this socket to our tracking map
-        const sameSessionSockets = sessionId
-          ? userActiveSockets
-              .filter((s) => s.sessionId === sessionId)
-              .map((s) => s.id)
-          : [];
-        userSockets.set(userId, [socket.id, ...sameSessionSockets]);
-
-        // Use our centralized forceLogoutUser function to handle session cleanup
-        // This will logout all other sessions except the current one (sessionId)
-        if (sessionId) {
-          // CRITICAL DEBUG: Log all existing sessions for this user before force logout
-          logger.log(
-            chalk.bgMagenta.white(
-              `[SOCKET] CRITICAL DEBUG - Before force logout for user ${userId}:`
-            ),
-          );
-          userActiveSockets.forEach((existingSocket, index) => {
-            logger.log(
-              chalk.magenta(
-                `[SOCKET] Existing Socket ${index + 1}: ID=${existingSocket.id}, SessionID="${existingSocket.sessionId}", LoginTime=${existingSocket.loginTime}`,
-              ),
-            );
-          });
-          logger.log(
-            chalk.bgMagenta.white(
-              `[SOCKET] NEW Socket: ID=${socket.id}, SessionID="${sessionId}", LoginTime=${Date.now()}`,
-            ),
-          );
-
-          // Count sessions that should be logged out
-          const socketsToLogout = userActiveSockets.filter(
-            (s) => s.sessionId !== sessionId
-          );
+        // SIMPLIFIED FORCE LOGOUT: Force logout ALL other sessions for this user
+        if (userActiveSockets.length > 0) {
           logger.log(
             chalk.bgRed.white(
-              `[SOCKET] Will logout ${socketsToLogout.length} existing sessions (excluding session "${sessionId}")`,
+              `[SOCKET] SIMPLIFIED FORCE LOGOUT - Found ${userActiveSockets.length} existing sessions for user ${userId}. Forcing logout of ALL.`,
             ),
           );
 
-          // Logout all sessions from different devices/browsers, keep same session sockets
-          logger.log(
-            chalk.yellow(
-              `[SOCKET] Using forceLogoutUser to cleanup other sessions for user ${userId}, excluding session ${sessionId}`,
-            ),
-          );
-          await forceLogoutUser(userId, null, sessionId);
-        } else {
-          // Backward compatibility - logout all other sessions if no sessionId provided
-          logger.log(
-            chalk.yellow(
-              `[SOCKET] Using forceLogoutUser to cleanup all other sessions for user ${userId} (no sessionId provided)`,
-            ),
-          );
-          const socketsToLogout = userActiveSockets.filter(
-            (s) => s.id !== socket.id,
-          );
+          // Force logout each existing session immediately with direct socket calls
+          for (const existingSocket of userActiveSockets) {
+            logger.log(
+              chalk.red(
+                `[SOCKET] Force logging out existing socket ${existingSocket.id} with session ${existingSocket.sessionId}`,
+              ),
+            );
 
-          // Force logout each old socket individually to be more precise
-          for (const oldSocket of socketsToLogout) {
-            if (oldSocket.sessionId) {
-              await forceLogoutUser(userId, oldSocket.sessionId);
+            try {
+              // Send force logout event directly to the socket
+              existingSocket.emit('forceLogout', {
+                reason: 'new_login_detected',
+                userId: userId,
+                sessionId: existingSocket.sessionId || 'unknown',
+                message: 'Your session has been terminated due to a new login from another device.',
+                timestamp: new Date().toISOString(),
+                environment: isStaging ? 'staging' : 'local',
+              });
+
+              // Also send session-terminated for redundancy
+              existingSocket.emit('session-terminated', {
+                reason: 'new_login_detected',
+                userId: userId,
+                sessionId: existingSocket.sessionId || 'unknown',
+                message: 'Please login again',
+                environment: isStaging ? 'staging' : 'local',
+              });
+
+              // Force disconnect the old socket after a brief delay to ensure events are sent
+              setTimeout(() => {
+                if (existingSocket.connected) {
+                  existingSocket.disconnect(true);
+                  logger.log(
+                    chalk.red(
+                      `[SOCKET] Disconnected old socket ${existingSocket.id}`,
+                    ),
+                  );
+                }
+              }, 100);
+            } catch (error) {
+              logger.error(`[SOCKET] Error forcing logout of socket ${existingSocket.id}: ${error.message}`);
             }
           }
         }
 
+        // Add this socket to our tracking map
+        userSockets.set(userId, [socket.id]); // Only track the new socket
+
         const loginMessage = chalk.bold.green(
-          `[SOCKET] User ${userId} logged in with socket ${socket.id}, session management completed`,
+          `[SOCKET] User ${userId} logged in with socket ${socket.id}, ${userActiveSockets.length} old sessions terminated`,
         );
         logger.log(loginMessage);
 
