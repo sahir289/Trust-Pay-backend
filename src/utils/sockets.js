@@ -27,13 +27,14 @@ const initializeSocket = (server) => {
     const message = chalk.bold.cyan(`Client connected: ${socket.id}`);
     logger.log(message);
 
-    socket.on('user-login', async (data) => {
+    // Listen for both 'login' and 'user-login' events for compatibility
+    const handleUserLogin = async (data) => {
       // Handle both string and object data formats for backward compatibility
       const userId = typeof data === 'object' ? data.userId : data;
       const sessionId = typeof data === 'object' ? data.sessionId : null;
 
       if (!userId) {
-        logger.error('[SOCKET] Missing userId in user-login event');
+        logger.error('[SOCKET] Missing userId in login event');
         return;
       }
 
@@ -159,10 +160,14 @@ const initializeSocket = (server) => {
         );
         ioInstance.emit(eventName, userId);
       } catch (error) {
-        logger.error(`[SOCKET] Error in user-login handler: ${error.message}`);
+        logger.error(`[SOCKET] Error in login handler: ${error.message}`);
         logger.error(error.stack);
       }
-    });
+    };
+
+    // Listen for both event names for compatibility
+    socket.on('login', handleUserLogin);
+    socket.on('user-login', handleUserLogin);
 
     socket.emit('new-entry', { message: 'Hello from server!!!', data: {} });
     ioInstance.emit('broadcast-message', {
