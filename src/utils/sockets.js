@@ -180,9 +180,9 @@ const initializeSocket = (server) => {
       logger.log(`Received from client:`, data);
     });
 
-    // Handle session heartbeat to validate active sessions - ULTRA AGGRESSIVE
+    // Handle session heartbeat to validate active sessions - NUCLEAR APPROACH COMPATIBLE
     socket.on('sessionHeartbeat', async (data) => {
-      const { userId } = data;
+      const { userId, immediate } = data;
       
       if (!userId) {
         return;
@@ -195,68 +195,78 @@ const initializeSocket = (server) => {
         
         logger.log(
           chalk.magenta(
-            `[SOCKET] Heartbeat check for user ${userId}: found ${userSockets.length} sessions`,
+            `[SOCKET] Heartbeat check for user ${userId}: found ${userSockets.length} sessions (immediate: ${immediate})`,
           ),
         );
         
-        if (userSockets.length > 1) {
-          // Multiple sessions detected - IMMEDIATELY force logout all except the current one
+        // Only aggressive cleanup if this is an immediate heartbeat (right after login)
+        if (userSockets.length > 1 && immediate) {
           logger.log(
             chalk.bgRed.white(
-              `[SOCKET] HEARTBEAT - Multiple sessions detected for user ${userId}. Forcing logout of ${userSockets.length - 1} old sessions.`,
+              `[SOCKET] IMMEDIATE HEARTBEAT - Multiple sessions detected for user ${userId} during immediate check. Forcing logout of ${userSockets.length - 1} old sessions.`,
             ),
           );
           
-          // Force logout all other sessions EXCEPT the one sending the heartbeat
+          // Get the newest session (highest loginTime)
+          const newestSession = userSockets.reduce((newest, current) => {
+            return (current.loginTime || 0) > (newest.loginTime || 0) ? current : newest;
+          });
+          
+          // Force logout all sessions EXCEPT the newest one
           for (const userSocket of userSockets) {
-            if (userSocket.id !== socket.id) {
+            if (userSocket.id !== newestSession.id) {
               logger.log(
                 chalk.red(
-                  `[SOCKET] HEARTBEAT - Immediately disconnecting old session ${userSocket.id}`,
+                  `[SOCKET] IMMEDIATE HEARTBEAT - Disconnecting old session ${userSocket.id}`,
                 ),
               );
               
               try {
-                // Send multiple events for maximum coverage
                 userSocket.emit('forceLogout', {
-                  reason: 'multiple_sessions_detected_heartbeat',
+                  reason: 'immediate_heartbeat_multiple_sessions',
                   userId: userId,
                   sessionId: userSocket.sessionId || 'unknown',
                   message: 'Multiple sessions detected - keeping only the newest session',
                   timestamp: new Date().toISOString(),
                   immediate: true,
+                  nuclear: true,
                 });
                 
                 userSocket.emit('session-terminated', {
-                  reason: 'multiple_sessions_detected_heartbeat',
+                  reason: 'immediate_heartbeat_multiple_sessions',
                   userId: userId,
                   sessionId: userSocket.sessionId || 'unknown',
                   message: 'Multiple sessions detected - please login again',
                   timestamp: new Date().toISOString(),
                   immediate: true,
+                  nuclear: true,
                 });
                 
                 userSocket.emit('newLogin', userId);
-                
-                // IMMEDIATE disconnection
                 userSocket.disconnect(true);
                 
                 logger.log(
                   chalk.red(
-                    `[SOCKET] HEARTBEAT - Immediately disconnected old session ${userSocket.id}`,
+                    `[SOCKET] IMMEDIATE HEARTBEAT - Disconnected old session ${userSocket.id}`,
                   ),
                 );
               } catch (error) {
-                logger.error(`[SOCKET] HEARTBEAT - Error forcing logout of socket ${userSocket.id}: ${error.message}`);
-                // Still try to disconnect
+                logger.error(`[SOCKET] IMMEDIATE HEARTBEAT - Error forcing logout of socket ${userSocket.id}: ${error.message}`);
                 try {
                   userSocket.disconnect(true);
                 } catch (disconnectError) {
-                  logger.error(`[SOCKET] HEARTBEAT - Error disconnecting socket ${userSocket.id}: ${disconnectError.message}`);
+                  logger.error(`[SOCKET] IMMEDIATE HEARTBEAT - Error disconnecting socket ${userSocket.id}: ${disconnectError.message}`);
                 }
               }
             }
           }
+        } else if (userSockets.length > 1) {
+          // Regular heartbeat with multiple sessions - just log, don't disconnect
+          logger.log(
+            chalk.yellow(
+              `[SOCKET] REGULAR HEARTBEAT - Multiple sessions for user ${userId} detected but not immediate - monitoring only`,
+            ),
+          );
         }
       } catch (error) {
         logger.error(`[SOCKET] Error in sessionHeartbeat handler: ${error.message}`);
@@ -313,7 +323,7 @@ const initializeSocket = (server) => {
   const initMessage = chalk.magentaBright('WebSocket server initialized');
   logger.log(initMessage);
 
-  // ZERO-TOLERANCE: Very frequent cleanup to ensure no duplicate sessions persist
+  // NUCLEAR APPROACH: Monitor for stale sessions but don't interfere with Nuclear login handling
   setInterval(async () => {
     try {
       if (!ioInstance) return;
@@ -331,45 +341,29 @@ const initializeSocket = (server) => {
         }
       }
       
-      // ZERO-TOLERANCE: If ANY user has multiple sessions, disconnect ALL their sessions
+      // NUCLEAR MONITORING: Only log multiple sessions, don't disconnect (Nuclear Approach handles it during login)
       for (const [userId, userSockets] of userSessionMap) {
         if (userSockets.length > 1) {
           logger.log(
-            chalk.bgRed.white(
-              `[SOCKET] ZERO-TOLERANCE CLEANUP - User ${userId} has ${userSockets.length} active sessions. DISCONNECTING ALL SESSIONS.`,
+            chalk.bgYellow.black(
+              `[SOCKET] NUCLEAR MONITORING - User ${userId} has ${userSockets.length} active sessions. Nuclear Approach will handle on next login.`,
             ),
           );
           
-          // Disconnect ALL sessions for this user
+          // Only log the sessions, don't disconnect them
           for (const userSocket of userSockets) {
             logger.log(
-              chalk.red(
-                `[SOCKET] ZERO-TOLERANCE CLEANUP - Disconnecting session ${userSocket.id} for user ${userId}`,
+              chalk.yellow(
+                `[SOCKET] NUCLEAR MONITORING - Session ${userSocket.id} for user ${userId} (loginTime: ${new Date(userSocket.loginTime || 0).toISOString()})`,
               ),
             );
-            
-            try {
-              userSocket.emit('forceLogout', {
-                reason: 'zero_tolerance_cleanup_multiple_sessions',
-                userId: userId,
-                sessionId: userSocket.sessionId || 'unknown',
-                message: 'Multiple sessions detected - all sessions terminated',
-                timestamp: new Date().toISOString(),
-                immediate: true,
-                zeroTolerance: true,
-              });
-              
-              userSocket.disconnect(true);
-            } catch (error) {
-              logger.error(`[SOCKET] ZERO-TOLERANCE CLEANUP - Error cleaning up socket ${userSocket.id}: ${error.message}`);
-            }
           }
         }
       }
     } catch (error) {
-      logger.error(`[SOCKET] Error in zero-tolerance cleanup: ${error.message}`);
+      logger.error(`[SOCKET] Error in nuclear monitoring: ${error.message}`);
     }
-  }, 10000); // Run every 10 seconds for ultra-aggressive monitoring
+  }, 30000); // Run every 30 seconds for monitoring only (not disconnecting)
 };
 
 const forceLogoutUser = async (
@@ -385,7 +379,7 @@ const forceLogoutUser = async (
   try {
     logger.log(
       chalk.bgRed.white(
-        `[SOCKET] ZERO-TOLERANCE forceLogoutUser - userId: ${userId}, target: ${targetSessionId}, exclude: ${excludeSessionId}`,
+        `[SOCKET] NUCLEAR forceLogoutUser - userId: ${userId}, target: ${targetSessionId}, exclude: ${excludeSessionId}`,
       ),
     );
 
@@ -399,37 +393,67 @@ const forceLogoutUser = async (
 
     logger.log(
       chalk.bgRed.white(
-        `[SOCKET] ZERO-TOLERANCE - Found ${userActiveSocketsList.length} active sockets for user ${userId}`,
+        `[SOCKET] NUCLEAR - Found ${userActiveSocketsList.length} active sockets for user ${userId}`,
       ),
     );
 
-    // ZERO-TOLERANCE: Disconnect ALL sockets for this user regardless of session IDs
-    for (const socket of userActiveSocketsList) {
+    // NUCLEAR APPROACH: If we have excludeSessionId, preserve it; otherwise disconnect oldest sessions
+    let socketsToDisconnect = userActiveSocketsList;
+    
+    if (excludeSessionId) {
+      // Preserve the excluded session
+      socketsToDisconnect = userActiveSocketsList.filter(
+        socket => socket.sessionId !== excludeSessionId
+      );
+      logger.log(
+        chalk.green(
+          `[SOCKET] NUCLEAR - Preserving session ${excludeSessionId}, disconnecting ${socketsToDisconnect.length} other sessions`,
+        ),
+      );
+    } else if (userActiveSocketsList.length > 1) {
+      // If no exclude specified but multiple sessions, keep the newest one
+      const newestSocket = userActiveSocketsList.reduce((newest, current) => {
+        return (current.loginTime || 0) > (newest.loginTime || 0) ? current : newest;
+      });
+      
+      socketsToDisconnect = userActiveSocketsList.filter(
+        socket => socket.id !== newestSocket.id
+      );
+      
+      logger.log(
+        chalk.green(
+          `[SOCKET] NUCLEAR - Preserving newest session ${newestSocket.id}, disconnecting ${socketsToDisconnect.length} older sessions`,
+        ),
+      );
+    }
+
+    // Disconnect the selected sockets
+    for (const socket of socketsToDisconnect) {
       logger.log(
         chalk.red(
-          `[SOCKET] ZERO-TOLERANCE - Force disconnecting socket ${socket.id} for user ${userId}`,
+          `[SOCKET] NUCLEAR - Force disconnecting socket ${socket.id} for user ${userId}`,
         ),
       );
 
       try {
         // Send force logout events
         socket.emit('forceLogout', {
-          reason: 'zero_tolerance_force_logout',
+          reason: 'nuclear_force_logout',
           userId: userId,
           sessionId: socket.sessionId || 'unknown',
           message: 'Session terminated by server.',
           timestamp: new Date().toISOString(),
           immediate: true,
-          zeroTolerance: true,
+          nuclear: true,
         });
 
         socket.emit('session-terminated', {
-          reason: 'zero_tolerance_force_logout',
+          reason: 'nuclear_force_logout',
           userId: userId,
           sessionId: socket.sessionId || 'unknown',
           message: 'Please login again',
           immediate: true,
-          zeroTolerance: true,
+          nuclear: true,
         });
 
         // IMMEDIATE disconnection
@@ -437,7 +461,7 @@ const forceLogoutUser = async (
         
         logger.log(
           chalk.red(
-            `[SOCKET] ZERO-TOLERANCE - Disconnected socket ${socket.id}`,
+            `[SOCKET] NUCLEAR - Disconnected socket ${socket.id}`,
           ),
         );
       } catch (error) {
@@ -445,12 +469,14 @@ const forceLogoutUser = async (
       }
     }
 
-    // Clear tracking
-    userSockets.delete(userId);
+    // Update tracking - only remove if we disconnected all sessions
+    if (socketsToDisconnect.length === userActiveSocketsList.length) {
+      userSockets.delete(userId);
+    }
     
     logger.log(
       chalk.green(
-        `[SOCKET] ZERO-TOLERANCE - Completed force logout for user ${userId}`,
+        `[SOCKET] NUCLEAR - Completed force logout for user ${userId} (${socketsToDisconnect.length} sessions disconnected, ${userActiveSocketsList.length - socketsToDisconnect.length} preserved)`,
       ),
     );
 
@@ -459,11 +485,11 @@ const forceLogoutUser = async (
     logger.error(error.stack);
   }
 
-  // Emit global logout event
+  // Emit global logout event if we found any sockets for this user
   ioInstance.emit('userLoggedOut', {
     userId,
     sessionId: targetSessionId,
-    reason: 'zero_tolerance_forced_logout',
+    reason: 'nuclear_forced_logout',
   });
 };
 
