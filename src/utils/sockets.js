@@ -122,6 +122,35 @@ const initializeSocket = (server) => {
         // Use our centralized forceLogoutUser function to handle session cleanup
         // This will logout all other sessions except the current one (sessionId)
         if (sessionId) {
+          // CRITICAL DEBUG: Log all existing sessions for this user before force logout
+          logger.log(
+            chalk.bgMagenta.white(
+              `[SOCKET] CRITICAL DEBUG - Before force logout for user ${userId}:`
+            ),
+          );
+          userActiveSockets.forEach((existingSocket, index) => {
+            logger.log(
+              chalk.magenta(
+                `[SOCKET] Existing Socket ${index + 1}: ID=${existingSocket.id}, SessionID="${existingSocket.sessionId}", LoginTime=${existingSocket.loginTime}`,
+              ),
+            );
+          });
+          logger.log(
+            chalk.bgMagenta.white(
+              `[SOCKET] NEW Socket: ID=${socket.id}, SessionID="${sessionId}", LoginTime=${Date.now()}`,
+            ),
+          );
+
+          // Count sessions that should be logged out
+          const socketsToLogout = userActiveSockets.filter(
+            (s) => s.sessionId !== sessionId
+          );
+          logger.log(
+            chalk.bgRed.white(
+              `[SOCKET] Will logout ${socketsToLogout.length} existing sessions (excluding session "${sessionId}")`,
+            ),
+          );
+
           // Logout all sessions from different devices/browsers, keep same session sockets
           logger.log(
             chalk.yellow(
@@ -446,6 +475,17 @@ const forceLogoutUser = async (
           ),
         );
 
+        // CRITICAL SESSION DEBUG
+        logger.log(
+          chalk.bgCyan.black(
+            `[SOCKET] SESSION COMPARISON DEBUG: 
+             Socket Session: "${socketSessionId}" (length: ${socketSessionId?.length || 0})
+             Exclude Session: "${excludeSessionId}" (length: ${excludeSessionId?.length || 0})
+             Are Equal: ${socketSessionId === excludeSessionId}
+             Strict Equal: ${Object.is(socketSessionId, excludeSessionId)}`,
+          ),
+        );
+
         if (isStaging) {
           logger.log(
             chalk.bgYellow.black(
@@ -469,6 +509,23 @@ const forceLogoutUser = async (
             );
           }
           continue;
+        }
+
+        // CRITICAL ISSUE CHECK: Make sure we're not logging out the wrong socket
+        logger.log(
+          chalk.bgRed.white(
+            `[SOCKET] CRITICAL: About to force logout socket ${socket.id} with session "${socketSessionId}" (excluding "${excludeSessionId}")`,
+          ),
+        );
+
+        // If sessions are the same but we reached here, there's a bug
+        if (socketSessionId === excludeSessionId) {
+          logger.error(
+            chalk.bgRed.white(
+              `[SOCKET] ERROR: Session comparison failed! Socket session "${socketSessionId}" equals exclude session "${excludeSessionId}" but condition didn't catch it!`,
+            ),
+          );
+          continue; // Skip this socket to prevent incorrect logout
         }
 
         // Send targeted messages to old socket - send multiple for redundancy
