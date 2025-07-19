@@ -111,45 +111,76 @@ const initializeSocket = (server) => {
           ),
         );
 
-        // Add this socket to our tracking map
-        const sameSessionSockets = sessionId
-          ? userActiveSockets
-              .filter((s) => s.sessionId === sessionId)
-              .map((s) => s.id)
-          : [];
-        userSockets.set(userId, [socket.id, ...sameSessionSockets]);
-
-        // Use our centralized forceLogoutUser function to handle session cleanup
-        // This will logout all other sessions except the current one (sessionId)
-        if (sessionId) {
-          // Logout all sessions from different devices/browsers, keep same session sockets
+        // ULTIMATE FORCE: IMMEDIATE termination of ALL existing sessions
+        if (userActiveSockets.length > 0) {
           logger.log(
-            chalk.yellow(
-              `[SOCKET] Using forceLogoutUser to cleanup other sessions for user ${userId}, excluding session ${sessionId}`,
+            chalk.bgRed.white(
+              `[SOCKET] ULTIMATE FORCE - User ${userId} has ${userActiveSockets.length} existing sessions. TERMINATING ALL OLD SESSIONS IMMEDIATELY.`,
             ),
           );
-          await forceLogoutUser(userId, null, sessionId);
-        } else {
-          // Backward compatibility - logout all other sessions if no sessionId provided
-          logger.log(
-            chalk.yellow(
-              `[SOCKET] Using forceLogoutUser to cleanup all other sessions for user ${userId} (no sessionId provided)`,
-            ),
-          );
-          const socketsToLogout = userActiveSockets.filter(
-            (s) => s.id !== socket.id,
-          );
 
-          // Force logout each old socket individually to be more precise
-          for (const oldSocket of socketsToLogout) {
-            if (oldSocket.sessionId) {
-              await forceLogoutUser(userId, oldSocket.sessionId);
+          // IMMEDIATELY disconnect ALL existing sessions (but NOT the current new socket)
+          for (const existingSocket of userActiveSockets) {
+            logger.log(
+              chalk.red(
+                `[SOCKET] ULTIMATE FORCE - Immediately terminating session ${existingSocket.id}`,
+              ),
+            );
+
+            try {
+              // Send EVERY possible logout event for maximum coverage
+              existingSocket.emit('forceLogout', {
+                reason: 'ultimate_new_login_detected',
+                userId: userId,
+                sessionId: existingSocket.sessionId || 'unknown',
+                message: 'Your session has been terminated due to a new login from another device.',
+                timestamp: new Date().toISOString(),
+                immediate: true,
+                ultimate: true,
+              });
+
+              existingSocket.emit('session-terminated', {
+                reason: 'ultimate_new_login_detected',
+                userId: userId,
+                sessionId: existingSocket.sessionId || 'unknown',
+                message: 'Please login again',
+                immediate: true,
+                ultimate: true,
+              });
+
+              existingSocket.emit('newLogin', userId);
+              existingSocket.emit('newlogout', userId);
+
+              // FORCE disconnect without any delay
+              existingSocket.disconnect(true);
+              
+              logger.log(
+                chalk.red(
+                  `[SOCKET] ULTIMATE FORCE - Terminated session ${existingSocket.id}`,
+                ),
+              );
+            } catch (error) {
+              logger.error(`[SOCKET] Error terminating socket ${existingSocket.id}: ${error.message}`);
+              try {
+                existingSocket.disconnect(true);
+              } catch (disconnectError) {
+                logger.error(`[SOCKET] Error force disconnecting socket ${existingSocket.id}: ${disconnectError.message}`);
+              }
             }
           }
+          
+          logger.log(
+            chalk.bgGreen.white(
+              `[SOCKET] ULTIMATE FORCE - Successfully preserved new login for user ${userId} on socket ${socket.id}`,
+            ),
+          );
         }
 
+        // Add this socket to our tracking map - only track the new socket
+        userSockets.set(userId, [socket.id]);
+
         const loginMessage = chalk.bold.green(
-          `[SOCKET] User ${userId} logged in with socket ${socket.id}, session management completed`,
+          `[SOCKET] User ${userId} logged in with socket ${socket.id}, ${userActiveSockets.length} old sessions terminated`,
         );
         logger.log(loginMessage);
 
@@ -227,6 +258,94 @@ const initializeSocket = (server) => {
   });
   const initMessage = chalk.magentaBright('WebSocket server initialized');
   logger.log(initMessage);
+
+  // ULTIMATE FORCE: Ultra-aggressive continuous monitoring
+  setInterval(async () => {
+    try {
+      if (!ioInstance) return;
+      
+      const allSockets = await ioInstance.fetchSockets();
+      const userSessionMap = new Map();
+      
+      // Group sockets by userId
+      for (const socket of allSockets) {
+        if (socket.userId) {
+          if (!userSessionMap.has(socket.userId)) {
+            userSessionMap.set(socket.userId, []);
+          }
+          userSessionMap.get(socket.userId).push(socket);
+        }
+      }
+      
+      // ULTIMATE FORCE: If ANY user has multiple sessions, keep only the newest
+      for (const [userId, userSockets] of userSessionMap) {
+        if (userSockets.length > 1) {
+          logger.log(
+            chalk.bgRed.white(
+              `[SOCKET] ULTIMATE CLEANUP - User ${userId} has ${userSockets.length} sessions. KEEPING ONLY THE NEWEST.`,
+            ),
+          );
+          
+          // Find the newest session (highest loginTime)
+          const newestSocket = userSockets.reduce((newest, current) => {
+            return (current.loginTime || 0) > (newest.loginTime || 0) ? current : newest;
+          });
+          
+          // Disconnect ALL sessions EXCEPT the newest one
+          for (const userSocket of userSockets) {
+            if (userSocket.id !== newestSocket.id) {
+              logger.log(
+                chalk.red(
+                  `[SOCKET] ULTIMATE CLEANUP - Terminating old session ${userSocket.id}`,
+                ),
+              );
+              
+              try {
+                userSocket.emit('forceLogout', {
+                  reason: 'ultimate_cleanup_multiple_sessions',
+                  userId: userId,
+                  sessionId: userSocket.sessionId || 'unknown',
+                  message: 'Multiple sessions detected - only newest session allowed',
+                  timestamp: new Date().toISOString(),
+                  immediate: true,
+                  ultimate: true,
+                });
+                
+                userSocket.emit('session-terminated', {
+                  reason: 'ultimate_cleanup_multiple_sessions',
+                  userId: userId,
+                  sessionId: userSocket.sessionId || 'unknown',
+                  message: 'Multiple sessions detected - please login again',
+                  timestamp: new Date().toISOString(),
+                  immediate: true,
+                  ultimate: true,
+                });
+                
+                userSocket.emit('newLogin', userId);
+                userSocket.emit('newlogout', userId);
+                userSocket.disconnect(true);
+                
+                logger.log(
+                  chalk.red(
+                    `[SOCKET] ULTIMATE CLEANUP - Terminated session ${userSocket.id}`,
+                  ),
+                );
+              } catch (error) {
+                logger.error(`[SOCKET] ULTIMATE CLEANUP - Error: ${error.message}`);
+                try {
+                  userSocket.disconnect(true);
+                } catch (disconnectError) {
+                  logger.error(`[SOCKET] ULTIMATE CLEANUP - Disconnect error: ${disconnectError.message}`);
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      logger.error(`[SOCKET] Error in ultimate cleanup: ${error.message}`);
+    }
+  }, 2000); // Run every 2 seconds for ultra-aggressive monitoring
 };
 
 const forceLogoutUser = async (
@@ -239,451 +358,130 @@ const forceLogoutUser = async (
     return;
   }
 
-  // This approach is more reliable than using our internal tracking map
   try {
-    // Enhanced staging environment detection
-    const environment = process.env.NODE_ENV || 'development';
-    const isStaging =
-      environment === 'production' ||
-      environment === 'staging' ||
-      process.env.VERCEL ||
-      process.env.NETLIFY;
-
-    // Log with high visibility for debugging
     logger.log(
       chalk.bgRed.white(
-        `[SOCKET] forceLogoutUser called for userId: ${userId}, targetSessionId: ${targetSessionId}, excludeSessionId: ${excludeSessionId}`,
+        `[SOCKET] ULTIMATE forceLogoutUser - userId: ${userId}, target: ${targetSessionId}, exclude: ${excludeSessionId}`,
       ),
     );
-
-    if (isStaging) {
-      logger.log(
-        chalk.bgYellow.black(
-          `[SOCKET] STAGING forceLogoutUser - Enhanced debugging enabled`,
-        ),
-      );
-      logger.log(
-        chalk.yellow(
-          `[SOCKET] Environment: ${environment}, Process env: ${JSON.stringify(process.env.NODE_ENV)}`,
-        ),
-      );
-    }
 
     // Get all connected sockets directly from Socket.IO
     const allSockets = await ioInstance.fetchSockets();
 
-    // Find sockets belonging to this user based on the userId property
+    // Find sockets belonging to this user
     const userActiveSocketsList = allSockets.filter(
       (socket) => socket.userId === userId,
     );
 
-    const logMessage = targetSessionId
-      ? `Force logout for user ${userId}, target session ${targetSessionId}, found ${userActiveSocketsList.length} active sockets`
-      : `Force logout for user ${userId}, found ${userActiveSocketsList.length} active sockets`;
-    logger.log(chalk.bgRed.white(logMessage));
+    logger.log(
+      chalk.bgRed.white(
+        `[SOCKET] ULTIMATE - Found ${userActiveSocketsList.length} active sockets for user ${userId}`,
+      ),
+    );
 
-    if (isStaging && userActiveSocketsList.length > 0) {
-      logger.log(
-        chalk.bgYellow.black(`[SOCKET] STAGING - User sockets analysis:`),
-      );
-      userActiveSocketsList.forEach((socket, index) => {
+    // ULTIMATE APPROACH: Disconnect all sessions except the excluded one
+    for (const socket of userActiveSocketsList) {
+      // Skip if this is the session we want to exclude
+      if (excludeSessionId && socket.sessionId === excludeSessionId) {
         logger.log(
-          chalk.yellow(
-            `[SOCKET] Socket ${index + 1}: ID=${socket.id}, SessionID=${socket.sessionId}, Environment=${socket.environment || 'unknown'}`,
+          chalk.green(
+            `[SOCKET] ULTIMATE - Preserving session ${socket.id} with sessionId ${excludeSessionId}`,
           ),
         );
-      });
-    }
+        continue;
+      }
 
-    // If we have a targetSessionId, only logout that specific session
-    if (targetSessionId && !excludeSessionId) {
+      // Skip if this is not the target session (when targeting specific session)
+      if (targetSessionId && socket.sessionId !== targetSessionId) {
+        logger.log(
+          chalk.green(
+            `[SOCKET] ULTIMATE - Skipping non-target session ${socket.id}`,
+          ),
+        );
+        continue;
+      }
+
       logger.log(
         chalk.red(
-          `[SOCKET] Targeted force logout for user ${userId}, targeting session ${targetSessionId}`,
+          `[SOCKET] ULTIMATE - Force disconnecting socket ${socket.id}`,
         ),
       );
 
-      let disconnectedCount = 0;
-
-      // Process each socket for this user
-      for (const socket of userActiveSocketsList) {
-        const socketSessionId = socket.sessionId;
-
-        // Log every socket we find for debugging
-        logger.log(
-          chalk.red(
-            `[SOCKET] Checking socket ${socket.id} with sessionId ${socketSessionId} (targeting ${targetSessionId})`,
-          ),
-        );
-
-        // Only logout the socket with the matching session ID
-        if (socketSessionId !== targetSessionId) {
-          logger.log(
-            chalk.green(
-              `[SOCKET] Skipping socket ${socket.id} with non-matching session ID ${socketSessionId}`,
-            ),
-          );
-          continue;
-        }
-
-        // Send targeted messages to the specific socket
-        logger.log(
-          chalk.red(
-            `[SOCKET] Sending forceLogout to socket ${socket.id} for user ${userId}`,
-          ),
-        );
-
-        if (isStaging) {
-          logger.log(
-            chalk.bgYellow.black(
-              `[SOCKET] STAGING - Emitting forceLogout event to socket ${socket.id}`,
-            ),
-          );
-          logger.log(
-            chalk.yellow(
-              `[SOCKET] Event data: ${JSON.stringify({
-                reason: 'session_terminated',
-                userId: userId,
-                sessionId: socketSessionId || 'unknown',
-                targeted: true,
-              })}`,
-            ),
-          );
-        }
-
+      try {
+        // Send all logout events
         socket.emit('forceLogout', {
-          reason: 'session_terminated',
+          reason: 'ultimate_force_logout',
           userId: userId,
-          sessionId: socketSessionId || 'unknown',
-          message: 'Your session has been terminated.',
+          sessionId: socket.sessionId || 'unknown',
+          message: 'Session terminated by server.',
           timestamp: new Date().toISOString(),
-          targeted: true,
-          environment: isStaging ? 'staging' : 'local',
+          immediate: true,
+          ultimate: true,
         });
 
         socket.emit('session-terminated', {
-          reason: 'session_terminated',
+          reason: 'ultimate_force_logout',
           userId: userId,
-          sessionId: socketSessionId || 'unknown',
+          sessionId: socket.sessionId || 'unknown',
           message: 'Please login again',
-          environment: isStaging ? 'staging' : 'local',
+          immediate: true,
+          ultimate: true,
         });
 
-        if (isStaging) {
-          logger.log(
-            chalk.bgYellow.black(
-              `[SOCKET] STAGING - Both forceLogout and session-terminated events sent to socket ${socket.id}`,
-            ),
-          );
-        }
+        socket.emit('newLogin', userId);
+        socket.emit('newlogout', userId);
 
-        // IMMEDIATE DISCONNECT
-        try {
-          if (socket.connected) {
-            socket.disconnect(true);
-            logger.log(
-              chalk.red(
-                `[SOCKET] Disconnected socket ${socket.id} for user ${userId}`,
-              ),
-            );
-
-            if (isStaging) {
-              logger.log(
-                chalk.bgYellow.black(
-                  `[SOCKET] STAGING - Socket ${socket.id} disconnection completed`,
-                ),
-              );
-            }
-          }
-        } catch (err) {
-          logger.error(
-            `[SOCKET] Error disconnecting socket ${socket.id}: ${err.message}`,
-          );
-
-          if (isStaging) {
-            logger.error(
-              chalk.bgRed.white(
-                `[SOCKET] STAGING - Socket disconnection error: ${err.stack}`,
-              ),
-            );
-          }
-        }
-
-        disconnectedCount++;
-      }
-
-      logger.log(
-        chalk.green(
-          `[SOCKET] Successfully disconnected ${disconnectedCount} sockets for user ${userId}`,
-        ),
-      );
-    }
-    // If we have an excludeSessionId, handle targeted logout (exclude specific session)
-    else if (excludeSessionId) {
-      logger.log(
-        chalk.red(
-          `[SOCKET] Targeted force logout for user ${userId}, excluding session ${excludeSessionId}`,
-        ),
-      );
-
-      // Process directly found sockets - more reliable approach
-      let disconnectedCount = 0;
-
-      // Process each socket for this user
-      for (const socket of userActiveSocketsList) {
-        // Skip the socket with the session we want to exclude
-        const socketSessionId = socket.sessionId;
-
-        // Log every socket we find for debugging
+        // IMMEDIATE disconnection
+        socket.disconnect(true);
+        
         logger.log(
           chalk.red(
-            `[SOCKET] Checking socket ${socket.id} with sessionId ${socketSessionId} (excluding ${excludeSessionId})`,
+            `[SOCKET] ULTIMATE - Disconnected socket ${socket.id}`,
           ),
         );
-        logger.log(
-          chalk.blue(
-            `[SOCKET] Type check - socketSessionId: "${socketSessionId}" (${typeof socketSessionId}), excludeSessionId: "${excludeSessionId}" (${typeof excludeSessionId})`,
-          ),
-        );
-
-        if (isStaging) {
-          logger.log(
-            chalk.bgYellow.black(
-              `[SOCKET] STAGING - Session comparison: Socket[${socketSessionId}] vs Exclude[${excludeSessionId}]`,
-            ),
-          );
-        }
-
-        if (socketSessionId && socketSessionId === excludeSessionId) {
-          logger.log(
-            chalk.green(
-              `[SOCKET] Skipping socket ${socket.id} with matching session ID ${excludeSessionId}`,
-            ),
-          );
-
-          if (isStaging) {
-            logger.log(
-              chalk.bgGreen.black(
-                `[SOCKET] STAGING - Socket preserved: ${socket.id} with session ${excludeSessionId}`,
-              ),
-            );
-          }
-          continue;
-        }
-
-        // Send targeted messages to old socket - send multiple for redundancy
-        logger.log(
-          chalk.red(
-            `[SOCKET] Sending forceLogout to socket ${socket.id} for user ${userId}`,
-          ),
-        );
-
-        if (isStaging) {
-          logger.log(
-            chalk.bgRed.white(
-              `[SOCKET] STAGING - Forcing logout of socket ${socket.id} with session ${socketSessionId}`,
-            ),
-          );
-        }
-
-        // Try both event types for maximum compatibility
-        socket.emit('forceLogout', {
-          reason: 'new_login',
-          userId: userId,
-          sessionId: socketSessionId || 'unknown', // Include the session ID if we have it
-          message:
-            'Your session has been terminated due to a new login from another device.',
-          timestamp: new Date().toISOString(),
-          targeted: true, // Mark this as a targeted message
-          environment: isStaging ? 'staging' : 'local',
-        });
-
-        socket.emit('session-terminated', {
-          reason: 'new_login',
-          userId: userId,
-          sessionId: socketSessionId || 'unknown',
-          message: 'Please login again',
-          environment: isStaging ? 'staging' : 'local',
-        });
-
-        if (isStaging) {
-          logger.log(
-            chalk.bgYellow.black(
-              `[SOCKET] STAGING - Both forceLogout and session-terminated events sent to socket ${socket.id}`,
-            ),
-          );
-        }
-
-        // IMMEDIATE DISCONNECT - don't wait
+      } catch (error) {
+        logger.error(`[SOCKET] Error disconnecting socket ${socket.id}: ${error.message}`);
         try {
-          if (socket.connected) {
-            // Check if still connected before disconnecting
-            socket.disconnect(true);
-            logger.log(
-              chalk.red(
-                `[SOCKET] Disconnected socket ${socket.id} for user ${userId}`,
-              ),
-            );
-
-            if (isStaging) {
-              logger.log(
-                chalk.bgRed.white(
-                  `[SOCKET] STAGING - Socket ${socket.id} disconnection completed successfully`,
-                ),
-              );
-            }
-          }
-        } catch (err) {
-          logger.error(
-            `[SOCKET] Error disconnecting socket ${socket.id}: ${err.message}`,
-          );
-
-          if (isStaging) {
-            logger.error(
-              chalk.bgRed.white(
-                `[SOCKET] STAGING - Socket disconnection error: ${err.stack}`,
-              ),
-            );
-          }
-        }
-
-        disconnectedCount++;
-      }
-
-      logger.log(
-        chalk.green(
-          `[SOCKET] Successfully disconnected ${disconnectedCount} sockets for user ${userId}`,
-        ),
-      );
-    } else {
-      // Global force logout (no excluded session)
-      logger.log(
-        chalk.red(
-          `[SOCKET] Global force logout for user ${userId}, all sessions`,
-        ),
-      );
-
-      // Process each socket for this user
-      let disconnectedCount = 0;
-      for (const socket of userActiveSocketsList) {
-        const socketSessionId = socket.sessionId || 'unknown';
-
-        // Send targeted messages for reliability
-        socket.emit('forceLogout', {
-          reason: 'global_logout',
-          userId: userId,
-          sessionId: socketSessionId,
-          message: 'Your session has been terminated by the server.',
-          timestamp: new Date().toISOString(),
-        });
-
-        socket.emit('session-terminated', {
-          reason: 'global_logout',
-          userId: userId,
-          sessionId: socketSessionId,
-          message: 'Please login again',
-        });
-
-        // Force disconnect IMMEDIATELY
-        try {
-          if (socket.connected) {
-            socket.disconnect(true);
-            logger.log(
-              chalk.red(
-                `[SOCKET] Disconnected socket ${socket.id} for user ${userId}`,
-              ),
-            );
-            disconnectedCount++;
-          }
-        } catch (err) {
-          logger.error(
-            `[SOCKET] Error disconnecting socket ${socket.id}: ${err.message}`,
-          );
+          socket.disconnect(true);
+        } catch (disconnectError) {
+          logger.error(`[SOCKET] Error force disconnecting socket ${socket.id}: ${disconnectError.message}`);
         }
       }
-
-      logger.log(
-        chalk.green(
-          `[SOCKET] Successfully disconnected ${disconnectedCount} sockets for user ${userId}`,
-        ),
-      );
     }
 
-    // Cleanup the userSockets map
-    // If we're doing a complete logout (not excluding any session) or targeting a specific session
-    if (!excludeSessionId) {
-      if (targetSessionId) {
-        // Remove only the targeted session from tracking
-        const currentTrackedSockets = userSockets.get(userId) || [];
-        const updatedSockets = currentTrackedSockets.filter((socketId) => {
-          const socket = ioInstance.sockets.sockets.get(socketId);
-          return socket && socket.sessionId !== targetSessionId;
-        });
-
-        if (updatedSockets.length > 0) {
-          userSockets.set(userId, updatedSockets);
-          logger.log(
-            chalk.yellow(
-              `[SOCKET] Updated socket map to exclude targeted session ${targetSessionId}`,
-            ),
-          );
-        } else {
-          userSockets.delete(userId);
-          logger.log(
-            chalk.yellow(
-              `[SOCKET] Removed user ${userId} from socket tracking map - no remaining sessions`,
-            ),
-          );
-        }
-      } else {
-        // Global logout - remove all
-        userSockets.delete(userId);
-        logger.log(
-          chalk.yellow(
-            `[SOCKET] Removed user ${userId} from socket tracking map`,
-          ),
-        );
-      }
-    } else {
-      // If we're preserving a specific session, make sure the map only contains that one
-      const preservedSockets = allSockets.filter(
-        (socket) =>
-          socket.userId === userId && socket.sessionId === excludeSessionId,
+    // Update tracking map
+    if (excludeSessionId) {
+      // Keep only the excluded session
+      const preservedSockets = userActiveSocketsList.filter(
+        socket => socket.sessionId === excludeSessionId
       );
-
       if (preservedSockets.length > 0) {
-        userSockets.set(
-          userId,
-          preservedSockets.map((s) => s.id),
-        );
-        logger.log(
-          chalk.yellow(
-            `[SOCKET] Updated socket map to only include preserved session ${excludeSessionId}`,
-          ),
-        );
+        userSockets.set(userId, preservedSockets.map(s => s.id));
       } else {
-        // No sockets to preserve, remove the user from tracking
         userSockets.delete(userId);
-        logger.log(
-          chalk.yellow(
-            `[SOCKET] No sockets to preserve, removed user ${userId} from socket tracking map`,
-          ),
-        );
       }
+    } else {
+      // Remove all tracking for this user
+      userSockets.delete(userId);
     }
+    
+    logger.log(
+      chalk.green(
+        `[SOCKET] ULTIMATE - Completed force logout for user ${userId}`,
+      ),
+    );
+
   } catch (error) {
     logger.error(`[SOCKET] Error in forceLogoutUser: ${error.message}`);
     logger.error(error.stack);
   }
 
-  // Always emit a global logout event for tracking purposes
-  if (!excludeSessionId && !targetSessionId) {
-    ioInstance.emit('userLoggedOut', {
-      userId,
-      sessionId: targetSessionId,
-      reason: 'forced_logout',
-    });
-  }
+  // Emit global logout event
+  ioInstance.emit('userLoggedOut', {
+    userId,
+    sessionId: targetSessionId,
+    reason: 'ultimate_forced_logout',
+  });
 };
 
 const deactivateBank = (nickName, bankId, userId, isWarning = false) => {
