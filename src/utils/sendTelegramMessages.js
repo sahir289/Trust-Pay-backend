@@ -273,43 +273,70 @@ export async function sendTelegramDashboardMerchantGroupingReportMessage(
 
 export async function sendTelegramDashboardSuccessRatioMessage(
   chatId,
-  fullMessage,
+  fullMessages,
   TELEGRAM_BOT_TOKEN,
 ) {
-  const BATCH_SIZE = 5;
-  const DELAY_MS = 2000;
-  //telegram API couldnot process too many message processing at once
-  for (let i = 0; i < fullMessage.length; i += BATCH_SIZE) {
-    const batch = fullMessage.slice(i, i + BATCH_SIZE);
-    await Promise.all(
-      batch.map(
-        async ({ merchantCode, intervalDetails, intervalDetailsUtr }) => {
-          const message = `🔔<b>${merchantCode}</b> - SR 🔔\n\n<b>Payin SR:</b>\n${intervalDetails}\n\n<b>UTR SR:</b>\n${intervalDetailsUtr}`;
-          try {
-            const success = await telegramSender(
-              chatId,
-              message,
-              null,
-              TELEGRAM_BOT_TOKEN,
-            );
-            logger.log(
-              success
-                ? `Sent message for ${merchantCode}!`
-                : `Failed to send message for ${merchantCode}.`,
-            );
-            return success;
-          } catch (error) {
-            logger.error(
-              `Error sending message for ${merchantCode}: ${error.message}`,
-            );
-            return false;
-          }
-        },
-      ),
-    );
-    if (i + BATCH_SIZE < fullMessage.length) {
-      await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
+  try {
+    // Debug log
+    logger.info(`Sending messages to Telegram. Total messages: ${fullMessages.length}`);
+
+    const BATCH_SIZE = 5;
+    const DELAY_MS = 2000;
+
+    // Group messages by first letter of merchant code
+    const groupedMessages = fullMessages.reduce((groups, message) => {
+      const firstLetter = message.merchantCode[0].toUpperCase();
+      if (!groups[firstLetter]) groups[firstLetter] = [];
+      groups[firstLetter].push(message);
+      return groups;
+    }, {});
+
+    // Sort groups by letter and merchants within groups
+    for (const letter of Object.keys(groupedMessages).sort()) {
+      const batch = groupedMessages[letter];
+      
+      // Sort merchants within each group
+      batch.sort((a, b) => a.merchantCode.localeCompare(b.merchantCode));
+
+      // Send messages in smaller batches
+      for (let i = 0; i < batch.length; i += BATCH_SIZE) {
+        const currentBatch = batch.slice(i, i + BATCH_SIZE);
+        
+        await Promise.all(
+          currentBatch.map(async ({ merchantCode, intervalDetails, intervalDetailsUtr }) => {
+            const message = `🔔 <b>${merchantCode}</b> - SR 🔔\n\n<b>PayIn SR:</b>\n${intervalDetails}\n\n<b>UTR SR:</b>\n${intervalDetailsUtr}`;
+            
+            try {
+              const success = await telegramSender(
+                chatId,
+                message,
+                null,
+                TELEGRAM_BOT_TOKEN
+              );
+              
+              logger.info(`Message sent for ${merchantCode}: ${success ? 'Success' : 'Failed'}`);
+              return success;
+            } catch (error) {
+              logger.error(`Failed to send message for ${merchantCode}:`, error);
+              return false;
+            }
+          })
+        );
+
+        // Add delay between batches
+        if (i + BATCH_SIZE < batch.length) {
+          await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+        }
+      }
+
+      // Add delay between groups
+      await new Promise(resolve => setTimeout(resolve, DELAY_MS));
     }
+
+    logger.info('Finished sending all messages to Telegram');
+  } catch (error) {
+    logger.error('Error in sendTelegramDashboardSuccessRatioMessage:', error);
+    throw error;
   }
 }
 
