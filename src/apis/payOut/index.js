@@ -3,7 +3,7 @@ import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import {
   createPayout,
   deletePayout,
-  // getPayouts,
+  getPayouts,
   updatePayout,
   getPayoutsById,
   getPayoutsBySearch,
@@ -88,6 +88,11 @@ router.get(
   '/',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayoutsBySearch),
+);
+router.get(
+  '/reports',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getPayouts),
 );
 router.get(
   '/wallets-balance',

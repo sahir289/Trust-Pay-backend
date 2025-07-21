@@ -63,17 +63,16 @@ const getBankaccountService = async (
 };
 
 const getBankAccountBySearchService = async (
+  filters,
   company_id,
   role,
-  search,
-  bank_used_for,
   page,
   limit,
-  designation,
   user_id,
+  designation,
+  search
 ) => {
   try {
-    const filters = {}
     if (role == Role.VENDOR) {
       filters.user_id = [user_id];
     }
@@ -84,30 +83,25 @@ const getBankAccountBySearchService = async (
         filters.user_id = [parentID];
       }
     }
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
-    if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
-      throw new BadRequestError('Invalid pagination parameters');
-    }
-    const searchTerms = search
-      .split(',')
-      .map((term) => term.trim())
-      .filter((term) => term.length > 0);
 
-    if (searchTerms.length === 0) {
-      throw new BadRequestError('Please provide valid search items');
+    const pageNumber = parseInt(page, 10) || 1;
+    const pageSize = parseInt(limit, 10) || 10;
+    let searchTerms;
+    if (search) {
+      searchTerms = search
+        .split(',')
+        .map((term) => term.trim())
+        .filter((term) => term.length > 0);
     }
-    const offset = (pageNum - 1) * limitNum;
-    return await getBankAccountsBySearchDao(
-      company_id,
+    const banks = await getBankAccountsBySearchDao(
+      { company_id, ...filters },
+      pageNumber,
+      pageSize,
       role,
-      searchTerms,
-      limitNum,
-      offset,
-      bank_used_for,
       designation,
-      filters,
+      searchTerms,
     );
+    return banks;
   } catch (error) {
     logger.error('error getting while getting check utr by search', error);
     throw new InternalServerError(error.message);
