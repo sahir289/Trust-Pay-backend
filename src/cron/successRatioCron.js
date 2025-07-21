@@ -35,6 +35,7 @@ const formattedSuccessRatiosForAllCompanies = async () => {
         try {
           logger.info(`Processing success ratios for company: ${company.id}`);
           await formattedSuccessRatiosByMerchant(company.id);
+          await formattedSuccessRatiosByMerchantUpdatedAt(company.id);
         } catch (error) {
           logger.error(`Error processing success ratios for company ${company.id}: ${error}`);
         }
@@ -88,7 +89,7 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
 
     // Combine intervals
     const intervals = [
-      { label: 'Today Total', startTime: startOfDay, endTime: now, type: 'daily' },
+      { label: 'Today SR', startTime: startOfDay, endTime: now, type: 'daily' },
       ...rollingIntervals,
     ];
 
@@ -130,7 +131,7 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
         : Math.min(Math.max(((todaySuccessful / todayTotal) * 100), 0), 100).toFixed(2) + '%';
 
       // Format message with heading
-      const intervalDetails = `<b>📊 Today's Balance:</b> ${todaySuccessful}/${todayTotal} = ${todayRatio}\n\n` + 
+      const intervalDetails = `<b>📊 Today's SR:</b> ${todaySuccessful}/${todayTotal} = ${todayRatio}\n\n` + 
         intervals
           .map(interval => {
             const currentTime = new Date();
@@ -207,6 +208,113 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
   }
 };
 export default formattedSuccessRatiosForAllCompanies;
+
+
+ const formattedSuccessRatiosByMerchantUpdatedAt = async () => {
+  try {
+    logger.info('Success Ratio CRON Started For Updated At');
+    const now = new Date();
+    const intervals = [
+      { label: 'Last 5m', duration: 5 * 60 * 1000 },
+      { label: 'Last 10m', duration: 10 * 60 * 1000 },
+      { label: 'Last 15m', duration: 15 * 60 * 1000 },
+      { label: 'Last 30m', duration: 30 * 60 * 1000 },
+      { label: 'Last 1h', duration: 60 * 60 * 1000 },
+      { label: 'Last 3h', duration: 3 * 60 * 60 * 1000 },
+      { label: 'Last 6h', duration: 6 * 60 * 60 * 1000 },
+      { label: 'Last 12h', duration: 12 * 60 * 60 * 1000 },
+      { label: 'Last 24h', duration: 24 * 60 * 60 * 1000 },
+    ];
+
+    // fetch all transactions
+    const allPayIns = await getPayInUrlsDao({});
+    const merchants = await getMerchantsDao({}, null, null);
+    // group transactions by merchant_id
+    const transactionsByMerchant = allPayIns.reduce((map, payin) => {
+      if (!map[payin.merchant_id]) map[payin.merchant_id] = [];
+      map[payin.merchant_id].push({
+        updated_at: new Date(payin.updated_at),
+        status: payin.status,
+        user_submitted_utr: payin.user_submitted_utr,
+      });
+      return map;
+    }, {});
+
+    const merchantsWithTransactions = merchants.filter(
+      (merchant) =>
+        Array.isArray(transactionsByMerchant[merchant.id]) &&
+        transactionsByMerchant[merchant.id].length > 0,
+    );
+
+    const fullMessages = [];
+    for (const merchant of merchantsWithTransactions) {
+      const merchantTransactions = transactionsByMerchant[merchant.id];
+
+      const intervalDetails = intervals
+        .map(({ label, duration }) => {
+          const startTime = new Date(now - duration);
+
+          const filteredTransactions = merchantTransactions.filter(
+            (tx) => tx.updated_at >= startTime,
+          );
+
+          const total = filteredTransactions.length;
+          const success = filteredTransactions.filter(
+            (tx) => tx.status === 'SUCCESS',
+          ).length;
+
+          const successRatio =
+            total === 0
+              ? '0.00%'
+              : Math.min(((success / total) * 100).toFixed(2), 100) + '%';
+          const statusIcon = success === 0 ? '⚠️' : '✅';
+
+          return `${statusIcon} ${label}: ${success}/${total} = ${successRatio}`;
+        })
+        .join('\n');
+
+      const intervalDetailsUtr = intervals
+        .map(({ label, duration }) => {
+          const startTime = new Date(now - duration);
+
+          const filteredTransactions = merchantTransactions.filter(
+            (tx) => tx.updated_at >= startTime,
+          );
+
+          const total = filteredTransactions.length;
+
+          const utrSubmission = filteredTransactions.filter(
+            (tx) => tx.user_submitted_utr && tx.user_submitted_utr.length > 0,
+          ).length;
+
+          const statusIcon = utrSubmission === 0 ? '⚠️' : '✅';
+
+          const utrSubmissionRatio =
+            total === 0
+              ? '0.00%'
+              : Math.min(((utrSubmission / total) * 100).toFixed(2), 100) + '%';
+
+          return `${statusIcon} ${label}: ${utrSubmission}/${total} = ${utrSubmissionRatio}`;
+        })
+        .join('\n');
+
+      const fullMessage = {
+        merchantCode: merchant.code,
+        intervalDetails,
+        intervalDetailsUtr,
+      };
+      fullMessages.push(fullMessage);
+    }
+    await sendTelegramDashboardSuccessRatioMessage(
+      config?.telegramRatioAlertsChatIdUpdatedData,
+      fullMessages,
+      config?.telegramBotToken,
+    );
+    logger.info('Success Ratio CRON Ended');
+  } catch (error) {
+    logger.error('Error ', error.message);
+  }
+};
 
 //run only on server - side /production level
 if (process.env.NODE_ENV === 'production') {
