@@ -38,6 +38,7 @@ function config(Env) {
     bucketRegion: Env?.BUCKET_REGION,
     accessKeyS3: Env?.ACCESS_KEY,
     secretKeyS3: Env?.SECRET_ACCESS_KEY,
+    telegramRatioAlertsChatIdUpdatedData: Env?.TELEGRAM_RATIO_ALERTS_CHAT_ID_UPDATED_DATA,
     telegramBotToken: Env?.TELEGRAM_BOT_TOKEN,
     telegramAlertsBotToken: Env?.TELEGRAM_ALERTS_BOT_TOKEN, // currently not in use
     telegramRatioAlertsChatId: Env?.TELEGRAM_RATIO_ALERTS_CHAT_ID,
