@@ -89,8 +89,8 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
 
     // Combine intervals
     const intervals = [
-      { label: 'Today SR', startTime: startOfDay, endTime: now, type: 'daily' },
       ...rollingIntervals,
+      { label: 'Today SR', startTime: startOfDay, endTime: now, type: 'daily' },
     ];
 
     // fetch all transactions for the company
@@ -115,49 +115,66 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
     );
 
     const fullMessages = [];
-    for (const merchant of merchantsWithTransactions) {
+    
+    // Sort merchants case-insensitively by code
+    const sortedMerchants = merchantsWithTransactions.sort((a, b) => {
+      const codeA = a.code ? a.code.toLowerCase() : '';
+      const codeB = b.code ? b.code.toLowerCase() : '';
+      return codeA.localeCompare(codeB);
+    });
+
+    for (const merchant of sortedMerchants) {
       const merchantTransactions = transactionsByMerchant[merchant.id];
 
-      // Calculate today's total balance
-      const todayTransactions = merchantTransactions.filter(tx => {
-        const txDate = new Date(tx.created_at);
-        return txDate >= startOfDay && txDate <= now;
+      // Check both PayIn and UTR ratios for last 24 hours
+      const last24HoursTransactions = merchantTransactions.filter(tx => {
+        const txTime = new Date(tx.created_at);
+        return txTime >= new Date(now - 24 * 60 * 60 * 1000);
       });
 
-      const todaySuccessful = todayTransactions.filter(tx => tx.status === 'SUCCESS').length;
-      const todayTotal = todayTransactions.length;
-      const todayRatio = todayTotal === 0 
-        ? '0.00%'
-        : Math.min(Math.max(((todaySuccessful / todayTotal) * 100), 0), 100).toFixed(2) + '%';
+      // Calculate PayIn Success Ratio
+      const last24HoursTotal = last24HoursTransactions.length;
+      const last24HoursSuccess = last24HoursTransactions.filter(tx => tx.status === 'SUCCESS').length;
+      const last24HoursRatio = last24HoursTotal === 0 ? 0 : (last24HoursSuccess / last24HoursTotal) * 100;
 
-      // Format message with heading
-      const intervalDetails = `<b>📊 Today's SR:</b> ${todaySuccessful}/${todayTotal} = ${todayRatio}\n\n` + 
-        intervals
-          .map(interval => {
-            const currentTime = new Date();
-            const filteredTransactions = merchantTransactions.filter(tx => {
-              const txTime = new Date(tx.created_at);
-              
-              if (interval.type === 'rolling') {
-                // For rolling windows (Last 5m, Last 10m, etc.)
-                return txTime >= new Date(currentTime - interval.duration);
-              } else {
-                // For hourly and daily intervals
-                return txTime >= interval.startTime && txTime <= interval.endTime;
-              }
-            });
+      // Calculate UTR Submission Ratio
+      const last24HoursUTR = last24HoursTransactions.filter(tx => 
+        tx.user_submitted_utr && tx.user_submitted_utr.length > 0
+      ).length;
+      const last24HoursUTRRatio = last24HoursTotal === 0 ? 0 : (last24HoursUTR / last24HoursTotal) * 100;
 
-            const total = filteredTransactions.length;
-            const success = filteredTransactions.filter(tx => tx.status === 'SUCCESS').length;
+      // Skip if either PayIn or UTR ratio is 0%
+      if (last24HoursTotal === 0 || last24HoursRatio === 0 || last24HoursUTRRatio === 0) {
+        logger.info(`Skipping merchant ${merchant.code} - PayIn Ratio: ${last24HoursRatio}%, UTR Ratio: ${last24HoursUTRRatio}%`);
+        continue;
+      }
 
-            const successRatio = total === 0 
-              ? '0.00%'
-              : Math.min(Math.max(((success / total) * 100), 0), 100).toFixed(2) + '%';
+      const intervalDetails = intervals
+        .map(interval => {
+          const currentTime = new Date();
+          const filteredTransactions = merchantTransactions.filter(tx => {
+            const txTime = new Date(tx.created_at);
+            
+            if (interval.type === 'rolling') {
+              // For rolling windows (Last 5m, Last 10m, etc.)
+              return txTime >= new Date(currentTime - interval.duration);
+            } else {
+              // For hourly and daily intervals
+              return txTime >= interval.startTime && txTime <= interval.endTime;
+            }
+          });
 
-            const statusIcon = success === 0 ? '⚠️' : '✅';
-            return `${statusIcon} ${interval.label}: ${success}/${total} = ${successRatio}`;
-          })
-          .join('\n');
+          const total = filteredTransactions.length;
+          const success = filteredTransactions.filter(tx => tx.status === 'SUCCESS').length;
+
+          const successRatio = total === 0 
+            ? '0.00%'
+            : Math.min(Math.max(((success / total) * 100), 0), 100).toFixed(2) + '%';
+
+          const statusIcon = success === 0 ? '⚠️' : '✅';
+          return `${statusIcon} ${interval.label}: ${success}/${total} = ${successRatio}`;
+        })
+        .join('\n');
 
       const intervalDetailsUtr = intervals
         .map((interval) => {
@@ -197,11 +214,18 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
       };
       fullMessages.push(fullMessage);
     }
-    await sendTelegramDashboardSuccessRatioMessage(
-      telegramRatioAlertsChatId,
-      fullMessages,
-      telegramBotToken,
-    );
+
+    // Only send message if there are merchants to report
+    if (fullMessages.length > 0) {
+      await sendTelegramDashboardSuccessRatioMessage(
+        telegramRatioAlertsChatId,
+        fullMessages,
+        telegramBotToken,
+      );
+    } else {
+      logger.info('No merchants with transactions in last 24 hours to report');
+    }
+
     logger.info(`Success Ratio CRON Ended for company: ${company_id}`);
   } catch (error) {
     logger.error(`Error in success ratio processing for company ${company_id}: ${error.message}`);
@@ -209,20 +233,16 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
 };
 export default formattedSuccessRatiosForAllCompanies;
 
-
- const formattedSuccessRatiosByMerchantUpdatedAt = async () => {
+const formattedSuccessRatiosByMerchantUpdatedAt = async () => {
   try {
     logger.info('Success Ratio CRON Started For Updated At');
     const now = new Date();
     const intervals = [
       { label: 'Last 5m', duration: 5 * 60 * 1000 },
-      { label: 'Last 10m', duration: 10 * 60 * 1000 },
       { label: 'Last 15m', duration: 15 * 60 * 1000 },
       { label: 'Last 30m', duration: 30 * 60 * 1000 },
       { label: 'Last 1h', duration: 60 * 60 * 1000 },
       { label: 'Last 3h', duration: 3 * 60 * 60 * 1000 },
-      { label: 'Last 6h', duration: 6 * 60 * 60 * 1000 },
-      { label: 'Last 12h', duration: 12 * 60 * 60 * 1000 },
       { label: 'Last 24h', duration: 24 * 60 * 60 * 1000 },
     ];
 
@@ -247,8 +267,37 @@ export default formattedSuccessRatiosForAllCompanies;
     );
 
     const fullMessages = [];
-    for (const merchant of merchantsWithTransactions) {
+    // Sort merchants by code case-insensitively
+    const sortedMerchants = merchantsWithTransactions.sort((a, b) => {
+      const codeA = a.code ? a.code.toLowerCase() : '';
+      const codeB = b.code ? b.code.toLowerCase() : '';
+      return codeA.localeCompare(codeB);
+    });
+
+    for (const merchant of sortedMerchants) {
       const merchantTransactions = transactionsByMerchant[merchant.id];
+
+      // Check both PayIn and UTR ratios for last 24 hours
+      const last24Hours = new Date(now - 24 * 60 * 60 * 1000);
+      const last24HoursTransactions = merchantTransactions.filter(
+        tx => tx.updated_at >= last24Hours
+      );
+
+      const last24HoursTotal = last24HoursTransactions.length;
+      const last24HoursSuccess = last24HoursTransactions.filter(tx => tx.status === 'SUCCESS').length;
+      const last24HoursRatio = last24HoursTotal === 0 ? 0 : (last24HoursSuccess / last24HoursTotal) * 100;
+
+      // Calculate UTR Submission Ratio
+      const last24HoursUTR = last24HoursTransactions.filter(tx => 
+        tx.user_submitted_utr && tx.user_submitted_utr.length > 0
+      ).length;
+      const last24HoursUTRRatio = last24HoursTotal === 0 ? 0 : (last24HoursUTR / last24HoursTotal) * 100;
+
+      // Skip if either PayIn or UTR ratio is 0%
+      if (last24HoursTotal === 0 || last24HoursRatio === 0 || last24HoursUTRRatio === 0) {
+        logger.info(`Skipping merchant ${merchant.code} (Updated At) - PayIn Ratio: ${last24HoursRatio}%, UTR Ratio: ${last24HoursUTRRatio}%`);
+        continue;
+      }
 
       const intervalDetails = intervals
         .map(({ label, duration }) => {
@@ -305,11 +354,18 @@ export default formattedSuccessRatiosForAllCompanies;
       };
       fullMessages.push(fullMessage);
     }
-    await sendTelegramDashboardSuccessRatioMessage(
-      config?.telegramRatioAlertsChatIdUpdatedData,
-      fullMessages,
-      config?.telegramBotToken,
-    );
+
+    // Only send message if there are merchants to report
+    if (fullMessages.length > 0) {
+      await sendTelegramDashboardSuccessRatioMessage(
+        config?.telegramRatioAlertsChatIdUpdatedData,
+        fullMessages,
+        config?.telegramBotToken
+      );
+    } else {
+      logger.info('No merchants with successful transactions in last 24 hours to report (Updated At)');
+    }
+
     logger.info('Success Ratio CRON Ended');
   } catch (error) {
     logger.error('Error ', error.message);
