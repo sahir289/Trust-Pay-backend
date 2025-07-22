@@ -115,7 +115,7 @@ const getCalculationDao = async (
     }
 
     if (sDate && eDate) {
-      baseQuery += ` AND updated_at BETWEEN '${new Date(sDate).toISOString()}'::TIMESTAMPTZ AND '${new Date(eDate).toISOString()}'::TIMESTAMPTZ`;
+      baseQuery += ` AND created_at BETWEEN '${new Date(sDate).toISOString()}'::TIMESTAMPTZ AND '${new Date(eDate).toISOString()}'::TIMESTAMPTZ`;
     }
 
     const [sql, queryParams] = buildSelectQuery(
