@@ -281,14 +281,18 @@ const getPayOutMerchantReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
+      if (status.includes(Status.APPROVED) && status.includes(Status.REVERSED)) {
+        query += ` AND (po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`;
+      } else {
       switch (status) {
         case Status.APPROVED:
           query += `AND (po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               )`;
           break;
         case Status.REVERSED:
-          query += `AND (po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              ) AND po.approved_at NOT NULL`;
+          query += `AND (po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`;
           break;
         case Status.REJECTED:
           query += `AND (po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
@@ -298,6 +302,7 @@ const getPayOutMerchantReportDao = async (
           query += `AND (po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               )`;
       }
+    }
       parameters.push(startDate, endDate);
     }
 
@@ -401,14 +406,18 @@ const getPayOutVendorReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
+      if (status.includes(Status.APPROVED) && status.includes(Status.REVERSED)) {
+        query += ` AND (po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`;
+      } else {
       switch (status) {
         case Status.APPROVED:
           query += `AND (po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               )`;
           break;
         case Status.REVERSED:
-          query += `AND (po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              ) AND po.approved_at NOT NULL`;
+          query += `AND (po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`;
           break;
         case Status.REJECTED:
           query += `AND (po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
@@ -418,6 +427,7 @@ const getPayOutVendorReportDao = async (
           query += `AND (po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               )`;
       }
+    }
       parameters.push(startDate, endDate);
     }
 
