@@ -16,13 +16,18 @@ dayjs.extend(timezone);
 
 const IST = 'Asia/Kolkata';
 
-// Only run cron jobs in development environment
+// Track retry attempts
+let retryCount = 0;
+const MAX_RETRIES = 3; // Total attempts: 1 initial + 2 retries
+
+// Only run cron jobs in production environment
 if (process.env.NODE_ENV == 'production') {
+  // Main cron job at midnight
   cron.schedule(
     '0 0 * * *',
-    () => {
-      logger.info('Running calculation cron job in production mode');
-      collectCalculationData();
+    async () => {
+      retryCount = 0; // Reset retry count for new day
+      await executeWithRetry('12:00 AM IST (Attempt 1)');
     },
     {
       timezone: IST,
@@ -32,7 +37,42 @@ if (process.env.NODE_ENV == 'production') {
   logger.error('Cron jobs are disabled in non-production environments.');
 }
 
+// Function to execute cron with retry mechanism
+const executeWithRetry = async (attemptDescription) => {
+  retryCount++;
+  logger.info(`Running calculation cron job in production mode at ${attemptDescription}`);
+  
+  try {
+    await collectCalculationData();
+    markExecution(); // Only mark as executed if successful
+    logger.info(`Cron job executed successfully on ${attemptDescription}`);
+  } catch (error) {
+    logger.error(`Cron job failed on ${attemptDescription}:`, error?.message);
+    
+    // If we haven't reached max retries, schedule next attempt after 10 seconds
+    if (retryCount < MAX_RETRIES) {
+      const nextAttempt = retryCount + 1;
+      logger.info(`Scheduling retry attempt ${nextAttempt} in 10 seconds...`);
+      
+      setTimeout(async () => {
+        await executeWithRetry(`12:00:${(retryCount * 10).toString().padStart(2, '0')} AM IST (Attempt ${nextAttempt})`);
+      }, 10000); // 10 seconds delay
+    } else {
+      logger.error(`All ${MAX_RETRIES} attempts failed. Cron job execution unsuccessful.`);
+    }
+  }
+};
+
+// Function to mark successful execution
+const markExecution = () => {
+  const currentDate = dayjs().tz(IST).format('YYYY-MM-DD');
+  logger.info(`Cron execution marked successfully for date: ${currentDate}`);
+};
+
 const collectCalculationData = async () => {
+  const executionStartTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ');
+  logger.info(`Starting calculation cron job at: ${executionStartTime}`);
+  
   try {
     const users = (await transactionWrapper(getUsersForCronDao)()) || [];
     const usersArray = users || [];
@@ -62,11 +102,14 @@ const collectCalculationData = async () => {
         );
       }
     }
+    
+    const executionEndTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ');
     logger.info(
-      `Cron job executed successfully for all users at ${currentTime}`,
+      `Cron job executed successfully for all users. Started: ${executionStartTime}, Completed: ${executionEndTime}`,
     );
   } catch (error) {
     logger.error('Error while collecting user data:', error?.message);
+    throw error; // Re-throw to ensure fallback mechanisms can detect failures
   }
 };
 // Function to update the calculation data

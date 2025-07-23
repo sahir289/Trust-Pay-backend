@@ -24,7 +24,7 @@ class Logger {
       awsRegion: aws.region,
       awsAccessKeyId: aws.accessKeyId,
       awsSecretAccessKey: aws.secretAccessKey,
-      retentionInDays: 7,
+      retentionInDays: 30,
       jsonMessage: true,
     };
 

@@ -116,7 +116,7 @@ const createBankResponseService = async (
       Status.FAILED,
       Status.DUPLICATE,
     ];
-    if(upi_short_code!=='undefined' && !isValidAmountCode) {
+    if(upi_short_code!=='undefined' && upi_short_code!=='nil' && !isValidAmountCode) {
       throw new BadRequestError(`Please Enter valid Amount Code!`);
     }
     
@@ -130,6 +130,17 @@ const createBankResponseService = async (
         null,
         filterColumns,
       );
+      if (!utrAlreadyExist) {
+        utrAlreadyExist = await getBankResponseDao(
+          { utr, company_id },
+          null,
+          null,
+          null,
+          null,
+          filterColumns,
+        );
+      }
+
     } else {
       utrAlreadyExist = await getBankResponseDao(
         { utr, company_id },
@@ -479,15 +490,9 @@ const createBankResponseService = async (
           });
           await commit(localConn);
           // if (shouldRelease) localConn.release();
-          if (isValidAmountCode && payInUtr.upi_short_code) {
-            return {
-              message: `✅ Amount Code ${upi_short_code} matches the User Submitted Amount Code: ${payInUtr.upi_short_code} and the payment was successful.`,
-            };
-          } else {
-            return {
-              message: `✅ UTR ${utr} matches the User Submitted UTR: ${payInUtr.user_submitted_utr} and the payment was successful.`,
-            };
-          }
+          return {
+            message: `UTR ${utr} matches the User Submitted UTR: ${payInUtr.user_submitted_utr} and the payment was successful.`,
+          };
         } else {
           if (
             (payInUtr.user_submitted_utr !== utr &&

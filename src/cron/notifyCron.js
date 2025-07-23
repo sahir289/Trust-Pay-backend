@@ -78,6 +78,7 @@ async function processPayinNotifications(payins) {
       amount: null,
       req_amount: payin?.amount || null,
       utrId: payin?.user_submitted_utr || null,
+      utr_id: payin?.user_submitted_utr || null,
     };
     try {
       if (payin?.config?.urls?.notify) {

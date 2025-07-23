@@ -10,21 +10,77 @@ import { logger } from '../utils/logger.js';
 import { getUserHierarchysDao } from '../apis/userHierarchy/userHierarchyDao.js';
 import { getCompanyDao } from '../apis/company/companyDao.js';
 import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone.js';
+import utc from 'dayjs/plugin/utc.js';
 import collectBankData from './bankCron.js';
+
+// Initialize dayjs plugins
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Track retry attempts for both cron jobs
+let dailyRetryCount = 0;
+let hourlyRetryCount = 0;
+const MAX_RETRIES = 3; // Total attempts: 1 initial + 2 retries
 
 //run only on server - side /production level
 if (process.env.NODE_ENV === 'production') {
   cron.schedule('0 0 * * *', async () => {
-    logger.info('Running gather all cron job in production environment');
-    await gatherAllDataForAllCompanies('N', 'Asia/Kolkata');
+    dailyRetryCount = 0; // Reset retry count for new day
+    await executeWithRetry('daily', 'Daily gather all cron job at 12:00 AM IST (Attempt 1)');
   });
 
   cron.schedule('0 1-23 * * *', async () => {
-    await gatherAllDataForAllCompanies('H', 'Asia/Kolkata');
+    hourlyRetryCount = 0; // Reset retry count for new hour
+    const currentHour = dayjs().tz('Asia/Kolkata').hour();
+    await executeWithRetry('hourly', `Hourly gather all cron job at ${currentHour}:00 IST (Attempt 1)`);
   });
 } else {
   logger.error('Cron jobs are disabled in non-production environments.');
 }
+
+// Function to execute cron with retry mechanism
+const executeWithRetry = async (cronType, attemptDescription) => {
+  const isDaily = cronType === 'daily';
+  const retryCount = isDaily ? ++dailyRetryCount : ++hourlyRetryCount;
+  
+  logger.info(`Running ${attemptDescription}`);
+  
+  try {
+    if (isDaily) {
+      await gatherAllDataForAllCompanies('N', 'Asia/Kolkata');
+    } else {
+      await gatherAllDataForAllCompanies('H', 'Asia/Kolkata');
+    }
+    logger.info(`${cronType} cron job executed successfully on ${attemptDescription}`);
+  } catch (error) {
+    logger.error(`${cronType} cron job failed on ${attemptDescription}:`, error?.message);
+    
+    // If we haven't reached max retries, schedule next attempt after 10 seconds
+    if (retryCount < MAX_RETRIES) {
+      const nextAttempt = retryCount + 1;
+      logger.info(`Scheduling ${cronType} retry attempt ${nextAttempt} in 10 seconds...`);
+      
+      setTimeout(async () => {
+        const currentTime = dayjs().tz('Asia/Kolkata');
+        let nextAttemptDesc;
+        
+        if (isDaily) {
+          const seconds = retryCount * 10;
+          nextAttemptDesc = `Daily gather all cron job at 12:00:${seconds.toString().padStart(2, '0')} AM IST (Attempt ${nextAttempt})`;
+        } else {
+          const currentHour = currentTime.hour();
+          const seconds = retryCount * 10;
+          nextAttemptDesc = `Hourly gather all cron job at ${currentHour}:00:${seconds.toString().padStart(2, '0')} IST (Attempt ${nextAttempt})`;
+        }
+        
+        await executeWithRetry(cronType, nextAttemptDesc);
+      }, 10000); // 10 seconds delay
+    } else {
+      logger.error(`All ${MAX_RETRIES} attempts failed for ${cronType} cron job. Execution unsuccessful.`);
+    }
+  }
+};
 
 // Function to gather data for all companies
 const gatherAllDataForAllCompanies = async (type = 'N', timezone = 'Asia/Kolkata') => {

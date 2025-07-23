@@ -35,6 +35,21 @@ const createCompanyService = async (conn, payload) => {
     payload.config = {
       ...payload.config,
       unique_admin_id: unique_id,
+      telegramBotToken: '',
+      telegramAlertsBotToken: '',
+      telegramRatioAlertsChatId: '',
+      telegramDashboardChatId: '',
+      telegramBankAlertChatId: '',
+      telegramDuplicateDisputeChatId: '',
+      telegramCheckUTRHistoryChatId: '',
+      allowPayAssist: '',
+      PAY_ASSIST: {
+        walletsPayoutsUrl: 'https://payassist.co.in/apiPayout',
+        walletsPayoutsAgentCode: '',
+        walletsPayoutsAgent: '',
+        walletsPayoutsApiKey: '',
+        defaultBankId: '',
+      },
     };
 
     const company = await createCompanyDao(conn, {

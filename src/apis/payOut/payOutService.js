@@ -119,11 +119,15 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
             apitxnid: info.id,
           };
 
+          logger.info(`Processing payout for ID ${info.id}:`, apiPayload);
+
           const response = await axios.post(
             `${apiConfig.baseUrl}/payout`,
             apiPayload,
             { headers: apiConfig.headers },
           );
+
+          logger.info(`Payout response for ID ${info.id}:`, response.data);
 
           // Helper function to handle payout updates
           const handlePayoutUpdate = async (
@@ -689,10 +693,12 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (stringifyJSON(payload) === stringifyJSON(checkPayload)) {
       return data;
     }
+    
+    const notifyUrl = data.config?.urls?.notify || merchant.config?.urls?.payout_notify;
 
     // Early return if not approved
     if (!data.approved_at) {
-      merchantPayoutCallback(data.config?.urls?.notify, {
+      merchantPayoutCallback(notifyUrl, {
         code: data.code,
         merchantOrderId: data.merchant_order_id,
         payoutId: data.id,
@@ -703,7 +709,6 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       return data;
     }
 
-    // Bank and vendor validation
     const bankData = bankDataArr[0];
     if (!bankData) {
       throw new NotFoundError('Bank not found!');
@@ -791,9 +796,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
 
     await newTableEntry(tableName.PAYOUT);
-
-    // Async callback - no await needed
-    merchantPayoutCallback(data.config?.urls?.notify, {
+    // This is async function but it's just the callback sending function there fore we are not using await
+    merchantPayoutCallback(notifyUrl, {
       code: data.code,
       merchantOrderId: data.merchant_order_id,
       payoutId: data.id,
