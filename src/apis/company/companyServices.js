@@ -29,10 +29,25 @@ const createCompanyService = async (conn, payload) => {
       let code = Math.floor(Math.random() * 9e15 + 1e15).toString();
       return code.match(/.{1,4}/g).join('-');
     }
-    
+
     payload.config = {
       ...payload.config,
       unique_admin_id: generateFormatted16DigitCode(),
+      telegramBotToken: '',
+      telegramAlertsBotToken: '',
+      telegramRatioAlertsChatId: '',
+      telegramDashboardChatId: '',
+      telegramBankAlertChatId: '',
+      telegramDuplicateDisputeChatId: '',
+      telegramCheckUTRHistoryChatId: '',
+      allowPayAssist: '',
+      PAY_ASSIST: {
+        walletsPayoutsUrl: 'https://payassist.co.in/apiPayout',
+        walletsPayoutsAgentCode: '',
+        walletsPayoutsAgent: '',
+        walletsPayoutsApiKey: '',
+        defaultBankId: '',
+      },
     };
 
     const company = await createCompanyDao(conn, {
