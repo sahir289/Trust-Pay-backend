@@ -447,7 +447,7 @@ export const getMerchantsBySearchDao = async (
         (SELECT net_balance 
          FROM "Calculation" 
          WHERE "Calculation".user_id = "Merchant".user_id 
-         ORDER BY "Calculation".updated_at DESC 
+         ORDER BY "Calculation".created_at DESC 
          LIMIT 1) AS balance
       FROM "Merchant" 
       JOIN "User" ON "Merchant".user_id = "User".id 

@@ -20,7 +20,6 @@ import {
   updateVendorDao,
   getAllVendorsDao,
 } from './vendorDao.js';
-import { BadRequestError } from '../../utils/appErrors.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 import { updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { updateUserDao } from '../users/userDao.js';
@@ -141,33 +140,20 @@ const getVendorsCodeService = async (filters, roleIs, user_id, designation) => {
     }
   }
 };
+
 const getVendorsBySearchService = async (
   filters,
-  role,
-  designation,
+  roleIs,
+  page,
+  limit,
   user_id,
+  designation,
 ) => {
   try {
-    const pageNum = parseInt(filters.page);
-    const limitNum = parseInt(filters.limit);
-    if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
-      throw new BadRequestError('Invalid pagination parameters');
-    }
-    const searchTerms = filters.search
-      .split(',')
-      .map((term) => term.trim())
-      .filter((term) => term.length > 0);
-
-    if (searchTerms.length === 0) {
-      throw new BadRequestError('Please provide valid search terms');
-    }
-    const offset = (pageNum - 1) * limitNum;
-
-    const filterColumns =
-      role === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
-    // TODO: add designation constants
+    const pageNumber = parseInt(page, 10) || 1;
+    const pageSize = parseInt(limit, 10) || 10;
     let parentUserId;
-    if (role === Role.VENDOR) {
+    if (roleIs === Role.VENDOR) {
       if (designation === Role.VENDOR_OPERATIONS) {
         const UserHierarchy = await getUserHierarchysDao({ user_id });
         const userHierarchy = UserHierarchy[0];
@@ -178,12 +164,19 @@ const getVendorsBySearchService = async (
         filters.user_id = parentUserId;
       }
     }
+    let searchTerms;
+    if (filters.search) {
+      searchTerms = filters.search
+        .split(',')
+        .map((term) => term.trim())
+        .filter((term) => term.length > 0);
+    }
+    filters.role = roleIs
     const data = await getVendorsBySearchDao(
       filters,
+      pageNumber,
+      pageSize,
       searchTerms,
-      limitNum,
-      offset,
-      filterColumns,
     );
 
     return data;

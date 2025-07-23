@@ -364,10 +364,10 @@ const getMerchantsServiceCode = async (
 };
 
 // Update Merchant Service
-const updateMerchantService = async (conn, ids, payload, role) => {
+const updateMerchantService = async (conn, ids, payload) => {
   try {
-    const filterColumns =
-      role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
+    // const filterColumns =
+    //   role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
     if (payload?.whitelist_ips) {
       payload.config = {
         ...payload.config,
@@ -375,9 +375,9 @@ const updateMerchantService = async (conn, ids, payload, role) => {
       };
     }
     delete payload.whitelist_ips;
-    const data = await updateMerchantDao(ids, payload); // Adjust DAO call for update
+    const data = await updateMerchantDao(ids, payload, conn); // Adjust DAO call for update
     logger.log('Merchant updated successfully');
-    const finalResult = filterResponse(data, filterColumns);
+    // const finalResult = filterResponse(data, filterColumns);
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: ids.company_id,
@@ -387,7 +387,7 @@ const updateMerchantService = async (conn, ids, payload, role) => {
     //   category: 'Client',
     //   subCategory: 'Merchant'
     // });
-    return finalResult;
+    return data;
   } catch (error) {
     logger.error('Error while updating merchant', error);
     throw error;
