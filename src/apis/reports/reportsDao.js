@@ -281,6 +281,10 @@ const getPayOutMerchantReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
+      if (status.includes(Status.APPROVED) && status.includes(Status.REVERSED)) {
+        query += ` AND (COALESCE(po.rejected_at, po.approved_at) BETWEEN $${paramIndex} AND $${paramIndex + 1}) 
+        AND (po.rejected_at IS NOT NULL OR po.approved_at IS NOT NULL)`;
+      } else {
       switch (status) {
         case Status.APPROVED:
           query += `AND (po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
@@ -298,6 +302,7 @@ const getPayOutMerchantReportDao = async (
           query += `AND (po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               )`;
       }
+    }
       parameters.push(startDate, endDate);
     }
 
@@ -401,6 +406,10 @@ const getPayOutVendorReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
+      if (status.includes(Status.APPROVED) && status.includes(Status.REVERSED)) {
+        query += ` AND (COALESCE(po.rejected_at, po.approved_at) BETWEEN $${paramIndex} AND $${paramIndex + 1}) 
+        AND (po.rejected_at IS NOT NULL OR po.approved_at IS NOT NULL)`;
+      } else {
       switch (status) {
         case Status.APPROVED:
           query += `AND (po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
@@ -418,6 +427,7 @@ const getPayOutVendorReportDao = async (
           query += `AND (po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
               )`;
       }
+    }
       parameters.push(startDate, endDate);
     }
 
