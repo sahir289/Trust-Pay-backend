@@ -282,8 +282,8 @@ const getPayOutMerchantReportDao = async (
     }
     if (startDate && endDate) {
       if (status.includes(Status.APPROVED) && status.includes(Status.REVERSED)) {
-        query += ` AND (COALESCE(po.rejected_at, po.approved_at) BETWEEN $${paramIndex} AND $${paramIndex + 1}) 
-        AND (po.rejected_at IS NOT NULL OR po.approved_at IS NOT NULL)`;
+        query += ` AND (po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`;
       } else {
       switch (status) {
         case Status.APPROVED:
@@ -291,8 +291,8 @@ const getPayOutMerchantReportDao = async (
               )`;
           break;
         case Status.REVERSED:
-          query += `AND (po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              ) AND po.approved_at NOT NULL`;
+          query += `AND (po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`;
           break;
         case Status.REJECTED:
           query += `AND (po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
@@ -407,8 +407,8 @@ const getPayOutVendorReportDao = async (
     }
     if (startDate && endDate) {
       if (status.includes(Status.APPROVED) && status.includes(Status.REVERSED)) {
-        query += ` AND (COALESCE(po.rejected_at, po.approved_at) BETWEEN $${paramIndex} AND $${paramIndex + 1}) 
-        AND (po.rejected_at IS NOT NULL OR po.approved_at IS NOT NULL)`;
+        query += ` AND (po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`;
       } else {
       switch (status) {
         case Status.APPROVED:
@@ -416,8 +416,8 @@ const getPayOutVendorReportDao = async (
               )`;
           break;
         case Status.REVERSED:
-          query += `AND (po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-              ) AND po.approved_at NOT NULL`;
+          query += `AND (po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+              )`;
           break;
         case Status.REJECTED:
           query += `AND (po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
