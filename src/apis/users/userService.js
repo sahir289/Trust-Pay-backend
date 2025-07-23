@@ -331,10 +331,12 @@ const createUserService = async (conn, payload, role) => {
     const userDesignation = await getDesignationDao({
       id: payload.designation_id,
     });
-    let unique_id;
+    let unique_id = payload?.unique_admin_id;
     if (userDesignation[0]?.designation == Role.ADMIN) {
       const company = await getCompanyByIDDao({ id: payload.company_id });
-      unique_id = company[0].config.unique_admin_id;
+      if(company?.length > 0){ 
+        unique_id = company[0]?.config?.unique_admin_id && company[0]?.config?.unique_admin_id;
+    }
     }
       if (
         userDesignation[0]?.designation == Role.MERCHANT_OPERATIONS ||

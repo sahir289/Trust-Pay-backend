@@ -25,14 +25,16 @@ const createCompanyService = async (conn, payload) => {
   try {
     // Validate payload
     // Create company
-    function generateFormatted16DigitCode() {
-      let code = Math.floor(Math.random() * 9e15 + 1e15).toString();
+    function generateFormatted8DigitCode() {
+      let code = Math.floor(10000000 + Math.random() * 90000000).toString();
       return code.match(/.{1,4}/g).join('-');
     }
+
+    const unique_id = generateFormatted8DigitCode();
     
     payload.config = {
       ...payload.config,
-      unique_admin_id: generateFormatted16DigitCode(),
+      unique_admin_id: unique_id,
     };
 
     const company = await createCompanyDao(conn, {
@@ -60,6 +62,7 @@ const createCompanyService = async (conn, payload) => {
       first_name: payload.first_name,
       last_name: payload.last_name,
       is_enabled: true,
+      unique_admin_id: unique_id,
       code: payload.first_name.split('').reverse().join(''),
     };
     // Create user
