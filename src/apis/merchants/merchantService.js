@@ -186,44 +186,36 @@ const getMerchantsService = async (
     throw error;
   }
 };
-
+// let searchTerms;
+// if (filters.search) {
+//   searchTerms = filters.search
+//     .split(',')
+//     .map((term) => term.trim())
+//     .filter((term) => term.length > 0);
+// }
 const getMerchantsBySearchService = async (
   filters,
   role,
+  page,
+  limit,
   designation,
   user_id,
 ) => {
   try {
-    const pageNum = parseInt(filters.page);
-    const limitNum = parseInt(filters.limit);
+    // const filterColumns =
+    //   role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
+    const pageNumber = parseInt(page, 10) || 1;
+    const pageSize = parseInt(limit, 10) || 10;
 
-    if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
-      throw new BadRequestError('Invalid pagination parameters');
-    }
-
-    const searchTerms = filters.search
-      .split(',')
-      .map((term) => term.trim())
-      .filter((term) => term.length > 0);
-
-    if (searchTerms.length === 0) {
-      throw new BadRequestError('Please provide valid search terms');
-    }
-
-    const offset = (pageNum - 1) * limitNum;
-
-    // Prepare userIdFilter logic
     let userIdFilter = Array.isArray(user_id)
       ? [...user_id]
       : user_id
         ? [user_id]
         : [];
-
     if (role === Role.MERCHANT) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys[0];
-
-      if (designation === Role.MERCHANT) {
+      if (designation === Role.MERCHANT || designation === Role.SUB_MERCHANT) {
         if (userHierarchy?.config?.siblings?.sub_merchants) {
           const subMerchants =
             userHierarchy?.config?.siblings?.sub_merchants ?? [];
@@ -247,7 +239,6 @@ const getMerchantsBySearchService = async (
         }
       }
     }
-
     if (userIdFilter.length > 0) {
       filters.user_id =
         userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
@@ -255,14 +246,34 @@ const getMerchantsBySearchService = async (
     if (role === Role.ADMIN) {
       delete filters.user_id;
     }
+
+    let searchTerms;
+    if (filters.search) {
+      searchTerms = filters.search
+        .split(',')
+        .map((term) => term.trim())
+        .filter((term) => term.length > 0);
+    }
     const data = await getMerchantsBySearchDao(
       filters,
-      searchTerms,
-      limitNum,
-      offset,
+      pageNumber,
+      pageSize,
+      'updated_at',
+      null,
       role,
+      searchTerms,
     );
 
+    // let data = await getAllMerchantsDao(
+    //   filters,
+    //   pageNumber,
+    //   pageSize,
+    //   'updated_at',
+    //   null,
+    //   role,
+    // );
+
+    // const finalResult = filterResponse(data, filterColumns);
     return data;
   } catch (error) {
     logger.error('Error while fetching merchants by search', error);
