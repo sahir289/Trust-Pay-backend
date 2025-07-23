@@ -303,7 +303,6 @@ export const getVendorsBySearchDao = async (
     }
     if (searchTerms) {
       searchTerms.forEach((term) => {
-        // Handle boolean terms
         if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
           const boolValue = term.toLowerCase() === 'true';
           conditions.push(`
@@ -312,55 +311,56 @@ export const getVendorsBySearchDao = async (
           values.push(boolValue);
           paramIndex++;
         } else {
-          // Handle text/numeric terms including JSON fields and balance
           conditions.push(`
-        (
-          LOWER("Vendor".id::text) LIKE LOWER($${paramIndex})
-          OR LOWER("Vendor".user_id::text) LIKE LOWER($${paramIndex})
-          OR LOWER("Vendor".first_name) LIKE LOWER($${paramIndex})
-          OR LOWER("Vendor".last_name) LIKE LOWER($${paramIndex})
-          OR LOWER("Vendor".code) LIKE LOWER($${paramIndex})
-          OR "Vendor".payin_commission::text LIKE $${paramIndex}
-          OR "Vendor".payout_commission::text LIKE $${paramIndex}
-          OR LOWER("Vendor".created_by::text) LIKE LOWER($${paramIndex})
-          OR LOWER("Vendor".updated_by::text) LIKE LOWER($${paramIndex})
-          OR LOWER("user_main".first_name || ' ' || "user_main".last_name) LIKE LOWER($${paramIndex})
-          OR LOWER("d".designation) LIKE LOWER($${paramIndex})
-          OR LOWER("Vendor".config->>'utr') LIKE LOWER($${paramIndex})
-          OR (
-            SELECT net_balance::text 
-            FROM "Calculation" 
-            WHERE "Calculation".user_id = "Vendor".user_id 
-            ORDER BY "Calculation".created_at DESC 
-            LIMIT 1
-          ) LIKE $${paramIndex}
-        )
-      `);
+            (
+              LOWER("Vendor".id::text) LIKE LOWER($${paramIndex})
+              OR LOWER("Vendor".user_id::text) LIKE LOWER($${paramIndex})
+              OR LOWER("Vendor".first_name) LIKE LOWER($${paramIndex})
+              OR LOWER("Vendor".last_name) LIKE LOWER($${paramIndex})
+              OR LOWER("Vendor".code) LIKE LOWER($${paramIndex})
+              OR "Vendor".payin_commission::text LIKE $${paramIndex}
+              OR "Vendor".payout_commission::text LIKE $${paramIndex}
+              OR LOWER("Vendor".created_by::text) LIKE LOWER($${paramIndex})
+              OR LOWER("Vendor".updated_by::text) LIKE LOWER($${paramIndex})
+              OR LOWER("user_main".first_name || ' ' || "user_main".last_name) LIKE LOWER($${paramIndex})
+              OR LOWER("d".designation) LIKE LOWER($${paramIndex})
+              OR LOWER("Vendor".config->>'utr') LIKE LOWER($${paramIndex})
+              OR (
+                SELECT net_balance::text 
+                FROM "Calculation" 
+                WHERE "Calculation".user_id = "Vendor".user_id 
+                ORDER BY "Calculation".created_at DESC 
+                LIMIT 1
+              ) LIKE $${paramIndex}
+            )
+          `);
           values.push(`%${term}%`);
           paramIndex++;
         }
       });
-   }
+    }
 
     if (conditions.length > 0) {
       queryText += ' AND (' + conditions.join(' OR ') + ')';
     }
 
     const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
+    const countResult = await executeQuery(countQuery, values);
+
+    // Calculate offset - pageNumber is 1-based
+    const offset = (pageNumber - 1) * pageSize;
 
     queryText += `
       ORDER BY "Vendor"."updated_at" DESC
       LIMIT $${paramIndex}
       OFFSET $${paramIndex + 1}
     `;
-    pageNumber = pageNumber - 1;
-    values.push(pageSize, pageNumber);
-    const countResult = await executeQuery(countQuery, values.slice(0, -2));
+    values.push(pageSize, offset);
     const searchResult = await executeQuery(queryText, values);
 
     // Calculate pagination metadata
     const totalItems = parseInt(countResult.rows[0].total);
-    const totalPages = Math.ceil(totalItems / pageNumber);
+    const totalPages = Math.ceil(totalItems / pageSize);
 
     const data = {
       totalCount: totalItems,

@@ -186,16 +186,14 @@ const getVendorsBySearchService = async (
   }
 };
 
-const updateVendorService = async (id, payload, role) => {
+const updateVendorService = async (id, payload, ) => {
   let conn;
   try {
-    const filterColumns =
-      role === Role.VENDOR ? vendorColumns.VENDOR : columns.VENDOR;
+  
     conn = await getConnection();
     await beginTransaction(conn); // Start a transaction
     const data = await updateVendorDao(id, payload, conn); // Adjust DAO call for update
     await commit(conn); // Commit the transaction
-    const finalResult = filterResponse(data, filterColumns);
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: data.company_id,
@@ -205,7 +203,7 @@ const updateVendorService = async (id, payload, role) => {
     //   category: 'Client',
     //   subCategory: 'Vendor'
     // });
-    return finalResult;
+    return data;
   } catch (error) {
     if (conn) {
       try {

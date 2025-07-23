@@ -109,9 +109,10 @@ const updateVendor = async (req, res) => {
     throw new ValidationError(bodyError);
   }
   const payload = req.body;
-  const { company_id } = req.user;
+  const { company_id ,user_id } = req.user;
   const { id } = req.params; // Assuming the Vendor ID is passed as a parameter
   // Call the service to update the Vendor
+  payload.updated_by = user_id;
   const ids = { id, company_id };
   const vendor = await updateVendorService(ids, payload, role);
   // Log success message
