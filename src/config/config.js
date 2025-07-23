@@ -20,6 +20,17 @@ function config(Env) {
       temp_token: Env?.TEMP_TOKEN,
       temp_token_expires: Env?.TEMP_TOKEN_EXPIRES,
     },
+    rabbitmq : {
+      url: Env?.RABBITMQ_URL || 'amqp://localhost:5672',
+      queueName: Env?.RABBITMQ_QUEUE_NAME || 'trust-pay-queue',
+      exchangeName: Env?.RABBITMQ_EXCHANGE_NAME || 'trust-pay-exchange',
+      routingKey: Env?.RABBITMQ_ROUTING_KEY || 'trust-pay-routing-key',
+      prefetchCount: parseInt(Env?.RABBITMQ_PREFETCH_COUNT) || 1,
+      connectionTimeout: parseInt(Env?.RABBITMQ_CONNECTION_TIMEOUT) || 10000, // in milliseconds
+      heartbeat: parseInt(Env?.RABBITMQ_HEARTBEAT) || 60,
+      retryAttempts: parseInt(Env?.RABBITMQ_RETRY_ATTEMPTS) || 5,
+      retryDelay: parseInt(Env?.RABBITMQ_RETRY_DELAY) || 5000, // in milliseconds
+    },
     telegram: {
       telegram_url: Env?.TELEGRAM_URL,
     },
