@@ -668,13 +668,6 @@ export const getPayoutsBySearchDao = async (
 
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
-        if (
-          !validColumns.has(key) &&
-          key !== 'status' &&
-          key !== 'updated_at'
-        ) {
-          logger.warn(`Invalid filter key ignored: ${key}`);
-        }
         return;
       }
       const nextParamIdx = queryParams.length + 1;

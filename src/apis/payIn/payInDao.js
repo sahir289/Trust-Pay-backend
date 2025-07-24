@@ -850,13 +850,9 @@ export const getPayinsBySearchDao = async (
     // Handle additional filters dynamically
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
-        if (!validColumns.has(key) && key !== 'status') {
-          logger.warn(`Invalid filter key ignored: ${key}`);
-        }
         return;
       }
       const nextParamIdx = queryParams.length + 1;
-
       // Special handling for arrays
       if (Array.isArray(value)) {
         const placeholders = value
@@ -888,7 +884,6 @@ export const getPayinsBySearchDao = async (
 
     // Count query
     const countQuery = `SELECT COUNT(*) AS total FROM (${queryText}) AS count_table`;
-
     // Append pagination
     queryText += `
       ORDER BY p.created_at DESC
