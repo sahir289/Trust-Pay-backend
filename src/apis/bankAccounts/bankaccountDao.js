@@ -215,7 +215,13 @@ const getAllBankaccountDao = async (
         ba.today_balance,
         ba.is_enabled,   
         ba.bank_used_for,
-        ba.config->>'max_limit' AS daily_limit`;
+        ba.config->>'max_limit' AS daily_limit, 
+        CASE 
+        WHEN ba.config->>'is_freeze' = 'true' THEN TRUE
+        WHEN ba.config->>'is_freeze' = 'false' THEN FALSE
+        ELSE NULL
+        END AS is_freezed
+        `;
     } else {
       // Only include Merchant_Details and config if designation is 'Admin'
       commissionSelect = `
