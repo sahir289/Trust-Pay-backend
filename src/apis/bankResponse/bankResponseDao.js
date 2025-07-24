@@ -224,22 +224,6 @@ const getBankResponseBySearchDao = async (
       paramIndex++;
     }
     
-    if (filters.updated_at) {
-      const [day, month, year] = filters.updated_at.split('-');
-      const properDateStr = `${year}-${month}-${day}`;
-
-      let startDate = dayjs.tz(`${properDateStr} 00:00:00`, IST).utc().format();
-
-      let endDate = dayjs
-        .tz(`${properDateStr} 23:59:59.999`, IST)
-        .utc()
-        .format();
-      whereConditions.push(
-        `"BankResponse".updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
-      );
-      values.push(startDate, endDate);
-      paramIndex += 2;
-    }
     
 
     if (filters.utr) {
@@ -292,7 +276,21 @@ const getBankResponseBySearchDao = async (
         AND "BankResponse".updated_at != "BankResponse".created_at`,
       );
     }
+    if (filters.updated_at) {
+      const [day, month, year] = filters.updated_at.split('-');
+      const properDateStr = `${year}-${month}-${day}`;
 
+      let startDate = dayjs.tz(`${properDateStr} 00:00:00`, IST).utc().format();
+      let endDate = dayjs
+        .tz(`${properDateStr} 23:59:59.999`, IST)
+        .utc()
+        .format();
+      whereConditions.push(
+        `"BankResponse".updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+      );
+      values.push(startDate, endDate);
+      paramIndex += 2;
+    }
     const queryIs =
       start && end && bankDetails && bankDetails[0]?.config?.merchant_added
         ? baseQueryDate
