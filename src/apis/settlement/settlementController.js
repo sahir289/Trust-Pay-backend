@@ -137,7 +137,7 @@ const createSettlementController = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   //-- utr and amount for internal tranfer case
-  if (payload.amount && payload.utr) {
+  if (payload.amount && payload.utr && (payload.method === 'INTERNAL_TRANSFER' || payload.method === 'INTERNAL_BANK_TRANSFER')) {
     const bankRes = await getBankResponseDao({
       utr: payload.utr,
       status: '/success',

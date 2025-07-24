@@ -525,10 +525,12 @@ export const assignedBankToPayInUrlService = async (
     // Randomly assign one enabled bank account
     const selectedBankDetails =
       enabledBanks[Math.floor(Math.random() * enabledBanks.length)];
+    const duration = calculateDuration(payIn.created_at);
     const updatePayIn = await updatePayInUrlDao(payIn.id, {
       amount: parseFloat(amount),
       status: Status.ASSIGNED,
       bank_acc_id: selectedBankDetails.id,
+      duration: duration
     });
     // expirePayInIfNeeded(payIn);
     delete updatePayIn.is_obsolete;
@@ -832,7 +834,7 @@ export const updateDepositStatusService = async (
     if (!bankResponse) {
       throw new NotFoundError('No bank response found!');
     }
-    const duration = calculateDuration(payInData.created_at);
+    let duration;
 
     const banks = await getBankaccountDao({ nick_name, company_id });
     const bank = banks[0];
@@ -860,7 +862,7 @@ export const updateDepositStatusService = async (
     if (bankResponse.is_used) {
       successData = await getOtherSuccessPayIns(bankResponse);
     }
-
+    duration = calculateDuration(payInData.created_at);
     const updatePayInData = {
       status:
         bank.id != bankResponse.bank_id
@@ -1005,13 +1007,13 @@ export const resetDepositService = async (
       condition.utr = payIn.user_submitted_utr;
     }
     const bankResponse = await getBankResponseDao(condition);
-
+    const duration = calculateDuration(payIn.created_at);
     const updatePayInData = {
       status: calculateStatus(payIn.created_at),
       payin_merchant_commission: null,
       user_submitted_utr: null,
       bank_response_id: null,
-      duration: null,
+      duration: duration,
       updated_by,
     };
 
@@ -1360,6 +1362,7 @@ export const processPayInService = async (
     if (otherPayIns.length || bankResponse.is_used) {
       updatePayInData.status = Status.DUPLICATE;
       result.status = Status.DUPLICATE;
+      updatePayInData.duration = duration;
       result.utr_id =
         bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
       await updatePayInUrlDao(payIn.id, updatePayInData, conn);
@@ -1386,7 +1389,8 @@ export const processPayInService = async (
     if (bankResponse.bank_id && bankResponse.bank_id !== payIn.bank_acc_id) {
       updatePayInData.status = Status.BANK_MISMATCH;
       updatePayInData.bank_response_id = bankResponse.id;
-      updatePayInData.approved_at = new Date().toISOString();
+      updatePayInData.duration = duration;
+      // updatePayInData.approved_at = new Date().toISOString();
       result.status = Status.BANK_MISMATCH;
       result.utr_id =
         bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
@@ -1418,7 +1422,7 @@ export const processPayInService = async (
           ? Status.SUCCESS
           : Status.DISPUTE;
       updatePayInData.bank_response_id = bankResponse.id;
-      updatePayInData.approved_at = new Date().toISOString();
+      updatePayInData.approved_at =(updatePayInData.status == Status.SUCCESS) ?new Date().toISOString() : null;
       result.amount = bankResponse.amount;
       result.utr_id =
         bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
@@ -1433,12 +1437,12 @@ export const processPayInService = async (
     let merchant;
     if (updatePayInData.status === Status.SUCCESS) {
       // update merchant balance
-      await updateMerchantBalanceDao(
-        { id: payIn.merchant_id },
-        bankResponse.amount,
-        updated_by,
-        conn,
-      );
+      // await updateMerchantBalanceDao(
+      //   { id: payIn.merchant_id },
+      //   bankResponse.amount,
+      //   updated_by,
+      //   conn,
+      // );
       // update vendor balance
       // await updateVendorBalanceDao(
       //   { user_id: bank.user_id },
@@ -1806,12 +1810,14 @@ export const processPayInByImageService = async (conn, payload) => {
       return { error: `This payin url is already used`, result };
     }
     if (!content || !content.utr) {
+      const  duration = calculateDuration(payInData.created_at);
       const payIn = await updatePayInUrlDao(payInData.id, {
         status: Status.IMG_PENDING,
         amount: payload.amount,
         is_url_expires: true,
         one_time_used: true,
         user_submitted_image: payload.fileKey,
+        duration,
       });
 
       return {
@@ -1897,7 +1903,6 @@ export const disputeDuplicateTransactionService = async (
       toAmount,
       vendor.payin_commission,
     );
-    const duration = calculateDuration(payIn.created_at);
 
     if (merchantOrderId) {
       var payInData = await getPayInUrlDao({
@@ -1941,7 +1946,7 @@ export const disputeDuplicateTransactionService = async (
         makeItSuccess = false;
       }
     }
-
+    const duration = calculateDuration(payIn.created_at);
     let response = {};
     let newEntryResponse = {};
     if (!makeItSuccess) {
@@ -2233,7 +2238,7 @@ export const checkPendingPayinStatusService = async (
     });
     const processedPayinIds = [];
     for (const currentPayin of payins) {
-      const duration = calculateDuration(currentPayin.created_at);
+      let duration;
       const botResFilters = {
         is_used: false,
         status: '/success',
@@ -2259,13 +2264,14 @@ export const checkPendingPayinStatusService = async (
           vendor[0].payin_commission,
         );
         // Check for bank ID mismatch
+        duration = calculateDuration(currentPayin.created_at);
         if (bankDetails[0].id !== bankResponse.bank_id) {
           const payInData = {
             status: Status.BANK_MISMATCH,
             is_notified: true,
             user_submitted_utr: bankResponse.utr,
             bank_response_id: bankResponse.id,
-            approved_at: new Date(),
+            // approved_at: new Date(),
             duration: duration,
             updated_by: user_id,
           };
@@ -2289,7 +2295,6 @@ export const checkPendingPayinStatusService = async (
               amount: bankResponse.amount,
               req_amount: updatePayInDataRes.amount,
               utr_id: updatePayInDataRes.utr,
-              duration: duration,
             });
           }
           processedPayinIds.push(currentPayin.id);
@@ -2301,12 +2306,13 @@ export const checkPendingPayinStatusService = async (
 
         // Check for amount mismatch
         else if (currentPayin.amount !== bankResponse.amount) {
+          duration = calculateDuration(currentPayin.created_at);
           const payInData = {
             status: Status.DISPUTE,
             is_notified: true,
             user_submitted_utr: bankResponse.utr,
             bank_response_id: bankResponse.id,
-            approved_at: new Date(),
+            // approved_at: new Date(),
             payin_merchant_commission: payinMerchantCommission,
             payin_vendor_commission: payinVendorCommission,
             duration: duration,
@@ -2332,7 +2338,6 @@ export const checkPendingPayinStatusService = async (
               amount: bankResponse.amount,
               req_amount: updatePayInDataRes.amount,
               utr_id: updatePayInDataRes.utr,
-              duration: duration,
             });
           }
           logger.warn(`Amount dispute for payin ${currentPayin.id}:`, {
@@ -2344,11 +2349,12 @@ export const checkPendingPayinStatusService = async (
 
         // If checks pass, update with provided payload and mark as valid
         else {
+          duration = calculateDuration(currentPayin.created_at);
           const payInData = {
             status: Status.SUCCESS,
             is_notified: true,
             user_submitted_utr: botRes.utr,
-            approved_at: new Date(),
+            // approved_at: new Date(),
             duration: duration,
             payin_merchant_commission: payinMerchantCommission,
             payin_vendor_commission: payinVendorCommission,
@@ -2381,7 +2387,6 @@ export const checkPendingPayinStatusService = async (
             amount: bankResponse.amount,
             req_amount: updatePayInDataRes.amount,
             utr_id: updatePayInDataRes.utr,
-            duration: duration,
           });
           processedPayinIds.push(currentPayin.id);
           logger.log(`Valid match found for payin ${currentPayin.id}`);

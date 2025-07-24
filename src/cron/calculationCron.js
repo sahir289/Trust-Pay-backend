@@ -6,6 +6,7 @@ import { transactionWrapper } from '../utils/db.js';
 import {
   createCalculationDao,
   getCalculationforCronDao,
+  checkTodayCalculationExistsDao,
 } from '../apis/calculation/calculationDao.js';
 import { getUsersForCronDao } from '../apis/users/userDao.js';
 import { logger } from '../utils/logger.js';
@@ -74,6 +75,13 @@ const collectCalculationData = async () => {
   logger.info(`Starting calculation cron job at: ${executionStartTime}`);
   
   try {
+    // Check if today's calculation already exists
+    const todayCalculationExists = await checkTodayCalculationExistsDao();
+    if (todayCalculationExists) {
+      logger.info('Calculation already exists for today. Skipping cron execution.');
+      return; // Exit early if today's calculation already exists
+    }
+
     const users = (await transactionWrapper(getUsersForCronDao)()) || [];
     const usersArray = users || [];
 

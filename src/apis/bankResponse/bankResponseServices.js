@@ -50,6 +50,7 @@ import { filterResponse } from '../../helpers/index.js';
 // import { notifyNewTableEntry } from '../../utils/sockets.js';
 import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
 import PDFParser from 'pdf2json';
+import {  calculateDuration } from '../../helpers/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const createBankResponseService = async (
@@ -276,7 +277,7 @@ const createBankResponseService = async (
           amount: botRes.amount,
         });
       }
-
+      let duration;
       let checkPayInUtr;
       if (isValidAmountCode) {
         checkPayInUtr = await getPayInUrlsDao({
@@ -310,7 +311,6 @@ const createBankResponseService = async (
             };
           }
         }
-
         const isBankExist = await getBankaccountDao(
           { id: bank_id, company_id },
           null,
@@ -336,13 +336,15 @@ const createBankResponseService = async (
               };
             }
           }
+          duration = calculateDuration(payInUtr.created_at);
           const payInData = {
             status: Status.BANK_MISMATCH,
             is_notified: true,
             user_submitted_utr: botRes.utr,
             bank_response_id: botRes.id,
-            approved_at: new Date(),
+            // approved_at: new Date(),
             // config: { from_UI },
+            duration,
           };
           const updatePayInDataRes = await updatePayInUrlDao(
             payInUtr.id,
@@ -416,17 +418,18 @@ const createBankResponseService = async (
           botRes.amount,
           vendorData[0].payin_commission,
         );
-        const durMs = new Date() - payInUtr.created_at;
-        const durSeconds = Math.floor((durMs / 1000) % 60)
-          .toString()
-          .padStart(2, '0');
-        const durMinutes = Math.floor((durSeconds / 60) % 60)
-          .toString()
-          .padStart(2, '0');
-        const durHours = Math.floor((durMinutes / 60) % 24)
-          .toString()
-          .padStart(2, '0');
-        const duration = `${durHours}:${durMinutes}:${durSeconds}`;
+        // const durMs = new Date() - payInUtr.created_at;
+        // const durSeconds = Math.floor((durMs / 1000) % 60)
+        //   .toString()
+        //   .padStart(2, '0');
+        // const durMinutes = Math.floor((durSeconds / 60) % 60)
+        //   .toString()
+        //   .padStart(2, '0');
+        // const durHours = Math.floor((durMinutes / 60) % 24)
+        //   .toString()
+        //   .padStart(2, '0');
+        // const duration = `${durHours}:${durMinutes}:${durSeconds}`;
+        // const duration = calculateDuration(payInUtr.created_at);
 
         if (
           payInUtr.amount === amount ||
@@ -452,7 +455,7 @@ const createBankResponseService = async (
               };
             }
           }
-
+          duration = calculateDuration(payInUtr.created_at);
           const payInData = {
             status: Status.SUCCESS,
             is_notified: true,
@@ -512,12 +515,13 @@ const createBankResponseService = async (
               };
             }
           }
+          duration = calculateDuration(payInUtr.created_at);
           const payInData = {
             status: Status.DISPUTE,
             is_notified: true,
             user_submitted_utr: botRes.utr,
             bank_response_id: botRes.id,
-            approved_at: new Date(),
+            // approved_at: new Date(),
             duration,
             payin_merchant_commission: payinMerchantCommission,
             payin_vendor_commission: payinVendorCommission,
