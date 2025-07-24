@@ -15,13 +15,13 @@ const sendMerchantNotification = async (url, data, type) => {
     const response = await axios.post(url, data);
     logger.info(`${type} Notification Sent Successfully`, {
       //send dat in logs
-      status: response.status,
+      status: response?.status,
       url: url,
       data: data,
     });
     return response.data;
   } catch (error) {
-    logger.error(`Error Notifying Merchant at ${type} URL:`, error);
+    logger.error(`Error Notifying Merchant at ${type} URL:`, error.message );
     return {
       message: `Error Notifying Merchant at ${type} URL: ${error.message}`,
     };

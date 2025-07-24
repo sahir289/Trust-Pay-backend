@@ -3,7 +3,7 @@ import { Status } from '../constants/index.js';
 import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.js';
 import { NotFoundError } from './appErrors.js';
 import { logger } from './logger.js';
-
+import { calculateDuration } from '../helpers/index.js';
 async function processPayInRestricted(id, restrictionReason) {
   try {
     const payInUrl = await getPayInUrlsDao({ merchant_order_id: id });
@@ -19,11 +19,13 @@ async function processPayInRestricted(id, restrictionReason) {
         isRestricted: true,
         restrictionReason,
       };
+      const duration = calculateDuration(payin.created_at);
       const data = {
         status: Status.FAILED,
         config,
         is_url_expires: true,
         is_notified: true,
+        duration,
       };
       const notificationData = {
         status: Status.FAILED,
