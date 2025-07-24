@@ -620,6 +620,24 @@ export const getAllCalculationforCronDao = async (userId) => {
   }
 };
 
+export const checkTodayCalculationExistsDao = async () => {
+  try {
+    const today = dayjs().tz(IST).format('YYYY-MM-DD');
+    const sql = `
+      SELECT COUNT(*) as count
+      FROM public."Calculation" 
+      WHERE is_obsolete = false 
+      AND DATE(created_at) = $1
+      LIMIT 1
+    `;
+    const result = await executeQuery(sql, [today]);
+    return parseInt(result.rows[0].count) > 0;
+  } catch (error) {
+    logger.error('Error checking today calculation exists:', error);
+    throw error;
+  }
+};
+
 const createCalculationDao = async (conn, data) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.CALCULATION, data);
