@@ -475,7 +475,7 @@ export const getPayoutsBySearchDao = async (
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
     const queryParams = [filters.company_id];
     let paramIndex = 2;
-    const handledKeys = new Set(['status']);
+    const handledKeys = new Set(['status', 'updated_at']); // Added 'updated_at' to prevent duplicate processing
     const validColumns = new Set([
       'id',
       'sno',
@@ -603,41 +603,71 @@ export const getPayoutsBySearchDao = async (
       }
     }
 
-    searchTerms.forEach((term) => {
-      if (term.toLowerCase() !== 'true' && term.toLowerCase() !== 'false') {
-        conditions.push(`
-          (
-            LOWER(p.id::text) LIKE LOWER($${paramIndex})
-            OR LOWER(p.user) LIKE LOWER($${paramIndex})
-            OR LOWER(p.merchant_order_id) LIKE LOWER($${paramIndex})
-            OR LOWER(p.failed_reason) LIKE LOWER($${paramIndex})
-            OR LOWER(p.currency) LIKE LOWER($${paramIndex})
-            OR LOWER(p.upi_id) LIKE LOWER($${paramIndex})
-            OR LOWER(p.utr_id) LIKE LOWER($${paramIndex})
-            OR LOWER(p.status) LIKE LOWER($${paramIndex})
-            OR LOWER(p.rejected_reason) LIKE LOWER($${paramIndex})
-            OR LOWER(b.nick_name) LIKE LOWER($${paramIndex})
-            OR LOWER(m.code) LIKE LOWER($${paramIndex})
-            OR LOWER(v.code) LIKE LOWER($${paramIndex})
-            OR p.amount::text LIKE $${paramIndex}
-            OR LOWER(p.config->>'method') LIKE LOWER($${paramIndex})
-            OR LOWER(p.config->>'rejected_reason') LIKE LOWER($${paramIndex})
-            OR LOWER(p.acc_holder_name) LIKE LOWER($${paramIndex})
-            OR LOWER(p.acc_no) LIKE LOWER($${paramIndex})
-            OR LOWER(p.ifsc_code) LIKE LOWER($${paramIndex})
-            OR LOWER(p.bank_name) LIKE LOWER($${paramIndex})
-          )
-        `);
-        queryParams.push(`%${term}%`);
-        paramIndex++;
+    if (searchTerms.length > 0) {
+      searchTerms.forEach((term) => {
+        if (term.toLowerCase() !== 'true' && term.toLowerCase() !== 'false') {
+          conditions.push(`
+            (
+              LOWER(p.id::text) LIKE LOWER($${paramIndex})
+              OR LOWER(p.user) LIKE LOWER($${paramIndex})
+              OR LOWER(p.merchant_order_id) LIKE LOWER($${paramIndex})
+              OR LOWER(p.failed_reason) LIKE LOWER($${paramIndex})
+              OR LOWER(p.currency) LIKE LOWER($${paramIndex})
+              OR LOWER(p.upi_id) LIKE LOWER($${paramIndex})
+              OR LOWER(p.utr_id) LIKE LOWER($${paramIndex})
+              OR LOWER(p.status) LIKE LOWER($${paramIndex})
+              OR LOWER(p.rejected_reason) LIKE LOWER($${paramIndex})
+              OR LOWER(b.nick_name) LIKE LOWER($${paramIndex})
+              OR LOWER(m.code) LIKE LOWER($${paramIndex})
+              OR LOWER(v.code) LIKE LOWER($${paramIndex})
+              OR p.amount::text LIKE $${paramIndex}
+              OR LOWER(p.config->>'method') LIKE LOWER($${paramIndex})
+              OR LOWER(p.config->>'rejected_reason') LIKE LOWER($${paramIndex})
+              OR LOWER(p.acc_holder_name) LIKE LOWER($${paramIndex})
+              OR LOWER(p.acc_no) LIKE LOWER($${paramIndex})
+              OR LOWER(p.ifsc_code) LIKE LOWER($${paramIndex})
+              OR LOWER(p.bank_name) LIKE LOWER($${paramIndex})
+            )
+          `);
+          queryParams.push(`%${term}%`);
+          paramIndex++;
+        }
+      });
+    }
+
+    if (filters.updated_at) {
+      const [day, month, year] = filters.updated_at.split('-');
+      if (
+        !day ||
+        !month ||
+        !year ||
+        isNaN(new Date(`${year}-${month}-${day}`))
+      ) {
+        logger.error(
+          `Invalid date format for updated_at: ${filters.updated_at}`,
+        );
+        throw new Error(
+          'Invalid date format for updated_at. Expected DD-MM-YYYY',
+        );
       }
-    });
+      const properDateStr = `${year}-${month}-${day}`;
+      let startDate = dayjs
+        .tz(`${properDateStr} 00:00:00`, 'Asia/Kolkata')
+        .utc()
+        .format();
+      let endDate = dayjs
+        .tz(`${properDateStr} 23:59:59.999`, 'Asia/Kolkata')
+        .utc()
+        .format();
+      conditions.push(
+        `p.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+      );
+      queryParams.push(startDate, endDate);
+      paramIndex += 2;
+    }
 
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
-        if (!validColumns.has(key) && key !== 'status') {
-          logger.warn(`Invalid filter key ignored: ${key}`);
-        }
         return;
       }
       const nextParamIdx = queryParams.length + 1;
@@ -680,9 +710,10 @@ export const getPayoutsBySearchDao = async (
     const expectedParamCount = (queryText.match(/\$\d+/g) || []).length;
     if (expectedParamCount !== queryParams.length) {
       logger.warn(
-        `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
+        `Parameter mismatch - Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
       );
     }
+
 
     const countResult = await executeQuery(
       countQuery,

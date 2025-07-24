@@ -6,6 +6,7 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
+import dayjs from 'dayjs';
 import { getConnection } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
@@ -681,6 +682,7 @@ export const getPayinsBySearchDao = async (
         p.payin_merchant_commission,
         p.merchant_order_id,
         p.user,
+        p.is_notified,
         p.config AS payin_details,
         json_build_object(
           'merchant_code', m.code,
@@ -710,6 +712,7 @@ export const getPayinsBySearchDao = async (
         p.is_url_expires,
         p.approved_at,
         p.created_by,
+        p.is_notified,
         p.user,
         p.updated_by,
         p.created_at,
@@ -722,7 +725,6 @@ export const getPayinsBySearchDao = async (
         p.sno,
         p.amount,
         p.status,
-        p.is_notified,
         p.user_submitted_utr,
         p.user_submitted_image,
         p.duration,
@@ -781,6 +783,7 @@ export const getPayinsBySearchDao = async (
       paramIndex += statusArray.length;
     }
 
+    if (searchTerms && searchTerms.length > 0) {
     // Handle search terms
     searchTerms.forEach((term) => {
       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
@@ -819,17 +822,37 @@ export const getPayinsBySearchDao = async (
         paramIndex++;
       }
     });
-
+  }
+  if (filters.updated_at) {
+    const [day, month, year] = filters.updated_at.split('-');
+    if (!day || !month || !year || isNaN(new Date(`${year}-${month}-${day}`))) {
+      logger.error(`Invalid date format for updated_at: ${filters.updated_at}`);
+      throw new Error(
+        'Invalid date format for updated_at. Expected DD-MM-YYYY',
+      );
+    }
+    const properDateStr = `${year}-${month}-${day}`;
+    let startDate = dayjs
+      .tz(`${properDateStr} 00:00:00`, 'Asia/Kolkata')
+      .utc()
+      .format();
+    let endDate = dayjs
+      .tz(`${properDateStr} 23:59:59.999`, 'Asia/Kolkata')
+      .utc()
+      .format();
+    conditions.push(
+      `p.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+    );
+    queryParams.push(startDate, endDate);
+    paramIndex += 2;
+   delete filters.updated_at;
+  }
     // Handle additional filters dynamically
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
-        if (!validColumns.has(key) && key !== 'status') {
-          logger.warn(`Invalid filter key ignored: ${key}`);
-        }
         return;
       }
       const nextParamIdx = queryParams.length + 1;
-
       // Special handling for arrays
       if (Array.isArray(value)) {
         const placeholders = value
@@ -861,7 +884,6 @@ export const getPayinsBySearchDao = async (
 
     // Count query
     const countQuery = `SELECT COUNT(*) AS total FROM (${queryText}) AS count_table`;
-
     // Append pagination
     queryText += `
       ORDER BY p.created_at DESC
