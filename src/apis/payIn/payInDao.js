@@ -782,7 +782,12 @@ export const getPayinsBySearchDao = async (
       queryParams.push(...statusArray);
       paramIndex += statusArray.length;
     }
-
+    if (filters.user_ids) {
+      const statusArray = filters.user_ids.split(',').map((s) => s.trim());
+      queryText += ` AND v.user_id IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
+      queryParams.push(...statusArray);
+      paramIndex += statusArray.length;
+    }
     if (searchTerms && searchTerms.length > 0) {
     // Handle search terms
     searchTerms.forEach((term) => {
