@@ -475,7 +475,7 @@ export const getPayoutsBySearchDao = async (
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
     const queryParams = [filters.company_id];
     let paramIndex = 2;
-    const handledKeys = new Set(['status', 'updated_at']); // Added 'updated_at' to prevent duplicate processing
+    const handledKeys = new Set(['status', 'updated_at']);
     const validColumns = new Set([
       'id',
       'sno',
@@ -554,7 +554,7 @@ export const getPayoutsBySearchDao = async (
     }
 
     let queryText = `
-      SELECT DISTINCT ON (p.id) 
+      SELECT 
         p.id, 
         p.sno,
         p.amount,
@@ -701,7 +701,7 @@ export const getPayoutsBySearchDao = async (
     const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
 
     queryText += `
-      ORDER BY p.id, p.created_at DESC
+      ORDER BY p.sno DESC
       LIMIT $${queryParams.length + 1}
       OFFSET $${queryParams.length + 2}
     `;
@@ -713,7 +713,6 @@ export const getPayoutsBySearchDao = async (
         `Parameter mismatch - Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
       );
     }
-
 
     const countResult = await executeQuery(
       countQuery,
