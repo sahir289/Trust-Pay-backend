@@ -335,6 +335,7 @@ const getSettlementsBySearchDao = async (
               LOWER(s.id::text) LIKE LOWER($${paramIndex}) OR
               LOWER(s.sno::text) LIKE LOWER($${paramIndex}) OR
               LOWER(s.status) LIKE LOWER($${paramIndex}) OR
+              LOWER(s.method) LIKE LOWER($${paramIndex}) OR
               LOWER(u.user_name) LIKE LOWER($${paramIndex}) OR
               LOWER(r.role) LIKE LOWER($${paramIndex}) OR
               LOWER(m.code) LIKE LOWER($${paramIndex}) OR
