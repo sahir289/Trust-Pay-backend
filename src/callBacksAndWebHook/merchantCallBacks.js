@@ -12,9 +12,7 @@ const sendMerchantNotification = async (url, data, type) => {
       notify_url: url,
       notify_data: data,
     });
-    console.log(url, data, "url and data in merchant callback ++++++++++");
     const response = await axios.post(url, data);
-    console.log(response.data, "respooooooo");
     logger.info(`${type} Notification Sent Successfully`, {
       //send dat in logs
       status: response?.status,
