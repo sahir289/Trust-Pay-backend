@@ -215,7 +215,7 @@ const getAllBankaccountDao = async (
         ba.today_balance,
         ba.is_enabled,   
         ba.bank_used_for,
-        ba.config->>'max_limit' AS daily_limit`;
+        ba.config->>'max_limit' AS daily_limit,`;
     } else {
       // Only include Merchant_Details and config if designation is 'Admin'
       commissionSelect = `
@@ -399,7 +399,8 @@ const getBankAccountsBySearchDao = async (
         ba.today_balance,
         ba.is_enabled,   
         ba.bank_used_for,
-        ba.config->>'max_limit' AS daily_limit`;
+        ba.config->>'max_limit' AS daily_limit,
+        (ba.config->>'is_freeze')::boolean AS is_freezed`;
     } else {
       commissionSelect = `
         ba.user_id, 
