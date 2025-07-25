@@ -127,7 +127,6 @@ const getBeneficiaryAccountBySearchService = async (
   company_id,
 ) => {
   try {
-    console.log(filters, role, page, limit, user_id, designation, company_id,"hey yes from the yes");
     let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
 
     if (role === Role.MERCHANT) {

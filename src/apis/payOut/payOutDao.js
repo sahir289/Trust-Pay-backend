@@ -470,12 +470,18 @@ export const getPayoutsBySearchDao = async (
   limitNum,
   offset,
   role,
+  ifamount = true,
 ) => {
   try {
+    // Initialize base conditions for main query
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
+
+    // Parameters for main query
     const queryParams = [filters.company_id];
-    let paramIndex = 2;
-    const handledKeys = new Set(['status', 'updated_at']); // Added 'updated_at' to prevent duplicate processing
+    let paramIndex = 2; // Start from 2 since $1 is used
+
+    // Columns we allow filtering on
+    const handledKeys = new Set(['status', 'updated_at']);
     const validColumns = new Set([
       'id',
       'sno',
@@ -507,6 +513,7 @@ export const getPayoutsBySearchDao = async (
       'bank_name',
     ]);
 
+    // Build SELECT fields based on role
     let commissionSelect = '';
     if (role === 'MERCHANT') {
       commissionSelect = `
@@ -553,6 +560,7 @@ export const getPayoutsBySearchDao = async (
       `;
     }
 
+    // Build main query
     let queryText = `
       SELECT DISTINCT ON (p.id) 
         p.id, 
@@ -583,6 +591,7 @@ export const getPayoutsBySearchDao = async (
       WHERE ${conditions.join(' AND ')}
     `;
 
+    // Handle status filter
     if (filters.status) {
       let statusArray;
       if (Array.isArray(filters.status)) {
@@ -603,6 +612,7 @@ export const getPayoutsBySearchDao = async (
       }
     }
 
+    // Handle search terms
     if (searchTerms.length > 0) {
       searchTerms.forEach((term) => {
         if (term.toLowerCase() !== 'true' && term.toLowerCase() !== 'false') {
@@ -635,6 +645,7 @@ export const getPayoutsBySearchDao = async (
       });
     }
 
+    // Handle updated_at filter
     if (filters.updated_at) {
       const [day, month, year] = filters.updated_at.split('-');
       if (
@@ -666,6 +677,7 @@ export const getPayoutsBySearchDao = async (
       paramIndex += 2;
     }
 
+    // Handle other filters
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
         return;
@@ -694,12 +706,126 @@ export const getPayoutsBySearchDao = async (
       }
     });
 
+    // Add all conditions to main query
     if (conditions.length > 2) {
       queryText += ' AND (' + conditions.slice(2).join(' AND ') + ')';
     }
 
+    // Create count query
     const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
 
+    // Initialize total amount
+    let totalAmount = 0;
+
+    // Handle total amount calculation if requested
+    if (ifamount) {
+      // Create fresh conditions and parameters for amount query
+      const amountConditions = [`p.is_obsolete = false`, `p.company_id = $1`];
+      const amountParams = [filters.company_id];
+      let amountParamIndex = 2;
+
+      // Reapply status filter
+      if (filters.status) {
+        let statusArray;
+        if (Array.isArray(filters.status)) {
+          statusArray = filters.status
+            .map((s) => String(s).trim())
+            .filter((s) => s);
+        } else {
+          statusArray = filters.status
+            .split(',')
+            .map((s) => s.trim())
+            .filter((s) => s);
+        }
+        statusArray = [...new Set(statusArray)];
+        if (statusArray.length > 0) {
+          amountConditions.push(
+            `p.status IN (${statusArray.map((_, i) => `$${amountParamIndex + i}`).join(', ')})`,
+          );
+          amountParams.push(...statusArray);
+          amountParamIndex += statusArray.length;
+        }
+      }
+
+      // Reapply search terms
+      if (searchTerms.length > 0) {
+        searchTerms.forEach((term) => {
+          if (term.toLowerCase() !== 'true' && term.toLowerCase() !== 'false') {
+            amountConditions.push(`
+              (
+                LOWER(p.id::text) LIKE LOWER($${amountParamIndex})
+                OR LOWER(p.user) LIKE LOWER($${amountParamIndex})
+                OR LOWER(p.merchant_order_id) LIKE LOWER($${amountParamIndex})
+                OR LOWER(p.failed_reason) LIKE LOWER($${amountParamIndex})
+                OR LOWER(p.currency) LIKE LOWER($${amountParamIndex})
+                OR LOWER(p.upi_id) LIKE LOWER($${amountParamIndex})
+                OR LOWER(p.utr_id) LIKE LOWER($${amountParamIndex})
+                OR LOWER(p.status) LIKE LOWER($${amountParamIndex})
+                OR LOWER(p.rejected_reason) LIKE LOWER($${amountParamIndex})
+                OR LOWER(b.nick_name) LIKE LOWER($${amountParamIndex})
+                OR LOWER(m.code) LIKE LOWER($${amountParamIndex})
+                OR LOWER(v.code) LIKE LOWER($${amountParamIndex})
+                OR p.amount::text LIKE $${amountParamIndex}
+                OR LOWER(p.config->>'method') LIKE LOWER($${amountParamIndex})
+                OR LOWER(p.config->>'rejected_reason') LIKE LOWER($${amountParamIndex})
+                OR LOWER(p.acc_holder_name) LIKE LOWER($${amountParamIndex})
+                OR LOWER(p.acc_no) LIKE LOWER($${amountParamIndex})
+                OR LOWER(p.ifsc_code) LIKE LOWER($${amountParamIndex})
+                OR LOWER(p.bank_name) LIKE LOWER($${amountParamIndex})
+              )
+            `);
+            amountParams.push(`%${term}%`);
+            amountParamIndex++;
+          }
+        });
+      }
+
+      // Reapply other filters
+      Object.entries(filters).forEach(([key, value]) => {
+        if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
+          return;
+        }
+        const nextParamIdx = amountParams.length + 1;
+        if (Array.isArray(value)) {
+          const placeholders = value
+            .map((_, idx) => `$${nextParamIdx + idx}`)
+            .join(', ');
+          amountConditions.push(`p.${key} IN (${placeholders})`);
+          amountParams.push(...value);
+        } else {
+          const isMultiValue = typeof value === 'string' && value.includes(',');
+          const valueArray = isMultiValue
+            ? value.split(',').map((v) => v.trim())
+            : [value];
+          const placeholders = valueArray
+            .map((_, idx) => `$${nextParamIdx + idx}`)
+            .join(', ');
+          amountConditions.push(
+            isMultiValue
+              ? `p.${key} IN (${placeholders})`
+              : `p.${key} = $${nextParamIdx}`,
+          );
+          amountParams.push(...valueArray);
+        }
+      });
+
+      // Build amount query
+      const amountQuery = `
+        SELECT COALESCE(SUM(p.amount), 0) as total_amount
+        FROM public."Payout" p
+        LEFT JOIN public."Merchant" m ON p.merchant_id = m.id
+        LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
+        LEFT JOIN public."Vendor" v ON p.vendor_id = v.id
+        WHERE ${amountConditions.join(' AND ')}
+        ${amountConditions.length > 2 ? ' AND (' + amountConditions.slice(2).join(' AND ') + ')' : ''}
+      `;
+
+      // Execute amount query
+      const amountResult = await executeQuery(amountQuery, amountParams);
+      totalAmount = parseFloat(amountResult.rows[0]?.total_amount || 0);
+    }
+
+    // Add pagination to main query
     queryText += `
       ORDER BY p.id, p.created_at DESC
       LIMIT $${queryParams.length + 1}
@@ -707,28 +833,20 @@ export const getPayoutsBySearchDao = async (
     `;
     queryParams.push(limitNum, offset);
 
-    const expectedParamCount = (queryText.match(/\$\d+/g) || []).length;
-    if (expectedParamCount !== queryParams.length) {
-      logger.warn(
-        `Parameter mismatch - Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
-      );
-    }
-
-
+    // Execute main queries
     const countResult = await executeQuery(
       countQuery,
       queryParams.slice(0, -2),
     );
     const searchResult = await executeQuery(queryText, queryParams);
-
-    const totalItems = parseInt(countResult.rows[0].total);
-    const totalPages = Math.ceil(totalItems / limitNum);
-
-    return {
-      totalCount: totalItems,
-      totalPages,
+    const data = {
+      ...(ifamount && { totalAmount: totalAmount }),
+      totalCount: parseInt(countResult.rows[0].total),
+      totalPages: Math.ceil(parseInt(countResult.rows[0].total) / limitNum),
       payout: searchResult.rows,
     };
+    // Return results
+    return data
   } catch (error) {
     logger.error('Error in getPayoutsBySearchDao:', error);
     throw error;

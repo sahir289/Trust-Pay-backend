@@ -576,6 +576,7 @@ const getPayoutsBySearchService = async (
     // if (searchTerms.length === 0) {
     //   throw new BadRequestError('Please provide valid search terms');
     // }
+
     const offset = (pageNum - 1) * limitNum;
 
     const data = await getPayoutsBySearchDao(
@@ -586,7 +587,7 @@ const getPayoutsBySearchService = async (
       role,
       // filterColumns,
     );
-
+    
     return data;
   } catch (error) {
     logger.error('Error while fetching Payout by search', error);
