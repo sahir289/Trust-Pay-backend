@@ -664,8 +664,11 @@ export const getChargeBacksBySearchDao = async (
     );
     const totalCount = parseInt(countResult.rows[0]?.count || '0');
 
-    const result = await executeQuery(dataQuery, queryParams);
-
+    let result = await executeQuery(dataQuery, queryParams);
+    if (totalCount > 0 && result.rows.length === 0 && offset > 0) {
+      queryParams[queryParams.length - 1] = 0; 
+      result = await executeQuery(dataQuery, queryParams);
+    }
     return {
       totalCount,
       totalPages: Math.ceil(totalCount / pageSize),

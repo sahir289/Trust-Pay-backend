@@ -774,7 +774,46 @@ export const getPayinsBySearchDao = async (
       LEFT JOIN public."User" uu ON p.updated_by = uu.id
       WHERE ${conditions.join(' AND ')}
     `;
-
+    if (searchTerms && searchTerms.length > 0) {
+      // Handle search terms
+      searchTerms.forEach((term) => {
+        if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+          const boolValue = term.toLowerCase() === 'true';
+          conditions.push(`
+            (
+              p.is_notified = $${paramIndex}
+              OR p.is_url_expires = $${paramIndex}
+              OR p.one_time_used = $${paramIndex}
+            )
+          `);
+          queryParams.push(boolValue);
+          paramIndex++;
+        } else {
+          conditions.push(`
+            (
+              LOWER(p.id::text) LIKE LOWER($${paramIndex})
+              OR LOWER(p.sno::text) LIKE LOWER($${paramIndex})
+              OR LOWER(p.upi_short_code) LIKE LOWER($${paramIndex})
+              OR LOWER(p.status) LIKE LOWER($${paramIndex})
+              OR LOWER(p.merchant_order_id) LIKE LOWER($${paramIndex})
+              OR LOWER(p.user_submitted_utr) LIKE LOWER($${paramIndex})
+              OR LOWER(p.user) LIKE LOWER($${paramIndex})
+              OR LOWER(b.nick_name) LIKE LOWER($${paramIndex})
+              OR LOWER(br.utr) LIKE LOWER($${paramIndex})
+              OR LOWER(m.code) LIKE LOWER($${paramIndex})
+              OR LOWER(v.code) LIKE LOWER($${paramIndex})
+              OR p.amount::text LIKE $${paramIndex}
+              OR br.amount::text LIKE $${paramIndex}
+              OR LOWER(p.config->>'user') LIKE LOWER($${paramIndex})
+              OR LOWER(p.config->'urls'->>'site') LIKE LOWER($${paramIndex})
+              OR LOWER(p.config->'urls'->>'notify') LIKE LOWER($${paramIndex})
+            )
+          `);
+          queryParams.push(`%${term}%`);
+          paramIndex++;
+        }
+      });
+    }
     // Handle status filter
     if (filters.status) {
       const statusArray = filters.status.split(',').map((s) => s.trim());
@@ -782,47 +821,13 @@ export const getPayinsBySearchDao = async (
       queryParams.push(...statusArray);
       paramIndex += statusArray.length;
     }
-
-    if (searchTerms && searchTerms.length > 0) {
-    // Handle search terms
-    searchTerms.forEach((term) => {
-      if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-        const boolValue = term.toLowerCase() === 'true';
-        conditions.push(`
-          (
-            p.is_notified = $${paramIndex}
-            OR p.is_url_expires = $${paramIndex}
-            OR p.one_time_used = $${paramIndex}
-          )
-        `);
-        queryParams.push(boolValue);
-        paramIndex++;
-      } else {
-        conditions.push(`
-          (
-            LOWER(p.id::text) LIKE LOWER($${paramIndex})
-            OR LOWER(p.sno::text) LIKE LOWER($${paramIndex})
-            OR LOWER(p.upi_short_code) LIKE LOWER($${paramIndex})
-            OR LOWER(p.status) LIKE LOWER($${paramIndex})
-            OR LOWER(p.merchant_order_id) LIKE LOWER($${paramIndex})
-            OR LOWER(p.user_submitted_utr) LIKE LOWER($${paramIndex})
-            OR LOWER(p.user) LIKE LOWER($${paramIndex})
-            OR LOWER(b.nick_name) LIKE LOWER($${paramIndex})
-            OR LOWER(br.utr) LIKE LOWER($${paramIndex})
-            OR LOWER(m.code) LIKE LOWER($${paramIndex})
-            OR LOWER(v.code) LIKE LOWER($${paramIndex})
-            OR p.amount::text LIKE $${paramIndex}
-            OR br.amount::text LIKE $${paramIndex}
-            OR LOWER(p.config->>'user') LIKE LOWER($${paramIndex})
-            OR LOWER(p.config->'urls'->>'site') LIKE LOWER($${paramIndex})
-            OR LOWER(p.config->'urls'->>'notify') LIKE LOWER($${paramIndex})
-          )
-        `);
-        queryParams.push(`%${term}%`);
-        paramIndex++;
-      }
-    });
-  }
+    if (filters.user_ids) {
+      const statusArray = filters.user_ids.split(',').map((s) => s.trim());
+      queryText += ` AND v.user_id IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
+      queryParams.push(...statusArray);
+      paramIndex += statusArray.length;
+    }
+   
   if (filters.updated_at) {
     const [day, month, year] = filters.updated_at.split('-');
     if (!day || !month || !year || isNaN(new Date(`${year}-${month}-${day}`))) {
@@ -894,23 +899,26 @@ export const getPayinsBySearchDao = async (
     queryParams.push(limitNum, offset);
 
     // Debug log: Check if placeholders match params
-    const expectedParamCount = (queryText.match(/\$\d+/g) || []).length;
-    if (expectedParamCount !== queryParams.length) {
-      logger.warn(
-        `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
-      );
-    }
+    // const expectedParamCount = (queryText.match(/\$\d+/g) || []).length;
+    // if (expectedParamCount !== queryParams.length) {
+    //   logger.warn(
+    //     `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
+    //   );
+    // }
 
     // Execute queries
     const countResult = await executeQuery(
       countQuery,
       queryParams.slice(0, -2),
     );
-    const searchResult = await executeQuery(queryText, queryParams);
-
+    let searchResult = await executeQuery(queryText, queryParams);
     const totalItems = parseInt(countResult.rows[0].total);
-    const totalPages = Math.ceil(totalItems / limitNum);
-
+    let totalPages = Math.ceil(totalItems / limitNum);
+    if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
+      queryParams[queryParams.length - 1] = 0; 
+      searchResult = await executeQuery(queryText, queryParams);
+      totalPages = Math.ceil(totalItems / limitNum); 
+    }
     return {
       totalCount: totalItems,
       totalPages,

@@ -248,10 +248,14 @@ export const getUsersBySearchDao = async (
     `;
     values.push(validatedPageSize, offset);
 
-    const searchResult = await executeQuery(queryText, values);
-
+    let searchResult = await executeQuery(queryText, values);
     const totalItems = parseInt(countResult.rows[0].total);
-    const totalPages = Math.ceil(totalItems / validatedPageSize);
+    let totalPages = Math.ceil(totalItems / validatedPageSize);
+    if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
+      values[values.length - 1] = 0; 
+      searchResult = await executeQuery(queryText, values);
+      totalPages = Math.ceil(totalItems / validatedPageSize);
+    }
 
     const data = {
       totalCount: totalItems,

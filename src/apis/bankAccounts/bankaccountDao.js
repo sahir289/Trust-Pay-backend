@@ -399,7 +399,8 @@ const getBankAccountsBySearchDao = async (
         ba.today_balance,
         ba.is_enabled,   
         ba.bank_used_for,
-        ba.config->>'max_limit' AS daily_limit`;
+        ba.config->>'max_limit' AS daily_limit,
+        (ba.config->>'is_freeze')::boolean AS is_freezed`;
     } else {
       commissionSelect = `
         ba.user_id, 
@@ -475,13 +476,31 @@ const getBankAccountsBySearchDao = async (
     ]);
 
     const totalCount = parseInt(countResult.rows[0].total);
-    const totalPages = limit ? Math.ceil(totalCount / limit) : 1;
+    let totalPages = limit ? Math.ceil(totalCount / limit) : 1;
+
+    if (
+      totalCount > 0 &&
+      searchResult.rows.length === 0 &&
+      page &&
+      limit &&
+      (page - 1) * limit > 0
+    ) {
+      queryParams[queryParams.length - 1] = 0; 
+      const newSearchResult = await executeQuery(mainQuery, queryParams);
+      totalPages = limit ? Math.ceil(totalCount / limit) : 1;
+      return {
+        totalCount,
+        totalPages,
+        banks: newSearchResult.rows,
+      };
+    }
 
     return {
       totalCount,
       totalPages,
       banks: searchResult.rows,
     };
+    
   } catch (error) {
     logger.error('Error in getBankAccountsBySearchDao:', error);
     throw error;

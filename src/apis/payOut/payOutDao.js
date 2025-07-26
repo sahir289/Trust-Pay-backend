@@ -562,7 +562,7 @@ export const getPayoutsBySearchDao = async (
 
     // Build main query
     let queryText = `
-      SELECT DISTINCT ON (p.id) 
+      SELECT 
         p.id, 
         p.sno,
         p.amount,
@@ -827,7 +827,7 @@ export const getPayoutsBySearchDao = async (
 
     // Add pagination to main query
     queryText += `
-      ORDER BY p.id, p.created_at DESC
+      ORDER BY p.sno DESC
       LIMIT $${queryParams.length + 1}
       OFFSET $${queryParams.length + 2}
     `;
