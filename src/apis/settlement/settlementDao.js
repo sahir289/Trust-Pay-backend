@@ -345,8 +345,15 @@ const getSettlementsBySearchDao = async (
               LOWER(ba.acc_no) LIKE LOWER($${paramIndex}) OR
               LOWER(ba.ifsc) LIKE LOWER($${paramIndex}) OR
               s.amount::text LIKE $${paramIndex} OR
-              LOWER(s.config::text) LIKE LOWER($${paramIndex})
-            )`,
+          LOWER(s.config->>'amount') LIKE LOWER($${paramIndex}) OR
+          LOWER(s.config->>'reference_id') LIKE LOWER($${paramIndex}) OR
+          LOWER(s.config->>'debit_credit') LIKE LOWER($${paramIndex}) OR
+          LOWER(s.config->>'ifsc') LIKE LOWER($${paramIndex}) OR
+          LOWER(s.config->>'acc_no') LIKE LOWER($${paramIndex}) OR
+          LOWER(s.config->>'acc_holder_name') LIKE LOWER($${paramIndex}) OR
+          LOWER(s.config->>'bank_name') LIKE LOWER($${paramIndex}) OR
+          LOWER(s.config->>'bank_namebank_name') LIKE LOWER($${paramIndex}) OR
+          LOWER(s.config->>'rejected_reason') LIKE LOWER($${paramIndex})           )`,
           );
           queryParams.push(`%${term}%`);
           paramIndex++;
@@ -521,10 +528,16 @@ const getSettlementsBySearchDao = async (
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
     queryParams.push(pageSize, (page - 1) * pageSize);
-
     // Final result
-    const result = await executeQuery(finalQuery, queryParams);
-
+    let result = await executeQuery(finalQuery, queryParams);
+    if (
+      totalCount > 0 &&
+      result.rows.length === 0 &&
+      (page - 1) * pageSize > 0
+    ) {
+      queryParams[queryParams.length - 1] = 0; // Reset offset to 0
+      result = await executeQuery(finalQuery, queryParams);
+    }
     return {
       totalCount,
       totalPages: Math.ceil(totalCount / pageSize),

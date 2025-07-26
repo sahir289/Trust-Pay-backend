@@ -304,11 +304,18 @@ const getBeneficiaryAccountBySearchDao = async (
       countQuery,
       queryParams.slice(0, -2),
     );
-    const searchResult = await executeQuery(baseQuery, queryParams);
+    let searchResult = await executeQuery(baseQuery, queryParams);
 
     const totalItems = parseInt(countResult.rows[0].total);
     const totalPages = totalItems > 0 ? Math.ceil(totalItems / limit) : 0;
-
+    if (
+      totalItems > 0 &&
+      searchResult.rows.length === 0 &&
+      (page - 1) * limit > 0
+    ) {
+      queryParams[queryParams.length - 1] = 0; 
+      searchResult = await executeQuery(baseQuery, queryParams);
+    }
     return {
       totalCount: totalItems,
       totalPages,

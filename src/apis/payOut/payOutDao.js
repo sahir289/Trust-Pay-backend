@@ -707,22 +707,26 @@ export const getPayoutsBySearchDao = async (
     `;
     queryParams.push(limitNum, offset);
 
-    const expectedParamCount = (queryText.match(/\$\d+/g) || []).length;
-    if (expectedParamCount !== queryParams.length) {
-      logger.warn(
-        `Parameter mismatch - Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
-      );
-    }
+    // const expectedParamCount = (queryText.match(/\$\d+/g) || []).length;
+    // if (expectedParamCount !== queryParams.length) {
+    //   logger.warn(
+    //     `Parameter mismatch - Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
+    //   );
+    // }
 
     const countResult = await executeQuery(
       countQuery,
       queryParams.slice(0, -2),
     );
-    const searchResult = await executeQuery(queryText, queryParams);
+    let searchResult = await executeQuery(queryText, queryParams);
 
     const totalItems = parseInt(countResult.rows[0].total);
-    const totalPages = Math.ceil(totalItems / limitNum);
-
+    let totalPages = Math.ceil(totalItems / limitNum);
+    if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
+      queryParams[queryParams.length - 1] = 0;
+      searchResult = await executeQuery(queryText, queryParams);
+      totalPages = Math.ceil(totalItems / limitNum);
+    }
     return {
       totalCount: totalItems,
       totalPages,
