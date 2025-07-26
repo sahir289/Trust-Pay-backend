@@ -356,12 +356,15 @@ export const getVendorsBySearchDao = async (
       OFFSET $${paramIndex + 1}
     `;
     values.push(pageSize, offset);
-    const searchResult = await executeQuery(queryText, values);
-
+    let searchResult = await executeQuery(queryText, values);
     // Calculate pagination metadata
     const totalItems = parseInt(countResult.rows[0].total);
-    const totalPages = Math.ceil(totalItems / pageSize);
-
+    let totalPages = Math.ceil(totalItems / pageSize);
+    if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
+      values[values.length - 1] = 0;
+      searchResult = await executeQuery(queryText, values);
+      totalPages = Math.ceil(totalItems / pageSize);
+    }
     const data = {
       totalCount: totalItems,
       totalPages,

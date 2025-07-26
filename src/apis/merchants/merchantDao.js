@@ -401,7 +401,6 @@ export const getMerchantsBySearchDao = async (
   searchTerms = [],
 ) => {
   try {
-  
     const conditions = [];
     const values = [filters.company_id];
     let paramIndex = 2;
@@ -410,7 +409,7 @@ export const getMerchantsBySearchDao = async (
     const limitNum =
       parseInt(filters.limit, 10) || parseInt(pageSize, 10) || 10;
     const pageNum = parseInt(filters.page, 10) || parseInt(page, 10) || 1;
-    const offset = (pageNum - 1) * limitNum;
+    let offset = (pageNum - 1) * limitNum;
 
     // Validate and sanitize sortBy and sortOrder
     const sortField = sortBy || 'updated_at';
@@ -457,7 +456,6 @@ export const getMerchantsBySearchDao = async (
       WHERE "Merchant".is_obsolete = false 
       AND "Merchant"."company_id" = $1
     `;
-   
 
     // Role-based designation filtering
     if (role === Role.ADMIN && searchTerms.length > 0) {
@@ -562,16 +560,17 @@ export const getMerchantsBySearchDao = async (
     `;
     values.push(limitNum, offset);
 
-  
-
     const countResult = await executeQuery(countQuery, values.slice(0, -2));
-
-    const searchResult = await executeQuery(queryText, values);
-  
+    let searchResult = await executeQuery(queryText, values);
 
     const totalItems = parseInt(countResult.rows[0].total, 10);
+    let totalPages = Math.ceil(totalItems / limitNum);
 
-    const totalPages = Math.ceil(totalItems / limitNum);
+    if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
+      values[values.length - 1] = 0;
+      searchResult = await executeQuery(queryText, values);
+      totalPages = Math.ceil(totalItems / limitNum);
+    }
 
     const data = await enhanceMerchantsWithSubMerchants(searchResult.rows);
 
@@ -581,7 +580,7 @@ export const getMerchantsBySearchDao = async (
       merchants: data,
     };
   } catch (error) {
-    logger.error('Error in getMerchantswithSearchDao', error.message);
+    logger.error('Error in getMerchantsBySearchDao', error.message);
     throw error;
   }
 };
