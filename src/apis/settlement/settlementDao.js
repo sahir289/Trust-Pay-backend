@@ -364,11 +364,12 @@ const getSettlementsBySearchDao = async (
         conditions.push(`(${searchConditions.join(' OR ')})`);
       }
     }
-
     // Filter handlers
     const filterHandlers = {
       user_id: (val) => {
-        const values = Array.isArray(val) ? val : [val];
+        const values = Array.isArray(val)
+          ? val
+          : val.split(',').map((v) => v.trim());
         const placeholders = values
           .map((_, i) => `$${paramIndex + i}`)
           .join(',');

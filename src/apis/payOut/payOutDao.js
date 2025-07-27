@@ -470,7 +470,7 @@ export const getPayoutsBySearchDao = async (
   limitNum,
   offset,
   role,
-  ifamount = true,
+  ifamount = false,
 ) => {
   try {
     // Initialize base conditions for main query
