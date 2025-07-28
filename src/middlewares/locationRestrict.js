@@ -42,7 +42,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
       });
     }
     const payInUrl = await getPayInUrlDao({
-      merchant_order_id: req.params.merchantOrderId,
+        merchant_order_id: req.params.merchantOrderId,
     });
     let rakpayId = 'eb58a8cb-dee6-46fb-878b-3f24272cf980';
     if (
