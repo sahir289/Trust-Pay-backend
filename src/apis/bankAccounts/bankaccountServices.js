@@ -13,6 +13,7 @@ import { deactivateBank } from '../../utils/sockets.js';
 import {
   getBankResponseDaoAll,
   updateBotResponseDao,
+  getBankResponsesforFreeze,
 } from '../bankResponse/bankResponseDao.js';
 // import { getCalculationDao } from '../calculation/calculationDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
@@ -289,30 +290,36 @@ const updateBankaccountService = async (
       );
     }
     if (payloadData?.config?.is_freeze === true) {
-      const bankResponse = await getBankResponseDaoAll({
+      const bankResponse = await   getBankResponsesforFreeze({
         bank_id: ids.id,
         is_used: false,
         status: '/success',
       });
-      if (bankResponse.rows.length > 0) {
-        for (let i = 0; i < bankResponse.rows.length; i++) {
-          await updateBotResponseDao(bankResponse.rows[i].id, {
-            status: '/freezed',
-          });
+      if (bankResponse.length > 0) {
+        for (let i = 0; i < bankResponse.length; i++) {
+          for (let i = 0; i < bankResponse.length; i++) {
+            await updateBotResponseDao(bankResponse[i].id, {
+              status: '/freezed',
+            },conn);
+          }
         }
       }
     }
     if (payloadData?.config?.is_freeze === false) {
-      const bankResponse = await getBankResponseDaoAll({
+      const bankResponse = await getBankResponsesforFreeze({
         bank_id: ids.id,
         is_used: false,
         status: '/freezed',
       });
-      if (bankResponse.rows.length > 0) {
-        for (let i = 0; i < bankResponse.rows.length; i++) {
-          await updateBotResponseDao(bankResponse.rows[i].id, {
-            status: '/success',
-          });
+      if (bankResponse.length > 0) {
+        for (let i = 0; i < bankResponse.length; i++) {
+          await updateBotResponseDao(
+            bankResponse[i].id,
+            {
+              status: '/success',
+            },
+            conn,
+          );
         }
       }
     }
