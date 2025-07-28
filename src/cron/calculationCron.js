@@ -22,10 +22,10 @@ let retryCount = 0;
 const MAX_RETRIES = 3; // Total attempts: 1 initial + 2 retries
 
 // Only run cron jobs in production environment
-if (process.env.NODE_ENV == 'production' || process.env.NODE_ENV == 'development') {
+if (process.env.NODE_ENV == 'production') {
   // Main cron job at midnight
   cron.schedule(
-    '0/10 * * * * *',
+    '0 0 * * *',
     async () => {
       retryCount = 0; // Reset retry count for new day
       await executeWithRetry('12:00 AM IST (Attempt 1)');
