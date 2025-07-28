@@ -546,9 +546,16 @@ const getBankResponseDaoAll = async (
     const whereConditions = [];
 
     if (start_date && end_date) {
-      whereConditions.push(
-        `"BankResponse".created_at BETWEEN '${start}' AND '${end}'`,
-      );
+      if(updated){
+        whereConditions.push(
+          `"BankResponse".updated_at BETWEEN '${start}' AND '${end}'`,
+        );
+      }
+      else{
+        whereConditions.push(
+          `"BankResponse".created_at BETWEEN '${start}' AND '${end}'`,
+        );
+      }
     }
 
     if (filters.search) {
@@ -576,12 +583,7 @@ const getBankResponseDaoAll = async (
       filters.status = filters.status.split(',');
     }
 
-    if (updated) {
-      whereConditions.push(
-        `"BankResponse".updated_at IS NOT NULL 
-        AND "BankResponse".updated_at != "BankResponse".created_at`,
-      );
-    }
+   
 
     if (whereConditions.length) {
       baseQuery += ' WHERE ' + whereConditions.join(' AND ');
