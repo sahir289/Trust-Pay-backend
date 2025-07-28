@@ -839,11 +839,20 @@ export const getPayoutsBySearchDao = async (
       queryParams.slice(0, -2),
     );
     const searchResult = await executeQuery(queryText, queryParams);
+    let finalResult = searchResult;
+    if (
+      parseInt(countResult.rows[0].total) > 0 &&
+      searchResult.rows.length === 0 &&
+      offset > 0
+    ) {
+      queryParams[queryParams.length - 1] = 0; 
+      finalResult = await executeQuery(queryText, queryParams);
+    }
     const data = {
       ...(ifamount && { totalAmount: totalAmount }),
       totalCount: parseInt(countResult.rows[0].total),
       totalPages: Math.ceil(parseInt(countResult.rows[0].total) / limitNum),
-      payout: searchResult.rows,
+      payout: finalResult.rows,
     };
     // Return results
     return data
