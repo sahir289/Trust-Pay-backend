@@ -827,10 +827,10 @@ export const getPayoutsBySearchDao = async (
 
     // Add pagination to main query
     queryText += `
-      ORDER BY p.sno DESC
-      LIMIT $${queryParams.length + 1}
-      OFFSET $${queryParams.length + 2}
-    `;
+  ORDER BY p.sno ${ifamount ? 'ASC' : 'DESC'} 
+  LIMIT $${queryParams.length + 1}
+  OFFSET $${queryParams.length + 2}
+`;
     queryParams.push(limitNum, offset);
 
     // Execute main queries
