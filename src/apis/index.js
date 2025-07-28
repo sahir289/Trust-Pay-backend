@@ -26,10 +26,11 @@ import checkUtr from './checkutr/index.js';
 import common from './common/index.js';
 import beneficiaryAccounts from './beneficiaryAccounts/index.js';
 // import notifications from './notifications/index.js';
+import { apiRateLimiter } from '../middlewares/rateLimiter.js';
 
 const parentRouter = express.Router();
 const router = express.Router();
-parentRouter.use('/v1', router);
+parentRouter.use('/v1', apiRateLimiter, router);
 
 // Apply authorization middleware for specific routes
 router.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));

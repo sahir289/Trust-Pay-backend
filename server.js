@@ -5,6 +5,7 @@ import config from './src/config/config.js';
 import { initializeSocket } from './src/utils/sockets.js';
 import { logger } from './src/utils/logger.js';
 import { closePool } from './src/utils/db.js';
+import { redisClient } from './src/middlewares/rateLimiter.js';
 
 const server = createServer(app);
 
@@ -70,18 +71,54 @@ const onListening = () => {
 
 let shuttingDown = false;
 
+// works with both node‑redis v4 and ioredis
+export async function safeRedisQuit(client, timeoutMs = 5000) {
+  if (!client) return;
+
+  try {
+    // stop any automatic reconnect logic
+    if (client.options?.socket?.reconnectStrategy)
+      client.options.socket.reconnectStrategy = () => false;
+
+    // try a graceful QUIT, but don’t wait forever
+    await Promise.race([
+      client.quit(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Redis quit timeout')), timeoutMs)
+      ),
+    ]);
+    const styledMessage = chalk.underline.red(`Redis connection closed gracefully`);
+    logger.info(styledMessage);
+  } catch (err) {
+    logger.warn(`Redis quit failed (${err.message}) – forcing disconnect`);
+  } finally {
+    // make absolutely sure the socket is gone
+    if (client.isOpen || client.status === 'reconnecting') {
+      client.disconnect();                                      
+    }
+  }
+}
+
+
 async function gracefulShutdown(label, err) {
-  if (shuttingDown) return;
+  if (shuttingDown) return; 
   shuttingDown = true;
   const styledMessageError = chalk.bold.red(`${label}`);
+  let exitCode = 0;
   
-  // console the error in stderr (synchronously) so PM2 always captures it
+  // console the error in (standard error format) stderr (synchronously) so PM2 always captures it
   if (err) console.error(`${label}:`, err);
 
   if (err) {
+    exitCode = 1;
     logger.error(styledMessageError, { message: err.message, stack: err.stack }); 
   } else {
     logger.warn(styledMessageError);
+  }
+
+  if (err.name === 'MaxRetriesPerRequestError') {
+    logger.warn(label);
+    return;
   }
 
   //  we need to close the resources (HTTP server, DB, etc.)
@@ -89,10 +126,14 @@ async function gracefulShutdown(label, err) {
     await Promise.allSettled([
       new Promise((res) => server.close(res)),
       closePool(),
-      new Promise((res) => logger.on('finish', res)).then(() => logger.end()),
+      safeRedisQuit(redisClient),
     ]);
+    // await new Promise((res) => {
+    //   logger.on('finish', res);
+    //   logger.end();
+    // });
   } finally {
-    process.exit(err ? 1 : 0);
+    process.exit(exitCode);
   }
 }
 

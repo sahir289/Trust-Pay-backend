@@ -11,7 +11,6 @@ import {
 import apis from './apis/index.js';
 import errorHandler from './middlewares/errorHandler.js';
 import config from './config/config.js';
-import '../src/cron/gatherAllData.js';
 
 const app = express();
 export const usedTokens = new Set();
