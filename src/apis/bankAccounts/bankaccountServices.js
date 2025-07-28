@@ -11,7 +11,7 @@ import { logger } from '../../utils/logger.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import { deactivateBank } from '../../utils/sockets.js';
 import {
-  getBankResponseDaoAll,
+  // getBankResponseDaoAll,
   updateBotResponseDao,
   getBankResponsesforFreeze,
 } from '../bankResponse/bankResponseDao.js';
