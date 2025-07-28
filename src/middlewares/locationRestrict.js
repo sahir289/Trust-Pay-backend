@@ -21,7 +21,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
 
   const restrictedLocation = { latitude: BLOCK_LAT, longitude: BLOCK_LONG };
   const radiusKm = 60;
-  const restrictedStates = ['Haryana', 'Rajasthan'];
+  const restrictedStates = ['Haryana'];
   try {
     // Get the user's IP address (checking for reverse proxy headers)
     // Send a request to proxycheck.io to fetch the geolocation data
