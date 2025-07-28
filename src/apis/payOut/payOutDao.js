@@ -831,7 +831,6 @@ export const getPayoutsBySearchDao = async (
   LIMIT $${queryParams.length + 1}
   OFFSET $${queryParams.length + 2}
 `;
-    console.log(queryText)
     queryParams.push(limitNum, offset);
 
     // Execute main queries
