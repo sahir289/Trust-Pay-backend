@@ -505,6 +505,7 @@ const getPayoutsBySearchService = async (
   role,
   user_id,
   designation,
+  isAmount,
 ) => {
   try {
     const fetchMerchantIds = async (user_ids) => {
@@ -568,22 +569,23 @@ const getPayoutsBySearchService = async (
     let searchTerms = [];
     if (filters.search || filters.search === '') {
       searchTerms = filters.search
-      .split(',')
-      .map((term) => term.trim())
-      .filter((term) => term.length > 0);
+        .split(',')
+        .map((term) => term.trim())
+        .filter((term) => term.length > 0);
     }
 
     // if (searchTerms.length === 0) {
     //   throw new BadRequestError('Please provide valid search terms');
     // }
-    const offset = (pageNum - 1) * limitNum;
 
+    const offset = (pageNum - 1) * limitNum;
     const data = await getPayoutsBySearchDao(
       filters,
       searchTerms,
       limitNum,
       offset,
       role,
+      isAmount,
       // filterColumns,
     );
 
