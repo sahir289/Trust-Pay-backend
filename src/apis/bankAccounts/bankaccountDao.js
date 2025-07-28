@@ -288,7 +288,7 @@ const getBankAccountsBySearchDao = async (
 ) => {
   try {
     let queryParams = [];
-    let conditions = [`ba.is_obsolete = false`];
+    let conditions = [];
     let paramIndex = 1;
 
     // Date range filter
@@ -432,6 +432,7 @@ const getBankAccountsBySearchDao = async (
         ba.nick_name, 
         ba.acc_no, 
         ba.bank_name, 
+        ba.is_obsolete,
         ${commissionSelect ? `${commissionSelect},` : ''}
         v.code AS Vendor 
       FROM 
@@ -451,7 +452,7 @@ const getBankAccountsBySearchDao = async (
       LEFT JOIN public."User" updater 
         ON ba.updated_by = updater.id
       WHERE 
-        ${conditions.join(' AND ')}
+        ${conditions.length ? conditions.join(' AND ') : '1 = 1'}
     `;
 
     // Count query
@@ -460,9 +461,9 @@ const getBankAccountsBySearchDao = async (
     // Main query with sorting and pagination
     const mainQuery = `
       ${baseQuery}
-      ORDER BY 
-        ba.is_enabled DESC,  
-        ba.updated_at DESC  
+      ORDER BY ba.is_obsolete ASC NULLS LAST,
+       ba.is_enabled DESC,  
+       ba.updated_at DESC  
       ${limitcondition};
     `;
 
