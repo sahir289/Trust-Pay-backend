@@ -469,6 +469,44 @@ const getClaimResponseDao = async (filters) => {
   }
 };
 
+const getBankResponsesforFreeze = async (filters) => {
+  try {
+    const { bank_id, status, is_used } = filters;
+
+    let query = `
+      SELECT id, status, bank_id, is_used
+      FROM public."BankResponse"
+      WHERE is_obsolete = false
+    `;
+
+    const params = [];
+    let index = 1;
+
+    if (bank_id) {
+      query += ` AND bank_id = $${index++}`;
+      params.push(bank_id);
+    }
+
+    if (status) {
+      query += ` AND status = $${index++}`;
+      params.push(status);
+    }
+
+    if (typeof is_used === 'boolean') {
+      query += ` AND is_used = $${index++}`;
+      params.push(is_used);
+    }
+
+    query += ` ORDER BY created_at ASC`;
+
+    const result = await executeQuery(query, params);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in getBankResponsesDao:', error);
+    throw error;
+  }
+};
+
 const getBankResponseDaoAll = async (
   filters,
   page = 1,
@@ -799,4 +837,5 @@ export {
   getBankMessageDao,
   resetBankResponseDao,
   updateBotResponseDao,
+  getBankResponsesforFreeze,
 };
