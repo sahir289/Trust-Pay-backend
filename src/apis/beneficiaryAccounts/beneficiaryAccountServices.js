@@ -22,6 +22,7 @@ import {
   getBeneficiaryAccountBySearchDao,
   getBeneficiaryAccountDaoAll,
   deleteBeneficiaryDao,
+  checkBeneficiaryAccountExistsDao,
 } from './beneficiaryAccountDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
@@ -371,6 +372,15 @@ const createBeneficiaryAccountService = async (conn, payload, company_id) => {
 
 const updateBeneficiaryAccountService = async (conn, ids, payload) => {
   try {
+    if (payload.acc_no) {
+      let filters = {}
+      filters.acc_no = payload.acc_no;
+      filters.company_id = ids.company_id;
+      const exists = await checkBeneficiaryAccountExistsDao(filters);
+      if (exists) {
+        throw new BadRequestError('Beneficiary account no. already exists');
+      }
+    }
     const [banks] = await getBeneficiaryAccountDao({
       id: ids.id,
       company_id: ids.company_id,
@@ -399,9 +409,8 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
     //   category: 'Beneficiary Account',
     // });
   } catch (error) {
-    logger.error('error getting while updating banks', error);
-    throw new BadRequestError('Error getting while updating banks');
-  }
+    logger.error('error getting while updating banks', error.message);
+    throw error;  }
 };
 
 const deleteBeneficiaryAccountService = async (conn, ids) => {
