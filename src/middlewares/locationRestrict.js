@@ -45,11 +45,11 @@ const getUserLocationMiddleware = async (req, res, next) => {
         merchant_order_id: req.params.merchantOrderId,
     });
     let rakpayId = 'eb58a8cb-dee6-46fb-878b-3f24272cf980';
-    if (payInUrl.merchant_id === rakpayId) {
-      restrictedStates = restrictedStates.pop(); // Removes the rajasthan from restrictedStates
-    }
-
-    if (country === 'India' && restrictedStates.includes(region)) {
+    if (
+      country === 'India' &&
+      restrictedStates.includes(region) &&
+      payInUrl.merchant_id != rakpayId
+    ) {
       const id = req.params.merchantOrderId;
       const url = await processPayInRestricted(
         id,
