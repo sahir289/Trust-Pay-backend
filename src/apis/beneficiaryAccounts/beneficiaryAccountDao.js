@@ -89,6 +89,34 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role) => {
     throw error;
   }
 };
+const checkBeneficiaryAccountExistsDao = async (filters) => {
+  try {
+    console.log(filters ,'yes filters')
+    const { acc_no, company_id } = filters;
+    console.log(acc_no, company_id);
+    if (!acc_no || !company_id) {
+      throw new Error('Missing acc_no or company_id in filters');
+    }
+
+    const query = `
+      SELECT 1
+      FROM public."BeneficiaryAccounts" bea
+      WHERE bea.is_obsolete = false
+        AND bea.acc_no = $1
+        AND bea.company_id = $2
+      LIMIT 1;
+    `;
+
+    const params = [acc_no, company_id];
+    const result = await executeQuery(query, params);
+
+    return result.rows.length > 0;
+  } catch (error) {
+    logger.error('Error in checkBeneficiaryAccountExistsDao:', error);
+    throw error;
+  }
+};
+
 
 const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
   try {
@@ -464,4 +492,5 @@ export {
   deleteBeneficiaryDao,
   getBeneficiaryAccountDaoAll,
   getBeneficiaryAccountDaoByBankName,
+  checkBeneficiaryAccountExistsDao,
 };
