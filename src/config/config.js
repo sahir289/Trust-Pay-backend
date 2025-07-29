@@ -30,6 +30,7 @@ function config(Env) {
       heartbeat: parseInt(Env?.RABBITMQ_HEARTBEAT) || 60,
       retryAttempts: parseInt(Env?.RABBITMQ_RETRY_ATTEMPTS) || 5,
       retryDelay: parseInt(Env?.RABBITMQ_RETRY_DELAY) || 5000, // in milliseconds
+      bankResponseQueue: 'bank-response-queue', // Add this line
     },
     telegram: {
       telegram_url: Env?.TELEGRAM_URL,

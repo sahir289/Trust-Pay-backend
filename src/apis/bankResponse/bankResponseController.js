@@ -27,6 +27,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { s3 } from '../../helpers/Aws.js';
 import { streamToBuffer } from '../../helpers/index.js';
 import { newTableEntry } from '../../utils/sockets.js';
+import { publishBankResponse } from '../../utils/rabbitmq-bank-response.js';
 const getBankResponse = async (req, res) => {
   const { role, company_id } = req.user;
   const { page, limit, search, updated, sortOrder, sortBy, ...rest } =
@@ -94,7 +95,19 @@ const createBankResponse = async (req, res) => {
     user_name,
     user_id,
   );
+
+  // Prepare the full payload as expected by your service/consumer
+  const bankResponseObject = {
+    payload,
+    company_id,
+    role,
+    user_name,
+    user_id,
+  };
   await newTableEntry(tableName.BANK_RESPONSE);
+  // if (!result.message === 'Entry created successfully' ) {
+    await publishBankResponse(bankResponseObject);
+  // }
   sendSuccess(res, result, 'Created Bank Response successfully');
 };
 
