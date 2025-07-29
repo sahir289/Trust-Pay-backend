@@ -10,6 +10,7 @@ const getPayInMerchantReportDao = async (
   company_id,
   role,
   status,
+  updatedPayin,
 ) => {
   try {
     let commissionSelect = `pi.payin_merchant_commission,
@@ -79,7 +80,12 @@ const getPayInMerchantReportDao = async (
     if (startDate && endDate) {
       if (status && Array.isArray(status)) {
         if (status.includes(Status.SUCCESS)) {
-          query += ` AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+          if(updatedPayin === 'true'){
+            query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+          }
+          else{
+            query += ` AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+          }
         } else if (
           status.includes(Status.FAILED) ||
           status.includes(Status.DROPPED)
