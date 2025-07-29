@@ -91,9 +91,7 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role) => {
 };
 const checkBeneficiaryAccountExistsDao = async (filters) => {
   try {
-    console.log(filters ,'yes filters')
     const { acc_no, company_id } = filters;
-    console.log(acc_no, company_id);
     if (!acc_no || !company_id) {
       throw new Error('Missing acc_no or company_id in filters');
     }
