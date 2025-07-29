@@ -196,16 +196,14 @@ const getMerchantsService = async (
 const getMerchantsBySearchService = async (
   filters,
   role,
-  page,
-  limit,
   designation,
   user_id,
 ) => {
   try {
     // const filterColumns =
     //   role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
-    const pageNumber = parseInt(page, 10) || 1;
-    const pageSize = parseInt(limit, 10) || 10;
+    const pageNumber = parseInt(filters?.page, 10) || 1;
+    const pageSize = parseInt(filters?.limit, 10) || 10;
 
     let userIdFilter = Array.isArray(user_id)
       ? [...user_id]
