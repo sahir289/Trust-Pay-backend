@@ -362,7 +362,16 @@ const getUserRoleService = async (userName) => {
     if (!user) {
       throw new NotFoundError(`User not found`);
     }
-    return user;
+
+    let response = {
+      isAdmin: false,
+    };
+    if (user.designation === Role.ADMIN) {
+      response = {
+        isAdmin: true,
+      };
+    }
+    return response;
   } catch (error) {
     logger.error('Error getting user role', error);
     throw error; // Re-throw the error to be handled by the calling function
