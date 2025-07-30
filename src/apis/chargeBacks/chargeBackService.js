@@ -321,7 +321,6 @@ const blockChargebackUserService = async (ids) => {
     const alreadyExists = existingBlockedUsers.some(
       (entry) => entry.userId === userId && entry.user_ip === userIp,
     );
-    let companyDetails;
     let updatedBlockedUsers;
     let updatedChargeback;
     if (alreadyExists) {
@@ -338,7 +337,7 @@ const blockChargebackUserService = async (ids) => {
         ...company[0].config,
         blocked_users: updatedBlockedUsers,
       };
-      companyDetails= await updateCompanyDao({ id: companyId }, { config: updatedConfigCompany });
+      await updateCompanyDao({ id: companyId }, { config: updatedConfigCompany });
       updatedConfig.blocked_users || [];
      updatedChargeback = await updateChargeBackDao(
         { id: chargebackdata[0].id },
@@ -357,7 +356,7 @@ const blockChargebackUserService = async (ids) => {
         blocked_users: updatedBlockedUsers,
       };
 
-      companyDetails = await updateCompanyDao(
+       await updateCompanyDao(
         { id: companyId },
         { config: updatedConfigCompany },
       );

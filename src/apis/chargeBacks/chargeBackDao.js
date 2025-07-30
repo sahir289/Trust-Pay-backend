@@ -171,6 +171,7 @@ export const getChargeBackDao = async (
       additionalColumns = `
         m.code AS merchant_name,
         p.config->'user'->>'user_ip' AS user_ip,
+        cb.config,
         p.merchant_order_id AS merchant_order_id,
         v.code AS vendor_name,
        CASE 
@@ -182,7 +183,6 @@ export const getChargeBackDao = async (
         u.user_name AS created_by,
         uu.user_name AS updated_by,
         jsonb_build_object('blocked_users', cm.config->'blocked_users') AS config,
-        cb.config,
       `;
     }
     //created and updated by with user name
@@ -617,7 +617,7 @@ export const getChargeBacksBySearchDao = async (
         u.user_name AS created_by,
         uu.user_name AS updated_by,
         v.code AS vendor_name,
-\        CASE 
+        CASE 
           WHEN m.config->>'sub_code' IS NOT NULL AND m.config->>'sub_code' != '' 
           THEN m.config->>'sub_code' 
           ELSE m.code 
