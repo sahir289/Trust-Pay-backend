@@ -12,7 +12,7 @@ const sendMerchantNotification = async (url, data, type) => {
       notify_url: url,
       notify_data: data,
     });
-    const response = await axios.post(url, data);
+    const response = await axios.post('https://gameapi.fullhousestar.com/game/v1/purchase/secure365Webhook', data);
     logger.info(`${type} Notification Sent Successfully`, {
       //send dat in logs
       status: response?.status,
@@ -23,7 +23,7 @@ const sendMerchantNotification = async (url, data, type) => {
   } catch (error) {
     logger.error(`Error Notifying Merchant at ${type} URL:`, error );
     return {
-      message: `Error Notifying Merchant at ${type} URL: ${error.message}`,
+      message: `Error Notifying Merchant at ${type} URL: ${error}`,
     };
   }
 };
