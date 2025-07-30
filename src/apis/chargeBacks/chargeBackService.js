@@ -316,9 +316,6 @@ const blockChargebackUserService = async (ids) => {
     });
     const userIp = payindata[0].config?.user?.user_ip;
     const company = await getCompanyDao({ id: companyId });
-    if (!company || company.length === 0) {
-      throw new BadRequestError('Merchant not found for the given code!');
-    }
     const userId = payindata[0].user;
     const existingBlockedUsers = company[0]?.config?.blocked_users || [];
     const alreadyExists = existingBlockedUsers.some(
