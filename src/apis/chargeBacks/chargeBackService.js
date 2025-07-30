@@ -25,13 +25,10 @@ import { filterResponse } from '../../helpers/index.js';
 import { getCalculationforCronDao } from '../calculation/calculationDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
-import {
-  getMerchantsDao,
-  updateMerchantDao,
-} from '../merchants/merchantDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 // import { getVendorsDao,updateVendorDao } from '../vendors/vendorDao.js';
 import { getPayInDaoByCode } from '../payIn/payInDao.js';
+import { getCompanyDao, updateCompanyDao } from '../company/companyDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 const createChargeBackService = async (
   payload,
@@ -317,53 +314,53 @@ const blockChargebackUserService = async (ids) => {
       id: payinId,
       company_id: companyId,
     });
-    const code = payindata[0].code;
     const userIp = payindata[0].config?.user?.user_ip;
-    const merchant = await getMerchantsDao({ code });
-    if (!merchant || merchant.length === 0) {
+    const company = await getCompanyDao({ id: companyId });
+    if (!company || company.length === 0) {
       throw new BadRequestError('Merchant not found for the given code!');
     }
-    const merchantId = payindata[0].merchant_id;
     const userId = payindata[0].user;
-    const existingBlockedUsers = merchant[0]?.config?.blocked_users || [];
+    const existingBlockedUsers = company[0]?.config?.blocked_users || [];
     const alreadyExists = existingBlockedUsers.some(
       (entry) => entry.userId === userId && entry.user_ip === userIp,
     );
     let merchantDetails;
     let updatedBlockedUsers;
     if (alreadyExists) {
-      const updatedBlockedUsers = existingBlockedUsers.filter(
+     const updatedBlockedUsers = existingBlockedUsers.filter(
         (entry) => !(entry.userId === userId && entry.user_ip === userIp),
       );
       const updatedConfig = {
-        ...merchant[0].config,
+        ...company[0].config,
         blocked_users: updatedBlockedUsers,
       };
-      merchantDetails = await updateMerchantDao(
-        { id: merchantId },
+      merchantDetails = await updateCompanyDao(
+        { id: companyId },
         { config: updatedConfig },
       );
-      await updateChargeBackDao(
+      const chargebackConfig = updatedConfig.bloacked_users || [];
+      const chargebackconfis=  await updateChargeBackDao(
         { id: chargebackdata[0].id },
-        { config: updatedConfig },
-      );
+        { config: chargebackConfig }
+      );      
     } else {
       updatedBlockedUsers = [
         ...existingBlockedUsers,
         { userId: userId, user_ip: userIp },
       ];
       const updatedConfig = {
-        ...merchant[0].config,
+        ...company[0].config,
         blocked_users: updatedBlockedUsers,
       };
 
-      merchantDetails = await updateMerchantDao(
-        { id: merchantId },
+      merchantDetails = await updateCompanyDao(
+        { id: companyId },
         { config: updatedConfig },
       );
+      const chargebackConfig = updatedConfig.bloacked_users || [];
       await updateChargeBackDao(
         { id: chargebackdata[0].id },
-        { config: updatedConfig },
+        { config: updatedConfig }
       );
     }
 
