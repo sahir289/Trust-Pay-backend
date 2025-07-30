@@ -335,11 +335,7 @@ const blockChargebackUserService = async (ids) => {
         { id: companyId },
         { config: updatedConfig },
       );
-      const chargebackConfig = updatedConfig.bloacked_users || [];
-      const chargebackconfis=  await updateChargeBackDao(
-        { id: chargebackdata[0].id },
-        { config: chargebackConfig }
-      );      
+     
     } else {
       updatedBlockedUsers = [
         ...existingBlockedUsers,
@@ -354,7 +350,6 @@ const blockChargebackUserService = async (ids) => {
         { id: companyId },
         { config: updatedConfig },
       );
-      const chargebackConfig = updatedConfig.bloacked_users || [];
       await updateChargeBackDao(
         { id: chargebackdata[0].id },
         { config: updatedConfig }
