@@ -145,6 +145,22 @@ const getAllActiveSessionsDao = async (user_id, company_id) => {
   }
 };
 
+const getRoleByUserNameDao = async (userName) => {
+  try {
+    const query = `
+      SELECT u.user_name, d.designation
+      FROM "${tableName.USER}" u
+      JOIN "${tableName.DESIGNATION}" d ON u.designation_id = d.id
+      WHERE u.user_name = $1
+    `;
+    const result = await executeQuery(query, [userName]);
+    return result.rows?.[0] || undefined;
+  } catch (error) {
+    logger.error('Error in getting user role by username', error);
+    throw error;
+  }
+};
+
 export {
   addLoginDao,
   getRefreshTokenDao,
@@ -154,4 +170,5 @@ export {
   deleteUserSessionsDao,
   changePasswordDao,
   getAllActiveSessionsDao,
+  getRoleByUserNameDao,
 };
