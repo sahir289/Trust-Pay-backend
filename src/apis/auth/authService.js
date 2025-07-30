@@ -15,6 +15,7 @@ import {
   deleteUserSessionsDao,
   getSessionByIdDao,
   changePasswordDao,
+  getRoleByUserNameDao,
 } from './authDao.js';
 import {
   createUserOtpDao,
@@ -354,6 +355,20 @@ const verfyOtpService = async (otp) => {
     logger.log('Error while verifying otp', error);
   }
 };
+
+const getUserRoleService = async (userName) => {
+  try {
+    const user = await getRoleByUserNameDao(userName);
+    if (!user) {
+      throw new NotFoundError(`User not found`);
+    }
+    return user;
+  } catch (error) {
+    logger.error('Error getting user role', error);
+    throw error; // Re-throw the error to be handled by the calling function
+  }
+}
+
 export {
   loginService,
   refreshTokenService,
@@ -363,4 +378,5 @@ export {
   verfyUserService,
   verfyOtpService,
   forgetPasswordService,
+  getUserRoleService,
 };
