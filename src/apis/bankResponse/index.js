@@ -42,7 +42,7 @@ router.get(
  *       500:
  *         description: Internal server error
  */
-router.post('/create-bot-message', tryCatchHandler(createBankBotResponse));
+router.post('/create-bot-message', rateLimitMiddleware, tryCatchHandler(createBankBotResponse));
 
 /**
  * @swagger
