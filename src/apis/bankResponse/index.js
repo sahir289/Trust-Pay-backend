@@ -14,6 +14,7 @@ import {
 import { isAuthenticated, authorized } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 import { multerUpload } from '../../utils/index.js';
+import { rateLimitMiddleware } from '../../middlewares/rateLimiter.js';
 const router = express.Router();
 
 /**
@@ -64,7 +65,7 @@ router.post('/create-bot-message', tryCatchHandler(createBankBotResponse));
  */
 router.post(
   '/create-message',
-  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+  [isAuthenticated, rateLimitMiddleware, authorized(AccessRoles.BANK_RESPONSE)],
   tryCatchHandler(createBankResponse),
 );
 
