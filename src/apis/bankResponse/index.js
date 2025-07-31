@@ -14,7 +14,7 @@ import {
 import { isAuthenticated, authorized } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 import { multerUpload } from '../../utils/index.js';
-import { rateLimitMiddleware } from '../../middlewares/rateLimiter.js';
+import { rateLimitMiddleware, rateLimitMiddlewareBot } from '../../middlewares/rateLimiter.js';
 const router = express.Router();
 
 /**
@@ -42,7 +42,7 @@ router.get(
  *       500:
  *         description: Internal server error
  */
-router.post('/create-bot-message', rateLimitMiddleware, tryCatchHandler(createBankBotResponse));
+router.post('/create-bot-message', rateLimitMiddlewareBot, tryCatchHandler(createBankBotResponse));
 
 /**
  * @swagger
