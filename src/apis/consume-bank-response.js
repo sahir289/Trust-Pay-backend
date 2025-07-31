@@ -12,17 +12,41 @@ router.post('/consume-bank-response', async (req, res) => {
     if (!channel) throw new Error('RabbitMQ channel not initialized');
     const queue = config.rabbitmq.bankResponseQueue;
     await channel.assertQueue(queue, { durable: true });
-    const msg = await channel.get(queue, { noAck: false });
-    if (msg) {
-      const data = JSON.parse(msg.content.toString());
-      const result = await createBankResponseService(data.payload, data.company_id, data.role, data.user_name, data.user_id);
-      channel.ack(msg);
-      res.status(200).json({ success: true, result });
-    } else { 
-      res.status(200).json({ success: false, message: 'No messages in queue' });
+
+    const results = [];
+
+    while (true) {
+      const msg = await channel.get(queue, { noAck: false });
+      if (!msg) break;
+
+      try {
+        const data = JSON.parse(msg.content.toString());
+
+        const result = await createBankResponseService(
+          data.payload,
+          data.company_id,
+          data.role,
+          data.user_name,
+          data.user_id
+        );
+
+        channel.ack(msg);
+        results.push({ success: true, result });
+
+      } catch (innerError) {
+        channel.nack(msg, false, false); // discard this message
+        results.push({ success: false, error: innerError.message });
+      }
     }
+
+    if (results.length === 0) {
+      return res.status(200).json({ success: false, message: 'No messages in queue' });
+    }
+
+    return res.status(200).json({ success: true, results });
+
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
