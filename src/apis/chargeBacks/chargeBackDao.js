@@ -46,6 +46,7 @@ export const getChargeBackDao = async (
   try {
     const {
       VENDOR,
+      COMPANY,
       CHARGE_BACK,
       MERCHANT,
       PAYIN,
@@ -160,6 +161,8 @@ export const getChargeBackDao = async (
       additionalColumns = `
         m.code AS merchant_name,
         p.user AS user,
+        p.config->'user'->>'user_ip' AS user_ip,
+        cb.config,
         p.merchant_order_id AS merchant_order_id,
       `;
     } else if (role === Role.VENDOR) {
@@ -167,6 +170,8 @@ export const getChargeBackDao = async (
     } else {
       additionalColumns = `
         m.code AS merchant_name,
+        p.config->'user'->>'user_ip' AS user_ip,
+        cb.config,
         p.merchant_order_id AS merchant_order_id,
         v.code AS vendor_name,
        CASE 
@@ -177,7 +182,7 @@ export const getChargeBackDao = async (
         p.user AS user,
         u.user_name AS created_by,
         uu.user_name AS updated_by,
-        jsonb_build_object('blocked_users', m.config->'blocked_users') AS config,
+        jsonb_build_object('blocked_users', cm.config->'blocked_users') AS config,
       `;
     }
     //created and updated by with user name
@@ -209,6 +214,7 @@ export const getChargeBackDao = async (
         ${allColumns.join(', ')}
       FROM public."${CHARGE_BACK}" cb
       LEFT JOIN public."${VENDOR}" v ON cb.vendor_user_id = v.user_id
+      LEFT JOIN public."${COMPANY}" cm ON cb.company_id = cm.id
       LEFT JOIN public."${MERCHANT}" m ON cb.merchant_user_id = m.user_id
       LEFT JOIN public."${PAYIN}" p ON cb.payin_id = p.id
       LEFT JOIN "${BANK_RESPONSE}" br ON p.bank_response_id = br.id
@@ -373,6 +379,7 @@ export const getAllChargeBackDao = async (
       additionalColumns = `
         m.code AS merchant_name,
         p.user AS user,
+          cb.config,
         p.merchant_order_id AS merchant_order_id,
       `;
     } else if (role === Role.VENDOR) {
@@ -380,6 +387,7 @@ export const getAllChargeBackDao = async (
     } else {
       additionalColumns = `
         m.code AS merchant_name,
+          cb.config,
         p.merchant_order_id AS merchant_order_id,
         v.code AS vendor_name,
        CASE 
@@ -473,6 +481,7 @@ export const getChargeBacksBySearchDao = async (
       VENDOR,
       CHARGE_BACK,
       MERCHANT,
+      COMPANY,
       PAYIN,
       USER,
       BANK_ACCOUNT,
@@ -601,12 +610,13 @@ export const getChargeBacksBySearchDao = async (
     if (role === Role.MERCHANT || role === Role.ADMIN) {
       extraColumns += `,
         m.code AS merchant_name,
+          cb.config,
         p.user AS user,
+        p.config->'user'->>'user_ip' AS user_ip,
         p.merchant_order_id AS merchant_order_id, -- Fixed: Reference p.merchant_order_id
         u.user_name AS created_by,
         uu.user_name AS updated_by,
         v.code AS vendor_name,
-        jsonb_build_object('blocked_users', m.config->'blocked_users') AS config,
         CASE 
           WHEN m.config->>'sub_code' IS NOT NULL AND m.config->>'sub_code' != '' 
           THEN m.config->>'sub_code' 
@@ -635,6 +645,7 @@ export const getChargeBacksBySearchDao = async (
     const baseFromClause = `
       FROM public."${CHARGE_BACK}" cb
       LEFT JOIN public."${VENDOR}" v ON cb.vendor_user_id = v.user_id
+      LEFT JOIN public."${COMPANY}" cm ON cb.company_id = cm.id
       LEFT JOIN public."${MERCHANT}" m ON cb.merchant_user_id = m.user_id
       LEFT JOIN public."${PAYIN}" p ON cb.payin_id = p.id
       LEFT JOIN "${BANK_RESPONSE}" br ON p.bank_response_id = br.id
