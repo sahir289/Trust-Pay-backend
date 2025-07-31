@@ -38,6 +38,11 @@ function config(Env) {
     ocr: {
       url: Env?.OCR_URL,
     },
+    rateLimiter: {
+      points: parseInt(Env?.RATE_LIMIT_POINTS) || 20,
+      duration: parseInt(Env?.RATE_LIMIT_DURATION) || 60,
+      blockDuration: parseInt(Env?.RATE_LIMIT_BLOCK_DURATION) || 30,
+    },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,
     accessTokenSecretKey: Env?.ACCESS_TOKEN_SECRET_KEY,
