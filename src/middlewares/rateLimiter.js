@@ -3,6 +3,7 @@ import { RateLimiterRedis, RateLimiterMemory } from 'rate-limiter-flexible';
 import redisClient from '../utils/redisClient.js';
 import config from '../config/config.js';
 import { logger } from '../utils/logger.js';
+import { publishBankResponse } from '../utils/rabbitmq-bank-response.js';
 
 console.log('RateLimiter config:', config.rateLimiter);
 
@@ -39,6 +40,19 @@ export const rateLimitMiddleware = async (req, res, next) => {
       points: rejRes.msBeforeNext / 1000,
       duration: config.rateLimiter.duration,
     });
+    const payload = req.body?.body;
+    const { role, user_name, company_id, user_id } = req.user || {};
+
+    const bankResponseObject = {
+      payload,
+      role,
+      user_name,
+      company_id,
+      user_id,
+    };
+
+    await publishBankResponse(bankResponseObject);
+
     return res.status(429).json({
       success: false,
       message: 'Too many requests. Please try again later.',
