@@ -22,6 +22,9 @@ import { BadRequestError } from '../../utils/appErrors.js';
 
 import { transactionWrapper } from '../../utils/db.js';
 import { Role, tableName } from '../../constants/index.js';
+
+// Ensure Role.BOT is defined in '../../constants/index.js' as:
+// export const Role = { BOT: 'BOT', ...otherRoles };
 import config from '../../config/config.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { s3 } from '../../helpers/Aws.js';
@@ -123,6 +126,13 @@ const createBankBotResponse = async (req, res) => {
   if (error) {
     throw new ValidationError(error);
   }
+
+  const bankResponseObject = {
+    payload,
+    x_auth_token,
+    role:Role.BOT,
+  };
+  await publishBankResponse(bankResponseObject);
   const result = await createBankResponseService(
     payload,
     x_auth_token,

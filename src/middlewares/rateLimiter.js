@@ -6,16 +6,6 @@ import { logger } from '../utils/logger.js';
 
 console.log('RateLimiter config:', config.rateLimiter);
 
-// const rateLimiter = new RateLimiterRedis({
-//   storeClient: redisClient,
-//   keyPrefix: 'rl_bank_response', // Redis key prefix
-//   points: config.rateLimiter.points, // Max requests from config
-//   duration: config.rateLimiter.duration, // Duration from config
-//   blockDuration: config.rateLimiter.blockDuration, // Block duration from config
-// });
-
-// console.log('RateLimiter config:', config.rateLimiter);
-
 let rateLimiter;
 
 // Try to use Redis-backed limiter
