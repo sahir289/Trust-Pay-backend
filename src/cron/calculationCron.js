@@ -6,6 +6,7 @@ import { transactionWrapper } from '../utils/db.js';
 import {
   createCalculationDao,
   getCalculationforCronDao,
+  checkCalculationEntryForDateDao,
 } from '../apis/calculation/calculationDao.js';
 import { getUsersForCronDao } from '../apis/users/userDao.js';
 import { logger } from '../utils/logger.js';
@@ -72,8 +73,16 @@ const markExecution = () => {
 const collectCalculationData = async () => {
   const executionStartTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ');
   logger.info(`Starting calculation cron job at: ${executionStartTime}`);
-  
+
   try {
+    // Check if entry for current date already exists
+    const currentDate = dayjs().tz(IST).format('YYYY-MM-DD');
+    const entryExists = await checkCalculationEntryForDateDao(currentDate);
+    if (entryExists) {
+      logger.info(`Calculation entry for date ${currentDate} already exists. Skipping cron execution.`);
+      return;
+    }
+
     const users = (await transactionWrapper(getUsersForCronDao)()) || [];
     const usersArray = users || [];
 
@@ -102,7 +111,7 @@ const collectCalculationData = async () => {
         );
       }
     }
-    
+
     const executionEndTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ');
     logger.info(
       `Cron job executed successfully for all users. Started: ${executionStartTime}, Completed: ${executionEndTime}`,

@@ -233,9 +233,28 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
 };
 export default formattedSuccessRatiosForAllCompanies;
 
-const formattedSuccessRatiosByMerchantUpdatedAt = async () => {
+const formattedSuccessRatiosByMerchantUpdatedAt = async (company_id) => {
   try {
-    logger.info('Success Ratio CRON Started For Updated At');
+    logger.info(`Success Ratio CRON Started For Updated At for company: ${company_id}`);
+    
+    // Get company details with config
+    const companies = await getCompanyDao({ id: company_id });
+    const company = companies && companies.length > 0 ? companies[0] : null;
+    
+    if (!company) {
+      logger.error(`Company not found: ${company_id}`);
+      return;
+    }
+
+    // Get company-specific configurations or fallback to global config
+    const telegramRatioAlertsChatIdUpdatedData = company.config?.telegramRatioAlertsChatIdUpdatedData || config?.telegramRatioAlertsChatIdUpdatedData;
+    const telegramBotToken = company.config?.telegramBotToken || config?.telegramBotToken;
+
+    if (!telegramRatioAlertsChatIdUpdatedData || !telegramBotToken) {
+      logger.warn(`Missing Telegram config for company ${company_id}, skipping success ratio report`);
+      return;
+    }
+
     const now = new Date();
     const intervals = [
       { label: 'Last 5m', duration: 5 * 60 * 1000 },
@@ -247,8 +266,8 @@ const formattedSuccessRatiosByMerchantUpdatedAt = async () => {
     ];
 
     // fetch all transactions
-    const allPayIns = await getPayInUrlsDao({});
-    const merchants = await getMerchantsDao({}, null, null);
+    const allPayIns = await getPayInUrlsDao({ company_id: company_id });
+    const merchants = await getMerchantsDao({ company_id: company_id }, null, null);
     // group transactions by merchant_id
     const transactionsByMerchant = allPayIns.reduce((map, payin) => {
       if (!map[payin.merchant_id]) map[payin.merchant_id] = [];
@@ -358,15 +377,15 @@ const formattedSuccessRatiosByMerchantUpdatedAt = async () => {
     // Only send message if there are merchants to report
     if (fullMessages.length > 0) {
       await sendTelegramDashboardSuccessRatioMessage(
-        config?.telegramRatioAlertsChatIdUpdatedData,
+        telegramRatioAlertsChatIdUpdatedData,
         fullMessages,
-        config?.telegramBotToken
+        telegramBotToken
       );
     } else {
       logger.info('No merchants with successful transactions in last 24 hours to report (Updated At)');
     }
 
-    logger.info('Success Ratio CRON Ended');
+    logger.info(`Success Ratio CRON Ended for company: ${company_id}`);
   } catch (error) {
     logger.error('Error ', error.message);
   }

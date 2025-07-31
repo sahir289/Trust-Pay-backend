@@ -1,3 +1,4 @@
+const unblocked_countries = process.env.UNBLOCKED_COUNTRIES;
 import { InternalServerError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
 import { getConnection } from '../../utils/db.js';
@@ -129,29 +130,24 @@ const getUsersService = async (
   }
 };
 
-const getUsersBySearchService = async (filters, role, designation, user_id) => {
+const getUsersBySearchService = async (
+  ids,
+  role,
+  page,
+  limit,
+  designation,
+  user_id,
+) => {
   try {
-    const pageNum = parseInt(filters.page) || 1;
-    const limitNum = parseInt(filters.limit) || 10;
-    if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
-      throw new BadRequestError('Invalid pagination parameters');
-    }
-    const searchTerms = filters.search
-      .split(',')
-      .map((term) => term.trim())
-      .filter((term) => term.length > 0);
-
-    if (searchTerms.length === 0) {
-      throw new BadRequestError('Please provide valid search terms');
-    }
-    const offset = (pageNum - 1) * limitNum;
-
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.USER
         : role === Role.VENDOR
           ? vendorColumns.USER
           : columns.USER;
+
+    const pageNumber = parseInt(page, 10) || 1;
+    const pageSize = parseInt(limit, 10) || 10;
 
     let userIdFilter = [];
 
@@ -212,13 +208,21 @@ const getUsersBySearchService = async (filters, role, designation, user_id) => {
       }
 
       userIdFilter = [...new Set(userIdFilter)];
-      filters.id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
+      ids.id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
+    let searchTerms;
+    if (ids.search) {
+      searchTerms = ids.search
+        .split(',')
+        .map((term) => term.trim())
+        .filter((term) => term.length > 0);
+    }
+
     const data = await getUsersBySearchDao(
-      filters,
+      ids,
       searchTerms,
-      limitNum,
-      offset,
+      pageNumber,
+      pageSize,
       filterColumns,
     );
 
@@ -331,52 +335,56 @@ const createUserService = async (conn, payload, role) => {
     const userDesignation = await getDesignationDao({
       id: payload.designation_id,
     });
-    let unique_id;
+    let unique_id = payload?.unique_admin_id;
     if (userDesignation[0]?.designation == Role.ADMIN) {
       const company = await getCompanyByIDDao({ id: payload.company_id });
-      unique_id = company[0].config.unique_admin_id;
+      if (company?.length > 0) {
+        unique_id =
+          company[0]?.config?.unique_admin_id &&
+          company[0]?.config?.unique_admin_id;
+      }
     }
-      if (
-        userDesignation[0]?.designation == Role.MERCHANT_OPERATIONS ||
-        userDesignation[0]?.designation == Role.VENDOR_OPERATIONS
-      ) {
-        ///for operations
+    if (
+      userDesignation[0]?.designation == Role.MERCHANT_OPERATIONS ||
+      userDesignation[0]?.designation == Role.VENDOR_OPERATIONS
+    ) {
+      ///for operations
 
-        const hierarchy = await getUserHierarchysDao({
-          user_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
-        });
-        const hierarchyConfig = hierarchy[0]?.config;
-        const currentChildren = hierarchy[0]?.config?.child?.operations || [];
-        await updateUserHierarchyDao(
-          { id: hierarchy[0]?.id },
+      const hierarchy = await getUserHierarchysDao({
+        user_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
+      });
+      const hierarchyConfig = hierarchy[0]?.config;
+      const currentChildren = hierarchy[0]?.config?.child?.operations || [];
+      await updateUserHierarchyDao(
+        { id: hierarchy[0]?.id },
+        {
+          config: {
+            ...hierarchyConfig,
+            child: { operations: [...currentChildren, User.id] },
+          },
+        },
+        conn,
+      );
+      if (
+        userDesignation[0].designation == Role.VENDOR_OPERATIONS ||
+        userDesignation[0].designation == Role.MERCHANT_OPERATIONS
+      ) {
+        await createUserHierarchyDao(
           {
+            user_id: User.id,
+            created_by: payload.created_by,
+            updated_by: payload.updated_by,
+            company_id: payload.company_id,
             config: {
-              ...hierarchyConfig,
-              child: { operations: [...currentChildren, User.id] },
+              parent: payload?.parent_id
+                ? payload?.parent_id
+                : payload.created_by,
             },
           },
           conn,
         );
-        if (
-          userDesignation[0].designation == Role.VENDOR_OPERATIONS ||
-          userDesignation[0].designation == Role.MERCHANT_OPERATIONS
-        ) {
-          await createUserHierarchyDao(
-            {
-              user_id: User.id,
-              created_by: payload.created_by,
-              updated_by: payload.updated_by,
-              company_id: payload.company_id,
-              config: {
-                parent: payload?.parent_id
-                  ? payload?.parent_id
-                  : payload.created_by,
-              },
-            },
-            conn,
-          );
-        }
       }
+    }
 
     let merchant = {};
     ///for merchant sub-merchant
@@ -429,6 +437,7 @@ const createUserService = async (conn, payload, role) => {
           allow_intent: false,
           allow_payout: false,
           ...(sub_code && { sub_code }),
+          unblocked_countries: unblocked_countries,
         },
       };
       merchant = await createMerchantService(conn, merchantPayload);

@@ -50,6 +50,7 @@ import { filterResponse } from '../../helpers/index.js';
 // import { notifyNewTableEntry } from '../../utils/sockets.js';
 import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
 import PDFParser from 'pdf2json';
+import {  calculateDuration } from '../../helpers/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const createBankResponseService = async (
@@ -276,7 +277,7 @@ const createBankResponseService = async (
           amount: botRes.amount,
         });
       }
-
+      let duration;
       let checkPayInUtr;
       if (isValidAmountCode) {
         checkPayInUtr = await getPayInUrlsDao({
@@ -310,7 +311,6 @@ const createBankResponseService = async (
             };
           }
         }
-
         const isBankExist = await getBankaccountDao(
           { id: bank_id, company_id },
           null,
@@ -336,13 +336,15 @@ const createBankResponseService = async (
               };
             }
           }
+          duration = calculateDuration(payInUtr.created_at);
           const payInData = {
             status: Status.BANK_MISMATCH,
             is_notified: true,
             user_submitted_utr: botRes.utr,
             bank_response_id: botRes.id,
-            approved_at: new Date(),
+            // approved_at: new Date(),
             // config: { from_UI },
+            duration,
           };
           const updatePayInDataRes = await updatePayInUrlDao(
             payInUtr.id,
@@ -359,7 +361,7 @@ const createBankResponseService = async (
               payinId: updatePayInDataRes.id,
               amount: botRes.amount,
               req_amount: updatePayInDataRes.amount,
-              utr_id: updatePayInDataRes.utr,
+              utr_id: updatePayInDataRes.user_submitted_utr,
             });
           }
           // await sendNotification(Status.BANK_MISMATCH, {
@@ -416,17 +418,18 @@ const createBankResponseService = async (
           botRes.amount,
           vendorData[0].payin_commission,
         );
-        const durMs = new Date() - payInUtr.created_at;
-        const durSeconds = Math.floor((durMs / 1000) % 60)
-          .toString()
-          .padStart(2, '0');
-        const durMinutes = Math.floor((durSeconds / 60) % 60)
-          .toString()
-          .padStart(2, '0');
-        const durHours = Math.floor((durMinutes / 60) % 24)
-          .toString()
-          .padStart(2, '0');
-        const duration = `${durHours}:${durMinutes}:${durSeconds}`;
+        // const durMs = new Date() - payInUtr.created_at;
+        // const durSeconds = Math.floor((durMs / 1000) % 60)
+        //   .toString()
+        //   .padStart(2, '0');
+        // const durMinutes = Math.floor((durSeconds / 60) % 60)
+        //   .toString()
+        //   .padStart(2, '0');
+        // const durHours = Math.floor((durMinutes / 60) % 24)
+        //   .toString()
+        //   .padStart(2, '0');
+        // const duration = `${durHours}:${durMinutes}:${durSeconds}`;
+        // const duration = calculateDuration(payInUtr.created_at);
 
         if (
           payInUtr.amount === amount ||
@@ -452,7 +455,7 @@ const createBankResponseService = async (
               };
             }
           }
-
+          duration = calculateDuration(payInUtr.created_at);
           const payInData = {
             status: Status.SUCCESS,
             is_notified: true,
@@ -478,7 +481,7 @@ const createBankResponseService = async (
             payinId: updatePayin.id,
             amount: botRes.amount,
             req_amount: updatePayin.amount,
-            utr_id: updatePayin.utr,
+            utr_id: updatePayin.user_submitted_utr,
           });
           const merchantDataBalance = merchantData[0].balance + amount;
           if (isNaN(merchantDataBalance)) {
@@ -512,12 +515,13 @@ const createBankResponseService = async (
               };
             }
           }
+          duration = calculateDuration(payInUtr.created_at);
           const payInData = {
             status: Status.DISPUTE,
             is_notified: true,
             user_submitted_utr: botRes.utr,
             bank_response_id: botRes.id,
-            approved_at: new Date(),
+            // approved_at: new Date(),
             duration,
             payin_merchant_commission: payinMerchantCommission,
             payin_vendor_commission: payinVendorCommission,
@@ -538,7 +542,7 @@ const createBankResponseService = async (
               payinId: updatePayInDataRes.id,
               amount: botRes.amount,
               req_amount: updatePayInDataRes.amount,
-              utr_id: updatePayInDataRes.utr,
+              utr_id: updatePayInDataRes.user_submitted_utr,
             });
           }
 
@@ -687,41 +691,58 @@ const getBankResponseService = async (
   }
 };
 
-const getBankResponseBySearchService = async (
-  filters,
+const  getBankResponseBySearchService = async (
+  payload,
   role,
-  // designation,
-  // user_id,
+  page,
+  limit,
+  search,
+  updated,
+  sortBy,
+  sortOrder,
 ) => {
   try {
-    const pageNum = parseInt(filters.page);
-    const limitNum = parseInt(filters.limit);
-    if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
-      throw new BadRequestError('Invalid pagination parameters');
-    }
-    const searchTerms = filters.search
-      .split(',')
-      .map((term) => term.trim())
-      .filter((term) => term.length > 0);
-
-    if (searchTerms.length === 0) {
-      throw new BadRequestError('Please provide valid search terms');
-    }
-    const offset = (pageNum - 1) * limitNum;
-
     const filterColumns =
       role === Role.MERCHANT
-        ? merchantColumns.SETTLEMENT
+        ? merchantColumns.BANK_RESPONSE
         : role === Role.VENDOR
-          ? vendorColumns.SETTLEMENT
-          : columns.SETTLEMENT;
+          ? vendorColumns.BANK_RESPONSE
+          : columns.BANK_RESPONSE;
+
+    const sno = Number(payload.sno) > 0 ? Number(payload.sno) : undefined;
+    const amount =
+      Number(payload.amount) > 0 ? Number(payload.amount) : undefined;
+
+    let filters = Object.fromEntries(
+      Object.entries({
+        sno,
+        status: payload.status || undefined,
+        amount,
+        utr: payload.utr || undefined,
+        bank_id: payload.bank_id || undefined,
+        is_used: payload.is_used || undefined,
+        company_id: payload.company_id || undefined,
+        upi_short_code: payload.upi_short_code || undefined,
+        updated_by: payload.updated_by || undefined,
+        updated_at: payload.updated_at || undefined,
+      }).filter(([, v]) => v !== undefined),
+    );
+    filters = {
+      ...(search ? { search } : {}),
+      ...filters,
+    };
+    sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
 
     const data = await getBankResponseBySearchDao(
       filters,
-      searchTerms,
-      limitNum,
-      offset,
+      page,
+      limit,
       filterColumns,
+      updated,
+      sortBy,
+      sortOrder || 'DESC',
+      payload.startDate || undefined,
+      payload.endDate || undefined,
     );
 
     return data;
