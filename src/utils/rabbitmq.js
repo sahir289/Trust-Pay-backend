@@ -1,6 +1,8 @@
 import amqp from 'amqplib';
 import { Buffer } from 'buffer';
 import config from '../config/config.js';
+import { logger } from './logger.js';
+import chalk from 'chalk';
 
 let connection;
 let channel;
@@ -29,24 +31,25 @@ export const connectRabbitMQ = async (rabbitConfig = config.rabbitmq) => {
       
       // Handle connection errors
       connection.on('error', (err) => {
-        console.error('RabbitMQ connection error:', err);
+        logger.error('RabbitMQ connection error:', err);
       });
       
       connection.on('close', () => {
-        console.log('RabbitMQ connection closed');
+        const styledMessageError = chalk.underline.red('RabbitMQ connection closed');
+        logger.log(styledMessageError);
       });
       
-      console.log(`RabbitMQ connected to ${rabbitConfig.url}`);
+      logger.log(`RabbitMQ connected to ${rabbitConfig.url}`);
       return;
     } catch (error) {
       retryCount++;
-      console.error(`RabbitMQ connection attempt ${retryCount} failed:`, error.message);
+      logger.error(`RabbitMQ connection attempt ${retryCount} failed:`, error.message);
       
       if (retryCount >= maxRetries) {
         throw new Error(`Failed to connect to RabbitMQ after ${maxRetries} attempts`);
       }
       
-      console.log(`Retrying in ${rabbitConfig.retryDelay}ms...`);
+      logger.log(`Retrying in ${rabbitConfig.retryDelay}ms...`);
       await new Promise(resolve => setTimeout(resolve, rabbitConfig.retryDelay));
     }
   }
@@ -87,7 +90,7 @@ export const consumeFromQueue = async (queueName, callback, options = {}) => {
         await callback(data, msg);
         channel.ack(msg);
       } catch (error) {
-        console.error('Error processing message:', error);
+        logger.error('Error processing message:', error);
         if (options.rejectOnError !== false) {
           channel.nack(msg, false, false); // Don't requeue by default
         }
@@ -104,8 +107,10 @@ export const closeRabbitMQ = async () => {
     if (connection) {
       await connection.close();
     }
-    console.log('RabbitMQ connection closed gracefully');
+    const styledMessageError = chalk.redBright('RabbitMQ connection closed gracefully');
+    logger.log(styledMessageError);
   } catch (error) {
-    console.error('Error closing RabbitMQ connection:', error);
+    const styledMessageError = chalk.underline.red('Error closing RabbitMQ connection:');
+    logger.error(styledMessageError, error);
   }
 };

@@ -1,10 +1,10 @@
-const unblocked_countries = process.env.UNBLOCKED_COUNTRIES;
 import { InternalServerError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
 import { getConnection } from '../../utils/db.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { generatePassword } from '../../utils/generatePassword.js';
 import { sendCredentialsEmail } from '../../utils/sendMailer.js';
+import { unblocked_countries } from '../../constants/index.js';
 import {
   createUserDao,
   getUserByIdDao,

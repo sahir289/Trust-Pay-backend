@@ -10,6 +10,7 @@ import {
   getClaimResponse,
   importBankResponse,
   resetBankResponseController,
+  createBankBotResponseBulk,
 } from './bankResponseController.js';
 import { isAuthenticated, authorized } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -43,6 +44,21 @@ router.get(
  *         description: Internal server error
  */
 router.post('/create-bot-message', rateLimitMiddlewareBot, tryCatchHandler(createBankBotResponse));
+
+
+/**
+ * @swagger
+ * /bankResponse:
+ *   get:
+ *     summary: Get all bankResponse
+ *     tags: [BankResponse]
+ *     responses:
+ *       200:
+ *         description: A list of bankResponse
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/create-bot-message-bulk', tryCatchHandler(createBankBotResponseBulk));
 
 /**
  * @swagger
