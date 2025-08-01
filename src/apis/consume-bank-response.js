@@ -24,10 +24,8 @@ router.post('/consume-bank-response', async (req, res) => {
 
         const result = await createBankResponseService(
           data.payload,
-          data.company_id,
+          data.x_auth_token,
           data.role,
-          data.user_name,
-          data.user_id
         );
 
         channel.ack(msg);
