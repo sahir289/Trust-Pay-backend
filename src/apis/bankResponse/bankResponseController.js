@@ -143,6 +143,38 @@ const createBankBotResponse = async (req, res) => {
   sendSuccess(res, result, 'Created Bank Bot Response successfully');
 };
 
+const createBankBotResponseBulk = async (req, res) => {
+  const x_auth_token = req.headers['x-auth-token'];
+  const payloads = req.body?.body; // Expecting an array
+
+  if (!Array.isArray(payloads)) {
+    throw new ValidationError('body must be an array of payloads');
+  }
+
+  const results = [];
+  for (const payload of payloads) {
+    const { error } = CREATE_BANK_RESPONSE_SCHEMA.validate({ body: payload });
+    if (error) {
+      results.push({ success: false, error: error.message, payload });
+      continue;
+    }
+    try {
+      const result = await createBankResponseService(
+        payload,
+        x_auth_token,
+        Role.BOT,
+        null,
+      );
+      await newTableEntry(tableName.BANK_RESPONSE);
+      results.push({ success: true, result });
+    } catch (err) {
+      results.push({ success: false, error: err.message, payload });
+    }
+  }
+
+  sendSuccess(res, results, 'Bulk Bank Bot Responses processed');
+};
+
 const updateBankResponse = async (req, res) => {
   const { role, user_name } = req.user;
   const { error: idError } = VALIDATE_BANK_RESPONSE_BY_ID.validate(req.params);
@@ -253,6 +285,7 @@ export {
   getClaimResponse,
   createBankResponse,
   createBankBotResponse,
+  createBankBotResponseBulk,
   updateBankResponse,
   getBankMessage,
   getBankResponseBySearch,
