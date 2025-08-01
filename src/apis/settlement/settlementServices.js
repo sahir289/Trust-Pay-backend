@@ -692,24 +692,47 @@ const updateSettlementService = async (conn, ids, payload) => {
     if (payload.status === Status.SUCCESS || payload.status === Status.REVERSED) {
       let config
       if (payload.method === 'INTERNAL_QR_TRANSFER') {
-        const total_internalSettlement_amount =
-          calculationData[0].config.total_internalSettlement_amount > 0
-            ? calculationData[0].config.total_internalSettlement_amount -
-            payload.amount
-            : -payload.amount;
-        config = {
-          total_internalSettlement_amount,
-        };
+        if (payload.status === Status.REVERSED) {
+          const total_internalSettlement_amount =
+            calculationData[0].config.total_internalSettlement_amount > 0
+              ? calculationData[0].config.total_internalSettlement_amount -
+                payload.amount
+              : -payload.amount;
+          config = {
+            total_internalSettlement_amount,
+          };
+        } else {
+          const total_internalSettlement_amount =
+            calculationData[0].config.total_internalSettlement_amount > 0
+              ? calculationData[0].config.total_internalSettlement_amount +
+                payload.amount
+              : payload.amount;
+          config = {
+            total_internalSettlement_amount,
+          };
+        }
       }
       if (payload.method === 'INTERNAL_BANK_TRANSFER') {
-        const total_internalBankSettlement_amount =
-          calculationData[0].config.total_internalBankSettlement_amount > 0
-            ? calculationData[0].config.total_internalBankSettlement_amount -
-            payload.amount
-            : -payload.amount;
-        config = {
-          total_internalBankSettlement_amount,
-        };
+        if (payload.status === Status.REVERSED) {
+          const total_internalBankSettlement_amount =
+            calculationData[0].config.total_internalBankSettlement_amount > 0
+              ? calculationData[0].config.total_internalBankSettlement_amount -
+              payload.amount
+              : -payload.amount;
+          config = {
+            total_internalBankSettlement_amount,
+          };
+        }
+        else {
+          const total_internalBankSettlement_amount =
+            calculationData[0].config.total_internalBankSettlement_amount > 0
+              ? calculationData[0].config.total_internalBankSettlement_amount +
+                payload.amount
+              : payload.amount;
+          config = {
+            total_internalBankSettlement_amount,
+          };
+        }
       }
       const positiveAmount = Math.abs(payload.amount);
       if (payload.method === 'CASH') {
