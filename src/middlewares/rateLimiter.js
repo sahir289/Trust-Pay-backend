@@ -79,7 +79,7 @@ export const rateLimitMiddlewareBot = async (req, res, next) => {
     const bankResponseObject = {
       payload,
       x_auth_token,
-      Role: Role.BOT,
+      role: Role.BOT,
     };
 
     await publishBankResponse(bankResponseObject);
