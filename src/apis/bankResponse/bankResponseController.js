@@ -30,7 +30,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { s3 } from '../../helpers/Aws.js';
 import { streamToBuffer } from '../../helpers/index.js';
 import { newTableEntry } from '../../utils/sockets.js';
-// import { publishBankResponse } from '../../utils/rabbitmq-bank-response.js';
+import { publishBankResponse } from '../../utils/rabbitmq-bank-response.js';
 const getBankResponse = async (req, res) => {
   const { role, company_id } = req.user;
   const { page, limit, search, updated, sortOrder, sortBy, ...rest } =
@@ -159,20 +159,19 @@ const createBankBotResponseBulk = async (req, res) => {
       continue;
     }
     try {
-      const result = await createBankResponseService(
+      await publishBankResponse({
         payload,
         x_auth_token,
-        Role.BOT,
-        null,
-      );
+        role: Role.BOT,
+      });
       await newTableEntry(tableName.BANK_RESPONSE);
-      results.push({ success: true, result });
+      results.push({ success: true, status: 200 });
     } catch (err) {
       results.push({ success: false, error: err.message, payload });
     }
   }
 
-  sendSuccess(res, results, 'Bulk Bank Bot Responses processed');
+  sendSuccess(res, results, 'Bulk Bank Bot Messages published to queue');
 };
 
 const updateBankResponse = async (req, res) => {
