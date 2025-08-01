@@ -394,7 +394,8 @@ const updateSettlementService = async (conn, ids, payload) => {
     if (
       payload.config.reference_id !== undefined &&
       data[0]?.config?.reference_id === payload.config.reference_id &&
-      (payload.config.reference_id !== '' || !payload.config.rejected_reason)
+      (payload.config.reference_id !== '' || !payload.config.rejected_reason) &&
+      (data[0].method !== 'INTERNAL_QR_TRANSFER' && data[0].method !== 'INTERNAL_BANK_TRANSFER')
     ) {
       throw new BadRequestError(`UTR already exists`);
     }
