@@ -41,6 +41,24 @@ export const getPayInCronDao = async (
     throw error;
   }
 };
+export const getPayInwithMerchantDao = async (filters) => {
+  try {
+    const sql = `SELECT p.merchant_order_id,p.status,p.amount,p.id,p.user_submitted_utr,p.config, m.config->'unblocked_countries' AS unblockedcountries, p.merchant_id, c.config->'blocked_users' AS blocked_users ,p.user as userId
+       FROM "${tableName.PAYIN}" p
+       INNER JOIN "${tableName.MERCHANT}" m ON p.merchant_id = m.id
+       INNER JOIN "${tableName.COMPANY}" c ON p.company_id = c.id
+       WHERE p.merchant_order_id = $1`;
+    const filterArray = Array.isArray(filters) ? filters : [filters];
+    const result = await executeQuery(sql, filterArray);
+    return result.rows[0];
+  } catch (error) {
+    logger.error(
+      'Error getting PayIn URL with merchant and company config:',
+      error,
+    );
+    throw error;
+  }
+};
 export const getPayInUrlDao = async (filters) => {
   try {
     const [sql, params] = buildSelectQuery(
@@ -54,6 +72,7 @@ export const getPayInUrlDao = async (filters) => {
     throw error;
   }
 };
+
 export const getPayInPendingDao = async ({ company_id, status }) => {
   try {
     const sql = `

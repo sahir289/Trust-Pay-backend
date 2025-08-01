@@ -321,36 +321,46 @@ const blockChargebackUserService = async (ids) => {
     const alreadyExists = existingBlockedUsers.some(
       (entry) => entry.userId === userId && entry.user_ip === userIp,
     );
-    let merchantDetails;
     let updatedBlockedUsers;
+    let updatedChargeback;
     if (alreadyExists) {
-     const updatedBlockedUsers = existingBlockedUsers.filter(
-        (entry) => !(entry.userId === userId && entry.user_ip === userIp),
+      const updatedBlockedUsers = existingBlockedUsers.filter(
+        (entry) => !(
+          entry.userId.toLowerCase().trim() === userId.toLowerCase().trim() &&
+          entry.user_ip.trim() === userIp.trim()
+        )
       );
       const updatedConfig = {
+        blocked_users: updatedBlockedUsers,
+      };
+      const updatedConfigCompany = {
         ...company[0].config,
         blocked_users: updatedBlockedUsers,
       };
-      merchantDetails = await updateCompanyDao(
-        { id: companyId },
-        { config: updatedConfig },
-      );
-     
+      await updateCompanyDao({ id: companyId }, { config: updatedConfigCompany });
+      updatedConfig.blocked_users || [];
+     updatedChargeback = await updateChargeBackDao(
+        { id: chargebackdata[0].id },
+        { config: updatedConfig }
+      );           
     } else {
       updatedBlockedUsers = [
         ...existingBlockedUsers,
         { userId: userId, user_ip: userIp },
       ];
       const updatedConfig = {
+        blocked_users: updatedBlockedUsers,
+      };
+      const updatedConfigCompany = {
         ...company[0].config,
         blocked_users: updatedBlockedUsers,
       };
 
-      merchantDetails = await updateCompanyDao(
+       await updateCompanyDao(
         { id: companyId },
-        { config: updatedConfig },
+        { config: updatedConfigCompany },
       );
-      await updateChargeBackDao(
+      updatedChargeback = await updateChargeBackDao(
         { id: chargebackdata[0].id },
         { config: updatedConfig }
       );
@@ -365,7 +375,7 @@ const blockChargebackUserService = async (ids) => {
     //   actorUserId: payload.updated_by,
     //   category: 'ChargeBack',
     // });
-    return merchantDetails;
+     return updatedChargeback;
   } catch (error) {
     if (conn) {
       try {
