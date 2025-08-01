@@ -13,11 +13,9 @@ import {
 import {
   getCalculationforCronDao,
   updateCalculationBalanceDao,
-  updateCalculationDao
+  updateCalculationDao,
 } from '../calculation/calculationDao.js';
-import {
-  getMerchantsDao,
-} from '../merchants/merchantDao.js';
+import { getMerchantsDao } from '../merchants/merchantDao.js';
 import {
   columns,
   merchantColumns,
@@ -254,11 +252,12 @@ const getSettlementsBySearchService = async (
   }
 };
 
-const createSettlementService = async (conn, payload) => {
+const createSettlementService = async (conn, payload, role) => {
   try {
     if (
-      payload.method === 'INTERNAL_QR_TRANSFER' ||
-      payload.method === 'INTERNAL_BANK_TRANSFER'
+      (payload.method === 'INTERNAL_QR_TRANSFER' ||
+        payload.method === 'INTERNAL_BANK_TRANSFER') &&
+      role !== Role.VENDOR
     ) {
       const bankResponses = await getBankResponseByUTR(
         payload?.config?.reference_id,
@@ -316,7 +315,7 @@ const createSettlementService = async (conn, payload) => {
           updatedCalculation,
           conn,
         );
-     const InternalSettlementConfig = {
+        const InternalSettlementConfig = {
           total_internalSettlement_amount:
             calculationData[0].config.total_internalSettlement_amount > 0
               ? calculationData[0].config.total_internalSettlement_amount +
@@ -332,9 +331,13 @@ const createSettlementService = async (conn, payload) => {
                 commission
               : commission,
         };
-      await updateCalculationDao({id: calculationData[0].id},{config:InternalSettlementConfig},conn);
+        await updateCalculationDao(
+          { id: calculationData[0].id },
+          { config: InternalSettlementConfig },
+          conn,
+        );
         payload.status = Status.SUCCESS;
-        return await createSettlementDao(payload,conn);
+        return await createSettlementDao(payload, conn);
       }
 
       throw new BadRequestError('UTR is already used');
@@ -350,11 +353,11 @@ const createSettlementService = async (conn, payload) => {
     //   category: 'Settlement',
     // });
     const adjustedValue =
-    payload.config.debit_credit === 'RECEIVED'
-      ? Number(payload.amount) > 0
-        ? -Number(payload.amount)
-        : Number(payload.amount)
-      : Math.abs(Number(payload.amount));
+      payload.config.debit_credit === 'RECEIVED'
+        ? Number(payload.amount) > 0
+          ? -Number(payload.amount)
+          : Number(payload.amount)
+        : Math.abs(Number(payload.amount));
     payload.amount = adjustedValue;
     return await createSettlementDao(payload);
   } catch (error) {
@@ -474,14 +477,14 @@ const updateSettlementService = async (conn, ids, payload) => {
           };
         }
       }
-        // const vendorBalance = vendorData[0].balance - payload?.amount;
+      // const vendorBalance = vendorData[0].balance - payload?.amount;
 
-        // await updateVendorBalanceDao(
-        //   { id: vendorData[0].id },
-        //   { balance: vendorBalance },
-        //   payload.user_id,
-        //   conn,
-        // );
+      // await updateVendorBalanceDao(
+      //   { id: vendorData[0].id },
+      //   { balance: vendorBalance },
+      //   payload.user_id,
+      //   conn,
+      // );
       // } else if (data[0].role === Role.MERCHANT) {
       //   // const merchantAcc = merchantData[0].balance - payload?.amount;
       //   // await updateMerchantDao(
