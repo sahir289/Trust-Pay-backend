@@ -5,6 +5,7 @@ import config from './src/config/config.js';
 import { initializeSocket } from './src/utils/sockets.js';
 import { logger } from './src/utils/logger.js';
 import { closePool } from './src/utils/db.js';
+import { closeRabbitMQ } from './src/utils/rabbitmq.js';
 
 const server = createServer(app);
 
@@ -89,6 +90,7 @@ async function gracefulShutdown(label, err) {
     await Promise.allSettled([
       new Promise((res) => server.close(res)),
       closePool(),
+      closeRabbitMQ(),
       new Promise((res) => logger.on('finish', res)).then(() => logger.end()),
     ]);
   } finally {
