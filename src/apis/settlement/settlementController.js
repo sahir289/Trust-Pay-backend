@@ -137,7 +137,12 @@ const createSettlementController = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   //-- utr and amount for internal tranfer case
-  if (payload.amount && payload.utr && (payload.method === 'INTERNAL_TRANSFER' || payload.method === 'INTERNAL_BANK_TRANSFER') && role !== Role.VENDOR) {
+  if (
+    payload.amount &&
+    payload.utr &&
+    (payload.method === 'INTERNAL_QR_TRANSFER' ||
+      payload.method === 'INTERNAL_BANK_TRANSFER')
+  ) {
     const bankRes = await getBankResponseDao({
       utr: payload.utr,
       status: '/success',
@@ -175,7 +180,10 @@ const createSettlementController = async (req, res) => {
     },
   };
   // const data =
-  const settlement = await transactionWrapper(createSettlementService)(data, role);
+  const settlement = await transactionWrapper(createSettlementService)(
+    data,
+    role,
+  );
   logger.info('Created Settlement Successfully', settlement);
   sendSuccess(
     res,
