@@ -4,6 +4,7 @@ import {
   buildSelectQuery,
   buildInsertQuery,
   buildUpdateQuery,
+  buildAndExecuteUpdateQuery,
   buildJoinQuery,
 } from '../../utils/db.js';
 import { Role, tableName } from '../../constants/index.js';
@@ -459,7 +460,17 @@ export const getCalculationsSumDao = async (filters) => {
         CAST(ROUND(SUM(c.total_adjustment_amount)::NUMERIC, 2) AS FLOAT) AS total_adjustment_amount,
         CAST(ROUND(SUM(c.total_adjustment_commission)::NUMERIC, 2) AS FLOAT) AS total_adjustment_commission,
         CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
-        CAST(ROUND(SUM(c.net_balance)::NUMERIC, 2) AS FLOAT) AS net_balance
+        CAST(ROUND(SUM(c.net_balance)::NUMERIC, 2) AS FLOAT) AS net_balance,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_bankSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_aedSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_aedSentSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankSentSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashSentSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_internalSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_internalSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_aedReceivedSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankReceivedSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashReceivedSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_internalBankSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_internalBankSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_cryptoReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cryptoReceivedSettlement_amount
       FROM "${tableName.CALCULATION}" c
       JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE 
       JOIN "${tableName.ROLE}" r ON u.role_id = r.id
@@ -490,9 +501,16 @@ export const getCalculationsSumDao = async (filters) => {
         CAST(ROUND(SUM(c.total_adjustment_commission)::NUMERIC, 2) AS FLOAT) AS total_adjustment_commission,
         CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
         CAST(ROUND(SUM(c.net_balance)::NUMERIC, 2) AS FLOAT) AS net_balance,
-        CAST(SUM(COALESCE((c.config->>'total_internalSettlement_count')::INTEGER, 0)) AS INTEGER) AS total_internalSettlement_count,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_bankSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_aedSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_aedSentSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankSentSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_internalSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_internalSettlement_amount,
-        CAST(ROUND(SUM(COALESCE((c.config->>'total_internalSettlement_commission')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_internalSettlement_commission
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_aedReceivedSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankReceivedSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashReceivedSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_internalBankSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_internalBankSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_cryptoReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cryptoReceivedSettlement_amount
       FROM "${tableName.CALCULATION}" c
       JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
       JOIN "${tableName.ROLE}" r ON u.role_id = r.id
@@ -670,6 +688,16 @@ const updateCalculationDao = async (id, data, conn) => {
     throw error;
   }
 };
+const updateCalculationConfigDao = async (id, data, conn) => {
+    return buildAndExecuteUpdateQuery(
+      tableName.CALCULATION,
+      data,
+      id,
+      {},
+      { returnUpdated: true },
+      conn,
+    );
+};
 
 const deleteCalculationDao = async (conn, id, data) => {
   try {
@@ -737,4 +765,5 @@ export {
   updateCalculationDao,
   deleteCalculationDao,
   checkCalculationEntryForDateDao,
+  updateCalculationConfigDao,
 };
