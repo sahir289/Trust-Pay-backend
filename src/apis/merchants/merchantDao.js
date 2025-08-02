@@ -405,6 +405,10 @@ export const getMerchantsBySearchDao = async (
     const values = [filters.company_id];
     let paramIndex = 2;
 
+    values.push(role);
+    const roleParamIndex = paramIndex;
+    paramIndex++;
+
     // Use filters.limit and filters.page, with fallbacks to pageSize and page
     const limitNum =
       parseInt(filters.limit, 10) || parseInt(pageSize, 10) || 10;
@@ -434,7 +438,13 @@ export const getMerchantsBySearchDao = async (
         "Merchant".is_enabled, 
         "Merchant".dispute_enabled, 
         "Merchant".is_demo, 
-        "Merchant".config, 
+        CASE 
+          WHEN $${roleParamIndex} = 'ADMIN' THEN "Merchant".config 
+          ELSE json_build_object(
+            'keys', "Merchant".config->'keys',
+            'urls', "Merchant".config->'urls'
+          ) 
+        END AS config,
         "Merchant".company_id, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
@@ -467,10 +477,10 @@ export const getMerchantsBySearchDao = async (
       `;
     } else if (role === Role.ADMIN) {
       queryText += `
-      AND "User".designation_id = (
-        SELECT id FROM "Designation" WHERE designation = 'MERCHANT'
-      )
-    `;
+        AND "User".designation_id = (
+          SELECT id FROM "Designation" WHERE designation = 'MERCHANT'
+        )
+      `;
     }
 
     // Filter by user_id
@@ -584,7 +594,6 @@ export const getMerchantsBySearchDao = async (
     throw error;
   }
 };
-
 
 
 export const updateMerchantDao = async (ids, data, conn) => {

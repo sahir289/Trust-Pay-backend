@@ -43,7 +43,7 @@ export const getPayInCronDao = async (
 };
 export const getPayInwithMerchantDao = async (filters) => {
   try {
-    const sql = `SELECT p.merchant_order_id,p.status,p.amount,p.id,p.user_submitted_utr,p.config, m.config->'unblocked_countries' AS unblockedcountries, p.merchant_id, c.config->'blocked_users' AS blocked_users ,p.user as userId
+    const sql = `SELECT p.merchant_order_id,p.status,p.amount,p.id,p.user_submitted_utr,p.config,p.created_at, m.config->'unblocked_countries' AS unblockedcountries, p.merchant_id, c.config->'blocked_users' AS blocked_users ,p.user as userId
        FROM "${tableName.PAYIN}" p
        INNER JOIN "${tableName.MERCHANT}" m ON p.merchant_id = m.id
        INNER JOIN "${tableName.COMPANY}" c ON p.company_id = c.id
