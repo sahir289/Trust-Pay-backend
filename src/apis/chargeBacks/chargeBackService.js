@@ -54,9 +54,35 @@ const createChargeBackService = async (
     payload.created_by = user_id;
     payload.updated_by = user_id;
     payload.company_id = company_id;
-    // const merchantOrderId = PayinDetails[0].merchant_order_id;
+    payload.config = {
+      blocked_users: [{ userId: PayinDetails[0].user, user_ip: PayinDetails[0].user_ip }]
+    };    
     delete payload.merchant_order_id;
     ///create chargeback
+    const companyData = await getCompanyDao({ id: company_id });
+    const newBlockedUser = {
+      userId: PayinDetails[0].user,     
+      user_ip: PayinDetails[0].user_ip   
+    };
+    
+    let existingBlockedUsers = companyData[0]?.config?.blocked_users || [];
+    const isAlreadyBlocked = existingBlockedUsers.some(
+      entry => entry.userId === newBlockedUser.userId && entry.user_ip === newBlockedUser.user_ip
+    );
+
+    if (existingBlockedUsers.length === 0 || !isAlreadyBlocked) {
+      existingBlockedUsers.push(newBlockedUser);
+    }
+ 
+    const updatedCompanyConfig = {
+      ...companyData[0].config,
+      blocked_users: existingBlockedUsers
+    };
+
+    await updateCompanyDao(
+      { id: company_id },
+      { config: updatedCompanyConfig }
+    );
     const data = await createChargeBackDao(payload);
     // update calculations
     // update merchant calculations
