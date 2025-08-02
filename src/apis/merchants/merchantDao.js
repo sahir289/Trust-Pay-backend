@@ -167,6 +167,71 @@ export const getMerchantByUserIdDao = async (userId) => {
   }
 };
 
+//only for submerchant data
+export const getMerchantByUserDao = async (userId, role) => {
+  try {
+    const sql = `
+      SELECT 
+        "Merchant".id, 
+        "Merchant".user_id, 
+        "Merchant".first_name, 
+        "Merchant".last_name, 
+        "Merchant".code, 
+        "Merchant".min_payin, 
+        "Merchant".max_payin, 
+        "Merchant".payin_commission, 
+        "Merchant".min_payout, 
+        "Merchant".max_payout, 
+        "Merchant".payout_commission, 
+        "Merchant".is_test_mode, 
+        "Merchant".is_enabled, 
+        "Merchant".dispute_enabled, 
+        "Merchant".is_demo, 
+        "Merchant".balance, 
+        CASE 
+          WHEN UPPER($2::TEXT) = 'ADMIN' THEN "Merchant".config 
+          ELSE json_build_object(
+            'keys', COALESCE("Merchant".config->'keys', '{}'),
+            'urls', COALESCE("Merchant".config->'urls', '{}')
+          ) 
+        END AS config,
+        creator.user_name AS created_by, 
+        updater.user_name AS updated_by, 
+        "Merchant".created_at, 
+        "Merchant".updated_at, 
+        "User".designation_id, 
+        "User".first_name || ' ' || "User".last_name AS full_name, 
+        "Designation".designation AS designation_name 
+      FROM "Merchant" 
+      JOIN "User" ON "Merchant".user_id = "User".id 
+      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
+      LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
+      LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
+      WHERE "Merchant".is_obsolete = false 
+      AND "Merchant"."user_id" ${Array.isArray(userId) ? '= ANY($1)' : '= $1'}
+      ORDER BY "Merchant"."created_at" ASC;
+    `;
+
+    // Ensure role is a string or null
+    const sanitizedRole = typeof role === 'undefined' ? null : role;
+
+    // Query parameters
+    const queryParams = [userId, sanitizedRole];
+
+    // Execute query
+    const result = await executeQuery(sql, queryParams);
+
+    // Return the rows (merchant data)
+    return result.rows;
+  } catch (error) {
+    logger.error(
+      `Error in getMerchantByUserIdDao for user_id ${userId}:`,
+      error,
+    );
+    throw error;
+  }
+};
+
 export const getMerchantsDao = async (
   filters,
   page = 1,
@@ -420,7 +485,6 @@ export const getMerchantsBySearchDao = async (
     const orderDirection = ['ASC', 'DESC'].includes(sortOrder?.toUpperCase())
       ? sortOrder.toUpperCase()
       : 'DESC';
-
     let queryText = `
       SELECT 
         "Merchant".id, 
@@ -582,7 +646,7 @@ export const getMerchantsBySearchDao = async (
       totalPages = Math.ceil(totalItems / limitNum);
     }
 
-    const data = await enhanceMerchantsWithSubMerchants(searchResult.rows);
+    const data = await enhanceMerchantsWithSubMerchants(searchResult.rows ,role);
 
     return {
       totalCount: totalItems,

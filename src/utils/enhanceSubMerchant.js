@@ -1,7 +1,7 @@
-import { getMerchantByUserIdDao } from '../apis/merchants/merchantDao.js';
+import { getMerchantByUserDao } from '../apis/merchants/merchantDao.js';
 import { getUserHierarchysDao } from '../apis/userHierarchy/userHierarchyDao.js';
 
-export async function enhanceMerchantsWithSubMerchants(data) {
+export async function enhanceMerchantsWithSubMerchants(data,role) {
   const subMerchantUserIds = new Set();
   for (const merchant of data) {
     const userHierarchys = await getUserHierarchysDao({
@@ -30,7 +30,7 @@ export async function enhanceMerchantsWithSubMerchants(data) {
     const subMerchantIds = userHierarchy.config.siblings.sub_merchants;
     const heirs = [];
     for (const id of subMerchantIds) {
-      const siblings = await getMerchantByUserIdDao(id);
+      const siblings = await getMerchantByUserDao(id, role);
       let heir = siblings[0];
       heirs.push(heir);
     }
