@@ -996,6 +996,8 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
       m.user_id AS merchant_user_id,
       p.created_at,
       p.status,
+      p.user,
+      p.config->'user'->>'user_ip' AS user_ip,
       p.user_submitted_utr,
       p.bank_response_id
     FROM public."Payin" p
