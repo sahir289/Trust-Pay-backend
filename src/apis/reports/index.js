@@ -5,6 +5,7 @@ import {
   getClientsAccountReportController,
   getPayInReportController,
   getPayOutReportController,
+  getVendorBankReportController,
 } from './reportsController.js';
 
 /**
@@ -113,6 +114,39 @@ router.get(
   '/get-accounts-reports',
   isAuthenticated,
   tryCatchHandler(getClientsAccountReportController),
+);
+
+
+/**
+ * @swagger
+ * /reports/get-vendor-bank-reports:
+ *   get:
+ *     summary: Get all vendor banks
+ *     description: Fetches a list of all vendor banks.
+ *     tags: [Reports]
+ *     responses:
+ *       200:
+ *         description: List of all vendor banks.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                     example: 789
+ *                   name:
+ *                     type: string
+ *                     example: "vendor banks A"
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  '/get-vendor-bank-reports',
+  isAuthenticated,
+  tryCatchHandler(getVendorBankReportController),
 );
 //handled same with above function
 

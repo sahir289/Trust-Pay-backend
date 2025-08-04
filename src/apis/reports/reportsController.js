@@ -2,6 +2,7 @@ import {
   getPayInReportService,
   getPayOutReportService,
   getClientsAccountReportService,
+  getVendorBankReportService,
 } from './reportsService.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 
@@ -20,8 +21,14 @@ const getClientsAccountReportController = async (req, res) => {
   return sendSuccess(res, result, 'Reports fetched successfully');
 };
 
+const getVendorBankReportController = async (req, res) => {
+  const result = await getVendorBankReportService(req.query);
+  return sendSuccess(res, result, 'Vendor bank report fetched successfully');
+}
+
 export {
   getPayInReportController,
   getPayOutReportController,
   getClientsAccountReportController,
+  getVendorBankReportController
 };
