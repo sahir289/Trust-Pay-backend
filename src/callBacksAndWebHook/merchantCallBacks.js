@@ -21,7 +21,15 @@ const sendMerchantNotification = async (url, data, type) => {
     });
     return response.data;
   } catch (error) {
-    logger.error(`Error Notifying Merchant at ${type} URL:`, error );
+    const errorMessage = error?.message || 'Unknown error';
+    const statusCode = error?.response?.status || 'N/A';
+    const responseData = error?.response?.data || {};
+
+    logger.error(`Error Notifying Merchant at ${type} URL: ${errorMessage}`, {
+      status: statusCode,
+      response: responseData,
+      url: url,
+    });
     return {
       message: `Error Notifying Merchant at ${type} URL: ${error.message}`,
     };
