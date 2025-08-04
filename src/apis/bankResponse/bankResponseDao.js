@@ -601,7 +601,7 @@ const getBankResponseDaoAll = async (
       }
     }
     if (filters.userId) {
-      const userIdsArray = typeof userId === 'string' ? JSON.parse(userId) : userId;
+      const userIdsArray = typeof userId === 'string' ? JSON.parse(filters.userId) : filters.userId;
       whereConditions.push(`"BankResponse".user_id = ANY(${userIdsArray})`)
     }
 
