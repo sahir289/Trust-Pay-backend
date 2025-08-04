@@ -521,7 +521,7 @@ const getBankResponseDaoAll = async (
   try {
     let bankId;
     let bankDetails;
-    if (filters?.bank_id) {
+    if (filters?.bank_id || filters?.userId) {
       bankId = filters?.bank_id;
       bankDetails = await getBankaccountDao({ id: bankId }, null, null);
     }
@@ -575,10 +575,15 @@ const getBankResponseDaoAll = async (
       SELECT ${selectCols}, "BankResponse".created_at,
         "BankAccount".config AS details,
         "BankAccount".nick_name,
+        "Merchant".code AS merchant_code,
         "Vendor".user_id AS vendor_user_id
       FROM "BankResponse"
       JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
       LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
+      LEFT JOIN "Payin"
+        ON "Payin".bank_response_id = "BankResponse".id
+      LEFT JOIN "Merchant"
+        ON "Payin".merchant_id = "Merchant".id
       `;
 
     const whereConditions = [];
@@ -594,6 +599,10 @@ const getBankResponseDaoAll = async (
           `"BankResponse".created_at BETWEEN '${start}' AND '${end}'`,
         );
       }
+    }
+    if (filters.userId) {
+      const userIdsArray = typeof userId === 'string' ? JSON.parse(userId) : userId;
+      whereConditions.push(`"BankResponse".user_id = ANY(${userIdsArray})`)
     }
 
     if (filters.search) {

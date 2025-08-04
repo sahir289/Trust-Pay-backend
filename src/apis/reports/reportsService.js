@@ -8,8 +8,6 @@ import {
   getPayInVendorReportDao,
   getPayOutMerchantReportDao,
   getPayOutVendorReportDao,
-  getVendorBankReportDao,
-  getVendorBankReportDaoPayout,
   getVendorReportDao,
 } from './reportsDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
@@ -325,32 +323,8 @@ const getClientsAccountReportService = async (req) => {
   }
 };
 
-const getVendorBankReportService = async (payload) => {
-  try {
-    if(payload.bank_used === 'PAYIN'){
-      return await getVendorBankReportDao(
-        payload.userId,
-        payload.startDate ,
-        payload.endDate ,
-      );
-    }
-    else{
-      return await getVendorBankReportDaoPayout(
-        payload.userId,
-        payload.startDate ,
-        payload.endDate ,
-      );
-    }
-  }
-  catch (error) {
-    logger.error('Error in getBankResponseService:', error);
-    throw error;
-  }
-}
-
 export {
   getPayInReportService,
   getPayOutReportService,
   getClientsAccountReportService,
-  getVendorBankReportService,
 };
