@@ -183,8 +183,16 @@ const createChargeBackService = async (
     //   category: 'ChargeBack',
     // });
     return data;
-  } catch (error) {    
-    logger.error('Error while creating ChargeBack', error);
+  } catch (error) {
+    if (conn) {
+      try {
+        await rollback(conn);
+      } catch (rollbackError) {
+        logger.error('Error during transaction rollback', rollbackError);
+      }
+      throw error;
+    }
+    logger.error('Error in createChargebackService', error);
     throw error;
   } finally {
     if (conn) {
