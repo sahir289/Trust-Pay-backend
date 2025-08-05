@@ -649,112 +649,6 @@ const getVendorReportDao = async (
   }
 };
 
-const getVendorBankReportDao = async (userId, startDate, endDate) => {
-  try {
-    const values = [];
-
-    if (!userId || userId.length === 0) {
-      return { totalCount: 0, rows: [] };
-    }
-
-    const userIdsArray = typeof userId === 'string' ? JSON.parse(userId) : userId;
-    const start = dayjs.tz(`${startDate} 00:00:00`, 'Asia/Kolkata').toISOString();
-    const end = dayjs.tz(`${endDate} 23:59:59`, 'Asia/Kolkata').toISOString();
-
-    let query = `
-      SELECT 
-        br.created_at,
-        br.sno,
-        br.utr,
-        br.is_used,
-        br.amount,
-        br.status,
-        ba.nick_name,
-        "Merchant".code AS merchant_code,
-        v.code AS vendor_code
-      FROM "BankResponse" br
-      JOIN "BankAccount" ba 
-        ON br.bank_id = ba.id
-      LEFT JOIN "Vendor" v
-        ON ba.user_id = v.user_id
-      LEFT JOIN "Payin"
-        ON br.id = "Payin".bank_response_id
-        AND br.is_used = true
-      LEFT JOIN "Merchant"
-        ON "Payin".merchant_id = "Merchant".id
-      WHERE ba.user_id = ANY($3)
-    `;
-
-    if (start && end) {
-      query += ` AND br.created_at BETWEEN $1 AND $2`;
-      values.push(start, end);
-    }
-
-    values.push(userIdsArray); 
-    const result = await executeQuery(query, values);
-    return {
-      totalCount: result.rowCount,
-      rows: result.rows,
-    };
-  } catch (error) {
-    logger.error('Error in getVendorBankReportDao:', error);
-    throw error;
-  }
-};
-
-const getVendorBankReportDaoPayout= async (userId, startDate, endDate) => {
-  try {
-    const values = [];
-
-    if (!userId || userId.length === 0) {
-      return { totalCount: 0, rows: [] };
-    }
-
-    const userIdsArray = typeof userId === 'string' ? JSON.parse(userId) : userId;
-    const start = dayjs.tz(`${startDate} 00:00:00`, 'Asia/Kolkata').toISOString();
-    const end = dayjs.tz(`${endDate} 23:59:59`, 'Asia/Kolkata').toISOString();
-
-    let query = `
-      SELECT 
-    po.created_at,
-    po.sno,
-    po.utr_id,
-    po.amount,
-    po.status,
-    ba.nick_name,
-    "Merchant".code AS merchant_code,
-    v.code AS vendor_code
-FROM "Payout" po
-JOIN "Vendor" v 
-    ON po.vendor_id = v.id
-LEFT JOIN "Merchant"
-    ON po.merchant_id = "Merchant".id
-LEFT JOIN "BankAccount" ba
-    ON po.bank_acc_id = ba.id 
-WHERE po.vendor_id = ANY($3)
-    `;
-
-    if (start && end) {
-      query += ` AND po.created_at BETWEEN $1 AND $2`;
-      values.push(start, end);
-    }
-
-    values.push(userIdsArray); 
-
-    console.log(query, values, 'query_value0');
-
-    const result = await executeQuery(query, values);
-    console.log(result, 'result0rows');
-    return {
-      totalCount: result.rowCount,
-      rows: result.rows,
-    };
-  } catch (error) {
-    logger.error('Error in getVendorBankReportDao:', error);
-    throw error;
-  }
-}
-
 
 
 export {
@@ -766,6 +660,4 @@ export {
   getPayOutVendorReportDao,
   getMerchantReportDao,
   getVendorReportDao,
-  getVendorBankReportDao,
-  getVendorBankReportDaoPayout
 };
