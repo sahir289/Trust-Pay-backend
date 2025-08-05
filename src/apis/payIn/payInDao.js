@@ -909,11 +909,21 @@ export const getPayinsBySearchDao = async (
     // Count query
     const countQuery = `SELECT COUNT(*) AS total FROM (${queryText}) AS count_table`;
     // Append pagination
-    queryText += `
+    
+    if (filters.updatedPayin) {
+      queryText += `
+      ORDER BY p.updated_at DESC
+      LIMIT $${queryParams.length + 1}
+      OFFSET $${queryParams.length + 2}
+    `;
+    }
+    else{
+      queryText += `
       ORDER BY p.created_at DESC
       LIMIT $${queryParams.length + 1}
       OFFSET $${queryParams.length + 2}
     `;
+    }
 
     queryParams.push(limitNum, offset);
 
@@ -930,6 +940,7 @@ export const getPayinsBySearchDao = async (
       countQuery,
       queryParams.slice(0, -2),
     );
+    console.log(queryText, 'queryText000')
     let searchResult = await executeQuery(queryText, queryParams);
     const totalItems = parseInt(countResult.rows[0].total);
     let totalPages = Math.ceil(totalItems / limitNum);
