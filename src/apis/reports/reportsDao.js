@@ -81,16 +81,16 @@ const getPayInMerchantReportDao = async (
       if (status && Array.isArray(status)) {
         if (status.includes(Status.SUCCESS)) {
           if(updatedPayin === 'true'){
-            query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+            query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.updated_at ASC;`;
           }
           else{
-            query += ` AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+            query += ` AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
           }
         } else if (
           status.includes(Status.FAILED) ||
           status.includes(Status.DROPPED)
         ) {
-          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
         } else if (
           status.includes(Status.INITIATED) ||
           status.includes(Status.PENDING) ||
@@ -100,17 +100,16 @@ const getPayInMerchantReportDao = async (
           status.includes(Status.IMG_PENDING) ||
           status.includes(Status.DUPLICATE)
         ) {
-          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
         } else {
-          query += ` AND (pi.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+          query += ` AND (pi.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
         }
       } else {
-        query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
       }
       parameters.push(startDate, endDate);
       paramIndex += 2;
     }
-    query += ` ORDER BY pi.sno ASC;`;
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
@@ -188,10 +187,10 @@ const getPayInVendorReportDao = async (
       if (status && Array.isArray(status)) {
         if (status.includes(Status.SUCCESS)) {
           if(updatedPayin === 'true'){
-            query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+            query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.updated_at ASC;`;
           }
           else{
-            query += ` AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+            query += ` AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
           }
         } else if (
           status.includes(Status.FAILED) ||
@@ -204,18 +203,17 @@ const getPayInVendorReportDao = async (
           status.includes(Status.IMG_PENDING) ||
           status.includes(Status.DUPLICATE)
         ) {
-          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
         } else {
-          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
         }
       } else {
-        query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
+        query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
       }
       parameters.push(startDate, endDate);
       paramIndex += 2;
     }
 
-    query += ` ORDER BY pi.sno ASC;`;
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
