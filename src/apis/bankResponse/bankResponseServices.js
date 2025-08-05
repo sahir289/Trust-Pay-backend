@@ -667,6 +667,7 @@ const getBankResponseService = async (
         bank_id: payload.bank_id || undefined,
         is_used: payload.is_used || undefined,
         company_id: payload.company_id || undefined,
+        userId: payload.userId || undefined,
       }).filter(([, v]) => v !== undefined),
     );
     filters = {
