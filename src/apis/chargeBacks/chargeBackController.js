@@ -162,12 +162,13 @@ const getChargeBacks = async (req, res) => {
   return sendSuccess(res, data, 'ChargeBacks fetched successfully');
 };
 const blockChargebackUser = async (req, res) => {
-  const { error: paramsError } = VALIDATE_DELETE_CHARGEBACK.validate(
-    req.params,
-  );
-  if (paramsError) {
-    throw new ValidationError(paramsError);
-  }
+  // const { error: paramsError } = VALIDATE_DELETE_CHARGEBACK.validate(
+  //   req.params,
+  // );
+  // if (paramsError) {
+  //   throw new ValidationError(paramsError);
+  // }
+  
   const { error: bodyError } = VALIDATE_UPDATE_CHARGEBACK_SCHEMA.validate(
     req.body,
   );

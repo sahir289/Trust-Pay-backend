@@ -1,4 +1,4 @@
-import { InternalServerError } from '../../utils/appErrors.js';
+import { InternalServerError, NotFoundError } from '../../utils/appErrors.js';
 import {
   beginTransaction,
   commit,
@@ -8,7 +8,7 @@ import {
 import {
   createChargeBackDao,
   deleteChargeBackDao,
-  getChargeBackDao,
+  // getChargeBackDao,
   updateChargeBackDao,
   getChargeBacksBySearchDao,
   getChargebackByIdDao,
@@ -27,9 +27,17 @@ import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 // import { getVendorsDao,updateVendorDao } from '../vendors/vendorDao.js';
-import { getPayInDaoByCode } from '../payIn/payInDao.js';
-import { getCompanyDao, updateCompanyDao } from '../company/companyDao.js';
+// import { getPayInDaoByCode } from '../payIn/payInDao.js';
+import {
+  getCompanyDao,
+  updateCompanyConfigDao,
+} from '../company/companyDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+import {
+  getMerchantByUserIdDao,
+  updateMerchantDao,
+} from '../merchants/merchantDao.js';
+
 const createChargeBackService = async (
   payload,
   PayinDetails,
@@ -39,14 +47,8 @@ const createChargeBackService = async (
 ) => {
   let conn;
   try {
-    // const filterColumns =
-    //   role === Role.MERCHANT
-    //     ? merchantColumns.CHARGE_BACK
-    //     : role === Role.VENDOR
-    //       ? vendorColumns.CHARGE_BACK
-    //       : columns.CHARGE_BACK;
     conn = await getConnection();
-    await beginTransaction(conn); // Start a transaction
+    await beginTransaction(conn);
     payload.vendor_user_id = PayinDetails[0].vendor_user_id;
     payload.merchant_user_id = PayinDetails[0].merchant_user_id;
     payload.payin_id = PayinDetails[0].payin_id;
@@ -55,47 +57,96 @@ const createChargeBackService = async (
     payload.updated_by = user_id;
     payload.company_id = company_id;
     payload.config = {
-      blocked_users: [{ userId: PayinDetails[0].user, user_ip: PayinDetails[0].user_ip }]
-    };    
+      blocked_users: [
+        { userId: PayinDetails[0].user, user_ip: PayinDetails[0].user_ip },
+      ],
+    };
     delete payload.merchant_order_id;
-    ///create chargeback
     const companyData = await getCompanyDao({ id: company_id });
-    const newBlockedUser = {
-      userId: PayinDetails[0].user,     
-      user_ip: PayinDetails[0].user_ip   
-    };
-    
-    let existingBlockedUsers = companyData[0]?.config?.blocked_users || [];
-    const isAlreadyBlocked = existingBlockedUsers.some(
-      entry => entry.userId === newBlockedUser.userId && entry.user_ip === newBlockedUser.user_ip
-    );
-
-    if (existingBlockedUsers.length === 0 || !isAlreadyBlocked) {
-      existingBlockedUsers.push(newBlockedUser);
+    if (!companyData || !companyData[0]) {
+      throw new NotFoundError('Company not found');
     }
- 
-    const updatedCompanyConfig = {
-      ...companyData[0].config,
-      blocked_users: existingBlockedUsers
-    };
+    let existingBlockedUsers = companyData[0]?.config?.blocked_users || [];
+    let companyBlockedUsersObj =
+      Array.isArray(existingBlockedUsers) && existingBlockedUsers[0]?.user_ip
+        ? { user_ip: existingBlockedUsers[0].user_ip }
+        : { user_ip: [] };
 
-    await updateCompanyDao(
+    const isAlreadyBlocked = companyBlockedUsersObj.user_ip.includes(
+      PayinDetails[0].user_ip.trim(),
+    );
+    let updatedCompanyBlockedUsers;
+    if (!isAlreadyBlocked) {
+      updatedCompanyBlockedUsers = {
+        user_ip: [...companyBlockedUsersObj.user_ip, PayinDetails[0].user_ip],
+      };
+    } else {
+      updatedCompanyBlockedUsers = companyBlockedUsersObj;
+    }
+    const dbCompanyBlockedUsers =
+      updatedCompanyBlockedUsers.user_ip.length > 0
+        ? [{ user_ip: updatedCompanyBlockedUsers.user_ip }]
+        : [];
+    await updateCompanyConfigDao(
       { id: company_id },
-      { config: updatedCompanyConfig }
+      {
+        config: {
+          blocked_users: dbCompanyBlockedUsers,
+        },
+      },
+      conn,
     );
     const data = await createChargeBackDao(payload);
-    // update calculations
-    // update merchant calculations
-    let MerchantuserId = data.merchant_user_id;
-    // const merchantData = await getMerchantsDao({ user_id: MerchantuserId });
+    const MerchantuserId = data.merchant_user_id;
+    const merchantData = await getMerchantByUserIdDao(MerchantuserId);
+    if (!merchantData || !merchantData[0]) {
+      throw new NotFoundError('Merchant not found');
+    }
+    let existingBlockedUsersMerchant =
+      merchantData[0]?.config?.blocked_users || [];
+    let merchantBlockedUsersObj =
+      Array.isArray(existingBlockedUsersMerchant) &&
+      existingBlockedUsersMerchant[0]?.userId
+        ? { userId: existingBlockedUsersMerchant[0].userId }
+        : { userId: [] };
+    if (merchantBlockedUsersObj.userId.join('') === PayinDetails[0].user) {
+      merchantBlockedUsersObj.userId = [PayinDetails[0].user];
+    }
+    const isAlreadyUserBlocked = merchantBlockedUsersObj.userId.includes(
+      PayinDetails[0].user,
+    );
+    let updatedMerchantBlockedUsers;
+    if (!isAlreadyUserBlocked) {
+      updatedMerchantBlockedUsers = {
+        userId: [
+          ...merchantBlockedUsersObj.userId.filter(
+            (id) => id !== PayinDetails[0].user,
+          ),
+          PayinDetails[0].user,
+        ],
+      };
+    } else {
+      updatedMerchantBlockedUsers = merchantBlockedUsersObj;
+    }
+    const dbMerchantBlockedUsers =
+      updatedMerchantBlockedUsers.userId.length > 0
+        ? [{ userId: updatedMerchantBlockedUsers.userId }]
+        : [];
+    await updateMerchantDao(
+      { user_id: MerchantuserId },
+      {
+        config: {
+          blocked_users: dbMerchantBlockedUsers,
+        },
+      },
+      conn,
+    );
     const merchantCalculation = await getCalculationforCronDao(MerchantuserId);
-    // await updateMerchantDao(
-    //       { user_id: MerchantuserId },
-    //       { balance: merchantData[0].balance - payload.amount },
-    //       conn,
-    //     );
-    let amount = Number(payload.amount);
-    let merchantId = merchantCalculation[0].id;
+    if (!merchantCalculation || !merchantCalculation[0]) {
+      throw new NotFoundError('Merchant calculations not found');
+    }
+    const amount = Number(payload.amount);
+    const merchantId = merchantCalculation[0].id;
     await updateCalculationBalanceDao(
       { id: merchantId },
       {
@@ -106,16 +157,12 @@ const createChargeBackService = async (
       },
       conn,
     );
-    // update vendor calculations
-    let VendorUserId = data.vendor_user_id;
-    // const vendorData = await getVendorsDao({ user_id: VendorUserId });
-    // await updateVendorDao(
-    //       { user_id: VendorUserId },
-    //       { balance: vendorData[0].balance - payload.amount },
-    //       conn
-    //      )
+    const VendorUserId = data.vendor_user_id;
     const vendorCalculation = await getCalculationforCronDao(VendorUserId);
-    let VendorId = vendorCalculation[0].id;
+    if (!vendorCalculation || !vendorCalculation[0]) {
+      throw new NotFoundError('Vendor calculations not found');
+    }
+    const VendorId = vendorCalculation[0].id;
     await updateCalculationBalanceDao(
       { id: VendorId },
       {
@@ -126,7 +173,7 @@ const createChargeBackService = async (
       },
       conn,
     );
-    await commit(conn); // Commit the transaction
+    await commit(conn);
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: payload.company_id,
@@ -137,7 +184,15 @@ const createChargeBackService = async (
     // });
     return data;
   } catch (error) {
-    logger.error('Error while creating ChargeBack', error);
+    if (conn) {
+      try {
+        await rollback(conn);
+      } catch (rollbackError) {
+        logger.error('Error during transaction rollback', rollbackError);
+      }
+      throw error;
+    }
+    logger.error('Error in createChargebackService', error);
     throw error;
   } finally {
     if (conn) {
@@ -321,87 +376,109 @@ const getChargeBacksBySearchService = async (
   }
 };
 
-const blockChargebackUserService = async (ids) => {
+const blockChargebackUserService = async (ids, data) => {
   let conn;
   try {
+   
     conn = await getConnection();
     await beginTransaction(conn);
-    const id = ids.id;
-    const chargebackdata = await getChargeBackDao(
-      { id },
-      1,
-      10,
-      'created_at',
-      'DESC',
-    );
-    const payinId = chargebackdata[0].payin_id;
-    const companyId = ids.company_id;
-    const payindata = await getPayInDaoByCode({
-      id: payinId,
-      company_id: companyId,
-    });
-    const userIp = payindata[0].config?.user?.user_ip;
-    const company = await getCompanyDao({ id: companyId });
-    const userId = payindata[0].user;
-    const existingBlockedUsers = company[0]?.config?.blocked_users || [];
-    const alreadyExists = existingBlockedUsers.some(
-      (entry) => entry.userId === userId && entry.user_ip === userIp,
-    );
-    let updatedBlockedUsers;
-    let updatedChargeback;
-    if (alreadyExists) {
-      const updatedBlockedUsers = existingBlockedUsers.filter(
-        (entry) => !(
-          entry.userId.toLowerCase().trim() === userId.toLowerCase().trim() &&
-          entry.user_ip.trim() === userIp.trim()
-        )
-      );
-      const updatedConfig = {
-        blocked_users: updatedBlockedUsers,
-      };
-      const updatedConfigCompany = {
-        ...company[0].config,
-        blocked_users: updatedBlockedUsers,
-      };
-      await updateCompanyDao({ id: companyId }, { config: updatedConfigCompany });
-      updatedConfig.blocked_users || [];
-     updatedChargeback = await updateChargeBackDao(
-        { id: chargebackdata[0].id },
-        { config: updatedConfig }
-      );           
-    } else {
-      updatedBlockedUsers = [
-        ...existingBlockedUsers,
-        { userId: userId, user_ip: userIp },
-      ];
-      const updatedConfig = {
-        blocked_users: updatedBlockedUsers,
-      };
-      const updatedConfigCompany = {
-        ...company[0].config,
-        blocked_users: updatedBlockedUsers,
-      };
-
-       await updateCompanyDao(
-        { id: companyId },
-        { config: updatedConfigCompany },
-      );
-      updatedChargeback = await updateChargeBackDao(
-        { id: chargebackdata[0].id },
-        { config: updatedConfig }
-      );
+    const { id, company_id } = ids;
+    const { user_ip, userId, merchant_user_id } = data.config;
+    const chargebackdata = await getChargebackByIdDao({ id });
+    if (!chargebackdata || !chargebackdata[0]) {
+      throw new NotFoundError('Chargeback not found');
     }
 
+    const company = await getCompanyDao({ id: company_id });
+    if (!company || !company[0]) {
+      throw new NotFoundError('Company not found');
+    }
+    const merchantData = await getMerchantByUserIdDao(merchant_user_id);
+    if (!merchantData || !merchantData[0]) {
+      throw new NotFoundError('Merchant not found');
+    }
+    let companyBlockedUsers = company[0]?.config?.blocked_users || [];
+    const companyBlockedUsersObj =
+      Array.isArray(companyBlockedUsers) && companyBlockedUsers[0]?.user_ip
+        ? { user_ip: companyBlockedUsers[0].user_ip }
+        : { user_ip: [] };
+    const alreadyExists = companyBlockedUsersObj.user_ip.includes(
+      user_ip.trim(),
+    );
+    let updatedCompanyBlockedUsers;
+    if (alreadyExists) {
+      updatedCompanyBlockedUsers = {
+        user_ip: companyBlockedUsersObj.user_ip.filter(
+          (ip) => ip.trim() !== user_ip.trim(),
+        ),
+      };
+      
+    } else {
+      updatedCompanyBlockedUsers = {
+        user_ip: [...companyBlockedUsersObj.user_ip, user_ip],
+      };
+    }
+    const dbCompanyBlockedUsers =
+      updatedCompanyBlockedUsers.user_ip.length > 0
+        ? [{ user_ip: updatedCompanyBlockedUsers.user_ip }]
+        : [];
+    await updateCompanyConfigDao(
+      { id: company_id },
+      {
+        config: { blocked_users: dbCompanyBlockedUsers },
+      },
+      conn,
+    );
+    let merchantBlockedUsers = merchantData[0]?.config?.blocked_users || [];
+    let merchantBlockedUsersObj =
+      Array.isArray(merchantBlockedUsers) && merchantBlockedUsers[0]?.userId
+        ? { userId: merchantBlockedUsers[0].userId }
+        : { userId: [] };
+    if (merchantBlockedUsersObj.userId.join('') === userId) {
+      merchantBlockedUsersObj.userId = [userId];
+    }
+    const isAlreadyUserBlocked =
+      merchantBlockedUsersObj.userId.includes(userId);
+    let updatedMerchantBlockedUsers;
+    if (isAlreadyUserBlocked) {
+      updatedMerchantBlockedUsers = {
+        userId: merchantBlockedUsersObj.userId.filter((id) => id !== userId),
+      };
+    } else {
+      updatedMerchantBlockedUsers = {
+        userId: [
+          ...merchantBlockedUsersObj.userId.filter((id) => id !== userId),
+          userId,
+        ],
+      };
+    }
+    const dbMerchantBlockedUsers =
+      updatedMerchantBlockedUsers.userId.length > 0
+        ? [{ userId: updatedMerchantBlockedUsers.userId }]
+        : [];
+    await updateMerchantDao(
+      { user_id: merchant_user_id },
+      {
+        config: {
+          blocked_users: dbMerchantBlockedUsers,
+        },
+      },
+      conn,
+    );
+    let updatedChargebackBlockedUsers = alreadyExists
+      ? []
+      : [{ userId, user_ip }];
+    await updateChargeBackDao(
+      { id: chargebackdata[0].id },
+      { config: { blocked_users: updatedChargebackBlockedUsers } },
+      conn,
+    );
+
     await commit(conn);
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: companyId,
-    //   message: `The user with ID ${userId} has been Blocked for ChargeBacks against Merchant Order Id ${payindata[0].merchant_order_id}.`,
-    //   payloadUserId: payload.updated_by,
-    //   actorUserId: payload.updated_by,
-    //   category: 'ChargeBack',
-    // });
-     return updatedChargeback;
+    return {
+      id: chargebackdata[0].id,
+      config: { blocked_users: updatedChargebackBlockedUsers },
+    };
   } catch (error) {
     if (conn) {
       try {
@@ -411,7 +488,7 @@ const blockChargebackUserService = async (ids) => {
       }
       throw error;
     }
-    logger.error('Error while updating ChargeBack', error);
+    logger.error('Error in blockChargebackUserService', error);
     throw error;
   } finally {
     if (conn) {
