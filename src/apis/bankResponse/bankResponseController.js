@@ -151,11 +151,13 @@ const createBankBotResponseBulk = async (req, res) => {
     throw new ValidationError('body must be an array of payloads');
   }
 
-  const results = [];
+  let successCount = 0;
+  let errorCount = 0;
+
   for (const payload of payloads) {
     const { error } = CREATE_BANK_RESPONSE_SCHEMA.validate({ body: payload });
     if (error) {
-      results.push({ success: false, error: error.message, payload });
+      errorCount++;
       continue;
     }
     try {
@@ -164,14 +166,20 @@ const createBankBotResponseBulk = async (req, res) => {
         x_auth_token,
         role: Role.BOT,
       });
-      await newTableEntry(tableName.BANK_RESPONSE);
-      results.push({ success: true, status: 200 });
-    } catch (err) {
-      results.push({ success: false, error: err.message, payload });
+      successCount++;
+    } catch {
+      errorCount++;
     }
   }
 
-  sendSuccess(res, results, 'Bulk Bank Bot Messages published to queue');
+  const status =
+    successCount === payloads.length
+      ? 'All messages published successfully'
+      : errorCount === payloads.length
+      ? 'All messages failed to publish'
+      : `Published: ${successCount}, Failed: ${errorCount}`;
+
+  sendSuccess(res, { published: successCount, failed: errorCount, status: 200 }, status);
 };
 
 const updateBankResponse = async (req, res) => {
