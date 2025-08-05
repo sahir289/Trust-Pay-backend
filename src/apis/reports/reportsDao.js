@@ -1,4 +1,3 @@
-import dayjs from 'dayjs';
 import { Role, Status, tableName } from '../../constants/index.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { buildSelectQuery, executeQuery } from '../../utils/db.js';
