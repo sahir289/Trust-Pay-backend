@@ -1,18 +1,19 @@
 import { verifyPayinsService, getPayInUrlService } from './payInService.js';
-import { updatePayInUrlDao } from './payInDao.js';
+import { updatePayInUrlDao, getPayInUrlDao } from './payInDao.js';
 import { getMerchantsDao } from '../merchants/merchantDao.js';
 import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
 import { logger } from '../../utils/logger.js';
-import { BadRequestError, InternalServerError } from '../../utils/errors.js'; // Import error classes
+import { BadRequestError, InternalServerError, NotFoundError } from '../../utils/errors.js';
 
 // Mock dependencies
 jest.mock('./payInService.js', () => ({
-  verifyPayinsService: jest.requireActual('./payInService.js').verifyPayinsService, // Use actual implementation
+  verifyPayinsService: jest.requireActual('./payInService.js').verifyPayinsService, 
   getPayInUrlService: jest.fn(),
 }));
 
 jest.mock('./payInDao.js', () => ({
   updatePayInUrlDao: jest.fn(),
+  getPayInUrlDao: jest.fn(), // Mock getPayInUrlDao
 }));
 
 jest.mock('../merchants/merchantDao.js', () => ({
@@ -71,10 +72,8 @@ describe('verifyPayinsService tests', () => {
     getMerchantsDao.mockResolvedValue([mockMerchant]);
     getMerchantBankDao.mockResolvedValue(mockBanks);
     updatePayInUrlDao.mockResolvedValue({ id: 'payin1' });
-
     const userLocation = { user_ip: '192.168.1.1' };
     const result = await verifyPayinsService('123', userLocation, 'false');
-
     expect(getPayInUrlService).toHaveBeenCalledWith('123');
     expect(getMerchantsDao).toHaveBeenCalledWith({ id: 'merchant1' });
     expect(getMerchantBankDao).toHaveBeenCalledWith({ config_merchants_contains: 'merchant1' });
@@ -97,11 +96,12 @@ describe('verifyPayinsService tests', () => {
     expect(logger.info).toHaveBeenCalledWith('PayIn URL verified successfully:', expect.any(Object));
   });
 
-  test('should throw BadRequestError for invalid merchant order ID', async () => {
-    getPayInUrlService.mockResolvedValue(null);
+  test('should throw NotFoundError for invalid merchant order ID', async () => {
+    getPayInUrlService.mockRejectedValue(new NotFoundError('Payment Url is incorrect'));
 
-    await expect(verifyPayinsService('123', {}, 'false')).rejects.toThrow(BadRequestError);
-    expect(logger.error).toHaveBeenCalledWith('Error in verifyPayinsService:', expect.any(BadRequestError));
+    const userLocation = { user_ip: '192.168.1.1' };
+    await expect(verifyPayinsService('123', userLocation, 'false')).rejects.toThrow(NotFoundError);
+    expect(logger.error).toHaveBeenCalledWith('Error in verifyPayinsService:', expect.any(NotFoundError));
     expect(getPayInUrlService).toHaveBeenCalledWith('123');
     expect(updatePayInUrlDao).not.toHaveBeenCalled();
     expect(getMerchantsDao).not.toHaveBeenCalled();
@@ -138,6 +138,7 @@ describe('verifyPayinsService tests', () => {
     };
     getPayInUrlService.mockResolvedValue(mockPayIn);
     getMerchantsDao.mockResolvedValue([blockedMerchant]);
+    updatePayInUrlDao.mockResolvedValue({ id: 'payin1' });
 
     const userLocation = { user_ip: '192.168.1.1' };
     await expect(verifyPayinsService('123', userLocation, 'false')).rejects.toThrow(BadRequestError);
@@ -160,6 +161,7 @@ describe('verifyPayinsService tests', () => {
     };
     getPayInUrlService.mockResolvedValue(mockPayIn);
     getMerchantsDao.mockResolvedValue([blockedMerchant]);
+    updatePayInUrlDao.mockResolvedValue({ id: 'payin1' });
 
     const userLocation = { user_ip: '192.168.1.1' };
     await expect(verifyPayinsService('123', userLocation, 'false')).rejects.toThrow(BadRequestError);
