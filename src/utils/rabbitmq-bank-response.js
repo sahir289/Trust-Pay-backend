@@ -1,6 +1,7 @@
 import { getRabbitChannel } from './rabbitmq.js';
 import config from '../config/config.js';
 import { Buffer } from 'buffer';
+import { logger } from './logger.js';
 
 // Publish a bank response to the dedicated queue
 export const publishBankResponse = async (responseData) => {
@@ -10,7 +11,10 @@ export const publishBankResponse = async (responseData) => {
   await channel.assertQueue(queue, { durable: true });
   const message = Buffer.from(JSON.stringify(responseData));
   const result = channel.sendToQueue(queue, message, { persistent: true });
-  console.log(`[RabbitMQ] Published to bankResponseQueue:`, responseData);
+  logger.info(`[RabbitMQ] Published to bankResponseQueue:`, responseData);
+  if (!result) {
+    logger.error('Failed to publish bank response to RabbitMQ', responseData);
+  }
   return result;
 };
 
@@ -24,11 +28,11 @@ export const consumeBankResponses = async (callback) => {
     if (msg) {
       try {
         const data = JSON.parse(msg.content.toString());
-        console.log(`[RabbitMQ] Consumed from bankResponseQueue:`, data);
+        logger.info(`[RabbitMQ] Consumed from bankResponseQueue:`, data);
         await callback(data, msg);
         channel.ack(msg);
       } catch (error) {
-        console.error('Error processing bank response:', error);
+        logger.error('Error processing bank response:', error);
         channel.nack(msg, false, false);
       }
     }
@@ -47,9 +51,9 @@ export const startBankResponseWorker = async (processFn) => {
         const data = JSON.parse(msg.content.toString());
         await processFn(data);
         channel.ack(msg);
-        console.log('[RabbitMQ Worker] Processed bank response:', data);
+        logger.info('[RabbitMQ Worker] Processed bank response:', data);
       } catch (error) {
-        console.error('[RabbitMQ Worker] Error processing bank response:', error);
+        logger.error('[RabbitMQ Worker] Error processing bank response:', error);
         channel.nack(msg, false, false);
       }
     }
