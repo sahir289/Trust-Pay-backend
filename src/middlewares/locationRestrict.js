@@ -85,7 +85,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
         );
         logger.error(`Access restricted for users from ${country}.`, userData);
         return res.status(403).json({
-          error: { message: 'Access Denied!', data: { url } },
+          error: { message: 'Oops ! Service not available', data: { url } },
         });
       }
       if (
@@ -99,7 +99,8 @@ const getUserLocationMiddleware = async (req, res, next) => {
         );
         logger.error(`Access restricted for users in ${region}.`, userData);
         return res.status(403).json({
-          error: { message: 'Access Denied!', data: { url } },
+        
+          error: { message: 'Oops ! Service not available', data: { url } },
         });
       }
     }
