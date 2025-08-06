@@ -660,6 +660,7 @@ export const getPayinsBySearchDao = async (
   limitNum,
   offset,
   role,
+  updatedPayin = false,
 ) => {
   try {
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
@@ -897,6 +898,10 @@ export const getPayinsBySearchDao = async (
             ? `p.${key} IN (${placeholders})`
             : `p.${key} = $${nextParamIdx}`,
         );
+        updatedPayin &&
+        conditions.push(
+          `(p.config->>'history' IS NOT NULL AND p.config::jsonb ? 'history')`,
+        );
         queryParams.push(...valueArray);
       }
     });
@@ -916,6 +921,8 @@ export const getPayinsBySearchDao = async (
     `;
 
     queryParams.push(limitNum, offset);
+
+    // if (!updatedPayin) return;
 
     // Debug log: Check if placeholders match params
     // const expectedParamCount = (queryText.match(/\$\d+/g) || []).length;
