@@ -288,8 +288,12 @@ const getClientsAccountReportService = async (req) => {
         }
 
         result = Object.values(parentMap)
-          .map(({ ...rest }) => rest)
-          .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        .map(({ ...rest }) => rest)
+        .sort((a, b) => {
+          if (a.code < b.code) return -1;
+          if (a.code > b.code) return 1;
+          return new Date(a.created_at) - new Date(b.created_at);
+        }); 
 
         // Apply pagination to the final aggregated result
         if (page && limit) {

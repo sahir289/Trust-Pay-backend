@@ -606,31 +606,63 @@ const getBankResponseDaoAll = async (
         throw new Error('Invalid userId format');
       }
       baseQueryVendor = `
-        SELECT 
-          br.created_at,
-          br.sno,
-          br.utr,
-          br.amount,
-          br.status,
-          ba.nick_name,
-          "Merchant".code AS merchant_code,
-          v.code AS vendor_code
-        FROM "BankResponse" AS br
-        JOIN "BankAccount" AS ba 
-          ON br.bank_id = ba.id
-        LEFT JOIN "Vendor" AS v
-          ON ba.user_id = v.user_id
-        LEFT JOIN "Payin"
-          ON br.id = "Payin".bank_response_id
-          AND br.is_used = true
-        LEFT JOIN "Merchant"
-          ON "Payin".merchant_id = "Merchant".id
-        WHERE ba.user_id = ANY($1)
+      SELECT 
+      br.created_at,
+      br.sno,
+      br.utr,
+      br.is_used,
+      br.amount,
+      br.status,
+      ba.nick_name,
+      "Merchant".code AS merchant_code,
+      v.code AS vendor_code
+      FROM "BankResponse" AS br
+      JOIN "BankAccount" AS ba 
+      ON br.bank_id = ba.id
+      LEFT JOIN "Vendor" AS v
+      ON ba.user_id = v.user_id
+      LEFT JOIN "Payin"
+      ON br.id = "Payin".bank_response_id
+      AND br.is_used = true
+      LEFT JOIN "Merchant"
+      ON "Payin".merchant_id = "Merchant".id
+      WHERE ba.user_id = ANY($1)
       `;
-      values = [userIdsArray];
+      
+       values = [userIdsArray];
+      let paramIndex = 2;
       if (start && end) {
-        baseQueryVendor += ` AND br.created_at BETWEEN $2 AND $3`;
+        baseQueryVendor += ` AND br.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
         values.push(start, end);
+        paramIndex += 2;
+      }
+      if (filters.is_used) {
+        const isUsedValues = filters.is_used.split(',').map(val => val === 'true');
+      
+        if (isUsedValues.length === 1) {
+          baseQueryVendor += ` AND br.is_used = $${paramIndex}`;
+          values.push(isUsedValues[0]);
+          paramIndex++;
+        } else {
+          const placeholders = isUsedValues.map((_, i) => `$${paramIndex + i}`).join(', ');
+          baseQueryVendor += ` AND br.is_used IN (${placeholders})`;
+          values.push(...isUsedValues);
+          paramIndex += isUsedValues.length;
+        }
+      }
+      
+      if (filters.status) {
+        const statuses = filters.status.split(',').filter(Boolean);
+        if (statuses.length === 1) {
+          baseQueryVendor += ` AND br.status = $${paramIndex}`;
+          values.push(statuses[0]);
+          paramIndex++;
+        } else {
+          const placeholders = statuses.map((_, i) => `$${paramIndex + i}`).join(', ');
+          baseQueryVendor += ` AND br.status IN (${placeholders})`;
+          values.push(...statuses);
+          paramIndex += statuses.length;
+        }
       }
     }
 

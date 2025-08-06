@@ -97,6 +97,7 @@ import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { usedTokens } from '../../app.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
+import { getAllUsersDao } from '../users/userDao.js';
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
@@ -2743,6 +2744,13 @@ export const updatePayInService = async (
   company_id,
 ) => {
   try {
+    // Fetch user_name using user_id
+    let user_name = '';
+    if (user_id) {
+      const users = await getAllUsersDao({ id: user_id });
+      user_name = users && users[0] && users[0].user_name ? users[0].user_name : '';
+    }
+
     let bankResponseDataUtr;
     let updatedBankAccIdData;
     // Validate payload
@@ -2842,7 +2850,7 @@ export const updatePayInService = async (
       await Promise.all([
         updateBankResponseDao(
           { id: bankResponse.id, company_id: company_id },
-          { amount: payload.amount, updated_by: user_id },
+          { amount: payload.amount, updated_by: user_name, config: {previousAmount: bankResponse.amount, previousUpdater: bankResponse.updated_by} },
           conn,
         ),
         updateBankaccountDao(
@@ -2886,7 +2894,7 @@ export const updatePayInService = async (
       }
       bankResponseDataUtr = await updateBankResponseDao(
         { id: bankResponse.id, company_id: company_id },
-        { utr: payload.utr, updated_by: user_id },
+        { utr: payload.utr, updated_by: user_name },
         conn,
       );
     }
@@ -2995,7 +3003,7 @@ export const updatePayInService = async (
           ),
           updateBankResponseDao(
             { id: bankResponse.id, company_id: company_id },
-            { bank_id: payload.bank_acc_id, updated_by: user_id },
+            { bank_id: payload.bank_acc_id, updated_by: user_name, config : {previousBankId: bankResponse.bank_id, previousUpdater: bankResponse.updated_by} },
             conn,
           ),
         ]);

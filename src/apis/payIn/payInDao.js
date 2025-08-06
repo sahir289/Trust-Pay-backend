@@ -941,7 +941,6 @@ export const getPayinsBySearchDao = async (
       countQuery,
       queryParams.slice(0, -2),
     );
-    console.log(queryText, 'queryText000')
     let searchResult = await executeQuery(queryText, queryParams);
     const totalItems = parseInt(countResult.rows[0].total);
     let totalPages = Math.ceil(totalItems / limitNum);
