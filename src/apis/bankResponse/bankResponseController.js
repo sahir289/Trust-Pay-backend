@@ -151,35 +151,46 @@ const createBankBotResponseBulk = async (req, res) => {
     throw new ValidationError('body must be an array of payloads');
   }
 
-  let successCount = 0;
-  let errorCount = 0;
+  // Validate all payloads and collect errors/indexes
+  const invalidIndexes = [];
+  const invalidPayloads = [];
+  const validationErrors = [];
 
-  for (const payload of payloads) {
+  payloads.forEach((payload, idx) => {
     const { error } = CREATE_BANK_RESPONSE_SCHEMA.validate({ body: payload });
     if (error) {
-      errorCount++;
-      continue;
-    }
-    try {
-      await publishBankResponse({
+      invalidIndexes.push(idx);
+      invalidPayloads.push({ index: idx, payload, error: error.message });
+      validationErrors.push(error.message);
+    } else {
+      publishBankResponse({
         payload,
         x_auth_token,
         role: Role.BOT,
-      });
-      successCount++;
-    } catch {
-      errorCount++;
+      }).catch(() => {});
     }
-  }
+  });
 
+  const publishedCount = payloads.length - invalidIndexes.length;
   const status =
-    successCount === payloads.length
+    invalidIndexes.length === 0
       ? 'All messages published successfully'
-      : errorCount === payloads.length
-      ? 'All messages failed to publish'
-      : `Published: ${successCount}, Failed: ${errorCount}`;
+      : invalidIndexes.length === payloads.length
+      ? 'All messages invalid'
+      : `Published: ${publishedCount}, Invalid: ${invalidIndexes.length}`;
 
-  sendSuccess(res, { published: successCount, failed: errorCount, status: 200 }, status);
+  sendSuccess(
+    res,
+    {
+      published: publishedCount,
+      invalid: invalidIndexes.length,
+      invalidIndexes,
+      invalidPayloads,
+      validationErrors,
+      status: 202,
+    },
+    status
+  );
 };
 
 const updateBankResponse = async (req, res) => {
