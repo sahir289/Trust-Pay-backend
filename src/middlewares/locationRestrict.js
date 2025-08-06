@@ -45,7 +45,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
         { userIp },
       );
       return res.status(403).json({
-        error: { message: 'Access Denied for User IP!', data: { url } },
+        error: { message: 'User is Blocked!', data: { url } },
       });
     }
     const isIdBlocked = payInUrl.blocked_users_id[0]?.userId.includes(
@@ -60,7 +60,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
         'Blocked user ID. Access denied.',
       );
       return res.status(403).json({
-        error: { message: 'Access Denied for user!', data: { url } },
+        error: { message: 'User is Blocked!', data: { url } },
       });
     }
     if (vpn === 'yes') {
@@ -85,7 +85,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
         );
         logger.error(`Access restricted for users from ${country}.`, userData);
         return res.status(403).json({
-          error: { message: 'User Restricted Region!', data: { url } },
+          error: { message: 'Access Denied!', data: { url } },
         });
       }
       if (
@@ -99,7 +99,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
         );
         logger.error(`Access restricted for users in ${region}.`, userData);
         return res.status(403).json({
-          error: { message: 'User Restricted Region!', data: { url } },
+          error: { message: 'Access Denied!', data: { url } },
         });
       }
     }
