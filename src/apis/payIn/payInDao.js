@@ -960,6 +960,63 @@ export const getPayinsBySearchDao = async (
     throw error;
   }
 };
+export const getPayinsSumAndCountByStatusDao = async (filters) => {
+  try {
+    const conditions = [`p.is_obsolete = false`];
+    const queryParams = [filters.company_id];
+    let paramIndex = 2;
+
+    const statusQuery = `
+      SELECT DISTINCT status
+      FROM public."Payin"
+      WHERE is_obsolete = false AND company_id = $1
+    `;
+    const statusResult = await executeQuery(statusQuery, [filters.company_id]);
+    const validStatuses = statusResult.rows.map((row) => row.status);
+
+    if (validStatuses.length === 0) {
+      return { results: [] };
+    }
+
+    const today = dayjs(Date.now()).tz('+04:00').format('YYYY-MM-DD');
+    const startDate = dayjs.tz(`${today} 00:00:00`, '+04:00').utc().format();
+    const endDate = dayjs.tz(`${today} 23:59:59.999`, '+04:00').utc().format();
+    conditions.push(
+      `p.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+    );
+    queryParams.push(startDate, endDate);
+    paramIndex += 2;
+
+    let queryText = `
+      SELECT
+        s.status,
+        COALESCE(SUM(p.amount), 0) AS total_amount,
+        COALESCE(COUNT(p.id), 0) AS total_count
+      FROM (
+        SELECT unnest($${paramIndex}::text[]) AS status
+      ) s
+      LEFT JOIN public."Payin" p ON p.status = s.status AND p.is_obsolete = false AND p.company_id = $1
+    `;
+    queryParams.push(validStatuses);
+
+    queryText += ' WHERE (' + conditions.join(' AND ') + ')';
+
+    queryText += ` GROUP BY s.status`;
+
+    const result = await executeQuery(queryText, queryParams);
+
+    const results = result.rows.map((row) => ({
+      status: row.status,
+      totalAmount: parseFloat(row.total_amount) || 0,
+      totalCount: parseInt(row.total_count) || 0,
+    }));
+
+    return { results };
+  } catch (error) {
+    logger.error('Error in getPayinsSumAndCountByStatusDao:', error);
+    throw error;
+  }
+};
 
 export const getPayInUrlsDao = async (filters = {}) => {
   try {
@@ -979,13 +1036,17 @@ export const getPayInUrlsDao = async (filters = {}) => {
 export const updatePayInUrlDao = async (id, data, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
+    let result;
     if (conn && conn.query) {
-      const result = await conn.query(sql, params);
+    result = await conn.query(sql, params);
       // await newTableEntry(tableName.PAYIN);
-      return result.rows[0];
     }
-    const result = await executeQuery(sql, params);
-    // await newTableEntry(tableName.PAYIN);
+    else {
+      result = await executeQuery(sql, params);
+    }
+    // if (data.status === Status.SUCCESS) {
+    //   await newTableEntry('SUM');
+    // }
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating PayIn URL:', error);
