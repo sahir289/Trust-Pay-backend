@@ -379,97 +379,138 @@ const blockChargebackUserService = async (ids, data) => {
   let conn;
   try {
     conn = await getConnection();
+
     await beginTransaction(conn);
+
     const { id, company_id } = ids;
     const { user_ip, userId, merchant_user_id } = data.config;
+
     const chargebackdata = await getChargebackByIdDao({ id });
-    if (!chargebackdata || !chargebackdata[0]) {
-      throw new NotFoundError('Chargeback not found');
-    }
+
+    if (!chargebackdata?.[0]) throw new NotFoundError('Chargeback not found');
 
     const company = await getCompanyDao({ id: company_id });
-    if (!company || !company[0]) {
-      throw new NotFoundError('Company not found');
-    }
+
+    if (!company?.[0]) throw new NotFoundError('Company not found');
+
     const merchantData = await getMerchantByUserIdDao(merchant_user_id);
-    if (!merchantData || !merchantData[0]) {
-      throw new NotFoundError('Merchant not found');
-    }
-    let companyBlockedUsers = company[0]?.config?.blocked_users || [];
-    const companyBlockedUsersObj =
-      Array.isArray(companyBlockedUsers) && companyBlockedUsers[0]?.user_ip
-        ? { user_ip: companyBlockedUsers[0].user_ip }
-        : { user_ip: [] };
-    const alreadyExists = companyBlockedUsersObj.user_ip.includes(
-      user_ip.trim(),
+
+    if (!merchantData?.[0]) throw new NotFoundError('Merchant not found');
+
+    // Normalize helper
+    const normalize = (val) => val?.toString().trim().toLowerCase();
+    const isSameUserEntry = (u1, u2) =>
+      normalize(u1.userId) === normalize(u2.userId) &&
+      normalize(u1.user_ip) === normalize(u2.user_ip);
+
+    let chargebackBlockedUsers = chargebackdata[0]?.config?.blocked_users || [];
+
+    const isBlocked = chargebackBlockedUsers.some((u) =>
+      isSameUserEntry(u, { userId, user_ip }),
     );
-    let updatedCompanyBlockedUsers;
-    if (alreadyExists) {
-      updatedCompanyBlockedUsers = {
-        user_ip: companyBlockedUsersObj.user_ip.filter(
-          (ip) => ip.trim() !== user_ip.trim(),
-        ),
-      };
+
+    let updatedChargebackBlockedUsers;
+
+    if (isBlocked) {
+      // UNBLOCK
+      updatedChargebackBlockedUsers = chargebackBlockedUsers.filter(
+        (u) => !isSameUserEntry(u, { userId, user_ip }),
+      );
     } else {
-      updatedCompanyBlockedUsers = {
-        user_ip: [...companyBlockedUsersObj.user_ip, user_ip],
-      };
+      // BLOCK
+      updatedChargebackBlockedUsers = [
+        ...chargebackBlockedUsers,
+        { userId, user_ip },
+      ];
     }
-    const dbCompanyBlockedUsers =
-      updatedCompanyBlockedUsers.user_ip.length > 0
-        ? [{ user_ip: updatedCompanyBlockedUsers.user_ip }]
-        : [];
-    await updateCompanyConfigDao(
-      { id: company_id },
-      {
-        config: { blocked_users: dbCompanyBlockedUsers },
-      },
-      conn,
-    );
-    let merchantBlockedUsers = merchantData[0]?.config?.blocked_users || [];
-    let merchantBlockedUsersObj =
-      Array.isArray(merchantBlockedUsers) && merchantBlockedUsers[0]?.userId
-        ? { userId: merchantBlockedUsers[0].userId }
-        : { userId: [] };
-    if (merchantBlockedUsersObj.userId.join('') === userId) {
-      merchantBlockedUsersObj.userId = [userId];
-    }
-    const isAlreadyUserBlocked =
-      merchantBlockedUsersObj.userId.includes(userId);
-    let updatedMerchantBlockedUsers;
-    if (isAlreadyUserBlocked) {
-      updatedMerchantBlockedUsers = {
-        userId: merchantBlockedUsersObj.userId.filter((id) => id !== userId),
-      };
-    } else {
-      updatedMerchantBlockedUsers = {
-        userId: [
-          ...merchantBlockedUsersObj.userId.filter((id) => id !== userId),
-          userId,
-        ],
-      };
-    }
-    const dbMerchantBlockedUsers =
-      updatedMerchantBlockedUsers.userId.length > 0
-        ? [{ userId: updatedMerchantBlockedUsers.userId }]
-        : [];
-    await updateMerchantDao(
-      { user_id: merchant_user_id },
-      {
-        config: {
-          blocked_users: dbMerchantBlockedUsers,
-        },
-      },
-      conn,
-    );
-    let updatedChargebackBlockedUsers = alreadyExists
-      ? []
-      : [{ userId, user_ip }];
+
     await updateChargeBackDao(
       { id: chargebackdata[0].id },
       { config: { blocked_users: updatedChargebackBlockedUsers } },
       conn,
     );
+    if (!isBlocked) {
+      // ---- Company block ----
+      let companyBlockedUsers = company[0]?.config?.blocked_users || [];
+      let companyBlockedIPs =
+        Array.isArray(companyBlockedUsers) && companyBlockedUsers[0]?.user_ip
+          ? companyBlockedUsers[0].user_ip
+          : [];
+      if (!companyBlockedIPs.includes(user_ip.trim())) {
+        companyBlockedIPs.push(user_ip.trim());
+      }
+      const updatedCompanyBlockedUsers = companyBlockedIPs.length
+        ? [{ user_ip: companyBlockedIPs }]
+        : [];
+      await updateCompanyConfigDao(
+        { id: company_id },
+        { config: { blocked_users: updatedCompanyBlockedUsers } },
+        conn,
+      );
+      // ---- Merchant block ----
+      let merchantBlockedUsers = merchantData[0]?.config?.blocked_users || [];
+      let merchantBlockedIds =
+        Array.isArray(merchantBlockedUsers) && merchantBlockedUsers[0]?.userId
+          ? merchantBlockedUsers[0].userId
+          : [];
+
+      if (!merchantBlockedIds.includes(userId)) {
+        merchantBlockedIds.push(userId);
+      }
+
+      const updatedMerchantBlockedUsers = merchantBlockedIds.length
+        ? [{ userId: merchantBlockedIds }]
+        : [];
+
+      await updateMerchantDao(
+        { user_id: merchant_user_id },
+        {
+          config: {
+            blocked_users: updatedMerchantBlockedUsers,
+          },
+        },
+        conn,
+      );
+    } else {
+      // ---- Company unblock ----
+      let companyBlockedUsers = company[0]?.config?.blocked_users || [];
+      let companyBlockedIPs =
+        Array.isArray(companyBlockedUsers) && companyBlockedUsers[0]?.user_ip
+          ? companyBlockedUsers[0].user_ip
+          : [];
+      companyBlockedIPs = companyBlockedIPs.filter(
+        (ip) => ip.trim() !== user_ip.trim(),
+      );
+
+      const updatedCompanyBlockedUsers = companyBlockedIPs.length
+        ? [{ user_ip: companyBlockedIPs }]
+        : [];
+      await updateCompanyConfigDao(
+        { id: company_id },
+        { config: { blocked_users: updatedCompanyBlockedUsers } },
+        conn,
+      );
+      // ---- Merchant unblock ----
+      let merchantBlockedUsers = merchantData[0]?.config?.blocked_users || [];
+      let merchantBlockedIds =
+        Array.isArray(merchantBlockedUsers) && merchantBlockedUsers[0]?.userId
+          ? merchantBlockedUsers[0].userId
+          : [];
+      merchantBlockedIds = merchantBlockedIds.filter((id) => id !== userId);
+
+      const updatedMerchantBlockedUsers = merchantBlockedIds.length
+        ? [{ userId: merchantBlockedIds }]
+        : [];
+      await updateMerchantDao(
+        { user_id: merchant_user_id },
+        {
+          config: {
+            blocked_users: updatedMerchantBlockedUsers,
+          },
+        },
+        conn,
+      );
+    }
 
     await commit(conn);
     return {
