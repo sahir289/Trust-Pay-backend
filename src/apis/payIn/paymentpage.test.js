@@ -190,99 +190,101 @@ describe('verifyPayinsService', () => {
 });
 
 
+//--------------------------------ASSINGED--------------------------------------------------------------
+
 describe('assignedBankToPayInUrlService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
-  
-test('should handle PayIn with ASSIGNED status when type is banktransfer', async () => {
-  jest.mock('./payInService.js', () => ({
-    BankTypes: {
-      BANK_TRANSFER: 'BANK_TRANSFER',
-      UPI: 'UPI',
-      PHONE_PE: 'PHONE_PE',
-      INTENT: 'INTENT',
-    },
-  }));
 
-  getPayInUrlDao.mockResolvedValue({
-    ...mockPayIn,
-    status: 'ASSIGNED',
-    bank_acc_id: 'bank1',
-    company_id: 'company1',
+  test('should handle PayIn with ASSIGNED status when type is banktransfer', async () => {
+    jest.mock('./payInService.js', () => ({
+      BankTypes: {
+        BANK_TRANSFER: 'BANK_TRANSFER',
+        UPI: 'UPI',
+        PHONE_PE: 'PHONE_PE',
+        INTENT: 'INTENT',
+      },
+    }));
+
+    getPayInUrlDao.mockResolvedValue({
+      ...mockPayIn,
+      status: 'ASSIGNED',
+      bank_acc_id: 'bank1',
+      company_id: 'company1',
+    });
+
+    getBankaccountDao.mockResolvedValue([
+      {
+        id: '8765432567876',
+        company_id: '98765457679087',
+        nick_name: 'Bank1',
+        acc_holder_name: 'Holder',
+        acc_no: '123456',
+        ifsc: 'IFSC123',
+      },
+    ]);
+
+    const result = await assignedBankToPayInUrlService('123', 1000, 'bank_transfer');
+    expect(result).toEqual({
+      return: mockPayIn.config.urls.return,
+      bank: {
+        nick_name: 'Bank1',
+        acc_holder_name: 'Holder',
+        acc_no: '123456',
+        ifsc: 'IFSC123',
+      },
+    });
   });
 
-  getBankaccountDao.mockResolvedValue([
-    {
-      id: '8765432567876',
-      company_id: '98765457679087',
-      nick_name: 'Bank1',
-      acc_holder_name: 'Holder',
-      acc_no: '123456',
-      ifsc: 'IFSC123',
-    },
-  ]);
+  test('should handle PayIn with ASSIGNED status when type is not banktransfer', async () => {
+    jest.mock('./payInService.js', () => ({
+      BankTypes: {
+        BANK_TRANSFER: 'bank_transfer',
+        UPI: 'upi',
+        PHONE_PE: 'phone_pe',
+        INTENT: 'intent',
+      },
+    }));
 
-  const result = await assignedBankToPayInUrlService('123', 1000, 'bank_transfer');
-  expect(result).toEqual({
-    return: mockPayIn.config.urls.return,
-    bank: {
-      nick_name: 'Bank1',
-      acc_holder_name: 'Holder',
-      acc_no: '123456',
-      ifsc: 'IFSC123',
-    },
+    getPayInUrlDao.mockResolvedValue({
+      ...mockPayIn,
+      status: 'ASSIGNED',
+      bank_acc_id: 'bank1',
+      company_id: 'company1',
+      upi_short_code: 'UPI123'
+    });
+
+    getBankaccountDao.mockResolvedValue([
+      {
+        id: '8765432567876',
+        company_id: '98765457679087',
+        upi_id: '54321@gfds',
+        acc_holder_name: 'Holder',
+        code: 'UPI123',
+      },
+    ]);
+
+    const result = await assignedBankToPayInUrlService('123', 1000, 'upi');
+    expect(result).toEqual({
+      return: mockPayIn.config.urls.return,
+      bank: {
+        upi_id: '54321@gfds',
+        acc_holder_name: 'Holder',
+        code: 'UPI123',
+      },
+    });
   });
-});
-
-test('should handle PayIn with ASSIGNED status when type is not banktransfer', async () => {
-  jest.mock('./payInService.js', () => ({
-    BankTypes: {
-      BANK_TRANSFER: 'bank_transfer',
-      UPI: 'upi',
-      PHONE_PE: 'phone_pe',
-      INTENT: 'intent',
-    },
-  }));
-
-  getPayInUrlDao.mockResolvedValue({
-    ...mockPayIn,
-    status: 'ASSIGNED',
-    bank_acc_id: 'bank1',
-    company_id: 'company1',
-     upi_short_code: 'UPI123'
-  });
-
-  getBankaccountDao.mockResolvedValue([
-    {
-      id: '8765432567876',
-      company_id: '98765457679087',
-      upi_id: '54321@gfds',
-      acc_holder_name: 'Holder',
-      code: 'UPI123',
-    },
-  ]);
-
-  const result = await assignedBankToPayInUrlService('123', 1000, 'upi');
-  expect(result).toEqual({
-    return: mockPayIn.config.urls.return,
-    bank: {
-      upi_id: '54321@gfds',
-      acc_holder_name: 'Holder',
-      code: 'UPI123',
-    },
-  });
-});
 
   test('should throw error for invalid amount', async () => {
     getPayInUrlDao.mockResolvedValue(mockPayIn);
     getMerchantsDao.mockResolvedValue([{ ...mockMerchant, min_payin: 5000, max_payin: 10000 }]);
-  
+
     await expect(assignedBankToPayInUrlService('123', 1000, 'BANK_TRANSFER')).resolves.toEqual({
       message: 'Amount must be between 5000 and 10000',
     });
   });
-  
+
   test('should throw error when no enabled banks found', async () => {
     getPayInUrlDao.mockResolvedValue(mockPayIn);
     getMerchantsDao.mockResolvedValue([mockMerchant]);
@@ -290,4 +292,235 @@ test('should handle PayIn with ASSIGNED status when type is not banktransfer', a
     updatePayInUrlDao.mockResolvedValue({ id: mockPayIn.id });
     await expect(assignedBankToPayInUrlService('123', 1000, 'BANK_TRANSFER')).rejects.toThrow('No enabled bank found!');
   });
+});
+
+
+//--------------------------------PROCESS--------------------------------------------------------------
+describe('processPayInService', () => {
+  const mockConn = {};
+  const mockPayload = {
+    userSubmittedUtr: 'UTR123',
+    merchantOrderId: 'ORDER123',
+    amount: 1000,
+    from_telegram: false,
+    telegramMessage: { chat: { id: 'CHAT123' }, message_id: 'MSG123' },
+    telegramBotToken: 'BOT_TOKEN',
+    user_submitted_image: 'image.jpg',
+  };
+  const mockUpdatedBy = 'user123';
+  const mockPayIn = {
+    id: 'PAYIN123',
+    bank_acc_id: 'BANK123',
+    company_id: 'COMPANY123',
+    merchant_order_id: 'ORDER123',
+    status: 'PENDING',
+    one_time_used: false,
+    is_url_expires: false,
+    created_at: new Date(),
+    config: { urls: { notify: 'http://notify.url', return: 'http://return.url' } },
+    merchant_id: 'MERCHANT123',
+    amount: 1000,
+  };
+  const mockBank = {
+    id: 'BANK123',
+    nick_name: 'Bank1',
+    user_id: 'USER123',
+    company_id: 'COMPANY123',
+  };
+  const mockBankResponse = {
+    id: 'BANK_RESP123',
+    utr: 'UTR123',
+    amount: 1000,
+    bank_id: 'BANK123',
+    is_used: false,
+  };
+  const mockMerchant = {
+    id: 'MERCHANT123',
+    user_id: 'MERCHANT_USER123',
+    payin_commission: 2,
+  };
+
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
+test('should handle successful payin', async () => {
+  getPayInUrlService.mockResolvedValue(mockPayIn);
+  checkLockEdit.mockResolvedValue();
+  getBankaccountDao.mockResolvedValue([mockBank]);
+  getPayInUrlsDao.mockResolvedValue([]);
+  getBankResponseDao.mockResolvedValue(mockBankResponse);
+  updateBotResponseDao.mockResolvedValue();
+  getMerchantsDao.mockResolvedValue([mockMerchant]);
+  calculateCommission.mockReturnValue(20);
+  updateCalculationTable.mockResolvedValue();
+  updatePayInUrlDao.mockResolvedValue();
+
+  const result = await processPayInService(mockConn, mockPayload, mockUpdatedBy);
+
+  expect(getPayInUrlService).toHaveBeenCalledWith('ORDER123', mockConn, true);
+  expect(checkLockEdit).toHaveBeenCalledWith(mockConn, 'BANK123UTR123', true);
+  expect(getBankaccountDao).toHaveBeenCalledWith({
+    id: mockPayIn.bank_acc_id,
+    company_id: mockPayIn.company_id,
+  });
+  expect(getPayInUrlsDao).toHaveBeenCalledWith({ user_submitted_utr: 'UTR123' });
+  expect(updateBotResponseDao).toHaveBeenCalledWith('BANK_RESP123', { is_used: true }, mockConn);
+  expect(updatePayInUrlDao).toHaveBeenCalledWith(
+    mockPayIn.id,
+    expect.objectContaining({
+      status: Status.SUCCESS,
+      amount: 1000,
+      user_submitted_utr: 'UTR123',
+      is_url_expires: true,
+      one_time_used: true,
+      user_submitted_image: 'image.jpg',
+      is_notified: true,
+      updated_by: mockUpdatedBy,
+      bank_response_id: 'BANK_RESP123',
+      payin_merchant_commission: 20,
+    }),
+    mockConn
+  );
+  expect(merchantPayinCallback).toHaveBeenCalledWith(
+    mockPayIn.config.urls.notify,
+    expect.objectContaining({
+      status: Status.SUCCESS,
+      merchantOrderId: 'ORDER123',
+      payinId: 'PAYIN123',
+      amount: 1000,
+      req_amount: 1000,
+      utr_id: 'UTR123',
+    })
+  );
+  expect(result).toEqual(expect.objectContaining({
+    status: Status.SUCCESS,
+    merchantOrderId: 'ORDER123',
+    payinId: 'PAYIN123',
+    amount: 1000,
+    req_amount: 1000,
+    utr_id: 'UTR123',
+  }));
+});
+
+test('should handle expired or used payin url', async () => {
+  const expiredPayIn = { ...mockPayIn, one_time_used: true, is_url_expires: true };
+  getPayInUrlService.mockResolvedValue(expiredPayIn);
+
+  const result = await processPayInService(mockConn, mockPayload, mockUpdatedBy);
+
+  expect(result).toEqual({
+    error: 'This payin url is already used',
+    result: { redirect_url: expiredPayIn.config.urls.return },
+  });
+  expect(checkLockEdit).not.toHaveBeenCalled();
+});
+
+test('should handle duplicate payin', async () => {
+  getPayInUrlService.mockResolvedValue(mockPayIn);
+  checkLockEdit.mockResolvedValue();
+  getBankaccountDao.mockResolvedValue([mockBank]);
+  getPayInUrlsDao.mockResolvedValue([mockPayIn]);
+  updatePayInUrlDao.mockResolvedValue();
+
+  const result = await processPayInService(mockConn, mockPayload, mockUpdatedBy);
+
+  expect(updatePayInUrlDao).toHaveBeenCalledWith(
+    mockPayIn.id,
+    expect.objectContaining({ status: Status.DUPLICATE }),
+    mockConn
+  );
+  expect(merchantPayinCallback).toHaveBeenCalled();
+  expect(result).toEqual(expect.objectContaining({
+    status: Status.DUPLICATE,
+    message: 'Duplicate entry used!',
+  }));
+});
+
+test('should handle bank mismatch with telegram', async () => {
+  const mismatchedBankResponse = { ...mockBankResponse, bank_id: 'BANK456' };
+  const botBank = { ...mockBank, id: 'BANK456', nick_name: 'Bank2' };
+  getPayInUrlService.mockResolvedValue(mockPayIn);
+  checkLockEdit.mockResolvedValue();
+  getBankaccountDao
+    .mockResolvedValueOnce([mockBank])
+    .mockResolvedValueOnce([botBank]);
+  getPayInUrlsDao.mockResolvedValue([]);
+  getBankResponseDao.mockResolvedValue(mismatchedBankResponse);
+  updateBotResponseDao.mockResolvedValue();
+  updatePayInUrlDao.mockResolvedValue();
+  sendBankMismatchMessageTelegramBot.mockResolvedValue();
+
+  const telegramPayload = { ...mockPayload, from_telegram: true };
+  const result = await processPayInService(mockConn, telegramPayload, mockUpdatedBy);
+
+  expect(updatePayInUrlDao).toHaveBeenCalledWith(
+    mockPayIn.id,
+    expect.objectContaining({ status: Status.BANK_MISMATCH }),
+    mockConn
+  );
+  expect(sendBankMismatchMessageTelegramBot).toHaveBeenCalledWith(
+    telegramPayload.telegramMessage.chat.id,
+    mockBank.nick_name,
+    botBank.nick_name,
+    telegramPayload.telegramBotToken,
+    telegramPayload.telegramMessage.message_id
+  );
+  expect(result).toBe(true);
+});
+
+test('should handle dispute with telegram', async () => {
+  const disputeBankResponse = { ...mockBankResponse, amount: 500 };
+  getPayInUrlService.mockResolvedValue(mockPayIn);
+  checkLockEdit.mockResolvedValue();
+  getBankaccountDao.mockResolvedValue([mockBank]);
+  getPayInUrlsDao.mockResolvedValue([]);
+  getBankResponseDao.mockResolvedValue(disputeBankResponse);
+  updateBotResponseDao.mockResolvedValue();
+  updatePayInUrlDao.mockResolvedValue();
+  sendDisputeMessageTelegramBot.mockResolvedValue();
+
+  const telegramPayload = { ...mockPayload, from_telegram: true };
+  const result = await processPayInService(mockConn, telegramPayload, mockUpdatedBy);
+
+  expect(updatePayInUrlDao).toHaveBeenCalledWith(
+    mockPayIn.id,
+    expect.objectContaining({ status: Status.DISPUTE }),
+    mockConn
+  );
+  expect(sendDisputeMessageTelegramBot).toHaveBeenCalledWith(
+    telegramPayload.telegramMessage.chat.id,
+    mockPayload.amount,
+    disputeBankResponse.amount,
+    telegramPayload.telegramBotToken,
+    telegramPayload.telegramMessage.message_id
+  );
+  expect(result).toBe(true);
+});
+
+test('should throw NotFoundError when bank not found', async () => {
+  getPayInUrlService.mockResolvedValue(mockPayIn);
+  checkLockEdit.mockResolvedValue();
+  getBankaccountDao.mockResolvedValue([]);
+
+  await expect(
+    processPayInService(mockConn, mockPayload, mockUpdatedBy)
+  ).rejects.toThrow(NotFoundError);
+});
+
+test('should throw BadRequestError for missing telegram parameters', async () => {
+  getPayInUrlService.mockResolvedValue(mockPayIn);
+  checkLockEdit.mockResolvedValue();
+  getBankaccountDao.mockResolvedValue([mockBank]);
+  getPayInUrlsDao.mockResolvedValue([]);
+  getBankResponseDao.mockResolvedValue(mockBankResponse);
+  updateBotResponseDao.mockResolvedValue();
+  updatePayInUrlDao.mockResolvedValue();
+
+  const invalidPayload = { ...mockPayload, from_telegram: true, telegramBotToken: null };
+
+  await expect(
+    processPayInService(mockConn, invalidPayload, mockUpdatedBy)
+  ).rejects.toThrow(BadRequestError);
+});
 });
