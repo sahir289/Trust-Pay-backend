@@ -1148,6 +1148,7 @@ export const getPayinsBySearchService = async (
   role,
   user_id,
   designation,
+  updatedPayin,
 ) => {
   try {
     const fetchMerchantIds = async (user_ids) => {
@@ -1246,6 +1247,7 @@ export const getPayinsBySearchService = async (
       limitNum,
       offset,
       role,
+      updatedPayin,
       // filterColumns,
     );
 
