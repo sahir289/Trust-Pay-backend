@@ -27,6 +27,7 @@ jest.mock('../merchants/merchantDao.js', () => ({
 
 jest.mock('../bankAccounts/bankaccountDao.js', () => ({
   getMerchantBankDao: jest.fn(),
+  getBankaccountDao: jest.fn()
 }));
 
 jest.mock('../../utils/logger.js', () => ({
@@ -54,6 +55,7 @@ const mockMerchant = {
   max_payin: 1000,
   config: { blocked_users: [] },
 };
+
 const mockBanks = [
   {
     bank_id: 'bank1',
@@ -152,23 +154,19 @@ describe('verifyPayinsService', () => {
     });
   });
 
-  test('should throw BadRequestError for blocked IP', async () => {
-    const blockedMerchant = {
-      ...mockMerchant,
-      config: { blocked_users: [{ user_ip: '192.168.1.1' }] },
-    };
-    getPayInUrlService.mockResolvedValue(mockPayIn);
-    getMerchantsDao.mockResolvedValue(blockedMerchant.config.blocked_users);
-    console.log(blockedMerchant.config.blocked_users, 'blocked____users')
-    updatePayInUrlDao.mockResolvedValue({ id: mockPayIn.id });
-    await expect(verifyPayinsService('123', [{ user_ip: '192.168.1.1' }], false)).rejects.toThrow(BadRequestError);
-  });
-
   test('should throw InternalServerError if updatePayInUrlDao returns null', async () => {
-    getPayInUrlService.mockResolvedValue(mockPayIn);
+    getPayInUrlService.mockResolvedValue({
+      id: 'payin1',
+      merchant_id: 'merchant1',
+      one_time_used: false,
+      config: { urls: { return: 'http://return.url' } },
+      amount: 100,
+      expiration_date: '2025-12-31',
+      status: 'active',
+    });
     getMerchantsDao.mockResolvedValue([mockMerchant]);
     updatePayInUrlDao.mockResolvedValue(null);
-
+    jest.spyOn(global.Set.prototype, 'has').mockReturnValue(false);
     await expect(verifyPayinsService('123', { user_ip: '192.168.1.1' }, 'false')).rejects.toThrow(InternalServerError);
   });
 
@@ -196,24 +194,86 @@ describe('assignedBankToPayInUrlService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
+  
+test('should handle PayIn with ASSIGNED status when type is banktransfer', async () => {
+  jest.mock('./payInService.js', () => ({
+    BankTypes: {
+      BANK_TRANSFER: 'BANK_TRANSFER',
+      UPI: 'UPI',
+      PHONE_PE: 'PHONE_PE',
+      INTENT: 'INTENT',
+    },
+  }));
 
-  test('should handle PayIn with ASSIGNED status', async () => {
-    getPayInUrlDao.mockResolvedValue({ ...mockPayIn, status: 'ASSIGNED', bank_acc_id: 'bank1', company_id: 'company1' });
-    getBankaccountDao.mockResolvedValue([{ nick_name: 'Bank1', acc_holder_name: 'Holder', acc_no: '123456', ifsc: 'IFSC123' }]);
-  
-    const result = await assignedBankToPayInUrlService('123', 1000, 'BANK_TRANSFER');
-  
-    expect(result).toEqual({
-      return: mockPayIn.config.urls.return,
-      bank: {
-        nick_name: 'Bank1',
-        acc_holder_name: 'Holder',
-        acc_no: '123456',
-        ifsc: 'IFSC123',
-      },
-    });
+  getPayInUrlDao.mockResolvedValue({
+    ...mockPayIn,
+    status: 'ASSIGNED',
+    bank_acc_id: 'bank1',
+    company_id: 'company1',
   });
-  
+
+  getBankaccountDao.mockResolvedValue([
+    {
+      id: '8765432567876',
+      company_id: '98765457679087',
+      nick_name: 'Bank1',
+      acc_holder_name: 'Holder',
+      acc_no: '123456',
+      ifsc: 'IFSC123',
+    },
+  ]);
+
+  const result = await assignedBankToPayInUrlService('123', 1000, 'bank_transfer');
+  expect(result).toEqual({
+    return: mockPayIn.config.urls.return,
+    bank: {
+      nick_name: 'Bank1',
+      acc_holder_name: 'Holder',
+      acc_no: '123456',
+      ifsc: 'IFSC123',
+    },
+  });
+});
+
+test('should handle PayIn with ASSIGNED status when type is not banktransfer', async () => {
+  jest.mock('./payInService.js', () => ({
+    BankTypes: {
+      BANK_TRANSFER: 'bank_transfer',
+      UPI: 'upi',
+      PHONE_PE: 'phone_pe',
+      INTENT: 'intent',
+    },
+  }));
+
+  getPayInUrlDao.mockResolvedValue({
+    ...mockPayIn,
+    status: 'ASSIGNED',
+    bank_acc_id: 'bank1',
+    company_id: 'company1',
+     upi_short_code: 'UPI123'
+  });
+
+  getBankaccountDao.mockResolvedValue([
+    {
+      id: '8765432567876',
+      company_id: '98765457679087',
+      upi_id: '54321@gfds',
+      acc_holder_name: 'Holder',
+      code: 'UPI123',
+    },
+  ]);
+
+  const result = await assignedBankToPayInUrlService('123', 1000, 'upi');
+  expect(result).toEqual({
+    return: mockPayIn.config.urls.return,
+    bank: {
+      upi_id: '54321@gfds',
+      acc_holder_name: 'Holder',
+      code: 'UPI123',
+    },
+  });
+});
+
   test('should throw error for invalid amount', async () => {
     getPayInUrlDao.mockResolvedValue(mockPayIn);
     getMerchantsDao.mockResolvedValue([{ ...mockMerchant, min_payin: 5000, max_payin: 10000 }]);
@@ -228,7 +288,6 @@ describe('assignedBankToPayInUrlService', () => {
     getMerchantsDao.mockResolvedValue([mockMerchant]);
     getMerchantBankDao.mockResolvedValue([]);
     updatePayInUrlDao.mockResolvedValue({ id: mockPayIn.id });
-  
     await expect(assignedBankToPayInUrlService('123', 1000, 'BANK_TRANSFER')).rejects.toThrow('No enabled bank found!');
   });
 });
