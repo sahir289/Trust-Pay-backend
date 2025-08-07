@@ -27,6 +27,7 @@ import {
   getPayinsBySearchDao,
   getAllPayInsDao,
   getPayInPendingDao,
+  getPayinsSumAndCountByStatusDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -1257,6 +1258,15 @@ export const getPayinsBySearchService = async (
   }
 };
 
+export const getPayinsSummaryService = async (filters) => {
+  try {
+    const data = await getPayinsSumAndCountByStatusDao(filters);
+    return data;
+  } catch (error) {
+    logger.error('Error while fetching Payin SUM', error);
+    throw new InternalServerError(error.message);
+  }
+};
 export const processPayInService = async (
   conn,
   payload,

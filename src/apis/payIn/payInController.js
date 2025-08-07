@@ -44,6 +44,7 @@ import {
   updateUtrPayinService,
   checkPendingPayinStatusService,
   updatePayInService,
+  getPayinsSummaryService,
 } from './payInService.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
@@ -457,6 +458,14 @@ export const getPayinsBySearch = async (req, res) => {
     designation,
     updatedPayin,
   );
+
+  return sendSuccess(res, data, 'Payins fetched successfully');
+};
+export const getPayinsSummary = async (req, res) => {
+  const { company_id} = req.user;
+  const data = await getPayinsSummaryService({
+    company_id
+  });
 
   return sendSuccess(res, data, 'Payins fetched successfully');
 };
