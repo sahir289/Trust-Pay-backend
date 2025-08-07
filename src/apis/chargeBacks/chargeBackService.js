@@ -349,7 +349,6 @@ const getChargeBacksBySearchService = async (
         .map((term) => term.trim())
         .filter((term) => term.length > 0);
     }
-   
     // Call DAO with all required parameters
     const chargeBacks = await getChargeBacksBySearchDao(
       filters,
@@ -379,7 +378,6 @@ const getChargeBacksBySearchService = async (
 const blockChargebackUserService = async (ids, data) => {
   let conn;
   try {
-   
     conn = await getConnection();
     await beginTransaction(conn);
     const { id, company_id } = ids;
@@ -412,7 +410,6 @@ const blockChargebackUserService = async (ids, data) => {
           (ip) => ip.trim() !== user_ip.trim(),
         ),
       };
-      
     } else {
       updatedCompanyBlockedUsers = {
         user_ip: [...companyBlockedUsersObj.user_ip, user_ip],
