@@ -537,8 +537,8 @@ export const getPayoutsBySearchDao = async (
         p.merchant_order_id,
         p.bank_acc_id,
         p.approved_at, 
-        p.created_by, 
-        p.updated_by, 
+        cu.user_name AS created_by,
+        uu.user_name AS updated_by,
         p.user, 
         p.created_at, 
         v.code AS vendor_code, 
@@ -585,6 +585,8 @@ export const getPayoutsBySearchDao = async (
       LEFT JOIN public."Merchant" m ON p.merchant_id = m.id
       LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
       LEFT JOIN public."Vendor" v ON p.vendor_id = v.id
+      LEFT JOIN public."User" cu ON p.created_by = cu.id
+      LEFT JOIN public."User" uu ON p.updated_by = uu.id
       WHERE ${conditions.join(' AND ')}
     `;
 

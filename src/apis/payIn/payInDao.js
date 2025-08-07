@@ -762,10 +762,10 @@ export const getPayinsBySearchDao = async (
         p.upi_short_code,
         p.is_url_expires,
         p.approved_at,
-        p.created_by,
+        u.user_name AS created_by,
+        uu.user_name AS updated_by,
         p.is_notified,
         p.user,
-        p.updated_by,
         p.created_at,
         p.updated_at`;
     }
