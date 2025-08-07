@@ -475,9 +475,15 @@ const getBankAccountsBySearchDao = async (
     // Main query with sorting and pagination
     const mainQuery = `
       ${baseQuery}
-      ORDER BY ba.is_obsolete ASC NULLS LAST,
-       ba.is_enabled DESC,  
-       ba.updated_at DESC  
+      ORDER BY
+        (CASE 
+          WHEN ba.is_enabled = true AND (ba.config->>'is_freeze')::boolean IS DISTINCT FROM true AND ba.is_obsolete = false THEN 1 -- Active
+          WHEN ba.is_enabled = false AND (ba.config->>'is_freeze')::boolean IS DISTINCT FROM true AND ba.is_obsolete = false THEN 2 -- Deactive
+          WHEN (ba.config->>'is_freeze')::boolean = true AND ba.is_obsolete = false THEN 3 -- Freezed
+          WHEN ba.is_obsolete = true THEN 4 -- Obsolete
+          ELSE 5
+        END),
+        ba.updated_at DESC
       ${limitcondition};
     `;
 
