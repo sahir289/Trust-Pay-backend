@@ -664,6 +664,9 @@ const getBankResponseDaoAll = async (
           paramIndex += statuses.length;
         }
       }
+      else{
+        baseQueryVendor += ` AND br.status IN ('/success', '/freezed', '/internalTransfer')`;
+      }
     }
 
     if (filters.search) {
