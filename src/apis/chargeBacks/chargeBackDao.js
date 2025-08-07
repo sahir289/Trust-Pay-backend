@@ -505,6 +505,7 @@ export const getChargeBacksBySearchDao = async (
             LOWER(m.code::text) LIKE LOWER($${paramIndex}) OR
             LOWER(v.code::text) LIKE LOWER($${paramIndex}) OR
             LOWER(p.user_submitted_utr::text) LIKE LOWER($${paramIndex}) OR
+            LOWER(p.config->'user'->>'user_ip'::text) LIKE LOWER($${paramIndex}) OR
             LOWER(p.merchant_order_id::text) LIKE LOWER($${paramIndex}) OR
             LOWER(br.utr::text) LIKE LOWER($${paramIndex}) OR
             LOWER(ba.nick_name::text) LIKE LOWER($${paramIndex}) OR
