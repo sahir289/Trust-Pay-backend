@@ -22,11 +22,15 @@ import { BadRequestError } from '../../utils/appErrors.js';
 
 import { transactionWrapper } from '../../utils/db.js';
 import { Role, tableName } from '../../constants/index.js';
+
+// Ensure Role.BOT is defined in '../../constants/index.js' as:
+// export const Role = { BOT: 'BOT', ...otherRoles };
 import config from '../../config/config.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { s3 } from '../../helpers/Aws.js';
 import { streamToBuffer } from '../../helpers/index.js';
 import { newTableEntry } from '../../utils/sockets.js';
+import { publishBankResponse } from '../../utils/rabbitmq-bank-response.js';
 const getBankResponse = async (req, res) => {
   const { role, company_id } = req.user;
   const { page, limit, search, updated, sortOrder, sortBy, ...rest } =
@@ -99,7 +103,19 @@ const createBankResponse = async (req, res) => {
     user_name,
     user_id,
   );
+
+  // Prepare the full payload as expected by your service/consumer
+  // const bankResponseObject = {
+  //   payload,
+  //   company_id,
+  //   role,
+  //   user_name,
+  //   user_id,
+  // };
   await newTableEntry(tableName.BANK_RESPONSE);
+  // if (!result.message === 'Entry created successfully' ) {
+    // await publishBankResponse(bankResponseObject);
+  // }
   sendSuccess(res, result, 'Created Bank Response successfully');
 };
 
@@ -110,6 +126,13 @@ const createBankBotResponse = async (req, res) => {
   if (error) {
     throw new ValidationError(error);
   }
+
+  // const bankResponseObject = {
+  //   payload,
+  //   x_auth_token,
+  //   role:Role.BOT,
+  // };
+  // await publishBankResponse(bankResponseObject);
   const result = await createBankResponseService(
     payload,
     x_auth_token,
@@ -118,6 +141,56 @@ const createBankBotResponse = async (req, res) => {
   );
   await newTableEntry(tableName.BANK_RESPONSE);
   sendSuccess(res, result, 'Created Bank Bot Response successfully');
+};
+
+const createBankBotResponseBulk = async (req, res) => {
+  const x_auth_token = req.headers['x-auth-token'];
+  const payloads = req.body?.body; // Expecting an array
+
+  if (!Array.isArray(payloads)) {
+    throw new ValidationError('body must be an array of payloads');
+  }
+
+  // Validate all payloads and collect errors/indexes
+  const invalidIndexes = [];
+  const invalidPayloads = [];
+  const validationErrors = [];
+
+  payloads.forEach((payload, idx) => {
+    const { error } = CREATE_BANK_RESPONSE_SCHEMA.validate({ body: payload });
+    if (error) {
+      invalidIndexes.push(idx);
+      invalidPayloads.push({ index: idx, payload, error: error.message });
+      validationErrors.push(error.message);
+    } else {
+      publishBankResponse({
+        payload,
+        x_auth_token,
+        role: Role.BOT,
+      }).catch(() => {});
+    }
+  });
+
+  const publishedCount = payloads.length - invalidIndexes.length;
+  const status =
+    invalidIndexes.length === 0
+      ? 'All messages published successfully'
+      : invalidIndexes.length === payloads.length
+      ? 'All messages invalid'
+      : `Published: ${publishedCount}, Invalid: ${invalidIndexes.length}`;
+
+  sendSuccess(
+    res,
+    {
+      published: publishedCount,
+      invalid: invalidIndexes.length,
+      invalidIndexes,
+      invalidPayloads,
+      validationErrors,
+      status: 202,
+    },
+    status
+  );
 };
 
 const updateBankResponse = async (req, res) => {
@@ -230,6 +303,7 @@ export {
   getClaimResponse,
   createBankResponse,
   createBankBotResponse,
+  createBankBotResponseBulk,
   updateBankResponse,
   getBankMessage,
   getBankResponseBySearch,

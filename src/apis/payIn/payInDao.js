@@ -43,7 +43,7 @@ export const getPayInCronDao = async (
 };
 export const getPayInwithMerchantDao = async (filters) => {
   try {
-    const sql = `SELECT p.merchant_order_id,p.status,p.amount,p.id,p.user_submitted_utr,p.config, m.config->'unblocked_countries' AS unblockedcountries, p.merchant_id, c.config->'blocked_users' AS blocked_users ,p.user as userId
+    const sql = `SELECT p.merchant_order_id,p.status,p.amount,p.id,p.user_submitted_utr,p.config,p.created_at, m.config->'unblocked_countries' AS unblockedcountries, p.merchant_id, c.config->'blocked_users' AS blocked_users_ip ,m.config->'blocked_users' AS blocked_users_id,p.user as userId
        FROM "${tableName.PAYIN}" p
        INNER JOIN "${tableName.MERCHANT}" m ON p.merchant_id = m.id
        INNER JOIN "${tableName.COMPANY}" c ON p.company_id = c.id
@@ -117,6 +117,7 @@ export const getPayInDaoByCode = async (filters) => {
     throw error;
   }
 };
+
 
 export const getPayInsDao = async (filters, company_id, page, limit, role) => {
   try {
@@ -909,11 +910,21 @@ export const getPayinsBySearchDao = async (
     // Count query
     const countQuery = `SELECT COUNT(*) AS total FROM (${queryText}) AS count_table`;
     // Append pagination
-    queryText += `
+    
+    if (filters.updatedPayin) {
+      queryText += `
+      ORDER BY p.updated_at DESC
+      LIMIT $${queryParams.length + 1}
+      OFFSET $${queryParams.length + 2}
+    `;
+    }
+    else{
+      queryText += `
       ORDER BY p.created_at DESC
       LIMIT $${queryParams.length + 1}
       OFFSET $${queryParams.length + 2}
     `;
+    }
 
     queryParams.push(limitNum, offset);
 
@@ -996,6 +1007,8 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
       m.user_id AS merchant_user_id,
       p.created_at,
       p.status,
+      p.user,
+      p.config->'user'->>'user_ip' AS user_ip,
       p.user_submitted_utr,
       p.bank_response_id
     FROM public."Payin" p

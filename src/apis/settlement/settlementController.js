@@ -111,7 +111,7 @@ const getSettlementsBySearch = async (req, res) => {
 
 const createSettlementController = async (req, res) => {
   const payload = req.body;
-  const { company_id, user_id, user_name, designation } = req.user;
+  const { company_id, user_id, user_name, designation, role } = req.user;
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
@@ -137,7 +137,12 @@ const createSettlementController = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   //-- utr and amount for internal tranfer case
-  if (payload.amount && payload.utr && (payload.method === 'INTERNAL_TRANSFER' || payload.method === 'INTERNAL_BANK_TRANSFER')) {
+  if (
+    payload.amount &&
+    payload.utr &&
+    (payload.method === 'INTERNAL_QR_TRANSFER' ||
+      payload.method === 'INTERNAL_BANK_TRANSFER')
+  ) {
     const bankRes = await getBankResponseDao({
       utr: payload.utr,
       status: '/success',
@@ -175,7 +180,10 @@ const createSettlementController = async (req, res) => {
     },
   };
   // const data =
-  const settlement = await transactionWrapper(createSettlementService)(data);
+  const settlement = await transactionWrapper(createSettlementService)(
+    data,
+    role,
+  );
   logger.info('Created Settlement Successfully', settlement);
   sendSuccess(
     res,
