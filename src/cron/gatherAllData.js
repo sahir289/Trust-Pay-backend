@@ -83,7 +83,7 @@ const executeWithRetry = async (cronType, attemptDescription) => {
 };
 
 // Function to gather data for all companies
-const gatherAllDataForAllCompanies = async (type = 'H', timezone = 'Asia/Kolkata') => {
+const gatherAllDataForAllCompanies = async (type = 'N', timezone = 'Asia/Kolkata') => {
   try {
     logger.info('Starting gather data for all companies');
     
