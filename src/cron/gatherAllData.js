@@ -105,17 +105,25 @@ const gatherAllDataForAllCompanies = async (type = 'N', timezone = 'Asia/Kolkata
     //   }
     // }
     
-    // Alternative: Parallel processing (uncomment if you want faster processing)
-    await Promise.allSettled(
-      companies.map(async (company) => {
-        try {
-          logger.info(`Processing company: ${company.id}`);
-          await gatherAllData(company.id, type, timezone);
-        } catch (error) {
-          logger.error(`Error processing company ${company.id}: ${error}`);
-        }
-      })
-    );
+    // Parallel processing with 1-second delay after every 5 gatherAllData calls
+    const batchSize = 5;
+    for (let i = 0; i < companies.length; i += batchSize) {
+      const batch = companies.slice(i, i + batchSize);
+      await Promise.allSettled(
+        batch.map(async (company) => {
+          try {
+            logger.info(`Processing company: ${company.id}`);
+            await gatherAllData(company.id, type, timezone);
+          } catch (error) {
+            logger.error(`Error processing company ${company.id}: ${error}`);
+          }
+        })
+      );
+      // Add a 1-second delay after every batch except the last
+      if (i + batchSize < companies.length) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
     
     logger.info('Completed gather data for all companies');
     
