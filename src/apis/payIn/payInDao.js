@@ -41,14 +41,44 @@ export const getPayInCronDao = async (
     throw error;
   }
 };
-export const getPayInwithMerchantDao = async (filters) => {
+export const getPayInwithMerchantDao = async (merchantorderid) => {
   try {
-    const sql = `SELECT p.merchant_order_id,p.status,p.amount,p.id,p.user_submitted_utr,p.config,p.created_at, m.config->'unblocked_countries' AS unblockedcountries, p.merchant_id, c.config->'blocked_users' AS blocked_users_ip ,m.config->'blocked_users' AS blocked_users_id,p.user as userId
-       FROM "${tableName.PAYIN}" p
-       INNER JOIN "${tableName.MERCHANT}" m ON p.merchant_id = m.id
-       INNER JOIN "${tableName.COMPANY}" c ON p.company_id = c.id
-       WHERE p.merchant_order_id = $1`;
-    const filterArray = Array.isArray(filters) ? filters : [filters];
+    const sql = `
+    SELECT 
+      p.merchant_order_id,
+      p.status,
+      p.amount,
+      p.id,
+      p.user_submitted_utr,
+      p.config,
+      p.created_at,
+      m.config->'unblocked_countries' AS unblockedcountries,
+      p.merchant_id,
+      COALESCE(
+        CASE 
+          WHEN c.config->'blocked_users' IS NULL OR (c.config->'blocked_users')::jsonb = '[]'::jsonb
+          THEN jsonb_build_array(jsonb_build_object('user_ip', jsonb_build_array()))
+          ELSE (c.config->'blocked_users')::jsonb
+        END, 
+        jsonb_build_array(jsonb_build_object('user_ip', jsonb_build_array()))
+      ) AS blocked_users_ip,
+      COALESCE(
+        CASE 
+          WHEN m.config->'blocked_users' IS NULL OR (m.config->'blocked_users')::jsonb = '[]'::jsonb
+          THEN jsonb_build_array(jsonb_build_object('userId', jsonb_build_array()))
+          ELSE (m.config->'blocked_users')::jsonb
+        END, 
+        jsonb_build_array(jsonb_build_object('userId', jsonb_build_array()))
+      ) AS blocked_users_id,
+      p.user AS userId
+    FROM "Payin" p
+    INNER JOIN "Merchant" m ON p.merchant_id = m.id
+    INNER JOIN "Company" c ON p.company_id = c.id
+    WHERE p.merchant_order_id = $1`;
+
+    const filterArray = Array.isArray(merchantorderid)
+      ? merchantorderid
+      : [merchantorderid];
     const result = await executeQuery(sql, filterArray);
     return result.rows[0];
   } catch (error) {
