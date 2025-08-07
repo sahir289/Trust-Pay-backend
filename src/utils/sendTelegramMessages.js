@@ -89,16 +89,12 @@ export async function sendTelegramDashboardReportMessage(
     .join('\n');
 
   const vendorDetails = Object.entries(vendorObjpayIn)
-    // .filter(([_, { banks }]) => banks.length > 0)
     .sort(([vendorCodeA], [vendorCodeB]) =>
       vendorCodeA.localeCompare(vendorCodeB),
     )
     .map(([vendorCode, { banks }], index) => {
-      // if (banks.length === 0) {
-      //   return `<b>${vendorCode}</b>: No bank accounts`;
-      // }
-      const bankDetails = banks
-        .filter((bank) => bank.TotalDeposit !== null && bank.TotalDeposit !== 0)
+      const filteredBanks = banks.filter((bank) => bank.TotalDeposit !== null && bank.TotalDeposit !== 0);
+      const bankDetails = filteredBanks
         .map(
           (bank) =>
             `  ${bank.bankName}: ₹ ${bank.TotalDeposit.toLocaleString('en-IN', {
@@ -107,7 +103,16 @@ export async function sendTelegramDashboardReportMessage(
             })} (${bank.TotalCount})`,
         )
         .join('\n'); // join each bank with a new line
-      return bankDetails ? `${index + 1}. ${vendorCode}:\n${bankDetails}` : '';
+      // Calculate total deposit for all banks for this vendor
+      const totalBankDeposit = filteredBanks.reduce((sum, bank) => sum + (bank.TotalDeposit || 0), 0);
+      const totalBankDepositStr = totalBankDeposit.toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      // Place total on a new line after vendor name, before bank list
+      return bankDetails
+        ? `${index + 1}. ${vendorCode}:  ₹ ${totalBankDepositStr}\n${bankDetails}`
+        : '';
     })
     .filter(Boolean)
     .join('\n\n');
@@ -117,9 +122,8 @@ export async function sendTelegramDashboardReportMessage(
       vendorCodeA.localeCompare(vendorCodeB),
     )
     .map(([vendorCode, { banks }], index) => {
-      const bankDetails = banks
-        .sort((a, b) => a.bankName.localeCompare(b.bankName))
-        .filter((bank) => bank.TotalDeposit !== null && bank.TotalDeposit !== 0)
+      const filteredBanks = banks.filter((bank) => bank.TotalDeposit !== null && bank.TotalDeposit !== 0);
+      const bankDetails = filteredBanks
         .map(
           (bank) =>
             `  ${bank.bankName}: ₹ ${bank.TotalDeposit.toLocaleString('en-IN', {
@@ -128,7 +132,16 @@ export async function sendTelegramDashboardReportMessage(
             })} (${bank.TotalCount})`,
         )
         .join('\n');
-      return bankDetails ? `${index + 1}. ${vendorCode}:\n${bankDetails}` : '';
+      // Calculate total payout for all banks for this vendor
+      const totalBankPayout = filteredBanks.reduce((sum, bank) => sum + (bank.TotalDeposit || 0), 0);
+      const totalBankPayoutStr = totalBankPayout.toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      // Place total on a new line after vendor name, before bank list
+      return bankDetails
+        ? `${index + 1}. ${vendorCode}:  ₹ ${totalBankPayoutStr}\n${bankDetails}`
+        : '';
     })
     .filter(Boolean)
     .join('\n\n');
