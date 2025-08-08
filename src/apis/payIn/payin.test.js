@@ -1,5 +1,5 @@
-const { generatePayInUrlByHashService, getPayInUrlService, verifyPayinsService, generatePayInUrlService } = require('./payInService.js');
-const { getMerchantsByCodeDao, getMerchantsDao } = require('../merchants/merchantDao.js');
+const { generatePayInUrlByHashService, getPayInUrlService } = require('./payInService.js');
+const { getMerchantsByCodeDao } = require('../merchants/merchantDao.js');
 const { getMerchantBankDao } = require('../bankAccounts/bankaccountDao.js');
 const { getCompanyByIDDao } = require('../company/companyDao.js');
 const { sendBankNotAssignedAlertTelegram } = require('../../utils/sendTelegramMessages.js');
