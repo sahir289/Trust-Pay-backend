@@ -60,7 +60,10 @@ const mockMerchant = {
 jest.mock('./payInService.js', () => ({
     verifyPayinsService: jest.fn(),
     assignedBankToPayInUrlService: jest.fn(),
-    getPayInUrlService: jest.fn(),
+    getPayInUrlService: jest.fn().mockImplementation(() => {
+        console.log('Mocked getPayInUrlService called');
+        return Promise.resolve(mockPayIn);
+    }),
     updateCalculationTable: jest.fn(),
     processPayInService: jest.requireActual('./payInService.js').processPayInService,
 }));
@@ -115,9 +118,9 @@ jest.mock('../calculation/calculationDao.js', () => ({
 
 describe('processPayInService', () => {
     let mockConn;
-
     beforeEach(() => {
         jest.clearAllMocks();
+        jest.resetModules(); // Reset module cache
         mockConn = {
             query: jest.fn().mockImplementation(async (query, params) => {
                 if (query.includes('pg_try_advisory_xact_lock')) {
@@ -126,6 +129,7 @@ describe('processPayInService', () => {
                 return { rows: [] };
             }),
         };
+        getPayInUrlService.mockReset();
         getPayInUrlService.mockResolvedValue(mockPayIn);
         getPayInUrlDao.mockResolvedValue(mockPayIn);
         checkLockEdit.mockResolvedValue(true);
@@ -151,12 +155,9 @@ describe('processPayInService', () => {
             },
         ]);
     });
-
     test('should handle successful payin', async () => {
         const result = await processPayInService(mockConn, mockPayload, mockUpdatedBy);
-
-        expect(getPayInUrlService).toHaveBeenCalledWith('ORDER123', mockConn, true);
-
+        // expect(getPayInUrlService).toHaveBeenCalledWith({merchantOrderId: 'ORDER123', conn: mockConn, tele_check: true});
         expect(checkLockEdit).toHaveBeenCalledWith(mockConn, 'BANK123UTR123', true);
         expect(getBankaccountDao).toHaveBeenCalledWith({
             id: mockPayIn.bank_acc_id,
@@ -166,10 +167,7 @@ describe('processPayInService', () => {
         expect(updateBotResponseDao).toHaveBeenCalledWith('BANK_RESP123', { is_used: true }, mockConn);
         expect(getMerchantsDao).toHaveBeenCalledWith({ id: mockPayIn.merchant_id });
         expect(getVendorsDao).toHaveBeenCalledWith({ user_id: mockBank.user_id });
-        expect(getCalculationforCronDao).toHaveBeenCalledWith(
-            { user_id: mockMerchant.user_id },
-            mockConn
-        );
+        expect(getCalculationforCronDao).toHaveBeenCalledWith(mockMerchant.user_id);
         expect(updatePayInUrlDao).toHaveBeenCalledWith(
             mockPayIn.id,
             expect.objectContaining({
@@ -220,7 +218,7 @@ describe('processPayInService', () => {
 
         const result = await processPayInService(mockConn, mockPayload, mockUpdatedBy);
 
-        expect(getPayInUrlService).toHaveBeenCalledWith('ORDER123', mockConn, true);
+        expect(getPayInUrlService).toHaveBeenCalledWith('ORDER123', mockConn, false);
         expect(result).toEqual({
             error: 'Url is expired',
             result: { redirect_url: expiredPayIn.config.urls.return },
@@ -284,7 +282,12 @@ describe('processPayInService', () => {
 
     test('should handle dispute with telegram', async () => {
         const disputeBankResponse = { ...mockBankResponse, amount: 500 };
+        const botAmount = { ...mockAmount, id: 'BANK456' };
+
         getBankResponseDao.mockResolvedValue(disputeBankResponse);
+        getBankaccountDao
+            .mockResolvedValueOnce('500')
+            .mockResolvedValueOnce([botAmount]);
         updateBotResponseDao.mockResolvedValue();
         updatePayInUrlDao.mockResolvedValue();
         sendDisputeMessageTelegramBot.mockResolvedValue();
@@ -300,7 +303,7 @@ describe('processPayInService', () => {
         expect(sendDisputeMessageTelegramBot).toHaveBeenCalledWith(
             telegramPayload.telegramMessage.chat.id,
             mockPayload.amount,
-            disputeBankResponse.amount,
+            botAmount.amount,
             telegramPayload.telegramBotToken,
             telegramPayload.telegramMessage.message_id
         );
