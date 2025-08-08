@@ -467,7 +467,7 @@ const updateSettlementService = async (conn, ids, payload) => {
         // const vendorData = await getVendorsDao({ user_id: data[0].user_id });
         if (data[0].method === 'BANK') {
           const [beneficiaryAcc] = await getBeneficiaryAccountDao({
-            user_id: data[0].config.bank_id,
+            bank_name: data[0].config.bank_name,
           });
 
           let beneficiaryClosingBalance;
@@ -487,8 +487,8 @@ const updateSettlementService = async (conn, ids, payload) => {
             closing_balance: beneficiaryClosingBalance,
           };
           await updateBeneficiaryAccountDao(
-            { id: beneficiaryAcc.id, company_id: beneficiaryAcc.company_id },
-            beneficiaryUpdatedConfig,
+            { id: beneficiaryAcc.id, company_id: data[0].company_id },
+            {config: beneficiaryUpdatedConfig},
             conn,
             false,
           );
@@ -622,8 +622,8 @@ const updateSettlementService = async (conn, ids, payload) => {
               closing_balance: beneficiaryClosingBalance,
             };
             await updateBeneficiaryAccountDao(
-              { id: beneficiaryAcc.id, company_id: beneficiaryAcc.company_id },
-              beneficiaryUpdatedConfig,
+              { id: beneficiaryAcc.id, company_id: data[0].company_id },
+              {config: beneficiaryUpdatedConfig},
               conn,
               false,
             );

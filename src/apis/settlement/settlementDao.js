@@ -192,6 +192,7 @@ const getSettlementDao = async (
     //fetching bank name
     const baseQuery = `
     SELECT DISTINCT ON (s.sno)
+      r.role,
       ${columnSelection},
       CASE
         WHEN r.role = 'MERCHANT' THEN 
