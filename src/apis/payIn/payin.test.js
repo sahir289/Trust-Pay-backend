@@ -22,23 +22,7 @@ jest.mock('../../utils/bcryptPassword.js', () => ({
   reactPaymentOrigin: 'http://localhost:8090',
 }));
 
-// jest.mock('../utils/logger', () => ({
-//   info: jest.fn(),
-//   error: jest.fn(),
-// }));
-
-
-// jest.mock('../updatePayInUrlDao', () => ({
-//   updatePayInUrlDao: jest.fn(),
-// }));
-
-// jest.mock('../dao/getMerchantsDao', () => ({
-//   getMerchantsDao: jest.fn(),
-// }));
-
-// jest.mock('..//getMerchantBankDao', () => ({
-//   getMerchantBankDao: jest.fn(),
-// }));
+//toHaveBeenCalledWith is a matcher function used to assert that a mock function was called with specific arguments.
 
 //----------------------generatePayinHash---------------------------------
 describe('generatePayInUrlByHashService', () => {
@@ -46,8 +30,8 @@ describe('generatePayInUrlByHashService', () => {
   let mockReq;
 
   beforeEach(() => {
-      mockConn = {};   //mocked version of a database connection
-      mockReq = {       //mocked request object
+      mockConn = {};  
+      mockReq = {    
           query: {},
           headers: { 'x-api-key': 'test-api-key' },
       };
@@ -72,7 +56,7 @@ describe('generatePayInUrlByHashService', () => {
     mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y' };
   
     getMerchantsByCodeDao.mockResolvedValue([
-      { id: 1, company_id: 100, user_id: '123' }
+      { id: '1234567544346578766', company_id: 100, user_id: '123' }
     ]);
   
     getCompanyByIDDao.mockResolvedValue([
@@ -94,7 +78,7 @@ describe('generatePayInUrlByHashService', () => {
     });
   
     expect(getMerchantBankDao).toHaveBeenCalledWith({
-      config_merchants_contains: 1,
+      config_merchants_contains: '1234567544346578766',
     });
   
     expect(sendBankNotAssignedAlertTelegram).toHaveBeenCalledWith(
@@ -104,23 +88,49 @@ describe('generatePayInUrlByHashService', () => {
     );
   });
   
-  
   test('should return 404 if no merchant found for code', async () => {
+    const mockMerchant = [{
+      id: 1,
+      user_id: 123,
+      first_name: 'John',
+      last_name: 'Doe',
+      code: 'MERCH1',
+      min_payin: 100,
+      max_payin: 10000,
+      payin_commission: 0.02,
+      payout_commission: 0.015,
+      min_payout: 50,
+      max_payout: 5000,
+      config: { someConfig: 'value' },
+      company_id: 456,
+      created_by: 'admin_user',
+      updated_by: 'admin_user',
+      created_at: new Date('2025-01-01T10:00:00Z'),
+      updated_at: new Date('2025-01-02T10:00:00Z'),
+      designation_id: 789,
+      full_name: 'John Doe',
+      designation_name: 'Merchant Manager'
+    }];
     mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y' };
-    getMerchantsByCodeDao.mockResolvedValue([]);
-
+    getMerchantsByCodeDao.mockResolvedValue(mockMerchant);
+    
+    getMerchantBankDao.mockResolvedValue([]);
+  
     const result = await generatePayInUrlByHashService(mockConn, mockReq);
-
+  
     expect(result).toEqual({
       status: 404,
       message: 'Bank Account has not been linked with Merchant',
     });
     expect(getMerchantsByCodeDao).toHaveBeenCalledWith('MERCH1');
+    expect(getMerchantBankDao).toHaveBeenCalledWith({
+      config_merchants_contains: mockMerchant[0].id,
+    });
   });
 
   test('should return 404 and send telegram alert if no bank assigned', async () => {
     mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y' };
-    getMerchantsByCodeDao.mockResolvedValue([{ id: 1, company_id: 100, user_id: '123' }]);
+    getMerchantsByCodeDao.mockResolvedValue([{ id: '1234567544346578766', company_id: 100, user_id: '123' }]);
     getCompanyByIDDao.mockResolvedValue([{ config: { telegramBankAlertChatId: 'chat123', telegramBotToken: 'token123' } }]);
     getMerchantBankDao.mockResolvedValue([]);
   
@@ -130,14 +140,14 @@ describe('generatePayInUrlByHashService', () => {
       status: 404,
       message: 'Bank Account has not been linked with Merchant',
     });
-    expect(getMerchantBankDao).toHaveBeenCalledWith({ config_merchants_contains: 1 });
+    expect(getMerchantBankDao).toHaveBeenCalledWith({ config_merchants_contains: '1234567544346578766' });
     expect(sendBankNotAssignedAlertTelegram).toHaveBeenCalledWith('chat123', 'MERCH1', 'token123');
   });
   
 
   test('should return 404 and send telegram alert if all banks are disabled', async () => {
     mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y' };
-    getMerchantsByCodeDao.mockResolvedValue([{ id: 1, company_id: 100, user_id: '123' }]);
+    getMerchantsByCodeDao.mockResolvedValue([{ id: '1234567544346578766', company_id: 100, user_id: '123' }]);
     getCompanyByIDDao.mockResolvedValue([{ config: { telegramBankAlertChatId: 'chat123', telegramBotToken: 'token123' } }]);
     getMerchantBankDao.mockResolvedValue([{ is_enabled: false }]);
 
@@ -152,7 +162,7 @@ describe('generatePayInUrlByHashService', () => {
 
   test('should return 404 if all payment options are disabled', async () => {
     mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y' };
-    getMerchantsByCodeDao.mockResolvedValue([{ id: 1, company_id: 100, user_id: '123' }]);
+    getMerchantsByCodeDao.mockResolvedValue([{ id: '1234567544346578766', company_id: 100, user_id: '123' }]);
     getCompanyByIDDao.mockResolvedValue([{ config: { telegramBankAlertChatId: 'chat123', telegramBotToken: 'token123' } }]);
     getMerchantBankDao.mockResolvedValue([
       { is_enabled: true, config: { is_phonepay: false }, is_qr: false, is_bank: false },
@@ -174,7 +184,7 @@ describe('generatePayInUrlByHashService', () => {
       query: { user_id: '123', code: 'MERCH1', ot: 'y', key: 'key123', amount: '1000' },
     };
     const mockConn = {};
-    getMerchantsByCodeDao.mockResolvedValue([{ id: 1, company_id: 100, user_id: '123' }]);
+    getMerchantsByCodeDao.mockResolvedValue([{ id: '1234567544346578766', company_id: 100, user_id: '123' }]);
     getCompanyByIDDao.mockResolvedValue([{ config: { telegramBankAlertChatId: 'chat123', telegramBotToken: 'token123' } }]);
     getMerchantBankDao.mockResolvedValue([{ is_enabled: true, config: { is_phonepay: true }, is_qr: true, is_bank: true }]);
     const mockHash = 'b23366d457dc6e5cabda35d9fce6cc449eff5a47a98e36bc37486c55197632fd';
@@ -189,7 +199,7 @@ describe('generatePayInUrlByHashService', () => {
 
   test('should generate payInUrl without amount in query parameters', async () => {
     mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y', key: 'key123' };
-    getMerchantsByCodeDao.mockResolvedValue([{ id: 1, company_id: 100, user_id: '123' }]);
+    getMerchantsByCodeDao.mockResolvedValue([{ id: '1234567544346578766', company_id: 100, user_id: '123' }]);
     getCompanyByIDDao.mockResolvedValue([{ config: { telegramBankAlertChatId: 'chat123', telegramBotToken: 'token123' } }]);
     getMerchantBankDao.mockResolvedValue([{ is_enabled: true, config: { is_phonepay: true }, is_qr: true, is_bank: true }]);
     const mockHash = 'b23366d457dc6e5cabda35d9fce6cc449eff5a47a98e36bc37486c55197632fd';
@@ -239,7 +249,6 @@ describe('getPayInUrlService', () => {
     jest.clearAllMocks();
     // Mock Date.now
     jest.spyOn(Date, 'now').mockReturnValue(1630000000000); // Mon, 30 Aug 2021 20:26:40 GMT
-    // Default mock for getPayInUrlDao to avoid unexpected null
     getPayInUrlDao.mockImplementation(({ merchant_order_id }) => {
       return Promise.resolve({
         merchant_order_id,
@@ -324,7 +333,7 @@ describe('getPayInUrlService', () => {
     const mockPayIn = {
       merchant_order_id: '123',
       config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
-      is_url_expires: true, // Changed to true to trigger the error condition
+      is_url_expires: true,
       one_time_used: true,
       expiration_date: 1630000001000,
       status: 'INITIATED',

@@ -15,10 +15,6 @@ jest.mock('./payInService.js', () => ({
 
 }));
 
-// jest.mock('./payInService.js', () => ({
-//   getPayInUrlService: jest.fn(),
-// }));
-
 jest.mock('./payInDao.js', () => ({
   updatePayInUrlDao: jest.fn(),
   getPayInUrlDao: jest.fn(),
@@ -77,6 +73,10 @@ const mockBanks = [
     config: { is_phonepay: false, is_intent: false },
   },
 ];
+
+
+//------------------------------------------------VERIFY--------------------------------------------------------------
+
 
 describe('verifyPayinsService', () => {
   beforeEach(() => {
@@ -200,7 +200,7 @@ describe('verifyPayinsService', () => {
 });
 
 
-//--------------------------------ASSINGED--------------------------------------------------------------
+//------------------------------------------------ASSINGED--------------------------------------------------------------
 
 describe('assignedBankToPayInUrlService', () => {
   beforeEach(() => {
