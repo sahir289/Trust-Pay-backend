@@ -343,6 +343,7 @@ const createSettlementService = async (conn, payload, role) => {
           conn,
         );
         payload.status = Status.SUCCESS;
+        payload.approved_at = new Date();
         return await createSettlementDao(payload, conn);
       }
 
