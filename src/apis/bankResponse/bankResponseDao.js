@@ -345,70 +345,94 @@ const getBankResponseBySearchDao = async (
 
 const getClaimResponseDao = async (filters) => {
   try {
-    // Convert input date to IST (defaults to now)
-    const selectedDate = filters.date
-      ? dayjs.tz(filters.date, IST)
-      : dayjs().tz(IST);
+    const startDate = filters.startDate
+      ? dayjs.tz(filters.startDate, IST).startOf('day')
+      : dayjs().tz(IST).startOf('day');
 
-    const bankIdCondition = filters.bank_id ? `AND bank_id = $3` : '';
-    const params = [selectedDate.format('YYYY-MM-DD'), filters.company_id];
-    if (filters.bank_id) {
-      params.push(filters.bank_id);
+    const endDate = filters.endDate
+      ? dayjs.tz(filters.endDate, IST).endOf('day')
+      : dayjs().tz(IST).endOf('day');
+
+    const hasBankIds = Array.isArray(filters.banks) && filters.banks.length > 0;
+    const hasVendorIds = Array.isArray(filters.vendors) && filters.vendors.length > 0;
+
+    const params = [startDate.format(), endDate.format(), filters.company_id];
+    let paramIndex = 4;
+
+    let bankFilter = '';
+    if (hasBankIds) {
+      bankFilter = `AND br.bank_id = ANY($${paramIndex}::text[])`;
+      params.push(filters.banks);
+      paramIndex++;
     }
 
-    const baseQuery = `
+    let vendorFilter = '';
+    if (hasVendorIds) {
+      vendorFilter = `AND ba.user_id = ANY($${paramIndex}::text[])`;
+      params.push(filters.vendors);
+      paramIndex++;
+    }
+
+    const query = `
       WITH claimed_data AS (
         SELECT 
           COALESCE(SUM(amount), 0) AS claimed_amount,
           COUNT(*) AS claimed_count
-        FROM "BankResponse"
-        WHERE is_used = true 
-          AND status = '/success'
-          AND created_at >= $1
-          AND company_id = $2
-          ${bankIdCondition}
-          AND is_obsolete = false
+        FROM "BankResponse" br
+        LEFT JOIN "BankAccount" ba ON br.bank_id = ba.id
+        WHERE br.is_used = true
+          AND br.status = '/success'
+          AND br.created_at BETWEEN $1 AND $2
+          AND br.company_id = $3
+          AND br.is_obsolete = false
+          ${bankFilter}
+          ${vendorFilter}
       ),
       unclaimed_24h AS (
         SELECT 
           COALESCE(SUM(amount), 0) AS unclaimed_24h_amount,
           COUNT(*) AS unclaimed_24h_count
-        FROM "BankResponse"
-        WHERE is_used = false 
-          AND status = '/success'
-          AND created_at >= $1
-          AND company_id = $2
-          ${bankIdCondition}
-          AND is_obsolete = false
+        FROM "BankResponse" br
+        LEFT JOIN "BankAccount" ba ON br.bank_id = ba.id
+        WHERE br.is_used = false
+          AND br.status = '/success'
+          AND br.created_at BETWEEN $1 AND $2
+          AND br.company_id = $3
+          AND br.is_obsolete = false
+          ${bankFilter}
+          ${vendorFilter}
       ),
       total_unclaimed AS (
         SELECT 
           COALESCE(SUM(amount), 0) AS total_unclaimed_amount,
           COUNT(*) AS total_unclaimed_count
-        FROM "BankResponse"
-        WHERE is_used = false 
-          AND status = '/success'
-          AND company_id = $2
-          ${bankIdCondition}
-          AND is_obsolete = false
+        FROM "BankResponse" br
+        LEFT JOIN "BankAccount" ba ON br.bank_id = ba.id
+        WHERE br.is_used = false
+          AND br.status = '/success'
+          AND br.company_id = $3
+          AND br.is_obsolete = false
+          ${bankFilter}
+          ${vendorFilter}
       ),
       banks_unclaims_amount AS (
         SELECT 
-          b.bank_name,
-          b.nick_name,
+          ba.bank_name,
+          ba.nick_name,
           COALESCE(SUM(br.amount), 0) AS amount,
           COUNT(br.id) AS count
-        FROM "BankAccount" b
+        FROM "BankAccount" ba
         LEFT JOIN "BankResponse" br
-          ON b.id = br.bank_id
-          AND br.is_used = false 
+          ON ba.id = br.bank_id
+          AND br.is_used = false
           AND br.status = '/success'
-          AND br.company_id = $2
+          AND br.company_id = $3
           AND br.is_obsolete = false
-          AND b.bank_used_for = 'PayIn'
-          ${bankIdCondition ? `AND ${bankIdCondition.replace(/^AND /, '')}` : ''}
-        WHERE b.company_id = $2
-        GROUP BY b.bank_name, b.nick_name
+          AND ba.bank_used_for = 'PayIn'
+          ${bankFilter}
+          ${vendorFilter}
+        WHERE ba.company_id = $3
+        GROUP BY ba.bank_name, ba.nick_name
       )
 
       SELECT 
@@ -426,7 +450,7 @@ const getClaimResponseDao = async (filters) => {
       LEFT JOIN banks_unclaims_amount bua ON TRUE;
     `;
 
-    const result = await executeQuery(baseQuery, params);
+    const result = await executeQuery(query, params);
 
     if (!result || result.rows.length === 0) {
       return {
@@ -440,8 +464,8 @@ const getClaimResponseDao = async (filters) => {
     const firstRow = result.rows[0];
 
     const banks_unclaims_amount = result.rows
-      .filter((row) => row.bank_name) // avoid null rows
-      .map((row) => ({
+      .filter(row => row.bank_name)
+      .map(row => ({
         bank_name: row.bank_name,
         nick_name: row.nick_name,
         amount: parseFloat(row.amount) || 0,

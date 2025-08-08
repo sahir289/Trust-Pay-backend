@@ -101,7 +101,6 @@ export const getMerchantsCodeDao = async (
         queryParams.push(filters.user_id);
       }
     }
-
     sql += ` GROUP BY m.id, m.code, m.user_id ORDER BY m.code ASC`;
     const result = await conn.query(sql, queryParams);
     logger.log('Fetched Merchants:', result.rows.length, 'rows');
@@ -339,11 +338,12 @@ export const getMerchantsByCodeDao = async (code) => {
     LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
     LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
     LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
+    WHERE "Merchant".is_enabled = true AND "Merchant".is_obsolete = false
   `;
 
     let queryParams = [];
     if (code) {
-      baseQuery += ` WHERE "Merchant".code = $1`;
+      baseQuery += ` AND "Merchant".code = $1`;
       queryParams = [code.trim()];
     }
     const result = await executeQuery(baseQuery, queryParams);

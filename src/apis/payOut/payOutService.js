@@ -25,6 +25,7 @@ import {
 import {
   getMerchantsDao,
   getMerchantByUserIdDao,
+  getMerchantsByCodeDao
 } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import {
@@ -259,12 +260,11 @@ const createPayoutService = async (
     //       ? vendorColumns.PAYOUT
     //       : columns.PAYOUT;
     const { code, amount, x_api_key, returnUrl, notifyUrl } = payload;
-    const details = await getMerchantsDao({ code });
-
+    const details = await getMerchantsByCodeDao(code);
     if (!details[0] || details[0].length === 0) {
       const data = {
         status: 404,
-        message: 'Please enter valid code',
+        message: 'Merchant is inactive. Contact support for help!',
       };
       return data;
     }
