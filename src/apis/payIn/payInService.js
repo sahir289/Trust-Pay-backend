@@ -114,6 +114,13 @@ export const generatePayInUrlByHashService = async (conn, req) => {
     }
     // const x_api_key = req.headers['x-api-key'];
     const merchantArr = await getMerchantsByCodeDao(code);
+    if (merchantArr.length === 0) {
+      const data = {
+        status: 404,
+        message: 'Merchant is inactive. Contact support for help!',
+      };
+      return data;
+    }
     const bankAssigned = await getMerchantBankDao({
       config_merchants_contains: merchantArr[0].id,
     });
