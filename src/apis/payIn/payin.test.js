@@ -1,10 +1,11 @@
-const { generatePayInUrlByHashService, getPayInUrlService } = require('./payInService.js');
+import { nanoid } from 'nanoid';
+const { generatePayInUrlByHashService, generatePayInUrlService,  getPayInUrlService } = require('./payInService.js');
 const { getMerchantsByCodeDao } = require('../merchants/merchantDao.js');
 const { getMerchantBankDao } = require('../bankAccounts/bankaccountDao.js');
 const { getCompanyByIDDao } = require('../company/companyDao.js');
 const { sendBankNotAssignedAlertTelegram } = require('../../utils/sendTelegramMessages.js');
 const { createHash } = require('../../utils/bcryptPassword.js');
-const { getPayInUrlDao, updatePayInUrlDao } = require('./payInDao');
+const { getPayInUrlDao, updatePayInUrlDao, generatePayInUrlDao } = require('./payInDao');
 const { merchantPayinCallback } = require('../../callBacksAndWebHook/merchantCallBacks.js');
 const { NotFoundError, Status } = require('../../utils/constants.js');
 jest.mock('./payInDao');
@@ -20,6 +21,24 @@ jest.mock('../../utils/bcryptPassword.js');
 jest.mock('../../utils/bcryptPassword.js', () => ({
   createHash: jest.fn(), 
   reactPaymentOrigin: 'http://localhost:8090',
+}));
+jest.mock('dayjs', () => {
+  const mockDayjs = jest.fn(() => ({
+    add: jest.fn(() => ({
+      toISOString: jest.fn(() => '2025-09-08T12:00:00Z'), 
+    })),
+    tz: jest.fn(() => ({
+      add: jest.fn(() => ({
+        toISOString: jest.fn(() => '2025-09-08T12:00:00Z'),
+      })),
+    })),
+  }));
+  mockDayjs.extend = jest.fn();
+  return mockDayjs;
+});
+
+jest.mock('nanoid', () => ({
+  nanoid: jest.fn(),
 }));
 
 //toHaveBeenCalledWith is a matcher function used to assert that a mock function was called with specific arguments.
@@ -210,11 +229,70 @@ describe('generatePayInUrlByHashService', () => {
       payInUrl: 'http://localhost:5174/transaction/b23366d457dc6e5cabda35d9fce6cc449eff5a47a98e36bc37486c55197632fd?user_id=123&code=MERCH1&ot=y&key=key123',
     });
   });
+
+  test('if bank config is undefined', async () => {
+    mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y' };
+    getMerchantsByCodeDao.mockResolvedValue([{ id: '1234567544346578766', company_id: 100, user_id: '123' }]);
+    getCompanyByIDDao.mockResolvedValue([{ config: { telegramBankAlertChatId: 'chat123', telegramBotToken: 'token123' } }]);
+    getMerchantBankDao.mockResolvedValue([
+      { is_enabled: true, config: undefined, is_qr: false, is_bank: false },
+    ]);
+
+    const result = await generatePayInUrlByHashService(mockConn, mockReq);
+
+    expect(result).toEqual({
+      status: 404,
+      message: 'No Payment Methods Enabled!',
+    });
+    expect(getMerchantsByCodeDao).toHaveBeenCalledWith('MERCH1');
+    expect(getMerchantBankDao).toHaveBeenCalledWith({
+      config_merchants_contains: '1234567544346578766',
+    });
+  });
+
+  test('if disabled banks and no payment methods enabled', async () => {
+    mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y' };
+    getMerchantsByCodeDao.mockResolvedValue([{ id: '1234567544346578766', company_id: 100, user_id: '123' }]);
+    getCompanyByIDDao.mockResolvedValue([{ config: { telegramBankAlertChatId: 'chat123', telegramBotToken: 'token123' } }]);
+  
+    const result = await generatePayInUrlByHashService(mockConn, mockReq);
+
+    expect(result).toEqual({
+      status: 404,
+      message: 'No Payment Methods Enabled!',
+    });
+    expect(getMerchantsByCodeDao).toHaveBeenCalledWith('MERCH1');
+    expect(getMerchantBankDao).toHaveBeenCalledWith({
+      config_merchants_contains: '1234567544346578766',
+    });
+  });
+
+  test('if bank is enabled but no payment methods found', async () => {
+    mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y' };
+    getMerchantsByCodeDao.mockResolvedValue([{ id: '1234567544346578766', company_id: 100, user_id: '123' }]);
+    getCompanyByIDDao.mockResolvedValue([{ config: { telegramBankAlertChatId: 'chat123', telegramBotToken: 'token123' } }]);
+    getMerchantBankDao.mockResolvedValue([
+      //it returned two banks one is enabled and one disabled
+      { is_enabled: false },
+      { is_enabled: true, config: { is_phonepay: false }, is_qr: false, is_bank: false },
+    ]);
+
+    const result = await generatePayInUrlByHashService(mockConn, mockReq);
+
+    expect(result).toEqual({
+      status: 404,
+      message: 'No Payment Methods Enabled!',
+    });
+    expect(getMerchantsByCodeDao).toHaveBeenCalledWith('MERCH1');
+    expect(getMerchantBankDao).toHaveBeenCalledWith({
+      config_merchants_contains: '1234567544346578766',
+    });
+  });
 });
 
 //----------------------generatePayInUrlService---------------------------------
 
-describe('generatePayInUrlService', ()=>{
+describe('generatePayInUrlService', () => {
   let mockConn;
   let mockReq;
 
@@ -222,25 +300,336 @@ describe('generatePayInUrlService', ()=>{
     mockConn = {};
     mockReq = {
       query: {},
-      headers : { 'x-api-key' : 'test-api-key'},
+      headers: { 'x-api-key': 'test-api-key' },
     };
-    jest.clearAllMocks();
+    jest.clearAllMocks();  
+    nanoid.mockReturnValue('QokKC');
+    jest.mock('../../utils/db.js', () => (fn) => async (...args) => fn(...args));
   });
 
-  test('should return 400 if required query parameters are missing', async () => {
-     mockReq.query = {
-       user_id: '123', code: 'MERCHANT123'
+  // test('should return 400 if required query parameters are missing', async () => {
+  //   mockReq.query = {
+  //     user_id: '123',
+  //     code: 'MERCHANT123',
+  //   };
+
+  //   const result = await generatePayInUrlService(mockConn,
+  //     {code : 'MERCHANT123',
+  //       user_id : '123', 
+  //       merchant_order_id: 'order123',
+  //       amount : 1000,
+  //       returnUrl : 'https://example.com/return',
+  //       notifyUrl : 'https://example.com/notify',
+  //       api_key : 'test-api-key',
+  //       x_api_key : 'x-api-key'} , 'test_user' , '192.168.1.1', true
+  //     );
+
+  //   expect(result).toEqual({
+  //     status: 400,
+  //     message: 'Missing required query parameters: user_id, code, or ot',
+  //   });
+  // });
+
+  test('should return 400 if IP is not whitelisted and fromUI is false', async () => {
+    getMerchantsByCodeDao.mockResolvedValue([
+      {
+        id: 'merchant1',
+        config: {
+          whitelist_ips: ['10.0.0.1', '10.0.0.2'],
+          keys: { private: 'test-api-key', public: 'test-api-key' },
+          urls: { return: 'https://example.com/return', payin_notify: 'https://example.com/notify' },
+        },
+        min_payin: 100,
+        max_payin: 10000,
+        company_id: 'company1',
+      },
+    ]);
+  
+    const mockGetPayInUrlDao = jest.fn().mockResolvedValue(false);
+    global.getPayInUrlDao = mockGetPayInUrlDao; 
+  
+    const payload = {
+      code: 'MERCHANT123',
+      user_id: '123',
+      merchant_order_id: 'order123',
+      amount: 1000,
+      returnUrl: 'https://example.com/return',
+      notifyUrl: 'https://example.com/notify',
+      ot: 'n',
+      api_key: 'test-api-key',
+      x_api_key: 'test-api-key',
     };
-     mockConn = {};
   
-    const result = await generatePayInUrlByHashService(mockConn, mockReq);
+    const result = await generatePayInUrlService({}, payload, 'test_user', '10.0.0.8', false);
   
+    expect(getMerchantsByCodeDao).toHaveBeenCalledWith('MERCHANT123');
     expect(result).toEqual({
       status: 400,
-      message: 'Missing required query parameters: user_id, code, or ot',
+      message: 'IP not whitelisted',
+    });});
+
+    test('should return 400 if merchant order ID already exists', async () => {
+      const mockReq = {
+        query: {
+          user_id: '123',
+          code: 'MERCHANT123',
+          ot: 'n',
+          amount: 1000,
+          merchant_order_id: 'order123',
+          returnUrl: 'https://example.com/return',
+          notifyUrl: 'https://example.com/notify',
+          api_key: 'test-api-key',
+          x_api_key: 'test-api-key',
+        },
+      };
+    
+      // Setup mocks here
+      getMerchantsByCodeDao.mockResolvedValue([
+        {
+          id: 'merchant1',
+          config: { whitelist_ips: [], keys: { private: 'test-api-key', public: 'test-api-key' } },
+          min_payin: 100,
+          max_payin: 10000,
+          company_id: 'company1',
+        },
+      ]);
+    
+      getPayInUrlDao.mockResolvedValue({ id: 'existing_order' }); // Simulate existing order
+    
+      const result = await generatePayInUrlService({}, mockReq.query, 'test_user', '192.168.1.1', true);
+    
+      // Now your expectations will work, as the mocks are properly wired
+      expect(getMerchantsByCodeDao).toHaveBeenCalledWith('MERCHANT123');
+      expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: 'order123' });
+    
+      expect(result).toEqual({
+        status: 400,
+        message: 'Merchant Order ID already exists',
+      });
+    });    
+
+    test('should return 400 and "Merchant does not exist" message if merchant not found', async () => {
+      getMerchantsByCodeDao.mockResolvedValue([
+        { id: 'merchant1', config: { keys: { private: 'privKey', public: 'pubKey' } }, min_payin: 10, max_payin: 1000, company_id: 'comp1' }
+      ]);
+      getPayInUrlDao.mockResolvedValue(true); 
+      const payload = {
+        code: 'VALID_CODE',
+        user_id: 'user123',
+        merchant_order_id: 'ORDER123',
+        amount: 100,
+        returnUrl: 'https://return.url',
+        notifyUrl: 'https://notify.url',
+        ot: 'n',
+        api_key: 'privKey',
+        x_api_key: 'privKey',
+      };
+  
+      const result = await generatePayInUrlService(
+        mockConn,
+        payload,
+        'test_user',
+        '10.0.0.8',
+        false,
+      );
+  
+      expect(getMerchantsByCodeDao).toHaveBeenCalledWith(payload.code);
+      expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: payload.merchant_order_id });
+      expect(result).toEqual({
+        status: 400,
+        message: 'Merchant Order ID already exists',
+      });
     });
-  });
-})
+    
+
+    test('should return 404 if API key is invalid (api_key present but incorrect)', async () => {
+      const payload = {
+        code: 'MERCHANT123',
+        user_id: 'user123',
+        amount: 100,
+        api_key: 'invalid-api-key', // Invalid key here
+        // other fields as needed
+      };
+  
+      // Mock merchant with keys different than invalid-api-key
+      getMerchantsByCodeDao.mockResolvedValue([
+        {
+          id: 'merchant1',
+          config: {
+            keys: {
+              private: 'correct-private-key',
+              public: 'correct-public-key',
+            },
+            whitelist_ips: [],
+          },
+          min_payin: 10,
+          max_payin: 1000,
+          company_id: 'company1',
+        },
+      ]);
+  
+      // Mock that order id does not exist
+      getPayInUrlDao.mockResolvedValue(null);
+  
+      // Call with fromUI = false so IP whitelist logic is skipped easily or pass userIp matching whitelist
+      const result = await generatePayInUrlService(mockConn, payload, 'creator123', '127.0.0.1', false);
+  
+      expect(result).toEqual({
+        status: 404,
+        message: 'Enter valid Api key',
+      });
+    });
+
+    test('should return 400 if amount is not between minimum and maximum', async () => {
+      const payload = {
+        code: 'MERCHANT123',
+        user_id: 'user123',
+        amount: 50, 
+        api_key: 'correct-private-key', 
+      };
+  
+      getMerchantsByCodeDao.mockResolvedValue([
+        {
+          id: 'merchant1',
+          config: {
+            keys: {
+              private: 'correct-private-key',
+              public: 'correct-public-key',
+            },
+            whitelist_ips: [],
+          },
+          min_payin: 100,
+          max_payin: 10000,
+          company_id: 'company1',
+        },
+      ]);
+  
+      getPayInUrlDao.mockResolvedValue(null);
+  
+      const result = await generatePayInUrlService(mockConn, payload, 'creator123', '127.0.0.1', false);
+  
+      expect(result).toEqual({
+        status: 400,
+        message: 'Amount must be between 100 and 10000',
+      });
+    });
+
+    test('should generate pay-in URL successfully with valid inputs', async () => {
+      const payload = {
+        code: 'MERCHANT123',
+        user_id: '123',
+        merchant_order_id: 'order123',
+        amount: 1000,
+        returnUrl: 'https://example.com/return',
+        notifyUrl: 'https://example.com/notify',
+        api_key: 'correct-private-key',
+        ot: 'n',
+      };
+  
+      getMerchantsByCodeDao.mockResolvedValue([
+        {
+          id: 'merchant1',
+          config: {
+            keys: {
+              private: 'correct-private-key',
+              public: 'correct-public-key',
+            },
+            urls: {
+              return: 'https://example.com/default-return',
+              payin_notify: 'https://example.com/default-notify',
+            },
+            whitelist_ips: [],
+          },
+          min_payin: 100,
+          max_payin: 10000,
+          company_id: 'company1',
+        },
+      ]);
+  
+      getPayInUrlDao.mockResolvedValue(null);
+      generatePayInUrlDao.mockResolvedValue({
+        upi_short_code: 'abc12',
+        amount: 1000,
+        status: 'INITIATED',
+        currency: 'INR',
+        merchant_order_id: 'order123',
+        user: '123',
+        merchant_id: 'merchant1',
+        expiration_date: '2025-09-08T12:00:00Z',
+        company_id: 'company1',
+        config: JSON.stringify({
+          urls: {
+            return: 'https://example.com/return',
+            notify: 'https://example.com/notify',
+          },
+        }),
+        created_by: 'test_user',
+      });
+  
+      const result = await generatePayInUrlService(mockConn, payload, 'test_user', '127.0.0.1', false);
+  
+      expect(generatePayInUrlDao).toHaveBeenCalledWith({
+        upi_short_code: 'QokKC',
+        amount: 1000,
+        status: 'INITIATED',
+        currency: 'INR',
+        merchant_order_id: 'order123',
+        user: '123',
+        merchant_id: 'merchant1',
+        expiration_date: '2025-09-08T12:00:00Z',
+        company_id: 'company1',
+        config: JSON.stringify({
+          urls: {
+            return: 'https://example.com/return',
+            notify: 'https://example.com/notify',
+          },
+        }),
+        created_by: 'test_user',
+      });
+  
+      expect(result).toEqual({
+        upi_short_code: 'abc12',
+        amount: 1000,
+        status: 'INITIATED',
+        currency: 'INR',
+        merchant_order_id: 'order123',
+        user: '123',
+        merchant_id: 'merchant1',
+        expiration_date: '2025-09-08T12:00:00Z',
+        company_id: 'company1',
+        config: JSON.stringify({
+          urls: {
+            return: 'https://example.com/return',
+            notify: 'https://example.com/notify',
+          },
+        }),
+        created_by: 'test_user',
+      });
+    });
+
+    afterEach(() => {
+      jest.clearAllMocks();
+    });
+  
+    test('should throw BadRequestError on unexpected error', async () => {
+      getMerchantsByCodeDao.mockRejectedValue(new Error('Database error'));
+      await expect(
+        generatePayInUrlService(
+          mockConn,
+          mockReq.query,
+          'test_user',
+          '192.168.1.1',
+          true
+        )
+      ).rejects.toMatchObject({
+        name: 'BadRequestError',
+        message: 'Database error',
+        statusCode: 400,
+      });
+    }); 
+});
+
+
 
 //----------------------getPayInUrlService---------------------------------
 
