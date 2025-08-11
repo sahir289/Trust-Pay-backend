@@ -586,16 +586,22 @@ const getBankAccountDaoNickName = async (
     // Handle filters
     if (Object.keys(filters).length > 0) {
       Object.entries(filters).forEach(([key, value]) => {
-        let paramValue = value;
-        // If value is an array, take the first element (adjust based on requirements)
-        if (Array.isArray(value) && value.length > 0) {
-          paramValue = value[0]; // Extract first element
-          if (paramValue == null) {
-            return; // Skip if first element is null/undefined
+        if (key === 'user_id' && Array.isArray(value)) {
+          // If user_id is an array, use IN clause
+          whereConditions.push(`"user_id" = ANY($${queryParams.length + 1})`);
+          queryParams.push(value);
+        } else {
+          let paramValue = value;
+          // If value is an array, take the first element (adjust based on requirements)
+          if (Array.isArray(value) && value.length > 0) {
+            paramValue = value; // Extract first element
+            if (paramValue == null) {
+              return; // Skip if first element is null/undefined
+            }
           }
+          whereConditions.push(`"${key}" = $${queryParams.length + 1}`);
+          queryParams.push(paramValue);
         }
-        whereConditions.push(`"${key}" = $${queryParams.length + 1}`);
-        queryParams.push(paramValue);
       });
     }
 
