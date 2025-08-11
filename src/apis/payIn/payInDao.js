@@ -748,7 +748,8 @@ export const getPayinsBySearchDao = async (
         p.user_submitted_utr,
         p.user_submitted_image,
         p.duration,
-        b.nick_name
+        b.nick_name,
+        b.id AS bank_acc_id  
         ${commissionSelect ? `,${commissionSelect}` : ''},
         json_build_object(
           'utr', br.utr,
