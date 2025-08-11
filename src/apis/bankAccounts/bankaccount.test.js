@@ -9,10 +9,7 @@ const {
   const { Role } = require('../../constants');
   const { BadRequestError, InternalServerError } = require('../../utils/appErrors');
   const {
-    beginTransaction,
-    commit,
     getConnection,
-    rollback,
   } = require('../../utils/db');
   const { logger } = require('../../utils/logger');
   const { getUserHierarchysDao } = require('../userHierarchy/userHierarchyDao');
