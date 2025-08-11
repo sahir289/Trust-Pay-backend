@@ -447,11 +447,9 @@ describe('generatePayInUrlService', () => {
         code: 'MERCHANT123',
         user_id: 'user123',
         amount: 100,
-        api_key: 'invalid-api-key', // Invalid key here
-        // other fields as needed
+        api_key: 'invalid-api-key',
       };
   
-      // Mock merchant with keys different than invalid-api-key
       getMerchantsByCodeDao.mockResolvedValue([
         {
           id: 'merchant1',
@@ -468,10 +466,8 @@ describe('generatePayInUrlService', () => {
         },
       ]);
   
-      // Mock that order id does not exist
       getPayInUrlDao.mockResolvedValue(null);
   
-      // Call with fromUI = false so IP whitelist logic is skipped easily or pass userIp matching whitelist
       const result = await generatePayInUrlService(mockConn, payload, 'creator123', '127.0.0.1', false);
   
       expect(result).toEqual({
