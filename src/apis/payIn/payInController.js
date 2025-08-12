@@ -80,7 +80,7 @@ export const generateHashForPayIn = async (req, res) => {
 export const generatePayInUrl = async (req, res) => {
   const payload = req.query;
   let userIp =
-    req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
+    req.headers['x-forwarded-for'] || req.ip;
   if (userIp == '::1') {
     userIp = TestingIp;
   }
@@ -276,7 +276,7 @@ export const validatePayInUrl = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const user_location = req.user_location;
-  // req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
+  // req.ip || req.headers['x-forwarded-for'];
   const result = await verifyPayinsService(
     merchantOrderId,
     user_location,

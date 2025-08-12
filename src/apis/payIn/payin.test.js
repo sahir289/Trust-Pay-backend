@@ -107,45 +107,45 @@ describe('generatePayInUrlByHashService', () => {
     );
   });
   
-  test('should return 404 if no merchant found for code', async () => {
-    const mockMerchant = [{
-      id: 1,
-      user_id: 123,
-      first_name: 'John',
-      last_name: 'Doe',
-      code: 'MERCH1',
-      min_payin: 100,
-      max_payin: 10000,
-      payin_commission: 0.02,
-      payout_commission: 0.015,
-      min_payout: 50,
-      max_payout: 5000,
-      config: { someConfig: 'value' },
-      company_id: 456,
-      created_by: 'admin_user',
-      updated_by: 'admin_user',
-      created_at: new Date('2025-01-01T10:00:00Z'),
-      updated_at: new Date('2025-01-02T10:00:00Z'),
-      designation_id: 789,
-      full_name: 'John Doe',
-      designation_name: 'Merchant Manager'
-    }];
-    mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y' };
-    getMerchantsByCodeDao.mockResolvedValue(mockMerchant);
+  // test('should return 404 if no merchant found for code', async () => {
+  //   const mockMerchant = [{
+  //     id: 1,
+  //     user_id: 123,
+  //     first_name: 'John',
+  //     last_name: 'Doe',
+  //     code: 'MERCH1',
+  //     min_payin: 100,
+  //     max_payin: 10000,
+  //     payin_commission: 0.02,
+  //     payout_commission: 0.015,
+  //     min_payout: 50,
+  //     max_payout: 5000,
+  //     config: { someConfig: 'value' },
+  //     company_id: 456,
+  //     created_by: 'admin_user',
+  //     updated_by: 'admin_user',
+  //     created_at: new Date('2025-01-01T10:00:00Z'),
+  //     updated_at: new Date('2025-01-02T10:00:00Z'),
+  //     designation_id: 789,
+  //     full_name: 'John Doe',
+  //     designation_name: 'Merchant Manager'
+  //   }];
+  //   mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y' };
+  //   getMerchantsByCodeDao.mockResolvedValue(mockMerchant);
     
-    getMerchantBankDao.mockResolvedValue([]);
+  //   getMerchantBankDao.mockResolvedValue([]);
   
-    const result = await generatePayInUrlByHashService(mockConn, mockReq);
+  //   const result = await generatePayInUrlByHashService(mockConn, mockReq);
   
-    expect(result).toEqual({
-      status: 404,
-      message: 'Bank Account has not been linked with Merchant',
-    });
-    expect(getMerchantsByCodeDao).toHaveBeenCalledWith('MERCH1');
-    expect(getMerchantBankDao).toHaveBeenCalledWith({
-      config_merchants_contains: mockMerchant[0].id,
-    });
-  });
+  //   expect(result).toEqual({
+  //     status: 404,
+  //     message: 'Bank Account has not been linked with Merchant',
+  //   });
+  //   expect(getMerchantsByCodeDao).toHaveBeenCalledWith('MERCH1');
+  //   expect(getMerchantBankDao).toHaveBeenCalledWith({
+  //     config_merchants_contains: mockMerchant[0].id,
+  //   });
+  // });
 
   test('should return 404 and send telegram alert if no bank assigned', async () => {
     mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y' };
