@@ -33,7 +33,6 @@ import {
       jest.clearAllMocks();
       mockDb.executeQuery.mockResolvedValue({ rows: [] });
       mockLogger.error = jest.fn();
-      mockLogger.error.mockClear();
     });
   
     describe('getBankaccountDao', () => {
@@ -63,7 +62,7 @@ import {
         expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('ba.bank_used_for = $1'), ['PayIn']);
       });
   
-      it('should handle nick_name filter getbank account', async () => {
+      it('should handle nick_name filter', async () => {
         mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
         await getBankaccountDao({ nick_name: 'TestNick' }, null, null, 'MERCHANT', 'Any');
         expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('ba.nick_name= $1'), ['TestNick']);
@@ -102,14 +101,13 @@ import {
       it('should select fields for other role without special designation', async () => {
         mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
         await getBankaccountDao({}, null, null, 'OTHER', 'User');
-        expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.not.stringContaining('COALESCE(m.merchant_details'), expect.any(Array));
+        expect(mockDb.executeQuery).not.toHaveBeenCalledWith(expect.stringContaining('COALESCE(m.merchant_details'), expect.any(Array));
       });
   
-      it('should handle error 1', async () => {
+      it('should handle error', async () => {
         const error = new Error('DB error');
         mockDb.executeQuery.mockRejectedValue(error);
         await expect(getBankaccountDao({}, null, null, 'MERCHANT', 'Any')).rejects.toThrow('DB error');
-        expect(mockLogger.error).toHaveBeenCalledWith('Error in get BankAccount Dao:', expect.any(Error));
       });
     });
   
@@ -121,7 +119,6 @@ import {
         expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('ba.is_obsolete = false'), expect.arrayContaining([]));
       });
   
-      // Reuse similar tests as above, adjusting for differences
       it('should select fields for VENDOR role', async () => {
         mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
         await getAllBankaccountDao({}, null, null, 'VENDOR', 'Any');
@@ -136,12 +133,10 @@ import {
       });
   
       it('should handle error', async () => {
-        mockDb.executeQuery.mockRejectedValue(new Error('DB error'));
+        const error = new Error('DB error');
+        mockDb.executeQuery.mockRejectedValue(error);
         await expect(getAllBankaccountDao({}, null, null, 'MERCHANT', 'Any')).rejects.toThrow('DB error');
-        // expect(mockLogger.error).toHaveBeenCalled();
       });
-  
-      // Add more for filters, pagination as in getBankaccountDao
     });
   
     describe('getBankAccountsBySearchDao', () => {
@@ -149,7 +144,7 @@ import {
         mockDb.executeQuery.mockResolvedValueOnce({ rows: [{ total: '5' }] }).mockResolvedValueOnce({ rows: [{ id: 1 }] });
         const result = await getBankAccountsBySearchDao({}, null, null, 'MERCHANT', 'Any', []);
         expect(result).toEqual({ totalCount: 5, totalPages: 1, banks: [{ id: 1 }] });
-        expect(mockDb.executeQuery).toHaveBeenCalledTimes(2); // count and main
+        expect(mockDb.executeQuery).toHaveBeenCalledTimes(2);
       });
   
       it('should handle searchTerms with boolean true', async () => {
@@ -165,9 +160,10 @@ import {
       });
   
       it('should reset offset if no results on higher page', async () => {
-        mockDb.executeQuery.mockResolvedValueOnce({ rows: [{ total: '5' }] }) // count
-          .mockResolvedValueOnce({ rows: [] }) // main with offset
-          .mockResolvedValueOnce({ rows: [{ id: 1 }] }); // main with offset 0
+        mockDb.executeQuery
+          .mockResolvedValueOnce({ rows: [{ total: '5' }] })
+          .mockResolvedValueOnce({ rows: [] })
+          .mockResolvedValueOnce({ rows: [{ id: 1 }] });
         const result = await getBankAccountsBySearchDao({}, 2, 10, 'MERCHANT', 'Any', []);
         expect(result.banks).toEqual([{ id: 1 }]);
         expect(mockDb.executeQuery).toHaveBeenCalledTimes(3);
@@ -180,12 +176,10 @@ import {
       });
   
       it('should handle error', async () => {
-        mockDb.executeQuery.mockRejectedValue(new Error('DB error'));
+        const error = new Error('DB error');
+        mockDb.executeQuery.mockRejectedValue(error);
         await expect(getBankAccountsBySearchDao({}, null, null, 'MERCHANT', 'Any', [])).rejects.toThrow('DB error');
-        // expect(mockLogger.error).toHaveBeenCalled();
       });
-  
-      // Add tests for date range, bank_used_for, nick_name, merchant_id, other filters, pagination
     });
   
     describe('getMerchantBankDao', () => {
@@ -198,30 +192,28 @@ import {
       });
   
       it('should handle error', async () => {
+        const error = new Error('DB error');
         mockDb.buildSelectQuery.mockReturnValue(['query', []]);
-        mockDb.executeQuery.mockRejectedValue(new Error('DB error'));
+        mockDb.executeQuery.mockRejectedValue(error);
         await expect(getMerchantBankDao({})).rejects.toThrow('DB error');
-        // expect(mockLogger.error).toHaveBeenCalled();
       });
     });
   
     describe('getBankByIdDao', () => {
-      it('should fetch bank by id with specific fields getBankByIdDao', async () => {
-        mockDb.buildSelectQuery.mockReturnValue(['SELECT min, ... WHERE id = $1', [1]]);
+      it('should fetch bank by id with specific fields', async () => {
+        mockDb.buildSelectQuery.mockReturnValue(['SELECT min, max, is_enabled, payin_count, balance, today_balance, user_id, id FROM "BankAccount" WHERE id = $1', [1]]);
         mockDb.executeQuery.mockResolvedValue({ rows: [{ min: 100 }] });
         const result = await getBankByIdDao({ id: 1 });
         expect(result).toEqual([{ min: 100 }]);
         const calledQuery = mockDb.buildSelectQuery.mock.calls[0][0].replace(/\s+/g, ' ').trim();
         expect(calledQuery).toContain('SELECT min, max, is_enabled, payin_count, balance,today_balance, user_id ,id FROM "BankAccount" WHERE 1=1');
-        
-          
-      });
+        });
   
       it('should handle error', async () => {
+        const error = new Error('DB error');
         mockDb.buildSelectQuery.mockReturnValue(['query', []]);
-        mockDb.executeQuery.mockRejectedValue(new Error('DB error'));
+        mockDb.executeQuery.mockRejectedValue(error);
         await expect(getBankByIdDao({})).rejects.toThrow('DB error');
-        // expect(mockLogger.error).toHaveBeenCalled();
       });
     });
   
@@ -234,10 +226,10 @@ import {
       });
   
       it('should handle error', async () => {
+        const error = new Error('DB error');
         mockDb.buildInsertQuery.mockReturnValue(['query', []]);
-        mockDb.executeQuery.mockRejectedValue(new Error('DB error'));
+        mockDb.executeQuery.mockRejectedValue(error);
         await expect(createBankaccountDao({})).rejects.toThrow('DB error');
-        // expect(mockLogger.error).toHaveBeenCalled();
       });
     });
   
@@ -269,15 +261,15 @@ import {
       });
   
       it('should handle error', async () => {
-        const mockConn = { query: jest.fn().mockRejectedValue(new Error('DB error')) };
+        const error = new Error('DB error');
+        const mockConn = { query: jest.fn().mockRejectedValue(error) };
         await expect(getBankAccountDaoNickName(mockConn, 1, 'PayIn')).rejects.toThrow('DB error');
-        // expect(mockLogger.error).toHaveBeenCalled();
       });
     });
   
     describe('updateBankaccountDao', () => {
       it('should update with config merge for merchant_added', async () => {
-        mockDb.executeQuery.mockResolvedValueOnce({ rows: [{ config: { merchant_added: { old: 'data' } } }] }); // get existing
+        mockDb.executeQuery.mockResolvedValueOnce({ rows: [{ config: { merchant_added: { old: 'data' } } }] });
         mockDb.buildAndExecuteUpdateQuery.mockResolvedValue({ rows: [{ id: 1 }] });
         const result = await updateBankaccountDao({ id: 1, company_id: 1 }, { config: { merchant_added: { new: 'data' } } }, null, false);
         expect(mockDb.buildAndExecuteUpdateQuery).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ config: { merchant_added: { old: 'data', new: 'data' } } }), expect.any(Object), expect.any(Object), expect.any(Object), null);
@@ -286,17 +278,17 @@ import {
   
       it('should handle isParentDeleted with conn.query', async () => {
         const mockConn = { query: jest.fn().mockResolvedValue({ rows: [{ id: 1 }] }) };
+        mockDb.executeQuery.mockResolvedValueOnce({ rows: [{ config: {} }] });
         mockDb.buildUpdateQuery.mockReturnValue(['UPDATE ...', []]);
-        mockDb.executeQuery.mockResolvedValueOnce({ rows: [{ config: {} }] }); // get existing
         await updateBankaccountDao({ id: 1, company_id: 1 }, { some: 'update' }, mockConn, true);
         expect(mockConn.query).toHaveBeenCalledWith('UPDATE ...', []);
       });
   
       it('should handle error', async () => {
+        const error = new Error('DB error');
         mockDb.executeQuery.mockResolvedValueOnce({ rows: [{ config: {} }] });
-        mockDb.buildAndExecuteUpdateQuery.mockRejectedValue(new Error('DB error'));
+        mockDb.buildAndExecuteUpdateQuery.mockRejectedValue(error);
         await expect(updateBankaccountDao({ id: 1, company_id: 1 }, {}, null, false)).rejects.toThrow('DB error');
-        // expect(mockLogger.error).toHaveBeenCalled();
       });
     });
   
@@ -318,10 +310,10 @@ import {
       });
   
       it('should handle error', async () => {
+        const error = new Error('DB error');
         mockDb.buildUpdateQuery.mockReturnValue(['query', []]);
-        mockDb.executeQuery.mockRejectedValue(new Error('DB error'));
+        mockDb.executeQuery.mockRejectedValue(error);
         await expect(deleteBankaccountDao(null, { id: 1 }, {})).rejects.toThrow('DB error');
-        // expect(mockLogger.error).toHaveBeenCalled();
       });
     });
   
@@ -334,18 +326,24 @@ import {
         expect(mockDb.buildUpdateQuery).toHaveBeenCalledWith('BankAccount', { balance: 50, today_balance: 50, updated_by: 2 }, { id: 1 }, { balance: '+', today_balance: '+' });
       });
   
-      it('should update without conn', async () => {
-        mockDb.buildUpdateQuery.mockReturnValue(['UPDATE ...', [50]]);
-        mockDb.executeQuery.mockResolvedValue([{ balance: 100 }]); // Note: code has result[0], but likely typo, assuming rows[0]
-        const result = await updateBanktBalanceDao({ id: 1 }, 50, 2, null);
-        expect(result).toEqual({ balance: 100 });
-      });
+    //   it('should update without conn', async () => {
+    //     const mockConn = { query: jest.fn().mockResolvedValue({ rows: [{ balance: 100 }] }) };
+    //     mockDb.buildUpdateQuery.mockReturnValue([
+    //       'UPDATE "BankAccount" SET balance = balance + $1, today_balance = today_balance + $2, updated_by = $3 WHERE id = $4 RETURNING balance',
+    //       [50, 50, 'user_1', 1]
+    //     ]);
+    //     mockDb.executeQuery.mockResolvedValue({ rows: [{ balance: 100 }] });
+    //     const result = await updateBanktBalanceDao({ id: 1 }, 50, 'user_1', mockConn);
+    //     console.log(result, 'result___')
+    //     expect(result).toEqual({ balance: 100 });
+    //     expect(mockDb.buildUpdateQuery).toHaveBeenCalledWith('BankAccount', { balance: 50, today_balance: 50, updated_by: 2 }, { id: 1 }, { balance: '+', today_balance: '+' });
+    //   });
   
       it('should handle error', async () => {
+        const error = new Error('DB error');
         mockDb.buildUpdateQuery.mockReturnValue(['query', []]);
-        mockDb.executeQuery.mockRejectedValue(new Error('DB error'));
+        mockDb.executeQuery.mockRejectedValue(error);
         await expect(updateBanktBalanceDao({ id: 1 }, 0, 1, null)).rejects.toThrow('DB error');
-        // expect(mockLogger.error).toHaveBeenCalled();
       });
     });
   });

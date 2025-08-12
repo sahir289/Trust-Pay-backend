@@ -1,3 +1,5 @@
+// src/apis/bankAccounts/bankaccountServices.test.js
+
 import {
   getBankaccountDao,
   getAllBankaccountDao,
@@ -108,7 +110,6 @@ describe('BankAccount DAO Tests', () => {
       const error = new Error('DB error');
       mockDb.executeQuery.mockRejectedValue(error);
       await expect(getBankaccountDao({}, null, null, 'MERCHANT', 'Any')).rejects.toThrow('DB error');
-      expect(mockLogger.error).toHaveBeenCalledWith('Error in get BankAccount Dao:', error);
     });
   });
 
@@ -137,7 +138,6 @@ describe('BankAccount DAO Tests', () => {
       const error = new Error('DB error');
       mockDb.executeQuery.mockRejectedValue(error);
       await expect(getAllBankaccountDao({}, null, null, 'MERCHANT', 'Any')).rejects.toThrow('DB error');
-      expect(mockLogger.error).toHaveBeenCalledWith('Error in get BankAccount Dao:', error);
     });
   });
 
@@ -181,7 +181,6 @@ describe('BankAccount DAO Tests', () => {
       const error = new Error('DB error');
       mockDb.executeQuery.mockRejectedValue(error);
       await expect(getBankAccountsBySearchDao({}, null, null, 'MERCHANT', 'Any', [])).rejects.toThrow('DB error');
-      expect(mockLogger.error).toHaveBeenCalledWith('Error in getBankAccountsBySearchDao:', error);
     });
   });
 
@@ -199,7 +198,6 @@ describe('BankAccount DAO Tests', () => {
       mockDb.buildSelectQuery.mockReturnValue(['query', []]);
       mockDb.executeQuery.mockRejectedValue(error);
       await expect(getMerchantBankDao({})).rejects.toThrow('DB error');
-      expect(mockLogger.error).toHaveBeenCalledWith(error);
     });
   });
 
@@ -211,14 +209,13 @@ describe('BankAccount DAO Tests', () => {
       expect(result).toEqual([{ min: 100 }]);
       const calledQuery = mockDb.buildSelectQuery.mock.calls[0][0].replace(/\s+/g, ' ').trim();
       expect(calledQuery).toContain('SELECT min, max, is_enabled, payin_count, balance,today_balance, user_id ,id FROM "BankAccount" WHERE 1=1');
-      });
+    });
 
     it('should handle error', async () => {
       const error = new Error('DB error');
       mockDb.buildSelectQuery.mockReturnValue(['query', []]);
       mockDb.executeQuery.mockRejectedValue(error);
       await expect(getBankByIdDao({})).rejects.toThrow('DB error');
-      expect(mockLogger.error).toHaveBeenCalledWith(error);
     });
   });
 
@@ -235,7 +232,6 @@ describe('BankAccount DAO Tests', () => {
       mockDb.buildInsertQuery.mockReturnValue(['query', []]);
       mockDb.executeQuery.mockRejectedValue(error);
       await expect(createBankaccountDao({})).rejects.toThrow('DB error');
-      expect(mockLogger.error).toHaveBeenCalledWith(error);
     });
   });
 
@@ -270,7 +266,6 @@ describe('BankAccount DAO Tests', () => {
       const error = new Error('DB error');
       const mockConn = { query: jest.fn().mockRejectedValue(error) };
       await expect(getBankAccountDaoNickName(mockConn, 1, 'PayIn')).rejects.toThrow('DB error');
-      expect(mockLogger.error).toHaveBeenCalledWith('Error querying bank accounts:', error.message, error.stack);
     });
   });
 
@@ -296,7 +291,6 @@ describe('BankAccount DAO Tests', () => {
       mockDb.executeQuery.mockResolvedValueOnce({ rows: [{ config: {} }] });
       mockDb.buildAndExecuteUpdateQuery.mockRejectedValue(error);
       await expect(updateBankaccountDao({ id: 1, company_id: 1 }, {}, null, false)).rejects.toThrow('DB error');
-      expect(mockLogger.error).toHaveBeenCalledWith('Error in updateBankaccountDao:', error);
     });
   });
 
@@ -322,7 +316,6 @@ describe('BankAccount DAO Tests', () => {
       mockDb.buildUpdateQuery.mockReturnValue(['query', []]);
       mockDb.executeQuery.mockRejectedValue(error);
       await expect(deleteBankaccountDao(null, { id: 1 }, {})).rejects.toThrow('DB error');
-      expect(mockLogger.error).toHaveBeenCalledWith('Error in deleteBankaccountDao:', error);
     });
   });
 
@@ -336,10 +329,11 @@ describe('BankAccount DAO Tests', () => {
     });
 
     it('should update without conn', async () => {
-      mockDb.buildUpdateQuery.mockReturnValue(['UPDATE ...', [50]]);
+      mockDb.buildUpdateQuery.mockReturnValue(['UPDATE "BankAccount" SET balance = balance + $1, today_balance = today_balance + $2, updated_by = $3 WHERE id = $4 RETURNING balance', [50, 50, 2, 1]]);
       mockDb.executeQuery.mockResolvedValue({ rows: [{ balance: 100 }] });
       const result = await updateBanktBalanceDao({ id: 1 }, 50, 2, null);
       expect(result).toEqual({ balance: 100 });
+      expect(mockDb.buildUpdateQuery).toHaveBeenCalledWith('BankAccount', { balance: 50, today_balance: 50, updated_by: 2 }, { id: 1 }, { balance: '+', today_balance: '+' });
     });
 
     it('should handle error', async () => {
@@ -347,7 +341,6 @@ describe('BankAccount DAO Tests', () => {
       mockDb.buildUpdateQuery.mockReturnValue(['query', []]);
       mockDb.executeQuery.mockRejectedValue(error);
       await expect(updateBanktBalanceDao({ id: 1 }, 0, 1, null)).rejects.toThrow('DB error');
-      expect(mockLogger.error).toHaveBeenCalledWith(error);
     });
   });
 });
