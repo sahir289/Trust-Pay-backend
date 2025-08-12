@@ -608,7 +608,21 @@ export const getChargeBacksBySearchDao = async (
       cb.created_at
     `;
 
-    if (role === Role.MERCHANT || role === Role.ADMIN) {
+    if (role === Role.MERCHANT) {
+      extraColumns += `,
+        m.code AS merchant_name,
+          cb.config,
+        p.user AS user,
+        p.config->'user'->>'user_ip' AS user_ip,
+        p.merchant_order_id AS merchant_order_id, -- Fixed: Reference p.merchant_order_id
+        CASE 
+          WHEN m.config->>'sub_code' IS NOT NULL AND m.config->>'sub_code' != '' 
+          THEN m.config->>'sub_code' 
+          ELSE m.code 
+        END AS merchant_display_code
+      `;
+    }
+    else if (role === Role.ADMIN) {
       extraColumns += `,
         m.code AS merchant_name,
           cb.config,

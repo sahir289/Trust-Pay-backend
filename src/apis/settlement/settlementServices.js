@@ -177,7 +177,7 @@ const getSettlementsBySearchService = async (
 
     // Determine column selection based on role
     const filterColumns = (() => {
-      switch (ids.role) {
+      switch (role) {
         case Role.MERCHANT:
           return merchantColumns.SETTLEMENT;
         case Role.VENDOR:
@@ -244,6 +244,7 @@ const getSettlementsBySearchService = async (
       sortOrder || 'DESC',
       filterColumns,
       searchTerms,
+      role,
     );
 
     return settlementData;
