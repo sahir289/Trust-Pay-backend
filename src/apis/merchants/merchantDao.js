@@ -29,6 +29,7 @@ export const getMerchantsCodeDao = async (
   filters,
   includeSubMerchants = false,
   includeOnlyMerchants = false,
+  excludeDisabledMerchant = false,
 ) => {
   try {
     //includeSubMerchants  convert string to boolean
@@ -75,6 +76,9 @@ export const getMerchantsCodeDao = async (
       WHERE 
         m.is_obsolete = FALSE
     `;
+    if (excludeDisabledMerchant) {
+      sql += ` AND m.is_enabled = TRUE `;
+    }
     const queryParams = [];
     let paramIndex = 1;
     if (includeOnlyMerchants) {
