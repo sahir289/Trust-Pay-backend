@@ -114,6 +114,7 @@ router.get(
   isAuthenticated,
   tryCatchHandler(getClientsAccountReportController),
 );
+
 //handled same with above function
 
 export default router;

@@ -543,6 +543,7 @@ const getBankResponseDaoAll = async (
   end_date,
 ) => {
   try {
+    let values = [];
     let bankId;
     let bankDetails;
     if (filters?.bank_id) {
@@ -605,6 +606,7 @@ const getBankResponseDaoAll = async (
       LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
       `;
 
+    let baseQueryVendor = '';
     const whereConditions = [];
 
     if (start_date && end_date) {
@@ -617,6 +619,77 @@ const getBankResponseDaoAll = async (
         whereConditions.push(
           `"BankResponse".created_at BETWEEN '${start}' AND '${end}'`,
         );
+      }
+    }
+    if (filters.userId) {
+      let userIdsArray;
+      try {
+        userIdsArray = typeof filters.userId === 'string' ? JSON.parse(filters.userId) : filters.userId;
+      } catch (error) {
+        logger.error('Invalid userId format:', error);
+        throw new Error('Invalid userId format');
+      }
+      baseQueryVendor = `
+      SELECT 
+      br.created_at,
+      br.sno,
+      br.utr,
+      br.is_used,
+      br.amount,
+      br.status,
+      ba.nick_name,
+      "Merchant".code AS merchant_code,
+      v.code AS vendor_code
+      FROM "BankResponse" AS br
+      JOIN "BankAccount" AS ba 
+      ON br.bank_id = ba.id
+      LEFT JOIN "Vendor" AS v
+      ON ba.user_id = v.user_id
+      LEFT JOIN "Payin"
+      ON br.id = "Payin".bank_response_id
+      AND br.is_used = true
+      LEFT JOIN "Merchant"
+      ON "Payin".merchant_id = "Merchant".id
+      WHERE ba.user_id = ANY($1)
+      `;
+      
+       values = [userIdsArray];
+      let paramIndex = 2;
+      if (start && end) {
+        baseQueryVendor += ` AND br.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+        values.push(start, end);
+        paramIndex += 2;
+      }
+      if (filters.is_used) {
+        const isUsedValues = filters.is_used.split(',').map(val => val === 'true');
+      
+        if (isUsedValues.length === 1) {
+          baseQueryVendor += ` AND br.is_used = $${paramIndex}`;
+          values.push(isUsedValues[0]);
+          paramIndex++;
+        } else {
+          const placeholders = isUsedValues.map((_, i) => `$${paramIndex + i}`).join(', ');
+          baseQueryVendor += ` AND br.is_used IN (${placeholders})`;
+          values.push(...isUsedValues);
+          paramIndex += isUsedValues.length;
+        }
+      }
+      
+      if (filters.status) {
+        const statuses = filters.status.split(',').filter(Boolean);
+        if (statuses.length === 1) {
+          baseQueryVendor += ` AND br.status = $${paramIndex}`;
+          values.push(statuses[0]);
+          paramIndex++;
+        } else {
+          const placeholders = statuses.map((_, i) => `$${paramIndex + i}`).join(', ');
+          baseQueryVendor += ` AND br.status IN (${placeholders})`;
+          values.push(...statuses);
+          paramIndex += statuses.length;
+        }
+      }
+      else{
+        baseQueryVendor += ` AND br.status IN ('/success', '/freezed', '/internalTransfer')`;
       }
     }
 
@@ -655,16 +728,22 @@ const getBankResponseDaoAll = async (
       start && end && bankDetails && bankDetails[0]?.config?.merchant_added
         ? baseQueryDate
         : baseQuery;
-    const [query, queryValues] = buildSelectQuery(
-      queryIs,
-      filters,
-      page,
-      pageSize,
-      sortBy,
-      sortOrder,
-      'BankResponse',
-    );
-    const result = await executeQuery(query, queryValues);
+
+    let result;
+    if (filters.userId && filters.userId.length > 0) {
+      result = await executeQuery(baseQueryVendor, values);
+    } else {
+      const [query, finalQueryValues] = buildSelectQuery(
+        queryIs,
+        filters,
+        page,
+        pageSize,
+        sortBy,
+        sortOrder,
+        'BankResponse',
+      );
+      result = await executeQuery(query, finalQueryValues);
+    }
     return { totalCount: result.rows.length, rows: result.rows };
   } catch (error) {
     logger.error('Error getting Bank Response:', error);

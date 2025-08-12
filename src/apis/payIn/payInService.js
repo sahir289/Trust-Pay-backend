@@ -27,6 +27,7 @@ import {
   getPayinsBySearchDao,
   getAllPayInsDao,
   getPayInPendingDao,
+  getPayinsSumAndCountByStatusDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -113,6 +114,13 @@ export const generatePayInUrlByHashService = async (conn, req) => {
     }
     // const x_api_key = req.headers['x-api-key'];
     const merchantArr = await getMerchantsByCodeDao(code);
+    if (merchantArr.length === 0) {
+      const data = {
+        status: 404,
+        message: 'Merchant is inactive. Contact support for help!',
+      };
+      return data;
+    }
     const bankAssigned = await getMerchantBankDao({
       config_merchants_contains: merchantArr[0].id,
     });
@@ -1257,6 +1265,15 @@ export const getPayinsBySearchService = async (
   }
 };
 
+export const getPayinsSummaryService = async (filters) => {
+  try {
+    const data = await getPayinsSumAndCountByStatusDao(filters);
+    return data;
+  } catch (error) {
+    logger.error('Error while fetching Payin SUM', error);
+    throw new InternalServerError(error.message);
+  }
+};
 export const processPayInService = async (
   conn,
   payload,

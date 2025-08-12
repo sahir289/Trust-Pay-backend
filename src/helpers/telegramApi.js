@@ -4,7 +4,7 @@ import { logger } from '../utils/logger.js';
 import { BadRequestError } from '../utils/appErrors.js';
 
 export const createTelegramSender = () => {
-  const sentMessages = new Set(); // it will rack unique message sends
+  // const sentMessages = new Set(); // it will rack unique message sends
 
   return async (
     chatId,
@@ -18,14 +18,14 @@ export const createTelegramSender = () => {
       );
     }
 
-    const key = `${chatId}:${message}:${replyToMessageId || ''}`; // thi is for unique key for the api call
+    // const key = `${chatId}:${message}:${replyToMessageId || ''}`; // thi is for unique key for the api call
 
-    if (sentMessages.has(key)) {
-      logger.log(`Message to chat ${chatId} already sent, skipping.`);
-      return false;
-    }
+    // if (sentMessages.has(key)) {
+    //   logger.log(`Message to chat ${chatId} already sent, skipping.`);
+    //   return false;
+    // }
 
-    sentMessages.add(key); // it will mark this message as sent
+    // sentMessages.add(key); // it will mark this message as sent
     const sendMessageUrl = `${config.telegram.telegram_url}${token}/sendMessage`;
 
     const payload = {
@@ -46,7 +46,7 @@ export const createTelegramSender = () => {
         'Error sending message to Telegram:',
         error?.data?.description || 'Request failed with status code 429',
       );
-      sentMessages.delete(key); // we will remove key on failure to allow retry
+      // sentMessages.delete(key); // we will remove key on failure to allow retry
       return false; // return false to indicate failure
     }
   };

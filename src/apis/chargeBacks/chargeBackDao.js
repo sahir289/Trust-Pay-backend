@@ -23,7 +23,7 @@ export const createChargeBackDao = async (data) => {
 
 export const getChargebackByIdDao = async (filters) => {
   try {
-    const query = `SELECT id, sno, merchant_user_id, vendor_user_id, payin_id, bank_acc_id, amount, reference_date, created_by, updated_by, created_at, updated_at FROM "${tableName.CHARGE_BACK}" WHERE 1=1`;
+    const query = `SELECT id, sno, merchant_user_id, vendor_user_id, payin_id, bank_acc_id, amount,config, reference_date, created_by, updated_by, created_at, updated_at FROM "${tableName.CHARGE_BACK}" WHERE 1=1`;
     const [sql, parameters] = buildSelectQuery(query, filters);
     const result = await executeQuery(sql, parameters);
     return result.rows;
@@ -505,6 +505,7 @@ export const getChargeBacksBySearchDao = async (
             LOWER(m.code::text) LIKE LOWER($${paramIndex}) OR
             LOWER(v.code::text) LIKE LOWER($${paramIndex}) OR
             LOWER(p.user_submitted_utr::text) LIKE LOWER($${paramIndex}) OR
+            LOWER(p.config->'user'->>'user_ip'::text) LIKE LOWER($${paramIndex}) OR
             LOWER(p.merchant_order_id::text) LIKE LOWER($${paramIndex}) OR
             LOWER(br.utr::text) LIKE LOWER($${paramIndex}) OR
             LOWER(ba.nick_name::text) LIKE LOWER($${paramIndex}) OR
