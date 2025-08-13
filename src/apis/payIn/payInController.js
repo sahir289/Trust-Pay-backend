@@ -60,6 +60,7 @@ import { logger } from '../../utils/logger.js';
 import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
 import { sendBankNotAssignedAlertTelegram } from '../../utils/sendTelegramMessages.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
+import { getRolesById } from '../roles/rolesDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const TestingIp = process.env.LOCAL_IP;
@@ -92,7 +93,7 @@ export const generatePayInUrl = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const x_api_key = req.headers['x-api-key'];
-  const { code, key, hash_code } = payload;
+  const { code, key, hash_code, roleToken = null } = payload;
 
   const apiKey = key ? key : x_api_key;
   if (!apiKey) {
@@ -232,14 +233,25 @@ export const generatePayInUrl = async (req, res) => {
 
   }
 
+  let role = null;
   const token = req.headers[AUTH_HEADER_KEY];
   const tokenData = decodeAuthToken(token);
+
+  if (tokenData.role) {
+    role = tokenData.role;
+  }
+  if (roleToken && roleToken !== null) {
+    const roleData = await getRolesById(roleToken);
+    role = roleData.role;
+  }
+
   const result = await transactionWrapper(generatePayInUrlService)(
     {
       ...payload,
       api_key: apiKey,
     },
     tokenData.user_id,
+    role,
     userIp,
     fromUI,
   );
