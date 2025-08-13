@@ -65,6 +65,8 @@ export const UPDATE_SETTLEMENT_SCHEMA = Joi.object({
       .valid('RECEIVED', 'SENT')
       .label('debit_credit')
       .optional(),
+    beneficiary_initial_balance: Joi.number().label('beneficiary_initial_balance').optional(),
+    beneficiary_closing_balance: Joi.number().label('beneficiary_closing_balance').optional(),
   })
     .label('config')
     .optional(),
