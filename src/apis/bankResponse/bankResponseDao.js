@@ -609,10 +609,15 @@ const getBankResponseDaoAll = async (
       SELECT ${selectCols}, "BankResponse".created_at,
         "BankAccount".config AS details,
         "BankAccount".nick_name,
-        "Vendor".user_id AS vendor_user_id
+        "Vendor".user_id AS vendor_user_id,
+        "Merchant".code AS merchant_code
       FROM "BankResponse"
       JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
       LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
+      LEFT JOIN "Payin"
+        ON "BankResponse".id = "Payin".bank_response_id
+      LEFT JOIN "Merchant"
+        ON "Payin".merchant_id = "Merchant".id
       `;
 
     let baseQueryVendor = '';
