@@ -364,15 +364,15 @@ const getSettlementsBySearchDao = async (
               LOWER(ba.acc_no) LIKE LOWER($${paramIndex}) OR
               LOWER(ba.ifsc) LIKE LOWER($${paramIndex}) OR
               s.amount::text LIKE $${paramIndex} OR
-          LOWER(s.config->>'amount') LIKE LOWER($${paramIndex}) OR
-          LOWER(s.config->>'reference_id') LIKE LOWER($${paramIndex}) OR
-          LOWER(s.config->>'debit_credit') LIKE LOWER($${paramIndex}) OR
-          LOWER(s.config->>'ifsc') LIKE LOWER($${paramIndex}) OR
-          LOWER(s.config->>'acc_no') LIKE LOWER($${paramIndex}) OR
-          LOWER(s.config->>'acc_holder_name') LIKE LOWER($${paramIndex}) OR
-          LOWER(s.config->>'bank_name') LIKE LOWER($${paramIndex}) OR
-          LOWER(s.config->>'bank_namebank_name') LIKE LOWER($${paramIndex}) OR
-          LOWER(s.config->>'rejected_reason') LIKE LOWER($${paramIndex})           )`,
+              LOWER(s.config->>'amount') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'reference_id') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'debit_credit') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'ifsc') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'acc_no') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'acc_holder_name') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'bank_name') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'bank_namebank_name') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'rejected_reason') LIKE LOWER($${paramIndex}))`,
           );
           queryParams.push(`%${term}%`);
           paramIndex++;
@@ -393,6 +393,17 @@ const getSettlementsBySearchDao = async (
           .map((_, i) => `$${paramIndex + i}`)
           .join(',');
         conditions.push(`s.user_id IN (${placeholders})`);
+        queryParams.push(...values);
+        paramIndex += values.length;
+      },
+      company_id: (val) => {
+        const values = Array.isArray(val)
+          ? val
+          : val.split(',').map((v) => v.trim());
+        const placeholders = values
+          .map((_, i) => `$${paramIndex + i}`)
+          .join(',');
+        conditions.push(`s.company_id IN (${placeholders})`);
         queryParams.push(...values);
         paramIndex += values.length;
       },
