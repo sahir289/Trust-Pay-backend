@@ -3,7 +3,7 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
-import { Status, tableName } from '../../constants/index.js';
+import { Role, Status, tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import dayjs from 'dayjs';
@@ -124,21 +124,18 @@ const getSettlementDao = async (
             conditions.push(
               `s.approved_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
             );
-          }
-          else if (filters.status === Status.REJECTED) {
+          } else if (filters.status === Status.REJECTED) {
             conditions.push(
               `s.rejected_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1} AND s.approved_at IS NULL`,
             );
-          }
-          else if (filters.status === Status.REVERSED) {
+          } else if (filters.status === Status.REVERSED) {
             conditions.push(
               `(s.rejected_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1} AND s.approved_at IS NOT NULL)`,
             );
-          }
-          else {
+          } else {
             conditions.push(
               `s.updated_at BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}`,
-            ); 
+            );
           }
           queryParams.push(start, end);
           delete filters.start_date;
@@ -277,9 +274,6 @@ const getSettlementDao = async (
   }
 };
 
-
-
-
 const getSettlementsBySearchDao = async (
   filters = {},
   page = 1,
@@ -288,6 +282,7 @@ const getSettlementsBySearchDao = async (
   sortOrder = 'DESC',
   columns = [],
   searchTerms = [],
+  role,
 ) => {
   try {
     const conditions = ['s.is_obsolete = false'];
@@ -295,10 +290,13 @@ const getSettlementsBySearchDao = async (
     let paramIndex = 1;
 
     // Add dynamic code and user_name fields
-    const columnSelection =
-      columns.length > 0
-        ? columns.map((col) => `s.${col}`).join(', ')
-        : `
+    let columnSelection;
+
+    if (role !== Role.ADMIN) {
+      columnSelection =
+        columns.length > 0
+          ? columns.map((col) => `s.${col}`).join(', ')
+          : `
           s.*,
           u.user_name,
           r.role,
@@ -313,10 +311,30 @@ const getSettlementsBySearchDao = async (
             WHEN r.role = 'VENDOR' THEN v.code
             WHEN r.role = 'ADMIN' THEN COALESCE(m.config->>'sub_code', m.code)
             ELSE NULL
-          END AS code,
-          COALESCE(uc.user_name, s.created_by::text) AS created_by,
-          COALESCE(uu.user_name, s.updated_by::text) AS updated_by
+          END AS code
         `;
+    } else {
+      columnSelection =
+        columns.length > 0
+          ? columns.map((col) => `s.${col}`).join(', ')
+          : `
+          s.*,
+          u.user_name,
+          r.role,
+          ba.bank_name,
+          ba.acc_holder_name,
+          ba.acc_no,
+          ba.ifsc,
+          m.code AS merchant_code,
+          v.code AS vendor_code,
+          CASE
+            WHEN r.role = 'MERCHANT' THEN COALESCE(m.config->>'sub_code', m.code)
+            WHEN r.role = 'VENDOR' THEN v.code
+            WHEN r.role = 'ADMIN' THEN COALESCE(m.config->>'sub_code', m.code)
+            ELSE NULL
+          END AS code
+        `;
+    }
 
     // Full-text search conditions
     if (searchTerms.length > 0) {
@@ -346,15 +364,15 @@ const getSettlementsBySearchDao = async (
               LOWER(ba.acc_no) LIKE LOWER($${paramIndex}) OR
               LOWER(ba.ifsc) LIKE LOWER($${paramIndex}) OR
               s.amount::text LIKE $${paramIndex} OR
-          LOWER(s.config->>'amount') LIKE LOWER($${paramIndex}) OR
-          LOWER(s.config->>'reference_id') LIKE LOWER($${paramIndex}) OR
-          LOWER(s.config->>'debit_credit') LIKE LOWER($${paramIndex}) OR
-          LOWER(s.config->>'ifsc') LIKE LOWER($${paramIndex}) OR
-          LOWER(s.config->>'acc_no') LIKE LOWER($${paramIndex}) OR
-          LOWER(s.config->>'acc_holder_name') LIKE LOWER($${paramIndex}) OR
-          LOWER(s.config->>'bank_name') LIKE LOWER($${paramIndex}) OR
-          LOWER(s.config->>'bank_namebank_name') LIKE LOWER($${paramIndex}) OR
-          LOWER(s.config->>'rejected_reason') LIKE LOWER($${paramIndex})           )`,
+              LOWER(s.config->>'amount') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'reference_id') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'debit_credit') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'ifsc') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'acc_no') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'acc_holder_name') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'bank_name') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'bank_namebank_name') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'rejected_reason') LIKE LOWER($${paramIndex}))`,
           );
           queryParams.push(`%${term}%`);
           paramIndex++;
@@ -375,6 +393,17 @@ const getSettlementsBySearchDao = async (
           .map((_, i) => `$${paramIndex + i}`)
           .join(',');
         conditions.push(`s.user_id IN (${placeholders})`);
+        queryParams.push(...values);
+        paramIndex += values.length;
+      },
+      company_id: (val) => {
+        const values = Array.isArray(val)
+          ? val
+          : val.split(',').map((v) => v.trim());
+        const placeholders = values
+          .map((_, i) => `$${paramIndex + i}`)
+          .join(',');
+        conditions.push(`s.company_id IN (${placeholders})`);
         queryParams.push(...values);
         paramIndex += values.length;
       },
@@ -487,7 +516,27 @@ const getSettlementsBySearchDao = async (
     }
 
     // Base query
-    const baseQuery = `
+    let baseQuery;
+
+    if (role !== Role.ADMIN) {
+      baseQuery = `
+      SELECT ${columnSelection} ,
+       CASE
+        WHEN r.role = 'MERCHANT' THEN COALESCE(m.config->>'sub_code', m.code)
+        WHEN r.role = 'VENDOR' THEN v.code
+        WHEN r.role = 'ADMIN' THEN COALESCE(m.config->>'sub_code', m.code)
+        ELSE NULL
+      END AS code
+      FROM "Settlement" s
+      JOIN "User" u ON s.user_id = u.id
+      LEFT JOIN "Role" r ON u.role_id = r.id
+      LEFT JOIN "BeneficiaryAccounts" ba ON s.config->>'bank_id' = ba.id
+      LEFT JOIN "Merchant" m ON u.id = m.user_id AND r.role IN ('MERCHANT', 'ADMIN')
+      LEFT JOIN "Vendor" v ON u.id = v.user_id AND r.role = 'VENDOR'
+      WHERE ${conditions.join(' AND ')}
+    `;
+    } else {
+      baseQuery = `
       SELECT ${columnSelection} ,
        CASE
         WHEN r.role = 'MERCHANT' THEN COALESCE(m.config->>'sub_code', m.code)
@@ -507,6 +556,7 @@ const getSettlementsBySearchDao = async (
       LEFT JOIN "User" uu ON s.updated_by = uu.id
       WHERE ${conditions.join(' AND ')}
     `;
+    }
 
     // Count query
     const countQuery = `SELECT COUNT(*) AS total FROM (${baseQuery}) AS count_table`;
@@ -530,6 +580,7 @@ const getSettlementsBySearchDao = async (
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
     queryParams.push(pageSize, (page - 1) * pageSize);
+
     // Final result
     let result = await executeQuery(finalQuery, queryParams);
     if (
@@ -550,9 +601,6 @@ const getSettlementsBySearchDao = async (
     throw error;
   }
 };
-  
-
-
 
 const getSettlementDaoforInternalTransfer = async (utr, method) => {
   try {
@@ -574,8 +622,7 @@ const createSettlementDao = async (payload, conn) => {
     let result;
     if (conn && conn.query) {
       result = await conn.query(sql, params);
-    }
-    else {
+    } else {
       result = await executeQuery(sql, params);
     }
     return result.rows[0];

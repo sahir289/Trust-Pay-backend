@@ -110,7 +110,7 @@ const getMerchantsBySearch = async (req, res) => {
 
 const getMerchantCodes = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
-  const { includeSubMerchants, includeOnlyMerchants } = req.query;
+  const { includeSubMerchants, includeOnlyMerchants, excludeDisabledMerchant } = req.query;
   const filters = { company_id };
   const data = await getMerchantsServiceCode(
     filters,
@@ -119,6 +119,7 @@ const getMerchantCodes = async (req, res) => {
     user_id,
     includeSubMerchants,
     includeOnlyMerchants,
+    excludeDisabledMerchant,
   );
   logger.log('get Merchants successfully');
   return sendSuccess(res, data, 'Merchants fetched successfully');
