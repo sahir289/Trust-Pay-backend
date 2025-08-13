@@ -345,6 +345,15 @@ const getBankResponseBySearchDao = async (
 
 const getClaimResponseDao = async (filters) => {
   try {
+    // Normalize banks and vendors to arrays if not already
+    let banks = filters.banks;
+    let vendors = filters.vendors;
+    if (banks && !Array.isArray(banks)) {
+      banks = [banks];
+    }
+    if (vendors && !Array.isArray(vendors)) {
+      vendors = [vendors];
+    }
     const startDate = filters.startDate
       ? dayjs.tz(filters.startDate, IST).startOf('day')
       : dayjs().tz(IST).startOf('day');
@@ -353,8 +362,8 @@ const getClaimResponseDao = async (filters) => {
       ? dayjs.tz(filters.endDate, IST).endOf('day')
       : dayjs().tz(IST).endOf('day');
 
-    const hasBankIds = Array.isArray(filters.banks) && filters.banks.length > 0;
-    const hasVendorIds = Array.isArray(filters.vendors) && filters.vendors.length > 0;
+    const hasBankIds = Array.isArray(banks) && banks.length > 0;
+    const hasVendorIds = Array.isArray(vendors) && vendors.length > 0;
 
     const params = [startDate.format(), endDate.format(), filters.company_id];
     let paramIndex = 4;
@@ -362,14 +371,14 @@ const getClaimResponseDao = async (filters) => {
     let bankFilter = '';
     if (hasBankIds) {
       bankFilter = `AND br.bank_id = ANY($${paramIndex}::text[])`;
-      params.push(filters.banks);
+      params.push(banks);
       paramIndex++;
     }
 
     let vendorFilter = '';
     if (hasVendorIds) {
       vendorFilter = `AND ba.user_id = ANY($${paramIndex}::text[])`;
-      params.push(filters.vendors);
+      params.push(vendors);
       paramIndex++;
     }
 
