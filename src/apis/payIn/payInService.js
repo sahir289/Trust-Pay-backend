@@ -105,6 +105,7 @@ Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
 export const generatePayInUrlByHashService = async (conn, req) => {
   try {
     const { user_id, code, ot, key, amount } = req.query;
+    const { role_id, role } = req.user;
     if (!user_id || !code || !ot) {
       const data = {
         status: 400,
@@ -199,6 +200,9 @@ export const generatePayInUrlByHashService = async (conn, req) => {
     if (amount) {
       query += `&amount=${amount}`;
     }
+    if (role && role === Role.ADMIN) {
+      query += `&token=${role_id}`;
+    }
 
     // Create a deterministic hash
     const hash = createHash(`${code}:${key}`);
@@ -220,6 +224,7 @@ export const generatePayInUrlService = async (
   conn,
   payload,
   created_by,
+  role,
   userIp,
   fromUI,
 ) => {
@@ -307,7 +312,7 @@ export const generatePayInUrlService = async (
       return data;
     }
 
-    if (amount < merchant.min_payin || amount > merchant.max_payin) {
+    if ((amount < merchant.min_payin || amount > merchant.max_payin) && (role && role !== Role.ADMIN)) {
       const data = {
         status: 400,
         message: `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,

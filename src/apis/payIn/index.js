@@ -33,7 +33,7 @@ const router = express.Router();
 
 // Public API's
 
-router.get('/generate-hash', tryCatchHandler(generateHashForPayIn));
+router.get('/generate-hash', isAuthenticated, tryCatchHandler(generateHashForPayIn));
 
 /**
  * @swagger
