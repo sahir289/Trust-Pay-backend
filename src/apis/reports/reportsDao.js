@@ -626,10 +626,9 @@ const getVendorReportDao = async (
     paramIndex += 2;
 
     query += `
-    ORDER BY c.id, v.code ASC
-    )
-    SELECT * FROM filtered_vendors
-    ORDER BY created_at ASC`;
+      )
+      SELECT * FROM filtered_vendors
+      ORDER BY code ASC, created_at ASC`;
 
     // Only apply database-level pagination if both page and limit are provided
     if (page && limit) {
