@@ -338,6 +338,18 @@ export const generatePayInUrlService = async (
       created_by,
     };
     const result = await generatePayInUrlDao(data);
+    const responseObj = {
+      ...result,
+      merchant_details: {
+        merchant_code: merchant ? merchant?.code : null,
+      },
+      bank_res_details: {
+        utr: null,
+        amount: 0,
+      },
+
+    }
+    newTableEntry(tableName.PAYIN, responseObj);
     // await newTableEntry(tableName.PAYIN);
     return result;
   } catch (error) {
@@ -434,6 +446,7 @@ export const assignedBankToPayInUrlService = async (
   try {
     const payIn = await getPayInUrlService(merchantOrderId);
     const payInConfig = payIn.config || {};
+    let merchant = {};
     checkIsPayInExpired(payIn);
     if (payIn.status !== Status.INITIATED) {
       if (payIn.status === Status.ASSIGNED) {
@@ -468,7 +481,7 @@ export const assignedBankToPayInUrlService = async (
       }
     }
     const merchantArr = await getMerchantsDao({ id: payIn.merchant_id });
-    const merchant = merchantArr[0] || {};
+    merchant = merchantArr[0] || {};
     if (!merchant) {
       // throw new NotFoundError('No merchant found');
       return { message: `No merchant found` };
@@ -541,6 +554,28 @@ export const assignedBankToPayInUrlService = async (
       bank_acc_id: selectedBankDetails.id,
       duration: duration
     });
+
+    const vendors = await getVendorsDao({ user_id: selectedBankDetails.user_id });
+    const vendor = vendors[0];
+    
+    const responseObj = {
+      ...updatePayIn,
+      bank_acc_id: selectedBankDetails.id,
+      nick_name: selectedBankDetails.nick_name,
+      vendor_code: vendor?.code,
+      merchant_details: {
+        merchant_code: merchant ? merchant.code : null,
+        dispute: merchant && merchant[0] ? merchant[0].dispute : null,
+        return_url: payIn.config?.urls?.return || null,
+        notify_url: payIn.config?.urls?.notify || null,
+      },
+      bank_res_details: {
+        utr: null,
+        amount: 0,
+      },
+    }
+        // Emit socket event for assigned payin
+        await newTableEntry(tableName.PAYIN, responseObj);
     // expirePayInIfNeeded(payIn);
     delete updatePayIn.is_obsolete;
     delete updatePayIn.company_id;
@@ -1318,6 +1353,10 @@ export const processPayInService = async (
       throw new NotFoundError('Bank not found!');
     }
 
+    // Fetch vendor for vendor_code
+    const vendors = await getVendorsDao({ user_id: bank.user_id });
+    const vendor = vendors[0];
+
     const duration = calculateDuration(payIn.created_at);
     const otherPayIns = await getPayInUrlsDao({
       user_submitted_utr: userSubmittedUtr,
@@ -1455,6 +1494,7 @@ export const processPayInService = async (
     result.status = updatePayInData.status;
 
     let merchant;
+    merchant = await getMerchantsDao({ id: payIn.merchant_id });
     if (updatePayInData.status === Status.SUCCESS) {
       // update merchant balance
       // await updateMerchantBalanceDao(
@@ -1471,7 +1511,7 @@ export const processPayInService = async (
       //   conn,
       // );
 
-      merchant = await getMerchantsDao({ id: payIn.merchant_id });
+      // merchant = await getMerchantsDao({ id: payIn.merchant_id });
       const commissions = calculateCommission(
         bankResponse.amount,
         Number(merchant[0].payin_commission),
@@ -1524,7 +1564,41 @@ export const processPayInService = async (
     // }
 
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-    await newTableEntry(tableName.PAYIN);
+    // After updating payin, build the response object
+
+    const responseObj = {
+      id: payIn.id,
+      sno: payIn.sno,
+      amount: amount,
+      status: updatePayInData.status,
+      user_submitted_utr: updatePayInData.user_submitted_utr,
+      user_submitted_image: updatePayInData.user_submitted_image || null,
+      duration: updatePayInData.duration,
+      nick_name: bank.nick_name,
+      bank_acc_id: bank.id,
+      payin_merchant_commission: updatePayInData.payin_merchant_commission || null,
+      merchant_details: {
+        merchant_code: merchant && merchant[0] ? merchant[0].code : null,
+        dispute: updatePayInData.status === 'DISPUTE',
+        return_url: payIn.config?.urls?.return || null,
+        notify_url: payIn.config?.urls?.notify || null,
+      },
+      merchant_order_id: payIn.merchant_order_id,
+      payin_details: {
+        urls: payIn.config?.urls || {},
+        user: payIn.config?.user || {},
+      },
+      bank_res_details: {
+        utr: bankResponse.utr || null,
+        amount: bankResponse.amount || null,
+      },
+      user: payIn.user,
+      updated_at: payIn.updated_at,
+      created_at: payIn.created_at,
+      vendor_code: vendor?.code || null,
+    };
+
+    await newTableEntry(tableName.PAYIN, responseObj);
     // This is async function but it's just the callback sending function there fore we are not using await
     merchantPayinCallback(payIn.config?.urls?.notify, result);
 
