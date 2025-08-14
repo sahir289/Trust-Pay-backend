@@ -125,13 +125,16 @@ const {
         tableName.PAYIN = 'Payin';
         tableName.MERCHANT = 'Merchant';
         tableName.COMPANY = 'Company';
-  
+      
         const result = await getPayInwithMerchantDao(filters);
         
-        expect(executeQuery).toHaveBeenCalledWith(
-          expect.stringContaining('SELECT p.merchant_order_id'),
-          ['order123']
-        );
+        const calledQuery = executeQuery.mock.calls[0][0];
+        expect(calledQuery).toMatch(/SELECT\s+p\.merchant_order_id/);
+        expect(calledQuery).toMatch(/FROM\s+"Payin"\s+p/);
+        expect(calledQuery).toMatch(/INNER JOIN\s+"Merchant"\s+m\s*ON\s+p\.merchant_id\s*=\s*m\.id/);
+        expect(calledQuery).toMatch(/INNER JOIN\s+"Company"\s+c\s*ON\s+p\.company_id\s*=\s*c\.id/);
+        expect(calledQuery).toMatch(/WHERE\s+p\.merchant_order_id\s*=\s*\$1/);
+        expect(executeQuery).toHaveBeenCalledWith(expect.any(String), ['order123']);
         expect(result).toEqual(mockResult.rows[0]);
       });
   
