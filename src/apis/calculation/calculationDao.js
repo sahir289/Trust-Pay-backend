@@ -53,7 +53,7 @@ const getCalculationDao = async (
     }
 
     // scenarios for admin
-    if (role && role === Role.ADMIN) {
+    if (role && (role === Role.ADMIN || role === Role.SUPER_ADMIN)) {
       // filter object must have company_id to bind the result
       delete filters.user_id;
     }
@@ -243,7 +243,7 @@ export const getCalculationsSumDao = async (filters) => {
     // Modified user code condition for merchant and vendor queries
 
     // Admin Query
-    if (Role.ADMIN === role) {
+    if (Role.ADMIN === role || Role.SUPER_ADMIN === role) {
       if (userCodes.length > 0) {
         // If userCodes are provided, filter by them
         let userIds = []; // Initialize empty array for all IDs
@@ -528,7 +528,7 @@ export const getCalculationsSumDao = async (filters) => {
     } else if (role === Role.VENDOR) {
       vendorTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
       merchantTotalQuery = null; // Vendor shouldn't see merchant totals
-    } else if (role === Role.ADMIN) {
+    } else if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
       // Get user hierarchy to validate access
       let userIds = [];
 

@@ -81,7 +81,7 @@ export const sendCredentialsEmail = async ({
           : ''
       }
       ${
-        designation && [Role.ADMIN].includes(designation)
+        designation && [Role.ADMIN, Role.SUPER_ADMIN].includes(designation)
           ? `
             <div style="background-color: #f1f5f9; padding: 16px; border-radius: 6px; margin-top: 16px;">
               <p style="margin: 8px 0; color: #2d3748;"><strong>Unique_id:</strong> ${unique_id}</p>

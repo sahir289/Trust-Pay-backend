@@ -87,8 +87,8 @@ const getMerchantByCode = async (req, res) => {
 };
 
 const getMerchantsBySearch = async (req, res) => {
-  const { company_id, role, designation, user_id } = req.user;
-  const { search, page = 1, limit = 10 } = req.query;
+  const { role, designation, user_id } = req.user;
+  const { search, page = 1, limit = 10, company_id } = req.query;
   // if (!search) {
   //   throw new BadRequestError('search is required');
   // }
@@ -109,8 +109,8 @@ const getMerchantsBySearch = async (req, res) => {
 };
 
 const getMerchantCodes = async (req, res) => {
-  const { company_id, role, user_id, designation } = req.user;
-  const { includeSubMerchants, includeOnlyMerchants } = req.query;
+  const { role, user_id, designation } = req.user;
+  const { includeSubMerchants, includeOnlyMerchants, company_id } = req.query;
   const filters = { company_id };
   const data = await getMerchantsServiceCode(
     filters,

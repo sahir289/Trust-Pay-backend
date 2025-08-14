@@ -28,8 +28,8 @@ import { s3 } from '../../helpers/Aws.js';
 import { streamToBuffer } from '../../helpers/index.js';
 import { newTableEntry } from '../../utils/sockets.js';
 const getBankResponse = async (req, res) => {
-  const { role, company_id } = req.user;
-  const { page, limit, search, updated, sortOrder, sortBy, ...rest } =
+  const { role } = req.user;
+  const { page, limit, search, updated, sortOrder, sortBy, company_id, ...rest } =
     req.query;
   delete req.query.sortOrder;
   delete req.query.sortBy;
@@ -62,16 +62,18 @@ const getClaimResponse = async (req, res) => {
 };
 
 const getBankResponseBySearch = async (req, res) => {
-  const { role, company_id } = req.user;
-  const { page, limit, search, updated, sortOrder, sortBy, ...rest } =
+  const { role } = req.user;
+  const { page, limit, search, updated, sortOrder, sortBy, company_id, ...rest } =
     req.query;
   delete req.query.sortOrder;
   delete req.query.sortBy;
   const payload = {
     ...req.query,
-    company_id,
     ...rest,
   };
+  if (company_id) {
+    payload.company_id = company_id;
+  }
   const data = await getBankResponseBySearchService(
     payload,
     role,
@@ -86,7 +88,7 @@ const getBankResponseBySearch = async (req, res) => {
 };
 
 const createBankResponse = async (req, res) => {
-  const { role, user_name, company_id, user_id } = req.user;
+  const { role, user_name, user_id } = req.user;
   const payload = req.body?.body;
   const { error } = CREATE_BANK_RESPONSE_SCHEMA.validate(req.body);
   if (error) {
@@ -94,7 +96,6 @@ const createBankResponse = async (req, res) => {
   }
   const result = await createBankResponseService(
     payload,
-    company_id,
     role,
     user_name,
     user_id,
@@ -131,9 +132,8 @@ const updateBankResponse = async (req, res) => {
     throw new ValidationError(bodyError);
   }
   const payload = req.body;
-  const { company_id } = req.user;
   const { id } = req.params;
-  const ids = { id, company_id };
+  const ids = { id, company_id: payload.company_id };
   const updateResponse = await updateBankResponseService(ids, payload, role);
   return sendSuccess(
     res,

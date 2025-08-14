@@ -66,23 +66,7 @@ const getBankaccountDao = async (filters, page, limit, role, designation) => {
         }
       });
     }
-    let commissionSelect = '';
-    if (role === 'MERCHANT') {
-      commissionSelect = '';
-    } else if (role === 'VENDOR') {
-      commissionSelect = `
-        ba.ifsc AS ifsc_code, 
-        ba.payin_count, 
-        ba.balance, 
-        ba.today_balance, 
-        ba.bank_used_for,
-        ba.config->>'is_freeze' AS freezed,
-        ba.config->>'is_intent' AS intent,
-        ba.config->>'is_phonepay' AS phonepe,
-        ba.config->>'max_limit' AS daily_limit`;
-    } else {
-      // Only include Merchant_Details and config if designation is 'Admin'
-      commissionSelect = `
+    let commissionSelect = `
         ba.user_id, 
         ba.ifsc, 
         ba.min, 
@@ -93,10 +77,9 @@ const getBankaccountDao = async (filters, page, limit, role, designation) => {
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
-        ${designation === Role.ADMIN || Role.OPERATIONS || Role.TRANSACTIONS ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
+        ${designation === Role.SUPER_ADMIN ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
         ba.created_at, 
         ba.updated_at`;
-    }
     const baseQuery = `SELECT 
         ba.id, 
         ba.sno, 
@@ -106,15 +89,15 @@ const getBankaccountDao = async (filters, page, limit, role, designation) => {
         ba.nick_name, 
         ba.acc_no, 
         ba.bank_name, 
-        ba.is_qr, 
-        ba.is_bank, 
-        ba.is_enabled, 
         ${commissionSelect ? `${commissionSelect},` : ''}
-        v.code AS Vendor 
+        v.code AS Vendor,
+        c.first_name || ' ' || c.last_name AS company
       FROM 
           public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
           ON ba.user_id = v.user_id
+      LEFT JOIN public."Company" c
+        ON ba.company_id = c.id
       LEFT JOIN LATERAL (
           SELECT 
               jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
@@ -146,8 +129,6 @@ const getAllBankaccountDao = async (
   filters,
   page,
   limit,
-  role,
-  designation,
 ) => {
   try {
     let queryParams = [];
@@ -204,22 +185,17 @@ const getAllBankaccountDao = async (
         }
       });
     }
-    let commissionSelect = '';
-    if (role === 'MERCHANT') {
-      commissionSelect = '';
-    } else if (role === 'VENDOR') {
-      commissionSelect = `
-        ba.ifsc AS ifsc_code, 
-        ba.payin_count, 
-        ba.balance, 
-        ba.today_balance,
-        ba.is_enabled,   
-        ba.bank_used_for,
-        ba.config->>'max_limit' AS daily_limit`;
-    } else {
-      // Only include Merchant_Details and config if designation is 'Admin'
-      commissionSelect = `
+    const baseQuery = `SELECT 
+        ba.id, 
+        ba.sno, 
+        ba.upi_id,
+        ba.acc_holder_name,
+        ba.upi_params, 
+        ba.nick_name, 
+        ba.acc_no, 
+        ba.bank_name, 
         ba.user_id, 
+        ba.company_id,
         ba.ifsc, 
         ba.min, 
         ba.max, 
@@ -232,25 +208,17 @@ const getAllBankaccountDao = async (
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
-        ${designation === Role.ADMIN || Role.OPERATIONS || Role.TRANSACTIONS ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
+        COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,
         ba.created_at, 
-        ba.updated_at`;
-    }
-    const baseQuery = `SELECT 
-        ba.id, 
-        ba.sno, 
-        ba.upi_id,
-        ba.acc_holder_name,
-        ba.upi_params, 
-        ba.nick_name, 
-        ba.acc_no, 
-        ba.bank_name, 
-        ${commissionSelect ? `${commissionSelect},` : ''}
-        v.code AS Vendor 
+        ba.updated_at,
+        v.code AS Vendor,
+        c.first_name || ' ' || c.last_name AS company
       FROM 
           public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
           ON ba.user_id = v.user_id
+      LEFT JOIN public."Company" c
+        ON ba.company_id = c.id
       LEFT JOIN LATERAL (
           SELECT 
               jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
@@ -282,8 +250,6 @@ const getBankAccountsBySearchDao = async (
   filters,
   page,
   limit,
-  role,
-  designation,
   searchTerms = [],
 ) => {
   try {
@@ -368,6 +334,7 @@ const getBankAccountsBySearchDao = async (
               OR LOWER(creator.user_name) LIKE LOWER($${paramIndex})
               OR LOWER(updater.user_name) LIKE LOWER($${paramIndex})
               OR LOWER(v.code) LIKE LOWER($${paramIndex})
+              OR LOWER(c.first_name || ' ' || c.last_name) LIKE LOWER($${paramIndex})
               OR LOWER(m.merchant_details->>'code') LIKE LOWER($${paramIndex})
               OR LOWER(ba.config->>'max_limit') LIKE LOWER($${paramIndex})
             )
@@ -387,40 +354,6 @@ const getBankAccountsBySearchDao = async (
       paramIndex += 2;
     }
 
-    // Role-based select fields
-    let commissionSelect = '';
-    if (role === 'MERCHANT') {
-      commissionSelect = '';
-    } else if (role === 'VENDOR') {
-      commissionSelect = `
-        ba.ifsc AS ifsc_code, 
-        ba.payin_count, 
-        ba.balance, 
-        ba.today_balance,
-        ba.is_enabled,   
-        ba.bank_used_for,
-        ba.config->>'max_limit' AS daily_limit,
-        (ba.config->>'is_freeze')::boolean AS is_freezed`;
-    } else {
-      commissionSelect = `
-        ba.user_id, 
-        ba.ifsc, 
-        ba.min, 
-        ba.max, 
-        ba.payin_count, 
-        ba.balance, 
-        ba.is_qr, 
-        ba.is_bank, 
-        ba.is_enabled, 
-        ba.today_balance, 
-        ba.bank_used_for, 
-        creator.user_name AS created_by, 
-        updater.user_name AS updated_by, 
-        ${designation === Role.ADMIN || Role.OPERATIONS || Role.TRANSACTIONS ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
-        ba.created_at, 
-        ba.updated_at`;
-    }
-
     // Base query
     const baseQuery = `
       SELECT 
@@ -433,12 +366,31 @@ const getBankAccountsBySearchDao = async (
         ba.acc_no, 
         ba.bank_name, 
         ba.is_obsolete,
-        ${commissionSelect ? `${commissionSelect},` : ''}
-        v.code AS Vendor 
+        ba.user_id, 
+        ba.company_id,
+        ba.ifsc, 
+        ba.min, 
+        ba.max, 
+        ba.payin_count, 
+        ba.balance, 
+        ba.is_qr, 
+        ba.is_bank, 
+        ba.is_enabled, 
+        ba.today_balance, 
+        ba.bank_used_for, 
+        creator.user_name AS created_by, 
+        updater.user_name AS updated_by, 
+        COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,
+        ba.created_at, 
+        ba.updated_at,
+        v.code AS Vendor,
+        c.first_name || ' ' || c.last_name AS company
       FROM 
         public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
         ON ba.user_id = v.user_id
+      LEFT JOIN public."Company" c
+        ON ba.company_id = c.id
       LEFT JOIN LATERAL (
         SELECT 
           jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
@@ -554,15 +506,17 @@ const getBankAccountDaoNickName = async (
   try {
     // Initialize query components
     let whereConditions = [
-      'company_id = $1',
-      'bank_used_for = $2',
+      'bank_used_for = $1',
       'is_obsolete = false',
       "(config->>'is_freeze' IS NULL OR config->>'is_freeze' != 'true' OR config->>'is_freeze' = 'false')",
     ];
     if (type !== 'PayIn') {
       whereConditions.push('is_enabled = true');
     }
-    let queryParams = [company_id, type];
+    if (company_id) {
+      whereConditions.push('company_id = $2');
+    }
+    let queryParams = [type, company_id];
 
     // Handle filters
     if (Object.keys(filters).length > 0) {

@@ -25,7 +25,7 @@ export const createVendorDao = async (data, conn) => {
 
 export const getVendorsCodeDao = async (filters, conn) => {
   try {
-    const baseQuery = `
+    let sql = `
         SELECT 
             code AS label, 
             user_id AS value, 
@@ -35,11 +35,25 @@ export const getVendorsCodeDao = async (filters, conn) => {
         WHERE 
             is_obsolete = FALSE 
     `;
-    let [sql, queryParams] = buildSelectQuery(
-      baseQuery,
-      filters,
-      tableName.VENDOR,
-    );
+    const queryParams = [];
+    let paramIndex = 1;
+    if (filters.company_id) {
+      let companyIds = filters.company_id;
+      if (typeof companyIds === 'string' && companyIds.includes(',')) {
+        companyIds = companyIds.split(',').map((v) => v.trim()).filter(Boolean);
+      }
+      if (Array.isArray(companyIds)) {
+        if (companyIds.length > 0) {
+          const placeholders = companyIds.map((_, idx) => `$${paramIndex + idx}`).join(', ');
+          sql += ` AND "Vendor".company_id IN (${placeholders})`;
+          queryParams.push(...companyIds);
+          paramIndex += companyIds.length;
+        }
+      } else {
+        sql += ` AND "Vendor".company_id = $${paramIndex++}`;
+        queryParams.push(companyIds);
+      }
+    }
     sql = sql.replace(/\s*ORDER BY\s+.*$/i, '') + ' ORDER BY "code" ASC';
     const result = await conn.query(sql, queryParams);
     logger.log('Fetched Vendors:', result.rows.length, 'rows');
@@ -78,7 +92,7 @@ export const getVendorsDao = async (
     ];
 
     // Add extra columns for admin
-    if (role === Role.ADMIN) {
+    if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
       columns.push(
         `"Vendor".created_by`,
         `"Vendor".updated_by`,
@@ -96,7 +110,7 @@ export const getVendorsDao = async (
       LEFT JOIN "Designation" AS d ON user_main.designation_id = d.id
     `;
 
-    if (role === Role.ADMIN) {
+    if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
       fromClause += `
       LEFT JOIN "User" AS u ON "Vendor".created_by = u.id
       LEFT JOIN "User" AS uu ON "Vendor".updated_by = uu.id
@@ -107,7 +121,7 @@ export const getVendorsDao = async (
     let whereClause = `
       WHERE "Vendor".is_obsolete = false
     `;
-    if (role === Role.ADMIN) {
+    if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
       whereClause += `
       AND user_main.designation_id = (SELECT id FROM "Designation" WHERE designation = 'VENDOR')
       `;
@@ -152,7 +166,7 @@ export const getAllVendorsDao = async (
   pageSize = 10,
   sortBy = 'created_at',
   sortOrder = 'DESC',
-  role
+  role,
 ) => {
   try {
     let baseQuery;
@@ -173,7 +187,7 @@ export const getAllVendorsDao = async (
     ];
 
     // Add extra columns for admin
-    if (role === Role.ADMIN) {
+    if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
       columns.push(
         `"Vendor".created_by`,
         `"Vendor".updated_by`,
@@ -192,7 +206,7 @@ export const getAllVendorsDao = async (
       LEFT JOIN "Designation" AS d ON user_main.designation_id = d.id
     `;
 
-    if (role === Role.ADMIN) {
+    if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
       fromClause += `
       LEFT JOIN "User" AS u ON "Vendor".created_by = u.id
       LEFT JOIN "User" AS uu ON "Vendor".updated_by = uu.id
@@ -203,7 +217,7 @@ export const getAllVendorsDao = async (
     let whereClause = `
       WHERE "Vendor".is_obsolete = false
     `;
-    if (role === Role.ADMIN) {
+    if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
       whereClause += `
       AND user_main.designation_id = (SELECT id FROM "Designation" WHERE designation = 'VENDOR')
       `;
@@ -244,14 +258,14 @@ export const getAllVendorsDao = async (
 
 export const getVendorsBySearchDao = async (
   filters,
-  pageNumber ,
-  pageSize ,
-  searchTerms
+  pageNumber,
+  pageSize,
+  searchTerms,
 ) => {
   try {
     const conditions = [];
-    const values = [filters.company_id];
-    let paramIndex = 2;
+    const values = [];
+    let paramIndex = 1;
 
     // Build base SELECT columns based on role
     const columns = [
@@ -265,11 +279,12 @@ export const getVendorsBySearchDao = async (
       `"Vendor".updated_at`,
       `"user_main".first_name || ' ' || "user_main".last_name AS full_name`,
       `"d".designation AS designation_name`,
+      `c.first_name || ' ' || c.last_name AS company`,
       `(SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".created_at DESC LIMIT 1) AS balance`,
     ];
 
     // Add extra columns for admin
-    if (filters.role === Role.ADMIN) {
+    if (filters.role === Role.ADMIN || filters.role === Role.SUPER_ADMIN) {
       columns.push(
         `"Vendor".created_by`,
         `"Vendor".updated_by`,
@@ -287,20 +302,43 @@ export const getVendorsBySearchDao = async (
       FROM "Vendor"
       JOIN "User" AS user_main ON "Vendor".user_id = user_main.id
       LEFT JOIN "Designation" AS d ON user_main.designation_id = d.id
+      LEFT JOIN public."Company" c
+        ON "Vendor".company_id = c.id
       ${
-        filters.role === Role.ADMIN
+        filters.role === Role.ADMIN || filters.role === Role.SUPER_ADMIN
           ? `LEFT JOIN "User" AS u ON "Vendor".created_by = u.id
          LEFT JOIN "User" AS uu ON "Vendor".updated_by = uu.id`
           : ''
       }
       WHERE "Vendor".is_obsolete = false
-      AND "Vendor"."company_id" = $1
     `;
+
+    // Add company_id filter only if present in filters, support comma-separated string or array
+    if (filters.company_id) {
+      let companyIds = filters.company_id;
+      if (typeof companyIds === 'string' && companyIds.includes(',')) {
+        companyIds = companyIds.split(',').map((v) => v.trim()).filter(Boolean);
+      }
+      if (Array.isArray(companyIds)) {
+        if (companyIds.length > 0) {
+          const placeholders = companyIds.map((_, idx) => `$${paramIndex + idx}`).join(', ');
+          queryText += ` AND "Vendor"."company_id" IN (${placeholders})`;
+          values.push(...companyIds);
+          paramIndex += companyIds.length;
+        }
+      } else {
+        queryText += ` AND "Vendor"."company_id" = $${paramIndex}`;
+        values.push(companyIds);
+        paramIndex++;
+      }
+    }
+
     if (filters.user_id) {
       queryText += ` AND "Vendor"."user_id" = $${paramIndex}`;
       values.push(filters.user_id);
       paramIndex += 1;
     }
+
     if (searchTerms) {
       searchTerms.forEach((term) => {
         if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
@@ -323,6 +361,7 @@ export const getVendorsBySearchDao = async (
               OR LOWER("Vendor".created_by::text) LIKE LOWER($${paramIndex})
               OR LOWER("Vendor".updated_by::text) LIKE LOWER($${paramIndex})
               OR LOWER("user_main".first_name || ' ' || "user_main".last_name) LIKE LOWER($${paramIndex})
+              OR LOWER(c.first_name || ' ' || c.last_name) LIKE LOWER($${paramIndex})
               OR LOWER("d".designation) LIKE LOWER($${paramIndex})
               OR LOWER("Vendor".config->>'utr') LIKE LOWER($${paramIndex})
               OR (
@@ -376,6 +415,7 @@ export const getVendorsBySearchDao = async (
     throw error;
   }
 };
+
 export const updateVendorDao = async (id, data, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, id);
@@ -457,11 +497,30 @@ export const getVendorsDaoArray = async (company_id, code) => {
       JOIN "User" ON "Vendor".user_id = "User".id 
       LEFT JOIN "Designation" ON "User".designation_id = "Designation".id 
       WHERE "Vendor".is_obsolete = false 
-      AND "Vendor"."company_id" = $1
-      AND "Vendor".user_id = ANY($2)
+      AND "Vendor".user_id = ANY($1)
     `;
 
-    let queryParams = [company_id, code];
+    let queryParams = [code];
+
+    if (company_id) {
+      // Parse company_id - handle both single values and comma-separated arrays
+      let companyIds = company_id;
+      if (typeof company_id === 'string' && company_id.includes(',')) {
+        companyIds = company_id.split(',').map(id => id.trim()).filter(id => id);
+      }
+      
+      if (Array.isArray(companyIds)) {
+        if (companyIds.length > 0) {
+          const placeholders = companyIds.map((_, idx) => `$${3 + idx}`).join(', ');
+          baseQuery += ` AND "Vendor".company_id IN (${placeholders})`;
+          queryParams.push(...companyIds);
+        }
+      } else {
+        baseQuery += ` AND "Vendor".company_id = $2`;
+        queryParams.push(companyIds);
+      }
+    }
+
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {

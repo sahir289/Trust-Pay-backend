@@ -584,6 +584,7 @@ export const BankTypes = {
 
 export const AccessRoles = {
   ALL: [
+    Role.SUPER_ADMIN,
     Role.ADMIN,
     Role.TRANSACTIONS,
     Role.OPERATIONS,
@@ -594,6 +595,7 @@ export const AccessRoles = {
     Role.VENDOR_OPERATIONS,
   ],
   USER: [
+    Role.SUPER_ADMIN,
     Role.ADMIN,
     Role.TRANSACTIONS,
     Role.OPERATIONS,
@@ -602,6 +604,7 @@ export const AccessRoles = {
     Role.VENDOR,
   ],
   MERCHANT: [
+    Role.SUPER_ADMIN,
     Role.ADMIN,
     Role.TRANSACTIONS,
     Role.OPERATIONS,
@@ -610,6 +613,7 @@ export const AccessRoles = {
     Role.MERCHANT_OPERATIONS,
   ],
   VENDOR: [
+    Role.SUPER_ADMIN,
     Role.ADMIN,
     Role.TRANSACTIONS,
     Role.OPERATIONS,
@@ -617,6 +621,7 @@ export const AccessRoles = {
     Role.VENDOR_OPERATIONS,
   ],
   PAYIN: [
+    Role.SUPER_ADMIN,
     Role.ADMIN,
     Role.TRANSACTIONS,
     Role.OPERATIONS,
@@ -627,6 +632,7 @@ export const AccessRoles = {
     Role.VENDOR_OPERATIONS,
   ],
   PAYOUT: [
+    Role.SUPER_ADMIN,
     Role.ADMIN,
     Role.TRANSACTIONS,
     Role.OPERATIONS,
@@ -637,6 +643,7 @@ export const AccessRoles = {
     Role.VENDOR_OPERATIONS,
   ],
   SETTLEMENT: [
+    Role.SUPER_ADMIN,
     Role.ADMIN,
     Role.TRANSACTIONS,
     Role.OPERATIONS,
@@ -647,6 +654,7 @@ export const AccessRoles = {
     Role.VENDOR_OPERATIONS,
   ],
   REPORT: [
+    Role.SUPER_ADMIN,
     Role.ADMIN,
     Role.TRANSACTIONS,
     Role.OPERATIONS,
@@ -656,14 +664,37 @@ export const AccessRoles = {
     Role.VENDOR,
     Role.VENDOR_OPERATIONS,
   ],
-  COMPANY: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.VENDOR, Role.VENDOR_OPERATIONS],
+  COMPANY: [
+    Role.SUPER_ADMIN,
+    Role.ADMIN,
+    Role.TRANSACTIONS,
+    Role.OPERATIONS,
+    Role.VENDOR,
+    Role.VENDOR_OPERATIONS,
+  ],
   USER_HIERARCHY: {
-    CREATE_DELETE: [Role.ADMIN, Role.TRANSACTIONS],
-    UPDATE_READ: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANT],
+    CREATE_DELETE: [Role.SUPER_ADMIN, Role.ADMIN, Role.TRANSACTIONS],
+    UPDATE_READ: [
+      Role.SUPER_ADMIN,
+      Role.ADMIN,
+      Role.TRANSACTIONS,
+      Role.MERCHANT,
+    ],
   },
-  RESET_DATA_HISTORY: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS],
-  CHECK_UTR_HISTORY: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS],
+  RESET_DATA_HISTORY: [
+    Role.SUPER_ADMIN,
+    Role.ADMIN,
+    Role.OPERATIONS,
+    Role.TRANSACTIONS,
+  ],
+  CHECK_UTR_HISTORY: [
+    Role.SUPER_ADMIN,
+    Role.ADMIN,
+    Role.OPERATIONS,
+    Role.TRANSACTIONS,
+  ],
   BANK_RESPONSE: [
+    Role.SUPER_ADMIN,
     Role.ADMIN,
     Role.OPERATIONS,
     Role.TRANSACTIONS,
@@ -671,6 +702,7 @@ export const AccessRoles = {
     Role.VENDOR_OPERATIONS,
   ],
   BANK_ACCOUNT: [
+    Role.SUPER_ADMIN,
     Role.ADMIN,
     Role.OPERATIONS,
     Role.TRANSACTIONS,
@@ -679,14 +711,21 @@ export const AccessRoles = {
   ],
   CHARGE_BACK: {
     GET: [
+      Role.SUPER_ADMIN,
       Role.ADMIN,
       Role.TRANSACTIONS,
       Role.MERCHANT_ADMIN,
       Role.MERCHANT,
       Role.VENDOR,
     ],
-    CREATE_DELETE: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANT],
+    CREATE_DELETE: [
+      Role.SUPER_ADMIN,
+      Role.ADMIN,
+      Role.TRANSACTIONS,
+      Role.MERCHANT,
+    ],
     UPDATE_READ: [
+      Role.SUPER_ADMIN,
       Role.ADMIN,
       Role.TRANSACTIONS,
       Role.MERCHANT_ADMIN,
@@ -695,6 +734,7 @@ export const AccessRoles = {
     ],
   },
   CALCULATION: [
+    Role.SUPER_ADMIN,
     Role.ADMIN,
     Role.TRANSACTIONS,
     Role.OPERATIONS,
@@ -705,6 +745,7 @@ export const AccessRoles = {
     Role.SUB_MERCHANT,
   ],
   ROLES: [
+    Role.SUPER_ADMIN,
     Role.ADMIN,
     Role.TRANSACTIONS,
     Role.SUB_MERCHANT,
@@ -712,14 +753,16 @@ export const AccessRoles = {
     Role.VENDOR,
   ],
   DESIGNATION: [
+    Role.SUPER_ADMIN,
     Role.ADMIN,
     Role.TRANSACTIONS,
     Role.SUB_MERCHANT,
     Role.MERCHANT,
     Role.VENDOR,
   ],
-  COMPLAINTS: [Role.ADMIN],
+  COMPLAINTS: [Role.SUPER_ADMIN, Role.ADMIN],
   BENEFICIARY_ACCOUNTS: [
+    Role.SUPER_ADMIN,
     Role.ADMIN,
     Role.TRANSACTIONS,
     Role.OPERATIONS,
@@ -727,6 +770,9 @@ export const AccessRoles = {
     Role.VENDOR,
     Role.VENDOR_OPERATIONS,
   ],
+  SUPER_ADMIN_BOARD: [
+    Role.SUPER_ADMIN
+  ]
 };
 export const COUNTRIES = [
   'India',
@@ -789,9 +835,9 @@ export const europeanCountries = [
 ];
 
 export const payAssistErrorCodeMap = {
-  '11': 'Insufficient Funds',
-  '12': 'Transaction already exists',
-  '13': 'Insufficient Funds',
-  '14': 'Invalid Account Details',
-  '15': 'Invalid Account Details'
+  11: 'Insufficient Funds',
+  12: 'Transaction already exists',
+  13: 'Insufficient Funds',
+  14: 'Invalid Account Details',
+  15: 'Invalid Account Details',
 };

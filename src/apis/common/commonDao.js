@@ -39,7 +39,7 @@ export const getTotalCountDao = async (
         ${joins}
         WHERE "${tablename}".is_obsolete = false
       `;
-    } else if (roleIs === Role.ADMIN && tablename === tableName.MERCHANT) {
+    } else if (roleIs === Role.ADMIN && tablename === tableName.MERCHANT && roleIs === Role.SUPER_ADMIN) {
       query = `
         SELECT COUNT(*) AS count 
         FROM "${tablename}" 

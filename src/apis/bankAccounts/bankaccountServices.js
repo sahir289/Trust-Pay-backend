@@ -54,8 +54,6 @@ const getBankaccountService = async (
       { company_id, ...filters },
       pageNumber,
       pageSize,
-      role,
-      designation,
     );
   } catch (error) {
     logger.error('error getting while  getting banks', error);
@@ -65,7 +63,6 @@ const getBankaccountService = async (
 
 const getBankAccountBySearchService = async (
   filters,
-  company_id,
   role,
   page,
   limit,
@@ -95,11 +92,9 @@ const getBankAccountBySearchService = async (
         .filter((term) => term.length > 0);
     }
     const banks = await getBankAccountsBySearchDao(
-      { company_id, ...filters },
+      { ...filters },
       pageNumber,
       pageSize,
-      role,
-      designation,
       searchTerms,
     );
     return banks;

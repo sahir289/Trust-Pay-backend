@@ -89,8 +89,21 @@ export const getMerchantsCodeDao = async (
       `;
     }
     if (filters.company_id) {
-      sql += ` AND m.company_id = $${paramIndex++}`;
-      queryParams.push(filters.company_id);
+      let companyIds = filters.company_id;
+      if (typeof companyIds === 'string' && companyIds.includes(',')) {
+        companyIds = companyIds.split(',').map((v) => v.trim()).filter(Boolean);
+      }
+      if (Array.isArray(companyIds)) {
+        if (companyIds.length > 0) {
+          const placeholders = companyIds.map((_, idx) => `$${paramIndex + idx}`).join(', ');
+          sql += ` AND m.company_id IN (${placeholders})`;
+          queryParams.push(...companyIds);
+          paramIndex += companyIds.length;
+        }
+      } else {
+        sql += ` AND m.company_id = $${paramIndex++}`;
+        queryParams.push(companyIds);
+      }
     }
     if (filters.user_id) {
       if (Array.isArray(filters.user_id)) {
@@ -217,7 +230,7 @@ export const getMerchantsDao = async (
       WHERE 1=1
     `;
 
-    if (role === Role.ADMIN) {
+    if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
       baseQuery += `
         AND "User".designation_id = (
           SELECT id FROM "Designation" WHERE designation = 'MERCHANT'
@@ -242,8 +255,6 @@ export const getMerchantsDao = async (
     throw error;
   }
 };
-
-
 
 export const getMerchantsByCodeDao = async (code) => {
   try {
@@ -289,32 +300,6 @@ export const getMerchantsByCodeDao = async (code) => {
   }
 };
 
-export const getMerchantByCodeDao = async (code) => {
-  try {
-    let baseQuery = `
-      SELECT 
-        "Merchant".id,
-        "Merchant".code, 
-        "Merchant".payin_commission, 
-        "Merchant".payout_commission,
-        "Merchant".min_payin,
-        "Merchant".max_payin,
-        ("Merchant".config->'keys'->>'public') AS public_key
-      FROM "Merchant" 
-    `;
-
-    let queryParams = [];
-    if (code) {
-      baseQuery += ` WHERE "Merchant".code = $1`;
-      queryParams = [code.trim()];
-    }
-    const result = await executeQuery(baseQuery, queryParams);
-    return result.rows;
-  } catch (error) {
-    logger.error('Error in getMerchants By Code Dao:', error);
-    throw error;
-  }
-};
 export const getAllMerchantsDao = async (
   filters,
   page = 1,
@@ -365,7 +350,7 @@ export const getAllMerchantsDao = async (
       WHERE 1=1
     `;
 
-    if (role === Role.ADMIN) {
+    if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
       baseQuery += `
         AND "User".designation_id = (
           SELECT id FROM "Designation" WHERE designation = 'MERCHANT'
@@ -391,6 +376,33 @@ export const getAllMerchantsDao = async (
   }
 };
 
+export const getMerchantByCodeDao = async (code) => {
+  try {
+    let baseQuery = `
+      SELECT 
+        "Merchant".id,
+        "Merchant".code, 
+        "Merchant".payin_commission, 
+        "Merchant".payout_commission,
+        "Merchant".min_payin,
+        "Merchant".max_payin,
+        ("Merchant".config->'keys'->>'public') AS public_key
+      FROM "Merchant" 
+    `;
+
+    let queryParams = [];
+    if (code) {
+      baseQuery += ` WHERE "Merchant".code = $1`;
+      queryParams = [code.trim()];
+    }
+    const result = await executeQuery(baseQuery, queryParams);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in getMerchants By Code Dao:', error);
+    throw error;
+  }
+};
+
 export const getMerchantsBySearchDao = async (
   filters,
   page = 1,
@@ -402,8 +414,8 @@ export const getMerchantsBySearchDao = async (
 ) => {
   try {
     const conditions = [];
-    const values = [filters.company_id];
-    let paramIndex = 2;
+    const values = [];
+    let paramIndex = 1;
 
     // Use filters.limit and filters.page, with fallbacks to pageSize and page
     const limitNum =
@@ -442,6 +454,7 @@ export const getMerchantsBySearchDao = async (
         "Merchant".updated_at, 
         "User".designation_id, 
         "User".first_name || ' ' || "User".last_name AS full_name, 
+        c.first_name || ' ' || c.last_name AS company,
         "Designation".designation AS designation_name,
         (SELECT net_balance 
          FROM "Calculation" 
@@ -453,25 +466,38 @@ export const getMerchantsBySearchDao = async (
       LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
       LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
       LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
+      LEFT JOIN public."Company" c
+        ON "Merchant".company_id = c.id
       WHERE "Merchant".is_obsolete = false 
-      AND "Merchant"."company_id" = $1
     `;
 
+    // Add company_id filter only if present in filters
+    if (filters.company_id) {
+      if (typeof filters.company_id === 'string' && filters.company_id.includes(',')) {
+        const arr = filters.company_id.split(',').map(v => v.trim()).filter(Boolean);
+        queryText += ` AND "Merchant"."company_id" = ANY($${paramIndex})`;
+        values.push(arr);
+        paramIndex++;
+      } else if (Array.isArray(filters.company_id)) {
+        queryText += ` AND "Merchant"."company_id" = ANY($${paramIndex})`;
+        values.push(filters.company_id);
+        paramIndex++;
+      } else {
+        queryText += ` AND "Merchant"."company_id" = $${paramIndex}`;
+        values.push(filters.company_id);
+        paramIndex++;
+      }
+    }
+
     // Role-based designation filtering
-    if (role === Role.ADMIN && searchTerms.length > 0) {
+    if ((role === Role.ADMIN || role === Role.SUPER_ADMIN) && searchTerms.length > 0) {
       queryText += `
         AND (
           "User".designation_id = (SELECT id FROM "Designation" WHERE designation = 'MERCHANT')
           OR "User".designation_id = (SELECT id FROM "Designation" WHERE designation = 'SUB_MERCHANT')
         )
       `;
-    } else if (role === Role.ADMIN) {
-      queryText += `
-      AND "User".designation_id = (
-        SELECT id FROM "Designation" WHERE designation = 'MERCHANT'
-      )
-    `;
-    }
+    } 
 
     // Filter by user_id
     if (filters.user_id) {
@@ -528,6 +554,7 @@ export const getMerchantsBySearchDao = async (
               OR LOWER("Merchant".config->'urls'->>'site') LIKE LOWER($${paramIndex})
               OR LOWER("Merchant".config->'urls'->>'return') LIKE LOWER($${paramIndex})
               OR LOWER("Merchant".config->'urls'->>'payin_notify') LIKE LOWER($${paramIndex})
+              OR LOWER(c.first_name || ' ' || c.last_name) LIKE LOWER($${paramIndex})
               OR LOWER("Merchant".config->'urls'->>'payout_notify') LIKE LOWER($${paramIndex})
               OR (
                 SELECT net_balance::text 
@@ -704,10 +731,30 @@ export const getMerchantsDaoArray = async (company_id, code) => {
       LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
       LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
       LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
-      WHERE "Merchant".company_id = $1 AND "Merchant".user_id = ANY($2)
+      WHERE "Merchant".user_id = ANY($1)
     `;
 
-    let queryParams = [company_id, code];
+    let queryParams = [code];
+
+    if (company_id) {
+      // Parse company_id - handle both single values and comma-separated arrays
+      let companyIds = company_id;
+      if (typeof company_id === 'string' && company_id.includes(',')) {
+        companyIds = company_id.split(',').map(id => id.trim()).filter(id => id);
+      }
+      
+      if (Array.isArray(companyIds)) {
+        if (companyIds.length > 0) {
+          const placeholders = companyIds.map((_, idx) => `$${3 + idx}`).join(', ');
+          baseQuery += ` AND "Merchant".company_id IN (${placeholders})`;
+          queryParams.push(...companyIds);
+        }
+      } else {
+        baseQuery += ` AND "Merchant".company_id = $2`;
+        queryParams.push(companyIds);
+      }
+    }
+
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {

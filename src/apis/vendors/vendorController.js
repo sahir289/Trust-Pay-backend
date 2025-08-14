@@ -52,8 +52,8 @@ const getVendors = async (req, res) => {
 };
 
 const getVendorsBySearch = async (req, res) => {
-  const { company_id, role, user_id, designation  } = req.user;
-  const { page, limit } = req.query;
+  const { role, user_id, designation  } = req.user;
+  const { page, limit, company_id } = req.query;
   const data = await getVendorsBySearchService(
     {
       company_id,
@@ -69,7 +69,8 @@ const getVendorsBySearch = async (req, res) => {
 };
 
 const getVendorCodes = async (req, res) => {
-  const { company_id, user_id, role, designation } = req.user;
+  const { user_id, role, designation } = req.user;
+  const { company_id } = req.query;
   // let search = req.query.search;
   const data = await getVendorsCodeService(
     { company_id },

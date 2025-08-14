@@ -76,10 +76,6 @@ const getSettlementService = async (
   designation,
 ) => {
   try {
-    // Validate required parameters
-    if (!ids?.company_id) {
-      throw new BadRequestError('Company ID is required');
-    }
 
     // Determine column selection based on role
     const filterColumns = (() => {
@@ -171,11 +167,6 @@ const getSettlementsBySearchService = async (
   designation,
 ) => {
   try {
-    // Validate required parameters
-    if (!ids?.company_id) {
-      throw new BadRequestError('Company ID is required');
-    }
-
     // Determine column selection based on role
     const filterColumns = (() => {
       switch (ids.role) {

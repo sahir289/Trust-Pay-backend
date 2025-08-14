@@ -336,7 +336,7 @@ const createUserService = async (conn, payload, role) => {
       id: payload.designation_id,
     });
     let unique_id = payload?.unique_admin_id;
-    if (userDesignation[0]?.designation == Role.ADMIN) {
+    if (userDesignation[0]?.designation == Role.ADMIN || userDesignation[0]?.designation == Role.SUPER_ADMIN) {
       const company = await getCompanyByIDDao({ id: payload.company_id });
       if(company?.length > 0){ 
         unique_id = company[0]?.config?.unique_admin_id && company[0]?.config?.unique_admin_id;

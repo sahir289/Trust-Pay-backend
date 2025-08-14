@@ -84,7 +84,7 @@ const getBeneficiaryAccountService = async (
       if (adminUser && adminUser.id) {
         filters.user_id = [...(filters.user_id || []), adminUser.id];
       }
-    } else if (role === Role.ADMIN && filters?.user_id) {
+    } else if ((role === Role.ADMIN || role === Role.SUPER_ADMIN) && filters?.user_id) {
       const adminUser = await getUserByCompanyCreatedAtDao(
         company_id,
         Role.ADMIN,
@@ -300,7 +300,7 @@ const createBeneficiaryAccountService = async (conn, payload, company_id) => {
     payload.role_id = roleObj.id;
 
     // Prepare config based on role
-    if (roleObj.role === Role.ADMIN) {
+    if ((roleObj.role === Role.ADMIN || roleObj.role === Role.SUPER_ADMIN)) {
       const adminUser = await getUserByCompanyCreatedAtDao(
         company_id,
         Role.ADMIN,
@@ -331,7 +331,7 @@ const createBeneficiaryAccountService = async (conn, payload, company_id) => {
     }
 
     // Check for duplicates
-    if ([Role.VENDOR, Role.MERCHANT, Role.ADMIN].includes(roleObj.role)) {
+    if ([Role.VENDOR, Role.MERCHANT, Role.ADMIN, Role.SUPER_ADMIN].includes(roleObj.role)) {
       const filters = { acc_no: payload.acc_no };
       if (roleObj.role === Role.VENDOR) filters.user_id = payload.user_id;
       const exists = await getBeneficiaryAccountDao(
