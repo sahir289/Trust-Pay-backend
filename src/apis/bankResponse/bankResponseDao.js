@@ -354,70 +354,103 @@ const getBankResponseBySearchDao = async (
 
 const getClaimResponseDao = async (filters) => {
   try {
-    // Convert input date to IST (defaults to now)
-    const selectedDate = filters.date
-      ? dayjs.tz(filters.date, IST)
-      : dayjs().tz(IST);
+    // Normalize banks and vendors to arrays if not already
+    let banks = filters.banks;
+    let vendors = filters.vendors;
+    if (banks && !Array.isArray(banks)) {
+      banks = [banks];
+    }
+    if (vendors && !Array.isArray(vendors)) {
+      vendors = [vendors];
+    }
+    const startDate = filters.startDate
+      ? dayjs.tz(filters.startDate, IST).startOf('day')
+      : dayjs().tz(IST).startOf('day');
 
-    const bankIdCondition = filters.bank_id ? `AND bank_id = $3` : '';
-    const params = [selectedDate.format('YYYY-MM-DD'), filters.company_id];
-    if (filters.bank_id) {
-      params.push(filters.bank_id);
+    const endDate = filters.endDate
+      ? dayjs.tz(filters.endDate, IST).endOf('day')
+      : dayjs().tz(IST).endOf('day');
+
+    const hasBankIds = Array.isArray(banks) && banks.length > 0;
+    const hasVendorIds = Array.isArray(vendors) && vendors.length > 0;
+
+    const params = [startDate.format(), endDate.format(), filters.company_id];
+    let paramIndex = 4;
+
+    let bankFilter = '';
+    if (hasBankIds) {
+      bankFilter = `AND br.bank_id = ANY($${paramIndex}::text[])`;
+      params.push(banks);
+      paramIndex++;
     }
 
-    const baseQuery = `
+    let vendorFilter = '';
+    if (hasVendorIds) {
+      vendorFilter = `AND ba.user_id = ANY($${paramIndex}::text[])`;
+      params.push(vendors);
+      paramIndex++;
+    }
+
+    const query = `
       WITH claimed_data AS (
         SELECT 
           COALESCE(SUM(amount), 0) AS claimed_amount,
           COUNT(*) AS claimed_count
-        FROM "BankResponse"
-        WHERE is_used = true 
-          AND status = '/success'
-          AND created_at >= $1
-          AND company_id = $2
-          ${bankIdCondition}
-          AND is_obsolete = false
+        FROM "BankResponse" br
+        LEFT JOIN "BankAccount" ba ON br.bank_id = ba.id
+        WHERE br.is_used = true
+          AND br.status = '/success'
+          AND br.created_at BETWEEN $1 AND $2
+          AND br.company_id = $3
+          AND br.is_obsolete = false
+          ${bankFilter}
+          ${vendorFilter}
       ),
       unclaimed_24h AS (
         SELECT 
           COALESCE(SUM(amount), 0) AS unclaimed_24h_amount,
           COUNT(*) AS unclaimed_24h_count
-        FROM "BankResponse"
-        WHERE is_used = false 
-          AND status = '/success'
-          AND created_at >= $1
-          AND company_id = $2
-          ${bankIdCondition}
-          AND is_obsolete = false
+        FROM "BankResponse" br
+        LEFT JOIN "BankAccount" ba ON br.bank_id = ba.id
+        WHERE br.is_used = false
+          AND br.status = '/success'
+          AND br.created_at BETWEEN $1 AND $2
+          AND br.company_id = $3
+          AND br.is_obsolete = false
+          ${bankFilter}
+          ${vendorFilter}
       ),
       total_unclaimed AS (
         SELECT 
           COALESCE(SUM(amount), 0) AS total_unclaimed_amount,
           COUNT(*) AS total_unclaimed_count
-        FROM "BankResponse"
-        WHERE is_used = false 
-          AND status = '/success'
-          AND company_id = $2
-          ${bankIdCondition}
-          AND is_obsolete = false
+        FROM "BankResponse" br
+        LEFT JOIN "BankAccount" ba ON br.bank_id = ba.id
+        WHERE br.is_used = false
+          AND br.status = '/success'
+          AND br.company_id = $3
+          AND br.is_obsolete = false
+          ${bankFilter}
+          ${vendorFilter}
       ),
       banks_unclaims_amount AS (
         SELECT 
-          b.bank_name,
-          b.nick_name,
+          ba.bank_name,
+          ba.nick_name,
           COALESCE(SUM(br.amount), 0) AS amount,
           COUNT(br.id) AS count
-        FROM "BankAccount" b
+        FROM "BankAccount" ba
         LEFT JOIN "BankResponse" br
-          ON b.id = br.bank_id
-          AND br.is_used = false 
+          ON ba.id = br.bank_id
+          AND br.is_used = false
           AND br.status = '/success'
-          AND br.company_id = $2
+          AND br.company_id = $3
           AND br.is_obsolete = false
-          AND b.bank_used_for = 'PayIn'
-          ${bankIdCondition ? `AND ${bankIdCondition.replace(/^AND /, '')}` : ''}
-        WHERE b.company_id = $2
-        GROUP BY b.bank_name, b.nick_name
+          AND ba.bank_used_for = 'PayIn'
+          ${bankFilter}
+          ${vendorFilter}
+        WHERE ba.company_id = $3
+        GROUP BY ba.bank_name, ba.nick_name
       )
 
       SELECT 
@@ -435,7 +468,7 @@ const getClaimResponseDao = async (filters) => {
       LEFT JOIN banks_unclaims_amount bua ON TRUE;
     `;
 
-    const result = await executeQuery(baseQuery, params);
+    const result = await executeQuery(query, params);
 
     if (!result || result.rows.length === 0) {
       return {
@@ -449,8 +482,8 @@ const getClaimResponseDao = async (filters) => {
     const firstRow = result.rows[0];
 
     const banks_unclaims_amount = result.rows
-      .filter((row) => row.bank_name) // avoid null rows
-      .map((row) => ({
+      .filter(row => row.bank_name)
+      .map(row => ({
         bank_name: row.bank_name,
         nick_name: row.nick_name,
         amount: parseFloat(row.amount) || 0,
@@ -528,6 +561,7 @@ const getBankResponseDaoAll = async (
   end_date,
 ) => {
   try {
+    let values = [];
     let bankId;
     let bankDetails;
     if (filters?.bank_id) {
@@ -584,12 +618,18 @@ const getBankResponseDaoAll = async (
       SELECT ${selectCols}, "BankResponse".created_at,
         "BankAccount".config AS details,
         "BankAccount".nick_name,
-        "Vendor".user_id AS vendor_user_id
+        "Vendor".user_id AS vendor_user_id,
+        "Merchant".code AS merchant_code
       FROM "BankResponse"
       JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
       LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
+      LEFT JOIN "Payin"
+        ON "BankResponse".id = "Payin".bank_response_id
+      LEFT JOIN "Merchant"
+        ON "Payin".merchant_id = "Merchant".id
       `;
 
+    let baseQueryVendor = '';
     const whereConditions = [];
 
     if (start_date && end_date) {
@@ -602,6 +642,77 @@ const getBankResponseDaoAll = async (
         whereConditions.push(
           `"BankResponse".created_at BETWEEN '${start}' AND '${end}'`,
         );
+      }
+    }
+    if (filters.userId) {
+      let userIdsArray;
+      try {
+        userIdsArray = typeof filters.userId === 'string' ? JSON.parse(filters.userId) : filters.userId;
+      } catch (error) {
+        logger.error('Invalid userId format:', error);
+        throw new Error('Invalid userId format');
+      }
+      baseQueryVendor = `
+      SELECT 
+      br.created_at,
+      br.sno,
+      br.utr,
+      br.is_used,
+      br.amount,
+      br.status,
+      ba.nick_name,
+      "Merchant".code AS merchant_code,
+      v.code AS vendor_code
+      FROM "BankResponse" AS br
+      JOIN "BankAccount" AS ba 
+      ON br.bank_id = ba.id
+      LEFT JOIN "Vendor" AS v
+      ON ba.user_id = v.user_id
+      LEFT JOIN "Payin"
+      ON br.id = "Payin".bank_response_id
+      AND br.is_used = true
+      LEFT JOIN "Merchant"
+      ON "Payin".merchant_id = "Merchant".id
+      WHERE ba.user_id = ANY($1)
+      `;
+      
+       values = [userIdsArray];
+      let paramIndex = 2;
+      if (start && end) {
+        baseQueryVendor += ` AND br.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+        values.push(start, end);
+        paramIndex += 2;
+      }
+      if (filters.is_used) {
+        const isUsedValues = filters.is_used.split(',').map(val => val === 'true');
+      
+        if (isUsedValues.length === 1) {
+          baseQueryVendor += ` AND br.is_used = $${paramIndex}`;
+          values.push(isUsedValues[0]);
+          paramIndex++;
+        } else {
+          const placeholders = isUsedValues.map((_, i) => `$${paramIndex + i}`).join(', ');
+          baseQueryVendor += ` AND br.is_used IN (${placeholders})`;
+          values.push(...isUsedValues);
+          paramIndex += isUsedValues.length;
+        }
+      }
+      
+      if (filters.status) {
+        const statuses = filters.status.split(',').filter(Boolean);
+        if (statuses.length === 1) {
+          baseQueryVendor += ` AND br.status = $${paramIndex}`;
+          values.push(statuses[0]);
+          paramIndex++;
+        } else {
+          const placeholders = statuses.map((_, i) => `$${paramIndex + i}`).join(', ');
+          baseQueryVendor += ` AND br.status IN (${placeholders})`;
+          values.push(...statuses);
+          paramIndex += statuses.length;
+        }
+      }
+      else{
+        baseQueryVendor += ` AND br.status IN ('/success', '/freezed', '/internalTransfer')`;
       }
     }
 
@@ -646,16 +757,22 @@ const getBankResponseDaoAll = async (
       start && end && bankDetails && bankDetails[0]?.config?.merchant_added
         ? baseQueryDate
         : baseQuery;
-    const [query, queryValues] = buildSelectQuery(
-      queryIs,
-      filters,
-      page,
-      pageSize,
-      sortBy,
-      sortOrder,
-      'BankResponse',
-    );
-    const result = await executeQuery(query, queryValues);
+
+    let result;
+    if (filters.userId && filters.userId.length > 0) {
+      result = await executeQuery(baseQueryVendor, values);
+    } else {
+      const [query, finalQueryValues] = buildSelectQuery(
+        queryIs,
+        filters,
+        page,
+        pageSize,
+        sortBy,
+        sortOrder,
+        'BankResponse',
+      );
+      result = await executeQuery(query, finalQueryValues);
+    }
     return { totalCount: result.rows.length, rows: result.rows };
   } catch (error) {
     logger.error('Error getting Bank Response:', error);

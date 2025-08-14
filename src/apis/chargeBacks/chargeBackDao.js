@@ -23,7 +23,7 @@ export const createChargeBackDao = async (data) => {
 
 export const getChargebackByIdDao = async (filters) => {
   try {
-    const query = `SELECT id, sno, merchant_user_id, vendor_user_id, payin_id, bank_acc_id, amount, reference_date, created_by, updated_by, created_at, updated_at FROM "${tableName.CHARGE_BACK}" WHERE 1=1`;
+    const query = `SELECT id, sno, merchant_user_id, vendor_user_id, payin_id, bank_acc_id, amount,config, reference_date, created_by, updated_by, created_at, updated_at FROM "${tableName.CHARGE_BACK}" WHERE 1=1`;
     const [sql, parameters] = buildSelectQuery(query, filters);
     const result = await executeQuery(sql, parameters);
     return result.rows;
@@ -161,6 +161,8 @@ export const getChargeBackDao = async (
       additionalColumns = `
         m.code AS merchant_name,
         p.user AS user,
+        p.config->'user'->>'user_ip' AS user_ip,
+        cb.config,
         p.merchant_order_id AS merchant_order_id,
       `;
     } else if (role === Role.VENDOR) {
@@ -168,6 +170,8 @@ export const getChargeBackDao = async (
     } else {
       additionalColumns = `
         m.code AS merchant_name,
+        p.config->'user'->>'user_ip' AS user_ip,
+        cb.config,
         p.merchant_order_id AS merchant_order_id,
         v.code AS vendor_name,
        CASE 
@@ -375,6 +379,7 @@ export const getAllChargeBackDao = async (
       additionalColumns = `
         m.code AS merchant_name,
         p.user AS user,
+          cb.config,
         p.merchant_order_id AS merchant_order_id,
       `;
     } else if (role === Role.VENDOR) {
@@ -382,6 +387,7 @@ export const getAllChargeBackDao = async (
     } else {
       additionalColumns = `
         m.code AS merchant_name,
+          cb.config,
         p.merchant_order_id AS merchant_order_id,
         v.code AS vendor_name,
        CASE 
@@ -499,6 +505,7 @@ export const getChargeBacksBySearchDao = async (
             LOWER(m.code::text) LIKE LOWER($${paramIndex}) OR
             LOWER(v.code::text) LIKE LOWER($${paramIndex}) OR
             LOWER(p.user_submitted_utr::text) LIKE LOWER($${paramIndex}) OR
+            LOWER(p.config->'user'->>'user_ip'::text) LIKE LOWER($${paramIndex}) OR
             LOWER(p.merchant_order_id::text) LIKE LOWER($${paramIndex}) OR
             LOWER(c.first_name || ' ' || c.last_name) LIKE LOWER($${paramIndex}) OR
             LOWER(br.utr::text) LIKE LOWER($${paramIndex}) OR
@@ -602,15 +609,30 @@ export const getChargeBacksBySearchDao = async (
       cb.created_at
     `;
 
-    extraColumns += `,
+    if (role === Role.MERCHANT) {
+      extraColumns += `,
         m.code AS merchant_name,
+          cb.config,
         p.user AS user,
+        p.config->'user'->>'user_ip' AS user_ip,
+        p.merchant_order_id AS merchant_order_id, -- Fixed: Reference p.merchant_order_id
+        CASE 
+          WHEN m.config->>'sub_code' IS NOT NULL AND m.config->>'sub_code' != '' 
+          THEN m.config->>'sub_code' 
+          ELSE m.code 
+        END AS merchant_display_code
+      `;
+    } else if (role === Role.ADMIN) {
+      extraColumns += `,
+        m.code AS merchant_name,
+          cb.config,
+        p.user AS user,
+        p.config->'user'->>'user_ip' AS user_ip,
         p.merchant_order_id AS merchant_order_id, -- Fixed: Reference p.merchant_order_id
         u.user_name AS created_by,
         uu.user_name AS updated_by,
         c.first_name || ' ' || c.last_name AS company,
         v.code AS vendor_name,
-        jsonb_build_object('blocked_users', cm.config->'blocked_users') AS config,
         CASE 
           WHEN m.config->>'sub_code' IS NOT NULL AND m.config->>'sub_code' != '' 
           THEN m.config->>'sub_code' 
@@ -618,24 +640,24 @@ export const getChargeBacksBySearchDao = async (
         END AS merchant_display_code
       `;
 
-    const allColumns = `${baseColumns}, ${extraColumns}`;
+      const allColumns = `${baseColumns}, ${extraColumns}`;
 
-    // Sorting
-    const validSortColumns = [
-      'id',
-      'sno',
-      'payin_id',
-      'amount',
-      'created_at',
-      'updated_at',
-    ];
-    const safeSortBy = validSortColumns.includes(sortBy)
-      ? `cb.${sortBy}`
-      : 'cb.created_at';
-    const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+      // Sorting
+      const validSortColumns = [
+        'id',
+        'sno',
+        'payin_id',
+        'amount',
+        'created_at',
+        'updated_at',
+      ];
+      const safeSortBy = validSortColumns.includes(sortBy)
+        ? `cb.${sortBy}`
+        : 'cb.created_at';
+      const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-    // Base FROM + JOIN
-    const baseFromClause = `
+      // Base FROM + JOIN
+      const baseFromClause = `
       FROM public."${CHARGE_BACK}" cb
       LEFT JOIN public."${VENDOR}" v ON cb.vendor_user_id = v.user_id
       LEFT JOIN public."${COMPANY}" cm ON cb.company_id = cm.id
@@ -648,12 +670,12 @@ export const getChargeBacksBySearchDao = async (
       LEFT JOIN public."Company" c ON cb.company_id = c.id
     `;
 
-    // Final queries
-    const whereClause = `WHERE ${conditions.join(' AND ')}`;
-    const offset = (page - 1) * pageSize;
+      // Final queries
+      const whereClause = `WHERE ${conditions.join(' AND ')}`;
+      const offset = (page - 1) * pageSize;
 
-    const countQuery = `SELECT COUNT(*) ${baseFromClause} ${whereClause}`;
-    const dataQuery = `
+      const countQuery = `SELECT COUNT(*) ${baseFromClause} ${whereClause}`;
+      const dataQuery = `
       SELECT ${allColumns}
       ${baseFromClause}
       ${whereClause}
@@ -661,24 +683,25 @@ export const getChargeBacksBySearchDao = async (
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 
-    queryParams.push(pageSize, offset);
+      queryParams.push(pageSize, offset);
 
-    const countResult = await executeQuery(
-      countQuery,
-      queryParams.slice(0, paramIndex - 1),
-    );
-    const totalCount = parseInt(countResult.rows[0]?.count || '0');
+      const countResult = await executeQuery(
+        countQuery,
+        queryParams.slice(0, paramIndex - 1),
+      );
+      const totalCount = parseInt(countResult.rows[0]?.count || '0');
 
-    let result = await executeQuery(dataQuery, queryParams);
-    if (totalCount > 0 && result.rows.length === 0 && offset > 0) {
-      queryParams[queryParams.length - 1] = 0;
-      result = await executeQuery(dataQuery, queryParams);
+      let result = await executeQuery(dataQuery, queryParams);
+      if (totalCount > 0 && result.rows.length === 0 && offset > 0) {
+        queryParams[queryParams.length - 1] = 0;
+        result = await executeQuery(dataQuery, queryParams);
+      }
+      return {
+        totalCount,
+        totalPages: Math.ceil(totalCount / pageSize),
+        chargeBacks: result.rows,
+      };
     }
-    return {
-      totalCount,
-      totalPages: Math.ceil(totalCount / pageSize),
-      chargeBacks: result.rows,
-    };
   } catch (error) {
     logger.error('Error in getChargeBacksBySearchDao:', error.message);
     throw error;

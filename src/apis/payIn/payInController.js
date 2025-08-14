@@ -44,6 +44,7 @@ import {
   updateUtrPayinService,
   checkPendingPayinStatusService,
   updatePayInService,
+  getPayinsSummaryService,
 } from './payInService.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
@@ -59,6 +60,7 @@ import { logger } from '../../utils/logger.js';
 import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
 import { sendBankNotAssignedAlertTelegram } from '../../utils/sendTelegramMessages.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
+import { getRolesById } from '../roles/rolesDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const TestingIp = process.env.LOCAL_IP;
@@ -91,7 +93,7 @@ export const generatePayInUrl = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const x_api_key = req.headers['x-api-key'];
-  const { code, key, hash_code } = payload;
+  const { code, key, hash_code, roleToken = null } = payload;
 
   const apiKey = key ? key : x_api_key;
   if (!apiKey) {
@@ -231,14 +233,25 @@ export const generatePayInUrl = async (req, res) => {
 
   }
 
+  let role = null;
   const token = req.headers[AUTH_HEADER_KEY];
   const tokenData = decodeAuthToken(token);
+
+  if (tokenData.role) {
+    role = tokenData.role;
+  }
+  if (roleToken && roleToken !== null) {
+    const roleData = await getRolesById(roleToken);
+    role = roleData.role;
+  }
+
   const result = await transactionWrapper(generatePayInUrlService)(
     {
       ...payload,
       api_key: apiKey,
     },
     tokenData.user_id,
+    role,
     userIp,
     fromUI,
   );
@@ -440,7 +453,7 @@ export const getPayins = async (req, res) => {
 
 export const getPayinsBySearch = async (req, res) => {
   const { role, user_id, designation } = req.user;
-  const { search, page = 1, limit = 10, company_id } = req.query;
+  const { search, page = 1, limit = 10, updatedPayin, company_id } = req.query;
   // if (!search) {
   //   throw new BadRequestError('search is required');
   // }
@@ -455,7 +468,16 @@ export const getPayinsBySearch = async (req, res) => {
     role,
     user_id,
     designation,
+    updatedPayin,
   );
+
+  return sendSuccess(res, data, 'Payins fetched successfully');
+};
+export const getPayinsSummary = async (req, res) => {
+  const { company_id} = req.user;
+  const data = await getPayinsSummaryService({
+    company_id
+  });
 
   return sendSuccess(res, data, 'Payins fetched successfully');
 };

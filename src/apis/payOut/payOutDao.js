@@ -314,7 +314,7 @@ export const getAllPayoutsDao = async (
     if (filters?.startDate && filters?.endDate) {
       let start;
       let end;
-      start = dayjs.tz(`${filters?.startDate} 00:00:00`, IST).utc().format(); // UTC ISO string
+      start = dayjs.tz(`${filters?.startDate} 00:00:00`, IST).utc().format(); 
       end = dayjs.tz(`${filters?.endDate} 23:59:59.999`, IST).utc().format();
 
       conditions.push(
@@ -329,33 +329,30 @@ export const getAllPayoutsDao = async (
       queryParams.push(limit, (page - 1) * limit);
       paramIndex += 2;
     }
-
-    const handledKeys = new Set(['page', 'limit', 'startDate', 'endDate']);
+    if (filters?.userId) {
+      const userIdsArray = typeof filters.userId === 'string' ? JSON.parse(filters.userId) : filters.userId;
+      conditions.push(`u.vendor_id = ANY($${paramIndex})`);
+      queryParams.push(userIdsArray);
+      paramIndex += 1;
+    }
+    const handledKeys = new Set(['page', 'limit', 'startDate', 'endDate', 'userId']);
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || value === '') return;
       const nextParamIdx = paramIndex;
       if (Array.isArray(value)) {
-        const placeholders = value
-          .map((_, idx) => `$${nextParamIdx + idx}`)
-          .join(', ');
+        const placeholders = value.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
         conditions.push(`u."${key}" IN (${placeholders})`);
         queryParams.push(...value);
         paramIndex += value.length;
       } else {
         const isMultiValue = typeof value === 'string' && value.includes(',');
-        const valueArray = isMultiValue
-          ? value.split(',').map((v) => v.trim())
-          : [value];
-        const placeholders = valueArray
-          .map((_, idx) => `$${nextParamIdx + idx}`)
-          .join(', ');
+        const valueArray = isMultiValue ? value.split(',').map((v) => v.trim()) : [value];
+        const placeholders = valueArray.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
         if (key === 'startDate' || key === 'endDate') {
           conditions.push(isMultiValue ? `u."${key}"` : `u."${key}"`);
         } else {
           conditions.push(
-            isMultiValue
-              ? `u."${key}" IN (${placeholders})`
-              : `u."${key}" = $${nextParamIdx}`,
+            isMultiValue ? `u."${key}" IN (${placeholders})` : `u."${key}" = $${nextParamIdx}`,
           );
         }
         queryParams.push(...valueArray);
@@ -540,8 +537,8 @@ export const getPayoutsBySearchDao = async (
         p.merchant_order_id,
         p.bank_acc_id,
         p.approved_at, 
-        p.created_by, 
-        p.updated_by, 
+        cu.user_name AS created_by,
+        uu.user_name AS updated_by,
         p.user, 
         p.created_at, 
         v.code AS vendor_code, 
@@ -589,6 +586,8 @@ export const getPayoutsBySearchDao = async (
       LEFT JOIN public."Merchant" m ON p.merchant_id = m.id
       LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
       LEFT JOIN public."Vendor" v ON p.vendor_id = v.id
+      LEFT JOIN public."User" cu ON p.created_by = cu.id
+      LEFT JOIN public."User" uu ON p.updated_by = uu.id
       LEFT JOIN public."Company" c
         ON p.company_id = c.id
       WHERE ${conditions.join(' AND ')}

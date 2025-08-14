@@ -1,4 +1,4 @@
-import { tableName } from '../../constants/index.js';
+import { Role, tableName } from '../../constants/index.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import {
   buildSelectQuery,
@@ -145,8 +145,9 @@ const getAllUsersDao = async (
 export const getUsersBySearchDao = async (
   filters,
   searchTerms,
-  pageNumber = 1, 
-  pageSize = 10, 
+  pageNumber = 1,
+  pageSize = 10,
+  role,
 ) => {
   try {
     const conditions = [];
@@ -160,7 +161,10 @@ export const getUsersBySearchDao = async (
     const validatedPageNumber = Math.max(parseInt(pageNumber) || 1);
     const offset = (validatedPageNumber - 1) * validatedPageSize;
 
-    let queryText = `
+    let queryText;
+
+    if (role !== Role.Admin) {
+      queryText = `
       SELECT 
         "User".id,
         "User".role_id,
@@ -175,8 +179,8 @@ export const getUsersBySearchDao = async (
         "User".last_login,
         "User".last_logout,
         "User".config,
-        "User".created_by,
-        "User".updated_by,
+        cu.user_name AS created_by,
+        uu.user_name AS updated_by,
         "User".created_at,
         "User".updated_at,
         "User".first_name || ' ' || "User".last_name AS full_name,
@@ -184,54 +188,93 @@ export const getUsersBySearchDao = async (
         "Designation".designation AS Designation 
       FROM "User" 
       LEFT JOIN "Designation" ON "User".designation_id = "Designation".id 
+      LEFT JOIN public."User" cu ON "User".created_by = cu.id
+      LEFT JOIN public."User" uu ON "User".updated_by = uu.id
+      WHERE 1=1 
+        AND "User".is_obsolete = false 
+        AND "User"."company_id" = $1
+    `;
+    } else {
+      queryText = `
+      SELECT 
+        "User".id,
+        "User".role_id,
+        "User".designation_id,
+        "User".first_name,
+        "User".last_name,
+        "User".email,
+        "User".contact_no,
+        "User".user_name,
+        "User".code,
+        "User".is_enabled,
+        "User".last_login,
+        "User".last_logout,
+        "User".config,
+        cu.user_name AS created_by,
+        uu.user_name AS updated_by,
+        "User".created_at,
+        "User".updated_at,
+        "User".first_name || ' ' || "User".last_name AS full_name,
+        c.first_name || ' ' || c.last_name AS company,
+        "Designation".designation AS Designation 
+      FROM "User" 
+      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id 
+      LEFT JOIN public."User" cu ON "User".created_by = cu.id
+      LEFT JOIN public."User" uu ON "User".updated_by = uu.id
       LEFT JOIN public."Company" c
         ON "User".company_id = c.id
       WHERE 1=1 
         AND "User".is_obsolete = false 
     `;
 
-    // Add company_id filter only if present in filters
-    if (filters.company_id) {
-      if (typeof filters.company_id === 'string' && filters.company_id.includes(',')) {
-        const arr = filters.company_id.split(',').map(v => v.trim()).filter(Boolean);
-        queryText += ` AND "User"."company_id" = ANY($${paramIndex})`;
-        values.push(arr);
-        paramIndex++;
-      } else if (Array.isArray(filters.company_id)) {
-        queryText += ` AND "User"."company_id" = ANY($${paramIndex})`;
-        values.push(filters.company_id);
-        paramIndex++;
-      } else {
-        queryText += ` AND "User"."company_id" = $${paramIndex}`;
-        values.push(filters.company_id);
-        paramIndex++;
-      }
-    }
-
-    if (filters.id) {
-      if (Array.isArray(filters.id)) {
-        const placeholders = filters.id
-          .map((_, i) => `$${paramIndex + i}`)
-          .join(', ');
-        queryText += ` AND "User"."id" IN (${placeholders})`;
-        values.push(...filters.id);
-        paramIndex += filters.id.length;
-      } else {
-        queryText += ` AND "User"."id" = $${paramIndex}`;
-        values.push(filters.id);
-        paramIndex++;
-      }
-    }
-
-    if (searchTerms) {
-      searchTerms.forEach((term) => {
-        if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-          const boolValue = term.toLowerCase() === 'true';
-          conditions.push(`"User".is_enabled = $${paramIndex}`);
-          values.push(boolValue);
+      // Add company_id filter only if present in filters
+      if (filters.company_id) {
+        if (
+          typeof filters.company_id === 'string' &&
+          filters.company_id.includes(',')
+        ) {
+          const arr = filters.company_id
+            .split(',')
+            .map((v) => v.trim())
+            .filter(Boolean);
+          queryText += ` AND "User"."company_id" = ANY($${paramIndex})`;
+          values.push(arr);
+          paramIndex++;
+        } else if (Array.isArray(filters.company_id)) {
+          queryText += ` AND "User"."company_id" = ANY($${paramIndex})`;
+          values.push(filters.company_id);
           paramIndex++;
         } else {
-          conditions.push(`
+          queryText += ` AND "User"."company_id" = $${paramIndex}`;
+          values.push(filters.company_id);
+          paramIndex++;
+        }
+      }
+
+      if (filters.id) {
+        if (Array.isArray(filters.id)) {
+          const placeholders = filters.id
+            .map((_, i) => `$${paramIndex + i}`)
+            .join(', ');
+          queryText += ` AND "User"."id" IN (${placeholders})`;
+          values.push(...filters.id);
+          paramIndex += filters.id.length;
+        } else {
+          queryText += ` AND "User"."id" = $${paramIndex}`;
+          values.push(filters.id);
+          paramIndex++;
+        }
+      }
+
+      if (searchTerms) {
+        searchTerms.forEach((term) => {
+          if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+            const boolValue = term.toLowerCase() === 'true';
+            conditions.push(`"User".is_enabled = $${paramIndex}`);
+            values.push(boolValue);
+            paramIndex++;
+          } else {
+            conditions.push(`
             (
               LOWER("User".id::text) LIKE LOWER($${paramIndex})
               OR LOWER("User".role_id::text) LIKE LOWER($${paramIndex})
@@ -249,41 +292,42 @@ export const getUsersBySearchDao = async (
               OR LOWER("Designation".designation) LIKE LOWER($${paramIndex})
             )
           `);
-          values.push(`%${term}%`);
-          paramIndex++;
-        }
-      });
-    }
+            values.push(`%${term}%`);
+            paramIndex++;
+          }
+        });
+      }
 
-    if (conditions.length > 0) {
-      queryText += ' AND (' + conditions.join(' OR ') + ')';
-    }
+      if (conditions.length > 0) {
+        queryText += ' AND (' + conditions.join(' OR ') + ')';
+      }
 
-    const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
-    const countResult = await executeQuery(countQuery, values);
+      const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
+      const countResult = await executeQuery(countQuery, values);
 
-    queryText += `
+      queryText += `
       ORDER BY "User"."updated_at" DESC
       LIMIT $${paramIndex}
       OFFSET $${paramIndex + 1}
     `;
-    values.push(validatedPageSize, offset);
+      values.push(validatedPageSize, offset);
 
-    let searchResult = await executeQuery(queryText, values);
-    const totalItems = parseInt(countResult.rows[0].total);
-    let totalPages = Math.ceil(totalItems / validatedPageSize);
-    if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
-      values[values.length - 1] = 0; 
-      searchResult = await executeQuery(queryText, values);
-      totalPages = Math.ceil(totalItems / validatedPageSize);
+      let searchResult = await executeQuery(queryText, values);
+      const totalItems = parseInt(countResult.rows[0].total);
+      let totalPages = Math.ceil(totalItems / validatedPageSize);
+      if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
+        values[values.length - 1] = 0;
+        searchResult = await executeQuery(queryText, values);
+        totalPages = Math.ceil(totalItems / validatedPageSize);
+      }
+
+      const data = {
+        totalCount: totalItems,
+        totalPages,
+        Users: searchResult.rows,
+      };
+      return data;
     }
-
-    const data = {
-      totalCount: totalItems,
-      totalPages,
-      Users: searchResult.rows,
-    };
-    return data;
   } catch (error) {
     logger.error(error.message);
     throw error;

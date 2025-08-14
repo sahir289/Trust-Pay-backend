@@ -1,18 +1,18 @@
-import { updatePayInUrlDao, getPayInUrlsDao } from '../apis/payIn/payInDao.js';
+import { updatePayInUrlDao } from '../apis/payIn/payInDao.js';
 import { Status } from '../constants/index.js';
 import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.js';
-import { NotFoundError } from './appErrors.js';
+// import { NotFoundError } from './appErrors.js';
 import { logger } from './logger.js';
 import { calculateDuration } from '../helpers/index.js';
-async function processPayInRestricted(id, restrictionReason) {
+async function processPayInRestricted(payin, restrictionReason) {
   try {
-    const payInUrl = await getPayInUrlsDao({ merchant_order_id: id });
-    if (!payInUrl || !payInUrl[0]) {
-      throw new NotFoundError(
-        'No pay-in URL found for the given merchant order ID',
-      );
-    }
-    const payin = payInUrl[0];
+    // const payInUrl = await getPayInUrlsDao({ merchant_order_id: id });
+    // if (!payInUrl || !payInUrl[0]) {
+    //   throw new NotFoundError(
+    //     'No pay-in URL found for the given merchant order ID',
+    //   );
+    // }
+    // const payin = payInUrl[0];
     if (payin.status == Status.INITIATED || payin.status == Status.ASSIGNED) {
       const config = {
         ...payin.config,

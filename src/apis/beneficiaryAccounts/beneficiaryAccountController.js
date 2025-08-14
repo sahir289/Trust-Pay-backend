@@ -19,10 +19,11 @@ import {
 
 const getBeneficiaryAccount = async (req, res) => {
   const { role, user_id, designation, company_id } = req.user;
-  const { page, limit, beneficiary_role, beneficiary_user_id } = req.query;
+  const { page, limit, beneficiary_role, beneficiary_user_id, forSettlementFlag } = req.query;
   let { is_enabled } = req.query;
   const filters = {
     beneficiary_role,
+    forSettlementFlag,
   };
   if (beneficiary_user_id) {
     filters.user_id = beneficiary_user_id;

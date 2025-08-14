@@ -251,6 +251,7 @@ const getBankAccountsBySearchDao = async (
   page,
   limit,
   searchTerms = [],
+  role,
 ) => {
   try {
     let queryParams = [];
@@ -311,6 +312,7 @@ const getBankAccountsBySearchDao = async (
     if (searchTerms?.length) {
       const searchConditions = [];
       searchTerms.forEach((term) => {
+        if (!term || term.trim() === '') return; 
         if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
           const boolValue = term.toLowerCase() === 'true';
           searchConditions.push(`ba.is_enabled = $${paramIndex}`);
@@ -318,7 +320,7 @@ const getBankAccountsBySearchDao = async (
           paramIndex++;
         } else {
           const likeVal = `%${term}%`;
-          searchConditions.push(`
+          let searchCondition = `
             (
               LOWER(ba.id::text) LIKE LOWER($${paramIndex})
               OR LOWER(ba.sno::text) LIKE LOWER($${paramIndex})
@@ -335,10 +337,24 @@ const getBankAccountsBySearchDao = async (
               OR LOWER(updater.user_name) LIKE LOWER($${paramIndex})
               OR LOWER(v.code) LIKE LOWER($${paramIndex})
               OR LOWER(c.first_name || ' ' || c.last_name) LIKE LOWER($${paramIndex})
-              OR LOWER(m.merchant_details->>'code') LIKE LOWER($${paramIndex})
               OR LOWER(ba.config->>'max_limit') LIKE LOWER($${paramIndex})
             )
-          `);
+          `;
+          // Add merchant code search only for ADMIN role
+          if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
+            searchCondition += `
+            OR EXISTS (
+              SELECT 1
+              FROM public."Merchant" m
+              WHERE m.id::text IN (
+                SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
+              )
+              AND LOWER(m.code) LIKE LOWER($${paramIndex})
+            )
+          `;
+          }
+          searchCondition += ')';
+          searchConditions.push(searchCondition);
           queryParams.push(likeVal);
           paramIndex++;
         }
@@ -413,9 +429,15 @@ const getBankAccountsBySearchDao = async (
     // Main query with sorting and pagination
     const mainQuery = `
       ${baseQuery}
-      ORDER BY ba.is_obsolete ASC NULLS LAST,
-       ba.is_enabled DESC,  
-       ba.updated_at DESC  
+      ORDER BY
+        (CASE 
+          WHEN ba.is_enabled = true AND (ba.config->>'is_freeze')::boolean IS DISTINCT FROM true AND ba.is_obsolete = false THEN 1 -- Active
+          WHEN ba.is_enabled = false AND (ba.config->>'is_freeze')::boolean IS DISTINCT FROM true AND ba.is_obsolete = false THEN 2 -- Deactive
+          WHEN (ba.config->>'is_freeze')::boolean = true AND ba.is_obsolete = false THEN 3 -- Freezed
+          WHEN ba.is_obsolete = true THEN 4 -- Obsolete
+          ELSE 5
+        END),
+        ba.updated_at DESC
       ${limitcondition};
     `;
 
@@ -438,7 +460,7 @@ const getBankAccountsBySearchDao = async (
       limit &&
       (page - 1) * limit > 0
     ) {
-      queryParams[queryParams.length - 1] = 0; 
+      queryParams[queryParams.length - 1] = 0;
       const newSearchResult = await executeQuery(mainQuery, queryParams);
       totalPages = limit ? Math.ceil(totalCount / limit) : 1;
       return {
@@ -453,7 +475,6 @@ const getBankAccountsBySearchDao = async (
       totalPages,
       banks: searchResult.rows,
     };
-    
   } catch (error) {
     logger.error('Error in getBankAccountsBySearchDao:', error);
     throw error;
@@ -521,16 +542,22 @@ const getBankAccountDaoNickName = async (
     // Handle filters
     if (Object.keys(filters).length > 0) {
       Object.entries(filters).forEach(([key, value]) => {
-        let paramValue = value;
-        // If value is an array, take the first element (adjust based on requirements)
-        if (Array.isArray(value) && value.length > 0) {
-          paramValue = value[0]; // Extract first element
-          if (paramValue == null) {
-            return; // Skip if first element is null/undefined
+        if (key === 'user_id' && Array.isArray(value)) {
+          // If user_id is an array, use IN clause
+          whereConditions.push(`"user_id" = ANY($${queryParams.length + 1})`);
+          queryParams.push(value);
+        } else {
+          let paramValue = value;
+          // If value is an array, take the first element (adjust based on requirements)
+          if (Array.isArray(value) && value.length > 0) {
+            paramValue = value; // Extract first element
+            if (paramValue == null) {
+              return; // Skip if first element is null/undefined
+            }
           }
+          whereConditions.push(`"${key}" = $${queryParams.length + 1}`);
+          queryParams.push(paramValue);
         }
-        whereConditions.push(`"${key}" = $${queryParams.length + 1}`);
-        queryParams.push(paramValue);
       });
     }
 

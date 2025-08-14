@@ -112,7 +112,7 @@ const getSettlementsBySearch = async (req, res) => {
 
 const createSettlementController = async (req, res) => {
   const payload = req.body;
-  const { company_id, user_id, user_name, designation } = req.user;
+  const { company_id, user_id, user_name, designation, role } = req.user;
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
@@ -138,7 +138,12 @@ const createSettlementController = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   //-- utr and amount for internal tranfer case
-  if (payload.amount && payload.utr && (payload.method === 'INTERNAL_TRANSFER' || payload.method === 'INTERNAL_BANK_TRANSFER')) {
+  if (
+    payload.amount &&
+    payload.utr &&
+    (payload.method === 'INTERNAL_QR_TRANSFER' ||
+      payload.method === 'INTERNAL_BANK_TRANSFER')
+  ) {
     const bankRes = await getBankResponseDao({
       utr: payload.utr,
       status: '/success',
@@ -161,6 +166,7 @@ const createSettlementController = async (req, res) => {
     user_id: payload.user_id,
     company_id,
     created_by: user_id,
+    updated_by: user_id,
     status: 'INITIATED',
     config: {
       wallet_balance: payload.wallet_balance, //--wallet balance also added in config
@@ -176,7 +182,10 @@ const createSettlementController = async (req, res) => {
     },
   };
   // const data =
-  const settlement = await transactionWrapper(createSettlementService)(data);
+  const settlement = await transactionWrapper(createSettlementService)(
+    data,
+    role,
+  );
   logger.info('Created Settlement Successfully', settlement);
   sendSuccess(
     res,
@@ -192,7 +201,7 @@ const updateSettlementController = async (req, res) => {
   payload.updated_by = user_id;
   const { company_id } = req.user;
   const ids = { id, company_id, role };
-  ///temperary deleting this ..we need to refact get settlement dao query
+  ///temporary deleting this ..we need to reflect get settlement dao query
   delete payload.config.company_id;
   const joiValidation = UPDATE_SETTLEMENT_SCHEMA.validate(payload);
   if (joiValidation.error) {

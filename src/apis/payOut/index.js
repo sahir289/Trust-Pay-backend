@@ -139,6 +139,12 @@ router.post(
   tryCatchHandler(createPayout),
 );
 
+router.post(
+  '/generate-payout',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(createPayout),
+);
+
 /**
  * @swagger
  * /payout/check-payout-status:

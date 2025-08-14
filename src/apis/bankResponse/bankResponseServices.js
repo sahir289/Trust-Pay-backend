@@ -560,7 +560,42 @@ const createBankResponseService = async (
       }
 
       await commit(localConn);
-      return { message: `Entry created successfully` };
+
+      const bankDetails = await getBankaccountDao(
+        { id: botRes?.bank_id, company_id: companyId },
+        null,
+        null,
+        role,
+      );
+    //  let vendorData = bankDetails[0]
+    //     ? await getVendorsDao({ user_id: bankDetails[0].user_id })
+    //     : [];
+      const responseObj = {
+        id: botRes.id,
+        sno: botRes.sno,
+        status: botRes.status,
+        bank_id: botRes.bank_id,
+        amount: botRes.amount,
+        upi_short_code: botRes.upi_short_code || null,
+        utr: botRes.utr,
+        is_used: botRes.is_used === 'true',
+        created_at: botRes.created_at,
+        updated_at: botRes.updated_at,
+        created_by: botRes.created_by,
+        config: botRes.config || {},
+        updated_by: botRes.updated_by,
+        details: {
+          is_intent: bankDetails[0]?.config?.is_intent || false,
+          merchants: bankDetails[0]?.config?.merchants || [],
+          is_phonepay: bankDetails[0]?.config?.is_phonepay || false,
+        },
+        nick_name: bankDetails[0]?.nick_name || null,
+        vendor_user_id: bankDetails[0]?.user_id || null,
+        merchant_code: null, // You can fetch merchant_code if needed
+      };
+      // Send to socket for real-time update
+      await newTableEntry(tableName.BANK_RESPONSE, responseObj);
+      return { message: `Entry created successfully`, data: responseObj };
     } catch (err) {
       if (localConn) {
         try {
@@ -621,7 +656,10 @@ const getClaimResponseService = async (payload) => {
     let filters = Object.fromEntries(
       Object.entries({
         date: payload.date || undefined,
-        bank_id: payload.bank_id || undefined,
+        startDate: payload.startDate || undefined,
+        endDate: payload.endDate || undefined,
+        banks: payload.bank_ids || undefined,
+        vendors: payload.vendors || undefined,
         company_id: payload.company_id || undefined,
       }).filter(([, v]) => v !== undefined),
     );
@@ -666,6 +704,7 @@ const getBankResponseService = async (
         bank_id: payload.bank_id || undefined,
         is_used: payload.is_used || undefined,
         company_id: payload.company_id || undefined,
+        userId: payload.userId || undefined,
       }).filter(([, v]) => v !== undefined),
     );
     filters = {

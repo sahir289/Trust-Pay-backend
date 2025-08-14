@@ -109,8 +109,14 @@ const getBeneficiaryAccountService = async (
       delete filters.beneficiary_role;
     }
 
-    const pageNumber = parseInt(page, 10) || 1;
-    const pageSize = parseInt(limit, 10) || 10;
+    let pageNumber;
+    let pageSize;
+    if (filters.forSettlementFlag === 'true'){
+      delete filters.forSettlementFlag;
+    } else {
+      pageNumber = parseInt(page, 10) || 1;
+      pageSize = parseInt(limit, 10) || 10;
+    }
     filters.company_id = company_id;
 
     const result = await getBeneficiaryAccountDaoAll(

@@ -25,6 +25,7 @@ import {
 import {
   getMerchantsDao,
   getMerchantByUserIdDao,
+  getMerchantsByCodeDao,
 } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import {
@@ -161,6 +162,10 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
                   : responseData.Response.refno || responseData.Response?.utr,
                 approved_at: new Date().toISOString(),
               });
+            } else if (!isApproved && isTransactionUnderProcess) {
+              Object.assign(updatePayload, {
+                status: Status.PENDING,
+              });
             } else {
               updatePayload.config.rejected_reason =
                 payAssistErrorCodeMap[responseData.ErrorCode] ||
@@ -200,7 +205,7 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
             } else if (statusResponse.data.ErrorCode !== 'TUP') {
               await handlePayoutUpdate(statusResponse.data, false);
             } else if (statusResponse.data.ErrorCode === 'TUP') {
-              await handlePayoutUpdate(statusResponse.data, true, true);
+              await handlePayoutUpdate(statusResponse.data, false, true);
             }
           }
 
@@ -259,12 +264,11 @@ const createPayoutService = async (
     //       ? vendorColumns.PAYOUT
     //       : columns.PAYOUT;
     const { code, amount, x_api_key, returnUrl, notifyUrl } = payload;
-    const details = await getMerchantsDao({ code });
-
+    const details = await getMerchantsByCodeDao(code);
     if (!details[0] || details[0].length === 0) {
       const data = {
         status: 404,
-        message: 'Please enter valid code',
+        message: 'Merchant is inactive. Contact support for help!',
       };
       return data;
     }
@@ -352,7 +356,10 @@ const createPayoutService = async (
       };
       return data;
     }
-    if (amount < details[0].min_payout || amount > details[0].max_payout) {
+    if (
+      (amount < details[0].min_payout || amount > details[0].max_payout) &&
+      role !== Role.ADMIN
+    ) {
       const data = {
         status: 400,
         message: `Amount should be between ${details[0].min_payout} and ${details[0].max_payout}`,
@@ -804,15 +811,17 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
 
     await newTableEntry(tableName.PAYOUT);
-    // This is async function but it's just the callback sending function there fore we are not using await
-    merchantPayoutCallback(notifyUrl, {
-      code: data.code,
-      merchantOrderId: data.merchant_order_id,
-      payoutId: data.id,
-      amount: data.amount,
-      status: data.status,
-      utr_id: data.utr_id || '',
-    });
+    if (data.status !== Status.PENDING) {
+      // This is async function but it's just the callback sending function there fore we are not using await
+      merchantPayoutCallback(notifyUrl, {
+        code: data.code,
+        merchantOrderId: data.merchant_order_id,
+        payoutId: data.id,
+        amount: data.amount,
+        status: data.status,
+        utr_id: data.utr_id || '',
+      });
+    }
 
     return data;
   } catch (error) {

@@ -121,7 +121,10 @@ const getBankaccountServiceNickName = async (
     if (role == Role.VENDOR) {
       filters.user_id = [user_id];
     }
-    if (user) {
+    // If user is an array, use it directly
+    if (Array.isArray(user)) {
+      filters.user_id = user;
+    } else if (user) {
       filters.user_id = [user];
     }
     const userHierarchys = await getUserHierarchysDao({ user_id });

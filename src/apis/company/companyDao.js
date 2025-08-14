@@ -3,6 +3,7 @@ import {
   buildSelectQuery,
   buildUpdateQuery,
   executeQuery,
+  buildAndExecuteUpdateQuery,
 } from '../../utils/db.js';
 import { tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
@@ -89,6 +90,16 @@ const updateCompanyDao = async (id, data) => {
     throw error;
   }
 };
+const updateCompanyConfigDao = async (id, data,conn) => {
+   return await buildAndExecuteUpdateQuery(
+     tableName.COMPANY,
+     data,
+     id,
+     {},
+     { returnUpdated: true },
+     conn,
+   );
+};
 
 const deleteCompanyDao = async (id, data) => {
   try {
@@ -107,5 +118,6 @@ export {
   updateCompanyDao,
   deleteCompanyDao,
   getCompanyByIDDao,
+  updateCompanyConfigDao,
   getCompanyNamesDao,
 };

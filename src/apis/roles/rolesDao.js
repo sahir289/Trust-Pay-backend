@@ -81,4 +81,16 @@ const deleteRoleDao = async (id, data) => {
   }
 };
 
-export { getRoleDao, createRoleDao, updateRoleDao, deleteRoleDao };
+const getRolesById = async (id) => {
+  try {
+    const sql = `SELECT * FROM "${tableName.ROLE}" WHERE id = $1`;
+    const params = [id];
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error in getRolesById:', error);
+    throw error;
+  }
+};
+
+export { getRoleDao, createRoleDao, updateRoleDao, deleteRoleDao, getRolesById };

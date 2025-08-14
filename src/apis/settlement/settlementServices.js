@@ -13,11 +13,10 @@ import {
 import {
   getCalculationforCronDao,
   updateCalculationBalanceDao,
-  updateCalculationDao
+  // updateCalculationDao
+  updateCalculationConfigDao,
 } from '../calculation/calculationDao.js';
-import {
-  getMerchantsDao,
-} from '../merchants/merchantDao.js';
+import { getMerchantsDao } from '../merchants/merchantDao.js';
 import {
   columns,
   merchantColumns,
@@ -169,7 +168,7 @@ const getSettlementsBySearchService = async (
   try {
     // Determine column selection based on role
     const filterColumns = (() => {
-      switch (ids.role) {
+      switch (role) {
         case Role.MERCHANT:
           return merchantColumns.SETTLEMENT;
         case Role.VENDOR:
@@ -236,6 +235,7 @@ const getSettlementsBySearchService = async (
       sortOrder || 'DESC',
       filterColumns,
       searchTerms,
+      role,
     );
 
     return settlementData;
@@ -245,11 +245,12 @@ const getSettlementsBySearchService = async (
   }
 };
 
-const createSettlementService = async (conn, payload) => {
+const createSettlementService = async (conn, payload, role) => {
   try {
     if (
-      payload.method === 'INTERNAL_QR_TRANSFER' ||
-      payload.method === 'INTERNAL_BANK_TRANSFER'
+      (payload.method === 'INTERNAL_QR_TRANSFER' ||
+        payload.method === 'INTERNAL_BANK_TRANSFER') &&
+      role !== Role.VENDOR
     ) {
       const bankResponses = await getBankResponseByUTR(
         payload?.config?.reference_id,
@@ -307,25 +308,35 @@ const createSettlementService = async (conn, payload) => {
           updatedCalculation,
           conn,
         );
-     const InternalSettlementConfig = {
-          total_internalSettlement_amount:
+        let config;
+        if (payload.method === 'INTERNAL_QR_TRANSFER') {
+          const total_internalSettlement_amount =
             calculationData[0].config.total_internalSettlement_amount > 0
               ? calculationData[0].config.total_internalSettlement_amount +
                 payload.amount
-              : payload.amount,
-          total_internalSettlement_count:
-            calculationData[0].config.total_internalSettlement_count > 0
-              ? calculationData[0].config.total_internalSettlement_count + 1
-              : 1,
-          total_internalSettlement_commission:
-            calculationData[0].config.total_internalSettlement_commission > 0
-              ? calculationData[0].config.total_internalSettlement_commission +
-                commission
-              : commission,
-        };
-      await updateCalculationDao({id: calculationData[0].id},{config:InternalSettlementConfig},conn);
+              : payload.amount;
+          config = {
+            total_internalSettlement_amount,
+          };
+        }
+        if (payload.method === 'INTERNAL_BANK_TRANSFER') {
+          const total_internalBankSettlement_amount =
+            calculationData[0].config.total_internalBankSettlement_amount > 0
+              ? calculationData[0].config.total_internalBankSettlement_amount +
+                payload.amount
+              : payload.amount;
+          config = {
+            total_internalBankSettlement_amount,
+          };
+        }
+        await updateCalculationConfigDao(
+          { id: calculationData[0].id },
+          { config: config },
+          conn,
+        );
         payload.status = Status.SUCCESS;
-        return await createSettlementDao(payload,conn);
+        payload.approved_at = new Date();
+        return await createSettlementDao(payload, conn);
       }
 
       throw new BadRequestError('UTR is already used');
@@ -341,11 +352,11 @@ const createSettlementService = async (conn, payload) => {
     //   category: 'Settlement',
     // });
     const adjustedValue =
-    payload.config.debit_credit === 'RECEIVED'
-      ? Number(payload.amount) > 0
-        ? -Number(payload.amount)
-        : Number(payload.amount)
-      : Math.abs(Number(payload.amount));
+      payload.config.debit_credit === 'RECEIVED'
+        ? Number(payload.amount) > 0
+          ? -Number(payload.amount)
+          : Number(payload.amount)
+        : Math.abs(Number(payload.amount));
     payload.amount = adjustedValue;
     return await createSettlementDao(payload);
   } catch (error) {
@@ -375,9 +386,26 @@ const updateSettlementService = async (conn, ids, payload) => {
     if (
       payload.config.reference_id !== undefined &&
       data[0]?.config?.reference_id === payload.config.reference_id &&
-      (payload.config.reference_id !== '' || !payload.config.rejected_reason)
+      (payload.config.reference_id !== '' || !payload.config.rejected_reason) &&
+      data[0].method !== 'INTERNAL_QR_TRANSFER' &&
+      data[0].method !== 'INTERNAL_BANK_TRANSFER'
     ) {
-      throw new BadRequestError(`UTR already exists`);
+      throw new BadRequestError('UTR already exists');
+    }
+    // If method is INTERNAL_QR_TRANSFER or INTERNAL_BANK_TRANSFER, handle UTR usage
+    if (
+      (data[0].method === 'INTERNAL_QR_TRANSFER' || data[0].method === 'INTERNAL_BANK_TRANSFER') &&
+      payload.config.reference_id
+    ) {
+      const bankResponses = await getBankResponseByUTR(payload?.config?.reference_id);
+      if (bankResponses && bankResponses.is_used === false && bankResponses.status === Status.BOT) {
+        await updateBankResponseDao(
+          { id: bankResponses.id },
+          { status: '/internalTransfer' },
+        );
+      } else {
+        throw new BadRequestError('UTR is already used');
+      }
     }
     const calculationData = await getCalculationforCronDao(data[0].user_id);
 
@@ -432,7 +460,7 @@ const updateSettlementService = async (conn, ids, payload) => {
         // const vendorData = await getVendorsDao({ user_id: data[0].user_id });
         if (data[0].method === 'BANK') {
           const [beneficiaryAcc] = await getBeneficiaryAccountDao({
-            user_id: data[0].config.bank_id,
+            bank_name: data[0].config.bank_name,
           });
 
           let beneficiaryClosingBalance;
@@ -452,8 +480,8 @@ const updateSettlementService = async (conn, ids, payload) => {
             closing_balance: beneficiaryClosingBalance,
           };
           await updateBeneficiaryAccountDao(
-            { id: beneficiaryAcc.id, company_id: beneficiaryAcc.company_id },
-            beneficiaryUpdatedConfig,
+            { id: beneficiaryAcc.id, company_id: data[0].company_id },
+            {config: beneficiaryUpdatedConfig},
             conn,
             false,
           );
@@ -465,14 +493,14 @@ const updateSettlementService = async (conn, ids, payload) => {
           };
         }
       }
-        // const vendorBalance = vendorData[0].balance - payload?.amount;
+      // const vendorBalance = vendorData[0].balance - payload?.amount;
 
-        // await updateVendorBalanceDao(
-        //   { id: vendorData[0].id },
-        //   { balance: vendorBalance },
-        //   payload.user_id,
-        //   conn,
-        // );
+      // await updateVendorBalanceDao(
+      //   { id: vendorData[0].id },
+      //   { balance: vendorBalance },
+      //   payload.user_id,
+      //   conn,
+      // );
       // } else if (data[0].role === Role.MERCHANT) {
       //   // const merchantAcc = merchantData[0].balance - payload?.amount;
       //   // await updateMerchantDao(
@@ -558,35 +586,6 @@ const updateSettlementService = async (conn, ids, payload) => {
             payload.amount,
             VendorCommission,
           );
-          const InternalSettlementConfig = {
-            total_internalSettlement_amount:
-              calculationData[0].config.total_internalSettlement_amount > 0
-                ? calculationData[0].config.total_internalSettlement_amount -
-                  payload.amount
-                : -payload.amount,
-            total_internalSettlement_count:
-              calculationData[0].config.total_internalSettlement_count > 0
-                ? calculationData[0].config.total_internalSettlement_count - 1
-                : -1,
-            total_internalSettlement_commission:
-              calculationData[0].config.total_internalSettlement_commission > 0
-                ? calculationData[0].config
-                    .total_internalSettlement_commission - commission
-                : -commission,
-          };
-          await updateCalculationDao(
-            { id: calculationData[0].id },
-            { config: InternalSettlementConfig },
-            conn,
-          );
-          // Update vendor balance - Fix: Pass number instead of object
-          // const vendorAcc = vendorData[0].balance + payload.amount;
-          // await updateVendorBalanceDao(
-          //   { id: vendorData[0].id },
-          //   Number(vendorAcc),
-          //   payload.updated_by,
-          //   conn,
-          // );
 
           updatedCalculation = {
             total_settlement_count: 1,
@@ -616,8 +615,8 @@ const updateSettlementService = async (conn, ids, payload) => {
               closing_balance: beneficiaryClosingBalance,
             };
             await updateBeneficiaryAccountDao(
-              { id: beneficiaryAcc.id, company_id: beneficiaryAcc.company_id },
-              beneficiaryUpdatedConfig,
+              { id: beneficiaryAcc.id, company_id: data[0].company_id },
+              {config: beneficiaryUpdatedConfig},
               conn,
               false,
             );
@@ -698,6 +697,177 @@ const updateSettlementService = async (conn, ids, payload) => {
     //   actorUserId: payload.user_id,
     //   category: 'Settlement',
     // });
+    if (
+      payload.status === Status.SUCCESS ||
+      payload.status === Status.REVERSED
+    ) {
+      let config;
+      if (payload.method === 'INTERNAL_QR_TRANSFER') {
+        if (payload.status === Status.REVERSED) {
+          const total_internalSettlement_amount =
+            calculationData[0].config.total_internalSettlement_amount > 0
+              ? calculationData[0].config.total_internalSettlement_amount -
+                payload.amount
+              : -payload.amount;
+          config = {
+            total_internalSettlement_amount,
+          };
+        } else {
+          const total_internalSettlement_amount =
+            calculationData[0].config.total_internalSettlement_amount > 0
+              ? calculationData[0].config.total_internalSettlement_amount +
+                payload.amount
+              : payload.amount;
+          config = {
+            total_internalSettlement_amount,
+          };
+        }
+      }
+      if (payload.method === 'INTERNAL_BANK_TRANSFER') {
+        if (payload.status === Status.REVERSED) {
+          const total_internalBankSettlement_amount =
+            calculationData[0].config.total_internalBankSettlement_amount > 0
+              ? calculationData[0].config.total_internalBankSettlement_amount -
+                payload.amount
+              : -payload.amount;
+          config = {
+            total_internalBankSettlement_amount,
+          };
+        } else {
+          const total_internalBankSettlement_amount =
+            calculationData[0].config.total_internalBankSettlement_amount > 0
+              ? calculationData[0].config.total_internalBankSettlement_amount +
+                payload.amount
+              : payload.amount;
+          config = {
+            total_internalBankSettlement_amount,
+          };
+        }
+      }
+      const positiveAmount = Math.abs(payload.amount);
+      if (payload.method === 'CASH') {
+        if (payload.status == Status.SUCCESS) {
+          const keyName =
+            payload.config.debit_credit === 'SENT'
+              ? 'total_cashSentSettlement_amount'
+              : 'total_cashReceivedSettlement_amount';
+
+          const totalSettlementAmount = calculationData[0].config[keyName]
+            ? calculationData[0].config[keyName] + positiveAmount
+            : positiveAmount;
+
+          config = {
+            [keyName]: totalSettlementAmount,
+          };
+        }
+        if (payload.status == Status.REVERSED) {
+          const keyName =
+            payload.config.debit_credit === 'SENT'
+              ? 'total_cashSentSettlement_amount'
+              : 'total_cashReceivedSettlement_amount';
+
+          const totalSettlementAmount = calculationData[0].config[keyName]
+            ? calculationData[0].config[keyName] - positiveAmount
+            : -positiveAmount;
+
+          config = {
+            [keyName]: totalSettlementAmount,
+          };
+        }
+      }
+      if (payload.method === 'BANK') {
+        if (payload.status == Status.SUCCESS) {
+          const keyName =
+            payload.config.debit_credit === 'SENT'
+              ? 'total_bankSentSettlement_amount'
+              : 'total_bankReceivedSettlement_amount';
+          const totalSettlementAmount = calculationData[0].config[keyName]
+            ? calculationData[0].config[keyName] + positiveAmount
+            : positiveAmount;
+
+          config = {
+            [keyName]: totalSettlementAmount,
+          };
+        }
+        if (payload.status == Status.REVERSED) {
+          const keyName =
+            payload.config.debit_credit === 'SENT'
+              ? 'total_bankSentSettlement_amount'
+              : 'total_bankReceivedSettlement_amount';
+          const totalSettlementAmount = calculationData[0].config[keyName]
+            ? calculationData[0].config[keyName] - positiveAmount
+            : -positiveAmount;
+
+          config = {
+            [keyName]: totalSettlementAmount,
+          };
+        }
+      }
+      if (payload.method === 'CRYPTO') {
+        if (payload.status == Status.SUCCESS) {
+          const keyName =
+            payload.config.debit_credit === 'SENT'
+              ? 'total_cryptoSentSettlement_amount'
+              : 'total_cryptoReceivedSettlement_amount';
+
+          const totalSettlementAmount = calculationData[0].config[keyName]
+            ? calculationData[0].config[keyName] + positiveAmount
+            : positiveAmount;
+
+          config = {
+            [keyName]: totalSettlementAmount,
+          };
+        }
+        if (payload.status == Status.REVERSED) {
+          const keyName =
+            payload.config.debit_credit === 'SENT'
+              ? 'total_cryptoSentSettlement_amount'
+              : 'total_cryptoReceivedSettlement_amount';
+
+          const totalSettlementAmount = calculationData[0].config[keyName]
+            ? calculationData[0].config[keyName] - positiveAmount
+            : -positiveAmount;
+
+          config = {
+            [keyName]: totalSettlementAmount,
+          };
+        }
+      }
+      if (payload.method === 'AED') {
+        if (payload.status == Status.SUCCESS) {
+          const keyName =
+            payload.config.debit_credit === 'SENT'
+              ? 'total_aedSentSettlement_amount'
+              : 'total_aedReceivedSettlement_amount';
+
+          const totalSettlementAmount = calculationData[0].config[keyName]
+            ? calculationData[0].config[keyName] + positiveAmount
+            : positiveAmount;
+
+          config = {
+            [keyName]: totalSettlementAmount,
+          };
+        }
+        if (payload.status == Status.REVERSED) {
+          const keyName =
+            payload.config.debit_credit === 'SENT'
+              ? 'total_aedSentSettlement_amount'
+              : 'total_aedReceivedSettlement_amount';
+          const totalSettlementAmount = calculationData[0].config[keyName]
+            ? calculationData[0].config[keyName] - positiveAmount
+            : -positiveAmount;
+
+          config = {
+            [keyName]: totalSettlementAmount,
+          };
+        }
+      }
+      await updateCalculationConfigDao(
+        { id: calculationData[0].id },
+        { config: config },
+        conn,
+      );
+    }
     return updateData;
   } catch (error) {
     logger.error('Error while updating Settlement', 'error', error);

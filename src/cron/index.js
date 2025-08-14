@@ -116,6 +116,11 @@ router.get(
   },
   collectPayinData,
 );
-router.get('/initialize-cronjob', gatherAllDataForAllCompanies);
+
+router.get('/initialize-cronjob', (req, res) => {
+  gatherAllDataForAllCompanies();
+  logger.info('Calling gatherAllDataForAllCompanies CRONJOB');
+  res.json({ message: 'Cron job is running for Gather All Data' });
+});
 
 export default router;

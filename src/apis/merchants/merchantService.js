@@ -286,6 +286,7 @@ const getMerchantsServiceCode = async (
   user_id,
   includeSubMerchants,
   includeOnlyMerchants,
+  excludeDisabledMerchant,
 ) => {
   let conn;
   try {
@@ -337,6 +338,7 @@ const getMerchantsServiceCode = async (
       filters,
       includeSubMerchants,
       includeOnlyMerchants,
+      excludeDisabledMerchant,
     );
     await commit(conn);
     return codes;
