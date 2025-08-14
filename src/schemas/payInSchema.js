@@ -27,6 +27,7 @@ export const VALIDATE_ASSIGNED_BANT_TO_PAY = Joi.object({
     .valid(...Object.values(BankTypes))
     .label('type')
     .required(),
+  roleToken: Joi.string().label('roleToken').optional(),
 });
 
 export const VALIDATE_EXPIRE_PAY_IN_URL = Joi.object({
