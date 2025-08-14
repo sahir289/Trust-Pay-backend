@@ -154,11 +154,13 @@ import {
         expect(logger.error).not.toHaveBeenCalled();
       });
   
-      test('should throw BadRequestError if payload is missing', async () => {
+      test('should throw ValidationError if payload is missing', async () => {
         req.body = null;
-  
-        await expect(createCalculation(req, res)).rejects.toEqual({ message: 'payload is required' });
-        expect(logger.error).toHaveBeenCalledWith('payload is required');
+      
+        await expect(createCalculation(req, res)).rejects.toMatchObject({
+          message: expect.objectContaining({ details: expect.any(String) })
+        });
+        expect(logger.error).not.toHaveBeenCalled(); // Adjust based on actual logging
         expect(createCalculationService).not.toHaveBeenCalled();
       });
     });

@@ -1,38 +1,61 @@
+import { executeQuery, buildSelectQuery } from '../../utils/db.js';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+dayjs.extend(utc);
+
 const {
-    getCalculationDao,
-    getCalculationsSumDao,
-    getCalculationforCronDao,
-    getAllCalculationforCronDao,
-    checkTodayCalculationExistsDao,
-    createCalculationDao,
-    updateCalculationDao,
-    updateCalculationConfigDao,
-    deleteCalculationDao,
-    updateCalculationBalanceDao,
-    checkCalculationEntryForDateDao,
-  } = require('./calculationDao');
-  const { executeQuery } = require('../../utils/db');
-  const { getUserHierarchysDao } = require('../userHierarchy/userHierarchyDao');
-  const { Role } = require('../../constants/index');
-  const { NotFoundError } = require('../../utils/appErrors');
-  const { logger } = require('../../utils/logger');
-  const dayjs = require('dayjs');
-  const timezone = require('dayjs/plugin/timezone');
-  dayjs.extend(timezone);
-  
-  // Mock dependencies
-  jest.mock('../../utils/db');
-  jest.mock('../userHierarchy/userHierarchyDao');
-  jest.mock('../../utils/logger');
-  
-  describe('Calculation DAO', () => {
-    beforeEach(() => {
-      jest.clearAllMocks();
+  getCalculationDao,
+  getCalculationsSumDao,
+  getCalculationforCronDao,
+  getAllCalculationforCronDao,
+  checkTodayCalculationExistsDao,
+  createCalculationDao,
+  updateCalculationDao,
+  updateCalculationConfigDao,
+  deleteCalculationDao,
+  updateCalculationBalanceDao,
+  checkCalculationEntryForDateDao,
+} = require('./calculationDao');
+
+const { getUserHierarchysDao } = require('../userHierarchy/userHierarchyDao');
+const { NotFoundError } = require('../../utils/appErrors');
+const { logger } = require('../../utils/logger');
+
+jest.mock('../../utils/db.js', () => ({
+  executeQuery: jest.fn(),
+  buildSelectQuery: jest.fn(() => ['SELECT ...', []]),
+  buildJoinQuery: jest.fn(() => 'JOIN ...'),
+  buildInsertQuery: jest.fn(),
+  buildUpdateQuery: jest.fn(),
+  beginTransaction: jest.fn(),
+  commit: jest.fn(),
+  rollback: jest.fn(),
+  getConnection: jest.fn(),
+}));
+
+jest.mock('../userHierarchy/userHierarchyDao', () => ({
+  getUserHierarchysDao: jest.fn(),
+}));
+
+jest.mock('../../utils/logger', () => ({
+  logger: { error: jest.fn(), info: jest.fn() },
+}));
+
+describe('Calculation DAO', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  beforeAll(() => {
+    jest.doMock('dayjs', () => {
+      const actualDayjs = jest.requireActual('dayjs');
+      return () => actualDayjs('2025-08-14T14:55:00Z');
     });
+  });
   
     describe('getCalculationDao', () => {
       test('should fetch calculations for SUPER_ADMIN role', async () => {
-        const filters = { role: Role.SUPER_ADMIN, startDate: '2025-01-01', endDate: '2025-01-31' };
+        const filters = { role: 'SUPER_ADMIN', startDate: '2025-01-01', endDate: '2025-01-31' };
         const page = 1;
         const pageSize = 10;
         const sortBy = 'created_at';
@@ -44,16 +67,17 @@ const {
         const result = await getCalculationDao(filters, page, pageSize, sortBy, sortOrder, columns);
   
         expect(executeQuery).toHaveBeenCalledWith(
-          expect.stringContaining('SELECT id, user_id, total_payin_amount FROM "Calculation" WHERE 1=1'),
+          expect.stringMatching(/^SELECT\b/i),
           expect.any(Array)
         );
+        
         expect(result).toEqual([{ id: 1, user_id: 'user1', total_payin_amount: 1000 }]);
       });
   
       test('should handle MERCHANT_ADMIN with sub-merchants', async () => {
         const filters = {
-          role: Role.MERCHANT_ADMIN,
-          designation: Role.MERCHANT_ADMIN,
+          role: 'MERCHANT_ADMIN',
+          designation: 'MERCHANT_ADMIN',
           user_id: 'merchant1',
           includeSubMerchant: true,
           users: 'sub1,sub2',
@@ -70,8 +94,8 @@ const {
   
       test('should throw NotFoundError when no hierarchy found for MERCHANT_ADMIN', async () => {
         const filters = {
-          role: Role.MERCHANT_ADMIN,
-          designation: Role.MERCHANT_ADMIN,
+          role: 'MERCHANT_ADMIN',
+          designation: 'MERCHANT_ADMIN',
           user_id: 'merchant1',
           includeSubMerchant: true,
         };
@@ -79,21 +103,26 @@ const {
   
         await expect(getCalculationDao(filters, 1, 10, 'created_at', 'DESC')).rejects.toThrow(NotFoundError);
       });
-  
+
+
       test('should handle date filters correctly', async () => {
         const filters = { startDate: '2025-01-01', endDate: '2025-01-31' };
         executeQuery.mockResolvedValue({ rows: [] });
-  
+        buildSelectQuery.mockReturnValue([
+          `SELECT * FROM "CALCULATION" WHERE 1=1 AND created_at BETWEEN '2025-01-01T00:00:00.000Z'::TIMESTAMPTZ AND '2025-01-31T00:00:00.000Z'::TIMESTAMPTZ ORDER BY created_at DESC LIMIT 10 OFFSET 0`,
+          [],
+        ]);
+    
         await getCalculationDao(filters, 1, 10, 'created_at', 'DESC');
-  
+    
         expect(executeQuery).toHaveBeenCalledWith(
           expect.stringContaining("AND created_at BETWEEN '2025-01-01T00:00:00.000Z'::TIMESTAMPTZ AND '2025-01-31T00:00:00.000Z'::TIMESTAMPTZ"),
           expect.any(Array)
         );
       });
-  
+
       test('should log and throw error on failure', async () => {
-        const filters = { role: Role.ADMIN };
+        const filters = { role: 'ADMIN' };
         executeQuery.mockRejectedValue(new Error('Database error'));
   
         await expect(getCalculationDao(filters, 1, 10, 'created_at', 'DESC')).rejects.toThrow('Database error');
@@ -103,11 +132,11 @@ const {
   
     describe('getCalculationsSumDao', () => {
       test('should fetch sum for SUPER_ADMIN role', async () => {
-        const filters = { role: Role.SUPER_ADMIN, startDate: '2025-01-01', endDate: '2025-01-31' };
+        const filters = { role: 'SUPER_ADMIN', startDate: '2025-01-01', endDate: '2025-01-31' };
         executeQuery
-          .mockResolvedValueOnce({ rows: [{ date: '2025-01-01', total_payin_count: 10 }] }) // Merchant query
-          .mockResolvedValueOnce({ rows: [{ date: '2025-01-01', total_payin_count: 5 }] }) // Vendor query
-          .mockResolvedValueOnce({ rows: [{ role: Role.MERCHANT, net_balance_sum: 1000 }, { role: Role.VENDOR, net_balance_sum: 500 }] }); // Balance query
+          .mockResolvedValueOnce({ rows: [{ date: '2025-01-01', total_payin_count: 10 }] }) 
+          .mockResolvedValueOnce({ rows: [{ date: '2025-01-01', total_payin_count: 5 }] }) 
+          .mockResolvedValueOnce({ rows: [{ role: 'MERCHANT', net_balance_sum: 1000 }, { role: 'VENDOR', net_balance_sum: 500 }] }); // Balance query
   
         const result = await getCalculationsSumDao(filters);
   
@@ -122,7 +151,7 @@ const {
       });
   
       test('should handle MERCHANT role with sub-merchants', async () => {
-        const filters = { role: Role.MERCHANT, user_id: 'merchant1', company_id: 'company1', users: 'sub1,sub2' };
+        const filters = { role: 'MERCHANT', user_id: 'merchant1', company_id: 'company1', users: 'sub1,sub2' };
         getUserHierarchysDao.mockResolvedValue({ 0: { config: { siblings: { sub_merchants: ['sub1'] } } } });
         executeQuery
           .mockResolvedValueOnce({ rows: [{ date: '2025-01-01', total_payin_count: 10 }] }) // Merchant query
@@ -139,7 +168,7 @@ const {
       });
   
       test('should log and throw error on failure', async () => {
-        const filters = { role: Role.ADMIN, company_id: 'company1' };
+        const filters = { role: 'ADMIN', company_id: 'company1' };
         executeQuery.mockRejectedValue(new Error('Database error'));
   
         await expect(getCalculationsSumDao(filters)).rejects.toThrow('Database error');

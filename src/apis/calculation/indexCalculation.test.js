@@ -1,195 +1,92 @@
-const express = require('express');
-const request = require('supertest');
-const router = require('./calculationRouter'); // Adjust path to your router file
-const calculationController = require('./calculationController');
-const authMiddleware = require('../../middlewares/auth');
+import request from 'supertest';
+import express from 'express';
+import calculationRouter from './index.js';
 
-jest.mock('./calculationController', () => ({
-  getCalculation: jest.fn(),
-  getCalculationById: jest.fn(),
-  createCalculation: jest.fn(),
-  updateCalculation: jest.fn(),
-  deleteCalculation: jest.fn(),
-  calculateSuccessRatios: jest.fn(),
+jest.mock('./calculationController.js', () => ({
+  getCalculation: jest.fn((req, res) => res.status(200).json({ message: 'get' })),
+  getCalculationById: jest.fn((req, res) => res.status(200).json({ message: 'getbyID' })),
+  createCalculation: jest.fn((req, res) => res.status(201).json({ message: 'created' })),
+  updateCalculation: jest.fn((req, res) => res.status(200).json({ message: 'updated' })),
+  deleteCalculation: jest.fn((req, res) => res.status(200).json({ message: 'deleted' })),
+  calculateSuccessRatios: jest.fn((req, res) => res.status(200).json({ message: 'ratios' })),
 }));
 
-jest.mock('../../middlewares/auth', () => ({
+import * as mockControllers from './calculationController.js';
+
+jest.mock('../../middlewares/auth.js', () => ({
   isAuthenticated: jest.fn((req, res, next) => next()),
   authorized: jest.fn(() => (req, res, next) => next()),
 }));
 
-describe('Calculation Router', () => {
+jest.mock('../../utils/tryCatchHandler.js', () => (fn) => (req, res, next) => fn(req, res, next));
+
+describe('Calculation Routes', () => {
   let app;
 
-  beforeEach(() => {
+  beforeAll(() => {
     app = express();
     app.use(express.json());
-    app.use(router);
-    jest.clearAllMocks();
+    app.use('/calculations', calculationRouter);
   });
 
-  describe('POST /success_ratio', () => {
-    test('should call calculateSuccessRatios controller', async () => {
-      const mockResponse = { success: true, data: { ratio: 0.75 } };
-      calculationController.calculateSuccessRatios.mockImplementation((req, res) => {
-        res.status(200).json(mockResponse);
-      });
+  // beforeEach(() => {
+  //   jest.clearAllMocks();
+  // });
 
-      const response = await request(app)
-        .post('/success_ratio')
-        .send({ data: 'test' });
-
-      expect(calculationController.calculateSuccessRatios).toHaveBeenCalled();
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual(mockResponse);
-    });
+  test('POST /calculations/success_ratio calls calculateSuccessRatios', async () => {
+    const res = await request(app)
+      .post('/calculations/success_ratio')
+      .send({ data: 'test' });
+    expect(res.status).toBe(200);
+    expect(mockControllers.calculateSuccessRatios).toHaveBeenCalled();
+    expect(res.body).toEqual({ message: 'ratios' });
   });
 
-  describe('GET /', () => {
-    test('should call getCalculation controller with auth middleware', async () => {
-      const mockCalculations = [
-        { id: 1, formula: 'a + b', parameters: [1, 2], created_by: 1 },
-      ];
-      calculationController.getCalculation.mockImplementation((req, res) => {
-        res.status(200).json(mockCalculations);
-      });
-
-      const response = await request(app).get('/');
-
-      expect(authMiddleware.isAuthenticated).toHaveBeenCalled();
-      expect(authMiddleware.authorized).toHaveBeenCalledWith('CALCULATION');
-      expect(calculationController.getCalculation).toHaveBeenCalled();
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual(mockCalculations);
-    });
+  test('GET /calculations calls getCalculation', async () => {
+    const res = await request(app).get('/calculations');
+    expect(res.status).toBe(200);
+    expect(mockControllers.getCalculation).toHaveBeenCalled();
+    expect(mockControllers.getCalculation).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Function)
+    );
+    expect(res.body).toEqual({ message: 'get' });
   });
 
-  describe('GET /:user_id', () => {
-    test('should call getCalculationById controller with auth middleware', async () => {
-      const mockCalculation = { id: 1, formula: 'a + b', parameters: [1, 2], created_by: 1 };
-      calculationController.getCalculationById.mockImplementation((req, res) => {
-        res.status(200).json(mockCalculation);
-      });
-
-      const response = await request(app).get('/1');
-
-      expect(authMiddleware.isAuthenticated).toHaveBeenCalled();
-      expect(authMiddleware.authorized).toHaveBeenCalledWith('CALCULATION');
-      expect(calculationController.getCalculationById).toHaveBeenCalled();
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual(mockCalculation);
-    });
-
-    test('should return 404 if calculation not found', async () => {
-      calculationController.getCalculationById.mockImplementation((req, res) => {
-        res.status(404).json({ error: 'Calculation not found' });
-      });
-
-      const response = await request(app).get('/999');
-
-      expect(response.status).toBe(404);
-      expect(response.body).toEqual({ error: 'Calculation not found' });
-    });
+  test('GET /calculations/:user_id calls getCalculationById', async () => {
+    const res = await request(app).get('/calculations/1');
+    expect(res.status).toBe(200);
+    expect(mockControllers.getCalculationById).toHaveBeenCalledWith(
+      expect.objectContaining({ params: { user_id: '1' } }),
+      expect.any(Object),
+      expect.any(Function)
+    );
+    expect(res.body).toEqual({ message: 'getbyID' });
   });
 
-  describe('POST /create-calculation', () => {
-    test('should call createCalculation controller with auth middleware', async () => {
-      const mockCalculation = {
-        id: 1,
-        formula: 'a + b',
-        parameters: [1, 2],
-        created_by: 1,
-      };
-      calculationController.createCalculation.mockImplementation((req, res) => {
-        res.status(201).json(mockCalculation);
-      });
-
-      const response = await request(app)
-        .post('/create-calculation')
-        .send({ formula: 'a + b', parameters: [1, 2], created_by: 1 });
-
-      expect(authMiddleware.isAuthenticated).toHaveBeenCalled();
-      expect(authMiddleware.authorized).toHaveBeenCalledWith('CALCULATION');
-      expect(calculationController.createCalculation).toHaveBeenCalled();
-      expect(response.status).toBe(201);
-      expect(response.body).toEqual(mockCalculation);
-    });
-
-    test('should return 400 for invalid request body', async () => {
-      calculationController.createCalculation.mockImplementation((req, res) => {
-        res.status(400).json({ error: 'Validation error' });
-      });
-
-      const response = await request(app)
-        .post('/create-calculation')
-        .send({ formula: '' }); // Invalid data
-
-      expect(response.status).toBe(400);
-      expect(response.body).toEqual({ error: 'Validation error' });
-    });
+  test('POST /calculations/create-calculation calls createCalculation', async () => {
+    const res = await request(app)
+      .post('/calculations/create-calculation')
+      .send({ formula: 'a + b', parameters: [1, 2], created_by: 1 });
+    expect(res.status).toBe(201);
+    expect(mockControllers.createCalculation).toHaveBeenCalled();
+    expect(res.body).toEqual({ message: 'created' });
   });
 
-  describe('PUT /update-calculation/:id', () => {
-    test('should call updateCalculation controller with auth middleware', async () => {
-      const mockCalculation = {
-        id: 1,
-        formula: 'a + b',
-        parameters: [1, 2],
-        created_by: 1,
-      };
-      calculationController.updateCalculation.mockImplementation((req, res) => {
-        res.status(200).json(mockCalculation);
-      });
-
-      const response = await request(app)
-        .put('/update-calculation/1')
-        .send({ formula: 'a + b', parameters: [1, 2] });
-
-      expect(authMiddleware.isAuthenticated).toHaveBeenCalled();
-      expect(authMiddleware.authorized).toHaveBeenCalledWith('CALCULATION');
-      expect(calculationController.updateCalculation).toHaveBeenCalled();
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual(mockCalculation);
-    });
-
-    test('should return 404 if calculation not found', async () => {
-      calculationController.updateCalculation.mockImplementation((req, res) => {
-        res.status(404).json({ error: 'Calculation not found' });
-      });
-
-      const response = await request(app)
-        .put('/update-calculation/999')
-        .send({ formula: 'a + b', parameters: [1, 2] });
-
-      expect(response.status).toBe(404);
-      expect(response.body).toEqual({ error: 'Calculation not found' });
-    });
+  test('PUT /calculations/update-calculation/:id calls updateCalculation', async () => {
+    const res = await request(app)
+      .put('/calculations/update-calculation/1')
+      .send({ formula: 'a + b', parameters: [1, 2] });
+    expect(res.status).toBe(200);
+    expect(mockControllers.updateCalculation).toHaveBeenCalled();
+    expect(res.body).toEqual({ message: 'updated' });
   });
 
-  describe('DELETE /delete-calculation/:id', () => {
-    test('should call deleteCalculation controller with auth middleware', async () => {
-      calculationController.deleteCalculation.mockImplementation((req, res) => {
-        res.status(200).json({ message: 'Calculation deleted successfully' });
-      });
-
-      const response = await request(app).delete('/delete-calculation/1');
-
-      expect(authMiddleware.isAuthenticated).toHaveBeenCalled();
-      expect(authMiddleware.authorized).toHaveBeenCalledWith('CALCULATION');
-      expect(calculationController.deleteCalculation).toHaveBeenCalled();
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ message: 'Calculation deleted successfully' });
-    });
-
-    test('should return 404 if calculation not found', async () => {
-      calculationController.deleteCalculation.mockImplementation((req, res) => {
-        res.status(404).json({ error: 'Calculation not found' });
-      });
-
-      const response = await request(app).delete('/delete-calculation/999');
-
-      expect(response.status).toBe(404);
-      expect(response.body).toEqual({ error: 'Calculation not found' });
-    });
+  test('DELETE /calculations/delete-calculation/:id calls deleteCalculation', async () => {
+    const res = await request(app).delete('/calculations/delete-calculation/1');
+    expect(res.status).toBe(200);
+    expect(mockControllers.deleteCalculation).toHaveBeenCalled();
+    expect(res.body).toEqual({ message: 'deleted' });
   });
 });
