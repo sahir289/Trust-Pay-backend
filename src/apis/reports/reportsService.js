@@ -19,7 +19,8 @@ import { logger } from '../../utils/logger.js';
 const getPayInReportService = async (req) => {
   try {
     const { role } = req.user;
-    const { code, startDate, endDate, status, updatedPayin, company_id } = req.query;
+    const { code, startDate, endDate, status, updatedPayin } = req.query;
+    const company_id = req?.user?.company_id || req?.query?.company_id;
     let startDateTime, endDateTime;
     if (startDate && endDate) {
       startDateTime = dayjs
@@ -44,7 +45,7 @@ const getPayInReportService = async (req) => {
         company_id,
         role,
         status,
-        updatedPayin
+        updatedPayin,
       );
     } else {
       const vendorDetails = await getVendorsDaoArray(company_id, codes);
@@ -58,7 +59,7 @@ const getPayInReportService = async (req) => {
         company_id,
         role,
         status,
-        updatedPayin
+        updatedPayin,
       );
     }
     return result;
@@ -72,7 +73,8 @@ const getPayInReportService = async (req) => {
 const getPayOutReportService = async (req) => {
   try {
     const { role } = req.user;
-    const { code, startDate, endDate, status, company_id } = req.query;
+    const { code, startDate, endDate, status } = req.query;
+    const company_id = req?.user?.company_id || req?.query?.company_id;
     const startDateTime = dayjs
       .tz(`${startDate} 00:00:00`, 'Asia/Kolkata')
       .toISOString();
@@ -117,7 +119,8 @@ const getPayOutReportService = async (req) => {
 const getClientsAccountReportService = async (req) => {
   try {
     const { role } = req.user;
-    const { code, startDate, endDate, role_name, page, limit, company_id } = req.query;
+    const { code, startDate, endDate, role_name, page, limit } = req.query;
+    const company_id = req?.user?.company_id || req?.query?.company_id;
 
     let result;
     let subMerchants = [];
@@ -159,7 +162,7 @@ const getClientsAccountReportService = async (req) => {
         startDate,
         endDate,
         null, // Remove page parameter
-        null, // Remove limit parameter  
+        null, // Remove limit parameter
         role,
       );
       let childData = [];
@@ -288,12 +291,12 @@ const getClientsAccountReportService = async (req) => {
         }
 
         result = Object.values(parentMap)
-        .map(({ ...rest }) => rest)
-        .sort((a, b) => {
-          if (a.code < b.code) return -1;
-          if (a.code > b.code) return 1;
-          return new Date(a.created_at) - new Date(b.created_at);
-        }); 
+          .map(({ ...rest }) => rest)
+          .sort((a, b) => {
+            if (a.code < b.code) return -1;
+            if (a.code > b.code) return 1;
+            return new Date(a.created_at) - new Date(b.created_at);
+          });
 
         // Apply pagination to the final aggregated result
         if (page && limit) {

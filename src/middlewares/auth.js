@@ -8,6 +8,7 @@ import {
 import { verifyToken } from '../utils/auth.js';
 import { logger } from '../utils/logger.js';
 import { getSessionByIdDao } from '../apis/auth/authDao.js';
+import { Role } from '../constants/index.js';
 
 const logoutSet = new Set();
 
@@ -41,6 +42,9 @@ const isAuthenticated = async (req, res, next) => {
 
       // Session exists, proceed
       req.user = decoded;
+      if (req?.user?.role === Role.SUPER_ADMIN) {
+        delete req?.user?.company_id;
+      }
       req.sessionId = activeSession.session_id;
       next();
     } catch (dbError) {

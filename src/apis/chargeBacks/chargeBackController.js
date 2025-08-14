@@ -123,7 +123,8 @@ const getChargeBacksById = async (req, res) => {
 };
 const getChargeBacksBySearch = async (req, res) => {
   const { role, user_id, designation } = req.user;
-  const { page, limit, sortOrder, company_id, ...rest } = req.query;
+  const { page, limit, sortOrder, ...rest } = req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   const data = await getChargeBacksBySearchService(
     {
       company_id: company_id,
@@ -143,7 +144,8 @@ const getChargeBacksBySearch = async (req, res) => {
 };
 const getChargeBacks = async (req, res) => {
   const { role, user_id, designation } = req.user;
-  const { page, limit, sortOrder, company_id, ...rest } = req.query;
+  const { page, limit, sortOrder, ...rest } = req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   const data = await getChargeBacksService(
     {
       company_id: company_id,
@@ -177,7 +179,9 @@ const blockChargebackUser = async (req, res) => {
   }
   const payload = req.body;
   const { id } = req.params;
-  const { company_id, role, user_id, user_name } = req.user;
+  const { role, user_id, user_name } = req.user;
+  const company_id = req?.user?.company_id || payload?.company_id;
+  delete payload?.company_id;
   payload.updated_by = user_id;
   const result = await blockChargebackUserService(
     { id, company_id },
@@ -211,7 +215,9 @@ const updateChargeBack = async (req, res) => {
   }
   const payload = req.body;
   const { id } = req.params;
-  const { company_id, role, user_id, user_name } = req.user;
+  const { role, user_id, user_name } = req.user;
+  const company_id = req?.user?.company_id || payload?.company_id;
+  delete payload?.company_id;
   // Call the service to update the ChargeBack
   payload.updated_by = user_id;
   const result = await updateChargeBackService(
@@ -234,7 +240,8 @@ const deleteChargeBack = async (req, res) => {
     throw new ValidationError(error);
   }
   const { id } = req.params; // Assuming the ChargeBack ID is passed as a parameter
-  const { company_id, role, user_id, user_name } = req.user;
+  const { role, user_id, user_name } = req.user;
+  const company_id = req?.user?.company_id || req.headers['company_id'];
   // Call the service to delete the ChargeBack
   const result = await deleteChargeBackService(
     { id, company_id },

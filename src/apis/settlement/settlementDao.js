@@ -397,17 +397,6 @@ const getSettlementsBySearchDao = async (
         queryParams.push(...values);
         paramIndex += values.length;
       },
-      company_id: (val) => {
-        const values = Array.isArray(val)
-          ? val
-          : val.split(',').map((v) => v.trim());
-        const placeholders = values
-          .map((_, i) => `$${paramIndex + i}`)
-          .join(',');
-        conditions.push(`s.company_id IN (${placeholders})`);
-        queryParams.push(...values);
-        paramIndex += values.length;
-      },
       role: (val) => {
         conditions.push(`r.role = $${paramIndex}`);
         queryParams.push(val);

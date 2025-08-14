@@ -22,8 +22,8 @@ import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { logger } from '../../utils/logger.js';
 const getSettlementControllerById = async (req, res) => {
   const { id } = req.params;
-  const { company_id } = req.user;
   const { role } = req.user;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   const ids = { id, company_id, role };
   const data = await getSettlementServiceById(ids);
   sendSuccess(res, data, 'got settlement');
@@ -32,8 +32,9 @@ const getSettlementControllerById = async (req, res) => {
 const getSettlementController = async (req, res) => {
   // Extract user data and query parameters
   const {  user_id, role, designation } = req.user || {};
-  const { role_name, page, limit, search, sortBy, sortOrder, company_id, ...filters } =
+  const { role_name, page, limit, search, sortBy, sortOrder, ...filters } =
     req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
 
   const parsedPage = page === 'no_pagination' ? null : Number(page) || 1;
   const parsedLimit = limit === 'no_pagination' ? null : Number(limit) || 10;
@@ -112,7 +113,8 @@ const getSettlementsBySearch = async (req, res) => {
 
 const createSettlementController = async (req, res) => {
   const payload = req.body;
-  const { company_id, user_id, user_name, designation, role } = req.user;
+  const { user_id, user_name, designation, role } = req.user;
+  const company_id = req?.user?.company_id || payload?.company_id;
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
@@ -199,7 +201,8 @@ const updateSettlementController = async (req, res) => {
   const { role, user_name, user_id } = req.user;
   const payload = { ...req.body };
   payload.updated_by = user_id;
-  const { company_id } = req.user;
+  const company_id = req?.user?.company_id || payload?.company_id;
+  delete payload?.company_id;
   const ids = { id, company_id, role };
   ///temporary deleting this ..we need to reflect get settlement dao query
   delete payload.config.company_id;
@@ -221,7 +224,8 @@ const updateSettlementController = async (req, res) => {
 
 const deleteSettlementController = async (req, res) => {
   const { id } = req.params;
-  const { company_id, user_id, user_name } = req.user;
+  const { user_id, user_name } = req.user;
+  const company_id = req?.user?.company_id || req.headers['company_id'];
   const { role } = req.user;
   const ids = { id, company_id, user_id, role };
   const joiValidation = VALIDATE_SETTLEMENT_BY_ID_DELETE.validate(id);

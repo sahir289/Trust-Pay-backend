@@ -16,8 +16,9 @@ import { logger } from '../../utils/logger.js';
 import { getUsersContactDao } from './userDao.js';
 const getUsers = async (req, res) => {
   // const reqBody = req.body;
-  const { role, company_id, user_id, designation } = req.user;
+  const { role, user_id, designation } = req.user;
   const { page, limit } = req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   const data = await getUsersService(
     {
       company_id,
@@ -34,7 +35,8 @@ const getUsers = async (req, res) => {
 
 const getUsersBySearch = async (req, res) => {
   const { role, user_id, designation } = req.user;
-  const { page, limit, company_id } = req.query;
+  const { page, limit } = req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   const data = await getUsersBySearchService(
     {
       company_id,
@@ -50,8 +52,10 @@ const getUsersBySearch = async (req, res) => {
 };
 
 const getUsersByUserName = async (req, res) => {
-  const { role, company_id } = req.user;
+  const { role } = req.user;
   const { username } = req.body;
+  const company_id = req?.user?.company_id || req?.body?.company_id;
+  delete req?.body?.company_id;
   const ids = { company_id };
   if (!username) {
     logger.error('Username is required');
@@ -76,6 +80,8 @@ const createUser = async (req, res) => {
   }
   const { role, user_id, designation, user_name } = req.user;
   let payload = req.body;
+  const company_id = req?.user?.company_id || payload?.company_id;
+  payload.company_id = company_id;
   const verifyContact = await getUsersContactDao(
     payload.company_id,
     payload.contact_no,
@@ -100,9 +106,11 @@ const createUser = async (req, res) => {
 };
 
 const updateUser = async (req, res) => {
-  const { company_id, user_id, user_name } = req.user;
+  const { user_id, user_name } = req.user;
   let payload = req.body;
   payload.updated_by = user_id;
+  const company_id = req?.user?.company_id || payload?.company_id;
+  delete payload?.company_id;
   const id = req.params.id;
   const ids = { id, company_id };
   const user = await transactionWrapper(userUpdateService)(ids, payload);

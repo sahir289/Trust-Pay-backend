@@ -62,8 +62,9 @@ const createMerchant = async (req, res) => {
 };
 
 const getMerchants = async (req, res) => {
-  const { company_id, role, designation, user_id } = req.user;
+  const { role, designation, user_id } = req.user;
   const { page, limit } = req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   const data = await getMerchantsService(
     {
       company_id,
@@ -88,7 +89,8 @@ const getMerchantByCode = async (req, res) => {
 
 const getMerchantsBySearch = async (req, res) => {
   const { role, designation, user_id } = req.user;
-  const { search, page = 1, limit = 10, company_id } = req.query;
+  const { search, page = 1, limit = 10 } = req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   // if (!search) {
   //   throw new BadRequestError('search is required');
   // }
@@ -110,7 +112,8 @@ const getMerchantsBySearch = async (req, res) => {
 
 const getMerchantCodes = async (req, res) => {
   const { role, user_id, designation } = req.user;
-  const { includeSubMerchants, includeOnlyMerchants, excludeDisabledMerchant, company_id } = req.query;
+  const { includeSubMerchants, includeOnlyMerchants, excludeDisabledMerchant } = req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   const filters = { company_id };
   const data = await getMerchantsServiceCode(
     filters,
@@ -149,7 +152,9 @@ const updateMerchant = async (req, res) => {
     throw new ValidationError(bodyError);
   }
   const { id } = req.params;
-  const { company_id, user_id, role, user_name } = req.user;
+  const { user_id, role, user_name } = req.user;
+  const company_id = req?.user?.company_id || payload?.company_id;
+  delete payload?.company_id;
   payload.updated_by = user_id;
   const ids = { id, company_id };
   // Call the service to update the Merchant
@@ -174,8 +179,9 @@ const deleteMerchant = async (req, res) => {
   }
   const { id } = req.params; // Assuming the Merchant ID is passed as a parameter
   // Call the service to delete the Merchant
-  const { company_id, user_id, user_name } = req.user;
+  const { user_id, user_name } = req.user;
   const updated_by = user_id;
+  const company_id = req?.user?.company_id || req.headers['company_id'];
   const ids = { id, company_id };
   const merchant = await deleteMerchantService(ids, updated_by, role);
   // Log success message

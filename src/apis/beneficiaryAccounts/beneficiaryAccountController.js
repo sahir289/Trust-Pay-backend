@@ -18,8 +18,9 @@ import {
 } from './beneficiaryAccountServices.js';
 
 const getBeneficiaryAccount = async (req, res) => {
-  const { role, user_id, designation, company_id } = req.user;
+  const { role, user_id, designation } = req.user;
   const { page, limit, beneficiary_role, beneficiary_user_id, forSettlementFlag } = req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   let { is_enabled } = req.query;
   const filters = {
     beneficiary_role,
@@ -49,7 +50,8 @@ const getBeneficiaryAccount = async (req, res) => {
 
 const getBeneficiaryAccountBySearch = async (req, res) => {
   const { role, user_id, designation } = req.user;
-  const { page, limit, beneficiary_role, beneficiary_user_id , search, company_id } = req.query;
+  const { page, limit, beneficiary_role, beneficiary_user_id , search } = req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   let { is_enabled } = req.query;
   const filters = {
     beneficiary_role,
@@ -79,7 +81,8 @@ const getBeneficiaryAccountBySearch = async (req, res) => {
 
 const getBeneficiaryAccountByBankName = async (req, res) => {
   const { type } = req.query;
-  const { company_id, role, user_id, designation } = req.user;
+  const { role, user_id, designation } = req.user;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   const data = await getBeneficiaryAccountServiceByBankName(
     company_id,
     type,
@@ -108,7 +111,8 @@ const createBeneficiaryAccount = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const { user_id, company_id } = req.user;
+  const { user_id } = req.user;
+  const company_id = req?.user?.company_id || payload?.company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
   payload.company_id = company_id;
@@ -127,8 +131,9 @@ const updateBeneficiaryAccount = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const { company_id, user_id, role } = req.user;
+  const { user_id, role } = req.user;
   payload.updated_by = user_id;
+  const company_id = req?.user?.company_id || payload?.company_id;
   const ids = { id, company_id };
   // const data =
   await transactionWrapper(updateBeneficiaryAccountService)(ids, payload, role);
@@ -141,7 +146,7 @@ const deleteBeneficiaryAccount = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const { company_id } = req.user;
+  const company_id = req?.user?.company_id || req.headers['company_id'];
   const ids = { id, company_id };
   // const data =
   await transactionWrapper(deleteBeneficiaryAccountService)(ids);

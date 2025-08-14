@@ -11,8 +11,8 @@ import {
 } from './resetServices.js';
 const getResetHistory = async (req, res) => {
   try {
-    const { company_id } = req.user;
     const { page, limit, startDate, endDate, sortBy, sortOrder } = req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
     const data = await getResetHistoryService(
       company_id,
       page,
@@ -29,7 +29,8 @@ const getResetHistory = async (req, res) => {
 };
 const getResetHistoryBySearch = async (req, res) => {
   const { role } = req.user;
-  const { search, page = 1, limit = 10, company_id } = req.query;
+  const { search, page = 1, limit = 10 } = req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   // if (!search) {
   //   throw new BadRequestError('search is required');
   // }
@@ -48,7 +49,8 @@ const getResetHistoryBySearch = async (req, res) => {
 const createResetHistory = async (req, res) => {
   try {
     const payload = req.body;
-    const { user_id, company_id } = req.user;
+    const { user_id } = req.user;
+  const company_id = req?.user?.company_id || payload?.company_id;
     payload.created_by = user_id;
     payload.updated_by = user_id;
     payload.company_id = company_id;

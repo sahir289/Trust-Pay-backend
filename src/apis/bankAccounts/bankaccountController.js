@@ -23,9 +23,9 @@ import {
 } from './bankaccountServices.js';
 
 const getBankaccount = async (req, res) => {
-  const { company_id } = req.user;
   const { role, user_id, designation } = req.user;
   const { page, limit, bank_used_for } = req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   const filters = {
     bank_used_for,
   };
@@ -43,10 +43,11 @@ const getBankaccount = async (req, res) => {
 
 const getBankAccountBySearch = async (req, res) => {
   const { role, user_id, designation } = req.user;
-  const { page, limit, bank_used_for, search, company_id } = req.query;
+  const { page, limit, bank_used_for, search } = req.query;
   const filters = {
     bank_used_for,
   };
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   if (company_id) {
     // Support comma-separated string or array for company_id
     if (typeof company_id === 'string' && company_id.includes(',')) {
@@ -68,8 +69,9 @@ const getBankAccountBySearch = async (req, res) => {
 };
 
 const getBankaccountNickName = async (req, res) => {
-  const { type, user, company_id } = req.query;
+  const { type, user } = req.query;
   const { role, user_id, designation } = req.user;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   const data = await getBankaccountServiceNickName(
     company_id,
     type,
@@ -83,7 +85,8 @@ const getBankaccountNickName = async (req, res) => {
 
 const getBankaccountById = async (req, res) => {
   const { id } = req.params;
-  const { company_id, role } = req.user;
+  const { role } = req.user;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   const data = await getBankaccountService(
     {
       company_id: company_id,
@@ -129,12 +132,13 @@ const createBankaccount = async (req, res) => {
   if (unique.length > 0) {
     return sendError(res, 'Nick Name Must Be Unique', 400);
   }
+  const company_id = req?.user?.company_id || payload?.company_id;
   // const data =
   const bankDetail = await transactionWrapper(createBankaccountService)(
     payload,
     designation,
     user_id,
-    payload.company_id,
+    company_id,
   );
   return sendSuccess(
     res,
@@ -152,13 +156,14 @@ const updateBankaccount = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   payload.updated_by = user_id;
-  const ids = { id, company_id: payload.company_id };
+  const company_id = req?.user?.company_id || payload?.company_id;
+  const ids = { id, company_id: company_id };
   // const data =
   const updatebank = await transactionWrapper(updateBankaccountService)(
     ids,
     payload,
     role,
-    payload.company_id,
+    company_id,
     user_id,
   );
   return sendSuccess(
@@ -170,7 +175,7 @@ const updateBankaccount = async (req, res) => {
 
 const getMerchantBank = async (req, res) => {
   // Fetch the bank account details for the given merchant ID
-  const { company_id, user_id } = req.user;
+  const { user_id } = req.user;
   const { role } = req.user;
   const filterColumns =
     role === Role.MERCHANT
@@ -178,6 +183,7 @@ const getMerchantBank = async (req, res) => {
       : role === Role.VENDOR
         ? vendorColumns.BANK_ACCOUNT
         : columns.BANK_ACCOUNT;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
 
   // const bankRes = await getMerchantBankDao({
   //   company_id,
@@ -200,9 +206,9 @@ const deleteBankaccount = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const { user_name, user_id } = req.user;
+  const { user_name, user_id, company_id } = req.user;
   const payload = {
-    company_id: req.headers['company_id'],
+    company_id: req.headers['company_id'] || company_id,
   };
   const ids = { id, company_id: payload.company_id };
   // const data =

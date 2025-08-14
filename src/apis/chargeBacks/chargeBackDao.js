@@ -622,7 +622,7 @@ export const getChargeBacksBySearchDao = async (
           ELSE m.code 
         END AS merchant_display_code
       `;
-    } else if (role === Role.ADMIN) {
+    } else if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
       extraColumns += `,
         m.code AS merchant_name,
           cb.config,

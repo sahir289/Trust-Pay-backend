@@ -11,8 +11,8 @@ import { getPayinDetailsByMerchantOrderId } from '../payIn/payInDao.js';
 import { transactionWrapper } from '../../utils/db.js';
 
 const getCheckUtr = async (req, res) => {
-  const { company_id } = req.user;
   const { page, limit, sortOrder } = req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   delete req.query.page;
   delete req.query.limit;
   const filters = {
@@ -24,7 +24,8 @@ const getCheckUtr = async (req, res) => {
 };
 
 const getCheckUtrBySearch = async (req, res) => {
-  const { search, page = 1, limit = 10, company_id } = req.query;
+  const { search, page = 1, limit = 10 } = req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   // if (!search) {
   //   throw new BadRequestError('search is required');
   // }
@@ -43,7 +44,8 @@ const createCheckUtr = async (req, res) => {
     payload.merchant_order_id,
   );
   payload.payin_id = payinData[0].payin_id;
-  const { company_id, user_id, user_name } = req.user;
+  const { user_id, user_name } = req.user;
+  const company_id = req?.user?.company_id || payload?.company_id;
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;

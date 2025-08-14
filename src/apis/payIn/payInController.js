@@ -417,7 +417,8 @@ export const updateDepositStatus = async (req, res) => {
 
 export const resetDeposit = async (req, res) => {
   const { merchant_order_id } = req.body;
-  const { company_id, user_id } = req.user;
+  const { user_id } = req.user;
+  const company_id = req?.user?.company_id || req?.body?.company_id;
   const joiValidation = VALIDATE_RESET_DEPOSIT.validate(req.body);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
@@ -431,8 +432,9 @@ export const resetDeposit = async (req, res) => {
 };
 
 export const getPayins = async (req, res) => {
-  const { company_id, role, user_id, designation } = req.user;
+  const { role, user_id, designation } = req.user;
   const { page, limit, sortBy, sortOrder, status, ...rest } = req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   const filters = {
     sortBy,
     sortOrder,
@@ -453,7 +455,8 @@ export const getPayins = async (req, res) => {
 
 export const getPayinsBySearch = async (req, res) => {
   const { role, user_id, designation } = req.user;
-  const { search, page = 1, limit = 10, updatedPayin, company_id } = req.query;
+  const { search, page = 1, limit = 10, updatedPayin } = req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   // if (!search) {
   //   throw new BadRequestError('search is required');
   // }
@@ -601,7 +604,8 @@ export const updateUtrPayins = async (req, res) => {
 };
 
 export const checkPendingPayinStatus = async (req, res) => {
-  const {user_name,user_id, company_id } = req.user;
+  const {user_name, user_id } = req.user;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   const data = await transactionWrapper(checkPendingPayinStatusService)(
     user_id,
     company_id,
@@ -630,7 +634,9 @@ export const updatePayIn = async (req, res) => {
     ...req.body,
   };
   const { merchant_order_id } = req.params;
-  const { user_id, company_id } = req.user;
+  const { user_id } = req.user;
+  const company_id = req?.user?.company_id || payload?.company_id;
+  delete payload?.company_id; // remove
   const joiValidation = VALIDATE_UPDATE_PAYIN_SCHEMA.validate({
     ...req.body,
     merchant_order_id,

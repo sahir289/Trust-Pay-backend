@@ -33,8 +33,16 @@ import { newTableEntry } from '../../utils/sockets.js';
 import { publishBankResponse } from '../../utils/rabbitmq-bank-response.js';
 const getBankResponse = async (req, res) => {
   const { role } = req.user;
-  const { page, limit, search, updated, sortOrder, sortBy, company_id, ...rest } =
-    req.query;
+  const {
+    page,
+    limit,
+    search,
+    updated,
+    sortOrder,
+    sortBy,
+    company_id,
+    ...rest
+  } = req.query;
   delete req.query.sortOrder;
   delete req.query.sortBy;
   const payload = {
@@ -56,7 +64,8 @@ const getBankResponse = async (req, res) => {
 };
 
 const getClaimResponse = async (req, res) => {
-  const { company_id } = req.user;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
+  delete req?.query?.company_id;
   const payload = {
     ...req.query,
     company_id,
@@ -67,8 +76,9 @@ const getClaimResponse = async (req, res) => {
 
 const getBankResponseBySearch = async (req, res) => {
   const { role } = req.user;
-  const { page, limit, search, updated, sortOrder, sortBy, company_id, ...rest } =
+  const { page, limit, search, updated, sortOrder, sortBy, ...rest } =
     req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   delete req.query.sortOrder;
   delete req.query.sortBy;
   const payload = {
@@ -95,11 +105,13 @@ const createBankResponse = async (req, res) => {
   const { role, user_name, user_id } = req.user;
   const payload = req.body?.body;
   const { error } = CREATE_BANK_RESPONSE_SCHEMA.validate(req.body);
+  const company_id = req?.user?.company_id || payload?.company_id;
   if (error) {
     throw new ValidationError(error);
   }
   const result = await createBankResponseService(
     payload,
+    company_id,
     role,
     user_name,
     user_id,
@@ -115,7 +127,7 @@ const createBankResponse = async (req, res) => {
   // };
   await newTableEntry(tableName.BANK_RESPONSE);
   // if (!result.message === 'Entry created successfully' ) {
-    // await publishBankResponse(bankResponseObject);
+  // await publishBankResponse(bankResponseObject);
   // }
   sendSuccess(res, result, 'Created Bank Response successfully');
 };
@@ -131,7 +143,7 @@ const createBankBotResponse = async (req, res) => {
   const bankResponseObject = {
     payload,
     x_auth_token,
-    role:Role.BOT,
+    role: Role.BOT,
   };
   const result = await publishBankResponse(bankResponseObject);
   // const result = await createBankResponseService(
@@ -177,8 +189,8 @@ const createBankBotResponseBulk = async (req, res) => {
     invalidIndexes.length === 0
       ? 'All messages published successfully'
       : invalidIndexes.length === payloads.length
-      ? 'All messages invalid'
-      : `Published: ${publishedCount}, Invalid: ${invalidIndexes.length}`;
+        ? 'All messages invalid'
+        : `Published: ${publishedCount}, Invalid: ${invalidIndexes.length}`;
 
   sendSuccess(
     res,
@@ -190,7 +202,7 @@ const createBankBotResponseBulk = async (req, res) => {
       validationErrors,
       status: 202,
     },
-    status
+    status,
   );
 };
 
@@ -205,8 +217,9 @@ const updateBankResponse = async (req, res) => {
     throw new ValidationError(bodyError);
   }
   const payload = req.body;
+  const company_id = req?.user?.company_id || payload?.company_id;
   const { id } = req.params;
-  const ids = { id, company_id: payload.company_id };
+  const ids = { id, company_id };
   const updateResponse = await updateBankResponseService(ids, payload, role);
   return sendSuccess(
     res,
@@ -216,9 +229,9 @@ const updateBankResponse = async (req, res) => {
 };
 
 const getBankMessage = async (req, res) => {
-  const { company_id } = req.user;
   const { role } = req.user;
   const { bank_id, startDate, endDate, page, limit } = req.query;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   const data = await getBankMessageServices(
     bank_id,
     startDate,
@@ -232,9 +245,10 @@ const getBankMessage = async (req, res) => {
 };
 
 const resetBankResponseController = async (req, res) => {
-  const { company_id, user_name, role, user_id } = req.user;
+  const { user_name, role, user_id } = req.user;
   const { id } = req.params;
   const { amount, utr, bank_id } = req.body;
+  const company_id = req?.user?.company_id || req?.body?.company_id;
 
   // Validate request body
   const { error } = RESET_BANK_RESPONSE_SCHEMA.validate(req.body);
