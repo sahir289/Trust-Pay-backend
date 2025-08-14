@@ -165,6 +165,7 @@ export const getPayoutsDao = async (
         u.created_by, 
         u.updated_by, 
         u.created_at, 
+        u.company_id,
         u.user,
         ve.code AS vendor_code, 
         ve.id AS vendor_id, 
