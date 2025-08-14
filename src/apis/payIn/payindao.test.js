@@ -530,7 +530,6 @@ const {
     describe('getPayinDetailsByMerchantOrderId', () => {
         beforeEach(() => {
             jest.clearAllMocks();
-            // Mock getConnection to resolve to mockConn
             jest.spyOn(dbUtils, 'getConnection').mockResolvedValue(mockConn);
           });
         const mockConn = { query: jest.fn().mockResolvedValue({ rows: [{}] }) };
