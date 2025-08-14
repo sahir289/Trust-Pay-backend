@@ -73,8 +73,7 @@ export const generateHashForPayIn = async (req, res) => {
 
   if (updateRes.status === 400 || updateRes.status === 404) {
     return sendError(res, updateRes.message, updateRes.status);
-  }
-  else {
+  } else {
     return sendSuccess(res, updateRes, 'PayIn hash generated successfully');
   }
 };
@@ -148,7 +147,11 @@ export const generatePayInUrl = async (req, res) => {
     //     timestamp: new Date().toISOString(),
     //   },
     // });
-    return sendError(res, 'Bank Account has not been linked with Merchant', 404);
+    return sendError(
+      res,
+      'Bank Account has not been linked with Merchant',
+      404,
+    );
   }
   //loop over each and cehck
 
@@ -170,7 +173,6 @@ export const generatePayInUrl = async (req, res) => {
     //   },
     // });
     return sendError(res, 'No Payment Methods Enabled!', 404);
-
   }
   const allPaymentOptionsDisabled = bankAssigned.every((bank) => {
     if (!bank.is_enabled) return true;
@@ -205,8 +207,11 @@ export const generatePayInUrl = async (req, res) => {
     //     timestamp: new Date().toISOString(),
     //   },
     // });
-    return sendError(res, 'Bank Account has not been linked with Merchant', 404);
-
+    return sendError(
+      res,
+      'Bank Account has not been linked with Merchant',
+      404,
+    );
   }
 
   // Create a deterministic hash
@@ -230,7 +235,6 @@ export const generatePayInUrl = async (req, res) => {
     //   },
     // });
     return sendError(res, 'Hash code does not match', 400);
-
   }
 
   let role = null;
@@ -272,9 +276,12 @@ export const generatePayInUrl = async (req, res) => {
 
   if (result.status === 400 || result.status === 404) {
     return sendError(res, result.message, result.status);
-  }
-  else {
-    return sendNewSuccess(res, updateRes, 'PayIn is generated & url is sent successfully');
+  } else {
+    return sendNewSuccess(
+      res,
+      updateRes,
+      'PayIn is generated & url is sent successfully',
+    );
   }
 };
 
@@ -320,14 +327,22 @@ export const assignedBankToPayInUrl = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
+  const { roleToken, amount, type } = req.body;
+  let role;
+  if (roleToken && roleToken !== null) {
+    const roleData = await getRolesById(roleToken);
+    role = roleData.role;
+  }
+
   const result = await assignedBankToPayInUrlService(
     req.params.merchantOrderId,
-    req.body.amount,
-    req.body.type,
+    amount,
+    type,
+    role,
   );
   result.merchantOrderId = req.params.merchantOrderId;
-  result.amount = req.body.amount;
-  result.type = req.body.type;
+  result.amount = amount;
+  result.type = type;
   // sendNewSuccess(res, result, 'Bank account is assigned');
   return sendSuccess(res, result, 'Bank account is assigned');
 };
@@ -356,8 +371,7 @@ export const checkPayInStatus = async (req, res) => {
 
   if (data.status === 400 || data.status === 404) {
     return sendError(res, data.message, data.status);
-  }
-  else {
+  } else {
     return sendNewSuccess(res, data, 'PayIn status fetched successfully');
   }
 };
@@ -428,7 +442,7 @@ export const resetDeposit = async (req, res) => {
     company_id,
     user_id,
   );
-    sendSuccess(res, data, `${merchant_order_id} reset successful`);
+  sendSuccess(res, data, `${merchant_order_id} reset successful`);
 };
 
 export const getPayins = async (req, res) => {
@@ -477,9 +491,9 @@ export const getPayinsBySearch = async (req, res) => {
   return sendSuccess(res, data, 'Payins fetched successfully');
 };
 export const getPayinsSummary = async (req, res) => {
-  const { company_id} = req.user;
+  const { company_id } = req.user;
   const data = await getPayinsSummaryService({
-    company_id
+    company_id,
   });
 
   return sendSuccess(res, data, 'Payins fetched successfully');
@@ -516,7 +530,7 @@ export const processPayInIMGUTR = async (req, res) => {
   const data = await transactionWrapper(processPayInService)(
     payload,
     payload.code,
-    false, 
+    false,
     true,
   );
   sendSuccess(res, data, 'PayIn updated successfully');
@@ -626,7 +640,11 @@ export const telegramCheckUTR = async (req, res) => {
     req.user.company_id,
     req.user.user_id,
   );
-  sendSuccess(res, result,result?.message || `Order id ${result.merchantOrderId} confirmed.`);
+  sendSuccess(
+    res,
+    result,
+    result?.message || `Order id ${result.merchantOrderId} confirmed.`,
+  );
 };
 
 export const updatePayIn = async (req, res) => {

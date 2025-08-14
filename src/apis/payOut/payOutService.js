@@ -113,7 +113,7 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
             account: info.user_bank_details.account_no,
             bank: info.user_bank_details.bank_name,
             ifsc: info.user_bank_details.ifsc_code,
-            mobile: '1234567890',
+            mobile: '7428730894',
             amount: info.amount,
             latitude: '19.0760',
             longitude: '72.8527',
@@ -712,7 +712,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       data.config?.urls?.notify || merchant.config?.urls?.payout_notify;
 
     // Early return if not approved
-    if (!data.approved_at) {
+    if (!data.approved_at && data.status !== Status.PENDING) {
       merchantPayoutCallback(notifyUrl, {
         code: data.code,
         merchantOrderId: data.merchant_order_id,
