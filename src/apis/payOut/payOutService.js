@@ -113,7 +113,7 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
             account: info.user_bank_details.account_no,
             bank: info.user_bank_details.bank_name,
             ifsc: info.user_bank_details.ifsc_code,
-            mobile: '1234567890',
+            mobile: '7428730894',
             amount: info.amount,
             latitude: '19.0760',
             longitude: '72.8527',
