@@ -175,14 +175,16 @@ export const getUsersBySearchDao = async (
         "User".last_login,
         "User".last_logout,
         "User".config,
-        "User".created_by,
-        "User".updated_by,
+        cu.user_name AS created_by,
+        uu.user_name AS updated_by,
         "User".created_at,
         "User".updated_at,
         "User".first_name || ' ' || "User".last_name AS full_name,
         "Designation".designation AS Designation 
       FROM "User" 
       LEFT JOIN "Designation" ON "User".designation_id = "Designation".id 
+      LEFT JOIN public."User" cu ON "User".created_by = cu.id
+      LEFT JOIN public."User" uu ON "User".updated_by = uu.id
       WHERE 1=1 
         AND "User".is_obsolete = false 
         AND "User"."company_id" = $1

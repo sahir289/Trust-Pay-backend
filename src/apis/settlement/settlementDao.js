@@ -192,6 +192,7 @@ const getSettlementDao = async (
     //fetching bank name
     const baseQuery = `
     SELECT DISTINCT ON (s.sno)
+      r.role,
       ${columnSelection},
       CASE
         WHEN r.role = 'MERCHANT' THEN 
@@ -489,13 +490,13 @@ const getSettlementsBySearchDao = async (
     const baseQuery = `
       SELECT ${columnSelection} ,
        CASE
-    WHEN r.role = 'MERCHANT' THEN COALESCE(m.config->>'sub_code', m.code)
-    WHEN r.role = 'VENDOR' THEN v.code
-    WHEN r.role = 'ADMIN' THEN COALESCE(m.config->>'sub_code', m.code)
-    ELSE NULL
-  END AS code,
-  COALESCE(uc.user_name, s.created_by::text) AS created_by,
-  COALESCE(uu.user_name, s.updated_by::text) AS updated_by
+        WHEN r.role = 'MERCHANT' THEN COALESCE(m.config->>'sub_code', m.code)
+        WHEN r.role = 'VENDOR' THEN v.code
+        WHEN r.role = 'ADMIN' THEN COALESCE(m.config->>'sub_code', m.code)
+        ELSE NULL
+      END AS code,
+      uc.user_name AS created_by,
+      uu.user_name AS updated_by
       FROM "Settlement" s
       JOIN "User" u ON s.user_id = u.id
       LEFT JOIN "Role" r ON u.role_id = r.id

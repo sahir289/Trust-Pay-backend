@@ -24,6 +24,7 @@ import {
   checkPendingPayinStatus,
   updatePayIn,
   processPayInIMGUTR,
+  getPayinsSummary,
 } from './payInController.js';
 import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
@@ -396,6 +397,7 @@ router.get(
 );
 
 router.get('/', tryCatchHandler(getPayinsBySearch));
+router.get('/getPayinSummary', tryCatchHandler(getPayinsSummary));
 
 router.put('/updatePayin/:merchant_order_id', tryCatchHandler(updatePayIn));
 

@@ -44,6 +44,7 @@ import {
   updateUtrPayinService,
   checkPendingPayinStatusService,
   updatePayInService,
+  getPayinsSummaryService,
 } from './payInService.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
@@ -440,7 +441,7 @@ export const getPayins = async (req, res) => {
 
 export const getPayinsBySearch = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
-  const { search, page = 1, limit = 10 } = req.query;
+  const { search, page = 1, limit = 10, updatedPayin } = req.query;
   // if (!search) {
   //   throw new BadRequestError('search is required');
   // }
@@ -455,7 +456,16 @@ export const getPayinsBySearch = async (req, res) => {
     role,
     user_id,
     designation,
+    updatedPayin,
   );
+
+  return sendSuccess(res, data, 'Payins fetched successfully');
+};
+export const getPayinsSummary = async (req, res) => {
+  const { company_id} = req.user;
+  const data = await getPayinsSummaryService({
+    company_id
+  });
 
   return sendSuccess(res, data, 'Payins fetched successfully');
 };
