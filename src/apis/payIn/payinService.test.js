@@ -95,13 +95,12 @@ jest.mock('./payInService.js', () => {
   return {
     ...actual,
     verifyPayinsService: actual.verifyPayinsService,
-    getPayInUrlService: jest.fn().mockImplementation(actual.getPayInUrlService),
     assignedBankToPayInUrlService: actual.assignedBankToPayInUrlService,
-    checkLockEdit: jest.fn(),
-    updateCalculationTable: jest.fn(),
     processPayInService: actual.processPayInService,
     processPayInByImageService: actual.processPayInByImageService,
     generatePayInUrlByHashService: actual.generatePayInUrlByHashService,
+    updateCalculationTable: jest.fn(),
+    checkLockEdit: jest.fn(),
   };
 });
 
@@ -397,6 +396,8 @@ describe('processPayInService', () => {
         return { rows: [] };
       }),
     };
+    // Mock getPayInUrlService specifically for this suite
+    payInService.getPayInUrlService = jest.fn();
     payInService.getPayInUrlService.mockResolvedValue(mockPayInProcess);
     getPayInUrlDao.mockResolvedValue(mockPayInProcess);
     checkLockEdit.mockResolvedValue(true);
@@ -595,7 +596,8 @@ describe('processPayInByImageService', () => {
         return { rows: [] };
       }),
     };
-    // payInService.processPayInService = jest.fn();
+    // Mock getPayInUrlService specifically for this suite
+    payInService.getPayInUrlService = jest.fn();
     payInService.getPayInUrlService.mockResolvedValue({
       id: 'PAYIN123',
       merchant_order_id: 'order123',
@@ -633,63 +635,6 @@ describe('processPayInByImageService', () => {
       return null;
     });
   });
-
-  // test('should process payin successfully when OCR returns valid UTR', async () => {
-  //   getImageContentFromOCr.mockResolvedValue({ utr: 'UTR123456' });
-  //   payInService.processPayInService.mockResolvedValue({
-  //     status: 'SUCCESS',
-  //     merchantOrderId: 'order123',
-  //     payinId: 'PAYIN123',
-  //     amount: 500,
-  //     req_amount: 500,
-  //     utr_id: 'UTR123456',
-  //   });
-
-  //   const result = await payInService.processPayInByImageService(mockConn, payload);
-
-  //   expect(getImageContentFromOCr).toHaveBeenCalledWith(payload.base64Image);
-  //   expect(payInService.getPayInUrlService).toHaveBeenCalledWith(payload.merchantOrderId, mockConn);
-  //   expect(payInService.processPayInService).toHaveBeenCalledWith(
-  //     mockConn,
-  //     expect.objectContaining({
-  //       userSubmittedUtr: 'UTR123456',
-  //       merchantOrderId: 'order123',
-  //       amount: 500,
-  //     }),
-  //     undefined
-  //   );
-  //   expect(result).toEqual({
-  //     status: 'SUCCESS',
-  //     merchantOrderId: 'order123',
-  //     payinId: 'PAYIN123',
-  //     amount: 500,
-  //     req_amount: 500,
-  //     utr_id: 'UTR123456',
-  //   });
-  // });
-
-  // test('should return error when payin URL is already used', async () => {
-  //   const expiredPayIn = {
-  //     id: 'PAYIN123',
-  //     merchant_order_id: 'order123',
-  //     amount: 500,
-  //     one_time_used: true,
-  //     is_url_expires: false,
-  //     config: { urls: { return: 'http://return.url' } },
-  //   };
-  //   getPayInUrlDao.mockResolvedValue(expiredPayIn);
-  //   payInService.getPayInUrlService.mockResolvedValue(expiredPayIn);
-
-  //   const result = await payInService.processPayInByImageService(mockConn, payload);
-
-  //   expect(payInService.getPayInUrlService).toHaveBeenCalledWith(payload.merchantOrderId, mockConn);
-  //   expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: payload.merchantOrderId }, mockConn);
-  //   expect(result).toEqual({
-  //     error: 'This payin url is already used',
-  //     result: { redirect_url: 'http://return.url' },
-  //   });
-  //   expect(updatePayInUrlDao).not.toHaveBeenCalled();
-  // });
 
   test('should update payin and return IMG_PENDING when OCR content or utr missing', async () => {
     const validPayIn = {
@@ -756,7 +701,7 @@ describe('generatePayInUrlByHashService', () => {
   test('should return 400 if required query parameters are missing', async () => {
     mockReq.query = {
       user_id: '123',
-      code: 'MERCHANT123',
+      code: 'MERCH1',
     };
 
     const result = await payInService.generatePayInUrlByHashService(mockConn, mockReq);
@@ -1087,83 +1032,6 @@ describe('generatePayInUrlService', () => {
     });
   });
 
-  // test('should generate pay-in URL successfully with valid inputs', async () => {
-  //   const payload = {
-  //     code: 'MERCHANT123',
-  //     user_id: '123',
-  //     merchant_order_id: 'order123',
-  //     amount: 1000,
-  //     returnUrl: 'https://example.com/return',
-  //     notifyUrl: 'https://example.com/notify',
-  //     api_key: 'correct-private-key',
-  //     ot: 'n',
-  //   };
-  //   getMerchantsByCodeDao.mockResolvedValue([
-  //     {
-  //       id: 'merchant1',
-  //       config: {
-  //         keys: { private: 'correct-private-key', public: 'correct-public-key' },
-  //         urls: { RangeError: 'https://example.com/default-return', payin_notify: 'https://example.com/default-notify' },
-  //         whitelist_ips: [],
-  //       },
-  //       min_payin: 100,
-  //       max_payin: 10000,
-  //       company_id: 'company1',
-  //     },
-  //   ]);
-  //   getPayInUrlDao.mockResolvedValue(null);
-  //   generatePayInUrlDao.mockResolvedValue({
-  //     upi_short_code: 'QokKC',
-  //     amount: 1000,
-  //     status: 'INITIATED',
-  //     currency: 'INR',
-  //     merchant_order_id: 'order123',
-  //     user: '123',
-  //     merchant_id: 'merchant1',
-  //     expiration_date: '2025-09-08T12:00:00Z',
-  //     company_id: 'company1',
-  //     config: JSON.stringify({
-  //       urls: { return: 'https://example.com/return', notify: 'https://example.com/notify' },
-  //     }),
-  //     created_by: 'test_user',
-  //   });
-
-  //   const result = await payInService.generatePayInUrlService(mockConn, payload, 'test_user', '127.0.0.1', false);
-
-  //   expect(getMerchantsByCodeDao).toHaveBeenCalledWith('MERCHANT123');
-  //   expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: 'order123' });
-  //   expect(generatePayInUrlDao).toHaveBeenCalledWith({
-  //     upi_short_code: 'QokKC',
-  //     amount: 1000,
-  //     status: 'INITIATED',
-  //     currency: 'INR',
-  //     merchant_order_id: 'order123',
-  //     user: '123',
-  //     merchant_id: 'merchant1',
-  //     expiration_date: '2025-09-08T12:00:00Z',
-  //     company_id: 'company1',
-  //     config: JSON.stringify({
-  //       urls: { return: 'https://example.com/return', notify: 'https://example.com/notify' },
-  //     }),
-  //     created_by: 'test_user',
-  //   });
-  //   expect(result).toEqual({
-  //     upi_short_code: 'QokKC',
-  //     amount: 1000,
-  //     status: 'INITIATED',
-  //     currency: 'INR',
-  //     merchant_order_id: 'order123',
-  //     user: '123',
-  //     merchant_id: 'merchant1',
-  //     expiration_date: '2025-09-08T12:00:00Z',
-  //     company_id: 'company1',
-  //     config: JSON.stringify({
-  //       urls: { return: 'https://example.com/return', notify: 'https://example.com/notify' },
-  //     }),
-  //     created_by: 'test_user',
-  //   });
-  // });
-
   test('should throw BadRequestError on unexpected error', async () => {
     getMerchantsByCodeDao.mockRejectedValue(new Error('Database error'));
     await expect(
@@ -1179,157 +1047,155 @@ describe('generatePayInUrlService', () => {
 });
 
 // getPayInUrlService Tests
-// describe('getPayInUrlService', () => {
-//   beforeEach(() => {
-//     jest.clearAllMocks();
-//     jest.spyOn(Date, 'now').mockReturnValue(1630000000000);
-//   });
+describe('getPayInUrlService', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(Date, 'now').mockReturnValue(1630000000000);
+  });
 
-//   afterEach(() => {
-//     jest.spyOn(Date, 'now').mockRestore();
-//   });
+  afterEach(() => {
+    jest.spyOn(Date, 'now').mockRestore();
+  });
 
-  // test('should return payIn object when URL is valid', async () => {
-  //   const mockPayIn = {
-  //     id: 'PAYIN123',
-  //     merchant_order_id: '123',
-  //     config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
-  //     is_url_expires: false,
-  //     one_time_used: false,
-  //     expiration_date: 1630000001000,
-  //     status: 'INITIATED',
-  //     amount: 500,
-  //   };
-  //   getPayInUrlDao.mockResolvedValue(mockPayIn);
+  test('should return payIn object when URL is valid', async () => {
+    const mockPayIn = {
+      id: 'PAYIN123',
+      merchant_order_id: '123',
+      config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
+      is_url_expires: false,
+      one_time_used: false,
+      expiration_date: 1630000001000,
+      status: 'INITIATED',
+      amount: 500,
+    };
+    getPayInUrlDao.mockResolvedValue(mockPayIn);
 
-  //   const result = await payInService.getPayInUrlService('123', {}, true);
+    const result = await payInService.getPayInUrlService('123', {}, true);
 
-  //   expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' }, {});
-  //   expect(result).toEqual(mockPayIn);
-  //   expect(updatePayInUrlDao).not.toHaveBeenCalled();
-  //   expect(merchantPayinCallback).not.toHaveBeenCalled();
-  // });
+    expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+    expect(result).toEqual(mockPayIn);
+    expect(updatePayInUrlDao).not.toHaveBeenCalled();
+    expect(merchantPayinCallback).not.toHaveBeenCalled();
+  });
 
-  // test('should throw NotFoundError when payIn is not found', async () => {
-  //   getPayInUrlDao.mockImplementation(() => {
-  //     throw new NotFoundError('Payment Url is incorrect');
-  //   });
+  test('should throw NotFoundError when payIn is not found', async () => {
+    getPayInUrlDao.mockResolvedValue(null);
 
-  //   await expect(payInService.getPayInUrlService('123', {})).rejects.toThrow(NotFoundError);
-  //   expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' }, {});
-  //   expect(updatePayInUrlDao).not.toHaveBeenCalled();
-  //   expect(merchantPayinCallback).not.toHaveBeenCalled();
-  // });
+    await expect(payInService.getPayInUrlService('123', {})).rejects.toThrow(NotFoundError);
+    expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+    expect(updatePayInUrlDao).not.toHaveBeenCalled();
+    expect(merchantPayinCallback).not.toHaveBeenCalled();
+  });
 
-  // test('should return error and redirect URL when URL is expired and tele_check is true', async () => {
-  //   const mockPayIn = {
-  //     id: 'PAYIN123',
-  //     merchant_order_id: '123',
-  //     config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
-  //     is_url_expires: true,
-  //     one_time_used: false,
-  //     expiration_date: 1629999999999,
-  //     status: 'INITIATED',
-  //     amount: 500,
-  //   };
-  //   getPayInUrlDao.mockResolvedValue(mockPayIn);
+  test('should return error and redirect URL when URL is expired and tele_check is true', async () => {
+    const mockPayIn = {
+      id: 'PAYIN123',
+      merchant_order_id: '123',
+      config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
+      is_url_expires: true,
+      one_time_used: false,
+      expiration_date: 1629999999999,
+      status: 'INITIATED',
+      amount: 500,
+    };
+    getPayInUrlDao.mockResolvedValue(mockPayIn);
 
-  //   const result = await payInService.getPayInUrlService('123', {}, true);
+    const result = await payInService.getPayInUrlService('123', {}, true);
 
-  //   expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' }, {});
-  //   expect(result).toEqual({
-  //     error: 'Url is expired',
-  //     result: { redirect_url: 'http://return.url' },
-  //   });
-  //   expect(updatePayInUrlDao).not.toHaveBeenCalled();
-  //   expect(merchantPayinCallback).not.toHaveBeenCalled();
-  // });
+    expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+    expect(result).toEqual({
+      error: 'Url is expired',
+      result: { redirect_url: 'http://return.url' },
+    });
+    expect(updatePayInUrlDao).not.toHaveBeenCalled();
+    expect(merchantPayinCallback).not.toHaveBeenCalled();
+  });
 
-  // test('should return error and redirect URL when one_time_used is true', async () => {
-  //   const mockPayIn = {
-  //     id: 'PAYIN123',
-  //     merchant_order_id: '123',
-  //     config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
-  //     is_url_expires: false,
-  //     one_time_used: true,
-  //     expiration_date: 1630000001000,
-  //     status: 'INITIATED',
-  //     amount: 500,
-  //   };
-  //   getPayInUrlDao.mockResolvedValue(mockPayIn);
+  test('should return error and redirect URL when one_time_used is true', async () => {
+    const mockPayIn = {
+      id: 'PAYIN123',
+      merchant_order_id: '123',
+      config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
+      is_url_expires: false,
+      one_time_used: true,
+      expiration_date: 1630000001000,
+      status: 'INITIATED',
+      amount: 500,
+    };
+    getPayInUrlDao.mockResolvedValue(mockPayIn);
 
-  //   const result = await payInService.getPayInUrlService('123', {}, true);
+    const result = await payInService.getPayInUrlService('123', {}, true);
 
-  //   expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' }, {});
-  //   expect(result).toEqual({
-  //     error: 'Url is expired',
-  //     result: { redirect_url: 'http://return.url' },
-  //   });
-  //   expect(updatePayInUrlDao).not.toHaveBeenCalled();
-  //   expect(merchantPayinCallback).not.toHaveBeenCalled();
-  // });
+    expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+    expect(result).toEqual({
+      error: 'Url is expired',
+      result: { redirect_url: 'http://return.url' },
+    });
+    expect(updatePayInUrlDao).not.toHaveBeenCalled();
+    expect(merchantPayinCallback).not.toHaveBeenCalled();
+  });
 
-  // test('should update payIn and notify merchant when URL is expired and status is not INITIATED', async () => {
-  //   const mockPayIn = {
-  //     id: 'PAYIN123',
-  //     merchant_order_id: '123',
-  //     config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
-  //     is_url_expires: false,
-  //     one_time_used: false,
-  //     expiration_date: 1629999999999,
-  //     status: 'PENDING',
-  //     amount: 500,
-  //   };
-  //   getPayInUrlDao.mockResolvedValue(mockPayIn);
-  //   updatePayInUrlDao.mockResolvedValue();
+  test('should update payIn and notify merchant when URL is expired and status is not INITIATED', async () => {
+    const mockPayIn = {
+      id: 'PAYIN123',
+      merchant_order_id: '123',
+      config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
+      is_url_expires: false,
+      one_time_used: false,
+      expiration_date: 1629999999999,
+      status: 'PENDING',
+      amount: 500,
+    };
+    getPayInUrlDao.mockResolvedValue(mockPayIn);
+    updatePayInUrlDao.mockResolvedValue();
 
-  //   await payInService.getPayInUrlService('123', {});
+    await payInService.getPayInUrlService('123', {});
 
-  //   expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' }, {});
-  //   expect(updatePayInUrlDao).toHaveBeenCalledWith(
-  //     'PAYIN123',
-  //     { is_url_expires: true, status: 'DROPPED' },
-  //     {}
-  //   );
-  //   expect(merchantPayinCallback).toHaveBeenCalledWith(
-  //     'http://notify.url',
-  //     expect.objectContaining({
-  //       status: 'DROPPED',
-  //       merchantOrderId: '123',
-  //       payinId: 'PAYIN123',
-  //     })
-  //   );
-  // });
+    expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+    expect(updatePayInUrlDao).toHaveBeenCalledWith(
+      'PAYIN123',
+      { is_url_expires: true, status: 'DROPPED' },
+      {}
+    );
+    expect(merchantPayinCallback).toHaveBeenCalledWith(
+      'http://notify.url',
+      expect.objectContaining({
+        status: 'DROPPED',
+        merchantOrderId: '123',
+        payinId: 'PAYIN123',
+      })
+    );
+  });
 
-  // test('should skip expiration check when tele_check is false', async () => {
-  //   const mockPayIn = {
-  //     id: 'PAYIN123',
-  //     merchant_order_id: '123',
-  //     config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
-  //     is_url_expires: true,
-  //     one_time_used: true,
-  //     expiration_date: 1629999999999,
-  //     status: 'INITIATED',
-  //     amount: 500,
-  //   };
-  //   getPayInUrlDao.mockResolvedValue(mockPayIn);
+  test('should skip expiration check when tele_check is false', async () => {
+    const mockPayIn = {
+      id: 'PAYIN123',
+      merchant_order_id: '123',
+      config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
+      is_url_expires: true,
+      one_time_used: true,
+      expiration_date: 1629999999999,
+      status: 'INITIATED',
+      amount: 500,
+    };
+    getPayInUrlDao.mockResolvedValue(mockPayIn);
 
-  //   const result = await payInService.getPayInUrlService('123', {}, false);
+    const result = await payInService.getPayInUrlService('123', {}, false);
 
-  //   // expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' }, {});
-  //   expect(result).toEqual(mockPayIn);
-  //   expect(updatePayInUrlDao).not.toHaveBeenCalled();
-  //   expect(merchantPayinCallback).not.toHaveBeenCalled();
-  // });
+    expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+    expect(result).toEqual(mockPayIn);
+    expect(updatePayInUrlDao).not.toHaveBeenCalled();
+    expect(merchantPayinCallback).not.toHaveBeenCalled();
+  });
 
-  // test('should log error and rethrow when an error occurs', async () => {
-  //   const error = new Error('Database error');
-  //   getPayInUrlDao.mockRejectedValue(error);
+  test('should log error and rethrow when an error occurs', async () => {
+    const error = new Error('Database error');
+    getPayInUrlDao.mockRejectedValue(error);
 
-  //   await expect(payInService.getPayInUrlService('123', {})).rejects.toThrow('Database error');
-  //   expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' }, {});
-  //   expect(logger.error).toHaveBeenCalledWith('Error in getPayInUrlService:', error);
-  //   expect(updatePayInUrlDao).not.toHaveBeenCalled();
-  //   expect(merchantPayinCallback).not.toHaveBeenCalled();
-  // });
-// });
+    await expect(payInService.getPayInUrlService('123', {})).rejects.toThrow('Database error');
+    expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+    expect(logger.error).toHaveBeenCalledWith('Error in getPayInUrlService:', error);
+    expect(updatePayInUrlDao).not.toHaveBeenCalled();
+    expect(merchantPayinCallback).not.toHaveBeenCalled();
+  });
+});
