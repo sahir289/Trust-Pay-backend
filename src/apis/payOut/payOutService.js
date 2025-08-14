@@ -712,7 +712,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       data.config?.urls?.notify || merchant.config?.urls?.payout_notify;
 
     // Early return if not approved
-    if (!data.approved_at) {
+    if (!data.approved_at && data.status !== Status.PENDING) {
       merchantPayoutCallback(notifyUrl, {
         code: data.code,
         merchantOrderId: data.merchant_order_id,
