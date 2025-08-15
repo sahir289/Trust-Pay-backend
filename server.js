@@ -64,7 +64,7 @@ async function gracefulShutdown(label, err) {
   const styledMessageError = chalk.bold.red(`${label}`);
   
   // console the error in stderr (synchronously) so PM2 always captures it
-  if (err) console.error(`${styledMessageError}:`, err);
+  if (err) console.error(`${label}:`, err);
 
   if (err) {
     logger.error(styledMessageError, { message: err.message, stack: err.stack }); 
