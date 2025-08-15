@@ -68,7 +68,7 @@ import {
       
         expect(executeQuery).toHaveBeenCalledWith(
           expect.stringMatching(/SELECT[\s\S]*FROM\s+public\."BeneficiaryAccounts"/),
-          [limit, offset, filters.company_id] // match DAO params
+          [limit, offset, filters.company_id]
         );
       
         expect(result).toEqual(mockResult.rows);
