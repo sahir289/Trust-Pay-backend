@@ -25,7 +25,7 @@ import {
 import {
   getMerchantsDao,
   getMerchantByUserIdDao,
-  getMerchantsByCodeDao
+  getMerchantsByCodeDao,
 } from '../merchants/merchantDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import {
@@ -113,7 +113,7 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
             account: info.user_bank_details.account_no,
             bank: info.user_bank_details.bank_name,
             ifsc: info.user_bank_details.ifsc_code,
-            mobile: '1234567890',
+            mobile: '7428730894',
             amount: info.amount,
             latitude: '19.0760',
             longitude: '72.8527',
@@ -162,6 +162,10 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
                   : responseData.Response.refno || responseData.Response?.utr,
                 approved_at: new Date().toISOString(),
               });
+            } else if (!isApproved && isTransactionUnderProcess) {
+              Object.assign(updatePayload, {
+                status: Status.PENDING,
+              });
             } else {
               updatePayload.config.rejected_reason =
                 payAssistErrorCodeMap[responseData.ErrorCode] ||
@@ -201,7 +205,7 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
             } else if (statusResponse.data.ErrorCode !== 'TUP') {
               await handlePayoutUpdate(statusResponse.data, false);
             } else if (statusResponse.data.ErrorCode === 'TUP') {
-              await handlePayoutUpdate(statusResponse.data, true, true);
+              await handlePayoutUpdate(statusResponse.data, false, true);
             }
           }
 
@@ -352,7 +356,10 @@ const createPayoutService = async (
       };
       return data;
     }
-    if (amount < details[0].min_payout || amount > details[0].max_payout) {
+    if (
+      (amount < details[0].min_payout || amount > details[0].max_payout) &&
+      role !== Role.ADMIN
+    ) {
       const data = {
         status: 400,
         message: `Amount should be between ${details[0].min_payout} and ${details[0].max_payout}`,
@@ -705,7 +712,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       data.config?.urls?.notify || merchant.config?.urls?.payout_notify;
 
     // Early return if not approved
-    if (!data.approved_at) {
+    if (!data.approved_at && data.status !== Status.PENDING) {
       merchantPayoutCallback(notifyUrl, {
         code: data.code,
         merchantOrderId: data.merchant_order_id,
@@ -727,6 +734,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (bankData.is_blocked) {
       throw new BadRequestError('Bank account is blocked');
     }
+    // console.log('bankData.today_balance', Math.abs(bankData.today_balance),'data.amount', data.amount,'Math.abs(bankData.today_balance) + data.amount', Math.abs(bankData.today_balance) + data.amount);
 
     const vendorArr = await getVendorsDao({ user_id: bankData.user_id });
     const vendor = vendorArr[0];
@@ -765,6 +773,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
             payin_count: Number(bankData.payin_count) + 1,
             today_balance: Number(bankData.today_balance) - Number(data.amount),
             balance: Number(bankData.balance) - Number(data.amount),
+            is_enabled: bankData?.config?.max_limit < Math.abs(bankData.today_balance) + data.amount ? false : true,
           },
           conn,
         ),
@@ -797,6 +806,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
           {
             today_balance: Number(bankData.today_balance + data.amount),
             balance: Number(bankData.balance + data.amount),
+            is_enabled: bankData?.config?.max_limit < Math.abs(bankData.today_balance) + data.amount ? false : true,
           },
           conn,
         ),
@@ -804,15 +814,17 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
 
     await newTableEntry(tableName.PAYOUT);
-    // This is async function but it's just the callback sending function there fore we are not using await
-    merchantPayoutCallback(notifyUrl, {
-      code: data.code,
-      merchantOrderId: data.merchant_order_id,
-      payoutId: data.id,
-      amount: data.amount,
-      status: data.status,
-      utr_id: data.utr_id || '',
-    });
+    if (data.status !== Status.PENDING) {
+      // This is async function but it's just the callback sending function there fore we are not using await
+      merchantPayoutCallback(notifyUrl, {
+        code: data.code,
+        merchantOrderId: data.merchant_order_id,
+        payoutId: data.id,
+        amount: data.amount,
+        status: data.status,
+        utr_id: data.utr_id || '',
+      });
+    }
 
     return data;
   } catch (error) {

@@ -361,7 +361,7 @@ export const merchantColumns = {
     'is_enabled',
     'code',
   ],
-  SETTLEMENT: ['id', 'sno', 'status', 'amount', 'method', 'config'],
+  SETTLEMENT: ['id', 'sno', 'status', 'amount', 'method', 'config', 'user_id', 'created_at', 'updated_at', 'approved_at', 'rejected_at'],
   CALCULATION: [
     'total_payin_count',
     'total_payin_amount',
@@ -451,7 +451,7 @@ export const vendorColumns = {
     'code',
     'created_at', //-- need bank details within date range
   ],
-  SETTLEMENT: ['id', 'sno', 'status', 'amount', 'method', 'config'],
+  SETTLEMENT: ['id', 'sno', 'status', 'amount', 'method', 'config', 'user_id', 'created_at', 'updated_at', 'approved_at', 'rejected_at'],
   CALCULATION: [
     'total_payin_count',
     'total_payin_amount',

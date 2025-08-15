@@ -12,6 +12,7 @@ export const ASSIGN_PAYIN_SCHEMA = Joi.object({
   hash_code: Joi.string().label('hash_code').optional(),
   returnUrl: Joi.string().label('returnUrl').optional(),
   notifyUrl: Joi.string().label('notifyUrl').optional(),
+  roleToken: Joi.string().label('roleToken').optional(),
 });
 
 export const VALIDATE_PAYIN_SCHEMA = Joi.object({
@@ -26,6 +27,7 @@ export const VALIDATE_ASSIGNED_BANT_TO_PAY = Joi.object({
     .valid(...Object.values(BankTypes))
     .label('type')
     .required(),
+  roleToken: Joi.string().label('roleToken').optional(),
 });
 
 export const VALIDATE_EXPIRE_PAY_IN_URL = Joi.object({

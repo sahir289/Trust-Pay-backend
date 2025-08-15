@@ -1,4 +1,4 @@
-import { tableName } from '../../constants/index.js';
+import { Role, tableName } from '../../constants/index.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import {
   buildSelectQuery,
@@ -147,6 +147,7 @@ export const getUsersBySearchDao = async (
   searchTerms,
   pageNumber = 1, 
   pageSize = 10, 
+  role,
 ) => {
   try {
     const conditions = [];
@@ -160,7 +161,39 @@ export const getUsersBySearchDao = async (
     const validatedPageNumber = Math.max(parseInt(pageNumber) || 1);
     const offset = (validatedPageNumber - 1) * validatedPageSize;
 
-    let queryText = `
+    let queryText;
+
+    if (role !== Role.Admin) {
+      queryText = `
+      SELECT 
+        "User".id,
+        "User".role_id,
+        "User".designation_id,
+        "User".first_name,
+        "User".last_name,
+        "User".email,
+        "User".contact_no,
+        "User".user_name,
+        "User".code,
+        "User".is_enabled,
+        "User".last_login,
+        "User".last_logout,
+        "User".config,
+        "User".created_at,
+        "User".updated_at,
+        "User".first_name || ' ' || "User".last_name AS full_name,
+        "Designation".designation AS Designation 
+      FROM "User" 
+      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id 
+      LEFT JOIN public."User" cu ON "User".created_by = cu.id
+      LEFT JOIN public."User" uu ON "User".updated_by = uu.id
+      WHERE 1=1 
+        AND "User".is_obsolete = false 
+        AND "User"."company_id" = $1
+    `;
+    }
+    else {
+      queryText = `
       SELECT 
         "User".id,
         "User".role_id,
@@ -189,6 +222,7 @@ export const getUsersBySearchDao = async (
         AND "User".is_obsolete = false 
         AND "User"."company_id" = $1
     `;
+    }
 
     if (filters.id) {
       if (Array.isArray(filters.id)) {

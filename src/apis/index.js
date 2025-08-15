@@ -24,7 +24,6 @@ import resetHistory from './resetHistory/index.js';
 import checkUtr from './checkutr/index.js';
 import common from './common/index.js';
 import beneficiaryAccounts from './beneficiaryAccounts/index.js';
-import rabbitmqRoutes from '../routes/rabbitmq.js';
 import consumeBankResponseRouter from './consume-bank-response.js';
 // import notifications from './notifications/index.js';
 
@@ -52,8 +51,7 @@ router.use('/reports', reports);
 router.use('/checkUtr', checkUtr);
 router.use('/resetHistory', resetHistory);
 router.use('/beneficiaryAccounts', beneficiaryAccounts);
-router.use('/rabbitmq', rabbitmqRoutes);
-router.use(consumeBankResponseRouter);
+router.use('/consume-bank-response', consumeBankResponseRouter);
 // Public routes (no authorization required)
 router.use('/ping', ping);
 router.use('/auth', auth);

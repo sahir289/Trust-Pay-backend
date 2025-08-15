@@ -1,12 +1,12 @@
 /* eslint-disable no-unused-vars */
 // Import required functions and classes
-import { updateBankaccountByIdDao } from '../apis/bankAccounts/bankaccountDao';
-import { getMerchantsDao } from '../apis/merchants/merchantDao';
-import { getPayoutsDao, updatePayoutDao } from '../apis/payOut/payOutDao';
-import { NotFoundError } from '../utils/appErrors';
-import { merchantPayoutCallback } from './merchantCallBacks';
-import { Status } from '../constants';
-import { logger } from '../utils/logger.js';
+import { updateBankaccountByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
+import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
+import { getPayoutsDao, updatePayoutDao } from '../../apis/payOut/payOutDao.js';
+import { NotFoundError } from '../../utils/appErrors.js';
+import { merchantPayoutCallback } from '../merchantCallBacks.js';
+import { Status } from '../../constants/index.js';
+import { logger } from '../../utils/logger.js';
 
 // Define the optimized ekoTransactionStatusCallback function
 export const ekoTransactionStatusCallback = async (req, res) => {

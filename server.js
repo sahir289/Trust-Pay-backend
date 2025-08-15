@@ -6,6 +6,8 @@ import { initializeSocket } from './src/utils/sockets.js';
 import { logger } from './src/utils/logger.js';
 import { closePool } from './src/utils/db.js';
 import { closeRabbitMQ } from './src/utils/rabbitmq.js';
+import { startBankResponseWorker } from './src/worker/consume-bank-response-worker.js';
+import { closeRedis } from './src/utils/redisClient.js';
 
 const server = createServer(app);
 
@@ -46,28 +48,13 @@ const onListening = () => {
   const addr = server.address();
   const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr.port}`;
   const styledServerMessage = chalk.blue(
-    `the server started listening on ${bind}`,
+    `The server started listening on ${bind}`,
   );
   logger.log(styledServerMessage);
   const docsUrl = `http://localhost:${PORT}/v1/api-docs`;
   const styledMessage = chalk.bold.yellow(`API docs available at ${docsUrl}`);
   logger.log(styledMessage);
 };
-
-// process.on('SIGINT', () => {
-//   const message = chalk.bold.red('stopping the server');
-//   logger.error(message);
-//   process.exit();
-// });
-
-// process.on('uncaughtException', (err) => {
-//   logger.error('There was an uncaught error', err);
-//   process.exit(1);
-// });
-
-// process.on('unhandledRejection', (reason, promise) => {
-//   logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-// });
 
 let shuttingDown = false;
 
@@ -91,6 +78,7 @@ async function gracefulShutdown(label, err) {
       new Promise((res) => server.close(res)),
       closePool(),
       closeRabbitMQ(),
+      closeRedis(),
       new Promise((res) => logger.on('finish', res)).then(() => logger.end()),
     ]);
   } finally {
@@ -115,5 +103,6 @@ process.on('unhandledRejection', (reason) =>
 );
 
 server.listen(PORT, onListening);
+startBankResponseWorker();
 server.on('error', onError);
 

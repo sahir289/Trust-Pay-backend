@@ -139,7 +139,7 @@ const createBankBotResponse = async (req, res) => {
   //   Role.BOT,
   //   null,
   // );
-  await newTableEntry(tableName.BANK_RESPONSE);
+  // await newTableEntry(tableName.BANK_RESPONSE);
   sendSuccess(res, result, 'Created Bank Bot Response successfully');
 };
 

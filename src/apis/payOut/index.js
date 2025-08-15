@@ -14,6 +14,7 @@ import {
 } from './payOutController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
+import { payAssistTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payAsistWebHook.js';
 const router = express.Router();
 
 /**
@@ -139,6 +140,12 @@ router.post(
   tryCatchHandler(createPayout),
 );
 
+router.post(
+  '/generate-payout',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(createPayout),
+);
+
 /**
  * @swagger
  * /payout/check-payout-status:
@@ -243,6 +250,11 @@ router.post(
   '/wallets',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(walletsPayouts),
+); 
+
+router.post(
+  '/payassist-callback',
+  tryCatchHandler(payAssistTransactionStatusCallback),
 ); 
 
 // router.post(
