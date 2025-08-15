@@ -25,24 +25,24 @@ const getBankaccountDao = async (filters, page, limit, role, designation) => {
       queryParams.push(limit, (page - 1) * limit);
     }
 
-    if (filters?.startDate && filters?.endDate) {
-      conditions.push(
-        `ba.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`,
-      );
-      queryParams.push(filters?.startDate, filters?.endDate);
-      // delete filters.startDate
-      // delete filters.endDate
-    }
-    if (filters?.bank_used_for) {
-      conditions.push(`ba.bank_used_for = $${queryParams.length + 1}`);
-      queryParams.push(filters?.bank_used_for);
-    }
+    // if (filters?.startDate && filters?.endDate) {
+    //   conditions.push(
+    //     `ba.created_at BETWEEN $${queryParams.length + 1} AND $${queryParams.length + 2}`,
+    //   );
+    //   queryParams.push(filters?.startDate, filters?.endDate);
+    //   // delete filters.startDate
+    //   // delete filters.endDate
+    // }
+    // if (filters?.bank_used_for) {
+    //   conditions.push(`ba.bank_used_for = $${queryParams.length + 1}`);
+    //   queryParams.push(filters?.bank_used_for);
+    // }
 
-    // Nickname filter
-    if (filters?.nick_name) {
-      conditions.push(`ba.nick_name= $${queryParams.length + 1}`);
-      queryParams.push(filters.nick_name);
-    }
+    // // Nickname filter
+    // if (filters?.nick_name) {
+    //   conditions.push(`ba.nick_name= $${queryParams.length + 1}`);
+    //   queryParams.push(filters.nick_name);
+    // }
     if (filters?.merchant_id) {
       queryParams.push(filters.merchant_id);
       conditions.push(
@@ -704,7 +704,7 @@ const deleteBankaccountDao = async (conn, id, data) => {
   }
 };
 
-export const updateBanktBalanceDao = async (
+const updateBanktBalanceDao = async (
   filters,
   amount,
   updated_by,
@@ -722,7 +722,7 @@ export const updateBanktBalanceDao = async (
       return result.rows[0];
     }
     const result = await executeQuery(sql, params);
-    return result[0];
+    return result.rows[0];
   } catch (error) {
     logger.error(error);
     throw error;
@@ -739,4 +739,5 @@ export {
   getMerchantBankDao,
   getBankAccountDaoNickName,
   getBankByIdDao,
+  updateBanktBalanceDao,
 };
