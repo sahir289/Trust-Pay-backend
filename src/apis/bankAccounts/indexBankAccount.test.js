@@ -2,7 +2,6 @@ import request from 'supertest';
 import express from 'express';
 import bankAccountRouter from './index.js';
 
-// Mock the controller functions
 jest.mock('./bankaccountController.js', () => ({
   createBankaccount: jest.fn((req, res) =>
     res.status(201).json({ message: 'Bank account created' })
@@ -27,7 +26,6 @@ jest.mock('./bankaccountController.js', () => ({
   ),
 }));
 
-// Mock the auth middlewares
 jest.mock('../../middlewares/auth.js', () => ({
   isAuthenticated: (req, res, next) => next(),
   authorized: () => (req, res, next) => next(),

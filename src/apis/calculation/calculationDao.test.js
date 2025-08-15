@@ -1,4 +1,4 @@
-import { executeQuery, buildSelectQuery, buildInsertQuery, buildUpdateQuery, buildAndExecuteUpdateQuery } from '../../utils/db.js';
+import { executeQuery, buildSelectQuery, buildAndExecuteUpdateQuery } from '../../utils/db.js';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
