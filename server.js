@@ -48,28 +48,13 @@ const onListening = () => {
   const addr = server.address();
   const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr.port}`;
   const styledServerMessage = chalk.blue(
-    `the server started listening on ${bind}`,
+    `The server started listening on ${bind}`,
   );
   logger.log(styledServerMessage);
   const docsUrl = `http://localhost:${PORT}/v1/api-docs`;
   const styledMessage = chalk.bold.yellow(`API docs available at ${docsUrl}`);
   logger.log(styledMessage);
 };
-
-// process.on('SIGINT', () => {
-//   const message = chalk.bold.red('stopping the server');
-//   logger.error(message);
-//   process.exit();
-// });
-
-// process.on('uncaughtException', (err) => {
-//   logger.error('There was an uncaught error', err);
-//   process.exit(1);
-// });
-
-// process.on('unhandledRejection', (reason, promise) => {
-//   logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-// });
 
 let shuttingDown = false;
 
@@ -79,7 +64,7 @@ async function gracefulShutdown(label, err) {
   const styledMessageError = chalk.bold.red(`${label}`);
   
   // console the error in stderr (synchronously) so PM2 always captures it
-  if (err) console.error(`${label}:`, err);
+  if (err) console.error(`${styledMessageError}:`, err);
 
   if (err) {
     logger.error(styledMessageError, { message: err.message, stack: err.stack }); 

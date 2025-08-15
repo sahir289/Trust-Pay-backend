@@ -5,18 +5,25 @@ import { createBankResponseService } from '../apis/bankResponse/bankResponseServ
 import { logger } from '../utils/logger.js';
 
 export async function startBankResponseWorker() {
-  await connectRabbitMQ();
+  try {
+    await connectRabbitMQ();
+  } catch (err) {
+    logger.error('Failed to connect to RabbitMQ:', err);
+    return;
+  }
   const channel = getRabbitChannel();
   const queue = config.rabbitmq.bankResponseQueue;
   await channel.assertQueue(queue, { durable: true });
 
-  console.log('Worker started. Waiting for messages...');
-  while (true) {
-    const msg = await channel.get(queue, { noAck: false });
-    if (!msg) {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before checking again
-      continue;
-    }
+  logger.info('Worker started. Waiting for messages...');
+  // while (true) {
+  //   const msg = await channel.get(queue, { noAck: false });
+  channel.consume(queue, async (msg) => {
+    // if (!msg) {
+    //   await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before checking again
+    //   continue;
+    // }
+    if (!msg) return;
     try {
       const data = JSON.parse(msg.content.toString());
       await createBankResponseService(
@@ -26,11 +33,10 @@ export async function startBankResponseWorker() {
         null
       );
       channel.ack(msg);
-      console.log('[Worker] Processed bank response:', data);
       logger.info('[Worker] Bank response processed successfully:', data);
     } catch (err) {
       channel.nack(msg, false, false);
       logger.error('[Worker] Error processing bank response:', err);
     }
-  }
+  }, { noAck: false })
 }
