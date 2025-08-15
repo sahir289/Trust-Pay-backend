@@ -691,6 +691,7 @@ export const getPayinsBySearchDao = async (
   limitNum,
   offset,
   role,
+  designation,
   updatedPayin = false,
 ) => {
   try {
