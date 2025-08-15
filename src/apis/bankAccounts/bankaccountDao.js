@@ -544,6 +544,7 @@ const getBankByIdDao = async (filters) => {
   max,
   is_enabled,
   payin_count,
+  config,
   balance,today_balance, user_id ,id FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
     const [sql, parameters] = buildSelectQuery(query, filters);
     const result = await executeQuery(sql, parameters);
