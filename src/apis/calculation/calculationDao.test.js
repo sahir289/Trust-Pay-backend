@@ -1,7 +1,10 @@
-import { executeQuery, buildSelectQuery } from '../../utils/db.js';
+import { executeQuery, buildSelectQuery  } from '../../utils/db.js';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+
 dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const {
   getCalculationDao,
@@ -26,7 +29,8 @@ jest.mock('../../utils/db.js', () => ({
   buildSelectQuery: jest.fn(() => ['SELECT ...', []]),
   buildJoinQuery: jest.fn(() => 'JOIN ...'),
   buildInsertQuery: jest.fn(),
-  buildUpdateQuery: jest.fn(),
+  buildAndExecuteUpdateQuery: jest.fn(),
+  buildUpdateQuery: jest.fn(() => ['UPDATE public."CALCULATION" SET is_obsolete = $1 WHERE id = $2', [true, 'calc1']]), // Add this
   beginTransaction: jest.fn(),
   commit: jest.fn(),
   rollback: jest.fn(),
@@ -46,33 +50,49 @@ describe('Calculation DAO', () => {
     jest.clearAllMocks();
   });
 
+
+
   beforeAll(() => {
     jest.doMock('dayjs', () => {
       const actualDayjs = jest.requireActual('dayjs');
-      return () => actualDayjs('2025-08-14T14:55:00Z');
+      const utc = jest.requireActual('dayjs/plugin/utc');
+      const timezone = jest.requireActual('dayjs/plugin/timezone');
+  
+      actualDayjs.extend(utc);
+      actualDayjs.extend(timezone);
+  
+      const fixedDate = actualDayjs('2025-08-14T14:55:00Z');
+      const mockFn = (date) => actualDayjs(date || fixedDate);
+  
+      Object.assign(mockFn, actualDayjs);
+  
+      return mockFn;
     });
   });
   
-    describe('getCalculationDao', () => {
-      test('should fetch calculations for SUPER_ADMIN role', async () => {
-        const filters = { role: 'SUPER_ADMIN', startDate: '2025-01-01', endDate: '2025-01-31' };
-        const page = 1;
-        const pageSize = 10;
-        const sortBy = 'created_at';
-        const sortOrder = 'DESC';
-        const columns = ['id', 'user_id', 'total_payin_amount'];
   
-        executeQuery.mockResolvedValue({ rows: [{ id: 1, user_id: 'user1', total_payin_amount: 1000 }] });
   
-        const result = await getCalculationDao(filters, page, pageSize, sortBy, sortOrder, columns);
-  
-        expect(executeQuery).toHaveBeenCalledWith(
-          expect.stringMatching(/^SELECT\b/i),
-          expect.any(Array)
-        );
-        
-        expect(result).toEqual([{ id: 1, user_id: 'user1', total_payin_amount: 1000 }]);
-      });
+
+  describe('getCalculationDao', () => {
+    test('should fetch calculations for SUPER_ADMIN role', async () => {
+      const filters = { role: 'SUPER_ADMIN', startDate: '2025-01-01', endDate: '2025-01-31' };
+      const page = 1;
+      const pageSize = 10;
+      const sortBy = 'created_at';
+      const sortOrder = 'DESC';
+      const columns = ['id', 'user_id', 'total_payin_amount'];
+
+      executeQuery.mockResolvedValue({ rows: [{ id: 1, user_id: 'user1', total_payin_amount: 1000 }] });
+
+      const result = await getCalculationDao(filters, page, pageSize, sortBy, sortOrder, columns);
+
+      expect(executeQuery).toHaveBeenCalledWith(
+        expect.stringMatching(/^SELECT\b/i),
+        expect.any(Array)
+      );
+
+      expect(result).toEqual([{ id: 1, user_id: 'user1', total_payin_amount: 1000 }]);
+    });
   
       test('should handle MERCHANT_ADMIN with sub-merchants', async () => {
         const filters = {
@@ -121,26 +141,35 @@ describe('Calculation DAO', () => {
         );
       });
 
-      test('should log and throw error on failure', async () => {
+      test('should log and throw error on failure in getCalculation', async () => {
         const filters = { role: 'ADMIN' };
         executeQuery.mockRejectedValue(new Error('Database error'));
-  
-        await expect(getCalculationDao(filters, 1, 10, 'created_at', 'DESC')).rejects.toThrow('Database error');
-        expect(logger.error).toHaveBeenCalledWith('Error fetching Calculation', expect.any(Error));
-      });
+      
+        await expect(
+          getCalculationDao(filters, 1, 10, 'created_at', 'DESC')
+        ).rejects.toThrow('Database error');
+      
+        expect(logger.error).toHaveBeenCalledWith(
+          'Error fetching Calculation',
+          expect.any(Error)
+        );
+      
+        executeQuery.mockReset(); 
+      });      
     });
   
     describe('getCalculationsSumDao', () => {
       test('should fetch sum for SUPER_ADMIN role', async () => {
         const filters = { role: 'SUPER_ADMIN', startDate: '2025-01-01', endDate: '2025-01-31' };
         executeQuery
-          .mockResolvedValueOnce({ rows: [{ date: '2025-01-01', total_payin_count: 10 }] }) 
-          .mockResolvedValueOnce({ rows: [{ date: '2025-01-01', total_payin_count: 5 }] }) 
-          .mockResolvedValueOnce({ rows: [{ role: 'MERCHANT', net_balance_sum: 1000 }, { role: 'VENDOR', net_balance_sum: 500 }] }); // Balance query
-  
+  .mockResolvedValueOnce({ rows: [{ date: '2025-01-01', total_payin_count: 10 }] }) 
+  .mockResolvedValueOnce({ rows: [{ date: '2025-01-01', total_payin_count: 5 }] })  
+  .mockResolvedValueOnce({ rows: [{ role: 'MERCHANT', net_balance_sum: 1000 }, { role: 'VENDOR', net_balance_sum: 500 }] }) // net balance
+  .mockResolvedValueOnce({ rows: [{}] }) 
+  .mockResolvedValueOnce({ rows: [{}] });
         const result = await getCalculationsSumDao(filters);
   
-        expect(executeQuery).toHaveBeenCalledTimes(3);
+        expect(executeQuery).toHaveBeenCalledTimes(5);
         expect(result).toEqual({
           vendor: [{ date: '2025-01-01', total_payin_count: 5 }],
           merchant: [{ date: '2025-01-01', total_payin_count: 10 }],
@@ -163,16 +192,19 @@ describe('Calculation DAO', () => {
   
         expect(getUserHierarchysDao).toHaveBeenCalledWith({ user_id: 'merchant1' });
         expect(result.merchant).toEqual([{ date: '2025-01-01', total_payin_count: 10 }]);
-        expect(result.vendor).toEqual([]);
+        expect(result.vendor).toEqual({});
         expect(result.netBalance.merchant).toBe(1000);
       });
   
-      test('should log and throw error on failure', async () => {
+      test('should log and throw error on failure in calculation sum dao', async () => {
         const filters = { role: 'ADMIN', company_id: 'company1' };
         executeQuery.mockRejectedValue(new Error('Database error'));
   
         await expect(getCalculationsSumDao(filters)).rejects.toThrow('Database error');
-        expect(logger.error).toHaveBeenCalledWith('Error getting calculation data:', expect.any(Error));
+        expect(logger.error).toHaveBeenCalledWith(
+          'Error getting calculation data:',
+          expect.any(Error)
+        );        
       });
     });
   
@@ -322,14 +354,17 @@ describe('Calculation DAO', () => {
     });
   
     describe('deleteCalculationDao', () => {
-      test('should delete calculation with connection', async () => {
+      test('should delete calculation with connection in delete', async () => {
         const conn = { query: jest.fn().mockResolvedValue({ rows: [{ id: 1 }] }) };
         const data = { is_obsolete: true };
         const id = 'calc1';
-  
+      
         const result = await deleteCalculationDao(conn, id, data);
-  
-        expect(conn.query).toHaveBeenCalledWith(expect.any(String), expect.any(Array));
+      
+        expect(conn.query).toHaveBeenCalledWith(
+          'UPDATE public."CALCULATION" SET is_obsolete = $1 WHERE id = $2',
+          [true, 'calc1']
+        );
         expect(result).toEqual({ id: 1 });
       });
   

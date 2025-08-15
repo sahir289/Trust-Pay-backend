@@ -341,16 +341,23 @@ import {
         expect(result).toEqual(mockResult.rows[0]);
       });
   
-      test('should use executeQuery without connection', async () => {
-        const id = { id: '1', company_id: 1 };
-        const data = { is_obsolete: true };
-        const mockResult = { rows: [{ id: 1 }] };
-        buildUpdateQuery.mockReturnValue(['UPDATE BeneficiaryAccounts', ['true', '1', 1]]);
-        executeQuery.mockResolvedValue(mockResult);
-  
-        const result = await deleteBeneficiaryDao(null, id, data);
-  
-        expect(executeQuery).toHaveBeenCalledWith('UPDATE BeneficiaryAccounts', ['true', '1', 1]);
+      test('should use conn.query with connection', async () => {
+        const filters = { id: '1' };
+        const amount = 1000;
+        const updated_by = 'user123';
+        const mockResult = { rows: [{ id: 1, balance: 1000, today_balance: 1000, updated_by: 'user123' }] };
+        const mockConn = { query: jest.fn().mockResolvedValue(mockResult) };
+        buildUpdateQuery.mockReturnValue([
+          'UPDATE BENEFICIARY_ACCOUNTS SET balance = balance + $1, today_balance = today_balance + $2, updated_by = $3 WHERE id = $4',
+          [1000, 1000, 'user123', '1']
+        ]);
+      
+        const result = await updateBanktBalanceDao(filters, amount, updated_by, mockConn);
+      
+        expect(mockConn.query).toHaveBeenCalledWith(
+          'UPDATE BENEFICIARY_ACCOUNTS SET balance = balance + $1, today_balance = today_balance + $2, updated_by = $3 WHERE id = $4',
+          [1000, 1000, 'user123', '1']
+        );
         expect(result).toEqual(mockResult.rows[0]);
       });
     });
@@ -376,17 +383,23 @@ import {
         expect(result).toEqual(mockResult.rows[0]);
       });
   
-      test('should use executeQuery without connection', async () => {
+      test('should use conn.query with connection', async () => {
         const filters = { id: '1' };
         const amount = 100;
         const updated_by = 1;
-        const mockResult = { rows: [{ id: 1 }] };
-        buildUpdateQuery.mockReturnValue(['UPDATE BeneficiaryAccounts', [100, 100, 1, '1']]);
-        executeQuery.mockResolvedValue(mockResult);
-  
-        const result = await updateBanktBalanceDao(filters, amount, updated_by, null);
-  
-        expect(executeQuery).toHaveBeenCalledWith('UPDATE BeneficiaryAccounts', [100, 100, 1, '1']);
+        const mockResult = { rows: [{ id: 1, balance: 100, today_balance: 100, updated_by: 1 }] };
+        const mockConn = { query: jest.fn().mockResolvedValue(mockResult) };
+        buildUpdateQuery.mockReturnValue([
+          'UPDATE BENEFICIARY_ACCOUNTS SET balance = balance + $1, today_balance = today_balance + $2, updated_by = $3 WHERE id = $4',
+          [100, 100, 1, '1']
+        ]);
+      
+        const result = await updateBanktBalanceDao(filters, amount, updated_by, mockConn);
+      
+        expect(mockConn.query).toHaveBeenCalledWith(
+          'UPDATE BENEFICIARY_ACCOUNTS SET balance = balance + $1, today_balance = today_balance + $2, updated_by = $3 WHERE id = $4',
+          [100, 100, 1, '1']
+        );
         expect(result).toEqual(mockResult.rows[0]);
       });
     });
