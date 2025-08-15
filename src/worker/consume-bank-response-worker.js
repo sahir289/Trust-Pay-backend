@@ -2,8 +2,9 @@ import { connectRabbitMQ } from '../utils/rabbitmq.js';
 import { getRabbitChannel } from '../utils/rabbitmq.js';
 import config from '../config/config.js';
 import { createBankResponseService } from '../apis/bankResponse/bankResponseServices.js';
+import { logger } from '../utils/logger.js';
 
-(async () => {
+export async function startBankResponseWorker() {
   await connectRabbitMQ();
   const channel = getRabbitChannel();
   const queue = config.rabbitmq.bankResponseQueue;
@@ -26,9 +27,10 @@ import { createBankResponseService } from '../apis/bankResponse/bankResponseServ
       );
       channel.ack(msg);
       console.log('[Worker] Processed bank response:', data);
+      logger.info('[Worker] Bank response processed successfully:', data);
     } catch (err) {
       channel.nack(msg, false, false);
-      console.error('[Worker] Error processing bank response:', err);
+      logger.error('[Worker] Error processing bank response:', err);
     }
   }
-})();
+}
