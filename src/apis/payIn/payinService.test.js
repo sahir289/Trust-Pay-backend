@@ -369,9 +369,12 @@ describe('assignedBankToPayInUrlService', () => {
     getPayInUrlDao.mockResolvedValue(mockPayIn);
     getMerchantsDao.mockResolvedValue([{ ...mockMerchant, min_payin: 5000, max_payin: 10000 }]);
 
-    await expect(assignedBankToPayInUrlService('123', 1000, 'BANK_TRANSFER')).resolves.toEqual({
+    await expect(
+      assignedBankToPayInUrlService('123', 1000, 'BANK_TRANSFER', 'MERCHANT')  
+    ).resolves.toEqual({
       message: 'Amount must be between 5000 and 10000',
     });
+    
   });
 
   test('should throw error when no enabled banks found', async () => {
@@ -703,6 +706,10 @@ describe('generatePayInUrlByHashService', () => {
       user_id: '123',
       code: 'MERCH1',
     };
+    mockReq.user = {
+      role_id: '123',
+      role: 'ADMIN',
+    };
 
     const result = await payInService.generatePayInUrlByHashService(mockConn, mockReq);
 
@@ -714,6 +721,10 @@ describe('generatePayInUrlByHashService', () => {
 
   test('should return 404 and send telegram alert if no bank assigned', async () => {
     mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y' };
+    mockReq.user = {
+      role_id: '123',
+      role: 'ADMIN',
+    };
     getMerchantsByCodeDao.mockResolvedValue([{ id: '1234567544346578766', company_id: 100, user_id: '123' }]);
     getCompanyByIDDao.mockResolvedValue([{ config: { telegramBankAlertChatId: 'chat123', telegramBotToken: 'token123' } }]);
     getMerchantBankDao.mockResolvedValue([]);
@@ -732,6 +743,10 @@ describe('generatePayInUrlByHashService', () => {
 
   test('should return 404 and send telegram alert if all banks are disabled', async () => {
     mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y' };
+    mockReq.user = {
+      role_id: '123',
+      role: 'ADMIN',
+    };
     getMerchantsByCodeDao.mockResolvedValue([{ id: '1234567544346578766', company_id: 100, user_id: '123' }]);
     getCompanyByIDDao.mockResolvedValue([{ config: { telegramBankAlertChatId: 'chat123', telegramBotToken: 'token123' } }]);
     getMerchantBankDao.mockResolvedValue([{ is_enabled: false }]);
@@ -747,6 +762,10 @@ describe('generatePayInUrlByHashService', () => {
 
   test('should return 404 if all payment options are disabled', async () => {
     mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y' };
+    mockReq.user = {
+      role_id: '123',
+      role: 'ADMIN',
+    };
     getMerchantsByCodeDao.mockResolvedValue([{ id: '1234567544346578766', company_id: 100, user_id: '123' }]);
     getCompanyByIDDao.mockResolvedValue([{ config: { telegramBankAlertChatId: 'chat123', telegramBotToken: 'token123' } }]);
     getMerchantBankDao.mockResolvedValue([
@@ -763,6 +782,10 @@ describe('generatePayInUrlByHashService', () => {
 
   test('should generate payInUrl with query parameters including amount', async () => {
     process.env.REACT_PAYMENT_ORIGIN = 'http://localhost:5174';
+    mockReq.user = {
+      role_id: '123',
+      role: 'ADMIN',
+    };
     mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y', key: 'key123', amount: '1000' };
     getMerchantsByCodeDao.mockResolvedValue([{ id: '1234567544346578766', company_id: 100, user_id: '123' }]);
     getCompanyByIDDao.mockResolvedValue([{ config: { telegramBankAlertChatId: 'chat123', telegramBotToken: 'token123' } }]);
@@ -773,12 +796,16 @@ describe('generatePayInUrlByHashService', () => {
 
     const result = await payInService.generatePayInUrlByHashService(mockConn, mockReq);
     expect(result).toEqual({
-      payInUrl: `http://localhost:5174/transaction/b23366d457dc6e5cabda35d9fce6cc449eff5a47a98e36bc37486c55197632fd?user_id=123&code=MERCH1&ot=y&key=key123&amount=1000`,
+      payInUrl: `http://localhost:5174/transaction/b23366d457dc6e5cabda35d9fce6cc449eff5a47a98e36bc37486c55197632fd?user_id=123&code=MERCH1&ot=y&key=key123&amount=1000&token=123`,
     });
   });
 
   test('should generate payInUrl without amount in query parameters', async () => {
     mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y', key: 'key123' };
+    mockReq.user = {
+      role_id: '123',
+      role: 'ADMIN',
+    };
     getMerchantsByCodeDao.mockResolvedValue([{ id: '1234567544346578766', company_id: 100, user_id: '123' }]);
     getCompanyByIDDao.mockResolvedValue([{ config: { telegramBankAlertChatId: 'chat123', telegramBotToken: 'token123' } }]);
     getMerchantBankDao.mockResolvedValue([{ is_enabled: true, config: { is_phonepay: true }, is_qr: true, is_bank: true }]);
@@ -787,12 +814,16 @@ describe('generatePayInUrlByHashService', () => {
 
     const result = await payInService.generatePayInUrlByHashService(mockConn, mockReq);
     expect(result).toEqual({
-      payInUrl: 'http://localhost:5174/transaction/b23366d457dc6e5cabda35d9fce6cc449eff5a47a98e36bc37486c55197632fd?user_id=123&code=MERCH1&ot=y&key=key123',
+      payInUrl: 'http://localhost:5174/transaction/b23366d457dc6e5cabda35d9fce6cc449eff5a47a98e36bc37486c55197632fd?user_id=123&code=MERCH1&ot=y&key=key123&token=123',
     });
   });
 
   test('if bank config is undefined', async () => {
     mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y' };
+    mockReq.user = {
+      role_id: '123',
+      role: 'ADMIN',
+    };
     getMerchantsByCodeDao.mockResolvedValue([{ id: '1234567544346578766', company_id: 100, user_id: '123' }]);
     getCompanyByIDDao.mockResolvedValue([{ config: { telegramBankAlertChatId: 'chat123', telegramBotToken: 'token123' } }]);
     getMerchantBankDao.mockResolvedValue([
@@ -813,6 +844,10 @@ describe('generatePayInUrlByHashService', () => {
 
   test('if disabled banks and no payment methods enabled', async () => {
     mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y', key: 'test-api-key' };
+    mockReq.user = {
+      role_id: '123',
+      role: 'ADMIN',
+    };
     getMerchantsByCodeDao.mockResolvedValue([{ id: '1234567544346578766', company_id: 100, user_id: '123' }]);
     getCompanyByIDDao.mockResolvedValue([{ config: { telegramBankAlertChatId: 'chat123', telegramBotToken: 'token123' } }]);
     getMerchantBankDao.mockResolvedValue([]);
@@ -831,6 +866,10 @@ describe('generatePayInUrlByHashService', () => {
 
   test('if bank is enabled but no payment methods found', async () => {
     mockReq.query = { user_id: '123', code: 'MERCH1', ot: 'y' };
+    mockReq.user = {
+      role_id: '123',
+      role: 'ADMIN',
+    };
     getMerchantsByCodeDao.mockResolvedValue([{ id: '1234567544346578766', company_id: 100, user_id: '123' }]);
     getCompanyByIDDao.mockResolvedValue([{ config: { telegramBankAlertChatId: 'chat123', telegramBotToken: 'token123' } }]);
     getMerchantBankDao.mockResolvedValue([
