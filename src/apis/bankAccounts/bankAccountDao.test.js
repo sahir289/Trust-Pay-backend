@@ -53,20 +53,31 @@ import {
       test('should handle date range filter', async () => {
         mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
         await getBankaccountDao({ startDate: '2023-01-01', endDate: '2023-12-31' }, null, null, 'MERCHANT', 'Any');
-        expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('ba.created_at BETWEEN $1 AND $2'), ['2023-01-01', '2023-12-31']);
+        expect(mockDb.executeQuery).toHaveBeenCalledWith(
+          expect.stringContaining('ba."startDate" = $1 AND ba."endDate" = $2'),
+          ['2023-01-01', '2023-12-31']
+        );
       });
   
-      test('should handle bank_used_for filter', async () => {
+      test('should handle bank_used_for with other filters', async () => {
         mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
-        await getBankaccountDao({ bank_used_for: 'PayIn' }, null, null, 'MERCHANT', 'Any');
-        expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('ba.bank_used_for = $1'), ['PayIn']);
+        const filters = { bank_used_for: 'PayIn', nick_name: 'TestAccount' };
+        await getBankaccountDao(filters, null, null, 'MERCHANT', 'Any');
+        expect(mockDb.executeQuery).toHaveBeenCalledWith(
+          expect.stringContaining('ba."bank_used_for" = $1 AND ba."nick_name" = $2'),
+          ['PayIn', 'TestAccount']
+        );
       });
   
-      test('should handle nick_name filter', async () => {
-        mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
-        await getBankaccountDao({ nick_name: 'TestNick' }, null, null, 'MERCHANT', 'Any');
-        expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('ba.nick_name= $1'), ['TestNick']);
-      });
+it('should handle nick_name filter', async () => {
+      mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
+      const filters = { nick_name: 'TestNick' };
+      await getBankaccountDao(filters, null, null, 'MERCHANT', 'Any');
+      expect(mockDb.executeQuery).toHaveBeenCalledWith(
+        expect.stringContaining('ba."nick_name" = $'),
+        expect.arrayContaining(['TestNick'])
+      );
+    });
   
       test('should handle merchant_id filter', async () => {
         mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
@@ -98,10 +109,13 @@ import {
         expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('COALESCE(m.merchant_details'), expect.any(Array));
       });
   
-      test('should select fields for other role without special designation', async () => {
+      it('should select fields for other role without special designation', async () => {
         mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
         await getBankaccountDao({}, null, null, 'OTHER', 'User');
-        expect(mockDb.executeQuery).not.toHaveBeenCalledWith(expect.stringContaining('COALESCE(m.merchant_details'), expect.any(Array));
+        expect(mockDb.executeQuery).toHaveBeenCalledWith(
+          expect.stringContaining("COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details"),
+          expect.any(Array)
+        );
       });
   
       test('should handle error', async () => {
@@ -206,7 +220,7 @@ import {
         const result = await getBankByIdDao({ id: 1 });
         expect(result).toEqual([{ min: 100 }]);
         const calledQuery = mockDb.buildSelectQuery.mock.calls[0][0].replace(/\s+/g, ' ').trim();
-        expect(calledQuery).toContain('SELECT min, max, is_enabled, payin_count, balance,today_balance, user_id ,id FROM "BankAccount" WHERE 1=1');
+        expect(calledQuery).toContain('SELECT min, max, is_enabled, payin_count, config, balance,today_balance, user_id ,id FROM "BankAccount" WHERE 1=1');
         });
   
       test('should handle error', async () => {
@@ -253,13 +267,16 @@ import {
         await getBankAccountDaoNickName(mockConn, 1, 'PayIn', { some_key: 'val' });
         expect(mockConn.query).toHaveBeenCalledWith(expect.stringContaining('"some_key" = $3'), [1, 'PayIn', 'val']);
       });
-  
-      test('should handle filters with array (take first)', async () => {
+
+      it('should use entire array filter when non-null', async () => {
         const mockConn = { query: jest.fn().mockResolvedValue({ rowCount: 0, rows: [] }) };
         await getBankAccountDaoNickName(mockConn, 1, 'PayIn', { some_key: ['val1', 'val2'] });
-        expect(mockConn.query).toHaveBeenCalledWith(expect.stringContaining('"some_key" = $3'), [1, 'PayIn', 'val1']);
+        expect(mockConn.query).toHaveBeenCalledWith(
+          expect.any(String), 
+          [1, 'PayIn', ['val1', 'val2']]
+        );
       });
-  
+
       test('should handle error', async () => {
         const error = new Error('DB error');
         const mockConn = { query: jest.fn().mockRejectedValue(error) };

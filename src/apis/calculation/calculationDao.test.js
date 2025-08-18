@@ -37,6 +37,8 @@ jest.mock('../../utils/db.js', () => ({
   getConnection: jest.fn(),
 }));
 
+const IST = 'Asia/Kolkata';
+
 jest.mock('../userHierarchy/userHierarchyDao', () => ({
   getUserHierarchysDao: jest.fn(),
 }));
@@ -255,12 +257,12 @@ describe('Calculation DAO', () => {
       executeQuery.mockResolvedValue({ rows: [{ count: '1' }] });
     
       const result = await checkTodayCalculationExistsDao();
-    
+      const today = dayjs().tz(IST).format('YYYY-MM-DD');
       expect(executeQuery).toHaveBeenCalledWith(
         expect.stringMatching(
           /^\s*SELECT\s*COUNT\(\*\)\s*as\s*count\s*FROM\s*public\."Calculation"\s*WHERE\s*is_obsolete\s*=\s*false\s*AND\s*DATE\(created_at\)\s*=\s*\$1\s*LIMIT\s*1\s*$/i
         ),
-        ['2025-08-15']
+        [today]
       );
       expect(result).toBe(true);
     });
