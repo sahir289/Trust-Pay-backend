@@ -93,9 +93,10 @@ const getBankResponseBySearchDao = async (
       bankDetails = await getBankaccountDao({ id: bankId }, null, null);
     }
 
+    // Use DISTINCT ON to avoid duplicate rows for same BankResponse.id
     const selectCols = columns.length
-      ? columns.map((col) => `"BankResponse".${col}`).join(', ')
-      : [
+      ? `DISTINCT ON ("BankResponse".id) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
+      : `DISTINCT ON ("BankResponse".id) ` + [
           `"BankResponse".*`,
           `"BankAccount".user_id`,
           `"BankAccount".nick_name`,
@@ -317,7 +318,9 @@ const getBankResponseBySearchDao = async (
       ? sortBy
       : 'created_at';
     const safeSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    queryText += ` ORDER BY "BankResponse"."${safeSortBy}" ${safeSortOrder}`;
+
+    // Always order by id first for DISTINCT ON
+    queryText += ` ORDER BY "BankResponse"."id", "BankResponse"."${safeSortBy}" ${safeSortOrder}`;
 
     const offset = (page - 1) * pageSize;
     queryText += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
@@ -559,9 +562,10 @@ const getBankResponseDaoAll = async (
       bankId = filters?.bank_id;
       bankDetails = await getBankaccountDao({ id: bankId }, null, null);
     }
+    // Use DISTINCT ON to avoid duplicate rows for same BankResponse.id
     const selectCols = columns.length
-      ? columns.map((col) => `"BankResponse".${col}`).join(', ')
-      : [
+      ? `DISTINCT ON ("BankResponse".id) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
+      : `DISTINCT ON ("BankResponse".id) ` + [
           `"BankResponse".*`,
           `"BankAccount".user_id`,
           `"BankAccount".nick_name`,
@@ -743,11 +747,26 @@ const getBankResponseDaoAll = async (
         ? baseQueryDate
         : baseQuery;
 
+    const validSortColumns = [
+      'created_at',
+      'updated_at',
+      'id',
+      'bank_id',
+      'company_id',
+      'status',
+      'amount',
+      'sno',
+    ];
+    const safeSortBy = validSortColumns.includes(sortBy)
+      ? sortBy
+      : 'created_at';
+    const safeSortOrder = sortOrder && sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
     let result;
     if (filters.userId && filters.userId.length > 0) {
       result = await executeQuery(baseQueryVendor, values);
     } else {
-      const [query, finalQueryValues] = buildSelectQuery(
+      let [query, finalQueryValues] = buildSelectQuery(
         queryIs,
         filters,
         page,
@@ -755,6 +774,11 @@ const getBankResponseDaoAll = async (
         sortBy,
         sortOrder,
         'BankResponse',
+      );
+      // --- Fix: Always replace ORDER BY for DISTINCT ON ---
+      query = query.replace(
+        /ORDER BY[\s\S]+?(?=LIMIT|OFFSET|$)/i,
+        `ORDER BY "BankResponse"."id", "BankResponse"."${safeSortBy}" ${safeSortOrder} `
       );
       result = await executeQuery(query, finalQueryValues);
     }
