@@ -296,7 +296,7 @@ export const validatePayInUrl = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const user_location = req.user_location;
-  // req.ip || req.headers['x-forwarded-for'];
+  // req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
   const result = await verifyPayinsService(
     merchantOrderId,
     user_location,
