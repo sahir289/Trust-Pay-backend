@@ -1295,6 +1295,7 @@ export const getPayinsBySearchService = async (
       limitNum,
       offset,
       role,
+      designation,
       updatedPayin,
       // filterColumns,
     );
