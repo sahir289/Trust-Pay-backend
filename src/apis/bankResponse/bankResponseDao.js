@@ -93,10 +93,10 @@ const getBankResponseBySearchDao = async (
       bankDetails = await getBankaccountDao({ id: bankId }, null, null);
     }
 
-    // Use DISTINCT ON to avoid duplicate rows for same BankResponse.id
+    // Use DISTINCT ON to avoid duplicate rows for same BankResponse.sno
     const selectCols = columns.length
-      ? `DISTINCT ON ("BankResponse".id) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
-      : `DISTINCT ON ("BankResponse".id) ` + [
+      ? `DISTINCT ON ("BankResponse".sno) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
+      : `DISTINCT ON ("BankResponse".sno) ` + [
           `"BankResponse".*`,
           `"BankAccount".user_id`,
           `"BankAccount".nick_name`,
@@ -319,8 +319,8 @@ const getBankResponseBySearchDao = async (
       : 'created_at';
     const safeSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-    // Always order by id first for DISTINCT ON
-    queryText += ` ORDER BY "BankResponse"."id", "BankResponse"."${safeSortBy}" ${safeSortOrder}`;
+    // Always order by sno first for DISTINCT ON, then by created_at DESC for latest entry
+    queryText += ` ORDER BY "BankResponse"."sno" DESC, "BankResponse"."${safeSortBy}" ${safeSortOrder}`;
 
     const offset = (page - 1) * pageSize;
     queryText += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
@@ -562,10 +562,10 @@ const getBankResponseDaoAll = async (
       bankId = filters?.bank_id;
       bankDetails = await getBankaccountDao({ id: bankId }, null, null);
     }
-    // Use DISTINCT ON to avoid duplicate rows for same BankResponse.id
+    // Use DISTINCT ON to avoid duplicate rows for same BankResponse.sno
     const selectCols = columns.length
-      ? `DISTINCT ON ("BankResponse".id) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
-      : `DISTINCT ON ("BankResponse".id) ` + [
+      ? `DISTINCT ON ("BankResponse".sno) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
+      : `DISTINCT ON ("BankResponse".sno) ` + [
           `"BankResponse".*`,
           `"BankAccount".user_id`,
           `"BankAccount".nick_name`,
@@ -775,10 +775,10 @@ const getBankResponseDaoAll = async (
         sortOrder,
         'BankResponse',
       );
-      // --- Fix: Always replace ORDER BY for DISTINCT ON ---
+      // --- Use sno for DISTINCT ON and order ---
       query = query.replace(
         /ORDER BY[\s\S]+?(?=LIMIT|OFFSET|$)/i,
-        `ORDER BY "BankResponse"."id", "BankResponse"."${safeSortBy}" ${safeSortOrder} `
+        `ORDER BY "BankResponse"."sno" DESC, "BankResponse"."${safeSortBy}" ${safeSortOrder} `
       );
       result = await executeQuery(query, finalQueryValues);
     }
