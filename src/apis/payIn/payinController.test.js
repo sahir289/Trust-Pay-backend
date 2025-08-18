@@ -33,20 +33,26 @@ jest.mock('../../utils/sendTelegramMessages.js', () => ({
 }));
 jest.mock('../../utils/db.js', () => ({
   transactionWrapper: jest.fn((fn) => fn),
+  executeQuery: jest.fn().mockResolvedValue({ rows: [] }),
 }));
-
+jest.mock('../roles/rolesDao.js', () => ({
+  getRolesById: jest.fn(), 
+}));
+const TestingIp = '192.168.1.1';
 describe('PayIn Controller', () => {
   let req, res;
 
   beforeEach(() => {
     req = {
       params: {},
-      query: {},
-      body: {},
-      headers: {},
-      file: undefined,
-      user: { user_id: 'user123', company_id: 'comp123', user_name: 'testuser' },
-      user_location: '127.0.0.1',
+    query: {},
+    body: {},
+    headers: {},
+    file: undefined,
+    user: { user_id: 'user123', company_id: 'comp123', user_name: 'testuser' },
+    user_location: '127.0.0.1',
+    connection: { remoteAddress: '127.0.0.1' }, 
+    ip: '127.0.0.1',
     };
     res = {
       status: jest.fn().mockReturnThis(),
@@ -132,6 +138,7 @@ describe('PayIn Controller', () => {
     it('should return error if API key is missing', async () => {
       req.query = { code: 'code123' };
       req.headers = {};
+      req.connection.remoteAddress = '127.0.0.1';
 
       await generatePayInUrl(req, res);
 
@@ -144,6 +151,7 @@ describe('PayIn Controller', () => {
 
     it('should return error if merchant is invalid', async () => {
       req.query = { code: 'code123', key: 'key123' };
+      req.connection.remoteAddress = '127.0.0.1';
       const { getMerchantByCodeAndApiKey } = require('../merchants/merchantDao.js');
       getMerchantByCodeAndApiKey.mockResolvedValue(null);
 
@@ -165,6 +173,7 @@ describe('PayIn Controller', () => {
         merchant_order_id: 'order123',
         hash_code: 'validhash',
       };
+      req.connection.remoteAddress = '127.0.0.1';
       const { getMerchantBankDao } = require('../bankAccounts/bankaccountDao.js');
       getMerchantBankDao.mockResolvedValue([]);
       const { sendBankNotAssignedAlertTelegram } = require('../../utils/sendTelegramMessages.js');
@@ -184,9 +193,96 @@ describe('PayIn Controller', () => {
       );
     });
 
+    it('should return error if all banks are disabled', async () => {
+      req.query = {
+        code: 'code123',
+        key: 'key123',
+        amount: '100',
+        currency: 'USD',
+        merchant_order_id: 'order123',
+        hash_code: 'validhash',
+      };
+      req.connection.remoteAddress = '127.0.0.1';
+      const { getMerchantBankDao } = require('../bankAccounts/bankaccountDao.js');
+      getMerchantBankDao.mockResolvedValue([
+        { is_enabled: false, config: { is_phonepay: false } },
+      ]);
+
+      await generatePayInUrl(req, res);
+
+      expect(responseHandlers.sendError).toHaveBeenCalledWith(
+        res,
+        'No Payment Methods Enabled!',
+        404,
+      );
+    });
+
+    it('should return error if all payment options are disabled', async () => {
+      req.query = {
+        code: 'code123',
+        key: 'key123',
+        amount: '100',
+        currency: 'USD',
+        merchant_order_id: 'order123',
+        hash_code: 'validhash',
+      };
+      req.connection.remoteAddress = '127.0.0.1';
+      const { getMerchantBankDao } = require('../bankAccounts/bankaccountDao.js');
+      getMerchantBankDao.mockResolvedValue([
+        { is_enabled: true, config: { is_phonepay: false }, is_qr: false, is_bank: false },
+      ]);
+      const { sendBankNotAssignedAlertTelegram } = require('../../utils/sendTelegramMessages.js');
+      sendBankNotAssignedAlertTelegram.mockResolvedValue();
+
+      await generatePayInUrl(req, res);
+
+      expect(responseHandlers.sendError).toHaveBeenCalledWith(
+        res,
+        'Bank Account has not been linked with Merchant',
+        404,
+      );
+      expect(sendBankNotAssignedAlertTelegram).toHaveBeenCalledWith(
+        'chatid',
+        'code123',
+        'token',
+      );
+    });
+
+    it('should replace ::1 with TestingIp', async () => {
+      req.query = { code: 'validCode', key: 'validApiKey', fromUi: false };
+      req.headers = { 'x-api-key': 'validApiKey', authorization: 'validToken' };
+      req.connection.remoteAddress = '::1';
+      req.ip = '::1';
+    
+      const TestingIp = '49.128.161.134'; 
+      await generatePayInUrl(req, res);
+    
+      expect(payInService.generatePayInUrlService).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'validCode',
+          api_key: 'validApiKey',
+        }),
+        'user123',
+        null, // role
+        TestingIp, // userIp should be TestingIp ('192.168.1.1')
+        false, // fromUi
+      );
+      expect(responseHandlers.sendNewSuccess).toHaveBeenCalledWith(
+        res,
+        expect.objectContaining({
+          payInUrl: expect.stringContaining('hashedcode'),
+          payinId: 'payin123',
+          merchantOrderId: 'order123',
+          status: 200,
+        }),
+        'PayIn is generated & url is sent successfully',
+      );
+    });
+
     it('should return success with generated payin url', async () => {
       req.query = { code: 'validCode', key: 'validApiKey', fromUi: false };
       req.headers = { 'x-api-key': 'validApiKey', authorization: 'validToken' };
+      req.connection.remoteAddress = '127.0.0.1';
       req.ip = '127.0.0.1';
 
       await generatePayInUrl(req, res);
@@ -203,9 +299,30 @@ describe('PayIn Controller', () => {
       );
     });
 
+    it('should return success with isTest query parameter', async () => {
+      req.query = { code: 'validCode', key: 'validApiKey', fromUi: false, isTest: 'true' };
+      req.headers = { 'x-api-key': 'validApiKey', authorization: 'validToken' };
+      req.connection.remoteAddress = '127.0.0.1';
+      req.ip = '127.0.0.1';
+
+      await generatePayInUrl(req, res);
+
+      expect(responseHandlers.sendNewSuccess).toHaveBeenCalledWith(
+        res,
+        expect.objectContaining({
+          payInUrl: expect.stringContaining('?t=true&order=order123'),
+          payinId: 'payin123',
+          merchantOrderId: 'order123',
+          status: 200,
+        }),
+        'PayIn is generated & url is sent successfully',
+      );
+    });
+
     it('should return error if hash code does not match', async () => {
       req.query = { code: 'validCode', key: 'validApiKey', hash_code: 'invalidHash' };
       req.headers = { 'x-api-key': 'validApiKey' };
+      req.connection.remoteAddress = '127.0.0.1';
       compareHash.mockReturnValue(false);
 
       await generatePayInUrl(req, res);
@@ -215,6 +332,28 @@ describe('PayIn Controller', () => {
         'Hash code does not match',
         400,
       );
+    });
+
+    it('should use role from roleToken if provided', async () => {
+      req.query = { code: 'validCode', key: 'validApiKey', roleToken: 'roleToken123', fromUi: false };
+      req.headers = { 'x-api-key': 'validApiKey', authorization: 'validToken' };
+      req.connection.remoteAddress = '127.0.0.1';
+      req.ip = '127.0.0.1';
+      
+      const { getRolesById } = require('../roles/rolesDao.js');
+      getRolesById.mockResolvedValue({ role: 'admin' });
+    
+      await generatePayInUrl(req, res);
+    
+      expect(getRolesById).toHaveBeenCalledWith('roleToken123');
+      expect(payInService.generatePayInUrlService).toHaveBeenCalledWith(
+        expect.any(Object),
+        'user123',
+        'admin', // Role from roleToken
+        '127.0.0.1',
+        false,
+      );
+      expect(responseHandlers.sendNewSuccess).toHaveBeenCalled();
     });
   });
 
