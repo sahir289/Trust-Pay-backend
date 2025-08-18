@@ -81,7 +81,7 @@ export const generateHashForPayIn = async (req, res) => {
 export const generatePayInUrl = async (req, res) => {
   const payload = req.query;
   let userIp =
-    req.headers['x-forwarded-for'] || req.ip;
+  req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
   if (userIp == '::1') {
     userIp = TestingIp;
   }
