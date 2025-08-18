@@ -38,7 +38,6 @@ jest.mock('../../utils/db.js', () => ({
 jest.mock('../roles/rolesDao.js', () => ({
   getRolesById: jest.fn(), 
 }));
-const TestingIp = '192.168.1.1';
 describe('PayIn Controller', () => {
   let req, res;
 
