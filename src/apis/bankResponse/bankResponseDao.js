@@ -747,20 +747,20 @@ const getBankResponseDaoAll = async (
         ? baseQueryDate
         : baseQuery;
 
-    const validSortColumns = [
-      'created_at',
-      'updated_at',
-      'id',
-      'bank_id',
-      'company_id',
-      'status',
-      'amount',
-      'sno',
-    ];
-    const safeSortBy = validSortColumns.includes(sortBy)
-      ? sortBy
-      : 'created_at';
-    const safeSortOrder = sortOrder && sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    // const validSortColumns = [
+    //   'created_at',
+    //   'updated_at',
+    //   'id',
+    //   'bank_id',
+    //   'company_id',
+    //   'status',
+    //   'amount',
+    //   'sno',
+    // ];
+    // const safeSortBy = validSortColumns.includes(sortBy)
+    //   ? sortBy
+    //   : 'created_at';
+    // const safeSortOrder = sortOrder && sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
     let result;
     if (filters.userId && filters.userId.length > 0) {
@@ -778,7 +778,7 @@ const getBankResponseDaoAll = async (
       // --- Use sno for DISTINCT ON and order ---
       query = query.replace(
         /ORDER BY[\s\S]+?(?=LIMIT|OFFSET|$)/i,
-        `ORDER BY "BankResponse"."sno" DESC, "BankResponse"."${safeSortBy}" ${safeSortOrder} `
+        `ORDER BY "BankResponse"."sno" DESC`
       );
       result = await executeQuery(query, finalQueryValues);
     }
