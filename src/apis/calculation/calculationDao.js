@@ -575,8 +575,18 @@ export const getCalculationsSumDao = async (filters) => {
         }
       }
 
-      merchantTotalQuery += ` AND c.company_id = '${company_id}'`;
-      vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
+      if (company_id) {
+        // Handle comma-separated company IDs
+        const companyIds = company_id.split(',').map(id => id.trim()).filter(id => id);
+        if (companyIds.length === 1) {
+          merchantTotalQuery += ` AND c.company_id = '${companyIds[0]}'`;
+          vendorTotalQuery += ` AND c.company_id = '${companyIds[0]}'`;
+        } else if (companyIds.length > 1) {
+          const companyIdsList = companyIds.map(id => `'${id}'`).join(',');
+          merchantTotalQuery += ` AND c.company_id IN (${companyIdsList})`;
+          vendorTotalQuery += ` AND c.company_id IN (${companyIdsList})`;
+        }
+      }
     }
 
     // Execute queries based on role
