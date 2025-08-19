@@ -7,6 +7,7 @@ import {
   updateCalculation,
   deleteCalculation,
   calculateSuccessRatios,
+  updateCalculations,
 } from './calculationController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -259,6 +260,66 @@ router.delete(
   '/delete-calculation/:id',
   [isAuthenticated, authorized(AccessRoles.CALCULATION)],
   tryCatchHandler(deleteCalculation),
+);
+
+/**
+ * @swagger
+ * /calculations/update-calculation:
+ *   put:
+ *     summary: Update calculations for specific dates and user IDs
+ *     tags: [Calculations]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               date:
+ *                 type: string
+ *                 format: date
+ *                 description: The date for which calculations need to be updated
+ *               user_ids:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 description: Array of user IDs for which calculations need to be updated
+ *               startDate:
+ *                 type: string
+ *                 format: date
+ *                 description: Optional start date for date range calculations
+ *               endDate:
+ *                 type: string
+ *                 format: date
+ *                 description: Optional end date for date range calculations
+ *     responses:
+ *       200:
+ *         description: Calculations updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     updated_count:
+ *                       type: integer
+ *                     processed_users:
+ *                       type: array
+ *                       items:
+ *                         type: integer
+ *       400:
+ *         description: Bad request (validation error)
+ *       500:
+ *         description: Internal server error
+ */
+router.put(
+  '/update-calculation',
+  [isAuthenticated, authorized(AccessRoles.CALCULATION)],
+  tryCatchHandler(updateCalculations),
 );
 
 export default router;

@@ -7,7 +7,7 @@ import {
   buildAndExecuteUpdateQuery,
   buildJoinQuery,
 } from '../../utils/db.js';
-import { Role, tableName } from '../../constants/index.js';
+import { Role, Status, tableName } from '../../constants/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { NotFoundError } from '../../utils/appErrors.js';
 import dayjs from 'dayjs';
@@ -741,6 +741,316 @@ export const updateCalculationBalanceDao = async (filters, data, conn) => {
   }
 };
 
+// Helper function to calculate payin data for a user and date range
+const calculatePayinDataDao = async (user_id, company_id, startDate, endDate, additionalPayinData = null) => {
+  try {
+    const query = `
+      SELECT 
+        status,
+        COUNT(*) as count,
+        COALESCE(SUM(amount), 0) as total_amount,
+        COALESCE(SUM(merchant_commission), 0) as total_commission
+      FROM "${tableName.PAYIN}"
+      WHERE user_id = $1 
+        AND company_id = $2
+        AND is_obsolete = false
+        AND created_at BETWEEN $3 AND $4
+      GROUP BY status
+    `;
+    
+    const result = await executeQuery(query, [user_id, company_id, startDate, endDate]);
+    
+    const payinData = {
+      total_payin_count: 0,
+      total_payin_amount: 0,
+      total_payin_commission: 0,
+    };
+    
+    result.rows.forEach(row => {
+      if (row.status === Status.SUCCESS) {
+        payinData.total_payin_count = parseInt(row.count);
+        payinData.total_payin_amount = parseFloat(row.total_amount);
+        payinData.total_payin_commission = parseFloat(row.total_commission);
+      }
+    });
+    
+    // Add reversed internal settlements to payin data
+    if (additionalPayinData && additionalPayinData.count > 0) {
+      payinData.total_payin_count += additionalPayinData.count;
+      payinData.total_payin_amount += additionalPayinData.amount;
+      payinData.total_payin_commission += additionalPayinData.commission;
+    }
+    
+    return payinData;
+  } catch (error) {
+    logger.error('Error calculating payin data:', error);
+    throw error;
+  }
+};
+
+// Helper function to calculate payout data for a user and date range
+const calculatePayoutDataDao = async (user_id, company_id, startDate, endDate) => {
+  try {
+    const query = `
+      SELECT 
+        status,
+        COUNT(*) as count,
+        COALESCE(SUM(amount), 0) as total_amount,
+        COALESCE(SUM(vendor_commission), 0) as total_commission
+      FROM "${tableName.PAYOUT}"
+      WHERE user_id = $1 
+        AND company_id = $2
+        AND is_obsolete = false
+        AND created_at BETWEEN $3 AND $4
+      GROUP BY status
+    `;
+    
+    const result = await executeQuery(query, [user_id, company_id, startDate, endDate]);
+    
+    const payoutData = {
+      total_payout_count: 0,
+      total_payout_amount: 0,
+      total_payout_commission: 0,
+      total_reverse_payout_count: 0,
+      total_reverse_payout_amount: 0,
+      total_reverse_payout_commission: 0,
+    };
+    
+    result.rows.forEach(row => {
+      if (row.status === Status.SUCCESS) {
+        payoutData.total_payout_count = parseInt(row.count);
+        payoutData.total_payout_amount = parseFloat(row.total_amount);
+        payoutData.total_payout_commission = parseFloat(row.total_commission);
+      }
+      // Handle reverse payouts (status might be REVERSED or similar)
+      if (row.status === Status.REVERSED) {
+        payoutData.total_reverse_payout_count += parseInt(row.count);
+        payoutData.total_reverse_payout_amount += parseFloat(row.total_amount);
+        payoutData.total_reverse_payout_commission += parseFloat(row.total_commission);
+      }
+    });
+    
+    return payoutData;
+  } catch (error) {
+    logger.error('Error calculating payout data:', error);
+    throw error;
+  }
+};
+
+// Helper function to calculate settlement data for a user and date range
+const calculateSettlementDataDao = async (user_id, company_id, startDate, endDate) => {
+  try {
+    const query = `
+      SELECT 
+        status,
+        method,
+        COUNT(*) as count,
+        COALESCE(SUM(amount), 0) as total_amount,
+        COALESCE(SUM(commission), 0) as total_commission
+      FROM "${tableName.SETTLEMENT}"
+      WHERE user_id = $1 
+        AND company_id = $2
+        AND is_obsolete = false
+        AND created_at BETWEEN $3 AND $4
+      GROUP BY status, method
+    `;
+    
+    const result = await executeQuery(query, [user_id, company_id, startDate, endDate]);
+    
+    const settlementData = {
+      total_settlement_count: 0,
+      total_settlement_amount: 0,
+      total_settlement_commission: 0,
+      // Track reversed internal settlements to be added to payin
+      reversed_internal_settlements: {
+        count: 0,
+        amount: 0,
+        commission: 0
+      },
+      settlement_details: {
+        total_bankSettlement_amount: 0,
+        total_aedSentSettlement_amount: 0,
+        total_bankSentSettlement_amount: 0,
+        total_cashSentSettlement_amount: 0,
+        total_internalSettlement_amount: 0,
+        total_aedReceivedSettlement_amount: 0,
+        total_bankReceivedSettlement_amount: 0,
+        total_cashReceivedSettlement_amount: 0,
+        total_internalBankSettlement_amount: 0,
+        total_cryptoReceivedSettlement_amount: 0,
+      }
+    };
+    
+    result.rows.forEach(row => {
+      const count = parseInt(row.count);
+      const amount = parseFloat(row.total_amount);
+      const commission = parseFloat(row.total_commission);
+      
+      if (row.status === Status.SUCCESS) {
+        // Add successful settlements
+        settlementData.total_settlement_count += count;
+        settlementData.total_settlement_amount += amount;
+        settlementData.total_settlement_commission += commission;
+        
+        // Map settlement amounts by method type for successful settlements
+        switch (row.method?.toLowerCase()) {
+          case 'bank':
+            settlementData.settlement_details.total_bankSettlement_amount += amount;
+            break;
+          case 'aed_sent':
+            settlementData.settlement_details.total_aedSentSettlement_amount += amount;
+            break;
+          case 'bank_sent':
+            settlementData.settlement_details.total_bankSentSettlement_amount += amount;
+            break;
+          case 'cash_sent':
+            settlementData.settlement_details.total_cashSentSettlement_amount += amount;
+            break;
+          case 'internal':
+            settlementData.settlement_details.total_internalSettlement_amount += amount;
+            break;
+          case 'aed_received':
+            settlementData.settlement_details.total_aedReceivedSettlement_amount += amount;
+            break;
+          case 'bank_received':
+            settlementData.settlement_details.total_bankReceivedSettlement_amount += amount;
+            break;
+          case 'cash_received':
+            settlementData.settlement_details.total_cashReceivedSettlement_amount += amount;
+            break;
+          case 'internal_bank':
+            settlementData.settlement_details.total_internalBankSettlement_amount += amount;
+            break;
+          case 'crypto_received':
+            settlementData.settlement_details.total_cryptoReceivedSettlement_amount += amount;
+            break;
+        }
+      } else if (row.status === Status.REVERSED) {
+        // Special handling for reversed internal settlements - add to payin instead
+        if (row.method?.toLowerCase() === 'internal') {
+          settlementData.reversed_internal_settlements.count += count;
+          settlementData.reversed_internal_settlements.amount += amount;
+          settlementData.reversed_internal_settlements.commission += commission;
+          // Do not subtract from settlement totals for internal reversals
+        } else {
+          // Subtract other reversed settlements from count and amount
+          settlementData.total_settlement_count -= count;
+          settlementData.total_settlement_amount -= amount;
+          settlementData.total_settlement_commission -= commission;
+          
+          // Subtract reversed settlement amounts by method type (except internal)
+          switch (row.method?.toLowerCase()) {
+            case 'bank':
+              settlementData.settlement_details.total_bankSettlement_amount -= amount;
+              break;
+            case 'aed_sent':
+              settlementData.settlement_details.total_aedSentSettlement_amount -= amount;
+              break;
+            case 'bank_sent':
+              settlementData.settlement_details.total_bankSentSettlement_amount -= amount;
+              break;
+            case 'cash_sent':
+              settlementData.settlement_details.total_cashSentSettlement_amount -= amount;
+              break;
+            case 'aed_received':
+              settlementData.settlement_details.total_aedReceivedSettlement_amount -= amount;
+              break;
+            case 'bank_received':
+              settlementData.settlement_details.total_bankReceivedSettlement_amount -= amount;
+              break;
+            case 'cash_received':
+              settlementData.settlement_details.total_cashReceivedSettlement_amount -= amount;
+              break;
+            case 'internal_bank':
+              settlementData.settlement_details.total_internalBankSettlement_amount -= amount;
+              break;
+            case 'crypto_received':
+              settlementData.settlement_details.total_cryptoReceivedSettlement_amount -= amount;
+              break;
+          }
+        }
+      }
+    });
+    
+    return settlementData;
+  } catch (error) {
+    logger.error('Error calculating settlement data:', error);
+    throw error;
+  }
+};
+
+// Helper function to calculate chargeback data for a user and date range
+const calculateChargebackDataDao = async (user_id, company_id, startDate, endDate) => {
+  try {
+    const query = `
+      SELECT 
+        COUNT(*) as count,
+        COALESCE(SUM(amount), 0) as total_amount
+      FROM "${tableName.CHARGE_BACK}"
+      WHERE user_id = $1 
+        AND company_id = $2
+        AND is_obsolete = false
+        AND created_at BETWEEN $3 AND $4
+        AND status = 'APPROVED'
+    `;
+    
+    const result = await executeQuery(query, [user_id, company_id, startDate, endDate]);
+    const row = result.rows[0];
+    
+    return {
+      total_chargeback_count: parseInt(row?.count || 0),
+      total_chargeback_amount: parseFloat(row?.total_amount || 0),
+    };
+  } catch (error) {
+    logger.error('Error calculating chargeback data:', error);
+    throw error;
+  }
+};
+
+// Helper function to calculate adjustment data for a user and date range
+const calculateAdjustmentDataDao = async (user_id, company_id, startDate, endDate) => {
+  try {
+    const query = `
+      SELECT 
+        type,
+        COUNT(*) as count,
+        COALESCE(SUM(amount), 0) as total_amount,
+        COALESCE(SUM(commission), 0) as total_commission
+      FROM "${tableName.ADJUSTMENT}"
+      WHERE user_id = $1 
+        AND company_id = $2
+        AND is_obsolete = false
+        AND created_at BETWEEN $3 AND $4
+        AND status = 'APPROVED'
+      GROUP BY type
+    `;
+    
+    const result = await executeQuery(query, [user_id, company_id, startDate, endDate]);
+    
+    const adjustmentData = {
+      total_adjustment_count: 0,
+      total_adjustment_amount: 0,
+      total_adjustment_commission: 0,
+    };
+    
+    result.rows.forEach(row => {
+      adjustmentData.total_adjustment_count += parseInt(row.count);
+      adjustmentData.total_adjustment_amount += parseFloat(row.total_amount);
+      adjustmentData.total_adjustment_commission += parseFloat(row.total_commission);
+    });
+    
+    return adjustmentData;
+  } catch (error) {
+    logger.error('Error calculating adjustment data:', error);
+    // Return default values if adjustment table doesn't exist
+    return {
+      total_adjustment_count: 0,
+      total_adjustment_amount: 0,
+      total_adjustment_commission: 0,
+    };
+  }
+};
+
 // Checks if any calculation entry exists for a given date (YYYY-MM-DD)
 const checkCalculationEntryForDateDao = async (date) => {
   try {
@@ -766,4 +1076,9 @@ export {
   deleteCalculationDao,
   checkCalculationEntryForDateDao,
   updateCalculationConfigDao,
+  calculatePayinDataDao,
+  calculatePayoutDataDao,
+  calculateSettlementDataDao,
+  calculateChargebackDataDao,
+  calculateAdjustmentDataDao,
 };
