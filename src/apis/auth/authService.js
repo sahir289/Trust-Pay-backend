@@ -238,6 +238,7 @@ const logoutService = async (decodeToken, session_id) => {
     return data;
   } catch (error) {
     logger.error('Error getting while logout', error);
+    throw error;
   } finally {
     if (conn) {
       try {
