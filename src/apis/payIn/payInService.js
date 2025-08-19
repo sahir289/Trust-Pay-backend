@@ -200,7 +200,7 @@ export const generatePayInUrlByHashService = async (conn, req) => {
     if (amount) {
       query += `&amount=${amount}`;
     }
-    if (role && role === Role.ADMIN) {
+    if (role && (role === Role.ADMIN || role === Role.SUPER_ADMIN)) {
       query += `&token=${role_id}`;
     }
 
@@ -312,7 +312,7 @@ export const generatePayInUrlService = async (
       return data;
     }
 
-    if ((amount < merchant.min_payin || amount > merchant.max_payin) && (role && role !== Role.ADMIN)) {
+    if ((amount < merchant.min_payin || amount > merchant.max_payin) && (role && role !== Role.ADMIN && role !== Role.SUPER_ADMIN)) {
       const data = {
         status: 400,
         message: `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
@@ -496,7 +496,7 @@ export const assignedBankToPayInUrlService = async (
     const minPayIn = Number(merchant.min_payin);
     const amt = Number(amount);
 
-    if ((amt > maxPayIn || amt < minPayIn) && (role && role !== Role.ADMIN)) {
+    if ((amt > maxPayIn || amt < minPayIn) && (role && role !== Role.ADMIN && role !== Role.SUPER_ADMIN)) {
       //-- exact amounts should also be considered
       return { message: `Amount must be between ${minPayIn} and ${maxPayIn}` };
     }

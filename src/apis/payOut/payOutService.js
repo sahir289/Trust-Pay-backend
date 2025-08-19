@@ -358,7 +358,7 @@ const createPayoutService = async (
     }
     if (
       (amount < details[0].min_payout || amount > details[0].max_payout) &&
-      role !== Role.ADMIN
+      (role !== Role.ADMIN && role !== Role.SUPER_ADMIN)
     ) {
       const data = {
         status: 400,
