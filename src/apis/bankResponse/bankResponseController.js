@@ -31,6 +31,7 @@ import { s3 } from '../../helpers/Aws.js';
 import { streamToBuffer } from '../../helpers/index.js';
 import { newTableEntry } from '../../utils/sockets.js';
 import { publishBankResponse } from '../../utils/rabbitmq-bank-response.js';
+import { logger } from '../../utils/logger.js';
 const getBankResponse = async (req, res) => {
   const { role, company_id } = req.user;
   const { page, limit, search, updated, sortOrder, sortBy, ...rest } =
@@ -52,6 +53,8 @@ const getBankResponse = async (req, res) => {
     sortBy,
     sortOrder,
   );
+  console.log(data[0], "Not getting get bank response from service");
+  logger.info("Not getting get bank response from service");
   return sendSuccess(res, data, 'Bank response retrieved successfully');
 };
 

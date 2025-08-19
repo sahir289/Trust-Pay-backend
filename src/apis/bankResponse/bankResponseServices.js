@@ -713,7 +713,7 @@ const getBankResponseService = async (
       ...filters,
     };
     sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
-    return await getBankResponseDaoAll(
+    const data = await getBankResponseDaoAll(
       filters,
       page,
       limit,
@@ -724,6 +724,7 @@ const getBankResponseService = async (
       payload.startDate || undefined,
       payload.endDate || undefined,
     );
+    return data;
   } catch (error) {
     logger.error('Error in getBankResponseService:', error);
     throw error;
