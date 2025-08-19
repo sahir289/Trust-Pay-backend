@@ -52,7 +52,6 @@ router.use('/reports', reports);
 router.use('/checkUtr', checkUtr);
 router.use('/resetHistory', resetHistory);
 router.use('/beneficiaryAccounts', beneficiaryAccounts);
-router.use('/rabbitmq', rabbitmqRoutes);
 router.use(consumeBankResponseRouter);
 router.use('/superAdmin', superAdmin);
 router.use('/consume-bank-response', consumeBankResponseRouter);
