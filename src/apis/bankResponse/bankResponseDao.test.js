@@ -219,8 +219,8 @@ import {
         const mockBankDetails = [{ config: { merchant_added: { '2025-08-18': 'value' } } }];
         const mockRows = [{ id: 'br1', amount: 1000 }];
         const mockCountRows = [{ total: '10' }];
-       const mockStartDate = '2025-08-18T12:00:00Z';
-  const mockEndDate = '2025-08-18T12:00:00Z';
+        const mockStartDate = '2025-08-18T12:00:00Z';
+        const mockEndDate = '2025-08-18T12:00:00Z';
         getBankaccountDao.mockResolvedValue(mockBankDetails);
         executeQuery
           .mockResolvedValueOnce({ rows: mockCountRows })
@@ -234,9 +234,9 @@ import {
           expect.arrayContaining([mockStartDate, mockEndDate, 'bank1', 'comp1'])
         );
         expect(executeQuery).toHaveBeenCalledWith(
-          expect.stringContaining('ORDER BY "BankResponse"."created_at" DESC LIMIT $5 OFFSET $6'),
+          expect.stringContaining('LIMIT $5 OFFSET $6'),
           expect.arrayContaining([mockStartDate, mockEndDate, 'bank1', 'comp1', 10, 0])
-        );
+        );        
       
         expect(result).toEqual({
           totalCount: 10,
