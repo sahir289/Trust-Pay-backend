@@ -3077,6 +3077,7 @@ export const updatePayInService = async (
             {
               balance: prevBank[0].balance - bankResponse.amount,
               today_balance: prevBank[0].today_balance - bankResponse.amount,
+              payin_count: prevBank[0].payin_count - 1,
               updated_by: user_id,
             },
             conn,
@@ -3086,6 +3087,7 @@ export const updatePayInService = async (
             {
               balance: newBank[0].balance + bankResponse.amount,
               today_balance: newBank[0].today_balance + bankResponse.amount,
+              payin_count: newBank[0].payin_count + 1,
               updated_by: user_id,
             },
             conn,
