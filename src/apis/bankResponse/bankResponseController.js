@@ -53,7 +53,7 @@ const getBankResponse = async (req, res) => {
     sortBy,
     sortOrder,
   );
-  console.log(data[0], "Not getting get bank response from service");
+  console.log(data, "Not getting get bank response from service");
   logger.info("Not getting get bank response from service");
   return sendSuccess(res, data, 'Bank response retrieved successfully');
 };
