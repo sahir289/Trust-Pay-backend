@@ -1295,6 +1295,7 @@ export const getPayinsBySearchService = async (
       limitNum,
       offset,
       role,
+      designation,
       updatedPayin,
       // filterColumns,
     );
@@ -2543,18 +2544,6 @@ export const verifyPayinsService = async (
       user: user_location,
     });
     const merchant = await getMerchantsDao({ id: payIn.merchant_id });
-    const blockedUsers = merchant[0].config.blocked_users;
-    if (Array.isArray(blockedUsers)) {
-      const isUserBlocked = blockedUsers.some(
-        (user) => user.userId === payIn.user,
-      );
-      const isIpBlocked = blockedUsers.some(
-        (user) => user.user_ip === user_location.user_ip,
-      );
-      if (isUserBlocked || isIpBlocked) {
-        throw new BadRequestError('User Access Denied !');
-      }
-    }
     const updateResult = await updatePayInUrlDao(payIn.id, {
       config: updatedConfig,
       one_time_used: oneTimeUsed || false,
@@ -3077,6 +3066,7 @@ export const updatePayInService = async (
             {
               balance: prevBank[0].balance - bankResponse.amount,
               today_balance: prevBank[0].today_balance - bankResponse.amount,
+              payin_count: prevBank[0].payin_count - 1,
               updated_by: user_id,
             },
             conn,
@@ -3086,6 +3076,7 @@ export const updatePayInService = async (
             {
               balance: newBank[0].balance + bankResponse.amount,
               today_balance: newBank[0].today_balance + bankResponse.amount,
+              payin_count: newBank[0].payin_count + 1,
               updated_by: user_id,
             },
             conn,

@@ -8,6 +8,8 @@ let connection;
 let channel;
 
 export const connectRabbitMQ = async (rabbitConfig = config.rabbitmq) => {
+  if (channel) return channel; // already connected
+
   const connectionOptions = {
     heartbeat: rabbitConfig.heartbeat,
     connection_timeout: rabbitConfig.connectionTimeout,
@@ -38,8 +40,8 @@ export const connectRabbitMQ = async (rabbitConfig = config.rabbitmq) => {
         const styledMessageError = chalk.underline.red('RabbitMQ connection closed');
         logger.log(styledMessageError);
       });
-      
-      logger.log(`RabbitMQ connected to ${rabbitConfig.url}`);
+      const styledMessage = chalk.green(`RabbitMQ connected to ${rabbitConfig.url} successfully`);
+      logger.info(styledMessage); 
       return;
     } catch (error) {
       retryCount++;
@@ -55,7 +57,12 @@ export const connectRabbitMQ = async (rabbitConfig = config.rabbitmq) => {
   }
 };
 
-export const getRabbitChannel = () => channel;
+export const getRabbitChannel = () => {
+  if (!channel) {
+    throw new Error("RabbitMQ channel not initialized. Did you call connectRabbitMQ()?");
+  }
+  return channel;
+};
 
 export const getRabbitConnection = () => connection;
 

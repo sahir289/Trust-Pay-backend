@@ -213,6 +213,7 @@ const refreshTokenService = async (user_id, company_id, refreshToken) => {
     return session;
   } catch (error) {
     logger.log('Error getting :', error);
+    throw error;
   } finally {
     if (conn) {
       try {
@@ -265,6 +266,7 @@ const changePasswordService = async (payload) => {
     return user;
   } catch (error) {
     logger.error('Error getting while changing password', error);
+    throw error;
   } finally {
     if (conn) {
       try {
@@ -289,6 +291,7 @@ const verificationService = async (ids, payload) => {
     return userDetails;
   } catch (error) {
     logger.error('Error getting while verify password', error);
+    throw error;
   }
 };
 const forgetPasswordService = async (payload) => {
@@ -304,6 +307,7 @@ const forgetPasswordService = async (payload) => {
     return user;
   } catch (error) {
     logger.error('Error getting while forgetting password', error);
+    throw error;
   }
 };
 const verfyUserService = async (user_name) => {
@@ -330,6 +334,7 @@ const verfyUserService = async (user_name) => {
     return true;
   } catch (error) {
     logger.log('Error while verifying user', error);
+    throw error;
   }
 };
 const verfyOtpService = async (otp) => {
@@ -353,6 +358,7 @@ const verfyOtpService = async (otp) => {
     }
   } catch (error) {
     logger.log('Error while verifying otp', error);
+    throw error;
   }
 };
 

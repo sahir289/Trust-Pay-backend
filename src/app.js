@@ -12,8 +12,6 @@ import apis from './apis/index.js';
 import errorHandler from './middlewares/errorHandler.js';
 import config from './config/config.js';
 import '../src/cron/gatherAllData.js';
-import { connectRabbitMQ } from './utils/rabbitmq.js';
-import { logger } from './utils/logger.js';
 
 const app = express();
 export const usedTokens = new Set();
@@ -38,17 +36,5 @@ app.use(timeout('20s'));
 
 app.use(errorHandler);
 app.use(methodNotFound);
-
-(async () => {
-  try {
-    await connectRabbitMQ(); // Now uses config automatically
-    logger.log('RabbitMQ connected successfully');
-  } catch (err) {
-    logger.error('Failed to connect to RabbitMQ:', err);
-    console.log('Application will continue without RabbitMQ in development mode');
-    // Don't exit the process, just log the error
-    // process.exit(1); // Exit if RabbitMQ is critical
-  }
-})();
 
 export default app;

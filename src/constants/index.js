@@ -435,7 +435,7 @@ export const merchantColumns = {
     'status',
     'bank_id',
     'amount',
-    'api_short_code',
+    'upi_short_code',
     'utr',
     'is_used',
     'config',

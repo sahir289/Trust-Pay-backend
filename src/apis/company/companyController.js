@@ -3,6 +3,7 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   createCompanyService,
   deleteCompanyService,
+  getCompanyByIdService,
   getCompanyNamesService,
   getCompanyService,
   updateCompanyService,
@@ -31,7 +32,7 @@ const getCompanyById = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const { id } = req.params;
-  const data = await getCompanyService({ id: id });
+  const data = await getCompanyByIdService({ id: id });
   return sendSuccess(res, data, 'get Company successfully');
 };
 

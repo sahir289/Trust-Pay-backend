@@ -734,6 +734,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (bankData.is_blocked) {
       throw new BadRequestError('Bank account is blocked');
     }
+    // console.log('bankData.today_balance', Math.abs(bankData.today_balance),'data.amount', data.amount,'Math.abs(bankData.today_balance) + data.amount', Math.abs(bankData.today_balance) + data.amount);
 
     const vendorArr = await getVendorsDao({ user_id: bankData.user_id });
     const vendor = vendorArr[0];
@@ -772,6 +773,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
             payin_count: Number(bankData.payin_count) + 1,
             today_balance: Number(bankData.today_balance) - Number(data.amount),
             balance: Number(bankData.balance) - Number(data.amount),
+            is_enabled: bankData?.config?.max_limit < Math.abs(bankData.today_balance) + data.amount ? false : true,
           },
           conn,
         ),
@@ -804,6 +806,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
           {
             today_balance: Number(bankData.today_balance + data.amount),
             balance: Number(bankData.balance + data.amount),
+            is_enabled: bankData?.config?.max_limit < Math.abs(bankData.today_balance) + data.amount ? false : true,
           },
           conn,
         ),

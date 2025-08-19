@@ -691,6 +691,7 @@ export const getPayinsBySearchDao = async (
   limitNum,
   offset,
   role,
+  designation,
   updatedPayin = false,
 ) => {
   try {
@@ -702,7 +703,6 @@ export const getPayinsBySearchDao = async (
     const validColumns = new Set([
       'id',
       'sno',
-      'upi_short_code',
       'amount',
       'status',
       'merchant_order_id',
@@ -745,7 +745,8 @@ export const getPayinsBySearchDao = async (
       commissionSelect = `
         p.payin_vendor_commission,
         v.code AS vendor_code`;
-    } else {
+    }
+    else if (role === 'ADMIN' && designation === 'ADMIN') {
       commissionSelect = `
         p.payin_merchant_commission,
         json_build_object(
@@ -768,6 +769,29 @@ export const getPayinsBySearchDao = async (
         p.user,
         p.company_id,
         p.bank_acc_id,
+        p.created_at,
+        p.updated_at`;
+    }
+    else {
+      commissionSelect = `
+        p.payin_merchant_commission,
+        json_build_object(
+          'merchant_code', COALESCE(m.config->>'sub_code', m.code),
+          'dispute', m.dispute_enabled,
+          'return_url', m.config->>'return_url',
+          'notify_url', m.config->>'notify_url'
+        ) AS merchant_details,
+        p.merchant_order_id,
+        p.config AS payin_details,
+        p.payin_vendor_commission,
+        v.code AS vendor_code,
+        v.user_id AS vendor_user_id,
+        p.is_url_expires,
+        p.approved_at,
+        u.user_name AS created_by,
+        uu.user_name AS updated_by,
+        p.is_notified,
+        p.user,
         p.created_at,
         p.updated_at`;
     }

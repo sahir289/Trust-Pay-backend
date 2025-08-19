@@ -93,7 +93,7 @@ const getCalculationDao = async (
       if (includeSubMerchant || includeSubVendors || users.length) {
         const heirarchy = await getUserHierarchysDao({ user_id });
         if (!heirarchy) {
-          throw NotFoundError('Sub Merchants not found!');
+          throw new NotFoundError('Sub Merchants not found!');
         }
         const heirarchyUsers = heirarchy.config[user_id] || [];
         if (heirarchyUsers.length && users.length) {

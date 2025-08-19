@@ -351,6 +351,12 @@ const createSettlementService = async (conn, payload, role) => {
     //   actorUserId: payload.user_id,
     //   category: 'Settlement',
     // });
+
+    if (payload.config.debit_credit === 'RECEIVED' && (payload.method === 'INTERNAL_QR_TRANSFER' ||
+      payload.method === 'INTERNAL_BANK_TRANSFER') && payload.amount > 0) {
+      payload.amount = Number(payload.amount);
+    } 
+    else {
     const adjustedValue =
       payload.config.debit_credit === 'RECEIVED'
         ? Number(payload.amount) > 0
@@ -358,6 +364,7 @@ const createSettlementService = async (conn, payload, role) => {
           : Number(payload.amount)
         : Math.abs(Number(payload.amount));
     payload.amount = adjustedValue;
+  }
     return await createSettlementDao(payload);
   } catch (error) {
     logger.error('Error while creating Settlement', error);
@@ -398,6 +405,9 @@ const updateSettlementService = async (conn, ids, payload) => {
       payload.config.reference_id
     ) {
       const bankResponses = await getBankResponseByUTR(payload?.config?.reference_id);
+      if (!bankResponses) {
+        throw new NotFoundError('Bank response not found for the provided UTR');
+      }
       if (bankResponses && bankResponses.is_used === false && bankResponses.status === Status.BOT) {
         await updateBankResponseDao(
           { id: bankResponses.id },
@@ -434,12 +444,35 @@ const updateSettlementService = async (conn, ids, payload) => {
         if (Array.isArray(calculationData) && calculationData.length > 0) {
           const amount = payload?.amount || 0;
           // calcution for vendor APPROVE settlement
-          updatedCalculation = {
-            total_settlement_count: 1,
-            total_settlement_amount: amount,
-            current_balance: amount,
-            net_balance: amount,
-          };
+          if (data[0].method === 'INTERNAL_QR_TRANSFER' || data[0].method === 'INTERNAL_BANK_TRANSFER') {
+            const [vendorData] = await Promise.all([
+              getVendorsDao({ user_id: payload.user_id }),
+            ]);
+            if (!vendorData?.length) {
+              throw new NotFoundError('Vendor not found');
+            }
+    
+            const VendorCommission = vendorData[0].payin_commission || 0;
+            const commission = calculateCommission(
+              payload.amount,
+              VendorCommission,
+            );
+
+            updatedCalculation = {
+              total_settlement_count: 1,
+              total_settlement_amount: -payload.amount,
+              total_settlement_commission: commission,
+              current_balance: -payload.amount + commission,
+              net_balance: -payload.amount + commission,
+            };
+          } else {
+            updatedCalculation = {
+              total_settlement_count: 1,
+              total_settlement_amount: amount,
+              current_balance: amount,
+              net_balance: amount,
+            };
+          }
         }
       }
 

@@ -383,7 +383,7 @@ export const getAllChargeBackDao = async (
         p.merchant_order_id AS merchant_order_id,
       `;
     } else if (role === Role.VENDOR) {
-      additionalColumns += ``;
+      additionalColumns += `v.code AS vendor_name,`;
     } else {
       additionalColumns = `
         m.code AS merchant_name,
