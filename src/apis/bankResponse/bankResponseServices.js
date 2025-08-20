@@ -696,6 +696,8 @@ const getBankResponseService = async (
     const amount =
       Number(payload.amount) > 0 ? Number(payload.amount) : undefined;
 
+    const pageNumber = Number(page) > 0 ? Number(page) : 1;
+    const pageSize = Number(limit) > 0 ? Number(limit) : 10;
     let filters = Object.fromEntries(
       Object.entries({
         sno,
@@ -715,8 +717,8 @@ const getBankResponseService = async (
     sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
     return await getBankResponseDaoAll(
       filters,
-      page,
-      limit,
+      String(pageNumber), 
+      String(pageSize),   
       filterColumns,
       updated,
       sortBy,
@@ -1718,4 +1720,5 @@ export {
   getBankResponseBySearchService,
   resetBankResponseService,
   importBankResponseService,
+  updateCalculationBalances,
 };
