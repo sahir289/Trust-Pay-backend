@@ -20,7 +20,7 @@ import { createUserOtpDao, getUserOtpDao, updateUserOtpDao } from '../userOtp/us
 import { generateOTP } from '../../utils/generateOtp.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { Role } from '../../constants/index.js';
-import { NotFoundError, AccessDeniedError, AuthenticationError } from '../../utils/appErrors.js';
+import { NotFoundError, BadRequestError } from '../../utils/appErrors.js';
 import os from 'os';
 import * as authServiceModule from './authService.js';
 
@@ -75,10 +75,10 @@ describe('Auth Services', () => {
                 .rejects.toThrow(NotFoundError);
         });
 
-        it('should throw AccessDeniedError if user is disabled', async () => {
+        it('should throw NotFoundError if user is disabled', async () => {
             getUsersByUserNameDao.mockResolvedValue({ ...mockUser, is_enabled: false });
             await expect(loginService({ username: 'testuser' }, '127.0.0.1'))
-                .rejects.toThrow(AccessDeniedError);
+                .rejects.toThrow(NotFoundError);
         });
 
         it('should return first login object if user config.isLoginFirst', async () => {
@@ -218,7 +218,7 @@ describe('Auth Services', () => {
             getUsersByUserNameDao.mockResolvedValue(mockUser);
             verifyHash.mockResolvedValue(false);
             await expect(verificationService('user1', { user_name: 'testuser', password: 'wrong' }))
-                .rejects.toThrow(AuthenticationError);
+                .rejects.toThrow(BadRequestError);
         });
 
         it('should return user details if password is valid', async () => {
