@@ -608,6 +608,7 @@ const createBankResponseService = async (
         nick_name: bankDetails[0]?.nick_name || null,
         vendor_user_id: bankDetails[0]?.user_id || null,
         merchant_code: null, // You can fetch merchant_code if needed
+        company_id: companyId,
       };
       // Send to socket for real-time update
       await newTableEntry(tableName.BANK_RESPONSE, responseObj);
