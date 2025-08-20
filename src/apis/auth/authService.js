@@ -1,5 +1,6 @@
 // import { processRequest } from '../../middlewares/processRequest.js';
 import {
+  AccessDeniedError,
   AuthenticationError,
   BadRequestError,
   NotFoundError,

@@ -13,6 +13,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Setup Node.js (prefer 23.10.0, fallback to 22.x)
+        uses: actions/setup-node@v3
+        with:
+          node-version: |
+            23.10.0
+            22.x
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run ESLint check
+        run: |
+          echo "Running ESLint..."
+          npm run lint
+        # If ESLint fails (non-zero exit), the workflow will stop here
+        continue-on-error: false
+
       - name: Debug Secrets
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
