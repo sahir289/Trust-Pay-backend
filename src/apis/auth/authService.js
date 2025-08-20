@@ -286,7 +286,7 @@ const verificationService = async (ids, payload) => {
       userDetails.password,
     );
     if (!isPasswordValid) {
-      throw new AuthenticationError('Invalid Password');
+      throw new BadRequestError('Invalid password');
     }
     return userDetails;
   } catch (error) {
