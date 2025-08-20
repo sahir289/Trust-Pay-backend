@@ -86,12 +86,12 @@ const getBankResponseBySearchDao = async (
   end_date,
 ) => {
   try {
-    let bankId;
-    let bankDetails;
-    if (filters?.bank_id) {
-      bankId = filters.bank_id;
-      bankDetails = await getBankaccountDao({ id: bankId }, null, null);
-    }
+    // let bankId;
+    // let bankDetails;
+    // if (filters?.bank_id) {
+    //   bankId = filters.bank_id;
+    //   bankDetails = await getBankaccountDao({ id: bankId }, null, null);
+    // }
 
     // Use DISTINCT ON to avoid duplicate rows for same BankResponse.sno
     const selectCols = columns.length
@@ -113,35 +113,35 @@ const getBankResponseBySearchDao = async (
       dateParams = [start, end];
     }
 
-    let baseQueryDate = `
-      WITH filtered_accounts AS (
-        SELECT 
-          "BankAccount".*, 
-          jsonb_object_agg(key, value) FILTER (
-            WHERE key ~ '^\\d{4}-\\d{2}-\\d{2}' 
-              AND (key)::timestamp BETWEEN $${dateParams.length ? 1 : 'NULL'}::timestamp AND $${dateParams.length ? 2 : 'NULL'}::timestamp
-          ) AS filtered_merchant_added
-        FROM "BankAccount",
-             jsonb_each(("BankAccount".config -> 'merchant_added')::jsonb)
-        GROUP BY "BankAccount".id
-      )
-      SELECT ${selectCols}, 
-             "BankResponse".created_at,
-             jsonb_set("BankAccount".config::jsonb, '{merchant_added}', COALESCE(filtered_merchant_added, '{}'::jsonb)) AS details,
-             "BankAccount".nick_name,
-             "Vendor".user_id AS vendor_user_id,
-             "Merchant".code AS merchant_code
-      FROM "BankResponse"
-      JOIN filtered_accounts AS "BankAccount" 
-        ON "BankResponse".bank_id = "BankAccount".id
-      LEFT JOIN "Vendor" 
-        ON "BankAccount".user_id = "Vendor".user_id
-      LEFT JOIN "Payin"
-        ON "BankResponse".id = "Payin".bank_response_id
-        AND "BankResponse".is_used = true
-      LEFT JOIN "Merchant"
-        ON "Payin".merchant_id = "Merchant".id
-    `;
+    // let baseQueryDate = `
+    //   WITH filtered_accounts AS (
+    //     SELECT 
+    //       "BankAccount".*, 
+    //       jsonb_object_agg(key, value) FILTER (
+    //         WHERE key ~ '^\\d{4}-\\d{2}-\\d{2}' 
+    //           AND (key)::timestamp BETWEEN $${dateParams.length ? 1 : 'NULL'}::timestamp AND $${dateParams.length ? 2 : 'NULL'}::timestamp
+    //       ) AS filtered_merchant_added
+    //     FROM "BankAccount",
+    //          jsonb_each(("BankAccount".config -> 'merchant_added')::jsonb)
+    //     GROUP BY "BankAccount".id
+    //   )
+    //   SELECT ${selectCols}, 
+    //          "BankResponse".created_at,
+    //          jsonb_set("BankAccount".config::jsonb, '{merchant_added}', COALESCE(filtered_merchant_added, '{}'::jsonb)) AS details,
+    //          "BankAccount".nick_name,
+    //          "Vendor".user_id AS vendor_user_id,
+    //          "Merchant".code AS merchant_code
+    //   FROM "BankResponse"
+    //   JOIN filtered_accounts AS "BankAccount" 
+    //     ON "BankResponse".bank_id = "BankAccount".id
+    //   LEFT JOIN "Vendor" 
+    //     ON "BankAccount".user_id = "Vendor".user_id
+    //   LEFT JOIN "Payin"
+    //     ON "BankResponse".id = "Payin".bank_response_id
+    //     AND "BankResponse".is_used = true
+    //   LEFT JOIN "Merchant"
+    //     ON "Payin".merchant_id = "Merchant".id
+    // `;
 
     let baseQuery = `
       SELECT ${selectCols}, 
@@ -299,10 +299,7 @@ const getBankResponseBySearchDao = async (
       values.push(startDate, endDate);
       paramIndex += 2;
     }
-    const queryIs =
-      start && end && bankDetails && bankDetails[0]?.config?.merchant_added
-        ? baseQueryDate
-        : baseQuery;
+    const queryIs = baseQuery;
 
     let queryText = queryIs;
     if (whereConditions.length) {
