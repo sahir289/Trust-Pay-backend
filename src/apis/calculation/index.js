@@ -317,7 +317,7 @@ router.delete(
  *         description: Internal server error
  */
 router.put(
-  '/update-calculation',
+  '/update-calculations',
   [isAuthenticated, authorized(AccessRoles.CALCULATION)],
   tryCatchHandler(updateCalculations),
 );

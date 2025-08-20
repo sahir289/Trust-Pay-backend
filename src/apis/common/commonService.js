@@ -126,6 +126,11 @@ export const getTotalCountService = async (
         delete filters.updatedPayin;
       }
 
+      // Remove company_id if it is undefined
+      if (filters?.company_id === undefined) {
+        delete filters.company_id;
+      }
+
       return await getTotalCountDao(
         tablename,
         role,
@@ -358,6 +363,12 @@ export const getTotalCountService = async (
       updatedPayin = filters.updatedPayin;
       delete filters.updatedPayin;
     }
+    
+    // Remove company_id if it is undefined
+    if (filters?.company_id === undefined) {
+      delete filters.company_id;
+    }
+    
     return await getTotalCountDao(
       tablename,
       role,

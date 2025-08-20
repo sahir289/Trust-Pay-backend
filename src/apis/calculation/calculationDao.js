@@ -184,27 +184,29 @@ export const getCalculationsSumDao = async (filters) => {
       }
     }
 
-    const groupBy = ` GROUP BY DATE_TRUNC('day', c.created_at) ORDER BY DATE_TRUNC('day', c.created_at)DESC;`;
+    const groupBy = ` GROUP BY c.id, c.user_id, DATE_TRUNC('day', c.created_at) ORDER BY DATE_TRUNC('day', c.created_at)DESC;`;
 
     // Modified Base Query with numeric casting
     let baseQuery = `
       SELECT 
-         (DATE_TRUNC('day', c.created_at)) AS date,
-          CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
+          c.id,
+          c.user_id,
+          (DATE_TRUNC('day', c.created_at)) AS date,
+          CAST(SUM(c.total_payin_count) AS NUMERIC) AS total_payin_count,
           CAST(ROUND(SUM(c.total_payin_amount)::NUMERIC, 2) AS FLOAT) AS total_payin_amount,
           CAST(ROUND(SUM(c.total_payin_commission)::NUMERIC, 2) AS FLOAT) AS total_payin_commission,
-          CAST(SUM(c.total_payout_count) AS INTEGER) AS total_payout_count,
+          CAST(SUM(c.total_payout_count) AS NUMERIC) AS total_payout_count,
           CAST(ROUND(SUM(c.total_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_payout_amount,
           CAST(ROUND(SUM(c.total_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_payout_commission,
-          CAST(SUM(c.total_settlement_count) AS INTEGER) AS total_settlement_count,
+          CAST(SUM(c.total_settlement_count) AS NUMERIC) AS total_settlement_count,
           CAST(ROUND(SUM(c.total_settlement_amount)::NUMERIC, 2) AS FLOAT) AS total_settlement_amount,
           CAST(ROUND(SUM(c.total_settlement_commission)::NUMERIC, 2) AS FLOAT) AS total_settlement_commission,
-          CAST(SUM(c.total_chargeback_count) AS INTEGER) AS total_chargeback_count,
+          CAST(SUM(c.total_chargeback_count) AS NUMERIC) AS total_chargeback_count,
           CAST(ROUND(SUM(c.total_chargeback_amount)::NUMERIC, 2) AS FLOAT) AS total_chargeback_amount,
-          CAST(SUM(c.total_reverse_payout_count) AS INTEGER) AS total_reverse_payout_count,
+          CAST(SUM(c.total_reverse_payout_count) AS NUMERIC) AS total_reverse_payout_count,
           CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_amount,
           CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
-          CAST(SUM(c.total_adjustment_count) AS INTEGER) AS total_adjustment_count,
+          CAST(SUM(c.total_adjustment_count) AS NUMERIC) AS total_adjustment_count,
           CAST(ROUND(SUM(c.total_adjustment_amount)::NUMERIC, 2) AS FLOAT) AS total_adjustment_amount,
           CAST(ROUND(SUM(c.total_adjustment_commission)::NUMERIC, 2) AS FLOAT) AS total_adjustment_commission,
           CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
@@ -442,21 +444,21 @@ export const getCalculationsSumDao = async (filters) => {
     // Modify total calculations query for merchants based on role
     let merchantTotalQuery = `
       SELECT 
-        CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
+        CAST(SUM(c.total_payin_count) AS NUMERIC) AS total_payin_count,
         CAST(ROUND(SUM(c.total_payin_amount)::NUMERIC, 2) AS FLOAT) AS total_payin_amount,
         CAST(ROUND(SUM(c.total_payin_commission)::NUMERIC, 2) AS FLOAT) AS total_payin_commission,
-        CAST(SUM(c.total_payout_count) AS INTEGER) AS total_payout_count,
+        CAST(SUM(c.total_payout_count) AS NUMERIC) AS total_payout_count,
         CAST(ROUND(SUM(c.total_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_payout_amount,
         CAST(ROUND(SUM(c.total_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_payout_commission,
-        CAST(SUM(c.total_settlement_count) AS INTEGER) AS total_settlement_count,
+        CAST(SUM(c.total_settlement_count) AS NUMERIC) AS total_settlement_count,
         CAST(ROUND(SUM(c.total_settlement_amount)::NUMERIC, 2) AS FLOAT) AS total_settlement_amount,
-        CAST(SUM(c.total_settlement_commission) AS INTEGER) AS total_settlement_commission,
-        CAST(SUM(c.total_chargeback_count) AS INTEGER) AS total_chargeback_count,
+        CAST(SUM(c.total_settlement_commission) AS NUMERIC) AS total_settlement_commission,
+        CAST(SUM(c.total_chargeback_count) AS NUMERIC) AS total_chargeback_count,
         CAST(ROUND(SUM(c.total_chargeback_amount)::NUMERIC, 2) AS FLOAT) AS total_chargeback_amount,
-        CAST(SUM(c.total_reverse_payout_count) AS INTEGER) AS total_reverse_payout_count,
+        CAST(SUM(c.total_reverse_payout_count) AS NUMERIC) AS total_reverse_payout_count,
         CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_amount,
         CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
-        CAST(SUM(c.total_adjustment_count) AS INTEGER) AS total_adjustment_count,
+        CAST(SUM(c.total_adjustment_count) AS NUMERIC) AS total_adjustment_count,
         CAST(ROUND(SUM(c.total_adjustment_amount)::NUMERIC, 2) AS FLOAT) AS total_adjustment_amount,
         CAST(ROUND(SUM(c.total_adjustment_commission)::NUMERIC, 2) AS FLOAT) AS total_adjustment_commission,
         CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
@@ -482,21 +484,21 @@ export const getCalculationsSumDao = async (filters) => {
     // Add vendor total calculations query
     let vendorTotalQuery = `
       SELECT 
-        CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
+        CAST(SUM(c.total_payin_count) AS NUMERIC) AS total_payin_count,
         CAST(ROUND(SUM(c.total_payin_amount)::NUMERIC, 2) AS FLOAT) AS total_payin_amount,
         CAST(ROUND(SUM(c.total_payin_commission)::NUMERIC, 2) AS FLOAT) AS total_payin_commission,
-        CAST(SUM(c.total_payout_count) AS INTEGER) AS total_payout_count,
+        CAST(SUM(c.total_payout_count) AS NUMERIC) AS total_payout_count,
         CAST(ROUND(SUM(c.total_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_payout_amount,
         CAST(ROUND(SUM(c.total_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_payout_commission,
-        CAST(SUM(c.total_settlement_count) AS INTEGER) AS total_settlement_count,
+        CAST(SUM(c.total_settlement_count) AS NUMERIC) AS total_settlement_count,
         CAST(ROUND(SUM(c.total_settlement_amount)::NUMERIC, 2) AS FLOAT) AS total_settlement_amount,
-        CAST(SUM(c.total_settlement_commission) AS INTEGER) AS total_settlement_commission,
-        CAST(SUM(c.total_chargeback_count) AS INTEGER) AS total_chargeback_count,
+        CAST(SUM(c.total_settlement_commission) AS NUMERIC) AS total_settlement_commission,
+        CAST(SUM(c.total_chargeback_count) AS NUMERIC) AS total_chargeback_count,
         CAST(ROUND(SUM(c.total_chargeback_amount)::NUMERIC, 2) AS FLOAT) AS total_chargeback_amount,
-        CAST(SUM(c.total_reverse_payout_count) AS INTEGER) AS total_reverse_payout_count,
+        CAST(SUM(c.total_reverse_payout_count) AS NUMERIC) AS total_reverse_payout_count,
         CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_amount,
         CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
-        CAST(SUM(c.total_adjustment_count) AS INTEGER) AS total_adjustment_count,
+        CAST(SUM(c.total_adjustment_count) AS NUMERIC) AS total_adjustment_count,
         CAST(ROUND(SUM(c.total_adjustment_amount)::NUMERIC, 2) AS FLOAT) AS total_adjustment_amount,
         CAST(ROUND(SUM(c.total_adjustment_commission)::NUMERIC, 2) AS FLOAT) AS total_adjustment_commission,
         CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
@@ -751,24 +753,73 @@ export const updateCalculationBalanceDao = async (filters, data, conn) => {
   }
 };
 
-// Helper function to calculate payin data for a user and date range
-const calculatePayinDataDao = async (user_id, company_id, startDate, endDate, additionalPayinData = null) => {
+// Helper function to get user's role from user_id
+const getUserRoleDao = async (user_id) => {
   try {
     const query = `
-      SELECT 
-        status,
-        COUNT(*) as count,
-        COALESCE(SUM(amount), 0) as total_amount,
-        COALESCE(SUM(merchant_commission), 0) as total_commission
-      FROM "${tableName.PAYIN}"
-      WHERE user_id = $1 
-        AND company_id = $2
-        AND is_obsolete = false
-        AND created_at BETWEEN $3 AND $4
-      GROUP BY status
+      SELECT r.role
+      FROM "${tableName.USER}" u
+      JOIN "${tableName.ROLE}" r ON u.role_id = r.id
+      WHERE u.id = $1 AND u.is_obsolete = false
     `;
     
-    const result = await executeQuery(query, [user_id, company_id, startDate, endDate]);
+    const result = await executeQuery(query, [user_id]);
+    return result.rows[0]?.role || null;
+  } catch (error) {
+    logger.error('Error getting user role:', error);
+    throw error;
+  }
+};
+
+// Helper function to calculate payin data for a user and date range
+const calculatePayinDataDao = async (user_id, company_id, startDate, additionalPayinData = null) => {
+  try {
+    // Get user's role to determine which commission field to use and which table to join
+    const userRole = await getUserRoleDao(user_id);
+    const commissionField = userRole === Role.MERCHANT ? 'payin_merchant_commission' : 'payin_vendor_commission';
+    
+    let query, queryParams;
+    
+    if (userRole === Role.MERCHANT) {
+      // For merchant role, join with Merchant table to get merchant_id
+      // Use IST timezone conversion for approved_at field
+      query = `
+        SELECT 
+          p.status,
+          COUNT(*) as count,
+          COALESCE(SUM(p.amount), 0) as total_amount,
+          COALESCE(SUM(p.${commissionField}), 0) as total_commission
+        FROM "${tableName.PAYIN}" p
+        JOIN "${tableName.MERCHANT}" m ON p.merchant_id = m.id
+        WHERE m.user_id = $1
+          AND p.company_id = $2
+          AND p.is_obsolete = false
+          AND (p.approved_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date
+          AND p.status = 'SUCCESS'
+        GROUP BY p.status
+      `;
+      queryParams = [user_id, company_id, startDate];
+    } else {
+      // Use IST timezone conversion for created_at field
+      query = `
+        SELECT 
+          COUNT(*) as count,
+          COALESCE(SUM(br.amount), 0) as total_amount,
+          -- Calculate commission based on vendor's payin commission rate
+          COALESCE(SUM(br.amount * COALESCE(v.payin_commission, 0) / 100), 0) as total_commission
+        FROM "${tableName.BANK_RESPONSE}" br
+        JOIN "${tableName.BANK_ACCOUNT}" ba ON br.bank_id = ba.id
+        JOIN "${tableName.VENDOR}" v ON ba.user_id = v.user_id
+        WHERE ba.user_id = $1
+          AND br.company_id = $2
+          AND br.is_obsolete = false
+          AND (br.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date
+          AND br.status = '/success'
+      `;
+      queryParams = [user_id, company_id, startDate];
+    }
+    
+    const result = await executeQuery(query, queryParams);
     
     const payinData = {
       total_payin_count: 0,
@@ -799,23 +850,59 @@ const calculatePayinDataDao = async (user_id, company_id, startDate, endDate, ad
 };
 
 // Helper function to calculate payout data for a user and date range
-const calculatePayoutDataDao = async (user_id, company_id, startDate, endDate) => {
+const calculatePayoutDataDao = async (user_id, company_id, startDate) => {
   try {
-    const query = `
-      SELECT 
-        status,
-        COUNT(*) as count,
-        COALESCE(SUM(amount), 0) as total_amount,
-        COALESCE(SUM(vendor_commission), 0) as total_commission
-      FROM "${tableName.PAYOUT}"
-      WHERE user_id = $1 
-        AND company_id = $2
-        AND is_obsolete = false
-        AND created_at BETWEEN $3 AND $4
-      GROUP BY status
-    `;
+    // Get user's role to determine which commission field to use and which table to join
+    const userRole = await getUserRoleDao(user_id);
+    const commissionField = userRole === Role.MERCHANT ? 'payout_merchant_commission' : 'payout_vendor_commission';
     
-    const result = await executeQuery(query, [user_id, company_id, startDate, endDate]);
+    let query, queryParams;
+    
+    if (userRole === Role.MERCHANT) {
+      // For merchant role, join with Merchant table to get merchant_id
+      // Use IST timezone conversion for approved_at and rejected_at fields
+      query = `
+        SELECT 
+          p.status,
+          COUNT(*) as count,
+          COALESCE(SUM(p.amount), 0) as total_amount,
+          COALESCE(SUM(p.${commissionField}), 0) as total_commission
+        FROM "${tableName.PAYOUT}" p
+        JOIN "${tableName.MERCHANT}" m ON p.merchant_id = m.id
+        WHERE m.user_id = $1
+          AND p.company_id = $2
+          AND p.is_obsolete = false
+          AND (
+            (p.status = 'SUCCESS' AND (p.approved_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date) OR
+            (p.status = 'REVERSED' AND (p.rejected_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date)
+          )
+        GROUP BY p.status
+      `;
+      queryParams = [user_id, company_id, startDate];
+    } else {
+      // For vendor role, use user_id directly (as per schema, payout.user_id refers to vendor's user_id)
+      // Use IST timezone conversion for approved_at and updated_at fields
+      query = `
+        SELECT 
+          p.status,
+          COUNT(*) as count,
+          COALESCE(SUM(p.amount), 0) as total_amount,
+          COALESCE(SUM(p.${commissionField}), 0) as total_commission
+        FROM "${tableName.PAYOUT}" p
+        JOIN "${tableName.VENDOR}" v ON p.vendor_id = v.id
+        WHERE v.user_id = $1
+          AND p.company_id = $2
+          AND p.is_obsolete = false
+          AND (
+            (p.status = 'SUCCESS' AND (p.approved_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date) OR
+            (p.status = 'REVERSED' AND (p.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date)
+          )
+        GROUP BY p.status
+      `;
+      queryParams = [user_id, company_id, startDate];
+    }
+    
+    const result = await executeQuery(query, queryParams);
     
     const payoutData = {
       total_payout_count: 0,
@@ -848,24 +935,27 @@ const calculatePayoutDataDao = async (user_id, company_id, startDate, endDate) =
 };
 
 // Helper function to calculate settlement data for a user and date range
-const calculateSettlementDataDao = async (user_id, company_id, startDate, endDate) => {
+const calculateSettlementDataDao = async (user_id, company_id, startDate) => {
   try {
+    // Use IST timezone conversion for approved_at and updated_at fields
     const query = `
       SELECT 
         status,
         method,
         COUNT(*) as count,
-        COALESCE(SUM(amount), 0) as total_amount,
-        COALESCE(SUM(commission), 0) as total_commission
-      FROM "${tableName.SETTLEMENT}"
-      WHERE user_id = $1 
-        AND company_id = $2
-        AND is_obsolete = false
-        AND created_at BETWEEN $3 AND $4
+        COALESCE(SUM(amount), 0) as total_amount
+      FROM "${tableName.SETTLEMENT}" s
+      WHERE s.user_id = $1 
+        AND s.company_id = $2
+        AND s.is_obsolete = false
+        AND (
+            (s.status = 'SUCCESS' AND (s.approved_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date) OR
+            (s.status = 'REVERSED' AND (s.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date)
+          )
       GROUP BY status, method
     `;
     
-    const result = await executeQuery(query, [user_id, company_id, startDate, endDate]);
+    const result = await executeQuery(query, [user_id, company_id, startDate]);
     
     const settlementData = {
       total_settlement_count: 0,
@@ -990,21 +1080,31 @@ const calculateSettlementDataDao = async (user_id, company_id, startDate, endDat
 };
 
 // Helper function to calculate chargeback data for a user and date range
-const calculateChargebackDataDao = async (user_id, company_id, startDate, endDate) => {
+const calculateChargebackDataDao = async (user_id, company_id, startDate) => {
   try {
+    // Get user's role to determine which user_id field to use
+    const userRole = await getUserRoleDao(user_id);
+    
+    let whereClause;
+    if (userRole === Role.MERCHANT) {
+      whereClause = `merchant_user_id = $1`;
+    } else {
+      whereClause = `vendor_user_id = $1`;
+    }
+    
+    // Use IST timezone conversion for created_at field
     const query = `
       SELECT 
         COUNT(*) as count,
         COALESCE(SUM(amount), 0) as total_amount
       FROM "${tableName.CHARGE_BACK}"
-      WHERE user_id = $1 
+      WHERE ${whereClause}
         AND company_id = $2
         AND is_obsolete = false
-        AND created_at BETWEEN $3 AND $4
-        AND status = 'APPROVED'
+        AND (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date
     `;
     
-    const result = await executeQuery(query, [user_id, company_id, startDate, endDate]);
+    const result = await executeQuery(query, [user_id, company_id, startDate]);
     const row = result.rows[0];
     
     return {
@@ -1018,41 +1118,62 @@ const calculateChargebackDataDao = async (user_id, company_id, startDate, endDat
 };
 
 // Helper function to calculate adjustment data for a user and date range
-const calculateAdjustmentDataDao = async (user_id, company_id, startDate, endDate) => {
+const calculateAdjustmentDataDao = async (user_id, company_id, startDate) => {
   try {
-    const query = `
-      SELECT 
-        type,
-        COUNT(*) as count,
-        COALESCE(SUM(amount), 0) as total_amount,
-        COALESCE(SUM(commission), 0) as total_commission
-      FROM "${tableName.ADJUSTMENT}"
-      WHERE user_id = $1 
-        AND company_id = $2
-        AND is_obsolete = false
-        AND created_at BETWEEN $3 AND $4
-        AND status = 'APPROVED'
-      GROUP BY type
-    `;
+    // Get user's role to determine which table to query
+    const userRole = await getUserRoleDao(user_id);
     
-    const result = await executeQuery(query, [user_id, company_id, startDate, endDate]);
+    let query, queryParams;
     
-    const adjustmentData = {
-      total_adjustment_count: 0,
-      total_adjustment_amount: 0,
-      total_adjustment_commission: 0,
+    if (userRole === Role.MERCHANT) {
+      // For merchant role, get entries from Payin table where updated_at matches
+      // Use IST timezone conversion for updated_at field
+      query = `
+        SELECT 
+          COUNT(*) as count,
+          COALESCE(SUM(p.amount), 0) as total_amount,
+          COALESCE(SUM(p.payin_merchant_commission), 0) as total_commission
+        FROM "${tableName.PAYIN}" p
+        JOIN "${tableName.MERCHANT}" m ON p.merchant_id = m.id
+        WHERE m.user_id = $1
+          AND p.company_id = $2
+          AND p.is_obsolete = false
+          AND (p.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date
+          AND p.status = 'SUCCESS'
+      `;
+      queryParams = [user_id, company_id, startDate];
+    } else {
+      // For vendor role, get entries from BankResponse table where updated_at matches
+      // Use IST timezone conversion for updated_at field
+      query = `
+        SELECT 
+          COUNT(*) as count,
+          COALESCE(SUM(br.amount), 0) as total_amount,
+          -- Calculate commission based on vendor's payin commission rate
+          COALESCE(SUM(br.amount * COALESCE(v.payin_commission, 0) / 100), 0) as total_commission
+        FROM "${tableName.BANK_RESPONSE}" br
+        JOIN "${tableName.BANK_ACCOUNT}" ba ON br.bank_id = ba.id
+        JOIN "${tableName.VENDOR}" v ON ba.user_id = v.user_id
+        WHERE ba.user_id = $1
+          AND br.company_id = $2
+          AND br.is_obsolete = false
+          AND (br.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date
+          AND br.status = '/success'
+      `;
+      queryParams = [user_id, company_id, startDate];
+    }
+    
+    const result = await executeQuery(query, queryParams);
+    const row = result.rows[0];
+    
+    return {
+      total_adjustment_count: parseInt(row?.count || 0),
+      total_adjustment_amount: parseFloat(row?.total_amount || 0),
+      total_adjustment_commission: parseFloat(row?.total_commission || 0),
     };
-    
-    result.rows.forEach(row => {
-      adjustmentData.total_adjustment_count += parseInt(row.count);
-      adjustmentData.total_adjustment_amount += parseFloat(row.total_amount);
-      adjustmentData.total_adjustment_commission += parseFloat(row.total_commission);
-    });
-    
-    return adjustmentData;
   } catch (error) {
     logger.error('Error calculating adjustment data:', error);
-    // Return default values if adjustment table doesn't exist
+    // Return default values if there's an error
     return {
       total_adjustment_count: 0,
       total_adjustment_amount: 0,
@@ -1086,6 +1207,7 @@ export {
   deleteCalculationDao,
   checkCalculationEntryForDateDao,
   updateCalculationConfigDao,
+  getUserRoleDao,
   calculatePayinDataDao,
   calculatePayoutDataDao,
   calculateSettlementDataDao,

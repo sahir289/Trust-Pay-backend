@@ -39,7 +39,11 @@ export const getTotalCountDao = async (
         ${joins}
         WHERE "${tablename}".is_obsolete = false
       `;
-    } else if (roleIs === Role.ADMIN && tablename === tableName.MERCHANT && roleIs === Role.SUPER_ADMIN) {
+    } else if (
+      roleIs === Role.ADMIN &&
+      tablename === tableName.MERCHANT &&
+      roleIs === Role.SUPER_ADMIN
+    ) {
       query = `
         SELECT COUNT(*) AS count 
         FROM "${tablename}" 
@@ -47,12 +51,30 @@ export const getTotalCountDao = async (
         LEFT JOIN "Designation" ON "User".designation_id = "Designation".id 
         ${joins}
         WHERE "${tablename}".is_obsolete = false 
-        AND "Designation".designation = 'MERCHANT' 
-        AND "Merchant".company_id = $${paramIndex}
+        AND "Designation".designation = 'MERCHANT'
       `;
-      params.push(filters.company_id);
-      paramIndex++;
-      delete filters.company_id;
+      // Handle company_id filter for this specific case
+      if (filters.company_id) {
+        const companyIds =
+          typeof filters.company_id === 'string'
+            ? filters.company_id.split(',').map((id) => id.trim())
+            : Array.isArray(filters.company_id)
+              ? filters.company_id
+              : [filters.company_id];
+
+        if (companyIds.length === 1) {
+          query += ` AND "Merchant".company_id = $${paramIndex}`;
+          params.push(companyIds[0]);
+          paramIndex++;
+        } else {
+          const placeholders = companyIds
+            .map(() => `$${paramIndex++}`)
+            .join(',');
+          query += ` AND "Merchant".company_id IN (${placeholders})`;
+          params.push(...companyIds);
+        }
+        delete filters.company_id;
+      }
     } else {
       query = `
         SELECT COUNT(*) AS count 
@@ -130,7 +152,28 @@ export const getTotalCountDao = async (
         ) {
           return; // Skip these special filters
         }
-        if (Array.isArray(value)) {
+
+        // Handle company_id with comma-separated values
+        if (column === 'company_id' && filters?.company_id) {
+          const companyIds =
+            typeof filters.company_id === 'string'
+              ? filters.company_id.split(',').map((id) => id.trim())
+              : Array.isArray(filters.company_id)
+                ? filters.company_id
+                : [filters.company_id];
+
+          if (companyIds.length === 1) {
+            query += ` AND "${tablename}"."${column}" = $${paramIndex++}`;
+            params.push(companyIds[0]);
+          } else {
+            const placeholders = companyIds
+              .map(() => `$${paramIndex++}`)
+              .join(',');
+            query += ` AND "${tablename}"."${column}" IN (${placeholders})`;
+            params.push(...companyIds);
+          }
+          return;
+        } else if (Array.isArray(value)) {
           // Handle multiple values using SQL IN clause
           const placeholders = value.map(() => `$${paramIndex++}`).join(',');
           query += ` AND "${tablename}"."${column}" IN (${placeholders})`;

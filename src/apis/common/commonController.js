@@ -5,13 +5,14 @@ export const getTotalCount = async (req, res) => {
   const { tableName } = req.params;
   const { role } = req.query;
   const { filters } = req.query;
-  const { role: userRole, designation, user_id, company_id } = req.user;
+  const { role: userRole, designation, user_id } = req.user;
+  const company_id = req?.user?.company_id || req?.query?.company_id;
   const userInfo = { userRole, designation, user_id };
   if (filters === undefined) {
     const count = await getTotalCountService(
       tableName,
       role,
-      { company_id },
+      { company_id: company_id },
       userInfo,
     );
     return sendSuccess(
@@ -22,7 +23,7 @@ export const getTotalCount = async (req, res) => {
   }
   const filtersObject = decodeURIComponent(filters);
   let filter = JSON.parse(filtersObject);
-  const fiterId = { ...filter, company_id };
+  const fiterId = { ...filter, company_id: company_id };
   const count = await getTotalCountService(tableName, role, fiterId, userInfo);
   return sendSuccess(
     res,

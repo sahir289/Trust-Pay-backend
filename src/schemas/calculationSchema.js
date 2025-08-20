@@ -59,17 +59,11 @@ const VALIDATE_UPDATE_CALCULATIONS_SCHEMA = Joi.object({
     .messages({
       'string.pattern.base': 'Date must be in YYYY-MM-DD format',
     }),
-  user_ids: Joi.array()
-    .items(
-      Joi.string()
-        .guid({ version: ['uuidv4'] })
-        .required(),
-    )
-    .min(1)
-    .required()
+  user_id: Joi.string()
+    .guid({ version: ['uuidv4'] })
+    .optional()
     .messages({
-      'array.min': 'At least one user_id is required',
-      'any.required': 'user_ids array is required',
+      'string.guid': 'User ID must be a valid UUID',
     }),
   startDate: Joi.string()
     .pattern(/^\d{4}-\d{2}-\d{2}$/)
@@ -82,6 +76,12 @@ const VALIDATE_UPDATE_CALCULATIONS_SCHEMA = Joi.object({
     .optional()
     .messages({
       'string.pattern.base': 'End date must be in YYYY-MM-DD format',
+    }),
+  company_id: Joi.string()
+    .guid({ version: ['uuidv4'] })
+    .optional()
+    .messages({
+      'string.guid': 'Company ID must be a valid UUID',
     }),
 });
 

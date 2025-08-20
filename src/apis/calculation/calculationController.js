@@ -134,19 +134,23 @@ const updateCalculations = async (req, res) => {
       throw new ValidationError(error);
     }
 
-    const { date, user_ids, startDate, endDate, company_id } = req.body;
+    const { date, user_id, startDate, endDate, company_id } = req.body;
+
+    if (!user_id || typeof user_id !== 'string') {
+      throw new BadRequestError('user_id string is required');
+    }
 
     // If no specific date is provided, use current date
     const targetDate = date || new Date().toISOString().split('T')[0];
 
     logger.info(
-      `Updating calculations for date: ${targetDate}, user_ids: ${user_ids.join(', ')}`,
+      `Updating calculations for date: ${targetDate}, user_id: ${user_id}`,
     );
 
-    const data = await updateCalculationsService(
+    const data = await transactionWrapper(updateCalculationsService)(
       {
         date: targetDate,
-        user_ids,
+        user_id,
         startDate,
         endDate,
         company_id,
