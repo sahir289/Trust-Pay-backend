@@ -13,12 +13,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup Node.js (prefer 23.10.0, fallback to 22.x)
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: |
-            23.10.0
-            22.x
+          node-version: 23.x
 
       - name: Install dependencies
         run: npm install
