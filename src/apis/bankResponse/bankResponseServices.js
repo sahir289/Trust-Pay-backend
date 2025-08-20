@@ -50,7 +50,7 @@ import { filterResponse } from '../../helpers/index.js';
 // import { notifyNewTableEntry } from '../../utils/sockets.js';
 import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
 import PDFParser from 'pdf2json';
-import {  calculateDuration } from '../../helpers/index.js';
+import { calculateDuration } from '../../helpers/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const createBankResponseService = async (
@@ -117,10 +117,14 @@ const createBankResponseService = async (
       Status.FAILED,
       Status.DUPLICATE,
     ];
-    if(upi_short_code!=='undefined' && upi_short_code!=='nil' && !isValidAmountCode) {
+    if (
+      upi_short_code !== 'undefined' &&
+      upi_short_code !== 'nil' &&
+      !isValidAmountCode
+    ) {
       throw new BadRequestError(`Please Enter valid Amount Code!`);
     }
-    
+
     let utrAlreadyExist;
     if (isValidAmountCode) {
       utrAlreadyExist = await getBankResponseDao(
@@ -141,7 +145,6 @@ const createBankResponseService = async (
           filterColumns,
         );
       }
-
     } else {
       utrAlreadyExist = await getBankResponseDao(
         { utr, company_id },
@@ -568,9 +571,9 @@ const createBankResponseService = async (
         null,
         role,
       );
-    //  let vendorData = bankDetails[0]
-    //     ? await getVendorsDao({ user_id: bankDetails[0].user_id })
-    //     : [];
+      //  let vendorData = bankDetails[0]
+      //     ? await getVendorsDao({ user_id: bankDetails[0].user_id })
+      //     : [];
       const responseObj = {
         id: botRes.id,
         sno: botRes.sno,
@@ -593,6 +596,7 @@ const createBankResponseService = async (
         nick_name: bankDetails[0]?.nick_name || null,
         vendor_user_id: bankDetails[0]?.user_id || null,
         merchant_code: null, // You can fetch merchant_code if needed
+        company_id: companyId,
       };
       // Send to socket for real-time update
       await newTableEntry(tableName.BANK_RESPONSE, responseObj);
@@ -731,7 +735,7 @@ const getBankResponseService = async (
   }
 };
 
-const  getBankResponseBySearchService = async (
+const getBankResponseBySearchService = async (
   payload,
   role,
   page,
@@ -993,6 +997,7 @@ const resetBankResponseService = async (conn, id, userData) => {
       data: changes,
       updated_by: user_name,
       updated_at: new Date().toISOString(),
+       company_id: company_id,
     };
     await newTableEntry(tableName.BANK_RESPONSE, results);
     return results;
@@ -1039,10 +1044,9 @@ const handleAmountUpdate = async ({
         updatedAmount,
         vendor[0].payin_commission,
       );
-      const [vendorCalculationData] =
-        await Promise.all([
-          getAllCalculationforCronDao(vendor[0].user_id),
-        ]);
+      const [vendorCalculationData] = await Promise.all([
+        getAllCalculationforCronDao(vendor[0].user_id),
+      ]);
       if (!vendorCalculationData[0]) {
         throw new NotFoundError('Calculation data not found');
       }
@@ -1672,7 +1676,7 @@ const updateCalculationBalances = async (
       current_balance: amountDiff - commission,
       net_balance: amountDiff - commission,
     };
-const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
+    const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
     // Update current calculation
     await updateCalculationBalanceDao(
       { id: currentCalculation[0].id },
@@ -1683,17 +1687,17 @@ const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
     if (nextCalculations.length > 0) {
       // Update subsequent calculations
       for (const calc of nextCalculations) {
-          const calculationDate = dayjs(calc.created_at)
-                  .tz('Asia/Kolkata')
-            .format('YYYY-MM-DD');
-            let data = {};
-            if (calculationDate === todayDate) {
-              data = {
-                total_adjustment_amount: amountDiff,
-                total_adjustment_commission:commission,
-                total_adjustment_count: 1,
-              };
-            }
+        const calculationDate = dayjs(calc.created_at)
+          .tz('Asia/Kolkata')
+          .format('YYYY-MM-DD');
+        let data = {};
+        if (calculationDate === todayDate) {
+          data = {
+            total_adjustment_amount: amountDiff,
+            total_adjustment_commission: commission,
+            total_adjustment_count: 1,
+          };
+        }
         await updateCalculationBalanceDao(
           { id: calc.id },
           {
