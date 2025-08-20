@@ -34,7 +34,6 @@ const {
   const { logger } = require('../../utils/logger');
   const { beginTransaction, commit, getConnection, rollback } = require('../../utils/db');
   const { columns, merchantColumns, vendorColumns } = require('../../constants/index');
-  const PDFParser = require('pdf2json');
   
   jest.mock('./bankResponseDao');
   jest.mock('../bankAccounts/bankaccountDao');
@@ -54,7 +53,7 @@ const {
     const actualDayjs = jest.requireActual('dayjs');
     const mockDayjs = (...args) => {
       const instance = args.length ? actualDayjs(...args) : actualDayjs('2025-08-18');
-      instance.tz = jest.fn((zone) => ({
+      instance.tz = jest.fn(() => ({
         ...instance,
         format: jest.fn().mockReturnValue('2025-08-18'),
       }));
