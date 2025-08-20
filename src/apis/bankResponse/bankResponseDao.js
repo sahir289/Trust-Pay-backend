@@ -232,8 +232,6 @@ const getBankResponseBySearchDao = async (
       paramIndex++;
     }
     
-    
-
     if (filters.utr) {
       whereConditions.push(`"BankResponse"."utr" = $${paramIndex}`);
       values.push(filters.utr);
@@ -251,12 +249,14 @@ const getBankResponseBySearchDao = async (
       values.push(filters.updated_by);
       paramIndex++;
     }
+
     if (filters.status) {
       filters.status = filters.status.split(',');
       whereConditions.push(`"BankResponse".status = ANY($${paramIndex})`);
       values.push(filters.status);
       paramIndex++;
     }
+
     if (filters.amount) {
       filters.amount = [filters.amount];
       whereConditions.push(`"BankResponse".amount = ANY($${paramIndex})`);
@@ -272,18 +272,21 @@ const getBankResponseBySearchDao = async (
       values.push(filters.upi_short_code);
       paramIndex++;
     }
+
     if (filters.is_used) {
       filters.is_used = [filters.is_used];
       whereConditions.push(`"BankResponse".is_used = ANY($${paramIndex})`);
       values.push(filters.is_used);
       paramIndex++;
     }
+
     if (updated) {
       whereConditions.push(
         `"BankResponse".updated_at IS NOT NULL 
         AND "BankResponse".updated_at != "BankResponse".created_at`,
       );
     }
+    
     if (filters.updated_at) {
       const [day, month, year] = filters.updated_at.split('-');
       const properDateStr = `${year}-${month}-${day}`;
