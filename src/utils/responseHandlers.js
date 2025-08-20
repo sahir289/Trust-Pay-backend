@@ -31,7 +31,6 @@ const sendSuccess = (
   } else {
     logger.info(message, { status });
   }
-  logger.info({status, finalRes,}, "logger me error");
   return res.status(status).json(finalRes);
 };
 
