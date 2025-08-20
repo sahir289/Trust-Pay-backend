@@ -31,7 +31,7 @@ import { s3 } from '../../helpers/Aws.js';
 import { streamToBuffer } from '../../helpers/index.js';
 import { newTableEntry } from '../../utils/sockets.js';
 import { publishBankResponse } from '../../utils/rabbitmq-bank-response.js';
-import { logger } from '../../utils/logger.js';
+
 const getBankResponse = async (req, res) => {
   const { role, company_id } = req.user;
   const { page, limit, search, updated, sortOrder, sortBy, ...rest } =
