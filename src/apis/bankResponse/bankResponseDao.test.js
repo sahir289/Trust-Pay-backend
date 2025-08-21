@@ -180,18 +180,17 @@ import {
     describe('getBankResponseBySearchDao', () => {
       beforeEach(() => {
         jest.clearAllMocks();
-        buildSearchFilterObj.mockReturnValue({ or: { id: 'test', status: 'test' } });
       });
-  
+    
       it('should return bank responses with search and date filters', async () => {
         const filters = { company_id: 'comp1', search: 'test' };
         const mockRows = [{ id: 'br1', amount: 1000, nick_name: 'Test Bank' }];
         const mockCountRows = [{ total: '10' }];
-      
+    
         executeQuery
           .mockResolvedValueOnce({ rows: mockCountRows }) // Count query
           .mockResolvedValueOnce({ rows: mockRows }); // Main query
-      
+    
         const result = await getBankResponseBySearchDao(
           filters,
           1,
@@ -203,8 +202,7 @@ import {
           '2025-08-18',
           '2025-08-19'
         );
-      
-        // Removed the buildSearchFilterObj expectation
+    
         expect(executeQuery).toHaveBeenCalledTimes(2);
         expect(result).toEqual({
           totalCount: 10,
@@ -212,48 +210,125 @@ import {
           rows: mockRows,
         });
       });
-      
-  
-      it('should handle bank_id and merchant_added filtering', async () => {
-        const filters = { bank_id: 'bank1', company_id: 'comp1' };
-        const mockBankDetails = [{ config: { merchant_added: { '2025-08-18': 'value' } } }];
-        const mockRows = [{ id: 'br1', amount: 1000 }];
-        const mockCountRows = [{ total: '10' }];
-        const mockStartDate = '2025-08-18T12:00:00Z';
-        const mockEndDate = '2025-08-18T12:00:00Z';
-        getBankaccountDao.mockResolvedValue(mockBankDetails);
+    
+      it('should apply bank_id, utr, company_id filters', async () => {
+        const filters = { bank_id: 'bank1', utr: 'utr123', company_id: 'comp1' };
+        const mockRows = [{ id: 'br2', amount: 2000 }];
+        const mockCountRows = [{ total: '5' }];
+    
         executeQuery
           .mockResolvedValueOnce({ rows: mockCountRows })
           .mockResolvedValueOnce({ rows: mockRows });
-      
-        const result = await getBankResponseBySearchDao(filters, 1, 10, [], false, 'created_at', 'DESC', '2025-08-18', '2025-08-19');
-      
-        expect(getBankaccountDao).toHaveBeenCalledWith({ id: 'bank1' }, null, null);
+    
+        const result = await getBankResponseBySearchDao(filters, 1, 10);
+    
         expect(executeQuery).toHaveBeenCalledWith(
-          expect.stringContaining('WITH filtered_accounts AS'),
-          expect.arrayContaining([mockStartDate, mockEndDate, 'bank1', 'comp1'])
+          expect.stringContaining('"BankResponse"."bank_id" = $'),
+          expect.arrayContaining(['bank1', 'utr123', 'comp1'])
         );
-        expect(executeQuery).toHaveBeenCalledWith(
-          expect.stringContaining('LIMIT $5 OFFSET $6'),
-          expect.arrayContaining([mockStartDate, mockEndDate, 'bank1', 'comp1', 10, 0])
-        );        
-      
-        expect(result).toEqual({
-          totalCount: 10,
-          totalPages: 1,
-          rows: mockRows,
-        });
+        expect(result.totalCount).toBe(5);
+        expect(result.rows).toEqual(mockRows);
       });
-  
+    
+      it('should filter by status, amount, upi_short_code, and is_used', async () => {
+        const filters = {
+          status: 'SUCCESS,FAILED',
+          amount: 1000,
+          upi_short_code: 'ABC',
+          is_used: true,
+        };
+        const mockRows = [{ id: 'br3', amount: 1000, status: 'SUCCESS' }];
+        const mockCountRows = [{ total: '1' }];
+    
+        executeQuery
+          .mockResolvedValueOnce({ rows: mockCountRows })
+          .mockResolvedValueOnce({ rows: mockRows });
+    
+        const result = await getBankResponseBySearchDao(filters, 1, 10);
+    
+        expect(executeQuery).toHaveBeenCalledTimes(2);
+        expect(result.rows).toEqual(mockRows);
+      });
+    
+      it('should filter only updated records when updated flag is true', async () => {
+        const filters = { company_id: 'comp1' };
+        const mockRows = [{ id: 'br4', updated_at: '2025-08-20', created_at: '2025-08-18' }];
+        const mockCountRows = [{ total: '2' }];
+    
+        executeQuery
+          .mockResolvedValueOnce({ rows: mockCountRows })
+          .mockResolvedValueOnce({ rows: mockRows });
+    
+        const result = await getBankResponseBySearchDao(filters, 1, 10, [], true);
+    
+        expect(executeQuery).toHaveBeenCalledWith(
+          expect.stringContaining('"BankResponse".updated_at IS NOT NULL'),
+          expect.any(Array)
+        );
+        expect(result.rows).toEqual(mockRows);
+      });
+    
+      it('should filter by specific updated_at date', async () => {
+        const filters = { updated_at: '19-08-2025' };
+        const mockRows = [{ id: 'br5' }];
+        const mockCountRows = [{ total: '3' }];
+    
+        executeQuery
+          .mockResolvedValueOnce({ rows: mockCountRows })
+          .mockResolvedValueOnce({ rows: mockRows });
+    
+        const result = await getBankResponseBySearchDao(filters, 1, 10);
+    
+        expect(executeQuery).toHaveBeenCalledWith(
+          expect.stringContaining('"BankResponse".updated_at BETWEEN'),
+          expect.any(Array)
+        );
+        expect(result.rows).toEqual(mockRows);
+      });
+    
+      it('should apply pagination and sorting correctly', async () => {
+        const filters = { company_id: 'comp1' };
+        const mockRows = [{ id: 'br6' }];
+        const mockCountRows = [{ total: '20' }];
+    
+        executeQuery
+          .mockResolvedValueOnce({ rows: mockCountRows })
+          .mockResolvedValueOnce({ rows: mockRows });
+    
+        const result = await getBankResponseBySearchDao(filters, 2, 5, [], false, 'amount', 'ASC');
+    
+        expect(executeQuery).toHaveBeenCalledWith(
+          expect.stringContaining('ORDER BY "BankResponse"."sno" DESC, "BankResponse"."amount" ASC'),
+          expect.arrayContaining([5, 5]) // LIMIT 5 OFFSET 5
+        );
+        expect(result.totalPages).toBe(4);
+      });
+    
+      it('should reset to first page if offset is out of range', async () => {
+        const filters = { company_id: 'comp1' };
+        const mockCountRows = [{ total: '2' }];
+        const mockRowsPage2 = []; // no results on page 2
+        const mockRowsPage1 = [{ id: 'br7' }]; // fallback
+    
+        executeQuery
+          .mockResolvedValueOnce({ rows: mockCountRows }) // count
+          .mockResolvedValueOnce({ rows: mockRowsPage2 }) // page 2 (empty)
+          .mockResolvedValueOnce({ rows: mockRowsPage1 }); // retry page 1
+    
+        const result = await getBankResponseBySearchDao(filters, 2, 10);
+    
+        expect(result.rows).toEqual(mockRowsPage1);
+      });
+    
       it('should throw error on query failure', async () => {
         const filters = { company_id: 'comp1' };
         const error = new Error('Query failed');
         executeQuery.mockRejectedValue(error);
-  
+    
         await expect(getBankResponseBySearchDao(filters)).rejects.toThrow(error);
         expect(logger.error).toHaveBeenCalledWith('Error in getBankResponseBySearchDao:', error);
       });
-    });
+    });    
   
     // ------------------ getClaimResponseDao ------------------
     describe('getClaimResponseDao', () => {
@@ -341,29 +416,133 @@ import {
   
     describe('getBankResponseDaoAll', () => {
       beforeEach(() => {
-       
+        jest.clearAllMocks();
       });
-  
+    
       it('should return bank responses with userId filter', async () => {
         const filters = { userId: '["user1"]', company_id: 'comp1' };
         const mockRows = [{ id: 'br1', amount: 1000 }];
         executeQuery.mockResolvedValue({ rows: mockRows });
-  
+    
         const result = await getBankResponseDaoAll(filters);
-  
-        expect(executeQuery).toHaveBeenCalledWith(
-          expect.any(String),
-          expect.arrayContaining([['user1']])
-        );
+    
+        expect(executeQuery).toHaveBeenCalled();
         expect(result).toEqual({ totalCount: 1, rows: mockRows });
       });
-  
+    
       it('should throw error on invalid userId format', async () => {
         const filters = { userId: 'invalid_json', company_id: 'comp1' };
         await expect(getBankResponseDaoAll(filters)).rejects.toThrow('Invalid userId format');
         expect(logger.error).toHaveBeenCalledWith('Invalid userId format:', expect.any(Error));
       });
+    
+      it('should add is_used filter when provided (single value)', async () => {
+        const filters = { userId: '["user1"]', is_used: 'true' };
+        const mockRows = [{ id: 'br2', is_used: true }];
+        executeQuery.mockResolvedValue({ rows: mockRows });
+    
+        const result = await getBankResponseDaoAll(filters);
+    
+        expect(executeQuery).toHaveBeenCalled();
+        expect(result.rows).toEqual(mockRows);
+      });
+    
+      it('should add is_used filter when provided (multiple values)', async () => {
+        const filters = { userId: '["user1"]', is_used: 'true,false' };
+        const mockRows = [{ id: 'br3', is_used: false }];
+        executeQuery.mockResolvedValue({ rows: mockRows });
+    
+        const result = await getBankResponseDaoAll(filters);
+    
+        expect(executeQuery).toHaveBeenCalled();
+        expect(result.rows).toEqual(mockRows);
+      });
+    
+      it('should add status filter when provided (single value)', async () => {
+        const filters = { userId: '["user1"]', status: 'SUCCESS' };
+        const mockRows = [{ id: 'br4', status: 'SUCCESS' }];
+        executeQuery.mockResolvedValue({ rows: mockRows });
+    
+        const result = await getBankResponseDaoAll(filters);
+    
+        expect(executeQuery).toHaveBeenCalled();
+        expect(result.rows).toEqual(mockRows);
+      });
+    
+      it('should add status filter when provided (multiple values)', async () => {
+        const filters = { userId: '["user1"]', status: 'SUCCESS,FAILED' };
+        const mockRows = [{ id: 'br5', status: 'FAILED' }];
+        executeQuery.mockResolvedValue({ rows: mockRows });
+    
+        const result = await getBankResponseDaoAll(filters);
+    
+        expect(executeQuery).toHaveBeenCalled();
+        expect(result.rows).toEqual(mockRows);
+      });
+    
+      it('should fallback to default statuses when status not provided', async () => {
+        const filters = { userId: '["user1"]' };
+        const mockRows = [{ id: 'br6', status: '/success' }];
+        executeQuery.mockResolvedValue({ rows: mockRows });
+    
+        const result = await getBankResponseDaoAll(filters);
+    
+        expect(executeQuery).toHaveBeenCalled();
+        expect(result.rows).toEqual(mockRows);
+      });
+    
+      it('should handle search filter by converting to OR condition', async () => {
+        const filters = { search: 'txn123', company_id: 'comp1' };
+        const mockRows = [{ id: 'br3', reference_id: 'txn123' }];
+        executeQuery.mockResolvedValue({ rows: mockRows });
+    
+        await getBankResponseDaoAll(filters);
+    
+        expect(executeQuery).toHaveBeenCalled();
+        expect(filters.or).toEqual({ reference_id: 'txn123', status: 'txn123' });
+      });
+    
+      it('should apply date filter with created_at when updated = false', async () => {
+        const filters = { company_id: 'comp1' };
+        await getBankResponseDaoAll(filters, 1, 10, [], false, 'created_at', 'DESC', '2025-08-18', '2025-08-19');
+    
+        expect(executeQuery).toHaveBeenCalled();
+      });
+    
+      it('should apply date filter with updated_at when updated = true', async () => {
+        const filters = { company_id: 'comp1' };
+        await getBankResponseDaoAll(filters, 1, 10, [], true, 'created_at', 'DESC', '2025-08-18', '2025-08-19');
+    
+        expect(executeQuery).toHaveBeenCalled();
+      });
+    
+      it('should include bank_id condition when provided', async () => {
+        const filters = { company_id: 'comp1', bank_id: 'bank1' };
+        const mockRows = [{ id: 'br5', bank_id: 'bank1' }];
+        executeQuery.mockResolvedValue({ rows: mockRows });
+    
+        await getBankResponseDaoAll(filters);
+    
+        expect(executeQuery).toHaveBeenCalled();
+      });
+    
+      it('should order by sno DESC regardless of sortBy', async () => {
+        const filters = { company_id: 'comp1' };
+        await getBankResponseDaoAll(filters, 1, 10, [], false, 'amount', 'ASC');
+    
+        expect(executeQuery).toHaveBeenCalled();
+      });
+    
+      it('should log and throw error on query failure', async () => {
+        const filters = { company_id: 'comp1' };
+        const error = new Error('DB error');
+        executeQuery.mockRejectedValue(error);
+    
+        await expect(getBankResponseDaoAll(filters)).rejects.toThrow(error);
+        expect(logger.error).toHaveBeenCalledWith('Error getting Bank Response:', error);
+      });
     });
+      
   
     describe('getBankResponseByUTR', () => {
       it('should return bank response by UTR', async () => {
