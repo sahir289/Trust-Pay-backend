@@ -473,6 +473,7 @@ export const getPayoutsBySearchDao = async (
   try {
     // Initialize base conditions for main query
     const conditions = [`p.is_obsolete = false`];
+    const initialConditionsCount = conditions.length; // Track initial conditions count
 
     // Parameters for main query
     const queryParams = [];
@@ -581,6 +582,7 @@ export const getPayoutsBySearchDao = async (
         p.created_at,
         p.updated_at,
         p.approved_at,
+        p.company_id,
         c.first_name || ' ' || c.last_name AS company,
         p.rejected_at
       FROM public."Payout" p
@@ -729,8 +731,8 @@ export const getPayoutsBySearchDao = async (
     });
 
     // Add all conditions to main query
-    if (conditions.length > 2) {
-      queryText += ' AND (' + conditions.slice(2).join(' AND ') + ')';
+    if (conditions.length > initialConditionsCount) {
+      queryText += ' AND (' + conditions.slice(initialConditionsCount).join(' AND ') + ')';
     }
 
     // Create count query
@@ -743,6 +745,7 @@ export const getPayoutsBySearchDao = async (
     if (ifamount) {
       // Create fresh conditions and parameters for amount query
       const amountConditions = [`p.is_obsolete = false`, `p.company_id = $1`];
+      const initialAmountConditionsCount = amountConditions.length; // Track initial amount conditions count
       const amountParams = [filters.company_id];
       let amountParamIndex = 2;
 
@@ -839,7 +842,7 @@ export const getPayoutsBySearchDao = async (
         LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
         LEFT JOIN public."Vendor" v ON p.vendor_id = v.id
         WHERE ${amountConditions.join(' AND ')}
-        ${amountConditions.length > 2 ? ' AND (' + amountConditions.slice(2).join(' AND ') + ')' : ''}
+        ${amountConditions.length > initialAmountConditionsCount ? ' AND (' + amountConditions.slice(initialAmountConditionsCount).join(' AND ') + ')' : ''}
       `;
 
       // Execute amount query
@@ -849,10 +852,10 @@ export const getPayoutsBySearchDao = async (
 
     // Add pagination to main query
     queryText += `
-  ORDER BY p.sno ${ifamount ? 'ASC' : 'DESC'} 
-  LIMIT $${queryParams.length + 1}
-  OFFSET $${queryParams.length + 2}
-`;
+      ORDER BY p.sno ${ifamount ? 'ASC' : 'DESC'} 
+      LIMIT $${queryParams.length + 1}
+      OFFSET $${queryParams.length + 2}
+    `;
     queryParams.push(limitNum, offset);
 
     // Execute main queries

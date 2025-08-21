@@ -130,7 +130,7 @@ const walletsPayouts = async (req, res) => {
   }
   const { user_id } = req.user;
   const payload = req.body;
-  const company_id = req?.user?.company_id || payload?.company_id;
+  const company_id = req?.user?.company_id || req?.headers['company_id'];
   payload.company_id = company_id;
 
   let result = await transactionWrapper(walletsPayoutsService)(
@@ -149,7 +149,7 @@ const walletsPayouts = async (req, res) => {
 };
 
 const getWalletsBalance = async (req, res) => {
-  const company_id = req?.user?.company_id || req?.query?.company_id;
+  const company_id = req?.user?.company_id || req?.headers['company_id'];
   let result = await getWalletsBalanceService(company_id);
   // Log success message
   logger.log('Wallet Balance fetch successfully');
@@ -184,8 +184,7 @@ const getPayoutsBySearch = async (req, res) => {
 const updatePayout = async (req, res) => {
   const { role, user_id, user_name } = req.user;
   const { id } = req.params;
-  const company_id = req?.user?.company_id || payload?.company_id;
-  delete payload?.company_id;
+  const company_id = req?.user?.company_id || req.headers['company_id'];
   const payload = req.body;
   const joiValidation = UPDATE_DETAILS_SCHEMA.validate(payload);
   if (joiValidation.error) {

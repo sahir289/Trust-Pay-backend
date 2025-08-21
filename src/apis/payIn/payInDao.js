@@ -1046,29 +1046,72 @@ export const getPayinsBySearchDao = async (
     throw error;
   }
 };
+// Helper function to handle company_id filtering
+const buildCompanyIdCondition = (companyId, paramIndex) => {
+  if (!companyId) {
+    return { condition: '', params: [], paramIndex };
+  }
+
+  if (typeof companyId === 'string' && companyId.includes(',')) {
+    const companyIds = companyId.split(',').map(id => id.trim()).filter(Boolean);
+    const placeholders = companyIds.map((_, idx) => `$${paramIndex + idx}`).join(', ');
+    return {
+      condition: `company_id IN (${placeholders})`,
+      params: companyIds,
+      paramIndex: paramIndex + companyIds.length
+    };
+  } else if (Array.isArray(companyId)) {
+    const placeholders = companyId.map((_, idx) => `$${paramIndex + idx}`).join(', ');
+    return {
+      condition: `company_id IN (${placeholders})`,
+      params: companyId,
+      paramIndex: paramIndex + companyId.length
+    };
+  } else {
+    return {
+      condition: `company_id = $${paramIndex}`,
+      params: [companyId],
+      paramIndex: paramIndex + 1
+    };
+  }
+};
+
 export const getPayinsSumAndCountByStatusDao = async (filters) => {
   try {
     const conditions = [`p.is_obsolete = false`];
-    const queryParams = [filters.company_id];
-    let paramIndex = 2;
+    let queryParams = [];
+    let paramIndex = 1;
+
+    // Handle company_id filter using helper function
+    const companyCondition = buildCompanyIdCondition(filters.company_id, paramIndex);
+    if (companyCondition.condition) {
+      conditions.push(`p.${companyCondition.condition}`);
+      queryParams.push(...companyCondition.params);
+      paramIndex = companyCondition.paramIndex;
+    }
 
     const statusQuery = `
       SELECT DISTINCT status
       FROM public."Payin"
-      WHERE is_obsolete = false AND company_id = $1
+      WHERE is_obsolete = false ${companyCondition.condition ? `AND ${companyCondition.condition}` : ''}
     `;
-    const statusResult = await executeQuery(statusQuery, [filters.company_id]);
+    const statusResult = await executeQuery(statusQuery, queryParams.slice());
     const validStatuses = statusResult.rows.map((row) => row.status);
 
     if (validStatuses.length === 0) {
       return { results: [] };
     }
 
-    const today = dayjs(Date.now()).tz('+04:00').format('YYYY-MM-DD');
-    const startDate = dayjs.tz(`${today} 00:00:00`, '+04:00').utc().format();
-    const endDate = dayjs.tz(`${today} 23:59:59.999`, '+04:00').utc().format();
+    const today = dayjs(Date.now()).tz('Asia/Kolkata').format('YYYY-MM-DD');
+    const startDate = dayjs.tz(`${today} 00:00:00`, 'Asia/Kolkata').utc().format();
+    const endDate = dayjs.tz(`${today} 23:59:59.999`, 'Asia/Kolkata').utc().format();
+    
+    // Use approved_at for SUCCESS status, updated_at for others
     conditions.push(
-      `p.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+      `CASE 
+        WHEN p.status = 'SUCCESS' THEN p.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+        ELSE p.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
+      END`
     );
     queryParams.push(startDate, endDate);
     paramIndex += 2;
@@ -1081,9 +1124,18 @@ export const getPayinsSumAndCountByStatusDao = async (filters) => {
       FROM (
         SELECT unnest($${paramIndex}::text[]) AS status
       ) s
-      LEFT JOIN public."Payin" p ON p.status = s.status AND p.is_obsolete = false AND p.company_id = $1
+      LEFT JOIN public."Payin" p ON p.status = s.status AND p.is_obsolete = false
     `;
-    queryParams.push(validStatuses);
+    
+    // Add company_id condition to the main query if it exists
+    if (companyCondition.condition) {
+      queryText += ` AND p.${companyCondition.condition}`;
+      queryParams.push(validStatuses, ...companyCondition.params);
+      paramIndex += companyCondition.params.length + 1;
+    } else {
+      queryParams.push(validStatuses);
+      paramIndex++;
+    }
 
     queryText += ' WHERE (' + conditions.join(' AND ') + ')';
 
