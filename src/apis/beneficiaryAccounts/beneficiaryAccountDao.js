@@ -115,7 +115,6 @@ const checkBeneficiaryAccountExistsDao = async (filters) => {
   }
 };
 
-
 const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
   try {
     let queryParams = [];
@@ -140,7 +139,11 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
             queryParams.push(value);
           } else if (Array.isArray(value)) {
             // Ensure array is not empty, is flat, and is a proper Postgres array
-            const flatArray = value.flat().filter(v => v !== null && v !== undefined && !Array.isArray(v));
+            const flatArray = value
+              .flat()
+              .filter(
+                (v) => v !== null && v !== undefined && !Array.isArray(v),
+              );
             if (flatArray.length > 0) {
               conditions.push(`bea."${key}" = ANY($${queryParams.length + 1})`);
               queryParams.push(flatArray);
@@ -268,9 +271,9 @@ const getBeneficiaryAccountBySearchDao = async (
             OR LOWER(bea.bank_name) LIKE LOWER($${paramIndex})
             OR LOWER(v.code::text) LIKE LOWER($${paramIndex})
             OR LOWER(m.code::text) LIKE LOWER($${paramIndex})
-            ${
-              role !== 'MERCHANT'
-                ? `
+            OR LOWER("bea".config->>'type') LIKE LOWER($${paramIndex})
+            ${role !== 'MERCHANT'
+              ? `
               OR LOWER(bea.user_id::text) LIKE LOWER($${paramIndex})
               OR LOWER(bea.ifsc) LIKE LOWER($${paramIndex})
               ${
@@ -279,13 +282,13 @@ const getBeneficiaryAccountBySearchDao = async (
                 OR LOWER(COALESCE(creator.user_name, '')) LIKE LOWER($${paramIndex})
                 OR LOWER(COALESCE(updater.user_name, '')) LIKE LOWER($${paramIndex})
               `
-                  : ''
+              : ''
               }`
                 : role === 'VENDOR'
                   ? `
               OR LOWER(bea.ifsc) LIKE LOWER($${paramIndex})
               `
-                  : ''
+              : ''
             }
           )`);
         queryParams.push(`%${term}%`);
@@ -339,7 +342,7 @@ const getBeneficiaryAccountBySearchDao = async (
       searchResult.rows.length === 0 &&
       (page - 1) * limit > 0
     ) {
-      queryParams[queryParams.length - 1] = 0; 
+      queryParams[queryParams.length - 1] = 0;
       searchResult = await executeQuery(baseQuery, queryParams);
     }
     return {
@@ -451,7 +454,7 @@ const deleteBeneficiaryDao = async (conn, id, data) => {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
     return result.rows[0];
-  } catch(error) {
+  } catch (error) {
     logger.error('Error in deleteBeneficiaryDao:', error);
     throw error;
   }
