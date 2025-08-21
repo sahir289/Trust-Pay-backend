@@ -82,6 +82,21 @@ const createBankResponseService = async (
       throw new BadRequestError(`amount must be between 1 and 500000`);
     }
 
+
+    const bankCompanyCheck = await getBankaccountDao(
+      {
+        id: bank_id,
+        company_id: companyId,
+      },
+      null,
+      null,
+      role,
+    );
+
+    if (!bankCompanyCheck || bankCompanyCheck?.length === 0) {
+      throw new NotFoundError('Bank account does not exist for this company');
+    }
+
     // UTR validation
     const validateUTR = (utr, from_UI) => {
       if (!from_UI) return true;
