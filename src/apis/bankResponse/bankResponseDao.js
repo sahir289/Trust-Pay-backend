@@ -88,7 +88,13 @@ const getBankResponseBySearchDao = async (
   end_date,
 ) => {
   try {
-    // Prepare columns
+    // let bankId;
+    // let bankDetails;
+    // if (filters?.bank_id) {
+    //   bankId = filters.bank_id;
+    //   bankDetails = await getBankaccountDao({ id: bankId }, null, null);
+    // }
+
     // Use DISTINCT ON to avoid duplicate rows for same BankResponse.sno
     const selectCols = columns.length
       ? `DISTINCT ON ("BankResponse".sno) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
@@ -109,63 +115,47 @@ const getBankResponseBySearchDao = async (
       dateParams = [start, end];
     }
 
-    // Query for filtered merchant_added if needed (kept for compatibility, but only used if bank_id and merchant_added present)
-    let bankDetails;
-    if (filters?.bank_id) {
-      bankDetails = await getBankaccountDao({ id: filters.bank_id }, null, null);
-    }
-
-    // Build base queries
-    const baseQueryDate = `
-      WITH filtered_accounts AS (
-        SELECT 
-          "BankAccount".*, 
-          jsonb_object_agg(key, value) FILTER (
-            WHERE key ~ '^\\d{4}-\\d{2}-\\d{2}' 
-              AND (key)::timestamp BETWEEN $${dateParams.length ? 1 : 'NULL'}::timestamp AND $${dateParams.length ? 2 : 'NULL'}::timestamp
-          ) AS filtered_merchant_added
-        FROM "BankAccount",
-             jsonb_each(("BankAccount".config -> 'merchant_added')::jsonb)
-        GROUP BY "BankAccount".id
-      )
-      SELECT ${selectCols}, 
-             "BankResponse".created_at,
-             jsonb_set("BankAccount".config::jsonb, '{merchant_added}', COALESCE(filtered_merchant_added, '{}'::jsonb)) AS details,
-             "BankAccount".nick_name,
-             "Vendor".user_id AS vendor_user_id,
-             "Merchant".code AS merchant_code,
-             "Company".first_name || ' ' || "Company".last_name AS company
-      FROM "BankResponse"
-      JOIN filtered_accounts AS "BankAccount" 
-        ON "BankResponse".bank_id = "BankAccount".id
-      LEFT JOIN "Vendor" 
-        ON "BankAccount".user_id = "Vendor".user_id
-      LEFT JOIN "Company" ON "BankResponse".company_id = "Company".id
-      LEFT JOIN "Payin"
-        ON "BankResponse".id = "Payin".bank_response_id
-        AND "BankResponse".is_used = true
-      LEFT JOIN "Merchant"
-        ON "Payin".merchant_id = "Merchant".id
-    `;
+    // let baseQueryDate = `
+    //   WITH filtered_accounts AS (
+    //     SELECT 
+    //       "BankAccount".*, 
+    //       jsonb_object_agg(key, value) FILTER (
+    //         WHERE key ~ '^\\d{4}-\\d{2}-\\d{2}' 
+    //           AND (key)::timestamp BETWEEN $${dateParams.length ? 1 : 'NULL'}::timestamp AND $${dateParams.length ? 2 : 'NULL'}::timestamp
+    //       ) AS filtered_merchant_added
+    //     FROM "BankAccount",
+    //          jsonb_each(("BankAccount".config -> 'merchant_added')::jsonb)
+    //     GROUP BY "BankAccount".id
+    //   )
+    //   SELECT ${selectCols}, 
+    //          "BankResponse".created_at,
+    //          jsonb_set("BankAccount".config::jsonb, '{merchant_added}', COALESCE(filtered_merchant_added, '{}'::jsonb)) AS details,
+    //          "BankAccount".nick_name,
+    //          "Vendor".user_id AS vendor_user_id,
+    //          "Merchant".code AS merchant_code
+    //   FROM "BankResponse"
+    //   JOIN filtered_accounts AS "BankAccount" 
+    //     ON "BankResponse".bank_id = "BankAccount".id
+    //   LEFT JOIN "Vendor" 
+    //     ON "BankAccount".user_id = "Vendor".user_id
+    //   LEFT JOIN "Payin"
+    //     ON "BankResponse".id = "Payin".bank_response_id
+    //     AND "BankResponse".is_used = true
+    //   LEFT JOIN "Merchant"
+    //     ON "Payin".merchant_id = "Merchant".id
+    // `;
 
     const baseQuery = `
       SELECT ${selectCols}, 
              "BankResponse".created_at,
              "BankResponse".company_id,
-             "BankAccount".config AS details,
              "BankAccount".nick_name,
              "Vendor".user_id AS vendor_user_id,
-             "Merchant".code AS merchant_code,
              "Company".first_name || ' ' || "Company".last_name AS company
       FROM "BankResponse"
       JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
       LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
       LEFT JOIN "Company" ON "BankResponse".company_id = "Company".id
-      LEFT JOIN "Payin"
-        ON "BankResponse".id = "Payin".bank_response_id
-        AND "BankResponse".is_used = true
-      LEFT JOIN "Merchant"
-        ON "Payin".merchant_id = "Merchant".id
     `;
 
     // Build WHERE conditions and values
@@ -191,31 +181,48 @@ const getBankResponseBySearchDao = async (
             paramIndex++;
           } else {
             const likeVal = `%${term}%`;
-            searchConditions.push(`(
-              LOWER("BankResponse".id::text) LIKE LOWER($${paramIndex})
-              OR LOWER("BankResponse".status) LIKE LOWER($${paramIndex})
-              OR LOWER("BankResponse".bank_id::text) LIKE LOWER($${paramIndex})
-              OR LOWER("BankResponse".amount::text) LIKE LOWER($${paramIndex})
-              OR LOWER("BankResponse".upi_short_code) LIKE LOWER($${paramIndex})
-              OR LOWER("BankResponse".utr) LIKE LOWER($${paramIndex})
-              OR LOWER("BankResponse".sno::text) LIKE LOWER($${paramIndex})
-              OR LOWER("BankResponse".created_at::text) LIKE LOWER($${paramIndex})
-              OR LOWER("BankResponse".updated_at::text) LIKE LOWER($${paramIndex})
-              OR LOWER("BankResponse".created_by) LIKE LOWER($${paramIndex})
-              OR LOWER("BankResponse".updated_by) LIKE LOWER($${paramIndex})
-              OR LOWER("BankResponse".config->>'from_UI') LIKE LOWER($${paramIndex})
-              OR LOWER("BankAccount".user_id::text) LIKE LOWER($${paramIndex})
-              OR LOWER("BankAccount".nick_name) LIKE LOWER($${paramIndex})
-              OR LOWER("BankAccount".bank_name) LIKE LOWER($${paramIndex})
-              OR LOWER("Vendor".code) LIKE LOWER($${paramIndex})
-              OR LOWER("Merchant".code) LIKE LOWER($${paramIndex})
-              OR LOWER("Company".first_name || ' ' || "Company".last_name) LIKE LOWER($${paramIndex})
-              OR LOWER("Payin".id::text) LIKE LOWER($${paramIndex})
-              OR LOWER("Payin".user_submitted_utr) LIKE LOWER($${paramIndex})
-              OR LOWER("Payin".config->>'user') LIKE LOWER($${paramIndex})
-              OR LOWER("Payin".config->'urls'->>'site') LIKE LOWER($${paramIndex})
-              OR LOWER("Payin".config->'urls'->>'notify') LIKE LOWER($${paramIndex})
-            )`);
+            // searchConditions.push(`
+            //   (
+            //     LOWER("BankResponse".id::text) LIKE LOWER($${paramIndex})
+            //     OR LOWER("BankResponse".status) LIKE LOWER($${paramIndex})
+            //     OR LOWER("BankResponse".bank_id::text) LIKE LOWER($${paramIndex})
+            //     OR LOWER("BankResponse".amount::text) LIKE LOWER($${paramIndex})
+            //     OR LOWER("BankResponse".upi_short_code) LIKE LOWER($${paramIndex})
+            //     OR LOWER("BankResponse".utr) LIKE LOWER($${paramIndex})
+            //     OR LOWER("BankResponse".sno::text) LIKE LOWER($${paramIndex})
+            //     OR LOWER("BankResponse".created_at::text) LIKE LOWER($${paramIndex})
+            //     OR LOWER("BankResponse".updated_at::text) LIKE LOWER($${paramIndex})
+            //     OR LOWER("BankResponse".created_by) LIKE LOWER($${paramIndex})
+            //     OR LOWER("BankResponse".updated_by) LIKE LOWER($${paramIndex})
+            //     OR LOWER("BankResponse".config->>'from_UI') LIKE LOWER($${paramIndex})
+            //     OR LOWER("BankAccount".user_id::text) LIKE LOWER($${paramIndex})
+            //     OR LOWER("BankAccount".nick_name) LIKE LOWER($${paramIndex})
+            //     OR LOWER("BankAccount".bank_name) LIKE LOWER($${paramIndex})
+            //     OR LOWER("Vendor".code) LIKE LOWER($${paramIndex})
+            //     OR LOWER("Merchant".code) LIKE LOWER($${paramIndex})
+            //     OR LOWER("Payin".id::text) LIKE LOWER($${paramIndex})
+            //     OR LOWER("Payin".user_submitted_utr) LIKE LOWER($${paramIndex})
+            //     OR LOWER("Payin".config->>'user') LIKE LOWER($${paramIndex})
+            //     OR LOWER("Payin".config->'urls'->>'site') LIKE LOWER($${paramIndex})
+            //     OR LOWER("Payin".config->'urls'->>'notify') LIKE LOWER($${paramIndex})
+            //   )
+            // `);
+            searchConditions.push(`
+              (
+                LOWER("BankResponse".id::text) LIKE LOWER($${paramIndex})
+                OR LOWER("BankResponse".status) LIKE LOWER($${paramIndex})
+                OR LOWER("BankResponse".bank_id::text) LIKE LOWER($${paramIndex})
+                OR LOWER("BankResponse".amount::text) LIKE LOWER($${paramIndex})
+                OR LOWER("BankResponse".upi_short_code) LIKE LOWER($${paramIndex})
+                OR LOWER("BankResponse".utr) LIKE LOWER($${paramIndex})
+                OR LOWER("BankResponse".sno::text) LIKE LOWER($${paramIndex})
+                OR LOWER("BankResponse".created_by) LIKE LOWER($${paramIndex})
+                OR LOWER("BankResponse".updated_by) LIKE LOWER($${paramIndex})
+                OR LOWER("BankAccount".user_id::text) LIKE LOWER($${paramIndex})
+                OR LOWER("BankAccount".nick_name) LIKE LOWER($${paramIndex})
+                OR LOWER("Company".first_name || ' ' || "Company".last_name) LIKE LOWER($${paramIndex})
+              )
+            `);
             values.push(likeVal);
             paramIndex++;
           }
@@ -233,6 +240,7 @@ const getBankResponseBySearchDao = async (
       values.push(filters.bank_id);
       paramIndex++;
     }
+    
     if (filters.utr) {
       whereConditions.push(`"BankResponse"."utr" = $${paramIndex}`);
       values.push(filters.utr);
@@ -258,12 +266,14 @@ const getBankResponseBySearchDao = async (
       values.push(filters.updated_by);
       paramIndex++;
     }
+
     if (filters.status) {
       const statusArr = filters.status.split(',');
       whereConditions.push(`"BankResponse".status = ANY($${paramIndex})`);
       values.push(statusArr);
       paramIndex++;
     }
+
     if (filters.amount) {
       whereConditions.push(`"BankResponse".amount = ANY($${paramIndex})`);
       values.push([filters.amount]);
@@ -274,16 +284,19 @@ const getBankResponseBySearchDao = async (
       values.push([filters.upi_short_code]);
       paramIndex++;
     }
+
     if (filters.is_used) {
       whereConditions.push(`"BankResponse".is_used = ANY($${paramIndex})`);
       values.push([filters.is_used]);
       paramIndex++;
     }
+
     if (updated) {
       whereConditions.push(
         `"BankResponse".updated_at IS NOT NULL AND "BankResponse".updated_at != "BankResponse".created_at`
       );
     }
+    
     if (filters.updated_at) {
       const [day, month, year] = filters.updated_at.split('-');
       const properDateStr = `${year}-${month}-${day}`;
@@ -293,15 +306,9 @@ const getBankResponseBySearchDao = async (
       values.push(startDate, endDate);
       paramIndex += 2;
     }
+    const queryIs = baseQuery;
 
-    // Choose query: use baseQueryDate only if merchant_added exists for this bank
-    let useDateQuery = false;
-    if (
-      start && end && bankDetails && Array.isArray(bankDetails) && bankDetails[0]?.config?.merchant_added
-    ) {
-      useDateQuery = true;
-    }
-    let queryText = useDateQuery ? baseQueryDate : baseQuery;
+    let queryText = queryIs;
     if (whereConditions.length) {
       queryText += ' WHERE ' + whereConditions.join(' AND ');
     }

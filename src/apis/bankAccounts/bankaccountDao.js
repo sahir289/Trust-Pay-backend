@@ -524,6 +524,7 @@ const getBankAccountDaoNickName = async (
   company_id,
   type,
   filters = {},
+  check_enabled,
 ) => {
   try {
     // Initialize query components
@@ -532,7 +533,7 @@ const getBankAccountDaoNickName = async (
       'is_obsolete = false',
       "(config->>'is_freeze' IS NULL OR config->>'is_freeze' != 'true' OR config->>'is_freeze' = 'false')",
     ];
-    if (type !== 'PayIn') {
+    if (type !== 'PayIn' || check_enabled === 'true') {
       whereConditions.push('is_enabled = true');
     }
     if (company_id) {

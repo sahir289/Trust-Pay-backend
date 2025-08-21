@@ -12,6 +12,21 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 23.x
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run ESLint check
+        run: |
+          echo "Running ESLint..."
+          npm run lint
+        # If ESLint fails (non-zero exit), the workflow will stop here
+        continue-on-error: false
 
       - name: Debug Secrets
         env:
@@ -44,5 +59,5 @@ jobs:
           echo "Testing SSH connection..."
           ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "whoami" || { echo "SSH connection failed"; exit 1; }
           echo "Deploying to EC2..."
-          ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "cd '$TARGET_DIR' && pwd && sudo git fetch origin && sudo git status && sudo git pull origin main --verbose && git log -1 --oneline && sudo npm install && pm2 restart all" || { echo "Deployment failed"; exit 1; }
+          ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "cd '$TARGET_DIR' && pwd && sudo git fetch origin && sudo git status && sudo git pull origin main --verbose && git log -1 --oneline && sudo npm install && pm2 reload all --update-env" || { echo "Deployment failed"; exit 1; }
           rm -f private_key

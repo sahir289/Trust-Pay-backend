@@ -1,6 +1,5 @@
 // import { processRequest } from '../../middlewares/processRequest.js';
 import {
-  AccessDeniedError,
   AuthenticationError,
   BadRequestError,
   NotFoundError,
@@ -40,7 +39,7 @@ const loginService = async (config, clientIP, retryCount = 0) => {
       throw new NotFoundError('User Not Found.');
     }
     if (!user.is_enabled) {
-      throw new AccessDeniedError(
+      throw new NotFoundError(
         'User not active. Please contact Support Team',
       );
     }
@@ -238,6 +237,7 @@ const logoutService = async (decodeToken, session_id) => {
     return data;
   } catch (error) {
     logger.error('Error getting while logout', error);
+    throw error;
   } finally {
     if (conn) {
       try {
@@ -286,7 +286,7 @@ const verificationService = async (ids, payload) => {
       userDetails.password,
     );
     if (!isPasswordValid) {
-      throw new AuthenticationError('Invalid Password');
+      throw new BadRequestError('Invalid password');
     }
     return userDetails;
   } catch (error) {
