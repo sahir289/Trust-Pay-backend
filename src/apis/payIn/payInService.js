@@ -314,7 +314,6 @@ export const generatePayInUrlService = async (
 
     if (
       (amount < merchant.min_payin || amount > merchant.max_payin) &&
-      role &&
       role !== Role.ADMIN
     ) {
       const data = {
@@ -501,7 +500,7 @@ export const assignedBankToPayInUrlService = async (
     const minPayIn = Number(merchant.min_payin);
     const amt = Number(amount);
 
-    if ((amt > maxPayIn || amt < minPayIn) && role && role !== Role.ADMIN) {
+    if ((amt > maxPayIn || amt < minPayIn) && role !== Role.ADMIN) {
       //-- exact amounts should also be considered
       return { message: `Amount must be between ${minPayIn} and ${maxPayIn}` };
     }
