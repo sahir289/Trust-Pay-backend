@@ -1039,9 +1039,9 @@ export const getPayinsSumAndCountByStatusDao = async (filters) => {
       return { results: [] };
     }
 
-    const today = dayjs(Date.now()).tz('+04:00').format('YYYY-MM-DD');
-    const startDate = dayjs.tz(`${today} 00:00:00`, '+04:00').utc().format();
-    const endDate = dayjs.tz(`${today} 23:59:59.999`, '+04:00').utc().format();
+    const today = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
+    const startDate = dayjs.tz(`${today} 00:00:00`, 'Asia/Kolkata').utc().format();
+    const endDate = dayjs.tz(`${today} 23:59:59.999`, 'Asia/Kolkata').utc().format();
     conditions.push(
       `p.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
     );
