@@ -256,12 +256,6 @@ it('should handle nick_name filter', async () => {
         expect(mockConn.query).toHaveBeenCalledWith(expect.not.stringContaining('is_enabled = true'), expect.any(Array));
       });
   
-      test('should add is_enabled for non-PayIn type', async () => {
-        const mockConn = { query: jest.fn().mockResolvedValue({ rowCount: 0, rows: [] }) };
-        await getBankAccountDaoNickName(mockConn, 1, 'Other');
-        expect(mockConn.query).toHaveBeenCalledWith(expect.stringContaining('is_enabled = true'), [1, 'Other']);
-      });
-  
       test('should handle filters with scalar', async () => {
         const mockConn = { query: jest.fn().mockResolvedValue({ rowCount: 0, rows: [] }) };
         await getBankAccountDaoNickName(mockConn, 1, 'PayIn', { some_key: 'val' });

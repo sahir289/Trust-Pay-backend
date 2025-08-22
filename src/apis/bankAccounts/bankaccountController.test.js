@@ -133,8 +133,7 @@ import {
           Role.ADMIN,
           'user1',
           'desig1',
-          'userquery',
-          undefined
+          'userquery'
         );
         expect(sendSuccess).toHaveBeenCalledWith(res, mockData, 'get Banks successfully');
       });
