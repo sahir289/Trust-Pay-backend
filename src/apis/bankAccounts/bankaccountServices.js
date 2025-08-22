@@ -116,7 +116,7 @@ const getBankaccountServiceNickName = async (
   user_id,
   designation,
   user,
-  check_enabled
+  // check_enabled
 ) => {
   let conn;
   try {
@@ -146,7 +146,7 @@ const getBankaccountServiceNickName = async (
       company_id,
       type,
       filters,
-      check_enabled
+      // check_enabled
     );
     await commit(conn);
     return result;
