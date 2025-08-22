@@ -112,7 +112,7 @@ const createBeneficiaryAccount = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const { user_id } = req.user;
-  const company_id = req?.user?.company_id || payload?.company_id;
+  const company_id = req?.user?.company_id || req?.headers['company_id'];
   payload.created_by = user_id;
   payload.updated_by = user_id;
   payload.company_id = company_id;
@@ -133,7 +133,7 @@ const updateBeneficiaryAccount = async (req, res) => {
   }
   const { user_id, role } = req.user;
   payload.updated_by = user_id;
-  const company_id = req?.user?.company_id || payload?.company_id;
+  const company_id = req?.user?.company_id || req?.headers['company_id'];
   const ids = { id, company_id };
   // const data =
   await transactionWrapper(updateBeneficiaryAccountService)(ids, payload, role);

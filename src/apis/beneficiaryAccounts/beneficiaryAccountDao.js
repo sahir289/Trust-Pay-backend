@@ -258,6 +258,7 @@ const getBeneficiaryAccountBySearchDao = async (
         bea.ifsc AS ifsc,
         creator.user_name AS created_by,
         updater.user_name AS updated_by,
+        bea.company_id,
         bea.created_at AS created_at,
         bea.updated_at AS updated_at,
         bea.config->>'type' AS config_type,
