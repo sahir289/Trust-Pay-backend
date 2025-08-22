@@ -236,6 +236,13 @@ const updateBankaccountService = async (
     ) {
       if (payload.latest_balance >= bank[0].config?.max_limit) {
         payload.is_enabled = false;
+        payload = {
+          ...payload,
+          config: {
+            ...bank[0].config,
+            merchants: [],
+          },
+        };
         deactivateBank(bank[0].nick_name, ids.id, userId);
         // await notifyAdminsAndUsers({
         //   conn,
