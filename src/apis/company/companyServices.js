@@ -108,7 +108,7 @@ const createCompanyService = async (conn, payload) => {
 
 const updateCompanyService = async (id, payload) => {
   try {
-    const result = updateCompanyDao(id, payload);
+    const result = await updateCompanyDao(id, payload);
     return result;
   } catch (error) {
     logger.error('Error while creating company:', error);
@@ -117,7 +117,7 @@ const updateCompanyService = async (id, payload) => {
 };
 const deleteCompanyService = async (id) => {
   try {
-    const result = deleteCompanyDao(id, { is_obsolete: true });
+    const result = await deleteCompanyDao(id, { is_obsolete: true });
     return result;
   } catch (error) {
     logger.error('Error while creating company:', error);
