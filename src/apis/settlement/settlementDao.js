@@ -292,7 +292,7 @@ const getSettlementsBySearchDao = async (
     // Add dynamic code and user_name fields
     let columnSelection;
 
-    if (role !== Role.ADMIN) {
+    if (role !== Role.ADMIN && role !== Role.SUPER_ADMIN) {
       columnSelection =
         columns.length > 0
           ? columns.map((col) => `s.${col}`).join(', ')
@@ -526,7 +526,7 @@ const getSettlementsBySearchDao = async (
     // Base query
     let baseQuery;
 
-    if (role !== Role.ADMIN) {
+    if (role !== Role.ADMIN && role !== Role.SUPER_ADMIN) {
       baseQuery = `
       SELECT ${columnSelection} ,
        CASE
@@ -552,7 +552,8 @@ const getSettlementsBySearchDao = async (
           WHEN r.role = 'ADMIN' THEN COALESCE(m.config->>'sub_code', m.code)
           ELSE NULL
           END AS code,
-      c.first_name || ' ' || c.last_name AS company,
+          c.first_name || ' ' || c.last_name AS company,
+          s.company_id,
           uc.user_name AS created_by,
           uu.user_name AS updated_by
       FROM "Settlement" s

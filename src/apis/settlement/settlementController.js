@@ -114,7 +114,7 @@ const getSettlementsBySearch = async (req, res) => {
 const createSettlementController = async (req, res) => {
   const payload = req.body;
   const { user_id, user_name, designation, role } = req.user;
-  const company_id = req?.user?.company_id || payload?.company_id;
+  const company_id = req?.user?.company_id || req?.headers['company_id'];
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
@@ -201,7 +201,7 @@ const updateSettlementController = async (req, res) => {
   const { role, user_name, user_id } = req.user;
   const payload = { ...req.body };
   payload.updated_by = user_id;
-  const company_id = req?.user?.company_id || payload?.company_id;
+  const company_id = req?.user?.company_id || req?.headers['company_id'];
   delete payload?.company_id;
   const ids = { id, company_id, role };
   ///temporary deleting this ..we need to reflect get settlement dao query
