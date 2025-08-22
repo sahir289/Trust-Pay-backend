@@ -620,7 +620,6 @@ describe('processPayInByImageService', () => {
       config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
     });
     calculateDuration.mockImplementation((date) => {
-      console.log('calculateDuration called with:', date);
       return 3600;
     });
     updatePayInUrlDao.mockResolvedValue({
@@ -634,7 +633,6 @@ describe('processPayInByImageService', () => {
       config: { urls: { return: 'http://return.url' } },
     });
     getImageContentFromOCr.mockImplementation(async (image) => {
-      console.log('getImageContentFromOCr called with:', image);
       return null;
     });
   });
