@@ -629,7 +629,7 @@ export const getChargeBacksBySearchDao = async (
         p.user AS user,
         p.config->'user'->>'user_ip' AS user_ip,
         p.merchant_order_id AS merchant_order_id, -- Fixed: Reference p.merchant_order_id
-        cn.company_id,
+        cb.company_id,
         u.user_name AS created_by,
         uu.user_name AS updated_by,
         c.first_name || ' ' || c.last_name AS company,
