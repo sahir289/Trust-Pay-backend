@@ -91,7 +91,8 @@ const createChargeBack = async (req, res) => {
       throw new NotFoundError('No Utr Found for this Payin');
     }
   }
-  const { company_id, role, user_id, user_name } = req.user;
+  const { role, user_id, user_name } = req.user;
+  const company_id = req?.user?.company_id || req?.headers['company_id'];
   // Call the service to create the ChargeBack
   const result = await createChargeBackService(
     payload,
@@ -180,7 +181,7 @@ const blockChargebackUser = async (req, res) => {
   const payload = req.body;
   const { id } = req.params;
   const { role, user_id, user_name } = req.user;
-  const company_id = req?.user?.company_id || payload?.company_id;
+  const company_id = req?.user?.company_id || req?.body?.company_id;
   delete payload?.company_id;
   payload.updated_by = user_id;
   const result = await blockChargebackUserService(
