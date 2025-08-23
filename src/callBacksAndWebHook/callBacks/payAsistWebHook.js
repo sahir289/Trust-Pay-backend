@@ -2,7 +2,7 @@
 // Import required functions and classes
 import { getBankByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
 import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
-import { getPayoutsDao } from '../../apis/payOut/payOutDao.js';
+import { getPayoutByTxnId } from '../../apis/payOut/payOutDao.js';
 import { NotFoundError } from '../../utils/appErrors.js';
 import { merchantPayoutCallback } from '../merchantCallBacks.js';
 import { payAssistErrorCodeMap, Role, Status } from '../../constants/index.js';
@@ -22,13 +22,13 @@ import {
 // Define the optimized payAssistTransactionStatusCallback function
 export const payAssistTransactionStatusCallback = async (req, res) => {
   const payload = req.body;
-  const apitxnid = payload?.Response?.apitxnid;
+  const txnid = payload?.Response?.txnid;
   let conn;
 
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const [singleWithdrawData] = await getPayoutsDao({ id: apitxnid });
+    const singleWithdrawData = await getPayoutByTxnId(txnid);
     if (!singleWithdrawData) {
       return NotFoundError('Payment not found');
     }
