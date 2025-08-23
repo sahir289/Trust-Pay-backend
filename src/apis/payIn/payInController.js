@@ -61,6 +61,7 @@ import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
 import { sendBankNotAssignedAlertTelegram } from '../../utils/sendTelegramMessages.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
 import { getRolesById } from '../roles/rolesDao.js';
+import { Role } from '../../constants/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const TestingIp = process.env.LOCAL_IP;
@@ -272,6 +273,7 @@ export const generatePayInUrl = async (req, res) => {
     payinId: result?.id,
     merchantOrderId: result?.merchant_order_id,
     status: result?.status,
+    isAdmin: role === Role.ADMIN ? true : false, 
   };
 
   if (result.status === 400 || result.status === 404) {
