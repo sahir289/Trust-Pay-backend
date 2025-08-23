@@ -299,7 +299,7 @@ export const validatePayInUrl = async (req, res) => {
   }
   const user_location = req.user_location;
   // req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
-  const result = await verifyPayinsService(
+  const result = await transactionWrapper(verifyPayinsService)(
     merchantOrderId,
     user_location,
     oneTimeUsed,
@@ -330,17 +330,13 @@ export const assignedBankToPayInUrl = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const { roleToken, amount, type } = req.body;
-  let role;
-  if (roleToken && roleToken !== null) {
-    const roleData = await getRolesById(roleToken);
-    role = roleData.role;
-  }
+
 
   const result = await assignedBankToPayInUrlService(
     req.params.merchantOrderId,
     amount,
     type,
-    role,
+    roleToken,
   );
   result.merchantOrderId = req.params.merchantOrderId;
   result.amount = amount;

@@ -97,7 +97,7 @@ import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { usedTokens } from '../../app.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
-import { getAllUsersDao } from '../users/userDao.js';
+import { getAllUsersDao, getUserByIdDao } from '../users/userDao.js';
 Cashfree.XClientId = config.cashFreeClientId;
 Cashfree.XClientSecret = config.XClientSecret;
 Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
@@ -500,7 +500,7 @@ export const assignedBankToPayInUrlService = async (
     const minPayIn = Number(merchant.min_payin);
     const amt = Number(amount);
 
-    if ((amt > maxPayIn || amt < minPayIn) && role !== Role.ADMIN) {
+    if ((amt > maxPayIn || amt < minPayIn) && role) {
       //-- exact amounts should also be considered
       return { message: `Amount must be between ${minPayIn} and ${maxPayIn}` };
     }
@@ -2515,6 +2515,7 @@ export const checkPendingPayinStatusService = async (
 };
 
 export const verifyPayinsService = async (
+  conn,
   merchantOrderId,
   user_location,
   oneTimeUsed,
@@ -2524,6 +2525,11 @@ export const verifyPayinsService = async (
 
     if (!payIn) {
       throw new BadRequestError('Invalid merchant order id');
+    }
+    let role = null;
+    if (payIn?.created_by) {
+      const [userData] = await getUserByIdDao(conn, { id: payIn.created_by });
+      role = userData?.role;
     }
 
     if (
@@ -2595,6 +2601,7 @@ export const verifyPayinsService = async (
       is_phonepay: enabledBanks.some((bank) => bank.config?.is_phonepay),
       is_bank: enabledBanks.some((bank) => bank.is_bank),
       redirect_url: payIn.config?.urls?.return,
+      isAdmin: role === Role.ADMIN ? true : false,
     };
     const response = {
       ...result,
