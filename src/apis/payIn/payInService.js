@@ -1439,6 +1439,26 @@ export const processPayInService = async (
       result.utr_id =
         bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
       await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+
+      const responseObj = {
+        id: payIn.id,
+        sno: payIn.sno,
+        amount: amount,
+        status: updatePayInData.status,
+        user_submitted_utr: updatePayInData.user_submitted_utr,
+        user_submitted_image: updatePayInData.user_submitted_image || null,
+        duration: updatePayInData.duration,
+        nick_name: bank.nick_name,
+        bank_acc_id: bank.id,
+        merchant_order_id: payIn.merchant_order_id,
+        company_id: payIn.company_id,
+        bank_res_details: {
+          utr: bankResponse.utr || null,
+          amount: bankResponse.amount || null,
+        },
+      };
+      
+      await newTableEntry(tableName.PAYIN, responseObj);
       // This is async function but it's just the callback sending function there fore we are not using await
       merchantPayinCallback(payIn.config?.urls?.notify, result);
       return {
@@ -1468,6 +1488,26 @@ export const processPayInService = async (
       result.utr_id =
         bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
       await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+
+      const responseObj = {
+        id: payIn.id,
+        sno: payIn.sno,
+        amount: amount,
+        status: updatePayInData.status,
+        user_submitted_utr: updatePayInData.user_submitted_utr,
+        user_submitted_image: updatePayInData.user_submitted_image || null,
+        duration: updatePayInData.duration,
+        nick_name: bank.nick_name,
+        bank_acc_id: bank.id,
+        merchant_order_id: payIn.merchant_order_id,
+        company_id: payIn.company_id,
+        bank_res_details: {
+          utr: bankResponse.utr || null,
+          amount: bankResponse.amount || null,
+        },
+      };
+  
+      await newTableEntry(tableName.PAYIN, responseObj);
       // This is async function but it's just the callback sending function there fore we are not using await
       merchantPayinCallback(payIn.config?.urls?.notify, result);
 
