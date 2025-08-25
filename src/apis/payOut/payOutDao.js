@@ -941,6 +941,21 @@ export const updatePayoutDao = async (ids, data, conn) => {
   }
 };
 
+export const getPayoutByTxnId = async (txnId) => {
+  try {
+    const query = `
+      SELECT * FROM public."Payout"
+      WHERE config->>'txnid' = $1
+    `;
+    const params = [txnId];
+    const result = await executeQuery(query, params);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error occurred while fetching payout by txnId:', error);
+    throw error;
+  }
+}
+
 export const deletePayoutDao = async (ids, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.PAYOUT, data, ids);

@@ -1,10 +1,10 @@
 /* eslint-disable no-unused-vars */
 // Import required functions and classes
 import { getBankByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
-import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
-import { getPayoutsDao } from '../../apis/payOut/payOutDao.js';
+// import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
+import { getPayoutByTxnId } from '../../apis/payOut/payOutDao.js';
 import { NotFoundError } from '../../utils/appErrors.js';
-import { merchantPayoutCallback } from '../merchantCallBacks.js';
+// import { merchantPayoutCallback } from '../merchantCallBacks.js';
 import { payAssistErrorCodeMap, Role, Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 import axios from 'axios';
@@ -22,13 +22,13 @@ import {
 // Define the optimized payAssistTransactionStatusCallback function
 export const payAssistTransactionStatusCallback = async (req, res) => {
   const payload = req.body;
-  const apitxnid = payload?.Response?.apitxnid;
+  const txnid = payload?.Response?.txnid;
   let conn;
 
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const [singleWithdrawData] = await getPayoutsDao({ id: apitxnid });
+    const singleWithdrawData = await getPayoutByTxnId(txnid);
     if (!singleWithdrawData) {
       return NotFoundError('Payment not found');
     }
@@ -114,7 +114,8 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
 
       if (statusResponse.data.ErrorCode === '0') {
         if (
-          statusResponse.data.Response.message === 'Reason-Transaction Failed'
+          statusResponse.data.Response.message === 'Reason-Transaction Failed' ||
+          statusResponse.data.Response.message === 'Transaction Failed - '
         ) {
           statusResponse.data.ErrorCode = '14';
           await handlePayoutUpdate(statusResponse.data, false);
@@ -128,7 +129,7 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
       }
     }
 
-    const [merchant] = await getMerchantsDao({id: singleWithdrawData.merchant_id});
+    // const [merchant] = await getMerchantsDao({id: singleWithdrawData.merchant_id});
 
     // Log the updated payout status
     logger.info('Payout Updated by PayAssist callback', {
@@ -136,19 +137,19 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
     });
 
     // Log the merchant payout URL
-    const merchantPayoutUrl = merchant.config.urls.payout_notify;
+    // const merchantPayoutUrl = merchant.config.urls.payout_notify;
 
     // TODO: Implement the notification to the merchant's payout URL
-    if (merchantPayoutUrl !== null) {
-      await merchantPayoutCallback(merchantPayoutUrl, {
-        code: merchant.code,
-        merchantOrderId: singleWithdrawData.merchant_order_id,
-        payoutId: singleWithdrawData.id,
-        amount: singleWithdrawData.amount,
-        status: payload.status,
-        utr_id: payload.utr ? payload.utr : '',
-      });
-    }
+    // if (merchantPayoutUrl !== null) {
+    //   await merchantPayoutCallback(merchantPayoutUrl, {
+    //     code: merchant.code,
+    //     merchantOrderId: singleWithdrawData.merchant_order_id,
+    //     payoutId: singleWithdrawData.id,
+    //     amount: singleWithdrawData.amount,
+    //     status: payload.status,
+    //     utr_id: payload.utr ? payload.utr : '',
+    //   });
+    // }
 
     await commit(conn);
 
