@@ -61,6 +61,7 @@ import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
 import { sendBankNotAssignedAlertTelegram } from '../../utils/sendTelegramMessages.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
 import { getRolesById } from '../roles/rolesDao.js';
+import { Role } from '../../constants/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const TestingIp = process.env.LOCAL_IP;
@@ -272,6 +273,7 @@ export const generatePayInUrl = async (req, res) => {
     payinId: result?.id,
     merchantOrderId: result?.merchant_order_id,
     status: result?.status,
+    isAdmin: role === Role.ADMIN ? true : false, 
   };
 
   if (result.status === 400 || result.status === 404) {
@@ -297,7 +299,7 @@ export const validatePayInUrl = async (req, res) => {
   }
   const user_location = req.user_location;
   // req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
-  const result = await verifyPayinsService(
+  const result = await transactionWrapper(verifyPayinsService)(
     merchantOrderId,
     user_location,
     oneTimeUsed,
@@ -328,17 +330,13 @@ export const assignedBankToPayInUrl = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const { roleToken, amount, type } = req.body;
-  let role;
-  if (roleToken && roleToken !== null) {
-    const roleData = await getRolesById(roleToken);
-    role = roleData.role;
-  }
+
 
   const result = await assignedBankToPayInUrlService(
     req.params.merchantOrderId,
     amount,
     type,
-    role,
+    roleToken,
   );
   result.merchantOrderId = req.params.merchantOrderId;
   result.amount = amount;
