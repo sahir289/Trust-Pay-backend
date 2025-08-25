@@ -983,6 +983,9 @@ export const updateDepositStatusService = async (
 
     await updateBotResponseDao({ id: bank.id }, { is_used: true }, conn);
 
+
+    newTableEntry(tableName.PAYIN, { id: payInData.id, ...updatePayInRes });
+
     // update bank balance and today balance
     // const bankBalance =
     //   updatePayInData.status === Status.DISPUTE
@@ -2256,7 +2259,7 @@ export const disputeDuplicateTransactionService = async (
     // }
 
     // await Promise.all(notifications);
-    await newTableEntry(tableName.PAYIN);
+    await newTableEntry(tableName.PAYIN, { id: payIn.id, ...response });
     return response;
   } catch (error) {
     logger.error('Error in disputeDuplicateTransactionService:', error.message);
