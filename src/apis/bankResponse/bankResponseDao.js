@@ -607,11 +607,11 @@ const getBankResponseDaoAll = async (
         GROUP BY "BankAccount".id
       )
       SELECT ${selectCols}, 
-             "BankResponse".created_at,
-             jsonb_set("BankAccount".config::jsonb, '{merchant_added}', COALESCE(filtered_merchant_added, '{}'::jsonb)) AS details,
-             "BankAccount".nick_name,
-             "Vendor".user_id AS vendor_user_id,
-             "Merchant".code AS merchant_code
+        "BankResponse".created_at,
+        jsonb_set("BankAccount".config::jsonb, '{merchant_added}', COALESCE(filtered_merchant_added, '{}'::jsonb)) AS details,
+        "BankAccount".nick_name,
+        "Vendor".user_id AS vendor_user_id,
+        "Merchant".code AS merchant_code
       FROM "BankResponse"
       JOIN filtered_accounts AS "BankAccount" 
         ON "BankResponse".bank_id = "BankAccount".id
@@ -738,7 +738,12 @@ const getBankResponseDaoAll = async (
     whereConditions.push(`"BankResponse".is_obsolete = false`);
 
     if (filters.bank_id) {
-      whereConditions.push(`"BankResponse"."bank_id" = '${filters.bank_id}'`);
+      if (Array.isArray(filters.bank_id)) {
+        const bankIds = filters.bank_id.map(id => `'${id}'`).join(',');
+        whereConditions.push(`"BankResponse"."bank_id" IN (${bankIds})`);
+      } else {
+        whereConditions.push(`"BankResponse"."bank_id" = '${filters.bank_id}'`);
+      }
     }
 
     if (filters.company_id) {
