@@ -1511,6 +1511,8 @@ export const processPayInService = async (
       };
   
       await newTableEntry(tableName.PAYIN, responseObj);
+      const obj = { id: bankResponse.id,  data:{ ...bankResponse, is_used: true}, company_id: payIn.company_id, }
+      await newTableEntry(tableName.BANK_RESPONSE, obj);
       // This is async function but it's just the callback sending function there fore we are not using await
       merchantPayinCallback(payIn.config?.urls?.notify, result);
 
@@ -1661,6 +1663,10 @@ export const processPayInService = async (
     };
 
     await newTableEntry(tableName.PAYIN, responseObj);
+    const obj = { id: bankResponse.id,  data:{ ...bankResponse, is_used: true}, company_id: payIn.company_id, }
+    if (bankResponse.id && (updatePayInData.status === Status.SUCCESS  || updatePayInData.status === Status.DISPUTE)) {
+      await newTableEntry(tableName.BANK_RESPONSE, obj);
+    }
     // This is async function but it's just the callback sending function there fore we are not using await
     merchantPayinCallback(payIn.config?.urls?.notify, result);
 
