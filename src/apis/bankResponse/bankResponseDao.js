@@ -145,9 +145,9 @@ const getBankResponseBySearchDao = async (
 
     let baseQuery = `
       SELECT ${selectCols}, 
-             "BankResponse".created_at,
-             "BankAccount".nick_name,
-             "Vendor".user_id AS vendor_user_id
+        "BankResponse".created_at,
+        "BankAccount".nick_name,
+        "Vendor".user_id AS vendor_user_id
       FROM "BankResponse"
       JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
       LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
@@ -227,8 +227,16 @@ const getBankResponseBySearchDao = async (
     whereConditions.push(`"BankResponse".is_obsolete = false`);
 
     if (filters.bank_id) {
-      whereConditions.push(`"BankResponse"."bank_id" = $${paramIndex}`);
-      values.push(filters.bank_id);
+      if (typeof filters.bank_id === 'string' && filters.bank_id.includes(',')) {
+        filters.bank_id = filters.bank_id.split(',');
+      }
+      if (Array.isArray(filters.bank_id)) {
+        whereConditions.push(`"BankResponse"."bank_id" = ANY($${paramIndex})`);
+        values.push(filters.bank_id);
+      } else {
+        whereConditions.push(`"BankResponse"."bank_id" = $${paramIndex}`);
+        values.push(filters.bank_id);
+      }
       paramIndex++;
     }
     
