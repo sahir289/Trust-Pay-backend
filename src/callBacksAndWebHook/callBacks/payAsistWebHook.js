@@ -114,7 +114,8 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
 
       if (statusResponse.data.ErrorCode === '0') {
         if (
-          statusResponse.data.Response.message === 'Reason-Transaction Failed'
+          statusResponse.data.Response.message === 'Reason-Transaction Failed' ||
+          statusResponse.data.Response.message === 'Transaction Failed - '
         ) {
           statusResponse.data.ErrorCode = '14';
           await handlePayoutUpdate(statusResponse.data, false);
