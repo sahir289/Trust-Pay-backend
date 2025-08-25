@@ -22,9 +22,9 @@ jest.mock('../../constants/index.js', () => ({
 jest.mock('../../utils/db.js');
 jest.mock('../../utils/logger.js', () => {
   const mockLogger = {
-    error: jest.fn((message, meta) => {}),
-    info: jest.fn((message, meta) => {}),
-    warn: jest.fn((message, meta) => {}),
+    error: jest.fn(() => {}),
+    info: jest.fn(() => {}),
+    warn: jest.fn(() => {}),
   };
   return { logger: mockLogger };
 });

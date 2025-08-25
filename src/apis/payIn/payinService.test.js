@@ -619,7 +619,7 @@ describe('processPayInByImageService', () => {
       created_at: new Date('2023-01-01T00:00:00Z'),
       config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
     });
-    calculateDuration.mockImplementation((date) => {
+    calculateDuration.mockImplementation(() => {
       return 3600;
     });
     updatePayInUrlDao.mockResolvedValue({
@@ -632,7 +632,7 @@ describe('processPayInByImageService', () => {
       duration: 3600,
       config: { urls: { return: 'http://return.url' } },
     });
-    getImageContentFromOCr.mockImplementation(async (image) => {
+    getImageContentFromOCr.mockImplementation(async () => {
       return null;
     });
   });

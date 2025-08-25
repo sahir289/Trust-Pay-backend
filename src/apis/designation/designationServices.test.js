@@ -16,9 +16,9 @@ import { logger } from '../../utils/logger.js';
 jest.mock('./designationDao.js');
 jest.mock('../../utils/logger.js', () => {
   const mockLogger = {
-    error: jest.fn((message, meta) => {}),
-    info: jest.fn((message, meta) => {}),
-    warn: jest.fn((message, meta) => {}),
+    error: jest.fn(() => {}),
+    info: jest.fn(() => {}),
+    warn: jest.fn(() => {}),
   };
   return { logger: mockLogger };
 });
