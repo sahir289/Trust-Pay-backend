@@ -67,7 +67,7 @@ const getClaimResponse = async (req, res) => {
 };
 
 const getBankResponseBySearch = async (req, res) => {
-  const { role, company_id } = req.user;
+  const { role, company_id, designation, user_id } = req.user;
   const { page, limit, search, updated, sortOrder, sortBy, ...rest } =
     req.query;
   delete req.query.sortOrder;
@@ -86,6 +86,8 @@ const getBankResponseBySearch = async (req, res) => {
     updated,
     sortBy,
     sortOrder,
+    designation,
+    user_id
   );
   return sendSuccess(res, data, 'BankResponse fetched successfully');
 };

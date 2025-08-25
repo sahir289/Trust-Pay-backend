@@ -51,6 +51,7 @@ import { filterResponse } from '../../helpers/index.js';
 import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
 import PDFParser from 'pdf2json';
 import { calculateDuration } from '../../helpers/index.js';
+import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const createBankResponseService = async (
@@ -81,7 +82,6 @@ const createBankResponseService = async (
     if (!isValidAmount) {
       throw new BadRequestError(`amount must be between 1 and 500000`);
     }
-
 
     const bankCompanyCheck = await getBankaccountDao(
       {
@@ -759,6 +759,8 @@ const getBankResponseBySearchService = async (
   updated,
   sortBy,
   sortOrder,
+  designation,
+  user_id,
 ) => {
   try {
     const filterColumns =
@@ -791,6 +793,32 @@ const getBankResponseBySearchService = async (
       ...filters,
     };
     sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
+
+    const fetchBankIds = async (user_id) => {
+      try {
+        const banks = await getBankaccountDao({
+          user_id,
+          bank_used_for: 'PayIn',
+        });
+        if (!banks || banks.length === 0) {
+          return [];
+        }
+        return banks.map((bank) => bank.id);
+      } catch (error) {
+        logger.error('Error fetching PayIn:', error);
+        return [];
+      }
+    };
+
+    if (designation === Role.VENDOR) {
+      filters.bank_id = await fetchBankIds(user_id);
+    } else if (designation === Role.VENDOR_OPERATIONS) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const parentID = userHierarchys?.[0]?.config?.parent;
+      if (parentID) {
+        filters.bank_id = await fetchBankIds(parentID);
+      }
+    }
 
     const data = await getBankResponseBySearchDao(
       filters,
@@ -1012,7 +1040,7 @@ const resetBankResponseService = async (conn, id, userData) => {
       data: changes,
       updated_by: user_name,
       updated_at: new Date().toISOString(),
-       company_id: company_id,
+      company_id: company_id,
     };
     await newTableEntry(tableName.BANK_RESPONSE, results);
     return results;

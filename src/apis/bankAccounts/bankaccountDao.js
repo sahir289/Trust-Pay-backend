@@ -76,6 +76,7 @@ const getBankaccountDao = async (filters, page, limit, role, designation) => {
         ba.balance, 
         ba.today_balance, 
         ba.bank_used_for,
+        ba.user_id,
         ba.config->>'is_freeze' AS freezed,
         ba.config->>'is_intent' AS intent,
         ba.config->>'is_phonepay' AS phonepe,
