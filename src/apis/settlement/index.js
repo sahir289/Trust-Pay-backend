@@ -65,6 +65,7 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.SETTLEMENT)],
   tryCatchHandler(getSettlementControllerById),
 );
+
 /**
  * @swagger
  * /settlement/create-settlement:
@@ -72,13 +73,47 @@ router.get(
  *     summary: Create a new settlement
  *     description: Creates a new settlement in the system.
  *     tags: [Settlements]
- *     parameters:
- *       - in: query
- *         name: Settlementname
- *         schema:
- *           type: string
- *         required: true
- *         description: The name of the settlement to create.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - utr
+ *               - amount
+ *               - method
+ *               - user_id
+ *               - company_id
+ *             properties:
+ *               utr:
+ *                 type: string
+ *                 example: "UTR123"
+ *               amount:
+ *                 type: number
+ *                 example: 100
+ *               method:
+ *                 type: string
+ *                 enum: [INTERNAL_QR_TRANSFER, BANK]
+ *                 example: "INTERNAL_QR_TRANSFER"
+ *               user_id:
+ *                 type: integer
+ *                 example: 1
+ *               company_id:
+ *                 type: integer
+ *                 example: 1
+ *               config:
+ *                 type: object
+ *                 properties:
+ *                   debit_credit:
+ *                     type: string
+ *                     example: "RECEIVED"
+ *                   reference_id:
+ *                     type: string
+ *                     example: "UTR123"
+ *               updated_by:
+ *                 type: integer
+ *                 example: 1
  *     responses:
  *       200:
  *         description: Settlement created successfully.
@@ -96,10 +131,11 @@ router.get(
  *                     id:
  *                       type: integer
  *                       example: 1
- *                     settlementName:
+ *                     status:
  *                       type: string
- *                       example: "john_doe"
+ *                       example: "SUCCESS"
  */
+
 router.post(
   '/create-settlement',
   [isAuthenticated, authorized(AccessRoles.SETTLEMENT)],

@@ -1,547 +1,509 @@
-const request = require('supertest');
-const express = require('express');
 const {
-  getBankaccount,
-  getBankAccountBySearch,
-  getBankaccountById,
-  createBankaccount,
-  updateBankaccount,
-  deleteBankaccount,
-  getMerchantBank,
-  getBankaccountNickName,
-} = require('../bankAccounts/bankaccountController.js'); // Adjust path to your controller file
+  getSettlementService,
+  createSettlementService,
+  getSettlementServiceById,
+  updateSettlementService,
+  deleteSettlementService,
+  getSettlementsBySearchService,
+} = require('./settlementServices.js');
 const {
-  getBankaccountService,
-  getBankAccountBySearchService,
-  getBankaccountServiceNickName,
-  createBankaccountService,
-  updateBankaccountService,
-  deleteBankaccountService,
-  getMerchantBankDao,
-  getBankaccountDao,
-} = require('../bankAccounts/bankaccountServices.js'); // Adjust path to your services
-const { transactionWrapper } = require('../../utils/db');
-const { ValidationError } = require('../../utils/appErrors');
-const { Role, columns, merchantColumns, vendorColumns } = require('../../constants');
+  getSettlementDao,
+  createSettlementDao,
+  updateSettlementDao,
+  deleteSettlementDao,
+  getSettlementsBySearchDao,
+} = require('./settlementDao.js');
+const {
+  getCalculationforCronDao,
+  updateCalculationBalanceDao,
+  updateCalculationConfigDao,
+} = require('../calculation/calculationDao');
+const { getMerchantsDao } = require('../merchants/merchantDao');
+const { getUserHierarchysDao } = require('../userHierarchy/userHierarchyDao');
+const {
+  getBankResponseByUTR,
+  updateBankResponseDao,
+} = require('../bankResponse/bankResponseDao');
+const { getVendorsDao } = require('../vendors/vendorDao');
+const { calculateCommission } = require('../../utils/calculation');
+const { checkLockEdit } = require('../../utils/advisoryLock');
+const {
+  getBeneficiaryAccountDao,
+  updateBeneficiaryAccountDao,
+} = require('../beneficiaryAccounts/beneficiaryAccountDao');
+const { BadRequestError, NotFoundError, InternalServerError } = require('../../utils/appErrors');
+const { Role, Status } = require('../../constants/index');
 
-jest.mock('../bankAccounts/bankaccountServices.js');
-jest.mock('../../utils/db');
+jest.mock('./settlementDao');
+jest.mock('../calculation/calculationDao');
+jest.mock('../merchants/merchantDao');
+jest.mock('../userHierarchy/userHierarchyDao');
+jest.mock('../bankResponse/bankResponseDao');
+jest.mock('../vendors/vendorDao');
+jest.mock('../../utils/calculation');
+jest.mock('../../utils/advisoryLock');
+jest.mock('../beneficiaryAccounts/beneficiaryAccountDao');
 
-const app = express();
-app.use(express.json());
+describe('Settlement Service', () => {
+  const mockConn = {};
+  const mockIds = { id: 1, company_id: 1, role: Role.MERCHANT, user_id: 1 };
+  const mockFilters = { user_id: [1], search: 'test' };
+  const mockPayload = {
+    user_id: 1,
+    company_id: 1,
+    amount: 100,
+    method: 'BANK',
+    config: { debit_credit: 'RECEIVED', reference_id: 'UTR123' },
+    updated_by: 1,
+  };
 
-// Middleware to simulate req.user
-app.use((req, res, next) => {
-  req.user = req.get('user') ? JSON.parse(req.get('user')) : null;
-  next();
-});
-
-// Define routes
-app.get('/bankaccount', getBankaccount);
-app.get('/bankaccount/search', getBankAccountBySearch);
-app.get('/bankaccount/nickname', getBankaccountNickName);
-app.get('/bankaccount/:id', getBankaccountById);
-app.post('/bankaccount', createBankaccount);
-app.put('/bankaccount/:id', updateBankaccount);
-app.get('/merchant/bank', getMerchantBank);
-app.delete('/bankaccount/:id', deleteBankaccount);
-
-// Mock user for req.user
-const mockUser = {
-  company_id: '123',
-  user_id: 'user1',
-  role: Role.ADMIN,
-  designation: 'manager',
-  user_name: 'John Doe',
-};
-
-describe('Bank Account Controller', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    transactionWrapper.mockImplementation(fn => fn); // Mock transaction wrapper to call function directly
+    getMerchantsDao.mockResolvedValue([]);
   });
 
-  describe('getBankaccount', () => {
-    it('should return bank accounts successfully', async () => {
-      const mockData = [{ id: 1, nick_name: 'Bank1' }];
-      getBankaccountService.mockResolvedValue(mockData);
+  describe('getSettlementServiceById', () => {
+    it('should fetch settlement by ID for MERCHANT role', async () => {
+      const mockSettlement = [{ id: 1, amount: 100 }];
+      getSettlementDao.mockResolvedValue(mockSettlement);
 
-      const response = await request(app)
-        .get('/bankaccount?page=1&limit=10&bank_used_for=PayIn')
-        .set('user', JSON.stringify(mockUser));
+      const result = await getSettlementServiceById(mockIds);
 
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({
-        success: true,
-        data: mockData,
-        message: 'get Banks successfully',
-      });
-      expect(getBankaccountService).toHaveBeenCalledWith(
-        { bank_used_for: 'PayIn' },
-        mockUser.company_id,
-        mockUser.role,
-        '1',
-        '10',
-        mockUser.user_id,
-        mockUser.designation
+      expect(getSettlementDao).toHaveBeenCalledWith(
+        { id: mockIds.id, company_id: mockIds.company_id },
+        null,
+        null,
+        null,
+        null,
+        expect.any(Array)
       );
+      expect(result).toEqual(mockSettlement);
     });
 
-    it('should handle errors from getBankaccountService', async () => {
-      getBankaccountService.mockRejectedValue(new Error('Service error'));
+    it('should fetch settlement by ID for VENDOR role', async () => {
+      const mockSettlement = [{ id: 1, amount: 200 }];
+      getSettlementDao.mockResolvedValue(mockSettlement);
 
-      const response = await request(app)
-        .get('/bankaccount')
-        .set('user', JSON.stringify(mockUser));
+      const result = await getSettlementServiceById({ ...mockIds, role: Role.VENDOR });
 
-      expect(response.status).toBe(500);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Service error');
+      expect(getSettlementDao).toHaveBeenCalledWith(
+        { id: mockIds.id, company_id: mockIds.company_id },
+        null,
+        null,
+        null,
+        null,
+        expect.any(Array)
+      );
+      expect(result).toEqual(mockSettlement);
     });
 
-    it('should handle missing query parameters', async () => {
-      const mockData = [{ id: 1, nick_name: 'Bank1' }];
-      getBankaccountService.mockResolvedValue(mockData);
+    it('should throw error when getSettlementDao fails', async () => {
+      const error = new Error('DAO error');
+      getSettlementDao.mockRejectedValue(error);
 
-      const response = await request(app)
-        .get('/bankaccount')
-        .set('user', JSON.stringify(mockUser));
-
-      expect(response.status).toBe(200);
-      expect(getBankaccountService).toHaveBeenCalledWith(
-        { bank_used_for: undefined },
-        mockUser.company_id,
-        mockUser.role,
-        undefined,
-        undefined,
-        mockUser.user_id,
-        mockUser.designation
-      );
+      await expect(getSettlementServiceById(mockIds)).rejects.toThrow(error);
     });
   });
 
-  describe('getBankAccountBySearch', () => {
-    it('should return bank accounts based on search', async () => {
-      const mockData = [{ id: 1, nick_name: 'Bank1' }];
-      getBankAccountBySearchService.mockResolvedValue(mockData);
+  describe('getSettlementService', () => {
+    it('should fetch settlements with valid parameters', async () => {
+      const mockSettlementData = [{ id: 1, amount: 100 }];
+      getSettlementDao.mockResolvedValue(mockSettlementData);
+      getUserHierarchysDao.mockResolvedValue([]);
 
-      const response = await request(app)
-        .get('/bankaccount/search?page=1&limit=10&bank_used_for=PayIn&search=Bank1')
-        .set('user', JSON.stringify(mockUser));
+      const result = await getSettlementService(mockIds, mockFilters, 1, 10, 'sno', 'DESC', Role.MERCHANT, 1, 'MERCHANT');
 
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({
-        success: true,
-        data: mockData,
-        message: 'get Banks successfully',
-      });
-      expect(getBankAccountBySearchService).toHaveBeenCalledWith(
-        { bank_used_for: 'PayIn' },
-        mockUser.company_id,
-        mockUser.role,
-        '1',
-        '10',
-        mockUser.user_id,
-        mockUser.designation,
-        'Bank1'
+      expect(getSettlementDao).toHaveBeenCalledWith(
+        expect.objectContaining({ company_id: mockIds.company_id }),
+        1,
+        10,
+        'sno',
+        'DESC',
+        expect.any(Array)
+      );
+      expect(result).toEqual(mockSettlementData);
+    });
+
+    it('should throw BadRequestError if company_id is missing', async () => {
+      await expect(getSettlementService({}, mockFilters, 1, 10)).rejects.toThrow(BadRequestError);
+    });
+
+    it('should apply user_id filter for MERCHANT_OPERATIONS', async () => {
+      getUserHierarchysDao.mockResolvedValue([{ config: { parent: 2 } }]);
+      getSettlementDao.mockResolvedValue([]);
+
+      await getSettlementService(mockIds, mockFilters, 1, 10, 'sno', 'DESC', Role.MERCHANT, 1, 'MERCHANT_OPERATIONS');
+
+      expect(getSettlementDao).toHaveBeenCalledWith(
+        expect.objectContaining({ user_id: [2] }),
+        1,
+        10,
+        'sno',
+        'DESC',
+        expect.any(Array)
       );
     });
 
-    it('should handle missing search parameter', async () => {
-      const mockData = [{ id: 1, nick_name: 'Bank1' }];
-      getBankAccountBySearchService.mockResolvedValue(mockData);
+    it('should apply user_id filter for VENDOR_OPERATIONS', async () => {
+      getUserHierarchysDao.mockResolvedValue([{ config: { parent: 3 } }]);
+      getSettlementDao.mockResolvedValue([]);
 
-      const response = await request(app)
-        .get('/bankaccount/search?page=1&limit=10')
-        .set('user', JSON.stringify(mockUser));
+      await getSettlementService(mockIds, mockFilters, 1, 10, 'sno', 'DESC', Role.VENDOR, 1, 'VENDOR_OPERATIONS');
 
-      expect(response.status).toBe(200);
-      expect(getBankAccountBySearchService).toHaveBeenCalledWith(
-        { bank_used_for: undefined },
-        mockUser.company_id,
-        mockUser.role,
-        '1',
-        '10',
-        mockUser.user_id,
-        mockUser.designation,
-        undefined
+      expect(getSettlementDao).toHaveBeenCalledWith(
+        expect.objectContaining({ user_id: [3] }),
+        1,
+        10,
+        'sno',
+        'DESC',
+        expect.any(Array)
       );
-    });
-
-    it('should handle service errors', async () => {
-      getBankAccountBySearchService.mockRejectedValue(new Error('Search error'));
-
-      const response = await request(app)
-        .get('/bankaccount/search?search=Bank1')
-        .set('user', JSON.stringify(mockUser));
-
-      expect(response.status).toBe(500);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Search error');
     });
   });
 
-  describe('getBankaccountNickName', () => {
-    it('should return bank accounts by nickname', async () => {
-      const mockData = [{ nick_name: 'Bank1' }];
-      getBankaccountServiceNickName.mockResolvedValue(mockData);
+  describe('getSettlementsBySearchService', () => {
+    it('should fetch settlements by search with valid parameters', async () => {
+      const mockSettlementData = [{ id: 1, amount: 100 }];
+      getSettlementsBySearchDao.mockResolvedValue(mockSettlementData);
+      getUserHierarchysDao.mockResolvedValue([]);
 
-      const response = await request(app)
-        .get('/bankaccount/nickname?type=PayIn&user=user1')
-        .set('user', JSON.stringify(mockUser));
+      const result = await getSettlementsBySearchService(mockIds, mockFilters, 1, 10, 'sno', 'DESC', Role.MERCHANT, 1, 'MERCHANT');
 
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({
-        success: true,
-        data: mockData,
-        message: 'get Banks successfully',
-      });
-      expect(getBankaccountServiceNickName).toHaveBeenCalledWith(
-        mockUser.company_id,
-        'PayIn',
-        mockUser.role,
-        mockUser.user_id,
-        mockUser.designation,
-        'user1'
+      expect(getSettlementsBySearchDao).toHaveBeenCalledWith(
+        expect.objectContaining({ company_id: mockIds.company_id }),
+        1,
+        10,
+        'sno',
+        'DESC',
+        expect.any(Array),
+        ['test'],
+        Role.MERCHANT
       );
+      expect(result).toEqual(mockSettlementData);
     });
 
-    it('should handle missing type and user parameters', async () => {
-      const mockData = [{ nick_name: 'Bank1' }];
-      getBankaccountServiceNickName.mockResolvedValue(mockData);
-
-      const response = await request(app)
-        .get('/bankaccount/nickname')
-        .set('user', JSON.stringify(mockUser));
-
-      expect(response.status).toBe(200);
-      expect(getBankaccountServiceNickName).toHaveBeenCalledWith(
-        mockUser.company_id,
-        undefined,
-        mockUser.role,
-        mockUser.user_id,
-        mockUser.designation,
-        undefined
-      );
+    it('should throw BadRequestError if company_id is missing', async () => {
+      await expect(getSettlementsBySearchService({}, mockFilters, 1, 10)).rejects.toThrow(BadRequestError);
     });
 
-    it('should handle service errors', async () => {
-      getBankaccountServiceNickName.mockRejectedValue(new Error('Nickname error'));
+    it('should handle empty search terms', async () => {
+      const mockSettlementData = [{ id: 1, amount: 100 }];
+      getSettlementsBySearchDao.mockResolvedValue(mockSettlementData);
+      getUserHierarchysDao.mockResolvedValue([]);
 
-      const response = await request(app)
-        .get('/bankaccount/nickname?type=PayIn')
-        .set('user', JSON.stringify(mockUser));
+      await getSettlementsBySearchService(mockIds, { user_id: [1], search: '' }, 1, 10, 'sno', 'DESC', Role.MERCHANT, 1, 'MERCHANT');
 
-      expect(response.status).toBe(500);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Nickname error');
+      expect(getSettlementsBySearchDao).toHaveBeenCalledWith(
+        expect.objectContaining({ company_id: mockIds.company_id }),
+        1,
+        10,
+        'sno',
+        'DESC',
+        expect.any(Array),
+        [],
+        Role.MERCHANT
+      );
     });
   });
 
-  describe('getBankaccountById', () => {
-    it('should return bank account by ID', async () => {
-      const mockData = { id: '1', nick_name: 'Bank1' };
-      getBankaccountService.mockResolvedValue(mockData);
+  describe('createSettlementService', () => {
+    it('should create settlement for INTERNAL_QR_TRANSFER with valid UTR', async () => {
+      getBankResponseByUTR.mockResolvedValue({ id: 1, is_used: false, status: Status.BOT });
+      getVendorsDao.mockResolvedValue([{ id: 1, payin_commission: 0.1 }]);
+      getCalculationforCronDao.mockResolvedValue([{ id: 1, config: { total_internalSettlement_amount: 0 } }]);
+      calculateCommission.mockReturnValue(10);
+      createSettlementDao.mockResolvedValue({ id: 1 });
+      updateBankResponseDao.mockResolvedValue();
+      updateCalculationBalanceDao.mockResolvedValue();
+      updateCalculationConfigDao.mockResolvedValue();
 
-      const response = await request(app)
-        .get('/bankaccount/1')
-        .set('user', JSON.stringify(mockUser));
+      const result = await createSettlementService(mockConn, { ...mockPayload, method: 'INTERNAL_QR_TRANSFER' }, Role.ADMIN);
 
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({
-        success: true,
-        data: mockData,
-        message: 'get Bank successfully',
-      });
-      expect(getBankaccountService).toHaveBeenCalledWith(
-        { company_id: mockUser.company_id, id: '1' },
-        mockUser.role
+      expect(getBankResponseByUTR).toHaveBeenCalledWith(mockPayload.config.reference_id);
+      expect(createSettlementDao).toHaveBeenCalledWith(
+        expect.objectContaining({ status: Status.SUCCESS, approved_at: expect.any(Date) }),
+        mockConn
       );
+      expect(result).toEqual({ id: 1 });
     });
 
-    it('should handle invalid ID', async () => {
-      getBankaccountService.mockRejectedValue(new Error('Bank not found'));
+    it('should create settlement with adjusted amount for INTERNAL_QR_TRANSFER and VENDOR role when debit_credit is SENT', async () => {
+      createSettlementDao.mockResolvedValue({ id: 2 });
 
-      const response = await request(app)
-        .get('/bankaccount/invalid')
-        .set('user', JSON.stringify(mockUser));
-
-      expect(response.status).toBe(500);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Bank not found');
-    });
-  });
-
-  describe('createBankaccount', () => {
-    it('should create bank account successfully for PayIn', async () => {
-      const payload = {
-        nick_name: 'Bank1',
-        bank_used_for: 'PayIn',
-        is_phonepay: true,
-        is_intent: false,
+      const sentPayload = {
+        ...mockPayload,
+        config: { reference_id: 'UTR123', debit_credit: 'SENT' },
+        amount: -100,
+        method: 'INTERNAL_QR_TRANSFER',
+        user_id: 1,
+        company_id: 1,
+        updated_by: 1,
       };
-      const mockBank = { id: '1', nick_name: 'Bank1' };
-      getBankaccountDao.mockResolvedValue([]);
-      createBankaccountService.mockResolvedValue(mockBank);
 
-      const response = await request(app)
-        .post('/bankaccount')
-        .send(payload)
-        .set('user', JSON.stringify(mockUser));
+      const result = await createSettlementService(mockConn, sentPayload, Role.VENDOR);
 
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({
-        success: true,
-        data: { id: mockBank.id, created_by: mockUser.user_name },
-        message: 'Created Banks successfully',
-      });
-      expect(getBankaccountDao).toHaveBeenCalledWith(
-        { nick_name: 'Bank1' },
-        null,
-        null,
-        mockUser.role
+      expect(getBankResponseByUTR).not.toHaveBeenCalled();
+      expect(getVendorsDao).not.toHaveBeenCalled();
+      expect(getCalculationforCronDao).not.toHaveBeenCalled();
+      expect(calculateCommission).not.toHaveBeenCalled();
+      expect(updateBankResponseDao).not.toHaveBeenCalled();
+      expect(updateCalculationBalanceDao).not.toHaveBeenCalled();
+      expect(updateCalculationConfigDao).not.toHaveBeenCalled();
+      expect(createSettlementDao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: { reference_id: 'UTR123', debit_credit: 'SENT' },
+          user_id: 1,
+          amount: 100,
+          method: 'INTERNAL_QR_TRANSFER',
+          company_id: 1,
+          updated_by: 1,
+        })
       );
-      expect(createBankaccountService).toHaveBeenCalledWith(
-        {
-          nick_name: 'Bank1',
-          bank_used_for: 'PayIn',
-          payin_count: 0,
-          config: { merchants: [], is_phonepay: true, is_intent: false },
-          created_by: mockUser.user_id,
-          updated_by: mockUser.user_id,
-          company_id: mockUser.company_id,
-        },
-        mockUser.designation,
-        mockUser.user_id,
-        mockUser.company_id
+      expect(result).toEqual({ id: 2 });
+    });
+
+    it('should throw NotFoundError if bank response not found', async () => {
+      getBankResponseByUTR.mockResolvedValue(null);
+
+      await expect(createSettlementService(mockConn, { ...mockPayload, method: 'INTERNAL_QR_TRANSFER' }, Role.ADMIN))
+        .rejects.toThrow(NotFoundError);
+    });
+
+    it('should throw NotFoundError if bank response not found for non-VENDOR role', async () => {
+      getBankResponseByUTR.mockResolvedValue(null);
+
+      await expect(createSettlementService(mockConn, { ...mockPayload, method: 'INTERNAL_QR_TRANSFER' }, Role.ADMIN))
+        .rejects.toThrow(NotFoundError);
+    });
+
+    it('should throw BadRequestError if UTR is already used', async () => {
+      getBankResponseByUTR.mockResolvedValue({ id: 1, is_used: true, status: Status.BOT });
+
+      await expect(createSettlementService(mockConn, { ...mockPayload, method: 'INTERNAL_QR_TRANSFER' }, Role.ADMIN))
+        .rejects.toThrow(BadRequestError);
+    });
+
+    it('should create settlement for non-internal transfer', async () => {
+      createSettlementDao.mockResolvedValue({ id: 1 });
+
+      const result = await createSettlementService(mockConn, { ...mockPayload, method: 'BANK' }, Role.MERCHANT);
+
+      expect(createSettlementDao).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: -100, config: mockPayload.config })
+      );
+      expect(result).toEqual({ id: 1 });
+    });
+
+    it('should throw NotFoundError if vendor not found for INTERNAL_QR_TRANSFER', async () => {
+      getBankResponseByUTR.mockResolvedValue({ id: 1, is_used: false, status: Status.BOT });
+      getVendorsDao.mockResolvedValue([]);
+
+      await expect(createSettlementService(mockConn, { ...mockPayload, method: 'INTERNAL_QR_TRANSFER' }, Role.ADMIN))
+        .rejects.toThrow(NotFoundError);
+    });
+
+    it('should throw NotFoundError if calculation data not found for INTERNAL_QR_TRANSFER', async () => {
+      getBankResponseByUTR.mockResolvedValue({ id: 1, is_used: false, status: Status.BOT });
+      getVendorsDao.mockResolvedValue([{ id: 1, payin_commission: 0.1 }]);
+      getCalculationforCronDao.mockResolvedValue([]);
+
+      await expect(createSettlementService(mockConn, { ...mockPayload, method: 'INTERNAL_QR_TRANSFER' }, Role.ADMIN))
+        .rejects.toThrow(NotFoundError);
+    });
+
+    // New Test Cases
+    it('should throw NotFoundError if reference_id is missing for INTERNAL_QR_TRANSFER with non-VENDOR role', async () => {
+      const payloadWithoutReferenceId = {
+        ...mockPayload,
+        method: 'INTERNAL_QR_TRANSFER',
+        config: { debit_credit: 'RECEIVED' }, // No reference_id
+      };
+
+      await expect(createSettlementService(mockConn, payloadWithoutReferenceId, Role.ADMIN))
+        .rejects.toThrow(NotFoundError);
+      expect(getBankResponseByUTR).toHaveBeenCalledWith(undefined);
+    });
+
+    it('should create settlement for invalid payment method with adjusted amount', async () => {
+      createSettlementDao.mockResolvedValue({ id: 3 });
+
+      const result = await createSettlementService(mockConn, { ...mockPayload, method: 'INVALID_METHOD' }, Role.MERCHANT);
+
+      expect(createSettlementDao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: -100, // Adjusted due to debit_credit: 'RECEIVED' and amount > 0
+          config: mockPayload.config,
+          method: 'INVALID_METHOD',
+        })
+      );
+      expect(result).toEqual({ id: 3 });
+    });
+
+    it('should create settlement for negative amount with debit_credit SENT for non-internal transfer', async () => {
+      createSettlementDao.mockResolvedValue({ id: 4 });
+
+      const negativePayload = {
+        ...mockPayload,
+        config: { debit_credit: 'SENT' },
+        amount: -200,
+        method: 'BANK',
+      };
+
+      const result = await createSettlementService(mockConn, negativePayload, Role.MERCHANT);
+
+      expect(createSettlementDao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 200, // Adjusted to absolute value due to debit_credit: 'SENT'
+          config: negativePayload.config,
+          method: 'BANK',
+        })
+      );
+      expect(result).toEqual({ id: 4 });
+    });
+
+    it('should create settlement for zero amount with VENDOR role for INTERNAL_QR_TRANSFER', async () => {
+      createSettlementDao.mockResolvedValue({ id: 5 });
+
+      const zeroAmountPayload = {
+        ...mockPayload,
+        method: 'INTERNAL_QR_TRANSFER',
+        amount: 0,
+        config: { debit_credit: 'RECEIVED', reference_id: 'UTR456' },
+      };
+
+      const result = await createSettlementService(mockConn, zeroAmountPayload, Role.VENDOR);
+
+      expect(getBankResponseByUTR).not.toHaveBeenCalled();
+      expect(createSettlementDao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 0, // No adjustment needed since amount is 0
+          config: zeroAmountPayload.config,
+          method: 'INTERNAL_QR_TRANSFER',
+        })
+      );
+      expect(result).toEqual({ id: 5 });
+    });
+
+    it('should throw InternalServerError if createSettlementDao fails', async () => {
+      createSettlementDao.mockRejectedValue(new Error('DAO failure'));
+
+      const payload = { ...mockPayload, method: 'BANK' };
+
+      await expect(createSettlementService(mockConn, payload, Role.MERCHANT))
+        .rejects.toThrow(InternalServerError);
+      expect(createSettlementDao).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: -100,
+          config: mockPayload.config,
+          method: 'BANK',
+        })
       );
     });
 
-    it('should create bank account with default payin_count', async () => {
-      const payload = { nick_name: 'Bank2', bank_used_for: 'Payout' };
-      const mockBank = { id: '2', nick_name: 'Bank2' };
-      getBankaccountDao.mockResolvedValue([]);
-      createBankaccountService.mockResolvedValue(mockBank);
+    it('should throw InternalServerError if getBankResponseByUTR fails for non-VENDOR role', async () => {
+      getBankResponseByUTR.mockRejectedValue(new Error('Database error'));
 
-      const response = await request(app)
-        .post('/bankaccount')
-        .send(payload)
-        .set('user', JSON.stringify(mockUser));
-
-      expect(response.status).toBe(200);
-      expect(createBankaccountService).toHaveBeenCalledWith(
-        expect.objectContaining({ payin_count: 0, config: {} }),
-        mockUser.designation,
-        mockUser.user_id,
-        mockUser.company_id
-      );
-    });
-
-    it('should return error for duplicate nickname', async () => {
-      const payload = { nick_name: 'Bank1', bank_used_for: 'PayIn' };
-      getBankaccountDao.mockResolvedValue([{ id: '1', nick_name: 'Bank1' }]);
-
-      const response = await request(app)
-        .post('/bankaccount')
-        .send(payload)
-        .set('user', JSON.stringify(mockUser));
-
-      expect(response.status).toBe(400);
-      expect(response.body).toEqual({
-        success: false,
-        error: 'Nick Name Must Be Unique',
-        status: 400,
-      });
-    });
-
-    it('should throw validation error for invalid payload', async () => {
-      const payload = { nick_name: '' }; // Invalid payload
-      getBankaccountDao.mockResolvedValue([]);
-
-      const response = await request(app)
-        .post('/bankaccount')
-        .send(payload)
-        .set('user', JSON.stringify(mockUser));
-
-      expect(response.status).toBe(400);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('ValidationError');
+      await expect(createSettlementService(mockConn, { ...mockPayload, method: 'INTERNAL_QR_TRANSFER' }, Role.ADMIN))
+        .rejects.toThrow(InternalServerError);
+      expect(getBankResponseByUTR).toHaveBeenCalledWith(mockPayload.config.reference_id);
     });
   });
 
-  describe('updateBankaccount', () => {
-    it('should update bank account successfully', async () => {
-      const payload = { nick_name: 'UpdatedBank' };
-      const mockBank = { id: '1', nick_name: 'UpdatedBank' };
-      updateBankaccountService.mockResolvedValue(mockBank);
+  describe('updateSettlementService', () => {
+    it('should update settlement with valid UTR', async () => {
+      checkLockEdit.mockResolvedValue();
+      getSettlementDao.mockResolvedValue([{ id: 1, user_id: 1, method: 'INTERNAL_QR_TRANSFER', role: Role.VENDOR, config: {} }]);
+      getBankResponseByUTR.mockResolvedValue({ id: 1, is_used: false, status: Status.BOT });
+      getCalculationforCronDao.mockResolvedValue([{ id: 1, config: { total_internalSettlement_amount: 0 } }]);
+      getVendorsDao.mockResolvedValue([{ id: 1, payin_commission: 0.1 }]);
+      calculateCommission.mockReturnValue(10);
+      updateBankResponseDao.mockResolvedValue();
+      updateCalculationBalanceDao.mockResolvedValue();
+      updateCalculationConfigDao.mockResolvedValue();
+      updateSettlementDao.mockResolvedValue({ id: 1 });
 
-      const response = await request(app)
-        .put('/bankaccount/1')
-        .send(payload)
-        .set('user', JSON.stringify(mockUser));
+      const result = await updateSettlementService(mockConn, mockIds, { ...mockPayload, status: Status.SUCCESS });
 
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({
-        success: true,
-        data: { id: mockBank.id, updated_by: mockUser.user_name },
-        message: 'Updated Banks successfully',
-      });
-      expect(updateBankaccountService).toHaveBeenCalledWith(
-        { id: '1', company_id: mockUser.company_id },
-        { nick_name: 'UpdatedBank', updated_by: mockUser.user_id },
-        mockUser.role,
-        mockUser.company_id,
-        mockUser.user_id
+      expect(updateSettlementDao).toHaveBeenCalled();
+      expect(result).toEqual({ id: 1 });
+    });
+
+    it('should throw BadRequestError if UTR already exists', async () => {
+      checkLockEdit.mockResolvedValue();
+      getSettlementDao.mockResolvedValue([{ id: 1, config: { reference_id: 'UTR123' }, method: 'BANK' }]);
+
+      await expect(updateSettlementService(mockConn, mockIds, { config: { reference_id: 'UTR123' } }))
+        .rejects.toThrow(BadRequestError);
+    });
+
+    it('should handle REVERSED status for BANK method', async () => {
+      checkLockEdit.mockResolvedValue();
+      getSettlementDao.mockResolvedValue([{ id: 1, user_id: 1, method: 'BANK', role: Role.VENDOR, config: { bank_id: 1 } }]);
+      getCalculationforCronDao.mockResolvedValue([{ id: 1, config: {} }]);
+      getBeneficiaryAccountDao.mockResolvedValue([{ id: 1, config: { closing_balance: 1000 } }]);
+      updateBeneficiaryAccountDao.mockResolvedValue();
+      updateCalculationBalanceDao.mockResolvedValue();
+      updateSettlementDao.mockResolvedValue({ id: 1 });
+
+      const result = await updateSettlementService(mockConn, mockIds, { ...mockPayload, status: Status.REVERSED });
+
+      expect(updateBeneficiaryAccountDao).toHaveBeenCalled();
+      expect(result).toEqual({ id: 1 });
+    });
+
+    it('should throw BadRequestError when changing from REJECTED to SUCCESS', async () => {
+      checkLockEdit.mockResolvedValue();
+      getSettlementDao.mockResolvedValue([{ id: 1, status: Status.REJECTED, method: 'BANK', config: {} }]);
+
+      await expect(updateSettlementService(mockConn, mockIds, { ...mockPayload, status: Status.SUCCESS }))
+        .rejects.toThrow(BadRequestError);
+    });
+
+    it('should throw BadRequestError when updating to same status', async () => {
+      checkLockEdit.mockResolvedValue();
+      getSettlementDao.mockResolvedValue([{ id: 1, status: Status.SUCCESS, method: 'BANK', config: {} }]);
+
+      await expect(updateSettlementService(mockConn, mockIds, { ...mockPayload, status: Status.SUCCESS }))
+        .rejects.toThrow(BadRequestError);
+    });
+
+    it('should handle REJECTED status with rejected_reason', async () => {
+      checkLockEdit.mockResolvedValue();
+      getSettlementDao.mockResolvedValue([{ id: 1, user_id: 1, method: 'BANK', role: Role.MERCHANT, config: {} }]);
+      getCalculationforCronDao.mockResolvedValue([{ id: 1, config: {} }]);
+      updateCalculationBalanceDao.mockResolvedValue();
+      updateSettlementDao.mockResolvedValue({ id: 1 });
+
+      const result = await updateSettlementService(mockConn, mockIds, { ...mockPayload, config: { rejected_reason: 'Invalid data' } });
+
+      expect(updateSettlementDao).toHaveBeenCalledWith(
+        mockConn,
+        { id: mockIds.id, company_id: mockIds.company_id },
+        expect.objectContaining({ status: Status.REJECTED, rejected_at: expect.any(Date) })
       );
-    });
-
-    it('should throw validation error for invalid payload', async () => {
-      const payload = { nick_name: '' }; // Invalid payload
-
-      const response = await request(app)
-        .put('/bankaccount/1')
-        .send(payload)
-        .set('user', JSON.stringify(mockUser));
-
-      expect(response.status).toBe(400);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('ValidationError');
-    });
-
-    it('should handle service errors', async () => {
-      const payload = { nick_name: 'UpdatedBank' };
-      updateBankaccountService.mockRejectedValue(new Error('Update error'));
-
-      const response = await request(app)
-        .put('/bankaccount/1')
-        .send(payload)
-        .set('user', JSON.stringify(mockUser));
-
-      expect(response.status).toBe(500);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Update error');
+      expect(result).toEqual({ id: 1 });
     });
   });
 
-  describe('getMerchantBank', () => {
-    it('should return bank accounts for merchant role', async () => {
-      const mockData = [{ id: '1', nick_name: 'Bank1' }];
-      getMerchantBankDao.mockResolvedValue(mockData);
-      const merchantUser = { ...mockUser, role: Role.MERCHANT };
+  describe('deleteSettlementService', () => {
+    it('should delete settlement', async () => {
+      deleteSettlementDao.mockResolvedValue({ id: 1 });
 
-      const response = await request(app)
-        .get('/merchant/bank')
-        .set('user', JSON.stringify(merchantUser));
+      const result = await deleteSettlementService(mockConn, { ...mockIds, user_id: 1 });
 
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({
-        success: true,
-        data: mockData,
-        message: 'Bank details fetched successfully',
-      });
-      expect(getMerchantBankDao).toHaveBeenCalledWith(
-        { company_id: merchantUser.company_id, user_id: merchantUser.user_id },
-        null,
-        null,
-        null,
-        null,
-        merchantColumns.BANK_ACCOUNT
+      expect(deleteSettlementDao).toHaveBeenCalledWith(
+        mockConn,
+        { id: mockIds.id, company_id: mockIds.company_id },
+        { is_obsolete: true, updated_by: 1 }
       );
+      expect(result).toEqual({ id: 1 });
     });
 
-    it('should return bank accounts for vendor role', async () => {
-      const mockData = [{ id: '1', nick_name: 'Bank1' }];
-      getMerchantBankDao.mockResolvedValue(mockData);
-      const vendorUser = { ...mockUser, role: Role.VENDOR };
+    it('should throw error when deleteSettlementDao fails', async () => {
+      const error = new Error('DAO error');
+      deleteSettlementDao.mockRejectedValue(error);
 
-      const response = await request(app)
-        .get('/merchant/bank')
-        .set('user', JSON.stringify(vendorUser));
-
-      expect(response.status).toBe(200);
-      expect(getMerchantBankDao).toHaveBeenCalledWith(
-        { company_id: vendorUser.company_id, user_id: vendorUser.user_id },
-        null,
-        null,
-        null,
-        null,
-        vendorColumns.BANK_ACCOUNT
-      );
-    });
-
-    it('should return bank accounts for admin role', async () => {
-      const mockData = [{ id: '1', nick_name: 'Bank1' }];
-      getMerchantBankDao.mockResolvedValue(mockData);
-
-      const response = await request(app)
-        .get('/merchant/bank')
-        .set('user', JSON.stringify(mockUser));
-
-      expect(response.status).toBe(200);
-      expect(getMerchantBankDao).toHaveBeenCalledWith(
-        { company_id: mockUser.company_id, user_id: mockUser.user_id },
-        null,
-        null,
-        null,
-        null,
-        columns.BANK_ACCOUNT
-      );
-    });
-
-    it('should handle DAO errors', async () => {
-      getMerchantBankDao.mockRejectedValue(new Error('DAO error'));
-
-      const response = await request(app)
-        .get('/merchant/bank')
-        .set('user', JSON.stringify(mockUser));
-
-      expect(response.status).toBe(500);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('DAO error');
-    });
-  });
-
-  describe('deleteBankaccount', () => {
-    it('should delete bank account successfully', async () => {
-      const mockBank = { id: '1' };
-      deleteBankaccountService.mockResolvedValue(mockBank);
-
-      const response = await request(app)
-        .delete('/bankaccount/1')
-        .set('user', JSON.stringify(mockUser));
-
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({
-        success: true,
-        data: { id: mockBank.id, deleted_by: mockUser.user_name },
-        message: 'Deleted Banks Successfully',
-      });
-      expect(deleteBankaccountService).toHaveBeenCalledWith(
-        { id: '1', company_id: mockUser.company_id },
-        mockUser.user_id
-      );
-    });
-
-    it('should throw validation error for invalid ID', async () => {
-      const response = await request(app)
-        .delete('/bankaccount/invalid')
-        .set('user', JSON.stringify(mockUser));
-
-      expect(response.status).toBe(400);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('ValidationError');
-    });
-
-    it('should handle service errors', async () => {
-      deleteBankaccountService.mockRejectedValue(new Error('Delete error'));
-
-      const response = await request(app)
-        .delete('/bankaccount/1')
-        .set('user', JSON.stringify(mockUser));
-
-      expect(response.status).toBe(500);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Delete error');
+      await expect(deleteSettlementService(mockConn, mockIds)).rejects.toThrow(error);
     });
   });
 });

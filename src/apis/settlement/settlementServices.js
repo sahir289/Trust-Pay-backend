@@ -377,6 +377,9 @@ const createSettlementService = async (conn, payload, role) => {
     return await createSettlementDao(payload);
   } catch (error) {
     logger.error('Error while creating Settlement', error);
+    if (error instanceof NotFoundError || error instanceof BadRequestError) {
+      throw error; 
+    }
     throw new InternalServerError(
       error.message || 'Failed to create settlement',
     );
