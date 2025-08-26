@@ -7,6 +7,7 @@ import {
   updateCompany,
   getCompanyById,
   getCompanyNamesController,
+  signUpCompany,
 } from './companyController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -157,7 +158,7 @@ router.post(
   tryCatchHandler(createCompany),
 );
 
-router.post('/signup-company', tryCatchHandler(createCompany));
+router.post('/signup-company', tryCatchHandler(signUpCompany));
 
 /**
  * @swagger
