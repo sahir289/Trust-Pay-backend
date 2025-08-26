@@ -83,7 +83,7 @@ const createUser = async (req, res) => {
   if (verifyContact) {
     throw new BadRequestError('Contact number already exists');
   }
-
+  payload.user_name = payload.user_name.trim();
   payload.is_enabled = true;
   payload.company_id = company_id;
   payload.created_by = user_id;
