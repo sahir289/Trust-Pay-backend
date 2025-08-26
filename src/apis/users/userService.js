@@ -242,7 +242,7 @@ const getUserByIdService = async (ids, role) => {
         : role === Role.VENDOR
           ? vendorColumns.USER
           : columns.USER;
-    conn = await getConnection();
+    conn = await getConnection('reader');
     const result = await getUserByIdDao(conn, ids);
 
     const finalResult = filterResponse(result, filterColumns);
@@ -270,7 +270,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
         : role === Role.VENDOR
           ? vendorColumns.USER
           : columns.USER;
-    conn = await getConnection();
+    conn = await getConnection('reader');
     const data = await getUsersByUserNameDao(ids, username, conn);
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;

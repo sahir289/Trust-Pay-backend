@@ -101,7 +101,7 @@ const getVendorsService = async (
 const getVendorsCodeService = async (filters, roleIs, user_id, designation) => {
   let conn;
   try {
-    conn = await getConnection(); // Get DB connection
+    conn = await getConnection('reader'); // Get DB connection
     await beginTransaction(conn); // Start transaction
     let parentUserId;
     if (roleIs === Role.VENDOR) {
