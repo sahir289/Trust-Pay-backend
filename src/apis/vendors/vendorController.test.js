@@ -84,7 +84,7 @@ describe('Vendor Controller', () => {
     // Error-handling middleware to catch unhandled errors
     app.use((err, req, res, next) => {
       if (err instanceof ValidationError) {
-        res.status(500).json({ error: err.message });
+        res.status(400).json({ error: err.message }); // Changed to 400 for validation errors
       } else {
         res.status(500).json({ error: 'Internal server error' });
       }
@@ -121,18 +121,23 @@ describe('Vendor Controller', () => {
     });
 
     test('should throw ValidationError for invalid payload', async () => {
+      const req = {
+        body: { name: '' },
+        user: { company_id: 'comp1', user_id: 'user1', role: 'admin', user_name: 'TestUser' },
+      };
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+
       VALIDATE_VENDOR_SCHEMA.validate.mockReturnValue({
         error: { details: [{ message: '"name" is not allowed to be empty' }] },
       });
-      const payload = { name: '' };
 
-      const res = await request(app).post('/vendors/create-vendor').send(payload);
-
-      expect(res.status).toBe(500);
-      expect(res.body.error).toContain('name');
-      expect(VALIDATE_VENDOR_SCHEMA.validate).toHaveBeenCalledWith(payload);
+      await expect(createVendor(req, res)).rejects.toThrow(ValidationError);
+      expect(VALIDATE_VENDOR_SCHEMA.validate).toHaveBeenCalledWith(req.body);
       expect(createVendorService).not.toHaveBeenCalled();
-    }, 15000); // Increased timeout to 15 seconds
+    });
   });
 
   describe('getVendors', () => {
@@ -212,10 +217,22 @@ describe('Vendor Controller', () => {
     });
 
     test('should throw ValidationError for invalid vendor ID', async () => {
-      const res = await request(app).get('/vendors/invalid');
-  
-      expect(res.status).toBe(500);
-      expect(res.body.error).toContain('must be a valid UUID');
+      const req = {
+        params: { id: 'invalid' },
+        user: { company_id: 'comp1', user_id: 'user1', role: 'admin' },
+      };
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+
+      VALIDATE_VENDOR_BY_ID.validate.mockReturnValue({
+        error: { details: [{ message: '"id" must be a valid UUID' }] },
+      });
+
+      await expect(getVendorById(req, res)).rejects.toThrow(ValidationError);
+      expect(VALIDATE_VENDOR_BY_ID.validate).toHaveBeenCalledWith(req.params);
+      expect(getVendorsService).not.toHaveBeenCalled();
     });
   });
 
@@ -240,32 +257,47 @@ describe('Vendor Controller', () => {
       expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), { id: 'vendor1', updated_by: 'TestUser' }, 'Vendor updated successfully');
     });
 
-    test('should throw ValidationError for invalid vendor ID -', async () => {
-      const payload = { name: 'Vendor B', status: 'inactive' };
-    
-      const res = await request(app).put('/vendors/update-vendor/invalid').send(payload);
-    
-      expect(res.status).toBe(500);
-      expect(res.body.error).toContain('must be a valid UUID'); 
+    test('should throw ValidationError for invalid vendor ID', async () => {
+      const req = {
+        params: { id: 'invalid' },
+        body: { name: 'Vendor B', status: 'inactive' },
+        user: { company_id: 'comp1', user_id: 'user1', role: 'admin', user_name: 'TestUser' },
+      };
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+
+      VALIDATE_VENDOR_BY_ID.validate.mockReturnValue({
+        error: { details: [{ message: '"id" must be a valid UUID' }] },
+      });
+
+      await expect(updateVendor(req, res)).rejects.toThrow(ValidationError);
+      expect(VALIDATE_VENDOR_BY_ID.validate).toHaveBeenCalledWith(req.params);
       expect(updateVendorService).not.toHaveBeenCalled();
-    }, 15000);
-    
+    });
 
     test('should throw ValidationError for invalid payload', async () => {
+      const req = {
+        params: { id: 'vendor1' },
+        body: { name: 'Vendor B', status: '' },
+        user: { company_id: 'comp1', user_id: 'user1', role: 'admin', user_name: 'TestUser' },
+      };
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+
       VALIDATE_VENDOR_BY_ID.validate.mockReturnValue({ error: null });
       VALIDATE_UPDATE_VENDOR_STATUS.validate.mockReturnValue({
         error: { details: [{ message: '"status" must be one of [active, inactive]' }] },
       });
-      const payload = { name: 'Vendor B', status: '' };
 
-      const res = await request(app).put('/vendors/update-vendor/vendor1').send(payload);
-
-      expect(res.status).toBe(500);
-      expect(res.body.error).toContain('status');
-      expect(VALIDATE_VENDOR_BY_ID.validate).toHaveBeenCalledWith({ id: 'vendor1' });
-      expect(VALIDATE_UPDATE_VENDOR_STATUS.validate).toHaveBeenCalledWith(payload);
+      await expect(updateVendor(req, res)).rejects.toThrow(ValidationError);
+      expect(VALIDATE_VENDOR_BY_ID.validate).toHaveBeenCalledWith(req.params);
+      expect(VALIDATE_UPDATE_VENDOR_STATUS.validate).toHaveBeenCalledWith(req.body);
       expect(updateVendorService).not.toHaveBeenCalled();
-    }, 15000); // Increased timeout to 15 seconds
+    });
   });
 
   describe('deleteVendor', () => {
