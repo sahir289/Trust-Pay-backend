@@ -983,6 +983,9 @@ export const updateDepositStatusService = async (
 
     await updateBotResponseDao({ id: bank.id }, { is_used: true }, conn);
 
+
+    newTableEntry(tableName.PAYIN, { id: payInData.id, ...updatePayInRes });
+
     // update bank balance and today balance
     // const bankBalance =
     //   updatePayInData.status === Status.DISPUTE
@@ -1439,6 +1442,26 @@ export const processPayInService = async (
       result.utr_id =
         bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
       await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+
+      const responseObj = {
+        id: payIn.id,
+        sno: payIn.sno,
+        amount: amount,
+        status: updatePayInData.status,
+        user_submitted_utr: updatePayInData.user_submitted_utr,
+        user_submitted_image: updatePayInData.user_submitted_image || null,
+        duration: updatePayInData.duration,
+        nick_name: bank.nick_name,
+        bank_acc_id: bank.id,
+        merchant_order_id: payIn.merchant_order_id,
+        company_id: payIn.company_id,
+        bank_res_details: {
+          utr: bankResponse.utr || null,
+          amount: bankResponse.amount || null,
+        },
+      };
+      
+      await newTableEntry(tableName.PAYIN, responseObj);
       // This is async function but it's just the callback sending function there fore we are not using await
       merchantPayinCallback(payIn.config?.urls?.notify, result);
       return {
@@ -1468,6 +1491,28 @@ export const processPayInService = async (
       result.utr_id =
         bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
       await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+
+      const responseObj = {
+        id: payIn.id,
+        sno: payIn.sno,
+        amount: amount,
+        status: updatePayInData.status,
+        user_submitted_utr: updatePayInData.user_submitted_utr,
+        user_submitted_image: updatePayInData.user_submitted_image || null,
+        duration: updatePayInData.duration,
+        nick_name: bank.nick_name,
+        bank_acc_id: bank.id,
+        merchant_order_id: payIn.merchant_order_id,
+        company_id: payIn.company_id,
+        bank_res_details: {
+          utr: bankResponse.utr || null,
+          amount: bankResponse.amount || null,
+        },
+      };
+  
+      await newTableEntry(tableName.PAYIN, responseObj);
+      const obj = { id: bankResponse.id,  data:{ ...bankResponse, is_used: true}, company_id: payIn.company_id, }
+      await newTableEntry(tableName.BANK_RESPONSE, obj);
       // This is async function but it's just the callback sending function there fore we are not using await
       merchantPayinCallback(payIn.config?.urls?.notify, result);
 
@@ -1618,6 +1663,10 @@ export const processPayInService = async (
     };
 
     await newTableEntry(tableName.PAYIN, responseObj);
+    const obj = { id: bankResponse.id,  data:{ ...bankResponse, is_used: true}, company_id: payIn.company_id, }
+    if (bankResponse.id && (updatePayInData.status === Status.SUCCESS  || updatePayInData.status === Status.DISPUTE)) {
+      await newTableEntry(tableName.BANK_RESPONSE, obj);
+    }
     // This is async function but it's just the callback sending function there fore we are not using await
     merchantPayinCallback(payIn.config?.urls?.notify, result);
 
@@ -2216,7 +2265,7 @@ export const disputeDuplicateTransactionService = async (
     // }
 
     // await Promise.all(notifications);
-    await newTableEntry(tableName.PAYIN);
+    await newTableEntry(tableName.PAYIN, { id: payIn.id, ...response });
     return response;
   } catch (error) {
     logger.error('Error in disputeDuplicateTransactionService:', error.message);
