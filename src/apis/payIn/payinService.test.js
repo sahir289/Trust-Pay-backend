@@ -216,7 +216,7 @@ describe('verifyPayinsService', () => {
     getPayInUrlDao.mockResolvedValue(mockPayIn);
 
     const userLocation = { user_ip: '192.168.1.1' };
-    const result = await verifyPayinsService('123', userLocation, 'false');
+    const result = await verifyPayinsService({},'123', userLocation, 'false');
 
     expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
     expect(getMerchantsDao).toHaveBeenCalledWith({ id: 'merchant1' });
@@ -230,6 +230,7 @@ describe('verifyPayinsService', () => {
     });
     expect(result).toEqual({
       expiryTime: mockPayIn.expiration_date,
+      isAdmin: false,
       amount: mockPayIn.amount,
       one_time_used: false,
       status: mockPayIn.status,
@@ -249,7 +250,7 @@ describe('verifyPayinsService', () => {
     updatePayInUrlDao.mockResolvedValue({ id: usedPayIn.id });
 
     const userLocation = { user_ip: '192.168.1.1' };
-    const result = await verifyPayinsService('123', userLocation, 'false');
+    const result = await verifyPayinsService({},'123', userLocation, 'false');
 
     expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
     expect(updatePayInUrlDao).toHaveBeenCalledWith(usedPayIn.id, {
@@ -287,7 +288,7 @@ describe('verifyPayinsService', () => {
     getMerchantsDao.mockResolvedValue([mockMerchant]);
     updatePayInUrlDao.mockResolvedValue({ id: mockPayIn.id, one_time_used: true });
 
-    const result = await verifyPayinsService('123', { user_ip: '192.168.1.1' }, 'true');
+    const result = await verifyPayinsService({},'123', { user_ip: '192.168.1.1' }, 'true');
 
     expect(updatePayInUrlDao).toHaveBeenCalledWith(mockPayIn.id, {
       config: expect.any(String),
