@@ -702,6 +702,8 @@ const getBankResponseService = async (
   updated,
   sortBy,
   sortOrder,
+  designation,
+  user_id
 ) => {
   try {
     const filterColumns =
@@ -732,6 +734,33 @@ const getBankResponseService = async (
       ...filters,
     };
     sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
+
+    const fetchBankIds = async (user_id) => {
+      try {
+        const banks = await getBankaccountDao({
+          user_id,
+          bank_used_for: 'PayIn',
+        });
+        if (!banks || banks.length === 0) {
+          return [];
+        }
+        return banks.map((bank) => bank.id);
+      } catch (error) {
+        logger.error('Error fetching PayIn:', error);
+        return [];
+      }
+    };
+
+    if (designation === Role.VENDOR) {
+      filters.bank_id = await fetchBankIds(user_id);
+    } else if (designation === Role.VENDOR_OPERATIONS) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const parentID = userHierarchys?.[0]?.config?.parent;
+      if (parentID) {
+        filters.bank_id = await fetchBankIds(parentID);
+      }
+    }
+
     const data = await getBankResponseDaoAll(
       filters,
       page,
