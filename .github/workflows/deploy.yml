@@ -17,7 +17,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 22.x
-          cache: 'npm' # cache dependencies for faster installs
+          # cache: 'npm' # cache dependencies for faster installs
 
       - name: Install dependencies
         run: npm install
