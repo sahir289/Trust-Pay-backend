@@ -28,7 +28,7 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const singleWithdrawData = await getPayoutsDao({ id: apitxnid });
+    const [singleWithdrawData] = await getPayoutsDao({ id: apitxnid });
     if (!singleWithdrawData) {
       return NotFoundError('Payment not found');
     }
