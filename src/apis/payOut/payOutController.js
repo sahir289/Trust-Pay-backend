@@ -1,5 +1,9 @@
 import { transactionWrapper } from '../../utils/db.js';
-import { sendSuccess, sendNewSuccess, sendError } from '../../utils/responseHandlers.js';
+import {
+  sendSuccess,
+  sendNewSuccess,
+  sendError,
+} from '../../utils/responseHandlers.js';
 import {
   createPayoutService,
   deletePayoutService,
@@ -83,8 +87,7 @@ const createPayout = async (req, res) => {
   // Send a success response to the client
   if (result.status === 400 || result.status === 404) {
     return sendError(res, result.message, result.status);
-  }
-  else {
+  } else {
     return sendNewSuccess(res, updateRes, 'Payout created successfully', 201);
   }
 };
@@ -118,43 +121,43 @@ const getPayouts = async (req, res) => {
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };
 
-  const walletsPayouts = async (req, res) => {
-    const joiValidation = WALLET_PAYOUT_DETAILS_SCHEMA.validate(req.body);
-    if (joiValidation.error) {
-      throw new ValidationError(joiValidation.error);
-    }
-    const { company_id, user_id } = req.user;
-    const payload = req.body;
-    payload.company_id = company_id;
-
-    let result = await transactionWrapper(walletsPayoutsService)(
-        payload,
-        user_id,
-        res,
-      );
-    // Log success message
-    logger.log('Payout updated successfully');
-    const updateRes = {
-      balance: result,
-    };
-  
-    // Send a success response to the client
-    return sendNewSuccess(res, updateRes, 'Payout updated successfully', 201);
+const walletsPayouts = async (req, res) => {
+  const joiValidation = WALLET_PAYOUT_DETAILS_SCHEMA.validate(req.body);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
   }
+  const { company_id, user_id } = req.user;
+  const payload = req.body;
+  payload.company_id = company_id;
 
-  const getWalletsBalance = async (req, res) => {
-    const { company_id } = req.user;
-    let result = await getWalletsBalanceService(company_id);
-    // Log success message
-    logger.log('Wallet Balance fetch successfully');
-  
-    // Send a success response to the client
-    return sendNewSuccess(res, result, 'Wallet Balance fetch successfully', 200);
-  }
+  let result = await transactionWrapper(walletsPayoutsService)(
+    payload,
+    user_id,
+    res,
+  );
+  // Log success message
+  logger.log('Payout updated successfully');
+  const updateRes = {
+    balance: result,
+  };
+
+  // Send a success response to the client
+  return sendNewSuccess(res, updateRes, 'Payout updated successfully', 201);
+};
+
+const getWalletsBalance = async (req, res) => {
+  const { company_id } = req.user;
+  let result = await getWalletsBalanceService(company_id);
+  // Log success message
+  logger.log('Wallet Balance fetch successfully');
+
+  // Send a success response to the client
+  return sendNewSuccess(res, result, 'Wallet Balance fetch successfully', 200);
+};
 
 const getPayoutsBySearch = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
-  const { search, page = 1, limit = 10 , isAmount } = req.query;
+  const { search, page = 1, limit = 10, isAmount } = req.query;
   // if (!search) {
   //   throw new BadRequestError('search is required');
   // }
@@ -197,14 +200,14 @@ const updatePayout = async (req, res) => {
   );
 };
 const assignedPayout = async (req, res) => {
-  const { user_id, user_name ,company_id} = req.user;
+  const { user_id, user_name, company_id } = req.user;
   const { id } = req.params;
   const { payouts_ids } = req.body;
   const joiValidation = ASSIGNED_VENDOR_SCHEMA.validate(req.body);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
- const updated_by = user_id;
+  const updated_by = user_id;
   const ids = { id };
   const update = await transactionWrapper(assignedPayoutService)(
     ids,
@@ -249,8 +252,7 @@ const checkPayOutStatus = async (req, res) => {
   // sendSuccess(res, data);
   if (data.status === 400 || data.status === 404) {
     return sendError(res, data.message, data.status);
-  }
-  else {
+  } else {
     return sendNewSuccess(res, data, 'PayOut status fetched successfully');
   }
 };
@@ -265,5 +267,5 @@ export {
   getPayoutsById,
   assignedPayout,
   walletsPayouts,
-  getWalletsBalance
+  getWalletsBalance,
 };
