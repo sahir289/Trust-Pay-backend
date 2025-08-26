@@ -94,9 +94,10 @@ const getBankaccountDao = async (filters, page, limit, role, designation) => {
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
-        ${designation === Role.SUPER_ADMIN || designation === Role.ADMIN || Role.OPERATIONS || Role.TRANSACTIONS ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
+        ${designation === Role.SUPER_ADMIN || designation === Role.ADMIN || designation === Role.OPERATIONS || designation === Role.TRANSACTIONS ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
         ba.created_at, 
         ba.updated_at`;
+    }
     const baseQuery = `SELECT 
         ba.id, 
         ba.sno, 
@@ -142,11 +143,7 @@ const getBankaccountDao = async (filters, page, limit, role, designation) => {
   }
 };
 
-const getAllBankaccountDao = async (
-  filters,
-  page,
-  limit,
-) => {
+const getAllBankaccountDao = async (filters, page, limit) => {
   try {
     let queryParams = [];
     let conditions = [`ba.is_obsolete = false`];
@@ -329,7 +326,7 @@ const getBankAccountsBySearchDao = async (
     if (searchTerms?.length) {
       const searchConditions = [];
       searchTerms.forEach((term) => {
-        if (!term || term.trim() === '') return; 
+        if (!term || term.trim() === '') return;
         if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
           const boolValue = term.toLowerCase() === 'true';
           searchConditions.push(`ba.is_enabled = $${paramIndex}`);
@@ -673,18 +670,13 @@ const deleteBankaccountDao = async (conn, id, data) => {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
     return result.rows[0];
-  } catch (error)  {
+  } catch (error) {
     logger.error('Error in deleteBankaccountDao:', error);
     throw error;
   }
 };
 
-const updateBanktBalanceDao = async (
-  filters,
-  amount,
-  updated_by,
-  conn,
-) => {
+const updateBanktBalanceDao = async (filters, amount, updated_by, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(
       tableName.BANK_ACCOUNT,
