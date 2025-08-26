@@ -66,7 +66,24 @@ const getBankaccountDao = async (filters, page, limit, role, designation) => {
         }
       });
     }
-    let commissionSelect = `
+    let commissionSelect = '';
+    if (role === 'MERCHANT') {
+      commissionSelect = '';
+    } else if (role === 'VENDOR') {
+      commissionSelect = `
+        ba.ifsc AS ifsc_code, 
+        ba.payin_count, 
+        ba.balance, 
+        ba.today_balance, 
+        ba.bank_used_for,
+        ba.user_id,
+        ba.config->>'is_freeze' AS freezed,
+        ba.config->>'is_intent' AS intent,
+        ba.config->>'is_phonepay' AS phonepe,
+        ba.config->>'max_limit' AS daily_limit`;
+    } else {
+      // Only include Merchant_Details and config if designation is 'Admin'
+      commissionSelect = `
         ba.user_id, 
         ba.ifsc, 
         ba.min, 
@@ -77,7 +94,7 @@ const getBankaccountDao = async (filters, page, limit, role, designation) => {
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
-        ${designation === Role.SUPER_ADMIN ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
+        ${designation === Role.SUPER_ADMIN || designation === Role.ADMIN || Role.OPERATIONS || Role.TRANSACTIONS ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
         ba.created_at, 
         ba.updated_at`;
     const baseQuery = `SELECT 

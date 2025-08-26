@@ -33,7 +33,7 @@ import { newTableEntry } from '../../utils/sockets.js';
 import { publishBankResponse } from '../../utils/rabbitmq-bank-response.js';
 
 const getBankResponse = async (req, res) => {
-  const { role } = req.user;
+  const { role, designation, user_id } = req.user;
   const {
     page,
     limit,
@@ -60,6 +60,8 @@ const getBankResponse = async (req, res) => {
     updated,
     sortBy,
     sortOrder,
+    designation,
+    user_id
   );
   return sendSuccess(res, data, 'Bank response retrieved successfully');
 };
@@ -76,7 +78,7 @@ const getClaimResponse = async (req, res) => {
 };
 
 const getBankResponseBySearch = async (req, res) => {
-  const { role } = req.user;
+  const { role, designation, user_id } = req.user;
   const { page, limit, search, updated, sortOrder, sortBy, ...rest } =
     req.query;
   const company_id = req?.user?.company_id || req?.query?.company_id;
@@ -98,6 +100,8 @@ const getBankResponseBySearch = async (req, res) => {
     updated,
     sortBy,
     sortOrder,
+    designation,
+    user_id
   );
   return sendSuccess(res, data, 'BankResponse fetched successfully');
 };

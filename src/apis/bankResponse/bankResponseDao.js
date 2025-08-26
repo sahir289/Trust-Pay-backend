@@ -147,10 +147,10 @@ const getBankResponseBySearchDao = async (
 
     const baseQuery = `
       SELECT ${selectCols}, 
-             "BankResponse".created_at,
+        "BankResponse".created_at,
              "BankResponse".company_id,
-             "BankAccount".nick_name,
-             "Vendor".user_id AS vendor_user_id,
+        "BankAccount".nick_name,
+        "Vendor".user_id AS vendor_user_id,
              "Company".first_name || ' ' || "Company".last_name AS company
       FROM "BankResponse"
       JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
@@ -236,8 +236,16 @@ const getBankResponseBySearchDao = async (
 
     // Add other filters
     if (filters.bank_id) {
-      whereConditions.push(`"BankResponse"."bank_id" = $${paramIndex}`);
-      values.push(filters.bank_id);
+      if (typeof filters.bank_id === 'string' && filters.bank_id.includes(',')) {
+        filters.bank_id = filters.bank_id.split(',');
+      }
+      if (Array.isArray(filters.bank_id)) {
+        whereConditions.push(`"BankResponse"."bank_id" = ANY($${paramIndex})`);
+        values.push(filters.bank_id);
+      } else {
+        whereConditions.push(`"BankResponse"."bank_id" = $${paramIndex}`);
+        values.push(filters.bank_id);
+      }
       paramIndex++;
     }
     
@@ -608,11 +616,11 @@ const getBankResponseDaoAll = async (
         GROUP BY "BankAccount".id
       )
       SELECT ${selectCols}, 
-             "BankResponse".created_at,
-             jsonb_set("BankAccount".config::jsonb, '{merchant_added}', COALESCE(filtered_merchant_added, '{}'::jsonb)) AS details,
-             "BankAccount".nick_name,
-             "Vendor".user_id AS vendor_user_id,
-             "Merchant".code AS merchant_code
+        "BankResponse".created_at,
+        jsonb_set("BankAccount".config::jsonb, '{merchant_added}', COALESCE(filtered_merchant_added, '{}'::jsonb)) AS details,
+        "BankAccount".nick_name,
+        "Vendor".user_id AS vendor_user_id,
+        "Merchant".code AS merchant_code
       FROM "BankResponse"
       JOIN filtered_accounts AS "BankAccount" 
         ON "BankResponse".bank_id = "BankAccount".id
@@ -739,7 +747,12 @@ const getBankResponseDaoAll = async (
     whereConditions.push(`"BankResponse".is_obsolete = false`);
 
     if (filters.bank_id) {
-      whereConditions.push(`"BankResponse"."bank_id" = '${filters.bank_id}'`);
+      if (Array.isArray(filters.bank_id)) {
+        const bankIds = filters.bank_id.map(id => `'${id}'`).join(',');
+        whereConditions.push(`"BankResponse"."bank_id" IN (${bankIds})`);
+      } else {
+        whereConditions.push(`"BankResponse"."bank_id" = '${filters.bank_id}'`);
+      }
     }
 
     if (filters.company_id) {

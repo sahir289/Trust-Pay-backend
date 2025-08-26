@@ -195,7 +195,9 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
             if (statusResponse.data.ErrorCode === '0') {
               if (
                 statusResponse.data.Response.message ===
-                'Reason-Transaction Failed'
+                  'Reason-Transaction Failed' ||
+                statusResponse.data.Response.message === 'Transaction Failed' ||
+                statusResponse.data.Response.message === 'Transaction Failed - '
               ) {
                 statusResponse.data.ErrorCode = '14';
                 await handlePayoutUpdate(statusResponse.data, false);
@@ -773,7 +775,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
             payin_count: Number(bankData.payin_count) + 1,
             today_balance: Number(bankData.today_balance) - Number(data.amount),
             balance: Number(bankData.balance) - Number(data.amount),
-            is_enabled: bankData?.config?.max_limit < Math.abs(bankData.today_balance) + data.amount ? false : true,
+            is_enabled:
+              bankData?.config?.max_limit <
+              Math.abs(bankData.today_balance) + data.amount
+                ? false
+                : true,
           },
           conn,
         ),
@@ -806,7 +812,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
           {
             today_balance: Number(bankData.today_balance + data.amount),
             balance: Number(bankData.balance + data.amount),
-            is_enabled: bankData?.config?.max_limit < Math.abs(bankData.today_balance) + data.amount ? false : true,
+            is_enabled:
+              bankData?.config?.max_limit <
+              Math.abs(bankData.today_balance) + data.amount
+                ? false
+                : true,
           },
           conn,
         ),

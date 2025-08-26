@@ -13,7 +13,7 @@ export const PAYOUT_DETAILS_SCHEMA = Joi.object({
   bank_name: Joi.string().label('bank_name').required(),
   amount: Joi.number().label('amount').required(),
   utr_id: Joi.string().label('utr_id').optional(),
-  merchant_order_id: Joi.string().label('merchant_order_id').optional(),
+  merchant_order_id: Joi.string().allow('').label('merchant_order_id').optional(),
   notifyUrl: Joi.string().uri().label('notify_url').optional(),
 });
 
