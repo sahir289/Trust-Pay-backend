@@ -1,7 +1,7 @@
 import {
   createCompanyDao,
   deleteCompanyDao,
-  getCompanyDao,
+  getCompanyBySearchDao,
   getCompanyDetailsByIdDao,
   getCompanyNamesDao,
   updateCompanyDao,
@@ -13,9 +13,14 @@ import { RoleIs, DesignationIs } from '../../constants/index.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { logger } from '../../utils/logger.js';
 
-const getCompanyService = async (id) => {
+const getCompanyService = async (filters, searchTerms, page, limit) => {
   try {
-    const result = await getCompanyDao(id);
+    const result = await getCompanyBySearchDao(
+      filters,
+      searchTerms,
+      page,
+      limit,
+    );
     return result;
   } catch (error) {
     logger.error('error getting while company', error);
@@ -43,7 +48,7 @@ const getCompanyNamesService = async () => {
   }
 };
 
-const createCompanyService = async (conn, payload) => {
+const createCompanyService = async (conn, payload, user_name, bySuperAdmin) => {
   try {
     // Validate payload
     // Create company
@@ -53,7 +58,7 @@ const createCompanyService = async (conn, payload) => {
     }
 
     const unique_id = generateFormatted8DigitCode();
-    
+
     payload.config = {
       ...payload.config,
       unique_admin_id: unique_id,
@@ -72,6 +77,10 @@ const createCompanyService = async (conn, payload) => {
         walletsPayoutsApiKey: '',
         defaultBankId: '',
       },
+      authorized: bySuperAdmin ? 'true' : 'false',
+      created_by: user_name,
+      is_enabled: 'false',
+      updated_by: user_name,
     };
 
     const company = await createCompanyDao(conn, {
@@ -117,9 +126,14 @@ const createCompanyService = async (conn, payload) => {
   }
 };
 
-const updateCompanyService = async (id, payload) => {
+const updateCompanyService = async (id, payload, user_name) => {
   try {
-    const result = updateCompanyDao(id, payload);
+    const config = {
+      ...payload?.config,
+      updated_by: user_name,
+    };
+    delete payload?.config;
+    const result = updateCompanyDao(id, { ...payload, config });
     return result;
   } catch (error) {
     logger.error('Error while creating company:', error);

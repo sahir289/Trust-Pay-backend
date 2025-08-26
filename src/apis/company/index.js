@@ -151,7 +151,13 @@ router.get(
  *       500:
  *         description: Internal server error
  */
-router.post('/create-company', tryCatchHandler(createCompany));
+router.post(
+  '/create-company',
+  [isAuthenticated, authorized(AccessRoles.COMPANY)],
+  tryCatchHandler(createCompany),
+);
+
+router.post('/signup-company', tryCatchHandler(createCompany));
 
 /**
  * @swagger
