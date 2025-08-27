@@ -46,7 +46,7 @@ describe('Reports Routes', () => {
     });
 
     test('should handle errors from getPayOutReportController', async () => {
-      controller.getPayOutReportController.mockImplementation((req, res) => {
+      controller.getPayOutReportController.mockImplementation(() => {
         throw new Error('Internal server error');
       });
       const res = await request(app).get('/reports/get-payouts-report');
@@ -55,7 +55,7 @@ describe('Reports Routes', () => {
     });
 
     test('should block unauthenticated requests', async () => {
-      authMiddleware.isAuthenticated.mockImplementation((req, res, next) =>
+      authMiddleware.isAuthenticated.mockImplementation((req, res) =>
         res.status(401).json({ error: 'Unauthorized' })
       );
       const res = await request(app).get('/reports/get-payouts-report');
@@ -74,7 +74,7 @@ describe('Reports Routes', () => {
     });
 
     test('should handle errors from getPayInReportController', async () => {
-      controller.getPayInReportController.mockImplementation((req, res) => {
+      controller.getPayInReportController.mockImplementation(() => {
         throw new Error('Internal server error');
       });
       const res = await request(app).get('/reports/get-payins-reports');
@@ -83,7 +83,7 @@ describe('Reports Routes', () => {
     });
 
     test('should block unauthenticated requests', async () => {
-      authMiddleware.isAuthenticated.mockImplementation((req, res, next) =>
+      authMiddleware.isAuthenticated.mockImplementation((req, res) =>
         res.status(401).json({ error: 'Unauthorized' })
       );
       const res = await request(app).get('/reports/get-payins-reports');
@@ -102,7 +102,7 @@ describe('Reports Routes', () => {
     });
 
     test('should handle errors from getClientsAccountReportController', async () => {
-      controller.getClientsAccountReportController.mockImplementation((req, res) => {
+      controller.getClientsAccountReportController.mockImplementation(() => {
         throw new Error('Internal server error');
       });
       const res = await request(app).get('/reports/get-accounts-reports'); 
@@ -111,7 +111,7 @@ describe('Reports Routes', () => {
     });
 
     test('should block unauthenticated requests', async () => {
-      authMiddleware.isAuthenticated.mockImplementation((req, res, next) =>
+      authMiddleware.isAuthenticated.mockImplementation((req, res) =>
         res.status(401).json({ error: 'Unauthorized' })
       );
       const res = await request(app).get('/reports/get-accounts-reports');
