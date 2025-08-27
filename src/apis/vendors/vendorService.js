@@ -18,6 +18,7 @@ import {
   getVendorsBySearchDao,
   updateVendorDao,
   getAllVendorsDao,
+  getBankResponseAccessByIDDao,
 } from './vendorDao.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 import { updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
@@ -170,7 +171,7 @@ const getVendorsBySearchService = async (
         .map((term) => term.trim())
         .filter((term) => term.length > 0);
     }
-    filters.role = roleIs
+    filters.role = roleIs;
     const data = await getVendorsBySearchDao(
       filters,
       pageNumber,
@@ -185,10 +186,9 @@ const getVendorsBySearchService = async (
   }
 };
 
-const updateVendorService = async (id, payload, ) => {
+const updateVendorService = async (id, payload) => {
   let conn;
   try {
-  
     conn = await getConnection();
     await beginTransaction(conn); // Start a transaction
     const data = await updateVendorDao(id, payload, conn); // Adjust DAO call for update
@@ -311,6 +311,16 @@ const deleteVendorService = async (ids, user_id) => {
   }
 };
 
+const getBankResponseAccessByIDService = async (id) => {
+  try {
+    const data = await getBankResponseAccessByIDDao(id);
+    return data;
+  } catch (error) {
+    logger.error('Error while fetching bank response access', error);
+    throw error;
+  }
+};
+
 export {
   createVendorService,
   getVendorsService,
@@ -318,4 +328,5 @@ export {
   deleteVendorService,
   getVendorsBySearchService,
   getVendorsCodeService,
+  getBankResponseAccessByIDService,
 };

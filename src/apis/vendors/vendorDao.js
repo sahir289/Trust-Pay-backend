@@ -275,6 +275,7 @@ export const getVendorsBySearchDao = async (
         `"Vendor".updated_by`,
         `"Vendor".user_id`,
         `"Vendor".company_id`,
+        `"Vendor".config`,
         `"user_main".designation_id`,
         `u.user_name AS created_by`,
         `uu.user_name AS updated_by`,
@@ -466,6 +467,20 @@ export const getVendorsDaoArray = async (company_id, code) => {
     return result.rows;
   } catch (error) {
     logger.error('Error fetching merchant by code and API key:', error);
+    throw error;
+  }
+};
+
+export const getBankResponseAccessByIDDao = async (id) => {
+  try {
+    const query = `
+      SELECT "Vendor".config->>'bank_response_access' as bank_response_access FROM "Vendor"
+      WHERE "Vendor".user_id = $1
+    `;
+    const result = await executeQuery(query, [id]);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error fetching bank response access by ID:', error);
     throw error;
   }
 };
