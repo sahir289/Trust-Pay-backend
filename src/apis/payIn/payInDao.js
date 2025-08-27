@@ -22,26 +22,6 @@ export const generatePayInUrlDao = async (data) => {
     throw error;
   }
 };
-export const getPayInCronDao = async (
-  filters,
-  startDate = new Date(),
-  endDate = new Date(),
-) => {
-  try {
-    let baseQuery = `SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`;
-    const [sql, queryParams] = buildSelectQuery(baseQuery, filters);
-    if (startDate && endDate) {
-      baseQuery += ` AND created_at BETWEEN $${Object.keys(queryParams).length + 1} AND $${Object.keys(queryParams).length + 2}`;
-      queryParams[`created_at_start`] = startDate;
-      queryParams[`created_at_end`] = endDate;
-    }
-    const result = await executeQuery(sql, queryParams);
-    return result.rows[0];
-  } catch (error) {
-    logger.error('Error getting PayIn data:', error);
-    throw error;
-  }
-};
 export const getPayInwithMerchantDao = async (merchantorderid) => {
   try {
     const sql = `
