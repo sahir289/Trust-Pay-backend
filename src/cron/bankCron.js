@@ -2,6 +2,7 @@
 import moment from 'moment-timezone';
 import { getConnection } from '../utils/db.js';
 import { logger } from '../utils/logger.js';
+import deleteUnauthorizedCompanies from './unauthorizedCompanyDeleteCron.js';
 
 // if (process.env.NODE_ENV == 'production') {
 //   logger.log('Running cron job in production environment');
@@ -31,6 +32,7 @@ const collectBankData = async (timezone = 'Asia/Kolkata') => {
       'Successfully updated today_balance for all bank accounts.',
       startTime,
     );
+    await deleteUnauthorizedCompanies();
   } catch (error) {
     logger.error('Error while updating bank account data:', error?.message);
   } finally {

@@ -5,6 +5,7 @@ import collectPayinData from './notifyCron.js';
 import { logger } from '../utils/logger.js';
 import formattedSuccessRatiosByMerchant from './successRatioCron.js';
 import gatherAllDataForAllCompanies from './gatherAllData.js';
+import deleteUnauthorizedCompanies from './unauthorizedCompanyDeleteCron.js';
 // import  checkPendingStatus  from './pendingPayinCron.js';
 const router = express.Router();
 
@@ -107,6 +108,7 @@ router.get(
   },
   collectPayinData,
 );
+
 router.get(
   '/successRatioCron',
   (req, res) => {
@@ -122,5 +124,17 @@ router.get('/initialize-cronjob', (req, res) => {
   logger.info('Calling gatherAllDataForAllCompanies CRONJOB');
   res.json({ message: 'Cron job is running for Gather All Data' });
 });
+
+router.get(
+  '/deleteUnauthorizedCompanies',
+  (req, res) => {
+    deleteUnauthorizedCompanies('Asia/Kolkata');
+    logger.info('Calling deleteUnauthorizedCompanies CRONJOB with timezone: Asia/Kolkata');
+    res.json({
+      message: 'Cron job is running for Delete Unauthorized Companies',
+    });
+  },
+  deleteUnauthorizedCompanies,
+);
 
 export default router;

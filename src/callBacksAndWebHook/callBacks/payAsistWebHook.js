@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 // Import required functions and classes
 import { getBankByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
 // import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
