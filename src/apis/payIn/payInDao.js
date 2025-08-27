@@ -1220,7 +1220,7 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
   `;
 
   try {
-    conn = await getConnection();
+    conn = await getConnection('reader');
     const result = await conn.query(baseQuery, [merchantOrderId]);
 
     return result.rows;

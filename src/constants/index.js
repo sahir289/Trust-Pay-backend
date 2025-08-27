@@ -523,6 +523,7 @@ export const vendorColumns = {
   ],
   BANK_RESPONSE: [
     'id',
+    'sno',
     'status',
     'bank_id',
     'amount',

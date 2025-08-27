@@ -3,7 +3,6 @@
 import { getBankByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
 // import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
 import { getPayoutsDao } from '../../apis/payOut/payOutDao.js';
-import { NotFoundError } from '../../utils/appErrors.js';
 // import { merchantPayoutCallback } from '../merchantCallBacks.js';
 import { payAssistErrorCodeMap, Role, Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
@@ -26,11 +25,14 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
   let conn;
 
   try {
+    if (!apitxnid || apitxnid === '') {
+      return res.status(404).send('Payment not found');
+    }
     conn = await getConnection();
     await beginTransaction(conn);
     const [singleWithdrawData] = await getPayoutsDao({ id: apitxnid });
     if (!singleWithdrawData) {
-      return NotFoundError('Payment not found');
+      return res.status(404).send('Payment not found');
     }
 
     const [company] = await getCompanyByIDDao({
@@ -95,7 +97,10 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
 
       await updatePayoutService(
         conn,
-        { id: singleWithdrawData.id, company_id: singleWithdrawData.company_id },
+        {
+          id: singleWithdrawData.id,
+          company_id: singleWithdrawData.company_id,
+        },
         updatePayload,
       );
     };
@@ -114,7 +119,8 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
 
       if (statusResponse.data.ErrorCode === '0') {
         if (
-          statusResponse.data.Response.message === 'Reason-Transaction Failed' ||
+          statusResponse.data.Response.message ===
+            'Reason-Transaction Failed' ||
           statusResponse.data.Response.message === 'Transaction Failed - '
         ) {
           statusResponse.data.ErrorCode = '14';
@@ -122,10 +128,12 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
         } else {
           await handlePayoutUpdate(statusResponse.data, true);
         }
-      } else if (statusResponse.data.ErrorCode !== 'TUP') {
-        await handlePayoutUpdate(statusResponse.data, false);
       } else if (statusResponse.data.ErrorCode === 'TUP') {
         await handlePayoutUpdate(statusResponse.data, false, true);
+      } else if (statusResponse.data.ErrorCode !== 'TUP' && statusResponse.data.ErrorCode !== '4') {
+        await handlePayoutUpdate(statusResponse.data, false);
+      } else {
+        return res.status(400).send(statusResponse.data.ErrorMessage);
       }
     }
 
@@ -153,7 +161,7 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
 
     await commit(conn);
 
-    return 'Payout Updated Successfully';
+    return res.status(200).send('Payout Updated Successfully');
   } catch (err) {
     await rollback(conn);
     // Log any errors while updating the payout

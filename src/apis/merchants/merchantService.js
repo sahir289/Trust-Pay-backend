@@ -290,7 +290,7 @@ const getMerchantsServiceCode = async (
 ) => {
   let conn;
   try {
-    conn = await getConnection();
+    conn = await getConnection('reader');
     await beginTransaction(conn);
 
     let userIdFilter = Array.isArray(user_id)

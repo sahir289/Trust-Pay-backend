@@ -61,7 +61,9 @@ const createBankResponseService = async (
   name,
   // user_id,
 ) => {
+  let localConn;
   try {
+    localConn = await getConnection();
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.BANK_RESPONSE
@@ -206,13 +208,9 @@ const createBankResponseService = async (
     let botRes;
 
     // Use a transaction for all DB operations for a single entry
-    let localConn;
-    let shouldRelease = false;
     try {
-      localConn = await getConnection();
-      shouldRelease = true;
+      // localConn = await getConnection();
       await beginTransaction(localConn);
-
       botRes = await createBankResponseDao(localConn, updatedData);
       // await sendNotification(updatedData.status.replace('/', ''), {
       //   id: botRes.id,
@@ -370,7 +368,11 @@ const createBankResponseService = async (
           );
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
           if (updatePayInDataRes) {
-            await newTableEntry(tableName.PAYIN);
+            const obj = { id: updatePayInDataRes.id, status: updatePayInDataRes.status, company_id: updatePayInDataRes.company_id, bank_res_details: {
+              utr: botRes.utr || null,
+              amount: botRes.amount || null,
+            }, }
+            await newTableEntry(tableName.PAYIN, obj);
             // This is async function but it's just the callback sending function there fore we are not using await
             merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
               status: updatePayInDataRes.status,
@@ -490,7 +492,11 @@ const createBankResponseService = async (
             localConn,
           );
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
-          await newTableEntry(tableName.PAYIN);
+          const obj = { id: updatePayin.id, status: updatePayin.status, company_id: updatePayin.company_id, bank_res_details: {
+            utr: botRes.utr || null,
+            amount: botRes.amount || null,
+          } }
+           await newTableEntry(tableName.PAYIN, obj);
           // This is async function but it's just the callback sending function there fore we are not using await
           merchantPayinCallback(updatePayin.config.urls?.notify, {
             status: updatePayin.status,
@@ -551,7 +557,11 @@ const createBankResponseService = async (
           );
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
           if (updatePayInDataRes) {
-            await newTableEntry(tableName.PAYIN);
+            const obj = { id: updatePayInDataRes.id, status: updatePayInDataRes.status, company_id: updatePayInDataRes.company_id, bank_res_details: {
+              utr: botRes.utr || null,
+              amount: botRes.amount || null,
+            } }
+            await newTableEntry(tableName.PAYIN, obj);
             // This is async function but it's just the callback sending function there fore we are not using await
             merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
               status: updatePayInDataRes.status,
@@ -616,26 +626,28 @@ const createBankResponseService = async (
       await newTableEntry(tableName.BANK_RESPONSE, responseObj);
       return { message: `Entry created successfully`, data: responseObj };
     } catch (err) {
-      if (localConn) {
-        try {
-          await rollback(localConn);
-        } catch (rollbackErr) {
-          logger.error('Error during rollback:', rollbackErr);
-        }
-      }
+      logger.error('Error performating transactions', err);
       throw err;
-    } finally {
-      if (shouldRelease && localConn) {
-        try {
-          localConn.release();
-        } catch (releaseErr) {
-          logger.error('Error releasing connection:', releaseErr);
-        }
+    } 
+  } catch (error) {
+    if (localConn) {
+      try {
+        await rollback(localConn);
+      } catch (rollbackErr) {
+        logger.error('Error during rollback:', rollbackErr);
       }
     }
-  } catch (error) {
+
     logger.error('Error in createBankResponseService:', error.message);
     throw error;
+  } finally {
+    if (localConn) {
+      try {
+        if (localConn) localConn.release();
+      } catch (releaseErr) {
+        logger.error('Error releasing connection:', releaseErr);
+      }
+    }
   }
 };
 
