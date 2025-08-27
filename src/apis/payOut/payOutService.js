@@ -490,7 +490,7 @@ const getPayoutsService = async (
       }
     }
 
-    conn = await getConnection();
+    conn = await getConnection('reader');
     await beginTransaction(conn);
     const data = await getAllPayoutsDao(
       filters,

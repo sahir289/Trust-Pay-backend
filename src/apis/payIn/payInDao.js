@@ -10,6 +10,7 @@ import dayjs from 'dayjs';
 import { getConnection } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
+import { generateCacheKey ,setCachedData,getCachedData } from '../../utils/redishashkey.js';
 // import { newTableEntry } from '../../utils/sockets.js';
 export const generatePayInUrlDao = async (data) => {
   try {
@@ -18,26 +19,6 @@ export const generatePayInUrlDao = async (data) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error generating PayIn URL:', error);
-    throw error;
-  }
-};
-export const getPayInCronDao = async (
-  filters,
-  startDate = new Date(),
-  endDate = new Date(),
-) => {
-  try {
-    let baseQuery = `SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`;
-    const [sql, queryParams] = buildSelectQuery(baseQuery, filters);
-    if (startDate && endDate) {
-      baseQuery += ` AND created_at BETWEEN $${Object.keys(queryParams).length + 1} AND $${Object.keys(queryParams).length + 2}`;
-      queryParams[`created_at_start`] = startDate;
-      queryParams[`created_at_end`] = endDate;
-    }
-    const result = await executeQuery(sql, queryParams);
-    return result.rows[0];
-  } catch (error) {
-    logger.error('Error getting PayIn data:', error);
     throw error;
   }
 };
@@ -695,11 +676,23 @@ export const getPayinsBySearchDao = async (
   updatedPayin = false,
 ) => {
   try {
+    const params = {
+      filters,
+      searchTerms: searchTerms || [],
+      limitNum,
+      offset,
+      role,
+      designation,
+      updatedPayin,
+    };
+    const cacheKey = generateCacheKey(params, 'payins:search');
+    const cachedResult = await getCachedData(cacheKey);
+    if (cachedResult && cachedResult.totalCount>0) {
+      return cachedResult;
+    }
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
     const queryParams = [filters.company_id];
     let paramIndex = 2;
-    const handledKeys = new Set(['status']);
-    // Valid columns in the Payin table
     const validColumns = new Set([
       'id',
       'sno',
@@ -726,7 +719,6 @@ export const getPayinsBySearchDao = async (
       'bank_response_id',
     ]);
 
-    // Define commissionSelect without leading commas
     let commissionSelect = '';
     if (role === 'MERCHANT') {
       commissionSelect = `
@@ -851,7 +843,6 @@ export const getPayinsBySearchDao = async (
       WHERE ${conditions.join(' AND ')}
     `;
     if (searchTerms && searchTerms.length > 0) {
-      // Handle search terms
       searchTerms.forEach((term) => {
         if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
           const boolValue = term.toLowerCase() === 'true';
@@ -866,31 +857,31 @@ export const getPayinsBySearchDao = async (
           paramIndex++;
         } else {
           conditions.push(`
-            (
-              LOWER(p.id::text) LIKE LOWER($${paramIndex})
-              OR LOWER(p.sno::text) LIKE LOWER($${paramIndex})
-              OR LOWER(p.upi_short_code) LIKE LOWER($${paramIndex})
-              OR LOWER(p.status) LIKE LOWER($${paramIndex})
-              OR LOWER(p.merchant_order_id) LIKE LOWER($${paramIndex})
-              OR LOWER(p.user_submitted_utr) LIKE LOWER($${paramIndex})
-              OR LOWER(p.user) LIKE LOWER($${paramIndex})
-              OR LOWER(b.nick_name) LIKE LOWER($${paramIndex})
-              OR LOWER(br.utr) LIKE LOWER($${paramIndex})
-              OR LOWER(m.code) LIKE LOWER($${paramIndex})
-              OR LOWER(v.code) LIKE LOWER($${paramIndex})
-              OR p.amount::text LIKE $${paramIndex}
-              OR br.amount::text LIKE $${paramIndex}
-              OR LOWER(p.config->>'user') LIKE LOWER($${paramIndex})
-              OR LOWER(p.config->'urls'->>'site') LIKE LOWER($${paramIndex})
-              OR LOWER(p.config->'urls'->>'notify') LIKE LOWER($${paramIndex})
-            )
+          (
+  p.id::text ILIKE $${paramIndex}
+  OR p.sno::text ILIKE $${paramIndex}
+  OR p.upi_short_code ILIKE $${paramIndex}
+  OR p.status ILIKE $${paramIndex}
+  OR p.merchant_order_id ILIKE $${paramIndex}
+  OR p.user_submitted_utr ILIKE $${paramIndex}
+  OR p.user ILIKE $${paramIndex}
+  OR b.nick_name ILIKE $${paramIndex}
+  OR br.utr ILIKE $${paramIndex}
+  OR m.code ILIKE $${paramIndex}
+  OR v.code ILIKE $${paramIndex}
+  OR p.amount::text ILIKE $${paramIndex}
+  OR br.amount::text ILIKE $${paramIndex}
+  OR (p.config->>'user') ILIKE $${paramIndex}
+  OR (p.config->'urls'->>'site') ILIKE $${paramIndex}
+  OR (p.config->'urls'->>'notify') ILIKE $${paramIndex}
+)
           `);
           queryParams.push(`%${term}%`);
           paramIndex++;
         }
       });
     }
-    // Handle status filter
+    const handledKeys = new Set(['status', 'user_ids', 'updated_at']);
     if (filters.status) {
       const statusArray = filters.status.split(',').map((s) => s.trim());
       queryText += ` AND p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
@@ -898,16 +889,15 @@ export const getPayinsBySearchDao = async (
       paramIndex += statusArray.length;
     }
     if (filters.user_ids) {
-      const statusArray = filters.user_ids.split(',').map((s) => s.trim());
-      queryText += ` AND v.user_id IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
-      queryParams.push(...statusArray);
-      paramIndex += statusArray.length;
+      const userArray = filters.user_ids.split(',').map((s) => s.trim());
+      queryText += ` AND v.user_id IN (${userArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
+      queryParams.push(...userArray);
+      paramIndex += userArray.length;
     }
-   
   if (filters.updated_at) {
     const [day, month, year] = filters.updated_at.split('-');
     if (!day || !month || !year || isNaN(new Date(`${year}-${month}-${day}`))) {
-      logger.error(`Invalid date format for updated_at: ${filters.updated_at}`);
+  logger.error(`Invalid date format for updated_at: ${filters.updated_at}`,);
       throw new Error(
         'Invalid date format for updated_at. Expected DD-MM-YYYY',
       );
@@ -926,15 +916,12 @@ export const getPayinsBySearchDao = async (
     );
     queryParams.push(startDate, endDate);
     paramIndex += 2;
-   delete filters.updated_at;
   }
-    // Handle additional filters dynamically
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
         return;
       }
       const nextParamIdx = queryParams.length + 1;
-      // Special handling for arrays
       if (Array.isArray(value)) {
         const placeholders = value
           .map((_, idx) => `$${nextParamIdx + idx}`)
@@ -954,51 +941,25 @@ export const getPayinsBySearchDao = async (
             ? `p.${key} IN (${placeholders})`
             : `p.${key} = $${nextParamIdx}`,
         );
-        updatedPayin &&
+     if (updatedPayin) {
         conditions.push(
           `(p.config->>'history' IS NOT NULL AND p.config::jsonb ? 'history')`,
-        );
+        );}
         queryParams.push(...valueArray);
       }
     });
 
     if (conditions.length > 2) {
-      // Beyond the initial is_obsolete and company_id
       queryText += ' AND (' + conditions.slice(2).join(' AND ') + ')';
     }
 
-    // Count query
     const countQuery = `SELECT COUNT(*) AS total FROM (${queryText}) AS count_table`;
-    // Append pagination
-    
-    if (filters.updatedPayin) {
-      queryText += `
-      ORDER BY p.updated_at DESC
+   queryText += `
+      ORDER BY ${updatedPayin ? 'p.updated_at DESC' : 'p.created_at DESC'}
       LIMIT $${queryParams.length + 1}
       OFFSET $${queryParams.length + 2}
     `;
-    }
-    else{
-      queryText += `
-      ORDER BY p.created_at DESC
-      LIMIT $${queryParams.length + 1}
-      OFFSET $${queryParams.length + 2}
-    `;
-    }
-
     queryParams.push(limitNum, offset);
-
-    // if (!updatedPayin) return;
-
-    // Debug log: Check if placeholders match params
-    // const expectedParamCount = (queryText.match(/\$\d+/g) || []).length;
-    // if (expectedParamCount !== queryParams.length) {
-    //   logger.warn(
-    //     `Expected: ${expectedParamCount}, Got: ${queryParams.length}`,
-    //   );
-    // }
-
-    // Execute queries
     const countResult = await executeQuery(
       countQuery,
       queryParams.slice(0, -2),
@@ -1011,11 +972,13 @@ export const getPayinsBySearchDao = async (
       searchResult = await executeQuery(queryText, queryParams);
       totalPages = Math.ceil(totalItems / limitNum); 
     }
-    return {
+    const result = {
       totalCount: totalItems,
       totalPages,
       payins: searchResult.rows,
     };
+    await setCachedData(cacheKey, result, 500);
+    return result;
   } catch (error) {
     logger.error('Error in getPayinSearch:', error);
     throw error;
@@ -1143,7 +1106,7 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
   `;
 
   try {
-    conn = await getConnection();
+    conn = await getConnection('reader');
     const result = await conn.query(baseQuery, [merchantOrderId]);
 
     return result.rows;

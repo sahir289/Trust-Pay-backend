@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env' });
 
+
 // Env file configuration
 function config(Env) {
   return {
@@ -45,6 +46,8 @@ function config(Env) {
     },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,
+    databaseWriterUrl: Env?.DATABASE_WRITER_URL,
+    databaseReaderUrl: Env?.DATABASE_READER_URL,
     accessTokenSecretKey: Env?.ACCESS_TOKEN_SECRET_KEY,
     accessTokenExpireTime: 24 * 60 * 60, // in seconds
     reactFrontOrigin: Env?.REACT_FRONT_ORIGIN,

@@ -22,7 +22,7 @@ const collectBankData = async (timezone = 'Asia/Kolkata') => {
   const startTime = moment().tz(timezone, true);
   let conn;
   try {
-    conn = await getConnection();
+    conn = await getConnection('writer');
     //added payin_count to update everyday
     const sql =
       'UPDATE public."BankAccount" SET today_balance = 0 , payin_count = 0 ';
