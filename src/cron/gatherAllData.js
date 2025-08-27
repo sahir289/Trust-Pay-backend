@@ -338,5 +338,6 @@ const gatherAllData = async (company_id, type = 'N', timezone = 'Asia/Kolkata') 
     }
   }
 };
-
+export { gatherAllData };
 export default gatherAllDataForAllCompanies;
+
