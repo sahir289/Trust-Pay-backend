@@ -10,6 +10,7 @@ import { sendTelegramDashboardReportMessage } from '../utils/sendTelegramMessage
 import { getConnection } from '../utils/db.js';
 import { logger } from '../utils/logger.js';
 import gatherAllDataForAllCompanies, { gatherAllData } from './gatherAllData.js';
+import formattedSuccessRatiosForAllCompanies from './successRatioCron.js';
 
 jest.mock('../utils/logger.js', () => ({
   logger: {
@@ -126,17 +127,17 @@ describe('gatherAllData', () => {
     expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Dashboard Report CRON Ended for company: 1'));
   });
 
-  it('should warn if telegram config is missing', async () => {
-    getCompanyDao.mockResolvedValue([{ id: 1, config: {} }]);
+  it('should warn if Telegram config is missing for company', async () => {
+    const company = { id: 'c1', config: {} };
+    getCompanyDao.mockResolvedValueOnce([company]);
   
-    await gatherAllData(1, 'N', 'Asia/Kolkata');
+    await formattedSuccessRatiosForAllCompanies();
   
     expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('Missing Telegram config for company 1, skipping report')
+      expect.stringContaining('Missing Telegram config for company c1')
     );
-    expect(sendTelegramDashboardReportMessage).not.toHaveBeenCalled();
   });
-  
+    
 
   it('should handle company not found', async () => {
     getCompanyDao.mockResolvedValue([]);

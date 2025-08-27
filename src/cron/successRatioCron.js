@@ -399,3 +399,10 @@ if (process.env.NODE_ENV === 'production') {
 } else {
   logger.error('Cron jobs are disabled in non-production environments.');
 }
+
+export {
+  formattedSuccessRatiosForAllCompanies,
+  formattedSuccessRatiosByMerchant,
+  formattedSuccessRatiosByMerchantUpdatedAt
+};
+
