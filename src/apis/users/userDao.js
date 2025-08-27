@@ -449,10 +449,10 @@ const createUserDao = async (payload, conn) => {
 };
 
 /////no params get all users data
-const getUsersForCronDao = async (conn) => {
+const getUsersForCronDao = async () => {
   try {
     const sql = `SELECT id  FROM public."User" where is_obsolete = false`;
-    const result = await conn.query(sql);
+    const result = await executeQuery(sql);
     if (result.rows.length === 0) {
       logger.info('No users Found');
       return [];
