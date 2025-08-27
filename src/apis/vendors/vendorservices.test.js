@@ -1,285 +1,431 @@
-import request from 'supertest';
-import express from 'express';
-import {
-  createVendor,
-  getVendors,
-  getVendorsBySearch,
-  getVendorCodes,
-  getVendorById,
-  updateVendor,
-  deleteVendor,
-} from './vendorController.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   createVendorService,
-  deleteVendorService,
-  getVendorsCodeService,
   getVendorsService,
-  updateVendorService,
+  getVendorsCodeService,
   getVendorsBySearchService,
+  updateVendorService,
+  deleteVendorService,
 } from './vendorService.js';
-import { ValidationError } from '../../utils/appErrors.js';
-import { transactionWrapper } from '../../utils/db.js';
-import { VALIDATE_VENDOR_SCHEMA, VALIDATE_VENDOR_BY_ID, VALIDATE_UPDATE_VENDOR_STATUS } from '../../schemas/vendorSchema.js';
-
-jest.mock('../../utils/responseHandlers.js', () => ({
-  sendSuccess: jest.fn((res, data, message) => res.status(200).json({ data, message })),
-}));
-
-jest.mock('./vendorService.js', () => ({
-  createVendorService: jest.fn(),
-  getVendorsService: jest.fn(),
-  getVendorsBySearchService: jest.fn(),
-  getVendorsCodeService: jest.fn(),
-  updateVendorService: jest.fn(),
-  deleteVendorService: jest.fn(),
-}));
+import { Role } from '../../constants/index.js';
+import {
+  beginTransaction,
+  commit,
+  getConnection,
+  rollback,
+} from '../../utils/db.js';
+import { logger } from '../../utils/logger.js';
+import {
+  createVendorDao,
+  deleteVendorDao,
+  getVendorsCodeDao,
+  getVendorsBySearchDao,
+  getAllVendorsDao,
+  updateVendorDao,
+} from './vendorDao.js';
+import { createCalculationDao } from '../calculation/calculationDao.js';
+import { updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
+import { updateUserDao } from '../users/userDao.js';
+import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
+import { createUserHierarchyDao, getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 
 jest.mock('../../utils/db.js', () => ({
-  transactionWrapper: jest.fn((fn) => fn), // Mock transactionWrapper to directly call the service
+  beginTransaction: jest.fn(),
+  commit: jest.fn(),
+  getConnection: jest.fn(),
+  rollback: jest.fn(),
 }));
 
-jest.mock('../../schemas/vendorSchema.js', () => ({
-  VALIDATE_VENDOR_SCHEMA: { validate: jest.fn() },
-  VALIDATE_VENDOR_BY_ID: { validate: jest.fn() },
-  VALIDATE_UPDATE_VENDOR_STATUS: { validate: jest.fn() },
+jest.mock('../../utils/logger.js', () => ({
+  logger: {
+    error: jest.fn(),
+    log: jest.fn(),
+  },
 }));
 
-describe('Vendor Controller', () => {
-  let app;
+jest.mock('./vendorDao.js', () => ({
+  createVendorDao: jest.fn(),
+  deleteVendorDao: jest.fn(),
+  getVendorsCodeDao: jest.fn(),
+  getVendorsBySearchDao: jest.fn(),
+  getAllVendorsDao: jest.fn(),
+  updateVendorDao: jest.fn(),
+}));
 
-  beforeAll(() => {
-    app = express();
-    app.use(express.json());
-    // Mock routes
-    app.post('/vendors/create-vendor', (req, res, next) => {
-      req.user = { company_id: 'comp1', user_id: 'user1', role: 'admin', user_name: 'TestUser' };
-      return createVendor(req, res, next);
-    });
-    app.get('/vendors/get', (req, res, next) => {
-      req.user = { company_id: 'comp1', user_id: 'user1', role: 'admin', designation: 'manager' };
-      return getVendors(req, res, next);
-    });
-    app.get('/vendors', (req, res, next) => {
-      req.user = { company_id: 'comp1', user_id: 'user1', role: 'admin', designation: 'manager' };
-      return getVendorsBySearch(req, res, next);
-    });
-    app.get('/vendors/codes', (req, res, next) => {
-      req.user = { company_id: 'comp1', user_id: 'user1', role: 'admin', designation: 'manager' };
-      return getVendorCodes(req, res, next);
-    });
-    app.get('/vendors/:id', (req, res, next) => {
-      req.user = { company_id: 'comp1', user_id: 'user1', role: 'admin' };
-      return getVendorById(req, res, next);
-    });
-    app.put('/vendors/update-vendor/:id', (req, res, next) => {
-      req.user = { company_id: 'comp1', user_id: 'user1', role: 'admin', user_name: 'TestUser' };
-      return updateVendor(req, res, next);
-    });
-    app.delete('/vendors/delete-vendor/:user_id', (req, res, next) => {
-      req.user = { company_id: 'comp1', user_id: 'user1', role: 'admin', user_name: 'TestUser' };
-      return deleteVendor(req, res, next);
-    });
+jest.mock('../calculation/calculationDao.js', () => ({
+  createCalculationDao: jest.fn(),
+}));
 
-    // Add error-handling middleware to catch thrown errors and send response
-    app.use((err, req, res, next) => {
-      console.error(err);
-      res.status(500).json({ error: err.message || 'Internal server error' });
-    });
-  });
+jest.mock('../bankAccounts/bankaccountDao.js', () => ({
+  updateBankaccountDao: jest.fn(),
+}));
+
+jest.mock('../users/userDao.js', () => ({
+  updateUserDao: jest.fn(),
+}));
+
+jest.mock('../beneficiaryAccounts/beneficiaryAccountDao.js', () => ({
+  deleteBeneficiaryDao: jest.fn(),
+}));
+
+jest.mock('../userHierarchy/userHierarchyDao.js', () => ({
+  createUserHierarchyDao: jest.fn(), // Added missing mock
+  getUserHierarchysDao: jest.fn(),
+}));
+
+describe('Vendor Service', () => {
+  let mockConn;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockConn = {
+      query: jest.fn(),
+      release: jest.fn(),
+    };
+    getConnection.mockResolvedValue(mockConn);
+    beginTransaction.mockResolvedValue();
+    commit.mockResolvedValue();
+    rollback.mockResolvedValue();
   });
 
-  describe('createVendor', () => {
+  describe('createVendorService', () => {
     test('should create a vendor successfully', async () => {
-      VALIDATE_VENDOR_SCHEMA.validate.mockReturnValue({ error: null });
-      createVendorService.mockResolvedValue({ id: 'vendor1' });
-      const payload = { company_id: "comp1",
-       created_by: "user1", name: 'Vendor A', status: 'active', updated_by: "user1", };
+      const payload = {
+        name: 'Vendor A',
+        company_id: 'comp1',
+        user_id: 'user1',
+        created_by: 'user1',
+        updated_by: 'user1',
+        role_id: 'role1',
+      };
+      const vendorData = { id: 'vendor1', user_id: 'user1', company_id: 'comp1', code: 'V001' };
+      createVendorDao.mockResolvedValue(vendorData);
+      createCalculationDao.mockResolvedValue({});
+      createUserHierarchyDao.mockResolvedValue({});
 
-      const res = await request(app).post('/vendors/create-vendor').send(payload);
+      const result = await createVendorService(mockConn, payload);
 
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual({ data: { id: 'vendor1' }, message: 'Vendor created successfully' });
-      expect(VALIDATE_VENDOR_SCHEMA.validate).toHaveBeenCalledWith(payload);
-      expect(createVendorService).toHaveBeenCalledWith(
-        { ...payload, company_id: 'comp1', created_by: 'user1', updated_by: 'user1' },
-        'admin'
+      expect(createVendorDao).toHaveBeenCalledWith(
+        {
+          name: 'Vendor A',
+          company_id: 'comp1',
+          user_id: 'user1',
+          created_by: 'user1',
+          updated_by: 'user1',
+        },
+        mockConn
       );
-      expect(transactionWrapper).toHaveBeenCalled();
-      expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), { id: 'vendor1' }, 'Vendor created successfully');
-    });
-
-    test('should throw ValidationError for invalid payload', async () => {
-      VALIDATE_VENDOR_SCHEMA.validate.mockReturnValue({
-        error: { details: [{ message: 'Invalid data' }] },
+      expect(createCalculationDao).toHaveBeenCalledWith(mockConn, {
+        user_id: 'user1',
+        role_id: 'role1',
+        company_id: 'comp1',
       });
-      const payload = { name: '' };
+      // expect(createUserHierarchyDao).toHaveBeenCalledWith(
+      //   {
+      //     user_id: 'user1',
+      //     created_by: 'undefined',
+      //     updated_by: 'undefined',
+      //     company_id: 'comp1',
+      //   },
+      //   mockConn
+      // );
+      expect(result).toEqual(vendorData);
+    });
 
-      const res = await request(app).post('/vendors/create-vendor').send(payload);
+    test('should throw error and not rollback if no connection', async () => {
+      const payload = { name: 'Vendor A', company_id: 'comp1', user_id: 'user1', role_id: 'role1' };
+      const error = new Error('Database error');
+      createVendorDao.mockRejectedValue(error);
 
-      expect(res.status).toBe(500);
-      expect(res.body.error).toContain('Invalid data');
-      expect(VALIDATE_VENDOR_SCHEMA.validate).toHaveBeenCalledWith(payload);
-      expect(createVendorService).not.toHaveBeenCalled();
-    }, 10000);
+      await expect(createVendorService(mockConn, payload)).rejects.toThrow(error);
+      expect(logger.error).toHaveBeenCalledWith('Error while creating Vendor', error);
+      expect(rollback).not.toHaveBeenCalled();
+    });
   });
 
-  describe('getVendors', () => {
-    test('should fetch all vendors successfully', async () => {
-      const mockData = [{ id: 'vendor1', name: 'Vendor A', status: 'active' }];
-      getVendorsService.mockResolvedValue(mockData);
+  describe('getVendorsService', () => {
+    test('should fetch vendors successfully for admin role', async () => {
+      const filters = { company_id: 'comp1' };
+      const mockResult = [{ id: 'vendor1', full_name: 'Vendor A' }];
+      getAllVendorsDao.mockResolvedValue(mockResult);
 
-      const res = await request(app).get('/vendors/get').query({ page: 1, limit: 10 });
+      const result = await getVendorsService(filters, Role.ADMIN, '1', '10', 'user1', 'manager');
 
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual({ data: mockData, message: 'Vendors fetched successfully' });
-      expect(getVendorsService).toHaveBeenCalledWith(
-        { company_id: 'comp1', page: '1', limit: '10' },
-        'admin',
-        '1',
-        '10',
-        'user1',
-        'manager'
+      expect(getAllVendorsDao).toHaveBeenCalledWith(filters, 1, 10, null, null, Role.ADMIN);
+      expect(result).toEqual(mockResult);
+    });
+
+    test('should fetch vendors successfully for VENDOR role with VENDOR_OPERATIONS designation', async () => {
+      const filters = { company_id: 'comp1' };
+      const user_id = 'user1';
+      const mockHierarchy = [{ config: { parent: 'parent1' } }];
+      const mockResult = [{ id: 'vendor1', full_name: 'Vendor A' }];
+      getUserHierarchysDao.mockResolvedValue(mockHierarchy);
+      getAllVendorsDao.mockResolvedValue(mockResult);
+
+      const result = await getVendorsService(filters, Role.VENDOR, '1', '10', user_id, Role.VENDOR_OPERATIONS);
+
+      expect(getUserHierarchysDao).toHaveBeenCalledWith({ user_id });
+      expect(getAllVendorsDao).toHaveBeenCalledWith(
+        { ...filters, user_id: 'parent1' },
+        1,
+        10,
+        null,
+        null,
+        Role.VENDOR
       );
-      expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), mockData, 'Vendors fetched successfully');
+      expect(result).toEqual(mockResult);
     });
-  });
 
-  describe('getVendorsBySearch', () => {
-    test('should fetch vendors by search successfully', async () => {
-      const mockData = [{ id: 'vendor1', name: 'Vendor A', status: 'active' }];
-      getVendorsBySearchService.mockResolvedValue(mockData);
+    test('should fetch vendors successfully for VENDOR role without VENDOR_OPERATIONS designation', async () => {
+      const filters = { company_id: 'comp1' };
+      const user_id = 'user1';
+      const mockResult = [{ id: 'vendor1', full_name: 'Vendor A' }];
+      getAllVendorsDao.mockResolvedValue(mockResult);
 
-      const res = await request(app).get('/vendors').query({ name: 'Vendor A', page: 1, limit: 10 });
+      const result = await getVendorsService(filters, Role.VENDOR, '1', '10', user_id, 'other');
 
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual({ data: mockData, message: 'Vendors fetched successfully' });
-      expect(getVendorsBySearchService).toHaveBeenCalledWith(
-        { company_id: 'comp1', name: 'Vendor A', page: '1', limit: '10' },
-        'admin',
-        '1',
-        '10',
-        'user1',
-        'manager'
+      expect(getUserHierarchysDao).not.toHaveBeenCalled();
+      expect(getAllVendorsDao).toHaveBeenCalledWith(
+        { ...filters, user_id: 'user1' },
+        1,
+        10,
+        null,
+        null,
+        Role.VENDOR
       );
-      expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), mockData, 'Vendors fetched successfully');
+      expect(result).toEqual(mockResult);
+    });
+
+    test('should throw error on database failure', async () => {
+      const filters = { company_id: 'comp1' };
+      const error = new Error('Database error');
+      getAllVendorsDao.mockRejectedValue(error);
+
+      await expect(getVendorsService(filters, Role.ADMIN, '1', '10', 'user1', 'manager')).rejects.toThrow(error);
+      expect(logger.error).toHaveBeenCalledWith('Error while fetching vendors', error);
     });
   });
 
-  describe('getVendorCodes', () => {
-    test('should fetch vendor codes successfully', async () => {
-      const mockData = [{ code: 'V001' }];
-      getVendorsCodeService.mockResolvedValue(mockData);
+  describe('getVendorsCodeService', () => {
+    test('should fetch vendor codes successfully for admin role', async () => {
+      const filters = { company_id: 'comp1' };
+      const mockResult = [{ label: 'V001', value: 'user1', vendor_id: 'vendor1' }];
+      getVendorsCodeDao.mockResolvedValue(mockResult);
 
-      const res = await request(app).get('/vendors/codes');
+      const result = await getVendorsCodeService(filters, Role.ADMIN, 'user1', 'manager');
 
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual({ data: mockData, message: 'Vendors fetched successfully' });
-      expect(getVendorsCodeService).toHaveBeenCalledWith(
-        { company_id: 'comp1' },
-        'admin',
-        'user1',
-        'manager'
+      expect(getConnection).toHaveBeenCalled();
+      expect(beginTransaction).toHaveBeenCalledWith(mockConn);
+      expect(getVendorsCodeDao).toHaveBeenCalledWith(filters, mockConn);
+      expect(commit).toHaveBeenCalledWith(mockConn);
+      expect(mockConn.release).toHaveBeenCalled();
+      expect(result).toEqual(mockResult);
+    });
+
+    test('should fetch vendor codes successfully for VENDOR role with VENDOR_OPERATIONS designation', async () => {
+      const filters = { company_id: 'comp1' };
+      const user_id = 'user1';
+      const mockHierarchy = [{ config: { parent: 'parent1' } }];
+      const mockResult = [{ label: 'V001', value: 'user1', vendor_id: 'vendor1' }];
+      getUserHierarchysDao.mockResolvedValue(mockHierarchy);
+      getVendorsCodeDao.mockResolvedValue(mockResult);
+
+      const result = await getVendorsCodeService(filters, Role.VENDOR, user_id, Role.VENDOR_OPERATIONS);
+
+      expect(getUserHierarchysDao).toHaveBeenCalledWith({ user_id });
+      expect(getVendorsCodeDao).toHaveBeenCalledWith({ ...filters, user_id: 'parent1' }, mockConn);
+      expect(commit).toHaveBeenCalledWith(mockConn);
+      expect(mockConn.release).toHaveBeenCalled();
+      expect(result).toEqual(mockResult);
+    });
+
+    test('should rollback and throw error on database failure', async () => {
+      const filters = { company_id: 'comp1' };
+      const error = new Error('Database error');
+      getVendorsCodeDao.mockRejectedValue(error);
+
+      await expect(getVendorsCodeService(filters, Role.ADMIN, 'user1', 'manager')).rejects.toThrow(error);
+      expect(rollback).toHaveBeenCalledWith(mockConn);
+      expect(mockConn.release).toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith('Error while fetching vendors:', error);
+    });
+
+    test('should handle rollback error gracefully', async () => {
+      const filters = { company_id: 'comp1' };
+      const error = new Error('Database error');
+      const rollbackError = new Error('Rollback error');
+      getVendorsCodeDao.mockRejectedValue(error);
+      rollback.mockRejectedValue(rollbackError);
+
+      await expect(getVendorsCodeService(filters, Role.ADMIN, 'user1', 'manager')).rejects.toThrow(error);
+      expect(logger.error).toHaveBeenCalledWith('Error during transaction rollback:', rollbackError);
+      expect(mockConn.release).toHaveBeenCalled();
+    });
+  });
+
+  describe('getVendorsBySearchService', () => {
+    test('should fetch vendors by search successfully with search terms', async () => {
+      const filters = { company_id: 'comp1', search: 'Vendor A,true' };
+      const mockResult = { totalCount: 1, totalPages: 1, Vendors: [{ id: 'vendor1', full_name: 'Vendor A' }] };
+      getVendorsBySearchDao.mockResolvedValue(mockResult);
+
+      const result = await getVendorsBySearchService(filters, Role.ADMIN, '1', '10', 'user1', 'manager');
+
+      expect(getVendorsBySearchDao).toHaveBeenCalledWith(
+        { ...filters, role: Role.ADMIN },
+        1,
+        10,
+        ['Vendor A', 'true']
       );
-      expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), mockData, 'Vendors fetched successfully');
+      expect(result).toEqual(mockResult);
+    });
+
+    test('should fetch vendors by search for VENDOR role with VENDOR_OPERATIONS designation', async () => {
+      const filters = { company_id: 'comp1', search: 'Vendor A' };
+      const user_id = 'user1';
+      const mockHierarchy = [{ config: { parent: 'parent1' } }];
+      const mockResult = { totalCount: 1, totalPages: 1, Vendors: [{ id: 'vendor1', full_name: 'Vendor A' }] };
+      getUserHierarchysDao.mockResolvedValue(mockHierarchy);
+      getVendorsBySearchDao.mockResolvedValue(mockResult);
+
+      const result = await getVendorsBySearchService(filters, Role.VENDOR, '1', '10', user_id, Role.VENDOR_OPERATIONS);
+
+      expect(getUserHierarchysDao).toHaveBeenCalledWith({ user_id });
+      expect(getVendorsBySearchDao).toHaveBeenCalledWith(
+        { ...filters, user_id: 'parent1', role: Role.VENDOR },
+        1,
+        10,
+        ['Vendor A']
+      );
+      expect(result).toEqual(mockResult);
+    });
+
+    test('should throw error on database failure', async () => {
+      const filters = { company_id: 'comp1', search: 'Vendor A' };
+      const error = new Error('Database error');
+      getVendorsBySearchDao.mockRejectedValue(error);
+
+      await expect(getVendorsBySearchService(filters, Role.ADMIN, '1', '10', 'user1', 'manager')).rejects.toThrow(error);
+      expect(logger.error).toHaveBeenCalledWith('Error while fetching vendors by search', error);
     });
   });
 
-  describe('getVendorById', () => {
-    test('should fetch vendor by ID successfully', async () => {
-      VALIDATE_VENDOR_BY_ID.validate.mockReturnValue({ error: null });
-      const mockData = { id: 'vendor1', name: 'Vendor A', status: 'active' };
-      getVendorsService.mockResolvedValue(mockData);
-
-      const res = await request(app).get('/vendors/vendor1');
-
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual({ data: mockData, message: ' Vendor fetched successfully' });
-      expect(VALIDATE_VENDOR_BY_ID.validate).toHaveBeenCalledWith({ id: 'vendor1' });
-      expect(getVendorsService).toHaveBeenCalledWith({ id: 'vendor1', company_id: 'comp1' }, 'admin');
-      expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), mockData, ' Vendor fetched successfully');
-    });
-
-    test('should throw ValidationError for invalid vendor ID', async () => {
-      VALIDATE_VENDOR_BY_ID.validate.mockReturnValue({
-        error: { details: [{ message: 'Invalid ID' }] },
-      });
-
-      const res = await request(app).get('/vendors/invalid');
-
-      expect(res.status).toBe(500);
-      expect(res.body.error).toContain('Invalid ID');
-      expect(VALIDATE_VENDOR_BY_ID.validate).toHaveBeenCalledWith({ id: 'invalid' });
-      expect(getVendorsService).not.toHaveBeenCalled();
-    }, 10000);
-  });
-
-  describe('updateVendor', () => {
+  describe('updateVendorService', () => {
     test('should update vendor successfully', async () => {
-      VALIDATE_VENDOR_BY_ID.validate.mockReturnValue({ error: null });
-      VALIDATE_UPDATE_VENDOR_STATUS.validate.mockReturnValue({ error: null });
-      updateVendorService.mockResolvedValue({ id: 'vendor1' });
-      const payload = { name: 'Vendor B', status: 'inactive', updated_by: "user1", };
+      const id = { id: 'vendor1' };
+      const payload = { name: 'Vendor B', updated_by: 'user1' };
+      const mockResult = { id: 'vendor1', name: 'Vendor B', company_id: 'comp1', code: 'V001' };
+      updateVendorDao.mockResolvedValue(mockResult);
 
-      const res = await request(app).put('/vendors/update-vendor/vendor1').send(payload);
+      const result = await updateVendorService(id, payload);
 
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual({ data: { id: 'vendor1', updated_by: 'TestUser' }, message: 'Vendor updated successfully' });
-      expect(VALIDATE_VENDOR_BY_ID.validate).toHaveBeenCalledWith({ id: 'vendor1' });
-      expect(VALIDATE_UPDATE_VENDOR_STATUS.validate).toHaveBeenCalledWith(payload);
-      expect(updateVendorService).toHaveBeenCalledWith(
-        { id: 'vendor1', company_id: 'comp1' },
-        { ...payload, updated_by: 'user1' },
-        'admin'
-      );
-      expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), { id: 'vendor1', updated_by: 'TestUser' }, 'Vendor updated successfully');
+      expect(getConnection).toHaveBeenCalled();
+      expect(beginTransaction).toHaveBeenCalledWith(mockConn);
+      expect(updateVendorDao).toHaveBeenCalledWith(id, payload, mockConn);
+      expect(commit).toHaveBeenCalledWith(mockConn);
+      expect(mockConn.release).toHaveBeenCalled();
+      expect(result).toEqual(mockResult);
     });
 
-    test('should throw ValidationError for invalid vendor ID', async () => {
-      VALIDATE_VENDOR_BY_ID.validate.mockReturnValue({
-        error: { details: [{ message: 'Invalid ID' }] },
-      });
-      const payload = { name: 'Vendor B', status: 'inactive' };
+    test('should rollback and throw error on database failure', async () => {
+      const id = { id: 'vendor1' };
+      const payload = { name: 'Vendor B', updated_by: 'user1' };
+      const error = new Error('Database error');
+      updateVendorDao.mockRejectedValue(error);
 
-      const res = await request(app).put('/vendors/update-vendor/invalid').send(payload);
+      await expect(updateVendorService(id, payload)).rejects.toThrow(error);
+      expect(rollback).toHaveBeenCalledWith(mockConn);
+      expect(mockConn.release).toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith('Error while updating Vendor', error);
+    });
 
-      expect(res.status).toBe(500);
-      expect(res.body.error).toContain('Invalid ID');
-      expect(VALIDATE_VENDOR_BY_ID.validate).toHaveBeenCalledWith({ id: 'invalid' });
-      expect(VALIDATE_UPDATE_VENDOR_STATUS.validate).not.toHaveBeenCalled();
-      expect(updateVendorService).not.toHaveBeenCalled();
-    }, 10000);
+    test('should handle rollback error gracefully', async () => {
+      const id = { id: 'vendor1' };
+      const payload = { name: 'Vendor B', updated_by: 'user1' };
+      const error = new Error('Database error');
+      const rollbackError = new Error('Rollback error');
+      updateVendorDao.mockRejectedValue(error);
+      rollback.mockRejectedValue(rollbackError);
 
-    test('should throw ValidationError for invalid payload', async () => {
-      VALIDATE_VENDOR_BY_ID.validate.mockReturnValue({ error: null });
-      VALIDATE_UPDATE_VENDOR_STATUS.validate.mockReturnValue({
-        error: { details: [{ message: 'Invalid status' }] },
-      });
-      const payload = { name: 'Vendor B', status: '' };
-
-      const res = await request(app).put('/vendors/update-vendor/vendor1').send(payload);
-
-      expect(res.status).toBe(500);
-      expect(res.body.error).toContain('Invalid status');
-      expect(VALIDATE_VENDOR_BY_ID.validate).toHaveBeenCalledWith({ id: 'vendor1' });
-      expect(VALIDATE_UPDATE_VENDOR_STATUS.validate).toHaveBeenCalledWith(payload);
-      expect(updateVendorService).not.toHaveBeenCalled();
-    }, 10000);
+      await expect(updateVendorService(id, payload)).rejects.toThrow(error);
+      expect(logger.error).toHaveBeenCalledWith('Error during transaction rollback', 'error', rollbackError);
+      expect(mockConn.release).toHaveBeenCalled();
+    });
   });
 
-  describe('deleteVendor', () => {
-    test('should delete vendor successfully', async () => {
-      deleteVendorService.mockResolvedValue({ id: 'user1' });
+  describe('deleteVendorService', () => {
+    test('should delete vendor successfully with child operations', async () => {
+      const ids = { user_id: 'user1', company_id: 'comp1' };
+      const user_id = 'admin1';
+      const mockVendor = { id: 'vendor1', user_id: 'user1', company_id: 'comp1', code: 'V001' };
+      const mockHierarchy = [{ config: { child: { operations: ['child1', 'child2'] } } }];
+      deleteVendorDao.mockResolvedValue(mockVendor);
+      getUserHierarchysDao.mockResolvedValue(mockHierarchy);
+      updateUserDao.mockResolvedValue({});
+      deleteBeneficiaryDao.mockResolvedValue({});
+      updateBankaccountDao.mockResolvedValue({});
 
-      const res = await request(app).delete('/vendors/delete-vendor/user1');
+      const result = await deleteVendorService(ids, user_id);
 
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual({ data: { id: 'user1', deleted_by: 'TestUser' }, message: 'Vendor deleted successfully' });
-      expect(deleteVendorService).toHaveBeenCalledWith({ company_id: 'comp1', user_id: 'user1' }, 'user1');
-      expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), { id: 'user1', deleted_by: 'TestUser' }, 'Vendor deleted successfully');
+      expect(getConnection).toHaveBeenCalled();
+      expect(beginTransaction).toHaveBeenCalledWith(mockConn);
+      expect(deleteVendorDao).toHaveBeenCalledWith(mockConn, ids, { is_obsolete: true, updated_by: user_id });
+      expect(updateUserDao).toHaveBeenCalledWith({ id: 'user1' }, { is_obsolete: true, updated_by: user_id }, mockConn);
+      expect(deleteBeneficiaryDao).toHaveBeenCalledWith(mockConn, { user_id: 'user1' }, { is_obsolete: true });
+      expect(updateBankaccountDao).toHaveBeenCalledWith(
+        { user_id: 'user1' },
+        { config: { is_freeze: true, isFromDeletedParent: true }, is_qr: false, is_bank: false, is_enabled: false, updated_by: user_id },
+        mockConn,
+        true
+      );
+      expect(updateUserDao).toHaveBeenCalledWith({ id: 'child1' }, { is_obsolete: true, updated_by: user_id }, mockConn);
+      expect(updateUserDao).toHaveBeenCalledWith({ id: 'child2' }, { is_obsolete: true, updated_by: user_id }, mockConn);
+      expect(commit).toHaveBeenCalledWith(mockConn);
+      expect(mockConn.release).toHaveBeenCalled();
+      expect(result).toEqual(mockVendor);
+    });
+
+    test('should delete vendor successfully without child operations', async () => {
+      const ids = { user_id: 'user1', company_id: 'comp1' };
+      const user_id = 'admin1';
+      const mockVendor = { id: 'vendor1', user_id: 'user1', company_id: 'comp1', code: 'V001' };
+      const mockHierarchy = [{}];
+      deleteVendorDao.mockResolvedValue(mockVendor);
+      getUserHierarchysDao.mockResolvedValue(mockHierarchy);
+      updateUserDao.mockResolvedValue({});
+      deleteBeneficiaryDao.mockResolvedValue({});
+      updateBankaccountDao.mockResolvedValue({});
+
+      const result = await deleteVendorService(ids, user_id);
+
+      expect(updateUserDao).toHaveBeenCalledWith({ id: 'user1' }, { is_obsolete: true, updated_by: user_id }, mockConn);
+      expect(updateUserDao).toHaveBeenCalledTimes(1); // Only called for the main user
+      expect(result).toEqual(mockVendor);
+    });
+
+    test('should rollback and throw error on database failure', async () => {
+      const ids = { user_id: 'user1', company_id: 'comp1' };
+      const user_id = 'admin1';
+      const error = new Error('Database error');
+      deleteVendorDao.mockRejectedValue(error);
+
+      await expect(deleteVendorService(ids, user_id)).rejects.toThrow(error);
+      expect(rollback).toHaveBeenCalledWith(mockConn);
+      expect(mockConn.release).toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith('Error while deleting Vendor', error);
+    });
+
+    test('should handle rollback error gracefully', async () => {
+      const ids = { user_id: 'user1', company_id: 'comp1' };
+      const user_id = 'admin1';
+      const error = new Error('Database error');
+      const rollbackError = new Error('Rollback error');
+      deleteVendorDao.mockRejectedValue(error);
+      rollback.mockRejectedValue(rollbackError);
+
+      await expect(deleteVendorService(ids, user_id)).rejects.toThrow(error);
+      expect(logger.error).toHaveBeenCalledWith('Error during transaction rollback', 'error', rollbackError);
+      expect(mockConn.release).toHaveBeenCalled();
     });
   });
 });

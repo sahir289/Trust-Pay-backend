@@ -54,7 +54,6 @@ const {
   
     describe('getUserOtpDao', () => {
       const otp = '123456';
-      const mockResult = { id: 1, user_id: 1, otp: '123456', is_used: false, created_at: new Date() };
   
       test('should fetch OTP successfully', async () => {
         const otp = '123456';

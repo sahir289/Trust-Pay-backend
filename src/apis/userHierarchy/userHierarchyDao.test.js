@@ -85,7 +85,7 @@ const {
   
         expect(buildSearchFilterObj).toHaveBeenCalledWith('test query', tableName.MERCHANT);
         expect(buildSelectQuery).toHaveBeenCalledWith(
-          'SELECT * FROM "UserHierarchy\" WHERE 1=1',
+          'SELECT * FROM "UserHierarchy" WHERE 1=1',
           { or: mockSearchFilter },
           1,
           10,

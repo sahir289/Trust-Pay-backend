@@ -1,125 +1,119 @@
 // __tests__/parentRouter.test.js
 import request from 'supertest';
 import express from 'express';
-import parentRouter from '../routes/index.js'; // adjust path
+import parentRouter from '/v1'; 
 
-// Mock all child routers with simple Express routers
-jest.mock('../routes/ping/index.js', () => {
-  const router = require('express').Router();
-  router.get('/', (req, res) => res.json({ message: 'ping ok' }));
-  return router;
-});
-jest.mock('../routes/auth/index.js', () => {
+jest.mock('../v1/auth/index.js', () => {
   const router = require('express').Router();
   router.post('/login', (req, res) => res.json({ message: 'auth ok' }));
   return router;
 });
-jest.mock('../routes/users/index.js', () => {
+jest.mock('../v1/users/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'users ok' }));
   return router;
 });
-jest.mock('../routes/merchants/index.js', () => {
+jest.mock('../v1/merchants/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'merchants ok' }));
   return router;
 });
-jest.mock('../routes/vendors/index.js', () => {
+jest.mock('../v1/vendors/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'vendors ok' }));
   return router;
 });
-jest.mock('../routes/chargeBacks/index.js', () => {
+jest.mock('../v1/chargeBacks/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'chargeBacks ok' }));
   return router;
 });
-jest.mock('../routes/roles/index.js', () => {
+jest.mock('../v1/roles/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'roles ok' }));
   return router;
 });
-jest.mock('../routes/calculation/index.js', () => {
+jest.mock('../v1/calculation/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'calculation ok' }));
   return router;
 });
-jest.mock('../routes/payIn/index.js', () => {
+jest.mock('../v1/payIn/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'payIn ok' }));
   return router;
 });
-jest.mock('../routes/designation/index.js', () => {
+jest.mock('../v1/designation/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'designation ok' }));
   return router;
 });
-jest.mock('../routes/bankAccounts/index.js', () => {
+jest.mock('../v1/bankAccounts/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'bankDetails ok' }));
   return router;
 });
-jest.mock('../routes/bankResponse/index.js', () => {
+jest.mock('../v1/bankResponse/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'bankResponse ok' }));
   return router;
 });
-jest.mock('../routes/company/index.js', () => {
+jest.mock('../v1/company/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'company ok' }));
   return router;
 });
-jest.mock('../routes/settlement/index.js', () => {
+jest.mock('../v1/settlement/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'settlement ok' }));
   return router;
 });
-jest.mock('../routes/userHierarchy/index.js', () => {
+jest.mock('../v1/userHierarchy/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'userHierarchy ok' }));
   return router;
 });
-jest.mock('../routes/payOut/index.js', () => {
+jest.mock('../v1/payOut/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'payOut ok' }));
   return router;
 });
-jest.mock('../routes/reports/index.js', () => {
+jest.mock('../v1/reports/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'reports ok' }));
   return router;
 });
-jest.mock('../routes/checkutr/index.js', () => {
+jest.mock('../v1/checkutr/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'checkUtr ok' }));
   return router;
 });
-jest.mock('../routes/resetHistory/index.js', () => {
+jest.mock('../v1/resetHistory/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'resetHistory ok' }));
   return router;
 });
-jest.mock('../routes/beneficiaryAccounts/index.js', () => {
+jest.mock('../v1/beneficiaryAccounts/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'beneficiaryAccounts ok' }));
   return router;
 });
-jest.mock('../routes/consume-bank-response.js', () => {
+jest.mock('../v1/consume-bank-response.js', () => {
   const router = require('express').Router();
   router.post('/', (req, res) => res.json({ message: 'consume-bank-response ok' }));
   return router;
 });
-jest.mock('../routes/complaints/index.js', () => {
+jest.mock('../v1/complaints/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'complaints ok' }));
   return router;
 });
-jest.mock('../routes/cron/index.js', () => {
+jest.mock('../v1/cron/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'cron ok' }));
   return router;
 });
-jest.mock('../routes/common/index.js', () => {
+jest.mock('../v1/common/index.js', () => {
   const router = require('express').Router();
   router.get('/', (req, res) => res.json({ message: 'common ok' }));
   return router;

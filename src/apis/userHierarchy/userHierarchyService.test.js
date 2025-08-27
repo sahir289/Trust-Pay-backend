@@ -38,7 +38,7 @@ const {
       rollback.mockResolvedValue();
       logger.error = jest.fn();
       logger.log = jest.fn();
-      filterResponse.mockImplementation((data, _) => data);
+      filterResponse.mockImplementation((data) => data);
     });
   
     afterEach(() => {

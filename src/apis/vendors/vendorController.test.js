@@ -82,7 +82,7 @@ describe('Vendor Controller', () => {
     });
 
     // Error-handling middleware to catch unhandled errors
-    app.use((err, req, res, next) => {
+    app.use((err, req, res) => {
       if (err instanceof ValidationError) {
         res.status(400).json({ error: err.message }); // Changed to 400 for validation errors
       } else {

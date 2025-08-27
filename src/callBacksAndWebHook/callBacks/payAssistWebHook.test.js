@@ -1,167 +1,124 @@
-/* eslint-disable no-unused-vars */
-// Import required functions and classes
-import { getBankByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
-// import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
-import { getPayoutsDao } from '../../apis/payOut/payOutDao.js';
-import { NotFoundError } from '../../utils/appErrors.js';
-// import { merchantPayoutCallback } from '../merchantCallBacks.js';
-import { payAssistErrorCodeMap, Role, Status } from '../../constants/index.js';
-import { logger } from '../../utils/logger.js';
-import axios from 'axios';
-import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
-import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
-import { updatePayoutService } from '../../apis/payOut/payOutService.js';
-import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
+import { payAssistTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payAsistWebHook.js';
 import {
-  beginTransaction,
-  commit,
-  getConnection,
-  rollback,
-} from '../../utils/db.js';
+  getPayoutsDao,
+} from '../../apis/payOut/payOutDao.js';
+import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
+import { getBankByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
+import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
+import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
+import { updatePayoutService } from '../../apis/payOut/payOutService.js';
+import { beginTransaction, commit, rollback, getConnection } from '../../utils/db.js';
+import axios from 'axios';
+import { NotFoundError } from '../../utils/appErrors.js';
+// import { Status, Role, payAssistErrorCodeMap } from '../../constants/index.js';
+import { logger } from '../../utils/logger.js';
 
-// Define the optimized payAssistTransactionStatusCallback function
-export const payAssistTransactionStatusCallback = async (req, res) => {
-  const payload = req.body;
-  const apitxnid = payload?.Response?.apitxnid;
-  let conn;
+jest.mock('../../apis/payOut/payOutDao.js');
+jest.mock('../../apis/company/companyDao.js');
+jest.mock('../../apis/bankAccounts/bankaccountDao.js');
+jest.mock('../../apis/vendors/vendorDao.js');
+jest.mock('../../apis/users/userDao.js');
+jest.mock('../../apis/payOut/payOutService.js');
+jest.mock('../../utils/db.js');
+jest.mock('axios');
+jest.mock('../../utils/logger.js');
 
-  try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const singleWithdrawData = await getPayoutsDao({ id: apitxnid });
-    if (!singleWithdrawData) {
-      return NotFoundError('Payment not found');
-    }
+describe('payAssistTransactionStatusCallback', () => {
+  let req, res, conn;
 
-    const [company] = await getCompanyByIDDao({
-      id: singleWithdrawData.company_id,
-    });
+  beforeEach(() => {
+    req = { body: {} };
+    res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+    conn = { release: jest.fn() };
+    getConnection.mockResolvedValue(conn);
+    beginTransaction.mockResolvedValue();
+    commit.mockResolvedValue();
+    rollback.mockResolvedValue();
+  });
 
-    // Cache API configuration to avoid repeated property access
-    const apiConfig = {
-      headers: {
-        APIAGENT: company.config.PAY_ASSIST.walletsPayoutsAgent,
-        APIKEY: company.config.PAY_ASSIST.walletsPayoutsApiKey,
-      },
-      baseUrl: company.config.PAY_ASSIST.walletsPayoutsUrl,
-      agentCode: company.config.PAY_ASSIST.walletsPayoutsAgentCode,
-    };
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 
-    const handlePayoutUpdate = async (
-      responseData,
-      isApproved = false,
-      isTransactionUnderProcess = false,
-    ) => {
-      const bankId = company.config.PAY_ASSIST.defaultBankId;
-      const [bankVendor] = await getBankByIdDao({ id: bankId });
-      const [vendor] = await getVendorsDao({
-        user_id: bankVendor.user_id,
-      });
-      const updatePayload = {
-        bank_acc_id: bankId,
-        vendor_id: vendor.id,
-        config: {
-          method: 'PayAssist',
-          description: 'Payout processing via PayAssist',
-        },
-      };
-      const adminUser = await getUserByCompanyCreatedAtDao(
-        singleWithdrawData.company_id,
-        Role.ADMIN,
-      );
-      if (adminUser) updatePayload.updated_by = adminUser.id;
+  it('should return NotFoundError if payout not found', async () => {
+    getPayoutsDao.mockResolvedValue(null);
+    req.body = { Response: { apitxnid: 1 } };
+  
+    const result = await payAssistTransactionStatusCallback(req, res);
+  
+    expect(result).toBeInstanceOf(NotFoundError);  // checks the type
+    expect(result.message).toBe('Payment not found'); // checks the message
+    expect(conn.release).toHaveBeenCalled();
+  });
+  
+  
 
-      if (responseData.Response?.txnid) {
-        updatePayload.config.txnid = responseData.Response.txnid;
-      }
-
-      if (isApproved) {
-        Object.assign(updatePayload, {
-          status: Status.APPROVED,
-          utr_id: isTransactionUnderProcess
-            ? responseData.Response.txnid
-            : responseData.Response.refno || responseData.Response?.utr,
-          approved_at: new Date().toISOString(),
-        });
-      } else if (!isApproved && isTransactionUnderProcess) {
-        Object.assign(updatePayload, {
-          status: Status.PENDING,
-        });
-      } else {
-        updatePayload.config.rejected_reason =
-          payAssistErrorCodeMap[responseData.ErrorCode] || 'Server Unreachable';
-        updatePayload.rejected_at = new Date().toISOString();
-      }
-
-      await updatePayoutService(
-        conn,
-        { id: singleWithdrawData.id, company_id: singleWithdrawData.company_id },
-        updatePayload,
-      );
-    };
-
-    // Handle response based on ErrorCode
-    const errorCode = payload.ErrorCode;
-    let statusResponse = null;
-
-    if (errorCode) {
-      // Transaction Under Process - check status
-      statusResponse = await axios.post(
-        `${apiConfig.baseUrl}/payoutStatus`,
-        { apitxnid: singleWithdrawData.id }, // Include transaction ID in payload
-        { headers: apiConfig.headers },
-      );
-
-      if (statusResponse.data.ErrorCode === '0') {
-        if (
-          statusResponse.data.Response.message === 'Reason-Transaction Failed' ||
-          statusResponse.data.Response.message === 'Transaction Failed - '
-        ) {
-          statusResponse.data.ErrorCode = '14';
-          await handlePayoutUpdate(statusResponse.data, false);
-        } else {
-          await handlePayoutUpdate(statusResponse.data, true);
+  it('should handle approved payout successfully', async () => {
+    req.body = { Response: { apitxnid: 1 }, ErrorCode: '0' }; // Add ErrorCode
+    getPayoutsDao.mockResolvedValue({ id: 1, company_id: 100 });
+    getCompanyByIDDao.mockResolvedValue([{
+      config: {
+        PAY_ASSIST: {
+          walletsPayoutsAgent: 'agent',
+          walletsPayoutsApiKey: 'key',
+          walletsPayoutsUrl: 'url',
+          walletsPayoutsAgentCode: 'code',
+          defaultBankId: 10,
         }
-      } else if (statusResponse.data.ErrorCode !== 'TUP') {
-        await handlePayoutUpdate(statusResponse.data, false);
-      } else if (statusResponse.data.ErrorCode === 'TUP') {
-        await handlePayoutUpdate(statusResponse.data, false, true);
       }
-    }
+    }]);
+    getBankByIdDao.mockResolvedValue([{ user_id: 200 }]);
+    getVendorsDao.mockResolvedValue([{ id: 300 }]);
+    getUserByCompanyCreatedAtDao.mockResolvedValue({ id: 400 });
+    axios.post.mockResolvedValue({ data: { ErrorCode: '0', Response: { txnid: 'tx123', message: 'Success' } } });
+    updatePayoutService.mockResolvedValue();
+  
+    const result = await payAssistTransactionStatusCallback(req, res);
+  
+    expect(updatePayoutService).toHaveBeenCalled();
+    expect(commit).toHaveBeenCalledWith(conn);
+    expect(conn.release).toHaveBeenCalled();
+    expect(result).toBe('Payout Updated Successfully');
+  });
+  
 
-    // const [merchant] = await getMerchantsDao({id: singleWithdrawData.merchant_id});
+  it('should handle payout with errorCode "TUP" as pending', async () => {
+    req.body = { Response: { apitxnid: 1 }, ErrorCode: 'TUP' };
 
-    // Log the updated payout status
-    logger.info('Payout Updated by PayAssist callback', {
-      status: singleWithdrawData.status,
-    });
+    getPayoutsDao.mockResolvedValue({ id: 1, company_id: 100 });
+    getCompanyByIDDao.mockResolvedValue([{
+      config: {
+        PAY_ASSIST: {
+          walletsPayoutsAgent: 'agent',
+          walletsPayoutsApiKey: 'key',
+          walletsPayoutsUrl: 'url',
+          walletsPayoutsAgentCode: 'code',
+          defaultBankId: 10,
+        }
+      }
+    }]);
+    getBankByIdDao.mockResolvedValue([{ user_id: 200 }]);
+    getVendorsDao.mockResolvedValue([{ id: 300 }]);
+    getUserByCompanyCreatedAtDao.mockResolvedValue({ id: 400 });
+    axios.post.mockResolvedValue({ data: { ErrorCode: 'TUP', Response: { txnid: 'tx123' } } });
+    updatePayoutService.mockResolvedValue();
 
-    // Log the merchant payout URL
-    // const merchantPayoutUrl = merchant.config.urls.payout_notify;
+    const result = await payAssistTransactionStatusCallback(req, res);
 
-    // TODO: Implement the notification to the merchant's payout URL
-    // if (merchantPayoutUrl !== null) {
-    //   await merchantPayoutCallback(merchantPayoutUrl, {
-    //     code: merchant.code,
-    //     merchantOrderId: singleWithdrawData.merchant_order_id,
-    //     payoutId: singleWithdrawData.id,
-    //     amount: singleWithdrawData.amount,
-    //     status: payload.status,
-    //     utr_id: payload.utr ? payload.utr : '',
-    //   });
-    // }
+    expect(updatePayoutService).toHaveBeenCalled();
+    expect(commit).toHaveBeenCalledWith(conn);
+    expect(conn.release).toHaveBeenCalled();
+    expect(result).toBe('Payout Updated Successfully');
+  });
 
-    await commit(conn);
+  it('should rollback on error', async () => {
+    req.body = { Response: { apitxnid: 1 } };
+    getPayoutsDao.mockRejectedValue(new Error('DB error'));
 
-    return 'Payout Updated Successfully';
-  } catch (err) {
-    await rollback(conn);
-    // Log any errors while updating the payout
-    logger.error('getting error while updating payout', err);
-  } finally {
-    if (conn) {
-      logger.info('Releasing connection');
-      conn.release(); // Always release connection
-    }
-  }
-};
+    await payAssistTransactionStatusCallback(req, res);
+
+    expect(rollback).toHaveBeenCalledWith(conn);
+    expect(conn.release).toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalled();
+  });
+});

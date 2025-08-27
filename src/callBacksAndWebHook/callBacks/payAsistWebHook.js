@@ -30,7 +30,7 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
     await beginTransaction(conn);
     const singleWithdrawData = await getPayoutsDao({ id: apitxnid });
     if (!singleWithdrawData) {
-      return NotFoundError('Payment not found');
+      return new NotFoundError('Payment not found');
     }
 
     const [company] = await getCompanyByIDDao({
