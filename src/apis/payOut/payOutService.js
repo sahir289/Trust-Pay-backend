@@ -289,7 +289,7 @@ const createPayoutService = async (
         whitelist = [];
       }
       // Check if userIp is in whitelist (if whitelist is not empty)
-      if (whitelist.length && !whitelist.includes(userIp)) {
+      if (whitelist.length && !whitelist.includes(userIp) && role !== Role.ADMIN) {
         const data = {
           status: 400,
           message: 'IP not whitelisted',
