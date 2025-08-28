@@ -25,6 +25,7 @@ import { updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { updateUserDao } from '../users/userDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
+import { notifyBankResponseAccessUpdate } from '../../utils/sockets.js';
 const createVendorService = async (conn, payload) => {
   try {
     let role_id = payload.role_id;
@@ -193,6 +194,19 @@ const updateVendorService = async (id, payload) => {
     await beginTransaction(conn); // Start a transaction
     const data = await updateVendorDao(id, payload, conn); // Adjust DAO call for update
     await commit(conn); // Commit the transaction
+    if (
+      data?.config?.bank_response_access === 'false' ||
+      data?.config?.bank_response_access === false ||
+      data?.config?.bank_response_access === '' ||
+      data?.config?.bank_response_access === null
+    ) {
+      // Emit specific socket event for bank response access update
+      await notifyBankResponseAccessUpdate(
+        data.user_id,
+        data?.config?.bank_response_access,
+        data.code
+      );
+    }
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: data.company_id,

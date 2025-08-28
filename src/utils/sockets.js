@@ -978,6 +978,48 @@ const logOutUser = async (user_id) => {
   logger.log(chalk.bold.cyan(`Emitting ${eventName} for ${user_id}`));
   ioInstance.emit(eventName, user_id);
 };
+
+// New function to emit event specifically for bank response access updates
+const notifyBankResponseAccessUpdate = async (userId, bankResponseAccess, vendorCode) => {
+  if (!ioInstance) {
+    logger.error('Socket.IO not initialized');
+    return;
+  }
+
+  const eventName = 'bankResponseAccessUpdate';
+  const payload = {
+    user_id: userId,
+    bank_response_access: bankResponseAccess,
+    vendor_code: vendorCode,
+    message: `Bank response access updated for vendor ${vendorCode}`,
+    timestamp: new Date().toISOString(),
+    priority: 'HIGH',
+  };
+
+  logger.log(
+    chalk.bold.magenta(
+      `[SOCKET] Emitting ${eventName} for user ${userId}, vendor ${vendorCode}, access: ${bankResponseAccess}`,
+    ),
+  );
+  
+  // Emit to all connected clients
+  ioInstance.emit(eventName, payload);
+  
+  // Also emit specifically to the user if they're connected
+  const allSockets = await ioInstance.fetchSockets();
+  const userSockets = allSockets.filter((socket) => socket.userId === userId);
+  
+  if (userSockets.length > 0) {
+    userSockets.forEach((socket) => {
+      socket.emit(`${eventName}_personal`, payload);
+      logger.log(
+        chalk.bold.cyan(
+          `[SOCKET] Sent personal notification to user ${userId} on socket ${socket.id}`,
+        ),
+      );
+    });
+  }
+};
 //update payour socket notification
 // const updatePayout = (id, code, merchant_order_id) => {
 //   if (!ioInstance) {
@@ -1033,5 +1075,6 @@ export {
   // updatePayout,
   newTableEntry,
   logOutUser,
+  notifyBankResponseAccessUpdate,
   // notifyNewCalculationTableEntry,
 };
