@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import { tableName } from '../../constants/index.js';
 // import { InternalServerError } from '../../utils/appErrors.js';
 // import { generateUUID } from '../utils/generateUUID.js';
-import { generateCacheKey,getCachedData,setCachedData } from '../../utils/redishashkey.js';
+// import { generateCacheKey,getCachedData,setCachedData } from '../../utils/redishashkey.js';
 import {
   executeQuery,
   buildSelectQuery,
@@ -92,22 +92,22 @@ const getBankResponseBySearchDao = async (
     //   bankId = filters.bank_id;
     //   bankDetails = await getBankaccountDao({ id: bankId }, null, null);
     // }
-     const params = {
-      filters,
-      page ,
-      pageSize ,
-      columns ,
-      updated,
-      sortBy ,
-      sortOrder ,
-      start_date,
-      end_date,
-        };
-        const cacheKey = generateCacheKey(params, 'bankResponse:search');
-        const cachedResult = await getCachedData(cacheKey);
-        if (cachedResult && cachedResult.totalCount>0) {
-          return cachedResult;
-        }
+    //  const params = {
+    //   filters,
+    //   page ,
+    //   pageSize ,
+    //   columns ,
+    //   updated,
+    //   sortBy ,
+    //   sortOrder ,
+    //   start_date,
+    //   end_date,
+    //     };
+        // const cacheKey = generateCacheKey(params, 'bankResponse:search');
+        // const cachedResult = await getCachedData(cacheKey);
+        // if (cachedResult && cachedResult.totalCount>0) {
+        //   return cachedResult;
+        // }
     const selectCols = columns.length
       ? `DISTINCT ON ("BankResponse".sno) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
       : `DISTINCT ON ("BankResponse".sno) ` + [
@@ -368,7 +368,7 @@ const getBankResponseBySearchDao = async (
       totalPages,
       rows: searchResult.rows,
     };
-    await setCachedData(cacheKey, result, 500);
+    // await setCachedData(cacheKey, result, 500);
     return result;
   } catch (error) {
     logger.error('Error in getBankResponseBySearchDao:', error);

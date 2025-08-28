@@ -1,6 +1,9 @@
 import cron from 'node-cron';
 import moment from 'moment-timezone';
-import { getPayInUrlsDao, updatePayInUrlDao } from '../apis/payIn/payInDao.js';
+import {
+  getPayInsForCronDao,
+  updatePayInUrlDao,
+} from '../apis/payIn/payInDao.js';
 import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.js';
 import { logger } from '../utils/logger.js';
 import { calculateDuration } from '../helpers/index.js'; 
@@ -20,12 +23,12 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
   const expireTime = currentTime.clone().subtract(10, 'minutes').toISOString();
   try {
     // Get payins already DROPPED but not notified
-    const payinsDropped = await getPayInUrlsDao({
+    const payinsDropped = await getPayInsForCronDao({
       status: ['FAILED', 'DROPPED'],
       is_notified: 'false',
     });
     // Update INITIATED payins older than 10 minutes
-    const payinsInitiated = await getPayInUrlsDao({ status: 'INITIATED' });
+    const payinsInitiated = await getPayInsForCronDao({ status: 'INITIATED' });
     for (const payin of payinsInitiated) {
       if (new Date(payin?.created_at) <= new Date(expireTime)) {
         const duration = calculateDuration(payin.created_at);
@@ -47,7 +50,7 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
       }
     }
     // Update ASSIGNED payins older than 10 minutes
-    const payinsAssigned = await getPayInUrlsDao({ status: 'ASSIGNED' });
+    const payinsAssigned = await getPayInsForCronDao({ status: 'ASSIGNED' });
     for (const payin of payinsAssigned) {
       if (new Date(payin?.updated_at) <= new Date(expireTime)) {
         const duration = calculateDuration(payin.created_at);

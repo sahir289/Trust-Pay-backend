@@ -22,7 +22,10 @@ import {
   getBankaccountDao,
   updateBankaccountDao,
 } from '../bankAccounts/bankaccountDao.js';
-import { getPayInUrlsDao, updatePayInUrlDao } from '../payIn/payInDao.js';
+import {
+  // getPayInUrlsDao,
+  getPayInsBankResDao, getPayInsForResetBankResDao, updatePayInUrlDao
+} from '../payIn/payInDao.js';
 import { getMerchantsDao } from '../merchants/merchantDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
 import { getVendorsDao, updateVendorDao } from '../vendors/vendorDao.js';
@@ -296,11 +299,15 @@ const createBankResponseService = async (
       let duration;
       let checkPayInUtr;
       if (isValidAmountCode) {
-        checkPayInUtr = await getPayInUrlsDao({
+        checkPayInUtr = await getPayInsBankResDao({
           upi_short_code: upi_short_code,
+          company_id: companyId,
         });
       } else {
-        checkPayInUtr = await getPayInUrlsDao({ user_submitted_utr: utr });
+        checkPayInUtr = await getPayInsBankResDao({
+          user_submitted_utr: utr ,
+          company_id: companyId
+        });
       }
       if (checkPayInUtr?.length > 0) {
         const payInUtr =
@@ -966,9 +973,15 @@ const resetBankResponseService = async (conn, id, userData) => {
     }
 
     // Check for successful pay-in
-    let payInData = await getPayInUrlsDao({ user_submitted_utr: botRes.utr });
+    let payInData = await getPayInsForResetBankResDao({
+      user_submitted_utr: botRes.utr,
+      company_id
+    });
     if (!payInData?.length) {
-      payInData = await getPayInUrlsDao({ bank_response_id: botRes.id });
+      payInData = await getPayInsForResetBankResDao({
+        bank_response_id: botRes.id,
+        company_id
+      });
     }
 
     const hasSuccess = payInData?.some(
@@ -1036,6 +1049,7 @@ const resetBankResponseService = async (conn, id, userData) => {
         user_id,
         user_name,
         conn,
+        company_id
       });
       updateData = utrResult;
       changes.utr = utr;
@@ -1192,7 +1206,14 @@ const handleAmountUpdate = async ({
 };
 
 // Handle UTR update
-const handleUtrUpdate = async ({ botRes, utr, user_id, user_name, conn }) => {
+const handleUtrUpdate = async ({
+  botRes,
+  utr,
+  user_id,
+  user_name,
+  conn,
+  company_id
+}) => {
   try {
     const previousUTR = botRes.utr;
     const previousUpdater = botRes.updated_by;
@@ -1201,7 +1222,10 @@ const handleUtrUpdate = async ({ botRes, utr, user_id, user_name, conn }) => {
       updated_by: user_name,
       config: { ...(botRes.config || {}), previousUTR, previousUpdater },
     };
-    const payIn = await getPayInUrlsDao({ user_submitted_utr: utr });
+    const payIn = await getPayInsForResetBankResDao({
+      user_submitted_utr: utr,
+      company_id
+    });
     if (
       payIn?.length &&
       payIn[0].user_submitted_utr &&
