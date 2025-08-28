@@ -10,7 +10,7 @@ import dayjs from 'dayjs';
 import { getConnection } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-import { generateCacheKey ,setCachedData,getCachedData } from '../../utils/redishashkey.js';
+// import { generateCacheKey ,setCachedData,getCachedData } from '../../utils/redishashkey.js';
 // import { newTableEntry } from '../../utils/sockets.js';
 export const generatePayInUrlDao = async (data) => {
   try {
@@ -67,6 +67,374 @@ export const getPayInwithMerchantDao = async (merchantorderid) => {
       'Error getting PayIn URL with merchant and company config:',
       error,
     );
+    throw error;
+  }
+};
+
+//new daos for payin, bankresponse , checkutr, resethistory
+export const getPayInsBankResDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      merchant_id,
+      user_submitted_utr,
+      upi_short_code,
+      amount,
+      status,
+      bank_acc_id,
+      created_at,
+      updated_at
+    `;
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error in getPayInsDao:', error);
+    throw error;
+  }
+};
+export const getPayInsForSuccessRatioDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      merchant_id,
+      company_id,
+      status,
+      created_at,
+      updated_at,
+      user_submitted_utr
+    `;
+
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
+      filters
+    );
+
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error("Error getting PayIns for success ratio:", error);
+    throw error;
+  }
+};
+
+
+export const getSuccessPayInsDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      merchant_order_id,
+      status,
+      bank_response_id,
+      user_submitted_utr
+    `;
+
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error getting success PayIns:', error);
+    throw error;
+  }
+};
+export const getPayInForUpdateDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      merchant_order_id,
+      merchant_id,
+      bank_response_id,
+      bank_acc_id,
+      amount,
+      payin_merchant_commission,
+      payin_vendor_commission,
+      user_submitted_utr,
+      config,
+      company_id,
+      approved_at,
+      created_at,
+      status
+    `;
+
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error getting PayIn for update service:', error);
+    throw error;
+  }
+};
+export const getPayInForUpdateServiceDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      merchant_order_id,
+      merchant_id,
+      status,
+      bank_response_id,
+      created_at,
+      amount,
+      company_id,
+      config
+    `;
+
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error getting PayIn for update:', error);
+    throw error;
+  }
+};
+export const getPayInForCheckStatusDao = async (filters) => {
+  try {
+    const selectColumns = `
+      id,
+      merchant_order_id,
+      amount,
+      status,
+      merchant_id,
+      bank_response_id,
+      company_id,
+      user_submitted_utr,
+      config
+    `;
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
+      filters,
+    );
+
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error getting PayIn details:', error);
+    throw error;
+  }
+};
+
+export const getPayinsForServiccDao = async (filters) => {
+  try {
+
+    const [sql, params] = buildSelectQuery(
+      `SELECT 
+        id,
+        merchant_order_id,
+        amount,
+        status,
+        expiration_date,
+        is_url_expires,
+        one_time_used,
+        config,
+        bank_acc_id,
+        company_id,
+        created_at,
+        bank_response_id,
+        user_submitted_utr,
+        upi_short_code,
+        user,
+        updated_at,
+        sno,
+        merchant_id,
+        created_by,
+        user_submitted_image
+       FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+
+    return result.rows[0];
+  } catch (error) {
+    logger.error(
+      `Error getting PayIn with filters ${JSON.stringify(filters)}:`,
+      error,
+    );
+    throw error;
+  }
+};
+
+export const getPayInForDisputeServiceDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      merchant_order_id,
+      merchant_id,
+      status,
+      bank_response_id,
+      created_at,
+      amount,
+      company_id,
+      config,
+      bank_acc_id,
+      user_submitted_utr,
+      amount
+    `;
+
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error getting PayIn for dispute service:', error);
+    throw error;
+  }
+};
+
+export const getPayInsForCronDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      merchant_order_id,
+      status,
+      is_notified,
+      amount,
+      user_submitted_utr,
+      config,
+      created_at,
+      updated_at
+    `;
+
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error("Error getting PayIns for cron:", error);
+    throw error;
+  }
+};
+
+
+export const getPayInForTelegramUtrDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      merchant_order_id,
+      status,
+      user_submitted_utr,
+      bank_response_id,
+      amount,
+      merchant_id,
+      company_id
+    `;
+
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE 1=1`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error getting PayIn for telegram UTR check:', error);
+    throw error;
+  }
+};
+export const getPayInForResetDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      merchant_order_id,
+      status,
+      bank_response_id,
+      user_submitted_utr,
+      created_at,
+      merchant_id,
+      company_id,
+      amount,
+      config
+    `;
+
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE 1=1`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error getting PayIn for reset service:', error);
+    throw error;
+  }
+};
+export const getPayInForTelegramResponseDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      merchant_order_id,
+      status,
+      bank_response_id,
+      user_submitted_utr,
+      amount,
+      is_notified,
+      config,
+      created_at,
+      updated_at
+    `;
+
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error getting PayIn for telegram response:', error);
+    throw error;
+  }
+};
+
+export const getPayInResetBasicDao = async (filters) => {
+  try {
+    const baseQuery = `
+      SELECT 
+        id,
+        merchant_order_id,
+        status,
+        user_submitted_utr,
+        amount,
+        created_at,
+        updated_at
+      FROM "${tableName.PAYIN}"
+      WHERE is_obsolete = false
+    `;
+
+    const [sql, params] = buildSelectQuery(baseQuery, filters);
+    const result = await executeQuery(sql, params);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error("Error getting basic PayIn:", error);
+    throw error;
+  }
+};
+export const getPayInForExpireDao = async (filters) => {
+  try {
+    const baseQuery = `
+      SELECT 
+        id,
+        status
+      FROM "${tableName.PAYIN}"
+      WHERE is_obsolete = false
+    `;
+
+    const [sql, params] = buildSelectQuery(baseQuery, filters);
+    const result = await executeQuery(sql, params);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error("Error getting PayIn for expire:", error);
     throw error;
   }
 };
@@ -676,20 +1044,20 @@ export const getPayinsBySearchDao = async (
   updatedPayin = false,
 ) => {
   try {
-    const params = {
-      filters,
-      searchTerms: searchTerms || [],
-      limitNum,
-      offset,
-      role,
-      designation,
-      updatedPayin,
-    };
-    const cacheKey = generateCacheKey(params, 'payins:search');
-    const cachedResult = await getCachedData(cacheKey);
-    if (cachedResult && cachedResult.totalCount>0) {
-      return cachedResult;
-    }
+    // const params = {
+    //   filters,
+    //   searchTerms: searchTerms || [],
+    //   limitNum,
+    //   offset,
+    //   role,
+    //   designation,
+    //   updatedPayin,
+    // };
+    // const cacheKey = generateCacheKey(params, 'payins:search');
+    // const cachedResult = await getCachedData(cacheKey);
+    // if (cachedResult && cachedResult.totalCount>0) {
+    //   return cachedResult;
+    // }
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
     const queryParams = [filters.company_id];
     let paramIndex = 2;
@@ -977,7 +1345,7 @@ export const getPayinsBySearchDao = async (
       totalPages,
       payins: searchResult.rows,
     };
-    await setCachedData(cacheKey, result, 500);
+    // await setCachedData(cacheKey, result, 500);
     return result;
   } catch (error) {
     logger.error('Error in getPayinSearch:', error);
@@ -1041,11 +1409,53 @@ export const getPayinsSumAndCountByStatusDao = async (filters) => {
     throw error;
   }
 };
+export const getPayInsForResetBankResDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      merchant_id,
+      user_submitted_utr,
+      upi_short_code,
+      amount,
+      status,
+      bank_acc_id,
+      created_at,
+      updated_at
+    `;
+
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
+      filters,
+    );
+
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error in getPayInsForResetDao:', error);
+    throw error;
+  }
+};
 
 export const getPayInUrlsDao = async (filters = {}) => {
   try {
     const [sql, params] = buildSelectQuery(
       `SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`,
+      filters,
+      // , page, limit
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error getting PayIn URLs:', error);
+    throw error;
+  }
+};
+
+//process payin  dao fro geting payin for duplicate
+export const getPayInForCheckDao = async (filters = {}) => {
+  try {
+    const [sql, params] = buildSelectQuery(
+      `SELECT id FROM "${tableName.PAYIN}" WHERE 1=1`,
       filters,
       // , page, limit
     );
