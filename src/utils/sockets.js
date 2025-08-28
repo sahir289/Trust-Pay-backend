@@ -993,7 +993,6 @@ const notifyBankResponseAccessUpdate = async (userId, bankResponseAccess, vendor
     vendor_code: vendorCode,
     message: `Bank response access updated for vendor ${vendorCode}`,
     timestamp: new Date().toISOString(),
-    priority: 'HIGH',
   };
 
   logger.log(
