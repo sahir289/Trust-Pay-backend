@@ -1455,10 +1455,16 @@ export const processPayInService = async (
         bank_acc_id: bank.id,
         merchant_order_id: payIn.merchant_order_id,
         company_id: payIn.company_id,
+        vendor_code: vendor?.code,
         bank_res_details: {
           utr: bankResponse.utr || null,
           amount: bankResponse.amount || null,
         },
+        created_at: payIn.created_at,
+        updated_at: new Date().toISOString(),
+        updated_by: updated_by,
+        bank_response_id: bankResponse.id || null,
+        is_url_expires: true,
       };
       
       await newTableEntry(tableName.PAYIN, responseObj);
@@ -2151,6 +2157,11 @@ export const disputeDuplicateTransactionService = async (
       if ([Status.BANK_MISMATCH, Status.SUCCESS].includes(newStatus)) {
         bankId = payInData.bank_acc_id;
         isMismatch = true;
+      await newTableEntry(tableName.PAYIN, { id: payInData.id, ...newEntryResponse, bank_res_details: {
+        utr: bankResponse.utr || null,
+        amount: bankResponse.amount || null,
+      },});  
+      await newTableEntry(tableName.BANK_RESPONSE, { id: payInData.bank_response_id, ...bankResponse, is_used: true });
       } else {
         updateBalance = false;
       }
@@ -2601,6 +2612,52 @@ export const verifyPayinsService = async (
       const result = {
         redirect_url: payIn.config?.urls?.return,
       };
+
+      const merchantArr = await getMerchantsDao({ id: payIn.merchant_id });
+      const merchant = merchantArr[0] || {};
+
+      let bankAccountDetails = [];
+      let vendorData = [];
+      if(payIn.bank_acc_id){   
+         bankAccountDetails = await getBankaccountDao(
+        { id: payIn.bank_acc_id },
+        null,
+        null,
+        role,
+      );
+    
+      vendorData = await getVendorsDao(
+        { user_id: bankAccountDetails[0].user_id },
+        null,
+        null,
+        null,
+        null,
+      );
+    }
+
+      const responseObj = {
+        id: payIn.id,
+        sno: payIn.sno,
+        amount: payIn.amount,
+        status: payIn.bank_acc_id ? 'DROPPED' : 'FAILED',
+        user_submitted_utr: payIn.user_submitted_utr,
+        user_submitted_image: payIn.user_submitted_image || null,
+        duration: payIn.duration,
+        nick_name: payIn.bank_acc_id ? bankAccountDetails[0]?.nick_name : '',
+        bank_acc_id: payIn.bank_acc_id,
+        merchant_order_id: payIn.merchant_order_id,
+        company_id: payIn.company_id,
+        vendor_code: payIn.bank_acc_id ? vendorData[0]?.code : '',
+        merchant_details: {
+          merchant_code: merchant.code || '',
+          dispute: payIn.status === 'DISPUTE',
+          return_url: payIn.config?.urls?.return || null,
+          notify_url: payIn.config?.urls?.notify || null,
+        },
+      };
+  
+      await newTableEntry(tableName.PAYIN, responseObj);
+
       return { error: `This payin url is already used`, result };
     }
 
