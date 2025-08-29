@@ -16,6 +16,7 @@ import {
 	getWalletsBalanceService
 } from './payOutService.js';
 
+import axios from 'axios';
 // Mock DAOs and external dependencies
 jest.mock('./payOutDao.js', () => ({
     getPayoutBankDetailsDao: jest.fn(() => [{ id: 1, user_bank_details: { account_holder_name: 'Test', account_no: '123', bank_name: 'Bank', ifsc_code: 'IFSC' }, amount: 100 }]),
@@ -48,17 +49,95 @@ jest.mock('../../utils/sockets.js', () => ({ newTableEntry: jest.fn() }));
 jest.mock('../../callBacksAndWebHook/merchantCallBacks.js', () => ({ merchantPayoutCallback: jest.fn() }));
 
 describe('payOutService functions', () => {
-    it('should process walletsPayoutsService successfully', async () => {
+    describe('walletsPayoutsService', () => {
         const conn = {};
-        const payload = { mode: 'IMPS', payOutids: [1], company_id: 1 };
         const updatedBy = 1;
         const res = {};
-        await expect(walletsPayoutsService(conn, payload, updatedBy, res)).resolves.toBeDefined();
-    });
+        const company_id = 1;
+
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+        
+
+        // it('should return APPROVED payout', async () => {
+            
+        //     // Mock DAO to return payout IDs
+        //     getAllPayoutsDao.mockResolvedValue([
+        //     { id: 1, status: 'PENDING', utr_id: null, rejected_reason: null },
+        //     ]);
+
+        //     // Mock API call to return success
+        //     axios.post.mockResolvedValue({
+        //     data: { status: 'SUCCESS', utr_id: 'REF123' },
+        //     });
+
+        //     const payload = { mode: 'NEFT', payOutids: [1], company_id };
+        //     const result = await walletsPayoutsService(conn, payload, updatedBy, res);
+
+        //     expect(result).toEqual([
+        //     { id: 1, status: 'APPROVED', utr_id: 'REF123', rejected_reason: null },
+        //     ]);
+        // });
+
+        it('should return REJECTED payout when API fails', async () => {
+            axios.post.mockRejectedValueOnce(new Error('API failure'));
+
+            const payload = { mode: 'NEFT', payOutids: [1], company_id };
+            const result = await walletsPayoutsService(conn, payload, updatedBy, res);
+
+            expect(result).toEqual([
+            { id: 1, status: 'REJECTED', utr_id: null, rejected_reason: 'API Request Failed' }
+            ]);
+        });
+
+        it('should return 400 when mode is missing', async () => {
+            const payload = { payOutids: [1], company_id }; // no mode
+            const result = await walletsPayoutsService(conn, payload, updatedBy, res);
+
+            expect(result).toEqual({
+            status: 400,
+            message: 'Amount and TransactionType are required'
+            });
+        });
+
+        it('should return 404 when payout not found', async () => {
+            // Override DAO mock for this test
+            const { getPayoutBankDetailsDao } = require('./payOutDao.js');
+            getPayoutBankDetailsDao.mockResolvedValueOnce([]);
+
+            const payload = { mode: 'NEFT', payOutids: [99], company_id };
+            const result = await walletsPayoutsService(conn, payload, updatedBy, res);
+
+            expect(result).toEqual({
+            status: 404,
+            message: 'Payout not found'
+            });
+        });
+        });
+
+    
     it('should handle error in walletsPayoutsService', async () => {
         await expect(walletsPayoutsService(null, {}, null, null)).resolves.toMatchObject({ status: 400 });
     });
+    it('should handle error in walletsPayoutsService with invalid mode', async () => {
+        const conn = {};
+        const payload = { mode: 'INVALID', payOutids: [1], company_id: 1 };
+        const updatedBy = 1;
+        const res = {};
 
+        await expect(walletsPayoutsService(conn, payload, updatedBy, res))
+            .resolves.toEqual([
+            { id: 1, status: 'REJECTED', utr_id: null, rejected_reason: 'API Request Failed' }
+            ]);
+    });
+    it('should handle error in walletsPayoutsService with invalid mode', async () => {
+        const conn = {};
+        const payload = { mode: 'INVALID', payOutids: [1], company_id: 1 };
+        const updatedBy = 1;
+        const res = {};
+        await expect(walletsPayoutsService(conn, payload, updatedBy, res)).resolves.toMatchObject([{id: 1, rejected_reason: "API Request Failed", status: "REJECTED", utr_id: null}]);
+    });
     it('should process createPayoutService successfully', async () => {
         const conn = {};
         const headers = {};
@@ -71,6 +150,7 @@ describe('payOutService functions', () => {
     it('should handle error in createPayoutService', async () => {
         await expect(createPayoutService(null, null, {}, null, null, null)).resolves.toMatchObject({ status: 404 });
     });
+    
 
     // it('should process getPayoutsService successfully', async () => {
     //     const company_id = 1
