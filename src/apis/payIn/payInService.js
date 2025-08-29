@@ -2227,6 +2227,7 @@ export const disputeDuplicateTransactionService = async (
 
     if (makeItSuccess) {
       updatePayload.status = Status.SUCCESS;
+      updatePayload.approved_at = new Date();
       updatePayload.amount = toAmount;
       updatePayload.payin_merchant_commission = payinCommission;
       updatePayload.payin_vendor_commission = vendorPayinCommission;
