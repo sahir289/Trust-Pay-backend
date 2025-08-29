@@ -27,8 +27,8 @@ import {
   getPayinsForServiccDao,
   // getPayInUrlDao,
   // getPayInUrlsDao,
-  getPayinsBySearchDao,
-  getAllPayInsDao,
+  getPayinsWithHistoryDao,
+  // getAllPayInsDao,
   getPayInPendingDao,
   getPayinsSumAndCountByStatusDao,
   getPayInForUpdateServiceDao,
@@ -38,6 +38,7 @@ import {
   getSuccessPayInsDao,
   getPayInForUpdateDao,
   getPayInForTelegramResponseDao,
+  getPayinsWithoutHistoryDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -96,7 +97,7 @@ import {
 } from '../../utils/sendTelegramMessages.js';
 import { tableName } from '../../constants/index.js';
 import { newTableEntry } from '../../utils/sockets.js';
-import { getConnection } from '../../utils/db.js';
+// import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
 // import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
@@ -584,6 +585,7 @@ export const assignedBankToPayInUrlService = async (
       bank_acc_id: selectedBankDetails.id,
       nick_name: selectedBankDetails.nick_name,
       vendor_code: vendor?.code,
+      vendor_user_id: vendor?.user_id || null,
       merchant_details: {
         merchant_code: merchant ? merchant.code : null,
         dispute: merchant && merchant[0] ? merchant[0].dispute : null,
@@ -1112,103 +1114,103 @@ const calculateStatus = (createdAt) => {
   return timeDifference > TEN_MINUTES_IN_MS ? Status.DROPPED : Status.ASSIGNED;
 };
 
-export const getPayinsService = async (
-  company_id,
-  page,
-  limit,
-  filters,
-  role,
-  user_id,
-  designation,
-) => {
-  let conn;
-  try {
-    const fetchMerchantIds = async (user_ids) => {
-      const merchants = await getMerchantByUserIdDao(user_ids);
-      return merchants.map((merchant) => merchant.id);
-    };
+// export const getPayinsService = async (
+//   company_id,
+//   page,
+//   limit,
+//   filters,
+//   role,
+//   user_id,
+//   designation,
+// ) => {
+//   let conn;
+//   try {
+//     const fetchMerchantIds = async (user_ids) => {
+//       const merchants = await getMerchantByUserIdDao(user_ids);
+//       return merchants.map((merchant) => merchant.id);
+//     };
 
-    const fetchBankIds = async (user_id) => {
-      try {
-        const banks = await getBankaccountDao({
-          user_id,
-          bank_used_for: 'PayIn',
-        });
-        if (!banks || banks.length === 0) {
-          return [];
-        }
-        return banks.map((bank) => bank.id);
-      } catch (error) {
-        logger.error('Error fetching PayIn:', error);
-        return [];
-      }
-    };
+//     const fetchBankIds = async (user_id) => {
+//       try {
+//         const banks = await getBankaccountDao({
+//           user_id,
+//           bank_used_for: 'PayIn',
+//         });
+//         if (!banks || banks.length === 0) {
+//           return [];
+//         }
+//         return banks.map((bank) => bank.id);
+//       } catch (error) {
+//         logger.error('Error fetching PayIn:', error);
+//         return [];
+//       }
+//     };
 
-    let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
+//     let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
 
-    if (role === Role.MERCHANT) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
-      const userHierarchy = userHierarchys?.[0];
+//     if (role === Role.MERCHANT) {
+//       const userHierarchys = await getUserHierarchysDao({ user_id });
+//       const userHierarchy = userHierarchys?.[0];
 
-      if (designation === Role.MERCHANT && userHierarchy) {
-        const subMerchants =
-          userHierarchy?.config?.siblings?.sub_merchants ?? [];
-        if (Array.isArray(subMerchants) && subMerchants.length > 0) {
-          merchant_user_id = [...merchant_user_id, ...subMerchants];
-          filters.merchant_id = await fetchMerchantIds(merchant_user_id);
-        } else {
-          filters.merchant_id = await fetchMerchantIds([user_id]);
-        }
-      } else if (designation === Role.SUB_MERCHANT) {
-        filters.merchant_id = await fetchMerchantIds([user_id]);
-      } else if (designation === Role.MERCHANT_OPERATIONS && userHierarchy) {
-        const parentID = userHierarchy?.config?.parent;
-        if (parentID) {
-          const parentHierarchys = await getUserHierarchysDao({
-            user_id: parentID,
-          });
-          const parentHierarchy = parentHierarchys?.[0];
-          const subMerchants =
-            parentHierarchy?.config?.siblings?.sub_merchants ?? [];
+//       if (designation === Role.MERCHANT && userHierarchy) {
+//         const subMerchants =
+//           userHierarchy?.config?.siblings?.sub_merchants ?? [];
+//         if (Array.isArray(subMerchants) && subMerchants.length > 0) {
+//           merchant_user_id = [...merchant_user_id, ...subMerchants];
+//           filters.merchant_id = await fetchMerchantIds(merchant_user_id);
+//         } else {
+//           filters.merchant_id = await fetchMerchantIds([user_id]);
+//         }
+//       } else if (designation === Role.SUB_MERCHANT) {
+//         filters.merchant_id = await fetchMerchantIds([user_id]);
+//       } else if (designation === Role.MERCHANT_OPERATIONS && userHierarchy) {
+//         const parentID = userHierarchy?.config?.parent;
+//         if (parentID) {
+//           const parentHierarchys = await getUserHierarchysDao({
+//             user_id: parentID,
+//           });
+//           const parentHierarchy = parentHierarchys?.[0];
+//           const subMerchants =
+//             parentHierarchy?.config?.siblings?.sub_merchants ?? [];
 
-          const userIdFilter = [...new Set([parentID, ...subMerchants])];
-          filters.merchant_id = await fetchMerchantIds(userIdFilter);
-        }
-      }
-    } else if (role === Role.VENDOR) {
-      if (designation === Role.VENDOR) {
-        filters.bank_acc_id = await fetchBankIds(user_id);
-      } else if (designation === Role.VENDOR_OPERATIONS) {
-        const userHierarchys = await getUserHierarchysDao({ user_id });
-        const parentID = userHierarchys?.[0]?.config?.parent;
-        if (parentID) {
-          filters.bank_acc_id = await fetchBankIds(parentID);
-        }
-      }
-    }
+//           const userIdFilter = [...new Set([parentID, ...subMerchants])];
+//           filters.merchant_id = await fetchMerchantIds(userIdFilter);
+//         }
+//       }
+//     } else if (role === Role.VENDOR) {
+//       if (designation === Role.VENDOR) {
+//         filters.bank_acc_id = await fetchBankIds(user_id);
+//       } else if (designation === Role.VENDOR_OPERATIONS) {
+//         const userHierarchys = await getUserHierarchysDao({ user_id });
+//         const parentID = userHierarchys?.[0]?.config?.parent;
+//         if (parentID) {
+//           filters.bank_acc_id = await fetchBankIds(parentID);
+//         }
+//       }
+//     }
 
-    if (
-      (designation === Role.VENDOR || designation === Role.VENDOR_OPERATIONS) &&
-      Array.isArray(filters.bank_acc_id) &&
-      filters.bank_acc_id.length === 0
-    ) {
-      return [];
-    }
+//     if (
+//       (designation === Role.VENDOR || designation === Role.VENDOR_OPERATIONS) &&
+//       Array.isArray(filters.bank_acc_id) &&
+//       filters.bank_acc_id.length === 0
+//     ) {
+//       return [];
+//     }
 
-    conn = await getConnection();
-    return await getAllPayInsDao(filters, company_id, page, limit, role);
-  } catch (error) {
-    throw new InternalServerError(error.message);
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
-  }
-};
+//     conn = await getConnection();
+//     return await getAllPayInsDao(filters, company_id, page, limit, role);
+//   } catch (error) {
+//     throw new InternalServerError(error.message);
+//   } finally {
+//     if (conn) {
+//       try {
+//         conn.release();
+//       } catch (releaseError) {
+//         logger.error('Error while releasing the connection', releaseError);
+//       }
+//     }
+//   }
+// };
 
 export const getPayinsBySearchService = async (
   filters,
@@ -1307,17 +1309,29 @@ export const getPayinsBySearchService = async (
     ) {
       return [];
     }
-
-    const data = await getPayinsBySearchDao(
-      filters,
-      searchTerms,
-      limitNum,
-      offset,
-      role,
-      designation,
-      updatedPayin,
-      // filterColumns,
-    );
+    let data
+    if (updatedPayin) {
+      data = await getPayinsWithHistoryDao(
+        filters,
+        searchTerms,
+        limitNum,
+        offset,
+        role,
+        designation,
+        updatedPayin,
+      );
+    }
+    else {
+       data = await getPayinsWithoutHistoryDao(
+         filters,
+         searchTerms,
+         limitNum,
+         offset,
+         role,
+         designation,
+       );
+    }
+   
 
     return data;
   } catch (error) {
@@ -1466,6 +1480,9 @@ export const processPayInService = async (
         merchant_order_id: payIn.merchant_order_id,
         company_id: payIn.company_id,
         vendor_code: vendor?.code,
+        user: payIn.user,
+        merchant_id: payIn.merchant_id,
+        vendor_user_id: vendor?.id || null,
         bank_res_details: {
           utr: bankResponse.utr || null,
           amount: bankResponse.amount || null,
@@ -1516,7 +1533,11 @@ export const processPayInService = async (
         user_submitted_utr: updatePayInData.user_submitted_utr,
         user_submitted_image: updatePayInData.user_submitted_image || null,
         duration: updatePayInData.duration,
+        user: payIn.user,
         nick_name: bank.nick_name,
+        merchant_id: payIn.merchant_id,
+        vendor_code: vendor?.code,
+        vendor_user_id: vendor?.id || null,
         bank_acc_id: bank.id,
         merchant_order_id: payIn.merchant_order_id,
         company_id: payIn.company_id,
@@ -1652,7 +1673,9 @@ export const processPayInService = async (
       user_submitted_utr: updatePayInData.user_submitted_utr,
       user_submitted_image: updatePayInData.user_submitted_image || null,
       duration: updatePayInData.duration,
+      merchant_id: payIn.merchant_id,
       nick_name: bank.nick_name,
+      vendor_user_id: vendor?.id || null,
       bank_acc_id: bank.id,
       payin_merchant_commission:
         updatePayInData.payin_merchant_commission || null,
@@ -2204,6 +2227,7 @@ export const disputeDuplicateTransactionService = async (
 
     if (makeItSuccess) {
       updatePayload.status = Status.SUCCESS;
+      updatePayload.approved_at = new Date();
       updatePayload.amount = toAmount;
       updatePayload.payin_merchant_commission = payinCommission;
       updatePayload.payin_vendor_commission = vendorPayinCommission;

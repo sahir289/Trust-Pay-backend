@@ -390,6 +390,7 @@ const createBankResponseService = async (
               company_id: updatePayInDataRes.company_id,
               merchant_order_id: updatePayInDataRes.merchant_order_id,
               amount: updatePayInDataRes.amount,
+              merchant_id: updatePayInDataRes.merchant_id,
               payin_merchant_commission: updatePayInDataRes.payin_merchant_commission,
               payin_vendor_commission: updatePayInDataRes.payin_vendor_commission,
               duration: updatePayInDataRes.duration,
@@ -397,9 +398,10 @@ const createBankResponseService = async (
               updated_at: updatePayInDataRes.updated_at,
               user_submitted_utr: updatePayInDataRes.user_submitted_utr,
               bank_acc_id: updatePayInDataRes.bank_acc_id,
-              nick_name: bankDetails[0].nick_name || null,
+              nick_name: bankDetails[0]?.nick_name || null,
               user: updatePayInDataRes.user,
-              vendor_code: vendorData && vendorData[0]?.code || null,
+              vendor_code: vendor && vendor[0]?.code || null,
+              vendor_user_id: vendor && vendor[0]?.user_id || null,
               bank_response_id: updatePayInDataRes.bank_response_id,
               config: updatePayInDataRes.config,
               merchant_details: {
@@ -637,9 +639,10 @@ const createBankResponseService = async (
                           user_submitted_utr: updatePayInDataRes.user_submitted_utr,
                           bank_acc_id: updatePayInDataRes.bank_acc_id,
                           bank_response_id: updatePayInDataRes.bank_response_id,
-                          nick_name: bankDetails[0].nick_name || null,
+                          nick_name: bankDetails[0]?.nick_name || null,
                           user: updatePayInDataRes.user,
                           vendor_code: vendorData[0]?.code || null,
+                          vendor_user_id: vendorData[0]?.user_id || null,
                           config: updatePayInDataRes.config,
                           merchant_details: {
                             merchant_code: merchantData[0]?.code || '',
@@ -709,7 +712,8 @@ const createBankResponseService = async (
           is_phonepay: bankDetails[0]?.config?.is_phonepay || false,
         },
         nick_name: bankDetails[0]?.nick_name || null,
-        vendor_user_id: bankDetails[0]?.user_id || null,
+        vendor_user_id: vendor[0]?.user_id || null,
+        vendor_code: vendor[0]?.code || null,
         merchant_code: null, // You can fetch merchant_code if needed
         company_id: companyId,
       };
