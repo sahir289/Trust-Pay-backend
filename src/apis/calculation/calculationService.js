@@ -17,7 +17,7 @@ import { filterResponse } from '../../helpers/index.js';
 // import { InternalServerError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
 import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
-import { getPayInUrlsDao } from '../../apis/payIn/payInDao.js';
+import { getPayInsForSuccessRatioDao } from '../../apis/payIn/payInDao.js';
 import { getConnection } from '../../utils/db.js';
 import dayjs from 'dayjs';
 import { BadRequestError } from '../../utils/appErrors.js';
@@ -145,7 +145,7 @@ const calculateSuccessRatios = async (merchants, date, user_id) => {
         ];
 
     // Modified: Use merchant_id instead of user_id
-    const allPayins = await getPayInUrlsDao({
+    const allPayins = await getPayInsForSuccessRatioDao({
       merchant_id: targetMerchant.id,
     });
 

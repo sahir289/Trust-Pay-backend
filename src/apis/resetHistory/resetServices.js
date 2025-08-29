@@ -4,8 +4,7 @@ import {
   updateBotResponseDao,
 } from '../bankResponse/bankResponseDao.js';
 import {
-  getPayInUrlDao,
-  getPayInUrlsDao,
+  getPayInResetBasicDao,
   updatePayInUrlDao,
 } from '../payIn/payInDao.js';
 import {
@@ -115,7 +114,7 @@ const createResetHistoryService = async (conn, payload) => {
 
 const updateResetHistoryService = async (id, company_id) => {
   try {
-    const payInData = await getPayInUrlDao({ merchant_order_id: id });
+    const payInData = await getPayInResetBasicDao({ merchant_order_id: id });
     // await sendResetEntryTelegramMessage(
     //   config?.telegramEntryResetChatId,
     //   payInData,
@@ -126,7 +125,9 @@ const updateResetHistoryService = async (id, company_id) => {
       const botRes = await getBankResponseDao({ utr: utr });
 
       let getallPayinDataByUtr;
-      getallPayinDataByUtr = await getPayInUrlsDao({ user_submitted_utr: utr });
+      getallPayinDataByUtr = await getPayInResetBasicDao({
+        user_submitted_utr: utr,
+      });
 
       if (getallPayinDataByUtr) {
         const hasSuccess = getallPayinDataByUtr.some(

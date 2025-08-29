@@ -1,5 +1,5 @@
 import { sendTelegramDashboardSuccessRatioMessage } from '../utils/sendTelegramMessages.js';
-import { getPayInUrlsDao } from '../apis/payIn/payInDao.js';
+import { getPayInsForSuccessRatioDao } from '../apis/payIn/payInDao.js';
 import cron from 'node-cron';
 import { getMerchantsDao } from '../apis/merchants/merchantDao.js';
 import { getCompanyDao } from '../apis/company/companyDao.js';
@@ -94,7 +94,9 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
     ];
 
     // fetch all transactions for the company
-    const allPayIns = await getPayInUrlsDao({ company_id: company_id });
+    const allPayIns = await getPayInsForSuccessRatioDao({
+      company_id: company_id
+    });
     const merchants = await getMerchantsDao({ company_id: company_id }, null, null);
     // group transactions by merchant_id
     const transactionsByMerchant = allPayIns.reduce((map, payin) => {
@@ -266,7 +268,9 @@ const formattedSuccessRatiosByMerchantUpdatedAt = async (company_id) => {
     ];
 
     // fetch all transactions
-    const allPayIns = await getPayInUrlsDao({ company_id: company_id });
+    const allPayIns = await getPayInsForSuccessRatioDao({
+      company_id: company_id
+    });
     const merchants = await getMerchantsDao({ company_id: company_id }, null, null);
     // group transactions by merchant_id
     const transactionsByMerchant = allPayIns.reduce((map, payin) => {
