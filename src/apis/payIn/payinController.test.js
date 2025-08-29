@@ -25,6 +25,7 @@ jest.mock('../merchants/merchantDao.js', () => ({
 jest.mock('../company/companyDao.js', () => ({
   getCompanyByIDDao: jest.fn(),
 }));
+
 jest.mock('../bankAccounts/bankaccountDao.js', () => ({
   getMerchantBankDao: jest.fn(),
 }));
@@ -38,20 +39,38 @@ jest.mock('../../utils/db.js', () => ({
 jest.mock('../roles/rolesDao.js', () => ({
   getRolesById: jest.fn(), 
 }));
+
+// Mock the logger to prevent errors in dependencies like redisClient
+jest.mock('../../utils/logger.js', () => ({
+  logger: {
+    error: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    log: jest.fn(),
+  },
+}));
+
+// Mock redisClient to prevent any logger issues during tests
+jest.mock('../../utils/redisClient.js', () => ({
+  transactionWrapper: jest.fn((fn) => fn),
+  executeQuery: jest.fn().mockResolvedValue({ rows: [] }),
+  // Add any other methods if needed, but ensure logger is mocked above
+}));
+
 describe('PayIn Controller', () => {
   let req, res;
 
   beforeEach(() => {
     req = {
       params: {},
-    query: {},
-    body: {},
-    headers: {},
-    file: undefined,
-    user: { user_id: 'user123', company_id: 'comp123', user_name: 'testuser' },
-    user_location: '127.0.0.1',
-    connection: { remoteAddress: '127.0.0.1' }, 
-    ip: '127.0.0.1',
+      query: {},
+      body: {},
+      headers: {},
+      file: undefined,
+      user: { user_id: 'user123', company_id: 'comp123', user_name: 'testuser' },
+      user_location: '127.0.0.1',
+      connection: { remoteAddress: '127.0.0.1' }, 
+      ip: '127.0.0.1',
     };
     res = {
       status: jest.fn().mockReturnThis(),

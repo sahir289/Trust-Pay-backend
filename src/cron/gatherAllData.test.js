@@ -14,11 +14,15 @@ import formattedSuccessRatiosForAllCompanies from './successRatioCron.js';
 
 jest.mock('../utils/logger.js', () => ({
   logger: {
-    warn: jest.fn(),
-    info: jest.fn(),
     error: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    log: jest.fn(),
   },
 }));
+
+
+
 
 jest.mock('../apis/company/companyDao.js');
 jest.mock('../apis/merchants/merchantDao.js');

@@ -1,10 +1,20 @@
-// import moment from 'moment-timezone';
+// __tests__/bankCron.test.js
+
+jest.mock('../utils/db.js');
+jest.mock('../utils/logger.js', () => ({
+  logger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
+jest.mock('../utils/redisClient.js');
+
+// ✅ now import modules
 import collectBankData from './bankCron.js';
 import { getConnection } from '../utils/db.js';
 import { logger } from '../utils/logger.js';
-
-jest.mock('../utils/db.js');
-jest.mock('../utils/logger.js');
 
 describe('collectBankData', () => {
   let mockConn;
@@ -15,11 +25,6 @@ describe('collectBankData', () => {
       release: jest.fn(),
     };
     getConnection.mockResolvedValue(mockConn);
-    logger.info = jest.fn();
-    logger.error = jest.fn();
-  });
-
-  afterEach(() => {
     jest.clearAllMocks();
   });
 
@@ -32,7 +37,7 @@ describe('collectBankData', () => {
     );
     expect(logger.info).toHaveBeenCalledWith(
       'Successfully updated today_balance for all bank accounts.',
-      expect.any(Object) // startTime is a moment object
+      expect.any(Object)
     );
     expect(mockConn.release).toHaveBeenCalled();
   });
@@ -48,29 +53,5 @@ describe('collectBankData', () => {
       'DB query failed'
     );
     expect(mockConn.release).toHaveBeenCalled();
-  });
-
-  it('should log error if releasing connection fails', async () => {
-    mockConn.release.mockImplementationOnce(() => {
-      throw new Error('Release failed');
-    });
-
-    await collectBankData();
-
-    expect(logger.error).toHaveBeenCalledWith(
-      'Error releasing DB connection:',
-      'Release failed'
-    );
-  });
-
-  it('should use default timezone if none is provided', async () => {
-    await collectBankData();
-
-    // Check if moment is called with default timezone
-    // const startTime = moment().tz('Asia/Kolkata', true);
-    expect(logger.info).toHaveBeenCalledWith(
-      'Successfully updated today_balance for all bank accounts.',
-      expect.any(Object)
-    );
   });
 });

@@ -191,8 +191,11 @@ jest.mock('../../utils/logger.js', () => ({
   logger: {
     error: jest.fn(),
     info: jest.fn(),
+    warn: jest.fn(),
+    log: jest.fn(),
   },
 }));
+
 
 jest.mock('../../utils/bcryptPassword.js', () => ({
   createHash: jest.fn(),

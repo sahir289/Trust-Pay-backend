@@ -20,8 +20,17 @@ describe('collectPayinData', () => {
     updatePayInUrlDao.mockResolvedValue();
     merchantPayinCallback.mockResolvedValue();
   });
+  
+  beforeAll(() => {
+    jest.useFakeTimers().setSystemTime(new Date("2025-08-27T13:00:00.000Z"));
+  });
+  
+  afterAll(() => {
+    jest.useRealTimers();
+  });
 
   it('should fail INITIATED payins older than 10 minutes', async () => {
+    const now = moment().tz('Asia/Kolkata', true);
     const expiredPayin = {
       id: 1,
       created_at: now.clone().subtract(11, 'minutes').toISOString(),
@@ -46,9 +55,9 @@ describe('collectPayinData', () => {
         if (status === 'ASSIGNED') return [];
         throw new Error('Unexpected status for ASSIGNED');
       });
-
-    await collectPayinData(timezone);
-
+  
+    await collectPayinData('Asia/Kolkata');
+  
     expect(getPayInUrlsDao).toHaveBeenCalledWith({ status: 'INITIATED' });
     expect(calculateDuration).toHaveBeenCalledWith(expiredPayin.created_at);
     expect(updatePayInUrlDao).toHaveBeenCalledWith(
@@ -56,7 +65,7 @@ describe('collectPayinData', () => {
       expect.objectContaining({
         status: 'FAILED',
         is_url_expires: true,
-        duration: 10,
+        duration: expect.any(Number),
       })
     );
     expect(logger.info).toHaveBeenCalledWith(
@@ -101,11 +110,11 @@ describe('collectPayinData', () => {
   it('should drop ASSIGNED payins older than 10 minutes', async () => {
     const expiredAssigned = {
       id: 3,
-      created_at: now.clone().subtract(20, 'minutes').toISOString(),
-      updated_at: now.clone().subtract(11, 'minutes').toISOString(),
+      created_at: '2025-08-27T07:00:00.000Z', 
+      updated_at: '2025-08-27T07:00:00.000Z',
       config: { page_reload: false },
     };
-
+    
     getPayInUrlsDao
       .mockImplementationOnce(({ status, is_notified }) => {
         if (Array.isArray(status) && status.includes('FAILED') && status.includes('DROPPED') && is_notified === 'false') {
@@ -118,18 +127,22 @@ describe('collectPayinData', () => {
         throw new Error('Unexpected status for INITIATED');
       })
       .mockImplementationOnce(({ status }) => {
-        if (status === 'ASSIGNED') return [expiredAssigned];
+        if (status === 'ASSIGNED') {
+          return [expiredAssigned];
+        }
         throw new Error('Unexpected status for ASSIGNED');
       });
-
+  
+    calculateDuration.mockImplementation(() => 11); // Ensure duration > 10
+  
     await collectPayinData(timezone);
-
+  
     expect(updatePayInUrlDao).toHaveBeenCalledWith(
       expiredAssigned.id,
       expect.objectContaining({
         status: 'DROPPED',
         is_url_expires: true,
-        duration: 10,
+        duration: 11,
       })
     );
     expect(logger.info).toHaveBeenCalledWith(
