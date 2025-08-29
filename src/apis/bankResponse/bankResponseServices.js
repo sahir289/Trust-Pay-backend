@@ -390,6 +390,7 @@ const createBankResponseService = async (
               company_id: updatePayInDataRes.company_id,
               merchant_order_id: updatePayInDataRes.merchant_order_id,
               amount: updatePayInDataRes.amount,
+              merchant_id: updatePayInDataRes.merchant_id,
               payin_merchant_commission: updatePayInDataRes.payin_merchant_commission,
               payin_vendor_commission: updatePayInDataRes.payin_vendor_commission,
               duration: updatePayInDataRes.duration,
@@ -400,6 +401,7 @@ const createBankResponseService = async (
               nick_name: bankDetails[0].nick_name || null,
               user: updatePayInDataRes.user,
               vendor_code: vendorData && vendorData[0]?.code || null,
+              vendor_user_id: vendorData && vendorData[0]?.user_id || null,
               bank_response_id: updatePayInDataRes.bank_response_id,
               config: updatePayInDataRes.config,
               merchant_details: {
