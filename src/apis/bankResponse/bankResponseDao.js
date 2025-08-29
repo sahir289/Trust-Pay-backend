@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import { tableName } from '../../constants/index.js';
 // import { InternalServerError } from '../../utils/appErrors.js';
 // import { generateUUID } from '../utils/generateUUID.js';
-
+// import { generateCacheKey,getCachedData,setCachedData } from '../../utils/redishashkey.js';
 import {
   executeQuery,
   buildSelectQuery,
@@ -92,8 +92,22 @@ const getBankResponseBySearchDao = async (
     //   bankId = filters.bank_id;
     //   bankDetails = await getBankaccountDao({ id: bankId }, null, null);
     // }
-
-    // Use DISTINCT ON to avoid duplicate rows for same BankResponse.sno
+    //  const params = {
+    //   filters,
+    //   page ,
+    //   pageSize ,
+    //   columns ,
+    //   updated,
+    //   sortBy ,
+    //   sortOrder ,
+    //   start_date,
+    //   end_date,
+    //     };
+        // const cacheKey = generateCacheKey(params, 'bankResponse:search');
+        // const cachedResult = await getCachedData(cacheKey);
+        // if (cachedResult && cachedResult.totalCount>0) {
+        //   return cachedResult;
+        // }
     const selectCols = columns.length
       ? `DISTINCT ON ("BankResponse".sno) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
       : `DISTINCT ON ("BankResponse".sno) ` + [
@@ -103,7 +117,6 @@ const getBankResponseBySearchDao = async (
           `"BankAccount".bank_name`,
           `"Vendor".code AS vendor_code`,
         ].join(', ');
-
     let start;
     let end;
     let dateParams = [];
@@ -145,9 +158,9 @@ const getBankResponseBySearchDao = async (
 
     let baseQuery = `
       SELECT ${selectCols}, 
-             "BankResponse".created_at,
-             "BankAccount".nick_name,
-             "Vendor".user_id AS vendor_user_id
+        "BankResponse".created_at,
+        "BankAccount".nick_name,
+        "Vendor".user_id AS vendor_user_id
       FROM "BankResponse"
       JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
       LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
@@ -201,19 +214,19 @@ const getBankResponseBySearchDao = async (
             //   )
             // `);
             searchConditions.push(`
-              (
-                LOWER("BankResponse".id::text) LIKE LOWER($${paramIndex})
-                OR LOWER("BankResponse".status) LIKE LOWER($${paramIndex})
-                OR LOWER("BankResponse".bank_id::text) LIKE LOWER($${paramIndex})
-                OR LOWER("BankResponse".amount::text) LIKE LOWER($${paramIndex})
-                OR LOWER("BankResponse".upi_short_code) LIKE LOWER($${paramIndex})
-                OR LOWER("BankResponse".utr) LIKE LOWER($${paramIndex})
-                OR LOWER("BankResponse".sno::text) LIKE LOWER($${paramIndex})
-                OR LOWER("BankResponse".created_by) LIKE LOWER($${paramIndex})
-                OR LOWER("BankResponse".updated_by) LIKE LOWER($${paramIndex})
-                OR LOWER("BankAccount".user_id::text) LIKE LOWER($${paramIndex})
-                OR LOWER("BankAccount".nick_name) LIKE LOWER($${paramIndex})
-              )
+             (
+  "BankResponse".id::text ILIKE $${paramIndex}
+  OR "BankResponse".status ILIKE $${paramIndex}
+  OR "BankResponse".bank_id::text ILIKE $${paramIndex}
+  OR "BankResponse".amount::text ILIKE $${paramIndex}
+  OR "BankResponse".upi_short_code ILIKE $${paramIndex}
+  OR "BankResponse".utr ILIKE $${paramIndex}
+  OR "BankResponse".sno::text ILIKE $${paramIndex}
+  OR "BankResponse".created_by ILIKE $${paramIndex}
+  OR "BankResponse".updated_by ILIKE $${paramIndex}
+  OR "BankAccount".user_id::text ILIKE $${paramIndex}
+  OR "BankAccount".nick_name ILIKE $${paramIndex}
+)
             `);
             values.push(likeVal);
             paramIndex++;
@@ -227,8 +240,16 @@ const getBankResponseBySearchDao = async (
     whereConditions.push(`"BankResponse".is_obsolete = false`);
 
     if (filters.bank_id) {
-      whereConditions.push(`"BankResponse"."bank_id" = $${paramIndex}`);
-      values.push(filters.bank_id);
+      if (typeof filters.bank_id === 'string' && filters.bank_id.includes(',')) {
+        filters.bank_id = filters.bank_id.split(',');
+      }
+      if (Array.isArray(filters.bank_id)) {
+        whereConditions.push(`"BankResponse"."bank_id" = ANY($${paramIndex})`);
+        values.push(filters.bank_id);
+      } else {
+        whereConditions.push(`"BankResponse"."bank_id" = $${paramIndex}`);
+        values.push(filters.bank_id);
+      }
       paramIndex++;
     }
     
@@ -342,11 +363,13 @@ const getBankResponseBySearchDao = async (
       searchResult = await executeQuery(queryText, values);
       totalPages = Math.ceil(totalCount / pageSize);
     }
-    return {
+    const result = {
       totalCount,
       totalPages,
       rows: searchResult.rows,
     };
+    // await setCachedData(cacheKey, result, 500);
+    return result;
   } catch (error) {
     logger.error('Error in getBankResponseBySearchDao:', error);
     throw error;
@@ -599,11 +622,11 @@ const getBankResponseDaoAll = async (
         GROUP BY "BankAccount".id
       )
       SELECT ${selectCols}, 
-             "BankResponse".created_at,
-             jsonb_set("BankAccount".config::jsonb, '{merchant_added}', COALESCE(filtered_merchant_added, '{}'::jsonb)) AS details,
-             "BankAccount".nick_name,
-             "Vendor".user_id AS vendor_user_id,
-             "Merchant".code AS merchant_code
+        "BankResponse".created_at,
+        jsonb_set("BankAccount".config::jsonb, '{merchant_added}', COALESCE(filtered_merchant_added, '{}'::jsonb)) AS details,
+        "BankAccount".nick_name,
+        "Vendor".user_id AS vendor_user_id,
+        "Merchant".code AS merchant_code
       FROM "BankResponse"
       JOIN filtered_accounts AS "BankAccount" 
         ON "BankResponse".bank_id = "BankAccount".id
@@ -730,7 +753,12 @@ const getBankResponseDaoAll = async (
     whereConditions.push(`"BankResponse".is_obsolete = false`);
 
     if (filters.bank_id) {
-      whereConditions.push(`"BankResponse"."bank_id" = '${filters.bank_id}'`);
+      if (Array.isArray(filters.bank_id)) {
+        const bankIds = filters.bank_id.map(id => `'${id}'`).join(',');
+        whereConditions.push(`"BankResponse"."bank_id" IN (${bankIds})`);
+      } else {
+        whereConditions.push(`"BankResponse"."bank_id" = '${filters.bank_id}'`);
+      }
     }
 
     if (filters.company_id) {

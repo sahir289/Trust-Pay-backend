@@ -29,6 +29,7 @@ const sendMerchantNotification = async (url, data, type) => {
       status: statusCode,
       response: responseData,
       url: url,
+      data: data,
     });
     return {
       message: `Error Notifying Merchant at ${type} URL: ${error.message}`,

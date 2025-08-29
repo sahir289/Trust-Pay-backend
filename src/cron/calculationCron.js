@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 import timezone from 'dayjs/plugin/timezone.js';
-import { transactionWrapper } from '../utils/db.js';
+// import { transactionWrapper } from '../utils/db.js';
 import {
   createCalculationDao,
   getCalculationforCronDao,
@@ -83,7 +83,7 @@ const collectCalculationData = async () => {
       return;
     }
 
-    const users = (await transactionWrapper(getUsersForCronDao)()) || [];
+    const users = await getUsersForCronDao() || [];
     const usersArray = users || [];
 
     // Create IST time in the exact format we want

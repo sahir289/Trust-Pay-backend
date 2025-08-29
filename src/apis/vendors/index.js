@@ -8,6 +8,7 @@ import {
   getVendorById,
   getVendorCodes,
   getVendorsBySearch,
+  getBankResponseAccessByID,
 } from './vendorController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -124,6 +125,12 @@ router.get(
   '/:id',
   [isAuthenticated, authorized(AccessRoles.VENDOR)],
   tryCatchHandler(getVendorById),
+);
+
+router.get(
+  '/get-bankresponse-access/:id',
+  [isAuthenticated, authorized(AccessRoles.VENDOR)],
+  tryCatchHandler(getBankResponseAccessByID),
 );
 
 /**
