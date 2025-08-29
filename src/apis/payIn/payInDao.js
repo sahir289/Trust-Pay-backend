@@ -9,7 +9,7 @@ import {
 import dayjs from 'dayjs';
 import { getConnection } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
-import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
+// import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 // import { generateCacheKey ,setCachedData,getCachedData } from '../../utils/redishashkey.js';
 // import { newTableEntry } from '../../utils/sockets.js';
 export const generatePayInUrlDao = async (data) => {
