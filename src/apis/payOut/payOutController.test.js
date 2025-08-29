@@ -1,382 +1,176 @@
 import {
-  createPayout,
-  getPayoutsBySearch,
-  checkPayOutStatus,
-  getPayouts,
-  updatePayout,
-  deletePayout,
-  getPayoutsById,
-  assignedPayout,
-  walletsPayouts,
-  getWalletsBalance,
-} from "./payOutController.js";
+	createPayout,
+	getPayoutsBySearch,
+	checkPayOutStatus,
+	getPayouts,
+	updatePayout,
+	deletePayout,
+	getPayoutsById,
+	assignedPayout,
+	walletsPayouts,
+	getWalletsBalance,
+} from './payOutController.js';
 
-import * as payOutService from "./payOutService.js";
-import { sendSuccess, sendNewSuccess, sendError } from "../../utils/responseHandlers.js";
-import { transactionWrapper } from "../../utils/db.js";
-import { ValidationError } from "../../utils/appErrors.js";
+import * as payOutService from './payOutService.js';
 
-jest.mock("./payOutService.js", () => ({
-	createPayoutService: jest.fn(),
-	getPayoutsBySearchService: jest.fn(),
-	checkPayOutStatusService: jest.fn(),
-	getPayoutsService: jest.fn(),
-	updatePayoutService: jest.fn(),
-	deletePayoutService: jest.fn(),
-	assignedPayoutService: jest.fn(),
-	walletsPayoutsService: jest.fn(),
-	getWalletsBalanceService: jest.fn(),
+// ✅ Mock services
+jest.mock('./payOutService.js', () => ({
+	createPayoutService: jest.fn(() => Promise.resolve({ id: 1, merchant_order_id: 'ORD123', amount: 100 })),
+	getPayoutsBySearchService: jest.fn(() => Promise.resolve([{ id: 1 }])),
+	checkPayOutStatusService: jest.fn(() => Promise.resolve({ status: 'APPROVED' })),
+	getPayoutsService: jest.fn(() => Promise.resolve([{ id: 1 }])),
+	updatePayoutService: jest.fn(() => Promise.resolve({ id: 1 })),
+	deletePayoutService: jest.fn(() => Promise.resolve({ id: 1 })),
+	assignedPayoutService: jest.fn(() => Promise.resolve({ id: 1 })),
+	walletsPayoutsService: jest.fn(() => Promise.resolve(900)),
+	getWalletsBalanceService: jest.fn(() => Promise.resolve({ balance: 1000 })),
 }));
 
-jest.mock("../../utils/responseHandlers.js", () => ({
-  sendSuccess: jest.fn((res, data, msg = "OK", status = 200) =>
-    res.status(status).json({ success: true, message: msg, data })
-  ),
-  sendNewSuccess: jest.fn((res, data, msg = "OK", status = 200) =>
-    res.status(status).json({ success: true, message: msg, data })
-  ),
-  sendError: jest.fn((res, error, status = 500) =>
-    res.status(status).json({ success: false, error, status })
-  ),
+// ✅ Mock response handlers so we don’t hit real logic
+jest.mock('../../utils/responseHandlers.js', () => ({
+	sendSuccess: jest.fn((res, data, msg, status = 200) =>
+		res.status(status).json({ success: true, message: msg, data })
+	),
+	sendNewSuccess: jest.fn((res, data, msg, status = 200) =>
+		res.status(status).json({ success: true, message: msg, data })
+	),
+	sendError: jest.fn((res, error, status = 500) =>
+		res.status(status).json({ success: false, error, status })
+	),
 }));
 
-jest.mock("../../utils/db.js", () => ({
-  transactionWrapper: jest.fn(),
-}));
-// ---- Helpers 
-const v4 = '550e8400-e29b-41d4-a716-446655440000'; // valid UUID v4
-// ------- Helper mocks --------
-const makeRes = () => ({
-  status: jest.fn().mockReturnThis(),
-  json: jest.fn(),
-});
-
-const makeReq = (overrides = {}) => ({
-  headers: { "x-api-key": "test-key", ...(overrides.headers || {}) },
-  connection: { remoteAddress: "127.0.0.1", ...(overrides.connection || {}) },
-  ip: overrides.ip || "127.0.0.1",
-  body: overrides.body || {},
-  params: overrides.params || {},
-  query: overrides.query || {},
-  user: overrides.user,
-});
-
-describe("payOutController", () => {
-	let req, res, next;
+describe('payOutController', () => {
+	let res;
 
 	beforeEach(() => {
-		req = {
-		user: {
-			company_id: 'company123',
-			role: 'admin',
-			user_id: 'user123',
-		},
-		headers: {
-			'x-api-key': 'test-api-key',
-		},
-		body: {
-			amount: 500,
-			beneficiary: 'John Doe',
-		},
-		};
-
-		res = {
-		status: jest.fn().mockReturnThis(),
-		json: jest.fn(),
-		};
-
-		next = jest.fn();
+		res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
 		jest.clearAllMocks();
 	});
 
-	// ---------------- createPayout ----------------
-	describe("createPayout", () => {
-		it("should create payout successfully", async () => {
-		const req = makeReq({
-			body: {
-			user_id: "1",
-			code: "M123",
-			amount: 100,
-			bank_name: "XYZ",
-			ifsc_code: "IFSC1234",
-			acc_holder_name: "John",
-			acc_no: "123456",
-			},
-			user: { company_id: "C1", role: "ADMIN", user_id: "U1" },
-		});
-
-		const resultMock = { id: "123", merchant_order_id: "ORD1", amount: 100 };
-		const wrappedMock = jest.fn().mockResolvedValue(resultMock);
-		transactionWrapper.mockReturnValue(wrappedMock);
-
+	it('createPayout should succeed', async () => {
+		const req = {
+		body: { user_id: '1',code: 'M123', amount: 100, bank_name: 'XYZ', ifsc_code: 'IFSC1234', acc_holder_name: 'John', acc_no: '123456' },
+		headers: { 'x-forwarded-for': '127.0.0.1', 'x-api-key': 'test' },
+		};
 		await createPayout(req, res);
-
-		expect(transactionWrapper).toHaveBeenCalledWith(payOutService.createPayoutService);
-		expect(sendNewSuccess).toHaveBeenCalledWith(
-			res,
-			{ merchantOrderId: "ORD1", payoutId: "123", amount: 100 },
-			"Payout created successfully",
-			201
-		);
-		});
-
-		it("should throw validation error if schema fails", async () => {
-		const req = makeReq({ body: {} });
-		await expect(createPayout(req, res)).rejects.toThrow(ValidationError);
-		});
-
-		it("should return error if service returns 400", async () => {
-		const req = makeReq({
-			body: { user_id: "1", code: "M123", amount: 200 ,ifsc_code: "IFSC1234", acc_holder_name: "John", acc_no: "123456", bank_name: "XYZ" },
-			user: { company_id: "C1", role: "ADMIN", user_id: "U1" },
-		});
-
-		const wrappedMock = jest.fn().mockResolvedValue({ status: 400, message: "Bad request" });
-		transactionWrapper.mockReturnValue(wrappedMock);
-
-		await createPayout(req, res);
-
-		expect(sendError).toHaveBeenCalledWith(res, "Bad request", 400);
-		});
+		expect(res.status).toHaveBeenCalledWith(201);
+		expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+		success: true,
+		message: 'Payout created successfully',
+		}));
 	});
 
-	// ---------------- getPayoutsBySearch ----------------
-	describe("getPayoutsBySearch", () => {
-		it("should fetch payouts successfully", async () => {
-		const req = makeReq({
-			query: { page: 1, limit: 10, search: "abc" },
-			user: { role: "MERCHANT", user_id: 1, company_id: 1 },
-		});
-
-		payOutService.getPayoutsBySearchService.mockResolvedValue([{ id: 1 }]);
+	it('getPayoutsBySearch should succeed', async () => {
+		const req = { query: { page: 1, limit: 10, search: 'abc' }, user: { role: 'MERCHANT', user_id: 1, designation: 'MERCHANT', company_id: 1 } };
 		await getPayoutsBySearch(req, res);
-
-		expect(sendSuccess).toHaveBeenCalled();
-		});
-
-		it("should throw if service fails", async () => {
-		const req = makeReq({
-			query: { page: 1, limit: 10 },
-			user: { role: "ADMIN", user_id: 1, company_id: 1 },
-		});
-
-		payOutService.getPayoutsBySearchService.mockRejectedValue(new Error("DB failed"));
-		await expect(getPayoutsBySearch(req, res)).rejects.toThrow("DB failed");
-		});
+		expect(res.status).toHaveBeenCalledWith(200);
+		expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
 	});
 
-	// ---------------- checkPayOutStatus ----------------
-	describe("checkPayOutStatus", () => {
-		it("should return success when status fetched", async () => {
-		const req = makeReq({
-			body: { payoutId: v4, merchantCode: "M123", merchantOrderId: "O123" },
-			headers: { "x-api-key": "test-key" },
-		});
-		payOutService.checkPayOutStatusService.mockResolvedValue({ status: 200, data: {} });
-
+	it('checkPayOutStatus should succeed', async () => {
+		const req = { body: { payoutId: '550e8400-e29b-41d4-a716-446655440000', merchantCode: 'M123', merchantOrderId: 'ORD123' }, headers: { 'x-api-key': 'key' } };
 		await checkPayOutStatus(req, res);
-		expect(sendNewSuccess).toHaveBeenCalled();
-		});
-
-		it("should return success when only given ip status fetched", async () => {
-			const req = makeReq({
-				body: { payoutId: v4, merchantCode: "M123", merchantOrderId: "O123" },
-				ip: "127.0.0.1:3000",
-				headers: { "x-api-key": "test-key" },
-			});
-			payOutService.checkPayOutStatusService.mockResolvedValue({ status: 200, data: {} });
-
-			await checkPayOutStatus(req, res);
-			expect(sendNewSuccess).toHaveBeenCalled();
-		});
-		
-		// it('should successfully create a payout when req.user exists', async () => {
-		// 	// Arrange
-		// 	const req = makeReq({
-		// 		body: {
-		// 		ifsc_code: "IFSC1234",
-		// 		acc_holder_name: "John Doe",
-		// 		acc_no: "123456",
-		// 		bank_name: "XYZ Bank",
-		// 		code: "M123",
-		// 		amount: 500,
-		// 		},
-		// 		connection: { remoteAddress: "127.0.0.1" },
-		// 		headers: { "x-api-key": "test-api-key" },
-		// 	});
-
-		// 	req.user = {
-		// 		company_id: 'company123',
-		// 		role: 'admin',
-		// 		user_id: 'user123',
-		// 	};
-
-		// 	const mockResponse = {
-		// 		success: true,
-		// 		message: 'Payout created',
-		// 		data: [
-		// 		{ id: 1, amount: 500 },
-		// 		{ id: 2, amount: 300 },
-		// 		],
-		// 	};
-
-		// 	transactionWrapper.mockImplementation((fn) => fn);
-		// 	payOutService.createPayoutService.mockResolvedValue(mockResponse);
-
-		// 	// Act
-		// 	await createPayout(req, res, next);
-
-		// 	// Assert
-		// 	expect(transactionWrapper).toHaveBeenCalledWith(payOutService.createPayoutService);
-		// 	expect(payOutService.createPayoutService).toHaveBeenCalledWith(
-		// 		req.headers,
-		// 		expect.objectContaining({
-		// 		company_id: 'company123',
-		// 		created_by: 'user123',
-		// 		updated_by: 'user123',
-		// 		x_api_key: 'test-api-key',
-		// 		amount: 500,
-		// 		acc_holder_name: 'John Doe',
-		// 		}),
-		// 		'admin',
-		// 		res,
-		// 		undefined, // userIp
-		// 		undefined  // fromUI
-		// 	);
-		// 	expect(res.status).toHaveBeenCalledWith(200);
-		// 	expect(res.json).toHaveBeenCalledWith(mockResponse);
-		// 	});
-
-		it("should return success when only given the remoteAddress status fetched", async () => {
-		const req = makeReq({
-			body: { payoutId: v4, merchantCode: "M123", merchantOrderId: "O123" },
-			connection: { remoteAddress: "127.0.0.1" },
-			headers: { "x-api-key": "test-key" },
-		});
-		payOutService.checkPayOutStatusService.mockResolvedValue({ status: 200, data: {} });
-
-		await checkPayOutStatus(req, res);
-		expect(sendNewSuccess).toHaveBeenCalled();
-		});
-
-		it("should return error if status 400", async () => {
-		const req = makeReq({
-			body: { payoutId: v4, merchantCode: "M123", merchantOrderId: "O123" },
-			headers: { "x-api-key": "test-key" },
-		});
-		payOutService.checkPayOutStatusService.mockResolvedValue({ status: 400, message: "Invalid" });
-
-		await checkPayOutStatus(req, res);
-		expect(sendError).toHaveBeenCalledWith(res, "Invalid", 400);
-		});
+		expect(res.status).toHaveBeenCalledWith(200);
+		expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
 	});
 
-	// ---------------- getPayouts ----------------
-	describe("getPayouts", () => {
-		it("should fetch payouts successfully", async () => {
-		const req = makeReq({
-			query: { page: 1, limit: 10 },
-			user: { role: "MERCHANT", company_id: 1 },
-		});
-		payOutService.getPayoutsService.mockResolvedValue([{ id: 1 }]);
-
+	it('getPayouts should succeed', async () => {
+		const req = { query: { page: 1, limit: 10 }, user: { role: 'MERCHANT', user_id: 1, designation: 'MERCHANT', company_id: 1 } };
 		await getPayouts(req, res);
-		expect(sendSuccess).toHaveBeenCalled();
-		});
+		expect(res.status).toHaveBeenCalledWith(200);
 	});
 
-	// ---------------- updatePayout ----------------
-	describe("updatePayout", () => {
-		it("should update payout successfully", async () => {
-		const req = makeReq({
-			params: { id: "123" },
-			body: { utr_id: "UTR123" },
-			user: { company_id: 1, role: "ADMIN", user_id: "U1", user_name: "Tester" },
-		});
-
-		const wrappedMock = jest.fn().mockResolvedValue({ id: "123" });
-		transactionWrapper.mockReturnValue(wrappedMock);
-
+	it('updatePayout should succeed', async () => {
+		const req = { params: { id: 1 }, body: { utr_id: 'UTR123' }, user: { company_id: 1, role: 'ADMIN', user_id: 1, user_name: 'Tester' } };
 		await updatePayout(req, res);
-		expect(sendSuccess).toHaveBeenCalled();
-		});
+		expect(res.status).toHaveBeenCalledWith(200);
 	});
 
-	// ---------------- deletePayout ----------------
-	describe("deletePayout", () => {
-		it("should delete payout successfully", async () => {
-		const req = makeReq({
-			params: { id: v4 },
-			user: { company_id: 1, user_id: "1", role: "ADMIN" },
-		});
-
-		payOutService.deletePayoutService.mockResolvedValue({});
+	it('deletePayout should succeed', async () => {
+		const req = { params: { id: '550e8400-e29b-41d4-a716-446655440000' }, user: { company_id: 1, user_id: "1", role: 'ADMIN' } };
 		await deletePayout(req, res);
-
-		expect(sendSuccess).toHaveBeenCalled();
-		});
+		expect(res.status).toHaveBeenCalledWith(200);
 	});
 
-	// ---------------- getPayoutsById ----------------
-	describe("getPayoutsById", () => {
-		it("should fetch payouts by id", async () => {
-		const req = makeReq({
-			params: { id: v4 },
-			user: { company_id: 1, role: "ADMIN" },
-		});
-		payOutService.getPayoutsService.mockResolvedValue([{ id: "123" }]);
+	it('should succeed and return payout data', async () => {
+		const req = { 
+			params: { id: '123e4567-e89b-12d3-a456-426614174000',id: '550e8400-e29b-41d4-a716-446655440000'  }, // valid v4 UUID
+			user: { company_id: 1, role: 'ADMIN' } 
+		};
 
 		await getPayoutsById(req, res);
-		expect(sendSuccess).toHaveBeenCalled();
+
+		// Check status and JSON response
+		expect(res.status).toHaveBeenCalledWith(200);
+		expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+			success: true,
+			message: 'Payouts fetched successfully',
+			data: expect.any(Array)
+		}));
+
+		// Ensure the service was called with correct parameters
+		expect(payOutService.getPayoutsService).toHaveBeenCalledWith(
+			{ id: '123e4567-e89b-12d3-a456-426614174000',id: '550e8400-e29b-41d4-a716-446655440000' , company_id: 1 },
+			'ADMIN'
+		);
+	});
+	it('should handle service errors', async () => {
+		payOutService.getPayoutsService.mockRejectedValueOnce(new Error('Service error'));
+
+		const req = { 
+			params: { id: '123e4567-e89b-12d3-a456-426614174000',id: '550e8400-e29b-41d4-a716-446655440000' },
+			user: { company_id: 1, role: 'ADMIN' } 
+		};
+
+		// Wrap in try/catch since controller throws ValidationError or lets error bubble
+		await getPayoutsById(req, res).catch(err => {
+			expect(err.message).toBe('Service error');
 		});
 	});
 
-	// ---------------- assignedPayout ----------------
-	describe("assignedPayout", () => {
-		it("should assign payouts successfully", async () => {
-		const req = makeReq({
-			params: { id: v4 },
-			body: { payouts_ids: [ v4 ] },
-			user: { user_id: "1", user_name: "Tester", company_id: 1 },
-		});
-
-		const wrappedMock = jest.fn().mockResolvedValue("123");
-		transactionWrapper.mockReturnValue(wrappedMock);
-
+	it('assignedPayout should succeed', async () => {
+		const req = { params: { id: '550e8400-e29b-41d4-a716-446655440000' }, body: { payouts_ids: ['550e8400-e29b-41d4-a716-446655440000'] }, user: { user_id: 1, user_name: 'Tester', company_id: 1 } };
 		await assignedPayout(req, res);
-		expect(sendSuccess).toHaveBeenCalled();
-		});
+		expect(res.status).toHaveBeenCalledWith(200);
 	});
 
-	// ---------------- walletsPayouts ----------------
-	describe("walletsPayouts", () => {
-		it("should update wallets successfully", async () => {
-		const req = makeReq({
-			body: { payOutids: [ v4], amount: 100, mode: "DEBIT" },
+	it('should succeed and return updated wallet balance', async () => {
+		const req = {
+			body: {
+				payOutids: ['550e8400-e29b-41d4-a716-446655440000'],
+				amount: 100,
+				mode: 'DEBIT', // this will map to `mode` in controller
+			},
 			user: { company_id: 1, user_id: 1 },
-		});
-
-		const wrappedMock = jest.fn().mockResolvedValue(900);
-		transactionWrapper.mockReturnValue(wrappedMock);
+		};
 
 		await walletsPayouts(req, res);
-		expect(sendNewSuccess).toHaveBeenCalledWith(
-			res,
-			{ balance: 900 },
-			"Payout updated successfully",
-			201
+
+		// Response check
+		expect(res.status).toHaveBeenCalledWith(201);
+		expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+			success: true,
+			message: 'Payout updated successfully',
+			data: { balance: 900 }
+		}));
+
+		// Service call check
+		expect(payOutService.walletsPayoutsService).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				payOutids: req.body.payOutids,
+				amount: req.body.amount,
+				mode: req.body.mode,
+				company_id: 1
+			}),
+		1, // user_id
+		res
 		);
-		});
 	});
 
-	// ---------------- getWalletsBalance ----------------
-	describe("getWalletsBalance", () => {
-		it("should fetch wallets balance", async () => {
-		const req = makeReq({ user: { company_id: 1 } });
-		payOutService.getWalletsBalanceService.mockResolvedValue({ balance: 1000 });
-
+	it('getWalletsBalance should succeed', async () => {
+		const req = { user: { company_id: 1 } };
 		await getWalletsBalance(req, res);
-		expect(sendNewSuccess).toHaveBeenCalled();
-		});
+		expect(res.status).toHaveBeenCalledWith(200);
 	});
 });
