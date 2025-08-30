@@ -2008,7 +2008,7 @@ export const telegramResponseService = async (conn, message) => {
         console.log(
           message.chat.id,
           payIn,
-          content.utr,
+          content,
           TELEGRAM_BOT_TOKEN,
           message.message_id,
           otherUtrPayIns,
