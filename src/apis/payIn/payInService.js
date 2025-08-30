@@ -2014,6 +2014,7 @@ export const telegramResponseService = async (conn, message) => {
           otherUtrPayIns,
           "check"
         );
+        console.log(content.utr,"utr");
         await sendMerchantOrderIDStatusDuplicateTelegramMessage(
           message.chat.id,
           payIn,
