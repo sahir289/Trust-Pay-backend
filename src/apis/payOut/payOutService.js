@@ -129,6 +129,7 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
           );
 
           logger.info(`Payout response for ID ${info.id}:`, response.data);
+          let apiResponse = null;
 
           // Helper function to handle payout updates
           const handlePayoutUpdate = async (
@@ -173,7 +174,7 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
               updatePayload.rejected_at = new Date().toISOString();
             }
 
-            await updatePayoutService(
+            apiResponse = await updatePayoutService(
               conn,
               { id: info.id, company_id: payload.company_id },
               updatePayload,
@@ -204,32 +205,41 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
               } else {
                 await handlePayoutUpdate(statusResponse.data, true);
               }
-            } else if (statusResponse.data.ErrorCode !== 'TUP') {
-              await handlePayoutUpdate(statusResponse.data, false);
             } else if (statusResponse.data.ErrorCode === 'TUP') {
               await handlePayoutUpdate(statusResponse.data, false, true);
+            } else if (
+              statusResponse.data.ErrorCode !== 'TUP' &&
+              statusResponse.data.ErrorCode !== '4'
+            ) {
+              await handlePayoutUpdate(statusResponse.data, false);
+            } else {
+              return {
+                status: 404,
+                message: statusResponse.data.ErrorMessage,
+              };
             }
           }
 
           // Return formatted response
-          const finalErrorCode =
-            errorCode === 'TUP'
-              ? statusResponse?.data?.ErrorCode || 'TUP'
-              : errorCode;
+          // const finalErrorCode =
+          //   errorCode === 'TUP'
+          //     ? statusResponse?.data?.ErrorCode || 'TUP'
+          //     : errorCode;
 
-          return {
-            id: info.id,
-            status: finalErrorCode === '0' ? Status.APPROVED : Status.REJECTED,
-            utr_id:
-              finalErrorCode === '0'
-                ? statusResponse?.data?.Response?.refno ||
-                  response.data.Response?.refno
-                : null,
-            rejected_reason:
-              finalErrorCode !== '0'
-                ? payAssistErrorCodeMap[finalErrorCode] || 'Server Unreachable'
-                : null,
-          };
+          // return {
+          //   id: info.id,
+          //   status: finalErrorCode === '0' ? Status.APPROVED : Status.REJECTED,
+          //   utr_id:
+          //     finalErrorCode === '0'
+          //       ? statusResponse?.data?.Response?.refno ||
+          //         response.data.Response?.refno
+          //       : null,
+          //   rejected_reason:
+          //     finalErrorCode !== '0'
+          //       ? payAssistErrorCodeMap[finalErrorCode] || 'Server Unreachable'
+          //       : null,
+          // };
+          return apiResponse;
         } catch (error) {
           logger.error(`Error processing payout ${info.id}:`, error);
           // Return error response for this specific payout instead of failing entire batch

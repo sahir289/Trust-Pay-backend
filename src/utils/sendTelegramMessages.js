@@ -184,6 +184,32 @@ ${vendorDetailsPayout}
   return success;
 }
 
+export async function sendTelegramVendorDashboardReportMessage(
+  chatId,
+  vendorBalanceData,
+  TELEGRAM_BOT_TOKEN,
+) {
+  const message = `
+    <b>Vendor Dashboard Report</b>
+
+    ${vendorBalanceData.map(vendor => `
+      <b>${vendor.code}:</b> <b>Net Balance:</b> ₹ ${vendor.net_balance.toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}
+    `).join('\n')}
+  `;
+
+  const success = await telegramSender(
+    chatId,
+    message,
+    null,
+    TELEGRAM_BOT_TOKEN,
+  );
+  logger.log(success ? 'Sent!' : 'Not sent.');
+  return success;
+}
+
 export async function sendTelegramDashboardMerchantGroupingReportMessage(
   chatId,
   totalPayInSum,

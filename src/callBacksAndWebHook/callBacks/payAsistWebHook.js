@@ -130,7 +130,10 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
         }
       } else if (statusResponse.data.ErrorCode === 'TUP') {
         await handlePayoutUpdate(statusResponse.data, false, true);
-      } else if (statusResponse.data.ErrorCode !== 'TUP' && statusResponse.data.ErrorCode !== '4') {
+      } else if (
+        statusResponse.data.ErrorCode !== 'TUP' &&
+        statusResponse.data.ErrorCode !== '4'
+      ) {
         await handlePayoutUpdate(statusResponse.data, false);
       } else {
         return res.status(400).send(statusResponse.data.ErrorMessage);
