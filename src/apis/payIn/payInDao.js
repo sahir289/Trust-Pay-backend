@@ -414,7 +414,7 @@ export const getPayInResetBasicDao = async (filters) => {
 
     const [sql, params] = buildSelectQuery(baseQuery, filters);
     const result = await executeQuery(sql, params);
-    return result.rows[0] || null;
+    return result.rows[0] || [];
   } catch (error) {
     logger.error("Error getting basic PayIn:", error);
     throw error;
