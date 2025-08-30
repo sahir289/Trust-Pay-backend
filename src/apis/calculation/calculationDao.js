@@ -759,6 +759,26 @@ const checkCalculationEntryForDateDao = async (date) => {
   }
 };
 
+const getVendorNetBalanceDao = async (companyId, startDate, endDate) => {
+  try {
+    const sql = `
+      SELECT c.user_id, c.net_balance, v.code
+      FROM public."Calculation" c
+      LEFT JOIN public."Role" r ON r.id = c.role_id
+      LEFT JOIN public."Vendor" v ON v.user_id = c.user_id
+      WHERE c.company_id = $1
+      AND r.role = '${Role.VENDOR}'
+      AND DATE(c.created_at AT TIME ZONE 'Asia/Kolkata') BETWEEN DATE($2) AND DATE($3)
+      GROUP BY c.id, v.code
+    `;
+    const result = await executeQuery(sql, [companyId, startDate, endDate]);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error fetching vendor net balance:', error);
+    throw error;
+  }
+};
+
 export {
   getCalculationDao,
   createCalculationDao,
@@ -766,4 +786,5 @@ export {
   deleteCalculationDao,
   checkCalculationEntryForDateDao,
   updateCalculationConfigDao,
+  getVendorNetBalanceDao,
 };
