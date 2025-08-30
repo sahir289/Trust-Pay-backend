@@ -2005,6 +2005,15 @@ export const telegramResponseService = async (conn, message) => {
         return;
       } else {
         console.log('Step 28: Handling duplicate with otherUtrPayIns');
+        console.log(
+          message.chat.id,
+          payIn,
+          content.utr,
+          TELEGRAM_BOT_TOKEN,
+          message.message_id,
+          otherUtrPayIns,
+          "check"
+        );
         await sendMerchantOrderIDStatusDuplicateTelegramMessage(
           message.chat.id,
           payIn,
