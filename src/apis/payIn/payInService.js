@@ -1820,6 +1820,7 @@ export const telegramResponseService = async (conn, message) => {
 
     const content = await getImageContentFromOCr(image);
     console.log('Step 7: Extracted content from OCR:', content);
+    console.log(content.utr, 'utr');
 
     sendTelegramMessage(
       message.chat?.id,
@@ -1827,8 +1828,9 @@ export const telegramResponseService = async (conn, message) => {
       TELEGRAM_BOT_TOKEN,
       message.message_id,
     );
-    console.log('Step 8: Sent Telegram message to chat ID:', message.chat?.id);
+    console.log(content.utr, 'utr');
 
+    console.log('Step 8: Sent Telegram message to chat ID:', message.chat?.id);
     if (!content || !content.utr || !content.amount) {
       console.log('Step 9: Missing UTR or amount in content:', content);
       sendErrorMessageUtrOrAmountNotFoundImgTelegramBot(
@@ -1848,6 +1850,7 @@ export const telegramResponseService = async (conn, message) => {
       );
       return;
     }
+    console.log(content.utr, 'utr');
 
     console.log(
       'Step 11: Fetching initial data for merchant_order_id:',
@@ -1859,6 +1862,7 @@ export const telegramResponseService = async (conn, message) => {
     ]);
     console.log('Step 12: Retrieved payIn:', payIn);
     console.log('Step 13: Retrieved bankResponse:', bankResponse);
+    console.log(content.utr, 'utr');
 
     if (!payIn) {
       console.log(
@@ -1884,6 +1888,7 @@ export const telegramResponseService = async (conn, message) => {
       );
       return;
     }
+    console.log(content.utr, 'utr');
 
     if (payIn.status === Status.FAILED) {
       console.log('Step 16: PayIn status is FAILED:', payIn);
@@ -1908,6 +1913,7 @@ export const telegramResponseService = async (conn, message) => {
       );
       return;
     }
+    console.log(content.utr, 'utr');
 
     console.log('Step 18: Fetching related pay-in URLs concurrently');
     const [otherBankResponsePayIns, otherUtrPayIns, otherBotResponsePayIns] =
@@ -1933,6 +1939,7 @@ export const telegramResponseService = async (conn, message) => {
       'Step 21: Retrieved otherBotResponsePayIns:',
       otherBotResponsePayIns,
     );
+    console.log(content.utr, 'utr');
 
     const hasDuplicate = otherUtrPayIns.some(
       (item) => item.status === Status.DUPLICATE,
@@ -1949,6 +1956,7 @@ export const telegramResponseService = async (conn, message) => {
       'Step 23: Updated botResponsePayIns:',
       updatedBotResponsePayIns,
     );
+    console.log(content.utr, 'utr');
 
     if (
       payIn.is_notified &&
@@ -1967,6 +1975,7 @@ export const telegramResponseService = async (conn, message) => {
       );
       return;
     }
+    console.log(content.utr, 'utr');
 
     if (
       payIn.status === Status.PENDING &&
@@ -1987,6 +1996,7 @@ export const telegramResponseService = async (conn, message) => {
       );
       return;
     }
+    console.log(content.utr, 'utr');
 
     if (payIn.status === Status.DUPLICATE) {
       console.log('Step 26: PayIn status is DUPLICATE:', payIn);
@@ -2006,12 +2016,12 @@ export const telegramResponseService = async (conn, message) => {
       } else {
         console.log('Step 28: Handling duplicate with otherUtrPayIns');
         console.log(
-          message.chat.id,
-          payIn,
-          content,
-          TELEGRAM_BOT_TOKEN,
-          message.message_id,
-          otherUtrPayIns,
+          message.chat.id,"chat",
+          payIn,"payi_id",
+          content,"content_id",
+          TELEGRAM_BOT_TOKEN,"token",
+          message.message_id,"id mesg",
+          otherUtrPayIns,"other",
           "check"
         );
         console.log(content.utr,"utr");
