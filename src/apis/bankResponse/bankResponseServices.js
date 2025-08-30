@@ -390,7 +390,7 @@ const createBankResponseService = async (
               company_id: updatePayInDataRes.company_id,
               merchant_order_id: updatePayInDataRes.merchant_order_id,
               amount: updatePayInDataRes.amount,
-              merchant_id: updatePayInDataRes.merchant_id,
+              merchant_id: merchantData[0]?.merchant_id || null,
               payin_merchant_commission: updatePayInDataRes.payin_merchant_commission,
               payin_vendor_commission: updatePayInDataRes.payin_vendor_commission,
               duration: updatePayInDataRes.duration,
@@ -405,7 +405,7 @@ const createBankResponseService = async (
               bank_response_id: updatePayInDataRes.bank_response_id,
               config: updatePayInDataRes.config,
               merchant_details: {
-                merchant_code: merchantData[0].merchant.code || '',
+                merchant_code: merchantData[0]?.code || '',
                 dispute: updatePayInDataRes.status === 'DISPUTE',
                 return_url: updatePayInDataRes.config?.urls?.return || null,
                 notify_url: updatePayInDataRes.config?.urls?.notify || null,
@@ -541,6 +541,7 @@ const createBankResponseService = async (
                       company_id: updatePayin.company_id,
                       merchant_order_id: updatePayin.merchant_order_id,
                       amount: updatePayin.amount,
+                      merchant_id: merchantData[0]?.merchant_id || null,
                       payin_merchant_commission: updatePayin.payin_merchant_commission,
                       payin_vendor_commission: updatePayin.payin_vendor_commission,
                       duration: updatePayin.duration,
@@ -631,6 +632,7 @@ const createBankResponseService = async (
                           company_id: updatePayInDataRes.company_id,
                           merchant_order_id: updatePayInDataRes.merchant_order_id,
                           amount: updatePayInDataRes.amount,
+                          merchant_id: merchantData[0]?.merchant_id || null,
                           payin_merchant_commission: updatePayInDataRes.payin_merchant_commission,
                           payin_vendor_commission: updatePayInDataRes.payin_vendor_commission,
                           duration: updatePayInDataRes.duration,
@@ -714,7 +716,6 @@ const createBankResponseService = async (
         nick_name: bankDetails[0]?.nick_name || null,
         vendor_user_id: vendor[0]?.user_id || null,
         vendor_code: vendor[0]?.code || null,
-        merchant_code: null, // You can fetch merchant_code if needed
         company_id: companyId,
       };
       // Send to socket for real-time update
