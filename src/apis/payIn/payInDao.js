@@ -1715,11 +1715,13 @@ export const getPayInsForResetBankResDao = async (filters = {}) => {
     const selectColumns = `
       id,
       merchant_id,
+      merchant_order_id, 
       user_submitted_utr,
       upi_short_code,
       amount,
       status,
       bank_acc_id,
+      bank_response_id, 
       created_at,
       updated_at
     `;
