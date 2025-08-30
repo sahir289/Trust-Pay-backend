@@ -1792,28 +1792,45 @@ export const processPayInService = async (
 //     ),
 //   };
 // };
-
 export const telegramResponseService = async (conn, message) => {
   try {
+    console.log(
+      'Step 1: Starting telegramResponseService with message:',
+      message,
+    );
+
     const { photo } = message;
     const TELEGRAM_BOT_TOKEN = config.telegramOcrBotToken;
+    console.log('Step 2: Extracted TELEGRAM_BOT_TOKEN:', TELEGRAM_BOT_TOKEN);
 
     if (!photo) {
+      console.log('Step 3: No photo found in message:', message);
       logger.error('No Telegram Message Photo found!', message);
       return;
     }
 
     const lastPhoto = Array.isArray(photo) ? photo.pop() : photo;
+    console.log('Step 4: Selected last photo:', lastPhoto);
+
     const filePath = await getTelegramFilePath(lastPhoto?.file_id);
+    console.log('Step 5: Retrieved filePath:', filePath);
+
     const image = await getTelegramImageBase64(filePath);
+    console.log('Step 6: Retrieved image base64:', image);
+
     const content = await getImageContentFromOCr(image);
+    console.log('Step 7: Extracted content from OCR:', content);
+
     sendTelegramMessage(
       message.chat?.id,
       content,
       TELEGRAM_BOT_TOKEN,
       message.message_id,
     );
+    console.log('Step 8: Sent Telegram message to chat ID:', message.chat?.id);
+
     if (!content || !content.utr || !content.amount) {
+      console.log('Step 9: Missing UTR or amount in content:', content);
       sendErrorMessageUtrOrAmountNotFoundImgTelegramBot(
         message.chat?.id,
         TELEGRAM_BOT_TOKEN,
@@ -1823,6 +1840,7 @@ export const telegramResponseService = async (conn, message) => {
     }
 
     if (!message.caption) {
+      console.log('Step 10: No caption found in message:', message);
       sendErrorMessageNoMerchantOrderIdFoundTelegramBot(
         message.chat?.id,
         TELEGRAM_BOT_TOKEN,
@@ -1831,14 +1849,22 @@ export const telegramResponseService = async (conn, message) => {
       return;
     }
 
-    // Fetch initial data concurrently
+    console.log(
+      'Step 11: Fetching initial data for merchant_order_id:',
+      message.caption,
+    );
     const [payIn, bankResponse] = await Promise.all([
       getPayInForTelegramResponseDao({ merchant_order_id: message.caption }),
       getBankResponseDao({ utr: content.utr }),
     ]);
+    console.log('Step 12: Retrieved payIn:', payIn);
+    console.log('Step 13: Retrieved bankResponse:', bankResponse);
 
-    // Early validation for missing critical data
     if (!payIn) {
+      console.log(
+        'Step 14: No payIn found for merchant_order_id:',
+        message.caption,
+      );
       await sendErrorMessageTelegram(
         message.chat?.id,
         message.caption,
@@ -1847,7 +1873,9 @@ export const telegramResponseService = async (conn, message) => {
       );
       return;
     }
+
     if (!bankResponse) {
+      console.log('Step 15: No bankResponse found for UTR:', content.utr);
       await sendErrorMessageNoDepositFoundTelegramBot(
         message.chat?.id,
         content.utr,
@@ -1856,7 +1884,9 @@ export const telegramResponseService = async (conn, message) => {
       );
       return;
     }
+
     if (payIn.status === Status.FAILED) {
+      console.log('Step 16: PayIn status is FAILED:', payIn);
       await sendPaymentStatusMessageTelegramBot(
         message.chat?.id,
         message.caption,
@@ -1866,7 +1896,9 @@ export const telegramResponseService = async (conn, message) => {
       );
       return;
     }
+
     if (payIn.status === Status.INITIATED) {
+      console.log('Step 17: PayIn status is INITIATED:', payIn);
       await sendPaymentStatusMessageTelegramBot(
         message.chat?.id,
         message.caption,
@@ -1876,7 +1908,8 @@ export const telegramResponseService = async (conn, message) => {
       );
       return;
     }
-    // Fetch related pay-in URLs concurrently
+
+    console.log('Step 18: Fetching related pay-in URLs concurrently');
     const [otherBankResponsePayIns, otherUtrPayIns, otherBotResponsePayIns] =
       await Promise.all([
         payIn.bank_response_id
@@ -1891,27 +1924,39 @@ export const telegramResponseService = async (conn, message) => {
             })
           : Promise.resolve([]),
       ]);
+    console.log(
+      'Step 19: Retrieved otherBankResponsePayIns:',
+      otherBankResponsePayIns,
+    );
+    console.log('Step 20: Retrieved otherUtrPayIns:', otherUtrPayIns);
+    console.log(
+      'Step 21: Retrieved otherBotResponsePayIns:',
+      otherBotResponsePayIns,
+    );
 
-    // Check for duplicates
     const hasDuplicate = otherUtrPayIns.some(
       (item) => item.status === Status.DUPLICATE,
     );
+    console.log('Step 22: Checked for duplicates, hasDuplicate:', hasDuplicate);
 
-    // Conditionally refresh otherBotResponsePayIns only if duplicate is found
     const updatedBotResponsePayIns =
       hasDuplicate || bankResponse.id
         ? await getPayInForTelegramResponseDao({
             bank_response_id: bankResponse.id,
           })
         : otherBotResponsePayIns;
+    console.log(
+      'Step 23: Updated botResponsePayIns:',
+      updatedBotResponsePayIns,
+    );
 
-    // Handle already notified or confirmed cases
     if (
       payIn.is_notified &&
       [Status.SUCCESS, Status.BANK_MISMATCH, Status.DISPUTE].includes(
         payIn.status,
       )
     ) {
+      console.log('Step 24: PayIn already notified with status:', payIn.status);
       await sendAlreadyConfirmedMessageTelegramBot(
         message.chat.id,
         content.utr,
@@ -1923,11 +1968,16 @@ export const telegramResponseService = async (conn, message) => {
       return;
     }
 
-    // Handle UTR mismatch
     if (
       payIn.status === Status.PENDING &&
       payIn.user_submitted_utr !== content.utr
     ) {
+      console.log(
+        'Step 25: UTR mismatch detected. Expected:',
+        payIn.user_submitted_utr,
+        'Received:',
+        content.utr,
+      );
       await sendUTRMismatchErrorMessageTelegram(
         message.chat?.id,
         content.utr,
@@ -1938,9 +1988,12 @@ export const telegramResponseService = async (conn, message) => {
       return;
     }
 
-    // Handle duplicate status
     if (payIn.status === Status.DUPLICATE) {
+      console.log('Step 26: PayIn status is DUPLICATE:', payIn);
       if (hasDuplicate) {
+        console.log(
+          'Step 27: Handling duplicate with updatedBotResponsePayIns',
+        );
         await sendMerchantOrderIDStatusDuplicateTelegramMessage(
           message.chat.id,
           payIn,
@@ -1951,6 +2004,7 @@ export const telegramResponseService = async (conn, message) => {
         );
         return;
       } else {
+        console.log('Step 28: Handling duplicate with otherUtrPayIns');
         await sendMerchantOrderIDStatusDuplicateTelegramMessage(
           message.chat.id,
           payIn,
@@ -1963,16 +2017,20 @@ export const telegramResponseService = async (conn, message) => {
       }
     }
 
-    // Determine duplicate entries
     const duplicateEntry =
       otherBankResponsePayIns.length > 1
         ? otherBankResponsePayIns
         : otherUtrPayIns.length > 0
           ? otherUtrPayIns
           : updatedBotResponsePayIns;
+    console.log('Step 29: Determined duplicateEntry:', duplicateEntry);
 
-    // Handle used bank response or duplicate entries
     if (bankResponse.is_used || duplicateEntry.length) {
+      console.log(
+        'Step 30: Bank response is used or duplicate entries found:',
+        bankResponse.is_used,
+        duplicateEntry,
+      );
       await sendAlreadyConfirmedMessageTelegramBot(
         message.chat.id,
         content.utr,
@@ -1984,6 +2042,14 @@ export const telegramResponseService = async (conn, message) => {
       return;
     }
 
+    console.log('Step 31: Processing payInService with data:', {
+      amount: payIn.amount,
+      merchantOrderId: message.caption,
+      userSubmittedUtr: content.utr,
+      from_telegram: true,
+      telegramMessage: message,
+      telegramBotToken: TELEGRAM_BOT_TOKEN,
+    });
     await processPayInService(
       conn,
       {
@@ -1997,7 +2063,9 @@ export const telegramResponseService = async (conn, message) => {
       null,
       false,
     );
+    console.log('Step 32: Successfully processed payInService');
   } catch (error) {
+    console.error('Step 33: Error in telegramResponseService:', error);
     logger.error('Error processing Telegram response:', error);
     throw error;
   }
