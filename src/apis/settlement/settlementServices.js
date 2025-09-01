@@ -454,8 +454,7 @@ const handleInternalTransferUTR = async (conn, payload, settlementData) => {
   if (
     isInternalMethod &&
     payload.config.reference_id &&
-    settlementData.status !== Status.INITIATED &&
-    settlementData.status === Status.SUCCESS
+    settlementData.status === Status.INITIATED 
   ) {
     const bankResponses = await getBankResponseByUTR(payload.config.reference_id);
     if (!bankResponses) {
