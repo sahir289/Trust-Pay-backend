@@ -382,6 +382,7 @@ export const getPayInForTelegramResponseDao = async (filters = {}) => {
       is_notified,
       config,
       created_at,
+      company_id,
       updated_at
     `;
 
