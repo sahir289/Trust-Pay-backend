@@ -22,6 +22,7 @@ import {
   merchantColumns,
   Role,
   Status,
+  tableName,
   vendorColumns,
 } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
@@ -40,6 +41,7 @@ import {
   getBeneficiaryAccountDao,
   updateBeneficiaryAccountDao,
 } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
+import { newTableEntry } from '../../utils/sockets.js';
 
 const getSettlementServiceById = async (ids) => {
   try {
@@ -256,131 +258,156 @@ const getSettlementsBySearchService = async (
 
 const createSettlementService = async (conn, payload, role) => {
   try {
-    if (
-      (payload.method === 'INTERNAL_QR_TRANSFER' ||
-        payload.method === 'INTERNAL_BANK_TRANSFER') &&
-      role !== Role.VENDOR
-    ) {
-      const bankResponses = await getBankResponseByUTR(
-        payload?.config?.reference_id,
-      );
-      if (!bankResponses) {
-        throw new NotFoundError('Bank response not found for the provided UTR');
-      }
+    const isInternalTransfer =
+      payload.method === 'INTERNAL_QR_TRANSFER' ||
+      payload.method === 'INTERNAL_BANK_TRANSFER';
 
-      if (
-        bankResponses.is_used === false &&
-        bankResponses.status === Status.BOT
-      ) {
-        // Get vendor and calculation data
-        const [vendorData, calculationData] = await Promise.all([
-          getVendorsDao({ user_id: payload.user_id }),
-          getCalculationforCronDao(payload.user_id),
-        ]);
-        if (!vendorData?.length) {
-          throw new NotFoundError('Vendor not found');
-        }
-        if (!calculationData?.length) {
-          throw new NotFoundError('Calculation data not found');
-        }
+    // Early return for non-internal transfers without reference_id
+    if (!isInternalTransfer || !payload.config?.reference_id) {
+      return await createSettlementDao(payload, conn);
+    }
 
-        const VendorCommission = vendorData[0].payin_commission || 0;
-        const commission = calculateCommission(
-          payload.amount,
-          VendorCommission,
-        );
+    // Validate bank response for internal transfers
+    const bankResponses = await getBankResponseByUTR(
+      payload.config.reference_id,
+    );
+    if (!bankResponses) {
+      throw new NotFoundError('Bank response not found for the provided UTR');
+    }
 
-        // Update vendor balance - Fix: Pass number instead of object
-        // const vendorAcc = vendorData[0].balance + payload.amount;
-        // await updateVendorBalanceDao(
-        //   { id: vendorData[0].id },
-        //   Number(vendorAcc),
-        //   payload.updated_by,
-        //   conn,
-        // );
-
-        await updateBankResponseDao(
-          { id: bankResponses.id },
-          { status: '/internalTransfer' },
-        );
-        // Update calculation
-        const updatedCalculation = {
-          total_settlement_count: 1,
-          total_settlement_amount: -payload.amount,
-          total_settlement_commission: commission,
-          current_balance: -payload.amount + commission,
-          net_balance: -payload.amount + commission,
-        };
-
-        await updateCalculationBalanceDao(
-          { id: calculationData[0].id },
-          updatedCalculation,
-          conn,
-        );
-        let config;
-        if (payload.method === 'INTERNAL_QR_TRANSFER') {
-          const total_internalSettlement_amount =
-            calculationData[0].config.total_internalSettlement_amount > 0
-              ? calculationData[0].config.total_internalSettlement_amount +
-                payload.amount
-              : payload.amount;
-          config = {
-            total_internalSettlement_amount,
-          };
-        }
-        if (payload.method === 'INTERNAL_BANK_TRANSFER') {
-          const total_internalBankSettlement_amount =
-            calculationData[0].config.total_internalBankSettlement_amount > 0
-              ? calculationData[0].config.total_internalBankSettlement_amount +
-                payload.amount
-              : payload.amount;
-          config = {
-            total_internalBankSettlement_amount,
-          };
-        }
-        await updateCalculationConfigDao(
-          { id: calculationData[0].id },
-          { config: config },
-          conn,
-        );
-        payload.status = Status.SUCCESS;
-        payload.approved_at = new Date();
-        return await createSettlementDao(payload, conn);
-      }
-
+    if (bankResponses.is_used || bankResponses.status !== Status.BOT) {
       throw new BadRequestError('UTR is already used');
     }
-    // For other methods, proceed with settlement creation
-    // const [user] = await getUsersDao({ id: payload.user_id });
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: payload.company_id,
-    //   message: `Settlement for Client: ${user.code} has been created.`,
-    //   payloadUserId: payload.user_id,
-    //   actorUserId: payload.user_id,
-    //   category: 'Settlement',
-    // });
 
-    if (payload.config.debit_credit === 'RECEIVED' && (payload.method === 'INTERNAL_QR_TRANSFER' ||
-      payload.method === 'INTERNAL_BANK_TRANSFER') && payload.amount > 0) {
-      payload.amount = Number(payload.amount);
-    } 
-    else {
-    const adjustedValue =
-      payload.config.debit_credit === 'RECEIVED'
-        ? Number(payload.amount) > 0
-          ? -Number(payload.amount)
-          : Number(payload.amount)
-        : Math.abs(Number(payload.amount));
-    payload.amount = adjustedValue;
-  }
-    return await createSettlementDao(payload);
+    // Handle vendor role internal transfers
+    if (role !== Role.VENDOR) {
+      return await handleVendorInternalTransferByAdmin(
+        conn,
+        payload,
+        bankResponses,
+      );
+    }
+
+    // Handle other roles internal transfers
+    return await handleVendorInternalTransfer(payload);
   } catch (error) {
     logger.error('Error while creating Settlement', error);
     throw new InternalServerError(
       error.message || 'Failed to create settlement',
     );
   }
+};
+
+// Helper function for internal transfers from admin
+const handleVendorInternalTransferByAdmin = async (
+  conn,
+  payload,
+  bankResponses,
+) => {
+  // Get vendor and calculation data
+  const [vendorData, calculationData] = await Promise.all([
+    getVendorsDao({ user_id: payload.user_id }),
+    getCalculationforCronDao(payload.user_id),
+  ]);
+
+  if (!vendorData?.length) {
+    throw new NotFoundError('Vendor not found');
+  }
+  if (!calculationData?.length) {
+    throw new NotFoundError('Calculation data not found');
+  }
+
+  const vendorCommission = vendorData[0].payin_commission || 0;
+  const commission = calculateCommission(payload.amount, vendorCommission);
+
+  // Update bank response status
+  const response = await updateBankResponseDao(
+    { id: bankResponses.id },
+    { status: '/internalTransfer' },
+  );
+  const responseObj = {
+    id: response.id,
+    sno: response.sno,
+    status: response.status,
+    bank_id: response.bank_id,
+    amount: response.amount,
+    upi_short_code: response.upi_short_code || null,
+    utr: response.utr,
+    is_used: response.is_used === 'true',
+    created_at: response.created_at,
+    updated_at: response.updated_at,
+    created_by: response.created_by,
+    config: response.config || {},
+    updated_by: response.updated_by,
+    company_id: payload.company_id,
+  };
+  // Send to socket for real-time update
+  await newTableEntry(tableName.BANK_RESPONSE, responseObj);
+
+  // Update calculation balance
+  const updatedCalculation = {
+    total_settlement_count: 1,
+    total_settlement_amount: -payload.amount,
+    total_settlement_commission: commission,
+    current_balance: -payload.amount + commission,
+    net_balance: -payload.amount + commission,
+  };
+
+  await updateCalculationBalanceDao(
+    { id: calculationData[0].id },
+    updatedCalculation,
+    conn,
+  );
+
+  // Update calculation config based on method
+  const config = getConfigForMethod(
+    payload.method,
+    calculationData[0].config,
+    payload.amount,
+  );
+  await updateCalculationConfigDao(
+    { id: calculationData[0].id },
+    { config },
+    conn,
+  );
+
+  // Set final payload properties
+  payload.status = Status.SUCCESS;
+  payload.approved_at = new Date();
+
+  return await createSettlementDao(payload, conn);
+};
+
+// Helper function for internal transfers from vendors
+const handleVendorInternalTransfer = async (payload) => {
+  // Adjust amount based on debit_credit type
+  const isReceived = payload.config.debit_credit === 'RECEIVED';
+  const amount = Number(payload.amount);
+
+  if (isReceived && amount > 0) {
+    payload.amount = amount;
+  } else {
+    payload.amount = isReceived
+      ? amount > 0
+        ? -amount
+        : amount
+      : Math.abs(amount);
+  }
+
+  return await createSettlementDao(payload);
+};
+
+// Helper function to get config based on method
+const getConfigForMethod = (method, existingConfig, amount) => {
+  const configKey =
+    method === 'INTERNAL_QR_TRANSFER'
+      ? 'total_internalSettlement_amount'
+      : 'total_internalBankSettlement_amount';
+
+  const currentAmount = existingConfig[configKey] || 0;
+  const newAmount = currentAmount > 0 ? currentAmount + amount : amount;
+
+  return { [configKey]: newAmount };
 };
 
 const updateSettlementService = async (conn, ids, payload) => {
@@ -410,18 +437,43 @@ const updateSettlementService = async (conn, ids, payload) => {
     }
     // If method is INTERNAL_QR_TRANSFER or INTERNAL_BANK_TRANSFER, handle UTR usage
     if (
-      (data[0].method === 'INTERNAL_QR_TRANSFER' || data[0].method === 'INTERNAL_BANK_TRANSFER') &&
+      (data[0].method === 'INTERNAL_QR_TRANSFER' ||
+        data[0].method === 'INTERNAL_BANK_TRANSFER') &&
       payload.config.reference_id
     ) {
-      const bankResponses = await getBankResponseByUTR(payload?.config?.reference_id);
+      const bankResponses = await getBankResponseByUTR(
+        payload?.config?.reference_id,
+      );
       if (!bankResponses) {
         throw new NotFoundError('Bank response not found for the provided UTR');
       }
-      if (bankResponses && bankResponses.is_used === false && bankResponses.status === Status.BOT) {
-        await updateBankResponseDao(
+      if (
+        bankResponses &&
+        bankResponses.is_used === false &&
+        bankResponses.status === Status.BOT
+      ) {
+        const response = await updateBankResponseDao(
           { id: bankResponses.id },
           { status: '/internalTransfer' },
         );
+        const responseObj = {
+          id: response.id,
+          sno: response.sno,
+          status: response.status,
+          bank_id: response.bank_id,
+          amount: response.amount,
+          upi_short_code: response.upi_short_code || null,
+          utr: response.utr,
+          is_used: response.is_used === 'true',
+          created_at: response.created_at,
+          updated_at: response.updated_at,
+          created_by: response.created_by,
+          config: response.config || {},
+          updated_by: response.updated_by,
+          company_id: data[0].company_id,
+        };
+        // Send to socket for real-time update
+        await newTableEntry(tableName.BANK_RESPONSE, responseObj);
       } else {
         throw new BadRequestError('UTR is already used');
       }
@@ -453,14 +505,17 @@ const updateSettlementService = async (conn, ids, payload) => {
         if (Array.isArray(calculationData) && calculationData.length > 0) {
           const amount = payload?.amount || 0;
           // calcution for vendor APPROVE settlement
-          if (data[0].method === 'INTERNAL_QR_TRANSFER' || data[0].method === 'INTERNAL_BANK_TRANSFER') {
+          if (
+            data[0].method === 'INTERNAL_QR_TRANSFER' ||
+            data[0].method === 'INTERNAL_BANK_TRANSFER'
+          ) {
             const [vendorData] = await Promise.all([
               getVendorsDao({ user_id: payload.user_id }),
             ]);
             if (!vendorData?.length) {
               throw new NotFoundError('Vendor not found');
             }
-    
+
             const VendorCommission = vendorData[0].payin_commission || 0;
             const commission = calculateCommission(
               payload.amount,
@@ -523,7 +578,7 @@ const updateSettlementService = async (conn, ids, payload) => {
           };
           await updateBeneficiaryAccountDao(
             { id: beneficiaryAcc.id, company_id: data[0].company_id },
-            {config: beneficiaryUpdatedConfig},
+            { config: beneficiaryUpdatedConfig },
             conn,
             false,
           );
@@ -618,11 +673,29 @@ const updateSettlementService = async (conn, ids, payload) => {
           if (bankResponses.is_used === true) {
             throw new BadRequestError('UTR is already used');
           }
-          await updateBankResponseDao(
+          const response = await updateBankResponseDao(
             { id: bankResponses.id },
             { status: '/success' },
             conn,
           );
+          const responseObj = {
+            id: response.id,
+            sno: response.sno,
+            status: response.status,
+            bank_id: response.bank_id,
+            amount: response.amount,
+            upi_short_code: response.upi_short_code || null,
+            utr: response.utr,
+            is_used: response.is_used === 'true',
+            created_at: response.created_at,
+            updated_at: response.updated_at,
+            created_by: response.created_by,
+            config: response.config || {},
+            updated_by: response.updated_by,
+            company_id: data[0].company_id,
+          };
+          // Send to socket for real-time update
+          await newTableEntry(tableName.BANK_RESPONSE, responseObj);
           const VendorCommission = vendorData[0].payin_commission || 0;
           const commission = calculateCommission(
             payload.amount,
@@ -658,7 +731,7 @@ const updateSettlementService = async (conn, ids, payload) => {
             };
             await updateBeneficiaryAccountDao(
               { id: beneficiaryAcc.id, company_id: data[0].company_id },
-              {config: beneficiaryUpdatedConfig},
+              { config: beneficiaryUpdatedConfig },
               conn,
               false,
             );
