@@ -1431,6 +1431,7 @@ export const processPayInService = async (
         (await getBankResponseDao({
           utr: userSubmittedUtr,
           status: '/success',
+          company_id: payIn.company_id
         })) || {};
     }
     const result = {
@@ -1508,6 +1509,7 @@ export const processPayInService = async (
         (await getBankResponseDao({
           utr: userSubmittedUtr,
           status: '/success',
+          company_id: payIn.company_id,
         })) || {};
     }
 
