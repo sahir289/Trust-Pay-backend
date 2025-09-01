@@ -1,4 +1,3 @@
-
 // Import required functions and classes
 import { getBankByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
 // import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
@@ -116,11 +115,16 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
         { apitxnid: singleWithdrawData.id }, // Include transaction ID in payload
         { headers: apiConfig.headers },
       );
+      logger.info(
+        `PayAssist payoutStatus response for apitxnid ${apitxnid}:`,
+        statusResponse.data,
+      );
 
       if (statusResponse.data.ErrorCode === '0') {
         if (
           statusResponse.data.Response.message ===
             'Reason-Transaction Failed' ||
+          statusResponse.data.Response.message === 'Transaction Failed' ||
           statusResponse.data.Response.message === 'Transaction Failed - '
         ) {
           statusResponse.data.ErrorCode = '14';

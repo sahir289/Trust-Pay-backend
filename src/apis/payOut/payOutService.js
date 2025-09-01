@@ -192,6 +192,7 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
               { apitxnid: info.id }, // Include transaction ID in payload
               { headers: apiConfig.headers },
             );
+            logger.info(`PayAssist payoutStatus response for apitxnid ${info.id}:`, statusResponse.data);
 
             if (statusResponse.data.ErrorCode === '0') {
               if (
