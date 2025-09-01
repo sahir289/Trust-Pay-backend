@@ -9,6 +9,7 @@ import {
   getSettlementDao,
   updateSettlementDao,
   getSettlementsBySearchDao,
+  getSettlementDaoforInternalTransfer,
 } from './settlementDao.js';
 import {
   getCalculationforCronDao,
@@ -275,7 +276,16 @@ const createSettlementService = async (conn, payload, role) => {
       throw new NotFoundError('Bank response not found for the provided UTR');
     }
 
-    if (bankResponses.is_used || bankResponses.status !== Status.BOT) {
+    // Get settlement data
+    const settlementArray = await getSettlementDaoforInternalTransfer(payload.config?.reference_id, payload.method);
+
+    if (!settlementArray?.length) {
+      throw new NotFoundError('Settlement not found');
+    }
+    
+    const settlementData = settlementArray[0];
+
+    if (bankResponses.is_used || bankResponses.status !== Status.BOT || payload.config?.reference_id === settlementData.config?.reference_id ) {
       throw new BadRequestError('UTR is already used');
     }
 
@@ -613,7 +623,7 @@ const handleInternalTransferReversal = async (conn, settlementData, payload) => 
   if (!bankResponses) {
     throw new NotFoundError('Bank response not found for the provided UTR');
   }
-  if (bankResponses.is_used === true) {
+  if (bankResponses.is_used === true || payload.config?.reference_id === settlementData.config?.reference_id) {
     throw new BadRequestError('UTR is already used');
   }
 
