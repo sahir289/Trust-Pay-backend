@@ -1832,10 +1832,17 @@ export const telegramResponseService = async (conn, message) => {
     }
 
     // Fetch initial data concurrently
-    const [payIn, bankResponse] = await Promise.all([
-      getPayInForTelegramResponseDao({ merchant_order_id: message.caption }),
-      getBankResponseDao({ utr: content.utr }),
-    ]);
+    // const [payIn, bankResponse] = await Promise.all([
+    //   getPayInForTelegramResponseDao({ merchant_order_id: message.caption }),
+    //   getBankResponseDao({ utr: content.utr }),
+    // ]);
+    const payIn = await getPayInForTelegramResponseDao({
+      merchant_order_id: message.caption,
+    });
+    const bankResponse = await getBankResponseDao({
+      utr: content.utr,
+      company_id: payIn.company_id,
+    });
     // Early validation for missing critical data
     if (!payIn) {
       await sendErrorMessageTelegram(
