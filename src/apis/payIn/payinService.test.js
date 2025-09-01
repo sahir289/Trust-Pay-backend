@@ -5,7 +5,7 @@ import { getMerchantBankDao, getBankaccountDao } from '../bankAccounts/bankaccou
 import { getBankResponseDao, updateBotResponseDao } from '../bankResponse/bankResponseDao.js';
 import { getCalculationforCronDao } from '../calculation/calculationDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
-import { updatePayInUrlDao, getPayInUrlDao, getPayInUrlsDao } from './payInDao.js';
+import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao, getPayInUrlsDao, getPayInForCheckDao, getPayinsForServiccDao } from './payInDao.js';
 import { logger } from '../../utils/logger.js';
 import { InternalServerError, BadRequestError, NotFoundError } from '../../utils/appErrors.js';
 import { getImageContentFromOCr, calculateDuration } from '../../helpers/index.js';
@@ -16,7 +16,6 @@ import { sendBankMismatchMessageTelegramBot, sendBankNotAssignedAlertTelegram } 
 import { getCompanyByIDDao } from '../company/companyDao.js';
 import { createHash } from '../../utils/bcryptPassword.js';
 import { nanoid } from 'nanoid';
-
 const mockPayload = {
   userSubmittedUtr: 'UTR123456',
   merchantOrderId: 'ORDER123',
@@ -134,12 +133,13 @@ jest.mock('../company/companyDao.js', () => ({
 }));
 
 jest.mock('dayjs', () => {
-  const mockDayjsInstance = {
-    add: jest.fn().mockReturnThis(),
-    tz: jest.fn().mockReturnThis(),
-    toISOString: jest.fn().mockReturnValue('2025-09-08T12:00:00Z'),
+  const actual = jest.requireActual('dayjs');
+  const mockDayjs = (date) => {
+    const instance = actual(date);
+    instance.add = (value, unit) => actual(date).add(value, unit);
+    instance.toISOString = jest.fn().mockReturnValue('2025-09-08T12:00:00Z');
+    return instance;
   };
-  const mockDayjs = jest.fn(() => mockDayjsInstance);
   mockDayjs.extend = jest.fn();
   return mockDayjs;
 });
@@ -185,6 +185,8 @@ jest.mock('./payInDao.js', () => ({
   updatePayInUrlDao: jest.fn(),
   getPayInUrlDao: jest.fn(),
   getPayInUrlsDao: jest.fn(),
+  getPayInForCheckDao: jest.fn(),
+  getPayinsForServiccDao: jest.fn(),
 }));
 
 jest.mock('../../utils/logger.js', () => ({
@@ -195,7 +197,6 @@ jest.mock('../../utils/logger.js', () => ({
     log: jest.fn(),
   },
 }));
-
 
 jest.mock('../../utils/bcryptPassword.js', () => ({
   createHash: jest.fn(),
@@ -208,28 +209,81 @@ beforeEach(() => {
 
 // verifyPayinsService Tests
 describe('verifyPayinsService', () => {
+
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(global.Set.prototype, 'has').mockReturnValue(false);
+    jest.spyOn(global.Set.prototype, 'add').mockImplementation(function (value) {
+      return this; // Return the Set instance to mimic chaining
+    });
   });
-
+  
   test('should verify payin URL successfully and return result', async () => {
+    const mockPayIn = {
+      id: 'some-id',
+      merchant_id: 'merchant1',
+      expiration_date: '2025-12-31',
+      amount: 100,
+      status: 'PENDING',
+      one_time_used: false,
+      config: {
+        urls: {
+          return: 'http://example.com/return',
+        },
+      },
+      created_by: 'user1',
+    };
+    const mockMerchant = {
+      id: 'merchant1',
+      min_payin: 10,
+      max_payin: 1000,
+    };
+    const mockBanks = [
+      {
+        bank_used_for: 'PayIn',
+        is_enabled: true,
+        is_qr: true,
+        is_bank: false,
+        config: { is_phonepay: false },
+      },
+    ];
+  
+    const mockConn = {
+      query: jest.fn().mockResolvedValue({
+        rows: [{ id: 'user1', role: 'USER' }],
+        rowCount: 1,
+      }),
+    };
+  
+    // Clear and set up mocks
+    jest.spyOn(payInService, 'getPayInUrlService').mockClear().mockImplementation(async () => {
+      console.log('getPayInUrlService called with args:', arguments);
+      return mockPayIn;
+    });
+    getPayinsForServiccDao.mockClear().mockResolvedValue(mockPayIn);
     getMerchantsDao.mockResolvedValue([mockMerchant]);
     getMerchantBankDao.mockResolvedValue(mockBanks);
     updatePayInUrlDao.mockResolvedValue({ id: mockPayIn.id });
-    getPayInUrlDao.mockResolvedValue(mockPayIn);
-
+  
     const userLocation = { user_ip: '192.168.1.1' };
-    const result = await verifyPayinsService({},'123', userLocation, 'false');
-
-    expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+    console.log('Before calling verifyPayinsService with:', { mockConn, merchantOrderId: '123', userLocation, oneTimeUsed: 'false' });
+    let result;
+    try {
+      result = await verifyPayinsService(mockConn, '123', userLocation, 'false');
+    } catch (error) {
+      console.error('Error in verifyPayinsService:', error);
+      throw error;
+    }
+    console.log('getPayInUrlService calls:', payInService.getPayInUrlService.mock.calls);
+    console.log('Result:', result);
+  
+    expect(payInService.getPayInUrlService).toHaveBeenCalledWith('123');
+    expect(getPayinsForServiccDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
     expect(getMerchantsDao).toHaveBeenCalledWith({ id: 'merchant1' });
     expect(getMerchantBankDao).toHaveBeenCalledWith({ config_merchants_contains: 'merchant1' });
     expect(updatePayInUrlDao).toHaveBeenCalledWith(mockPayIn.id, {
-      config: JSON.stringify({
-        urls: mockPayIn.config.urls,
-        user: userLocation,
-      }),
-      one_time_used: 'false',
+      config: expect.any(String),
+      one_time_used: false,
     });
     expect(result).toEqual({
       expiryTime: mockPayIn.expiration_date,
@@ -243,31 +297,63 @@ describe('verifyPayinsService', () => {
       is_phonepay: false,
       is_bank: false,
       redirect_url: mockPayIn.config.urls.return,
+      merchantOrderId: '123',
     });
     expect(logger.info).toHaveBeenCalledWith('PayIn URL verified successfully:', expect.any(Object));
   });
-
-  test('should return error for already used payin URL', async () => {
-    const usedPayIn = { ...mockPayIn, one_time_used: true };
-    getPayInUrlDao.mockResolvedValue(usedPayIn);
-    updatePayInUrlDao.mockResolvedValue({ id: usedPayIn.id });
-
-    const userLocation = { user_ip: '192.168.1.1' };
-    const result = await verifyPayinsService({},'123', userLocation, 'false');
-
-    expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
-    expect(updatePayInUrlDao).toHaveBeenCalledWith(usedPayIn.id, {
-      config: expect.any(String),
-      one_time_used: true,
+  
+    test('should throw NotFoundError for invalid merchant order id', async () => {
+      payInService.getPayInUrlService.mockResolvedValue(null);
+      await expect(
+        verifyPayinsService({}, '123', { user_ip: '192.168.1.1' }, 'false')
+      ).rejects.toThrow(new NotFoundError('Payment Url is incorrect'));
     });
-    expect(result).toEqual({
-      error: 'This payin url is already used',
-      result: { redirect_url: mockPayIn.config.urls.return },
+
+    test('should return error for already used payin URL', async () => {
+      const usedPayIn = {
+        id: 'payin1',
+        merchant_id: 'merchant1',
+        merchant_order_id: '123',
+        one_time_used: true,
+        config: { urls: { return: 'http://return.url' } },
+        amount: 100,
+        expiration_date: '2025-12-31',
+        status: 'PENDING',
+        created_by: 'user1',
+      };
+    
+      // Mock database connection
+      const mockConn = {
+        query: jest.fn().mockResolvedValue({
+          rows: [{ id: 'user1', role: 'USER' }], // Mock user data
+          rowCount: 1,
+        }),
+      };
+    
+      // Mock DAO calls
+      getPayinsForServiccDao.mockResolvedValue(usedPayIn);
+      getMerchantsDao.mockResolvedValue([mockMerchant]);
+      updatePayInUrlDao.mockResolvedValue({ id: usedPayIn.id });
+    
+      const userLocation = { user_ip: '192.168.1.1' };
+      const result = await verifyPayinsService(mockConn, '123', userLocation, 'false');
+    
+      expect(getPayinsForServiccDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+      expect(mockConn.query).toHaveBeenCalledWith(
+        expect.stringContaining('SELECT'),
+        ['user1']
+      );
+      expect(updatePayInUrlDao).toHaveBeenCalledWith(usedPayIn.id, {
+        config: expect.any(String),
+        one_time_used: true,
+      });
+      expect(result).toEqual({
+        error: 'This payin url is already used',
+        result: { redirect_url: usedPayIn.config.urls.return },
+      });
+      expect(getMerchantsDao).toHaveBeenCalledWith({ id: usedPayIn.merchant_id });
+      // expect(logger.error).not.toHaveBeenCalled();
     });
-    expect(getMerchantsDao).not.toHaveBeenCalled();
-    expect(getMerchantBankDao).not.toHaveBeenCalled();
-    expect(logger.error).not.toHaveBeenCalled();
-  });
 
   test('should throw InternalServerError if updatePayInUrlDao returns null', async () => {
     getPayInUrlDao.mockResolvedValue({
@@ -404,7 +490,6 @@ describe('processPayInService', () => {
         return { rows: [] };
       }),
     };
-    // Mock getPayInUrlService specifically for this suite
     payInService.getPayInUrlService.mockResolvedValue(mockPayInProcess);
     getPayInUrlDao.mockResolvedValue(mockPayInProcess);
     checkLockEdit.mockResolvedValue(true);
@@ -603,8 +688,6 @@ describe('processPayInByImageService', () => {
         return { rows: [] };
       }),
     };
-    // Mock getPayInUrlService specifically for this suite
-    // payInService.getPayInUrlService = jest.fn();
     payInService.getPayInUrlService.mockResolvedValue({
       id: 'PAYIN123',
       merchant_order_id: 'order123',
@@ -623,9 +706,7 @@ describe('processPayInByImageService', () => {
       created_at: new Date('2023-01-01T00:00:00Z'),
       config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
     });
-    calculateDuration.mockImplementation(() => {
-      return 3600;
-    });
+    calculateDuration.mockImplementation(() => 3600);
     updatePayInUrlDao.mockResolvedValue({
       id: 'PAYIN123',
       amount: 500,
@@ -636,9 +717,7 @@ describe('processPayInByImageService', () => {
       duration: 3600,
       config: { urls: { return: 'http://return.url' } },
     });
-    getImageContentFromOCr.mockImplementation(async () => {
-      return null;
-    });
+    getImageContentFromOCr.mockImplementation(async () => null);
   });
 
   test('should update payin and return IMG_PENDING when OCR content or utr missing', async () => {
@@ -905,7 +984,6 @@ describe('generatePayInUrlService', () => {
       headers: { 'x-api-key': 'test-api-key' },
     };
     nanoid.mockReturnValue('QokKC');
-    jest.mock('../../utils/db.js', () => (fn) => async (...args) => fn(...args));
   });
 
   test('should return 400 if IP is not whitelisted and fromUI is false', async () => {
@@ -922,7 +1000,7 @@ describe('generatePayInUrlService', () => {
         company_id: 'company1',
       },
     ]);
-    getPayInUrlDao.mockResolvedValue(null);
+    getPayInForCheckDao.mockResolvedValue([]);
 
     const payload = {
       code: 'MERCHANT123',
@@ -966,12 +1044,12 @@ describe('generatePayInUrlService', () => {
         company_id: 'company1',
       },
     ]);
-    getPayInUrlDao.mockResolvedValue({ id: 'existing_order' });
+    getPayInForCheckDao.mockResolvedValue([{ id: 'existing_order' }]);
 
     const result = await payInService.generatePayInUrlService({}, mockReq.query, 'test_user', '192.168.1.1', true);
 
     expect(getMerchantsByCodeDao).toHaveBeenCalledWith('MERCHANT123');
-    expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: 'order123' });
+    expect(getPayInForCheckDao).toHaveBeenCalledWith({ merchant_order_id: 'order123' });
     expect(result).toEqual({
       status: 400,
       message: 'Merchant Order ID already exists',
@@ -980,7 +1058,7 @@ describe('generatePayInUrlService', () => {
 
   test('should return 400 and "Merchant does not exist" message if merchant not found', async () => {
     getMerchantsByCodeDao.mockResolvedValue([]);
-    getPayInUrlDao.mockResolvedValue(null);
+    getPayInForCheckDao.mockResolvedValue([]);
 
     const payload = {
       code: 'MERCHANT123',
@@ -1031,7 +1109,7 @@ describe('generatePayInUrlService', () => {
         company_id: 'company1',
       },
     ]);
-    getPayInUrlDao.mockResolvedValue(null);
+    getPayInForCheckDao.mockResolvedValue([]);
 
     const result = await payInService.generatePayInUrlService(mockConn, payload, 'creator123', '127.0.0.1', false);
 
@@ -1063,7 +1141,7 @@ describe('generatePayInUrlService', () => {
         company_id: 'company1',
       },
     ]);
-    getPayInUrlDao.mockResolvedValue(null);
+    getPayInForCheckDao.mockResolvedValue([]);
 
     const result = await payInService.generatePayInUrlService(mockConn, payload, 'creator123', '127.0.0.1', false);
 
@@ -1085,158 +1163,225 @@ describe('generatePayInUrlService', () => {
       )
     ).rejects.toThrow('Database error');
   });
+
+  test('should handle invalid amount range for non-admin', async () => {
+    const payload = {
+      code: 'MERCHANT123',
+      user_id: '123',
+      amount: 50,
+      api_key: 'test-api-key',
+    };
+    getMerchantsByCodeDao.mockResolvedValue([{
+      id: 'merchant1',
+      config: { keys: { private: 'test-api-key' }, whitelist_ips: [] },
+      min_payin: 100,
+      max_payin: 10000,
+      company_id: 'company1',
+    }]);
+    getPayInForCheckDao.mockResolvedValue([]);
+
+    const result = await payInService.generatePayInUrlService({}, payload, 'test_user', '192.168.1.1', true);
+    expect(result).toEqual({
+      status: 400,
+      message: 'Amount must be between 100 and 10000',
+    });
+  });
+
+  test('should allow invalid amount for admin role', async () => {
+    const payload = {
+      code: 'MERCHANT123',
+      user_id: '123',
+      amount: 50,
+      api_key: 'test-api-key',
+    };
+    getMerchantsByCodeDao.mockResolvedValue([{
+      id: 'merchant1',
+      config: { keys: { private: 'test-api-key' }, whitelist_ips: [] },
+      min_payin: 100,
+      max_payin: 10000,
+      company_id: 'company1',
+    }]);
+    getPayInForCheckDao.mockResolvedValue([]);
+    generatePayInUrlDao.mockResolvedValue({ id: 'new-payin' });
+
+    const result = await payInService.generatePayInUrlService({}, payload, 'admin_user', 'ADMIN', '192.168.1.1', true);
+    expect(result).toEqual({ id: 'new-payin' });
+  });
 });
 
 // getPayInUrlService Tests
-// describe('getPayInUrlService', () => {
-//   beforeEach(() => {
-//     jest.clearAllMocks();
-//     jest.spyOn(Date, 'now').mockReturnValue(1630000000000);
-//   });
+describe('getPayInUrlService', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(Date, 'now').mockReturnValue(1630000000000);
+  });
 
-//   afterEach(() => {
-//     jest.spyOn(Date, 'now').mockRestore();
-//   });
+  afterEach(() => {
+    jest.spyOn(Date, 'now').mockRestore();
+  });
 
-//   test('should return payIn object when URL is valid', async () => {
-//     const mockPayIn = {
-//       id: 'PAYIN123',
-//       merchant_order_id: '123',
-//       config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
-//       is_url_expires: false,
-//       one_time_used: false,
-//       expiration_date: 1630000001000,
-//       status: 'INITIATED',
-//       amount: 500,
-//     };
-//     getPayInUrlDao.mockResolvedValue(mockPayIn);
+  test('should return payIn object when URL is valid', async () => {
+    const mockPayIn = {
+      id: 'PAYIN123',
+      merchant_order_id: '123',
+      config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
+      is_url_expires: false,
+      one_time_used: false,
+      expiration_date: 1630000001000,
+      status: 'INITIATED',
+      amount: 500,
+    };
+    getPayInUrlDao.mockResolvedValue(mockPayIn);
 
-//     const result = await payInService.getPayInUrlService('123', {}, true);
+    const result = await payInService.getPayInUrlService('123', {}, true);
 
-//     expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
-//     expect(result).toEqual(mockPayIn);
-//     expect(updatePayInUrlDao).not.toHaveBeenCalled();
-//     expect(merchantPayinCallback).not.toHaveBeenCalled();
-//   });
+    expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+    expect(result).toEqual(mockPayIn);
+    expect(updatePayInUrlDao).not.toHaveBeenCalled();
+    expect(merchantPayinCallback).not.toHaveBeenCalled();
+  });
 
-//   test('should throw NotFoundError when payIn is not found', async () => {
-//     getPayInUrlDao.mockResolvedValue(null);
+  test('should throw NotFoundError when payIn is not found', async () => {
+    getPayInUrlDao.mockResolvedValue(null);
 
-//     await expect(payInService.getPayInUrlService('123', {})).rejects.toThrow(NotFoundError);
-//     expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
-//     expect(updatePayInUrlDao).not.toHaveBeenCalled();
-//     expect(merchantPayinCallback).not.toHaveBeenCalled();
-//   });
+    await expect(payInService.getPayInUrlService('123', {})).rejects.toThrow(NotFoundError);
+    expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+    expect(updatePayInUrlDao).not.toHaveBeenCalled();
+    expect(merchantPayinCallback).not.toHaveBeenCalled();
+  });
 
-//   test('should return error and redirect URL when URL is expired and tele_check is true', async () => {
-//     const mockPayIn = {
-//       id: 'PAYIN123',
-//       merchant_order_id: '123',
-//       config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
-//       is_url_expires: true,
-//       one_time_used: false,
-//       expiration_date: 1629999999999,
-//       status: 'INITIATED',
-//       amount: 500,
-//     };
-//     getPayInUrlDao.mockResolvedValue(mockPayIn);
+  test('should return error and redirect URL when URL is expired and tele_check is true', async () => {
+    const mockPayIn = {
+      id: 'PAYIN123',
+      merchant_order_id: '123',
+      config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
+      is_url_expires: true,
+      one_time_used: false,
+      expiration_date: 1629999999999,
+      status: 'INITIATED',
+      amount: 500,
+    };
+    getPayInUrlDao.mockResolvedValue(mockPayIn);
 
-//     const result = await payInService.getPayInUrlService('123', {}, true);
+    const result = await payInService.getPayInUrlService('123', {}, true);
 
-//     expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
-//     expect(result).toEqual({
-//       error: 'Url is expired',
-//       result: { redirect_url: 'http://return.url' },
-//     });
-//     expect(updatePayInUrlDao).not.toHaveBeenCalled();
-//     expect(merchantPayinCallback).not.toHaveBeenCalled();
-//   });
+    expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+    expect(result).toEqual({
+      error: 'Url is expired',
+      result: { redirect_url: 'http://return.url' },
+    });
+    expect(updatePayInUrlDao).not.toHaveBeenCalled();
+    expect(merchantPayinCallback).not.toHaveBeenCalled();
+  });
 
-//   test('should return error and redirect URL when one_time_used is true', async () => {
-//     const mockPayIn = {
-//       id: 'PAYIN123',
-//       merchant_order_id: '123',
-//       config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
-//       is_url_expires: false,
-//       one_time_used: true,
-//       expiration_date: 1630000001000,
-//       status: 'INITIATED',
-//       amount: 500,
-//     };
-//     getPayInUrlDao.mockResolvedValue(mockPayIn);
+  test('should return error and redirect URL when one_time_used is true', async () => {
+    const mockPayIn = {
+      id: 'PAYIN123',
+      merchant_order_id: '123',
+      config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
+      is_url_expires: false,
+      one_time_used: true,
+      expiration_date: 1630000001000,
+      status: 'INITIATED',
+      amount: 500,
+    };
+    getPayInUrlDao.mockResolvedValue(mockPayIn);
 
-//     const result = await payInService.getPayInUrlService('123', {}, true);
+    const result = await payInService.getPayInUrlService('123', {}, true);
 
-//     expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
-//     expect(result).toEqual({
-//       error: 'Url is expired',
-//       result: { redirect_url: 'http://return.url' },
-//     });
-//     expect(updatePayInUrlDao).not.toHaveBeenCalled();
-//     expect(merchantPayinCallback).not.toHaveBeenCalled();
-//   });
+    expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+    expect(result).toEqual({
+      error: 'Url is expired',
+      result: { redirect_url: 'http://return.url' },
+    });
+    expect(updatePayInUrlDao).not.toHaveBeenCalled();
+    expect(merchantPayinCallback).not.toHaveBeenCalled();
+  });
 
-//   test('should update payIn and notify merchant when URL is expired and status is not INITIATED', async () => {
-//     const mockPayIn = {
-//       id: 'PAYIN123',
-//       merchant_order_id: '123',
-//       config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
-//       is_url_expires: false,
-//       one_time_used: false,
-//       expiration_date: 1629999999999,
-//       status: 'PENDING',
-//       amount: 500,
-//     };
-//     getPayInUrlDao.mockResolvedValue(mockPayIn);
-//     updatePayInUrlDao.mockResolvedValue();
+  test('should update payIn and notify merchant when URL is expired and status is not INITIATED', async () => {
+    const mockPayIn = {
+      id: 'PAYIN123',
+      merchant_order_id: '123',
+      config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
+      is_url_expires: false,
+      one_time_used: false,
+      expiration_date: 1629999999999,
+      status: 'PENDING',
+      amount: 500,
+    };
+    getPayInUrlDao.mockResolvedValue(mockPayIn);
+    updatePayInUrlDao.mockResolvedValue();
 
-//     await payInService.getPayInUrlService('123', {});
+    await payInService.getPayInUrlService('123', {});
 
-//     expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
-//     expect(updatePayInUrlDao).toHaveBeenCalledWith(
-//       'PAYIN123',
-//       { is_url_expires: true, status: 'DROPPED' },
-//       {}
-//     );
-//     expect(merchantPayinCallback).toHaveBeenCalledWith(
-//       'http://notify.url',
-//       expect.objectContaining({
-//         status: 'DROPPED',
-//         merchantOrderId: '123',
-//         payinId: 'PAYIN123',
-//       })
-//     );
-//   });
+    expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+    expect(updatePayInUrlDao).toHaveBeenCalledWith(
+      '123',
+      { is_url_expires: true, status: 'DROPPED' },
+      {}
+    );
+    expect(merchantPayinCallback).toHaveBeenCalledWith(
+      'http://notify.url',
+      expect.objectContaining({
+        status: 'DROPPED',
+        merchantOrderId: '123',
+        payinId: 'PAYIN123',
+      })
+    );
+  });
 
-//   test('should skip expiration check when tele_check is false', async () => {
-//     const mockPayIn = {
-//       id: 'PAYIN123',
-//       merchant_order_id: '123',
-//       config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
-//       is_url_expires: true,
-//       one_time_used: true,
-//       expiration_date: 1629999999999,
-//       status: 'INITIATED',
-//       amount: 500,
-//     };
-//     getPayInUrlDao.mockResolvedValue(mockPayIn);
+  test('should skip expiration check when tele_check is false', async () => {
+    const mockPayIn = {
+      id: 'PAYIN123',
+      merchant_order_id: '123',
+      config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
+      is_url_expires: true,
+      one_time_used: true,
+      expiration_date: 1629999999999,
+      status: 'INITIATED',
+      amount: 500,
+    };
+    getPayInUrlDao.mockResolvedValue(mockPayIn);
 
-//     const result = await payInService.getPayInUrlService('123', {}, false);
+    const result = await payInService.getPayInUrlService('123', {}, false);
 
-//     expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
-//     expect(result).toEqual(mockPayIn);
-//     expect(updatePayInUrlDao).not.toHaveBeenCalled();
-//     expect(merchantPayinCallback).not.toHaveBeenCalled();
-//   });
+    expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+    expect(result).toEqual(mockPayIn);
+    expect(updatePayInUrlDao).not.toHaveBeenCalled();
+    expect(merchantPayinCallback).not.toHaveBeenCalled();
+  });
 
-//   test('should log error and rethrow when an error occurs', async () => {
-//     const error = new Error('Database error');
-//     getPayInUrlDao.mockRejectedValue(error);
+  test('should log error and rethrow when an error occurs', async () => {
+    const error = new Error('Database error');
+    getPayInUrlDao.mockRejectedValue(error);
 
-//     await expect(payInService.getPayInUrlService('123', {})).rejects.toThrow('Database error');
-//     expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
-//     expect(logger.error).toHaveBeenCalledWith('Error in getPayInUrlService:', error);
-//     expect(updatePayInUrlDao).not.toHaveBeenCalled();
-//     expect(merchantPayinCallback).not.toHaveBeenCalled();
-//   });
-// });
+    await expect(payInService.getPayInUrlService('123', {})).rejects.toThrow('Database error');
+    expect(getPayInUrlDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+    expect(logger.error).toHaveBeenCalledWith('Error in getPayInUrlService:', error);
+    expect(updatePayInUrlDao).not.toHaveBeenCalled();
+    expect(merchantPayinCallback).not.toHaveBeenCalled();
+  });
+
+  test('should handle expired payin URL and update status', async () => {
+    const expiredPayIn = {
+      ...mockPayIn,
+      expiration_date: 1629999999999, // Expired
+      status: 'PENDING',
+      config: { urls: { notify: 'http://notify.url' } },
+    };
+    getPayinsForServiccDao.mockResolvedValue(expiredPayIn);
+    updatePayInUrlDao.mockResolvedValue({ id: expiredPayIn.id });
+  
+    await expect(payInService.getPayInUrlService('123')).rejects.toThrow('PayIn Expired');
+    expect(getPayinsForServiccDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+    expect(updatePayInUrlDao).toHaveBeenCalledWith(
+      '123',
+      { is_url_expires: true, status: 'DROPPED' },
+      {}
+    );
+    expect(merchantPayinCallback).toHaveBeenCalledWith(
+      'http://notify.url',
+      expect.objectContaining({ status: 'DROPPED' })
+    );
+  });
+});

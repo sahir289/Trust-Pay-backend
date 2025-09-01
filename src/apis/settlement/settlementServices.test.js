@@ -483,6 +483,27 @@ describe('Settlement Service', () => {
       );
       expect(result).toEqual({ id: 1 });
     });
+
+    it('should handle REJECTED status with rejected_reason', async () => {
+      checkLockEdit.mockResolvedValue();
+      getSettlementDao.mockResolvedValue([{ id: 1, user_id: 1, method: 'BANK', role: Role.MERCHANT, config: {} }]);
+      getCalculationforCronDao.mockResolvedValue([{ id: 1, config: {} }]);
+      updateSettlementDao.mockResolvedValue({ id: 1 });
+    
+      const result = await updateSettlementService(mockConn, mockIds, { 
+        ...mockPayload, 
+        config: { rejected_reason: 'Invalid data' } 
+      });
+    
+      expect(updateCalculationBalanceDao).not.toHaveBeenCalled(); 
+      expect(updateSettlementDao).toHaveBeenCalledWith(
+        mockConn,
+        { id: mockIds.id, company_id: mockIds.company_id },
+        expect.objectContaining({ status: Status.REJECTED, rejected_at: expect.any(Date) })
+      );
+      expect(result).toEqual({ id: 1 });
+    });
+    
   });
 
   describe('deleteSettlementService', () => {

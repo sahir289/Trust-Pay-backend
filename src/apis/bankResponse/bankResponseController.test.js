@@ -81,8 +81,14 @@ describe('Bank Response Controller', () => {
               sortBy: 'name',
               sortOrder: 'asc',
             };
+            const req_user ={
+                designation :'VENDOR',
+                user_id :'user_1',
+                company_id: '123',
+                role: 'VENDOR'
+            }
             req.query = query;
-          
+            req.user = req_user;
             const mockData = { responses: [], total: 0 };
             getBankResponseService.mockResolvedValue(mockData);
           
@@ -95,13 +101,15 @@ describe('Bank Response Controller', () => {
                 search: "test",
                 updated: "2023-01-01",
               },
-              'USER',
+              'VENDOR',
                  '1',
                 '10',
                 'test',
                 '2023-01-01',
                 'name',
                 'asc',
+                'VENDOR',
+                'user_1'
               
             );
           
@@ -138,8 +146,14 @@ describe('Bank Response Controller', () => {
               sortBy: 'name',
               sortOrder: 'asc',
             };
+            const req_user ={
+                designation :'VENDOR',
+                user_id :'user_1',
+                company_id: '123',
+                role: 'VENDOR'
+            }
             req.query = query;
-          
+            req.user = req_user;
             const mockData = { responses: [], total: 0 };
             getBankResponseBySearchService.mockResolvedValue(mockData);
           
@@ -153,13 +167,15 @@ describe('Bank Response Controller', () => {
                     search: "test",
                     updated: "2023-01-01",
                 },
-                'USER',
+                'VENDOR',
                 '1',
                 '10',
                 'test',
                 '2023-01-01',
                 'name',
                 'asc',
+                'VENDOR',
+                'user_1'
             );
           
             expect(sendSuccess).toHaveBeenCalledWith(

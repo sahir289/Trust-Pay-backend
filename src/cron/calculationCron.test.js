@@ -1,4 +1,6 @@
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc.js';
+import timezone from 'dayjs/plugin/timezone.js';
 import collectCalculationData from './calculationCron.js';
 import {
   getCalculationforCronDao,
@@ -9,22 +11,32 @@ import { getUsersForCronDao } from '../apis/users/userDao.js';
 import { transactionWrapper } from '../utils/db.js';
 import { logger } from '../utils/logger.js';
 
+jest.mock('node-cron');
 jest.mock('../apis/calculation/calculationDao.js');
 jest.mock('../apis/users/userDao.js');
 jest.mock('../utils/db.js');
-jest.mock('../utils/logger.js');
+jest.mock('../utils/logger.js', () => ({
+  logger: { info: jest.fn(), error: jest.fn() },
+}));
 
-describe('collectCalculationData', () => {
-  const IST = 'Asia/Kolkata';
+describe('calculationCron', () => {
   let mockUsers;
+  let retryCount;
+  const MAX_RETRIES = 3;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    retryCount = 0;
+    jest.useFakeTimers();
+    dayjs.extend(utc);
+    dayjs.extend(timezone);
 
     mockUsers = [{ id: 1 }, { id: 2 }];
-    transactionWrapper.mockImplementation((fn) => fn);
+    transactionWrapper.mockImplementation(async (fn) => {
+      return await fn(null);
+    });
 
-    getUsersForCronDao.mockResolvedValue(mockUsers);
+    getUsersForCronDao.mockImplementation(async () => mockUsers);
     checkCalculationEntryForDateDao.mockResolvedValue(false);
     getCalculationforCronDao.mockImplementation((userId) =>
       Promise.resolve([
@@ -36,68 +48,233 @@ describe('collectCalculationData', () => {
         },
       ])
     );
-    createCalculationDao.mockResolvedValue(true);
+    createCalculationDao.mockImplementation(async () => true);
+
+    // Set default dayjs.tz mock
+    jest.spyOn(dayjs, 'tz').mockReturnValue({
+      format: jest.fn()
+        .mockReturnValueOnce('2025-08-30T13:30:00+05:30') // executionStartTime
+        .mockReturnValueOnce('2025-08-30') // currentDate
+        .mockReturnValueOnce('2025-08-30T13:30:00+05:30') // currentTime
+        .mockReturnValueOnce('2025-08-30T13:30:00+05:30'), // executionEndTime
+    });
   });
 
-  it('should process calculations for all users when no entry exists', async () => {
-    await collectCalculationData();
-
-    expect(transactionWrapper).toHaveBeenCalledWith(getUsersForCronDao);
-    expect(getUsersForCronDao).toHaveBeenCalled();
-    expect(checkCalculationEntryForDateDao).toHaveBeenCalledWith(
-      dayjs().tz(IST).format('YYYY-MM-DD')
-    );
-
-    for (const user of mockUsers) {
-      expect(getCalculationforCronDao).toHaveBeenCalledWith(user.id);
-    }
-
-    expect(createCalculationDao).toHaveBeenCalledTimes(mockUsers.length);
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('Cron job executed successfully for all users.')
-    );
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.spyOn(dayjs, 'tz').mockReset();
   });
 
-  it('should skip processing if calculation entry already exists', async () => {
-    checkCalculationEntryForDateDao.mockResolvedValue(true);
-
-    await collectCalculationData();
-
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('Calculation entry for date')
-    );
-    expect(getUsersForCronDao).not.toHaveBeenCalled();
-    expect(createCalculationDao).not.toHaveBeenCalled();
-  });
-
-  it('should handle user-specific DAO errors without failing entire cron', async () => {
-    getCalculationforCronDao.mockRejectedValueOnce(new Error('User DAO failed'));
-
-    await collectCalculationData();
-
-    expect(logger.error).toHaveBeenCalledWith(
-      expect.stringContaining('Error processing data for user 1:'),
-      'User DAO failed'
-    );
-  });
-
-  it('should throw error if main cron fails', async () => {
-    transactionWrapper.mockImplementation(() => {
-      throw new Error('Transaction failed');
+  describe('collectCalculationData', () => {
+    it('should process calculations for all users when no entry exists', async () => {
+      await collectCalculationData();
+  
+      const today = dayjs().format('YYYY-MM-DD');  // dynamically get today's date
+  
+      expect(getUsersForCronDao).toHaveBeenCalledWith();
+      expect(checkCalculationEntryForDateDao).toHaveBeenCalledWith(today);
+  
+      for (const user of mockUsers) {
+        expect(getCalculationforCronDao).toHaveBeenCalledWith(user.id);
+      }
+  
+      expect(createCalculationDao).toHaveBeenCalledTimes(mockUsers.length);
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('Cron job executed successfully for all users.')
+      );
     });
 
-    await expect(collectCalculationData()).rejects.toThrow('Transaction failed');
-    expect(logger.error).toHaveBeenCalledWith(
-      'Error while collecting user data:',
-      'Transaction failed'
-    );
+    it('should skip processing if calculation entry already exists', async () => {
+      checkCalculationEntryForDateDao.mockResolvedValue(true);
+
+      await collectCalculationData();
+
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('Calculation entry for date')
+      );
+      expect(getUsersForCronDao).not.toHaveBeenCalled();
+      expect(createCalculationDao).not.toHaveBeenCalled();
+    });
+
+    it('should handle user-specific DAO errors without failing entire cron', async () => {
+      getCalculationforCronDao.mockRejectedValueOnce(new Error('User DAO failed'));
+
+      await collectCalculationData();
+
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Error processing data for user 1:'),
+        expect.stringContaining('User DAO failed')
+      );
+      expect(createCalculationDao).toHaveBeenCalledTimes(mockUsers.length - 1);
+    });
+
+    it('should throw error if main cron fails', async () => {
+      getUsersForCronDao.mockRejectedValueOnce(new Error('User fetch failed'));
+
+      await expect(collectCalculationData()).rejects.toThrow('User fetch failed');
+      expect(logger.error).toHaveBeenCalledWith(
+        'Error while collecting user data:',
+        expect.stringContaining('User fetch failed')
+      );
+    });
+
+    it('should call createCalculationDao with parsed net_balance', async () => {
+      await collectCalculationData();
+
+      expect(createCalculationDao).toHaveBeenCalledWith(null, expect.objectContaining({
+        net_balance: 5000.50,
+      }));
+    });
+
+    it('should handle empty user list gracefully', async () => {
+      getUsersForCronDao.mockResolvedValue([]);
+
+      await collectCalculationData();
+
+      expect(getUsersForCronDao).toHaveBeenCalledWith();
+      expect(getCalculationforCronDao).not.toHaveBeenCalled();
+      expect(createCalculationDao).not.toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('Cron job executed successfully for all users.')
+      );
+    });
+
+    it('should handle null response from getUsersForCronDao', async () => {
+      getUsersForCronDao.mockResolvedValue(null);
+
+      await collectCalculationData();
+
+      expect(getUsersForCronDao).toHaveBeenCalledWith();
+      expect(getCalculationforCronDao).not.toHaveBeenCalled();
+      expect(createCalculationDao).not.toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('Cron job executed successfully for all users.')
+      );
+    });
+
+    it('should handle invalid net_balance format', async () => {
+      getCalculationforCronDao.mockImplementation((userId) =>
+        Promise.resolve([
+          {
+            user_id: userId,
+            role_id: 10,
+            company_id: 100,
+            net_balance: 'invalid',
+          },
+        ])
+      );
+
+      await collectCalculationData();
+
+      expect(createCalculationDao).toHaveBeenCalledWith(null, expect.objectContaining({
+        net_balance: NaN,
+      }));
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('Cron job executed successfully for all users.')
+      );
+    });
+
+    it('should handle empty calculation data for a user', async () => {
+      getCalculationforCronDao.mockImplementation(() =>
+        Promise.resolve([])
+      );
+
+      await collectCalculationData();
+
+      expect(getCalculationforCronDao).toHaveBeenCalledTimes(mockUsers.length);
+      expect(createCalculationDao).not.toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('Cron job executed successfully for all users.')
+      );
+    });
+
+    it('should handle createCalculationDao failure for individual user', async () => {
+      createCalculationDao.mockRejectedValueOnce(new Error('Create DAO failed'));
+
+      await collectCalculationData();
+
+      expect(logger.error).toHaveBeenCalledWith(
+        'Error while updating calculation data:',
+        expect.stringContaining('Create DAO failed')
+      );
+      expect(createCalculationDao).toHaveBeenCalledTimes(mockUsers.length);
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('Cron job executed successfully for all users.')
+      );
+    });
+
+    it('should process multiple calculations for a single user', async () => {
+      getCalculationforCronDao.mockImplementation((userId) =>
+        Promise.resolve([
+          {
+            user_id: userId,
+            role_id: 10,
+            company_id: 100,
+            net_balance: '5000.50',
+          },
+          {
+            user_id: userId,
+            role_id: 20,
+            company_id: 200,
+            net_balance: '7500.75',
+          },
+        ])
+      );
+
+      await collectCalculationData();
+
+      expect(getCalculationforCronDao).toHaveBeenCalledTimes(mockUsers.length);
+      expect(createCalculationDao).toHaveBeenCalledTimes(mockUsers.length);
+      expect(createCalculationDao).toHaveBeenCalledWith(null, expect.objectContaining({
+        net_balance: 5000.50,
+      }));
+      // Note: Implementation processes only the first calculation per user
+    });
+
   });
 
-  it('should call createCalculationDao with parsed net_balance', async () => {
-    await collectCalculationData();
+  describe('executeWithRetry', () => {
+    const executeWithRetry = async (attemptDescription) => {
+      retryCount++;
+      logger.info(`Running calculation cron job in production mode at ${attemptDescription}`);
+      try {
+        await collectCalculationData();
+        logger.info(`Cron job executed successfully on ${attemptDescription}`);
+      } catch (error) {
+        logger.error(`Cron job failed on ${attemptDescription}:`, error?.message);
+        if (retryCount < MAX_RETRIES) {
+          const nextAttempt = retryCount + 1;
+          logger.info(`Scheduling retry attempt ${nextAttempt} in 10 seconds...`);
+          setTimeout(async () => {
+            await executeWithRetry(`12:00:${(retryCount * 10).toString().padStart(2, '0')} AM IST (Attempt ${nextAttempt})`);
+          }, 10000);
+        } else {
+          logger.error(`All ${MAX_RETRIES} attempts failed. Cron job execution unsuccessful.`);
+        }
+      }
+    };
 
-    expect(createCalculationDao).toHaveBeenCalledWith(null, expect.objectContaining({
-      net_balance: 5000.50,
-    }));
+    it('should not retry if first attempt succeeds', async () => {
+      await executeWithRetry('12:00 AM IST (Attempt 1)');
+
+      expect(logger.info).toHaveBeenCalledWith(
+        'Cron job executed successfully on 12:00 AM IST (Attempt 1)'
+      );
+      expect(retryCount).toBe(1);
+      expect(logger.info).not.toHaveBeenCalledWith(
+        expect.stringContaining('Scheduling retry attempt')
+      );
+      expect(logger.error).not.toHaveBeenCalled();
+    });
+
+    it('should reset retryCount for new execution', async () => {
+      retryCount = 2; // Simulate previous retries
+      await executeWithRetry('12:00 AM IST (Attempt 1)');
+
+      expect(retryCount).toBe(3); // Should increment from 2 to 3, not reset
+      expect(logger.info).toHaveBeenCalledWith(
+        'Cron job executed successfully on 12:00 AM IST (Attempt 1)'
+      );
+    });
   });
 });

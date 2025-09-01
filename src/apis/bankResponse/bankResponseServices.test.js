@@ -21,7 +21,7 @@ const {
     resetBankResponseDao,
   } = require('./bankResponseDao');
   const { getBankaccountDao, updateBankaccountDao } = require('../bankAccounts/bankaccountDao');
-  const { getPayInUrlsDao, updatePayInUrlDao } = require('../payIn/payInDao');
+  const { getPayInUrlsDao, updatePayInUrlDao, getPayInsBankResDao } = require('../payIn/payInDao');
   const { getMerchantsDao } = require('../merchants/merchantDao');
   const { getVendorsDao, updateVendorDao } = require('../vendors/vendorDao');
   const {
@@ -232,89 +232,89 @@ const {
         expect(result).toEqual({ message: 'UTRs can only contain alphanumeric characters.' });
       });
   
-      it('should handle successful pay-in with matching UTR', async () => {
-        const payload = '1000.00 nil utr123 bank_1 true';
-  
-        getBankResponseDao.mockResolvedValue(null);
-        createBankResponseDao.mockResolvedValue({
-          id: '1',
-          status: '/success',
-          amount: 1000,
-          utr: 'utr123',
-          bank_id: 'bank_1',
-          is_used: 'false',
-        });
-        getBankaccountDao.mockResolvedValue([
-          {
-            balance: 5000,
-            today_balance: 2000,
-            payin_count: 1,
-            user_id: 'user_1',
-            config: {},
-          },
-        ]);
-        getVendorsDao.mockResolvedValue([
-          { id: 'vendor_1', balance: 10000, payin_commission: 0.01 },
-        ]);
-        getPayInUrlsDao.mockResolvedValue([
-          {
-            id: 'payin_1',
+        it('should handle successful pay-in with matching UTR', async () => {
+          const payload = '1000.00 nil utr123 bank_1 true';
+      
+          getBankResponseDao.mockResolvedValue(null);
+          createBankResponseDao.mockResolvedValue({
+            id: '1',
+            status: '/success',
             amount: 1000,
-            user_submitted_utr: 'utr123',
-            bank_acc_id: 'bank_1',
-            merchant_id: 'merchant_1',
-            config: { urls: { notify: 'url' } },
-            created_at: new Date('2025-08-18'),
-          },
-        ]);
-        getMerchantsDao.mockResolvedValue([
-          { balance: 5000, payin_commission: 0.02 },
-        ]);
-        updatePayInUrlDao.mockResolvedValue({
-          id: 'payin_1',
-          status: 'SUCCESS',
-          merchant_order_id: 'order_1',
-          amount: 1000,
-          config: { urls: { notify: 'url' } },
-        });
-        updateBotResponseDao.mockResolvedValue({});
-        newTableEntry.mockResolvedValue();
-        merchantPayinCallback.mockResolvedValue();
-        updateCalculationBalanceDao.mockResolvedValue({});
-  
-        const mockDate = new Date('2025-08-19T09:22:00.000Z');
-        jest.spyOn(global, 'Date').mockImplementation(() => mockDate);
-  
-        const result = await createBankResponseService(payload, '123', 'MERCHANT', 'test_user');
-  
-        expect(createBankResponseDao).toHaveBeenCalledWith(
-          expect.anything(),
-          expect.objectContaining({
             utr: 'utr123',
             bank_id: 'bank_1',
-          }),
-        );
-        expect(updatePayInUrlDao).toHaveBeenCalledWith(
-          'payin_1',
-          expect.objectContaining({
+            is_used: 'false',
+          });
+          getBankaccountDao.mockResolvedValue([
+            {
+              balance: 5000,
+              today_balance: 2000,
+              payin_count: 1,
+              user_id: 'user_1',
+              config: {},
+            },
+          ]);
+          getVendorsDao.mockResolvedValue([
+            { id: 'vendor_1', balance: 10000, payin_commission: 0.01 },
+          ]);
+          getPayInsBankResDao.mockResolvedValue([
+            {
+              id: 'payin_1',
+              amount: 1000,
+              user_submitted_utr: 'utr123',
+              bank_acc_id: 'bank_1',
+              merchant_id: 'merchant_1',
+              config: { urls: { notify: 'url' } },
+              created_at: new Date('2025-08-18'),
+            },
+          ]);
+          getMerchantsDao.mockResolvedValue([
+            { balance: 5000, payin_commission: 0.02 },
+          ]);
+          updatePayInUrlDao.mockResolvedValue({
+            id: 'payin_1',
             status: 'SUCCESS',
-            is_notified: true,
-            user_submitted_utr: 'utr123',
-            bank_response_id: '1',
-            duration: '00:05:00',
-            payin_merchant_commission: 0.2,
-            payin_vendor_commission: 0.1,
-            approved_at: mockDate,
-          }),
-          expect.anything(),
-        );
-        expect(merchantPayinCallback).toHaveBeenCalled();
-        expect(result).toEqual({
-          message: 'UTR utr123 matches the User Submitted UTR: utr123 and the payment was successful.',
+            merchant_order_id: 'order_1',
+            amount: 1000,
+            config: { urls: { notify: 'url' } },
+          });
+          updateBotResponseDao.mockResolvedValue({});
+          newTableEntry.mockResolvedValue();
+          merchantPayinCallback.mockResolvedValue();
+          updateCalculationBalanceDao.mockResolvedValue({});
+      
+          const mockDate = new Date('2025-08-19T09:22:00.000Z');
+          jest.spyOn(global, 'Date').mockImplementation(() => mockDate);
+      
+          const result = await createBankResponseService(payload, '123', 'MERCHANT', 'test_user');
+      
+          expect(createBankResponseDao).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({
+              utr: 'utr123',
+              bank_id: 'bank_1',
+            }),
+          );
+          expect(updatePayInUrlDao).toHaveBeenCalledWith(
+            'payin_1',
+            expect.objectContaining({
+              status: 'SUCCESS',
+              is_notified: true,
+              user_submitted_utr: 'utr123',
+              bank_response_id: '1',
+              duration: '00:05:00',
+              payin_merchant_commission: 0.2,
+              payin_vendor_commission: 0.1,
+              approved_at: mockDate,
+            }),
+            expect.anything(),
+          );
+          expect(merchantPayinCallback).toHaveBeenCalled();
+          expect(result).toEqual({
+            message: 'UTR utr123 matches the User Submitted UTR: utr123 and the payment was successful.',
+          });
+      
+          jest.spyOn(global, 'Date').mockRestore();
         });
-  
-        jest.spyOn(global, 'Date').mockRestore();
-      });
     });
   
     describe('getClaimResponseService', () => {

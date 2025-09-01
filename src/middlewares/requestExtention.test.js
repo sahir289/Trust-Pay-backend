@@ -3,7 +3,6 @@ import {
   addLogIdInRequest,
 } from './requestExtension.js';
 import { logger } from '../utils/logger.js';
-import { generateUUID } from '../utils/generateUUID.js';
 
 jest.mock('../utils/logger.js', () => ({
   logger: {

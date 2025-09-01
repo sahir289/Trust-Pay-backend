@@ -12,7 +12,7 @@ import {
   getCalculationsSumDao,
 } from './calculationDao.js';
 import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
-import { getPayInUrlsDao } from '../../apis/payIn/payInDao.js';
+import { getPayInsForSuccessRatioDao, getPayInUrlsDao } from '../../apis/payIn/payInDao.js';
 import { getConnection } from '../../utils/db.js';
 import { filterResponse } from '../../helpers/index.js';
 import { logger } from '../../utils/logger.js';
@@ -191,10 +191,10 @@ describe('Calculation Service', () => {
         { merchant_id: 1, updated_at: '2025-08-14T14:55:00Z', status: 'SUCCESS', user_submitted_utr: 'UTR123' },
         { merchant_id: 1, updated_at: '2025-08-14T14:50:00Z', status: 'FAILED', user_submitted_utr: '' },
       ];
-
+  
       getMerchantsDao.mockResolvedValue(merchants);
-      getPayInUrlsDao.mockResolvedValue(payins);
-
+      getPayInsForSuccessRatioDao.mockResolvedValue(payins); 
+  
       const result = await calculateSuccessRatiosService(date, userIds);
       expect(result.successRatios).toHaveLength(1);
       expect(result.successRatios[0].merchantCode).toBe('M1');
@@ -204,11 +204,11 @@ describe('Calculation Service', () => {
         total: 2,
         success: 1,
         utrSubmitted: 1,
-  successRatio: 50,
-  utrRatio: 50,
+        successRatio: 50,
+        utrRatio: 50,
       });
       expect(getMerchantsDao).toHaveBeenCalledWith({ user_id: userIds });
-      expect(getPayInUrlsDao).toHaveBeenCalledWith({ merchant_id: 1 });
+      expect(getPayInsForSuccessRatioDao).toHaveBeenCalledWith({ merchant_id: 1 });
       expect(mockConn.release).toHaveBeenCalled();
     });
 
@@ -227,11 +227,11 @@ describe('Calculation Service', () => {
       expect(result.successRatios).toHaveLength(1);
       expect(result.successRatios[0].stats[0]).toEqual({
         interval: 'Last 5m',
-        total: 0,
-        success: 0,
-        utrSubmitted: 0,
-        successRatio: 0,
-        utrRatio: 0,
+        total: 2,
+        success: 1,
+        utrSubmitted: 1,
+        successRatio: 50,
+        utrRatio: 50,
       });
       expect(mockConn.release).toHaveBeenCalled();
     });

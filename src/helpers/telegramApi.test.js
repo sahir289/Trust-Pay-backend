@@ -11,15 +11,11 @@ jest.mock('../utils/logger.js', () => ({
   logger: {
     error: jest.fn(),
     info: jest.fn(),
-    log: jest.fn(), // if your code uses logger.log
+    log: jest.fn(), 
     warn: jest.fn(),
     debug: jest.fn(),
   },
 }));
-
-
-
-
 
 describe('createTelegramSender', () => {
   let telegramSender;
