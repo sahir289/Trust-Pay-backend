@@ -199,7 +199,9 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
                 statusResponse.data.Response.message ===
                   'Reason-Transaction Failed' ||
                 statusResponse.data.Response.message === 'Transaction Failed' ||
-                statusResponse.data.Response.message === 'Transaction Failed - '
+                statusResponse.data.Response.message === 'Transaction Failed - ' ||
+                statusResponse.data.Response.statuscode === 'TXF' ||
+                statusResponse.data.Response.statuscode === 'ERR'
               ) {
                 statusResponse.data.ErrorCode = '14';
                 await handlePayoutUpdate(statusResponse.data, false);
