@@ -448,7 +448,7 @@ const validateUTR = (payload, settlementData) => {
 };
 
 // Helper function to handle internal transfer UTR
-const handleInternalTransferUTR = async (payload, settlementData) => {
+const handleInternalTransferUTR = async (conn, payload, settlementData) => {
   const isInternalMethod = INTERNAL_METHODS.includes(settlementData.method);
   
   if (
@@ -465,7 +465,8 @@ const handleInternalTransferUTR = async (payload, settlementData) => {
     if (bankResponses.is_used === false && bankResponses.status === Status.BOT) {
       const response = await updateBankResponseDao(
         { id: bankResponses.id },
-        { status: '/internalTransfer' }
+        { status: '/internalTransfer' },
+        conn
       );
       
       const responseObj = createBankResponseObject(response, settlementData.company_id);
@@ -725,7 +726,7 @@ const updateSettlementService = async (conn, ids, payload) => {
     validateUTR(payload, settlementData);
     
     // Handle internal transfer UTR
-    await handleInternalTransferUTR(payload, settlementData);
+    await handleInternalTransferUTR(conn, payload, settlementData);
     
     // Get calculation data
     const calculationData = await getCalculationforCronDao(settlementData.user_id);
