@@ -2335,10 +2335,12 @@ export const telegramCheckUTRService = async (
     const bankResponse = await getBankResponseDao({
       utr: utr,
       status: '/success',
+      company_id
     });
     let otherBankResponse = {};
     const payIn = await getPayInForTelegramUtrDao({
       merchant_order_id,
+      company_id
     });
     if (!bankResponse) {
       throw new NotFoundError(`UTR ${utr} not found`);
@@ -2456,6 +2458,7 @@ export const checkPendingPayinStatusService = async (
         is_used: false,
         status: '/success',
         utr: currentPayin.user_submitted_utr,
+        company_id
       };
       const botRes = await getBankResponseDao(botResFilters);
       let bot = [botRes];
