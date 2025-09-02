@@ -317,6 +317,14 @@ const getClientsAccountReportService = async (req) => {
         limit,
         role,
       );
+      
+      // Format created_at to return date in IST format
+      if (Array.isArray(result)) {
+        result = result.map(item => ({
+          ...item,
+          created_at: item.created_at ? dayjs(item.created_at).tz('Asia/Kolkata').format('YYYY-MM-DD') : item.created_at
+        }));
+      }
     }
 
     return result;
