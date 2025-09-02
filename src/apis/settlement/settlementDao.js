@@ -602,12 +602,29 @@ const getSettlementsBySearchDao = async (
   }
 };
 
-const getSettlementDaoforInternalTransfer = async (utr, method) => {
+const getSettlementByUTRDao = async (utr) => {
   try {
-    let baseQuery = `SELECT id, user_id, status, amount, method, config, approved_at, rejected_at, created_by, created_at, updated_at, company_id, is_obsolete, updated_by FROM "${tableName.SETTLEMENT}"
- WHERE config->>'reference_id' = $1 AND method = ANY($2)`;
+    let baseQuery = `SELECT
+      id,
+      user_id,
+      status,
+      amount,
+      method,
+      config,
+      approved_at,
+      rejected_at,
+      created_by,
+      created_at,
+      updated_at,
+      company_id,
+      is_obsolete,
+      updated_by
+    FROM
+      "${tableName.SETTLEMENT}"
+    WHERE
+      config ->> 'reference_id' = $1`;
 
-    const queryParams = [utr, method];
+    const queryParams = [utr];
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
@@ -670,7 +687,7 @@ export {
   getSettlementDao,
   createSettlementDao,
   getSettlementsBySearchDao,
-  getSettlementDaoforInternalTransfer,
+  getSettlementByUTRDao,
   updateSettlementDao,
   deleteSettlementDao,
 };
