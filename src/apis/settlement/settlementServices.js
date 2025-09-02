@@ -9,7 +9,7 @@ import {
   getSettlementDao,
   updateSettlementDao,
   getSettlementsBySearchDao,
-  getSettlementDaoforInternalTransfer,
+  getSettlementByUTRDao,
 } from './settlementDao.js';
 import {
   getCalculationforCronDao,
@@ -277,15 +277,9 @@ const createSettlementService = async (conn, payload, role) => {
     }
 
     // Get settlement data
-    const settlementArray = await getSettlementDaoforInternalTransfer(payload.config?.reference_id, payload.method);
+    const settlementArray = await getSettlementByUTRDao(payload.config?.reference_id);
 
-    if (!settlementArray?.length) {
-      throw new NotFoundError('Settlement not found');
-    }
-    
-    const settlementData = settlementArray[0];
-
-    if (bankResponses.is_used || bankResponses.status !== Status.BOT || payload.config?.reference_id === settlementData.config?.reference_id ) {
+    if (bankResponses.is_used || bankResponses.status !== Status.BOT || settlementArray?.length ) {
       throw new BadRequestError('UTR is already used');
     }
 
