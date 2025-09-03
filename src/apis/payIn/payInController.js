@@ -29,7 +29,7 @@ import {
   expirePayInUrlService,
   generatePayInUrlByHashService,
   generatePayInUrlService,
-  getPayinsService,
+  // getPayinsService,
   payInIntentGenerateOrderService,
   processPayInByImageService,
   processPayInService,
@@ -442,26 +442,26 @@ export const resetDeposit = async (req, res) => {
   sendSuccess(res, data, `${merchant_order_id} reset successful`);
 };
 
-export const getPayins = async (req, res) => {
-  const { company_id, role, user_id, designation } = req.user;
-  const { page, limit, sortBy, sortOrder, status, ...rest } = req.query;
-  const filters = {
-    sortBy,
-    sortOrder,
-    status,
-    ...rest,
-  };
-  const data = await getPayinsService(
-    company_id,
-    page,
-    limit,
-    filters,
-    role,
-    user_id,
-    designation,
-  );
-  return sendSuccess(res, data, 'PayIns fetched successfully');
-};
+// export const getPayins = async (req, res) => {
+//   const { company_id, role, user_id, designation } = req.user;
+//   const { page, limit, sortBy, sortOrder, status, ...rest } = req.query;
+//   const filters = {
+//     sortBy,
+//     sortOrder,
+//     status,
+//     ...rest,
+//   };
+//   const data = await getPayinsService(
+//     company_id,
+//     page,
+//     limit,
+//     filters,
+//     role,
+//     user_id,
+//     designation,
+//   );
+//   return sendSuccess(res, data, 'PayIns fetched successfully');
+// };
 
 export const getPayinsBySearch = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;

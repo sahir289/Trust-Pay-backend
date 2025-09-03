@@ -62,9 +62,44 @@ const VALIDATE_CALCULATION_BY_USER_ID = Joi.object({
     }),
 });
 
+// Validation Schema for Updating Multiple Calculations
+const VALIDATE_UPDATE_CALCULATIONS_SCHEMA = Joi.object({
+  date: Joi.string()
+    .pattern(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .messages({
+      'string.pattern.base': 'Date must be in YYYY-MM-DD format',
+    }),
+  user_id: Joi.string()
+    .guid({ version: ['uuidv4'] })
+    .optional()
+    .messages({
+      'string.guid': 'User ID must be a valid UUID',
+    }),
+  startDate: Joi.string()
+    .pattern(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .messages({
+      'string.pattern.base': 'Start date must be in YYYY-MM-DD format',
+    }),
+  endDate: Joi.string()
+    .pattern(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .messages({
+      'string.pattern.base': 'End date must be in YYYY-MM-DD format',
+    }),
+  company_id: Joi.string()
+    .guid({ version: ['uuidv4'] })
+    .optional()
+    .messages({
+      'string.guid': 'Company ID must be a valid UUID',
+    }),
+});
+
 export {
   VALIDATE_CALCULATION_BY_USER_ID,
   VALIDATE_CALCULATION_SCHEMA,
   VALIDATE_DELETE_CALCULATION,
   VALIDATE_UPDATE_CALCULATION_STATUS,
+  VALIDATE_UPDATE_CALCULATIONS_SCHEMA,
 };

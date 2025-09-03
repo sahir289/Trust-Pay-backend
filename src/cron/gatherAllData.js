@@ -13,6 +13,7 @@ import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone.js';
 import utc from 'dayjs/plugin/utc.js';
 import collectBankData from './bankCron.js';
+import gatherAllVendorsNetbalanceForAllCompanies from './gatherAllVendorsNetBalance.js';
 
 // Initialize dayjs plugins
 dayjs.extend(utc);
@@ -133,6 +134,7 @@ const gatherAllDataForAllCompanies = async (type = 'N', timezone = 'Asia/Kolkata
       await collectBankData(timezone);
       logger.info('Bank CRON Ended for all companies');
     }
+    await gatherAllVendorsNetbalanceForAllCompanies(type, timezone);
   } catch (error) {
     logger.error(`Error in gatherAllDataForAllCompanies: ${error}`);
   }

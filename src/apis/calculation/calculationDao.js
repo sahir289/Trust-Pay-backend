@@ -1,4 +1,3 @@
-
 import {
   executeQuery,
   buildSelectQuery,
@@ -7,7 +6,7 @@ import {
   buildAndExecuteUpdateQuery,
   buildJoinQuery,
 } from '../../utils/db.js';
-import { Role, tableName } from '../../constants/index.js';
+import { Role, Status, tableName } from '../../constants/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { NotFoundError } from '../../utils/appErrors.js';
 import dayjs from 'dayjs';
@@ -184,27 +183,29 @@ export const getCalculationsSumDao = async (filters) => {
       }
     }
 
-    const groupBy = ` GROUP BY DATE_TRUNC('day', c.created_at) ORDER BY DATE_TRUNC('day', c.created_at)DESC;`;
+    const groupBy = ` GROUP BY c.id, c.user_id, DATE_TRUNC('day', c.created_at) ORDER BY DATE_TRUNC('day', c.created_at)DESC;`;
 
     // Modified Base Query with numeric casting
     let baseQuery = `
       SELECT 
-         (DATE_TRUNC('day', c.created_at)) AS date,
-          CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
+          c.id,
+          c.user_id,
+          (DATE_TRUNC('day', c.created_at)) AS date,
+          CAST(SUM(c.total_payin_count) AS NUMERIC) AS total_payin_count,
           CAST(ROUND(SUM(c.total_payin_amount)::NUMERIC, 2) AS FLOAT) AS total_payin_amount,
           CAST(ROUND(SUM(c.total_payin_commission)::NUMERIC, 2) AS FLOAT) AS total_payin_commission,
-          CAST(SUM(c.total_payout_count) AS INTEGER) AS total_payout_count,
+          CAST(SUM(c.total_payout_count) AS NUMERIC) AS total_payout_count,
           CAST(ROUND(SUM(c.total_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_payout_amount,
           CAST(ROUND(SUM(c.total_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_payout_commission,
-          CAST(SUM(c.total_settlement_count) AS INTEGER) AS total_settlement_count,
+          CAST(SUM(c.total_settlement_count) AS NUMERIC) AS total_settlement_count,
           CAST(ROUND(SUM(c.total_settlement_amount)::NUMERIC, 2) AS FLOAT) AS total_settlement_amount,
           CAST(ROUND(SUM(c.total_settlement_commission)::NUMERIC, 2) AS FLOAT) AS total_settlement_commission,
-          CAST(SUM(c.total_chargeback_count) AS INTEGER) AS total_chargeback_count,
+          CAST(SUM(c.total_chargeback_count) AS NUMERIC) AS total_chargeback_count,
           CAST(ROUND(SUM(c.total_chargeback_amount)::NUMERIC, 2) AS FLOAT) AS total_chargeback_amount,
-          CAST(SUM(c.total_reverse_payout_count) AS INTEGER) AS total_reverse_payout_count,
+          CAST(SUM(c.total_reverse_payout_count) AS NUMERIC) AS total_reverse_payout_count,
           CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_amount,
           CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
-          CAST(SUM(c.total_adjustment_count) AS INTEGER) AS total_adjustment_count,
+          CAST(SUM(c.total_adjustment_count) AS NUMERIC) AS total_adjustment_count,
           CAST(ROUND(SUM(c.total_adjustment_amount)::NUMERIC, 2) AS FLOAT) AS total_adjustment_amount,
           CAST(ROUND(SUM(c.total_adjustment_commission)::NUMERIC, 2) AS FLOAT) AS total_adjustment_commission,
           CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
@@ -381,9 +382,15 @@ export const getCalculationsSumDao = async (filters) => {
       // Process results into netBalance object with company filtering
       netBalance = balanceResult.rows.reduce(
         (acc, row) => {
-          if (row.role === Role.VENDOR && (!company_id || row.company_id === company_id)) {
+          if (
+            row.role === Role.VENDOR &&
+            (!company_id || row.company_id === company_id)
+          ) {
             acc.vendor = row.net_balance_sum || 0;
-          } else if (row.role === Role.MERCHANT && (!company_id || row.company_id === company_id)) {
+          } else if (
+            row.role === Role.MERCHANT &&
+            (!company_id || row.company_id === company_id)
+          ) {
             acc.merchant = row.net_balance_sum || 0;
           }
           return acc;
@@ -442,21 +449,21 @@ export const getCalculationsSumDao = async (filters) => {
     // Modify total calculations query for merchants based on role
     let merchantTotalQuery = `
       SELECT 
-        CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
+        CAST(SUM(c.total_payin_count) AS NUMERIC) AS total_payin_count,
         CAST(ROUND(SUM(c.total_payin_amount)::NUMERIC, 2) AS FLOAT) AS total_payin_amount,
         CAST(ROUND(SUM(c.total_payin_commission)::NUMERIC, 2) AS FLOAT) AS total_payin_commission,
-        CAST(SUM(c.total_payout_count) AS INTEGER) AS total_payout_count,
+        CAST(SUM(c.total_payout_count) AS NUMERIC) AS total_payout_count,
         CAST(ROUND(SUM(c.total_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_payout_amount,
         CAST(ROUND(SUM(c.total_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_payout_commission,
-        CAST(SUM(c.total_settlement_count) AS INTEGER) AS total_settlement_count,
+        CAST(SUM(c.total_settlement_count) AS NUMERIC) AS total_settlement_count,
         CAST(ROUND(SUM(c.total_settlement_amount)::NUMERIC, 2) AS FLOAT) AS total_settlement_amount,
-        CAST(SUM(c.total_settlement_commission) AS INTEGER) AS total_settlement_commission,
-        CAST(SUM(c.total_chargeback_count) AS INTEGER) AS total_chargeback_count,
+        CAST(SUM(c.total_settlement_commission) AS NUMERIC) AS total_settlement_commission,
+        CAST(SUM(c.total_chargeback_count) AS NUMERIC) AS total_chargeback_count,
         CAST(ROUND(SUM(c.total_chargeback_amount)::NUMERIC, 2) AS FLOAT) AS total_chargeback_amount,
-        CAST(SUM(c.total_reverse_payout_count) AS INTEGER) AS total_reverse_payout_count,
+        CAST(SUM(c.total_reverse_payout_count) AS NUMERIC) AS total_reverse_payout_count,
         CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_amount,
         CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
-        CAST(SUM(c.total_adjustment_count) AS INTEGER) AS total_adjustment_count,
+        CAST(SUM(c.total_adjustment_count) AS NUMERIC) AS total_adjustment_count,
         CAST(ROUND(SUM(c.total_adjustment_amount)::NUMERIC, 2) AS FLOAT) AS total_adjustment_amount,
         CAST(ROUND(SUM(c.total_adjustment_commission)::NUMERIC, 2) AS FLOAT) AS total_adjustment_commission,
         CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
@@ -482,21 +489,21 @@ export const getCalculationsSumDao = async (filters) => {
     // Add vendor total calculations query
     let vendorTotalQuery = `
       SELECT 
-        CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
+        CAST(SUM(c.total_payin_count) AS NUMERIC) AS total_payin_count,
         CAST(ROUND(SUM(c.total_payin_amount)::NUMERIC, 2) AS FLOAT) AS total_payin_amount,
         CAST(ROUND(SUM(c.total_payin_commission)::NUMERIC, 2) AS FLOAT) AS total_payin_commission,
-        CAST(SUM(c.total_payout_count) AS INTEGER) AS total_payout_count,
+        CAST(SUM(c.total_payout_count) AS NUMERIC) AS total_payout_count,
         CAST(ROUND(SUM(c.total_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_payout_amount,
         CAST(ROUND(SUM(c.total_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_payout_commission,
-        CAST(SUM(c.total_settlement_count) AS INTEGER) AS total_settlement_count,
+        CAST(SUM(c.total_settlement_count) AS NUMERIC) AS total_settlement_count,
         CAST(ROUND(SUM(c.total_settlement_amount)::NUMERIC, 2) AS FLOAT) AS total_settlement_amount,
-        CAST(SUM(c.total_settlement_commission) AS INTEGER) AS total_settlement_commission,
-        CAST(SUM(c.total_chargeback_count) AS INTEGER) AS total_chargeback_count,
+        CAST(SUM(c.total_settlement_commission) AS NUMERIC) AS total_settlement_commission,
+        CAST(SUM(c.total_chargeback_count) AS NUMERIC) AS total_chargeback_count,
         CAST(ROUND(SUM(c.total_chargeback_amount)::NUMERIC, 2) AS FLOAT) AS total_chargeback_amount,
-        CAST(SUM(c.total_reverse_payout_count) AS INTEGER) AS total_reverse_payout_count,
+        CAST(SUM(c.total_reverse_payout_count) AS NUMERIC) AS total_reverse_payout_count,
         CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_amount,
         CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
-        CAST(SUM(c.total_adjustment_count) AS INTEGER) AS total_adjustment_count,
+        CAST(SUM(c.total_adjustment_count) AS NUMERIC) AS total_adjustment_count,
         CAST(ROUND(SUM(c.total_adjustment_amount)::NUMERIC, 2) AS FLOAT) AS total_adjustment_amount,
         CAST(ROUND(SUM(c.total_adjustment_commission)::NUMERIC, 2) AS FLOAT) AS total_adjustment_commission,
         CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
@@ -689,14 +696,14 @@ const updateCalculationDao = async (id, data, conn) => {
   }
 };
 const updateCalculationConfigDao = async (id, data, conn) => {
-    return buildAndExecuteUpdateQuery(
-      tableName.CALCULATION,
-      data,
-      id,
-      {},
-      { returnUpdated: true },
-      conn,
-    );
+  return buildAndExecuteUpdateQuery(
+    tableName.CALCULATION,
+    data,
+    id,
+    {},
+    { returnUpdated: true },
+    conn,
+  );
 };
 
 const deleteCalculationDao = async (conn, id, data) => {
@@ -759,6 +766,663 @@ const checkCalculationEntryForDateDao = async (date) => {
   }
 };
 
+const getVendorNetBalanceDao = async (companyId, startDate, endDate) => {
+  try {
+    const sql = `
+      SELECT c.user_id, c.net_balance, v.code
+      FROM public."Calculation" c
+      LEFT JOIN public."Role" r ON r.id = c.role_id
+      LEFT JOIN public."Vendor" v ON v.user_id = c.user_id
+      WHERE c.company_id = $1
+      AND r.role = '${Role.VENDOR}'
+      AND DATE(c.created_at AT TIME ZONE 'Asia/Kolkata') BETWEEN DATE($2) AND DATE($3)
+      GROUP BY c.id, v.code
+    `;
+    const result = await executeQuery(sql, [companyId, startDate, endDate]);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error fetching vendor net balance:', error);
+    throw error;
+  }
+};
+
+// Helper function to get user's role from user_id
+const getUserRoleDao = async (user_id) => {
+  try {
+    const query = `
+      SELECT r.role
+      FROM "${tableName.USER}" u
+      JOIN "${tableName.ROLE}" r ON u.role_id = r.id
+      WHERE u.id = $1 AND u.is_obsolete = false
+    `;
+
+    const result = await executeQuery(query, [user_id]);
+    return result.rows[0]?.role || null;
+  } catch (error) {
+    logger.error('Error getting user role:', error);
+    throw error;
+  }
+};
+
+// Helper function to calculate payin data for a user and date range
+const calculatePayinDataDao = async (
+  user_id,
+  company_id,
+  startDate,
+  additionalPayinData = null,
+) => {
+  try {
+    // Get user's role to determine which commission field to use and which table to join
+    const userRole = await getUserRoleDao(user_id);
+    const commissionField =
+      userRole === Role.MERCHANT
+        ? 'payin_merchant_commission'
+        : 'payin_vendor_commission';
+
+    let query, queryParams;
+
+    if (userRole === Role.MERCHANT) {
+      // For merchant role, join with Merchant table to get merchant_id
+      // Use IST timezone conversion for approved_at field
+      query = `
+        SELECT 
+          p.status,
+          COUNT(*) as count,
+          COALESCE(SUM(p.amount), 0) as total_amount,
+          COALESCE(SUM(p.${commissionField}), 0) as total_commission
+        FROM "${tableName.PAYIN}" p
+        JOIN "${tableName.MERCHANT}" m ON p.merchant_id = m.id
+        WHERE m.user_id = $1
+          AND p.company_id = $2
+          AND p.is_obsolete = false
+          AND (p.approved_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date
+          AND p.status = 'SUCCESS'
+        GROUP BY p.status
+      `;
+      queryParams = [user_id, company_id, startDate];
+    } else {
+      // Use IST timezone conversion for created_at field
+      query = `
+        SELECT 
+          br.status,
+          COUNT(*) as count,
+          COALESCE(SUM(br.amount), 0) as total_amount,
+          -- Calculate commission based on vendor's payin commission rate
+          COALESCE(SUM(br.amount * COALESCE(v.payin_commission, 0) / 100), 0) as total_commission
+        FROM "${tableName.BANK_RESPONSE}" br
+        JOIN "${tableName.BANK_ACCOUNT}" ba ON br.bank_id = ba.id
+        JOIN "${tableName.VENDOR}" v ON ba.user_id = v.user_id
+        WHERE ba.user_id = $1
+          AND br.company_id = $2
+          AND br.is_obsolete = false
+          AND (br.created_at)::date = $3::date
+          AND br.status = '/success'
+        GROUP BY br.status
+      `;
+      queryParams = [user_id, company_id, startDate];
+    }
+
+    const result = await executeQuery(query, queryParams);
+
+    const payinData = {
+      total_payin_count: 0,
+      total_payin_amount: 0,
+      total_payin_commission: 0,
+    };
+
+    result.rows.forEach((row) => {
+      if (row.status === Status.SUCCESS || row.status === Status.BOT) {
+        payinData.total_payin_count = parseInt(row.count);
+        payinData.total_payin_amount = parseFloat(row.total_amount);
+        payinData.total_payin_commission = parseFloat(row.total_commission);
+      }
+    });
+
+    // Add reversed internal settlements to payin data
+    if (additionalPayinData && additionalPayinData.count > 0) {
+      payinData.total_payin_count += additionalPayinData.count;
+      payinData.total_payin_amount += additionalPayinData.amount;
+      payinData.total_payin_commission += additionalPayinData.commission;
+    }
+
+    return payinData;
+  } catch (error) {
+    logger.error('Error calculating payin data:', error);
+    throw error;
+  }
+};
+
+// Helper function to calculate payout data for a user and date range
+const calculatePayoutDataDao = async (user_id, company_id, startDate) => {
+  try {
+    // Get user's role to determine which commission field to use and which table to join
+    const userRole = await getUserRoleDao(user_id);
+    const commissionField =
+      userRole === Role.MERCHANT
+        ? 'payout_merchant_commission'
+        : 'payout_vendor_commission';
+
+    let query, queryParams;
+
+    if (userRole === Role.MERCHANT) {
+      // For merchant role, join with Merchant table to get merchant_id
+      // Use IST timezone conversion for approved_at and rejected_at fields
+      query = `
+        SELECT 
+          p.status,
+          COUNT(*) as count,
+          COALESCE(SUM(p.amount), 0) as total_amount,
+          COALESCE(SUM(p.${commissionField}), 0) as total_commission
+        FROM "${tableName.PAYOUT}" p
+        JOIN "${tableName.MERCHANT}" m ON p.merchant_id = m.id
+        WHERE m.user_id = $1
+          AND p.company_id = $2
+          AND p.is_obsolete = false
+          AND (
+            (p.status = 'APPROVED' AND (p.approved_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date) OR
+            (p.status = 'REVERSED' AND (p.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date)
+          )
+        GROUP BY p.status
+      `;
+      queryParams = [user_id, company_id, startDate];
+    } else {
+      // For vendor role, use user_id directly (as per schema, payout.user_id refers to vendor's user_id)
+      // Use IST timezone conversion for approved_at and updated_at fields
+      query = `
+        SELECT 
+          p.status,
+          COUNT(*) as count,
+          COALESCE(SUM(p.amount), 0) as total_amount,
+          COALESCE(SUM(p.${commissionField}), 0) as total_commission
+        FROM "${tableName.PAYOUT}" p
+        JOIN "${tableName.VENDOR}" v ON p.vendor_id = v.id
+        WHERE v.user_id = $1
+          AND p.company_id = $2
+          AND p.is_obsolete = false
+          AND (
+            (p.status = 'APPROVED' AND (p.approved_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date) OR
+            (p.status = 'REVERSED' AND (p.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date)
+          )
+        GROUP BY p.status
+      `;
+      queryParams = [user_id, company_id, startDate];
+    }
+
+    const result = await executeQuery(query, queryParams);
+
+    const payoutData = {
+      total_payout_count: 0,
+      total_payout_amount: 0,
+      total_payout_commission: 0,
+      total_reverse_payout_count: 0,
+      total_reverse_payout_amount: 0,
+      total_reverse_payout_commission: 0,
+    };
+
+    result.rows.forEach((row) => {
+      if (row.status === Status.APPROVED) {
+        payoutData.total_payout_count = parseInt(row.count);
+        payoutData.total_payout_amount = parseFloat(row.total_amount);
+        payoutData.total_payout_commission = parseFloat(row.total_commission);
+      }
+      // Handle reverse payouts (status might be REVERSED or similar)
+      if (row.status === Status.REVERSED) {
+        payoutData.total_reverse_payout_count += parseInt(row.count);
+        payoutData.total_reverse_payout_amount += parseFloat(row.total_amount);
+        payoutData.total_reverse_payout_commission += parseFloat(
+          row.total_commission,
+        );
+      }
+    });
+
+    return payoutData;
+  } catch (error) {
+    logger.error('Error calculating payout data:', error);
+    throw error;
+  }
+};
+
+// Helper function to calculate settlement data for a user and date range
+const calculateSettlementDataDao = async (
+  user_id,
+  company_id,
+  startDate,
+  role = null,
+) => {
+  try {
+    let query;
+    // Get detailed settlement data including transaction IDs and config to handle same-date reversals
+    if (role === Role.MERCHANT) {
+      query = `
+      SELECT 
+        s.id,
+        s.status,
+        s.method,
+        s.amount,
+        s.config,
+        (s.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date as created_date,
+        (s.approved_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date as approved_date,
+        (s.rejected_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date as updated_date
+      FROM "${tableName.SETTLEMENT}" s
+      WHERE s.user_id = $1 
+        AND s.company_id = $2
+        AND s.is_obsolete = false
+        AND (
+            (s.status = 'SUCCESS' AND (s.approved_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date) OR
+            (s.status = 'REVERSED' AND (s.rejected_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date)
+          )
+      ORDER BY s.id, s.status
+    `;
+    } else if (role === Role.VENDOR) {
+      query = `
+        SELECT 
+          s.id,
+          s.status,
+          s.method,
+          s.amount,
+          s.config,
+          (s.created_at)::date as created_date,
+          (s.approved_at)::date as approved_date,
+          (s.rejected_at)::date as updated_date
+        FROM "${tableName.SETTLEMENT}" s
+        WHERE s.user_id = $1 
+          AND s.company_id = $2
+          AND s.is_obsolete = false
+          AND (
+              (s.status = 'SUCCESS' AND (s.approved_at)::date = $3::date) OR
+              (s.status = 'REVERSED' AND (s.rejected_at)::date = $3::date)
+            )
+        ORDER BY s.id, s.status
+      `;
+    }
+
+    const result = await executeQuery(query, [user_id, company_id, startDate]);
+
+    const settlementData = {
+      total_settlement_count: 0,
+      total_settlement_amount: 0,
+      total_settlement_commission: 0,
+      // Track reversed internal settlements to be added to payin
+      reversed_internal_settlements: {
+        count: 0,
+        amount: 0,
+        commission: 0,
+      },
+      settlement_details: {
+        total_bankSettlement_amount: 0,
+        total_aedSentSettlement_amount: 0,
+        total_bankSentSettlement_amount: 0,
+        total_cashSentSettlement_amount: 0,
+        total_internalSettlement_amount: 0,
+        total_aedReceivedSettlement_amount: 0,
+        total_bankReceivedSettlement_amount: 0,
+        total_cashReceivedSettlement_amount: 0,
+        total_internalBankSettlement_amount: 0,
+        total_cryptoReceivedSettlement_amount: 0,
+      },
+    };
+
+    // Process all settlements individually (standalone entries)
+    result.rows.forEach((settlement) => {
+      const amount = parseFloat(settlement.amount || 0);
+      const commission = parseFloat(settlement.commission || 0);
+      const debitCredit = settlement.config?.debit_credit;
+      const status = settlement.status;
+
+      let finalAmount = 0;
+      let shouldProcess = true;
+
+      if (status === Status.SUCCESS) {
+        // Always process SUCCESS entries with standard logic
+        if (debitCredit) {
+          if (debitCredit.toLowerCase() === 'sent') {
+            finalAmount = Math.abs(amount); // ADD for SENT
+          } else if (debitCredit.toLowerCase() === 'received') {
+            finalAmount = -Math.abs(amount); // DEDUCT for RECEIVED
+          }
+        }
+        logger.info(
+          `Processing SUCCESS settlement: ID=${settlement.id}, amount=${finalAmount}`,
+        );
+      } else if (status === Status.REVERSED) {
+        // Date-based logic for REVERSED entries only
+        const createdDate = settlement.created_date;
+        const updatedDate = settlement.updated_date;
+
+        if (createdDate === updatedDate) {
+          // Same date - NEGLECT the entry
+          shouldProcess = false;
+          logger.info(
+            `NEGLECTING REVERSED settlement: ID=${settlement.id}, amount=${amount} (created_date = updated_date)`,
+          );
+        } else {
+          // Different dates - apply calculation logic
+          if (debitCredit) {
+            if (role === Role.MERCHANT) {
+              // For merchant: SENT = DEDUCT, RECEIVED = ADD (opposite of SUCCESS)
+              if (debitCredit.toLowerCase() === 'sent') {
+                finalAmount = -Math.abs(amount); // DEDUCT for SENT
+              } else if (debitCredit.toLowerCase() === 'received') {
+                finalAmount = Math.abs(amount); // ADD for RECEIVED
+              }
+            } else if (role === Role.VENDOR) {
+              // For vendor: opposite of merchant logic
+              if (debitCredit.toLowerCase() === 'sent') {
+                finalAmount = Math.abs(amount); // ADD for SENT
+              } else if (debitCredit.toLowerCase() === 'received') {
+                finalAmount = -Math.abs(amount); // DEDUCT for RECEIVED
+              }
+            }
+          }
+          logger.info(
+            `Processing REVERSED settlement: ID=${settlement.id}, amount=${finalAmount}, role=${role} (created_date ≠ updated_date)`,
+          );
+        }
+      }
+
+      // Apply the settlement if it should be processed
+      if (shouldProcess && finalAmount !== 0) {
+        // Handle internal method for vendor role specially
+        if (
+          settlement.method?.toLowerCase() === 'internal' &&
+          role === Role.VENDOR &&
+          status === Status.REVERSED
+        ) {
+          // For vendor role with internal reversals, keep them in settlements
+          settlementData.total_settlement_count += 1;
+          settlementData.total_settlement_amount += finalAmount;
+          settlementData.total_settlement_commission += commission;
+        } else if (
+          settlement.method?.toLowerCase() === 'internal' &&
+          status === Status.REVERSED
+        ) {
+          // For non-vendor roles, add internal reversals to payin
+          settlementData.reversed_internal_settlements.count += 1;
+          settlementData.reversed_internal_settlements.amount +=
+            Math.abs(amount);
+          settlementData.reversed_internal_settlements.commission += commission;
+        } else {
+          // Standard settlement processing
+          settlementData.total_settlement_count += 1;
+          settlementData.total_settlement_amount += finalAmount;
+          settlementData.total_settlement_commission += commission;
+
+          // Map settlement amounts by method type
+          const methodKey = settlement.method?.toLowerCase();
+          switch (methodKey) {
+            case 'bank':
+              settlementData.settlement_details.total_bankSettlement_amount +=
+                finalAmount;
+              break;
+            case 'aed_sent':
+              settlementData.settlement_details.total_aedSentSettlement_amount +=
+                finalAmount;
+              break;
+            case 'bank_sent':
+              settlementData.settlement_details.total_bankSentSettlement_amount +=
+                finalAmount;
+              break;
+            case 'cash_sent':
+              settlementData.settlement_details.total_cashSentSettlement_amount +=
+                finalAmount;
+              break;
+            case 'internal':
+              settlementData.settlement_details.total_internalSettlement_amount +=
+                finalAmount;
+              break;
+            case 'aed_received':
+              settlementData.settlement_details.total_aedReceivedSettlement_amount +=
+                finalAmount;
+              break;
+            case 'bank_received':
+              settlementData.settlement_details.total_bankReceivedSettlement_amount +=
+                finalAmount;
+              break;
+            case 'cash_received':
+              settlementData.settlement_details.total_cashReceivedSettlement_amount +=
+                finalAmount;
+              break;
+            case 'internal_bank':
+              settlementData.settlement_details.total_internalBankSettlement_amount +=
+                finalAmount;
+              break;
+            case 'crypto_received':
+              settlementData.settlement_details.total_cryptoReceivedSettlement_amount +=
+                finalAmount;
+              break;
+          }
+        }
+      }
+    });
+
+    return settlementData;
+  } catch (error) {
+    logger.error('Error calculating settlement data:', error);
+    throw error;
+  }
+};
+
+// Helper function to calculate chargeback data for a user and date range
+const calculateChargebackDataDao = async (user_id, company_id, startDate) => {
+  try {
+    // Get user's role to determine which user_id field to use
+    const userRole = await getUserRoleDao(user_id);
+
+    let whereClause;
+    if (userRole === Role.MERCHANT) {
+      whereClause = `merchant_user_id = $1`;
+    } else {
+      whereClause = `vendor_user_id = $1`;
+    }
+
+    // Use IST timezone conversion for created_at field
+    const query = `
+      SELECT 
+        COUNT(*) as count,
+        COALESCE(SUM(amount), 0) as total_amount
+      FROM "${tableName.CHARGE_BACK}"
+      WHERE ${whereClause}
+        AND company_id = $2
+        AND is_obsolete = false
+        AND (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date
+    `;
+
+    const result = await executeQuery(query, [user_id, company_id, startDate]);
+    const row = result.rows[0];
+
+    return {
+      total_chargeback_count: parseInt(row?.count || 0),
+      total_chargeback_amount: parseFloat(row?.total_amount || 0),
+    };
+  } catch (error) {
+    logger.error('Error calculating chargeback data:', error);
+    throw error;
+  }
+};
+
+// Helper function to calculate adjustment data for a user and date range
+// Only counts entries where specific field amounts are changed on the processing date
+// Returns the difference between current and previous amounts from config.history
+const calculateAdjustmentDataDao = async (user_id, company_id, startDate) => {
+  try {
+    // Get user's role to determine which table to query
+    const userRole = await getUserRoleDao(user_id);
+
+    let query, queryParams;
+
+    if (userRole === Role.MERCHANT) {
+      // Get all payin records that have history entries for the calculation date
+      const getPayinRecordsQuery = `
+        SELECT 
+          p.id,
+          p.amount as current_amount,
+          p.payin_merchant_commission as current_commission,
+          p.config->'history' as history
+        FROM "${tableName.PAYIN}" p
+        JOIN "${tableName.MERCHANT}" m ON p.merchant_id = m.id
+        WHERE m.user_id = $1
+          AND p.company_id = $2
+          AND p.is_obsolete = false
+          AND p.status = 'SUCCESS'
+          AND p.config->'history' IS NOT NULL
+          AND jsonb_array_length((p.config->'history')::jsonb) > 0
+          AND EXISTS (
+            SELECT 1 FROM jsonb_array_elements((p.config->'history')::jsonb) AS entry
+            WHERE DATE((entry->>'updated_at')::timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = $3::date
+          )
+      `;
+
+      const payinRecords = await executeQuery(getPayinRecordsQuery, [
+        user_id,
+        company_id,
+        startDate,
+      ]);
+
+      let totalAdjustmentCount = 0;
+      let totalAmountDifference = 0;
+      let totalCommissionDifference = 0;
+
+      // Process each payin record individually
+      for (const record of payinRecords.rows) {
+        const history = record.history || [];
+
+        // Sort history by updated_at
+        const sortedHistory = history.sort(
+          (a, b) => new Date(a.updated_at) - new Date(b.updated_at),
+        );
+
+        // Find entries for the calculation date
+        const entriesForDate = sortedHistory.filter((entry) => {
+          const entryDate = new Date(entry.updated_at)
+            .toISOString()
+            .split('T')[0];
+          const calcDate = new Date(startDate).toISOString().split('T')[0];
+          return entryDate === calcDate;
+        });
+
+        if (entriesForDate.length === 0) continue;
+
+        // Find the most recent entry before the calculation date
+        const prevEntries = sortedHistory.filter((entry) => {
+          const entryDate = new Date(entry.updated_at)
+            .toISOString()
+            .split('T')[0];
+          const calcDate = new Date(startDate).toISOString().split('T')[0];
+          return entryDate < calcDate;
+        });
+
+        const mostRecentPrevEntry =
+          prevEntries.length > 0 ? prevEntries[prevEntries.length - 1] : null;
+
+        // Calculate differences for each entry on the calculation date
+        for (let i = 0; i < entriesForDate.length; i++) {
+          const currentEntry = entriesForDate[i];
+          let prevAmount, prevCommission;
+
+          if (i === 0) {
+            // First entry for the day: compare with most recent previous day entry or current values
+            if (mostRecentPrevEntry) {
+              prevAmount = parseFloat(mostRecentPrevEntry.amount || 0);
+              prevCommission = parseFloat(
+                mostRecentPrevEntry.payin_merchant_commission || 0,
+              );
+            } else {
+              prevAmount = parseFloat(record.current_amount || 0);
+              prevCommission = parseFloat(record.current_commission || 0);
+            }
+          } else {
+            // Subsequent entries: compare with previous entry in same day
+            prevAmount = parseFloat(entriesForDate[i - 1].amount || 0);
+            prevCommission = parseFloat(
+              entriesForDate[i - 1].payin_merchant_commission || 0,
+            );
+          }
+
+          const currentAmount = parseFloat(currentEntry.amount || 0);
+          const currentCommission = parseFloat(
+            currentEntry.payin_merchant_commission || 0,
+          );
+
+          const amountDiff = currentAmount - prevAmount;
+          const commissionDiff = currentCommission - prevCommission;
+
+          if (amountDiff !== 0 || commissionDiff !== 0) {
+            totalAdjustmentCount++;
+            totalAmountDifference += amountDiff;
+            totalCommissionDifference += commissionDiff;
+          }
+        }
+      }
+
+      return {
+        total_adjustment_count: totalAdjustmentCount,
+        total_adjustment_amount: totalAmountDifference,
+        total_adjustment_commission: totalCommissionDifference,
+      };
+    } else {
+      // Query for vendor role - extract amount differences from config.previousAmount and calculate commission manually
+      query = `
+        SELECT 
+          COUNT(*) as count,
+          COALESCE(SUM(
+            CASE 
+              WHEN br.config->>'previousAmount' IS NOT NULL THEN
+                br.amount - COALESCE((br.config->>'previousAmount')::NUMERIC, 0)
+              ELSE 
+                0
+            END
+          ), 0) as amount_difference,
+          COALESCE(SUM(
+            CASE 
+              WHEN br.config->>'previousAmount' IS NOT NULL THEN
+                (br.amount * COALESCE(v.payin_commission, 0) / 100) - 
+                (COALESCE((br.config->>'previousAmount')::NUMERIC, 0) * COALESCE(v.payin_commission, 0) / 100)
+              ELSE 
+                0
+            END
+          ), 0) as commission_difference
+        FROM "${tableName.BANK_RESPONSE}" br
+        JOIN "${tableName.BANK_ACCOUNT}" ba ON br.bank_id = ba.id
+        JOIN "${tableName.VENDOR}" v ON ba.user_id = v.user_id
+        WHERE ba.user_id = $1
+          AND br.company_id = $2
+          AND br.is_obsolete = false
+          AND DATE(br.updated_at) = $3::date
+          AND DATE(br.created_at) < $3::date
+          AND br.status = '/success'
+          AND br.config->>'previousAmount' IS NOT NULL
+      `;
+      queryParams = [user_id, company_id, startDate];
+
+      const result = await executeQuery(query, queryParams);
+      const row = result.rows[0];
+
+      return {
+        total_adjustment_count: parseInt(row?.count || 0),
+        total_adjustment_amount: parseFloat(row?.amount_difference || 0),
+        total_adjustment_commission: parseFloat(
+          row?.commission_difference || 0,
+        ),
+      };
+    }
+  } catch (error) {
+    logger.error('Error calculating adjustment data:', error);
+    logger.error('Error details:', {
+      user_id,
+      company_id,
+      startDate,
+      error: error.message,
+      stack: error.stack,
+    });
+    // Return default values if there's an error
+    return {
+      total_adjustment_count: 0,
+      total_adjustment_amount: 0,
+      total_adjustment_commission: 0,
+    };
+  }
+};
+
 export {
   getCalculationDao,
   createCalculationDao,
@@ -766,4 +1430,10 @@ export {
   deleteCalculationDao,
   checkCalculationEntryForDateDao,
   updateCalculationConfigDao,
+  getVendorNetBalanceDao,
+  calculatePayinDataDao,
+  calculatePayoutDataDao,
+  calculateSettlementDataDao,
+  calculateChargebackDataDao,
+  calculateAdjustmentDataDao,
 };

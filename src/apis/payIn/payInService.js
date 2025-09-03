@@ -27,8 +27,8 @@ import {
   getPayinsForServiccDao,
   // getPayInUrlDao,
   // getPayInUrlsDao,
-  getPayinsBySearchDao,
-  getAllPayInsDao,
+  getPayinsWithHistoryDao,
+  // getAllPayInsDao,
   getPayInPendingDao,
   getPayinsSumAndCountByStatusDao,
   getPayInForUpdateServiceDao,
@@ -38,6 +38,7 @@ import {
   getSuccessPayInsDao,
   getPayInForUpdateDao,
   getPayInForTelegramResponseDao,
+  getPayinsWithoutHistoryDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -96,7 +97,7 @@ import {
 } from '../../utils/sendTelegramMessages.js';
 import { tableName } from '../../constants/index.js';
 import { newTableEntry } from '../../utils/sockets.js';
-import { getConnection } from '../../utils/db.js';
+// import { getConnection } from '../../utils/db.js';
 import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
 import { createResetHistoryService } from '../resetHistory/resetServices.js';
 // import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
@@ -1113,103 +1114,103 @@ const calculateStatus = (createdAt) => {
   return timeDifference > TEN_MINUTES_IN_MS ? Status.DROPPED : Status.ASSIGNED;
 };
 
-export const getPayinsService = async (
-  company_id,
-  page,
-  limit,
-  filters,
-  role,
-  user_id,
-  designation,
-) => {
-  let conn;
-  try {
-    const fetchMerchantIds = async (user_ids) => {
-      const merchants = await getMerchantByUserIdDao(user_ids);
-      return merchants.map((merchant) => merchant.id);
-    };
+// export const getPayinsService = async (
+//   company_id,
+//   page,
+//   limit,
+//   filters,
+//   role,
+//   user_id,
+//   designation,
+// ) => {
+//   let conn;
+//   try {
+//     const fetchMerchantIds = async (user_ids) => {
+//       const merchants = await getMerchantByUserIdDao(user_ids);
+//       return merchants.map((merchant) => merchant.id);
+//     };
 
-    const fetchBankIds = async (user_id) => {
-      try {
-        const banks = await getBankaccountDao({
-          user_id,
-          bank_used_for: 'PayIn',
-        });
-        if (!banks || banks.length === 0) {
-          return [];
-        }
-        return banks.map((bank) => bank.id);
-      } catch (error) {
-        logger.error('Error fetching PayIn:', error);
-        return [];
-      }
-    };
+//     const fetchBankIds = async (user_id) => {
+//       try {
+//         const banks = await getBankaccountDao({
+//           user_id,
+//           bank_used_for: 'PayIn',
+//         });
+//         if (!banks || banks.length === 0) {
+//           return [];
+//         }
+//         return banks.map((bank) => bank.id);
+//       } catch (error) {
+//         logger.error('Error fetching PayIn:', error);
+//         return [];
+//       }
+//     };
 
-    let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
+//     let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
 
-    if (role === Role.MERCHANT) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
-      const userHierarchy = userHierarchys?.[0];
+//     if (role === Role.MERCHANT) {
+//       const userHierarchys = await getUserHierarchysDao({ user_id });
+//       const userHierarchy = userHierarchys?.[0];
 
-      if (designation === Role.MERCHANT && userHierarchy) {
-        const subMerchants =
-          userHierarchy?.config?.siblings?.sub_merchants ?? [];
-        if (Array.isArray(subMerchants) && subMerchants.length > 0) {
-          merchant_user_id = [...merchant_user_id, ...subMerchants];
-          filters.merchant_id = await fetchMerchantIds(merchant_user_id);
-        } else {
-          filters.merchant_id = await fetchMerchantIds([user_id]);
-        }
-      } else if (designation === Role.SUB_MERCHANT) {
-        filters.merchant_id = await fetchMerchantIds([user_id]);
-      } else if (designation === Role.MERCHANT_OPERATIONS && userHierarchy) {
-        const parentID = userHierarchy?.config?.parent;
-        if (parentID) {
-          const parentHierarchys = await getUserHierarchysDao({
-            user_id: parentID,
-          });
-          const parentHierarchy = parentHierarchys?.[0];
-          const subMerchants =
-            parentHierarchy?.config?.siblings?.sub_merchants ?? [];
+//       if (designation === Role.MERCHANT && userHierarchy) {
+//         const subMerchants =
+//           userHierarchy?.config?.siblings?.sub_merchants ?? [];
+//         if (Array.isArray(subMerchants) && subMerchants.length > 0) {
+//           merchant_user_id = [...merchant_user_id, ...subMerchants];
+//           filters.merchant_id = await fetchMerchantIds(merchant_user_id);
+//         } else {
+//           filters.merchant_id = await fetchMerchantIds([user_id]);
+//         }
+//       } else if (designation === Role.SUB_MERCHANT) {
+//         filters.merchant_id = await fetchMerchantIds([user_id]);
+//       } else if (designation === Role.MERCHANT_OPERATIONS && userHierarchy) {
+//         const parentID = userHierarchy?.config?.parent;
+//         if (parentID) {
+//           const parentHierarchys = await getUserHierarchysDao({
+//             user_id: parentID,
+//           });
+//           const parentHierarchy = parentHierarchys?.[0];
+//           const subMerchants =
+//             parentHierarchy?.config?.siblings?.sub_merchants ?? [];
 
-          const userIdFilter = [...new Set([parentID, ...subMerchants])];
-          filters.merchant_id = await fetchMerchantIds(userIdFilter);
-        }
-      }
-    } else if (role === Role.VENDOR) {
-      if (designation === Role.VENDOR) {
-        filters.bank_acc_id = await fetchBankIds(user_id);
-      } else if (designation === Role.VENDOR_OPERATIONS) {
-        const userHierarchys = await getUserHierarchysDao({ user_id });
-        const parentID = userHierarchys?.[0]?.config?.parent;
-        if (parentID) {
-          filters.bank_acc_id = await fetchBankIds(parentID);
-        }
-      }
-    }
+//           const userIdFilter = [...new Set([parentID, ...subMerchants])];
+//           filters.merchant_id = await fetchMerchantIds(userIdFilter);
+//         }
+//       }
+//     } else if (role === Role.VENDOR) {
+//       if (designation === Role.VENDOR) {
+//         filters.bank_acc_id = await fetchBankIds(user_id);
+//       } else if (designation === Role.VENDOR_OPERATIONS) {
+//         const userHierarchys = await getUserHierarchysDao({ user_id });
+//         const parentID = userHierarchys?.[0]?.config?.parent;
+//         if (parentID) {
+//           filters.bank_acc_id = await fetchBankIds(parentID);
+//         }
+//       }
+//     }
 
-    if (
-      (designation === Role.VENDOR || designation === Role.VENDOR_OPERATIONS) &&
-      Array.isArray(filters.bank_acc_id) &&
-      filters.bank_acc_id.length === 0
-    ) {
-      return [];
-    }
+//     if (
+//       (designation === Role.VENDOR || designation === Role.VENDOR_OPERATIONS) &&
+//       Array.isArray(filters.bank_acc_id) &&
+//       filters.bank_acc_id.length === 0
+//     ) {
+//       return [];
+//     }
 
-    conn = await getConnection();
-    return await getAllPayInsDao(filters, company_id, page, limit, role);
-  } catch (error) {
-    throw new InternalServerError(error.message);
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
-  }
-};
+//     conn = await getConnection();
+//     return await getAllPayInsDao(filters, company_id, page, limit, role);
+//   } catch (error) {
+//     throw new InternalServerError(error.message);
+//   } finally {
+//     if (conn) {
+//       try {
+//         conn.release();
+//       } catch (releaseError) {
+//         logger.error('Error while releasing the connection', releaseError);
+//       }
+//     }
+//   }
+// };
 
 export const getPayinsBySearchService = async (
   filters,
@@ -1308,17 +1309,29 @@ export const getPayinsBySearchService = async (
     ) {
       return [];
     }
-
-    const data = await getPayinsBySearchDao(
-      filters,
-      searchTerms,
-      limitNum,
-      offset,
-      role,
-      designation,
-      updatedPayin,
-      // filterColumns,
-    );
+    let data
+    if (updatedPayin) {
+      data = await getPayinsWithHistoryDao(
+        filters,
+        searchTerms,
+        limitNum,
+        offset,
+        role,
+        designation,
+        updatedPayin,
+      );
+    }
+    else {
+       data = await getPayinsWithoutHistoryDao(
+         filters,
+         searchTerms,
+         limitNum,
+         offset,
+         role,
+         designation,
+       );
+    }
+   
 
     return data;
   } catch (error) {
@@ -1418,6 +1431,7 @@ export const processPayInService = async (
         (await getBankResponseDao({
           utr: userSubmittedUtr,
           status: '/success',
+          company_id: payIn.company_id
         })) || {};
     }
     const result = {
@@ -1495,6 +1509,7 @@ export const processPayInService = async (
         (await getBankResponseDao({
           utr: userSubmittedUtr,
           status: '/success',
+          company_id: payIn.company_id,
         })) || {};
     }
 
@@ -1819,11 +1834,17 @@ export const telegramResponseService = async (conn, message) => {
     }
 
     // Fetch initial data concurrently
-    const [payIn, bankResponse] = await Promise.all([
-      getPayInForTelegramResponseDao({ merchant_order_id: message.caption }),
-      getBankResponseDao({ utr: content.utr }),
-    ]);
-
+    // const [payIn, bankResponse] = await Promise.all([
+    //   getPayInForTelegramResponseDao({ merchant_order_id: message.caption }),
+    //   getBankResponseDao({ utr: content.utr }),
+    // ]);
+    const payIn = await getPayInForTelegramResponseDao({
+      merchant_order_id: message.caption,
+    });
+    const bankResponse = await getBankResponseDao({
+      utr: content.utr,
+      company_id: payIn.company_id,
+    });
     // Early validation for missing critical data
     if (!payIn) {
       await sendErrorMessageTelegram(
@@ -2323,10 +2344,12 @@ export const telegramCheckUTRService = async (
     const bankResponse = await getBankResponseDao({
       utr: utr,
       status: '/success',
+      company_id
     });
     let otherBankResponse = {};
     const payIn = await getPayInForTelegramUtrDao({
       merchant_order_id,
+      company_id
     });
     if (!bankResponse) {
       throw new NotFoundError(`UTR ${utr} not found`);
@@ -2444,6 +2467,7 @@ export const checkPendingPayinStatusService = async (
         is_used: false,
         status: '/success',
         utr: currentPayin.user_submitted_utr,
+        company_id
       };
       const botRes = await getBankResponseDao(botResFilters);
       let bot = [botRes];
