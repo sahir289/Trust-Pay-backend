@@ -2611,7 +2611,7 @@ export const verifyPayinsService = async (
   oneTimeUsed,
 ) => {
   try {
-    const payIn = await getPayInUrlService(merchantOrderId);
+    const payIn = await getPayInUrlService(merchantOrderId , conn);
 
     if (!payIn) {
       throw new BadRequestError('Invalid merchant order id');

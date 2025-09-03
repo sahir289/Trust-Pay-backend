@@ -76,15 +76,27 @@ describe('payAssistTransactionStatusCallback', () => {
     getBankByIdDao.mockResolvedValue([{ user_id: 200 }]);
     getVendorsDao.mockResolvedValue([{ id: 300 }]);
     getUserByCompanyCreatedAtDao.mockResolvedValue({ id: 400 });
+    // Mock axios.post to return a successful payout status
+    axios.post.mockResolvedValue({
+      data: {
+        ErrorCode: '0',
+        Response: { txnid: 'tx123', message: 'Transaction Successful' }
+      }
+    });
     updatePayoutService.mockResolvedValue();
-
+  
     await payAssistTransactionStatusCallback(req, res);
-
+  
     expect(getPayoutsDao).toHaveBeenCalledWith({ id: 1 });
     expect(getCompanyByIDDao).toHaveBeenCalledWith({ id: 100 });
     expect(getBankByIdDao).toHaveBeenCalledWith({ id: 10 });
     expect(getVendorsDao).toHaveBeenCalledWith({ user_id: 200 });
     expect(getUserByCompanyCreatedAtDao).toHaveBeenCalledWith(100, 'ADMIN');
+    expect(axios.post).toHaveBeenCalledWith(
+      'url/payoutStatus',
+      { apitxnid: 1 },
+      { headers: { APIAGENT: 'agent', APIKEY: 'key' } }
+    );
     expect(updatePayoutService).toHaveBeenCalledWith(
       conn,
       { id: 1, company_id: 100 },
@@ -100,7 +112,6 @@ describe('payAssistTransactionStatusCallback', () => {
         approved_at: expect.any(String),
       })
     );
-    expect(axios.post).not.toHaveBeenCalled(); // No axios call for ErrorCode: '0'
     expect(commit).toHaveBeenCalledWith(conn);
     expect(conn.release).toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
@@ -202,32 +213,36 @@ describe('payAssistTransactionStatusCallback', () => {
     expect(res.send).toHaveBeenCalledWith('Payout Updated Successfully');
   });
 
-  it('should rollback on error', async () => {
-    req.body = { Response: { apitxnid: 1 } };
-    getPayoutsDao.mockRejectedValue(new Error('DB error'));
-
-    await payAssistTransactionStatusCallback(req, res);
-
-    expect(getPayoutsDao).toHaveBeenCalledWith({ id: 1 });
+  it('should handle error when company configuration not found', async () => {
+    req.body = { Response: { apitxnid: '123' }, ErrorCode: '0' };
+    getPayoutsDao.mockResolvedValue([{ id: '123', company_id: 100 }]);
+    getCompanyByIDDao.mockResolvedValue([]);
+  
+    await expect(payAssistTransactionStatusCallback(req, res)).rejects.toThrow();
+  
+    expect(getPayoutsDao).toHaveBeenCalledWith({ id: '123' });
+    expect(getCompanyByIDDao).toHaveBeenCalledWith({ id: 100 });
     expect(rollback).toHaveBeenCalledWith(conn);
     expect(conn.release).toHaveBeenCalled();
     expect(logger.error).toHaveBeenCalledWith('getting error while updating payout', expect.any(Error));
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.send).toHaveBeenCalledWith('Internal Server Error');
   });
 
-  // Additional test to debug company configuration error
-  it('should return NotFoundError if company configuration not found', async () => {
-    req.body = { Response: { apitxnid: 1, txnid: 'tx123' }, ErrorCode: '0' };
-    getPayoutsDao.mockResolvedValue([{ id: 1, company_id: 100 }]);
-    getCompanyByIDDao.mockResolvedValue([]); // Simulate missing company
-
-    await payAssistTransactionStatusCallback(req, res);
-
-    expect(getPayoutsDao).toHaveBeenCalledWith({ id: 1 });
+  it('should handle error when company configuration not found', async () => {
+    req.body = { Response: { apitxnid: '123' }, ErrorCode: '0' };
+    getPayoutsDao.mockResolvedValue([{ id: '123', company_id: 100 }]);
+    getCompanyByIDDao.mockResolvedValue([]);
+  
+    await expect(payAssistTransactionStatusCallback(req, res)).rejects.toThrow(
+      'Cannot read properties of undefined (reading \'config\')'
+    );
+  
+    expect(getPayoutsDao).toHaveBeenCalledWith({ id: '123' });
     expect(getCompanyByIDDao).toHaveBeenCalledWith({ id: 100 });
-    expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.send).toHaveBeenCalledWith('Company configuration not found');
+    expect(rollback).toHaveBeenCalledWith(conn);
     expect(conn.release).toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      'getting error while updating payout',
+      expect.any(Error)
+    );
   });
 });

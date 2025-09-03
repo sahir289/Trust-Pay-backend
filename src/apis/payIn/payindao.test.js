@@ -18,6 +18,14 @@ const { BadRequestError } = require('../../utils/appErrors.js');
 const { buildSelectQuery, executeQuery } = require('../../utils/db.js');
 const { logger } = require('../../utils/logger.js');
 
+
+// Mock dayjs for tests
+jest.mock('dayjs', () => {
+  const originalDayjs = jest.requireActual('dayjs');
+  originalDayjs.extend(require('dayjs/plugin/utc'));
+  originalDayjs.extend(require('dayjs/plugin/timezone'));
+  return originalDayjs;
+});
 jest.mock('../../utils/db.js', () => ({
   ...jest.requireActual('../../utils/db.js'),
   executeQuery: jest.fn(),
@@ -429,13 +437,13 @@ describe('PayIn DAO', () => {
       const searchTerms = [];
       const mockCountResult = { rows: [{ total: 1 }] };
       const mockSearchResult = { rows: [{}] };
-
+    
       executeQuery
         .mockResolvedValueOnce(mockCountResult)
         .mockResolvedValueOnce(mockSearchResult);
-
+    
       await getPayinsBySearchDao(filters, searchTerms);
-
+    
       expect(executeQuery.mock.calls[0][0]).toContain('p.updated_at BETWEEN');
     });
 

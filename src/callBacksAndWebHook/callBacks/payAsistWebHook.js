@@ -166,6 +166,7 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
     await rollback(conn);
     // Log any errors while updating the payout
     logger.error('getting error while updating payout', err);
+    throw err;
   } finally {
     if (conn) {
       logger.info('Releasing connection');
