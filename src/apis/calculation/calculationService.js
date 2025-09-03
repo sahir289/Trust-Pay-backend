@@ -11,6 +11,7 @@ import {
   calculateChargebackDataDao,
   calculateAdjustmentDataDao,
   getUserRoleDao,
+  getCalculationsForInternalUseDao,
 } from './calculationDao.js';
 
 // Importing transaction wrapper for handling database transactions
@@ -290,7 +291,7 @@ const updateCalculationsService = async (conn, filters) => {
     );
 
     // Get current calculations that need to be updated for the calculated date range
-    const existingCalculations = await getCalculationsSumDao({
+    const existingCalculations = await getCalculationsForInternalUseDao({
       company_id,
       users: user_id,
       startDate: calculationStartDate,
@@ -338,7 +339,7 @@ const updateCalculationsService = async (conn, filters) => {
           `Looking for baseline calculation on date: ${baselineDate}`,
         );
 
-        const baselineCalculations = await getCalculationsSumDao({
+        const baselineCalculations = await getCalculationsForInternalUseDao({
           company_id,
           users: user_id,
           startDate: baselineDate,
