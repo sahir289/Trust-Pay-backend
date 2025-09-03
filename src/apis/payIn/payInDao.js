@@ -1728,7 +1728,7 @@ export const getPayInsForResetBankResDao = async (filters = {}) => {
     `;
 
     const [sql, params] = buildSelectQuery(
-      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false and status != 'FAILED'`,
       filters,
     );
 
