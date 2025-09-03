@@ -125,7 +125,7 @@ export const calculateSuccessRatios = async (req, res) => {
 
 const updateCalculations = async (req, res) => {
   try {
-    const { role, company_id } = req.user;
+    const { company_id } = req.user;
 
     // Validate request body
     const { error } = VALIDATE_UPDATE_CALCULATIONS_SCHEMA.validate(req.body);
@@ -154,7 +154,6 @@ const updateCalculations = async (req, res) => {
         endDate,
         company_id,
       },
-      role,
     );
 
     return sendSuccess(res, data, 'Calculations updated successfully');

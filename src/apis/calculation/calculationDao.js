@@ -1436,4 +1436,5 @@ export {
   calculateSettlementDataDao,
   calculateChargebackDataDao,
   calculateAdjustmentDataDao,
+  getUserRoleDao,
 };

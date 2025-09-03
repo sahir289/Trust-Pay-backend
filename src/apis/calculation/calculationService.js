@@ -10,6 +10,7 @@ import {
   calculatePayoutDataDao,
   calculateChargebackDataDao,
   calculateAdjustmentDataDao,
+  getUserRoleDao,
 } from './calculationDao.js';
 
 // Importing transaction wrapper for handling database transactions
@@ -242,9 +243,11 @@ const calculateSuccessRatiosService = async (date, user_ids) => {
   }
 };
 
-const updateCalculationsService = async (conn, filters, role) => {
+const updateCalculationsService = async (conn, filters) => {
   try {
     const { date, user_id, startDate, endDate, company_id } = filters;
+
+    const role = await getUserRoleDao(user_id);
 
     // Validate user_id
     if (!user_id || typeof user_id !== 'string') {
@@ -636,43 +639,33 @@ const updateCalculationsService = async (conn, filters, role) => {
               const settlementAmount = safeNumber(
                 settlementData.total_settlement_amount,
               );
-              const adjustmentAmount = safeNumber(
-                adjustmentData.total_adjustment_amount,
-              );
+              // const adjustmentAmount = safeNumber(
+              //   adjustmentData.total_adjustment_amount,
+              // );
 
               // Determine if user is merchant or vendor based on role
               const isMerchant = role === Role.MERCHANT;
 
               const merchantBaseCalculation =
-                Math.round(
-                  (payinAmount -
-                    payoutAmount -
-                    (payinCommission -
-                      payoutCommission +
-                      reversePayoutCommission) -
-                    chargebackAmount +
-                    reversePayoutAmount +
-                    adjustmentAmount) *
-                    100,
-                ) / 100; // Round to 2 decimal places to handle floating-point precision
+                payinAmount -
+                payoutAmount -
+                (payinCommission + payoutCommission - reversePayoutCommission) -
+                chargebackAmount +
+                reversePayoutAmount;
               const vendorBaseCalculation =
-                Math.round(
-                  (-payinAmount +
-                    payoutAmount +
-                    (payinCommission +
-                      payoutCommission -
-                      reversePayoutCommission) +
-                    chargebackAmount -
-                    reversePayoutAmount -
-                    adjustmentAmount) *
-                    100,
-                ) / 100; // Round to 2 decimal places to handle floating-point precision
-              const calculatedCurrentBalance =
-                Math.round(
-                  (isMerchant
-                    ? merchantBaseCalculation + settlementAmount
-                    : vendorBaseCalculation - settlementAmount) * 100,
-                ) / 100; // Round to 2 decimal places
+                -payinAmount +
+                payoutAmount +
+                (-payinCommission -
+                  payoutCommission +
+                  reversePayoutCommission) +
+                chargebackAmount -
+                reversePayoutAmount;
+              
+              // For merchants: settlements reduce balance (they pay out)
+              // For vendors: settlements increase balance (they receive)
+              const calculatedCurrentBalance = isMerchant
+                ? merchantBaseCalculation - settlementAmount
+                : vendorBaseCalculation + settlementAmount;
 
               // Ensure calculatedCurrentBalance is a valid number
               const safeCalculatedCurrentBalance = safeNumber(
