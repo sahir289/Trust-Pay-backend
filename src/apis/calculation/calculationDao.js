@@ -1250,7 +1250,7 @@ const getMerchantNetBalanceDao = async (companyId, startDate, endDate) => {
       LEFT JOIN public."Merchant" m ON m.user_id = c.user_id
       WHERE c.company_id = $1
       AND r.role = '${Role.MERCHANT}'
-      AND DATE(c.created_at AT TIME ZONE 'Asia/Kolkata') BETWEEN DATE($2) AND DATE($3)
+      AND DATE(c.created_at) BETWEEN DATE($2) AND DATE($3)
       AND m.is_obsolete = false
       AND c.is_obsolete = false
     `;
@@ -1398,7 +1398,7 @@ const getVendorNetBalanceDao = async (companyId, startDate, endDate) => {
       LEFT JOIN public."Vendor" v ON v.user_id = c.user_id
       WHERE c.company_id = $1
       AND r.role = '${Role.VENDOR}'
-      AND DATE(c.created_at AT TIME ZONE 'Asia/Kolkata') BETWEEN DATE($2) AND DATE($3)
+      AND DATE(c.created_at) BETWEEN DATE($2) AND DATE($3)
       GROUP BY c.id, v.code
     `;
     const result = await executeQuery(sql, [companyId, startDate, endDate]);

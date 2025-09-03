@@ -5,7 +5,7 @@ import collectPayinData from './notifyCron.js';
 import { logger } from '../utils/logger.js';
 import formattedSuccessRatiosByMerchant from './successRatioCron.js';
 import gatherAllDataForAllCompanies from './gatherAllData.js';
-import gatherAllNetbalanceForAllCompanies from './gatherAllVendorsNetBalance.js';
+import gatherAllNetbalanceForAllCompanies from './gatherAllNetBalance.js';
 // import  checkPendingStatus  from './pendingPayinCron.js';
 const router = express.Router();
 
