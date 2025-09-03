@@ -1500,7 +1500,7 @@ const calculatePayinDataDao = async (
         WHERE m.user_id = $1
           AND p.company_id = $2
           AND p.is_obsolete = false
-          AND (p.approved_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date
+          AND (p.approved_at)::date = $3::date
           AND p.status = 'SUCCESS'
         GROUP BY p.status
       `;
@@ -1584,8 +1584,8 @@ const calculatePayoutDataDao = async (user_id, company_id, startDate) => {
           AND p.company_id = $2
           AND p.is_obsolete = false
           AND (
-            (p.status = 'APPROVED' AND (p.approved_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date) OR
-            (p.status = 'REVERSED' AND (p.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date)
+            (p.status = 'APPROVED' AND (p.approved_at)::date = $3::date) OR
+            (p.status = 'REVERSED' AND (p.updated_at)::date = $3::date)
           )
         GROUP BY p.status
       `;
@@ -1605,8 +1605,8 @@ const calculatePayoutDataDao = async (user_id, company_id, startDate) => {
           AND p.company_id = $2
           AND p.is_obsolete = false
           AND (
-            (p.status = 'APPROVED' AND (p.approved_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date) OR
-            (p.status = 'REVERSED' AND (p.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date)
+            (p.status = 'APPROVED' AND (p.approved_at)::date = $3::date) OR
+            (p.status = 'REVERSED' AND (p.updated_at)::date = $3::date)
           )
         GROUP BY p.status
       `;
@@ -1665,16 +1665,16 @@ const calculateSettlementDataDao = async (
         s.method,
         s.amount,
         s.config,
-        (s.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date as created_date,
-        (s.approved_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date as approved_date,
-        (s.rejected_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date as updated_date
+        (s.created_at)::date as created_date,
+        (s.approved_at)::date as approved_date,
+        (s.rejected_at)::date as updated_date
       FROM "${tableName.SETTLEMENT}" s
       WHERE s.user_id = $1 
         AND s.company_id = $2
         AND s.is_obsolete = false
         AND (
-            (s.status = 'SUCCESS' AND (s.approved_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date) OR
-            (s.status = 'REVERSED' AND (s.rejected_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date)
+            (s.status = 'SUCCESS' AND (s.approved_at)::date = $3::date) OR
+            (s.status = 'REVERSED' AND (s.rejected_at)::date = $3::date)
           )
       ORDER BY s.id, s.status
     `;
@@ -1889,7 +1889,7 @@ const calculateChargebackDataDao = async (user_id, company_id, startDate) => {
       WHERE ${whereClause}
         AND company_id = $2
         AND is_obsolete = false
-        AND (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $3::date
+        AND (created_at)::date = $3::date
     `;
 
     const result = await executeQuery(query, [user_id, company_id, startDate]);
@@ -1933,7 +1933,7 @@ const calculateAdjustmentDataDao = async (user_id, company_id, startDate) => {
           AND jsonb_array_length((p.config->'history')::jsonb) > 0
           AND EXISTS (
             SELECT 1 FROM jsonb_array_elements((p.config->'history')::jsonb) AS entry
-            WHERE DATE((entry->>'updated_at')::timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') = $3::date
+            WHERE DATE((entry->>'updated_at')::timestamp) = $3::date
           )
       `;
 
