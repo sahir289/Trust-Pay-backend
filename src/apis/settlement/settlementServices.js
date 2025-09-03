@@ -455,7 +455,7 @@ const validateUTR = (payload, settlementData) => {
 };
 
 // Helper function to handle internal transfer UTR
-const handleInternalTransferUTR = async (conn, payload, settlementData) => {
+const handleInternalTransferUTR = async (conn, payload, settlementData, changeUTRStatus) => {
   const isInternalMethod = INTERNAL_METHODS.includes(settlementData.method);
   
   if (
@@ -467,18 +467,20 @@ const handleInternalTransferUTR = async (conn, payload, settlementData) => {
     if (!bankResponses) {
       throw new NotFoundError('Bank response not found for the provided UTR');
     }
-    
-    if (bankResponses.is_used === false && bankResponses.status === Status.BOT) {
-      const response = await updateBankResponseDao(
-        { id: bankResponses.id },
-        { status: '/internalTransfer' },
-        conn
-      );
-      
-      const responseObj = createBankResponseObject(response, settlementData.company_id);
-      await newTableEntry(tableName.BANK_RESPONSE, responseObj);
-    } else {
-      throw new BadRequestError('UTR is already used');
+
+    if (changeUTRStatus) {
+      if (bankResponses.is_used === false && bankResponses.status === Status.BOT) {
+        const response = await updateBankResponseDao(
+          { id: bankResponses.id },
+          { status: '/internalTransfer' },
+          conn
+        );
+        
+        const responseObj = createBankResponseObject(response, settlementData.company_id);
+        await newTableEntry(tableName.BANK_RESPONSE, responseObj);
+      } else {
+        throw new BadRequestError('UTR is already used');
+      }
     }
   }
 };
@@ -730,10 +732,16 @@ const updateSettlementService = async (conn, ids, payload) => {
     
     // Validate UTR
     validateUTR(payload, settlementData);
-    
+
+    let changeUTRStatus = true;
+
+    if (payload.config.rejected_reason) {
+      changeUTRStatus = false;
+    }
+
     // Handle internal transfer UTR
-    await handleInternalTransferUTR(conn, payload, settlementData);
-    
+    await handleInternalTransferUTR(conn, payload, settlementData, changeUTRStatus);
+
     // Get calculation data
     const calculationData = await getCalculationforCronDao(settlementData.user_id);
 

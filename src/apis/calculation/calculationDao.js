@@ -766,6 +766,160 @@ const checkCalculationEntryForDateDao = async (date) => {
   }
 };
 
+const getMerchantNetBalanceDao = async (companyId, startDate, endDate) => {
+  try {
+    // Base query to get merchant net balance data with latest records
+    let sql = `
+      SELECT 
+        c.user_id, 
+        c.net_balance, 
+        m.code,
+        c.created_at,
+        ROW_NUMBER() OVER (PARTITION BY c.user_id ORDER BY c.created_at DESC) as rn
+      FROM public."Calculation" c
+      LEFT JOIN public."Role" r ON r.id = c.role_id
+      LEFT JOIN public."Merchant" m ON m.user_id = c.user_id
+      WHERE c.company_id = $1
+      AND r.role = '${Role.MERCHANT}'
+      AND DATE(c.created_at AT TIME ZONE 'Asia/Kolkata') BETWEEN DATE($2) AND DATE($3)
+      AND m.is_obsolete = false
+      AND c.is_obsolete = false
+    `;
+
+    const queryParams = [companyId, startDate, endDate];
+
+    // Get the latest record for each merchant
+    const wrappedSql = `
+      SELECT user_id, net_balance, code
+      FROM (${sql}) as latest_records
+      WHERE rn = 1
+    `;
+
+    const result = await executeQuery(wrappedSql, queryParams);
+    let merchantData = result.rows;
+
+    // If no data, return empty array
+    if (merchantData.length === 0) {
+      return merchantData;
+    }
+
+    // Filter out inactive merchants (same net_balance in last 10 entries)
+    const activeMerchants = [];
+    for (const merchant of merchantData) {
+      try {
+        // Get last 10 calculation entries for this merchant
+        const historyQuery = `
+          SELECT net_balance
+          FROM public."Calculation" c
+          LEFT JOIN public."Role" r ON r.id = c.role_id
+          WHERE c.user_id = $1
+          AND c.company_id = $2
+          AND r.role = '${Role.MERCHANT}'
+          AND c.is_obsolete = false
+          ORDER BY c.created_at DESC
+          LIMIT 10
+        `;
+        
+        const historyResult = await executeQuery(historyQuery, [merchant.user_id, companyId]);
+        const netBalances = historyResult.rows.map(row => parseFloat(row.net_balance));
+        
+        // Check if merchant is active (has different net_balance values in last 10 entries)
+        // If less than 10 entries or has variation in net_balance, consider as active
+        if (netBalances.length < 10 || !netBalances.every(balance => balance === netBalances[0])) {
+          activeMerchants.push(merchant);
+          logger.info(`Merchant ${merchant.code} is active - balance variation found or less than 10 entries`);
+        } else {
+          logger.info(`Merchant ${merchant.code} is inactive - same balance ${netBalances[0]} in last 10 entries`);
+        }
+      } catch (error) {
+        logger.warn(`Error checking merchant ${merchant.code} activity:`, error);
+        // Include merchant if there's an error checking activity
+        activeMerchants.push(merchant);
+      }
+    }
+
+    merchantData = activeMerchants;
+
+    // Always process hierarchy to club parent and child data
+    const clubbedData = new Map();
+    const processedUsers = new Set();
+    const hierarchyMap = new Map();
+
+    // First, get hierarchy for all users
+    for (const merchant of merchantData) {
+      try {
+        const userHierarchy = await getUserHierarchysDao({ user_id: merchant.user_id });
+        hierarchyMap.set(merchant.user_id, userHierarchy);
+      } catch (error) {
+        logger.warn(`Failed to get hierarchy for user ${merchant.user_id}:`, error);
+        hierarchyMap.set(merchant.user_id, null);
+      }
+    }
+
+    // Process each merchant
+    for (const merchant of merchantData) {
+      const userId = merchant.user_id;
+      
+      if (processedUsers.has(userId)) {
+        continue;
+      }
+
+      const userHierarchy = hierarchyMap.get(userId);
+      const hierarchyConfig = userHierarchy?.[0]?.config;
+      
+      // Check if this user is a parent - look for sub_merchants in the config
+      const subMerchants = hierarchyConfig?.siblings?.sub_merchants || [];
+      
+      if (subMerchants && subMerchants.length > 0) {
+        // This is a parent merchant - club data with children
+        let totalNetBalance = parseFloat(merchant.net_balance || 0);
+        const parentCode = merchant.code;
+        
+        // Add child merchants' net balances to parent
+        for (const childUserId of subMerchants) {
+          const childMerchant = merchantData.find(m => m.user_id === childUserId);
+          if (childMerchant) {
+            const childBalance = parseFloat(childMerchant.net_balance || 0);
+            totalNetBalance += childBalance;
+            processedUsers.add(childUserId); // Mark child as processed
+          }
+        }
+        
+        // Store clubbed data under parent's code
+        clubbedData.set(parentCode, {
+          user_id: userId,
+          net_balance: totalNetBalance,
+          code: parentCode,
+          is_parent: true,
+          sub_merchants: subMerchants
+        });
+        
+        processedUsers.add(userId); // Mark parent as processed
+      } else {
+        // This might be a standalone merchant or child - check if already processed
+        if (!processedUsers.has(userId)) {
+          clubbedData.set(merchant.code, {
+            user_id: userId,
+            net_balance: parseFloat(merchant.net_balance || 0),
+            code: merchant.code,
+            is_parent: false
+          });
+          processedUsers.add(userId);
+        }
+      }
+    }
+
+    const result_data = Array.from(clubbedData.values());
+    
+    // Convert Map to array and return
+    return result_data;
+    
+  } catch (error) {
+    logger.error('Error fetching merchant net balance:', error);
+    throw error;
+  }
+};
+
 const getVendorNetBalanceDao = async (companyId, startDate, endDate) => {
   try {
     const sql = `
@@ -779,7 +933,49 @@ const getVendorNetBalanceDao = async (companyId, startDate, endDate) => {
       GROUP BY c.id, v.code
     `;
     const result = await executeQuery(sql, [companyId, startDate, endDate]);
-    return result.rows;
+    let vendorData = result.rows;
+
+    // If no data, return empty array
+    if (vendorData.length === 0) {
+      return vendorData;
+    }
+
+    // Filter out inactive vendors (same net_balance in last 10 entries)
+    const activeVendors = [];
+    for (const vendor of vendorData) {
+      try {
+        // Get last 10 calculation entries for this vendor
+        const historyQuery = `
+          SELECT net_balance
+          FROM public."Calculation" c
+          LEFT JOIN public."Role" r ON r.id = c.role_id
+          WHERE c.user_id = $1
+          AND c.company_id = $2
+          AND r.role = '${Role.VENDOR}'
+          AND c.is_obsolete = false
+          ORDER BY c.created_at DESC
+          LIMIT 10
+        `;
+        
+        const historyResult = await executeQuery(historyQuery, [vendor.user_id, companyId]);
+        const netBalances = historyResult.rows.map(row => parseFloat(row.net_balance));
+        
+        // Check if vendor is active (has different net_balance values in last 10 entries)
+        // If less than 10 entries or has variation in net_balance, consider as active
+        if (netBalances.length < 10 || !netBalances.every(balance => balance === netBalances[0])) {
+          activeVendors.push(vendor);
+          logger.info(`Vendor ${vendor.code} is active - balance variation found or less than 10 entries`);
+        } else {
+          logger.info(`Vendor ${vendor.code} is inactive - same balance ${netBalances[0]} in last 10 entries`);
+        }
+      } catch (error) {
+        logger.warn(`Error checking vendor ${vendor.code} activity:`, error);
+        // Include vendor if there's an error checking activity
+        activeVendors.push(vendor);
+      }
+    }
+
+    return activeVendors;
   } catch (error) {
     logger.error('Error fetching vendor net balance:', error);
     throw error;
@@ -1430,10 +1626,12 @@ export {
   deleteCalculationDao,
   checkCalculationEntryForDateDao,
   updateCalculationConfigDao,
+  getMerchantNetBalanceDao,
   getVendorNetBalanceDao,
   calculatePayinDataDao,
   calculatePayoutDataDao,
   calculateSettlementDataDao,
   calculateChargebackDataDao,
   calculateAdjustmentDataDao,
+  getUserRoleDao,
 };
