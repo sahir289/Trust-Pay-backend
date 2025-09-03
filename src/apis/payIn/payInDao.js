@@ -243,7 +243,7 @@ export const getPayinsForServiccDao = async (filters) => {
         bank_response_id,
         user_submitted_utr,
         upi_short_code,
-        user,
+        "user",
         updated_at,
         sno,
         merchant_id,
@@ -1728,7 +1728,7 @@ export const getPayInsForResetBankResDao = async (filters = {}) => {
     `;
 
     const [sql, params] = buildSelectQuery(
-      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false and status != 'FAILED'`,
       filters,
     );
 

@@ -156,7 +156,7 @@ export async function sendTelegramDashboardReportMessage(
     .filter(Boolean)
     .join('\n\n');
 
-  const message = `
+  const message1 = `
     <b>(${timeStamp}) IST</b>
     
 <b>💰 Deposits</b>
@@ -170,28 +170,55 @@ ${merchantPayInDetails}
 ${merchantPayOutDetails}
     
 <b>Total Withdrawals:</b> ₹ ${totalpayoutsMerchant}
-    
+`;
+
+const message2 = `
+<b>(${timeStamp}) IST</b>
+
 <b>✅ Bank Account Deposits</b>
 
 ${vendorDetails}
-    
+
 <b>Total Bank Account Deposits:</b> ₹ ${totalBankDepositAllVendors}
-    
+
+`;
+
+const message3 = `
+<b>(${timeStamp}) IST</b>
+
 <b>✅ Bank Account Withdrawals</b>
 
 ${vendorDetailsPayout}
-    
+
 <b>Total Bank Account Withdrawals:</b> ₹ ${totalBankWithdrawalAllVendors}
 `;
 
-  const success = await telegramSender(
+
+
+  const success1 = await telegramSender(
     chatId,
-    message,
+    message1,
     null,
     TELEGRAM_BOT_TOKEN,
   );
-  logger.log(success ? 'Sent!' : 'Not sent.');
-  return success;
+  logger.log(success1 ? 'Sent!' : 'Not sent.');
+
+  const success2 = await telegramSender(
+    chatId,
+    message2,
+    null,
+    TELEGRAM_BOT_TOKEN,
+  );
+  logger.log(success2 ? 'Sent!' : 'Not sent.');
+
+  const success3 = await telegramSender(
+    chatId,
+    message3,
+    null,
+    TELEGRAM_BOT_TOKEN,
+  );
+  logger.log(success3 ? 'Sent!' : 'Not sent.');
+  return {success1, success2, success3};
 }
 
 export async function sendTelegramMerchantDashboardReportMessage(
@@ -339,6 +366,7 @@ ${vendorDetails}`;
     return false;
   }
 }
+
 
 export async function sendTelegramDashboardMerchantGroupingReportMessage(
   chatId,
