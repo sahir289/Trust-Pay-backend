@@ -678,7 +678,7 @@ const getBankResponseDaoAll = async (
         throw new Error('Invalid userId format');
       }
       baseQueryVendor = `
-      SELECT 
+      SELECT DISTINCT ON (br.sno)
       br.created_at,
       br.sno,
       br.utr,

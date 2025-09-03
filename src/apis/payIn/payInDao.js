@@ -243,7 +243,7 @@ export const getPayinsForServiccDao = async (filters) => {
         bank_response_id,
         user_submitted_utr,
         upi_short_code,
-        user,
+        "user",
         updated_at,
         sno,
         merchant_id,
