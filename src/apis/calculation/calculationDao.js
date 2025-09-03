@@ -796,14 +796,49 @@ const getMerchantNetBalanceDao = async (companyId, startDate, endDate) => {
     `;
 
     const result = await executeQuery(wrappedSql, queryParams);
-    const merchantData = result.rows;
-
-    logger.info('Raw merchant data retrieved:', merchantData);
+    let merchantData = result.rows;
 
     // If no data, return empty array
     if (merchantData.length === 0) {
       return merchantData;
     }
+
+    // Filter out inactive merchants (same net_balance in last 10 entries)
+    const activeMerchants = [];
+    for (const merchant of merchantData) {
+      try {
+        // Get last 10 calculation entries for this merchant
+        const historyQuery = `
+          SELECT net_balance
+          FROM public."Calculation" c
+          LEFT JOIN public."Role" r ON r.id = c.role_id
+          WHERE c.user_id = $1
+          AND c.company_id = $2
+          AND r.role = '${Role.MERCHANT}'
+          AND c.is_obsolete = false
+          ORDER BY c.created_at DESC
+          LIMIT 10
+        `;
+        
+        const historyResult = await executeQuery(historyQuery, [merchant.user_id, companyId]);
+        const netBalances = historyResult.rows.map(row => parseFloat(row.net_balance));
+        
+        // Check if merchant is active (has different net_balance values in last 10 entries)
+        // If less than 10 entries or has variation in net_balance, consider as active
+        if (netBalances.length < 10 || !netBalances.every(balance => balance === netBalances[0])) {
+          activeMerchants.push(merchant);
+          logger.info(`Merchant ${merchant.code} is active - balance variation found or less than 10 entries`);
+        } else {
+          logger.info(`Merchant ${merchant.code} is inactive - same balance ${netBalances[0]} in last 10 entries`);
+        }
+      } catch (error) {
+        logger.warn(`Error checking merchant ${merchant.code} activity:`, error);
+        // Include merchant if there's an error checking activity
+        activeMerchants.push(merchant);
+      }
+    }
+
+    merchantData = activeMerchants;
 
     // Always process hierarchy to club parent and child data
     const clubbedData = new Map();
@@ -815,7 +850,6 @@ const getMerchantNetBalanceDao = async (companyId, startDate, endDate) => {
       try {
         const userHierarchy = await getUserHierarchysDao({ user_id: merchant.user_id });
         hierarchyMap.set(merchant.user_id, userHierarchy);
-        logger.info(`Hierarchy for user ${merchant.user_id}:`, userHierarchy);
       } catch (error) {
         logger.warn(`Failed to get hierarchy for user ${merchant.user_id}:`, error);
         hierarchyMap.set(merchant.user_id, null);
@@ -836,14 +870,10 @@ const getMerchantNetBalanceDao = async (companyId, startDate, endDate) => {
       // Check if this user is a parent - look for sub_merchants in the config
       const subMerchants = hierarchyConfig?.siblings?.sub_merchants || [];
       
-      logger.info(`User ${userId} (${merchant.code}) - subMerchants:`, subMerchants);
-      
       if (subMerchants && subMerchants.length > 0) {
         // This is a parent merchant - club data with children
         let totalNetBalance = parseFloat(merchant.net_balance || 0);
         const parentCode = merchant.code;
-        
-        logger.info(`Processing parent ${parentCode} with balance ${totalNetBalance}`);
         
         // Add child merchants' net balances to parent
         for (const childUserId of subMerchants) {
@@ -852,7 +882,6 @@ const getMerchantNetBalanceDao = async (companyId, startDate, endDate) => {
             const childBalance = parseFloat(childMerchant.net_balance || 0);
             totalNetBalance += childBalance;
             processedUsers.add(childUserId); // Mark child as processed
-            logger.info(`Added child ${childMerchant.code} balance ${childBalance} to parent ${parentCode}`);
           }
         }
         
@@ -866,7 +895,6 @@ const getMerchantNetBalanceDao = async (companyId, startDate, endDate) => {
         });
         
         processedUsers.add(userId); // Mark parent as processed
-        logger.info(`Final clubbed balance for parent ${parentCode}: ${totalNetBalance}`);
       } else {
         // This might be a standalone merchant or child - check if already processed
         if (!processedUsers.has(userId)) {
@@ -877,13 +905,11 @@ const getMerchantNetBalanceDao = async (companyId, startDate, endDate) => {
             is_parent: false
           });
           processedUsers.add(userId);
-          logger.info(`Added standalone merchant ${merchant.code} with balance ${merchant.net_balance}`);
         }
       }
     }
 
     const result_data = Array.from(clubbedData.values());
-    logger.info('Final clubbed data:', result_data);
     
     // Convert Map to array and return
     return result_data;
@@ -907,7 +933,49 @@ const getVendorNetBalanceDao = async (companyId, startDate, endDate) => {
       GROUP BY c.id, v.code
     `;
     const result = await executeQuery(sql, [companyId, startDate, endDate]);
-    return result.rows;
+    let vendorData = result.rows;
+
+    // If no data, return empty array
+    if (vendorData.length === 0) {
+      return vendorData;
+    }
+
+    // Filter out inactive vendors (same net_balance in last 10 entries)
+    const activeVendors = [];
+    for (const vendor of vendorData) {
+      try {
+        // Get last 10 calculation entries for this vendor
+        const historyQuery = `
+          SELECT net_balance
+          FROM public."Calculation" c
+          LEFT JOIN public."Role" r ON r.id = c.role_id
+          WHERE c.user_id = $1
+          AND c.company_id = $2
+          AND r.role = '${Role.VENDOR}'
+          AND c.is_obsolete = false
+          ORDER BY c.created_at DESC
+          LIMIT 10
+        `;
+        
+        const historyResult = await executeQuery(historyQuery, [vendor.user_id, companyId]);
+        const netBalances = historyResult.rows.map(row => parseFloat(row.net_balance));
+        
+        // Check if vendor is active (has different net_balance values in last 10 entries)
+        // If less than 10 entries or has variation in net_balance, consider as active
+        if (netBalances.length < 10 || !netBalances.every(balance => balance === netBalances[0])) {
+          activeVendors.push(vendor);
+          logger.info(`Vendor ${vendor.code} is active - balance variation found or less than 10 entries`);
+        } else {
+          logger.info(`Vendor ${vendor.code} is inactive - same balance ${netBalances[0]} in last 10 entries`);
+        }
+      } catch (error) {
+        logger.warn(`Error checking vendor ${vendor.code} activity:`, error);
+        // Include vendor if there's an error checking activity
+        activeVendors.push(vendor);
+      }
+    }
+
+    return activeVendors;
   } catch (error) {
     logger.error('Error fetching vendor net balance:', error);
     throw error;
