@@ -5,7 +5,7 @@ import collectPayinData from './notifyCron.js';
 import { logger } from '../utils/logger.js';
 import formattedSuccessRatiosByMerchant from './successRatioCron.js';
 import gatherAllDataForAllCompanies from './gatherAllData.js';
-import gatherAllVendorsNetbalanceForAllCompanies from './gatherAllVendorsNetBalance.js';
+import gatherAllNetbalanceForAllCompanies from './gatherAllVendorsNetBalance.js';
 // import  checkPendingStatus  from './pendingPayinCron.js';
 const router = express.Router();
 
@@ -124,10 +124,10 @@ router.get('/initialize-cronjob', (req, res) => {
   res.json({ message: 'Cron job is running for Gather All Data' });
 });
 
-router.get('/vendor-dashboard-cronjob', (req, res) => {
-  gatherAllVendorsNetbalanceForAllCompanies();
-  logger.info('Calling gatherAllVendorsNetbalanceForAllCompanies CRONJOB');
-  res.json({ message: 'Cron job is running for Vendor Dashboard' });
+router.get('/net-balance-cronjob', (req, res) => {
+  gatherAllNetbalanceForAllCompanies();
+  logger.info('Calling gatherAllNetbalanceForAllCompanies CRONJOB');
+  res.json({ message: 'Cron job is running for Net Balance' });
 });
 
 export default router;

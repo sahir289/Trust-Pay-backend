@@ -12,8 +12,8 @@ import { getCompanyDao } from '../apis/company/companyDao.js';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone.js';
 import utc from 'dayjs/plugin/utc.js';
-// import collectBankData from './bankCron.js';
-// import gatherAllVendorsNetbalanceForAllCompanies from './gatherAllVendorsNetBalance.js';
+import collectBankData from './bankCron.js';
+import gatherAllNetbalanceForAllCompanies from './gatherAllVendorsNetBalance.js';
 
 // Initialize dayjs plugins
 dayjs.extend(utc);
@@ -131,10 +131,10 @@ const gatherAllDataForAllCompanies = async (type = 'N', timezone = 'Asia/Kolkata
     // Run bank CRON after all companies have been processed (only for daily reports)
     if (type === 'N') {
       logger.info('Bank CRON Started for all companies');
-      // await collectBankData(timezone);
+      await collectBankData(timezone);
       logger.info('Bank CRON Ended for all companies');
     }
-    // await gatherAllVendorsNetbalanceForAllCompanies(type, timezone);
+    await gatherAllNetbalanceForAllCompanies(type, timezone);
   } catch (error) {
     logger.error(`Error in gatherAllDataForAllCompanies: ${error}`);
   }
