@@ -179,7 +179,7 @@ const message2 = `
 
 ${vendorDetails}
 
-<b>Total Bank Account Deposits:</b> ₹ ${totalBankDepositAllVendors}
+<b>Total Bank Account Deposits:</b> ₹ ${totalBankDepositAllVendors} 
 
 `;
 
