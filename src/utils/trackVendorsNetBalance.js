@@ -102,8 +102,8 @@ export const trackVendorsNetBalance = async (user_id) => {
       `Net balance ${currentNetBalance} exceeds limit ${netBalanceLimit} for vendor ${vendor.code}. Proceeding to disable bank accounts.`,
     );
 
-    // Step 4: Get all bank accounts for this vendor
-    const bankAccounts = await getBankaccountDao({ user_id });
+    // Step 4: Get all payin bank accounts for this vendor
+    const bankAccounts = await getBankaccountDao({ user_id: user_id, bank_used_for: 'PayIn' });
 
     if (!bankAccounts || bankAccounts.length === 0) {
       logger.info(
