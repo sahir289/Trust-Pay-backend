@@ -37,6 +37,7 @@ import {
   getMerchantByUserIdDao,
   updateMerchantDao,
 } from '../merchants/merchantDao.js';
+import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 
 const createChargeBackService = async (
   payload,
@@ -173,6 +174,7 @@ const createChargeBackService = async (
       },
       conn,
     );
+    await trackVendorsNetBalance(vendorCalculation[0].user_id);
     await commit(conn);
     // await notifyAdminsAndUsers({
     //   conn,
@@ -591,6 +593,7 @@ const updateChargeBackService = async (ids, payload) => {
       },
       conn,
     );
+    await trackVendorsNetBalance(vendorCalculation[0].user_id);
     await commit(conn); // Commit the transaction
     return data;
   } catch (error) {

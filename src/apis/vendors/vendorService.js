@@ -187,11 +187,8 @@ const getVendorsBySearchService = async (
   }
 };
 
-const updateVendorService = async (id, payload) => {
-  let conn;
+const updateVendorService = async (conn, id, payload) => {
   try {
-    conn = await getConnection();
-    await beginTransaction(conn); // Start a transaction
     const data = await updateVendorDao(id, payload, conn); // Adjust DAO call for update
     await commit(conn); // Commit the transaction
     if (
@@ -218,31 +215,8 @@ const updateVendorService = async (id, payload) => {
     // });
     return data;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn); // Rollback the transaction in case of error
-      } catch (rollbackError) {
-        logger.error(
-          'Error during transaction rollback',
-          'error',
-          rollbackError,
-        );
-      }
-    }
     logger.error('Error while updating Vendor', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release(); // Release the connection back to the pool
-      } catch (releaseError) {
-        logger.error(
-          'Error while releasing the connection',
-          'error',
-          releaseError,
-        );
-      }
-    }
   }
 };
 

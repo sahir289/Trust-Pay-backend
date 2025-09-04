@@ -15,8 +15,9 @@ import {
   updateBotResponseDao,
   getBankResponsesforFreeze,
 } from '../bankResponse/bankResponseDao.js';
-// import { getCalculationDao } from '../calculation/calculationDao.js';
+import { getCalculationforCronDao } from '../calculation/calculationDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
+import { getVendorsDao } from '../vendors/vendorDao.js';
 import {
   getBankaccountDao,
   createBankaccountDao,
@@ -225,6 +226,33 @@ const updateBankaccountService = async (
           merchants: [],
         },
       };
+    }
+
+    // Check net_balance limit when trying to enable a bank
+    if (payload?.is_enabled === true && bank[0]?.user_id) {
+      const userId = bank[0].user_id;
+      
+      // Get vendor by userId
+      const vendors = await getVendorsDao({ user_id: userId });
+      if (vendors && vendors.length > 0) {
+        const vendor = vendors[0];
+        const netBalanceLimit = vendor?.config?.net_balance;
+        
+        if (netBalanceLimit && netBalanceLimit > 0) {
+          // Get calculation entry by userId
+          const calculations = await getCalculationforCronDao(userId);
+          if (calculations && calculations.length > 0) {
+            const currentNetBalance = calculations[0].net_balance;
+            
+            // Check if current net_balance exceeds the limit
+            if (currentNetBalance > netBalanceLimit) {
+              throw new BadRequestError(
+                `Cannot enable bank account. Current net balance (${currentNetBalance}) exceeds the allowed limit (${netBalanceLimit}).`
+              );
+            }
+          }
+        }
+      }
     }
 
     //show notification only to vendor whose bank status is updated
