@@ -258,7 +258,7 @@ const createBankResponseService = async (
           throw new BadRequestError('Invalid amount or commission');
         }
         const res = await updateBankaccountDao(
-          { id: botRes?.bank_id },
+          { id: botRes?.bank_id, company_id: companyId },
           {
             balance:
               parseFloat(bankDetails[0].balance) + parseFloat(botRes.amount),
