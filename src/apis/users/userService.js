@@ -455,6 +455,7 @@ const createUserService = async (conn, payload, role) => {
         balance: Number(0),
         config: {
           bank_response_access: false,
+          net_balance: payload.net_balance || '0',
         },
         payin_commission: Number(payload.payin_commission),
         payout_commission: Number(payload.payout_commission),
