@@ -229,7 +229,7 @@ const updateBankaccountService = async (
     }
 
     // Check net_balance limit when trying to enable a bank
-    if (payload?.is_enabled === true && bank[0]?.user_id) {
+    if (payload?.is_enabled === true && bank[0]?.user_id && bank[0]?.bank_used_for === 'PayIn') {
       const userId = bank[0].user_id;
       
       // Get vendor by userId
