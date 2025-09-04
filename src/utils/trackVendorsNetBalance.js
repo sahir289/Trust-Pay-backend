@@ -128,53 +128,60 @@ export const trackVendorsNetBalance = async (user_id) => {
     // Step 5: Disable all bank accounts by setting is_enabled to false
     const disabledBanks = [];
     const failedBanks = [];
+    const disableTimestamp = new Date().toISOString();
 
-    for (const bank of bankAccounts) {
+    const processBankAccount = async (bank) => {
+      const bankInfo = {
+        bank_id: bank.id,
+        nick_name: bank.nick_name,
+        bank_name: bank.bank_name,
+      };
+
       try {
-        if (bank.is_enabled) {
-          // Update the bank account to disable it
-          await updateBankaccountDao(
-            { id: bank.id, company_id: bank.company_id },
-            {
-              is_enabled: false,
-              updated_by: user_id, // Use the vendor's user_id as the updater
-              config: {
-                ...bank.config,
-                merchants: [], // Clear merchants array when disabling
-                disabled_reason: 'Net balance exceeded limit',
-                disabled_at: new Date().toISOString(),
-                previous_net_balance: currentNetBalance,
-                net_balance_limit: netBalanceLimit,
-              },
-            },
-          );
-
-          disabledBanks.push({
-            bank_id: bank.id,
-            nick_name: bank.nick_name,
-            bank_name: bank.bank_name,
-          });
-
-          logger.info(
-            `Disabled bank account ${bank.nick_name} (ID: ${bank.id}) for vendor ${vendor.code}`,
-          );
-        } else {
+        if (!bank.is_enabled) {
           logger.info(
             `Bank account ${bank.nick_name} (ID: ${bank.id}) is already disabled`,
           );
+          return;
         }
+
+        // Update the bank account to disable it
+        await updateBankaccountDao(
+          { id: bank.id, company_id: bank.company_id },
+          {
+            is_enabled: false,
+            updated_by: user_id,
+            config: {
+              ...bank.config,
+              merchants: [], // Clear merchants array when disabling
+              disabled_reason: 'Net balance exceeded limit',
+              disabled_at: disableTimestamp,
+              previous_net_balance: currentNetBalance,
+              net_balance_limit: netBalanceLimit,
+            },
+          },
+        );
+
+        disabledBanks.push(bankInfo);
+        logger.info(
+          `Disabled bank account ${bank.nick_name} (ID: ${bank.id}) for vendor ${vendor.code}`,
+        );
       } catch (bankError) {
         logger.error(
           `Failed to disable bank account ${bank.nick_name} (ID: ${bank.id}):`,
           bankError,
         );
         failedBanks.push({
-          bank_id: bank.id,
-          nick_name: bank.nick_name,
+          ...bankInfo,
           error: bankError.message,
         });
       }
-    }
+    };
+
+    // Process all bank accounts
+    await Promise.allSettled(
+      bankAccounts.map(bank => processBankAccount(bank))
+    );
 
     const result = {
       success: true,
