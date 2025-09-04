@@ -119,7 +119,9 @@ router.get(
 );
 
 router.get('/initialize-cronjob', (req, res) => {
-  gatherAllDataForAllCompanies();
+  const type = req.query.type || 'N'; // 'H' for hourly, 'D' for daily, 'N' for normal
+  const timezone = req.query.timezone || 'Asia/Kolkata';
+  gatherAllDataForAllCompanies(type, timezone);
   logger.info('Calling gatherAllDataForAllCompanies CRONJOB');
   res.json({ message: 'Cron job is running for Gather All Data' });
 });

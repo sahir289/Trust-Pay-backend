@@ -21,7 +21,7 @@ import {
 import { BadRequestError } from '../../utils/appErrors.js';
 
 import { transactionWrapper } from '../../utils/db.js';
-import { Role, tableName } from '../../constants/index.js';
+import { Role } from '../../constants/index.js';
 
 // Ensure Role.BOT is defined in '../../constants/index.js' as:
 // export const Role = { BOT: 'BOT', ...otherRoles };
@@ -29,7 +29,7 @@ import config from '../../config/config.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { s3 } from '../../helpers/Aws.js';
 import { streamToBuffer } from '../../helpers/index.js';
-import { newTableEntry } from '../../utils/sockets.js';
+// import { newTableEntry } from '../../utils/sockets.js';
 import { publishBankResponse } from '../../utils/rabbitmq-bank-response.js';
 
 const getBankResponse = async (req, res) => {
@@ -117,7 +117,7 @@ const createBankResponse = async (req, res) => {
   //   user_name,
   //   user_id,
   // };
-  await newTableEntry(tableName.BANK_RESPONSE);
+  // await newTableEntry(tableName.BANK_RESPONSE);
   // if (!result.message === 'Entry created successfully' ) {
     // await publishBankResponse(bankResponseObject);
   // }
