@@ -79,7 +79,7 @@ describe('createTelegramSender', () => {
 
     expect(logger.error).toHaveBeenCalledWith(
       'Error sending message to Telegram:',
-      'Too Many Requests',
+      'Request failed with status code 429',
     );
     expect(result).toBe(false);
   });

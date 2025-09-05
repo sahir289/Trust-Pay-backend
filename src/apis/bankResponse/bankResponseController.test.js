@@ -184,21 +184,18 @@ describe('Bank Response Controller', () => {
               'BankResponse fetched successfully'
             );
           });
-          
-
-
     });
 
     describe('createBankResponse', () => {
         it('should create a bank response successfully', async () => {
             req.body = { body: { data: 'test' } };
             CREATE_BANK_RESPONSE_SCHEMA.validate.mockReturnValue({ error: null });
-            const mockResult = { id: '1', message: 'Entry created successfully' };
+            const mockResult = { id: '1', message: 'Entry created successfully' }; // Ensure message matches
             createBankResponseService.mockResolvedValue(mockResult);
             newTableEntry.mockResolvedValue();
-
+    
             await createBankResponse(req, res);
-
+    
             expect(CREATE_BANK_RESPONSE_SCHEMA.validate).toHaveBeenCalledWith(req.body);
             expect(createBankResponseService).toHaveBeenCalledWith(
                 { data: 'test' },
