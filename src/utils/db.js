@@ -59,20 +59,10 @@ const createPool = (connectionString, name) => {
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
     keepAlive: true,
-    // Additional deadlock prevention settings
-    acquireTimeoutMillis: 60000, // How long to wait for connection acquisition
-    createTimeoutMillis: 30000,  // How long to wait for connection creation
-    destroyTimeoutMillis: 5000,  // How long to wait for connection destruction
-    reapIntervalMillis: 1000,    // How often to check for idle connections
-    createRetryIntervalMillis: 200, // Retry interval for connection creation
   });
 
   pool.on('connect', (client) => {
     client.query("SET TIME ZONE 'Asia/Kolkata'");
-    // Set deadlock timeout and other connection-level settings
-    client.query('SET deadlock_timeout = 10000'); // 10 seconds
-    client.query('SET statement_timeout = 120000'); // 120 seconds max for any statement
-    client.query('SET idle_in_transaction_session_timeout = 600000'); // 10 minutes max idle in transaction
   });
 
   pool.on('error', async (err) => {
@@ -392,64 +382,36 @@ export const buildAndExecuteUpdateQuery = async (
 
     // Handle nested JSON updates for `config` or other JSONB columns
     if (data.config && typeof data.config === 'object') {
-      // Check if config is empty object
-      if (Object.keys(data.config).length === 0) {
-        // For empty config, just set it directly
-        setClause.push(`"config" = $${index}::jsonb`);
-        values.push(stringifyJSON(data.config));
-        index++;
-      } else {
-        let jsonbSetQuery = `"config"::jsonb`;
-        let hasUpdates = false;
-        
-        const processNestedKeys = (obj, parentKey = []) => {
-          Object.entries(obj).forEach(([key, value]) => {
-            const currentPath = [...parentKey, key];
+      let jsonbSetQuery = `"config"::jsonb`;
+      const processNestedKeys = (obj, parentKey = []) => {
+        Object.entries(obj).forEach(([key, value]) => {
+          const currentPath = [...parentKey, key];
+          // merging merchant_added object
+          if (
+            key === 'merchant_added' &&
+            typeof value === 'object' &&
+            !Array.isArray(value)
+          ) {
             const path = currentPath.join(',');
-            
-            // Validate path is not empty
-            if (!path) {
-              logger.warn('Empty path detected in config update, skipping');
-              return;
-            }
-            
-            // merging merchant_added object
-            if (
-              key === 'merchant_added' &&
-              typeof value === 'object' &&
-              !Array.isArray(value)
-            ) {
-              const mergeSnippet = `coalesce(${jsonbSetQuery}#>'{${path}}', '{}'::jsonb) || $${index}::jsonb`;
-              jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', ${mergeSnippet}, true)`;
-              values.push(stringifyJSON(value));
-              index++;
-              hasUpdates = true;
-            } else if (typeof value === 'object' && !Array.isArray(value)) {
-              // Recursively process nested objects
-              processNestedKeys(value, currentPath);
-            } else {
-              // Add jsonb_set for the current key with create_if_missing = true
-              jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', $${index}::jsonb, true)`;
-              values.push(stringifyJSON(value));
-              index++;
-              hasUpdates = true;
-            }
-          });
-        };
+            const mergeSnippet = `coalesce(${jsonbSetQuery}#>'{${path}}', '{}'::jsonb) || $${index}::jsonb`;
+            jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', ${mergeSnippet})`;
+            values.push(stringifyJSON(value));
+            index++;
+          } else if (typeof value === 'object' && !Array.isArray(value)) {
+            // Recursively process nested objects
+            processNestedKeys(value, currentPath);
+          } else {
+            // Add jsonb_set for the current key
+            const path = currentPath.join(',');
+            jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', $${index}::jsonb)`;
+            values.push(stringifyJSON(value));
+            index++;
+          }
+        });
+      };
 
-        processNestedKeys(data.config);
-        
-        // Only add the config update if there were actual updates processed
-        if (hasUpdates) {
-          setClause.push(`"config" = ${jsonbSetQuery}`);
-        } else {
-          // Fallback: treat as direct assignment
-          setClause.push(`"config" = $${index}::jsonb`);
-          values.push(stringifyJSON(data.config));
-          index++;
-        }
-      }
-      
+      processNestedKeys(data.config);
+      setClause.push(`"config" = ${jsonbSetQuery}`);
       delete data.config; // Remove `config` from the main data object
     }
 
