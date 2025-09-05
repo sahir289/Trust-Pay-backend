@@ -458,9 +458,6 @@ export const transactionWrapper =
   (fn) =>
   async (...args) => {
     let conn;
-    const maxRetries = 3;
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         conn = await getConnection();
         await beginTransaction(conn); // Ensure transaction starts properly
@@ -472,7 +469,7 @@ export const transactionWrapper =
       } catch (error) {
         if (conn) {
           try {
-            await rollback(conn, false); // Don't throw error on rollback failure
+            await rollback(conn); // Explicit rollback
             logger.error('Transaction rolled back due to error:', error);
           } catch (rollbackError) {
             logger.error('Rollback failed:', rollbackError);
@@ -489,15 +486,14 @@ export const transactionWrapper =
           error.code === '40001' || // serialization_failure
           error.code === '55P03'    // lock_not_available
         );
-        
-        if (isDeadlock && attempt < maxRetries) {
-          logger.warn(`Deadlock detected on attempt ${attempt}. Retrying transaction in ${attempt * 1000}ms...`);
+
+        if (isDeadlock) {
+          logger.warn(`Deadlock detected. Retrying transaction...`);
           if (conn) {
             conn.release();
             conn = null;
           }
-          await new Promise(resolve => setTimeout(resolve, attempt * 1000));
-          continue;
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
         
         throw error;
@@ -507,7 +503,6 @@ export const transactionWrapper =
           conn.release(); // Always release connection
         }
       }
-    }
   };
 
 /**
