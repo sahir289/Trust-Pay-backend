@@ -915,7 +915,8 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
     payload,
     conn,
   );
-  await trackVendorsNetBalance(calculationData[0].user_id);
+  
+  await trackVendorsNetBalance(calculationData[0].user_id, conn, response);
   return response;
 };
 const processEkoPayout = async (singleWithdrawData, payload) => {

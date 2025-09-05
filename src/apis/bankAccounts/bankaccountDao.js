@@ -637,6 +637,10 @@ const updateBankaccountDao = async (id, payload, conn, isParentDeleted) => {
     });
     const existingBank = existingBankArr[0];
 
+    if (!existingBank) {
+      throw new Error(`Bank account not found with id: ${id.id}`);
+    }
+
     // Handle nested JSON updates for the `config` column
     if (payload.config && typeof payload.config === 'object') {
       const configUpdates = payload.config;
@@ -673,11 +677,12 @@ const updateBankaccountDao = async (id, payload, conn, isParentDeleted) => {
         payload,
         id,
       );
-      const result = conn.query(sql, params);
+      const result = await conn.query(sql, params);
       return result;
     }
+    
     // Use buildAndExecuteUpdateQuery to update the bank account
-    return await buildAndExecuteUpdateQuery(
+    const result = await buildAndExecuteUpdateQuery(
       tableName.BANK_ACCOUNT,
       payload,
       id,
@@ -685,6 +690,9 @@ const updateBankaccountDao = async (id, payload, conn, isParentDeleted) => {
       { returnUpdated: true }, // Return the updated row
       conn, // Use the provided connection
     );
+    
+    return result;
+    
   } catch (error) {
     logger.error('Error in updateBankaccountDao:', error);
     throw error;
@@ -720,14 +728,17 @@ const updateBanktBalanceDao = async (
       filters,
       { balance: '+', today_balance: '+' },
     );
+    
+    let result;
     if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
+      result = await conn.query(sql, params);
+    } else {
+      result = await executeQuery(sql, params);
     }
-    const result = await executeQuery(sql, params);
+    
     return result.rows[0];
   } catch (error) {
-    logger.error(error);
+    logger.error('Error in updateBanktBalanceDao:', error);
     throw error;
   }
 };
