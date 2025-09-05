@@ -57,6 +57,7 @@ import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js
 import PDFParser from 'pdf2json';
 import { calculateDuration } from '../../helpers/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
+import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const createBankResponseService = async (
@@ -257,7 +258,7 @@ const createBankResponseService = async (
           throw new BadRequestError('Invalid amount or commission');
         }
         const res = await updateBankaccountDao(
-          { id: botRes?.bank_id },
+          { id: botRes?.bank_id, company_id: companyId },
           {
             balance:
               parseFloat(bankDetails[0].balance) + parseFloat(botRes.amount),
@@ -779,6 +780,7 @@ const updateCalculationTable = async (user_id, data, conn) => {
         },
         conn,
       );
+      await trackVendorsNetBalance(user_id);
       return response;
     }
   } catch (error) {
@@ -1890,6 +1892,7 @@ const updateCalculationBalances = async (
       updates,
       conn,
     );
+    await trackVendorsNetBalance(currentCalculation[0].user_id);
 
     if (nextCalculations.length > 0) {
       // Update subsequent calculations
@@ -1913,6 +1916,7 @@ const updateCalculationBalances = async (
           },
           conn,
         );
+        await trackVendorsNetBalance(calc.user_id);
       }
     }
   } catch (error) {

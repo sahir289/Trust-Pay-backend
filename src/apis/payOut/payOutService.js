@@ -63,6 +63,7 @@ import { stringifyJSON } from '../../utils/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import axios from 'axios';
 import { getCompanyByIDDao } from '../company/companyDao.js';
+import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
@@ -192,14 +193,18 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
               { apitxnid: info.id }, // Include transaction ID in payload
               { headers: apiConfig.headers },
             );
-            logger.info(`PayAssist payoutStatus response for apitxnid ${info.id}:`, statusResponse.data);
+            logger.info(
+              `PayAssist payoutStatus response for apitxnid ${info.id}:`,
+              statusResponse.data,
+            );
 
             if (statusResponse.data.ErrorCode === '0') {
               if (
                 statusResponse.data.Response.message ===
                   'Reason-Transaction Failed' ||
                 statusResponse.data.Response.message === 'Transaction Failed' ||
-                statusResponse.data.Response.message === 'Transaction Failed - ' ||
+                statusResponse.data.Response.message ===
+                  'Transaction Failed - ' ||
                 statusResponse.data.Response.statuscode === 'TXF' ||
                 statusResponse.data.Response.statuscode === 'ERR'
               ) {
@@ -288,7 +293,7 @@ const createPayoutService = async (
       return data;
     }
 
-    if (!fromUI && details[0]?.config?.whitelist_ips) {
+    if (details[0]?.config?.whitelist_ips) {
       let whitelist = details[0].config.whitelist_ips;
       // Normalize whitelist to array of trimmed strings
       if (typeof whitelist === 'string') {
@@ -302,7 +307,11 @@ const createPayoutService = async (
         whitelist = [];
       }
       // Check if userIp is in whitelist (if whitelist is not empty)
-      if (whitelist.length && !whitelist.includes(userIp) && role !== Role.ADMIN) {
+      if (
+        whitelist.length &&
+        !whitelist.includes(userIp) &&
+        role !== Role.ADMIN
+      ) {
         const data = {
           status: 400,
           message: 'IP not whitelisted',
@@ -906,6 +915,7 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
     payload,
     conn,
   );
+  await trackVendorsNetBalance(calculationData[0].user_id);
   return response;
 };
 const processEkoPayout = async (singleWithdrawData, payload) => {

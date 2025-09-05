@@ -108,6 +108,7 @@ const getBankaccountDao = async (filters, page, limit, role, designation) => {
         ba.acc_no, 
         ba.bank_name, 
         ba.is_qr, 
+        ba.company_id,
         ba.is_bank, 
         ba.is_enabled, 
         ${commissionSelect ? `${commissionSelect},` : ''}
