@@ -160,7 +160,6 @@ const {
         getVendorsDao.mockResolvedValue([{ id: 'vendor_1', balance: 10000, payin_commission: 0.01 }]);
         updateBankaccountDao.mockResolvedValue({ today_balance: 3000 });
         updateVendorDao.mockResolvedValue({});
-        getPayInUrlsDao.mockResolvedValue([]);
         newTableEntry.mockResolvedValue();
         updateCalculationBalanceDao.mockResolvedValue({});
   
@@ -667,7 +666,6 @@ const {
           bank_id: undefined,
         };
         getBankResponseDao.mockResolvedValue({ id: '1', utr: 'utr123', amount: 1000, bank_id: 'bank_1', config: {} });
-        getPayInUrlsDao.mockResolvedValue([]);
         resetBankResponseDao.mockResolvedValue({});
         newTableEntry.mockResolvedValue();
   

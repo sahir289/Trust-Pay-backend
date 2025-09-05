@@ -221,7 +221,7 @@ describe('Calculation Service', () => {
       ];
 
       getMerchantsDao.mockResolvedValue(merchants);
-      getPayInUrlsDao.mockResolvedValue(payins);
+      
 
       const result = await calculateSuccessRatiosService(date, userIds);
       expect(result.successRatios).toHaveLength(1);

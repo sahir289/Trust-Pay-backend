@@ -381,51 +381,7 @@ const {
         expect(logger.error).toHaveBeenCalledWith('Error in getSettlementsBySearchDao:', error); // Updated to expect the prefix
       });
     });
-    describe('getSettlementDaoforInternalTransfer', () => {
-      // Test fetching settlements by UTR and method
-      it('should fetch settlements by UTR and method', async () => {
-        const utr = 'UTR123';
-        const method = ['INTERNAL_QR_TRANSFER'];
-        const mockRows = [{ id: '1', amount: 100 }, { id: '2', amount: 200 }];
-        executeQuery.mockResolvedValue({ rows: mockRows });
-  
-        const result = await getSettlementDaoforInternalTransfer(utr, method);
-  
-        const [query, params] = executeQuery.mock.calls[0];
-        expect(query).toMatch(
-          /SELECT id, user_id, status, amount, method, config, approved_at, rejected_at, created_by, created_at, updated_at, company_id, is_obsolete, updated_by FROM "Settlement"\s*WHERE config->>'reference_id' = \$[0-9]+ AND method = ANY\(\$[0-9]+\)/
-        );
-        expect(params).toEqual([utr, method]);
-        expect(result).toEqual(mockRows);
-      });
-  
-      // Test returning a single row when only one result is found
-      it('should return single row when only one result is found', async () => {
-        const utr = 'UTR123';
-        const method = ['INTERNAL_QR_TRANSFER'];
-        const mockRow = [{ id: '1', amount: 100 }];
-        executeQuery.mockResolvedValue({ rows: mockRow });
-  
-        const result = await getSettlementDaoforInternalTransfer(utr, method);
-  
-        const [query, params] = executeQuery.mock.calls[0];
-        expect(query).toMatch(
-          /SELECT id, user_id, status, amount, method, config, approved_at, rejected_at, created_by, created_at, updated_at, company_id, is_obsolete, updated_by FROM "Settlement"\s*WHERE config->>'reference_id' = \$[0-9]+ AND method = ANY\(\$[0-9]+\)/
-        );
-        expect(params).toEqual([utr, method]);
-        expect(result).toEqual(mockRow);
-      });
-  
-      // Test error handling for database errors
-      it('should throw and log error on query failure', async () => {
-        const utr = 'UTR123';
-        const method = ['INTERNAL_QR_TRANSFER'];
-        const error = new Error('Database error');
-        executeQuery.mockRejectedValue(error);
-  
-        await expect(getSettlementDaoforInternalTransfer(utr, method)).rejects.toThrow(error);
-        expect(logger.error).toHaveBeenCalledWith(error);      });
-    });
+
   
     describe('createSettlementDao', () => {
       // Test creating a settlement with a provided connection

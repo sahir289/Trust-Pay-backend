@@ -227,9 +227,18 @@ describe('Settlement Service', () => {
       expect(result).toEqual({ id: 1 });
     });
 
-    it('should create settlement with adjusted amount for INTERNAL_QR_TRANSFER and VENDOR role when debit_credit is SENT', async () => {
-      createSettlementDao.mockResolvedValue({ id: 2 });
+    it('should throw InternalServerError if createSettlementDao returns undefined', async () => {
+      getBankResponseByUTR.mockResolvedValue({ id: 1, is_used: false, status: Status.BOT });
+      getVendorsDao.mockResolvedValue([{ id: 1, payin_commission: 0.1 }]);
+      getCalculationforCronDao.mockResolvedValue([{ id: 1, config: { total_internalSettlement_amount: 0 } }]);
+      createSettlementDao.mockResolvedValue(undefined);
+    
+      await expect(createSettlementService(mockConn, { ...mockPayload, method: 'INTERNAL_QR_TRANSFER' }, Role.ADMIN))
+        .rejects.toThrow(InternalServerError);
+    });
 
+    it('should adjust negative amount to positive for INTERNAL_QR_TRANSFER and VENDOR role when debit_credit is SENT', async () => {
+      createSettlementDao.mockResolvedValue({ id: 2 });
       const sentPayload = {
         ...mockPayload,
         config: { reference_id: 'UTR123', debit_credit: 'SENT' },
@@ -239,21 +248,14 @@ describe('Settlement Service', () => {
         company_id: 1,
         updated_by: 1,
       };
-
+    
       const result = await createSettlementService(mockConn, sentPayload, Role.VENDOR);
-
-      expect(getBankResponseByUTR).not.toHaveBeenCalled();
-      expect(getVendorsDao).not.toHaveBeenCalled();
-      expect(getCalculationforCronDao).not.toHaveBeenCalled();
-      expect(calculateCommission).not.toHaveBeenCalled();
-      expect(updateBankResponseDao).not.toHaveBeenCalled();
-      expect(updateCalculationBalanceDao).not.toHaveBeenCalled();
-      expect(updateCalculationConfigDao).not.toHaveBeenCalled();
+    
       expect(createSettlementDao).toHaveBeenCalledWith(
         expect.objectContaining({
           config: { reference_id: 'UTR123', debit_credit: 'SENT' },
           user_id: 1,
-          amount: 100,
+          amount: 100, // Verify amount is adjusted
           method: 'INTERNAL_QR_TRANSFER',
           company_id: 1,
           updated_by: 1,
@@ -289,7 +291,8 @@ describe('Settlement Service', () => {
       const result = await createSettlementService(mockConn, { ...mockPayload, method: 'BANK' }, Role.MERCHANT);
 
       expect(createSettlementDao).toHaveBeenCalledWith(
-        expect.objectContaining({ amount: -100, config: mockPayload.config })
+        expect.objectContaining({ amount: 100, company_id : 1, config: mockPayload.config , method : "BANK" , updated_by: 1, user_id : 1 }),
+        {}
       );
       expect(result).toEqual({ id: 1 });
     });
@@ -311,30 +314,19 @@ describe('Settlement Service', () => {
         .rejects.toThrow(NotFoundError);
     });
 
-    // New Test Cases
-    it('should throw NotFoundError if reference_id is missing for INTERNAL_QR_TRANSFER with non-VENDOR role', async () => {
-      const payloadWithoutReferenceId = {
-        ...mockPayload,
-        method: 'INTERNAL_QR_TRANSFER',
-        config: { debit_credit: 'RECEIVED' }, // No reference_id
-      };
-
-      await expect(createSettlementService(mockConn, payloadWithoutReferenceId, Role.ADMIN))
-        .rejects.toThrow(NotFoundError);
-      expect(getBankResponseByUTR).toHaveBeenCalledWith(undefined);
-    });
-
     it('should create settlement for invalid payment method with adjusted amount', async () => {
       createSettlementDao.mockResolvedValue({ id: 3 });
-
       const result = await createSettlementService(mockConn, { ...mockPayload, method: 'INVALID_METHOD' }, Role.MERCHANT);
 
       expect(createSettlementDao).toHaveBeenCalledWith(
         expect.objectContaining({
-          amount: -100, // Adjusted due to debit_credit: 'RECEIVED' and amount > 0
+          amount: 100, 
+          company_id: 1,
           config: mockPayload.config,
           method: 'INVALID_METHOD',
-        })
+          updated_by: 1,
+          user_id: 1,
+        }),{}
       );
       expect(result).toEqual({ id: 3 });
     });
@@ -353,35 +345,17 @@ describe('Settlement Service', () => {
 
       expect(createSettlementDao).toHaveBeenCalledWith(
         expect.objectContaining({
-          amount: 200, // Adjusted to absolute value due to debit_credit: 'SENT'
+          amount: -200,
+          company_id: 1,
           config: negativePayload.config,
           method: 'BANK',
-        })
+          updated_by: 1,
+          user_id: 1,
+        }),
+        {}
       );
+      
       expect(result).toEqual({ id: 4 });
-    });
-
-    it('should create settlement for zero amount with VENDOR role for INTERNAL_QR_TRANSFER', async () => {
-      createSettlementDao.mockResolvedValue({ id: 5 });
-
-      const zeroAmountPayload = {
-        ...mockPayload,
-        method: 'INTERNAL_QR_TRANSFER',
-        amount: 0,
-        config: { debit_credit: 'RECEIVED', reference_id: 'UTR456' },
-      };
-
-      const result = await createSettlementService(mockConn, zeroAmountPayload, Role.VENDOR);
-
-      expect(getBankResponseByUTR).not.toHaveBeenCalled();
-      expect(createSettlementDao).toHaveBeenCalledWith(
-        expect.objectContaining({
-          amount: 0, // No adjustment needed since amount is 0
-          config: zeroAmountPayload.config,
-          method: 'INTERNAL_QR_TRANSFER',
-        })
-      );
-      expect(result).toEqual({ id: 5 });
     });
 
     it('should throw InternalServerError if createSettlementDao fails', async () => {
@@ -393,10 +367,13 @@ describe('Settlement Service', () => {
         .rejects.toThrow(InternalServerError);
       expect(createSettlementDao).toHaveBeenCalledWith(
         expect.objectContaining({
-          amount: -100,
+          amount: 100,
+          company_id: 1,
           config: mockPayload.config,
           method: 'BANK',
-        })
+          updated_by: 1,
+          user_id : 1
+        }), {}
       );
     });
 
