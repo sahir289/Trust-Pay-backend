@@ -13,7 +13,7 @@ import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone.js';
 import utc from 'dayjs/plugin/utc.js';
 import collectBankData from './bankCron.js';
-import gatherAllNetbalanceForAllCompanies from './gatherAllVendorsNetBalance.js';
+import gatherAllNetbalanceForAllCompanies from './gatherAllNetBalance.js';
 
 // Initialize dayjs plugins
 dayjs.extend(utc);

@@ -60,7 +60,6 @@ const createPayout = async (req, res) => {
       req.headers,
       payload,
       role,
-      res,
       userIp,
       fromUI,
     );
@@ -70,7 +69,6 @@ const createPayout = async (req, res) => {
       req.headers,
       payload,
       null,
-      res,
       userIp,
       fromUI,
     );

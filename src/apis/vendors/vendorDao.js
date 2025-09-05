@@ -72,6 +72,7 @@ export const getVendorsDao = async (
       `"Vendor".payout_commission`,
       `"Vendor".created_at`,
       `"Vendor".updated_at`,
+      `"Vendor".config`,
       `user_main.first_name || ' ' || user_main.last_name AS full_name`,
       `d.designation AS designation_name`,
       `(SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".updated_at DESC LIMIT 1) AS balance`,

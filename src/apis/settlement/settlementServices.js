@@ -43,6 +43,7 @@ import {
   updateBeneficiaryAccountDao,
 } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
 import { newTableEntry } from '../../utils/sockets.js';
+import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 
 const getSettlementServiceById = async (ids) => {
   try {
@@ -277,9 +278,15 @@ const createSettlementService = async (conn, payload, role) => {
     }
 
     // Get settlement data
-    const settlementArray = await getSettlementByUTRDao(payload.config?.reference_id);
+    const settlementArray = await getSettlementByUTRDao(
+      payload.config?.reference_id,
+    );
 
-    if (bankResponses.is_used || bankResponses.status !== Status.BOT || settlementArray?.length ) {
+    if (
+      bankResponses.is_used ||
+      bankResponses.status !== Status.BOT ||
+      settlementArray?.length
+    ) {
       throw new BadRequestError('UTR is already used');
     }
 
@@ -328,7 +335,7 @@ const handleVendorInternalTransferByAdmin = async (
   const response = await updateBankResponseDao(
     { id: bankResponses.id },
     { status: '/internalTransfer' },
-    conn
+    conn,
   );
   const responseObj = {
     id: response.id,
@@ -358,11 +365,13 @@ const handleVendorInternalTransferByAdmin = async (
     net_balance: -payload.amount + commission,
   };
 
-  await updateCalculationBalanceDao(
+  const calculationResponse = await updateCalculationBalanceDao(
     { id: calculationData[0].id },
     updatedCalculation,
     conn,
   );
+  
+  await trackVendorsNetBalance(calculationData[0].user_id, conn, calculationResponse);
 
   // Update calculation config based on method
   const config = getConfigForMethod(
@@ -440,7 +449,7 @@ const createBankResponseObject = (response, companyId) => ({
 // Helper function to validate UTR
 const validateUTR = (payload, settlementData) => {
   const isInternalMethod = INTERNAL_METHODS.includes(settlementData.method);
-  
+
   if (
     payload.config.reference_id !== undefined &&
     settlementData.config?.reference_id === payload.config.reference_id &&
@@ -452,28 +461,41 @@ const validateUTR = (payload, settlementData) => {
 };
 
 // Helper function to handle internal transfer UTR
-const handleInternalTransferUTR = async (conn, payload, settlementData, changeUTRStatus) => {
+const handleInternalTransferUTR = async (
+  conn,
+  payload,
+  settlementData,
+  changeUTRStatus,
+) => {
   const isInternalMethod = INTERNAL_METHODS.includes(settlementData.method);
-  
+
   if (
     isInternalMethod &&
     payload.config.reference_id &&
-    settlementData.status === Status.INITIATED 
+    settlementData.status === Status.INITIATED
   ) {
-    const bankResponses = await getBankResponseByUTR(payload.config.reference_id);
+    const bankResponses = await getBankResponseByUTR(
+      payload.config.reference_id,
+    );
     if (!bankResponses) {
       throw new NotFoundError('Bank response not found for the provided UTR');
     }
 
     if (changeUTRStatus) {
-      if (bankResponses.is_used === false && bankResponses.status === Status.BOT) {
+      if (
+        bankResponses.is_used === false &&
+        bankResponses.status === Status.BOT
+      ) {
         const response = await updateBankResponseDao(
           { id: bankResponses.id },
           { status: '/internalTransfer' },
-          conn
+          conn,
         );
-        
-        const responseObj = createBankResponseObject(response, settlementData.company_id);
+
+        const responseObj = createBankResponseObject(
+          response,
+          settlementData.company_id,
+        );
         await newTableEntry(tableName.BANK_RESPONSE, responseObj);
       } else {
         throw new BadRequestError('UTR is already used');
@@ -487,7 +509,7 @@ const calculateVendorCommission = async (payload) => {
   const [vendorData] = await Promise.all([
     getVendorsDao({ user_id: payload.user_id }),
   ]);
-  
+
   if (!vendorData?.length) {
     throw new NotFoundError('Vendor not found');
   }
@@ -497,10 +519,15 @@ const calculateVendorCommission = async (payload) => {
 };
 
 // Helper function to create calculation update object
-const createCalculationUpdate = (settlementData, payload, commission = 0, isReversed = false) => {
+const createCalculationUpdate = (
+  settlementData,
+  payload,
+  commission = 0,
+  isReversed = false,
+) => {
   const amount = payload.amount || 0;
   const isInternalMethod = INTERNAL_METHODS.includes(settlementData.method);
-  
+
   if (settlementData.role === Role.MERCHANT) {
     return {
       total_settlement_count: 1,
@@ -509,13 +536,13 @@ const createCalculationUpdate = (settlementData, payload, commission = 0, isReve
       net_balance: isReversed ? amount : -amount,
     };
   }
-  
+
   // Vendor calculations
   if (isInternalMethod) {
     const settlementAmount = isReversed ? amount : -amount;
     const commissionAmount = isReversed ? -commission : commission;
     const balance = settlementAmount + commissionAmount;
-    
+
     return {
       total_settlement_count: 1,
       total_settlement_amount: settlementAmount,
@@ -524,7 +551,7 @@ const createCalculationUpdate = (settlementData, payload, commission = 0, isReve
       net_balance: balance,
     };
   }
-  
+
   return {
     total_settlement_count: 1,
     total_settlement_amount: isReversed ? -amount : amount,
@@ -534,29 +561,36 @@ const createCalculationUpdate = (settlementData, payload, commission = 0, isReve
 };
 
 // Helper function to update beneficiary account
-const updateBeneficiaryAccount = async (conn, settlementData, payload, isReversed = false) => {
+const updateBeneficiaryAccount = async (
+  conn,
+  settlementData,
+  payload,
+  isReversed = false,
+) => {
   if (settlementData.role !== Role.VENDOR || settlementData.method !== 'BANK') {
     return;
   }
 
-  const searchCriteria = isReversed 
+  const searchCriteria = isReversed
     ? { user_id: settlementData.config.bank_id }
     : { bank_name: settlementData.config.bank_name };
-    
+
   const [beneficiaryAcc] = await getBeneficiaryAccountDao(searchCriteria);
-  
+
   if (!beneficiaryAcc) return;
 
-  const isSend = payload.config?.debit_credit === 'send' || settlementData.config?.debit_credit === 'send';
+  const isSend =
+    payload.config?.debit_credit === 'send' ||
+    settlementData.config?.debit_credit === 'send';
   const amount = payload.amount || 0;
-  
+
   let beneficiaryClosingBalance;
   if (isReversed) {
-    beneficiaryClosingBalance = isSend 
+    beneficiaryClosingBalance = isSend
       ? beneficiaryAcc.config?.closing_balance + amount
       : beneficiaryAcc.config?.closing_balance - amount;
   } else {
-    beneficiaryClosingBalance = isSend 
+    beneficiaryClosingBalance = isSend
       ? beneficiaryAcc.config?.closing_balance - amount
       : beneficiaryAcc.config?.closing_balance + amount;
   }
@@ -570,23 +604,24 @@ const updateBeneficiaryAccount = async (conn, settlementData, payload, isReverse
     { id: beneficiaryAcc.id, company_id: settlementData.company_id },
     { config: beneficiaryUpdatedConfig },
     conn,
-    false
+    false,
   );
 
   // Update payload config
   if (isReversed && isSend) {
     payload.config = {
       ...settlementData.config,
-      beneficiary_closing_balance: settlementData.config?.closing_balance + amount,
+      beneficiary_closing_balance:
+        settlementData.config?.closing_balance + amount,
     };
   } else if (isReversed) {
     payload.config = {
       ...settlementData.config,
-      beneficiary_initial_balance: 
+      beneficiary_initial_balance:
         settlementData.config?.initial_balance - amount === 0
           ? settlementData.config?.initial_balance
           : Number(settlementData.config?.initial_balance) - Number(amount),
-      beneficiary_closing_balance: 
+      beneficiary_closing_balance:
         Number(settlementData.config?.closing_balance) - Number(amount),
     };
   } else {
@@ -599,7 +634,11 @@ const updateBeneficiaryAccount = async (conn, settlementData, payload, isReverse
 };
 
 // Helper function to handle internal transfer reversal
-const handleInternalTransferReversal = async (conn, settlementData, payload) => {
+const handleInternalTransferReversal = async (
+  conn,
+  settlementData,
+  payload,
+) => {
   const [vendorData, calculationData] = await Promise.all([
     getVendorsDao({ user_id: settlementData.user_id }),
     getCalculationforCronDao(settlementData.user_id),
@@ -613,28 +652,34 @@ const handleInternalTransferReversal = async (conn, settlementData, payload) => 
   }
 
   const bankResponses = await getInternalBankResponseByUTR(
-    settlementData.config?.reference_id
+    settlementData.config?.reference_id,
   );
-  
+
   if (!bankResponses) {
     throw new NotFoundError('Bank response not found for the provided UTR');
   }
-  if (bankResponses.is_used === true || payload.config?.reference_id === settlementData.config?.reference_id) {
+  if (
+    bankResponses.is_used === true ||
+    payload.config?.reference_id === settlementData.config?.reference_id
+  ) {
     throw new BadRequestError('UTR is already used');
   }
 
   const response = await updateBankResponseDao(
     { id: bankResponses.id },
     { status: '/success' },
-    conn
+    conn,
   );
 
-  const responseObj = createBankResponseObject(response, settlementData.company_id);
+  const responseObj = createBankResponseObject(
+    response,
+    settlementData.company_id,
+  );
   await newTableEntry(tableName.BANK_RESPONSE, responseObj);
 
   const commission = calculateCommission(
     payload.amount,
-    vendorData[0].payin_commission || 0
+    vendorData[0].payin_commission || 0,
   );
 
   return {
@@ -649,16 +694,25 @@ const handleInternalTransferReversal = async (conn, settlementData, payload) => 
 // Helper function to validate status transitions
 const validateStatusTransition = (currentStatus, newStatus) => {
   if (currentStatus === Status.REJECTED && newStatus === Status.SUCCESS) {
-    throw new BadRequestError('Cannot change payout status from rejected to approved');
+    throw new BadRequestError(
+      'Cannot change payout status from rejected to approved',
+    );
   }
-  
+
   if (newStatus === currentStatus) {
-    throw new BadRequestError('Payout status cannot be updated to the same value');
+    throw new BadRequestError(
+      'Payout status cannot be updated to the same value',
+    );
   }
 };
 
 // Helper function to calculate settlement config amounts
-const calculateSettlementConfigAmount = (method, currentConfig, amount, isReversed) => {
+const calculateSettlementConfigAmount = (
+  method,
+  currentConfig,
+  amount,
+  isReversed,
+) => {
   const configMapping = {
     INTERNAL_QR_TRANSFER: 'total_internalSettlement_amount',
     INTERNAL_BANK_TRANSFER: 'total_internalBankSettlement_amount',
@@ -668,15 +722,25 @@ const calculateSettlementConfigAmount = (method, currentConfig, amount, isRevers
   if (!configKey) return null;
 
   const currentAmount = currentConfig[configKey] || 0;
-  const calculatedAmount = isReversed 
-    ? (currentAmount > 0 ? currentAmount - amount : -amount)
-    : (currentAmount > 0 ? currentAmount + amount : amount);
+  const calculatedAmount = isReversed
+    ? currentAmount > 0
+      ? currentAmount - amount
+      : -amount
+    : currentAmount > 0
+      ? currentAmount + amount
+      : amount;
 
   return { [configKey]: calculatedAmount };
 };
 
 // Helper function to calculate transfer method config
-const calculateTransferMethodConfig = (method, debitCredit, currentConfig, amount, isReversed) => {
+const calculateTransferMethodConfig = (
+  method,
+  debitCredit,
+  currentConfig,
+  amount,
+  isReversed,
+) => {
   const methodMappings = {
     CASH: {
       SENT: 'total_cashSentSettlement_amount',
@@ -702,10 +766,14 @@ const calculateTransferMethodConfig = (method, debitCredit, currentConfig, amoun
   const keyName = mapping[debitCredit] || mapping.RECEIVED;
   const positiveAmount = Math.abs(amount);
   const currentAmount = currentConfig[keyName] || 0;
-  
+
   const totalSettlementAmount = isReversed
-    ? (currentAmount > 0 ? currentAmount - positiveAmount : -positiveAmount)
-    : (currentAmount > 0 ? currentAmount + positiveAmount : positiveAmount);
+    ? currentAmount > 0
+      ? currentAmount - positiveAmount
+      : -positiveAmount
+    : currentAmount > 0
+      ? currentAmount + positiveAmount
+      : positiveAmount;
 
   return { [keyName]: totalSettlementAmount };
 };
@@ -714,19 +782,19 @@ const updateSettlementService = async (conn, ids, payload) => {
   try {
     await checkLockEdit(conn, ids.id);
     payload.config = payload.config || {};
-    
+
     // Get settlement data
     const settlementArray = await getSettlementDao({
       id: ids.id,
       company_id: ids.company_id,
     });
-    
+
     if (!settlementArray?.length) {
       throw new NotFoundError('Settlement not found');
     }
-    
+
     const settlementData = settlementArray[0];
-    
+
     // Validate UTR
     validateUTR(payload, settlementData);
 
@@ -737,10 +805,17 @@ const updateSettlementService = async (conn, ids, payload) => {
     }
 
     // Handle internal transfer UTR
-    await handleInternalTransferUTR(conn, payload, settlementData, changeUTRStatus);
+    await handleInternalTransferUTR(
+      conn,
+      payload,
+      settlementData,
+      changeUTRStatus,
+    );
 
     // Get calculation data
-    const calculationData = await getCalculationforCronDao(settlementData.user_id);
+    const calculationData = await getCalculationforCronDao(
+      settlementData.user_id,
+    );
 
     // Handle rejection
     if (payload.config.rejected_reason) {
@@ -753,96 +828,130 @@ const updateSettlementService = async (conn, ids, payload) => {
     if (payload.config.reference_id) {
       payload.status = Status.SUCCESS;
       payload.approved_at = new Date();
-      
+
       // Get merchant data to determine role
-      const merchantData = await getMerchantsDao({ user_id: settlementData.user_id });
+      const merchantData = await getMerchantsDao({
+        user_id: settlementData.user_id,
+      });
       const isMerchant = merchantData.length > 0;
-      
+
       let updatedCalculation;
-      
+
       if (Array.isArray(calculationData) && calculationData.length > 0) {
         if (isMerchant) {
           updatedCalculation = createCalculationUpdate(settlementData, payload);
         } else {
           // Vendor approval
-          const isInternalMethod = INTERNAL_METHODS.includes(settlementData.method);
+          const isInternalMethod = INTERNAL_METHODS.includes(
+            settlementData.method,
+          );
           if (isInternalMethod) {
             const commission = await calculateVendorCommission(payload);
-            updatedCalculation = createCalculationUpdate(settlementData, payload, commission);
+            updatedCalculation = createCalculationUpdate(
+              settlementData,
+              payload,
+              commission,
+            );
           } else {
-            updatedCalculation = createCalculationUpdate(settlementData, payload);
+            updatedCalculation = createCalculationUpdate(
+              settlementData,
+              payload,
+            );
           }
         }
-        
+
         // Update calculation balance
         const { id } = calculationData[0];
-        await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
+        const updatedCalculationData = await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
+        
+        await trackVendorsNetBalance(calculationData[0].user_id, conn, updatedCalculationData);
       }
-      
+
       // Update beneficiary account for vendor bank transactions
       await updateBeneficiaryAccount(conn, settlementData, payload);
     }
 
     // Handle reversal (status INITIATED)
     if (payload.status === Status.INITIATED) {
-      const merchantData = await getMerchantsDao({ user_id: settlementData.user_id });
+      const merchantData = await getMerchantsDao({
+        user_id: settlementData.user_id,
+      });
       const isMerchant = merchantData.length > 0;
-      
+
       payload.status = Status.REVERSED;
       payload.rejected_at = new Date();
-      
+
       let updatedCalculation;
-      
+
       if (isMerchant) {
         // Merchant reversal
-        updatedCalculation = createCalculationUpdate(settlementData, payload, 0, true);
+        updatedCalculation = createCalculationUpdate(
+          settlementData,
+          payload,
+          0,
+          true,
+        );
       } else {
         // Vendor reversal
-        const isInternalMethod = INTERNAL_METHODS.includes(settlementData.method);
-        
+        const isInternalMethod = INTERNAL_METHODS.includes(
+          settlementData.method,
+        );
+
         if (isInternalMethod) {
-          updatedCalculation = await handleInternalTransferReversal(conn, settlementData, payload);
+          updatedCalculation = await handleInternalTransferReversal(
+            conn,
+            settlementData,
+            payload,
+          );
         } else {
-          updatedCalculation = createCalculationUpdate(settlementData, payload, 0, true);
+          updatedCalculation = createCalculationUpdate(
+            settlementData,
+            payload,
+            0,
+            true,
+          );
           // Update beneficiary account for vendor bank transactions
           await updateBeneficiaryAccount(conn, settlementData, payload, true);
         }
       }
-      
+
       // Update calculation balance
       if (calculationData.length > 0) {
         const { id } = calculationData[0];
-        await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
+        const updatedCalculationResponse = await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
+        
+        await trackVendorsNetBalance(calculationData[0].user_id, conn, updatedCalculationResponse);
       }
     }
-    
+
     // Validate status transitions
     if (payload.status) {
       validateStatusTransition(settlementData.status, payload.status);
     }
-    
+
     // Update settlement
     const updateData = await updateSettlementDao(
       conn,
       { id: ids.id, company_id: ids.company_id },
-      payload
+      payload,
     );
-    
+
     // Update calculation config for success/reversed status
     if (
-      (payload.status === Status.SUCCESS || payload.status === Status.REVERSED) &&
+      (payload.status === Status.SUCCESS ||
+        payload.status === Status.REVERSED) &&
       calculationData.length > 0
     ) {
       const isReversed = payload.status === Status.REVERSED;
       let config;
-      
+
       // Handle internal methods
       if (INTERNAL_METHODS.includes(payload.method)) {
         config = calculateSettlementConfigAmount(
           payload.method,
           calculationData[0].config,
           payload.amount,
-          isReversed
+          isReversed,
         );
       }
       // Handle transfer methods
@@ -852,19 +961,19 @@ const updateSettlementService = async (conn, ids, payload) => {
           payload.config.debit_credit,
           calculationData[0].config,
           payload.amount,
-          isReversed
+          isReversed,
         );
       }
-      
+
       if (config) {
         await updateCalculationConfigDao(
           { id: calculationData[0].id },
           { config },
-          conn
+          conn,
         );
       }
     }
-    
+
     return updateData;
   } catch (error) {
     logger.error('Error while updating Settlement', error);

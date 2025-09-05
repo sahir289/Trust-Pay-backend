@@ -272,6 +272,9 @@ const getClientsAccountReportService = async (req) => {
                 key !== 'code' &&
                 key !== 'parent_code' &&
                 key !== 'created_at' &&
+                key !== 'calculation_user_id' &&
+                key !== 'company_id' &&
+                key !== 'merchant_user_id' &&
                 !isNaN(parseFloat(child[key]))
               ) {
                 parentEntry[key] =
