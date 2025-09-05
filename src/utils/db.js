@@ -150,12 +150,7 @@ export async function closePool() {
 
 const beginTransaction = async (client) => {
   try {
-    // Set a statement timeout to prevent long-running transactions
-    await client.query('SET statement_timeout = 60000'); // 60 seconds
-    await client.query('SET lock_timeout = 30000'); // 30 seconds for lock acquisition
     await client.query('BEGIN');
-    // Use READ COMMITTED isolation level to reduce lock contention
-    await client.query('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
     logger.info('Transaction started');
   } catch (error) {
     logger.error('Error starting transaction', error);
