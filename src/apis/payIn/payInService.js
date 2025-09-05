@@ -2900,7 +2900,7 @@ export const updateCalculationTable = async (user_id, data, conn) => {
 
       const totalAmount = Number(data.amount) - Number(data.payinCommission);
       const calculationId = calculationData[0].id;
-      await updateCalculationBalanceDao(
+      const response = await updateCalculationBalanceDao(
         { id: calculationId },
         {
           total_payin_count: 1,
@@ -2911,7 +2911,8 @@ export const updateCalculationTable = async (user_id, data, conn) => {
         },
         conn,
       );
-      await trackVendorsNetBalance(user_id);
+      
+      await trackVendorsNetBalance(user_id, conn, response);
     }
   } catch (error) {
     logger.error('Error in updateCalculationTable:', error);
@@ -2978,12 +2979,13 @@ const updateCalculationBalances = async (
     const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
 
     // Update current calculation
-    await updateCalculationBalanceDao(
+    const updatedCurrentCalculation = await updateCalculationBalanceDao(
       { id: currentCalculation[0].id },
       updates,
       conn,
     );
-    await trackVendorsNetBalance(currentCalculation[0].user_id);
+    
+    await trackVendorsNetBalance(currentCalculation[0].user_id, conn, updatedCurrentCalculation);
 
     if (nextCalculations.length > 0) {
       // Update subsequent calculations
@@ -3000,7 +3002,7 @@ const updateCalculationBalances = async (
             total_adjustment_count: 1,
           };
         }
-        await updateCalculationBalanceDao(
+        const updatedCalc = await updateCalculationBalanceDao(
           { id: calc.id },
           {
             net_balance: amountDiff - commission,
@@ -3008,7 +3010,8 @@ const updateCalculationBalances = async (
           },
           conn,
         );
-        await trackVendorsNetBalance(calc.user_id);
+        
+        await trackVendorsNetBalance(calc.user_id, conn, updatedCalc);
       }
     }
   } catch (error) {

@@ -164,17 +164,19 @@ const createChargeBackService = async (
       throw new NotFoundError('Vendor calculations not found');
     }
     const VendorId = vendorCalculation[0].id;
-    await updateCalculationBalanceDao(
+    const updatedCalculation = {
+      total_chargeback_count: 1,
+      total_chargeback_amount: amount,
+      current_balance: -amount,
+      net_balance: -amount,
+    };
+    const response = await updateCalculationBalanceDao(
       { id: VendorId },
-      {
-        total_chargeback_count: 1,
-        total_chargeback_amount: amount,
-        current_balance: -amount,
-        net_balance: -amount,
-      },
+      updatedCalculation,
       conn,
     );
-    await trackVendorsNetBalance(vendorCalculation[0].user_id);
+    
+    await trackVendorsNetBalance(vendorCalculation[0].user_id, conn, response);
     await commit(conn);
     // await notifyAdminsAndUsers({
     //   conn,
@@ -583,17 +585,19 @@ const updateChargeBackService = async (ids, payload) => {
     let VendorUserId = data.vendor_user_id;
     const vendorCalculation = await getCalculationforCronDao(VendorUserId);
     let VendorId = vendorCalculation[0].id;
-    await updateCalculationBalanceDao(
+    const updatedCalculation = {
+      total_chargeback_count: 1,
+      total_chargeback_amount: amount,
+      current_balance: -amount,
+      net_balance: -amount,
+    };
+    const response = await updateCalculationBalanceDao(
       { id: VendorId },
-      {
-        total_chargeback_count: 1,
-        total_chargeback_amount: amount,
-        current_balance: -amount,
-        net_balance: -amount,
-      },
+      updatedCalculation,
       conn,
     );
-    await trackVendorsNetBalance(vendorCalculation[0].user_id);
+    
+    await trackVendorsNetBalance(vendorCalculation[0].user_id, conn, response);
     await commit(conn); // Commit the transaction
     return data;
   } catch (error) {

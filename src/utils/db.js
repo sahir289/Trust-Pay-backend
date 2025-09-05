@@ -59,10 +59,20 @@ const createPool = (connectionString, name) => {
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
     keepAlive: true,
+    // Additional deadlock prevention settings
+    acquireTimeoutMillis: 60000, // How long to wait for connection acquisition
+    createTimeoutMillis: 30000,  // How long to wait for connection creation
+    destroyTimeoutMillis: 5000,  // How long to wait for connection destruction
+    reapIntervalMillis: 1000,    // How often to check for idle connections
+    createRetryIntervalMillis: 200, // Retry interval for connection creation
   });
 
   pool.on('connect', (client) => {
     client.query("SET TIME ZONE 'Asia/Kolkata'");
+    // Set deadlock timeout and other connection-level settings
+    client.query('SET deadlock_timeout = 10000'); // 10 seconds
+    client.query('SET statement_timeout = 120000'); // 120 seconds max for any statement
+    client.query('SET idle_in_transaction_session_timeout = 600000'); // 10 minutes max idle in transaction
   });
 
   pool.on('error', async (err) => {
@@ -150,7 +160,12 @@ export async function closePool() {
 
 const beginTransaction = async (client) => {
   try {
+    // Set a statement timeout to prevent long-running transactions
+    await client.query('SET statement_timeout = 60000'); // 60 seconds
+    await client.query('SET lock_timeout = 30000'); // 30 seconds for lock acquisition
     await client.query('BEGIN');
+    // Use READ COMMITTED isolation level to reduce lock contention
+    await client.query('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
     logger.info('Transaction started');
   } catch (error) {
     logger.error('Error starting transaction', error);
@@ -377,36 +392,64 @@ export const buildAndExecuteUpdateQuery = async (
 
     // Handle nested JSON updates for `config` or other JSONB columns
     if (data.config && typeof data.config === 'object') {
-      let jsonbSetQuery = `"config"::jsonb`;
-      const processNestedKeys = (obj, parentKey = []) => {
-        Object.entries(obj).forEach(([key, value]) => {
-          const currentPath = [...parentKey, key];
-          // merging merchant_added object
-          if (
-            key === 'merchant_added' &&
-            typeof value === 'object' &&
-            !Array.isArray(value)
-          ) {
+      // Check if config is empty object
+      if (Object.keys(data.config).length === 0) {
+        // For empty config, just set it directly
+        setClause.push(`"config" = $${index}::jsonb`);
+        values.push(stringifyJSON(data.config));
+        index++;
+      } else {
+        let jsonbSetQuery = `"config"::jsonb`;
+        let hasUpdates = false;
+        
+        const processNestedKeys = (obj, parentKey = []) => {
+          Object.entries(obj).forEach(([key, value]) => {
+            const currentPath = [...parentKey, key];
             const path = currentPath.join(',');
-            const mergeSnippet = `coalesce(${jsonbSetQuery}#>'{${path}}', '{}'::jsonb) || $${index}::jsonb`;
-            jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', ${mergeSnippet})`;
-            values.push(stringifyJSON(value));
-            index++;
-          } else if (typeof value === 'object' && !Array.isArray(value)) {
-            // Recursively process nested objects
-            processNestedKeys(value, currentPath);
-          } else {
-            // Add jsonb_set for the current key
-            const path = currentPath.join(',');
-            jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', $${index}::jsonb)`;
-            values.push(stringifyJSON(value));
-            index++;
-          }
-        });
-      };
+            
+            // Validate path is not empty
+            if (!path) {
+              logger.warn('Empty path detected in config update, skipping');
+              return;
+            }
+            
+            // merging merchant_added object
+            if (
+              key === 'merchant_added' &&
+              typeof value === 'object' &&
+              !Array.isArray(value)
+            ) {
+              const mergeSnippet = `coalesce(${jsonbSetQuery}#>'{${path}}', '{}'::jsonb) || $${index}::jsonb`;
+              jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', ${mergeSnippet}, true)`;
+              values.push(stringifyJSON(value));
+              index++;
+              hasUpdates = true;
+            } else if (typeof value === 'object' && !Array.isArray(value)) {
+              // Recursively process nested objects
+              processNestedKeys(value, currentPath);
+            } else {
+              // Add jsonb_set for the current key with create_if_missing = true
+              jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', $${index}::jsonb, true)`;
+              values.push(stringifyJSON(value));
+              index++;
+              hasUpdates = true;
+            }
+          });
+        };
 
-      processNestedKeys(data.config);
-      setClause.push(`"config" = ${jsonbSetQuery}`);
+        processNestedKeys(data.config);
+        
+        // Only add the config update if there were actual updates processed
+        if (hasUpdates) {
+          setClause.push(`"config" = ${jsonbSetQuery}`);
+        } else {
+          // Fallback: treat as direct assignment
+          setClause.push(`"config" = $${index}::jsonb`);
+          values.push(stringifyJSON(data.config));
+          index++;
+        }
+      }
+      
       delete data.config; // Remove `config` from the main data object
     }
 
@@ -458,28 +501,54 @@ export const transactionWrapper =
   (fn) =>
   async (...args) => {
     let conn;
-    try {
-      conn = await getConnection();
-      await beginTransaction(conn); // Ensure transaction starts properly
+    const maxRetries = 3;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        conn = await getConnection();
+        await beginTransaction(conn); // Ensure transaction starts properly
 
-      const data = await fn(conn, ...args); // Ensure fn expects conn as the first argument
+        const data = await fn(conn, ...args); // Ensure fn expects conn as the first argument
 
-      await commit(conn); // Commit only if no errors
-      return data;
-    } catch (error) {
-      if (conn) {
-        try {
-          await rollback(conn); // Explicit rollback
-          logger.error('Transaction rolled back due to error:', error);
-        } catch (rollbackError) {
-          logger.error('Rollback failed:', rollbackError);
+        await commit(conn); // Commit only if no errors
+        return data;
+      } catch (error) {
+        if (conn) {
+          try {
+            await rollback(conn, false); // Don't throw error on rollback failure
+            logger.error('Transaction rolled back due to error:', error);
+          } catch (rollbackError) {
+            logger.error('Rollback failed:', rollbackError);
+          }
         }
-      }
-      throw error;
-    } finally {
-      if (conn) {
-        logger.info('Releasing connection');
-        conn.release(); // Always release connection
+        
+        // Check if this is a deadlock error and we can retry
+        const isDeadlock = error.message && (
+          error.message.includes('deadlock') ||
+          error.message.includes('could not serialize access') ||
+          error.message.includes('canceling statement due to lock timeout') ||
+          error.message.includes('lock timeout') ||
+          error.code === '40P01' || // deadlock_detected
+          error.code === '40001' || // serialization_failure
+          error.code === '55P03'    // lock_not_available
+        );
+        
+        if (isDeadlock && attempt < maxRetries) {
+          logger.warn(`Deadlock detected on attempt ${attempt}. Retrying transaction in ${attempt * 1000}ms...`);
+          if (conn) {
+            conn.release();
+            conn = null;
+          }
+          await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+          continue;
+        }
+        
+        throw error;
+      } finally {
+        if (conn) {
+          logger.info('Releasing connection');
+          conn.release(); // Always release connection
+        }
       }
     }
   };
