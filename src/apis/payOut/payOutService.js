@@ -774,7 +774,12 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     const vendorCommission = calculateCommission(
       data.amount,
       vendor.payout_commission,
-    );
+    );    
+    
+    const payoutDetails = await getPayoutsDao({ id: ids.id }, ids.company_id);
+    if (payoutDetails.length !== 0 && payoutDetails[0]?.status === data?.status) {
+      throw new BadRequestError(`Payout is already ${payoutDetails[0].status}`);
+    }
 
     // Handle status-specific updates
     if (data.status === Status.APPROVED) {
@@ -915,7 +920,7 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
     payload,
     conn,
   );
-  
+
   await trackVendorsNetBalance(calculationData[0].user_id, conn, response);
   return response;
 };
