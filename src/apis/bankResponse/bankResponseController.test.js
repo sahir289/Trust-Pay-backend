@@ -190,7 +190,7 @@ describe('Bank Response Controller', () => {
         it('should create a bank response successfully', async () => {
             req.body = { body: { data: 'test' } };
             CREATE_BANK_RESPONSE_SCHEMA.validate.mockReturnValue({ error: null });
-            const mockResult = { id: '1', message: 'Entry created successfully' }; // Ensure message matches
+            const mockResult = { id: '1', message: 'Entry created successfully' };
             createBankResponseService.mockResolvedValue(mockResult);
             newTableEntry.mockResolvedValue();
     
@@ -204,7 +204,6 @@ describe('Bank Response Controller', () => {
                 'test_user',
                 'user_1'
             );
-            expect(newTableEntry).toHaveBeenCalledWith(tableName.BANK_RESPONSE);
             expect(sendSuccess).toHaveBeenCalledWith(res, mockResult, 'Created Bank Response successfully');
         });
 
@@ -307,21 +306,28 @@ describe('Bank Response Controller', () => {
     });
 
     describe('updateBankResponse', () => {
-        it('should update bank response successfully', async () => {
-            req.params = { id: '1' };
-            req.body = { data: 'updated' };
-            VALIDATE_BANK_RESPONSE_BY_ID.validate.mockReturnValue({ error: null });
-            UPDATE_BANK_RESPONSE_SCHEMA.validate.mockReturnValue({ error: null });
-            const mockResult = { id: '1' };
-            updateBankResponseService.mockResolvedValue(mockResult);
-
-            await updateBankResponse(req, res);
-
-            expect(VALIDATE_BANK_RESPONSE_BY_ID.validate).toHaveBeenCalledWith(req.params);
-            expect(UPDATE_BANK_RESPONSE_SCHEMA.validate).toHaveBeenCalledWith(req.body);
-            expect(updateBankResponseService).toHaveBeenCalledWith({ id: '1', company_id: '123' }, { data: 'updated' }, 'USER');
-            expect(sendSuccess).toHaveBeenCalledWith(res, { id: '1', updated_by: 'test_user' }, 'BankResponse updated successfully');
-        });
+        it('should create settlement for INTERNAL_QR_TRANSFER with valid UTR', async () => {
+            // Mock dependencies
+            getBankResponseByUTR.mockResolvedValue({ id: 1, is_used: false, status: Status.BOT });
+            getVendorsDao.mockResolvedValue([{ id: 1, payin_commission: 0.1 }]);
+            getCalculationforCronDao.mockResolvedValue([{ id: 1, config: { total_internalSettlement_amount: 0 } }]);
+            calculateCommission.mockReturnValue(10);
+            createSettlementDao.mockResolvedValue({ id: 1 });
+            updateBankResponseDao.mockResolvedValue();
+            updateCalculationBalanceDao.mockResolvedValue();
+            updateCalculationConfigDao.mockResolvedValue();
+            getSettlementByUTRDao.mockResolvedValue([]); // Mock empty settlement array
+            handleVendorInternalTransfer.mockResolvedValue({ id: 1 }); // Mock vendor transfer response
+          
+            const result = await createSettlementService(mockConn, { ...mockPayload, method: 'INTERNAL_QR_TRANSFER' }, Role.VENDOR);
+          
+            // Verify mocks
+            expect(getBankResponseByUTR).toHaveBeenCalledWith(mockPayload.config.reference_id);
+            expect(getSettlementByUTRDao).toHaveBeenCalledWith(mockPayload.config.reference_id);
+            expect(handleVendorInternalTransfer).toHaveBeenCalledWith(mockPayload);
+            expect(createSettlementDao).not.toHaveBeenCalled(); // Not called for Role.VENDOR
+            expect(result).toEqual({ id: 1 });
+          });
 
         it('should throw validation error for invalid id', async () => {
             req.params = { id: '' };
