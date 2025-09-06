@@ -527,10 +527,13 @@ const getMerchantReportDao = async (
 
     let parameters = [company_id];
     let paramIndex = parameters.length + 1;
-    if (userIds) {
+    if (userIds && Array.isArray(userIds) && userIds.length > 0) {
       query += ` AND c.user_id = ANY($${paramIndex})`;
       parameters.push(userIds);
       paramIndex++;
+      logger.info(`Filtering merchant report by specific user IDs: ${userIds.join(', ')}`);
+    } else {
+      logger.info('Retrieving merchant report data for all merchants (no specific user IDs provided)');
     }
     //take indian timezone
     query += `AND c.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
@@ -602,12 +605,12 @@ const getVendorReportDao = async (
     let parameters = [company_id];
     let paramIndex = parameters.length + 1;
 
-    if (userIds) {
+    if (userIds && Array.isArray(userIds) && userIds.length > 0) {
       query += ` AND c.user_id = ANY($${paramIndex})`;
       parameters.push(userIds);
       paramIndex++;
     }
-    query += `AND c.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+    query += ` AND c.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
     parameters.push(startDate, endDate);
     paramIndex += 2;
 
