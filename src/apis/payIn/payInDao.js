@@ -391,7 +391,34 @@ export const getPayInForTelegramResponseDao = async (filters = {}) => {
       filters,
     );
     const result = await executeQuery(sql, params);
-    return result.rows[0] || [];
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error getting PayIn for telegram response:', error);
+    throw error;
+  }
+};
+export const getPayInForTelegramResponseArrayDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      merchant_order_id,
+      status,
+      bank_response_id,
+      user_submitted_utr,
+      amount,
+      is_notified,
+      config,
+      created_at,
+      company_id,
+      updated_at
+    `;
+
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows;
   } catch (error) {
     logger.error('Error getting PayIn for telegram response:', error);
     throw error;
