@@ -368,12 +368,13 @@ const handleVendorInternalTransferByAdmin = async (
     net_balance: -payload.amount + commission,
   };
 
-  await updateCalculationBalanceDao(
+  const calculationResponse = await updateCalculationBalanceDao(
     { id: calculationData[0].id },
     updatedCalculation,
     conn,
   );
-  await trackVendorsNetBalance(calculationData[0].user_id);
+  
+  await trackVendorsNetBalance(calculationData[0].user_id, conn, calculationResponse);
 
   // Update calculation config based on method
   const config = getConfigForMethod(
@@ -864,8 +865,9 @@ const updateSettlementService = async (conn, ids, payload) => {
 
         // Update calculation balance
         const { id } = calculationData[0];
-        await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
-        await trackVendorsNetBalance(calculationData[0].user_id);
+        const updatedCalculationData = await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
+        
+        await trackVendorsNetBalance(calculationData[0].user_id, conn, updatedCalculationData);
       }
 
       // Update beneficiary account for vendor bank transactions
@@ -919,8 +921,9 @@ const updateSettlementService = async (conn, ids, payload) => {
       // Update calculation balance
       if (calculationData.length > 0) {
         const { id } = calculationData[0];
-        await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
-        await trackVendorsNetBalance(calculationData[0].user_id);
+        const updatedCalculationResponse = await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
+        
+        await trackVendorsNetBalance(calculationData[0].user_id, conn, updatedCalculationResponse);
       }
     }
 

@@ -297,7 +297,7 @@ const createBankResponseService = async (
         await updateCalculationTable(vendor[0].user_id, {
           payinCommission: payinVendorCommission,
           amount: botRes.amount,
-        });
+        }, localConn);
       }
       let duration;
       let checkPayInUtr;
@@ -590,7 +590,7 @@ const createBankResponseService = async (
           await updateCalculationTable(merchantData[0].user_id, {
             payinCommission: payinMerchantCommission,
             amount: botRes.amount,
-          });
+          }, localConn);
           await commit(localConn);
           // if (shouldRelease) localConn.release();
           return {
@@ -780,7 +780,8 @@ const updateCalculationTable = async (user_id, data, conn) => {
         },
         conn,
       );
-      await trackVendorsNetBalance(user_id);
+      
+      await trackVendorsNetBalance(user_id, conn, response);
       return response;
     }
   } catch (error) {
@@ -1887,12 +1888,13 @@ const updateCalculationBalances = async (
     };
     const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
     // Update current calculation
-    await updateCalculationBalanceDao(
+    const updatedCurrentCalculation = await updateCalculationBalanceDao(
       { id: currentCalculation[0].id },
       updates,
       conn,
     );
-    await trackVendorsNetBalance(currentCalculation[0].user_id);
+    
+    await trackVendorsNetBalance(currentCalculation[0].user_id, conn, updatedCurrentCalculation);
 
     if (nextCalculations.length > 0) {
       // Update subsequent calculations
@@ -1908,7 +1910,7 @@ const updateCalculationBalances = async (
             total_adjustment_count: 1,
           };
         }
-        await updateCalculationBalanceDao(
+        const updatedCalc = await updateCalculationBalanceDao(
           { id: calc.id },
           {
             net_balance: amountDiff - commission,
@@ -1916,7 +1918,8 @@ const updateCalculationBalances = async (
           },
           conn,
         );
-        await trackVendorsNetBalance(calc.user_id);
+        
+        await trackVendorsNetBalance(calc.user_id, conn, updatedCalc);
       }
     }
   } catch (error) {
