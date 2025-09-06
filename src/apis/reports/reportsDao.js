@@ -626,7 +626,7 @@ const getVendorReportDao = async (
       parameters.push(userIds);
       paramIndex++;
     }
-    query += `AND c.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+    query += ` AND c.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
     parameters.push(startDate, endDate);
     paramIndex += 2;
 
