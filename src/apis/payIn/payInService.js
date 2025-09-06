@@ -40,6 +40,7 @@ import {
   getPayInForUpdateDao,
   getPayInForTelegramResponseDao,
   getPayinsWithoutHistoryDao,
+  getPayInForTelegramResponseArrayDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -1515,7 +1516,6 @@ export const processPayInService = async (
           company_id: payIn.company_id,
         })) || {};
     }
-
     if (bankResponse.id) {
       await updateBotResponseDao(bankResponse.id, { is_used: true }, conn);
     }
@@ -1858,7 +1858,7 @@ export const telegramResponseService = async (conn, message) => {
     });
     const bankResponse = await getBankResponseDao({
       utr: content.utr,
-      company_id: payIn.company_id,
+      company_id: payIn?.company_id,
     });
     // Early validation for missing critical data
     if (!payIn) {
@@ -1903,27 +1903,28 @@ export const telegramResponseService = async (conn, message) => {
     const [otherBankResponsePayIns, otherUtrPayIns, otherBotResponsePayIns] =
       await Promise.all([
         payIn.bank_response_id
-          ? getPayInForTelegramResponseDao({
+          ? getPayInForTelegramResponseArrayDao({
               bank_response_id: payIn.bank_response_id,
             })
           : Promise.resolve([]),
-        getPayInForTelegramResponseDao({ user_submitted_utr: content.utr }),
+        getPayInForTelegramResponseArrayDao({
+          user_submitted_utr: content.utr,
+          company_id: payIn?.company_id,
+        }),
         bankResponse.id
-          ? getPayInForTelegramResponseDao({
+          ? getPayInForTelegramResponseArrayDao({
               bank_response_id: bankResponse.id,
             })
           : Promise.resolve([]),
       ]);
-
     // Check for duplicates
     const hasDuplicate = otherUtrPayIns.some(
       (item) => item.status === Status.DUPLICATE,
     );
-
     // Conditionally refresh otherBotResponsePayIns only if duplicate is found
     const updatedBotResponsePayIns =
       hasDuplicate || bankResponse.id
-        ? await getPayInForTelegramResponseDao({
+        ? await getPayInForTelegramResponseArrayDao({
             bank_response_id: bankResponse.id,
           })
         : otherBotResponsePayIns;
@@ -1985,7 +1986,6 @@ export const telegramResponseService = async (conn, message) => {
         return;
       }
     }
-
     // Determine duplicate entries
     const duplicateEntry =
       otherBankResponsePayIns.length > 1
@@ -1996,6 +1996,10 @@ export const telegramResponseService = async (conn, message) => {
 
     // Handle used bank response or duplicate entries
     if (bankResponse.is_used || duplicateEntry.length) {
+      // payIn = Array.isArray(payIn) ? payIn : [payIn];
+      // duplicateEntry = Array.isArray(duplicateEntry)
+      //   ? duplicateEntry
+      //   : [duplicateEntry];
       await sendAlreadyConfirmedMessageTelegramBot(
         message.chat.id,
         content.utr,
