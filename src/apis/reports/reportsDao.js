@@ -78,37 +78,25 @@ const getPayInMerchantReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
-      if (status && Array.isArray(status)) {
-        if (status.includes(Status.SUCCESS)) {
-          if(updatedPayin === 'true'){
-            query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.updated_at ASC;`;
-          }
-          else{
-            query += ` AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
-          }
-        } else if (
-          status.includes(Status.FAILED) ||
-          status.includes(Status.DROPPED)
-        ) {
-          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
-        } else if (
-          status.includes(Status.INITIATED) ||
-          status.includes(Status.PENDING) ||
-          status.includes(Status.BANK_MISMATCH) ||
-          status.includes(Status.ASSIGNED) ||
-          status.includes(Status.DISPUTE) ||
-          status.includes(Status.IMG_PENDING) ||
-          status.includes(Status.DUPLICATE)
-        ) {
-          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
-        } else {
-          query += ` AND (pi.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
-        }
-      } else {
-        query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
+      let dateColumn = 'pi.updated_at'; 
+      if (status && Array.isArray(status) && status.includes(Status.SUCCESS)) {
+        dateColumn =
+          updatedPayin === 'true' ? 'pi.updated_at' : 'pi.approved_at';
+      } else if (!status) {
+        query += ` AND (
+          (pi.status = '${Status.SUCCESS}' AND ${updatedPayin === 'true' ? 'pi.updated_at' : 'pi.approved_at'} BETWEEN $${paramIndex} AND $${paramIndex + 1})
+          OR
+          (pi.status != '${Status.SUCCESS}' AND pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
+        ) ORDER BY pi.sno ASC`;
+        parameters.push(startDate, endDate);
+        paramIndex += 2;
+        dateColumn = null;
       }
+      if (dateColumn) {
+        query += ` AND (${dateColumn} BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY ${dateColumn === 'pi.approved_at' ? 'pi.sno' : dateColumn} ASC`;
       parameters.push(startDate, endDate);
       paramIndex += 2;
+}
     }
     const result = await executeQuery(query, parameters);
     return result.rows;
@@ -184,34 +172,30 @@ const getPayInVendorReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
-      if (status && Array.isArray(status)) {
+      let dateColumn = 'pi.updated_at'; 
+      if (status && Array.isArray(status) && status.length > 0) {
         if (status.includes(Status.SUCCESS)) {
-          if(updatedPayin === 'true'){
-            query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.updated_at ASC;`;
-          }
-          else{
-            query += ` AND (pi.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
-          }
-        } else if (
-          status.includes(Status.FAILED) ||
-          status.includes(Status.DROPPED) ||
-          status.includes(Status.INITIATED) ||
-          status.includes(Status.PENDING) ||
-          status.includes(Status.BANK_MISMATCH) ||
-          status.includes(Status.ASSIGNED) ||
-          status.includes(Status.DISPUTE) ||
-          status.includes(Status.IMG_PENDING) ||
-          status.includes(Status.DUPLICATE)
-        ) {
-          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
+          dateColumn = updatedPayin === 'true' ? 'pi.updated_at' : 'pi.approved_at';
         } else {
-          query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
+          dateColumn = 'pi.updated_at';
         }
       } else {
-        query += ` AND (pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY pi.sno ASC;`;
+        query += ` AND (
+          (pi.status = '${Status.SUCCESS}' AND ${updatedPayin === 'true' ? 'pi.updated_at' : 'pi.approved_at'} BETWEEN $${paramIndex} AND $${paramIndex + 1})
+          OR
+          (pi.status != '${Status.SUCCESS}' AND pi.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
+        ) ORDER BY pi.sno ASC`;
+    
+        parameters.push(startDate, endDate);
+        paramIndex += 2;
+    
+        dateColumn = null; 
       }
-      parameters.push(startDate, endDate);
-      paramIndex += 2;
+      if (dateColumn) {
+        query += ` AND (${dateColumn} BETWEEN $${paramIndex} AND $${paramIndex + 1}) ORDER BY ${dateColumn === 'pi.approved_at' ? 'pi.sno' : dateColumn} ASC`;
+        parameters.push(startDate, endDate);
+        paramIndex += 2;
+      }
     }
 
     const result = await executeQuery(query, parameters);
