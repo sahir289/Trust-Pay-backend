@@ -38,8 +38,10 @@ export const createTelegramSender = () => {
     }
 
     try {
-      await axios.post(sendMessageUrl, payload);
-      logger.log(`Message sent successfully to chat ${chatId}.`);
+      logger.info(`Sending message to chat ${chatId} -- payload is`, payload);
+      const data = await axios.post(sendMessageUrl, payload);
+      logger.info(data, 'data from telegram after sending message');
+      logger.info(`Message sent successfully to chat ${chatId}. -- payload is`, payload);
       return true; // return true to indicate success
     } catch (error) {
       logger.error(
