@@ -40,14 +40,21 @@ export const createTelegramSender = () => {
     try {
       logger.info(`Sending message to chat ${chatId} -- payload is`, payload);
       const data = await axios.post(sendMessageUrl, payload);
-      logger.info(data, 'data from telegram after sending message');
-      logger.info(`Message sent successfully to chat ${chatId}. -- payload is`, payload);
+      logger.info(
+        { status: data?.status, data: data?.data },
+        'data from telegram after sending message',
+      );
+      logger.info(
+        `Message sent successfully to chat ${chatId}. -- payload is`,
+        payload,
+      );
       return true; // return true to indicate success
     } catch (error) {
-      logger.error(
-        'Error sending message to Telegram:',
-        error || 'Request failed with status code 429',
-      );
+      logger.error('Error sending message to Telegram:', {
+        message: error.message || 'Request failed with status code 429',
+        status: error.response?.status,
+        data: error.response?.data,
+      });
       // sentMessages.delete(key); // we will remove key on failure to allow retry
       return false; // return false to indicate failure
     }
