@@ -203,6 +203,9 @@ ${vendorDetailsPayout}
   );
   logger.log(success1 ? 'Sent!' : 'Not sent.');
 
+  // Add delay to avoid rate limiting
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
   const success2 = await telegramSender(
     chatId,
     message2,
@@ -211,6 +214,9 @@ ${vendorDetailsPayout}
   );
   logger.log(success2 ? 'Sent!' : 'Not sent.');
 
+  // Add delay to avoid rate limiting
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
   const success3 = await telegramSender(
     chatId,
     message3,
@@ -218,6 +224,9 @@ ${vendorDetailsPayout}
     TELEGRAM_BOT_TOKEN,
   );
   logger.log(success3 ? 'Sent!' : 'Not sent.');
+
+  // Add delay to avoid rate limiting
+  await new Promise((resolve) => setTimeout(resolve, 1000));
   return {success1, success2, success3};
 }
 
