@@ -642,6 +642,9 @@ export const assignedBankToPayInUrlService = async (
           code: updatePayIn.upi_short_code,
         },
       };
+      if (selectedBankDetails.config.is_staticQR) {
+        response.bank.staticQR = selectedBankDetails.config.is_staticQR;
+      }
     }
 
     return response;
