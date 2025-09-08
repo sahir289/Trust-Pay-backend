@@ -18,6 +18,7 @@ export const BANK_ACCOUNT_SCHEMA = Joi.object({
   max: Joi.number().min(1).label('max').optional(),
   is_enabled: Joi.boolean().label('is_enabled').optional(),
   is_phonepay: Joi.boolean().label('is_phonepay').optional(),
+  is_staticQR: Joi.boolean().label('is_staticQR').optional(),
   is_intent: Joi.boolean().label('is_intent').optional(),
   is_qr: Joi.boolean().label('is_qr').optional(),
   payin_count: Joi.number().integer().min(0).label('payin_count').optional(),
