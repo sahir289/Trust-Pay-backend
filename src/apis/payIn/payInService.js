@@ -1044,7 +1044,6 @@ export const resetDepositService = async (
       merchant_order_id: merchant_order_id,
       company_id: company_id,
     });
-    console.log(payIn,"hey");
     if (!payIn) {
       throw new NotFoundError('Merchant Order ID not found');
     }
