@@ -1,33 +1,22 @@
 // __tests__/authMiddleware.test.js
 
-// Mock logger before any other imports
+// Mock logger and redisClient before any imports
 jest.mock('../utils/logger.js', () => ({
-  logger: {
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-    log: jest.fn(),
-  },
+  logger: { info: jest.fn(), error: jest.fn(), warn: jest.fn(), log: jest.fn() },
 }));
 
-// Mock redisClient to prevent real Redis code
 jest.mock('../utils/redisClient.js', () => ({}));
 
-jest.mock('../utils/auth.js', () => ({
-  verifyToken: jest.fn(),
-}));
-
-jest.mock('../apis/auth/authDao.js', () => ({
-  getSessionByIdDao: jest.fn(),
-}));
+jest.mock('../utils/auth.js', () => ({ verifyToken: jest.fn() }));
+jest.mock('../apis/auth/authDao.js', () => ({ getSessionByIdDao: jest.fn() }));
 
 describe('Auth middlewares', () => {
   let isAuthenticated, authorized, logoutSet;
-  let logger;
-  let getSessionByIdDao;
-  let verifyToken;
+  let logger, getSessionByIdDao, verifyToken;
 
   beforeEach(() => {
+    jest.clearAllMocks();
+
     jest.isolateModules(() => {
       const loggerModule = require('../utils/logger.js');
       logger = loggerModule.logger;
@@ -43,8 +32,6 @@ describe('Auth middlewares', () => {
       const authUtils = require('../utils/auth.js');
       verifyToken = authUtils.verifyToken;
     });
-
-    jest.clearAllMocks();
   });
 
   describe('isAuthenticated middleware', () => {
