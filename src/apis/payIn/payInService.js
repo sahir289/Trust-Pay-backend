@@ -1044,6 +1044,7 @@ export const resetDepositService = async (
       merchant_order_id: merchant_order_id,
       company_id: company_id,
     });
+    console.log(payIn,"hey");
     if (!payIn) {
       throw new NotFoundError('Merchant Order ID not found');
     }
@@ -1099,7 +1100,7 @@ export const resetDepositService = async (
       const payInSuccess = await getOtherSuccessPayIns(bankResponse);
       ///for update bankresponse with id
       const id = bankResponse.id;
-      if (!payInSuccess.length) {
+      if (!payInSuccess.length && payIn.status != Status.DUPLICATE) {
         await updateBotResponseDao(id, { is_used: false }, conn);
       }
     }
