@@ -126,7 +126,7 @@ const updateVendor = async (req, res) => {
   // Call the service to update the Vendor
   payload.updated_by = user_id;
   const ids = { id, company_id };
-  const vendor = await updateVendorService(ids, payload, role);
+  const vendor = await transactionWrapper(updateVendorService)(ids, payload, role);
   // Log success message
   // Send a success response to the client
   return sendSuccess(
