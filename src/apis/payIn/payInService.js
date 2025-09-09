@@ -1102,7 +1102,7 @@ export const resetDepositService = async (
       const payInSuccess = await getOtherSuccessPayIns(bankResponse);
       ///for update bankresponse with id
       const id = bankResponse.id;
-      if (!payInSuccess.length) {
+      if (!payInSuccess.length && payIn.status != Status.DUPLICATE) {
         await updateBotResponseDao(id, { is_used: false }, conn);
       }
     }
