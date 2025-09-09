@@ -135,7 +135,6 @@ const getMerchantsById = async (req, res) => {
   // Fetch merchants data from the service
   const data = await getMerchantByIdService({ id, company_id }, role, true);
   // Send success response
-  // console.log('data', data);
   return sendSuccess(res, data, 'Merchant fetched successfully');
 };
 
