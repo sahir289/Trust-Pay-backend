@@ -396,7 +396,7 @@ const handleVendorInternalTransferByAdmin = async (
 };
 
 // Helper function for internal transfers from vendors
-const handleVendorInternalTransfer = async (payload) => {
+export const handleVendorInternalTransfer = async (payload) => {
   // Adjust amount based on debit_credit type
   const isReceived = payload.config.debit_credit === 'RECEIVED';
   const amount = Number(payload.amount);

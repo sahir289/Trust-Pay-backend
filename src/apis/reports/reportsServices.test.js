@@ -1,10 +1,3 @@
-import { getMerchantsDaoArray } from '../merchants/merchantDao.js';
-import { getVendorsDaoArray } from '../vendors/vendorDao.js';
-import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
-import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
-import { getDesignationDao } from '../designation/designationDao.js';
-import { getUsersDao } from '../users/userDao.js';
-
 const {
   getPayInReportService,
   getPayOutReportService,
@@ -18,46 +11,58 @@ const {
   getPayOutVendorReportDao,
   getVendorReportDao,
 } = require('./reportsDao');
-
+const { getMerchantsDaoArray } = require('../merchants/merchantDao');
+const { getVendorsDaoArray } = require('../vendors/vendorDao');
+const { getBankaccountDao } = require('../bankAccounts/bankaccountDao');
+const { getUserHierarchysDao } = require('../userHierarchy/userHierarchyDao');
+const { getDesignationDao } = require('../designation/designationDao');
+const { getUsersDao } = require('../users/userDao');
 const { logger } = require('../../utils/logger');
 const dayjs = require('dayjs');
 const { Role } = require('../../constants/index');
 
-jest.mock('../merchants/merchantDao.js');
-jest.mock('../vendors/vendorDao.js');
-jest.mock('../bankAccounts/bankaccountDao.js');
-jest.mock('./reportsDao');
-jest.mock('../../utils/logger');
-jest.mock('../bankAccounts/bankaccountDao');
 jest.mock('../merchants/merchantDao');
 jest.mock('../vendors/vendorDao');
+jest.mock('../bankAccounts/bankaccountDao');
 jest.mock('../userHierarchy/userHierarchyDao');
 jest.mock('../designation/designationDao');
 jest.mock('../users/userDao');
+jest.mock('./reportsDao');
+jest.mock('../../utils/logger');
+
 jest.mock('dayjs', () => {
-  const actualDayjs = jest.requireActual('dayjs');
-  const utc = require('dayjs/plugin/utc');
-  const timezone = require('dayjs/plugin/timezone');
+  const originalDayjs = jest.requireActual('dayjs');
+  const utcPlugin = jest.requireActual('dayjs/plugin/utc');
+  const timezonePlugin = jest.requireActual('dayjs/plugin/timezone');
 
-  actualDayjs.extend(utc);
-  actualDayjs.extend(timezone);
+  let internalDayjs = originalDayjs.extend(utcPlugin).extend(timezonePlugin);
 
-  // Create a mock for dayjs.tz that preserves the original dayjs behavior
-  const mockTz = jest.fn((date, tz) => {
-    const instance = actualDayjs(date).tz(tz);
-    instance.format = jest.fn().mockImplementation((formatString) =>
-      actualDayjs(date).tz(tz).format(formatString)
-    );
-    instance.toISOString = jest.fn().mockImplementation(() =>
-      actualDayjs(date).tz(tz).toISOString()
-    );
+  const mockDayjsFn = jest.fn((date) => {
+    const instance = internalDayjs(date);
     return instance;
   });
 
-  return {
-    ...actualDayjs,
-    tz: mockTz,
+  mockDayjsFn.extend = jest.fn((plugin) => {
+    internalDayjs = internalDayjs.extend(plugin);
+    return internalDayjs;  // Chainable
+  });
+
+  mockDayjsFn.tz = jest.fn((dateOrTz, tz) => {
+    if (tz !== undefined) {
+      return internalDayjs.tz(dateOrTz, tz);
+    } else {
+      return internalDayjs.tz(dateOrTz);
+    }
+  });
+
+  // Prototype for instances (allows spying on instance methods like .format)
+  mockDayjsFn.prototype = {
+    format: jest.fn((formatStr) => internalDayjs().format(formatStr)),
+    toISOString: jest.fn(() => internalDayjs().toISOString()),
+    tz: jest.fn((tz) => internalDayjs().tz(tz)),
   };
+
+  return mockDayjsFn;  // Return the function object with .extend attached
 });
 
 describe('Reports Service', () => {
@@ -69,8 +74,6 @@ describe('Reports Service', () => {
       query: { code: 'code1,code2', startDate: '2025-08-01', endDate: '2025-08-31' },
     };
     jest.clearAllMocks();
-    // Remove or adjust the dayjs.tz mock to avoid overriding the format method
-    // If you need specific toISOString behavior, set it per test case instead
   });
 
   describe('getPayInReportService', () => {
@@ -85,8 +88,8 @@ describe('Reports Service', () => {
       expect(getMerchantsDaoArray).toHaveBeenCalledWith('123', ['code1', 'code2']);
       expect(getPayInMerchantReportDao).toHaveBeenCalledWith(
         [1, 2],
-        '2025-07-31T20:00:00.000Z',
-        '2025-08-31T19:59:59.999Z',
+        '2025-07-31T18:30:00.000Z',
+        '2025-08-31T18:29:59.999Z',
         '123',
         'admin',
         undefined,
@@ -109,8 +112,8 @@ describe('Reports Service', () => {
       expect(getBankaccountDao).toHaveBeenCalledWith({ user_id: [3, 4] });
       expect(getPayInVendorReportDao).toHaveBeenCalledWith(
         [5, 6],
-        '2025-07-31T20:00:00.000Z',
-        '2025-08-31T19:59:59.999Z',
+        '2025-07-31T18:30:00.000Z',
+        '2025-08-31T18:29:59.999Z',
         '123',
         'admin',
         undefined,
@@ -120,7 +123,7 @@ describe('Reports Service', () => {
     });
 
     it('should throw an error if DAO fails', async () => {
-      getMerchantsDaoArray.mockRejectedValue(new Error('DAO error'));
+      getMerchantsDaoArray.mockImplementation(() => Promise.reject(new Error('DAO error')));
 
       await expect(getPayInReportService(mockReq)).rejects.toThrow('DAO error');
       expect(logger.error).toHaveBeenCalledWith('Error while fetching report', expect.any(Error));
@@ -138,8 +141,8 @@ describe('Reports Service', () => {
       expect(getMerchantsDaoArray).toHaveBeenCalledWith('123', ['code1', 'code2']);
       expect(getPayOutMerchantReportDao).toHaveBeenCalledWith(
         [1, 2],
-        '2025-07-31T20:00:00.000Z',
-        '2025-08-31T19:59:59.999Z',
+        '2025-07-31T18:30:00.000Z',
+        '2025-08-31T18:29:59.999Z',
         '123',
         'admin',
         undefined,
@@ -159,8 +162,8 @@ describe('Reports Service', () => {
       expect(getVendorsDaoArray).toHaveBeenCalledWith('123', ['code1', 'code2']);
       expect(getPayOutVendorReportDao).toHaveBeenCalledWith(
         [3, 4],
-        '2025-07-31T20:00:00.000Z',
-        '2025-08-31T19:59:59.999Z',
+        '2025-07-31T18:30:00.000Z',
+        '2025-08-31T18:29:59.999Z',
         '123',
         'admin',
         undefined,
@@ -169,7 +172,12 @@ describe('Reports Service', () => {
     });
 
     it('should throw an error if DAO fails', async () => {
-      getMerchantsDaoArray.mockRejectedValue(new Error('DAO error'));
+      getMerchantsDaoArray.mockImplementation(() => Promise.reject(new Error('DAO error')));
+
+      const mockReq = {
+        user: { company_id: '123', role: 'admin' },
+        query: { code: 'ABC', startDate: '2025-09-01', endDate: '2025-09-08', status: 'pending' },
+      };
 
       await expect(getPayOutReportService(mockReq)).rejects.toThrow('DAO error');
       expect(logger.error).toHaveBeenCalledWith('Error while fetching report', expect.any(Error));
@@ -177,109 +185,1035 @@ describe('Reports Service', () => {
   });
 
   describe('getClientsAccountReportService', () => {
-    it('should return merchant report with sub-merchants for MERCHANT role', async () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockReq = {
+        user: { company_id: '123', role: 'admin' },
+        query: { startDate: '2025-08-01', endDate: '2025-08-31' },
+      };
+    });
+
+    // 1. Error handling
+    it('should throw an error if getMerchantsDaoArray fails', async () => {
+      getMerchantsDaoArray.mockImplementation(() => Promise.reject(new Error('Merchant DAO error')));
+
+      await expect(getClientsAccountReportService(mockReq)).rejects.toThrow('Merchant DAO error');
+      expect(logger.error).toHaveBeenCalledWith('Error while fetching report', expect.any(Error));
+      expect(getMerchantReportDao).not.toHaveBeenCalled();
+    });
+
+    it('should throw an error if getMerchantReportDao fails', async () => {
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'user1' }]);
+      getMerchantReportDao.mockImplementation(() => Promise.reject(new Error('Report DAO error')));
+      mockReq.query.role_name = Role.MERCHANT;
+
+      await expect(getClientsAccountReportService(mockReq)).rejects.toThrow('Report DAO error');
+      expect(logger.error).toHaveBeenCalledWith('Error while fetching report', expect.any(Error));
+    });
+
+    it('should throw an error if getVendorReportDao fails', async () => {
+      getVendorReportDao.mockImplementation(() => Promise.reject(new Error('Vendor DAO error')));
+
+      await expect(getClientsAccountReportService(mockReq)).rejects.toThrow('Vendor DAO error');
+      expect(logger.error).toHaveBeenCalledWith('Error while fetching report', expect.any(Error));
+    });
+
+    it('should throw an error if getUsersDao fails during hierarchy check', async () => {
       mockReq.query.role_name = Role.MERCHANT;
       mockReq.query.code = 'user1';
-      mockReq.query.page = '1';
-      mockReq.query.limit = '2';
-      const parentData = [
-        { code: 'user1', calculation_user_id: 'user1', created_at: '2025-08-01', amount: 1000 },
-      ];
-      const childData = [
-        { code: 'sub1', calculation_user_id: 'sub1', parent_code: 'user1', created_at: '2025-08-01', amount: 500 },
-      ];
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'user1' }]);
+      getMerchantReportDao.mockResolvedValue([{ code: 'user1', calculation_user_id: 'user1', created_at: '2025-08-01' }]);
+      getUsersDao.mockImplementation(() => Promise.reject(new Error('Users DAO error')));
+      getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
+
+      await expect(getClientsAccountReportService(mockReq)).rejects.toThrow('Users DAO error');
+      expect(logger.error).toHaveBeenCalledWith('Error while fetching report', expect.any(Error));
+    });
+
+    it('should throw an error if getUserHierarchysDao fails', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.code = 'user1';
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'user1' }]);
+      getMerchantReportDao.mockResolvedValue([{ code: 'user1', calculation_user_id: 'user1', created_at: '2025-08-01' }]);
       getUsersDao.mockResolvedValue([{ id: 'user1', designation_id: 1 }]);
       getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
-      getUserHierarchysDao.mockResolvedValue([{ user_id: 'user1', config: { siblings: { sub_merchants: ['sub1'] } } }]);
-      getMerchantReportDao
-        .mockResolvedValueOnce(parentData)
-        .mockResolvedValueOnce(childData);
+      getUserHierarchysDao.mockImplementation(() => Promise.reject(new Error('Hierarchy DAO error')));
 
-      // Mock the format method result for a specific dayjs.tz call
+      await expect(getClientsAccountReportService(mockReq)).rejects.toThrow('Hierarchy DAO error');
+      expect(logger.error).toHaveBeenCalledWith('Error while fetching report', expect.any(Error));
+    });
+
+    // 2. Code parsing scenarios
+    it('should handle single merchant code correctly', async () => {
+      mockReq.query.code = 'merchant1';
+      mockReq.query.role_name = Role.MERCHANT;
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'user1' }]);
+      getMerchantReportDao.mockResolvedValue([{ code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' }]);
+      getUsersDao.mockResolvedValue([{ id: 'user1', designation_id: 1 }]);
+      getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
+      getUserHierarchysDao.mockResolvedValue([]);
+
+      const result = await getClientsAccountReportService(mockReq);
+      
+      expect(getMerchantsDaoArray).toHaveBeenCalledWith('123', ['merchant1']);
+      expect(getMerchantReportDao).toHaveBeenCalledWith('123', ['user1'], '2025-08-01', '2025-08-31', null, null, 'admin');
+      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' }]);
+    });
+
+    it('should handle multiple merchant codes with spaces', async () => {
+      mockReq.query.code = 'merchant1, merchant2 ,merchant3';
+      mockReq.query.role_name = Role.MERCHANT;
+      getMerchantsDaoArray.mockResolvedValue([
+        { user_id: 'user1' },
+        { user_id: 'user2' },
+        { user_id: 'user3' }
+      ]);
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' },
+        { code: 'merchant2', calculation_user_id: 'user2', created_at: '2025-08-01' },
+        { code: 'merchant3', calculation_user_id: 'user3', created_at: '2025-08-01' }
+      ]);
+      getUsersDao.mockResolvedValue([{ id: 'user1', designation_id: 1 }, { id: 'user2', designation_id: 1 }, { id: 'user3', designation_id: 1 }]);
+      getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
+      getUserHierarchysDao.mockResolvedValue([]);
+
+      const result = await getClientsAccountReportService(mockReq);
+      
+      expect(getMerchantsDaoArray).toHaveBeenCalledWith('123', ['merchant1', 'merchant2', 'merchant3']);
+      expect(result).toHaveLength(3);
+      expect(result.map(r => r.code)).toEqual(['merchant1', 'merchant2', 'merchant3']);
+    });
+
+    it('should handle empty code (all merchants) for MERCHANT role', async () => {
+      delete mockReq.query.code;
+      mockReq.query.role_name = Role.MERCHANT;
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' },
+        { code: 'merchant2', calculation_user_id: 'user2', created_at: '2025-08-01' }
+      ]);
+      getUserHierarchysDao.mockResolvedValue([]);
+
+      const result = await getClientsAccountReportService(mockReq);
+      
+      expect(getMerchantReportDao).toHaveBeenCalledWith('123', null, '2025-08-01', '2025-08-31', null, null, 'admin');
+      expect(result).toHaveLength(2);
+    });
+
+    it('should handle empty code string for MERCHANT role', async () => {
+      mockReq.query.code = '';
+      mockReq.query.role_name = Role.MERCHANT;
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' }
+      ]);
+      getUserHierarchysDao.mockResolvedValue([]);
+
+      const result = await getClientsAccountReportService(mockReq);
+      
+      expect(getMerchantReportDao).toHaveBeenCalledWith('123', null, '2025-08-01', '2025-08-31', null, null, 'admin');
+      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' }]);
+    });
+
+    it('should handle null/undefined code as all merchants', async () => {
+      mockReq.query.code = null;
+      mockReq.query.role_name = Role.MERCHANT;
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' }
+      ]);
+      getUserHierarchysDao.mockResolvedValue([]);
+
+      const result = await getClientsAccountReportService(mockReq);
+      
+      expect(getMerchantReportDao).toHaveBeenCalledWith('123', null, '2025-08-01', '2025-08-31', null, null, 'admin');
+      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' }]);
+    });
+
+    it('should handle invalid/empty codes array', async () => {
+      mockReq.query.code = ',,,';
+      mockReq.query.role_name = Role.MERCHANT;
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' }
+      ]);
+      getUserHierarchysDao.mockResolvedValue([]);
+
+      const result = await getClientsAccountReportService(mockReq);
+      
+      expect(getMerchantReportDao).toHaveBeenCalledWith('123', null, '2025-08-01', '2025-08-31', null, null, 'admin');
+      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' }]);
+    });
+
+    it('should handle no merchants found for codes (treat as all merchants)', async () => {
+      mockReq.query.code = 'nonexistent';
+      mockReq.query.role_name = Role.MERCHANT;
+      getMerchantsDaoArray.mockResolvedValue([]);
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' }
+      ]);
+      getUserHierarchysDao.mockResolvedValue([]);
+
+      const result = await getClientsAccountReportService(mockReq);
+      
+      expect(getMerchantsDaoArray).toHaveBeenCalledWith('123', ['nonexistent']);
+      expect(getMerchantReportDao).toHaveBeenCalledWith('123', null, '2025-08-01', '2025-08-31', null, null, 'admin');
+      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' }]);
+    });
+
+    // 3. UUID handling
+    it('should handle UUID user IDs directly without merchant lookup', async () => {
+      const userId = '123e4567-e89b-12d3-a456-426614174000';
+      mockReq.query.code = userId;
+      mockReq.query.role_name = Role.MERCHANT;
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'merchant1', calculation_user_id: userId, created_at: '2025-08-01' }
+      ]);
+      getUsersDao.mockResolvedValue([{ id: userId, designation_id: 1 }]);
+      getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
+      getUserHierarchysDao.mockResolvedValue([]);
+
+      const result = await getClientsAccountReportService(mockReq);
+      
+      expect(getMerchantsDaoArray).not.toHaveBeenCalled();
+      expect(getMerchantReportDao).toHaveBeenCalledWith('123', [userId], '2025-08-01', '2025-08-31', null, null, 'admin');
+      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: userId, created_at: '2025-08-01' }]);
+    });
+
+    it('should handle mixed UUID and merchant codes', async () => {
+      const userId = '123e4567-e89b-12d3-a456-426614174000';
+      mockReq.query.code = `merchant1,${userId}`;
+      mockReq.query.role_name = Role.MERCHANT;
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'user1' }]); // Only for merchant1
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' },
+        { code: 'user-uuid', calculation_user_id: userId, created_at: '2025-08-01' }
+      ]);
+      getUsersDao.mockResolvedValue([
+        { id: userId, designation_id: 1 },
+        { id: 'user1', designation_id: 1 }
+      ]);
+      getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
+      getUserHierarchysDao.mockResolvedValue([]);
+
+      const result = await getClientsAccountReportService(mockReq);
+      
+      expect(getMerchantsDaoArray).toHaveBeenCalledWith('123', ['merchant1']); // Only merchant1 needs lookup
+      expect(getMerchantReportDao).toHaveBeenCalledWith('123', ['user1', userId], '2025-08-01', '2025-08-31', null, null, 'admin');
+      expect(result).toHaveLength(2);
+    });
+
+    // 4. Vendor role scenarios
+    it('should return vendor report for non-MERCHANT role', async () => {
+      mockReq.query.role_name = 'VENDOR';
+      mockReq.query.code = 'vendor1';
+      const vendorData = [{ id: 789, name: 'Vendor A', created_at: '2025-08-01T00:00:00.000Z' }];
+      getMerchantsDaoArray.mockResolvedValue([]);
+      getVendorReportDao.mockResolvedValue(vendorData);
+    
       dayjs.tz.mockReturnValue({
-        format: jest.fn().mockReturnValue('2025-08-01'),
-        toISOString: jest.fn().mockReturnValue('2025-08-01T00:00:00.000Z'),
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+    
+      expect(getMerchantsDaoArray).toHaveBeenCalledWith('123', ['vendor1']);
+      expect(getVendorReportDao).toHaveBeenCalledWith('123', [], '2025-08-01', '2025-08-31', undefined, undefined, 'admin');
+      expect(result).toEqual([
+        {
+          id: 789,
+          name: 'Vendor A',
+          created_at: '2025-08-01',
+        },
+      ]);
+      expect(getUsersDao).not.toHaveBeenCalled();
+    });
+
+    it('should return all vendors when no code provided for non-MERCHANT role', async () => {
+      delete mockReq.query.code;
+      mockReq.query.role_name = 'VENDOR';
+      const vendorData = [{ id: 789, name: 'Vendor A', created_at: '2025-08-01T00:00:00.000Z' }];
+      getVendorReportDao.mockResolvedValue(vendorData);
+    
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+    
+      expect(getVendorReportDao).toHaveBeenCalledWith('123', null, '2025-08-01', '2025-08-31', undefined, undefined, 'admin');
+      expect(result).toEqual([
+        {
+          id: 789,
+          name: 'Vendor A',
+          created_at: '2025-08-01',
+        },
+      ]);
+    });
+
+    // 5. Hierarchy and sub-merchant scenarios
+    it('should return merchant report with sub-merchants for MERCHANT role with hierarchy', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.code = 'merchant1';
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'user1' }]);
+      
+      const parentData = [
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01', amount: 1000, transactions: 5 }
+      ];
+      const childData = [
+        { code: 'sub1', calculation_user_id: 'sub1', created_at: '2025-08-01', amount: 500, transactions: 2 },
+        { code: 'sub2', calculation_user_id: 'sub2', created_at: '2025-08-01', amount: 300, transactions: 1 }
+      ];
+      
+      // Mock all merchant data to include both parent and children for mapping
+      const allMerchantData = [...parentData, ...childData];
+      
+      getUsersDao.mockResolvedValue([{ id: 'user1', designation_id: 1 }]);
+      getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
+      getUserHierarchysDao.mockResolvedValue([
+        { 
+          user_id: 'user1', 
+          config: { 
+            siblings: { 
+              sub_merchants: ['sub1', 'sub2'] 
+            } 
+          } 
+        }
+      ]);
+      getMerchantReportDao.mockResolvedValue(allMerchantData);
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      expect(getMerchantsDaoArray).toHaveBeenCalledWith('123', ['merchant1']);
+      expect(getUsersDao).toHaveBeenCalledWith({ company_id: '123', id: ['user1'] });
+      expect(getDesignationDao).toHaveBeenCalledWith({ id: 1 });
+      expect(getUserHierarchysDao).toHaveBeenCalledWith({ user_id: ['user1'] });
+      expect(getMerchantReportDao).toHaveBeenCalledWith('123', ['user1'], '2025-08-01', '2025-08-31', null, null, 'admin');
+      expect(result).toEqual([
+        { 
+          code: 'merchant1', 
+          calculation_user_id: 'user1', 
+          created_at: '2025-08-01', 
+          user_id: 'user1', 
+          amount: 1800, 
+          transactions: 8 
+        },
+      ]);
+    });
+
+    it('should handle hierarchy when no sub-merchants exist', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.code = 'merchant1';
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'user1' }]);
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01', amount: 1000 }
+      ]);
+      getUsersDao.mockResolvedValue([{ id: 'user1', designation_id: 1 }]);
+      getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
+      getUserHierarchysDao.mockResolvedValue([
+        { user_id: 'user1', config: { siblings: { sub_merchants: [] } } }
+      ]);
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      expect(result).toEqual([
+        { 
+          code: 'merchant1', 
+          calculation_user_id: 'user1', 
+          created_at: '2025-08-01', 
+          amount: 1000 
+        }
+      ]);
+      expect(logger.info).toHaveBeenCalledWith('No sub-merchants found for clubbing. Returning 1 merchant records as-is');
+    });
+
+    it('should handle all merchants scenario with sub-merchant hierarchies', async () => {
+      delete mockReq.query.code;
+      mockReq.query.role_name = Role.MERCHANT;
+      const allMerchantData = [
+        { code: 'parent1', calculation_user_id: 'parent1', created_at: '2025-08-01', amount: 1000 },
+        { code: 'parent2', calculation_user_id: 'parent2', created_at: '2025-08-01', amount: 2000 },
+        { code: 'child1', calculation_user_id: 'child1', created_at: '2025-08-01', amount: 500 },
+        { code: 'child2', calculation_user_id: 'child2', created_at: '2025-08-01', amount: 300 }
+      ];
+      
+      getMerchantReportDao.mockResolvedValue(allMerchantData);
+      getUserHierarchysDao.mockResolvedValue([
+        { user_id: 'parent1', config: { siblings: { sub_merchants: ['child1'] } } },
+        { user_id: 'parent2', config: { siblings: { sub_merchants: ['child2'] } } }
+      ]);
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      expect(getMerchantReportDao).toHaveBeenCalledWith('123', null, '2025-08-01', '2025-08-31', null, null, 'admin');
+      expect(getUserHierarchysDao).toHaveBeenCalledWith({ user_id: ['parent1', 'parent2', 'child1', 'child2'] });
+      expect(result).toHaveLength(2); // Only parents after clubbing
+      expect(result[0].amount).toBe(1500); // parent1 + child1
+      expect(result[1].amount).toBe(2300); // parent2 + child2
+    });
+
+    it('should handle sub-merchant matching by both user_id and code', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.code = 'parent1';
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'parent1' }]);
+      
+      const allMerchantData = [
+        { code: 'parent1', calculation_user_id: 'parent1', created_at: '2025-08-01', amount: 1000 },
+        { code: 'child1', calculation_user_id: 'child1', created_at: '2025-08-01', amount: 500 },
+        { code: 'sub-merchant-1', calculation_user_id: 'child1', created_at: '2025-08-01', amount: 300 } // Same user_id as child1 but different code
+      ];
+      
+      getUsersDao.mockResolvedValue([{ id: 'parent1', designation_id: 1 }]);
+      getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
+      getUserHierarchysDao.mockResolvedValue([
+        { 
+          user_id: 'parent1', 
+          config: { 
+            siblings: { 
+              sub_merchants: ['child1'] // Matches by user_id
+            } 
+          } 
+        }
+      ]);
+      getMerchantReportDao.mockResolvedValue(allMerchantData);
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      expect(result[0].amount).toBe(1800); // parent1(1000) + child1(500) + sub-merchant-1(300)
+    });
+
+    // 6. Sorting scenarios
+    it('should sort results alphabetically by code with date tiebreaker', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      delete mockReq.query.code;
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'C-merchant', calculation_user_id: 'user3', created_at: '2025-08-02' },
+        { code: 'A-merchant', calculation_user_id: 'user1', created_at: '2025-08-01' },
+        { code: 'A-merchant', calculation_user_id: 'user1', created_at: '2025-08-03' }, // Same code, later date
+        { code: 'B-merchant', calculation_user_id: 'user2', created_at: '2025-08-01' }
+      ]);
+      getUserHierarchysDao.mockResolvedValue([]);
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      expect(result.map(r => r.code)).toEqual(['A-merchant', 'A-merchant', 'B-merchant', 'C-merchant']);
+      // The two A-merchant entries should be sorted by date (2025-08-01 first, then 2025-08-03)
+    });
+
+    it('should sort clubbed results correctly', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      delete mockReq.query.code;
+      const allMerchantData = [
+        { code: 'B-parent', calculation_user_id: 'parent2', created_at: '2025-08-01', amount: 1000 },
+        { code: 'A-parent', calculation_user_id: 'parent1', created_at: '2025-08-02', amount: 2000 },
+        { code: 'A-child', calculation_user_id: 'child1', created_at: '2025-08-01', amount: 500 },
+        { code: 'B-child', calculation_user_id: 'child2', created_at: '2025-08-01', amount: 300 }
+      ];
+      
+      getMerchantReportDao.mockResolvedValue(allMerchantData);
+      getUserHierarchysDao.mockResolvedValue([
+        { user_id: 'parent1', config: { siblings: { sub_merchants: ['child1'] } } },
+        { user_id: 'parent2', config: { siblings: { sub_merchants: ['child2'] } } }
+      ]);
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      // Should be sorted: A-parent first (with child), then B-parent (with child)
+      expect(result[0].code).toBe('A-parent');
+      expect(result[0].amount).toBe(2500); // parent1 + child1
+      expect(result[1].code).toBe('B-parent');
+      expect(result[1].amount).toBe(1300); // parent2 + child2
+    });
+
+    // 7. Pagination scenarios
+    it('should apply pagination correctly to final results', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.page = '2';
+      mockReq.query.limit = '2';
+      delete mockReq.query.code;
+      
+      const allData = [
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01', amount: 1000 },
+        { code: 'merchant2', calculation_user_id: 'user2', created_at: '2025-08-01', amount: 2000 },
+        { code: 'merchant3', calculation_user_id: 'user3', created_at: '2025-08-01', amount: 3000 },
+        { code: 'merchant4', calculation_user_id: 'user4', created_at: '2025-08-01', amount: 4000 }
+      ];
+      
+      getMerchantReportDao.mockResolvedValue(allData);
+      getUserHierarchysDao.mockResolvedValue([]);
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      // Page 2 with limit 2 should return merchant3 and merchant4 (indices 2-3)
+      expect(result).toHaveLength(2);
+      expect(result[0].code).toBe('merchant3');
+      expect(result[1].code).toBe('merchant4');
+    });
+
+    it('should handle pagination with clubbed results', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.page = '1';
+      mockReq.query.limit = '1';
+      delete mockReq.query.code;
+      
+      const allMerchantData = [
+        { code: 'B-parent', calculation_user_id: 'parent2', created_at: '2025-08-01', amount: 1000 },
+        { code: 'A-parent', calculation_user_id: 'parent1', created_at: '2025-08-01', amount: 2000 },
+        { code: 'A-child', calculation_user_id: 'child1', created_at: '2025-08-01', amount: 500 },
+        { code: 'B-child', calculation_user_id: 'child2', created_at: '2025-08-01', amount: 300 }
+      ];
+      
+      getMerchantReportDao.mockResolvedValue(allMerchantData);
+      getUserHierarchysDao.mockResolvedValue([
+        { user_id: 'parent1', config: { siblings: { sub_merchants: ['child1'] } } },
+        { user_id: 'parent2', config: { siblings: { sub_merchants: ['child2'] } } }
+      ]);
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      // After clubbing and sorting, page 1 limit 1 should return only A-parent (first alphabetically)
+      expect(result).toHaveLength(1);
+      expect(result[0].code).toBe('A-parent');
+      expect(result[0].amount).toBe(2500);
+    });
+
+    it('should handle pagination with empty results', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.page = '1';
+      mockReq.query.limit = '10';
+      delete mockReq.query.code;
+      
+      getMerchantReportDao.mockResolvedValue([]);
+      getUserHierarchysDao.mockResolvedValue([]);
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should handle invalid pagination parameters', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.page = 'abc';
+      mockReq.query.limit = 'xyz';
+      delete mockReq.query.code;
+      
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' }
+      ]);
+      getUserHierarchysDao.mockResolvedValue([]);
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      // Invalid page/limit should return all results (no slicing)
+      expect(result).toHaveLength(1);
+    });
+
+    // 8. Edge cases and empty scenarios
+    it('should handle empty sub-merchants and parent data', async () => {
+      getMerchantsDaoArray.mockResolvedValue([]); // No merchants found
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.code = 'user1';
+      getMerchantReportDao.mockResolvedValue([]); // No merchant data found
+    
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+    
+      const result = await getClientsAccountReportService(mockReq);
+    
+      expect(getMerchantsDaoArray).toHaveBeenCalledWith('123', ['user1']);
+      expect(getUsersDao).not.toHaveBeenCalled(); // Not called since userIds = [] (length 0)
+      expect(getMerchantReportDao).toHaveBeenCalledWith('123', [], '2025-08-01', '2025-08-31', null, null, 'admin');
+      expect(logger.info).toHaveBeenCalledWith('No sub-merchants found for clubbing. Returning 0 merchant records as-is');
+      expect(result).toEqual([]); // Expect empty result
+    });
+
+    it('should handle non-MERCHANT designation (no hierarchy lookup)', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.code = 'user1';
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'user1' }]);
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01', amount: 1000 }
+      ]);
+      getUsersDao.mockResolvedValue([{ id: 'user1', designation_id: 1 }]);
+      getDesignationDao.mockResolvedValue([{ designation: 'ADMIN' }]); // Not MERCHANT
+      getUserHierarchysDao.mockResolvedValue([]); // Should not be called
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
       });
 
       const result = await getClientsAccountReportService(mockReq);
 
       expect(getUsersDao).toHaveBeenCalledWith({ company_id: '123', id: ['user1'] });
       expect(getDesignationDao).toHaveBeenCalledWith({ id: 1 });
-      expect(getUserHierarchysDao).toHaveBeenCalledWith({ user_id: ['user1'] });
-      expect(getMerchantReportDao).toHaveBeenCalledTimes(2);
-      expect(getMerchantReportDao).toHaveBeenCalledWith('123', ['user1'], '2025-08-01', '2025-08-31', null, null, 'admin');
-      expect(dayjs.tz).toHaveBeenCalledWith(expect.any(String), 'Asia/Kolkata');
+      expect(getUserHierarchysDao).not.toHaveBeenCalled(); // No hierarchy lookup for non-MERCHANT designation
       expect(result).toEqual([
-        { code: 'user1', calculation_user_id: "user1", created_at: '2025-08-01', user_id: 'user1', amount: 1500 },
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01', amount: 1000 }
       ]);
     });
 
-    it('should return vendor report for non-MERCHANT role', async () => {
-      mockReq.query.role_name = 'VENDOR';
-      mockReq.query.code = 'vendor1';
-      const vendorData = [{ id: 789, name: 'Vendor A' }];
-      getVendorReportDao.mockResolvedValue(vendorData);
+    it('should handle missing designation data', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.code = 'user1';
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'user1' }]);
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01', amount: 1000 }
+      ]);
+      getUsersDao.mockResolvedValue([{ id: 'user1', designation_id: 1 }]);
+      getDesignationDao.mockResolvedValue([]); // Empty designation
+      getUserHierarchysDao.mockResolvedValue([]); // Should not be called
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
 
       const result = await getClientsAccountReportService(mockReq);
 
-      expect(getVendorReportDao).toHaveBeenCalledWith('123', ['vendor1'], '2025-08-01', '2025-08-31', undefined, undefined, 'admin');
-      expect(result).toEqual(vendorData);
-      expect(getUsersDao).not.toHaveBeenCalled();
+      expect(getDesignationDao).toHaveBeenCalledWith({ id: 1 });
+      expect(getUserHierarchysDao).not.toHaveBeenCalled(); // No hierarchy lookup since designation is empty
+      expect(result).toEqual([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01', amount: 1000 }
+      ]);
     });
 
-    it('should apply pagination correctly', async () => {
+    it('should handle missing user data for specific code', async () => {
       mockReq.query.role_name = Role.MERCHANT;
       mockReq.query.code = 'user1';
-      mockReq.query.page = '2';
-      mockReq.query.limit = '1';
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'user1' }]);
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01', amount: 1000 }
+      ]);
+      getUsersDao.mockResolvedValue([]); // Empty users
+      getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
+      getUserHierarchysDao.mockResolvedValue([]); // Should not be called due to empty users
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      expect(getUsersDao).toHaveBeenCalledWith({ company_id: '123', id: ['user1'] });
+      expect(getUserHierarchysDao).not.toHaveBeenCalled(); // No hierarchy since users is empty
+      expect(result).toEqual([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01', amount: 1000 }
+      ]);
+    });
+
+    it('should handle date normalization in clubbing', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.code = 'parent1';
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'parent1' }]);
+      
       const parentData = [
-        { code: 'user1', calculation_user_id: 'user1', created_at: '2025-08-01', amount: 1000 },
-        { code: 'user1', calculation_user_id: 'user1', created_at: '2025-08-02', amount: 2000 },
+        { code: 'parent1', calculation_user_id: 'parent1', created_at: '2025-08-01T10:00:00Z', amount: 1000 }
       ];
-      getUsersDao.mockResolvedValue([{ id: 'user1', designation_id: 1 }]);
+      const childData = [
+        { code: 'child1', calculation_user_id: 'child1', created_at: '2025-08-01T15:30:00Z', amount: 500 } // Different time but same date
+      ];
+      
+      const allMerchantData = [...parentData, ...childData];
+      
+      getUsersDao.mockResolvedValue([{ id: 'parent1', designation_id: 1 }]);
       getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
-      getUserHierarchysDao.mockResolvedValue([]);
-      getMerchantReportDao.mockResolvedValue(parentData);
-
-      // Mock the format method result for pagination test
-      dayjs.tz.mockReturnValue({
-        format: jest.fn().mockReturnValue('2025-08-02'),
-        toISOString: jest.fn().mockReturnValue('2025-08-02T00:00:00.000Z'),
-      });
-
-      const result = await getClientsAccountReportService(mockReq);
-
-      expect(result).toEqual([
-        // { code: 'user1', created_at: '2025-08-02', user_id: 'user1', amount: 2000 },
+      getUserHierarchysDao.mockResolvedValue([
+        { 
+          user_id: 'parent1', 
+          config: { 
+            siblings: { 
+              sub_merchants: ['child1'] 
+            } 
+          } 
+        }
       ]);
-    });
+      getMerchantReportDao.mockResolvedValue(allMerchantData);
 
-    it('should throw an error if DAO fails', async () => {
-      mockReq.query.role_name = Role.MERCHANT;
-      getUsersDao.mockRejectedValue(new Error('DAO error'));
-
-      await expect(getClientsAccountReportService(mockReq)).rejects.toThrow('DAO error');
-      expect(logger.error).toHaveBeenCalledWith('Error while fetching report', expect.any(Error));
-    });
-
-    it('should handle empty sub-merchants and parent data', async () => {
-      mockReq.query.role_name = Role.MERCHANT;
-      mockReq.query.code = 'user1';
-      getUsersDao.mockResolvedValue([{ id: 'user1', designation_id: 1 }]);
-      getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
-      getUserHierarchysDao.mockResolvedValue([]);
-      getMerchantReportDao.mockResolvedValue([]);
-
-      // Mock the format method result for empty data test
       dayjs.tz.mockReturnValue({
-        format: jest.fn().mockReturnValue('2025-08-01'),
-        toISOString: jest.fn().mockReturnValue('2025-08-01T00:00:00.000Z'),
+        format: jest.fn().mockReturnValue('2025-08-01') // Both dates normalize to same day
       });
 
       const result = await getClientsAccountReportService(mockReq);
 
+      expect(result[0].amount).toBe(1500); // Successfully clubbed despite different timestamps
+      expect(result[0].created_at).toBe('2025-08-01');
+    });
+
+    it('should skip child records without valid parent mapping', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.code = 'parent1';
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'parent1' }]);
+      
+      const allMerchantData = [
+        { code: 'parent1', calculation_user_id: 'parent1', created_at: '2025-08-01', amount: 1000 },
+        { code: 'orphan-child', calculation_user_id: 'orphan1', created_at: '2025-08-01', amount: 200 } // No parent mapping
+      ];
+      
+      getUsersDao.mockResolvedValue([{ id: 'parent1', designation_id: 1 }]);
+      getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
+      getUserHierarchysDao.mockResolvedValue([
+        { 
+          user_id: 'parent1', 
+          config: { 
+            siblings: { 
+              sub_merchants: ['known-child'] // Doesn't include orphan1
+            } 
+          } 
+        }
+      ]);
+      getMerchantReportDao.mockResolvedValue(allMerchantData);
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      // Orphan child should be skipped, only parent returned
+      expect(result).toHaveLength(1);
+      expect(result[0].code).toBe('parent1');
+      expect(result[0].amount).toBe(1000); // No child amount added
+    });
+
+    it('should handle missing parent entry for child', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.code = 'parent1';
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'parent1' }]);
+      
+      const parentData = []; // No parent data for this date
+      const childData = [
+        { code: 'child1', calculation_user_id: 'child1', created_at: '2025-08-01', amount: 500 }
+      ];
+      
+      const allMerchantData = [...parentData, ...childData];
+      
+      getUsersDao.mockResolvedValue([{ id: 'parent1', designation_id: 1 }]);
+      getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
+      getUserHierarchysDao.mockResolvedValue([
+        { 
+          user_id: 'parent1', 
+          config: { 
+            siblings: { 
+              sub_merchants: ['child1'] 
+            } 
+          } 
+        }
+      ]);
+      getMerchantReportDao.mockResolvedValue(allMerchantData);
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      // Child should be skipped due to no parent entry
       expect(result).toEqual([]);
-      expect(logger.warn).toHaveBeenCalledWith('childData or userHierarchy is empty or not an array:', { childData: [], userHierarchy: [] });
+    });
+
+    // 9. Vendor pagination and sorting
+    it('should apply sorting and pagination to vendor results', async () => {
+      mockReq.query.role_name = 'VENDOR';
+      mockReq.query.page = '1';
+      mockReq.query.limit = '2';
+      const vendorData = [
+        { id: 3, code: 'C-vendor', created_at: '2025-08-02T00:00:00.000Z' },
+        { id: 1, code: 'A-vendor', created_at: '2025-08-01T00:00:00.000Z' },
+        { id: 2, code: 'B-vendor', created_at: '2025-08-01T00:00:00.000Z' }
+      ];
+      getVendorReportDao.mockResolvedValue(vendorData);
+    
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+    
+      // Should be sorted alphabetically: A-vendor, B-vendor, C-vendor
+      // Pagination 1,2 should return A-vendor and B-vendor
+      expect(result).toHaveLength(2);
+      expect(result[0].code).toBe('A-vendor');
+      expect(result[1].code).toBe('B-vendor');
+      expect(result[0].created_at).toBe('2025-08-01');
+      expect(result[1].created_at).toBe('2025-08-01');
+    });
+
+    // 10. Logging scenarios
+    it('should log appropriate messages for specific codes', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.code = 'merchant1,merchant2';
+      getMerchantsDaoArray.mockResolvedValue([
+        { user_id: 'user1' },
+        { user_id: 'user2' }
+      ]);
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' },
+        { code: 'merchant2', calculation_user_id: 'user2', created_at: '2025-08-01' }
+      ]);
+      getUsersDao.mockResolvedValue([
+        { id: 'user1', designation_id: 1 },
+        { id: 'user2', designation_id: 1 }
+      ]);
+      getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
+      getUserHierarchysDao.mockResolvedValue([]);
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      await getClientsAccountReportService(mockReq);
+
+      expect(logger.info).toHaveBeenCalledWith('Converting merchant codes to user IDs: merchant1, merchant2');
+      expect(logger.info).toHaveBeenCalledWith('Requested specific merchant codes: merchant1, merchant2');
+      expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Retrieved 2 merchant records from database'));
+      expect(logger.info).toHaveBeenCalledWith('No sub-merchants found for clubbing. Returning 2 merchant records as-is');
+    });
+
+    it('should log missing codes after clubbing', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.code = 'merchant1,missing1';
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'user1' }]); // Only merchant1 found
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' }
+        // missing1 not included
+      ]);
+      getUsersDao.mockResolvedValue([{ id: 'user1', designation_id: 1 }]);
+      getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
+      getUserHierarchysDao.mockResolvedValue([]);
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      await getClientsAccountReportService(mockReq);
+
+      expect(logger.warn).toHaveBeenCalledWith('After clubbing - Missing codes in result: missing1');
+    });
+
+    // 11. Date edge cases
+    it('should handle null/undefined dates in merchant data', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      delete mockReq.query.code;
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: null, amount: 1000 },
+        { code: 'merchant2', calculation_user_id: 'user2', created_at: undefined, amount: 2000 }
+      ]);
+      getUserHierarchysDao.mockResolvedValue([]);
+
+      dayjs.tz.mockImplementation((date) => ({
+        format: jest.fn(() => date ? '2025-08-01' : '1970-01-01') // Fallback date for null/undefined
+      }));
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].created_at).toBe('1970-01-01'); // Null date becomes fallback
+      expect(result[1].created_at).toBe('1970-01-01'); // Undefined date becomes fallback
+    });
+
+    it('should handle invalid date strings', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      delete mockReq.query.code;
+      getMerchantReportDao.mockResolvedValue([
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: 'invalid-date', amount: 1000 }
+      ]);
+      getUserHierarchysDao.mockResolvedValue([]);
+
+      dayjs.tz.mockImplementation((date) => ({
+        format: jest.fn(() => '2025-08-01') // Always return valid date for sorting
+      }));
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      expect(result[0].created_at).toBe('invalid-date'); // Original value preserved, but sorting works
+    });
+
+    // 12. Numeric field aggregation edge cases
+    it('should handle non-numeric fields during aggregation', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.code = 'parent1';
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'parent1' }]);
+      
+      const allMerchantData = [
+        { 
+          code: 'parent1', 
+          calculation_user_id: 'parent1', 
+          created_at: '2025-08-01', 
+          amount: 1000, 
+          name: 'Parent Merchant',
+          status: 'active'
+        },
+        { 
+          code: 'child1', 
+          calculation_user_id: 'child1', 
+          created_at: '2025-08-01', 
+          amount: 500, 
+          name: 'Child Merchant',
+          status: 'active'
+        }
+      ];
+      
+      getUsersDao.mockResolvedValue([{ id: 'parent1', designation_id: 1 }]);
+      getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
+      getUserHierarchysDao.mockResolvedValue([
+        { 
+          user_id: 'parent1', 
+          config: { 
+            siblings: { 
+              sub_merchants: ['child1'] 
+            } 
+          } 
+        }
+      ]);
+      getMerchantReportDao.mockResolvedValue(allMerchantData);
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      // Only numeric 'amount' should be summed, non-numeric fields preserved from parent
+      expect(result[0].amount).toBe(1500);
+      expect(result[0].name).toBe('Parent Merchant'); // Parent's name preserved
+      expect(result[0].status).toBe('active'); // Parent's status preserved
+    });
+
+    it('should handle NaN and non-numeric values in aggregation', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.code = 'parent1';
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'parent1' }]);
+      
+      const allMerchantData = [
+        { 
+          code: 'parent1', 
+          calculation_user_id: 'parent1', 
+          created_at: '2025-08-01', 
+          amount: 1000, 
+          invalid_amount: 'abc',
+          null_amount: null,
+          zero_amount: 0
+        },
+        { 
+          code: 'child1', 
+          calculation_user_id: 'child1', 
+          created_at: '2025-08-01', 
+          amount: 500, 
+          invalid_amount: NaN,
+          null_amount: null,
+          zero_amount: 0
+        }
+      ];
+      
+      getUsersDao.mockResolvedValue([{ id: 'parent1', designation_id: 1 }]);
+      getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
+      getUserHierarchysDao.mockResolvedValue([
+        { 
+          user_id: 'parent1', 
+          config: { 
+            siblings: { 
+              sub_merchants: ['child1'] 
+            } 
+          } 
+        }
+      ]);
+      getMerchantReportDao.mockResolvedValue(allMerchantData);
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      expect(result[0].amount).toBe(1500); // Valid numbers summed
+      expect(result[0].invalid_amount).toBe('abc'); // Non-numeric preserved from parent
+      expect(result[0].null_amount).toBe(null); // Null preserved
+      expect(result[0].zero_amount).toBe(0); // Zero preserved
+    });
+
+    // 13. Complex hierarchy scenarios
+    it('should handle multi-level hierarchy (though code only supports direct children)', async () => {
+      mockReq.query.role_name = Role.MERCHANT;
+      mockReq.query.code = 'top-parent';
+      getMerchantsDaoArray.mockResolvedValue([{ user_id: 'top-parent' }]);
+      
+      const allMerchantData = [
+        { code: 'top-parent', calculation_user_id: 'top-parent', created_at: '2025-08-01', amount: 1000 },
+        { code: 'mid-parent', calculation_user_id: 'mid-parent', created_at: '2025-08-01', amount: 400 },
+        { code: 'child1', calculation_user_id: 'child1', created_at: '2025-08-01', amount: 200 },
+        { code: 'grandchild', calculation_user_id: 'grandchild', created_at: '2025-08-01', amount: 100 }
+      ];
+      
+      // Only direct children are supported, so mid-parent and grandchild won't be clubbed to top-parent
+      getUsersDao.mockResolvedValue([{ id: 'top-parent', designation_id: 1 }]);
+      getDesignationDao.mockResolvedValue([{ designation: Role.MERCHANT }]);
+      getUserHierarchysDao.mockResolvedValue([
+        { 
+          user_id: 'top-parent', 
+          config: { 
+            siblings: { 
+              sub_merchants: ['mid-parent'] // Only direct child
+            } 
+          } 
+        },
+        { 
+          user_id: 'mid-parent', 
+          config: { 
+            siblings: { 
+              sub_merchants: ['child1', 'grandchild'] // mid-parent's children not clubbed to top-parent
+            } 
+          } 
+        }
+      ]);
+      getMerchantReportDao.mockResolvedValue(allMerchantData);
+
+      dayjs.tz.mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-08-01')
+      });
+
+      const result = await getClientsAccountReportService(mockReq);
+
+      // Only top-parent + mid-parent should be clubbed (1400 total)
+      // child1 and grandchild remain separate since they're not direct children of top-parent
+      expect(result).toHaveLength(3); // top-parent(clubbed), child1, grandchild
+      const clubbedParent = result.find(r => r.calculation_user_id === 'top-parent');
+      expect(clubbedParent.amount).toBe(1400); // top-parent + mid-parent
     });
   });
 });

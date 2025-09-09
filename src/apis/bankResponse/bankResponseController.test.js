@@ -34,6 +34,11 @@ const {
 } = require('../../schemas/bankResponseSchema.js');
 const { Role, tableName } = require('../../constants/index');
 const config = require('../../config/config.js');
+const { getBankResponseByUTR, updateBankResponseDao } = require('./bankResponseDao.js');
+const { getVendorsDao } = require('../vendors/vendorDao.js');
+const { getCalculationforCronDao, updateCalculationBalanceDao, updateCalculationConfigDao } = require('../calculation/calculationDao.js');
+const { calculateCommission } = require('../../utils/calculation.js');
+const { createSettlementDao, getSettlementByUTRDao } = require('../settlement/settlementDao.js');
 
 jest.mock('./bankResponseServices');
 jest.mock('../../utils/responseHandlers');
@@ -305,39 +310,6 @@ describe('Bank Response Controller', () => {
         });
     });
 
-    describe('updateBankResponse', () => {
-        it('should create settlement for INTERNAL_QR_TRANSFER with valid UTR', async () => {
-            // Mock dependencies
-            getBankResponseByUTR.mockResolvedValue({ id: 1, is_used: false, status: Status.BOT });
-            getVendorsDao.mockResolvedValue([{ id: 1, payin_commission: 0.1 }]);
-            getCalculationforCronDao.mockResolvedValue([{ id: 1, config: { total_internalSettlement_amount: 0 } }]);
-            calculateCommission.mockReturnValue(10);
-            createSettlementDao.mockResolvedValue({ id: 1 });
-            updateBankResponseDao.mockResolvedValue();
-            updateCalculationBalanceDao.mockResolvedValue();
-            updateCalculationConfigDao.mockResolvedValue();
-            getSettlementByUTRDao.mockResolvedValue([]); // Mock empty settlement array
-            handleVendorInternalTransfer.mockResolvedValue({ id: 1 }); // Mock vendor transfer response
-          
-            const result = await createSettlementService(mockConn, { ...mockPayload, method: 'INTERNAL_QR_TRANSFER' }, Role.VENDOR);
-          
-            // Verify mocks
-            expect(getBankResponseByUTR).toHaveBeenCalledWith(mockPayload.config.reference_id);
-            expect(getSettlementByUTRDao).toHaveBeenCalledWith(mockPayload.config.reference_id);
-            expect(handleVendorInternalTransfer).toHaveBeenCalledWith(mockPayload);
-            expect(createSettlementDao).not.toHaveBeenCalled(); // Not called for Role.VENDOR
-            expect(result).toEqual({ id: 1 });
-          });
-
-        it('should throw validation error for invalid id', async () => {
-            req.params = { id: '' };
-            VALIDATE_BANK_RESPONSE_BY_ID.validate.mockReturnValue({ error: 'Invalid ID' });
-            ValidationError.mockImplementation((error) => new Error(error));
-
-            await expect(updateBankResponse(req, res)).rejects.toThrow('Invalid ID');
-        });
-    });
-
     describe('getBankMessage', () => {
         it('should retrieve bank messages successfully', async () => {
             req.query = { bank_id: 'bank_1', startDate: '2023-01-01', endDate: '2023-01-02', page: '1', limit: '10' };
@@ -430,3 +402,66 @@ describe('Bank Response Controller', () => {
         });
     });
 });
+
+describe('updateBankResponse', () => {
+    let req, res;
+  
+    beforeEach(() => {
+        req = {
+          params: { id: '123' },
+          body: { status: 'success' },
+          user: { role: 'admin', user_name: 'testUser', company_id: 'company1' },
+        };
+        res = {
+          status: jest.fn().mockReturnThis(),
+          json: jest.fn(),
+        };
+        sendSuccess.mockImplementation((res, data, message) => {
+          res.status(200).json({ data, message });
+        });
+        jest.clearAllMocks();
+      });
+      
+  
+    it('should throw validation error for invalid id', async () => {
+      VALIDATE_BANK_RESPONSE_BY_ID.validate.mockReturnValue({ error: 'Invalid ID' });
+      ValidationError.mockImplementation((error) => new Error(error));
+  
+      await expect(updateBankResponse(req, res)).rejects.toThrow('Invalid ID');
+    });
+  
+    it('should throw validation error for invalid body', async () => {
+      VALIDATE_BANK_RESPONSE_BY_ID.validate.mockReturnValue({}); // no error
+      UPDATE_BANK_RESPONSE_SCHEMA.validate.mockReturnValue({ error: 'Invalid Body' });
+      ValidationError.mockImplementation((error) => new Error(error));
+  
+      await expect(updateBankResponse(req, res)).rejects.toThrow('Invalid Body');
+    });
+  
+    it('should update bank response successfully', async () => {
+      VALIDATE_BANK_RESPONSE_BY_ID.validate.mockReturnValue({}); // valid
+      UPDATE_BANK_RESPONSE_SCHEMA.validate.mockReturnValue({}); // valid
+      updateBankResponseService.mockResolvedValue({ id: '123' });
+  
+      await updateBankResponse(req, res);
+  
+      expect(updateBankResponseService).toHaveBeenCalledWith(
+        { id: '123', company_id: 'company1' },
+        { status: 'success' },
+        'admin'
+      );
+      expect(sendSuccess).toHaveBeenCalledWith(
+        res,
+        { id: '123', updated_by: 'testUser' },
+        'BankResponse updated successfully'
+      );
+    });
+  
+    it('should throw error if service fails', async () => {
+      VALIDATE_BANK_RESPONSE_BY_ID.validate.mockReturnValue({});
+      UPDATE_BANK_RESPONSE_SCHEMA.validate.mockReturnValue({});
+      updateBankResponseService.mockRejectedValue(new Error('Service Failed'));
+  
+      await expect(updateBankResponse(req, res)).rejects.toThrow('Service Failed');
+    });
+  });
