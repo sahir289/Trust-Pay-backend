@@ -21,7 +21,22 @@ export const createUserHierarchyDao = async (data, conn) => {
     throw error;
   }
 };
-
+export const getUserHierarchysDashBoardReportDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      config
+    `;
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.USER_HIERARCHY}" WHERE 1=1`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error getting user hierarchies data:', error);
+    throw error;
+  }
+};
 export const getUserHierarchysDao = async (
   filters,
   page,
