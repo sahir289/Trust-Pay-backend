@@ -329,22 +329,22 @@ const updateBankaccountService = async (
         conn,
       );
     }
-    if (payloadData?.config?.is_freeze === true) {
-      const bankResponse = await   getBankResponsesforFreeze({
-        bank_id: ids.id,
-        is_used: false,
-        status: '/success',
-      });
-      if (bankResponse.length > 0) {
-        for (let i = 0; i < bankResponse.length; i++) {
-          for (let i = 0; i < bankResponse.length; i++) {
-            await updateBotResponseDao(bankResponse[i].id, {
-              status: '/freezed',
-            },conn);
-          }
-        }
-      }
-    }
+    // if (payloadData?.config?.is_freeze === true) {
+    //   const bankResponse = await   getBankResponsesforFreeze({
+    //     bank_id: ids.id,
+    //     is_used: false,
+    //     status: '/success',
+    //   });
+    //   if (bankResponse.length > 0) {
+    //     for (let i = 0; i < bankResponse.length; i++) {
+    //       for (let i = 0; i < bankResponse.length; i++) {
+    //         await updateBotResponseDao(bankResponse[i].id, {
+    //           status: '/freezed',
+    //         },conn);
+    //       }
+    //     }
+    //   }
+    // }
     if (payloadData?.config?.is_freeze === false) {
       const bankResponse = await getBankResponsesforFreeze({
         bank_id: ids.id,

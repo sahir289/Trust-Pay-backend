@@ -1362,6 +1362,7 @@ export const processPayInService = async (
   updated_by,
   tele_check = true,
   img_utr = false,
+  designation,
 ) => {
   try {
     const {
@@ -1519,6 +1520,14 @@ export const processPayInService = async (
           company_id: payIn.company_id,
         })) || {};
     }
+
+    if (bank && bank.config.is_freeze === true && !designation) {
+      bankResponse = {};
+    }
+    else if ((bank && bank.config.is_freeze === true) && (designation && designation !== Role.ADMIN)) {
+      return { message: `Bank Account is freezed. Please contact admin` };
+    }
+
     if (bankResponse.id) {
       await updateBotResponseDao(bankResponse.id, { is_used: true }, conn);
     }
@@ -2369,6 +2378,7 @@ export const telegramCheckUTRService = async (
   merchant_order_id,
   company_id,
   updated_by,
+  designation,
 ) => {
   try {
     const bankResponse = await getBankResponseDao({
@@ -2447,6 +2457,8 @@ export const telegramCheckUTRService = async (
       },
       updated_by,
       false,
+      false,
+      designation
     );
   } catch (error) {
     logger.error('Error in telegramCheckUTRService:', error);
