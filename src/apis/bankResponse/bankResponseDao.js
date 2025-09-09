@@ -214,19 +214,19 @@ const getBankResponseBySearchDao = async (
             //   )
             // `);
             searchConditions.push(`
-             (
-  "BankResponse".id::text ILIKE $${paramIndex}
-  OR "BankResponse".status ILIKE $${paramIndex}
-  OR "BankResponse".bank_id::text ILIKE $${paramIndex}
-  OR "BankResponse".amount::text ILIKE $${paramIndex}
-  OR "BankResponse".upi_short_code ILIKE $${paramIndex}
-  OR "BankResponse".utr ILIKE $${paramIndex}
-  OR "BankResponse".sno::text ILIKE $${paramIndex}
-  OR "BankResponse".created_by ILIKE $${paramIndex}
-  OR "BankResponse".updated_by ILIKE $${paramIndex}
-  OR "BankAccount".user_id::text ILIKE $${paramIndex}
-  OR "BankAccount".nick_name ILIKE $${paramIndex}
-)
+              (
+                "BankResponse".id::text ILIKE $${paramIndex}
+                OR "BankResponse".status ILIKE $${paramIndex}
+                OR "BankResponse".bank_id::text ILIKE $${paramIndex}
+                OR "BankResponse".amount::text ILIKE $${paramIndex}
+                OR "BankResponse".upi_short_code ILIKE $${paramIndex}
+                OR "BankResponse".utr ILIKE $${paramIndex}
+                OR "BankResponse".sno::text ILIKE $${paramIndex}
+                OR "BankResponse".created_by ILIKE $${paramIndex}
+                OR "BankResponse".updated_by ILIKE $${paramIndex}
+                OR "BankAccount".user_id::text ILIKE $${paramIndex}
+                OR "BankAccount".nick_name ILIKE $${paramIndex}
+              )
             `);
             values.push(likeVal);
             paramIndex++;
@@ -427,6 +427,7 @@ const getClaimResponseDao = async (filters) => {
           AND br.created_at BETWEEN $1 AND $2
           AND br.company_id = $3
           AND br.is_obsolete = false
+          AND ba.bank_used_for = 'PayIn'
           ${bankFilter}
           ${vendorFilter}
       ),
@@ -441,6 +442,7 @@ const getClaimResponseDao = async (filters) => {
           AND br.created_at BETWEEN $1 AND $2
           AND br.company_id = $3
           AND br.is_obsolete = false
+          AND ba.bank_used_for = 'PayIn'
           ${bankFilter}
           ${vendorFilter}
       ),
@@ -454,6 +456,7 @@ const getClaimResponseDao = async (filters) => {
           AND br.status = '/success'
           AND br.company_id = $3
           AND br.is_obsolete = false
+          AND ba.bank_used_for = 'PayIn'
           ${bankFilter}
           ${vendorFilter}
       ),
@@ -470,10 +473,10 @@ const getClaimResponseDao = async (filters) => {
           AND br.status = '/success'
           AND br.company_id = $3
           AND br.is_obsolete = false
-          AND ba.bank_used_for = 'PayIn'
           ${bankFilter}
           ${vendorFilter}
         WHERE ba.company_id = $3
+          AND ba.bank_used_for = 'PayIn'
         GROUP BY ba.bank_name, ba.nick_name
       )
 

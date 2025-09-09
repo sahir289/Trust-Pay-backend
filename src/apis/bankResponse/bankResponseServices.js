@@ -233,10 +233,10 @@ const createBankResponseService = async (
         // if (shouldRelease) localConn.release();
         if (isValidAmountCode) {
           return {
-            message: `Entry with REPEATED AMOUNT CODE Added ${upi_short_code}`,
+            message: `Entry with REPEATED AMOUNT CODE: ${upi_short_code} Added`,
           };
         } else {
-          return { message: `Entry with REPEATED UTR Added ${utr}` };
+          return { message: `Entry with REPEATED UTR: ${utr} Added` };
         }
       }
       let bankDetails = [];
@@ -343,6 +343,13 @@ const createBankResponseService = async (
           null,
           role,
         );
+
+        if (isBankExist && isBankExist[0].config.is_freeze === true && role !== Role.ADMIN) {
+          await commit(localConn);
+          // if (shouldRelease) localConn.release();
+          return { message: `Entry Created Successfully. But as Bank Account is freezed entry is not paired. Please contact admin` };
+        }
+
         if (!isBankExist || payInUtr.bank_acc_id !== bank_id) {
           if (
             (payInUtr.user_submitted_utr !== utr &&
