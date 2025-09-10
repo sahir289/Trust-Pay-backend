@@ -8,7 +8,7 @@ const deleteUnauthorizedCompanies = async (timezone = 'Asia/Kolkata') => {
   let conn;
   try {
     conn = await getConnection();
-    const sql = `UPDATE public."Company" SET is_obsolete = true WHERE "Company".config->>'authorized' = 'false' AND "Company".created_at < (NOW() AT TIME ZONE 'Asia/Kolkata') - INTERVAL '7 days'`;
+    const sql = `UPDATE public."Company" SET is_obsolete = true WHERE "Company".config->>'authorized' = 'false' AND "Company".created_at < (NOW()) - INTERVAL '7 days'`;
     await conn.query(sql);
     logger.info(
       'Successfully deleted unauthorized companies.',
