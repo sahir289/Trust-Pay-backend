@@ -1,5 +1,5 @@
 import { sendCredentialsEmail, sendOTP } from './sendMailer.js';
-import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import { SendEmailCommand } from '@aws-sdk/client-ses';
 import { logger } from './logger.js';
 
 // Mock logger to avoid real logging

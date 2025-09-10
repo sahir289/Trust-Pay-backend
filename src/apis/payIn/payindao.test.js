@@ -10,7 +10,7 @@ const {
 
 const { tableName } = require('../../constants/index.js');
 const { BadRequestError } = require('../../utils/appErrors.js');
-const { buildSelectQuery, executeQuery } = require('../../utils/db.js');
+const { executeQuery } = require('../../utils/db.js');
 const { logger } = require('../../utils/logger.js');
 
 

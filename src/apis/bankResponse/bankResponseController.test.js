@@ -32,13 +32,9 @@ const {
     RESET_BANK_RESPONSE_SCHEMA,
     VALIDATE_BANK_RESPONSE_BY_ID,
 } = require('../../schemas/bankResponseSchema.js');
-const { Role, tableName } = require('../../constants/index');
+const { Role } = require('../../constants/index');
 const config = require('../../config/config.js');
-const { getBankResponseByUTR, updateBankResponseDao } = require('./bankResponseDao.js');
-const { getVendorsDao } = require('../vendors/vendorDao.js');
-const { getCalculationforCronDao, updateCalculationBalanceDao, updateCalculationConfigDao } = require('../calculation/calculationDao.js');
-const { calculateCommission } = require('../../utils/calculation.js');
-const { createSettlementDao, getSettlementByUTRDao } = require('../settlement/settlementDao.js');
+
 
 jest.mock('./bankResponseServices');
 jest.mock('../../utils/responseHandlers');

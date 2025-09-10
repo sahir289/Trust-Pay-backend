@@ -12,7 +12,7 @@ import {
   getCalculationsSumDao,
 } from './calculationDao.js';
 import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
-import { getPayInsForSuccessRatioDao, getPayInUrlsDao } from '../../apis/payIn/payInDao.js';
+import { getPayInsForSuccessRatioDao } from '../../apis/payIn/payInDao.js';
 import { getConnection } from '../../utils/db.js';
 import { filterResponse } from '../../helpers/index.js';
 import { logger } from '../../utils/logger.js';
@@ -216,9 +216,6 @@ describe('Calculation Service', () => {
       const date = '2025-08-13';
       const userIds = ['user1'];
       const merchants = [{ id: 1, user_id: 'user1', code: 'M1' }];
-      const payins = [
-        { merchant_id: 1, updated_at: '2025-08-13T03:00:00Z', status: 'SUCCESS', user_submitted_utr: 'UTR123' },
-      ];
 
       getMerchantsDao.mockResolvedValue(merchants);
       

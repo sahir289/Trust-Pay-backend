@@ -9,7 +9,7 @@ import { getMerchantBankDao, getBankaccountDao } from '../bankAccounts/bankaccou
 import { getBankResponseDao, updateBotResponseDao } from '../bankResponse/bankResponseDao.js';
 import { getCalculationforCronDao } from '../calculation/calculationDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
-import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlDao, getPayInUrlsDao, getPayInForCheckDao, getPayinsForServiccDao } from './payInDao.js';
+import { generatePayInUrlDao, updatePayInUrlDao, getPayInUrlsDao, getPayInForCheckDao, getPayinsForServiccDao } from './payInDao.js';
 import { logger } from '../../utils/logger.js';
 import { InternalServerError, BadRequestError, NotFoundError } from '../../utils/appErrors.js';
 import { getImageContentFromOCr, calculateDuration } from '../../helpers/index.js';
@@ -83,17 +83,6 @@ const mockMerchant = {
   max_payin: 1000,
   config: { blocked_users: [] },
 };
-const mockBanks = [
-  {
-    bank_id: 'bank1',
-    merchant_id: 'merchant1',
-    bank_used_for: 'PayIn',
-    is_enabled: true,
-    is_qr: true,
-    is_bank: false,
-    config: { is_phonepay: false, is_intent: false },
-  },
-];
 
 // Mock setups
 jest.mock('./payInService.js', () => {
@@ -219,7 +208,7 @@ describe('verifyPayinsService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(global.Set.prototype, 'has').mockReturnValue(false);
-    jest.spyOn(global.Set.prototype, 'add').mockImplementation(function (value) {
+    jest.spyOn(global.Set.prototype, 'add').mockImplementation(function () {
       return this;
     });
   });

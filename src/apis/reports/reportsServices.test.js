@@ -1055,7 +1055,7 @@ describe('Reports Service', () => {
       ]);
       getUserHierarchysDao.mockResolvedValue([]);
 
-      dayjs.tz.mockImplementation((date) => ({
+      dayjs.tz.mockImplementation(() => ({
         format: jest.fn(() => '2025-08-01') // Always return valid date for sorting
       }));
 

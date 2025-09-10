@@ -15,7 +15,7 @@ import {
     it('should return merchants without subMerchants if no siblings', async () => {
       const merchants = [{ user_id: 1 }, { user_id: 2 }];
       
-      getUserHierarchysDao.mockImplementation(({ user_id }) => {
+      getUserHierarchysDao.mockImplementation(() => {
         return Promise.resolve([{ config: { siblings: {} } }]);
       });
   

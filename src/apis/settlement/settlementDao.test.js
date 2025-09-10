@@ -1,7 +1,6 @@
 const {
     getSettlementDao,
     getSettlementsBySearchDao,
-    getSettlementDaoforInternalTransfer,
     createSettlementDao,
     updateSettlementDao,
     deleteSettlementDao,

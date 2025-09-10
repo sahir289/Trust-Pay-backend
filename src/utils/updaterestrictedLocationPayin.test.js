@@ -3,7 +3,6 @@ import { updatePayInUrlDao } from '../apis/payIn/payInDao.js';
 import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.js';
 import { logger } from './logger.js';
 import { Status } from '../constants/index.js';
-import { calculateDuration } from '../helpers/index.js';
 
 jest.mock('../apis/payIn/payInDao.js', () => ({
   updatePayInUrlDao: jest.fn(),

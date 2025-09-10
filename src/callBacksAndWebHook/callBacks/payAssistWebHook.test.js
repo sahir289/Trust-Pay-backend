@@ -7,7 +7,6 @@ import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
 import { updatePayoutService } from '../../apis/payOut/payOutService.js';
 import { beginTransaction, commit, rollback, getConnection } from '../../utils/db.js';
 import axios from 'axios';
-import { NotFoundError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
 
 jest.mock('../../apis/payOut/payOutDao.js');

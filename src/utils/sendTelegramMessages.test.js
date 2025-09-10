@@ -4,7 +4,6 @@ const {
 } = require('../utils/sendTelegramMessages');
 const { createTelegramSender } = require('../helpers/telegramApi');
 const { logger } = require('../utils/logger');
-const axios = require('axios');
 
 // Mock dependencies
 jest.mock('axios');

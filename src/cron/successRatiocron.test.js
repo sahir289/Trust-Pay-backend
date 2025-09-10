@@ -1,6 +1,5 @@
 import formattedSuccessRatiosForAllCompanies, {
   formattedSuccessRatiosByMerchant,
-  formattedSuccessRatiosByMerchantUpdatedAt,
 } from './successRatioCron.js';
 import { getCompanyDao } from '../apis/company/companyDao.js';
 import { getMerchantsDao } from '../apis/merchants/merchantDao.js';

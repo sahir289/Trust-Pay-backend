@@ -21,7 +21,7 @@ const {
     resetBankResponseDao,
   } = require('./bankResponseDao');
   const { getBankaccountDao, updateBankaccountDao } = require('../bankAccounts/bankaccountDao');
-  const { getPayInUrlsDao, updatePayInUrlDao, getPayInsBankResDao } = require('../payIn/payInDao');
+  const { updatePayInUrlDao, getPayInsBankResDao } = require('../payIn/payInDao');
   const { getMerchantsDao } = require('../merchants/merchantDao');
   const { getVendorsDao, updateVendorDao } = require('../vendors/vendorDao');
   const {

@@ -1,5 +1,5 @@
 import Redis from 'ioredis';
-import redisClient, { closeRedis } from './redisClient.js';
+import { closeRedis } from './redisClient.js';
 import { logger } from './logger.js';
 import chalk from 'chalk';
 
