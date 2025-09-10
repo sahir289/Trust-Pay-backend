@@ -1570,23 +1570,23 @@ export const getPayinsWithHistoryDao = async (
         } else {
           conditions.push(`
           (
-  p.id::text ILIKE $${paramIndex}
-  OR p.sno::text ILIKE $${paramIndex}
-  OR p.upi_short_code ILIKE $${paramIndex}
-  OR p.status ILIKE $${paramIndex}
-  OR p.merchant_order_id ILIKE $${paramIndex}
-  OR p.user_submitted_utr ILIKE $${paramIndex}
-  OR p.user ILIKE $${paramIndex}
-  OR b.nick_name ILIKE $${paramIndex}
-  OR br.utr ILIKE $${paramIndex}
-  OR m.code ILIKE $${paramIndex}
-  OR v.code ILIKE $${paramIndex}
-  OR p.amount::text ILIKE $${paramIndex}
-  OR br.amount::text ILIKE $${paramIndex}
-              OR LOWER(c.first_name || ' ' || c.last_name) LIKE LOWER($${paramIndex})
-  OR (p.config->>'user') ILIKE $${paramIndex}
-  OR (p.config->'urls'->>'site') ILIKE $${paramIndex}
-  OR (p.config->'urls'->>'notify') ILIKE $${paramIndex}
+            p.id::text ILIKE $${paramIndex}
+            OR p.sno::text ILIKE $${paramIndex}
+            OR p.upi_short_code ILIKE $${paramIndex}
+            OR p.status ILIKE $${paramIndex}
+            OR p.merchant_order_id ILIKE $${paramIndex}
+            OR p.user_submitted_utr ILIKE $${paramIndex}
+            OR p.user ILIKE $${paramIndex}
+            OR b.nick_name ILIKE $${paramIndex}
+            OR br.utr ILIKE $${paramIndex}
+            OR m.code ILIKE $${paramIndex}
+            OR v.code ILIKE $${paramIndex}
+            OR p.amount::text ILIKE $${paramIndex}
+            OR br.amount::text ILIKE $${paramIndex}
+            OR LOWER(c.first_name || ' ' || c.last_name) ILIKE $${paramIndex}
+            OR (p.config->>'user') ILIKE $${paramIndex}
+            OR (p.config->'urls'->>'site') ILIKE $${paramIndex}
+            OR (p.config->'urls'->>'notify') ILIKE $${paramIndex}
 )
           `);
           queryParams.push(`%${term}%`);

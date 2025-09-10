@@ -2,7 +2,8 @@
 import moment from 'moment-timezone';
 import { getConnection } from '../utils/db.js';
 import { logger } from '../utils/logger.js';
-import { createBankHistoryService } from '../apis/bankHistory/bankHistorySevice.js';import deleteUnauthorizedCompanies from './unauthorizedCompanyDeleteCron.js';
+import { createBankHistoryService } from '../apis/bankHistory/bankHistorySevice.js';
+import deleteUnauthorizedCompanies from './unauthorizedCompanyDeleteCron.js';
 
 // if (process.env.NODE_ENV == 'production') {
 //   logger.log('Running cron job in production environment');

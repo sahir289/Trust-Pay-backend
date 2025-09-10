@@ -171,5 +171,4 @@ export {
   updateCalculation,
   updateCalculations,
   deleteCalculation,
-  updateCalculations,
 };
