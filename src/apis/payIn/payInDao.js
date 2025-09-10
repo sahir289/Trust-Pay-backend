@@ -1263,13 +1263,13 @@ export const getPayinsWithoutHistoryDao = async (
 
     if (filters.status) {
       const statusArray = filters.status.split(',').map((s) => s.trim());
-      queryText += ` AND p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
+      conditions.push(`p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
       queryParams.push(...statusArray);
       paramIndex += statusArray.length;
     }
     if (filters.user_ids) {
       const userArray = filters.user_ids.split(',').map((s) => s.trim());
-      queryText += ` AND v.user_id IN (${userArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
+      conditions.push(`v.user_id IN (${userArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
       queryParams.push(...userArray);
       paramIndex += userArray.length;
     }
@@ -1313,33 +1313,33 @@ export const getPayinsWithoutHistoryDao = async (
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
         return;
       }
-      const nextParamIdx = queryParams.length + 1;
       if (Array.isArray(value)) {
         const placeholders = value
-          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .map((_, idx) => `$${paramIndex + idx}`)
           .join(', ');
         conditions.push(`p.${key} IN (${placeholders})`);
         queryParams.push(...value);
+        paramIndex += value.length;
       } else {
         const isMultiValue = typeof value === 'string' && value.includes(',');
         const valueArray = isMultiValue
           ? value.split(',').map((v) => v.trim())
           : [value];
         const placeholders = valueArray
-          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .map((_, idx) => `$${paramIndex + idx}`)
           .join(', ');
         conditions.push(
           isMultiValue
             ? `p.${key} IN (${placeholders})`
-            : `p.${key} = $${nextParamIdx}`,
+            : `p.${key} = $${paramIndex}`,
         );
         queryParams.push(...valueArray);
+        paramIndex += valueArray.length;
       }
     });
 
-    if (conditions.length > 2) {
-      queryText += ' AND (' + conditions.slice(2).join(' AND ') + ')';
-    }
+    // Update queryText with all conditions at once
+    queryText = queryText.replace('WHERE p.is_obsolete = false', `WHERE ${conditions.join(' AND ')}`);
 
     const countQuery = `SELECT COUNT(*) AS total FROM (${queryText}) AS count_table`;
     queryText += `
@@ -1648,13 +1648,13 @@ export const getPayinsWithHistoryDao = async (
     ]);
     if (filters.status) {
       const statusArray = filters.status.split(',').map((s) => s.trim());
-      queryText += ` AND p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
+      conditions.push(`p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
       queryParams.push(...statusArray);
       paramIndex += statusArray.length;
     }
     if (filters.user_ids) {
       const userArray = filters.user_ids.split(',').map((s) => s.trim());
-      queryText += ` AND v.user_id IN (${userArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
+      conditions.push(`v.user_id IN (${userArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
       queryParams.push(...userArray);
       paramIndex += userArray.length;
     }
@@ -1697,38 +1697,39 @@ export const getPayinsWithHistoryDao = async (
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
         return;
       }
-      const nextParamIdx = queryParams.length + 1;
       if (Array.isArray(value)) {
         const placeholders = value
-          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .map((_, idx) => `$${paramIndex + idx}`)
           .join(', ');
         conditions.push(`p.${key} IN (${placeholders})`);
         queryParams.push(...value);
+        paramIndex += value.length;
       } else {
         const isMultiValue = typeof value === 'string' && value.includes(',');
         const valueArray = isMultiValue
           ? value.split(',').map((v) => v.trim())
           : [value];
         const placeholders = valueArray
-          .map((_, idx) => `$${nextParamIdx + idx}`)
+          .map((_, idx) => `$${paramIndex + idx}`)
           .join(', ');
         conditions.push(
           isMultiValue
             ? `p.${key} IN (${placeholders})`
-            : `p.${key} = $${nextParamIdx}`,
+            : `p.${key} = $${paramIndex}`,
         );
-        if (updatedPayin) {
-          conditions.push(
-            `(p.config->>'history' IS NOT NULL AND p.config::jsonb ? 'history')`,
-          );
-        }
         queryParams.push(...valueArray);
+        paramIndex += valueArray.length;
       }
     });
 
-    if (conditions.length > 2) {
-      queryText += ' AND (' + conditions.slice(2).join(' AND ') + ')';
+    if (updatedPayin) {
+      conditions.push(
+        `(p.config->>'history' IS NOT NULL AND p.config::jsonb ? 'history')`,
+      );
     }
+
+    // Update queryText with all conditions at once
+    queryText = queryText.replace('WHERE p.is_obsolete = false', `WHERE ${conditions.join(' AND ')}`);
 
     const countQuery = `SELECT COUNT(*) AS total FROM (${queryText}) AS count_table`;
     queryText += `
