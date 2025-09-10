@@ -2,7 +2,10 @@ import multer from 'multer';
 import multerS3 from 'multer-s3';
 import { s3 } from '../helpers/Aws.js';
 import config from '../config/config.js';
-import { getPayInUrlDao, updatePayInUrlDao } from '../apis/payIn/payInDao.js';
+import {
+  getPayInForExpireDao,
+  updatePayInUrlDao,
+} from '../apis/payIn/payInDao.js';
 import { Status } from '../constants/index.js';
 import { BadRequestError } from './appErrors.js';
 import { logger } from './logger.js';
@@ -48,7 +51,7 @@ export async function expirePayInIfNeeded(payInId) {
   const timeout = setTimeout(
     async () => {
       try {
-        const payIn = await getPayInUrlDao({ id: payInId });
+        const payIn = await getPayInForExpireDao({ id: payInId });
         if (!payIn) {
           throw new BadRequestError('Payin not found!', payInId);
         }

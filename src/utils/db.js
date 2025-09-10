@@ -478,30 +478,51 @@ export const transactionWrapper =
   (fn) =>
   async (...args) => {
     let conn;
-    try {
-      conn = await getConnection();
-      await beginTransaction(conn); // Ensure transaction starts properly
+      try {
+        conn = await getConnection();
+        await beginTransaction(conn); // Ensure transaction starts properly
 
-      const data = await fn(conn, ...args); // Ensure fn expects conn as the first argument
+        const data = await fn(conn, ...args); // Ensure fn expects conn as the first argument
 
-      await commit(conn); // Commit only if no errors
-      return data;
-    } catch (error) {
-      if (conn) {
-        try {
-          await rollback(conn); // Explicit rollback
-          logger.error('Transaction rolled back due to error:', error);
-        } catch (rollbackError) {
-          logger.error('Rollback failed:', rollbackError);
+        await commit(conn); // Commit only if no errors
+        return data;
+      } catch (error) {
+        if (conn) {
+          try {
+            await rollback(conn); // Explicit rollback
+            logger.error('Transaction rolled back due to error:', error);
+          } catch (rollbackError) {
+            logger.error('Rollback failed:', rollbackError);
+          }
+        }
+        
+        // Check if this is a deadlock error and we can retry
+        const isDeadlock = error.message && (
+          error.message.includes('deadlock') ||
+          error.message.includes('could not serialize access') ||
+          error.message.includes('canceling statement due to lock timeout') ||
+          error.message.includes('lock timeout') ||
+          error.code === '40P01' || // deadlock_detected
+          error.code === '40001' || // serialization_failure
+          error.code === '55P03'    // lock_not_available
+        );
+
+        if (isDeadlock) {
+          logger.warn(`Deadlock detected. Retrying transaction...`);
+          if (conn) {
+            conn.release();
+            conn = null;
+          }
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+        throw error;
+      } finally {
+        if (conn) {
+          logger.info('Releasing connection');
+          conn.release(); // Always release connection
         }
       }
-      throw error;
-    } finally {
-      if (conn) {
-        logger.info('Releasing connection');
-        conn.release(); // Always release connection
-      }
-    }
   };
 
 /**

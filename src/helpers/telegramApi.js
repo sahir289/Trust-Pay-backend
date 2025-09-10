@@ -2,10 +2,69 @@ import axios from 'axios';
 import config from '../config/config.js';
 import { logger } from '../utils/logger.js';
 import { BadRequestError } from '../utils/appErrors.js';
+const messageQueue = [];
+let isProcessingQueue = false;
+const RATE_LIMIT_MS = 1000;
+async function processQueue() {
+  if (isProcessingQueue) return;
+  isProcessingQueue = true;
+  try {
+    while (messageQueue.length > 0) {
+      const { chatId, message, replyToMessageId, token, resolve, reject } =
+        messageQueue.shift();
+
+      const sendMessageUrl = `${config.telegram.telegram_url}${token}/sendMessage`;
+      const payload = {
+        chat_id: chatId,
+        text: message,
+        parse_mode: 'HTML',
+      };
+      if (replyToMessageId != null) {
+        payload.reply_to_message_id = replyToMessageId;
+      }
+      try {
+        logger.info(
+          `Sending message to chat ${chatId} -- payload is ${payload.text}`,
+        );
+       const data = await axios.post(sendMessageUrl, payload);
+        logger.info('data from telegram after sending message', {
+          status: data?.status,
+          data: data?.data,
+        });
+        logger.info(
+          `Message sent successfully to chat ${chatId}. -- payload is ${payload.text}`,
+        );
+        resolve(true);
+      } catch (error) {
+        logger.error(
+          `Error sending message to chat ${chatId}: ${error.message}`,
+        );
+        if (error.response?.status === 429) {
+          const retryAfter = error.response?.data?.parameters?.retry_after || 5;
+          logger.warn(`Rate limit hit, retrying after ${retryAfter} seconds`);
+          setTimeout(() => {
+            messageQueue.push({
+              chatId,
+              message,
+              replyToMessageId,
+              token,
+              resolve,
+              reject,
+            });
+            processQueue();
+          }, retryAfter * 1000);
+        } else {
+          reject(error); 
+        }
+      }
+      await new Promise((res) => setTimeout(res, RATE_LIMIT_MS));
+    }
+  } finally {
+    isProcessingQueue = false;
+  }
+}
 
 export const createTelegramSender = () => {
-  // const sentMessages = new Set(); // it will rack unique message sends
-
   return async (
     chatId,
     message,
@@ -18,36 +77,16 @@ export const createTelegramSender = () => {
       );
     }
 
-    // const key = `${chatId}:${message}:${replyToMessageId || ''}`; // thi is for unique key for the api call
-
-    // if (sentMessages.has(key)) {
-    //   logger.log(`Message to chat ${chatId} already sent, skipping.`);
-    //   return false;
-    // }
-
-    // sentMessages.add(key); // it will mark this message as sent
-    const sendMessageUrl = `${config.telegram.telegram_url}${token}/sendMessage`;
-
-    const payload = {
-      chat_id: chatId,
-      text: message,
-      parse_mode: 'HTML',
-    };
-    if (replyToMessageId !== undefined && replyToMessageId !== null) {
-      payload.reply_to_message_id = replyToMessageId;
-    }
-
-    try {
-      await axios.post(sendMessageUrl, payload);
-      logger.log(`Message sent successfully to chat ${chatId}.`);
-      return true; // return true to indicate success
-    } catch (error) {
-      logger.error(
-        'Error sending message to Telegram:',
-        error?.data?.description || 'Request failed with status code 429',
-      );
-      // sentMessages.delete(key); // we will remove key on failure to allow retry
-      return false; // return false to indicate failure
-    }
+    return new Promise((resolve, reject) => {
+      messageQueue.push({
+        chatId,
+        message,
+        replyToMessageId,
+        token,
+        resolve,
+        reject,
+      });
+      processQueue();
+    });
   };
 };

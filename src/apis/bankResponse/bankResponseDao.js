@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import { tableName } from '../../constants/index.js';
 // import { InternalServerError } from '../../utils/appErrors.js';
 // import { generateUUID } from '../utils/generateUUID.js';
-
+// import { generateCacheKey,getCachedData,setCachedData } from '../../utils/redishashkey.js';
 import {
   executeQuery,
   buildSelectQuery,
@@ -94,8 +94,22 @@ const getBankResponseBySearchDao = async (
     //   bankId = filters.bank_id;
     //   bankDetails = await getBankaccountDao({ id: bankId }, null, null);
     // }
-
-    // Use DISTINCT ON to avoid duplicate rows for same BankResponse.sno
+    //  const params = {
+    //   filters,
+    //   page ,
+    //   pageSize ,
+    //   columns ,
+    //   updated,
+    //   sortBy ,
+    //   sortOrder ,
+    //   start_date,
+    //   end_date,
+    //     };
+        // const cacheKey = generateCacheKey(params, 'bankResponse:search');
+        // const cachedResult = await getCachedData(cacheKey);
+        // if (cachedResult && cachedResult.totalCount>0) {
+        //   return cachedResult;
+        // }
     const selectCols = columns.length
       ? `DISTINCT ON ("BankResponse".sno) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
       : `DISTINCT ON ("BankResponse".sno) ` + [
@@ -105,7 +119,6 @@ const getBankResponseBySearchDao = async (
           `"BankAccount".bank_name`,
           `"Vendor".code AS vendor_code`,
         ].join(', ');
-
     // Prepare date params
     let dateParams = [];
     let start, end;
@@ -209,18 +222,18 @@ const getBankResponseBySearchDao = async (
             // `);
             searchConditions.push(`
               (
-                LOWER("BankResponse".id::text) LIKE LOWER($${paramIndex})
-                OR LOWER("BankResponse".status) LIKE LOWER($${paramIndex})
-                OR LOWER("BankResponse".bank_id::text) LIKE LOWER($${paramIndex})
-                OR LOWER("BankResponse".amount::text) LIKE LOWER($${paramIndex})
-                OR LOWER("BankResponse".upi_short_code) LIKE LOWER($${paramIndex})
-                OR LOWER("BankResponse".utr) LIKE LOWER($${paramIndex})
-                OR LOWER("BankResponse".sno::text) LIKE LOWER($${paramIndex})
-                OR LOWER("BankResponse".created_by) LIKE LOWER($${paramIndex})
-                OR LOWER("BankResponse".updated_by) LIKE LOWER($${paramIndex})
-                OR LOWER("BankAccount".user_id::text) LIKE LOWER($${paramIndex})
-                OR LOWER("BankAccount".nick_name) LIKE LOWER($${paramIndex})
-                OR LOWER("Company".first_name || ' ' || "Company".last_name) LIKE LOWER($${paramIndex})
+                "BankResponse".id::text ILIKE $${paramIndex}
+                OR "BankResponse".status ILIKE $${paramIndex}
+                OR "BankResponse".bank_id::text ILIKE $${paramIndex}
+                OR "BankResponse".amount::text ILIKE $${paramIndex}
+                OR "BankResponse".upi_short_code ILIKE $${paramIndex}
+                OR "BankResponse".utr ILIKE $${paramIndex}
+                OR "BankResponse".sno::text ILIKE $${paramIndex}
+                OR "BankResponse".created_by ILIKE $${paramIndex}
+                OR "BankResponse".updated_by ILIKE $${paramIndex}
+                OR "BankAccount".user_id::text ILIKE $${paramIndex}
+                OR "BankAccount".nick_name ILIKE $${paramIndex}
+                OR LOWER("Company".first_name || ' ' || "Company".last_name) ILIKE $${paramIndex}
               )
             `);
             values.push(likeVal);
@@ -353,17 +366,17 @@ const getBankResponseBySearchDao = async (
     let totalPages = Math.ceil(totalCount / Number(pageSize));
     // If page is out of range, return empty result (no fallback to first page)
     if (totalCount > 0 && searchResult.rows.length === 0 && offset > 0) {
-      return {
-        totalCount,
-        totalPages,
-        rows: [],
-      };
+      values[values.length - 1] = 0;
+      searchResult = await executeQuery(queryText, values);
+      totalPages = Math.ceil(totalCount / pageSize);
     }
-    return {
+    const result = {
       totalCount,
       totalPages,
       rows: searchResult.rows,
     };
+    // await setCachedData(cacheKey, result, 500);
+    return result;
   } catch (error) {
     logger.error('Error in getBankResponseBySearchDao:', error);
     throw error;
@@ -421,6 +434,7 @@ const getClaimResponseDao = async (filters) => {
           AND br.created_at BETWEEN $1 AND $2
           AND br.company_id = $3
           AND br.is_obsolete = false
+          AND ba.bank_used_for = 'PayIn'
           ${bankFilter}
           ${vendorFilter}
       ),
@@ -435,6 +449,7 @@ const getClaimResponseDao = async (filters) => {
           AND br.created_at BETWEEN $1 AND $2
           AND br.company_id = $3
           AND br.is_obsolete = false
+          AND ba.bank_used_for = 'PayIn'
           ${bankFilter}
           ${vendorFilter}
       ),
@@ -448,6 +463,7 @@ const getClaimResponseDao = async (filters) => {
           AND br.status = '/success'
           AND br.company_id = $3
           AND br.is_obsolete = false
+          AND ba.bank_used_for = 'PayIn'
           ${bankFilter}
           ${vendorFilter}
       ),
@@ -464,10 +480,10 @@ const getClaimResponseDao = async (filters) => {
           AND br.status = '/success'
           AND br.company_id = $3
           AND br.is_obsolete = false
-          AND ba.bank_used_for = 'PayIn'
           ${bankFilter}
           ${vendorFilter}
         WHERE ba.company_id = $3
+          AND ba.bank_used_for = 'PayIn'
         GROUP BY ba.bank_name, ba.nick_name
       )
 
@@ -672,7 +688,7 @@ const getBankResponseDaoAll = async (
         throw new Error('Invalid userId format');
       }
       baseQueryVendor = `
-      SELECT 
+      SELECT DISTINCT ON (br.sno)
       br.created_at,
       br.sno,
       br.utr,

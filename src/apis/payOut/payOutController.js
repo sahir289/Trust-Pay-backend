@@ -61,7 +61,6 @@ const createPayout = async (req, res) => {
       req.headers,
       payload,
       role,
-      res,
       userIp,
       fromUI,
     );
@@ -71,7 +70,6 @@ const createPayout = async (req, res) => {
       req.headers,
       payload,
       null,
-      res,
       userIp,
       fromUI,
     );
@@ -140,12 +138,9 @@ const walletsPayouts = async (req, res) => {
   );
   // Log success message
   logger.log('Payout updated successfully');
-  const updateRes = {
-    balance: result,
-  };
 
   // Send a success response to the client
-  return sendNewSuccess(res, updateRes, 'Payout updated successfully', 201);
+  return sendNewSuccess(res, result, 'Payout updated successfully', 201);
 };
 
 const getWalletsBalance = async (req, res) => {

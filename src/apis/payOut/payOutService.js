@@ -63,6 +63,7 @@ import { stringifyJSON } from '../../utils/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import axios from 'axios';
 import { getCompanyByIDDao } from '../company/companyDao.js';
+import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
@@ -129,6 +130,7 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
           );
 
           logger.info(`Payout response for ID ${info.id}:`, response.data);
+          let apiResponse = null;
 
           // Helper function to handle payout updates
           const handlePayoutUpdate = async (
@@ -173,7 +175,7 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
               updatePayload.rejected_at = new Date().toISOString();
             }
 
-            await updatePayoutService(
+            apiResponse = await updatePayoutService(
               conn,
               { id: info.id, company_id: payload.company_id },
               updatePayload,
@@ -191,45 +193,61 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
               { apitxnid: info.id }, // Include transaction ID in payload
               { headers: apiConfig.headers },
             );
+            logger.info(
+              `PayAssist payoutStatus response for apitxnid ${info.id}:`,
+              statusResponse.data,
+            );
 
             if (statusResponse.data.ErrorCode === '0') {
               if (
                 statusResponse.data.Response.message ===
                   'Reason-Transaction Failed' ||
                 statusResponse.data.Response.message === 'Transaction Failed' ||
-                statusResponse.data.Response.message === 'Transaction Failed - '
+                statusResponse.data.Response.message ===
+                  'Transaction Failed - ' ||
+                statusResponse.data.Response.statuscode === 'TXF' ||
+                statusResponse.data.Response.statuscode === 'ERR'
               ) {
                 statusResponse.data.ErrorCode = '14';
                 await handlePayoutUpdate(statusResponse.data, false);
               } else {
                 await handlePayoutUpdate(statusResponse.data, true);
               }
-            } else if (statusResponse.data.ErrorCode !== 'TUP') {
-              await handlePayoutUpdate(statusResponse.data, false);
             } else if (statusResponse.data.ErrorCode === 'TUP') {
               await handlePayoutUpdate(statusResponse.data, false, true);
+            } else if (
+              statusResponse.data.ErrorCode !== 'TUP' &&
+              statusResponse.data.ErrorCode !== '4'
+            ) {
+              await handlePayoutUpdate(statusResponse.data, false);
+            } else {
+              return {
+                status: 404,
+                message: statusResponse.data.ErrorMessage,
+              };
             }
           }
 
           // Return formatted response
-          const finalErrorCode =
-            errorCode === 'TUP'
-              ? statusResponse?.data?.ErrorCode || 'TUP'
-              : errorCode;
+          // const finalErrorCode =
+          //   errorCode === 'TUP'
+          //     ? statusResponse?.data?.ErrorCode || 'TUP'
+          //     : errorCode;
 
-          return {
-            id: info.id,
-            status: finalErrorCode === '0' ? Status.APPROVED : Status.REJECTED,
-            utr_id:
-              finalErrorCode === '0'
-                ? statusResponse?.data?.Response?.refno ||
-                  response.data.Response?.refno
-                : null,
-            rejected_reason:
-              finalErrorCode !== '0'
-                ? payAssistErrorCodeMap[finalErrorCode] || 'Server Unreachable'
-                : null,
-          };
+          // return {
+          //   id: info.id,
+          //   status: finalErrorCode === '0' ? Status.APPROVED : Status.REJECTED,
+          //   utr_id:
+          //     finalErrorCode === '0'
+          //       ? statusResponse?.data?.Response?.refno ||
+          //         response.data.Response?.refno
+          //       : null,
+          //   rejected_reason:
+          //     finalErrorCode !== '0'
+          //       ? payAssistErrorCodeMap[finalErrorCode] || 'Server Unreachable'
+          //       : null,
+          // };
+          return apiResponse;
         } catch (error) {
           logger.error(`Error processing payout ${info.id}:`, error);
           // Return error response for this specific payout instead of failing entire batch
@@ -275,7 +293,7 @@ const createPayoutService = async (
       return data;
     }
 
-    if (!fromUI && details[0]?.config?.whitelist_ips) {
+    if (details[0]?.config?.whitelist_ips) {
       let whitelist = details[0].config.whitelist_ips;
       // Normalize whitelist to array of trimmed strings
       if (typeof whitelist === 'string') {
@@ -289,7 +307,11 @@ const createPayoutService = async (
         whitelist = [];
       }
       // Check if userIp is in whitelist (if whitelist is not empty)
-      if (whitelist.length && !whitelist.includes(userIp)) {
+      if (
+        whitelist.length &&
+        !whitelist.includes(userIp) &&
+        role !== Role.ADMIN
+      ) {
         const data = {
           status: 400,
           message: 'IP not whitelisted',
@@ -752,7 +774,12 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     const vendorCommission = calculateCommission(
       data.amount,
       vendor.payout_commission,
-    );
+    );    
+    
+    const payoutDetails = await getPayoutsDao({ id: ids.id }, ids.company_id);
+    if (payoutDetails.length !== 0 && payoutDetails[0]?.status === data?.status) {
+      throw new BadRequestError(`Payout is already ${payoutDetails[0].status}`);
+    }
 
     // Handle status-specific updates
     if (data.status === Status.APPROVED) {
@@ -893,6 +920,8 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
     payload,
     conn,
   );
+
+  await trackVendorsNetBalance(calculationData[0].user_id, conn, response);
   return response;
 };
 const processEkoPayout = async (singleWithdrawData, payload) => {

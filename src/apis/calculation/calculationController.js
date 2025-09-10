@@ -126,7 +126,7 @@ export const calculateSuccessRatios = async (req, res) => {
 
 const updateCalculations = async (req, res) => {
   try {
-    const { role } = req.user;
+    const { company_id } = req.user;
 
     // Validate request body
     const { error } = VALIDATE_UPDATE_CALCULATIONS_SCHEMA.validate(req.body);
@@ -134,7 +134,7 @@ const updateCalculations = async (req, res) => {
       throw new ValidationError(error);
     }
 
-    const { date, user_id, startDate, endDate, company_id } = req.body;
+    const { date, user_id, startDate, endDate } = req.body;
 
     if (!user_id || typeof user_id !== 'string') {
       throw new BadRequestError('user_id string is required');
@@ -155,7 +155,6 @@ const updateCalculations = async (req, res) => {
         endDate,
         company_id,
       },
-      role,
     );
 
     return sendSuccess(res, data, 'Calculations updated successfully');
@@ -170,6 +169,7 @@ export {
   getCalculation,
   createCalculation,
   updateCalculation,
+  updateCalculations,
   deleteCalculation,
   updateCalculations,
 };

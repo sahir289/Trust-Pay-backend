@@ -22,7 +22,25 @@ export const createVendorDao = async (data, conn) => {
     throw error;
   }
 };
-
+export const getVendorsDashBoardReportDao = async (
+  filters = {}
+) => {
+  try {
+    const selectColumns = `
+      user_id,
+      code
+    `;
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.VENDOR}" WHERE 1=1`,
+      filters
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error getting vendor data:', error);
+    throw error;
+  }
+};
 export const getVendorsCodeDao = async (filters, conn) => {
   try {
     let sql = `
@@ -86,6 +104,7 @@ export const getVendorsDao = async (
       `"Vendor".payout_commission`,
       `"Vendor".created_at`,
       `"Vendor".updated_at`,
+      `"Vendor".config`,
       `user_main.first_name || ' ' || user_main.last_name AS full_name`,
       `d.designation AS designation_name`,
       `(SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".updated_at DESC LIMIT 1) AS balance`,
@@ -290,6 +309,7 @@ export const getVendorsBySearchDao = async (
         `"Vendor".updated_by`,
         `"Vendor".user_id`,
         `"Vendor".company_id`,
+        `"Vendor".config`,
         `"user_main".designation_id`,
         `u.user_name AS created_by`,
         `uu.user_name AS updated_by`,
@@ -525,6 +545,20 @@ export const getVendorsDaoArray = async (company_id, code) => {
     return result.rows;
   } catch (error) {
     logger.error('Error fetching merchant by code and API key:', error);
+    throw error;
+  }
+};
+
+export const getBankResponseAccessByIDDao = async (id) => {
+  try {
+    const query = `
+      SELECT "Vendor".config->>'bank_response_access' as bank_response_access FROM "Vendor"
+      WHERE "Vendor".user_id = $1
+    `;
+    const result = await executeQuery(query, [id]);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error fetching bank response access by ID:', error);
     throw error;
   }
 };

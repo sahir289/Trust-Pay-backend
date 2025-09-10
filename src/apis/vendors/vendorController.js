@@ -6,6 +6,7 @@ import {
   getVendorsService,
   updateVendorService,
   getVendorsBySearchService,
+  getBankResponseAccessByIDService,
 } from './vendorService.js';
 import {
   VALIDATE_VENDOR_BY_ID,
@@ -83,6 +84,7 @@ const getVendorCodes = async (req, res) => {
   // Send success response
   return sendSuccess(res, data, 'Vendors fetched successfully');
 };
+
 const getVendorById = async (req, res) => {
   const { error } = VALIDATE_VENDOR_BY_ID.validate(req.params);
   if (error) {
@@ -96,6 +98,16 @@ const getVendorById = async (req, res) => {
   // Log success message
   // Send success response
   return sendSuccess(res, data, ' Vendor fetched successfully');
+};
+
+const getBankResponseAccessByID = async (req, res) => {
+  const { error } = VALIDATE_VENDOR_BY_ID.validate(req.params);
+  if (error) {
+    throw new ValidationError(error);
+  }
+  const { id } = req.params;
+  const data = await getBankResponseAccessByIDService(id);
+  return sendSuccess(res, data, 'Bank response access fetched successfully');
 };
 
 const updateVendor = async (req, res) => {
@@ -118,7 +130,7 @@ const updateVendor = async (req, res) => {
   const company_id = req?.user?.company_id || payload?.company_id;
   delete payload?.company_id;
   const ids = { id, company_id };
-  const vendor = await updateVendorService(ids, payload, role);
+  const vendor = await transactionWrapper(updateVendorService)(ids, payload, role);
   // Log success message
   // Send a success response to the client
   return sendSuccess(
@@ -149,6 +161,7 @@ export {
   getVendors,
   getVendorCodes,
   getVendorById,
+  getBankResponseAccessByID,
   updateVendor,
   deleteVendor,
 };

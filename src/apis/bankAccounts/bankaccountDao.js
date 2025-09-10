@@ -107,6 +107,10 @@ const getBankaccountDao = async (filters, page, limit, role, designation) => {
         ba.nick_name, 
         ba.acc_no, 
         ba.bank_name, 
+        ba.is_qr, 
+        ba.company_id,
+        ba.is_bank, 
+        ba.is_enabled, 
         ${commissionSelect ? `${commissionSelect},` : ''}
         v.code AS Vendor,
         c.first_name || ' ' || c.last_name AS company
@@ -494,7 +498,31 @@ const getBankAccountsBySearchDao = async (
     throw error;
   }
 };
+export const getBankaccountDashBoardReportDao = async (
+  filters = {},
+) => {
+  try {
+    const selectColumns = `
+      id,
+      user_id,
+      nick_name,
+      today_balance,
+      balance,
+      payin_count,
+      bank_used_for
+    `;
 
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1`,
+      filters
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error getting bank account data:', error);
+    throw error;
+  }
+};
 const getMerchantBankDao = async (filters) => {
   try {
     const query = `SELECT * FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
@@ -606,6 +634,10 @@ const updateBankaccountDao = async (id, payload, conn, isParentDeleted) => {
     });
     const existingBank = existingBankArr[0];
 
+    if (!existingBank) {
+      throw new Error(`Bank account not found with id: ${id.id}`);
+    }
+
     // Handle nested JSON updates for the `config` column
     if (payload.config && typeof payload.config === 'object') {
       const configUpdates = payload.config;
@@ -642,11 +674,12 @@ const updateBankaccountDao = async (id, payload, conn, isParentDeleted) => {
         payload,
         id,
       );
-      const result = conn.query(sql, params);
+      const result = await conn.query(sql, params);
       return result;
     }
+    
     // Use buildAndExecuteUpdateQuery to update the bank account
-    return await buildAndExecuteUpdateQuery(
+    const result = await buildAndExecuteUpdateQuery(
       tableName.BANK_ACCOUNT,
       payload,
       id,
@@ -654,6 +687,9 @@ const updateBankaccountDao = async (id, payload, conn, isParentDeleted) => {
       { returnUpdated: true }, // Return the updated row
       conn, // Use the provided connection
     );
+    
+    return result;
+    
   } catch (error) {
     logger.error('Error in updateBankaccountDao:', error);
     throw error;
@@ -684,14 +720,17 @@ const updateBanktBalanceDao = async (filters, amount, updated_by, conn) => {
       filters,
       { balance: '+', today_balance: '+' },
     );
+    
+    let result;
     if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
+      result = await conn.query(sql, params);
+    } else {
+      result = await executeQuery(sql, params);
     }
-    const result = await executeQuery(sql, params);
+    
     return result.rows[0];
   } catch (error) {
-    logger.error(error);
+    logger.error('Error in updateBanktBalanceDao:', error);
     throw error;
   }
 };

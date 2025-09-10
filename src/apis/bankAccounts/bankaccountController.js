@@ -110,15 +110,18 @@ const createBankaccount = async (req, res) => {
   }
   const phonePe = payload.is_phonepay ? true : false;
   const intent = payload.is_intent ? true : false;
+  const is_staticQR = payload.is_staticQR ? true : false;
   payload.bank_used_for == 'PayIn'
     ? (payload.config = {
         merchants: [],
         is_phonepay: phonePe,
         is_intent: intent,
+        is_staticQR: is_staticQR,
       })
     : (payload.config = {});
   delete payload.is_phonepay;
   delete payload.is_intent;
+  delete payload.is_staticQR;
   const { user_id, designation, role, user_name } = req.user;
   payload.created_by = user_id;
   payload.updated_by = user_id;
