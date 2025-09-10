@@ -280,7 +280,7 @@ const getClientsAccountReportService = async (req) => {
             });
             
             logger.info(`Built child-to-parent mapping with ${Object.keys(childToParentMap).length} entries`);
-            logger.debug('Child-to-parent mapping:', childToParentMap);
+            // logger.debug('Child-to-parent mapping:', childToParentMap);
 
             childData.forEach((child) => {
               const childCodeNormalized = child.calculation_user_id;

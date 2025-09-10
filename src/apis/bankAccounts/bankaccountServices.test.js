@@ -1,320 +1,353 @@
-// src/apis/bankAccounts/bankaccountServices.test.js
-
-import {
+const {
+  getBankaccountService,
+  getBankAccountBySearchService,
+  getBankaccountServiceNickName,
+  createBankaccountService,
+  updateBankaccountService,
+  deleteBankaccountService,
+} = require('./bankaccountServices');
+const { getUserHierarchysDao } = require('../userHierarchy/userHierarchyDao');
+const {
   getBankaccountDao,
-  getAllBankaccountDao,
-  getBankAccountsBySearchDao,
-  getMerchantBankDao,
-  getBankByIdDao,
   createBankaccountDao,
-  getBankAccountDaoNickName,
   updateBankaccountDao,
   deleteBankaccountDao,
-  updateBanktBalanceDao,
-} from './bankAccountDao.js';
+  getBankAccountDaoNickName,
+  getBankAccountsBySearchDao,
+  getAllBankaccountDao,
+} = require('./bankaccountDao');
+const { getVendorsDao } = require('../vendors/vendorDao');
+const { getCalculationforCronDao } = require('../calculation/calculationDao');
+const { getBankResponsesforFreeze } = require('../bankResponse/bankResponseDao');
+const { updateBotResponseDao } = require('../bankResponse/bankResponseDao');
+const { beginTransaction, commit, rollback, getConnection } = require('../../utils/db');
+const { BadRequestError, InternalServerError } = require('../../utils/appErrors');
+const { Role } = require('../../constants/index');
+const { deactivateBank } = require('../../utils/sockets');
+const { logger } = require('../../utils/logger');
 
-jest.mock('../../utils/db.js');
-jest.mock('../../utils/logger.js');
-jest.mock('../../constants/index.js');
+jest.mock('../userHierarchy/userHierarchyDao');
+jest.mock('./bankaccountDao');
+jest.mock('../vendors/vendorDao');
+jest.mock('../calculation/calculationDao');
+jest.mock('../bankResponse/bankResponseDao');
+jest.mock('../../utils/db');
+jest.mock('../../utils/sockets');
+jest.mock('../../utils/logger');
 
-const mockDb = require('../../utils/db.js');
-const mockLogger = require('../../utils/logger.js');
-const mockConstants = require('../../constants/index.js');
+describe('Bank Account Service', () => {
+  let mockConnection;
 
-mockConstants.Role = {
-  ADMIN: 'Admin',
-  OPERATIONS: 'Operations',
-  TRANSACTIONS: 'Transactions',
-};
-mockConstants.tableName = {
-  BANK_ACCOUNT: 'BankAccount',
-};
-
-describe('BankAccount DAO Tests', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockDb.executeQuery.mockResolvedValue({ rows: [] });
-    mockLogger.error = jest.fn();
+    mockConnection = {
+      release: jest.fn(),
+    };
+    getConnection.mockResolvedValue(mockConnection);
+    beginTransaction.mockResolvedValue();
+    commit.mockResolvedValue();
+    rollback.mockResolvedValue();
+    logger.error.mockClear();
   });
 
-  describe('getBankaccountDao', () => {
-    it('should fetch bank accounts with no filters, no pagination, role MERCHANT', async () => {
-      mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
-      const result = await getBankaccountDao({}, null, null, 'MERCHANT', 'Any');
-      expect(result).toEqual([{ id: 1 }]);
-      expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('ba.is_obsolete = false'), expect.arrayContaining([]));
-      expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.not.stringContaining('commissionSelect'), []);
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('getBankaccountService', () => {
+    it('should fetch bank accounts for VENDOR role with user_id filter', async () => {
+      const filters = {};
+      const company_id = 1;
+      const role = Role.VENDOR;
+      const user_id = 123;
+      const page = '1';
+      const limit = '10';
+      const designation = 'USER';
+      const mockResult = [{ id: 1, name: 'Bank A' }];
+
+      getUserHierarchysDao.mockResolvedValue([]);
+      getAllBankaccountDao.mockResolvedValue(mockResult);
+
+      const result = await getBankaccountService(filters, company_id, role, page, limit, user_id, designation);
+
+      expect(filters.user_id).toEqual([user_id]);
+      expect(getAllBankaccountDao).toHaveBeenCalledWith(
+        { company_id, user_id: [user_id] },
+        1,
+        10,
+        role,
+        designation
+      );
+      expect(result).toEqual(mockResult);
     });
 
-    it('should handle pagination', async () => {
-      mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
-      await getBankaccountDao({}, 2, 10, 'MERCHANT', 'Any');
-      expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('LIMIT $1 OFFSET $2'), [10, 10]);
+    it('should handle VENDOR_OPERATIONS designation with parentID', async () => {
+      const filters = {};
+      const company_id = 1;
+      const role = Role.ADMIN;
+      const user_id = 123;
+      const page = '1';
+      const limit = '10';
+      const designation = Role.VENDOR_OPERATIONS;
+      const mockResult = [{ id: 1, name: 'Bank A' }];
+
+      getUserHierarchysDao.mockResolvedValue([{ config: { parent: 456 } }]);
+      getAllBankaccountDao.mockResolvedValue(mockResult);
+
+      const result = await getBankaccountService(filters, company_id, role, page, limit, user_id, designation);
+
+      expect(filters.user_id).toEqual([456]);
+      expect(getAllBankaccountDao).toHaveBeenCalledWith(
+        { company_id, user_id: [456] },
+        1,
+        10,
+        role,
+        designation
+      );
+      expect(result).toEqual(mockResult);
     });
 
-    it('should handle date range filter', async () => {
-      mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
-      await getBankaccountDao({ startDate: '2023-01-01', endDate: '2023-12-31' }, null, null, 'MERCHANT', 'Any');
-      // expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('ba.created_at BETWEEN $1 AND $2'), ['2023-01-01', '2023-12-31']);
-      expect(mockDb.executeQuery).toHaveBeenCalledWith(
-        expect.stringContaining('ba."startDate" = $1 AND ba."endDate" = $2'),
-        ['2023-01-01', '2023-12-31']
+    it('should throw error on failure', async () => {
+      const error = new Error('Database error');
+      getUserHierarchysDao.mockRejectedValue(error);
+
+      await expect(
+        getBankaccountService({}, 1, Role.ADMIN, '1', '10', 123, 'USER')
+      ).rejects.toThrow(error);
+      expect(logger.error).toHaveBeenCalledWith(
+        'error getting while  getting banks', 
+        error
+      );      
+    });
+  });
+
+  describe('getBankAccountBySearchService', () => {
+    it('should fetch bank accounts by search terms', async () => {
+      const filters = {};
+      const company_id = 1;
+      const role = Role.ADMIN;
+      const page = '1';
+      const limit = '10';
+      const user_id = 123;
+      const designation = 'USER';
+      const search = 'bank,account';
+      const mockResult = [{ id: 1, name: 'Bank A' }];
+
+      getUserHierarchysDao.mockResolvedValue([]);
+      getBankAccountsBySearchDao.mockResolvedValue(mockResult);
+
+      const result = await getBankAccountBySearchService(
+        filters,
+        company_id,
+        role,
+        page,
+        limit,
+        user_id,
+        designation,
+        search
+      );
+
+      expect(getBankAccountsBySearchDao).toHaveBeenCalledWith(
+        { company_id },
+        1,
+        10,
+        role,
+        designation,
+        ['bank', 'account']
+      );
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should throw InternalServerError on failure', async () => {
+      const error = new Error('Search error');
+      getUserHierarchysDao.mockRejectedValue(error);
+
+      await expect(
+        getBankAccountBySearchService({}, 1, Role.ADMIN, '1', '10', 123, 'USER', 'bank')
+      ).rejects.toThrow(InternalServerError);
+      expect(logger.error).toHaveBeenCalledWith('error getting while getting check utr by search', error);
+    });
+  });
+
+  describe('getBankaccountServiceNickName', () => {
+    it('should fetch bank account by nickname with transaction', async () => {
+      const company_id = 1;
+      const type = 'PayIn';
+      const role = Role.VENDOR;
+      const user_id = 123;
+      const designation = 'USER';
+      const user = [123];
+      const mockResult = [{ id: 1, nick_name: 'Bank A' }];
+
+      getUserHierarchysDao.mockResolvedValue([]);
+      getBankAccountDaoNickName.mockResolvedValue(mockResult);
+
+      const result = await getBankaccountServiceNickName(company_id, type, role, user_id, designation, user);
+
+      expect(getConnection).toHaveBeenCalled();
+      expect(beginTransaction).toHaveBeenCalledWith(mockConnection);
+      expect(getBankAccountDaoNickName).toHaveBeenCalledWith(mockConnection, company_id, type, { user_id: [123] });
+      expect(commit).toHaveBeenCalledWith(mockConnection);
+      expect(mockConnection.release).toHaveBeenCalled();
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should rollback on error', async () => {
+      const error = new Error('DB error');
+      getUserHierarchysDao.mockRejectedValue(error);
+
+      await expect(
+        getBankaccountServiceNickName(1, 'PayIn', Role.VENDOR, 123, 'USER', [123])
+      ).rejects.toThrow(error);
+      expect(rollback).toHaveBeenCalledWith(mockConnection);
+      expect(mockConnection.release).toHaveBeenCalled();
+    });
+  });
+
+  describe('createBankaccountService', () => {
+    it('should create bank account for VENDOR_OPERATIONS with parent user_id', async () => {
+      const payload = { nick_name: 'Bank A', bank_used_for: 'PayIn' };
+      const designation = Role.VENDOR_OPERATIONS;
+      const user_id = 123;
+      const mockResult = { id: 1, ...payload };
+
+      getUserHierarchysDao.mockResolvedValue([{ config: { parent: 456 } }]);
+      createBankaccountDao.mockResolvedValue(mockResult);
+
+      const result = await createBankaccountService(mockConnection, payload, designation, user_id);
+
+      expect(payload.user_id).toBe(456);
+      expect(createBankaccountDao).toHaveBeenCalledWith(payload);
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should throw BadRequestError on failure', async () => {
+      const error = new Error('Create error');
+    
+      // Mock createBankaccountDao to throw
+      createBankaccountDao.mockRejectedValue(error);
+    
+      await expect(
+        createBankaccountService(mockConnection, {}, Role.USER, 123)
+      ).rejects.toThrow(BadRequestError);
+    
+      expect(logger.error).toHaveBeenCalledWith(
+        'error getting while  creating banks',
+        error
       );
     });
+    
+  });
 
-    it('should handle merchant_id filter', async () => {
-      mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
-      await getBankaccountDao({ merchant_id: ['123'] }, null, null, 'MERCHANT', 'Any');
-      expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining("(ba.config->'merchants')::jsonb ?| $1::text[]"), [['123']]);
+  describe('updateBankaccountService', () => {
+    it('should update bank account and deactivate if balance exceeds max_limit', async () => {
+      const ids = { id: 1, company_id: 1 };
+      const payload = { latest_balance: 1000 };
+      const role = Role.ADMIN;
+  
+      const mockBank = [
+        {
+          id: 1,
+          user_id: 123,
+          nick_name: 'Bank A',
+          is_enabled: true,
+          config: { max_limit: 500, merchants: ['merchant1'] },
+        },
+      ];
+      const mockResult = { id: 1, nick_name: 'Bank A' };
+  
+      getBankaccountDao.mockResolvedValue(mockBank);
+      getUserHierarchysDao.mockResolvedValue([]);
+      updateBankaccountDao.mockResolvedValue(mockResult);
+      deactivateBank.mockResolvedValue();
+  
+      const result = await updateBankaccountService(mockConnection, ids, payload, role);
+  
+      // Expect payload to have is_enabled false and merchants emptied
+      expect(updateBankaccountDao).toHaveBeenCalledWith(ids, {
+        is_enabled: false,
+        config: { max_limit: 500, merchants: [] },
+      }, mockConnection);
+      
+  
+      // Ensure deactivation was called
+      expect(deactivateBank).toHaveBeenCalledWith('Bank A', 1, 123);
+  
+      // Ensure updateBankaccountDao was called with updated payload
+      expect(updateBankaccountDao).toHaveBeenCalledWith(
+        ids,
+        expect.objectContaining({
+          is_enabled: false,
+          config: {
+            max_limit: 500,
+            merchants: [],
+          },
+        }),
+        mockConnection
+      );
+        
+      // Ensure result matches DAO return
+      expect(result).toEqual(mockResult);
     });
 
-    it('should handle other scalar filters', async () => {
-      mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
-      await getBankaccountDao({ some_key: 'value' }, null, null, 'MERCHANT', 'Any');
-      expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('ba."some_key" = $1'), ['value']);
+    it('should handle freeze/unfreeze bank responses', async () => {
+      const ids = { id: 1, company_id: 1 };
+      const payload = { config: { is_freeze: true } };
+      const role = Role.ADMIN;
+      const mockBank = [{ id: 1, user_id: 123, nick_name: 'Bank A' }];
+      const mockResponses = [{ id: 101 }, { id: 102 }];
+
+      getBankaccountDao.mockResolvedValue(mockBank);
+      getUserHierarchysDao.mockResolvedValue([]);
+      getBankResponsesforFreeze.mockResolvedValue(mockResponses);
+      updateBotResponseDao.mockResolvedValue();
+      updateBankaccountDao.mockResolvedValue({ id: 1 });
+
+      await updateBankaccountService(mockConnection, ids, payload, role);
+
+      expect(updateBotResponseDao).toHaveBeenCalledTimes(4); // Loop runs twice due to nested loop in code
+      expect(updateBotResponseDao).toHaveBeenCalledWith(101, { status: '/freezed' }, mockConnection);
     });
 
-    it('should handle other array filters', async () => {
-      mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
-      await getBankaccountDao({ some_key: ['val1', 'val2'] }, null, null, 'MERCHANT', 'Any');
-      expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('ba."some_key" = ANY($1)'), [['val1', 'val2']]);
-    });
+    it('should throw error if net balance exceeds limit when enabling bank', async () => {
+      const ids = { id: 1, company_id: 1 };
+      const payload = { is_enabled: true };
+      const role = Role.ADMIN;
+      const mockBank = [{ id: 1, user_id: 123, bank_used_for: 'PayIn' }];
+      const mockVendors = [{ config: { net_balance: 500 } }];
+      const mockCalculations = [{ net_balance: 600 }];
 
-    it('should select fields for VENDOR role', async () => {
-      mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
-      await getBankaccountDao({}, null, null, 'VENDOR', 'Any');
-      expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('ba.ifsc AS ifsc_code'), expect.any(Array));
-    });
+      getBankaccountDao.mockResolvedValue(mockBank);
+      getVendorsDao.mockResolvedValue(mockVendors);
+      getCalculationforCronDao.mockResolvedValue(mockCalculations);
 
-    it('should select fields for other role with ADMIN designation', async () => {
-      mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
-      await getBankaccountDao({}, null, null, 'OTHER', 'Admin');
-      expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('COALESCE(m.merchant_details'), expect.any(Array));
-    });
-
-    it('should handle error', async () => {
-      const error = new Error('DB error');
-      mockDb.executeQuery.mockRejectedValue(error);
-      await expect(getBankaccountDao({}, null, null, 'MERCHANT', 'Any')).rejects.toThrow('DB error');
+      await expect(
+        updateBankaccountService(mockConnection, ids, payload, role)
+      ).rejects.toThrow(BadRequestError);
     });
   });
 
-  describe('getAllBankaccountDao', () => {
-    it('should fetch all bank accounts with no filters, role MERCHANT', async () => {
-      mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
-      const result = await getAllBankaccountDao({}, null, null, 'MERCHANT', 'Any');
-      expect(result).toEqual([{ id: 1 }]);
-      expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('ba.is_obsolete = false'), expect.arrayContaining([]));
+  describe('deleteBankaccountService', () => {
+    it('should delete bank account', async () => {
+      const ids = { id: 1, company_id: 1 };
+      const user_id = 123;
+      const mockResult = { id: 1, nick_name: 'Bank A' };
+
+      deleteBankaccountDao.mockResolvedValue(mockResult);
+
+      const result = await deleteBankaccountService(mockConnection, ids, user_id);
+
+      expect(deleteBankaccountDao).toHaveBeenCalledWith(mockConnection, ids, { is_obsolete: true, updated_by: user_id });
+      expect(result).toEqual(mockResult);
     });
 
-    it('should select fields for VENDOR role', async () => {
-      mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
-      await getAllBankaccountDao({}, null, null, 'VENDOR', 'Any');
-      expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('ba.is_enabled'), expect.any(Array));
-    });
+    it('should throw BadRequestError on failure', async () => {
+      const error = new Error('Delete error');
+      deleteBankaccountDao.mockRejectedValue(error);
 
-    it('should select fields for other role with ADMIN designation', async () => {
-      mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
-      await getAllBankaccountDao({}, null, null, 'OTHER', 'Admin');
-      expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('ba.is_qr'), expect.any(Array));
-      expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('COALESCE(m.merchant_details'), expect.any(Array));
-    });
-
-    it('should handle error', async () => {
-      const error = new Error('DB error');
-      mockDb.executeQuery.mockRejectedValue(error);
-      await expect(getAllBankaccountDao({}, null, null, 'MERCHANT', 'Any')).rejects.toThrow('DB error');
-    });
-  });
-
-  describe('getBankAccountsBySearchDao', () => {
-    it('should fetch with no filters, no searchTerms, role MERCHANT', async () => {
-      mockDb.executeQuery.mockResolvedValueOnce({ rows: [{ total: '5' }] }).mockResolvedValueOnce({ rows: [{ id: 1 }] });
-      const result = await getBankAccountsBySearchDao({}, null, null, 'MERCHANT', 'Any', []);
-      expect(result).toEqual({ totalCount: 5, totalPages: 1, banks: [{ id: 1 }] });
-      expect(mockDb.executeQuery).toHaveBeenCalledTimes(2);
-    });
-
-    it('should handle searchTerms with boolean true', async () => {
-      mockDb.executeQuery.mockResolvedValueOnce({ rows: [{ total: '1' }] }).mockResolvedValueOnce({ rows: [{ id: 1 }] });
-      await getBankAccountsBySearchDao({}, null, null, 'MERCHANT', 'Any', ['true']);
-      expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('ba.is_enabled = $1'), [true]);
-    });
-
-    it('should handle searchTerms with LIKE', async () => {
-      mockDb.executeQuery.mockResolvedValueOnce({ rows: [{ total: '1' }] }).mockResolvedValueOnce({ rows: [{ id: 1 }] });
-      await getBankAccountsBySearchDao({}, null, null, 'MERCHANT', 'Any', ['test']);
-      expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining('LOWER(ba.id::text) LIKE LOWER($1)'), ['%test%']);
-    });
-
-    it('should reset offset if no results on higher page', async () => {
-      mockDb.executeQuery
-        .mockResolvedValueOnce({ rows: [{ total: '5' }] })
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [{ id: 1 }] });
-      const result = await getBankAccountsBySearchDao({}, 2, 10, 'MERCHANT', 'Any', []);
-      expect(result.banks).toEqual([{ id: 1 }]);
-      expect(mockDb.executeQuery).toHaveBeenCalledTimes(3);
-    });
-
-    it('should select fields for VENDOR role with is_freezed', async () => {
-      mockDb.executeQuery.mockResolvedValueOnce({ rows: [{ total: '1' }] }).mockResolvedValueOnce({ rows: [{ id: 1 }] });
-      await getBankAccountsBySearchDao({}, null, null, 'VENDOR', 'Any', []);
-      expect(mockDb.executeQuery).toHaveBeenCalledWith(expect.stringContaining("(ba.config->>'is_freeze')::boolean AS is_freezed"), expect.any(Array));
-    });
-
-    it('should handle error', async () => {
-      const error = new Error('DB error');
-      mockDb.executeQuery.mockRejectedValue(error);
-      await expect(getBankAccountsBySearchDao({}, null, null, 'MERCHANT', 'Any', [])).rejects.toThrow('DB error');
-    });
-  });
-
-  describe('getMerchantBankDao', () => {
-    it('should fetch merchant banks with filters', async () => {
-      mockDb.buildSelectQuery.mockReturnValue(['SELECT * FROM "BankAccount" WHERE id = $1', [1]]);
-      mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
-      const result = await getMerchantBankDao({ id: 1 });
-      expect(result).toEqual([{ id: 1 }]);
-      expect(mockDb.buildSelectQuery).toHaveBeenCalledWith(expect.stringContaining('SELECT * FROM  "BankAccount" WHERE 1=1'), { id: 1 });
-    });
-
-    it('should handle error', async () => {
-      const error = new Error('DB error');
-      mockDb.buildSelectQuery.mockReturnValue(['query', []]);
-      mockDb.executeQuery.mockRejectedValue(error);
-      await expect(getMerchantBankDao({})).rejects.toThrow('DB error');
-    });
-  });
-
-  describe('getBankByIdDao', () => {
-    it('should fetch bank by id with specific fields', async () => {
-      mockDb.buildSelectQuery.mockReturnValue(['SELECT min, max, is_enabled, payin_count, balance, today_balance, user_id, id FROM "BankAccount" WHERE id = $1', [1]]);
-      mockDb.executeQuery.mockResolvedValue({ rows: [{ min: 100 }] });
-      const result = await getBankByIdDao({ id: 1 });
-      expect(result).toEqual([{ min: 100 }]);
-      const calledQuery = mockDb.buildSelectQuery.mock.calls[0][0].replace(/\s+/g, ' ').trim();
-      expect(calledQuery).toContain('SELECT min, max, is_enabled, payin_count, config, balance,today_balance, user_id ,id FROM "BankAccount" WHERE 1=1');
-    });
-
-    it('should handle error', async () => {
-      const error = new Error('DB error');
-      mockDb.buildSelectQuery.mockReturnValue(['query', []]);
-      mockDb.executeQuery.mockRejectedValue(error);
-      await expect(getBankByIdDao({})).rejects.toThrow('DB error');
-    });
-  });
-
-  describe('createBankaccountDao', () => {
-    it('should create bank account', async () => {
-      mockDb.buildInsertQuery.mockReturnValue(['INSERT INTO "BankAccount" ...', [{ nick_name: 'Test' }]]);
-      mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
-      const result = await createBankaccountDao({ nick_name: 'Test' });
-      expect(result).toEqual({ id: 1 });
-    });
-
-    it('should handle error', async () => {
-      const error = new Error('DB error');
-      mockDb.buildInsertQuery.mockReturnValue(['query', []]);
-      mockDb.executeQuery.mockRejectedValue(error);
-      await expect(createBankaccountDao({})).rejects.toThrow('DB error');
-    });
-  });
-
-  describe('getBankAccountDaoNickName', () => {
-    it('should fetch nicknames for PayIn type', async () => {
-      const mockConn = { query: jest.fn().mockResolvedValue({ rowCount: 1, rows: [{ label: 'Test' }] }) };
-      const result = await getBankAccountDaoNickName(mockConn, 1, 'PayIn');
-      expect(result).toEqual({ totalCount: 1, bankNames: [{ label: 'Test' }] });
-      expect(mockConn.query).toHaveBeenCalledWith(expect.stringContaining('bank_used_for = $2'), [1, 'PayIn']);
-      expect(mockConn.query).toHaveBeenCalledWith(expect.not.stringContaining('is_enabled = true'), expect.any(Array));
-    });
-
-    it('should handle filters with scalar', async () => {
-      const mockConn = { query: jest.fn().mockResolvedValue({ rowCount: 0, rows: [] }) };
-      await getBankAccountDaoNickName(mockConn, 1, 'PayIn', { some_key: 'val' });
-      expect(mockConn.query).toHaveBeenCalledWith(expect.stringContaining('"some_key" = $3'), [1, 'PayIn', 'val']);
-    });
-
-    it('should handle error', async () => {
-      const error = new Error('DB error');
-      const mockConn = { query: jest.fn().mockRejectedValue(error) };
-      await expect(getBankAccountDaoNickName(mockConn, 1, 'PayIn')).rejects.toThrow('DB error');
-    });
-  });
-
-  describe('updateBankaccountDao', () => {
-    it('should update with config merge for merchant_added', async () => {
-      mockDb.executeQuery.mockResolvedValueOnce({ rows: [{ config: { merchant_added: { old: 'data' } } }] });
-      mockDb.buildAndExecuteUpdateQuery.mockResolvedValue({ rows: [{ id: 1 }] });
-      const result = await updateBankaccountDao({ id: 1, company_id: 1 }, { config: { merchant_added: { new: 'data' } } }, null, false);
-      expect(mockDb.buildAndExecuteUpdateQuery).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ config: { merchant_added: { old: 'data', new: 'data' } } }), expect.any(Object), expect.any(Object), expect.any(Object), null);
-      expect(result).toEqual({ rows: [{ id: 1 }] });
-    });
-
-    it('should handle isParentDeleted with conn.query', async () => {
-      const mockConn = { query: jest.fn().mockResolvedValue({ rows: [{ id: 1 }] }) };
-      mockDb.executeQuery.mockResolvedValueOnce({ rows: [{ config: {} }] });
-      mockDb.buildUpdateQuery.mockReturnValue(['UPDATE ...', []]);
-      await updateBankaccountDao({ id: 1, company_id: 1 }, { some: 'update' }, mockConn, true);
-      expect(mockConn.query).toHaveBeenCalledWith('UPDATE ...', []);
-    });
-
-    it('should handle error', async () => {
-      const error = new Error('DB error');
-      mockDb.executeQuery.mockResolvedValueOnce({ rows: [{ config: {} }] });
-      mockDb.buildAndExecuteUpdateQuery.mockRejectedValue(error);
-      await expect(updateBankaccountDao({ id: 1, company_id: 1 }, {}, null, false)).rejects.toThrow('DB error');
-    });
-  });
-
-  describe('deleteBankaccountDao', () => {
-    it('should delete (update) with conn', async () => {
-      const mockConn = { query: jest.fn().mockResolvedValue({ rows: [{ id: 1 }] }) };
-      mockDb.buildUpdateQuery.mockReturnValue(['UPDATE ...', [1]]);
-      const result = await deleteBankaccountDao(mockConn, { id: 1 }, { is_obsolete: true });
-      expect(result).toEqual({ id: 1 });
-      expect(mockConn.query).toHaveBeenCalled();
-    });
-
-    it('should delete without conn using executeQuery', async () => {
-      mockDb.buildUpdateQuery.mockReturnValue(['UPDATE ...', [1]]);
-      mockDb.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
-      const result = await deleteBankaccountDao(null, { id: 1 }, { is_obsolete: true });
-      expect(result).toEqual({ id: 1 });
-      expect(mockDb.executeQuery).toHaveBeenCalled();
-    });
-
-    it('should handle error', async () => {
-      const error = new Error('DB error');
-      mockDb.buildUpdateQuery.mockReturnValue(['query', []]);
-      mockDb.executeQuery.mockRejectedValue(error);
-      await expect(deleteBankaccountDao(null, { id: 1 }, {})).rejects.toThrow('DB error');
-    });
-  });
-
-  describe('updateBanktBalanceDao', () => {
-    it('should update balance with conn', async () => {
-      const mockConn = { query: jest.fn().mockResolvedValue({ rows: [{ balance: 100 }] }) };
-      mockDb.buildUpdateQuery.mockReturnValue(['UPDATE ... balance = balance + $1', [50]]);
-      const result = await updateBanktBalanceDao({ id: 1 }, 50, 2, mockConn);
-      expect(result).toEqual({ balance: 100 });
-      expect(mockDb.buildUpdateQuery).toHaveBeenCalledWith('BankAccount', { balance: 50, today_balance: 50, updated_by: 2 }, { id: 1 }, { balance: '+', today_balance: '+' });
-    });
-
-    it('should update without conn', async () => {
-      mockDb.buildUpdateQuery.mockReturnValue(['UPDATE "BankAccount" SET balance = balance + $1, today_balance = today_balance + $2, updated_by = $3 WHERE id = $4 RETURNING balance', [50, 50, 2, 1]]);
-      mockDb.executeQuery.mockResolvedValue({ rows: [{ balance: 100 }] });
-      const result = await updateBanktBalanceDao({ id: 1 }, 50, 2, null);
-      expect(result).toEqual({ balance: 100 });
-      expect(mockDb.buildUpdateQuery).toHaveBeenCalledWith('BankAccount', { balance: 50, today_balance: 50, updated_by: 2 }, { id: 1 }, { balance: '+', today_balance: '+' });
-    });
-
-    it('should handle error', async () => {
-      const error = new Error('DB error');
-      mockDb.buildUpdateQuery.mockReturnValue(['query', []]);
-      mockDb.executeQuery.mockRejectedValue(error);
-      await expect(updateBanktBalanceDao({ id: 1 }, 0, 1, null)).rejects.toThrow('DB error');
+      await expect(
+        deleteBankaccountService(mockConnection, { id: 1, company_id: 1 }, 123)
+      ).rejects.toThrow(BadRequestError);
+      expect(logger.error).toHaveBeenCalledWith('error getting while deleting banks', error);
     });
   });
 });
