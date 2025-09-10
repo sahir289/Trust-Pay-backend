@@ -231,6 +231,7 @@ const gatherDataForCompany = async (
         totalBankWithdrawalAllVendors,
         telegramBotToken,
         finalType === 'H' ? 'Hourly Report' : 'Daily Report',
+        date,
       );
       logger.info(
         `Dashboard Report completed for company: ${company_id}, date: ${inputDate.format('YYYY-MM-DD')}, type: ${finalType}`,
