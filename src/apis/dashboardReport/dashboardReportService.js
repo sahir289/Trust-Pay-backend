@@ -103,7 +103,7 @@ const gatherDataForCompany = async (
           totalPayoutCount += data.total_payout_count || 0;
         }
   
-        if (!subMerchantIds.has(merch.user_id)) {
+        // if (!subMerchantIds.has(merch.user_id)) {
           merchant.push({
             merchantId: merch.code,
             totalPayin: totalPayinAmount,
@@ -111,7 +111,7 @@ const gatherDataForCompany = async (
             totalPayout: totalPayoutAmount,
             totalPayoutCount,
           });
-        }
+        // }
         totalpayinsMerchant += totalPayinAmount;
         totalpayoutsMerchant += totalPayoutAmount;
         merchant.sort((a, b) => a.merchantId.localeCompare(b.merchantId));
