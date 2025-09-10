@@ -1,4 +1,4 @@
-import { tableName } from '../../constants/index.js';
+import { Role, tableName } from '../../constants/index.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import {
   buildInsertQuery,
@@ -110,17 +110,16 @@ export const getPayInsForSuccessRatioDao = async (filters = {}) => {
 
     const [sql, params] = buildSelectQuery(
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
-      filters
+      filters,
     );
 
     const result = await executeQuery(sql, params);
     return result.rows || [];
   } catch (error) {
-    logger.error("Error getting PayIns for success ratio:", error);
+    logger.error('Error getting PayIns for success ratio:', error);
     throw error;
   }
 };
-
 
 export const getSuccessPayInsDao = async (filters = {}) => {
   try {
@@ -226,7 +225,6 @@ export const getPayInForCheckStatusDao = async (filters) => {
 
 export const getPayinsForServiccDao = async (filters) => {
   try {
-
     const [sql, params] = buildSelectQuery(
       `SELECT 
         id,
@@ -314,11 +312,10 @@ export const getPayInsForCronDao = async (filters = {}) => {
     const result = await executeQuery(sql, params);
     return result.rows || [];
   } catch (error) {
-    logger.error("Error getting PayIns for cron:", error);
+    logger.error('Error getting PayIns for cron:', error);
     throw error;
   }
 };
-
 
 export const getPayInForTelegramUtrDao = async (filters = {}) => {
   try {
@@ -444,7 +441,7 @@ export const getPayInResetBasicDao = async (filters) => {
     const result = await executeQuery(sql, params);
     return result.rows[0] || null;
   } catch (error) {
-    logger.error("Error getting basic PayIn:", error);
+    logger.error('Error getting basic PayIn:', error);
     throw error;
   }
 };
@@ -462,7 +459,7 @@ export const getPayInForExpireDao = async (filters) => {
     const result = await executeQuery(sql, params);
     return result.rows[0] || null;
   } catch (error) {
-    logger.error("Error getting PayIn for expire:", error);
+    logger.error('Error getting PayIn for expire:', error);
     throw error;
   }
 };
@@ -524,7 +521,6 @@ export const getPayInDaoByCode = async (filters) => {
     throw error;
   }
 };
-
 
 // export const getPayInsDao = async (filters, company_id, page, limit, role) => {
 //   try {
@@ -651,7 +647,7 @@ export const getPayInDaoByCode = async (filters) => {
 //     });
 
 //     let commissionSelect = '';
-//     if (role === 'MERCHANT') {
+//     if (role === Role.MERCHANT) {
 //       commissionSelect = `
 //         p.payin_merchant_commission,
 //         p.merchant_id,
@@ -665,7 +661,7 @@ export const getPayInDaoByCode = async (filters) => {
 //           'notify_url', r.config->>'notify_url'
 //         ) AS merchant_details
 //       `;
-//     } else if (role === 'VENDOR') {
+//     } else if (role === Role.VENDOR) {
 //       commissionSelect = `
 //         p.payin_vendor_commission,
 //         v.code AS vendor_code
@@ -683,7 +679,7 @@ export const getPayInDaoByCode = async (filters) => {
 //         p.config AS payin_details,
 //         p.merchant_order_id,
 //         p.user,
-//         u.user_name AS created_by,  
+//         u.user_name AS created_by,
 //         uu.user_name AS updated_by,
 //         p.merchant_id,
 //         v.code AS vendor_code,
@@ -695,8 +691,8 @@ export const getPayInDaoByCode = async (filters) => {
 //         p.updated_by,
 //         p.created_at,
 //         p.updated_at,
-//         CASE 
-//           WHEN p.config::jsonb ? 'history' 
+//         CASE
+//           WHEN p.config::jsonb ? 'history'
 //           THEN (
 //             SELECT json_agg(
 //               json_build_object(
@@ -738,14 +734,14 @@ export const getPayInDaoByCode = async (filters) => {
 //           p.user_submitted_utr,
 //           p.user_submitted_image,
 //           p.duration,
-//           b.nick_name,      
+//           b.nick_name,
 //           ${commissionSelect},
 //           json_build_object(
 //             'utr', br.utr,
 //             'amount', br.amount
 //           ) AS bank_res_details,
-//           CASE 
-//           WHEN p.config::jsonb ? 'history' 
+//           CASE
+//           WHEN p.config::jsonb ? 'history'
 //           THEN (
 //             SELECT json_agg(
 //               json_build_object(
@@ -780,7 +776,7 @@ export const getPayInDaoByCode = async (filters) => {
 //         LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
 //         LEFT JOIN public."BankResponse" br ON p.bank_response_id = br.id
 //         LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
-//         LEFT JOIN public."User" u ON p.created_by = u.id 
+//         LEFT JOIN public."User" u ON p.created_by = u.id
 //         LEFT JOIN public."User" uu ON p.updated_by = uu.id
 //         WHERE ${conditions.join(' AND ')}
 //       )
@@ -936,7 +932,7 @@ export const getPayInDaoByCode = async (filters) => {
 //     });
 
 //     let commissionSelect = '';
-//     if (role === 'MERCHANT') {
+//     if (role === Role.MERCHANT) {
 //       commissionSelect = `
 //         p.is_notified,
 //         p.payin_merchant_commission,
@@ -951,7 +947,7 @@ export const getPayInDaoByCode = async (filters) => {
 //           'notify_url', r.config->>'notify_url'
 //         ) AS merchant_details
 //       `;
-//     } else if (role === 'VENDOR') {
+//     } else if (role === Role.VENDOR) {
 //       commissionSelect = `
 //         p.payin_vendor_commission,
 //         v.code AS vendor_code
@@ -970,7 +966,7 @@ export const getPayInDaoByCode = async (filters) => {
 //         p.config AS payin_details,
 //         p.merchant_order_id,
 //         p.user,
-//         u.user_name AS created_by,  
+//         u.user_name AS created_by,
 //         uu.user_name AS updated_by,
 //         p.merchant_id,
 //         v.code AS vendor_code,
@@ -995,14 +991,14 @@ export const getPayInDaoByCode = async (filters) => {
 //           p.user_submitted_utr,
 //           p.user_submitted_image,
 //           p.duration,
-//           b.nick_name,      
+//           b.nick_name,
 //           ${commissionSelect},
 //           json_build_object(
 //             'utr', br.utr,
 //             'amount', br.amount
 //           ) AS bank_res_details,
-//           CASE 
-//           WHEN p.config::jsonb ? 'history' 
+//           CASE
+//           WHEN p.config::jsonb ? 'history'
 //           THEN (
 //             SELECT json_agg(
 //               json_build_object(
@@ -1037,7 +1033,7 @@ export const getPayInDaoByCode = async (filters) => {
 //         LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id
 //         LEFT JOIN public."BankResponse" br ON p.bank_response_id = br.id
 //         LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
-//         LEFT JOIN public."User" u ON p.created_by = u.id 
+//         LEFT JOIN public."User" u ON p.created_by = u.id
 //         LEFT JOIN public."User" uu ON p.updated_by = uu.id
 //         WHERE ${conditions.join(' AND ')}
 //       )
@@ -1071,9 +1067,9 @@ export const getPayinsWithoutHistoryDao = async (
   designation,
 ) => {
   try {
-    const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
-    const queryParams = [filters.company_id];
-    let paramIndex = 2;
+    const conditions = [`p.is_obsolete = false`];
+    const queryParams = [];
+    let paramIndex = 1;
     const validColumns = new Set([
       'id',
       'sno',
@@ -1101,7 +1097,7 @@ export const getPayinsWithoutHistoryDao = async (
     ]);
 
     let commissionSelect = '';
-    if (role === 'MERCHANT') {
+    if (role === Role.MERCHANT) {
       commissionSelect = `
         p.payin_merchant_commission,
         p.merchant_order_id,
@@ -1114,11 +1110,11 @@ export const getPayinsWithoutHistoryDao = async (
           'return_url', m.config->>'return_url',
           'notify_url', m.config->>'notify_url'
         ) AS merchant_details`;
-    } else if (role === 'VENDOR') {
+    } else if (role === Role.VENDOR) {
       commissionSelect = `
         p.payin_vendor_commission,
         v.code AS vendor_code`;
-    } else if (role === 'ADMIN' && designation === 'ADMIN') {
+    } else if (role === Role.ADMIN && designation === Role.ADMIN) {
       commissionSelect = `
         p.payin_merchant_commission,
         json_build_object(
@@ -1137,6 +1133,30 @@ export const getPayinsWithoutHistoryDao = async (
         p.approved_at,
         u.user_name AS created_by,
         uu.user_name AS updated_by,
+        p.is_notified,
+        p.user,
+        p.created_at,
+        p.updated_at`;
+    } else if (role === Role.SUPER_ADMIN && designation === Role.SUPER_ADMIN) {
+      commissionSelect = `
+        p.payin_merchant_commission,
+        json_build_object(
+          'merchant_code', COALESCE(m.config->>'sub_code', m.code),
+          'dispute', m.dispute_enabled,
+          'return_url', m.config->>'return_url',
+          'notify_url', m.config->>'notify_url'
+        ) AS merchant_details,
+        p.merchant_order_id,
+        p.config AS payin_details,
+        p.payin_vendor_commission,
+        v.code AS vendor_code,
+        v.user_id AS vendor_user_id,
+        p.upi_short_code,
+        p.is_url_expires,
+        p.approved_at,
+        u.user_name AS created_by,
+        uu.user_name AS updated_by,
+        c.first_name || ' ' || c.last_name AS company,
         p.is_notified,
         p.user,
         p.created_at,
@@ -1190,6 +1210,7 @@ export const getPayinsWithoutHistoryDao = async (
       LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
       LEFT JOIN public."User" u ON p.created_by = u.id 
       LEFT JOIN public."User" uu ON p.updated_by = uu.id
+      LEFT JOIN public."Company" c ON p.company_id = c.id
       WHERE ${conditions.join(' AND ')}
     `;
 
@@ -1239,8 +1260,7 @@ export const getPayinsWithoutHistoryDao = async (
       'updated_at',
       'nick_name',
     ]);
-  
-    
+
     if (filters.status) {
       const statusArray = filters.status.split(',').map((s) => s.trim());
       queryText += ` AND p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
@@ -1378,9 +1398,9 @@ export const getPayinsWithHistoryDao = async (
     // if (cachedResult && cachedResult.totalCount>0) {
     //   return cachedResult;
     // }
-    const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
-    const queryParams = [filters.company_id];
-    let paramIndex = 2;
+    const conditions = [`p.is_obsolete = false`];
+    const queryParams = [];
+    let paramIndex = 1;
     const validColumns = new Set([
       'id',
       'sno',
@@ -1408,7 +1428,7 @@ export const getPayinsWithHistoryDao = async (
     ]);
 
     let commissionSelect = '';
-    if (role === 'MERCHANT') {
+    if (role === Role.MERCHANT) {
       commissionSelect = `
         p.payin_merchant_commission,
         p.merchant_order_id,
@@ -1421,12 +1441,11 @@ export const getPayinsWithHistoryDao = async (
           'return_url', m.config->>'return_url',
           'notify_url', m.config->>'notify_url'
         ) AS merchant_details`;
-    } else if (role === 'VENDOR') {
+    } else if (role === Role.VENDOR) {
       commissionSelect = `
         p.payin_vendor_commission,
         v.code AS vendor_code`;
-    }
-    else if (role === 'ADMIN' && designation === 'ADMIN') {
+    } else if (role === Role.ADMIN && designation === Role.ADMIN) {
       commissionSelect = `
         p.payin_merchant_commission,
         json_build_object(
@@ -1447,12 +1466,33 @@ export const getPayinsWithHistoryDao = async (
         uu.user_name AS updated_by,
         p.is_notified,
         p.user,
-        p.company_id,
-        p.bank_acc_id,
         p.created_at,
         p.updated_at`;
-    }
-    else {
+    } else if (role === Role.SUPER_ADMIN && designation === Role.SUPER_ADMIN) {
+      commissionSelect = `
+        p.payin_merchant_commission,
+        json_build_object(
+          'merchant_code', COALESCE(m.config->>'sub_code', m.code),
+          'dispute', m.dispute_enabled,
+          'return_url', m.config->>'return_url',
+          'notify_url', m.config->>'notify_url'
+        ) AS merchant_details,
+        p.merchant_order_id,
+        p.config AS payin_details,
+        p.payin_vendor_commission,
+        v.code AS vendor_code,
+        v.user_id AS vendor_user_id,
+        p.upi_short_code,
+        p.is_url_expires,
+        p.approved_at,
+        u.user_name AS created_by,
+        uu.user_name AS updated_by,
+        c.first_name || ' ' || c.last_name AS company,
+        p.is_notified,
+        p.user,
+        p.created_at,
+        p.updated_at`;
+    } else {
       commissionSelect = `
         p.payin_merchant_commission,
         json_build_object(
@@ -1538,8 +1578,14 @@ export const getPayinsWithHistoryDao = async (
 
     // Add company_id filter only if present in filters
     if (filters.company_id) {
-      if (typeof filters.company_id === 'string' && filters.company_id.includes(',')) {
-        const arr = filters.company_id.split(',').map(v => v.trim()).filter(Boolean);
+      if (
+        typeof filters.company_id === 'string' &&
+        filters.company_id.includes(',')
+      ) {
+        const arr = filters.company_id
+          .split(',')
+          .map((v) => v.trim())
+          .filter(Boolean);
         queryText += ` AND p."company_id" = ANY($${paramIndex})`;
         queryParams.push(arr);
         paramIndex++;
@@ -1619,26 +1665,34 @@ export const getPayinsWithHistoryDao = async (
     }
     if (filters.updated_at) {
       const [day, month, year] = filters.updated_at.split('-');
-      if (!day || !month || !year || isNaN(new Date(`${year}-${month}-${day}`))) {  logger.error(`Invalid date format for updated_at: ${filters.updated_at}`,);
+      if (
+        !day ||
+        !month ||
+        !year ||
+        isNaN(new Date(`${year}-${month}-${day}`))
+      ) {
+        logger.error(
+          `Invalid date format for updated_at: ${filters.updated_at}`,
+        );
         throw new Error(
           'Invalid date format for updated_at. Expected DD-MM-YYYY',
         );
       }
       const properDateStr = `${year}-${month}-${day}`;
       let startDate = dayjs
-      .tz(`${properDateStr} 00:00:00`, 'Asia/Kolkata')
-      .utc()
-      .format();
-    let endDate = dayjs
-      .tz(`${properDateStr} 23:59:59.999`, 'Asia/Kolkata')
-      .utc()
-      .format();
-    conditions.push(
-      `p.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
-    );
-    queryParams.push(startDate, endDate);
-    paramIndex += 2;
-  }
+        .tz(`${properDateStr} 00:00:00`, 'Asia/Kolkata')
+        .utc()
+        .format();
+      let endDate = dayjs
+        .tz(`${properDateStr} 23:59:59.999`, 'Asia/Kolkata')
+        .utc()
+        .format();
+      conditions.push(
+        `p.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+      );
+      queryParams.push(startDate, endDate);
+      paramIndex += 2;
+    }
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
         return;
@@ -1663,10 +1717,11 @@ export const getPayinsWithHistoryDao = async (
             ? `p.${key} IN (${placeholders})`
             : `p.${key} = $${nextParamIdx}`,
         );
-     if (updatedPayin) {
-        conditions.push(
-          `(p.config->>'history' IS NOT NULL AND p.config::jsonb ? 'history')`,
-        );}
+        if (updatedPayin) {
+          conditions.push(
+            `(p.config->>'history' IS NOT NULL AND p.config::jsonb ? 'history')`,
+          );
+        }
         queryParams.push(...valueArray);
       }
     });
@@ -1676,7 +1731,7 @@ export const getPayinsWithHistoryDao = async (
     }
 
     const countQuery = `SELECT COUNT(*) AS total FROM (${queryText}) AS count_table`;
-   queryText += `
+    queryText += `
       ORDER BY ${updatedPayin ? 'p.updated_at DESC' : 'p.created_at DESC'}
       LIMIT $${queryParams.length + 1}
       OFFSET $${queryParams.length + 2}
@@ -1690,9 +1745,9 @@ export const getPayinsWithHistoryDao = async (
     const totalItems = parseInt(countResult.rows[0].total);
     let totalPages = Math.ceil(totalItems / limitNum);
     if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
-      queryParams[queryParams.length - 1] = 0; 
+      queryParams[queryParams.length - 1] = 0;
       searchResult = await executeQuery(queryText, queryParams);
-      totalPages = Math.ceil(totalItems / limitNum); 
+      totalPages = Math.ceil(totalItems / limitNum);
     }
     const result = {
       totalCount: totalItems,
@@ -1713,25 +1768,32 @@ const buildCompanyIdCondition = (companyId, paramIndex) => {
   }
 
   if (typeof companyId === 'string' && companyId.includes(',')) {
-    const companyIds = companyId.split(',').map(id => id.trim()).filter(Boolean);
-    const placeholders = companyIds.map((_, idx) => `$${paramIndex + idx}`).join(', ');
+    const companyIds = companyId
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+    const placeholders = companyIds
+      .map((_, idx) => `$${paramIndex + idx}`)
+      .join(', ');
     return {
       condition: `company_id IN (${placeholders})`,
       params: companyIds,
-      paramIndex: paramIndex + companyIds.length
+      paramIndex: paramIndex + companyIds.length,
     };
   } else if (Array.isArray(companyId)) {
-    const placeholders = companyId.map((_, idx) => `$${paramIndex + idx}`).join(', ');
+    const placeholders = companyId
+      .map((_, idx) => `$${paramIndex + idx}`)
+      .join(', ');
     return {
       condition: `company_id IN (${placeholders})`,
       params: companyId,
-      paramIndex: paramIndex + companyId.length
+      paramIndex: paramIndex + companyId.length,
     };
   } else {
     return {
       condition: `company_id = $${paramIndex}`,
       params: [companyId],
-      paramIndex: paramIndex + 1
+      paramIndex: paramIndex + 1,
     };
   }
 };
@@ -1743,7 +1805,10 @@ export const getPayinsSumAndCountByStatusDao = async (filters) => {
     let paramIndex = 1;
 
     // Handle company_id filter using helper function
-    const companyCondition = buildCompanyIdCondition(filters.company_id, paramIndex);
+    const companyCondition = buildCompanyIdCondition(
+      filters.company_id,
+      paramIndex,
+    );
     if (companyCondition.condition) {
       conditions.push(`p.${companyCondition.condition}`);
       queryParams.push(...companyCondition.params);
@@ -1763,15 +1828,21 @@ export const getPayinsSumAndCountByStatusDao = async (filters) => {
     }
 
     const today = dayjs(Date.now()).tz('Asia/Kolkata').format('YYYY-MM-DD');
-    const startDate = dayjs.tz(`${today} 00:00:00`, 'Asia/Kolkata').utc().format();
-    const endDate = dayjs.tz(`${today} 23:59:59.999`, 'Asia/Kolkata').utc().format();
-    
+    const startDate = dayjs
+      .tz(`${today} 00:00:00`, 'Asia/Kolkata')
+      .utc()
+      .format();
+    const endDate = dayjs
+      .tz(`${today} 23:59:59.999`, 'Asia/Kolkata')
+      .utc()
+      .format();
+
     // Use approved_at for SUCCESS status, updated_at for others
     conditions.push(
       `CASE 
         WHEN p.status = 'SUCCESS' THEN p.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
         ELSE p.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-      END`
+      END`,
     );
     queryParams.push(startDate, endDate);
     paramIndex += 2;
@@ -1786,7 +1857,7 @@ export const getPayinsSumAndCountByStatusDao = async (filters) => {
       ) s
       LEFT JOIN public."Payin" p ON p.status = s.status AND p.is_obsolete = false
     `;
-    
+
     // Add company_id condition to the main query if it exists
     if (companyCondition.condition) {
       queryText += ` AND p.${companyCondition.condition}`;
@@ -1880,10 +1951,9 @@ export const updatePayInUrlDao = async (id, data, conn) => {
     const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
     let result;
     if (conn && conn.query) {
-    result = await conn.query(sql, params);
+      result = await conn.query(sql, params);
       // await newTableEntry(tableName.PAYIN);
-    }
-    else {
+    } else {
       result = await executeQuery(sql, params);
     }
     // if (data.status === Status.SUCCESS) {
