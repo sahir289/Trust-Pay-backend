@@ -633,6 +633,7 @@ export const telegramCheckUTR = async (req, res) => {
     merchantOrderId,
     req.user.company_id,
     req.user.user_id,
+    req.user.designation,
   );
   sendSuccess(
     res,

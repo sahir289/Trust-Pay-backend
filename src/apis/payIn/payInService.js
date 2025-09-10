@@ -642,6 +642,9 @@ export const assignedBankToPayInUrlService = async (
           code: updatePayIn.upi_short_code,
         },
       };
+      if (selectedBankDetails.config.is_staticQR) {
+        response.bank.staticQR = selectedBankDetails.config.is_staticQR;
+      }
     }
 
     return response;
@@ -1099,7 +1102,7 @@ export const resetDepositService = async (
       const payInSuccess = await getOtherSuccessPayIns(bankResponse);
       ///for update bankresponse with id
       const id = bankResponse.id;
-      if (!payInSuccess.length) {
+      if (!payInSuccess.length && payIn.status != Status.DUPLICATE) {
         await updateBotResponseDao(id, { is_used: false }, conn);
       }
     }
@@ -1359,6 +1362,7 @@ export const processPayInService = async (
   updated_by,
   tele_check = true,
   img_utr = false,
+  designation,
 ) => {
   try {
     const {
@@ -1516,6 +1520,14 @@ export const processPayInService = async (
           company_id: payIn.company_id,
         })) || {};
     }
+
+    if (bank && bank.config.is_freeze === true && !designation) {
+      bankResponse = {};
+    }
+    else if ((bank && bank.config.is_freeze === true) && (designation && designation !== Role.ADMIN)) {
+      return { message: `Bank Account is freezed. Please contact admin` };
+    }
+
     if (bankResponse.id) {
       await updateBotResponseDao(bankResponse.id, { is_used: true }, conn);
     }
@@ -2366,6 +2378,7 @@ export const telegramCheckUTRService = async (
   merchant_order_id,
   company_id,
   updated_by,
+  designation,
 ) => {
   try {
     const bankResponse = await getBankResponseDao({
@@ -2444,6 +2457,8 @@ export const telegramCheckUTRService = async (
       },
       updated_by,
       false,
+      false,
+      designation
     );
   } catch (error) {
     logger.error('Error in telegramCheckUTRService:', error);

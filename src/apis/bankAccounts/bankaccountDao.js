@@ -528,7 +528,31 @@ const getBankAccountsBySearchDao = async (
     throw error;
   }
 };
+export const getBankaccountDashBoardReportDao = async (
+  filters = {},
+) => {
+  try {
+    const selectColumns = `
+      id,
+      user_id,
+      nick_name,
+      today_balance,
+      balance,
+      payin_count,
+      bank_used_for
+    `;
 
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1`,
+      filters
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error getting bank account data:', error);
+    throw error;
+  }
+};
 const getMerchantBankDao = async (filters) => {
   try {
     const query = `SELECT * FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;

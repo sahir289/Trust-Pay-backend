@@ -310,7 +310,25 @@ export const getMerchantsDao = async (
     throw error;
   }
 };
-
+export const getMerchantsForDashboardReportDao = async (
+  filters = {},
+) => {
+  try {
+    const selectColumns = `
+      user_id,
+      code
+    `;
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.MERCHANT}" WHERE 1=1`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error getting merchants data:', error);
+    throw error;
+  }
+};
 
 
 export const getMerchantsByCodeDao = async (code) => {
