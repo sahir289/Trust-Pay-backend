@@ -1,79 +1,92 @@
 import { sendCredentialsEmail, sendOTP } from './sendMailer.js';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
-import { logger } from '../utils/logger.js';
+import { logger } from './logger.js';
 
-jest.mock('@aws-sdk/client-ses');
-jest.mock('../utils/logger.js', () => ({
+// Mock logger to avoid real logging
+jest.mock('./logger.js', () => ({
   logger: { info: jest.fn(), error: jest.fn() },
 }));
 
-describe('Email Service', () => {
-  let sendMock;
+// Mock SES client + command
+jest.mock('@aws-sdk/client-ses', () => {
+  const sendMock = jest.fn();
+  return {
+    SESClient: jest.fn(() => ({ send: sendMock })),
+    SendEmailCommand: jest.fn(), // dummy constructor
+    __esModule: true,
+    sendMock,
+  };
+});
 
+const { sendMock } = jest.requireMock('@aws-sdk/client-ses');
+
+describe('sendMailer utils', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    sendMock = jest.fn();
-    SESClient.mockImplementation(() => ({ send: sendMock }));
   });
 
+  // ------------------ sendCredentialsEmail ------------------
   describe('sendCredentialsEmail', () => {
     it('should send credentials email successfully', async () => {
-      sendMock.mockResolvedValue({ messageId: '12345' });
+      sendMock.mockResolvedValue({ MessageId: '12345' });
 
-      const data = {
-        email: 'test@example.com',
-        username: 'user1',
-        password: 'pass123',
-        code: 'code123',
-        secretKey: 'secret',
-        publicKey: 'public',
-        designation: 'MERCHANT',
-      };
-
-      const result = await sendCredentialsEmail(data);
+      const result = await sendCredentialsEmail(
+        'test@example.com',
+        'user123',
+        'pass123',
+        'code123',
+        'secret123',
+        'public123'
+      );
 
       expect(sendMock).toHaveBeenCalledTimes(1);
-      expect(result.messageId).toBe('12345');
+      expect(SendEmailCommand).toHaveBeenCalled(); // ensure command constructed
+      expect(result).toEqual({ MessageId: '12345' });
       expect(logger.info).toHaveBeenCalledWith(
         'Credentials email sent:',
-        expect.objectContaining({ status: 200, data: expect.any(Object) }),
+        expect.objectContaining({ status: 200 })
       );
     });
 
-    it('should log and throw error if SES send fails', async () => {
-      sendMock.mockRejectedValue(new Error('SES error'));
+    it('should log and throw error when SES send fails', async () => {
+      const error = new Error('SES send failed');
+      sendMock.mockRejectedValue(error);
 
-      const data = {
-        email: 'test@example.com',
-        username: 'user1',
-        password: 'pass123',
-        designation: 'MERCHANT',
-      };
+      await expect(
+        sendCredentialsEmail(
+          'test@example.com',
+          'user123',
+          'pass123',
+          'code123',
+          'secret123',
+          'public123'
+        )
+      ).rejects.toThrow('SES send failed');
 
-      await expect(sendCredentialsEmail(data)).rejects.toThrow('SES error');
-      expect(logger.error).toHaveBeenCalledWith(
-        'Failed to send credentials email:',
-        expect.any(Error),
-      );
+      expect(logger.error).toHaveBeenCalledWith('Failed to send credentials email:', error);
     });
   });
 
+  // ------------------ sendOTP ------------------
   describe('sendOTP', () => {
     it('should send OTP email successfully', async () => {
-      sendMock.mockResolvedValue({ messageId: 'otp123' });
+      sendMock.mockResolvedValue({ MessageId: '67890' });
 
-      const result = await sendOTP('test@example.com', '456789', 'user1', 'ADMIN');
+      const result = await sendOTP('otp@example.com', '654321');
 
       expect(sendMock).toHaveBeenCalledTimes(1);
+      expect(SendEmailCommand).toHaveBeenCalled();
       expect(result).toEqual({ success: true });
-      expect(logger.info).toHaveBeenCalledWith('OTP email sent:', 'otp123');
+      expect(logger.info).toHaveBeenCalledWith('OTP email sent:', '67890');
     });
 
-    it('should log and throw error if OTP SES send fails', async () => {
-      sendMock.mockRejectedValue(new Error('SES error'));
+    it('should log and throw error when SES send fails', async () => {
+      const error = new Error('SES OTP failed');
+      sendMock.mockRejectedValue(error);
 
-      await expect(sendOTP('test@example.com', '456789', 'user1', 'ADMIN')).rejects.toThrow('SES error');
-      expect(logger.error).toHaveBeenCalledWith('Failed to send OTP email:', expect.any(Error));
+      await expect(sendOTP('otp@example.com', '654321')).rejects.toThrow('SES OTP failed');
+
+      expect(logger.error).toHaveBeenCalledWith('Failed to send OTP email:', error);
     });
   });
 });

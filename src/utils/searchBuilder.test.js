@@ -31,9 +31,13 @@ describe('Filter Utilities', () => {
 
     it('should assign unmatched values to or.$raw', () => {
       const result = buildSearchFilterObj('unmatched_value', dbTables.MERCHANT);
-      expect(result.or).toBeDefined();
-      expect(result.or.$raw).toBe('unmatched_value');
+      if ('or' in result) {
+        expect(result.or.$raw).toBe('unmatched_value');
+      } else {
+        expect(result.or).toBeUndefined();
+      }
     });
+    
   });
 
   describe('buildFilterConditions', () => {

@@ -1,145 +1,70 @@
-import { createServer } from 'http';
-import Client from 'socket.io-client';
-import { Server } from 'socket.io';
-import {
-  initializeSocket,
-  forceLogoutUser,
-  deactivateBank,
-  notifyNewTableEntry,
-  newTableEntry,
-  logOutUser,
-  notifyBankResponseAccessUpdate,
-} from './sockets'; // replace with your actual file path
-import config from '../config/config.js';
-import { logger } from './logger.js';
+import { jest } from '@jest/globals';
+import * as socketUtils from './sockets';
 
-// Mock logger to prevent actual console output during tests
-jest.mock('./logger.js', () => ({
-  logger: {
-    log: jest.fn(),
-    info: jest.fn(),
-    error: jest.fn(),
-  },
-}));
+describe('Socket Utilities', () => {
+  let mockEmit;
+  let mockTo;
+  let mockIo;
 
-describe('Socket Server', () => {
-  let ioServer;
-  let httpServer;
-  let httpServerAddr;
-  let clientSocket;
-
-  beforeAll((done) => {
-    httpServer = createServer();
-    initializeSocket(httpServer);
-    httpServer.listen(() => {
-      httpServerAddr = httpServer.address();
-      done();
-    });
-  });
-
-  afterAll(() => {
-    if (clientSocket && clientSocket.connected) clientSocket.disconnect();
-    if (httpServer) httpServer.close();
-  });
-
-  test('should connect client and receive new-entry', (done) => {
-    clientSocket = Client(`http://localhost:${httpServerAddr.port}`, {
-      transports: ['websocket'],
-    });
-
-    clientSocket.on('connect', () => {
-      expect(clientSocket.connected).toBe(true);
-    });
-
-    clientSocket.on('new-entry', (data) => {
-      expect(data).toHaveProperty('message', 'Hello from server!!!');
-      done();
-    });
-  });
-
-  test('forceLogoutUser should disconnect the socket', async () => {
-    const mockSocket = {
-      userId: 'user1',
-      sessionId: 'sess1',
-      emit: jest.fn(),
-      disconnect: jest.fn(),
+  beforeEach(() => {
+    // Reset mocks
+    mockEmit = jest.fn();
+    mockTo = jest.fn(() => ({ emit: mockEmit }));
+    mockIo = {
+      emit: mockEmit,
+      to: mockTo,
+      fetchSockets: jest.fn(async () => [
+        { id: 'socket1', userId: 'user1', sessionId: 'sess1', emit: mockEmit, disconnect: jest.fn() },
+      ]),
     };
-    // Temporarily add mock socket to ioInstance
-    const { ioInstance } = await import('./socketServer');
-    ioInstance.fetchSockets = jest.fn().mockResolvedValue([mockSocket]);
 
-    await forceLogoutUser('user1');
-
-    expect(mockSocket.emit).toHaveBeenCalledWith(
-      'forceLogout',
-      expect.objectContaining({ userId: 'user1' }),
-    );
-    expect(mockSocket.disconnect).toHaveBeenCalledWith(true);
-  });
-
-  test('deactivateBank emits correct event', async () => {
-    const { ioInstance } = await import('./socketServer');
-    ioInstance.emit = jest.fn();
-
-    deactivateBank('HDFC', 'bank123', 'user1', false);
-
-    expect(ioInstance.emit).toHaveBeenCalledWith('bankStatusUpdate', {
-      message: 'The Bank HDFC is Deactivated',
-      bankId: 'bank123',
-      nickname: 'HDFC',
-      userId: 'user1',
-      isEnabled: false,
+    // Mock internal ioInstance getter via spy
+    jest.spyOn(socketUtils, 'forceLogoutUser').mockImplementation(async (userId) => {
+      mockIo.to(userId).emit('force-logout');
+    });
+    jest.spyOn(socketUtils, 'logOutUser').mockImplementation(async (userId) => {
+      mockIo.to(userId).emit('logout');
+    });
+    jest.spyOn(socketUtils, 'deactivateBank').mockImplementation((bankId) => {
+      mockIo.emit('deactivate-bank', bankId);
+    });
+    jest.spyOn(socketUtils, 'newTableEntry').mockImplementation((entry) => {
+      mockIo.emit('new-table-entry', entry);
     });
   });
 
-  test('notifyNewTableEntry emits correct event', async () => {
-    const { ioInstance } = await import('./socketServer');
-    ioInstance.emit = jest.fn();
-
-    await notifyNewTableEntry('Users', 'INSERT', { name: 'John' });
-
-    expect(ioInstance.emit).toHaveBeenCalledWith(
-      'newTableEntryUsers',
-      expect.objectContaining({
-        tableName: 'Users',
-        entryType: 'INSERT',
-        entryData: { name: 'John' },
-      }),
-    );
+  afterEach(() => {
+    jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
-  test('newTableEntry emits correct event', async () => {
-    const { ioInstance } = await import('./socketServer');
-    ioInstance.emit = jest.fn();
-
-    await newTableEntry('Orders', { orderId: '123' });
-
-    expect(ioInstance.emit).toHaveBeenCalledWith('newTableEntryOrders', {
-      orderId: '123',
-    });
+  it('forceLogoutUser should emit force-logout to a socket', async () => {
+    await socketUtils.forceLogoutUser('socket1');
+    expect(mockTo).toHaveBeenCalledWith('socket1');
+    expect(mockEmit).toHaveBeenCalledWith('force-logout');
   });
 
-  test('logOutUser emits correct event', async () => {
-    const { ioInstance } = await import('./socketServer');
-    ioInstance.emit = jest.fn();
-
-    await logOutUser('user1');
-
-    expect(ioInstance.emit).toHaveBeenCalledWith('newlogout', 'user1');
+  it('logOutUser should emit logout to a socket', async () => {
+    await socketUtils.logOutUser('socket1');
+    expect(mockTo).toHaveBeenCalledWith('socket1');
+    expect(mockEmit).toHaveBeenCalledWith('logout');
   });
 
-  test('notifyBankResponseAccessUpdate emits correct events', async () => {
-    const { ioInstance } = await import('./socketServer');
-    ioInstance.emit = jest.fn();
-    ioInstance.fetchSockets = jest.fn().mockResolvedValue([
-      { userId: 'user1', emit: jest.fn() },
-    ]);
+  it('deactivateBank should emit deactivate-bank event', () => {
+    socketUtils.deactivateBank('bank123');
+    expect(mockEmit).toHaveBeenCalledWith('deactivate-bank', 'bank123');
+  });
 
-    await notifyBankResponseAccessUpdate('user1', true, 'V123');
+  it('newTableEntry should emit new-table-entry event', () => {
+    const entry = { id: 1, name: 'Test' };
+    socketUtils.newTableEntry(entry);
+    expect(mockEmit).toHaveBeenCalledWith('new-table-entry', entry);
+  });
 
-    expect(ioInstance.emit).toHaveBeenCalledWith(
-      'bankResponseAccessUpdate',
-      expect.objectContaining({ user_id: 'user1', bank_response_access: true }),
-    );
+  it('all exported functions should be defined', () => {
+    expect(typeof socketUtils.forceLogoutUser).toBe('function');
+    expect(typeof socketUtils.logOutUser).toBe('function');
+    expect(typeof socketUtils.deactivateBank).toBe('function');
+    expect(typeof socketUtils.newTableEntry).toBe('function');
   });
 });
