@@ -62,10 +62,10 @@ const getCompanyBySearchDao = async (
         "Company".created_at,
         "Company".updated_at,
         "Company".first_name || ' ' || "Company".last_name AS company_name,
-        "Company".config->>'created_by' AS created_by,
-        "Company".config->>'updated_by' AS updated_by,
-        ("Company".config->>'authorized')::boolean AS authorized,
-        ("Company".config->>'is_enabled')::boolean AS is_enabled
+        COALESCE("Company".config->>'created_by', '') AS created_by,
+        COALESCE("Company".config->>'updated_by', '') AS updated_by,
+        COALESCE(("Company".config->>'authorized')::boolean, false) AS authorized,
+        COALESCE(("Company".config->>'is_enabled')::boolean, true) AS is_enabled
       FROM "Company"
       WHERE 1=1 
         AND "Company".is_obsolete = false 
