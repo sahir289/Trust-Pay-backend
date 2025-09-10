@@ -1807,10 +1807,10 @@ export const getPayinsSumAndCountByStatusDao = async (filters) => {
 
     // Handle company_id filter using helper function
     const companyCondition = buildCompanyIdCondition(
-      filters.company_id,
+      filters?.company_id,
       paramIndex,
     );
-    if (companyCondition.condition) {
+    if (companyCondition?.condition) {
       conditions.push(`p.${companyCondition.condition}`);
       queryParams.push(...companyCondition.params);
       paramIndex = companyCondition.paramIndex;
@@ -1819,7 +1819,7 @@ export const getPayinsSumAndCountByStatusDao = async (filters) => {
     const statusQuery = `
       SELECT DISTINCT status
       FROM public."Payin"
-      WHERE is_obsolete = false ${companyCondition.condition ? `AND ${companyCondition.condition}` : ''}
+      WHERE is_obsolete = false ${companyCondition?.condition ? `AND ${companyCondition.condition}` : ''}
     `;
     const statusResult = await executeQuery(statusQuery, queryParams.slice());
     const validStatuses = statusResult.rows.map((row) => row.status);
@@ -1856,22 +1856,11 @@ export const getPayinsSumAndCountByStatusDao = async (filters) => {
       FROM (
         SELECT unnest($${paramIndex}::text[]) AS status
       ) s
-      LEFT JOIN public."Payin" p ON p.status = s.status AND p.is_obsolete = false
+      LEFT JOIN public."Payin" p ON p.status = s.status AND ${conditions.join(' AND ')}
+      GROUP BY s.status
     `;
 
-    // Add company_id condition to the main query if it exists
-    if (companyCondition.condition) {
-      queryText += ` AND p.${companyCondition.condition}`;
-      queryParams.push(validStatuses, ...companyCondition.params);
-      paramIndex += companyCondition.params.length + 1;
-    } else {
-      queryParams.push(validStatuses);
-      paramIndex++;
-    }
-
-    queryText += ' WHERE (' + conditions.join(' AND ') + ')';
-
-    queryText += ` GROUP BY s.status`;
+    queryParams.push(validStatuses);
 
     const result = await executeQuery(queryText, queryParams);
 
