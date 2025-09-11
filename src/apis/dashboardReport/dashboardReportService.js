@@ -83,27 +83,49 @@ const gatherDataForCompany = async (
           subMerchantIds.add(subMerchantId),
         );
       });
-  
       for (const merch of merchants) {
+        let totalPayinAmount = 0;
+        let totalPayinCount = 0;
+        let totalPayoutAmount = 0;
+        let totalPayoutCount = 0;
         const calculationData = await getCalculationDashBoardReportDao({
           user_id: merch.user_id,
           company_id,
           sDate,
           eDate,
         });
-        let totalPayinAmount = 0;
-        let totalPayinCount = 0;
-        let totalPayoutAmount = 0;
-        let totalPayoutCount = 0;
-  
         for (const data of calculationData) {
           totalPayinAmount += data.total_payin_amount || 0;
           totalPayinCount += data.total_payin_count || 0;
           totalPayoutAmount += data.total_payout_amount || 0;
           totalPayoutCount += data.total_payout_count || 0;
         }
-  
-        // if (!subMerchantIds.has(merch.user_id)) {
+        const merchantHier = await getUserHierarchysDashBoardReportDao({
+          user_id: merch.user_id,
+          company_id,
+        });
+        const subMerchants =
+          merchantHier.length > 0
+            ? merchantHier[0]?.config?.siblings?.sub_merchants || []
+            : [];
+        if (subMerchants.length > 0) {
+          for (const subMerchantId of subMerchants) {
+            const subMerchantCalculationData =
+              await getCalculationDashBoardReportDao({
+                user_id: subMerchantId,
+                company_id,
+                sDate,
+                eDate,
+              });
+            for (const data of subMerchantCalculationData) {
+              totalPayinAmount += data.total_payin_amount || 0;
+              totalPayinCount += data.total_payin_count || 0;
+              totalPayoutAmount += data.total_payout_amount || 0;
+              totalPayoutCount += data.total_payout_count || 0;
+            }
+          }
+        }
+        if (!subMerchantIds.has(merch.user_id)) {
           merchant.push({
             merchantId: merch.code,
             totalPayin: totalPayinAmount,
@@ -111,9 +133,9 @@ const gatherDataForCompany = async (
             totalPayout: totalPayoutAmount,
             totalPayoutCount,
           });
-        // }
         totalpayinsMerchant += totalPayinAmount;
         totalpayoutsMerchant += totalPayoutAmount;
+        }
         merchant.sort((a, b) => a.merchantId.localeCompare(b.merchantId));
       }
       let vendorObjpayIn = {};
