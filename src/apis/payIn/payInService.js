@@ -1521,10 +1521,15 @@ export const processPayInService = async (
         })) || {};
     }
 
-    if (bank && bank.config.is_freeze === true && !designation) {
+    let botBank;
+    if (bankResponse && bankResponse.bank_id) {
+      [botBank] = await getBankaccountDao({ id: bankResponse.bank_id, company_id: payIn.company_id });
+    }
+
+    if ((botBank && botBank?.config?.is_freeze === true) && !designation) {
       bankResponse = {};
     }
-    else if ((bank && bank.config.is_freeze === true) && (designation && designation !== Role.ADMIN)) {
+    else if ((botBank && botBank?.config?.is_freeze === true) && (designation && designation !== Role.ADMIN)) {
       return { message: `Bank Account is freezed. Please contact admin` };
     }
 
