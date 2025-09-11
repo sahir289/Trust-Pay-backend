@@ -476,10 +476,10 @@ const getClaimResponseDao = async (filters) => {
           OR br.status = '/freezed'
           AND br.company_id = $3
           AND br.is_obsolete = false
-          ${bankFilter}
-          ${vendorFilter}
         WHERE ba.company_id = $3
           AND ba.bank_used_for = 'PayIn'
+          ${bankFilter}
+          ${vendorFilter}
         GROUP BY ba.bank_name, ba.nick_name
       )
 
