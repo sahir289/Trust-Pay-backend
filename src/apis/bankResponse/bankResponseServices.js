@@ -344,7 +344,7 @@ const createBankResponseService = async (
           role,
         );
 
-        if (isBankExist && isBankExist[0].config.is_freeze === true && role !== Role.ADMIN) {
+        if (isBankExist && (isBankExist[0]?.config?.is_freeze === true || isBankExist[0]?.freezed === 'true') && role !== Role.ADMIN) {
           await commit(localConn);
           // if (shouldRelease) localConn.release();
           return { message: `Entry Created Successfully. But as Bank Account is freezed entry is not paired. Please contact admin` };
@@ -877,7 +877,7 @@ const getBankResponseService = async (
       }
     };
 
-    if (designation === Role.VENDOR) {
+    if (designation === Role.VENDOR && !filters.bank_id) {
       filters.bank_id = await fetchBankIds(user_id);
     } else if (designation === Role.VENDOR_OPERATIONS) {
       const userHierarchys = await getUserHierarchysDao({ user_id });

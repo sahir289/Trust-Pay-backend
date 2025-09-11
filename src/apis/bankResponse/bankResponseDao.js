@@ -701,7 +701,6 @@ const getBankResponseDaoAll = async (
       ON ba.user_id = v.user_id
       LEFT JOIN "Payin"
       ON br.id = "Payin".bank_response_id
-      AND br.is_used = true
       LEFT JOIN "Merchant"
       ON "Payin".merchant_id = "Merchant".id
       WHERE ba.user_id = ANY($1)
