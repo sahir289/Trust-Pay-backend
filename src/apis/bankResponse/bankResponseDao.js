@@ -438,8 +438,7 @@ const getClaimResponseDao = async (filters) => {
         FROM "BankResponse" br
         LEFT JOIN "BankAccount" ba ON br.bank_id = ba.id
         WHERE br.is_used = false
-          AND br.status = '/success'
-          OR br.status = '/freezed'
+          AND (br.status = '/success' OR br.status = '/freezed')
           AND br.created_at BETWEEN $1 AND $2
           AND br.company_id = $3
           AND br.is_obsolete = false
@@ -454,8 +453,7 @@ const getClaimResponseDao = async (filters) => {
         FROM "BankResponse" br
         LEFT JOIN "BankAccount" ba ON br.bank_id = ba.id
         WHERE br.is_used = false
-          AND br.status = '/success'
-          OR br.status = '/freezed'
+          AND (br.status = '/success' OR br.status = '/freezed')
           AND br.company_id = $3
           AND br.is_obsolete = false
           AND ba.bank_used_for = 'PayIn'
@@ -471,13 +469,11 @@ const getClaimResponseDao = async (filters) => {
         FROM "BankAccount" ba
         LEFT JOIN "BankResponse" br
           ON ba.id = br.bank_id
-          AND br.is_used = false
-          AND br.status = '/success'
-          OR br.status = '/freezed'
-          AND br.company_id = $3
-          AND br.is_obsolete = false
         WHERE ba.company_id = $3
           AND ba.bank_used_for = 'PayIn'
+          AND br.is_used = false
+          AND (br.status = '/success' OR br.status = '/freezed')
+          AND br.is_obsolete = false
           ${bankFilter}
           ${vendorFilter}
         GROUP BY ba.bank_name, ba.nick_name
