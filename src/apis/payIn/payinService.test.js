@@ -729,8 +729,8 @@ describe('processPayInService', () => {
     payInService.getPayInUrlService.mockResolvedValue(mockPayIn);
     getPayInForCheckDao.mockResolvedValue([]); // No duplicates
     getBankaccountDao
-      .mockResolvedValueOnce([{ id: 'BANK123', user_id: 'USER123', nick_name: 'Bank1' }])
-      .mockResolvedValueOnce([{ id: 'BANK456', user_id: 'USER456', nick_name: 'Bank2' }]);
+      .mockResolvedValueOnce([{ id: 'BANK123', user_id: 'USER123', nick_name: 'Bank1', config: { is_freeze: false } }])
+      .mockResolvedValueOnce([{ id: 'BANK456', user_id: 'USER456', nick_name: 'Bank2', config: { is_freeze: false } }]);
     getVendorsDao.mockResolvedValue([{ id: 'VENDOR123', code: 'VENDOR_CODE' }]);
     getBankResponseDao.mockResolvedValue({ id: 'RESPONSE123', bank_id: 'BANK456', utr: 'UTR123456', amount: 1000 });
     updatePayInUrlDao.mockResolvedValue();
@@ -784,23 +784,197 @@ describe('processPayInService', () => {
     });
   });
 
+  test('should throw NotFoundError if bank is missing', async () => {
+    const payload = {
+      ...mockPayload,
+      from_telegram: false,
+    };
+    const mockVendor = {
+      id: 'vendor_123',
+      user_id: 'user_456',
+      first_name: 'John',
+      last_name: 'Doe',
+      code: 'VENDOR001',
+      payin_commission: 2.5, // Example commission percentage
+      payout_commission: 1.5,
+      created_at: '2025-01-01T10:00:00Z',
+      updated_at: '2025-09-01T12:00:00Z',
+      config: {}, // Config object, can be customized if needed
+      full_name: 'John Doe',
+      designation_name: 'VENDOR',
+      balance: 1000.0, // Example balance
+    };
+  
+    getPayinsForServiccDao.mockResolvedValue(mockPayIn);
+    payInService.getPayInUrlService.mockResolvedValue(mockPayInProcess);
+    getPayInForCheckDao.mockResolvedValue([]);
+    getBankaccountDao.mockResolvedValue([]); // No bank found
+    getVendorsDao.mockResolvedValue([mockVendor]);
+  
+    await expect(
+      payInService.processPayInService(mockConn, payload, mockUpdatedBy)
+    ).rejects.toThrow(NotFoundError);
+  });
+
   test('should throw BadRequestError for missing telegram parameters', async () => {
     const invalidPayload = {
       ...mockPayload,
       from_telegram: true,
       telegramBotToken: null,
-      telegramMessage: null, 
+      telegramMessage: null,
+    };
+    const mockVendor = {
+      id: 'vendor_123',
+      user_id: 'user_456',
+      first_name: 'John',
+      last_name: 'Doe',
+      code: 'VENDOR001',
+      payin_commission: 2.5, // Example commission percentage
+      payout_commission: 1.5,
+      created_at: '2025-01-01T10:00:00Z',
+      updated_at: '2025-09-01T12:00:00Z',
+      config: {}, // Config object, can be customized if needed
+      full_name: 'John Doe',
+      designation_name: 'VENDOR',
+      balance: 1000.0, // Example balance
     };
   
+    // Mock dependencies
     getPayinsForServiccDao.mockResolvedValue(mockPayIn);
     payInService.getPayInUrlService.mockResolvedValue(mockPayInProcess);
-    getPayInForCheckDao.mockResolvedValue([]); 
+    getPayInForCheckDao.mockResolvedValue([]);
+    getBankaccountDao.mockResolvedValue([{ ...mockPayIn.bank_acc_id, config: { is_freeze: false } }]); // Mock bank with config
+    getVendorsDao.mockResolvedValue([mockVendor]);
   
     await expect(
       payInService.processPayInService(mockConn, invalidPayload, mockUpdatedBy)
     ).rejects.toThrow(BadRequestError);
   });
+
+  test('should process successfully when designation is ADMIN and bank is frozen', async () => {
+    const mockPayIn = {
+      ...mockPayInProcess,
+      status: 'PENDING',
+      bank_acc_id: 'BANK123',
+      company_id: 'COMPANY123',
+    };
+    const mockPayload = {
+      merchantOrderId: 'ORDER123',
+      userSubmittedUtr: 'UTR123456',
+      amount: 1000,
+      from_telegram: false,
+    };
+    const mockBankFrozen = {
+      ...mockBank,
+      config: { is_freeze: true },
+    };
+
+    getPayinsForServiccDao.mockResolvedValue(mockPayIn);
+    payInService.getPayInUrlService.mockResolvedValue(mockPayIn);
+    getPayInForCheckDao.mockResolvedValue([]); // No duplicates
+    getBankaccountDao.mockResolvedValue([mockBankFrozen]);
+    getBankResponseDao.mockResolvedValue({ id: 'RESPONSE123', bank_id: 'BANK123', utr: 'UTR123456', amount: 1000 });
+    updatePayInUrlDao.mockResolvedValue();
+    merchantPayinCallback.mockImplementation(() => {});
+
+    const result = await payInService.processPayInService(mockConn, mockPayload, mockUpdatedBy, true, false, 'ADMIN');
+
+    expect(updatePayInUrlDao).toHaveBeenCalledWith(
+      mockPayIn.id,
+      expect.objectContaining({ status: 'SUCCESS' }),
+      mockConn
+    );
+    expect(result).toEqual(expect.objectContaining({
+      status: 'SUCCESS',
+      merchantOrderId: 'ORDER123',
+      payinId: 'PAYIN123',
+      amount: 1000,
+      req_amount: 1000,
+      utr_id: 'UTR123456',
+    }));
+    expect(merchantPayinCallback).toHaveBeenCalled();
+  });
+
+  test('should throw error when designation is not ADMIN and bank is frozen', async () => {
+    const mockPayIn = {
+      ...mockPayInProcess,
+      status: 'PENDING',
+      bank_acc_id: 'BANK123',
+      company_id: 'COMPANY123',
+    };
+    const mockPayload = {
+      merchantOrderId: 'ORDER123',
+      userSubmittedUtr: 'UTR123456',
+      amount: 1000,
+      from_telegram: false,
+    };
+    const mockBankFrozen = {
+      ...mockBank,
+      config: { is_freeze: true },
+    };
+
+    getPayinsForServiccDao.mockResolvedValue(mockPayIn);
+    payInService.getPayInUrlService.mockResolvedValue(mockPayIn);
+    getPayInForCheckDao.mockResolvedValue([]); // No duplicates
+    getBankaccountDao.mockResolvedValue([mockBankFrozen]);
+
+    await expect(
+      payInService.processPayInService(mockConn, mockPayload, mockUpdatedBy, true, false, 'USER')
+    ).resolves.toEqual({
+      message: 'Bank Account is freezed. Please contact admin',
+    });
+
+    expect(getBankaccountDao).toHaveBeenCalledWith({
+      id: mockPayIn.bank_acc_id,
+      company_id: mockPayIn.company_id,
+    });
+    expect(updatePayInUrlDao).not.toHaveBeenCalled();
+  });
+
+  test('should do nothing when designation is not provided and bank is frozen', async () => {
+    const mockPayIn = {
+      ...mockPayInProcess,
+      status: 'PENDING',
+      bank_acc_id: 'BANK123',
+      company_id: 'COMPANY123',
+    };
+    const mockPayload = {
+      merchantOrderId: 'ORDER123',
+      userSubmittedUtr: 'UTR123456',
+      amount: 1000,
+      from_telegram: false,
+    };
+    const mockBankFrozen = {
+      ...mockBank,
+      config: { is_freeze: true },
+    };
+
+    getPayinsForServiccDao.mockResolvedValue(mockPayIn);
+    payInService.getPayInUrlService.mockResolvedValue(mockPayIn);
+    getPayInForCheckDao.mockResolvedValue([]); // No duplicates
+    getBankaccountDao.mockResolvedValue([mockBankFrozen]);
+    getBankResponseDao.mockResolvedValue({}); // Empty bank response
+    updatePayInUrlDao.mockResolvedValue();
+    merchantPayinCallback.mockImplementation(() => {});
+
+    const result = await payInService.processPayInService(mockConn, mockPayload, mockUpdatedBy, true, false);
+
+    expect(updatePayInUrlDao).toHaveBeenCalledWith(
+      mockPayIn.id,
+      expect.objectContaining({ status: 'PENDING' }),
+      mockConn
+    );
+    expect(result).toEqual(expect.objectContaining({
+      status: 'PENDING',
+      merchantOrderId: 'ORDER123',
+      payinId: 'PAYIN123',
+      req_amount: 1000,
+      utr_id: 'UTR123456',
+    }));
+    expect(merchantPayinCallback).toHaveBeenCalled();
+  });
 });
+
 
 // processPayInByImageService Tests
 describe('processPayInByImageService', () => {

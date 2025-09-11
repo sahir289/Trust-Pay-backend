@@ -181,6 +181,7 @@ import {
           nick_name: 'unique',
           bank_used_for: 'PayIn',
           is_phonepay: true,
+          is_staticQR: false,
           is_intent: true,
           other: 'data'
         };
@@ -193,7 +194,7 @@ import {
           nick_name: 'unique',
           bank_used_for: 'PayIn',
           other: 'data',
-          config: { merchants: [], is_phonepay: true, is_intent: true },
+          config: { merchants: [], is_phonepay: true, is_staticQR: false, is_intent: true },
           created_by: 'user1',
           updated_by: 'user1',
           company_id: 'comp1',

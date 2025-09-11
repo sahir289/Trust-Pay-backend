@@ -10,11 +10,13 @@ jest.mock('../utils/logger.js', () => ({
   },
 }));
 jest.mock('../utils/redisClient.js');
+jest.mock('../apis/bankHistory/bankHistorySevice.js');
 
 // ✅ now import modules
 import collectBankData from './bankCron.js';
 import { getConnection } from '../utils/db.js';
 import { logger } from '../utils/logger.js';
+import { createBankHistoryService } from '../apis/bankHistory/bankHistorySevice.js';
 
 describe('collectBankData', () => {
   let mockConn;
@@ -29,9 +31,20 @@ describe('collectBankData', () => {
   });
 
   it('should update today_balance and payin_count for all bank accounts', async () => {
+    // Mock dependencies
+    getConnection.mockResolvedValue(mockConn);
+    mockConn.query.mockResolvedValue(); // Mock query to resolve successfully
+    mockConn.release.mockResolvedValue(); // Mock release to resolve
+    createBankHistoryService.mockResolvedValue([]); // Mock service to resolve
+    logger.info.mockReturnValue(); // Mock logger
+    logger.error.mockReturnValue();
+
+    // Call the function
     await collectBankData('Asia/Kolkata');
 
-    expect(getConnection).toHaveBeenCalled();
+    // Assertions
+    expect(getConnection).toHaveBeenCalledWith('writer');
+    expect(createBankHistoryService).toHaveBeenCalledWith(mockConn);
     expect(mockConn.query).toHaveBeenCalledWith(
       'UPDATE public."BankAccount" SET today_balance = 0 , payin_count = 0 '
     );
@@ -40,6 +53,7 @@ describe('collectBankData', () => {
       expect.any(Object)
     );
     expect(mockConn.release).toHaveBeenCalled();
+    expect(logger.error).not.toHaveBeenCalled(); // Ensure no errors occurred
   });
 
   it('should log error if query fails', async () => {

@@ -205,7 +205,7 @@ const {
         const result = await createBankResponseService(payload, '123', 'MERCHANT', 'test_user');
   
         expect(createBankResponseDao).toHaveBeenCalled();
-        expect(result).toEqual({ message: 'Entry with REPEATED UTR Added utr123' });
+        expect(result).toEqual({ message: 'Entry with REPEATED UTR: utr123 Added' });
       });
   
       it('should handle repeated Amount Code', async () => {
@@ -216,7 +216,7 @@ const {
         const result = await createBankResponseService(payload, '123', 'MERCHANT', 'test_user');
   
         expect(createBankResponseDao).toHaveBeenCalled();
-        expect(result).toEqual({ message: 'Entry with REPEATED AMOUNT CODE Added amt12' });
+        expect(result).toEqual({ message: 'Entry with REPEATED AMOUNT CODE: amt12 Added' });
       });
   
       it('should throw error for invalid amount', async () => {

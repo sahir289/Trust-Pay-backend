@@ -190,6 +190,7 @@ const getClientsAccountReportService = async (req) => {
             }
           } catch (error) {
             logger.error('Error fetching user hierarchy:', error);
+            throw error
           }
         }
       }
