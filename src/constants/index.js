@@ -528,6 +528,7 @@ export const vendorColumns = {
     'bank_id',
     'amount',
     'utr',
+    'is_used',
   ],
   VENDOR: [
     'first_name',
