@@ -56,6 +56,7 @@ import {
 import {
   getBankResponseDao,
   getBankResponseDaoById,
+  getBankResponsePendingDao,
   updateBankResponseDao,
   updateBotResponseDao,
 } from '../bankResponse/bankResponseDao.js';
@@ -2496,7 +2497,7 @@ export const checkPendingPayinStatusService = async (
         utr: currentPayin.user_submitted_utr,
         company_id,
       };
-      const botRes = await getBankResponseDao(botResFilters);
+      const botRes = await getBankResponsePendingDao(botResFilters);
       let bot = [botRes];
       if (botRes) {
         const bankResponse = bot[0];
@@ -2606,7 +2607,7 @@ export const checkPendingPayinStatusService = async (
             status: Status.SUCCESS,
             is_notified: true,
             user_submitted_utr: botRes.utr,
-            // approved_at: new Date(),
+            approved_at: new Date(),
             duration: duration,
             payin_merchant_commission: payinMerchantCommission,
             payin_vendor_commission: payinVendorCommission,
