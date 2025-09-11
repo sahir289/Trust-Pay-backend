@@ -298,7 +298,7 @@ ${merchantDetails}`;
 
     return allSuccess;
   } catch (error) {
-    logger.error('Error in sendTelegramMerchantDashboardReportMessage:', error);
+    logger.error('Error in sendTelegramMerchantDashboardReportMessage:', error.message);
     return false;
   }
 }
@@ -371,7 +371,7 @@ ${vendorDetails}`;
 
     return allSuccess;
   } catch (error) {
-    logger.error('Error in sendTelegramVendorDashboardReportMessage:', error);
+    logger.error('Error in sendTelegramVendorDashboardReportMessage:', error.message);
     return false;
   }
 }
@@ -530,7 +530,7 @@ export async function sendTelegramDashboardSuccessRatioMessage(
               } catch (error) {
                 logger.error(
                   `Failed to send message for ${merchantCode}:`,
-                  error,
+                  error.message,
                 );
                 return false;
               }
@@ -550,7 +550,7 @@ export async function sendTelegramDashboardSuccessRatioMessage(
 
     logger.info('Finished sending all messages to Telegram');
   } catch (error) {
-    logger.error('Error in sendTelegramDashboardSuccessRatioMessage:', error);
+    logger.error('Error in sendTelegramDashboardSuccessRatioMessage:', error.message);
     throw error;
   }
 }
@@ -917,7 +917,7 @@ export async function sendBankNotAssignedAlertTelegram(
     );
     logger.log(success ? 'Sent!' : 'Not sent.');
   } catch (error) {
-    logger.error('Error sending bank not assigned alert to Telegram:', error);
+    logger.error('Error sending bank not assigned alert to Telegram:', error.message);
   }
 }
 
