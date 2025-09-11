@@ -578,6 +578,49 @@ const getBankResponsesforFreeze = async (filters) => {
     throw error;
   }
 };
+export const getBankResponsePendingDao = async (filters) => {
+  try {
+    const sql = `
+      SELECT 
+        br.id,
+        br.amount,
+        br.utr,
+        br.bank_id,
+        br.company_id,
+        br.status,
+        br.is_used,
+        br.created_at,
+        ba.config
+      FROM "${tableName.BANK_RESPONSE}" br
+      INNER JOIN "${tableName.BANK_ACCOUNT}" ba 
+        ON br.bank_id = ba.id
+      WHERE 1=1
+        AND (
+          ba.config IS NULL
+          OR ba.config->>'is_freeze' IS NULL
+          OR (ba.config->>'is_freeze')::boolean = false
+        )
+        AND br.is_obsolete = false
+        AND br.is_used = $1
+        AND br.status = $2
+        AND br.utr = $3
+        AND br.company_id = $4
+      ORDER BY br.created_at DESC
+    `;
+    const params = [
+      filters.is_used,
+      filters.status,
+      filters.utr,
+      filters.company_id,
+    ];
+
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error getting BankResponse:', error);
+    throw error;
+  }
+};
 
 const getBankResponseDaoAll = async (
   filters,
