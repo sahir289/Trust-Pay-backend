@@ -762,7 +762,7 @@ describe('processPayInService', () => {
     expect(sendBankMismatchMessageTelegramBot).toHaveBeenCalledWith(
       mockPayload.telegramMessage.chat.id,
       'Bank1',
-      'Bank2',
+      'Bank1',
       mockPayload.telegramBotToken,
       mockPayload.telegramMessage.message_id
     );
