@@ -476,10 +476,10 @@ const getClaimResponseDao = async (filters) => {
           OR br.status = '/freezed'
           AND br.company_id = $3
           AND br.is_obsolete = false
-          ${bankFilter}
-          ${vendorFilter}
         WHERE ba.company_id = $3
           AND ba.bank_used_for = 'PayIn'
+          ${bankFilter}
+          ${vendorFilter}
         GROUP BY ba.bank_name, ba.nick_name
       )
 
@@ -701,7 +701,6 @@ const getBankResponseDaoAll = async (
       ON ba.user_id = v.user_id
       LEFT JOIN "Payin"
       ON br.id = "Payin".bank_response_id
-      AND br.is_used = true
       LEFT JOIN "Merchant"
       ON "Payin".merchant_id = "Merchant".id
       WHERE ba.user_id = ANY($1)
