@@ -316,7 +316,7 @@ export const getMerchantsForDashboardReportDao = async (
   try {
     const selectColumns = `
       user_id,
-      code
+      COALESCE(config->>'sub_code', code) AS code
     `;
     const [sql, params] = buildSelectQuery(
       `SELECT ${selectColumns} FROM "${tableName.MERCHANT}" WHERE 1=1`,
