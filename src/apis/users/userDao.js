@@ -8,6 +8,7 @@ import {
   buildInsertQuery,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
+import esClient from '../../utils/elasticClient.js';
 
 export const getUsersContactDao = async (company_id, contact_no) => {
   try {
@@ -163,7 +164,7 @@ export const getUsersBySearchDao = async (
 
     let queryText;
 
-    if (role !== Role.Admin) {
+    if (role !== Role.ADMIN) {
       queryText = `
       SELECT 
         "User".id,
@@ -441,7 +442,15 @@ const createUserDao = async (payload, conn) => {
       `User with username: ${payload.user_name} created successfully`,
     );
 
-    return result.rows[0];
+    const insertedUser = result.rows[0];
+
+    await esClient.index({
+      index: 'users',
+      id: insertedUser.id,
+      document: insertedUser
+    });
+
+    return insertedUser;
   } catch (error) {
     logger.error(`Error creating user: ${payload.user_name}`, error);
     throw error;
