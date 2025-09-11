@@ -214,19 +214,19 @@ const getBankResponseBySearchDao = async (
             //   )
             // `);
             searchConditions.push(`
-             (
-  "BankResponse".id::text ILIKE $${paramIndex}
-  OR "BankResponse".status ILIKE $${paramIndex}
-  OR "BankResponse".bank_id::text ILIKE $${paramIndex}
-  OR "BankResponse".amount::text ILIKE $${paramIndex}
-  OR "BankResponse".upi_short_code ILIKE $${paramIndex}
-  OR "BankResponse".utr ILIKE $${paramIndex}
-  OR "BankResponse".sno::text ILIKE $${paramIndex}
-  OR "BankResponse".created_by ILIKE $${paramIndex}
-  OR "BankResponse".updated_by ILIKE $${paramIndex}
-  OR "BankAccount".user_id::text ILIKE $${paramIndex}
-  OR "BankAccount".nick_name ILIKE $${paramIndex}
-)
+              (
+                "BankResponse".id::text ILIKE $${paramIndex}
+                OR "BankResponse".status ILIKE $${paramIndex}
+                OR "BankResponse".bank_id::text ILIKE $${paramIndex}
+                OR "BankResponse".amount::text ILIKE $${paramIndex}
+                OR "BankResponse".upi_short_code ILIKE $${paramIndex}
+                OR "BankResponse".utr ILIKE $${paramIndex}
+                OR "BankResponse".sno::text ILIKE $${paramIndex}
+                OR "BankResponse".created_by ILIKE $${paramIndex}
+                OR "BankResponse".updated_by ILIKE $${paramIndex}
+                OR "BankAccount".user_id::text ILIKE $${paramIndex}
+                OR "BankAccount".nick_name ILIKE $${paramIndex}
+              )
             `);
             values.push(likeVal);
             paramIndex++;
@@ -427,6 +427,7 @@ const getClaimResponseDao = async (filters) => {
           AND br.created_at BETWEEN $1 AND $2
           AND br.company_id = $3
           AND br.is_obsolete = false
+          AND ba.bank_used_for = 'PayIn'
           ${bankFilter}
           ${vendorFilter}
       ),
@@ -438,9 +439,11 @@ const getClaimResponseDao = async (filters) => {
         LEFT JOIN "BankAccount" ba ON br.bank_id = ba.id
         WHERE br.is_used = false
           AND br.status = '/success'
+          OR br.status = '/freezed'
           AND br.created_at BETWEEN $1 AND $2
           AND br.company_id = $3
           AND br.is_obsolete = false
+          AND ba.bank_used_for = 'PayIn'
           ${bankFilter}
           ${vendorFilter}
       ),
@@ -452,8 +455,10 @@ const getClaimResponseDao = async (filters) => {
         LEFT JOIN "BankAccount" ba ON br.bank_id = ba.id
         WHERE br.is_used = false
           AND br.status = '/success'
+          OR br.status = '/freezed'
           AND br.company_id = $3
           AND br.is_obsolete = false
+          AND ba.bank_used_for = 'PayIn'
           ${bankFilter}
           ${vendorFilter}
       ),
@@ -468,12 +473,13 @@ const getClaimResponseDao = async (filters) => {
           ON ba.id = br.bank_id
           AND br.is_used = false
           AND br.status = '/success'
+          OR br.status = '/freezed'
           AND br.company_id = $3
           AND br.is_obsolete = false
+        WHERE ba.company_id = $3
           AND ba.bank_used_for = 'PayIn'
           ${bankFilter}
           ${vendorFilter}
-        WHERE ba.company_id = $3
         GROUP BY ba.bank_name, ba.nick_name
       )
 
@@ -738,7 +744,6 @@ const getBankResponseDaoAll = async (
       ON ba.user_id = v.user_id
       LEFT JOIN "Payin"
       ON br.id = "Payin".bank_response_id
-      AND br.is_used = true
       LEFT JOIN "Merchant"
       ON "Payin".merchant_id = "Merchant".id
       WHERE ba.user_id = ANY($1)

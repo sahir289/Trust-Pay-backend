@@ -8,7 +8,7 @@ import {
 } from '../../utils/db.js';
 import { Role, Status, tableName } from '../../constants/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
-import { NotFoundError } from '../../utils/appErrors.js';
+import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
 import dayjs from 'dayjs';
 import { logger } from '../../utils/logger.js';
 
@@ -133,6 +133,31 @@ const getCalculationDao = async (
     return result.rows;
   } catch (error) {
     logger.error('Error fetching Calculation', error);
+    throw error;
+  }
+};
+export const getCalculationDashBoardReportDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      total_payin_amount,
+      total_payin_count,
+      total_payout_amount,
+      total_payout_count
+    `;
+    const { user_id, company_id, sDate, eDate } = filters;
+    if (!user_id || !company_id || !sDate || !eDate) {
+      throw new BadRequestError(
+        'user_id, company_id, sDate, and eDate are required',
+      );
+    }
+    let baseQuery = `SELECT ${selectColumns} FROM "${tableName.CALCULATION}" WHERE 1=1`;
+    const queryFilters = { user_id, company_id };
+    baseQuery += ` AND created_at BETWEEN '${new Date(sDate).toISOString()}'::TIMESTAMPTZ AND '${new Date(eDate).toISOString()}'::TIMESTAMPTZ`;
+    const [sql, params] = buildSelectQuery(baseQuery, queryFilters);
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error getting calculation data:', error);
     throw error;
   }
 };

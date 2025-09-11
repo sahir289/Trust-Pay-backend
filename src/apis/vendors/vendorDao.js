@@ -22,7 +22,25 @@ export const createVendorDao = async (data, conn) => {
     throw error;
   }
 };
-
+export const getVendorsDashBoardReportDao = async (
+  filters = {}
+) => {
+  try {
+    const selectColumns = `
+      user_id,
+      code
+    `;
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.VENDOR}" WHERE 1=1`,
+      filters
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error getting vendor data:', error);
+    throw error;
+  }
+};
 export const getVendorsCodeDao = async (filters, conn) => {
   try {
     const baseQuery = `

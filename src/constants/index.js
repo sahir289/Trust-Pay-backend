@@ -528,6 +528,7 @@ export const vendorColumns = {
     'bank_id',
     'amount',
     'utr',
+    'is_used',
   ],
   VENDOR: [
     'first_name',
@@ -570,6 +571,7 @@ export const tableName = {
   BENEFICIARY_ACCOUNTS: 'BeneficiaryAccounts',
   NOTIFICATIONS: 'Notifications',
   NOTIFICATION_RECIPIENTS: 'NotificationRecipients',
+  BANK_HISTORY : 'BankHistory'
 };
 
 export const BankTypes = {

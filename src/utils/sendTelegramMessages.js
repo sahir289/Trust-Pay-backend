@@ -16,6 +16,7 @@ export async function sendTelegramDashboardReportMessage(
   totalBankWithdrawalAllVendors,
   TELEGRAM_BOT_TOKEN,
   type,
+  date
 ) {
   totalBankWithdrawalAllVendors = totalBankWithdrawalAllVendors.toLocaleString(
     'en-IN',
@@ -58,7 +59,7 @@ export async function sendTelegramDashboardReportMessage(
   endHour = endHour % 12 || 12;
 
   const formattedTime = `${startHour}${startAmpm}-${endHour}${endAmpm}`;
-  const timeStamp = type === 'Hourly Report' ? formattedTime : currentDate;
+  const timeStamp = type === 'Hourly Report' ? formattedTime  : date ? date : currentDate;
 
   const merchantPayInDetails = merchant
     .filter((m) => m.totalPayin !== 0)
