@@ -8,7 +8,7 @@ import {
   buildInsertQuery,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
-import esClient from '../../utils/elasticClient.js';
+// import esClient from '../../utils/elasticClient.js';
 
 export const getUsersContactDao = async (company_id, contact_no) => {
   try {
@@ -444,11 +444,11 @@ const createUserDao = async (payload, conn) => {
 
     const insertedUser = result.rows[0];
 
-    await esClient.index({
-      index: 'users',
-      id: insertedUser.id,
-      document: insertedUser
-    });
+    // await esClient.index({
+    //   index: 'users',
+    //   id: insertedUser.id,
+    //   document: insertedUser
+    // });
 
     return insertedUser;
   } catch (error) {
