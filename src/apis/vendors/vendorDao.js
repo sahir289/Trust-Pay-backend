@@ -22,6 +22,26 @@ export const createVendorDao = async (data, conn) => {
     throw error;
   }
 };
+export const getVendorsBankReponseDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      user_id,
+      code,
+      balance,
+      payin_commission
+    `;
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.VENDOR}" WHERE 1=1`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error fetching vendor data:', error);
+    throw error;
+  }
+};
 export const getVendorsDashBoardReportDao = async (
   filters = {}
 ) => {
