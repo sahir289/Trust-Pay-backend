@@ -438,8 +438,7 @@ const getClaimResponseDao = async (filters) => {
         FROM "BankResponse" br
         LEFT JOIN "BankAccount" ba ON br.bank_id = ba.id
         WHERE br.is_used = false
-          AND br.status = '/success'
-          OR br.status = '/freezed'
+          AND (br.status = '/success' OR br.status = '/freezed')
           AND br.created_at BETWEEN $1 AND $2
           AND br.company_id = $3
           AND br.is_obsolete = false
@@ -454,8 +453,7 @@ const getClaimResponseDao = async (filters) => {
         FROM "BankResponse" br
         LEFT JOIN "BankAccount" ba ON br.bank_id = ba.id
         WHERE br.is_used = false
-          AND br.status = '/success'
-          OR br.status = '/freezed'
+          AND (br.status = '/success' OR br.status = '/freezed')
           AND br.company_id = $3
           AND br.is_obsolete = false
           AND ba.bank_used_for = 'PayIn'
@@ -471,13 +469,11 @@ const getClaimResponseDao = async (filters) => {
         FROM "BankAccount" ba
         LEFT JOIN "BankResponse" br
           ON ba.id = br.bank_id
-          AND br.is_used = false
-          AND br.status = '/success'
-          OR br.status = '/freezed'
-          AND br.company_id = $3
-          AND br.is_obsolete = false
         WHERE ba.company_id = $3
           AND ba.bank_used_for = 'PayIn'
+          AND br.is_used = false
+          AND (br.status = '/success' OR br.status = '/freezed')
+          AND br.is_obsolete = false
           ${bankFilter}
           ${vendorFilter}
         GROUP BY ba.bank_name, ba.nick_name
@@ -575,6 +571,49 @@ const getBankResponsesforFreeze = async (filters) => {
     return result.rows;
   } catch (error) {
     logger.error('Error in getBankResponsesDao:', error);
+    throw error;
+  }
+};
+export const getBankResponsePendingDao = async (filters) => {
+  try {
+    const sql = `
+      SELECT 
+        br.id,
+        br.amount,
+        br.utr,
+        br.bank_id,
+        br.company_id,
+        br.status,
+        br.is_used,
+        br.created_at,
+        ba.config
+      FROM "${tableName.BANK_RESPONSE}" br
+      INNER JOIN "${tableName.BANK_ACCOUNT}" ba 
+        ON br.bank_id = ba.id
+      WHERE 1=1
+        AND (
+          ba.config IS NULL
+          OR ba.config->>'is_freeze' IS NULL
+          OR (ba.config->>'is_freeze')::boolean = false
+        )
+        AND br.is_obsolete = false
+        AND br.is_used = $1
+        AND br.status = $2
+        AND br.utr = $3
+        AND br.company_id = $4
+      ORDER BY br.created_at DESC
+    `;
+    const params = [
+      filters.is_used,
+      filters.status,
+      filters.utr,
+      filters.company_id,
+    ];
+
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error getting BankResponse:', error);
     throw error;
   }
 };
