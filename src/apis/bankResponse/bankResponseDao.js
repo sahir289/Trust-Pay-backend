@@ -73,6 +73,53 @@ export const getBankResponseDaoById = async (filters) => {
     throw error;
   }
 };
+export const getCheckBankResponseDao = async (
+  filters = {},
+  filterColumns = `
+    id
+  `,
+) => {
+  try {
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${filterColumns} FROM "${tableName.BANK_RESPONSE}" WHERE 1=1`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows && result.rows.length > 0;
+  } catch (error) {
+    logger.error('Error fetching bank response data:', error);
+    throw error;
+  }
+};
+
+export const getForCreateBankResponseDao = async (
+  filters = {},
+  filterColumns = `
+    id,
+    utr,
+    upi_short_code,
+    company_id,
+    is_used,
+    amount,
+    bank_id,
+    created_by,
+    updated_by,
+    created_at,
+    updated_at
+  `,
+) => {
+  try {
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${filterColumns} FROM "${tableName.BANK_RESPONSE}" WHERE 1=1`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error fetching bank response data:', error);
+    throw error;
+  }
+};
 
 const getBankResponseBySearchDao = async (
   filters,
