@@ -19,7 +19,6 @@ const {
 const { getVendorsDao } = require('../vendors/vendorDao');
 const { getCalculationforCronDao } = require('../calculation/calculationDao');
 const { getBankResponsesforFreeze } = require('../bankResponse/bankResponseDao');
-const { updateBotResponseDao } = require('../bankResponse/bankResponseDao');
 const { beginTransaction, commit, rollback, getConnection } = require('../../utils/db');
 const { BadRequestError, InternalServerError } = require('../../utils/appErrors');
 const { Role } = require('../../constants/index');
