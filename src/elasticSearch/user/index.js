@@ -7,7 +7,7 @@ export const createUsersIndex = async () => {
       index: 'users',
       body: {
         mappings: {
-          properties:  {
+          properties: {
             id: { type: 'keyword' },
             role_id: { type: 'keyword' },
             designation_id: { type: 'keyword' },
@@ -23,24 +23,22 @@ export const createUsersIndex = async () => {
             updated_by: { type: 'keyword' },
             designation: { type: 'text' },
             created_at: { type: 'date' },
-            updated_at: { type: 'date' }
-          }
-        }
-      }
+            updated_at: { type: 'date' },
+          },
+        },
+      },
     });
   }
-}
+};
 
 export const getUsersIndex = async (user) => {
   const { body } = await esClient.get({
     index: 'users',
-    id: user.id, 
+    id: user.id,
     document: {
       ...user,
-      full_name: `${user.first_name} ${user.last_name}`
-    }
+      full_name: `${user.first_name} ${user.last_name}`,
+    },
   });
   return body._source;
-} 
-
-
+};

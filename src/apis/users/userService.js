@@ -34,6 +34,7 @@ import {
 } from '../userHierarchy/userHierarchyDao.js';
 import { getMerchantByUserIdDao } from '../merchants/merchantDao.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
+// import { getUsersByESSearch } from '../../elasticSearch/user/search.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const getUsersService = async (
@@ -45,6 +46,7 @@ const getUsersService = async (
   user_id,
 ) => {
   try {
+
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.USER
@@ -498,6 +500,7 @@ const createUserService = async (conn, payload, role) => {
     // });
     return User;
   } catch (error) {
+    console.error(error);
     logger.error('Error in createUserService:', error);
 
     throw error;
