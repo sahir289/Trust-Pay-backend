@@ -32,7 +32,6 @@ export async function sendTelegramDashboardReportMessage(
       maximumFractionDigits: 2,
     },
   );
-  // Format totalpayinsMerchant and totalpayoutsMerchant with commas and two decimal places
   totalpayinsMerchant = totalpayinsMerchant.toLocaleString('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -47,17 +46,12 @@ export async function sendTelegramDashboardReportMessage(
   const istTime = new Date(
     now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }),
   );
-
   let startHour = istTime.getHours() - 1;
   let endHour = (startHour + 1) % 24;
-
   const startAmpm = startHour >= 12 ? 'PM' : 'AM';
   const endAmpm = endHour >= 12 ? 'PM' : 'AM';
-
-  // Convert hours to 12-hour format
   startHour = startHour % 12 || 12;
   endHour = endHour % 12 || 12;
-
   const formattedTime = `${startHour}${startAmpm}-${endHour}${endAmpm}`;
   const timeStamp = type === 'Hourly Report' ? formattedTime  : date ? date : currentDate;
 
@@ -105,23 +99,21 @@ export async function sendTelegramDashboardReportMessage(
               maximumFractionDigits: 2,
             })} (${bank.TotalCount})`,
         )
-        .join('\n'); // join each bank with a new line
-      // Calculate total deposit for all banks for this vendor
+        .join('\n');
       const totalBankDeposit = filteredBanks.reduce(
         (sum, bank) => sum + (bank.TotalDeposit || 0),
         0,
       );
-      const totalBankDepositStr = totalBankDeposit.toLocaleString('en-IN', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-      // Place total on a new line after vendor name, before bank list
       return bankDetails
-        ? `${index + 1}. ${vendorCode}:  ₹ ${totalBankDepositStr}\n${bankDetails}`
-        : '';
+        ? {
+            vendorCode,
+            total: totalBankDeposit,
+            details: bankDetails,
+            index: index + 1,
+          }
+        : null;
     })
-    .filter(Boolean)
-    .join('\n\n');
+    .filter(Boolean);
 
   const vendorDetailsPayout = Object.entries(vendorObjpayOut)
     .sort(([vendorCodeA], [vendorCodeB]) =>
@@ -140,95 +132,149 @@ export async function sendTelegramDashboardReportMessage(
             })} (${bank.TotalCount})`,
         )
         .join('\n');
-      // Calculate total payout for all banks for this vendor
       const totalBankPayout = filteredBanks.reduce(
         (sum, bank) => sum + (bank.TotalDeposit || 0),
         0,
       );
-      const totalBankPayoutStr = totalBankPayout.toLocaleString('en-IN', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-      // Place total on a new line after vendor name, before bank list
       return bankDetails
-        ? `${index + 1}. ${vendorCode}:  ₹ ${totalBankPayoutStr}\n${bankDetails}`
-        : '';
+        ? {
+            vendorCode,
+            total: totalBankPayout,
+            details: bankDetails,
+            index: index + 1,
+          }
+        : null;
     })
     .filter(Boolean)
-    .join('\n\n');
+  const splitIntoChunks = (array) => {
+    const chunks = [];
+    for (let i = 0; i < array.length; i += 3) {
+      chunks.push(array.slice(i, i + 3));
+    }
+    return chunks;
+  };
+  const depositChunks = splitIntoChunks(vendorDetails);
+  const withdrawalChunks = splitIntoChunks(vendorDetailsPayout);
 
   const message1 = `
-    <b>(${timeStamp}) IST</b>
-    
+<b>(${timeStamp}) IST</b> <b>\n</b>
 <b>💰 Deposits</b>
 
-${merchantPayInDetails}
-    
-<b>Total Deposits:</b> ₹ ${totalpayinsMerchant}
-    
+${merchantPayInDetails}<b>\n</b>
+<b>Total Deposits:</b> ₹ ${totalpayinsMerchant}<b>\n\n</b>
 <b>🏦 Withdrawals</b>
 
-${merchantPayOutDetails}
-    
-<b>Total Withdrawals:</b> ₹ ${totalpayoutsMerchant}
-`;
-
-const message2 = `
-<b>(${timeStamp}) IST</b>
-
-<b>✅ Bank Account Deposits</b>
-
-${vendorDetails}
-
-<b>Total Bank Account Deposits:</b> ₹ ${totalBankDepositAllVendors} 
-
-`;
-
-const message3 = `
-<b>(${timeStamp}) IST</b>
-
-<b>✅ Bank Account Withdrawals</b>
-
-${vendorDetailsPayout}
-
-<b>Total Bank Account Withdrawals:</b> ₹ ${totalBankWithdrawalAllVendors}
-`;
-
-
-
+${merchantPayOutDetails}<b>\n</b>
+<b>Total Withdrawals:</b> ₹ ${totalpayoutsMerchant}<b>\n</b>`;
   const success1 = await telegramSender(
     chatId,
     message1,
     null,
     TELEGRAM_BOT_TOKEN,
   );
-  logger.log(success1 ? 'Sent!' : 'Not sent.');
+  logger.log(success1 ? 'Sent message1!' : 'Not sent: message1.');
+  const success2 = [];
+  if (depositChunks.length === 0) {
+    const message2 = `
+<b>(${timeStamp}) IST</b>\n
+<b>✅ Bank Account Deposits</b>\n
+No bank account deposits recorded.\n
+<b>Total Bank Account Deposits:</b> ₹ ${totalBankDepositAllVendors}
+`;
+    const sent = await telegramSender(chatId, message2, null, TELEGRAM_BOT_TOKEN);
+    success2.push(sent);
+    logger.log(sent ? 'Sent message2 (No deposits)!' : 'Not sent: message2 (No deposits).');
+  }
+  for (let i = 0; i < depositChunks.length; i++) {
+    const chunk = depositChunks[i];
+    const partMessage = chunk
+      .map(
+        (item) =>
+          `${item.index}. ${item.vendorCode}: ₹ ${item.total.toLocaleString(
+            'en-IN',
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            },
+          )}\n${item.details}`,
+      )
+      .join('\n\n');
+    const message2 = `
+${i === 0 ? `<b>(${timeStamp}) IST</b>\n\n<b>✅ Bank Account Deposits</b>` : ''}
 
-  // Add delay to avoid rate limiting
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+${partMessage}
 
-  const success2 = await telegramSender(
-    chatId,
-    message2,
-    null,
-    TELEGRAM_BOT_TOKEN,
-  );
-  logger.log(success2 ? 'Sent!' : 'Not sent.');
+${i === depositChunks.length - 1 ? `<b>Total Bank Account Deposits:</b> ₹ ${totalBankDepositAllVendors}` : ''}
+`;
+    const sent = await telegramSender(
+      chatId,
+      message2,
+      null,
+      TELEGRAM_BOT_TOKEN,
+    );
+    success2.push(sent);
+    logger.log(
+      sent
+        ? `Sent message2 (Part ${i + 1})!`
+        : `Not sent: message2 (Part ${i + 1}).`,
+    );
+  }
+  const success3 = [];
+  if (withdrawalChunks.length === 0) {
+    const message3 = `
+<b>(${timeStamp}) IST</b>\n
+<b>✅ Bank Account Withdrawals</b>\n
+No bank account withdrawals recorded.\n
+<b>Total Bank Account Withdrawals:</b> ₹ ${totalBankWithdrawalAllVendors}
+`;
+const sent = await telegramSender(
+      chatId,
+      message3,
+      null,
+      TELEGRAM_BOT_TOKEN,
+    );
+    success3.push(sent);
+    logger.log(
+      sent
+        ? 'Sent message3 (No withdrawals)!'
+        : 'Not sent: message3 (No withdrawals).',
+    );
+  }
+  for (let i = 0; i < withdrawalChunks.length; i++) {
+    const chunk = withdrawalChunks[i];
+    const partMessage = chunk
+      .map(
+        (item) =>
+          `${item.index}. ${item.vendorCode}: ₹ ${item.total.toLocaleString(
+            'en-IN',
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            },
+          )}\n${item.details}`,
+      )
+      .join('\n\n');
+    const message3 = `
+${i === 0 ? `<b>(${timeStamp}) IST</b>\n\n<b>✅ Bank Account Withdrawals</b>` : ''}
 
-  // Add delay to avoid rate limiting
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+${partMessage}
 
-  const success3 = await telegramSender(
-    chatId,
-    message3,
-    null,
-    TELEGRAM_BOT_TOKEN,
-  );
-  logger.log(success3 ? 'Sent!' : 'Not sent.');
-
-  // Add delay to avoid rate limiting
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-  return {success1, success2, success3};
+${i === withdrawalChunks.length - 1 ? `<b>Total Bank Account Withdrawals:</b> ₹ ${totalBankWithdrawalAllVendors}` : ''}
+`;
+    const sent = await telegramSender(
+      chatId,
+      message3,
+      null,
+      TELEGRAM_BOT_TOKEN,
+    );
+    success3.push(sent);
+    logger.log(
+      sent
+        ? `Sent message3 (Part ${i + 1})!`
+        : `Not sent: message3 (Part ${i + 1}).`,
+    );
+  }
+  return {success1, success2, success3 };
 }
 
 export async function sendTelegramMerchantDashboardReportMessage(
