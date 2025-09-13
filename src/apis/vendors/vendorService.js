@@ -18,12 +18,14 @@ import {
   getVendorsBySearchDao,
   updateVendorDao,
   getAllVendorsDao,
+  getBankResponseAccessByIDDao,
 } from './vendorDao.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 import { updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { updateUserDao } from '../users/userDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
+import { notifyBankResponseAccessUpdate } from '../../utils/sockets.js';
 const createVendorService = async (conn, payload) => {
   try {
     let role_id = payload.role_id;
@@ -101,7 +103,7 @@ const getVendorsService = async (
 const getVendorsCodeService = async (filters, roleIs, user_id, designation) => {
   let conn;
   try {
-    conn = await getConnection(); // Get DB connection
+    conn = await getConnection('reader'); // Get DB connection
     await beginTransaction(conn); // Start transaction
     let parentUserId;
     if (roleIs === Role.VENDOR) {
@@ -170,7 +172,7 @@ const getVendorsBySearchService = async (
         .map((term) => term.trim())
         .filter((term) => term.length > 0);
     }
-    filters.role = roleIs
+    filters.role = roleIs;
     const data = await getVendorsBySearchDao(
       filters,
       pageNumber,
@@ -185,14 +187,23 @@ const getVendorsBySearchService = async (
   }
 };
 
-const updateVendorService = async (id, payload, ) => {
-  let conn;
+const updateVendorService = async (conn, id, payload) => {
   try {
-  
-    conn = await getConnection();
-    await beginTransaction(conn); // Start a transaction
     const data = await updateVendorDao(id, payload, conn); // Adjust DAO call for update
     await commit(conn); // Commit the transaction
+    if (
+      data?.config?.bank_response_access === 'false' ||
+      data?.config?.bank_response_access === false ||
+      data?.config?.bank_response_access === '' ||
+      data?.config?.bank_response_access === null
+    ) {
+      // Emit specific socket event for bank response access update
+      await notifyBankResponseAccessUpdate(
+        data.user_id,
+        data?.config?.bank_response_access,
+        data.code
+      );
+    }
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: data.company_id,
@@ -204,31 +215,8 @@ const updateVendorService = async (id, payload, ) => {
     // });
     return data;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn); // Rollback the transaction in case of error
-      } catch (rollbackError) {
-        logger.error(
-          'Error during transaction rollback',
-          'error',
-          rollbackError,
-        );
-      }
-    }
     logger.error('Error while updating Vendor', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release(); // Release the connection back to the pool
-      } catch (releaseError) {
-        logger.error(
-          'Error while releasing the connection',
-          'error',
-          releaseError,
-        );
-      }
-    }
   }
 };
 
@@ -311,6 +299,16 @@ const deleteVendorService = async (ids, user_id) => {
   }
 };
 
+const getBankResponseAccessByIDService = async (id) => {
+  try {
+    const data = await getBankResponseAccessByIDDao(id);
+    return data;
+  } catch (error) {
+    logger.error('Error while fetching bank response access', error);
+    throw error;
+  }
+};
+
 export {
   createVendorService,
   getVendorsService,
@@ -318,4 +316,5 @@ export {
   deleteVendorService,
   getVendorsBySearchService,
   getVendorsCodeService,
+  getBankResponseAccessByIDService,
 };

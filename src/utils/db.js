@@ -2,7 +2,7 @@
 import pkg from 'pg';
 import config from '../config/config.js';
 import chalk from 'chalk';
-import { DbError } from './appErrors.js';
+import { DbError, InternalServerError } from './appErrors.js';
 import { logger } from './logger.js';
 import { stringifyJSON } from './index.js';
 // import fs from 'fs';
@@ -12,62 +12,109 @@ import { stringifyJSON } from './index.js';
 // const __dirname = path.dirname(__filename);
 const { Pool } = pkg;
 
-const pool = new Pool({
-  connectionString: `${config.databaseUrl}`,
-  ssl:
-    config.env === 'production'
-      ? {
-          rejectUnauthorized: false,
-          // ca: fs.readFileSync(path.join(__dirname, '/Users/mac/Downloads/ap-south-1-bundle.pem')).toString(),
-        }
-      : { rejectUnauthorized: false },
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-  keepAlive: true,
-});
+const sslConfig =
+  config.env === 'production'
+    ? {
+        rejectUnauthorized: false,
+        // If you need SSL CA cert (RDS bundle)
+        // ca: fs.readFileSync(path.join(__dirname, 'ap-south-1-bundle.pem')).toString(),
+      }
+    : { rejectUnauthorized: false };
 
-pool.on('connect', (client) => {
-  client.query('SET TIME ZONE \'Asia/Kolkata\'');
-});
+// const writerPool = new Pool({
+//   connectionString: config.databaseWriterUrl,
+//   ssl: sslConfig,
+//   max: 20,
+//   idleTimeoutMillis: 30000,
+//   connectionTimeoutMillis: 10000,
+//   keepAlive: true,
+// });
 
-pool.on('error', async (err) => {
-  logger.error('Unexpected error on idle client:', err);
+// const readerPool = new Pool({
+//   connectionString: config.databaseReaderUrl,
+//   ssl: sslConfig,
+//   max: 20,
+//   idleTimeoutMillis: 30000,
+//   connectionTimeoutMillis: 10000,
+//   keepAlive: true,
+// });
 
-  let retryCount = 0;
-  const maxRetries = 5;
-  const baseDelay = config.env === 'production' ? 5000 : 2000;
-
-  while (retryCount < maxRetries) {
-    const delay = baseDelay * Math.pow(2, retryCount);
-    logger.warn(
-      `Reconnecting to DB (Attempt ${retryCount + 1}) in ${delay / 1000}s...`,
+export const createPool = (connectionString, name) => {
+  if (!connectionString) {
+    throw new InternalServerError(
+      'DATABASE_URL is not set. Check your environment variables.',
     );
-
-    await new Promise((resolve) => setTimeout(resolve, delay));
-
-    try {
-      const newClient = await pool.connect();
-      newClient.release();
-      logger.info('Database reconnected successfully!');
-      return;
-    } catch (retryErr) {
-      logger.error(`Reconnection attempt ${retryCount + 1} failed:`, retryErr);
-    }
-
-    retryCount++;
   }
-  logger.error(
-    'All DB reconnection attempts failed. The database remains unreachable.',
-  );
-});
 
-const getConnection = async () => {
+  const pool = new Pool({
+    connectionString: connectionString,
+    ssl:
+      config.env === 'production'
+        ? {
+            rejectUnauthorized: false,
+            // ca: fs.readFileSync(path.join(__dirname, 'ap-south-1-bundle.pem')).toString(),
+          }
+        : { rejectUnauthorized: false },
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+    keepAlive: true,
+  });
+
+  pool.on('connect', (client) => {
+    client.query("SET TIME ZONE 'Asia/Kolkata'");
+  });
+
+  pool.on('error', async (err) => {
+    logger.error(`Unexpected error on idle client (${name}):`, err);
+
+    let retryCount = 0;
+    const maxRetries = 5;
+    const baseDelay = config.env === 'production' ? 5000 : 2000;
+
+    while (retryCount < maxRetries) {
+      const delay = baseDelay * Math.pow(2, retryCount);
+      logger.warn(
+        `Reconnecting to ${name} DB (Attempt ${retryCount + 1}) in ${delay / 1000}s...`,
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
+      try {
+        const newClient = await pool.connect();
+        newClient.release();
+        logger.info(`${name} Database reconnected successfully!`);
+        return;
+      } catch (retryErr) {
+        logger.error(
+          `Reconnection attempt ${retryCount + 1} failed for ${name}:`,
+          retryErr,
+        );
+      }
+
+      retryCount++;
+    }
+    logger.error(
+      `All reconnection attempts failed. ${name}. The database remains unreachable.`,
+    );
+  });
+  return pool;
+};
+
+const writerPool = createPool(config?.databaseWriterUrl, 'Writer');
+const readerPool = createPool(config?.databaseReaderUrl, 'Reader');
+
+/**
+ * getConnection
+ * @param {string} type - "reader" | "writer"
+ */
+const getConnection = async (type = 'writer') => {
   const maxRetries = 5;
   const baseDelay = 2000;
 
   for (let retryCount = 0; retryCount < maxRetries; retryCount++) {
     try {
+      const pool = type === 'reader' ? readerPool : writerPool;
       const client = await pool.connect();
       logger.info(chalk.bgCyanBright('Database connected successfully'));
       return client;
@@ -89,8 +136,12 @@ const getConnection = async () => {
 
 export async function closePool() {
   try {
-    await pool.end();
-    const styledMessageError = chalk.underline.red(`PostgreSQL connection pool closed`);
+    // await pool.end();
+    await writerPool.end();
+    await readerPool.end();
+    const styledMessageError = chalk.underline.red(
+      `PostgreSQL connection pool closed`,
+    );
     logger.info(styledMessageError);
   } catch (err) {
     logger.error('Error while closing PostgreSQL pool:', err);
@@ -133,6 +184,8 @@ export const executeQuery = async (query, queryParams = []) => {
   const maxRetries = 3; // Number of retries for transient errors
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
+      const isSelect = query.trim().toUpperCase().startsWith('SELECT');
+      const pool = isSelect ? readerPool : writerPool;
       const result = await pool.query(query, queryParams);
       return result;
     } catch (error) {
@@ -405,30 +458,51 @@ export const transactionWrapper =
   (fn) =>
   async (...args) => {
     let conn;
-    try {
-      conn = await getConnection();
-      await beginTransaction(conn); // Ensure transaction starts properly
+      try {
+        conn = await getConnection();
+        await beginTransaction(conn); // Ensure transaction starts properly
 
-      const data = await fn(conn, ...args); // Ensure fn expects conn as the first argument
+        const data = await fn(conn, ...args); // Ensure fn expects conn as the first argument
 
-      await commit(conn); // Commit only if no errors
-      return data;
-    } catch (error) {
-      if (conn) {
-        try {
-          await rollback(conn); // Explicit rollback
-          logger.error('Transaction rolled back due to error:', error);
-        } catch (rollbackError) {
-          logger.error('Rollback failed:', rollbackError);
+        await commit(conn); // Commit only if no errors
+        return data;
+      } catch (error) {
+        if (conn) {
+          try {
+            await rollback(conn); // Explicit rollback
+            logger.error('Transaction rolled back due to error:', error);
+          } catch (rollbackError) {
+            logger.error('Rollback failed:', rollbackError);
+          }
+        }
+        
+        // Check if this is a deadlock error and we can retry
+        const isDeadlock = error.message && (
+          error.message.includes('deadlock') ||
+          error.message.includes('could not serialize access') ||
+          error.message.includes('canceling statement due to lock timeout') ||
+          error.message.includes('lock timeout') ||
+          error.code === '40P01' || // deadlock_detected
+          error.code === '40001' || // serialization_failure
+          error.code === '55P03'    // lock_not_available
+        );
+
+        if (isDeadlock) {
+          logger.warn(`Deadlock detected. Retrying transaction...`);
+          if (conn) {
+            conn.release();
+            conn = null;
+          }
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+        throw error;
+      } finally {
+        if (conn) {
+          logger.info('Releasing connection');
+          conn.release(); // Always release connection
         }
       }
-      throw error;
-    } finally {
-      if (conn) {
-        logger.info('Releasing connection');
-        conn.release(); // Always release connection
-      }
-    }
   };
 
 /**
@@ -629,7 +703,7 @@ const generateQuery = (baseQuery, options = {}) => {
 };
 
 export {
-  pool,
+  // pool,
   getConnection,
   beginTransaction,
   commit,

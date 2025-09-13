@@ -2,7 +2,7 @@
 import moment from 'moment-timezone';
 import { getConnection } from '../utils/db.js';
 import { logger } from '../utils/logger.js';
-
+import { createBankHistoryService } from '../apis/bankHistory/bankHistorySevice.js';
 // if (process.env.NODE_ENV == 'production') {
 //   logger.log('Running cron job in production environment');
 //   cron.schedule(
@@ -22,8 +22,9 @@ const collectBankData = async (timezone = 'Asia/Kolkata') => {
   const startTime = moment().tz(timezone, true);
   let conn;
   try {
-    conn = await getConnection();
+    conn = await getConnection('writer');
     //added payin_count to update everyday
+    await createBankHistoryService(conn);
     const sql =
       'UPDATE public."BankAccount" SET today_balance = 0 , payin_count = 0 ';
     await conn.query(sql);

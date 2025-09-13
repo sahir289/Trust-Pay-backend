@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env' });
 
+
 // Env file configuration
 function config(Env) {
   return {
@@ -43,8 +44,18 @@ function config(Env) {
       duration: parseInt(Env?.RATE_LIMIT_DURATION) || 60,
       blockDuration: parseInt(Env?.RATE_LIMIT_BLOCK_DURATION) || 30,
     },
+    elasticSearch: {
+      node: Env?.ELASTICSEARCH_NODE || 'http://localhost:9200',
+      username: Env?.ELASTICSEARCH_USERNAME || 'elastic',
+      password: Env?.ELASTICSEARCH_PASSWORD || 'password',
+      indexPrefix: Env?.ELASTICSEARCH_INDEX_PREFIX || 'trustpay',
+      requestTimeout: parseInt(Env?.ELASTICSEARCH_REQUEST_TIMEOUT) || 30000, // in milliseconds
+      maxRetries: parseInt(Env?.ELASTICSEARCH_MAX_RETRIES) || 3,
+    },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,
+    databaseWriterUrl: Env?.DATABASE_WRITER_URL,
+    databaseReaderUrl: Env?.DATABASE_READER_URL,
     accessTokenSecretKey: Env?.ACCESS_TOKEN_SECRET_KEY,
     accessTokenExpireTime: 24 * 60 * 60, // in seconds
     reactFrontOrigin: Env?.REACT_FRONT_ORIGIN,

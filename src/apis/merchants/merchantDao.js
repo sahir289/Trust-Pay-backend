@@ -234,6 +234,26 @@ export const getMerchantByUserDao = async (userId, role) => {
     throw error;
   }
 };
+export const getMerchantsBankResponseDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      code,
+      balance,
+      payin_commission,
+      user_id
+    `;
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.MERCHANT}" WHERE 1=1`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error fetching merchant data:', error);
+    throw error;
+  }
+};
 
 export const getMerchantsDao = async (
   filters,
@@ -310,7 +330,25 @@ export const getMerchantsDao = async (
     throw error;
   }
 };
-
+export const getMerchantsForDashboardReportDao = async (
+  filters = {},
+) => {
+  try {
+    const selectColumns = `
+      user_id,
+      COALESCE(config->>'sub_code', code) AS code
+    `;
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.MERCHANT}" WHERE 1=1`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error getting merchants data:', error);
+    throw error;
+  }
+};
 
 
 export const getMerchantsByCodeDao = async (code) => {
@@ -751,7 +789,7 @@ export const getMerchantByCodeAndApiKey = async (code, publicKey) => {
   }
 };
 
-export const getMerchantsDaoArray = async (company_id, code) => {
+export const getMerchantsDaoArray = async (company_id, codes) => {
   try {
     let baseQuery = `
       SELECT 
@@ -779,14 +817,32 @@ export const getMerchantsDaoArray = async (company_id, code) => {
       LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
       LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
       LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
-      WHERE "Merchant".company_id = $1 AND "Merchant".user_id = ANY($2)
+      WHERE "Merchant".company_id = $1 AND "Merchant".is_obsolete = false
     `;
 
-    let queryParams = [company_id, code];
+    let queryParams = [company_id];
+    
+    // Handle both user_id arrays and code arrays
+    if (Array.isArray(codes) && codes.length > 0) {
+      // Check if the first element looks like a UUID (user_id) or a code
+      const firstCode = codes[0];
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(firstCode);
+      
+      if (isUUID) {
+        // These are user_ids
+        baseQuery += ` AND "Merchant".user_id = ANY($2)`;
+        queryParams.push(codes);
+      } else {
+        // These are merchant codes
+        baseQuery += ` AND "Merchant".code = ANY($2)`;
+        queryParams.push(codes);
+      }
+    }
+    
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
-    logger.error('Error fetching merchant by code and API key:', error);
+    logger.error('Error fetching merchants by codes/user_ids:', error);
     throw error;
   }
 };

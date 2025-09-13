@@ -16,6 +16,7 @@ export async function sendTelegramDashboardReportMessage(
   totalBankWithdrawalAllVendors,
   TELEGRAM_BOT_TOKEN,
   type,
+  date
 ) {
   totalBankWithdrawalAllVendors = totalBankWithdrawalAllVendors.toLocaleString(
     'en-IN',
@@ -31,7 +32,6 @@ export async function sendTelegramDashboardReportMessage(
       maximumFractionDigits: 2,
     },
   );
-  // Format totalpayinsMerchant and totalpayoutsMerchant with commas and two decimal places
   totalpayinsMerchant = totalpayinsMerchant.toLocaleString('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -46,19 +46,14 @@ export async function sendTelegramDashboardReportMessage(
   const istTime = new Date(
     now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }),
   );
-
   let startHour = istTime.getHours() - 1;
   let endHour = (startHour + 1) % 24;
-
   const startAmpm = startHour >= 12 ? 'PM' : 'AM';
   const endAmpm = endHour >= 12 ? 'PM' : 'AM';
-
-  // Convert hours to 12-hour format
   startHour = startHour % 12 || 12;
   endHour = endHour % 12 || 12;
-
   const formattedTime = `${startHour}${startAmpm}-${endHour}${endAmpm}`;
-  const timeStamp = type === 'Hourly Report' ? formattedTime : currentDate;
+  const timeStamp = type === 'Hourly Report' ? formattedTime  : date ? date : currentDate;
 
   const merchantPayInDetails = merchant
     .filter((m) => m.totalPayin !== 0)
@@ -93,36 +88,9 @@ export async function sendTelegramDashboardReportMessage(
       vendorCodeA.localeCompare(vendorCodeB),
     )
     .map(([vendorCode, { banks }], index) => {
-      const filteredBanks = banks.filter((bank) => bank.TotalDeposit !== null && bank.TotalDeposit !== 0);
-      const bankDetails = filteredBanks
-        .map(
-          (bank) =>
-            `  ${bank.bankName}: ₹ ${bank.TotalDeposit.toLocaleString('en-IN', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })} (${bank.TotalCount})`,
-        )
-        .join('\n'); // join each bank with a new line
-      // Calculate total deposit for all banks for this vendor
-      const totalBankDeposit = filteredBanks.reduce((sum, bank) => sum + (bank.TotalDeposit || 0), 0);
-      const totalBankDepositStr = totalBankDeposit.toLocaleString('en-IN', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-      // Place total on a new line after vendor name, before bank list
-      return bankDetails
-        ? `${index + 1}. ${vendorCode}:  ₹ ${totalBankDepositStr}\n${bankDetails}`
-        : '';
-    })
-    .filter(Boolean)
-    .join('\n\n');
-
-  const vendorDetailsPayout = Object.entries(vendorObjpayOut)
-    .sort(([vendorCodeA], [vendorCodeB]) =>
-      vendorCodeA.localeCompare(vendorCodeB),
-    )
-    .map(([vendorCode, { banks }], index) => {
-      const filteredBanks = banks.filter((bank) => bank.TotalDeposit !== null && bank.TotalDeposit !== 0);
+      const filteredBanks = banks.filter(
+        (bank) => bank.TotalDeposit !== null && bank.TotalDeposit !== 0,
+      );
       const bankDetails = filteredBanks
         .map(
           (bank) =>
@@ -132,57 +100,329 @@ export async function sendTelegramDashboardReportMessage(
             })} (${bank.TotalCount})`,
         )
         .join('\n');
-      // Calculate total payout for all banks for this vendor
-      const totalBankPayout = filteredBanks.reduce((sum, bank) => sum + (bank.TotalDeposit || 0), 0);
-      const totalBankPayoutStr = totalBankPayout.toLocaleString('en-IN', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-      // Place total on a new line after vendor name, before bank list
+      const totalBankDeposit = filteredBanks.reduce(
+        (sum, bank) => sum + (bank.TotalDeposit || 0),
+        0,
+      );
       return bankDetails
-        ? `${index + 1}. ${vendorCode}:  ₹ ${totalBankPayoutStr}\n${bankDetails}`
-        : '';
+        ? {
+            vendorCode,
+            total: totalBankDeposit,
+            details: bankDetails,
+            index: index + 1,
+          }
+        : null;
+    })
+    .filter(Boolean);
+
+  const vendorDetailsPayout = Object.entries(vendorObjpayOut)
+    .sort(([vendorCodeA], [vendorCodeB]) =>
+      vendorCodeA.localeCompare(vendorCodeB),
+    )
+    .map(([vendorCode, { banks }], index) => {
+      const filteredBanks = banks.filter(
+        (bank) => bank.TotalDeposit !== null && bank.TotalDeposit !== 0,
+      );
+      const bankDetails = filteredBanks
+        .map(
+          (bank) =>
+            `  ${bank.bankName}: ₹ ${bank.TotalDeposit.toLocaleString('en-IN', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })} (${bank.TotalCount})`,
+        )
+        .join('\n');
+      const totalBankPayout = filteredBanks.reduce(
+        (sum, bank) => sum + (bank.TotalDeposit || 0),
+        0,
+      );
+      return bankDetails
+        ? {
+            vendorCode,
+            total: totalBankPayout,
+            details: bankDetails,
+            index: index + 1,
+          }
+        : null;
     })
     .filter(Boolean)
-    .join('\n\n');
+  const splitIntoChunks = (array) => {
+    const chunks = [];
+    for (let i = 0; i < array.length; i += 3) {
+      chunks.push(array.slice(i, i + 3));
+    }
+    return chunks;
+  };
+  const depositChunks = splitIntoChunks(vendorDetails);
+  const withdrawalChunks = splitIntoChunks(vendorDetailsPayout);
 
-  const message = `
-    <b>(${timeStamp}) IST</b>
-    
+  const message1 = `
+<b>(${timeStamp}) IST</b> <b>\n</b>
 <b>💰 Deposits</b>
 
-${merchantPayInDetails}
-    
-<b>Total Deposits:</b> ₹ ${totalpayinsMerchant}
-    
+${merchantPayInDetails}<b>\n</b>
+<b>Total Deposits:</b> ₹ ${totalpayinsMerchant}<b>\n\n</b>
 <b>🏦 Withdrawals</b>
 
-${merchantPayOutDetails}
-    
-<b>Total Withdrawals:</b> ₹ ${totalpayoutsMerchant}
-    
-<b>✅ Bank Account Deposits</b>
-
-${vendorDetails}
-    
-<b>Total Bank Account Deposits:</b> ₹ ${totalBankDepositAllVendors}
-    
-<b>✅ Bank Account Withdrawals</b>
-
-${vendorDetailsPayout}
-    
-<b>Total Bank Account Withdrawals:</b> ₹ ${totalBankWithdrawalAllVendors}
-`;
-
-  const success = await telegramSender(
+${merchantPayOutDetails}<b>\n</b>
+<b>Total Withdrawals:</b> ₹ ${totalpayoutsMerchant}<b>\n</b>`;
+  const success1 = await telegramSender(
     chatId,
-    message,
+    message1,
     null,
     TELEGRAM_BOT_TOKEN,
   );
-  logger.log(success ? 'Sent!' : 'Not sent.');
-  return success;
+  logger.log(success1 ? 'Sent message1!' : 'Not sent: message1.');
+  const success2 = [];
+  if (depositChunks.length === 0) {
+    const message2 = `
+<b>(${timeStamp}) IST</b>\n
+<b>✅ Bank Account Deposits</b>\n
+No bank account deposits recorded.\n
+<b>Total Bank Account Deposits:</b> ₹ ${totalBankDepositAllVendors}
+`;
+    const sent = await telegramSender(chatId, message2, null, TELEGRAM_BOT_TOKEN);
+    success2.push(sent);
+    logger.log(sent ? 'Sent message2 (No deposits)!' : 'Not sent: message2 (No deposits).');
+  }
+  for (let i = 0; i < depositChunks.length; i++) {
+    const chunk = depositChunks[i];
+    const partMessage = chunk
+      .map(
+        (item) =>
+          `${item.index}. ${item.vendorCode}: ₹ ${item.total.toLocaleString(
+            'en-IN',
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            },
+          )}\n${item.details}`,
+      )
+      .join('\n\n');
+    const message2 = `
+${i === 0 ? `<b>(${timeStamp}) IST</b>\n\n<b>✅ Bank Account Deposits</b>` : ''}
+
+${partMessage}
+
+${i === depositChunks.length - 1 ? `<b>Total Bank Account Deposits:</b> ₹ ${totalBankDepositAllVendors}` : ''}
+`;
+    const sent = await telegramSender(
+      chatId,
+      message2,
+      null,
+      TELEGRAM_BOT_TOKEN,
+    );
+    success2.push(sent);
+    logger.log(
+      sent
+        ? `Sent message2 (Part ${i + 1})!`
+        : `Not sent: message2 (Part ${i + 1}).`,
+    );
+  }
+  const success3 = [];
+  if (withdrawalChunks.length === 0) {
+    const message3 = `
+<b>(${timeStamp}) IST</b>\n
+<b>✅ Bank Account Withdrawals</b>\n
+No bank account withdrawals recorded.\n
+<b>Total Bank Account Withdrawals:</b> ₹ ${totalBankWithdrawalAllVendors}
+`;
+const sent = await telegramSender(
+      chatId,
+      message3,
+      null,
+      TELEGRAM_BOT_TOKEN,
+    );
+    success3.push(sent);
+    logger.log(
+      sent
+        ? 'Sent message3 (No withdrawals)!'
+        : 'Not sent: message3 (No withdrawals).',
+    );
+  }
+  for (let i = 0; i < withdrawalChunks.length; i++) {
+    const chunk = withdrawalChunks[i];
+    const partMessage = chunk
+      .map(
+        (item) =>
+          `${item.index}. ${item.vendorCode}: ₹ ${item.total.toLocaleString(
+            'en-IN',
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            },
+          )}\n${item.details}`,
+      )
+      .join('\n\n');
+    const message3 = `
+${i === 0 ? `<b>(${timeStamp}) IST</b>\n\n<b>✅ Bank Account Withdrawals</b>` : ''}
+
+${partMessage}
+
+${i === withdrawalChunks.length - 1 ? `<b>Total Bank Account Withdrawals:</b> ₹ ${totalBankWithdrawalAllVendors}` : ''}
+`;
+    const sent = await telegramSender(
+      chatId,
+      message3,
+      null,
+      TELEGRAM_BOT_TOKEN,
+    );
+    success3.push(sent);
+    logger.log(
+      sent
+        ? `Sent message3 (Part ${i + 1})!`
+        : `Not sent: message3 (Part ${i + 1}).`,
+    );
+  }
+  return {success1, success2, success3 };
 }
+
+export async function sendTelegramMerchantDashboardReportMessage(
+  chatId,
+  merchantBalanceData,
+  TELEGRAM_BOT_TOKEN,
+) {
+  try {
+    const BATCH_SIZE = 20; // Number of merchants per message
+    const DELAY_MS = 1000; // Delay between messages
+
+    // Sort merchants alphabetically by code (handle null/undefined codes)
+    const sortedMerchants = merchantBalanceData.sort((a, b) => {
+      const codeA = a.code || '';
+      const codeB = b.code || '';
+      return codeA.localeCompare(codeB);
+    });
+
+    // Split merchants into batches
+    const batches = [];
+    for (let i = 0; i < sortedMerchants.length; i += BATCH_SIZE) {
+      batches.push(sortedMerchants.slice(i, i + BATCH_SIZE));
+    }
+
+    let allSuccess = true;
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      const merchantDetails = batch
+        .map(
+          (merchant) =>
+            `<b>${merchant.code}:</b> <b>Net Balance:</b> ₹ ${merchant.net_balance.toLocaleString(
+              'en-IN',
+              {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              },
+            )}`,
+        )
+        .join('\n');
+
+      const messageHeader = `<b>Merchant Dashboard Report</b> (${i + 1}/${batches.length})`;
+
+      const message = `${messageHeader}
+
+${merchantDetails}`;
+
+      const success = await telegramSender(
+        chatId,
+        message,
+        null,
+        TELEGRAM_BOT_TOKEN,
+      );
+
+      logger.log(
+        `Batch ${i + 1}/${batches.length}: ${success ? 'Sent!' : 'Not sent.'}`,
+      );
+
+      if (!success) {
+        allSuccess = false;
+      }
+
+      // Add delay between batches to avoid rate limiting
+      if (i < batches.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
+      }
+    }
+
+    return allSuccess;
+  } catch (error) {
+    logger.error('Error in sendTelegramMerchantDashboardReportMessage:', error.message);
+    return false;
+  }
+}
+
+export async function sendTelegramVendorDashboardReportMessage(
+  chatId,
+  vendorBalanceData,
+  TELEGRAM_BOT_TOKEN,
+) {
+  try {
+    const BATCH_SIZE = 20; // Number of vendors per message
+    const DELAY_MS = 1000; // Delay between messages
+
+    // Sort vendors alphabetically by code (handle null/undefined codes)
+    const sortedVendors = vendorBalanceData.sort((a, b) => {
+      const codeA = a.code || '';
+      const codeB = b.code || '';
+      return codeA.localeCompare(codeB);
+    });
+
+    // Split vendors into batches
+    const batches = [];
+    for (let i = 0; i < sortedVendors.length; i += BATCH_SIZE) {
+      batches.push(sortedVendors.slice(i, i + BATCH_SIZE));
+    }
+
+    let allSuccess = true;
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      const vendorDetails = batch
+        .map(
+          (vendor) =>
+            `<b>${vendor.code}:</b> <b>Net Balance:</b> ₹ ${vendor.net_balance.toLocaleString(
+              'en-IN',
+              {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              },
+            )}`,
+        )
+        .join('\n');
+
+      const messageHeader = `<b>Vendor Dashboard Report</b> (${i + 1}/${batches.length})`;
+
+      const message = `${messageHeader}
+
+${vendorDetails}`;
+
+      const success = await telegramSender(
+        chatId,
+        message,
+        null,
+        TELEGRAM_BOT_TOKEN,
+      );
+
+      logger.log(
+        `Batch ${i + 1}/${batches.length}: ${success ? 'Sent!' : 'Not sent.'}`,
+      );
+
+      if (!success) {
+        allSuccess = false;
+      }
+
+      // Add delay between batches to avoid rate limiting
+      if (i < batches.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
+      }
+    }
+
+    return allSuccess;
+  } catch (error) {
+    logger.error('Error in sendTelegramVendorDashboardReportMessage:', error.message);
+    return false;
+  }
+}
+
 
 export async function sendTelegramDashboardMerchantGroupingReportMessage(
   chatId,
@@ -291,7 +531,9 @@ export async function sendTelegramDashboardSuccessRatioMessage(
 ) {
   try {
     // Debug log
-    logger.info(`Sending messages to Telegram. Total messages: ${fullMessages.length}`);
+    logger.info(
+      `Sending messages to Telegram. Total messages: ${fullMessages.length}`,
+    );
 
     const BATCH_SIZE = 5;
     const DELAY_MS = 2000;
@@ -307,48 +549,55 @@ export async function sendTelegramDashboardSuccessRatioMessage(
     // Sort groups by letter and merchants within groups
     for (const letter of Object.keys(groupedMessages).sort()) {
       const batch = groupedMessages[letter];
-      
+
       // Sort merchants within each group
       batch.sort((a, b) => a.merchantCode.localeCompare(b.merchantCode));
 
       // Send messages in smaller batches
       for (let i = 0; i < batch.length; i += BATCH_SIZE) {
         const currentBatch = batch.slice(i, i + BATCH_SIZE);
-        
+
         await Promise.all(
-          currentBatch.map(async ({ merchantCode, intervalDetails, intervalDetailsUtr }) => {
-            const message = `🔔 <b>${merchantCode}</b> - SR 🔔\n\n<b>PayIn SR:</b>\n${intervalDetails}\n\n<b>UTR SR:</b>\n${intervalDetailsUtr}`;
-            
-            try {
-              const success = await telegramSender(
-                chatId,
-                message,
-                null,
-                TELEGRAM_BOT_TOKEN
-              );
-              
-              logger.info(`Message sent for ${merchantCode}: ${success ? 'Success' : 'Failed'}`);
-              return success;
-            } catch (error) {
-              logger.error(`Failed to send message for ${merchantCode}:`, error);
-              return false;
-            }
-          })
+          currentBatch.map(
+            async ({ merchantCode, intervalDetails, intervalDetailsUtr }) => {
+              const message = `🔔 <b>${merchantCode}</b> - SR 🔔\n\n<b>PayIn SR:</b>\n${intervalDetails}\n\n<b>UTR SR:</b>\n${intervalDetailsUtr}`;
+
+              try {
+                const success = await telegramSender(
+                  chatId,
+                  message,
+                  null,
+                  TELEGRAM_BOT_TOKEN,
+                );
+
+                logger.info(
+                  `Message sent for ${merchantCode}: ${success ? 'Success' : 'Failed'}`,
+                );
+                return success;
+              } catch (error) {
+                logger.error(
+                  `Failed to send message for ${merchantCode}:`,
+                  error.message,
+                );
+                return false;
+              }
+            },
+          ),
         );
 
         // Add delay between batches
         if (i + BATCH_SIZE < batch.length) {
-          await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+          await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
         }
       }
 
       // Add delay between groups
-      await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+      await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
     }
 
     logger.info('Finished sending all messages to Telegram');
   } catch (error) {
-    logger.error('Error in sendTelegramDashboardSuccessRatioMessage:', error);
+    logger.error('Error in sendTelegramDashboardSuccessRatioMessage:', error.message);
     throw error;
   }
 }
@@ -707,10 +956,15 @@ export async function sendBankNotAssignedAlertTelegram(
   const message = `<b>⛔ Bank not Assigned with :</b> ${code}`;
 
   try {
-    const success = await telegramSender(chatId, message, null, TELEGRAM_BOT_TOKEN);
+    const success = await telegramSender(
+      chatId,
+      message,
+      null,
+      TELEGRAM_BOT_TOKEN,
+    );
     logger.log(success ? 'Sent!' : 'Not sent.');
   } catch (error) {
-    logger.error('Error sending bank not assigned alert to Telegram:', error);
+    logger.error('Error sending bank not assigned alert to Telegram:', error.message);
   }
 }
 
@@ -736,7 +990,7 @@ export async function sendTelegramDisputeMessage(
         <b>User Id:</b> ${data.user}
   `;
 
-  let message = formatEntry('Dispute Entry', oldData,utr);
+  let message = formatEntry('Dispute Entry', oldData, utr);
 
   if (
     newData &&
@@ -744,10 +998,10 @@ export async function sendTelegramDisputeMessage(
     newData.merchant_order_id !== undefined &&
     currentData?.merchant_order_id !== newData.merchant_order_id
   ) {
-    message += formatEntry('Current Entry', currentData,utr);
+    message += formatEntry('Current Entry', currentData, utr);
     message += formatEntry('New Entry', newData, utr);
   } else {
-    message += formatEntry('New Entry', currentData,utr);
+    message += formatEntry('New Entry', currentData, utr);
   }
   const success = await telegramSender(
     chatId,

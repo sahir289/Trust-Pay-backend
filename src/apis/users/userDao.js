@@ -8,6 +8,8 @@ import {
   buildInsertQuery,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
+// import esClient from '../../utils/elasticClient.js';
+import { createUserInES, getUsersByESSearch } from '../../elasticSearch/user/common.js';
 
 export const getUsersContactDao = async (company_id, contact_no) => {
   try {
@@ -150,6 +152,21 @@ export const getUsersBySearchDao = async (
   role,
 ) => {
   try {
+    let data = {
+      totalCount: 0,
+      totalPages: 0,
+      Users: []
+    };
+    if(filters.search){
+      const searchData = await getUsersByESSearch(filters.search);
+      console.log(searchData, "searchData")
+      data = {
+        totalCount: 1,
+        totalPages: 12,
+        Users: searchData,
+      };
+      return data;
+    }
     const conditions = [];
     const values = [filters.company_id];
     let paramIndex = 2;
@@ -163,7 +180,7 @@ export const getUsersBySearchDao = async (
 
     let queryText;
 
-    if (role !== Role.Admin) {
+    if (role !== Role.ADMIN) {
       queryText = `
       SELECT 
         "User".id,
@@ -293,7 +310,7 @@ export const getUsersBySearchDao = async (
       totalPages = Math.ceil(totalItems / validatedPageSize);
     }
 
-    const data = {
+    data = {
       totalCount: totalItems,
       totalPages,
       Users: searchResult.rows,
@@ -441,7 +458,11 @@ const createUserDao = async (payload, conn) => {
       `User with username: ${payload.user_name} created successfully`,
     );
 
-    return result.rows[0];
+    const insertedUser = result.rows[0];
+
+   await createUserInES(insertedUser);
+
+    return insertedUser;
   } catch (error) {
     logger.error(`Error creating user: ${payload.user_name}`, error);
     throw error;
@@ -449,10 +470,10 @@ const createUserDao = async (payload, conn) => {
 };
 
 /////no params get all users data
-const getUsersForCronDao = async (conn) => {
+const getUsersForCronDao = async () => {
   try {
     const sql = `SELECT id  FROM public."User" where is_obsolete = false`;
-    const result = await conn.query(sql);
+    const result = await executeQuery(sql);
     if (result.rows.length === 0) {
       logger.info('No users Found');
       return [];

@@ -527,10 +527,8 @@ export const vendorColumns = {
     'status',
     'bank_id',
     'amount',
-    // 'api_short_code',
     'utr',
     'is_used',
-    'config',
   ],
   VENDOR: [
     'first_name',
@@ -573,6 +571,7 @@ export const tableName = {
   BENEFICIARY_ACCOUNTS: 'BeneficiaryAccounts',
   NOTIFICATIONS: 'Notifications',
   NOTIFICATION_RECIPIENTS: 'NotificationRecipients',
+  BANK_HISTORY : 'BankHistory'
 };
 
 export const BankTypes = {
@@ -838,4 +837,13 @@ export const unblocked_countries=[
   },
   { country: 'United Arab Emirates', regions: [] },
   { country: 'Pakistan', regions: [] },
+];
+
+export const userFields = [
+  'full_name^2', // Boost full_name
+  'contact_no',
+  'user_name',
+  'code',
+  'designation',
+  'email'
 ];

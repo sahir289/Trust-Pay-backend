@@ -21,7 +21,7 @@ import {
 import { BadRequestError } from '../../utils/appErrors.js';
 
 import { transactionWrapper } from '../../utils/db.js';
-import { Role, tableName } from '../../constants/index.js';
+import { Role } from '../../constants/index.js';
 
 // Ensure Role.BOT is defined in '../../constants/index.js' as:
 // export const Role = { BOT: 'BOT', ...otherRoles };
@@ -29,11 +29,11 @@ import config from '../../config/config.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { s3 } from '../../helpers/Aws.js';
 import { streamToBuffer } from '../../helpers/index.js';
-import { newTableEntry } from '../../utils/sockets.js';
+// import { newTableEntry } from '../../utils/sockets.js';
 import { publishBankResponse } from '../../utils/rabbitmq-bank-response.js';
 
 const getBankResponse = async (req, res) => {
-  const { role, company_id } = req.user;
+  const { role, company_id, designation, user_id } = req.user;
   const { page, limit, search, updated, sortOrder, sortBy, ...rest } =
     req.query;
   delete req.query.sortOrder;
@@ -52,6 +52,8 @@ const getBankResponse = async (req, res) => {
     updated,
     sortBy,
     sortOrder,
+    designation,
+    user_id
   );
   return sendSuccess(res, data, 'Bank response retrieved successfully');
 };
@@ -67,7 +69,7 @@ const getClaimResponse = async (req, res) => {
 };
 
 const getBankResponseBySearch = async (req, res) => {
-  const { role, company_id } = req.user;
+  const { role, company_id, designation, user_id } = req.user;
   const { page, limit, search, updated, sortOrder, sortBy, ...rest } =
     req.query;
   delete req.query.sortOrder;
@@ -86,6 +88,8 @@ const getBankResponseBySearch = async (req, res) => {
     updated,
     sortBy,
     sortOrder,
+    designation,
+    user_id
   );
   return sendSuccess(res, data, 'BankResponse fetched successfully');
 };
@@ -113,7 +117,7 @@ const createBankResponse = async (req, res) => {
   //   user_name,
   //   user_id,
   // };
-  await newTableEntry(tableName.BANK_RESPONSE);
+  // await newTableEntry(tableName.BANK_RESPONSE);
   // if (!result.message === 'Entry created successfully' ) {
     // await publishBankResponse(bankResponseObject);
   // }

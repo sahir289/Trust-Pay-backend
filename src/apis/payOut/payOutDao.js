@@ -336,7 +336,14 @@ export const getAllPayoutsDao = async (
       queryParams.push(userIdsArray);
       paramIndex += 1;
     }
-    const handledKeys = new Set(['page', 'limit', 'startDate', 'endDate', 'userId']);
+    if (filters?.status) {
+      const statusArray = typeof filters.status === 'string' ? JSON.parse(filters.status) : filters.status;
+      conditions.push(`u.status = ANY($${paramIndex})`);
+      queryParams.push(statusArray);
+      paramIndex += 1;
+    }
+
+    const handledKeys = new Set(['page', 'limit', 'startDate', 'endDate', 'userId', 'status']);
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || value === '') return;
       const nextParamIdx = paramIndex;
@@ -915,6 +922,21 @@ export const updatePayoutDao = async (ids, data, conn) => {
     throw error;
   }
 };
+
+export const getPayoutByTxnId = async (txnId) => {
+  try {
+    const query = `
+      SELECT * FROM public."Payout"
+      WHERE config->>'txnid' = $1
+    `;
+    const params = [txnId];
+    const result = await executeQuery(query, params);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error occurred while fetching payout by txnId:', error);
+    throw error;
+  }
+}
 
 export const deletePayoutDao = async (ids, data) => {
   try {

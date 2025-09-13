@@ -5,11 +5,13 @@ import {
   updateCalculationService,
   deleteCalculationService,
   calculateSuccessRatiosService,
+  updateCalculationsService,
 } from './calculationService.js';
 import { transactionWrapper } from '../../utils/db.js';
 import {
   VALIDATE_CALCULATION_SCHEMA,
   VALIDATE_UPDATE_CALCULATION_STATUS,
+  VALIDATE_UPDATE_CALCULATIONS_SCHEMA,
 } from '../../schemas/calculationSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
@@ -121,10 +123,51 @@ export const calculateSuccessRatios = async (req, res) => {
   }
 };
 
+const updateCalculations = async (req, res) => {
+  try {
+    const { company_id } = req.user;
+
+    // Validate request body
+    const { error } = VALIDATE_UPDATE_CALCULATIONS_SCHEMA.validate(req.body);
+    if (error) {
+      throw new ValidationError(error);
+    }
+
+    const { date, user_id, startDate, endDate } = req.body;
+
+    if (!user_id || typeof user_id !== 'string') {
+      throw new BadRequestError('user_id string is required');
+    }
+
+    // If no specific date is provided, use current date
+    const targetDate = date || new Date().toISOString().split('T')[0];
+
+    logger.info(
+      `Updating calculations for date: ${targetDate}, user_id: ${user_id}`,
+    );
+
+    const data = await transactionWrapper(updateCalculationsService)(
+      {
+        date: targetDate,
+        user_id,
+        startDate,
+        endDate,
+        company_id,
+      },
+    );
+
+    return sendSuccess(res, data, 'Calculations updated successfully');
+  } catch (error) {
+    logger.error('Error updating calculations:', error);
+    throw error;
+  }
+};
+
 export {
   getCalculationById,
   getCalculation,
   createCalculation,
   updateCalculation,
+  updateCalculations,
   deleteCalculation,
 };

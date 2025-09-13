@@ -1,18 +1,19 @@
 import cron from 'node-cron';
-import { getMerchantsDao } from '../apis/merchants/merchantDao.js';
-import { getCalculationDao } from '../apis/calculation/calculationDao.js';
-import { getBankaccountDao } from '../apis/bankAccounts/bankaccountDao.js';
+import { getMerchantsForDashboardReportDao } from '../apis/merchants/merchantDao.js';
+import { getCalculationDashBoardReportDao } from '../apis/calculation/calculationDao.js';
+import { getBankaccountDashBoardReportDao } from '../apis/bankAccounts/bankaccountDao.js';
 import { sendTelegramDashboardReportMessage } from '../utils/sendTelegramMessages.js';
 import config from '../config/config.js';
 import { getConnection } from '../utils/db.js';
-import { getVendorsDao } from '../apis/vendors/vendorDao.js';
+import { getVendorsDashBoardReportDao } from '../apis/vendors/vendorDao.js';
 import { logger } from '../utils/logger.js';
-import { getUserHierarchysDao } from '../apis/userHierarchy/userHierarchyDao.js';
+import { getUserHierarchysDashBoardReportDao } from '../apis/userHierarchy/userHierarchyDao.js';
 import { getCompanyDao } from '../apis/company/companyDao.js';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone.js';
 import utc from 'dayjs/plugin/utc.js';
 import collectBankData from './bankCron.js';
+import gatherAllNetbalanceForAllCompanies from './gatherAllNetBalance.js';
 
 // Initialize dayjs plugins
 dayjs.extend(utc);
@@ -133,6 +134,7 @@ const gatherAllDataForAllCompanies = async (type = 'N', timezone = 'Asia/Kolkata
       await collectBankData(timezone);
       logger.info('Bank CRON Ended for all companies');
     }
+    await gatherAllNetbalanceForAllCompanies(type, timezone);
   } catch (error) {
     logger.error(`Error in gatherAllDataForAllCompanies: ${error}`);
   }
@@ -181,11 +183,15 @@ const gatherAllData = async (company_id, type = 'N', timezone = 'Asia/Kolkata') 
       return;
     }
 
-    const merchants = await getMerchantsDao({ company_id: company_id }, null, null);
+    const merchants = await getMerchantsForDashboardReportDao(
+      { company_id: company_id }
+    );
     let merchant = [];
     let totalpayinsMerchant = 0;
     let totalpayoutsMerchant = 0;
-    const allHierarchies = await getUserHierarchysDao({ company_id: company_id });
+    const allHierarchies = await getUserHierarchysDashBoardReportDao({
+      company_id: company_id,
+    });
     const subMerchantIds = new Set();
     allHierarchies.forEach((hierarchy) => {
       const subMerchants = hierarchy?.config?.siblings?.sub_merchants || [];
@@ -194,16 +200,17 @@ const gatherAllData = async (company_id, type = 'N', timezone = 'Asia/Kolkata') 
       );
     });
     for (const merch of merchants) {
-      const calculationData = await getCalculationDao({
+      let totalPayinAmount = 0;
+      let totalPayinCount = 0;
+      let totalPayoutAmount = 0;
+      let totalPayoutCount = 0;
+      // Fetch calculation data for the merchant
+      const calculationData = await getCalculationDashBoardReportDao({
         user_id: merch.user_id,
         company_id: company_id,
         sDate,
         eDate,
       });
-      let totalPayinAmount = 0;
-      let totalPayinCount = 0;
-      let totalPayoutAmount = 0;
-      let totalPayoutCount = 0;
 
       for (const data of calculationData) {
         totalPayinAmount += data.total_payin_amount || 0;
@@ -211,7 +218,31 @@ const gatherAllData = async (company_id, type = 'N', timezone = 'Asia/Kolkata') 
         totalPayoutAmount += data.total_payout_amount || 0;
         totalPayoutCount += data.total_payout_count || 0;
       }
-      //submerchants removed
+      const merchantHier = await getUserHierarchysDashBoardReportDao({
+        user_id: merch.user_id,
+        company_id,
+      });
+      const subMerchants =
+        merchantHier.length > 0
+          ? merchantHier[0]?.config?.siblings?.sub_merchants || []
+          : [];
+      if (subMerchants.length > 0) {
+        for (const subMerchantId of subMerchants) {
+          const subMerchantCalculationData =
+            await getCalculationDashBoardReportDao({
+              user_id: subMerchantId,
+              company_id,
+              sDate,
+              eDate,
+            });
+          for (const data of subMerchantCalculationData) {
+            totalPayinAmount += data.total_payin_amount || 0;
+            totalPayinCount += data.total_payin_count || 0;
+            totalPayoutAmount += data.total_payout_amount || 0;
+            totalPayoutCount += data.total_payout_count || 0;
+          }
+        }
+      }
       if (!subMerchantIds.has(merch.user_id)) {
         merchant.push({
           merchantId: merch.code,
@@ -220,23 +251,18 @@ const gatherAllData = async (company_id, type = 'N', timezone = 'Asia/Kolkata') 
           totalPayout: totalPayoutAmount,
           totalPayoutCount: totalPayoutCount,
         });
-      }
-
       totalpayinsMerchant += totalPayinAmount;
       totalpayoutsMerchant += totalPayoutAmount;
+      } 
       merchant.sort((a, b) => a.merchantId.localeCompare(b.merchantId));
     }
-
     let vendorObjpayIn = {};
     let vendorObjpayOut = [];
     let totalBankDepositAllVendors = 0;
     let totalBankWithdrawalAllVendors = 0;
 
-    const banksData = await getBankaccountDao(
-      { bank_used_for: 'PayIn', company_id: company_id },
-      null,
-      null,
-      'ADMIN',
+    const banksData = await getBankaccountDashBoardReportDao(
+      { bank_used_for: 'PayIn', company_id: company_id }
     );
     const banks = banksData
       .filter(({ today_balance }) => today_balance !== 0)
@@ -253,12 +279,8 @@ const gatherAllData = async (company_id, type = 'N', timezone = 'Asia/Kolkata') 
     let vendorData;
 
     for (const bank of banks) {
-      vendorData = await getVendorsDao(
-        { user_id: bank.user_id, company_id: company_id },
-        null,
-        null,
-        'created_at',
-        'DESC',
+      vendorData = await getVendorsDashBoardReportDao(
+        { user_id: bank.user_id, company_id: company_id }
       );
       if (vendorData.length > 0) {
         const vendor = vendorData[0];
@@ -276,11 +298,8 @@ const gatherAllData = async (company_id, type = 'N', timezone = 'Asia/Kolkata') 
       }
     }
 
-    const banksDataOut = await getBankaccountDao(
-      { bank_used_for: 'PayOut', company_id: company_id },
-      null,
-      null,
-      'ADMIN',
+    const banksDataOut = await getBankaccountDashBoardReportDao(
+      { bank_used_for: 'PayOut', company_id: company_id }
     );
     const banksOut = banksDataOut
       .filter(({ today_balance }) => today_balance !== 0)
@@ -295,12 +314,8 @@ const gatherAllData = async (company_id, type = 'N', timezone = 'Asia/Kolkata') 
       });
     let vendorDataOut;
     for (const banksO of banksOut) {
-      vendorDataOut = await getVendorsDao(
-        { user_id: banksO.user_id, company_id: company_id },
-        null,
-        null,
-        'created_at',
-        'DESC',
+      vendorDataOut = await getVendorsDashBoardReportDao(
+        { user_id: banksO.user_id, company_id: company_id }
       );
       if (vendorDataOut.length > 0) {
         const vendor = vendorDataOut[0];

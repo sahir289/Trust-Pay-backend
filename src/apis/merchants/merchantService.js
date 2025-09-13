@@ -290,7 +290,7 @@ const getMerchantsServiceCode = async (
 ) => {
   let conn;
   try {
-    conn = await getConnection();
+    conn = await getConnection('reader');
     await beginTransaction(conn);
 
     let userIdFilter = Array.isArray(user_id)
@@ -368,7 +368,7 @@ const updateMerchantService = async (conn, ids, payload) => {
   try {
     // const filterColumns =
     //   role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
-    if (payload?.whitelist_ips) {
+    if (payload?.whitelist_ips || payload?.whitelist_ips === '') {
       payload.config = {
         ...payload.config,
         whitelist_ips: payload?.whitelist_ips,

@@ -16,16 +16,31 @@ import {
   getClaimResponseDao,
   getBankResponseBySearchDao,
   resetBankResponseDao,
+  getForCreateBankResponseDao,
+  getCheckBankResponseDao,
 } from './bankResponseDao.js';
 import { logger } from '../../utils/logger.js';
 import {
   getBankaccountDao,
   updateBankaccountDao,
+  getBankaccountCheckDao,
+  getBankaccountDashBoardReportDao,
 } from '../bankAccounts/bankaccountDao.js';
-import { getPayInUrlsDao, updatePayInUrlDao } from '../payIn/payInDao.js';
-import { getMerchantsDao } from '../merchants/merchantDao.js';
+import {
+  // getPayInUrlsDao,
+  getPayInsBankResDao,
+  getPayInsForResetBankResDao,
+  updatePayInUrlDao,
+} from '../payIn/payInDao.js';
+import {
+  getMerchantsBankResponseDao,
+} from '../merchants/merchantDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
-import { getVendorsDao, updateVendorDao } from '../vendors/vendorDao.js';
+import {
+  getVendorsDao,
+  updateVendorDao,
+  getVendorsBankReponseDao,
+} from '../vendors/vendorDao.js';
 import { newTableEntry } from '../../utils/sockets.js';
 import {
   columns,
@@ -51,6 +66,8 @@ import { filterResponse } from '../../helpers/index.js';
 import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
 import PDFParser from 'pdf2json';
 import { calculateDuration } from '../../helpers/index.js';
+import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
+import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const createBankResponseService = async (
@@ -60,13 +77,9 @@ const createBankResponseService = async (
   name,
   // user_id,
 ) => {
+  let localConn;
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.BANK_RESPONSE
-        : role === Role.VENDOR
-          ? vendorColumns.BANK_RESPONSE
-          : columns.BANK_RESPONSE;
+    localConn = await getConnection();
 
     const splitData = payload.split(' ');
     const amount = parseFloat(splitData[0]);
@@ -81,19 +94,12 @@ const createBankResponseService = async (
     if (!isValidAmount) {
       throw new BadRequestError(`amount must be between 1 and 500000`);
     }
-
-
-    const bankCompanyCheck = await getBankaccountDao(
-      {
-        id: bank_id,
-        company_id: companyId,
-      },
-      null,
-      null,
-      role,
-    );
-
-    if (!bankCompanyCheck || bankCompanyCheck?.length === 0) {
+    const bankCompanyCheck = await getBankaccountCheckDao({
+      id: bank_id,
+      company_id: companyId,
+      bank_used_for: 'PayIn',
+    });
+    if (!bankCompanyCheck) {
       throw new NotFoundError('Bank account does not exist for this company');
     }
 
@@ -142,35 +148,14 @@ const createBankResponseService = async (
 
     let utrAlreadyExist;
     if (isValidAmountCode) {
-      utrAlreadyExist = await getBankResponseDao(
-        { upi_short_code, company_id },
-        null,
-        null,
-        null,
-        null,
-        filterColumns,
-      );
+      utrAlreadyExist = await getCheckBankResponseDao({
+        upi_short_code, company_id});
       if (!utrAlreadyExist) {
-        utrAlreadyExist = await getBankResponseDao(
-          { utr, company_id },
-          null,
-          null,
-          null,
-          null,
-          filterColumns,
-        );
+        utrAlreadyExist = await getCheckBankResponseDao({ utr, company_id });
       }
     } else {
-      utrAlreadyExist = await getBankResponseDao(
-        { utr, company_id },
-        null,
-        null,
-        null,
-        null,
-        filterColumns,
-      );
+      utrAlreadyExist = await getCheckBankResponseDao({ utr, company_id });
     }
-
     const isRepeated = utrAlreadyExist;
 
     const updatedData = {
@@ -207,13 +192,9 @@ const createBankResponseService = async (
     let botRes;
 
     // Use a transaction for all DB operations for a single entry
-    let localConn;
-    let shouldRelease = false;
     try {
-      localConn = await getConnection();
-      shouldRelease = true;
+      // localConn = await getConnection();
       await beginTransaction(localConn);
-
       botRes = await createBankResponseDao(localConn, updatedData);
       // await sendNotification(updatedData.status.replace('/', ''), {
       //   id: botRes.id,
@@ -229,23 +210,20 @@ const createBankResponseService = async (
         // if (shouldRelease) localConn.release();
         if (isValidAmountCode) {
           return {
-            message: `Entry with REPEATED AMOUNT CODE Added ${upi_short_code}`,
+            message: `Entry with REPEATED AMOUNT CODE: ${upi_short_code} Added`,
           };
         } else {
-          return { message: `Entry with REPEATED UTR Added ${utr}` };
+          return { message: `Entry with REPEATED UTR: ${utr} Added` };
         }
       }
-
+      let bankDetails = [];
       ////for bank account ////vendor calculation
       if (botRes.status === '/success') {
-        const bankDetails = await getBankaccountDao(
+        bankDetails = await getBankaccountDashBoardReportDao(
           {
             id: botRes?.bank_id,
             company_id: companyId,
-          },
-          null,
-          null,
-          role,
+          }
         );
         if (
           isNaN(bankDetails[0].balance) ||
@@ -254,7 +232,7 @@ const createBankResponseService = async (
           throw new BadRequestError('Invalid amount or commission');
         }
         const res = await updateBankaccountDao(
-          { id: botRes?.bank_id },
+          { id: botRes?.bank_id, company_id: companyId },
           {
             balance:
               parseFloat(bankDetails[0].balance) + parseFloat(botRes.amount),
@@ -273,7 +251,7 @@ const createBankResponseService = async (
           companyId,
           bankDetails[0].user_id,
         );
-        vendor = await getVendorsDao({
+        vendor = await getVendorsBankReponseDao({
           user_id: bankDetails[0].user_id,
         });
         if (isNaN(vendor[0].balance)) {
@@ -293,16 +271,20 @@ const createBankResponseService = async (
         await updateCalculationTable(vendor[0].user_id, {
           payinCommission: payinVendorCommission,
           amount: botRes.amount,
-        });
+        }, localConn);
       }
       let duration;
       let checkPayInUtr;
       if (isValidAmountCode) {
-        checkPayInUtr = await getPayInUrlsDao({
+        checkPayInUtr = await getPayInsBankResDao({
           upi_short_code: upi_short_code,
+          company_id: companyId,
         });
       } else {
-        checkPayInUtr = await getPayInUrlsDao({ user_submitted_utr: utr });
+        checkPayInUtr = await getPayInsBankResDao({
+          user_submitted_utr: utr,
+          company_id: companyId,
+        });
       }
       if (checkPayInUtr?.length > 0) {
         const payInUtr =
@@ -310,13 +292,8 @@ const createBankResponseService = async (
             ? checkPayInUtr[0]
             : checkPayInUtr[checkPayInUtr.length - 1];
         if (upi_short_code && isValidAmountCode) {
-          const getDataByUtr = await getBankResponseDaoAll(
-            { utr: payInUtr.user_submitted_utr, company_id },
-            null,
-            null,
-            filterColumns,
-            null,
-            null,
+          const getDataByUtr = await getForCreateBankResponseDao(
+            { utr: payInUtr.user_submitted_utr, company_id }
           );
           const botUtrIsUsed =
             getDataByUtr.rows.length > 1 &&
@@ -329,12 +306,16 @@ const createBankResponseService = async (
             };
           }
         }
-        const isBankExist = await getBankaccountDao(
+        const isBankExist = await getBankaccountDashBoardReportDao(
           { id: bank_id, company_id },
-          null,
-          null,
-          role,
         );
+
+        if (isBankExist && (isBankExist[0]?.config?.is_freeze === true || isBankExist[0]?.freezed === 'true') && role !== Role.ADMIN) {
+          await commit(localConn);
+          // if (shouldRelease) localConn.release();
+          return { message: `Entry Created Successfully. But as Bank Account is freezed entry is not paired. Please contact admin` };
+        }
+
         if (!isBankExist || payInUtr.bank_acc_id !== bank_id) {
           if (
             (payInUtr.user_submitted_utr !== utr &&
@@ -369,9 +350,47 @@ const createBankResponseService = async (
             payInData,
             localConn,
           );
+
+          const merchantData = await getMerchantsBankResponseDao({
+            id: payInUtr.merchant_id
+        });
+
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
           if (updatePayInDataRes) {
-            await newTableEntry(tableName.PAYIN);
+            const obj = {
+              id: updatePayInDataRes.id,
+              status: updatePayInDataRes.status,
+              company_id: updatePayInDataRes.company_id,
+              merchant_order_id: updatePayInDataRes.merchant_order_id,
+              amount: updatePayInDataRes.amount,
+              merchant_id: merchantData[0]?.merchant_id || null,
+              payin_merchant_commission:
+                updatePayInDataRes.payin_merchant_commission,
+              payin_vendor_commission:
+                updatePayInDataRes.payin_vendor_commission,
+              duration: updatePayInDataRes.duration,
+              created_at: updatePayInDataRes.created_at,
+              updated_at: updatePayInDataRes.updated_at,
+              user_submitted_utr: updatePayInDataRes.user_submitted_utr,
+              bank_acc_id: updatePayInDataRes.bank_acc_id,
+              nick_name: bankDetails[0]?.nick_name || null,
+              user: updatePayInDataRes.user,
+              vendor_code: (vendor && vendor[0]?.code) || null,
+              vendor_user_id: (vendor && vendor[0]?.user_id) || null,
+              bank_response_id: updatePayInDataRes.bank_response_id,
+              config: updatePayInDataRes.config,
+              merchant_details: {
+                merchant_code: merchantData[0]?.code || '',
+                dispute: updatePayInDataRes.status === 'DISPUTE',
+                return_url: updatePayInDataRes.config?.urls?.return || null,
+                notify_url: updatePayInDataRes.config?.urls?.notify || null,
+              },
+              bank_res_details: {
+                utr: botRes.utr || null,
+                amount: botRes.amount || null,
+              },
+            };
+            await newTableEntry(tableName.PAYIN, obj);
             // This is async function but it's just the callback sending function there fore we are not using await
             merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
               status: updatePayInDataRes.status,
@@ -395,59 +414,31 @@ const createBankResponseService = async (
           };
         }
 
-        const existingResponse = await getBankResponseDao(
-          { utr, is_used: true, company_id },
-          null,
-          null,
-          null,
-          null,
-          filterColumns,
+        const existingResponse = await getForCreateBankResponseDao(
+          { utr, is_used: true, company_id }
         );
         if (existingResponse?.length > 0) {
           await commit(localConn);
           // if (shouldRelease) localConn.release();
           return { message: `The UTR already exists` };
         }
-        const merchantData = await getMerchantsDao(
-          { id: payInUtr.merchant_id },
-          null,
-          null,
-          null,
-          null,
-        );
+        const merchantData = await getMerchantsBankResponseDao({
+          id: payInUtr.merchant_id,
+        });
         const payinMerchantCommission = calculateCommission(
           botRes.amount,
           merchantData[0].payin_commission,
         );
-        const bankAccountDetails = await getBankaccountDao(
-          { id: payInUtr.bank_acc_id, company_id },
-          null,
-          null,
-          role,
+        const bankAccountDetails = await getBankaccountDashBoardReportDao(
+          { id: payInUtr.bank_acc_id, company_id }
         );
-        const vendorData = await getVendorsDao(
-          { user_id: bankAccountDetails[0].user_id },
-          null,
-          null,
-          null,
-          null,
-        );
+        const vendorData = await getVendorsBankReponseDao({
+          user_id: bankAccountDetails[0].user_id,
+        });
         const payinVendorCommission = calculateCommission(
           botRes.amount,
           vendorData[0].payin_commission,
         );
-        // const durMs = new Date() - payInUtr.created_at;
-        // const durSeconds = Math.floor((durMs / 1000) % 60)
-        //   .toString()
-        //   .padStart(2, '0');
-        // const durMinutes = Math.floor((durSeconds / 60) % 60)
-        //   .toString()
-        //   .padStart(2, '0');
-        // const durHours = Math.floor((durMinutes / 60) % 24)
-        //   .toString()
-        //   .padStart(2, '0');
-        // const duration = `${durHours}:${durMinutes}:${durSeconds}`;
-        // const duration = calculateDuration(payInUtr.created_at);
 
         if (
           payInUtr.amount === amount ||
@@ -491,7 +482,39 @@ const createBankResponseService = async (
             localConn,
           );
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
-          await newTableEntry(tableName.PAYIN);
+
+          const obj = {
+            id: updatePayin.id,
+            status: updatePayin.status,
+            company_id: updatePayin.company_id,
+            merchant_order_id: updatePayin.merchant_order_id,
+            amount: updatePayin.amount,
+            merchant_id: merchantData[0]?.merchant_id || null,
+            payin_merchant_commission: updatePayin.payin_merchant_commission,
+            payin_vendor_commission: updatePayin.payin_vendor_commission,
+            duration: updatePayin.duration,
+            created_at: updatePayin.created_at,
+            updated_at: updatePayin.updated_at,
+            nick_name: bankDetails[0]?.nick_name || null,
+            user: updatePayin.user || null,
+            vendor_code: (vendorData && vendorData[0]?.code) || null,
+            user_submitted_utr: updatePayin.user_submitted_utr,
+            bank_acc_id: updatePayin.bank_acc_id,
+            bank_response_id: updatePayin.bank_response_id,
+            config: updatePayin.config,
+            merchant_details: {
+              merchant_code: merchantData[0]?.code || '',
+              dispute: updatePayin.status === 'DISPUTE',
+              return_url: updatePayin.config?.urls?.return || null,
+              notify_url: updatePayin.config?.urls?.notify || null,
+            },
+            bank_res_details: {
+              utr: botRes.utr || null,
+              amount: botRes.amount || null,
+            },
+          };
+
+          await newTableEntry(tableName.PAYIN, obj);
           // This is async function but it's just the callback sending function there fore we are not using await
           merchantPayinCallback(updatePayin.config.urls?.notify, {
             status: updatePayin.status,
@@ -508,7 +531,7 @@ const createBankResponseService = async (
           await updateCalculationTable(merchantData[0].user_id, {
             payinCommission: payinMerchantCommission,
             amount: botRes.amount,
-          });
+          }, localConn);
           await commit(localConn);
           // if (shouldRelease) localConn.release();
           return {
@@ -552,7 +575,40 @@ const createBankResponseService = async (
           );
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
           if (updatePayInDataRes) {
-            await newTableEntry(tableName.PAYIN);
+            const obj = {
+              id: updatePayInDataRes.id,
+              status: updatePayInDataRes.status,
+              company_id: updatePayInDataRes.company_id,
+              merchant_order_id: updatePayInDataRes.merchant_order_id,
+              amount: updatePayInDataRes.amount,
+              merchant_id: merchantData[0]?.merchant_id || null,
+              payin_merchant_commission:
+                updatePayInDataRes.payin_merchant_commission,
+              payin_vendor_commission:
+                updatePayInDataRes.payin_vendor_commission,
+              duration: updatePayInDataRes.duration,
+              created_at: updatePayInDataRes.created_at,
+              updated_at: updatePayInDataRes.updated_at,
+              user_submitted_utr: updatePayInDataRes.user_submitted_utr,
+              bank_acc_id: updatePayInDataRes.bank_acc_id,
+              bank_response_id: updatePayInDataRes.bank_response_id,
+              nick_name: bankDetails[0]?.nick_name || null,
+              user: updatePayInDataRes.user,
+              vendor_code: vendorData[0]?.code || null,
+              vendor_user_id: vendorData[0]?.user_id || null,
+              config: updatePayInDataRes.config,
+              merchant_details: {
+                merchant_code: merchantData[0]?.code || '',
+                dispute: updatePayInDataRes.status === 'DISPUTE',
+                return_url: updatePayInDataRes.config?.urls?.return || null,
+                notify_url: updatePayInDataRes.config?.urls?.notify || null,
+              },
+              bank_res_details: {
+                utr: botRes.utr || null,
+                amount: botRes.amount || null,
+              },
+            };
+            await newTableEntry(tableName.PAYIN, obj);
             // This is async function but it's just the callback sending function there fore we are not using await
             merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
               status: updatePayInDataRes.status,
@@ -580,12 +636,12 @@ const createBankResponseService = async (
 
       await commit(localConn);
 
-      const bankDetails = await getBankaccountDao(
-        { id: botRes?.bank_id, company_id: companyId },
-        null,
-        null,
-        role,
-      );
+      // const bankDetails = await getBankaccountDao(
+      //   { id: botRes?.bank_id, company_id: companyId },
+      //   null,
+      //   null,
+      //   role,
+      // );
       //  let vendorData = bankDetails[0]
       //     ? await getVendorsDao({ user_id: bankDetails[0].user_id })
       //     : [];
@@ -609,34 +665,36 @@ const createBankResponseService = async (
           is_phonepay: bankDetails[0]?.config?.is_phonepay || false,
         },
         nick_name: bankDetails[0]?.nick_name || null,
-        vendor_user_id: bankDetails[0]?.user_id || null,
-        merchant_code: null, // You can fetch merchant_code if needed
+        vendor_user_id: vendor[0]?.user_id || null,
+        vendor_code: vendor[0]?.code || null,
         company_id: companyId,
       };
       // Send to socket for real-time update
       await newTableEntry(tableName.BANK_RESPONSE, responseObj);
       return { message: `Entry created successfully`, data: responseObj };
     } catch (err) {
-      if (localConn) {
-        try {
-          await rollback(localConn);
-        } catch (rollbackErr) {
-          logger.error('Error during rollback:', rollbackErr);
-        }
-      }
+      logger.error('Error performating transactions', err);
       throw err;
-    } finally {
-      if (shouldRelease && localConn) {
-        try {
-          localConn.release();
-        } catch (releaseErr) {
-          logger.error('Error releasing connection:', releaseErr);
-        }
-      }
     }
   } catch (error) {
+    if (localConn) {
+      try {
+        await rollback(localConn);
+      } catch (rollbackErr) {
+        logger.error('Error during rollback:', rollbackErr);
+      }
+    }
+
     logger.error('Error in createBankResponseService:', error.message);
     throw error;
+  } finally {
+    if (localConn) {
+      try {
+        if (localConn) localConn.release();
+      } catch (releaseErr) {
+        logger.error('Error releasing connection:', releaseErr);
+      }
+    }
   }
 };
 
@@ -663,6 +721,8 @@ const updateCalculationTable = async (user_id, data, conn) => {
         },
         conn,
       );
+      
+      await trackVendorsNetBalance(user_id, conn, response);
       return response;
     }
   } catch (error) {
@@ -702,6 +762,8 @@ const getBankResponseService = async (
   updated,
   sortBy,
   sortOrder,
+  designation,
+  user_id,
 ) => {
   try {
     const filterColumns =
@@ -732,6 +794,33 @@ const getBankResponseService = async (
       ...filters,
     };
     sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
+
+    const fetchBankIds = async (user_id) => {
+      try {
+        const banks = await getBankaccountDao({
+          user_id,
+          bank_used_for: 'PayIn',
+        });
+        if (!banks || banks.length === 0) {
+          return [];
+        }
+        return banks.map((bank) => bank.id);
+      } catch (error) {
+        logger.error('Error fetching PayIn:', error);
+        return [];
+      }
+    };
+
+    if (designation === Role.VENDOR && !filters.bank_id) {
+      filters.bank_id = await fetchBankIds(user_id);
+    } else if (designation === Role.VENDOR_OPERATIONS) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const parentID = userHierarchys?.[0]?.config?.parent;
+      if (parentID) {
+        filters.bank_id = await fetchBankIds(parentID);
+      }
+    }
+
     const data = await getBankResponseDaoAll(
       filters,
       page,
@@ -759,6 +848,8 @@ const getBankResponseBySearchService = async (
   updated,
   sortBy,
   sortOrder,
+  designation,
+  user_id,
 ) => {
   try {
     const filterColumns =
@@ -791,6 +882,32 @@ const getBankResponseBySearchService = async (
       ...filters,
     };
     sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
+
+    const fetchBankIds = async (user_id) => {
+      try {
+        const banks = await getBankaccountDao({
+          user_id,
+          bank_used_for: 'PayIn',
+        });
+        if (!banks || banks.length === 0) {
+          return [];
+        }
+        return banks.map((bank) => bank.id);
+      } catch (error) {
+        logger.error('Error fetching PayIn:', error);
+        return [];
+      }
+    };
+
+    if (designation === Role.VENDOR) {
+      filters.bank_id = await fetchBankIds(user_id);
+    } else if (designation === Role.VENDOR_OPERATIONS) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const parentID = userHierarchys?.[0]?.config?.parent;
+      if (parentID) {
+        filters.bank_id = await fetchBankIds(parentID);
+      }
+    }
 
     const data = await getBankResponseBySearchDao(
       filters,
@@ -897,9 +1014,15 @@ const resetBankResponseService = async (conn, id, userData) => {
     }
 
     // Check for successful pay-in
-    let payInData = await getPayInUrlsDao({ user_submitted_utr: botRes.utr });
+    let payInData = await getPayInsForResetBankResDao({
+      user_submitted_utr: botRes.utr,
+      company_id,
+    });
     if (!payInData?.length) {
-      payInData = await getPayInUrlsDao({ bank_response_id: botRes.id });
+      payInData = await getPayInsForResetBankResDao({
+        bank_response_id: botRes.id,
+        company_id,
+      });
     }
 
     const hasSuccess = payInData?.some(
@@ -967,6 +1090,7 @@ const resetBankResponseService = async (conn, id, userData) => {
         user_id,
         user_name,
         conn,
+        company_id,
       });
       updateData = utrResult;
       changes.utr = utr;
@@ -1012,7 +1136,7 @@ const resetBankResponseService = async (conn, id, userData) => {
       data: changes,
       updated_by: user_name,
       updated_at: new Date().toISOString(),
-       company_id: company_id,
+      company_id: company_id,
     };
     await newTableEntry(tableName.BANK_RESPONSE, results);
     return results;
@@ -1123,7 +1247,14 @@ const handleAmountUpdate = async ({
 };
 
 // Handle UTR update
-const handleUtrUpdate = async ({ botRes, utr, user_id, user_name, conn }) => {
+const handleUtrUpdate = async ({
+  botRes,
+  utr,
+  user_id,
+  user_name,
+  conn,
+  company_id,
+}) => {
   try {
     const previousUTR = botRes.utr;
     const previousUpdater = botRes.updated_by;
@@ -1132,7 +1263,10 @@ const handleUtrUpdate = async ({ botRes, utr, user_id, user_name, conn }) => {
       updated_by: user_name,
       config: { ...(botRes.config || {}), previousUTR, previousUpdater },
     };
-    const payIn = await getPayInUrlsDao({ user_submitted_utr: utr });
+    const payIn = await getPayInsForResetBankResDao({
+      user_submitted_utr: utr,
+      company_id,
+    });
     if (
       payIn?.length &&
       payIn[0].user_submitted_utr &&
@@ -1693,11 +1827,13 @@ const updateCalculationBalances = async (
     };
     const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
     // Update current calculation
-    await updateCalculationBalanceDao(
+    const updatedCurrentCalculation = await updateCalculationBalanceDao(
       { id: currentCalculation[0].id },
       updates,
       conn,
     );
+    
+    await trackVendorsNetBalance(currentCalculation[0].user_id, conn, updatedCurrentCalculation);
 
     if (nextCalculations.length > 0) {
       // Update subsequent calculations
@@ -1713,7 +1849,7 @@ const updateCalculationBalances = async (
             total_adjustment_count: 1,
           };
         }
-        await updateCalculationBalanceDao(
+        const updatedCalc = await updateCalculationBalanceDao(
           { id: calc.id },
           {
             net_balance: amountDiff - commission,
@@ -1721,6 +1857,8 @@ const updateCalculationBalances = async (
           },
           conn,
         );
+        
+        await trackVendorsNetBalance(calc.user_id, conn, updatedCalc);
       }
     }
   } catch (error) {
