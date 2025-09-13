@@ -34,7 +34,6 @@ import {
 } from '../userHierarchy/userHierarchyDao.js';
 import { getMerchantByUserIdDao } from '../merchants/merchantDao.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
-// import { getUsersByESSearch } from '../../elasticSearch/user/search.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const getUsersService = async (

@@ -1,6 +1,8 @@
-import esClient from '../../utils/elasticClient.js';
+// import { getIndexName } from '../../utils/buildElasticSearch.js';
+import getESClient from '../../utils/elasticClient.js';
 
 export const createUsersIndex = async () => {
+  const esClient = await getESClient();
   const exists = await esClient.indices.exists({ index: 'users' });
   if (!exists) {
     await esClient.indices.create({
@@ -32,6 +34,7 @@ export const createUsersIndex = async () => {
 };
 
 export const getUsersIndex = async (user) => {
+  const esClient = await getESClient();
   const { body } = await esClient.get({
     index: 'users',
     id: user.id,

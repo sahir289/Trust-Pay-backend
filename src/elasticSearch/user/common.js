@@ -1,7 +1,7 @@
 import { userFields } from '../../constants/index.js';
 import { BadRequestError } from '../../utils/appErrors.js';
-import { buildESIndex, buildESQuery } from '../../utils/buildElasticSearch.js';
-import esClient from '../../utils/elasticClient.js';
+import { buildInES, buildESQuery } from '../../utils/buildElasticSearch.js';
+import getESClient from '../../utils/elasticClient.js';
 import { logger } from '../../utils/logger.js';
 
 const userSearchableFields = userFields;
@@ -21,6 +21,8 @@ export const getUsersByESSearch = async (
       offset,
       limit,
     );
+  const esClient = await getESClient();
+
     const data = await esClient.search({
       index: 'users', // Module-specific index
       body: queryBody,
@@ -61,7 +63,7 @@ export const createUserInES = async (user) => {
     //   created_at: user.created_at,
     // };
 
-    const result = await buildESIndex(user.id, user);
+    const result = await buildInES(user.id, user, 'users'); // 'users' is the index name
 
     return {
       success: true,

@@ -9,7 +9,7 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 // import esClient from '../../utils/elasticClient.js';
-import { createUserInES, getUsersByESSearch } from '../../elasticSearch/user/search.js';
+import { createUserInES, getUsersByESSearch } from '../../elasticSearch/user/common.js';
 
 export const getUsersContactDao = async (company_id, contact_no) => {
   try {
