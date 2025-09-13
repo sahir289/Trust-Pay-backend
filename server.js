@@ -8,7 +8,7 @@ import { closePool } from './src/utils/db.js';
 import { closeRabbitMQ } from './src/utils/rabbitmq.js';
 import { startBankResponseWorker } from './src/worker/consume-bank-response-worker.js';
 import { closeRedis } from './src/utils/redisClient.js';
-import { migrateUsersToES } from './src/elasticSearch/user/migrate.js';
+// import { migrateUsersToES } from './src/elasticSearch/user/migrate.js';
 
 const server = createServer(app);
 
