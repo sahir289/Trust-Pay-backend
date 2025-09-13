@@ -35,7 +35,7 @@ export const getUsersByESSearch = async (
     //     ...hit._source, // Spread user data
     //     created_at: new Date(hit._source.created_at).toISOString() // Format date
     //   }));
-    const dd =  data.hits.hits.map((hit) => hit._source);
+    const dd =  data?.hits?.hits?.map((hit) => hit._source);
     console.log(dd, "ddd here");
     return dd;
   } catch (error) {
