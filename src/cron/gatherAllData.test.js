@@ -1,16 +1,23 @@
-// import dayjs from 'dayjs';
+import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone.js';
+import utc from 'dayjs/plugin/utc.js';
 import collectBankData from './bankCron.js';
 import { getCompanyDao } from '../apis/company/companyDao.js';
-import { getMerchantsDao } from '../apis/merchants/merchantDao.js';
-import { getCalculationDao } from '../apis/calculation/calculationDao.js';
-import { getBankaccountDao } from '../apis/bankAccounts/bankaccountDao.js';
-import { getVendorsDao } from '../apis/vendors/vendorDao.js';
-import { getUserHierarchysDao } from '../apis/userHierarchy/userHierarchyDao.js';
+import { getMerchantsForDashboardReportDao } from '../apis/merchants/merchantDao.js';
+import { getCalculationDashBoardReportDao } from '../apis/calculation/calculationDao.js';
+import { getBankaccountDashBoardReportDao } from '../apis/bankAccounts/bankaccountDao.js';
+import { getVendorsDashBoardReportDao } from '../apis/vendors/vendorDao.js';
+import { getUserHierarchysDashBoardReportDao } from '../apis/userHierarchy/userHierarchyDao.js';
 import { sendTelegramDashboardReportMessage } from '../utils/sendTelegramMessages.js';
 import { getConnection } from '../utils/db.js';
 import { logger } from '../utils/logger.js';
 import gatherAllDataForAllCompanies, { gatherAllData } from './gatherAllData.js';
-import formattedSuccessRatiosForAllCompanies from './successRatioCron.js';
+import gatherAllNetbalanceForAllCompanies from './gatherAllNetBalance.js';
+import config from '../config/config.js';
+
+// Initialize dayjs plugins
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 jest.mock('../utils/logger.js', () => ({
   logger: {
@@ -21,9 +28,6 @@ jest.mock('../utils/logger.js', () => ({
   },
 }));
 
-
-
-
 jest.mock('../apis/company/companyDao.js');
 jest.mock('../apis/merchants/merchantDao.js');
 jest.mock('../apis/calculation/calculationDao.js');
@@ -33,49 +37,83 @@ jest.mock('../apis/userHierarchy/userHierarchyDao.js');
 jest.mock('../utils/sendTelegramMessages.js');
 jest.mock('../utils/db.js');
 jest.mock('./bankCron.js');
-jest.mock('../utils/logger.js');
+jest.mock('./gatherAllNetBalance.js');
 
 describe('gatherAllDataForAllCompanies', () => {
   const timezone = 'Asia/Kolkata';
+
   beforeEach(() => {
     jest.clearAllMocks();
     collectBankData.mockResolvedValue();
-    getCompanyDao.mockResolvedValue([{ id: 1, config: { telegramDashboardChatId: 'chatId', telegramBotToken: 'token' } }]);
-    getMerchantsDao.mockResolvedValue([{ user_id: 1, code: 'M001' }]);
-    getCalculationDao.mockResolvedValue([{ total_payin_amount: 1000, total_payin_count: 1, total_payout_amount: 500, total_payout_count: 1 }]);
-    getBankaccountDao.mockResolvedValue([{ user_id: 1, nick_name: 'Bank1', today_balance: 500, payin_count: 2 }]);
-    getVendorsDao.mockResolvedValue([{ code: 'V001' }]);
-    getUserHierarchysDao.mockResolvedValue([]);
+    gatherAllNetbalanceForAllCompanies.mockResolvedValue();
+    getCompanyDao.mockResolvedValue([
+      { id: 1, config: { telegramDashboardChatId: 'chatId', telegramBotToken: 'token' } },
+    ]);
+    getMerchantsForDashboardReportDao.mockResolvedValue([{ user_id: 1, code: 'M001' }]);
+    getCalculationDashBoardReportDao.mockResolvedValue([
+      { total_payin_amount: 1000, total_payin_count: 1, total_payout_amount: 500, total_payout_count: 1 },
+    ]);
+    getBankaccountDashBoardReportDao.mockResolvedValue([
+      { user_id: 1, nick_name: 'Bank1', today_balance: 500, payin_count: 2 },
+    ]);
+    getVendorsDashBoardReportDao.mockResolvedValue([{ code: 'V001' }]);
+    getUserHierarchysDashBoardReportDao.mockResolvedValue([]);
     getConnection.mockResolvedValue({ release: jest.fn() });
+    sendTelegramDashboardReportMessage.mockResolvedValue();
   });
 
   it('should process all companies and call bank cron for daily reports', async () => {
     await gatherAllDataForAllCompanies('N', timezone);
 
     expect(getCompanyDao).toHaveBeenCalled();
-    expect(getMerchantsDao).toHaveBeenCalled();
-    expect(getCalculationDao).toHaveBeenCalled();
-    expect(getBankaccountDao).toHaveBeenCalled();
-    expect(getVendorsDao).toHaveBeenCalled();
+    expect(getMerchantsForDashboardReportDao).toHaveBeenCalledWith({ company_id: 1 });
+    expect(getCalculationDashBoardReportDao).toHaveBeenCalled();
+    expect(getBankaccountDashBoardReportDao).toHaveBeenCalledWith(
+      expect.objectContaining({ company_id: 1 }),
+    );
+    expect(getVendorsDashBoardReportDao).toHaveBeenCalled();
+
     expect(sendTelegramDashboardReportMessage).toHaveBeenCalledWith(
       'chatId',
-      expect.any(Array),
-      expect.any(Number),
-      expect.any(Number),
-      expect.any(Object),
-      expect.any(Object),
-      expect.any(Number),
-      expect.any(Number),
+      expect.arrayContaining([
+        expect.objectContaining({
+          merchantId: 'M001',
+          totalPayin: 1000,
+          totalPayinCount: 1,
+          totalPayout: 500,
+          totalPayoutCount: 1,
+        }),
+      ]),
+      1000,
+      500,
+      expect.objectContaining({
+        V001: expect.objectContaining({
+          banks: expect.arrayContaining([
+            expect.objectContaining({
+              bankName: 'Bank1',
+              TotalDeposit: 500,
+              TotalCount: 2,
+            }),
+          ]),
+        }),
+      }),
+      expect.anything(),
+      500,
+      500,
       'token',
-      'Daily Report'
+      'Daily Report',
     );
+        
+      
     expect(collectBankData).toHaveBeenCalledWith(timezone);
+    expect(gatherAllNetbalanceForAllCompanies).toHaveBeenCalledWith('N', timezone);
   });
 
   it('should skip bank cron for hourly reports', async () => {
     await gatherAllDataForAllCompanies('H', timezone);
 
     expect(collectBankData).not.toHaveBeenCalled();
+    expect(gatherAllNetbalanceForAllCompanies).toHaveBeenCalledWith('H', timezone);
     expect(sendTelegramDashboardReportMessage).toHaveBeenCalledWith(
       'chatId',
       expect.any(Array),
@@ -86,7 +124,7 @@ describe('gatherAllDataForAllCompanies', () => {
       expect.any(Number),
       expect.any(Number),
       'token',
-      'Hourly Report'
+      'Hourly Report',
     );
   });
 
@@ -96,17 +134,19 @@ describe('gatherAllDataForAllCompanies', () => {
     await gatherAllDataForAllCompanies('N', timezone);
 
     expect(logger.info).toHaveBeenCalledWith('No companies found');
-    expect(getMerchantsDao).not.toHaveBeenCalled();
+    expect(getMerchantsForDashboardReportDao).not.toHaveBeenCalled();
     expect(collectBankData).not.toHaveBeenCalled();
   });
 
   it('should handle errors in gatherAllData gracefully', async () => {
-    getCompanyDao.mockRejectedValue(new Error('DB error'));
+    getMerchantsForDashboardReportDao.mockRejectedValue(new Error('DB error'));
 
     await gatherAllDataForAllCompanies('N', timezone);
-
-    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("Error in gatherAllDataForAllCompanies: Error: DB error"));
-    expect(collectBankData).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('Error in gatherAllData for company 1: Error: DB error')
+    );    
+    expect(collectBankData).toHaveBeenCalledWith(timezone);
+    expect(gatherAllNetbalanceForAllCompanies).toHaveBeenCalledWith('N', timezone);
   });
 });
 
@@ -114,12 +154,18 @@ describe('gatherAllData', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getConnection.mockResolvedValue({ release: jest.fn() });
-    getCompanyDao.mockResolvedValue([{ id: 1, config: { telegramDashboardChatId: 'chatId', telegramBotToken: 'token' } }]);
-    getMerchantsDao.mockResolvedValue([{ user_id: 1, code: 'M001' }]);
-    getCalculationDao.mockResolvedValue([{ total_payin_amount: 1000, total_payin_count: 1, total_payout_amount: 500, total_payout_count: 1 }]);
-    getBankaccountDao.mockResolvedValue([{ user_id: 1, nick_name: 'Bank1', today_balance: 500, payin_count: 2 }]);
-    getVendorsDao.mockResolvedValue([{ code: 'V001' }]);
-    getUserHierarchysDao.mockResolvedValue([]);
+    getCompanyDao.mockResolvedValue([
+      { id: 1, config: { telegramDashboardChatId: 'chatId', telegramBotToken: 'token' } },
+    ]);
+    getMerchantsForDashboardReportDao.mockResolvedValue([{ user_id: 1, code: 'M001' }]);
+    getCalculationDashBoardReportDao.mockResolvedValue([
+      { total_payin_amount: 1000, total_payin_count: 1, total_payout_amount: 500, total_payout_count: 1 },
+    ]);
+    getBankaccountDashBoardReportDao.mockResolvedValue([
+      { user_id: 1, nick_name: 'Bank1', today_balance: 500, payin_count: 2 },
+    ]);
+    getVendorsDashBoardReportDao.mockResolvedValue([{ code: 'V001' }]);
+    getUserHierarchysDashBoardReportDao.mockResolvedValue([]);
     sendTelegramDashboardReportMessage.mockResolvedValue();
   });
 
@@ -127,21 +173,39 @@ describe('gatherAllData', () => {
     await gatherAllData(1, 'N', 'Asia/Kolkata');
 
     expect(getCompanyDao).toHaveBeenCalledWith({ id: 1 });
-    expect(sendTelegramDashboardReportMessage).toHaveBeenCalled();
+    expect(getMerchantsForDashboardReportDao).toHaveBeenCalledWith({ company_id: 1 });
+    expect(sendTelegramDashboardReportMessage).toHaveBeenCalledWith(
+      'chatId',
+      expect.arrayContaining([
+        expect.objectContaining({
+          merchantId: 'M001',
+          totalPayin: 1000,
+          totalPayinCount: 1,
+          totalPayout: 500,
+          totalPayoutCount: 1,
+        }),
+      ]),
+      1000,
+      500,
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Number),
+      expect.any(Number),
+      'token',
+      'Daily Report',
+    );
     expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Dashboard Report CRON Ended for company: 1'));
   });
 
   it('should warn if Telegram config is missing for company', async () => {
-    const company = { id: 'c1', config: {} };
-    getCompanyDao.mockResolvedValueOnce([company]);
-  
-    await formattedSuccessRatiosForAllCompanies();
-  
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('Missing Telegram config for company c1')
-    );
-  });
+    getCompanyDao.mockResolvedValue([{ id: 1, config: {} }]);
+
+    await gatherAllData(1, 'N', 'Asia/Kolkata');
+
+    expect(sendTelegramDashboardReportMessage).toHaveBeenCalled();
+    expect(logger.warn).not.toHaveBeenCalled();
     
+  });
 
   it('should handle company not found', async () => {
     getCompanyDao.mockResolvedValue([]);
@@ -149,6 +213,7 @@ describe('gatherAllData', () => {
     await gatherAllData(999, 'N', 'Asia/Kolkata');
 
     expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Company not found: 999'));
+    expect(sendTelegramDashboardReportMessage).not.toHaveBeenCalled();
   });
 
   it('should release DB connection in finally', async () => {
@@ -159,4 +224,29 @@ describe('gatherAllData', () => {
 
     expect(releaseMock).toHaveBeenCalled();
   });
+
+
+  it('should log a warning and skip report if Telegram config is missing', async () => {
+    // Override defaults to undefined for this test
+    const originalTelegramChatId = config.telegramDashboardChatId;
+    const originalTelegramBotToken = config.telegramBotToken;
+    config.telegramDashboardChatId = undefined;
+    config.telegramBotToken = undefined;
+  
+    getCompanyDao.mockResolvedValue([
+      { id: 1, config: { telegramDashboardChatId: null, telegramBotToken: null } },
+    ]);
+  
+    await gatherAllData(1, 'N', 'Asia/Kolkata');
+  
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Missing Telegram config for company 1, skipping report'
+    );
+    expect(sendTelegramDashboardReportMessage).not.toHaveBeenCalled();
+  
+    // Restore original config
+    config.telegramDashboardChatId = originalTelegramChatId;
+    config.telegramBotToken = originalTelegramBotToken;
+  });
+  
 });

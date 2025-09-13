@@ -34,10 +34,14 @@ export const parseJSON = (data) => {
 
 export const stringifyJSON = (data) => {
   try {
-    return safeStringify(data);
+    const res = safeStringify(data);
+    if (!res) {
+      throw new Error('Data is undefined');
+    }
+    return res; 
   } catch (err) {
     logger.error(err);
-    return '{}';
+    throw err; // Or return '{}' for compatibility with original behavior
   }
 };
 

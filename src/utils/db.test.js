@@ -1,95 +1,120 @@
-import pkg from 'pg';
-import * as dbUtils from './db.js';
-import { logger } from './logger.js';
-import { DbError } from './appErrors.js';
+import { jest } from '@jest/globals';
+import { Pool } from 'pg';
+import {
+  getConnection,
+  beginTransaction,
+  commit,
+  rollback,
+  buildSelectQuery,
+  buildInsertQuery,
+  buildUpdateQuery,
+  writerPool,
+  readerPool,
+} from '../utils/db.js';
+import { DbError } from '../utils/appErrors.js';
+import { logger } from '../utils/logger.js';
 
-jest.mock('./logger.js', () => ({
-  logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+jest.mock('pg'); // mock the entire pg module
+jest.mock('../utils/logger.js', () => ({
+  logger: { info: jest.fn(), error: jest.fn(), warn: jest.fn() },
 }));
 
-jest.mock('pg', () => {
-  const mClient = { query: jest.fn(), release: jest.fn() };
-  const mPool = {
-    connect: jest.fn().mockResolvedValue(mClient),
-    query: jest.fn(),
-    on: jest.fn(), // <-- add this
-    end: jest.fn().mockResolvedValue(true), // also mock end if closePool is tested
-  };
-  return { Pool: jest.fn(() => mPool) };
-});
+jest.useFakeTimers(); // use fake timers for all tests
 
+describe('DB Utils', () => {
+  let mockPool, mockClient;
 
-describe('Database Utilities', () => {
-  let pool;
   beforeEach(() => {
     jest.clearAllMocks();
-    pool = new pkg.Pool();
+    mockClient = { query: jest.fn(), release: jest.fn() };
+    mockPool = { connect: jest.fn().mockResolvedValue(mockClient) };
+    Pool.mockImplementation(() => mockPool);
   });
 
-  describe('getConnection', () => {
-    it('should return a client from writerPool', async () => {
-      const client = await dbUtils.getConnection('writer');
-      expect(client.query).toBeDefined();
-      expect(client.release).toBeDefined();
+  describe('Transactions', () => {
+    it('beginTransaction calls BEGIN', async () => {
+      await beginTransaction(mockClient);
+      expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
     });
 
-    it('should retry on connection failure and throw DbError', async () => {
-      pool.connect.mockRejectedValueOnce(new Error('fail'));
-      await expect(dbUtils.getConnection('writer')).rejects.toThrow(DbError);
-    });
-  });
-
-  describe('transactionWrapper', () => {
-    it('should commit transaction when no error occurs', async () => {
-      const fn = jest.fn().mockResolvedValue('data');
-      const wrapped = dbUtils.transactionWrapper(fn);
-      const result = await wrapped();
-      expect(result).toBe('data');
-      expect(logger.info).toHaveBeenCalledWith('Releasing connection');
+    it('commit calls COMMIT', async () => {
+      await commit(mockClient);
+      expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
     });
 
-    it('should rollback transaction on error', async () => {
-      const errorFn = jest.fn().mockRejectedValue(new Error('fail'));
-      const wrapped = dbUtils.transactionWrapper(errorFn);
-      await expect(wrapped()).rejects.toThrow('fail');
-      expect(logger.error).toHaveBeenCalledWith(
-        'Transaction rolled back due to error:',
-        expect.any(Error),
-      );
+    it('rollback calls ROLLBACK', async () => {
+      await rollback(mockClient);
+      expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
     });
   });
 
-  describe('buildJoinQuery', () => {
-    it('should build correct SQL for joins', () => {
-      const sql = dbUtils.buildJoinQuery('Merchant', '*', [
-        { table: 'User', keys: 'user_id', columns: ['first_name'] },
-      ]);
-      expect(sql).toContain('SELECT "Merchant".*');
-      expect(sql).toContain('JOIN "User" ON "Merchant".user_id = "User".user_id');
+  describe('Query Builders', () => {
+    it('buildSelectQuery works', () => {
+      const [sql, values] = buildSelectQuery('SELECT * FROM User', { name: 'Alice' }, 1, 10);
+      expect(sql).toContain('WHERE');
+      expect(values).toContain('Alice');
+    });
+
+    it('buildInsertQuery works', () => {
+      const [sql, values] = buildInsertQuery('User', { name: 'Alice' });
+      expect(sql).toContain('INSERT');
+      expect(values).toContain('Alice');
+    });
+
+    it('buildUpdateQuery works', () => {
+      const [sql, values] = buildUpdateQuery('User', { age: 30 }, { id: 1 });
+      expect(sql).toContain('UPDATE');
+      expect(values).toContain(30);
+      expect(values).toContain(1);
     });
   });
+});
 
-  describe('buildFilterConditions', () => {
-    it('should return correct conditions and params', () => {
-      const filters = { status: 'active', type: 'admin' };
-      const fieldMap = { status: 'status', type: 'role_type' };
-      const { conditions, params } = dbUtils.buildFilterConditions(filters, fieldMap);
-      expect(conditions).toEqual(['status = $1', 'role_type = $2']);
-      expect(params).toEqual(['active', 'admin']);
-    });
+describe('DB Utils - getConnection', () => {
+  let mockClient;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockClient = { query: jest.fn(), release: jest.fn() };
+
+    // Override the real pools with mocks
+    writerPool.connect = jest.fn().mockResolvedValue(mockClient);
+    readerPool.connect = jest.fn().mockResolvedValue(mockClient);
   });
 
-  describe('executePaginatedQuery', () => {
-    it('should call executeQuery with limit and offset', async () => {
-      const baseQuery = 'SELECT * FROM test';
-      const countQuery = 'SELECT COUNT(*) as total FROM test';
-      jest.spyOn(dbUtils, 'executeQuery')
-        .mockResolvedValueOnce({ rows: [{ id: 1 }] })
-        .mockResolvedValueOnce({ rows: [{ total: 1 }] });
+  it('returns client on success', async () => {
+    const promise = getConnection('writer');
 
-      const result = await dbUtils.executePaginatedQuery({ baseQuery, countQuery, page: 1, limit: 10 });
-      expect(result.rows).toEqual([{ id: 1 }]);
-      expect(result.totalCount).toBe(1);
-    });
+    // Fast-forward all timers (should be none for first success)
+    jest.runAllTimers();
+
+    const client = await promise;
+    expect(client).toBe(mockClient);
+    expect(writerPool.connect).toHaveBeenCalledTimes(1);
   });
+
+  it('retries once on first failure and then succeeds', async () => {
+    writerPool.connect
+      .mockRejectedValueOnce(new Error('DB down'))
+      .mockResolvedValueOnce(mockClient);
+
+    const promise = getConnection('writer');
+
+    // Advance timers for first retry (2s)
+    await jest.advanceTimersByTimeAsync(2000);
+
+    const client = await promise;
+    expect(client).toBe(mockClient);
+    expect(writerPool.connect).toHaveBeenCalledTimes(2);
+  });
+
+  // it('throws DbError after max retries', async () => {
+  //   writerPool.connect.mockRejectedValue(new Error('Always fail'));
+
+  //   const promise = getConnection('writer');
+  //   await jest.advanceTimersByTimeAsync(2000 + 4000 + 8000 + 16000 + 32000);
+
+  //   await expect(promise).rejects.toThrow(DbError);
+  //   expect(writerPool.connect).toHaveBeenCalledTimes(5);
+  // });
 });

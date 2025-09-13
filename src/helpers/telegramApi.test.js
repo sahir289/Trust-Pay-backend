@@ -1,29 +1,19 @@
-import axios from 'axios';
-import config from '../config/config.js';
-import { logger } from '../utils/logger.js';
-import { BadRequestError } from '../utils/appErrors.js';
-import { createTelegramSender } from '../helpers/telegramApi.js';
+const axios = require('axios');
+const { createTelegramSender } = require('./telegramApi');
+const config = require('../config/config');
+const { logger } = require('../utils/logger');
+const { BadRequestError } = require('../utils/appErrors');
 
 jest.mock('axios');
-
-jest.mock('../utils/logger.js', () => ({
-  logger: {
-    error: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    debug: jest.fn(),
-  },
-}));
-
-// Mock config to avoid undefined errors
-jest.mock('../config/config.js', () => ({
+jest.mock('../utils/logger');
+jest.mock('../config/config', () => ({
   telegram: {
     telegram_url: 'https://api.telegram.org/bot',
     telegramBotToken: 'mock-token',
   },
 }));
 
-describe('createTelegramSender', () => {
+describe('Telegram Sender', () => {
   let telegramSender;
 
   beforeEach(() => {
@@ -31,107 +21,105 @@ describe('createTelegramSender', () => {
     jest.clearAllMocks();
   });
 
-  it('should throw BadRequestError if no token is provided', async () => {
+  test('should throw BadRequestError if token is not provided', async () => {
+    const invalidSender = createTelegramSender();
     await expect(
-      telegramSender('12345', 'Hello', null, null),
+      invalidSender('chat123', 'test message', null, null)
     ).rejects.toThrow(BadRequestError);
+    await expect(
+      invalidSender('chat123', 'test message', null, null)
+    ).rejects.toThrow('TELEGRAM_BOT_TOKEN is required either via argument or config.');
   });
 
-  it('should send a message successfully without replyToMessageId', async () => {
-    axios.post.mockResolvedValueOnce({ data: { ok: true } });
+  test('should send message successfully with valid parameters', async () => {
+    axios.post.mockResolvedValue({ status: 200, data: { ok: true } });
 
-    const result = await telegramSender('12345', 'Hello');
+    const result = await telegramSender('chat123', 'test message', null, 'test-token');
 
     expect(axios.post).toHaveBeenCalledWith(
-      `${config.telegram.telegram_url}${config.telegramBotToken}/sendMessage`,
+      'https://api.telegram.org/bottest-token/sendMessage',
       {
-        chat_id: '12345',
-        text: 'Hello',
+        chat_id: 'chat123',
+        text: 'test message',
         parse_mode: 'HTML',
-      },
+      }
     );
     expect(result).toBe(true);
+    expect(logger.info).toHaveBeenCalled();
   });
 
-  it('should send a message successfully with replyToMessageId', async () => {
-    axios.post.mockResolvedValueOnce({ data: { ok: true } });
+  test('should send message with replyToMessageId when provided', async () => {
+    axios.post.mockResolvedValue({ status: 200, data: { ok: true } });
 
-    const result = await telegramSender('12345', 'Hello', 999);
+    await telegramSender('chat123', 'test message', 456, 'test-token');
 
     expect(axios.post).toHaveBeenCalledWith(
-      `${config.telegram.telegram_url}${config.telegramBotToken}/sendMessage`,
+      'https://api.telegram.org/bottest-token/sendMessage',
       {
-        chat_id: '12345',
-        text: 'Hello',
+        chat_id: 'chat123',
+        text: 'test message',
         parse_mode: 'HTML',
-        reply_to_message_id: 999,
-      },
+        reply_to_message_id: 456,
+      }
     );
-    expect(result).toBe(true);
   });
 
-  it('should log error and return false if axios.post fails with non-429 error', async () => {
-    const error = {
-      response: {
-        status: 400,
-        data: { description: 'Bad Request' },
-      },
-      message: 'Request failed with status code 400',
-    };
-    axios.post.mockRejectedValueOnce(error);
+  test('should handle rate limit (429) and retry after specified time', async () => {
+    jest.useFakeTimers();
+    axios.post
+      .mockRejectedValueOnce({
+        response: {
+          status: 429,
+          data: { parameters: { retry_after: 2 } },
+        },
+      })
+      .mockResolvedValueOnce({ status: 200, data: { ok: true } });
 
-    const result = await telegramSender('12345', 'Hello');
+    const promise = telegramSender('chat123', 'test message', null, 'test-token');
+    jest.advanceTimersByTime(2000);
+    await promise;
 
-    expect(logger.error).toHaveBeenCalledWith(
-      'Error sending message to Telegram:',
-      {
-        data: { description: 'Bad Request' },
-        message: 'Request failed with status code 400',
-        status: 400,
-      },
-    );
-    expect(result).toBe(false);
+    expect(axios.post).toHaveBeenCalledTimes(2);
+    expect(logger.warn).toHaveBeenCalledWith('Rate limit hit, retrying after 2 seconds');
+    expect(logger.info).toHaveBeenCalled();
   });
 
-  it('should fallback error message when error.data.description is missing', async () => {
+  test('should reject with error for non-429 errors', async () => {
     const error = new Error('Network error');
-    axios.post.mockRejectedValueOnce(error);
+    axios.post.mockRejectedValue(error);
 
-    const result = await telegramSender('12345', 'Hello');
-
-    expect(logger.error).toHaveBeenCalledWith(
-      'Error sending message to Telegram:',
-      {
-        data: undefined,
-        message: 'Network error',
-        status: undefined,
-      },
-    );
-    expect(result).toBe(false);
+    await expect(
+      telegramSender('chat123', 'test message', null, 'test-token')
+    ).rejects.toThrow('Network error');
+    expect(logger.error).toHaveBeenCalled();
   });
 
-  it('should retry on 429 rate limit error', async () => {
-    const error = {
-      response: {
-        status: 429,
-        data: { parameters: { retry_after: 1 } },
-      },
-      message: 'Request failed with status code 429',
-    };
-    axios.post.mockRejectedValueOnce(error);
-    axios.post.mockResolvedValueOnce({ data: { ok: true } });
+  test('should process multiple messages in queue sequentially', async () => {
+    axios.post.mockResolvedValue({ status: 200, data: { ok: true } });
 
-    const result = await telegramSender('12345', 'Hello');
+    const promises = [
+      telegramSender('chat123', 'message1', null, 'test-token'),
+      telegramSender('chat456', 'message2', null, 'test-token'),
+    ];
 
-    expect(logger.error).toHaveBeenCalledWith(
-      'Error sending message to Telegram:',
+    await Promise.all(promises);
+
+    expect(axios.post).toHaveBeenCalledTimes(2);
+    expect(axios.post).toHaveBeenCalledWith(
+      'https://api.telegram.org/bottest-token/sendMessage',
       {
-        data: { parameters: { retry_after: 1 } },
-        message: 'Request failed with status code 429',
-        status: 429,
-      },
+        chat_id: 'chat123',
+        text: 'message1',
+        parse_mode: 'HTML',
+      }
     );
-    expect(logger.warn).toHaveBeenCalledWith('Rate limit hit, retrying after 1 seconds');
-    expect(result).toBe(true); // After retry, the message should succeed
+    expect(axios.post).toHaveBeenCalledWith(
+      'https://api.telegram.org/bottest-token/sendMessage',
+      {
+        chat_id: 'chat456',
+        text: 'message2',
+        parse_mode: 'HTML',
+      }
+    );
   });
 });

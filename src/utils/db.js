@@ -101,8 +101,8 @@ const createPool = (connectionString, name) => {
   return pool;
 };
 
-const writerPool = createPool(config?.databaseWriterUrl, 'Writer');
-const readerPool = createPool(config?.databaseReaderUrl, 'Reader');
+export let writerPool = createPool(config?.databaseWriterUrl, 'Writer');
+export let readerPool = createPool(config?.databaseReaderUrl, 'Reader');
 
 /**
  * getConnection

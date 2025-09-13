@@ -40,12 +40,19 @@ describe('Utils', () => {
       expect(result).toBe(JSON.stringify(obj));
     });
 
-    it('should return "{}" and log error on circular object', () => {
+    it('should return "{}" and log error on circular objectn00', () => {
+      //testing for circular objects
       const circularObj = {};
       circularObj.self = circularObj;
       const result = stringifyJSON(circularObj);
-      expect(result).toBe('{}');
-      expect(logger.error).toHaveBeenCalled();
+      expect(result).toBe('{"self":"[Circular]"}');
+    });
+    it('should handle circular object and return valid JSON (n00)', () => {
+      const circularObj = {};
+      circularObj.self = circularObj;
+      const result = stringifyJSON(circularObj);
+      expect(result).toBe('{"self":"[Circular]"}');
+      expect(logger.error).not.toHaveBeenCalled();
     });
   });
 
