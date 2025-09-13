@@ -318,6 +318,7 @@ export const getVendorsBySearchDao = async (
         `"user_main".designation_id`,
         `u.user_name AS created_by`,
         `uu.user_name AS updated_by`,
+        `"Vendor".config->>'net_balance' AS net_balance_limit`
       );
     }
 
