@@ -838,3 +838,12 @@ export const unblocked_countries=[
   { country: 'United Arab Emirates', regions: [] },
   { country: 'Pakistan', regions: [] },
 ];
+
+export const userFields = [
+  'full_name^2', // Boost full_name
+  'contact_no',
+  'user_name',
+  'code',
+  'designation',
+  'email'
+];

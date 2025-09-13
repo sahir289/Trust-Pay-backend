@@ -8,7 +8,8 @@ import {
   buildInsertQuery,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
-import esClient from '../../utils/elasticClient.js';
+// import esClient from '../../utils/elasticClient.js';
+import { createUserInES, getUsersByESSearch } from '../../elasticSearch/user/common.js';
 
 export const getUsersContactDao = async (company_id, contact_no) => {
   try {
@@ -151,6 +152,21 @@ export const getUsersBySearchDao = async (
   role,
 ) => {
   try {
+    let data = {
+      totalCount: 0,
+      totalPages: 0,
+      Users: []
+    };
+    if(filters.search){
+      const searchData = await getUsersByESSearch(filters.search);
+      console.log(searchData, "searchData")
+      data = {
+        totalCount: 1,
+        totalPages: 12,
+        Users: searchData,
+      };
+      return data;
+    }
     const conditions = [];
     const values = [filters.company_id];
     let paramIndex = 2;
@@ -294,7 +310,7 @@ export const getUsersBySearchDao = async (
       totalPages = Math.ceil(totalItems / validatedPageSize);
     }
 
-    const data = {
+    data = {
       totalCount: totalItems,
       totalPages,
       Users: searchResult.rows,
@@ -444,11 +460,7 @@ const createUserDao = async (payload, conn) => {
 
     const insertedUser = result.rows[0];
 
-    await esClient.index({
-      index: 'users',
-      id: insertedUser.id,
-      document: insertedUser
-    });
+   await createUserInES(insertedUser);
 
     return insertedUser;
   } catch (error) {

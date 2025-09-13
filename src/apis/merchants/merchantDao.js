@@ -234,6 +234,26 @@ export const getMerchantByUserDao = async (userId, role) => {
     throw error;
   }
 };
+export const getMerchantsBankResponseDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      code,
+      balance,
+      payin_commission,
+      user_id
+    `;
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.MERCHANT}" WHERE 1=1`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error fetching merchant data:', error);
+    throw error;
+  }
+};
 
 export const getMerchantsDao = async (
   filters,

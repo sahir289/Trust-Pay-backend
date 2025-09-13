@@ -39,7 +39,7 @@ const sslConfig =
 //   keepAlive: true,
 // });
 
-const createPool = (connectionString, name) => {
+export const createPool = (connectionString, name) => {
   if (!connectionString) {
     throw new InternalServerError(
       'DATABASE_URL is not set. Check your environment variables.',

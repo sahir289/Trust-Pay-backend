@@ -84,85 +84,115 @@ export const calculateDuration = (createdAt) => {
 };
 
 export const getTelegramFilePath = async (fileId) => {
-  if (!fileId) {
-    logger.error('No telegram photo file id found!');
-    return;
-  }
+  try {
+    if (!fileId) {
+      logger.error('No telegram photo file id found!');
+      return;
+    }
 
-  if (!config.telegramOcrBotToken) {
-    logger.error('Telegram Bot Token not foun!');
-    return;
-  }
+    if (!config.telegramOcrBotToken) {
+      logger.error('Telegram Bot Token not foun!');
+      return;
+    }
 
-  const url = `https://api.telegram.org/bot${config.telegramOcrBotToken}/getFile?file_id=${fileId}`;
-  const res = await axios.get(url);
-  return res.data.result.file_path;
+    const url = `https://api.telegram.org/bot${config.telegramOcrBotToken}/getFile?file_id=${fileId}`;
+    const res = await axios.get(url);
+    return res.data.result.file_path;
+  } catch (error) {
+    logger.error('Error while fetching telegram file path', error.message);
+    console.error('Error while fetching telegram file path', error);
+    throw error;
+  }
 };
 
 export const getTelegramImageBase64 = async (filePath) => {
-  if (!filePath) {
-    logger.error('No telegram photo file path found!');
-    return;
-  }
+  try {
+    if (!filePath) {
+      logger.error('No telegram photo file path found!');
+      return;
+    }
 
-  if (!config.telegramOcrBotToken) {
-    logger.error('Telegram Bot Token not foun!');
-    return;
-  }
-  const url = `https://api.telegram.org/file/bot${config.telegramOcrBotToken}/${filePath}`;
-  const res = await axios.get(url, {
-    responseType: 'arraybuffer',
-  });
+    if (!config.telegramOcrBotToken) {
+      logger.error('Telegram Bot Token not foun!');
+      return;
+    }
+    const url = `https://api.telegram.org/file/bot${config.telegramOcrBotToken}/${filePath}`;
+    const res = await axios.get(url, {
+      responseType: 'arraybuffer',
+    });
 
-  return globalThis.Buffer.from(res.data, 'binary').toString('base64');
+    return globalThis.Buffer.from(res.data, 'binary').toString('base64');
+  } catch (error) {
+    logger.error('Error while fetching telegram file path', error.message);
+    console.error('Error while fetching telegram file path', error);
+    throw error;
+  }
 };
 
 export const getImageContentFromOCr = async (image) => {
-  if (!image) {
-    logger.log('No image provided for OCR!');
-    return;
+  try {
+    if (!image) {
+      logger.log('No image provided for OCR!');
+      return;
+    }
+
+    const res = await axios.post(`${config.ocr.url}`, {
+      image,
+    });
+
+    if (res.data.status === 'failure') {
+      logger.log('Unable to get content from image with ocr', res.data);
+      return;
+    }
+
+    const data = res.data?.data || {};
+
+    return {
+      amount: data.amount?.replace(',', ''),
+      utr: data.transaction_id,
+      bankName: data.bank_name,
+      timeStamp: data.timestamp,
+    };
+  } catch (error) {
+    logger.error('Error while fetching content from image', error.message);
+    console.error('Error while fetching content from image', error);
+    throw error;
   }
-
-  const res = await axios.post(`${config.ocr.url}`, {
-    image,
-  });
-
-  if (res.data.status === 'failure') {
-    logger.log('Unable to get content from image with ocr', res.data);
-    return;
-  }
-
-  const data = res.data?.data || {};
-
-  return {
-    amount: data.amount?.replace(',', ''),
-    utr: data.transaction_id,
-    bankName: data.bank_name,
-    timeStamp: data.timestamp,
-  };
 };
 
 // Helper function to convert a readable stream to a buffer
 export const streamToBase64 = (readableStream) => {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    readableStream.on('data', (chunk) => chunks.push(chunk));
-    readableStream.on('end', () => {
-      const buffer = globalThis.Buffer.concat(chunks);
-      const base64 = buffer.toString('base64');
-      resolve(base64);
+  try {
+    return new Promise((resolve, reject) => {
+      const chunks = [];
+      readableStream.on('data', (chunk) => chunks.push(chunk));
+      readableStream.on('end', () => {
+        const buffer = globalThis.Buffer.concat(chunks);
+        const base64 = buffer.toString('base64');
+        resolve(base64);
+      });
+      readableStream.on('error', reject);
     });
-    readableStream.on('error', reject);
-  });
+  } catch (error) {
+    logger.error('Error while converting stream to base64', error.message);
+    console.error('Error while converting stream to base64', error);
+    throw error;
+  }
 };
 
 export async function streamToBuffer(stream) {
-  const chunks = [];
-  for await (const chunk of stream) {
-    chunks.push(chunk);
+  try {
+    const chunks = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    const buffer = globalThis.Buffer.concat(chunks);
+    return buffer;
+  } catch (error) {
+    logger.error('Error while converting stream to buffer', error.message);
+    console.error('Error while converting stream to buffer', error);
+    throw error;
   }
-  const buffer = globalThis.Buffer.concat(chunks);
-  return buffer;
 }
 
 // export const filterResponse = async (data, key) => {
@@ -175,35 +205,41 @@ export async function streamToBuffer(stream) {
 //   }
 
 export const filterResponse = (data, keys) => {
-  if (Array.isArray(data)) {
-    logger.log('Data is an array');
+  try {
+    if (Array.isArray(data)) {
+      logger.log('Data is an array');
 
-    return data.map((item) => {
+      return data.map((item) => {
+        const filteredItem = {};
+        keys.forEach((key) => {
+          if (Object.prototype.hasOwnProperty.call(item, key)) {
+            filteredItem[key] = item[key];
+          } else {
+            logger.error(item, key, 'Key not found in object');
+          }
+        });
+        return filteredItem;
+      });
+    } else if (typeof data === 'object' && data !== null) {
+      logger.error('Data is an object');
+
       const filteredItem = {};
       keys.forEach((key) => {
-        if (Object.prototype.hasOwnProperty.call(item, key)) {
-          filteredItem[key] = item[key];
+        if (Object.prototype.hasOwnProperty.call(data, key)) {
+          filteredItem[key] = data[key];
         } else {
-          logger.error(item, key, 'Key not found in object');
+          logger.error('Key not found in object');
         }
       });
       return filteredItem;
-    });
-  } else if (typeof data === 'object' && data !== null) {
-    logger.error('Data is an object');
-
-    const filteredItem = {};
-    keys.forEach((key) => {
-      if (Object.prototype.hasOwnProperty.call(data, key)) {
-        filteredItem[key] = data[key];
-      } else {
-        logger.error('Key not found in object');
-      }
-    });
-    return filteredItem;
-  } else {
-    logger.error('Data is neither an array nor an object');
-    return null;
+    } else {
+      logger.error('Data is neither an array nor an object');
+      return null;
+    }
+  } catch (error) {
+    logger.error('Error while filtering response', error.message);
+    console.error('Error while filtering response', error);
+    throw error;
   }
 };
 

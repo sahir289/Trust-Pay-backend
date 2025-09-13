@@ -16,11 +16,15 @@ import {
   getClaimResponseDao,
   getBankResponseBySearchDao,
   resetBankResponseDao,
+  getForCreateBankResponseDao,
+  getCheckBankResponseDao,
 } from './bankResponseDao.js';
 import { logger } from '../../utils/logger.js';
 import {
   getBankaccountDao,
   updateBankaccountDao,
+  getBankaccountCheckDao,
+  getBankaccountDashBoardReportDao,
 } from '../bankAccounts/bankaccountDao.js';
 import {
   // getPayInUrlsDao,
@@ -28,9 +32,15 @@ import {
   getPayInsForResetBankResDao,
   updatePayInUrlDao,
 } from '../payIn/payInDao.js';
-import { getMerchantsDao } from '../merchants/merchantDao.js';
+import {
+  getMerchantsBankResponseDao,
+} from '../merchants/merchantDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
-import { getVendorsDao, updateVendorDao } from '../vendors/vendorDao.js';
+import {
+  getVendorsDao,
+  updateVendorDao,
+  getVendorsBankReponseDao,
+} from '../vendors/vendorDao.js';
 import { newTableEntry } from '../../utils/sockets.js';
 import {
   columns,
@@ -70,12 +80,6 @@ const createBankResponseService = async (
   let localConn;
   try {
     localConn = await getConnection();
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.BANK_RESPONSE
-        : role === Role.VENDOR
-          ? vendorColumns.BANK_RESPONSE
-          : columns.BANK_RESPONSE;
 
     const splitData = payload.split(' ');
     const amount = parseFloat(splitData[0]);
@@ -90,18 +94,12 @@ const createBankResponseService = async (
     if (!isValidAmount) {
       throw new BadRequestError(`amount must be between 1 and 500000`);
     }
-
-    const bankCompanyCheck = await getBankaccountDao(
-      {
-        id: bank_id,
-        company_id: companyId,
-      },
-      null,
-      null,
-      role,
-    );
-
-    if (!bankCompanyCheck || bankCompanyCheck?.length === 0) {
+    const bankCompanyCheck = await getBankaccountCheckDao({
+      id: bank_id,
+      company_id: companyId,
+      bank_used_for: 'PayIn',
+    });
+    if (!bankCompanyCheck) {
       throw new NotFoundError('Bank account does not exist for this company');
     }
 
@@ -150,35 +148,14 @@ const createBankResponseService = async (
 
     let utrAlreadyExist;
     if (isValidAmountCode) {
-      utrAlreadyExist = await getBankResponseDao(
-        { upi_short_code, company_id },
-        null,
-        null,
-        null,
-        null,
-        filterColumns,
-      );
+      utrAlreadyExist = await getCheckBankResponseDao({
+        upi_short_code, company_id});
       if (!utrAlreadyExist) {
-        utrAlreadyExist = await getBankResponseDao(
-          { utr, company_id },
-          null,
-          null,
-          null,
-          null,
-          filterColumns,
-        );
+        utrAlreadyExist = await getCheckBankResponseDao({ utr, company_id });
       }
     } else {
-      utrAlreadyExist = await getBankResponseDao(
-        { utr, company_id },
-        null,
-        null,
-        null,
-        null,
-        filterColumns,
-      );
+      utrAlreadyExist = await getCheckBankResponseDao({ utr, company_id });
     }
-
     const isRepeated = utrAlreadyExist;
 
     const updatedData = {
@@ -242,14 +219,11 @@ const createBankResponseService = async (
       let bankDetails = [];
       ////for bank account ////vendor calculation
       if (botRes.status === '/success') {
-        bankDetails = await getBankaccountDao(
+        bankDetails = await getBankaccountDashBoardReportDao(
           {
             id: botRes?.bank_id,
             company_id: companyId,
-          },
-          null,
-          null,
-          role,
+          }
         );
         if (
           isNaN(bankDetails[0].balance) ||
@@ -277,7 +251,7 @@ const createBankResponseService = async (
           companyId,
           bankDetails[0].user_id,
         );
-        vendor = await getVendorsDao({
+        vendor = await getVendorsBankReponseDao({
           user_id: bankDetails[0].user_id,
         });
         if (isNaN(vendor[0].balance)) {
@@ -318,13 +292,8 @@ const createBankResponseService = async (
             ? checkPayInUtr[0]
             : checkPayInUtr[checkPayInUtr.length - 1];
         if (upi_short_code && isValidAmountCode) {
-          const getDataByUtr = await getBankResponseDaoAll(
-            { utr: payInUtr.user_submitted_utr, company_id },
-            null,
-            null,
-            filterColumns,
-            null,
-            null,
+          const getDataByUtr = await getForCreateBankResponseDao(
+            { utr: payInUtr.user_submitted_utr, company_id }
           );
           const botUtrIsUsed =
             getDataByUtr.rows.length > 1 &&
@@ -337,11 +306,8 @@ const createBankResponseService = async (
             };
           }
         }
-        const isBankExist = await getBankaccountDao(
+        const isBankExist = await getBankaccountDashBoardReportDao(
           { id: bank_id, company_id },
-          null,
-          null,
-          role,
         );
 
         if (isBankExist && (isBankExist[0]?.config?.is_freeze === true || isBankExist[0]?.freezed === 'true') && role !== Role.ADMIN) {
@@ -385,13 +351,9 @@ const createBankResponseService = async (
             localConn,
           );
 
-          const merchantData = await getMerchantsDao(
-            { id: payInUtr.merchant_id },
-            null,
-            null,
-            null,
-            null,
-          );
+          const merchantData = await getMerchantsBankResponseDao({
+            id: payInUtr.merchant_id
+        });
 
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
           if (updatePayInDataRes) {
@@ -452,59 +414,31 @@ const createBankResponseService = async (
           };
         }
 
-        const existingResponse = await getBankResponseDao(
-          { utr, is_used: true, company_id },
-          null,
-          null,
-          null,
-          null,
-          filterColumns,
+        const existingResponse = await getForCreateBankResponseDao(
+          { utr, is_used: true, company_id }
         );
         if (existingResponse?.length > 0) {
           await commit(localConn);
           // if (shouldRelease) localConn.release();
           return { message: `The UTR already exists` };
         }
-        const merchantData = await getMerchantsDao(
-          { id: payInUtr.merchant_id },
-          null,
-          null,
-          null,
-          null,
-        );
+        const merchantData = await getMerchantsBankResponseDao({
+          id: payInUtr.merchant_id,
+        });
         const payinMerchantCommission = calculateCommission(
           botRes.amount,
           merchantData[0].payin_commission,
         );
-        const bankAccountDetails = await getBankaccountDao(
-          { id: payInUtr.bank_acc_id, company_id },
-          null,
-          null,
-          role,
+        const bankAccountDetails = await getBankaccountDashBoardReportDao(
+          { id: payInUtr.bank_acc_id, company_id }
         );
-        const vendorData = await getVendorsDao(
-          { user_id: bankAccountDetails[0].user_id },
-          null,
-          null,
-          null,
-          null,
-        );
+        const vendorData = await getVendorsBankReponseDao({
+          user_id: bankAccountDetails[0].user_id,
+        });
         const payinVendorCommission = calculateCommission(
           botRes.amount,
           vendorData[0].payin_commission,
         );
-        // const durMs = new Date() - payInUtr.created_at;
-        // const durSeconds = Math.floor((durMs / 1000) % 60)
-        //   .toString()
-        //   .padStart(2, '0');
-        // const durMinutes = Math.floor((durSeconds / 60) % 60)
-        //   .toString()
-        //   .padStart(2, '0');
-        // const durHours = Math.floor((durMinutes / 60) % 24)
-        //   .toString()
-        //   .padStart(2, '0');
-        // const duration = `${durHours}:${durMinutes}:${durSeconds}`;
-        // const duration = calculateDuration(payInUtr.created_at);
 
         if (
           payInUtr.amount === amount ||

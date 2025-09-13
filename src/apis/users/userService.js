@@ -45,6 +45,7 @@ const getUsersService = async (
   user_id,
 ) => {
   try {
+
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.USER
@@ -498,6 +499,7 @@ const createUserService = async (conn, payload, role) => {
     // });
     return User;
   } catch (error) {
+    console.error(error);
     logger.error('Error in createUserService:', error);
 
     throw error;

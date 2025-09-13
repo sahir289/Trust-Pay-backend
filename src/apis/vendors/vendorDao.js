@@ -22,6 +22,26 @@ export const createVendorDao = async (data, conn) => {
     throw error;
   }
 };
+export const getVendorsBankReponseDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      user_id,
+      code,
+      balance,
+      payin_commission
+    `;
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.VENDOR}" WHERE 1=1`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error fetching vendor data:', error);
+    throw error;
+  }
+};
 export const getVendorsDashBoardReportDao = async (
   filters = {}
 ) => {
@@ -283,6 +303,7 @@ export const getVendorsBySearchDao = async (
       `"Vendor".created_at`,
       `"Vendor".updated_at`,
       `"user_main".first_name || ' ' || "user_main".last_name AS full_name`,
+      `"Vendor".config->>'net_balance' AS net_balance_limit`,
       `"d".designation AS designation_name`,
       `(SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".created_at DESC LIMIT 1) AS balance`,
     ];

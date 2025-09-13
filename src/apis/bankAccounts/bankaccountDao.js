@@ -528,9 +528,27 @@ const getBankAccountsBySearchDao = async (
     throw error;
   }
 };
-export const getBankaccountDashBoardReportDao = async (
-  filters = {},
-) => {
+export const getBankaccountCheckDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      company_id,
+      bank_used_for
+    `;
+
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows && result.rows.length > 0;
+  } catch (error) {
+    logger.error('Error checking bank account existence:', error);
+    throw error;
+  }
+};
+
+export const getBankaccountDashBoardReportDao = async (filters = {}) => {
   try {
     const selectColumns = `
       id,
@@ -539,12 +557,12 @@ export const getBankaccountDashBoardReportDao = async (
       today_balance,
       balance,
       payin_count,
-      bank_used_for
+      bank_used_for,
+      config
     `;
-
     const [sql, params] = buildSelectQuery(
       `SELECT ${selectColumns} FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1`,
-      filters
+      filters,
     );
     const result = await executeQuery(sql, params);
     return result.rows || [];
