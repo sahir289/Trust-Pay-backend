@@ -303,6 +303,7 @@ export const getVendorsBySearchDao = async (
       `"Vendor".created_at`,
       `"Vendor".updated_at`,
       `"user_main".first_name || ' ' || "user_main".last_name AS full_name`,
+      `"Vendor".config->>'net_balance' AS net_balance_limit`,
       `"d".designation AS designation_name`,
       `(SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".created_at DESC LIMIT 1) AS balance`,
     ];
@@ -318,7 +319,6 @@ export const getVendorsBySearchDao = async (
         `"user_main".designation_id`,
         `u.user_name AS created_by`,
         `uu.user_name AS updated_by`,
-        `"Vendor".config->>'net_balance' AS net_balance_limit`
       );
     }
 
