@@ -776,8 +776,8 @@ export const payInIntentGenerateOrderService = async (
     // }
 
     const requestBody = {
-      // order_amount: amount,
-      // order_currency: Currency.INR,
+      order_amount: amount,
+      order_currency: Currency.INR,
       customer_details: {
         customer_id: payIn?.user,
         customer_email: 'test@gmail.com',
