@@ -736,7 +736,12 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       data.config?.urls?.notify || merchant.config?.urls?.payout_notify;
 
     // Early return if not approved
-    if (!data.approved_at && data.status !== Status.PENDING) {
+    if (
+      !data.approved_at &&
+      data.status !== Status.PENDING
+      &&
+      data.status !== Status.INITIATED
+    ) {
       merchantPayoutCallback(notifyUrl, {
         code: data.code,
         merchantOrderId: data.merchant_order_id,
@@ -851,7 +856,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
 
     await newTableEntry(tableName.PAYOUT);
-    if (data.status !== Status.PENDING) {
+    if (data.status !== Status.PENDING && data.status !== Status.INITIATED) {
       // This is async function but it's just the callback sending function there fore we are not using await
       merchantPayoutCallback(notifyUrl, {
         code: data.code,
