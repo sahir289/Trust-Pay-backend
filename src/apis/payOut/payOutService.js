@@ -722,6 +722,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
 
     const data = await updatePayoutDao(ids, payload, conn);
+    await newTableEntry(tableName.PAYOUT);
     if (data.status == Status.INITIATED) {
       return data;
     }
@@ -858,7 +859,6 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       ]);
     }
 
-    await newTableEntry(tableName.PAYOUT);
     if (data.status !== Status.PENDING ) {
       // This is async function but it's just the callback sending function there fore we are not using await
       merchantPayoutCallback(notifyUrl, {
