@@ -103,25 +103,24 @@ describe('Telegram Sender', () => {
 
     const sendPromise = telegramSender('chat123', 'test message', null, 'test-token');
 
-    // advance timers to trigger retry
     await Promise.resolve();
     jest.advanceTimersByTime(2000);
     await sendPromise;
 
     expect(axios.post).toHaveBeenCalledTimes(2);
-    expect(logger.warn).toHaveBeenCalledWith('Rate limit hit, retrying after 2 seconds');
+    expect(logger.warn).toHaveBeenCalledWith('Rate limit hit, retrying after 2 seconds for chat chat123');
     // expect(logger.info).toHaveBeenCalled();
   });
 
-  test('should reject with error for non-429 errors', async () => {
+  test('should resolve to false for non-429 errors', async () => {
     const error = new Error('Network error');
     axios.post.mockRejectedValue(error);
-
-    await expect(
-      telegramSender('chat123', 'test message', null, 'test-token')
-    ).rejects.toThrow('Network error');
+  
+    const result = await telegramSender('chat123', 'test message', null, 'test-token');
+    expect(result).toBe(false); // function resolves false
     expect(logger.error).toHaveBeenCalled();
   });
+  
 
   test('should process multiple messages in queue sequentially', async () => {
     axios.post.mockResolvedValue({ status: 200, data: { ok: true } });
