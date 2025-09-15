@@ -33,7 +33,11 @@ const router = express.Router();
 
 // Public API's
 
-router.get('/generate-hash', isAuthenticated, tryCatchHandler(generateHashForPayIn));
+router.get(
+  '/generate-hash',
+  isAuthenticated,
+  tryCatchHandler(generateHashForPayIn),
+);
 
 /**
  * @swagger
@@ -187,6 +191,7 @@ router.post('/check-payin-status', tryCatchHandler(checkPayInStatus));
  */
 router.post(
   '/generate-intent-order/:payInId',
+  isAuthenticated, authorized(AccessRoles.PAYIN), 
   tryCatchHandler(payInIntentGenerateOrder),
 );
 
@@ -269,10 +274,15 @@ router.post(
 );
 
 // Authenticated API's
-router.use(isAuthenticated);
-router.use(authorized(AccessRoles.PAYIN));
+// router.use(isAuthenticated);
+// router.use(authorized(AccessRoles.PAYIN));
 
-router.post('/telegram-check-utr', tryCatchHandler(telegramCheckUTR));
+router.post(
+  '/telegram-check-utr',
+  isAuthenticated,
+  authorized(AccessRoles.PAYIN),
+  tryCatchHandler(telegramCheckUTR),
+);
 
 /**
  * @swagger
@@ -294,6 +304,8 @@ router.post('/telegram-check-utr', tryCatchHandler(telegramCheckUTR));
  */
 router.put(
   '/update-payment-notified-status/:payInId',
+  isAuthenticated,
+  authorized(AccessRoles.PAYIN),
   tryCatchHandler(updatePaymentNotificationStatus),
 );
 
@@ -319,6 +331,8 @@ router.put(
  */
 router.put(
   '/update-deposit-status/:merchantOrderId',
+  isAuthenticated,
+  authorized(AccessRoles.PAYIN),
   tryCatchHandler(updateDepositStatus),
 );
 
@@ -335,7 +349,12 @@ router.put(
  *       404:
  *         description: Pay-In URL not found
  */
-router.post('/reset-payment', tryCatchHandler(resetDeposit));
+router.post(
+  '/reset-payment',
+  isAuthenticated,
+  authorized(AccessRoles.PAYIN),
+  tryCatchHandler(resetDeposit),
+);
 
 /**
  * @swagger
@@ -357,48 +376,50 @@ router.post('/reset-payment', tryCatchHandler(resetDeposit));
  */
 router.put(
   '/dispute-duplicate/:payInId',
+  isAuthenticated,
+  authorized(AccessRoles.PAYIN),
   tryCatchHandler(disputeDuplicateTransaction),
 );
 
-/**
- * @swagger
- * /payin/payin-data:
- *   get:
- *     summary: Get Pay-In Data
- *     description: Retrieves all the Pay-In data.
- *     tags: [PayIn]
- *     responses:
- *       200:
- *         description: Pay-In data retrieved successfully.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Pay-In data retrieved successfully"
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *       500:
- *         description: Internal server error
- */
-// router.get('/', tryCatchHandler(getPayins));
+router.post(
+  '/processIMGUTR/:merchantOrderId',
+  isAuthenticated,
+  authorized(AccessRoles.PAYIN),
+  tryCatchHandler(processPayInIMGUTR),
+);
 
-router.post('/processIMGUTR/:merchantOrderId', tryCatchHandler(processPayInIMGUTR));
-
-router.put('/updateFailedPayinUtr/:id', tryCatchHandler(updateUtrPayins));
+router.put(
+  '/updateFailedPayinUtr/:id',
+  isAuthenticated,
+  authorized(AccessRoles.PAYIN),
+  tryCatchHandler(updateUtrPayins),
+);
 
 router.get(
   '/checkPendingPayinStatus',
+  isAuthenticated,
+  authorized(AccessRoles.PAYIN),
   tryCatchHandler(checkPendingPayinStatus),
 );
 
-router.get('/', tryCatchHandler(getPayinsBySearch));
-router.get('/getPayinSummary', tryCatchHandler(getPayinsSummary));
+router.get(
+  '/',
+  isAuthenticated,
+  authorized(AccessRoles.PAYIN),
+  tryCatchHandler(getPayinsBySearch),
+);
+router.get(
+  '/getPayinSummary',
+  isAuthenticated,
+  authorized(AccessRoles.PAYIN),
+  tryCatchHandler(getPayinsSummary),
+);
 
-router.put('/updatePayin/:merchant_order_id', tryCatchHandler(updatePayIn));
+router.put(
+  '/updatePayin/:merchant_order_id',
+  isAuthenticated,
+  authorized(AccessRoles.PAYIN),
+  tryCatchHandler(updatePayIn),
+);
 
 export default router;

@@ -52,7 +52,8 @@ export const VALIDATE_PAY_IN_INTENT_GENERATE_ORDER = Joi.object({
     .label('payInId')
     .required(),
   amount: Joi.number().positive().label('amount').required(),
-  isRazorpay: Joi.boolean().label('isRazorpay').required(),
+  isRazorpay: Joi.boolean().label('isRazorpay').optional(),
+  cashfree: Joi.boolean().label('cashfree').optional(),
 });
 export const VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS = Joi.object({
   payInId: Joi.string()

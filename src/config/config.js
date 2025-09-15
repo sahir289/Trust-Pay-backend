@@ -52,6 +52,10 @@ function config(Env) {
       requestTimeout: parseInt(Env?.ELASTICSEARCH_REQUEST_TIMEOUT) || 30000, // in milliseconds
       maxRetries: parseInt(Env?.ELASTICSEARCH_MAX_RETRIES) || 3,
     },
+    cashfree: {
+      clientId: Env?.CLIENT_ID,
+      clientSecret: Env?.CLIENT_SECRET,
+    },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,
     databaseWriterUrl: Env?.DATABASE_WRITER_URL,
