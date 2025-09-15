@@ -722,7 +722,9 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
 
     const data = await updatePayoutDao(ids, payload, conn);
-
+    if (data.status == Status.INITIATED) {
+      return data;
+    }
     // Early return for simple updates
     const checkPayload = {
       utr_id: payload.utr_id,
@@ -774,10 +776,13 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     const vendorCommission = calculateCommission(
       data.amount,
       vendor.payout_commission,
-    );    
-    
+    );
+
     const payoutDetails = await getPayoutsDao({ id: ids.id }, ids.company_id);
-    if (payoutDetails.length !== 0 && payoutDetails[0]?.status === data?.status) {
+    if (
+      payoutDetails.length !== 0 &&
+      payoutDetails[0]?.status === data?.status
+    ) {
       throw new BadRequestError(`Payout is already ${payoutDetails[0].status}`);
     }
 
