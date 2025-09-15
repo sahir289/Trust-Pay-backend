@@ -131,7 +131,7 @@ describe('Designation Routes', () => {
 
   describe('POST /designation/create-designation', () => {
     it('should create a new designation with valid data', async () => {
-      const mockDesignation = { id: '1', name: 'Manager' };
+      const mockDesignation = { id: '1', name: 'ADMIN' };
       createDesignation.mockResolvedValue({
         status: 201,
         message: 'Designation created successfully',

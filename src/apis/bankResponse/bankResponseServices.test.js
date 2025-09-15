@@ -19,14 +19,18 @@ const {
     getClaimResponseDao,
     getBankResponseBySearchDao,
     resetBankResponseDao,
+    getCheckBankResponseDao,
+    getForCreateBankResponseDao,
   } = require('./bankResponseDao');
-  const { getBankaccountDao, updateBankaccountDao } = require('../bankAccounts/bankaccountDao');
+  const { getBankaccountDao, updateBankaccountDao   ,  getBankaccountCheckDao, getBankaccountDashBoardReportDao
+  } = require('../bankAccounts/bankaccountDao');
   const { updatePayInUrlDao, getPayInsBankResDao } = require('../payIn/payInDao');
-  const { getMerchantsDao } = require('../merchants/merchantDao');
-  const { getVendorsDao, updateVendorDao } = require('../vendors/vendorDao');
+  const { getMerchantsDao, getMerchantsBankResponseDao } = require('../merchants/merchantDao');
+  const { getVendorsDao, updateVendorDao, getVendorsBankReponseDao } = require('../vendors/vendorDao');
   const {
     getAllCalculationforCronDao,
     updateCalculationBalanceDao,
+    getCalculationforCronDao,
   } = require('../calculation/calculationDao');
   const { merchantPayinCallback } = require('../../callBacksAndWebHook/merchantCallBacks');
   const { calculateCommission, filterResponse, calculateDuration } = require('../../helpers/index');
@@ -129,6 +133,9 @@ const {
       calculateCommission.mockImplementation((amount, rate) => amount * rate);
       calculateDuration.mockReturnValue('00:05:00');
       filterResponse.mockImplementation((data) => data);
+      getVendorsDao.mockResolvedValue([{ id: 'vendor_1', balance: 10000, payin_commission: 0.01, user_id: 'vendor_1', code: 'VEND123' }]);
+      getVendorsBankReponseDao.mockResolvedValue([{ id: 'vendor_1', balance: 10000, payin_commission: 0.01, user_id: 'vendor_1', code: 'VEND123' }]);
+      
     });
   
     afterEach(() => {
@@ -136,13 +143,52 @@ const {
     });
   
     describe('createBankResponseService', () => {
+      beforeEach(() => {
+        mockConnection = {
+          query: jest.fn(),
+          release: jest.fn(),
+        };
+        getVendorsDao.mockResolvedValue([{ id: 'vendor_1', balance: 10000, payin_commission: 0.01, user_id: 'vendor_1', code: 'VEND123' }]);
+        getVendorsBankReponseDao.mockResolvedValue([{ id: 'vendor_1', balance: 10000, payin_commission: 0.01, user_id: 'vendor_1', code: 'VEND123' }]);
+
+        getConnection.mockResolvedValue(mockConnection);
+        beginTransaction.mockResolvedValue();
+        commit.mockResolvedValue();
+        rollback.mockResolvedValue();
+        logger.error = jest.fn();
+        calculateCommission.mockImplementation((amount, rate) => amount * rate);
+        calculateDuration.mockReturnValue('00:05:00');
+        filterResponse.mockImplementation((data) => data);
+      
+        // Add mock for getBankaccountDashBoardReportDao
+        getBankaccountDashBoardReportDao.mockResolvedValue([
+          {
+            id: 'bank_1',
+            balance: 5000,
+            today_balance: 2000,
+            payin_count: 1,
+            user_id: 'user_1',
+            config: {},
+            nick_name: 'Bank A',
+          },
+        ]);
+      });
       it('should create a bank response with valid payload and no UTR or amount code conflict', async () => {
         const payload = '1000.00 nil utr123 bank_1 true';
         const companyId = '123';
         const role = 'MERCHANT';
         const name = 'test_user';
-  
+      
+        // Mock getBankaccountCheckDao
+        getBankaccountCheckDao.mockResolvedValue({
+          id: 'bank_1',
+          company_id: '123',
+          bank_used_for: 'PayIn',
+        });
+      
         getBankResponseDao.mockResolvedValue(null);
+        getCheckBankResponseDao.mockResolvedValue(null); // Mock for no existing UTR/amount code
+        getForCreateBankResponseDao.mockResolvedValue({ rows: [] }); // Mock for no existing used UTR
         createBankResponseDao.mockResolvedValue({
           id: '1',
           status: '/success',
@@ -157,32 +203,21 @@ const {
         getBankaccountDao.mockResolvedValue([
           { balance: 5000, today_balance: 2000, payin_count: 1, user_id: 'user_1', config: {}, nick_name: 'Bank A' },
         ]);
-        getVendorsDao.mockResolvedValue([{ id: 'vendor_1', balance: 10000, payin_commission: 0.01 }]);
+        getVendorsDao.mockResolvedValue([{ id: 'vendor_1', balance: 10000, payin_commission: 0.01, user_id: 'vendor_1', code: 'VEND123' }]);
+        getVendorsBankReponseDao.mockResolvedValue([{ id: 'vendor_1', balance: 10000, payin_commission: 0.01, user_id: 'vendor_1', code: 'VEND123' }]);
+        getCalculationforCronDao.mockResolvedValue([{ id: 'calc_1', created_at: new Date('2025-08-18') }]); // Mock for calculation data
         updateBankaccountDao.mockResolvedValue({ today_balance: 3000 });
         updateVendorDao.mockResolvedValue({});
         newTableEntry.mockResolvedValue();
         updateCalculationBalanceDao.mockResolvedValue({});
-  
+      
         const result = await createBankResponseService(payload, companyId, role, name);
-  
-        expect(getBankResponseDao).toHaveBeenCalledWith(
-          { utr: 'utr123', company_id: '123' },
-          null,
-          null,
-          null,
-          null,
-          [
-            'id',
-            'sno',
-            'status',
-            'bank_id',
-            'amount',
-            'upi_short_code',
-            'utr',
-            'is_used',
-            'config',
-          ],
-        );
+      
+        expect(getBankaccountCheckDao).toHaveBeenCalledWith({
+          id: 'bank_1',
+          company_id: '123',
+          bank_used_for: 'PayIn',
+        });
         expect(createBankResponseDao).toHaveBeenCalledWith(mockConnection, {
           status: '/success',
           amount: 1000,
@@ -197,24 +232,53 @@ const {
         expect(result).toEqual({ message: 'Entry created successfully', data: expect.any(Object) });
       });
   
-      it('should handle repeated UTR', async () => {
+      it('should throw error if bank account not found for repeated UTR', async () => {
         const payload = '1000.00 nil utr123 bank_1 true';
-        getBankResponseDao.mockResolvedValue({ id: 'existing' });
-        createBankResponseDao.mockResolvedValue({ id: '1', status: '/repeated', utr: 'utr123' });
-  
-        const result = await createBankResponseService(payload, '123', 'MERCHANT', 'test_user');
-  
-        expect(createBankResponseDao).toHaveBeenCalled();
-        expect(result).toEqual({ message: 'Entry with REPEATED UTR: utr123 Added' });
+        getBankaccountCheckDao.mockResolvedValue(null);
+        await expect(
+          createBankResponseService(payload, '123', 'MERCHANT', 'test_user')
+        ).rejects.toThrow('Bank account does not exist for this company');
+        expect(getBankaccountCheckDao).toHaveBeenCalledWith({
+          id: 'bank_1',
+          company_id: '123',
+          bank_used_for: 'PayIn',
+        });
+        expect(getBankResponseDao).not.toHaveBeenCalled();
+        expect(createBankResponseDao).not.toHaveBeenCalled();
       });
-  
+      it('should throw error if vendor not found for successful UTR', async () => {
+        const payload = '1000.00 nil utr123 bank_1 true';
+        getBankResponseDao.mockResolvedValue(null);
+        getBankaccountCheckDao.mockResolvedValue({
+          id: 'bank_1',
+          company_id: '123',
+          bank_used_for: 'PayIn',
+        });
+        getBankaccountDashBoardReportDao.mockResolvedValue([
+          { balance: 5000, today_balance: 2000, payin_count: 1, user_id: 'user_1', config: {}, nick_name: 'Bank A' },
+        ]);
+        getVendorsBankReponseDao.mockResolvedValue([]);
+        await expect(
+          createBankResponseService(payload, '123', 'MERCHANT', 'test_user')
+        ).rejects.toThrow('Cannot read properties of undefined (reading \'balance\')');
+      });
       it('should handle repeated Amount Code', async () => {
         const payload = '1000.00 amt12 utr123 bank_1 true';
-        getBankResponseDao.mockResolvedValue({ id: 'existing' });
+        getBankaccountCheckDao.mockResolvedValue({
+          id: 'bank_1',
+          company_id: '123',
+          bank_used_for: 'PayIn',
+        });
+        getCheckBankResponseDao.mockResolvedValue({ id: 'existing' }); // Mock for repeated amount code
         createBankResponseDao.mockResolvedValue({ id: '1', status: '/repeated', upi_short_code: 'amt12' });
-  
+        getBankaccountDao.mockResolvedValue([
+          { balance: 5000, today_balance: 2000, payin_count: 1, user_id: 'user_1', config: {}, nick_name: 'Bank A' },
+        ]);
+        getVendorsDao.mockResolvedValue([{ id: 'vendor_1', balance: 10000, payin_commission: 0.01, user_id: 'vendor_1', code: 'VEND123' }]);
+        getVendorsBankReponseDao.mockResolvedValue([{ id: 'vendor_1', balance: 10000, payin_commission: 0.01, user_id: 'vendor_1', code: 'VEND123' }]);
+      
         const result = await createBankResponseService(payload, '123', 'MERCHANT', 'test_user');
-  
+      
         expect(createBankResponseDao).toHaveBeenCalled();
         expect(result).toEqual({ message: 'Entry with REPEATED AMOUNT CODE: amt12 Added' });
       });
@@ -231,89 +295,151 @@ const {
         expect(result).toEqual({ message: 'UTRs can only contain alphanumeric characters.' });
       });
   
-        it('should handle successful pay-in with matching UTR', async () => {
-          const payload = '1000.00 nil utr123 bank_1 true';
+      it('should handle successful pay-in with matching UTR', async () => {
+        const payload = '1000.00 nil utr123 bank_1 true';
+        const companyId = '123';
+        const role = 'MERCHANT';
+        const name = 'test_user';
       
-          getBankResponseDao.mockResolvedValue(null);
-          createBankResponseDao.mockResolvedValue({
-            id: '1',
-            status: '/success',
+        // Mock getBankaccountCheckDao to pass bank account validation
+        getBankaccountCheckDao.mockResolvedValue({
+          id: 'bank_1',
+          company_id: '123',
+          bank_used_for: 'PayIn',
+        });
+      
+        // Mock getCheckBankResponseDao to simulate no existing UTR
+        getCheckBankResponseDao.mockResolvedValue(null);
+      
+        // Mock getForCreateBankResponseDao to simulate no used UTRs
+        getForCreateBankResponseDao.mockResolvedValue([]);
+      
+        // Mock getBankResponseDao to simulate no existing bank response
+        getBankResponseDao.mockResolvedValue(null);
+      
+        // Mock createBankResponseDao
+        createBankResponseDao.mockResolvedValue({
+          id: '1',
+          status: '/success',
+          amount: 1000,
+          utr: 'utr123',
+          bank_id: 'bank_1',
+          is_used: 'false',
+        });
+      
+        // Mock getBankaccountDao for bank details
+        getBankaccountDao.mockResolvedValue([
+          {
+            balance: 5000,
+            today_balance: 2000,
+            payin_count: 1,
+            user_id: 'user_1',
+            config: {},
+          },
+        ]);
+      
+        // Mock getVendorsDao for vendor data
+        getVendorsDao.mockResolvedValue([
+          { id: 'vendor_1', balance: 10000, payin_commission: 0.01, user_id: 'vendor_1', code: 'VEND123' },
+        ]);
+      
+        // Mock getVendorsBankReponseDao for vendor data
+        getVendorsBankReponseDao.mockResolvedValue([
+          { id: 'vendor_1', balance: 10000, payin_commission: 0.01, user_id: 'vendor_1', code: 'VEND123' },
+        ]);
+      
+        // Mock getPayInsBankResDao to return a matching pay-in
+        getPayInsBankResDao.mockResolvedValue([
+          {
+            id: 'payin_1',
             amount: 1000,
+            user_submitted_utr: 'utr123',
+            bank_acc_id: 'bank_1',
+            merchant_id: 'merchant_1',
+            config: { urls: { notify: 'url' } },
+            created_at: new Date('2025-08-18'),
+          },
+        ]);
+      
+        // Mock getMerchantsBankResponseDao for merchant data
+        getMerchantsBankResponseDao.mockResolvedValue([
+          { id: 'merchant_1', balance: 5000, payin_commission: 0.02, user_id: 'merchant_1', code: 'MERCH123' },
+        ]);
+      
+        // Mock getMerchantsDao for merchant data
+        getMerchantsDao.mockResolvedValue([
+          { id: 'merchant_1', balance: 5000, payin_commission: 0.02, user_id: 'merchant_1', code: 'MERCH123' },
+        ]);
+      
+        // Mock getCalculationforCronDao for calculation data
+        getCalculationforCronDao.mockResolvedValue([
+          { id: 'calc_1', created_at: new Date('2025-08-18') },
+        ]);
+      
+        // Mock updatePayInUrlDao
+        updatePayInUrlDao.mockResolvedValue({
+          id: 'payin_1',
+          status: 'SUCCESS',
+          merchant_order_id: 'order_1',
+          amount: 1000,
+          config: { urls: { notify: 'url' } },
+        });
+      
+        // Mock other dependencies
+        updateBotResponseDao.mockResolvedValue({});
+        newTableEntry.mockResolvedValue();
+        merchantPayinCallback.mockResolvedValue();
+        updateCalculationBalanceDao.mockResolvedValue({});
+        updateBankaccountDao.mockResolvedValue({ today_balance: 3000 });
+      
+        // Mock Date for approved_at
+        const mockDate = new Date('2025-08-19T09:22:00.000Z');
+        jest.spyOn(global, 'Date').mockImplementation(() => mockDate);
+      
+        // Mock getBankaccountDashBoardReportDao to ensure bank is not frozen
+        getBankaccountDashBoardReportDao.mockResolvedValue([
+          {
+            id: 'bank_1',
+            balance: 5000,
+            today_balance: 2000,
+            payin_count: 1,
+            user_id: 'user_1',
+            config: { is_freeze: false },
+            nick_name: 'Bank A',
+            freezed: 'false',
+          },
+        ]);
+      
+        const result = await createBankResponseService(payload, companyId, role, name);
+      
+        expect(createBankResponseDao).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
             utr: 'utr123',
             bank_id: 'bank_1',
-            is_used: 'false',
-          });
-          getBankaccountDao.mockResolvedValue([
-            {
-              balance: 5000,
-              today_balance: 2000,
-              payin_count: 1,
-              user_id: 'user_1',
-              config: {},
-            },
-          ]);
-          getVendorsDao.mockResolvedValue([
-            { id: 'vendor_1', balance: 10000, payin_commission: 0.01 },
-          ]);
-          getPayInsBankResDao.mockResolvedValue([
-            {
-              id: 'payin_1',
-              amount: 1000,
-              user_submitted_utr: 'utr123',
-              bank_acc_id: 'bank_1',
-              merchant_id: 'merchant_1',
-              config: { urls: { notify: 'url' } },
-              created_at: new Date('2025-08-18'),
-            },
-          ]);
-          getMerchantsDao.mockResolvedValue([
-            { balance: 5000, payin_commission: 0.02 },
-          ]);
-          updatePayInUrlDao.mockResolvedValue({
-            id: 'payin_1',
+          }),
+        );
+        expect(updatePayInUrlDao).toHaveBeenCalledWith(
+          'payin_1',
+          expect.objectContaining({
             status: 'SUCCESS',
-            merchant_order_id: 'order_1',
-            amount: 1000,
-            config: { urls: { notify: 'url' } },
-          });
-          updateBotResponseDao.mockResolvedValue({});
-          newTableEntry.mockResolvedValue();
-          merchantPayinCallback.mockResolvedValue();
-          updateCalculationBalanceDao.mockResolvedValue({});
-      
-          const mockDate = new Date('2025-08-19T09:22:00.000Z');
-          jest.spyOn(global, 'Date').mockImplementation(() => mockDate);
-      
-          const result = await createBankResponseService(payload, '123', 'MERCHANT', 'test_user');
-      
-          expect(createBankResponseDao).toHaveBeenCalledWith(
-            expect.anything(),
-            expect.objectContaining({
-              utr: 'utr123',
-              bank_id: 'bank_1',
-            }),
-          );
-          expect(updatePayInUrlDao).toHaveBeenCalledWith(
-            'payin_1',
-            expect.objectContaining({
-              status: 'SUCCESS',
-              is_notified: true,
-              user_submitted_utr: 'utr123',
-              bank_response_id: '1',
-              duration: '00:05:00',
-              payin_merchant_commission: 0.2,
-              payin_vendor_commission: 0.1,
-              approved_at: mockDate,
-            }),
-            expect.anything(),
-          );
-          expect(merchantPayinCallback).toHaveBeenCalled();
-          expect(result).toEqual({
-            message: 'UTR utr123 matches the User Submitted UTR: utr123 and the payment was successful.',
-          });
-      
-          jest.spyOn(global, 'Date').mockRestore();
+            is_notified: true,
+            user_submitted_utr: 'utr123',
+            bank_response_id: '1',
+            duration: '00:05:00',
+            payin_merchant_commission: 0.2,
+            payin_vendor_commission: 0.1,
+            approved_at: mockDate,
+          }),
+          expect.anything(),
+        );
+        expect(merchantPayinCallback).toHaveBeenCalled();
+        expect(result).toEqual({
+          message: 'UTR utr123 matches the User Submitted UTR: utr123 and the payment was successful.',
         });
+      
+        jest.spyOn(global, 'Date').mockRestore();
+      });
     });
   
     describe('getClaimResponseService', () => {

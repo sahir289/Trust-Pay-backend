@@ -7,9 +7,11 @@ import * as payInService from './payInService.js';
 import * as schemas from '../../schemas/payInSchema.js';
 import * as helpers from '../../helpers/index.js';
 import * as responseHandlers from '../../utils/responseHandlers.js';
-import {  ValidationError } from '../../utils/appErrors.js';
+import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { createHash, compareHash } from '../../utils/hashUtils.js';
 import config from '../../config/config.js';
+import { readerPool } from '../../utils/db.js';
+import { bulkIndexFromPG } from '../../utils/buildElasticSearch.js';
 
 jest.mock('./payInService.js');
 jest.mock('../../schemas/payInSchema.js');
@@ -25,22 +27,15 @@ jest.mock('../merchants/merchantDao.js', () => ({
 jest.mock('../company/companyDao.js', () => ({
   getCompanyByIDDao: jest.fn(),
 }));
-
 jest.mock('../bankAccounts/bankaccountDao.js', () => ({
   getMerchantBankDao: jest.fn(),
 }));
 jest.mock('../../utils/sendTelegramMessages.js', () => ({
   sendBankNotAssignedAlertTelegram: jest.fn(),
 }));
-jest.mock('../../utils/db.js', () => ({
-  transactionWrapper: jest.fn((fn) => fn),
-  executeQuery: jest.fn().mockResolvedValue({ rows: [] }),
-}));
 jest.mock('../roles/rolesDao.js', () => ({
-  getRolesById: jest.fn(), 
+  getRolesById: jest.fn(),
 }));
-
-// Mock the logger to prevent errors in dependencies like redisClient
 jest.mock('../../utils/logger.js', () => ({
   logger: {
     error: jest.fn(),
@@ -49,13 +44,45 @@ jest.mock('../../utils/logger.js', () => ({
     log: jest.fn(),
   },
 }));
-
-// Mock redisClient to prevent any logger issues during tests
 jest.mock('../../utils/redisClient.js', () => ({
   transactionWrapper: jest.fn((fn) => fn),
   executeQuery: jest.fn().mockResolvedValue({ rows: [] }),
-  // Add any other methods if needed, but ensure logger is mocked above
 }));
+jest.mock('../../utils/elasticClient.js', () => ({
+  __esModule: true,
+  default: jest.fn().mockResolvedValue({
+    indices: {
+      exists: jest.fn().mockResolvedValue(false),
+      create: jest.fn().mockResolvedValue({}),
+      putMapping: jest.fn().mockResolvedValue({}),
+      refresh: jest.fn().mockResolvedValue({}),
+    },
+    bulk: jest.fn().mockResolvedValue({ body: { errors: false, items: [] } }),
+  }),
+}));
+jest.mock('../../utils/db.js', () => {
+  const mockPool = {
+    connect: jest.fn().mockResolvedValue({
+      release: jest.fn(),
+      query: jest.fn().mockResolvedValue({ rows: [] }),
+    }),
+    query: jest.fn().mockImplementation((query, params) => {
+      if (query.includes('information_schema.tables')) {
+        return Promise.resolve({ rows: [{ exists: true }] });
+      }
+      if (query.includes('COUNT(*)')) {
+        return Promise.resolve({ rows: [{ count: '0' }] });
+      }
+      return Promise.resolve({ rows: [] });
+    }),
+  };
+  return {
+    transactionWrapper: jest.fn((fn) => fn),
+    executeQuery: jest.fn().mockResolvedValue({ rows: [] }),
+    createPool: jest.fn().mockReturnValue(mockPool),
+    readerPool: mockPool, // Explicitly mock readerPool
+  };
+});
 
 describe('PayIn Controller', () => {
   let req, res;
@@ -69,7 +96,7 @@ describe('PayIn Controller', () => {
       file: undefined,
       user: { user_id: 'user123', company_id: 'comp123', user_name: 'testuser' },
       user_location: '127.0.0.1',
-      connection: { remoteAddress: '127.0.0.1' }, 
+      connection: { remoteAddress: '127.0.0.1' },
       ip: '127.0.0.1',
     };
     res = {
@@ -271,10 +298,10 @@ describe('PayIn Controller', () => {
       req.headers = { 'x-api-key': 'validApiKey', authorization: 'validToken' };
       req.connection.remoteAddress = '::1';
       req.ip = '::1';
-    
-      const TestingIp = '49.128.161.134'; 
+
+      const TestingIp = '49.128.161.134';
       await generatePayInUrl(req, res);
-    
+
       expect(payInService.generatePayInUrlService).toHaveBeenCalledWith(
         expect.objectContaining({
           code: 'validCode',
@@ -282,7 +309,7 @@ describe('PayIn Controller', () => {
         }),
         'user123',
         null, // role
-        TestingIp, // userIp should be TestingIp ('192.168.1.1')
+        TestingIp, // userIp should be TestingIp
         false, // fromUi
       );
       expect(responseHandlers.sendNewSuccess).toHaveBeenCalledWith(
@@ -357,12 +384,12 @@ describe('PayIn Controller', () => {
       req.headers = { 'x-api-key': 'validApiKey', authorization: 'validToken' };
       req.connection.remoteAddress = '127.0.0.1';
       req.ip = '127.0.0.1';
-      
+
       const { getRolesById } = require('../roles/rolesDao.js');
       getRolesById.mockResolvedValue({ role: 'admin' });
-    
+
       await generatePayInUrl(req, res);
-    
+
       expect(getRolesById).toHaveBeenCalledWith('roleToken123');
       expect(payInService.generatePayInUrlService).toHaveBeenCalledWith(
         expect.any(Object),
@@ -399,6 +426,39 @@ describe('PayIn Controller', () => {
         expect.objectContaining({ status: 'valid', merchant_order_id: 'order123' }),
         'Payment Url is correct',
       );
+    });
+  });
+
+  describe('bulkIndexFromPG', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should handle empty table', async () => {
+      const result = await bulkIndexFromPG('users', 'users_index', ['id', 'name'], 10000, '', 'id', 'public');
+      expect(result).toEqual({ success: true, indexed: 0 });
+      expect(readerPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('information_schema.tables'),
+        ['public', 'users']
+      );
+      expect(readerPool.query).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining("information_schema.tables"),
+        ["public", "users"]
+      );
+      
+    });
+
+    it('should throw BadRequestError for non-existent table', async () => {
+      readerPool.query.mockImplementation((query) => {
+        if (query.includes('information_schema.tables')) {
+          return Promise.resolve({ rows: [{ exists: false }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+      await expect(
+        bulkIndexFromPG('non_existent_table', 'users_index', ['id', 'name'])
+      ).rejects.toThrow(BadRequestError);
     });
   });
 });

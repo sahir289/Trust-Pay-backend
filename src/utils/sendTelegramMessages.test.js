@@ -88,8 +88,13 @@ describe('Telegram Dashboard Functions', () => {
         null,
         'test-token'
       );
-      expect(result).toEqual({ success1: true, success2: true, success3: true });
-      expect(logger.log).toHaveBeenCalledWith('Sent!');
+      expect(result).toEqual({ success1: true, success2: [true], success3: [true] });
+      // expect(logger.log).toHaveBeenCalledWith('Sent!');
+      expect(logger.log).toHaveBeenCalledTimes(3);
+      expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('Sent message1!'));
+      expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('Sent message2'));
+      expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('Sent message3'));
+
     });
 
     test('should handle failed message sends', async () => {
@@ -121,8 +126,13 @@ describe('Telegram Dashboard Functions', () => {
       const result = await sendTelegramDashboardReportMessage(...Object.values(mockParams));
 
       expect(telegramSenderMock).toHaveBeenCalledTimes(3);
-      expect(result).toEqual({ success1: true, success2: false, success3: true });
-      expect(logger.log).toHaveBeenCalledWith('Not sent.');
+      expect(result).toEqual({ success1: true, success2: [false], success3: [true] });
+      // expect(logger.log).toHaveBeenCalledWith('Not sent.');
+      expect(logger.log).toHaveBeenCalledTimes(3);
+      expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('Sent message1!'));
+      expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('Not sent: message2 (Part 1).'));
+      expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('Sent message3 (Part 1)!'));
+
     });
   });
 
@@ -146,15 +156,15 @@ describe('Telegram Dashboard Functions', () => {
         null,
         'test-token'
       );
-      
-      
+
+
       expect(telegramSenderMock).toHaveBeenCalledWith(
         'chat123',
         expect.stringContaining('<b>Merchant Dashboard Report</b> (2/2)'),
         null,
         'test-token'
       );
-      
+
       expect(result).toBe(true);
       expect(logger.log).toHaveBeenCalledWith('Batch 1/2: Sent!');
       expect(logger.log).toHaveBeenCalledWith('Batch 2/2: Sent!');
@@ -165,27 +175,27 @@ describe('Telegram Dashboard Functions', () => {
         code: `M${i}`,
         net_balance: 1000 + i,
       }));
-  
+
       await sendTelegramMerchantDashboardReportMessage('chat123', merchantBalanceData, 'test-token');
-  
+
       expect(telegramSenderMock).toHaveBeenCalledTimes(2); // 25 merchants, batch size 20 => 2 messages
-  
+
       // Build expected lines for batch 1
       const batch1Lines = merchantBalanceData.slice(0, 20).map(m =>
-        `<b>${m.code}:</b> <b>Net Balance:</b> ₹ ${m.net_balance.toLocaleString('en-IN', {minimumFractionDigits:2})}`
+        `<b>${m.code}:</b> <b>Net Balance:</b> ₹ ${m.net_balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
       );
       batch1Lines.unshift('<b>Merchant Dashboard Report</b> (1/2)'); // header
-  
+
       // Build expected lines for batch 2
       const batch2Lines = merchantBalanceData.slice(20).map(m =>
-        `<b>${m.code}:</b> <b>Net Balance:</b> ₹ ${m.net_balance.toLocaleString('en-IN', {minimumFractionDigits:2})}`
+        `<b>${m.code}:</b> <b>Net Balance:</b> ₹ ${m.net_balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
       );
       batch2Lines.unshift('<b>Merchant Dashboard Report</b> (2/2)'); // header
-  
+
       // Split actual calls by lines
       const actualBatch1Lines = telegramSenderMock.mock.calls[0][1].split('\n').map(l => l.trim()).filter(Boolean);
       const actualBatch2Lines = telegramSenderMock.mock.calls[1][1].split('\n').map(l => l.trim()).filter(Boolean);
-  
+
       expect(actualBatch1Lines).toEqual(batch1Lines);
       expect(actualBatch2Lines).toEqual(batch2Lines);
     });
@@ -234,7 +244,7 @@ describe('Telegram Dashboard Functions', () => {
         null,
         'test-token'
       );
-      
+
       expect(result).toBe(true);
       expect(logger.log).toHaveBeenCalledWith('Batch 1/2: Sent!');
       expect(logger.log).toHaveBeenCalledWith('Batch 2/2: Sent!');
@@ -244,26 +254,26 @@ describe('Telegram Dashboard Functions', () => {
         code: `V${i}`,
         net_balance: 1000 + i,
       }));
-  
+
       await sendTelegramVendorDashboardReportMessage('chat123', vendorBalanceData, 'test-token');
-  
+
       expect(telegramSenderMock).toHaveBeenCalledTimes(2);
-  
+
       // Build expected lines for batch 1
       const batch1Lines = vendorBalanceData.slice(0, 20).map(v =>
-        `<b>${v.code}:</b> <b>Net Balance:</b> ₹ ${v.net_balance.toLocaleString('en-IN', {minimumFractionDigits:2})}`
+        `<b>${v.code}:</b> <b>Net Balance:</b> ₹ ${v.net_balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
       );
       batch1Lines.unshift('<b>Vendor Dashboard Report</b> (1/2)');
-  
+
       // Build expected lines for batch 2
       const batch2Lines = vendorBalanceData.slice(20).map(v =>
-        `<b>${v.code}:</b> <b>Net Balance:</b> ₹ ${v.net_balance.toLocaleString('en-IN', {minimumFractionDigits:2})}`
+        `<b>${v.code}:</b> <b>Net Balance:</b> ₹ ${v.net_balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
       );
       batch2Lines.unshift('<b>Vendor Dashboard Report</b> (2/2)');
-  
+
       const actualBatch1Lines = telegramSenderMock.mock.calls[0][1].split('\n').map(l => l.trim()).filter(Boolean);
       const actualBatch2Lines = telegramSenderMock.mock.calls[1][1].split('\n').map(l => l.trim()).filter(Boolean);
-  
+
       expect(actualBatch1Lines).toEqual(batch1Lines);
       expect(actualBatch2Lines).toEqual(batch2Lines);
     });
@@ -306,7 +316,7 @@ describe('Telegram Dashboard Functions', () => {
         456,
         'test-token'
       );
-      
+
       expect(result).toBe(true);
       expect(logger.log).toHaveBeenCalledWith('Sent!');
     });

@@ -51,6 +51,13 @@ jest.mock('../../utils/db.js', () => ({
         query: jest.fn().mockResolvedValue(true),
         release: jest.fn(),
     }),
+    createPool: jest.fn().mockReturnValue({
+        query: jest.fn(),
+        end: jest.fn(),
+    }),
+    beginTransaction: jest.fn(),
+    commit: jest.fn(),
+    rollback: jest.fn(),
 }));
 
 describe('Auth Services', () => {
