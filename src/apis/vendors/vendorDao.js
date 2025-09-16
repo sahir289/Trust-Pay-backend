@@ -7,6 +7,7 @@ import {
 } from '../../utils/db.js';
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { logger } from '../../utils/logger.js';
+import { enhanceVendorsWithSubVendors } from '../../utils/enhanceSubVendor.js';
 
 export const createVendorDao = async (data, conn) => {
   try {
@@ -61,24 +62,96 @@ export const getVendorsDashBoardReportDao = async (
     throw error;
   }
 };
-export const getVendorsCodeDao = async (filters, conn) => {
+export const getVendorsCodeDao = async (
+  filters,
+  conn,
+  includeSubVendors = false,
+  includeOnlyVendors = false,
+  excludeDisabledVendor = false,
+) => {
   try {
-    const baseQuery = `
-        SELECT 
-            code AS label, 
-            user_id AS value, 
-            id AS vendor_id 
-        FROM 
-            "${tableName.VENDOR}" 
-        WHERE 
-            is_obsolete = FALSE 
+    // Convert string to boolean
+    if (includeSubVendors) {
+      includeSubVendors = includeSubVendors.toLowerCase() === 'true';
+    }
+    if (includeOnlyVendors) {
+      includeOnlyVendors = includeOnlyVendors.toLowerCase() === 'true';
+    }
+    
+    let sql = `
+      SELECT 
+        v.code AS label, 
+        v.user_id AS value, 
+        v.id AS vendor_id,
+        ${
+          includeSubVendors
+            ? `
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'label', sv.code,
+                    'value', sv.user_id,
+                    'vendor_id', sv.id
+                  )
+                ) FILTER (WHERE sv.id IS NOT NULL),
+                '[]'::json
+              ) AS subvendors
+            `
+            : `'[]'::json AS subvendors`
+        }
+      FROM 
+        "${tableName.VENDOR}" v
+      LEFT JOIN "${tableName.USER_HIERARCHY}" uh 
+        ON uh.user_id = v.user_id
+      LEFT JOIN "${tableName.VENDOR}" sv 
+        ON sv.user_id IN (
+          SELECT json_array_elements_text(uh.config -> 'siblings' -> 'sub_vendors')
+          FROM "${tableName.USER_HIERARCHY}" uh_sub
+          WHERE uh_sub.user_id = v.user_id
+          AND uh_sub.config -> 'siblings' -> 'sub_vendors' IS NOT NULL
+        )
+        AND sv.company_id = v.company_id
+        AND sv.is_obsolete = FALSE
+      WHERE 
+        v.is_obsolete = FALSE
     `;
-    let [sql, queryParams] = buildSelectQuery(
-      baseQuery,
-      filters,
-      tableName.VENDOR,
-    );
-    sql = sql.replace(/\s*ORDER BY\s+.*$/i, '') + ' ORDER BY "code" ASC';
+    
+    if (excludeDisabledVendor) {
+      sql += ` AND v.is_enabled = TRUE `;
+    }
+    
+    const queryParams = [];
+    let paramIndex = 1;
+    
+    if (includeOnlyVendors) {
+      sql += `
+      AND v.user_id IN (
+          SELECT u.id 
+          FROM "${tableName.USER}" u
+          JOIN "${tableName.DESIGNATION}" d 
+            ON u.designation_id = d.id 
+          WHERE d.designation = 'VENDOR'
+        )
+      `;
+    }
+    
+    if (filters.company_id) {
+      sql += ` AND v.company_id = $${paramIndex++}`;
+      queryParams.push(filters.company_id);
+    }
+    
+    if (filters.user_id) {
+      if (Array.isArray(filters.user_id)) {
+        sql += ` AND v.user_id = ANY($${paramIndex++})`;
+        queryParams.push(filters.user_id);
+      } else {
+        sql += ` AND v.user_id = $${paramIndex++}`;
+        queryParams.push(filters.user_id);
+      }
+    }
+    
+    sql += ` GROUP BY v.id, v.code, v.user_id ORDER BY v.code ASC`;
+    
     const result = await conn.query(sql, queryParams);
     logger.log('Fetched Vendors:', result.rows.length, 'rows');
     return result.rows;
@@ -178,7 +251,10 @@ export const getVendorsDao = async (
       'Vendor',
     );
     const result = await executeQuery(query, values);
-    return result.rows;
+    
+    // Enhance with sub-vendor data
+    const enhancedVendors = await enhanceVendorsWithSubVendors(result.rows);
+    return enhancedVendors;
   } catch (error) {
     logger.error('Error in getVendorsDao:', error);
     throw error;
@@ -199,6 +275,7 @@ export const getAllVendorsDao = async (
     // Define columns to select
     const columns = [
       `"Vendor".id`,
+      `"Vendor".user_id`,
       `"Vendor".first_name`,
       `"Vendor".last_name`,
       `"Vendor".code`,
@@ -216,7 +293,6 @@ export const getAllVendorsDao = async (
       columns.push(
         `"Vendor".created_by`,
         `"Vendor".updated_by`,
-        `"Vendor".user_id`,
         `"Vendor".company_id`,
         `user_main.designation_id`,
         `u.user_name AS created_by`,
@@ -274,7 +350,10 @@ export const getAllVendorsDao = async (
       'Vendor',
     );
     const result = await executeQuery(query, values);
-    return result.rows;
+    
+    // Enhance with sub-vendor data
+    const enhancedVendors = await enhanceVendorsWithSubVendors(result.rows);
+    return enhancedVendors;
   } catch (error) {
     logger.error('Error in getVendorsDao:', error);
     throw error;
@@ -295,6 +374,7 @@ export const getVendorsBySearchDao = async (
     // Build base SELECT columns based on role
     const columns = [
       `"Vendor".id`,
+      `"Vendor".user_id`,
       `"Vendor".first_name`,
       `"Vendor".last_name`,
       `"Vendor".code`,
@@ -313,7 +393,6 @@ export const getVendorsBySearchDao = async (
       columns.push(
         `"Vendor".created_by`,
         `"Vendor".updated_by`,
-        `"Vendor".user_id`,
         `"Vendor".company_id`,
         `"Vendor".config`,
         `"user_main".designation_id`,
@@ -338,9 +417,14 @@ export const getVendorsBySearchDao = async (
       AND "Vendor"."company_id" = $1
     `;
     if (filters.user_id) {
-      queryText += ` AND "Vendor"."user_id" = $${paramIndex}`;
-      values.push(filters.user_id);
-      paramIndex += 1;
+      if (Array.isArray(filters.user_id)) {
+        queryText += ` AND "Vendor"."user_id" = ANY(ARRAY[${filters.user_id.map(() => `$${paramIndex++}`).join(',')}])`;
+        values.push(...filters.user_id);
+      } else {
+        queryText += ` AND "Vendor"."user_id" = $${paramIndex}`;
+        values.push(filters.user_id);
+        paramIndex += 1;
+      }
     }
     if (searchTerms) {
       searchTerms.forEach((term) => {
@@ -406,10 +490,14 @@ export const getVendorsBySearchDao = async (
       searchResult = await executeQuery(queryText, values);
       totalPages = Math.ceil(totalItems / pageSize);
     }
+    
+    // Enhance with sub-vendor data
+    const enhancedVendors = await enhanceVendorsWithSubVendors(searchResult.rows);
+    
     const data = {
       totalCount: totalItems,
       totalPages,
-      Vendors: searchResult.rows,
+      Vendors: enhancedVendors,
     };
     return data;
   } catch (error) {
@@ -521,6 +609,42 @@ export const getBankResponseAccessByIDDao = async (id) => {
     return result.rows[0];
   } catch (error) {
     logger.error('Error fetching bank response access by ID:', error);
+    throw error;
+  }
+};
+
+export const getVendorByCodeDao = async (code) => {
+  try {
+    const sql = `
+      SELECT 
+        "Vendor".id,
+        "Vendor".user_id, 
+        "Vendor".first_name, 
+        "Vendor".last_name, 
+        "Vendor".code,
+        "Vendor".payin_commission,
+        "Vendor".payout_commission,
+        "Vendor".config,
+        "Vendor".created_by,
+        "Vendor".updated_by, 
+        "Vendor".created_at, 
+        "Vendor".updated_at, 
+        "User".designation_id, 
+        "User".first_name || ' ' || "User".last_name AS full_name, 
+        "Designation".designation AS designation_name,
+        (SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".updated_at DESC LIMIT 1) AS balance
+      FROM "Vendor" 
+      JOIN "User" ON "Vendor".user_id = "User".id 
+      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
+      WHERE "Vendor".is_obsolete = false 
+      AND "Vendor".code = $1
+      ORDER BY "Vendor"."created_at" ASC;
+    `;
+
+    const result = await executeQuery(sql, [code]);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error fetching vendor by code:', error);
     throw error;
   }
 };
