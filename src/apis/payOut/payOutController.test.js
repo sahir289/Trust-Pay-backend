@@ -362,9 +362,9 @@ describe("payOutController", () => {
 		await walletsPayouts(req, res);
 		expect(sendNewSuccess).toHaveBeenCalledWith(
 			res,
-			{ balance: 900 },
+			900,
 			"Payout updated successfully",
-			201
+			201,
 		);
 		});
 	});

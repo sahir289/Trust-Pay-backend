@@ -80,6 +80,7 @@ jest.mock('./userDao.js', () => ({
     getUsersBySearchDao: jest.fn(),
     getAllUsersDao: jest.fn(),
 }));
+
 jest.mock('../merchants/merchantDao.js', () => ({
     getMerchantByUserIdDao: jest.fn(),
 }));
