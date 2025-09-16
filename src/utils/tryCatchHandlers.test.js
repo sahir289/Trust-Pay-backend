@@ -31,7 +31,8 @@ describe('tryCatchHandler middleware', () => {
   });
 
   test('should catch errors and call next with error', async () => {
-    const error = new Error('Something went wrong');
+    // const error = new Error('Something went wrong');
+    const error = {message : 'Something went wrong'};
     const mockFn = jest.fn(async () => {
       throw error;
     });
@@ -40,7 +41,7 @@ describe('tryCatchHandler middleware', () => {
     await wrapped(req, res, next);
 
     expect(mockFn).toHaveBeenCalled();
-    expect(logger.error).toHaveBeenCalledWith(error);
+    expect(logger.error).toHaveBeenCalledWith(error.message);
     expect(next).toHaveBeenCalledWith(error);
   });
 });
