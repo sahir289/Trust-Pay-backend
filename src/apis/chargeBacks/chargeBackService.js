@@ -223,7 +223,7 @@ const getChargeBacksService = async (
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.CHARGE_BACK
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.CHARGE_BACK
           : columns.CHARGE_BACK;
 
@@ -308,7 +308,7 @@ const getChargeBacksBySearchService = async (
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.CHARGE_BACK
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.CHARGE_BACK
           : columns.CHARGE_BACK;
 
@@ -627,7 +627,7 @@ const deleteChargeBackService = async (ids, payload, role) => {
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.CHARGE_BACK
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.CHARGE_BACK
           : columns.CHARGE_BACK;
 
