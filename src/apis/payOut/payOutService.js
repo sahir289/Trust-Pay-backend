@@ -500,14 +500,33 @@ const getPayoutsService = async (
           filters.merchant_id = await fetchMerchantIds(userIdFilter);
         }
       }
-    } else if (role === Role.VENDOR) {
+    } else if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
       if (designation === Role.VENDOR) {
+        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const userHierarchy = userHierarchys?.[0];
+        
+        const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+        if (Array.isArray(subVendors) && subVendors.length > 0) {
+          const vendorUserIds = [user_id, ...subVendors];
+          filters.vendor_id = await fetchVendorIds(vendorUserIds);
+        } else {
+          filters.vendor_id = await fetchVendorIds([user_id]);
+        }
+      } else if (designation === Role.SUB_VENDOR) {
         filters.vendor_id = await fetchVendorIds([user_id]);
       } else if (designation === Role.VENDOR_OPERATIONS) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
-        const parentID = userHierarchys?.[0]?.config?.parent;
+        const userHierarchy = userHierarchys?.[0];
+        const parentID = userHierarchy?.config?.parent;
         if (parentID) {
-          filters.vendor_id = await fetchVendorIds([parentID]);
+          const parentHierarchys = await getUserHierarchysDao({
+            user_id: parentID,
+          });
+          const parentHierarchy = parentHierarchys?.[0];
+          const subVendors = parentHierarchy?.config?.siblings?.sub_vendors ?? [];
+          
+          const userIdFilter = [...new Set([parentID, ...subVendors])];
+          filters.vendor_id = await fetchVendorIds(userIdFilter);
         }
       }
     }
@@ -584,14 +603,33 @@ const getPayoutsBySearchService = async (
           filters.merchant_id = await fetchMerchantIds(userIdFilter);
         }
       }
-    } else if (role === Role.VENDOR) {
+    } else if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
       if (designation === Role.VENDOR) {
+        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const userHierarchy = userHierarchys?.[0];
+        
+        const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+        if (Array.isArray(subVendors) && subVendors.length > 0) {
+          const vendorUserIds = [user_id, ...subVendors];
+          filters.vendor_id = await fetchVendorIds(vendorUserIds);
+        } else {
+          filters.vendor_id = await fetchVendorIds([user_id]);
+        }
+      } else if (designation === Role.SUB_VENDOR) {
         filters.vendor_id = await fetchVendorIds([user_id]);
       } else if (designation === Role.VENDOR_OPERATIONS) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
-        const parentID = userHierarchys?.[0]?.config?.parent;
+        const userHierarchy = userHierarchys?.[0];
+        const parentID = userHierarchy?.config?.parent;
         if (parentID) {
-          filters.vendor_id = await fetchVendorIds([parentID]);
+          const parentHierarchys = await getUserHierarchysDao({
+            user_id: parentID,
+          });
+          const parentHierarchy = parentHierarchys?.[0];
+          const subVendors = parentHierarchy?.config?.siblings?.sub_vendors ?? [];
+          
+          const userIdFilter = [...new Set([parentID, ...subVendors])];
+          filters.vendor_id = await fetchVendorIds(userIdFilter);
         }
       }
     }
@@ -1145,7 +1183,7 @@ const deletePayoutService = async (id, updated_by, role) => {
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.PAYOUT
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.PAYOUT
           : columns.PAYOUT;
     conn = await getConnection();

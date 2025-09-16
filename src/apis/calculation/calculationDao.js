@@ -574,8 +574,26 @@ export const getCalculationsSumDao = async (filters) => {
       merchantTotalQuery += ` AND c.company_id = '${company_id}'`;
       vendorTotalQuery = null; // Merchant shouldn't see vendor totals
     } else if (role === Role.VENDOR) {
-      vendorTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
+      // Get user hierarchy to validate sub-vendor access
+      const userHierarchys = await getUserHierarchysDao({
+        user_id: effectiveUserId,
+      });
+      let userIds = [effectiveUserId]; // Always include vendor's own ID
+
+      // Include sub-vendors when available
+      const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+      if (subVendors.length > 0) {
+        userIds = [...new Set([...userIds, ...subVendors])];
+      }
+
+      // Add filter to vendor total query
+      vendorTotalQuery += ` AND c.user_id = ANY(ARRAY['${userIds.join("','")}']) `;
+      vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
       merchantTotalQuery = null; // Vendor shouldn't see merchant totals
+    } else if (role === Role.SUB_VENDOR) {
+      vendorTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
+      vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
+      merchantTotalQuery = null; // Sub-vendor shouldn't see merchant totals
     } else if (role === Role.ADMIN) {
       // Get user hierarchy to validate access
       let userIds = [];
@@ -895,18 +913,27 @@ export const getCalculationsForInternalUseDao = async (filters) => {
       const userHierarchys = await getUserHierarchysDao({
         user_id: effectiveUserId,
       });
-      let userIds = [effectiveUserId]; // Always include merchant's own ID
+      let userIds = [effectiveUserId]; // Always include user's own ID
 
-      // Handle userCodes for merchant totals
+      // Handle userCodes for totals
       if (userCodes?.length > 0) {
-        // Get allowed submerchant IDs from hierarchy
+        // Get allowed submerchant/sub-vendor IDs from hierarchy based on role
         const allowedSubmerchants =
           userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
-        // Only include valid submerchant IDs
+        const allowedSubVendors =
+          userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+        
+        // Only include valid IDs based on role
         const validUserIds = userCodes.filter((id) =>
-          allowedSubmerchants.includes(id),
+          allowedSubmerchants.includes(id) || allowedSubVendors.includes(id),
         );
         userIds = [...new Set([...userCodes, ...validUserIds])]; // Remove duplicates
+      } else if (role === Role.VENDOR) {
+        // For VENDOR role, include sub-vendors automatically
+        const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+        if (subVendors.length > 0) {
+          userIds = [...new Set([...userIds, ...subVendors])];
+        }
       }
       // For non-admin roles, use existing query logic
 
@@ -1045,8 +1072,26 @@ export const getCalculationsForInternalUseDao = async (filters) => {
       merchantTotalQuery += ` AND c.company_id = '${company_id}'`;
       vendorTotalQuery = null; // Merchant shouldn't see vendor totals
     } else if (role === Role.VENDOR) {
-      vendorTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
+      // Get user hierarchy to validate sub-vendor access
+      const userHierarchys = await getUserHierarchysDao({
+        user_id: effectiveUserId,
+      });
+      let userIds = [effectiveUserId]; // Always include vendor's own ID
+
+      // Include sub-vendors when available
+      const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+      if (subVendors.length > 0) {
+        userIds = [...new Set([...userIds, ...subVendors])];
+      }
+
+      // Add filter to vendor total query
+      vendorTotalQuery += ` AND c.user_id = ANY(ARRAY['${userIds.join("','")}']) `;
+      vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
       merchantTotalQuery = null; // Vendor shouldn't see merchant totals
+    } else if (role === Role.SUB_VENDOR) {
+      vendorTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
+      vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
+      merchantTotalQuery = null; // Sub-vendor shouldn't see merchant totals
     } else if (role === Role.ADMIN) {
       // Get user hierarchy to validate access
       let userIds = [];
@@ -1416,17 +1461,34 @@ const getMerchantNetBalanceDao = async (companyId, startDate, endDate) => {
 
 const getVendorNetBalanceDao = async (companyId, startDate, endDate) => {
   try {
-    const sql = `
-      SELECT c.user_id, c.net_balance, v.code
+    // Base query to get vendor net balance data with latest records
+    let sql = `
+      SELECT 
+        c.user_id, 
+        c.net_balance, 
+        v.code,
+        c.created_at,
+        ROW_NUMBER() OVER (PARTITION BY c.user_id ORDER BY c.created_at DESC) as rn
       FROM public."Calculation" c
       LEFT JOIN public."Role" r ON r.id = c.role_id
       LEFT JOIN public."Vendor" v ON v.user_id = c.user_id
       WHERE c.company_id = $1
       AND r.role = '${Role.VENDOR}'
       AND DATE(c.created_at) BETWEEN DATE($2) AND DATE($3)
-      GROUP BY c.id, v.code
+      AND v.is_obsolete = false
+      AND c.is_obsolete = false
     `;
-    const result = await executeQuery(sql, [companyId, startDate, endDate]);
+
+    const queryParams = [companyId, startDate, endDate];
+
+    // Get the latest record for each vendor
+    const wrappedSql = `
+      SELECT user_id, net_balance, code
+      FROM (${sql}) as latest_records
+      WHERE rn = 1
+    `;
+
+    const result = await executeQuery(wrappedSql, queryParams);
     let vendorData = result.rows;
 
     // If no data, return empty array
@@ -1469,7 +1531,82 @@ const getVendorNetBalanceDao = async (companyId, startDate, endDate) => {
       }
     }
 
-    return activeVendors;
+    vendorData = activeVendors;
+
+    // Always process hierarchy to club parent and child data
+    const clubbedData = new Map();
+    const processedUsers = new Set();
+    const hierarchyMap = new Map();
+
+    // First, get hierarchy for all users
+    for (const vendor of vendorData) {
+      try {
+        const userHierarchy = await getUserHierarchysDao({ user_id: vendor.user_id });
+        hierarchyMap.set(vendor.user_id, userHierarchy);
+      } catch (error) {
+        logger.warn(`Failed to get hierarchy for user ${vendor.user_id}:`, error);
+        hierarchyMap.set(vendor.user_id, null);
+      }
+    }
+
+    // Process each vendor
+    for (const vendor of vendorData) {
+      const userId = vendor.user_id;
+      
+      if (processedUsers.has(userId)) {
+        continue;
+      }
+
+      const userHierarchy = hierarchyMap.get(userId);
+      const hierarchyConfig = userHierarchy?.[0]?.config;
+      
+      // Check if this user is a parent - look for sub_vendors in the config
+      const subVendors = hierarchyConfig?.siblings?.sub_vendors || [];
+      
+      if (subVendors && subVendors.length > 0) {
+        // This is a parent vendor - club data with children
+        let totalNetBalance = parseFloat(vendor.net_balance || 0);
+        const parentCode = vendor.code;
+        
+        // Add child vendors' net balances to parent
+        for (const childUserId of subVendors) {
+          const childVendor = vendorData.find(v => v.user_id === childUserId);
+          if (childVendor) {
+            const childBalance = parseFloat(childVendor.net_balance || 0);
+            totalNetBalance += childBalance;
+            processedUsers.add(childUserId); // Mark child as processed
+          }
+        }
+        
+        // Store clubbed data under parent's code
+        clubbedData.set(parentCode, {
+          user_id: userId,
+          net_balance: totalNetBalance,
+          code: parentCode,
+          is_parent: true,
+          sub_vendors: subVendors
+        });
+        
+        processedUsers.add(userId); // Mark parent as processed
+      } else {
+        // This might be a standalone vendor or child - check if already processed
+        if (!processedUsers.has(userId)) {
+          clubbedData.set(vendor.code, {
+            user_id: userId,
+            net_balance: parseFloat(vendor.net_balance || 0),
+            code: vendor.code,
+            is_parent: false
+          });
+          processedUsers.add(userId);
+        }
+      }
+    }
+
+    const result_data = Array.from(clubbedData.values());
+    
+    // Convert Map to array and return
+    return result_data;
+    
   } catch (error) {
     logger.error('Error fetching vendor net balance:', error);
     throw error;

@@ -46,6 +46,7 @@ export const Role = {
   SUB_MERCHANT: 'SUB_MERCHANT',
   MERCHANT_OPERATIONS: 'MERCHANT_OPERATIONS',
   VENDOR: 'VENDOR',
+  SUB_VENDOR: 'SUB_VENDOR',
   VENDOR_OPERATIONS: 'VENDOR_OPERATIONS',
   BOT: 'BOT',
 };
@@ -67,6 +68,7 @@ export const DesignationIs = {
   SUB_MERCHANT: 'SUB_MERCHANT',
   MERCHANT_OPERATIONS: 'MERCHANT_OPERATIONS',
   VENDOR: 'VENDOR',
+  SUB_VENDOR: 'SUB_VENDOR',
   VENDOR_OPERATIONS: 'VENDOR_OPERATIONS',
   BOT: 'BOT',
 };
@@ -272,6 +274,7 @@ export const columns = {
     'config',
     'created_at',
     'updated_at',
+    'subVendors',
   ],
   CHARGE_BACK: [
     'id',
@@ -538,6 +541,7 @@ export const vendorColumns = {
     'payout_commission',
     'balance',
     'config',
+    'subVendors',
   ],
   CHARGE_BACK: [
     'sno',
@@ -590,6 +594,7 @@ export const AccessRoles = {
     Role.MERCHANT_OPERATIONS,
     Role.SUB_MERCHANT,
     Role.VENDOR,
+    Role.SUB_VENDOR,
     Role.VENDOR_OPERATIONS,
   ],
   USER: [
@@ -599,6 +604,7 @@ export const AccessRoles = {
     Role.SUB_MERCHANT,
     Role.MERCHANT,
     Role.VENDOR,
+    Role.SUB_VENDOR,
   ],
   MERCHANT: [
     Role.ADMIN,
@@ -613,6 +619,7 @@ export const AccessRoles = {
     Role.TRANSACTIONS,
     Role.OPERATIONS,
     Role.VENDOR,
+    Role.SUB_VENDOR,
     Role.VENDOR_OPERATIONS,
   ],
   PAYIN: [
@@ -623,6 +630,7 @@ export const AccessRoles = {
     Role.SUB_MERCHANT,
     Role.MERCHANT_OPERATIONS,
     Role.VENDOR,
+    Role.SUB_VENDOR,
     Role.VENDOR_OPERATIONS,
   ],
   PAYOUT: [
@@ -633,6 +641,7 @@ export const AccessRoles = {
     Role.SUB_MERCHANT,
     Role.MERCHANT_OPERATIONS,
     Role.VENDOR,
+    Role.SUB_VENDOR,
     Role.VENDOR_OPERATIONS,
   ],
   SETTLEMENT: [
@@ -643,6 +652,7 @@ export const AccessRoles = {
     Role.SUB_MERCHANT,
     Role.MERCHANT_OPERATIONS,
     Role.VENDOR,
+    Role.SUB_VENDOR,
     Role.VENDOR_OPERATIONS,
   ],
   REPORT: [
@@ -653,9 +663,10 @@ export const AccessRoles = {
     Role.SUB_MERCHANT,
     Role.MERCHANT_OPERATIONS,
     Role.VENDOR,
+    Role.SUB_VENDOR,
     Role.VENDOR_OPERATIONS,
   ],
-  COMPANY: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.VENDOR, Role.VENDOR_OPERATIONS],
+  COMPANY: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.VENDOR, Role.SUB_VENDOR, Role.VENDOR_OPERATIONS],
   USER_HIERARCHY: {
     CREATE_DELETE: [Role.ADMIN, Role.TRANSACTIONS],
     UPDATE_READ: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANT],
@@ -667,6 +678,7 @@ export const AccessRoles = {
     Role.OPERATIONS,
     Role.TRANSACTIONS,
     Role.VENDOR,
+    Role.SUB_VENDOR,
     Role.VENDOR_OPERATIONS,
   ],
   BANK_ACCOUNT: [
@@ -674,6 +686,7 @@ export const AccessRoles = {
     Role.OPERATIONS,
     Role.TRANSACTIONS,
     Role.VENDOR,
+    Role.SUB_VENDOR,
     Role.VENDOR_OPERATIONS,
   ],
   CHARGE_BACK: {
@@ -683,6 +696,7 @@ export const AccessRoles = {
       Role.MERCHANT_ADMIN,
       Role.MERCHANT,
       Role.VENDOR,
+      Role.SUB_VENDOR,
     ],
     CREATE_DELETE: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANT],
     UPDATE_READ: [
@@ -691,6 +705,7 @@ export const AccessRoles = {
       Role.MERCHANT_ADMIN,
       Role.MERCHANT,
       Role.VENDOR,
+      Role.SUB_VENDOR,
     ],
   },
   CALCULATION: [
@@ -702,6 +717,7 @@ export const AccessRoles = {
     Role.MERCHANT_OPERATIONS,
     Role.VENDOR_OPERATIONS,
     Role.SUB_MERCHANT,
+    Role.SUB_VENDOR,
   ],
   ROLES: [
     Role.ADMIN,
@@ -709,6 +725,7 @@ export const AccessRoles = {
     Role.SUB_MERCHANT,
     Role.MERCHANT,
     Role.VENDOR,
+    Role.SUB_VENDOR,
   ],
   DESIGNATION: [
     Role.ADMIN,
@@ -716,6 +733,7 @@ export const AccessRoles = {
     Role.SUB_MERCHANT,
     Role.MERCHANT,
     Role.VENDOR,
+    Role.SUB_VENDOR,
   ],
   COMPLAINTS: [Role.ADMIN],
   BENEFICIARY_ACCOUNTS: [
@@ -724,6 +742,7 @@ export const AccessRoles = {
     Role.OPERATIONS,
     Role.MERCHANT,
     Role.VENDOR,
+    Role.SUB_VENDOR,
     Role.VENDOR_OPERATIONS,
   ],
 };

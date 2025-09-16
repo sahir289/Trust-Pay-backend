@@ -10,6 +10,7 @@ import { logger } from '../../utils/logger.js';
 import {
   createUserHierarchyDao,
   getUserHierarchysDao,
+  updateUserHierarchyDao,
 } from '../userHierarchy/userHierarchyDao.js';
 import {
   createVendorDao,
@@ -28,6 +29,11 @@ import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountD
 import { notifyBankResponseAccessUpdate } from '../../utils/sockets.js';
 const createVendorService = async (conn, payload) => {
   try {
+    const parentId = payload.parent_id;
+    const userDesignation = payload.designation;
+    delete payload.parent_id;
+    delete payload.designation;
+    delete payload.role;
     let role_id = payload.role_id;
     delete payload.role_id;
     const data = await createVendorDao(payload, conn);
@@ -37,6 +43,37 @@ const createVendorService = async (conn, payload) => {
       company_id: data.company_id,
     };
     await createCalculationDao(conn, calculationPayload);
+
+    // Handle SUB_VENDOR hierarchy creation
+    if (userDesignation === Role.SUB_VENDOR && parentId) {
+      try {
+        const hierarchy = await getUserHierarchysDao({ user_id: parentId });
+        if (!hierarchy || hierarchy.length === 0) {
+          logger.error('No hierarchy found for parentId:', parentId);
+          return;
+        }
+        // Add the new SUB_VENDOR to the parent's siblings.sub_vendors array
+        const currentChildren =
+          hierarchy[0]?.config?.siblings?.sub_vendors || [];
+        const userConfig = hierarchy[0]?.config;
+        await updateUserHierarchyDao(
+          { id: hierarchy[0].id },
+          {
+            config: {
+              ...userConfig,
+              siblings: { 
+                ...userConfig.siblings,
+                sub_vendors: [...currentChildren, data.user_id] 
+              },
+            },
+          },
+          conn,
+        );
+      } catch (error) {
+        logger.error('Error updating vendor hierarchy:', error);
+      }
+    }
+
     await createUserHierarchyDao(
       {
         user_id: data.user_id,
@@ -44,6 +81,7 @@ const createVendorService = async (conn, payload) => {
         created_by: data.created_by,
         updated_by: data.updated_by,
         company_id: data.company_id,
+        ...(parentId && { config: { parent: parentId } })
       },
       conn,
     );
@@ -74,18 +112,48 @@ const getVendorsService = async (
   try {
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
-    let parentUserId;
+    
+    let userIdFilter = Array.isArray(user_id)
+      ? [...user_id]
+      : user_id
+        ? [user_id]
+        : [];
+
     if (roleIs === Role.VENDOR) {
-      if (designation === Role.VENDOR_OPERATIONS) {
-        const UserHierarchy = await getUserHierarchysDao({ user_id });
-        const userHierarchy = UserHierarchy[0];
-        parentUserId = userHierarchy?.config?.parent;
-        filters.user_id = parentUserId;
-      } else {
-        parentUserId = user_id;
-        filters.user_id = parentUserId;
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchy = userHierarchys[0];
+      
+      if (designation === Role.VENDOR) {
+        // Main vendor can see their own data and sub vendors
+        const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+        userIdFilter = [...new Set([...userIdFilter, ...subVendors])];
+      } else if (designation === Role.SUB_VENDOR) {
+        // Sub vendor can only see their own data
+        userIdFilter = [user_id];
+      } else if (designation === Role.VENDOR_OPERATIONS) {
+        const parentUserId = userHierarchy?.config?.parent;
+        if (parentUserId && !userIdFilter.includes(parentUserId)) {
+          userIdFilter.push(parentUserId);
+        }
+        if (parentUserId) {
+          const parentHierarchys = await getUserHierarchysDao({
+            user_id: parentUserId,
+          });
+          const parentHierarchy = parentHierarchys[0];
+          const subVendors = parentHierarchy?.config?.siblings?.sub_vendors ?? [];
+          userIdFilter = [...new Set([...userIdFilter, ...subVendors])];
+        }
       }
     }
+    
+    if (userIdFilter.length > 0) {
+      filters.user_id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
+    }
+
+    if (roleIs === Role.ADMIN) {
+      delete filters.user_id;
+    }
+    
     return await getAllVendorsDao(
       filters,
       pageNumber,
@@ -100,24 +168,52 @@ const getVendorsService = async (
   }
 };
 
-const getVendorsCodeService = async (filters, roleIs, user_id, designation) => {
+const getVendorsCodeService = async (filters, roleIs, user_id, designation, includeSubVendors) => {
   let conn;
   try {
     conn = await getConnection('reader'); // Get DB connection
     await beginTransaction(conn); // Start transaction
-    let parentUserId;
+    
+    let userIdFilter = Array.isArray(user_id)
+      ? [...user_id]
+      : user_id
+        ? [user_id]
+        : [];
+
     if (roleIs === Role.VENDOR) {
-      if (designation === Role.VENDOR_OPERATIONS) {
-        const UserHierarchy = await getUserHierarchysDao({ user_id });
-        const userHierarchy = UserHierarchy[0];
-        parentUserId = userHierarchy?.config?.parent;
-        filters.user_id = parentUserId;
-      } else {
-        parentUserId = user_id;
-        filters.user_id = parentUserId;
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchy = userHierarchys[0];
+
+      if (designation === Role.VENDOR) {
+        const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+        userIdFilter = [...new Set([...userIdFilter, ...subVendors])];
+      } else if (designation === Role.SUB_VENDOR) {
+        userIdFilter = [user_id];
+      } else if (designation === Role.VENDOR_OPERATIONS) {
+        const parentUserId = userHierarchy?.config?.parent;
+        if (parentUserId && !userIdFilter.includes(parentUserId)) {
+          userIdFilter.push(parentUserId);
+        }
+        if (parentUserId) {
+          const parentHierarchys = await getUserHierarchysDao({
+            user_id: parentUserId,
+          });
+          const parentHierarchy = parentHierarchys[0];
+          const subVendors = parentHierarchy?.config?.siblings?.sub_vendors ?? [];
+          userIdFilter = [...new Set([...userIdFilter, ...subVendors])];
+        }
       }
     }
-    const data = await getVendorsCodeDao(filters, conn);
+    
+    if (userIdFilter.length > 0) {
+      filters.user_id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
+    }
+
+    if (roleIs === Role.ADMIN) {
+      delete filters.user_id;
+    }
+    
+    const data = await getVendorsCodeDao(filters, conn, includeSubVendors);
 
     await commit(conn); // Commit transaction
     return data;
@@ -164,6 +260,11 @@ const getVendorsBySearchService = async (
         parentUserId = user_id;
         filters.user_id = parentUserId;
       }
+    } else if (roleIs === Role.SUB_VENDOR) {
+      const UserHierarchy = await getUserHierarchysDao({ user_id });
+      const userHierarchy = UserHierarchy[0];
+      parentUserId = userHierarchy?.config?.parent;
+      filters.user_id = parentUserId;
     }
     let searchTerms;
     if (filters.search) {

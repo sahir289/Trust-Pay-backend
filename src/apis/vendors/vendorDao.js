@@ -524,3 +524,49 @@ export const getBankResponseAccessByIDDao = async (id) => {
     throw error;
   }
 };
+
+//only for subvendor data
+export const getVendorByUserDao = async (userId) => {
+  try {
+    const sql = `
+      SELECT 
+        "Vendor".id,
+        "Vendor".user_id, 
+        "Vendor".first_name, 
+        "Vendor".last_name, 
+        "Vendor".code,
+        "Vendor".payin_commission,
+        "Vendor".payout_commission,
+        "Vendor".balance,
+        "Vendor".config,
+        "Vendor".created_by,
+        "Vendor".updated_by, 
+        "Vendor".created_at, 
+        "Vendor".updated_at, 
+        "User".designation_id, 
+        "User".first_name || ' ' || "User".last_name AS full_name, 
+        "Designation".designation AS designation_name 
+      FROM "Vendor" 
+      JOIN "User" ON "Vendor".user_id = "User".id 
+      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
+      WHERE "Vendor".is_obsolete = false 
+      AND "Vendor"."user_id" ${Array.isArray(userId) ? '= ANY($1)' : '= $1'}
+      ORDER BY "Vendor"."created_at" ASC;
+    `;
+
+    // Query parameters
+    const queryParams = [userId];
+
+    // Execute query
+    const result = await executeQuery(sql, queryParams);
+
+    // Return the rows (vendor data)
+    return result.rows;
+  } catch (error) {
+    logger.error(
+      `Error in getVendorByUserDao for user_id ${userId}:`,
+      error,
+    );
+    throw error;
+  }
+};

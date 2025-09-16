@@ -257,9 +257,21 @@ const gatherAllData = async (company_id, type = 'N', timezone = 'Asia/Kolkata') 
       merchant.sort((a, b) => a.merchantId.localeCompare(b.merchantId));
     }
     let vendorObjpayIn = {};
-    let vendorObjpayOut = [];
+    let vendorObjpayOut = {};
     let totalBankDepositAllVendors = 0;
     let totalBankWithdrawalAllVendors = 0;
+
+    // Get all vendor hierarchies to identify sub-vendor relationships
+    const allVendorHierarchies = await getUserHierarchysDashBoardReportDao({
+      company_id: company_id,
+    });
+    const subVendorIds = new Set();
+    allVendorHierarchies.forEach((hierarchy) => {
+      const subVendors = hierarchy?.config?.siblings?.sub_vendors || [];
+      subVendors.forEach((subVendorId) =>
+        subVendorIds.add(subVendorId),
+      );
+    });
 
     const banksData = await getBankaccountDashBoardReportDao(
       { bank_used_for: 'PayIn', company_id: company_id }
@@ -286,15 +298,44 @@ const gatherAllData = async (company_id, type = 'N', timezone = 'Asia/Kolkata') 
         const vendor = vendorData[0];
         const vendorCode = vendor.code;
 
-        if (!vendorObjpayIn[vendorCode]) {
-          vendorObjpayIn[vendorCode] = { banks: [] };
-        }
+        // Only include parent vendors (not sub-vendors) in the main structure
+        if (!subVendorIds.has(bank.user_id)) {
+          if (!vendorObjpayIn[vendorCode]) {
+            vendorObjpayIn[vendorCode] = { banks: [] };
+          }
 
-        vendorObjpayIn[vendorCode].banks.push({
-          bankName: bank.bankName,
-          TotalDeposit: bank.TotalDeposit,
-          TotalCount: bank.TotalCount,
-        });
+          vendorObjpayIn[vendorCode].banks.push({
+            bankName: bank.bankName,
+            TotalDeposit: bank.TotalDeposit,
+            TotalCount: bank.TotalCount,
+          });
+
+          // Get vendor hierarchy and aggregate sub-vendor data
+          const vendorHier = await getUserHierarchysDashBoardReportDao({
+            user_id: bank.user_id,
+            company_id: company_id,
+          });
+          const subVendors = vendorHier.length > 0
+            ? vendorHier[0]?.config?.siblings?.sub_vendors || []
+            : [];
+
+          // Add sub-vendor bank data to parent vendor
+          if (subVendors.length > 0) {
+            for (const subVendorId of subVendors) {
+              const subVendorBanks = banksData.filter(bankData => 
+                bankData.user_id === subVendorId && bankData.today_balance !== 0
+              );
+              
+              for (const subVendorBank of subVendorBanks) {
+                vendorObjpayIn[vendorCode].banks.push({
+                  bankName: `${subVendorBank.nick_name} (Sub)`,
+                  TotalDeposit: subVendorBank.today_balance,
+                  TotalCount: subVendorBank.payin_count,
+                });
+              }
+            }
+          }
+        }
       }
     }
 
@@ -312,6 +353,7 @@ const gatherAllData = async (company_id, type = 'N', timezone = 'Asia/Kolkata') 
           TotalCount: payin_count,
         };
       });
+    
     let vendorDataOut;
     for (const banksO of banksOut) {
       vendorDataOut = await getVendorsDashBoardReportDao(
@@ -320,15 +362,45 @@ const gatherAllData = async (company_id, type = 'N', timezone = 'Asia/Kolkata') 
       if (vendorDataOut.length > 0) {
         const vendor = vendorDataOut[0];
         const vendorCode = vendor.code;
-        if (!vendorObjpayOut[vendorCode]) {
-          vendorObjpayOut[vendorCode] = { banks: [] };
-        }
 
-        vendorObjpayOut[vendorCode].banks.push({
-          bankName: banksO.bankName,
-          TotalDeposit: banksO.TotalDeposit,
-          TotalCount: banksO.TotalCount,
-        });
+        // Only include parent vendors (not sub-vendors) in the main structure
+        if (!subVendorIds.has(banksO.user_id)) {
+          if (!vendorObjpayOut[vendorCode]) {
+            vendorObjpayOut[vendorCode] = { banks: [] };
+          }
+
+          vendorObjpayOut[vendorCode].banks.push({
+            bankName: banksO.bankName,
+            TotalDeposit: banksO.TotalDeposit,
+            TotalCount: banksO.TotalCount,
+          });
+
+          // Get vendor hierarchy and aggregate sub-vendor data
+          const vendorHierOut = await getUserHierarchysDashBoardReportDao({
+            user_id: banksO.user_id,
+            company_id: company_id,
+          });
+          const subVendorsOut = vendorHierOut.length > 0
+            ? vendorHierOut[0]?.config?.siblings?.sub_vendors || []
+            : [];
+
+          // Add sub-vendor bank data to parent vendor
+          if (subVendorsOut.length > 0) {
+            for (const subVendorId of subVendorsOut) {
+              const subVendorBanks = banksDataOut.filter(bankData => 
+                bankData.user_id === subVendorId && bankData.today_balance !== 0
+              );
+              
+              for (const subVendorBank of subVendorBanks) {
+                vendorObjpayOut[vendorCode].banks.push({
+                  bankName: `${subVendorBank.nick_name} (Sub)`,
+                  TotalDeposit: subVendorBank.today_balance,
+                  TotalCount: subVendorBank.payin_count,
+                });
+              }
+            }
+          }
+        }
       }
     }
 
