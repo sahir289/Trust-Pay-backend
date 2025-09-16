@@ -1,6 +1,8 @@
 import request from 'supertest';
 import express from 'express';
 import chargebackRouter from './index.js';
+import jest from 'jest-mock';
+import { expect, describe, test ,beforeAll } from '@jest/globals';
 
 jest.mock('./userController.js', () => ({
     getUsers: jest.fn((req, res) => res.status(201).json({ message: 'created' })),
@@ -11,7 +13,9 @@ jest.mock('./userController.js', () => ({
     updateUser: jest.fn((req, res) => res.status(200).json({ message: 'search' })),
     sendMail: jest.fn((req, res) => res.status(200).json({ message: 'blocked' })),
 }));
-
+jest.mock('../../utils/sockets.js', () => ({
+  newTableEntry: jest.fn().mockResolvedValue(),
+}));
 import * as mockControllers from './userController.js';
 
 jest.mock('../../middlewares/auth.js', () => ({

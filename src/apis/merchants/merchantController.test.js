@@ -8,6 +8,8 @@
 //////////////////////////////////////////////
 //  Mocks (must appear before importing the controller)
 //////////////////////////////////////////////
+import jest from 'jest-mock';
+import { expect, describe, beforeEach, it } from '@jest/globals';
 jest.mock('../../utils/responseHandlers.js', () => ({
   sendSuccess: jest.fn(),
 }));
@@ -81,7 +83,9 @@ import { VALIDATE_MERCHANT_SCHEMA, VALIDATE_UPDATE_MERCHANT_STATUS } from '../..
 import { transactionWrapper } from '../../utils/db.js';
 import { createHashApiKey } from '../../utils/cryptoAlgorithm.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
-
+jest.mock('../../utils/sockets.js', () => ({
+  newTableEntry: jest.fn().mockResolvedValue(),
+}));
 //////////////////////////////////////////////
 //  Helper to build request/response objects
 //////////////////////////////////////////////

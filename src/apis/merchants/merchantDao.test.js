@@ -9,6 +9,8 @@
 ///////////////////////////////////////////
 // Mocks for modules used by merchantDao
 ///////////////////////////////////////////
+import jest from 'jest-mock';
+import { expect, describe, beforeEach, it } from '@jest/globals';
 
 jest.mock('../../utils/logger.js', () => ({
   logger: { log: jest.fn(), error: jest.fn() },
@@ -18,15 +20,9 @@ jest.mock('../../utils/logger.js', () => ({
 jest.mock('../../utils/enhanceSubMerchant.js', () => ({
   enhanceMerchantsWithSubMerchants: jest.fn(async (rows) => rows),
 }));
-
-// We'll mock the db helpers for unit tests; tests that want to simulate conn.query will override the mock behavior.
-const dbMock = {
-  buildInsertQuery: jest.fn(),
-  buildSelectQuery: jest.fn(),
-  buildUpdateQuery: jest.fn(),
-  executeQuery: jest.fn(),
-  buildAndExecuteUpdateQuery: jest.fn(),
-};
+jest.mock('../../utils/sockets.js', () => ({
+  newTableEntry: jest.fn().mockResolvedValue(),
+}));
 jest.mock('../../utils/db.js', () => 
   ({
     buildInsertQuery: jest.fn(),

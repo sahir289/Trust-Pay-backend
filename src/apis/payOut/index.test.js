@@ -1,6 +1,8 @@
 import request from 'supertest';
 import express from 'express';
 import payoutRouter from './index.js';
+import jest from 'jest-mock';
+import { expect, describe, it ,beforeAll,afterEach } from '@jest/globals';
 import { 
     createPayout,
     deletePayout,
@@ -22,6 +24,9 @@ jest.mock('../../utils/tryCatchHandler.js', () => (fn) => (req, res, next) => fn
 jest.mock('../../middlewares/auth.js', () => ({
     isAuthenticated: (req, res, next) => next(),
     authorized: () => (req, res, next) => next(),
+}));
+jest.mock('../../utils/sockets.js', () => ({
+  newTableEntry: jest.fn().mockResolvedValue(),
 }));
 // jest.mock('../../middlewares/locationRestrict.js', () => (req, res, next) => next());
 const mockPayouts = [

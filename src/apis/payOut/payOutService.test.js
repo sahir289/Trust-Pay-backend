@@ -15,6 +15,8 @@ import {
 	checkPayOutStatusService,
 	getWalletsBalanceService
 } from './payOutService.js';
+import jest from 'jest-mock';
+import { expect, describe, beforeEach, it } from '@jest/globals';
 
 import axios from 'axios';
 // Mock DAOs and external dependencies
@@ -27,6 +29,9 @@ jest.mock('./payOutDao.js', () => ({
     getAllPayoutsDao: jest.fn(() => [{ total: 1 }]),
     getPayoutsBySearchDao: jest.fn(() => [{ id: 1 }]),
     updatePayoutDao: jest.fn(() => ({ id: 1 })),
+}));
+jest.mock('../../utils/sockets.js', () => ({
+  newTableEntry: jest.fn().mockResolvedValue(),
 }));
 jest.mock('../../utils/db.js', () => ({
     getConnection: jest.fn(() => ({})),

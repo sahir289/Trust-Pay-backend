@@ -10,6 +10,8 @@ import {
   walletsPayouts,
   getWalletsBalance,
 } from "./payOutController.js";
+import jest from 'jest-mock';
+import { expect, describe, beforeEach, it } from '@jest/globals';
 
 import * as payOutService from "./payOutService.js";
 import { sendSuccess, sendNewSuccess, sendError } from "../../utils/responseHandlers.js";
@@ -27,7 +29,9 @@ jest.mock("./payOutService.js", () => ({
 	walletsPayoutsService: jest.fn(),
 	getWalletsBalanceService: jest.fn(),
 }));
-
+jest.mock('../../utils/sockets.js', () => ({
+  newTableEntry: jest.fn().mockResolvedValue(),
+}));
 jest.mock("../../utils/responseHandlers.js", () => ({
   sendSuccess: jest.fn((res, data, msg = "OK", status = 200) =>
     res.status(status).json({ success: true, message: msg, data })

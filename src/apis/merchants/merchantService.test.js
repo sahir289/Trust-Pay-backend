@@ -9,6 +9,8 @@
 //////////////////////////////////////////////
 // Mocks - must come before importing the service
 //////////////////////////////////////////////
+import jest from 'jest-mock';
+import { expect, describe, beforeEach, it } from '@jest/globals';
 
 jest.mock('./merchantDao.js', () => ({
   createMerchantDao: jest.fn(),
@@ -52,7 +54,9 @@ jest.mock('../bankAccounts/bankaccountDao.js', () => ({
 jest.mock('../users/userDao.js', () => ({
   updateUserDao: jest.fn(),
 }));
-
+jest.mock('../../utils/sockets.js', () => ({
+  newTableEntry: jest.fn().mockResolvedValue(),
+}));
 jest.mock('../../constants/index.js', () => ({
   Role: {
     ADMIN: 'ADMIN',
@@ -66,7 +70,7 @@ jest.mock('../../constants/index.js', () => ({
 }));
 
 jest.mock('../../helpers/index.js', () => ({
-  filterResponse: jest.fn((data, cols) => data),
+  filterResponse: jest.fn((data,) => data),
 }));
 
 jest.mock('../../utils/logger.js', () => ({

@@ -9,6 +9,8 @@
 import express from 'express';
 import request from 'supertest';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
+import jest from 'jest-mock';
+import { expect, describe, beforeEach, test } from '@jest/globals';
 
 // ---- Mocks BEFORE importing the router ----
 // We must mock modules the router imports so jest hoists mocks before import
@@ -27,7 +29,9 @@ jest.mock('../../utils/tryCatchHandler.js', () => {
     };
   });
 });
-
+jest.mock('../../utils/sockets.js', () => ({
+  newTableEntry: jest.fn().mockResolvedValue(),
+}));
 // Mock controllers - each handler will respond with JSON indicating which handler ran.
 // Some tests will override specific mocks to simulate errors.
 

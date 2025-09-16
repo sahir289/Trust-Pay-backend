@@ -7,6 +7,8 @@ import{
     userUpdateService,
     sendMailService
 } from './userService.js';
+import jest from 'jest-mock';
+import { expect, describe, beforeEach, it , } from '@jest/globals';
 import { InternalServerError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
 import { getConnection } from '../../utils/db.js';
@@ -43,7 +45,9 @@ import {
 } from '../userHierarchy/userHierarchyDao.js';
 import { getMerchantByUserIdDao } from '../merchants/merchantDao.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
-
+jest.mock('../../utils/sockets.js', () => ({
+  newTableEntry: jest.fn().mockResolvedValue(),
+}));
 jest.mock('../../utils/db.js', () => ({
     getConnection: jest.fn(),
     beginTransaction: jest.fn(),

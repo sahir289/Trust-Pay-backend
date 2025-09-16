@@ -9,6 +9,8 @@ import {
 	updatePayoutDao,
 	deletePayoutDao
 } from './payOutDao.js';
+import jest from 'jest-mock';
+import { expect, describe, beforeEach, it } from '@jest/globals';
 
 import { executeQuery } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
@@ -16,6 +18,9 @@ import { logger } from '../../utils/logger.js';
 jest.mock('../../utils/db.js', () => ({
 	...jest.requireActual('../../utils/db.js'), // keep all real exports
   	executeQuery: jest.fn(), 
+}));
+jest.mock('../../utils/sockets.js', () => ({
+  newTableEntry: jest.fn().mockResolvedValue(),
 }));
 jest.mock('../../utils/logger.js', () => ({
   logger: { error: jest.fn() },
