@@ -273,7 +273,7 @@ export const generatePayInUrl = async (req, res) => {
     payinId: result?.id,
     merchantOrderId: result?.merchant_order_id,
     status: result?.status,
-    isAdmin: role === Role.ADMIN ? true : false, 
+    isAdmin: role === Role.ADMIN ? true : false,
   };
 
   if (result.status === 400 || result.status === 404) {
@@ -331,7 +331,6 @@ export const assignedBankToPayInUrl = async (req, res) => {
   }
   const { roleToken, amount, type } = req.body;
 
-
   const result = await assignedBankToPayInUrlService(
     req.params.merchantOrderId,
     amount,
@@ -376,18 +375,33 @@ export const checkPayInStatus = async (req, res) => {
 
 export const payInIntentGenerateOrder = async (req, res) => {
   const { payInId } = req.params;
-  const { amount, isRazorpay } = req.body;
-  const payload = { payInId, amount, isRazorpay };
+  const { company_id } = req.user;
+  const { amount, isRazorpay, cashfree } = req.body;
+  const payload = { payInId, amount, isRazorpay, cashfree };
   const joiValidation = VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
+  let provider = [];
+
+  if (isRazorpay) provider.push('Razorpay');
+  if (cashfree) provider.push('Cashfree');
+
   const data = await payInIntentGenerateOrderService(
     payInId,
+    company_id,
     amount,
-    isRazorpay,
+    provider[0],
   );
-  return sendSuccess(res, data);
+  let message;
+
+  if (provider.length > 0) {
+    message = `${provider} order generated successfully`;
+  } else {
+    message = 'No provider selected';
+  }
+
+  return sendSuccess(res, data, message);
 };
 
 export const updatePaymentNotificationStatus = async (req, res) => {

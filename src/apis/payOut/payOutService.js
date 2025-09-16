@@ -722,7 +722,10 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
 
     const data = await updatePayoutDao(ids, payload, conn);
-
+    await newTableEntry(tableName.PAYOUT);
+    if (data.status == Status.INITIATED) {
+      return data;
+    }
     // Early return for simple updates
     const checkPayload = {
       utr_id: payload.utr_id,
@@ -736,7 +739,10 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       data.config?.urls?.notify || merchant.config?.urls?.payout_notify;
 
     // Early return if not approved
-    if (!data.approved_at && data.status !== Status.PENDING) {
+    if (
+      !data.approved_at &&
+      data.status !== Status.PENDING
+    ) {
       merchantPayoutCallback(notifyUrl, {
         code: data.code,
         merchantOrderId: data.merchant_order_id,
@@ -774,10 +780,13 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     const vendorCommission = calculateCommission(
       data.amount,
       vendor.payout_commission,
-    );    
-    
+    );
+
     const payoutDetails = await getPayoutsDao({ id: ids.id }, ids.company_id);
-    if (payoutDetails.length !== 0 && payoutDetails[0]?.status === data?.status) {
+    if (
+      payoutDetails.length !== 0 &&
+      payoutDetails[0]?.status === data?.status
+    ) {
       throw new BadRequestError(`Payout is already ${payoutDetails[0].status}`);
     }
 
@@ -850,8 +859,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       ]);
     }
 
-    await newTableEntry(tableName.PAYOUT);
-    if (data.status !== Status.PENDING) {
+    if (data.status !== Status.PENDING ) {
       // This is async function but it's just the callback sending function there fore we are not using await
       merchantPayoutCallback(notifyUrl, {
         code: data.code,

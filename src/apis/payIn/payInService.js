@@ -41,6 +41,7 @@ import {
   getPayInForTelegramResponseDao,
   getPayinsWithoutHistoryDao,
   getPayInForTelegramResponseArrayDao,
+  getPayInIntentDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -113,9 +114,6 @@ import { usedTokens } from '../../app.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
 import { getAllUsersDao, getUserByIdDao } from '../users/userDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
-Cashfree.XClientId = config.cashFreeClientId;
-Cashfree.XClientSecret = config.XClientSecret;
-Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
 
 export const generatePayInUrlByHashService = async (conn, req) => {
   try {
@@ -751,56 +749,54 @@ export const checkPayInStatusService = async (
 
 export const payInIntentGenerateOrderService = async (
   payInId,
+  company_id,
   amount,
-  isRazorpay,
+  provider,
 ) => {
   // validating if it exist
   try {
-    const payIn = await getPayInUrlService(payInId);
-    checkIsPayInExpired(payIn);
-    if (isRazorpay) {
-      const orderRes = await razorpay.orders.create({
-        amount: amount * 100,
-        currency: Currency.INR,
-        receipt: payInId,
-      });
+    const cashfree = new Cashfree(
+      Cashfree.SANDBOX,
+      config.cashfree.clientId,
+      config.cashfree.clientSecret,
+    );
 
-      return {
-        ...orderRes,
-      };
-    }
+    const payIn = await getPayInIntentDao(payInId, company_id);
+    checkIsPayInExpired(payIn);
+    // if (provider === razorpay) {
+    //   const orderRes = await razorpay.orders.create({
+    //     amount: amount * 100,
+    //     currency: Currency.INR,
+    //     receipt: payInId,
+    //   });
+
+    //   return {
+    //     ...orderRes,
+    //   };
+    // }
 
     const requestBody = {
       order_amount: amount,
       order_currency: Currency.INR,
       customer_details: {
-        customer_id: 'node_sdk_test',
-        customer_email: 'example@gmail.com',
+        customer_id: payIn?.user,
+        customer_email: 'test@gmail.com',
         customer_phone: '9999999999',
       },
       order_meta: {
-        return_url:
-          'https://test.cashfree.com/pgappsdemos/return.php?order_id={order_id}',
+        return_url: payIn?.config.urls.return,
         paymentMethod: 'upi',
       },
     };
-
-    const cashFreeResponse = await Cashfree.PGCreateOrder(
-      payInId,
-      requestBody,
-    ).catch((err) => {
-      const data = err?.response?.data || {};
-      logger.error(data);
-      throw new Error('Error while creating CashFree Order');
-    });
-
+    const cashFreeResponse = await cashfree.PGCreateOrder(requestBody);
+    const data = cashFreeResponse.data;
     return {
-      payment_amount: amount,
-      cashFreeResponse,
       payInId,
+      data,
     };
   } catch (error) {
-    logger.error('Error generate intent payin:', error);
+    // console.log(error.message, "error");
+    logger.error('Error generate intent payin:', error.message);
     throw error;
   }
 };
@@ -1524,13 +1520,20 @@ export const processPayInService = async (
 
     let botBank;
     if (bankResponse && bankResponse.bank_id) {
-      [botBank] = await getBankaccountDao({ id: bankResponse.bank_id, company_id: payIn.company_id });
+      [botBank] = await getBankaccountDao({
+        id: bankResponse.bank_id,
+        company_id: payIn.company_id,
+      });
     }
 
-    if ((botBank && botBank?.config?.is_freeze === true) && !designation) {
+    if (botBank && botBank?.config?.is_freeze === true && !designation) {
       bankResponse = {};
-    }
-    else if ((botBank && botBank?.config?.is_freeze === true) && (designation && designation !== Role.ADMIN)) {
+    } else if (
+      botBank &&
+      botBank?.config?.is_freeze === true &&
+      designation &&
+      designation !== Role.ADMIN
+    ) {
       return { message: `Bank Account is freezed. Please contact admin` };
     }
 
@@ -2464,7 +2467,7 @@ export const telegramCheckUTRService = async (
       updated_by,
       false,
       false,
-      designation
+      designation,
     );
   } catch (error) {
     logger.error('Error in telegramCheckUTRService:', error);
@@ -2904,7 +2907,10 @@ export const generateUpiUrlService = async (payload) => {
 };
 
 const checkIsPayInExpired = (payIn) => {
-  if (Number(payIn.expiration_date) < Date.now() || payIn.is_url_expires) {
+  if (
+    new Date(payIn.expiration_date).getTime() < Date.now() ||
+    payIn.is_url_expires
+  ) {
     // throw new BadRequestError('PayIn has been expired already!');
     return { message: `PayIn has been expired already!` };
   }
@@ -2936,7 +2942,7 @@ export const updateCalculationTable = async (user_id, data, conn) => {
         },
         conn,
       );
-      
+
       await trackVendorsNetBalance(user_id, conn, response);
     }
   } catch (error) {
@@ -3009,8 +3015,12 @@ const updateCalculationBalances = async (
       updates,
       conn,
     );
-    
-    await trackVendorsNetBalance(currentCalculation[0].user_id, conn, updatedCurrentCalculation);
+
+    await trackVendorsNetBalance(
+      currentCalculation[0].user_id,
+      conn,
+      updatedCurrentCalculation,
+    );
 
     if (nextCalculations.length > 0) {
       // Update subsequent calculations
@@ -3035,7 +3045,7 @@ const updateCalculationBalances = async (
           },
           conn,
         );
-        
+
         await trackVendorsNetBalance(calc.user_id, conn, updatedCalc);
       }
     }
