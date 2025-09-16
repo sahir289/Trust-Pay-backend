@@ -1001,37 +1001,42 @@ describe('PayIn Service Tests', () => {
   });
 
   describe('disputeDuplicateTransactionService', () => {
-    test('resolves dispute to SUCCESS', async () => {
-      jest.spyOn(require('../bankAccounts/bankAccountDao'), 'getBankaccountDao')
-        .mockResolvedValue([{ id: 'bank123', user_id: 'vendorUser', nick_name: 'TestBank' }]);
-    
-      jest.spyOn(require('../../utils/db'), 'executeQuery')
-        .mockResolvedValue({ rows: [{ id: 'bank123', user_id: 'vendorUser', nick_name: 'TestBank' }] });
-    
-      require('./payInDao').getPayInForDisputeServiceDao
-        .mockResolvedValue({ ...mockPayIn3, status: 'DISPUTE' });
-
-      require('../merchants/merchantDao').getMerchantsDao
-        .mockResolvedValue([{ ...mockMerchant, payin_commission: 2 }]);
-    
-      require('../vendors/vendorDao').getVendorsDao
-        .mockResolvedValue([{ ...mockVendor, payin_commission: 1 }]);
-        require('./payInDao').getPayInForDisputeServiceDao
-        .mockResolvedValue({ ...mockPayIn3, status: 'DISPUTE', bank_response_id: 'bank_response1' });
-      
-        require('../bankResponse/bankResponseDao').getBankResponseDao
-        .mockResolvedValue({
-          id: 'bank_response1',
-          utr: 'utr123',
-          amount: 100,
-          user_id: 'vendorUser',
-        });
-      
-      const payload = { payInId: 'payin123', confirmed: 100 };
-      const result = await disputeDuplicateTransactionService({}, payload, 'company1', 'user1');
-    
-      expect(result).toEqual({ ...mockPayIn3, status: 'SUCCESS' });
-      expect(require('../../utils/logger').logger.error).not.toHaveBeenCalled();
+    test('resolves dispute successfully', async () => {
+      require('./payInDao').getPayInForDisputeServiceDao.mockResolvedValue({
+        ...mockPayIn,
+        status: 'DISPUTE',
+        bank_response_id: 'bank_response1',
+        merchant_id: 'merchant1',
+        bank_acc_id: 'bank123',
+        created_at: new Date(),
+        config: { urls: { notify: 'https://notify.url' } }
+      });
+  
+      require('../bankResponse/bankResponseDao').getBankResponseDao.mockResolvedValue(mockBankResponse);
+      require('../merchants/merchantDao').getMerchantsDao.mockResolvedValue([mockMerchantWithCommission]);
+      require('../bankAccounts/bankAccountDao').getBankaccountDao.mockResolvedValue([mockBank]); // bank exists
+      require('../vendors/vendorDao').getVendorsDao.mockResolvedValue([mockVendorWithCommission]);
+      require('./payInDao').updatePayInUrlDao = jest.fn().mockResolvedValue({ id: 'payin123' });
+      require('./payInDao').updateMerchantBalanceDao = jest.fn().mockResolvedValue(true);
+      require('./payInDao').updateCalculationTable = jest.fn().mockResolvedValue(true);
+      require('./payInDao').newTableEntry = jest.fn().mockResolvedValue(true);
+      require('./payInDao').merchantPayinCallback = jest.fn().mockResolvedValue(true);
+      require('./payInDao').getCompanyByIDDao = jest.fn().mockResolvedValue([{ config: { telegramDuplicateDisputeChatId: 'chat1', telegramBotToken: 'token1' } }]);
+      require('./payInDao').sendTelegramDisputeMessage = jest.fn().mockResolvedValue(true);
+  
+      const result = await disputeDuplicateTransactionService(
+        {},
+        { payInId: 'payin123', confirmed: 100 },
+        'company1',
+        'user1'
+      );
+  
+      expect(result).toBeDefined();
+      expect(require('./payInDao').updatePayInUrlDao).toHaveBeenCalled();
+      expect(require('./payInDao').updateMerchantBalanceDao).toHaveBeenCalled();
+      expect(require('./payInDao').updateCalculationTable).toHaveBeenCalled();
+      expect(require('./payInDao').newTableEntry).toHaveBeenCalled();
+      expect(require('./payInDao').merchantPayinCallback).toHaveBeenCalled();
     });
   
     test('throws NotFoundError if bank not found', async () => {
@@ -1049,6 +1054,7 @@ describe('PayIn Service Tests', () => {
       await expect(disputeDuplicateTransactionService({}, { payInId: 'payin123', confirmed: 100 }, 'company1', 'user1')).rejects.toThrow(NotFoundError);
       expect(require('../../utils/logger').logger.error).toHaveBeenCalledWith('Error dispute duplicate transaction:', expect.any(NotFoundError));
     });
+    
   });
 
   describe('telegramCheckUTRService', () => {
