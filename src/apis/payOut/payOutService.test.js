@@ -15,7 +15,7 @@ import {
 	checkPayOutStatusService,
 	getWalletsBalanceService
 } from './payOutService.js';
-import jest from 'jest-mock';
+
 import { expect, describe, beforeEach, it } from '@jest/globals';
 
 import axios from 'axios';

@@ -9,7 +9,7 @@
 //////////////////////////////////////////////
 // Mocks - must come before importing the service
 //////////////////////////////////////////////
-import jest from 'jest-mock';
+
 import { expect, describe, beforeEach, it } from '@jest/globals';
 
 jest.mock('./merchantDao.js', () => ({

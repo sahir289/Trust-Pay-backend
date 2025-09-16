@@ -9,7 +9,7 @@
 ///////////////////////////////////////////
 // Mocks for modules used by merchantDao
 ///////////////////////////////////////////
-import jest from 'jest-mock';
+
 import { expect, describe, beforeEach, it } from '@jest/globals';
 
 jest.mock('../../utils/logger.js', () => ({

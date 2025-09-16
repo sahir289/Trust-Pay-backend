@@ -1,5 +1,5 @@
 const { createUser } = require('./userController.js');
-import jest from 'jest-mock';
+
 import { expect, describe, it } from '@jest/globals';
 jest.mock('../../utils/sockets.js', () => ({
   newTableEntry: jest.fn().mockResolvedValue(),

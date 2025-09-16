@@ -8,7 +8,7 @@
 //////////////////////////////////////////////
 //  Mocks (must appear before importing the controller)
 //////////////////////////////////////////////
-import jest from 'jest-mock';
+
 import { expect, describe, beforeEach, it } from '@jest/globals';
 jest.mock('../../utils/responseHandlers.js', () => ({
   sendSuccess: jest.fn(),

@@ -9,7 +9,7 @@
 import express from 'express';
 import request from 'supertest';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import jest from 'jest-mock';
+
 import { expect, describe, beforeEach, test } from '@jest/globals';
 
 // ---- Mocks BEFORE importing the router ----

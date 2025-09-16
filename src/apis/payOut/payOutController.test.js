@@ -10,7 +10,7 @@ import {
   walletsPayouts,
   getWalletsBalance,
 } from "./payOutController.js";
-import jest from 'jest-mock';
+
 import { expect, describe, beforeEach, it } from '@jest/globals';
 
 import * as payOutService from "./payOutService.js";

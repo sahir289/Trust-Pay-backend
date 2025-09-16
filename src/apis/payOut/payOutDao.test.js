@@ -9,7 +9,7 @@ import {
 	updatePayoutDao,
 	deletePayoutDao
 } from './payOutDao.js';
-import jest from 'jest-mock';
+
 import { expect, describe, beforeEach, it } from '@jest/globals';
 
 import { executeQuery } from '../../utils/db.js';

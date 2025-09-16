@@ -10,7 +10,7 @@ import{
     createUserDao,
     updateUserDao,
 } from './userDao.js';
-import jest from 'jest-mock';
+
 import { expect, describe, beforeEach, it  } from '@jest/globals';
 import { Role, tableName } from '../../constants/index.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';

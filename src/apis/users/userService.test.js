@@ -7,7 +7,7 @@ import{
     userUpdateService,
     sendMailService
 } from './userService.js';
-import jest from 'jest-mock';
+
 import { expect, describe, beforeEach, it , } from '@jest/globals';
 import { InternalServerError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';

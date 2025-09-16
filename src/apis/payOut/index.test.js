@@ -1,7 +1,7 @@
 import request from 'supertest';
 import express from 'express';
 import payoutRouter from './index.js';
-import jest from 'jest-mock';
+
 import { expect, describe, it ,beforeAll,afterEach } from '@jest/globals';
 import { 
     createPayout,

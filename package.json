@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest --coverage --config jest.config.cjs --detectOpenHandles",
     "start": "TZ='Asia/Kolkata' eslint . && nodemon server.js",
     "start:windows": "SET TZ=Asia/Kolkata eslint . && nodemon server.js",
     "dev": "nodemon --exec \"npm run lint && npm run start:windows\"",
@@ -63,14 +63,22 @@
     "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.28.4",
+    "@babel/preset-env": "^7.28.3",
     "@eslint/js": "^9.15.0",
+    "babel-jest": "^30.1.2",
     "eslint": "^9.15.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
     "globals": "^15.12.0",
     "husky": "^9.1.7",
+    "jest": "^30.1.3",
     "lint-staged": "^15.2.10",
     "nodemon": "^3.1.7",
-    "prettier": "^3.4.1"
+    "prettier": "^3.4.1",
+    "supertest": "^7.1.4"
   }
 }
+
+
+

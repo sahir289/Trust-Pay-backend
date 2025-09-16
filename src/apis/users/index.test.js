@@ -1,7 +1,7 @@
 import request from 'supertest';
 import express from 'express';
 import chargebackRouter from './index.js';
-import jest from 'jest-mock';
+
 import { expect, describe, test ,beforeAll } from '@jest/globals';
 
 jest.mock('./userController.js', () => ({
