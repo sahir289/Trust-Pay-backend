@@ -1,9 +1,7 @@
 import { HTTPError, CustomError } from '../utils/appErrors.js';
-import { logger } from '../utils/logger.js';
 
 // eslint-disable-next-line no-unused-vars
 const errorHandler = (error, req, res, next) => {
-  logger.error(error);
   let statusCode = 500;
   const message = 'Server encountered a problem';
   let err = {
@@ -26,12 +24,20 @@ const errorHandler = (error, req, res, next) => {
       message: error.message || message,
     };
   } else if (error) {
-    err = { ...error, message };
+    err = {
+      statusCode,
+      message: error.message || message,
+      ...(error.code && { code: error.code }),
+      ...(error.type && { type: error.type }),
+      ...(error.response?.data && {
+        type: error.response.data.type || 'error',
+        code: error.response.data.code || 'unknown_error',
+        message: error.response.data.message || message,
+      }),
+    };
   }
 
-  const finalRes = {};
-  finalRes.error = { ...err };
-
+  const finalRes = { error: err };
   res.status(statusCode).json(finalRes);
 };
 
