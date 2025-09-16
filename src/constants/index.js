@@ -847,3 +847,16 @@ export const userFields = [
   'designation',
   'email'
 ];
+export const bankResponseSearchableFields = [
+  'id',
+  'sno',
+  'status',
+  'bank_id',
+  'amount',
+  'upi_short_code',
+  'utr',
+  'created_by',
+  'config',
+  'updated_by',
+  'nick_name',
+];

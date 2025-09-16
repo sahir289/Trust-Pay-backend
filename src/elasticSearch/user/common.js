@@ -36,7 +36,6 @@ export const getUsersByESSearch = async (
     //     created_at: new Date(hit._source.created_at).toISOString() // Format date
     //   }));
     const dd =  data?.hits?.hits?.map((hit) => hit._source);
-    console.log(dd, "ddd here");
     return dd;
   } catch (error) {
     logger.error('Error searching users in Elasticsearch:', error);
@@ -50,7 +49,6 @@ export const createUserInES = async (user) => {
     if (!user || !user.id) {
       throw new BadRequestError('User object must have an id property');
     }
-    console.log(user, "user here");
     // ensure only relevant fields are indexed (optional, based on your mappings)
     // const userDoc = {
     //   full_name: user.full_name,

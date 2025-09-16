@@ -1,8 +1,11 @@
 import dayjs from 'dayjs';
 import { tableName } from '../../constants/index.js';
+import { getBankResponseByESSearch } from '../../elasticSearch/bankResponse/common.js';
+import { createBankResponseInES } from '../../elasticSearch/bankResponse/common.js';
 // import { InternalServerError } from '../../utils/appErrors.js';
 // import { generateUUID } from '../utils/generateUUID.js';
 // import { generateCacheKey,getCachedData,setCachedData } from '../../utils/redishashkey.js';
+import { getBankAccountNickNameForEsDao } from '../bankAccounts/bankaccountDao.js';
 import {
   executeQuery,
   buildSelectQuery,
@@ -154,7 +157,18 @@ const getBankResponseBySearchDao = async (
         // const cachedResult = await getCachedData(cacheKey);
         // if (cachedResult && cachedResult.totalCount>0) {
         //   return cachedResult;
-        // }
+    // }
+    let data;
+    if (filters.search) {
+      filters.is_used = filters.is_used === 'true' ? true : false;
+       const searchData = await getBankResponseByESSearch(filters.search);
+          data = {
+            totalCount: searchData?.length,
+            totalPages: 12,
+            rows: searchData,
+          };
+          return data;
+        }
     const selectCols = columns.length
       ? `DISTINCT ON ("BankResponse".sno) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
       : `DISTINCT ON ("BankResponse".sno) ` + [
@@ -410,13 +424,13 @@ const getBankResponseBySearchDao = async (
       searchResult = await executeQuery(queryText, values);
       totalPages = Math.ceil(totalCount / pageSize);
     }
-    const result = {
+     data = {
       totalCount,
       totalPages,
       rows: searchResult.rows,
     };
     // await setCachedData(cacheKey, result, 500);
-    return result;
+    return data;
   } catch (error) {
     logger.error('Error in getBankResponseBySearchDao:', error);
     throw error;
@@ -1009,7 +1023,13 @@ const createBankResponseDao = async (conn, data) => {
     } else {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
-    return result.rows[0];
+    const insertedEntry = result.rows[0];
+    const nickName = await getBankAccountNickNameForEsDao(
+      insertedEntry.bank_id,
+    );
+    insertedEntry.nick_name = nickName.nick_name;
+    await createBankResponseInES(insertedEntry);
+    return insertedEntry;
   } catch (error) {
     logger.error('Error in createBankResponseDao:', error);
     throw error;

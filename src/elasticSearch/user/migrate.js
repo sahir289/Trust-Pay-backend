@@ -28,7 +28,6 @@ const userMappings = {
 
 export async function migrateUsersToES() {
   try {
-    console.log("helll o");
     await setupIndexWithMappings('users', userMappings, { number_of_shards: 5, refresh_interval: '30s' });
 
     // Bulk index (filter enabled users only)

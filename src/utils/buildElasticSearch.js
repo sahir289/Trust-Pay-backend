@@ -33,6 +33,7 @@ export const buildESQuery = (
         fields: searchableFields, // module-specific fields like (['full_name^2', 'user_name']) here Boost full_name
         operator: 'or', // it matches any term you can change to 'and' for stricter matching
         type: 'best_fields', // it scores based on best-matching field
+        lenient: true, // Ignores parse errors for numerics
       },
     });
   }
@@ -63,7 +64,6 @@ export const buildESQuery = (
   if (queryBody.query.bool.must.length === 0) {
     queryBody.query.bool.must.push({ match_all: {} });
   }
-
   return queryBody;
 };
 
