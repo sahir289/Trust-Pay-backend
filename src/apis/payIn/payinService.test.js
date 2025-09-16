@@ -1011,6 +1011,18 @@ describe('PayIn Service Tests', () => {
         created_at: new Date(),
         config: { urls: { notify: 'https://notify.url' } }
       });
+      const mockMerchantWithCommission = {
+        id: 'merchant1',
+        user_id: 'user123',
+        payin_commission: 2.5,
+        name: 'Test Merchant',
+      };
+      const mockVendorWithCommission = {
+        id: 'vendor1',
+        user_id: 'vendorUser123',
+        payin_commission: 1.5, // vendor commission
+        name: 'Test Vendor',
+      };
   
       require('../bankResponse/bankResponseDao').getBankResponseDao.mockResolvedValue(mockBankResponse);
       require('../merchants/merchantDao').getMerchantsDao.mockResolvedValue([mockMerchantWithCommission]);
