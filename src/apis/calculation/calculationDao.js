@@ -343,9 +343,22 @@ export const getCalculationsSumDao = async (filters) => {
 
     // query for vendor only role
     if (role === Role.VENDOR) {
-      const vQuery = `${vendorQuery}  AND c.user_id = $1  AND c.company_id = $2  ${groupBy}`;
-      vendorData = (await executeQuery(vQuery, [effectiveUserId, company_id]))
-        .rows;
+      // Get user hierarchy to validate sub-vendor access
+      const userHierarchys = await getUserHierarchysDao({
+        user_id: effectiveUserId,
+      });
+      let userIds = [effectiveUserId]; // Always include vendors own ID
+
+      // Include sub-vendors when available
+      const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+      if (subVendors.length > 0) {
+        userIds = [...new Set([...userIds, ...subVendors])];
+      }
+
+      // Create parameterized query for all user IDs
+      const userIdParams = userIds.map((_, index) => `$${index + 1}`).join(",");
+      const vQuery = `${vendorQuery}  AND c.user_id = ANY(ARRAY[${userIdParams}])  AND c.company_id = $${userIds.length + 1}  ${groupBy}`;
+      vendorData = (await executeQuery(vQuery, [...userIds, company_id])).rows;
     }
 
     if ([Role.SUPER_ADMIN, Role.ADMIN].includes(role)) {
@@ -855,9 +868,22 @@ export const getCalculationsForInternalUseDao = async (filters) => {
 
     // query for vendor only role
     if (role === Role.VENDOR) {
-      const vQuery = `${vendorQuery}  AND c.user_id = $1  AND c.company_id = $2  ${groupBy}`;
-      vendorData = (await executeQuery(vQuery, [effectiveUserId, company_id]))
-        .rows;
+      // Get user hierarchy to validate sub-vendor access
+      const userHierarchys = await getUserHierarchysDao({
+        user_id: effectiveUserId,
+      });
+      let userIds = [effectiveUserId]; // Always include vendors own ID
+
+      // Include sub-vendors when available
+      const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+      if (subVendors.length > 0) {
+        userIds = [...new Set([...userIds, ...subVendors])];
+      }
+
+      // Create parameterized query for all user IDs
+      const userIdParams = userIds.map((_, index) => `$${index + 1}`).join(",");
+      const vQuery = `${vendorQuery}  AND c.user_id = ANY(ARRAY[${userIdParams}])  AND c.company_id = $${userIds.length + 1}  ${groupBy}`;
+      vendorData = (await executeQuery(vQuery, [...userIds, company_id])).rows;
     }
 
     if ([Role.SUPER_ADMIN, Role.ADMIN].includes(role)) {
