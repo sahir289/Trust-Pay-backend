@@ -294,7 +294,7 @@ export const getPayInForDisputeServiceDao = async (filters = {}) => {
   }
 };
 
-export const getPayInIntentDao = async (id, company_id) => {
+export const getPayInIntentDao = async (id, ) => {
   try {
     const selectColumns = `
       id,
@@ -312,8 +312,8 @@ export const getPayInIntentDao = async (id, company_id) => {
       is_url_expires,
       expiration_date
     `;
-    const sql = `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE id = $1 AND company_id = $2 AND is_obsolete = false`;
-    const params = [id, company_id];
+    const sql = `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE id = $1 AND is_obsolete = false`;
+    const params = [id];
     const result = await executeQuery(sql, params);
     return result.rows[0] || [];
   } catch (error) {

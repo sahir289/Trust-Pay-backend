@@ -26,7 +26,7 @@ import {
   processPayInIMGUTR,
   getPayinsSummary,
 } from './payInController.js';
-import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
+// import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
 import getUserLocationMiddleware from '../../middlewares/locationRestrict.js';
 const router = express.Router();
@@ -191,7 +191,6 @@ router.post('/check-payin-status', tryCatchHandler(checkPayInStatus));
  */
 router.post(
   '/generate-intent-order/:payInId',
-  isAuthenticated, authorized(AccessRoles.PAYIN), 
   tryCatchHandler(payInIntentGenerateOrder),
 );
 
@@ -268,10 +267,10 @@ router.post('/telegram-ocr', tryCatchHandler(telegramOCR));
  *       200:
  *         description: Payment status updated from Cashfree webhook successfully.
  */
-router.post(
-  '/update-payment-cashfree-webhook',
-  tryCatchHandler(payInUpdateCashfreeWebhook),
-);
+// router.post(
+//   '/update-payment-cashfree-webhook',
+//   tryCatchHandler(payInUpdateCashfreeWebhook),
+// );
 
 // Authenticated API's
 // router.use(isAuthenticated);

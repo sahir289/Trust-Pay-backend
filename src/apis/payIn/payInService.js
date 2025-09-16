@@ -1,7 +1,6 @@
 /* eslint-disable no-unused-vars */
 import dayjs from 'dayjs';
 import { nanoid } from 'nanoid';
-import { Cashfree } from 'cashfree-pg';
 import { v4 as uuidv4 } from 'uuid';
 import querystring from 'querystring';
 import config from '../../config/config.js';
@@ -114,6 +113,7 @@ import { usedTokens } from '../../app.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
 import { getAllUsersDao, getUserByIdDao } from '../users/userDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
+import { createCashfreeOrder, payOrder } from '../../cashfree/cashfree.js';
 
 export const generatePayInUrlByHashService = async (conn, req) => {
   try {
@@ -749,19 +749,16 @@ export const checkPayInStatusService = async (
 
 export const payInIntentGenerateOrderService = async (
   payInId,
-  company_id,
+  // company_id,
   amount,
   provider,
 ) => {
   // validating if it exist
   try {
-    const cashfree = new Cashfree(
-      Cashfree.SANDBOX,
-      config.cashfree.clientId,
-      config.cashfree.clientSecret,
-    );
+   
 
-    const payIn = await getPayInIntentDao(payInId, company_id);
+    const payIn = await getPayInIntentDao(payInId);
+    console.log(payIn, 'payIn');
     checkIsPayInExpired(payIn);
     // if (provider === razorpay) {
     //   const orderRes = await razorpay.orders.create({
@@ -775,25 +772,15 @@ export const payInIntentGenerateOrderService = async (
     //   };
     // }
 
-    const requestBody = {
-      order_amount: amount,
-      order_currency: Currency.INR,
-      customer_details: {
-        customer_id: payIn?.user,
-        customer_email: 'test@gmail.com',
-        customer_phone: '9999999999',
-      },
-      order_meta: {
-        return_url: payIn?.config.urls.return,
-        paymentMethod: 'upi',
-      },
-    };
-    const cashFreeResponse = await cashfree.PGCreateOrder(requestBody);
-    const data = cashFreeResponse.data;
-    return {
-      payInId,
-      data,
-    };
+    const createOrder = await createCashfreeOrder(payIn, amount);
+    // console.log(createOrder , 'createOrder');
+    const session_id = createOrder?.payment_session_id;
+    console.log(session_id , 'session_id');
+
+    // const orderPay = await payOrder(session_id, payIn.id);
+    // console.log(orderPay , 'orderPay');
+
+    return { id: payIn.id, session_id };
   } catch (error) {
     // console.log(error.message, "error");
     logger.error('Error generate intent payin:', error.message);

@@ -53,8 +53,10 @@ function config(Env) {
       maxRetries: parseInt(Env?.ELASTICSEARCH_MAX_RETRIES) || 3,
     },
     cashfree: {
-      clientId: Env?.CLIENT_ID,
-      clientSecret: Env?.CLIENT_SECRET,
+      clientIdTest: Env?.CLIENT_ID_TEST,
+      clientSecretTest: Env?.CLIENT_SECRET_TEST,
+      clientIdProd: Env?.CLIENT_ID_PROD,
+      clientSecretProd: Env?.CLIENT_SECRET_PROD,
     },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,
