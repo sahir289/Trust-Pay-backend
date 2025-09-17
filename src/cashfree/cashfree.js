@@ -20,7 +20,7 @@ const cashfree = new Cashfree(env, clientId, clientSecret);
 export const createCashfreeOrder = async (deposit, amount) => {
   try {
     const requestBody = {
-      order_amount: amount,
+      order_amount: amount || deposit?.amount,
       order_currency: Currency.INR,
       customer_details: {
         customer_id: deposit?.user,
