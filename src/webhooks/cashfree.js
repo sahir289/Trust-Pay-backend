@@ -6,8 +6,8 @@ import { logger } from '../utils/logger.js';
 import { sendSuccess } from '../utils/responseHandlers.js';
 import { processPayInService } from '../apis/payIn/payInService.js';
 import { transactionWrapper } from '../utils/db.js';
-import { createBankResponse } from '../apis/bankResponse/bankResponseController.js';
 import { createBankResponseService } from '../apis/bankResponse/bankResponseServices.js';
+import { getPayInIntentDao } from '../apis/payIn/payInDao.js';
 // import { AuthenticationError } from '../utils/appErrors.js';
 
 const env =
@@ -46,7 +46,7 @@ export const cashfreeWebHook = async (req, res, next) => {
 
     console.log(eventData, 'event data');
     const payload = {
-      id,
+      id: eventData?.data?.order?.order_id,
       userSubmittedUtr: eventData?.data?.payment?.cf_payment_id,
       amount: eventData?.data?.order?.order_amount,
     }
