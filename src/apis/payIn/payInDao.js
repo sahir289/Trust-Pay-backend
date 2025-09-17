@@ -310,7 +310,8 @@ export const getPayInIntentDao = async (id, ) => {
       user_submitted_utr,
       amount,
       is_url_expires,
-      expiration_date
+      expiration_date,
+      company_id
     `;
     const sql = `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE id = $1 AND is_obsolete = false`;
     const params = [id];
