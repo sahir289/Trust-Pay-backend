@@ -329,7 +329,7 @@ const getPayOutVendorReportDao = async (
         ) AS merchant_details,
         po.created_at`;
     }
-    if (role === Role.VENDOR) {
+    if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
       commissionSelect += `
         ve.code AS vendor_code,
         po.vendor_id,

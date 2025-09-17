@@ -22,7 +22,7 @@ function config(Env) {
       temp_token_expires: Env?.TEMP_TOKEN_EXPIRES,
     },
     rabbitmq : {
-      url: Env?.RABBITMQ_URL || 'amqp://localhost:567',
+      url: Env?.RABBITMQ_URL || 'amqp://localhost:5672',
       queueName: Env?.RABBITMQ_QUEUE_NAME || 'trust-pay-queue',
       exchangeName: Env?.RABBITMQ_EXCHANGE_NAME || 'trust-pay-exchange',
       routingKey: Env?.RABBITMQ_ROUTING_KEY || 'trust-pay-routing-key',
@@ -53,8 +53,10 @@ function config(Env) {
       maxRetries: parseInt(Env?.ELASTICSEARCH_MAX_RETRIES) || 3,
     },
     cashfree: {
-      clientId: Env?.CLIENT_ID,
-      clientSecret: Env?.CLIENT_SECRET,
+      clientIdTest: Env?.CLIENT_ID_TEST,
+      clientSecretTest: Env?.CLIENT_SECRET_TEST,
+      clientIdProd: Env?.CLIENT_ID_PROD,
+      clientSecretProd: Env?.CLIENT_SECRET_PROD,
     },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,

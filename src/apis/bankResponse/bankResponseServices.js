@@ -772,7 +772,7 @@ const getBankResponseService = async (
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.BANK_RESPONSE
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.BANK_RESPONSE
           : columns.BANK_RESPONSE;
 
@@ -798,10 +798,10 @@ const getBankResponseService = async (
     };
     sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
 
-    const fetchBankIds = async (user_id) => {
+    const fetchBankIds = async (user_ids) => {
       try {
         const banks = await getBankaccountDao({
-          user_id,
+          user_id: user_ids,
           bank_used_for: 'PayIn',
         });
         if (!banks || banks.length === 0) {
@@ -815,12 +815,31 @@ const getBankResponseService = async (
     };
 
     if (designation === Role.VENDOR && !filters.bank_id) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchy = userHierarchys?.[0];
+      
+      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+      if (Array.isArray(subVendors) && subVendors.length > 0) {
+        const vendorUserIds = [user_id, ...subVendors];
+        filters.bank_id = await fetchBankIds(vendorUserIds);
+      } else {
+        filters.bank_id = await fetchBankIds(user_id);
+      }
+    } else if (designation === Role.SUB_VENDOR && !filters.bank_id) {
       filters.bank_id = await fetchBankIds(user_id);
     } else if (designation === Role.VENDOR_OPERATIONS) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
-      const parentID = userHierarchys?.[0]?.config?.parent;
+      const userHierarchy = userHierarchys?.[0];
+      const parentID = userHierarchy?.config?.parent;
       if (parentID) {
-        filters.bank_id = await fetchBankIds(parentID);
+        const parentHierarchys = await getUserHierarchysDao({
+          user_id: parentID,
+        });
+        const parentHierarchy = parentHierarchys?.[0];
+        const subVendors = parentHierarchy?.config?.siblings?.sub_vendors ?? [];
+        
+        const userIdFilter = [...new Set([parentID, ...subVendors])];
+        filters.bank_id = await fetchBankIds(userIdFilter);
       }
     }
 
@@ -858,7 +877,7 @@ const getBankResponseBySearchService = async (
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.BANK_RESPONSE
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.BANK_RESPONSE
           : columns.BANK_RESPONSE;
 
@@ -886,10 +905,10 @@ const getBankResponseBySearchService = async (
     };
     sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
 
-    const fetchBankIds = async (user_id) => {
+    const fetchBankIds = async (user_ids) => {
       try {
         const banks = await getBankaccountDao({
-          user_id,
+          user_id: user_ids,
           bank_used_for: 'PayIn',
         });
         if (!banks || banks.length === 0) {
@@ -903,12 +922,31 @@ const getBankResponseBySearchService = async (
     };
 
     if (designation === Role.VENDOR) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchy = userHierarchys?.[0];
+      
+      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+      if (Array.isArray(subVendors) && subVendors.length > 0) {
+        const vendorUserIds = [user_id, ...subVendors];
+        filters.bank_id = await fetchBankIds(vendorUserIds);
+      } else {
+        filters.bank_id = await fetchBankIds(user_id);
+      }
+    } else if (designation === Role.SUB_VENDOR) {
       filters.bank_id = await fetchBankIds(user_id);
     } else if (designation === Role.VENDOR_OPERATIONS) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
-      const parentID = userHierarchys?.[0]?.config?.parent;
+      const userHierarchy = userHierarchys?.[0];
+      const parentID = userHierarchy?.config?.parent;
       if (parentID) {
-        filters.bank_id = await fetchBankIds(parentID);
+        const parentHierarchys = await getUserHierarchysDao({
+          user_id: parentID,
+        });
+        const parentHierarchy = parentHierarchys?.[0];
+        const subVendors = parentHierarchy?.config?.siblings?.sub_vendors ?? [];
+        
+        const userIdFilter = [...new Set([parentID, ...subVendors])];
+        filters.bank_id = await fetchBankIds(userIdFilter);
       }
     }
 
@@ -936,7 +974,7 @@ const updateBankResponseService = async (id, payload, role) => {
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.BANK_RESPONSE
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.BANK_RESPONSE
           : columns.BANK_RESPONSE;
     conn = await getConnection();
@@ -982,7 +1020,7 @@ const getBankMessageServices = async (
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.BANK_RESPONSE
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.BANK_RESPONSE
           : columns.BANK_RESPONSE;
     const pageNumber = parseInt(page, 10) || 1;
