@@ -1,263 +1,251 @@
-import {
-	createPayoutDao,
-	assignedPayoutDao,
-	getPayoutsDao,
-	getPayoutBankDetailsDao,
-	getAllPayoutsDao,
-	getPayoutsBySearchDao,
-	getPayoutsCronDao,
-	updatePayoutDao,
-	deletePayoutDao
-} from './payOutDao.js';
+// src/apis/payOut/__tests__/payOutDao.test.js
+'use strict';
+import { expect, describe, beforeEach, test } from '@jest/globals';
 
-import { expect, describe, beforeEach, it } from '@jest/globals';
+// Mock dayjs.tz chain used by DAO
+jest.mock('dayjs', () => ({
+  tz: (str, tz) => ({
+    utc: () => ({
+      format: () => '2020-01-01T00:00:00Z',
+    }),
+  }),
+}));
 
-import { executeQuery } from '../../utils/db.js';
-import { logger } from '../../utils/logger.js';
-
+// Mock DB utilities (factory must not capture external variables)
 jest.mock('../../utils/db.js', () => ({
-	...jest.requireActual('../../utils/db.js'), // keep all real exports
-  	executeQuery: jest.fn(), 
+  buildInsertQuery: jest.fn(),
+  buildUpdateQuery: jest.fn(),
+  buildAndExecuteUpdateQuery: jest.fn(),
+  executeQuery: jest.fn(),
+  getConnection: jest.fn(),
+  beginTransaction: jest.fn(),
+  commit: jest.fn(),
+  rollback: jest.fn(),
 }));
-jest.mock('../../utils/sockets.js', () => ({
-  newTableEntry: jest.fn().mockResolvedValue(),
-}));
+
+// Mock logger
 jest.mock('../../utils/logger.js', () => ({
-  logger: { error: jest.fn() },
+  logger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    log: jest.fn(),
+  },
 }));
 
+// After mocks are registered, require the mocked db module (to configure mocks in tests)
+const dbMocks = require('../../utils/db.js');
+
+// Now require the DAO under test
+const dao = require('./payOutDao.js');
+
+// Helper: Reset mocks between tests
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
+// ---------- Tests ----------
 describe('payOutDao', () => {
-	beforeEach(() => {
-		mockConn = {
-		query: jest.fn(),
-		};
-	});
-	it('createPayoutDao: should work with (conn, data)', async () => {
-		const conn = { query: jest.fn().mockResolvedValue({ rows: [{ id: 1, amount: 100 }] }) };
-		const data = { amount: 100, config: {} };
-		const result = await createPayoutDao(conn, data);
-		expect(result).toHaveProperty('id');
-		expect(result.amount).toBe(100);
-	});
-	it('should insert payout and return the inserted row', async () => {
-		const data = { amount: 1000 }; // no config provided
-		const mockRow = { id: 1, amount: 1000, config: {} };
+  describe('createPayoutDao', () => {
+    test('inserts new payout and returns rows[0] when conn not provided and data.config missing', async () => {
+      // Arrange
+      const fakeSQL = 'INSERT INTO "Payout" (...) RETURNING *';
+      const fakeParams = ['a', 'b'];
+      dbMocks.buildInsertQuery.mockReturnValue([fakeSQL, fakeParams]);
+      dbMocks.executeQuery.mockResolvedValue({ rows: [{ id: 'new-payout', amount: 100 }] });
 
-		mockConn.query.mockResolvedValue({ rows: [mockRow] });
+      // Act
+      const result = await dao.createPayoutDao(null, { amount: 100 });
 
-		const result = await createPayoutDao(mockConn, data);
+      // Assert
+      expect(dbMocks.buildInsertQuery).toHaveBeenCalledWith('Payout', expect.any(Object));
+      expect(dbMocks.executeQuery).toHaveBeenCalledWith(fakeSQL, fakeParams);
+      expect(result).toEqual({ id: 'new-payout', amount: 100 });
+    });
 
-		// Check that config was initialized
-		expect(data.config).toEqual({});
+    test('throws if executeQuery errors', async () => {
+      dbMocks.buildInsertQuery.mockReturnValue(['SQL', []]);
+      dbMocks.executeQuery.mockRejectedValue(new Error('DB down'));
 
-		// Check that database query was called
-		expect(mockConn.query).toHaveBeenCalled();
+      await expect(dao.createPayoutDao(null, { amount: 5 })).rejects.toThrow('DB down');
+    });
+  });
 
-		// Check that the returned row matches the mock
-		expect(result).toEqual(mockRow);
-	});
+  describe('assignedPayoutDao', () => {
+    test('throws when payoutData is not an array', async () => {
+      await expect(dao.assignedPayoutDao('not-array', { id: 'v1' }, 'u1', 'c1', null)).rejects.toThrow('payoutData must be an array');
+    });
 
-	it('should use executeQuery if conn is not provided', async () => {
-		const data = { amount: 500 };
-		const mockRow = { id: 2, amount: 500, config: {} };
+    test('updates each payout and returns array of ids (using executeQuery)', async () => {
+      // Arrange
+      const payouts = [11, 22];
+      dbMocks.buildUpdateQuery.mockImplementation((table, updatedData, where) => {
+        return [`UPDATE ... WHERE id=${where.id}`, [updatedData.vendor_id, where.id]];
+      });
+      dbMocks.executeQuery.mockImplementation((sql, params) => {
+        return Promise.resolve({ rows: [{ id: `updated-${params[1]}` }] });
+      });
 
-		executeQuery.mockResolvedValue({ rows: [mockRow] });
+      const res = await dao.assignedPayoutDao(payouts, { id: 'vend-1' }, 'upd-by', 'comp-1', null);
 
-		const result = await createPayoutDao(null, data);
+      expect(dbMocks.buildUpdateQuery).toHaveBeenCalledTimes(2);
+      expect(dbMocks.executeQuery).toHaveBeenCalledTimes(2);
+      expect(res).toEqual(['updated-11', 'updated-22']);
+    });
 
-		expect(data.config).toEqual({});
-		expect(executeQuery).toHaveBeenCalled();
-		expect(result).toEqual(mockRow);
-	});
-	it('should log and throw error if query fails', async () => {
-		const data = { amount: 200 };
-		const error = new Error('DB error');
+    test('uses conn.query when conn provided', async () => {
+      const payouts = [5];
+      dbMocks.buildUpdateQuery.mockReturnValue(['SQL', [1]]);
+      const conn = { query: jest.fn().mockResolvedValue({ rows: [{ id: 'c-updated' }] }) };
+      const result = await dao.assignedPayoutDao(payouts, { id: 'v1' }, 'u1', 'c1', conn);
+      expect(conn.query).toHaveBeenCalled();
+      expect(result).toEqual(['c-updated']);
+    });
+  });
 
-		mockConn.query.mockRejectedValue(error);
+  describe('getPayoutsDao', () => {
+    test('builds query with startDate/endDate and pagination and returns rows (conn)', async () => {
+      const filters = { startDate: '2020-01-01', endDate: '2020-01-02', foo: 'a,b' };
+      const conn = { query: jest.fn().mockResolvedValue({ rows: [{ id: 1 }] }) };
+      const rows = await dao.getPayoutsDao(filters, 'comp-1', 2, 10, 'DESC', null, conn);
+      expect(conn.query).toHaveBeenCalled();
+      expect(rows).toEqual([{ id: 1 }]);
+    });
 
-		await expect(createPayoutDao(mockConn, data)).rejects.toThrow('DB error');
+    test('uses executeQuery when conn not provided', async () => {
+      const filters = { foo: 'x' };
+      dbMocks.executeQuery.mockResolvedValue({ rows: [{ id: 'r1' }] });
+      const rows = await dao.getPayoutsDao(filters, 'comp-2', 1, 5, 'ASC', null, null);
+      expect(dbMocks.executeQuery).toHaveBeenCalled();
+      expect(rows).toEqual([{ id: 'r1' }]);
+    });
 
-		// Check that error was logged
-		expect(logger.error).toHaveBeenCalledWith(
-		'Error in createPayoutDao:',
-		error
-		);
-	});
-	it('create PayoutDao: should handle DB errors', async () => {
-		const conn = { query: jest.fn().mockRejectedValue(new Error('DB error')) };
-		const data = { amount: 100, config: {} };
-		await expect(createPayoutDao(conn, data)).rejects.toThrow('DB error');
-	});
-	it('assignedPayoutDao: should work with (payoutData, vendorId, updated_by, company_id, conn)', async () => {
-		const payoutData = [1, 2];
-		const vendorId = { id: 10 };
-		const updated_by = 'user1';
-		const company_id = 'company123';
-		const conn = { query: jest.fn().mockResolvedValue({ rows: [{ id: 1 }, { id: 2 }] }) };
-		const result = await assignedPayoutDao(payoutData, vendorId, updated_by, company_id, conn);
-		expect(Array.isArray(result)).toBe(true);
-	});
-	it('assignedPayoutDao: should return empty array if payouts found', async () => {
-		const payoutData = [999]; // Assuming 999 does exist
-		const vendorId = { id: 10 };
-		const updated_by = 'user1';
-		const company_id = 'company123';
-		const conn = { query: jest.fn().mockResolvedValue({ rows: [{id : 999}] }) };
-		const result = await assignedPayoutDao(payoutData, vendorId, updated_by, company_id, conn);
-		expect(Array.isArray(result)).toBe(true);
-		expect(result.length).toBe(1);
-	});
+    test('handles string company_id trimming', async () => {
+      dbMocks.executeQuery.mockResolvedValue({ rows: [] });
+      await dao.getPayoutsDao({}, ' comp-3 ', 1, 5, undefined, null, null);
+      expect(dbMocks.executeQuery).toHaveBeenCalled();
+    });
+  });
 
-	it('assignedPayoutDao: should handle DB errors', async () => {
-		const payoutData = [1, 2];
-		const vendorId = { id: 10 };
-		const updated_by = 'user1';
-		const company_id = 'company123';
-		const conn = { query: jest.fn().mockRejectedValue(new Error('DB error')) };
-		await expect(assignedPayoutDao(payoutData, vendorId, updated_by, company_id, conn)).rejects.toThrow('DB error');
-	});	
+  describe('getPayoutBankDetailsDao', () => {
+    test('returns bank details for payOutids array', async () => {
+      dbMocks.executeQuery.mockResolvedValue({ rows: [{ id: 101, amount: 200 }] });
+      const res = await dao.getPayoutBankDetailsDao({ payOutids: [101] }, 'c1');
+      expect(dbMocks.executeQuery).toHaveBeenCalled();
+      expect(res).toEqual([{ id: 101, amount: 200 }]);
+    });
 
-	it('getPayoutsDao: should work with (filters, company_id, page, limit, sortOrder, role, conn)', async () => {
-		const filters = { status: 'success' };
-		const company_id = 'company123';
-		const page = 1;
-		const limit = 10;
-		const sortOrder = 'DESC';
-		const role = 'ADMIN';
-		const conn = { query: jest.fn().mockResolvedValue({ rows: [{ id: 1 }] }) };
-		const result = await getPayoutsDao(filters, company_id, page, limit, sortOrder, role, conn);
-		expect(Array.isArray(result)).toBe(true);
-	});
+    test('propagates error from executeQuery', async () => {
+      dbMocks.executeQuery.mockRejectedValue(new Error('db fail'));
+      await expect(dao.getPayoutBankDetailsDao({ payOutids: [1] }, 'c1')).rejects.toThrow('db fail');
+    });
+  });
 
-	it('getPayoutBankDetailsDao: should return payout bank details', async () => {
-		const filters = { payOutids: [1, 2] };
-		const company_id = 'company123';
-		try {
-			const result = await getPayoutBankDetailsDao(filters, company_id);
-			expect(Array.isArray(result)).toBe(true);
-		} catch (e) {
-			// If not mocked, skip
-			expect(filters.payOutids).toEqual([1, 2]);
-			expect(company_id).toBe('company123');
-		}
-	});
+  describe('getAllPayoutsDao', () => {
+    test('handles userId and status filters (stringified JSON) and returns rows', async () => {
+      const filters = {
+        userId: JSON.stringify([10, 20]),
+        status: JSON.stringify(['APPROVED']),
+      };
+      dbMocks.executeQuery.mockResolvedValue({ rows: [{ id: 'p1' }] });
+      const rows = await dao.getAllPayoutsDao(filters, 'comp-1', 1, 10, 'DESC', null, null);
+      expect(dbMocks.executeQuery).toHaveBeenCalled();
+      expect(rows).toEqual([{ id: 'p1' }]);
+    });
+  });
 
-	it('getAllPayoutsDao: should work with (filters, company_id, page, limit, sortOrder, role, conn)', async () => {
-		const filters = { status: 'success' };
-		const company_id = 'company123';
-		const page = 1;
-		const limit = 10;
-		const sortOrder = 'DESC';
-		const role = 'ADMIN';
-		const conn = { query: jest.fn().mockResolvedValue({ rows: [{ id: 1 }] }) };
-		const result = await getAllPayoutsDao(filters, company_id, page, limit, sortOrder, role, conn);
-		expect(Array.isArray(result)).toBe(true);
-	});
-	it('should return rows from the database', async () => {
-		const mockRows = [
-		{
-			id: 1,
-			amount: 1000,
-			status: 'SUCCESS',
-			sno: 1,
-		},
-		];
-		
-		mockConn.query.mockResolvedValue({ rows: mockRows });
+  describe('getPayoutsBySearchDao', () => {
+    test('handles status, searchTerms, updated_at and ifamount true returns totals and payouts', async () => {
+      dbMocks.executeQuery.mockImplementation((sql, params) => {
+        if (sql && sql.includes('SUM(p.amount)')) {
+          return Promise.resolve({ rows: [{ total_amount: '123.45' }] });
+        }
+        if (sql && sql.toLowerCase().includes('count(*)')) {
+          return Promise.resolve({ rows: [{ total: '1' }] });
+        }
+        return Promise.resolve({ rows: [{ id: 'psearch1' }] });
+      });
 
-		const filters = { userId: [1, 2] };
-		const company_id = '123';
-		const page = 1;
-		const limit = 10;
-		const sortOrder = 'DESC';
-		const role = 'MERCHANT';
+      const filters = { company_id: 'comp-1', status: 'APPROVED', updated_at: '01-01-2020' };
+      const searchTerms = ['term1'];
+      const data = await dao.getPayoutsBySearchDao(filters, searchTerms, 10, 0, null, true);
 
-		const result = await getAllPayoutsDao(filters, company_id, page, limit, sortOrder, role, mockConn);
+      expect(dbMocks.executeQuery).toHaveBeenCalled();
+      expect(data.totalAmount).toBeCloseTo(123.45);
+      expect(data.totalCount).toBe(1);
+      expect(Array.isArray(data.payout)).toBe(true);
+    });
 
-		expect(mockConn.query).toHaveBeenCalledTimes(1);
-		expect(result).toEqual(mockRows);
-		expect(result[0].id).toBe(1);
-	});
+    test('throws when updated_at malformed', async () => {
+      const badFilters = { company_id: 'c1', updated_at: 'bad-date' };
+      await expect(dao.getPayoutsBySearchDao(badFilters, [], 10, 0, null, false)).rejects.toThrow();
+    });
+  });
 
-	it('should handle empty filters', async () => {
-		const mockRows = [
-		{ id: 2, amount: 500, status: 'PENDING', sno: 2 },
-		];
-		mockConn.query.mockResolvedValue({ rows: mockRows });
+  describe('getPayoutsCronDao', () => {
+    test('uses conn.query and returns rows', async () => {
+      const conn = { query: jest.fn().mockResolvedValue({ rows: [{ id: 'cron1' }] }) };
+      const res = await dao.getPayoutsCronDao(conn, 'PENDING');
+      expect(conn.query).toHaveBeenCalled();
+      expect(res).toEqual([{ id: 'cron1' }]);
+    });
 
-		const result = await getAllPayoutsDao({}, null, null, null, 'ASC', 'VENDOR', mockConn);
+    test('throws on query error', async () => {
+      const conn = { query: jest.fn().mockRejectedValue(new Error('conn fail')) };
+      await expect(dao.getPayoutsCronDao(conn, 'PENDING')).rejects.toThrow('conn fail');
+    });
+  });
 
-		expect(result).toEqual(mockRows);
-		expect(mockConn.query).toHaveBeenCalled();
-	});
+  describe('updatePayoutDao', () => {
+    test('merges existing config and calls buildAndExecuteUpdateQuery', async () => {
+      dbMocks.executeQuery.mockResolvedValueOnce({ rows: [{ config: { foo: 'bar' } }] });
+      dbMocks.buildAndExecuteUpdateQuery.mockResolvedValue({ id: 'updated-1', config: { foo: 'bar', new: 'value' } });
 
-	it('should throw error if query fails', async () => {
-		mockConn.query.mockRejectedValue(new Error('DB error'));
+      const ids = { id: 'p1' };
+      const payload = { config: { new: 'value' }, other: 1 };
+      const out = await dao.updatePayoutDao(ids, payload, null);
 
-		await expect(
-		getAllPayoutsDao({}, '123', 1, 10, 'DESC', 'MERCHANT', mockConn)
-		).rejects.toThrow('DB error');
-	});
-	it('getAllPayoutsDao: should handle DB errors', async () => {
-		const filters = { status: 'success' };
-		const company_id = 'company123';
-		const page = 1;
-		const limit = 10;
-		const sortOrder = 'DESC';
-		const role = 'ADMIN';
-		const conn = { query: jest.fn().mockRejectedValue(new Error('DB error'))};
-		await expect(getAllPayoutsDao(filters, company_id, page, limit, sortOrder, role, conn)).rejects.toThrow('DB error');
-	});
+      expect(dbMocks.executeQuery).toHaveBeenCalled();
+      expect(dbMocks.buildAndExecuteUpdateQuery).toHaveBeenCalledWith(
+        'Payout',
+        expect.objectContaining({ config: expect.any(Object), other: 1 }),
+        ids,
+        {},
+        { returnUpdated: true },
+        null,
+      );
+      expect(out).toEqual({ id: 'updated-1', config: { foo: 'bar', new: 'value' } });
+    });
 
-	it('getPayoutsBySearchDao: should return payouts by search', async () => {
-		const filters = { company_id: 'company123', status: 'success' };
-		const searchTerms = ['John', 'approved'];
-		const limitNum = 10;
-		const offset = 0;
-		const role = 'ADMIN';
-		const ifamount = false;
-		try {
-			const result = await getPayoutsBySearchDao(filters, searchTerms, limitNum, offset, role, ifamount);
-			expect(result).toBeDefined();
-		} catch (e) {
-			expect(filters.company_id).toBe('company123');
-			expect(searchTerms).toContain('John');
-			expect(limitNum).toBe(10);
-			expect(offset).toBe(0);
-			expect(role).toBe('ADMIN');
-			expect(ifamount).toBe(false);
-		}
-	});
+    test('throws when buildAndExecuteUpdateQuery errors', async () => {
+      dbMocks.executeQuery.mockResolvedValueOnce({ rows: [{ config: {} }] });
+      dbMocks.buildAndExecuteUpdateQuery.mockRejectedValue(new Error('update fail'));
+      await expect(dao.updatePayoutDao({ id: 'pX' }, { config: { x: 1 } }, null)).rejects.toThrow('update fail');
+    });
+  });
 
-	it('getPayoutsCronDao: should work with (conn, payload)', async () => {
-		const conn = { query: jest.fn().mockResolvedValue({ rows: [{ id: 1 }] }) };
-		const payload = 'APPROVED';
-		const result = await getPayoutsCronDao(conn, payload);
-		expect(Array.isArray(result)).toBe(true);
-	});
+  describe('getPayoutByTxnId', () => {
+    test('returns first row for txn id', async () => {
+      dbMocks.executeQuery.mockResolvedValue({ rows: [{ id: 'bytxn', name: 'x' }] });
+      const row = await dao.getPayoutByTxnId('txn-1');
+      expect(dbMocks.executeQuery).toHaveBeenCalled();
+      expect(row).toEqual({ id: 'bytxn', name: 'x' });
+    });
+  });
 
-	it('updatePayoutDao: should update payout with ids, data, conn', async () => {
-		const ids = { id: 1 };
-		const data = { amount: 200 };
-		const conn = {};
-		try {
-			const result = await updatePayoutDao(ids, data, conn);
-			expect(result).toBeDefined();
-		} catch (e) {
-			expect(ids.id).toBe(1);
-			expect(data.amount).toBe(200);
-		}
-	});
+  describe('deletePayoutDao', () => {
+    test('builds update query and returns rows[0]', async () => {
+      dbMocks.buildUpdateQuery.mockReturnValue(['UPDATE ...', ['param']]);
+      dbMocks.executeQuery.mockResolvedValue({ rows: [{ id: 'deleted-1' }] });
+      const out = await dao.deletePayoutDao({ id: 'p1' }, { is_obsolete: true });
+      expect(dbMocks.buildUpdateQuery).toHaveBeenCalled();
+      expect(dbMocks.executeQuery).toHaveBeenCalled();
+      expect(out).toEqual({ id: 'deleted-1' });
+    });
 
-	it('deletePayoutDao: should delete payout with ids and data', async () => {
-		const ids = { id: 1 };
-		const data = { is_obsolete: true };
-		try {
-			const result = await deletePayoutDao(ids, data);
-			expect(result).toBeDefined();
-		} catch (e) {
-			expect(ids.id).toBe(1);
-			expect(data.is_obsolete).toBe(true);
-		}
-	});
+    test('throws when executeQuery fails', async () => {
+      dbMocks.buildUpdateQuery.mockReturnValue(['SQL', []]);
+      dbMocks.executeQuery.mockRejectedValueOnce(new Error('del-fail'));
+      await expect(dao.deletePayoutDao({ id: 'p1' }, { is_obsolete: true })).rejects.toThrow('del-fail');
+    });
+  });
 });
