@@ -2,7 +2,6 @@ const { createBankHistoryService } = require('./bankHistorySevice');
 const { getBankaccountDashBoardReportDao } = require('../bankAccounts/bankaccountDao');
 const { createBankHistoryDao } = require('./bankHistoryDao');
 const { logger } = require('../../utils/logger');
-const { BadRequestError } = require('../../utils/appErrors');
 
 jest.mock('../bankAccounts/bankaccountDao');
 jest.mock('./bankHistoryDao');

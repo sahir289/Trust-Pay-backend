@@ -66,7 +66,7 @@ jest.mock('../../utils/db.js', () => {
       release: jest.fn(),
       query: jest.fn().mockResolvedValue({ rows: [] }),
     }),
-    query: jest.fn().mockImplementation((query, params) => {
+    query: jest.fn().mockImplementation((query) => {
       if (query.includes('information_schema.tables')) {
         return Promise.resolve({ rows: [{ exists: true }] });
       }

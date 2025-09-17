@@ -11,8 +11,7 @@ import {
   writerPool,
   readerPool,
 } from '../utils/db.js';
-import { DbError } from '../utils/appErrors.js';
-import { logger } from '../utils/logger.js';
+
 
 jest.mock('pg'); // mock the entire pg module
 jest.mock('../utils/logger.js', () => ({

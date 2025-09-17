@@ -1,7 +1,6 @@
 // src/helpers/telegramApi.test.js
 const axios = require('axios');
 const { createTelegramSender } = require('./telegramApi');
-const config = require('../config/config');
 const { logger } = require('../utils/logger');
 const { BadRequestError } = require('../utils/appErrors');
 
@@ -30,7 +29,6 @@ jest.mock('../config/config', () => ({
 describe('Telegram Sender', () => {
   let telegramSender;
   let messageQueue;
-  let isProcessingQueue;
 
   beforeEach(() => {
     telegramSender = createTelegramSender();
@@ -39,7 +37,7 @@ describe('Telegram Sender', () => {
     // Reset internal queue & processing flag
     const telegramApiModule = require('./telegramApi');
     messageQueue = telegramApiModule.__getMessageQueue?.() || [];
-    isProcessingQueue = telegramApiModule.__getProcessingFlag?.() || false;
+    // isProcessingQueue = telegramApiModule.__getProcessingFlag?.() || false;
     messageQueue.length = 0;
     if (typeof telegramApiModule.__setProcessingFlag === 'function') {
       telegramApiModule.__setProcessingFlag(false);

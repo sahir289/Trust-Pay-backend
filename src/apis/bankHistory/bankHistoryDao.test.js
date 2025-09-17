@@ -1,6 +1,5 @@
 const { getBankHistoryDao, createBankHistoryDao } = require('./bankHistoryDao');
 const { executeQuery } = require('../../utils/db');
-const { tableName } = require('../../constants/index');
 const { logger } = require('../../utils/logger');
 const { BadRequestError } = require('../../utils/appErrors');
 

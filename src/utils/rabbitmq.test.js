@@ -1,12 +1,11 @@
 import amqp from 'amqplib';
 import * as rabbitUtils from './rabbitmq.js';
 import { logger } from './logger.js';
-import { Buffer } from 'buffer';
 
-// Mock amqplib and logger
 jest.mock('amqplib', () => ({
   connect: jest.fn(),
 }));
+
 jest.mock('./logger.js', () => ({
   logger: {
     info: jest.fn(),
@@ -15,11 +14,17 @@ jest.mock('./logger.js', () => ({
   },
 }));
 
-// Mock config to provide necessary fields for publishToQueue
 jest.mock('../config/config.js', () => ({
   rabbitmq: {
     exchangeName: 'ex',
     routingKey: 'rk',
+    url: 'amqp://test',
+    heartbeat: 10,
+    connectionTimeout: 1000,
+    prefetchCount: 1,
+    queueName: 'q',
+    retryAttempts: 1,
+    retryDelay: 10,
   },
 }));
 
@@ -28,9 +33,6 @@ describe('RabbitMQ Utilities', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Reset module state
-    rabbitUtils.channel = null;
-    rabbitUtils.connection = null;
 
     mockChannel = {
       prefetch: jest.fn().mockResolvedValue(undefined),
@@ -51,36 +53,18 @@ describe('RabbitMQ Utilities', () => {
       close: jest.fn().mockResolvedValue(undefined),
     };
 
-    // Reset and set up amqp.connect mock
     amqp.connect.mockReset();
-    amqp.connect.mockImplementation((url, options) => {
-      return Promise.resolve(mockConnection);
-    });
+    amqp.connect.mockImplementation(() => Promise.resolve(mockConnection));
   });
 
   afterEach(async () => {
+    await rabbitUtils.closeRabbitMQ();
     jest.clearAllMocks();
-    rabbitUtils.channel = null;
-    rabbitUtils.connection = null;
-    if (mockChannel?.close) await mockChannel.close();
-    if (mockConnection?.close) await mockConnection.close();
   });
 
   describe('connectRabbitMQ', () => {
     it('should connect and setup channel successfully', async () => {
-      const config = {
-        url: 'amqp://test',
-        heartbeat: 10,
-        connectionTimeout: 1000,
-        prefetchCount: 1,
-        exchangeName: 'ex',
-        queueName: 'q',
-        routingKey: 'rk',
-        retryAttempts: 1,
-        retryDelay: 10,
-      };
-
-      const result = await rabbitUtils.connectRabbitMQ(config);
+      const result = await rabbitUtils.connectRabbitMQ();
 
       expect(amqp.connect).toHaveBeenCalledWith('amqp://test', {
         heartbeat: 10,
@@ -92,28 +76,18 @@ describe('RabbitMQ Utilities', () => {
       expect(mockChannel.assertQueue).toHaveBeenCalledWith('q', { durable: true });
       expect(mockChannel.bindQueue).toHaveBeenCalledWith('q', 'ex', 'rk');
       expect(logger.info).toHaveBeenCalled();
-      expect(rabbitUtils.channel).toBe(mockChannel); // Strict equality
-      expect(rabbitUtils.connection).toBe(mockConnection);
+      expect(rabbitUtils.getRabbitChannel()).toBe(mockChannel);
       expect(result).toBe(mockChannel);
     });
   });
 
   describe('getRabbitChannel', () => {
-
     it('should return channel if initialized', async () => {
-      await rabbitUtils.connectRabbitMQ({
-        url: 'amqp://test',
-        heartbeat: 10,
-        connectionTimeout: 1000,
-        prefetchCount: 1,
-        exchangeName: 'ex',
-        queueName: 'q',
-        routingKey: 'rk',
-        retryAttempts: 1,
-        retryDelay: 10,
-      });
-      // expect(rabbitUtils.getRabbitChannel()).toEqual(mockChannel); 
-      expect(rabbitUtils.getRabbitChannel()).toMatchObject({
+      await rabbitUtils.connectRabbitMQ();
+
+      const channel = rabbitUtils.getRabbitChannel();
+
+      expect(channel).toMatchObject({
         ack: expect.any(Function),
         assertExchange: expect.any(Function),
         assertQueue: expect.any(Function),
@@ -125,8 +99,53 @@ describe('RabbitMQ Utilities', () => {
         publish: expect.any(Function),
         sendToQueue: expect.any(Function),
       });
-      
+    });
+
+    it('should throw error if channel not initialized', () => {
+      expect(() => rabbitUtils.getRabbitChannel()).toThrow(
+        'RabbitMQ channel not initialized. Did you call connectRabbitMQ()?'
+      );
     });
   });
 
+  describe('publishToQueue', () => {
+    it('should publish a message to the exchange', async () => {
+      await rabbitUtils.connectRabbitMQ();
+
+      const data = { hello: 'world' };
+      const result = await rabbitUtils.publishToQueue(data);
+
+      expect(mockChannel.publish).toHaveBeenCalledWith(
+        'ex',
+        'rk',
+        expect.any(Buffer),
+        { persistent: true }
+      );
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('publishToDirectQueue', () => {
+    it('should send a message to a queue', async () => {
+      await rabbitUtils.connectRabbitMQ();
+
+      const data = { msg: 'test' };
+      const result = await rabbitUtils.publishToDirectQueue('q', data);
+
+      expect(mockChannel.assertQueue).toHaveBeenCalledWith('q', { durable: true });
+      expect(mockChannel.sendToQueue).toHaveBeenCalledWith('q', expect.any(Buffer), { persistent: true });
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('closeRabbitMQ', () => {
+    it('should close channel and connection', async () => {
+      await rabbitUtils.connectRabbitMQ();
+      await rabbitUtils.closeRabbitMQ();
+
+      expect(mockChannel.close).toHaveBeenCalled();
+      expect(mockConnection.close).toHaveBeenCalled();
+      expect(() => rabbitUtils.getRabbitChannel()).toThrow();
+    });
+  });
 });
