@@ -27,12 +27,8 @@ import { updateUserDao } from '../users/userDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
 import { notifyBankResponseAccessUpdate } from '../../utils/sockets.js';
-const createVendorService = async (payload) => {
-  let conn;
+const createVendorService = async (conn, payload) => {
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    
     const parentId = payload.parent_id;
     const userDesignation = payload.designation;
     delete payload.parent_id;
@@ -98,26 +94,10 @@ const createVendorService = async (payload) => {
     //   category: 'Client',
     //   subCategory: 'Vendor'
     // });
-    await commit(conn);
     return data;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn);
-      } catch (rollbackError) {
-        logger.error('Error during transaction rollback:', rollbackError);
-      }
-    }
     logger.error('Error while creating Vendor', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error releasing connection:', releaseError);
-      }
-    }
   }
 };
 

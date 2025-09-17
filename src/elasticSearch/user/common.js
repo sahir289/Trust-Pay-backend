@@ -50,7 +50,6 @@ export const createUserInES = async (user) => {
     if (!user || !user.id) {
       throw new BadRequestError('User object must have an id property');
     }
-    console.log(user, "user here");
     // ensure only relevant fields are indexed (optional, based on your mappings)
     // const userDoc = {
     //   full_name: user.full_name,
