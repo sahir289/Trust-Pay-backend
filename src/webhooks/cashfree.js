@@ -1,33 +1,63 @@
-import crypto from 'crypto';
+// import crypto from 'crypto';
+import { Cashfree, CFEnvironment } from 'cashfree-pg';
+
 import config from '../config/config.js';
 import { logger } from '../utils/logger.js';
 import { sendSuccess } from '../utils/responseHandlers.js';
-import { AuthenticationError } from '../utils/appErrors.js';
+import { processPayInService } from '../apis/payIn/payInService.js';
+import { transactionWrapper } from '../utils/db.js';
+import { createBankResponse } from '../apis/bankResponse/bankResponseController.js';
+import { createBankResponseService } from '../apis/bankResponse/bankResponseServices.js';
+// import { AuthenticationError } from '../utils/appErrors.js';
 
+const env =
+  config.env === 'production'
+    ? CFEnvironment.PRODUCTION
+    : CFEnvironment.SANDBOX;
+const clientId =
+  config.env === 'production'
+    ? config.cashfree.clientIdProd
+    : config.cashfree.clientIdTest;
 const clientSecret =
   config.env === 'production'
     ? config.cashfree.clientSecretProd
     : config.cashfree.clientSecretTest;
 
+const cashfree = new Cashfree(env, clientId, clientSecret);
+
 export const cashfreeWebHook = async (req, res, next) => {
   try {
-    const signature = req.headers['x-webhook-signature'];
-    const rawBody = req.body.toString('utf-8');
-    const WEBHOOK_SECRET = clientSecret;
+    sendSuccess(res, 200, 'Webhook received successfully');
+    const rawBody = req.rawBody;
+    const eventData = req.body;
 
-    const computedSignature = crypto
-      .createHmac('sha256', WEBHOOK_SECRET)
-      .update(rawBody)
-      .digest('base64');
+    const {
+      'x-webhook-signature': signature,
+      'x-webhook-timestamp': timestamp,
+    } = req.headers;
 
-    if (signature === computedSignature) {
-      logger.log('Webhook verified:', req.body);
-      return sendSuccess(res, 200, 'Webhook received successfully');
-    } else {
-      throw new AuthenticationError('Invalid webhook signature');
+    try {
+      cashfree.PGVerifyWebhookSignature(signature, rawBody, timestamp);
+
+      logger.info('Webhook verified');
+    } catch (err) {
+      logger.error('Verification failed:', err.message);
     }
+
+    console.log(eventData, 'event data');
+    const payload = {
+      id,
+      userSubmittedUtr: eventData?.data?.payment?.cf_payment_id,
+      amount: eventData?.data?.order?.order_amount,
+    }
+    const payIn = await getPayInIntentDao(eventData?.data?.order?.order_id);
+    const bankResponsePayload = `${eventData?.data?.order?.order_amount} nil ${eventData?.data?.payment?.cf_payment_id} BANK45`;
+    const createdBankRes = await createBankResponseService(bankResponsePayload, payIn.companyId, 'CASHFREE', 'CASHFREE');
+    console.log(createdBankRes, 'createdBankRes');
+    const processPyin = await transactionWrapper(processPayInService)(payload);
+    console.log(processPyin, 'processPyin');
   } catch (error) {
-    logger.error('Cashfree webhook error:', error);
+    logger.error('Cashfree webhook error:', error.message || error);
     return next(error);
   }
 };
