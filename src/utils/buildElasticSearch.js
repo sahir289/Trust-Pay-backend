@@ -83,7 +83,34 @@ export const buildInES = async (reqId, reqData, indexName) => {
     throw error;
   }
 };
+export const updateInES = async (id, indexName, updateData) => {
+  try {
+    const esClient = await getESClient();
+    if (!id) throw new BadRequestError('Document ID is required');
+    if (!updateData || Object.keys(updateData).length === 0) {
+      throw new BadRequestError('Update data cannot be empty');
+    }
 
+    const data = await esClient.update({
+      index: indexName,
+      id: id.toString(), // Convert ID to string (Elasticsearch IDs are strings)
+      body: {
+        doc: updateData, // Partial update data
+      },
+    });
+
+    // Refresh index to make the updated document searchable immediately
+    await esClient.indices.refresh({ index: indexName });
+    logger.info(`Updated document with ID ${id} in index ${indexName}`);
+    return data;
+  } catch (error) {
+    logger.error(
+      `Error updating document with ID ${id} in Elasticsearch:`,
+      error,
+    );
+    throw error;
+  }
+};
 export const deleteInES = async (id, indexName) => {
   try {
     const esClient = await getESClient();

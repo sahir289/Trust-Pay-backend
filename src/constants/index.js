@@ -361,7 +361,19 @@ export const merchantColumns = {
     'is_enabled',
     'code',
   ],
-  SETTLEMENT: ['id', 'sno', 'status', 'amount', 'method', 'config', 'user_id', 'created_at', 'updated_at', 'approved_at', 'rejected_at'],
+  SETTLEMENT: [
+    'id',
+    'sno',
+    'status',
+    'amount',
+    'method',
+    'config',
+    'user_id',
+    'created_at',
+    'updated_at',
+    'approved_at',
+    'rejected_at',
+  ],
   CALCULATION: [
     'total_payin_count',
     'total_payin_amount',
@@ -451,7 +463,19 @@ export const vendorColumns = {
     'code',
     'created_at', //-- need bank details within date range
   ],
-  SETTLEMENT: ['id', 'sno', 'status', 'amount', 'method', 'config', 'user_id', 'created_at', 'updated_at', 'approved_at', 'rejected_at'],
+  SETTLEMENT: [
+    'id',
+    'sno',
+    'status',
+    'amount',
+    'method',
+    'config',
+    'user_id',
+    'created_at',
+    'updated_at',
+    'approved_at',
+    'rejected_at',
+  ],
   CALCULATION: [
     'total_payin_count',
     'total_payin_amount',
@@ -521,15 +545,7 @@ export const vendorColumns = {
     'bank_used_for',
     'config',
   ],
-  BANK_RESPONSE: [
-    'id',
-    'sno',
-    'status',
-    'bank_id',
-    'amount',
-    'utr',
-    'is_used',
-  ],
+  BANK_RESPONSE: ['id', 'sno', 'status', 'bank_id', 'amount', 'utr', 'is_used'],
   VENDOR: [
     'first_name',
     'last_name',
@@ -571,7 +587,7 @@ export const tableName = {
   BENEFICIARY_ACCOUNTS: 'BeneficiaryAccounts',
   NOTIFICATIONS: 'Notifications',
   NOTIFICATION_RECIPIENTS: 'NotificationRecipients',
-  BANK_HISTORY : 'BankHistory'
+  BANK_HISTORY: 'BankHistory',
 };
 
 export const BankTypes = {
@@ -655,7 +671,13 @@ export const AccessRoles = {
     Role.VENDOR,
     Role.VENDOR_OPERATIONS,
   ],
-  COMPANY: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.VENDOR, Role.VENDOR_OPERATIONS],
+  COMPANY: [
+    Role.ADMIN,
+    Role.TRANSACTIONS,
+    Role.OPERATIONS,
+    Role.VENDOR,
+    Role.VENDOR_OPERATIONS,
+  ],
   USER_HIERARCHY: {
     CREATE_DELETE: [Role.ADMIN, Role.TRANSACTIONS],
     UPDATE_READ: [Role.ADMIN, Role.TRANSACTIONS, Role.MERCHANT],
@@ -788,14 +810,14 @@ export const europeanCountries = [
 ];
 
 export const payAssistErrorCodeMap = {
-  '11': 'Insufficient Funds',
-  '12': 'Transaction already exists',
-  '13': 'Insufficient Funds',
-  '14': 'Invalid Account Details',
-  '15': 'Invalid Account Details'
+  11: 'Insufficient Funds',
+  12: 'Transaction already exists',
+  13: 'Insufficient Funds',
+  14: 'Invalid Account Details',
+  15: 'Invalid Account Details',
 };
 
-export const unblocked_countries=[
+export const unblocked_countries = [
   {
     country: 'India',
     regions: [
@@ -845,7 +867,7 @@ export const userFields = [
   'user_name',
   'code',
   'designation',
-  'email'
+  'email',
 ];
 export const bankResponseSearchableFields = [
   'id',
@@ -860,3 +882,53 @@ export const bankResponseSearchableFields = [
   'updated_by',
   'nick_name',
 ];
+
+export const payinSearchableFields = [
+  'id',
+  'sno',
+  'upi_short_code',
+  'qr_params',
+  'amount',
+  'status',
+  'user_submitted_utr',
+  'currency',
+  'merchant_order_id',
+  'user',
+  'bank_acc_id',
+  'merchant_id',
+  'bank_response_id',
+  'payin_merchant_commission',
+  'payin_vendor_commission',
+  'config',
+  'company_id',
+  'created_by',
+  'updated_by',
+];
+
+
+
+
+export const PayoutSearchableFields = [
+  'id',
+  'sno',
+  'user',
+  'merchant_id',
+  'bank_acc_id',
+  'amount',
+  'status',
+  'failed_reason',
+  'currency',
+  'merchant_order_id',
+  'acc_no',
+  'acc_holder_name',
+  'ifsc_code',
+  'bank_name',
+  'upi_id',
+  'utr_id',
+  'rejected_reason',
+  'payout_merchant_commission',
+  'payout_vendor_commission',
+  'config',
+  'created_by',
+  'updated_by',
+]

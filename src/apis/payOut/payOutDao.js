@@ -5,7 +5,12 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
+import { createPayoutInES ,updatePayoutInES} from '../../elasticSearch/payout/common.js';
+import { getPayoutByESSearch } from '../../elasticSearch/payout/common.js';
+import { getMerchantForEsDao } from '../merchants/merchantDao.js';
+import { getVendorCodeDao } from '../vendors/vendorDao.js';
 import { logger } from '../../utils/logger.js';
+import { getUsersNameDao } from '../users/userDao.js';
 import dayjs from 'dayjs';
 const IST = 'Asia/Kolkata';
 
@@ -20,7 +25,25 @@ export const createPayoutDao = async (conn, data) => {
     const result = conn
       ? await conn.query(sql, params)
       : await executeQuery(sql, params);
-
+    const insertedEntry = result.rows[0];
+    const merchant = await getMerchantForEsDao(insertedEntry.merchant_id);
+    insertedEntry.merchant_details = {
+      merchant_code: merchant.code,
+      return_url: merchant.config?.return_url || null,
+      notify_url: merchant.config?.notify_url || null,
+      public_key: merchant.config?.keys?.public || null,
+      private_key: merchant.config?.keys?.private || null
+    };
+    insertedEntry.user_bank_details = {
+      account_holder_name:insertedEntry.acc_holder_name,
+      account_no:insertedEntry.acc_no,
+      ifsc_code: insertedEntry.ifsc_code,
+      bank_name: insertedEntry.bank_name
+    };
+    const user =await getUsersNameDao(insertedEntry.created_by);
+    insertedEntry.created_by = user.user_name;
+    insertedEntry.updated_by = user.user_name;
+    await createPayoutInES(insertedEntry);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in createPayoutDao:', error);
@@ -51,7 +74,15 @@ export const assignedPayoutDao = async (
       const result = conn
         ? await conn.query(sql, params)
         : await executeQuery(sql, params);
-
+      const vendor_code = await getVendorCodeDao(vendorId.id);
+      const user = await getUsersNameDao(updated_by);
+      const esResult = {
+        ...updatedData,
+        vendor_code: vendor_code?.code || null,
+        updated_by: user?.user_name || null,
+        updated_at: new Date().toISOString(),
+      };
+      await updatePayoutInES(data, esResult);
       results.push(result.rows[0].id);
     }
     return results;
@@ -480,7 +511,15 @@ export const getPayoutsBySearchDao = async (
   try {
     // Initialize base conditions for main query
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
-
+    if (filters.search) {
+        const searchData = await getPayoutByESSearch(filters.search);
+        let data = {
+                     totalCount: searchData?.length,
+                     totalPages: 12,
+                     payout: searchData,
+                   };
+          return data;
+    }
     // Parameters for main query
     const queryParams = [filters.company_id];
     let paramIndex = 2; // Start from 2 since $1 is used
@@ -907,16 +946,34 @@ export const updatePayoutDao = async (ids, data, conn) => {
         };
       }
     }
-
+  const result = await buildAndExecuteUpdateQuery(
+    tableName.PAYOUT,
+    updateData,
+    ids,
+    {}, // No special fields
+    { returnUpdated: true },
+    conn,
+  );
+  console.log("update payout dao result", data);
+  const user = await getUsersNameDao(data.updated_by);
+  let esResult = {
+    ...updateData,
+    updated_by: user?.user_name || null,
+    updated_at: result.rows[0]?.updated_at ,
+    approved_at: result.rows[0]?.approved_at ,
+    rejected_at: result.rows[0]?.rejected_at ,
+  };
+    
+  if (('vendor_id' in data)) {
+    console.log('inside missing vendor id');
+    esResult = {
+      ...esResult,
+      vendor_code: null,
+    };
+  }
+  await updatePayoutInES(ids.id, esResult);
     // Use buildAndExecuteUpdateQuery
-    return await buildAndExecuteUpdateQuery(
-      tableName.PAYOUT,
-      updateData,
-      ids,
-      {}, // No special fields
-      { returnUpdated: true },
-      conn,
-    );
+  return result;
   } catch (error) {
     logger.error('Error occurred while updating payout:', error);
     throw error;

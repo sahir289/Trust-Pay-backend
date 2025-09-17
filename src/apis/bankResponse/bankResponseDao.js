@@ -1,6 +1,9 @@
 import dayjs from 'dayjs';
 import { tableName } from '../../constants/index.js';
-import { getBankResponseByESSearch } from '../../elasticSearch/bankResponse/common.js';
+import {
+  getBankResponseByESSearch,
+  updateBankResponseInES,
+} from '../../elasticSearch/bankResponse/common.js';
 import { createBankResponseInES } from '../../elasticSearch/bankResponse/common.js';
 // import { InternalServerError } from '../../utils/appErrors.js';
 // import { generateUUID } from '../utils/generateUUID.js';
@@ -597,7 +600,23 @@ const getClaimResponseDao = async (filters) => {
     throw error;
   }
 };
-
+// const getBankResponseForEsDao = async (bankId) => {
+//   try {
+//     const sql = `
+//       SELECT 
+//         utr,
+//         amount
+//       FROM "${tableName.BANK_RESPONSE}"
+//       WHERE id = $1
+//     `;
+//     console.log()
+//     const result = await executeQuery(sql, [bankId]);
+//     return result.rows[0] || null;
+//   } catch (error) {
+//     logger.error('Error getting bank account nickname:', error);
+//     throw error;
+//   }
+// };
 const getBankResponsesforFreeze = async (filters) => {
   try {
     const { bank_id, status, is_used } = filters;
@@ -1039,12 +1058,26 @@ const createBankResponseDao = async (conn, data) => {
 export const updateBankResponseDao = async (id, data, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, id);
+    let result;
     if (conn && conn.query) {
-      const result = await conn.query(sql, params);
+      result = await conn.query(sql, params);
       // await newTableEntry(tableName.BANK_RESPONSE);
-      return result.rows[0];
     }
-    const result = await executeQuery(sql, params);
+    else {
+      result = await executeQuery(sql, params);
+    }
+    let insertedEntry = {
+      ...data,
+      updated_at: result.rows[0].updated_at,
+    };
+    if (data.bank_id) {
+      const nickName = await getBankAccountNickNameForEsDao(data.bank_id);
+      insertedEntry = {
+        ...insertedEntry,
+        nick_name: nickName.nick_name,
+      }
+    }
+    await updateBankResponseInES(result.rows[0].id, insertedEntry);
     // await newTableEntry(tableName.BANK_RESPONSE);
     return result.rows[0];
   } catch (error) {
@@ -1087,6 +1120,20 @@ const resetBankResponseDao = async (id, data) => {
       id,
     });
     const result = await executeQuery(sql, params);
+    let insertedEntry = {
+      ...data,
+      updated_at: result.rows[0].updated_at,
+    };
+    if (data.bank_id) {
+      const nickName = await getBankAccountNickNameForEsDao(
+        data.bank_id
+      );
+      insertedEntry = {
+        ...insertedEntry,
+        nick_name: nickName.nick_name,
+      };
+    }
+    await updateBankResponseInES(result.rows[0].id, insertedEntry);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in resetBankResponseDao:', error);
@@ -1106,6 +1153,18 @@ const updateBotResponseDao = async (id, data, conn) => {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
     // await newTableEntry(tableName.BANK_RESPONSE);
+    let insertedEntry = {
+      ...data,
+      updated_at: result.rows[0].updated_at,
+    };
+    if (data.bank_id) {
+      const nickName = await getBankAccountNickNameForEsDao(data.bank_id);
+      insertedEntry = {
+        ...insertedEntry,
+        nick_name: nickName.nick_name,
+      };
+    }
+    await updateBankResponseInES(result.rows[0].id, insertedEntry);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateBotResponseDao:', error);
@@ -1125,4 +1184,5 @@ export {
   resetBankResponseDao,
   updateBotResponseDao,
   getBankResponsesforFreeze,
+  // getBankResponseForEsDao
 };

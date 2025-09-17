@@ -1,6 +1,10 @@
 /* eslint-disable no-constant-condition */
 import { BadRequestError } from '../../utils/appErrors.js';
-import { buildInES, buildESQuery } from '../../utils/buildElasticSearch.js';
+import {
+  buildInES,
+  buildESQuery,
+  updateInES,
+} from '../../utils/buildElasticSearch.js';
 import getESClient from '../../utils/elasticClient.js';
 import { logger } from '../../utils/logger.js';
 import { bankResponseSearchableFields } from '../../constants/index.js';
@@ -64,6 +68,31 @@ export const createBankResponseInES = async (bankResponse) => {
     };
   } catch (error) {
     logger.error('Error indexing bankResponse in Elasticsearch:', error);
+    throw error;
+  }
+};
+
+
+export const updateBankResponseInES = async (id, updateData) => {
+  try {
+    // Validate input
+    if (!id) {
+      throw new BadRequestError('Bank response ID is required');
+    }
+    if (!updateData || Object.keys(updateData).length === 0) {
+      throw new BadRequestError('Update data cannot be empty');
+    }
+    const result = await updateInES(id, 'bankresponse', updateData);
+    return {
+      success: true,
+      id,
+      result: result.body,
+    };
+  } catch (error) {
+    logger.error(
+      `Error updating bankResponse with ID ${id} in Elasticsearch:`,
+      error,
+    );
     throw error;
   }
 };
