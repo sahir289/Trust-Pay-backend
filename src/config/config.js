@@ -22,7 +22,7 @@ function config(Env) {
       temp_token_expires: Env?.TEMP_TOKEN_EXPIRES,
     },
     rabbitmq : {
-      url: Env?.RABBITMQ_URL || 'amqp://localhost:567',
+      url: Env?.RABBITMQ_URL || 'amqp://localhost:5672',
       queueName: Env?.RABBITMQ_QUEUE_NAME || 'trust-pay-queue',
       exchangeName: Env?.RABBITMQ_EXCHANGE_NAME || 'trust-pay-exchange',
       routingKey: Env?.RABBITMQ_ROUTING_KEY || 'trust-pay-routing-key',
