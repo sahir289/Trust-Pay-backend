@@ -36,7 +36,7 @@ export const createCashfreeOrder = async (deposit, amount) => {
     const data = cashFreeResponse.data;
     return data;
   } catch (error) {
-    logger.error('Cashfree order creation error:', error.message);
+    logger.error('Cashfree order creation error:', err.response?.data || err.message);
   }
 
   //   const requestBody = JSON.stringify({
