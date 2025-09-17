@@ -945,3 +945,22 @@ export const PayoutSearchableFields = [
   'created_by',
   'updated_by',
 ]
+export const SettlementSearchableFields = [
+  'id',
+  'sno',
+  'status',
+  'amount',
+  'method',
+  'config',
+  'user_id',
+  'created_by',
+  'updated_by',
+  'code',
+  'ifsc',
+  'acc_no',
+  'acc_holder_name',
+  'bank_name',
+  'debit_credit',
+  'reference_id',
+  'description',
+];

@@ -31,7 +31,7 @@ export const getUsersContactDao = async (company_id, contact_no) => {
 export const getUsersNameDao = async  (user_id) => {
   try {
     const sql = `
-      SELECT user_name
+      SELECT user_name ,code
       FROM "${tableName.USER}" 
       WHERE is_obsolete = FALSE
         AND id = $1
