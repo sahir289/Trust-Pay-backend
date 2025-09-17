@@ -378,7 +378,9 @@ export const generatePayInUrlService = async (
     // await newTableEntry(tableName.PAYIN);
     return result;
   } catch (error) {
-    throw new BadRequestError(error.message);
+    // throw new BadRequestError(error.message);
+    logger.error('Error get payin url:', error);
+    throw error;
   }
 };
 

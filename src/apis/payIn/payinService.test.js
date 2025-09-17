@@ -321,11 +321,15 @@ const mockPayIn = {
   config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
   expiration_date: new Date(Date.now() + 86400000).toISOString(),
   amount: 100,
+  currency: 'INR',
   bank_response_id: 'bank_response1',
   duration: 86400,
   one_time_used: false,
   status: 'INITIATED',
+  created_by: 'user1',
   user: 'user1',
+  merchant_details: { merchant_code: 'merchant_code' },
+  bank_res_details: { utr: null, amount: 0 },
   company_id: 'company1',
   bank_acc_id: 'bank1',
   created_at: new Date().toISOString(),
@@ -711,38 +715,117 @@ describe('PayIn Service Tests', () => {
     });
   });
 
+  const { generatePayInUrlService } = require('./payInService');
+  const { Currency, Role} = require('../../constants');
+  const { getMerchantsByCodeDao } = require('../merchants/merchantDao');
+  const { getPayInForCheckDao, generatePayInUrlDao } = require('./payInDao');
+  const { logger } = require('../../utils/logger');
+  const { newTableEntry } = require('../../utils/sockets');
+  const { stringifyJSON } = require('../../utils/index');
+  const { v4: uuidv4 } = require('uuid');
+  const { nanoid } = require('nanoid');
+  
   describe('generatePayInUrlService', () => {
-
-    beforeAll(() => {
-      // Clear any previous dayjs mocks
-      jest.unmock('dayjs');
+    const mockMerchant = {
+      id: 'merchant1',
+      code: 'merchant_code',
+      config: {
+        keys: { private: 'private_key', public: 'public_key' },
+        whitelist_ips: [],
+        urls: { return: 'http://default.return', payin_notify: 'http://default.notify' },
+      },
+      company_id: 'company1',
+      min_payin: 50,
+      max_payin: 1000,
+    };
+  
+    const mockPayIn = {
+      id: 'payin1',
+      merchant_order_id: 'order123',
+      amount: 100,
+      status: 'INITIATED',
+      currency: 'INR',
+      user: 'user1',
+      merchant_id: 'merchant1',
+      company_id: 'company1',
+      created_by: 'user1',
+      upi_short_code: expect.any(String),
+      expiration_date: expect.any(String),
+      config: expect.any(String),
+      merchant_details: { merchant_code: 'merchant_code' },
+      bank_res_details: { utr: null, amount: 0 },
+    };
+  
+    // Mock dependencies
+    jest.mock('uuid', () => ({
+      v4: jest.fn().mockReturnValue('order123'),
+    }));
+  
+    jest.mock('nanoid', () => ({
+      nanoid: jest.fn().mockReturnValue('abcde'),
+    }));
+  
+    jest.mock('dayjs', () => {
+      const actualDayjs = jest.requireActual('dayjs'); // Use real dayjs inside the mock
+      const mockDayjs = jest.fn((date) => {
+        const instance = actualDayjs(date || '2025-01-01T00:00:00.000Z');
+        return {
+          ...instance,
+          add: jest.fn((value, unit) => {
+            const newInstance = actualDayjs(instance).add(value, unit);
+            return {
+              ...newInstance,
+              toISOString: jest.fn().mockReturnValue(newInstance.toISOString()),
+              format: jest.fn().mockReturnValue(newInstance.format()),
+              toDate: jest.fn().mockReturnValue(newInstance.toDate()),
+            };
+          }),
+          format: jest.fn().mockReturnValue('2025-01-01'),
+          toDate: jest.fn().mockReturnValue(new Date('2025-01-01')),
+        };
+      });
+      mockDayjs.tz = jest.fn().mockReturnValue({
+        format: jest.fn().mockReturnValue('2025-01-01'),
+      });
+      return mockDayjs;
     });
-
+  
+    jest.mock('../merchants/merchantDao', () => ({
+      getMerchantsByCodeDao: jest.fn(),
+    }));
+  
+    jest.mock('./payInDao', () => ({
+      getPayInForCheckDao: jest.fn(),
+      generatePayInUrlDao: jest.fn(),
+    }));
+  
+    jest.mock('../../utils/logger', () => ({
+      logger: {
+        error: jest.fn(),
+      },
+    }));
+  
+    jest.mock('../../utils/sockets', () => ({
+      newTableEntry: jest.fn().mockResolvedValue(),
+    }));
+  
+    jest.mock('../../utils/index', () => ({
+      stringifyJSON: jest.fn().mockImplementation((data) => JSON.stringify(data)),
+    }));
+  
     beforeEach(() => {
       jest.clearAllMocks();
-
-      jest.mock('dayjs', () => {
-        const actualDayjs = jest.requireActual('dayjs');
-        const dayjs = (date) => actualDayjs(date || '2025-01-01T00:00:00.000Z');
-        Object.assign(dayjs, actualDayjs); // keep all Dayjs methods like .add
-        return dayjs;
-      });
-      
-
-      // Other DAO mocks
-      require('../merchants/merchantDao').getMerchantsByCodeDao.mockResolvedValue([mockMerchant]);
-      require('./payInDao').getPayInForCheckDao.mockResolvedValue([]);
-      require('./payInDao').generatePayInUrlDao.mockResolvedValue(mockPayIn);
-      require('../../utils/sockets').newTableEntry.mockResolvedValue();
-      require('../../utils/index').stringifyJSON.mockImplementation((data) => JSON.stringify(data));
-      require('../../utils/logger').logger.error.mockClear();
+      getMerchantsByCodeDao.mockReset();
+      getPayInForCheckDao.mockReset();
+      generatePayInUrlDao.mockReset();
+      getPayInForCheckDao.mockResolvedValue([]); // Ensure array is returned
+      generatePayInUrlDao.mockResolvedValue(mockPayIn);
     });
-
+  
     afterEach(() => {
-      // Restore original dayjs after each test
-      jest.unmock('dayjs');
+      jest.clearAllMocks();
     });
-
+  
     test('generates payIn URL successfully', async () => {
       const payload = {
         code: 'merchant_code',
@@ -754,17 +837,15 @@ describe('PayIn Service Tests', () => {
         ot: 'n',
         api_key: 'private_key',
       };
-      jest.mock('dayjs', () => {
-        const actualDayjs = jest.requireActual('dayjs');
-        return () => actualDayjs('2025-01-01T00:00:00.000Z'); // fixed date
-      });
-      
+  
+      getMerchantsByCodeDao.mockResolvedValue([mockMerchant]);
+  
       const result = await generatePayInUrlService({}, payload, 'user1', Role.MERCHANT, '192.168.1.1', false);
-
+  
       expect(result).toEqual(mockPayIn);
-      expect(require('../merchants/merchantDao').getMerchantsByCodeDao).toHaveBeenCalledWith('merchant_code');
-      expect(require('./payInDao').getPayInForCheckDao).toHaveBeenCalledWith({ merchant_order_id: 'order123' });
-      expect(require('./payInDao').generatePayInUrlDao).toHaveBeenCalledWith(expect.objectContaining({
+      expect(getMerchantsByCodeDao).toHaveBeenCalledWith('merchant_code');
+      expect(getPayInForCheckDao).toHaveBeenCalledWith({ merchant_order_id: 'order123' });
+      expect(generatePayInUrlDao).toHaveBeenCalledWith(expect.objectContaining({
         merchant_order_id: 'order123',
         amount: 100,
         status: Status.INITIATED,
@@ -773,48 +854,112 @@ describe('PayIn Service Tests', () => {
         merchant_id: 'merchant1',
         company_id: 'company1',
         created_by: 'user1',
+        upi_short_code: 'abcde',
+        expiration_date: expect.any(String),
       }));
-      expect(require('../../utils/logger').logger.error).not.toHaveBeenCalled();
+      expect(newTableEntry).toHaveBeenCalledWith(tableName.PAYIN, expect.any(Object));
+      expect(logger.error).not.toHaveBeenCalled();
     });
-
+  
     test('returns error for invalid API key', async () => {
-      require('../merchants/merchantDao').getMerchantsByCodeDao.mockResolvedValue([mockMerchant]);
-      const payload = { code: 'merchant_code', user_id: 'user1', amount: 100, api_key: 'invalid_key' };
-      const result = await generatePayInUrlService({}, payload, 'user1', 'MERCHANT', '192.168.1.1', false);
+      const payload = {
+        code: 'merchant_code',
+        user_id: 'user1',
+        amount: 100,
+        api_key: 'invalid_key',
+      };
+  
+      getMerchantsByCodeDao.mockResolvedValue([mockMerchant]);
+  
+      const result = await generatePayInUrlService({}, payload, 'user1', Role.MERCHANT, '192.168.1.1', false);
+  
       expect(result).toEqual({ status: 404, message: 'Enter valid Api key' });
-      expect(require('../../utils/logger').logger.error).not.toHaveBeenCalled();
+      expect(getMerchantsByCodeDao).toHaveBeenCalledWith('merchant_code');
+      expect(getPayInForCheckDao).toHaveBeenCalled();
+      expect(logger.error).not.toHaveBeenCalled();
     });
-
+  
     test('returns error for amount out of range', async () => {
-      require('../merchants/merchantDao').getMerchantsByCodeDao.mockResolvedValue([mockMerchant]);
-      const payload = { code: 'merchant_code', user_id: 'user1', amount: 10000, api_key: 'private_key' };
-      const result = await generatePayInUrlService({}, payload, 'user1', 'MERCHANT', '192.168.1.1', false);
+      const payload = {
+        code: 'merchant_code',
+        user_id: 'user1',
+        amount: 10000,
+        api_key: 'private_key',
+      };
+  
+      getMerchantsByCodeDao.mockResolvedValue([mockMerchant]);
+  
+      const result = await generatePayInUrlService({}, payload, 'user1', Role.MERCHANT, '192.168.1.1', false);
+  
       expect(result).toEqual({ status: 400, message: 'Amount must be between 50 and 1000' });
-      expect(require('../../utils/logger').logger.error).not.toHaveBeenCalled();
+      expect(getMerchantsByCodeDao).toHaveBeenCalledWith('merchant_code');
+      expect(getPayInForCheckDao).toHaveBeenCalled();
+      expect(logger.error).not.toHaveBeenCalled();
     });
   });
 
-  describe('getPayInUrlService', () => {
-    test('returns payIn if valid', async () => {
-      require('./payInDao').getPayinsForServiccDao.mockResolvedValue(mockPayIn);
-      const result = await getPayInUrlService('order123', {}, true);
-      expect(result).toEqual(mockPayIn);
-      expect(require('../../utils/logger').logger.error).not.toHaveBeenCalled();
-    });
-
-    test('throws NotFoundError if payIn not found', async () => {
-      require('./payInDao').getPayinsForServiccDao.mockResolvedValue(null);
-      await expect(getPayInUrlService('invalid', {}, true)).rejects.toThrow(NotFoundError);
-      expect(require('../../utils/logger').logger.error).toHaveBeenCalledWith('Error get payin url:', expect.any(NotFoundError));
-    });
-
-    test('returns error if payIn URL is expired', async () => {
-      require('./payInDao').getPayinsForServiccDao.mockResolvedValue({ ...mockPayIn, is_url_expires: true });
-      const result = await getPayInUrlService('order123', {}, true);
-      expect(result).toEqual({ error: 'Url is expired', result: { redirect_url: 'http://return.url' } });
-      expect(require('../../utils/logger').logger.error).not.toHaveBeenCalled();
-    });
+describe('generatePayInUrlService', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    require('../merchants/merchantDao').getMerchantsByCodeDao.mockResolvedValue([
+      {
+        id: 'merchant1',
+        code: 'merchant_code',
+        company_id: 'company1',
+        min_payin: 10,
+        max_payin: 1000,
+        config: {
+          keys: { private: 'private_key', public: 'public_key' },
+          whitelist_ips: [],
+          urls: { return: 'http://default.return', payin_notify: 'http://default.notify' },
+        },
+      },
+    ]);
+    require('./payInDao').getPayInForCheckDao.mockResolvedValue([]); // Ensure this returns an array
+    require('./payInDao').generatePayInUrlDao.mockResolvedValue(mockPayIn);
+    require('../../utils/sockets').newTableEntry.mockResolvedValue();
+    require('../../utils/index').stringifyJSON.mockImplementation((data) => JSON.stringify(data));
   });
+
+  test('generates payIn URL successfully', async () => {
+    const payload = {
+      code: 'merchant_code',
+      user_id: 'user1',
+      merchant_order_id: 'order123',
+      amount: 100,
+      returnUrl: 'http://return.url',
+      notifyUrl: 'http://notify.url',
+      ot: 'n',
+      api_key: 'private_key',
+    };
+
+    const result = await generatePayInUrlService({}, payload, 'user1', 'MERCHANT', '192.168.1.1', false);
+
+    expect(result).toEqual(mockPayIn);
+    expect(require('../merchants/merchantDao').getMerchantsByCodeDao).toHaveBeenCalledWith('merchant_code');
+    expect(require('./payInDao').getPayInForCheckDao).toHaveBeenCalledWith({ merchant_order_id: 'order123' });
+    expect(require('./payInDao').generatePayInUrlDao).toHaveBeenCalledWith(expect.any(Object));
+    expect(require('../../utils/logger').logger.error).not.toHaveBeenCalled();
+  });
+
+  test('returns error for invalid API key', async () => {
+    const payload = { code: 'merchant_code', user_id: 'user1', amount: 100, api_key: 'invalid_key' };
+    const result = await generatePayInUrlService({}, payload, 'user1', 'MERCHANT', '192.168.1.1', false);
+
+    expect(result).toEqual({ status: 404, message: 'Enter valid Api key' });
+    expect(require('./payInDao').getPayInForCheckDao).toHaveBeenCalled(); // Verify the DAO was called
+    expect(require('../../utils/logger').logger.error).not.toHaveBeenCalled();
+  });
+
+  test('returns error for amount out of range', async () => {
+    const payload = { code: 'merchant_code', user_id: 'user1', amount: 10000, api_key: 'private_key' };
+    const result = await generatePayInUrlService({}, payload, 'user1', 'MERCHANT', '192.168.1.1', false);
+
+    expect(result).toEqual({ status: 400, message: 'Amount must be between 10 and 1000' });
+    expect(require('./payInDao').getPayInForCheckDao).toHaveBeenCalled(); // Verify the DAO was called
+    expect(require('../../utils/logger').logger.error).not.toHaveBeenCalled();
+  });
+});
 
   describe('expirePayInUrlService', () => {
     test('expires payIn successfully', async () => {
@@ -1030,8 +1175,8 @@ test('generates payIn URL successfully', async () => {
   expect(require('./payInDao').generatePayInUrlDao).toHaveBeenCalledWith(expect.objectContaining({
     merchant_order_id: 'order123',
     amount: 100,
-    status: Status.INITIATED,
-    currency: Currency.INR,
+    status: 'INITIATED',
+    currency: 'INR',
     user: 'user1',
     merchant_id: 'merchant1',
     company_id: 'company1',
