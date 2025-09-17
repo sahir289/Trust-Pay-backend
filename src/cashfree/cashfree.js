@@ -1,11 +1,11 @@
-import { Cashfree } from 'cashfree-pg';
+import { Cashfree, CFEnvironment } from 'cashfree-pg';
 import { Currency } from '../constants/index.js';
 import { logger } from '../utils/logger.js';
 import config from '../config/config.js';
 import { BadRequestError } from '../utils/appErrors.js';
 
 const env =
-  config.env === 'production' ? Cashfree.PRODUCTION : Cashfree.SANDBOX;
+  config.env === 'production' ? CFEnvironment.PRODUCTION : CFEnvironment.SANDBOX;
 const clientId =
   config.env === 'production'
     ? config.cashfree.clientIdProd
@@ -36,7 +36,10 @@ export const createCashfreeOrder = async (deposit, amount) => {
     const data = cashFreeResponse.data;
     return data;
   } catch (error) {
-    logger.error('Cashfree order creation error:', error.response?.data || error.message);
+    logger.error(
+      'Cashfree order creation error:',
+      error.response?.data || error.message,
+    );
   }
 
   //   const requestBody = JSON.stringify({
