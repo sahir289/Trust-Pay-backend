@@ -69,7 +69,7 @@ const getVendorsBySearch = async (req, res) => {
 
 const getVendorCodes = async (req, res) => {
   const { company_id, user_id, role, designation } = req.user;
-  const { includeSubVendors, includeOnlyVendors, excludeDisabledVendor } = req.query;
+  const { includeSubVendors, includeOnlyVendors, excludeDisabledVendor, includeSeperateSubVendors } = req.query;
   const filters = { company_id };
   const data = await getVendorsCodeService(
     filters,
@@ -79,6 +79,7 @@ const getVendorCodes = async (req, res) => {
     includeSubVendors,
     includeOnlyVendors,
     excludeDisabledVendor,
+    includeSeperateSubVendors,
   );
   // Log success message
   // Send success response

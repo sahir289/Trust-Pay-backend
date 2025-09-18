@@ -748,7 +748,7 @@ export const checkPayInStatusService = async (
 };
 
 export const payInIntentGenerateOrderService = async (
-  payInId,
+  merchantOrderId,
   // company_id,
   amount,
   provider,
@@ -756,7 +756,7 @@ export const payInIntentGenerateOrderService = async (
   // validating if it exist
   try {
    
-    const payIn = await getPayInIntentDao(payInId);
+    const payIn = await getPayInIntentDao(merchantOrderId);
     checkIsPayInExpired(payIn);
     const createOrder = await createCashfreeOrder(payIn, amount);
     const session_id = createOrder?.payment_session_id;
