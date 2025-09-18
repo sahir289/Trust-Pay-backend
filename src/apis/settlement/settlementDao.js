@@ -290,8 +290,8 @@ const getSettlementsBySearchDao = async (
     const conditions = ['s.is_obsolete = false'];
     const queryParams = [];
     let paramIndex = 1;
-if (filters.search) {
-        const searchData = await getSettlementByESSearch(filters.search);
+    if (filters.search) {
+        const searchData = await getSettlementByESSearch(filters.search ,filters);
         let data = {
           totalCount: searchData?.length,
           totalPages: 12,
@@ -658,7 +658,7 @@ const createSettlementDao = async (payload, conn) => {
     insertedEntry.created_by = createdBy?.user_name || insertedEntry.created_by;
     insertedEntry.updated_by = createdBy?.user_name || insertedEntry.updated_by;
     insertedEntry.code = code?.code || null;
-
+    insertedEntry.role = code?.role || null;
     if (insertedEntry.config && typeof insertedEntry.config === 'object') {
       Object.entries(insertedEntry.config).forEach(([key, value]) => {
         insertedEntry[key] = value ?? null; // Use nullish coalescing to set null if value is undefined or null
@@ -695,7 +695,6 @@ const updateSettlementDao = async (conn, id, data) => {
         insertedEntry[key] = value ?? null; 
       });
     }
-   console.log('insertedEntry', insertedEntry,(result.rows[0].id));
    await updatesettlementInES(result.rows[0].id, insertedEntry);
     return result.rows[0];
   } catch (error) {

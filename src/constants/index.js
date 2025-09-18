@@ -915,6 +915,7 @@ export const payinSearchableFields = [
   'company_id',
   'created_by',
   'updated_by',
+  'nick_name',
 ];
 
 
@@ -943,6 +944,8 @@ export const PayoutSearchableFields = [
   'config',
   'created_by',
   'updated_by',
+  'vendor_code',
+  'nick_name',
 ]
 export const SettlementSearchableFields = [
   'id',

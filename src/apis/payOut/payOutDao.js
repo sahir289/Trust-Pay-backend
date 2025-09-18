@@ -11,6 +11,7 @@ import { getMerchantForEsDao } from '../merchants/merchantDao.js';
 import { getVendorCodeDao } from '../vendors/vendorDao.js';
 import { logger } from '../../utils/logger.js';
 import { getUsersNameDao } from '../users/userDao.js';
+import { getBankAccountNickNameForPayinEsDao } from '../bankAccounts/bankaccountDao.js';
 import dayjs from 'dayjs';
 const IST = 'Asia/Kolkata';
 
@@ -512,6 +513,8 @@ export const getPayoutsBySearchDao = async (
     // Initialize base conditions for main query
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
     if (filters.search) {
+      delete filters.page;
+      delete filters.limit;
         const searchData = await getPayoutByESSearch(filters.search ,filters);
         let data = {
                      totalCount: searchData?.length,
@@ -659,37 +662,37 @@ export const getPayoutsBySearchDao = async (
     }
 
     // Handle search terms
-    if (searchTerms.length > 0) {
-      searchTerms.forEach((term) => {
-        if (term.toLowerCase() !== 'true' && term.toLowerCase() !== 'false') {
-          conditions.push(`
-            (
-              LOWER(p.id::text) LIKE LOWER($${paramIndex})
-              OR LOWER(p.user) LIKE LOWER($${paramIndex})
-              OR LOWER(p.merchant_order_id) LIKE LOWER($${paramIndex})
-              OR LOWER(p.failed_reason) LIKE LOWER($${paramIndex})
-              OR LOWER(p.currency) LIKE LOWER($${paramIndex})
-              OR LOWER(p.upi_id) LIKE LOWER($${paramIndex})
-              OR LOWER(p.utr_id) LIKE LOWER($${paramIndex})
-              OR LOWER(p.status) LIKE LOWER($${paramIndex})
-              OR LOWER(p.rejected_reason) LIKE LOWER($${paramIndex})
-              OR LOWER(b.nick_name) LIKE LOWER($${paramIndex})
-              OR LOWER(m.code) LIKE LOWER($${paramIndex})
-              OR LOWER(v.code) LIKE LOWER($${paramIndex})
-              OR p.amount::text LIKE $${paramIndex}
-              OR LOWER(p.config->>'method') LIKE LOWER($${paramIndex})
-              OR LOWER(p.config->>'rejected_reason') LIKE LOWER($${paramIndex})
-              OR LOWER(p.acc_holder_name) LIKE LOWER($${paramIndex})
-              OR LOWER(p.acc_no) LIKE LOWER($${paramIndex})
-              OR LOWER(p.ifsc_code) LIKE LOWER($${paramIndex})
-              OR LOWER(p.bank_name) LIKE LOWER($${paramIndex})
-            )
-          `);
-          queryParams.push(`%${term}%`);
-          paramIndex++;
-        }
-      });
-    }
+    // if (searchTerms.length > 0) {
+    //   searchTerms.forEach((term) => {
+    //     if (term.toLowerCase() !== 'true' && term.toLowerCase() !== 'false') {
+    //       conditions.push(`
+    //         (
+    //           LOWER(p.id::text) LIKE LOWER($${paramIndex})
+    //           OR LOWER(p.user) LIKE LOWER($${paramIndex})
+    //           OR LOWER(p.merchant_order_id) LIKE LOWER($${paramIndex})
+    //           OR LOWER(p.failed_reason) LIKE LOWER($${paramIndex})
+    //           OR LOWER(p.currency) LIKE LOWER($${paramIndex})
+    //           OR LOWER(p.upi_id) LIKE LOWER($${paramIndex})
+    //           OR LOWER(p.utr_id) LIKE LOWER($${paramIndex})
+    //           OR LOWER(p.status) LIKE LOWER($${paramIndex})
+    //           OR LOWER(p.rejected_reason) LIKE LOWER($${paramIndex})
+    //           OR LOWER(b.nick_name) LIKE LOWER($${paramIndex})
+    //           OR LOWER(m.code) LIKE LOWER($${paramIndex})
+    //           OR LOWER(v.code) LIKE LOWER($${paramIndex})
+    //           OR p.amount::text LIKE $${paramIndex}
+    //           OR LOWER(p.config->>'method') LIKE LOWER($${paramIndex})
+    //           OR LOWER(p.config->>'rejected_reason') LIKE LOWER($${paramIndex})
+    //           OR LOWER(p.acc_holder_name) LIKE LOWER($${paramIndex})
+    //           OR LOWER(p.acc_no) LIKE LOWER($${paramIndex})
+    //           OR LOWER(p.ifsc_code) LIKE LOWER($${paramIndex})
+    //           OR LOWER(p.bank_name) LIKE LOWER($${paramIndex})
+    //         )
+    //       `);
+    //       queryParams.push(`%${term}%`);
+    //       paramIndex++;
+    //     }
+    //   });
+    // }
 
     // Handle updated_at filter
     if (filters.updated_at) {
@@ -954,23 +957,30 @@ export const updatePayoutDao = async (ids, data, conn) => {
     { returnUpdated: true },
     conn,
   );
-  console.log("update payout dao result", data);
   const user = await getUsersNameDao(data.updated_by);
   let esResult = {
-    ...updateData,
+    ...result,
     updated_by: user?.user_name || null,
-    updated_at: result.rows[0]?.updated_at ,
-    approved_at: result.rows[0]?.approved_at ,
-    rejected_at: result.rows[0]?.rejected_at ,
   };
-    
-  if (('vendor_id' in data)) {
-    console.log('inside missing vendor id');
+  if (esResult.config && typeof esResult.config === 'object') {
+    Object.entries(esResult.config).forEach(([key, value]) => {
+      esResult[key] = value ?? null;
+    });
+  }
+  if ('vendor_id' in data && data.vendor_id === null) {
     esResult = {
       ...esResult,
       vendor_code: null,
     };
   }
+if (data.bank_acc_id) {
+      const vendor =await getBankAccountNickNameForPayinEsDao(data.bank_acc_id);
+      esResult = {
+        ...esResult,
+        nick_name: vendor?.nick_name || null,
+        vendor_code : vendor?.vendor_code || null
+      };
+    }
   await updatePayoutInES(ids.id, esResult);
     // Use buildAndExecuteUpdateQuery
   return result;

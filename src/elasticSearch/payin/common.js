@@ -26,7 +26,6 @@ export const getPayinsByESSearch = async (
       limit,
     );
     const esClient = await getESClient();
-      console.log("queryBody in getPayinsByESSearch", queryBody);
     const data = await esClient.search({
       index: 'payins', // Module-specific index
       body: queryBody,
@@ -57,7 +56,6 @@ export const createPayinInES = async (payins) => {
     //   is_enabled: payins.is_enabled,
     //   created_at: payins.created_at,
     // };
-    console.log(payins,"hehy");
     const result = await buildInES(
       payins.id,
       payins,

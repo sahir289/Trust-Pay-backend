@@ -44,7 +44,6 @@ export const cashfreeWebHook = async (req, res, next) => {
       logger.error('Verification failed:', err.message);
     }
 
-    console.log(eventData, 'event data');
     const payload = {
       id: eventData?.data?.order?.order_id,
       userSubmittedUtr: eventData?.data?.payment?.cf_payment_id,

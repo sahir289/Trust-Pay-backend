@@ -39,22 +39,34 @@ export const buildESQuery = (
 
   // Filters
   Object.entries(filters).forEach(([key, value]) => {
-    if (key.endsWith('_start') || key.endsWith('_end')) {
-      const field = key.replace(/_start|_end$/, '');
-      const rangeFilter = queryBody.query.bool.filter.find(
-        (f) => f.range && f.range[field],
-      );
-      if (!rangeFilter) {
-        queryBody.query.bool.filter.push({ range: { [field]: {} } });
-      }
-      const newRange = queryBody.query.bool.filter.find(
-        (f) => f.range && f.range[field],
-      ).range[field];
-      if (key.endsWith('_start')) newRange.gte = value;
-      if (key.endsWith('_end')) newRange.lte = value;
-    } else {
+    if (key === 'updated_at') {
+      const [day, month, year] = value.split('-');
+      const formattedDate = `${year}-${month}-${day}`; 
+      queryBody.query.bool.filter.push({
+        range: {
+          updated_at: {
+            gte: `${formattedDate}T00:00:00.000Z`,
+            lte: `${formattedDate}T23:59:59.999Z`,
+          },
+        },
+      });
+    }
+    // else if (key.endsWith('_start') || key.endsWith('_end')) {
+    //   const field = key.replace(/_start|_end$/, '');
+    //   const rangeFilter = queryBody.query.bool.filter.find(
+    //     (f) => f.range && f.range[field],
+    //   );
+    //   if (!rangeFilter) {
+    //     queryBody.query.bool.filter.push({ range: { [field]: {} } });
+    //   }
+    //   const newRange = queryBody.query.bool.filter.find(
+    //     (f) => f.range && f.range[field],
+    //   ).range[field];
+    //   if (key.endsWith('_start')) newRange.gte = value;
+    //   if (key.endsWith('_end')) newRange.lte = value;
+    // }
+    else {
       if (typeof value === 'string') {
-        console.log("key and value in buildESQuery", key, value);
         queryBody.query.bool.filter.push({
           match: {
             [key]: {
@@ -75,7 +87,6 @@ export const buildESQuery = (
   }
   return queryBody;
 };
-
 export const buildInES = async (reqId, reqData, indexName) => {
   try {
     const esClient = await getESClient();

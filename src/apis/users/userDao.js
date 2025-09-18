@@ -28,19 +28,19 @@ export const getUsersContactDao = async (company_id, contact_no) => {
   }
 };
 
-export const getUsersNameDao = async  (user_id) => {
+export const getUsersNameDao = async (user_id) => {
   try {
     const sql = `
-      SELECT user_name ,code
-      FROM "${tableName.USER}" 
-      WHERE is_obsolete = FALSE
-        AND id = $1
+      SELECT u.user_name, u.code, r.role
+      FROM "${tableName.USER}" u
+      LEFT JOIN "${tableName.ROLE}" r ON u.role_id = r.id
+      WHERE u.is_obsolete = FALSE
+        AND u.id = $1
     `;
     const result = await executeQuery(sql, [user_id]);
-    console.log(sql, user_id, result.rows[0]);
     return result.rows[0] || null;
   } catch (error) {
-    logger.error('Error executing user  query:', error);
+    logger.error('Error executing user query:', error);
     throw error;
   }
 };

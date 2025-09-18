@@ -37,8 +37,6 @@ export const generatePayInUrlDao = async (data) => {
       insertedEntry.vendor_user_id = null
       insertedEntry.vendor_code = null
     }
-    console.log("insertedEntry", insertedEntry)
-    console.log(data,"id", insertedEntry.id)
     await createPayinInES(insertedEntry);
     return insertedEntry;
   } catch (error) {
@@ -1125,6 +1123,8 @@ export const getPayinsWithoutHistoryDao = async (
 ) => {
   try {
     if (filters.search) {
+      delete filters.page;
+      delete filters.limit;
     const searchData = await getPayinsByESSearch(filters.search , filters);
     let data = {
                totalCount: searchData?.length,
