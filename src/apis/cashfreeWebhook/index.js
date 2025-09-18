@@ -4,6 +4,6 @@ import tryCatchHandler from '../../utils/tryCatchHandler.js';
 
 const router = express.Router();
 
-router.post('/cashfree', express.raw({ type: "application/json" }), tryCatchHandler(cashfreeWebHook));
+router.post('/cashfree', tryCatchHandler(cashfreeWebHook));
 
 export default router;
