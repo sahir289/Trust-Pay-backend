@@ -37,11 +37,13 @@ export const cashfreeWebHook = async (req, res) => {
     try {
       cashfree.PGVerifyWebhookSignature(signature, rawBody, timestamp);
 
-      logger.info('Webhook verified');
+      logger.info('Webhook verified', eventData?.data?.payment);
     } catch (err) {
       logger.error('Verification failed:', err.message);
     }
-
+    if (eventData?.data?.payment?.payment_status !== 'SUCCESS') {
+      logger.error('Payment is either Failed or User Aborted');
+    }
     const payload = {
       merchantOrderId: eventData?.data?.order?.order_id,
       userSubmittedUtr: eventData?.data?.payment?.bank_reference,
