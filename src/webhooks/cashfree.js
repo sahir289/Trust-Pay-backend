@@ -44,12 +44,12 @@ export const cashfreeWebHook = async (req, res, next) => {
 
     const payload = {
       merchantOrderId: eventData?.data?.order?.order_id,
-      userSubmittedUtr: eventData?.data?.payment?.cf_payment_id,
+      userSubmittedUtr: eventData?.data?.payment?.bank_reference,
       amount: eventData?.data?.order?.order_amount,
     };
     const payIn = await getPayInIntentDao(eventData?.data?.order?.order_id);
 
-    const bankResponsePayload = `${eventData?.data?.order?.order_amount} nil ${eventData?.data?.payment?.cf_payment_id} ${payIn.bank_acc_id}`;
+    const bankResponsePayload = `${eventData?.data?.order?.order_amount} nil ${eventData?.data?.payment?.bank_reference} ${payIn.bank_acc_id}`;
     await createBankResponseService(
       bankResponsePayload,
       payIn.company_id,
