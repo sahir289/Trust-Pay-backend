@@ -60,6 +60,5 @@ export const cashfreeWebHook = async (req, res, next) => {
     await transactionWrapper(processPayInService)(payload);
   } catch (error) {
     logger.error('Cashfree webhook error:', error.message || error);
-    return next(error);
   }
 };
