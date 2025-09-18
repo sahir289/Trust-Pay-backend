@@ -139,32 +139,9 @@ const getBankResponseBySearchDao = async (
   end_date,
 ) => {
   try {
-    // let bankId;
-    // let bankDetails;
-    // if (filters?.bank_id) {
-    //   bankId = filters.bank_id;
-    //   bankDetails = await getBankaccountDao({ id: bankId }, null, null);
-    // }
-    //  const params = {
-    //   filters,
-    //   page ,
-    //   pageSize ,
-    //   columns ,
-    //   updated,
-    //   sortBy ,
-    //   sortOrder ,
-    //   start_date,
-    //   end_date,
-    //     };
-        // const cacheKey = generateCacheKey(params, 'bankResponse:search');
-        // const cachedResult = await getCachedData(cacheKey);
-        // if (cachedResult && cachedResult.totalCount>0) {
-        //   return cachedResult;
-    // }
     let data;
     if (filters.search) {
-      filters.is_used = filters.is_used === 'true' ? true : false;
-       const searchData = await getBankResponseByESSearch(filters.search);
+       const searchData = await getBankResponseByESSearch(filters.search,filters);
           data = {
             totalCount: searchData?.length,
             totalPages: 12,
@@ -189,37 +166,6 @@ const getBankResponseBySearchDao = async (
       end = dayjs.tz(`${end_date} 23:59:59.999`, IST).utc().format();
       dateParams = [start, end];
     }
-
-    // let baseQueryDate = `
-    //   WITH filtered_accounts AS (
-    //     SELECT 
-    //       "BankAccount".*, 
-    //       jsonb_object_agg(key, value) FILTER (
-    //         WHERE key ~ '^\\d{4}-\\d{2}-\\d{2}' 
-    //           AND (key)::timestamp BETWEEN $${dateParams.length ? 1 : 'NULL'}::timestamp AND $${dateParams.length ? 2 : 'NULL'}::timestamp
-    //       ) AS filtered_merchant_added
-    //     FROM "BankAccount",
-    //          jsonb_each(("BankAccount".config -> 'merchant_added')::jsonb)
-    //     GROUP BY "BankAccount".id
-    //   )
-    //   SELECT ${selectCols}, 
-    //          "BankResponse".created_at,
-    //          jsonb_set("BankAccount".config::jsonb, '{merchant_added}', COALESCE(filtered_merchant_added, '{}'::jsonb)) AS details,
-    //          "BankAccount".nick_name,
-    //          "Vendor".user_id AS vendor_user_id,
-    //          "Merchant".code AS merchant_code
-    //   FROM "BankResponse"
-    //   JOIN filtered_accounts AS "BankAccount" 
-    //     ON "BankResponse".bank_id = "BankAccount".id
-    //   LEFT JOIN "Vendor" 
-    //     ON "BankAccount".user_id = "Vendor".user_id
-    //   LEFT JOIN "Payin"
-    //     ON "BankResponse".id = "Payin".bank_response_id
-    //     AND "BankResponse".is_used = true
-    //   LEFT JOIN "Merchant"
-    //     ON "Payin".merchant_id = "Merchant".id
-    // `;
-
     let baseQuery = `
       SELECT ${selectCols}, 
         "BankResponse".created_at,
@@ -251,32 +197,6 @@ const getBankResponseBySearchDao = async (
             paramIndex++;
           } else {
             const likeVal = `%${term}%`;
-            // searchConditions.push(`
-            //   (
-            //     LOWER("BankResponse".id::text) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".status) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".bank_id::text) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".amount::text) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".upi_short_code) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".utr) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".sno::text) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".created_at::text) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".updated_at::text) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".created_by) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".updated_by) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".config->>'from_UI') LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankAccount".user_id::text) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankAccount".nick_name) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankAccount".bank_name) LIKE LOWER($${paramIndex})
-            //     OR LOWER("Vendor".code) LIKE LOWER($${paramIndex})
-            //     OR LOWER("Merchant".code) LIKE LOWER($${paramIndex})
-            //     OR LOWER("Payin".id::text) LIKE LOWER($${paramIndex})
-            //     OR LOWER("Payin".user_submitted_utr) LIKE LOWER($${paramIndex})
-            //     OR LOWER("Payin".config->>'user') LIKE LOWER($${paramIndex})
-            //     OR LOWER("Payin".config->'urls'->>'site') LIKE LOWER($${paramIndex})
-            //     OR LOWER("Payin".config->'urls'->>'notify') LIKE LOWER($${paramIndex})
-            //   )
-            // `);
             searchConditions.push(`
               (
                 "BankResponse".id::text ILIKE $${paramIndex}

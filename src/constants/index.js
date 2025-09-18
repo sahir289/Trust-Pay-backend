@@ -912,7 +912,6 @@ export const payinSearchableFields = [
   'bank_response_id',
   'payin_merchant_commission',
   'payin_vendor_commission',
-  'config',
   'company_id',
   'created_by',
   'updated_by',

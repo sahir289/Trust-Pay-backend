@@ -15,9 +15,9 @@ export const getPayinsByESSearch = async (
   offset = 0,
   limit = 20,
 ) => {
-  try {
+    try {
+      delete filters.search;
     // Pass searchableFields for this module
-    delete filters.search;
     const queryBody = buildESQuery(
       query,
       filters,
@@ -26,7 +26,7 @@ export const getPayinsByESSearch = async (
       limit,
     );
     const esClient = await getESClient();
-
+      console.log("queryBody in getPayinsByESSearch", queryBody);
     const data = await esClient.search({
       index: 'payins', // Module-specific index
       body: queryBody,

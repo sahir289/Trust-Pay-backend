@@ -25,23 +25,21 @@ export const buildESQuery = (
     sort: [{ created_at: 'desc' }],
   };
 
-  // Add multi_match only if searchQuery is provided
   if (searchQuery) {
     queryBody.query.bool.must.push({
       multi_match: {
-        query: searchQuery, // like "code user_name" or "UTR12345"
-        fields: searchableFields, // module-specific fields like (['full_name^2', 'user_name']) here Boost full_name
-        operator: 'or', // it matches any term you can change to 'and' for stricter matching
-        type: 'best_fields', // it scores based on best-matching field
-        lenient: true, // Ignores parse errors for numerics
+        query: searchQuery,
+        fields: searchableFields,
+        operator: 'and',
+        type: 'best_fields',
+        lenient: true,
       },
     });
   }
 
-  // handles term filters (like:- is_enabled: 'true') and date ranges (like:- created_at_start/end)
+  // Filters
   Object.entries(filters).forEach(([key, value]) => {
     if (key.endsWith('_start') || key.endsWith('_end')) {
-      // handle date range filters (like:- created_at_start, created_at_end -> range on 'created_at') we can use this in future if needed
       const field = key.replace(/_start|_end$/, '');
       const rangeFilter = queryBody.query.bool.filter.find(
         (f) => f.range && f.range[field],
@@ -52,15 +50,26 @@ export const buildESQuery = (
       const newRange = queryBody.query.bool.filter.find(
         (f) => f.range && f.range[field],
       ).range[field];
-      if (key.endsWith('_start')) newRange.gte = value; // here greater than or equal
-      if (key.endsWith('_end')) newRange.lte = value; // less than or equal
+      if (key.endsWith('_start')) newRange.gte = value;
+      if (key.endsWith('_end')) newRange.lte = value;
     } else {
-      // this is default to term filter for exact matches (like:- is_enabled: 'true', status: 'active')
-      queryBody.query.bool.filter.push({ term: { [key]: value } });
+      if (typeof value === 'string') {
+        console.log("key and value in buildESQuery", key, value);
+        queryBody.query.bool.filter.push({
+          match: {
+            [key]: {
+              query: value,
+              operator: 'and',
+              lenient: true,
+            },
+          },
+        });
+      } else {
+        queryBody.query.bool.filter.push({ term: { [key]: value } });
+      }
     }
   });
 
-  // If no must clauses, add match_all for pure filtering/pagination
   if (queryBody.query.bool.must.length === 0) {
     queryBody.query.bool.must.push({ match_all: {} });
   }

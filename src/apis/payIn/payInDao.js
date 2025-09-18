@@ -1125,13 +1125,13 @@ export const getPayinsWithoutHistoryDao = async (
 ) => {
   try {
     if (filters.search) {
-           const searchData = await getPayinsByESSearch(filters.search);
-             let data = {
+    const searchData = await getPayinsByESSearch(filters.search , filters);
+    let data = {
                totalCount: searchData?.length,
                totalPages: 12,
                payins: searchData,
              };
-              return data;
+    return data;
       }
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
     const queryParams = [filters.company_id];

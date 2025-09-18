@@ -18,7 +18,7 @@ export const getBankResponseByESSearch = async (
 ) => {
     try {
         // Pass searchableFields for this module
-        delete filters.search;
+    delete filters.search;
       const queryBody = buildESQuery(
         query,
         filters,
