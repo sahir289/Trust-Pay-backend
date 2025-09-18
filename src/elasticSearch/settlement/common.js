@@ -27,7 +27,7 @@ export const getSettlementByESSearch = async (
     );
     const esClient = await getESClient();
     const data = await esClient.search({
-      index: 'settlement', // Module-specific index
+      index: 'settlements', // Module-specific index
       body: queryBody,
     });
     const dd = data?.hits?.hits?.map((hit) => hit._source);
@@ -55,7 +55,7 @@ export const createSettlementInES = async (settlement) => {
     //   is_enabled: settlement.is_enabled,
     //   created_at: settlement.created_at,
     // };
-    const result = await buildInES(settlement.id, settlement, 'settlement');
+    const result = await buildInES(settlement.id, settlement, 'settlements');
     return {
       success: true,
       id: settlement.id,
@@ -76,7 +76,7 @@ export const updatesettlementInES = async (id, updateData) => {
     if (!updateData || Object.keys(updateData).length === 0) {
       throw new BadRequestError('Update data cannot be empty');
     }
-    const result = await updateInES(id, 'settlement', updateData);
+    const result = await updateInES(id, 'settlements', updateData);
     return {
       success: true,
       id,

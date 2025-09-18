@@ -512,7 +512,7 @@ export const getPayoutsBySearchDao = async (
     // Initialize base conditions for main query
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
     if (filters.search) {
-        const searchData = await getPayoutByESSearch(filters.search);
+        const searchData = await getPayoutByESSearch(filters.search ,filters);
         let data = {
                      totalCount: searchData?.length,
                      totalPages: 12,

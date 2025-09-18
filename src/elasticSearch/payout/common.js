@@ -27,7 +27,7 @@ export const getPayoutByESSearch = async (
     );
     const esClient = await getESClient();
     const data = await esClient.search({
-      index: 'payout', // Module-specific index
+      index: 'payouts', // Module-specific index
       body: queryBody,
     });
     const dd = data?.hits?.hits?.map((hit) => hit._source);
@@ -55,7 +55,7 @@ export const createPayoutInES = async (payout) => {
     //   is_enabled: payout.is_enabled,
     //   created_at: payout.created_at,
     // };
-    const result = await buildInES(payout.id, payout, 'payout');
+    const result = await buildInES(payout.id, payout, 'payouts');
     return {
       success: true,
       id: payout.id,
@@ -76,7 +76,7 @@ export const updatePayoutInES = async (id, updateData) => {
     if (!updateData || Object.keys(updateData).length === 0) {
       throw new BadRequestError('Update data cannot be empty');
     }
-    const result = await updateInES(id, 'payout', updateData);
+    const result = await updateInES(id, 'payouts', updateData);
     return {
       success: true,
       id,

@@ -1,94 +1,92 @@
-import { setupIndexWithMappings, bulkIndexFromPG } from '../../utils/buildElasticSearch.js';
+import {
+  setupIndexWithMappings,
+  bulkIndexFromPG,
+} from '../../utils/buildElasticSearch.js';
 import { logger } from '../../utils/logger.js';
 
-const userFields = [
+const payoutFields = [
   'id',
   'sno',
-  'upi_short_code',
-  'qr_params',
+  'user',
+  'merchant_id',
+  'vendor_id',
+  'bank_acc_id',
   'amount',
   'status',
-  'is_notified',
-  'user_submitted_utr',
+  'failed_reason',
   'currency',
   'merchant_order_id',
-  'user',
-  'bank_acc_id',
-  'merchant_id',
-  'bank_response_id',
-  'payin_merchant_commission',
-  'payin_vendor_commission',
-  'user_submitted_image',
-  'duration',
-  'is_url_expires',
-  'expiration_date',
-  'one_time_used',
+  'acc_no',
+  'acc_holder_name',
+  'ifsc_code',
+  'bank_name',
+  'upi_id',
+  'utr_id',
+  'rejected_reason',
+  'payout_merchant_commission',
+  'payout_vendor_commission',
   'approved_at',
-  'failed_at',
+  'rejected_at',
   'config',
+  'created_by',
+  'updated_by',
   'created_at',
   'updated_at',
   'company_id',
   'is_obsolete',
-  'created_by',
-  'updated_by',
 ];
-export const payinMappings = {
-    id: { type: 'keyword' },
-    sno: { type: 'integer' },
-    upi_short_code: { type: 'keyword', fields: { text: { type: 'text' } } },
-    qr_params: { type: 'keyword' }, // or text if searchable
-    amount: { type: 'double' }, // align with table's double precision
-    status: { type: 'keyword' },
-    is_notified: { type: 'boolean' },
-    user_submitted_utr: { type: 'keyword', fields: { text: { type: 'text' } } },
-    currency: { type: 'keyword' },
-    merchant_order_id: { type: 'keyword' },
-    user: { type: 'keyword' },
-    bank_acc_id: { type: 'keyword' },
-    merchant_id: { type: 'keyword' },
-    bank_response_id: { type: 'keyword' },
-    payin_merchant_commission: { type: 'double' },
-    payin_vendor_commission: { type: 'double' },
-    user_submitted_image: { type: 'keyword' },
-    duration: { type: 'keyword' },
-    is_url_expires: { type: 'boolean' },
-    expiration_date: { type: 'date' },
-    one_time_used: { type: 'boolean' },
-    approved_at: { type: 'date' },
-    failed_at: { type: 'date' },
-    config: { type: 'object' },
-    created_at: { type: 'date' },
-    updated_at: { type: 'date' },
-    company_id: { type: 'keyword' },
-    is_obsolete: { type: 'boolean' },
-    created_by: { type: 'keyword' },
-    updated_by: { type: 'keyword' },
-};
-  
-  
 
-export async function migrateBankResponseToES() {
+export const payoutMappings = {
+  id: { type: 'keyword' },
+  sno: { type: 'integer' },
+  user: { type: 'keyword' },
+  merchant_id: { type: 'keyword' },
+  vendor_id: { type: 'keyword' },
+  bank_acc_id: { type: 'keyword' },
+  amount: { type: 'double' },
+  status: { type: 'keyword' },
+  failed_reason: { type: 'text' },
+  currency: { type: 'keyword' },
+  merchant_order_id: { type: 'keyword' },
+  acc_no: { type: 'keyword', fields: { text: { type: 'text' } } },
+  acc_holder_name: { type: 'keyword', fields: { text: { type: 'text' } } },
+  ifsc_code: { type: 'keyword', fields: { text: { type: 'text' } } },
+  bank_name: { type: 'keyword', fields: { text: { type: 'text' } } },
+  upi_id: { type: 'keyword', fields: { text: { type: 'text' } } },
+  utr_id: { type: 'keyword' },
+  rejected_reason: { type: 'text' },
+  payout_merchant_commission: { type: 'double' },
+  payout_vendor_commission: { type: 'double' },
+  approved_at: { type: 'date' },
+  rejected_at: { type: 'date' },
+  config: { type: 'object' },
+  created_by: { type: 'keyword' },
+  updated_by: { type: 'keyword' },
+  created_at: { type: 'date' },
+  updated_at: { type: 'date' },
+  company_id: { type: 'keyword' },
+  is_obsolete: { type: 'boolean' },
+};
+
+export async function migratePayoutToES() {
   try {
-    await setupIndexWithMappings('payins', payinMappings, {
+    await setupIndexWithMappings('payouts', payoutMappings, {
       number_of_shards: 5,
       refresh_interval: '30s',
     });
 
     // Bulk index (filter enabled users only)
     const result = await bulkIndexFromPG(
-      'Payin', // Postgres table
-      'payins', // Elastic Search base index
-      userFields,
+      'Payout', // Postgres table
+      'payouts', // Elasticsearch base index
+      payoutFields,
       10000, // Batch size
-      '', 
-      'id',
-      'public'
+      '', // Filter condition (modify if needed)
+      'id', // Primary key
+      'public', // Schema
     );
-    logger.info('Payin migration completed:', result);
+    logger.info('Payout migration completed:', result);
   } catch (error) {
-    logger.error('Payin migration failed:', error.message);
+    logger.error('Payout migration failed:', error.message);
   }
 }
-
-// migrateUsersToES();
