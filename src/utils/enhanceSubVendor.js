@@ -1,7 +1,7 @@
 import { getVendorByUserDao } from '../apis/vendors/vendorDao.js';
 import { getUserHierarchysDao } from '../apis/userHierarchy/userHierarchyDao.js';
 
-export async function enhanceVendorsWithSubVendors(data) {
+export async function enhanceVendorsWithSubVendors(data, includeSeperateSubVendors = false) {
   const subVendorUserIds = new Set();
   
   // First pass: collect all sub-vendor user IDs
@@ -22,7 +22,8 @@ export async function enhanceVendorsWithSubVendors(data) {
   // Second pass: enhance vendors with sub-vendor data
   for (const vendor of data) {
     
-    if (subVendorUserIds.has(vendor.user_id)) {
+    // If includeSeperateSubVendors is true, don't filter out sub-vendors
+    if (!includeSeperateSubVendors && subVendorUserIds.has(vendor.user_id)) {
       continue;
     }
     
@@ -39,6 +40,13 @@ export async function enhanceVendorsWithSubVendors(data) {
     }
     
     // Get sub-vendor data only for main vendors (not for sub-vendors themselves)
+    // If includeSeperateSubVendors is true, don't add nested subVendors for sub-vendors
+    if (includeSeperateSubVendors && subVendorUserIds.has(vendor.user_id)) {
+      vendor.subVendors = [];
+      result.push(vendor);
+      continue;
+    }
+    
     const subVendorIds = userHierarchy.config.siblings.sub_vendors;
     const subVendors = [];
     
