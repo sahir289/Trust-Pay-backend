@@ -23,7 +23,7 @@ const clientSecret =
 
 const cashfree = new Cashfree(env, clientId, clientSecret);
 
-export const cashfreeWebHook = async (req, res, next) => {
+export const cashfreeWebHook = async (req, res) => {
   try {
     sendSuccess(res, 200, 'Webhook received successfully');
     const rawBody = req.rawBody;
