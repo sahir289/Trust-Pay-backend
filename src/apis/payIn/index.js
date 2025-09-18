@@ -190,7 +190,7 @@ router.post('/check-payin-status', tryCatchHandler(checkPayInStatus));
  *         description: Pay-In URL not found
  */
 router.post(
-  '/generate-intent-order/:payInId',
+  '/generate-intent-order/:merchantOrderId',
   tryCatchHandler(payInIntentGenerateOrder),
 );
 

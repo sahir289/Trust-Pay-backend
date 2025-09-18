@@ -36,7 +36,6 @@ export const getUsersByESSearch = async (
     //     created_at: new Date(hit._source.created_at).toISOString() // Format date
     //   }));
     const dd =  data?.hits?.hits?.map((hit) => hit._source);
-    console.log(dd, "ddd here");
     return dd;
   } catch (error) {
     logger.error('Error searching users in Elasticsearch:', error);

@@ -748,7 +748,7 @@ export const checkPayInStatusService = async (
 };
 
 export const payInIntentGenerateOrderService = async (
-  payInId,
+  merchantOrderId,
   // company_id,
   amount,
   provider,
@@ -756,33 +756,13 @@ export const payInIntentGenerateOrderService = async (
   // validating if it exist
   try {
    
-
-    const payIn = await getPayInIntentDao(payInId);
-    console.log(payIn, 'payIn');
+    const payIn = await getPayInIntentDao(merchantOrderId);
     checkIsPayInExpired(payIn);
-    // if (provider === razorpay) {
-    //   const orderRes = await razorpay.orders.create({
-    //     amount: amount * 100,
-    //     currency: Currency.INR,
-    //     receipt: payInId,
-    //   });
-
-    //   return {
-    //     ...orderRes,
-    //   };
-    // }
-    
     const createOrder = await createCashfreeOrder(payIn, amount);
-    // console.log(createOrder , 'createOrder');
     const session_id = createOrder?.payment_session_id;
-    console.log(session_id , 'session_id');
-
-    // const orderPay = await payOrder(session_id, payIn.id);
-    // console.log(orderPay , 'orderPay');
-
+    // need to update the payIn with  session_id if needed
     return { id: payIn.id, session_id };
   } catch (error) {
-    // console.log(error.message, "error");
     logger.error('Error generate intent payin:', error.message);
     throw error;
   }
