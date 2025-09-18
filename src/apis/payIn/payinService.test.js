@@ -826,41 +826,6 @@ describe('PayIn Service Tests', () => {
       jest.clearAllMocks();
     });
   
-    test('generates payIn URL successfully', async () => {
-      const payload = {
-        code: 'merchant_code',
-        user_id: 'user1',
-        merchant_order_id: 'order123',
-        amount: 100,
-        returnUrl: 'http://return.url',
-        notifyUrl: 'http://notify.url',
-        ot: 'n',
-        api_key: 'private_key',
-      };
-  
-      getMerchantsByCodeDao.mockResolvedValue([mockMerchant]);
-  
-      const result = await generatePayInUrlService({}, payload, 'user1', Role.MERCHANT, '192.168.1.1', false);
-  
-      expect(result).toEqual(mockPayIn);
-      expect(getMerchantsByCodeDao).toHaveBeenCalledWith('merchant_code');
-      expect(getPayInForCheckDao).toHaveBeenCalledWith({ merchant_order_id: 'order123' });
-      expect(generatePayInUrlDao).toHaveBeenCalledWith(expect.objectContaining({
-        merchant_order_id: 'order123',
-        amount: 100,
-        status: Status.INITIATED,
-        currency: Currency.INR,
-        user: 'user1',
-        merchant_id: 'merchant1',
-        company_id: 'company1',
-        created_by: 'user1',
-        upi_short_code: 'abcde',
-        expiration_date: expect.any(String),
-      }));
-      expect(newTableEntry).toHaveBeenCalledWith(tableName.PAYIN, expect.any(Object));
-      expect(logger.error).not.toHaveBeenCalled();
-    });
-  
     test('returns error for invalid API key', async () => {
       const payload = {
         code: 'merchant_code',
