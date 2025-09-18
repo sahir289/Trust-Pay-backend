@@ -37,6 +37,8 @@ export const generatePayInUrlDao = async (data) => {
       insertedEntry.vendor_user_id = null
       insertedEntry.vendor_code = null
     }
+    console.log("insertedEntry", insertedEntry)
+    console.log(data,"id", insertedEntry.id)
     await createPayinInES(insertedEntry);
     return insertedEntry;
   } catch (error) {
@@ -1882,11 +1884,10 @@ export const updatePayInUrlDao = async (id, data, conn , botRes) => {
     // if (data.status === Status.SUCCESS) {
     //   await newTableEntry('SUM');
     // }
-    let insertedEntry = 
+    let insertedEntry =
     {
-      ...data,
-      updated_at: result.rows[0]?.updated_at
-    };
+      ...result.rows[0]
+    }
     if (data.bank_acc_id) {
       const bank =await getBankAccountNickNameForPayinEsDao(data.bank_acc_id);
       // insertedEntry.nick_name = bank.nick_name;
