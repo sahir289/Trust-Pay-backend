@@ -510,7 +510,6 @@ export const getPayoutsBySearchDao = async (
   ifamount = false,
 ) => {
   try {
-    console.log('Filters received:', filters);
     // Initialize base conditions for main query
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
     if (filters.search) {
@@ -981,7 +980,6 @@ export const updatePayoutDao = async (ids, data, conn) => {
     let esResult = result;
     delete esResult.updated_by;
     if (data.updated_by) {
-    console.log("data.updated_by",esResult)
     const user = await getUsersNameDao(data.updated_by);
     esResult = {
       ...esResult,

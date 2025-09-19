@@ -7,6 +7,7 @@ import { Role, Status, tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 import { createSettlementInES, getSettlementByESSearch ,updatesettlementInES } from '../../elasticSearch/settlement/common.js';
 import { getUsersNameDao } from '../users/userDao.js';
+import { SettlementResponses } from '../../constants/index.js';
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import dayjs from 'dayjs';
 
@@ -291,13 +292,36 @@ const getSettlementsBySearchDao = async (
     const queryParams = [];
     let paramIndex = 1;
     if (filters.search) {
-        const searchData = await getSettlementByESSearch(filters.search ,filters);
+       const filterSettlementByRole = (bankResponse, role) => {
+              let allowedKeys;
+              switch (role) {
+                case Role.VENDOR:
+                  allowedKeys = SettlementResponses.VENDOR;
+                  break;
+                case Role.MERCHANT:
+                  allowedKeys = SettlementResponses.MERCHANT;
+                  break;
+                case Role.ADMIN:
+                default:
+                  allowedKeys = SettlementResponses.ADMIN;
+                  break;
+              }
+              return Object.fromEntries(
+                Object.entries(bankResponse).filter(([key]) =>
+                  allowedKeys.includes(key),
+                ),
+              );
+            };
+      const searchData = await getSettlementByESSearch(filters.search, filters);
+      const filtered = searchData.map((bankResponse) =>
+        filterSettlementByRole(bankResponse, role),
+      );
         let data = {
           totalCount: searchData?.length,
           totalPages: 12,
-          settlements: searchData,
+          settlements: filtered,
         };
-          return data;
+        return data;
     }
     // Add dynamic code and user_name fields
     let columnSelection;

@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { tableName } from '../../constants/index.js';
+import { tableName ,Role } from '../../constants/index.js';
 import {
   getBankResponseByESSearch,
   updateBankResponseInES,
@@ -19,6 +19,7 @@ import {
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
+import { BankResponseKeys } from '../../constants/index.js';
 // import { newTableEntry } from '../../utils/sockets.js';
 const IST = 'Asia/Kolkata';
 
@@ -137,18 +138,47 @@ const getBankResponseBySearchDao = async (
   sortOrder = 'DESC',
   start_date,
   end_date,
+  role
 ) => {
   try {
     let data;
     if (filters.search) {
-       const searchData = await getBankResponseByESSearch(filters.search,filters);
-          data = {
-            totalCount: searchData?.length,
-            totalPages: 12,
-            rows: searchData,
-          };
-          return data;
+      const filterBankResponseByRole = (bankResponse, role) => {
+        let allowedKeys;
+        switch (role) {
+          case Role.VENDOR:
+            allowedKeys = BankResponseKeys.VENDOR;
+            break;
+          case Role.MERCHANT:
+            allowedKeys = BankResponseKeys.MERCHANT;
+            break;
+          case Role.ADMIN:
+          default:
+            allowedKeys = BankResponseKeys.ADMIN;
+            break;
         }
+        return Object.fromEntries(
+          Object.entries(bankResponse).filter(([key]) =>
+            allowedKeys.includes(key),
+          ),
+        );
+      };
+      delete filters.page;
+      delete filters.limit;
+      const searchData = await getBankResponseByESSearch(
+        filters.search,
+        filters,
+      );
+      const filteredBankResponses = searchData.map((bankResponse) =>
+        filterBankResponseByRole(bankResponse, role),
+      );
+      data = {
+        totalCount: searchData?.length || 0,
+        totalPages: 12, 
+        rows: filteredBankResponses,
+      };
+      return data;
+    }
     const selectCols = columns.length
       ? `DISTINCT ON ("BankResponse".sno) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
       : `DISTINCT ON ("BankResponse".sno) ` + [
