@@ -24,7 +24,6 @@ export const buildESQuery = (
     size: limit,
     sort: [{ created_at: 'desc' }],
   };
-
   if (searchQuery) {
     queryBody.query.bool.must.push({
       multi_match: {
@@ -66,19 +65,50 @@ export const buildESQuery = (
     //   if (key.endsWith('_end')) newRange.lte = value;
     // }
     else {
-      if (typeof value === 'string') {
-        queryBody.query.bool.filter.push({
-          match: {
-            [key]: {
-              query: value,
-              operator: 'and',
-              lenient: true,
+        if (typeof value === 'string' && value.includes(',')) {
+          const values = value.split(',').map((v) => v.trim());
+      
+          if (key === 'status') {
+            queryBody.query.bool.filter.push({
+              bool: {
+                should: values.map((v) => ({
+                  match: {
+                    [key]: {
+                      query: v,
+                      operator: 'and',
+                      lenient: true,
+                    },
+                  },
+                })),
+                minimum_should_match: 1,
+              },
+            });
+          } else {
+            queryBody.query.bool.filter.push({
+              terms: {
+                [key]: values,
+              },
+            });
+          }
+        } else if (typeof value === 'string') {
+          queryBody.query.bool.filter.push({
+            match: {
+              [key]: {
+                query: value,
+                operator: 'and',
+                lenient: true,
+              },
             },
-          },
-        });
-      } else {
-        queryBody.query.bool.filter.push({ term: { [key]: value } });
-      }
+          });
+        } else if (Array.isArray(value)) {
+          queryBody.query.bool.filter.push({
+            terms: {
+              [key]: value,
+            },
+          });
+        } else {
+          queryBody.query.bool.filter.push({ term: { [key]: value } });
+        }
     }
   });
 

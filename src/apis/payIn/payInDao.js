@@ -1,5 +1,7 @@
 import { tableName } from '../../constants/index.js';
 import { BadRequestError } from '../../utils/appErrors.js';
+import { PayinResponses } from '../../constants/index.js';
+import { Role } from '../../constants/index.js';
 import {
   buildInsertQuery,
   buildSelectQuery,
@@ -1124,15 +1126,39 @@ export const getPayinsWithoutHistoryDao = async (
 ) => {
   try {
     if (filters.search) {
-      delete filters.page;
-      delete filters.limit;
-    const searchData = await getPayinsByESSearch(filters.search , filters);
-    let data = {
-               totalCount: searchData?.length,
-               totalPages: 12,
-               payins: searchData,
-             };
-    return data;
+      const filterPayinByRole = (payin, role) => {
+        let allowedKeys;
+        switch (role) {
+          case Role.VENDOR:
+            allowedKeys = PayinResponses.VENDOR;
+            break;
+          case Role.MERCHANT:
+            allowedKeys = PayinResponses.MERCHANT;
+            break;
+          case Role.ADMIN:
+          default:
+            allowedKeys = PayinResponses.ADMIN;
+            break;
+        }
+        return Object.fromEntries(
+          Object.entries(payin).filter(([key]) => allowedKeys.includes(key)),
+        );
+      };
+      // Modified filters.search block
+        delete filters.page;
+        delete filters.limit;
+        const searchData = await getPayinsByESSearch(filters.search, filters);
+        // Filter each payin object to include only the allowed keys based on role
+        const filteredPayins = searchData.map((payin) =>
+          filterPayinByRole(payin, role),
+        );
+        let data = {
+          totalCount: searchData?.length || 0,
+          totalPages: 12,
+          payins: filteredPayins,
+        };
+        return data;
+      
       }
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
     const queryParams = [filters.company_id];

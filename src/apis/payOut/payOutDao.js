@@ -1,4 +1,4 @@
-import { tableName } from '../../constants/index.js';
+import { tableName ,PayoutResponses ,Role} from '../../constants/index.js';
 import {
   buildAndExecuteUpdateQuery,
   buildInsertQuery,
@@ -510,18 +510,40 @@ export const getPayoutsBySearchDao = async (
   ifamount = false,
 ) => {
   try {
+    console.log('Filters received:', filters);
     // Initialize base conditions for main query
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
     if (filters.search) {
+      const filterPayoutByRole = (payout, role) => {
+        let allowedKeys;
+        switch (role) {
+          case Role.VENDOR:
+            allowedKeys = PayoutResponses.VENDOR;
+            break;
+          case Role.MERCHANT:
+            allowedKeys = PayoutResponses.MERCHANT;
+            break;
+          case Role.ADMIN:
+          default:
+            allowedKeys = PayoutResponses.ADMIN;
+            break;
+        }
+        return Object.fromEntries(
+          Object.entries(payout).filter(([key]) => allowedKeys.includes(key)),
+        );
+      };
       delete filters.page;
       delete filters.limit;
-        const searchData = await getPayoutByESSearch(filters.search ,filters);
-        let data = {
-                     totalCount: searchData?.length,
-                     totalPages: 12,
-                     payout: searchData,
-                   };
-          return data;
+      const searchData = await getPayoutByESSearch(filters.search, filters);
+      const filteredPayouts = searchData.map((payout) =>
+        filterPayoutByRole(payout, role),
+      );
+      let data = {
+        totalCount: searchData?.length || 0,
+        totalPages: 12, 
+        payout: filteredPayouts,
+      };
+      return data;
     }
     // Parameters for main query
     const queryParams = [filters.company_id];
@@ -931,7 +953,6 @@ export const updatePayoutDao = async (ids, data, conn) => {
   try {
     // Clone the data object to avoid modifying the original
     const updateData = { ...data };
-
     // If config is present, ensure it's properly formatted
     if (updateData.config && typeof updateData.config === 'object') {
       // Get existing config first to merge with new config
@@ -939,7 +960,6 @@ export const updatePayoutDao = async (ids, data, conn) => {
         `SELECT config FROM "${tableName.PAYOUT}" WHERE id = $1`,
         [ids.id],
       );
-
       if (existingData.rows.length > 0) {
         const existingConfig = existingData.rows[0].config || {};
         // Merge existing config with new config
@@ -957,11 +977,18 @@ export const updatePayoutDao = async (ids, data, conn) => {
     { returnUpdated: true },
     conn,
   );
-  const user = await getUsersNameDao(data.updated_by);
-  let esResult = {
-    ...result,
-    updated_by: user?.user_name || null,
-  };
+   
+    let esResult = result;
+    delete esResult.updated_by;
+    if (data.updated_by) {
+    console.log("data.updated_by",esResult)
+    const user = await getUsersNameDao(data.updated_by);
+    esResult = {
+      ...esResult,
+      updated_by: user?.user_name || null,
+    };
+    console.log('data.updated_by', esResult);
+  }
   if (esResult.config && typeof esResult.config === 'object') {
     Object.entries(esResult.config).forEach(([key, value]) => {
       esResult[key] = value ?? null;
@@ -980,7 +1007,8 @@ if (data.bank_acc_id) {
         nick_name: vendor?.nick_name || null,
         vendor_code : vendor?.vendor_code || null
       };
-    }
+}
+    delete esResult.created_by;
   await updatePayoutInES(ids.id, esResult);
     // Use buildAndExecuteUpdateQuery
   return result;
