@@ -349,11 +349,18 @@ export const getCalculationsSumDao = async (filters) => {
       });
       let userIds = [effectiveUserId]; // Always include vendors own ID
 
-      // Include sub-vendors when available
-      const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
-      if (subVendors.length > 0) {
-        userIds = [...new Set([...userIds, ...subVendors])];
+      // Handle userCodes for vendor totals (similar to merchant logic)
+      if (userCodes?.length > 0) {
+        // Get allowed sub-vendor IDs from hierarchy
+        const allowedSubVendors =
+          userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+        // Only include valid sub-vendor IDs
+        const validUserIds = userCodes.filter((id) =>
+          allowedSubVendors.includes(id),
+        );
+        userIds = [...new Set([...userCodes, ...validUserIds])]; // Remove duplicates
       }
+
 
       // Create parameterized query for all user IDs
       const userIdParams = userIds.map((_, index) => `$${index + 1}`).join(",");
@@ -595,21 +602,27 @@ export const getCalculationsSumDao = async (filters) => {
       merchantTotalQuery += ` AND c.company_id = '${company_id}'`;
       vendorTotalQuery = null; // Merchant shouldn't see vendor totals
     } else if (role === Role.VENDOR) {
-      // Get user hierarchy to validate sub-vendor access
-      const userHierarchys = await getUserHierarchysDao({
-        user_id: effectiveUserId,
-      });
-      let userIds = [effectiveUserId]; // Always include vendor's own ID
+      // For vendor role, only include data when explicitly requested (no automatic clubbing)
+      if (userCodes?.length > 0) {
+        // Get user hierarchy to validate sub-vendor access
+        const userHierarchys = await getUserHierarchysDao({
+          user_id: effectiveUserId,
+        });
+        const allowedSubVendors =
+          userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+        // Only include valid sub-vendor IDs
+        const validUserIds = userCodes.filter((id) =>
+          allowedSubVendors.includes(id),
+        );
+        const userIds = [...new Set([...userCodes, ...validUserIds])];
 
-      // Include sub-vendors when available
-      const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
-      if (subVendors.length > 0) {
-        userIds = [...new Set([...userIds, ...subVendors])];
+        // Add filter when there are valid user codes
+        vendorTotalQuery += ` AND c.user_id = ANY(ARRAY['${userIds.join("','")}']) `;
+        vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
+      } else {
+        // If no specific users requested, return null (no data)
+        vendorTotalQuery = null;
       }
-
-      // Add filter to vendor total query
-      vendorTotalQuery += ` AND c.user_id = ANY(ARRAY['${userIds.join("','")}']) `;
-      vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
       merchantTotalQuery = null; // Vendor shouldn't see merchant totals
     } else if (role === Role.SUB_VENDOR) {
       vendorTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
@@ -874,11 +887,18 @@ export const getCalculationsForInternalUseDao = async (filters) => {
       });
       let userIds = [effectiveUserId]; // Always include vendors own ID
 
-      // Include sub-vendors when available
-      const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
-      if (subVendors.length > 0) {
-        userIds = [...new Set([...userIds, ...subVendors])];
+      // Handle userCodes for vendor totals (similar to merchant logic)
+      if (userCodes?.length > 0) {
+        // Get allowed sub-vendor IDs from hierarchy
+        const allowedSubVendors =
+          userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+        // Only include valid sub-vendor IDs
+        const validUserIds = userCodes.filter((id) =>
+          allowedSubVendors.includes(id),
+        );
+        userIds = [...new Set([...userCodes, ...validUserIds])]; // Remove duplicates
       }
+
 
       // Create parameterized query for all user IDs
       const userIdParams = userIds.map((_, index) => `$${index + 1}`).join(",");
@@ -986,11 +1006,8 @@ export const getCalculationsForInternalUseDao = async (filters) => {
         );
         userIds = [...new Set([...userCodes, ...validUserIds])]; // Remove duplicates
       } else if (role === Role.VENDOR) {
-        // For VENDOR role, include sub-vendors automatically
-        const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
-        if (subVendors.length > 0) {
-          userIds = [...new Set([...userIds, ...subVendors])];
-        }
+        // For VENDOR role, don't include sub-vendors automatically (similar to merchant logic)
+        // userIds already contains only the vendor's own ID
       }
       // For non-admin roles, use existing query logic
 
@@ -1129,21 +1146,27 @@ export const getCalculationsForInternalUseDao = async (filters) => {
       merchantTotalQuery += ` AND c.company_id = '${company_id}'`;
       vendorTotalQuery = null; // Merchant shouldn't see vendor totals
     } else if (role === Role.VENDOR) {
-      // Get user hierarchy to validate sub-vendor access
-      const userHierarchys = await getUserHierarchysDao({
-        user_id: effectiveUserId,
-      });
-      let userIds = [effectiveUserId]; // Always include vendor's own ID
+      // For vendor role, only include data when explicitly requested (no automatic clubbing)
+      if (userCodes?.length > 0) {
+        // Get user hierarchy to validate sub-vendor access
+        const userHierarchys = await getUserHierarchysDao({
+          user_id: effectiveUserId,
+        });
+        const allowedSubVendors =
+          userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+        // Only include valid sub-vendor IDs
+        const validUserIds = userCodes.filter((id) =>
+          allowedSubVendors.includes(id),
+        );
+        const userIds = [...new Set([...userCodes, ...validUserIds])];
 
-      // Include sub-vendors when available
-      const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
-      if (subVendors.length > 0) {
-        userIds = [...new Set([...userIds, ...subVendors])];
+        // Add filter when there are valid user codes
+        vendorTotalQuery += ` AND c.user_id = ANY(ARRAY['${userIds.join("','")}']) `;
+        vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
+      } else {
+        // If no specific users requested, return null (no data)
+        vendorTotalQuery = null;
       }
-
-      // Add filter to vendor total query
-      vendorTotalQuery += ` AND c.user_id = ANY(ARRAY['${userIds.join("','")}']) `;
-      vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
       merchantTotalQuery = null; // Vendor shouldn't see merchant totals
     } else if (role === Role.SUB_VENDOR) {
       vendorTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
