@@ -7,6 +7,7 @@ import {
   updateVendorService,
   getVendorsBySearchService,
   getBankResponseAccessByIDService,
+  getVendorsByCodeService,
 } from './vendorService.js';
 import {
   VALIDATE_VENDOR_BY_ID,
@@ -14,6 +15,7 @@ import {
   VALIDATE_VENDOR_SCHEMA,
 } from '../../schemas/vendorSchema.js';
 import { ValidationError, BadRequestError } from '../../utils/appErrors.js';
+import { logger } from '../../utils/logger.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
 
 const createVendor = async (req, res) => {
@@ -168,6 +170,13 @@ const deleteVendor = async (req, res) => {
   );
 };
 
+const getVendorByCode = async (req, res) => {
+  const { code } = req.query;
+  const data = await getVendorsByCodeService(code);
+  logger.log('get Vendors successfully');
+  return sendSuccess(res, data, 'Vendors fetched successfully');
+};
+
 export {
   createVendor,
   getVendorsBySearch,
@@ -177,4 +186,5 @@ export {
   getBankResponseAccessByID,
   updateVendor,
   deleteVendor,
+  getVendorByCode
 };
