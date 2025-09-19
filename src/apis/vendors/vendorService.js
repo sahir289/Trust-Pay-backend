@@ -20,6 +20,7 @@ import {
   updateVendorDao,
   getAllVendorsDao,
   getBankResponseAccessByIDDao,
+  getVendorByCodeDao,
 } from './vendorDao.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 import { updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
@@ -27,6 +28,7 @@ import { updateUserDao } from '../users/userDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
 import { notifyBankResponseAccessUpdate } from '../../utils/sockets.js';
+import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
 const createVendorService = async (conn, payload) => {
   try {
     const parentId = payload.parent_id;
@@ -178,6 +180,7 @@ const getVendorsCodeService = async (
   includeSubVendors,
   includeOnlyVendors,
   excludeDisabledVendor,
+  includeSeperateSubVendors,
 ) => {
   let conn;
   try {
@@ -230,6 +233,7 @@ const getVendorsCodeService = async (
       includeSubVendors,
       includeOnlyVendors,
       excludeDisabledVendor,
+      includeSeperateSubVendors,
     );
     await commit(conn);
     return codes;
@@ -472,6 +476,23 @@ const getBankResponseAccessByIDService = async (id) => {
   }
 };
 
+
+const getVendorsByCodeService = async (code) => {
+  try {
+    if (!code) {
+      throw new BadRequestError('Code is required');
+    }
+    const data = await getVendorByCodeDao(code);
+    if (data.length === 0) {
+      throw new NotFoundError('Vendor not found');
+    }
+    return data[0];
+  } catch (error) {
+    logger.error('Error while fetching vendor by code', error);
+    throw error;
+  }
+};
+
 export {
   createVendorService,
   getVendorsService,
@@ -480,4 +501,5 @@ export {
   getVendorsBySearchService,
   getVendorsCodeService,
   getBankResponseAccessByIDService,
+  getVendorsByCodeService,
 };

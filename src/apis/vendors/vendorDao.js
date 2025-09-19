@@ -68,6 +68,7 @@ export const getVendorsCodeDao = async (
   includeSubVendors = false,
   includeOnlyVendors = false,
   excludeDisabledVendor = false,
+  includeSeperateSubVendors = false,
 ) => {
   try {
     // Convert string to boolean
@@ -76,6 +77,9 @@ export const getVendorsCodeDao = async (
     }
     if (includeOnlyVendors) {
       includeOnlyVendors = includeOnlyVendors.toLowerCase() === 'true';
+    }
+    if (includeSeperateSubVendors) {
+      includeSeperateSubVendors = includeSeperateSubVendors.toLowerCase() === 'true';
     }
     
     let sql = `
@@ -168,6 +172,7 @@ export const getVendorsDao = async (
   sortBy = 'created_at',
   sortOrder = 'DESC',
   role,
+  includeSeperateSubVendors = false,
 ) => {
   try {
     let baseQuery;
@@ -253,7 +258,7 @@ export const getVendorsDao = async (
     const result = await executeQuery(query, values);
     
     // Enhance with sub-vendor data
-    const enhancedVendors = await enhanceVendorsWithSubVendors(result.rows);
+    const enhancedVendors = await enhanceVendorsWithSubVendors(result.rows, includeSeperateSubVendors);
     return enhancedVendors;
   } catch (error) {
     logger.error('Error in getVendorsDao:', error);
@@ -267,7 +272,8 @@ export const getAllVendorsDao = async (
   pageSize = 10,
   sortBy = 'created_at',
   sortOrder = 'DESC',
-  role
+  role,
+  includeSeperateSubVendors = false
 ) => {
   try {
     let baseQuery;
@@ -352,7 +358,7 @@ export const getAllVendorsDao = async (
     const result = await executeQuery(query, values);
     
     // Enhance with sub-vendor data
-    const enhancedVendors = await enhanceVendorsWithSubVendors(result.rows);
+    const enhancedVendors = await enhanceVendorsWithSubVendors(result.rows, includeSeperateSubVendors);
     return enhancedVendors;
   } catch (error) {
     logger.error('Error in getVendorsDao:', error);
@@ -364,7 +370,8 @@ export const getVendorsBySearchDao = async (
   filters,
   pageNumber ,
   pageSize ,
-  searchTerms
+  searchTerms,
+  includeSeperateSubVendors = false
 ) => {
   try {
     const conditions = [];
@@ -492,7 +499,7 @@ export const getVendorsBySearchDao = async (
     }
     
     // Enhance with sub-vendor data
-    const enhancedVendors = await enhanceVendorsWithSubVendors(searchResult.rows);
+    const enhancedVendors = await enhanceVendorsWithSubVendors(searchResult.rows, includeSeperateSubVendors);
     
     const data = {
       totalCount: totalItems,
@@ -623,20 +630,9 @@ export const getVendorByCodeDao = async (code) => {
         "Vendor".last_name, 
         "Vendor".code,
         "Vendor".payin_commission,
-        "Vendor".payout_commission,
-        "Vendor".config,
-        "Vendor".created_by,
-        "Vendor".updated_by, 
-        "Vendor".created_at, 
-        "Vendor".updated_at, 
-        "User".designation_id, 
-        "User".first_name || ' ' || "User".last_name AS full_name, 
-        "Designation".designation AS designation_name,
-        (SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".updated_at DESC LIMIT 1) AS balance
-      FROM "Vendor" 
-      JOIN "User" ON "Vendor".user_id = "User".id 
-      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
-      WHERE "Vendor".is_obsolete = false 
+        "Vendor".payout_commission
+      FROM "Vendor"
+      WHERE "Vendor".is_obsolete = false
       AND "Vendor".code = $1
       ORDER BY "Vendor"."created_at" ASC;
     `;

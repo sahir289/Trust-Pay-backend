@@ -9,6 +9,7 @@ import {
   getVendorCodes,
   getVendorsBySearch,
   getBankResponseAccessByID,
+  getVendorByCode,
 } from './vendorController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -87,6 +88,12 @@ router.get(
   '/codes',
   [isAuthenticated, authorized(AccessRoles.VENDOR)],
   tryCatchHandler(getVendorCodes),
+);
+
+router.get(
+  '/get-vendor-by-code',
+  [isAuthenticated, authorized(AccessRoles.MERCHANT)],
+  tryCatchHandler(getVendorByCode),
 );
 
 /**

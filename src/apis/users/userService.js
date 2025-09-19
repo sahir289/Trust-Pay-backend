@@ -205,6 +205,21 @@ const getUsersBySearchService = async (
           userIdFilter.push(...subOps);
         }
 
+        // Add sub_vendors and their operations
+        const subVendors =
+          userHierarchy?.config?.siblings?.sub_vendors ?? [];
+        userIdFilter.push(...subVendors);
+
+        // Add sub_vendor child.operations
+        for (const subId of subVendors) {
+          const subHierarchyData = await getUserHierarchysDao({
+            user_id: subId,
+          });
+          const subHierarchy = subHierarchyData?.[0];
+          const subOps = subHierarchy?.config?.child?.operations ?? [];
+          userIdFilter.push(...subOps);
+        }
+
         const childOperations = userHierarchy?.config?.child?.operations ?? [];
         userIdFilter.push(...childOperations);
       }
