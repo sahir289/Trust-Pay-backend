@@ -258,7 +258,7 @@ export const getVendorsDao = async (
     const result = await executeQuery(query, values);
     
     // Enhance with sub-vendor data
-    const enhancedVendors = await enhanceVendorsWithSubVendors(result.rows, includeSeperateSubVendors);
+    const enhancedVendors = await enhanceVendorsWithSubVendors(result.rows, includeSeperateSubVendors, role, filters.company_id);
     return enhancedVendors;
   } catch (error) {
     logger.error('Error in getVendorsDao:', error);
@@ -358,7 +358,7 @@ export const getAllVendorsDao = async (
     const result = await executeQuery(query, values);
     
     // Enhance with sub-vendor data
-    const enhancedVendors = await enhanceVendorsWithSubVendors(result.rows, includeSeperateSubVendors);
+    const enhancedVendors = await enhanceVendorsWithSubVendors(result.rows, includeSeperateSubVendors, role, filters.company_id);
     return enhancedVendors;
   } catch (error) {
     logger.error('Error in getVendorsDao:', error);
@@ -499,7 +499,7 @@ export const getVendorsBySearchDao = async (
     }
     
     // Enhance with sub-vendor data
-    const enhancedVendors = await enhanceVendorsWithSubVendors(searchResult.rows, includeSeperateSubVendors);
+    const enhancedVendors = await enhanceVendorsWithSubVendors(searchResult.rows, includeSeperateSubVendors, filters.role, filters.company_id);
     
     const data = {
       totalCount: totalItems,
