@@ -110,7 +110,7 @@ import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { usedTokens } from '../../app.js';
-import { getCompanyByIDDao } from '../company/companyDao.js';
+import { getCashfreeAllowByCompanyIdDao, getCompanyByIDDao, getCompanyDetailsByIdDao } from '../company/companyDao.js';
 import { getAllUsersDao, getUserByIdDao } from '../users/userDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 import { createCashfreeOrder, payOrder } from '../../cashfree/cashfree.js';
@@ -2786,9 +2786,11 @@ export const verifyPayinsService = async (
     const banks = await getMerchantBankDao({
       config_merchants_contains: merchant[0].id,
     });
+    let bankIntent;
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
       const isActive = bank.is_enabled && isPayInBank;
+      bankIntent = bank.config?.is_intent;
       const hasAnyMethod =
         bank.is_qr ||
         bank.is_bank ||
@@ -2797,10 +2799,19 @@ export const verifyPayinsService = async (
       return isActive && hasAnyMethod;
     });
 
+    console.log(merchant[0]?.config?.allow_intent, "merchant intent");
+    console.log(bankIntent, "bank intent");
+    const merchantIntent = merchant[0]?.config?.allow_intent;
+    let cashfreeDetails;
+    if (merchantIntent && bankIntent) {
+      cashfreeDetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
+    }
+    
     const result = {
       expiryTime: payIn.expiration_date,
       amount: payIn.amount,
       one_time_used: payIn.one_time_used,
+      allowCashfree: cashfreeDetails?.allow_cashfree || false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,

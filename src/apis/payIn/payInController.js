@@ -59,7 +59,7 @@ import { createHash, compareHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
 import { sendBankNotAssignedAlertTelegram } from '../../utils/sendTelegramMessages.js';
-import { getCompanyByIDDao } from '../company/companyDao.js';
+import {  getCompanyByIDDao } from '../company/companyDao.js';
 import { getRolesById } from '../roles/rolesDao.js';
 import { Role } from '../../constants/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
@@ -307,6 +307,7 @@ export const validatePayInUrl = async (req, res) => {
   result.merchant_order_id = merchantOrderId;
   return sendSuccess(res, result, 'Payment Url is correct');
 };
+
 
 export const generateUpiUrl = async (req, res) => {
   const payload = req.body;

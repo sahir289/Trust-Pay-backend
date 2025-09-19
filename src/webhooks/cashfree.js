@@ -7,7 +7,6 @@ import { transactionWrapper } from '../utils/db.js';
 import { createBankResponseService } from '../apis/bankResponse/bankResponseServices.js';
 import { getPayInIntentDao } from '../apis/payIn/payInDao.js';
 
-
 const env =
   config.env === 'production'
     ? CFEnvironment.PRODUCTION
@@ -52,13 +51,15 @@ export const cashfreeWebHook = async (req, res) => {
     const payIn = await getPayInIntentDao(eventData?.data?.order?.order_id);
 
     const bankResponsePayload = `${eventData?.data?.order?.order_amount} nil ${eventData?.data?.payment?.bank_reference} ${payIn.bank_acc_id}`;
-    await createBankResponseService(
-      bankResponsePayload,
-      payIn.company_id,
-      'BOT',
-      'CASHFREE',
-    );
 
+    if (eventData?.data?.payment?.payment_status === 'SUCCESS') {
+      await createBankResponseService(
+        bankResponsePayload,
+        payIn.company_id,
+        'BOT',
+        'CASHFREE',
+      );
+    }
     await transactionWrapper(processPayInService)(payload);
   } catch (error) {
     logger.error('Cashfree webhook error:', error.message || error);

@@ -39,6 +39,24 @@ const getCompanyDetailsByIdDao = async (id) => {
   }
 };
 
+const getCashfreeAllowByCompanyIdDao = async (id) => {
+  try {
+    const sql = `
+      SELECT 
+        CONCAT(first_name, ' ', last_name) AS full_name, 
+        COALESCE((config ->> 'allow_cashfree')::boolean, false) AS allow_cashfree
+      FROM "${tableName.COMPANY}"
+      WHERE id = $1
+    `
+    const queryParams = [id];
+    const result = await executeQuery(sql, queryParams);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error fetching company details by ID:', error);
+    throw error;
+  }
+};
+
 const getCompanyByIDDao = async (filters) => {
   try {
     const baseQuery = `SELECT id,config FROM "${tableName.COMPANY}" WHERE 1=1`;
@@ -104,6 +122,7 @@ export {
   updateCompanyDao,
   deleteCompanyDao,
   getCompanyByIDDao,
+  getCashfreeAllowByCompanyIdDao,
   updateCompanyConfigDao,
   getCompanyDetailsByIdDao,
 };
