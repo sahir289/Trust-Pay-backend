@@ -441,7 +441,7 @@ describe('Reports Service', () => {
 
       const result = await getClientsAccountReportService(mockReq);
     
-      expect(getVendorReportDao).toHaveBeenCalledWith('123', null, '2025-08-01', '2025-08-31', undefined, undefined, 'admin');
+      expect(getVendorReportDao).toHaveBeenCalledWith('123', null, '2025-08-01', '2025-08-31', null, null, 'admin');
       expect(result).toEqual([
         {
           id: 789,

@@ -25,7 +25,7 @@ describe('getTotalCountService', () => {
   beforeEach(() => {
     userInfo = {
       userRole: 'ADMIN',
-      designation: 'manager',
+      designation: 'OPERATIONS',
       user_id: '123',
     };
     getTotalCountDao.mockResolvedValue(100);
@@ -88,7 +88,7 @@ describe('getTotalCountService', () => {
       1,
       10,
       'ADMIN',
-      'manager'
+      'OPERATIONS'
     );
     expect(getTotalCountDao).toHaveBeenCalledWith(
       'ChargeBack',

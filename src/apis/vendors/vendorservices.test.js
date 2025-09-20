@@ -148,7 +148,7 @@ describe('Vendor Service', () => {
       const mockResult = [{ id: 'vendor1', full_name: 'Vendor A' }];
       getAllVendorsDao.mockResolvedValue(mockResult);
 
-      const result = await getVendorsService(filters, Role.ADMIN, '1', '10', 'user1', 'manager');
+      const result = await getVendorsService(filters, Role.ADMIN, '1', '10', 'user1', 'OPERATIONS');
 
       expect(getAllVendorsDao).toHaveBeenCalledWith(filters, 1, 10, null, null, Role.ADMIN);
       expect(result).toEqual(mockResult);
@@ -158,15 +158,21 @@ describe('Vendor Service', () => {
       const filters = { company_id: 'comp1' };
       const user_id = 'user1';
       const mockHierarchy = [{ config: { parent: 'parent1' } }];
+      const mockParentHierarchy = [{ config: { siblings: { sub_vendors: [] } } }]; 
       const mockResult = [{ id: 'vendor1', full_name: 'Vendor A' }];
-      getUserHierarchysDao.mockResolvedValue(mockHierarchy);
+    
+      getUserHierarchysDao
+        .mockResolvedValueOnce(mockHierarchy)
+        .mockResolvedValueOnce(mockParentHierarchy); // Second call with user_id: 'parent1'
       getAllVendorsDao.mockResolvedValue(mockResult);
-
-      const result = await getVendorsService(filters, Role.VENDOR, '1', '10', user_id, Role.VENDOR_OPERATIONS);
-
-      expect(getUserHierarchysDao).toHaveBeenCalledWith({ user_id });
+    
+      const result = await getVendorsService(filters, Role.VENDOR, '1', '10', Role.VENDOR_OPERATIONS, user_id);
+    
+      expect(getUserHierarchysDao).toHaveBeenCalledTimes(2);
+      expect(getUserHierarchysDao).toHaveBeenNthCalledWith(1, { user_id: 'user1' });
+      expect(getUserHierarchysDao).toHaveBeenNthCalledWith(2, { user_id: 'parent1' });
       expect(getAllVendorsDao).toHaveBeenCalledWith(
-        { ...filters, user_id: 'parent1' },
+        { ...filters, user_id: ['user1', 'parent1'] },
         1,
         10,
         null,
@@ -201,7 +207,7 @@ describe('Vendor Service', () => {
       const error = new Error('Database error');
       getAllVendorsDao.mockRejectedValue(error);
 
-      await expect(getVendorsService(filters, Role.ADMIN, '1', '10', 'user1', 'manager')).rejects.toThrow(error);
+      await expect(getVendorsService(filters, Role.ADMIN, '1', '10', 'user1', 'OPERATIONS')).rejects.toThrow(error);
       expect(logger.error).toHaveBeenCalledWith('Error while fetching vendors', error);
     });
   });
@@ -212,7 +218,7 @@ describe('Vendor Service', () => {
       const mockResult = [{ label: 'V001', value: 'user1', vendor_id: 'vendor1' }];
       getVendorsCodeDao.mockResolvedValue(mockResult);
 
-      const result = await getVendorsCodeService(filters, Role.ADMIN, 'user1', 'manager');
+      const result = await getVendorsCodeService(filters, Role.ADMIN, 'user1', 'OPERATIONS');
 
       expect(getConnection).toHaveBeenCalled();
       expect(beginTransaction).toHaveBeenCalledWith(mockConn);
@@ -244,10 +250,10 @@ describe('Vendor Service', () => {
       const error = new Error('Database error');
       getVendorsCodeDao.mockRejectedValue(error);
 
-      await expect(getVendorsCodeService(filters, Role.ADMIN, 'user1', 'manager')).rejects.toThrow(error);
+      await expect(getVendorsCodeService(filters, Role.ADMIN, 'user1', 'OPERATIONS')).rejects.toThrow(error);
       expect(rollback).toHaveBeenCalledWith(mockConn);
       expect(mockConn.release).toHaveBeenCalled();
-      expect(logger.error).toHaveBeenCalledWith('Error while fetching vendors:', error);
+      expect(logger.error).toHaveBeenCalledWith('Error while getting vendors codes', error);
     });
 
     test('should handle rollback error gracefully', async () => {
@@ -257,7 +263,7 @@ describe('Vendor Service', () => {
       getVendorsCodeDao.mockRejectedValue(error);
       rollback.mockRejectedValue(rollbackError);
 
-      await expect(getVendorsCodeService(filters, Role.ADMIN, 'user1', 'manager')).rejects.toThrow(error);
+      await expect(getVendorsCodeService(filters, Role.ADMIN, 'user1', 'OPERATIONS')).rejects.toThrow(error);
       expect(logger.error).toHaveBeenCalledWith('Error during transaction rollback:', rollbackError);
       expect(mockConn.release).toHaveBeenCalled();
     });
@@ -269,7 +275,7 @@ describe('Vendor Service', () => {
       const mockResult = { totalCount: 1, totalPages: 1, Vendors: [{ id: 'vendor1', full_name: 'Vendor A' }] };
       getVendorsBySearchDao.mockResolvedValue(mockResult);
 
-      const result = await getVendorsBySearchService(filters, Role.ADMIN, '1', '10', 'user1', 'manager');
+      const result = await getVendorsBySearchService(filters, Role.ADMIN, '1', '10', 'user1', 'OPERATIONS');
 
       expect(getVendorsBySearchDao).toHaveBeenCalledWith(
         { ...filters, role: Role.ADMIN },
@@ -305,7 +311,7 @@ describe('Vendor Service', () => {
       const error = new Error('Database error');
       getVendorsBySearchDao.mockRejectedValue(error);
 
-      await expect(getVendorsBySearchService(filters, Role.ADMIN, '1', '10', 'user1', 'manager')).rejects.toThrow(error);
+      await expect(getVendorsBySearchService(filters, Role.ADMIN, '1', '10', 'user1', 'OPERATIONS')).rejects.toThrow(error);
       expect(logger.error).toHaveBeenCalledWith('Error while fetching vendors by search', error);
     });
   });

@@ -57,15 +57,15 @@ describe('Vendor Controller', () => {
       return createVendor(req, res, next);
     });
     app.get('/vendors/get', (req, res, next) => {
-      req.user = { company_id: 'comp1', user_id: 'user1', role: 'admin', designation: 'manager' };
+      req.user = { company_id: 'comp1', user_id: 'user1', role: 'admin', designation: 'OPERATIONS' };
       return getVendors(req, res, next);
     });
     app.get('/vendors', (req, res, next) => {
-      req.user = { company_id: 'comp1', user_id: 'user1', role: 'admin', designation: 'manager' };
+      req.user = { company_id: 'comp1', user_id: 'user1', role: 'admin', designation: 'OPERATIONS' };
       return getVendorsBySearch(req, res, next);
     });
     app.get('/vendors/codes', (req, res, next) => {
-      req.user = { company_id: 'comp1', user_id: 'user1', role: 'admin', designation: 'manager' };
+      req.user = { company_id: 'comp1', user_id: 'user1', role: 'admin', designation: 'OPERATIONS' };
       return getVendorCodes(req, res, next);
     });
     app.get('/vendors/:id', (req, res, next) => {
@@ -114,7 +114,6 @@ describe('Vendor Controller', () => {
       expect(VALIDATE_VENDOR_SCHEMA.validate).toHaveBeenCalledWith(payload);
       expect(createVendorService).toHaveBeenCalledWith(
         { ...payload, company_id: 'comp1', created_by: 'user1', updated_by: 'user1' },
-        'admin'
       );
       expect(transactionWrapper).toHaveBeenCalled();
       expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), { id: 'vendor1' }, 'Vendor created successfully');
@@ -155,7 +154,7 @@ describe('Vendor Controller', () => {
         '1',
         '10',
         'user1',
-        'manager'
+        'OPERATIONS'
       );
       expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), mockData, 'Vendors fetched successfully');
     });
@@ -176,7 +175,7 @@ describe('Vendor Controller', () => {
         '1',
         '10',
         'user1',
-        'manager'
+        'OPERATIONS'
       );
       expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), mockData, 'Vendors fetched successfully');
     });
@@ -195,7 +194,7 @@ describe('Vendor Controller', () => {
         { company_id: 'comp1' },
         'admin',
         'user1',
-        'manager'
+        'OPERATIONS'
       );
       expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), mockData, 'Vendors fetched successfully');
     });
@@ -210,10 +209,18 @@ describe('Vendor Controller', () => {
       const res = await request(app).get('/vendors/vendor1');
 
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ data: mockData, message: ' Vendor fetched successfully' });
+      expect(res.user).toEqual({ data: mockData, message: 'Vendor fetched successfully' })
+      expect(res.body).toEqual({ designation: 'OPERATIONS'});
       expect(VALIDATE_VENDOR_BY_ID.validate).toHaveBeenCalledWith({ id: 'vendor1' });
-      expect(getVendorsService).toHaveBeenCalledWith({ id: 'vendor1', company_id: 'comp1' }, 'admin');
-      expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), mockData, ' Vendor fetched successfully');
+      expect(getVendorsService).toHaveBeenCalledWith(
+        { id: 'vendor1', company_id: 'comp1' },
+        'admin',
+        null,
+        null,
+        'user1',
+        'OPERATIONS', 
+      );
+      expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), mockData, 'Vendor fetched successfully');
     });
 
     test('should throw ValidationError for invalid vendor ID', async () => {

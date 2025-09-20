@@ -25,9 +25,9 @@ jest.mock('./payInController.js', () => ({
   updatePayIn: jest.fn((req, res) => res.status(200).json({ updatedPayIn: true })),
 }));
 
-jest.mock('../../webhooks/index.js', () => ({
-  payInUpdateCashfreeWebhook: jest.fn((req, res) => res.status(200).json({ webhookUpdated: true })),
-}));
+// jest.mock('../../webhooks/index.js', () => ({
+//   payInUpdateCashfreeWebhook: jest.fn((req, res) => res.status(200).json({ webhookUpdated: true })),
+// }));
 
 jest.mock('../../utils/index.js', () => ({
   multerUpload: {

@@ -32,7 +32,7 @@ describe('ChargeBack Controller', () => {
         body: {},
         params: {},
         query: {},
-        user: { company_id: 1, role: 'admin', user_id: 99, user_name: 'Tester', designation: 'manager' }
+        user: { company_id: 1, role: 'admin', user_id: 99, user_name: 'Tester', designation: 'OPERATIONS' }
       };
       res = {};
       jest.clearAllMocks();

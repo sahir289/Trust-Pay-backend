@@ -135,15 +135,14 @@ jest.mock('dayjs', () => {
   return mockDayjs;
 });
 jest.mock('cashfree-pg', () => ({
-  Cashfree: {
-    XClientId: '',
-    XClientSecret: '',
-    XEnvironment: '',
-    Environment: {
-      PRODUCTION: 'PRODUCTION',
-      SANDBOX: 'SANDBOX',
-    },
+  Cashfree: jest.fn().mockImplementation((env, clientId, clientSecret) => ({
     PGCreateOrder: jest.fn().mockResolvedValue({ order_id: 'cashfree_order', payment_link: 'http://payment.link' }),
+    PGPayOrder: jest.fn().mockResolvedValue({ data: { payment_status: 'SUCCESS' } }),
+    PGVerifyWebhookSignature: jest.fn().mockReturnValue(true),
+  })),
+  CFEnvironment: {
+    PRODUCTION: 'PRODUCTION',
+    SANDBOX: 'SANDBOX',
   },
 }));
 jest.mock('../../utils/sockets.js', () => ({
@@ -386,6 +385,76 @@ beforeEach(() => {
 });
 
 describe('PayIn Service Tests', () => {
+  describe('cashfreeWebHook', () => {
+    test('processes webhook successfully for SUCCESS payment', async () => {
+      const mockReq = {
+        rawBody: 'raw_body_data',
+        body: {
+          data: {
+            order: { order_id: 'order123', order_amount: 100 },
+            payment: { payment_status: 'SUCCESS', bank_reference: 'utr123' },
+          },
+        },
+        headers: {
+          'x-webhook-signature': 'valid_signature',
+          'x-webhook-timestamp': '1234567890',
+        },
+      };
+      const mockRes = { status: jest.fn().mockReturnThis(), send: jest.fn() };
+      const mockPayIn = {
+        bank_acc_id: 'bank1',
+        company_id: 'company1',
+      };
+  
+      require('../apis/payIn/payInDao').getPayInIntentDao.mockResolvedValue(mockPayIn);
+      require('../apis/bankResponse/bankResponseServices').createBankResponseService.mockResolvedValue({});
+      require('../apis/payIn/payInService').processPayInService.mockResolvedValue({ status: 'SUCCESS' });
+  
+      await cashfreeWebHook(mockReq, mockRes);
+  
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.send).toHaveBeenCalledWith('Webhook received successfully');
+      expect(require('cashfree-pg').Cashfree().PGVerifyWebhookSignature).toHaveBeenCalledWith(
+        'valid_signature',
+        'raw_body_data',
+        '1234567890'
+      );
+      expect(require('../apis/bankResponse/bankResponseServices').createBankResponseService).toHaveBeenCalledWith(
+        '100 nil utr123 bank1',
+        'company1',
+        'BOT',
+        'CASHFREE'
+      );
+      expect(require('../apis/payIn/payInService').processPayInService).toHaveBeenCalledWith(
+        expect.anything(),
+        { merchantOrderId: 'order123', userSubmittedUtr: 'utr123', amount: 100 }
+      );
+      expect(require('../../utils/logger').logger.error).not.toHaveBeenCalled();
+    });
+  
+    test('logs error for failed payment status', async () => {
+      const mockReq = {
+        rawBody: 'raw_body_data',
+        body: {
+          data: {
+            order: { order_id: 'order123', order_amount: 100 },
+            payment: { payment_status: 'FAILED', bank_reference: 'utr123' },
+          },
+        },
+        headers: {
+          'x-webhook-signature': 'valid_signature',
+          'x-webhook-timestamp': '1234567890',
+        },
+      };
+      const mockRes = { status: jest.fn().mockReturnThis(), send: jest.fn() };
+  
+      await cashfreeWebHook(mockReq, mockRes);
+  
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+      expect(mockRes.send).toHaveBeenCalledWith('Webhook received successfully');
+      expect(require('../../utils/logger').logger.error).toHaveBeenCalledWith('Payment is either Failed or User Aborted');
+    });
+  });
   describe('generatePayInUrlByHashService', () => {
     beforeEach(() => {
       require('../merchants/merchantDao').getMerchantsByCodeDao.mockResolvedValue([mockMerchant]);
@@ -883,3 +952,4 @@ describe('PayIn Service Tests', () => {
     });
   });
 });
+

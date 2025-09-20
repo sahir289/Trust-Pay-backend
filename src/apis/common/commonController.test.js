@@ -14,7 +14,7 @@ describe('getTotalCount', () => {
       query: { role: 'admin', filters: undefined },
       user: {
         role: 'admin',
-        designation: 'manager',
+        designation: 'OPERATIONS',
         user_id: '123',
         company_id: '456',
       },
@@ -41,7 +41,7 @@ describe('getTotalCount', () => {
       'users',
       'admin',
       { company_id: '456' },
-      { userRole: 'admin', designation: 'manager', user_id: '123' }
+      { userRole: 'admin', designation: 'OPERATIONS', user_id: '123' }
     );
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
@@ -60,7 +60,7 @@ describe('getTotalCount', () => {
       'users',
       'admin',
       { status: 'active', company_id: '456' },
-      { userRole: 'admin', designation: 'manager', user_id: '123' }
+      { userRole: 'admin', designation: 'OPERATIONS', user_id: '123' }
     );
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({

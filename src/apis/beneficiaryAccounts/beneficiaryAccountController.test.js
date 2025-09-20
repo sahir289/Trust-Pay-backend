@@ -68,7 +68,7 @@ import {
   
     beforeEach(() => {
       req = {
-        user: { role: Role.ADMIN, user_id: 1, designation: 'manager', company_id: 1 },
+        user: { role: Role.ADMIN, user_id: 1, designation: 'OPERATIONS', company_id: 1 },
         query: {},
         params: {},
         body: {},
@@ -91,7 +91,7 @@ import {
           1,
           10,
           1,
-          'manager',
+          'OPERATIONS',
           1
         );
         expect(logger.log).toHaveBeenCalledWith('get Beneficiary successfully', Role.ADMIN);
@@ -113,7 +113,7 @@ import {
           1,
           10,
           1,
-          'manager',
+          'OPERATIONS',
           1
         );
         expect(result).toEqual({ status: 200, data: mockData, message: 'get Beneficiary successfully' });
@@ -134,7 +134,7 @@ import {
           1,
           10,
           1,
-          'manager',
+          'OPERATIONS',
           1
         );
         expect(logger.log).toHaveBeenCalledWith('get Beneficiary successfully', Role.ADMIN);
@@ -156,7 +156,7 @@ import {
           1,
           10,
           1,
-          'manager',
+          'OPERATIONS',
           1
         );
         expect(result).toEqual({ status: 200, data: mockData, message: 'get Beneficiary successfully' });
@@ -176,7 +176,7 @@ import {
           'savings',
           Role.ADMIN,
           1,
-          'manager'
+          'OPERATIONS'
         );
         expect(sendSuccess).toHaveBeenCalledWith(res, mockData, 'get Beneficiary successfully');
         expect(result).toEqual({ status: 200, data: mockData, message: 'get Beneficiary successfully' });
