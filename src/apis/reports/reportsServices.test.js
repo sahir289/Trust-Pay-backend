@@ -422,7 +422,7 @@ describe('Reports Service', () => {
         {
           id: 789,
           name: 'Vendor A',
-          created_at: '2025-08-01',
+          created_at: '2025-08-01T00:00:00.000Z',
         },
       ]);
       expect(getUsersDao).not.toHaveBeenCalled();
