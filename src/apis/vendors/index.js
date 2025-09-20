@@ -92,7 +92,7 @@ router.get(
 
 router.get(
   '/get-vendor-by-code',
-  [isAuthenticated, authorized(AccessRoles.MERCHANT)],
+  [isAuthenticated, authorized(AccessRoles.VENDOR)],
   tryCatchHandler(getVendorByCode),
 );
 

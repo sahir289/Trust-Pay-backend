@@ -16,6 +16,7 @@ import {
 } from '../../schemas/vendorSchema.js';
 import { ValidationError, BadRequestError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
+import { transactionWrapper } from '../../utils/db.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
 
 const createVendor = async (req, res) => {
@@ -29,7 +30,7 @@ const createVendor = async (req, res) => {
   payload.created_by = user_id;
   payload.updated_by = user_id;
   // Call the service to create the Vendor
-  const vendor = await createVendorService(payload);
+  const vendor = await transactionWrapper(createVendorService)(payload);
   // Log success message
   // Send a success response to the client
   return sendSuccess(res, { id: vendor.id }, 'Vendor created successfully');
@@ -158,7 +159,7 @@ const deleteVendor = async (req, res) => {
   // Call the service to delete the Vendor
   const { company_id, user_id: currentUserId, user_name } = req.user;
   const updated_by = currentUserId;
-  const ids = { id: user_id, company_id }; // Convert to match merchant pattern
+  const ids = { user_id: user_id, company_id }; // Convert to match merchant pattern
   const vendor = await deleteVendorService(ids, updated_by);
   // Log success message
 
