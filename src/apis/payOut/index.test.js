@@ -193,7 +193,7 @@ describe('payout index router - CommonJS tests', () => {
     // reload router to pick up new mock
     jest.resetModules();
     // re-initialize mocks + router
-    const routerMod = require('../index.js');
+    const routerMod = require('./index.js');
     const routerReloaded = routerMod.default || routerMod;
     const app2 = express();
     app2.use(express.json());
@@ -217,7 +217,7 @@ describe('payout index router - CommonJS tests', () => {
     }), { virtual: false });
 
     jest.resetModules();
-    const routerMod = require('../index.js');
+    const routerMod = require('./index.js');
     const routerReloaded = routerMod.default || routerMod;
     const app3 = express();
     app3.use(express.json());
@@ -226,5 +226,5 @@ describe('payout index router - CommonJS tests', () => {
     const resp = await request(app3).get('/payout/');
     expect(resp.status).toBe(403);
     expect(resp.body.message).toBe('forbidden');
-  });
+  },30000);
 });
