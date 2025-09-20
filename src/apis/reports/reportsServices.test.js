@@ -411,7 +411,7 @@ describe('Reports Service', () => {
       getVendorReportDao.mockResolvedValue(vendorData);
     
       dayjs.tz.mockReturnValue({
-        format: jest.fn().mockReturnValue('2025-08-01')
+        format: jest.fn().mockReturnValue('2025-08-01T00:00:00.000Z')
       });
 
       const result = await getClientsAccountReportService(mockReq);
