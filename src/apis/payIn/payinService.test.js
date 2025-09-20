@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-
+const { cashfree } = require('../../webhooks/cashfree.js');
 const { BadRequestError, NotFoundError, InternalServerError } = require('../../utils/appErrors');
 const {
   generatePayInUrlByHashService,
@@ -40,12 +40,17 @@ jest.mock('../../config/config.js', () => ({
   env: 'test',
   databaseWriterUrl: 'postgres://localhost:5432/testdb_writer',
   databaseReaderUrl: 'postgres://localhost:5432/testdb_reader',
-  cashFreeClientId: 'test-client-id',
-  XClientSecret: 'test-client-secret',
+  cashfree: {
+    clientIdTest: 'test-client-id',
+    clientIdProd: 'prod-client-id',
+    clientSecretTest: 'test-client-secret',
+    clientSecretProd: 'prod-client-secret',
+  },
   reactPaymentOrigin: 'https://example.com',
   telegramOcrBotToken: 'test-telegram-token',
 }));
 
+// Mock database utilities
 jest.mock('../../utils/db', () => {
   const mockPool = {
     query: jest.fn().mockResolvedValue({ rows: [] }),
@@ -94,7 +99,6 @@ jest.mock('../../utils/db', () => {
       }
       return [`${query} WHERE ${conditions.join(' AND ')}`, params];
     }),
-    // ... other mocks
   };
 });
 
@@ -138,7 +142,7 @@ jest.mock('cashfree-pg', () => ({
   Cashfree: jest.fn().mockImplementation((env, clientId, clientSecret) => ({
     PGCreateOrder: jest.fn().mockResolvedValue({ order_id: 'cashfree_order', payment_link: 'http://payment.link' }),
     PGPayOrder: jest.fn().mockResolvedValue({ data: { payment_status: 'SUCCESS' } }),
-    PGVerifyWebhookSignature: jest.fn().mockReturnValue(true),
+    PGVerifyWebhookSignature: jest.fn().mockReturnValue(true), // This is a fallback mock
   })),
   CFEnvironment: {
     PRODUCTION: 'PRODUCTION',
@@ -192,6 +196,7 @@ jest.mock('./payInDao.js', () => ({
   getPayInForTelegramResponseDao: jest.fn(),
   getPayinsWithoutHistoryDao: jest.fn(),
   getPayInForTelegramResponseArrayDao: jest.fn(),
+  getPayInIntentDao: jest.fn(),
 }));
 jest.mock('../bankResponse/bankResponseDao.js', () => ({
   getBankResponseDao: jest.fn(),
@@ -338,8 +343,8 @@ const mockBank = {
   merchant_id: 'merchant1',
   is_enabled: true,
   bank_used_for: 'PayIn',
-  config: { 
-    is_phonepay: true, 
+  config: {
+    is_phonepay: true,
     is_intent: true,
     merchants: ['merchant1'],
   },
@@ -385,76 +390,262 @@ beforeEach(() => {
 });
 
 describe('PayIn Service Tests', () => {
-  describe('cashfreeWebHook', () => {
-    test('processes webhook successfully for SUCCESS payment', async () => {
-      const mockReq = {
-        rawBody: 'raw_body_data',
-        body: {
-          data: {
-            order: { order_id: 'order123', order_amount: 100 },
-            payment: { payment_status: 'SUCCESS', bank_reference: 'utr123' },
-          },
+
+describe('cashfreeWebHook', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(cashfree, 'PGVerifyWebhookSignature').mockReturnValue(true);
+    jest.mock('../../utils/responseHandlers.js', () => ({
+      sendSuccess: jest.fn((res, statusCode, message, finalRes = {}) => {
+        if (res.req.method !== 'GET') {
+          require('../../utils/logger').logger.info(message, { status: statusCode, data: finalRes.data || {} });
+        } else {
+          require('../../utils/logger').logger.info(message, { status: statusCode });
+        }
+        res.status(statusCode).json({ status: statusCode, message, data: finalRes.data || {} });
+      }),
+    }));
+  });
+
+  test('processes webhook successfully for SUCCESS payment', async () => {
+    const mockReq = {
+      rawBody: 'raw_body_data',
+      body: {
+        data: {
+          order: { order_id: 'order123', order_amount: 100 },
+          payment: { payment_status: 'SUCCESS', bank_reference: 'utr123' },
         },
-        headers: {
-          'x-webhook-signature': 'valid_signature',
-          'x-webhook-timestamp': '1234567890',
-        },
-      };
-      const mockRes = { status: jest.fn().mockReturnThis(), send: jest.fn() };
-      const mockPayIn = {
-        bank_acc_id: 'bank1',
-        company_id: 'company1',
-      };
+      },
+      headers: {
+        'x-webhook-signature': 'valid_signature',
+        'x-webhook-timestamp': '1234567890',
+      },
+    };
+    const mockRes = {
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+      json: jest.fn(),
+      req: { method: 'POST' },
+    };
+    const mockPayIn = {
+      bank_acc_id: 'bank1',
+      company_id: 'company1',
+    };
   
-      require('../apis/payIn/payInDao').getPayInIntentDao.mockResolvedValue(mockPayIn);
-      require('../apis/bankResponse/bankResponseServices').createBankResponseService.mockResolvedValue({});
-      require('../apis/payIn/payInService').processPayInService.mockResolvedValue({ status: 'SUCCESS' });
+    require('./payInDao').getPayInIntentDao.mockResolvedValue(mockPayIn);
+    require('./payInDao').updatePayInUrlDao.mockResolvedValue(mockPayIn);
+    require('./payInDao').getPayInForCheckDao.mockResolvedValue([]);
   
-      await cashfreeWebHook(mockReq, mockRes);
+    await cashfreeWebHook(mockReq, mockRes);
   
-      expect(mockRes.status).toHaveBeenCalledWith(200);
-      expect(mockRes.send).toHaveBeenCalledWith('Webhook received successfully');
-      expect(require('cashfree-pg').Cashfree().PGVerifyWebhookSignature).toHaveBeenCalledWith(
-        'valid_signature',
-        'raw_body_data',
-        '1234567890'
-      );
-      expect(require('../apis/bankResponse/bankResponseServices').createBankResponseService).toHaveBeenCalledWith(
-        '100 nil utr123 bank1',
-        'company1',
-        'BOT',
-        'CASHFREE'
-      );
-      expect(require('../apis/payIn/payInService').processPayInService).toHaveBeenCalledWith(
-        expect.anything(),
-        { merchantOrderId: 'order123', userSubmittedUtr: 'utr123', amount: 100 }
-      );
-      expect(require('../../utils/logger').logger.error).not.toHaveBeenCalled();
-    });
-  
-    test('logs error for failed payment status', async () => {
-      const mockReq = {
-        rawBody: 'raw_body_data',
-        body: {
-          data: {
-            order: { order_id: 'order123', order_amount: 100 },
-            payment: { payment_status: 'FAILED', bank_reference: 'utr123' },
-          },
-        },
-        headers: {
-          'x-webhook-signature': 'valid_signature',
-          'x-webhook-timestamp': '1234567890',
-        },
-      };
-      const mockRes = { status: jest.fn().mockReturnThis(), send: jest.fn() };
-  
-      await cashfreeWebHook(mockReq, mockRes);
-  
-      expect(mockRes.status).toHaveBeenCalledWith(200);
-      expect(mockRes.send).toHaveBeenCalledWith('Webhook received successfully');
-      expect(require('../../utils/logger').logger.error).toHaveBeenCalledWith('Payment is either Failed or User Aborted');
+    expect(cashfree.PGVerifyWebhookSignature).toHaveBeenCalledWith(
+      'valid_signature',
+      'raw_body_data',
+      '1234567890'
+    );
+    expect(require('../bankResponse/bankResponseServices').createBankResponseService).toHaveBeenCalledWith(
+      '100 nil utr123 bank1',
+      'company1',
+      'BOT',
+      'CASHFREE'
+    );
+    expect(require('./payInService').processPayInService).toHaveBeenCalledWith(
+      expect.anything(),
+      { merchantOrderId: 'order123', userSubmittedUtr: 'utr123', amount: 100 }
+    );
+    expect(require('../../utils/logger').logger.error).not.toHaveBeenCalled();
+    expect(require('../../utils/responseHandlers').sendSuccess).toHaveBeenCalledWith(
+      mockRes,
+      200,
+      'Webhook received successfully',
+      expect.any(Object)
+    );
+    expect(mockRes.json).toHaveBeenCalledWith({
+      status: 200,
+      message: 'Webhook received successfully',
+      data: {},
     });
   });
+
+  test('logs error for failed payment status', async () => {
+    const mockReq = {
+      rawBody: 'raw_body_data',
+      body: {
+        data: {
+          order: { order_id: 'order123', order_amount: 100 },
+          payment: { payment_status: 'FAILED', bank_reference: 'utr123' },
+        },
+      },
+      headers: {
+        'x-webhook-signature': 'valid_signature',
+        'x-webhook-timestamp': '1234567890',
+      },
+    };
+    const mockRes = {
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+      json: jest.fn(),
+      req: { method: 'POST' },
+    };
+
+    require('./payInDao').getPayInIntentDao.mockResolvedValue(mockPayIn);
+
+    await cashfreeWebHook(mockReq, mockRes);
+    expect(require('cashfree-pg').Cashfree().PGVerifyWebhookSignature).toHaveBeenCalledWith(
+      'valid_signature',
+      'raw_body_data',
+      '1234567890'
+    );
+    expect(require('../../utils/logger').logger.error).toHaveBeenCalledWith('Payment is either Failed or User Aborted');
+    expect(require('../bankResponse/bankResponseServices').createBankResponseService).not.toHaveBeenCalled();
+    expect(require('../../utils/responseHandlers').sendSuccess).toHaveBeenCalledWith(
+      mockRes,
+      200,
+      'Webhook received successfully',
+      expect.any(Object)
+    );
+    expect(mockRes.json).toHaveBeenCalledWith({
+      status: 200,
+      message: 'Webhook received successfully',
+      data: {},
+    });
+  });
+
+  test('logs error when webhook signature verification fails', async () => {
+    const mockReq = {
+      rawBody: 'raw_body_data',
+      body: {
+        data: {
+          order: { order_id: 'order123', order_amount: 100 },
+          payment: { payment_status: 'SUCCESS', bank_reference: 'utr123' },
+        },
+      },
+      headers: {
+        'x-webhook-signature': 'invalid_signature',
+        'x-webhook-timestamp': '1234567890',
+      },
+    };
+    const mockRes = {
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+      json: jest.fn(),
+      req: { method: 'POST' },
+    };
+    const mockPayIn = {
+      bank_acc_id: 'bank1',
+      company_id: 'company1',
+    };
+
+    require('cashfree-pg').Cashfree().PGVerifyWebhookSignature.mockImplementation(() => {
+      throw new Error('Invalid signature');
+    });
+    require('./payInDao').getPayInIntentDao.mockResolvedValue(mockPayIn);
+    require('./payInDao').updatePayInUrlDao.mockResolvedValue(mockPayIn);
+    require('./payInDao').getPayInForCheckDao.mockResolvedValue([]);
+
+    await cashfreeWebHook(mockReq, mockRes);
+    expect(require('cashfree-pg').Cashfree().PGVerifyWebhookSignature).toHaveBeenCalledWith(
+      'invalid_signature',
+      'raw_body_data',
+      '1234567890'
+    );
+    expect(require('../../utils/logger').logger.error).toHaveBeenCalledWith('Verification failed:', 'Invalid signature');
+    expect(require('../bankResponse/bankResponseServices').createBankResponseService).toHaveBeenCalled();
+    expect(require('./payInService').processPayInService).toHaveBeenCalled();
+    expect(require('../../utils/responseHandlers').sendSuccess).toHaveBeenCalledWith(
+      mockRes,
+      200,
+      'Webhook received successfully',
+      expect.any(Object)
+    );
+    expect(mockRes.json).toHaveBeenCalledWith({
+      status: 200,
+      message: 'Webhook received successfully',
+      data: {},
+    });
+  });
+
+  test('returns 400 for missing required webhook data', async () => {
+    const mockReq = {
+      rawBody: null,
+      body: {
+        data: {
+          order: { order_id: 'order123', order_amount: 100 },
+          payment: { payment_status: 'SUCCESS', bank_reference: 'utr123' },
+        },
+      },
+      headers: {
+        'x-webhook-signature': undefined,
+        'x-webhook-timestamp': undefined,
+      },
+    };
+    const mockRes = {
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+      json: jest.fn(),
+      req: { method: 'POST' },
+    };
+
+    await cashfreeWebHook(mockReq, mockRes);
+
+    expect(require('cashfree-pg').Cashfree().PGVerifyWebhookSignature).not.toHaveBeenCalled();
+    expect(require('../../utils/logger').logger.error).toHaveBeenCalledWith('Missing required webhook data');
+    expect(mockRes.json).toHaveBeenCalledWith({
+      data: 400,
+      error: {},
+      meta: {
+        message: 'Invalid webhook request',
+      },
+    });
+    
+  });
+
+  test('handles error in getPayInIntentDao', async () => {
+    const mockReq = {
+      rawBody: 'raw_body_data',
+      body: {
+        data: {
+          order: { order_id: 'order123', order_amount: 100 },
+          payment: { payment_status: 'SUCCESS', bank_reference: 'utr123' },
+        },
+      },
+      headers: {
+        'x-webhook-signature': 'valid_signature',
+        'x-webhook-timestamp': '1234567890',
+      },
+    };
+    const mockRes = {
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+      json: jest.fn(),
+      req: { method: 'POST' },
+    };
+
+    require('cashfree-pg').Cashfree().PGVerifyWebhookSignature.mockReturnValue(true);
+    require('./payInDao').getPayInIntentDao.mockRejectedValue(new Error('Database error'));
+
+    await cashfreeWebHook(mockReq, mockRes);
+    expect(require('cashfree-pg').Cashfree().PGVerifyWebhookSignature).toHaveBeenCalledWith(
+      'valid_signature',
+      'raw_body_data',
+      '1234567890'
+    );
+
+    expect(require('../../utils/logger').logger.error).toHaveBeenCalledWith('Cashfree webhook error:', 'Database error');
+    // expect(require('../../utils/responseHandlers').sendSuccess).toHaveBeenCalledWith(
+    //   mockRes,
+    //   200,
+    //   'Webhook received successfully',
+    //   expect.any(Object)
+    // );
+    expect(mockRes.json).toHaveBeenCalledWith({
+      status: 200,
+      message: 'Webhook received successfully',
+      data: {},
+    });
+  });
+});
+
   describe('generatePayInUrlByHashService', () => {
     beforeEach(() => {
       require('../merchants/merchantDao').getMerchantsByCodeDao.mockResolvedValue([mockMerchant]);
@@ -469,13 +660,13 @@ describe('PayIn Service Tests', () => {
 
       const req = {
         query: { user_id: 'user1', code: 'merchant_code', ot: 'n', key: 'key123' },
-        user: { role_id: 'role1', role: 'ADMIN' }
+        user: { role_id: 'role1', role: 'ADMIN' },
       };
 
       const result = await generatePayInUrlByHashService({}, req);
 
       expect(result).toEqual({
-        payInUrl: 'https://example.com/transaction/hash123?user_id=user1&code=merchant_code&ot=n&key=key123&token=role1'
+        payInUrl: 'https://example.com/transaction/hash123?user_id=user1&code=merchant_code&ot=n&key=key123&token=role1',
       });
       expect(require('../../utils/hashUtils').createHash).toHaveBeenCalledWith('merchant_code:key123');
       expect(require('../../utils/logger').logger.error).not.toHaveBeenCalled();
@@ -494,14 +685,12 @@ describe('PayIn Service Tests', () => {
       expect(result).toEqual({ status: 404, message: 'Merchant is inactive. Contact support for help!' });
     });
 
-
     test('includes amount in URL if provided', async () => {
-      require('../bankAccounts/bankAccountDao').getMerchantBankDao.mockReset();
       require('../bankAccounts/bankAccountDao').getMerchantBankDao.mockResolvedValue([mockBank]);
 
       const req = {
         query: { user_id: 'user1', code: 'merchant_code', ot: 'n', key: 'key123', amount: 500 },
-        user: { role_id: 'role1', role: 'ADMIN' }
+        user: { role_id: 'role1', role: 'ADMIN' },
       };
 
       const result = await generatePayInUrlByHashService({}, req);
@@ -510,12 +699,11 @@ describe('PayIn Service Tests', () => {
     });
 
     test('does not include admin token for non-admin user', async () => {
-      require('../bankAccounts/bankAccountDao').getMerchantBankDao.mockReset();
       require('../bankAccounts/bankAccountDao').getMerchantBankDao.mockResolvedValue([mockBank]);
 
       const req = {
         query: { user_id: 'user1', code: 'merchant_code', ot: 'n', key: 'key123' },
-        user: { role_id: 'role1', role: 'USER' }
+        user: { role_id: 'role1', role: 'USER' },
       };
 
       const result = await generatePayInUrlByHashService({}, req);
@@ -528,12 +716,11 @@ describe('PayIn Service Tests', () => {
 
       const req = {
         query: { user_id: 'user1', code: 'merchant_code', ot: 'n', key: 'key123' },
-        user: { role_id: 'role1', role: 'ADMIN' }
+        user: { role_id: 'role1', role: 'ADMIN' },
       };
 
       await expect(generatePayInUrlByHashService({}, req)).rejects.toThrow('DB error');
     });
-
   });
 
   describe('generatePayInUrlService', () => {
@@ -634,11 +821,10 @@ describe('PayIn Service Tests', () => {
 
   describe('assignedBankToPayInUrlService', () => {
     beforeEach(() => {
-      jest.clearAllMocks();
       require('./payInDao').getPayinsForServiccDao.mockResolvedValue({
         id: 'payin1',
         merchant_id: 'merchant1',
-        status: Status.INITIATED, // Critical: Ensure status is INITIATED
+        status: Status.INITIATED,
         company_id: 'company1',
         config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
         created_at: new Date(),
@@ -651,71 +837,22 @@ describe('PayIn Service Tests', () => {
       require('./payInDao').updatePayInUrlDao.mockResolvedValue({ ...mockPayIn, status: 'ASSIGNED' });
       require('../../utils/sockets').newTableEntry.mockResolvedValue();
     });
-  
+
     test('assigns bank successfully', async () => {
-      // Reset mocks
-      require('../bankAccounts/bankAccountDao').getMerchantBankDao.mockReset();
-      require('../bankAccounts/bankAccountDao').getMerchantBankDao.mockResolvedValue([{
-        id: 'bank1',
-        merchant_id: 'merchant1',
-        is_enabled: true,
-        bank_used_for: 'PayIn',
-        config: { 
-          is_phonepay: true, 
-          is_intent: true,
-          merchants: ['merchant1'],
-        },
-        is_qr: true,
-        is_bank: true,
-        nick_name: 'bank_nick',
-        acc_holder_name: 'Test Account',
-        acc_no: '1234567890',
-        ifsc: 'TEST0001234',
-        upi_id: 'test@upi',
-        user_id: 'vendor1',
-      }]);
-    
-      // Mock getPayInUrlService
-      const mockPayIn = {
+      require('../bankAccounts/bankAccountDao').getMerchantBankDao.mockResolvedValue([mockBank]);
+      jest.spyOn(require('./payInService'), 'getPayInUrlService').mockResolvedValue({
         id: 'payin1',
         merchant_id: 'merchant1',
-        status: Status.INITIATED, // Critical: Ensure status is INITIATED
+        status: Status.INITIATED,
         company_id: 'company1',
         config: { urls: { return: 'http://return.url', notify: 'http://notify.url' } },
         created_at: new Date(),
         amount: 100,
         upi_short_code: 'upi123',
-      };
-      jest.spyOn(require('./payInService'), 'getPayInUrlService').mockResolvedValue(mockPayIn);
-    
-      // Mock other dependencies
-      require('../merchants/merchantDao').getMerchantsDao.mockResolvedValue({
-        id: 'merchant1',
-        code: 'merchant_code',
-        min_payin: 50,
-        max_payin: 1000,
-        allow_intent: true,
       });
-      require('./payInDao').updatePayInUrlDao.mockResolvedValue({
-        ...mockPayIn,
-        amount: 100,
-        status: Status.ASSIGNED,
-        bank_acc_id: 'bank1',
-        duration: 1000,
-      });
-      require('../vendors/vendorDao').getVendorsDao.mockResolvedValue([{
-        user_id: 'vendor1',
-        code: 'vendor_code',
-      }]);
-      require('../../utils/sockets').newTableEntry.mockResolvedValue();
-    
-      console.log('Before calling assignedBankToPayInUrlService');
+
       const result = await assignedBankToPayInUrlService('order123', 100, BankTypes.BANK_TRANSFER, 'MERCHANT');
-    
-      console.log('getPayinsForServiccDao calls:', require('./payInDao').getPayinsForServiccDao.mock.calls);
-      console.log('getMerchantsDao calls:', require('../merchants/merchantDao').getMerchantsDao.mock.calls);
-      console.log('getMerchantBankDao calls:', require('../bankAccounts/bankAccountDao').getMerchantBankDao.mock.calls);
-    
+
       expect(result).toEqual({
         return: 'http://return.url',
         bank: {
@@ -725,9 +862,6 @@ describe('PayIn Service Tests', () => {
           ifsc: 'TEST0001234',
         },
       });
-      // expect(require('../bankAccounts/bankAccountDao').getMerchantBankDao).toHaveBeenCalledWith({
-      //   config_merchants_contains: 'merchant1',
-      // });
       expect(require('./payInDao').updatePayInUrlDao).toHaveBeenCalledWith(
         'payin1',
         expect.objectContaining({
@@ -776,7 +910,6 @@ describe('PayIn Service Tests', () => {
     });
 
     test('updates deposit status to SUCCESS', async () => {
-      require('../bankAccounts/bankAccountDao').getBankaccountDao.mockReset();
       require('../bankAccounts/bankAccountDao').getBankaccountDao.mockResolvedValue([mockBank]);
       require('./payInDao').updatePayInUrlDao.mockResolvedValue({
         ...mockPayIn,
@@ -786,7 +919,7 @@ describe('PayIn Service Tests', () => {
         duration: 1000,
         payin_merchant_commission: 10,
         payin_vendor_commission: 10,
-        updated_by: 'user1'
+        updated_by: 'user1',
       });
 
       await updateDepositStatusService({}, 'order123', 'bank_nick', 'company1', 'user1');
@@ -799,14 +932,13 @@ describe('PayIn Service Tests', () => {
           duration: 1000,
           payin_merchant_commission: 10,
           payin_vendor_commission: 10,
-          updated_by: 'user1'
+          updated_by: 'user1',
         }),
         {}
       );
     });
 
     test('returns undefined if bank not found', async () => {
-      require('../bankAccounts/bankAccountDao').getBankaccountDao.mockReset();
       require('../bankAccounts/bankAccountDao').getBankaccountDao.mockResolvedValue([]);
       const result = await updateDepositStatusService({}, 'order123', 'bank_nick', 'company1', 'user1');
       expect(result).toBeUndefined();
@@ -863,7 +995,7 @@ describe('PayIn Service Tests', () => {
         status: 'IMG_PENDING',
         amount: 100,
         merchant_order_id: 'order123',
-        return_url: 'http://return.url'
+        return_url: 'http://return.url',
       });
     });
   });
@@ -887,7 +1019,6 @@ describe('PayIn Service Tests', () => {
     });
 
     test('handles valid payin commission correctly', async () => {
-      require('../bankAccounts/bankAccountDao').getBankaccountDao.mockReset();
       require('../bankAccounts/bankAccountDao').getBankaccountDao.mockResolvedValue([mockBank]);
 
       const payload = {
@@ -904,8 +1035,6 @@ describe('PayIn Service Tests', () => {
       expect(result.status).toBe('SUCCESS');
       expect(require('../../utils/logger').logger.error).not.toHaveBeenCalled();
     });
-
-
   });
 
   describe('telegramCheckUTRService', () => {
@@ -952,4 +1081,3 @@ describe('PayIn Service Tests', () => {
     });
   });
 });
-

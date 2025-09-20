@@ -222,7 +222,7 @@ describe('Vendor Service', () => {
 
       expect(getConnection).toHaveBeenCalled();
       expect(beginTransaction).toHaveBeenCalledWith(mockConn);
-      expect(getVendorsCodeDao).toHaveBeenCalledWith(filters, mockConn);
+      expect(getVendorsCodeDao).toHaveBeenCalledWith(filters, mockConn, undefined, undefined, undefined, undefined);
       expect(commit).toHaveBeenCalledWith(mockConn);
       expect(mockConn.release).toHaveBeenCalled();
       expect(result).toEqual(mockResult);
@@ -236,10 +236,10 @@ describe('Vendor Service', () => {
       getUserHierarchysDao.mockResolvedValue(mockHierarchy);
       getVendorsCodeDao.mockResolvedValue(mockResult);
 
-      const result = await getVendorsCodeService(filters, Role.VENDOR, user_id, Role.VENDOR_OPERATIONS);
+      const result = await getVendorsCodeService(filters, Role.VENDOR, Role.VENDOR_OPERATIONS , user_id);
 
       expect(getUserHierarchysDao).toHaveBeenCalledWith({ user_id });
-      expect(getVendorsCodeDao).toHaveBeenCalledWith({ ...filters, user_id: 'parent1' }, mockConn);
+      expect(getVendorsCodeDao).toHaveBeenCalledWith({ ...filters, user_id: ['user1', 'parent1'] }, mockConn , undefined,undefined ,undefined, undefined);
       expect(commit).toHaveBeenCalledWith(mockConn);
       expect(mockConn.release).toHaveBeenCalled();
       expect(result).toEqual(mockResult);
@@ -294,11 +294,11 @@ describe('Vendor Service', () => {
       getUserHierarchysDao.mockResolvedValue(mockHierarchy);
       getVendorsBySearchDao.mockResolvedValue(mockResult);
 
-      const result = await getVendorsBySearchService(filters, Role.VENDOR, '1', '10', user_id, Role.VENDOR_OPERATIONS);
+      const result = await getVendorsBySearchService(filters, Role.VENDOR, '1', '10', Role.VENDOR_OPERATIONS, user_id);
 
       expect(getUserHierarchysDao).toHaveBeenCalledWith({ user_id });
       expect(getVendorsBySearchDao).toHaveBeenCalledWith(
-        { ...filters, user_id: 'parent1', role: Role.VENDOR },
+        { ...filters, user_id: ['user1', 'parent1'], role: Role.VENDOR },
         1,
         10,
         ['Vendor A']

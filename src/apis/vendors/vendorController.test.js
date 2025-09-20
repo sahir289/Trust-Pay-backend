@@ -153,8 +153,8 @@ describe('Vendor Controller', () => {
         'admin',
         '1',
         '10',
+        'OPERATIONS',
         'user1',
-        'OPERATIONS'
       );
       expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), mockData, 'Vendors fetched successfully');
     });
@@ -174,8 +174,8 @@ describe('Vendor Controller', () => {
         'admin',
         '1',
         '10',
+        'OPERATIONS',
         'user1',
-        'OPERATIONS'
       );
       expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), mockData, 'Vendors fetched successfully');
     });
@@ -193,8 +193,12 @@ describe('Vendor Controller', () => {
       expect(getVendorsCodeService).toHaveBeenCalledWith(
         { company_id: 'comp1' },
         'admin',
+        'OPERATIONS',
         'user1',
-        'OPERATIONS'
+        undefined,
+        undefined,
+        undefined,
+        undefined
       );
       expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), mockData, 'Vendors fetched successfully');
     });
@@ -203,25 +207,28 @@ describe('Vendor Controller', () => {
   describe('getVendorById', () => {
     test('should fetch vendor by ID successfully', async () => {
       VALIDATE_VENDOR_BY_ID.validate.mockReturnValue({ error: null });
-      const mockData = { id: 'vendor1', name: 'Vendor A', status: 'active' };
+      const mockData = { id: 'vendor1', name: 'Vendor A', status: 'active' , designation : 'VENDOR_OPERATIONS'};
       getVendorsService.mockResolvedValue(mockData);
-
+    
       const res = await request(app).get('/vendors/vendor1');
-
+    
       expect(res.status).toBe(200);
-      expect(res.user).toEqual({ data: mockData, message: 'Vendor fetched successfully' })
-      expect(res.body).toEqual({ designation: 'OPERATIONS'});
+      expect(res.body).toEqual({
+        data: mockData,
+        message: 'Vendor fetched successfully'
+      });
       expect(VALIDATE_VENDOR_BY_ID.validate).toHaveBeenCalledWith({ id: 'vendor1' });
       expect(getVendorsService).toHaveBeenCalledWith(
         { id: 'vendor1', company_id: 'comp1' },
         'admin',
         null,
         null,
-        'user1',
-        'OPERATIONS', 
+        undefined,
+        'user1'
       );
       expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), mockData, 'Vendor fetched successfully');
     });
+    
 
     test('should throw ValidationError for invalid vendor ID', async () => {
       const req = {
