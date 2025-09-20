@@ -15,6 +15,7 @@ import {
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 import { payAssistTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payAsistWebHook.js';
+import { tataPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/tataPayWebHook.js';
 const router = express.Router();
 
 /**
@@ -255,6 +256,11 @@ router.post(
 router.post(
   '/payassist-callback',
   tryCatchHandler(payAssistTransactionStatusCallback),
+); 
+
+router.post(
+  '/tatapay-callback',
+  tryCatchHandler(tataPayTransactionStatusCallback),
 ); 
 
 // router.post(

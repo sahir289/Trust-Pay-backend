@@ -1,7 +1,6 @@
 /* eslint-disable no-unused-vars */
 import dayjs from 'dayjs';
 import { nanoid } from 'nanoid';
-import { Cashfree } from 'cashfree-pg';
 import { v4 as uuidv4 } from 'uuid';
 import querystring from 'querystring';
 import config from '../../config/config.js';
@@ -111,9 +110,10 @@ import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { usedTokens } from '../../app.js';
-import { getCompanyByIDDao } from '../company/companyDao.js';
+import { getCashfreeAllowByCompanyIdDao, getCompanyByIDDao, getCompanyDetailsByIdDao } from '../company/companyDao.js';
 import { getAllUsersDao, getUserByIdDao } from '../users/userDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
+import { createCashfreeOrder, payOrder } from '../../cashfree/cashfree.js';
 
 export const generatePayInUrlByHashService = async (conn, req) => {
   try {
@@ -750,54 +750,21 @@ export const checkPayInStatusService = async (
 };
 
 export const payInIntentGenerateOrderService = async (
-  payInId,
-  company_id,
+  merchantOrderId,
+  // company_id,
   amount,
   provider,
 ) => {
   // validating if it exist
   try {
-    const cashfree = new Cashfree(
-      Cashfree.SANDBOX,
-      config.cashfree.clientId,
-      config.cashfree.clientSecret,
-    );
-
-    const payIn = await getPayInIntentDao(payInId, company_id);
+   
+    const payIn = await getPayInIntentDao(merchantOrderId);
     checkIsPayInExpired(payIn);
-    // if (provider === razorpay) {
-    //   const orderRes = await razorpay.orders.create({
-    //     amount: amount * 100,
-    //     currency: Currency.INR,
-    //     receipt: payInId,
-    //   });
-
-    //   return {
-    //     ...orderRes,
-    //   };
-    // }
-
-    const requestBody = {
-      order_amount: amount,
-      order_currency: Currency.INR,
-      customer_details: {
-        customer_id: payIn?.user,
-        customer_email: 'test@gmail.com',
-        customer_phone: '9999999999',
-      },
-      order_meta: {
-        return_url: payIn?.config.urls.return,
-        paymentMethod: 'upi',
-      },
-    };
-    const cashFreeResponse = await cashfree.PGCreateOrder(requestBody);
-    const data = cashFreeResponse.data;
-    return {
-      payInId,
-      data,
-    };
+    const createOrder = await createCashfreeOrder(payIn, amount);
+    const session_id = createOrder?.payment_session_id;
+    // need to update the payIn with  session_id if needed
+    return { id: payIn.id, session_id };
   } catch (error) {
-    // console.log(error.message, "error");
     logger.error('Error generate intent payin:', error.message);
     throw error;
   }
@@ -1233,16 +1200,26 @@ export const getPayinsBySearchService = async (
       return merchants.map((merchant) => merchant.id);
     };
 
-    const fetchBankIds = async (user_id) => {
+    const fetchBankIds = async (user_ids) => {
       try {
-        const banks = await getBankaccountDao({
-          user_id,
-          bank_used_for: 'PayIn',
-        });
-        if (!banks || banks.length === 0) {
+        // Handle both single user_id and array of user_ids
+        const userIdArray = Array.isArray(user_ids) ? user_ids : [user_ids];
+        
+        const allBanks = [];
+        for (const userId of userIdArray) {
+          const banks = await getBankaccountDao({
+            user_id: userId,
+            bank_used_for: 'PayIn',
+          });
+          if (banks && banks.length > 0) {
+            allBanks.push(...banks);
+          }
+        }
+        
+        if (allBanks.length === 0) {
           return [];
         }
-        return banks.map((bank) => bank.id);
+        return allBanks.map((bank) => bank.id);
       } catch (error) {
         logger.error('Error fetching PayIn:', error);
         return [];
@@ -1280,14 +1257,33 @@ export const getPayinsBySearchService = async (
           filters.merchant_id = await fetchMerchantIds(userIdFilter);
         }
       }
-    } else if (role === Role.VENDOR) {
+    } else if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
       if (designation === Role.VENDOR) {
+        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const userHierarchy = userHierarchys?.[0];
+        
+        const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+        if (Array.isArray(subVendors) && subVendors.length > 0) {
+          const vendorUserIds = [user_id, ...subVendors];
+          filters.bank_acc_id = await fetchBankIds(vendorUserIds);
+        } else {
+          filters.bank_acc_id = await fetchBankIds(user_id);
+        }
+      } else if (designation === Role.SUB_VENDOR) {
         filters.bank_acc_id = await fetchBankIds(user_id);
       } else if (designation === Role.VENDOR_OPERATIONS) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
-        const parentID = userHierarchys?.[0]?.config?.parent;
+        const userHierarchy = userHierarchys?.[0];
+        const parentID = userHierarchy?.config?.parent;
         if (parentID) {
-          filters.bank_acc_id = await fetchBankIds(parentID);
+          const parentHierarchys = await getUserHierarchysDao({
+            user_id: parentID,
+          });
+          const parentHierarchy = parentHierarchys?.[0];
+          const subVendors = parentHierarchy?.config?.siblings?.sub_vendors ?? [];
+          
+          const userIdFilter = [...new Set([parentID, ...subVendors])];
+          filters.bank_acc_id = await fetchBankIds(userIdFilter);
         }
       }
     }
@@ -2792,9 +2788,11 @@ export const verifyPayinsService = async (
     const banks = await getMerchantBankDao({
       config_merchants_contains: merchant[0].id,
     });
+    let bankIntent;
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
       const isActive = bank.is_enabled && isPayInBank;
+      bankIntent = bank.config?.is_intent;
       const hasAnyMethod =
         bank.is_qr ||
         bank.is_bank ||
@@ -2803,10 +2801,19 @@ export const verifyPayinsService = async (
       return isActive && hasAnyMethod;
     });
 
+    console.log(merchant[0]?.config?.allow_intent, "merchant intent");
+    console.log(bankIntent, "bank intent");
+    const merchantIntent = merchant[0]?.config?.allow_intent;
+    let cashfreeDetails;
+    if (merchantIntent && bankIntent) {
+      cashfreeDetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
+    }
+    
     const result = {
       expiryTime: payIn.expiration_date,
       amount: payIn.amount,
       one_time_used: payIn.one_time_used,
+      allowCashfree: cashfreeDetails?.allow_cashfree || false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,

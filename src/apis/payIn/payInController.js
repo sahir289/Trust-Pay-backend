@@ -59,7 +59,7 @@ import { createHash, compareHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
 import { sendBankNotAssignedAlertTelegram } from '../../utils/sendTelegramMessages.js';
-import { getCompanyByIDDao } from '../company/companyDao.js';
+import {  getCompanyByIDDao } from '../company/companyDao.js';
 import { getRolesById } from '../roles/rolesDao.js';
 import { Role } from '../../constants/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
@@ -308,6 +308,7 @@ export const validatePayInUrl = async (req, res) => {
   return sendSuccess(res, result, 'Payment Url is correct');
 };
 
+
 export const generateUpiUrl = async (req, res) => {
   const payload = req.body;
 
@@ -374,10 +375,10 @@ export const checkPayInStatus = async (req, res) => {
 };
 
 export const payInIntentGenerateOrder = async (req, res) => {
-  const { payInId } = req.params;
-  const { company_id } = req.user;
-  const { amount, isRazorpay, cashfree } = req.body;
-  const payload = { payInId, amount, isRazorpay, cashfree };
+  const { merchantOrderId } = req.params;
+  // const { company_id } = req.user;
+  const { amount, isRazorpay, cashfree=true } = req.body;
+  const payload = { merchantOrderId, amount, isRazorpay, cashfree };
   const joiValidation = VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
@@ -388,8 +389,8 @@ export const payInIntentGenerateOrder = async (req, res) => {
   if (cashfree) provider.push('Cashfree');
 
   const data = await payInIntentGenerateOrderService(
-    payInId,
-    company_id,
+    merchantOrderId,
+    // company_id,
     amount,
     provider[0],
   );

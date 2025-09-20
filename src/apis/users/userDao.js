@@ -159,7 +159,6 @@ export const getUsersBySearchDao = async (
     };
     if(filters.search){
       const searchData = await getUsersByESSearch(filters.search);
-      console.log(searchData, "searchData")
       data = {
         totalCount: 1,
         totalPages: 12,

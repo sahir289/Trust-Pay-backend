@@ -74,7 +74,7 @@ const createUser = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const { role, company_id, user_id, designation, user_name } = req.user;
+  const { company_id, user_id, user_name } = req.user;
   let payload = req.body;
   const verifyContact = await getUsersContactDao(
     company_id,
@@ -90,8 +90,6 @@ const createUser = async (req, res) => {
   payload.updated_by = user_id;
   const user = await transactionWrapper(createUserService)(
     payload,
-    role,
-    designation,
   );
   return sendSuccess(
     res,

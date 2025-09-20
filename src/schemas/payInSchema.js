@@ -47,14 +47,15 @@ export const VALIDATE_CHECK_PAY_IN_STATUS = Joi.object({
 });
 
 export const VALIDATE_PAY_IN_INTENT_GENERATE_ORDER = Joi.object({
-  payInId: Joi.string()
+  merchantOrderId: Joi.string()
     .guid({ version: ['uuidv4'] })
-    .label('payInId')
+    .label('merchantOrderId')
     .required(),
   amount: Joi.number().positive().label('amount').required(),
   isRazorpay: Joi.boolean().label('isRazorpay').optional(),
   cashfree: Joi.boolean().label('cashfree').optional(),
 });
+
 export const VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS = Joi.object({
   payInId: Joi.string()
     .guid({ version: ['uuidv4'] })

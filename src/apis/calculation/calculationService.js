@@ -64,9 +64,9 @@ const getCalculationService = async (filters, role) => {
 const createCalculationService = async (conn, payload, role) => {
   try {
     const filterColumns =
-      role === Role.MERCHANT
+      role === Role.MERCHANT || role === Role.SUB_MERCHANT
         ? merchantColumns.CALCULATION
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.CALCULATION
           : columns.CALCULATION;
     const data = await createCalculationDao(conn, payload); // Ensuring transaction safety
@@ -82,9 +82,9 @@ const createCalculationService = async (conn, payload, role) => {
 const updateCalculationService = async (conn, filters, payload, role) => {
   try {
     const filterColumns =
-      role === Role.MERCHANT
+      role === Role.MERCHANT || role === Role.SUB_MERCHANT
         ? merchantColumns.CALCULATION
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.CALCULATION
           : columns.CALCULATION;
     const data = await updateCalculationDao(filters, payload, conn);
@@ -108,9 +108,9 @@ const updateCalculationService = async (conn, filters, payload, role) => {
 const deleteCalculationService = async (conn, id, role) => {
   try {
     const filterColumns =
-      role === Role.MERCHANT
+      role === Role.MERCHANT || role === Role.SUB_MERCHANT
         ? merchantColumns.CALCULATION
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.CALCULATION
           : columns.CALCULATION;
     const userData = { is_obsolete: true };
@@ -780,7 +780,7 @@ const updateCalculationsService = async (conn, filters) => {
                         settlementData.reversed_internal_settlements.commission,
                       ),
                       note:
-                        role === Role.VENDOR
+                        role === Role.VENDOR || role === Role.SUB_VENDOR
                           ? 'For vendor role: internal settlements are kept in settlements, reverse settlements excluded from calculations'
                           : 'Reversed internal settlements added to payin calculations instead of subtracted from settlements',
                     },
