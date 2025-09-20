@@ -229,32 +229,36 @@ export const bulkIndexFromPG = async (
   batchSize = 10000,
   whereClause = '',
   idField = 'id',
-  schema = 'public'
+  schema = 'public',
 ) => {
   const indexName = indexBaseName;
   const esClient = await getESClient();
 
-  // Use reader pool for SELECT (read-only)
   const pool = readerPool;
   const client = await pool.connect();
 
   try {
+    // 1️⃣ Check table/view exists
     const checkTableQuery = `
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_schema = $1 AND table_name = $2
-      )`;
+      )
+    `;
     const tableCheck = await pool.query(checkTableQuery, [schema, tableName]);
     if (!tableCheck.rows[0].exists) {
-      throw new BadRequestError(`Table ${schema}.${tableName} does not exist`);
+      throw new BadRequestError(
+        `Table or view ${schema}.${tableName} does not exist`,
+      );
     }
-    logger.info(`Confirmed table exists: ${schema}.${tableName}`);
-    // get total count for progress tracking
+    logger.info(`Confirmed table/view exists: ${schema}.${tableName}`);
+
+    // 2️⃣ Get total count
     const countQuery = `SELECT COUNT(*) FROM ${tableName} ${whereClause}`;
-    const countResult = await pool.query(countQuery); // use pool directly for count
+    const countResult = await pool.query(countQuery);
     const totalRecords = parseInt(countResult.rows[0].count);
     if (totalRecords === 0) {
-      logger.info(`No records to index from table ${tableName}`);
+      logger.info(`No records to index from ${tableName}`);
       return { success: true, indexed: 0 };
     }
     logger.info(`Total records to index from ${tableName}: ${totalRecords}`);
@@ -279,7 +283,7 @@ export const bulkIndexFromPG = async (
 
       if (res.rows.length === 0) break;
 
-      // Prepare bulk operations
+      // 3️⃣ Prepare bulk operations
       const bulkBody = res.rows.flatMap((row) => [
         { index: { _index: indexName, _id: row[idField]?.toString() } },
         {
@@ -289,16 +293,20 @@ export const bulkIndexFromPG = async (
         },
       ]);
 
-      // Execute bulk index
+      // 4️⃣ Execute bulk index
       const bulkResult = await esClient.bulk({ body: bulkBody });
 
-      // Check for errors
-      if (bulkResult.body.errors) {
-        const failedItems = bulkResult.body.items.filter(
-          (item) => item.index?.error,
-        );
+      // 5️⃣ v8+ compatible error check
+      const errorsExist =
+        bulkResult.errors || (bulkResult.body && bulkResult.body.errors);
+      if (errorsExist) {
+        const failedItems = (
+          bulkResult.items ||
+          bulkResult.body?.items ||
+          []
+        ).filter((item) => item.index?.error);
         logger.error(
-          `Bulk indexing errors for ${failedItems.length} items in table ${tableName}:`,
+          `Bulk indexing errors for ${failedItems.length} items in ${tableName}:`,
           failedItems,
         );
         throw new BadRequestError(
@@ -313,14 +321,14 @@ export const bulkIndexFromPG = async (
       offset += batchSize;
     }
 
-    // here refresh index to make documents searchable
+    // 6️⃣ Refresh index
     await esClient.indices.refresh({ index: indexName });
     logger.info(
-      `Bulk indexing completed for table ${tableName} to index ${indexName}`,
+      `Bulk indexing completed for ${tableName} → index ${indexName}`,
     );
     return { success: true, indexed: indexedCount };
   } catch (error) {
-    logger.error(`Bulk indexing error for table ${tableName}:`, error);
+    logger.error(`Bulk indexing error for ${tableName}:`, error);
     throw error;
   } finally {
     client.release();

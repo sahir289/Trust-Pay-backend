@@ -17,7 +17,9 @@ export const getSettlementByESSearch = async (
 ) => {
   try {
     // Pass searchableFields for this module
-    delete filters.search;
+      delete filters.search;
+      console.log("filters", filters)
+      console.log("query", query)
     const queryBody = buildESQuery(
       query,
       filters,

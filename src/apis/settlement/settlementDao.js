@@ -371,52 +371,6 @@ const getSettlementsBySearchDao = async (
     }
 
     // Full-text search conditions
-    if (searchTerms.length > 0) {
-      const searchConditions = [];
-
-      searchTerms.forEach((term) => {
-        if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-          const boolValue = term.toLowerCase() === 'true';
-          searchConditions.push(
-            `(s.is_notified = $${paramIndex} OR s.is_approved = $${paramIndex} OR s.is_rejected = $${paramIndex})`,
-          );
-          queryParams.push(boolValue);
-          paramIndex++;
-        } else {
-          searchConditions.push(
-            `(
-              LOWER(s.id::text) LIKE LOWER($${paramIndex}) OR
-              LOWER(s.sno::text) LIKE LOWER($${paramIndex}) OR
-              LOWER(s.status) LIKE LOWER($${paramIndex}) OR
-              LOWER(s.method) LIKE LOWER($${paramIndex}) OR
-              LOWER(u.user_name) LIKE LOWER($${paramIndex}) OR
-              LOWER(r.role) LIKE LOWER($${paramIndex}) OR
-              LOWER(m.code) LIKE LOWER($${paramIndex}) OR
-              LOWER(v.code) LIKE LOWER($${paramIndex}) OR
-              LOWER(ba.bank_name) LIKE LOWER($${paramIndex}) OR
-              LOWER(ba.acc_holder_name) LIKE LOWER($${paramIndex}) OR
-              LOWER(ba.acc_no) LIKE LOWER($${paramIndex}) OR
-              LOWER(ba.ifsc) LIKE LOWER($${paramIndex}) OR
-              s.amount::text LIKE $${paramIndex} OR
-              LOWER(s.config->>'amount') LIKE LOWER($${paramIndex}) OR
-              LOWER(s.config->>'reference_id') LIKE LOWER($${paramIndex}) OR
-              LOWER(s.config->>'debit_credit') LIKE LOWER($${paramIndex}) OR
-              LOWER(s.config->>'ifsc') LIKE LOWER($${paramIndex}) OR
-              LOWER(s.config->>'acc_no') LIKE LOWER($${paramIndex}) OR
-              LOWER(s.config->>'acc_holder_name') LIKE LOWER($${paramIndex}) OR
-              LOWER(s.config->>'bank_name') LIKE LOWER($${paramIndex}) OR
-              LOWER(s.config->>'bank_namebank_name') LIKE LOWER($${paramIndex}) OR
-              LOWER(s.config->>'rejected_reason') LIKE LOWER($${paramIndex}))`,
-          );
-          queryParams.push(`%${term}%`);
-          paramIndex++;
-        }
-      });
-
-      if (searchConditions.length > 0) {
-        conditions.push(`(${searchConditions.join(' OR ')})`);
-      }
-    }
     // Filter handlers
     const filterHandlers = {
       user_id: (val) => {

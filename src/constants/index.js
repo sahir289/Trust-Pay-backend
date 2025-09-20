@@ -907,11 +907,9 @@ export const payinSearchableFields = [
   'id',
   'sno',
   'upi_short_code',
-  'qr_params',
   'amount',
   'status',
   'user_submitted_utr',
-  'currency',
   'merchant_order_id',
   'user',
   'bank_acc_id',
@@ -923,6 +921,7 @@ export const payinSearchableFields = [
   'created_by',
   'updated_by',
   'nick_name',
+  'vendor_code',
 ];
 
 export const PayoutSearchableFields = [
@@ -950,6 +949,12 @@ export const PayoutSearchableFields = [
   'updated_by',
   'vendor_code',
   'nick_name',
+  'payout_details.method',
+  "merchant_details.merchant_code",
+  "user_bank_details.account_no",
+  "user_bank_details.ifsc_code",
+  "user_bank_details.bank_name",
+  "user_bank_details.account_holder_name",
 ];
 export const SettlementSearchableFields = [
   'id',
@@ -962,13 +967,13 @@ export const SettlementSearchableFields = [
   'created_by',
   'updated_by',
   'code',
-  'ifsc',
-  'acc_no',
-  'acc_holder_name',
-  'bank_name',
-  'debit_credit',
-  'reference_id',
-  'description',
+  'config.ifsc',
+  'config.acc_no',
+  'config.acc_holder_name',
+  'config.bank_name',
+  'config.debit_credit',
+  'config.reference_id',
+  'config.description',
 ];
 
 export const PayinResponses = {
