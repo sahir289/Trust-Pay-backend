@@ -377,8 +377,8 @@ export const checkPayInStatus = async (req, res) => {
 export const payInIntentGenerateOrder = async (req, res) => {
   const { merchantOrderId } = req.params;
   // const { company_id } = req.user;
-  const { amount, isRazorpay, cashfree=true } = req.body;
-  const payload = { merchantOrderId, amount, isRazorpay, cashfree };
+  const { amount, isRazorpay, cashfree, zentechind } = req.body;
+  const payload = { merchantOrderId, amount, isRazorpay, cashfree, zentechind };
   const joiValidation = VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
@@ -387,6 +387,7 @@ export const payInIntentGenerateOrder = async (req, res) => {
 
   if (isRazorpay) provider.push('Razorpay');
   if (cashfree) provider.push('Cashfree');
+  if (zentechind) provider.push('ZenTechInd');
 
   const data = await payInIntentGenerateOrderService(
     merchantOrderId,
