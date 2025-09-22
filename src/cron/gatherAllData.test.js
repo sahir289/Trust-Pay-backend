@@ -35,9 +35,18 @@ jest.mock('../apis/bankAccounts/bankaccountDao.js');
 jest.mock('../apis/vendors/vendorDao.js');
 jest.mock('../apis/userHierarchy/userHierarchyDao.js');
 jest.mock('../utils/sendTelegramMessages.js');
-jest.mock('../utils/db.js');
 jest.mock('./bankCron.js');
 jest.mock('./gatherAllNetBalance.js');
+jest.mock('../utils/db.js', () => ({
+  getConnection: jest.fn(),
+  createPool: jest.fn(() => ({
+    query: jest.fn(),
+    connect: jest.fn(() => ({
+      query: jest.fn(),
+      release: jest.fn(),
+    })),
+  })),
+}));
 
 describe('gatherAllDataForAllCompanies', () => {
   const timezone = 'Asia/Kolkata';
@@ -102,6 +111,8 @@ describe('gatherAllDataForAllCompanies', () => {
       500,
       'token',
       'Daily Report',
+      null,
+      '-4803239959'
     );
         
       
@@ -125,6 +136,8 @@ describe('gatherAllDataForAllCompanies', () => {
       expect.any(Number),
       'token',
       'Hourly Report',
+      null, 
+      '-4803239959'
     );
   });
 
@@ -193,6 +206,8 @@ describe('gatherAllData', () => {
       expect.any(Number),
       'token',
       'Daily Report',
+      null, 
+      '-4803239959'
     );
     expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Dashboard Report CRON Ended for company: 1'));
   });

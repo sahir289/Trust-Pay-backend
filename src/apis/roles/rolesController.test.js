@@ -8,9 +8,7 @@ jest.mock('../../utils/responseHandlers.js', () => ({
   sendSuccess: jest.fn((res, data, message) => res.status(200).json({ message, data })),
 }));
 
-jest.mock('../../utils/db.js', () => ({
-  transactionWrapper: (fn) => async (payload1, payload2) => fn(payload1, payload2),
-}));
+jest.mock('../../utils/db.js');
 
 jest.mock('./rolesService.js', () => ({
   getRoleService: jest.fn(),

@@ -40,9 +40,7 @@ import {
     ValidationError: jest.fn((error) => ({ message: error.message })),
   }));
   
-  jest.mock('../../utils/db.js', () => ({
-    transactionWrapper: jest.fn((fn) => fn),
-  }));
+  jest.mock('../../utils/db.js');
   
   jest.mock('../../utils/logger.js', () => ({
     logger: {

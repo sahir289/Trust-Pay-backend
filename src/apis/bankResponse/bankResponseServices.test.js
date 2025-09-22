@@ -704,6 +704,7 @@ const {
           'ASC',
           undefined,
           undefined,
+          'MERCHANT'
         );
         expect(result).toEqual(mockData);
       });

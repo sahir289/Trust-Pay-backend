@@ -46,19 +46,9 @@ jest.mock('../userOtp/userOtpDao.js');
 jest.mock('../../utils/generateOtp.js');
 jest.mock('../../utils/generateUUID.js');
 jest.mock('os');
-jest.mock('../../utils/db.js', () => ({
-    getConnection: jest.fn().mockResolvedValue({
-        query: jest.fn().mockResolvedValue(true),
-        release: jest.fn(),
-    }),
-    createPool: jest.fn().mockReturnValue({
-        query: jest.fn(),
-        end: jest.fn(),
-    }),
-    beginTransaction: jest.fn(),
-    commit: jest.fn(),
-    rollback: jest.fn(),
-}));
+jest.mock('../../utils/db.js');
+
+
 
 describe('Auth Services', () => {
     const mockUser = {

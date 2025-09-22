@@ -18,12 +18,7 @@ import {
   } from '../../utils/db.js';
   import { logger } from '../../utils/logger.js';
   
-  jest.mock('../../utils/db.js', () => ({
-    buildInsertQuery: jest.fn(),
-    buildUpdateQuery: jest.fn(),
-    buildAndExecuteUpdateQuery: jest.fn(),
-    executeQuery: jest.fn(),
-  }));
+  jest.mock('../../utils/db.js');
   
   jest.mock('../../utils/logger.js', () => ({
     logger: {

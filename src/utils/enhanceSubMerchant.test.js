@@ -6,7 +6,14 @@ import {
   
   jest.mock('../apis/userHierarchy/userHierarchyDao.js');
   jest.mock('../apis/merchants/merchantDao.js');
-  
+  // Mock the createPool function so tests don't try to connect to the database
+jest.mock('./db.js', () => ({
+  createPool: jest.fn(() => ({
+    query: jest.fn(), // mock any methods used on the pool
+    end: jest.fn(),
+  })),
+}));
+
   describe('enhanceMerchantsWithSubMerchants', () => {
     beforeEach(() => {
       jest.clearAllMocks();

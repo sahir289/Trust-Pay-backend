@@ -1,6 +1,16 @@
-// __tests__/bankCron.test.js
+// src/cron/bankCron.test.js
 
-jest.mock('../utils/db.js');
+jest.mock('../utils/db.js', () => ({
+  createPool: jest.fn(() => ({
+    query: jest.fn(),
+    connect: jest.fn(() => ({
+      query: jest.fn(),
+      release: jest.fn(),
+    })),
+  })),
+  getConnection: jest.fn(),
+}));
+
 jest.mock('../utils/logger.js', () => ({
   logger: {
     info: jest.fn(),
@@ -9,10 +19,11 @@ jest.mock('../utils/logger.js', () => ({
     debug: jest.fn(),
   },
 }));
+
 jest.mock('../utils/redisClient.js');
 jest.mock('../apis/bankHistory/bankHistorySevice.js');
 
-// ✅ now import modules
+// ✅ import modules after mocks
 import collectBankData from './bankCron.js';
 import { getConnection } from '../utils/db.js';
 import { logger } from '../utils/logger.js';
@@ -31,18 +42,14 @@ describe('collectBankData', () => {
   });
 
   it('should update today_balance and payin_count for all bank accounts', async () => {
-    // Mock dependencies
-    getConnection.mockResolvedValue(mockConn);
-    mockConn.query.mockResolvedValue(); // Mock query to resolve successfully
-    mockConn.release.mockResolvedValue(); // Mock release to resolve
-    createBankHistoryService.mockResolvedValue([]); // Mock service to resolve
-    logger.info.mockReturnValue(); // Mock logger
+    mockConn.query.mockResolvedValue(); 
+    mockConn.release.mockResolvedValue(); 
+    createBankHistoryService.mockResolvedValue([]); 
+    logger.info.mockReturnValue(); 
     logger.error.mockReturnValue();
 
-    // Call the function
     await collectBankData('Asia/Kolkata');
 
-    // Assertions
     expect(getConnection).toHaveBeenCalledWith('writer');
     expect(createBankHistoryService).toHaveBeenCalledWith(mockConn);
     expect(mockConn.query).toHaveBeenCalledWith(
@@ -53,7 +60,7 @@ describe('collectBankData', () => {
       expect.any(Object)
     );
     expect(mockConn.release).toHaveBeenCalled();
-    expect(logger.error).not.toHaveBeenCalled(); // Ensure no errors occurred
+    expect(logger.error).not.toHaveBeenCalled();
   });
 
   it('should log error if query fails', async () => {

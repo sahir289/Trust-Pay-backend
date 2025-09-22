@@ -21,14 +21,7 @@ jest.mock('dayjs', () => {
   originalDayjs.extend(require('dayjs/plugin/timezone'));
   return originalDayjs;
 });
-jest.mock('../../utils/db.js', () => ({
-  ...jest.requireActual('../../utils/db.js'),
-  executeQuery: jest.fn(),
-  getConnection: jest.fn(),
-  buildInsertQuery: jest.fn().mockReturnValue(['SQL_QUERY', []]),
-  buildSelectQuery: jest.fn().mockReturnValue(['SQL_QUERY', []]),
-  buildUpdateQuery: jest.fn().mockReturnValue(['SQL_QUERY', []]),
-}));
+jest.mock('../../utils/db.js');
 jest.mock('../../utils/logger.js');
 jest.mock('../../constants/index.js');
 

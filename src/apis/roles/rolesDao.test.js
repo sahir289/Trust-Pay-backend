@@ -8,12 +8,8 @@ import {
   import * as db from '../../utils/db.js';
   import { logger } from '../../utils/logger.js';
   
-  jest.mock('../../utils/db.js', () => ({
-    buildInsertQuery: jest.fn(),
-    buildSelectQuery: jest.fn(),
-    buildUpdateQuery: jest.fn(),
-    executeQuery: jest.fn(),
-  }));
+  jest.mock('../../utils/db.js');
+
 
   jest.mock('../../utils/searchBuilder.js', () => ({
     buildSearchFilterObj: jest.fn(() => []),

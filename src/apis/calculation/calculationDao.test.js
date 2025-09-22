@@ -24,18 +24,7 @@ const { getUserHierarchysDao } = require('../userHierarchy/userHierarchyDao');
 const { NotFoundError } = require('../../utils/appErrors');
 const { logger } = require('../../utils/logger');
 
-jest.mock('../../utils/db.js', () => ({
-  executeQuery: jest.fn(),
-  buildSelectQuery: jest.fn(() => ['SELECT ...', []]),
-  buildJoinQuery: jest.fn(() => 'JOIN ...'),
-  buildInsertQuery: jest.fn(() => ['INSERT INTO public."CALCULATION" (user_id, total_payin_amount) VALUES ($1, $2) RETURNING *', ['user1', 1000]]),
-  buildAndExecuteUpdateQuery: jest.fn().mockResolvedValue({ rows: [{ id: 1 }] }),
-  buildUpdateQuery: jest.fn(() => ['UPDATE public."CALCULATION" SET is_obsolete = $1 WHERE id = $2', [true, 'calc1']]),
-  beginTransaction: jest.fn(),
-  commit: jest.fn(),
-  rollback: jest.fn(),
-  getConnection: jest.fn(),
-}));
+jest.mock('../../utils/db.js');
 
 const IST = 'Asia/Kolkata';
 

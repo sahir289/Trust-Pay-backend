@@ -34,9 +34,7 @@ import {
     calculateSuccessRatiosService: jest.fn(),
   }));
   
-  jest.mock('../../utils/db.js', () => ({
-    transactionWrapper: jest.fn((fn) => fn),
-  }));
+  jest.mock('../../utils/db.js');
   
   jest.mock('../../schemas/calculationSchema.js', () => ({
     VALIDATE_CALCULATION_SCHEMA: { validate: jest.fn() },

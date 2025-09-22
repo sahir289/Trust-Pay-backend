@@ -62,12 +62,8 @@ import {
   dayjs.extend(timezone);
   
   // Mock dependencies
-  jest.mock('../../utils/db.js', () => ({
-    executeQuery: jest.fn(),
-    buildSelectQuery: jest.fn(),
-    buildInsertQuery: jest.fn(),
-    buildUpdateQuery: jest.fn(),
-  }));
+  jest.mock('../../utils/db.js');
+
   jest.mock('../bankAccounts/bankaccountDao.js', () => ({
     getBankaccountDao: jest.fn(),
   }));

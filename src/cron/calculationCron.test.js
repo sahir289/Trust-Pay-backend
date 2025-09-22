@@ -14,7 +14,17 @@ import { logger } from '../utils/logger.js';
 jest.mock('node-cron');
 jest.mock('../apis/calculation/calculationDao.js');
 jest.mock('../apis/users/userDao.js');
-jest.mock('../utils/db.js');
+jest.mock('../utils/db.js', () => ({
+  transactionWrapper: jest.fn(),
+  createPool: jest.fn(() => ({
+    query: jest.fn(),
+    connect: jest.fn(() => ({
+      query: jest.fn(),
+      release: jest.fn(),
+    })),
+  })),
+  getConnection: jest.fn(),
+}));
 jest.mock('../utils/logger.js', () => ({
   logger: { info: jest.fn(), error: jest.fn() },
 }));

@@ -128,21 +128,8 @@ jest.mock('../../utils/logger.js', () => ({
     },
 }));
 
-jest.mock('../../utils/db.js', () => {
-    const mockClient = {
-        query: jest.fn().mockResolvedValue({ rows: [{ id: 1, name: 'Test' }] }),
-        release: jest.fn(),
-    };
-    return {
-        query: jest.fn().mockResolvedValue({ rows: [{ id: 1, name: 'Test' }] }),
-        getClient: jest.fn().mockResolvedValue(mockClient),
-        pool: {
-            query: jest.fn().mockResolvedValue({ rows: [{ id: 1, name: 'Test' }] }),
-            connect: jest.fn().mockResolvedValue(mockClient),
-            end: jest.fn().mockResolvedValue(undefined),
-        },
-    };
-});
+jest.mock('../../utils/db.js');
+
 
 jest.mock('../../config/config.js', () => ({
     rateLimiter: {

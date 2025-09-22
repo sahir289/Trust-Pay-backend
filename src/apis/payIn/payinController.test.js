@@ -60,29 +60,8 @@ jest.mock('../../utils/elasticClient.js', () => ({
     bulk: jest.fn().mockResolvedValue({ body: { errors: false, items: [] } }),
   }),
 }));
-jest.mock('../../utils/db.js', () => {
-  const mockPool = {
-    connect: jest.fn().mockResolvedValue({
-      release: jest.fn(),
-      query: jest.fn().mockResolvedValue({ rows: [] }),
-    }),
-    query: jest.fn().mockImplementation((query) => {
-      if (query.includes('information_schema.tables')) {
-        return Promise.resolve({ rows: [{ exists: true }] });
-      }
-      if (query.includes('COUNT(*)')) {
-        return Promise.resolve({ rows: [{ count: '0' }] });
-      }
-      return Promise.resolve({ rows: [] });
-    }),
-  };
-  return {
-    transactionWrapper: jest.fn((fn) => fn),
-    executeQuery: jest.fn().mockResolvedValue({ rows: [] }),
-    createPool: jest.fn().mockReturnValue(mockPool),
-    readerPool: mockPool, // Explicitly mock readerPool
-  };
-});
+jest.mock('../../utils/db.js');
+
 
 describe('PayIn Controller', () => {
   let req, res;

@@ -11,9 +11,7 @@ import {
   import { sendSuccess } from '../../utils/responseHandlers.js';
   import { logger } from '../../utils/logger.js';
   
-  jest.mock('../../utils/db.js', () => ({
-    transactionWrapper: jest.fn((fn) => fn),
-  }));
+  jest.mock('../../utils/db.js');
   
   jest.mock('../../utils/responseHandlers.js', () => ({
     sendSuccess: jest.fn(),

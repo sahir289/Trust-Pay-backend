@@ -27,13 +27,7 @@ import { updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { updateUserDao } from '../users/userDao.js';
 import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
 import { createUserHierarchyDao, getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
-
-jest.mock('../../utils/db.js', () => ({
-  beginTransaction: jest.fn(),
-  commit: jest.fn(),
-  getConnection: jest.fn(),
-  rollback: jest.fn(),
-}));
+jest.mock('../../utils/db.js');
 
 jest.mock('../../utils/logger.js', () => ({
   logger: {

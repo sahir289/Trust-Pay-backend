@@ -40,57 +40,8 @@ jest.mock('./payInService', () => ({
   getPayInIntentDao: jest.fn(), // Mock getPayInIntentDao
 }));
 // Add to the top of the test file, with other mocks
-jest.mock('../../utils/db.js', () => {
-  const mockPool = {
-    query: jest.fn().mockResolvedValue({ rows: [] }),
-    connect: jest.fn().mockResolvedValue({
-      query: jest.fn().mockResolvedValue({ rows: [] }),
-      release: jest.fn(),
-    }),
-    end: jest.fn().mockResolvedValue(),
-    on: jest.fn(),
-  };
-  return {
-    createPool: jest.fn().mockReturnValue(mockPool),
-    writerPool: mockPool,
-    readerPool: mockPool,
-    executeQuery: jest.fn().mockImplementation((sql, params) => {
-      const sqlStr = typeof sql === 'string' ? sql.toLowerCase() : '';
-      if (sqlStr.includes('bankaccount')) {
-        return Promise.resolve({ rows: [mockBank] });
-      }
-      if (sqlStr.includes('payin')) {
-        return Promise.resolve({ rows: [mockPayIn] });
-      }
-      return Promise.resolve({ rows: [] });
-    }),
-    getConnection: jest.fn().mockResolvedValue({
-      query: jest.fn().mockResolvedValue({ rows: [] }),
-      release: jest.fn(),
-    }),
-    beginTransaction: jest.fn().mockResolvedValue(),
-    commit: jest.fn().mockResolvedValue(),
-    rollback: jest.fn().mockResolvedValue(),
-    buildSelectQuery: jest.fn().mockImplementation((query, filters) => {
-      if (!filters) return [query, []];
-      const conditions = [];
-      const params = [];
-      let paramIndex = 1;
-      for (const [key, value] of Object.entries(filters)) {
-        if (key === 'config_merchants_contains') {
-          conditions.push(`config->'merchants' @> $${paramIndex}`);
-          params.push(JSON.stringify([value]));
-        } else {
-          conditions.push(`${key} = $${paramIndex}`);
-          params.push(value);
-        }
-        paramIndex++;
-      }
-      return [`${query} WHERE ${conditions.join(' AND ')}`, params];
-    }),
-    transactionWrapper: jest.fn().mockImplementation((fn) => async (payload) => fn(null, payload)),
-  };
-});
+jest.mock('../../utils/db.js');
+
 
 jest.mock('../../webhooks/cashfree.js', () => {
   const mockCashfreeInstance = {

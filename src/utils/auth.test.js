@@ -14,6 +14,7 @@ import { getLoginDao } from '../apis/auth/authDao.js';
 import { generateUUID } from './generateUUID.js';
 import config from '../config/config.js';
 import { logger } from './logger.js';
+import { createPool } from './db.js';
 
 jest.mock('jsonwebtoken');
 jest.mock('bcryptjs');
@@ -23,6 +24,24 @@ jest.mock('./generateUUID.js');
 jest.mock('./logger.js', () => ({
   logger: { error: jest.fn() },
 }));
+jest.mock('./db.js', () => ({
+  createPool: jest.fn(() => ({
+    query: jest.fn(),
+    connect: jest.fn(() => ({
+      query: jest.fn(),
+      release: jest.fn(),
+    })),
+  })),
+}));
+jest.mock('pg', () => {
+  const mockClient = { query: jest.fn(), release: jest.fn() };
+  const mockPool = {
+    connect: jest.fn().mockResolvedValue(mockClient),
+    query: jest.fn(),
+    on: jest.fn(),
+  };
+  return { Pool: jest.fn(() => mockPool) };
+});
 
 describe('Auth Utils', () => {
   beforeEach(() => {

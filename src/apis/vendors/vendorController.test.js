@@ -35,9 +35,7 @@ jest.mock('./vendorService.js', () => ({
   deleteVendorService: jest.fn(),
 }));
 
-jest.mock('../../utils/db.js', () => ({
-  transactionWrapper: jest.fn((fn) => fn), // Mock transactionWrapper to directly call the service
-}));
+jest.mock('../../utils/db.js');
 
 jest.mock('../../schemas/vendorSchema.js', () => ({
   VALIDATE_VENDOR_SCHEMA: { validate: jest.fn() },

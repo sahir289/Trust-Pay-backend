@@ -13,12 +13,7 @@ import { Role, tableName } from '../../constants/index.js';
 import { buildInsertQuery, buildSelectQuery, buildUpdateQuery, executeQuery } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 
-jest.mock('../../utils/db.js', () => ({
-  buildInsertQuery: jest.fn(),
-  buildSelectQuery: jest.fn(),
-  buildUpdateQuery: jest.fn(),
-  executeQuery: jest.fn(),
-}));
+jest.mock('../../utils/db.js');
 
 jest.mock('../../utils/logger.js', () => ({
   logger: {

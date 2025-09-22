@@ -38,14 +38,7 @@ import {
     BadRequestError: jest.fn((message) => ({ message })),
   }));
   
-  jest.mock('../../utils/db.js', () => ({
-    beginTransaction: jest.fn(),
-    commit: jest.fn(),
-    getConnection: jest.fn(() => ({
-      release: jest.fn(),
-    })),
-    rollback: jest.fn(),
-  }));
+  jest.mock('../../utils/db.js');
   
   jest.mock('../../utils/logger.js', () => ({
     logger: {

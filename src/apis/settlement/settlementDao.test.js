@@ -11,11 +11,8 @@ const {
   const dayjs = require('dayjs');
   
   // Mock the entire db.js module
-  jest.mock('../../utils/db.js', () => ({
-    buildInsertQuery: jest.fn(),
-    buildUpdateQuery: jest.fn(),
-    executeQuery: jest.fn(),
-  }));
+  jest.mock('../../utils/db.js');
+
   
   // Mock the logger module
   jest.mock('../../utils/logger.js', () => ({

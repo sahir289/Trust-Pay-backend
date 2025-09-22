@@ -12,12 +12,8 @@ import * as dbUtils from '../../utils/db.js';
 import * as logger from '../../utils/logger.js';
 import { Role, tableName } from '../../constants/index.js';
 
-jest.mock('../../utils/db.js', () => ({
-  buildInsertQuery: jest.fn(),
-  buildUpdateQuery: jest.fn(),
-  buildSelectQuery: jest.fn(),
-  executeQuery: jest.fn(),
-}));
+jest.mock('../../utils/db.js');
+
 jest.mock('../../utils/logger.js', () => ({
   logger: { error: jest.fn(), warn: jest.fn() }
 }));

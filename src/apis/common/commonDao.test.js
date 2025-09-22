@@ -4,16 +4,9 @@ const { BadRequestError } = require('../../utils/appErrors');
 const { logger } = require('../../utils/logger');
 const { Role, tableName } = require('../../constants');
 
-jest.mock('../../utils/db');
 jest.mock('../../utils/logger');
-jest.mock('../../utils/db.js', () => ({
-    executeQuery: jest.fn(),
-  }));
-  jest.mock('../../utils/logger.js', () => ({
-    logger: {
-      error: jest.fn(),
-    },
-  }));
+jest.mock('../../utils/db.js');
+
 describe('getTotalCountDao', () => {
   beforeEach(() => {
     jest.clearAllMocks();
