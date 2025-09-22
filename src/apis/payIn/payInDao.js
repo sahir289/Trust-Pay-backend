@@ -1904,7 +1904,7 @@ export const getPayInForCheckDao = async (filters = {}) => {
   }
 };
 
-export const updatePayInUrlDao = async (id, data, conn) => {
+export const updatePayInUrlDao = async (id, data, conn , Adddata) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
     let result;
@@ -1935,10 +1935,19 @@ export const updatePayInUrlDao = async (id, data, conn) => {
     }
     if (data.bank_response_id) {
       const bankres = await getBankResponseForEsDao(data.bank_response_id);
-      let bank_res_details = {
-        utr: bankres.utr,
-        amount: bankres.amount,
-      };
+      let bank_res_details
+      if (bankres) {
+        bank_res_details = {
+          utr: bankres.utr,
+          amount: bankres.amount,
+        };
+      }
+      if (Adddata) {
+        bank_res_details = {
+          utr: Adddata.utr,
+          amount: Adddata.amount,
+        }; 
+       }
        insertedEntry = {
          ...insertedEntry,
           bank_res_details,        
