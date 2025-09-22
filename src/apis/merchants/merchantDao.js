@@ -24,6 +24,29 @@ export const createMerchantDao = async (data, conn) => {
   }
 };
 
+export const getMerchantForEsDao = async (merchantId) => {
+  try {
+    const sql = `
+      SELECT 
+        code,
+        dispute_enabled,
+        (config->'urls'->>'return') AS return_url,
+        (config->'urls'->>'payin_notify') AS notify_url
+      FROM "${tableName.MERCHANT}"
+      WHERE id = $1
+    `;
+    const result = await executeQuery(sql, [merchantId]);
+    return result.rows[0];
+   
+  } catch (error) {
+    logger.error(
+      `Error fetching merchant details for ID ${merchantId}:`,
+      error,
+    );
+    throw error;
+  }
+};
+
 export const getMerchantsCodeDao = async (
   conn,
   filters,

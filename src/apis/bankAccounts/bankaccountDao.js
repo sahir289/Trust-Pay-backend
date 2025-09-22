@@ -571,6 +571,43 @@ export const getBankaccountDashBoardReportDao = async (filters = {}) => {
     throw error;
   }
 };
+
+const getBankAccountNickNameForPayinEsDao = async (bankId) => {
+  try {
+    const sql = `
+      SELECT 
+        ba.nick_name,
+        v.user_id AS vendor_user_id,
+        v.code AS vendor_code
+      FROM "${tableName.BANK_ACCOUNT}" ba
+      INNER JOIN "${tableName.VENDOR}" v 
+        ON ba.user_id = v.user_id
+      WHERE ba.id = $1
+    `;
+    const result = await executeQuery(sql, [bankId]);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error getting bank account nickname:', error);
+    throw error;
+  }
+};
+
+
+ const getBankAccountNickNameForEsDao = async (bankId) => {
+  try {
+    const sql = `
+      SELECT 
+        nick_name
+      FROM "${tableName.BANK_ACCOUNT}"
+      WHERE id = $1
+    `;
+    const result = await executeQuery(sql, [bankId]);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error getting bank account nickname:', error);
+    throw error;
+  }
+};
 const getMerchantBankDao = async (filters) => {
   try {
     const query = `SELECT * FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
@@ -796,4 +833,6 @@ export {
   getBankAccountDaoNickName,
   getBankByIdDao,
   updateBanktBalanceDao,
+  getBankAccountNickNameForEsDao,
+  getBankAccountNickNameForPayinEsDao,
 };

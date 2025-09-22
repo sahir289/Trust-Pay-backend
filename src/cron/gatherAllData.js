@@ -176,6 +176,7 @@ const gatherAllData = async (company_id, type = 'N', timezone = 'Asia/Kolkata') 
 
     // Get company-specific configurations or fallback to global config
     const telegramDashboardChatId = company.config?.telegramDashboardChatId || config?.telegramDashboardChatId;
+    const telegramVendorboardChatId = company.config?.telegramVendorboardChatId || config?.telegramVendorboardChatId;
     const telegramBotToken = company.config?.telegramBotToken || config?.telegramBotToken;
 
     if (!telegramDashboardChatId || !telegramBotToken) {
@@ -415,6 +416,8 @@ const gatherAllData = async (company_id, type = 'N', timezone = 'Asia/Kolkata') 
       totalBankWithdrawalAllVendors,
       telegramBotToken,
       type === 'H' ? 'Hourly Report' : 'Daily Report',
+      null,
+      telegramVendorboardChatId,
     );
     logger.info(`Dashboard Report CRON Ended for company: ${company_id}`);
   } catch (error) {

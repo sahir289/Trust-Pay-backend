@@ -1325,7 +1325,7 @@ export const getPayinsBySearchService = async (
     } else {
       data = await getPayinsWithoutHistoryDao(
         filters,
-        searchTerms,
+        // searchTerms,
         limitNum,
         offset,
         role,

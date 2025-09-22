@@ -1,8 +1,14 @@
 import dayjs from 'dayjs';
-import { tableName } from '../../constants/index.js';
+import { tableName ,Role } from '../../constants/index.js';
+import {
+  getBankResponseByESSearch,
+  updateBankResponseInES,
+} from '../../elasticSearch/bankResponse/common.js';
+import { createBankResponseInES } from '../../elasticSearch/bankResponse/common.js';
 // import { InternalServerError } from '../../utils/appErrors.js';
 // import { generateUUID } from '../utils/generateUUID.js';
 // import { generateCacheKey,getCachedData,setCachedData } from '../../utils/redishashkey.js';
+import { getBankAccountNickNameForEsDao } from '../bankAccounts/bankaccountDao.js';
 import {
   executeQuery,
   buildSelectQuery,
@@ -13,6 +19,7 @@ import {
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
+import { BankResponseKeys } from '../../constants/index.js';
 // import { newTableEntry } from '../../utils/sockets.js';
 const IST = 'Asia/Kolkata';
 
@@ -131,30 +138,60 @@ const getBankResponseBySearchDao = async (
   sortOrder = 'DESC',
   start_date,
   end_date,
+  role
 ) => {
   try {
-    // let bankId;
-    // let bankDetails;
-    // if (filters?.bank_id) {
-    //   bankId = filters.bank_id;
-    //   bankDetails = await getBankaccountDao({ id: bankId }, null, null);
-    // }
-    //  const params = {
-    //   filters,
-    //   page ,
-    //   pageSize ,
-    //   columns ,
-    //   updated,
-    //   sortBy ,
-    //   sortOrder ,
-    //   start_date,
-    //   end_date,
-    //     };
-        // const cacheKey = generateCacheKey(params, 'bankResponse:search');
-        // const cachedResult = await getCachedData(cacheKey);
-        // if (cachedResult && cachedResult.totalCount>0) {
-        //   return cachedResult;
-        // }
+    let data;
+    if (filters.search) {
+      const filterBankResponseByRole = (bankResponse, role) => {
+        let allowedKeys;
+        switch (role) {
+          case Role.VENDOR:
+            allowedKeys = BankResponseKeys.VENDOR;
+            break;
+          case Role.MERCHANT:
+            allowedKeys = BankResponseKeys.MERCHANT;
+            break;
+          case Role.ADMIN:
+          default:
+            allowedKeys = BankResponseKeys.ADMIN;
+            break;
+        }
+        return Object.fromEntries(
+          Object.entries(bankResponse).filter(([key]) =>
+            allowedKeys.includes(key),
+          ),
+        );
+      };
+
+      delete filters.page;
+      delete filters.limit;
+
+      const { results, totalCount, totalPages } =
+        await getBankResponseByESSearch(
+          filters.search,
+          filters,
+          page,
+          pageSize,
+          sortBy,
+          sortOrder,
+        );
+
+      // 🔹 Apply role-based filtering
+      const filteredBankResponses = results.map((bankResponse) =>
+        filterBankResponseByRole(bankResponse, role),
+      );
+
+      // 🔹 Build final response
+      const data = {
+        totalCount,
+        totalPages,
+        rows: filteredBankResponses,
+      };
+
+      return data;
+    }
+    
     const selectCols = columns.length
       ? `DISTINCT ON ("BankResponse".sno) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
       : `DISTINCT ON ("BankResponse".sno) ` + [
@@ -172,37 +209,6 @@ const getBankResponseBySearchDao = async (
       end = dayjs.tz(`${end_date} 23:59:59.999`, IST).utc().format();
       dateParams = [start, end];
     }
-
-    // let baseQueryDate = `
-    //   WITH filtered_accounts AS (
-    //     SELECT 
-    //       "BankAccount".*, 
-    //       jsonb_object_agg(key, value) FILTER (
-    //         WHERE key ~ '^\\d{4}-\\d{2}-\\d{2}' 
-    //           AND (key)::timestamp BETWEEN $${dateParams.length ? 1 : 'NULL'}::timestamp AND $${dateParams.length ? 2 : 'NULL'}::timestamp
-    //       ) AS filtered_merchant_added
-    //     FROM "BankAccount",
-    //          jsonb_each(("BankAccount".config -> 'merchant_added')::jsonb)
-    //     GROUP BY "BankAccount".id
-    //   )
-    //   SELECT ${selectCols}, 
-    //          "BankResponse".created_at,
-    //          jsonb_set("BankAccount".config::jsonb, '{merchant_added}', COALESCE(filtered_merchant_added, '{}'::jsonb)) AS details,
-    //          "BankAccount".nick_name,
-    //          "Vendor".user_id AS vendor_user_id,
-    //          "Merchant".code AS merchant_code
-    //   FROM "BankResponse"
-    //   JOIN filtered_accounts AS "BankAccount" 
-    //     ON "BankResponse".bank_id = "BankAccount".id
-    //   LEFT JOIN "Vendor" 
-    //     ON "BankAccount".user_id = "Vendor".user_id
-    //   LEFT JOIN "Payin"
-    //     ON "BankResponse".id = "Payin".bank_response_id
-    //     AND "BankResponse".is_used = true
-    //   LEFT JOIN "Merchant"
-    //     ON "Payin".merchant_id = "Merchant".id
-    // `;
-
     let baseQuery = `
       SELECT ${selectCols}, 
         "BankResponse".created_at,
@@ -234,32 +240,6 @@ const getBankResponseBySearchDao = async (
             paramIndex++;
           } else {
             const likeVal = `%${term}%`;
-            // searchConditions.push(`
-            //   (
-            //     LOWER("BankResponse".id::text) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".status) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".bank_id::text) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".amount::text) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".upi_short_code) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".utr) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".sno::text) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".created_at::text) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".updated_at::text) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".created_by) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".updated_by) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankResponse".config->>'from_UI') LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankAccount".user_id::text) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankAccount".nick_name) LIKE LOWER($${paramIndex})
-            //     OR LOWER("BankAccount".bank_name) LIKE LOWER($${paramIndex})
-            //     OR LOWER("Vendor".code) LIKE LOWER($${paramIndex})
-            //     OR LOWER("Merchant".code) LIKE LOWER($${paramIndex})
-            //     OR LOWER("Payin".id::text) LIKE LOWER($${paramIndex})
-            //     OR LOWER("Payin".user_submitted_utr) LIKE LOWER($${paramIndex})
-            //     OR LOWER("Payin".config->>'user') LIKE LOWER($${paramIndex})
-            //     OR LOWER("Payin".config->'urls'->>'site') LIKE LOWER($${paramIndex})
-            //     OR LOWER("Payin".config->'urls'->>'notify') LIKE LOWER($${paramIndex})
-            //   )
-            // `);
             searchConditions.push(`
               (
                 "BankResponse".id::text ILIKE $${paramIndex}
@@ -410,13 +390,13 @@ const getBankResponseBySearchDao = async (
       searchResult = await executeQuery(queryText, values);
       totalPages = Math.ceil(totalCount / pageSize);
     }
-    const result = {
+     data = {
       totalCount,
       totalPages,
       rows: searchResult.rows,
     };
     // await setCachedData(cacheKey, result, 500);
-    return result;
+    return data;
   } catch (error) {
     logger.error('Error in getBankResponseBySearchDao:', error);
     throw error;
@@ -583,7 +563,23 @@ const getClaimResponseDao = async (filters) => {
     throw error;
   }
 };
-
+// const getBankResponseForEsDao = async (bankId) => {
+//   try {
+//     const sql = `
+//       SELECT 
+//         utr,
+//         amount
+//       FROM "${tableName.BANK_RESPONSE}"
+//       WHERE id = $1
+//     `;
+//     console.log()
+//     const result = await executeQuery(sql, [bankId]);
+//     return result.rows[0] || null;
+//   } catch (error) {
+//     logger.error('Error getting bank account nickname:', error);
+//     throw error;
+//   }
+// };
 const getBankResponsesforFreeze = async (filters) => {
   try {
     const { bank_id, status, is_used } = filters;
@@ -1009,7 +1005,13 @@ const createBankResponseDao = async (conn, data) => {
     } else {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
-    return result.rows[0];
+    const insertedEntry = result.rows[0];
+    const nickName = await getBankAccountNickNameForEsDao(
+      insertedEntry.bank_id,
+    );
+    insertedEntry.nick_name = nickName.nick_name;
+    await createBankResponseInES(insertedEntry);
+    return insertedEntry;
   } catch (error) {
     logger.error('Error in createBankResponseDao:', error);
     throw error;
@@ -1019,12 +1021,26 @@ const createBankResponseDao = async (conn, data) => {
 export const updateBankResponseDao = async (id, data, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, id);
+    let result;
     if (conn && conn.query) {
-      const result = await conn.query(sql, params);
+      result = await conn.query(sql, params);
       // await newTableEntry(tableName.BANK_RESPONSE);
-      return result.rows[0];
     }
-    const result = await executeQuery(sql, params);
+    else {
+      result = await executeQuery(sql, params);
+    }
+    let insertedEntry = {
+      ...data,
+      updated_at: result.rows[0].updated_at,
+    };
+    if (data.bank_id) {
+      const nickName = await getBankAccountNickNameForEsDao(data.bank_id);
+      insertedEntry = {
+        ...insertedEntry,
+        nick_name: nickName.nick_name,
+      }
+    }
+    await updateBankResponseInES(result.rows[0].id, insertedEntry);
     // await newTableEntry(tableName.BANK_RESPONSE);
     return result.rows[0];
   } catch (error) {
@@ -1067,6 +1083,20 @@ const resetBankResponseDao = async (id, data) => {
       id,
     });
     const result = await executeQuery(sql, params);
+    let insertedEntry = {
+      ...data,
+      updated_at: result.rows[0].updated_at,
+    };
+    if (data.bank_id) {
+      const nickName = await getBankAccountNickNameForEsDao(
+        data.bank_id
+      );
+      insertedEntry = {
+        ...insertedEntry,
+        nick_name: nickName.nick_name,
+      };
+    }
+    await updateBankResponseInES(result.rows[0].id, insertedEntry);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in resetBankResponseDao:', error);
@@ -1086,6 +1116,18 @@ const updateBotResponseDao = async (id, data, conn) => {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
     // await newTableEntry(tableName.BANK_RESPONSE);
+    let insertedEntry = {
+      ...data,
+      updated_at: result.rows[0].updated_at,
+    };
+    if (data.bank_id) {
+      const nickName = await getBankAccountNickNameForEsDao(data.bank_id);
+      insertedEntry = {
+        ...insertedEntry,
+        nick_name: nickName.nick_name,
+      };
+    }
+    await updateBankResponseInES(result.rows[0].id, insertedEntry);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateBotResponseDao:', error);
@@ -1105,4 +1147,5 @@ export {
   resetBankResponseDao,
   updateBotResponseDao,
   getBankResponsesforFreeze,
+  // getBankResponseForEsDao
 };
