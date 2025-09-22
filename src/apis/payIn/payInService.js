@@ -1,7 +1,6 @@
 /* eslint-disable no-unused-vars */
 import dayjs from 'dayjs';
 import { nanoid } from 'nanoid';
-import { Cashfree } from 'cashfree-pg';
 import { v4 as uuidv4 } from 'uuid';
 import querystring from 'querystring';
 import config from '../../config/config.js';
@@ -41,6 +40,7 @@ import {
   getPayInForTelegramResponseDao,
   getPayinsWithoutHistoryDao,
   getPayInForTelegramResponseArrayDao,
+  getPayInIntentDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -110,12 +110,10 @@ import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { usedTokens } from '../../app.js';
-import { getCompanyByIDDao } from '../company/companyDao.js';
+import { getCashfreeAllowByCompanyIdDao, getCompanyByIDDao, getCompanyDetailsByIdDao } from '../company/companyDao.js';
 import { getAllUsersDao, getUserByIdDao } from '../users/userDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
-Cashfree.XClientId = config.cashFreeClientId;
-Cashfree.XClientSecret = config.XClientSecret;
-Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
+import { createCashfreeOrder, payOrder } from '../../cashfree/cashfree.js';
 
 export const generatePayInUrlByHashService = async (conn, req) => {
   try {
@@ -750,57 +748,22 @@ export const checkPayInStatusService = async (
 };
 
 export const payInIntentGenerateOrderService = async (
-  payInId,
+  merchantOrderId,
+  // company_id,
   amount,
-  isRazorpay,
+  provider,
 ) => {
   // validating if it exist
   try {
-    const payIn = await getPayInUrlService(payInId);
+   
+    const payIn = await getPayInIntentDao(merchantOrderId);
     checkIsPayInExpired(payIn);
-    if (isRazorpay) {
-      const orderRes = await razorpay.orders.create({
-        amount: amount * 100,
-        currency: Currency.INR,
-        receipt: payInId,
-      });
-
-      return {
-        ...orderRes,
-      };
-    }
-
-    const requestBody = {
-      order_amount: amount,
-      order_currency: Currency.INR,
-      customer_details: {
-        customer_id: 'node_sdk_test',
-        customer_email: 'example@gmail.com',
-        customer_phone: '9999999999',
-      },
-      order_meta: {
-        return_url:
-          'https://test.cashfree.com/pgappsdemos/return.php?order_id={order_id}',
-        paymentMethod: 'upi',
-      },
-    };
-
-    const cashFreeResponse = await Cashfree.PGCreateOrder(
-      payInId,
-      requestBody,
-    ).catch((err) => {
-      const data = err?.response?.data || {};
-      logger.error(data);
-      throw new Error('Error while creating CashFree Order');
-    });
-
-    return {
-      payment_amount: amount,
-      cashFreeResponse,
-      payInId,
-    };
+    const createOrder = await createCashfreeOrder(payIn, amount);
+    const session_id = createOrder?.payment_session_id;
+    // need to update the payIn with  session_id if needed
+    return { id: payIn.id, session_id };
   } catch (error) {
-    logger.error('Error generate intent payin:', error);
+    logger.error('Error generate intent payin:', error.message);
     throw error;
   }
 };
@@ -1235,16 +1198,26 @@ export const getPayinsBySearchService = async (
       return merchants.map((merchant) => merchant.id);
     };
 
-    const fetchBankIds = async (user_id) => {
+    const fetchBankIds = async (user_ids) => {
       try {
-        const banks = await getBankaccountDao({
-          user_id,
-          bank_used_for: 'PayIn',
-        });
-        if (!banks || banks.length === 0) {
+        // Handle both single user_id and array of user_ids
+        const userIdArray = Array.isArray(user_ids) ? user_ids : [user_ids];
+        
+        const allBanks = [];
+        for (const userId of userIdArray) {
+          const banks = await getBankaccountDao({
+            user_id: userId,
+            bank_used_for: 'PayIn',
+          });
+          if (banks && banks.length > 0) {
+            allBanks.push(...banks);
+          }
+        }
+        
+        if (allBanks.length === 0) {
           return [];
         }
-        return banks.map((bank) => bank.id);
+        return allBanks.map((bank) => bank.id);
       } catch (error) {
         logger.error('Error fetching PayIn:', error);
         return [];
@@ -1282,14 +1255,33 @@ export const getPayinsBySearchService = async (
           filters.merchant_id = await fetchMerchantIds(userIdFilter);
         }
       }
-    } else if (role === Role.VENDOR) {
+    } else if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
       if (designation === Role.VENDOR) {
+        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const userHierarchy = userHierarchys?.[0];
+        
+        const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+        if (Array.isArray(subVendors) && subVendors.length > 0) {
+          const vendorUserIds = [user_id, ...subVendors];
+          filters.bank_acc_id = await fetchBankIds(vendorUserIds);
+        } else {
+          filters.bank_acc_id = await fetchBankIds(user_id);
+        }
+      } else if (designation === Role.SUB_VENDOR) {
         filters.bank_acc_id = await fetchBankIds(user_id);
       } else if (designation === Role.VENDOR_OPERATIONS) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
-        const parentID = userHierarchys?.[0]?.config?.parent;
+        const userHierarchy = userHierarchys?.[0];
+        const parentID = userHierarchy?.config?.parent;
         if (parentID) {
-          filters.bank_acc_id = await fetchBankIds(parentID);
+          const parentHierarchys = await getUserHierarchysDao({
+            user_id: parentID,
+          });
+          const parentHierarchy = parentHierarchys?.[0];
+          const subVendors = parentHierarchy?.config?.siblings?.sub_vendors ?? [];
+          
+          const userIdFilter = [...new Set([parentID, ...subVendors])];
+          filters.bank_acc_id = await fetchBankIds(userIdFilter);
         }
       }
     }
@@ -1524,13 +1516,20 @@ export const processPayInService = async (
 
     let botBank;
     if (bankResponse && bankResponse.bank_id) {
-      [botBank] = await getBankaccountDao({ id: bankResponse.bank_id, company_id: payIn.company_id });
+      [botBank] = await getBankaccountDao({
+        id: bankResponse.bank_id,
+        company_id: payIn.company_id,
+      });
     }
 
-    if ((botBank && botBank?.config?.is_freeze === true) && !designation) {
+    if (botBank && botBank?.config?.is_freeze === true && !designation) {
       bankResponse = {};
-    }
-    else if ((botBank && botBank?.config?.is_freeze === true) && (designation && designation !== Role.ADMIN)) {
+    } else if (
+      botBank &&
+      botBank?.config?.is_freeze === true &&
+      designation &&
+      designation !== Role.ADMIN
+    ) {
       return { message: `Bank Account is freezed. Please contact admin` };
     }
 
@@ -2464,7 +2463,7 @@ export const telegramCheckUTRService = async (
       updated_by,
       false,
       false,
-      designation
+      designation,
     );
   } catch (error) {
     logger.error('Error in telegramCheckUTRService:', error);
@@ -2787,9 +2786,11 @@ export const verifyPayinsService = async (
     const banks = await getMerchantBankDao({
       config_merchants_contains: merchant[0].id,
     });
+    let bankIntent;
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
       const isActive = bank.is_enabled && isPayInBank;
+      bankIntent = bank.config?.is_intent;
       const hasAnyMethod =
         bank.is_qr ||
         bank.is_bank ||
@@ -2798,10 +2799,19 @@ export const verifyPayinsService = async (
       return isActive && hasAnyMethod;
     });
 
+    console.log(merchant[0]?.config?.allow_intent, "merchant intent");
+    console.log(bankIntent, "bank intent");
+    const merchantIntent = merchant[0]?.config?.allow_intent;
+    let cashfreeDetails;
+    if (merchantIntent && bankIntent) {
+      cashfreeDetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
+    }
+    
     const result = {
       expiryTime: payIn.expiration_date,
       amount: payIn.amount,
       one_time_used: payIn.one_time_used,
+      allowCashfree: cashfreeDetails?.allow_cashfree || false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,
@@ -2904,7 +2914,10 @@ export const generateUpiUrlService = async (payload) => {
 };
 
 const checkIsPayInExpired = (payIn) => {
-  if (Number(payIn.expiration_date) < Date.now() || payIn.is_url_expires) {
+  if (
+    new Date(payIn.expiration_date).getTime() < Date.now() ||
+    payIn.is_url_expires
+  ) {
     // throw new BadRequestError('PayIn has been expired already!');
     return { message: `PayIn has been expired already!` };
   }
@@ -2936,7 +2949,7 @@ export const updateCalculationTable = async (user_id, data, conn) => {
         },
         conn,
       );
-      
+
       await trackVendorsNetBalance(user_id, conn, response);
     }
   } catch (error) {
@@ -3009,8 +3022,12 @@ const updateCalculationBalances = async (
       updates,
       conn,
     );
-    
-    await trackVendorsNetBalance(currentCalculation[0].user_id, conn, updatedCurrentCalculation);
+
+    await trackVendorsNetBalance(
+      currentCalculation[0].user_id,
+      conn,
+      updatedCurrentCalculation,
+    );
 
     if (nextCalculations.length > 0) {
       // Update subsequent calculations
@@ -3035,7 +3052,7 @@ const updateCalculationBalances = async (
           },
           conn,
         );
-        
+
         await trackVendorsNetBalance(calc.user_id, conn, updatedCalc);
       }
     }
