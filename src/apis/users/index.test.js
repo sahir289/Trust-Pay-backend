@@ -105,8 +105,4 @@ describe('User Router Integration', () => {
     expect(mockControllers.getUsersByUserName).toHaveBeenCalled();
   });
 
-  // test('handles missing routes with 404', async () => {
-  //   const res = await request(app).get('/users/nonexistent-route');
-  //   expect(res.status).toBe(404);
-  // });
 });

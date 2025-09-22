@@ -11,7 +11,7 @@ import{
 import { expect, describe, beforeEach, it , } from '@jest/globals';
 import { InternalServerError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
-import { getConnection } from '../../utils/db.js';
+import { getConnection,executeQuery,rollback,commit,beginTransaction } from '../../utils/db.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { generatePassword } from '../../utils/generatePassword.js';
 import { sendCredentialsEmail } from '../../utils/sendMailer.js';
@@ -101,6 +101,22 @@ jest.mock('../userHierarchy/userHierarchyDao.js', () => ({
     createUserHierarchyDao: jest.fn(),
     getUserHierarchysDao: jest.fn(),
     updateUserHierarchyDao: jest.fn(),
+}));
+jest.mock('../../utils/logger.js', () => ({
+  logger: {
+    error: jest.fn(),
+    info: jest.fn(),
+    log: jest.fn(),
+  },
+}));
+jest.mock('../../utils/sendMailer.js', () => ({
+  sendCredentialsEmail: jest.fn().mockResolvedValue(true),
+}));
+jest.mock('../roles/rolesDao.js', () => ({
+  getRoleDao: jest.fn(),
+}));
+jest.mock('../designation/designationDao.js', () => ({
+  getDesignationDao: jest.fn(),
 }));
 describe('userService functions', () => {
     beforeEach(() => {

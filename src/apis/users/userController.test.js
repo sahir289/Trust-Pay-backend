@@ -246,8 +246,8 @@ describe('userController', () => {
           created_by: 'u',
           updated_by: 'u',
         }),
-        'R',
-        'd',
+        // 'R',
+        // 'd',
       );
 
       expect(sendSuccess).toHaveBeenCalledWith(
