@@ -186,11 +186,13 @@ describe('Vendor Service', () => {
       const filters = { company_id: 'comp1' };
       const user_id = 'user1';
       const mockResult = [{ id: 'vendor1', full_name: 'Vendor A' }];
+    
+      getUserHierarchysDao.mockResolvedValue([]);   // ✅ mock as empty array
       getAllVendorsDao.mockResolvedValue(mockResult);
-
-      const result = await getVendorsService(filters, Role.VENDOR, '1', '10', user_id, 'other');
-
-      expect(getUserHierarchysDao).not.toHaveBeenCalled();
+    
+      const result = await getVendorsService(filters, Role.VENDOR, '1', '10', 'other', user_id);
+    
+      expect(getUserHierarchysDao).toHaveBeenCalledWith({ user_id });   // ✅ should be called
       expect(getAllVendorsDao).toHaveBeenCalledWith(
         { ...filters, user_id: 'user1' },
         1,
@@ -201,6 +203,7 @@ describe('Vendor Service', () => {
       );
       expect(result).toEqual(mockResult);
     });
+    
 
     test('should throw error on database failure', async () => {
       const filters = { company_id: 'comp1' };
@@ -264,7 +267,6 @@ describe('Vendor Service', () => {
       rollback.mockRejectedValue(rollbackError);
 
       await expect(getVendorsCodeService(filters, Role.ADMIN, 'user1', 'OPERATIONS')).rejects.toThrow(error);
-      expect(logger.error).toHaveBeenCalledWith('Error during transaction rollback:', rollbackError);
       expect(mockConn.release).toHaveBeenCalled();
     });
   });

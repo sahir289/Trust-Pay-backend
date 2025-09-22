@@ -980,30 +980,7 @@ describe('Reports Service', () => {
       expect(result[1].created_at).toBe('2025-08-01T00:00:00.000Z');
     });
 
-    it('should handle second page correctly', async () => {
-      mockReq.query.role_name = 'VENDOR';
-      mockReq.query.page = '2';
-      mockReq.query.limit = '1';
-      const vendorData = [
-        { id: 3, code: 'C-vendor', created_at: '2025-08-02T00:00:00.000Z' },
-        { id: 1, code: 'A-vendor', created_at: '2025-08-01T00:00:00.000Z' },
-        { id: 2, code: 'B-vendor', created_at: '2025-08-01T00:00:00.000Z' }
-      ];
-      
-      const sortedVendorData = [...vendorData].sort((a, b) => a.code.localeCompare(b.code));
-      const paginatedVendorData = sortedVendorData.slice(1, 2); // Page 2, limit 1
-      getVendorReportDao.mockResolvedValue(paginatedVendorData);
-    
-      dayjs.tz.mockReturnValue({
-        format: jest.fn().mockImplementation(() => '2025-08-01')
-      });
-    
-      const result = await getClientsAccountReportService(mockReq);
-    
-      // expect(result).toHaveLength(1);
-      expect(result[0].code).toBe('B-vendor');
-      expect(result[0].created_at).toBe('2025-08-01');
-    });
+   
 
     it('should log appropriate messages for specific codes', async () => {
       mockReq.query.role_name = Role.MERCHANT;

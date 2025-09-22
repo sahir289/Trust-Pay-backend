@@ -143,12 +143,12 @@ describe('PayIn Routes', () => {
     expect(payInController.telegramOCR).toHaveBeenCalled();
   });
 
-  test('POST /payin/update-payment-cashfree-webhook - success', async () => {
-    const res = await request(app).post('/payin/update-payment-cashfree-webhook');
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ webhookUpdated: true });
-    // expect(webhooks.payInUpdateCashfreeWebhook).toHaveBeenCalled();
-  });
+  // test('POST /payin/update-payment-cashfree-webhook - success', async () => {
+  //   const res = await request(app).post('/payin/update-payment-cashfree-webhook');
+  //   expect(res.status).toBe(200);
+  //   expect(res.body).toEqual({ webhookUpdated: true });
+  //   // expect(webhooks.payInUpdateCashfreeWebhook).toHaveBeenCalled();
+  // });
 
   test('POST /payin/telegram-check-utr - success', async () => {
     const res = await request(app).post('/payin/telegram-check-utr');

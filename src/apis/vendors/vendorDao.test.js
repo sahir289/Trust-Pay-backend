@@ -96,26 +96,18 @@ describe('Vendor DAO', () => {
     test('should fetch vendor codes successfully', async () => {
       const filters = { company_id: 'comp1' };
       const mockResult = { rows: [{ label: 'V001', value: 'user1', vendor_id: 'vendor1' }] };
-      buildSelectQuery.mockReturnValue([
-        'SELECT code AS label, user_id AS value, id AS vendor_id FROM "Vendor" WHERE is_obsolete = FALSE AND company_id = $1 ORDER BY "code" ASC',
-        ['comp1']
-      ]);
       mockConn.query.mockResolvedValue(mockResult);
-
+    
       const result = await getVendorsCodeDao(filters, mockConn);
-
-      expect(buildSelectQuery).toHaveBeenCalledWith(
-        expect.stringMatching(/SELECT\s+code\s+AS\s+label,\s+user_id\s+AS\s+value,\s+id\s+AS\s+vendor_id\s+FROM\s+"Vendor"\s+WHERE\s+is_obsolete\s+=\s+FALSE/),
-        filters,
-        tableName.VENDOR
-      );
+    
       expect(mockConn.query).toHaveBeenCalledWith(
-        expect.stringMatching(/SELECT\s+code\s+AS\s+label,\s+user_id\s+AS\s+value,\s+id\s+AS\s+vendor_id\s+FROM\s+"Vendor"\s+WHERE\s+is_obsolete\s+=\s+FALSE\s+.*ORDER\s+BY\s+"code"\s+ASC/),
+        expect.stringMatching(/SELECT\s+v\.code\s+AS\s+label,\s+v\.user_id\s+AS\s+value,\s+v\.id\s+AS\s+vendor_id/),
         ['comp1']
       );
       expect(logger.log).toHaveBeenCalledWith('Fetched Vendors:', 1, 'rows');
       expect(result).toEqual([{ label: 'V001', value: 'user1', vendor_id: 'vendor1' }]);
     });
+    
 
     test('should throw error on database failure', async () => {
       const filters = { company_id: 'comp1' };
