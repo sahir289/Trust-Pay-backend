@@ -1,14 +1,17 @@
 import dayjs from 'dayjs';
-import { tableName ,Role } from '../../constants/index.js';
 import {
-  getBankResponseByESSearch,
-  updateBankResponseInES,
-} from '../../elasticSearch/bankResponse/common.js';
-import { createBankResponseInES } from '../../elasticSearch/bankResponse/common.js';
+  tableName,
+  // Role
+} from '../../constants/index.js';
+// import {
+//   // getBankResponseByESSearch,
+//   updateBankResponseInES,
+// } from '../../elasticSearch/bankResponse/common.js';
+// import { createBankResponseInES } from '../../elasticSearch/bankResponse/common.js';
 // import { InternalServerError } from '../../utils/appErrors.js';
 // import { generateUUID } from '../utils/generateUUID.js';
 // import { generateCacheKey,getCachedData,setCachedData } from '../../utils/redishashkey.js';
-import { getBankAccountNickNameForEsDao } from '../bankAccounts/bankaccountDao.js';
+// import { getBankAccountNickNameForEsDao } from '../bankAccounts/bankaccountDao.js';
 import {
   executeQuery,
   buildSelectQuery,
@@ -19,7 +22,7 @@ import {
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
-import { BankResponseKeys } from '../../constants/index.js';
+// import { BankResponseKeys } from '../../constants/index.js';
 // import { newTableEntry } from '../../utils/sockets.js';
 const IST = 'Asia/Kolkata';
 
@@ -188,57 +191,57 @@ const getBankResponseBySearchDao = async (
   sortOrder = 'DESC',
   start_date,
   end_date,
-  role
+  // role
 ) => {
   try {
     let data;
-    if (filters.search) {
-      const filterBankResponseByRole = (bankResponse, role) => {
-        let allowedKeys;
-        switch (role) {
-          case Role.VENDOR:
-            allowedKeys = BankResponseKeys.VENDOR;
-            break;
-          case Role.MERCHANT:
-            allowedKeys = BankResponseKeys.MERCHANT;
-            break;
-          case Role.ADMIN:
-          default:
-            allowedKeys = BankResponseKeys.ADMIN;
-            break;
-        }
-        return Object.fromEntries(
-          Object.entries(bankResponse).filter(([key]) =>
-            allowedKeys.includes(key),
-          ),
-        );
-      };
+    // if (filters.search) {
+    //   const filterBankResponseByRole = (bankResponse, role) => {
+    //     let allowedKeys;
+    //     switch (role) {
+    //       case Role.VENDOR:
+    //         allowedKeys = BankResponseKeys.VENDOR;
+    //         break;
+    //       case Role.MERCHANT:
+    //         allowedKeys = BankResponseKeys.MERCHANT;
+    //         break;
+    //       case Role.ADMIN:
+    //       default:
+    //         allowedKeys = BankResponseKeys.ADMIN;
+    //         break;
+    //     }
+    //     return Object.fromEntries(
+    //       Object.entries(bankResponse).filter(([key]) =>
+    //         allowedKeys.includes(key),
+    //       ),
+    //     );
+    //   };
 
-      delete filters.page;
-      delete filters.limit;
-      page = page - 1;
-      const { results, totalCount, totalPages } =
-        await getBankResponseByESSearch(
-          filters.search,
-          filters,
-          page,
-          pageSize,
-          sortBy,
-          sortOrder,
-        );
-      const filteredBankResponses = results.map((bankResponse) =>
-        filterBankResponseByRole(bankResponse, role),
-      );
+    //   delete filters.page;
+    //   delete filters.limit;
+    //   page = page - 1;
+    //   const { results, totalCount, totalPages } =
+    //     await getBankResponseByESSearch(
+    //       filters.search,
+    //       filters,
+    //       page,
+    //       pageSize,
+    //       sortBy,
+    //       sortOrder,
+    //     );
+    //   const filteredBankResponses = results.map((bankResponse) =>
+    //     filterBankResponseByRole(bankResponse, role),
+    //   );
 
-      // 🔹 Build final response
-      const data = {
-        totalCount,
-        totalPages,
-        rows: filteredBankResponses,
-      };
+    //   // 🔹 Build final response
+    //   const data = {
+    //     totalCount,
+    //     totalPages,
+    //     rows: filteredBankResponses,
+    //   };
 
-      return data;
-    }
+    //   return data;
+    // }
     
     const selectCols = columns.length
       ? `DISTINCT ON ("BankResponse".sno) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
@@ -1054,11 +1057,11 @@ const createBankResponseDao = async (conn, data) => {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
     const insertedEntry = result.rows[0];
-    const nickName = await getBankAccountNickNameForEsDao(
-      insertedEntry.bank_id,
-    );
-    insertedEntry.nick_name = nickName.nick_name;
-    await createBankResponseInES(insertedEntry);
+    // const nickName = await getBankAccountNickNameForEsDao(
+    //   insertedEntry.bank_id,
+    // );
+    // insertedEntry.nick_name = nickName.nick_name;
+    // await createBankResponseInES(insertedEntry);
     return insertedEntry;
   } catch (error) {
     logger.error('Error in createBankResponseDao:', error);
@@ -1077,18 +1080,18 @@ export const updateBankResponseDao = async (id, data, conn) => {
     else {
       result = await executeQuery(sql, params);
     }
-    let insertedEntry = {
-      ...data,
-      updated_at: result.rows[0].updated_at,
-    };
-    if (data.bank_id) {
-      const nickName = await getBankAccountNickNameForEsDao(data.bank_id);
-      insertedEntry = {
-        ...insertedEntry,
-        nick_name: nickName.nick_name,
-      }
-    }
-    await updateBankResponseInES(result.rows[0].id, insertedEntry);
+    // let insertedEntry = {
+    //   ...data,
+    //   updated_at: result.rows[0].updated_at,
+    // };
+    // if (data.bank_id) {
+    //   const nickName = await getBankAccountNickNameForEsDao(data.bank_id);
+    //   insertedEntry = {
+    //     ...insertedEntry,
+    //     nick_name: nickName.nick_name,
+    //   }
+    // }
+    // await updateBankResponseInES(result.rows[0].id, insertedEntry);
     // await newTableEntry(tableName.BANK_RESPONSE);
     return result.rows[0];
   } catch (error) {
@@ -1131,20 +1134,20 @@ const resetBankResponseDao = async (id, data) => {
       id,
     });
     const result = await executeQuery(sql, params);
-    let insertedEntry = {
-      ...data,
-      updated_at: result.rows[0].updated_at,
-    };
-    if (data.bank_id) {
-      const nickName = await getBankAccountNickNameForEsDao(
-        data.bank_id
-      );
-      insertedEntry = {
-        ...insertedEntry,
-        nick_name: nickName.nick_name,
-      };
-    }
-    await updateBankResponseInES(result.rows[0].id, insertedEntry);
+    // let insertedEntry = {
+    //   ...data,
+    //   updated_at: result.rows[0].updated_at,
+    // };
+    // if (data.bank_id) {
+    //   const nickName = await getBankAccountNickNameForEsDao(
+    //     data.bank_id
+    //   );
+    //   insertedEntry = {
+    //     ...insertedEntry,
+    //     nick_name: nickName.nick_name,
+    //   };
+    // }
+    // await updateBankResponseInES(result.rows[0].id, insertedEntry);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in resetBankResponseDao:', error);
@@ -1164,18 +1167,18 @@ const updateBotResponseDao = async (id, data, conn) => {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
     // await newTableEntry(tableName.BANK_RESPONSE);
-    let insertedEntry = {
-      ...data,
-      updated_at: result.rows[0].updated_at,
-    };
-    if (data.bank_id) {
-      const nickName = await getBankAccountNickNameForEsDao(data.bank_id);
-      insertedEntry = {
-        ...insertedEntry,
-        nick_name: nickName.nick_name,
-      };
-    }
-    await updateBankResponseInES(result.rows[0].id, insertedEntry);
+    // let insertedEntry = {
+    //   ...data,
+    //   updated_at: result.rows[0].updated_at,
+    // };
+    // if (data.bank_id) {
+    //   const nickName = await getBankAccountNickNameForEsDao(data.bank_id);
+    //   insertedEntry = {
+    //     ...insertedEntry,
+    //     nick_name: nickName.nick_name,
+    //   };
+    // }
+    // await updateBankResponseInES(result.rows[0].id, insertedEntry);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateBotResponseDao:', error);

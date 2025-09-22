@@ -5,9 +5,9 @@ import {
 } from '../../utils/db.js';
 import { Role, Status, tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
-import { createSettlementInES, getSettlementByESSearch ,updatesettlementInES } from '../../elasticSearch/settlement/common.js';
-import { getUsersNameDao } from '../users/userDao.js';
-import { SettlementResponses } from '../../constants/index.js';
+// import { createSettlementInES, getSettlementByESSearch ,updatesettlementInES } from '../../elasticSearch/settlement/common.js';
+// import { getUsersNameDao } from '../users/userDao.js';
+// import { SettlementResponses } from '../../constants/index.js';
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import dayjs from 'dayjs';
 
@@ -284,56 +284,56 @@ const getSettlementsBySearchDao = async (
   sortBy = 'sno',
   sortOrder = 'DESC',
   columns = [],
-  // searchTerms = [],
+  searchTerms = [],
   role,
 ) => {
   try {
     const conditions = ['s.is_obsolete = false'];
     const queryParams = [];
     let paramIndex = 1;
-    if (filters.search) {
-      const filterSettlementByRole = (bankResponse, role) => {
-        let allowedKeys;
-        switch (role) {
-          case Role.VENDOR:
-            allowedKeys = SettlementResponses.VENDOR;
-            break;
-          case Role.MERCHANT:
-            allowedKeys = SettlementResponses.MERCHANT;
-            break;
-          case Role.ADMIN:
-          default:
-            allowedKeys = SettlementResponses.ADMIN;
-            break;
-        }
-        return Object.fromEntries(
-          Object.entries(bankResponse).filter(([key]) =>
-            allowedKeys.includes(key),
-          ),
-        );
-      };
-      page = page - 1;
-      const { results, totalCount } = await getSettlementByESSearch(
-        filters.search,
-        filters,
-        page,
-        pageSize,
-        sortBy,
-        sortOrder,
-      );
+    // if (filters.search) {
+    //   const filterSettlementByRole = (bankResponse, role) => {
+    //     let allowedKeys;
+    //     switch (role) {
+    //       case Role.VENDOR:
+    //         allowedKeys = SettlementResponses.VENDOR;
+    //         break;
+    //       case Role.MERCHANT:
+    //         allowedKeys = SettlementResponses.MERCHANT;
+    //         break;
+    //       case Role.ADMIN:
+    //       default:
+    //         allowedKeys = SettlementResponses.ADMIN;
+    //         break;
+    //     }
+    //     return Object.fromEntries(
+    //       Object.entries(bankResponse).filter(([key]) =>
+    //         allowedKeys.includes(key),
+    //       ),
+    //     );
+    //   };
+    //   page = page - 1;
+    //   const { results, totalCount } = await getSettlementByESSearch(
+    //     filters.search,
+    //     filters,
+    //     page,
+    //     pageSize,
+    //     sortBy,
+    //     sortOrder,
+    //   );
 
-      const filtered = results.map((bankResponse) =>
-        filterSettlementByRole(bankResponse, role),
-      );
+    //   const filtered = results.map((bankResponse) =>
+    //     filterSettlementByRole(bankResponse, role),
+    //   );
 
-      const data = {
-        totalCount,
-        totalPages: Math.ceil(totalCount / pageSize),
-        settlements: filtered,
-      };
+    //   const data = {
+    //     totalCount,
+    //     totalPages: Math.ceil(totalCount / pageSize),
+    //     settlements: filtered,
+    //   };
 
-      return data;
-    }
+    //   return data;
+    // }
     
     // Add dynamic code and user_name fields
     let columnSelection;
@@ -383,6 +383,52 @@ const getSettlementsBySearchDao = async (
     }
 
     // Full-text search conditions
+    if (searchTerms.length > 0) {
+      const searchConditions = [];
+
+      searchTerms.forEach((term) => {
+        if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+          const boolValue = term.toLowerCase() === 'true';
+          searchConditions.push(
+            `(s.is_notified = $${paramIndex} OR s.is_approved = $${paramIndex} OR s.is_rejected = $${paramIndex})`,
+          );
+          queryParams.push(boolValue);
+          paramIndex++;
+        } else {
+          searchConditions.push(
+            `(
+              LOWER(s.id::text) LIKE LOWER($${paramIndex}) OR
+              LOWER(s.sno::text) LIKE LOWER($${paramIndex}) OR
+              LOWER(s.status) LIKE LOWER($${paramIndex}) OR
+              LOWER(s.method) LIKE LOWER($${paramIndex}) OR
+              LOWER(u.user_name) LIKE LOWER($${paramIndex}) OR
+              LOWER(r.role) LIKE LOWER($${paramIndex}) OR
+              LOWER(m.code) LIKE LOWER($${paramIndex}) OR
+              LOWER(v.code) LIKE LOWER($${paramIndex}) OR
+              LOWER(ba.bank_name) LIKE LOWER($${paramIndex}) OR
+              LOWER(ba.acc_holder_name) LIKE LOWER($${paramIndex}) OR
+              LOWER(ba.acc_no) LIKE LOWER($${paramIndex}) OR
+              LOWER(ba.ifsc) LIKE LOWER($${paramIndex}) OR
+              s.amount::text LIKE $${paramIndex} OR
+              LOWER(s.config->>'amount') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'reference_id') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'debit_credit') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'ifsc') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'acc_no') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'acc_holder_name') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'bank_name') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'bank_namebank_name') LIKE LOWER($${paramIndex}) OR
+              LOWER(s.config->>'rejected_reason') LIKE LOWER($${paramIndex}))`,
+          );
+          queryParams.push(`%${term}%`);
+          paramIndex++;
+        }
+      });
+
+      if (searchConditions.length > 0) {
+        conditions.push(`(${searchConditions.join(' OR ')})`);
+      }
+    }
     // Filter handlers
     const filterHandlers = {
       user_id: (val) => {
@@ -642,19 +688,19 @@ const createSettlementDao = async (payload, conn) => {
     } else {
       result = await executeQuery(sql, params);
     }
-    const insertedEntry = result.rows[0];
-    const code = await getUsersNameDao(insertedEntry.user_id);
-    const createdBy = await getUsersNameDao(insertedEntry.created_by);
-    insertedEntry.created_by = createdBy?.user_name || insertedEntry.created_by;
-    insertedEntry.updated_by = createdBy?.user_name || insertedEntry.updated_by;
-    insertedEntry.code = code?.code || null;
-    insertedEntry.role = code?.role || null;
-    if (insertedEntry.config && typeof insertedEntry.config === 'object') {
-      Object.entries(insertedEntry.config).forEach(([key, value]) => {
-        insertedEntry[key] = value ?? null; // Use nullish coalescing to set null if value is undefined or null
-      });
-    }
-    await createSettlementInES(insertedEntry);
+    // const insertedEntry = result.rows[0];
+    // const code = await getUsersNameDao(insertedEntry.user_id);
+    // const createdBy = await getUsersNameDao(insertedEntry.created_by);
+    // insertedEntry.created_by = createdBy?.user_name || insertedEntry.created_by;
+    // insertedEntry.updated_by = createdBy?.user_name || insertedEntry.updated_by;
+    // insertedEntry.code = code?.code || null;
+    // insertedEntry.role = code?.role || null;
+    // if (insertedEntry.config && typeof insertedEntry.config === 'object') {
+    //   Object.entries(insertedEntry.config).forEach(([key, value]) => {
+    //     insertedEntry[key] = value ?? null; // Use nullish coalescing to set null if value is undefined or null
+    //   });
+    // }
+    // await createSettlementInES(insertedEntry);
     return result.rows[0];
   } catch (error) {
     logger.error(error);
@@ -671,21 +717,21 @@ const updateSettlementDao = async (conn, id, data) => {
     } else {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
-    const createdBy = await getUsersNameDao(data.updated_by);
-    let insertedEntry = 
-    {
-      ...data,
-      updated_at: result.rows[0].updated_at,
-      approved_at: result.rows[0].approved_at,
-      rejected_at: result.rows[0].rejected_at,
-      updated_by: createdBy?.user_name || data.updated_by
-    }
-    if (insertedEntry.config && typeof insertedEntry.config === 'object') {
-      Object.entries(insertedEntry.config).forEach(([key, value]) => {
-        insertedEntry[key] = value ?? null; 
-      });
-    }
-   await updatesettlementInES(result.rows[0].id, insertedEntry);
+  //   const createdBy = await getUsersNameDao(data.updated_by);
+  //   let insertedEntry = 
+  //   {
+  //     ...data,
+  //     updated_at: result.rows[0].updated_at,
+  //     approved_at: result.rows[0].approved_at,
+  //     rejected_at: result.rows[0].rejected_at,
+  //     updated_by: createdBy?.user_name || data.updated_by
+  //   }
+  //   if (insertedEntry.config && typeof insertedEntry.config === 'object') {
+  //     Object.entries(insertedEntry.config).forEach(([key, value]) => {
+  //       insertedEntry[key] = value ?? null; 
+  //     });
+  //   }
+  //  await updatesettlementInES(result.rows[0].id, insertedEntry);
     return result.rows[0];
   } catch (error) {
     logger.error(error);

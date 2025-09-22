@@ -1346,7 +1346,7 @@ export const getPayinsBySearchService = async (
     } else {
       data = await getPayinsWithoutHistoryDao(
         filters,
-        // searchTerms,
+        searchTerms,
         limitNum,
         offset,
         role,
@@ -2404,9 +2404,9 @@ export const telegramCheckUTRService = async (
     });
     if (!bankResponse) {
       throw new NotFoundError(`UTR ${utr} not found`);
-    } else if (
+    }else if (
       (bankResponse.status !== '/success' && designation !== Role.ADMIN) ||
-      (bankResponse.status !== '/freezed' && designation === Role.ADMIN)
+      (bankResponse.status !== '/success' && bankResponse.status !== '/freezed' && designation === Role.ADMIN)
     ) {
       throw new BadRequestError(
         `UTR ${utr} found with ${bankResponse.status} STATUS`,
