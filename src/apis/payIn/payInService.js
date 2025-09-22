@@ -59,6 +59,7 @@ import {
   getBankResponsePendingDao,
   updateBankResponseDao,
   updateBotResponseDao,
+  getBankResponsePayinDao,
 } from '../bankResponse/bankResponseDao.js';
 import {
   getMerchantsByCodeDao,
@@ -1448,10 +1449,12 @@ export const processPayInService = async (
       bankResponse =
         (await getBankResponseDao({ id: payIn.bank_response_id })) || {};
     } else if (!bankResponse || !bankResponse.utr) {
+      const statuses =
+        designation === Role.ADMIN ? ['/success', '/freezed'] : ['/success'];
       bankResponse =
-        (await getBankResponseDao({
+        (await getBankResponsePayinDao({
           utr: userSubmittedUtr,
-          status: '/success',
+          status: statuses,
           company_id: payIn.company_id,
         })) || {};
     }
@@ -1526,35 +1529,18 @@ export const processPayInService = async (
     }
 
     if (!bankResponse || Object.keys(bankResponse).length === 0) {
+      const statuses =
+        designation === Role.ADMIN ? ['/success', '/freezed'] : ['/success'];
       bankResponse =
-        (await getBankResponseDao({
+        (await getBankResponsePayinDao({
           utr: userSubmittedUtr,
-          status: '/success',
+          status: statuses,
           company_id: payIn.company_id,
         })) || {};
     }
 
-    let botBank;
-    if (bankResponse && bankResponse.bank_id) {
-      [botBank] = await getBankaccountDao({
-        id: bankResponse.bank_id,
-        company_id: payIn.company_id,
-      });
-    }
-
-    if (botBank && botBank?.config?.is_freeze === true && !designation) {
-      bankResponse = {};
-    } else if (
-      botBank &&
-      botBank?.config?.is_freeze === true &&
-      designation &&
-      designation !== Role.ADMIN
-    ) {
-      return { message: `Bank Account is freezed. Please contact admin` };
-    }
-
     if (bankResponse.id) {
-      await updateBotResponseDao(bankResponse.id, { is_used: true }, conn);
+      await updateBotResponseDao(bankResponse.id, { is_used: true ,status : "/success"}, conn);
     }
 
     if (bankResponse.bank_id && bankResponse.bank_id !== payIn.bank_acc_id) {
@@ -2406,9 +2392,9 @@ export const telegramCheckUTRService = async (
   designation,
 ) => {
   try {
-    const bankResponse = await getBankResponseDao({
+    const bankResponse = await getBankResponsePayinDao({
       utr: utr,
-      status: '/success',
+      status: designation === Role.ADMIN ? ['/freezed','/success'] : ['/success'],
       company_id,
     });
     let otherBankResponse = {};
@@ -2418,7 +2404,10 @@ export const telegramCheckUTRService = async (
     });
     if (!bankResponse) {
       throw new NotFoundError(`UTR ${utr} not found`);
-    } else if (bankResponse.status !== '/success') {
+    } else if (
+      (bankResponse.status !== '/success' && designation !== Role.ADMIN) ||
+      (bankResponse.status !== '/freezed' && designation === Role.ADMIN)
+    ) {
       throw new BadRequestError(
         `UTR ${utr} found with ${bankResponse.status} STATUS`,
       );
