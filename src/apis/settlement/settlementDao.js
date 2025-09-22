@@ -284,7 +284,7 @@ const getSettlementsBySearchDao = async (
   sortBy = 'sno',
   sortOrder = 'DESC',
   columns = [],
-  searchTerms = [],
+  // searchTerms = [],
   role,
 ) => {
   try {
@@ -292,37 +292,49 @@ const getSettlementsBySearchDao = async (
     const queryParams = [];
     let paramIndex = 1;
     if (filters.search) {
-       const filterSettlementByRole = (bankResponse, role) => {
-              let allowedKeys;
-              switch (role) {
-                case Role.VENDOR:
-                  allowedKeys = SettlementResponses.VENDOR;
-                  break;
-                case Role.MERCHANT:
-                  allowedKeys = SettlementResponses.MERCHANT;
-                  break;
-                case Role.ADMIN:
-                default:
-                  allowedKeys = SettlementResponses.ADMIN;
-                  break;
-              }
-              return Object.fromEntries(
-                Object.entries(bankResponse).filter(([key]) =>
-                  allowedKeys.includes(key),
-                ),
-              );
-            };
-      const searchData = await getSettlementByESSearch(filters.search, filters);
-      const filtered = searchData.map((bankResponse) =>
+      const filterSettlementByRole = (bankResponse, role) => {
+        let allowedKeys;
+        switch (role) {
+          case Role.VENDOR:
+            allowedKeys = SettlementResponses.VENDOR;
+            break;
+          case Role.MERCHANT:
+            allowedKeys = SettlementResponses.MERCHANT;
+            break;
+          case Role.ADMIN:
+          default:
+            allowedKeys = SettlementResponses.ADMIN;
+            break;
+        }
+        return Object.fromEntries(
+          Object.entries(bankResponse).filter(([key]) =>
+            allowedKeys.includes(key),
+          ),
+        );
+      };
+
+      const { results, totalCount } = await getSettlementByESSearch(
+        filters.search,
+        filters,
+        page,
+        pageSize,
+        sortBy,
+        sortOrder,
+      );
+
+      const filtered = results.map((bankResponse) =>
         filterSettlementByRole(bankResponse, role),
       );
-        let data = {
-          totalCount: searchData?.length,
-          totalPages: 12,
-          settlements: filtered,
-        };
-        return data;
+
+      const data = {
+        totalCount,
+        totalPages: Math.ceil(totalCount / pageSize),
+        settlements: filtered,
+      };
+
+      return data;
     }
+    
     // Add dynamic code and user_name fields
     let columnSelection;
 

@@ -16,8 +16,8 @@ export const getPayoutByESSearch = async (
   limit = 20,
 ) => {
   try {
-    // Pass searchableFields for this module
     delete filters.search;
+
     const queryBody = buildESQuery(
       query,
       filters,
@@ -25,18 +25,31 @@ export const getPayoutByESSearch = async (
       offset,
       limit,
     );
+
     const esClient = await getESClient();
+
     const data = await esClient.search({
-      index: 'payouts', // Module-specific index
+      index: 'payouts',
       body: queryBody,
     });
-    const dd = data?.hits?.hits?.map((hit) => hit._source);
-    return dd;
+
+    const results = data?.hits?.hits?.map((hit) => hit._source) || [];
+
+    const totalCount = data?.hits?.total?.value || 0;
+
+    const totalPages = Math.ceil(totalCount / limit);
+
+    return {
+      results,
+      totalCount,
+      totalPages,
+    };
   } catch (error) {
     logger.error('Error searching payout in Elasticsearch:', error);
     throw error;
   }
 };
+
 
 export const createPayoutInES = async (payout) => {
   try {

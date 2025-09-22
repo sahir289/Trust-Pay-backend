@@ -12,6 +12,8 @@ export const buildESQuery = (
   searchableFields = [],
   offset = 0,
   limit = 20,
+  sortBy = 'created_at',
+  sortOrder = 'desc',
 ) => {
   const queryBody = {
     query: {
@@ -22,7 +24,7 @@ export const buildESQuery = (
     },
     from: offset,
     size: limit,
-    sort: [{ created_at: 'desc' }],
+    sort: [{ [sortBy]: sortOrder }],
   };
   if (searchQuery) {
     queryBody.query.bool.must.push({

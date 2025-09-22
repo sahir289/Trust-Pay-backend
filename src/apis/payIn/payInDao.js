@@ -1118,7 +1118,7 @@ export const getPayInDaoByCode = async (filters) => {
 
 export const getPayinsWithoutHistoryDao = async (
   filters,
-  searchTerms,
+  // searchTerms,
   limitNum,
   offset,
   role,
@@ -1144,22 +1144,30 @@ export const getPayinsWithoutHistoryDao = async (
           Object.entries(payin).filter(([key]) => allowedKeys.includes(key)),
         );
       };
-      // Modified filters.search block
-        delete filters.page;
-        delete filters.limit;
-        const searchData = await getPayinsByESSearch(filters.search, filters);
-        // Filter each payin object to include only the allowed keys based on role
-        const filteredPayins = searchData.map((payin) =>
-          filterPayinByRole(payin, role),
-        );
-        let data = {
-          totalCount: searchData?.length || 0,
-          totalPages: 12,
-          payins: filteredPayins,
-        };
-        return data;
-      
-      }
+
+      delete filters.page;
+      delete filters.limit;
+
+      const { results, totalCount, totalPages } = await getPayinsByESSearch(
+        filters.search,
+        filters,
+        offset,
+        limitNum,
+      );
+
+      const filteredPayins = results.map((payin) =>
+        filterPayinByRole(payin, role),
+      );
+
+      const data = {
+        totalCount,
+        totalPages,
+        payins: filteredPayins,
+      };
+
+      return data;
+    }
+    
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
     const queryParams = [filters.company_id];
     let paramIndex = 2;
@@ -1282,45 +1290,45 @@ export const getPayinsWithoutHistoryDao = async (
       WHERE ${conditions.join(' AND ')}
     `;
 
-    if (searchTerms && searchTerms.length > 0) {
-      searchTerms.forEach((term) => {
-        if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-          const boolValue = term.toLowerCase() === 'true';
-          conditions.push(`
-            (
-              p.is_notified = $${paramIndex}
-              OR p.is_url_expires = $${paramIndex}
-              OR p.one_time_used = $${paramIndex}
-            )
-          `);
-          queryParams.push(boolValue);
-          paramIndex++;
-        } else {
-          conditions.push(`
-            (
-              p.id::text ILIKE $${paramIndex}
-              OR p.sno::text ILIKE $${paramIndex}
-              OR p.upi_short_code ILIKE $${paramIndex}
-              OR p.status ILIKE $${paramIndex}
-              OR p.merchant_order_id ILIKE $${paramIndex}
-              OR p.user_submitted_utr ILIKE $${paramIndex}
-              OR p.user ILIKE $${paramIndex}
-              OR b.nick_name ILIKE $${paramIndex}
-              OR br.utr ILIKE $${paramIndex}
-              OR m.code ILIKE $${paramIndex}
-              OR v.code ILIKE $${paramIndex}
-              OR p.amount::text ILIKE $${paramIndex}
-              OR br.amount::text ILIKE $${paramIndex}
-              OR (p.config->>'user') ILIKE $${paramIndex}
-              OR (p.config->'urls'->>'site') ILIKE $${paramIndex}
-              OR (p.config->'urls'->>'notify') ILIKE $${paramIndex}
-            )
-          `);
-          queryParams.push(`%${term}%`);
-          paramIndex++;
-        }
-      });
-    }
+    // if (searchTerms && searchTerms.length > 0) {
+    //   searchTerms.forEach((term) => {
+    //     if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+    //       const boolValue = term.toLowerCase() === 'true';
+    //       conditions.push(`
+    //         (
+    //           p.is_notified = $${paramIndex}
+    //           OR p.is_url_expires = $${paramIndex}
+    //           OR p.one_time_used = $${paramIndex}
+    //         )
+    //       `);
+    //       queryParams.push(boolValue);
+    //       paramIndex++;
+    //     } else {
+    //       conditions.push(`
+    //         (
+    //           p.id::text ILIKE $${paramIndex}
+    //           OR p.sno::text ILIKE $${paramIndex}
+    //           OR p.upi_short_code ILIKE $${paramIndex}
+    //           OR p.status ILIKE $${paramIndex}
+    //           OR p.merchant_order_id ILIKE $${paramIndex}
+    //           OR p.user_submitted_utr ILIKE $${paramIndex}
+    //           OR p.user ILIKE $${paramIndex}
+    //           OR b.nick_name ILIKE $${paramIndex}
+    //           OR br.utr ILIKE $${paramIndex}
+    //           OR m.code ILIKE $${paramIndex}
+    //           OR v.code ILIKE $${paramIndex}
+    //           OR p.amount::text ILIKE $${paramIndex}
+    //           OR br.amount::text ILIKE $${paramIndex}
+    //           OR (p.config->>'user') ILIKE $${paramIndex}
+    //           OR (p.config->'urls'->>'site') ILIKE $${paramIndex}
+    //           OR (p.config->'urls'->>'notify') ILIKE $${paramIndex}
+    //         )
+    //       `);
+    //       queryParams.push(`%${term}%`);
+    //       paramIndex++;
+    //     }
+    //   });
+    // }
 
     const handledKeys = new Set([
       'status',

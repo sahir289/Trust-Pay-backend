@@ -163,22 +163,35 @@ const getBankResponseBySearchDao = async (
           ),
         );
       };
+
       delete filters.page;
       delete filters.limit;
-      const searchData = await getBankResponseByESSearch(
-        filters.search,
-        filters,
-      );
-      const filteredBankResponses = searchData.map((bankResponse) =>
+
+      const { results, totalCount, totalPages } =
+        await getBankResponseByESSearch(
+          filters.search,
+          filters,
+          page,
+          pageSize,
+          sortBy,
+          sortOrder,
+        );
+
+      // 🔹 Apply role-based filtering
+      const filteredBankResponses = results.map((bankResponse) =>
         filterBankResponseByRole(bankResponse, role),
       );
-      data = {
-        totalCount: searchData?.length || 0,
-        totalPages: 12, 
+
+      // 🔹 Build final response
+      const data = {
+        totalCount,
+        totalPages,
         rows: filteredBankResponses,
       };
+
       return data;
     }
+    
     const selectCols = columns.length
       ? `DISTINCT ON ("BankResponse".sno) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
       : `DISTINCT ON ("BankResponse".sno) ` + [

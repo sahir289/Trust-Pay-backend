@@ -15,9 +15,9 @@ export const getPayinsByESSearch = async (
   offset = 0,
   limit = 20,
 ) => {
-    try {
-      delete filters.search;
-    // Pass searchableFields for this module
+  try {
+    delete filters.search;
+
     const queryBody = buildESQuery(
       query,
       filters,
@@ -25,19 +25,29 @@ export const getPayinsByESSearch = async (
       offset,
       limit,
     );
+
     const esClient = await getESClient();
+
     const data = await esClient.search({
-      index: 'payins', // Module-specific index
+      index: 'payins',
       body: queryBody,
     });
 
-    const dd = data?.hits?.hits?.map((hit) => hit._source);
-    return dd;
+    const results = data?.hits?.hits?.map((hit) => hit._source) || [];
+
+    const totalCount = data?.hits?.total?.value || 0;
+
+    return {
+      results, 
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+    };
   } catch (error) {
     logger.error('Error searching payins in Elasticsearch:', error);
     throw error;
   }
 };
+  
 
 export const createPayinInES = async (payins) => {
   try {

@@ -13,27 +13,35 @@ export const getSettlementByESSearch = async (
   query,
   filters = {},
   offset = 0,
-  limit = 20,
+    limit = 20,
+    sortBy = 'created_at',
+    sortOrder = 'desc',
 ) => {
   try {
     // Pass searchableFields for this module
       delete filters.search;
-      console.log("filters", filters)
-      console.log("query", query)
+     
     const queryBody = buildESQuery(
       query,
       filters,
       SettlementSearchableField,
       offset,
       limit,
+      sortBy,
+      sortOrder
     );
     const esClient = await getESClient();
     const data = await esClient.search({
       index: 'settlements', // Module-specific index
       body: queryBody,
     });
-    const dd = data?.hits?.hits?.map((hit) => hit._source);
-    return dd;
+      const results = data?.hits?.hits?.map((hit) => hit._source);
+      const totalCount = data?.hits?.total?.value || 0;
+
+      return {
+        results, 
+        totalCount, 
+      };
   } catch (error) {
     logger.error('Error searching settlement in Elasticsearch:', error);
     throw error;

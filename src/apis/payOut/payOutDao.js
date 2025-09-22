@@ -510,7 +510,6 @@ export const getPayoutsBySearchDao = async (
   ifamount = false,
 ) => {
   try {
-    // Initialize base conditions for main query
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
     if (filters.search) {
       const filterPayoutByRole = (payout, role) => {
@@ -533,17 +532,27 @@ export const getPayoutsBySearchDao = async (
       };
       delete filters.page;
       delete filters.limit;
-      const searchData = await getPayoutByESSearch(filters.search, filters);
-      const filteredPayouts = searchData.map((payout) =>
+
+      const { results, totalCount, totalPages } = await getPayoutByESSearch(
+        filters.search,
+        filters,
+        offset,
+        limitNum,
+      );
+
+      const filteredPayouts = results.map((payout) =>
         filterPayoutByRole(payout, role),
       );
-      let data = {
-        totalCount: searchData?.length || 0,
-        totalPages: 12, 
-        payout: filteredPayouts,
+
+      const data = {
+        totalCount,
+        totalPages,
+        payout: filteredPayouts, 
       };
+
       return data;
     }
+    
     // Parameters for main query
     const queryParams = [filters.company_id];
     let paramIndex = 2; // Start from 2 since $1 is used
