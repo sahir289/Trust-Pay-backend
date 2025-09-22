@@ -1,4 +1,3 @@
-/* eslint-disable no-constant-condition */
 import { BadRequestError } from '../../utils/appErrors.js';
 import {
   buildInES,
