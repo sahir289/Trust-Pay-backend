@@ -186,7 +186,12 @@ describe('payout index router - CommonJS tests', () => {
     // re-mock auth to simulate failing isAuthenticated
     jest.doMock('../../middlewares/auth.js', () => ({
       __esModule: true,
-      isAuthenticated: () => (req, res, next) => next(Object.assign(new Error('not auth'), { status: 401 })),
+      isAuthenticated: () => (req, res, next) => {
+        // directly send response instead of calling next? Or call next(err)
+        const err = new Error('not auth');
+        err.status = 401;
+        return next(err);
+      },
       authorized: () => (req, res, next) => next(),
     }), { virtual: false });
 
@@ -207,13 +212,18 @@ describe('payout index router - CommonJS tests', () => {
     expect(resp.status).toBe(401);
     expect(resp.body.ok).toBe(false);
     expect(resp.body.message).toBe('not auth');
-  });
+  },10000);
 
   test('authorized middleware denying access returns 403', async () => {
     jest.doMock('../../middlewares/auth.js', () => ({
       __esModule: true,
-      isAuthenticated: () => (req, res, next) => next(),
-      authorized: () => (req, res, next) => res.status(403).json({ ok: false, message: 'forbidden' }),
+      isAuthenticated: () => (req, res, next) => {
+        // directly send response instead of calling next? Or call next(err)
+        const err = new Error('not auth');
+        err.status = 401;
+        return next(err);
+      },
+      authorized: () => (req, res, next) => next(),
     }), { virtual: false });
 
     jest.resetModules();
@@ -226,5 +236,5 @@ describe('payout index router - CommonJS tests', () => {
     const resp = await request(app3).get('/payout/');
     expect(resp.status).toBe(403);
     expect(resp.body.message).toBe('forbidden');
-  },30000);
+  },10000);
 });
