@@ -360,6 +360,7 @@ const createBankResponseService = async (
             payInUtr.id,
             payInData,
             localConn,
+            {utr:botRes.utr ,amount :botRes.amount}  //temperary
           );
 
           const merchantData = await getMerchantsBankResponseDao({
@@ -494,6 +495,7 @@ const createBankResponseService = async (
             payInUtr.id,
             payInData,
             localConn,
+            { utr: botRes.utr, amount: botRes.amount }, //temperary
           );
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
 
@@ -590,6 +592,7 @@ const createBankResponseService = async (
             payInUtr.id,
             payInData,
             localConn,
+            { utr: botRes.utr, amount: botRes.amount }, //temperary
           );
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
           if (updatePayInDataRes) {
@@ -977,6 +980,7 @@ const getBankResponseBySearchService = async (
       sortOrder || 'DESC',
       payload.startDate || undefined,
       payload.endDate || undefined,
+      role
     );
 
     return data;
