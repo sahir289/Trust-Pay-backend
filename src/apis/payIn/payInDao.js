@@ -16,6 +16,7 @@ import {
   getPayinsByESSearch,
   updatePayinInES,
 } from '../../elasticSearch/payin/common.js';
+import { getBankResponseForEsDao } from '../bankResponse/bankResponseDao.js';
 import { getMerchantForEsDao } from '../merchants/merchantDao.js';
 import { getBankAccountNickNameForPayinEsDao } from '../bankAccounts/bankaccountDao.js';
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
@@ -34,10 +35,6 @@ export const generatePayInUrlDao = async (data) => {
         return_url: code.return_url,
         notify_url: code.notify_url,
       }
-      insertedEntry.merchant_code = code.code
-      insertedEntry.nick_name = null
-      insertedEntry.vendor_user_id = null
-      insertedEntry.vendor_code = null
     }
     await createPayinInES(insertedEntry);
     return insertedEntry;
@@ -1907,7 +1904,7 @@ export const getPayInForCheckDao = async (filters = {}) => {
   }
 };
 
-export const updatePayInUrlDao = async (id, data, conn , botRes) => {
+export const updatePayInUrlDao = async (id, data, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
     let result;
@@ -1937,10 +1934,11 @@ export const updatePayInUrlDao = async (id, data, conn , botRes) => {
       };
     }
     if (data.bank_response_id) {
-       let bank_res_details = {
-        utr: botRes.utr,
-        amount: botRes.amount,
-       };
+      const bankres = await getBankResponseForEsDao(data.bank_response_id);
+      let bank_res_details = {
+        utr: bankres.utr,
+        amount: bankres.amount,
+      };
        insertedEntry = {
          ...insertedEntry,
           bank_res_details,        
