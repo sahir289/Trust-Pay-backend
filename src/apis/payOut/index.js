@@ -10,7 +10,9 @@ import {
   checkPayOutStatus,
   walletsPayouts,
   assignedPayout,
-  getWalletsBalance
+  getWalletsBalance,
+  tataPayPayouts,
+  getTataPayBalance
 } from './payOutController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -100,6 +102,11 @@ router.get(
   '/wallets-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getWalletsBalance),
+); 
+router.get(
+  '/tatapay-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getTataPayBalance),
 ); 
 router.get(
   '/:id',
@@ -251,6 +258,12 @@ router.post(
   '/wallets',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(walletsPayouts),
+); 
+
+router.post(
+  '/tatapay-payouts',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(tataPayPayouts),
 ); 
 
 router.post(

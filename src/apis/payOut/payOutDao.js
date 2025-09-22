@@ -994,7 +994,6 @@ export const updatePayoutDao = async (ids, data, conn) => {
       ...esResult,
       updated_by: user?.user_name || null,
     };
-    console.log('data.updated_by', esResult);
   }
   if (esResult.config && typeof esResult.config === 'object') {
     Object.entries(esResult.config).forEach(([key, value]) => {
