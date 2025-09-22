@@ -101,6 +101,7 @@ function config(Env) {
     key_secret: Env?.RAZOR_PAY_SECRET,
     cashFreeClientSecret: Env?.CLIENT_SECRET,
     cashFreeClientId: Env?.CLIENT_ID,
+    telegramVendorboardChatId: Env?.TELEGRAM_VENDORBOARD_CHAT_ID,
   };
 }
 

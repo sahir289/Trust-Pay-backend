@@ -58,6 +58,7 @@ const gatherDataForCompany = async (
       const telegramDashboardChatId =
         company.config?.telegramDashboardChatId ||
         config?.telegramDashboardChatId;
+     const telegramVendorboardChatId = company.config?.telegramVendorboardChatId || config?.telegramVendorboardChatId;
       const telegramBotToken =
         company.config?.telegramBotToken || config?.telegramBotToken;
   
@@ -254,6 +255,7 @@ const gatherDataForCompany = async (
         telegramBotToken,
         finalType === 'H' ? 'Hourly Report' : 'Daily Report',
         date,
+        telegramVendorboardChatId,
       );
       logger.info(
         `Dashboard Report completed for company: ${company_id}, date: ${inputDate.format('YYYY-MM-DD')}, type: ${finalType}`,

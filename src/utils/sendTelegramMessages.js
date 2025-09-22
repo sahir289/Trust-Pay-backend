@@ -16,7 +16,8 @@ export async function sendTelegramDashboardReportMessage(
   totalBankWithdrawalAllVendors,
   TELEGRAM_BOT_TOKEN,
   type,
-  date
+  date,
+  vendorboardChatId
 ) {
   totalBankWithdrawalAllVendors = totalBankWithdrawalAllVendors.toLocaleString(
     'en-IN',
@@ -181,7 +182,7 @@ ${merchantPayOutDetails}<b>\n</b>
 No bank account deposits recorded.\n
 <b>Total Bank Account Deposits:</b> ₹ ${totalBankDepositAllVendors}
 `;
-    const sent = await telegramSender(chatId, message2, null, TELEGRAM_BOT_TOKEN);
+    const sent = await telegramSender(vendorboardChatId, message2, null, TELEGRAM_BOT_TOKEN);
     success2.push(sent);
     logger.log(sent ? 'Sent message2 (No deposits)!' : 'Not sent: message2 (No deposits).');
   }
@@ -207,7 +208,7 @@ ${partMessage}
 ${i === depositChunks.length - 1 ? `<b>Total Bank Account Deposits:</b> ₹ ${totalBankDepositAllVendors}` : ''}
 `;
     const sent = await telegramSender(
-      chatId,
+      vendorboardChatId,
       message2,
       null,
       TELEGRAM_BOT_TOKEN,
@@ -228,7 +229,7 @@ No bank account withdrawals recorded.\n
 <b>Total Bank Account Withdrawals:</b> ₹ ${totalBankWithdrawalAllVendors}
 `;
 const sent = await telegramSender(
-      chatId,
+      vendorboardChatId,
       message3,
       null,
       TELEGRAM_BOT_TOKEN,
@@ -262,7 +263,7 @@ ${partMessage}
 ${i === withdrawalChunks.length - 1 ? `<b>Total Bank Account Withdrawals:</b> ₹ ${totalBankWithdrawalAllVendors}` : ''}
 `;
     const sent = await telegramSender(
-      chatId,
+      vendorboardChatId,
       message3,
       null,
       TELEGRAM_BOT_TOKEN,
