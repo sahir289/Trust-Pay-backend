@@ -12,6 +12,8 @@ export const buildESQuery = (
   searchableFields = [],
   offset = 0,
   limit = 20,
+  sortBy = 'created_at',
+  sortOrder = 'desc',
 ) => {
   const queryBody = {
     query: {
@@ -22,51 +24,101 @@ export const buildESQuery = (
     },
     from: offset,
     size: limit,
-    sort: [{ created_at: 'desc' }],
+    sort: [{ [sortBy]: sortOrder }],
   };
-
-  // Add multi_match only if searchQuery is provided
   if (searchQuery) {
     queryBody.query.bool.must.push({
       multi_match: {
-        query: searchQuery, // like "code user_name" or "UTR12345"
-        fields: searchableFields, // module-specific fields like (['full_name^2', 'user_name']) here Boost full_name
-        operator: 'or', // it matches any term you can change to 'and' for stricter matching
-        type: 'best_fields', // it scores based on best-matching field
+        query: searchQuery,
+        fields: searchableFields,
+        operator: 'and',
+        type: 'best_fields',
+        lenient: true,
       },
     });
   }
 
-  // handles term filters (like:- is_enabled: 'true') and date ranges (like:- created_at_start/end)
+  // Filters
   Object.entries(filters).forEach(([key, value]) => {
-    if (key.endsWith('_start') || key.endsWith('_end')) {
-      // handle date range filters (like:- created_at_start, created_at_end -> range on 'created_at') we can use this in future if needed
-      const field = key.replace(/_start|_end$/, '');
-      const rangeFilter = queryBody.query.bool.filter.find(
-        (f) => f.range && f.range[field],
-      );
-      if (!rangeFilter) {
-        queryBody.query.bool.filter.push({ range: { [field]: {} } });
-      }
-      const newRange = queryBody.query.bool.filter.find(
-        (f) => f.range && f.range[field],
-      ).range[field];
-      if (key.endsWith('_start')) newRange.gte = value; // here greater than or equal
-      if (key.endsWith('_end')) newRange.lte = value; // less than or equal
-    } else {
-      // this is default to term filter for exact matches (like:- is_enabled: 'true', status: 'active')
-      queryBody.query.bool.filter.push({ term: { [key]: value } });
+    if (key === 'updated_at') {
+      const [day, month, year] = value.split('-');
+      const formattedDate = `${year}-${month}-${day}`; 
+      queryBody.query.bool.filter.push({
+        range: {
+          updated_at: {
+            gte: `${formattedDate}T00:00:00.000Z`,
+            lte: `${formattedDate}T23:59:59.999Z`,
+          },
+        },
+      });
+    }
+    // else if (key.endsWith('_start') || key.endsWith('_end')) {
+    //   const field = key.replace(/_start|_end$/, '');
+    //   const rangeFilter = queryBody.query.bool.filter.find(
+    //     (f) => f.range && f.range[field],
+    //   );
+    //   if (!rangeFilter) {
+    //     queryBody.query.bool.filter.push({ range: { [field]: {} } });
+    //   }
+    //   const newRange = queryBody.query.bool.filter.find(
+    //     (f) => f.range && f.range[field],
+    //   ).range[field];
+    //   if (key.endsWith('_start')) newRange.gte = value;
+    //   if (key.endsWith('_end')) newRange.lte = value;
+    // }
+    else {
+        if (typeof value === 'string' && value.includes(',')) {
+          const values = value.split(',').map((v) => v.trim());
+      
+          if (key === 'status') {
+            queryBody.query.bool.filter.push({
+              bool: {
+                should: values.map((v) => ({
+                  match: {
+                    [key]: {
+                      query: v,
+                      operator: 'and',
+                      lenient: true,
+                    },
+                  },
+                })),
+                minimum_should_match: 1,
+              },
+            });
+          } else {
+            queryBody.query.bool.filter.push({
+              terms: {
+                [key]: values,
+              },
+            });
+          }
+        } else if (typeof value === 'string') {
+          queryBody.query.bool.filter.push({
+            match: {
+              [key]: {
+                query: value,
+                operator: 'and',
+                lenient: true,
+              },
+            },
+          });
+        } else if (Array.isArray(value)) {
+          queryBody.query.bool.filter.push({
+            terms: {
+              [key]: value,
+            },
+          });
+        } else {
+          queryBody.query.bool.filter.push({ term: { [key]: value } });
+        }
     }
   });
 
-  // If no must clauses, add match_all for pure filtering/pagination
   if (queryBody.query.bool.must.length === 0) {
     queryBody.query.bool.must.push({ match_all: {} });
   }
-
   return queryBody;
 };
-
 export const buildInES = async (reqId, reqData, indexName) => {
   try {
     const esClient = await getESClient();
@@ -83,7 +135,34 @@ export const buildInES = async (reqId, reqData, indexName) => {
     throw error;
   }
 };
+export const updateInES = async (id, indexName, updateData) => {
+  try {
+    const esClient = await getESClient();
+    if (!id) throw new BadRequestError('Document ID is required');
+    if (!updateData || Object.keys(updateData).length === 0) {
+      throw new BadRequestError('Update data cannot be empty');
+    }
 
+    const data = await esClient.update({
+      index: indexName,
+      id: id.toString(), // Convert ID to string (Elasticsearch IDs are strings)
+      body: {
+        doc: updateData, // Partial update data
+      },
+    });
+
+    // Refresh index to make the updated document searchable immediately
+    await esClient.indices.refresh({ index: indexName });
+    logger.info(`Updated document with ID ${id} in index ${indexName}`);
+    return data;
+  } catch (error) {
+    logger.error(
+      `Error updating document with ID ${id} in Elasticsearch:`,
+      error,
+    );
+    throw error;
+  }
+};
 export const deleteInES = async (id, indexName) => {
   try {
     const esClient = await getESClient();
@@ -152,32 +231,36 @@ export const bulkIndexFromPG = async (
   batchSize = 10000,
   whereClause = '',
   idField = 'id',
-  schema = 'public'
+  schema = 'public',
 ) => {
   const indexName = indexBaseName;
   const esClient = await getESClient();
 
-  // Use reader pool for SELECT (read-only)
   const pool = readerPool;
   const client = await pool.connect();
 
   try {
+    // 1️⃣ Check table/view exists
     const checkTableQuery = `
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_schema = $1 AND table_name = $2
-      )`;
+      )
+    `;
     const tableCheck = await pool.query(checkTableQuery, [schema, tableName]);
     if (!tableCheck.rows[0].exists) {
-      throw new BadRequestError(`Table ${schema}.${tableName} does not exist`);
+      throw new BadRequestError(
+        `Table or view ${schema}.${tableName} does not exist`,
+      );
     }
-    logger.info(`Confirmed table exists: ${schema}.${tableName}`);
-    // get total count for progress tracking
+    logger.info(`Confirmed table/view exists: ${schema}.${tableName}`);
+
+    // 2️⃣ Get total count
     const countQuery = `SELECT COUNT(*) FROM ${tableName} ${whereClause}`;
-    const countResult = await pool.query(countQuery); // use pool directly for count
+    const countResult = await pool.query(countQuery);
     const totalRecords = parseInt(countResult.rows[0].count);
     if (totalRecords === 0) {
-      logger.info(`No records to index from table ${tableName}`);
+      logger.info(`No records to index from ${tableName}`);
       return { success: true, indexed: 0 };
     }
     logger.info(`Total records to index from ${tableName}: ${totalRecords}`);
@@ -202,7 +285,7 @@ export const bulkIndexFromPG = async (
 
       if (res.rows.length === 0) break;
 
-      // Prepare bulk operations
+      // 3️⃣ Prepare bulk operations
       const bulkBody = res.rows.flatMap((row) => [
         { index: { _index: indexName, _id: row[idField]?.toString() } },
         {
@@ -212,16 +295,20 @@ export const bulkIndexFromPG = async (
         },
       ]);
 
-      // Execute bulk index
+      // 4️⃣ Execute bulk index
       const bulkResult = await esClient.bulk({ body: bulkBody });
 
-      // Check for errors
-      if (bulkResult.body.errors) {
-        const failedItems = bulkResult.body.items.filter(
-          (item) => item.index?.error,
-        );
+      // 5️⃣ v8+ compatible error check
+      const errorsExist =
+        bulkResult.errors || (bulkResult.body && bulkResult.body.errors);
+      if (errorsExist) {
+        const failedItems = (
+          bulkResult.items ||
+          bulkResult.body?.items ||
+          []
+        ).filter((item) => item.index?.error);
         logger.error(
-          `Bulk indexing errors for ${failedItems.length} items in table ${tableName}:`,
+          `Bulk indexing errors for ${failedItems.length} items in ${tableName}:`,
           failedItems,
         );
         throw new BadRequestError(
@@ -236,14 +323,14 @@ export const bulkIndexFromPG = async (
       offset += batchSize;
     }
 
-    // here refresh index to make documents searchable
+    // 6️⃣ Refresh index
     await esClient.indices.refresh({ index: indexName });
     logger.info(
-      `Bulk indexing completed for table ${tableName} to index ${indexName}`,
+      `Bulk indexing completed for ${tableName} → index ${indexName}`,
     );
     return { success: true, indexed: indexedCount };
   } catch (error) {
-    logger.error(`Bulk indexing error for table ${tableName}:`, error);
+    logger.error(`Bulk indexing error for ${tableName}:`, error);
     throw error;
   } finally {
     client.release();

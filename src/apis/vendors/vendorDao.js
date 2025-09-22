@@ -9,6 +9,8 @@ import {
 import { logger } from '../../utils/logger.js';
 import { enhanceVendorsWithSubVendors } from '../../utils/enhanceSubVendor.js';
 
+
+
 export const createVendorDao = async (data, conn) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.VENDOR, data);
@@ -23,6 +25,18 @@ export const createVendorDao = async (data, conn) => {
     throw error;
   }
 };
+
+export const getVendorCodeDao = async (id) => {
+  try {
+    const sql = `SELECT code FROM "${tableName.VENDOR}" WHERE id = $1`;
+    const result = await executeQuery(sql, [id]);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error fetching vendor by ID:', error);
+    throw error;
+  }
+};
+
 export const getVendorsBankReponseDao = async (filters = {}) => {
   try {
     const selectColumns = `

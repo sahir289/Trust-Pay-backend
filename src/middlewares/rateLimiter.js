@@ -6,7 +6,6 @@ import { logger } from '../utils/logger.js';
 import { publishBankResponse } from '../utils/rabbitmq-bank-response.js';
 import { Role } from '../constants/index.js';
 
-console.log('RateLimiter config:', config.rateLimiter);
 
 let rateLimiter;
 
