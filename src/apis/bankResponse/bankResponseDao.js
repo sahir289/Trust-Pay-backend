@@ -60,7 +60,57 @@ const getBankResponseDao = async (
     throw error;
   }
 };
-
+export const getBankResponsePayinDao = async (filters) => {
+  try {
+    let query = `
+      SELECT 
+        br.id,
+        br.bank_id,
+        br.utr,
+        br.amount,
+        br.status,
+        br.is_used,
+        ba.nick_name,
+        ba.user_id
+      FROM "${tableName.BANK_RESPONSE}" br
+      LEFT JOIN "${tableName.BANK_ACCOUNT}" ba ON ba.id = br.bank_id
+      WHERE ba.company_id = $1
+      AND br.is_obsolete = false
+    `;
+    const params = [filters.company_id];
+    let paramIndex = 2;
+    const conditions = [];
+    const keysUsed = ['company_id'];
+    if (filters.utr) {
+      conditions.push(`br.utr = $${paramIndex}`);
+      params.push(filters.utr);
+      keysUsed.push('utr');
+      paramIndex++;
+    }
+    if (filters.status) {
+      if (typeof filters.status === 'string') {
+        conditions.push(`br.status = $${paramIndex}`);
+        params.push(filters.status);
+      }
+      else if (Array.isArray(filters.status) && filters.status.length > 0) {
+        conditions.push(`br.status = ANY($${paramIndex}::text[])`);
+        params.push(filters.status);
+      }
+      keysUsed.push('status');
+      paramIndex++;
+    }
+    if (conditions.length > 0) {
+      query += ` AND ${conditions.join(' AND ')}`;
+    }
+    console.log('Final Query:', query);
+    console.log('Query Parameters:', params);
+    const result = await executeQuery(query, params);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error in getBankResponseDao:', error);
+    throw error;
+  }
+};
 export const getBankResponseDaoById = async (filters) => {
   try {
     const base = ` SELECT 
@@ -465,7 +515,7 @@ const getClaimResponseDao = async (filters) => {
         FROM "BankResponse" br
         LEFT JOIN "BankAccount" ba ON br.bank_id = ba.id
         WHERE br.is_used = false
-          AND (br.status = '/success' OR br.status = '/freezed')
+          AND br.status = '/success'
           AND br.created_at BETWEEN $1 AND $2
           AND br.company_id = $3
           AND br.is_obsolete = false
@@ -480,7 +530,7 @@ const getClaimResponseDao = async (filters) => {
         FROM "BankResponse" br
         LEFT JOIN "BankAccount" ba ON br.bank_id = ba.id
         WHERE br.is_used = false
-          AND (br.status = '/success' OR br.status = '/freezed')
+          AND br.status = '/success'
           AND br.company_id = $3
           AND br.is_obsolete = false
           AND ba.bank_used_for = 'PayIn'
@@ -499,7 +549,7 @@ const getClaimResponseDao = async (filters) => {
         WHERE ba.company_id = $3
           AND ba.bank_used_for = 'PayIn'
           AND br.is_used = false
-          AND (br.status = '/success' OR br.status = '/freezed')
+          AND br.status = '/success'
           AND br.is_obsolete = false
           ${bankFilter}
           ${vendorFilter}
@@ -563,23 +613,23 @@ const getClaimResponseDao = async (filters) => {
     throw error;
   }
 };
-// const getBankResponseForEsDao = async (bankId) => {
-//   try {
-//     const sql = `
-//       SELECT 
-//         utr,
-//         amount
-//       FROM "${tableName.BANK_RESPONSE}"
-//       WHERE id = $1
-//     `;
-//     console.log()
-//     const result = await executeQuery(sql, [bankId]);
-//     return result.rows[0] || null;
-//   } catch (error) {
-//     logger.error('Error getting bank account nickname:', error);
-//     throw error;
-//   }
-// };
+const getBankResponseForEsDao = async (bankId) => {
+  try {
+    const sql = `
+      SELECT 
+        utr,
+        amount
+      FROM "${tableName.BANK_RESPONSE}"
+      WHERE id = $1
+    `;
+    console.log()
+    const result = await executeQuery(sql, [bankId]);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error getting bank account nickname:', error);
+    throw error;
+  }
+};
 const getBankResponsesforFreeze = async (filters) => {
   try {
     const { bank_id, status, is_used } = filters;
@@ -1147,5 +1197,5 @@ export {
   resetBankResponseDao,
   updateBotResponseDao,
   getBankResponsesforFreeze,
-  // getBankResponseForEsDao
+  getBankResponseForEsDao
 };
