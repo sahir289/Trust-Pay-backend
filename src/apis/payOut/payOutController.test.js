@@ -6,6 +6,12 @@ const { ValidationError, BadRequestError } = require('../../utils/appErrors.js')
 
 jest.mock('../../utils/db.js', () => ({
   transactionWrapper: jest.fn(),
+  createPool: jest.fn(() => ({
+    connect: jest.fn(),
+    on: jest.fn(),
+    end: jest.fn(),
+    query: jest.fn(),
+  })),
 }));
 
 jest.mock('../../utils/responseHandlers.js', () => ({

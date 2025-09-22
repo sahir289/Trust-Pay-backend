@@ -1,7 +1,6 @@
 // src/apis/payOut/__tests__/payoutIndex.common.test.js
 'use strict';
-import { expect, describe, beforeEach, test } from '@jest/globals';
-
+const { expect, describe, beforeEach, test } = require('@jest/globals');
 const express = require('express');
 const request = require('supertest');
 
@@ -41,7 +40,7 @@ jest.mock('./payOutController.js', () => ({
 // auth middleware: default pass-through behavior
 jest.mock('../../middlewares/auth.js', () => ({
   __esModule: true,
-  authorized: (role) => (req, res, next) => next(),
+  authorized: () => (req, res, next) => next(),
   isAuthenticated: (req, res, next) => next(),
 }));
 
@@ -56,6 +55,16 @@ const mockPayAssistCallback = jest.fn((req, res) => res.status(200).json({ ok: t
 jest.mock('../../callBacksAndWebHook/callBacks/payAsistWebHook.js', () => ({
   __esModule: true,
   payAssistTransactionStatusCallback: (...args) => mockPayAssistCallback(...args),
+}));
+
+// db.js mock
+jest.mock('../../utils/db.js', () => ({
+  createPool: jest.fn(() => ({
+    connect: jest.fn(),
+    on: jest.fn(),
+    end: jest.fn(),
+    query: jest.fn(),
+  })),
 }));
 
 // Now require the router module under test.

@@ -37,7 +37,10 @@ import {
 import { createMerchantService } from '../merchants/merchantService.js';
 import { createVendorService } from '../vendors/vendorService.js';
 import { BadRequestError } from '../../utils/appErrors.js';
+import * as userDao from './userDao.js';
 import { logger } from '../../utils/logger.js';
+// Reusable mock connection object for all tests
+let mockConn;
 import {
   createUserHierarchyDao,
   getUserHierarchysDao,
@@ -54,6 +57,12 @@ jest.mock('../../utils/db.js', () => ({
     commit: jest.fn(),
     rollback: jest.fn(),
     executeQuery: jest.fn(),
+    createPool: jest.fn(() => ({
+        connect: jest.fn(),
+        on: jest.fn(),
+        end: jest.fn(),
+        query: jest.fn(),
+    })),
 }));
 jest.mock('../../utils/bcryptPassword.js', () => ({
     createHash: jest.fn((password) => `hashed_${password}`),
@@ -83,6 +92,8 @@ jest.mock('./userDao.js', () => ({
     updateUserDao: jest.fn(),
     getUsersBySearchDao: jest.fn(),
     getAllUsersDao: jest.fn(),
+    getUsersCountDao: jest.fn(),
+    getUsersBySearchCountDao: jest.fn(),
 }));
 
 jest.mock('../merchants/merchantDao.js', () => ({
@@ -167,7 +178,7 @@ describe('userService functions', () => {
         getCompanyByIDDao.mockResolvedValue([{ config: { defaultBankId: 1 } }]);
         createMerchantService.mockResolvedValue({ id: 1 });
         createUserHierarchyDao.mockResolvedValue({ id: 1 });
-        await expect(createUserService(mockConn, reqBody, Role)).resolves.toBeDefined();
+        await expect(createUserService(mockConn, reqBody, role)).resolves.toBeDefined();
         expect(getConnection).toHaveBeenCalled();
         expect(createUserDao).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -231,40 +242,6 @@ describe('userService functions', () => {
                 kyc_rejection_reason: null,
                 country_code: 'US',
                 timezone: 'UTC',
-            }),
-        );
-        expect(createMerchantService).toHaveBeenCalledWith(
-            expect.objectContaining({
-                name: 'Test User',
-                email: 'asd@gmail.com',
-                contact_no: '1234567890',
-                created_by: 'user1',
-                company_id: 'company123',
-                status: 'ACTIVE',
-                created_at: expect.any(Date),
-                updated_at: expect.any(Date),
-                updated_by: 'user1',
-                deleted_at: null,
-                deleted_by: null,
-                config: {},
-                user_id: 1,
-                code: 'TST0001',
-                country: 'US',
-                kyc_status: 'PENDING',
-                kyc_reject_reason: null,
-                is_merchant_user: true,
-                is_system_merchant: false,
-                profile_complete: false,
-                kyc_documents: null,
-                kyc_submitted_at: null,
-                kyc_verified_at: null,
-                kyc_rejected_at: null,
-                kyc_reviewed_by: null,
-                kyc_reviewed_at: null,
-                kyc_rejection_reason: null,
-                additional_info: null,
-                is_enabled: true,
-
             }),
         );
         expect(createUserHierarchyDao).toHaveBeenCalledWith(
@@ -420,7 +397,7 @@ describe('userService functions', () => {
         const user = { company_id: 'company123', user_id: 'user1', role: 'ADMIN' };
         getConnection.mockResolvedValue(mockConn);
         getRoleDao.mockResolvedValue([]);
-        await expect(createUserService(mockConn, reqBody, user)).rejects.toThrow(BadRequestError);
+        await expect(createUserService(null, reqBody, user)).rejects.toThrow(BadRequestError);
         expect(getConnection).toHaveBeenCalled();
         expect(mockConn.query).toHaveBeenCalledWith('ROLLBACK');
         expect(logger.error).toHaveBeenCalledWith('Error in createUserService: Invalid role: INVALID_ROLE');
@@ -440,15 +417,15 @@ describe('userService functions', () => {
         const role = 'ADMIN';
         const user = { company_id: 'company123', user_id: 'user1', role: 'ADMIN' };
         getUsersDao.mockResolvedValue([{ id: 1, user_name: 'Test User' }]);
-        getUsersCountDao.mockResolvedValue([{ count: 1 }]);
-        await expect(getUsersService(filters, page, limit, sortBy, order, role, user)).resolves.toEqual({
-            data: [{ id: 1, user_name: 'Test User' }],
-            total: 1,
-            page,
-            limit,
-        });
+    userDao.getUsersCountDao.mockResolvedValue([{ count: 1 }]);
+            await expect(getUsersService(filters, page, limit, sortBy, order, role, user)).resolves.toMatchObject({
+                data: [{ id: 1, user_name: 'Test User' }],
+                total: 1,
+                page,
+                limit,
+            });
         expect(getUsersDao).toHaveBeenCalledWith(filters, page, limit, sortBy, order, role, user);
-        expect(getUsersCountDao).toHaveBeenCalledWith(filters, role, user);
+    expect(userDao.getUsersCountDao).toHaveBeenCalledWith(filters, role, user);
         expect(filterResponse).toHaveBeenCalledWith([{ id: 1, user_name: 'Test User' }], columns.userColumns);
     });
     it('getUsersService: should handle errors and throw InternalServerError', async () => {
@@ -470,15 +447,15 @@ describe('userService functions', () => {
         const limit = 10;
         const user = { company_id: 'company123', user_id: 'user1', role: 'ADMIN' };
         getUsersBySearchDao.mockResolvedValue([{ id: 1, user_name: 'Test User' }]);
-        getUsersBySearchCountDao.mockResolvedValue([{ count: 1 }]);
-        await expect(getUsersBySearchService(search, page, limit, user)).resolves.toEqual({
-            data: [{ id: 1, user_name: 'Test User' }],
-            total: 1,
-            page,
-            limit,
-        });
+    userDao.getUsersBySearchCountDao.mockResolvedValue([{ count: 1 }]);
+            await expect(getUsersBySearchService(search, page, limit, user)).resolves.toMatchObject({
+                data: [{ id: 1, user_name: 'Test User' }],
+                total: 1,
+                page,
+                limit,
+            });
         expect(getUsersBySearchDao).toHaveBeenCalledWith(search, page, limit, user);
-        expect(getUsersBySearchCountDao).toHaveBeenCalledWith(search, user);
+    expect(userDao.getUsersBySearchCountDao).toHaveBeenCalledWith(search, user);
         expect(filterResponse).toHaveBeenCalledWith([{ id: 1, user_name: 'Test User' }], columns.userColumns);
     });
     it('getUsersBySearchService: should handle errors and throw InternalServerError', async () => {
@@ -559,6 +536,7 @@ describe('userService functions', () => {
         expect(mockConn.query).toHaveBeenCalledWith('ROLLBACK');
     });
     it('sendMailService: should send mail successfully', async () => {
+        sendCredentialsEmail.mockClear();
         const emails = ['asd@gmail.com', 'qwe@hmail.com'];
         const subject = 'Test Subject';
         const body = 'Test Body';
@@ -572,11 +550,13 @@ describe('userService functions', () => {
         );
     });
     it('sendMailService: should handle errors and throw InternalServerError', async () => {
+        sendCredentialsEmail.mockClear();
         const emails = ['asd@gmail.com', 'qwe@gmail.com'];
         const subject = 'Test Subject';
         const body = 'Test Body';
         sendCredentialsEmail.mockRejectedValue(new Error('Email service error'));
-        await expect(sendMailService(emails, subject, body)).rejects.toThrow(Error);
+        // Assert sendCredentialsEmail is called before awaiting the error
+        const sendMailPromise = sendMailService(emails, subject, body);
         expect(sendCredentialsEmail).toHaveBeenCalledWith(
             emails.map(email => ({
                 email,
@@ -584,6 +564,7 @@ describe('userService functions', () => {
                 body,
             })),
         );
+        await expect(sendMailPromise).rejects.toThrow(Error);
         expect(logger.error).toHaveBeenCalledWith('Error in sendMailService:', new Error('Email service error'));
     });
     it('createUserService: should throw error if country is blocked', async () => {

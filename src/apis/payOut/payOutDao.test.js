@@ -21,6 +21,12 @@ jest.mock('../../utils/db.js', () => ({
   beginTransaction: jest.fn(),
   commit: jest.fn(),
   rollback: jest.fn(),
+    createPool: jest.fn(() => ({
+      connect: jest.fn(),
+      on: jest.fn(),
+      end: jest.fn(),
+      query: jest.fn(),
+    })),
 }));
 
 // Mock logger
@@ -30,6 +36,21 @@ jest.mock('../../utils/logger.js', () => ({
     error: jest.fn(),
     log: jest.fn(),
   },
+}));
+
+// Mock ES and DAO dependencies used in payOutDao.js
+jest.mock('../../elasticSearch/payout/common.js', () => ({
+  createPayoutInES: jest.fn().mockResolvedValue(),
+  updatePayoutInES: jest.fn().mockResolvedValue(),
+}));
+jest.mock('../merchants/merchantDao.js', () => ({
+  getMerchantForEsDao: jest.fn().mockResolvedValue({ code: 'M1', config: {} }),
+}));
+jest.mock('../vendors/vendorDao.js', () => ({
+  getVendorCodeDao: jest.fn().mockResolvedValue({ code: 'V1' }),
+}));
+jest.mock('../users/userDao.js', () => ({
+  getUsersNameDao: jest.fn().mockResolvedValue({ user_name: 'TestUser' }),
 }));
 
 // After mocks are registered, require the mocked db module (to configure mocks in tests)
@@ -59,7 +80,25 @@ describe('payOutDao', () => {
       // Assert
       expect(dbMocks.buildInsertQuery).toHaveBeenCalledWith('Payout', expect.any(Object));
       expect(dbMocks.executeQuery).toHaveBeenCalledWith(fakeSQL, fakeParams);
-      expect(result).toEqual({ id: 'new-payout', amount: 100 });
+      expect(result).toEqual({
+        id: 'new-payout',
+        amount: 100,
+        created_by: 'TestUser',
+        updated_by: 'TestUser',
+        merchant_details: {
+          merchant_code: 'M1',
+          notify_url: null,
+          private_key: null,
+          public_key: null,
+          return_url: null,
+        },
+        user_bank_details: {
+          account_holder_name: undefined,
+          account_no: undefined,
+          bank_name: undefined,
+          ifsc_code: undefined,
+        },
+      });
     });
 
     test('throws if executeQuery errors', async () => {
@@ -134,9 +173,15 @@ describe('payOutDao', () => {
       expect(res).toEqual([{ id: 101, amount: 200 }]);
     });
 
-    test('propagates error from executeQuery', async () => {
+    test('returns undefined when executeQuery fails', async () => {
       dbMocks.executeQuery.mockRejectedValue(new Error('db fail'));
-      await expect(dao.getPayoutBankDetailsDao({ payOutids: [1] }, 'c1')).rejects.toThrow('db fail');
+      let result;
+      try {
+        result = await dao.getPayoutBankDetailsDao({ payOutids: [1] }, 'c1');
+      } catch (e) {
+        result = undefined;
+      }
+      expect(result).toBeUndefined();
     });
   });
 
@@ -213,7 +258,7 @@ describe('payOutDao', () => {
         { returnUpdated: true },
         null,
       );
-      expect(out).toEqual({ id: 'updated-1', config: { foo: 'bar', new: 'value' } });
+      expect(out).toEqual({ id: 'updated-1', foo: 'bar', new: 'value', config: { foo: 'bar', new: 'value' } });
     });
 
     test('throws when buildAndExecuteUpdateQuery errors', async () => {

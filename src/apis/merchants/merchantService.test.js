@@ -44,6 +44,12 @@ jest.mock('../../utils/db.js', () => ({
   commit: jest.fn(),
   rollback: jest.fn(),
   getConnection: jest.fn(),
+    createPool: jest.fn(() => ({
+      connect: jest.fn(),
+      on: jest.fn(),
+      end: jest.fn(),
+      query: jest.fn(),
+    })),
 }));
 
 jest.mock('../bankAccounts/bankaccountDao.js', () => ({
