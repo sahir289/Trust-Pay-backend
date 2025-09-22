@@ -216,7 +216,7 @@ const getBankResponseBySearchDao = async (
 
       delete filters.page;
       delete filters.limit;
-
+      page = page - 1;
       const { results, totalCount, totalPages } =
         await getBankResponseByESSearch(
           filters.search,
@@ -226,8 +226,6 @@ const getBankResponseBySearchDao = async (
           sortBy,
           sortOrder,
         );
-
-      // 🔹 Apply role-based filtering
       const filteredBankResponses = results.map((bankResponse) =>
         filterBankResponseByRole(bankResponse, role),
       );

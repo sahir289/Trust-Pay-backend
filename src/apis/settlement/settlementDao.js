@@ -312,7 +312,7 @@ const getSettlementsBySearchDao = async (
           ),
         );
       };
-
+      page = page - 1;
       const { results, totalCount } = await getSettlementByESSearch(
         filters.search,
         filters,
