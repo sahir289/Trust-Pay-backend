@@ -1,5 +1,5 @@
 import express from 'express';
-import { cashfreeWebHook } from '../../webhooks/cashfree.js';
+import { cashfreeWebHook } from '../webhooks/cashfree.js';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 
 const router = express.Router();
