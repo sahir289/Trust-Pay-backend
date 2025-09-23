@@ -1,17 +1,20 @@
-import { tableName ,PayoutResponses ,Role} from '../../constants/index.js';
+import {
+  tableName
+  // , PayoutResponses, Role
+} from '../../constants/index.js';
 import {
   buildAndExecuteUpdateQuery,
   buildInsertQuery,
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
-import { createPayoutInES ,updatePayoutInES} from '../../elasticSearch/payout/common.js';
-import { getPayoutByESSearch } from '../../elasticSearch/payout/common.js';
-import { getMerchantForEsDao } from '../merchants/merchantDao.js';
-import { getVendorCodeDao } from '../vendors/vendorDao.js';
+// import { createPayoutInES ,updatePayoutInES} from '../../elasticSearch/payout/common.js';
+// import { getPayoutByESSearch } from '../../elasticSearch/payout/common.js';
+// import { getMerchantForEsDao } from '../merchants/merchantDao.js';
+// import { getVendorCodeDao } from '../vendors/vendorDao.js';
 import { logger } from '../../utils/logger.js';
-import { getUsersNameDao } from '../users/userDao.js';
-import { getBankAccountNickNameForPayinEsDao } from '../bankAccounts/bankaccountDao.js';
+// import { getUsersNameDao } from '../users/userDao.js';
+// import { getBankAccountNickNameForPayinEsDao } from '../bankAccounts/bankaccountDao.js';
 import dayjs from 'dayjs';
 const IST = 'Asia/Kolkata';
 
@@ -26,25 +29,25 @@ export const createPayoutDao = async (conn, data) => {
     const result = conn
       ? await conn.query(sql, params)
       : await executeQuery(sql, params);
-    const insertedEntry = result.rows[0];
-    const merchant = await getMerchantForEsDao(insertedEntry.merchant_id);
-    insertedEntry.merchant_details = {
-      merchant_code: merchant.code,
-      return_url: merchant.config?.return_url || null,
-      notify_url: merchant.config?.notify_url || null,
-      public_key: merchant.config?.keys?.public || null,
-      private_key: merchant.config?.keys?.private || null
-    };
-    insertedEntry.user_bank_details = {
-      account_holder_name:insertedEntry.acc_holder_name,
-      account_no:insertedEntry.acc_no,
-      ifsc_code: insertedEntry.ifsc_code,
-      bank_name: insertedEntry.bank_name
-    };
-    const user =await getUsersNameDao(insertedEntry.created_by);
-    insertedEntry.created_by = user.user_name;
-    insertedEntry.updated_by = user.user_name;
-    await createPayoutInES(insertedEntry);
+    // const insertedEntry = result.rows[0];
+    // const merchant = await getMerchantForEsDao(insertedEntry.merchant_id);
+    // insertedEntry.merchant_details = {
+    //   merchant_code: merchant.code,
+    //   return_url: merchant.config?.return_url || null,
+    //   notify_url: merchant.config?.notify_url || null,
+    //   public_key: merchant.config?.keys?.public || null,
+    //   private_key: merchant.config?.keys?.private || null
+    // };
+    // insertedEntry.user_bank_details = {
+    //   account_holder_name:insertedEntry.acc_holder_name,
+    //   account_no:insertedEntry.acc_no,
+    //   ifsc_code: insertedEntry.ifsc_code,
+    //   bank_name: insertedEntry.bank_name
+    // };
+    // const user =await getUsersNameDao(insertedEntry.created_by);
+    // insertedEntry.created_by = user.user_name;
+    // insertedEntry.updated_by = user.user_name;
+    // await createPayoutInES(insertedEntry);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in createPayoutDao:', error);
@@ -75,15 +78,15 @@ export const assignedPayoutDao = async (
       const result = conn
         ? await conn.query(sql, params)
         : await executeQuery(sql, params);
-      const vendor_code = await getVendorCodeDao(vendorId.id);
-      const user = await getUsersNameDao(updated_by);
-      const esResult = {
-        ...updatedData,
-        vendor_code: vendor_code?.code || null,
-        updated_by: user?.user_name || null,
-        updated_at: new Date().toISOString(),
-      };
-      await updatePayoutInES(data, esResult);
+      // const vendor_code = await getVendorCodeDao(vendorId.id);
+      // const user = await getUsersNameDao(updated_by);
+      // const esResult = {
+      //   ...updatedData,
+      //   vendor_code: vendor_code?.code || null,
+      //   updated_by: user?.user_name || null,
+      //   updated_at: new Date().toISOString(),
+      // };
+      // await updatePayoutInES(data, esResult);
       results.push(result.rows[0].id);
     }
     return results;
@@ -511,47 +514,47 @@ export const getPayoutsBySearchDao = async (
 ) => {
   try {
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
-    if (filters.search) {
-      const filterPayoutByRole = (payout, role) => {
-        let allowedKeys;
-        switch (role) {
-          case Role.VENDOR:
-            allowedKeys = PayoutResponses.VENDOR;
-            break;
-          case Role.MERCHANT:
-            allowedKeys = PayoutResponses.MERCHANT;
-            break;
-          case Role.ADMIN:
-          default:
-            allowedKeys = PayoutResponses.ADMIN;
-            break;
-        }
-        return Object.fromEntries(
-          Object.entries(payout).filter(([key]) => allowedKeys.includes(key)),
-        );
-      };
-      delete filters.page;
-      delete filters.limit;
+    // if (filters.search) {
+    //   const filterPayoutByRole = (payout, role) => {
+    //     let allowedKeys;
+    //     switch (role) {
+    //       case Role.VENDOR:
+    //         allowedKeys = PayoutResponses.VENDOR;
+    //         break;
+    //       case Role.MERCHANT:
+    //         allowedKeys = PayoutResponses.MERCHANT;
+    //         break;
+    //       case Role.ADMIN:
+    //       default:
+    //         allowedKeys = PayoutResponses.ADMIN;
+    //         break;
+    //     }
+    //     return Object.fromEntries(
+    //       Object.entries(payout).filter(([key]) => allowedKeys.includes(key)),
+    //     );
+    //   };
+    //   delete filters.page;
+    //   delete filters.limit;
 
-      const { results, totalCount, totalPages } = await getPayoutByESSearch(
-        filters.search,
-        filters,
-        offset,
-        limitNum,
-      );
+    //   const { results, totalCount, totalPages } = await getPayoutByESSearch(
+    //     filters.search,
+    //     filters,
+    //     offset,
+    //     limitNum,
+    //   );
 
-      const filteredPayouts = results.map((payout) =>
-        filterPayoutByRole(payout, role),
-      );
+    //   const filteredPayouts = results.map((payout) =>
+    //     filterPayoutByRole(payout, role),
+    //   );
 
-      const data = {
-        totalCount,
-        totalPages,
-        payout: filteredPayouts, 
-      };
+    //   const data = {
+    //     totalCount,
+    //     totalPages,
+    //     payout: filteredPayouts, 
+    //   };
 
-      return data;
-    }
+    //   return data;
+    // }
     
     // Parameters for main query
     const queryParams = [filters.company_id];
@@ -692,37 +695,37 @@ export const getPayoutsBySearchDao = async (
     }
 
     // Handle search terms
-    // if (searchTerms.length > 0) {
-    //   searchTerms.forEach((term) => {
-    //     if (term.toLowerCase() !== 'true' && term.toLowerCase() !== 'false') {
-    //       conditions.push(`
-    //         (
-    //           LOWER(p.id::text) LIKE LOWER($${paramIndex})
-    //           OR LOWER(p.user) LIKE LOWER($${paramIndex})
-    //           OR LOWER(p.merchant_order_id) LIKE LOWER($${paramIndex})
-    //           OR LOWER(p.failed_reason) LIKE LOWER($${paramIndex})
-    //           OR LOWER(p.currency) LIKE LOWER($${paramIndex})
-    //           OR LOWER(p.upi_id) LIKE LOWER($${paramIndex})
-    //           OR LOWER(p.utr_id) LIKE LOWER($${paramIndex})
-    //           OR LOWER(p.status) LIKE LOWER($${paramIndex})
-    //           OR LOWER(p.rejected_reason) LIKE LOWER($${paramIndex})
-    //           OR LOWER(b.nick_name) LIKE LOWER($${paramIndex})
-    //           OR LOWER(m.code) LIKE LOWER($${paramIndex})
-    //           OR LOWER(v.code) LIKE LOWER($${paramIndex})
-    //           OR p.amount::text LIKE $${paramIndex}
-    //           OR LOWER(p.config->>'method') LIKE LOWER($${paramIndex})
-    //           OR LOWER(p.config->>'rejected_reason') LIKE LOWER($${paramIndex})
-    //           OR LOWER(p.acc_holder_name) LIKE LOWER($${paramIndex})
-    //           OR LOWER(p.acc_no) LIKE LOWER($${paramIndex})
-    //           OR LOWER(p.ifsc_code) LIKE LOWER($${paramIndex})
-    //           OR LOWER(p.bank_name) LIKE LOWER($${paramIndex})
-    //         )
-    //       `);
-    //       queryParams.push(`%${term}%`);
-    //       paramIndex++;
-    //     }
-    //   });
-    // }
+    if (searchTerms.length > 0) {
+      searchTerms.forEach((term) => {
+        if (term.toLowerCase() !== 'true' && term.toLowerCase() !== 'false') {
+          conditions.push(`
+            (
+              LOWER(p.id::text) LIKE LOWER($${paramIndex})
+              OR LOWER(p.user) LIKE LOWER($${paramIndex})
+              OR LOWER(p.merchant_order_id) LIKE LOWER($${paramIndex})
+              OR LOWER(p.failed_reason) LIKE LOWER($${paramIndex})
+              OR LOWER(p.currency) LIKE LOWER($${paramIndex})
+              OR LOWER(p.upi_id) LIKE LOWER($${paramIndex})
+              OR LOWER(p.utr_id) LIKE LOWER($${paramIndex})
+              OR LOWER(p.status) LIKE LOWER($${paramIndex})
+              OR LOWER(p.rejected_reason) LIKE LOWER($${paramIndex})
+              OR LOWER(b.nick_name) LIKE LOWER($${paramIndex})
+              OR LOWER(m.code) LIKE LOWER($${paramIndex})
+              OR LOWER(v.code) LIKE LOWER($${paramIndex})
+              OR p.amount::text LIKE $${paramIndex}
+              OR LOWER(p.config->>'method') LIKE LOWER($${paramIndex})
+              OR LOWER(p.config->>'rejected_reason') LIKE LOWER($${paramIndex})
+              OR LOWER(p.acc_holder_name) LIKE LOWER($${paramIndex})
+              OR LOWER(p.acc_no) LIKE LOWER($${paramIndex})
+              OR LOWER(p.ifsc_code) LIKE LOWER($${paramIndex})
+              OR LOWER(p.bank_name) LIKE LOWER($${paramIndex})
+            )
+          `);
+          queryParams.push(`%${term}%`);
+          paramIndex++;
+        }
+      });
+    }
 
     // Handle updated_at filter
     if (filters.updated_at) {
@@ -986,36 +989,37 @@ export const updatePayoutDao = async (ids, data, conn) => {
     conn,
   );
    
-    let esResult = result;
-    delete esResult.updated_by;
-    if (data.updated_by) {
-    const user = await getUsersNameDao(data.updated_by);
-    esResult = {
-      ...esResult,
-      updated_by: user?.user_name || null,
-    };
-  }
-  if (esResult.config && typeof esResult.config === 'object') {
-    Object.entries(esResult.config).forEach(([key, value]) => {
-      esResult[key] = value ?? null;
-    });
-  }
-  if ('vendor_id' in data && data.vendor_id === null) {
-    esResult = {
-      ...esResult,
-      vendor_code: null,
-    };
-  }
-if (data.bank_acc_id) {
-      const vendor =await getBankAccountNickNameForPayinEsDao(data.bank_acc_id);
-      esResult = {
-        ...esResult,
-        nick_name: vendor?.nick_name || null,
-        vendor_code : vendor?.vendor_code || null
-      };
-}
-    delete esResult.created_by;
-  await updatePayoutInES(ids.id, esResult);
+//     let esResult = result;
+//     delete esResult.updated_by;
+//     if (data.updated_by) {
+//     const user = await getUsersNameDao(data.updated_by);
+//     esResult = {
+//       ...esResult,
+//       updated_by: user?.user_name || null,
+//     };
+//     console.log('data.updated_by', esResult);
+//   }
+//   if (esResult.config && typeof esResult.config === 'object') {
+//     Object.entries(esResult.config).forEach(([key, value]) => {
+//       esResult[key] = value ?? null;
+//     });
+//   }
+//   if ('vendor_id' in data && data.vendor_id === null) {
+//     esResult = {
+//       ...esResult,
+//       vendor_code: null,
+//     };
+//   }
+// if (data.bank_acc_id) {
+//       const vendor =await getBankAccountNickNameForPayinEsDao(data.bank_acc_id);
+//       esResult = {
+//         ...esResult,
+//         nick_name: vendor?.nick_name || null,
+//         vendor_code : vendor?.vendor_code || null
+//       };
+// }
+//     delete esResult.created_by;
+  // await updatePayoutInES(ids.id, esResult);
     // Use buildAndExecuteUpdateQuery
   return result;
   } catch (error) {

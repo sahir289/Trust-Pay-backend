@@ -44,7 +44,8 @@ const getCashfreeAllowByCompanyIdDao = async (id) => {
     const sql = `
       SELECT 
         CONCAT(first_name, ' ', last_name) AS full_name, 
-        COALESCE((config ->> 'allow_cashfree')::boolean, false) AS allow_cashfree
+        COALESCE((config ->> 'allow_cashfree')::boolean, false) AS allow_cashfree,
+        COALESCE((config ->> 'allow_zentechind')::boolean, false) AS allow_zentechind
       FROM "${tableName.COMPANY}"
       WHERE id = $1
     `

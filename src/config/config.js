@@ -58,6 +58,11 @@ function config(Env) {
       clientIdProd: Env?.CLIENT_ID_PROD,
       clientSecretProd: Env?.CLIENT_SECRET_PROD,
     },
+    zentechind: {
+      url: Env?.ZENTECHIND_API_URL,
+      salt: Env?.ZENTECHIND_SALT,
+      collectionId: Env?.ZENTECHIND_COLLECTION_ID,
+    },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,
     databaseWriterUrl: Env?.DATABASE_WRITER_URL,

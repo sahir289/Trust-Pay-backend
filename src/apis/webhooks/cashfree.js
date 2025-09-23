@@ -1,11 +1,11 @@
 import { Cashfree, CFEnvironment } from 'cashfree-pg';
-import config from '../config/config.js';
-import { logger } from '../utils/logger.js';
-import { sendSuccess } from '../utils/responseHandlers.js';
-import { processPayInService } from '../apis/payIn/payInService.js';
-import { transactionWrapper } from '../utils/db.js';
-import { createBankResponseService } from '../apis/bankResponse/bankResponseServices.js';
-import { getPayInIntentDao } from '../apis/payIn/payInDao.js';
+import config from '../../config/config.js';
+import { logger } from '../../utils/logger.js';
+import { sendSuccess } from '../../utils/responseHandlers.js';
+import { processPayInService } from '../payIn/payInService.js';
+import { transactionWrapper } from '../../utils/db.js';
+import { createBankResponseService } from '../bankResponse/bankResponseServices.js';
+import { getPayInIntentDao } from '../payIn/payInDao.js';
 
 const env =
   config.env === 'production'
