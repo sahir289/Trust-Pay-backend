@@ -11,13 +11,13 @@ import {
 import dayjs from 'dayjs';
 import { getConnection } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
-import {
-  createPayinInES,
-  // getPayinsByESSearch,
-  // updatePayinInES,
-} from '../../elasticSearch/payin/common.js';
+// import {
+//   createPayinInES,
+//   // getPayinsByESSearch,
+//   // updatePayinInES,
+// } from '../../elasticSearch/payin/common.js';
 // import { getBankResponseForEsDao } from '../bankResponse/bankResponseDao.js';
-import { getMerchantForEsDao } from '../merchants/merchantDao.js';
+// import { getMerchantForEsDao } from '../merchants/merchantDao.js';
 // import { getBankAccountNickNameForPayinEsDao } from '../bankAccounts/bankaccountDao.js';
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 // import { generateCacheKey ,setCachedData,getCachedData } from '../../utils/redishashkey.js';
@@ -27,16 +27,16 @@ export const generatePayInUrlDao = async (data) => {
     const [sql, params] = buildInsertQuery(tableName.PAYIN, data);
     const result = await executeQuery(sql, params);
     const insertedEntry = result.rows[0];
-    if (insertedEntry.merchant_id) {
-      const code = await getMerchantForEsDao(insertedEntry.merchant_id);
-      insertedEntry.merchant_details = {
-        merchant_code: code.code,
-        dispute: code.dispute_enabled,
-        return_url: code.return_url,
-        notify_url: code.notify_url,
-      }
-    }
-    await createPayinInES(insertedEntry);
+    // if (insertedEntry.merchant_id) {
+    //   const code = await getMerchantForEsDao(insertedEntry.merchant_id);
+    //   insertedEntry.merchant_details = {
+    //     merchant_code: code.code,
+    //     dispute: code.dispute_enabled,
+    //     return_url: code.return_url,
+    //     notify_url: code.notify_url,
+    //   }
+    // }
+    // await createPayinInES(insertedEntry);
     return insertedEntry;
   } catch (error) {
     logger.error('Error generating PayIn URL:', error);
