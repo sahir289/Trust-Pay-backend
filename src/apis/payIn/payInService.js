@@ -2808,8 +2808,6 @@ export const verifyPayinsService = async (
       return isActive && hasAnyMethod;
     });
 
-    console.log(merchant[0]?.config?.allow_intent, 'merchant intent');
-    console.log(bankIntent, 'bank intent');
     const merchantIntent = merchant[0]?.config?.allow_intent;
     let cashfreeDetails;
     if (merchantIntent && bankIntent) {

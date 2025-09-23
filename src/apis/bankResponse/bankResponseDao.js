@@ -105,8 +105,6 @@ export const getBankResponsePayinDao = async (filters) => {
     if (conditions.length > 0) {
       query += ` AND ${conditions.join(' AND ')}`;
     }
-    console.log('Final Query:', query);
-    console.log('Query Parameters:', params);
     const result = await executeQuery(query, params);
     return result.rows[0];
   } catch (error) {
@@ -623,7 +621,6 @@ const getBankResponseForEsDao = async (bankId) => {
       FROM "${tableName.BANK_RESPONSE}"
       WHERE id = $1
     `;
-    console.log()
     const result = await executeQuery(sql, [bankId]);
     return result.rows[0] || null;
   } catch (error) {
