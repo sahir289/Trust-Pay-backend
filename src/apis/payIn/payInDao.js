@@ -1,7 +1,7 @@
 import { tableName } from '../../constants/index.js';
 import { BadRequestError } from '../../utils/appErrors.js';
-import { PayinResponses } from '../../constants/index.js';
-import { Role } from '../../constants/index.js';
+// import { PayinResponses } from '../../constants/index.js';
+// import { Role } from '../../constants/index.js';
 import {
   buildInsertQuery,
   buildSelectQuery,
@@ -11,13 +11,14 @@ import {
 import dayjs from 'dayjs';
 import { getConnection } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
-import {
-  createPayinInES,
-  getPayinsByESSearch,
-  updatePayinInES,
-} from '../../elasticSearch/payin/common.js';
-import { getMerchantForEsDao } from '../merchants/merchantDao.js';
-import { getBankAccountNickNameForPayinEsDao } from '../bankAccounts/bankaccountDao.js';
+// import {
+//   createPayinInES,
+//   // getPayinsByESSearch,
+//   // updatePayinInES,
+// } from '../../elasticSearch/payin/common.js';
+// import { getBankResponseForEsDao } from '../bankResponse/bankResponseDao.js';
+// import { getMerchantForEsDao } from '../merchants/merchantDao.js';
+// import { getBankAccountNickNameForPayinEsDao } from '../bankAccounts/bankaccountDao.js';
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 // import { generateCacheKey ,setCachedData,getCachedData } from '../../utils/redishashkey.js';
 // import { newTableEntry } from '../../utils/sockets.js';
@@ -26,20 +27,16 @@ export const generatePayInUrlDao = async (data) => {
     const [sql, params] = buildInsertQuery(tableName.PAYIN, data);
     const result = await executeQuery(sql, params);
     const insertedEntry = result.rows[0];
-    if (insertedEntry.merchant_id) {
-      const code = await getMerchantForEsDao(insertedEntry.merchant_id);
-      insertedEntry.merchant_details = {
-        merchant_code: code.code,
-        dispute: code.dispute_enabled,
-        return_url: code.return_url,
-        notify_url: code.notify_url,
-      }
-      insertedEntry.merchant_code = code.code
-      insertedEntry.nick_name = null
-      insertedEntry.vendor_user_id = null
-      insertedEntry.vendor_code = null
-    }
-    await createPayinInES(insertedEntry);
+    // if (insertedEntry.merchant_id) {
+    //   const code = await getMerchantForEsDao(insertedEntry.merchant_id);
+    //   insertedEntry.merchant_details = {
+    //     merchant_code: code.code,
+    //     dispute: code.dispute_enabled,
+    //     return_url: code.return_url,
+    //     notify_url: code.notify_url,
+    //   }
+    // }
+    // await createPayinInES(insertedEntry);
     return insertedEntry;
   } catch (error) {
     logger.error('Error generating PayIn URL:', error);
@@ -1118,55 +1115,55 @@ export const getPayInDaoByCode = async (filters) => {
 
 export const getPayinsWithoutHistoryDao = async (
   filters,
-  // searchTerms,
+  searchTerms,
   limitNum,
   offset,
   role,
   designation,
 ) => {
   try {
-    if (filters.search) {
-      const filterPayinByRole = (payin, role) => {
-        let allowedKeys;
-        switch (role) {
-          case Role.VENDOR:
-            allowedKeys = PayinResponses.VENDOR;
-            break;
-          case Role.MERCHANT:
-            allowedKeys = PayinResponses.MERCHANT;
-            break;
-          case Role.ADMIN:
-          default:
-            allowedKeys = PayinResponses.ADMIN;
-            break;
-        }
-        return Object.fromEntries(
-          Object.entries(payin).filter(([key]) => allowedKeys.includes(key)),
-        );
-      };
+    // if (filters.search) {
+    //   const filterPayinByRole = (payin, role) => {
+    //     let allowedKeys;
+    //     switch (role) {
+    //       case Role.VENDOR:
+    //         allowedKeys = PayinResponses.VENDOR;
+    //         break;
+    //       case Role.MERCHANT:
+    //         allowedKeys = PayinResponses.MERCHANT;
+    //         break;
+    //       case Role.ADMIN:
+    //       default:
+    //         allowedKeys = PayinResponses.ADMIN;
+    //         break;
+    //     }
+    //     return Object.fromEntries(
+    //       Object.entries(payin).filter(([key]) => allowedKeys.includes(key)),
+    //     );
+    //   };
 
-      delete filters.page;
-      delete filters.limit;
+    //   delete filters.page;
+    //   delete filters.limit;
 
-      const { results, totalCount, totalPages } = await getPayinsByESSearch(
-        filters.search,
-        filters,
-        offset,
-        limitNum,
-      );
+    //   const { results, totalCount, totalPages } = await getPayinsByESSearch(
+    //     filters.search,
+    //     filters,
+    //     offset,
+    //     limitNum,
+    //   );
 
-      const filteredPayins = results.map((payin) =>
-        filterPayinByRole(payin, role),
-      );
+    //   const filteredPayins = results.map((payin) =>
+    //     filterPayinByRole(payin, role),
+    //   );
 
-      const data = {
-        totalCount,
-        totalPages,
-        payins: filteredPayins,
-      };
+    //   const data = {
+    //     totalCount,
+    //     totalPages,
+    //     payins: filteredPayins,
+    //   };
 
-      return data;
-    }
+    //   return data;
+    // }
     
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
     const queryParams = [filters.company_id];
@@ -1290,45 +1287,45 @@ export const getPayinsWithoutHistoryDao = async (
       WHERE ${conditions.join(' AND ')}
     `;
 
-    // if (searchTerms && searchTerms.length > 0) {
-    //   searchTerms.forEach((term) => {
-    //     if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-    //       const boolValue = term.toLowerCase() === 'true';
-    //       conditions.push(`
-    //         (
-    //           p.is_notified = $${paramIndex}
-    //           OR p.is_url_expires = $${paramIndex}
-    //           OR p.one_time_used = $${paramIndex}
-    //         )
-    //       `);
-    //       queryParams.push(boolValue);
-    //       paramIndex++;
-    //     } else {
-    //       conditions.push(`
-    //         (
-    //           p.id::text ILIKE $${paramIndex}
-    //           OR p.sno::text ILIKE $${paramIndex}
-    //           OR p.upi_short_code ILIKE $${paramIndex}
-    //           OR p.status ILIKE $${paramIndex}
-    //           OR p.merchant_order_id ILIKE $${paramIndex}
-    //           OR p.user_submitted_utr ILIKE $${paramIndex}
-    //           OR p.user ILIKE $${paramIndex}
-    //           OR b.nick_name ILIKE $${paramIndex}
-    //           OR br.utr ILIKE $${paramIndex}
-    //           OR m.code ILIKE $${paramIndex}
-    //           OR v.code ILIKE $${paramIndex}
-    //           OR p.amount::text ILIKE $${paramIndex}
-    //           OR br.amount::text ILIKE $${paramIndex}
-    //           OR (p.config->>'user') ILIKE $${paramIndex}
-    //           OR (p.config->'urls'->>'site') ILIKE $${paramIndex}
-    //           OR (p.config->'urls'->>'notify') ILIKE $${paramIndex}
-    //         )
-    //       `);
-    //       queryParams.push(`%${term}%`);
-    //       paramIndex++;
-    //     }
-    //   });
-    // }
+    if (searchTerms && searchTerms.length > 0) {
+      searchTerms.forEach((term) => {
+        if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+          const boolValue = term.toLowerCase() === 'true';
+          conditions.push(`
+            (
+              p.is_notified = $${paramIndex}
+              OR p.is_url_expires = $${paramIndex}
+              OR p.one_time_used = $${paramIndex}
+            )
+          `);
+          queryParams.push(boolValue);
+          paramIndex++;
+        } else {
+          conditions.push(`
+            (
+              p.id::text ILIKE $${paramIndex}
+              OR p.sno::text ILIKE $${paramIndex}
+              OR p.upi_short_code ILIKE $${paramIndex}
+              OR p.status ILIKE $${paramIndex}
+              OR p.merchant_order_id ILIKE $${paramIndex}
+              OR p.user_submitted_utr ILIKE $${paramIndex}
+              OR p.user ILIKE $${paramIndex}
+              OR b.nick_name ILIKE $${paramIndex}
+              OR br.utr ILIKE $${paramIndex}
+              OR m.code ILIKE $${paramIndex}
+              OR v.code ILIKE $${paramIndex}
+              OR p.amount::text ILIKE $${paramIndex}
+              OR br.amount::text ILIKE $${paramIndex}
+              OR (p.config->>'user') ILIKE $${paramIndex}
+              OR (p.config->'urls'->>'site') ILIKE $${paramIndex}
+              OR (p.config->'urls'->>'notify') ILIKE $${paramIndex}
+            )
+          `);
+          queryParams.push(`%${term}%`);
+          paramIndex++;
+        }
+      });
+    }
 
     const handledKeys = new Set([
       'status',
@@ -1907,7 +1904,9 @@ export const getPayInForCheckDao = async (filters = {}) => {
   }
 };
 
-export const updatePayInUrlDao = async (id, data, conn , botRes) => {
+export const updatePayInUrlDao = async (id, data, conn,
+  // Adddata
+) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
     let result;
@@ -1920,33 +1919,43 @@ export const updatePayInUrlDao = async (id, data, conn , botRes) => {
     // if (data.status === Status.SUCCESS) {
     //   await newTableEntry('SUM');
     // }
-    let insertedEntry =
-    {
-      ...result.rows[0]
-    }
-    if (data.bank_acc_id) {
-      const bank =await getBankAccountNickNameForPayinEsDao(data.bank_acc_id);
-      // insertedEntry.nick_name = bank.nick_name;
-      // insertedEntry.vendor_user_id = bank.vendor_user_id;
-      // insertedEntry.vendor_code = bank.vendor_code;
-      insertedEntry = {
-        ...insertedEntry,
-        nick_name: bank.nick_name,
-        vendor_user_id: bank.vendor_user_id,
-        vendor_code: bank.vendor_code,
-      };
-    }
-    if (data.bank_response_id) {
-       let bank_res_details = {
-        utr: botRes.utr,
-        amount: botRes.amount,
-       };
-       insertedEntry = {
-         ...insertedEntry,
-          bank_res_details,        
-       };
-    }
-    await updatePayinInES(id, insertedEntry);
+    // let insertedEntry =
+    // {
+    //   ...result.rows[0]
+    // }
+    // if (data.bank_acc_id) {
+    //   const bank =await getBankAccountNickNameForPayinEsDao(data.bank_acc_id);
+    //   // insertedEntry.nick_name = bank.nick_name;
+    //   // insertedEntry.vendor_user_id = bank.vendor_user_id;
+    //   // insertedEntry.vendor_code = bank.vendor_code;
+    //   insertedEntry = {
+    //     ...insertedEntry,
+    //     nick_name: bank.nick_name,
+    //     vendor_user_id: bank.vendor_user_id,
+    //     vendor_code: bank.vendor_code,
+    //   };
+    // }
+    // if (data.bank_response_id) {
+    //   const bankres = await getBankResponseForEsDao(data.bank_response_id);
+    //   let bank_res_details
+    //   if (bankres) {
+    //     bank_res_details = {
+    //       utr: bankres.utr,
+    //       amount: bankres.amount,
+    //     };
+    //   }
+    //   if (Adddata) {
+    //     bank_res_details = {
+    //       utr: Adddata.utr,
+    //       amount: Adddata.amount,
+    //     }; 
+    //    }
+    //    insertedEntry = {
+    //      ...insertedEntry,
+    //       bank_res_details,        
+    //    };
+    // }
+    // await updatePayinInES(id, insertedEntry);
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating PayIn URL:', error);

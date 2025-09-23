@@ -922,6 +922,7 @@ export const payinSearchableFields = [
   'updated_by',
   'nick_name',
   'vendor_code',
+  "merchant_details.merchant_code"
 ];
 
 export const PayoutSearchableFields = [
