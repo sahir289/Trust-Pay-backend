@@ -20,7 +20,6 @@ export const createZenTechIndTransaction = async (deposit, amount) => {
       user_id: deposit.user,
     };
     const hash = generateHash(body);
-    console.log(hash, "hash");
     const requestBody = { ...body, hash };
     const API_URL = config.zentechind.url;
     const response = await axios.post(API_URL, requestBody, {

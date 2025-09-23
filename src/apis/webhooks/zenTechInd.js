@@ -15,7 +15,6 @@ export const zenTechIndWebhook = async (req, res) => {
     //   logger.error('Invalid hash in ZenTechInd webhook');
     //   return;
     // }
-    console.log(body, "body in webhook");
 
     const payload = {
       merchantOrderId: body?.order_id,
