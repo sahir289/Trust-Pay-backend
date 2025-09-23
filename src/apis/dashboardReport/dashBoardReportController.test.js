@@ -1,3 +1,7 @@
+jest.mock('../../utils/db.js', () => ({
+  createPool: jest.fn(),
+  ...jest.requireActual('../../utils/db.js'),
+}));
 import gatherCompanyData from './dashboardReportController.js';
 import gatherDataForCompany from './dashboardReportService.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';

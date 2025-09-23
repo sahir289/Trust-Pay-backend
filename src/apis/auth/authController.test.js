@@ -1,3 +1,4 @@
+jest.mock('../../utils/db');
 import {
     loginController,
     refreshTokenController,

@@ -8,7 +8,10 @@ jest.mock('../../utils/responseHandlers.js', () => ({
   sendSuccess: jest.fn((res, data, message) => res.status(200).json({ message, data })),
 }));
 
-jest.mock('../../utils/db.js');
+jest.mock('../../utils/db.js', () => ({
+  createPool: jest.fn(),
+  ...jest.requireActual('../../utils/db.js'),
+}));
 
 jest.mock('./rolesService.js', () => ({
   getRoleService: jest.fn(),

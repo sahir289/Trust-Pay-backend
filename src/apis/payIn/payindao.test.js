@@ -21,7 +21,10 @@ jest.mock('dayjs', () => {
   originalDayjs.extend(require('dayjs/plugin/timezone'));
   return originalDayjs;
 });
-jest.mock('../../utils/db.js');
+jest.mock('../../utils/db.js', () => ({
+  createPool: jest.fn(),
+  ...jest.requireActual('../../utils/db.js'),
+}));
 jest.mock('../../utils/logger.js');
 jest.mock('../../constants/index.js');
 

@@ -11,11 +11,11 @@ import {
   } from './beneficiaryAccountDao.js';
   import { Role, tableName } from '../../constants/index.js';
   import {
-    buildInsertQuery,
-    buildUpdateQuery,
-    buildAndExecuteUpdateQuery,
-    executeQuery,
-  } from '../../utils/db.js';
+      buildInsertQuery,
+      buildUpdateQuery,
+      buildAndExecuteUpdateQuery,
+    } from '../../utils/db.js';
+  const dbMock = jest.requireMock('../../utils/db.js');
   import { logger } from '../../utils/logger.js';
   
   jest.mock('../../utils/db.js');
@@ -38,11 +38,11 @@ import {
         const limit = 10;
         const role = Role.ADMIN;
         const mockResult = { rows: [{ id: 1, bank_name: 'test_bank' }] };
-        executeQuery.mockResolvedValue(mockResult);
+    dbMock.executeQuery.mockResolvedValue(mockResult);
   
         const result = await getBeneficiaryAccountDao(filters, page, limit, role);
   
-        expect(executeQuery).toHaveBeenCalledWith(
+        expect(dbMock.executeQuery).toHaveBeenCalledWith(
           expect.stringMatching(/\s*SELECT[\s\S]*LIMIT \$1 OFFSET \$2;/),
           [10, 0, 1, 2]
         );
@@ -56,12 +56,12 @@ import {
         const limit = 5;
         const role = Role.MERCHANT;
         const mockResult = { rows: [{ id: 1, bank_name: 'test_bank' }] };
-        executeQuery.mockResolvedValue(mockResult);
+    dbMock.executeQuery.mockResolvedValue(mockResult);
       
         const result = await getBeneficiaryAccountDao(filters, page, limit, role);
         const offset = (page - 1) * limit;
       
-        expect(executeQuery).toHaveBeenCalledWith(
+        expect(dbMock.executeQuery).toHaveBeenCalledWith(
           expect.stringMatching(/SELECT[\s\S]*FROM\s+public\."BeneficiaryAccounts"/),
           [limit, offset, filters.company_id]
         );
@@ -74,11 +74,11 @@ import {
         const filters = { 'config->>is_enabled': 'true', company_id: 1 };
         const role = Role.VENDOR;
         const mockResult = { rows: [{ id: 1, bank_name: 'test_bank' }] };
-        executeQuery.mockResolvedValue(mockResult);
+    dbMock.executeQuery.mockResolvedValue(mockResult);
   
         const result = await getBeneficiaryAccountDao(filters, null, null, role);
   
-        expect(executeQuery).toHaveBeenCalledWith(
+        expect(dbMock.executeQuery).toHaveBeenCalledWith(
           expect.stringContaining(`bea.config->>'is_enabled' = $1`),
           ['true', 1]
         );
@@ -87,7 +87,7 @@ import {
   
       test('should throw error on query failure', async () => {
         const error = new Error('DB error');
-        executeQuery.mockRejectedValue(error);
+          dbMock.executeQuery.mockRejectedValue(error);
   
         await expect(getBeneficiaryAccountDao({}, null, null, Role.ADMIN))
           .rejects.toEqual(error);
@@ -99,11 +99,11 @@ import {
       test('should check if beneficiary account exists', async () => {
         const filters = { acc_no: '123', company_id: 1 };
         const mockResult = { rows: [{ 1: 1 }] };
-        executeQuery.mockResolvedValue(mockResult);
+    dbMock.executeQuery.mockResolvedValue(mockResult);
       
         const result = await checkBeneficiaryAccountExistsDao(filters);
       
-        expect(executeQuery).toHaveBeenCalledWith(
+        expect(dbMock.executeQuery).toHaveBeenCalledWith(
           expect.stringMatching(/SELECT 1[\s\S]*FROM\s+public\."BeneficiaryAccounts"/),
           [filters.acc_no, filters.company_id]
         );
@@ -115,7 +115,7 @@ import {
       test('should return false if account does not exist', async () => {
         const filters = { acc_no: '123', company_id: 1 };
         const mockResult = { rows: [] };
-        executeQuery.mockResolvedValue(mockResult);
+    dbMock.executeQuery.mockResolvedValue(mockResult);
   
         const result = await checkBeneficiaryAccountExistsDao(filters);
   
@@ -137,13 +137,13 @@ import {
         const limit = 10;
         const role = Role.ADMIN;
         const mockResult = { rows: [{ id: 1, bank_name: 'test_bank' }] };
-        executeQuery.mockResolvedValue(mockResult);
+    dbMock.executeQuery.mockResolvedValue(mockResult);
       
         const result = await getBeneficiaryAccountDaoAll(filters, page, limit, role);
       
         const offset = (page - 1) * limit;
       
-        expect(executeQuery).toHaveBeenCalledWith(
+        expect(dbMock.executeQuery).toHaveBeenCalledWith(
           expect.stringMatching(/SELECT[\s\S]*FROM\s+public\."BeneficiaryAccounts"/),
           [limit, offset, [1, 2, 3], filters.company_id]
         );
@@ -156,11 +156,11 @@ import {
         const filters = { company_id: 1 };
         const role = Role.VENDOR;
         const mockResult = { rows: [{ id: 1, bank_name: 'test_bank' }] };
-        executeQuery.mockResolvedValue(mockResult);
+    dbMock.executeQuery.mockResolvedValue(mockResult);
       
         const result = await getBeneficiaryAccountDaoAll(filters, null, null, role);
       
-        expect(executeQuery).toHaveBeenCalledWith(
+        expect(dbMock.executeQuery).toHaveBeenCalledWith(
           expect.stringMatching(/SELECT[\s\S]*FROM\s+public\."BeneficiaryAccounts"/),
           [filters.company_id]
         );
@@ -179,14 +179,13 @@ import {
         const searchTerms = ['test', 'bank'];
         const mockCountResult = { rows: [{ total: '20' }] };
         const mockSearchResult = { rows: [{ id: 1, bank_name: 'test_bank' }] };
-        executeQuery
-          .mockResolvedValueOnce(mockCountResult)
-          .mockResolvedValueOnce(mockSearchResult);
+        dbMock.executeQuery.mockResolvedValueOnce(mockCountResult);
+        dbMock.executeQuery.mockResolvedValueOnce(mockSearchResult);
   
         const result = await getBeneficiaryAccountBySearchDao(filters, page, limit, role, searchTerms);
   
-        expect(executeQuery).toHaveBeenCalledTimes(2);
-        expect(executeQuery).toHaveBeenCalledWith(
+        expect(dbMock.executeQuery).toHaveBeenCalledTimes(2);
+        expect(dbMock.executeQuery).toHaveBeenCalledWith(
           expect.stringContaining('LOWER(bea.id::text) LIKE LOWER($2)'),
           [1, '%test%', '%bank%', 10, 0]
         );
@@ -206,19 +205,18 @@ import {
         const mockCountResult = { rows: [{ total: '5' }] };
         const mockSearchResult = { rows: [] };
         const mockFallbackResult = { rows: [{ id: 1, bank_name: 'test_bank' }] };
-        executeQuery
-          .mockResolvedValueOnce(mockCountResult)
-          .mockResolvedValueOnce(mockSearchResult)
-          .mockResolvedValueOnce(mockFallbackResult);
+        dbMock.executeQuery.mockResolvedValueOnce(mockCountResult);
+        dbMock.executeQuery.mockResolvedValueOnce(mockSearchResult);
+        dbMock.executeQuery.mockResolvedValueOnce(mockFallbackResult);
   
         const result = await getBeneficiaryAccountBySearchDao(filters, page, limit, role, searchTerms);
   
-        expect(executeQuery).toHaveBeenCalledTimes(3);
-        expect(executeQuery).toHaveBeenCalledWith(
+        expect(dbMock.executeQuery).toHaveBeenCalledTimes(3);
+        expect(dbMock.executeQuery).toHaveBeenCalledWith(
           expect.stringContaining('OFFSET $4'),
           [1, '%test%', 10, 0]
         );
-        expect(executeQuery).toHaveBeenCalledWith(
+        expect(dbMock.executeQuery).toHaveBeenCalledWith(
           expect.stringContaining('SELECT COUNT(*) as total'),
           [1, '%test%']
         );

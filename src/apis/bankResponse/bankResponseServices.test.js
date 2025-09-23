@@ -1,4 +1,7 @@
 /* eslint-disable no-useless-escape */
+
+jest.mock('../../utils/db');
+
 const {
     getBankResponseService,
     getClaimResponseService,
@@ -9,7 +12,7 @@ const {
     resetBankResponseService,
     updateCalculationBalances,
   } = require('./bankResponseServices.js');
-  const {
+const {
     getBankResponseDao,
     createBankResponseDao,
     getBankMessageDao,
@@ -21,23 +24,26 @@ const {
     resetBankResponseDao,
     getCheckBankResponseDao,
     getForCreateBankResponseDao,
-  } = require('./bankResponseDao');
-  const { getBankaccountDao, updateBankaccountDao   ,  getBankaccountCheckDao, getBankaccountDashBoardReportDao
-  } = require('../bankAccounts/bankaccountDao');
-  const { updatePayInUrlDao, getPayInsBankResDao } = require('../payIn/payInDao');
-  const { getMerchantsDao, getMerchantsBankResponseDao } = require('../merchants/merchantDao');
-  const { getVendorsDao, updateVendorDao, getVendorsBankReponseDao } = require('../vendors/vendorDao');
-  const {
+} = require('./bankResponseDao');
+const { getBankaccountDao, updateBankaccountDao, getBankaccountCheckDao, getBankaccountDashBoardReportDao } = require('../bankAccounts/bankaccountDao.js');
+const { updatePayInUrlDao, getPayInsBankResDao } = require('../payIn/payInDao');
+const { getMerchantsDao, getMerchantsBankResponseDao } = require('../merchants/merchantDao');
+const { getVendorsDao, updateVendorDao, getVendorsBankReponseDao } = require('../vendors/vendorDao');
+const {
     getAllCalculationforCronDao,
     updateCalculationBalanceDao,
     getCalculationforCronDao,
-  } = require('../calculation/calculationDao');
-  const { merchantPayinCallback } = require('../../callBacksAndWebHook/merchantCallBacks');
-  const { calculateCommission, filterResponse, calculateDuration } = require('../../helpers/index');
-  const { newTableEntry } = require('../../utils/sockets');
-  const { logger } = require('../../utils/logger');
-  const { beginTransaction, commit, getConnection, rollback } = require('../../utils/db');
-  const { columns, merchantColumns, vendorColumns } = require('../../constants/index');
+} = require('../calculation/calculationDao');
+const { merchantPayinCallback } = require('../../callBacksAndWebHook/merchantCallBacks');
+const { calculateCommission, filterResponse, calculateDuration } = require('../../helpers/index');
+const { newTableEntry } = require('../../utils/sockets');
+const { logger } = require('../../utils/logger');
+const dbMock = jest.requireMock('../../utils/db.js');
+const beginTransaction = dbMock.beginTransaction;
+const commit = dbMock.commit;
+const getConnection = dbMock.getConnection;
+const rollback = dbMock.rollback;
+const { columns, merchantColumns, vendorColumns } = require('../../constants/index');
   
   jest.mock('./bankResponseDao');
   jest.mock('../bankAccounts/bankaccountDao');

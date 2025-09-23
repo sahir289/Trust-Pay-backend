@@ -22,7 +22,11 @@ import { merchantColumns, vendorColumns } from '../../constants/index.js';
 jest.mock('./calculationDao.js');
 jest.mock('../../apis/merchants/merchantDao.js');
 jest.mock('../../apis/payIn/payInDao.js');
-jest.mock('../../utils/db.js');
+jest.mock('../../utils/db.js', () => ({
+  ...jest.requireActual('../../utils/db.js'),
+  createPool: jest.fn(),
+  getConnection: jest.fn(),
+}));
 jest.mock('../../helpers/index.js');
 jest.mock('../../utils/logger.js');
 

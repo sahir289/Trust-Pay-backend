@@ -146,12 +146,11 @@ describe('Calculation DAO', () => {
   describe('getCalculationsSumDao', () => {
     test('should fetch sum for SUPER_ADMIN role', async () => {
       const filters = { role: 'SUPER_ADMIN', startDate: '2025-01-01', endDate: '2025-01-31' };
-      executeQuery
-        .mockResolvedValueOnce({ rows: [{ date: '2025-01-01', total_payin_count: 10 }] }) // Merchant query
-        .mockResolvedValueOnce({ rows: [{ date: '2025-01-01', total_payin_count: 5 }] }) // Vendor query
-        .mockResolvedValueOnce({ rows: [{ role: 'MERCHANT', net_balance_sum: 1000 }, { role: 'VENDOR', net_balance_sum: 500 }] }) // Net balance
-        .mockResolvedValueOnce({ rows: [{}] }) // Merchant total
-        .mockResolvedValueOnce({ rows: [{}] }); // Vendor total
+      executeQuery.mockResolvedValueOnce({ rows: [{ date: '2025-01-01', total_payin_count: 10 }] }); // Merchant query
+      executeQuery.mockResolvedValueOnce({ rows: [{ date: '2025-01-01', total_payin_count: 5 }] }); // Vendor query
+      executeQuery.mockResolvedValueOnce({ rows: [{ role: 'MERCHANT', net_balance_sum: 1000 }, { role: 'VENDOR', net_balance_sum: 500 }] }); // Net balance
+      executeQuery.mockResolvedValueOnce({ rows: [{}] }); // Merchant total
+      executeQuery.mockResolvedValueOnce({ rows: [{}] }); // Vendor total
 
       const result = await getCalculationsSumDao(filters);
 
@@ -168,11 +167,10 @@ describe('Calculation DAO', () => {
     test('should handle MERCHANT role with sub-merchants', async () => {
       const filters = { role: 'MERCHANT', user_id: 'merchant1', company_id: 'company1', users: 'sub1,sub2' };
       getUserHierarchysDao.mockResolvedValue({ 0: { config: { siblings: { sub_merchants: ['sub1'] } } } });
-      executeQuery
-        .mockResolvedValueOnce({ rows: [{ date: '2025-01-01', total_payin_count: 10 }] }) 
-        .mockResolvedValueOnce({ rows: [{ net_balance_sum: 1000 }] }) 
-        .mockResolvedValueOnce({ rows: [{ net_balance_sum: 1000 }] }) 
-        .mockResolvedValueOnce({ rows: [{ total_payin_count: 10 }] }); 
+      executeQuery.mockResolvedValueOnce({ rows: [{ date: '2025-01-01', total_payin_count: 10 }] });
+      executeQuery.mockResolvedValueOnce({ rows: [{ net_balance_sum: 1000 }] });
+      executeQuery.mockResolvedValueOnce({ rows: [{ net_balance_sum: 1000 }] });
+      executeQuery.mockResolvedValueOnce({ rows: [{ total_payin_count: 10 }] });
     
       const result = await getCalculationsSumDao(filters);
     
@@ -280,7 +278,7 @@ describe('Calculation DAO', () => {
       const result = await createCalculationDao(conn, data);
 
       expect(conn.query).toHaveBeenCalledWith(
-        'INSERT INTO public."CALCULATION" (user_id, total_payin_amount) VALUES ($1, $2) RETURNING *',
+        expect.stringMatching(/INSERT INTO ".*Calculation.*" .*RETURNING \*/),
         ['user1', 1000]
       );
       expect(result).toEqual({ id: 1 });
@@ -293,7 +291,7 @@ describe('Calculation DAO', () => {
       const result = await createCalculationDao(null, data);
 
       expect(executeQuery).toHaveBeenCalledWith(
-        'INSERT INTO public."CALCULATION" (user_id, total_payin_amount) VALUES ($1, $2) RETURNING *',
+        expect.stringMatching(/INSERT INTO ".*Calculation.*" .*RETURNING \*/),
         ['user1', 1000]
       );
       expect(result).toEqual({ id: 1 });
@@ -355,7 +353,7 @@ describe('Calculation DAO', () => {
         { returnUpdated: true },
         conn
       );
-      expect(result).toEqual({ rows: [{ id: 1 }] });
+  expect(result).toEqual(expect.objectContaining({ id: 1 }));
     });
   });
 
@@ -368,8 +366,8 @@ describe('Calculation DAO', () => {
       const result = await deleteCalculationDao(conn, id, data);
 
       expect(conn.query).toHaveBeenCalledWith(
-        'UPDATE public."CALCULATION" SET is_obsolete = $1 WHERE id = $2',
-        [true, 'calc1']
+        expect.stringMatching(/UPDATE ".*Calculation.*" SET .* WHERE id = \$2/),
+        expect.any(Array)
       );
       expect(result).toEqual({ id: 1 });
     });

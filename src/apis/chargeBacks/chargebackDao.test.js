@@ -12,7 +12,10 @@ import * as dbUtils from '../../utils/db.js';
 import * as logger from '../../utils/logger.js';
 import { Role, tableName } from '../../constants/index.js';
 
-jest.mock('../../utils/db.js');
+jest.mock('../../utils/db.js', () => ({
+  createPool: jest.fn(),
+  ...jest.requireActual('../../utils/db.js'),
+}));
 
 jest.mock('../../utils/logger.js', () => ({
   logger: { error: jest.fn(), warn: jest.fn() }

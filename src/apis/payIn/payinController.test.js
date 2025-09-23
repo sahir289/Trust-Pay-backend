@@ -10,7 +10,7 @@ import * as responseHandlers from '../../utils/responseHandlers.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { createHash, compareHash } from '../../utils/hashUtils.js';
 import config from '../../config/config.js';
-import { readerPool } from '../../utils/db.js';
+import { createPool } from '../../utils/db.js';
 import { bulkIndexFromPG } from '../../utils/buildElasticSearch.js';
 
 jest.mock('./payInService.js');
@@ -60,7 +60,10 @@ jest.mock('../../utils/elasticClient.js', () => ({
     bulk: jest.fn().mockResolvedValue({ body: { errors: false, items: [] } }),
   }),
 }));
-jest.mock('../../utils/db.js');
+jest.mock('../../utils/db.js', () => ({
+  createPool: jest.fn(),
+  ...jest.requireActual('../../utils/db.js'),
+}));
 
 
 describe('PayIn Controller', () => {
@@ -416,11 +419,11 @@ describe('PayIn Controller', () => {
     it('should handle empty table', async () => {
       const result = await bulkIndexFromPG('users', 'users_index', ['id', 'name'], 10000, '', 'id', 'public');
       expect(result).toEqual({ success: true, indexed: 0 });
-      expect(readerPool.query).toHaveBeenCalledWith(
+  expect(createPool().query).toHaveBeenCalledWith(
         expect.stringContaining('information_schema.tables'),
         ['public', 'users']
       );
-      expect(readerPool.query).toHaveBeenNthCalledWith(
+  expect(createPool().query).toHaveBeenNthCalledWith(
         1,
         expect.stringContaining("information_schema.tables"),
         ["public", "users"]
@@ -429,7 +432,7 @@ describe('PayIn Controller', () => {
     });
 
     it('should throw BadRequestError for non-existent table', async () => {
-      readerPool.query.mockImplementation((query) => {
+  createPool().query.mockImplementation((query) => {
         if (query.includes('information_schema.tables')) {
           return Promise.resolve({ rows: [{ exists: false }] });
         }

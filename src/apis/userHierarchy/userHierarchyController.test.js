@@ -1,3 +1,7 @@
+jest.mock('../../utils/db.js', () => ({
+  createPool: jest.fn(),
+  ...jest.requireActual('../../utils/db.js'),
+}));
 const {
     createUserHierarchy,
     getUserHierarchys,

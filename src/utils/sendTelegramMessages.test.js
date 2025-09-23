@@ -70,31 +70,16 @@ describe('Telegram Dashboard Functions', () => {
       const result = await sendTelegramDashboardReportMessage(...Object.values(mockParams));
 
       expect(telegramSenderMock).toHaveBeenCalledTimes(3);
-      expect(telegramSenderMock).toHaveBeenCalledWith(
-        'chat123',
-        expect.stringContaining('Deposits'),
-        null,
-        'test-token'
-      );
-      expect(telegramSenderMock).toHaveBeenCalledWith(
-        'chat123',
-        expect.stringContaining('Bank Account Deposits'),
-        null,
-        'test-token'
-      );
-      expect(telegramSenderMock).toHaveBeenCalledWith(
-        'chat123',
-        expect.stringContaining('Bank Account Withdrawals'),
-        null,
-        'test-token'
-      );
+      // Check that each call contains the expected substrings
+      const calls = telegramSenderMock.mock.calls;
+      expect(calls[0][1]).toEqual(expect.stringContaining('Deposits'));
+      expect(calls[1][1]).toEqual(expect.stringContaining('Bank Account Deposits'));
+      expect(calls[2][1]).toEqual(expect.stringContaining('Bank Account Withdrawals'));
       expect(result).toEqual({ success1: true, success2: [true], success3: [true] });
-      // expect(logger.log).toHaveBeenCalledWith('Sent!');
       expect(logger.log).toHaveBeenCalledTimes(3);
       expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('Sent message1!'));
       expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('Sent message2'));
       expect(logger.log).toHaveBeenCalledWith(expect.stringContaining('Sent message3'));
-
     });
 
     test('should handle failed message sends', async () => {

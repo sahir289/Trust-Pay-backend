@@ -1,3 +1,6 @@
+
+jest.mock('../../utils/db');
+
 const {
     getBankResponse,
     getClaimResponse,
@@ -20,7 +23,8 @@ const {
 } = require('./bankResponseServices.js');
 const { sendSuccess } = require('../../utils/responseHandlers.js');
 const { ValidationError, BadRequestError } = require('../../utils/appErrors.js');
-const { transactionWrapper } = require('../../utils/db.js');
+const dbMock = jest.requireMock('../../utils/db.js');
+const transactionWrapper = dbMock.transactionWrapper;
 const { newTableEntry } = require('../../utils/sockets.js');
 const { publishBankResponse } = require('../../utils/rabbitmq-bank-response.js');
 const { s3 } = require('../../helpers/Aws.js');

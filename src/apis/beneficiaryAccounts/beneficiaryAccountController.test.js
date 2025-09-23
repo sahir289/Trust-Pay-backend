@@ -205,6 +205,7 @@ import {
   
         expect(BENEFICIARY_ACCOUNT_SCHEMA.validate).toHaveBeenCalledWith(req.body);
         expect(createBeneficiaryAccountService).toHaveBeenCalledWith(
+          expect.objectContaining({ query: expect.any(Function), release: expect.any(Function) }),
           { bankName: 'test_account', created_by: 1, updated_by: 1, company_id: 1 },
           1
         );
@@ -233,6 +234,7 @@ import {
   
         expect(UPDATE_BENEFICIARY_ACCOUNT_SCHEMA.validate).toHaveBeenCalledWith(req.body);
         expect(updateBeneficiaryAccountService).toHaveBeenCalledWith(
+          expect.objectContaining({ query: expect.any(Function), release: expect.any(Function) }),
           { id: '1', company_id: 1 },
           { bankAccountsname: 'updated_account', updated_by: 1 },
           Role.ADMIN
@@ -261,7 +263,10 @@ import {
         const result = await deleteBeneficiaryAccount(req, res);
   
         expect(VALIDATE_BENEFICIARY_ACCOUNT_BY_ID.validate).toHaveBeenCalledWith('1');
-        expect(deleteBeneficiaryAccountService).toHaveBeenCalledWith({ id: '1', company_id: 1 });
+        expect(deleteBeneficiaryAccountService).toHaveBeenCalledWith(
+          expect.objectContaining({ query: expect.any(Function), release: expect.any(Function) }),
+          { id: '1', company_id: 1 }
+        );
         expect(sendSuccess).toHaveBeenCalledWith(res, {}, 'deleted Beneficiary successfully');
         expect(result).toEqual({ status: 200, data: {}, message: 'deleted Beneficiary successfully' });
       });

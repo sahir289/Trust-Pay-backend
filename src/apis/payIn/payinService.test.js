@@ -1,3 +1,7 @@
+jest.mock('../../utils/db.js', () => ({
+  createPool: jest.fn(),
+  ...jest.requireActual('../../utils/db.js'),
+}));
 /* eslint-disable no-unused-vars */
 const { cashfree } = require('../../webhooks/cashfree.js');
 const { BadRequestError, NotFoundError, InternalServerError } = require('../../utils/appErrors');
@@ -153,7 +157,7 @@ jest.mock('../../utils/db', () => {
   return {
     createPool: jest.fn().mockReturnValue(mockPool),
     writerPool: mockPool,
-    readerPool: mockPool,
+  createPool: jest.fn(() => mockPool),
     executeQuery: jest.fn().mockImplementation((sql, params) => {
       const sqlStr = typeof sql === 'string' ? sql.toLowerCase() : '';
       if (sqlStr.includes('bankaccount')) {
@@ -639,7 +643,7 @@ describe('PayIn Service Tests', () => {
     });
 
     test('generates payIn URL by hash', async () => {
-      require('../bankAccounts/bankAccountDao').getMerchantBankDao.mockResolvedValue([mockBank]);
+  require('../bankAccounts/bankaccountDao.js').getMerchantBankDao.mockResolvedValue([mockBank]);
 
       const req = {
         query: { user_id: 'user1', code: 'merchant_code', ot: 'n', key: 'key123' },
@@ -669,7 +673,7 @@ describe('PayIn Service Tests', () => {
     });
 
     test('includes amount in URL if provided', async () => {
-      require('../bankAccounts/bankAccountDao').getMerchantBankDao.mockResolvedValue([mockBank]);
+  require('../bankAccounts/bankaccountDao.js').getMerchantBankDao.mockResolvedValue([mockBank]);
 
       const req = {
         query: { user_id: 'user1', code: 'merchant_code', ot: 'n', key: 'key123', amount: 500 },
@@ -682,7 +686,7 @@ describe('PayIn Service Tests', () => {
     });
 
     test('does not include admin token for non-admin user', async () => {
-      require('../bankAccounts/bankAccountDao').getMerchantBankDao.mockResolvedValue([mockBank]);
+  require('../bankAccounts/bankaccountDao.js').getMerchantBankDao.mockResolvedValue([mockBank]);
 
       const req = {
         query: { user_id: 'user1', code: 'merchant_code', ot: 'n', key: 'key123' },
@@ -823,7 +827,7 @@ describe('PayIn Service Tests', () => {
     });
   
     test('assigns bank successfully', async () => {
-      require('../bankAccounts/bankAccountDao').getMerchantBankDao.mockResolvedValue([mockBank]);
+  require('../bankAccounts/bankaccountDao.js').getMerchantBankDao.mockResolvedValue([mockBank]);
       jest.spyOn(require('./payInService'), 'getPayInUrlService').mockResolvedValue({
         id: 'payin1',
         merchant_id: 'merchant1',
@@ -860,7 +864,7 @@ describe('PayIn Service Tests', () => {
         upi_short_code: 'upi123',
         bank_acc_id: 'bank1',
       });
-      require('../bankAccounts/bankAccountDao').getBankaccountDao.mockResolvedValue([mockBank]);
+  require('../bankAccounts/bankaccountDao.js').getBankaccountDao.mockResolvedValue([mockBank]);
   
       const result = await assignedBankToPayInUrlService('order123', 100, BankTypes.BANK_TRANSFER, 'MERCHANT');
   
@@ -888,7 +892,7 @@ describe('PayIn Service Tests', () => {
     });
   
     test('returns UPI details when type is UPI', async () => {
-      require('../bankAccounts/bankAccountDao').getMerchantBankDao.mockResolvedValue([
+  require('../bankAccounts/bankaccountDao.js').getMerchantBankDao.mockResolvedValue([
         { ...mockBank, is_bank: false, is_qr: true, upi_id: 'upi@bank' },
       ]);
       jest.spyOn(require('./payInService'), 'getPayInUrlService').mockResolvedValue({
@@ -948,7 +952,7 @@ describe('PayIn Service Tests', () => {
     });
 
     test('updates deposit status to SUCCESS', async () => {
-      require('../bankAccounts/bankAccountDao').getBankaccountDao.mockResolvedValue([mockBank]);
+  require('../bankAccounts/bankaccountDao.js').getBankaccountDao.mockResolvedValue([mockBank]);
       require('./payInDao').updatePayInUrlDao.mockResolvedValue({
         ...mockPayIn,
         status: 'SUCCESS',
@@ -977,7 +981,7 @@ describe('PayIn Service Tests', () => {
     });
 
     test('returns undefined if bank not found', async () => {
-      require('../bankAccounts/bankAccountDao').getBankaccountDao.mockResolvedValue([]);
+  require('../bankAccounts/bankaccountDao.js').getBankaccountDao.mockResolvedValue([]);
       const result = await updateDepositStatusService({}, 'order123', 'bank_nick', 'company1', 'user1');
       expect(result).toBeUndefined();
     });
@@ -1035,7 +1039,7 @@ describe('PayIn Service Tests', () => {
     beforeEach(() => {
       jest.clearAllMocks();
       require('./payInDao').getPayinUrlService = jest.fn().mockResolvedValue(mockPayIn);
-      require('../bankAccounts/bankAccountDao').getBankaccountDao = jest.fn().mockResolvedValue([mockBank]);
+  require('../bankAccounts/bankaccountDao.js').getBankaccountDao = jest.fn().mockResolvedValue([mockBank]);
       require('../vendors/vendorDao').getVendorsDao = jest.fn().mockResolvedValue([mockVendor]);
       require('./payInDao').getPayInForCheckDao = jest.fn().mockResolvedValue([]);
       require('../bankResponse/bankResponseDao').getBankResponseDao = jest.fn().mockResolvedValue(mockBankResponse);
@@ -1152,7 +1156,7 @@ describe('PayIn Service Tests', () => {
     });
 
     test('handles valid payin commission correctly', async () => {
-      require('../bankAccounts/bankAccountDao').getBankaccountDao.mockResolvedValue([mockBank]);
+  require('../bankAccounts/bankaccountDao.js').getBankaccountDao.mockResolvedValue([mockBank]);
 
       const payload = {
         payInId: 'payin123',
@@ -1202,7 +1206,7 @@ describe('PayIn Service Tests', () => {
       require('../bankResponse/bankResponseDao').getBankResponsePendingDao.mockResolvedValue(mockBankResponse);
       require('../merchants/merchantDao').getMerchantsByCodeDao.mockResolvedValue([{ id: 'merchant1', payin_commission: 0.05 }]);
       require('../vendors/vendorDao').getVendorsDao.mockResolvedValue([mockVendor]);
-      require('../bankAccounts/bankAccountDao').getBankaccountDao.mockResolvedValue([mockBank]);
+  require('../bankAccounts/bankaccountDao.js').getBankaccountDao.mockResolvedValue([mockBank]);
       require('./payInDao').updatePayInUrlDao.mockResolvedValue({ ...mockPayIn, status: 'SUCCESS' });
       require('../calculation/calculationDao').getCalculationforCronDao.mockResolvedValue([mockCalculation]);
     });

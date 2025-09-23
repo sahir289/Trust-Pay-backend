@@ -1,5 +1,9 @@
+jest.mock('../../utils/db.js', () => ({
+  createPool: jest.fn(),
+  ...jest.requireActual('../../utils/db.js'),
+}));
 const { createBankHistoryService } = require('./bankHistorySevice');
-const { getBankaccountDashBoardReportDao } = require('../bankAccounts/bankaccountDao');
+const { getBankaccountDashBoardReportDao } = require('../bankAccounts/bankaccountDao.js');
 const { createBankHistoryDao } = require('./bankHistoryDao');
 const { logger } = require('../../utils/logger');
 

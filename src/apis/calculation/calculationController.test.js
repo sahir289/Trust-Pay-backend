@@ -34,7 +34,10 @@ import {
     calculateSuccessRatiosService: jest.fn(),
   }));
   
-  jest.mock('../../utils/db.js');
+  jest.mock('../../utils/db.js', () => ({
+  ...jest.requireActual('../../utils/db.js'),
+  createPool: jest.fn(),
+  }));
   
   jest.mock('../../schemas/calculationSchema.js', () => ({
     VALIDATE_CALCULATION_SCHEMA: { validate: jest.fn() },

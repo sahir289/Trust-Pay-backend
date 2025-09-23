@@ -1,3 +1,7 @@
+jest.mock('../../utils/db.js', () => ({
+  createPool: jest.fn(),
+  ...jest.requireActual('../../utils/db.js'),
+}));
 const { getTotalCountService } = require('./commonService.js');
 const { getTotalCountDao } = require('./commonDao.js');
 const { getMerchantByUserIdDao } = require('../merchants/merchantDao.js');

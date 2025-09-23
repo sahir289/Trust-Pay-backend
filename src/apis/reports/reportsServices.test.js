@@ -1,3 +1,7 @@
+jest.mock('../../utils/db.js', () => ({
+  createPool: jest.fn(),
+  ...jest.requireActual('../../utils/db.js'),
+}));
 const {
   getPayInReportService,
   getPayOutReportService,
@@ -13,7 +17,7 @@ const {
 } = require('./reportsDao');
 const { getMerchantsDaoArray } = require('../merchants/merchantDao');
 const { getVendorsDaoArray } = require('../vendors/vendorDao');
-const { getBankaccountDao } = require('../bankAccounts/bankaccountDao');
+const { getBankaccountDao } = require('../bankAccounts/bankaccountDao.js');
 const { getUserHierarchysDao } = require('../userHierarchy/userHierarchyDao');
 const { getDesignationDao } = require('../designation/designationDao');
 const { getUsersDao } = require('../users/userDao');

@@ -20,6 +20,12 @@ jest.mock('../config/config.js', () => ({
   aws: {},
   secretKeyS3: 'fake-secret',
   bucketRegion: 'us-east-1',
+  elasticSearch: {
+    node: 'http://localhost:9200',
+    indexPrefix: '',
+    requestTimeout: 1000,
+    maxRetries: 1
+  }
 }));
 
 jest.mock('../utils/db.js', () => ({
@@ -28,6 +34,7 @@ jest.mock('../utils/db.js', () => ({
   beginTransaction: jest.fn(),
   commit: jest.fn(),
   rollback: jest.fn(),
+  createPool: jest.fn(),
 }));
 
 jest.mock('../helpers/Aws.js', () => ({

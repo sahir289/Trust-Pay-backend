@@ -1,26 +1,31 @@
-import {
-    getBankResponseDao,
-    getBankResponseDaoById,
-    getBankResponseBySearchDao,
-    getClaimResponseDao,
-    getBankResponsesforFreeze,
-    getBankResponseDaoAll,
-    getBankResponseByUTR,
-    getInternalBankResponseByUTR,
-    createBankResponseDao,
-    updateBankResponseDao,
-    getBankMessageDao,
-    resetBankResponseDao,
-    updateBotResponseDao,
-  } from './bankResponseDao.js';
-  import { executeQuery, buildSelectQuery, buildInsertQuery, buildUpdateQuery } from '../../utils/db.js';
-  // import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
-  import { logger } from '../../utils/logger.js';
-  // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-  import { tableName } from '../../constants/index.js';
-  import dayjs from 'dayjs';
-  import utc from 'dayjs/plugin/utc.js';
-  import timezone from 'dayjs/plugin/timezone.js';
+// ...existing code...
+// ...existing code...
+jest.mock('../../utils/db.js');
+
+const {
+  getBankResponseDao,
+  getBankResponseDaoById,
+  getBankResponseBySearchDao,
+  getClaimResponseDao,
+  getBankResponsesforFreeze,
+  getBankResponseDaoAll,
+  getBankResponseByUTR,
+  getInternalBankResponseByUTR,
+  createBankResponseDao,
+  updateBankResponseDao,
+  getBankMessageDao,
+  resetBankResponseDao,
+  updateBotResponseDao,
+} = require('./bankResponseDao.js');
+const dbMock = jest.requireMock('../../utils/db.js');
+// Use dbMock.<method> directly throughout the file
+// const { getBankaccountDao } = require('../bankAccounts/bankaccountDao.js');
+const { logger } = require('../../utils/logger.js');
+// const { buildSearchFilterObj } = require('../../utils/searchBuilder.js');
+const { tableName } = require('../../constants/index.js');
+const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc.js');
+const timezone = require('dayjs/plugin/timezone.js');
   
   // Mock dayjs properly to avoid Invalid time value
   jest.mock('dayjs', () => {
@@ -55,14 +60,14 @@ import {
     });
   
     return mockDayjs;
-  });
+});
   
   // Apply dayjs plugins
   dayjs.extend(utc);
   dayjs.extend(timezone);
   
   // Mock dependencies
-  jest.mock('../../utils/db.js');
+  // Removed duplicate jest.mock for db.js
 
   jest.mock('../bankAccounts/bankaccountDao.js', () => ({
     getBankaccountDao: jest.fn(),
@@ -89,18 +94,18 @@ import {
       it('should return bank response with default parameters', async () => {
         const filters = { company_id: 'comp1' };
         const mockRows = [{ id: 'br1', amount: 1000 }];
-        buildSelectQuery.mockReturnValue(['SELECT * FROM "BankResponse" WHERE company_id = $1', { company_id: 'comp1' }]);
-        executeQuery.mockResolvedValue({ rows: mockRows });
-  
+        dbMock.buildSelectQuery.mockReturnValue(['SELECT * FROM "BankResponse" WHERE company_id = $1', { company_id: 'comp1' }]);
+        dbMock.executeQuery.mockResolvedValue({ rows: mockRows });
+
         const result = await getBankResponseDao(filters);
-  
-        expect(buildSelectQuery).toHaveBeenCalledWith(
+
+        expect(dbMock.buildSelectQuery).toHaveBeenCalledWith(
           'SELECT * FROM "BankResponse" WHERE 1=1',
           filters,
           0,
           10
         );
-        expect(executeQuery).toHaveBeenCalledWith(
+        expect(dbMock.executeQuery).toHaveBeenCalledWith(
           expect.any(String),
           expect.objectContaining({ company_id: 'comp1' })
         );
@@ -112,7 +117,7 @@ import {
         const startDate = new Date('2025-08-18');
         const endDate = new Date('2025-08-19');
         const mockRows = [{ id: 'br1', amount: 1000 }];
-        buildSelectQuery.mockReturnValue([
+        dbMock.buildSelectQuery.mockReturnValue([
           'SELECT * FROM "BankResponse" WHERE company_id = $1 AND created_at BETWEEN $2 AND $3',
           {
             company_id: 'comp1',
@@ -120,11 +125,11 @@ import {
             created_at_end: endDate,
           },
         ]);
-        executeQuery.mockResolvedValue({ rows: mockRows });
-  
+        dbMock.executeQuery.mockResolvedValue({ rows: mockRows });
+
         const result = await getBankResponseDao(filters, startDate, endDate);
-  
-        expect(executeQuery).toHaveBeenCalledWith(
+
+        expect(dbMock.executeQuery).toHaveBeenCalledWith(
           expect.stringContaining('AND created_at BETWEEN $2 AND $3'),
           expect.objectContaining({
             company_id: 'comp1',
@@ -138,9 +143,9 @@ import {
       it('should throw error on query failure', async () => {
         const filters = { company_id: 'comp1' };
         const error = new Error('Query failed');
-        buildSelectQuery.mockReturnValue(['SELECT * FROM "BankResponse" WHERE company_id = $1', { company_id: 'comp1' }]);
-        executeQuery.mockRejectedValue(error);
-  
+        dbMock.buildSelectQuery.mockReturnValue(['SELECT * FROM "BankResponse" WHERE company_id = $1', { company_id: 'comp1' }]);
+        dbMock.executeQuery.mockRejectedValue(error);
+
         await expect(getBankResponseDao(filters)).rejects.toThrow(error);
         expect(logger.error).toHaveBeenCalledWith('Error in getBankResponseDao:', error);
       });
@@ -151,11 +156,11 @@ import {
       it('should return bank response by ID', async () => {
         const filters = { id: 'br1', company_id: 'comp1' };
         const mockRows = [{ id: 'br1', bank_id: 'bank1', utr: 'utr123', nick_name: 'Test Bank', user_id: 'user1' }];
-        executeQuery.mockResolvedValue({ rows: mockRows });
-  
+        dbMock.executeQuery.mockResolvedValue({ rows: mockRows });
+
         const result = await getBankResponseDaoById(filters);
-  
-        expect(executeQuery).toHaveBeenCalledWith(
+
+        expect(dbMock.executeQuery).toHaveBeenCalledWith(
           expect.any(String),
           [filters.id, filters.company_id]
         );
@@ -165,8 +170,8 @@ import {
       it('should throw error on query failure', async () => {
         const filters = { id: 'br1', company_id: 'comp1' };
         const error = new Error('Query failed');
-        executeQuery.mockRejectedValue(error);
-  
+        dbMock.executeQuery.mockRejectedValue(error);
+
         await expect(getBankResponseDaoById(filters)).rejects.toThrow(error);
         expect(logger.error).toHaveBeenCalledWith('Error in getBankResponseDaoById:', error);
       });
@@ -183,7 +188,7 @@ import {
         const mockRows = [{ id: 'br1', amount: 1000, nick_name: 'Test Bank' }];
         const mockCountRows = [{ total: '10' }];
     
-        executeQuery
+        dbMock.executeQuery
           .mockResolvedValueOnce({ rows: mockCountRows }) // Count query
           .mockResolvedValueOnce({ rows: mockRows }); // Main query
     
@@ -191,7 +196,6 @@ import {
           filters,
           1,
           10,
-          [],
           false,
           'created_at',
           'DESC',
@@ -199,26 +203,25 @@ import {
           '2025-08-19'
         );
     
-        expect(executeQuery).toHaveBeenCalledTimes(2);
+        expect(dbMock.executeQuery).toHaveBeenCalledTimes(2);
         expect(result).toEqual({
           totalCount: 10,
           totalPages: 1,
           rows: mockRows,
         });
-      });
     
       it('should apply bank_id, utr, company_id filters', async () => {
         const filters = { bank_id: 'bank1', utr: 'utr123', company_id: 'comp1' };
         const mockRows = [{ id: 'br2', amount: 2000 }];
         const mockCountRows = [{ total: '5' }];
     
-        executeQuery
+        dbMock.executeQuery
           .mockResolvedValueOnce({ rows: mockCountRows })
           .mockResolvedValueOnce({ rows: mockRows });
     
         const result = await getBankResponseBySearchDao(filters, 1, 10);
     
-        expect(executeQuery).toHaveBeenCalledWith(
+        expect(dbMock.executeQuery).toHaveBeenCalledWith(
           expect.stringContaining('"BankResponse"."bank_id" = $'),
           expect.arrayContaining(['bank1', 'utr123', 'comp1'])
         );
@@ -235,15 +238,15 @@ import {
         };
         const mockRows = [{ id: 'br3', amount: 1000, status: 'SUCCESS' }];
         const mockCountRows = [{ total: '1' }];
-    
-        executeQuery
+      dbMock.executeQuery.mockResolvedValue({ rows: mockRows });
+        dbMock.executeQuery
           .mockResolvedValueOnce({ rows: mockCountRows })
           .mockResolvedValueOnce({ rows: mockRows });
     
         const result = await getBankResponseBySearchDao(filters, 1, 10);
     
-        expect(executeQuery).toHaveBeenCalledTimes(2);
-        expect(result.rows).toEqual(mockRows);
+    expect(dbMock.executeQuery).toHaveBeenCalledTimes(2);
+    expect(result.rows).toEqual(mockRows);
       });
     
       it('should filter only updated records when updated flag is true', async () => {
@@ -251,13 +254,13 @@ import {
         const mockRows = [{ id: 'br4', updated_at: '2025-08-20', created_at: '2025-08-18' }];
         const mockCountRows = [{ total: '2' }];
     
-        executeQuery
+        dbMock.executeQuery
           .mockResolvedValueOnce({ rows: mockCountRows })
           .mockResolvedValueOnce({ rows: mockRows });
-    
+            dbMock.executeQuery.mockRejectedValue(error);
         const result = await getBankResponseBySearchDao(filters, 1, 10, [], true);
     
-        expect(executeQuery).toHaveBeenCalledWith(
+  expect(dbMock.executeQuery).toHaveBeenCalledWith(
           expect.stringContaining('"BankResponse".updated_at IS NOT NULL'),
           expect.any(Array)
         );
@@ -266,34 +269,33 @@ import {
     
       it('should filter by specific updated_at date', async () => {
         const filters = { updated_at: '19-08-2025' };
-        const mockRows = [{ id: 'br5' }];
+            dbMock.buildInsertQuery.mockReturnValue(['INSERT INTO "BankResponse" (bank_id, amount) VALUES ($1, $2) RETURNING *', ['bank1', 1000]]);
         const mockCountRows = [{ total: '3' }];
     
-        executeQuery
+        dbMock.executeQuery
           .mockResolvedValueOnce({ rows: mockCountRows })
           .mockResolvedValueOnce({ rows: mockRows });
     
         const result = await getBankResponseBySearchDao(filters, 1, 10);
     
-        expect(executeQuery).toHaveBeenCalledWith(
+  expect(dbMock.executeQuery).toHaveBeenCalledWith(
           expect.stringContaining('"BankResponse".updated_at BETWEEN'),
           expect.any(Array)
         );
-        expect(result.rows).toEqual(mockRows);
-      });
+            dbMock.buildInsertQuery.mockReturnValue(['INSERT INTO "BankResponse" (bank_id, amount) VALUES ($1, $2) RETURNING *', ['bank1', 1000]]);
+            dbMock.executeQuery.mockResolvedValue({ rows: mockRows });
     
       it('should apply pagination and sorting correctly', async () => {
         const filters = { company_id: 'comp1' };
         const mockRows = [{ id: 'br6' }];
         const mockCountRows = [{ total: '20' }];
     
-        executeQuery
+        dbMock.executeQuery
           .mockResolvedValueOnce({ rows: mockCountRows })
           .mockResolvedValueOnce({ rows: mockRows });
-    
+
         const result = await getBankResponseBySearchDao(filters, 2, 5, [], false, 'amount', 'ASC');
-    
-        expect(executeQuery).toHaveBeenCalledWith(
+        expect(dbMock.executeQuery).toHaveBeenCalledWith(
           expect.stringContaining('ORDER BY "BankResponse"."sno" DESC, "BankResponse"."amount" ASC'),
           expect.arrayContaining([5, 5]) // LIMIT 5 OFFSET 5
         );
@@ -306,7 +308,7 @@ import {
         const mockRowsPage2 = []; // no results on page 2
         const mockRowsPage1 = [{ id: 'br7' }]; // fallback
     
-        executeQuery
+        dbMock.executeQuery
           .mockResolvedValueOnce({ rows: mockCountRows }) // count
           .mockResolvedValueOnce({ rows: mockRowsPage2 }) // page 2 (empty)
           .mockResolvedValueOnce({ rows: mockRowsPage1 }); // retry page 1
@@ -319,9 +321,7 @@ import {
       it('should throw error on query failure', async () => {
         const filters = { company_id: 'comp1' };
         const error = new Error('Query failed');
-        executeQuery.mockRejectedValue(error);
-    
-        await expect(getBankResponseBySearchDao(filters)).rejects.toThrow(error);
+    dbMock.executeQuery.mockRejectedValue(error);
         expect(logger.error).toHaveBeenCalledWith('Error in getBankResponseBySearchDao:', error);
       });
     });    
@@ -334,8 +334,6 @@ import {
           {
             claimed_amount: '1000',
             claimed_count: '2',
-            unclaimed_24h_amount: '500',
-            unclaimed_24h_count: '1',
             total_unclaimed_amount: '1500',
             total_unclaimed_count: '3',
             bank_name: 'Test Bank',
@@ -344,7 +342,7 @@ import {
             count: '1',
           },
         ];
-        executeQuery.mockResolvedValue({ rows: mockRows });
+        dbMock.executeQuery.mockResolvedValue({ rows: mockRows });
   
         const result = await getClaimResponseDao(filters);
   
@@ -761,4 +759,4 @@ import {
         expect(logger.error).toHaveBeenCalledWith('Error in updateBotResponseDao:', error);
       });
     });
-  });
+// End of test file

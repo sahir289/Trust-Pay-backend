@@ -1,7 +1,10 @@
-import request from 'supertest';
-import express from 'express';
-import bankResponseRouter from './index.js';
-import {
+
+jest.mock('../../utils/db.js');
+
+const request = require('supertest');
+const express = require('express');
+const bankResponseRouter = require('./index.js');
+const {
     createBankResponse,
     getBankResponse,
     getBankMessage,
@@ -11,7 +14,7 @@ import {
     importBankResponse,
     resetBankResponseController,
     createBankBotResponseBulk,
-} from './bankResponseController.js';
+} = require('./bankResponseController.js');
 
 beforeEach(() => {
     jest.resetModules();
@@ -128,8 +131,12 @@ jest.mock('../../utils/logger.js', () => ({
     },
 }));
 
-jest.mock('../../utils/db.js');
+jest.mock('../../utils/db.js', () => ({
+    createPool: jest.fn(),
+    ...jest.requireActual('../../utils/db.js'),
+}));
 
+const dbMock = jest.requireMock('../../utils/db.js');
 
 jest.mock('../../config/config.js', () => ({
     rateLimiter: {

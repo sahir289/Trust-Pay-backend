@@ -45,7 +45,10 @@ import { InternalServerError, NotFoundError, BadRequestError } from '../../utils
 import { Role } from '../../constants/index.js';
 
 // Mock all imports
-jest.mock('../../utils/db.js');
+jest.mock('../../utils/db.js', () => ({
+  createPool: jest.fn(),
+  ...jest.requireActual('../../utils/db.js'),
+}));
 jest.mock('./chargeBackDao.js');
 jest.mock('../company/companyDao.js');
 jest.mock('../merchants/merchantDao.js');
