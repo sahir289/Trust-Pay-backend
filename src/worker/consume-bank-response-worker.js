@@ -11,7 +11,7 @@ export async function startBankResponseWorker() {
     logger.error('Failed to connect to RabbitMQ:', err);
     return;
   }
-  const channel = getRabbitChannel();
+  const channel = await getRabbitChannel();
   const queue = config.rabbitmq.bankResponseQueue;
   await channel.assertQueue(queue, { durable: true });
 
