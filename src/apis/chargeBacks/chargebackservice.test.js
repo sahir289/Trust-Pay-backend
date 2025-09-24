@@ -47,7 +47,10 @@ import { Role } from '../../constants/index.js';
 // Mock all imports
 jest.mock('../../utils/db.js', () => ({
   createPool: jest.fn(),
-  ...jest.requireActual('../../utils/db.js'),
+  getConnection: jest.fn(),
+  beginTransaction: jest.fn(),
+  commit: jest.fn(),
+  rollback: jest.fn(),
 }));
 jest.mock('./chargeBackDao.js');
 jest.mock('../company/companyDao.js');

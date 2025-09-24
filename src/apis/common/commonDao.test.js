@@ -6,8 +6,8 @@ const { Role, tableName } = require('../../constants');
 
 jest.mock('../../utils/logger');
 jest.mock('../../utils/db.js', () => ({
+  executeQuery: jest.fn(),
   createPool: jest.fn(),
-  ...jest.requireActual('../../utils/db.js'),
 }));
 
 describe('getTotalCountDao', () => {

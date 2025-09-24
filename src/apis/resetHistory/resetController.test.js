@@ -74,23 +74,42 @@ import {
     test('createResetHistory should call service and send success', async () => {
       req.user = { user_id: 'u1', company_id: '123' };
       req.body = { ResetHistoryName: 'Test' };
-  
+
       const mockData = { id: 1 };
       jest.spyOn(services, 'createResetHistoryService').mockResolvedValue(mockData);
-  
-      await createResetHistory(req, res);
-  
-      expect(transactionWrapper).toHaveBeenCalled();
-      expect(services.createResetHistoryService).toHaveBeenCalledWith({
-        ResetHistoryName: 'Test',
-        created_by: 'u1',
-        updated_by: 'u1',
-        company_id: '123',
+
+      // Mock transactionWrapper to simulate db connection
+      transactionWrapper.mockImplementation((fn) => (payload) => {
+        // Create a mock connection object that would normally be provided by transactionWrapper
+        const mockConn = {
+          query: jest.fn(),
+          release: jest.fn(),
+        };
+        // Call the wrapped function with both conn and payload
+        return fn(mockConn, payload);
       });
+
+      await createResetHistory(req, res);
+
+      // Verify transactionWrapper was called with the service function
+      expect(transactionWrapper).toHaveBeenCalledWith(services.createResetHistoryService);
+      
+      // Verify service function was called with correct connection and payload
+      expect(services.createResetHistoryService).toHaveBeenCalledWith(
+        expect.objectContaining({
+          query: expect.any(Function),
+          release: expect.any(Function),
+        }),
+        {
+          ResetHistoryName: 'Test',
+          created_by: 'u1',
+          updated_by: 'u1',
+          company_id: '123',
+        }
+      );
+      
       expect(sendSuccess).toHaveBeenCalledWith(res, mockData, 'reset history successfully');
-    });
-  
-    // ---------------- UPDATE RESET HISTORY ----------------
+    });    // ---------------- UPDATE RESET HISTORY ----------------
     test('updateResetHistory should call service and send success', async () => {
       req.user.company_id = '123';
       req.params.id = '1';
