@@ -18,7 +18,7 @@ export const publishBankResponse = async (responseData) => {
     }
     return result;
   } catch (err) {
-    logger.error('[RabbitMQ] Publish failed:', err.message, responseData);
+    logger.error('[RabbitMQ] Publish failed:', err.message);
     throw err;
   }
 };
