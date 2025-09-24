@@ -132,18 +132,18 @@ const createBankBotResponse = async (req, res) => {
     throw new ValidationError(error);
   }
 
-  const bankResponseObject = {
-    payload,
-    x_auth_token,
-    role:Role.BOT,
-  };
-  const result = await publishBankResponse(bankResponseObject);
-  // const result = await createBankResponseService(
+  // const bankResponseObject = {
   //   payload,
   //   x_auth_token,
-  //   Role.BOT,
-  //   null,
-  // );
+  //   role:Role.BOT,
+  // };
+  // const result = await publishBankResponse(bankResponseObject);
+  const result = await createBankResponseService(
+    payload,
+    x_auth_token,
+    Role.BOT,
+    null,
+  );
   // await newTableEntry(tableName.BANK_RESPONSE);
   sendSuccess(res, result, 'Created Bank Bot Response successfully');
 };
