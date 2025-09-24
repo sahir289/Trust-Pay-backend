@@ -33,9 +33,11 @@ export const zenTechIndWebhook = async (req, res) => {
         'zenTechInd',
       );
     }
+    logger.info('Calling transactionWrapper for payload', payload);
     await transactionWrapper(processPayInService)(payload);
+    logger.info('transactionWrapper completed', payload);
 
   } catch (error) {
-    logger.error('zenTechInd webhook error:', error || error);
+    logger.error('zenTechInd webhook error:', error);
   }
 };
