@@ -5,22 +5,27 @@ import { logger } from './logger.js';
 
 // Publish a bank response to the dedicated queue
 export const publishBankResponse = async (responseData) => {
-  const channel = getRabbitChannel();
-  if (!channel) throw new Error('RabbitMQ channel not initialized');
-  const queue = config.rabbitmq.bankResponseQueue;
-  await channel.assertQueue(queue, { durable: true });
-  const message = Buffer.from(JSON.stringify(responseData));
-  const result = channel.sendToQueue(queue, message, { persistent: true });
-  logger.info(`[RabbitMQ] Published to bankResponseQueue:`, responseData);
-  if (!result) {
-    logger.error('Failed to publish bank response to RabbitMQ', responseData);
+  try {
+    const channel = await getRabbitChannel();
+    if (!channel) throw new Error('RabbitMQ channel not initialized');
+    const queue = config.rabbitmq.bankResponseQueue;
+    await channel.assertQueue(queue, { durable: true });
+    const message = Buffer.from(JSON.stringify(responseData));
+    const result = channel.sendToQueue(queue, message, { persistent: true });
+    logger.info(`[RabbitMQ] Published to bankResponseQueue:`, responseData);
+    if (!result) {
+      logger.error('Failed to publish bank response to RabbitMQ', responseData);
+    }
+    return result;
+  } catch (err) {
+    logger.error('[RabbitMQ] Publish failed:', err.message, responseData);
+    throw err;
   }
-  return result;
 };
 
 // Consume bank responses from the queue
 export const consumeBankResponses = async (callback) => {
-  const channel = getRabbitChannel();
+  const channel = await getRabbitChannel();
   if (!channel) throw new Error('RabbitMQ channel not initialized');
   const queue = config.rabbitmq.bankResponseQueue;
   await channel.assertQueue(queue, { durable: true });
@@ -41,7 +46,7 @@ export const consumeBankResponses = async (callback) => {
 
 // Start a background worker to process all messages from the queue
 export const startBankResponseWorker = async (processFn) => {
-  const channel = getRabbitChannel();
+  const channel = await getRabbitChannel();
   if (!channel) throw new Error('RabbitMQ channel not initialized');
   const queue = config.rabbitmq.bankResponseQueue;
   await channel.assertQueue(queue, { durable: true });
