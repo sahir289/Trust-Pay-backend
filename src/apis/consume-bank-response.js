@@ -8,7 +8,7 @@ const router = express.Router();
 
 router.post('/consume-bank-response', async (req, res) => {
   try {
-    const channel = getRabbitChannel();
+    const channel = await getRabbitChannel();
     if (!channel) throw new Error('RabbitMQ channel not initialized');
     const queue = config.rabbitmq.bankResponseQueue;
     await channel.assertQueue(queue, { durable: true });
