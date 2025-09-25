@@ -94,6 +94,7 @@ export const tataPayTransactionStatusCallback = async (req, res) => {
       responseData,
       isApproved = false,
       isTransactionUnderProcess = false,
+      isReversed = false,
     ) => {
       const bankId = company.config.TATA_PAY.defaultBankId;
       const [bankVendor] = await getBankByIdDao({ id: bankId });
@@ -129,6 +130,11 @@ export const tataPayTransactionStatusCallback = async (req, res) => {
       } else if (!isApproved && isTransactionUnderProcess) {
         Object.assign(updatePayload, {
           status: Status.PENDING,
+        });
+      } else if (isReversed) {
+        Object.assign(updatePayload, {
+          status: Status.REVERSED,
+          rejected_at: new Date().toISOString(),
         });
       } else {
         updatePayload.config.rejected_reason =
@@ -189,7 +195,12 @@ export const tataPayTransactionStatusCallback = async (req, res) => {
     } else if (payoutData.status === 'approved') {
       await handlePayoutUpdate(payoutData, true);
     } else if (payoutData.status === 'rejected') {
-      await handlePayoutUpdate(payoutData, false);
+      if (singleWithdrawData.status === Status.APPROVED) {
+        await handlePayoutUpdate(payoutData, false, false, true);
+      }
+      else {
+        await handlePayoutUpdate(payoutData, false);
+      }
     } else {
       return res.status(400).send(statusResponse.data.ErrorMessage || 'Unknown status from payment provider');
     }
