@@ -146,27 +146,10 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
       }
     }
 
-    // const [merchant] = await getMerchantsDao({id: singleWithdrawData.merchant_id});
-
     // Log the updated payout status
     logger.info('Payout Updated by PayAssist callback', {
       status: singleWithdrawData.status,
     });
-
-    // Log the merchant payout URL
-    // const merchantPayoutUrl = merchant.config.urls.payout_notify;
-
-    // TODO: Implement the notification to the merchant's payout URL
-    // if (merchantPayoutUrl !== null) {
-    //   await merchantPayoutCallback(merchantPayoutUrl, {
-    //     code: merchant.code,
-    //     merchantOrderId: singleWithdrawData.merchant_order_id,
-    //     payoutId: singleWithdrawData.id,
-    //     amount: singleWithdrawData.amount,
-    //     status: payload.status,
-    //     utr_id: payload.utr ? payload.utr : '',
-    //   });
-    // }
 
     await commit(conn);
 
