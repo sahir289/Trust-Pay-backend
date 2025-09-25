@@ -124,7 +124,7 @@ export const tataPayTransactionStatusCallback = async (req, res) => {
           status: Status.APPROVED,
           utr_id: isTransactionUnderProcess
             ? responseData._id
-            : responseData.Bank_Utr,
+            : responseData.utr,
           approved_at: new Date().toISOString(),
         });
       } else if (!isApproved && isTransactionUnderProcess) {
