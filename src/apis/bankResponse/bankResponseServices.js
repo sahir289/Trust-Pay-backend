@@ -368,6 +368,10 @@ const createBankResponseService = async (
           });
 
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
+          const currentPayinBank = await getBankaccountDashBoardReportDao({
+            id: payInUtr.bank_acc_id,
+            company_id: companyId,
+          });
           if (updatePayInDataRes) {
             const obj = {
               id: updatePayInDataRes.id,
@@ -385,7 +389,7 @@ const createBankResponseService = async (
               updated_at: updatePayInDataRes.updated_at,
               user_submitted_utr: updatePayInDataRes.user_submitted_utr,
               bank_acc_id: updatePayInDataRes.bank_acc_id,
-              nick_name: bankDetails[0]?.nick_name || null,
+              nick_name: currentPayinBank[0]?.nick_name || null,
               user: updatePayInDataRes.user,
               vendor_code: (vendor && vendor[0]?.code) || null,
               vendor_user_id: (vendor && vendor[0]?.user_id) || null,
@@ -393,7 +397,7 @@ const createBankResponseService = async (
               config: updatePayInDataRes.config,
               merchant_details: {
                 merchant_code: merchantData[0]?.code || '',
-                dispute: updatePayInDataRes.status === 'DISPUTE',
+                dispute: updatePayInDataRes.status === Status.DISPUTE,
                 return_url: updatePayInDataRes.config?.urls?.return || null,
                 notify_url: updatePayInDataRes.config?.urls?.notify || null,
               },
@@ -520,7 +524,7 @@ const createBankResponseService = async (
             config: updatePayin.config,
             merchant_details: {
               merchant_code: merchantData[0]?.code || '',
-              dispute: updatePayin.status === 'DISPUTE',
+              dispute: updatePayin.status === Status.DISPUTE,
               return_url: updatePayin.config?.urls?.return || null,
               notify_url: updatePayin.config?.urls?.notify || null,
             },
@@ -620,7 +624,7 @@ const createBankResponseService = async (
               config: updatePayInDataRes.config,
               merchant_details: {
                 merchant_code: merchantData[0]?.code || '',
-                dispute: updatePayInDataRes.status === 'DISPUTE',
+                dispute: updatePayInDataRes.status === Status.DISPUTE,
                 return_url: updatePayInDataRes.config?.urls?.return || null,
                 notify_url: updatePayInDataRes.config?.urls?.notify || null,
               },
