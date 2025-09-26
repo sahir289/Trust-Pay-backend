@@ -1,10 +1,9 @@
-/* eslint-disable no-unused-vars */
 import dayjs from 'dayjs';
 import { nanoid } from 'nanoid';
 import { v4 as uuidv4 } from 'uuid';
 import querystring from 'querystring';
 import config from '../../config/config.js';
-import { razorpay } from '../webhooks/razorPay.js';
+// import { razorpay } from '../webhooks/razorPay.js';
 import { getPayoutsDao } from '../payOut/payOutDao.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
 import {
@@ -114,11 +113,11 @@ import { usedTokens } from '../../app.js';
 import {
   getCashfreeAllowByCompanyIdDao,
   getCompanyByIDDao,
-  getCompanyDetailsByIdDao,
+  // getCompanyDetailsByIdDao,
 } from '../company/companyDao.js';
 import { getAllUsersDao, getUserByIdDao } from '../users/userDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
-import { createCashfreeOrder, payOrder } from '../../cashfree/cashfree.js';
+import { createCashfreeOrder, } from '../../cashfree/cashfree.js';
 import { createZenTechIndTransaction } from '../../zentechind/zentechInd.js';
 
 export const generatePayInUrlByHashService = async (conn, req) => {
@@ -240,12 +239,10 @@ export const generatePayInUrlByHashService = async (conn, req) => {
 };
 
 export const generatePayInUrlService = async (
-  conn,
   payload,
   created_by,
   role,
   userIp,
-  fromUI,
 ) => {
   try {
     const {
@@ -1827,163 +1824,91 @@ export const processPayInWebHookService = async (
   payload,
   updated_by,
   tele_check = true,
-  img_utr = false,
-  designation,
 ) => {
   try {
-    const { userSubmittedUtr, merchantOrderId, amount } = payload;
+    const { userSubmittedUtr, merchantOrderId, amount, status } = payload;
 
     const payIn = await getPayInUrlService(merchantOrderId, conn, tele_check);
-
-    const banks = await getBankaccountDao({
+    const [bank] = await getBankaccountDao({
       id: payIn?.bank_acc_id,
       company_id: payIn.company_id,
     });
-    const bank = banks[0];
+    let [bankResponse] = await getBankResponseDao({
+      id: payIn.bank_response_id,
+    });
+    const [vendor] = await getVendorsDao({ user_id: bank.user_id });
+    let [merchant] = await getMerchantsDao({ id: payIn.merchant_id });
 
-    if (!bank) {
-      throw new NotFoundError('Bank not found!');
-    }
-
-    // Fetch vendor for vendor_code
-    const vendors = await getVendorsDao({ user_id: bank.user_id });
-    const vendor = vendors[0];
+    const upperStatus = status.toUpperCase();
+    const finalStatus =
+      upperStatus === 'USER_DROPPED' ? Status.DROPPED : upperStatus;
 
     const duration = calculateDuration(payIn.created_at);
     const updatePayInData = {
       amount,
-      //img_utr only for updating utr directly when image uploaded
-      user_submitted_utr:
-        tele_check || img_utr
-          ? userSubmittedUtr
-          : payIn?.user_submitted_utr
-            ? payIn?.user_submitted_utr
-            : null,
-      status:
-        img_utr && payIn.status === Status.IMG_PENDING
-          ? 'PENDING'
-          : payIn.status,
+      user_submitted_utr: userSubmittedUtr,
+      status: finalStatus,
+      bank_response_id: bankResponse.id,
       is_url_expires: true,
       one_time_used: true,
       duration,
-      user_submitted_image: user_submitted_image || payIn.user_submitted_image,
       is_notified: true,
       updated_by: updated_by || '',
-    };
-    let bankResponse = {};
-    if (payIn.bank_response_id) {
-      bankResponse =
-        (await getBankResponseDao({ id: payIn.bank_response_id })) || {};
-    } else if (!bankResponse || !bankResponse.utr) {
-      const statuses =
-        designation === Role.ADMIN ? ['/success', '/freezed'] : ['/success'];
-      bankResponse =
-        (await getBankResponsePayinDao({
-          utr: userSubmittedUtr,
-          status: statuses,
-          company_id: payIn.company_id,
-        })) || {};
-    }
-    const result = {
-      status: payIn.status,
-      merchantOrderId: payIn.merchant_order_id,
-      payinId: payIn.id,
-      amount: bankResponse.amount,
-      req_amount: payIn.amount,
-      utr_id: payIn.user_submitted_utr,
+      approved_at:
+        finalStatus === Status.SUCCESS ? new Date().toISOString() : null,
     };
 
-    updatePayInData.status = Status.SUCCESS;
-    updatePayInData.bank_response_id = bankResponse.id;
-    updatePayInData.approved_at =
-      updatePayInData.status == Status.SUCCESS
-        ? new Date().toISOString()
-        : null;
-    result.amount = bankResponse.amount;
-    result.utr_id = bankResponse.utr;
-
-    let merchant;
-    merchant = await getMerchantsDao({ id: payIn.merchant_id });
-    if (updatePayInData.status === Status.SUCCESS) {
-      // update merchant balance
-      // await updateMerchantBalanceDao(
-      //   { id: payIn.merchant_id },
-      //   bankResponse.amount,
-      //   updated_by,
-      //   conn,
-      // );
-      // update vendor balance
-      // await updateVendorBalanceDao(
-      //   { user_id: bank.user_id },
-      //   bankResponse.amount,
-      //   updated_by,
-      //   conn,
-      // );
-
-      // merchant = await getMerchantsDao({ id: payIn.merchant_id });
-      const commissions = calculateCommission(
+    if (finalStatus === Status.SUCCESS) {
+      const merchantCommission = calculateCommission(
         bankResponse.amount,
-        Number(merchant[0].payin_commission),
+        Number(merchant.payin_commission),
       );
-      updatePayInData.payin_merchant_commission = Number(commissions);
-      const bank = await getBankaccountDao({
-        id: bankResponse.bank_id,
-      });
-      const vendors = await getVendorsDao({
-        user_id: bank[0].user_id,
-      });
-      const vendor = vendors[0];
       const vendorCommission = calculateCommission(
         bankResponse.amount,
-        Number(vendor.payin_commission),
+        Number(vendor?.payin_commission),
       );
-      updatePayInData.payin_vendor_commission = Number(vendorCommission);
+
+      updatePayInData.payin_merchant_commission = merchantCommission;
+      updatePayInData.payin_vendor_commission = vendorCommission;
+
       await updateCalculationTable(
-        merchant[0].user_id,
+        merchant.user_id,
         {
-          payinCommission: Number(commissions),
+          payinCommission: merchantCommission,
           amount: Number(bankResponse.amount),
         },
         conn,
       );
     }
 
-    // if (updatePayInData.status === Status.DISPUTE) {
-    // update bank balance
-    // (updated_by = updated_by ? updated_by : bank.updated_by),
-    //   await updateBanktBalanceDao(
-    //     { id: bank.id },
-    //     payIn.amount,
-    //     updated_by,
-    //     conn,
-    //   );
-    // await updateBankaccountService(
-    //   conn,
-    //   { id: bank.id, company_id: payIn.company_id },
-    //   {},
-    // );
-    // }
-
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-    // After updating payin, build the response object
+
+    const result = {
+      status: finalStatus,
+      merchantOrderId: payIn.merchant_order_id,
+      payinId: payIn.id,
+      amount: bankResponse.amount,
+      req_amount: payIn.amount,
+      utr_id: payIn.user_submitted_utr,
+    };
+    logger.info('Webhook processing result:', result);
 
     const responseObj = {
       id: payIn.id,
       sno: payIn.sno,
-      amount: amount,
-      status: updatePayInData.status,
-      user_submitted_utr: updatePayInData.user_submitted_utr,
-      user_submitted_image: updatePayInData.user_submitted_image || null,
-      duration: updatePayInData.duration,
+      amount,
+      status: finalStatus,
+      user_submitted_utr: userSubmittedUtr,
+      duration,
       merchant_id: payIn.merchant_id,
       nick_name: bank.nick_name,
       vendor_user_id: vendor?.id || null,
-      bank_acc_id: updatePayInData.bank_acc_id,
+      bank_acc_id: payIn.bank_acc_id,
       payin_merchant_commission:
         updatePayInData.payin_merchant_commission || null,
       merchant_details: {
-        merchant_code: merchant && merchant[0] ? merchant[0].code : null,
-        dispute: updatePayInData.status === Status.DISPUTE,
+        merchant_code: merchant?.code || null,
+        dispute: finalStatus === Status.DISPUTE,
         return_url: payIn.config?.urls?.return || null,
         notify_url: payIn.config?.urls?.notify || null,
       },
@@ -2006,6 +1931,7 @@ export const processPayInWebHookService = async (
     await newTableEntry(tableName.PAYIN, responseObj);
     // This is async function but it's just the callback sending function there fore we are not using await
     merchantPayinCallback(payIn.config?.urls?.notify, result);
+
     return result;
   } catch (error) {
     logger.error('Error processing PayIn:', error);
