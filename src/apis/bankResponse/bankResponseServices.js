@@ -16,11 +16,15 @@ import {
   getClaimResponseDao,
   getBankResponseBySearchDao,
   resetBankResponseDao,
+  getForCreateBankResponseDao,
+  getCheckBankResponseDao,
 } from './bankResponseDao.js';
 import { logger } from '../../utils/logger.js';
 import {
   getBankaccountDao,
   updateBankaccountDao,
+  getBankaccountCheckDao,
+  getBankaccountDashBoardReportDao,
 } from '../bankAccounts/bankaccountDao.js';
 import {
   // getPayInUrlsDao,
@@ -28,9 +32,13 @@ import {
   getPayInsForResetBankResDao,
   updatePayInUrlDao,
 } from '../payIn/payInDao.js';
-import { getMerchantsDao } from '../merchants/merchantDao.js';
+import { getMerchantsBankResponseDao } from '../merchants/merchantDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
-import { getVendorsDao, updateVendorDao } from '../vendors/vendorDao.js';
+import {
+  getVendorsDao,
+  updateVendorDao,
+  getVendorsBankReponseDao,
+} from '../vendors/vendorDao.js';
 import { newTableEntry } from '../../utils/sockets.js';
 import {
   columns,
@@ -70,12 +78,6 @@ const createBankResponseService = async (
   let localConn;
   try {
     localConn = await getConnection();
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.BANK_RESPONSE
-        : role === Role.VENDOR
-          ? vendorColumns.BANK_RESPONSE
-          : columns.BANK_RESPONSE;
 
     const splitData = payload.split(' ');
     const amount = parseFloat(splitData[0]);
@@ -93,18 +95,12 @@ const createBankResponseService = async (
     if (!isValidAmount) {
       throw new BadRequestError(`amount must be between 1 and 500000`);
     }
-
-    const bankCompanyCheck = await getBankaccountDao(
-      {
-        id: bank_id,
-        company_id: companyId,
-      },
-      null,
-      null,
-      role,
-    );
-
-    if (!bankCompanyCheck || bankCompanyCheck?.length === 0) {
+    const bankCompanyCheck = await getBankaccountCheckDao({
+      id: bank_id,
+      company_id: companyId,
+      bank_used_for: 'PayIn',
+    });
+    if (!bankCompanyCheck) {
       throw new NotFoundError('Bank account does not exist for this company');
     }
 
@@ -149,35 +145,16 @@ const createBankResponseService = async (
 
     let utrAlreadyExist;
     if (isValidAmountCode) {
-      utrAlreadyExist = await getBankResponseDao(
-        { upi_short_code, company_id },
-        null,
-        null,
-        null,
-        null,
-        filterColumns,
-      );
+      utrAlreadyExist = await getCheckBankResponseDao({
+        upi_short_code,
+        company_id,
+      });
       if (!utrAlreadyExist) {
-        utrAlreadyExist = await getBankResponseDao(
-          { utr, company_id },
-          null,
-          null,
-          null,
-          null,
-          filterColumns,
-        );
+        utrAlreadyExist = await getCheckBankResponseDao({ utr, company_id });
       }
     } else {
-      utrAlreadyExist = await getBankResponseDao(
-        { utr, company_id },
-        null,
-        null,
-        null,
-        null,
-        filterColumns,
-      );
+      utrAlreadyExist = await getCheckBankResponseDao({ utr, company_id });
     }
-
     const isRepeated = utrAlreadyExist;
 
     const updatedData = {
@@ -241,15 +218,10 @@ const createBankResponseService = async (
       let bankDetails = [];
       ////for bank account ////vendor calculation
       if (botRes.status === '/success') {
-        bankDetails = await getBankaccountDao(
-          {
-            id: botRes?.bank_id,
-            company_id: company_id,
-          },
-          null,
-          null,
-          role,
-        );
+        bankDetails = await getBankaccountDashBoardReportDao({
+          id: botRes?.bank_id,
+          company_id: companyId,
+        });
         if (
           isNaN(bankDetails[0].balance) ||
           isNaN(bankDetails[0].today_balance)
@@ -276,7 +248,7 @@ const createBankResponseService = async (
           company_id,
           bankDetails[0].user_id,
         );
-        vendor = await getVendorsDao({
+        vendor = await getVendorsBankReponseDao({
           user_id: bankDetails[0].user_id,
         });
         if (isNaN(vendor[0].balance)) {
@@ -293,10 +265,14 @@ const createBankResponseService = async (
           botRes.amount,
           vendor[0].payin_commission,
         );
-        await updateCalculationTable(vendor[0].user_id, {
-          payinCommission: payinVendorCommission,
-          amount: botRes.amount,
-        }, localConn);
+        await updateCalculationTable(
+          vendor[0].user_id,
+          {
+            payinCommission: payinVendorCommission,
+            amount: botRes.amount,
+          },
+          localConn,
+        );
       }
       let duration;
       let checkPayInUtr;
@@ -317,14 +293,10 @@ const createBankResponseService = async (
             ? checkPayInUtr[0]
             : checkPayInUtr[checkPayInUtr.length - 1];
         if (upi_short_code && isValidAmountCode) {
-          const getDataByUtr = await getBankResponseDaoAll(
-            { utr: payInUtr.user_submitted_utr, company_id },
-            null,
-            null,
-            filterColumns,
-            null,
-            null,
-          );
+          const getDataByUtr = await getForCreateBankResponseDao({
+            utr: payInUtr.user_submitted_utr,
+            company_id,
+          });
           const botUtrIsUsed =
             getDataByUtr.rows.length > 1 &&
             getDataByUtr.some((item) => item.is_used);
@@ -336,17 +308,22 @@ const createBankResponseService = async (
             };
           }
         }
-        const isBankExist = await getBankaccountDao(
-          { id: bank_id, company_id },
-          null,
-          null,
-          role,
-        );
+        const isBankExist = await getBankaccountDashBoardReportDao({
+          id: bank_id,
+          company_id,
+        });
 
-        if (isBankExist && isBankExist[0].config.is_freeze === true && role !== Role.ADMIN) {
+        if (
+          isBankExist &&
+          (isBankExist[0]?.config?.is_freeze === true ||
+            isBankExist[0]?.freezed === 'true') &&
+          role !== Role.ADMIN
+        ) {
           await commit(localConn);
           // if (shouldRelease) localConn.release();
-          return { message: `Entry Created Successfully. But as Bank Account is freezed entry is not paired. Please contact admin` };
+          return {
+            message: `Entry Created Successfully. But as Bank Account is freezed entry is not paired. Please contact admin`,
+          };
         }
 
         if (!isBankExist || payInUtr.bank_acc_id !== bank_id) {
@@ -382,17 +359,18 @@ const createBankResponseService = async (
             payInUtr.id,
             payInData,
             localConn,
+            {utr:botRes.utr ,amount :botRes.amount}  //temperary
           );
 
-          const merchantData = await getMerchantsDao(
-            { id: payInUtr.merchant_id },
-            null,
-            null,
-            null,
-            null,
-          );
+          const merchantData = await getMerchantsBankResponseDao({
+            id: payInUtr.merchant_id,
+          });
 
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
+          const currentPayinBank = await getBankaccountDashBoardReportDao({
+            id: payInUtr.bank_acc_id,
+            company_id: companyId,
+          });
           if (updatePayInDataRes) {
             const obj = {
               id: updatePayInDataRes.id,
@@ -410,7 +388,7 @@ const createBankResponseService = async (
               updated_at: updatePayInDataRes.updated_at,
               user_submitted_utr: updatePayInDataRes.user_submitted_utr,
               bank_acc_id: updatePayInDataRes.bank_acc_id,
-              nick_name: bankDetails[0]?.nick_name || null,
+              nick_name: currentPayinBank[0]?.nick_name || null,
               user: updatePayInDataRes.user,
               vendor_code: (vendor && vendor[0]?.code) || null,
               vendor_user_id: (vendor && vendor[0]?.user_id) || null,
@@ -418,7 +396,7 @@ const createBankResponseService = async (
               config: updatePayInDataRes.config,
               merchant_details: {
                 merchant_code: merchantData[0]?.code || '',
-                dispute: updatePayInDataRes.status === 'DISPUTE',
+                dispute: updatePayInDataRes.status === Status.DISPUTE,
                 return_url: updatePayInDataRes.config?.urls?.return || null,
                 notify_url: updatePayInDataRes.config?.urls?.notify || null,
               },
@@ -451,59 +429,34 @@ const createBankResponseService = async (
           };
         }
 
-        const existingResponse = await getBankResponseDao(
-          { utr, is_used: true, company_id },
-          null,
-          null,
-          null,
-          null,
-          filterColumns,
-        );
+        const existingResponse = await getForCreateBankResponseDao({
+          utr,
+          is_used: true,
+          company_id,
+        });
         if (existingResponse?.length > 0) {
           await commit(localConn);
           // if (shouldRelease) localConn.release();
           return { message: `The UTR already exists` };
         }
-        const merchantData = await getMerchantsDao(
-          { id: payInUtr.merchant_id },
-          null,
-          null,
-          null,
-          null,
-        );
+        const merchantData = await getMerchantsBankResponseDao({
+          id: payInUtr.merchant_id,
+        });
         const payinMerchantCommission = calculateCommission(
           botRes.amount,
           merchantData[0].payin_commission,
         );
-        const bankAccountDetails = await getBankaccountDao(
-          { id: payInUtr.bank_acc_id, company_id },
-          null,
-          null,
-          role,
-        );
-        const vendorData = await getVendorsDao(
-          { user_id: bankAccountDetails[0].user_id },
-          null,
-          null,
-          null,
-          null,
-        );
+        const bankAccountDetails = await getBankaccountDashBoardReportDao({
+          id: payInUtr.bank_acc_id,
+          company_id,
+        });
+        const vendorData = await getVendorsBankReponseDao({
+          user_id: bankAccountDetails[0].user_id,
+        });
         const payinVendorCommission = calculateCommission(
           botRes.amount,
           vendorData[0].payin_commission,
         );
-        // const durMs = new Date() - payInUtr.created_at;
-        // const durSeconds = Math.floor((durMs / 1000) % 60)
-        //   .toString()
-        //   .padStart(2, '0');
-        // const durMinutes = Math.floor((durSeconds / 60) % 60)
-        //   .toString()
-        //   .padStart(2, '0');
-        // const durHours = Math.floor((durMinutes / 60) % 24)
-        //   .toString()
-        //   .padStart(2, '0');
-        // const duration = `${durHours}:${durMinutes}:${durSeconds}`;
-        // const duration = calculateDuration(payInUtr.created_at);
 
         if (
           payInUtr.amount === amount ||
@@ -545,6 +498,7 @@ const createBankResponseService = async (
             payInUtr.id,
             payInData,
             localConn,
+            { utr: botRes.utr, amount: botRes.amount }, //temperary
           );
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
 
@@ -569,7 +523,7 @@ const createBankResponseService = async (
             config: updatePayin.config,
             merchant_details: {
               merchant_code: merchantData[0]?.code || '',
-              dispute: updatePayin.status === 'DISPUTE',
+              dispute: updatePayin.status === Status.DISPUTE,
               return_url: updatePayin.config?.urls?.return || null,
               notify_url: updatePayin.config?.urls?.notify || null,
             },
@@ -593,10 +547,14 @@ const createBankResponseService = async (
           if (isNaN(merchantDataBalance)) {
             throw new BadRequestError('Invalid amount or commission');
           }
-          await updateCalculationTable(merchantData[0].user_id, {
-            payinCommission: payinMerchantCommission,
-            amount: botRes.amount,
-          }, localConn);
+          await updateCalculationTable(
+            merchantData[0].user_id,
+            {
+              payinCommission: payinMerchantCommission,
+              amount: botRes.amount,
+            },
+            localConn,
+          );
           await commit(localConn);
           // if (shouldRelease) localConn.release();
           return {
@@ -637,6 +595,7 @@ const createBankResponseService = async (
             payInUtr.id,
             payInData,
             localConn,
+            { utr: botRes.utr, amount: botRes.amount }, //temperary
           );
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
           if (updatePayInDataRes) {
@@ -664,7 +623,7 @@ const createBankResponseService = async (
               config: updatePayInDataRes.config,
               merchant_details: {
                 merchant_code: merchantData[0]?.code || '',
-                dispute: updatePayInDataRes.status === 'DISPUTE',
+                dispute: updatePayInDataRes.status === Status.DISPUTE,
                 return_url: updatePayInDataRes.config?.urls?.return || null,
                 notify_url: updatePayInDataRes.config?.urls?.notify || null,
               },
@@ -763,6 +722,271 @@ const createBankResponseService = async (
   }
 };
 
+const createBankResponseWebHookService = async (
+  payload,
+  companyId,
+  role,
+  name,
+  // user_id,
+) => {
+  let localConn;
+  try {
+    localConn = await getConnection();
+
+    const splitData = payload.split(' ');
+    const amount = parseFloat(splitData[0]);
+    const upi_short_code = splitData.length > 1 ? splitData[1] : '';
+    const utr = splitData[2];
+    const bank_id = splitData[3];
+    const from_UI = splitData[4];
+    let vendor;
+
+    // Early validation
+    const isValidAmount = amount >= 1 && amount <= 500000;
+    if (!isValidAmount) {
+      throw new BadRequestError(`amount must be between 1 and 500000`);
+    }
+    const bankCompanyCheck = await getBankaccountCheckDao({
+      id: bank_id,
+      company_id: companyId,
+      bank_used_for: 'PayIn',
+    });
+    if (!bankCompanyCheck) {
+      throw new NotFoundError('Bank account does not exist for this company');
+    }
+
+    // UTR validation
+    const validateUTR = (utr, from_UI) => {
+      if (!from_UI) return true;
+      const validSeparators = [',', ';', '|'];
+      const hasSeparators = validSeparators.some((sep) => utr.includes(sep));
+      if (hasSeparators) {
+        const utrArray = utr
+          .split(/[,;|]/)
+          .map((u) => u.trim())
+          .filter((u) => u);
+        return !utrArray.some((u) => !/^[a-zA-Z0-9]+$/.test(u));
+      }
+      return /^[a-zA-Z0-9]+$/.test(utr);
+    };
+
+    if (!validateUTR(utr, from_UI)) {
+      return { message: 'UTRs can only contain alphanumeric characters.' };
+    }
+
+    const created_by = name || 'Bank Response';
+    const updated_by = name || 'Bank Response';
+    const company_id = companyId;
+    const isValidAmountCode = !!(
+      upi_short_code &&
+      upi_short_code !== 'nil' &&
+      upi_short_code.length === 5
+    );
+    
+    if (
+      upi_short_code !== 'undefined' &&
+      upi_short_code !== 'nil' &&
+      !isValidAmountCode
+    ) {
+      throw new BadRequestError(`Please Enter valid Amount Code!`);
+    }
+
+    let utrAlreadyExist;
+    if (isValidAmountCode) {
+      utrAlreadyExist = await getCheckBankResponseDao({
+        upi_short_code,
+        company_id,
+      });
+      if (!utrAlreadyExist) {
+        utrAlreadyExist = await getCheckBankResponseDao({ utr, company_id });
+      }
+    } else {
+      utrAlreadyExist = await getCheckBankResponseDao({ utr, company_id });
+    }
+    const isRepeated = utrAlreadyExist;
+
+    const updatedData = {
+      status: isRepeated ? '/repeated' : '/success',
+      amount,
+      utr,
+      bank_id,
+      // config: { from_UI },
+      is_used: 'false',
+      created_by,
+      updated_by,
+      company_id,
+      ...(isValidAmountCode && { upi_short_code }),
+    };
+
+    // if (isValidAmountCode) {
+    //   const isAmountCodeExist = await getBankResponseDao(
+    //     { upi_short_code, company_id },
+    //     null,
+    //     null,
+    //     null,
+    //     null,
+    //     filterColumns,
+    //   );
+    //   if (isAmountCodeExist) {
+    //     return { message: 'Amount code already exist' };
+    //   }
+    // }
+
+    // const sendNotification = async (status, data) => {
+    //   await notifyNewTableEntry(tableName.BANK_RESPONSE, status, data);
+    // };
+
+    let botRes;
+
+    // Use a transaction for all DB operations for a single entry
+    try {
+      // localConn = await getConnection();
+      await beginTransaction(localConn);
+      botRes = await createBankResponseDao(localConn, updatedData);
+      // await sendNotification(updatedData.status.replace('/', ''), {
+      //   id: botRes.id,
+      //   utr: botRes.utr,
+      //   amount: botRes.amount,
+      //   bank_id: botRes.bank_id,
+      //   company_id: botRes.company_id,
+      //   created_by: botRes.created_by,
+      // });
+
+      if (updatedData.status === '/repeated') {
+        await commit(localConn);
+        // if (shouldRelease) localConn.release();
+        if (isValidAmountCode) {
+          return {
+            message: `Entry with REPEATED AMOUNT CODE: ${upi_short_code} Added`,
+          };
+        } else {
+          return { message: `Entry with REPEATED UTR: ${utr} Added` };
+        }
+      }
+      let bankDetails = [];
+      ////for bank account ////vendor calculation
+      if (botRes.status === '/success') {
+        bankDetails = await getBankaccountDashBoardReportDao({
+          id: botRes?.bank_id,
+          company_id: companyId,
+        });
+        if (
+          isNaN(bankDetails[0].balance) ||
+          isNaN(bankDetails[0].today_balance)
+        ) {
+          throw new BadRequestError('Invalid amount or commission');
+        }
+        const res = await updateBankaccountDao(
+          { id: botRes?.bank_id, company_id: companyId },
+          {
+            balance:
+              parseFloat(bankDetails[0].balance) + parseFloat(botRes.amount),
+            today_balance:
+              parseFloat(bankDetails[0].today_balance) +
+              parseFloat(botRes.amount),
+            payin_count: parseFloat(bankDetails[0].payin_count + 1),
+          },
+          localConn,
+        );
+        await updateBankaccountService(
+          localConn,
+          { id: botRes?.bank_id, company_id: companyId },
+          { latest_balance: res.today_balance },
+          role,
+          companyId,
+          bankDetails[0].user_id,
+        );
+        vendor = await getVendorsBankReponseDao({
+          user_id: bankDetails[0].user_id,
+        });
+        if (isNaN(vendor[0].balance)) {
+          throw new BadRequestError('Invalid amount or commission');
+        }
+        await updateVendorDao(
+          { id: vendor[0].id },
+          {
+            balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount),
+          },
+          localConn,
+        );
+        const payinVendorCommission = calculateCommission(
+          botRes.amount,
+          vendor[0].payin_commission,
+        );
+        await updateCalculationTable(
+          vendor[0].user_id,
+          {
+            payinCommission: payinVendorCommission,
+            amount: botRes.amount,
+          },
+          localConn,
+        );
+      }
+
+      await commit(localConn);
+
+      // const bankDetails = await getBankaccountDao(
+      //   { id: botRes?.bank_id, company_id: companyId },
+      //   null,
+      //   null,
+      //   role,
+      // );
+      //  let vendorData = bankDetails[0]
+      //     ? await getVendorsDao({ user_id: bankDetails[0].user_id })
+      //     : [];
+      const responseObj = {
+        id: botRes.id,
+        sno: botRes.sno,
+        status: botRes.status,
+        bank_id: botRes.bank_id,
+        amount: botRes.amount,
+        upi_short_code: botRes.upi_short_code || null,
+        utr: botRes.utr,
+        is_used: botRes.is_used === 'true',
+        created_at: botRes.created_at,
+        updated_at: botRes.updated_at,
+        created_by: botRes.created_by,
+        config: botRes.config || {},
+        updated_by: botRes.updated_by,
+        details: {
+          is_intent: bankDetails[0]?.config?.is_intent || false,
+          merchants: bankDetails[0]?.config?.merchants || [],
+          is_phonepay: bankDetails[0]?.config?.is_phonepay || false,
+        },
+        nick_name: bankDetails[0]?.nick_name || null,
+        vendor_user_id: vendor[0]?.user_id || null,
+        vendor_code: vendor[0]?.code || null,
+        company_id: companyId,
+      };
+      // Send to socket for real-time update
+      await newTableEntry(tableName.BANK_RESPONSE, responseObj);
+      return { message: `Entry created successfully`, data: responseObj };
+    } catch (err) {
+      logger.error('Error performating transactions', err);
+      throw err;
+    }
+  } catch (error) {
+    if (localConn) {
+      try {
+        await rollback(localConn);
+      } catch (rollbackErr) {
+        logger.error('Error during rollback:', rollbackErr);
+      }
+    }
+
+    logger.error('Error in createBankResponseService:', error.message);
+    throw error;
+  } finally {
+    if (localConn) {
+      try {
+        if (localConn) localConn.release();
+      } catch (releaseErr) {
+        logger.error('Error releasing connection:', releaseErr);
+      }
+    }
+  }
+};
+
 const updateCalculationTable = async (user_id, data, conn) => {
   try {
     if (isNaN(data.amount - data.payinCommission)) {
@@ -786,7 +1010,7 @@ const updateCalculationTable = async (user_id, data, conn) => {
         },
         conn,
       );
-      
+
       await trackVendorsNetBalance(user_id, conn, response);
       return response;
     }
@@ -834,7 +1058,7 @@ const getBankResponseService = async (
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.BANK_RESPONSE
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.BANK_RESPONSE
           : columns.BANK_RESPONSE;
 
@@ -860,10 +1084,10 @@ const getBankResponseService = async (
     };
     sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
 
-    const fetchBankIds = async (user_id) => {
+    const fetchBankIds = async (user_ids) => {
       try {
         const banks = await getBankaccountDao({
-          user_id,
+          user_id: user_ids,
           bank_used_for: 'PayIn',
         });
         if (!banks || banks.length === 0) {
@@ -876,13 +1100,32 @@ const getBankResponseService = async (
       }
     };
 
-    if (designation === Role.VENDOR) {
+    if (designation === Role.VENDOR && !filters.bank_id) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchy = userHierarchys?.[0];
+
+      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+      if (Array.isArray(subVendors) && subVendors.length > 0) {
+        const vendorUserIds = [user_id, ...subVendors];
+        filters.bank_id = await fetchBankIds(vendorUserIds);
+      } else {
+        filters.bank_id = await fetchBankIds(user_id);
+      }
+    } else if (designation === Role.SUB_VENDOR && !filters.bank_id) {
       filters.bank_id = await fetchBankIds(user_id);
     } else if (designation === Role.VENDOR_OPERATIONS) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
-      const parentID = userHierarchys?.[0]?.config?.parent;
+      const userHierarchy = userHierarchys?.[0];
+      const parentID = userHierarchy?.config?.parent;
       if (parentID) {
-        filters.bank_id = await fetchBankIds(parentID);
+        const parentHierarchys = await getUserHierarchysDao({
+          user_id: parentID,
+        });
+        const parentHierarchy = parentHierarchys?.[0];
+        const subVendors = parentHierarchy?.config?.siblings?.sub_vendors ?? [];
+
+        const userIdFilter = [...new Set([parentID, ...subVendors])];
+        filters.bank_id = await fetchBankIds(userIdFilter);
       }
     }
 
@@ -920,7 +1163,7 @@ const getBankResponseBySearchService = async (
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.BANK_RESPONSE
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.BANK_RESPONSE
           : columns.BANK_RESPONSE;
 
@@ -948,10 +1191,10 @@ const getBankResponseBySearchService = async (
     };
     sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
 
-    const fetchBankIds = async (user_id) => {
+    const fetchBankIds = async (user_ids) => {
       try {
         const banks = await getBankaccountDao({
-          user_id,
+          user_id: user_ids,
           bank_used_for: 'PayIn',
         });
         if (!banks || banks.length === 0) {
@@ -965,12 +1208,31 @@ const getBankResponseBySearchService = async (
     };
 
     if (designation === Role.VENDOR) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchy = userHierarchys?.[0];
+
+      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+      if (Array.isArray(subVendors) && subVendors.length > 0) {
+        const vendorUserIds = [user_id, ...subVendors];
+        filters.bank_id = await fetchBankIds(vendorUserIds);
+      } else {
+        filters.bank_id = await fetchBankIds(user_id);
+      }
+    } else if (designation === Role.SUB_VENDOR) {
       filters.bank_id = await fetchBankIds(user_id);
     } else if (designation === Role.VENDOR_OPERATIONS) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
-      const parentID = userHierarchys?.[0]?.config?.parent;
+      const userHierarchy = userHierarchys?.[0];
+      const parentID = userHierarchy?.config?.parent;
       if (parentID) {
-        filters.bank_id = await fetchBankIds(parentID);
+        const parentHierarchys = await getUserHierarchysDao({
+          user_id: parentID,
+        });
+        const parentHierarchy = parentHierarchys?.[0];
+        const subVendors = parentHierarchy?.config?.siblings?.sub_vendors ?? [];
+
+        const userIdFilter = [...new Set([parentID, ...subVendors])];
+        filters.bank_id = await fetchBankIds(userIdFilter);
       }
     }
 
@@ -984,6 +1246,7 @@ const getBankResponseBySearchService = async (
       sortOrder || 'DESC',
       payload.startDate || undefined,
       payload.endDate || undefined,
+      role
     );
 
     return data;
@@ -998,7 +1261,7 @@ const updateBankResponseService = async (id, payload, role) => {
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.BANK_RESPONSE
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.BANK_RESPONSE
           : columns.BANK_RESPONSE;
     conn = await getConnection();
@@ -1044,7 +1307,7 @@ const getBankMessageServices = async (
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.BANK_RESPONSE
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.BANK_RESPONSE
           : columns.BANK_RESPONSE;
     const pageNumber = parseInt(page, 10) || 1;
@@ -1897,8 +2160,12 @@ const updateCalculationBalances = async (
       updates,
       conn,
     );
-    
-    await trackVendorsNetBalance(currentCalculation[0].user_id, conn, updatedCurrentCalculation);
+
+    await trackVendorsNetBalance(
+      currentCalculation[0].user_id,
+      conn,
+      updatedCurrentCalculation,
+    );
 
     if (nextCalculations.length > 0) {
       // Update subsequent calculations
@@ -1922,7 +2189,7 @@ const updateCalculationBalances = async (
           },
           conn,
         );
-        
+
         await trackVendorsNetBalance(calc.user_id, conn, updatedCalc);
       }
     }
@@ -1941,4 +2208,5 @@ export {
   getBankResponseBySearchService,
   resetBankResponseService,
   importBankResponseService,
+  createBankResponseWebHookService,
 };

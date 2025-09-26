@@ -169,10 +169,29 @@ const getCompanyNamesDao = async () => {
 };
 const getCompanyDetailsByIdDao = async (id) => {
   try {
-    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist FROM "${tableName.COMPANY}" WHERE 1 = 1`;
+    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist, config ->> 'allowTataPay' AS allowTataPay FROM "${tableName.COMPANY}" WHERE 1 = 1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, id);
     const result = await executeQuery(sql, queryParams);
     return result.rows.length > 0 ? result.rows : result.rows[0];
+  } catch (error) {
+    logger.error('Error fetching company details by ID:', error);
+    throw error;
+  }
+};
+
+const getCashfreeAllowByCompanyIdDao = async (id) => {
+  try {
+    const sql = `
+      SELECT 
+        CONCAT(first_name, ' ', last_name) AS full_name, 
+        COALESCE((config ->> 'allow_cashfree')::boolean, false) AS allow_cashfree,
+        COALESCE((config ->> 'allow_zentechind')::boolean, false) AS allow_zentechind
+      FROM "${tableName.COMPANY}"
+      WHERE id = $1
+    `
+    const queryParams = [id];
+    const result = await executeQuery(sql, queryParams);
+    return result.rows[0];
   } catch (error) {
     logger.error('Error fetching company details by ID:', error);
     throw error;
@@ -244,6 +263,7 @@ export {
   updateCompanyDao,
   deleteCompanyDao,
   getCompanyByIDDao,
+  getCashfreeAllowByCompanyIdDao,
   updateCompanyConfigDao,
   getCompanyDetailsByIdDao,
   getCompanyNamesDao,

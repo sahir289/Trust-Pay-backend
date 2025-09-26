@@ -70,6 +70,7 @@ const createCompanyService = async (conn, payload, user_name, bySuperAdmin) => {
       telegramDuplicateDisputeChatId: '',
       telegramCheckUTRHistoryChatId: '',
       allowPayAssist: '',
+      allowcashfree: false,
       PAY_ASSIST: {
         walletsPayoutsUrl: 'https://payassist.co.in/apiPayout',
         walletsPayoutsAgentCode: '',

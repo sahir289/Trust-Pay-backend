@@ -10,11 +10,14 @@ import {
   checkPayOutStatus,
   walletsPayouts,
   assignedPayout,
-  getWalletsBalance
+  getWalletsBalance,
+  tataPayPayouts,
+  getTataPayBalance
 } from './payOutController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 import { payAssistTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payAsistWebHook.js';
+import { tataPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/tataPayWebHook.js';
 const router = express.Router();
 
 /**
@@ -99,6 +102,11 @@ router.get(
   '/wallets-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getWalletsBalance),
+); 
+router.get(
+  '/tatapay-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getTataPayBalance),
 ); 
 router.get(
   '/:id',
@@ -253,8 +261,19 @@ router.post(
 ); 
 
 router.post(
+  '/tatapay-payouts',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(tataPayPayouts),
+); 
+
+router.post(
   '/payassist-callback',
   tryCatchHandler(payAssistTransactionStatusCallback),
+); 
+
+router.post(
+  '/tatapay-callback',
+  tryCatchHandler(tataPayTransactionStatusCallback),
 ); 
 
 // router.post(

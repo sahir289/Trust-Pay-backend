@@ -59,7 +59,7 @@ import { createHash, compareHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
 import { sendBankNotAssignedAlertTelegram } from '../../utils/sendTelegramMessages.js';
-import { getCompanyByIDDao } from '../company/companyDao.js';
+import {  getCompanyByIDDao } from '../company/companyDao.js';
 import { getRolesById } from '../roles/rolesDao.js';
 import { Role } from '../../constants/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
@@ -273,7 +273,7 @@ export const generatePayInUrl = async (req, res) => {
     payinId: result?.id,
     merchantOrderId: result?.merchant_order_id,
     status: result?.status,
-    isAdmin: role === Role.ADMIN ? true : false, 
+    isAdmin: role === Role.ADMIN ? true : false,
   };
 
   if (result.status === 400 || result.status === 404) {
@@ -308,6 +308,7 @@ export const validatePayInUrl = async (req, res) => {
   return sendSuccess(res, result, 'Payment Url is correct');
 };
 
+
 export const generateUpiUrl = async (req, res) => {
   const payload = req.body;
 
@@ -330,7 +331,6 @@ export const assignedBankToPayInUrl = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const { roleToken, amount, type } = req.body;
-
 
   const result = await assignedBankToPayInUrlService(
     req.params.merchantOrderId,
@@ -375,19 +375,35 @@ export const checkPayInStatus = async (req, res) => {
 };
 
 export const payInIntentGenerateOrder = async (req, res) => {
-  const { payInId } = req.params;
-  const { amount, isRazorpay } = req.body;
-  const payload = { payInId, amount, isRazorpay };
+  const { merchantOrderId } = req.params;
+  // const { company_id } = req.user;
+  const { amount, isRazorpay, cashfree, zentechind } = req.body;
+  const payload = { merchantOrderId, amount, isRazorpay, cashfree, zentechind };
   const joiValidation = VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
+  let provider = [];
+
+  if (isRazorpay) provider.push('Razorpay');
+  if (cashfree) provider.push('Cashfree');
+  if (zentechind) provider.push('ZenTechInd');
+
   const data = await payInIntentGenerateOrderService(
-    payInId,
+    merchantOrderId,
+    // company_id,
     amount,
-    isRazorpay,
+    provider[0],
   );
-  return sendSuccess(res, data);
+  let message;
+
+  if (provider.length > 0) {
+    message = `${provider} order generated successfully`;
+  } else {
+    message = 'No provider selected';
+  }
+
+  return sendSuccess(res, data, message);
 };
 
 export const updatePaymentNotificationStatus = async (req, res) => {

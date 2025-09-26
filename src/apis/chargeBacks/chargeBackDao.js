@@ -165,7 +165,7 @@ export const getChargeBackDao = async (
         cb.config,
         p.merchant_order_id AS merchant_order_id,
       `;
-    } else if (role === Role.VENDOR) {
+    } else if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
       additionalColumns += ``;
     } else {
       additionalColumns = `
@@ -382,7 +382,7 @@ export const getAllChargeBackDao = async (
           cb.config,
         p.merchant_order_id AS merchant_order_id,
       `;
-    } else if (role === Role.VENDOR) {
+    } else if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
       additionalColumns += `v.code AS vendor_name,`;
     } else {
       additionalColumns = `

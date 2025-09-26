@@ -22,7 +22,7 @@ function config(Env) {
       temp_token_expires: Env?.TEMP_TOKEN_EXPIRES,
     },
     rabbitmq : {
-      url: Env?.RABBITMQ_URL || 'amqp://localhost:567',
+      url: Env?.RABBITMQ_URL || 'amqp://localhost:5672',
       queueName: Env?.RABBITMQ_QUEUE_NAME || 'trust-pay-queue',
       exchangeName: Env?.RABBITMQ_EXCHANGE_NAME || 'trust-pay-exchange',
       routingKey: Env?.RABBITMQ_ROUTING_KEY || 'trust-pay-routing-key',
@@ -43,6 +43,25 @@ function config(Env) {
       points: parseInt(Env?.RATE_LIMIT_POINTS) || 20,
       duration: parseInt(Env?.RATE_LIMIT_DURATION) || 60,
       blockDuration: parseInt(Env?.RATE_LIMIT_BLOCK_DURATION) || 30,
+    },
+    elasticSearch: {
+      node: Env?.ELASTICSEARCH_NODE || 'http://localhost:9200',
+      username: Env?.ELASTICSEARCH_USERNAME || 'elastic',
+      password: Env?.ELASTICSEARCH_PASSWORD || 'password',
+      indexPrefix: Env?.ELASTICSEARCH_INDEX_PREFIX || 'trustpay',
+      requestTimeout: parseInt(Env?.ELASTICSEARCH_REQUEST_TIMEOUT) || 30000, // in milliseconds
+      maxRetries: parseInt(Env?.ELASTICSEARCH_MAX_RETRIES) || 3,
+    },
+    cashfree: {
+      clientIdTest: Env?.CLIENT_ID_TEST,
+      clientSecretTest: Env?.CLIENT_SECRET_TEST,
+      clientIdProd: Env?.CLIENT_ID_PROD,
+      clientSecretProd: Env?.CLIENT_SECRET_PROD,
+    },
+    zentechind: {
+      url: Env?.ZENTECHIND_API_URL,
+      salt: Env?.ZENTECHIND_SALT,
+      collectionId: Env?.ZENTECHIND_COLLECTION_ID,
     },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,
@@ -87,6 +106,7 @@ function config(Env) {
     key_secret: Env?.RAZOR_PAY_SECRET,
     cashFreeClientSecret: Env?.CLIENT_SECRET,
     cashFreeClientId: Env?.CLIENT_ID,
+    telegramVendorboardChatId: Env?.TELEGRAM_VENDORBOARD_CHAT_ID,
   };
 }
 

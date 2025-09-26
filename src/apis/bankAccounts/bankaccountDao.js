@@ -498,9 +498,27 @@ const getBankAccountsBySearchDao = async (
     throw error;
   }
 };
-export const getBankaccountDashBoardReportDao = async (
-  filters = {},
-) => {
+export const getBankaccountCheckDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      company_id,
+      bank_used_for
+    `;
+
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows && result.rows.length > 0;
+  } catch (error) {
+    logger.error('Error checking bank account existence:', error);
+    throw error;
+  }
+};
+
+export const getBankaccountDashBoardReportDao = async (filters = {}) => {
   try {
     const selectColumns = `
       id,
@@ -509,17 +527,54 @@ export const getBankaccountDashBoardReportDao = async (
       today_balance,
       balance,
       payin_count,
-      bank_used_for
+      bank_used_for,
+      config
     `;
-
     const [sql, params] = buildSelectQuery(
       `SELECT ${selectColumns} FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1`,
-      filters
+      filters,
     );
     const result = await executeQuery(sql, params);
     return result.rows || [];
   } catch (error) {
     logger.error('Error getting bank account data:', error);
+    throw error;
+  }
+};
+
+const getBankAccountNickNameForPayinEsDao = async (bankId) => {
+  try {
+    const sql = `
+      SELECT 
+        ba.nick_name,
+        v.user_id AS vendor_user_id,
+        v.code AS vendor_code
+      FROM "${tableName.BANK_ACCOUNT}" ba
+      INNER JOIN "${tableName.VENDOR}" v 
+        ON ba.user_id = v.user_id
+      WHERE ba.id = $1
+    `;
+    const result = await executeQuery(sql, [bankId]);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error getting bank account nickname:', error);
+    throw error;
+  }
+};
+
+
+ const getBankAccountNickNameForEsDao = async (bankId) => {
+  try {
+    const sql = `
+      SELECT 
+        nick_name
+      FROM "${tableName.BANK_ACCOUNT}"
+      WHERE id = $1
+    `;
+    const result = await executeQuery(sql, [bankId]);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error getting bank account nickname:', error);
     throw error;
   }
 };
@@ -746,4 +801,6 @@ export {
   getBankAccountDaoNickName,
   getBankByIdDao,
   updateBanktBalanceDao,
+  getBankAccountNickNameForEsDao,
+  getBankAccountNickNameForPayinEsDao,
 };

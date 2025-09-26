@@ -4,7 +4,7 @@ import { logger } from '../utils/logger.js';
 import { BadRequestError } from '../utils/appErrors.js';
 const messageQueue = [];
 let isProcessingQueue = false;
-const RATE_LIMIT_MS = 1000;
+// const RATE_LIMIT_MS = 500;
 async function processQueue() {
   if (isProcessingQueue) return;
   isProcessingQueue = true;
@@ -23,25 +23,28 @@ async function processQueue() {
         payload.reply_to_message_id = replyToMessageId;
       }
       try {
-        logger.info(
-          `Sending message to chat ${chatId} -- payload is ${payload.text}`,
-        );
-       const data = await axios.post(sendMessageUrl, payload);
-        logger.info('data from telegram after sending message', {
-          status: data?.status,
-          data: data?.data,
-        });
-        logger.info(
-          `Message sent successfully to chat ${chatId}. -- payload is ${payload.text}`,
-        );
+        // logger.info(
+        //   `Sending message to chat ${chatId} -- payload is ${payload.text}`,
+        // );
+        // const data =
+        await axios.post(sendMessageUrl, payload);
+        // logger.info('data from telegram after sending message', {
+        //   status: data?.status,
+        //   data: data?.data,
+        // });
+        // logger.info(
+        //   `Message sent successfully to chat ${chatId}. -- payload is ${payload.text}`,
+        // );
         resolve(true);
       } catch (error) {
-        logger.error(
-          `Error sending message to chat ${chatId}: ${error.message}`,
-        );
-        if (error.response?.status === 429) {
-          const retryAfter = error.response?.data?.parameters?.retry_after || 5;
-          logger.warn(`Rate limit hit, retrying after ${retryAfter} seconds`);
+        const status = error.response?.status;
+        const errData = error.response?.data;
+
+        if (status === 429) {
+          const retryAfter = errData?.parameters?.retry_after || 5;
+          logger.warn(
+            `Rate limit hit, retrying after ${retryAfter} seconds for chat ${chatId}`,
+          );
           setTimeout(() => {
             messageQueue.push({
               chatId,
@@ -54,10 +57,14 @@ async function processQueue() {
             processQueue();
           }, retryAfter * 1000);
         } else {
-          reject(error); 
+          logger.error(
+            `Failed to send message to chat ${chatId}. Message: "${message}". Status: ${status}. Error: ${error.message}`,
+            { status, errData },
+          );
+          resolve(false);
         }
       }
-      await new Promise((res) => setTimeout(res, RATE_LIMIT_MS));
+      // await new Promise((res) => setTimeout(res, RATE_LIMIT_MS));
     }
   } finally {
     isProcessingQueue = false;

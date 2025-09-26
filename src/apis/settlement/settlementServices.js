@@ -203,14 +203,33 @@ const getSettlementsBySearchService = async (
       }
     }
     // Handle VENDOR role hierarchy
-    else if (role === Role.VENDOR) {
-      if (designation === Role.VENDOR_OPERATIONS) {
-        const userHierarchys = await getUserHierarchysDao({ user_id });
-        if (userHierarchys && userHierarchys.length > 0) {
-          const userHierarchy = userHierarchys[0];
-          if (userHierarchy?.config?.parent) {
-            filters.user_id = [userHierarchy.config.parent];
-          }
+    else if (role == Role.VENDOR) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchy = userHierarchys?.[0];
+      
+      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+      if (Array.isArray(subVendors) && subVendors.length > 0) {
+        const vendorUserIds = [user_id, ...subVendors];
+        filters.user_id = vendorUserIds;
+      } else {
+        filters.user_id = [user_id];
+      }
+    } else if (role == Role.SUB_VENDOR) {
+      filters.user_id = [user_id];
+    }
+    
+    const userHierarchys = await getUserHierarchysDao({ user_id });
+    if (designation == Role.VENDOR_OPERATIONS) {
+      const userHierarchy = userHierarchys?.[0];
+      const parentID = userHierarchy?.config?.parent;
+      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+      
+      if (parentID) {
+        if (Array.isArray(subVendors) && subVendors.length > 0) {
+          const vendorUserIds = [parentID, ...subVendors];
+          filters.user_id = vendorUserIds;
+        } else {
+          filters.user_id = [parentID];
         }
       }
     }

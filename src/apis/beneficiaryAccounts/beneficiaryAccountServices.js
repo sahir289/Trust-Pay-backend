@@ -103,15 +103,15 @@ const getBeneficiaryAccountService = async (
           const [adminRole] = await getRoleDao({ role: Role.ADMIN });
           if (adminRole?.id) {
             filters.role_id = [filters.role_id, adminRole.id];
-          } 
+          }
         }
-      } 
+      }
       delete filters.beneficiary_role;
     }
 
     let pageNumber;
     let pageSize;
-    if (filters.forSettlementFlag === 'true'){
+    if (filters.forSettlementFlag === 'true') {
       delete filters.forSettlementFlag;
     } else {
       pageNumber = parseInt(page, 10) || 1;
@@ -143,11 +143,10 @@ const getBeneficiaryAccountBySearchService = async (
 ) => {
   try {
     let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
+    const userHierarchys = await getUserHierarchysDao({ user_id });
+    const userHierarchy = userHierarchys?.[0];
 
     if (role === Role.MERCHANT) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
-      const userHierarchy = userHierarchys?.[0];
-
       if (designation === Role.MERCHANT && userHierarchy) {
         const subMerchants =
           userHierarchy?.config?.siblings?.sub_merchants ?? [];
@@ -174,6 +173,15 @@ const getBeneficiaryAccountBySearchService = async (
       }
     } else if (role === Role.VENDOR) {
       if (designation === Role.VENDOR) {
+        const subVendors =
+          userHierarchy?.config?.siblings?.sub_vendor ?? [];
+        if (Array.isArray(subVendors) && subVendors.length > 0) {
+          merchant_user_id = [...merchant_user_id, ...subVendors];
+          filters.user_id = [merchant_user_id];
+        } else {
+          filters.user_id = [user_id];
+        }
+      } else if (designation === Role.SUB_VENDOR) {
         filters.user_id = [user_id];
       } else if (designation === Role.VENDOR_OPERATIONS) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
@@ -379,7 +387,7 @@ const createBeneficiaryAccountService = async (conn, payload, company_id) => {
 const updateBeneficiaryAccountService = async (conn, ids, payload) => {
   try {
     if (payload.acc_no) {
-      let filters = {}
+      let filters = {};
       filters.acc_no = payload.acc_no;
       filters.company_id = ids.company_id;
       const exists = await checkBeneficiaryAccountExistsDao(filters);
@@ -396,7 +404,11 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
       throw new BadRequestError('Beneficiary account not found');
     }
 
-    return await updateBeneficiaryAccountDao({ id: ids.id, company_id: ids.company_id }, payload, conn);
+    return await updateBeneficiaryAccountDao(
+      { id: ids.id, company_id: ids.company_id },
+      payload,
+      conn,
+    );
 
     // let notifyIds = [];
     // if (role === Role.ADMIN) {
@@ -416,7 +428,8 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
     // });
   } catch (error) {
     logger.error('error getting while updating banks', error.message);
-    throw error;  }
+    throw error;
+  }
 };
 
 const deleteBeneficiaryAccountService = async (conn, ids) => {

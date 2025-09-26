@@ -39,13 +39,33 @@ const getBankaccountService = async (
 ) => {
   try {
     if (role == Role.VENDOR) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchy = userHierarchys?.[0];
+      
+      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+      if (Array.isArray(subVendors) && subVendors.length > 0) {
+        const vendorUserIds = [user_id, ...subVendors];
+        filters.user_id = vendorUserIds;
+      } else {
+        filters.user_id = [user_id];
+      }
+    } else if (role == Role.SUB_VENDOR) {
       filters.user_id = [user_id];
     }
+    
     const userHierarchys = await getUserHierarchysDao({ user_id });
     if (designation == Role.VENDOR_OPERATIONS) {
-      const parentID = userHierarchys[0]?.config?.parent;
+      const userHierarchy = userHierarchys?.[0];
+      const parentID = userHierarchy?.config?.parent;
+      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+      
       if (parentID) {
-        filters.user_id = [parentID];
+        if (Array.isArray(subVendors) && subVendors.length > 0) {
+          const vendorUserIds = [parentID, ...subVendors];
+          filters.user_id = vendorUserIds;
+        } else {
+          filters.user_id = [parentID];
+        }
       }
     }
 
@@ -73,13 +93,33 @@ const getBankAccountBySearchService = async (
 ) => {
   try {
     if (role == Role.VENDOR) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchy = userHierarchys?.[0];
+      
+      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+      if (Array.isArray(subVendors) && subVendors.length > 0) {
+        const vendorUserIds = [user_id, ...subVendors];
+        filters.user_id = vendorUserIds;
+      } else {
+        filters.user_id = [user_id];
+      }
+    } else if (role == Role.SUB_VENDOR) {
       filters.user_id = [user_id];
     }
+    
     const userHierarchys = await getUserHierarchysDao({ user_id });
     if (designation == Role.VENDOR_OPERATIONS) {
-      const parentID = userHierarchys[0]?.config?.parent;
+      const userHierarchy = userHierarchys?.[0];
+      const parentID = userHierarchy?.config?.parent;
+      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+      
       if (parentID) {
-        filters.user_id = [parentID];
+        if (Array.isArray(subVendors) && subVendors.length > 0) {
+          const vendorUserIds = [parentID, ...subVendors];
+          filters.user_id = vendorUserIds;
+        } else {
+          filters.user_id = [parentID];
+        }
       }
     }
 
@@ -121,6 +161,17 @@ const getBankaccountServiceNickName = async (
 
     let filters = {};
     if (role == Role.VENDOR) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchy = userHierarchys?.[0];
+      
+      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+      if (Array.isArray(subVendors) && subVendors.length > 0) {
+        const vendorUserIds = [user_id, ...subVendors];
+        filters.user_id = vendorUserIds;
+      } else {
+        filters.user_id = [user_id];
+      }
+    } else if (role == Role.SUB_VENDOR) {
       filters.user_id = [user_id];
     }
     // If user is an array, use it directly
@@ -131,9 +182,17 @@ const getBankaccountServiceNickName = async (
     }
     const userHierarchys = await getUserHierarchysDao({ user_id });
     if (designation == Role.VENDOR_OPERATIONS) {
-      const parentID = userHierarchys[0]?.config?.parent;
+      const userHierarchy = userHierarchys?.[0];
+      const parentID = userHierarchy?.config?.parent;
+      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+      
       if (parentID) {
-        filters.user_id = [parentID];
+        if (Array.isArray(subVendors) && subVendors.length > 0) {
+          const vendorUserIds = [parentID, ...subVendors];
+          filters.user_id = vendorUserIds;
+        } else {
+          filters.user_id = [parentID];
+        }
       }
     }
 
@@ -324,22 +383,22 @@ const updateBankaccountService = async (
         conn,
       );
     }
-    // if (payloadData?.config?.is_freeze === true) {
-    //   const bankResponse = await   getBankResponsesforFreeze({
-    //     bank_id: ids.id,
-    //     is_used: false,
-    //     status: '/success',
-    //   });
-    //   if (bankResponse.length > 0) {
-    //     for (let i = 0; i < bankResponse.length; i++) {
-    //       for (let i = 0; i < bankResponse.length; i++) {
-    //         await updateBotResponseDao(bankResponse[i].id, {
-    //           status: '/freezed',
-    //         },conn);
-    //       }
-    //     }
-    //   }
-    // }
+   if (payloadData?.config?.is_freeze === true) {
+      const bankResponse = await   getBankResponsesforFreeze({
+        bank_id: ids.id,
+        is_used: false,
+        status: '/success',
+      });
+      if (bankResponse.length > 0) {
+        for (let i = 0; i < bankResponse.length; i++) {
+          for (let i = 0; i < bankResponse.length; i++) {
+            await updateBotResponseDao(bankResponse[i].id, {
+              status: '/freezed',
+            },conn);
+          }
+        }
+      }
+    }
     if (payloadData?.config?.is_freeze === false) {
       const bankResponse = await getBankResponsesforFreeze({
         bank_id: ids.id,

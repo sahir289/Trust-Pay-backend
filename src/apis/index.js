@@ -26,6 +26,7 @@ import common from './common/index.js';
 import beneficiaryAccounts from './beneficiaryAccounts/index.js';
 import consumeBankResponseRouter from './consume-bank-response.js';
 import dashboardReport from './dashboardReport/index.js'
+import webhooks  from './webhooks/index.js';
 import superAdmin from './superAdmin/index.js';
 // import notifications from './notifications/index.js';
 
@@ -63,6 +64,8 @@ router.use('/complaints', complaints);
 router.use('/cron', cron);
 router.use('/common', common);
 router.use('/dashboardReport', dashboardReport);
+router.use('/webhook', webhooks);
+
 // router.use('/notifications', notifications);
 
 export default parentRouter;

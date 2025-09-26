@@ -33,6 +33,7 @@ import {
   updateUserHierarchyDao,
 } from '../userHierarchy/userHierarchyDao.js';
 import { getMerchantByUserIdDao } from '../merchants/merchantDao.js';
+import { getVendorByUserDao } from '../vendors/vendorDao.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
@@ -45,10 +46,11 @@ const getUsersService = async (
   user_id,
 ) => {
   try {
+
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.USER
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.USER
           : columns.USER;
 
@@ -57,7 +59,7 @@ const getUsersService = async (
 
     let userIdFilter = [];
 
-    if (role === Role.VENDOR || role === Role.MERCHANT) {
+    if (role === Role.VENDOR || role === Role.SUB_VENDOR || role === Role.MERCHANT) {
       const userHierarchyData = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchyData[0];
 
@@ -142,7 +144,7 @@ const getUsersBySearchService = async (
     // const filterColumns =
     //   role === Role.MERCHANT
     //     ? merchantColumns.USER
-    //     : role === Role.VENDOR
+    //     : role === Role.VENDOR || role === Role.SUB_VENDOR
     //       ? vendorColumns.USER
     //       : columns.USER;
 
@@ -151,7 +153,7 @@ const getUsersBySearchService = async (
 
     let userIdFilter = [];
 
-    if (role === Role.VENDOR || role === Role.MERCHANT) {
+    if (role === Role.VENDOR || role === Role.SUB_VENDOR || role === Role.MERCHANT) {
       const userHierarchyData = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchyData[0];
 
@@ -203,6 +205,21 @@ const getUsersBySearchService = async (
           userIdFilter.push(...subOps);
         }
 
+        // Add sub_vendors and their operations
+        const subVendors =
+          userHierarchy?.config?.siblings?.sub_vendors ?? [];
+        userIdFilter.push(...subVendors);
+
+        // Add sub_vendor child.operations
+        for (const subId of subVendors) {
+          const subHierarchyData = await getUserHierarchysDao({
+            user_id: subId,
+          });
+          const subHierarchy = subHierarchyData?.[0];
+          const subOps = subHierarchy?.config?.child?.operations ?? [];
+          userIdFilter.push(...subOps);
+        }
+
         const childOperations = userHierarchy?.config?.child?.operations ?? [];
         userIdFilter.push(...childOperations);
       }
@@ -238,7 +255,7 @@ const getUserByIdService = async (ids, role) => {
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.USER
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.USER
           : columns.USER;
     conn = await getConnection('reader');
@@ -266,7 +283,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.USER
-        : role === Role.VENDOR
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.USER
           : columns.USER;
     conn = await getConnection('reader');
@@ -287,7 +304,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
   }
 };
 
-const createUserService = async (conn, payload, role) => {
+const createUserService = async (conn, payload) => {
   try {
     const { user_name } = payload;
     let company_id = payload.company_id;
@@ -442,8 +459,20 @@ const createUserService = async (conn, payload, role) => {
       };
       merchant = await createMerchantService(conn, merchantPayload);
     }
-    ///for vendor
-    if (userDesignation[0]?.designation === Role.VENDOR) {
+    ///for vendor sub-vendor
+    if (
+      userDesignation[0]?.designation === Role.VENDOR ||
+      userDesignation[0]?.designation === Role.SUB_VENDOR
+    ) {
+      let userCode;
+      let sub_code;
+      if (userDesignation[0]?.designation === Role.SUB_VENDOR) {
+        const user_id = payload?.parent_id
+          ? payload?.parent_id
+          : payload.created_by;
+        userCode = await getVendorByUserDao(user_id);
+        sub_code = `${userCode[0].code}(${payload.code})`;
+      }
       const vendorPayload = {
         user_id: User.id,
         role_id: payload.role_id,
@@ -455,13 +484,17 @@ const createUserService = async (conn, payload, role) => {
         config: {
           bank_response_access: false,
           net_balance: payload.net_balance || '0',
+          ...(sub_code && { sub_code }),
         },
         payin_commission: Number(payload.payin_commission),
         payout_commission: Number(payload.payout_commission),
         created_by: payload.created_by,
         updated_by: payload.updated_by,
+        designation: userDesignation[0]?.designation,
+        role: userRole[0].role,
+        parent_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
       };
-      await createVendorService(conn, vendorPayload, role);
+      await createVendorService(conn, vendorPayload);
     }
 
     if (User) {
@@ -497,6 +530,7 @@ const createUserService = async (conn, payload, role) => {
     // });
     return User;
   } catch (error) {
+    console.error(error);
     logger.error('Error in createUserService:', error);
 
     throw error;

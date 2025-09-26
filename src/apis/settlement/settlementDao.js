@@ -5,6 +5,9 @@ import {
 } from '../../utils/db.js';
 import { Role, Status, tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
+// import { createSettlementInES, getSettlementByESSearch ,updatesettlementInES } from '../../elasticSearch/settlement/common.js';
+// import { getUsersNameDao } from '../users/userDao.js';
+// import { SettlementResponses } from '../../constants/index.js';
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import dayjs from 'dayjs';
 
@@ -288,7 +291,50 @@ const getSettlementsBySearchDao = async (
     const conditions = ['s.is_obsolete = false'];
     const queryParams = [];
     let paramIndex = 1;
+    // if (filters.search) {
+    //   const filterSettlementByRole = (bankResponse, role) => {
+    //     let allowedKeys;
+    //     switch (role) {
+    //       case Role.VENDOR:
+    //         allowedKeys = SettlementResponses.VENDOR;
+    //         break;
+    //       case Role.MERCHANT:
+    //         allowedKeys = SettlementResponses.MERCHANT;
+    //         break;
+    //       case Role.ADMIN:
+    //       default:
+    //         allowedKeys = SettlementResponses.ADMIN;
+    //         break;
+    //     }
+    //     return Object.fromEntries(
+    //       Object.entries(bankResponse).filter(([key]) =>
+    //         allowedKeys.includes(key),
+    //       ),
+    //     );
+    //   };
+    //   page = page - 1;
+    //   const { results, totalCount } = await getSettlementByESSearch(
+    //     filters.search,
+    //     filters,
+    //     page,
+    //     pageSize,
+    //     sortBy,
+    //     sortOrder,
+    //   );
 
+    //   const filtered = results.map((bankResponse) =>
+    //     filterSettlementByRole(bankResponse, role),
+    //   );
+
+    //   const data = {
+    //     totalCount,
+    //     totalPages: Math.ceil(totalCount / pageSize),
+    //     settlements: filtered,
+    //   };
+
+    //   return data;
+    // }
+    
     // Add dynamic code and user_name fields
     let columnSelection;
 
@@ -654,6 +700,19 @@ const createSettlementDao = async (payload, conn) => {
     } else {
       result = await executeQuery(sql, params);
     }
+    // const insertedEntry = result.rows[0];
+    // const code = await getUsersNameDao(insertedEntry.user_id);
+    // const createdBy = await getUsersNameDao(insertedEntry.created_by);
+    // insertedEntry.created_by = createdBy?.user_name || insertedEntry.created_by;
+    // insertedEntry.updated_by = createdBy?.user_name || insertedEntry.updated_by;
+    // insertedEntry.code = code?.code || null;
+    // insertedEntry.role = code?.role || null;
+    // if (insertedEntry.config && typeof insertedEntry.config === 'object') {
+    //   Object.entries(insertedEntry.config).forEach(([key, value]) => {
+    //     insertedEntry[key] = value ?? null; // Use nullish coalescing to set null if value is undefined or null
+    //   });
+    // }
+    // await createSettlementInES(insertedEntry);
     return result.rows[0];
   } catch (error) {
     logger.error(error);
@@ -670,7 +729,21 @@ const updateSettlementDao = async (conn, id, data) => {
     } else {
       result = await executeQuery(sql, params); // Use executeQuery if no connection
     }
-
+  //   const createdBy = await getUsersNameDao(data.updated_by);
+  //   let insertedEntry = 
+  //   {
+  //     ...data,
+  //     updated_at: result.rows[0].updated_at,
+  //     approved_at: result.rows[0].approved_at,
+  //     rejected_at: result.rows[0].rejected_at,
+  //     updated_by: createdBy?.user_name || data.updated_by
+  //   }
+  //   if (insertedEntry.config && typeof insertedEntry.config === 'object') {
+  //     Object.entries(insertedEntry.config).forEach(([key, value]) => {
+  //       insertedEntry[key] = value ?? null; 
+  //     });
+  //   }
+  //  await updatesettlementInES(result.rows[0].id, insertedEntry);
     return result.rows[0];
   } catch (error) {
     logger.error(error);

@@ -1,5 +1,7 @@
 import { Role, tableName } from '../../constants/index.js';
 import { BadRequestError } from '../../utils/appErrors.js';
+// import { PayinResponses } from '../../constants/index.js';
+// import { Role } from '../../constants/index.js';
 import {
   buildInsertQuery,
   buildSelectQuery,
@@ -9,6 +11,14 @@ import {
 import dayjs from 'dayjs';
 import { getConnection } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
+// import {
+//   createPayinInES,
+//   // getPayinsByESSearch,
+//   // updatePayinInES,
+// } from '../../elasticSearch/payin/common.js';
+// import { getBankResponseForEsDao } from '../bankResponse/bankResponseDao.js';
+// import { getMerchantForEsDao } from '../merchants/merchantDao.js';
+// import { getBankAccountNickNameForPayinEsDao } from '../bankAccounts/bankaccountDao.js';
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 // import { generateCacheKey ,setCachedData,getCachedData } from '../../utils/redishashkey.js';
 // import { newTableEntry } from '../../utils/sockets.js';
@@ -16,7 +26,18 @@ export const generatePayInUrlDao = async (data) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.PAYIN, data);
     const result = await executeQuery(sql, params);
-    return result.rows[0];
+    const insertedEntry = result.rows[0];
+    // if (insertedEntry.merchant_id) {
+    //   const code = await getMerchantForEsDao(insertedEntry.merchant_id);
+    //   insertedEntry.merchant_details = {
+    //     merchant_code: code.code,
+    //     dispute: code.dispute_enabled,
+    //     return_url: code.return_url,
+    //     notify_url: code.notify_url,
+    //   }
+    // }
+    // await createPayinInES(insertedEntry);
+    return insertedEntry;
   } catch (error) {
     logger.error('Error generating PayIn URL:', error);
     throw error;
@@ -96,6 +117,7 @@ export const getPayInsBankResDao = async (filters = {}) => {
     throw error;
   }
 };
+
 export const getPayInsForSuccessRatioDao = async (filters = {}) => {
   try {
     const selectColumns = `
@@ -110,6 +132,7 @@ export const getPayInsForSuccessRatioDao = async (filters = {}) => {
 
     const [sql, params] = buildSelectQuery(
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
+      filters,
       filters,
     );
 
@@ -276,7 +299,9 @@ export const getPayInForDisputeServiceDao = async (filters = {}) => {
       config,
       bank_acc_id,
       user_submitted_utr,
-      amount
+      amount,
+      is_url_expires,
+      expiration_date
     `;
 
     const [sql, params] = buildSelectQuery(
@@ -287,6 +312,36 @@ export const getPayInForDisputeServiceDao = async (filters = {}) => {
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting PayIn for dispute service:', error);
+    throw error;
+  }
+};
+
+export const getPayInIntentDao = async (merchantOrderId ) => {
+  try {
+    const selectColumns = `
+      id,
+      merchant_order_id,
+      user,
+      merchant_id,
+      status,
+      created_at,
+      amount,
+      company_id,
+      config,
+      bank_acc_id,
+      user_submitted_utr,
+      amount,
+      is_url_expires,
+      expiration_date,
+      bank_acc_id,
+      company_id
+    `;
+    const sql = `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE merchant_order_id = $1 AND is_obsolete = false`;
+    const params = [merchantOrderId];
+    const result = await executeQuery(sql, params);
+    return result.rows[0] || [];
+  } catch (error) {
+    logger.error('Error getting while creating intent link:', error);
     throw error;
   }
 };
@@ -341,6 +396,7 @@ export const getPayInForTelegramUtrDao = async (filters = {}) => {
     throw error;
   }
 };
+
 export const getPayInForResetDao = async (filters = {}) => {
   try {
     const selectColumns = `
@@ -1067,9 +1123,52 @@ export const getPayinsWithoutHistoryDao = async (
   designation,
 ) => {
   try {
-    const conditions = [`p.is_obsolete = false`];
-    const queryParams = [];
-    let paramIndex = 1;
+    // if (filters.search) {
+    //   const filterPayinByRole = (payin, role) => {
+    //     let allowedKeys;
+    //     switch (role) {
+    //       case Role.VENDOR:
+    //         allowedKeys = PayinResponses.VENDOR;
+    //         break;
+    //       case Role.MERCHANT:
+    //         allowedKeys = PayinResponses.MERCHANT;
+    //         break;
+    //       case Role.ADMIN:
+    //       default:
+    //         allowedKeys = PayinResponses.ADMIN;
+    //         break;
+    //     }
+    //     return Object.fromEntries(
+    //       Object.entries(payin).filter(([key]) => allowedKeys.includes(key)),
+    //     );
+    //   };
+
+    //   delete filters.page;
+    //   delete filters.limit;
+
+    //   const { results, totalCount, totalPages } = await getPayinsByESSearch(
+    //     filters.search,
+    //     filters,
+    //     offset,
+    //     limitNum,
+    //   );
+
+    //   const filteredPayins = results.map((payin) =>
+    //     filterPayinByRole(payin, role),
+    //   );
+
+    //   const data = {
+    //     totalCount,
+    //     totalPages,
+    //     payins: filteredPayins,
+    //   };
+
+    //   return data;
+    // }
+    
+    const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
+    const queryParams = [filters.company_id];
+    let paramIndex = 2;
     const validColumns = new Set([
       'id',
       'sno',
@@ -1214,45 +1313,45 @@ export const getPayinsWithoutHistoryDao = async (
       WHERE ${conditions.join(' AND ')}
     `;
 
-    if (searchTerms && searchTerms.length > 0) {
-      searchTerms.forEach((term) => {
-        if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-          const boolValue = term.toLowerCase() === 'true';
-          conditions.push(`
-            (
-              p.is_notified = $${paramIndex}
-              OR p.is_url_expires = $${paramIndex}
-              OR p.one_time_used = $${paramIndex}
-            )
-          `);
-          queryParams.push(boolValue);
-          paramIndex++;
-        } else {
-          conditions.push(`
-            (
-              p.id::text ILIKE $${paramIndex}
-              OR p.sno::text ILIKE $${paramIndex}
-              OR p.upi_short_code ILIKE $${paramIndex}
-              OR p.status ILIKE $${paramIndex}
-              OR p.merchant_order_id ILIKE $${paramIndex}
-              OR p.user_submitted_utr ILIKE $${paramIndex}
-              OR p.user ILIKE $${paramIndex}
-              OR b.nick_name ILIKE $${paramIndex}
-              OR br.utr ILIKE $${paramIndex}
-              OR m.code ILIKE $${paramIndex}
-              OR v.code ILIKE $${paramIndex}
-              OR p.amount::text ILIKE $${paramIndex}
-              OR br.amount::text ILIKE $${paramIndex}
-              OR (p.config->>'user') ILIKE $${paramIndex}
-              OR (p.config->'urls'->>'site') ILIKE $${paramIndex}
-              OR (p.config->'urls'->>'notify') ILIKE $${paramIndex}
-            )
-          `);
-          queryParams.push(`%${term}%`);
-          paramIndex++;
-        }
-      });
-    }
+    // if (searchTerms && searchTerms.length > 0) {
+    //   searchTerms.forEach((term) => {
+    //     if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+    //       const boolValue = term.toLowerCase() === 'true';
+    //       conditions.push(`
+    //         (
+    //           p.is_notified = $${paramIndex}
+    //           OR p.is_url_expires = $${paramIndex}
+    //           OR p.one_time_used = $${paramIndex}
+    //         )
+    //       `);
+    //       queryParams.push(boolValue);
+    //       paramIndex++;
+    //     } else {
+    //       conditions.push(`
+    //         (
+    //           p.id::text ILIKE $${paramIndex}
+    //           OR p.sno::text ILIKE $${paramIndex}
+    //           OR p.upi_short_code ILIKE $${paramIndex}
+    //           OR p.status ILIKE $${paramIndex}
+    //           OR p.merchant_order_id ILIKE $${paramIndex}
+    //           OR p.user_submitted_utr ILIKE $${paramIndex}
+    //           OR p.user ILIKE $${paramIndex}
+    //           OR b.nick_name ILIKE $${paramIndex}
+    //           OR br.utr ILIKE $${paramIndex}
+    //           OR m.code ILIKE $${paramIndex}
+    //           OR v.code ILIKE $${paramIndex}
+    //           OR p.amount::text ILIKE $${paramIndex}
+    //           OR br.amount::text ILIKE $${paramIndex}
+    //           OR (p.config->>'user') ILIKE $${paramIndex}
+    //           OR (p.config->'urls'->>'site') ILIKE $${paramIndex}
+    //           OR (p.config->'urls'->>'notify') ILIKE $${paramIndex}
+    //         )
+    //       `);
+    //       queryParams.push(`%${term}%`);
+    //       paramIndex++;
+    //     }
+    //   });
+    // }
 
     const handledKeys = new Set([
       'status',
@@ -1266,17 +1365,28 @@ export const getPayinsWithoutHistoryDao = async (
       conditions.push(`p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
       queryParams.push(...statusArray);
       paramIndex += statusArray.length;
+      delete filters.status;
+    }
+    if (filters.user_submitted_utr && filters.user_submitted_utr.trim()) {
+      conditions.push(
+        `(p.user_submitted_utr = $${paramIndex} OR br.utr = $${paramIndex})`,
+      );
+      queryParams.push(filters.user_submitted_utr.trim());
+      paramIndex++;
+      delete filters.user_submitted_utr;
     }
     if (filters.user_ids) {
       const userArray = filters.user_ids.split(',').map((s) => s.trim());
       conditions.push(`v.user_id IN (${userArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
       queryParams.push(...userArray);
       paramIndex += userArray.length;
+      delete filters.user_ids;
     }
     if (filters.nick_name) {
       conditions.push(`b.nick_name = $${paramIndex}`);
       queryParams.push(filters.nick_name.trim());
       paramIndex++;
+      delete filters.nick_name;
     }
     if (filters.updated_at) {
       const [day, month, year] = filters.updated_at.split('-');
@@ -1307,6 +1417,7 @@ export const getPayinsWithoutHistoryDao = async (
       );
       queryParams.push(startDate, endDate);
       paramIndex += 2;
+      delete filters.updated_at;
     }
 
     Object.entries(filters).forEach(([key, value]) => {
@@ -1468,7 +1579,32 @@ export const getPayinsWithHistoryDao = async (
         p.user,
         p.created_at,
         p.updated_at`;
-    } else if (role === Role.SUPER_ADMIN && designation === Role.SUPER_ADMIN) {
+    }
+    else {
+      commissionSelect = `
+        p.payin_merchant_commission,
+        json_build_object(
+          'merchant_code', COALESCE(m.config->>'sub_code', m.code),
+          'dispute', m.dispute_enabled,
+          'return_url', m.config->>'return_url',
+          'notify_url', m.config->>'notify_url'
+        ) AS merchant_details,
+        p.merchant_order_id,
+        p.config AS payin_details,
+        p.payin_vendor_commission,
+        v.code AS vendor_code,
+        v.user_id AS vendor_user_id,
+        p.upi_short_code,
+        p.is_url_expires,
+        p.approved_at,
+        u.user_name AS created_by,
+        uu.user_name AS updated_by,
+        c.first_name || ' ' || c.last_name AS company,
+        p.is_notified,
+        p.user,
+        p.created_at,
+        p.updated_at`;
+    } else {
       commissionSelect = `
         p.payin_merchant_commission,
         json_build_object(
@@ -1600,46 +1736,46 @@ export const getPayinsWithHistoryDao = async (
       }
     }
 
-    if (searchTerms && searchTerms.length > 0) {
-      searchTerms.forEach((term) => {
-        if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-          const boolValue = term.toLowerCase() === 'true';
-          conditions.push(`
-            (
-              p.is_notified = $${paramIndex}
-              OR p.is_url_expires = $${paramIndex}
-              OR p.one_time_used = $${paramIndex}
-            )
-          `);
-          queryParams.push(boolValue);
-          paramIndex++;
-        } else {
-          conditions.push(`
-          (
-            p.id::text ILIKE $${paramIndex}
-            OR p.sno::text ILIKE $${paramIndex}
-            OR p.upi_short_code ILIKE $${paramIndex}
-            OR p.status ILIKE $${paramIndex}
-            OR p.merchant_order_id ILIKE $${paramIndex}
-            OR p.user_submitted_utr ILIKE $${paramIndex}
-            OR p.user ILIKE $${paramIndex}
-            OR b.nick_name ILIKE $${paramIndex}
-            OR br.utr ILIKE $${paramIndex}
-            OR m.code ILIKE $${paramIndex}
-            OR v.code ILIKE $${paramIndex}
-            OR p.amount::text ILIKE $${paramIndex}
-            OR br.amount::text ILIKE $${paramIndex}
+//     if (searchTerms && searchTerms.length > 0) {
+//       searchTerms.forEach((term) => {
+//         if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+//           const boolValue = term.toLowerCase() === 'true';
+//           conditions.push(`
+//             (
+//               p.is_notified = $${paramIndex}
+//               OR p.is_url_expires = $${paramIndex}
+//               OR p.one_time_used = $${paramIndex}
+//             )
+//           `);
+//           queryParams.push(boolValue);
+//           paramIndex++;
+//         } else {
+//           conditions.push(`
+//           (
+          //   p.id::text ILIKE $${paramIndex}
+          //   OR p.sno::text ILIKE $${paramIndex}
+          //   OR p.upi_short_code ILIKE $${paramIndex}
+          //   OR p.status ILIKE $${paramIndex}
+          //   OR p.merchant_order_id ILIKE $${paramIndex}
+          //   OR p.user_submitted_utr ILIKE $${paramIndex}
+          //   OR p.user ILIKE $${paramIndex}
+          //   OR b.nick_name ILIKE $${paramIndex}
+          //   OR br.utr ILIKE $${paramIndex}
+          //   OR m.code ILIKE $${paramIndex}
+          //   OR v.code ILIKE $${paramIndex}
+          //   OR p.amount::text ILIKE $${paramIndex}
+          //   OR br.amount::text ILIKE $${paramIndex}
             OR LOWER(c.first_name || ' ' || c.last_name) ILIKE $${paramIndex}
-            OR (p.config->>'user') ILIKE $${paramIndex}
-            OR (p.config->'urls'->>'site') ILIKE $${paramIndex}
-            OR (p.config->'urls'->>'notify') ILIKE $${paramIndex}
-)
-          `);
-          queryParams.push(`%${term}%`);
-          paramIndex++;
-        }
-      });
-    }
+          //   OR (p.config->>'user') ILIKE $${paramIndex}
+          //   OR (p.config->'urls'->>'site') ILIKE $${paramIndex}
+          //   OR (p.config->'urls'->>'notify') ILIKE $${paramIndex}
+// )
+//           `);
+//           queryParams.push(`%${term}%`);
+//           paramIndex++;
+//         }
+//       });
+//     }
     const handledKeys = new Set([
       'status',
       'user_ids',
@@ -1651,17 +1787,28 @@ export const getPayinsWithHistoryDao = async (
       conditions.push(`p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
       queryParams.push(...statusArray);
       paramIndex += statusArray.length;
+      delete filters.status;
+    }
+    if (filters.user_submitted_utr && filters.user_submitted_utr.trim()) {
+      conditions.push(
+        `(p.user_submitted_utr = $${paramIndex} OR br.utr = $${paramIndex})`,
+      );
+      queryParams.push(filters.user_submitted_utr.trim());
+      paramIndex++;
+      delete filters.user_submitted_utr;
     }
     if (filters.user_ids) {
       const userArray = filters.user_ids.split(',').map((s) => s.trim());
       conditions.push(`v.user_id IN (${userArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
       queryParams.push(...userArray);
       paramIndex += userArray.length;
+      delete filters.user_ids;
     }
     if (filters.nick_name) {
       conditions.push(`b.nick_name = $${paramIndex}`);
       queryParams.push(filters.nick_name.trim());
       paramIndex++;
+      delete filters.nick_name;
     }
     if (filters.updated_at) {
       const [day, month, year] = filters.updated_at.split('-');
@@ -1680,19 +1827,20 @@ export const getPayinsWithHistoryDao = async (
       }
       const properDateStr = `${year}-${month}-${day}`;
       let startDate = dayjs
-        .tz(`${properDateStr} 00:00:00`, 'Asia/Kolkata')
-        .utc()
-        .format();
-      let endDate = dayjs
-        .tz(`${properDateStr} 23:59:59.999`, 'Asia/Kolkata')
-        .utc()
-        .format();
-      conditions.push(
-        `p.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
-      );
-      queryParams.push(startDate, endDate);
-      paramIndex += 2;
-    }
+          .tz(`${properDateStr} 00:00:00`, 'Asia/Kolkata')
+          .utc()
+          .format();
+        let endDate = dayjs
+          .tz(`${properDateStr} 23:59:59.999`, 'Asia/Kolkata')
+          .utc()
+          .format();
+        conditions.push(
+          `p.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+        );
+        queryParams.push(startDate, endDate);
+        paramIndex += 2;
+      delete filters.updated_at;
+      }
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
         return;
@@ -1717,6 +1865,11 @@ export const getPayinsWithHistoryDao = async (
             ? `p.${key} IN (${placeholders})`
             : `p.${key} = $${paramIndex}`,
         );
+        if (updatedPayin) {
+          conditions.push(
+            `(p.config->>'history' IS NOT NULL AND p.config::jsonb ? 'history')`,
+          );
+        }
         queryParams.push(...valueArray);
         paramIndex += valueArray.length;
       }
@@ -1830,12 +1983,18 @@ export const getPayinsSumAndCountByStatusDao = async (filters) => {
 
     const today = dayjs(Date.now()).tz('Asia/Kolkata').format('YYYY-MM-DD');
     const startDate = dayjs
+      
       .tz(`${today} 00:00:00`, 'Asia/Kolkata')
+      
       .utc()
+      
       .format();
     const endDate = dayjs
+      
       .tz(`${today} 23:59:59.999`, 'Asia/Kolkata')
+      
       .utc()
+      
       .format();
 
     // Use approved_at for SUCCESS status, updated_at for others
@@ -1936,7 +2095,9 @@ export const getPayInForCheckDao = async (filters = {}) => {
   }
 };
 
-export const updatePayInUrlDao = async (id, data, conn) => {
+export const updatePayInUrlDao = async (id, data, conn,
+  // Adddata
+) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
     let result;
@@ -1949,6 +2110,43 @@ export const updatePayInUrlDao = async (id, data, conn) => {
     // if (data.status === Status.SUCCESS) {
     //   await newTableEntry('SUM');
     // }
+    // let insertedEntry =
+    // {
+    //   ...result.rows[0]
+    // }
+    // if (data.bank_acc_id) {
+    //   const bank =await getBankAccountNickNameForPayinEsDao(data.bank_acc_id);
+    //   // insertedEntry.nick_name = bank.nick_name;
+    //   // insertedEntry.vendor_user_id = bank.vendor_user_id;
+    //   // insertedEntry.vendor_code = bank.vendor_code;
+    //   insertedEntry = {
+    //     ...insertedEntry,
+    //     nick_name: bank.nick_name,
+    //     vendor_user_id: bank.vendor_user_id,
+    //     vendor_code: bank.vendor_code,
+    //   };
+    // }
+    // if (data.bank_response_id) {
+    //   const bankres = await getBankResponseForEsDao(data.bank_response_id);
+    //   let bank_res_details
+    //   if (bankres) {
+    //     bank_res_details = {
+    //       utr: bankres.utr,
+    //       amount: bankres.amount,
+    //     };
+    //   }
+    //   if (Adddata) {
+    //     bank_res_details = {
+    //       utr: Adddata.utr,
+    //       amount: Adddata.amount,
+    //     }; 
+    //    }
+    //    insertedEntry = {
+    //      ...insertedEntry,
+    //       bank_res_details,        
+    //    };
+    // }
+    // await updatePayinInES(id, insertedEntry);
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating PayIn URL:', error);

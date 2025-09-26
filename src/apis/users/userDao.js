@@ -8,6 +8,8 @@ import {
   buildInsertQuery,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
+// import esClient from '../../utils/elasticClient.js';
+// import { createUserInES, getUsersByESSearch } from '../../elasticSearch/user/common.js';
 
 export const getUsersContactDao = async (company_id, contact_no) => {
   try {
@@ -22,6 +24,23 @@ export const getUsersContactDao = async (company_id, contact_no) => {
     return result.rows.length > 0;
   } catch (error) {
     logger.error('Error executing user contact query:', error);
+    throw error;
+  }
+};
+
+export const getUsersNameDao = async (user_id) => {
+  try {
+    const sql = `
+      SELECT u.user_name, u.code, r.role
+      FROM "${tableName.USER}" u
+      LEFT JOIN "${tableName.ROLE}" r ON u.role_id = r.id
+      WHERE u.is_obsolete = FALSE
+        AND u.id = $1
+    `;
+    const result = await executeQuery(sql, [user_id]);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error executing user query:', error);
     throw error;
   }
 };
@@ -150,6 +169,20 @@ export const getUsersBySearchDao = async (
   role,
 ) => {
   try {
+    let data = {
+      totalCount: 0,
+      totalPages: 0,
+      Users: []
+    };
+    // if(filters.search){
+    //   const searchData = await getUsersByESSearch(filters.search);
+    //   data = {
+    //     totalCount: 1,
+    //     totalPages: 12,
+    //     Users: searchData,
+    //   };
+    //   return data;
+    // }
     const conditions = [];
     const values = [];
     let paramIndex = 1;
@@ -320,7 +353,7 @@ export const getUsersBySearchDao = async (
       totalPages = Math.ceil(totalItems / validatedPageSize);
     }
 
-    const data = {
+    data = {
       totalCount: totalItems,
       totalPages,
       Users: searchResult.rows,
@@ -469,7 +502,11 @@ const createUserDao = async (payload, conn) => {
       `User with username: ${payload.user_name} created successfully`,
     );
 
-    return result.rows[0];
+    const insertedUser = result.rows[0];
+
+  //  await createUserInES(insertedUser);
+
+    return insertedUser;
   } catch (error) {
     logger.error(`Error creating user: ${payload.user_name}`, error);
     throw error;

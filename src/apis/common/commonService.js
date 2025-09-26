@@ -17,7 +17,7 @@ export const getTotalCountService = async (
 ) => {
   try {
     const isMerchantOrVendor =
-      userInfo.userRole === Role.MERCHANT || userInfo.userRole === Role.VENDOR;
+      userInfo.userRole === Role.MERCHANT || userInfo.userRole === Role.VENDOR || userInfo.userRole === Role.SUB_MERCHANT || userInfo.userRole === Role.SUB_VENDOR;
     const isOperations =
       userInfo.designation === Role.MERCHANT_OPERATIONS ||
       userInfo.designation === Role.VENDOR_OPERATIONS;
@@ -27,7 +27,7 @@ export const getTotalCountService = async (
     if (filters?.beneficiary_role) {
       const role_id = await getRoleDao({ role: filters.beneficiary_role });
       filters.role_id = role_id[0]?.id;
-      if (filters.beneficiary_role === Role.VENDOR) {
+      if (filters.beneficiary_role === Role.VENDOR || filters.beneficiary_role === Role.SUB_VENDOR) {
         const [adminRole] = await getRoleDao({ role: Role.ADMIN });
         filters.role_id = [filters.role_id, adminRole?.id];
       }
@@ -192,7 +192,7 @@ export const getTotalCountService = async (
       ) {
         userIdFilter.push(hierarchy?.config?.parent ?? null);
       } else if (
-        userInfo.userRole === Role.VENDOR &&
+        (userInfo.userRole === Role.VENDOR || userInfo.userRole === Role.SUB_VENDOR) &&
         userInfo.designation === Role.VENDOR_OPERATIONS
       ) {
         userIdFilter.push(hierarchy?.config?.parent ?? null);
@@ -301,7 +301,7 @@ export const getTotalCountService = async (
         userIdFilter.push(
           ...(hierarchy?.config?.siblings?.sub_merchants ?? []),
         );
-      } else if (userInfo.userRole === Role.VENDOR) {
+      } else if (userInfo.userRole === Role.VENDOR || userInfo.userRole === Role.SUB_VENDOR) {
         // const [adminRole] = await getRoleDao({ role: Role.ADMIN });
         const adminUser = await getUserByCompanyCreatedAtDao(
           company_id,
