@@ -691,19 +691,13 @@ export const AccessRoles = {
     Role.VENDOR_OPERATIONS,
   ],
   COMPANY: [
-    
     Role.SUPER_ADMIN,
     Role.ADMIN,
-   
     Role.TRANSACTIONS,
-   
     Role.OPERATIONS,
-   
     Role.VENDOR,
     Role.SUB_VENDOR,
-   
     Role.VENDOR_OPERATIONS,
-  ,
   ],
   USER_HIERARCHY: {
     CREATE_DELETE: [Role.SUPER_ADMIN, Role.ADMIN, Role.TRANSACTIONS],
