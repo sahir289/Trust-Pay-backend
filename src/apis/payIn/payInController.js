@@ -86,7 +86,7 @@ export const generatePayInUrl = async (req, res) => {
   if (userIp == '::1') {
     userIp = TestingIp;
   }
-  // const fromUI = payload.fromUi || false;
+  const fromUI = payload.fromUi || false;
   delete payload.fromUi; // remove from payload to avoid validation issues
   const joiValidation = ASSIGN_PAYIN_SCHEMA.validate(payload);
   if (joiValidation.error) {
@@ -258,6 +258,7 @@ export const generatePayInUrl = async (req, res) => {
     tokenData.user_id,
     role,
     userIp,
+    fromUI,
   );
 
   // create some kind of hash to secure the next public API flow

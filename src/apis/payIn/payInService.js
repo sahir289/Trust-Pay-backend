@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import dayjs from 'dayjs';
 import { nanoid } from 'nanoid';
 import { v4 as uuidv4 } from 'uuid';
@@ -239,10 +240,12 @@ export const generatePayInUrlByHashService = async (conn, req) => {
 };
 
 export const generatePayInUrlService = async (
+  conn,
   payload,
   created_by,
   role,
   userIp,
+  fromUI,
 ) => {
   try {
     const {
