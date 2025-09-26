@@ -131,6 +131,11 @@ const updateVendor = async (req, res) => {
   if (!req.params) {
     throw new BadRequestError('id required in request');
   }
+  const { error: paramsError } = VALIDATE_VENDOR_BY_ID.validate(req.params);
+  if (paramsError) {
+    throw new ValidationError(paramsError);
+  }
+
   let payload = req.body;
   const { error: bodyError } = VALIDATE_UPDATE_VENDOR_STATUS.validate(payload);
   if (bodyError) {

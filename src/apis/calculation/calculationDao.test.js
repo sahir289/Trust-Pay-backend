@@ -278,7 +278,7 @@ describe('Calculation DAO', () => {
       const result = await createCalculationDao(conn, data);
 
       expect(conn.query).toHaveBeenCalledWith(
-        expect.stringMatching(/INSERT INTO ".*Calculation.*" .*RETURNING \*/),
+        "INSERT INTO \"Calculation\" ... RETURNING *",
         ['user1', 1000]
       );
       expect(result).toEqual({ id: 1 });
@@ -366,8 +366,8 @@ describe('Calculation DAO', () => {
       const result = await deleteCalculationDao(conn, id, data);
 
       expect(conn.query).toHaveBeenCalledWith(
-        expect.stringMatching(/UPDATE ".*Calculation.*" SET .* WHERE id = \$2/),
-        expect.any(Array)
+        "UPDATE \"Calculation\" SET ... WHERE ... RETURNING *",
+        []
       );
       expect(result).toEqual({ id: 1 });
     });

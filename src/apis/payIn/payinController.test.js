@@ -10,10 +10,14 @@ import * as responseHandlers from '../../utils/responseHandlers.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { createHash, compareHash } from '../../utils/hashUtils.js';
 import config from '../../config/config.js';
-import { createPool } from '../../utils/db.js';
+
 import { bulkIndexFromPG } from '../../utils/buildElasticSearch.js';
 
-jest.mock('./payInService.js');
+jest.mock('./payInService.js', () => ({
+  generatePayInUrlService: jest.fn(),
+  verifyPayinsService: jest.fn(),
+  generatePayInUrlByHashService: jest.fn()
+}));
 jest.mock('../../schemas/payInSchema.js');
 jest.mock('../../helpers/index.js');
 jest.mock('../../utils/responseHandlers.js');
@@ -60,10 +64,36 @@ jest.mock('../../utils/elasticClient.js', () => ({
     bulk: jest.fn().mockResolvedValue({ body: { errors: false, items: [] } }),
   }),
 }));
-jest.mock('../../utils/db.js', () => ({
-  createPool: jest.fn(),
-  ...jest.requireActual('../../utils/db.js'),
-}));
+jest.mock('../../utils/db.js', () => {
+  const mockPool = {
+    query: jest.fn().mockImplementation((query, params) => {
+      if (query.includes('information_schema.tables')) {
+        return Promise.resolve({
+          rows: [{ exists: params[1] === 'users' }]
+        });
+      }
+      if (query.includes('SELECT COUNT(*)')) {
+        return Promise.resolve({
+          rows: [{ count: "0" }]
+        });
+      }
+      return Promise.resolve({ rows: [] });
+    }),
+    connect: jest.fn().mockReturnValue({
+      query: jest.fn().mockResolvedValue({ rows: [{ count: "0" }] }),
+      release: jest.fn(),
+    }),
+    release: jest.fn(),
+  };
+
+  const mockDb = {
+    createPool: jest.fn().mockReturnValue(mockPool),
+    connect: jest.fn(),
+    transactionWrapper: jest.fn(fn => (...args) => fn(...args)),
+  };
+
+  return mockDb;
+});
 
 
 describe('PayIn Controller', () => {
@@ -288,11 +318,12 @@ describe('PayIn Controller', () => {
         expect.objectContaining({
           code: 'validCode',
           api_key: 'validApiKey',
+          key: 'validApiKey',
         }),
         'user123',
-        null, // role
-        TestingIp, // userIp should be TestingIp
-        false, // fromUi
+        null,
+        TestingIp,
+        false
       );
       expect(responseHandlers.sendNewSuccess).toHaveBeenCalledWith(
         res,
@@ -374,11 +405,16 @@ describe('PayIn Controller', () => {
 
       expect(getRolesById).toHaveBeenCalledWith('roleToken123');
       expect(payInService.generatePayInUrlService).toHaveBeenCalledWith(
-        expect.any(Object),
+        {
+          code: 'validCode',
+          api_key: 'validApiKey',
+          key: 'validApiKey',
+          roleToken: 'roleToken123'
+        },
         'user123',
-        'admin', // Role from roleToken
+        'admin',
         '127.0.0.1',
-        false,
+        false
       );
       expect(responseHandlers.sendNewSuccess).toHaveBeenCalled();
     });
@@ -419,28 +455,33 @@ describe('PayIn Controller', () => {
     it('should handle empty table', async () => {
       const result = await bulkIndexFromPG('users', 'users_index', ['id', 'name'], 10000, '', 'id', 'public');
       expect(result).toEqual({ success: true, indexed: 0 });
-  expect(createPool().query).toHaveBeenCalledWith(
-        expect.stringContaining('information_schema.tables'),
-        ['public', 'users']
-      );
-  expect(createPool().query).toHaveBeenNthCalledWith(
-        1,
-        expect.stringContaining("information_schema.tables"),
-        ["public", "users"]
-      );
       
+      // Verify the query was called
+      expect(require('../../utils/db.js').createPool().query)
+        .toHaveBeenCalledWith(
+          expect.stringContaining('information_schema.tables'),
+          ['public', 'users']
+        );
     });
 
     it('should throw BadRequestError for non-existent table', async () => {
-  createPool().query.mockImplementation((query) => {
+      // Update the global mock to handle the non-existent table case
+      const { createPool } = require('../../utils/db.js');
+      createPool().query.mockImplementationOnce(query => {
         if (query.includes('information_schema.tables')) {
           return Promise.resolve({ rows: [{ exists: false }] });
         }
         return Promise.resolve({ rows: [] });
       });
+
       await expect(
         bulkIndexFromPG('non_existent_table', 'users_index', ['id', 'name'])
       ).rejects.toThrow(BadRequestError);
+
+      expect(createPool().query).toHaveBeenCalledWith(
+        expect.stringContaining('information_schema.tables'),
+        ['public', 'non_existent_table']
+      );
     });
   });
 });

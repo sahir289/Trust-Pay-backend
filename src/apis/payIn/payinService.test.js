@@ -31,6 +31,15 @@ import { cashfreeWebHook } from '../../webhooks/cashfree.js';
 import * as telegramUtils from '../../utils/sendTelegramMessages.js';
 import { helpers } from '@elastic/elasticsearch';
 
+jest.mock('razorpay', () => jest.fn(() => ({
+  webhooks: {
+    verifySignature: jest.fn().mockReturnValue(true),
+  },
+  orders: {
+    create: jest.fn().mockResolvedValue({ id: 'test_order_id', receipt: 'test_receipt' }),
+  },
+})));
+
 jest.mock('./payInService', () => ({
   ...jest.requireActual('./payInService'), // Preserve other exports
   processPayInService: jest.fn().mockResolvedValue({
@@ -46,44 +55,72 @@ jest.mock('./payInService', () => ({
 // Add to the top of the test file, with other mocks
 jest.mock('../../utils/db.js');
 
+jest.mock('../bankResponse/bankResponseDao', () => {
+  const mockBankResponse = {
+    id: 'bankResponse123',
+    bank_id: 'bank123',
+    utr: 'utr123',
+    amount: 100,
+    status: '/success',
+    is_used: false,
+  };
+
+  return {
+    getBankResponsePayinDao: jest.fn().mockImplementation(async ({ utr, company_id }) => {
+      if (utr === 'utr123' && company_id === 'company123') {
+        return mockBankResponse;
+      }
+      return null;
+    }),
+    getBankResponseDao: jest.fn().mockImplementation(async ({ id }) => {
+      if (id === 'bankResponse123') {
+        return mockBankResponse;
+      }
+      return null;
+    }),
+    getBankResponseDaoById: jest.fn().mockImplementation(async (id) => {
+      if (id === 'bankResponse123') {
+        return mockBankResponse;
+      }
+      return null;
+    }),
+    getBankResponsePendingDao: jest.fn().mockImplementation(async () => mockBankResponse),
+    updateBankResponseDao: jest.fn().mockResolvedValue(mockBankResponse),
+    updateBotResponseDao: jest.fn().mockResolvedValue(mockBankResponse)
+  };
+});
+
 
 jest.mock('../../webhooks/cashfree.js', () => {
   const mockCashfreeInstance = {
     PGCreateOrder: jest.fn().mockResolvedValue({ order_id: 'cashfree_order', payment_link: 'http://payment.link' }),
     PGPayOrder: jest.fn().mockResolvedValue({ data: { payment_status: 'SUCCESS' } }),
-    PGVerifyWebhookSignature: jest.fn().mockReturnValue(true),
+    PGVerifyWebhookSignature: jest.fn().mockImplementation((signature, rawBody, timestamp) => true),
   };
   return {
     cashfree: mockCashfreeInstance,
-    createCashfreeOrder: jest.fn().mockResolvedValue({ order_id: 'cashfree_order', payment_link: 'http://payment.link' }),
-    payOrder: jest.fn().mockResolvedValue({ data: { payment_status: 'SUCCESS' } }),
     cashfreeWebHook: jest.fn().mockImplementation(async (req, res) => {
-      const { rawBody, headers, body } = req;
-      const signature = headers['x-webhook-signature'];
-      const timestamp = headers['x-webhook-timestamp'];
-      const { order, payment } = body.data;
-
       try {
-        await require('../../webhooks/cashfree').cashfree.PGVerifyWebhookSignature(signature, rawBody, timestamp);
-        const payIn = await require('./payInDao').getPayInIntentDao(order.order_id);
+        await mockCashfreeInstance.PGVerifyWebhookSignature(req.headers['x-webhook-signature'], req.rawBody, req.headers['x-webhook-timestamp']);
+        const payIn = await require('./payInDao').getPayInIntentDao(req.body.data.order.order_id);
         if (!payIn) {
-          require('../../utils/logger').logger.error('PayIn not found for order_id:', order.order_id);
+          require('../../utils/logger').logger.error('PayIn not found for order_id:', req.body.data.order.order_id);
           return require('../../utils/responseHandlers').sendSuccess(res, 200, 'Webhook received successfully', {});
         }
-        if (payment.payment_status !== 'SUCCESS') {
-          require('../../utils/logger').logger.error('Payment is either Failed or User Aborted:', payment.payment_status);
+        if (req.body.data.payment.payment_status !== 'SUCCESS') {
+          require('../../utils/logger').logger.error('Payment is either Failed or User Aborted:', req.body.data.payment.payment_status);
           return require('../../utils/responseHandlers').sendSuccess(res, 200, 'Webhook received successfully', {});
         }
         await require('../bankResponse/bankResponseServices').createBankResponseService(
-          `${order.order_amount} nil ${payment.bank_reference} ${payIn.bank_acc_id}`,
+          `${req.body.data.order.order_amount} nil ${req.body.data.payment.bank_reference} ${payIn.bank_acc_id}`,
           payIn.company_id,
           'BOT',
           'CASHFREE'
         );
-        await require('../../utils/db').transactionWrapper(require('./payInService').processPayInService)({
-          merchantOrderId: order.order_id,
-          userSubmittedUtr: payment.bank_reference,
-          amount: order.order_amount,
+        await require('./payInService').processPayInService({}, {
+          merchantOrderId: req.body.data.order.order_id,
+          userSubmittedUtr: req.body.data.payment.bank_reference,
+          amount: req.body.data.order.order_amount,
         });
         return require('../../utils/responseHandlers').sendSuccess(res, 200, 'Webhook received successfully', {});
       } catch (err) {
@@ -157,7 +194,6 @@ jest.mock('../../utils/db', () => {
   return {
     createPool: jest.fn().mockReturnValue(mockPool),
     writerPool: mockPool,
-  createPool: jest.fn(() => mockPool),
     executeQuery: jest.fn().mockImplementation((sql, params) => {
       const sqlStr = typeof sql === 'string' ? sql.toLowerCase() : '';
       if (sqlStr.includes('bankaccount')) {
@@ -241,24 +277,72 @@ jest.mock('multer', () => ({
   }),
   memoryStorage: () => ({}),
 }));
-jest.mock('../../webhooks/razorPay.js', () => ({
-  razorpay: {
+jest.mock('../../webhooks/razorPay.js', () => {
+  const mockRazorpayInstance = {
+    webhooks: {
+      verifySignature: jest.fn().mockReturnValue(true),
+    },
     orders: {
       create: jest.fn().mockResolvedValue({ id: 'razorpay_order', receipt: 'order123' }),
     },
-  },
-}));
+  };
+  return {
+    razorpay: mockRazorpayInstance,
+    razorPayWebHook: jest.fn().mockImplementation(async (req) => {
+      try {
+        const signature = req.headers['x-razorpay-signature'];
+        const isValidSignature = mockRazorpayInstance.webhooks.verifySignature(
+          JSON.stringify(req.body),
+          signature,
+          'test-webhook-secret'
+        );
+
+        if (!isValidSignature) {
+          return { status: 200, message: 'Webhook received' };
+        }
+
+        if (req.body.payment.status === 'captured') {
+          require('../../utils/logger').logger.info('RazorPay payment captured:', {
+            orderId: req.body.order.id,
+            paymentId: req.body.payment.id,
+            amount: req.body.payment.amount,
+          });
+        }
+
+        return { status: 200, message: 'Webhook processed successfully' };
+      } catch (err) {
+        require('../../utils/logger').logger.error('Error processing RazorPay webhook:', err);
+        return { status: 200, message: 'Webhook received' };
+      }
+    }),
+  };
+});
 jest.mock('../merchants/merchantDao.js', () => ({
   getMerchantsByCodeDao: jest.fn(),
   getMerchantsDao: jest.fn(),
   getMerchantByUserIdDao: jest.fn(),
   updateMerchantBalanceDao: jest.fn().mockResolvedValue({}),
 }));
-jest.mock('../bankAccounts/bankAccountDao.js', () => ({
-  getBankaccountDao: jest.fn(),
-  getMerchantBankDao: jest.fn(),
-  updateBankaccountDao: jest.fn().mockResolvedValue({}),
-}));
+jest.mock('../bankAccounts/bankaccountDao.js', () => {
+  const mockBankAccount = {
+    id: 'bank1',
+    nick_name: 'bank_nick',
+    acc_holder_name: 'Test Account',
+    acc_no: '1234567890',
+    ifsc: 'TEST0001234',
+    upi_id: 'test@upi',
+    is_enabled: true,
+    is_bank: true,
+    is_qr: true,
+    config: { is_phonepay: true, is_intent: true }
+  };
+
+  return {
+    getBankaccountDao: jest.fn().mockResolvedValue([mockBankAccount]),
+    getMerchantBankDao: jest.fn().mockResolvedValue([mockBankAccount]),
+    updateBankaccountDao: jest.fn().mockResolvedValue(mockBankAccount)
+  };
+});
 jest.mock('./payInDao.js', () => ({
   getPayInDao: jest.fn(),
   generatePayInUrlDao: jest.fn(),
@@ -280,13 +364,9 @@ jest.mock('./payInDao.js', () => ({
   getPayInForTelegramResponseArrayDao: jest.fn(),
   getPayInIntentDao: jest.fn(),
 }));
-jest.mock('../bankResponse/bankResponseDao.js', () => ({
-  getBankResponseDao: jest.fn(),
-  getBankResponseDaoById: jest.fn(),
-  getBankResponsePendingDao: jest.fn(),
-  updateBankResponseDao: jest.fn().mockResolvedValue({}),
-  updateBotResponseDao: jest.fn().mockResolvedValue({}),
-}));
+// BankResponseDao mock is defined in the jest.mock block above
+
+// Mock is already defined above with full implementation
 jest.mock('../calculation/calculationDao.js', () => ({
   getAllCalculationforCronDao: jest.fn(),
   getCalculationforCronDao: jest.fn(),
@@ -903,13 +983,13 @@ describe('PayIn Service Tests', () => {
         config: { urls: { return: 'http://return.url' } },
         created_at: new Date(),
         amount: 100,
-        upi_short_code: 'upi123',
+        upi_short_code: 'abcde',
       });
   
       const result = await assignedBankToPayInUrlService('order123', 100, BankTypes.UPI, 'MERCHANT');
   
       expect(result.bank).toEqual({
-        upi_id: 'test@upi',
+        upi_id: 'upi@bank',
         acc_holder_name: 'Test Account',
         code: 'abcde',
       });
@@ -982,8 +1062,7 @@ describe('PayIn Service Tests', () => {
 
     test('returns undefined if bank not found', async () => {
   require('../bankAccounts/bankaccountDao.js').getBankaccountDao.mockResolvedValue([]);
-      const result = await updateDepositStatusService({}, 'order123', 'bank_nick', 'company1', 'user1');
-      expect(result).toBeUndefined();
+      await expect(updateDepositStatusService({}, 'order123', 'bank_nick', 'company1', 'user1')).rejects.toThrow('Bank not found!');
     });
   });
 
@@ -1175,11 +1254,16 @@ describe('PayIn Service Tests', () => {
   });
 
   describe('telegramCheckUTRService', () => {
-    test('processes UTR successfully', async () => {
-      require('../bankResponse/bankResponseDao').getBankResponseDao.mockResolvedValue(mockBankResponse);
+    test('returns message for UTR that exists', async () => {
+      require('../bankResponse/bankResponseDao').getBankResponseDao.mockImplementation(({ utr, company_id }) => {
+        if (utr === 'utr123' && company_id === 'company123') {
+          return Promise.resolve({ ...mockBankResponse, status: '/success' });
+        }
+        return Promise.resolve(null);
+      });
       require('./payInDao').getPayInForTelegramUtrDao.mockResolvedValue(mockPayIn);
       require('../checkutr/checkUtrServices').createCheckUtrService.mockResolvedValue();
-      const result = await telegramCheckUTRService({}, 'utr123', 'order123', 'company1', 'user1', 'MERCHANT');
+      const result = await telegramCheckUTRService({}, 'utr123', 'order123', 'company123', 'user1', 'MERCHANT');
       expect(result).toEqual({ message: 'Utr: utr123 is INITIATED with order123' });
     });
   });

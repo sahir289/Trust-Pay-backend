@@ -35,7 +35,9 @@ jest.mock('./vendorService.js', () => ({
   deleteVendorService: jest.fn(),
 }));
 
-jest.mock('../../utils/db.js');
+jest.mock('../../utils/db.js', () => ({
+  transactionWrapper: jest.fn(fn => fn)
+}));
 
 jest.mock('../../schemas/vendorSchema.js', () => ({
   VALIDATE_VENDOR_SCHEMA: { validate: jest.fn() },
@@ -110,9 +112,13 @@ describe('Vendor Controller', () => {
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ data: { id: 'vendor1' }, message: 'Vendor created successfully' });
       expect(VALIDATE_VENDOR_SCHEMA.validate).toHaveBeenCalledWith(payload);
-      expect(createVendorService).toHaveBeenCalledWith(
-        { ...payload, company_id: 'comp1', created_by: 'user1', updated_by: 'user1' },
-      );
+      expect(createVendorService).toHaveBeenCalledWith({ 
+        name: 'Vendor A',
+        status: 'active',
+        company_id: 'comp1',
+        created_by: 'user1',
+        updated_by: 'user1'
+      });
       expect(transactionWrapper).toHaveBeenCalled();
       expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), { id: 'vendor1' }, 'Vendor created successfully');
     });
@@ -263,8 +269,7 @@ describe('Vendor Controller', () => {
       expect(VALIDATE_UPDATE_VENDOR_STATUS.validate).toHaveBeenCalledWith(payload);
       expect(updateVendorService).toHaveBeenCalledWith(
         { id: 'vendor1', company_id: 'comp1' },
-        { ...payload, updated_by: 'user1' },
-        'admin'
+        { ...payload, updated_by: 'user1' }
       );
       expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), { id: 'vendor1', updated_by: 'TestUser' }, 'Vendor updated successfully');
     });

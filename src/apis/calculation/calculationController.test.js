@@ -35,8 +35,8 @@ import {
   }));
   
   jest.mock('../../utils/db.js', () => ({
-  ...jest.requireActual('../../utils/db.js'),
   createPool: jest.fn(),
+  transactionWrapper: jest.fn((fn) => (...args) => fn(...args)),
   }));
   
   jest.mock('../../schemas/calculationSchema.js', () => ({
@@ -49,8 +49,22 @@ import {
     ValidationError: jest.fn((message) => ({ message })),
   }));
   
-  jest.mock('../../utils/logger.js', () => ({
-    logger: { error: jest.fn() },
+  jest.mock('chalk', () => ({
+    bgCyanBright: jest.fn(),
+    yellow: jest.fn(),
+    default: {
+      bgCyanBright: jest.fn(),
+      yellow: jest.fn(),
+      underline: { red: jest.fn() },
+    },
+  }));
+
+jest.mock('../../utils/logger.js', () => ({
+    logger: { 
+      error: jest.fn(),
+      warn: jest.fn(),
+      info: jest.fn()
+    },
   }));
   
   describe('Calculation Controller', () => {

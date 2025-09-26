@@ -23,7 +23,7 @@ const {
     getBankResponseBySearchDao,
     resetBankResponseDao,
     getCheckBankResponseDao,
-    getForCreateBankResponseDao,
+    getForCreateBankResponseDao
 } = require('./bankResponseDao');
 const { getBankaccountDao, updateBankaccountDao, getBankaccountCheckDao, getBankaccountDashBoardReportDao } = require('../bankAccounts/bankaccountDao.js');
 const { updatePayInUrlDao, getPayInsBankResDao } = require('../payIn/payInDao');
@@ -437,7 +437,11 @@ const { columns, merchantColumns, vendorColumns } = require('../../constants/ind
             payin_vendor_commission: 0.1,
             approved_at: mockDate,
           }),
-          expect.anything(),
+          expect.any(Object),
+          expect.objectContaining({
+            utr: 'utr123',
+            amount: 1000
+          })
         );
         expect(merchantPayinCallback).toHaveBeenCalled();
         expect(result).toEqual({

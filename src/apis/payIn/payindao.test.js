@@ -6,7 +6,7 @@ const {
   getPayInDaoByCode,
   updatePayInUrlDao,
   getPayinDetailsByMerchantOrderId,
-} = require('./payinDao');
+} = require('./payInDao');
 
 const { tableName } = require('../../constants/index.js');
 const { BadRequestError } = require('../../utils/appErrors.js');
@@ -23,7 +23,11 @@ jest.mock('dayjs', () => {
 });
 jest.mock('../../utils/db.js', () => ({
   createPool: jest.fn(),
-  ...jest.requireActual('../../utils/db.js'),
+  executeQuery: jest.fn(),
+  buildInsertQuery: jest.fn(),
+  buildSelectQuery: jest.fn(),
+  buildUpdateQuery: jest.fn(),
+  getConnection: jest.fn()
 }));
 jest.mock('../../utils/logger.js');
 jest.mock('../../constants/index.js');
@@ -31,6 +35,11 @@ jest.mock('../../constants/index.js');
 describe('PayIn DAO', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    const db = require('../../utils/db.js');
+    db.buildInsertQuery.mockReturnValue(['INSERT INTO "table"', []]);
+    db.buildSelectQuery.mockReturnValue(['SELECT * FROM "table"', []]);
+    db.buildUpdateQuery.mockReturnValue(['UPDATE "table"', []]);
+    db.executeQuery.mockResolvedValue({ rows: [] });
   });
 
   describe('generatePayInUrlDao', () => {

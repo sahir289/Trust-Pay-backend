@@ -1,11 +1,8 @@
+import { jest } from '@jest/globals';
+import request from 'supertest';
+import express from 'express';
 
-jest.mock('../../utils/db.js');
-
-const request = require('supertest');
-const express = require('express');
-const bankResponseRouter = require('./index.js');
-const {
-    createBankResponse,
+let createBankResponse,
     getBankResponse,
     getBankMessage,
     updateBankResponse,
@@ -13,48 +10,81 @@ const {
     getClaimResponse,
     importBankResponse,
     resetBankResponseController,
-    createBankBotResponseBulk,
-} = require('./bankResponseController.js');
+    createBankBotResponseBulk;
 
-beforeEach(() => {
+beforeEach(async () => {
     jest.resetModules();
     jest.clearAllMocks();
+
+    // Import and mock the controller functions
+    const controllerModule = await jest.unstable_mockModule('./bankResponseController.js', () => ({
+        createBankResponse: jest.fn((req, res) => res.status(201).json({ id: 1, message: 'Bank response created' })),
+        getBankResponse: jest.fn((req, res) => res.status(200).json({ message: 'Bank response fetched' })),
+        getBankMessage: jest.fn((req, res) => res.status(200).json({ message: 'Bank response fetched' })),
+        updateBankResponse: jest.fn((req, res) => res.status(200).json({ id: parseInt(req.params.id), message: 'Bank response updated' })),
+        getBankResponseBySearch: jest.fn((req, res) => res.status(200).json({ message: 'Bank responses searched' })),
+        createBankBotResponse: jest.fn((req, res) => res.status(201).json({ message: 'Bank bot response created' })),
+        getClaimResponse: jest.fn((req, res) => res.status(200).json({ message: 'Claim response fetched' })),
+        importBankResponse: jest.fn((req, res) => res.status(201).json({ message: 'Bank response imported' })),
+        resetBankResponseController: jest.fn((req, res) => res.status(200).json({ message: 'Bank response reset' })),
+        createBankBotResponseBulk: jest.fn((req, res) => res.status(201).json({ message: 'Bank bot responses created in bulk' }))
+    }));
+
+    // Update references to mocked functions
+    ({
+        createBankResponse,
+        getBankResponse,
+        getBankMessage,
+        updateBankResponse,
+        createBankBotResponse,
+        getClaimResponse,
+        importBankResponse,
+        resetBankResponseController,
+        createBankBotResponseBulk
+    } = controllerModule);
 });
 
-jest.mock('../../utils/auth.js', () => ({
-    verifyToken: jest.fn(() => ({ user_id: 'test-user', company_id: 'test-company', designation: 'admin' })),
+// Setup mocks for dependencies
+jest.unstable_mockModule('../../utils/auth.js', () => ({
+    default: {
+        verifyToken: jest.fn(() => ({ user_id: 'test-user', company_id: 'test-company', designation: 'admin' }))
+    }
 }));
 
-jest.mock('../../apis/auth/authDao.js', () => ({
-    getSessionByIdDao: jest.fn(() => Promise.resolve({ session_id: 'test-session' })),
+jest.unstable_mockModule('../../apis/auth/authDao.js', () => ({
+    default: {
+        getSessionByIdDao: jest.fn(() => Promise.resolve({ session_id: 'test-session' }))
+    }
 }));
 
-jest.mock('../../helpers/Aws.js', () => ({
-    s3: {
-        upload: jest.fn().mockImplementation((params, callback) => callback(null, { Location: 'mock-s3-url' })),
-    },
+jest.unstable_mockModule('../../helpers/Aws.js', () => ({
+    default: {
+        s3: {
+            upload: jest.fn().mockImplementation((params, callback) => callback(null, { Location: 'mock-s3-url' }))
+        }
+    }
 }));
 
-jest.mock('../../middlewares/auth.js', () => ({
+jest.unstable_mockModule('../../middlewares/auth.js', () => ({
     isAuthenticated: (req, res, next) => {
         req.user = { user_id: 'test-user', designation: 'admin', company_id: 'test-company' };
         next();
     },
     authorized: () => (req, res, next) => {
         next();
-    },
+    }
 }));
 
-jest.mock('../../middlewares/rateLimiter.js', () => ({
+jest.unstable_mockModule('../../middlewares/rateLimiter.js', () => ({
     rateLimitMiddleware: (req, res, next) => {
         next();
     },
     rateLimitMiddlewareBot: (req, res, next) => {
         next();
-    },
+    }
 }));
 
-jest.mock('../../utils/index.js', () => ({
+jest.unstable_mockModule('../../utils/index.js', () => ({
     multerUpload: {
         single: () => (req, res, next) => {
             req.file = {
@@ -64,66 +94,21 @@ jest.mock('../../utils/index.js', () => ({
             };
             next();
         },
-    },
+    }
 }));
 
-jest.mock('./bankResponseController.js', () => ({
-    createBankResponse: jest.fn((req, res) => {
-        return res.status(201).json({ id: 1, message: 'Bank response created' });
-    }),
-    getBankResponse: jest.fn((req, res) => {
-        return res.status(200).json({ message: 'Bank response fetched' });
-    }),
-    getBankMessage: jest.fn((req, res) => {
-        return res.status(200).json({ message: 'Bank response fetched' });
-    }),
-    updateBankResponse: jest.fn((req, res) => {
-        return res.status(200).json({ id: parseInt(req.params.id), message: 'Bank response updated' });
-    }),
-    getBankResponseBySearch: jest.fn((req, res) => {
-        return res.status(200).json({ message: 'Bank responses searched' });
-    }),
-    createBankBotResponse: jest.fn((req, res) => {
-        return res.status(201).json({ message: 'Bank bot response created' });
-    }),
-    getClaimResponse: jest.fn((req, res) => {
-        return res.status(200).json({ message: 'Claim response fetched' });
-    }),
-    importBankResponse: jest.fn((req, res) => {
-        return res.status(201).json({ message: 'Bank response imported' });
-    }),
-    resetBankResponseController: jest.fn((req, res) => {
-        return res.status(200).json({ message: 'Bank response reset' });
-    }),
-    createBankBotResponseBulk: jest.fn((req, res) => {
-        return res.status(201).json({ message: 'Bank bot responses created in bulk' });
-    }),
-}));
-
-
-
-
-jest.mock('../../middlewares/rateLimiter.js', () => ({
-    rateLimitMiddleware: jest.fn((req, res, next) => {
-        next();
-    }),
-    rateLimitMiddlewareBot: jest.fn((req, res, next) => {
-        next();
-    }),
-}));
-
-jest.mock('../../utils/redisClient.js', () => ({
+jest.unstable_mockModule('../../utils/redisClient.js', () => ({
     get: jest.fn().mockResolvedValue(null),
     set: jest.fn().mockResolvedValue('OK'),
     del: jest.fn().mockResolvedValue(1),
     quit: jest.fn().mockResolvedValue('OK'),
 }));
 
-jest.mock('../../utils/rabbitmq-bank-response.js', () => ({
+jest.unstable_mockModule('../../utils/rabbitmq-bank-response.js', () => ({
     publishBankResponse: jest.fn().mockResolvedValue(true),
 }));
 
-jest.mock('../../utils/logger.js', () => ({
+jest.unstable_mockModule('../../utils/logger.js', () => ({
     logger: {
         error: jest.fn(),
         info: jest.fn(),
@@ -131,14 +116,32 @@ jest.mock('../../utils/logger.js', () => ({
     },
 }));
 
-jest.mock('../../utils/db.js', () => ({
-    createPool: jest.fn(),
-    ...jest.requireActual('../../utils/db.js'),
-}));
+jest.unstable_mockModule('../../utils/db.js', () => {
+    const mockPool = {
+        end: jest.fn().mockResolvedValue(),
+        query: jest.fn(),
+        connect: jest.fn()
+    };
+    
+    return {
+        default: {
+            createPool: jest.fn().mockReturnValue(mockPool),
+            executeQuery: jest.fn(),
+            beginTransaction: jest.fn(),
+            commit: jest.fn(),
+            rollback: jest.fn(),
+            buildSelectQuery: jest.fn(),
+            buildInsertQuery: jest.fn(),
+            buildUpdateQuery: jest.fn(),
+            getConnection: jest.fn(),
+            pool: mockPool,
+            writerPool: mockPool,
+            readerPool: mockPool
+        }
+    };
+});
 
-const dbMock = jest.requireMock('../../utils/db.js');
-
-jest.mock('../../config/config.js', () => ({
+jest.unstable_mockModule('../../config/config.js', () => ({
     rateLimiter: {
         points: 100,
         duration: 60,
@@ -147,7 +150,7 @@ jest.mock('../../config/config.js', () => ({
     bucketName: 'test-bucket',
 }));
 
-jest.mock('../../constants/index.js', () => ({
+jest.unstable_mockModule('../../constants/index.js', () => ({
     AccessRoles: {
         ADMIN: 'admin',
         BANK_RESPONSE: 'admin',
@@ -157,26 +160,18 @@ jest.mock('../../constants/index.js', () => ({
 describe('BankResponse Routes', () => {
     let app;
 
-    beforeAll(() => {
+    beforeAll(async () => {
         app = express();
         app.use(express.json());
-        app.use('/bankResponse', bankResponseRouter);
-    });
-
-    beforeEach(() => {
-        jest.clearAllMocks();
-        createBankBotResponse.mockClear();
-        createBankBotResponseBulk.mockClear();
-        createBankResponse.mockClear();
-        updateBankResponse.mockClear();
-        resetBankResponseController.mockClear();
-        importBankResponse.mockClear();
+        const bankRouter = (await import('./index.js')).default;
+        app.use('/bankResponse', bankRouter);
     });
 
     afterAll(async () => {
-        const db = require('../../utils/db.js');
-        if (db.pool && db.pool.end) {
-            await db.pool.end();
+        const mockDb = await jest.unstable_mockModule('../../utils/db.js');
+        const pool = mockDb.default?.pool;
+        if (pool?.end) {
+            await pool.end();
         }
     });
 
@@ -192,6 +187,7 @@ describe('BankResponse Routes', () => {
             throw error;
         }
     }, 30000);
+
     test('should call createBankBotResponse and return 201', async () => {
         try {
             const res = await request(app)

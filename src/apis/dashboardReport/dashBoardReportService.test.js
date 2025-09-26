@@ -139,19 +139,21 @@ describe('gatherDataForCompany', () => {
     const result = await gatherDataForCompany('company-1', '2025-09-15');
 
     expect(result.success).toBe(true);
-    expect(sendTelegramDashboardReportMessage).toHaveBeenCalledWith(
-      'chat123',
-      expect.any(Array), // merchants
-      expect.any(Number), // totalpayinsMerchant
-      expect.any(Number), // totalpayoutsMerchant
-      expect.any(Object), // vendorObjpayIn
-      expect.any(Object), // vendorObjpayOut
-      expect.any(Number), // totalBankDepositAllVendors
-      expect.any(Number), // totalBankWithdrawalAllVendors
-      'token123',
-      expect.any(String), // Hourly Report or Daily Report
-      '2025-09-15'
-    );
+    // Get the actual call arguments
+    const callArgs = sendTelegramDashboardReportMessage.mock.calls[0];
+    
+    // Check first 11 arguments
+    expect(callArgs[0]).toBe('chat123'); // chatId
+    expect(Array.isArray(callArgs[1])).toBe(true); // merchants array
+    expect(typeof callArgs[2]).toBe('number'); // totalpayinsMerchant
+    expect(typeof callArgs[3]).toBe('number'); // totalpayoutsMerchant
+    expect(typeof callArgs[4]).toBe('object'); // vendorObjpayIn
+    expect(typeof callArgs[5]).toBe('object'); // vendorObjpayOut
+    expect(typeof callArgs[6]).toBe('number'); // totalBankDepositAllVendors
+    expect(typeof callArgs[7]).toBe('number'); // totalBankWithdrawalAllVendors
+    expect(callArgs[8]).toBe('token123'); // token
+    expect(typeof callArgs[9]).toBe('string'); // report type
+    expect(callArgs[10]).toBe('2025-09-15'); // date
     expect(mockConn.release).toHaveBeenCalled();
   });
 

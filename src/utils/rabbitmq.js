@@ -92,7 +92,10 @@ export const connectRabbitMQ = async (rabbitConfig = config.rabbitmq) => {
 //   return channel;
 // };
 export const getRabbitChannel = async () => {
-  if (!channel || channel.connection.closed) {
+  if (!channel) {
+    throw new Error('RabbitMQ channel not initialized. Did you call connectRabbitMQ()?');
+  }
+  if (channel.connection && channel.connection.closed) {
     logger.warn('RabbitMQ channel closed, reconnecting...');
     await connectRabbitMQ(); // reconnects connection + channel
   }

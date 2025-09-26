@@ -11,6 +11,7 @@ jest.mock('./logger.js', () => ({
     info: jest.fn(),
     log: jest.fn(),
     error: jest.fn(),
+    warn: jest.fn(),
   },
 }));
 
@@ -76,7 +77,8 @@ describe('RabbitMQ Utilities', () => {
       expect(mockChannel.assertQueue).toHaveBeenCalledWith('q', { durable: true });
       expect(mockChannel.bindQueue).toHaveBeenCalledWith('q', 'ex', 'rk');
       expect(logger.info).toHaveBeenCalled();
-      expect(rabbitUtils.getRabbitChannel()).toBe(mockChannel);
+      const channel = await rabbitUtils.getRabbitChannel();
+      expect(channel).toBe(mockChannel);
       expect(result).toBe(mockChannel);
     });
   });
@@ -85,7 +87,7 @@ describe('RabbitMQ Utilities', () => {
     it('should return channel if initialized', async () => {
       await rabbitUtils.connectRabbitMQ();
 
-      const channel = rabbitUtils.getRabbitChannel();
+      const channel = await rabbitUtils.getRabbitChannel();
 
       expect(channel).toMatchObject({
         ack: expect.any(Function),
@@ -101,8 +103,8 @@ describe('RabbitMQ Utilities', () => {
       });
     });
 
-    it('should throw error if channel not initialized', () => {
-      expect(() => rabbitUtils.getRabbitChannel()).toThrow(
+    it('should throw error if channel not initialized', async () => {
+      await expect(rabbitUtils.getRabbitChannel()).rejects.toThrow(
         'RabbitMQ channel not initialized. Did you call connectRabbitMQ()?'
       );
     });
@@ -145,7 +147,7 @@ describe('RabbitMQ Utilities', () => {
 
       expect(mockChannel.close).toHaveBeenCalled();
       expect(mockConnection.close).toHaveBeenCalled();
-      expect(() => rabbitUtils.getRabbitChannel()).toThrow();
+      await expect(rabbitUtils.getRabbitChannel()).rejects.toThrow();
     });
   });
 });

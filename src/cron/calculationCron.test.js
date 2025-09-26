@@ -61,12 +61,17 @@ describe('calculationCron', () => {
     createCalculationDao.mockImplementation(async () => true);
 
     // Set default dayjs.tz mock
+    // Get today's date in IST timezone and format it
+    const today = dayjs().tz('Asia/Kolkata');
+    const todayISO = today.format('YYYY-MM-DD');
+    const todayWithTime = today.format('YYYY-MM-DDTHH:mm:ssZ');
+    
     jest.spyOn(dayjs, 'tz').mockReturnValue({
       format: jest.fn()
-        .mockReturnValueOnce('2025-08-30T13:30:00+05:30') // executionStartTime
-        .mockReturnValueOnce('2025-08-30') // currentDate
-        .mockReturnValueOnce('2025-08-30T13:30:00+05:30') // currentTime
-        .mockReturnValueOnce('2025-08-30T13:30:00+05:30'), // executionEndTime
+        .mockReturnValueOnce(todayWithTime) // executionStartTime
+        .mockReturnValueOnce(todayISO)      // currentDate
+        .mockReturnValueOnce(todayWithTime) // currentTime
+        .mockReturnValueOnce(todayWithTime), // executionEndTime
     });
   });
 
@@ -79,10 +84,10 @@ describe('calculationCron', () => {
     it('should process calculations for all users when no entry exists', async () => {
       await collectCalculationData();
   
-      const today = dayjs().format('YYYY-MM-DD');  // dynamically get today's date
+      const todayISO = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
   
       expect(getUsersForCronDao).toHaveBeenCalledWith();
-      expect(checkCalculationEntryForDateDao).toHaveBeenCalledWith(today);
+      expect(checkCalculationEntryForDateDao).toHaveBeenCalledWith(todayISO);
   
       for (const user of mockUsers) {
         expect(getCalculationforCronDao).toHaveBeenCalledWith(user.id);
