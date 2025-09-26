@@ -1153,7 +1153,7 @@ const getBankResponseBySearchService = async (
   role,
   page,
   limit,
-  search,
+  // search,
   updated,
   sortBy,
   sortOrder,
@@ -1179,6 +1179,7 @@ const getBankResponseBySearchService = async (
         amount,
         utr: payload.utr || undefined,
         bank_id: payload.bank_id || undefined,
+        nick_name: payload.nick_name || undefined,
         is_used: payload.is_used || undefined,
         company_id: payload.company_id || undefined,
         upi_short_code: payload.upi_short_code || undefined,
@@ -1186,10 +1187,10 @@ const getBankResponseBySearchService = async (
         updated_at: payload.updated_at || undefined,
       }).filter(([, v]) => v !== undefined),
     );
-    filters = {
-      ...(search ? { search } : {}),
-      ...filters,
-    };
+    // filters = {
+    //   ...(search ? { search } : {}),
+    //   ...filters,
+    // };
     sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
 
     const fetchBankIds = async (user_ids) => {
