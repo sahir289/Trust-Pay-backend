@@ -61,7 +61,7 @@ const retryAxiosRequest = async (
 // Define the optimized tataPayTransactionStatusCallback function
 export const tataPayTransactionStatusCallback = async (req, res) => {
   const payload = req.body;
-  const apitxnid = payload?.payout;
+  const apitxnid = payload?.payoutId;
   let conn;
 
   try {
