@@ -1541,7 +1541,11 @@ export const processPayInService = async (
     }
 
     if (bankResponse.id) {
-      await updateBotResponseDao(bankResponse.id, { is_used: true ,status : "/success"}, conn);
+      await updateBotResponseDao(
+        bankResponse.id,
+        { is_used: true, status: '/success' },
+        conn,
+      );
     }
 
     if (bankResponse.bank_id && bankResponse.bank_id !== payIn.bank_acc_id) {
@@ -1827,20 +1831,10 @@ export const processPayInWebHookService = async (
   designation,
 ) => {
   try {
-    const {
-      userSubmittedUtr,
-      merchantOrderId,
-      amount,
-      from_telegram,
-      telegramMessage,
-      telegramBotToken,
-      user_submitted_image,
-      // : payload.fileKey
-    } = payload;
-    // validate payIn
-    // throw error if not exist or expires
+    const { userSubmittedUtr, merchantOrderId, amount } = payload;
+
     const payIn = await getPayInUrlService(merchantOrderId, conn, tele_check);
-    
+
     const banks = await getBankaccountDao({
       id: payIn?.bank_acc_id,
       company_id: payIn.company_id,
@@ -1899,26 +1893,14 @@ export const processPayInWebHookService = async (
       utr_id: payIn.user_submitted_utr,
     };
 
-    if (bankResponse.id) {
-      updatePayInData.status =
-        parseFloat(amount) === parseFloat(bankResponse.amount)
-          ? Status.SUCCESS
-          : Status.DISPUTE;
-      updatePayInData.bank_response_id = bankResponse.id;
-      updatePayInData.approved_at =
-        updatePayInData.status == Status.SUCCESS
-          ? new Date().toISOString()
-          : null;
-      result.amount = bankResponse.amount;
-      result.utr_id =
-        bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
-    } else {
-      updatePayInData.status = Status.PENDING;
-      result.utr_id =
-        bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
-    }
-
-    result.status = updatePayInData.status;
+    updatePayInData.status = Status.SUCCESS;
+    updatePayInData.bank_response_id = bankResponse.id;
+    updatePayInData.approved_at =
+      updatePayInData.status == Status.SUCCESS
+        ? new Date().toISOString()
+        : null;
+    result.amount = bankResponse.amount;
+    result.utr_id = bankResponse.utr;
 
     let merchant;
     merchant = await getMerchantsDao({ id: payIn.merchant_id });
@@ -1964,14 +1946,6 @@ export const processPayInWebHookService = async (
         },
         conn,
       );
-      // await updateCalculationTable(
-      //   bank.user_id,
-      //   {
-      //     payinCommission: vendorCommission,
-      //     amount: bankResponse.amount,
-      //   },
-      //   conn,
-      // );
     }
 
     // if (updatePayInData.status === Status.DISPUTE) {
@@ -2616,7 +2590,8 @@ export const telegramCheckUTRService = async (
   try {
     const bankResponse = await getBankResponsePayinDao({
       utr: utr,
-      status: designation === Role.ADMIN ? ['/freezed','/success'] : ['/success'],
+      status:
+        designation === Role.ADMIN ? ['/freezed', '/success'] : ['/success'],
       company_id,
     });
     let otherBankResponse = {};
@@ -2626,9 +2601,11 @@ export const telegramCheckUTRService = async (
     });
     if (!bankResponse) {
       throw new NotFoundError(`UTR ${utr} not found`);
-    }else if (
+    } else if (
       (bankResponse.status !== '/success' && designation !== Role.ADMIN) ||
-      (bankResponse.status !== '/success' && bankResponse.status !== '/freezed' && designation === Role.ADMIN)
+      (bankResponse.status !== '/success' &&
+        bankResponse.status !== '/freezed' &&
+        designation === Role.ADMIN)
     ) {
       throw new BadRequestError(
         `UTR ${utr} found with ${bankResponse.status} STATUS`,
