@@ -48,7 +48,6 @@ export const VALIDATE_CHECK_PAY_IN_STATUS = Joi.object({
 
 export const VALIDATE_PAY_IN_INTENT_GENERATE_ORDER = Joi.object({
   merchantOrderId: Joi.string()
-    .guid({ version: ['uuidv4'] })
     .label('merchantOrderId')
     .required(),
   amount: Joi.number().positive().label('amount').required(),
