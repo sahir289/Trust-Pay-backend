@@ -531,7 +531,6 @@ const createUserService = async (conn, payload) => {
     // });
     return User;
   } catch (error) {
-    console.error(error);
     logger.error('Error in createUserService:', error);
 
     throw error;
