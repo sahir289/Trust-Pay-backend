@@ -2,6 +2,9 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { AccessRoles } from '../../constants/index.js';
+import { isAuthenticated, authorized } from '../../middlewares/auth.js';
+import { rateLimitMiddleware, rateLimitMiddlewareBot } from '../../middlewares/rateLimiter.js';
+import { multerUpload } from '../../utils/index.js';
 
 // Dependency injection: pass controller functions as argument
 export function createBankResponseRouter({
@@ -15,11 +18,11 @@ export function createBankResponseRouter({
   importBankResponse,
   resetBankResponseController,
   createBankBotResponseBulk,
-  isAuthenticated = require('../../middlewares/auth.js').isAuthenticated,
-  authorized = require('../../middlewares/auth.js').authorized,
-  rateLimitMiddleware = require('../../middlewares/rateLimiter.js').rateLimitMiddleware,
-  rateLimitMiddlewareBot = require('../../middlewares/rateLimiter.js').rateLimitMiddlewareBot,
-  multerUpload = require('../../utils/index.js').multerUpload,
+  isAuthenticated: routerIsAuthenticated = isAuthenticated,
+  authorized: routerAuthorized = authorized,
+  rateLimitMiddleware: routerRateLimitMiddleware = rateLimitMiddleware,
+  rateLimitMiddlewareBot: routerRateLimitMiddlewareBot = rateLimitMiddlewareBot,
+  multerUpload: routerMulterUpload = multerUpload,
 } = {}) {
   const router = express.Router();
 
@@ -33,7 +36,7 @@ export function createBankResponseRouter({
 
   router.get(
     '/claim',
-    [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+    [routerIsAuthenticated, routerAuthorized(AccessRoles.BANK_RESPONSE)],
     tryCatchHandler(getClaimResponse),
   );
 
@@ -50,7 +53,7 @@ export function createBankResponseRouter({
  *         description: Internal server error
  */
 
-  router.post('/create-bot-message', rateLimitMiddlewareBot, tryCatchHandler(createBankBotResponse));
+  router.post('/create-bot-message', routerRateLimitMiddlewareBot, tryCatchHandler(createBankBotResponse));
 
 
 /**
@@ -90,7 +93,7 @@ export function createBankResponseRouter({
 
   router.post(
     '/create-message',
-    [isAuthenticated, rateLimitMiddleware, authorized(AccessRoles.BANK_RESPONSE)],
+    [routerIsAuthenticated, routerRateLimitMiddleware, routerAuthorized(AccessRoles.BANK_RESPONSE)],
     tryCatchHandler(createBankResponse),
   );
 
@@ -122,14 +125,14 @@ export function createBankResponseRouter({
 
   router.get(
     '/',
-    [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+    [routerIsAuthenticated, routerAuthorized(AccessRoles.BANK_RESPONSE)],
     tryCatchHandler(getBankResponseBySearch),
   );
 
 
   router.get(
     '/BankResponseReports',
-    [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+    [routerIsAuthenticated, routerAuthorized(AccessRoles.BANK_RESPONSE)],
     tryCatchHandler(getBankResponse),
   );
 /**
@@ -166,7 +169,7 @@ export function createBankResponseRouter({
 
   router.get(
     '/get-bank-message',
-    [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+    [routerIsAuthenticated, routerAuthorized(AccessRoles.BANK_RESPONSE)],
     tryCatchHandler(getBankMessage),
   );
 
@@ -204,7 +207,7 @@ export function createBankResponseRouter({
 
   router.put(
     '/update-message/:id',
-    [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+    [routerIsAuthenticated, routerAuthorized(AccessRoles.BANK_RESPONSE)],
     tryCatchHandler(updateBankResponse),
   );
 
@@ -231,15 +234,15 @@ export function createBankResponseRouter({
 
   router.put(
     '/reset-message/:id',
-    [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+    [routerIsAuthenticated, routerAuthorized(AccessRoles.BANK_RESPONSE)],
     tryCatchHandler(resetBankResponseController),
   );
 
 
   router.post(
     '/import-bank-response',
-    multerUpload.single('file'),
-    [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+    routerMulterUpload.single('file'),
+    [routerIsAuthenticated, routerAuthorized(AccessRoles.BANK_RESPONSE)],
     tryCatchHandler(importBankResponse),
   );
 
