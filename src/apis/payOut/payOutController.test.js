@@ -2,7 +2,6 @@
 'use strict';
 import { expect, describe, beforeEach, test } from '@jest/globals';
 
-const { ValidationError, BadRequestError } = require('../../utils/appErrors.js') || {};
 
 jest.mock('../../utils/db.js', () => ({
   transactionWrapper: jest.fn(),
@@ -51,7 +50,6 @@ const dbUtils = require('../../utils/db.js');
 const responseHandlers = require('../../utils/responseHandlers.js');
 const services = require('./payOutService.js');
 const schemas = require('../../schemas/payoutSchema.js');
-const logger = require('../../utils/logger.js');
 
 function makeReqRes(overrides = {}) {
   const req = {

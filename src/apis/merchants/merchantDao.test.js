@@ -61,7 +61,6 @@ import {
   buildAndExecuteUpdateQuery,
 } from '../../utils/db.js';
 import { enhanceMerchantsWithSubMerchants } from '../../utils/enhanceSubMerchant.js';
-import { logger } from '../../utils/logger.js';
 
 beforeEach(() => {
   jest.clearAllMocks();

@@ -61,11 +61,9 @@ jest.mock('../../utils/logger.js', () => ({
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import {
-  createUserService,
   getUserByIdService,
   getUsersByUserNameService,
   getUsersService,
-  userUpdateService,
   getUsersBySearchService,
   sendMailService,
 } from './userService.js';

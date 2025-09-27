@@ -15,7 +15,7 @@ jest.mock('../../utils/responseHandlers.js', () => ({
 }));
 
 jest.mock('./merchantService.js', () => ({
-  createMerchantService: jest.fn(async (payload, role) => ({ id: 'created-1', user_id: 'user-1', ...payload })),
+  createMerchantService: jest.fn(async (payload) => ({ id: 'created-1', user_id: 'user-1', ...payload })),
   getMerchantsService: jest.fn(async () => ({ rows: [], total: 0 })),
   getMerchantsBySearchService: jest.fn(async () => ({ rows: [], total: 0 })),
   getMerchantByIdService: jest.fn(async () => ({ id: 'm-1', user_id: 'u-1' })),

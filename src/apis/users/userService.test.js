@@ -10,12 +10,8 @@ import{
 
 import { expect, describe, beforeEach, it , } from '@jest/globals';
 import { InternalServerError } from '../../utils/appErrors.js';
-import { createHash } from '../../utils/bcryptPassword.js';
-import { getConnection,executeQuery,rollback,commit,beginTransaction } from '../../utils/db.js';
-import { generateUUID } from '../../utils/generateUUID.js';
-import { generatePassword } from '../../utils/generatePassword.js';
+import { getConnection} from '../../utils/db.js';
 import { sendCredentialsEmail } from '../../utils/sendMailer.js';
-import { unblocked_countries } from '../../constants/index.js';
 import {
   createUserDao,
   getUserByIdDao,
@@ -23,16 +19,12 @@ import {
   getUsersDao,
   updateUserDao,
   getUsersBySearchDao,
-  getAllUsersDao,
 } from './userDao.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
 import { filterResponse } from '../../helpers/index.js';
 import {
-  columns,
-  merchantColumns,
-  Role,
-  vendorColumns,
+  columns
 } from '../../constants/index.js';
 import { createMerchantService } from '../merchants/merchantService.js';
 import { createVendorService } from '../vendors/vendorService.js';
@@ -42,9 +34,7 @@ import { logger } from '../../utils/logger.js';
 // Reusable mock connection object for all tests
 let mockConn;
 import {
-  createUserHierarchyDao,
-  getUserHierarchysDao,
-  updateUserHierarchyDao,
+  createUserHierarchyDao
 } from '../userHierarchy/userHierarchyDao.js';
 import { getMerchantByUserIdDao } from '../merchants/merchantDao.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';

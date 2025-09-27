@@ -8,7 +8,6 @@
 
 import express from 'express';
 import request from 'supertest';
-import tryCatchHandler from '../../utils/tryCatchHandler.js';
 
 import { expect, describe, beforeEach, test } from '@jest/globals';
 

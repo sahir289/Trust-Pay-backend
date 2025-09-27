@@ -4,7 +4,7 @@ import { expect, describe, beforeEach, test } from '@jest/globals';
 
 // Mock dayjs.tz chain used by DAO
 jest.mock('dayjs', () => ({
-  tz: (str, tz) => ({
+  tz: () => ({
     utc: () => ({
       format: () => '2020-01-01T00:00:00Z',
     }),
@@ -179,6 +179,7 @@ describe('payOutDao', () => {
       try {
         result = await dao.getPayoutBankDetailsDao({ payOutids: [1] }, 'c1');
       } catch (e) {
+        console.log(e)
         result = undefined;
       }
       expect(result).toBeUndefined();
@@ -200,7 +201,7 @@ describe('payOutDao', () => {
 
   describe('getPayoutsBySearchDao', () => {
     test('handles status, searchTerms, updated_at and ifamount true returns totals and payouts', async () => {
-      dbMocks.executeQuery.mockImplementation((sql, params) => {
+      dbMocks.executeQuery.mockImplementation((sql) => {
         if (sql && sql.includes('SUM(p.amount)')) {
           return Promise.resolve({ rows: [{ total_amount: '123.45' }] });
         }

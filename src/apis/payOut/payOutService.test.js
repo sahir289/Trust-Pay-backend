@@ -156,9 +156,7 @@ const calcDao = require('../calculation/calculationDao.js');
 const bankDao = require('../bankAccounts/bankaccountDao.js');
 const axios = require('axios');
 const companyDao = require('../company/companyDao.js');
-const { merchantPayoutCallback } = require('../../callBacksAndWebHook/merchantCallBacks.js');
 const { logger } = require('../../utils/logger.js');
-const { checkLockEdit } = require('../../utils/advisoryLock.js');
 const { newTableEntry } = require('../../utils/sockets.js');
 
 // reset mocks each test
