@@ -175,7 +175,6 @@ describe('Bank Response Controller', () => {
                 'VENDOR',
                 '1',
                 '10',
-                'test',
                 '2023-01-01',
                 'name',
                 'asc',

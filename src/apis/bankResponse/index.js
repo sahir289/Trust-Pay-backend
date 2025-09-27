@@ -1,6 +1,10 @@
+
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import {
+import { AccessRoles } from '../../constants/index.js';
+
+// Dependency injection: pass controller functions as argument
+export function createBankResponseRouter({
   createBankResponse,
   getBankResponse,
   getBankMessage,
@@ -11,12 +15,13 @@ import {
   importBankResponse,
   resetBankResponseController,
   createBankBotResponseBulk,
-} from './bankResponseController.js';
-import { isAuthenticated, authorized } from '../../middlewares/auth.js';
-import { AccessRoles } from '../../constants/index.js';
-import { multerUpload } from '../../utils/index.js';
-import { rateLimitMiddleware, rateLimitMiddlewareBot } from '../../middlewares/rateLimiter.js';
-const router = express.Router();
+  isAuthenticated = require('../../middlewares/auth.js').isAuthenticated,
+  authorized = require('../../middlewares/auth.js').authorized,
+  rateLimitMiddleware = require('../../middlewares/rateLimiter.js').rateLimitMiddleware,
+  rateLimitMiddlewareBot = require('../../middlewares/rateLimiter.js').rateLimitMiddlewareBot,
+  multerUpload = require('../../utils/index.js').multerUpload,
+} = {}) {
+  const router = express.Router();
 
 /**
  * @swagger
@@ -25,11 +30,12 @@ const router = express.Router();
  *   description: Api endpoints for managing bankResponse
  */
 
-router.get(
-  '/claim',
-  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
-  tryCatchHandler(getClaimResponse),
-);
+
+  router.get(
+    '/claim',
+    [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+    tryCatchHandler(getClaimResponse),
+  );
 
 /**
  * @swagger
@@ -43,7 +49,8 @@ router.get(
  *       500:
  *         description: Internal server error
  */
-router.post('/create-bot-message', rateLimitMiddlewareBot, tryCatchHandler(createBankBotResponse));
+
+  router.post('/create-bot-message', rateLimitMiddlewareBot, tryCatchHandler(createBankBotResponse));
 
 
 /**
@@ -58,7 +65,8 @@ router.post('/create-bot-message', rateLimitMiddlewareBot, tryCatchHandler(creat
  *       500:
  *         description: Internal server error
  */
-router.post('/create-bot-message-bulk', tryCatchHandler(createBankBotResponseBulk));
+
+  router.post('/create-bot-message-bulk', tryCatchHandler(createBankBotResponseBulk));
 
 /**
  * @swagger
@@ -79,11 +87,12 @@ router.post('/create-bot-message-bulk', tryCatchHandler(createBankBotResponseBul
  *       500:
  *         description: Internal server error
  */
-router.post(
-  '/create-message',
-  [isAuthenticated, rateLimitMiddleware, authorized(AccessRoles.BANK_RESPONSE)],
-  tryCatchHandler(createBankResponse),
-);
+
+  router.post(
+    '/create-message',
+    [isAuthenticated, rateLimitMiddleware, authorized(AccessRoles.BANK_RESPONSE)],
+    tryCatchHandler(createBankResponse),
+  );
 
 /**
  * @swagger
@@ -110,17 +119,19 @@ router.post(
  *       400:
  *         description: Bad request
  */
-router.get(
-  '/',
-  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
-  tryCatchHandler(getBankResponseBySearch),
-);
 
-router.get(
-  '/BankResponseReports',
-  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
-  tryCatchHandler(getBankResponse),
-);
+  router.get(
+    '/',
+    [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+    tryCatchHandler(getBankResponseBySearch),
+  );
+
+
+  router.get(
+    '/BankResponseReports',
+    [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+    tryCatchHandler(getBankResponse),
+  );
 /**
  * @swagger
  * /bankResponse/update-complaint/{id}:
@@ -152,11 +163,12 @@ router.get(
  *         description: Complaint not found
  */
 
-router.get(
-  '/get-bank-message',
-  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
-  tryCatchHandler(getBankMessage),
-);
+
+  router.get(
+    '/get-bank-message',
+    [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+    tryCatchHandler(getBankMessage),
+  );
 
 /**
  * @swagger
@@ -189,11 +201,12 @@ router.get(
  *         description: BankResponse not found
  */
 
-router.put(
-  '/update-message/:id',
-  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
-  tryCatchHandler(updateBankResponse),
-);
+
+  router.put(
+    '/update-message/:id',
+    [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+    tryCatchHandler(updateBankResponse),
+  );
 
 /**
  * @swagger
@@ -215,17 +228,25 @@ router.put(
  *         description: Complaint not found
  */
 
-router.put(
-  '/reset-message/:id',
-  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
-  tryCatchHandler(resetBankResponseController),
-);
 
-router.post(
-  '/import-bank-response',
-  multerUpload.single('file'),
-  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
-  tryCatchHandler(importBankResponse),
-);
+  router.put(
+    '/reset-message/:id',
+    [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+    tryCatchHandler(resetBankResponseController),
+  );
 
-export default router;
+
+  router.post(
+    '/import-bank-response',
+    multerUpload.single('file'),
+    [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+    tryCatchHandler(importBankResponse),
+  );
+
+  return router;
+}
+
+
+import * as realController from './bankResponseController.js';
+const defaultRouter = createBankResponseRouter(realController);
+export default defaultRouter;

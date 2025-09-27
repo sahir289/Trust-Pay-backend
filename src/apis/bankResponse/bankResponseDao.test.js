@@ -3,23 +3,12 @@ jest.mock('../../utils/db.js');
 
 const {
   getBankResponseDao,
-  getBankResponseDaoById,
-  getBankResponseBySearchDao,
   getClaimResponseDao,
   getBankResponsesforFreeze,
-  getBankResponseDaoAll,
-  getBankResponseByUTR,
-  getInternalBankResponseByUTR,
-  createBankResponseDao,
-  updateBankResponseDao,
-  getBankMessageDao,
-  resetBankResponseDao,
-  updateBotResponseDao
 } = require('./bankResponseDao.js');
 
 const dbMock = jest.requireMock('../../utils/db.js');
 const { logger } = require('../../utils/logger.js');
-const { tableName } = require('../../constants/index.js');
 const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc.js');
 const timezone = require('dayjs/plugin/timezone.js');

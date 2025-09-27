@@ -14,7 +14,6 @@ import { getLoginDao } from '../apis/auth/authDao.js';
 import { generateUUID } from './generateUUID.js';
 import config from '../config/config.js';
 import { logger } from './logger.js';
-import { createPool } from './db.js';
 
 jest.mock('jsonwebtoken');
 jest.mock('bcryptjs');

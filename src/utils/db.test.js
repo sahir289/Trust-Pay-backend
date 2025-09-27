@@ -42,17 +42,10 @@ jest.mock('../utils/logger.js', () => ({
   logger: { info: jest.fn(), error: jest.fn(), warn: jest.fn() },
 }));
 
-import { Pool } from 'pg';
 import {
   getConnection,
-  beginTransaction,
-  commit,
-  rollback,
-  buildSelectQuery,
-  buildInsertQuery,
-  buildUpdateQuery,
-  writerPool,
   readerPool,
+  writerPool,
 } from '../utils/db.js';
 
 jest.useFakeTimers();

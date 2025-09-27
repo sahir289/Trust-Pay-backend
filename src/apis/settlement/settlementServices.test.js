@@ -6,70 +6,8 @@ const {
   deleteSettlementService,
   getSettlementsBySearchService,
 } = require('./settlementServices.js');
-con      const mo      const moc      // Create a sett      const mockCreateResponse = { id: 1 };
-      createSettlementDao.mockResolvedValue(mockCreateResponse);
-
-      const result = await createSettlementService(mockConn, { ...mockPayload, method: 'INTERNAL_QR_TRANSFER' }, Role.ADMIN);
-
-      expect(getBankResponseByUTR).toHaveBeenCalledWith(mockPayload.config.reference_id);
-      expect(createSettlementDao).toHaveBeenCalledWith(
-        expect.objectContaining({ status: Status.SUCCESS, approved_at: expect.any(Date) }),
-        mockConn
-      );
-      expect(result).toBeDefined();
-      expect(result.id).toBe(1);h internal QR transfer
-      createSettlementDao.mockResolvedValue({
-        id: 1,
-        status: Status.SUCCESS,
-        method: 'INTERNAL_QR_TRANSFER',
-        approved_at: new Date()
-      });
-
-      const result = await createSettlementService(mockConn, { 
-        ...mockPayload, 
-        method: 'INTERNAL_QR_TRANSFER' 
-      }, Role.ADMIN);
-
-      expect(getBankResponseByUTR).toHaveBeenCalledWith(mockPayload.config.reference_id);
-      expect(createSettlementDao).toHaveBeenCalledWith(
-        expect.objectContaining({ 
-          status: Status.SUCCESS, 
-          approved_at: expect.any(Date) 
-        }),
-        mockConn
-      );
-      expect(result).toBeDefined();
-      expect(result.id).toBe(1);= {
-        id: 1,
-        status: Status.SUCCESS,
-        method: 'INTERNAL_QR_TRANSFER',
-        approved_at: expect.any(Date)
-      };
-      createSettlementDao.mockResolvedValue(mockResponse);
-
-      const result = await createSettlementService(mockConn, { ...mockPayload, method: 'INTERNAL_QR_TRANSFER' }, Role.ADMIN);
-
-      expect(getBankResponseByUTR).toHaveBeenCalledWith(mockPayload.config.reference_id);
-      expect(createSettlementDao).toHaveBeenCalledWith(
-        expect.objectContaining({ status: Status.SUCCESS, approved_at: expect.any(Date) }),
-        mockConn
-      );
-      expect(result).toEqual(expect.objectContaining(mockResponse)); = { 
-        id: 1,
-        status: Status.SUCCESS,
-        approved_at: expect.any(Date),
-        method: 'INTERNAL_QR_TRANSFER'
-      };
-      createSettlementDao.mockResolvedValue(mockResponse);
-
-      const result = await createSettlementService(mockConn, { ...mockPayload, method: 'INTERNAL_QR_TRANSFER' }, Role.ADMIN);
-
-      expect(getBankResponseByUTR).toHaveBeenCalledWith(mockPayload.config.reference_id);
-      expect(createSettlementDao).toHaveBeenCalledWith(
-        expect.objectContaining({ status: Status.SUCCESS, approved_at: expect.any(Date) }),
-        mockConn
-      );
-      expect(result).toEqual(mockResponse);SettlementDao,
+const {
+      getSettlementDao,
   createSettlementDao,
   updateSettlementDao,
   deleteSettlementDao,

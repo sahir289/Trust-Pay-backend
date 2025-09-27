@@ -1,5 +1,5 @@
 // __mocks__/db.js
-export const createPool = jest.fn((connectionString, name) => {
+export const createPool = jest.fn(() => {
     return {
       connect: jest.fn().mockResolvedValue({
         query: jest.fn(),
@@ -14,7 +14,7 @@ export const createPool = jest.fn((connectionString, name) => {
   export const writerPool = createPool('writer-url', 'Writer');
   export const readerPool = createPool('reader-url', 'Reader');
   
-  export const getConnection = jest.fn(async (type = 'writer') => {
+  export const getConnection = jest.fn(async () => {
     return {
       query: jest.fn(),
       release: jest.fn(),
@@ -23,19 +23,19 @@ export const createPool = jest.fn((connectionString, name) => {
   
   export const closePool = jest.fn(async () => true);
   
-  export const beginTransaction = jest.fn(async (client) => true);
-  export const commit = jest.fn(async (client) => true);
-  export const rollback = jest.fn(async (client) => true);
+  export const beginTransaction = jest.fn(async () => true);
+  export const commit = jest.fn(async () => true);
+  export const rollback = jest.fn(async () => true);
   
-  export const executeQuery = jest.fn(async (query, params = []) => {
+  export const executeQuery = jest.fn(async () => {
     return { rows: [], rowCount: 0 };
   });
   
-  export const buildSelectQuery = jest.fn((baseQuery, filters, page, pageSize, sortBy, sortOrder, tableName) => {
+  export const buildSelectQuery = jest.fn((baseQuery) => {
     return [`${baseQuery} MOCK_QUERY`, []];
   });
   
-  export const applySortingAndPagination = jest.fn((query, values, sortBy, sortOrder, page, pageSize, prefix) => {
+  export const applySortingAndPagination = jest.fn((query) => {
     return `${query} MOCK_SORT_PAGINATION`;
   });
   
@@ -43,7 +43,7 @@ export const createPool = jest.fn((connectionString, name) => {
     return [`INSERT INTO "${tableName}" ... RETURNING *`, Object.values(data)];
   });
   
-  export const buildUpdateQuery = jest.fn((tableName, data, whereCondition, specialFields = {}, options = {}) => {
+  export const buildUpdateQuery = jest.fn((tableName) => {
     return [`UPDATE "${tableName}" SET ... WHERE ... RETURNING *`, []];
   });
   
@@ -55,11 +55,11 @@ export const createPool = jest.fn((connectionString, name) => {
     return fn({ query: jest.fn(), release: jest.fn() }, ...args);
   });
   
-  export const buildJoinQuery = jest.fn((table, columns, joins) => {
+  export const buildJoinQuery = jest.fn((table) => {
     return `SELECT MOCK_JOIN_QUERY FROM "${table}"`;
   });
   
-  export const executePaginatedQuery = jest.fn(async ({ baseQuery }) => {
+  export const executePaginatedQuery = jest.fn(async () => {
     return { rows: [{ mock: true }], totalCount: 1 };
   });
   
@@ -71,7 +71,7 @@ export const createPool = jest.fn((connectionString, name) => {
     return { conditions: ['MOCK_FILTER'], params: ['filter'], nextParam: paramStart + 1 };
   });
   
-  export const generateQuery = jest.fn((baseQuery, options) => {
+  export const generateQuery = jest.fn((baseQuery) => {
     return `${baseQuery} MOCK_GENERATE_QUERY`;
   });
   

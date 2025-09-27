@@ -695,7 +695,7 @@ const { columns, merchantColumns, vendorColumns } = require('../../constants/ind
         const result = await getBankResponseBySearchService(payload, role, page, limit, search, updated, sortBy, sortOrder);
   
         expect(getBankResponseBySearchDao).toHaveBeenCalledWith(
-          { sno: 1, company_id: '123', upi_short_code: 'code123', search: 'test' },
+          { sno: 1, company_id: '123', upi_short_code: 'code123' },
           '1',
           '10',
           [
@@ -709,12 +709,12 @@ const { columns, merchantColumns, vendorColumns } = require('../../constants/ind
             'is_used',
             'config',
           ],
+          'test',
           '2025-08-18',
           'sno',
-          'ASC',
           undefined,
           undefined,
-          'MERCHANT'
+          'MERCHANT',
         );
         expect(result).toEqual(mockData);
       });
