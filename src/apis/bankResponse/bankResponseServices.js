@@ -963,7 +963,7 @@ const createBankResponseWebHookService = async (
       await newTableEntry(tableName.BANK_RESPONSE, responseObj);
       return { message: `Entry created successfully`, data: responseObj };
     } catch (err) {
-      logger.error('Error performating transactions', err);
+      logger.error('Error performing transactions', err);
       throw err;
     }
   } catch (error) {
