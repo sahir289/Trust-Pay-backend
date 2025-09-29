@@ -2575,15 +2575,14 @@ export const telegramCheckUTRService = async (
     const isAlreadyExit = await getPayInForTelegramUtrDao({
       bank_response_id: bankResponse.id,
     });
-    if (isAlreadyExit && isAlreadyExit?.status === Status.FAILED) {
-      await updateUtrPayinService(conn, isAlreadyExit.id, updated_by, utr);
-    }
-    if (isAlreadyExit && isAlreadyExit.id !== payIn.id && isAlreadyExit.status !== Status.FAILED) {
+    if (isAlreadyExit && isAlreadyExit.status !== Status.FAILED) {
       return {
         message: `Utr: ${utr} is ${isAlreadyExit.status} with ${isAlreadyExit.merchant_order_id}`,
       };
     }
-
+    if (isAlreadyExit && isAlreadyExit.status === Status.FAILED) {
+      await updateUtrPayinService(conn, isAlreadyExit.id, updated_by, utr);
+    }
     if (![Status.ASSIGNED, Status.DROPPED].includes(payIn.status)) {
       return {
         status: payIn.status,
