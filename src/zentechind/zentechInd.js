@@ -25,11 +25,15 @@ export const createZenTechIndTransaction = async (deposit, amount) => {
     const response = await axios.post(API_URL, requestBody, {
       headers: { 'Content-Type': 'application/json' },
     });
+    logger.info('ZenTechInd transaction created:', {
+      body,
+      response: response.data,
+    });
     return response.data;
   } catch (error) {
     logger.error(
       'Error creating ZenTechInd transaction:',
-      error.response?.data || error.message,
+      error.response?.data || error.message || error,
     );
     throw error;
   }
