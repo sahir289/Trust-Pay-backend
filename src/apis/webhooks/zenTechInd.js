@@ -21,12 +21,14 @@ export const zenTechIndWebhook = async (req, res) => {
       merchantOrderId: body?.order_id,
       userSubmittedUtr: body?.utr,
       amount: Number(body?.amount),
+      status: body?.status,
     };
     const payIn = await getPayInIntentDao(body?.order_id);
 
-    const bankResponsePayload = `${body?.amount} nil ${body?.utr} ${payIn.bank_acc_id}`;
+    const bankResponsePayload = `${body?.amount} nil ${payload.userSubmittedUtr} ${payIn.bank_acc_id}`;
 
     if (body?.status === 'success') {
+      console.log('inside if');
       const bankresponse = await createBankResponseWebHookService(
         bankResponsePayload,
         payIn.company_id,
@@ -36,9 +38,11 @@ export const zenTechIndWebhook = async (req, res) => {
       logger.info('Bank response created:', bankresponse);
     }
     logger.info('Calling transactionWrapper for payload', payload);
-    const payin = await transactionWrapper(processPayInWebHookService)(payload);
+    const payin = await transactionWrapper(processPayInWebHookService)(
+      payload,
+      '',
+    );
     logger.info('PayIn processed:', payin);
-    logger.info('transactionWrapper completed', payload);
   } catch (error) {
     logger.error('zenTechInd webhook error:', error);
   }
