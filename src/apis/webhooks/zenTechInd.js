@@ -37,7 +37,7 @@ export const zenTechIndWebhook = async (req, res) => {
       logger.info('Bank response created:', bankresponse);
     }
     logger.info('Calling transactionWrapper for payload', payload);
-    const payin = await transactionWrapper(processPayInWebHookService)(payload, '', false);
+    const payin = await transactionWrapper(processPayInWebHookService)(payload, '');
     logger.info('PayIn processed:', payin);
     logger.info('transactionWrapper completed', payload);
   } catch (error) {
