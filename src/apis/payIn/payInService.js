@@ -1836,8 +1836,8 @@ export const processPayInWebHookService = async (
       id: payIn?.bank_acc_id,
       company_id: payIn.company_id,
     });
-    let [bankResponse] = await getBankResponseDao({
-      id: payIn.bank_response_id,
+    let bankResponse = await getBankResponseDao({
+      utr: userSubmittedUtr,
     });
     const [vendor] = await getVendorsDao({ user_id: bank.user_id });
     let [merchant] = await getMerchantsDao({ id: payIn.merchant_id });
