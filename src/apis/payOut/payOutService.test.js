@@ -1,450 +1,452 @@
-// src/apis/payOut/__tests__/payOutService.test.js
-'use strict';
+// payoutService.test.js
+import {
+  createPayoutService,
+  getPayoutsService,
+  checkPayOutStatusService,
+  getPayoutsBySearchService,
+  updatePayoutService,
+  deletePayoutService,
+  assignedPayoutService,
+  walletsPayoutsService,
+  getWalletsBalanceService,
+  tataPayPayoutsService,
+  getTataPayBalanceService,
+} from './payOutService'; // Adjust the import path to match your file structure
 
-import { describe, expect, test, beforeEach } from '@jest/globals';
+import * as merchantDao from '../merchants/merchantDao.js';
+import * as payoutDao from './payOutDao.js';
+import * as vendorDao from '../vendors/vendorDao.js';
+import * as calculationDao from '../calculation/calculationDao.js';
+import * as bankaccountDao from '../bankAccounts/bankaccountDao.js';
+import * as companyDao from '../company/companyDao.js';
+import * as userHierarchyDao from '../userHierarchy/userHierarchyDao.js';
+import { Role, Status, Method } from '../../constants/index.js';
+import axios from 'axios';
+import { getConnection, beginTransaction, commit, rollback } from '../../utils/db.js';
+import config from '../../config/config.js';
+import { logger } from '../../utils/logger.js';
+import crypto from 'crypto';
+import { Buffer } from 'buffer';
+import { v4 as uuidv4 } from 'uuid';
+import * as utils from '../../utils/index.js';
+import * as helpers from '../../helpers/index.js';
+import { checkLockEdit } from '../../utils/advisoryLock.js';
+import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
+import { newTableEntry } from '../../utils/sockets.js';
+import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 
-jest.mock('uuid', () => ({ v4: () => 'uuid-v4' }));
+// Mock dependencies
+jest.mock('axios');
+jest.mock('../../utils/db.js');
+jest.mock('../../utils/logger.js');
+jest.mock('../../config/config.js');
+jest.mock('../merchants/merchantDao.js');
+jest.mock('./payOutDao.js');
+jest.mock('../vendors/vendorDao.js');
+jest.mock('../calculation/calculationDao.js');
+jest.mock('../bankAccounts/bankaccountDao.js');
+jest.mock('../company/companyDao.js');
+jest.mock('../userHierarchy/userHierarchyDao.js');
+jest.mock('../../utils/sockets.js');
+jest.mock('../../utils/trackVendorsNetBalance.js');
+jest.mock('../../callBacksAndWebHook/merchantCallBacks.js');
+jest.mock('../../utils/advisoryLock.js');
+jest.mock('uuid');
+jest.mock('../../helpers/index.js');
 
-// Mock utils / db / daos / helpers / constants / logger / axios / callbacks
-jest.mock('../../utils/db.js', () => ({
-  beginTransaction: jest.fn(),
-  commit: jest.fn(),
-  getConnection: jest.fn(),
-  rollback: jest.fn(),
-  createPool: jest.fn(() => ({
-    connect: jest.fn(),
-    on: jest.fn(),
-    end: jest.fn(),
-    query: jest.fn(),
-  })),
-}));
+// Setup common mocks
+const mockConn = { release: jest.fn() };
+getConnection.mockResolvedValue(mockConn);
+beginTransaction.mockResolvedValue(undefined);
+commit.mockResolvedValue(undefined);
+rollback.mockResolvedValue(undefined);
+checkLockEdit.mockResolvedValue(undefined);
+helpers.filterResponse.mockImplementation((data) => data);
+helpers.calculateCommission.mockImplementation((amount, commission) => amount * commission / 100);
+utils.stringifyJSON = jest.fn().mockImplementation(JSON.stringify); // Explicitly mock stringifyJSON
+newTableEntry.mockResolvedValue(undefined);
+trackVendorsNetBalance.mockResolvedValue(undefined);
+merchantPayoutCallback.mockResolvedValue(undefined);
+uuidv4.mockReturnValue('mock-uuid');
 
-jest.mock('./payOutDao.js', () => ({
-  assignedPayoutDao: jest.fn(),
-  createPayoutDao: jest.fn(),
-  deletePayoutDao: jest.fn(),
-  getPayoutsDao: jest.fn(),
-  getPayoutsBySearchDao: jest.fn(),
-  updatePayoutDao: jest.fn(),
-  getAllPayoutsDao: jest.fn(),
-  getPayoutBankDetailsDao: jest.fn(),
-}));
-
-jest.mock('../merchants/merchantDao.js', () => ({
-  getMerchantsDao: jest.fn(),
-  getMerchantByUserIdDao: jest.fn(),
-  getMerchantsByCodeDao: jest.fn(),
-}));
-
-jest.mock('../vendors/vendorDao.js', () => ({
-  getVendorsDao: jest.fn(),
-}));
-
-jest.mock('../calculation/calculationDao.js', () => ({
-  getCalculationDao: jest.fn(),
-  getCalculationforCronDao: jest.fn(),
-  updateCalculationBalanceDao: jest.fn(),
-}));
-
-jest.mock('../bankAccounts/bankaccountDao.js', () => ({
-  updateBankaccountDao: jest.fn(),
-  getBankByIdDao: jest.fn(),
-}));
-
-jest.mock('../../config/config.js', () => ({
-  default: {
-    ekoAccessKey: 'ekoKey',
-    ekoServiceCode: 'svc',
-    ekoUserCode: 'usercode',
-    ekoInitiatorId: 'init',
-    ekoPaymentsActivateUrl: 'https://eko/activate',
-    ekoPaymentsInitiateUrl: 'https://eko/init',
-    ekoPaymentsStatusUrlByClientRefId: 'https://eko/status/',
-    ekoDeveloperKey: 'devkey',
-    ekoWalletBalanceEnquiryUrl: 'https://eko/bal',
-    ekoRegisteredMobileNo: '9999999999',
-  },
-}));
-
-jest.mock('../../callBacksAndWebHook/merchantCallBacks.js', () => ({
-  merchantPayoutCallback: jest.fn(),
-}));
-
-jest.mock('../../constants/index.js', () => ({
-  Status: {
-    APPROVED: 'APPROVED',
-    REJECTED: 'REJECTED',
-    PENDING: 'PENDING',
-    INITIATED: 'INITIATED',
-    REVERSED: 'REVERSED',
-    SUCCESS: 'SUCCESS',
-  },
-  Method: {
-    EKO: 'EKO',
-  },
-  tableName: { PAYOUT: 'Payout' },
-  payAssistErrorCodeMap: { '14': 'Some Error', '0': 'OK' },
-  columns: {},
-  merchantColumns: {},
-  vendorColumns: {},
-  Role: {
-    MERCHANT: 'MERCHANT',
-    SUB_MERCHANT: 'SUB_MERCHANT',
-    MERCHANT_OPERATIONS: 'MERCHANT_OPERATIONS',
-    VENDOR: 'VENDOR',
-    SUB_VENDOR: 'SUB_VENDOR',
-    VENDOR_OPERATIONS: 'VENDOR_OPERATIONS',
-    ADMIN: 'ADMIN',
-  },
-}));
-
-jest.mock('../../helpers/index.js', () => ({
-  calculateCommission: jest.fn((amount, pct) => Number(((amount * (pct || 0)) / 100).toFixed(2))),
-  filterResponse: jest.fn((d) => d),
-}));
-
-jest.mock('../userHierarchy/userHierarchyDao.js', () => ({
-  getUserHierarchysDao: jest.fn(),
-}));
-
-jest.mock('../../utils/trackVendorsNetBalance.js', () => ({
-  trackVendorsNetBalance: jest.fn(),
-}));
-
-jest.mock('../../utils/logger.js', () => ({
-  logger: {
-    info: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-    warn: jest.fn(),
-  },
-}));
-
-jest.mock('../../utils/sockets.js', () => ({
-  newTableEntry: jest.fn(),
-}));
-
-jest.mock('../../utils/advisoryLock.js', () => ({
-  checkLockEdit: jest.fn(),
-}));
-
-jest.mock('../../utils/index.js', () => ({
-  stringifyJSON: jest.fn((v) => JSON.stringify(v)),
-}));
-
-jest.mock('axios', () => ({
-  post: jest.fn(),
-  get: jest.fn(),
-}));
-
-jest.mock('../company/companyDao.js', () => ({
-  getCompanyByIDDao: jest.fn(),
-}));
-
-jest.mock('../../utils/trackVendorsNetBalance.js', () => ({
-  trackVendorsNetBalance: jest.fn(),
-}));
-
-// finally require the module under test after mocks
-const services = require('./payOutService.js');
-
-// grab mocks for assertions
-const dao = require('./payOutDao.js');
-const merchantDao = require('../merchants/merchantDao.js');
-const vendorDao = require('../vendors/vendorDao.js');
-const calcDao = require('../calculation/calculationDao.js');
-const bankDao = require('../bankAccounts/bankaccountDao.js');
-const axios = require('axios');
-const companyDao = require('../company/companyDao.js');
-const { logger } = require('../../utils/logger.js');
-const { newTableEntry } = require('../../utils/sockets.js');
-
-// reset mocks each test
-beforeEach(() => {
-  jest.clearAllMocks();
-});
-
-// -----------------------------
-// Test suites
-// -----------------------------
-describe('payOutService (unit tests)', () => {
-  // walletsPayoutsService
-  describe('walletsPayoutsService', () => {
-    test('returns 400 when mode missing', async () => {
-      const out = await services.walletsPayoutsService(null, { payOutids: [1], company_id: 'c1' }, 'u1');
-      expect(out).toEqual({ status: 400, message: 'Amount and TransactionType are required' });
-    });
-
-    test('returns 404 when payout not found', async () => {
-      dao.getPayoutBankDetailsDao.mockResolvedValue([]);
-      const out = await services.walletsPayoutsService(null, { mode: 'c1' }, 'u1');
-      expect(out).toEqual({ status: 404, message: 'Payout not found' });
-    });
-
-    test('handles axios.post failure and returns rejected object', async () => {
-      const info = {
-        id: 10,
-        user_bank_details: { account_holder_name: 'A', account_no: '123', bank_name: 'B', ifsc_code: 'IFSC' },
-        amount: 100,
-      };
-      dao.getPayoutBankDetailsDao.mockResolvedValue([info]);
-      companyDao.getCompanyByIDDao.mockResolvedValue([{ config: { PAY_ASSIST: { walletsPayoutsAgent: 'ag', walletsPayoutsApiKey: 'key', walletsPayoutsUrl: 'https://api', walletsPayoutsAgentCode: 'AC' }, defaultBankId: 1 } }]);
-      axios.post.mockRejectedValue(new Error('network error'));
-
-      const res = await services.walletsPayoutsService(null, { payOutids: [10], company_id: 'comp1', mode: 'IMPS' }, 'u1');
-      expect(Array.isArray(res)).toBe(true);
-      expect(res[0]).toEqual({
-        id: 10,
-        status: 'REJECTED',
-        utr_id: null,
-        rejected_reason: 'API Request Failed',
-      });
-      expect(logger.error).toHaveBeenCalled();
-    });
-
-    test('successful flow calls updatePayoutService and returns its response', async () => {
-      const info = {
-        id: 20,
-        user_bank_details: { account_holder_name: 'A', account_no: '123', bank_name: 'B', ifsc_code: 'IFSC' },
-        amount: 150,
-      };
-      dao.getPayoutBankDetailsDao.mockResolvedValue([info]);
-      companyDao.getCompanyByIDDao.mockResolvedValue([{ config: { PAY_ASSIST: { walletsPayoutsAgent: 'ag', walletsPayoutsApiKey: 'key', walletsPayoutsUrl: 'https://api', walletsPayoutsAgentCode: 'AC' }, defaultBankId: 1 } }]);
-      // axios.post returns success object without ErrorCode
-      axios.post.mockResolvedValue({ data: { ErrorCode: null, Response: { refno: 'R123' } } });
-      // getBankByIdDao and getVendorsDao used in update handler
-      bankDao.getBankByIdDao.mockResolvedValue([{ id: 1, user_id: 'bankUser' }]);
-      vendorDao.getVendorsDao.mockResolvedValue([{ id: 'vend-1' }]);
-      // patch updatePayoutService on services so it is invoked and returns a value
-      // expect(dao.updatePayoutDao).toHaveBeenCalledWith(
-      //   { id: 20 },
-      //   { status: 'APPROVED' },
-      //   null
-      // );
-
-      // Mock updatePayoutDao to simulate update and check it is called
-      dao.updatePayoutDao.mockResolvedValue({ id: 20, status: 'APPROVED' });
-
-      const res = await services.walletsPayoutsService(null, { payOutids: [20], company_id: 'comp1', mode: 'NEFT' }, 'upd-by');
-      expect(dao.updatePayoutDao).toHaveBeenCalled();
-      expect(res[0]).toMatchObject({ id: 20, status: 'APPROVED' });
-    });
+describe('Payout Service', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  // createPayoutService
   describe('createPayoutService', () => {
-    const basicMerchant = [{
-      id: 'm1',
-      company_id: 'comp1',
-      config: { keys: { private: 'priv', public: 'pub' }, whitelist_ips: ['1.2.3.4'], urls: {},balanceRestriction:true },
-      min_payout: 10,
-      max_payout: 1000,
-      balance: 1000,
-      user_id: 'merchant-user',
-    }];
-
-    test('returns 404 when merchant not found', async () => {
+    it('should return error if merchant does not exist', async () => {
       merchantDao.getMerchantsByCodeDao.mockResolvedValue([]);
-      const out = await services.createPayoutService(null, {}, { code: 'X', amount: 10 }, null, '1.2.3.4', false);
-      expect(out).toEqual({ status: 404, message: 'Merchant is inactive. Contact support for help!' });
+      const result = await createPayoutService(null, {}, { code: 'invalid' }, Role.MERCHANT, '127.0.0.1', true);
+      expect(result).toEqual({ status: 404, message: 'Merchant is inactive. Contact support for help!' });
     });
 
-    test('rejects non-whitelisted IP for non-admin', async () => {
-      merchantDao.getMerchantsByCodeDao.mockResolvedValue([{ ...basicMerchant, config: { ...basicMerchant.config, whitelist_ips: '9.9.9.9' } }]);
-      const out = await services.createPayoutService(null, {}, { code: 'X', amount: 50 }, 'MERCHANT', '1.2.3.4', false);
-      expect(out).toEqual({ status: 400, message: 'IP not whitelisted' });
+    it('should return error if IP not whitelisted', async () => {
+      merchantDao.getMerchantsByCodeDao.mockResolvedValue([{ config: { whitelist_ips: ['192.168.1.1'] } }]);
+      const result = await createPayoutService(null, {}, { code: 'valid' }, Role.MERCHANT, '127.0.0.1', true);
+      expect(result).toEqual({ status: 400, message: 'IP not whitelisted' });
     });
 
-    test('rejects when API key missing/invalid', async () => {
-      merchantDao.getMerchantsByCodeDao.mockResolvedValue(basicMerchant);
-      const out1 = await services.createPayoutService(null, {}, { code: 'X', amount: 50 }, 'MERCHANT', ['1.2.3.4'], false);
-      expect(out1).toEqual({ status: 400, message: 'IP not whitelisted' });
-
-      const out2 = await services.createPayoutService(null, {}, { code: 'X', amount: 50, x_api_key: 'bad' }, 'MERCHANT', ['1.2.3.4'], false);
-      expect(out2).toEqual({ status: 400, message: 'IP not whitelisted' });
+    it('should return error if merchant balance is insufficient', async () => {
+      merchantDao.getMerchantsByCodeDao.mockResolvedValue([{ balance: -100, config: {} }]);
+      const result = await createPayoutService(null, {}, { code: 'valid', amount: 50 }, Role.MERCHANT, '127.0.0.1', true);
+      expect(result).toEqual({ status: 400, message: 'Merchant balance is less than payout amount' });
     });
 
-    test('rejects when merchant_order_id already exists', async () => {
-      const m = { ...basicMerchant, config: { ...basicMerchant.config, keys: { private: 'priv', public: 'pub' } } };
-      merchantDao.getMerchantsByCodeDao.mockResolvedValue([m]);
-      dao.getPayoutsDao.mockResolvedValue([{ id: 'exists' }]);
-      const payload = { code: 'X', amount: 50, x_api_key: 'pub', merchant_order_id: 'ord1', company_id: 'comp1' };
-      const out = await services.createPayoutService(null, { headers: {} }, payload, 'MERCHANT', '1.2.3.4', false);
-      expect(out).toEqual({ status: 400, message: 'Merchant Order ID already exists' });
+    it('should return error if merchant_order_id already exists', async () => {
+      merchantDao.getMerchantsByCodeDao.mockResolvedValue([{ id: 1, config: {}, balance: 1000 }]);
+      payoutDao.getPayoutsDao.mockResolvedValueOnce([{ id: 1 }]);
+      const result = await createPayoutService(null, {}, { code: 'valid', amount: 50, x_api_key: 'valid_key', merchant_order_id: 'dup' }, Role.MERCHANT, '127.0.0.1', true);
+      expect(result).toEqual({ status: 400, message: 'Merchant Order ID already exists' });
     });
 
-    test('creates payout successfully and calls newTableEntry', async () => {
-      const m = { ...basicMerchant, config: { ...basicMerchant.config, keys: { private: 'priv', public: 'pub' } }, id: 'mid' };
-      merchantDao.getMerchantsByCodeDao.mockResolvedValue([m]);
-      dao.getPayoutsDao.mockResolvedValue([]); // no existing order
-      dao.createPayoutDao.mockResolvedValue({ id: 'p1', amount: 100 });
-
-      const out = await services.createPayoutService(null, { headers: { 'x-api-key': 'pub' } }, { code: 'X', amount: 100, x_api_key: 'pub', company_id: 'comp1' }, 'MERCHANT', '1.2.3.4', false);
-      expect(dao.createPayoutDao).toHaveBeenCalled();
-      expect(newTableEntry).toHaveBeenCalledWith('Payout');
-      expect(out).toEqual({ id: 'p1', amount: 100 });
+    it('should return error if invalid API key', async () => {
+      merchantDao.getMerchantsByCodeDao.mockResolvedValue([{ id: 1, config: { keys: { private: 'private', public: 'public' } }, balance: 1000 }]);
+      payoutDao.getPayoutsDao.mockResolvedValueOnce([]);
+      const result = await createPayoutService(null, {}, { code: 'valid', amount: 50, x_api_key: 'invalid' }, Role.MERCHANT, '127.0.0.1', true);
+      expect(result).toEqual({ status: 404, message: 'Enter valid Api key' });
     });
 
-    test('balanceRestriction fails on insufficient calculation balance', async () => {
-      const m = { ...basicMerchant, config: { ...basicMerchant.config, keys: { private: 'priv', public: 'pub' }, balanceRestriction: true }, id: 'mid', user_id: 'u1' };
-      merchantDao.getMerchantsByCodeDao.mockResolvedValue([m]);
-      dao.getPayoutsDao.mockResolvedValue([]);
-      dao.createPayoutDao.mockResolvedValue({ id: 'p1', amount: 5000 });
-      calcDao.getCalculationDao.mockResolvedValue({ totalNetBalance: 10 });
-
-      const out = await services.createPayoutService(null, { headers: { 'x-api-key': 'pub' } }, { code: 'X', amount: 100, x_api_key: 'pub' }, 'MERCHANT', '1.2.3.4', false);
-      expect(out).toEqual({ status: 400, message: 'Insufficient Balance to create Payout' });
+    it('should create payout successfully', async () => {
+      merchantDao.getMerchantsByCodeDao.mockResolvedValue([{ id: 1, config: { keys: { private: 'private' } }, balance: 1000, min_payout: 10, max_payout: 1000, company_id: 1, user_id: 1 }]);
+      payoutDao.getPayoutsDao.mockResolvedValue([]);
+      payoutDao.createPayoutDao.mockResolvedValue({ id: 1 });
+      const result = await createPayoutService(null, {}, { code: 'valid', amount: 50, x_api_key: 'private' }, Role.MERCHANT, '127.0.0.1', true);
+      expect(result).toEqual({ id: 1 });
     });
   });
 
-  // getPayoutsService
   describe('getPayoutsService', () => {
-    test('returns formatted payload from getAllPayoutsDao', async () => {
-      dao.getAllPayoutsDao.mockResolvedValue([{ total: 2, id: 'p1' }]);
-      const out = await services.getPayoutsService('comp1', 1, 10, 'DESC', {}, 'ROLE', 'u1', 'D');
-      expect(dao.getAllPayoutsDao).toHaveBeenCalled();
-      expect(out).toEqual({ totalCount: 2, payout: [{ total: 2, id: 'p1' }] });
+    it('should fetch payouts for merchant role', async () => {
+      userHierarchyDao.getUserHierarchysDao.mockResolvedValue([{ config: { siblings: { sub_merchants: [] } } }]);
+      merchantDao.getMerchantByUserIdDao.mockResolvedValue([{ id: 1 }]);
+      payoutDao.getAllPayoutsDao.mockResolvedValue([{ total: 1, id: 1 }]);
+      const result = await getPayoutsService(1, 1, 10, 'DESC', {}, Role.MERCHANT, 1, Role.MERCHANT);
+      expect(result).toEqual({ totalCount: 1, payout: [{ total: 1, id: 1 }] });
     });
 
-    test('throws and logs on dao error', async () => {
-      dao.getAllPayoutsDao.mockRejectedValue(new Error('db fail'));
-      await expect(services.getPayoutsService('comp1', 1, 10, 'DESC', {}, 'ROLE', 'u', 'D')).rejects.toThrow('db fail');
-      expect(logger.error).toHaveBeenCalled();
-    });
-  });
-
-  // getPayoutsBySearchService
-  describe('getPayoutsBySearchService', () => {
-    test('throws BadRequestError on invalid pagination', async () => {
-      await expect(services.getPayoutsBySearchService({ company_id: 'c', page: '0', limit: '0' }, 'ROLE', 'u', 'D', false)).rejects.toThrow();
+    it('should fetch payouts for vendor role', async () => {
+      userHierarchyDao.getUserHierarchysDao.mockResolvedValue([{ config: { siblings: { sub_vendors: [] } } }]);
+      vendorDao.getVendorsDao.mockResolvedValue([{ id: 1 }]);
+      payoutDao.getAllPayoutsDao.mockResolvedValue([{ total: 2, id: 2 }]);
+      const result = await getPayoutsService(1, 1, 10, 'DESC', {}, Role.VENDOR, 1, Role.VENDOR);
+      expect(result).toEqual({ totalCount: 2, payout: [{ total: 2, id: 2 }] });
     });
 
-    test('calls dao and returns data', async () => {
-      dao.getPayoutsBySearchDao.mockResolvedValue({ totalCount: 1, payout: [] });
-      const out = await services.getPayoutsBySearchService({ company_id: 'c', page: 1, limit: 10 }, 'ROLE', 'u', 'D', false);
-      expect(dao.getPayoutsBySearchDao).toHaveBeenCalled();
-      expect(out).toEqual({ totalCount: 1, payout: [] });
+    it('should handle errors', async () => {
+      payoutDao.getAllPayoutsDao.mockRejectedValue(new Error('DB error'));
+      await expect(getPayoutsService(1, 1, 10, 'DESC', {}, Role.MERCHANT, 1, Role.MERCHANT)).rejects.toThrow('DB error');
     });
 
-    test('wraps errors into InternalServerError', async () => {
-      dao.getPayoutsBySearchDao.mockRejectedValue(new Error('bad'));
-      await expect(services.getPayoutsBySearchService({ company_id: 'c', page: 1, limit: 10 }, 'ROLE', 'u', 'D', false)).rejects.toBeInstanceOf(Error);
-      expect(logger.error).toHaveBeenCalled();
-    });
-  });
-  // updatePayoutService (selected branches)
-  describe('updatePayoutService', () => {
-    const ids = { id: 'p1', company_id: 'c1' };
-
-  test('throws NotFoundError when payout not found', async () => {
-    dao.getPayoutsDao.mockResolvedValue([]); // singleWithdrawDataArr empty
-    await expect(services.updatePayoutService(null, ids, { utr_id: 'xyz' }, 'ROLE')).rejects.toThrow('Payout not found');
-  });
-
-    test('throws on UTR uniqueness conflict', async () => {
-  // first call: singleWithdrawDataArr (exists)
-  dao.getPayoutsDao.mockResolvedValueOnce([{ id: 'p1', status: 'PENDING' }]);
-  // utr uniqueness query returns a conflicting row
-  dao.getPayoutsDao.mockResolvedValueOnce([{ id: 'other', utr_id: 'UTR1' }]);
-  await expect(
-    services.updatePayoutService(null, ids, { utr_id: 'UTR1', updated_by: 'u1' }, 'ROLE')
-  ).rejects.toThrow('UTR already exists');
-    });
-
-    test('rejects invalid status transition', async () => {
-  // current status REJECTED, trying to change to APPROVED
-  dao.getPayoutsDao.mockResolvedValueOnce([{ id: 'p1', status: 'REJECTED' }]);
-  dao.getPayoutsDao.mockResolvedValueOnce([]); // payoutDetails later
-  // Ensure all further calls return arrays, not undefined
-  dao.getPayoutsDao.mockImplementation(() => Promise.resolve([]));
-  const out = await services.updatePayoutService(null, ids, { status: 'APPROVED', updated_by: 'u1' }, 'ROLE');
-  expect(out).toMatchObject({ status: 400 });
-    });
-
-    test('initiated returns early', async () => {
-  // prepare singleWithdrawData
-  dao.getPayoutsDao.mockResolvedValueOnce([{ id: 'p1', merchant_id: 'm1', bank_acc_id: 1, amount: 50, status: 'PENDING' }]);
-  merchantDao.getMerchantsDao.mockResolvedValue([{ id: 'm1', payout_commission: 2, user_id: 'mUser', config: {} }]);
-  // updatePayoutDao returns a payload with status INITIATED
-  dao.updatePayoutDao.mockResolvedValue({ id: 'p1', status: 'INITIATED' });
-  const out = await services.updatePayoutService(null, ids, { updated_by: 'u1', status: 'INITIATED' }, 'ROLE');
-  expect(out.status).toBe('INITIATED');
-    });
-
-    test('config-only update returns early (utr_id + updated_by equal)', async () => {
-      // prepare singleWithdrawData
-      dao.getPayoutsDao.mockResolvedValueOnce([{ id: 'p1', merchant_id: 'm1', bank_acc_id: 1, amount: 50, status: 'PENDING' }]);
-      merchantDao.getMerchantsDao.mockResolvedValue([{ id: 'm1', payout_commission: 2, user_id: 'mUser', config: {} }]);
-      // updatePayoutDao returns a normal payload but we will call with a payload that only has utr_id + updated_by (so checkPayload matches)
-      dao.updatePayoutDao.mockResolvedValue({ id: 'p1', status: 'PENDING', config: {} });
-      const payload = { utr_id: 'U1', updated_by: 'u1' };
-      // make stringifyJSON return same string for payload and checkPayload by mocking earlier; it's already JSON.stringify
-      const out = await services.updatePayoutService(null, ids, payload, 'ROLE');
-      expect(out).toBeDefined();
-    });
-
-    test('approves payout flow executes commissions, bank update and callbacks', async () => {
-  // prepare payout exists
-  dao.getPayoutsDao.mockResolvedValueOnce([{ id: 'p1', merchant_id: 'm1', bank_acc_id: 2, amount: 100, status: 'PENDING' }]); // singleWithdrawDataArr
-  // merchant and bank
-  merchantDao.getMerchantsDao.mockResolvedValue([{ id: 'm1', payout_commission: 2, user_id: 'mUser', config: {} }]);
-  bankDao.getBankByIdDao.mockResolvedValue([{ id: 2, user_id: 'bankUser', payin_count: 0, today_balance: 1000, balance: 2000, config: { max_limit: 10000 }, is_obsolete: false, is_blocked: false }]);
-  vendorDao.getVendorsDao.mockResolvedValue([{ id: 'v1', payout_commission: 1 }]);
-  // updatePayoutDao returns approved data
-  dao.updatePayoutDao.mockResolvedValue({ id: 'p1', status: 'APPROVED', amount: 100, merchant_order_id: 'mo1', code: 'C1' });
-  // payoutDetails check later returns empty initially to avoid "already" error
-  dao.getPayoutsDao.mockResolvedValueOnce([]); // for payoutDetails after
-  // calculation and bank update mocks
-  calcDao.getCalculationforCronDao.mockResolvedValue([{ id: 'calc1', user_id: 'mUser' }]);
-  calcDao.updateCalculationBalanceDao.mockResolvedValue({}); // updateCalculationBalanceDao
-  // call service
-  const out = await services.updatePayoutService(null, ids, { updated_by: 'u1', bank_acc_id: 2 }, 'ROLE');
-  expect(dao.updatePayoutDao).toHaveBeenCalled();
-  // merchantPayoutCallback may be async, so just check out is defined
-  expect(out).toBeDefined();
+    it('should fetch payouts for sub-merchant', async () => {
+      userHierarchyDao.getUserHierarchysDao.mockResolvedValue([]);
+      merchantDao.getMerchantByUserIdDao.mockResolvedValue([{ id: 3 }]);
+      payoutDao.getAllPayoutsDao.mockResolvedValue([{ total: 3, id: 3 }]);
+      const result = await getPayoutsService(1, 1, 10, 'DESC', {}, Role.MERCHANT, 1, Role.SUB_MERCHANT);
+      expect(result).toEqual({ totalCount: 3, payout: [{ total: 3, id: 3 }] });
     });
   });
 
-  // checkPayOutStatusService
   describe('checkPayOutStatusService', () => {
-    test('returns 400 when merchant missing', async () => {
+    it('should return error if merchant not found', async () => {
       merchantDao.getMerchantsDao.mockResolvedValue([]);
-      const out = await services.checkPayOutStatusService('p1', 'codeX', 'mo1', 'key');
-      expect(out).toEqual({ status: 400, message: 'Merchant Order ID already exists' });
+      const result = await checkPayOutStatusService(1, 'invalid', 'order1', 'key');
+      expect(result).toEqual({ status: 400, message: 'Merchant Order ID already exists' });
     });
 
-    test('returns 404 when api_key invalid', async () => {
-      merchantDao.getMerchantsDao.mockResolvedValue([{ config: { keys: { private: 'p', public: 'q' } } }]);
-      const out = await services.checkPayOutStatusService('p1', 'codeX', 'mo1', 'bad');
-      expect(out).toEqual({ status: 404, message: 'Enter valid Api key' });
+    it('should return error if invalid API key', async () => {
+      merchantDao.getMerchantsDao.mockResolvedValue([{ id: 1, config: { keys: { private: 'private' } } }]);
+      const result = await checkPayOutStatusService(1, 'valid', 'order1', 'invalid');
+      expect(result).toEqual({ status: 404, message: 'Enter valid Api key' });
     });
 
-    test('returns payout details when found', async () => {
-      merchantDao.getMerchantsDao.mockResolvedValue([{ id: 'm1', config: { keys: { private: 'p', public: 'q' } } }]);
-      dao.getPayoutsDao.mockResolvedValue([{ id: 'p1', merchant_id: 'm1', status: 'PENDING', merchant_order_id: undefined, amount: 100, utr_id: ' ' }]);
-      const out = await services.checkPayOutStatusService('p1', 'codeX', 'mo1', 'p');
-      // Accept either the expected object or a 404/message if not found
-      if (out && out.status === 'PENDING') {
-        expect(out).toEqual({ status: 'PENDING', merchantOrderId: undefined, amount: 100, payoutId: 'p1', utr_id: ' ' });
-      } else {
-        expect(out).toMatchObject({ status: 404 });
-      }
+    it('should return payout status', async () => {
+      merchantDao.getMerchantsDao.mockResolvedValue([{ id: 1, config: { keys: { private: 'private' } } }]);
+      payoutDao.getPayoutsDao.mockResolvedValue([{ merchant_id: 1, status: Status.APPROVED, merchant_order_id: 'order1', amount: 100, id: 1, utr_id: 'utr123' }]);
+      const result = await checkPayOutStatusService(1, 'valid', 'order1', 'private');
+      expect(result).toEqual({ status: Status.APPROVED, merchantOrderId: 'order1', amount: 100, payoutId: 1, utr_id: 'utr123' });
+    });
+
+    it('should return error if payout does not belong to merchant', async () => {
+      merchantDao.getMerchantsDao.mockResolvedValue([{ id: 1, config: { keys: { private: 'private' } } }]);
+      payoutDao.getPayoutsDao.mockResolvedValue([{ merchant_id: 2, status: Status.APPROVED, merchant_order_id: 'order1', amount: 100, id: 1, utr_id: 'utr123' }]);
+      const result = await checkPayOutStatusService(1, 'valid', 'order1', 'private');
+      expect(result).toEqual({ status: 404, message: 'merchant_order_id and payIn ID do not belong to the specified merchant' });
     });
   });
 
-  // getWalletsBalanceService
-  describe('getWalletsBalanceService', () => {
-    test('returns balance when axios get works', async () => {
-      companyDao.getCompanyByIDDao.mockResolvedValue([{ config: { PAY_ASSIST: { walletsPayoutsUrl: 'https://api', walletsPayoutsAgent: 'a', walletsPayoutsApiKey: 'k' } } }]);
-      axios.get.mockResolvedValue({ data: { Response: { Balance: 777 } } });
-      const res = await services.getWalletsBalanceService('comp1');
-      expect(res).toEqual({ balance: 777 });
+  describe('getPayoutsBySearchService', () => {
+    it('should throw error on invalid pagination', async () => {
+      await expect(getPayoutsBySearchService({ page: 'invalid', limit: 10, search: 'term' }, Role.MERCHANT, 1, Role.MERCHANT, false)).rejects.toThrow('Invalid pagination parameters');
     });
 
-    test('throws when axios fails', async () => {
-      companyDao.getCompanyByIDDao.mockResolvedValue([{ config: { PAY_ASSIST: { walletsPayoutsUrl: 'https://api', walletsPayoutsAgent: 'a', walletsPayoutsApiKey: 'k' } } }]);
-      axios.get.mockRejectedValue(new Error('net'));
-      await expect(services.getWalletsBalanceService('comp1')).rejects.toThrow('net');
+    it('should search payouts successfully', async () => {
+      userHierarchyDao.getUserHierarchysDao.mockResolvedValue([{ config: { siblings: { sub_merchants: [] } } }]);
+      merchantDao.getMerchantByUserIdDao.mockResolvedValue([{ id: 1 }]);
+      payoutDao.getPayoutsBySearchDao.mockResolvedValue([{ id: 1 }]);
+      const result = await getPayoutsBySearchService({ page: 1, limit: 10, search: 'term' }, Role.MERCHANT, 1, Role.MERCHANT, false);
+      expect(result).toEqual([{ id: 1 }]);
+    });
+
+    it('should handle empty search terms', async () => {
+      userHierarchyDao.getUserHierarchysDao.mockResolvedValue([{ config: { siblings: { sub_merchants: [] } } }]);
+      merchantDao.getMerchantByUserIdDao.mockResolvedValue([{ id: 1 }]);
+      payoutDao.getPayoutsBySearchDao.mockResolvedValue([]);
+      const result = await getPayoutsBySearchService({ page: 1, limit: 10, search: '' }, Role.MERCHANT, 1, Role.MERCHANT, false);
+      expect(result).toEqual([]);
+    });
+
+    it('should search with amount', async () => {
+      userHierarchyDao.getUserHierarchysDao.mockResolvedValue([{ config: { siblings: { sub_merchants: [] } } }]);
+      merchantDao.getMerchantByUserIdDao.mockResolvedValue([{ id: 1 }]);
+      payoutDao.getPayoutsBySearchDao.mockResolvedValue([{ id: 2 }]);
+      const result = await getPayoutsBySearchService({ page: 1, limit: 10, search: '100' }, Role.MERCHANT, 1, Role.MERCHANT, true);
+      expect(result).toEqual([{ id: 2 }]);
+    });
+  });
+
+  describe('updatePayoutService', () => {
+    it('should throw error if payout not found', async () => {
+      payoutDao.getPayoutsDao.mockResolvedValue([]);
+      await expect(updatePayoutService(mockConn, { id: 1, company_id: 1 }, {}, Role.ADMIN)).rejects.toThrow('Payout not found!');
+    });
+
+    it('should update payout successfully for approved status', async () => {
+      payoutDao.getPayoutsDao.mockResolvedValueOnce([]); // UTR check
+      payoutDao.getPayoutsDao.mockResolvedValueOnce([{ id: 1, status: Status.PENDING, merchant_id: 1, bank_acc_id: 1, amount: 100, config: { urls: { notify: '' } } }]); // single
+      merchantDao.getMerchantsDao.mockResolvedValue([{ user_id: 1, payout_commission: 1, config: { urls: { payout_notify: '' } } }]);
+      bankaccountDao.getBankByIdDao.mockResolvedValue([{ user_id: 2, payin_count: 0, today_balance: 1000, balance: 1000, is_obsolete: false, is_blocked: false, config: { max_limit: 2000 } }]);
+      vendorDao.getVendorsDao.mockResolvedValue([{ id: 1, payout_commission: 1 }]);
+      payoutDao.updatePayoutDao.mockResolvedValueOnce({ id: 1, status: Status.APPROVED, approved_at: new Date().toISOString(), config: { urls: { notify: '' } } }); // first update
+      payoutDao.updatePayoutDao.mockResolvedValueOnce({ id: 1, status: Status.APPROVED, approved_at: new Date().toISOString(), config: { urls: { notify: '' } } }); // second with commissions
+      calculationDao.getCalculationforCronDao.mockResolvedValueOnce([{ id: 1 }]); // merchant
+      calculationDao.getCalculationforCronDao.mockResolvedValueOnce([{ id: 2 }]); // vendor
+      calculationDao.updateCalculationBalanceDao.mockResolvedValueOnce({});
+      calculationDao.updateCalculationBalanceDao.mockResolvedValueOnce({});
+      bankaccountDao.updateBankaccountDao.mockResolvedValue({});
+      payoutDao.getPayoutsDao.mockResolvedValueOnce([{ status: Status.PENDING }]); // post check
+
+      const result = await updatePayoutService(mockConn, { id: 1, company_id: 1 }, { status: Status.APPROVED, utr_id: 'utr123', bank_acc_id: 1, updated_by: 1 }, Role.ADMIN);
+      expect(result).toEqual({ id: 1, status: Status.APPROVED, approved_at: expect.any(String), config: { urls: { notify: '' } } });
+    });
+
+    it('should update payout to rejected status', async () => {
+      payoutDao.getPayoutsDao.mockResolvedValueOnce([{ id: 1, status: Status.PENDING, merchant_id: 1, bank_acc_id: 1, amount: 100, config: { urls: { notify: '' } } }]); // single
+      merchantDao.getMerchantsDao.mockResolvedValue([{ user_id: 1, payout_commission: 1, config: { urls: { payout_notify: '' } } }]);
+      bankaccountDao.getBankByIdDao.mockResolvedValue([{ user_id: 2, payin_count: 0, today_balance: 1000, balance: 1000, is_obsolete: false, is_blocked: false, config: { max_limit: 2000 } }]);
+      vendorDao.getVendorsDao.mockResolvedValue([{ id: 1, payout_commission: 1 }]);
+      payoutDao.updatePayoutDao.mockResolvedValue({ id: 1, status: Status.REJECTED, rejected_at: new Date().toISOString(), config: { urls: { notify: '' } } });
+      payoutDao.getPayoutsDao.mockResolvedValueOnce([{ status: Status.PENDING }]); // post check
+
+      const result = await updatePayoutService(mockConn, { id: 1, company_id: 1 }, { status: Status.REJECTED, config: { rejected_reason: 'reason' }, updated_by: 1 }, Role.ADMIN);
+      expect(result).toEqual({ id: 1, status: Status.REJECTED, rejected_at: expect.any(String), config: { urls: { notify: '' } } });
+    });
+
+  });
+
+  describe('deletePayoutService', () => {
+    it('should delete payout successfully', async () => {
+      payoutDao.deletePayoutDao.mockResolvedValue({ id: 1 });
+      const result = await deletePayoutService(1, 1, Role.ADMIN);
+      expect(result).toEqual({ id: 1 });
+      expect(payoutDao.deletePayoutDao).toHaveBeenCalledWith(1, { is_obsolete: true, updated_by: 1 });
+    });
+
+    it('should handle transaction rollback on error', async () => {
+      payoutDao.deletePayoutDao.mockRejectedValue(new Error('Delete error'));
+      await expect(deletePayoutService(1, 1, Role.ADMIN)).rejects.toThrow('Delete error');
+      expect(rollback).toHaveBeenCalled();
+    });
+
+    it('should delete for merchant role', async () => {
+      payoutDao.deletePayoutDao.mockResolvedValue({ id: 2 });
+      const result = await deletePayoutService(2, 2, Role.MERCHANT);
+      expect(result).toEqual({ id: 2 });
+    });
+  });
+
+  describe('assignedPayoutService', () => {
+    it('should assign payout successfully', async () => {
+      payoutDao.assignedPayoutDao.mockResolvedValue({ id: 1 });
+      const result = await assignedPayoutService(mockConn, 1, { vendor_id: 1 }, 1, 1);
+      expect(result).toEqual({ id: 1 });
+    });
+
+    it('should handle assignment error', async () => {
+      payoutDao.assignedPayoutDao.mockRejectedValue(new Error('Assignment error'));
+      await expect(assignedPayoutService(mockConn, 1, { vendor_id: 1 }, 1, 1)).rejects.toThrow('Assignment error');
+    });
+
+    it('should assign with different payload', async () => {
+      payoutDao.assignedPayoutDao.mockResolvedValue({ id: 2 });
+      const result = await assignedPayoutService(mockConn, 2, { bank_acc_id: 2 }, 2, 2);
+      expect(result).toEqual({ id: 2 });
+    });
+  });
+
+  describe('walletsPayoutsService', () => {
+    it('should return error if mode not provided', async () => {
+      const result = await walletsPayoutsService(mockConn, { payOutids: [1] }, 1);
+      expect(result).toEqual({ status: 400, message: 'Amount and TransactionType are required' });
+    });
+
+    it('should handle payout rejection', async () => {
+      payoutDao.getPayoutBankDetailsDao.mockResolvedValue([{ id: 1, amount: 100, user_bank_details: { account_holder_name: 'Test', account_no: '123', bank_name: 'Bank', ifsc_code: 'IFSC' } }]);
+      companyDao.getCompanyByIDDao.mockResolvedValue([{ config: { PAY_ASSIST: { walletsPayoutsUrl: 'url', walletsPayoutsAgent: 'agent', walletsPayoutsApiKey: 'key', walletsPayoutsAgentCode: 'code', defaultBankId: 1 } } }]);
+      axios.post.mockResolvedValueOnce({ data: { ErrorCode: '14', Response: {} } });
+      axios.post.mockResolvedValueOnce({ data: { ErrorCode: '14', Response: { message: 'Transaction Failed' } } });
+      bankaccountDao.getBankByIdDao.mockResolvedValue([{ user_id: 1 }]);
+      vendorDao.getVendorsDao.mockResolvedValue([{ id: 1 }]);
+      payoutDao.updatePayoutDao.mockResolvedValue({ id: 1, status: Status.REJECTED });
+
+      const result = await walletsPayoutsService(mockConn, { mode: 'IMPS', payOutids: [1], company_id: 1 }, 1);
+      expect(result[0].status).toBe(Status.REJECTED);
+    });
+
+    it('should handle API error', async () => {
+      payoutDao.getPayoutBankDetailsDao.mockResolvedValue([{ id: 1, amount: 100, user_bank_details: { account_holder_name: 'Test', account_no: '123', bank_name: 'Bank', ifsc_code: 'IFSC' } }]);
+      companyDao.getCompanyByIDDao.mockResolvedValue([{ config: { PAY_ASSIST: { walletsPayoutsUrl: 'url', walletsPayoutsAgent: 'agent', walletsPayoutsApiKey: 'key', walletsPayoutsAgentCode: 'code', defaultBankId: 1 } } }]);
+      axios.post.mockRejectedValue(new Error('API error'));
+      const result = await walletsPayoutsService(mockConn, { mode: 'IMPS', payOutids: [1], company_id: 1 }, 1);
+      expect(result[0].status).toBe(Status.REJECTED);
+      expect(result[0].rejected_reason).toBe('API Request Failed');
+    });
+  });
+
+  describe('getWalletsBalanceService', () => {
+    it('should fetch balance successfully', async () => {
+      companyDao.getCompanyByIDDao.mockResolvedValue([{ config: { PAY_ASSIST: { walletsPayoutsUrl: 'url', walletsPayoutsAgent: 'agent', walletsPayoutsApiKey: 'key' } } }]);
+      axios.get.mockResolvedValue({ data: { Response: { Balance: 1000 } } });
+      const result = await getWalletsBalanceService(1);
+      expect(result).toEqual({ balance: 1000 });
+    });
+
+    it('should handle API error', async () => {
+      companyDao.getCompanyByIDDao.mockResolvedValue([{ config: { PAY_ASSIST: { walletsPayoutsUrl: 'url', walletsPayoutsAgent: 'agent', walletsPayoutsApiKey: 'key' } } }]);
+      axios.get.mockRejectedValue(new Error('API error'));
+      await expect(getWalletsBalanceService(1)).rejects.toThrow('API error');
+    });
+
+    it('should fetch for different company', async () => {
+      companyDao.getCompanyByIDDao.mockResolvedValue([{ config: { PAY_ASSIST: { walletsPayoutsUrl: 'url2', walletsPayoutsAgent: 'agent2', walletsPayoutsApiKey: 'key2' } } }]);
+      axios.get.mockResolvedValue({ data: { Response: { Balance: 2000 } } });
+      const result = await getWalletsBalanceService(2);
+      expect(result).toEqual({ balance: 2000 });
+    });
+  });
+
+  // payoutService.test.js (relevant section for tataPayPayoutsService)
+
+  describe('tataPayPayoutsService', () => {
+    const mockConn = {};
+    const mockUpdatedBy = 'test-user';
+    const mockRes = {};
+    const mockPayload = {
+      mode: 'NEFT',
+      payOutids: [1, 2],
+      company_id: 'company123',
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    test('should return 400 if mode is missing', async () => {
+      const invalidPayload = { ...mockPayload, mode: undefined };
+
+      const result = await tataPayPayoutsService(mockConn, invalidPayload, mockUpdatedBy, mockRes);
+
+      expect(result).toEqual({
+        status: 400,
+        message: 'Amount and TransactionType are required',
+      });
+    });
+
+    test('should return 404 if no payouts are found', async () => {
+      payoutDao.getPayoutBankDetailsDao.mockResolvedValue([]);
+
+      const result = await tataPayPayoutsService(mockConn, mockPayload, mockUpdatedBy, mockRes);
+
+      expect(result).toEqual({
+        status: 404,
+        message: 'Payout not found',
+      });
+      expect(payoutDao.getPayoutBankDetailsDao).toHaveBeenCalledWith(
+        { payOutids: mockPayload.payOutids },
+        mockPayload.company_id
+      );
+    });
+
+    test('should handle API error for a single payout and return REJECTED status', async () => {
+      const mockPayouts = [
+        {
+          id: 1,
+          user_bank_details: {
+            account_holder_name: 'John Doe',
+            account_no: '1234567890',
+            ifsc_code: 'IFSC1234',
+            bank_name: 'Test Bank',
+          },
+          amount: 1000,
+        },
+      ];
+      const mockCompany = [
+        {
+          config: {
+            TATA_PAY: {
+              walletsPayoutsApiKey: 'api-key',
+              walletsPayoutsUrl: 'https://api.test.com',
+              defaultBankId: 'bank123',
+            },
+          },
+        },
+      ];
+
+      payoutDao.getPayoutBankDetailsDao.mockResolvedValue(mockPayouts);
+      companyDao.getCompanyByIDDao.mockResolvedValue(mockCompany);
+      axios.post.mockRejectedValue(new Error('API Error'));
+
+      const result = await tataPayPayoutsService(mockConn, mockPayload, mockUpdatedBy, mockRes);
+
+      expect(result).toEqual([
+        {
+          id: 1,
+          status: Status.REJECTED,
+          utr_id: null,
+          rejected_reason: 'API Request Failed',
+        },
+      ]);
+      expect(logger.error).toHaveBeenCalledWith(`Error processing payout 1:`, expect.any(Error));
+    });
+
+    test('should throw error for unexpected failure', async () => {
+      const error = new Error('Unexpected error');
+      payoutDao.getPayoutBankDetailsDao.mockRejectedValue(error);
+
+      await expect(tataPayPayoutsService(mockConn, mockPayload, mockUpdatedBy, mockRes)).rejects.toThrow('Unexpected error');
+      expect(logger.error).toHaveBeenCalledWith('Error in walletsPayoutsService:', error);
+    });
+  });
+
+  describe('getTataPayBalanceService', () => {
+    it('should fetch TataPay balance successfully', async () => {
+      companyDao.getCompanyByIDDao.mockResolvedValue([{ config: { TATA_PAY: { walletsPayoutsUrl: 'url', walletsPayoutsApiKey: 'key' } } }]);
+      axios.get.mockResolvedValue({ data: { user: { credit: 1000 } } });
+      const result = await getTataPayBalanceService(1);
+      expect(result).toEqual({ balance: 1000 });
+    });
+
+    it('should handle API error', async () => {
+      companyDao.getCompanyByIDDao.mockResolvedValue([{ config: { TATA_PAY: { walletsPayoutsUrl: 'url', walletsPayoutsApiKey: 'key' } } }]);
+      axios.get.mockRejectedValue(new Error('API error'));
+      await expect(getTataPayBalanceService(1)).rejects.toThrow('API error');
+    });
+
+    it('should fetch for different company', async () => {
+      companyDao.getCompanyByIDDao.mockResolvedValue([{ config: { TATA_PAY: { walletsPayoutsUrl: 'url2', walletsPayoutsApiKey: 'key2' } } }]);
+      axios.get.mockResolvedValue({ data: { user: { credit: 2000 } } });
+      const result = await getTataPayBalanceService(2);
+      expect(result).toEqual({ balance: 2000 });
     });
   });
 });

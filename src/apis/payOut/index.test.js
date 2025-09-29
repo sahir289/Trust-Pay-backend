@@ -1,17 +1,14 @@
-// src/apis/payOut/__tests__/payoutIndex.common.test.js
-'use strict';
-const { expect, describe, beforeEach, test } = require('@jest/globals');
-const express = require('express');
-const request = require('supertest');
+import { expect, describe, beforeEach, test } from '@jest/globals';
+import express from 'express';
+import request from 'supertest';
 
-// --- Mock dependencies ---
-// tryCatchHandler: by default return the handler unchanged
+import tryCatchHandler from '../../utils/tryCatchHandler.js';
 jest.mock('../../utils/tryCatchHandler.js', () => ({
   __esModule: true,
   default: (handler) => handler,
 }));
 
-// Controllers (mock each)
+import * as payOutController from './payOutController.js';
 const mockCreatePayout = jest.fn((req, res) => res.status(201).json({ ok: true, route: 'createPayout' }));
 const mockDeletePayout = jest.fn((req, res) => res.status(200).json({ ok: true, route: 'deletePayout' }));
 const mockGetPayouts = jest.fn((req, res) => res.status(200).json({ ok: true, route: 'getPayouts' }));
@@ -22,6 +19,8 @@ const mockCheckPayOutStatus = jest.fn((req, res) => res.status(200).json({ ok: t
 const mockWalletsPayouts = jest.fn((req, res) => res.status(201).json({ ok: true, route: 'walletsPayouts' }));
 const mockAssignedPayout = jest.fn((req, res) => res.status(200).json({ ok: true, route: 'assignedPayout' }));
 const mockGetWalletsBalance = jest.fn((req, res) => res.status(200).json({ ok: true, route: 'getWalletsBalance' }));
+const mockTataPayPayouts = jest.fn((req, res) => res.status(201).json({ ok: true, route: 'tataPayPayouts' }));
+const mockGetTataPayBalance = jest.fn((req, res) => res.status(200).json({ ok: true, route: 'getTataPayBalance' }));
 
 jest.mock('./payOutController.js', () => ({
   __esModule: true,
@@ -35,29 +34,40 @@ jest.mock('./payOutController.js', () => ({
   walletsPayouts: (...args) => mockWalletsPayouts(...args),
   assignedPayout: (...args) => mockAssignedPayout(...args),
   getWalletsBalance: (...args) => mockGetWalletsBalance(...args),
+  tataPayPayouts: (...args) => mockTataPayPayouts(...args),
+  getTataPayBalance: (...args) => mockGetTataPayBalance(...args),
 }));
 
-// auth middleware: default pass-through behavior
+import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 jest.mock('../../middlewares/auth.js', () => ({
   __esModule: true,
   authorized: () => (req, res, next) => next(),
   isAuthenticated: (req, res, next) => next(),
 }));
 
-// AccessRoles constant used by router
+import { AccessRoles } from '../../constants/index.js';
 jest.mock('../../constants/index.js', () => ({
   __esModule: true,
-  AccessRoles: { PAYOUT: 'PAYOUT' },
+  AccessRoles: {
+    PAYOUT: 'PAYOUT',
+    MERCHANT: 'MERCHANT', // Added to fix undefined error
+  },
 }));
 
-// pay assist callback
+import { payAssistTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payAsistWebHook.js';
+import { tataPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/tataPayWebHook.js';
 const mockPayAssistCallback = jest.fn((req, res) => res.status(200).json({ ok: true, route: 'payAssistCallback' }));
+const mockTataPayCallback = jest.fn((req, res) => res.status(200).json({ ok: true, route: 'tataPayCallback' }));
 jest.mock('../../callBacksAndWebHook/callBacks/payAsistWebHook.js', () => ({
   __esModule: true,
   payAssistTransactionStatusCallback: (...args) => mockPayAssistCallback(...args),
 }));
+jest.mock('../../callBacksAndWebHook/callBacks/tataPayWebHook.js', () => ({
+  __esModule: true,
+  tataPayTransactionStatusCallback: (...args) => mockTataPayCallback(...args),
+}));
 
-// db.js mock
+import { createPool } from '../../utils/db.js';
 jest.mock('../../utils/db.js', () => ({
   createPool: jest.fn(() => ({
     connect: jest.fn(),
@@ -67,37 +77,21 @@ jest.mock('../../utils/db.js', () => ({
   })),
 }));
 
-// Now require the router module under test.
-// Note: this require can still throw if your index.js uses ESM-only syntax and Jest/Babel isn't configured.
-// If require fails with a syntax error, follow instructions below to enable ESM support in Jest.
-let routerModule;
-try {
-  routerModule = require('./index.js'); // path: src/apis/payOut/index.js
-} catch (err) {
-  // Re-throw with helpful message
-  throw new Error(
-    'Failed to require src/apis/payOut/index.js. If your project uses ESM, either configure Jest to transform ESM (babel-jest) or set "type":"module" in package.json. Original error: ' +
-      err.message,
-  );
-}
+import routerModule from './index.js';
+const router = routerModule.default || routerModule;
 
-const router = routerModule && routerModule.default ? routerModule.default : routerModule;
-
-// helper to mount router in an express app for testing
 function buildApp() {
   const app = express();
   app.use(express.json());
   app.use('/payout', router);
-  // error handler to convert thrown errors into JSON for assertions
-  // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
-    const status = err && err.status ? err.status : 500;
+    const status = err?.status || 500;
     res.status(status).json({ ok: false, message: err?.message || 'internal error' });
   });
   return app;
 }
 
-describe('payout index router - CommonJS tests', () => {
+describe('payout index router - ESM tests', () => {
   let app;
 
   beforeEach(() => {
@@ -126,6 +120,13 @@ describe('payout index router - CommonJS tests', () => {
     expect(mockGetWalletsBalance).toHaveBeenCalled();
   });
 
+  test('GET /payout/tatapay-balance calls getTataPayBalance', async () => {
+    const res = await request(app).get('/payout/tatapay-balance');
+    expect(res.status).toBe(200);
+    expect(res.body.route).toBe('getTataPayBalance');
+    expect(mockGetTataPayBalance).toHaveBeenCalled();
+  });
+
   test('GET /payout/:id calls getPayoutsById', async () => {
     const res = await request(app).get('/payout/abc123');
     expect(res.status).toBe(200);
@@ -134,14 +135,14 @@ describe('payout index router - CommonJS tests', () => {
     expect(mockGetPayoutsById).toHaveBeenCalled();
   });
 
-  test('POST /payout/create-payout calls createPayout (unprotected in file)', async () => {
+  test('POST /payout/create-payout calls createPayout', async () => {
     const res = await request(app).post('/payout/create-payout').send({ a: 1 });
     expect(res.status).toBe(201);
     expect(res.body.route).toBe('createPayout');
     expect(mockCreatePayout).toHaveBeenCalled();
   });
 
-  test('POST /payout/generate-payout calls createPayout (protected)', async () => {
+  test('POST /payout/generate-payout calls createPayout', async () => {
     const res = await request(app).post('/payout/generate-payout').send({ a: 1 });
     expect(res.status).toBe(201);
     expect(res.body.route).toBe('createPayout');
@@ -183,10 +184,24 @@ describe('payout index router - CommonJS tests', () => {
     expect(mockWalletsPayouts).toHaveBeenCalled();
   });
 
+  test('POST /payout/tatapay-payouts calls tataPayPayouts', async () => {
+    const res = await request(app).post('/payout/tatapay-payouts').send({ payOutids: [1] });
+    expect(res.status).toBe(201);
+    expect(res.body.route).toBe('tataPayPayouts');
+    expect(mockTataPayPayouts).toHaveBeenCalled();
+  });
+
   test('POST /payout/payassist-callback calls payAssistTransactionStatusCallback', async () => {
     const res = await request(app).post('/payout/payassist-callback').send({ cb: true });
     expect(res.status).toBe(200);
     expect(res.body.route).toBe('payAssistCallback');
     expect(mockPayAssistCallback).toHaveBeenCalled();
+  });
+
+  test('POST /payout/tatapay-callback calls tataPayTransactionStatusCallback', async () => {
+    const res = await request(app).post('/payout/tatapay-callback').send({ cb: true });
+    expect(res.status).toBe(200);
+    expect(res.body.route).toBe('tataPayCallback');
+    expect(mockTataPayCallback).toHaveBeenCalled();
   });
 });

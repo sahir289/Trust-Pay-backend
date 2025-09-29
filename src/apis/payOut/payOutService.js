@@ -86,7 +86,7 @@ const retryAxiosRequest = async (requestFn, maxRetries = 3, baseDelay = 1000) =>
       }
       
       // Log retry attempt
-      console.warn(`Request failed (attempt ${attempt}/${maxRetries}), retrying in ${baseDelay * Math.pow(2, attempt - 1)}ms:`, error.message);
+      // console.warn(`Request failed (attempt ${attempt}/${maxRetries}), retrying in ${baseDelay * Math.pow(2, attempt - 1)}ms:`, error.message);
       
       // Exponential backoff: wait baseDelay * 2^(attempt-1) milliseconds
       await new Promise(resolve => setTimeout(resolve, baseDelay * Math.pow(2, attempt - 1)));
