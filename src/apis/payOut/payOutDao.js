@@ -698,7 +698,12 @@ export const getPayoutsBySearchDao = async (
         paramIndex += statusArray.length;
       }
     }
-
+    if (filters.nick_name) {
+      queryText += ` AND b.nick_name = $${paramIndex}`;
+      queryParams.push(filters.nick_name);
+      paramIndex += 1;
+      delete filters.nick_name;
+    }
     // Handle search terms
     if (searchTerms.length > 0) {
       searchTerms.forEach((term) => {
