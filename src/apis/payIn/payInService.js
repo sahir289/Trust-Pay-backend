@@ -1883,7 +1883,7 @@ export const processPayInWebHookService = async (
       );
     }
 
-    await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+   const payinUpdate = await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 
     const result = {
       status: finalStatus,
@@ -1891,7 +1891,7 @@ export const processPayInWebHookService = async (
       payinId: payIn.id,
       amount: bankResponse.amount,
       req_amount: payIn.amount,
-      utr_id: userSubmittedUtr,
+      utr_id: payinUpdate.user_submitted_utr,
     };
     logger.info('Webhook processing result:', result);
 
