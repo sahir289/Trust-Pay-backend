@@ -1891,7 +1891,7 @@ export const processPayInWebHookService = async (
       payinId: payIn.id,
       amount: bankResponse.amount,
       req_amount: payIn.amount,
-      utr_id: payIn.user_submitted_utr,
+      utr_id: userSubmittedUtr,
     };
     logger.info('Webhook processing result:', result);
 
