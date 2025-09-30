@@ -63,6 +63,7 @@ const getBankResponseDao = async (
     throw error;
   }
 };
+
 export const getBankResponsePayinDao = async (filters) => {
   try {
     let query = `
@@ -277,41 +278,41 @@ const getBankResponseBySearchDao = async (
       values.push(...dateParams);
     }
 
-    if (filters.search) {
-      const searchTerm = filters.search.trim().split(/\s+/);
-      if (searchTerm?.length) {
-        const searchConditions = [];
-        searchTerm.forEach((term) => {
-          if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-            const boolValue = term.toLowerCase() === 'true';
-            searchConditions.push(`"BankResponse".is_used = $${paramIndex}`);
-            values.push(boolValue);
-            paramIndex++;
-          } else {
-            const likeVal = `%${term}%`;
-            searchConditions.push(`
-              (
-                "BankResponse".id::text ILIKE $${paramIndex}
-                OR "BankResponse".status ILIKE $${paramIndex}
-                OR "BankResponse".bank_id::text ILIKE $${paramIndex}
-                OR "BankResponse".amount::text ILIKE $${paramIndex}
-                OR "BankResponse".upi_short_code ILIKE $${paramIndex}
-                OR "BankResponse".utr ILIKE $${paramIndex}
-                OR "BankResponse".sno::text ILIKE $${paramIndex}
-                OR "BankResponse".created_by ILIKE $${paramIndex}
-                OR "BankResponse".updated_by ILIKE $${paramIndex}
-                OR "BankAccount".user_id::text ILIKE $${paramIndex}
-                OR "BankAccount".nick_name ILIKE $${paramIndex}
-              )
-            `);
-            values.push(likeVal);
-            paramIndex++;
-          }
-        });
-        whereConditions.push(`(${searchConditions.join(' OR ')})`);
-      }
-      delete filters.search;
-    }
+    // if (filters.search) {
+    //   const searchTerm = filters.search.trim().split(/\s+/);
+    //   if (searchTerm?.length) {
+    //     const searchConditions = [];
+    //     searchTerm.forEach((term) => {
+    //       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+    //         const boolValue = term.toLowerCase() === 'true';
+    //         searchConditions.push(`"BankResponse".is_used = $${paramIndex}`);
+    //         values.push(boolValue);
+    //         paramIndex++;
+    //       } else {
+    //         const likeVal = `%${term}%`;
+    //         searchConditions.push(`
+    //           (
+    //             "BankResponse".id::text ILIKE $${paramIndex}
+    //             OR "BankResponse".status ILIKE $${paramIndex}
+    //             OR "BankResponse".bank_id::text ILIKE $${paramIndex}
+    //             OR "BankResponse".amount::text ILIKE $${paramIndex}
+    //             OR "BankResponse".upi_short_code ILIKE $${paramIndex}
+    //             OR "BankResponse".utr ILIKE $${paramIndex}
+    //             OR "BankResponse".sno::text ILIKE $${paramIndex}
+    //             OR "BankResponse".created_by ILIKE $${paramIndex}
+    //             OR "BankResponse".updated_by ILIKE $${paramIndex}
+    //             OR "BankAccount".user_id::text ILIKE $${paramIndex}
+    //             OR "BankAccount".nick_name ILIKE $${paramIndex}
+    //           )
+    //         `);
+    //         values.push(likeVal);
+    //         paramIndex++;
+    //       }
+    //     });
+    //     whereConditions.push(`(${searchConditions.join(' OR ')})`);
+    //   }
+    //   delete filters.search;
+    // }
 
     whereConditions.push(`"BankResponse".is_obsolete = false`);
 
@@ -326,6 +327,11 @@ const getBankResponseBySearchDao = async (
         whereConditions.push(`"BankResponse"."bank_id" = $${paramIndex}`);
         values.push(filters.bank_id);
       }
+      paramIndex++;
+    }
+    if (filters.nick_name) {
+      whereConditions.push(`"BankAccount"."nick_name" = $${paramIndex}`);
+      values.push(filters.nick_name);
       paramIndex++;
     }
     

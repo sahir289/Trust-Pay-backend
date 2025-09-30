@@ -1287,45 +1287,45 @@ export const getPayinsWithoutHistoryDao = async (
       WHERE ${conditions.join(' AND ')}
     `;
 
-    if (searchTerms && searchTerms.length > 0) {
-      searchTerms.forEach((term) => {
-        if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-          const boolValue = term.toLowerCase() === 'true';
-          conditions.push(`
-            (
-              p.is_notified = $${paramIndex}
-              OR p.is_url_expires = $${paramIndex}
-              OR p.one_time_used = $${paramIndex}
-            )
-          `);
-          queryParams.push(boolValue);
-          paramIndex++;
-        } else {
-          conditions.push(`
-            (
-              p.id::text ILIKE $${paramIndex}
-              OR p.sno::text ILIKE $${paramIndex}
-              OR p.upi_short_code ILIKE $${paramIndex}
-              OR p.status ILIKE $${paramIndex}
-              OR p.merchant_order_id ILIKE $${paramIndex}
-              OR p.user_submitted_utr ILIKE $${paramIndex}
-              OR p.user ILIKE $${paramIndex}
-              OR b.nick_name ILIKE $${paramIndex}
-              OR br.utr ILIKE $${paramIndex}
-              OR m.code ILIKE $${paramIndex}
-              OR v.code ILIKE $${paramIndex}
-              OR p.amount::text ILIKE $${paramIndex}
-              OR br.amount::text ILIKE $${paramIndex}
-              OR (p.config->>'user') ILIKE $${paramIndex}
-              OR (p.config->'urls'->>'site') ILIKE $${paramIndex}
-              OR (p.config->'urls'->>'notify') ILIKE $${paramIndex}
-            )
-          `);
-          queryParams.push(`%${term}%`);
-          paramIndex++;
-        }
-      });
-    }
+    // if (searchTerms && searchTerms.length > 0) {
+    //   searchTerms.forEach((term) => {
+    //     if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+    //       const boolValue = term.toLowerCase() === 'true';
+    //       conditions.push(`
+    //         (
+    //           p.is_notified = $${paramIndex}
+    //           OR p.is_url_expires = $${paramIndex}
+    //           OR p.one_time_used = $${paramIndex}
+    //         )
+    //       `);
+    //       queryParams.push(boolValue);
+    //       paramIndex++;
+    //     } else {
+    //       conditions.push(`
+    //         (
+    //           p.id::text ILIKE $${paramIndex}
+    //           OR p.sno::text ILIKE $${paramIndex}
+    //           OR p.upi_short_code ILIKE $${paramIndex}
+    //           OR p.status ILIKE $${paramIndex}
+    //           OR p.merchant_order_id ILIKE $${paramIndex}
+    //           OR p.user_submitted_utr ILIKE $${paramIndex}
+    //           OR p.user ILIKE $${paramIndex}
+    //           OR b.nick_name ILIKE $${paramIndex}
+    //           OR br.utr ILIKE $${paramIndex}
+    //           OR m.code ILIKE $${paramIndex}
+    //           OR v.code ILIKE $${paramIndex}
+    //           OR p.amount::text ILIKE $${paramIndex}
+    //           OR br.amount::text ILIKE $${paramIndex}
+    //           OR (p.config->>'user') ILIKE $${paramIndex}
+    //           OR (p.config->'urls'->>'site') ILIKE $${paramIndex}
+    //           OR (p.config->'urls'->>'notify') ILIKE $${paramIndex}
+    //         )
+    //       `);
+    //       queryParams.push(`%${term}%`);
+    //       paramIndex++;
+    //     }
+    //   });
+    // }
 
     const handledKeys = new Set([
       'status',
@@ -1339,17 +1339,28 @@ export const getPayinsWithoutHistoryDao = async (
       queryText += ` AND p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
       queryParams.push(...statusArray);
       paramIndex += statusArray.length;
+      delete filters.status;
+    }
+    if (filters.user_submitted_utr && filters.user_submitted_utr.trim()) {
+      conditions.push(
+        `(p.user_submitted_utr = $${paramIndex} OR br.utr = $${paramIndex})`,
+      );
+      queryParams.push(filters.user_submitted_utr.trim());
+      paramIndex++;
+      delete filters.user_submitted_utr;
     }
     if (filters.user_ids) {
       const userArray = filters.user_ids.split(',').map((s) => s.trim());
       queryText += ` AND v.user_id IN (${userArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
       queryParams.push(...userArray);
       paramIndex += userArray.length;
+      delete filters.user_ids;
     }
     if (filters.nick_name) {
       conditions.push(`b.nick_name = $${paramIndex}`);
       queryParams.push(filters.nick_name.trim());
       paramIndex++;
+      delete filters.nick_name;
     }
     if (filters.updated_at) {
       const [day, month, year] = filters.updated_at.split('-');
@@ -1380,6 +1391,7 @@ export const getPayinsWithoutHistoryDao = async (
       );
       queryParams.push(startDate, endDate);
       paramIndex += 2;
+      delete filters.updated_at;
     }
 
     Object.entries(filters).forEach(([key, value]) => {
@@ -1621,45 +1633,45 @@ export const getPayinsWithHistoryDao = async (
       LEFT JOIN public."User" uu ON p.updated_by = uu.id
       WHERE ${conditions.join(' AND ')}
     `;
-    if (searchTerms && searchTerms.length > 0) {
-      searchTerms.forEach((term) => {
-        if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-          const boolValue = term.toLowerCase() === 'true';
-          conditions.push(`
-            (
-              p.is_notified = $${paramIndex}
-              OR p.is_url_expires = $${paramIndex}
-              OR p.one_time_used = $${paramIndex}
-            )
-          `);
-          queryParams.push(boolValue);
-          paramIndex++;
-        } else {
-          conditions.push(`
-          (
-  p.id::text ILIKE $${paramIndex}
-  OR p.sno::text ILIKE $${paramIndex}
-  OR p.upi_short_code ILIKE $${paramIndex}
-  OR p.status ILIKE $${paramIndex}
-  OR p.merchant_order_id ILIKE $${paramIndex}
-  OR p.user_submitted_utr ILIKE $${paramIndex}
-  OR p.user ILIKE $${paramIndex}
-  OR b.nick_name ILIKE $${paramIndex}
-  OR br.utr ILIKE $${paramIndex}
-  OR m.code ILIKE $${paramIndex}
-  OR v.code ILIKE $${paramIndex}
-  OR p.amount::text ILIKE $${paramIndex}
-  OR br.amount::text ILIKE $${paramIndex}
-  OR (p.config->>'user') ILIKE $${paramIndex}
-  OR (p.config->'urls'->>'site') ILIKE $${paramIndex}
-  OR (p.config->'urls'->>'notify') ILIKE $${paramIndex}
-)
-          `);
-          queryParams.push(`%${term}%`);
-          paramIndex++;
-        }
-      });
-    }
+//     if (searchTerms && searchTerms.length > 0) {
+//       searchTerms.forEach((term) => {
+//         if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+//           const boolValue = term.toLowerCase() === 'true';
+//           conditions.push(`
+//             (
+//               p.is_notified = $${paramIndex}
+//               OR p.is_url_expires = $${paramIndex}
+//               OR p.one_time_used = $${paramIndex}
+//             )
+//           `);
+//           queryParams.push(boolValue);
+//           paramIndex++;
+//         } else {
+//           conditions.push(`
+//           (
+//   p.id::text ILIKE $${paramIndex}
+//   OR p.sno::text ILIKE $${paramIndex}
+//   OR p.upi_short_code ILIKE $${paramIndex}
+//   OR p.status ILIKE $${paramIndex}
+//   OR p.merchant_order_id ILIKE $${paramIndex}
+//   OR p.user_submitted_utr ILIKE $${paramIndex}
+//   OR p.user ILIKE $${paramIndex}
+//   OR b.nick_name ILIKE $${paramIndex}
+//   OR br.utr ILIKE $${paramIndex}
+//   OR m.code ILIKE $${paramIndex}
+//   OR v.code ILIKE $${paramIndex}
+//   OR p.amount::text ILIKE $${paramIndex}
+//   OR br.amount::text ILIKE $${paramIndex}
+//   OR (p.config->>'user') ILIKE $${paramIndex}
+//   OR (p.config->'urls'->>'site') ILIKE $${paramIndex}
+//   OR (p.config->'urls'->>'notify') ILIKE $${paramIndex}
+// )
+//           `);
+//           queryParams.push(`%${term}%`);
+//           paramIndex++;
+//         }
+//       });
+//     }
     const handledKeys = new Set([
       'status',
       'user_ids',
@@ -1671,17 +1683,28 @@ export const getPayinsWithHistoryDao = async (
       queryText += ` AND p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
       queryParams.push(...statusArray);
       paramIndex += statusArray.length;
+      delete filters.status;
+    }
+    if (filters.user_submitted_utr && filters.user_submitted_utr.trim()) {
+      conditions.push(
+        `(p.user_submitted_utr = $${paramIndex} OR br.utr = $${paramIndex})`,
+      );
+      queryParams.push(filters.user_submitted_utr.trim());
+      paramIndex++;
+      delete filters.user_submitted_utr;
     }
     if (filters.user_ids) {
       const userArray = filters.user_ids.split(',').map((s) => s.trim());
       queryText += ` AND v.user_id IN (${userArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
       queryParams.push(...userArray);
       paramIndex += userArray.length;
+      delete filters.user_ids;
     }
     if (filters.nick_name) {
       conditions.push(`b.nick_name = $${paramIndex}`);
       queryParams.push(filters.nick_name.trim());
       paramIndex++;
+      delete filters.nick_name;
     }
     if (filters.updated_at) {
       const [day, month, year] = filters.updated_at.split('-');
@@ -1712,6 +1735,7 @@ export const getPayinsWithHistoryDao = async (
       );
       queryParams.push(startDate, endDate);
       paramIndex += 2;
+      delete filters.updated_at;
     }
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
