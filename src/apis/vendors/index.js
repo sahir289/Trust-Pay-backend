@@ -10,6 +10,9 @@ import {
   getVendorsBySearch,
   getBankResponseAccessByID,
   getVendorByCode,
+  linkVendor,
+  unlinkVendor,
+  transferVendor,
 } from './vendorController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -234,6 +237,23 @@ router.delete(
   '/delete-vendor/:user_id',
   [isAuthenticated, authorized(AccessRoles.VENDOR)],
   tryCatchHandler(deleteVendor),
+);
+
+// Link, Unlink, Transfer Vendor APIs
+router.post(
+  '/link-vendor',
+  [isAuthenticated, authorized(AccessRoles.VENDOR)],
+  tryCatchHandler(linkVendor),
+);
+router.post(
+  '/unlink-vendor',
+  [isAuthenticated, authorized(AccessRoles.VENDOR)],
+  tryCatchHandler(unlinkVendor),
+);
+router.post(
+  '/transfer-vendor',
+  [isAuthenticated, authorized(AccessRoles.VENDOR)],
+  tryCatchHandler(transferVendor),
 );
 
 export default router;
