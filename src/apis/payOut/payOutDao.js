@@ -566,7 +566,7 @@ export const getPayoutsBySearchDao = async (
     let paramIndex = 2; // Start from 2 since $1 is used
 
     // Columns we allow filtering on
-    const handledKeys = new Set(['status', 'updated_at']);
+    const handledKeys = new Set(['status', 'updated_at' , 'amount', 'nick_name']);
     const validColumns = new Set([
       'id',
       'sno',
@@ -768,7 +768,41 @@ export const getPayoutsBySearchDao = async (
       queryParams.push(startDate, endDate);
       paramIndex += 2;
     }
-
+    if (filters.amount) {
+      const amountValue = String(filters.amount).trim();
+      if (amountValue.includes(',')) {
+        const [minAmount, maxAmount] = amountValue
+          .split(',')
+          .map((v) => parseFloat(v.trim()));
+        conditions.push(
+          `p.amount BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+        );
+        queryParams.push(
+          Math.min(minAmount, maxAmount),
+          Math.max(minAmount, maxAmount),
+        );
+        paramIndex += 2;
+      } else if (amountValue.includes('-')) {
+        // Handle hyphen-separated range (e.g., "300-50")
+        const [minAmount, maxAmount] = amountValue
+          .split('-')
+          .map((v) => parseFloat(v.trim()));
+        conditions.push(
+          `p.amount BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+        );
+        queryParams.push(
+          Math.min(minAmount, maxAmount),
+          Math.max(minAmount, maxAmount),
+        );
+        paramIndex += 2;
+      } else {
+        const singleAmount = parseFloat(amountValue);
+        conditions.push(`p.amount = $${paramIndex}`);
+        queryParams.push(singleAmount);
+        paramIndex += 1;
+      }
+      delete filters.amount;
+    }
     // Handle other filters
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {

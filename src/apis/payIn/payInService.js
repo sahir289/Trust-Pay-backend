@@ -1893,7 +1893,7 @@ export const processPayInWebHookService = async (
       payinId: payIn.id,
       amount: bankResponse.amount,
       req_amount: payIn.amount,
-      utr_id: payIn.user_submitted_utr,
+      utr_id: userSubmittedUtr,
     };
     logger.info('Webhook processing result:', result);
 
@@ -2414,6 +2414,7 @@ export const disputeDuplicateTransactionService = async (
       updatePayload.amount = toAmount;
       updatePayload.payin_merchant_commission = payinCommission;
       updatePayload.payin_vendor_commission = vendorPayinCommission;
+      updatePayload.approved_at = new Date();  //add this for approved at
     } else {
       updatePayload.status = Status.FAILED;
     }

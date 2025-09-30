@@ -5,6 +5,7 @@ import { createBankResponseWebHookService } from '../bankResponse/bankResponseSe
 import { getPayInIntentDao } from '../payIn/payInDao.js';
 import { processPayInWebHookService } from '../payIn/payInService.js';
 import { generateHash } from '../../zentechind/zentechInd.js';
+import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
 
 export const zenTechIndWebhook = async (req, res) => {
   try {
@@ -15,7 +16,6 @@ export const zenTechIndWebhook = async (req, res) => {
       logger.error('Invalid hash in ZenTechInd webhook');
       // return;
     }
-    console.log(hash, 'hash', body.hash, 'body.hash');
 
     const payload = {
       merchantOrderId: body?.order_id,
@@ -27,8 +27,14 @@ export const zenTechIndWebhook = async (req, res) => {
 
     const bankResponsePayload = `${body?.amount} nil ${payload.userSubmittedUtr} ${payIn.bank_acc_id}`;
 
+    const utrAlreadyExist = await getBankResponseByUTR(payload.userSubmittedUtr);
+
+    if (utrAlreadyExist) {
+      logger.warn('Duplicate UTR received in ZenTechInd webhook:', payload.userSubmittedUtr);
+      return;
+    }
+
     if (body?.status === 'success') {
-      console.log('inside if');
       const bankresponse = await createBankResponseWebHookService(
         bankResponsePayload,
         payIn.company_id,
