@@ -8,6 +8,9 @@ import {
   getVendorsBySearchService,
   getBankResponseAccessByIDService,
   getVendorsByCodeService,
+  linkVendorService,
+  unlinkVendorService,
+  transferVendorService,
 } from './vendorService.js';
 import {
   VALIDATE_VENDOR_BY_ID,
@@ -72,7 +75,12 @@ const getVendorsBySearch = async (req, res) => {
 
 const getVendorCodes = async (req, res) => {
   const { company_id, user_id, role, designation } = req.user;
-  const { includeSubVendors, includeOnlyVendors, excludeDisabledVendor, includeSeperateSubVendors } = req.query;
+  const {
+    includeSubVendors,
+    includeOnlyVendors,
+    excludeDisabledVendor,
+    includeSeperateSubVendors,
+  } = req.query;
   const filters = { company_id };
   const data = await getVendorsCodeService(
     filters,
@@ -102,12 +110,12 @@ const getVendorById = async (req, res) => {
   const { company_id } = req.user;
   // Fetch vendor data from the service
   const data = await getVendorsService(
-    { id, company_id }, 
-    role, 
-    null, 
-    null, 
-    designation, 
-    user_id
+    { id, company_id },
+    role,
+    null,
+    null,
+    designation,
+    user_id,
   );
   // Log success message
   // Send success response
@@ -178,6 +186,36 @@ const getVendorByCode = async (req, res) => {
   return sendSuccess(res, data, 'Vendors fetched successfully');
 };
 
+const linkVendor = async (req, res) => {
+  const { vendorUserId, subVendorUserId } = req.body;
+  const { user_id } = req.user;
+  if (!vendorUserId || !subVendorUserId) {
+    throw new BadRequestError('vendorUserId and subVendorUserId are required');
+  }
+  const result = await linkVendorService(vendorUserId, subVendorUserId, user_id);
+  return sendSuccess(res, result, 'Vendor linked successfully');
+};
+
+const unlinkVendor = async (req, res) => {
+  const { vendorUserId, subVendorUserId } = req.body;
+  const { user_id } = req.user;
+  if (!vendorUserId || !subVendorUserId) {
+    throw new BadRequestError('vendorUserId and subVendorUserId are required');
+  }
+  const result = await unlinkVendorService(vendorUserId, subVendorUserId, user_id);
+  return sendSuccess(res, result, 'Vendor unlinked successfully');
+};
+
+const transferVendor = async (req, res) => {
+  const { subVendorUserId, newVendorUserId, currentVendorUserId } = req.body;
+  const { user_id } = req.user;
+  if (!subVendorUserId || !newVendorUserId || !currentVendorUserId) {
+    throw new BadRequestError('subVendorUserId, newVendorUserId, and currentVendorUserId are required');
+  }
+  const result = await transferVendorService(subVendorUserId, newVendorUserId, currentVendorUserId, user_id);
+  return sendSuccess(res, result, 'Vendor transferred successfully');
+};
+
 export {
   createVendor,
   getVendorsBySearch,
@@ -187,5 +225,8 @@ export {
   getBankResponseAccessByID,
   updateVendor,
   deleteVendor,
-  getVendorByCode
+  getVendorByCode,
+  linkVendor,
+  unlinkVendor,
+  transferVendor,
 };
