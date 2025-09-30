@@ -1024,4 +1024,6 @@ export {
   updateSettlementService,
   deleteSettlementService,
   getSettlementsBySearchService,
+  handleVendorInternalTransferByAdmin,
+  getConfigForMethod
 };

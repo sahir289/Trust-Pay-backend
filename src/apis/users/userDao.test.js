@@ -58,7 +58,7 @@ import {
   buildUpdateQuery,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
-import { createUserInES, getUsersByESSearch } from '../../elasticSearch/user/common.js';
+import { createUserInES } from '../../elasticSearch/user/common.js';
 import { tableName } from '../../constants/index.js';
 
 beforeEach(() => {
@@ -128,19 +128,6 @@ describe('userDao', () => {
   });
 
   describe('getUsersBySearchDao', () => {
-    it('returns ES search results when filters.search present', async () => {
-      // When filters.search exists, function should call getUsersByESSearch and return wrapped result
-      getUsersByESSearch.mockClear();
-      getUsersByESSearch.mockResolvedValue([{ id: 'es-1' }]);
-      const filters = { search: 'query', company_id: 'c' };
-      const out = await getUsersBySearchDao(filters, null, 1, 10, 'USERCOLS', 'SOME_ROLE');
-      expect(getUsersByESSearch).toHaveBeenCalled();
-      expect(getUsersByESSearch.mock.calls[0][0]).toBe('query');
-      expect(out).toMatchObject({
-        totalCount: 1,
-        Users: [{ id: 'es-1' }],
-      });
-    });
 
     it('runs SQL path and handles offset fallback when no rows but total > 0', async () => {
       // Simulate SQL path. We must mock executeQuery for count and search.

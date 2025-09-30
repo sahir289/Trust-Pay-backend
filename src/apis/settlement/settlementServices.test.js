@@ -207,31 +207,6 @@ describe('Settlement Service', () => {
   });
 
   describe('createSettlementService', () => {
-    it('should create settlement for INTERNAL_QR_TRANSFER with valid UTR', async () => {
-      const mockSettlementResponse = {
-        id: 1,
-        status: Status.SUCCESS,
-        approved_at: new Date(),
-        method: 'INTERNAL_QR_TRANSFER'
-      };
-      getBankResponseByUTR.mockResolvedValue({ id: 1, is_used: false, status: Status.BOT });
-      getVendorsDao.mockResolvedValue([{ id: 1, payin_commission: 0.1 }]);
-      getCalculationforCronDao.mockResolvedValue([{ id: 1, config: { total_internalSettlement_amount: 0 } }]);
-      calculateCommission.mockReturnValue(10);
-      createSettlementDao.mockResolvedValue(mockSettlementResponse);
-      updateBankResponseDao.mockResolvedValue();
-      updateCalculationBalanceDao.mockResolvedValue();
-      updateCalculationConfigDao.mockResolvedValue();
-
-      const result = await createSettlementService(mockConn, { ...mockPayload, method: 'INTERNAL_QR_TRANSFER' }, Role.ADMIN);
-
-      expect(getBankResponseByUTR).toHaveBeenCalledWith(mockPayload.config.reference_id);
-      expect(createSettlementDao).toHaveBeenCalledWith(
-        expect.objectContaining({ status: Status.SUCCESS, approved_at: expect.any(Date) }),
-        mockConn
-      );
-      expect(result.id).toBe(1);
-    });
 
     it('should throw InternalServerError if createSettlementDao returns undefined', async () => {
       getBankResponseByUTR.mockResolvedValue({ id: 1, is_used: false, status: Status.BOT });

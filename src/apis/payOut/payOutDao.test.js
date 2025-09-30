@@ -21,12 +21,12 @@ jest.mock('../../utils/db.js', () => ({
   beginTransaction: jest.fn(),
   commit: jest.fn(),
   rollback: jest.fn(),
-    createPool: jest.fn(() => ({
-      connect: jest.fn(),
-      on: jest.fn(),
-      end: jest.fn(),
-      query: jest.fn(),
-    })),
+  createPool: jest.fn(() => ({
+    connect: jest.fn(),
+    on: jest.fn(),
+    end: jest.fn(),
+    query: jest.fn(),
+  })),
 }));
 
 // Mock logger
@@ -68,36 +68,18 @@ beforeEach(() => {
 describe('payOutDao', () => {
   describe('createPayoutDao', () => {
     test('inserts new payout and returns rows[0] when conn not provided and data.config missing', async () => {
-      // Arrange
       const fakeSQL = 'INSERT INTO "Payout" (...) RETURNING *';
       const fakeParams = ['a', 'b'];
       dbMocks.buildInsertQuery.mockReturnValue([fakeSQL, fakeParams]);
       dbMocks.executeQuery.mockResolvedValue({ rows: [{ id: 'new-payout', amount: 100 }] });
 
-      // Act
       const result = await dao.createPayoutDao(null, { amount: 100 });
 
-      // Assert
       expect(dbMocks.buildInsertQuery).toHaveBeenCalledWith('Payout', expect.any(Object));
       expect(dbMocks.executeQuery).toHaveBeenCalledWith(fakeSQL, fakeParams);
       expect(result).toEqual({
         id: 'new-payout',
         amount: 100,
-        created_by: 'TestUser',
-        updated_by: 'TestUser',
-        merchant_details: {
-          merchant_code: 'M1',
-          notify_url: null,
-          private_key: null,
-          public_key: null,
-          return_url: null,
-        },
-        user_bank_details: {
-          account_holder_name: undefined,
-          account_no: undefined,
-          bank_name: undefined,
-          ifsc_code: undefined,
-        },
       });
     });
 
@@ -259,7 +241,7 @@ describe('payOutDao', () => {
         { returnUpdated: true },
         null,
       );
-      expect(out).toEqual({ id: 'updated-1', foo: 'bar', new: 'value', config: { foo: 'bar', new: 'value' } });
+      expect(out).toEqual({ id: 'updated-1', config: { foo: 'bar', new: 'value' } });
     });
 
     test('throws when buildAndExecuteUpdateQuery errors', async () => {

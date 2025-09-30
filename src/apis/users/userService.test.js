@@ -14,7 +14,7 @@ import { getConnection } from '../../utils/db.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { generatePassword } from '../../utils/generatePassword.js';
 import { sendCredentialsEmail } from '../../utils/sendMailer.js';
-import { unblocked_countries, columns, merchantColumns, Role, vendorColumns } from '../../constants/index.js';
+import { columns, merchantColumns, Role, vendorColumns } from '../../constants/index.js';
 import {
   createUserDao,
   getUserByIdDao,
@@ -28,7 +28,6 @@ import { getDesignationDao } from '../designation/designationDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
 import { filterResponse } from '../../helpers/index.js';
 import { createMerchantService } from '../merchants/merchantService.js';
-import { createVendorService } from '../vendors/vendorService.js';
 import { logger } from '../../utils/logger.js';
 import {
   createUserHierarchyDao,
@@ -36,7 +35,6 @@ import {
   updateUserHierarchyDao,
 } from '../userHierarchy/userHierarchyDao.js';
 import { getMerchantByUserIdDao } from '../merchants/merchantDao.js';
-import { getVendorByUserDao } from '../vendors/vendorDao.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
 
 jest.mock('../../utils/bcryptPassword.js');
@@ -260,20 +258,43 @@ describe('User Service', () => {
       await expect(createUserService(mockConn, payload)).rejects.toThrow(BadRequestError);
     });
 
-    it('should handle email sending failure', async () => {
-      const payload = { user_name: 'newuser', company_id: 1, role_id: 1, designation_id: 1, email: 'test@example.com' };
+it('should throw InternalServerError if sendCredentialsEmail fails', async () => {
+  const payload = {
+    user_name: 'newuser',
+    company_id: 1,
+    role_id: 1,
+    designation_id: 1,
+    first_name: 'First',
+    last_name: 'Last',
+    email: 'test@example.com',
+    contact_no: '123456',
+    is_enabled: true,
+    created_by: 1,
+    updated_by: 1,
+  };
 
-      getUsersByUserNameDao.mockResolvedValue(null);
-      generatePassword.mockReturnValue('pass123');
-      createHash.mockResolvedValue('hashedpass');
-      createUserDao.mockResolvedValue({ id: 2, email: 'test@example.com', user_name: 'newuser' });
-      getDesignationDao.mockResolvedValue([{ designation: Role.ADMIN }]);
-      getRoleDao.mockResolvedValue([{ role: Role.ADMIN }]);
-      getCompanyByIDDao.mockResolvedValue([{ config: { unique_admin_id: 'admin123' } }]);
-      sendCredentialsEmail.mockRejectedValue(new Error('Email Error'));
+  getUsersByUserNameDao.mockResolvedValue(null);
+  generatePassword.mockReturnValue('pass123');
+  createHash.mockResolvedValue('hashedpass');
+  createUserDao.mockResolvedValue({ id: 2, email: 'test@example.com', user_name: 'newuser' });
+  getDesignationDao.mockResolvedValue([{ designation: Role.ADMIN }]);
+  getRoleDao.mockResolvedValue([{ role: Role.ADMIN }]);
+  getCompanyByIDDao.mockResolvedValue([{ config: { unique_admin_id: 'admin123' } }]);
+  sendCredentialsEmail.mockRejectedValue(new InternalServerError('Failed to send email'));
 
-      await expect(createUserService(mockConn, payload)).rejects.toThrow(InternalServerError);
-    });
+  await expect(createUserService(mockConn, payload)).rejects.toThrow(InternalServerError);
+  expect(sendCredentialsEmail).toHaveBeenCalledWith({
+    email: 'test@example.com',
+    username: 'newuser',
+    password: 'pass123',
+    code: '',
+    secretKey: '',
+    publicKey: '',
+    designation: Role.ADMIN,
+    unique_id: 'admin123',
+  });
+  expect(logger.error).toHaveBeenCalledWith('Error in createUserService:', expect.any(InternalServerError));
+});
 
     it('should create operations user with hierarchy', async () => {
       const payload = {

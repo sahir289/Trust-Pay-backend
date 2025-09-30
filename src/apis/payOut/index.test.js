@@ -2,13 +2,11 @@ import { expect, describe, beforeEach, test } from '@jest/globals';
 import express from 'express';
 import request from 'supertest';
 
-import tryCatchHandler from '../../utils/tryCatchHandler.js';
 jest.mock('../../utils/tryCatchHandler.js', () => ({
   __esModule: true,
   default: (handler) => handler,
 }));
 
-import * as payOutController from './payOutController.js';
 const mockCreatePayout = jest.fn((req, res) => res.status(201).json({ ok: true, route: 'createPayout' }));
 const mockDeletePayout = jest.fn((req, res) => res.status(200).json({ ok: true, route: 'deletePayout' }));
 const mockGetPayouts = jest.fn((req, res) => res.status(200).json({ ok: true, route: 'getPayouts' }));
@@ -38,14 +36,12 @@ jest.mock('./payOutController.js', () => ({
   getTataPayBalance: (...args) => mockGetTataPayBalance(...args),
 }));
 
-import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 jest.mock('../../middlewares/auth.js', () => ({
   __esModule: true,
   authorized: () => (req, res, next) => next(),
   isAuthenticated: (req, res, next) => next(),
 }));
 
-import { AccessRoles } from '../../constants/index.js';
 jest.mock('../../constants/index.js', () => ({
   __esModule: true,
   AccessRoles: {
@@ -54,8 +50,6 @@ jest.mock('../../constants/index.js', () => ({
   },
 }));
 
-import { payAssistTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payAsistWebHook.js';
-import { tataPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/tataPayWebHook.js';
 const mockPayAssistCallback = jest.fn((req, res) => res.status(200).json({ ok: true, route: 'payAssistCallback' }));
 const mockTataPayCallback = jest.fn((req, res) => res.status(200).json({ ok: true, route: 'tataPayCallback' }));
 jest.mock('../../callBacksAndWebHook/callBacks/payAsistWebHook.js', () => ({
@@ -67,7 +61,6 @@ jest.mock('../../callBacksAndWebHook/callBacks/tataPayWebHook.js', () => ({
   tataPayTransactionStatusCallback: (...args) => mockTataPayCallback(...args),
 }));
 
-import { createPool } from '../../utils/db.js';
 jest.mock('../../utils/db.js', () => ({
   createPool: jest.fn(() => ({
     connect: jest.fn(),
@@ -84,7 +77,7 @@ function buildApp() {
   const app = express();
   app.use(express.json());
   app.use('/payout', router);
-  app.use((err, req, res, next) => {
+  app.use((err, req, res) => {
     const status = err?.status || 500;
     res.status(status).json({ ok: false, message: err?.message || 'internal error' });
   });
