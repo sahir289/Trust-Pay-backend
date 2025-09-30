@@ -1486,7 +1486,6 @@ export const processPayInService = async (
       merchantPayinCallback(payIn.config?.urls?.notify, result);
       return result;
     }
-
     if (otherPayIns.length || bankResponse.is_used) {
       updatePayInData.status = Status.DUPLICATE;
       result.status = Status.DUPLICATE;
@@ -2577,13 +2576,14 @@ export const telegramCheckUTRService = async (
     const isAlreadyExit = await getPayInForTelegramUtrDao({
       bank_response_id: bankResponse.id,
     });
-
-    if (isAlreadyExit) {
+    if (isAlreadyExit && isAlreadyExit.status !== Status.FAILED) {
       return {
         message: `Utr: ${utr} is ${isAlreadyExit.status} with ${isAlreadyExit.merchant_order_id}`,
       };
     }
-
+    if (isAlreadyExit && isAlreadyExit.status === Status.FAILED) {
+      await updateUtrPayinService(null, isAlreadyExit.id, updated_by, utr);
+    }
     if (![Status.ASSIGNED, Status.DROPPED].includes(payIn.status)) {
       return {
         status: payIn.status,
@@ -2621,7 +2621,7 @@ export const getPayinsServiceById = async (id) => {
 
 export const updateUtrPayinService = async (conn, id, user_id, utr) => {
   try {
-    const updatedUtr = utr && !utr.endsWith('FAILED') ? utr + 'FAILED' : utr;
+    const updatedUtr = utr && !utr.endsWith('.') ? utr + '.' : utr;
     const payload = {
       user_submitted_utr: updatedUtr,
       bank_response_id: null,

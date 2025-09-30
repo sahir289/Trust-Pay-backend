@@ -354,7 +354,12 @@ export const getAllPayoutsDao = async (
       end = dayjs.tz(`${filters?.endDate} 23:59:59.999`, IST).utc().format();
 
       conditions.push(
-        `u.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+        `CASE 
+          WHEN u.status = 'APPROVED' THEN u.approved_at 
+          WHEN u.status = 'PENDING' THEN u.updated_at 
+          WHEN u.status IN ('REJECTED', 'REVERSED') THEN u.rejected_at 
+          ELSE u.updated_at 
+        END BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
       );
       queryParams.push(start, end);
       paramIndex += 2;
@@ -693,7 +698,12 @@ export const getPayoutsBySearchDao = async (
         paramIndex += statusArray.length;
       }
     }
-
+    if (filters.nick_name) {
+      queryText += ` AND b.nick_name = $${paramIndex}`;
+      queryParams.push(filters.nick_name);
+      paramIndex += 1;
+      delete filters.nick_name;
+    }
     // Handle search terms
     if (searchTerms.length > 0) {
       searchTerms.forEach((term) => {

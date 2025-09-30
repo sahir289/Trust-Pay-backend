@@ -812,7 +812,7 @@ const createBankResponseWebHookService = async (
       utr,
       bank_id,
       // config: { from_UI },
-      is_used: 'false',
+      is_used: 'true',
       created_by,
       updated_by,
       company_id,
