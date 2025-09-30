@@ -2412,6 +2412,7 @@ export const disputeDuplicateTransactionService = async (
       updatePayload.amount = toAmount;
       updatePayload.payin_merchant_commission = payinCommission;
       updatePayload.payin_vendor_commission = vendorPayinCommission;
+      updatePayload.approved_at = new Date();  //add this for approved at
     } else {
       updatePayload.status = Status.FAILED;
     }
