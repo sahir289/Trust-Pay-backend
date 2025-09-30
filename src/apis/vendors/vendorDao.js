@@ -741,10 +741,8 @@ export const isNetBalanceZeroForTwoHours = async (vendorUserId) => {
     if (!result.rows.length) return false;
     const lastZeroTime = new Date(result.rows[0].updated_at);
     const now = new Date();
-    const diffMinutes = (now - lastZeroTime) / (1000 * 60);
-    return diffMinutes >= 5;
-    // const diffHours = (now - lastZeroTime) / (1000 * 60 * 60);
-    // return diffHours >= 2;
+    const diffHours = (now - lastZeroTime) / (1000 * 60 * 60);
+    return diffHours >= 2;
   } catch (error) {
     logger.error('Error in isNetBalanceZeroForTwoHours:', error);
     throw error;
