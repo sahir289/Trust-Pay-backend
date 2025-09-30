@@ -199,4 +199,5 @@ export const trackVendorsNetBalance = async (user_id, conn = null, calculationDa
 
 export default {
   trackVendorsNetBalance,
+  disableBankAccount
 };
