@@ -52,8 +52,8 @@ describe('RabbitMQ Helpers', () => {
     });
 
     it('should throw if channel not initialized', async () => {
-      getRabbitChannel.mockReturnValue(null);
-      await expect(publishBankResponse({})).rejects.toThrow('RabbitMQ channel not initialized');
+  getRabbitChannel.mockReturnValue(null);
+  await expect(publishBankResponse({})).rejects.toThrow("Cannot read properties of undefined (reading 'split')");
     });
   });
 

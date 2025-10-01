@@ -1,5 +1,3 @@
-
-
 import {
     getUsersByUserNameDao,
     updateUserDao,
@@ -48,7 +46,7 @@ jest.mock('../../utils/generateUUID.js');
 jest.mock('os');
 jest.mock('../../utils/db.js');
 
-
+// Mock winston and config.js to prevent split error on import
 
 describe('Auth Services', () => {
     const mockUser = {
@@ -59,6 +57,7 @@ describe('Auth Services', () => {
         designation: Role.USER,
         company_id: 'company1',
         config: { isLoginFirst: true },
+        company_config: { unique_admin_id: 'admin-123' },
     };
 
     beforeEach(() => {
@@ -66,6 +65,15 @@ describe('Auth Services', () => {
     });
 
     describe('loginService', () => {
+        it('should throw BadRequestError if admin unique_admin_id is missing', async () => {
+            getUsersByUserNameDao.mockResolvedValue({ ...mockUser, designation: Role.ADMIN, company_config: { unique_admin_id: 'admin-123' } });
+            await expect(loginService({ username: 'admin', password: 'pass' }, '127.0.0.1')).rejects.toThrow(BadRequestError);
+        });
+
+        it('should throw BadRequestError if admin unique_admin_id does not match', async () => {
+            getUsersByUserNameDao.mockResolvedValue({ ...mockUser, designation: Role.ADMIN, company_config: { unique_admin_id: 'admin-123' } });
+            await expect(loginService({ username: 'admin', password: 'pass', unique_admin_id: 'wrong-id' }, '127.0.0.1')).rejects.toThrow(BadRequestError);
+        });
         it('should throw NotFoundError if user does not exist', async () => {
             getUsersByUserNameDao.mockResolvedValue(null);
             await expect(loginService({ username: 'notfound' }, '127.0.0.1'))

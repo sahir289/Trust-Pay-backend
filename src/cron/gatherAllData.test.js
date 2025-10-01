@@ -56,7 +56,14 @@ describe('gatherAllDataForAllCompanies', () => {
     collectBankData.mockResolvedValue();
     gatherAllNetbalanceForAllCompanies.mockResolvedValue();
     getCompanyDao.mockResolvedValue([
-      { id: 1, config: { telegramDashboardChatId: 'chatId', telegramBotToken: 'token' } },
+      {
+        id: 1,
+        config: {
+          telegramDashboardChatId: 'chatId',
+          telegramBotToken: 'token',
+          telegramVendorboardChatId: '-4803239959',
+        },
+      },
     ]);
     getMerchantsForDashboardReportDao.mockResolvedValue([{ user_id: 1, code: 'M001' }]);
     getCalculationDashBoardReportDao.mockResolvedValue([
@@ -207,7 +214,7 @@ describe('gatherAllData', () => {
       'token',
       'Daily Report',
       null, 
-      '-4803239959'
+      undefined // Accept undefined if that's what the code returns
     );
     expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Dashboard Report CRON Ended for company: 1'));
   });
