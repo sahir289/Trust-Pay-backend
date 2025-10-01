@@ -837,3 +837,14 @@ export const transferVendorDao = async (vendorUserId, newVendorUserId, currentVe
     throw error;
   }
 };
+
+export const getVendorByUserId = async (user_id) => {
+  try {
+    const sql = `SELECT * FROM "${tableName.VENDOR}" WHERE user_id = $1 AND is_obsolete = false LIMIT 1;`;
+    const result = await executeQuery(sql, [user_id]);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error fetching vendor by user_id:', error);
+    throw error;
+  }
+}
