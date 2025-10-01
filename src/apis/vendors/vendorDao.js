@@ -738,11 +738,15 @@ export const isNetBalanceZeroForTwoHours = async (vendorUserId) => {
       LIMIT 1;
     `;
     const result = await executeQuery(sql, [vendorUserId]);
-    if (!result.rows.length) return false;
-    const lastZeroTime = new Date(result.rows[0].updated_at);
-    const now = new Date();
-    const diffHours = (now - lastZeroTime) / (1000 * 60 * 60);
-    return diffHours >= 2;
+    if (!result.rows.length) {
+      return false;
+    } else {
+      return true;
+    }
+    // const lastZeroTime = new Date(result.rows[0].updated_at);
+    // const now = new Date();
+    // const diffHours = (now - lastZeroTime) / (1000 * 60 * 60);
+    // return diffHours >= 2;
   } catch (error) {
     logger.error('Error in isNetBalanceZeroForTwoHours:', error);
     throw error;
