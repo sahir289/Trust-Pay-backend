@@ -3,6 +3,7 @@ import config from '../config/config.js';
 import { Buffer } from 'buffer';
 import { logger } from './logger.js';
 import { createBankResponseService } from '../apis/bankResponse/bankResponseServices.js';
+
 // Publish a bank response to the dedicated queue
 export const publishBankResponse = async (responseData) => {
   try {
