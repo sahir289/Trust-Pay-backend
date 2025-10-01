@@ -704,6 +704,12 @@ export const getPayoutsBySearchDao = async (
       paramIndex += 1;
       delete filters.nick_name;
     }
+    if (filters.txnid) {
+      queryText += ` AND (p.config->>'txnid') = $${paramIndex}`;
+      queryParams.push(filters.txnid);
+      paramIndex += 1;
+      delete filters.txnid;
+    }
     // Handle search terms
     if (searchTerms.length > 0) {
       searchTerms.forEach((term) => {
