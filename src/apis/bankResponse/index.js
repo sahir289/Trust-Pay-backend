@@ -1,13 +1,6 @@
-
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { AccessRoles } from '../../constants/index.js';
-import { isAuthenticated, authorized } from '../../middlewares/auth.js';
-import { rateLimitMiddleware, rateLimitMiddlewareBot } from '../../middlewares/rateLimiter.js';
-import { multerUpload } from '../../utils/index.js';
-
-// Dependency injection: pass controller functions as argument
-export function createBankResponseRouter({
+import {
   createBankResponse,
   getBankResponse,
   getBankMessage,
@@ -18,13 +11,12 @@ export function createBankResponseRouter({
   importBankResponse,
   resetBankResponseController,
   createBankBotResponseBulk,
-  isAuthenticated: routerIsAuthenticated = isAuthenticated,
-  authorized: routerAuthorized = authorized,
-  rateLimitMiddleware: routerRateLimitMiddleware = rateLimitMiddleware,
-  rateLimitMiddlewareBot: routerRateLimitMiddlewareBot = rateLimitMiddlewareBot,
-  multerUpload: routerMulterUpload = multerUpload,
-} = {}) {
-  const router = express.Router();
+} from './bankResponseController.js';
+import { isAuthenticated, authorized } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
+import { multerUpload } from '../../utils/index.js';
+import { rateLimitMiddleware, rateLimitMiddlewareBot } from '../../middlewares/rateLimiter.js';
+const router = express.Router();
 
 /**
  * @swagger
@@ -33,28 +25,11 @@ export function createBankResponseRouter({
  *   description: Api endpoints for managing bankResponse
  */
 
-
-  router.get(
-    '/claim',
-    [routerIsAuthenticated, routerAuthorized(AccessRoles.BANK_RESPONSE)],
-    tryCatchHandler(getClaimResponse),
-  );
-
-/**
- * @swagger
- * /bankResponse:
- *   get:
- *     summary: Get all bankResponse
- *     tags: [BankResponse]
- *     responses:
- *       200:
- *         description: A list of bankResponse
- *       500:
- *         description: Internal server error
- */
-
-  router.post('/create-bot-message', routerRateLimitMiddlewareBot, tryCatchHandler(createBankBotResponse));
-
+router.get(
+  '/claim',
+  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+  tryCatchHandler(getClaimResponse),
+);
 
 /**
  * @swagger
@@ -68,8 +43,22 @@ export function createBankResponseRouter({
  *       500:
  *         description: Internal server error
  */
+router.post('/create-bot-message', rateLimitMiddlewareBot, tryCatchHandler(createBankBotResponse));
 
-  router.post('/create-bot-message-bulk', tryCatchHandler(createBankBotResponseBulk));
+
+/**
+ * @swagger
+ * /bankResponse:
+ *   get:
+ *     summary: Get all bankResponse
+ *     tags: [BankResponse]
+ *     responses:
+ *       200:
+ *         description: A list of bankResponse
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/create-bot-message-bulk', tryCatchHandler(createBankBotResponseBulk));
 
 /**
  * @swagger
@@ -90,12 +79,11 @@ export function createBankResponseRouter({
  *       500:
  *         description: Internal server error
  */
-
-  router.post(
-    '/create-message',
-    [routerIsAuthenticated, routerRateLimitMiddleware, routerAuthorized(AccessRoles.BANK_RESPONSE)],
-    tryCatchHandler(createBankResponse),
-  );
+router.post(
+  '/create-message',
+  [isAuthenticated, rateLimitMiddleware, authorized(AccessRoles.BANK_RESPONSE)],
+  tryCatchHandler(createBankResponse),
+);
 
 /**
  * @swagger
@@ -122,19 +110,17 @@ export function createBankResponseRouter({
  *       400:
  *         description: Bad request
  */
+router.get(
+  '/',
+  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+  tryCatchHandler(getBankResponseBySearch),
+);
 
-  router.get(
-    '/',
-    [routerIsAuthenticated, routerAuthorized(AccessRoles.BANK_RESPONSE)],
-    tryCatchHandler(getBankResponseBySearch),
-  );
-
-
-  router.get(
-    '/BankResponseReports',
-    [routerIsAuthenticated, routerAuthorized(AccessRoles.BANK_RESPONSE)],
-    tryCatchHandler(getBankResponse),
-  );
+router.get(
+  '/BankResponseReports',
+  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+  tryCatchHandler(getBankResponse),
+);
 /**
  * @swagger
  * /bankResponse/update-complaint/{id}:
@@ -166,12 +152,11 @@ export function createBankResponseRouter({
  *         description: Complaint not found
  */
 
-
-  router.get(
-    '/get-bank-message',
-    [routerIsAuthenticated, routerAuthorized(AccessRoles.BANK_RESPONSE)],
-    tryCatchHandler(getBankMessage),
-  );
+router.get(
+  '/get-bank-message',
+  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+  tryCatchHandler(getBankMessage),
+);
 
 /**
  * @swagger
@@ -204,12 +189,11 @@ export function createBankResponseRouter({
  *         description: BankResponse not found
  */
 
-
-  router.put(
-    '/update-message/:id',
-    [routerIsAuthenticated, routerAuthorized(AccessRoles.BANK_RESPONSE)],
-    tryCatchHandler(updateBankResponse),
-  );
+router.put(
+  '/update-message/:id',
+  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+  tryCatchHandler(updateBankResponse),
+);
 
 /**
  * @swagger
@@ -231,25 +215,17 @@ export function createBankResponseRouter({
  *         description: Complaint not found
  */
 
+router.put(
+  '/reset-message/:id',
+  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+  tryCatchHandler(resetBankResponseController),
+);
 
-  router.put(
-    '/reset-message/:id',
-    [routerIsAuthenticated, routerAuthorized(AccessRoles.BANK_RESPONSE)],
-    tryCatchHandler(resetBankResponseController),
-  );
+router.post(
+  '/import-bank-response',
+  multerUpload.single('file'),
+  [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
+  tryCatchHandler(importBankResponse),
+);
 
-
-  router.post(
-    '/import-bank-response',
-    routerMulterUpload.single('file'),
-    [routerIsAuthenticated, routerAuthorized(AccessRoles.BANK_RESPONSE)],
-    tryCatchHandler(importBankResponse),
-  );
-
-  return router;
-}
-
-
-import * as realController from './bankResponseController.js';
-const defaultRouter = createBankResponseRouter(realController);
-export default defaultRouter;
+export default router;
