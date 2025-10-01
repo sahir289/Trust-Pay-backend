@@ -2,7 +2,7 @@ import { getRabbitChannel } from './rabbitmq.js';
 import config from '../config/config.js';
 import { Buffer } from 'buffer';
 import { logger } from './logger.js';
-
+import { createBankResponseService } from '../apis/bankResponse/bankResponseService.js';
 // Publish a bank response to the dedicated queue
 export const publishBankResponse = async (responseData) => {
   try {
@@ -18,6 +18,12 @@ export const publishBankResponse = async (responseData) => {
     }
     return result;
   } catch (err) {
+    await createBankResponseService(
+      responseData.payload,
+      responseData.x_auth_token,
+      responseData.role,
+      null,
+    );
     logger.error('[RabbitMQ] Publish failed:', err.message);
     throw err;
   }
