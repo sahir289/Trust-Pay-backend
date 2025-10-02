@@ -615,7 +615,8 @@ export const getPayoutsBySearchDao = async (
       commissionSelect = `
         p.payout_vendor_commission, 
         v.code AS vendor_code,
-        p.config->>'method' AS payout_method
+        p.config->>'method' AS payout_method,
+        b.nick_name
       `;
     } else {
       commissionSelect = `
@@ -634,7 +635,8 @@ export const getPayoutsBySearchDao = async (
         v.user_id AS vendor_user_id,
         p.config AS payout_details,
         p.updated_at,
-        b.user_id, 
+        b.user_id,
+        b.nick_name,
         json_build_object(
           'merchant_code', COALESCE(m.config->>'sub_code', m.code),
           'return_url', m.config->>'return_url',
@@ -658,7 +660,6 @@ export const getPayoutsBySearchDao = async (
         p.utr_id, 
         p.rejected_reason,
         ${commissionSelect},
-        b.nick_name,
         json_build_object(
           'account_holder_name', p.acc_holder_name,
           'account_no', p.acc_no,
