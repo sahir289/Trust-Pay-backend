@@ -805,7 +805,7 @@ const getPayoutsBySearchService = async (
     };
 
     const fetchVendorIds = async (user_ids) => {
-      const vendors = await getVendorsDao({ user_id: user_ids });
+      const vendors = await getVendorsDao({ user_id: user_ids }, 1, 10, 'created_at', 'DESC', role, true);
       return vendors.map((vendor) => vendor.id);
     };
 
@@ -840,7 +840,7 @@ const getPayoutsBySearchService = async (
           filters.merchant_id = await fetchMerchantIds(userIdFilter);
         }
       }
-    } else if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
+    } else if (role === Role.VENDOR) {
       if (designation === Role.VENDOR) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
         const userHierarchy = userHierarchys?.[0];
