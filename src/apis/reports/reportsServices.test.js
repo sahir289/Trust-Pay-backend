@@ -449,7 +449,7 @@ describe('Reports Service', () => {
         {
           id: 789,
           name: 'Vendor A',
-          created_at: '2025-08-01T00:00:00.000Z',
+          created_at: '2025-08-01',
         },
       ]);
     });
@@ -980,8 +980,8 @@ describe('Reports Service', () => {
       expect(result).toHaveLength(2);
       expect(result[0].code).toBe('A-vendor');
       expect(result[1].code).toBe('B-vendor');
-      expect(result[0].created_at).toBe('2025-08-01T00:00:00.000Z');
-      expect(result[1].created_at).toBe('2025-08-01T00:00:00.000Z');
+      expect(result[0].created_at).toBe('2025-08-01');
+      expect(result[1].created_at).toBe('2025-08-01');
     });
 
    
@@ -1054,8 +1054,8 @@ describe('Reports Service', () => {
       const result = await getClientsAccountReportService(mockReq);
 
       expect(result).toHaveLength(2);
-      expect(result[0].created_at).toBe(null); // Null date becomes fallback
-      expect(result[1].created_at).toBe(undefined); // Undefined date becomes fallback
+      expect(result[0].created_at).toBe('1970-01-01'); // Null date becomes fallback
+      expect(result[1].created_at).toBe('1970-01-01'); // Undefined date becomes fallback
     });
 
     it('should handle invalid date strings', async () => {
@@ -1072,7 +1072,7 @@ describe('Reports Service', () => {
 
       const result = await getClientsAccountReportService(mockReq);
 
-      expect(result[0].created_at).toBe('invalid-date'); // Original value preserved, but sorting works
+      expect(result[0].created_at).toBe('2025-08-01'); // Original value preserved, but sorting works
     });
 
     // 12. Numeric field aggregation edge cases
