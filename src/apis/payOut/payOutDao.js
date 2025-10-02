@@ -698,11 +698,31 @@ export const getPayoutsBySearchDao = async (
         paramIndex += statusArray.length;
       }
     }
+    if (filters.user_bank_details) {
+      const searchTerm = `%${filters.user_bank_details.trim()}%`;
+      queryText += `
+        AND (
+          LOWER(p.acc_holder_name) LIKE LOWER($${paramIndex})
+          OR LOWER(p.acc_no) LIKE LOWER($${paramIndex})
+          OR LOWER(p.ifsc_code) LIKE LOWER($${paramIndex})
+          OR LOWER(p.bank_name) LIKE LOWER($${paramIndex})
+        )
+      `;
+      queryParams.push(searchTerm);
+      paramIndex += 1;
+      delete filters.user_bank_details;
+    }
     if (filters.nick_name) {
       queryText += ` AND b.nick_name = $${paramIndex}`;
       queryParams.push(filters.nick_name);
       paramIndex += 1;
       delete filters.nick_name;
+    }
+    if (filters.txnid) {
+      queryText += ` AND (p.config->>'txnid') = $${paramIndex}`;
+      queryParams.push(filters.txnid);
+      paramIndex += 1;
+      delete filters.txnid;
     }
     // Handle search terms
     if (searchTerms.length > 0) {
