@@ -571,7 +571,7 @@ const unlinkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
     conn = await getConnection();
     await beginTransaction(conn);
     if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
-      throw new BadRequestError('Vendor net balance must be zero to link.');
+      throw new BadRequestError('Vendor net balance must be zero to unlink.');
     }
     const result = await unlinkVendorDao(
       vendorUserId,
@@ -621,7 +621,7 @@ const transferVendorService = async (
     conn = await getConnection();
     await beginTransaction(conn);
     if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
-      throw new BadRequestError('Vendor net balance must be zero to link.');
+      throw new BadRequestError('Vendor net balance must be zero to transfer.');
     }
     const sub = await getVendorByUserId(subVendorUserId);
     const parent = await getVendorByUserId(newVendorUserId);
