@@ -132,7 +132,7 @@ export const getBankResponseDaoById = async (filters) => {
   }
 };
 
-export const getCheckBankResponseDao = async (
+const getCheckBankResponseDao = async (
   filters = {},
   filterColumns = `
     id
