@@ -30,6 +30,10 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+        
+      - name: Show Backend Version
+        run: | 
+          echo "Backend version: $(node -p "require('./package.json').version")"
 
       - name: Run ESLint check
         run: |
