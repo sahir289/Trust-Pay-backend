@@ -16,16 +16,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           persist-credentials: true  # This allows git push to use the token
-          fetch-depth: 1  # Shallow fetch for speed (only latest commit)
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: 22.x
-          cache: 'npm' # Auto-caches node_modules based on package-lock.json
+          # cache: 'npm' # Auto-caches node_modules based on package-lock.json
 
       - name: Bump Version
         run: |
@@ -38,7 +37,7 @@ jobs:
         # If version bump fails, the workflow will stop here
 
       - name: Install dependencies
-        run: npm ci # Use npm ci for clean install in CI environments
+        run: npm install # Use npm ci for clean install in CI environments
         
       - name: Show Backend Version
         run: | 
