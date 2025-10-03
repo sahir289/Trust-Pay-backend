@@ -31,7 +31,7 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           # Decide manually: patch, minor, or major
-          npm version patch -m "CI: Bump version to %s [skip ci]" # Bump patch version - change to minor or major as needed
+          npm version minor -m "CI: Bump version to %s [skip ci]" # Bump minor version - change to patch or major as needed
           # Use token to push tags and commits
           git push origin --follow-tags
         # If version bump fails, the workflow will stop here
