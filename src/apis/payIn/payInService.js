@@ -1813,7 +1813,12 @@ export const processPayInService = async (
       // });
       // }
     } else {
-      return result;
+      return updatePayInData.status === Status.DISPUTE
+        ? {
+            ...result,
+            message: `${payIn.merchant_order_id} is in Dispute: Requested amount ${updatePayInData.amount}, received amount ${bankResponse.amount}`,
+          }
+        : result;
     }
   } catch (error) {
     logger.error('Error processing PayIn:', error);

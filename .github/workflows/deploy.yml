@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          persist-credentials: true  # This allows git push to use the token
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -19,8 +21,22 @@ jobs:
           node-version: 22.x
           # cache: 'npm' # cache dependencies for faster installs
 
+      - name: Bump Version
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          # Decide manually: patch, minor, or major
+          npm version patch -m "CI: Bump version to %s [skip ci]" # Bump patch version - change to minor or major as needed
+          # Use token to push tags and commits
+          git push origin --follow-tags
+        # If version bump fails, the workflow will stop here
+
       - name: Install dependencies
         run: npm install
+        
+      - name: Show Backend Version
+        run: | 
+          echo "Backend version: $(node -p "require('./package.json').version")"
 
       - name: Run ESLint check
         run: |
