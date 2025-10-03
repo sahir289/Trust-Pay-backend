@@ -25,7 +25,8 @@ jobs:
           git config user.email "actions@github.com"
           # Decide manually: patch, minor, or major
           npm version patch -m "CI: Bump version to %s [skip ci]" # Bump patch version - change to minor or major as needed
-          git push origin trust-pay-stg --follow-tags
+          # Use token to push tags and commits
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} --follow-tags
         # If version bump fails, the workflow will stop here
 
       - name: Install dependencies
