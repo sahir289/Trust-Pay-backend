@@ -228,7 +228,7 @@ const getVendorsCodeService = async (
         userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
 
-    if (role === Role.ADMIN) {
+    if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
       delete filters.user_id;
     }
 
@@ -314,7 +314,7 @@ const getVendorsBySearchService = async (
         userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
 
-    if (role === Role.ADMIN) {
+    if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
       delete filters.user_id;
     }
 

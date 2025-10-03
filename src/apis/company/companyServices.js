@@ -70,10 +70,18 @@ const createCompanyService = async (conn, payload, user_name, bySuperAdmin) => {
       telegramDuplicateDisputeChatId: '',
       telegramCheckUTRHistoryChatId: '',
       allowPayAssist: '',
+      allowTataPay: '',
       allow_cashfree: false,
       allow_zentechind: false,
       PAY_ASSIST: {
         walletsPayoutsUrl: 'https://payassist.co.in/apiPayout',
+        walletsPayoutsAgentCode: '',
+        walletsPayoutsAgent: '',
+        walletsPayoutsApiKey: '',
+        defaultBankId: '',
+      },
+      TATA_PAY: {
+        walletsPayoutsUrl: 'http://13.234.69.235:5000/api/auth',
         walletsPayoutsAgentCode: '',
         walletsPayoutsAgent: '',
         walletsPayoutsApiKey: '',

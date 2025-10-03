@@ -1166,9 +1166,9 @@ export const getPayinsWithoutHistoryDao = async (
     //   return data;
     // }
     
-    const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
-    const queryParams = [filters.company_id];
-    let paramIndex = 2;
+    const conditions = [`p.is_obsolete = false`];
+    const queryParams = [];
+    let paramIndex = 1;
     const validColumns = new Set([
       'id',
       'sno',
@@ -1312,6 +1312,30 @@ export const getPayinsWithoutHistoryDao = async (
       LEFT JOIN public."Company" c ON p.company_id = c.id
       WHERE ${conditions.join(' AND ')}
     `;
+
+    // Add company_id filter only if present in filters
+    if (filters.company_id) {
+      if (
+        typeof filters.company_id === 'string' &&
+        filters.company_id.includes(',')
+      ) {
+        const arr = filters.company_id
+          .split(',')
+          .map((v) => v.trim())
+          .filter(Boolean);
+        queryText += ` AND p."company_id" = ANY($${paramIndex})`;
+        queryParams.push(arr);
+        paramIndex++;
+      } else if (Array.isArray(filters.company_id)) {
+        queryText += ` AND p."company_id" = ANY($${paramIndex})`;
+        queryParams.push(filters.company_id);
+        paramIndex++;
+      } else {
+        queryText += ` AND p."company_id" = $${paramIndex}`;
+        queryParams.push(filters.company_id);
+        paramIndex++;
+      }
+    }
 
     // if (searchTerms && searchTerms.length > 0) {
     //   searchTerms.forEach((term) => {
