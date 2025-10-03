@@ -24,7 +24,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 22.x
-          # cache: 'npm' # cache dependencies for faster installs
+          # cache: 'npm' # Auto-caches node_modules based on package-lock.json
 
       - name: Bump Version
         run: |
@@ -37,7 +37,7 @@ jobs:
         # If version bump fails, the workflow will stop here
 
       - name: Install dependencies
-        run: npm install
+        run: npm install # Use npm ci for clean install in CI environments
         
       - name: Show Backend Version
         run: | 
