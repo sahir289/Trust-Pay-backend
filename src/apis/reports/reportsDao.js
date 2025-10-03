@@ -276,35 +276,46 @@ const getPayOutMerchantReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
-      let dateColumn = 'po.updated_at';
       if (status && Array.isArray(status) && status.length > 0) {
-        if (status.includes(Status.APPROVED) || status.includes(Status.REVERSED)) {
-          dateColumn = 'po.approved_at';
-        } else if (status.includes(Status.REJECTED)) {
-          dateColumn = 'po.rejected_at';
-        } else {
-          dateColumn = 'po.updated_at';
+        const conditions = [];
+        if (
+          status.includes(Status.APPROVED) ||
+          status.includes(Status.REVERSED)
+        ) {
+          conditions.push(
+            `(po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`,
+          );
+        }
+        if (status.includes(Status.REJECTED)) {
+          conditions.push(
+            `(po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`,
+          );
+        }
+        if (
+          status.includes(Status.INITIATED) ||
+          status.includes(Status.PENDING)
+        ) {
+          conditions.push(
+            `(po.status IN ('${Status.INITIATED}', '${Status.PENDING}') AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`,
+          );
+        }
+        if (conditions.length > 0) {
+          query += ` AND (${conditions.join(' OR ')})`;
+          parameters.push(startDate, endDate);
+          paramIndex += 2;
         }
       } else {
-        // When no status is specified, handle different statuses with different date columns
         query += ` AND (
-          (po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
+          (po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
           OR
-          (po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
+          (po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
           OR
-          (po.status NOT IN ('${Status.APPROVED}', '${Status.REVERSED}', '${Status.REJECTED}') AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
+          (po.status IN ('${Status.INITIATED}', '${Status.PENDING}') AND po.updated_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
         )`;
-        parameters.push(startDate, endDate);
-        paramIndex += 2;
-        dateColumn = null;
-      }
-      if (dateColumn) {
-        query += ` AND (${dateColumn} BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
         parameters.push(startDate, endDate);
         paramIndex += 2;
       }
     }
-
     query += ` ORDER BY sno ASC;`; //--sorting by codes than created_at
     const result = await executeQuery(query, parameters);
     return result.rows;
@@ -405,30 +416,42 @@ const getPayOutVendorReportDao = async (
       paramIndex++;
     }
     if (startDate && endDate) {
-      let dateColumn = 'po.updated_at';
       if (status && Array.isArray(status) && status.length > 0) {
-        if (status.includes(Status.APPROVED) || status.includes(Status.REVERSED)) {
-          dateColumn = 'po.approved_at';
-        } else if (status.includes(Status.REJECTED)) {
-          dateColumn = 'po.rejected_at';
-        } else {
-          dateColumn = 'po.updated_at';
+        const conditions = [];
+        if (
+          status.includes(Status.APPROVED) ||
+          status.includes(Status.REVERSED)
+        ) {
+          conditions.push(
+            `(po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`,
+          );
+        }
+        if (status.includes(Status.REJECTED)) {
+          conditions.push(
+            `(po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`,
+          );
+        }
+        if (
+          status.includes(Status.INITIATED) ||
+          status.includes(Status.PENDING)
+        ) {
+          conditions.push(
+            `(po.status IN ('${Status.INITIATED}', '${Status.PENDING}') AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`,
+          );
+        }
+        if (conditions.length > 0) {
+          query += ` AND (${conditions.join(' OR ')})`;
+          parameters.push(startDate, endDate);
+          paramIndex += 2;
         }
       } else {
-        // When no status is specified, handle different statuses with different date columns
         query += ` AND (
-          (po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
+          (po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
           OR
-          (po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
+          (po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
           OR
-          (po.status NOT IN ('${Status.APPROVED}', '${Status.REVERSED}', '${Status.REJECTED}') AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
+          (po.status IN ('${Status.INITIATED}', '${Status.PENDING}') AND po.updated_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
         )`;
-        parameters.push(startDate, endDate);
-        paramIndex += 2;
-        dateColumn = null;
-      }
-      if (dateColumn) {
-        query += ` AND (${dateColumn} BETWEEN $${paramIndex} AND $${paramIndex + 1})`;
         parameters.push(startDate, endDate);
         paramIndex += 2;
       }
