@@ -3,7 +3,6 @@ import config from '../config/config.js';
 import { Buffer } from 'buffer';
 import { logger } from './logger.js';
 import { createBankResponseService } from '../apis/bankResponse/bankResponseServices.js';
-
 // Publish a bank response to the dedicated queue
 export const publishBankResponse = async (responseData) => {
   const queue = config.rabbitmq.bankResponseQueue;
@@ -35,13 +34,13 @@ export const publishBankResponse = async (responseData) => {
     return published;
 
   } catch (err) {
-    logger.error('[RabbitMQ] Publish error:', err);
     await createBankResponseService(
       responseData.payload,
       responseData.x_auth_token,
       responseData.role,
       null,
     );
+    logger.error('[RabbitMQ] Publish failed:', err.message);
     throw err;
   }
 };

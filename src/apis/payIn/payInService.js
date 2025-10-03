@@ -118,7 +118,7 @@ import {
 } from '../company/companyDao.js';
 import { getAllUsersDao, getUserByIdDao } from '../users/userDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
-import { createCashfreeOrder, } from '../../cashfree/cashfree.js';
+import { createCashfreeOrder } from '../../cashfree/cashfree.js';
 import { createZenTechIndTransaction } from '../../zentechind/zentechInd.js';
 
 export const generatePayInUrlByHashService = async (conn, req) => {
@@ -1826,16 +1826,13 @@ export const processPayInService = async (
   }
 };
 
-export const processPayInWebHookService = async (
-  conn,
-  payload,
-  updated_by,
-  tele_check = true,
-) => {
+export const processPayInWebHookService = async (conn, payload, updated_by) => {
   try {
     const { userSubmittedUtr, merchantOrderId, amount, status } = payload;
 
-    const payIn = await getPayInUrlService(merchantOrderId, conn, tele_check);
+    const payIn = await getPayinsForServiccDao({
+      merchant_order_id: merchantOrderId,
+    });
     const [bank] = await getBankaccountDao({
       id: payIn?.bank_acc_id,
       company_id: payIn.company_id,
@@ -1937,7 +1934,7 @@ export const processPayInWebHookService = async (
 
     await newTableEntry(tableName.PAYIN, responseObj);
     // This is async function but it's just the callback sending function there fore we are not using await
-    merchantPayinCallback(payIn.config?.urls?.notify, result);
+    await merchantPayinCallback(payIn.config?.urls?.notify, result);
 
     return result;
   } catch (error) {
@@ -2417,7 +2414,7 @@ export const disputeDuplicateTransactionService = async (
       updatePayload.amount = toAmount;
       updatePayload.payin_merchant_commission = payinCommission;
       updatePayload.payin_vendor_commission = vendorPayinCommission;
-      updatePayload.approved_at = new Date();  //add this for approved at
+      updatePayload.approved_at = new Date(); //add this for approved at
     } else {
       updatePayload.status = Status.FAILED;
     }
