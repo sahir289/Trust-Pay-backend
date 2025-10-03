@@ -396,31 +396,30 @@ const getPayOutVendorReportDao = async (
       WHERE po.company_id = $1 AND po.is_obsolete = false`;
 
     let parameters = [company_id];
-    let paramIndex = parameters.length + 1;
+    let paramIndex = 2;
 
-    if (id) {
-      const vendorIds = Array.isArray(id) ? id : [id];
+    if (id && Array.isArray(id) && id.length > 0) {
       query += ` AND po.vendor_id = ANY($${paramIndex})`;
-      parameters.push(vendorIds);
+      parameters.push(id);
       paramIndex++;
     }
     if (status) {
-      if (typeof status === 'string') {
-        status = status.split(',').map((s) => s.trim());
+      let statusArray = Array.isArray(status)
+        ? status
+        : typeof status === 'string'
+          ? status.split(',').map((s) => s.trim())
+          : [status];
+      if (statusArray.length > 0) {
+        query += ` AND po.status = ANY($${paramIndex})`;
+        parameters.push(statusArray);
+        paramIndex++;
       }
-      if (!Array.isArray(status)) {
-        status = [status];
-      }
-      query += ` AND po.status = ANY($${paramIndex})`;
-      parameters.push(status);
-      paramIndex++;
     }
     if (startDate && endDate) {
       if (status && Array.isArray(status) && status.length > 0) {
         const conditions = [];
         if (
-          status.includes(Status.APPROVED) ||
-          status.includes(Status.REVERSED)
+          status.some((s) => [Status.APPROVED, Status.REVERSED].includes(s))
         ) {
           conditions.push(
             `(po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`,
@@ -432,8 +431,7 @@ const getPayOutVendorReportDao = async (
           );
         }
         if (
-          status.includes(Status.INITIATED) ||
-          status.includes(Status.PENDING)
+          status.some((s) => [Status.INITIATED, Status.PENDING].includes(s))
         ) {
           conditions.push(
             `(po.status IN ('${Status.INITIATED}', '${Status.PENDING}') AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`,
@@ -458,7 +456,6 @@ const getPayOutVendorReportDao = async (
     }
 
     query += ` ORDER BY sno ASC;`;
-
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
