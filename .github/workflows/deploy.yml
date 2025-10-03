@@ -19,6 +19,15 @@ jobs:
           node-version: 22.x
           # cache: 'npm' # cache dependencies for faster installs
 
+      - name: Bump Version
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          # Decide manually: patch, minor, or major
+          npm version patch -m "CI: Bump version to %s [skip ci]" # Bump patch version - change to minor or major as needed
+          git push origin trust-pay-stg --follow-tags
+        # If version bump fails, the workflow will stop here
+
       - name: Install dependencies
         run: npm install
 
