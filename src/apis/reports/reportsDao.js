@@ -306,17 +306,17 @@ const getPayOutMerchantReportDao = async (
         }
       } else {
         query += ` AND (
-          (po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
+          (po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
           OR
-          (po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
+          (po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
           OR
-          (po.status IN ('${Status.INITIATED}', '${Status.PENDING}') AND po.updated_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
+          (po.status IN ('${Status.INITIATED}', '${Status.PENDING}') AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
         )`;
         parameters.push(startDate, endDate);
         paramIndex += 2;
       }
     }
-    query += ` ORDER BY sno ASC;`; //--sorting by codes than created_at
+    query += ` ORDER BY sno ASC;`; 
     const result = await executeQuery(query, parameters);
     return result.rows;
   } catch (error) {
@@ -446,11 +446,11 @@ const getPayOutVendorReportDao = async (
         }
       } else {
         query += ` AND (
-          (po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
+          (po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
           OR
-          (po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
+          (po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
           OR
-          (po.status IN ('${Status.INITIATED}', '${Status.PENDING}') AND po.updated_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
+          (po.status IN ('${Status.INITIATED}', '${Status.PENDING}') AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
         )`;
         parameters.push(startDate, endDate);
         paramIndex += 2;
