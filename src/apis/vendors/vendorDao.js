@@ -776,9 +776,11 @@ export const getDesignationIdDao = async (designation, conn) => {
 export const isNetBalanceZeroForTwoHours = async (vendorUserId) => {
   try {
     const sql = `
-      SELECT updated_at
+      SELECT net_balance, updated_at
       FROM "Calculation"
-      WHERE user_id = $1 AND net_balance = 0
+      WHERE user_id = $1 
+        AND net_balance = 0
+        AND DATE(updated_at) = CURRENT_DATE
       ORDER BY updated_at DESC
       LIMIT 1;
     `;

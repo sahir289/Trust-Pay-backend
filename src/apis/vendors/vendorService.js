@@ -485,9 +485,14 @@ const deleteVendorService = async (ids, updated_by) => {
   }
 };
 
-const getBankResponseAccessByIDService = async (id) => {
+const getBankResponseAccessByIDService = async (id, designation) => {
   try {
-    const data = await getBankResponseAccessByIDDao(id);
+    let userId = id;
+    if (designation === Role.VENDOR_OPERATIONS) {
+      const [userHierarchys] = await getUserHierarchysDao({ user_id: id });
+      userId = userHierarchys?.config?.parent || id;
+    }
+    const data = await getBankResponseAccessByIDDao(userId);
     return data;
   } catch (error) {
     logger.error('Error while fetching bank response access', error);

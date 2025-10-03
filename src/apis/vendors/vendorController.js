@@ -133,7 +133,8 @@ const getBankResponseAccessByID = async (req, res) => {
     throw new BadRequestError('id required in request');
   }
   const { id } = req.params;
-  const data = await getBankResponseAccessByIDService(id);
+  const { designation } = req.user;
+  const data = await getBankResponseAccessByIDService(id, designation);
   return sendSuccess(res, data, 'Bank response access fetched successfully');
 };
 
