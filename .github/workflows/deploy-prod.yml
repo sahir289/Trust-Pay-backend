@@ -1,5 +1,8 @@
 name: Deploying to EC2 Production
 
+permissions:
+  contents: write # to push tags
+
 on:
   push:
     branches:
@@ -7,11 +10,15 @@ on:
 
 jobs:
   deploy:
+    # Add this condition to skip if the commit message contains [skip ci]
+    if: '!contains(github.event.head_commit.message, ''[skip ci]'')'
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          persist-credentials: true  # This allows git push to use the token
         
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -25,7 +32,8 @@ jobs:
             git config user.email "actions@github.com"
             # Decide manually: patch, minor, or major
             npm version patch -m "CI: Bump version to %s [skip ci]" # Bump patch version - change to minor or major as needed
-            git push origin trust-pay-stg --follow-tags
+            # Use token to push tags and commits
+            git push origin --follow-tags
           # If version bump fails, the workflow will stop here
   
       - name: Install dependencies
