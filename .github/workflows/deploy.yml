@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          persist-credentials: true  # This allows git push to use the token
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -26,7 +28,7 @@ jobs:
           # Decide manually: patch, minor, or major
           npm version patch -m "CI: Bump version to %s [skip ci]" # Bump patch version - change to minor or major as needed
           # Use token to push tags and commits
-          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} --follow-tags
+          git push origin --follow-tags
         # If version bump fails, the workflow will stop here
 
       - name: Install dependencies
