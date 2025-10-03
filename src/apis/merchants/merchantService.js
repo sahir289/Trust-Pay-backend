@@ -413,24 +413,24 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
     //------delete merchant and submerchant--------------------
 
     const user_id = merchantDetails[0].user_id;
-    const submerchants = await getUserHierarchysDao({ user_id });
+    const subMerchants = await getUserHierarchysDao({ user_id });
     const subMerchantIds =
-      submerchants[0]?.config?.siblings?.sub_merchants || [];
-    const operationIds = submerchants[0]?.config?.child?.operations || [];
+      subMerchants[0]?.config?.siblings?.sub_merchants || [];
+    const operationIds = subMerchants[0]?.config?.child?.operations || [];
     const allMerchantIds = [merchantDetails[0].id]; // start with this id
     const allIds = [...subMerchantIds, ...operationIds];
     for (const id of allIds) {
-      const idid = await getMerchantsDao({ user_id: id });
-      if (Array.isArray(idid)) {
-        for (const merchant of idid) {
+      const idsList = await getMerchantsDao({ user_id: id });
+      if (Array.isArray(idsList)) {
+        for (const merchant of idsList) {
           allMerchantIds.push(merchant.id);
         }
-      } else if (idid && idid.id) {
-        allMerchantIds.push(idid.id);
+      } else if (idsList && idsList.id) {
+        allMerchantIds.push(idsList.id);
       }
     }
 
-    //------remove from bank assigned to merchant which are deleteed--------------------
+    //------remove from bank assigned to merchant which are deleted--------------------
 
     ids.id = allMerchantIds;
     const merchant_id = [merchantDetails[0].id, ...subMerchantIds];
@@ -442,13 +442,13 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
     );
     const userId = [merchantDetails[0].id];
     for (const subMerchantId of subMerchantIds) {
-      const idid = await getMerchantsDao({ user_id: subMerchantId });
-      if (Array.isArray(idid)) {
-        for (const merchant of idid) {
+      const idsList = await getMerchantsDao({ user_id: subMerchantId });
+      if (Array.isArray(idsList)) {
+        for (const merchant of idsList) {
           userId.push(merchant.id);
         }
-      } else if (idid && idid.id) {
-        userId.push(idid.id);
+      } else if (idsList && idsList.id) {
+        userId.push(idsList.id);
       }
     }
     for (const bank of bankDetails) {

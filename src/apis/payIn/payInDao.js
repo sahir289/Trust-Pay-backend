@@ -2006,10 +2006,9 @@ export const getPayInsForResetBankResDao = async (filters = {}) => {
     `;
 
     const [sql, params] = buildSelectQuery(
-      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false and status != 'FAILED'`,
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false and status != 'FAILED' and status != 'DUPLICATE'`,
       filters,
     );
-
     const result = await executeQuery(sql, params);
     return result.rows || [];
   } catch (error) {

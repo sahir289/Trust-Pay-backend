@@ -131,61 +131,92 @@ const getClientsAccountReportService = async (req) => {
     let result;
     let subMerchants = [];
     let userHierarchy = [];
-    
+
     // Handle the case when code is not provided or is empty for getting all merchants
     let userIds = null;
     let requestedCodes = null;
     if (code) {
-      requestedCodes = typeof code === 'string'
-        ? code.split(',').map((id) => id.trim()).filter(id => id) // Filter out empty strings
-        : Array.isArray(code)
-          ? code.filter(id => id) // Filter out null/undefined values
-          : [code].filter(id => id); // Filter out null/undefined
-      
+      requestedCodes =
+        typeof code === 'string'
+          ? code
+              .split(',')
+              .map((id) => id.trim())
+              .filter((id) => id) // Filter out empty strings
+          : Array.isArray(code)
+            ? code.filter((id) => id) // Filter out null/undefined values
+            : [code].filter((id) => id); // Filter out null/undefined
+
       // If after filtering we have no valid codes, set requestedCodes to null
       if (requestedCodes.length === 0) {
         requestedCodes = null;
       } else {
         // Check if these are user IDs (UUIDs) or merchant codes
-        const isUserIdList = requestedCodes.every(code => 
-          code && code.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+        const isUserIdList = requestedCodes.every(
+          (code) =>
+            code &&
+            code.match(
+              /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+            ),
         );
-        
+
         if (isUserIdList) {
           // These are user IDs, use them directly
           userIds = requestedCodes;
-          logger.info(`Using provided user IDs directly: ${userIds.join(', ')}`);
+          logger.info(
+            `Using provided user IDs directly: ${userIds.join(', ')}`,
+          );
         } else {
           // These are codes, convert to user IDs based on role_name
           if (role_name === Role.MERCHANT) {
-            logger.info(`Converting merchant codes to user IDs: ${requestedCodes.join(', ')}`);
-            const merchantDetails = await getMerchantsDaoArray(company_id, requestedCodes);
+            logger.info(
+              `Converting merchant codes to user IDs: ${requestedCodes.join(', ')}`,
+            );
+            const merchantDetails = await getMerchantsDaoArray(
+              company_id,
+              requestedCodes,
+            );
             if (merchantDetails.length === 0) {
-              logger.warn(`No merchants found for codes: ${requestedCodes.join(', ')}`);
+              logger.warn(
+                `No merchants found for codes: ${requestedCodes.join(', ')}`,
+              );
               userIds = [];
             } else {
-              userIds = merchantDetails.map(merchant => merchant.user_id);
-              logger.info(`Converted merchant codes [${requestedCodes.join(', ')}] to user IDs [${userIds.join(', ')}]`);
+              userIds = merchantDetails.map((merchant) => merchant.user_id);
+              logger.info(
+                `Converted merchant codes [${requestedCodes.join(', ')}] to user IDs [${userIds.join(', ')}]`,
+              );
             }
           } else if (role_name === Role.VENDOR) {
-            logger.info(`Converting vendor codes to user IDs: ${requestedCodes.join(', ')}`);
-            const vendorDetails = await getVendorsDaoArray(company_id, requestedCodes);
+            logger.info(
+              `Converting vendor codes to user IDs: ${requestedCodes.join(', ')}`,
+            );
+            const vendorDetails = await getVendorsDaoArray(
+              company_id,
+              requestedCodes,
+            );
             if (vendorDetails.length === 0) {
-              logger.warn(`No vendors found for codes: ${requestedCodes.join(', ')}`);
+              logger.warn(
+                `No vendors found for codes: ${requestedCodes.join(', ')}`,
+              );
               userIds = [];
             } else {
-              userIds = vendorDetails.map(vendor => vendor.user_id);
-              logger.info(`Converted vendor codes [${requestedCodes.join(', ')}] to user IDs [${userIds.join(', ')}]`);
+              userIds = vendorDetails.map((vendor) => vendor.user_id);
+              logger.info(
+                `Converted vendor codes [${requestedCodes.join(', ')}] to user IDs [${userIds.join(', ')}]`,
+              );
             }
           }
         }
       }
     }
+    // Normalize date to avoid timestamp mismatches
+    const normalizeDate = (date) =>
+      dayjs.tz(date, 'Asia/Kolkata').format('YYYY-MM-DD');
 
     if (role_name === Role.MERCHANT) {
       // First, get user hierarchy to identify parent-child relationships if we have specific userIds
       let allUserIdsToFetch = userIds;
-      
+
       if (userIds && userIds.length > 0) {
         const user = await getUsersDao({ company_id, id: userIds });
         const designation = await getDesignationDao({
@@ -197,11 +228,13 @@ const getClientsAccountReportService = async (req) => {
             subMerchants = userHierarchy
               .filter((h) => Array.isArray(h?.config?.siblings?.sub_merchants))
               .flatMap((h) => h.config.siblings.sub_merchants);
-            
+
             // Include child merchant user IDs in the fetch to ensure we get their data too
             if (subMerchants.length > 0) {
               allUserIdsToFetch = [...new Set([...userIds, ...subMerchants])];
-              logger.info(`Including child merchant user IDs in fetch: ${subMerchants.join(', ')}`);
+              logger.info(
+                `Including child merchant user IDs in fetch: ${subMerchants.join(', ')}`,
+              );
             }
           } catch (error) {
             logger.error('Error fetching user hierarchy:', error);
@@ -219,10 +252,14 @@ const getClientsAccountReportService = async (req) => {
         role,
       );
 
-      logger.info(`Retrieved ${allMerchantData.length} merchant records from database`);
+      logger.info(
+        `Retrieved ${allMerchantData.length} merchant records from database`,
+      );
       if (requestedCodes && requestedCodes.length > 0) {
-        logger.info(`Requested specific merchant codes: ${requestedCodes.join(', ')}`);
-        const foundCodes = allMerchantData.map(m => m.code).filter(Boolean);
+        logger.info(
+          `Requested specific merchant codes: ${requestedCodes.join(', ')}`,
+        );
+        const foundCodes = allMerchantData.map((m) => m.code).filter(Boolean);
         logger.info(`Found merchant codes: ${foundCodes.join(', ')}`);
       }
 
@@ -231,15 +268,19 @@ const getClientsAccountReportService = async (req) => {
         // For all merchants, we need to identify parent-child relationships
         // Get all user hierarchies to identify parent-child relationships
         try {
-          const allUserIds = allMerchantData.map(merchant => merchant.calculation_user_id);
+          const allUserIds = allMerchantData.map(
+            (merchant) => merchant.calculation_user_id,
+          );
           if (allUserIds.length > 0) {
             userHierarchy = await getUserHierarchysDao({ user_id: allUserIds });
             // Extract all sub-merchants from all hierarchies (these are user IDs)
             subMerchants = userHierarchy
               .filter((h) => Array.isArray(h?.config?.siblings?.sub_merchants))
               .flatMap((h) => h.config.siblings.sub_merchants);
-            
-            logger.info(`Found ${subMerchants.length} sub-merchant user IDs from hierarchies: ${subMerchants.slice(0, 5).join(', ')}${subMerchants.length > 5 ? '...' : ''}`);
+
+            logger.info(
+              `Found ${subMerchants.length} sub-merchant user IDs from hierarchies: ${subMerchants.slice(0, 5).join(', ')}${subMerchants.length > 5 ? '...' : ''}`,
+            );
           }
         } catch (error) {
           logger.error('Error fetching all user hierarchies:', error);
@@ -251,30 +292,32 @@ const getClientsAccountReportService = async (req) => {
 
       // If we identified sub-merchants, separate parent and child data
       if (subMerchants.length > 0) {
-        logger.info(`Found ${subMerchants.length} sub-merchants for clubbing: ${subMerchants.join(', ')}`);
-        
+        logger.info(
+          `Found ${subMerchants.length} sub-merchants for clubbing: ${subMerchants.join(', ')}`,
+        );
+
         // Child data (merchants that are sub-merchants)
         // Check both calculation_user_id and code for matching
-        childData = parentData.filter(merchant => 
-          subMerchants.includes(merchant.calculation_user_id) || 
-          subMerchants.includes(merchant.code)
+        childData = parentData.filter(
+          (merchant) =>
+            subMerchants.includes(merchant.calculation_user_id) ||
+            subMerchants.includes(merchant.code),
         );
 
         // Update parentData to only include parent merchants
         // Ensure we don't exclude merchants that should be parents
-        const finalParentData = parentData.filter(merchant => 
-          !subMerchants.includes(merchant.calculation_user_id) && 
-          !subMerchants.includes(merchant.code)
+        const finalParentData = parentData.filter(
+          (merchant) =>
+            !subMerchants.includes(merchant.calculation_user_id) &&
+            !subMerchants.includes(merchant.code),
         );
-        
-        logger.info(`Separated data - Parent records: ${finalParentData.length}, Child records: ${childData.length}`);
-        
+
+        logger.info(
+          `Separated data - Parent records: ${finalParentData.length}, Child records: ${childData.length}`,
+        );
+
         // Process the clubbing with separated parent and child data
         if (Array.isArray(finalParentData)) {
-          // Normalize date to avoid timestamp mismatches
-          const normalizeDate = (date) =>
-            dayjs.tz(date, 'Asia/Kolkata').format('YYYY-MM-DD');
-
           // Create a map for parent data by user_id and normalized created_at
           const parentMap = {};
           finalParentData.forEach((parent) => {
@@ -288,34 +331,45 @@ const getClientsAccountReportService = async (req) => {
           });
 
           // Sum child data into parent using userHierarchy for mapping
-          if (Array.isArray(childData) && Array.isArray(userHierarchy) && childData.length > 0) {
+          if (
+            Array.isArray(childData) &&
+            Array.isArray(userHierarchy) &&
+            childData.length > 0
+          ) {
             // Build child-to-parent mapping from userHierarchy
             const childToParentMap = {};
             userHierarchy.forEach((h) => {
               const parentUserId = h.user_id;
-              const subMerchantsArr = Array.isArray(h?.config?.siblings?.sub_merchants)
+              const subMerchantsArr = Array.isArray(
+                h?.config?.siblings?.sub_merchants,
+              )
                 ? h.config.siblings.sub_merchants
                 : [];
               subMerchantsArr.forEach((childUserId) => {
                 // The sub_merchants array contains user_ids, not codes
                 childToParentMap[childUserId] = parentUserId;
                 // Also find the merchant code for this user_id and map it too
-                const childMerchant = allMerchantData.find(m => m.calculation_user_id === childUserId);
+                const childMerchant = allMerchantData.find(
+                  (m) => m.calculation_user_id === childUserId,
+                );
                 if (childMerchant && childMerchant.code) {
                   childToParentMap[childMerchant.code] = parentUserId;
                 }
               });
             });
-            
-            logger.info(`Built child-to-parent mapping with ${Object.keys(childToParentMap).length} entries`);
+
+            logger.info(
+              `Built child-to-parent mapping with ${Object.keys(childToParentMap).length} entries`,
+            );
 
             childData.forEach((child) => {
               const childCodeNormalized = child.calculation_user_id;
               const childCode = child.code;
-              
+
               // Try multiple approaches to find the parent
-              let mappedParentUserId = childToParentMap[childCodeNormalized] || 
-                                      childToParentMap[childCode];
+              let mappedParentUserId =
+                childToParentMap[childCodeNormalized] ||
+                childToParentMap[childCode];
 
               if (!mappedParentUserId) {
                 logger.warn(
@@ -331,8 +385,8 @@ const getClientsAccountReportService = async (req) => {
 
               // If no exact date match, try to find any parent entry for this user
               if (!parentEntry) {
-                const alternativeKey = Object.keys(parentMap).find(key => 
-                  key.startsWith(`${mappedParentUserId}_`)
+                const alternativeKey = Object.keys(parentMap).find((key) =>
+                  key.startsWith(`${mappedParentUserId}_`),
                 );
                 if (alternativeKey) {
                   parentEntry = parentMap[alternativeKey];
@@ -361,7 +415,8 @@ const getClientsAccountReportService = async (req) => {
                   key !== 'merchant_user_id' &&
                   !isNaN(parseFloat(child[key]))
                 ) {
-                  parentEntry[key] = (parentEntry[key] || 0) + parseFloat(child[key]);
+                  parentEntry[key] =
+                    (parentEntry[key] || 0) + parseFloat(child[key]);
                 }
               });
               parentMap[parentKey] = parentEntry;
@@ -375,42 +430,56 @@ const getClientsAccountReportService = async (req) => {
               const codeA = (a.code || '').toLowerCase();
               const codeB = (b.code || '').toLowerCase();
               const codeComparison = codeA.localeCompare(codeB);
-              
+
               // If merchant codes are the same, sort by date ascending (oldest first)
               if (codeComparison === 0) {
                 const dateA = new Date(a.created_at || 0);
                 const dateB = new Date(b.created_at || 0);
                 return dateA - dateB; // Ascending order (oldest to newest)
               }
-              
+
               return codeComparison;
             });
 
           logger.info(`Final clubbed result contains ${result.length} records`);
-          
+
           // Log which merchants are being returned after clubbing
           if (requestedCodes && requestedCodes.length > 0) {
-            const returnedCodes = result.map(r => r.code).filter(Boolean);
-            
+            const returnedCodes = result.map((r) => r.code).filter(Boolean);
+
             // If requestedCodes were user IDs, we need to find the corresponding merchant codes for comparison
             let expectedCodes = requestedCodes;
-            const isUserIdList = requestedCodes.every(code => 
-              code && code.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+            const isUserIdList = requestedCodes.every(
+              (code) =>
+                code &&
+                code.match(
+                  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+                ),
             );
-            
+
             if (isUserIdList) {
               // Convert user IDs to merchant codes for meaningful comparison
               expectedCodes = allMerchantData
-                .filter(m => requestedCodes.includes(m.calculation_user_id))
-                .map(m => m.code);
-              logger.info(`Requested user IDs converted to merchant codes: ${expectedCodes.join(', ')}`);
+                .filter((m) => requestedCodes.includes(m.calculation_user_id))
+                .map((m) => m.code);
+              logger.info(
+                `Requested user IDs converted to merchant codes: ${expectedCodes.join(', ')}`,
+              );
             }
-            
-            const missingCodes = expectedCodes.filter(code => !returnedCodes.includes(code));
-            logger.info(`After clubbing - Expected codes: ${expectedCodes.join(', ')}`);
-            logger.info(`After clubbing - Returned codes: ${returnedCodes.join(', ')}`);
+
+            const missingCodes = expectedCodes.filter(
+              (code) => !returnedCodes.includes(code),
+            );
+            logger.info(
+              `After clubbing - Expected codes: ${expectedCodes.join(', ')}`,
+            );
+            logger.info(
+              `After clubbing - Returned codes: ${returnedCodes.join(', ')}`,
+            );
             if (missingCodes.length > 0) {
-              logger.warn(`After clubbing - Missing codes in result: ${missingCodes.join(', ')}`);
+              logger.warn(
+                `After clubbing - Missing codes in result: ${missingCodes.join(', ')}`,
+              );
             }
           }
 
@@ -426,55 +495,68 @@ const getClientsAccountReportService = async (req) => {
           // If we searched for specific merchant codes, filter result to only include those codes
           if (requestedCodes && requestedCodes.length > 0) {
             let expectedCodes = requestedCodes;
-            const isUserIdList = requestedCodes.every(code => 
-              code && code.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+            const isUserIdList = requestedCodes.every(
+              (code) =>
+                code &&
+                code.match(
+                  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+                ),
             );
-            
+
             if (isUserIdList) {
               // Convert user IDs to merchant codes for filtering
               expectedCodes = allMerchantData
-                .filter(m => requestedCodes.includes(m.calculation_user_id))
-                .map(m => m.code);
+                .filter((m) => requestedCodes.includes(m.calculation_user_id))
+                .map((m) => m.code);
             }
-            
+
             // Filter result to only include originally requested merchant codes
-            result = result.filter(item => expectedCodes.includes(item.code));
-            logger.info(`Filtered final result to only include requested codes: ${result.map(r => r.code).join(', ')}`);
+            result = result.filter((item) => expectedCodes.includes(item.code));
+            logger.info(
+              `Filtered final result to only include requested codes: ${result.map((r) => r.code).join(', ')}`,
+            );
           }
         } else {
           result = [];
           logger.warn('finalParentData is not an array:', finalParentData);
         }
       } else {
+        parentData.forEach((parent) => {
+          parent.created_at = normalizeDate(parent.created_at);
+        });
         // No sub-merchants found, return all data as is with alphabetical sorting and date sorting
         result = parentData.sort((a, b) => {
           // First sort alphabetically by merchant code (case-insensitive)
           const codeA = (a.code || '').toLowerCase();
           const codeB = (b.code || '').toLowerCase();
           const codeComparison = codeA.localeCompare(codeB);
-          
+
           // If merchant codes are the same, sort by date ascending (oldest first)
           if (codeComparison === 0) {
             const dateA = new Date(a.created_at || 0);
             const dateB = new Date(b.created_at || 0);
             return dateA - dateB; // Ascending order (oldest to newest)
           }
-          
+
           return codeComparison;
         });
-        logger.info(`No sub-merchants found for clubbing. Returning ${parentData.length} merchant records as-is`);
-        
+        logger.info(
+          `No sub-merchants found for clubbing. Returning ${parentData.length} merchant records as-is`,
+        );
+
         // Log which merchants are being returned
         if (requestedCodes && requestedCodes.length > 0) {
-          const returnedCodes = result.map(r => r.code).filter(Boolean);
-          const missingCodes = requestedCodes.filter(code => !returnedCodes.includes(code));
+          const returnedCodes = result.map((r) => r.code).filter(Boolean);
+          const missingCodes = requestedCodes.filter(
+            (code) => !returnedCodes.includes(code),
+          );
           logger.info(`Requested codes: ${requestedCodes.join(', ')}`);
           logger.info(`Returned codes: ${returnedCodes.join(', ')}`);
           if (missingCodes.length > 0) {
             logger.warn(`Missing codes in result: ${missingCodes.join(', ')}`);
           }
         }
-        
+
         // Apply pagination if needed
         if (page && limit) {
           const pageNum = parseInt(page);
@@ -489,7 +571,7 @@ const getClientsAccountReportService = async (req) => {
       let allUserIdsToFetch = userIds;
       let subVendors = [];
       let userHierarchy = [];
-      
+
       if (userIds && userIds.length > 0) {
         const user = await getUsersDao({ company_id, id: userIds });
         const designation = await getDesignationDao({
@@ -501,11 +583,13 @@ const getClientsAccountReportService = async (req) => {
             subVendors = userHierarchy
               .filter((h) => Array.isArray(h?.config?.siblings?.sub_vendors))
               .flatMap((h) => h.config.siblings.sub_vendors);
-            
+
             // Include child vendor user IDs in the fetch to ensure we get their data too
             if (subVendors.length > 0) {
               allUserIdsToFetch = [...new Set([...userIds, ...subVendors])];
-              logger.info(`Including child vendor user IDs in fetch: ${subVendors.join(', ')}`);
+              logger.info(
+                `Including child vendor user IDs in fetch: ${subVendors.join(', ')}`,
+              );
             }
           } catch (error) {
             logger.error('Error fetching user hierarchy:', error);
@@ -519,14 +603,18 @@ const getClientsAccountReportService = async (req) => {
         startDate,
         endDate,
         null, // Remove page parameter
-        null, // Remove limit parameter  
+        null, // Remove limit parameter
         role,
       );
 
-      logger.info(`Retrieved ${allVendorData.length} vendor records from database`);
+      logger.info(
+        `Retrieved ${allVendorData.length} vendor records from database`,
+      );
       if (requestedCodes && requestedCodes.length > 0) {
-        logger.info(`Requested specific vendor codes: ${requestedCodes.join(', ')}`);
-        const foundCodes = allVendorData.map(v => v.code).filter(Boolean);
+        logger.info(
+          `Requested specific vendor codes: ${requestedCodes.join(', ')}`,
+        );
+        const foundCodes = allVendorData.map((v) => v.code).filter(Boolean);
         logger.info(`Found vendor codes: ${foundCodes.join(', ')}`);
       }
 
@@ -535,15 +623,19 @@ const getClientsAccountReportService = async (req) => {
         // For all vendors, we need to identify parent-child relationships
         // Get all user hierarchies to identify parent-child relationships
         try {
-          const allUserIds = allVendorData.map(vendor => vendor.calculation_user_id);
+          const allUserIds = allVendorData.map(
+            (vendor) => vendor.calculation_user_id,
+          );
           if (allUserIds.length > 0) {
             userHierarchy = await getUserHierarchysDao({ user_id: allUserIds });
             // Extract all sub-vendors from all hierarchies (these are user IDs)
             subVendors = userHierarchy
               .filter((h) => Array.isArray(h?.config?.siblings?.sub_vendors))
               .flatMap((h) => h.config.siblings.sub_vendors);
-            
-            logger.info(`Found ${subVendors.length} sub-vendor user IDs from hierarchies: ${subVendors.slice(0, 5).join(', ')}${subVendors.length > 5 ? '...' : ''}`);
+
+            logger.info(
+              `Found ${subVendors.length} sub-vendor user IDs from hierarchies: ${subVendors.slice(0, 5).join(', ')}${subVendors.length > 5 ? '...' : ''}`,
+            );
           }
         } catch (error) {
           logger.error('Error fetching all user hierarchies:', error);
@@ -555,24 +647,30 @@ const getClientsAccountReportService = async (req) => {
 
       // If we identified sub-vendors, separate parent and child data
       if (subVendors.length > 0) {
-        logger.info(`Found ${subVendors.length} sub-vendors for clubbing: ${subVendors.join(', ')}`);
-        
+        logger.info(
+          `Found ${subVendors.length} sub-vendors for clubbing: ${subVendors.join(', ')}`,
+        );
+
         // Child data (vendors that are sub-vendors)
         // Check both calculation_user_id and code for matching
-        childData = parentData.filter(vendor => 
-          subVendors.includes(vendor.calculation_user_id) || 
-          subVendors.includes(vendor.code)
+        childData = parentData.filter(
+          (vendor) =>
+            subVendors.includes(vendor.calculation_user_id) ||
+            subVendors.includes(vendor.code),
         );
 
         // Update parentData to only include parent vendors
         // Ensure we don't exclude vendors that should be parents
-        const finalParentData = parentData.filter(vendor => 
-          !subVendors.includes(vendor.calculation_user_id) && 
-          !subVendors.includes(vendor.code)
+        const finalParentData = parentData.filter(
+          (vendor) =>
+            !subVendors.includes(vendor.calculation_user_id) &&
+            !subVendors.includes(vendor.code),
         );
-        
-        logger.info(`Separated data - Parent records: ${finalParentData.length}, Child records: ${childData.length}`);
-        
+
+        logger.info(
+          `Separated data - Parent records: ${finalParentData.length}, Child records: ${childData.length}`,
+        );
+
         // Process the clubbing with separated parent and child data
         if (Array.isArray(finalParentData)) {
           // Normalize date to avoid timestamp mismatches
@@ -592,34 +690,45 @@ const getClientsAccountReportService = async (req) => {
           });
 
           // Sum child data into parent using userHierarchy for mapping
-          if (Array.isArray(childData) && Array.isArray(userHierarchy) && childData.length > 0) {
+          if (
+            Array.isArray(childData) &&
+            Array.isArray(userHierarchy) &&
+            childData.length > 0
+          ) {
             // Build child-to-parent mapping from userHierarchy
             const childToParentMap = {};
             userHierarchy.forEach((h) => {
               const parentUserId = h.user_id;
-              const subVendorsArr = Array.isArray(h?.config?.siblings?.sub_vendors)
+              const subVendorsArr = Array.isArray(
+                h?.config?.siblings?.sub_vendors,
+              )
                 ? h.config.siblings.sub_vendors
                 : [];
               subVendorsArr.forEach((childUserId) => {
                 // The sub_vendors array contains user_ids, not codes
                 childToParentMap[childUserId] = parentUserId;
                 // Also find the vendor code for this user_id and map it too
-                const childVendor = allVendorData.find(v => v.calculation_user_id === childUserId);
+                const childVendor = allVendorData.find(
+                  (v) => v.calculation_user_id === childUserId,
+                );
                 if (childVendor && childVendor.code) {
                   childToParentMap[childVendor.code] = parentUserId;
                 }
               });
             });
-            
-            logger.info(`Built child-to-parent mapping with ${Object.keys(childToParentMap).length} entries`);
+
+            logger.info(
+              `Built child-to-parent mapping with ${Object.keys(childToParentMap).length} entries`,
+            );
 
             childData.forEach((child) => {
               const childCodeNormalized = child.calculation_user_id;
               const childCode = child.code;
-              
+
               // Try multiple approaches to find the parent
-              let mappedParentUserId = childToParentMap[childCodeNormalized] || 
-                                      childToParentMap[childCode];
+              let mappedParentUserId =
+                childToParentMap[childCodeNormalized] ||
+                childToParentMap[childCode];
 
               if (!mappedParentUserId) {
                 logger.warn(
@@ -635,8 +744,8 @@ const getClientsAccountReportService = async (req) => {
 
               // If no exact date match, try to find any parent entry for this user
               if (!parentEntry) {
-                const alternativeKey = Object.keys(parentMap).find(key => 
-                  key.startsWith(`${mappedParentUserId}_`)
+                const alternativeKey = Object.keys(parentMap).find((key) =>
+                  key.startsWith(`${mappedParentUserId}_`),
                 );
                 if (alternativeKey) {
                   parentEntry = parentMap[alternativeKey];
@@ -665,7 +774,8 @@ const getClientsAccountReportService = async (req) => {
                   key !== 'vendor_user_id' &&
                   !isNaN(parseFloat(child[key]))
                 ) {
-                  parentEntry[key] = (parentEntry[key] || 0) + parseFloat(child[key]);
+                  parentEntry[key] =
+                    (parentEntry[key] || 0) + parseFloat(child[key]);
                 }
               });
               parentMap[parentKey] = parentEntry;
@@ -679,42 +789,56 @@ const getClientsAccountReportService = async (req) => {
               const codeA = (a.code || '').toLowerCase();
               const codeB = (b.code || '').toLowerCase();
               const codeComparison = codeA.localeCompare(codeB);
-              
+
               // If vendor codes are the same, sort by date ascending (oldest first)
               if (codeComparison === 0) {
                 const dateA = new Date(a.created_at || 0);
                 const dateB = new Date(b.created_at || 0);
                 return dateA - dateB; // Ascending order (oldest to newest)
               }
-              
+
               return codeComparison;
             });
 
           logger.info(`Final clubbed result contains ${result.length} records`);
-          
+
           // Log which vendors are being returned after clubbing
           if (requestedCodes && requestedCodes.length > 0) {
-            const returnedCodes = result.map(r => r.code).filter(Boolean);
-            
+            const returnedCodes = result.map((r) => r.code).filter(Boolean);
+
             // If requestedCodes were user IDs, we need to find the corresponding vendor codes for comparison
             let expectedCodes = requestedCodes;
-            const isUserIdList = requestedCodes.every(code => 
-              code && code.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+            const isUserIdList = requestedCodes.every(
+              (code) =>
+                code &&
+                code.match(
+                  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+                ),
             );
-            
+
             if (isUserIdList) {
               // Convert user IDs to vendor codes for meaningful comparison
               expectedCodes = allVendorData
-                .filter(v => requestedCodes.includes(v.calculation_user_id))
-                .map(v => v.code);
-              logger.info(`Requested user IDs converted to vendor codes: ${expectedCodes.join(', ')}`);
+                .filter((v) => requestedCodes.includes(v.calculation_user_id))
+                .map((v) => v.code);
+              logger.info(
+                `Requested user IDs converted to vendor codes: ${expectedCodes.join(', ')}`,
+              );
             }
-            
-            const missingCodes = expectedCodes.filter(code => !returnedCodes.includes(code));
-            logger.info(`After clubbing - Expected codes: ${expectedCodes.join(', ')}`);
-            logger.info(`After clubbing - Returned codes: ${returnedCodes.join(', ')}`);
+
+            const missingCodes = expectedCodes.filter(
+              (code) => !returnedCodes.includes(code),
+            );
+            logger.info(
+              `After clubbing - Expected codes: ${expectedCodes.join(', ')}`,
+            );
+            logger.info(
+              `After clubbing - Returned codes: ${returnedCodes.join(', ')}`,
+            );
             if (missingCodes.length > 0) {
-              logger.warn(`After clubbing - Missing codes in result: ${missingCodes.join(', ')}`);
+              logger.warn(
+                `After clubbing - Missing codes in result: ${missingCodes.join(', ')}`,
+              );
             }
           }
 
@@ -730,55 +854,68 @@ const getClientsAccountReportService = async (req) => {
           // If we searched for specific vendor codes, filter result to only include those codes
           if (requestedCodes && requestedCodes.length > 0) {
             let expectedCodes = requestedCodes;
-            const isUserIdList = requestedCodes.every(code => 
-              code && code.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+            const isUserIdList = requestedCodes.every(
+              (code) =>
+                code &&
+                code.match(
+                  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+                ),
             );
-            
+
             if (isUserIdList) {
               // Convert user IDs to vendor codes for filtering
               expectedCodes = allVendorData
-                .filter(v => requestedCodes.includes(v.calculation_user_id))
-                .map(v => v.code);
+                .filter((v) => requestedCodes.includes(v.calculation_user_id))
+                .map((v) => v.code);
             }
-            
+
             // Filter result to only include originally requested vendor codes
-            result = result.filter(item => expectedCodes.includes(item.code));
-            logger.info(`Filtered final result to only include requested codes: ${result.map(r => r.code).join(', ')}`);
+            result = result.filter((item) => expectedCodes.includes(item.code));
+            logger.info(
+              `Filtered final result to only include requested codes: ${result.map((r) => r.code).join(', ')}`,
+            );
           }
         } else {
           result = [];
           logger.warn('finalParentData is not an array:', finalParentData);
         }
       } else {
+        parentData.forEach((parent) => {
+          parent.created_at = normalizeDate(parent.created_at);
+        });
         // No sub-vendors found, return all data as is with alphabetical sorting and date sorting
         result = parentData.sort((a, b) => {
           // First sort alphabetically by vendor code (case-insensitive)
           const codeA = (a.code || '').toLowerCase();
           const codeB = (b.code || '').toLowerCase();
           const codeComparison = codeA.localeCompare(codeB);
-          
+
           // If vendor codes are the same, sort by date ascending (oldest first)
           if (codeComparison === 0) {
             const dateA = new Date(a.created_at || 0);
             const dateB = new Date(b.created_at || 0);
             return dateA - dateB; // Ascending order (oldest to newest)
           }
-          
+
           return codeComparison;
         });
-        logger.info(`No sub-vendors found for clubbing. Returning ${parentData.length} vendor records as-is`);
-        
+        logger.info(
+          `No sub-vendors found for clubbing. Returning ${parentData.length} vendor records as-is`,
+        );
+
         // Log which vendors are being returned
         if (requestedCodes && requestedCodes.length > 0) {
-          const returnedCodes = result.map(r => r.code).filter(Boolean);
-          const missingCodes = requestedCodes.filter(code => !returnedCodes.includes(code));
+          const returnedCodes = result.map((r) => r.code).filter(Boolean);
+          const missingCodes = requestedCodes.filter(
+            (code) => !returnedCodes.includes(code),
+          );
           logger.info(`Requested codes: ${requestedCodes.join(', ')}`);
           logger.info(`Returned codes: ${returnedCodes.join(', ')}`);
           if (missingCodes.length > 0) {
             logger.warn(`Missing codes in result: ${missingCodes.join(', ')}`);
           }
         }
-        
+
         // Apply pagination if needed
         if (page && limit) {
           const pageNum = parseInt(page);
@@ -798,27 +935,27 @@ const getClientsAccountReportService = async (req) => {
         limit,
         role,
       );
-      
+
       // Format created_at to return date in IST format and sort alphabetically with date sorting
       if (Array.isArray(result)) {
         result = result
-          .map(item => ({
+          .map((item) => ({
             ...item,
-            created_at: item.created_at ? dayjs(item.created_at).tz('Asia/Kolkata').format('YYYY-MM-DD') : item.created_at
+            created_at: normalizeDate(item.created_at),
           }))
           .sort((a, b) => {
             // First sort alphabetically by merchant code (case-insensitive)
             const codeA = (a.code || '').toLowerCase();
             const codeB = (b.code || '').toLowerCase();
             const codeComparison = codeA.localeCompare(codeB);
-            
+
             // If merchant codes are the same, sort by date ascending (oldest first)
             if (codeComparison === 0) {
               const dateA = new Date(a.created_at || 0);
               const dateB = new Date(b.created_at || 0);
               return dateA - dateB; // Ascending order (oldest to newest)
             }
-            
+
             return codeComparison;
           });
       }

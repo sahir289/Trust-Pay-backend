@@ -354,7 +354,12 @@ export const getAllPayoutsDao = async (
       end = dayjs.tz(`${filters?.endDate} 23:59:59.999`, IST).utc().format();
 
       conditions.push(
-        `u.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+        `CASE 
+          WHEN u.status = 'APPROVED' THEN u.approved_at 
+          WHEN u.status = 'PENDING' THEN u.updated_at 
+          WHEN u.status IN ('REJECTED', 'REVERSED') THEN u.rejected_at 
+          ELSE u.updated_at 
+        END BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
       );
       queryParams.push(start, end);
       paramIndex += 2;
@@ -562,7 +567,7 @@ export const getPayoutsBySearchDao = async (
     let paramIndex = 1; // Start from 1 since $1 is used
 
     // Columns we allow filtering on
-    const handledKeys = new Set(['status', 'updated_at']);
+    const handledKeys = new Set(['status', 'updated_at' , 'amount', 'nick_name']);
     const validColumns = new Set([
       'id',
       'sno',
@@ -611,7 +616,8 @@ export const getPayoutsBySearchDao = async (
       commissionSelect = `
         p.payout_vendor_commission, 
         v.code AS vendor_code,
-        p.config->>'method' AS payout_method
+        p.config->>'method' AS payout_method,
+        b.nick_name
       `;
     } else {
       commissionSelect = `
@@ -630,7 +636,8 @@ export const getPayoutsBySearchDao = async (
         v.user_id AS vendor_user_id,
         p.config AS payout_details,
         p.updated_at,
-        b.user_id, 
+        b.user_id,
+        b.nick_name,
         json_build_object(
           'merchant_code', COALESCE(m.config->>'sub_code', m.code),
           'return_url', m.config->>'return_url',
@@ -654,7 +661,6 @@ export const getPayoutsBySearchDao = async (
         p.utr_id, 
         p.rejected_reason,
         ${commissionSelect},
-        b.nick_name,
         json_build_object(
           'account_holder_name', p.acc_holder_name,
           'account_no', p.acc_no,
@@ -716,7 +722,32 @@ export const getPayoutsBySearchDao = async (
         paramIndex += statusArray.length;
       }
     }
-
+    if (filters.user_bank_details) {
+      const searchTerm = `%${filters.user_bank_details.trim()}%`;
+      queryText += `
+        AND (
+          LOWER(p.acc_holder_name) LIKE LOWER($${paramIndex})
+          OR LOWER(p.acc_no) LIKE LOWER($${paramIndex})
+          OR LOWER(p.ifsc_code) LIKE LOWER($${paramIndex})
+          OR LOWER(p.bank_name) LIKE LOWER($${paramIndex})
+        )
+      `;
+      queryParams.push(searchTerm);
+      paramIndex += 1;
+      delete filters.user_bank_details;
+    }
+    if (filters.nick_name) {
+      queryText += ` AND b.nick_name = $${paramIndex}`;
+      queryParams.push(filters.nick_name);
+      paramIndex += 1;
+      delete filters.nick_name;
+    }
+    if (filters.txnid) {
+      queryText += ` AND (p.config->>'txnid') = $${paramIndex}`;
+      queryParams.push(filters.txnid);
+      paramIndex += 1;
+      delete filters.txnid;
+    }
     // Handle search terms
     if (searchTerms.length > 0) {
       searchTerms.forEach((term) => {
@@ -782,7 +813,41 @@ export const getPayoutsBySearchDao = async (
       queryParams.push(startDate, endDate);
       paramIndex += 2;
     }
-
+    if (filters.amount) {
+      const amountValue = String(filters.amount).trim();
+      if (amountValue.includes(',')) {
+        const [minAmount, maxAmount] = amountValue
+          .split(',')
+          .map((v) => parseFloat(v.trim()));
+        conditions.push(
+          `p.amount BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+        );
+        queryParams.push(
+          Math.min(minAmount, maxAmount),
+          Math.max(minAmount, maxAmount),
+        );
+        paramIndex += 2;
+      } else if (amountValue.includes('-')) {
+        // Handle hyphen-separated range (e.g., "300-50")
+        const [minAmount, maxAmount] = amountValue
+          .split('-')
+          .map((v) => parseFloat(v.trim()));
+        conditions.push(
+          `p.amount BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+        );
+        queryParams.push(
+          Math.min(minAmount, maxAmount),
+          Math.max(minAmount, maxAmount),
+        );
+        paramIndex += 2;
+      } else {
+        const singleAmount = parseFloat(amountValue);
+        conditions.push(`p.amount = $${paramIndex}`);
+        queryParams.push(singleAmount);
+        paramIndex += 1;
+      }
+      delete filters.amount;
+    }
     // Handle other filters
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {

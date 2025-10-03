@@ -9,8 +9,6 @@ import {
 import { logger } from '../../utils/logger.js';
 import { enhanceVendorsWithSubVendors } from '../../utils/enhanceSubVendor.js';
 
-
-
 export const createVendorDao = async (data, conn) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.VENDOR, data);
@@ -57,9 +55,7 @@ export const getVendorsBankReponseDao = async (filters = {}) => {
     throw error;
   }
 };
-export const getVendorsDashBoardReportDao = async (
-  filters = {}
-) => {
+export const getVendorsDashBoardReportDao = async (filters = {}) => {
   try {
     const selectColumns = `
       user_id,
@@ -67,7 +63,7 @@ export const getVendorsDashBoardReportDao = async (
     `;
     const [sql, params] = buildSelectQuery(
       `SELECT ${selectColumns} FROM "${tableName.VENDOR}" WHERE 1=1`,
-      filters
+      filters,
     );
     const result = await executeQuery(sql, params);
     return result.rows || [];
@@ -93,9 +89,10 @@ export const getVendorsCodeDao = async (
       includeOnlyVendors = includeOnlyVendors.toLowerCase() === 'true';
     }
     if (includeSeperateSubVendors) {
-      includeSeperateSubVendors = includeSeperateSubVendors.toLowerCase() === 'true';
+      includeSeperateSubVendors =
+        includeSeperateSubVendors.toLowerCase() === 'true';
     }
-    
+
     let sql = `
       SELECT 
         v.code AS label, 
@@ -133,14 +130,14 @@ export const getVendorsCodeDao = async (
       WHERE 
         v.is_obsolete = FALSE
     `;
-    
+
     if (excludeDisabledVendor) {
       sql += ` AND v.is_enabled = TRUE `;
     }
-    
+
     const queryParams = [];
     let paramIndex = 1;
-    
+
     if (includeOnlyVendors) {
       sql += `
       AND v.user_id IN (
@@ -152,12 +149,12 @@ export const getVendorsCodeDao = async (
         )
       `;
     }
-    
+
     if (filters.company_id) {
       sql += ` AND v.company_id = $${paramIndex++}`;
       queryParams.push(filters.company_id);
     }
-    
+
     if (filters.user_id) {
       if (Array.isArray(filters.user_id)) {
         sql += ` AND v.user_id = ANY($${paramIndex++})`;
@@ -167,9 +164,9 @@ export const getVendorsCodeDao = async (
         queryParams.push(filters.user_id);
       }
     }
-    
+
     sql += ` GROUP BY v.id, v.code, v.user_id ORDER BY v.code ASC`;
-    
+
     const result = await conn.query(sql, queryParams);
     logger.log('Fetched Vendors:', result.rows.length, 'rows');
     return result.rows;
@@ -270,9 +267,14 @@ export const getVendorsDao = async (
       'Vendor',
     );
     const result = await executeQuery(query, values);
-    
+
     // Enhance with sub-vendor data
-    const enhancedVendors = await enhanceVendorsWithSubVendors(result.rows, includeSeperateSubVendors, role, filters.company_id);
+    const enhancedVendors = await enhanceVendorsWithSubVendors(
+      result.rows,
+      includeSeperateSubVendors,
+      role,
+      filters.company_id,
+    );
     return enhancedVendors;
   } catch (error) {
     logger.error('Error in getVendorsDao:', error);
@@ -287,7 +289,7 @@ export const getAllVendorsDao = async (
   sortBy = 'created_at',
   sortOrder = 'DESC',
   role,
-  includeSeperateSubVendors = false
+  includeSeperateSubVendors = false,
 ) => {
   try {
     let baseQuery;
@@ -370,9 +372,14 @@ export const getAllVendorsDao = async (
       'Vendor',
     );
     const result = await executeQuery(query, values);
-    
+
     // Enhance with sub-vendor data
-    const enhancedVendors = await enhanceVendorsWithSubVendors(result.rows, includeSeperateSubVendors, role, filters.company_id);
+    const enhancedVendors = await enhanceVendorsWithSubVendors(
+      result.rows,
+      includeSeperateSubVendors,
+      role,
+      filters.company_id,
+    );
     return enhancedVendors;
   } catch (error) {
     logger.error('Error in getVendorsDao:', error);
@@ -382,10 +389,10 @@ export const getAllVendorsDao = async (
 
 export const getVendorsBySearchDao = async (
   filters,
-  pageNumber ,
-  pageSize ,
+  pageNumber,
+  pageSize,
   searchTerms,
-  includeSeperateSubVendors = false
+  includeSeperateSubVendors = false,
 ) => {
   try {
     const conditions = [];
@@ -536,10 +543,15 @@ export const getVendorsBySearchDao = async (
       searchResult = await executeQuery(queryText, values);
       totalPages = Math.ceil(totalItems / pageSize);
     }
-    
+
     // Enhance with sub-vendor data
-    const enhancedVendors = await enhanceVendorsWithSubVendors(searchResult.rows, includeSeperateSubVendors, filters.role, filters.company_id);
-    
+    const enhancedVendors = await enhanceVendorsWithSubVendors(
+      searchResult.rows,
+      includeSeperateSubVendors,
+      filters.role,
+      filters.company_id,
+    );
+
     const data = {
       totalCount: totalItems,
       totalPages,
@@ -742,10 +754,184 @@ export const getVendorByUserDao = async (userId) => {
     // Return the rows (vendor data)
     return result.rows;
   } catch (error) {
-    logger.error(
-      `Error in getVendorByUserDao for user_id ${userId}:`,
-      error,
-    );
+    logger.error(`Error in getVendorByUserDao for user_id ${userId}:`, error);
     throw error;
   }
 };
+
+/**
+ * Get designation id by designation name
+ */
+export const getDesignationIdDao = async (designation, conn) => {
+  const sql = `SELECT id FROM "${tableName.DESIGNATION}" WHERE designation = $1 LIMIT 1;`;
+  let result;
+  if (conn && conn.query) {
+    result = await conn.query(sql, [designation]);
+  } else {
+    result = await executeQuery(sql, [designation]);
+  }
+  return result.rows[0]?.id || null;
+};
+
+export const isNetBalanceZeroForTwoHours = async (vendorUserId) => {
+  try {
+    const sql = `
+      SELECT updated_at
+      FROM "Calculation"
+      WHERE user_id = $1 AND net_balance = 0
+      ORDER BY updated_at DESC
+      LIMIT 1;
+    `;
+    const result = await executeQuery(sql, [vendorUserId]);
+    if (!result.rows.length) {
+      return false;
+    } else {
+      return true;
+    }
+    // const lastZeroTime = new Date(result.rows[0].updated_at);
+    // const now = new Date();
+    // const diffHours = (now - lastZeroTime) / (1000 * 60 * 60);
+    // return diffHours >= 2;
+  } catch (error) {
+    logger.error('Error in isNetBalanceZeroForTwoHours:', error);
+    throw error;
+  }
+};
+
+/**
+ * Link vendor to Vendor if net balance is zero for >2 hours
+ */
+export const linkVendorDao = async (vendorUserId, subVendorUserId, user_id) => {
+  try {
+    // Fetch current config
+    const fetchSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
+    const fetchResult = await executeQuery(fetchSql, [vendorUserId]);
+    let currentConfig = fetchResult.rows[0]?.config || {};
+    let subVendors = currentConfig?.siblings?.sub_vendors || [];
+    // Add subVendorUserId to array if not present
+    subVendors = Array.isArray(subVendors)
+      ? [...new Set([...subVendors, subVendorUserId])]
+      : [subVendorUserId];
+    // Build new config
+    const newConfig = { ...currentConfig, siblings: { ...currentConfig.siblings, sub_vendors: subVendors } };
+    const sql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
+    const result = await executeQuery(sql, [newConfig, user_id, vendorUserId]);
+
+    // add sub_code in subVendorUserId's config in Vendor table to vendorUserId's code
+    const fetchNewVendorCodeSql = `SELECT code FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
+    const fetchNewVendorCodeResult = await executeQuery(fetchNewVendorCodeSql, [vendorUserId]);
+    const newVendorCode = fetchNewVendorCodeResult.rows[0]?.code;
+    if (newVendorCode) {
+      const fetchVendorConfigSql = `SELECT code, config FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
+      const fetchVendorConfigResult = await executeQuery(fetchVendorConfigSql, [subVendorUserId]);
+      let vendorConfig = fetchVendorConfigResult.rows[0]?.config || {};
+      const subCode = `${newVendorCode}(${fetchVendorConfigResult.rows[0]?.code})`;
+      vendorConfig.sub_code = subCode;
+      const updateVendorConfigSql = `UPDATE "${tableName.VENDOR}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
+      await executeQuery(updateVendorConfigSql, [vendorConfig, user_id, subVendorUserId]);
+    }
+
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error in linkVendorDao:', error);
+    throw error;
+  }
+};
+
+/**
+ * Unlink vendor from Vendor if net balance is zero for >2 hours
+ */
+export const unlinkVendorDao = async (vendorUserId, subVendorUserId, user_id) => {
+  try {
+    // Fetch current config
+    const fetchSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
+    const fetchResult = await executeQuery(fetchSql, [vendorUserId]);
+    let currentConfig = fetchResult.rows[0]?.config || {};
+    let subVendors = currentConfig?.siblings?.sub_vendors || [];
+    // Remove subVendorUserId from array
+    subVendors = Array.isArray(subVendors)
+      ? subVendors.filter(id => id !== subVendorUserId)
+      : [];
+    // Build new config
+    const newConfig = { ...currentConfig, siblings: { ...currentConfig.siblings, sub_vendors: subVendors } };
+    const sql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
+    const result = await executeQuery(sql, [newConfig, user_id, vendorUserId]);
+
+    // Remove sub_code from config of subVendorUserId in Vendor table
+    const fetchVendorSql = `SELECT config FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
+    const fetchVendorResult = await executeQuery(fetchVendorSql, [subVendorUserId]);
+    let subVendorConfig = fetchVendorResult.rows[0]?.config || {};
+    if ('sub_code' in subVendorConfig) {
+      // Remove sub_code key using delete operator
+      delete subVendorConfig.sub_code;
+      const updateVendorSql = `UPDATE "${tableName.VENDOR}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
+      await executeQuery(updateVendorSql, [subVendorConfig, user_id, subVendorUserId]);
+    }
+
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error in unlinkVendorDao:', error);
+    throw error;
+  }
+};
+
+/**
+ * Transfer vendor to another vendor if net balance is zero for >2 hours
+ */
+export const transferVendorDao = async (vendorUserId, newVendorUserId, currentVendorUserId, user_id) => {
+  try {
+    // Remove vendorUserId from current vendor's sub_vendors array
+    const fetchCurrentSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
+    const fetchCurrentResult = await executeQuery(fetchCurrentSql, [currentVendorUserId]);
+    let currentConfig = fetchCurrentResult.rows[0]?.config || {};
+    let currentSubVendors = currentConfig?.siblings?.sub_vendors || [];
+    currentSubVendors = Array.isArray(currentSubVendors)
+      ? currentSubVendors.filter(id => id !== vendorUserId)
+      : [];
+    const updatedCurrentConfig = { ...currentConfig, siblings: { ...currentConfig.siblings, sub_vendors: currentSubVendors } };
+    const updateCurrentSql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
+    await executeQuery(updateCurrentSql, [updatedCurrentConfig, user_id, currentVendorUserId]);
+
+    // Add vendorUserId to new vendor's sub_vendors array
+    const fetchNewSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
+    const fetchNewResult = await executeQuery(fetchNewSql, [newVendorUserId]);
+    let newConfig = fetchNewResult.rows[0]?.config || {};
+    let newSubVendors = newConfig?.siblings?.sub_vendors || [];
+    newSubVendors = Array.isArray(newSubVendors)
+      ? [...new Set([...newSubVendors, vendorUserId])]
+      : [vendorUserId];
+    const updatedNewConfig = { ...newConfig, siblings: { ...newConfig.siblings, sub_vendors: newSubVendors } };
+    const updateNewSql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
+    const result = await executeQuery(updateNewSql, [updatedNewConfig, user_id, newVendorUserId]);
+
+    // Update sub_code in vendorUserId's config in Vendor table to newVendorUserId's code
+    const fetchNewVendorCodeSql = `SELECT code FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
+    const fetchNewVendorCodeResult = await executeQuery(fetchNewVendorCodeSql, [newVendorUserId]);
+    const newVendorCode = fetchNewVendorCodeResult.rows[0]?.code;
+    if (newVendorCode) {
+      const fetchVendorConfigSql = `SELECT code, config FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
+      const fetchVendorConfigResult = await executeQuery(fetchVendorConfigSql, [vendorUserId]);
+      let vendorConfig = fetchVendorConfigResult.rows[0]?.config || {};
+      const subCode = `${newVendorCode}(${fetchVendorConfigResult.rows[0]?.code})`;
+      vendorConfig.sub_code = subCode;
+      const updateVendorConfigSql = `UPDATE "${tableName.VENDOR}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
+      await executeQuery(updateVendorConfigSql, [vendorConfig, user_id, vendorUserId]);
+    }
+
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error in transferVendorDao:', error);
+    throw error;
+  }
+};
+
+export const getVendorByUserId = async (user_id) => {
+  try {
+    const sql = `SELECT * FROM "${tableName.VENDOR}" WHERE user_id = $1 AND is_obsolete = false LIMIT 1;`;
+    const result = await executeQuery(sql, [user_id]);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error fetching vendor by user_id:', error);
+    throw error;
+  }
+}

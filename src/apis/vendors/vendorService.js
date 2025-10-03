@@ -21,6 +21,12 @@ import {
   getAllVendorsDao,
   getBankResponseAccessByIDDao,
   getVendorByCodeDao,
+  linkVendorDao,
+  unlinkVendorDao,
+  transferVendorDao,
+  getDesignationIdDao,
+  isNetBalanceZeroForTwoHours,
+  getVendorByUserId,
 } from './vendorDao.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 import { updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
@@ -63,9 +69,9 @@ const createVendorService = async (conn, payload) => {
           {
             config: {
               ...userConfig,
-              siblings: { 
+              siblings: {
                 ...userConfig.siblings,
-                sub_vendors: [...currentChildren, data.user_id] 
+                sub_vendors: [...currentChildren, data.user_id],
               },
             },
           },
@@ -83,7 +89,7 @@ const createVendorService = async (conn, payload) => {
         created_by: data.created_by,
         updated_by: data.updated_by,
         company_id: data.company_id,
-        ...(parentId && { config: { parent: parentId } })
+        ...(parentId && { config: { parent: parentId } }),
       },
       conn,
     );
@@ -114,7 +120,7 @@ const getVendorsService = async (
   try {
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
-    
+
     let userIdFilter = Array.isArray(user_id)
       ? [...user_id]
       : user_id
@@ -124,11 +130,10 @@ const getVendorsService = async (
     if (role === Role.VENDOR) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys[0];
-      
+
       if (designation === Role.VENDOR || designation === Role.SUB_VENDOR) {
         if (userHierarchy?.config?.siblings?.sub_vendors) {
-          const subVendors =
-            userHierarchy?.config?.siblings?.sub_vendors ?? [];
+          const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
           userIdFilter = [...new Set([...userIdFilter, ...subVendors])];
         }
       } else if (designation === Role.VENDOR_OPERATIONS) {
@@ -149,15 +154,16 @@ const getVendorsService = async (
         }
       }
     }
-    
+
     if (userIdFilter.length > 0) {
-      filters.user_id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
+      filters.user_id =
+        userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
 
     if (role === Role.ADMIN) {
       delete filters.user_id;
     }
-    
+
     return await getAllVendorsDao(
       filters,
       pageNumber,
@@ -198,8 +204,7 @@ const getVendorsCodeService = async (
       const userHierarchy = userHierarchys[0];
 
       if (designation === Role.VENDOR) {
-        const subVendors =
-          userHierarchy?.config?.siblings?.sub_vendors ?? [];
+        const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
         userIdFilter = [...new Set([...userIdFilter, ...subVendors])];
       } else if (designation === Role.VENDOR_OPERATIONS) {
         const parentUserId = userHierarchy?.config?.parent;
@@ -269,7 +274,7 @@ const getVendorsBySearchService = async (
   try {
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
-    
+
     let userIdFilter = Array.isArray(user_id)
       ? [...user_id]
       : user_id
@@ -279,11 +284,10 @@ const getVendorsBySearchService = async (
     if (role === Role.VENDOR) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys[0];
-      
+
       if (designation === Role.VENDOR || designation === Role.SUB_VENDOR) {
         if (userHierarchy?.config?.siblings?.sub_vendors) {
-          const subVendors =
-            userHierarchy?.config?.siblings?.sub_vendors ?? [];
+          const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
           userIdFilter = [...new Set([...userIdFilter, ...subVendors])];
         }
       } else if (designation === Role.VENDOR_OPERATIONS) {
@@ -304,15 +308,16 @@ const getVendorsBySearchService = async (
         }
       }
     }
-    
+
     if (userIdFilter.length > 0) {
-      filters.user_id = userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
+      filters.user_id =
+        userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
 
     if (role === Role.ADMIN) {
       delete filters.user_id;
     }
-    
+
     let searchTerms;
     if (filters.search) {
       searchTerms = filters.search
@@ -340,7 +345,7 @@ const updateVendorService = async (ids, payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    
+
     const data = await updateVendorDao(ids, payload, conn); // Adjust DAO call for update
     if (
       data?.config?.bank_response_access === 'false' ||
@@ -352,7 +357,7 @@ const updateVendorService = async (ids, payload) => {
       await notifyBankResponseAccessUpdate(
         data.user_id,
         data?.config?.bank_response_access,
-        data.code
+        data.code,
       );
     }
     // await notifyAdminsAndUsers({
@@ -425,6 +430,20 @@ const deleteVendorService = async (ids, updated_by) => {
           await updateUserDao({ id: userId }, payload, conn);
         }
       }
+      if (UserHierarchy[0]?.config?.siblings?.sub_vendors) {
+        const userIds = UserHierarchy[0].config.siblings.sub_vendors;
+        for (const userId of userIds) {
+          const vendorDesignationId = await getDesignationIdDao(
+            Role.VENDOR,
+            conn,
+          );
+          await updateUserDao(
+            { id: userId },
+            { designation_id: vendorDesignationId, updated_by: updated_by },
+            conn,
+          );
+        }
+      }
     }
     // await notifyAdminsAndUsers({
     //   conn,
@@ -476,7 +495,6 @@ const getBankResponseAccessByIDService = async (id) => {
   }
 };
 
-
 const getVendorsByCodeService = async (code) => {
   try {
     if (!code) {
@@ -493,6 +511,157 @@ const getVendorsByCodeService = async (code) => {
   }
 };
 
+const linkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
+      throw new BadRequestError('Vendor net balance must be zero to link.');
+    }
+    const sub = await getVendorByUserId(subVendorUserId);
+    const parent = await getVendorByUserId(vendorUserId);
+    if (
+      sub.payin_commission > parent.payin_commission &&
+      sub.payout_commission > parent.payout_commission
+    ) {
+      throw new BadRequestError(
+        'Sub Vendor commission must be less than or equal to Parent Vendor commission.',
+      );
+    }
+    const result = await linkVendorDao(vendorUserId, subVendorUserId, user_id);
+    // Change designation to SUB_VENDOR in user table using DAO
+    const subVendorDesignationId = await getDesignationIdDao(
+      Role.SUB_VENDOR,
+      conn,
+    );
+    if (subVendorDesignationId) {
+      await updateUserDao(
+        { id: subVendorUserId },
+        { designation_id: subVendorDesignationId, updated_by: user_id },
+        conn,
+      );
+    }
+    await commit(conn);
+    return result;
+  } catch (error) {
+    if (conn) {
+      try {
+        await rollback(conn);
+      } catch (e) {
+        logger.error('Rollback error:', e);
+      }
+    }
+    logger.error('Error in linkVendorService:', error);
+    throw error;
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (e) {
+        logger.error('Release error:', e);
+      }
+    }
+  }
+};
+
+const unlinkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
+      throw new BadRequestError('Vendor net balance must be zero to link.');
+    }
+    const result = await unlinkVendorDao(
+      vendorUserId,
+      subVendorUserId,
+      user_id,
+    );
+    // Change designation to VENDOR in user table using DAO
+    const vendorDesignationId = await getDesignationIdDao(Role.VENDOR, conn);
+    if (vendorDesignationId) {
+      await updateUserDao(
+        { id: subVendorUserId },
+        { designation_id: vendorDesignationId, updated_by: user_id },
+        conn,
+      );
+    }
+    await commit(conn);
+    return result;
+  } catch (error) {
+    if (conn) {
+      try {
+        await rollback(conn);
+      } catch (e) {
+        logger.error('Rollback error:', e);
+      }
+    }
+    logger.error('Error in unlinkVendorService:', error);
+    throw error;
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (e) {
+        logger.error('Release error:', e);
+      }
+    }
+  }
+};
+
+const transferVendorService = async (
+  subVendorUserId,
+  newVendorUserId,
+  currentVendorUserId,
+  user_id,
+) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
+      throw new BadRequestError('Vendor net balance must be zero to link.');
+    }
+    const sub = await getVendorByUserId(subVendorUserId);
+    const parent = await getVendorByUserId(newVendorUserId);
+    if (
+      sub.payin_commission > parent.payin_commission &&
+      sub.payout_commission > parent.payout_commission
+    ) {
+      throw new BadRequestError(
+        'Sub Vendor commission must be less than or equal to Parent Vendor commission.',
+      );
+    }
+    const result = await transferVendorDao(
+      subVendorUserId,
+      newVendorUserId,
+      currentVendorUserId,
+      user_id,
+    );
+    await commit(conn);
+    return result;
+  } catch (error) {
+    if (conn) {
+      try {
+        await rollback(conn);
+      } catch (e) {
+        logger.error('Rollback error:', e);
+      }
+    }
+    logger.error('Error in transferVendorService:', error);
+    throw error;
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (e) {
+        logger.error('Release error:', e);
+      }
+    }
+  }
+};
+
 export {
   createVendorService,
   getVendorsService,
@@ -502,4 +671,7 @@ export {
   getVendorsCodeService,
   getBankResponseAccessByIDService,
   getVendorsByCodeService,
+  linkVendorService,
+  unlinkVendorService,
+  transferVendorService,
 };

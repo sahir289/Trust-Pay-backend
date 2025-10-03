@@ -63,6 +63,7 @@ const getBankResponseDao = async (
     throw error;
   }
 };
+
 export const getBankResponsePayinDao = async (filters) => {
   try {
     let query = `
@@ -94,8 +95,7 @@ export const getBankResponsePayinDao = async (filters) => {
       if (typeof filters.status === 'string') {
         conditions.push(`br.status = $${paramIndex}`);
         params.push(filters.status);
-      }
-      else if (Array.isArray(filters.status) && filters.status.length > 0) {
+      } else if (Array.isArray(filters.status) && filters.status.length > 0) {
         conditions.push(`br.status = ANY($${paramIndex}::text[])`);
         params.push(filters.status);
       }
@@ -132,7 +132,7 @@ export const getBankResponseDaoById = async (filters) => {
   }
 };
 
-const getCheckBankResponseDao = async (
+export const getCheckBankResponseDao = async (
   filters = {},
   filterColumns = `
     id
@@ -242,10 +242,11 @@ const getBankResponseBySearchDao = async (
 
     //   return data;
     // }
-    
+
     const selectCols = columns.length
       ? `DISTINCT ON ("BankResponse".sno) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
-      : `DISTINCT ON ("BankResponse".sno) ` + [
+      : `DISTINCT ON ("BankResponse".sno) ` +
+        [
           `"BankResponse".*`,
           `"BankAccount".user_id`,
           `"BankAccount".nick_name`,
@@ -283,49 +284,50 @@ const getBankResponseBySearchDao = async (
       values.push(...dateParams);
     }
 
-    // Search filter (split by whitespace, combine with OR)
-    if (filters.search) {
-      const searchTerms = filters.search.trim().split(/\s+/);
-      if (searchTerms.length) {
-        const searchConditions = [];
-        for (const term of searchTerms) {
-          if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-            const boolValue = term.toLowerCase() === 'true';
-            searchConditions.push(`"BankResponse".is_used = $${paramIndex}`);
-            values.push(boolValue);
-            paramIndex++;
-          } else {
-            const likeVal = `%${term}%`;
-            searchConditions.push(`
-              (
-                "BankResponse".id::text ILIKE $${paramIndex}
-                OR "BankResponse".status ILIKE $${paramIndex}
-                OR "BankResponse".bank_id::text ILIKE $${paramIndex}
-                OR "BankResponse".amount::text ILIKE $${paramIndex}
-                OR "BankResponse".upi_short_code ILIKE $${paramIndex}
-                OR "BankResponse".utr ILIKE $${paramIndex}
-                OR "BankResponse".sno::text ILIKE $${paramIndex}
-                OR "BankResponse".created_by ILIKE $${paramIndex}
-                OR "BankResponse".updated_by ILIKE $${paramIndex}
-                OR "BankAccount".user_id::text ILIKE $${paramIndex}
-                OR "BankAccount".nick_name ILIKE $${paramIndex}
-                OR LOWER("Company".first_name || ' ' || "Company".last_name) ILIKE $${paramIndex}
-              )
-            `);
-            values.push(likeVal);
-            paramIndex++;
-          }
-        }
-        whereConditions.push(`(${searchConditions.join(' OR ')})`);
-      }
-      delete filters.search;
-    }
+    // if (filters.search) {
+    //   const searchTerm = filters.search.trim().split(/\s+/);
+    //   if (searchTerm?.length) {
+    //     const searchConditions = [];
+    //     searchTerm.forEach((term) => {
+    //       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
+    //         const boolValue = term.toLowerCase() === 'true';
+    //         searchConditions.push(`"BankResponse".is_used = $${paramIndex}`);
+    //         values.push(boolValue);
+    //         paramIndex++;
+    //       } else {
+    //         const likeVal = `%${term}%`;
+    //         searchConditions.push(`
+    //           (
+    //             "BankResponse".id::text ILIKE $${paramIndex}
+    //             OR "BankResponse".status ILIKE $${paramIndex}
+    //             OR "BankResponse".bank_id::text ILIKE $${paramIndex}
+    //             OR "BankResponse".amount::text ILIKE $${paramIndex}
+    //             OR "BankResponse".upi_short_code ILIKE $${paramIndex}
+    //             OR "BankResponse".utr ILIKE $${paramIndex}
+    //             OR "BankResponse".sno::text ILIKE $${paramIndex}
+    //             OR "BankResponse".created_by ILIKE $${paramIndex}
+    //             OR "BankResponse".updated_by ILIKE $${paramIndex}
+    //             OR "BankAccount".user_id::text ILIKE $${paramIndex}
+    //             OR "BankAccount".nick_name ILIKE $${paramIndex}
+    //           )
+    //         `);
+    //         values.push(likeVal);
+    //         paramIndex++;
+    //       }
+    //     });
+    //     whereConditions.push(`(${searchConditions.join(' OR ')})`);
+    //   }
+    //   delete filters.search;
+    // }
 
     whereConditions.push(`"BankResponse".is_obsolete = false`);
 
     // Add other filters
     if (filters.bank_id) {
-      if (typeof filters.bank_id === 'string' && filters.bank_id.includes(',')) {
+      if (
+        typeof filters.bank_id === 'string' &&
+        filters.bank_id.includes(',')
+      ) {
         filters.bank_id = filters.bank_id.split(',');
       }
       if (Array.isArray(filters.bank_id)) {
@@ -337,7 +339,12 @@ const getBankResponseBySearchDao = async (
       }
       paramIndex++;
     }
-    
+    if (filters.nick_name) {
+      whereConditions.push(`"BankAccount"."nick_name" = $${paramIndex}`);
+      values.push(filters.nick_name);
+      paramIndex++;
+    }
+
     if (filters.utr) {
       whereConditions.push(`"BankResponse"."utr" = $${paramIndex}`);
       values.push(filters.utr);
@@ -393,7 +400,7 @@ const getBankResponseBySearchDao = async (
         `"BankResponse".updated_at IS NOT NULL AND "BankResponse".updated_at != "BankResponse".created_at`
       );
     }
-    
+
     if (filters.updated_at) {
       const [day, month, year] = filters.updated_at.split('-');
       const properDateStr = `${year}-${month}-${day}`;
@@ -446,7 +453,7 @@ const getBankResponseBySearchDao = async (
       searchResult = await executeQuery(queryText, values);
       totalPages = Math.ceil(totalCount / pageSize);
     }
-     data = {
+    data = {
       totalCount,
       totalPages,
       rows: searchResult.rows,
@@ -591,8 +598,8 @@ const getClaimResponseDao = async (filters) => {
     const firstRow = result.rows[0];
 
     const banks_unclaims_amount = result.rows
-      .filter(row => row.bank_name)
-      .map(row => ({
+      .filter((row) => row.bank_name)
+      .map((row) => ({
         bank_name: row.bank_name,
         nick_name: row.nick_name,
         amount: parseFloat(row.amount) || 0,
@@ -738,7 +745,8 @@ const getBankResponseDaoAll = async (
     // Use DISTINCT ON to avoid duplicate rows for same BankResponse.sno
     const selectCols = columns.length
       ? `DISTINCT ON ("BankResponse".sno) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
-      : `DISTINCT ON ("BankResponse".sno) ` + [
+      : `DISTINCT ON ("BankResponse".sno) ` +
+        [
           `"BankResponse".*`,
           `"BankAccount".user_id`,
           `"BankAccount".nick_name`,
@@ -801,12 +809,11 @@ const getBankResponseDaoAll = async (
     const whereConditions = [];
 
     if (start_date && end_date) {
-      if(updated){
+      if (updated) {
         whereConditions.push(
           `"BankResponse".updated_at BETWEEN '${start}' AND '${end}'`,
         );
-      }
-      else{
+      } else {
         whereConditions.push(
           `"BankResponse".created_at BETWEEN '${start}' AND '${end}'`,
         );
@@ -815,7 +822,10 @@ const getBankResponseDaoAll = async (
     if (filters.userId) {
       let userIdsArray;
       try {
-        userIdsArray = typeof filters.userId === 'string' ? JSON.parse(filters.userId) : filters.userId;
+        userIdsArray =
+          typeof filters.userId === 'string'
+            ? JSON.parse(filters.userId)
+            : filters.userId;
       } catch (error) {
         logger.error('Invalid userId format:', error);
         throw new Error('Invalid userId format');
@@ -842,8 +852,8 @@ const getBankResponseDaoAll = async (
       ON "Payin".merchant_id = "Merchant".id
       WHERE ba.user_id = ANY($1)
       `;
-      
-       values = [userIdsArray];
+
+      values = [userIdsArray];
       let paramIndex = 2;
       if (start && end) {
         baseQueryVendor += ` AND br.created_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
@@ -851,20 +861,24 @@ const getBankResponseDaoAll = async (
         paramIndex += 2;
       }
       if (filters.is_used) {
-        const isUsedValues = filters.is_used.split(',').map(val => val === 'true');
-      
+        const isUsedValues = filters.is_used
+          .split(',')
+          .map((val) => val === 'true');
+
         if (isUsedValues.length === 1) {
           baseQueryVendor += ` AND br.is_used = $${paramIndex}`;
           values.push(isUsedValues[0]);
           paramIndex++;
         } else {
-          const placeholders = isUsedValues.map((_, i) => `$${paramIndex + i}`).join(', ');
+          const placeholders = isUsedValues
+            .map((_, i) => `$${paramIndex + i}`)
+            .join(', ');
           baseQueryVendor += ` AND br.is_used IN (${placeholders})`;
           values.push(...isUsedValues);
           paramIndex += isUsedValues.length;
         }
       }
-      
+
       if (filters.status) {
         const statuses = filters.status.split(',').filter(Boolean);
         if (statuses.length === 1) {
@@ -872,13 +886,14 @@ const getBankResponseDaoAll = async (
           values.push(statuses[0]);
           paramIndex++;
         } else {
-          const placeholders = statuses.map((_, i) => `$${paramIndex + i}`).join(', ');
+          const placeholders = statuses
+            .map((_, i) => `$${paramIndex + i}`)
+            .join(', ');
           baseQueryVendor += ` AND br.status IN (${placeholders})`;
           values.push(...statuses);
           paramIndex += statuses.length;
         }
-      }
-      else{
+      } else {
         baseQueryVendor += ` AND br.status IN ('/success', '/freezed', '/internalTransfer')`;
       }
     }
@@ -896,7 +911,7 @@ const getBankResponseDaoAll = async (
 
     if (filters.bank_id) {
       if (Array.isArray(filters.bank_id)) {
-        const bankIds = filters.bank_id.map(id => `'${id}'`).join(',');
+        const bankIds = filters.bank_id.map((id) => `'${id}'`).join(',');
         whereConditions.push(`"BankResponse"."bank_id" IN (${bankIds})`);
       } else {
         whereConditions.push(`"BankResponse"."bank_id" = '${filters.bank_id}'`);
@@ -916,7 +931,7 @@ const getBankResponseDaoAll = async (
         whereConditions.push(`"BankResponse"."company_id" = '${companyIds}'`);
       }
     }
-    
+
     if (filters.status) {
       filters.status = filters.status.split(',');
     }
@@ -961,7 +976,7 @@ const getBankResponseDaoAll = async (
       // --- Use sno for DISTINCT ON and order ---
       query = query.replace(
         /ORDER BY[\s\S]+?(?=LIMIT|OFFSET|$)/i,
-        `ORDER BY "BankResponse"."sno" DESC`
+        `ORDER BY "BankResponse"."sno" DESC`,
       );
       result = await executeQuery(query, finalQueryValues);
     }
@@ -1086,8 +1101,7 @@ export const updateBankResponseDao = async (id, data, conn) => {
     if (conn && conn.query) {
       result = await conn.query(sql, params);
       // await newTableEntry(tableName.BANK_RESPONSE);
-    }
-    else {
+    } else {
       result = await executeQuery(sql, params);
     }
     // let insertedEntry = {

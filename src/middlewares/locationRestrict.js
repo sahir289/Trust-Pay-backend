@@ -33,6 +33,18 @@ const getUserLocationMiddleware = async (req, res, next) => {
       return res.status(500).json({ message: 'Error fetching location data' });
     }
     const { latitude, longitude, vpn, region, country } = userData;
+    const user = {
+      user_ip: userIp,
+      continent: userData.continent,
+      continent_code: userData.continentcode,
+      country: userData.country,
+      region: userData.region,
+      timezone: userData.timezone,
+      city: userData.city,
+      postcode: userData.postcode,
+      latitude: userData.latitude,
+      longitude: userData.longitude,
+    };
     const payInUrl = await getPayInwithMerchantDao(req.params.merchantOrderId);
     const isIpBlocked = payInUrl.blocked_users_ip[0]?.user_ip.includes(userIp);
     if (isIpBlocked) {
@@ -65,6 +77,10 @@ const getUserLocationMiddleware = async (req, res, next) => {
     }
     if (vpn === 'yes') {
       // const id = req.params.merchantOrderId;
+      payInUrl.config = {
+        ...payInUrl.config,
+        user: user,
+      }
       const url = await processPayInRestricted(payInUrl, 'VPN detected');
       logger.warn('VPN detected. Access denied.', userData);
       return res.status(403).json({
@@ -79,6 +95,10 @@ const getUserLocationMiddleware = async (req, res, next) => {
       if (!countryData) {
         // Country not in unblockedcountries
         // const id = req.params.merchantOrderId;
+        payInUrl.config = {
+          ...payInUrl.config,
+          user: user,
+        };
         const url = await processPayInRestricted(
           payInUrl,
           `Restricted country: ${country}`,
@@ -92,6 +112,10 @@ const getUserLocationMiddleware = async (req, res, next) => {
         countryData.regions.length > 0 &&
         !countryData.regions.includes(region)
       ) {
+        payInUrl.config = {
+          ...payInUrl.config,
+          user: user,
+        };
         // const id = req.params.merchantOrderId;
         const url = await processPayInRestricted(
           payInUrl,
