@@ -25,7 +25,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22.x
-          # cache: 'npm' # Auto-caches node_modules based on package-lock.json
+          cache: 'npm' # Auto-caches node_modules based on package-lock.json
 
       - name: Bump Version
         run: |
