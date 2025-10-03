@@ -8,7 +8,14 @@ import { closePool } from './src/utils/db.js';
 import { closeRabbitMQ } from './src/utils/rabbitmq.js';
 import { startBankResponseWorker } from './src/worker/consume-bank-response-worker.js';
 import { closeRedis } from './src/utils/redisClient.js';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 // import { migrateUsersToES } from './src/elasticSearch/user/migrate.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(readFileSync(join(__dirname, 'package.json'), 'utf8'));
 
 const server = createServer(app);
 
@@ -52,6 +59,13 @@ const onListening = () => {
     `The server started listening on ${bind}`,
   );
   logger.log(styledServerMessage);
+  
+  // Log version information
+  const versionMessage = chalk.bold.green(
+    `Version: v${packageJson.version}`
+  );
+  logger.log(versionMessage);
+  
   const docsUrl = `http://localhost:${PORT}/v1/api-docs`;
   const styledMessage = chalk.bold.yellow(`API docs available at ${docsUrl}`);
   logger.log(styledMessage);
