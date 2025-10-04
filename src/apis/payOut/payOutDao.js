@@ -355,9 +355,9 @@ export const getAllPayoutsDao = async (
 
       conditions.push(
         `CASE 
-          WHEN u.status = 'APPROVED' THEN u.approved_at 
+          WHEN u.status = 'REJECTED' THEN u.rejected_at 
           WHEN u.status = 'PENDING' THEN u.updated_at 
-          WHEN u.status IN ('REJECTED', 'REVERSED') THEN u.rejected_at 
+          WHEN u.status IN ('APPROVED', 'REVERSED') THEN u.approved_at 
           ELSE u.updated_at 
         END BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
       );
