@@ -265,7 +265,7 @@ describe('Reports Service', () => {
       
       expect(getMerchantsDaoArray).toHaveBeenCalledWith('123', ['merchant1']);
       expect(getMerchantReportDao).toHaveBeenCalledWith('123', ['user1'], '2025-08-01', '2025-08-31', null, null, 'admin');
-      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' }]);
+      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' , user_id : "user1" }]);
     });
 
     it('should handle multiple merchant codes with spaces', async () => {
@@ -318,7 +318,7 @@ describe('Reports Service', () => {
       const result = await getClientsAccountReportService(mockReq);
       
       expect(getMerchantReportDao).toHaveBeenCalledWith('123', null, '2025-08-01', '2025-08-31', null, null, 'admin');
-      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' }]);
+      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' , user_id : "user1" }]);
     });
 
     it('should handle null/undefined code as all merchants', async () => {
@@ -332,7 +332,7 @@ describe('Reports Service', () => {
       const result = await getClientsAccountReportService(mockReq);
       
       expect(getMerchantReportDao).toHaveBeenCalledWith('123', null, '2025-08-01', '2025-08-31', null, null, 'admin');
-      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' }]);
+      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' , user_id : "user1" }]);
     });
 
     it('should handle invalid/empty codes array', async () => {
@@ -346,7 +346,7 @@ describe('Reports Service', () => {
       const result = await getClientsAccountReportService(mockReq);
       
       expect(getMerchantReportDao).toHaveBeenCalledWith('123', null, '2025-08-01', '2025-08-31', null, null, 'admin');
-      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' }]);
+      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' , user_id : "user1" }]);
     });
 
     it('should handle no merchants found for codes (treat as all merchants)', async () => {
@@ -362,7 +362,7 @@ describe('Reports Service', () => {
       
       expect(getMerchantsDaoArray).toHaveBeenCalledWith('123', ['nonexistent']);
       expect(getMerchantReportDao).toHaveBeenCalledWith('123', [], '2025-08-01', '2025-08-31', null, null, 'admin');
-      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' }]);
+      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01' , user_id : "user1" }]);
     });
 
     // 3. UUID handling
@@ -381,7 +381,7 @@ describe('Reports Service', () => {
       
       expect(getMerchantsDaoArray).not.toHaveBeenCalled();
       expect(getMerchantReportDao).toHaveBeenCalledWith('123', [userId], '2025-08-01', '2025-08-31', null, null, 'admin');
-      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: userId, created_at: '2025-08-01' }]);
+      expect(result).toEqual([{ code: 'merchant1', calculation_user_id: userId, created_at: '2025-08-01' , user_id : '123e4567-e89b-12d3-a456-426614174000' }]);
     });
 
     it('should handle mixed UUID and merchant codes', async () => {
@@ -532,7 +532,8 @@ describe('Reports Service', () => {
           code: 'merchant1', 
           calculation_user_id: 'user1', 
           created_at: '2025-08-01', 
-          amount: 1000 
+          amount: 1000 ,
+          user_id: 'user1'
         }
       ]);
       expect(logger.info).toHaveBeenCalledWith('No sub-merchants found for clubbing. Returning 1 merchant records as-is');
@@ -792,7 +793,7 @@ describe('Reports Service', () => {
       expect(getDesignationDao).toHaveBeenCalledWith({ id: 1 });
       expect(getUserHierarchysDao).not.toHaveBeenCalled(); // No hierarchy lookup for non-MERCHANT designation
       expect(result).toEqual([
-        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01', amount: 1000 }
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01', amount: 1000 , user_id: 'user1' }
       ]);
     });
 
@@ -816,7 +817,7 @@ describe('Reports Service', () => {
       expect(getDesignationDao).toHaveBeenCalledWith({ id: 1 });
       expect(getUserHierarchysDao).not.toHaveBeenCalled(); // No hierarchy lookup since designation is empty
       expect(result).toEqual([
-        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01', amount: 1000 }
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01', amount: 1000 , user_id: 'user1' }
       ]);
     });
 
@@ -840,7 +841,7 @@ describe('Reports Service', () => {
       expect(getUsersDao).toHaveBeenCalledWith({ company_id: '123', id: ['user1'] });
       expect(getUserHierarchysDao).toHaveBeenCalledWith({ user_id: ['user1'] });
       expect(result).toEqual([
-        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01', amount: 1000 }
+        { code: 'merchant1', calculation_user_id: 'user1', created_at: '2025-08-01', amount: 1000 , user_id: 'user1' }
       ]);
     });
 
@@ -1179,4 +1180,41 @@ describe('Reports Service', () => {
     });
 
   });
+  it('should return vendor report with sub-vendors for VENDOR role with hierarchy', async () => {
+  mockReq.query.role_name = Role.VENDOR;
+  mockReq.query.code = 'vendor1';
+  getVendorsDaoArray.mockResolvedValue([{ user_id: 'vendor1' }]);
+  getUsersDao.mockResolvedValue([{ id: 'vendor1', designation_id: 1 }]);
+  getDesignationDao.mockResolvedValue([{ designation: Role.VENDOR }]);
+  getUserHierarchysDao.mockResolvedValue([
+    { user_id: 'vendor1', config: { siblings: { sub_vendors: ['sub_vendor1', 'sub_vendor2'] } } }
+  ]);
+  getVendorReportDao.mockResolvedValue([
+    { code: 'vendor1', calculation_user_id: 'vendor1', created_at: '2025-08-01', amount: 1000, transactions: 5 },
+    { code: 'sub_vendor1', calculation_user_id: 'sub_vendor1', created_at: '2025-08-01', amount: 500, transactions: 2 },
+    { code: 'sub_vendor2', calculation_user_id: 'sub_vendor2', created_at: '2025-08-01', amount: 300, transactions: 1 }
+  ]);
+  dayjs.tz.mockReturnValue({
+    format: jest.fn().mockReturnValue('2025-08-01')
+  });
+
+  const result = await getClientsAccountReportService(mockReq);
+
+  expect(getVendorsDaoArray).toHaveBeenCalledWith('123', ['vendor1']);
+  expect(getUsersDao).toHaveBeenCalledWith({ company_id: '123', id: ['vendor1'] });
+  expect(getDesignationDao).toHaveBeenCalledWith({ id: 1 });
+  expect(getUserHierarchysDao).toHaveBeenCalledWith({ user_id: ['vendor1'] });
+  expect(getVendorReportDao).toHaveBeenCalledWith('123', ['vendor1', 'sub_vendor1', 'sub_vendor2'], '2025-08-01', '2025-08-31', null, null, 'admin');
+  expect(result).toEqual([
+    {
+      code: 'vendor1',
+      calculation_user_id: 'vendor1',
+      created_at: '2025-08-01',
+      user_id: 'vendor1',
+      amount: 1800,
+      transactions: 8
+    }
+  ]);
+  expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Built child-to-parent mapping'));
+});
 });
