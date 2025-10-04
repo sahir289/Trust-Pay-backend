@@ -520,6 +520,7 @@ const getClientsAccountReportService = async (req) => {
       } else {
         parentData.forEach((parent) => {
           parent.created_at = normalizeDate(parent.created_at);
+          parent.user_id = parent.calculation_user_id;
         });
         // No sub-merchants found, return all data as is with alphabetical sorting and date sorting
         result = parentData.sort((a, b) => {
@@ -879,6 +880,7 @@ const getClientsAccountReportService = async (req) => {
       } else {
         parentData.forEach((parent) => {
           parent.created_at = normalizeDate(parent.created_at);
+          parent.user_id = parent.calculation_user_id;
         });
         // No sub-vendors found, return all data as is with alphabetical sorting and date sorting
         result = parentData.sort((a, b) => {
