@@ -30,7 +30,7 @@ export async function startBankResponseWorker() {
         data.payload,
         data.x_auth_token,
         data.role,
-        null
+        data.name,
       );
       channel.ack(msg);
       logger.info('[Worker] Bank response processed successfully:', data);

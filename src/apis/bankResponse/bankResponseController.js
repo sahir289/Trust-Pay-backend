@@ -174,6 +174,7 @@ const createBankBotResponseBulk = async (req, res) => {
         payload,
         x_auth_token,
         role: Role.BOT,
+        name: 'Bank Response PDF',
       }).catch(() => {});
     }
   });

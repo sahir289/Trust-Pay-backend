@@ -25,7 +25,7 @@ export const publishBankResponse = async (responseData) => {
         responseData.payload,
         responseData.x_auth_token,
         responseData.role,
-        null,
+        responseData.name,
       );
     } else {
       logger.info('[RabbitMQ] Published to bankResponseQueue:', responseData);
@@ -38,7 +38,7 @@ export const publishBankResponse = async (responseData) => {
       responseData.payload,
       responseData.x_auth_token,
       responseData.role,
-      null,
+      responseData.name,
     );
     logger.error('[RabbitMQ] Publish failed:', err.message);
     throw err;
