@@ -1,14 +1,19 @@
 import { publishBankResponse, consumeBankResponses, startBankResponseWorker } from './rabbitmq-bank-response.js';
-import { getRabbitChannel } from './rabbitmq.js';
+import { getRabbitChannel, connectRabbitMQ, publishWithRetry } from './rabbitmq.js';
 import { logger } from './logger.js';
 import config from '../config/config.js';
+import { createBankResponseService } from '../apis/bankResponse/bankResponseServices.js';
 
 jest.mock('./rabbitmq.js');
 jest.mock('./logger.js', () => ({
   logger: {
     info: jest.fn(),
     error: jest.fn(),
+    warn: jest.fn(),
   },
+}));
+jest.mock('../apis/bankResponse/bankResponseServices.js', () => ({
+  createBankResponseService: jest.fn().mockResolvedValue(true),
 }));
 
 describe('RabbitMQ Helpers', () => {
@@ -22,8 +27,10 @@ describe('RabbitMQ Helpers', () => {
       consume: jest.fn(),
       ack: jest.fn(),
       nack: jest.fn(),
+      connection: { closed: false },
     };
-    getRabbitChannel.mockReturnValue(mockChannel);
+    getRabbitChannel.mockResolvedValue(mockChannel);
+    publishWithRetry.mockResolvedValue(true);
   });
 
   describe('publishBankResponse', () => {
@@ -31,8 +38,11 @@ describe('RabbitMQ Helpers', () => {
       const responseData = { id: 1, status: 'success' };
       const result = await publishBankResponse(responseData);
 
-      expect(mockChannel.assertQueue).toHaveBeenCalledWith(config.rabbitmq.bankResponseQueue, { durable: true });
-      expect(mockChannel.sendToQueue).toHaveBeenCalled();
+      expect(mockChannel.assertQueue).toHaveBeenCalledWith(
+        config.rabbitmq.bankResponseQueue,
+        { durable: true }
+      );
+      expect(publishWithRetry).toHaveBeenCalled(); // ✅ correct method
       expect(logger.info).toHaveBeenCalledWith(
         '[RabbitMQ] Published to bankResponseQueue:',
         responseData
@@ -40,20 +50,46 @@ describe('RabbitMQ Helpers', () => {
       expect(result).toBe(true);
     });
 
-    it('should log error if sendToQueue fails', async () => {
-      mockChannel.sendToQueue.mockReturnValue(false);
-      const responseData = { id: 2 };
+    it('should fallback to DB if publishWithRetry fails', async () => {
+      publishWithRetry.mockResolvedValue(false);
+      const responseData = { id: 2, payload: {}, x_auth_token: 'x', role: 'r' };
+
       await publishBankResponse(responseData);
 
+      expect(createBankResponseService).toHaveBeenCalledWith(
+        responseData.payload,
+        responseData.x_auth_token,
+        responseData.role,
+        null
+      );
       expect(logger.error).toHaveBeenCalledWith(
-        'Failed to publish bank response to RabbitMQ',
-        responseData
+        '[RabbitMQ] Failed to publish after retries, saving to DB fallback'
       );
     });
 
-    it('should throw if channel not initialized', async () => {
-      getRabbitChannel.mockReturnValue(null);
-      await expect(publishBankResponse({})).rejects.toThrow('RabbitMQ channel not initialized');
+    it('should reconnect if channel is closed', async () => {
+      mockChannel.connection.closed = true;
+      connectRabbitMQ.mockResolvedValue(mockChannel);
+      const responseData = { id: 3 };
+
+      await publishBankResponse(responseData);
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        'RabbitMQ channel closed, reconnecting...'
+      );
+      expect(connectRabbitMQ).toHaveBeenCalled();
+    });
+
+    it('should handle thrown errors and save to DB', async () => {
+      getRabbitChannel.mockRejectedValue(new Error('fail'));
+      const responseData = { payload: {}, x_auth_token: 'x', role: 'r' };
+
+      await expect(publishBankResponse(responseData)).rejects.toThrow('fail');
+      expect(logger.error).toHaveBeenCalledWith(
+        '[RabbitMQ] Publish failed:',
+        'fail'
+      );
+      expect(createBankResponseService).toHaveBeenCalled();
     });
   });
 

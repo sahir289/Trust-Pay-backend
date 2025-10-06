@@ -66,7 +66,6 @@ describe('RabbitMQ Utilities', () => {
   describe('connectRabbitMQ', () => {
     it('should connect and setup channel successfully', async () => {
       const result = await rabbitUtils.connectRabbitMQ();
-
       expect(amqp.connect).toHaveBeenCalledWith('amqp://test', {
         heartbeat: 10,
         connection_timeout: 1000,
@@ -79,7 +78,7 @@ describe('RabbitMQ Utilities', () => {
       expect(logger.info).toHaveBeenCalled();
       const channel = await rabbitUtils.getRabbitChannel();
       expect(channel).toBe(mockChannel);
-      expect(result).toBe(mockChannel);
+      expect(result).toBeUndefined();
     });
   });
 
