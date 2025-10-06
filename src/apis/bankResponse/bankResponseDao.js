@@ -264,7 +264,8 @@ const getBankResponseBySearchDao = async (
       SELECT ${selectCols}, 
         "BankResponse".created_at,
         "BankAccount".nick_name,
-        "Vendor".user_id AS vendor_user_id
+        "Vendor".user_id AS vendor_user_id,
+        "Vendor".code AS vendor_code
       FROM "BankResponse"
       JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
       LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
@@ -449,6 +450,7 @@ const getBankResponseBySearchDao = async (
       searchResult = await executeQuery(queryText, values);
       totalPages = Math.ceil(totalCount / pageSize);
     }
+    console.log('Search Result:', searchResult.rows);
     data = {
       totalCount,
       totalPages,
