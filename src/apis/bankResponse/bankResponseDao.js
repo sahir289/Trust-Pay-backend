@@ -450,7 +450,6 @@ const getBankResponseBySearchDao = async (
       searchResult = await executeQuery(queryText, values);
       totalPages = Math.ceil(totalCount / pageSize);
     }
-    console.log('Search Result:', searchResult.rows);
     data = {
       totalCount,
       totalPages,
