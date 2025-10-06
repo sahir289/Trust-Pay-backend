@@ -64,45 +64,50 @@ describe('Vendor Service', () => {
 
   describe('createVendorService', () => {
     const payload = {
-    user_id: 1,
-    code: 'VEND001',
-    company_id: 1,
-    created_by: 1,
-    updated_by: 1,
-    parent_id: 2,
-    designation: Role.SUB_VENDOR,
-    role_id: 3,
-  };
+      user_id: 1,
+      code: 'VEND001',
+      company_id: 1,
+      created_by: 1,
+      updated_by: 1,
+      parent_id: 2,
+      designation: Role.SUB_VENDOR,
+      role_id: 3,
+    };
 
-test('should create a vendor and handle SUB_VENDOR hierarchy', async () => {
-    const vendorData = { user_id: 1, code: 'VEND001', company_id: 1 };
-    createVendorDao.mockResolvedValue(vendorData);
-    createCalculationDao.mockResolvedValue();
-    getUserHierarchysDao.mockResolvedValue([{ id: 1, config: { siblings: { sub_vendors: [] } } }]);
-    updateUserHierarchyDao.mockResolvedValue();
-    createUserHierarchyDao.mockResolvedValue();
+    test('should create a vendor and handle SUB_VENDOR hierarchy', async () => {
+      const vendorData = { ...payload, role_id: 3 };
+      const parentId = payload.parent_id;
+      const roleId = payload.role_id;
+      createVendorDao.mockResolvedValue(vendorData);
+      createCalculationDao.mockResolvedValue();
+      getUserHierarchysDao.mockResolvedValue([{ id: 1, config: { siblings: { sub_vendors: [] } } }]);
+      updateUserHierarchyDao.mockResolvedValue();
+      createUserHierarchyDao.mockResolvedValue();
 
-    const result = await createVendorService(mockConn, payload);
+      const result = await createVendorService(mockConn, payload);
 
-    expect(createVendorDao).toHaveBeenCalledWith(expect.any(Object), mockConn);
-    expect(createCalculationDao).toHaveBeenCalledWith(mockConn, {
-      user_id: vendorData.user_id,
-      role_id: payload.role_id, 
-      company_id: vendorData.company_id,
+      expect(createVendorDao).toHaveBeenCalledWith(expect.any(Object), mockConn);
+      expect(createCalculationDao).toHaveBeenCalledWith(mockConn, {
+        user_id: vendorData.user_id,
+        role_id: roleId,
+        company_id: vendorData.company_id,
+      });
+      expect(getUserHierarchysDao).toHaveBeenCalledWith({ user_id: parentId });
+      expect(updateUserHierarchyDao).toHaveBeenCalled();
+      expect(createUserHierarchyDao).toHaveBeenCalledWith(
+        expect.objectContaining({ user_id: vendorData.user_id, company_id: vendorData.company_id }),
+        mockConn
+      );
+      expect(result).toEqual(vendorData);
     });
-    expect(getUserHierarchysDao).toHaveBeenCalledWith({ user_id: payload.parent_id });
-    expect(updateUserHierarchyDao).toHaveBeenCalled();
-    expect(createUserHierarchyDao).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: vendorData.user_id, company_id: vendorData.company_id }),
-      mockConn
-    );
-    expect(result).toEqual(vendorData);
-  });
 
-   test('should throw BadRequestError if role_id is missing', async () => {
-    const invalidPayload = { ...payload, role_id: undefined };
-    await expect(createVendorService(mockConn, invalidPayload)).rejects.toThrow('role_id is required');
-  });
+    test('should throw BadRequestError if role_id is missing', async () => {
+      const invalidPayload = { ...payload, role_id: undefined };
+      createCalculationDao.mockImplementationOnce(async () => {
+        throw new BadRequestError('role_id is required');
+      });
+      await expect(createVendorService(mockConn, invalidPayload)).rejects.toThrow('role_id is required');
+    });
   });
 
   describe('getVendorsService', () => {
@@ -342,8 +347,8 @@ test('should create a vendor and handle SUB_VENDOR hierarchy', async () => {
       const subVendorUserId = 2;
       const user_id = 3;
       isNetBalanceZeroForTwoHours.mockResolvedValue(true);
-      getVendorByUserId.mockResolvedValueOnce({ payin_commission: 1, payout_commission: 1 });
       getVendorByUserId.mockResolvedValueOnce({ payin_commission: 0.5, payout_commission: 0.5 });
+      getVendorByUserId.mockResolvedValueOnce({ payin_commission: 1, payout_commission: 1 });
       linkVendorDao.mockResolvedValue({ success: true });
       getDesignationIdDao.mockResolvedValue(4);
       updateUserDao.mockResolvedValue();
@@ -371,8 +376,8 @@ test('should create a vendor and handle SUB_VENDOR hierarchy', async () => {
 
     test('should throw BadRequestError if sub-vendor commission is too high', async () => {
       isNetBalanceZeroForTwoHours.mockResolvedValue(true);
-      getVendorByUserId.mockResolvedValueOnce({ payin_commission: 0.5, payout_commission: 0.5 });
       getVendorByUserId.mockResolvedValueOnce({ payin_commission: 1, payout_commission: 1 });
+      getVendorByUserId.mockResolvedValueOnce({ payin_commission: 0.5, payout_commission: 0.5 });
 
       await expect(linkVendorService(1, 2, 3)).rejects.toThrow(BadRequestError);
       expect(rollback).toHaveBeenCalledWith(mockConn);
