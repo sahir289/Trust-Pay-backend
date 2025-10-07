@@ -24,6 +24,7 @@ import {
   updatePayInUrlDao,
   getPayInForCheckStatusDao,
   getPayInForCheckDao,
+  getPayInForDuplicate,
   getPayinsForServiccDao,
   // getPayInUrlDao,
   // getPayInUrlsDao,
@@ -1421,7 +1422,7 @@ export const processPayInService = async (
     const vendor = vendors[0];
 
     const duration = calculateDuration(payIn.created_at);
-    const otherPayIns = await getPayInForCheckDao({
+    const otherPayIns = await getPayInForDuplicate({
       user_submitted_utr: userSubmittedUtr,
       company_id: payIn.company_id,
     });

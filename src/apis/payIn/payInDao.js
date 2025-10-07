@@ -1926,6 +1926,20 @@ export const getPayInForCheckDao = async (filters = {}) => {
     throw error;
   }
 };
+export const getPayInForDuplicate = async (filters = {}) => {
+  try {
+    const [sql, params] = buildSelectQuery(
+      `SELECT id FROM "${tableName.PAYIN}" WHERE status != 'DUPLICATE' AND is_obsolete = false`,
+      filters,
+      // , page, limit
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error getting PayIn URLs:', error);
+    throw error;
+  }
+};
 
 export const updatePayInUrlDao = async (id, data, conn,
   // Adddata
