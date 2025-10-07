@@ -60,7 +60,7 @@ describe('RabbitMQ Helpers', () => {
         responseData.payload,
         responseData.x_auth_token,
         responseData.role,
-        null
+        undefined
       );
       expect(logger.error).toHaveBeenCalledWith(
         '[RabbitMQ] Failed to publish after retries, saving to DB fallback'

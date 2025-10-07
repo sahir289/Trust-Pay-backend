@@ -8,6 +8,11 @@ import {
   getVendorById,
   updateVendor,
   deleteVendor,
+  getBankResponseAccessByID,
+  getVendorByCode,
+  linkVendor,
+  unlinkVendor,
+  transferVendor,
 } from './vendorController.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
@@ -17,8 +22,13 @@ import {
   getVendorsService,
   updateVendorService,
   getVendorsBySearchService,
+  getBankResponseAccessByIDService,
+  getVendorsByCodeService,
+  linkVendorService,
+  unlinkVendorService,
+  transferVendorService,
 } from './vendorService.js';
-import { ValidationError } from '../../utils/appErrors.js';
+import { ValidationError, BadRequestError } from '../../utils/appErrors.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { VALIDATE_VENDOR_SCHEMA, VALIDATE_VENDOR_BY_ID, VALIDATE_UPDATE_VENDOR_STATUS } from '../../schemas/vendorSchema.js';
 
@@ -33,6 +43,11 @@ jest.mock('./vendorService.js', () => ({
   getVendorsCodeService: jest.fn(),
   updateVendorService: jest.fn(),
   deleteVendorService: jest.fn(),
+  getBankResponseAccessByIDService: jest.fn(),
+  getVendorsByCodeService: jest.fn(),
+  linkVendorService: jest.fn(),
+  unlinkVendorService: jest.fn(),
+  transferVendorService: jest.fn(),
 }));
 
 jest.mock('../../utils/db.js', () => ({
@@ -44,6 +59,20 @@ jest.mock('../../schemas/vendorSchema.js', () => ({
   VALIDATE_VENDOR_BY_ID: { validate: jest.fn() },
   VALIDATE_UPDATE_VENDOR_STATUS: { validate: jest.fn() },
 }));
+
+jest.mock('../../utils/logger.js', () => ({
+  logger: {
+    log: jest.fn(),
+  },
+}));
+jest.mock('../../middlewares/auth.js', () => ({
+  isAuthenticated: (req, res, next) => {
+    req.user = { id: 1, role: 'VENDOR' }; // mock a logged-in user
+    next();
+  },
+  authorized: () => (req, res, next) => next(),
+}));
+
 
 describe('Vendor Controller', () => {
   let app;
@@ -80,6 +109,25 @@ describe('Vendor Controller', () => {
       req.user = { company_id: 'comp1', user_id: 'user1', role: 'admin', user_name: 'TestUser' };
       return deleteVendor(req, res, next);
     });
+    app.get('/vendors/bank-response/:id', (req, res, next) => {
+      req.user = { designation: 'OPERATIONS' };
+      return getBankResponseAccessByID(req, res, next);
+    });
+    app.get('/vendors/get-vendor-by-code', (req, res, next) => {
+      return getVendorByCode(req, res, next);
+    });
+    app.post('/vendors/link', (req, res, next) => {
+      req.user = { user_id: 'user1' };
+      return linkVendor(req, res, next);
+    });
+    app.post('/vendors/unlink', (req, res, next) => {
+      req.user = { user_id: 'user1' };
+      return unlinkVendor(req, res, next);
+    });
+    app.post('/vendors/transfer', (req, res, next) => {
+      req.user = { user_id: 'user1' };
+      return transferVendor(req, res, next);
+    });
 
     // Error-handling middleware to catch unhandled errors
     app.use((err, req, res) => {
@@ -100,11 +148,11 @@ describe('Vendor Controller', () => {
       VALIDATE_VENDOR_SCHEMA.validate.mockReturnValue({ error: null });
       createVendorService.mockResolvedValue({ id: 'vendor1' });
       const payload = {
-        company_id: 'comp1',
-        created_by: 'user1',
+        company_id: "comp1",
+        created_by: "user1",
         name: 'Vendor A',
         status: 'active',
-        updated_by: 'user1',
+        updated_by: "user1"
       };
 
       const res = await request(app).post('/vendors/create-vendor').send(payload);
@@ -112,9 +160,8 @@ describe('Vendor Controller', () => {
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ data: { id: 'vendor1' }, message: 'Vendor created successfully' });
       expect(VALIDATE_VENDOR_SCHEMA.validate).toHaveBeenCalledWith(payload);
-      expect(createVendorService).toHaveBeenCalledWith({ 
-        name: 'Vendor A',
-        status: 'active',
+      expect(createVendorService).toHaveBeenCalledWith({
+        ...payload,
         company_id: 'comp1',
         created_by: 'user1',
         updated_by: 'user1'
@@ -211,11 +258,11 @@ describe('Vendor Controller', () => {
   describe('getVendorById', () => {
     test('should fetch vendor by ID successfully', async () => {
       VALIDATE_VENDOR_BY_ID.validate.mockReturnValue({ error: null });
-      const mockData = { id: 'vendor1', name: 'Vendor A', status: 'active' , designation : 'VENDOR_OPERATIONS'};
+      const mockData = { id: 'vendor1', name: 'Vendor A', status: 'active', designation: 'VENDOR_OPERATIONS' };
       getVendorsService.mockResolvedValue(mockData);
-    
+
       const res = await request(app).get('/vendors/vendor1');
-    
+
       expect(res.status).toBe(200);
       expect(res.body).toEqual({
         data: mockData,
@@ -232,7 +279,7 @@ describe('Vendor Controller', () => {
       );
       expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), mockData, 'Vendor fetched successfully');
     });
-    
+
 
     test('should throw ValidationError for invalid vendor ID', async () => {
       const req = {
@@ -259,7 +306,7 @@ describe('Vendor Controller', () => {
       VALIDATE_VENDOR_BY_ID.validate.mockReturnValue({ error: null });
       VALIDATE_UPDATE_VENDOR_STATUS.validate.mockReturnValue({ error: null });
       updateVendorService.mockResolvedValue({ id: 'vendor1' });
-      const payload = { name: 'Vendor B', status: 'inactive', updated_by: 'user1' };
+      const payload = { name: 'Vendor B', status: 'inactive', updated_by: "user1" };
 
       const res = await request(app).put('/vendors/update-vendor/vendor1').send(payload);
 
@@ -328,5 +375,93 @@ describe('Vendor Controller', () => {
       expect(deleteVendorService).toHaveBeenCalledWith({ company_id: 'comp1', user_id: 'user1' }, 'user1');
       expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), { id: 'user1', deleted_by: 'TestUser' }, 'Vendor deleted successfully');
     });
+  });
+
+  describe('getBankResponseAccessByID', () => {
+    test('should fetch bank response access by ID successfully', async () => {
+      VALIDATE_VENDOR_BY_ID.validate.mockReturnValue({ error: null });
+      getBankResponseAccessByIDService.mockResolvedValue({ bank_response_access: 'true' });
+
+      const res = await request(app).get('/vendors/bank-response/vendor1');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        data: { bank_response_access: 'true' },
+        message: 'Bank response access fetched successfully'
+      });
+      expect(VALIDATE_VENDOR_BY_ID.validate).toHaveBeenCalledWith({ id: 'vendor1' });
+      expect(getBankResponseAccessByIDService).toHaveBeenCalledWith('vendor1', 'OPERATIONS');
+      expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), { bank_response_access: 'true' }, 'Bank response access fetched successfully');
+    });
+
+    test('should throw ValidationError for invalid vendor ID', async () => {
+      const req = {
+        params: { id: 'invalid' },
+        user: { designation: 'OPERATIONS' },
+      };
+      const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+      };
+
+      VALIDATE_VENDOR_BY_ID.validate.mockReturnValue({
+        error: { details: [{ message: '"id" must be a valid UUID' }] },
+      });
+
+      await expect(getBankResponseAccessByID(req, res)).rejects.toThrow(ValidationError);
+      expect(VALIDATE_VENDOR_BY_ID.validate).toHaveBeenCalledWith(req.params);
+      expect(getBankResponseAccessByIDService).not.toHaveBeenCalled();
+    });
+
+    test('should throw BadRequestError if no params', async () => {
+      const req = { params: null, user: { designation: 'OPERATIONS' } };
+      const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+
+      await expect(getBankResponseAccessByID(req, res)).rejects.toThrow(BadRequestError);
+    });
+  });
+
+  describe('linkVendor', () => {
+    test('should link vendor successfully', async () => {
+      linkVendorService.mockResolvedValue({ id: 'vendor1' });
+      const payload = { vendorUserId: 'vendor1', subVendorUserId: 'sub1' };
+
+      const res = await request(app).post('/vendors/link').send(payload);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ data: { id: 'vendor1' }, message: 'Vendor linked successfully' });
+      expect(linkVendorService).toHaveBeenCalledWith('vendor1', 'sub1', 'user1');
+      expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), { id: 'vendor1' }, 'Vendor linked successfully');
+    });
+
+  });
+
+  describe('unlinkVendor', () => {
+    test('should unlink vendor successfully', async () => {
+      unlinkVendorService.mockResolvedValue({ id: 'vendor1' });
+      const payload = { vendorUserId: 'vendor1', subVendorUserId: 'sub1' };
+
+      const res = await request(app).post('/vendors/unlink').send(payload);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ data: { id: 'vendor1' }, message: 'Vendor unlinked successfully' });
+      expect(unlinkVendorService).toHaveBeenCalledWith('vendor1', 'sub1', 'user1');
+      expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), { id: 'vendor1' }, 'Vendor unlinked successfully');
+    });
+  });
+
+  describe('transferVendor', () => {
+    test('should transfer vendor successfully', async () => {
+      transferVendorService.mockResolvedValue({ id: 'newVendor1' });
+      const payload = { subVendorUserId: 'sub1', newVendorUserId: 'newVendor1', currentVendorUserId: 'oldVendor1' };
+
+      const res = await request(app).post('/vendors/transfer').send(payload);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ data: { id: 'newVendor1' }, message: 'Vendor transferred successfully' });
+      expect(transferVendorService).toHaveBeenCalledWith('sub1', 'newVendor1', 'oldVendor1', 'user1');
+      expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), { id: 'newVendor1' }, 'Vendor transferred successfully');
+    });
+
   });
 });
