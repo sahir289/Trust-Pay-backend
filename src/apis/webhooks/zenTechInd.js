@@ -30,7 +30,7 @@ export const zenTechIndWebhook = async (req, res) => {
     const utrAlreadyExist = await getBankResponseByUTR(payload.userSubmittedUtr);
 
     if (utrAlreadyExist) {
-      logger.warn('Duplicate UTR received in ZenTechInd webhook:', payload.userSubmittedUtr);
+      logger.warn('Duplicate UTR received in ZenTechInd webhook:', payload);
       return;
     }
 
