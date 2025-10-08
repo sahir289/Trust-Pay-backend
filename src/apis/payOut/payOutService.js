@@ -1531,8 +1531,7 @@ const checkPayOutStatusService = async (
       id: payOutId,
       merchant_order_id: merchantOrderId,
     });
-
-    if (!payOut) {
+    if (payOut.length == 0) {
       const data = {
         status: 404,
         message: 'Payout not found',
