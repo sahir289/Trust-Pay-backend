@@ -9,7 +9,7 @@ import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
 
 export const zenTechIndWebhook = async (req, res) => {
   try {
-    sendSuccess(res, 200, 'Webhook received successfully');
+    sendSuccess(res, {}, 'Webhook received successfully');
     const body = req.body?.transaction;
     const hash = generateHash(body);
     if (hash !== body.hash) {
