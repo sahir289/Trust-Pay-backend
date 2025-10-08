@@ -1211,6 +1211,8 @@ export const getPayinsWithoutHistoryDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payin_vendor_commission,
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code`;
     } else if (role === 'ADMIN' && designation === 'ADMIN') {
       commissionSelect = `
@@ -1224,6 +1226,8 @@ export const getPayinsWithoutHistoryDao = async (
         p.merchant_order_id,
         p.config AS payin_details,
         p.payin_vendor_commission,
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code,
         v.user_id AS vendor_user_id,
         p.upi_short_code,
@@ -1529,6 +1533,8 @@ export const getPayinsWithHistoryDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payin_vendor_commission,
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code`;
     } else if (role === 'ADMIN' && designation === 'ADMIN') {
       commissionSelect = `
@@ -1542,6 +1548,8 @@ export const getPayinsWithHistoryDao = async (
         p.merchant_order_id,
         p.config AS payin_details,
         p.payin_vendor_commission,
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code,
         v.user_id AS vendor_user_id,
         p.upi_short_code,

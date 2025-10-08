@@ -37,17 +37,50 @@ export const getVendorCodeDao = async (id) => {
 
 export const getVendorsBankReponseDao = async (filters = {}) => {
   try {
-    const selectColumns = `
-      id,
-      user_id,
-      code,
-      balance,
-      payin_commission
+    let sql = `
+      SELECT 
+        v.id,
+        v.user_id,
+        v.code,
+        v.balance,
+        v.payin_commission,
+        v.config,
+        d.designation
+      FROM "${tableName.VENDOR}" v 
+      JOIN "${tableName.USER}" u ON v.user_id = u.id 
+      LEFT JOIN "${tableName.DESIGNATION}" d ON u.designation_id = d.id 
+      WHERE v.is_obsolete = false AND u.is_obsolete = false
     `;
-    const [sql, params] = buildSelectQuery(
-      `SELECT ${selectColumns} FROM "${tableName.VENDOR}" WHERE 1=1`,
-      filters,
-    );
+    
+    const params = [];
+    let paramIndex = 1;
+    
+    // Handle filters manually
+    if (filters.user_id) {
+      if (Array.isArray(filters.user_id)) {
+        sql += ` AND v.user_id = ANY($${paramIndex})`;
+        params.push(filters.user_id);
+      } else {
+        sql += ` AND v.user_id = $${paramIndex}`;
+        params.push(filters.user_id);
+      }
+      paramIndex++;
+    }
+    
+    if (filters.company_id) {
+      sql += ` AND v.company_id = $${paramIndex}`;
+      params.push(filters.company_id);
+      paramIndex++;
+    }
+    
+    if (filters.code) {
+      sql += ` AND v.code = $${paramIndex}`;
+      params.push(filters.code);
+      paramIndex++;
+    }
+    
+    sql += ` ORDER BY v.created_at DESC`;
+    
     const result = await executeQuery(sql, params);
     return result.rows || [];
   } catch (error) {
@@ -55,6 +88,7 @@ export const getVendorsBankReponseDao = async (filters = {}) => {
     throw error;
   }
 };
+
 export const getVendorsDashBoardReportDao = async (filters = {}) => {
   try {
     const selectColumns = `
@@ -784,6 +818,7 @@ export const linkVendorDao = async (vendorUserId, subVendorUserId, user_id) => {
       let vendorConfig = fetchVendorConfigResult.rows[0]?.config || {};
       const subCode = `${newVendorCode}(${fetchVendorConfigResult.rows[0]?.code})`;
       vendorConfig.sub_code = subCode;
+      vendorConfig.parent = vendorUserId;
       const updateVendorConfigSql = `UPDATE "${tableName.VENDOR}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
       await executeQuery(updateVendorConfigSql, [vendorConfig, user_id, subVendorUserId]);
     }
@@ -821,6 +856,7 @@ export const unlinkVendorDao = async (vendorUserId, subVendorUserId, user_id) =>
     if ('sub_code' in subVendorConfig) {
       // Remove sub_code key using delete operator
       delete subVendorConfig.sub_code;
+      delete subVendorConfig.parent;
       const updateVendorSql = `UPDATE "${tableName.VENDOR}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
       await executeQuery(updateVendorSql, [subVendorConfig, user_id, subVendorUserId]);
     }
@@ -871,7 +907,8 @@ export const transferVendorDao = async (vendorUserId, newVendorUserId, currentVe
       let vendorConfig = fetchVendorConfigResult.rows[0]?.config || {};
       const subCode = `${newVendorCode}(${fetchVendorConfigResult.rows[0]?.code})`;
       vendorConfig.sub_code = subCode;
-      const updateVendorConfigSql = `UPDATE "${tableName.VENDOR}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
+      vendorConfig.parent = newVendorUserId;
+      const updateVendorConfigSql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
       await executeQuery(updateVendorConfigSql, [vendorConfig, user_id, vendorUserId]);
     }
 
