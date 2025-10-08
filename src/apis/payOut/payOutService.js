@@ -1509,7 +1509,7 @@ const checkPayOutStatusService = async (
     if (!merchant) {
       const data = {
         status: 400,
-        message: 'Merchant Order ID already exists',
+        message: 'Merchant does not exist',
       };
       return data;
     }
@@ -1545,7 +1545,7 @@ const checkPayOutStatusService = async (
       const data = {
         status: 404,
         message:
-          'merchant_order_id and payIn ID do not belong to the specified merchant',
+          'merchant_order_id and payOut ID do not belong to the specified merchant',
       };
       return data;
     }
