@@ -545,7 +545,7 @@ const getMerchantReportDao = async (
         c.total_reverse_payout_count, 
         c.total_reverse_payout_amount,
         c.total_reverse_payout_commission, 
-        (c.total_adjustment_amount + c.total_adjustment_commission) AS adjustment_amount_combined, 
+        c.total_adjustment_amount,  
         c.company_id,
         m.code
         ${role === Role.ADMIN ? ', m.user_id AS merchant_user_id' : ''}
