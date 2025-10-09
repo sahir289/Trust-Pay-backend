@@ -857,6 +857,7 @@ export const unlinkVendorDao = async (vendorUserId, subVendorUserId, user_id) =>
       // Remove sub_code key using delete operator
       delete subVendorConfig.sub_code;
       delete subVendorConfig.parent;
+      delete subVendorConfig?.is_owned;
       const updateVendorSql = `UPDATE "${tableName.VENDOR}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
       await executeQuery(updateVendorSql, [subVendorConfig, user_id, subVendorUserId]);
     }
