@@ -24,6 +24,7 @@ import {
   updatePayInUrlDao,
   getPayInForCheckStatusDao,
   getPayInForCheckDao,
+  getPayInForDuplicate,
   getPayinsForServiccDao,
   // getPayInUrlDao,
   // getPayInUrlsDao,
@@ -1425,8 +1426,16 @@ export const processPayInService = async (
     } = payload;
     // validate payIn
     // throw error if not exist or expires
+    const orderid = merchantOrderId;
+    await checkLockEdit(conn, orderid);
     const payIn = await getPayInUrlService(merchantOrderId, conn, tele_check);
-
+    if (
+      Object.keys(payIn).length === 2 &&
+      'error' in payIn &&
+      'result' in payIn
+    ) {
+      return payIn;
+    }
     if (
       (payIn.one_time_used === true || payIn.is_url_expires === true) &&
       tele_check
@@ -1454,7 +1463,7 @@ export const processPayInService = async (
     const vendor = vendors[0];
 
     const duration = calculateDuration(payIn.created_at);
-    const otherPayIns = await getPayInForCheckDao({
+    const otherPayIns = await getPayInForDuplicate({
       user_submitted_utr: userSubmittedUtr,
       company_id: payIn.company_id,
     });
@@ -2527,7 +2536,7 @@ export const disputeDuplicateTransactionService = async (
         merchantOrderId: merchantOrderId,
         payinId: payInData.id,
         amount: toAmount,
-        req_amount: payInData.amount,
+        req_amount: newStatus === Status.SUCCESS ? toAmount : payInData.amount,
         utr_id: bankResponse.utr,
       });
     }
@@ -2595,7 +2604,7 @@ export const disputeDuplicateTransactionService = async (
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
       amount: toAmount,
-      req_amount: payIn.amount,
+      req_amount:updatePayload.status === Status.SUCCESS ? toAmount : payIn.amount,
       utr_id: bankResponse.utr,
     });
 
