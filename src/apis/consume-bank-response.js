@@ -26,6 +26,7 @@ router.post('/consume-bank-response', async (req, res) => {
           data.payload,
           data.x_auth_token,
           data.role,
+          data.name,
         );
 
         channel.ack(msg);

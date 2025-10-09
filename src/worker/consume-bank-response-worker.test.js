@@ -51,7 +51,7 @@ describe('startBankResponseWorker', () => {
       { id: 1 },
       'token',
       'admin',
-      null
+      undefined
     );
     expect(mockChannel.ack).toHaveBeenCalledWith(message);
     expect(logger.info).toHaveBeenCalledWith(

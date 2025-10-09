@@ -26,6 +26,7 @@ import {
   transferVendorDao,
   getDesignationIdDao,
   isNetBalanceZeroForTwoHours,
+  getVendorByUserId,
 } from './vendorDao.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 import { updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
@@ -429,6 +430,20 @@ const deleteVendorService = async (ids, updated_by) => {
           await updateUserDao({ id: userId }, payload, conn);
         }
       }
+      if (UserHierarchy[0]?.config?.siblings?.sub_vendors) {
+        const userIds = UserHierarchy[0].config.siblings.sub_vendors;
+        for (const userId of userIds) {
+          const vendorDesignationId = await getDesignationIdDao(
+            Role.VENDOR,
+            conn,
+          );
+          await updateUserDao(
+            { id: userId },
+            { designation_id: vendorDesignationId, updated_by: updated_by },
+            conn,
+          );
+        }
+      }
     }
     // await notifyAdminsAndUsers({
     //   conn,
@@ -470,9 +485,14 @@ const deleteVendorService = async (ids, updated_by) => {
   }
 };
 
-const getBankResponseAccessByIDService = async (id) => {
+const getBankResponseAccessByIDService = async (id, designation) => {
   try {
-    const data = await getBankResponseAccessByIDDao(id);
+    let userId = id;
+    if (designation === Role.VENDOR_OPERATIONS) {
+      const [userHierarchys] = await getUserHierarchysDao({ user_id: id });
+      userId = userHierarchys?.config?.parent || id;
+    }
+    const data = await getBankResponseAccessByIDDao(userId);
     return data;
   } catch (error) {
     logger.error('Error while fetching bank response access', error);
@@ -502,8 +522,16 @@ const linkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
     conn = await getConnection();
     await beginTransaction(conn);
     if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
+      throw new BadRequestError('Vendor net balance must be zero to link.');
+    }
+    const sub = await getVendorByUserId(subVendorUserId);
+    const parent = await getVendorByUserId(vendorUserId);
+    if (
+      sub.payin_commission > parent.payin_commission &&
+      sub.payout_commission > parent.payout_commission
+    ) {
       throw new BadRequestError(
-        'Vendor net balance must be zero for more than 2 hours to link.',
+        'Sub Vendor commission must be less than or equal to Parent Vendor commission.',
       );
     }
     const result = await linkVendorDao(vendorUserId, subVendorUserId, user_id);
@@ -548,11 +576,13 @@ const unlinkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
     conn = await getConnection();
     await beginTransaction(conn);
     if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
-      throw new BadRequestError(
-        'Vendor net balance must be zero for more than 2 hours to link.',
-      );
+      throw new BadRequestError('Vendor net balance must be zero to unlink.');
     }
-    const result = await unlinkVendorDao(vendorUserId, subVendorUserId, user_id);
+    const result = await unlinkVendorDao(
+      vendorUserId,
+      subVendorUserId,
+      user_id,
+    );
     // Change designation to VENDOR in user table using DAO
     const vendorDesignationId = await getDesignationIdDao(Role.VENDOR, conn);
     if (vendorDesignationId) {
@@ -596,15 +626,23 @@ const transferVendorService = async (
     conn = await getConnection();
     await beginTransaction(conn);
     if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
+      throw new BadRequestError('Vendor net balance must be zero to transfer.');
+    }
+    const sub = await getVendorByUserId(subVendorUserId);
+    const parent = await getVendorByUserId(newVendorUserId);
+    if (
+      sub.payin_commission > parent.payin_commission &&
+      sub.payout_commission > parent.payout_commission
+    ) {
       throw new BadRequestError(
-        'Vendor net balance must be zero for more than 2 hours to link.',
+        'Sub Vendor commission must be less than or equal to Parent Vendor commission.',
       );
     }
     const result = await transferVendorDao(
       subVendorUserId,
       newVendorUserId,
       currentVendorUserId,
-      user_id
+      user_id,
     );
     await commit(conn);
     return result;

@@ -1,34 +1,50 @@
-import { getRabbitChannel } from './rabbitmq.js';
+import { connectRabbitMQ, getRabbitChannel, publishWithRetry } from './rabbitmq.js';
 import config from '../config/config.js';
 import { Buffer } from 'buffer';
 import { logger } from './logger.js';
 import { createBankResponseService } from '../apis/bankResponse/bankResponseServices.js';
-
 // Publish a bank response to the dedicated queue
 export const publishBankResponse = async (responseData) => {
+  const queue = config.rabbitmq.bankResponseQueue;
+  const message = Buffer.from(JSON.stringify(responseData));
+
   try {
-    const channel = await getRabbitChannel();
-    if (!channel) throw new Error('RabbitMQ channel not initialized');
-    const queue = config.rabbitmq.bankResponseQueue;
-    await channel.assertQueue(queue, { durable: true });
-    const message = Buffer.from(JSON.stringify(responseData));
-    const result = channel.sendToQueue(queue, message, { persistent: true });
-    logger.info(`[RabbitMQ] Published to bankResponseQueue:`, responseData);
-    if (!result) {
-      logger.error('Failed to publish bank response to RabbitMQ', responseData);
+    let channel = await getRabbitChannel();
+
+    if (!channel || channel.connection.closed) {
+      logger.warn('RabbitMQ channel closed, reconnecting...');
+      channel = await connectRabbitMQ();
     }
-    return result;
+
+    await channel.assertQueue(queue, { durable: true });
+    const published = await publishWithRetry(channel, queue, message, config.rabbitmq.retryAttempts);
+
+    if (!published) {
+      logger.error('[RabbitMQ] Failed to publish after retries, saving to DB fallback');
+      await createBankResponseService(
+        responseData.payload,
+        responseData.x_auth_token,
+        responseData.role,
+        responseData.name,
+      );
+    } else {
+      logger.info('[RabbitMQ] Published to bankResponseQueue:', responseData);
+    }
+
+    return published;
+
   } catch (err) {
     await createBankResponseService(
       responseData.payload,
       responseData.x_auth_token,
       responseData.role,
-      null,
+      responseData.name,
     );
-    logger.error('[RabbitMQ] Publish failed:', err);
+    logger.error('[RabbitMQ] Publish failed:', err.message);
     throw err;
   }
 };
+
 
 // Consume bank responses from the queue
 export const consumeBankResponses = async (callback) => {

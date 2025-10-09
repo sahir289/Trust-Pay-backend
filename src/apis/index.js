@@ -25,8 +25,9 @@ import checkUtr from './checkutr/index.js';
 import common from './common/index.js';
 import beneficiaryAccounts from './beneficiaryAccounts/index.js';
 import consumeBankResponseRouter from './consume-bank-response.js';
-import dashboardReport from './dashboardReport/index.js'
-import webhooks  from './webhooks/index.js';
+import dashboardReport from './dashboardReport/index.js';
+import webhooks from './webhooks/index.js';
+import { getVersion } from '../../version.js';
 // import notifications from './notifications/index.js';
 
 const parentRouter = express.Router();
@@ -35,6 +36,7 @@ parentRouter.use('/v1', router);
 
 // Apply authorization middleware for specific routes
 router.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
+router.get('/version', getVersion);
 router.use('/payIn', payIn);
 router.use('/users', users);
 router.use('/merchants', merchants);

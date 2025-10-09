@@ -355,9 +355,9 @@ export const getAllPayoutsDao = async (
 
       conditions.push(
         `CASE 
-          WHEN u.status = 'APPROVED' THEN u.approved_at 
+          WHEN u.status = 'REJECTED' THEN u.rejected_at 
           WHEN u.status = 'PENDING' THEN u.updated_at 
-          WHEN u.status IN ('REJECTED', 'REVERSED') THEN u.rejected_at 
+          WHEN u.status IN ('APPROVED', 'REVERSED') THEN u.approved_at 
           ELSE u.updated_at 
         END BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
       );
@@ -615,7 +615,8 @@ export const getPayoutsBySearchDao = async (
       commissionSelect = `
         p.payout_vendor_commission, 
         v.code AS vendor_code,
-        p.config->>'method' AS payout_method
+        p.config->>'method' AS payout_method,
+        b.nick_name
       `;
     } else {
       commissionSelect = `
@@ -634,7 +635,8 @@ export const getPayoutsBySearchDao = async (
         v.user_id AS vendor_user_id,
         p.config AS payout_details,
         p.updated_at,
-        b.user_id, 
+        b.user_id,
+        b.nick_name,
         json_build_object(
           'merchant_code', COALESCE(m.config->>'sub_code', m.code),
           'return_url', m.config->>'return_url',
@@ -658,7 +660,6 @@ export const getPayoutsBySearchDao = async (
         p.utr_id, 
         p.rejected_reason,
         ${commissionSelect},
-        b.nick_name,
         json_build_object(
           'account_holder_name', p.acc_holder_name,
           'account_no', p.acc_no,
@@ -698,11 +699,31 @@ export const getPayoutsBySearchDao = async (
         paramIndex += statusArray.length;
       }
     }
+    if (filters.user_bank_details) {
+      const searchTerm = `%${filters.user_bank_details.trim()}%`;
+      queryText += `
+        AND (
+          LOWER(p.acc_holder_name) LIKE LOWER($${paramIndex})
+          OR LOWER(p.acc_no) LIKE LOWER($${paramIndex})
+          OR LOWER(p.ifsc_code) LIKE LOWER($${paramIndex})
+          OR LOWER(p.bank_name) LIKE LOWER($${paramIndex})
+        )
+      `;
+      queryParams.push(searchTerm);
+      paramIndex += 1;
+      delete filters.user_bank_details;
+    }
     if (filters.nick_name) {
       queryText += ` AND b.nick_name = $${paramIndex}`;
       queryParams.push(filters.nick_name);
       paramIndex += 1;
       delete filters.nick_name;
+    }
+    if (filters.txnid) {
+      queryText += ` AND (p.config->>'txnid') = $${paramIndex}`;
+      queryParams.push(filters.txnid);
+      paramIndex += 1;
+      delete filters.txnid;
     }
     // Handle search terms
     if (searchTerms.length > 0) {

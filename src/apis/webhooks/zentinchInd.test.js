@@ -14,6 +14,9 @@ jest.mock('../bankResponse/bankResponseServices');
 jest.mock('../payIn/payInDao');
 jest.mock('../payIn/payInService');
 jest.mock('../../zentechind/zentechInd');
+jest.mock('../../../version', () => ({
+  getVersion: jest.fn()
+}));
 
 describe('zenTechIndWebhook', () => {
   let req, res;

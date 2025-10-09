@@ -43,54 +43,72 @@ export const connectRabbitMQ = async (rabbitConfig = config.rabbitmq) => {
       connection = await amqp.connect(validatedConfig.url, connectionOptions);
       console.log('Connection established:', !!connection); // Debug
       channel = await connection.createChannel();
-      console.log('Channel created:', !!channel); // Debug
 
-      await channel.prefetch(validatedConfig.prefetchCount);
-      console.log('Prefetch set:', validatedConfig.prefetchCount); // Debug
-      await channel.assertExchange(validatedConfig.exchangeName, 'direct', { durable: true });
-      console.log('Exchange asserted:', validatedConfig.exchangeName); // Debug
-      await channel.assertQueue(validatedConfig.queueName, { durable: true });
-      console.log('Queue asserted:', validatedConfig.queueName); // Debug
-      await channel.bindQueue(validatedConfig.queueName, validatedConfig.exchangeName, validatedConfig.routingKey);
-      console.log('Queue bound:', validatedConfig.queueName, validatedConfig.exchangeName, validatedConfig.routingKey); // Debug
+      // Set prefetch count for better load balancing
+      await channel.prefetch(rabbitConfig.prefetchCount);
 
+      // Assert exchange and queue
+      await channel.assertExchange(rabbitConfig.exchangeName, 'direct', {
+        durable: true,
+      });
+      await channel.assertQueue(rabbitConfig.queueName, { durable: true });
+      await channel.bindQueue(
+        rabbitConfig.queueName,
+        rabbitConfig.exchangeName,
+        rabbitConfig.routingKey,
+      );
+
+      // Handle connection errors
       connection.on('error', (err) => {
         logger.error('RabbitMQ connection error:', err);
       });
 
       connection.on('close', () => {
-        const styledMessageError = chalk.underline.red('RabbitMQ connection closed');
+        reconnectRabbitMQ(); // attempt to reconnect
+        const styledMessageError = chalk.underline.red(
+          'RabbitMQ connection closed',
+        );
         logger.log(styledMessageError);
         channel = null;
         connection = null;
       });
-
-      const styledMessage = chalk.green(`RabbitMQ connected to ${validatedConfig.url} successfully`);
+      const styledMessage = chalk.green(
+        `RabbitMQ connected to ${rabbitConfig.url} successfully`,
+      );
       logger.info(styledMessage);
-      console.log('Returning channel:', !!channel); // Debug
-      return channel;
+      return;
     } catch (error) {
       retryCount++;
-      logger.error(`RabbitMQ connection attempt ${retryCount} failed:`, error.message);
-      console.log('Connection failed, retryCount:', retryCount, 'error:', error.message); // Debug
+      logger.error(
+        `RabbitMQ connection attempt ${retryCount} failed:`,
+        error.message,
+      );
 
       if (retryCount >= maxRetries) {
-        console.log('Max retries reached, throwing error'); // Debug
-        throw new Error(`Failed to connect to RabbitMQ after ${maxRetries} attempts: ${error.message}`);
+        throw new Error(
+          `Failed to connect to RabbitMQ after ${maxRetries} attempts`,
+        );
       }
 
-      logger.log(`Retrying in ${validatedConfig.retryDelay}ms...`);
-      await new Promise(resolve => setTimeout(resolve, validatedConfig.retryDelay));
+      logger.log(`Retrying in ${rabbitConfig.retryDelay}ms...`);
+      await new Promise((resolve) =>
+        setTimeout(resolve, rabbitConfig.retryDelay),
+      );
     }
   }
 };
 
-// export const getRabbitChannel = () => {
-//   if (!channel) {
-//     throw new Error("RabbitMQ channel not initialized. Did you call connectRabbitMQ()?");
-//   }
-//   return channel;
-// };
+const reconnectRabbitMQ = async () => {
+  try {
+    channel = null;
+    connection = null;
+    await connectRabbitMQ();
+  } catch (err) {
+    logger.error('RabbitMQ reconnection failed, retrying...', err.message);
+    setTimeout(reconnectRabbitMQ, config.rabbitmq.retryDelay);
+  }
+};
+
 export const getRabbitChannel = async () => {
   if (!channel) {
     throw new Error('RabbitMQ channel not initialized. Did you call connectRabbitMQ()?');
@@ -102,24 +120,33 @@ export const getRabbitChannel = async () => {
   return channel;
 };
 
-export const getRabbitConnection = () => {
-  console.log('getRabbitConnection called, connection:', !!connection); // Debug
-  return connection;
+export const publishWithRetry = async (channel, queue, message, attempts = 3) => {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const ok = channel.sendToQueue(queue, message, { persistent: true });
+      if (ok) return true;
+      // If false, buffer is full, wait and retry
+      await new Promise(r => setTimeout(r, 1000));
+    } catch (err) {
+      logger.error(`[RabbitMQ] Publish attempt ${i+1} failed`, err.message);
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+  return false;
 };
 
-export const publishToQueue = async (data, routingKey = config.rabbitmq.routingKey) => {
-  console.log('publishToQueue called, routingKey:', routingKey); // Debug
+export const getRabbitConnection = () => connection;
+
+export const publishToQueue = async (
+  data,
+  routingKey = config.rabbitmq.routingKey,
+) => {
   if (!channel) throw new Error('RabbitMQ channel not initialized');
 
   const message = Buffer.from(JSON.stringify(data));
-  const result = channel.publish(
-    config.rabbitmq.exchangeName,
-    routingKey,
-    message,
-    { persistent: true }
-  );
-  console.log('publishToQueue result:', result); // Debug
-  return result;
+  return channel.publish(config.rabbitmq.exchangeName, routingKey, message, {
+    persistent: true,
+  });
 };
 
 export const publishToDirectQueue = async (queue, data) => {
@@ -138,24 +165,24 @@ export const consumeFromQueue = async (queueName, callback, options = {}) => {
 
   await channel.assertQueue(queueName, { durable: true });
 
-  const consumer = await channel.consume(queueName, async (msg) => {
-    if (msg) {
-      try {
-        const data = JSON.parse(msg.content.toString());
-        await callback(data, msg);
-        channel.ack(msg);
-        console.log('Message acknowledged:', queueName); // Debug
-      } catch (error) {
-        logger.error('Error processing message:', error);
-        if (options.rejectOnError !== false) {
-          channel.nack(msg, false, false);
-          console.log('Message rejected:', queueName); // Debug
+  return channel.consume(
+    queueName,
+    async (msg) => {
+      if (msg) {
+        try {
+          const data = JSON.parse(msg.content.toString());
+          await callback(data, msg);
+          channel.ack(msg);
+        } catch (error) {
+          logger.error('Error processing message:', error);
+          if (options.rejectOnError !== false) {
+            channel.nack(msg, false, false); // Don't requeue by default
+          }
         }
       }
-    }
-  }, { noAck: false, ...options });
-  console.log('Consumer started:', consumer.consumerTag); // Debug
-  return consumer;
+    },
+    { noAck: false, ...options },
+  );
 };
 
 export const closeRabbitMQ = async () => {
@@ -171,13 +198,14 @@ export const closeRabbitMQ = async () => {
       console.log('Connection closed'); // Debug
       connection = null;
     }
-    const styledMessageError = chalk.redBright('RabbitMQ connection closed gracefully');
+    const styledMessageError = chalk.redBright(
+      'RabbitMQ connection closed gracefully',
+    );
     logger.log(styledMessageError);
   } catch (error) {
-    const styledMessageError = chalk.underline.red('Error closing RabbitMQ connection:');
+    const styledMessageError = chalk.underline.red(
+      'Error closing RabbitMQ connection:',
+    );
     logger.error(styledMessageError, error);
   }
 };
-
-// Export for testing purposes
-export { channel, connection };

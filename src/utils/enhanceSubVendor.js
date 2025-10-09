@@ -1,6 +1,7 @@
 import { getUserHierarchysDao } from '../apis/userHierarchy/userHierarchyDao.js';
 import { executeQuery } from './db.js';
 import { Role } from '../constants/index.js';
+import { logger } from './logger.js';
 
 export async function enhanceVendorsWithSubVendors(data, includeSeperateSubVendors = false, role = null, company_id = null) {
   const subVendorUserIds = new Set();
@@ -129,7 +130,7 @@ async function getSubVendorsWithCompleteData(userIds, role, company_id) {
     const result = await executeQuery(queryText, values);
     return result.rows;
   } catch (error) {
-    console.error('Error fetching sub-vendor data with complete structure:', error);
+    logger.error('Error fetching sub-vendor data with complete structure:', error);
     return [];
   }
 }
