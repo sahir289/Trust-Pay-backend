@@ -981,7 +981,9 @@ describe('Reports Service', () => {
       expect(result).toHaveLength(2);
       expect(result[0].code).toBe('A-vendor');
       expect(result[1].code).toBe('B-vendor');
-  expect(result[0].created_at).toBe('2025-08-01');
+
+      expect(result[0].created_at).toBe('2025-08-01');
+      expect(result[1].created_at).toBe('2025-08-01');
 
     });
 
