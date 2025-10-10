@@ -1053,7 +1053,7 @@ const createBankResponseWebHookService = async (
         await updateCalculationTable(
           vendor[0].user_id,
           {
-            payinCommission: payinVendorCommission,
+            payinCommission: totalVendorCommission,
             amount: botRes.amount,
           },
           localConn,
@@ -1841,6 +1841,50 @@ const handleBankIdUpdate = async ({
       newVendor[0].payin_commission,
     );
 
+    // Handle sub-vendor logic for both previous and new vendors
+    let totalPrevVendorCommission = prevVendorCommission;
+    let totalNewVendorCommission = newVendorCommission;
+
+    // Check if previous vendor is sub-vendor
+    const prevSubVendorParentInfo = await getSubVendorParentInfo(prevVendor[0]);
+    if (prevSubVendorParentInfo) {
+      const prevParentCommission = calculateCommission(
+        Math.abs(botRes.amount),
+        Number(prevSubVendorParentInfo.parentVendor.payin_commission),
+      );
+      totalPrevVendorCommission = prevVendorCommission + prevParentCommission;
+      
+      // Reverse parent vendor calculation for previous vendor
+      await updateParentVendorCalculation(
+        prevSubVendorParentInfo.parentUserId,
+        -Math.abs(botRes.amount),
+        Number(prevSubVendorParentInfo.parentVendor.payin_commission),
+        conn,
+      );
+      
+      logger.info(`Bank ID update - Previous vendor sub-vendor commission reversed: sub=${-prevVendorCommission}, parent=${-prevParentCommission}, total=${-totalPrevVendorCommission}`);
+    }
+
+    // Check if new vendor is sub-vendor
+    const newSubVendorParentInfo = await getSubVendorParentInfo(newVendor[0]);
+    if (newSubVendorParentInfo) {
+      const newParentCommission = calculateCommission(
+        Math.abs(botRes.amount),
+        Number(newSubVendorParentInfo.parentVendor.payin_commission),
+      );
+      totalNewVendorCommission = newVendorCommission + newParentCommission;
+      
+      // Add parent vendor calculation for new vendor
+      await updateParentVendorCalculation(
+        newSubVendorParentInfo.parentUserId,
+        Math.abs(botRes.amount),
+        Number(newSubVendorParentInfo.parentVendor.payin_commission),
+        conn,
+      );
+      
+      logger.info(`Bank ID update - New vendor sub-vendor commission calculated: sub=${newVendorCommission}, parent=${newParentCommission}, total=${totalNewVendorCommission}`);
+    }
+
     await Promise.all([
       updateBankaccountDao(
         { id: prevBank[0].id, company_id },
@@ -1865,7 +1909,7 @@ const handleBankIdUpdate = async ({
         prevVendorCurrentCalcs,
         prevVendorNextCurrentCalcs,
         -botRes.amount,
-        -prevVendorCommission,
+        -totalPrevVendorCommission,
         conn,
         -1,
       ),
@@ -1873,7 +1917,7 @@ const handleBankIdUpdate = async ({
         newVendorCurrentCalcs,
         newVendorNextCurrentCalcs,
         botRes.amount,
-        newVendorCommission,
+        totalNewVendorCommission,
         conn,
         1,
       ),

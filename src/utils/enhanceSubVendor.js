@@ -93,6 +93,7 @@ async function getSubVendorsWithCompleteData(userIds, role, company_id) {
         `"Vendor".updated_by`,
         `"Vendor".company_id`,
         `"Vendor".config`,
+        `COALESCE("Vendor".config->>'is_owned') AS is_owned`,
         `"user_main".designation_id`,
         `u.user_name AS created_by`,
         `uu.user_name AS updated_by`,
