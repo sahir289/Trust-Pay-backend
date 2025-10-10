@@ -57,7 +57,7 @@ import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
 // import { updatePayout } from '../../utils/sockets.js';
-import { newTableEntry } from '../../utils/sockets.js';
+// import { newTableEntry } from '../../utils/sockets.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
 import { stringifyJSON } from '../../utils/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
@@ -760,7 +760,7 @@ const createPayoutService = async (
     }
 
     // const finalResult = filterResponse(data, filterColumns);
-    await newTableEntry(tableName.PAYOUT);
+    // await newTableEntry(tableName.PAYOUT);
     return data;
   } catch (error) {
     logger.error(error);
@@ -1083,7 +1083,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
 
     const data = await updatePayoutDao(ids, payload, conn);
-    await newTableEntry(tableName.PAYOUT);
+    // await newTableEntry(tableName.PAYOUT);
     if (data.status == Status.INITIATED) {
       return data;
     }
@@ -1565,7 +1565,7 @@ const assignedPayoutService = async (
       company_id,
       conn,
     );
-    await newTableEntry(tableName.PAYOUT);
+    // await newTableEntry(tableName.PAYOUT);
     return data;
   } catch (error) {
     logger.error('Error while vendor assigning to Payout', error);
