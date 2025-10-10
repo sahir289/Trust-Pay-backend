@@ -569,6 +569,37 @@ const createBankResponseService = async (
           }
           duration = calculateDuration(payInUtr.created_at);
 
+          // Handle sub-vendor and parent commission logic
+          let totalVendorCommission = payinVendorCommission;
+          let brokerageCommission = 0;
+          let parentCommission = 0;
+          let payinConfig = {};
+
+          const subVendorParentInfo = await getSubVendorParentInfo(vendorData[0]);
+          if (subVendorParentInfo) {
+            // Calculate parent commission
+            parentCommission = await updateParentVendorCalculation(
+              subVendorParentInfo.parentUserId,
+              Number(botRes.amount),
+              Number(subVendorParentInfo.parentVendor.payin_commission),
+              localConn,
+            );
+            
+            totalVendorCommission = payinVendorCommission + parentCommission;
+            brokerageCommission = parentCommission;
+            
+            payinConfig = {
+              actual_vendor_commission: payinVendorCommission,
+              brokerage_commission: brokerageCommission,
+            };
+            
+            logger.info(`Sub-vendor commission calculated in bankResponse: sub=${payinVendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`);
+          } else {
+            payinConfig = {
+              actual_vendor_commission: payinVendorCommission,
+            };
+          }
+
           const payInData = {
             status: Status.SUCCESS,
             is_notified: true,
@@ -576,8 +607,8 @@ const createBankResponseService = async (
             approved_at: new Date(),
             duration,
             payin_merchant_commission: payinMerchantCommission,
-            payin_vendor_commission: payinVendorCommission,
-            // config: { from_UI },
+            payin_vendor_commission: totalVendorCommission,
+            config: payinConfig,
             bank_response_id: botRes.id,
           };
           const updatePayin = await updatePayInUrlDao(
