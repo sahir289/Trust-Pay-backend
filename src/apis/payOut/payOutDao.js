@@ -616,6 +616,8 @@ export const getPayoutsBySearchDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payout_vendor_commission, 
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code,
         p.config->>'method' AS payout_method,
         b.nick_name
@@ -625,6 +627,8 @@ export const getPayoutsBySearchDao = async (
         p.merchant_id, 
         p.payout_merchant_commission, 
         p.payout_vendor_commission, 
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         p.merchant_order_id,
         p.bank_acc_id,
         p.approved_at, 
