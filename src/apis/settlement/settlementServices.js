@@ -660,6 +660,7 @@ const calculateVendorCommission = async (payload) => {
     // Store parent info in payload for later use
     payload._subVendorParentInfo = subVendorParentInfo;
     payload._parentCommission = parentCommission;
+    payload.config.brokerage_commission = parentCommission;
     
     return baseCommission + parentCommission; // Return total commission
   }
@@ -1042,6 +1043,8 @@ const updateSettlementService = async (conn, ids, payload) => {
         
         await trackVendorsNetBalance(calculationData[0].user_id, conn, updatedCalculationData);
       }
+      delete payload._subVendorParentInfo;
+      delete payload._parentCommission;
 
       // Update beneficiary account for vendor bank transactions
       await updateBeneficiaryAccount(conn, settlementData, payload);
