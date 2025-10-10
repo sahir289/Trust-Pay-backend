@@ -347,9 +347,15 @@ export const getCalculationsSumDao = async (filters) => {
       const userHierarchys = await getUserHierarchysDao({
         user_id: effectiveUserId,
       });
-      let userIds = [effectiveUserId]; // Always include vendors own ID
+      let userIds = [effectiveUserId]; // Always include vendor's own ID
 
-      // Handle userCodes for vendor totals (similar to merchant logic)
+      // Include sub-vendors when available
+      const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+      if (subVendors.length > 0) {
+        userIds = [...new Set([...userIds, ...subVendors])];
+      }
+
+      // Handle userCodes for vendor totals
       if (userCodes?.length > 0) {
         // Get allowed sub-vendor IDs from hierarchy
         const allowedSubVendors =
@@ -360,7 +366,6 @@ export const getCalculationsSumDao = async (filters) => {
         );
         userIds = [...new Set([...userCodes, ...validUserIds])]; // Remove duplicates
       }
-
 
       // Create parameterized query for all user IDs
       const userIdParams = userIds.map((_, index) => `$${index + 1}`).join(",");
@@ -452,16 +457,32 @@ export const getCalculationsSumDao = async (filters) => {
       const userHierarchys = await getUserHierarchysDao({
         user_id: effectiveUserId,
       });
-      let userIds = [effectiveUserId]; // Always include merchant's own ID
+      let userIds = [effectiveUserId]; // Always include user's own ID
 
-      // Handle userCodes for merchant totals
+      // Include sub-merchants/sub-vendors when available based on role
+      if (role === Role.MERCHANT) {
+        const subMerchants = userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
+        if (subMerchants.length > 0) {
+          userIds = [...new Set([...userIds, ...subMerchants])];
+        }
+      } else if (role === Role.VENDOR) {
+        const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+        if (subVendors.length > 0) {
+          userIds = [...new Set([...userIds, ...subVendors])];
+        }
+      }
+
+      // Handle userCodes for totals
       if (userCodes?.length > 0) {
-        // Get allowed submerchant IDs from hierarchy
+        // Get allowed submerchant/sub-vendor IDs from hierarchy based on role
         const allowedSubmerchants =
           userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
-        // Only include valid submerchant IDs
+        const allowedSubVendors =
+          userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+        
+        // Only include valid IDs based on role
         const validUserIds = userCodes.filter((id) =>
-          allowedSubmerchants.includes(id),
+          allowedSubmerchants.includes(id) || allowedSubVendors.includes(id),
         );
         userIds = [...new Set([...userCodes, ...validUserIds])]; // Remove duplicates
       }
@@ -568,11 +589,44 @@ export const getCalculationsSumDao = async (filters) => {
         CAST(ROUND(SUM(COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankReceivedSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashReceivedSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_internalBankSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_internalBankSettlement_amount,
-        CAST(ROUND(SUM(COALESCE((c.config->>'total_cryptoReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cryptoReceivedSettlement_amount
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_cryptoReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cryptoReceivedSettlement_amount,
+        -- vendor_commission: commission from sub-vendors (role-based filtering)
+        CAST(ROUND(SUM(CASE 
+          WHEN '${role}' = 'ADMIN' AND d.designation = 'SUB_VENDOR' THEN c.total_payin_commission 
+          WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR' THEN c.total_payin_commission 
+          ELSE 0 
+        END)::NUMERIC, 2) AS FLOAT) AS vendor_payin_commission,
+        CAST(ROUND(SUM(CASE 
+          WHEN '${role}' = 'ADMIN' AND d.designation = 'SUB_VENDOR' THEN c.total_payout_commission 
+          WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR' THEN c.total_payout_commission 
+          ELSE 0 
+        END)::NUMERIC, 2) AS FLOAT) AS vendor_payout_commission,
+        CAST(ROUND(SUM(CASE 
+          WHEN '${role}' = 'ADMIN' AND d.designation = 'SUB_VENDOR' THEN c.total_reverse_payout_commission 
+          WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR' THEN c.total_reverse_payout_commission 
+          ELSE 0 
+        END)::NUMERIC, 2) AS FLOAT) AS vendor_reverse_payout_commission,
+        -- mediator_commission: commission from vendor admins (role-based filtering)
+        CAST(ROUND(SUM(CASE 
+          WHEN '${role}' = 'ADMIN' AND d.designation IN ('ADMIN', 'TRANSACTIONS', 'OPERATIONS', 'VENDOR') THEN c.total_payin_commission 
+          WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR' THEN c.total_payin_commission 
+          ELSE 0 
+        END)::NUMERIC, 2) AS FLOAT) AS mediator_payin_commission,
+        CAST(ROUND(SUM(CASE 
+          WHEN '${role}' = 'ADMIN' AND d.designation IN ('ADMIN', 'TRANSACTIONS', 'OPERATIONS', 'VENDOR') THEN c.total_payout_commission 
+          WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR' THEN c.total_payout_commission 
+          ELSE 0 
+        END)::NUMERIC, 2) AS FLOAT) AS mediator_payout_commission,
+        CAST(ROUND(SUM(CASE 
+          WHEN '${role}' = 'ADMIN' AND d.designation IN ('ADMIN', 'TRANSACTIONS', 'OPERATIONS', 'VENDOR') THEN c.total_reverse_payout_commission 
+          WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR' THEN c.total_reverse_payout_commission 
+          ELSE 0 
+        END)::NUMERIC, 2) AS FLOAT) AS mediator_reverse_payout_commission
       FROM "${tableName.CALCULATION}" c
       JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
       JOIN "${tableName.ROLE}" r ON u.role_id = r.id
       JOIN "${tableName.VENDOR}" v ON c.user_id = v.user_id
+      LEFT JOIN "${tableName.DESIGNATION}" d ON u.designation_id = d.id
       WHERE c.created_at BETWEEN '${startDate}' AND '${endDate}'
       AND r.role = 'VENDOR'
     `;
@@ -602,27 +656,21 @@ export const getCalculationsSumDao = async (filters) => {
       merchantTotalQuery += ` AND c.company_id = '${company_id}'`;
       vendorTotalQuery = null; // Merchant shouldn't see vendor totals
     } else if (role === Role.VENDOR) {
-      // For vendor role, only include data when explicitly requested (no automatic clubbing)
-      if (userCodes?.length > 0) {
-        // Get user hierarchy to validate sub-vendor access
-        const userHierarchys = await getUserHierarchysDao({
-          user_id: effectiveUserId,
-        });
-        const allowedSubVendors =
-          userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
-        // Only include valid sub-vendor IDs
-        const validUserIds = userCodes.filter((id) =>
-          allowedSubVendors.includes(id),
-        );
-        const userIds = [...new Set([...userCodes, ...validUserIds])];
+      // Get user hierarchy to validate sub-vendor access
+      const userHierarchys = await getUserHierarchysDao({
+        user_id: effectiveUserId,
+      });
+      let userIds = [effectiveUserId]; // Always include vendor's own ID
 
-        // Add filter when there are valid user codes
-        vendorTotalQuery += ` AND c.user_id = ANY(ARRAY['${userIds.join("','")}']) `;
-        vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
-      } else {
-        // If no specific users requested, return null (no data)
-        vendorTotalQuery = null;
+      // Include sub-vendors when available
+      const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+      if (subVendors.length > 0) {
+        userIds = [...new Set([...userIds, ...subVendors])];
       }
+
+      // Add filter to vendor total query
+      vendorTotalQuery += ` AND c.user_id = ANY(ARRAY['${userIds.join("','")}']) `;
+      vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
       merchantTotalQuery = null; // Vendor shouldn't see merchant totals
     } else if (role === Role.SUB_VENDOR) {
       vendorTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
@@ -885,9 +933,15 @@ export const getCalculationsForInternalUseDao = async (filters) => {
       const userHierarchys = await getUserHierarchysDao({
         user_id: effectiveUserId,
       });
-      let userIds = [effectiveUserId]; // Always include vendors own ID
+      let userIds = [effectiveUserId]; // Always include vendor's own ID
 
-      // Handle userCodes for vendor totals (similar to merchant logic)
+      // Include sub-vendors when available
+      const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+      if (subVendors.length > 0) {
+        userIds = [...new Set([...userIds, ...subVendors])];
+      }
+
+      // Handle userCodes for vendor totals
       if (userCodes?.length > 0) {
         // Get allowed sub-vendor IDs from hierarchy
         const allowedSubVendors =
@@ -898,7 +952,6 @@ export const getCalculationsForInternalUseDao = async (filters) => {
         );
         userIds = [...new Set([...userCodes, ...validUserIds])]; // Remove duplicates
       }
-
 
       // Create parameterized query for all user IDs
       const userIdParams = userIds.map((_, index) => `$${index + 1}`).join(",");
@@ -992,6 +1045,19 @@ export const getCalculationsForInternalUseDao = async (filters) => {
       });
       let userIds = [effectiveUserId]; // Always include user's own ID
 
+      // Include sub-merchants/sub-vendors when available based on role
+      if (role === Role.MERCHANT) {
+        const subMerchants = userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
+        if (subMerchants.length > 0) {
+          userIds = [...new Set([...userIds, ...subMerchants])];
+        }
+      } else if (role === Role.VENDOR) {
+        const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+        if (subVendors.length > 0) {
+          userIds = [...new Set([...userIds, ...subVendors])];
+        }
+      }
+
       // Handle userCodes for totals
       if (userCodes?.length > 0) {
         // Get allowed submerchant/sub-vendor IDs from hierarchy based on role
@@ -1005,9 +1071,6 @@ export const getCalculationsForInternalUseDao = async (filters) => {
           allowedSubmerchants.includes(id) || allowedSubVendors.includes(id),
         );
         userIds = [...new Set([...userCodes, ...validUserIds])]; // Remove duplicates
-      } else if (role === Role.VENDOR) {
-        // For VENDOR role, don't include sub-vendors automatically (similar to merchant logic)
-        // userIds already contains only the vendor's own ID
       }
       // For non-admin roles, use existing query logic
 
@@ -1112,11 +1175,24 @@ export const getCalculationsForInternalUseDao = async (filters) => {
         CAST(ROUND(SUM(COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankReceivedSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashReceivedSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_internalBankSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_internalBankSettlement_amount,
-        CAST(ROUND(SUM(COALESCE((c.config->>'total_cryptoReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cryptoReceivedSettlement_amount
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_cryptoReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cryptoReceivedSettlement_amount,
+        -- vendor_commission: commission from sub-vendors (role-based filtering)
+        CAST(ROUND(SUM(CASE 
+          WHEN '${role}' = 'ADMIN' AND d.designation = 'SUB_VENDOR' THEN c.total_payin_commission 
+          WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR' THEN c.total_payin_commission 
+          ELSE 0 
+        END)::NUMERIC, 2) AS FLOAT) AS vendor_commission,
+        -- merdiator_commission: commission from vendor admins (role-based filtering)
+        CAST(ROUND(SUM(CASE 
+          WHEN '${role}' = 'ADMIN' AND d.designation IN ('ADMIN', 'TRANSACTIONS', 'OPERATIONS', 'VENDOR') THEN c.total_payin_commission 
+          WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR' THEN c.total_payin_commission 
+          ELSE 0 
+        END)::NUMERIC, 2) AS FLOAT) AS merdiator_commission
       FROM "${tableName.CALCULATION}" c
       JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
       JOIN "${tableName.ROLE}" r ON u.role_id = r.id
       JOIN "${tableName.VENDOR}" v ON c.user_id = v.user_id
+      LEFT JOIN "${tableName.DESIGNATION}" d ON u.designation_id = d.id
       WHERE c.created_at BETWEEN '${startDate}' AND '${endDate}'
       AND r.role = 'VENDOR'
     `;
@@ -1146,27 +1222,21 @@ export const getCalculationsForInternalUseDao = async (filters) => {
       merchantTotalQuery += ` AND c.company_id = '${company_id}'`;
       vendorTotalQuery = null; // Merchant shouldn't see vendor totals
     } else if (role === Role.VENDOR) {
-      // For vendor role, only include data when explicitly requested (no automatic clubbing)
-      if (userCodes?.length > 0) {
-        // Get user hierarchy to validate sub-vendor access
-        const userHierarchys = await getUserHierarchysDao({
-          user_id: effectiveUserId,
-        });
-        const allowedSubVendors =
-          userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
-        // Only include valid sub-vendor IDs
-        const validUserIds = userCodes.filter((id) =>
-          allowedSubVendors.includes(id),
-        );
-        const userIds = [...new Set([...userCodes, ...validUserIds])];
+      // Get user hierarchy to validate sub-vendor access
+      const userHierarchys = await getUserHierarchysDao({
+        user_id: effectiveUserId,
+      });
+      let userIds = [effectiveUserId]; // Always include vendor's own ID
 
-        // Add filter when there are valid user codes
-        vendorTotalQuery += ` AND c.user_id = ANY(ARRAY['${userIds.join("','")}']) `;
-        vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
-      } else {
-        // If no specific users requested, return null (no data)
-        vendorTotalQuery = null;
+      // Include sub-vendors when available
+      const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+      if (subVendors.length > 0) {
+        userIds = [...new Set([...userIds, ...subVendors])];
       }
+
+      // Add filter to vendor total query
+      vendorTotalQuery += ` AND c.user_id = ANY(ARRAY['${userIds.join("','")}']) `;
+      vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
       merchantTotalQuery = null; // Vendor shouldn't see merchant totals
     } else if (role === Role.SUB_VENDOR) {
       vendorTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;

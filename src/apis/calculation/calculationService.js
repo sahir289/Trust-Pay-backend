@@ -321,6 +321,105 @@ const calculateVendorWithSubVendorPayinData = async (
   }
 };
 
+// Helper function to aggregate payout data for vendor with sub-vendors
+const calculateVendorWithSubVendorPayoutData = async (
+  vendorUserId,
+  companyId,
+  processDate,
+) => {
+  try {
+    // Get vendor hierarchy to check for sub-vendors
+    const userHierarchys = await getUserHierarchysDao({
+      user_id: vendorUserId,
+    });
+    let userIds = [vendorUserId]; // Always include vendor's own ID
+
+    // Include sub-vendors when available
+    const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+    if (subVendors.length > 0) {
+      userIds = [...new Set([...userIds, ...subVendors])];
+      logger.info(
+        `Vendor ${vendorUserId} has sub-vendors: ${subVendors.join(', ')}. Aggregating payout data for all.`,
+      );
+    }
+
+    // For vendors with sub-vendors, calculate aggregated payout data from all sub-vendors
+    // but use the main vendor's commission rate
+    let aggregatedPayoutData = {
+      total_payout_count: 0,
+      total_payout_amount: 0,
+      total_payout_commission: 0,
+      total_reverse_payout_count: 0,
+      total_reverse_payout_amount: 0,
+      total_reverse_payout_commission: 0,
+    };
+
+    // Get main vendor's commission rate for payout
+    const mainVendorQuery = `
+      SELECT payout_commission
+      FROM "${tableName.VENDOR}"
+      WHERE user_id = $1 AND is_obsolete = false
+    `;
+    const vendorCommissionResult = await executeQuery(mainVendorQuery, [vendorUserId]);
+    const mainVendorPayoutCommissionRate = vendorCommissionResult.rows[0]?.payout_commission || 0;
+
+    // Aggregate payout data from all user IDs (vendor + sub-vendors)
+    for (const userId of userIds) {
+      try {
+        // For each user ID, get payout data (vendor payout logic)
+        const query = `
+          SELECT 
+            p.status,
+            COUNT(*) as count,
+            COALESCE(SUM(p.amount), 0) as total_amount
+          FROM "${tableName.PAYOUT}" p
+          JOIN "${tableName.VENDOR}" v ON p.vendor_id = v.id
+          WHERE v.user_id = $1
+            AND p.company_id = $2
+            AND p.is_obsolete = false
+            AND (p.approved_at)::date = $3::date
+            AND p.status IN ('SUCCESS', 'REVERSED')
+          GROUP BY p.status
+        `;
+
+        const result = await executeQuery(query, [userId, companyId, processDate]);
+
+        result.rows.forEach((row) => {
+          if (row.status === 'SUCCESS') {
+            aggregatedPayoutData.total_payout_count += parseInt(row.count);
+            aggregatedPayoutData.total_payout_amount += parseFloat(row.total_amount);
+            // Use main vendor's commission rate for all payout amounts
+            aggregatedPayoutData.total_payout_commission += 
+              parseFloat(row.total_amount) * (mainVendorPayoutCommissionRate / 100);
+          } else if (row.status === 'REVERSED') {
+            aggregatedPayoutData.total_reverse_payout_count += parseInt(row.count);
+            aggregatedPayoutData.total_reverse_payout_amount += parseFloat(row.total_amount);
+            // Use main vendor's commission rate for reversed payouts
+            aggregatedPayoutData.total_reverse_payout_commission += 
+              parseFloat(row.total_amount) * (mainVendorPayoutCommissionRate / 100);
+          }
+        });
+
+        logger.info(
+          `Payout data for user ${userId}: SUCCESS Count=${result.rows.find(r => r.status === 'SUCCESS')?.count || 0}, REVERSED Count=${result.rows.find(r => r.status === 'REVERSED')?.count || 0}`,
+        );
+      } catch (userError) {
+        logger.warn(`Error calculating payout data for user ${userId}:`, userError);
+        // Continue with other users
+      }
+    }
+
+    logger.info(
+      `Final aggregated payout data for vendor ${vendorUserId}: Count=${aggregatedPayoutData.total_payout_count}, Amount=${aggregatedPayoutData.total_payout_amount}, Commission=${aggregatedPayoutData.total_payout_commission}, Reverse Count=${aggregatedPayoutData.total_reverse_payout_count}`,
+    );
+
+    return aggregatedPayoutData;
+  } catch (error) {
+    logger.error(`Error calculating vendor with sub-vendor payout data for ${vendorUserId}:`, error);
+    throw error;
+  }
+};
+
 const calculateSuccessRatiosService = async (date, user_ids) => {
   let conn;
   try {
@@ -723,21 +822,19 @@ const updateCalculationsService = async (conn, filters) => {
                 );
               }
 
-              // For vendors with sub-vendors, only calculate necessary data (payin, current balance, net balance)
+              // For vendors with sub-vendors, aggregate both payin and payout data
               // For others, calculate all transaction types
               let payoutData, chargebackData, adjustmentData;
               
               if (isVendorWithSubVendors) {
-                // For vendors with sub-vendors: set other transaction data to zero
-                // Only payin calculations are aggregated from sub-vendors
-                payoutData = {
-                  total_payout_count: 0,
-                  total_payout_amount: 0,
-                  total_payout_commission: 0,
-                  total_reverse_payout_count: 0,
-                  total_reverse_payout_amount: 0,
-                  total_reverse_payout_commission: 0,
-                };
+                // For vendors with sub-vendors: aggregate payout data from sub-vendors as well
+                payoutData = await calculateVendorWithSubVendorPayoutData(
+                  user_id,
+                  company_id,
+                  processDate,
+                );
+                
+                // Set other transaction data to zero for vendors with sub-vendors
                 chargebackData = {
                   total_chargeback_count: 0,
                   total_chargeback_amount: 0,
@@ -749,7 +846,7 @@ const updateCalculationsService = async (conn, filters) => {
                 };
                 
                 logger.info(
-                  `Vendor ${user_id} with sub-vendors: Skipping payout, chargeback, and adjustment calculations.`,
+                  `Vendor ${user_id} with sub-vendors: Aggregated payout data from sub-vendors. Skipping chargeback and adjustment calculations.`,
                 );
               } else {
                 // For vendors without sub-vendors and other roles: calculate all transaction types
@@ -823,14 +920,18 @@ const updateCalculationsService = async (conn, filters) => {
               let calculatedCurrentBalance;
               
               if (isVendorWithSubVendors) {
-                // For vendors with sub-vendors: calculate current balance using only commission * -1
-                // We store the aggregated payin amount, count, and commission 
-                // But for balance calculation, only use commission multiplied by -1
-                const commissionForBalance = safeNumber(payinData.total_payin_commission) * -1;
-                calculatedCurrentBalance = commissionForBalance;
+                // For vendors with sub-vendors: calculate current balance using both payin and payout commission * -1
+                // We store the aggregated payin and payout amounts, counts, and commissions 
+                // But for balance calculation, only use commissions multiplied by -1
+                const payinCommissionForBalance = safeNumber(payinData.total_payin_commission) * -1;
+                const payoutCommissionForBalance = safeNumber(payoutData.total_payout_commission);
+                const reversePayoutCommissionForBalance = safeNumber(payoutData.total_reverse_payout_commission);
+                
+                // Total commission impact: payin commission + payout commission - reverse payout commission (all * -1)
+                calculatedCurrentBalance = payinCommissionForBalance + payoutCommissionForBalance - reversePayoutCommissionForBalance;
                 
                 logger.info(
-                  `Vendor ${user_id} with sub-vendors: Using commission * -1 for balance calculation (commission: ${safeNumber(payinData.total_payin_commission)}, balance impact: ${commissionForBalance})`,
+                  `Vendor ${user_id} with sub-vendors: Using commissions * -1 for balance calculation (payin commission: ${safeNumber(payinData.total_payin_commission)}, payout commission: ${safeNumber(payoutData.total_payout_commission)}, reverse payout commission: ${safeNumber(payoutData.total_reverse_payout_commission)}, total balance impact: ${calculatedCurrentBalance})`,
                 );
               } else {
                 // For all other cases: use the full calculation
@@ -849,11 +950,11 @@ const updateCalculationsService = async (conn, filters) => {
                   chargebackAmount -
                   reversePayoutAmount;
                 
-                // For merchants: settlements reduce balance (they pay out)
-                // For vendors: settlements increase balance (they receive)
+                // For merchants: settlements reduce balance
+                // For vendors: settlements increase balance
                 calculatedCurrentBalance = isMerchant
                   ? merchantBaseCalculation - settlementAmount
-                  : vendorBaseCalculation + settlementAmount;
+                  : vendorBaseCalculation - settlementAmount;
               }
 
               // Ensure calculatedCurrentBalance is a valid number
@@ -980,7 +1081,7 @@ const updateCalculationsService = async (conn, filters) => {
                       baseline_net_balance_used:
                         runningNetBalance - balanceChange,
                       vendor_calculation_type: isVendorWithSubVendors 
-                        ? 'vendor_with_sub_vendors_payin_only' 
+                        ? 'vendor_with_sub_vendors_payin_payout_commission_only' 
                         : 'normal_calculation',
                     },
                     reversed_internal_settlements: {
@@ -1000,7 +1101,7 @@ const updateCalculationsService = async (conn, filters) => {
                     },
                     calculation_note:
                       isVendorWithSubVendors
-                        ? 'Vendor with sub-vendors: Payin data aggregated from all sub-vendors using main vendor commission rate. Current balance and net balance calculated using only commission * -1.'
+                        ? 'Vendor with sub-vendors: Payin and payout data aggregated from all sub-vendors using main vendor commission rates. Current balance and net balance calculated using only (payin commission + payout commission - reverse payout commission) * -1.'
                         : 'Fixed balance calculation: current_balance represents daily balance, net_balance is cumulative (previous_net_balance + daily_balance)',
                   },
                   settlement_details: {
