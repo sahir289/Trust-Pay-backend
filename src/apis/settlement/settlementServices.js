@@ -45,6 +45,116 @@ import {
 import { newTableEntry } from '../../utils/sockets.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 
+// Helper function to check if vendor is sub-vendor and get parent info
+const getSubVendorParentInfo = async (vendor) => {
+  try {
+    logger.info(`Settlement: Checking sub-vendor status for vendor: userId=${vendor.user_id}, designation=${vendor.designation || vendor.designation_name}, config=${JSON.stringify(vendor.config)}`);
+    
+    // Check if vendor designation is SUB_VENDOR (handle both designation and designation_name properties)
+    const vendorDesignation = vendor.designation || vendor.designation_name;
+    if (vendorDesignation !== Role.SUB_VENDOR) {
+      logger.info(`Settlement: Vendor is not SUB_VENDOR, designation: ${vendorDesignation}`);
+      return null;
+    }
+
+    // Check is_owned config
+    const isOwned = vendor.config?.is_owned;
+    if (isOwned === true || isOwned === 'true') {
+      logger.info(`Settlement: Vendor is owned (is_owned=${isOwned}), skipping parent calculation`);
+      return null;
+    }
+
+    logger.info(`Settlement: Sub-vendor detected with is_owned=${isOwned}, fetching user hierarchy`);
+
+    // Get user hierarchy to find parent
+    const userHierarchys = await getUserHierarchysDao({
+      user_id: vendor.user_id,
+    });
+    
+    logger.info(`Settlement: User hierarchy result: ${JSON.stringify(userHierarchys)}`);
+    
+    const userHierarchy = userHierarchys?.[0];
+    const parentId = userHierarchy?.config?.parent;
+
+    if (!parentId) {
+      logger.warn(`Settlement: Sub-vendor ${vendor.user_id} has no parent in hierarchy`);
+      return null;
+    }
+
+    logger.info(`Settlement: Found parent ID: ${parentId}, fetching parent vendor details`);
+
+    // Get parent vendor details
+    const parentVendors = await getVendorsDao({ user_id: parentId });
+    if (!parentVendors || !parentVendors[0]) {
+      logger.warn(`Settlement: Parent vendor not found for user_id: ${parentId}`);
+      return null;
+    }
+
+    logger.info(`Settlement: Parent vendor found: ${JSON.stringify(parentVendors[0])}`);
+
+    return {
+      parentVendor: parentVendors[0],
+      parentUserId: parentId,
+    };
+  } catch (error) {
+    logger.error('Settlement: Error in getSubVendorParentInfo:', error);
+    return null;
+  }
+};
+
+// Helper function to calculate commission for parent vendor in settlement
+const updateParentVendorSettlementCalculation = async (parentUserId, amount, vendorCommissionRate, isApproved, conn) => {
+  try {
+    logger.info(`Settlement: updateParentVendorSettlementCalculation called with: parentUserId=${parentUserId}, amount=${amount}, rate=${vendorCommissionRate}, isApproved=${isApproved}`);
+    
+    const parentCommission = calculateCommission(amount, vendorCommissionRate);
+    
+    logger.info(`Settlement: Calculated parent commission: ${parentCommission}`);
+    
+    // Get parent calculation data
+    const parentCalculationData = await getCalculationforCronDao(parentUserId);
+    if (!parentCalculationData[0]) {
+      throw new NotFoundError(`Settlement: Parent calculation not found for user_id: ${parentUserId}`);
+    }
+
+    // Create calculation update for parent vendor
+    const calculationUpdate = isApproved 
+      ? {
+          // For approval: Remove commission from parent (negative commission)
+          total_settlement_count: 1,
+          total_settlement_amount: 0, // Parent amount is always 0
+          total_settlement_commission: -parentCommission, // Negative to remove commission
+          current_balance: -parentCommission,
+          net_balance: -parentCommission,
+        }
+      : {
+          // For reversal: Add commission back to parent (positive commission)
+          total_settlement_count: 1,
+          total_settlement_amount: 0, // Parent amount is always 0
+          total_settlement_commission: parentCommission, // Positive to add commission back
+          current_balance: parentCommission,
+          net_balance: parentCommission,
+        };
+
+    logger.info(`Settlement: Updating parent calculation table with: ${JSON.stringify(calculationUpdate)}`);
+
+    const response = await updateCalculationBalanceDao(
+      { id: parentCalculationData[0].id },
+      calculationUpdate,
+      conn,
+    );
+
+    await trackVendorsNetBalance(parentUserId, conn, response);
+
+    logger.info(`Settlement: Parent vendor calculation table updated successfully for userId: ${parentUserId}`);
+    
+    return parentCommission;
+  } catch (error) {
+    logger.error('Settlement: Error in updateParentVendorSettlementCalculation:', error);
+    throw error;
+  }
+};
+
 const getSettlementServiceById = async (ids) => {
   try {
     const filterColumns =
@@ -533,8 +643,28 @@ const calculateVendorCommission = async (payload) => {
     throw new NotFoundError('Vendor not found');
   }
 
-  const vendorCommission = vendorData[0].payin_commission || 0;
-  return calculateCommission(payload.amount, vendorCommission);
+  const vendor = vendorData[0];
+  const vendorCommission = vendor.payin_commission || 0;
+  const baseCommission = calculateCommission(payload.amount, vendorCommission);
+  
+  // Check if this is a sub-vendor and calculate parent commission
+  const subVendorParentInfo = await getSubVendorParentInfo(vendor);
+  if (subVendorParentInfo) {
+    const parentCommission = calculateCommission(
+      payload.amount,
+      Number(subVendorParentInfo.parentVendor.payin_commission),
+    );
+    
+    logger.info(`Settlement: Sub-vendor commission calculated: sub=${baseCommission}, parent=${parentCommission}, total=${baseCommission + parentCommission}`);
+    
+    // Store parent info in payload for later use
+    payload._subVendorParentInfo = subVendorParentInfo;
+    payload._parentCommission = parentCommission;
+    
+    return baseCommission + parentCommission; // Return total commission
+  }
+  
+  return baseCommission;
 };
 
 // Helper function to create calculation update object
@@ -700,6 +830,20 @@ const handleInternalTransferReversal = async (
     payload.amount,
     vendorData[0].payin_commission || 0,
   );
+
+  // Handle sub-vendor parent calculation for reversal
+  const subVendorParentInfo = await getSubVendorParentInfo(vendorData[0]);
+  if (subVendorParentInfo) {
+    await updateParentVendorSettlementCalculation(
+      subVendorParentInfo.parentUserId,
+      payload.amount,
+      Number(subVendorParentInfo.parentVendor.payin_commission),
+      false, // isApproved = false (add commission back to parent)
+      conn,
+    );
+    
+    logger.info(`Settlement reversal: Parent vendor calculation updated for sub-vendor settlement reversal`);
+  }
 
   return {
     total_settlement_count: 1,
@@ -871,6 +1015,19 @@ const updateSettlementService = async (conn, ids, payload) => {
               payload,
               commission,
             );
+            
+            // Handle parent vendor calculation for sub-vendors (only for internal methods)
+            if (payload._subVendorParentInfo && payload._parentCommission) {
+              await updateParentVendorSettlementCalculation(
+                payload._subVendorParentInfo.parentUserId,
+                payload.amount,
+                Number(payload._subVendorParentInfo.parentVendor.payin_commission),
+                true, // isApproved = true (remove commission from parent)
+                conn,
+              );
+              
+              logger.info(`Settlement approval: Parent vendor calculation updated for sub-vendor settlement`);
+            }
           } else {
             updatedCalculation = createCalculationUpdate(
               settlementData,

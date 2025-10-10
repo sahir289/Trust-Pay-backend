@@ -287,7 +287,7 @@ const calculateVendorWithSubVendorPayinData = async (
         result.rows.forEach((row) => {
           if (row.status === '/success') {
             aggregatedPayinData.total_payin_count += parseInt(row.count);
-            aggregatedPayinData.total_payin_amount += parseFloat(row.total_amount);
+            aggregatedPayinData.total_payin_amount += parseFloat(0);
             // Use main vendor's commission rate for all payin amounts
             aggregatedPayinData.total_payin_commission += 
               parseFloat(row.total_amount) * (mainVendorCommissionRate / 100);
@@ -306,7 +306,7 @@ const calculateVendorWithSubVendorPayinData = async (
     // Add reversed internal settlements to payin data
     if (additionalPayinData && additionalPayinData.count > 0) {
       aggregatedPayinData.total_payin_count += additionalPayinData.count;
-      aggregatedPayinData.total_payin_amount += additionalPayinData.amount;
+      aggregatedPayinData.total_payin_amount += 0;
       aggregatedPayinData.total_payin_commission += additionalPayinData.commission;
     }
 
@@ -387,13 +387,13 @@ const calculateVendorWithSubVendorPayoutData = async (
         result.rows.forEach((row) => {
           if (row.status === 'SUCCESS') {
             aggregatedPayoutData.total_payout_count += parseInt(row.count);
-            aggregatedPayoutData.total_payout_amount += parseFloat(row.total_amount);
+            aggregatedPayoutData.total_payout_amount += parseFloat(0);
             // Use main vendor's commission rate for all payout amounts
             aggregatedPayoutData.total_payout_commission += 
               parseFloat(row.total_amount) * (mainVendorPayoutCommissionRate / 100);
           } else if (row.status === 'REVERSED') {
             aggregatedPayoutData.total_reverse_payout_count += parseInt(row.count);
-            aggregatedPayoutData.total_reverse_payout_amount += parseFloat(row.total_amount);
+            aggregatedPayoutData.total_reverse_payout_amount += parseFloat(0);
             // Use main vendor's commission rate for reversed payouts
             aggregatedPayoutData.total_reverse_payout_commission += 
               parseFloat(row.total_amount) * (mainVendorPayoutCommissionRate / 100);
