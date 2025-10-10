@@ -856,6 +856,7 @@ export const unlinkVendorDao = async (vendorUserId, subVendorUserId, user_id) =>
     let subVendorConfig = fetchVendorResult.rows[0]?.config || {};
     if ('sub_code' in subVendorConfig) {
       // Remove sub_code key using delete operator
+      subVendorConfig.prev_sub_code = subVendorConfig.sub_code || null;
       delete subVendorConfig.sub_code;
       delete subVendorConfig.parent;
       delete subVendorConfig?.is_owned;
@@ -908,6 +909,7 @@ export const transferVendorDao = async (vendorUserId, newVendorUserId, currentVe
       const fetchVendorConfigResult = await executeQuery(fetchVendorConfigSql, [vendorUserId]);
       let vendorConfig = fetchVendorConfigResult.rows[0]?.config || {};
       const subCode = `${newVendorCode}(${fetchVendorConfigResult.rows[0]?.code})`;
+      vendorConfig.prev_sub_code = vendorConfig.sub_code || null;
       vendorConfig.sub_code = subCode;
       vendorConfig.parent = newVendorUserId;
       const updateVendorConfigSql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
