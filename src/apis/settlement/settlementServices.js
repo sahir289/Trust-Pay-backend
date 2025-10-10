@@ -1045,6 +1045,7 @@ const updateSettlementService = async (conn, ids, payload) => {
       }
       delete payload._subVendorParentInfo;
       delete payload._parentCommission;
+      delete payload.config.brokerage_commission;
 
       // Update beneficiary account for vendor bank transactions
       await updateBeneficiaryAccount(conn, settlementData, payload);
