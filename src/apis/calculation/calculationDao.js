@@ -194,7 +194,7 @@ export const getCalculationsSumDao = async (filters) => {
       logger.info('Processed user codes:', userCodes);
     }
 
-    let effectiveUserId = user_id;
+    let effectiveUserId = users;
 
     if (
       designation === Role.MERCHANT_OPERATIONS ||
