@@ -3381,23 +3381,21 @@ const updateCalculationBalances = async (
 ) => {
   try {
     if (!currentCalculation) return;
-
+    commission = amountDiff > 0 ? commission : -commission;
     const updates = {
-      total_payin_commission: amountDiff > 0 ? commission : -commission,
+      total_payin_commission: commission,
       total_payin_amount: amountDiff,
       total_payin_count: count ? count : 0,
       current_balance: amountDiff - commission,
       net_balance: amountDiff - commission,
     };
     const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
-
     // Update current calculation
     const updatedCurrentCalculation = await updateCalculationBalanceDao(
       { id: currentCalculation[0].id },
       updates,
       conn,
     );
-
     await trackVendorsNetBalance(
       currentCalculation[0].user_id,
       conn,
