@@ -469,6 +469,8 @@ export const getAllPayoutsDao = async (
           u.rejected_reason,
           ${commissionSelect}, 
           b.nick_name,
+          COALESCE((u.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+          COALESCE((u.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
           json_build_object(
             'account_holder_name', u.acc_holder_name,
             'account_no', u.acc_no,
@@ -660,6 +662,8 @@ export const getPayoutsBySearchDao = async (
         p.utr_id, 
         p.rejected_reason,
         ${commissionSelect},
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         json_build_object(
           'account_holder_name', p.acc_holder_name,
           'account_no', p.acc_no,

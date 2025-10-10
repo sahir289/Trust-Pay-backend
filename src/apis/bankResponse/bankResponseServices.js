@@ -330,6 +330,26 @@ const createBankResponseService = async (
           botRes.amount,
           vendor[0].payin_commission,
         );
+
+        // Handle sub-vendor and parent commission logic immediately upon bank response creation
+        let totalVendorCommission = payinVendorCommission;
+        let parentCommission = 0;
+
+        const subVendorParentInfo = await getSubVendorParentInfo(vendor[0]);
+        if (subVendorParentInfo) {
+          // Calculate parent commission
+          parentCommission = await updateParentVendorCalculation(
+            subVendorParentInfo.parentUserId,
+            Number(botRes.amount),
+            Number(subVendorParentInfo.parentVendor.payin_commission),
+            localConn,
+          );
+          
+          totalVendorCommission = payinVendorCommission + parentCommission;
+          
+          logger.info(`Sub-vendor commission calculated immediately on bankResponse creation: sub=${payinVendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`);
+        }
+
         await updateCalculationTable(
           vendor[0].user_id,
           {
@@ -549,37 +569,6 @@ const createBankResponseService = async (
           }
           duration = calculateDuration(payInUtr.created_at);
 
-          // Handle sub-vendor and parent commission logic
-          let totalVendorCommission = payinVendorCommission;
-          let brokerageCommission = 0;
-          let parentCommission = 0;
-          let payinConfig = {};
-
-          const subVendorParentInfo = await getSubVendorParentInfo(vendorData[0]);
-          if (subVendorParentInfo) {
-            // Calculate parent commission
-            parentCommission = await updateParentVendorCalculation(
-              subVendorParentInfo.parentUserId,
-              Number(botRes.amount),
-              Number(subVendorParentInfo.parentVendor.payin_commission),
-              localConn,
-            );
-            
-            totalVendorCommission = payinVendorCommission + parentCommission;
-            brokerageCommission = parentCommission;
-            
-            payinConfig = {
-              actual_vendor_commission: payinVendorCommission,
-              brokerage_commission: brokerageCommission,
-            };
-            
-            logger.info(`Sub-vendor commission calculated in bankResponse: sub=${payinVendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`);
-          } else {
-            payinConfig = {
-              actual_vendor_commission: payinVendorCommission,
-            };
-          }
-
           const payInData = {
             status: Status.SUCCESS,
             is_notified: true,
@@ -587,8 +576,8 @@ const createBankResponseService = async (
             approved_at: new Date(),
             duration,
             payin_merchant_commission: payinMerchantCommission,
-            payin_vendor_commission: totalVendorCommission,
-            config: payinConfig,
+            payin_vendor_commission: payinVendorCommission,
+            // config: { from_UI },
             bank_response_id: botRes.id,
           };
           const updatePayin = await updatePayInUrlDao(
@@ -1010,6 +999,26 @@ const createBankResponseWebHookService = async (
           botRes.amount,
           vendor[0].payin_commission,
         );
+
+        // Handle sub-vendor and parent commission logic immediately upon bank response creation
+        let totalVendorCommission = payinVendorCommission;
+        let parentCommission = 0;
+
+        const subVendorParentInfo = await getSubVendorParentInfo(vendor[0]);
+        if (subVendorParentInfo) {
+          // Calculate parent commission
+          parentCommission = await updateParentVendorCalculation(
+            subVendorParentInfo.parentUserId,
+            Number(botRes.amount),
+            Number(subVendorParentInfo.parentVendor.payin_commission),
+            localConn,
+          );
+          
+          totalVendorCommission = payinVendorCommission + parentCommission;
+          
+          logger.info(`Sub-vendor commission calculated immediately on bankResponse webhook creation: sub=${payinVendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`);
+        }
+
         await updateCalculationTable(
           vendor[0].user_id,
           {

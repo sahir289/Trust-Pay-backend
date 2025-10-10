@@ -96,6 +96,71 @@ const retryAxiosRequest = async (requestFn, maxRetries = 3, baseDelay = 1000) =>
   throw lastError;
 };
 
+// Helper function to check if vendor is sub-vendor and get parent info
+const getSubVendorParentInfo = async (vendor) => {
+  try {
+    // Check if vendor designation is SUB_VENDOR
+    if (vendor.designation !== Role.SUB_VENDOR) {
+      return null;
+    }
+
+    // Check is_owned config
+    const isOwned = vendor.config?.is_owned;
+    if (isOwned === true || isOwned === 'true') {
+      return null;
+    }
+
+    // Get user hierarchy to find parent
+    const userHierarchys = await getUserHierarchysDao({
+      user_id: vendor.user_id,
+    });
+    const userHierarchy = userHierarchys?.[0];
+    const parentId = userHierarchy?.config?.parent;
+
+    if (!parentId) {
+      logger.warn(`Sub-vendor ${vendor.user_id} has no parent in hierarchy`);
+      return null;
+    }
+
+    // Get parent vendor details
+    const parentVendors = await getVendorsDao({ user_id: parentId });
+    if (!parentVendors || !parentVendors[0]) {
+      logger.warn(`Parent vendor not found for user_id: ${parentId}`);
+      return null;
+    }
+
+    return {
+      parentVendor: parentVendors[0],
+      parentUserId: parentId,
+    };
+  } catch (error) {
+    logger.error('Error in getSubVendorParentInfo:', error);
+    return null;
+  }
+};
+
+// Helper function to calculate commission for parent vendor
+const updateParentVendorCalculation = async (parentUserId, amount, vendorCommissionRate, isApproved, conn) => {
+  try {
+    const parentCommission = calculateCommission(amount, vendorCommissionRate);
+    
+    await updateCalculationTable(
+      parentUserId,
+      {
+        payoutCommission: parentCommission,
+        amount: 0, // Parent vendor amount is always 0, only commission is tracked
+      },
+      isApproved,
+      conn,
+    );
+
+    return parentCommission;
+  } catch (error) {
+    logger.error('Error in updateParentVendorCalculation:', error);
+    throw error;
+  }
+};
+
 const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
   try {
     const { mode, payOutids } = payload;
@@ -1054,6 +1119,35 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       vendor.payout_commission,
     );
 
+    // Handle sub-vendor and parent commission logic
+    let totalVendorCommission = vendorCommission;
+    let brokerageCommission = 0;
+    let parentCommission = 0;
+    let payoutConfig = {};
+
+    const subVendorParentInfo = await getSubVendorParentInfo(vendor);
+    if (subVendorParentInfo) {
+      // Calculate parent commission for payout
+      parentCommission = calculateCommission(
+        data.amount,
+        Number(subVendorParentInfo.parentVendor.payout_commission),
+      );
+      
+      totalVendorCommission = vendorCommission + parentCommission;
+      brokerageCommission = parentCommission;
+      
+      payoutConfig = {
+        actual_vendor_commission: vendorCommission,
+        brokerage_commission: brokerageCommission,
+      };
+      
+      logger.info(`Payout sub-vendor commission calculated: sub=${vendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`);
+    } else {
+      payoutConfig = {
+        actual_vendor_commission: vendorCommission,
+      };
+    }
+
     const payoutDetails = await getPayoutsDao({ id: ids.id }, ids.company_id);
     if (
       payoutDetails.length !== 0 &&
@@ -1064,7 +1158,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
     // Handle status-specific updates
     if (data.status === Status.APPROVED) {
-      await Promise.all([
+      // Prepare calculation updates including parent vendor if needed
+      const calculationUpdates = [
         updateCalculationTable(
           merchant.user_id,
           { payoutCommission: merchantCommission, amount: data.amount },
@@ -1077,6 +1172,23 @@ const updatePayoutService = async (conn, ids, payload, role) => {
           true,
           conn,
         ),
+      ];
+
+      // Add parent vendor calculation if sub-vendor
+      if (subVendorParentInfo) {
+        calculationUpdates.push(
+          updateParentVendorCalculation(
+            subVendorParentInfo.parentUserId,
+            Number(data.amount),
+            Number(subVendorParentInfo.parentVendor.payout_commission),
+            true,
+            conn,
+          )
+        );
+      }
+
+      await Promise.all([
+        ...calculationUpdates,
         updateBankaccountDao(
           { id: bankData.id },
           {
@@ -1095,14 +1207,16 @@ const updatePayoutService = async (conn, ids, payload, role) => {
           ids,
           {
             payout_merchant_commission: merchantCommission,
-            payout_vendor_commission: vendorCommission,
+            payout_vendor_commission: totalVendorCommission,
             vendor_id: vendor.id,
+            config: payoutConfig,
           },
           conn,
         ),
       ]);
     } else if (data.status === Status.REVERSED && data.approved_at !== null) {
-      await Promise.all([
+      // Prepare calculation updates including parent vendor if needed
+      const calculationUpdates = [
         updateCalculationTable(
           merchant.user_id,
           { payoutCommission: merchantCommission, amount: data.amount },
@@ -1115,6 +1229,23 @@ const updatePayoutService = async (conn, ids, payload, role) => {
           false,
           conn,
         ),
+      ];
+
+      // Add parent vendor calculation if sub-vendor
+      if (subVendorParentInfo) {
+        calculationUpdates.push(
+          updateParentVendorCalculation(
+            subVendorParentInfo.parentUserId,
+            Number(data.amount),
+            Number(subVendorParentInfo.parentVendor.payout_commission),
+            false,
+            conn,
+          )
+        );
+      }
+
+      await Promise.all([
+        ...calculationUpdates,
         updateBankaccountDao(
           { id: bankData.id },
           {
