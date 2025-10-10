@@ -675,7 +675,7 @@ const createPayoutService = async (
     }
 
     // const finalResult = filterResponse(data, filterColumns);
-    // await newTableEntry(tableName.PAYOUT);
+    // await newTableEntry(tableName.PAYOUT);   //temp
     return data;
   } catch (error) {
     logger.error(error);
