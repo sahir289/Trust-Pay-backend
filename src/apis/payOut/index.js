@@ -264,7 +264,7 @@ router.post(
   '/tatapay-payouts',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(tataPayPayouts),
-); 
+);  
 
 router.post(
   '/payassist-callback',
