@@ -3524,11 +3524,11 @@ export const updatePayInService = async (
       }
       // Calculate commissions
       vendorCommission = calculateCommission(
-        Math.abs(amountDiff),
+        Number(amountDiff),
         vendor[0].payin_commission,
       );
       merchantCommission = calculateCommission(
-        Math.abs(amountDiff),
+        Number(amountDiff),
         merchant[0].payin_commission,
       );
 
@@ -3708,11 +3708,11 @@ export const updatePayInService = async (
         }
 
         const prevVendorCommission = calculateCommission(
-          Math.abs(bankResponse.amount),
+          Number(bankResponse.amount),
           prevVendor[0].payin_commission,
         );
         const newVendorCommission = calculateCommission(
-          Math.abs(bankResponse.amount),
+          Number(bankResponse.amount),
           newVendor[0].payin_commission,
         );
 
@@ -3724,7 +3724,7 @@ export const updatePayInService = async (
         const prevSubVendorParentInfo = await getSubVendorParentInfo(prevVendor[0]);
         if (prevSubVendorParentInfo) {
           const prevParentCommission = calculateCommission(
-            Math.abs(bankResponse.amount),
+            Number(bankResponse.amount),
             Number(prevSubVendorParentInfo.parentVendor.payin_commission),
           );
           totalPrevVendorCommission = prevVendorCommission + prevParentCommission;
@@ -3732,7 +3732,7 @@ export const updatePayInService = async (
           // Reverse parent vendor calculation for previous vendor
           await updateParentVendorCalculation(
             prevSubVendorParentInfo.parentUserId,
-            -Math.abs(bankResponse.amount),
+            -Number(bankResponse.amount),
             Number(prevSubVendorParentInfo.parentVendor.payin_commission),
             conn,
           );
@@ -3744,7 +3744,7 @@ export const updatePayInService = async (
         const newSubVendorParentInfo = await getSubVendorParentInfo(newVendor[0]);
         if (newSubVendorParentInfo) {
           const newParentCommission = calculateCommission(
-            Math.abs(bankResponse.amount),
+            Number(bankResponse.amount),
             Number(newSubVendorParentInfo.parentVendor.payin_commission),
           );
           totalNewVendorCommission = newVendorCommission + newParentCommission;
@@ -3752,7 +3752,7 @@ export const updatePayInService = async (
           // Add parent vendor calculation for new vendor
           await updateParentVendorCalculation(
             newSubVendorParentInfo.parentUserId,
-            Math.abs(bankResponse.amount),
+            Number(bankResponse.amount),
             Number(newSubVendorParentInfo.parentVendor.payin_commission),
             conn,
           );
@@ -3765,7 +3765,7 @@ export const updatePayInService = async (
             prevVendorCurrentCalcs,
             prevVendorNextCurrentCalcs,
             -bankResponse.amount,
-            -prevVendorCommission,
+            -totalPrevVendorCommission,
             conn,
             -1,
           ),
@@ -3773,7 +3773,7 @@ export const updatePayInService = async (
             newVendorCurrentCalcs,
             newVendorNextCurrentCalcs,
             bankResponse.amount,
-            newVendorCommission,
+            totalNewVendorCommission,
             conn,
             1,
           ),
