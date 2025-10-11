@@ -799,6 +799,9 @@ export const linkVendorDao = async (vendorUserId, subVendorUserId, user_id) => {
     const fetchSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
     const fetchResult = await executeQuery(fetchSql, [vendorUserId]);
     let currentConfig = fetchResult.rows[0]?.config || {};
+    const fetchSubSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
+    const fetchSubResult = await executeQuery(fetchSubSql, [subVendorUserId]);
+    let subVendorConfig = fetchSubResult.rows[0]?.config || {};
     let subVendors = currentConfig?.siblings?.sub_vendors || [];
     // Add subVendorUserId to array if not present
     subVendors = Array.isArray(subVendors)
@@ -808,7 +811,7 @@ export const linkVendorDao = async (vendorUserId, subVendorUserId, user_id) => {
     const newConfig = { ...currentConfig, siblings: { ...currentConfig.siblings, sub_vendors: subVendors } };
     const sql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
     const result = await executeQuery(sql, [newConfig, user_id, vendorUserId]);
-    const newSubConfig = { ...currentConfig, parent: vendorUserId };
+    const newSubConfig = { ...subVendorConfig, parent: vendorUserId };
     const sql1 = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
     await executeQuery(sql1, [newSubConfig, user_id, subVendorUserId]);
 
@@ -842,6 +845,9 @@ export const unlinkVendorDao = async (vendorUserId, subVendorUserId, user_id) =>
     const fetchSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
     const fetchResult = await executeQuery(fetchSql, [vendorUserId]);
     let currentConfig = fetchResult.rows[0]?.config || {};
+    const fetchSubSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
+    const fetchSubResult = await executeQuery(fetchSubSql, [subVendorUserId]);
+    let subVendorHierarchyConfig = fetchSubResult.rows[0]?.config || {};
     let subVendors = currentConfig?.siblings?.sub_vendors || [];
     // Remove subVendorUserId from array
     subVendors = Array.isArray(subVendors)
@@ -851,7 +857,7 @@ export const unlinkVendorDao = async (vendorUserId, subVendorUserId, user_id) =>
     const newConfig = { ...currentConfig, siblings: { ...currentConfig.siblings, sub_vendors: subVendors } };
     const sql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
     const result = await executeQuery(sql, [newConfig, user_id, vendorUserId]);
-    const newSubConfig = { ...currentConfig, parent: '' };
+    const newSubConfig = { ...subVendorHierarchyConfig, parent: '' };
     const sql1 = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
     await executeQuery(sql1, [newSubConfig, user_id, subVendorUserId]);
 
@@ -896,6 +902,9 @@ export const transferVendorDao = async (vendorUserId, newVendorUserId, currentVe
     const fetchNewSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
     const fetchNewResult = await executeQuery(fetchNewSql, [newVendorUserId]);
     let newConfig = fetchNewResult.rows[0]?.config || {};
+    const fetchNewSubSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
+    const fetchNewSubResult = await executeQuery(fetchNewSubSql, [vendorUserId]);
+    let newSubConfig = fetchNewSubResult.rows[0]?.config || {};
     let newSubVendors = newConfig?.siblings?.sub_vendors || [];
     newSubVendors = Array.isArray(newSubVendors)
       ? [...new Set([...newSubVendors, vendorUserId])]
@@ -903,7 +912,7 @@ export const transferVendorDao = async (vendorUserId, newVendorUserId, currentVe
     const updatedNewConfig = { ...newConfig, siblings: { ...newConfig.siblings, sub_vendors: newSubVendors } };
     const updateNewSql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
     const result = await executeQuery(updateNewSql, [updatedNewConfig, user_id, newVendorUserId]);
-    const updatedSubConfig = { ...newConfig, parent: newVendorUserId };
+    const updatedSubConfig = { ...newSubConfig, parent: newVendorUserId };
     const updateSubSql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
     await executeQuery(updateSubSql, [updatedSubConfig, user_id, vendorUserId]);
 
