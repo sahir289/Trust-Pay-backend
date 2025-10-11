@@ -3541,9 +3541,10 @@ export const updatePayInService = async (
       const subVendorParentInfo = await getSubVendorParentInfo(vendor[0]);
       if (subVendorParentInfo) {
         // Calculate parent commission for amount difference
+        // Use the signed amountDiff to handle both positive and negative changes
         parentCommission = await updateParentVendorCalculation(
           subVendorParentInfo.parentUserId,
-          Math.abs(amountDiff),
+          Number(amountDiff),
           Number(subVendorParentInfo.parentVendor.payin_commission),
           conn,
         );
@@ -3557,7 +3558,7 @@ export const updatePayInService = async (
         };
 
         logger.info(
-          `Amount update - Sub-vendor commission calculated: sub=${vendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}, amountDiff=${amountDiff}`,
+          `Amount update in payIn - Sub-vendor commission calculated: sub=${vendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}, amountDiff=${amountDiff}`,
         );
         payload.payin_vendor_commission = totalVendorCommission;
         payload.config = payinConfig;
@@ -3714,6 +3715,50 @@ export const updatePayInService = async (
           Math.abs(bankResponse.amount),
           newVendor[0].payin_commission,
         );
+
+        // Handle sub-vendor logic for both previous and new vendors
+        let totalPrevVendorCommission = prevVendorCommission;
+        let totalNewVendorCommission = newVendorCommission;
+
+        // Check if previous vendor is sub-vendor
+        const prevSubVendorParentInfo = await getSubVendorParentInfo(prevVendor[0]);
+        if (prevSubVendorParentInfo) {
+          const prevParentCommission = calculateCommission(
+            Math.abs(bankResponse.amount),
+            Number(prevSubVendorParentInfo.parentVendor.payin_commission),
+          );
+          totalPrevVendorCommission = prevVendorCommission + prevParentCommission;
+          
+          // Reverse parent vendor calculation for previous vendor
+          await updateParentVendorCalculation(
+            prevSubVendorParentInfo.parentUserId,
+            -Math.abs(bankResponse.amount),
+            Number(prevSubVendorParentInfo.parentVendor.payin_commission),
+            conn,
+          );
+          
+          logger.info(`Bank ID update in payIn - Previous vendor sub-vendor commission reversed: sub=${-prevVendorCommission}, parent=${-prevParentCommission}, total=${-totalPrevVendorCommission}`);
+        }
+
+        // Check if new vendor is sub-vendor
+        const newSubVendorParentInfo = await getSubVendorParentInfo(newVendor[0]);
+        if (newSubVendorParentInfo) {
+          const newParentCommission = calculateCommission(
+            Math.abs(bankResponse.amount),
+            Number(newSubVendorParentInfo.parentVendor.payin_commission),
+          );
+          totalNewVendorCommission = newVendorCommission + newParentCommission;
+          
+          // Add parent vendor calculation for new vendor
+          await updateParentVendorCalculation(
+            newSubVendorParentInfo.parentUserId,
+            Math.abs(bankResponse.amount),
+            Number(newSubVendorParentInfo.parentVendor.payin_commission),
+            conn,
+          );
+          
+          logger.info(`Bank ID update in payIn - New vendor sub-vendor commission calculated: sub=${newVendorCommission}, parent=${newParentCommission}, total=${totalNewVendorCommission}`);
+        }
 
         await Promise.all([
           updateCalculationBalances(
