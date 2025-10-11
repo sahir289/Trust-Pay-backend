@@ -1158,7 +1158,9 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       totalVendorCommission = vendorCommission + parentCommission;
       brokerageCommission = parentCommission;
       
+      // Preserve existing config and only update commission keys
       payoutConfig = {
+        ...(payoutDetails[0]?.config || {}), // Preserve existing config
         actual_vendor_commission: vendorCommission,
         brokerage_commission: brokerageCommission,
       };
@@ -1166,7 +1168,9 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       logger.info(`Payout sub-vendor commission calculated: sub=${vendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`);
     } else {
       logger.info(`No sub-vendor detected, vendor designation: ${vendor.designation || vendor.designation_name}, is_owned: ${vendor.config?.is_owned}`);
+      // Preserve existing config and only update commission keys
       payoutConfig = {
+        ...(payoutDetails[0]?.config || {}), // Preserve existing config
         actual_vendor_commission: vendorCommission,
       };
     }

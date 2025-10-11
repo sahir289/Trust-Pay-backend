@@ -3552,7 +3552,9 @@ export const updatePayInService = async (
         totalVendorCommission = vendorCommission + parentCommission;
         brokerageCommission = parentCommission;
 
+        // Preserve existing config and only update commission keys
         payinConfig = {
+          ...payIn.config, // Preserve existing config
           actual_vendor_commission: vendorCommission,
           brokerage_commission: brokerageCommission,
         };
@@ -3765,7 +3767,7 @@ export const updatePayInService = async (
             prevVendorCurrentCalcs,
             prevVendorNextCurrentCalcs,
             -bankResponse.amount,
-            -totalPrevVendorCommission,
+            -prevVendorCommission,
             conn,
             -1,
           ),
@@ -3773,7 +3775,7 @@ export const updatePayInService = async (
             newVendorCurrentCalcs,
             newVendorNextCurrentCalcs,
             bankResponse.amount,
-            totalNewVendorCommission,
+            newVendorCommission,
             conn,
             1,
           ),

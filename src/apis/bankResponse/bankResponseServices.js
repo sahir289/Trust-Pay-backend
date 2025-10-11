@@ -588,14 +588,18 @@ const createBankResponseService = async (
             totalVendorCommission = payinVendorCommission + parentCommission;
             brokerageCommission = parentCommission;
             
+            // Preserve existing config and only update commission keys
             payinConfig = {
+              ...(payInUtr.config || {}), // Preserve existing config
               actual_vendor_commission: payinVendorCommission,
               brokerage_commission: brokerageCommission,
             };
             
             logger.info(`Sub-vendor commission calculated in bankResponse: sub=${payinVendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`);
           } else {
+            // Preserve existing config and only update commission keys
             payinConfig = {
+              ...(payInUtr.config || {}), // Preserve existing config
               actual_vendor_commission: payinVendorCommission,
             };
           }
