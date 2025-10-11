@@ -68,6 +68,70 @@ import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
+// Helper function to check if vendor is sub-vendor and get parent info
+const getSubVendorParentInfo = async (vendor) => {
+  try {
+    // Check if vendor designation is SUB_VENDOR
+    if (vendor.designation_name !== Role.SUB_VENDOR) {
+      return null;
+    }
+
+    // Check is_owned config
+    const isOwned = vendor.config?.is_owned;
+    if (isOwned === true || isOwned === 'true') {
+      return null;
+    }
+
+    // Get user hierarchy to find parent
+    const userHierarchys = await getUserHierarchysDao({
+      user_id: vendor.user_id,
+    });
+    const userHierarchy = userHierarchys?.[0];
+    const parentId = userHierarchy?.config?.parent;
+
+    if (!parentId) {
+      logger.warn(`Sub-vendor ${vendor.user_id} has no parent in hierarchy`);
+      return null;
+    }
+
+    // Get parent vendor details
+    const parentVendors = await getVendorsBankReponseDao({ user_id: parentId });
+    if (!parentVendors || !parentVendors[0]) {
+      logger.warn(`Parent vendor not found for user_id: ${parentId}`);
+      return null;
+    }
+
+    return {
+      parentVendor: parentVendors[0],
+      parentUserId: parentId,
+    };
+  } catch (error) {
+    logger.error('Error in getSubVendorParentInfo:', error);
+    return null;
+  }
+};
+
+// Helper function to calculate commission for parent vendor
+const updateParentVendorCalculation = async (parentUserId, amount, vendorCommissionRate, conn) => {
+  try {
+    const parentCommission = calculateCommission(amount, vendorCommissionRate);
+    
+    await updateCalculationTable(
+      parentUserId,
+      {
+        payinCommission: parentCommission,
+        amount: 0, // Parent vendor amount is always 0, only commission is tracked
+      },
+      conn,
+    );
+
+    return parentCommission;
+  } catch (error) {
+    logger.error('Error in updateParentVendorCalculation:', error);
+    throw error;
+  }
+};
+
 const createBankResponseService = async (
   payload,
   companyId,
@@ -266,6 +330,26 @@ const createBankResponseService = async (
           botRes.amount,
           vendor[0].payin_commission,
         );
+
+        // Handle sub-vendor and parent commission logic immediately upon bank response creation
+        let totalVendorCommission = payinVendorCommission;
+        let parentCommission = 0;
+
+        const subVendorParentInfo = await getSubVendorParentInfo(vendor[0]);
+        if (subVendorParentInfo) {
+          // Calculate parent commission
+          parentCommission = await updateParentVendorCalculation(
+            subVendorParentInfo.parentUserId,
+            Number(botRes.amount),
+            Number(subVendorParentInfo.parentVendor.payin_commission),
+            localConn,
+          );
+          
+          totalVendorCommission = payinVendorCommission + parentCommission;
+          
+          logger.info(`Sub-vendor commission calculated immediately on bankResponse creation: sub=${payinVendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`);
+        }
+
         await updateCalculationTable(
           vendor[0].user_id,
           {
@@ -484,6 +568,38 @@ const createBankResponseService = async (
             }
           }
           duration = calculateDuration(payInUtr.created_at);
+
+          // Handle sub-vendor and parent commission logic
+          let totalVendorCommission = payinVendorCommission;
+          let brokerageCommission = 0;
+          let parentCommission = 0;
+          let payinConfig = {};
+
+          const subVendorParentInfo = await getSubVendorParentInfo(vendorData[0]);
+          if (subVendorParentInfo) {
+            // Calculate parent commission
+            parentCommission = await updateParentVendorCalculation(
+              subVendorParentInfo.parentUserId,
+              Number(botRes.amount),
+              Number(subVendorParentInfo.parentVendor.payin_commission),
+              localConn,
+            );
+            
+            totalVendorCommission = payinVendorCommission + parentCommission;
+            brokerageCommission = parentCommission;
+            
+            payinConfig = {
+              actual_vendor_commission: payinVendorCommission,
+              brokerage_commission: brokerageCommission,
+            };
+            
+            logger.info(`Sub-vendor commission calculated in bankResponse: sub=${payinVendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`);
+          } else {
+            payinConfig = {
+              actual_vendor_commission: payinVendorCommission,
+            };
+          }
+
           const payInData = {
             status: Status.SUCCESS,
             is_notified: true,
@@ -491,8 +607,8 @@ const createBankResponseService = async (
             approved_at: new Date(),
             duration,
             payin_merchant_commission: payinMerchantCommission,
-            payin_vendor_commission: payinVendorCommission,
-            // config: { from_UI },
+            payin_vendor_commission: totalVendorCommission,
+            config: payinConfig,
             bank_response_id: botRes.id,
           };
           const updatePayin = await updatePayInUrlDao(
@@ -914,10 +1030,30 @@ const createBankResponseWebHookService = async (
           botRes.amount,
           vendor[0].payin_commission,
         );
+
+        // Handle sub-vendor and parent commission logic immediately upon bank response creation
+        let totalVendorCommission = payinVendorCommission;
+        let parentCommission = 0;
+
+        const subVendorParentInfo = await getSubVendorParentInfo(vendor[0]);
+        if (subVendorParentInfo) {
+          // Calculate parent commission
+          parentCommission = await updateParentVendorCalculation(
+            subVendorParentInfo.parentUserId,
+            Number(botRes.amount),
+            Number(subVendorParentInfo.parentVendor.payin_commission),
+            localConn,
+          );
+          
+          totalVendorCommission = payinVendorCommission + parentCommission;
+          
+          logger.info(`Sub-vendor commission calculated immediately on bankResponse webhook creation: sub=${payinVendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`);
+        }
+
         await updateCalculationTable(
           vendor[0].user_id,
           {
-            payinCommission: payinVendorCommission,
+            payinCommission: totalVendorCommission,
             amount: botRes.amount,
           },
           localConn,
@@ -1515,6 +1651,26 @@ const handleAmountUpdate = async ({
         updatedAmount,
         vendor[0].payin_commission,
       );
+
+      // Handle sub-vendor and parent commission logic for amount updates
+      let totalVendorCommission = payinCommission;
+      let parentCommission = 0;
+
+      const subVendorParentInfo = await getSubVendorParentInfo(vendor[0]);
+      if (subVendorParentInfo) {
+        // Calculate parent commission for amount difference
+        // Use the signed updatedAmount to handle both positive and negative changes
+        parentCommission = await updateParentVendorCalculation(
+          subVendorParentInfo.parentUserId,
+          Number(updatedAmount),
+          Number(subVendorParentInfo.parentVendor.payin_commission),
+          conn,
+        );
+        
+        totalVendorCommission = payinCommission + parentCommission;
+        
+        logger.info(`Amount update in bankResponse - Sub-vendor commission calculated: sub=${payinCommission}, parent=${parentCommission}, total=${totalVendorCommission}, updatedAmount=${updatedAmount}`);
+      }
       const [vendorCalculationData] = await Promise.all([
         getAllCalculationforCronDao(vendor[0].user_id),
       ]);
@@ -1541,7 +1697,7 @@ const handleAmountUpdate = async ({
           vendorCurrentCalculations,
           vendorCalculations,
           updatedAmount,
-          payinCommission,
+          totalVendorCommission,
           conn,
         ),
         updateBankaccountDao(
@@ -1688,6 +1844,50 @@ const handleBankIdUpdate = async ({
       newVendor[0].payin_commission,
     );
 
+    // Handle sub-vendor logic for both previous and new vendors
+    let totalPrevVendorCommission = prevVendorCommission;
+    let totalNewVendorCommission = newVendorCommission;
+
+    // Check if previous vendor is sub-vendor
+    const prevSubVendorParentInfo = await getSubVendorParentInfo(prevVendor[0]);
+    if (prevSubVendorParentInfo) {
+      const prevParentCommission = calculateCommission(
+        Math.abs(botRes.amount),
+        Number(prevSubVendorParentInfo.parentVendor.payin_commission),
+      );
+      totalPrevVendorCommission = prevVendorCommission + prevParentCommission;
+      
+      // Reverse parent vendor calculation for previous vendor
+      await updateParentVendorCalculation(
+        prevSubVendorParentInfo.parentUserId,
+        -Math.abs(botRes.amount),
+        Number(prevSubVendorParentInfo.parentVendor.payin_commission),
+        conn,
+      );
+      
+      logger.info(`Bank ID update - Previous vendor sub-vendor commission reversed: sub=${-prevVendorCommission}, parent=${-prevParentCommission}, total=${-totalPrevVendorCommission}`);
+    }
+
+    // Check if new vendor is sub-vendor
+    const newSubVendorParentInfo = await getSubVendorParentInfo(newVendor[0]);
+    if (newSubVendorParentInfo) {
+      const newParentCommission = calculateCommission(
+        Math.abs(botRes.amount),
+        Number(newSubVendorParentInfo.parentVendor.payin_commission),
+      );
+      totalNewVendorCommission = newVendorCommission + newParentCommission;
+      
+      // Add parent vendor calculation for new vendor
+      await updateParentVendorCalculation(
+        newSubVendorParentInfo.parentUserId,
+        Math.abs(botRes.amount),
+        Number(newSubVendorParentInfo.parentVendor.payin_commission),
+        conn,
+      );
+      
+      logger.info(`Bank ID update - New vendor sub-vendor commission calculated: sub=${newVendorCommission}, parent=${newParentCommission}, total=${totalNewVendorCommission}`);
+    }
+
     await Promise.all([
       updateBankaccountDao(
         { id: prevBank[0].id, company_id },
@@ -1712,7 +1912,7 @@ const handleBankIdUpdate = async ({
         prevVendorCurrentCalcs,
         prevVendorNextCurrentCalcs,
         -botRes.amount,
-        -prevVendorCommission,
+        -totalPrevVendorCommission,
         conn,
         -1,
       ),
@@ -1720,7 +1920,7 @@ const handleBankIdUpdate = async ({
         newVendorCurrentCalcs,
         newVendorNextCurrentCalcs,
         botRes.amount,
-        newVendorCommission,
+        totalNewVendorCommission,
         conn,
         1,
       ),

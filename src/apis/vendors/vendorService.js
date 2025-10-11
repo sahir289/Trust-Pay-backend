@@ -524,14 +524,13 @@ const linkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
     if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
       throw new BadRequestError('Vendor net balance must be zero to link.');
     }
-    const sub = await getVendorByUserId(subVendorUserId);
     const parent = await getVendorByUserId(vendorUserId);
     if (
-      sub.payin_commission > parent.payin_commission &&
-      sub.payout_commission > parent.payout_commission
+      parent.payin_commission > 1 &&
+      parent.payout_commission > 1
     ) {
       throw new BadRequestError(
-        'Sub Vendor commission must be less than or equal to Parent Vendor commission.',
+        'Parent Vendor commission must be less than or equal to 1%.',
       );
     }
     const result = await linkVendorDao(vendorUserId, subVendorUserId, user_id);
@@ -628,14 +627,13 @@ const transferVendorService = async (
     if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
       throw new BadRequestError('Vendor net balance must be zero to transfer.');
     }
-    const sub = await getVendorByUserId(subVendorUserId);
     const parent = await getVendorByUserId(newVendorUserId);
     if (
-      sub.payin_commission > parent.payin_commission &&
-      sub.payout_commission > parent.payout_commission
+      parent.payin_commission > 1 &&
+      parent.payout_commission > 1
     ) {
       throw new BadRequestError(
-        'Sub Vendor commission must be less than or equal to Parent Vendor commission.',
+        'Parent Vendor commission must be less than or equal to 1%.',
       );
     }
     const result = await transferVendorDao(

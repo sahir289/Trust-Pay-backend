@@ -467,12 +467,14 @@ const createUserService = async (conn, payload) => {
     ) {
       let userCode;
       let sub_code;
+      let is_owned = false;
       if (userDesignation[0]?.designation === Role.SUB_VENDOR) {
         const user_id = payload?.parent_id
           ? payload?.parent_id
           : payload.created_by;
         userCode = await getVendorByUserDao(user_id);
         sub_code = `${userCode[0].code}(${payload.code})`;
+        is_owned = payload.is_owned;
       }
       const vendorPayload = {
         user_id: User.id,
@@ -486,6 +488,7 @@ const createUserService = async (conn, payload) => {
           bank_response_access: false,
           net_balance: payload.net_balance || '0',
           ...(sub_code && { sub_code }),
+          ...(is_owned && { is_owned }),
         },
         payin_commission: Number(payload.payin_commission),
         payout_commission: Number(payload.payout_commission),

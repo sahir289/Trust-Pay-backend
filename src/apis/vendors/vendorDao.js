@@ -37,17 +37,50 @@ export const getVendorCodeDao = async (id) => {
 
 export const getVendorsBankReponseDao = async (filters = {}) => {
   try {
-    const selectColumns = `
-      id,
-      user_id,
-      code,
-      balance,
-      payin_commission
+    let sql = `
+      SELECT 
+        v.id,
+        v.user_id,
+        v.code,
+        v.balance,
+        v.payin_commission,
+        v.config,
+        d.designation
+      FROM "${tableName.VENDOR}" v 
+      JOIN "${tableName.USER}" u ON v.user_id = u.id 
+      LEFT JOIN "${tableName.DESIGNATION}" d ON u.designation_id = d.id 
+      WHERE v.is_obsolete = false AND u.is_obsolete = false
     `;
-    const [sql, params] = buildSelectQuery(
-      `SELECT ${selectColumns} FROM "${tableName.VENDOR}" WHERE 1=1`,
-      filters,
-    );
+    
+    const params = [];
+    let paramIndex = 1;
+    
+    // Handle filters manually
+    if (filters.user_id) {
+      if (Array.isArray(filters.user_id)) {
+        sql += ` AND v.user_id = ANY($${paramIndex})`;
+        params.push(filters.user_id);
+      } else {
+        sql += ` AND v.user_id = $${paramIndex}`;
+        params.push(filters.user_id);
+      }
+      paramIndex++;
+    }
+    
+    if (filters.company_id) {
+      sql += ` AND v.company_id = $${paramIndex}`;
+      params.push(filters.company_id);
+      paramIndex++;
+    }
+    
+    if (filters.code) {
+      sql += ` AND v.code = $${paramIndex}`;
+      params.push(filters.code);
+      paramIndex++;
+    }
+    
+    sql += ` ORDER BY v.created_at DESC`;
+    
     const result = await executeQuery(sql, params);
     return result.rows || [];
   } catch (error) {
@@ -55,6 +88,7 @@ export const getVendorsBankReponseDao = async (filters = {}) => {
     throw error;
   }
 };
+
 export const getVendorsDashBoardReportDao = async (filters = {}) => {
   try {
     const selectColumns = `
@@ -423,6 +457,7 @@ export const getVendorsBySearchDao = async (
         `"Vendor".updated_by`,
         `"Vendor".company_id`,
         `"Vendor".config`,
+        `COALESCE("Vendor".config->>'is_owned') AS is_owned`,
         `"user_main".designation_id`,
         `u.user_name AS created_by`,
         `uu.user_name AS updated_by`,
@@ -764,6 +799,9 @@ export const linkVendorDao = async (vendorUserId, subVendorUserId, user_id) => {
     const fetchSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
     const fetchResult = await executeQuery(fetchSql, [vendorUserId]);
     let currentConfig = fetchResult.rows[0]?.config || {};
+    const fetchSubSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
+    const fetchSubResult = await executeQuery(fetchSubSql, [subVendorUserId]);
+    let subVendorConfig = fetchSubResult.rows[0]?.config || {};
     let subVendors = currentConfig?.siblings?.sub_vendors || [];
     // Add subVendorUserId to array if not present
     subVendors = Array.isArray(subVendors)
@@ -773,6 +811,9 @@ export const linkVendorDao = async (vendorUserId, subVendorUserId, user_id) => {
     const newConfig = { ...currentConfig, siblings: { ...currentConfig.siblings, sub_vendors: subVendors } };
     const sql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
     const result = await executeQuery(sql, [newConfig, user_id, vendorUserId]);
+    const newSubConfig = { ...subVendorConfig, parent: vendorUserId };
+    const sql1 = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
+    await executeQuery(sql1, [newSubConfig, user_id, subVendorUserId]);
 
     // add sub_code in subVendorUserId's config in Vendor table to vendorUserId's code
     const fetchNewVendorCodeSql = `SELECT code FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
@@ -804,6 +845,9 @@ export const unlinkVendorDao = async (vendorUserId, subVendorUserId, user_id) =>
     const fetchSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
     const fetchResult = await executeQuery(fetchSql, [vendorUserId]);
     let currentConfig = fetchResult.rows[0]?.config || {};
+    const fetchSubSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
+    const fetchSubResult = await executeQuery(fetchSubSql, [subVendorUserId]);
+    let subVendorHierarchyConfig = fetchSubResult.rows[0]?.config || {};
     let subVendors = currentConfig?.siblings?.sub_vendors || [];
     // Remove subVendorUserId from array
     subVendors = Array.isArray(subVendors)
@@ -813,6 +857,9 @@ export const unlinkVendorDao = async (vendorUserId, subVendorUserId, user_id) =>
     const newConfig = { ...currentConfig, siblings: { ...currentConfig.siblings, sub_vendors: subVendors } };
     const sql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
     const result = await executeQuery(sql, [newConfig, user_id, vendorUserId]);
+    const newSubConfig = { ...subVendorHierarchyConfig, parent: '' };
+    const sql1 = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
+    await executeQuery(sql1, [newSubConfig, user_id, subVendorUserId]);
 
     // Remove sub_code from config of subVendorUserId in Vendor table
     const fetchVendorSql = `SELECT config FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
@@ -820,7 +867,9 @@ export const unlinkVendorDao = async (vendorUserId, subVendorUserId, user_id) =>
     let subVendorConfig = fetchVendorResult.rows[0]?.config || {};
     if ('sub_code' in subVendorConfig) {
       // Remove sub_code key using delete operator
+      subVendorConfig.prev_sub_code = subVendorConfig.sub_code || null;
       delete subVendorConfig.sub_code;
+      delete subVendorConfig?.is_owned;
       const updateVendorSql = `UPDATE "${tableName.VENDOR}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
       await executeQuery(updateVendorSql, [subVendorConfig, user_id, subVendorUserId]);
     }
@@ -853,6 +902,9 @@ export const transferVendorDao = async (vendorUserId, newVendorUserId, currentVe
     const fetchNewSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
     const fetchNewResult = await executeQuery(fetchNewSql, [newVendorUserId]);
     let newConfig = fetchNewResult.rows[0]?.config || {};
+    const fetchNewSubSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
+    const fetchNewSubResult = await executeQuery(fetchNewSubSql, [vendorUserId]);
+    let newSubConfig = fetchNewSubResult.rows[0]?.config || {};
     let newSubVendors = newConfig?.siblings?.sub_vendors || [];
     newSubVendors = Array.isArray(newSubVendors)
       ? [...new Set([...newSubVendors, vendorUserId])]
@@ -860,6 +912,9 @@ export const transferVendorDao = async (vendorUserId, newVendorUserId, currentVe
     const updatedNewConfig = { ...newConfig, siblings: { ...newConfig.siblings, sub_vendors: newSubVendors } };
     const updateNewSql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
     const result = await executeQuery(updateNewSql, [updatedNewConfig, user_id, newVendorUserId]);
+    const updatedSubConfig = { ...newSubConfig, parent: newVendorUserId };
+    const updateSubSql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
+    await executeQuery(updateSubSql, [updatedSubConfig, user_id, vendorUserId]);
 
     // Update sub_code in vendorUserId's config in Vendor table to newVendorUserId's code
     const fetchNewVendorCodeSql = `SELECT code FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
@@ -870,8 +925,9 @@ export const transferVendorDao = async (vendorUserId, newVendorUserId, currentVe
       const fetchVendorConfigResult = await executeQuery(fetchVendorConfigSql, [vendorUserId]);
       let vendorConfig = fetchVendorConfigResult.rows[0]?.config || {};
       const subCode = `${newVendorCode}(${fetchVendorConfigResult.rows[0]?.code})`;
+      vendorConfig.prev_sub_code = vendorConfig.sub_code || null;
       vendorConfig.sub_code = subCode;
-      const updateVendorConfigSql = `UPDATE "${tableName.VENDOR}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
+      const updateVendorConfigSql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
       await executeQuery(updateVendorConfigSql, [vendorConfig, user_id, vendorUserId]);
     }
 
