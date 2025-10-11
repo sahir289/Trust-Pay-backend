@@ -72,7 +72,7 @@ import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 const getSubVendorParentInfo = async (vendor) => {
   try {
     // Check if vendor designation is SUB_VENDOR
-    if (vendor.designation !== Role.SUB_VENDOR) {
+    if (vendor.designation_name !== Role.SUB_VENDOR) {
       return null;
     }
 
@@ -1657,9 +1657,10 @@ const handleAmountUpdate = async ({
       const subVendorParentInfo = await getSubVendorParentInfo(vendor[0]);
       if (subVendorParentInfo) {
         // Calculate parent commission for amount difference
+        // Use the signed updatedAmount to handle both positive and negative changes
         parentCommission = await updateParentVendorCalculation(
           subVendorParentInfo.parentUserId,
-          Math.abs(updatedAmount),
+          Number(updatedAmount),
           Number(subVendorParentInfo.parentVendor.payin_commission),
           conn,
         );
