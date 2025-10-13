@@ -2466,12 +2466,12 @@ export const disputeDuplicateTransactionService = async (
         const subVendorParentInfo = await getSubVendorParentInfo(vendor);
         if (subVendorParentInfo) {
           // Calculate parent commission
-          parentCommission = await updateParentVendorCalculation(
-            subVendorParentInfo.parentUserId,
-            Number(toAmount),
-            Number(subVendorParentInfo.parentVendor.payin_commission),
-            null, // No transaction connection for this path
-          );
+          // parentCommission = await updateParentVendorCalculation(
+          //   subVendorParentInfo.parentUserId,
+          //   Number(toAmount),
+          //   Number(subVendorParentInfo.parentVendor.payin_commission),
+          //   null, // No transaction connection for this path
+          // );
 
           totalVendorCommission = vendorPayinCommission + parentCommission;
           brokerageCommission = parentCommission;
@@ -2567,12 +2567,12 @@ export const disputeDuplicateTransactionService = async (
       const subVendorParentInfo = await getSubVendorParentInfo(vendor);
       if (subVendorParentInfo) {
         // Calculate parent commission
-        parentCommission = await updateParentVendorCalculation(
-          subVendorParentInfo.parentUserId,
-          Number(toAmount),
-          Number(subVendorParentInfo.parentVendor.payin_commission),
-          null, // No transaction connection for this path
-        );
+        // parentCommission = await updateParentVendorCalculation(
+        //   subVendorParentInfo.parentUserId,
+        //   Number(toAmount),
+        //   Number(subVendorParentInfo.parentVendor.payin_commission),
+        //   null, // No transaction connection for this path
+        // );
 
         totalVendorCommission = vendorPayinCommission + parentCommission;
         brokerageCommission = parentCommission;
@@ -3366,7 +3366,9 @@ const updateParentVendorCalculation = async (
   conn,
 ) => {
   try {
-    const parentCommission = calculateCommission(amount, vendorCommissionRate);
+    // Always calculate commission on absolute amount, then apply sign based on amount direction
+    const baseCommission = calculateCommission(Number(amount), vendorCommissionRate);
+    const parentCommission = amount > 0 ? baseCommission : -baseCommission;
 
     await updateCalculationTable(
       parentUserId,
@@ -3577,13 +3579,11 @@ export const updatePayInService = async (
       const subVendorParentInfo = await getSubVendorParentInfo(vendor[0]);
       if (subVendorParentInfo) {
         // Calculate parent commission for amount difference
-        // Use the signed amountDiff to handle both positive and negative changes
-        parentCommission = await updateParentVendorCalculation(
-          subVendorParentInfo.parentUserId,
-          Number(amountDiff),
-          Number(subVendorParentInfo.parentVendor.payin_commission),
-          conn,
+        const baseParentCommission = calculateCommission(
+          Math.abs(Number(amountDiff)),
+          Number(subVendorParentInfo.parentVendor.payin_commission)
         );
+        parentCommission = amountDiff > 0 ? baseParentCommission : -baseParentCommission;
 
         amountTotalVendorCommission = vendorCommission + parentCommission;
         brokerageCommission = parentCommission;
@@ -3616,15 +3616,25 @@ export const updatePayInService = async (
         totalVendorCommission = vendorCommission; // Set the function-level variable
       }
 
-      // Fetch calculation data for vendor and merchant
-      const [vendorCalculationData, merchantCalculationData] =
-        await Promise.all([
-          getAllCalculationforCronDao(vendor[0].user_id),
-          getAllCalculationforCronDao(merchant[0].user_id),
-        ]);
+      // Fetch calculation data for vendor, merchant, and parent (if sub-vendor)
+      let fetchPromises = [
+        getAllCalculationforCronDao(vendor[0].user_id),
+        getAllCalculationforCronDao(merchant[0].user_id),
+      ];
+      
+      if (subVendorParentInfo) {
+        fetchPromises.push(getAllCalculationforCronDao(subVendorParentInfo.parentUserId));
+      }
+
+      const calculationResults = await Promise.all(fetchPromises);
+      const [vendorCalculationData, merchantCalculationData, parentCalculationData] = calculationResults;
 
       if (!vendorCalculationData[0] || !merchantCalculationData[0]) {
         throw new NotFoundError('Calculation data not found');
+      }
+
+      if (subVendorParentInfo && !parentCalculationData[0]) {
+        throw new NotFoundError('Parent calculation data not found');
       }
 
       // Filter calculations by date
@@ -3647,8 +3657,24 @@ export const updatePayInService = async (
         throw new NotFoundError('Matching calculation not found');
       }
 
-      // Batch all updates in a single transaction
-      await Promise.all([
+      // Prepare parent calculation data if sub-vendor
+      let parentCurrentCalculations = [];
+      let parentCalculations = [];
+      if (subVendorParentInfo && parentCalculationData) {
+        parentCurrentCalculations = parentCalculationData.filter(
+          (calc) => approvedDate === getDateWithoutTime(calc.created_at),
+        );
+        parentCalculations = parentCalculationData.filter(
+          (calc) => approvedDate < getDateWithoutTime(calc.created_at),
+        );
+        
+        if (!parentCurrentCalculations[0]) {
+          throw new NotFoundError('Parent matching calculation not found');
+        }
+      }
+
+      // Prepare all update promises
+      let updatePromises = [
         updateBankResponseDao(
           { id: bankResponse.id, company_id: company_id },
           {
@@ -3679,7 +3705,7 @@ export const updatePayInService = async (
           vendorCurrentCalculations,
           vendorCalculations,
           amountDiff,
-          amountTotalVendorCommission,
+          vendorCommission,
           conn,
         ),
         updateCalculationBalances(
@@ -3689,7 +3715,23 @@ export const updatePayInService = async (
           merchantCommission,
           conn,
         ),
-      ]);
+      ];
+
+      // Add parent calculation updates if sub-vendor
+      if (subVendorParentInfo && parentCurrentCalculations.length > 0) {
+        updatePromises.push(
+          updateCalculationBalances(
+            parentCurrentCalculations,
+            parentCalculations,
+            0, // Parent vendor amount is always 0 for adjustments
+            parentCommission,
+            conn,
+          )
+        );
+      }
+
+      // Batch all updates in a single transaction
+      await Promise.all(updatePromises);
     }
     // Handle UTR updates
     else if (payload?.utr) {
@@ -3775,40 +3817,58 @@ export const updatePayInService = async (
 
         // Check if previous vendor is sub-vendor
         const prevSubVendorParentInfo = await getSubVendorParentInfo(prevVendor[0]);
+        let prevParentCommission = 0;
+        let prevParentCalculationData = null;
+        let prevParentCurrentCalcs = [];
+        let prevParentNextCalcs = [];
+        
         if (prevSubVendorParentInfo) {
-          const prevParentCommission = calculateCommission(
+          prevParentCommission = calculateCommission(
             Number(bankResponse.amount),
             Number(prevSubVendorParentInfo.parentVendor.payin_commission),
           );
           totalPrevVendorCommission = prevVendorCommission + prevParentCommission;
           
-          // Reverse parent vendor calculation for previous vendor
-          await updateParentVendorCalculation(
-            prevSubVendorParentInfo.parentUserId,
-            -Number(bankResponse.amount),
-            Number(prevSubVendorParentInfo.parentVendor.payin_commission),
-            conn,
-          );
+          // Fetch parent calculation data for proper adjustment handling
+          prevParentCalculationData = await getAllCalculationforCronDao(prevSubVendorParentInfo.parentUserId);
+          if (prevParentCalculationData[0]) {
+            const approvedDate = getDateWithoutTime(bankResponse.created_at);
+            prevParentCurrentCalcs = prevParentCalculationData.filter(
+              (calc) => approvedDate === getDateWithoutTime(calc.created_at),
+            );
+            prevParentNextCalcs = prevParentCalculationData.filter(
+              (calc) => approvedDate < getDateWithoutTime(calc.created_at),
+            );
+          }
           
           logger.info(`Bank ID update in payIn - Previous vendor sub-vendor commission reversed: sub=${-prevVendorCommission}, parent=${-prevParentCommission}, total=${-totalPrevVendorCommission}`);
         }
 
         // Check if new vendor is sub-vendor
         const newSubVendorParentInfo = await getSubVendorParentInfo(newVendor[0]);
+        let newParentCommission = 0;
+        let newParentCalculationData = null;
+        let newParentCurrentCalcs = [];
+        let newParentNextCalcs = [];
+        
         if (newSubVendorParentInfo) {
-          const newParentCommission = calculateCommission(
+          newParentCommission = calculateCommission(
             Number(bankResponse.amount),
             Number(newSubVendorParentInfo.parentVendor.payin_commission),
           );
           totalNewVendorCommission = newVendorCommission + newParentCommission;
           
-          // Add parent vendor calculation for new vendor
-          await updateParentVendorCalculation(
-            newSubVendorParentInfo.parentUserId,
-            Number(bankResponse.amount),
-            Number(newSubVendorParentInfo.parentVendor.payin_commission),
-            conn,
-          );
+          // Fetch parent calculation data for proper adjustment handling
+          newParentCalculationData = await getAllCalculationforCronDao(newSubVendorParentInfo.parentUserId);
+          if (newParentCalculationData[0]) {
+            const approvedDate = getDateWithoutTime(bankResponse.created_at);
+            newParentCurrentCalcs = newParentCalculationData.filter(
+              (calc) => approvedDate === getDateWithoutTime(calc.created_at),
+            );
+            newParentNextCalcs = newParentCalculationData.filter(
+              (calc) => approvedDate < getDateWithoutTime(calc.created_at),
+            );
+          }
 
           // Update config for new sub-vendor
           bankChangeConfig = {
@@ -3830,12 +3890,13 @@ export const updatePayInService = async (
         payload.config = bankChangeConfig;
         payload.payin_vendor_commission = totalNewVendorCommission;
 
-        await Promise.all([
+        // Prepare all calculation update promises
+        let calculationUpdatePromises = [
           updateCalculationBalances(
             prevVendorCurrentCalcs,
             prevVendorNextCurrentCalcs,
             -bankResponse.amount,
-            -totalPrevVendorCommission,
+            -prevVendorCommission,
             conn,
             -1,
           ),
@@ -3843,11 +3904,40 @@ export const updatePayInService = async (
             newVendorCurrentCalcs,
             newVendorNextCurrentCalcs,
             bankResponse.amount,
-            totalNewVendorCommission,
+            newVendorCommission,
             conn,
             1,
           ),
-        ]);
+        ];
+
+        // Add parent calculation updates for bank change scenario
+        if (prevSubVendorParentInfo && prevParentCurrentCalcs.length > 0) {
+          calculationUpdatePromises.push(
+            updateCalculationBalances(
+              prevParentCurrentCalcs,
+              prevParentNextCalcs,
+              0, // Parent vendor amount is always 0
+              -prevParentCommission, // Reverse the commission
+              conn,
+              -1,
+            )
+          );
+        }
+
+        if (newSubVendorParentInfo && newParentCurrentCalcs.length > 0) {
+          calculationUpdatePromises.push(
+            updateCalculationBalances(
+              newParentCurrentCalcs,
+              newParentNextCalcs,
+              0, // Parent vendor amount is always 0
+              newParentCommission, // Add the commission
+              conn,
+              1,
+            )
+          );
+        }
+
+        await Promise.all(calculationUpdatePromises);
       } else {
         // Same vendor, different bank - still need to update vendor calculations
         const [vendorForSameBank] = await Promise.all([
