@@ -63,6 +63,12 @@ function config(Env) {
       salt: Env?.ZENTECHIND_SALT,
       collectionId: Env?.ZENTECHIND_COLLECTION_ID,
     },
+    clickrr : {
+      baseUrl: Env?.CLICKRR_BASE_API_URL,
+      initiatePayout: Env?.CLICKRR_INITIATE_API_URL,
+      apiKey: Env?.CLICKRR_API_KEY,
+      apiSecret: Env?.CLICKRR_API_SECRET,
+    },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,
     databaseWriterUrl: Env?.DATABASE_WRITER_URL,

@@ -28,6 +28,7 @@ export const Method = {
   AED: 'AED',
   CRYPTO: 'CRYPTO',
   EKO: 'EKO',
+  CLICKRR: 'CLICKRR',
 };
 
 export const Type = {
