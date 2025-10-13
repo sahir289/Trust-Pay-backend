@@ -3916,7 +3916,7 @@ export const updatePayInService = async (
               prevParentCurrentCalcs,
               prevParentNextCalcs,
               0, // Parent vendor amount is always 0
-              prevParentCommission, // Reverse the commission
+              -prevParentCommission, // Reverse the commission
               conn,
               -1,
             )
