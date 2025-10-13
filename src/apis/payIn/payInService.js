@@ -3319,7 +3319,7 @@ export const updateCalculationTable = async (user_id, data, conn) => {
 const getSubVendorParentInfo = async (vendor) => {
   try {
     // Check if vendor designation is SUB_VENDOR
-    if (vendor.designation_name !== Role.SUB_VENDOR || vendor.designation !== Role.SUB_VENDOR) {
+    if (vendor.designation_name !== Role.SUB_VENDOR && vendor.designation !== Role.SUB_VENDOR) {
       return null;
     }
 
