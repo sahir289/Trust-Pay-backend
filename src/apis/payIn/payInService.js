@@ -1716,12 +1716,12 @@ export const processPayInService = async (
       const subVendorParentInfo = await getSubVendorParentInfo(vendor);
       if (subVendorParentInfo) {
         // Calculate parent commission
-        parentCommission = await updateParentVendorCalculation(
-          subVendorParentInfo.parentUserId,
-          Number(bankResponse.amount),
-          Number(subVendorParentInfo.parentVendor.payin_commission),
-          conn,
-        );
+        // parentCommission = await updateParentVendorCalculation(
+        //   subVendorParentInfo.parentUserId,
+        //   Number(bankResponse.amount),
+        //   Number(subVendorParentInfo.parentVendor.payin_commission),
+        //   conn,
+        // );
 
         totalVendorCommission = vendorCommission + parentCommission;
         brokerageCommission = parentCommission;
@@ -1959,12 +1959,12 @@ export const processPayInWebHookService = async (conn, payload, updated_by) => {
       const subVendorParentInfo = await getSubVendorParentInfo(vendor);
       if (subVendorParentInfo) {
         // Calculate parent commission
-        parentCommission = await updateParentVendorCalculation(
-          subVendorParentInfo.parentUserId,
-          Number(bankResponse.amount),
-          Number(subVendorParentInfo.parentVendor.payin_commission),
-          conn,
-        );
+        // parentCommission = await updateParentVendorCalculation(
+        //   subVendorParentInfo.parentUserId,
+        //   Number(bankResponse.amount),
+        //   Number(subVendorParentInfo.parentVendor.payin_commission),
+        //   conn,
+        // );
 
         totalVendorCommission = vendorCommission + parentCommission;
         brokerageCommission = parentCommission;
@@ -2868,12 +2868,12 @@ export const checkPendingPayinStatusService = async (
         const subVendorParentInfo = await getSubVendorParentInfo(vendor[0]);
         if (subVendorParentInfo) {
           // Calculate parent commission
-          parentCommission = await updateParentVendorCalculation(
-            subVendorParentInfo.parentUserId,
-            Number(bankResponse.amount),
-            Number(subVendorParentInfo.parentVendor.payin_commission),
-            conn,
-          );
+          // parentCommission = await updateParentVendorCalculation(
+          //   subVendorParentInfo.parentUserId,
+          //   Number(bankResponse.amount),
+          //   Number(subVendorParentInfo.parentVendor.payin_commission),
+          //   conn,
+          // );
 
           totalVendorCommission = payinVendorCommission + parentCommission;
           brokerageCommission = parentCommission;
@@ -3434,9 +3434,8 @@ const updateCalculationBalances = async (
 ) => {
   try {
     if (!currentCalculation) return;
-    commission = amountDiff > 0 ? commission : -commission;
     const updates = {
-      total_payin_commission: commission,
+      total_payin_commission: amountDiff > 0 ? commission : -commission,
       total_payin_amount: amountDiff,
       total_payin_count: count ? count : 0,
       current_balance: amountDiff - commission,
@@ -3562,11 +3561,11 @@ export const updatePayInService = async (
       }
       // Calculate commissions
       vendorCommission = calculateCommission(
-        Number(amountDiff),
+        Math.abs(amountDiff),
         vendor[0].payin_commission,
       );
       merchantCommission = calculateCommission(
-        Number(amountDiff),
+        Math.abs(amountDiff),
         merchant[0].payin_commission,
       );
 
@@ -3580,10 +3579,10 @@ export const updatePayInService = async (
       if (subVendorParentInfo) {
         // Calculate parent commission for amount difference
         const baseParentCommission = calculateCommission(
-          Math.abs(Number(amountDiff)),
+          Math.abs(amountDiff),
           Number(subVendorParentInfo.parentVendor.payin_commission)
         );
-        parentCommission = amountDiff > 0 ? baseParentCommission : -baseParentCommission;
+        parentCommission = amountDiff > 0 ? -baseParentCommission : baseParentCommission;
 
         amountTotalVendorCommission = vendorCommission + parentCommission;
         brokerageCommission = parentCommission;
@@ -3802,11 +3801,11 @@ export const updatePayInService = async (
         }
 
         const prevVendorCommission = calculateCommission(
-          Number(bankResponse.amount),
+          Math.abs(bankResponse.amount),
           prevVendor[0].payin_commission,
         );
         const newVendorCommission = calculateCommission(
-          Number(bankResponse.amount),
+          Math.abs(bankResponse.amount),
           newVendor[0].payin_commission,
         );
 
@@ -3824,7 +3823,7 @@ export const updatePayInService = async (
         
         if (prevSubVendorParentInfo) {
           prevParentCommission = calculateCommission(
-            Number(bankResponse.amount),
+            Math.abs(bankResponse.amount),
             Number(prevSubVendorParentInfo.parentVendor.payin_commission),
           );
           totalPrevVendorCommission = prevVendorCommission + prevParentCommission;
@@ -3853,7 +3852,7 @@ export const updatePayInService = async (
         
         if (newSubVendorParentInfo) {
           newParentCommission = calculateCommission(
-            Number(bankResponse.amount),
+            Math.abs(bankResponse.amount),
             Number(newSubVendorParentInfo.parentVendor.payin_commission),
           );
           totalNewVendorCommission = newVendorCommission + newParentCommission;
@@ -3896,7 +3895,7 @@ export const updatePayInService = async (
             prevVendorCurrentCalcs,
             prevVendorNextCurrentCalcs,
             -bankResponse.amount,
-            -prevVendorCommission,
+            prevVendorCommission,
             conn,
             -1,
           ),
@@ -3917,7 +3916,7 @@ export const updatePayInService = async (
               prevParentCurrentCalcs,
               prevParentNextCalcs,
               0, // Parent vendor amount is always 0
-              -prevParentCommission, // Reverse the commission
+              prevParentCommission, // Reverse the commission
               conn,
               -1,
             )

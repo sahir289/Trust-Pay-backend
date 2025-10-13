@@ -578,12 +578,12 @@ const createBankResponseService = async (
           const subVendorParentInfo = await getSubVendorParentInfo(vendorData[0]);
           if (subVendorParentInfo) {
             // Calculate parent commission
-            parentCommission = await updateParentVendorCalculation(
-              subVendorParentInfo.parentUserId,
-              Number(botRes.amount),
-              Number(subVendorParentInfo.parentVendor.payin_commission),
-              localConn,
-            );
+            // parentCommission = await updateParentVendorCalculation(
+            //   subVendorParentInfo.parentUserId,
+            //   Number(botRes.amount),
+            //   Number(subVendorParentInfo.parentVendor.payin_commission),
+            //   localConn,
+            // );
             
             totalVendorCommission = payinVendorCommission + parentCommission;
             brokerageCommission = parentCommission;
@@ -1042,12 +1042,12 @@ const createBankResponseWebHookService = async (
         const subVendorParentInfo = await getSubVendorParentInfo(vendor[0]);
         if (subVendorParentInfo) {
           // Calculate parent commission
-          parentCommission = await updateParentVendorCalculation(
-            subVendorParentInfo.parentUserId,
-            Number(botRes.amount),
-            Number(subVendorParentInfo.parentVendor.payin_commission),
-            localConn,
-          );
+          // parentCommission = await updateParentVendorCalculation(
+          //   subVendorParentInfo.parentUserId,
+          //   Number(botRes.amount),
+          //   Number(subVendorParentInfo.parentVendor.payin_commission),
+          //   localConn,
+          // );
           
           totalVendorCommission = payinVendorCommission + parentCommission;
           
@@ -1662,7 +1662,7 @@ const handleAmountUpdate = async ({
       if (subVendorParentInfo) {
         // Calculate parent commission for amount difference
         const baseParentCommission = calculateCommission(
-          Math.abs(Number(updatedAmount)),
+          Math.abs(updatedAmount),
           Number(subVendorParentInfo.parentVendor.payin_commission)
         );
         parentCommission = updatedAmount > 0 ? baseParentCommission : -baseParentCommission;
