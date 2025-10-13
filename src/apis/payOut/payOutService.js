@@ -1139,6 +1139,14 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       vendor.payout_commission,
     );
 
+    const payoutDetails = await getPayoutsDao({ id: ids.id }, ids.company_id);
+    if (
+      payoutDetails.length !== 0 &&
+      payoutDetails[0]?.status === data?.status
+    ) {
+      throw new BadRequestError(`Payout is already ${payoutDetails[0].status}`);
+    }
+
     // Handle sub-vendor and parent commission logic
     let totalVendorCommission = vendorCommission;
     let brokerageCommission = 0;
@@ -1173,14 +1181,6 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         ...(payoutDetails[0]?.config || {}), // Preserve existing config
         actual_vendor_commission: vendorCommission,
       };
-    }
-
-    const payoutDetails = await getPayoutsDao({ id: ids.id }, ids.company_id);
-    if (
-      payoutDetails.length !== 0 &&
-      payoutDetails[0]?.status === data?.status
-    ) {
-      throw new BadRequestError(`Payout is already ${payoutDetails[0].status}`);
     }
 
     // Handle status-specific updates
