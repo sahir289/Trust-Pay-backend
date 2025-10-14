@@ -18,7 +18,7 @@ import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 import { payAssistTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payAsistWebHook.js';
 import { tataPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/tataPayWebHook.js';
-import { initiateClickrrPayout } from '../../clickrr/clickrr.js';
+import { getClickrrWalletBalance, initiateClickrrPayout } from '../../clickrr/clickrr.js';
 const router = express.Router();
 
 /**
@@ -114,6 +114,7 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayoutsById),
 );
+
 /**
  * @swagger
  * /payout/create-payout:
@@ -271,6 +272,12 @@ router.post(
   '/clickrr',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(initiateClickrrPayout),
+);  
+
+router.get(
+  '/clickrr/wallet-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getClickrrWalletBalance),
 );  
 
 router.post(

@@ -1182,7 +1182,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         payload.utr_id = checkClickrr?.utr || '';
         payload.rejected_reason = error?.response?.data?.message || 'API call failed';
         payload.rejected_at = new Date().toISOString();
-        logger.error('Clickrr payout error:', error);
+        logger.error('Clickrr payout error:', error.message);
       }
     }
 

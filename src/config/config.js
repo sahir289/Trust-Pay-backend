@@ -66,6 +66,7 @@ function config(Env) {
     clickrr : {
       baseUrl: Env?.CLICKRR_BASE_API_URL,
       initiatePayout: Env?.CLICKRR_INITIATE_API_URL,
+      walletBalance: Env?.CLICKRR_WALLET_BALANCE_API_URL,
       apiKey: Env?.CLICKRR_API_KEY,
       apiSecret: Env?.CLICKRR_API_SECRET,
     },

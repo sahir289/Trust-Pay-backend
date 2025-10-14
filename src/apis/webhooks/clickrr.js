@@ -13,15 +13,16 @@ export const clickrrWebhook = async (req, res) => {
     const payload = req.body;
     logger.info('Clickrr webhook payload:', payload);
 
+    const ids = { id: payload?.merchant_order_id };
     logger.info('Payout updated from Clickrr webhook:', clickrrResponse);
-    const clickrrResponse = await updatePayoutService(conn, payload, '');
+    const clickrrResponse = await updatePayoutService(conn, ids, 'payload', '');
     logger.info('Payout processed:', clickrrResponse);
   } catch (error) {
     logger.error('Clickrr webhook error:', error);
     // may be we don't need to add rollback here as transactionWrapper will handle it
     if (conn) {
       try {
-        await rollback(conn);
+        await rollback(conn); 
         logger.error('Transaction rolled back due to error:', error);
       } catch (rollbackError) {
         logger.error('Rollback failed:', rollbackError);

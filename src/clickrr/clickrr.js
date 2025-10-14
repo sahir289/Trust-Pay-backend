@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import axios from 'axios';
 import { logger } from '../utils/logger.js';
 import config from '../config/config.js';
-// import { sendSuccess } from '../utils/responseHandlers.js';
+import { sendSuccess } from '../utils/responseHandlers.js';
 
 /**
  * Generate an HMAC-SHA256 signature for API authentication.
@@ -36,8 +36,13 @@ export function generateSignature(
  * @returns {Promise<object>} - API response.
  */
 
+const baseUrl = config.clickrr.baseUrl;
+const initiatePayoutUrl = config.clickrr.initiatePayout;
+const walletBalanceUrl = config.clickrr.walletBalance;
+const apiKey = config.clickrr.apiKey;
+const apiSecret = config.clickrr.apiSecret;
+
 export async function initiateClickrrPayout(payload) {
-  console.log(payload, 'payload');
   const newPayload = {
     amount: Number(payload.amount),
     mobileNumber: 9898989898,
@@ -51,10 +56,6 @@ export async function initiateClickrrPayout(payload) {
     bankName: payload?.user_bank_details?.bank_name,
   };
 
-  const baseUrl = config.clickrr.baseUrl;
-  const initiatePayout = config.clickrr.initiatePayout;
-  const apiKey = config.clickrr.apiKey;
-  const apiSecret = config.clickrr.apiSecret;
   try {
     const httpMethod = 'POST';
     const { signature, timestamp } = generateSignature(
@@ -70,15 +71,45 @@ export async function initiateClickrrPayout(payload) {
       'Content-Type': 'application/json',
     };
 
-    const url = `${baseUrl}${initiatePayout}`;
+    const url = `${baseUrl}${initiatePayoutUrl}`;
     const response = await axios.post(url, newPayload, { headers });
-    console.log(response.data, 'response.data');
-    // return sendSuccess(res, response.data, 'Payout initiated successfully');
     return response.data.data;
   } catch (error) {
     logger.error(
       'Payout initiation failed:',
-      error.response?.data || error.message,
+      error.response?.data || error.message || error,
+    );
+    throw error;
+  }
+}
+
+export async function getClickrrWalletBalance(req, res) {
+  try {
+    const httpMethod = 'GET';
+    const { signature, timestamp } = generateSignature(
+      apiKey,
+      apiSecret,
+      httpMethod,
+    );
+
+    const headers = {
+      Apikey: apiKey,
+      Signature: signature,
+      Timestamp: timestamp,
+      'Content-Type': 'application/json',
+    };
+
+    const url = `${baseUrl}${walletBalanceUrl}`;
+    const response = await axios.get(url, { headers });
+    return sendSuccess(
+      res,
+      response.data.data,
+      'clickrr wallet balance fetched successfully',
+    );
+  } catch (error) {
+    logger.error(
+      'Error fetching Clickrr payout status:',
+      error.response?.data || error.message || error,
     );
     throw error;
   }
