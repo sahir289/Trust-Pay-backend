@@ -146,7 +146,7 @@ describe('Payout Service', () => {
     it('should return error if merchant not found', async () => {
       merchantDao.getMerchantsDao.mockResolvedValue([]);
       const result = await checkPayOutStatusService(1, 'invalid', 'order1', 'key');
-      expect(result).toEqual({ status: 400, message: 'Merchant Order ID already exists' });
+      expect(result).toEqual({ status: 400, message: 'Merchant does not exist' });
     });
 
     it('should return error if invalid API key', async () => {
@@ -166,7 +166,7 @@ describe('Payout Service', () => {
       merchantDao.getMerchantsDao.mockResolvedValue([{ id: 1, config: { keys: { private: 'private' } } }]);
       payoutDao.getPayoutsDao.mockResolvedValue([{ merchant_id: 2, status: Status.APPROVED, merchant_order_id: 'order1', amount: 100, id: 1, utr_id: 'utr123' }]);
       const result = await checkPayOutStatusService(1, 'valid', 'order1', 'private');
-      expect(result).toEqual({ status: 404, message: 'merchant_order_id and payIn ID do not belong to the specified merchant' });
+      expect(result).toEqual({ status: 404, message: 'merchant_order_id and payOut ID do not belong to the specified merchant' });
     });
   });
 

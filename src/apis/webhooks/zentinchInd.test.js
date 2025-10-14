@@ -60,7 +60,7 @@ describe('zenTechIndWebhook', () => {
 
     await zenTechIndWebhook(req, res);
 
-    expect(sendSuccess).toHaveBeenCalledWith(res, 200, 'Webhook received successfully');
+    expect(sendSuccess).toHaveBeenCalledWith(res, {}, 'Webhook received successfully');
     expect(generateHash).toHaveBeenCalledWith(req.body.transaction);
     expect(getPayInIntentDao).toHaveBeenCalledWith('12345');
     expect(createBankResponseWebHookService).toHaveBeenCalledWith(
@@ -88,7 +88,7 @@ describe('zenTechIndWebhook', () => {
 
     await zenTechIndWebhook(req, res);
 
-    expect(sendSuccess).toHaveBeenCalledWith(res, 200, 'Webhook received successfully');
+    expect(sendSuccess).toHaveBeenCalledWith(res, {}, 'Webhook received successfully');
     expect(generateHash).toHaveBeenCalledWith(req.body.transaction);
     expect(logger.error).toHaveBeenCalledWith('Invalid hash in ZenTechInd webhook');
   });
@@ -100,7 +100,7 @@ describe('zenTechIndWebhook', () => {
 
     await zenTechIndWebhook(req, res);
 
-    expect(sendSuccess).toHaveBeenCalledWith(res, 200, 'Webhook received successfully');
+    expect(sendSuccess).toHaveBeenCalledWith(res, {}, 'Webhook received successfully');
     expect(generateHash).toHaveBeenCalledWith(req.body.transaction);
     expect(logger.error).toHaveBeenCalledWith('zenTechInd webhook error:', error);
     expect(getPayInIntentDao).toHaveBeenCalledWith('12345');
@@ -117,7 +117,7 @@ describe('zenTechIndWebhook', () => {
 
     await zenTechIndWebhook(req, res);
 
-    expect(sendSuccess).toHaveBeenCalledWith(res, 200, 'Webhook received successfully');
+    expect(sendSuccess).toHaveBeenCalledWith(res, {}, 'Webhook received successfully');
     expect(createBankResponseWebHookService).not.toHaveBeenCalled();
     expect(processPayInWebHookService).toHaveBeenCalledWith(
       {

@@ -295,7 +295,7 @@ describe('PayIn Controller', () => {
 
       expect(responseHandlers.sendError).toHaveBeenCalledWith(
         res,
-        'Bank Account has not been linked with Merchant',
+        'No Payment Methods Enabled!',
         404,
       );
       expect(sendBankNotAssignedAlertTelegram).toHaveBeenCalledWith(

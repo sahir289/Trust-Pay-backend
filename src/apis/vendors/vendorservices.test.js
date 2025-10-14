@@ -356,7 +356,7 @@ describe('Vendor Service', () => {
       const result = await linkVendorService(vendorUserId, subVendorUserId, user_id);
 
       expect(isNetBalanceZeroForTwoHours).toHaveBeenCalledWith(subVendorUserId);
-      expect(getVendorByUserId).toHaveBeenCalledTimes(2);
+      expect(getVendorByUserId).toHaveBeenCalledTimes(1);
       expect(linkVendorDao).toHaveBeenCalledWith(vendorUserId, subVendorUserId, user_id);
       expect(updateUserDao).toHaveBeenCalledWith(
         { id: subVendorUserId },
@@ -429,7 +429,7 @@ describe('Vendor Service', () => {
       const result = await transferVendorService(subVendorUserId, newVendorUserId, currentVendorUserId, user_id);
 
       expect(isNetBalanceZeroForTwoHours).toHaveBeenCalledWith(subVendorUserId);
-      expect(getVendorByUserId).toHaveBeenCalledTimes(2);
+      expect(getVendorByUserId).toHaveBeenCalledTimes(1);
       expect(transferVendorDao).toHaveBeenCalledWith(subVendorUserId, newVendorUserId, currentVendorUserId, user_id);
       expect(commit).toHaveBeenCalledWith(mockConn);
       expect(result).toEqual({ success: true });
