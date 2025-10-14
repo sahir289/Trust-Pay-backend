@@ -3440,11 +3440,11 @@ const updateCalculationBalances = async (
   try {
     if (!currentCalculation) return;
     const updates = {
-      total_payin_commission: amountDiff > 0 ? commission : -commission,
+      total_payin_commission: commission,
       total_payin_amount: amountDiff,
       total_payin_count: count ? count : 0,
-      current_balance: amountDiff - commission,
-      net_balance: amountDiff - commission,
+      current_balance: amountDiff == 0 ? commission : amountDiff - commission,
+      net_balance: amountDiff == 0 ? commission : amountDiff - commission,
     };
     console.log('Updates to apply:', updates);
     const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
@@ -3470,8 +3470,7 @@ const updateCalculationBalances = async (
         if (calculationDate === todayDate) {
           data = {
             total_adjustment_amount: amountDiff,
-            total_adjustment_commission:
-              amountDiff > 0 ? commission : -commission,
+            total_adjustment_commission:commission,
             total_adjustment_count: 1,
           };
         }
@@ -3555,7 +3554,6 @@ export const updatePayInService = async (
       payload.amount !== bankResponse.amount
     ) {
       amountDiff = payload.amount - bankResponse.amount;
-
       // Fetch bank, vendor, and merchant data concurrently
       const [bank] = await Promise.all([
         getBankaccountDao({ id: bankResponse.bank_id }),
@@ -3587,7 +3585,7 @@ export const updatePayInService = async (
           Math.abs(amountDiff),
           Number(subVendorParentInfo.parentVendor.payin_commission)
         );
-        parentCommission = amountDiff > 0 ? -baseParentCommission : baseParentCommission;
+        parentCommission = amountDiff > 0 ? baseParentCommission : -baseParentCommission;
 
         amountTotalVendorCommission = vendorCommission + parentCommission;
         brokerageCommission = parentCommission;
@@ -3676,7 +3674,14 @@ export const updatePayInService = async (
           throw new NotFoundError('Parent matching calculation not found');
         }
       }
-
+      vendorCommission = calculateCommission(
+        Math.abs(amountDiff),
+        vendor[0].payin_commission,
+      );
+      merchantCommission = calculateCommission(
+        Math.abs(amountDiff),
+        merchant[0].payin_commission,
+      );
       // Prepare all update promises
       let updatePromises = [
         updateBankResponseDao(
@@ -3720,7 +3725,6 @@ export const updatePayInService = async (
           conn,
         ),
       ];
-
       // Add parent calculation updates if sub-vendor
       if (subVendorParentInfo && parentCurrentCalculations.length > 0) {
         updatePromises.push(
