@@ -4118,7 +4118,7 @@ export const updatePayInService = async (
     // });
     const updatedPayInData = {
       ...updatedPayIn,
-      nick_name: updatedBankAccIdData?.nick_name,
+      nick_name: payInBank[0]?.nick_name,
       bank_res_details: {
         utr: bankResponseDataUtr?.utr || bankResponseData?.utr,
         amount: updatedPayIn?.amount,
