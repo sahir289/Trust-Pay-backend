@@ -960,17 +960,16 @@ export const updateDepositStatusService = async (
         brokerageCommission = parentCommission;
 
         updatePayInData.config = {
-          ...updatePayInData.config,
+          ...payInData.config,
           actual_vendor_commission: vendorPayinCommission,
           brokerage_commission: brokerageCommission,
         };
-
         logger.info(
           `Sub-vendor commission calculated: sub=${vendorPayinCommission}, parent=${parentCommission}, total=${totalVendorCommission}`,
         );
       } else {
         updatePayInData.config = {
-          ...updatePayInData.config,
+          ...payInData.config,
           actual_vendor_commission: vendorPayinCommission,
         };
       }
@@ -1000,12 +999,12 @@ export const updateDepositStatusService = async (
       // );
 
       // update merchant balance
-      await updateMerchantBalanceDao(
-        { id: merchant.id },
-        payInData.amount,
-        updated_by,
-        conn,
-      );
+      // await updateMerchantBalanceDao(
+      //   { id: merchant.id },
+      //   payInData.amount,
+      //   updated_by,
+      //   conn,
+      // );
 
       // update vendor balance
       // await updateVendorBalanceDao(
@@ -3483,7 +3482,6 @@ const updateCalculationBalances = async (
           },
           conn,
         );
-
         await trackVendorsNetBalance(calc.user_id, conn, updatedCalc);
       }
     }
