@@ -1346,9 +1346,14 @@ export const getPayinsWithoutHistoryDao = async (
       delete filters.status;
     }
     if (filters.user_submitted_utr && filters.user_submitted_utr.trim()) {
-      conditions.push(
-        `(p.user_submitted_utr = $${paramIndex} OR br.utr = $${paramIndex})`,
-      );
+      conditions.push(`
+        (
+          p.user_submitted_utr = $${paramIndex}
+          OR p.bank_response_id IN (
+            SELECT id FROM public."BankResponse" WHERE utr = $${paramIndex}
+          )
+        )
+      `);
       queryParams.push(filters.user_submitted_utr.trim());
       paramIndex++;
       delete filters.user_submitted_utr;
@@ -1694,9 +1699,14 @@ export const getPayinsWithHistoryDao = async (
       delete filters.status;
     }
     if (filters.user_submitted_utr && filters.user_submitted_utr.trim()) {
-      conditions.push(
-        `(p.user_submitted_utr = $${paramIndex} OR br.utr = $${paramIndex})`,
-      );
+      conditions.push(`
+        (
+          p.user_submitted_utr = $${paramIndex}
+          OR p.bank_response_id IN (
+            SELECT id FROM public."BankResponse" WHERE utr = $${paramIndex}
+          )
+        )
+      `);
       queryParams.push(filters.user_submitted_utr.trim());
       paramIndex++;
       delete filters.user_submitted_utr;

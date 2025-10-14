@@ -663,7 +663,12 @@ const calculateVendorCommission = async (payload) => {
     // Store parent info in payload for later use
     payload._subVendorParentInfo = subVendorParentInfo;
     payload._parentCommission = parentCommission;
-    payload.config.brokerage_commission = parentCommission;
+    
+    // Preserve existing config and only update commission keys
+    payload.config = {
+      ...(payload.config || {}), // Preserve existing config
+      brokerage_commission: parentCommission,
+    };
     
     return baseCommission + parentCommission; // Return total commission
   }

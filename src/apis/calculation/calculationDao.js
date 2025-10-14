@@ -381,26 +381,27 @@ export const getCalculationsSumDao = async (filters) => {
         role === Role.ADMIN ? ` AND c.company_id = '${company_id}' ` : '';
       // If userCodes are provided, filter by them
       let userIds = [];
-      if (userCodes.length > 0) {
-        // Get user hierarchy to validate access
 
-        // Process each userCode if provided
-        if (userCodes?.length > 0) {
-          for (const userCode of userCodes) {
-            if (userCode) {
-              const userHierarchys = await getUserHierarchysDao({
-                user_id: userCode,
-              });
-              const allowedSubmerchants =
-                userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
-              // Combine current userCode with its submerchants
-              userIds.push(userCode); // Add the main userCode
-              userIds.push(...allowedSubmerchants); // Add all submerchants
-            }
+      // Process each userCode if provided
+      if (userCodes?.length > 0) {
+        for (const userCode of userCodes) {
+          if (userCode) {
+            const userHierarchies = await getUserHierarchysDao({
+              user_id: userCode,
+            });
+            const allowedSubMerchants =
+              userHierarchies?.[0]?.config?.siblings?.sub_merchants || [];
+            const allowedSubVendors =
+              userHierarchies?.[0]?.config?.siblings?.sub_vendors || [];
+            userIds = [
+              ...new Set([
+                ...userCodes,
+                ...allowedSubMerchants,
+                ...allowedSubVendors,
+              ]),
+            ]; // Remove duplicates
           }
         }
-        // Remove any duplicates
-        userIds = [...new Set(userIds)];
       }
       const baseCalQuery = `
         WITH LatestBalances AS (
@@ -420,13 +421,8 @@ export const getCalculationsSumDao = async (filters) => {
           WHERE c.is_obsolete = FALSE
           AND u.is_obsolete = FALSE
           AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
+          AND c.user_id = ANY(ARRAY[${userIds.map((id) => `'${id}'`).join(',')}])
           ${condition}
-          ${
-            userIds.length > 0
-              ? `AND (m.user_id = ANY(ARRAY[${userIds.map((code) => `'${code}'`).join(',')}]) 
-            OR v.user_id = ANY(ARRAY[${userCodes.map((code) => `'${code}'`).join(',')}]))`
-              : 'AND m.is_obsolete = FALSE OR v.is_obsolete = FALSE'
-          }
         )
         SELECT 
           role,
