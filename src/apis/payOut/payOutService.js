@@ -1156,11 +1156,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         }
         let checkClickrr;
         if (payload.txnStatus) {
+          delete payload.txnStatus;
           checkClickrr = payload;
         } else {
           checkClickrr = await initiateClickrrPayout(singleWithdrawData);
         }
-        checkClickrr = await initiateClickrrPayout(singleWithdrawData);
         const status = checkClickrr.txnStatus;
 
         if (!status) {

@@ -16,9 +16,6 @@ export const clickrrWebhook = async (req, res) => {
     const payload = req.body;
 
     const merchant_order_id = payload.referenceId;
-    logger.info('Clickrr webhook payload:', payload);
-
-
     const companyDetails = await getCompanyIdByMerchantOrderIdDao(merchant_order_id);
 
     if (!companyDetails) {
@@ -26,12 +23,17 @@ export const clickrrWebhook = async (req, res) => {
     }
 
     const ids = { id: companyDetails.id, company_id: companyDetails.company_id };
-
-    payload.config = payload.config || {};
-    payload.config.method = Method.CLICKRR;
+    const newPayload = {
+        txnStatus: payload.txnStatus,
+        utr_id: payload.utr,
+        config: {
+          ...(payload.config || {}),
+          method: Method.CLICKRR,
+        },
+      };
 
     logger.info('Payout updated from Clickrr webhook:', payload);
-    const clickrrResponse = await updatePayoutService(conn, ids, payload);
+    const clickrrResponse = await updatePayoutService(conn, ids, newPayload);
     logger.info('Payout processed:', clickrrResponse);
   } catch (error) {
     logger.error('Clickrr webhook error:', error);
