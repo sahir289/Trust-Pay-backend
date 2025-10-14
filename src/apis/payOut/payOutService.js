@@ -1151,12 +1151,20 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         });
         const bankId = company.config.CLICKRR.defaultBankId;
         bankDataArr = await getBankByIdDao({ id: bankId });
-
-        const checkClickrr = await initiateClickrrPayout(singleWithdrawData);
+        if (!bankDataArr[0]) {
+          throw new NotFoundError('Bank not found for Clickrr payout!');
+        }
+        let checkClickrr;
+        if (payload.txnStatus) {
+          checkClickrr = payload;
+        } else {
+          checkClickrr = await initiateClickrrPayout(singleWithdrawData);
+        }
+        checkClickrr = await initiateClickrrPayout(singleWithdrawData);
         const status = checkClickrr.txnStatus;
 
         if (!status) {
-          payload.status = Status.PENDING
+          payload.status = Status.PENDING;
         } else if (status === 'Success' || status === 'success') {
           payload.status = Status.APPROVED;
           payload.utr_id = checkClickrr?.utr || '';
@@ -1164,10 +1172,10 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         } else if (status === 'Failed' || status === 'failed') {
           payload.status = Status.REJECTED;
           payload.rejected_reason =
-          checkClickrr?.message || 'Transaction failed';
+            checkClickrr?.message || 'Transaction failed';
           payload.rejected_at = new Date().toISOString();
         } else {
-          payload.status = Status.PENDING
+          payload.status = Status.PENDING;
         }
 
         if (!payload.utr_id) {
@@ -1176,7 +1184,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       } catch (error) {
         payload.status = Status.REJECTED;
         payload.utr_id = checkClickrr?.utr || '';
-        payload.rejected_reason = error?.response?.data?.message || 'API call failed';
+        payload.rejected_reason =
+          error?.response?.data?.message || 'API call failed';
         payload.rejected_at = new Date().toISOString();
         logger.error('Clickrr payout error:', error.message);
       }
