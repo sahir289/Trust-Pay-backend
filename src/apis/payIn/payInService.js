@@ -1727,7 +1727,7 @@ export const processPayInService = async (
         brokerageCommission = parentCommission;
 
         updatePayInData.config = {
-          ...updatePayInData.config,
+          ...payIn.config,
           actual_vendor_commission: vendorCommission,
           brokerage_commission: brokerageCommission,
         };
@@ -1737,7 +1737,7 @@ export const processPayInService = async (
         );
       } else {
         updatePayInData.config = {
-          ...updatePayInData.config,
+          ...payIn.config,
           actual_vendor_commission: vendorCommission,
         };
       }
@@ -1970,7 +1970,7 @@ export const processPayInWebHookService = async (conn, payload, updated_by) => {
         brokerageCommission = parentCommission;
 
         updatePayInData.config = {
-          ...updatePayInData.config,
+          ...payIn.config, 
           actual_vendor_commission: vendorCommission,
           brokerage_commission: brokerageCommission,
         };
@@ -1980,7 +1980,7 @@ export const processPayInWebHookService = async (conn, payload, updated_by) => {
         );
       } else {
         updatePayInData.config = {
-          ...updatePayInData.config,
+          ...payIn.config,
           actual_vendor_commission: vendorCommission,
         };
       }
@@ -2477,6 +2477,7 @@ export const disputeDuplicateTransactionService = async (
           brokerageCommission = parentCommission;
 
           payinConfig = {
+            ...payIn.config,
             actual_vendor_commission: vendorPayinCommission,
             brokerage_commission: brokerageCommission,
           };
@@ -2486,6 +2487,7 @@ export const disputeDuplicateTransactionService = async (
           );
         } else {
           payinConfig = {
+            ...payIn.config,
             actual_vendor_commission: vendorPayinCommission,
           };
         }
@@ -2578,6 +2580,7 @@ export const disputeDuplicateTransactionService = async (
         brokerageCommission = parentCommission;
 
         payinConfig = {
+          ...payIn.config,
           actual_vendor_commission: vendorPayinCommission,
           brokerage_commission: brokerageCommission,
         };
@@ -2587,6 +2590,7 @@ export const disputeDuplicateTransactionService = async (
         );
       } else {
         payinConfig = {
+          ...payIn.config,
           actual_vendor_commission: vendorPayinCommission,
         };
       }
@@ -2879,6 +2883,7 @@ export const checkPendingPayinStatusService = async (
           brokerageCommission = parentCommission;
 
           payinConfig = {
+            ...payins.config,
             actual_vendor_commission: payinVendorCommission,
             brokerage_commission: brokerageCommission,
           };
@@ -2888,6 +2893,7 @@ export const checkPendingPayinStatusService = async (
           );
         } else {
           payinConfig = {
+            ...payins.config,
             actual_vendor_commission: payinVendorCommission,
           };
         }

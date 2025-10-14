@@ -101,6 +101,7 @@ export const getPayInsBankResDao = async (filters = {}) => {
       user_submitted_utr,
       upi_short_code,
       amount,
+      config,
       status,
       bank_acc_id,
       created_at,
