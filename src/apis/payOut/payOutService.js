@@ -1130,15 +1130,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
 
     // Fetch related data in parallel
-    console.log(singleWithdrawData.bank_acc_id, 'Bank ID from Payout');
     const bankID = payload.bank_acc_id || singleWithdrawData.bank_acc_id;
     let [merchantArr, bankDataArr] = await Promise.all([
       getMerchantsDao({ id: singleWithdrawData.merchant_id }),
       bankID ? getBankByIdDao({ id: bankID }) : Promise.resolve([]),
     ]);
-
-    console.log(bankDataArr, 'Bank Details for Payout');
-    // console.log(merchantArr, 'Merchant Details for Payout');
 
     const merchant = merchantArr[0];
     if (!merchant) {
