@@ -3446,7 +3446,6 @@ const updateCalculationBalances = async (
       current_balance: amountDiff == 0 ? commission : amountDiff - commission,
       net_balance: amountDiff == 0 ? commission : amountDiff - commission,
     };
-    console.log('Updates to apply:', updates);
     const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
     // Update current calculation
     const updatedCurrentCalculation = await updateCalculationBalanceDao(
@@ -3674,14 +3673,6 @@ export const updatePayInService = async (
           throw new NotFoundError('Parent matching calculation not found');
         }
       }
-      vendorCommission = calculateCommission(
-        Math.abs(amountDiff),
-        vendor[0].payin_commission,
-      );
-      merchantCommission = calculateCommission(
-        Math.abs(amountDiff),
-        merchant[0].payin_commission,
-      );
       // Prepare all update promises
       let updatePromises = [
         updateBankResponseDao(
@@ -3714,14 +3705,20 @@ export const updatePayInService = async (
           vendorCurrentCalculations,
           vendorCalculations,
           amountDiff,
-          vendorCommission,
+          vendorCommission = calculateCommission(
+            Math.abs(amountDiff),
+            vendor[0].payin_commission,
+          ),
           conn,
         ),
         updateCalculationBalances(
           merchantCurrentCalculations,
           merchantCalculations,
           amountDiff,
-          merchantCommission,
+          merchantCommission = calculateCommission(
+            Math.abs(amountDiff),
+            merchant[0].payin_commission,
+          ),
           conn,
         ),
       ];
