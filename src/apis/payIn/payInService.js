@@ -3446,6 +3446,7 @@ const updateCalculationBalances = async (
       current_balance: amountDiff - commission,
       net_balance: amountDiff - commission,
     };
+    console.log('Updates to apply:', updates);
     const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
     // Update current calculation
     const updatedCurrentCalculation = await updateCalculationBalanceDao(
@@ -3565,11 +3566,11 @@ export const updatePayInService = async (
       }
       // Calculate commissions
       vendorCommission = calculateCommission(
-        Math.abs(amountDiff),
+        Math.abs(payload.amount),
         vendor[0].payin_commission,
       );
       merchantCommission = calculateCommission(
-        Math.abs(amountDiff),
+        Math.abs(payload.amount),
         merchant[0].payin_commission,
       );
 
@@ -4088,22 +4089,15 @@ export const updatePayInService = async (
         config: payload.config || newConfig, // Use payload config if set, otherwise use newConfig
         payin_merchant_commission:
           amountDiff !== 0
-            ? amountDiff > 0
-              ? payIn.payin_merchant_commission + merchantCommission
-              : payIn.payin_merchant_commission + merchantCommission // merchantCommission is already negative
-            : payIn.payin_merchant_commission,
-        payin_vendor_commission: 
-          payload.payin_vendor_commission !== undefined 
-            ? payload.payin_vendor_commission // Use from amount or bank change calculations
-            : amountDiff !== 0
-              ? amountDiff > 0
-                ? payIn.payin_vendor_commission + (totalVendorCommission || vendorCommission)
-                : payIn.payin_vendor_commission + (totalVendorCommission || vendorCommission) // commission is already negative
+            ? merchantCommission:
+              payIn.payin_merchant_commission,
+        payin_vendor_commission:
+             amountDiff !== 0
+              ? vendorCommission
               : payIn.payin_vendor_commission,
       },
       conn,
     );
-
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: payIn.company_id,
