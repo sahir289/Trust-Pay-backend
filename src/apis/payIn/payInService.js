@@ -3439,6 +3439,7 @@ const updateCalculationBalances = async (
 ) => {
   try {
     if (!currentCalculation) return;
+    commission = amountDiff >= 0 ? commission : -commission;
     const updates = {
       total_payin_commission: commission,
       total_payin_amount: amountDiff,
