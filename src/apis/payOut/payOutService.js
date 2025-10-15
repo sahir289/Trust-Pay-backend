@@ -1051,7 +1051,7 @@ const getPayoutsBySearchService = async (
     return data;
   } catch (error) {
     logger.error('Error while fetching Payout by search', error);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
 
@@ -1166,6 +1166,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         if (!status) {
           payload.status = Status.PENDING;
         } else if (status === 'Success' || status === 'success') {
+          payload.bank_acc_id= bankId,
           payload.status = Status.APPROVED;
           payload.utr_id = checkClickrr?.utr || '';
           payload.approved_at = new Date().toISOString();
@@ -1423,7 +1424,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     return data;
   } catch (error) {
     logger.error('Error in updatePayoutService:', error.message);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
 
