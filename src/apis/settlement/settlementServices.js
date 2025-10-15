@@ -659,22 +659,9 @@ const calculateVendorCommission = async (payload) => {
       payload.amount,
       Number(subVendorParentInfo.parentVendor.payin_commission),
     );
-    
-    logger.info(`Settlement: Sub-vendor commission calculated: sub=${baseCommission}, parent=${parentCommission}, total=${baseCommission + parentCommission}`);
-    
-    // Store parent info in payload for later use
     payload._subVendorParentInfo = subVendorParentInfo;
     payload._parentCommission = parentCommission;
-    
-    // Preserve existing config and only update commission keys
-    payload.config = {
-      ...(payload.config || {}), // Preserve existing config
-      brokerage_commission: parentCommission,
-    };
-    
-    return baseCommission + parentCommission; // Return total commission
   }
-  
   return baseCommission;
 };
 
@@ -1026,6 +1013,7 @@ const updateSettlementService = async (conn, ids, payload) => {
               payload,
               commission,
             );
+            
             // Handle parent vendor calculation for sub-vendors (only for internal methods)
             if (payload._subVendorParentInfo && payload._parentCommission) {
               await updateParentVendorSettlementCalculation(
