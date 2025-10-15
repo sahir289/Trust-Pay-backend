@@ -116,7 +116,6 @@ const updateParentVendorSettlementCalculation = async (parentUserId, amount, ven
     if (!parentCalculationData[0]) {
       throw new NotFoundError(`Settlement: Parent calculation not found for user_id: ${parentUserId}`);
     }
-
     // Create calculation update for parent vendor
     const calculationUpdate = isApproved 
       ? {
@@ -129,21 +128,18 @@ const updateParentVendorSettlementCalculation = async (parentUserId, amount, ven
         }
       : {
           // For reversal: Add commission back to parent (positive commission)
-          total_settlement_count: 1,
+          total_settlement_count: -1,
           total_settlement_amount: 0, // Parent amount is always 0
           total_settlement_commission: parentCommission, // Positive to add commission back
           current_balance: parentCommission,
           net_balance: parentCommission,
-        };
-
+      };
     logger.info(`Settlement: Updating parent calculation table with: ${JSON.stringify(calculationUpdate)}`);
-
     const response = await updateCalculationBalanceDao(
       { id: parentCalculationData[0].id },
       calculationUpdate,
       conn,
     );
-
     await trackVendorsNetBalance(parentUserId, conn, response);
 
     logger.info(`Settlement: Parent vendor calculation table updated successfully for userId: ${parentUserId}`);
@@ -517,7 +513,16 @@ const handleVendorInternalTransferByAdmin = async (
   // Set final payload properties
   payload.status = Status.SUCCESS;
   payload.approved_at = new Date();
-
+  const subVendorParentInfo = await getSubVendorParentInfo(vendorData[0]);
+  if (subVendorParentInfo) {
+    await updateParentVendorSettlementCalculation(
+      subVendorParentInfo.parentUserId,
+      payload.amount,
+      Number(subVendorParentInfo.parentVendor.payin_commission),
+      true, 
+      conn,
+    );
+  }
   return await createSettlementDao(payload, conn);
 };
 
@@ -1021,7 +1026,6 @@ const updateSettlementService = async (conn, ids, payload) => {
               payload,
               commission,
             );
-            
             // Handle parent vendor calculation for sub-vendors (only for internal methods)
             if (payload._subVendorParentInfo && payload._parentCommission) {
               await updateParentVendorSettlementCalculation(
