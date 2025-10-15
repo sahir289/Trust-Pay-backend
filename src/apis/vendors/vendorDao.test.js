@@ -142,26 +142,12 @@ describe('Vendor DAO', () => {
     test('should fetch vendors bank response data successfully', async () => {
       const filters = { company_id: 'comp1' };
       const mockResult = { rows: [{ id: 'vendor1', balance: 100 }] };
-      buildSelectQuery.mockReturnValue([
-        `SELECT 
-id,
-user_id,
-code,
-balance,
-payin_commission
-FROM "${tableName.VENDOR}" WHERE 1=1 AND company_id = $1`,
-        [filters.company_id]
-      ]);
       executeQuery.mockResolvedValue(mockResult);
 
       const result = await getVendorsBankReponseDao(filters);
 
-      expect(buildSelectQuery).toHaveBeenCalledWith(
-        expect.stringMatching(/SELECT\s+id\s*,\s*user_id\s*,\s*code\s*,\s*balance\s*,\s*payin_commission\s+FROM\s+"Vendor"\s+WHERE\s+1=1/),
-        filters
-      );
       expect(executeQuery).toHaveBeenCalledWith(
-        expect.stringMatching(/SELECT\s+id\s*,\s*user_id\s*,\s*code\s*,\s*balance\s*,\s*payin_commission\s+FROM\s+"Vendor"\s+WHERE\s+1=1\s+AND\s+company_id\s+=\s+\$1/),
+        expect.stringMatching(/SELECT\s+v\.id\s*,\s*v\.user_id\s*,\s*v\.code\s*,\s*v\.balance\s*,\s*v\.payin_commission\s*,\s*v\.config\s*,\s*d\.designation\s+FROM\s+"Vendor"\s+v\s+JOIN\s+"User"\s+u\s+ON\s+v\.user_id\s*=\s*u\.id\s+LEFT\s+JOIN\s+"Designation"\s+d\s+ON\s+u\.designation_id\s*=\s*d\.id\s+WHERE\s+v\.is_obsolete\s*=\s*false\s+AND\s+u\.is_obsolete\s*=\s*false\s+AND\s+v\.company_id\s*=\s*\$1\s+ORDER\s+BY\s+v\.created_at\s+DESC/),
         [filters.company_id]
       );
       expect(result).toEqual([{ id: 'vendor1', balance: 100 }]);
@@ -791,16 +777,21 @@ FROM "${tableName.VENDOR}" WHERE 1=1 AND company_id = $1`,
       const vendorUserId = 'vendor1';
       const subVendorUserId = 'sub1';
       const user_id = 'admin1';
-      const mockFetchConfig = { rows: [{ config: { siblings: { sub_vendors: [] } } }] };
-      const mockUpdateResult = { rows: [{ id: 'vendor1' }] };
+      const mockFetchVendorConfig = { rows: [{ config: { siblings: { sub_vendors: [] } } }] };
+      const mockFetchSubConfig = { rows: [{ config: {} }] };
+      const mockUpdateHierarchy = { rows: [{ id: 'vendor1' }] };
       const mockFetchVendorCode = { rows: [{ code: 'V001' }] };
       const mockFetchSubVendorConfig = { rows: [{ code: 'SV001', config: {} }] };
+      const mockUpdateVendor = { rows: [{ id: 'sub1' }] };
+
       executeQuery
-        .mockResolvedValueOnce(mockFetchConfig) // fetch config
-        .mockResolvedValueOnce(mockUpdateResult) // update hierarchy
-        .mockResolvedValueOnce(mockFetchVendorCode) // fetch vendor code
-        .mockResolvedValueOnce(mockFetchSubVendorConfig) // fetch sub vendor config
-        .mockResolvedValueOnce(mockUpdateResult); // update sub vendor config
+        .mockResolvedValueOnce(mockFetchVendorConfig) // 1: fetch vendor hierarchy config
+        .mockResolvedValueOnce(mockFetchSubConfig) // 2: fetch sub hierarchy config
+        .mockResolvedValueOnce(mockUpdateHierarchy) // 3: update vendor hierarchy
+        .mockResolvedValueOnce(mockUpdateHierarchy) // 4: update sub hierarchy
+        .mockResolvedValueOnce(mockFetchVendorCode) // 5: fetch vendor code
+        .mockResolvedValueOnce(mockFetchSubVendorConfig) // 6: fetch sub vendor config
+        .mockResolvedValueOnce(mockUpdateVendor); // 7: update sub vendor config
 
       const result = await linkVendorDao(vendorUserId, subVendorUserId, user_id);
 
@@ -810,17 +801,17 @@ FROM "${tableName.VENDOR}" WHERE 1=1 AND company_id = $1`,
         [vendorUserId]
       );
       expect(executeQuery).toHaveBeenNthCalledWith(
-        2,
+        3,
         `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`,
         [expect.objectContaining({ siblings: { sub_vendors: [subVendorUserId] } }), user_id, vendorUserId]
       );
       expect(executeQuery).toHaveBeenNthCalledWith(
-        3,
+        5,
         `SELECT code FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`,
         [vendorUserId]
       );
       expect(executeQuery).toHaveBeenNthCalledWith(
-        5,
+        7,
         `UPDATE "${tableName.VENDOR}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`,
         [expect.objectContaining({ sub_code: 'V001(SV001)' }), user_id, subVendorUserId]
       );
@@ -844,14 +835,19 @@ FROM "${tableName.VENDOR}" WHERE 1=1 AND company_id = $1`,
       const vendorUserId = 'vendor1';
       const subVendorUserId = 'sub1';
       const user_id = 'admin1';
-      const mockFetchConfig = { rows: [{ config: { siblings: { sub_vendors: ['sub1', 'sub2'] } } }] };
-      const mockUpdateResult = { rows: [{ id: 'vendor1' }] };
-      const mockFetchSubVendorConfig = { rows: [{ config: { sub_code: 'old' } }] };
+      const mockFetchVendorConfig = { rows: [{ config: { siblings: { sub_vendors: ['sub1', 'sub2'] } } }] };
+      const mockFetchSubHierarchyConfig = { rows: [{ config: { parent: vendorUserId } }] };
+      const mockUpdateHierarchyResult = { rows: [{ id: 'vendor1' }] };
+      const mockFetchSubVendorConfig = { rows: [{ config: { sub_code: 'old', is_owned: true } }] };
+      const mockUpdateVendorResult = { rows: [{ id: 'sub1' }] };
+
       executeQuery
-        .mockResolvedValueOnce(mockFetchConfig) // fetch config
-        .mockResolvedValueOnce(mockUpdateResult) // update hierarchy
-        .mockResolvedValueOnce(mockFetchSubVendorConfig) // fetch sub vendor config
-        .mockResolvedValueOnce(mockUpdateResult); // update sub vendor config
+        .mockResolvedValueOnce(mockFetchVendorConfig) // 1: fetch vendor hierarchy config
+        .mockResolvedValueOnce(mockFetchSubHierarchyConfig) // 2: fetch sub hierarchy config
+        .mockResolvedValueOnce(mockUpdateHierarchyResult) // 3: update vendor hierarchy
+        .mockResolvedValueOnce(mockUpdateHierarchyResult) // 4: update sub hierarchy
+        .mockResolvedValueOnce(mockFetchSubVendorConfig) // 5: fetch sub vendor config
+        .mockResolvedValueOnce(mockUpdateVendorResult); // 6: update sub vendor config
 
       const result = await unlinkVendorDao(vendorUserId, subVendorUserId, user_id);
 
@@ -862,19 +858,32 @@ FROM "${tableName.VENDOR}" WHERE 1=1 AND company_id = $1`,
       );
       expect(executeQuery).toHaveBeenNthCalledWith(
         2,
+        `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`,
+        [subVendorUserId]
+      );
+      expect(executeQuery).toHaveBeenNthCalledWith(
+        3,
         `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`,
         [expect.objectContaining({ siblings: { sub_vendors: ['sub2'] } }), user_id, vendorUserId]
       );
       expect(executeQuery).toHaveBeenNthCalledWith(
-        3,
+        4,
+        `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`,
+        [expect.objectContaining({ parent: '' }), user_id, subVendorUserId]
+      );
+      expect(executeQuery).toHaveBeenNthCalledWith(
+        5,
         `SELECT config FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`,
         [subVendorUserId]
       );
       expect(executeQuery).toHaveBeenNthCalledWith(
-        4,
+        6,
         `UPDATE "${tableName.VENDOR}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`,
-        [expect.not.objectContaining({ sub_code: expect.any(String) }), user_id, subVendorUserId]
+        [expect.objectContaining({ prev_sub_code: 'old' }), user_id, subVendorUserId]
       );
+      const vendorUpdateConfig = executeQuery.mock.calls[5][1][0];
+      expect(vendorUpdateConfig).not.toHaveProperty('sub_code');
+      expect(vendorUpdateConfig).not.toHaveProperty('is_owned');
       expect(result).toEqual({ id: 'vendor1' });
     });
 
@@ -899,17 +908,23 @@ FROM "${tableName.VENDOR}" WHERE 1=1 AND company_id = $1`,
       const mockFetchCurrentConfig = { rows: [{ config: { siblings: { sub_vendors: ['sub1'] } } }] };
       const mockUpdateCurrentResult = { rows: [{ id: 'oldVendor1' }] };
       const mockFetchNewConfig = { rows: [{ config: { siblings: { sub_vendors: [] } } }] };
+      const mockFetchSubConfig = { rows: [{ config: {} }] };
       const mockUpdateNewResult = { rows: [{ id: 'newVendor1' }] };
+      const mockUpdateSubResult = { rows: [{ id: 'sub1' }] };
       const mockFetchNewVendorCode = { rows: [{ code: 'NV001' }] };
       const mockFetchVendorConfig = { rows: [{ code: 'SV001', config: {} }] };
+      const mockUpdateVendorResult = { rows: [{ id: 'sub1' }] };
+
       executeQuery
-        .mockResolvedValueOnce(mockFetchCurrentConfig) // fetch current config
-        .mockResolvedValueOnce(mockUpdateCurrentResult) // update current hierarchy
-        .mockResolvedValueOnce(mockFetchNewConfig) // fetch new config
-        .mockResolvedValueOnce(mockUpdateNewResult) // update new hierarchy
-        .mockResolvedValueOnce(mockFetchNewVendorCode) // fetch new vendor code
-        .mockResolvedValueOnce(mockFetchVendorConfig) // fetch vendor config
-        .mockResolvedValueOnce(mockUpdateNewResult); // update vendor config
+        .mockResolvedValueOnce(mockFetchCurrentConfig) // 1: fetch current config
+        .mockResolvedValueOnce(mockUpdateCurrentResult) // 2: update current hierarchy
+        .mockResolvedValueOnce(mockFetchNewConfig) // 3: fetch new config
+        .mockResolvedValueOnce(mockFetchSubConfig) // 4: fetch sub config
+        .mockResolvedValueOnce(mockUpdateNewResult) // 5: update new hierarchy
+        .mockResolvedValueOnce(mockUpdateSubResult) // 6: update sub hierarchy
+        .mockResolvedValueOnce(mockFetchNewVendorCode) // 7: fetch new vendor code
+        .mockResolvedValueOnce(mockFetchVendorConfig) // 8: fetch vendor config
+        .mockResolvedValueOnce(mockUpdateVendorResult); // 9: update vendor config
 
       const result = await transferVendorDao(vendorUserId, newVendorUserId, currentVendorUserId, user_id);
 
@@ -929,19 +944,19 @@ FROM "${tableName.VENDOR}" WHERE 1=1 AND company_id = $1`,
         [newVendorUserId]
       );
       expect(executeQuery).toHaveBeenNthCalledWith(
-        4,
+        5,
         `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`,
         [expect.objectContaining({ siblings: { sub_vendors: [vendorUserId] } }), user_id, newVendorUserId]
       );
       expect(executeQuery).toHaveBeenNthCalledWith(
-        5,
+        7,
         `SELECT code FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`,
         [newVendorUserId]
       );
       expect(executeQuery).toHaveBeenNthCalledWith(
-        7,
-        `UPDATE "${tableName.VENDOR}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`,
-        [expect.objectContaining({ sub_code: 'NV001(SV001)' }), user_id, vendorUserId]
+        9,
+        `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`,
+        [expect.objectContaining({ prev_sub_code: null, sub_code: 'NV001(SV001)' }), user_id, vendorUserId]
       );
       expect(result).toEqual({ id: 'newVendor1' });
     });

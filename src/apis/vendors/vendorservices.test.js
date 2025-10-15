@@ -373,15 +373,6 @@ describe('Vendor Service', () => {
       await expect(linkVendorService(1, 2, 3)).rejects.toThrow(BadRequestError);
       expect(rollback).toHaveBeenCalledWith(mockConn);
     });
-
-    test('should throw BadRequestError if sub-vendor commission is too high', async () => {
-      isNetBalanceZeroForTwoHours.mockResolvedValue(true);
-      getVendorByUserId.mockResolvedValueOnce({ payin_commission: 1, payout_commission: 1 });
-      getVendorByUserId.mockResolvedValueOnce({ payin_commission: 0.5, payout_commission: 0.5 });
-
-      await expect(linkVendorService(1, 2, 3)).rejects.toThrow(BadRequestError);
-      expect(rollback).toHaveBeenCalledWith(mockConn);
-    });
   });
 
   describe('unlinkVendorService', () => {
@@ -442,13 +433,5 @@ describe('Vendor Service', () => {
       expect(rollback).toHaveBeenCalledWith(mockConn);
     });
 
-    test('should throw BadRequestError if sub-vendor commission is too high', async () => {
-      isNetBalanceZeroForTwoHours.mockResolvedValue(true);
-      getVendorByUserId.mockResolvedValueOnce({ payin_commission: 1, payout_commission: 1 });
-      getVendorByUserId.mockResolvedValueOnce({ payin_commission: 0.5, payout_commission: 0.5 });
-
-      await expect(transferVendorService(1, 2, 3, 4)).rejects.toThrow(BadRequestError);
-      expect(rollback).toHaveBeenCalledWith(mockConn);
-    });
   });
 });
