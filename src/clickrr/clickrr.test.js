@@ -1,19 +1,33 @@
-import { generateSignature, initiateClickrrPayout, getClickrrWalletBalance } from './clickrr.js'; // Adjust path as needed
+jest.mock('axios');
+jest.mock('../utils/logger.js');
+jest.mock('../utils/responseHandlers.js');
+jest.mock('../utils/db.js');
+jest.mock('../config/config.js', () => ({
+  clickrr: {
+    baseUrl: 'https://api.clickrr.com',
+    initiatePayout: '/v1/payouts',
+    walletBalance: '/v1/wallet/balance',
+    apiKey: 'test-api-key',
+    apiSecret: 'test-api-secret',
+  },
+  aws: {
+    accessKeyId: 'test-access-key-id',
+  },
+  secretKeyS3: 'test-secret-access-key',
+  bucketRegion: 'us-east-1',
+  bucketName: 'test-bucket',
+}));
+
+import { generateSignature, initiateClickrrPayout, getClickrrWalletBalance } from './clickrr.js';
 import crypto from 'crypto';
 import axios from 'axios';
 import { logger } from '../utils/logger.js';
 import config from '../config/config.js';
 import { sendSuccess } from '../utils/responseHandlers.js';
 
-jest.mock('axios');
-jest.mock('../utils/logger.js');
-jest.mock('../utils/responseHandlers.js');
-jest.mock('../config/config.js');
-
 const mockedAxios = axios;
 const mockedLogger = logger;
 const mockedSendSuccess = sendSuccess;
-const mockedConfig = config;
 
 describe('generateSignature', () => {
   it('should generate correct signature and timestamp with custom timestamp', () => {
@@ -41,8 +55,8 @@ describe('generateSignature', () => {
 
     const result = generateSignature(apiKey, apiSecret, method);
 
-    expect(result.timestamp).toBeCloseTo(timestamp, 1); // Allow for minor timing differences
-    expect(result.signature).toHaveLength(64); // Hex digest length
+    expect(result.timestamp).toBeCloseTo(timestamp, 1);
+    expect(result.signature).toHaveLength(64);
   });
 });
 
@@ -61,12 +75,6 @@ describe('initiateClickrrPayout', () => {
   const mockResponseData = { status: 'success', transactionId: 'TXN_456' };
 
   beforeEach(() => {
-    mockedConfig.clickrr = {
-      baseUrl: 'https://api.clickrr.com',
-      initiatePayout: '/v1/payouts',
-      apiKey: 'test-api-key',
-      apiSecret: 'test-api-secret',
-    };
     mockedAxios.post.mockResolvedValue({ data: { data: mockResponseData } });
     mockedLogger.error.mockClear();
   });
@@ -112,7 +120,9 @@ describe('initiateClickrrPayout', () => {
   });
 
   it('should throw error and log on API failure', async () => {
-    const mockError = { response: { data: { error: 'API Error' } } };
+    const mockError = Object.assign(new Error('Request failed'), {
+      response: { data: { error: 'API Error' } },
+    });
     mockedAxios.post.mockRejectedValue(mockError);
 
     await expect(initiateClickrrPayout(mockPayload)).rejects.toThrow();
@@ -125,16 +135,10 @@ describe('initiateClickrrPayout', () => {
 
 describe('getClickrrWalletBalance', () => {
   const mockReq = {};
-  const mockRes = {};
+  const mockRes = { json: jest.fn() };
   const mockBalanceData = { balance: 500.00 };
 
   beforeEach(() => {
-    mockedConfig.clickrr = {
-      baseUrl: 'https://api.clickrr.com',
-      walletBalance: '/v1/wallet/balance',
-      apiKey: 'test-api-key',
-      apiSecret: 'test-api-secret',
-    };
     mockedAxios.get.mockResolvedValue({ data: { data: mockBalanceData } });
     mockedSendSuccess.mockClear();
     mockedLogger.error.mockClear();
@@ -161,7 +165,9 @@ describe('getClickrrWalletBalance', () => {
   });
 
   it('should throw error and log on API failure', async () => {
-    const mockError = { response: { data: { error: 'Balance Fetch Error' } } };
+    const mockError = Object.assign(new Error('Request failed'), {
+      response: { data: { error: 'Balance Fetch Error' } },
+    });
     mockedAxios.get.mockRejectedValue(mockError);
 
     await expect(getClickrrWalletBalance(mockReq, mockRes)).rejects.toThrow();
