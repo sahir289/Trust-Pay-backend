@@ -31,6 +31,7 @@ const {
 } = require('./payInService');
 const { v4: uuidv4 } = require('uuid');
 const { nanoid } = require('nanoid');
+jest.unmock('dayjs');
 const dayjs = require('dayjs');
 const { executeQuery } = require('../../utils/db');
 import { cashfreeWebHook } from '../../webhooks/cashfree.js';
@@ -268,20 +269,34 @@ jest.mock('nanoid', () => ({
 }));
 jest.mock('dayjs', () => {
   const actualDayjs = jest.requireActual('dayjs');
+  
+  // Load and extend plugins in the factory
+  const utcPlugin = require('dayjs/plugin/utc');
+  const timezonePlugin = require('dayjs/plugin/timezone');
+  actualDayjs.extend(utcPlugin);
+  actualDayjs.extend(timezonePlugin);
+  
   const mockDayjs = jest.fn((date) => {
-    const instance = actualDayjs(date || new Date());
-    return {
-      ...instance,
-      add: jest.fn((value, unit) => actualDayjs(instance).add(value, unit)),
-      format: jest.fn().mockReturnValue(instance.format()),
-      toDate: jest.fn().mockReturnValue(instance.toDate()),
-      toISOString: jest.fn().mockReturnValue(instance.toISOString()),
-      isAfter: jest.fn().mockReturnValue(false),
-    };
+    const realInstance = actualDayjs(date || new Date());
+    
+    // Helper to create a mocked instance (for chaining, e.g., tz returns this)
+    const createMockInstance = (baseInstance) => ({
+      ...baseInstance,  // Copy data properties
+      add: jest.fn((value, unit) => createMockInstance(actualDayjs(baseInstance).add(value, unit))),
+      format: jest.fn().mockImplementation((formatStr) => baseInstance.format(formatStr || 'YYYY-MM-DD')),
+      toDate: jest.fn().mockImplementation(() => baseInstance.toDate()),
+      toISOString: jest.fn().mockImplementation(() => baseInstance.toISOString()),
+      isAfter: jest.fn().mockImplementation(() => false),
+      tz: jest.fn((timezone) => createMockInstance(actualDayjs(baseInstance).tz(timezone))),
+    });
+    
+    return createMockInstance(realInstance);
   });
-  mockDayjs.tz = jest.fn().mockReturnValue({
-    format: jest.fn().mockReturnValue(actualDayjs().format()),
-  });
+  
+  // Preserve static methods
+  mockDayjs.extend = actualDayjs.extend;
+  mockDayjs.tz = actualDayjs.tz;
+  
   return mockDayjs;
 });
 jest.mock('../../utils/sockets.js', () => ({
@@ -377,6 +392,7 @@ jest.mock('./payInDao.js', () => ({
   getSuccessPayInsDao: jest.fn(),
   getPayInForUpdateDao: jest.fn(),
   getPayInForTelegramResponseDao: jest.fn(),
+  getPayInForDuplicate: jest.fn(),
   getPayinsWithoutHistoryDao: jest.fn(),
   getPayInForTelegramResponseArrayDao: jest.fn(),
   getPayInIntentDao: jest.fn(),
@@ -1174,6 +1190,7 @@ describe('PayIn Service Tests', () => {
 
     const mockBankResponse = { id: 'bank1', is_used: false };
     test('processes Telegram response', async () => {
+      require('./payInDao').getPayInForDuplicate.mockResolvedValue([]);
       require('./payInDao').getPayInForTelegramResponseDao.mockResolvedValue(mockPayIn);
       require('../bankResponse/bankResponseDao').getBankResponseDao.mockResolvedValue(mockBankResponse);
       require('./payInDao').getPayInForTelegramResponseArrayDao.mockResolvedValue([]);
@@ -1411,62 +1428,62 @@ describe('PayIn Service Tests', () => {
     });
   });
 
-describe('verifyPayinsService', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    require('./payInService').getPayInUrlService.mockResolvedValue(mockPayIn);
-    require('../users/userDao').getUserByIdDao.mockResolvedValue([{ role: Role.MERCHANT }]);
-    require('../merchants/merchantDao').getMerchantsDao.mockResolvedValue([mockMerchant]);
-    require('../bankAccounts/bankaccountDao').getMerchantBankDao.mockResolvedValue([mockBank]);
-    require('./payInDao').updatePayInUrlDao.mockResolvedValue({ ...mockPayIn, one_time_used: false });
-    require('../company/companyDao').getCashfreeAllowByCompanyIdDao.mockResolvedValue({ allow_cashfree: true, allow_zentechind: true });
-    global.Set.prototype.has = jest.fn().mockReturnValue(false);
-    global.Set.prototype.add = jest.fn().mockImplementation(() => {});
-  });
-
-  test('verifies payIn successfully for new URL', async () => {
-    const result = await verifyPayinsService({}, 'order123', 'user_location', false);
-    expect(result).toEqual({
-      expiryTime: expect.any(String),
-      amount: 100,
-      one_time_used: false,
-      allowCashfree: false,
-      allowZenTechInd: false,
-      status: 'INITIATED',
-      min_amount: 50,
-      max_amount: 1000,
-      is_qr: true,
-      is_phonepay: true,
-      is_bank: true,
-      redirect_url: 'http://return.url',
-      isAdmin: false,
+  describe('verifyPayinsService', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      require('./payInService').getPayInUrlService.mockResolvedValue(mockPayIn);
+      require('../users/userDao').getUserByIdDao.mockResolvedValue([{ role: Role.MERCHANT }]);
+      require('../merchants/merchantDao').getMerchantsDao.mockResolvedValue([mockMerchant]);
+      require('../bankAccounts/bankaccountDao').getMerchantBankDao.mockResolvedValue([mockBank]);
+      require('./payInDao').updatePayInUrlDao.mockResolvedValue({ ...mockPayIn, one_time_used: false });
+      require('../company/companyDao').getCashfreeAllowByCompanyIdDao.mockResolvedValue({ allow_cashfree: true, allow_zentechind: true });
+      global.Set.prototype.has = jest.fn().mockReturnValue(false);
+      global.Set.prototype.add = jest.fn().mockImplementation(() => { });
     });
-    expect(global.Set.prototype.add).toHaveBeenCalledWith('order123');
-  });
 
-  test('returns error if already used', async () => {
-    global.Set.prototype.has = jest.fn().mockReturnValue(true);
-    require('../bankAccounts/bankaccountDao').getBankaccountDao.mockResolvedValueOnce([mockBank]);
-    require('../vendors/vendorDao').getVendorsDao.mockResolvedValueOnce([mockVendor]);
-    require('../merchants/merchantDao').getMerchantsDao.mockResolvedValueOnce([mockMerchant]);
-    const result = await verifyPayinsService({}, 'order123', 'user_location', true);
-    expect(result).toEqual({
-      error: 'This payin url is already used',
-      result: { redirect_url: 'http://return.url' },
+    test('verifies payIn successfully for new URL', async () => {
+      const result = await verifyPayinsService({}, 'order123', 'user_location', false);
+      expect(result).toEqual({
+        expiryTime: expect.any(String),
+        amount: 100,
+        one_time_used: false,
+        allowCashfree: false,
+        allowZenTechInd: false,
+        status: 'INITIATED',
+        min_amount: 50,
+        max_amount: 1000,
+        is_qr: true,
+        is_phonepay: true,
+        is_bank: true,
+        redirect_url: 'http://return.url',
+        isAdmin: false,
+      });
+      expect(global.Set.prototype.add).toHaveBeenCalledWith('order123');
     });
-  });
 
-  test('updates config with user location', async () => {
-    await verifyPayinsService({}, 'order123', 'user_location', false);
-    expect(require('./payInDao').updatePayInUrlDao).toHaveBeenCalledWith('payin123', expect.objectContaining({ config: expect.any(String) }));
-  });
+    test('returns error if already used', async () => {
+      global.Set.prototype.has = jest.fn().mockReturnValue(true);
+      require('../bankAccounts/bankaccountDao').getBankaccountDao.mockResolvedValueOnce([mockBank]);
+      require('../vendors/vendorDao').getVendorsDao.mockResolvedValueOnce([mockVendor]);
+      require('../merchants/merchantDao').getMerchantsDao.mockResolvedValueOnce([mockMerchant]);
+      const result = await verifyPayinsService({}, 'order123', 'user_location', true);
+      expect(result).toEqual({
+        error: 'This payin url is already used',
+        result: { redirect_url: 'http://return.url' },
+      });
+    });
 
-  test('throws InternalServerError if updatePayInUrlDao fails', async () => {
-    require('./payInDao').updatePayInUrlDao.mockResolvedValueOnce(null);
-    await expect(verifyPayinsService({}, 'order123', 'user_location', false)).rejects.toThrow('Failed to update payin URL');
-  });
+    test('updates config with user location', async () => {
+      await verifyPayinsService({}, 'order123', 'user_location', false);
+      expect(require('./payInDao').updatePayInUrlDao).toHaveBeenCalledWith('payin123', expect.objectContaining({ config: expect.any(String) }));
+    });
 
-});
+    test('throws InternalServerError if updatePayInUrlDao fails', async () => {
+      require('./payInDao').updatePayInUrlDao.mockResolvedValueOnce(null);
+      await expect(verifyPayinsService({}, 'order123', 'user_location', false)).rejects.toThrow('Failed to update payin URL');
+    });
+
+  });
 
   describe('generateUpiUrlService', () => {
     test('generates UPI URLs successfully', async () => {
@@ -1489,19 +1506,19 @@ describe('verifyPayinsService', () => {
       expect(result.transactionId).toMatch('IND123e4567e89b12d3a456426614174');
     });
 
-   test('returns BadRequestError for invalid amount', async () => {
-  const payload = { amount: -10, payeeVPA: 'test@upi' };
-  const result = await generateUpiUrlService(payload);
-  expect(result).toBeInstanceOf(BadRequestError);
-  expect(result.message).toBe('Invalid amount');
-});
+    test('returns BadRequestError for invalid amount', async () => {
+      const payload = { amount: -10, payeeVPA: 'test@upi' };
+      const result = await generateUpiUrlService(payload);
+      expect(result).toBeInstanceOf(BadRequestError);
+      expect(result.message).toBe('Invalid amount');
+    });
 
-test('returns BadRequestError for invalid VPA format', async () => {
-  const payload = { amount: 100, payeeVPA: 'invalid_vpa' };
-  const result = await generateUpiUrlService(payload);
-  expect(result).toBeInstanceOf(BadRequestError);
-  expect(result.message).toBe('Invalid VPA format');
-});
+    test('returns BadRequestError for invalid VPA format', async () => {
+      const payload = { amount: 100, payeeVPA: 'invalid_vpa' };
+      const result = await generateUpiUrlService(payload);
+      expect(result).toBeInstanceOf(BadRequestError);
+      expect(result.message).toBe('Invalid VPA format');
+    });
   });
 
 describe('updatePayInService', () => {
@@ -1514,8 +1531,6 @@ describe('updatePayInService', () => {
     require('../merchants/merchantDao').getMerchantsDao.mockResolvedValue([mockMerchant]);
     require('../bankAccounts/bankaccountDao').getBankaccountDao.mockResolvedValue([mockBank]);
     require('../calculation/calculationDao').getAllCalculationforCronDao.mockResolvedValue([{ ...mockCalculation, created_at: new Date() }]);
-    require('./payInDao').updatePayInUrlDao.mockResolvedValue({ ...mockPayIn, amount: 150 });
-    require('../bankResponse/bankResponseDao').updateBankResponseDao.mockResolvedValue({ ...mockBankResponse, amount: 150 });
     require('../bankAccounts/bankaccountDao').updateBankaccountDao.mockResolvedValue({ ...mockBank, balance: 1150 });
     require('../vendors/vendorDao').updateVendorDao.mockResolvedValue({ ...mockVendor, balance: 1100 });
     require('../calculation/calculationDao').updateCalculationBalanceDao.mockResolvedValue(mockCalculation);
@@ -1525,40 +1540,88 @@ describe('updatePayInService', () => {
   });
 
   test('updates payIn amount successfully', async () => {
+    const today = new Date();
+
+    // Mock calculation data (used by calculationDao)
     const mockCalcData = [
-      { ...mockCalculation, created_at: new Date('2025-10-12') },
-      { ...mockCalculation, created_at: new Date('2025-10-13') },
+      { ...mockCalculation, created_at: today },
+      { ...mockCalculation, created_at: today },
     ];
-    require('../calculation/calculationDao').getAllCalculationforCronDao
+
+    // Step 1: Mock DAO responses before calling the service
+    const mockGetAllCalculationforCronDao = require('../calculation/calculationDao').getAllCalculationforCronDao;
+    const mockGetPayInForUpdateDao = require('../payIn/payInDao').getPayInForUpdateDao;
+
+    // The order matters — these mocks should be set *before* calling the service.
+    mockGetAllCalculationforCronDao
       .mockResolvedValueOnce(mockCalcData)
       .mockResolvedValueOnce(mockCalcData);
+
+    const mockPayInWithNick = { ...mockPayIn, nick_name: 'bank_nick' };
+    mockGetPayInForUpdateDao.mockResolvedValue({
+      ...mockPayInWithNick,
+      id: 'payin123',
+      merchant_id: 'merchant1',
+      bank_response_id: 'bank_response1',
+      bank_acc_id: 'bank1',
+      approved_at: today,
+      amount: 100,
+      config: {},
+      payin_vendor_commission: 0,
+      payin_merchant_commission: 0,
+    });
+
+    require('./payInDao').updatePayInUrlDao.mockResolvedValue({ ...mockPayInWithNick, amount: 150 });
+    require('../bankResponse/bankResponseDao').updateBankResponseDao.mockResolvedValue({ ...mockBankResponse, amount: 150 });
+
+    // Step 2: Payload and call
     const payload = { amount: 150 };
     const result = await updatePayInService({}, payload, 'order123', 'user1', 'company1');
+
+    // Step 3: Assertions
     expect(result).toEqual(expect.objectContaining({
       amount: 150,
       nick_name: 'bank_nick',
-      bank_res_details: { utr: 'utr123', amount: 150 },
+      bank_res_details: expect.objectContaining({
+        utr: 'utr123',
+        amount: 150,
+      }),
       company_id: 'company1',
     }));
+
+    // Optional: Verify DAOs were called correctly
+    expect(mockGetAllCalculationforCronDao).toHaveBeenCalledTimes(2);
+    expect(mockGetPayInForUpdateDao).toHaveBeenCalledTimes(1);
   });
 
   test('updates payIn UTR successfully', async () => {
     const payload = { utr: 'new_utr123' };
+    const mockPayInWithUtrAndNick = {
+      ...mockPayIn,
+      user_submitted_utr: 'old_utr',  // Truthy to trigger setting new UTR
+      nick_name: 'bank_nick',
+    };
+    require('./payInDao').getPayInForUpdateDao.mockResolvedValue(mockPayInWithUtrAndNick);
     require('../bankResponse/bankResponseDao').getBankResponseDao
       .mockResolvedValueOnce(mockBankResponse) // for existing
-      .mockResolvedValueOnce(null); // for new utr
+      .mockResolvedValueOnce(null); // for new utr check
+    require('../bankResponse/bankResponseDao').updateBankResponseDao.mockResolvedValueOnce({ ...mockBankResponse, utr: 'new_utr123' });
+    require('./payInDao').updatePayInUrlDao.mockResolvedValue({ ...mockPayInWithUtrAndNick, user_submitted_utr: 'new_utr123' });
     const result = await updatePayInService({}, payload, 'order123', 'user1', 'company1');
     expect(result).toEqual(expect.objectContaining({
       user_submitted_utr: 'new_utr123',
+      nick_name: 'bank_nick',
       bank_res_details: { utr: 'new_utr123', amount: 100 },
     }));
   });
 
   test('updates payIn bank account successfully', async () => {
     const payload = { bank_acc_id: 'bank2' };
-    const mockNewBank = { ...mockBank, id: 'bank2', user_id: 'vendor2', balance: 900 };
+    const mockNewBank = { ...mockBank, id: 'bank2', user_id: 'vendor2', balance: 900, nick_name: 'new_bank_nick' };
     const mockNewVendor = { ...mockVendor, user_id: 'vendor2', balance: 900 };
     const mockNewCalc = { ...mockCalculation, user_id: 'vendor2' };
+    const mockPayInWithNick = { ...mockPayIn, nick_name: 'bank_nick' };
+    require('./payInDao').getPayInForUpdateDao.mockResolvedValue(mockPayInWithNick);
     require('../bankAccounts/bankaccountDao').getBankaccountDao
       .mockResolvedValueOnce([mockBank]) // prev
       .mockResolvedValueOnce([mockNewBank]); // new
@@ -1568,16 +1631,26 @@ describe('updatePayInService', () => {
     require('../calculation/calculationDao').getAllCalculationforCronDao
       .mockResolvedValueOnce([{ ...mockCalculation, created_at: new Date('2025-10-12') }]) // prev
       .mockResolvedValueOnce([{ ...mockNewCalc, created_at: new Date('2025-10-12') }]); // new
+    require('../bankAccounts/bankaccountDao').updateBankaccountDao
+      .mockResolvedValueOnce({ ...mockBank, balance: 900 }) // prev bank update
+      .mockResolvedValueOnce({ ...mockNewBank, balance: 1100 }); // new bank update
+    require('../bankResponse/bankResponseDao').updateBankResponseDao.mockResolvedValueOnce({ ...mockBankResponse, bank_id: 'bank2' });
+    require('./payInDao').updatePayInUrlDao.mockResolvedValue({ ...mockPayInWithNick, bank_acc_id: 'bank2', nick_name: 'new_bank_nick' });
     const result = await updatePayInService({}, payload, 'order123', 'user1', 'company1');
     expect(result).toEqual(expect.objectContaining({
       bank_acc_id: 'bank2',
+      nick_name: 'new_bank_nick',
       bank_res_details: { utr: 'utr123', amount: 100 },
     }));
   });
 
   test('does not throw for empty payload', async () => {
+    const mockPayInWithNick = { ...mockPayIn, nick_name: 'bank_nick' };
+    require('./payInDao').getPayInForUpdateDao.mockResolvedValue(mockPayInWithNick);
+    require('./payInDao').updatePayInUrlDao.mockResolvedValue(mockPayInWithNick);
     const result = await updatePayInService({}, {}, 'order123', 'user1', 'company1');
     expect(result).toBeDefined();
+    expect(result.nick_name).toBe('bank_nick');
   });
 
   test('throws NotFoundError if bankResponse not found', async () => {
@@ -1631,7 +1704,7 @@ describe('updatePayInService', () => {
       .mockResolvedValueOnce([{ ...mockBank, id: 'bank2', user_id: 'vendor2' }]);
     require('../vendors/vendorDao').getVendorsDao
       .mockResolvedValueOnce([mockVendor])
-      .mockResolvedValueOnce([ { ...mockVendor, user_id: 'vendor2' } ]);
+      .mockResolvedValueOnce([{ ...mockVendor, user_id: 'vendor2' }]);
     require('../calculation/calculationDao').getAllCalculationforCronDao
       .mockResolvedValueOnce([{ ...mockCalculation }])
       .mockResolvedValueOnce([]); // new calc not found
@@ -1645,7 +1718,7 @@ describe('updatePayInService', () => {
       .mockResolvedValueOnce([{ ...mockBank, id: 'bank2', user_id: 'vendor2' }]);
     require('../vendors/vendorDao').getVendorsDao
       .mockResolvedValueOnce([mockVendor])
-      .mockResolvedValueOnce([ { ...mockVendor, user_id: 'vendor2' } ]);
+      .mockResolvedValueOnce([{ ...mockVendor, user_id: 'vendor2' }]);
     const mockCalcData = [{ ...mockCalculation, created_at: new Date('2025-10-13') }]; // non-matching
     require('../calculation/calculationDao').getAllCalculationforCronDao
       .mockResolvedValueOnce(mockCalcData)
