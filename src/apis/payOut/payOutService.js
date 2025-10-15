@@ -1160,6 +1160,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
           checkClickrr = payload;
         } else {
           checkClickrr = await initiateClickrrPayout(singleWithdrawData);
+          logger.info('Clickrr Payout Response:', checkClickrr);
         }
         const status = checkClickrr.txnStatus;
 
