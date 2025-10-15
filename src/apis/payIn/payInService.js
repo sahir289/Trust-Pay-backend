@@ -962,17 +962,16 @@ export const updateDepositStatusService = async (
         brokerageCommission = parentCommission;
 
         updatePayInData.config = {
-          ...updatePayInData.config,
+          ...payInData.config,
           actual_vendor_commission: vendorPayinCommission,
           brokerage_commission: brokerageCommission,
         };
-
         logger.info(
           `Sub-vendor commission calculated: sub=${vendorPayinCommission}, parent=${parentCommission}, total=${totalVendorCommission}`,
         );
       } else {
         updatePayInData.config = {
-          ...updatePayInData.config,
+          ...payInData.config,
           actual_vendor_commission: vendorPayinCommission,
         };
       }
@@ -1002,12 +1001,12 @@ export const updateDepositStatusService = async (
       // );
 
       // update merchant balance
-      await updateMerchantBalanceDao(
-        { id: merchant.id },
-        payInData.amount,
-        updated_by,
-        conn,
-      );
+      // await updateMerchantBalanceDao(
+      //   { id: merchant.id },
+      //   payInData.amount,
+      //   updated_by,
+      //   conn,
+      // );
 
       // update vendor balance
       // await updateVendorBalanceDao(
@@ -1729,7 +1728,7 @@ export const processPayInService = async (
         brokerageCommission = parentCommission;
 
         updatePayInData.config = {
-          ...updatePayInData.config,
+          ...payIn.config,
           actual_vendor_commission: vendorCommission,
           brokerage_commission: brokerageCommission,
         };
@@ -1739,7 +1738,7 @@ export const processPayInService = async (
         );
       } else {
         updatePayInData.config = {
-          ...updatePayInData.config,
+          ...payIn.config,
           actual_vendor_commission: vendorCommission,
         };
       }
@@ -1972,7 +1971,7 @@ export const processPayInWebHookService = async (conn, payload, updated_by) => {
         brokerageCommission = parentCommission;
 
         updatePayInData.config = {
-          ...updatePayInData.config,
+          ...payIn.config, 
           actual_vendor_commission: vendorCommission,
           brokerage_commission: brokerageCommission,
         };
@@ -1982,7 +1981,7 @@ export const processPayInWebHookService = async (conn, payload, updated_by) => {
         );
       } else {
         updatePayInData.config = {
-          ...updatePayInData.config,
+          ...payIn.config,
           actual_vendor_commission: vendorCommission,
         };
       }
@@ -2479,6 +2478,7 @@ export const disputeDuplicateTransactionService = async (
           brokerageCommission = parentCommission;
 
           payinConfig = {
+            ...payIn.config,
             actual_vendor_commission: vendorPayinCommission,
             brokerage_commission: brokerageCommission,
           };
@@ -2488,6 +2488,7 @@ export const disputeDuplicateTransactionService = async (
           );
         } else {
           payinConfig = {
+            ...payIn.config,
             actual_vendor_commission: vendorPayinCommission,
           };
         }
@@ -2580,6 +2581,7 @@ export const disputeDuplicateTransactionService = async (
         brokerageCommission = parentCommission;
 
         payinConfig = {
+          ...payIn.config,
           actual_vendor_commission: vendorPayinCommission,
           brokerage_commission: brokerageCommission,
         };
@@ -2589,6 +2591,7 @@ export const disputeDuplicateTransactionService = async (
         );
       } else {
         payinConfig = {
+          ...payIn.config,
           actual_vendor_commission: vendorPayinCommission,
         };
       }
@@ -2881,6 +2884,7 @@ export const checkPendingPayinStatusService = async (
           brokerageCommission = parentCommission;
 
           payinConfig = {
+            ...payins.config,
             actual_vendor_commission: payinVendorCommission,
             brokerage_commission: brokerageCommission,
           };
@@ -2890,6 +2894,7 @@ export const checkPendingPayinStatusService = async (
           );
         } else {
           payinConfig = {
+            ...payins.config,
             actual_vendor_commission: payinVendorCommission,
           };
         }
@@ -3436,12 +3441,13 @@ const updateCalculationBalances = async (
 ) => {
   try {
     if (!currentCalculation) return;
+    commission = amountDiff >= 0 ? commission : -commission;
     const updates = {
-      total_payin_commission: amountDiff > 0 ? commission : -commission,
+      total_payin_commission: commission,
       total_payin_amount: amountDiff,
       total_payin_count: count ? count : 0,
-      current_balance: amountDiff - commission,
-      net_balance: amountDiff - commission,
+      current_balance: amountDiff == 0 ? commission : amountDiff - commission,
+      net_balance: amountDiff == 0 ? commission : amountDiff - commission,
     };
     const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
     // Update current calculation
@@ -3466,8 +3472,7 @@ const updateCalculationBalances = async (
         if (calculationDate === todayDate) {
           data = {
             total_adjustment_amount: amountDiff,
-            total_adjustment_commission:
-              amountDiff > 0 ? commission : -commission,
+            total_adjustment_commission:commission,
             total_adjustment_count: 1,
           };
         }
@@ -3479,7 +3484,6 @@ const updateCalculationBalances = async (
           },
           conn,
         );
-
         await trackVendorsNetBalance(calc.user_id, conn, updatedCalc);
       }
     }
@@ -3552,7 +3556,6 @@ export const updatePayInService = async (
       payload.amount !== bankResponse.amount
     ) {
       amountDiff = payload.amount - bankResponse.amount;
-
       // Fetch bank, vendor, and merchant data concurrently
       const [bank] = await Promise.all([
         getBankaccountDao({ id: bankResponse.bank_id }),
@@ -3563,11 +3566,11 @@ export const updatePayInService = async (
       }
       // Calculate commissions
       vendorCommission = calculateCommission(
-        Math.abs(amountDiff),
+        Math.abs(payload.amount),
         vendor[0].payin_commission,
       );
       merchantCommission = calculateCommission(
-        Math.abs(amountDiff),
+        Math.abs(payload.amount),
         merchant[0].payin_commission,
       );
 
@@ -3584,7 +3587,7 @@ export const updatePayInService = async (
           Math.abs(amountDiff),
           Number(subVendorParentInfo.parentVendor.payin_commission)
         );
-        parentCommission = amountDiff > 0 ? -baseParentCommission : baseParentCommission;
+        parentCommission = amountDiff > 0 ? baseParentCommission : -baseParentCommission;
 
         amountTotalVendorCommission = vendorCommission + parentCommission;
         brokerageCommission = parentCommission;
@@ -3673,7 +3676,6 @@ export const updatePayInService = async (
           throw new NotFoundError('Parent matching calculation not found');
         }
       }
-
       // Prepare all update promises
       let updatePromises = [
         updateBankResponseDao(
@@ -3706,18 +3708,23 @@ export const updatePayInService = async (
           vendorCurrentCalculations,
           vendorCalculations,
           amountDiff,
-          vendorCommission,
+          vendorCommission = calculateCommission(
+            Math.abs(amountDiff),
+            vendor[0].payin_commission,
+          ),
           conn,
         ),
         updateCalculationBalances(
           merchantCurrentCalculations,
           merchantCalculations,
           amountDiff,
-          merchantCommission,
+          merchantCommission = calculateCommission(
+            Math.abs(amountDiff),
+            merchant[0].payin_commission,
+          ),
           conn,
         ),
       ];
-
       // Add parent calculation updates if sub-vendor
       if (subVendorParentInfo && parentCurrentCalculations.length > 0) {
         updatePromises.push(
@@ -4086,22 +4093,15 @@ export const updatePayInService = async (
         config: payload.config || newConfig, // Use payload config if set, otherwise use newConfig
         payin_merchant_commission:
           amountDiff !== 0
-            ? amountDiff > 0
-              ? payIn.payin_merchant_commission + merchantCommission
-              : payIn.payin_merchant_commission + merchantCommission // merchantCommission is already negative
-            : payIn.payin_merchant_commission,
-        payin_vendor_commission: 
-          payload.payin_vendor_commission !== undefined 
-            ? payload.payin_vendor_commission // Use from amount or bank change calculations
-            : amountDiff !== 0
-              ? amountDiff > 0
-                ? payIn.payin_vendor_commission + (totalVendorCommission || vendorCommission)
-                : payIn.payin_vendor_commission + (totalVendorCommission || vendorCommission) // commission is already negative
+            ? merchantCommission:
+              payIn.payin_merchant_commission,
+        payin_vendor_commission:
+             amountDiff !== 0
+              ? vendorCommission
               : payIn.payin_vendor_commission,
       },
       conn,
     );
-
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: payIn.company_id,
@@ -4114,7 +4114,7 @@ export const updatePayInService = async (
     // });
     const updatedPayInData = {
       ...updatedPayIn,
-      nick_name: updatedBankAccIdData?.nick_name,
+      nick_name: payInBank[0]?.nick_name,
       bank_res_details: {
         utr: bankResponseDataUtr?.utr || bankResponseData?.utr,
         amount: updatedPayIn?.amount,
