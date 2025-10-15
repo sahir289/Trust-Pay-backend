@@ -1013,7 +1013,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
           delete payload.txnStatus;
           checkClickrr = payload;
         } else {
-          checkClickrr = await initiateClickrrPayout(singleWithdrawData);
+          checkClickrr = await initiateClickrrPayout(singleWithdrawData, ids.company_id);
         }
 
         const status = checkClickrr.txnStatus;
