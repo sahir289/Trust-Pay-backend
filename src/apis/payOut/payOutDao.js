@@ -509,6 +509,18 @@ export const getAllPayoutsDao = async (
   }
 };
 
+export const getCompanyIdByMerchantOrderIdDao = async (id) => {
+  try {
+    const sql = `SELECT id, merchant_order_id, company_id FROM "${tableName.PAYOUT}" WHERE merchant_order_id = $1 AND is_obsolete = false`;
+    const queryParams = [id];
+    const result = await executeQuery(sql, queryParams);
+    return result.rows.length > 0 ? result.rows[0] : result.rows;
+  } catch (error) {
+    logger.error('Error fetching company:', error);
+    throw error;
+  }
+};
+
 export const getPayoutsBySearchDao = async (
   filters,
   searchTerms,
