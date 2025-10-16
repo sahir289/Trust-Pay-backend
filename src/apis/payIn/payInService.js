@@ -3490,7 +3490,64 @@ const updateCalculationBalances = async (
     throw error;
   }
 };
-
+const updateCalculationParentBalances = async (
+  currentCalculation,
+  nextCalculations,
+  amountDiff,
+  commission,
+  conn,
+  count
+) => {
+  try {
+    if (!currentCalculation) return;
+    const updates =  {
+          total_payin_commission: commission,
+          total_payin_count: count ? count : 0,
+          current_balance: -commission,
+          net_balance: -commission,
+    };
+    const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
+    // Update current calculation
+    const updatedCurrentCalculation = await updateCalculationBalanceDao(
+      { id: currentCalculation[0].id },
+      updates,
+      conn,
+    );
+    await trackVendorsNetBalance(
+      currentCalculation[0].user_id,
+      conn,
+      updatedCurrentCalculation,
+    );
+    if (nextCalculations.length > 0) {
+      // Update subsequent calculations
+      for (const calc of nextCalculations) {
+        const calculationDate = dayjs(calc.created_at)
+          .tz('Asia/Kolkata')
+          .format('YYYY-MM-DD');
+        let data = {};
+        if (calculationDate === todayDate) {
+          data = {
+            total_adjustment_amount: amountDiff,
+            total_adjustment_commission: commission,
+            total_adjustment_count: 1,
+          };
+        }
+        const updatedCalc = await updateCalculationBalanceDao(
+          { id: calc.id },
+          {
+            net_balance: -commission ,
+            ...data,
+          },
+          conn,
+        );
+        await trackVendorsNetBalance(calc.user_id, conn, updatedCalc);
+      }
+    }
+  } catch (error) {
+    logger.error('Error updating calculation balances:', error);
+    throw error;
+  }
+};
 export const updatePayInService = async (
   conn,
   payload,
@@ -3726,13 +3783,13 @@ export const updatePayInService = async (
       // Add parent calculation updates if sub-vendor
       if (subVendorParentInfo && parentCurrentCalculations.length > 0) {
         updatePromises.push(
-          updateCalculationBalances(
+          updateCalculationParentBalances(
             parentCurrentCalculations,
             parentCalculations,
-            0, // Parent vendor amount is always 0 for adjustments
+            amountDiff, // Parent vendor amount is always 0 for adjustments
             parentCommission,
             conn,
-          )
+          ),
         );
       }
 
@@ -3919,27 +3976,27 @@ export const updatePayInService = async (
         // Add parent calculation updates for bank change scenario
         if (prevSubVendorParentInfo && prevParentCurrentCalcs.length > 0) {
           calculationUpdatePromises.push(
-            updateCalculationBalances(
+            updateCalculationParentBalances(
               prevParentCurrentCalcs,
               prevParentNextCalcs,
-              0, // Parent vendor amount is always 0
+              -bankResponse.amount, // Parent vendor amount is always 0
               -prevParentCommission, // Reverse the commission
               conn,
               -1,
-            )
+            ),
           );
         }
 
         if (newSubVendorParentInfo && newParentCurrentCalcs.length > 0) {
           calculationUpdatePromises.push(
-            updateCalculationBalances(
+            updateCalculationParentBalances(
               newParentCurrentCalcs,
               newParentNextCalcs,
-              0, // Parent vendor amount is always 0
+              bankResponse.amount, // Parent vendor amount is always 0
               newParentCommission, // Add the commission
               conn,
               1,
-            )
+            ),
           );
         }
 
