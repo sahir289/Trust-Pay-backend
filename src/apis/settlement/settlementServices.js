@@ -123,16 +123,16 @@ const updateParentVendorSettlementCalculation = async (parentUserId, amount, ven
           total_settlement_count: 1,
           total_settlement_amount: 0, // Parent amount is always 0
           total_settlement_commission: parentCommission, // Negative to remove commission
-          current_balance: -parentCommission,
-          net_balance: -parentCommission,
+          current_balance: parentCommission,
+          net_balance: parentCommission,
         }
       : {
           // For reversal: Add commission back to parent (positive commission)
           total_settlement_count: -1,
           total_settlement_amount: 0, // Parent amount is always 0
           total_settlement_commission: -parentCommission, // Positive to add commission back
-          current_balance: parentCommission,
-          net_balance: parentCommission,
+          current_balance: -parentCommission,
+          net_balance: -parentCommission,
       };
     logger.info(`Settlement: Updating parent calculation table with: ${JSON.stringify(calculationUpdate)}`);
     const response = await updateCalculationBalanceDao(
