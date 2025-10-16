@@ -1051,7 +1051,7 @@ const getPayoutsBySearchService = async (
     return data;
   } catch (error) {
     logger.error('Error while fetching Payout by search', error);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
 
@@ -1151,6 +1151,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         });
         const bankId = company.config.CLICKRR.defaultBankId;
         bankDataArr = await getBankByIdDao({ id: bankId });
+
         if (!bankDataArr[0]) {
           throw new NotFoundError('Bank not found for Clickrr payout!');
         }
@@ -1159,23 +1160,25 @@ const updatePayoutService = async (conn, ids, payload, role) => {
           delete payload.txnStatus;
           checkClickrr = payload;
         } else {
-          checkClickrr = await initiateClickrrPayout(singleWithdrawData);
+          checkClickrr = await initiateClickrrPayout(singleWithdrawData, ids.company_id);
         }
+
         const status = checkClickrr.txnStatus;
 
         if (!status) {
-          payload.status = Status.PENDING;
+          payload.status = Status.PENDING
         } else if (status === 'Success' || status === 'success') {
+          payload.bank_acc_id= bankId,
           payload.status = Status.APPROVED;
           payload.utr_id = checkClickrr?.utr || '';
           payload.approved_at = new Date().toISOString();
         } else if (status === 'Failed' || status === 'failed') {
           payload.status = Status.REJECTED;
           payload.rejected_reason =
-            checkClickrr?.message || 'Transaction failed';
+          checkClickrr?.message || 'Transaction failed';
           payload.rejected_at = new Date().toISOString();
         } else {
-          payload.status = Status.PENDING;
+          payload.status = Status.PENDING
         }
 
         if (!payload.utr_id) {
@@ -1184,14 +1187,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       } catch (error) {
         payload.status = Status.REJECTED;
         payload.utr_id = checkClickrr?.utr || '';
-        payload.rejected_reason =
-          error?.response?.data?.message || 'API call failed';
+        payload.rejected_reason = error?.response?.data?.message || 'API call failed';
         payload.rejected_at = new Date().toISOString();
         logger.error('Clickrr payout error:', error.message);
       }
     }
-
-    // console.log(checkClickrr, 'Clickrr Payout Response:', payload);
 
     const data = await updatePayoutDao(ids, payload, conn);
     await newTableEntry(tableName.PAYOUT);
@@ -1423,7 +1423,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     return data;
   } catch (error) {
     logger.error('Error in updatePayoutService:', error.message);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
 

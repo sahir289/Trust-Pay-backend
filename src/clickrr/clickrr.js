@@ -3,6 +3,7 @@ import axios from 'axios';
 import { logger } from '../utils/logger.js';
 import config from '../config/config.js';
 import { sendSuccess } from '../utils/responseHandlers.js';
+import { getClickrrDetailsByCompanyIdDao } from '../apis/company/companyDao.js';
 
 /**
  * Generate an HMAC-SHA256 signature for API authentication.
@@ -39,10 +40,8 @@ export function generateSignature(
 const baseUrl = config.clickrr.baseUrl;
 const initiatePayoutUrl = config.clickrr.initiatePayout;
 const walletBalanceUrl = config.clickrr.walletBalance;
-const apiKey = config.clickrr.apiKey;
-const apiSecret = config.clickrr.apiSecret;
 
-export async function initiateClickrrPayout(payload) {
+export async function initiateClickrrPayout(payload, company_id) {
   const newPayload = {
     amount: Number(payload.amount),
     mobileNumber: 9898989898,
@@ -57,6 +56,10 @@ export async function initiateClickrrPayout(payload) {
   };
 
   try {
+    const clickrrDetails = await getClickrrDetailsByCompanyIdDao(company_id);
+
+    const apiKey = clickrrDetails.api_key;
+    const apiSecret = clickrrDetails.api_secret;
     const httpMethod = 'POST';
     const { signature, timestamp } = generateSignature(
       apiKey,
@@ -85,6 +88,10 @@ export async function initiateClickrrPayout(payload) {
 
 export async function getClickrrWalletBalance(req, res) {
   try {
+    const { company_id } = req.user;
+    const clickrrDetails = await getClickrrDetailsByCompanyIdDao(company_id);
+    const apiKey = clickrrDetails.api_key;
+    const apiSecret = clickrrDetails.api_secret;
     const httpMethod = 'GET';
     const { signature, timestamp } = generateSignature(
       apiKey,

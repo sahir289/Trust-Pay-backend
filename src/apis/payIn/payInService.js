@@ -3538,7 +3538,7 @@ export const updatePayInService = async (
     let vendorCommission = 0;
     let merchantCommission = 0;
     let totalVendorCommission = 0; // Declare at function level for scope access
-
+    let newVendorCommission = 0;
     const [vendor, merchant] = await Promise.all([
       getVendorsDao({
         user_id: (await getBankaccountDao({ id: bankResponse.bank_id }))[0]
@@ -3708,7 +3708,7 @@ export const updatePayInService = async (
           vendorCurrentCalculations,
           vendorCalculations,
           amountDiff,
-          vendorCommission = calculateCommission(
+           calculateCommission(
             Math.abs(amountDiff),
             vendor[0].payin_commission,
           ),
@@ -3718,7 +3718,7 @@ export const updatePayInService = async (
           merchantCurrentCalculations,
           merchantCalculations,
           amountDiff,
-          merchantCommission = calculateCommission(
+           calculateCommission(
             Math.abs(amountDiff),
             merchant[0].payin_commission,
           ),
@@ -3813,7 +3813,7 @@ export const updatePayInService = async (
           Math.abs(bankResponse.amount),
           prevVendor[0].payin_commission,
         );
-        const newVendorCommission = calculateCommission(
+         newVendorCommission = calculateCommission(
           Math.abs(bankResponse.amount),
           newVendor[0].payin_commission,
         );
@@ -4096,8 +4096,9 @@ export const updatePayInService = async (
             ? merchantCommission:
               payIn.payin_merchant_commission,
         payin_vendor_commission:
-             amountDiff !== 0
-              ? vendorCommission
+          payload.amount
+              ? vendorCommission : payload.bank_acc_id
+              ? newVendorCommission
               : payIn.payin_vendor_commission,
       },
       conn,
