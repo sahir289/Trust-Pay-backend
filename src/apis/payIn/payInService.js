@@ -3447,7 +3447,6 @@ const updateCalculationBalances = async (
       current_balance: amountDiff == 0 ? commission : amountDiff - commission,
       net_balance: amountDiff == 0 ? commission : amountDiff - commission,
     };
-    console.log(updates, 'updates childs');
     const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
     // Update current calculation
     const updatedCurrentCalculation = await updateCalculationBalanceDao(
