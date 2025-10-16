@@ -122,7 +122,7 @@ const updateParentVendorSettlementCalculation = async (parentUserId, amount, ven
           // For approval: Remove commission from parent (negative commission)
           total_settlement_count: 1,
           total_settlement_amount: 0, // Parent amount is always 0
-          total_settlement_commission: -parentCommission, // Negative to remove commission
+          total_settlement_commission: parentCommission, // Negative to remove commission
           current_balance: -parentCommission,
           net_balance: -parentCommission,
         }
@@ -130,7 +130,7 @@ const updateParentVendorSettlementCalculation = async (parentUserId, amount, ven
           // For reversal: Add commission back to parent (positive commission)
           total_settlement_count: -1,
           total_settlement_amount: 0, // Parent amount is always 0
-          total_settlement_commission: parentCommission, // Positive to add commission back
+          total_settlement_commission: -parentCommission, // Positive to add commission back
           current_balance: parentCommission,
           net_balance: parentCommission,
       };
