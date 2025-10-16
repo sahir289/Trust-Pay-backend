@@ -39,6 +39,19 @@ const getCompanyDetailsByIdDao = async (id) => {
   }
 };
 
+const getClickrrDetailsByCompanyIdDao = async (id) => {
+  try {
+    const sql = `SELECT config -> 'CLICKRR' ->> 'api_key' AS api_key,
+    config -> 'CLICKRR' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
+    const queryParams = [id];
+    const result = await executeQuery(sql, queryParams);
+    return result.rows.length > 0 ? result.rows[0] : result.rows;
+  } catch (error) {
+    logger.error('Error fetching clickrr details by companyId:', error);
+    throw error;
+  }
+};
+
 const getCashfreeAllowByCompanyIdDao = async (id) => {
   try {
     const sql = `
@@ -123,6 +136,7 @@ export {
   updateCompanyDao,
   deleteCompanyDao,
   getCompanyByIDDao,
+  getClickrrDetailsByCompanyIdDao,
   getCashfreeAllowByCompanyIdDao,
   updateCompanyConfigDao,
   getCompanyDetailsByIdDao,
