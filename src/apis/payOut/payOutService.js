@@ -839,7 +839,6 @@ const getPayoutsService = async (
       const merchants = await getMerchantByUserIdDao(user_ids);
       return merchants.map((merchant) => merchant.id);
     };
-
     const fetchVendorIds = async (user_ids) => {
       const vendors = await getVendorsDao({ user_id: user_ids });
       return vendors.map((vendor) => vendor.id);
@@ -880,11 +879,14 @@ const getPayoutsService = async (
       if (designation === Role.VENDOR) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
         const userHierarchy = userHierarchys?.[0];
-
         const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
         if (Array.isArray(subVendors) && subVendors.length > 0) {
           const vendorUserIds = [user_id, ...subVendors];
-          filters.vendor_id = await fetchVendorIds(vendorUserIds);
+          filters.vendor_id = [];
+          for (const vendorUserId of vendorUserIds) {
+            const vendorId = await fetchVendorIds([vendorUserId]);
+            filters.vendor_id.push(...vendorId);
+          }
         } else {
           filters.vendor_id = await fetchVendorIds([user_id]);
         }
@@ -1036,7 +1038,6 @@ const getPayoutsBySearchService = async (
     // if (searchTerms.length === 0) {
     //   throw new BadRequestError('Please provide valid search terms');
     // }
-
     const offset = (pageNum - 1) * limitNum;
     const data = await getPayoutsBySearchDao(
       filters,

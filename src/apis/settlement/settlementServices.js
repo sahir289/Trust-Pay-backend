@@ -122,17 +122,17 @@ const updateParentVendorSettlementCalculation = async (parentUserId, amount, ven
           // For approval: Remove commission from parent (negative commission)
           total_settlement_count: 1,
           total_settlement_amount: 0, // Parent amount is always 0
-          total_settlement_commission: -parentCommission, // Negative to remove commission
-          current_balance: -parentCommission,
-          net_balance: -parentCommission,
+          total_settlement_commission: parentCommission, // Negative to remove commission
+          current_balance: parentCommission,
+          net_balance: parentCommission,
         }
       : {
           // For reversal: Add commission back to parent (positive commission)
           total_settlement_count: -1,
           total_settlement_amount: 0, // Parent amount is always 0
-          total_settlement_commission: parentCommission, // Positive to add commission back
-          current_balance: parentCommission,
-          net_balance: parentCommission,
+          total_settlement_commission: -parentCommission, // Positive to add commission back
+          current_balance: -parentCommission,
+          net_balance: -parentCommission,
       };
     logger.info(`Settlement: Updating parent calculation table with: ${JSON.stringify(calculationUpdate)}`);
     const response = await updateCalculationBalanceDao(
@@ -189,7 +189,6 @@ const getSettlementService = async (
     if (!ids?.company_id) {
       throw new BadRequestError('Company ID is required');
     }
-
     // Determine column selection based on role
     const filterColumns = (() => {
       switch (ids.role) {
@@ -203,10 +202,10 @@ const getSettlementService = async (
     })();
 
     if (role == Role.MERCHANT && designation != Role.MERCHANT_OPERATIONS) {
-      filters.user_id = [user_id];
+      filters.user_id ? filters.user_id : (filters.user_id = [user_id]);
     }
     if (role == Role.VENDOR && designation != Role.VENDOR_OPERATIONS) {
-      filters.user_id = [user_id];
+      filters.user_id ? filters.user_id : (filters.user_id = [user_id]);
     }
     if (role === Role.MERCHANT) {
       // if (userHierarchys || userHierarchys.length > 0) {
