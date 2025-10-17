@@ -189,7 +189,6 @@ const getSettlementService = async (
     if (!ids?.company_id) {
       throw new BadRequestError('Company ID is required');
     }
-
     // Determine column selection based on role
     const filterColumns = (() => {
       switch (ids.role) {
@@ -203,10 +202,10 @@ const getSettlementService = async (
     })();
 
     if (role == Role.MERCHANT && designation != Role.MERCHANT_OPERATIONS) {
-      filters.user_id = [user_id];
+      filters.user_id ? filters.user_id : (filters.user_id = [user_id]);
     }
     if (role == Role.VENDOR && designation != Role.VENDOR_OPERATIONS) {
-      filters.user_id = [user_id];
+      filters.user_id ? filters.user_id : (filters.user_id = [user_id]);
     }
     if (role === Role.MERCHANT) {
       // if (userHierarchys || userHierarchys.length > 0) {
