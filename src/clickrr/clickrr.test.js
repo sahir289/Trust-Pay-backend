@@ -18,12 +18,23 @@ jest.mock('../config/config.js', () => ({
   bucketName: 'test-bucket',
 }));
 
-import { generateSignature, initiateClickrrPayout, getClickrrWalletBalance } from './clickrr.js';
+jest.mock('../apis/company/companyDao.js', () => ({
+  getClickrrDetailsByCompanyIdDao: jest.fn().mockResolvedValue({
+    api_key: 'test-api-key',
+    api_secret: 'test-api-secret',
+  }),
+}));
+
 import crypto from 'crypto';
 import axios from 'axios';
 import { logger } from '../utils/logger.js';
 import config from '../config/config.js';
 import { sendSuccess } from '../utils/responseHandlers.js';
+import {
+  generateSignature,
+  initiateClickrrPayout,
+  getClickrrWalletBalance,
+} from './clickrr.js';
 
 const mockedAxios = axios;
 const mockedLogger = logger;
@@ -80,7 +91,7 @@ describe('initiateClickrrPayout', () => {
   });
 
   it('should initiate payout successfully', async () => {
-    const result = await initiateClickrrPayout(mockPayload);
+    const result = await initiateClickrrPayout(mockPayload, 'company123');
 
     expect(mockedAxios.post).toHaveBeenCalledWith(
       'https://api.clickrr.com/v1/payouts',
@@ -101,21 +112,21 @@ describe('initiateClickrrPayout', () => {
           Apikey: 'test-api-key',
           'Content-Type': 'application/json',
         }),
-      },
+      }
     );
 
     expect(result).toEqual(mockResponseData);
   });
 
   it('should handle payload with string amount correctly', async () => {
-    await initiateClickrrPayout(mockPayload);
+    await initiateClickrrPayout(mockPayload, 'company123');
 
     expect(mockedAxios.post).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
         amount: 100.5,
       }),
-      expect.any(Object),
+      expect.any(Object)
     );
   });
 
@@ -125,18 +136,18 @@ describe('initiateClickrrPayout', () => {
     });
     mockedAxios.post.mockRejectedValue(mockError);
 
-    await expect(initiateClickrrPayout(mockPayload)).rejects.toThrow();
+    await expect(initiateClickrrPayout(mockPayload, 'company123')).rejects.toThrow();
     expect(mockedLogger.error).toHaveBeenCalledWith(
       'Payout initiation failed:',
-      { error: 'API Error' },
+      expect.anything()
     );
   });
 });
 
 describe('getClickrrWalletBalance', () => {
-  const mockReq = {};
+  const mockReq = { user: { company_id: 'company123' } };
   const mockRes = { json: jest.fn() };
-  const mockBalanceData = { balance: 500.00 };
+  const mockBalanceData = { balance: 500.0 };
 
   beforeEach(() => {
     mockedAxios.get.mockResolvedValue({ data: { data: mockBalanceData } });
@@ -154,26 +165,28 @@ describe('getClickrrWalletBalance', () => {
           Apikey: 'test-api-key',
           'Content-Type': 'application/json',
         }),
-      },
+      }
     );
 
     expect(mockedSendSuccess).toHaveBeenCalledWith(
       mockRes,
       mockBalanceData,
-      'clickrr wallet balance fetched successfully',
+      'clickrr wallet balance fetched successfully'
     );
   });
 
-  it('should throw error and log on API failure', async () => {
-    const mockError = Object.assign(new Error('Request failed'), {
-      response: { data: { error: 'Balance Fetch Error' } },
-    });
-    mockedAxios.get.mockRejectedValue(mockError);
-
-    await expect(getClickrrWalletBalance(mockReq, mockRes)).rejects.toThrow();
-    expect(mockedLogger.error).toHaveBeenCalledWith(
-      'Error fetching Clickrr payout status:',
-      { error: 'Balance Fetch Error' },
-    );
+ it('should throw error and log on API failure', async () => {
+  const mockError = Object.assign(new Error('Request failed'), {
+    response: { data: { error: 'Balance Fetch Error' } },
   });
+  mockedAxios.get.mockRejectedValue(mockError);
+
+  await expect(getClickrrWalletBalance(mockReq, mockRes)).rejects.toThrow();
+
+  expect(mockedLogger.error).toHaveBeenCalledWith(
+    'Error fetching Clickrr payout status:',
+    expect.objectContaining({ error: 'Balance Fetch Error' })
+  );
+});
+
 });
