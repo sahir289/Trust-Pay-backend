@@ -250,6 +250,20 @@ const getChargeBacksService = async (
           ];
         }
       }
+    } else if (role === Role.VENDOR) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      if (userHierarchys && userHierarchys.length > 0) {
+        const userHierarchy = userHierarchys[0];
+        if (
+          userHierarchy?.config &&
+          Array.isArray(userHierarchy?.config?.siblings?.sub_vendors)
+        ) {
+          filters.vendor_user_id = [
+            ...filters.vendor_user_id,
+            ...(userHierarchy?.config?.siblings?.sub_vendors ?? []),
+          ];
+        }
+      }
     }
 
     // Parse and validate pagination parameters
@@ -332,6 +346,20 @@ const getChargeBacksBySearchService = async (
           filters.merchant_user_id = [
             ...filters.merchant_user_id,
             ...(userHierarchy?.config?.siblings?.sub_merchants ?? []),
+          ];
+        }
+      }
+    } else if (role === Role.VENDOR) {
+      const userHierarchys = await getUserHierarchysDao({ user_id });
+      if (userHierarchys && userHierarchys.length > 0) {
+        const userHierarchy = userHierarchys[0];
+        if (
+          userHierarchy?.config &&
+          Array.isArray(userHierarchy?.config?.siblings?.sub_vendors)
+        ) {
+          filters.vendor_user_id = [
+            ...filters.vendor_user_id,
+            ...(userHierarchy?.config?.siblings?.sub_vendors ?? []),
           ];
         }
       }
