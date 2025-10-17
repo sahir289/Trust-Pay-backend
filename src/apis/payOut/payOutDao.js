@@ -370,17 +370,19 @@ export const getAllPayoutsDao = async (
       queryParams.push(limit, (page - 1) * limit);
       paramIndex += 2;
     }
-    if (filters?.userId) {
+    if (filters?.userId  && !filters.vendor_id) {
       const userIdsArray = typeof filters.userId === 'string' ? JSON.parse(filters.userId) : filters.userId;
       conditions.push(`u.vendor_id = ANY($${paramIndex})`);
       queryParams.push(userIdsArray);
       paramIndex += 1;
+      delete filters.userId;
     }
     if (filters?.status) {
       const statusArray = typeof filters.status === 'string' ? JSON.parse(filters.status) : filters.status;
       conditions.push(`u.status = ANY($${paramIndex})`);
       queryParams.push(statusArray);
       paramIndex += 1;
+      delete filters.status;
     }
 
     const handledKeys = new Set(['page', 'limit', 'startDate', 'endDate', 'userId', 'status']);
@@ -407,7 +409,6 @@ export const getAllPayoutsDao = async (
         paramIndex += valueArray.length;
       }
     });
-
     let commissionSelect = '';
     if (role === 'MERCHANT') {
       commissionSelect = `
