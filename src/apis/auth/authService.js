@@ -115,6 +115,7 @@ const loginService = async (config, clientIP, retryCount = 0) => {
       const newConfig = {
         user_info: {
           user_ip: clientIP,
+          user_location:config.login_location,
           hostname: os.hostname(),
           os_platform: os.platform(),
           network_interface: Object.values(os.networkInterfaces())[0]?.[0],

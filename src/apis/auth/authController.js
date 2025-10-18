@@ -21,6 +21,8 @@ import {
 const loginController = async (req, res) => {
   let clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   const payload = { ...req.body };
+  const userLocation = req.user_location;
+  payload.login_location = userLocation;
   const options = { abortEarly: false };
   const joiValidation = INSERT_AUTH_SCHEMA.validate(payload, options);
   if (joiValidation.error) {
