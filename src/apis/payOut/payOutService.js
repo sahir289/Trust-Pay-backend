@@ -64,6 +64,7 @@ import { stringifyJSON } from '../../utils/index.js';
 import axios from 'axios';
 import { getCompanyByIDDao } from '../company/companyDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
+import { initiateClickrrPayout } from '../../clickrr/clickrr.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function for retry logic with exponential backoff
@@ -988,7 +989,7 @@ const getPayoutsBySearchService = async (
     return data;
   } catch (error) {
     logger.error('Error while fetching Payout by search', error);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
 
@@ -1068,7 +1069,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
     // Fetch related data in parallel
     const bankID = payload.bank_acc_id || singleWithdrawData.bank_acc_id;
-    const [merchantArr, bankDataArr] = await Promise.all([
+    let [merchantArr, bankDataArr] = await Promise.all([
       getMerchantsDao({ id: singleWithdrawData.merchant_id }),
       bankID ? getBankByIdDao({ id: bankID }) : Promise.resolve([]),
     ]);
@@ -1078,8 +1079,56 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       throw new NotFoundError('Merchant not found!');
     }
 
+    let checkClickrr;
     if (payload?.config?.method === Method.EKO) {
       await processEkoPayout(singleWithdrawData, payload);
+    } else if (payload?.config?.method === Method.CLICKRR) {
+      try {
+        const [company] = await getCompanyByIDDao({
+          id: ids.company_id,
+        });
+        const bankId = company.config.CLICKRR.defaultBankId;
+        bankDataArr = await getBankByIdDao({ id: bankId });
+
+        if (!bankDataArr[0]) {
+          throw new NotFoundError('Bank not found for Clickrr payout!');
+        }
+        let checkClickrr;
+        if (payload.txnStatus) {
+          delete payload.txnStatus;
+          checkClickrr = payload;
+        } else {
+          checkClickrr = await initiateClickrrPayout(singleWithdrawData, ids.company_id);
+        }
+
+        const status = checkClickrr.txnStatus;
+
+        if (!status) {
+          payload.status = Status.PENDING
+        } else if (status === 'Success' || status === 'success') {
+          payload.bank_acc_id= bankId,
+          payload.status = Status.APPROVED;
+          payload.utr_id = checkClickrr?.utr || '';
+          payload.approved_at = new Date().toISOString();
+        } else if (status === 'Failed' || status === 'failed') {
+          payload.status = Status.REJECTED;
+          payload.rejected_reason =
+          checkClickrr?.message || 'Transaction failed';
+          payload.rejected_at = new Date().toISOString();
+        } else {
+          payload.status = Status.PENDING
+        }
+
+        if (!payload.utr_id) {
+          payload.utr_id = checkClickrr?.utr || '';
+        }
+      } catch (error) {
+        payload.status = Status.REJECTED;
+        payload.utr_id = checkClickrr?.utr || '';
+        payload.rejected_reason = error?.response?.data?.message || 'API call failed';
+        payload.rejected_at = new Date().toISOString();
+        logger.error('Clickrr payout error:', error.message);
+      }
     }
 
     const data = await updatePayoutDao(ids, payload, conn);
@@ -1304,7 +1353,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     return data;
   } catch (error) {
     logger.error('Error in updatePayoutService:', error);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
 
