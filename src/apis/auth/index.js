@@ -12,7 +12,7 @@ import {
   getUserRoleController,
 } from './authController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
-import  loginMiddleware  from '../../middlewares/loginlocationRestrict.js';
+import  loginMiddleware  from '../../middlewares/loginLocationRestrict.js';
 const router = express.Router();
 
 /**
