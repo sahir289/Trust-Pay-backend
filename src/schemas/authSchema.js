@@ -7,6 +7,7 @@ const INSERT_AUTH_SCHEMA = Joi.object({
   confirmOverRide: Joi.boolean().label('confirmOverRide').optional(),
   isAdminLogin: Joi.boolean().label('isAdminLogin').optional(),
   unique_admin_id: Joi.string().label('unique_admin_id').optional(),
+  user_location: Joi.object()
   // clientIp : Joi.string().label('clientIp').optional(),
   // otp: Joi.string().label('otp').required(),
   // config: Joi.object()
