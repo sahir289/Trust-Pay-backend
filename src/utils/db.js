@@ -498,7 +498,9 @@ export const transactionWrapper =
         if (conn) {
           try {
             conn.release();
-          } catch {}
+          } catch {
+            logger.error('Failed to release connection after deadlock:', error);
+          }
           conn = null;
         }
         await new Promise((resolve) => setTimeout(resolve, 1000));

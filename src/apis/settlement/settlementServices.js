@@ -1,6 +1,5 @@
 import {
   BadRequestError,
-  InternalServerError,
   NotFoundError,
 } from '../../utils/appErrors.js';
 import {
