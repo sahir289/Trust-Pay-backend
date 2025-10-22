@@ -1354,7 +1354,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
           ids,
           {
             payout_merchant_commission: merchantCommission,
-            payout_vendor_commission: totalVendorCommission,
+            payout_vendor_commission: vendorCommission,
             vendor_id: vendor.id,
             config: payoutConfig,
           },
