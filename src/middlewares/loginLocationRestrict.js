@@ -24,7 +24,7 @@ const loginMiddleware = async (req, res, next) => {
     }
     const { vpn, region, country } = userData;
     if (vpn === 'yes' && role.role == 'VENDOR') {
-      // const id = req.params.merchantOrderId;
+      userData.user =  req.body.username
       logger.warn('VPN detected. Access denied.', userData);
       throw new BadRequestError('VPN usage is not allowed');
     }
@@ -34,7 +34,8 @@ const loginMiddleware = async (req, res, next) => {
       region.toLowerCase() === 'gujarat' &&
       role.role == 'VENDOR'
     ) {
-      logger.warn('Access denied for users from India.', {
+        logger.warn('Access denied for users from India.', {
+        user :req.body.username,
         userIp,
         region,
         country,
