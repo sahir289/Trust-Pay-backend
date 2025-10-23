@@ -29,7 +29,10 @@ import {
   getVendorByUserId,
 } from './vendorDao.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
-import { updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
+import {
+  updateBankaccountDao,
+  getBankaccountCheckDao,
+} from '../bankAccounts/bankaccountDao.js';
 import { updateUserDao } from '../users/userDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
@@ -536,6 +539,12 @@ const linkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
       throw new BadRequestError('Vendor net balance must be zero to link.');
     }
     const parent = await getVendorByUserId(vendorUserId);
+    const banks = await getBankaccountCheckDao({ user_id: vendorUserId })
+    if (banks) {
+      throw new BadRequestError(
+        'Parent cannot contain any existing banks. Please remove all banks from the parent before adding a new Vendor.',
+      );
+    }
     if (
       parent.payin_commission > 1 ||
       parent.payout_commission > 1
