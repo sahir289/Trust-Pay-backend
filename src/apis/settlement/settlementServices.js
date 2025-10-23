@@ -1,6 +1,5 @@
 import {
   BadRequestError,
-  InternalServerError,
   NotFoundError,
 } from '../../utils/appErrors.js';
 import {
@@ -427,9 +426,7 @@ const createSettlementService = async (conn, payload, role) => {
     return await handleVendorInternalTransfer(payload);
   } catch (error) {
     logger.error('Error while creating Settlement', error);
-    throw new InternalServerError(
-      error.message || 'Failed to create settlement',
-    );
+    throw error;
   }
 };
 
