@@ -35,6 +35,7 @@ import {
 import { getMerchantByUserIdDao } from '../merchants/merchantDao.js';
 import { getVendorByUserDao } from '../vendors/vendorDao.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
+import { getBankaccountCheckDao } from '../bankAccounts/bankaccountDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const getUsersService = async (
@@ -348,11 +349,17 @@ const createUserService = async (conn, payload) => {
     const User = await createUserDao(userPayload, conn);
 
     const designation = await getDesignationDao({ id: payload.designation_id });
-
     const userRole = await getRoleDao({ id: payload.role_id });
     const userDesignation = await getDesignationDao({
       id: payload.designation_id,
     });
+    if (userDesignation[0]?.designation == Role.SUB_VENDOR) {
+      const banks = await getBankaccountCheckDao({ user_id: payload.parent_id })
+      if (banks) {
+        throw new BadRequestError(
+          'Parent cannot contain any existing banks. Please remove all banks from the parent before adding a new Vendor.',
+        );      }
+     }
     let unique_id = payload?.unique_admin_id;
     if (userDesignation[0]?.designation == Role.ADMIN) {
       const company = await getCompanyByIDDao({ id: payload.company_id });
