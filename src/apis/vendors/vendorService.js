@@ -648,8 +648,14 @@ const transferVendorService = async (
       throw new BadRequestError('Vendor net balance must be zero to transfer.');
     }
     const parent = await getVendorByUserId(newVendorUserId);
+    const banks = await getBankaccountCheckDao({ user_id: newVendorUserId });
+    if (banks) {
+      throw new BadRequestError(
+        'Parent cannot contain any existing banks. Please remove all banks from the New parent before transfering a new Vendor.',
+      );
+    }
     if (
-      parent.payin_commission > 1 &&
+      parent.payin_commission > 1 ||
       parent.payout_commission > 1
     ) {
       throw new BadRequestError(
