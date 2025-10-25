@@ -457,7 +457,7 @@ const createUserService = async (conn, payload) => {
           allow_clickrr: false,
           allow_tatapay: false,
           allow_payassist: false,
-          is_h2h: payload.config?.is_h2h || false,
+          is_h2h: payload?.is_h2h || false,
           ...(sub_code && { sub_code }),
           unblocked_countries: unblocked_countries,
         },
