@@ -3,10 +3,8 @@ import axios from 'axios';
 import { logger } from '../utils/logger.js';
 import config from '../config/config.js';
 import { sendSuccess } from '../utils/responseHandlers.js';
-import { getClickrrDetailsByCompanyIdDao, getCompanyByIDDao } from '../apis/company/companyDao.js';
-import { NotFoundError } from '../utils/appErrors.js';
-import { getBankByIdDao } from '../apis/bankAccounts/bankaccountDao.js';
-import { Method, Status } from '../constants/index.js';
+import { getClickrrDetailsByCompanyIdDao } from '../apis/company/companyDao.js';
+import { Status } from '../constants/index.js';
 
 /**
  * Generate an HMAC-SHA256 signature for API authentication.
@@ -92,8 +90,10 @@ export async function initiateClickrrPayout(payload, company_id) {
 export async function getClickrrWalletBalance(reqOrParams, res) {
   try {
     const isExpress = !!res; // if res exists → it’s an API route
-    const company_id = isExpress ? reqOrParams.user?.company_id : reqOrParams.company_id;
-    console.log(company_id, "company_id +++++++++++++++++++++++");
+    const company_id = isExpress
+      ? reqOrParams.user?.company_id
+      : reqOrParams.company_id;
+
     // const { company_id } = req.user;
     const clickrrDetails = await getClickrrDetailsByCompanyIdDao(company_id);
     const apiKey = clickrrDetails.api_key;
@@ -114,7 +114,7 @@ export async function getClickrrWalletBalance(reqOrParams, res) {
 
     const url = `${baseUrl}${walletBalanceUrl}`;
     const response = await axios.get(url, { headers });
-    
+
     const data = response.data.data;
     const successMsg = 'Clickrr wallet balance fetched successfully';
     if (isExpress) {
@@ -131,86 +131,87 @@ export async function getClickrrWalletBalance(reqOrParams, res) {
   }
 }
 
-export async function createClickrrPayout(payload, ids, singleWithdrawData) {
+export async function createClickrrPayout(
+  payload,
+  ids,
+  singleWithdrawData,
+  bankId,
+) {
+  let checkClickrr;
   try {
     // Ensure method exists
     if (!payload?.config?.method) {
       throw new Error('Payout method missing in payload');
     }
 
-    const method = payload.config.method;
-
-    // Dynamically resolve company and bank
-    const [company] = await getCompanyByIDDao({ id: ids.company_id });
-    if (!company) throw new NotFoundError('Company not found');
-
-    // Extract dynamic bankId based on method (CLICKRR / others)
-    const bankId = company.config?.[method]?.defaultBankId;
-    if (!bankId) throw new NotFoundError(`Default bank ID not found for ${method}`);
-
-    const bankDataArr = await getBankByIdDao({ id: bankId });
-    if (!bankDataArr[0]) throw new NotFoundError(`Bank not found for ${method} payout`);
-
-    // Dynamic payout initiation
-    let transactionResult;
     if (payload.txnStatus) {
       delete payload.txnStatus;
-      transactionResult = payload;
+      checkClickrr = payload;
     } else {
-      // Dynamically call payout initiator based on method
-      const payoutHandler = {
-        [Method.CLICKRR]: initiateClickrrPayout,
-        // future methods can be easily added here
-        // [Method.ANOTHER]: initiateAnotherPayout,
-      }[method];
-
-      if (!payoutHandler) throw new Error(`No handler defined for method: ${method}`);
-
-      transactionResult = await payoutHandler(singleWithdrawData, ids.company_id);
+      checkClickrr = await initiateClickrrPayout(
+        singleWithdrawData,
+        ids.company_id,
+      );
     }
 
-    const status = transactionResult.txnStatus;
+    const status = checkClickrr.txnStatus;
+
     payload.bank_acc_id = bankId;
 
     // Unified status handler
-    switch (true) {
-      case !status:
-        payload.status = Status.PENDING;
-        break;
+    // switch (true) {
+    //   case !status:
+    //     payload.status = Status.PENDING;
+    //     break;
 
-      // regular expression (regex) test to check if the status string contains "success" (case-insensitive).
-      case /success/i.test(status):
-        payload.status = Status.APPROVED;
-        payload.utr_id = transactionResult?.utr || '';
-        payload.approved_at = new Date().toISOString();
-        break;
-      
-      // /failed/ ---- means “look for the word failed” in a string.
-      // The i after the slash means case-insensitive, so it matches: "Failed" "failed" "FAILED" "fAiLeD", etc.
+    //   // regular expression (regex) test to check if the status string contains "success" (case-insensitive).
+    //   case /success/i.test(status):
+    //     payload.status = Status.APPROVED;
+    //     payload.utr_id = transactionResult?.utr || '';
+    //     payload.approved_at = new Date().toISOString();
+    //     break;
 
-      case /failed/i.test(status):
-        payload.status = Status.REJECTED;
-        payload.rejected_reason = transactionResult?.message || 'Transaction failed';
-        payload.rejected_at = new Date().toISOString();
-        break;
-      default:
-        payload.status = Status.PENDING;
-        break;
+    //   // /failed/ ---- means “look for the word failed” in a string.
+    //   // The i after the slash means case-insensitive, so it matches: "Failed" "failed" "FAILED" "fAiLeD", etc.
+
+    //   case /failed/i.test(status):
+    //     payload.status = Status.REJECTED;
+    //     payload.rejected_reason =
+    //       transactionResult?.message || 'Transaction failed';
+    //     payload.rejected_at = new Date().toISOString();
+    //     break;
+    //   default:
+    //     payload.status = Status.PENDING;
+    //     break;
+    // }
+    if (!status) {
+      payload.status = Status.PENDING;
+    } else if (status === 'Success' || status === 'success') {
+      (payload.bank_acc_id = bankId), (payload.status = Status.APPROVED);
+      payload.utr_id = checkClickrr?.utr || '';
+      payload.approved_at = new Date().toISOString();
+    } else if (status === 'Failed' || status === 'failed') {
+      payload.status = Status.REJECTED;
+      payload.rejected_reason = checkClickrr?.message || 'Transaction failed';
+      payload.rejected_at = new Date().toISOString();
+    } else {
+      payload.status = Status.PENDING;
     }
 
     if (!payload.utr_id) {
-      payload.utr_id = transactionResult?.utr || '';
+      payload.utr_id = checkClickrr?.utr || '';
     }
 
     return payload;
   } catch (error) {
-    // Centralized error handling
     payload.status = Status.REJECTED;
-    payload.rejected_reason = error?.response?.data?.message || error.message || 'API call failed';
+    payload.utr_id = checkClickrr?.utr || '';
+    payload.rejected_reason =
+      error?.response?.data?.message || error.message || 'API call failed';
     payload.rejected_at = new Date().toISOString();
 
-    logger.error(`${payload?.config?.method || 'Unknown'} payout error:`, error.message);
-
+    logger.error('Clickrr payout error:', error.message);
     return payload;
+
   }
 }

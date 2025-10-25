@@ -996,6 +996,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       null,
       conn,
     );
+
     const singleWithdrawData = singleWithdrawDataArr[0];
     if (!singleWithdrawData) {
       throw new NotFoundError('Payout not found!');
@@ -1040,11 +1041,25 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       throw new NotFoundError('Merchant not found!');
     }
 
-    // let checkClickrr;
     if (payload?.config?.method === Method.EKO) {
       await processEkoPayout(singleWithdrawData, payload);
     } else if (payload?.config?.method === Method.CLICKRR) {
-      payload = await createClickrrPayout(payload, ids, singleWithdrawData);
+      const method = payload.config.method;
+
+      const [company] = await getCompanyByIDDao({ id: ids.company_id });
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.CLICKRR.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId });
+
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      const updatedPayload = await createClickrrPayout(payload, ids, singleWithdrawData, bankId);
+      payload = updatedPayload;
     }
     // else if (payload?.config?.method === Method.TATAPAY) {
     //   const payload = {
