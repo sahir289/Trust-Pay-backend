@@ -44,13 +44,14 @@ export const sendCredentialsEmail = async ({
   publicKey,
   designation,
   unique_id,
+  h2h
 }) => {
   const subject = 'Your Account Credentials';
   const text = `Hello,\n\nYour account has been created successfully.\n\nUsername: ${username}\nPassword: ${password}\n\nPlease log in and change your password immediately for security.\n\nBest regards,\nPG Admin Team`;
 
   const redirectingUrl = process.env.FRONTEND_URL;
   const baseUrl = process.env.BASE_URL;
-  const apiDocsUrl = process.env.API_DOCS_URL;
+  const apiDocsUrl = h2h ? process.env.API_DOCS_H2H : process.env.API_DOCS_URL;
 
   const html = `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9fafb;">

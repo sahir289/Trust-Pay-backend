@@ -214,7 +214,6 @@ export const generatePayInUrl = async (req, res) => {
       404,
     );
   }
-
   // Create a deterministic hash
   const generatedHash = createHash(`${code}`);
   // Decode the provided hash before comparison
@@ -249,7 +248,19 @@ export const generatePayInUrl = async (req, res) => {
     const roleData = await getRolesById(roleToken);
     role = roleData.role;
   }
-
+  function determineType(bankAssigned) {
+    const allObjects = bankAssigned.flat();
+    const hasQr = allObjects.some((obj) => obj.is_qr === true);
+    if (hasQr) {
+      return 'upi';
+    }
+    const hasBank = allObjects.some((obj) => obj.is_bank === true);
+    if (hasBank) {
+      return 'bank_transfer';
+    }
+    return 'upi';
+  }
+  const type = determineType(bankAssigned);
   const result = await transactionWrapper(generatePayInUrlService)(
     {
       ...payload,
@@ -259,6 +270,7 @@ export const generatePayInUrl = async (req, res) => {
     role,
     userIp,
     fromUI,
+    type,
   );
 
   // create some kind of hash to secure the next public API flow
@@ -266,15 +278,25 @@ export const generatePayInUrl = async (req, res) => {
     payload.isTest && (payload.isTest === 'true' || payload.isTest === true)
       ? `?t=true&order=${result?.merchant_order_id}`
       : `?order=${result?.merchant_order_id}`;
-
-  const updateRes = {
-    expirationDate: result?.expiration_date,
-    payInUrl: `${config.reactPaymentOrigin}/transaction/${generatedHash}${queryStr}`, // Use env
-    payinId: result?.id,
-    merchantOrderId: result?.merchant_order_id,
-    status: result?.status,
-    isAdmin: role === Role.ADMIN ? true : false,
-  };
+  let updateRes;
+  if (merchantArr[0].config.is_h2h) {
+    updateRes = {
+      payinId: result?.id,
+      merchantOrderId: result?.merchant_order_id,
+      status: result?.status,
+      bank: result?.bank,
+      type: result?.type
+    };
+  } else {
+    updateRes = {
+      expirationDate: result?.expiration_date,
+      payInUrl: `${config.reactPaymentOrigin}/transaction/${generatedHash}${queryStr}`, // Use env
+      payinId: result?.id,
+      merchantOrderId: result?.merchant_order_id,
+      status: result?.status,
+      isAdmin: role === Role.ADMIN ? true : false,
+    };
+  }
 
   if (result.status === 400 || result.status === 404) {
     return sendError(res, result.message, result.status);
@@ -331,7 +353,6 @@ export const assignedBankToPayInUrl = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const { roleToken, amount, type } = req.body;
-
   const result = await assignedBankToPayInUrlService(
     req.params.merchantOrderId,
     amount,

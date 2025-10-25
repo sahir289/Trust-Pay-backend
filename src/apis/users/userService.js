@@ -460,6 +460,7 @@ const createUserService = async (conn, payload) => {
           is_h2h: payload.config?.is_h2h || false,
           ...(sub_code && { sub_code }),
           unblocked_countries: unblocked_countries,
+          is_h2h: payload.is_h2h
         },
       };
       merchant = await createMerchantService(conn, merchantPayload);
@@ -513,6 +514,7 @@ const createUserService = async (conn, payload) => {
           publicKey: merchant?.config ? merchant.config.keys.public : '',
           designation: designation[0]?.designation,
           unique_id,
+          h2h:payload.is_h2h
         });
 
         if (!data) {
