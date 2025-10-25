@@ -279,6 +279,7 @@ export const generatePayInUrl = async (req, res) => {
       ? `?t=true&order=${result?.merchant_order_id}`
       : `?order=${result?.merchant_order_id}`;
   let updateRes;
+  let message;
   if (merchantArr[0].config.is_h2h) {
     updateRes = {
       payinId: result?.id,
@@ -287,6 +288,7 @@ export const generatePayInUrl = async (req, res) => {
       bank: result?.bank,
       type: result?.type
     };
+    message = 'PayIn is generated successfully';
   } else {
     updateRes = {
       expirationDate: result?.expiration_date,
@@ -296,16 +298,13 @@ export const generatePayInUrl = async (req, res) => {
       status: result?.status,
       isAdmin: role === Role.ADMIN ? true : false,
     };
+    message = 'PayIn is generated & url is sent successfully';
   }
 
   if (result.status === 400 || result.status === 404) {
     return sendError(res, result.message, result.status);
   } else {
-    return sendNewSuccess(
-      res,
-      updateRes,
-      'PayIn is generated & url is sent successfully',
-    );
+    return sendNewSuccess(res, updateRes, message);
   }
 };
 
@@ -549,6 +548,27 @@ export const processPayIn = async (req, res) => {
   );
   // sendNewSuccess(res, data, 'PayIn processed successfully');
   sendSuccess(res, data, 'PayIn processed successfully');
+};
+export const processPayInH2H = async (req, res) => {
+  const payload = {
+    ...req.body,
+    ...req.params,
+  };
+  const joiValidation = VALIDATE_PROCESS_PAYIN.validate(payload);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  //added check for manually utr for uplaoded screenshot
+  const data = await transactionWrapper(processPayInService)(
+    payload,
+    payload.code,
+    true,
+    true,
+    null,
+    true
+  );
+  sendNewSuccess(res, data, 'PayIn processed successfully');
+  // sendSuccess(res, data, 'PayIn processed successfully');
 };
 export const processPayInIMGUTR = async (req, res) => {
   const payload = {
