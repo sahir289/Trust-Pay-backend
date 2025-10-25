@@ -549,6 +549,27 @@ export const processPayIn = async (req, res) => {
   // sendNewSuccess(res, data, 'PayIn processed successfully');
   sendSuccess(res, data, 'PayIn processed successfully');
 };
+export const processPayInH2H = async (req, res) => {
+  const payload = {
+    ...req.body,
+    ...req.params,
+  };
+  const joiValidation = VALIDATE_PROCESS_PAYIN.validate(payload);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  //added check for manually utr for uplaoded screenshot
+  const data = await transactionWrapper(processPayInService)(
+    payload,
+    payload.code,
+    true,
+    true,
+    null,
+    true
+  );
+  sendNewSuccess(res, data, 'PayIn processed successfully');
+  // sendSuccess(res, data, 'PayIn processed successfully');
+};
 export const processPayInIMGUTR = async (req, res) => {
   const payload = {
     ...req.body,
