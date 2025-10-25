@@ -674,16 +674,22 @@ const createPayoutService = async (
     }
 
     delete payload.x_api_key;
-    const data = await createPayoutDao(conn, payload);
+    let data = await createPayoutDao(conn, payload);
 
     const { allow_clickrr, allow_tatapay, allow_payassist } =
       details[0]?.config || {};
 
     if (allow_clickrr) {
+      const ids = { id: data.id, company_id: payload.company_id };
       const clickrrWalletBalance = await getClickrrWalletBalance({
         company_id: payload.company_id,
       });
       console.log(clickrrWalletBalance.data.walletBalance, 'clickrr balance');
+
+      const updatedPayload = { config: { method: 'CLICKRR' } };
+      const updatedData = await updatePayoutService(conn, ids, updatedPayload);
+      console.log(updatedData, 'updatedData ++++');
+      data = updatedData;
     }
 
     if (balanceRestriction) {
@@ -956,7 +962,9 @@ const getPayoutsBySearchService = async (
 
 const updatePayoutService = async (conn, ids, payload, role) => {
   try {
-    await checkLockEdit(conn, ids.id);
+    console.log(ids, payload, 'ids and payload+++++');
+    if (!payload?.config?.method === Method.CLICKRR)
+      await checkLockEdit(conn, ids.id);
 
     // Early validation for UTR uniqueness
     if (payload?.utr_id) {
@@ -1058,7 +1066,12 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       if (!bankDataArr[0])
         throw new NotFoundError(`Bank not found for ${method} payout`);
 
-      const updatedPayload = await createClickrrPayout(payload, ids, singleWithdrawData, bankId);
+      const updatedPayload = await createClickrrPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
       payload = updatedPayload;
     }
     // else if (payload?.config?.method === Method.TATAPAY) {
