@@ -247,6 +247,7 @@ export const generatePayInUrlService = async (
   role,
   userIp,
   fromUI,
+  type
 ) => {
   try {
     const {
@@ -382,6 +383,16 @@ export const generatePayInUrlService = async (
       },
     };
     newTableEntry(tableName.PAYIN, responseObj);
+    if (merchant.config.is_h2h) {
+      const assign = await assignedBankToPayInUrlService(
+        merchant_order_id,
+        amount,
+        type,
+      );
+      result.bank = assign.bank;
+      result.type = type
+      return result;
+    }
     // await newTableEntry(tableName.PAYIN);
     return result;
   } catch (error) {
@@ -432,6 +443,7 @@ export const getPayInUrlService = async (id, conn, tele_check = true) => {
       });
       // throw new InternalServerError('PayIn Expired');
     }
+   
 
     return payIn;
   } catch (error) {
