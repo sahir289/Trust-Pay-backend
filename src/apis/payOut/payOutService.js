@@ -208,43 +208,48 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
           if (errorCode) {
             // Transaction Under Process - check status
             try {
-              if (errorCode) {
-                statusResponse = await retryAxiosRequest(
-                  async () => {
-                    return await axios.post(
-                      `${apiConfig.baseUrl}/payoutStatus`,
-                      { apitxnid: info.id },
-                      {
-                        headers: apiConfig.headers,
-                        timeout: 15000,
-                        maxRedirects: 3,
-                        validateStatus: (status) => status < 500,
-                      },
-                    );
-                  },
-                  2, // maxRetries
-                  500, // baseDelay
-                );
-            
-                logger.info(
-                  `PayAssist payoutStatus response for apitxnid ${info.id}:`,
-                  statusResponse.data,
-                );
-              }
+              statusResponse = await retryAxiosRequest(
+                async () => {
+                  return await axios.post(
+                    `${apiConfig.baseUrl}/payoutStatus`,
+                    { apitxnid: info.id },
+                    {
+                      headers: apiConfig.headers,
+                      timeout: 15000,
+                      maxRedirects: 3,
+                      validateStatus: (status) => status < 500,
+                    },
+                  );
+                },
+                2, // maxRetries
+                500, // baseDelay
+              );
+
+              logger.info(
+                `PayAssist payoutStatus response for apitxnid ${info.id}:`,
+                statusResponse.data,
+              );
             } catch (error) {
-              logger.error(`Error checking payout status for apitxnid ${info.id}:`, {
-                message: error.message,
-                code: error.code,
-                isAxiosError: error.isAxiosError,
-                url: error.config?.url,
-                data: error.config?.data,
-                status: error.response?.status,
-              });
-            
+              logger.error(
+                `Error checking payout status for apitxnid ${info.id}:`,
+                {
+                  message: error.message,
+                  code: error.code,
+                  isAxiosError: error.isAxiosError,
+                  url: error.config?.url,
+                  data: error.config?.data,
+                  status: error.response?.status,
+                },
+              );
+
               // Optionally handle gracefully instead of crashing
-              statusResponse = { data: { status: 'ERROR', message: 'External API timeout or failure' } };
+              statusResponse = {
+                data: {
+                  status: 'ERROR',
+                  message: 'External API timeout or failure',
+                },
+              };
             }
-            
 
             if (statusResponse.data.ErrorCode === '0') {
               if (

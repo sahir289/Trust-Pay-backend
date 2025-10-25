@@ -38,43 +38,38 @@ export const apiRequest = async (method, endpoint, options = {}) => {
 
 // Helper function for retry logic with exponential backoff
 export const retryAxiosRequest = async (
-  requestFn,
-  maxRetries = 3,
-  baseDelay = 1000,
-) => {
-  let lastError;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await requestFn();
-    } catch (error) {
-      lastError = error;
-
-      // Don't retry on 4xx errors (client errors) - only retry on network/server errors
-      if (
-        error.response &&
-        error.response.status >= 400 &&
-        error.response.status < 500
-      ) {
-        throw error;
+    requestFn,
+    maxRetries = 3,
+    baseDelay = 1000,
+  ) => {
+    let lastError;
+  
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await requestFn();
+      } catch (error) {
+        lastError = error;
+  
+        // Don't retry on 4xx errors (client errors) - only retry on network/server errors
+        if (error.response && error.response.status >= 400 && error.response.status < 500) {
+          throw error;
+        }
+  
+        if (attempt === maxRetries) break;
+  
+        const delay = baseDelay * Math.pow(2, attempt - 1);
+        logger.warn(
+          `Request failed (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms: ${error.message}`,
+        );
+  
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
-
-      if (attempt === maxRetries) {
-        break;
-      }
-
-      // Log retry attempt
-      logger.warn(
-        `Request failed (attempt ${attempt}/${maxRetries}), retrying in ${baseDelay * Math.pow(2, attempt - 1)}ms:`,
-        error.message,
-      );
-
-      // Exponential backoff: wait baseDelay * 2^(attempt-1) milliseconds
-      await new Promise((resolve) =>
-        setTimeout(resolve, baseDelay * Math.pow(2, attempt - 1)),
-      );
     }
-  }
-
-  throw lastError;
-};
+  
+    const safeError = new Error(lastError?.message || 'Unknown Axios error');
+    safeError.code = lastError?.code;
+    safeError.responseStatus = lastError?.response?.status;
+    safeError.url = lastError?.config?.url;
+    throw safeError;
+  };
+  
