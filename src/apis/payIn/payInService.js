@@ -1409,9 +1409,12 @@ export const processPayInService = async (
     const orderid = merchantOrderId;
     await checkLockEdit(conn, orderid);
     if (h2h) {
-      const payin = await getPayInForCheckDao({ status: "ASSIGNED" })
-      if (payin.length==0) {
-        throw new BadRequestError('Payin is Expired');
+      const payin = await getPayInForCheckDao({
+        status: 'ASSIGNED',
+        merchant_order_id: merchantOrderId,
+      });
+      if (payin.length == 0) {
+        throw new BadRequestError('Payment is Expired');
       }
     }
     const payIn = await getPayInUrlService(merchantOrderId, conn, tele_check);
