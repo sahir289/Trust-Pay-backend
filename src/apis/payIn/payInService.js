@@ -2430,7 +2430,7 @@ export const disputeDuplicateTransactionService = async (
         merchantOrderId: merchantOrderId,
         payinId: payInData.id,
         amount: toAmount,
-        req_amount:newStatus == "SUCCESS" ? toAmount: payInData.amount,
+        req_amount: newStatus == Status.SUCCESS ? toAmount : payInData.amount,
         utr_id: bankResponse.utr,
       });
     }
@@ -2467,7 +2467,7 @@ export const disputeDuplicateTransactionService = async (
       payinId: payIn.id,
       amount: toAmount,
       req_amount:
-        updatePayload.status == 'SUCCESS' ? toAmount : payInData.amount,
+        updatePayload.status == Status.SUCCESS ? toAmount : payInData.amount,
       utr_id: bankResponse.utr,
     });
 
