@@ -42,6 +42,7 @@ import {
   getPayinsWithoutHistoryDao,
   getPayInForTelegramResponseArrayDao,
   getPayInIntentDao,
+  getPayInsForCronDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -1409,11 +1410,13 @@ export const processPayInService = async (
     const orderid = merchantOrderId;
     await checkLockEdit(conn, orderid);
     if (h2h) {
-      const payin = await getPayInForCheckDao({
-        status: 'ASSIGNED',
+      const payin = await getPayInsForCronDao({
         merchant_order_id: merchantOrderId,
       });
       if (payin.length == 0) {
+        throw new NotFoundError('Invalid Order Id');
+      }
+      if (payin[0].status != "ASSIGNED") {
         throw new BadRequestError('Payment is Expired');
       }
     }
