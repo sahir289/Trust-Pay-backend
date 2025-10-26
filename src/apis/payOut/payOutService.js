@@ -388,7 +388,7 @@ const tataPayPayoutsService = async (conn, payload, updatedBy, res) => {
                   },
                 },
               );
-              console.log(aaa, 'aaa');
+
               return aaa;
             },
             3,
@@ -420,7 +420,6 @@ const tataPayPayoutsService = async (conn, payload, updatedBy, res) => {
                   },
                 },
               );
-              console.log(ddd, 'ddd');
               return ddd;
             },
             2,
@@ -684,11 +683,11 @@ const createPayoutService = async (
       const clickrrWalletBalance = await getClickrrWalletBalance({
         company_id: payload.company_id,
       });
-      console.log(clickrrWalletBalance.data.walletBalance, 'clickrr balance');
+      console.log(clickrrWalletBalance?.data?.walletBalance, 'clickrr balance');
 
       const updatedPayload = { config: { method: 'CLICKRR' } };
       const updatedData = await updatePayoutService(conn, ids, updatedPayload);
-      console.log(updatedData, 'updatedData ++++');
+
       data = updatedData;
     }
 
@@ -723,7 +722,7 @@ const createPayoutService = async (
     // await newTableEntry(tableName.PAYOUT);
     return data;
   } catch (error) {
-    logger.error(error);
+    logger.error('Error in createPayoutService', error.message);
     throw error;
   }
 };
@@ -962,7 +961,6 @@ const getPayoutsBySearchService = async (
 
 const updatePayoutService = async (conn, ids, payload, role) => {
   try {
-    console.log(ids, payload, 'ids and payload+++++');
     if (!payload?.config?.method === Method.CLICKRR)
       await checkLockEdit(conn, ids.id);
 
@@ -1677,7 +1675,7 @@ const getWalletsBalanceService = async (company_id) => {
     );
     return { balance: response.data.Response.Balance };
   } catch (error) {
-    logger.error(error);
+    logger.error(error.message);
     throw error;
   }
 };

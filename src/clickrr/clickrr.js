@@ -205,6 +205,7 @@ export async function createClickrrPayout(
     return payload;
   } catch (error) {
     payload.status = Status.REJECTED;
+    payload.bank_acc_id = bankId;
     payload.utr_id = checkClickrr?.utr || '';
     payload.rejected_reason =
       error?.response?.data?.message || error.message || 'API call failed';
