@@ -2467,7 +2467,7 @@ export const disputeDuplicateTransactionService = async (
       payinId: payIn.id,
       amount: toAmount,
       req_amount:
-        updatePayload.status == Status.SUCCESS ? toAmount : payInData.amount,
+        updatePayload.status == Status.SUCCESS ? toAmount : payIn.amount,
       utr_id: bankResponse.utr,
     });
 
