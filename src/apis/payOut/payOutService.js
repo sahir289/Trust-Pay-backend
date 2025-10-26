@@ -388,7 +388,7 @@ const tataPayPayoutsService = async (conn, payload, updatedBy, res) => {
                   },
                 },
               );
-              console.log(aaa, 'aaa');
+
               return aaa;
             },
             3,
@@ -420,7 +420,6 @@ const tataPayPayoutsService = async (conn, payload, updatedBy, res) => {
                   },
                 },
               );
-              console.log(ddd, 'ddd');
               return ddd;
             },
             2,
@@ -674,16 +673,22 @@ const createPayoutService = async (
     }
 
     delete payload.x_api_key;
-    const data = await createPayoutDao(conn, payload);
+    let data = await createPayoutDao(conn, payload);
 
     const { allow_clickrr, allow_tatapay, allow_payassist } =
       details[0]?.config || {};
 
     if (allow_clickrr) {
+      const ids = { id: data.id, company_id: payload.company_id };
       const clickrrWalletBalance = await getClickrrWalletBalance({
         company_id: payload.company_id,
       });
-      console.log(clickrrWalletBalance.data.walletBalance, 'clickrr balance');
+      console.log(clickrrWalletBalance?.data?.walletBalance, 'clickrr balance');
+
+      const updatedPayload = { config: { method: 'CLICKRR' } };
+      const updatedData = await updatePayoutService(conn, ids, updatedPayload);
+
+      data = updatedData;
     }
 
     if (balanceRestriction) {
@@ -717,7 +722,7 @@ const createPayoutService = async (
     // await newTableEntry(tableName.PAYOUT);
     return data;
   } catch (error) {
-    logger.error(error);
+    logger.error('Error in createPayoutService', error.message);
     throw error;
   }
 };
@@ -956,7 +961,8 @@ const getPayoutsBySearchService = async (
 
 const updatePayoutService = async (conn, ids, payload, role) => {
   try {
-    await checkLockEdit(conn, ids.id);
+    if (!payload?.config?.method === Method.CLICKRR)
+      await checkLockEdit(conn, ids.id);
 
     // Early validation for UTR uniqueness
     if (payload?.utr_id) {
@@ -996,6 +1002,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       null,
       conn,
     );
+
     const singleWithdrawData = singleWithdrawDataArr[0];
     if (!singleWithdrawData) {
       throw new NotFoundError('Payout not found!');
@@ -1040,11 +1047,30 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       throw new NotFoundError('Merchant not found!');
     }
 
-    // let checkClickrr;
     if (payload?.config?.method === Method.EKO) {
       await processEkoPayout(singleWithdrawData, payload);
     } else if (payload?.config?.method === Method.CLICKRR) {
-      payload = await createClickrrPayout(payload, ids, singleWithdrawData);
+      const method = payload.config.method;
+
+      const [company] = await getCompanyByIDDao({ id: ids.company_id });
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.CLICKRR.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId });
+
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      const updatedPayload = await createClickrrPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
     }
     // else if (payload?.config?.method === Method.TATAPAY) {
     //   const payload = {
@@ -1649,7 +1675,7 @@ const getWalletsBalanceService = async (company_id) => {
     );
     return { balance: response.data.Response.Balance };
   } catch (error) {
-    logger.error(error);
+    logger.error(error.message);
     throw error;
   }
 };

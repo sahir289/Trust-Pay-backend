@@ -470,7 +470,7 @@ export const transactionWrapper =
         if (conn) {
           try {
             await rollback(conn); // Explicit rollback
-            logger.error('Transaction rolled back due to error:', error);
+            logger.error('Transaction rolled back due to error:', error.message);
           } catch (rollbackError) {
             logger.error('Rollback failed:', rollbackError);
           }
