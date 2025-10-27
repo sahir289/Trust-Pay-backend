@@ -461,6 +461,10 @@ const createUserService = async (conn, payload) => {
           },
           allow_intent: false,
           allow_payout: false,
+          allow_clickrr: false,
+          allow_tatapay: false,
+          allow_payassist: false,
+          is_h2h: payload?.is_h2h || false,
           ...(sub_code && { sub_code }),
           unblocked_countries: unblocked_countries,
         },
@@ -519,6 +523,7 @@ const createUserService = async (conn, payload) => {
           publicKey: merchant?.config ? merchant.config.keys.public : '',
           designation: designation[0]?.designation,
           unique_id,
+          h2h:payload.is_h2h
         });
 
         if (!data) {
