@@ -1155,7 +1155,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
         if (!bankDataArr[0]) {
           throw new NotFoundError('Bank not found for Clickrr payout!');
-        }
+        } 
         let checkClickrr;
         if (payload.txnStatus) {
           delete payload.txnStatus;
