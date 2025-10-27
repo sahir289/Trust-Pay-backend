@@ -545,7 +545,7 @@ const getMerchantReportDao = async (
         c.total_reverse_payout_count, 
         c.total_reverse_payout_amount,
         c.total_reverse_payout_commission, 
-        (c.total_adjustment_amount + c.total_adjustment_commission) AS adjustment_amount_combined, 
+        c.total_adjustment_amount,  
         c.company_id,
         m.code
         ${role === Role.ADMIN ? ', m.user_id AS merchant_user_id' : ''}
@@ -605,7 +605,6 @@ const getVendorReportDao = async (
     if (!startDate || !endDate) {
       throw new BadRequestError('Both startDate and endDate must be provided.');
     }
-    //date formatting
     let query = `
   WITH filtered_vendors AS (
     SELECT DISTINCT ON (c.id)
@@ -618,6 +617,11 @@ const getVendorReportDao = async (
     c.total_payout_commission,
     c.total_settlement_count,
     c.total_settlement_amount,
+   ROUND(
+        COALESCE((c.config->>'total_internalSettlement_amount')::NUMERIC, 0) +
+        COALESCE((c.config->>'total_internalBankSettlement_amount')::NUMERIC, 0),
+                    1
+                  )::NUMERIC(10,2) AS internal_settlement_amount,
     c.total_chargeback_count,
     c.total_chargeback_amount,
     c.current_balance,
@@ -627,7 +631,7 @@ const getVendorReportDao = async (
     c.total_reverse_payout_count,
     c.total_reverse_payout_amount,
     c.total_reverse_payout_commission,
-    (c.total_adjustment_amount + c.total_adjustment_commission) AS adjustment_amount_combined, 
+    c.total_adjustment_amount,  
     c.company_id,
     v.code
     ${role === Role.ADMIN ? ', v.user_id AS vendor_user_id' : ''}
@@ -652,7 +656,6 @@ const getVendorReportDao = async (
       SELECT * FROM filtered_vendors
       ORDER BY code ASC, created_at ASC`;
 
-    // Only apply database-level pagination if both page and limit are provided
     if (page && limit) {
       const offset = (page - 1) * limit;
       query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;

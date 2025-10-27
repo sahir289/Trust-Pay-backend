@@ -52,6 +52,7 @@ export const CREATE_USER_SCHEMA = Joi.object({
   parent_id: Joi.string().label('parent_id').optional(),
   whitelist_ips: Joi.string().label('whitelist_ips').optional(),
   is_h2h: Joi.boolean().label('is_h2h').optional(),
+  is_owned: Joi.boolean().label('is_owned').optional(),
 });
 
 export const VALIDATE_USER_BY_ID = Joi.object({

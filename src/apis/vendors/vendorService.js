@@ -29,7 +29,10 @@ import {
   getVendorByUserId,
 } from './vendorDao.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
-import { updateBankaccountDao } from '../bankAccounts/bankaccountDao.js';
+import {
+  updateBankaccountDao,
+  getBankaccountCheckDao,
+} from '../bankAccounts/bankaccountDao.js';
 import { updateUserDao } from '../users/userDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
@@ -345,7 +348,6 @@ const updateVendorService = async (ids, payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-
     const data = await updateVendorDao(ids, payload, conn); // Adjust DAO call for update
     if (
       data?.config?.bank_response_access === 'false' ||
@@ -359,6 +361,18 @@ const updateVendorService = async (ids, payload) => {
         data?.config?.bank_response_access,
         data.code,
       );
+    }
+    if (payload.payin_commission || payload.payout_commission) {
+      const userHierarchys = await getUserHierarchysDao({
+        user_id: data.user_id,
+      });
+      const userHierarchy = userHierarchys[0];
+      const subVendors = userHierarchy?.config?.siblings?.sub_vendors || [];
+      if (subVendors.length > 0 && payload.payin_commission > 1 || payload.payout_commission > 1) {
+          throw new BadRequestError(
+            "Vendor commission must be less than or equal to 1%.",
+          );
+      }
     }
     // await notifyAdminsAndUsers({
     //   conn,
@@ -524,14 +538,19 @@ const linkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
     if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
       throw new BadRequestError('Vendor net balance must be zero to link.');
     }
-    const sub = await getVendorByUserId(subVendorUserId);
     const parent = await getVendorByUserId(vendorUserId);
+    const banks = await getBankaccountCheckDao({ user_id: vendorUserId })
+    if (banks) {
+      throw new BadRequestError(
+        'Parent cannot contain any existing banks. Please remove all banks from the parent before adding a new Vendor.',
+      );
+    }
     if (
-      sub.payin_commission > parent.payin_commission &&
-      sub.payout_commission > parent.payout_commission
+      parent.payin_commission > 1 ||
+      parent.payout_commission > 1
     ) {
       throw new BadRequestError(
-        'Sub Vendor commission must be less than or equal to Parent Vendor commission.',
+        'Parent Vendor commission must be less than or equal to 1%.',
       );
     }
     const result = await linkVendorDao(vendorUserId, subVendorUserId, user_id);
@@ -628,14 +647,19 @@ const transferVendorService = async (
     if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
       throw new BadRequestError('Vendor net balance must be zero to transfer.');
     }
-    const sub = await getVendorByUserId(subVendorUserId);
     const parent = await getVendorByUserId(newVendorUserId);
+    const banks = await getBankaccountCheckDao({ user_id: newVendorUserId });
+    if (banks) {
+      throw new BadRequestError(
+        'Parent cannot contain any existing banks. Please remove all banks from the New parent before transfering a new Vendor.',
+      );
+    }
     if (
-      sub.payin_commission > parent.payin_commission &&
-      sub.payout_commission > parent.payout_commission
+      parent.payin_commission > 1 ||
+      parent.payout_commission > 1
     ) {
       throw new BadRequestError(
-        'Sub Vendor commission must be less than or equal to Parent Vendor commission.',
+        'Parent Vendor commission must be less than or equal to 1%.',
       );
     }
     const result = await transferVendorDao(

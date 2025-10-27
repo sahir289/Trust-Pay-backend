@@ -954,10 +954,44 @@ export const updateDepositStatusService = async (
     };
 
     if (updatePayInData.status === Status.SUCCESS) {
+      // Handle sub-vendor and parent commission logic
+      let totalVendorCommission = vendorPayinCommission;
+      let brokerageCommission = 0;
+      let parentCommission = 0;
+
+      const subVendorParentInfo = await getSubVendorParentInfo(vendor);
+      if (subVendorParentInfo) {
+        // Calculate parent commission
+        parentCommission = await updateParentVendorCalculation(
+          subVendorParentInfo.parentUserId,
+          Number(payInData.amount),
+          Number(subVendorParentInfo.parentVendor.payin_commission),
+          conn,
+        );
+
+        totalVendorCommission = vendorPayinCommission + parentCommission;
+        brokerageCommission = parentCommission;
+
+        updatePayInData.config = {
+          ...payInData.config,
+          actual_vendor_commission: vendorPayinCommission,
+          brokerage_commission: brokerageCommission,
+        };
+        logger.info(
+          `Sub-vendor commission calculated: sub=${vendorPayinCommission}, parent=${parentCommission}, total=${totalVendorCommission}`,
+        );
+      } else {
+        updatePayInData.config = {
+          ...payInData.config,
+          actual_vendor_commission: vendorPayinCommission,
+        };
+      }
+
       updatePayInData.approved_at = new Date();
       updatePayInData.payin_merchant_commission = payinCommission;
-      updatePayInData.payin_vendor_commission = vendorPayinCommission;
-      // update merchant caclulation table
+      updatePayInData.payin_vendor_commission = totalVendorCommission;
+
+      // update merchant calculation table
       await updateCalculationTable(
         merchant.user_id,
         {
@@ -978,12 +1012,12 @@ export const updateDepositStatusService = async (
       // );
 
       // update merchant balance
-      await updateMerchantBalanceDao(
-        { id: merchant.id },
-        payInData.amount,
-        updated_by,
-        conn,
-      );
+      // await updateMerchantBalanceDao(
+      //   { id: merchant.id },
+      //   payInData.amount,
+      //   updated_by,
+      //   conn,
+      // );
 
       // update vendor balance
       // await updateVendorBalanceDao(
@@ -1700,7 +1734,42 @@ export const processPayInService = async (
         bankResponse.amount,
         Number(vendor.payin_commission),
       );
-      updatePayInData.payin_vendor_commission = Number(vendorCommission);
+
+      // Handle sub-vendor and parent commission logic
+      let totalVendorCommission = vendorCommission;
+      let brokerageCommission = 0;
+      let parentCommission = 0;
+
+      const subVendorParentInfo = await getSubVendorParentInfo(vendor);
+      if (subVendorParentInfo) {
+        // Calculate parent commission
+        // parentCommission = await updateParentVendorCalculation(
+        //   subVendorParentInfo.parentUserId,
+        //   Number(bankResponse.amount),
+        //   Number(subVendorParentInfo.parentVendor.payin_commission),
+        //   conn,
+        // );
+
+        totalVendorCommission = vendorCommission + parentCommission;
+        brokerageCommission = parentCommission;
+
+        updatePayInData.config = {
+          ...payIn.config,
+          actual_vendor_commission: vendorCommission,
+          brokerage_commission: brokerageCommission,
+        };
+
+        logger.info(
+          `Sub-vendor commission calculated: sub=${vendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`,
+        );
+      } else {
+        updatePayInData.config = {
+          ...payIn.config,
+          actual_vendor_commission: vendorCommission,
+        };
+      }
+      updatePayInData.payin_vendor_commission = Number(totalVendorCommission);
+
       await updateCalculationTable(
         merchant[0].user_id,
         {
@@ -1900,6 +1969,7 @@ export const processPayInWebHookService = async (conn, payload, updated_by) => {
     };
 
     if (finalStatus === Status.SUCCESS) {
+      // Handle sub-vendor and parent commission logic
       const merchantCommission = calculateCommission(
         bankResponse.amount,
         Number(merchant.payin_commission),
@@ -1909,8 +1979,42 @@ export const processPayInWebHookService = async (conn, payload, updated_by) => {
         Number(vendor?.payin_commission),
       );
 
+      let totalVendorCommission = vendorCommission;
+      let brokerageCommission = 0;
+      let parentCommission = 0;
+
+      const subVendorParentInfo = await getSubVendorParentInfo(vendor);
+      if (subVendorParentInfo) {
+        // Calculate parent commission
+        // parentCommission = await updateParentVendorCalculation(
+        //   subVendorParentInfo.parentUserId,
+        //   Number(bankResponse.amount),
+        //   Number(subVendorParentInfo.parentVendor.payin_commission),
+        //   conn,
+        // );
+
+        totalVendorCommission = vendorCommission + parentCommission;
+        brokerageCommission = parentCommission;
+
+        updatePayInData.config = {
+          ...payIn.config, 
+          actual_vendor_commission: vendorCommission,
+          brokerage_commission: brokerageCommission,
+        };
+
+        logger.info(
+          `Sub-vendor commission calculated: sub=${vendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`,
+        );
+      } else {
+        updatePayInData.config = {
+          ...payIn.config,
+          actual_vendor_commission: vendorCommission,
+        };
+      }
+
+      updatePayInData.approved_at = new Date();
       updatePayInData.payin_merchant_commission = merchantCommission;
-      updatePayInData.payin_vendor_commission = vendorCommission;
+      updatePayInData.payin_vendor_commission = totalVendorCommission;
 
       await updateCalculationTable(
         merchant.user_id,
@@ -2380,6 +2484,41 @@ export const disputeDuplicateTransactionService = async (
             : Status.SUCCESS;
       // make new pay in success
       if (newStatus === Status.SUCCESS) {
+        // Handle sub-vendor and parent commission logic
+        let totalVendorCommission = vendorPayinCommission;
+        let brokerageCommission = 0;
+        let parentCommission = 0;
+        let payinConfig = {};
+
+        const subVendorParentInfo = await getSubVendorParentInfo(vendor);
+        if (subVendorParentInfo) {
+          // Calculate parent commission
+          // parentCommission = await updateParentVendorCalculation(
+          //   subVendorParentInfo.parentUserId,
+          //   Number(toAmount),
+          //   Number(subVendorParentInfo.parentVendor.payin_commission),
+          //   null, // No transaction connection for this path
+          // );
+
+          totalVendorCommission = vendorPayinCommission + parentCommission;
+          brokerageCommission = parentCommission;
+
+          payinConfig = {
+            ...payIn.config,
+            actual_vendor_commission: vendorPayinCommission,
+            brokerage_commission: brokerageCommission,
+          };
+
+          logger.info(
+            `Sub-vendor commission calculated for new entry: sub=${vendorPayinCommission}, parent=${parentCommission}, total=${totalVendorCommission}`,
+          );
+        } else {
+          payinConfig = {
+            ...payIn.config,
+            actual_vendor_commission: vendorPayinCommission,
+          };
+        }
+
         newEntryResponse = await updatePayInUrlDao(payInData.id, {
           is_url_expires: true,
           one_time_used: true,
@@ -2388,9 +2527,10 @@ export const disputeDuplicateTransactionService = async (
           status: newStatus,
           approved_at: new Date(),
           payin_merchant_commission: payinCommission,
-          payin_vendor_commission: vendorPayinCommission,
+          payin_vendor_commission: totalVendorCommission,
           bank_response_id: payIn.bank_response_id,
           updated_by,
+          config: payinConfig,
         });
         await updateCalculationTable(merchant.user_id, {
           payinCommission,
@@ -2433,7 +2573,7 @@ export const disputeDuplicateTransactionService = async (
         merchantOrderId: merchantOrderId,
         payinId: payInData.id,
         amount: toAmount,
-        req_amount: newStatus == Status.SUCCESS ? toAmount : payInData.amount,
+        req_amount: newStatus === Status.SUCCESS ? toAmount : payInData.amount,
         utr_id: bankResponse.utr,
       });
     }
@@ -2447,11 +2587,47 @@ export const disputeDuplicateTransactionService = async (
     };
 
     if (makeItSuccess) {
+      // Handle sub-vendor and parent commission logic
+      let totalVendorCommission = vendorPayinCommission;
+      let brokerageCommission = 0;
+      let parentCommission = 0;
+      let payinConfig = {};
+
+      const subVendorParentInfo = await getSubVendorParentInfo(vendor);
+      if (subVendorParentInfo) {
+        // Calculate parent commission
+        // parentCommission = await updateParentVendorCalculation(
+        //   subVendorParentInfo.parentUserId,
+        //   Number(toAmount),
+        //   Number(subVendorParentInfo.parentVendor.payin_commission),
+        //   null, // No transaction connection for this path
+        // );
+
+        totalVendorCommission = vendorPayinCommission + parentCommission;
+        brokerageCommission = parentCommission;
+
+        payinConfig = {
+          ...payIn.config,
+          actual_vendor_commission: vendorPayinCommission,
+          brokerage_commission: brokerageCommission,
+        };
+
+        logger.info(
+          `Sub-vendor commission calculated for makeItSuccess: sub=${vendorPayinCommission}, parent=${parentCommission}, total=${totalVendorCommission}`,
+        );
+      } else {
+        payinConfig = {
+          ...payIn.config,
+          actual_vendor_commission: vendorPayinCommission,
+        };
+      }
+
       updatePayload.status = Status.SUCCESS;
       updatePayload.amount = toAmount;
       updatePayload.payin_merchant_commission = payinCommission;
-      updatePayload.payin_vendor_commission = vendorPayinCommission;
+      updatePayload.payin_vendor_commission = totalVendorCommission;
       updatePayload.approved_at = new Date(); //add this for approved at
+      updatePayload.config = payinConfig;
     } else {
       updatePayload.status = Status.FAILED;
     }
@@ -2470,7 +2646,7 @@ export const disputeDuplicateTransactionService = async (
       payinId: payIn.id,
       amount: toAmount,
       req_amount:
-        updatePayload.status == Status.SUCCESS ? toAmount : payIn.amount,
+        updatePayload.status === Status.SUCCESS ? toAmount : payIn.amount,
       utr_id: bankResponse.utr,
     });
 
@@ -2713,6 +2889,41 @@ export const checkPendingPayinStatusService = async (
           bankResponse.amount,
           vendor[0].payin_commission,
         );
+
+        // Handle sub-vendor and parent commission logic for automatic processing
+        let totalVendorCommission = payinVendorCommission;
+        let brokerageCommission = 0;
+        let parentCommission = 0;
+        let payinConfig = {};
+
+        const subVendorParentInfo = await getSubVendorParentInfo(vendor[0]);
+        if (subVendorParentInfo) {
+          // Calculate parent commission
+          // parentCommission = await updateParentVendorCalculation(
+          //   subVendorParentInfo.parentUserId,
+          //   Number(bankResponse.amount),
+          //   Number(subVendorParentInfo.parentVendor.payin_commission),
+          //   conn,
+          // );
+
+          totalVendorCommission = payinVendorCommission + parentCommission;
+          brokerageCommission = parentCommission;
+
+          payinConfig = {
+            ...payins.config,
+            actual_vendor_commission: payinVendorCommission,
+            brokerage_commission: brokerageCommission,
+          };
+
+          logger.info(
+            `Auto-processing sub-vendor commission: sub=${payinVendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`,
+          );
+        } else {
+          payinConfig = {
+            ...payins.config,
+            actual_vendor_commission: payinVendorCommission,
+          };
+        }
         // Check for bank ID mismatch
         duration = calculateDuration(currentPayin.created_at);
         if (bankDetails[0].id !== bankResponse.bank_id) {
@@ -2764,9 +2975,10 @@ export const checkPendingPayinStatusService = async (
             bank_response_id: bankResponse.id,
             // approved_at: new Date(),
             payin_merchant_commission: payinMerchantCommission,
-            payin_vendor_commission: payinVendorCommission,
+            payin_vendor_commission: totalVendorCommission, // Use total commission
             duration: duration,
             updated_by: user_id,
+            config: payinConfig, // Include commission breakdown
           };
           const updatePayInDataRes = await updatePayInUrlDao(
             currentPayin.id,
@@ -2807,9 +3019,10 @@ export const checkPendingPayinStatusService = async (
             approved_at: new Date(),
             duration: duration,
             payin_merchant_commission: payinMerchantCommission,
-            payin_vendor_commission: payinVendorCommission,
+            payin_vendor_commission: totalVendorCommission, // Use total commission
             bank_response_id: botRes.id,
             updated_by: user_id,
+            config: payinConfig, // Include commission breakdown
           };
           const updatePayInDataRes = await updatePayInUrlDao(
             currentPayin.id,
@@ -3135,6 +3348,77 @@ export const updateCalculationTable = async (user_id, data, conn) => {
   }
 };
 
+// Helper function to check if vendor is sub-vendor and get parent info
+const getSubVendorParentInfo = async (vendor) => {
+  try {
+    // Check if vendor designation is SUB_VENDOR
+    if (vendor.designation_name !== Role.SUB_VENDOR && vendor.designation !== Role.SUB_VENDOR) {
+      return null;
+    }
+
+    // Check is_owned config
+    const isOwned = vendor.config?.is_owned;
+    if (isOwned === true || isOwned === 'true') {
+      return null;
+    }
+
+    // Get user hierarchy to find parent
+    const userHierarchys = await getUserHierarchysDao({
+      user_id: vendor.user_id,
+    });
+    const userHierarchy = userHierarchys?.[0];
+    const parentId = userHierarchy?.config?.parent;
+
+    if (!parentId) {
+      logger.warn(`Sub-vendor ${vendor.user_id} has no parent in hierarchy`);
+      return null;
+    }
+
+    // Get parent vendor details
+    const parentVendors = await getVendorsDao({ user_id: parentId });
+    if (!parentVendors || !parentVendors[0]) {
+      logger.warn(`Parent vendor not found for user_id: ${parentId}`);
+      return null;
+    }
+
+    return {
+      parentVendor: parentVendors[0],
+      parentUserId: parentId,
+    };
+  } catch (error) {
+    logger.error('Error in getSubVendorParentInfo:', error);
+    return null;
+  }
+};
+
+// Helper function to calculate commission for parent vendor
+const updateParentVendorCalculation = async (
+  parentUserId,
+  amount,
+  vendorCommissionRate,
+  conn,
+) => {
+  try {
+    // Always calculate commission on absolute amount, then apply sign based on amount direction
+    const baseCommission = calculateCommission(Number(amount), vendorCommissionRate);
+    const parentCommission = amount > 0 ? baseCommission : -baseCommission;
+
+    await updateCalculationTable(
+      parentUserId,
+      {
+        payinCommission: parentCommission,
+        amount: 0, // Parent vendor amount is always 0, only commission is tracked
+      },
+      conn,
+    );
+
+    return parentCommission;
+  } catch (error) {
+    logger.error('Error in updateParentVendorCalculation:', error);
+    throw error;
+  }
+};
+
 const getOtherSuccessPayIns = async (bankResponse, includeSuccess = true) => {
   try {
     const extraCondition = {};
@@ -3183,23 +3467,21 @@ const updateCalculationBalances = async (
 ) => {
   try {
     if (!currentCalculation) return;
-
+    commission = amountDiff >= 0 ? commission : -commission;
     const updates = {
-      total_payin_commission: amountDiff > 0 ? commission : -commission,
+      total_payin_commission: commission,
       total_payin_amount: amountDiff,
       total_payin_count: count ? count : 0,
-      current_balance: amountDiff - commission,
-      net_balance: amountDiff - commission,
+      current_balance: amountDiff == 0 ? commission : amountDiff - commission,
+      net_balance: amountDiff == 0 ? commission : amountDiff - commission,
     };
     const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
-
     // Update current calculation
     const updatedCurrentCalculation = await updateCalculationBalanceDao(
       { id: currentCalculation[0].id },
       updates,
       conn,
     );
-
     await trackVendorsNetBalance(
       currentCalculation[0].user_id,
       conn,
@@ -3216,8 +3498,7 @@ const updateCalculationBalances = async (
         if (calculationDate === todayDate) {
           data = {
             total_adjustment_amount: amountDiff,
-            total_adjustment_commission:
-              amountDiff > 0 ? commission : -commission,
+            total_adjustment_commission:commission,
             total_adjustment_count: 1,
           };
         }
@@ -3229,7 +3510,6 @@ const updateCalculationBalances = async (
           },
           conn,
         );
-
         await trackVendorsNetBalance(calc.user_id, conn, updatedCalc);
       }
     }
@@ -3238,7 +3518,64 @@ const updateCalculationBalances = async (
     throw error;
   }
 };
-
+const updateCalculationParentBalances = async (
+  currentCalculation,
+  nextCalculations,
+  amountDiff,
+  commission,
+  conn,
+  count
+) => {
+  try {
+    if (!currentCalculation) return;
+    const updates =  {
+          total_payin_commission: commission,
+          total_payin_count: count ? count : 0,
+          current_balance: -commission,
+          net_balance: -commission,
+    };
+    const todayDate = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
+    // Update current calculation
+    const updatedCurrentCalculation = await updateCalculationBalanceDao(
+      { id: currentCalculation[0].id },
+      updates,
+      conn,
+    );
+    await trackVendorsNetBalance(
+      currentCalculation[0].user_id,
+      conn,
+      updatedCurrentCalculation,
+    );
+    if (nextCalculations.length > 0) {
+      // Update subsequent calculations
+      for (const calc of nextCalculations) {
+        const calculationDate = dayjs(calc.created_at)
+          .tz('Asia/Kolkata')
+          .format('YYYY-MM-DD');
+        let data = {};
+        if (calculationDate === todayDate) {
+          data = {
+            total_adjustment_amount: amountDiff,
+            total_adjustment_commission: commission,
+            total_adjustment_count: 1,
+          };
+        }
+        const updatedCalc = await updateCalculationBalanceDao(
+          { id: calc.id },
+          {
+            net_balance: -commission ,
+            ...data,
+          },
+          conn,
+        );
+        await trackVendorsNetBalance(calc.user_id, conn, updatedCalc);
+      }
+    }
+  } catch (error) {
+    logger.error('Error updating calculation balances:', error);
+    throw error;
+  }
+};
 export const updatePayInService = async (
   conn,
   payload,
@@ -3256,7 +3593,7 @@ export const updatePayInService = async (
     }
 
     let bankResponseDataUtr;
-    let updatedBankAccIdData;
+    // let updatedBankAccIdData;
     // Validate payload
     if (!payload && (!payload.amount || !payload.utr || !payload.bank_acc_id)) {
       throw new BadRequestError(
@@ -3283,7 +3620,8 @@ export const updatePayInService = async (
     let amountDiff = 0;
     let vendorCommission = 0;
     let merchantCommission = 0;
-
+    // let totalVendorCommission = 0; // Declare at function level for scope access
+    let newVendorCommission = 0;
     const [vendor, merchant] = await Promise.all([
       getVendorsDao({
         user_id: (await getBankaccountDao({ id: bankResponse.bank_id }))[0]
@@ -3301,7 +3639,6 @@ export const updatePayInService = async (
       payload.amount !== bankResponse.amount
     ) {
       amountDiff = payload.amount - bankResponse.amount;
-
       // Fetch bank, vendor, and merchant data concurrently
       const [bank] = await Promise.all([
         getBankaccountDao({ id: bankResponse.bank_id }),
@@ -3312,23 +3649,79 @@ export const updatePayInService = async (
       }
       // Calculate commissions
       vendorCommission = calculateCommission(
-        Math.abs(amountDiff),
+        Math.abs(payload.amount),
         vendor[0].payin_commission,
       );
       merchantCommission = calculateCommission(
-        Math.abs(amountDiff),
+        Math.abs(payload.amount),
         merchant[0].payin_commission,
       );
 
-      // Fetch calculation data for vendor and merchant
-      const [vendorCalculationData, merchantCalculationData] =
-        await Promise.all([
-          getAllCalculationforCronDao(vendor[0].user_id),
-          getAllCalculationforCronDao(merchant[0].user_id),
-        ]);
+      // Handle sub-vendor and parent commission logic for amount updates
+      let amountTotalVendorCommission = vendorCommission;
+      let parentCommission = 0;
+      let brokerageCommission = 0;
+      let payinConfig = {};
+
+      const subVendorParentInfo = await getSubVendorParentInfo(vendor[0]);
+      if (subVendorParentInfo) {
+        // Calculate parent commission for amount difference
+        const baseParentCommission = calculateCommission(
+          Math.abs(amountDiff),
+          Number(subVendorParentInfo.parentVendor.payin_commission)
+        );
+        parentCommission = amountDiff > 0 ? baseParentCommission : -baseParentCommission;
+
+        amountTotalVendorCommission = vendorCommission + parentCommission;
+        brokerageCommission = parentCommission;
+
+        // Calculate new commission values for config
+        const currentActualCommission = payIn.config?.actual_vendor_commission || 0;
+        const currentBrokerageCommission = payIn.config?.brokerage_commission || 0;
+        
+        // Preserve existing config and only update commission keys
+        payinConfig = {
+          ...payIn.config, // Preserve existing config
+          actual_vendor_commission: currentActualCommission + vendorCommission,
+          brokerage_commission: currentBrokerageCommission + brokerageCommission,
+        };
+
+        logger.info(
+          `Amount update in payIn - Sub-vendor commission calculated: sub=${vendorCommission}, parent=${parentCommission}, total=${amountTotalVendorCommission}, amountDiff=${amountDiff}`,
+        );
+        payload.payin_vendor_commission = amountTotalVendorCommission;
+        payload.config = payinConfig;
+        // totalVendorCommission = amountTotalVendorCommission; // Set the function-level variable
+      } else {
+        // For regular vendors, update config with actual commission
+        const currentActualCommission = payIn.config?.actual_vendor_commission || 0;
+        payinConfig = {
+          ...payIn.config, // Preserve existing config
+          actual_vendor_commission: currentActualCommission + vendorCommission,
+        };
+        payload.config = payinConfig;
+        // totalVendorCommission = vendorCommission; // Set the function-level variable
+      }
+
+      // Fetch calculation data for vendor, merchant, and parent (if sub-vendor)
+      let fetchPromises = [
+        getAllCalculationforCronDao(vendor[0].user_id),
+        getAllCalculationforCronDao(merchant[0].user_id),
+      ];
+      
+      if (subVendorParentInfo) {
+        fetchPromises.push(getAllCalculationforCronDao(subVendorParentInfo.parentUserId));
+      }
+
+      const calculationResults = await Promise.all(fetchPromises);
+      const [vendorCalculationData, merchantCalculationData, parentCalculationData] = calculationResults;
 
       if (!vendorCalculationData[0] || !merchantCalculationData[0]) {
         throw new NotFoundError('Calculation data not found');
+      }
+
+      if (subVendorParentInfo && !parentCalculationData[0]) {
+        throw new NotFoundError('Parent calculation data not found');
       }
 
       // Filter calculations by date
@@ -3351,8 +3744,23 @@ export const updatePayInService = async (
         throw new NotFoundError('Matching calculation not found');
       }
 
-      // Batch all updates in a single transaction
-      await Promise.all([
+      // Prepare parent calculation data if sub-vendor
+      let parentCurrentCalculations = [];
+      let parentCalculations = [];
+      if (subVendorParentInfo && parentCalculationData) {
+        parentCurrentCalculations = parentCalculationData.filter(
+          (calc) => approvedDate === getDateWithoutTime(calc.created_at),
+        );
+        parentCalculations = parentCalculationData.filter(
+          (calc) => approvedDate < getDateWithoutTime(calc.created_at),
+        );
+        
+        if (!parentCurrentCalculations[0]) {
+          throw new NotFoundError('Parent matching calculation not found');
+        }
+      }
+      // Prepare all update promises
+      let updatePromises = [
         updateBankResponseDao(
           { id: bankResponse.id, company_id: company_id },
           {
@@ -3383,17 +3791,38 @@ export const updatePayInService = async (
           vendorCurrentCalculations,
           vendorCalculations,
           amountDiff,
-          vendorCommission,
+           calculateCommission(
+            Math.abs(amountDiff),
+            vendor[0].payin_commission,
+          ),
           conn,
         ),
         updateCalculationBalances(
           merchantCurrentCalculations,
           merchantCalculations,
           amountDiff,
-          merchantCommission,
+           calculateCommission(
+            Math.abs(amountDiff),
+            merchant[0].payin_commission,
+          ),
           conn,
         ),
-      ]);
+      ];
+      // Add parent calculation updates if sub-vendor
+      if (subVendorParentInfo && parentCurrentCalculations.length > 0) {
+        updatePromises.push(
+          updateCalculationParentBalances(
+            parentCurrentCalculations,
+            parentCalculations,
+            amountDiff, // Parent vendor amount is always 0 for adjustments
+            parentCommission,
+            conn,
+          ),
+        );
+      }
+
+      // Batch all updates in a single transaction
+      await Promise.all(updatePromises);
     }
     // Handle UTR updates
     else if (payload?.utr) {
@@ -3467,17 +3896,98 @@ export const updatePayInService = async (
           Math.abs(bankResponse.amount),
           prevVendor[0].payin_commission,
         );
-        const newVendorCommission = calculateCommission(
+         newVendorCommission = calculateCommission(
           Math.abs(bankResponse.amount),
           newVendor[0].payin_commission,
         );
 
-        await Promise.all([
+        // Handle sub-vendor logic for both previous and new vendors
+        let totalPrevVendorCommission = prevVendorCommission;
+        let totalNewVendorCommission = newVendorCommission;
+        let bankChangeConfig = {};
+
+        // Check if previous vendor is sub-vendor
+        const prevSubVendorParentInfo = await getSubVendorParentInfo(prevVendor[0]);
+        let prevParentCommission = 0;
+        let prevParentCalculationData = null;
+        let prevParentCurrentCalcs = [];
+        let prevParentNextCalcs = [];
+        
+        if (prevSubVendorParentInfo) {
+          prevParentCommission = calculateCommission(
+            Math.abs(bankResponse.amount),
+            Number(prevSubVendorParentInfo.parentVendor.payin_commission),
+          );
+          totalPrevVendorCommission = prevVendorCommission + prevParentCommission;
+          
+          // Fetch parent calculation data for proper adjustment handling
+          prevParentCalculationData = await getAllCalculationforCronDao(prevSubVendorParentInfo.parentUserId);
+          if (prevParentCalculationData[0]) {
+            const approvedDate = getDateWithoutTime(bankResponse.created_at);
+            prevParentCurrentCalcs = prevParentCalculationData.filter(
+              (calc) => approvedDate === getDateWithoutTime(calc.created_at),
+            );
+            prevParentNextCalcs = prevParentCalculationData.filter(
+              (calc) => approvedDate < getDateWithoutTime(calc.created_at),
+            );
+          }
+          
+          logger.info(`Bank ID update in payIn - Previous vendor sub-vendor commission reversed: sub=${-prevVendorCommission}, parent=${-prevParentCommission}, total=${-totalPrevVendorCommission}`);
+        }
+
+        // Check if new vendor is sub-vendor
+        const newSubVendorParentInfo = await getSubVendorParentInfo(newVendor[0]);
+        let newParentCommission = 0;
+        let newParentCalculationData = null;
+        let newParentCurrentCalcs = [];
+        let newParentNextCalcs = [];
+        
+        if (newSubVendorParentInfo) {
+          newParentCommission = calculateCommission(
+            Math.abs(bankResponse.amount),
+            Number(newSubVendorParentInfo.parentVendor.payin_commission),
+          );
+          totalNewVendorCommission = newVendorCommission + newParentCommission;
+          
+          // Fetch parent calculation data for proper adjustment handling
+          newParentCalculationData = await getAllCalculationforCronDao(newSubVendorParentInfo.parentUserId);
+          if (newParentCalculationData[0]) {
+            const approvedDate = getDateWithoutTime(bankResponse.created_at);
+            newParentCurrentCalcs = newParentCalculationData.filter(
+              (calc) => approvedDate === getDateWithoutTime(calc.created_at),
+            );
+            newParentNextCalcs = newParentCalculationData.filter(
+              (calc) => approvedDate < getDateWithoutTime(calc.created_at),
+            );
+          }
+
+          // Update config for new sub-vendor
+          bankChangeConfig = {
+            ...payIn.config, // Preserve existing config
+            actual_vendor_commission: newVendorCommission,
+            brokerage_commission: newParentCommission,
+          };
+          
+          logger.info(`Bank ID update in payIn - New vendor sub-vendor commission calculated: sub=${newVendorCommission}, parent=${newParentCommission}, total=${totalNewVendorCommission}`);
+        } else {
+          // Update config for regular vendor
+          bankChangeConfig = {
+            ...payIn.config, // Preserve existing config
+            actual_vendor_commission: newVendorCommission,
+          };
+        }
+
+        // Store the config and commission update in payload for later use
+        payload.config = bankChangeConfig;
+        payload.payin_vendor_commission = totalNewVendorCommission;
+
+        // Prepare all calculation update promises
+        let calculationUpdatePromises = [
           updateCalculationBalances(
             prevVendorCurrentCalcs,
             prevVendorNextCurrentCalcs,
             -bankResponse.amount,
-            -prevVendorCommission,
+            prevVendorCommission,
             conn,
             -1,
           ),
@@ -3489,7 +3999,80 @@ export const updatePayInService = async (
             conn,
             1,
           ),
+        ];
+
+        // Add parent calculation updates for bank change scenario
+        if (prevSubVendorParentInfo && prevParentCurrentCalcs.length > 0) {
+          calculationUpdatePromises.push(
+            updateCalculationParentBalances(
+              prevParentCurrentCalcs,
+              prevParentNextCalcs,
+              -bankResponse.amount, // Parent vendor amount is always 0
+              -prevParentCommission, // Reverse the commission
+              conn,
+              -1,
+            ),
+          );
+        }
+
+        if (newSubVendorParentInfo && newParentCurrentCalcs.length > 0) {
+          calculationUpdatePromises.push(
+            updateCalculationParentBalances(
+              newParentCurrentCalcs,
+              newParentNextCalcs,
+              bankResponse.amount, // Parent vendor amount is always 0
+              newParentCommission, // Add the commission
+              conn,
+              1,
+            ),
+          );
+        }
+
+        await Promise.all(calculationUpdatePromises);
+      } else {
+        // Same vendor, different bank - still need to update vendor calculations
+        const [vendorForSameBank] = await Promise.all([
+          getVendorsDao({ user_id: prevBank[0].user_id }),
         ]);
+
+        if (vendorForSameBank[0]) {
+          const sameBankVendorCommission = calculateCommission(
+            Number(bankResponse.amount),
+            vendorForSameBank[0].payin_commission,
+          );
+
+          // Handle sub-vendor logic for same vendor bank change
+          let totalSameBankVendorCommission = sameBankVendorCommission;
+          let sameBankConfig = {};
+
+          const sameBankSubVendorParentInfo = await getSubVendorParentInfo(vendorForSameBank[0]);
+          if (sameBankSubVendorParentInfo) {
+            const sameBankParentCommission = calculateCommission(
+              Number(bankResponse.amount),
+              Number(sameBankSubVendorParentInfo.parentVendor.payin_commission),
+            );
+            totalSameBankVendorCommission = sameBankVendorCommission + sameBankParentCommission;
+
+            // Update config for sub-vendor (no calculation change needed as same vendor)
+            sameBankConfig = {
+              ...payIn.config, // Preserve existing config
+              actual_vendor_commission: sameBankVendorCommission,
+              brokerage_commission: sameBankParentCommission,
+            };
+
+            logger.info(`Same vendor bank change in payIn - Sub-vendor commission maintained: sub=${sameBankVendorCommission}, parent=${sameBankParentCommission}, total=${totalSameBankVendorCommission}`);
+          } else {
+            // Update config for regular vendor
+            sameBankConfig = {
+              ...payIn.config, // Preserve existing config
+              actual_vendor_commission: sameBankVendorCommission,
+            };
+          }
+
+          // Store the config update in payload
+          payload.config = sameBankConfig;
+          payload.payin_vendor_commission = totalSameBankVendorCommission;
+        }
       }
 
       const [newBankData] = await Promise.all([
@@ -3529,7 +4112,7 @@ export const updatePayInService = async (
       if (!newBankData) {
         throw new NotFoundError('Bank account not found');
       }
-      updatedBankAccIdData = newBankData;
+      // updatedBankAccIdData = newBankData;
     }
 
     delete payload.utr;
@@ -3590,19 +4173,19 @@ export const updatePayInService = async (
         ...payload,
         updated_by: user_id,
         user_submitted_utr: payIn.user_submitted_utr ? payload.utr : null,
-        config: newConfig,
+        config: payload.config || newConfig, // Use payload config if set, otherwise use newConfig
         payin_merchant_commission:
-          amountDiff > 0
-            ? payIn.payin_merchant_commission + merchantCommission
-            : payIn.payin_merchant_commission - merchantCommission,
+          amountDiff !== 0
+            ? merchantCommission:
+              payIn.payin_merchant_commission,
         payin_vendor_commission:
-          amountDiff > 0
-            ? payIn.payin_vendor_commission + vendorCommission
-            : payIn.payin_vendor_commission - vendorCommission,
+          payload.amount
+              ? vendorCommission : payload.bank_acc_id
+              ? newVendorCommission
+              : payIn.payin_vendor_commission,
       },
       conn,
     );
-
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: payIn.company_id,
@@ -3615,7 +4198,7 @@ export const updatePayInService = async (
     // });
     const updatedPayInData = {
       ...updatedPayIn,
-      nick_name: updatedBankAccIdData?.nick_name,
+      nick_name: payInBank[0]?.nick_name,
       bank_res_details: {
         utr: bankResponseDataUtr?.utr || bankResponseData?.utr,
         amount: updatedPayIn?.amount,

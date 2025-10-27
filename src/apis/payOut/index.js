@@ -19,7 +19,7 @@ import { AccessRoles } from '../../constants/index.js';
 import { payAssistTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payAsistWebHook.js';
 import { tataPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/tataPayWebHook.js';
 import { getClickrrWalletBalance, initiateClickrrPayout } from '../../clickrr/clickrr.js';
-const router = express.Router();
+const router = express.Router(); 
 
 /**
  * @swagger
@@ -114,6 +114,7 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayoutsById),
 );
+
 /**
  * @swagger
  * /payout/create-payout:

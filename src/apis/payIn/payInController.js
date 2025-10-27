@@ -208,11 +208,7 @@ export const generatePayInUrl = async (req, res) => {
     //     timestamp: new Date().toISOString(),
     //   },
     // });
-    return sendError(
-      res,
-      'Bank Account has not been linked with Merchant',
-      404,
-    );
+    return sendError(res, 'No Payment Methods Enabled!', 404);
   }
   // Create a deterministic hash
   const generatedHash = createHash(`${code}`);

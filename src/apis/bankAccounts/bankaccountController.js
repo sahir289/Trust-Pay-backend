@@ -44,9 +44,10 @@ const getBankaccount = async (req, res) => {
 const getBankAccountBySearch = async (req, res) => {
   const { company_id } = req.user;
   const { role, user_id, designation } = req.user;
-  const { page, limit, bank_used_for, search } = req.query;
+  const { page, limit, bank_used_for, search ,active } = req.query;
   const filters = {
     bank_used_for,
+    active,
   };
   const data = await getBankAccountBySearchService(
     filters,
