@@ -91,6 +91,7 @@ const createPayout = async (req, res) => {
     return sendNewSuccess(res, updateRes, 'Payout created successfully', 201);
   }
 };
+
 const getPayoutsById = async (req, res) => {
   const joiValidation = VALIDATE_PAYOUT_BY_ID.validate(req.params);
   if (joiValidation.error) {
@@ -227,6 +228,7 @@ const updatePayout = async (req, res) => {
     'Payout updated successfully',
   );
 };
+
 const assignedPayout = async (req, res) => {
   const { user_id, user_name, company_id } = req.user;
   const { id } = req.params;

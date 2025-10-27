@@ -1,4 +1,4 @@
-/* eslint-disable no-unused-vars */
+
 import dayjs from 'dayjs';
 import { nanoid } from 'nanoid';
 import { v4 as uuidv4 } from 'uuid';
@@ -42,6 +42,7 @@ import {
   getPayinsWithoutHistoryDao,
   getPayInForTelegramResponseArrayDao,
   getPayInIntentDao,
+  getPayInsForCronDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -247,6 +248,7 @@ export const generatePayInUrlService = async (
   role,
   userIp,
   fromUI,
+  type
 ) => {
   try {
     const {
@@ -382,6 +384,16 @@ export const generatePayInUrlService = async (
       },
     };
     newTableEntry(tableName.PAYIN, responseObj);
+    if (merchant.config.is_h2h) {
+      const assign = await assignedBankToPayInUrlService(
+        merchant_order_id,
+        amount,
+        type,
+      );
+      result.bank = assign.bank;
+      result.type = type
+      return result;
+    }
     // await newTableEntry(tableName.PAYIN);
     return result;
   } catch (error) {
@@ -432,6 +444,7 @@ export const getPayInUrlService = async (id, conn, tele_check = true) => {
       });
       // throw new InternalServerError('PayIn Expired');
     }
+   
 
     return payIn;
   } catch (error) {
@@ -1413,6 +1426,7 @@ export const processPayInService = async (
   tele_check = true,
   img_utr = false,
   designation,
+  h2h
 ) => {
   try {
     const {
@@ -1429,6 +1443,20 @@ export const processPayInService = async (
     // throw error if not exist or expires
     const orderid = merchantOrderId;
     await checkLockEdit(conn, orderid);
+    if (h2h) {
+      const payin = await getPayInsForCronDao({
+        merchant_order_id: merchantOrderId,
+      });
+      if (payin.length == 0) {
+        throw new NotFoundError('Invalid Order Id');
+      }
+      if (payin[0].status != "ASSIGNED") {
+        throw new BadRequestError('Payment is Expired');
+      }
+      if (payin[0].amount != payload.amount) {
+        throw new BadRequestError('Please Enter Valid Amount');
+      }
+    }
     const payIn = await getPayInUrlService(merchantOrderId, conn, tele_check);
     if (
       Object.keys(payIn).length === 2 &&

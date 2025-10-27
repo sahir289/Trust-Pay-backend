@@ -64,154 +64,13 @@ import { stringifyJSON } from '../../utils/index.js';
 import axios from 'axios';
 import { getCompanyByIDDao } from '../company/companyDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
-import { initiateClickrrPayout } from '../../clickrr/clickrr.js';
+import {
+  createClickrrPayout,
+  getClickrrWalletBalance,
+  initiateClickrrPayout,
+} from '../../clickrr/clickrr.js';
+import { retryAxiosRequest } from '../../utils/axios.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
-
-// Helper function for retry logic with exponential backoff
-const retryAxiosRequest = async (
-  requestFn,
-  maxRetries = 3,
-  baseDelay = 1000,
-) => {
-  let lastError;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await requestFn();
-    } catch (error) {
-      lastError = error;
-
-      // Don't retry on 4xx errors (client errors) - only retry on network/server errors
-      if (
-        error.response &&
-        error.response.status >= 400 &&
-        error.response.status < 500
-      ) {
-        throw error;
-      }
-
-      if (attempt === maxRetries) {
-        break;
-      }
-
-      // Log retry attempt
-      console.warn(
-        `Request failed (attempt ${attempt}/${maxRetries}), retrying in ${baseDelay * Math.pow(2, attempt - 1)}ms:`,
-        error.message,
-      );
-
-      // Exponential backoff: wait baseDelay * 2^(attempt-1) milliseconds
-      await new Promise((resolve) =>
-        setTimeout(resolve, baseDelay * Math.pow(2, attempt - 1)),
-      );
-    }
-  }
-
-  throw lastError;
-};
-
-// Helper function to check if vendor is sub-vendor and get parent info
-const getSubVendorParentInfo = async (vendor) => {
-  try {
-    logger.info(
-      `Checking sub-vendor status for vendor: userId=${vendor.user_id}, designation=${vendor.designation}, designation_name=${vendor.designation_name}, config=${JSON.stringify(vendor.config)}`,
-    );
-
-    // Check if vendor designation is SUB_VENDOR (handle both designation and designation_name properties)
-    const vendorDesignation = vendor.designation || vendor.designation_name;
-    if (vendorDesignation !== Role.SUB_VENDOR) {
-      logger.info(
-        `Vendor is not SUB_VENDOR, designation: ${vendorDesignation}`,
-      );
-      return null;
-    }
-
-    // Check is_owned config
-    const isOwned = vendor.config?.is_owned;
-    if (isOwned === true || isOwned === 'true') {
-      logger.info(
-        `Vendor is owned (is_owned=${isOwned}), skipping parent calculation`,
-      );
-      return null;
-    }
-
-    logger.info(
-      `Sub-vendor detected with is_owned=${isOwned}, fetching user hierarchy`,
-    );
-
-    // Get user hierarchy to find parent
-    const userHierarchys = await getUserHierarchysDao({
-      user_id: vendor.user_id,
-    });
-
-    logger.info(`User hierarchy result: ${JSON.stringify(userHierarchys)}`);
-
-    const userHierarchy = userHierarchys?.[0];
-    const parentId = userHierarchy?.config?.parent;
-
-    if (!parentId) {
-      logger.warn(`Sub-vendor ${vendor.user_id} has no parent in hierarchy`);
-      return null;
-    }
-
-    logger.info(`Found parent ID: ${parentId}, fetching parent vendor details`);
-
-    // Get parent vendor details
-    const parentVendors = await getVendorsDao({ user_id: parentId });
-    if (!parentVendors || !parentVendors[0]) {
-      logger.warn(`Parent vendor not found for user_id: ${parentId}`);
-      return null;
-    }
-
-    logger.info(`Parent vendor found: ${JSON.stringify(parentVendors[0])}`);
-
-    return {
-      parentVendor: parentVendors[0],
-      parentUserId: parentId,
-    };
-  } catch (error) {
-    logger.error('Error in getSubVendorParentInfo:', error);
-    return null;
-  }
-};
-
-// Helper function to calculate commission for parent vendor
-const updateParentVendorCalculation = async (
-  parentUserId,
-  amount,
-  vendorCommissionRate,
-  isApproved,
-  conn,
-) => {
-  try {
-    logger.info(
-      `updateParentVendorCalculation called with: parentUserId=${parentUserId}, amount=${amount}, rate=${vendorCommissionRate}, isApproved=${isApproved}`,
-    );
-
-    const parentCommission = calculateCommission(amount, vendorCommissionRate);
-
-    logger.info(`Calculated parent commission: ${parentCommission}`);
-
-    await updateCalculationTable(
-      parentUserId,
-      {
-        payoutCommission: parentCommission,
-        amount: 0, // Parent vendor amount is always 0, only commission is tracked
-      },
-      isApproved,
-      conn,
-    );
-
-    logger.info(
-      `Parent vendor calculation table updated successfully for userId: ${parentUserId}`,
-    );
-
-    return parentCommission;
-  } catch (error) {
-    logger.error('Error in updateParentVendorCalculation:', error);
-    throw error;
-  }
-};
 
 const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
   try {
@@ -348,28 +207,49 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
 
           if (errorCode) {
             // Transaction Under Process - check status
-            statusResponse = await retryAxiosRequest(
-              async () => {
-                return await axios.post(
-                  `${apiConfig.baseUrl}/payoutStatus`,
-                  { apitxnid: info.id }, // Include transaction ID in payload
-                  {
-                    headers: apiConfig.headers,
-                    timeout: 15000, // 15 second timeout
-                    maxRedirects: 3,
-                    validateStatus: function (status) {
-                      return status < 500;
+            try {
+              statusResponse = await retryAxiosRequest(
+                async () => {
+                  return await axios.post(
+                    `${apiConfig.baseUrl}/payoutStatus`,
+                    { apitxnid: info.id },
+                    {
+                      headers: apiConfig.headers,
+                      timeout: 15000,
+                      maxRedirects: 3,
+                      validateStatus: (status) => status < 500,
                     },
-                  },
-                );
-              },
-              2,
-              500,
-            );
-            logger.info(
-              `PayAssist payoutStatus response for apitxnid ${info.id}:`,
-              statusResponse.data,
-            );
+                  );
+                },
+                2, // maxRetries
+                500, // baseDelay
+              );
+
+              logger.info(
+                `PayAssist payoutStatus response for apitxnid ${info.id}:`,
+                statusResponse.data,
+              );
+            } catch (error) {
+              logger.error(
+                `Error checking payout status for apitxnid ${info.id}:`,
+                {
+                  message: error.message,
+                  code: error.code,
+                  isAxiosError: error.isAxiosError,
+                  url: error.config?.url,
+                  data: error.config?.data,
+                  status: error.response?.status,
+                },
+              );
+
+              // Optionally handle gracefully instead of crashing
+              statusResponse = {
+                data: {
+                  status: 'ERROR',
+                  message: 'External API timeout or failure',
+                },
+              };
+            }
 
             if (statusResponse.data.ErrorCode === '0') {
               if (
@@ -496,7 +376,7 @@ const tataPayPayoutsService = async (conn, payload, updatedBy, res) => {
 
           const response = await retryAxiosRequest(
             async () => {
-              return await axios.post(
+              const aaa = await axios.post(
                 `${apiConfig.baseUrl}/Create_payout_app`,
                 apiPayload,
                 {
@@ -508,6 +388,8 @@ const tataPayPayoutsService = async (conn, payload, updatedBy, res) => {
                   },
                 },
               );
+
+              return aaa;
             },
             3,
             1000,
@@ -526,15 +408,19 @@ const tataPayPayoutsService = async (conn, payload, updatedBy, res) => {
           }; // Include transaction ID in payload
           statusResponse = await retryAxiosRequest(
             async () => {
-              return await axios.get(`${apiConfig.baseUrl}/Search_payout`, {
-                headers: apiConfig.headers,
-                params: queryParams,
-                timeout: 15000, // 15 second timeout for status check
-                maxRedirects: 3,
-                validateStatus: function (status) {
-                  return status < 500;
+              const ddd = await axios.get(
+                `${apiConfig.baseUrl}/Search_payout`,
+                {
+                  headers: apiConfig.headers,
+                  params: queryParams,
+                  timeout: 15000, // 15 second timeout for status check
+                  maxRedirects: 3,
+                  validateStatus: function (status) {
+                    return status < 500;
+                  },
                 },
-              });
+              );
+              return ddd;
             },
             2,
             500,
@@ -787,9 +673,27 @@ const createPayoutService = async (
     }
 
     delete payload.x_api_key;
-    const data = await createPayoutDao(conn, payload);
+    let data = await createPayoutDao(conn, payload);
+
+    const { allow_clickrr, allow_tatapay, allow_payassist } =
+      details[0]?.config || {};
+
+    if (allow_clickrr) {
+      const ids = { id: data.id, company_id: payload.company_id };
+      const clickrrWalletBalance = await getClickrrWalletBalance({
+        company_id: payload.company_id,
+      });
+      console.log(clickrrWalletBalance?.data?.walletBalance, 'clickrr balance');
+
+      const updatedPayload = { config: { method: 'CLICKRR' } };
+      const updatedData = await updatePayoutService(conn, ids, updatedPayload);
+
+      data = updatedData;
+    }
+
     if (balanceRestriction) {
       const { totalNetBalance } = await getCalculationDao({ user_id });
+
       if (totalNetBalance < payoutAmount) {
         const data = {
           status: 400,
@@ -818,7 +722,7 @@ const createPayoutService = async (
     await newTableEntry(tableName.PAYOUT);
     return data;
   } catch (error) {
-    logger.error(error);
+    logger.error('Error in createPayoutService', error.message);
     throw error;
   }
 };
@@ -1058,7 +962,8 @@ const getPayoutsBySearchService = async (
 
 const updatePayoutService = async (conn, ids, payload, role) => {
   try {
-    await checkLockEdit(conn, ids.id);
+    if (!payload?.config?.method === Method.CLICKRR)
+      await checkLockEdit(conn, ids.id);
 
     // Early validation for UTR uniqueness
     if (payload?.utr_id) {
@@ -1098,6 +1003,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       null,
       conn,
     );
+
     const singleWithdrawData = singleWithdrawDataArr[0];
     if (!singleWithdrawData) {
       throw new NotFoundError('Payout not found!');
@@ -1142,57 +1048,41 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       throw new NotFoundError('Merchant not found!');
     }
 
-    let checkClickrr;
     if (payload?.config?.method === Method.EKO) {
       await processEkoPayout(singleWithdrawData, payload);
     } else if (payload?.config?.method === Method.CLICKRR) {
-      try {
-        const [company] = await getCompanyByIDDao({
-          id: ids.company_id,
-        });
-        const bankId = company.config.CLICKRR.defaultBankId;
-        bankDataArr = await getBankByIdDao({ id: bankId });
+      const method = payload.config.method;
 
-        if (!bankDataArr[0]) {
-          throw new NotFoundError('Bank not found for Clickrr payout!');
-        }
-        let checkClickrr;
-        if (payload.txnStatus) {
-          delete payload.txnStatus;
-          checkClickrr = payload;
-        } else {
-          checkClickrr = await initiateClickrrPayout(singleWithdrawData, ids.company_id);
-        }
+      const [company] = await getCompanyByIDDao({ id: ids.company_id });
+      if (!company) throw new NotFoundError('Company not found');
 
-        const status = checkClickrr.txnStatus;
+      const bankId = company.config.CLICKRR.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
 
-        if (!status) {
-          payload.status = Status.PENDING
-        } else if (status === 'Success' || status === 'success') {
-          payload.bank_acc_id= bankId,
-          payload.status = Status.APPROVED;
-          payload.utr_id = checkClickrr?.utr || '';
-          payload.approved_at = new Date().toISOString();
-        } else if (status === 'Failed' || status === 'failed') {
-          payload.status = Status.REJECTED;
-          payload.rejected_reason =
-          checkClickrr?.message || 'Transaction failed';
-          payload.rejected_at = new Date().toISOString();
-        } else {
-          payload.status = Status.PENDING
-        }
+      bankDataArr = await getBankByIdDao({ id: bankId });
 
-        if (!payload.utr_id) {
-          payload.utr_id = checkClickrr?.utr || '';
-        }
-      } catch (error) {
-        payload.status = Status.REJECTED;
-        payload.utr_id = checkClickrr?.utr || '';
-        payload.rejected_reason = error?.response?.data?.message || 'API call failed';
-        payload.rejected_at = new Date().toISOString();
-        logger.error('Clickrr payout error:', error.message);
-      }
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      const updatedPayload = await createClickrrPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
     }
+    // else if (payload?.config?.method === Method.TATAPAY) {
+    //   const payload = {
+    //     mode: 'IMPS',
+    //     payOutids: [ids.id],
+    //   }
+    //   await tataPayPayoutsService(conn, payload, payload.updated_by);
+    // } else if (payload?.config?.method === Method.PAYASSIST) {
+    //   // await payAssistPayoutsService(conn, payload, payload.updated_by);
+    //   return {};
+    // }
 
     const data = await updatePayoutDao(ids, payload, conn);
     await newTableEntry(tableName.PAYOUT);
@@ -1880,7 +1770,7 @@ const getWalletsBalanceService = async (company_id) => {
     );
     return { balance: response.data.Response.Balance };
   } catch (error) {
-    logger.error(error);
+    logger.error(error.message);
     throw error;
   }
 };

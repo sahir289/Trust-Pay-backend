@@ -25,7 +25,7 @@ import {
   updatePayIn,
   processPayInIMGUTR,
   getPayinsSummary,
-
+  processPayInH2H,
 } from './payInController.js';
 // import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
@@ -217,6 +217,7 @@ router.post(
  *         description: Pay-In URL not found
  */
 router.post('/process/:merchantOrderId', tryCatchHandler(processPayIn));
+router.post('/process-payin/:merchantOrderId', tryCatchHandler(processPayInH2H)); //h2h
 
 /**
  * @swagger
