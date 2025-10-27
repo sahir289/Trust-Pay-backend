@@ -72,6 +72,212 @@ import {
 import { retryAxiosRequest } from '../../utils/axios.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
+// Helper function to check if vendor is sub-vendor and get parent info
+// const getSubVendorParentInfo = async (vendor) => {
+//   try {
+//     logger.info(
+//       `Checking sub-vendor status for vendor: userId=${vendor.user_id}, designation=${vendor.designation}, designation_name=${vendor.designation_name}, config=${JSON.stringify(vendor.config)}`,
+//     );
+
+//     // Check if vendor designation is SUB_VENDOR (handle both designation and designation_name properties)
+//     const vendorDesignation = vendor.designation || vendor.designation_name;
+//     if (vendorDesignation !== Role.SUB_VENDOR) {
+//       logger.info(
+//         `Vendor is not SUB_VENDOR, designation: ${vendorDesignation}`,
+//       );
+//       return null;
+//     }
+
+//     // Check is_owned config
+//     const isOwned = vendor.config?.is_owned;
+//     if (isOwned === true || isOwned === 'true') {
+//       logger.info(
+//         `Vendor is owned (is_owned=${isOwned}), skipping parent calculation`,
+//       );
+//       return null;
+//     }
+
+//     logger.info(
+//       `Sub-vendor detected with is_owned=${isOwned}, fetching user hierarchy`,
+//     );
+
+//     // Get user hierarchy to find parent
+//     const userHierarchys = await getUserHierarchysDao({
+//       user_id: vendor.user_id,
+//     });
+
+//     logger.info(`User hierarchy result: ${JSON.stringify(userHierarchys)}`);
+
+//     const userHierarchy = userHierarchys?.[0];
+//     const parentId = userHierarchy?.config?.parent;
+
+//     if (!parentId) {
+//       logger.warn(`Sub-vendor ${vendor.user_id} has no parent in hierarchy`);
+//       return null;
+//     }
+
+//     logger.info(`Found parent ID: ${parentId}, fetching parent vendor details`);
+
+//     // Get parent vendor details
+//     const parentVendors = await getVendorsDao({ user_id: parentId });
+//     if (!parentVendors || !parentVendors[0]) {
+//       logger.warn(`Parent vendor not found for user_id: ${parentId}`);
+//       return null;
+//     }
+
+//     logger.info(`Parent vendor found: ${JSON.stringify(parentVendors[0])}`);
+
+//     return {
+//       parentVendor: parentVendors[0],
+//       parentUserId: parentId,
+//     };
+//   } catch (error) {
+//     logger.error('Error in getSubVendorParentInfo:', error);
+//     return null;
+//   }
+// };
+
+// Helper function to calculate commission for parent vendor
+// const updateParentVendorCalculation = async (
+//   parentUserId,
+//   amount,
+//   vendorCommissionRate,
+//   isApproved,
+//   conn,
+// ) => {
+//   try {
+//     logger.info(
+//       `updateParentVendorCalculation called with: parentUserId=${parentUserId}, amount=${amount}, rate=${vendorCommissionRate}, isApproved=${isApproved}`,
+//     );
+
+//     const parentCommission = calculateCommission(amount, vendorCommissionRate);
+
+//     logger.info(`Calculated parent commission: ${parentCommission}`);
+
+//     await updateCalculationTable(
+//       parentUserId,
+//       {
+//         payoutCommission: parentCommission,
+//         amount: 0, // Parent vendor amount is always 0, only commission is tracked
+//       },
+//       isApproved,
+//       conn,
+//     );
+
+//     logger.info(
+//       `Parent vendor calculation table updated successfully for userId: ${parentUserId}`,
+//     );
+
+//     return parentCommission;
+//   } catch (error) {
+//     logger.error('Error in updateParentVendorCalculation:', error);
+//     throw error;
+//   }
+// };
+
+// Helper function to check if vendor is sub-vendor and get parent info
+const getSubVendorParentInfo = async (vendor) => {
+  try {
+    logger.info(
+      `Checking sub-vendor status for vendor: userId=${vendor.user_id}, designation=${vendor.designation}, designation_name=${vendor.designation_name}, config=${JSON.stringify(vendor.config)}`,
+    );
+
+    // Check if vendor designation is SUB_VENDOR (handle both designation and designation_name properties)
+    const vendorDesignation = vendor.designation || vendor.designation_name;
+    if (vendorDesignation !== Role.SUB_VENDOR) {
+      logger.info(
+        `Vendor is not SUB_VENDOR, designation: ${vendorDesignation}`,
+      );
+      return null;
+    }
+
+    // Check is_owned config
+    const isOwned = vendor.config?.is_owned;
+    if (isOwned === true || isOwned === 'true') {
+      logger.info(
+        `Vendor is owned (is_owned=${isOwned}), skipping parent calculation`,
+      );
+      return null;
+    }
+
+    logger.info(
+      `Sub-vendor detected with is_owned=${isOwned}, fetching user hierarchy`,
+    );
+
+    // Get user hierarchy to find parent
+    const userHierarchys = await getUserHierarchysDao({
+      user_id: vendor.user_id,
+    });
+
+    logger.info(`User hierarchy result: ${JSON.stringify(userHierarchys)}`);
+
+    const userHierarchy = userHierarchys?.[0];
+    const parentId = userHierarchy?.config?.parent;
+
+    if (!parentId) {
+      logger.warn(`Sub-vendor ${vendor.user_id} has no parent in hierarchy`);
+      return null;
+    }
+
+    logger.info(`Found parent ID: ${parentId}, fetching parent vendor details`);
+
+    // Get parent vendor details
+    const parentVendors = await getVendorsDao({ user_id: parentId });
+    if (!parentVendors || !parentVendors[0]) {
+      logger.warn(`Parent vendor not found for user_id: ${parentId}`);
+      return null;
+    }
+
+    logger.info(`Parent vendor found: ${JSON.stringify(parentVendors[0])}`);
+
+    return {
+      parentVendor: parentVendors[0],
+      parentUserId: parentId,
+    };
+  } catch (error) {
+    logger.error('Error in getSubVendorParentInfo:', error);
+    return null;
+  }
+};
+
+// Helper function to calculate commission for parent vendor
+const updateParentVendorCalculation = async (
+  parentUserId,
+  amount,
+  vendorCommissionRate,
+  isApproved,
+  conn,
+) => {
+  try {
+    logger.info(
+      `updateParentVendorCalculation called with: parentUserId=${parentUserId}, amount=${amount}, rate=${vendorCommissionRate}, isApproved=${isApproved}`,
+    );
+
+    const parentCommission = calculateCommission(amount, vendorCommissionRate);
+
+    logger.info(`Calculated parent commission: ${parentCommission}`);
+
+    await updateCalculationTable(
+      parentUserId,
+      {
+        payoutCommission: parentCommission,
+        amount: 0, // Parent vendor amount is always 0, only commission is tracked
+      },
+      isApproved,
+      conn,
+    );
+
+    logger.info(
+      `Parent vendor calculation table updated successfully for userId: ${parentUserId}`,
+    );
+
+    return parentCommission;
+  } catch (error) {
+    logger.error('Error in updateParentVendorCalculation:', error);
+    throw error;
+  }
+};
+
 const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
   try {
     const { mode, payOutids } = payload;
