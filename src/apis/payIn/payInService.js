@@ -1419,6 +1419,9 @@ export const processPayInService = async (
       if (payin[0].status != "ASSIGNED") {
         throw new BadRequestError('Payment is Expired');
       }
+      if (payin[0].amount != payload.amount) {
+        throw new BadRequestError('Please Enter Valid Amount');
+      }
     }
     const payIn = await getPayInUrlService(merchantOrderId, conn, tele_check);
     if (
