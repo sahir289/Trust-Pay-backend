@@ -2573,7 +2573,7 @@ export const disputeDuplicateTransactionService = async (
         merchantOrderId: merchantOrderId,
         payinId: payInData.id,
         amount: toAmount,
-        req_amount: newStatus == Status.SUCCESS ? toAmount : payInData.amount,
+        req_amount: newStatus === Status.SUCCESS ? toAmount : payInData.amount,
         utr_id: bankResponse.utr,
       });
     }
@@ -2646,7 +2646,7 @@ export const disputeDuplicateTransactionService = async (
       payinId: payIn.id,
       amount: toAmount,
       req_amount:
-        updatePayload.status == Status.SUCCESS ? toAmount : payIn.amount,
+        updatePayload.status === Status.SUCCESS ? toAmount : payIn.amount,
       utr_id: bankResponse.utr,
     });
 
@@ -3593,7 +3593,7 @@ export const updatePayInService = async (
     }
 
     let bankResponseDataUtr;
-    let updatedBankAccIdData;
+    // let updatedBankAccIdData;
     // Validate payload
     if (!payload && (!payload.amount || !payload.utr || !payload.bank_acc_id)) {
       throw new BadRequestError(
@@ -3620,7 +3620,7 @@ export const updatePayInService = async (
     let amountDiff = 0;
     let vendorCommission = 0;
     let merchantCommission = 0;
-    let totalVendorCommission = 0; // Declare at function level for scope access
+    // let totalVendorCommission = 0; // Declare at function level for scope access
     let newVendorCommission = 0;
     const [vendor, merchant] = await Promise.all([
       getVendorsDao({
@@ -3691,7 +3691,7 @@ export const updatePayInService = async (
         );
         payload.payin_vendor_commission = amountTotalVendorCommission;
         payload.config = payinConfig;
-        totalVendorCommission = amountTotalVendorCommission; // Set the function-level variable
+        // totalVendorCommission = amountTotalVendorCommission; // Set the function-level variable
       } else {
         // For regular vendors, update config with actual commission
         const currentActualCommission = payIn.config?.actual_vendor_commission || 0;
@@ -3700,7 +3700,7 @@ export const updatePayInService = async (
           actual_vendor_commission: currentActualCommission + vendorCommission,
         };
         payload.config = payinConfig;
-        totalVendorCommission = vendorCommission; // Set the function-level variable
+        // totalVendorCommission = vendorCommission; // Set the function-level variable
       }
 
       // Fetch calculation data for vendor, merchant, and parent (if sub-vendor)
@@ -4112,7 +4112,7 @@ export const updatePayInService = async (
       if (!newBankData) {
         throw new NotFoundError('Bank account not found');
       }
-      updatedBankAccIdData = newBankData;
+      // updatedBankAccIdData = newBankData;
     }
 
     delete payload.utr;
@@ -4144,9 +4144,9 @@ export const updatePayInService = async (
     } catch (e) {
       logger.error('Error parsing existing config:', e);
       existingConfig = {};
-    }
+    } 
     // Add update history to config
-    const updateHistory = {
+    const updateHistory = { 
       updated_by: user_id,
       updated_at: new Date(),
       amount: payIn.amount,
