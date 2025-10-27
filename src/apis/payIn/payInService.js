@@ -4116,7 +4116,7 @@ export const updatePayInService = async (
     } catch (e) {
       logger.error('Error parsing existing config:', e);
       existingConfig = {};
-    }
+    } 
     // Add update history to config
     const updateHistory = {
       updated_by: user_id,
