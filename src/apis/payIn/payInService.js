@@ -4118,7 +4118,7 @@ export const updatePayInService = async (
       existingConfig = {};
     } 
     // Add update history to config
-    const updateHistory = {
+    const updateHistory = { 
       updated_by: user_id,
       updated_at: new Date(),
       amount: payIn.amount,
