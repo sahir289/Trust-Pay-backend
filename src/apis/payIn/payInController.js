@@ -286,7 +286,8 @@ export const generatePayInUrl = async (req, res) => {
       merchantOrderId: result?.merchant_order_id,
       status: result?.status,
       bank: result?.bank,
-      type: result?.type
+      type: result?.type, 
+      amount : result?.amount
     };
     message = 'PayIn is generated successfully';
   } else {
