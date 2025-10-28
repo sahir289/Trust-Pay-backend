@@ -152,7 +152,7 @@ const tataPayPayouts = async (req, res) => {
   const payload = req.body;
   payload.company_id = company_id;
 
-  let result = await transactionWrapper(tataPayPayoutsService)(
+  await transactionWrapper(tataPayPayoutsService)(
     payload,
     user_id,
     res,
