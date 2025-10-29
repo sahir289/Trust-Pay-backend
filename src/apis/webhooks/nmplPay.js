@@ -7,13 +7,13 @@ import { processPayInWebHookService } from '../payIn/payInService.js';
 import { generateHash } from '../../intent/createIntentTransaction.js';
 import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
 
-export const zenTechIndWebhook = async (req, res) => {
+export const nmplPayWebhook = async (req, res) => {
   try {
     sendSuccess(res, 200, 'Webhook received successfully');
     const body = req.body?.transaction;
-    const hash = generateHash(body, 'zentechind');
+    const hash = generateHash(body, 'nmplPay');
     if (hash !== body.hash) {
-      logger.error('Invalid hash in ZenTechInd webhook');
+      logger.error('Invalid hash in nmplPay webhook');
       // return;
     }
 
@@ -30,26 +30,27 @@ export const zenTechIndWebhook = async (req, res) => {
     const utrAlreadyExist = await getBankResponseByUTR(payload.userSubmittedUtr);
 
     if (utrAlreadyExist) {
-      logger.warn('Duplicate UTR received in ZenTechInd webhook:', payload.userSubmittedUtr);
+      logger.warn('Duplicate UTR received in nmplPay webhook:', payload.userSubmittedUtr);
       return;
     }
 
     if (body?.status === 'success') {
-      const bankresponse = await createBankResponseWebHookService(
+      const bankResponse = await createBankResponseWebHookService(
         bankResponsePayload,
         payIn.company_id,
         'BOT',
-        'zenTechInd',
+        'nmplPay',
       );
-      logger.info('Bank response created:', bankresponse);
+      logger.info('Bank response created:', bankResponse);
     }
     logger.info('Calling transactionWrapper for payload', payload);
     const payin = await transactionWrapper(processPayInWebHookService)(
       payload,
       '',
     );
+
     logger.info('PayIn processed:', payin);
   } catch (error) {
-    logger.error('zenTechInd webhook error:', error);
+    logger.error('nmplPay webhook error:', error);
   }
 };

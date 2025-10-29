@@ -121,7 +121,8 @@ import {
 import { getAllUsersDao, getUserByIdDao } from '../users/userDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 import { createCashfreeOrder } from '../../cashfree/cashfree.js';
-import { createZenTechIndTransaction } from '../../zentechind/zentechInd.js';
+// import { createZenTechIndTransaction } from '../../zentechind/zentechInd.js';
+import { createPaymentTransaction } from '../../intent/createIntentTransaction.js';
 
 export const generatePayInUrlByHashService = async (conn, req) => {
   try {
@@ -779,7 +780,11 @@ export const payInIntentGenerateOrderService = async (
 
     const providerHandlers = {
       ZenTechInd: async () => {
-        const order = await createZenTechIndTransaction(payIn, amount);
+        const order = await createPaymentTransaction('zentechind', payIn, amount);
+        return order?.payment_url;
+      },
+      NMPLPay: async () => {
+        const order = await createPaymentTransaction('nmplPay', payIn, amount);
         return order?.payment_url;
       },
       Cashfree: async () => {
@@ -790,7 +795,7 @@ export const payInIntentGenerateOrderService = async (
 
     const handler = providerHandlers[provider];
     if (!handler) {
-      throw new Error(`Unsupported provider: ${provider}`);
+      throw new NotFoundError(`No handler found for provider: ${provider}`);
     }
 
     const session_id = await handler();
