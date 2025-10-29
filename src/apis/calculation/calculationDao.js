@@ -185,7 +185,6 @@ export const getCalculationsSumDao = async (filters) => {
       merchantData = {},
       netBalance = {};
     let hierarchyUsers = [];
-
     // Fix the userCodes array creation
     let userCodes = [];
     if (users) {
@@ -421,7 +420,7 @@ export const getCalculationsSumDao = async (filters) => {
           WHERE c.is_obsolete = FALSE
           AND u.is_obsolete = FALSE
           AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
-          AND c.user_id = ANY(ARRAY[${userIds.map((id) => `'${id}'`).join(',')}])
+          ${userIds.length > 0 ? `AND c.user_id = ANY(ARRAY[${userIds.map((id) => `'${id}'`).join(',')}])` : ''}
           ${condition}
         )
         SELECT 
@@ -610,6 +609,11 @@ export const getCalculationsSumDao = async (filters) => {
         END)::NUMERIC, 2) AS FLOAT) AS vendor_reverse_payout_commission,
         -- mediator_commission: commission from vendor admins (role-based filtering)
         CAST(ROUND(SUM(CASE 
+          WHEN '${role}' = 'ADMIN' AND d.designation IN ('ADMIN', 'TRANSACTIONS', 'OPERATIONS', 'VENDOR') THEN c.total_payin_commission 
+          WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR' THEN c.total_settlement_commission 
+          ELSE 0 
+        END)::NUMERIC, 2) AS FLOAT) AS mediator_settlement_commission,
+         CAST(ROUND(SUM(CASE 
           WHEN '${role}' = 'ADMIN' AND d.designation IN ('ADMIN', 'TRANSACTIONS', 'OPERATIONS', 'VENDOR') THEN c.total_payin_commission 
           WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR' THEN c.total_payin_commission 
           ELSE 0 
