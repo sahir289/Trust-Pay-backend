@@ -2994,6 +2994,7 @@ export const verifyPayinsService = async (
       one_time_used: payIn.one_time_used,
       allowCashfree: cashfreeDetails?.allow_cashfree || false,
       allowZenTechInd: cashfreeDetails?.allow_zentechind || false,
+      allowNmplPay: cashfreeDetails?.allow_nmplpay || false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,
