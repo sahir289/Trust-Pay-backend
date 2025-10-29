@@ -609,8 +609,7 @@ export const getCalculationsSumDao = async (filters) => {
         END)::NUMERIC, 2) AS FLOAT) AS vendor_reverse_payout_commission,
         -- mediator_commission: commission from vendor admins (role-based filtering)
         CAST(ROUND(SUM(CASE 
-          WHEN '${role}' = 'ADMIN' AND d.designation IN ('ADMIN', 'TRANSACTIONS', 'OPERATIONS', 'VENDOR') THEN c.total_payin_commission 
-          WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR' THEN c.total_settlement_commission 
+          WHEN '${role}' = 'ADMIN' AND d.designation IN ('ADMIN', 'TRANSACTIONS', 'OPERATIONS', 'VENDOR') THEN c.total_settlement_commission 
           ELSE 0 
         END)::NUMERIC, 2) AS FLOAT) AS mediator_settlement_commission,
          CAST(ROUND(SUM(CASE 
