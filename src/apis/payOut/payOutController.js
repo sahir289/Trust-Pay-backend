@@ -152,7 +152,7 @@ const tataPayPayouts = async (req, res) => {
   const payload = req.body;
   payload.company_id = company_id;
 
-  let result = await transactionWrapper(tataPayPayoutsService)(
+  await transactionWrapper(tataPayPayoutsService)(
     payload,
     user_id,
     res,
@@ -161,7 +161,7 @@ const tataPayPayouts = async (req, res) => {
   logger.log('Payout updated successfully');
 
   // Send a success response to the client
-  return sendNewSuccess(res, result, 'Payout updated successfully', 201);
+  return sendNewSuccess(res, {}, 'Payout updated successfully');
 };
 
 const getWalletsBalance = async (req, res) => {
@@ -171,7 +171,7 @@ const getWalletsBalance = async (req, res) => {
   logger.log('Wallet Balance fetch successfully');
 
   // Send a success response to the client
-  return sendNewSuccess(res, result, 'Wallet Balance fetch successfully', 200);
+  return sendNewSuccess(res, result, 'Wallet Balance fetch successfully');
 };
 
 const getTataPayBalance = async (req, res) => {
