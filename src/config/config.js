@@ -63,6 +63,11 @@ function config(Env) {
       salt: Env?.ZENTECHIND_SALT,
       collectionId: Env?.ZENTECHIND_COLLECTION_ID,
     },
+    nmplPay: {
+      url: Env?.NMPL_PAY_API_URL,
+      salt: Env?.NMPL_PAY_SALT,
+      collectionId: Env?.NMPL_PAY_COLLECTION_ID,
+    },
     clickrr : {
       baseUrl: Env?.CLICKRR_BASE_API_URL,
       initiatePayout: Env?.CLICKRR_INITIATE_API_URL,
