@@ -56,6 +56,7 @@ const createCompanyService = async (conn, payload) => {
       allowPayAssist: '',
       allow_cashfree: false,
       allow_zentechind: false,
+      allow_nmplpay: false,
       PAY_ASSIST: {
         walletsPayoutsUrl: 'https://payassist.co.in/apiPayout',
         walletsPayoutsAgentCode: '',
