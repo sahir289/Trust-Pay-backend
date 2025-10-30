@@ -881,22 +881,6 @@ const createPayoutService = async (
     delete payload.x_api_key;
     let data = await createPayoutDao(conn, payload);
 
-    const { allow_clickrr, allow_tatapay, allow_payassist } =
-      details[0]?.config || {};
-
-    if (allow_clickrr) {
-      const ids = { id: data.id, company_id: payload.company_id };
-      const clickrrWalletBalance = await getClickrrWalletBalance({
-        company_id: payload.company_id,
-      });
-      console.log(clickrrWalletBalance?.data?.walletBalance, 'clickrr balance');
-
-      const updatedPayload = { config: { method: 'CLICKRR' } };
-      const updatedData = await updatePayoutService(conn, ids, updatedPayload);
-
-      data = updatedData;
-    }
-
     if (balanceRestriction) {
       const { totalNetBalance } = await getCalculationDao({ user_id });
 
@@ -916,6 +900,23 @@ const createPayoutService = async (
         return data;
       }
     }
+
+    const { allow_clickrr, allow_tatapay, allow_payassist } =
+      details[0]?.config || {};
+
+    if (allow_clickrr) {
+      const ids = { id: data.id, company_id: payload.company_id };
+      const clickrrWalletBalance = await getClickrrWalletBalance({
+        company_id: payload.company_id,
+      });
+      console.log(clickrrWalletBalance?.data?.walletBalance, 'clickrr balance');
+
+      const updatedPayload = { config: { method: 'CLICKRR' } };
+      const updatedData = await updatePayoutService(conn, ids, updatedPayload);
+
+      data = updatedData;
+    }
+
     if (!code) {
       const data = {
         status: 404,
