@@ -27,7 +27,7 @@ import {
   getMerchantByUserIdDao,
   getMerchantsByCodeDao,
 } from '../merchants/merchantDao.js';
-import { getVendorsDao } from '../vendors/vendorDao.js';
+import { getVendorsDao, getVendorIdsByUserIds } from '../vendors/vendorDao.js';
 import {
   getCalculationDao,
   getCalculationforCronDao,
@@ -1057,16 +1057,8 @@ const getPayoutsBySearchService = async (
     };
 
     const fetchVendorIds = async (user_ids) => {
-      const vendors = await getVendorsDao(
-        { user_id: user_ids },
-        1,
-        10,
-        'created_at',
-        'DESC',
-        role,
-        true,
-      );
-      return vendors.map((vendor) => vendor.id);
+      const vendors = await getVendorIdsByUserIds( user_ids)
+      return vendors;
     };
 
     let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
@@ -1131,7 +1123,21 @@ const getPayoutsBySearchService = async (
         }
       }
     }
-
+    if (filters.vendor_code) {
+      const vendorDetails = await getVendorsDao({
+        code: filters.vendor_code.trim(),
+      });
+      if (vendorDetails.length === 0) {
+        return;
+      }
+      const parentHierarchys = await getUserHierarchysDao({
+        user_id: vendorDetails[0].user_id,
+      });
+      const subVendors = parentHierarchys[0]?.config?.siblings?.sub_vendors ?? [];
+      const userIdFilter = [...new Set([vendorDetails[0].user_id, ...subVendors])];
+      filters.vendor_id = await fetchVendorIds(userIdFilter);
+      delete filters.vendor_code;
+    }
     const pageNum = parseInt(filters.page);
     const limitNum = parseInt(filters.limit);
     if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
