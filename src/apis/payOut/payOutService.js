@@ -704,11 +704,13 @@ const createPayoutService = async (
         company_id: payload.company_id,
       });
       console.log(clickrrWalletBalance?.data?.walletBalance, 'clickrr balance');
-
-      const updatedPayload = { config: { method: 'CLICKRR' } };
-      const updatedData = await updatePayoutService(conn, ids, updatedPayload);
-
-      data = updatedData;
+      let updatedData;
+      if (Number(payoutAmount) < Number(50000)) {
+        // specific to clickrr max payout limit
+        const updatedPayload = { config: { method: 'CLICKRR' } };
+        updatedData = await updatePayoutService(conn, ids, updatedPayload);
+        data = updatedData;
+      }
     }
 
     if (!code) {
