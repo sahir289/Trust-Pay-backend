@@ -190,6 +190,7 @@ const getVendorsCodeService = async (
   includeOnlyVendors,
   excludeDisabledVendor,
   includeSeperateSubVendors,
+  includeVendorAdmin,
 ) => {
   let conn;
   try {
@@ -242,6 +243,7 @@ const getVendorsCodeService = async (
       includeOnlyVendors,
       excludeDisabledVendor,
       includeSeperateSubVendors,
+      includeVendorAdmin,
     );
     await commit(conn);
     return codes;

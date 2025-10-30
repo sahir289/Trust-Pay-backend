@@ -114,6 +114,7 @@ export const getVendorsCodeDao = async (
   includeOnlyVendors = false,
   excludeDisabledVendor = false,
   includeSeperateSubVendors = false,
+  includeVendorAdmin = false,
 ) => {
   try {
     // Convert string to boolean
@@ -122,6 +123,9 @@ export const getVendorsCodeDao = async (
     }
     if (includeOnlyVendors) {
       includeOnlyVendors = includeOnlyVendors.toLowerCase() === 'true';
+    }
+    if (includeVendorAdmin) { 
+      includeVendorAdmin = includeVendorAdmin.toLowerCase() === 'true';
     }
     if (includeSeperateSubVendors) {
       includeSeperateSubVendors =
@@ -183,6 +187,28 @@ export const getVendorsCodeDao = async (
           WHERE d.designation = 'VENDOR'
         )
       `;
+    }
+    if (includeVendorAdmin) {
+      sql += `
+      AND v.user_id IN (
+          SELECT u.id 
+          FROM "${tableName.USER}" u
+          JOIN "${tableName.DESIGNATION}" d 
+            ON u.designation_id = d.id 
+          WHERE d.designation = 'VENDOR_ADMIN'
+        )
+      `;
+    }
+    else {
+      sql += `
+      AND v.user_id IN (
+          SELECT u.id 
+          FROM "${tableName.USER}" u
+          JOIN "${tableName.DESIGNATION}" d 
+            ON u.designation_id = d.id 
+          WHERE d.designation != 'VENDOR_ADMIN'
+        )
+      `; 
     }
 
     if (filters.company_id) {
