@@ -317,6 +317,25 @@ export const getVendorsDao = async (
   }
 };
 
+export const getVendorIdsByUserIds = async (user_ids) => {
+  try {
+    const ids = Array.isArray(user_ids) ? user_ids : [user_ids];
+    if (ids.length === 0) return [];
+
+    const placeholders = ids.map((_, i) => `$${i + 1}`).join(', ');
+    const query = `
+      SELECT id
+      FROM "Vendor"
+      WHERE user_id IN (${placeholders})
+        AND is_obsolete = false
+    `;
+    const result = await executeQuery(query, ids);
+    return result.rows.map(row => row.id);
+  } catch (error) {
+    logger.error('Error in getVendorIdsByUserIds:', error);
+    throw error;
+  }
+};
 export const getAllVendorsDao = async (
   filters,
   page = 1,
