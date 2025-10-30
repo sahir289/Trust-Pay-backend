@@ -150,6 +150,9 @@ export async function closePool() {
 
 const beginTransaction = async (client) => {
   try {
+    if (!client || client.released) {
+      throw new InternalServerError('Invalid or released PostgreSQL client');
+    }
     await client.query('BEGIN');
     logger.info('Transaction started');
   } catch (error) {
