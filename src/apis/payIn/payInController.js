@@ -208,13 +208,8 @@ export const generatePayInUrl = async (req, res) => {
     //     timestamp: new Date().toISOString(),
     //   },
     // });
-    return sendError(
-      res,
-      'Bank Account has not been linked with Merchant',
-      404,
-    );
+    return sendError(res, 'No Payment Methods Enabled!', 404);
   }
-
   // Create a deterministic hash
   const generatedHash = createHash(`${code}`);
   // Decode the provided hash before comparison
@@ -249,7 +244,19 @@ export const generatePayInUrl = async (req, res) => {
     const roleData = await getRolesById(roleToken);
     role = roleData.role;
   }
-
+  function determineType(bankAssigned) {
+    const allObjects = bankAssigned.flat();
+    const hasQr = allObjects.some((obj) => obj.is_qr === true);
+    if (hasQr) {
+      return 'upi';
+    }
+    const hasBank = allObjects.some((obj) => obj.is_bank === true);
+    if (hasBank) {
+      return 'bank_transfer';
+    }
+    return 'upi';
+  }
+  const type = determineType(bankAssigned);
   const result = await transactionWrapper(generatePayInUrlService)(
     {
       ...payload,
@@ -259,6 +266,7 @@ export const generatePayInUrl = async (req, res) => {
     role,
     userIp,
     fromUI,
+    type,
   );
 
   // create some kind of hash to secure the next public API flow
@@ -266,24 +274,34 @@ export const generatePayInUrl = async (req, res) => {
     payload.isTest && (payload.isTest === 'true' || payload.isTest === true)
       ? `?t=true&order=${result?.merchant_order_id}`
       : `?order=${result?.merchant_order_id}`;
-
-  const updateRes = {
-    expirationDate: result?.expiration_date,
-    payInUrl: `${config.reactPaymentOrigin}/transaction/${generatedHash}${queryStr}`, // Use env
-    payinId: result?.id,
-    merchantOrderId: result?.merchant_order_id,
-    status: result?.status,
-    isAdmin: role === Role.ADMIN ? true : false,
-  };
+  let updateRes;
+  let message;
+  if (merchantArr[0].config.is_h2h) {
+    updateRes = {
+      payinId: result?.id,
+      merchantOrderId: result?.merchant_order_id,
+      status: result?.status,
+      bank: result?.bank,
+      type: result?.type, 
+      amount : result?.amount
+    };
+    message = 'PayIn is generated successfully';
+  } else {
+    updateRes = {
+      expirationDate: result?.expiration_date,
+      payInUrl: `${config.reactPaymentOrigin}/transaction/${generatedHash}${queryStr}`, // Use env
+      payinId: result?.id,
+      merchantOrderId: result?.merchant_order_id,
+      status: result?.status,
+      isAdmin: role === Role.ADMIN ? true : false,
+    };
+    message = 'PayIn is generated & url is sent successfully';
+  }
 
   if (result.status === 400 || result.status === 404) {
     return sendError(res, result.message, result.status);
   } else {
-    return sendNewSuccess(
-      res,
-      updateRes,
-      'PayIn is generated & url is sent successfully',
-    );
+    return sendNewSuccess(res, updateRes, message);
   }
 };
 
@@ -331,7 +349,6 @@ export const assignedBankToPayInUrl = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   const { roleToken, amount, type } = req.body;
-
   const result = await assignedBankToPayInUrlService(
     req.params.merchantOrderId,
     amount,
@@ -377,7 +394,7 @@ export const checkPayInStatus = async (req, res) => {
 export const payInIntentGenerateOrder = async (req, res) => {
   const { merchantOrderId } = req.params;
   // const { company_id } = req.user;
-  const { amount, isRazorpay, cashfree, zentechind } = req.body;
+  const { amount, isRazorpay, cashfree, zentechind, nmplPay } = req.body;
   const payload = { merchantOrderId, amount, isRazorpay, cashfree, zentechind };
   const joiValidation = VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate(payload);
   if (joiValidation.error) {
@@ -388,6 +405,7 @@ export const payInIntentGenerateOrder = async (req, res) => {
   if (isRazorpay) provider.push('Razorpay');
   if (cashfree) provider.push('Cashfree');
   if (zentechind) provider.push('ZenTechInd');
+  if (nmplPay) provider.push('NMPLPay');
 
   const data = await payInIntentGenerateOrderService(
     merchantOrderId,
@@ -528,6 +546,27 @@ export const processPayIn = async (req, res) => {
   );
   // sendNewSuccess(res, data, 'PayIn processed successfully');
   sendSuccess(res, data, 'PayIn processed successfully');
+};
+export const processPayInH2H = async (req, res) => {
+  const payload = {
+    ...req.body,
+    ...req.params,
+  };
+  const joiValidation = VALIDATE_PROCESS_PAYIN.validate(payload);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  //added check for manually utr for uplaoded screenshot
+  const data = await transactionWrapper(processPayInService)(
+    payload,
+    payload.code,
+    true,
+    true,
+    null,
+    true
+  );
+  sendNewSuccess(res, data, 'PayIn processed successfully');
+  // sendSuccess(res, data, 'PayIn processed successfully');
 };
 export const processPayInIMGUTR = async (req, res) => {
   const payload = {

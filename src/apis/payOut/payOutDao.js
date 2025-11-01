@@ -370,17 +370,19 @@ export const getAllPayoutsDao = async (
       queryParams.push(limit, (page - 1) * limit);
       paramIndex += 2;
     }
-    if (filters?.userId) {
+    if (filters?.userId  && !filters.vendor_id) {
       const userIdsArray = typeof filters.userId === 'string' ? JSON.parse(filters.userId) : filters.userId;
       conditions.push(`u.vendor_id = ANY($${paramIndex})`);
       queryParams.push(userIdsArray);
       paramIndex += 1;
+      delete filters.userId;
     }
     if (filters?.status) {
       const statusArray = typeof filters.status === 'string' ? JSON.parse(filters.status) : filters.status;
       conditions.push(`u.status = ANY($${paramIndex})`);
       queryParams.push(statusArray);
       paramIndex += 1;
+      delete filters.status;
     }
 
     const handledKeys = new Set(['page', 'limit', 'startDate', 'endDate', 'userId', 'status']);
@@ -407,7 +409,6 @@ export const getAllPayoutsDao = async (
         paramIndex += valueArray.length;
       }
     });
-
     let commissionSelect = '';
     if (role === 'MERCHANT') {
       commissionSelect = `
@@ -469,6 +470,8 @@ export const getAllPayoutsDao = async (
           u.rejected_reason,
           ${commissionSelect}, 
           b.nick_name,
+          COALESCE((u.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+          COALESCE((u.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
           json_build_object(
             'account_holder_name', u.acc_holder_name,
             'account_no', u.acc_no,
@@ -505,6 +508,18 @@ export const getAllPayoutsDao = async (
     return result.rows;
   } catch (error) {
     logger.error('Error in getPayoutsDao:', error);
+    throw error;
+  }
+};
+
+export const getCompanyIdByMerchantOrderIdDao = async (id) => {
+  try {
+    const sql = `SELECT id, merchant_order_id, company_id FROM "${tableName.PAYOUT}" WHERE merchant_order_id = $1 AND is_obsolete = false`;
+    const queryParams = [id];
+    const result = await executeQuery(sql, queryParams);
+    return result.rows.length > 0 ? result.rows[0] : result.rows;
+  } catch (error) {
+    logger.error('Error fetching company:', error);
     throw error;
   }
 };
@@ -614,6 +629,8 @@ export const getPayoutsBySearchDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payout_vendor_commission, 
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code,
         p.config->>'method' AS payout_method,
         b.nick_name
@@ -623,6 +640,8 @@ export const getPayoutsBySearchDao = async (
         p.merchant_id, 
         p.payout_merchant_commission, 
         p.payout_vendor_commission, 
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         p.merchant_order_id,
         p.bank_acc_id,
         p.approved_at, 
@@ -660,6 +679,8 @@ export const getPayoutsBySearchDao = async (
         p.utr_id, 
         p.rejected_reason,
         ${commissionSelect},
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         json_build_object(
           'account_holder_name', p.acc_holder_name,
           'account_no', p.acc_no,

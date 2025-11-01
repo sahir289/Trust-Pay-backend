@@ -324,7 +324,17 @@ const getBankAccountsBySearchDao = async (
       queryParams.push(filters.merchant_id);
       paramIndex++;
     }
-
+    if (filters.active === 'true') {
+      conditions.push(
+        `ba.is_obsolete = false AND (ba.config->>'is_freeze' IS NULL OR (ba.config->>'is_freeze')::boolean = false)`,
+      );
+      delete filters.active;
+    } else {
+      conditions.push(
+        `((ba.config->>'is_freeze')::boolean = true OR ba.is_obsolete = true)`,
+      );
+      delete filters.active;
+    }
     // Other filters
     if (filters && Object.keys(filters).length > 0) {
       Object.keys(filters).forEach((key) => {

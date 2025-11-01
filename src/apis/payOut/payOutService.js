@@ -27,7 +27,7 @@ import {
   getMerchantByUserIdDao,
   getMerchantsByCodeDao,
 } from '../merchants/merchantDao.js';
-import { getVendorsDao } from '../vendors/vendorDao.js';
+import { getVendorsDao, getVendorIdsByUserIds } from '../vendors/vendorDao.js';
 import {
   getCalculationDao,
   getCalculationforCronDao,
@@ -64,36 +64,218 @@ import { stringifyJSON } from '../../utils/index.js';
 import axios from 'axios';
 import { getCompanyByIDDao } from '../company/companyDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
+import {
+  createClickrrPayout,
+  getClickrrWalletBalance,
+  initiateClickrrPayout,
+} from '../../clickrr/clickrr.js';
+import { retryAxiosRequest } from '../../utils/axios.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
-// Helper function for retry logic with exponential backoff
-const retryAxiosRequest = async (requestFn, maxRetries = 3, baseDelay = 1000) => {
-  let lastError;
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await requestFn();
-    } catch (error) {
-      lastError = error;
-      
-      // Don't retry on 4xx errors (client errors) - only retry on network/server errors
-      if (error.response && error.response.status >= 400 && error.response.status < 500) {
-        throw error;
-      }
-      
-      if (attempt === maxRetries) {
-        break;
-      }
-      
-      // Log retry attempt
-      // console.warn(`Request failed (attempt ${attempt}/${maxRetries}), retrying in ${baseDelay * Math.pow(2, attempt - 1)}ms:`, error.message);
-      
-      // Exponential backoff: wait baseDelay * 2^(attempt-1) milliseconds
-      await new Promise(resolve => setTimeout(resolve, baseDelay * Math.pow(2, attempt - 1)));
+// Helper function to check if vendor is sub-vendor and get parent info
+// const getSubVendorParentInfo = async (vendor) => {
+//   try {
+//     logger.info(
+//       `Checking sub-vendor status for vendor: userId=${vendor.user_id}, designation=${vendor.designation}, designation_name=${vendor.designation_name}, config=${JSON.stringify(vendor.config)}`,
+//     );
+
+//     // Check if vendor designation is SUB_VENDOR (handle both designation and designation_name properties)
+//     const vendorDesignation = vendor.designation || vendor.designation_name;
+//     if (vendorDesignation !== Role.SUB_VENDOR) {
+//       logger.info(
+//         `Vendor is not SUB_VENDOR, designation: ${vendorDesignation}`,
+//       );
+//       return null;
+//     }
+
+//     // Check is_owned config
+//     const isOwned = vendor.config?.is_owned;
+//     if (isOwned === true || isOwned === 'true') {
+//       logger.info(
+//         `Vendor is owned (is_owned=${isOwned}), skipping parent calculation`,
+//       );
+//       return null;
+//     }
+
+//     logger.info(
+//       `Sub-vendor detected with is_owned=${isOwned}, fetching user hierarchy`,
+//     );
+
+//     // Get user hierarchy to find parent
+//     const userHierarchys = await getUserHierarchysDao({
+//       user_id: vendor.user_id,
+//     });
+
+//     logger.info(`User hierarchy result: ${JSON.stringify(userHierarchys)}`);
+
+//     const userHierarchy = userHierarchys?.[0];
+//     const parentId = userHierarchy?.config?.parent;
+
+//     if (!parentId) {
+//       logger.warn(`Sub-vendor ${vendor.user_id} has no parent in hierarchy`);
+//       return null;
+//     }
+
+//     logger.info(`Found parent ID: ${parentId}, fetching parent vendor details`);
+
+//     // Get parent vendor details
+//     const parentVendors = await getVendorsDao({ user_id: parentId });
+//     if (!parentVendors || !parentVendors[0]) {
+//       logger.warn(`Parent vendor not found for user_id: ${parentId}`);
+//       return null;
+//     }
+
+//     logger.info(`Parent vendor found: ${JSON.stringify(parentVendors[0])}`);
+
+//     return {
+//       parentVendor: parentVendors[0],
+//       parentUserId: parentId,
+//     };
+//   } catch (error) {
+//     logger.error('Error in getSubVendorParentInfo:', error);
+//     return null;
+//   }
+// };
+
+// Helper function to calculate commission for parent vendor
+// const updateParentVendorCalculation = async (
+//   parentUserId,
+//   amount,
+//   vendorCommissionRate,
+//   isApproved,
+//   conn,
+// ) => {
+//   try {
+//     logger.info(
+//       `updateParentVendorCalculation called with: parentUserId=${parentUserId}, amount=${amount}, rate=${vendorCommissionRate}, isApproved=${isApproved}`,
+//     );
+
+//     const parentCommission = calculateCommission(amount, vendorCommissionRate);
+
+//     logger.info(`Calculated parent commission: ${parentCommission}`);
+
+//     await updateCalculationTable(
+//       parentUserId,
+//       {
+//         payoutCommission: parentCommission,
+//         amount: 0, // Parent vendor amount is always 0, only commission is tracked
+//       },
+//       isApproved,
+//       conn,
+//     );
+
+//     logger.info(
+//       `Parent vendor calculation table updated successfully for userId: ${parentUserId}`,
+//     );
+
+//     return parentCommission;
+//   } catch (error) {
+//     logger.error('Error in updateParentVendorCalculation:', error);
+//     throw error;
+//   }
+// };
+
+// Helper function to check if vendor is sub-vendor and get parent info
+const getSubVendorParentInfo = async (vendor) => {
+  try {
+    logger.info(
+      `Checking sub-vendor status for vendor: userId=${vendor.user_id}, designation=${vendor.designation}, designation_name=${vendor.designation_name}, config=${JSON.stringify(vendor.config)}`,
+    );
+
+    // Check if vendor designation is SUB_VENDOR (handle both designation and designation_name properties)
+    const vendorDesignation = vendor.designation || vendor.designation_name;
+    if (vendorDesignation !== Role.SUB_VENDOR) {
+      logger.info(
+        `Vendor is not SUB_VENDOR, designation: ${vendorDesignation}`,
+      );
+      return null;
     }
+
+    // Check is_owned config
+    const isOwned = vendor.config?.is_owned;
+    if (isOwned === true || isOwned === 'true') {
+      logger.info(
+        `Vendor is owned (is_owned=${isOwned}), skipping parent calculation`,
+      );
+      return null;
+    }
+
+    logger.info(
+      `Sub-vendor detected with is_owned=${isOwned}, fetching user hierarchy`,
+    );
+
+    // Get user hierarchy to find parent
+    const userHierarchys = await getUserHierarchysDao({
+      user_id: vendor.user_id,
+    });
+
+    logger.info(`User hierarchy result: ${JSON.stringify(userHierarchys)}`);
+
+    const userHierarchy = userHierarchys?.[0];
+    const parentId = userHierarchy?.config?.parent;
+
+    if (!parentId) {
+      logger.warn(`Sub-vendor ${vendor.user_id} has no parent in hierarchy`);
+      return null;
+    }
+
+    logger.info(`Found parent ID: ${parentId}, fetching parent vendor details`);
+
+    // Get parent vendor details
+    const parentVendors = await getVendorsDao({ user_id: parentId });
+    if (!parentVendors || !parentVendors[0]) {
+      logger.warn(`Parent vendor not found for user_id: ${parentId}`);
+      return null;
+    }
+
+    logger.info(`Parent vendor found: ${JSON.stringify(parentVendors[0])}`);
+
+    return {
+      parentVendor: parentVendors[0],
+      parentUserId: parentId,
+    };
+  } catch (error) {
+    logger.error('Error in getSubVendorParentInfo:', error);
+    return null;
   }
-  
-  throw lastError;
+};
+
+// Helper function to calculate commission for parent vendor
+const updateParentVendorCalculation = async (
+  parentUserId,
+  amount,
+  vendorCommissionRate,
+  isApproved,
+  conn,
+) => {
+  try {
+    logger.info(
+      `updateParentVendorCalculation called with: parentUserId=${parentUserId}, amount=${amount}, rate=${vendorCommissionRate}, isApproved=${isApproved}`,
+    );
+
+    const parentCommission = calculateCommission(amount, vendorCommissionRate);
+
+    logger.info(`Calculated parent commission: ${parentCommission}`);
+
+    await updateCalculationTable(
+      parentUserId,
+      {
+        payoutCommission: parentCommission,
+        amount: 0, // Parent vendor amount is always 0, only commission is tracked
+      },
+      isApproved,
+      conn,
+    );
+
+    logger.info(
+      `Parent vendor calculation table updated successfully for userId: ${parentUserId}`,
+    );
+
+    return parentCommission;
+  } catch (error) {
+    logger.error('Error in updateParentVendorCalculation:', error);
+    throw error;
+  }
 };
 
 const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
@@ -153,20 +335,24 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
 
           logger.info(`Processing payout for ID ${info.id}:`, apiPayload);
 
-          const response = await retryAxiosRequest(async () => {
-            return await axios.post(
-              `${apiConfig.baseUrl}/payout`,
-              apiPayload,
-              { 
-                headers: apiConfig.headers,
-                timeout: 30000, // 30 second timeout
-                maxRedirects: 5,
-                validateStatus: function (status) {
-                  return status < 500;
-                }
-              },
-            );
-          }, 3, 1000);
+          const response = await retryAxiosRequest(
+            async () => {
+              return await axios.post(
+                `${apiConfig.baseUrl}/payout`,
+                apiPayload,
+                {
+                  headers: apiConfig.headers,
+                  timeout: 30000, // 30 second timeout
+                  maxRedirects: 5,
+                  validateStatus: function (status) {
+                    return status < 500;
+                  },
+                },
+              );
+            },
+            3,
+            1000,
+          );
 
           logger.info(`Payout response for ID ${info.id}:`, response.data);
           let apiResponse = null;
@@ -227,24 +413,49 @@ const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
 
           if (errorCode) {
             // Transaction Under Process - check status
-            statusResponse = await retryAxiosRequest(async () => {
-              return await axios.post(
-                `${apiConfig.baseUrl}/payoutStatus`,
-                { apitxnid: info.id }, // Include transaction ID in payload
-                { 
-                  headers: apiConfig.headers,
-                  timeout: 15000, // 15 second timeout
-                  maxRedirects: 3,
-                  validateStatus: function (status) {
-                    return status < 500;
-                  }
+            try {
+              statusResponse = await retryAxiosRequest(
+                async () => {
+                  return await axios.post(
+                    `${apiConfig.baseUrl}/payoutStatus`,
+                    { apitxnid: info.id },
+                    {
+                      headers: apiConfig.headers,
+                      timeout: 15000,
+                      maxRedirects: 3,
+                      validateStatus: (status) => status < 500,
+                    },
+                  );
+                },
+                2, // maxRetries
+                500, // baseDelay
+              );
+
+              logger.info(
+                `PayAssist payoutStatus response for apitxnid ${info.id}:`,
+                statusResponse.data,
+              );
+            } catch (error) {
+              logger.error(
+                `Error checking payout status for apitxnid ${info.id}:`,
+                {
+                  message: error.message,
+                  code: error.code,
+                  isAxiosError: error.isAxiosError,
+                  url: error.config?.url,
+                  data: error.config?.data,
+                  status: error.response?.status,
                 },
               );
-            }, 2, 500);
-            logger.info(
-              `PayAssist payoutStatus response for apitxnid ${info.id}:`,
-              statusResponse.data,
-            );
+
+              // Optionally handle gracefully instead of crashing
+              statusResponse = {
+                data: {
+                  status: 'ERROR',
+                  message: 'External API timeout or failure',
+                },
+              };
+            }
 
             if (statusResponse.data.ErrorCode === '0') {
               if (
@@ -369,20 +580,26 @@ const tataPayPayoutsService = async (conn, payload, updatedBy, res) => {
 
           logger.info(`Processing payout for ID ${info.id}:`, apiPayload);
 
-          const response = await retryAxiosRequest(async () => {
-            return await axios.post(
-              `${apiConfig.baseUrl}/Create_payout_app`,
-              apiPayload,
-              { 
-                headers: apiConfig.headers,
-                timeout: 30000, // 30 second timeout
-                maxRedirects: 5,
-                validateStatus: function (status) {
-                  return status < 500; // Resolve only if the status code is less than 500
-                }
-              },
-            );
-          }, 3, 1000); // 3 retries with 1 second base delay
+          const response = await retryAxiosRequest(
+            async () => {
+              const aaa = await axios.post(
+                `${apiConfig.baseUrl}/Create_payout_app`,
+                apiPayload,
+                {
+                  headers: apiConfig.headers,
+                  timeout: 30000, // 30 second timeout
+                  maxRedirects: 5,
+                  validateStatus: function (status) {
+                    return status < 500; // Resolve only if the status code is less than 500
+                  },
+                },
+              );
+
+              return aaa;
+            },
+            3,
+            1000,
+          ); // 3 retries with 1 second base delay
 
           logger.info(`Payout response for ID ${info.id}:`, response.data);
           let apiResponse = null;
@@ -390,21 +607,30 @@ const tataPayPayoutsService = async (conn, payload, updatedBy, res) => {
           let statusResponse = null;
 
           // Transaction Under Process - check status
-          const queryParams = { searchKey: response.data.payoutId, page: 1, limit: 10 }; // Include transaction ID in payload
-          statusResponse = await retryAxiosRequest(async () => {
-            return await axios.get(
-              `${apiConfig.baseUrl}/Search_payout`,
-              { 
-                headers: apiConfig.headers, 
-                params: queryParams,
-                timeout: 15000, // 15 second timeout for status check
-                maxRedirects: 3,
-                validateStatus: function (status) {
-                  return status < 500;
-                }
-              },
-            );
-          }, 2, 500); // 2 retries with 500ms base delay for status checks
+          const queryParams = {
+            searchKey: response.data.payoutId,
+            page: 1,
+            limit: 10,
+          }; // Include transaction ID in payload
+          statusResponse = await retryAxiosRequest(
+            async () => {
+              const ddd = await axios.get(
+                `${apiConfig.baseUrl}/Search_payout`,
+                {
+                  headers: apiConfig.headers,
+                  params: queryParams,
+                  timeout: 15000, // 15 second timeout for status check
+                  maxRedirects: 3,
+                  validateStatus: function (status) {
+                    return status < 500;
+                  },
+                },
+              );
+              return ddd;
+            },
+            2,
+            500,
+          ); // 2 retries with 500ms base delay for status checks
           logger.info(
             `TataPay payoutStatus response for apitxnid ${info.id}:`,
             statusResponse.data,
@@ -448,8 +674,7 @@ const tataPayPayoutsService = async (conn, payload, updatedBy, res) => {
               });
             } else {
               updatePayload.config.rejected_reason =
-                responseData.remark ||
-                'Server Unreachable';
+                responseData.remark || 'Server Unreachable';
               updatePayload.rejected_at = new Date().toISOString();
             }
 
@@ -460,9 +685,16 @@ const tataPayPayoutsService = async (conn, payload, updatedBy, res) => {
             );
           };
 
-          if (statusResponse.data.payouts[0].status === 'processing' || statusResponse.data.payouts[0].status === Status.PENDING) {
-            await handlePayoutUpdate(statusResponse.data.payouts[0], false, true);
-          } 
+          if (
+            statusResponse.data.payouts[0].status === 'processing' ||
+            statusResponse.data.payouts[0].status === Status.PENDING
+          ) {
+            await handlePayoutUpdate(
+              statusResponse.data.payouts[0],
+              false,
+              true,
+            );
+          }
 
           // Return formatted response
           // const finalErrorCode =
@@ -647,9 +879,11 @@ const createPayoutService = async (
     }
 
     delete payload.x_api_key;
-    const data = await createPayoutDao(conn, payload);
+    let data = await createPayoutDao(conn, payload);
+
     if (balanceRestriction) {
       const { totalNetBalance } = await getCalculationDao({ user_id });
+
       if (totalNetBalance < payoutAmount) {
         const data = {
           status: 400,
@@ -666,6 +900,25 @@ const createPayoutService = async (
         return data;
       }
     }
+
+    const { allow_clickrr, allow_tatapay, allow_payassist } =
+      details[0]?.config || {};
+
+    if (allow_clickrr) {
+      const ids = { id: data.id, company_id: payload.company_id };
+      const clickrrWalletBalance = await getClickrrWalletBalance({
+        company_id: payload.company_id,
+      });
+      console.log(clickrrWalletBalance?.data?.walletBalance, 'clickrr balance');
+      let updatedData;
+      if (Number(payoutAmount) < Number(50000)) {
+        // specific to clickrr max payout limit
+        const updatedPayload = { config: { method: 'CLICKRR' } };
+        updatedData = await updatePayoutService(conn, ids, updatedPayload);
+        data = updatedData;
+      }
+    }
+
     if (!code) {
       const data = {
         status: 404,
@@ -678,7 +931,7 @@ const createPayoutService = async (
     await newTableEntry(tableName.PAYOUT);
     return data;
   } catch (error) {
-    logger.error(error);
+    logger.error('Error in createPayoutService', error.message);
     throw error;
   }
 };
@@ -699,7 +952,6 @@ const getPayoutsService = async (
       const merchants = await getMerchantByUserIdDao(user_ids);
       return merchants.map((merchant) => merchant.id);
     };
-
     const fetchVendorIds = async (user_ids) => {
       const vendors = await getVendorsDao({ user_id: user_ids });
       return vendors.map((vendor) => vendor.id);
@@ -740,11 +992,14 @@ const getPayoutsService = async (
       if (designation === Role.VENDOR) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
         const userHierarchy = userHierarchys?.[0];
-
         const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
         if (Array.isArray(subVendors) && subVendors.length > 0) {
           const vendorUserIds = [user_id, ...subVendors];
-          filters.vendor_id = await fetchVendorIds(vendorUserIds);
+          filters.vendor_id = [];
+          for (const vendorUserId of vendorUserIds) {
+            const vendorId = await fetchVendorIds([vendorUserId]);
+            filters.vendor_id.push(...vendorId);
+          }
         } else {
           filters.vendor_id = await fetchVendorIds([user_id]);
         }
@@ -805,8 +1060,8 @@ const getPayoutsBySearchService = async (
     };
 
     const fetchVendorIds = async (user_ids) => {
-      const vendors = await getVendorsDao({ user_id: user_ids }, 1, 10, 'created_at', 'DESC', role, true);
-      return vendors.map((vendor) => vendor.id);
+      const vendors = await getVendorIdsByUserIds( user_ids)
+      return vendors;
     };
 
     let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
@@ -871,7 +1126,21 @@ const getPayoutsBySearchService = async (
         }
       }
     }
-
+    if (filters.vendor_code) {
+      const vendorDetails = await getVendorsDao({
+        code: filters.vendor_code.trim(),
+      });
+      if (vendorDetails.length === 0) {
+        return;
+      }
+      const parentHierarchys = await getUserHierarchysDao({
+        user_id: vendorDetails[0].user_id,
+      });
+      const subVendors = parentHierarchys[0]?.config?.siblings?.sub_vendors ?? [];
+      const userIdFilter = [...new Set([vendorDetails[0].user_id, ...subVendors])];
+      filters.vendor_id = await fetchVendorIds(userIdFilter);
+      delete filters.vendor_code;
+    }
     const pageNum = parseInt(filters.page);
     const limitNum = parseInt(filters.limit);
     if (isNaN(pageNum) || isNaN(limitNum) || pageNum < 1 || limitNum < 1) {
@@ -888,7 +1157,6 @@ const getPayoutsBySearchService = async (
     // if (searchTerms.length === 0) {
     //   throw new BadRequestError('Please provide valid search terms');
     // }
-
     const offset = (pageNum - 1) * limitNum;
     const data = await getPayoutsBySearchDao(
       filters,
@@ -903,13 +1171,14 @@ const getPayoutsBySearchService = async (
     return data;
   } catch (error) {
     logger.error('Error while fetching Payout by search', error);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
 
 const updatePayoutService = async (conn, ids, payload, role) => {
   try {
-    await checkLockEdit(conn, ids.id);
+    if (!payload?.config?.method === Method.CLICKRR)
+      await checkLockEdit(conn, ids.id);
 
     // Early validation for UTR uniqueness
     if (payload?.utr_id) {
@@ -949,6 +1218,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       null,
       conn,
     );
+
     const singleWithdrawData = singleWithdrawDataArr[0];
     if (!singleWithdrawData) {
       throw new NotFoundError('Payout not found!');
@@ -983,7 +1253,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
     // Fetch related data in parallel
     const bankID = payload.bank_acc_id || singleWithdrawData.bank_acc_id;
-    const [merchantArr, bankDataArr] = await Promise.all([
+    let [merchantArr, bankDataArr] = await Promise.all([
       getMerchantsDao({ id: singleWithdrawData.merchant_id }),
       bankID ? getBankByIdDao({ id: bankID }) : Promise.resolve([]),
     ]);
@@ -995,7 +1265,39 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
     if (payload?.config?.method === Method.EKO) {
       await processEkoPayout(singleWithdrawData, payload);
+    } else if (payload?.config?.method === Method.CLICKRR) {
+      const method = payload.config.method;
+
+      const [company] = await getCompanyByIDDao({ id: ids.company_id });
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.CLICKRR.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId });
+
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      const updatedPayload = await createClickrrPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
     }
+    // else if (payload?.config?.method === Method.TATAPAY) {
+    //   const payload = {
+    //     mode: 'IMPS',
+    //     payOutids: [ids.id],
+    //   }
+    //   await tataPayPayoutsService(conn, payload, payload.updated_by);
+    // } else if (payload?.config?.method === Method.PAYASSIST) {
+    //   // await payAssistPayoutsService(conn, payload, payload.updated_by);
+    //   return {};
+    // }
 
     const data = await updatePayoutDao(ids, payload, conn);
     await newTableEntry(tableName.PAYOUT);
@@ -1062,9 +1364,54 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       throw new BadRequestError(`Payout is already ${payoutDetails[0].status}`);
     }
 
+    // Handle sub-vendor and parent commission logic
+    let totalVendorCommission = vendorCommission;
+    let brokerageCommission = 0;
+    let parentCommission = 0;
+    let payoutConfig = {};
+
+    const subVendorParentInfo = await getSubVendorParentInfo(vendor);
+    logger.info(
+      `Sub-vendor detection result: ${subVendorParentInfo ? 'Found parent info' : 'No parent info'}`,
+    );
+    if (subVendorParentInfo) {
+      logger.info(
+        `Parent vendor details: userId=${subVendorParentInfo.parentUserId}, commission_rate=${subVendorParentInfo.parentVendor.payout_commission}`,
+      );
+      // Calculate parent commission for payout
+      parentCommission = calculateCommission(
+        data.amount,
+        Number(subVendorParentInfo.parentVendor.payout_commission),
+      );
+
+      totalVendorCommission = vendorCommission + parentCommission;
+      brokerageCommission = parentCommission;
+
+      // Preserve existing config and only update commission keys
+      payoutConfig = {
+        ...(payoutDetails[0]?.config || {}), // Preserve existing config
+        actual_vendor_commission: vendorCommission,
+        brokerage_commission: brokerageCommission,
+      };
+
+      logger.info(
+        `Payout sub-vendor commission calculated: sub=${vendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`,
+      );
+    } else {
+      logger.info(
+        `No sub-vendor detected, vendor designation: ${vendor.designation || vendor.designation_name}, is_owned: ${vendor.config?.is_owned}`,
+      );
+      // Preserve existing config and only update commission keys
+      payoutConfig = {
+        ...(payoutDetails[0]?.config || {}), // Preserve existing config
+        actual_vendor_commission: vendorCommission,
+      };
+    }
+
     // Handle status-specific updates
     if (data.status === Status.APPROVED) {
-      await Promise.all([
+      // Prepare calculation updates including parent vendor if needed
+      const calculationUpdates = [
         updateCalculationTable(
           merchant.user_id,
           { payoutCommission: merchantCommission, amount: data.amount },
@@ -1077,6 +1424,23 @@ const updatePayoutService = async (conn, ids, payload, role) => {
           true,
           conn,
         ),
+      ];
+
+      // Add parent vendor calculation if sub-vendor
+      if (subVendorParentInfo) {
+        calculationUpdates.push(
+          updateParentVendorCalculation(
+            subVendorParentInfo.parentUserId,
+            Number(data.amount),
+            Number(subVendorParentInfo.parentVendor.payout_commission),
+            true,
+            conn,
+          ),
+        );
+      }
+
+      await Promise.all([
+        ...calculationUpdates,
         updateBankaccountDao(
           { id: bankData.id },
           {
@@ -1097,12 +1461,14 @@ const updatePayoutService = async (conn, ids, payload, role) => {
             payout_merchant_commission: merchantCommission,
             payout_vendor_commission: vendorCommission,
             vendor_id: vendor.id,
+            config: payoutConfig,
           },
           conn,
         ),
       ]);
     } else if (data.status === Status.REVERSED && data.approved_at !== null) {
-      await Promise.all([
+      // Prepare calculation updates including parent vendor if needed
+      const calculationUpdates = [
         updateCalculationTable(
           merchant.user_id,
           { payoutCommission: merchantCommission, amount: data.amount },
@@ -1115,6 +1481,23 @@ const updatePayoutService = async (conn, ids, payload, role) => {
           false,
           conn,
         ),
+      ];
+
+      // Add parent vendor calculation if sub-vendor
+      if (subVendorParentInfo) {
+        calculationUpdates.push(
+          updateParentVendorCalculation(
+            subVendorParentInfo.parentUserId,
+            Number(data.amount),
+            Number(subVendorParentInfo.parentVendor.payout_commission),
+            false,
+            conn,
+          ),
+        );
+      }
+
+      await Promise.all([
+        ...calculationUpdates,
         updateBankaccountDao(
           { id: bankData.id },
           {
@@ -1145,8 +1528,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
     return data;
   } catch (error) {
-    logger.error('Error in updatePayoutService:', error);
-    throw new InternalServerError(error.message);
+    logger.error('Error in updatePayoutService:', error.message);
+    throw error;
   }
 };
 
@@ -1157,6 +1540,10 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
     logger.warn('No user_id provided to updateCalculationTable');
     return;
   }
+
+  logger.info(
+    `updateCalculationTable called with: user_id=${user_id}, data=${JSON.stringify(data)}, isApproved=${isApproved}`,
+  );
 
   if (
     typeof data.amount === 'undefined' ||
@@ -1174,6 +1561,10 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
   if (!calculationData[0]) {
     throw new NotFoundError('Calculation not found!');
   }
+
+  logger.info(
+    `Found calculation data for user_id ${user_id}: calculationId=${calculationData[0].id}`,
+  );
 
   const calculationId = calculationData[0].id;
   const totalAmountData = Number(data.amount + data.payoutCommission);
@@ -1195,11 +1586,17 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
         net_balance: totalAmountData,
       };
 
+  logger.info(
+    `Updating calculation table with payload: ${JSON.stringify(payload)}`,
+  );
+
   const response = await updateCalculationBalanceDao(
     { id: calculationId },
     payload,
     conn,
   );
+
+  logger.info(`Calculation table updated successfully for user_id: ${user_id}`);
 
   await trackVendorsNetBalance(calculationData[0].user_id, conn, response);
   return response;
@@ -1509,7 +1906,7 @@ const checkPayOutStatusService = async (
     if (!merchant) {
       const data = {
         status: 400,
-        message: 'Merchant Order ID already exists',
+        message: 'Merchant does not exist',
       };
       return data;
     }
@@ -1531,8 +1928,7 @@ const checkPayOutStatusService = async (
       id: payOutId,
       merchant_order_id: merchantOrderId,
     });
-
-    if (!payOut) {
+    if (payOut.length == 0) {
       const data = {
         status: 404,
         message: 'Payout not found',
@@ -1545,7 +1941,7 @@ const checkPayOutStatusService = async (
       const data = {
         status: 404,
         message:
-          'merchant_order_id and payIn ID do not belong to the specified merchant',
+          'merchant_order_id and payOut ID do not belong to the specified merchant',
       };
       return data;
     }
@@ -1567,25 +1963,29 @@ const getWalletsBalanceService = async (company_id) => {
     const [company] = await getCompanyByIDDao({
       id: company_id,
     });
-    const response = await retryAxiosRequest(async () => {
-      return await axios.get(
-        `${company.config.PAY_ASSIST.walletsPayoutsUrl}/checkBalance`,
-        {
-          headers: {
-            APIAGENT: company.config.PAY_ASSIST.walletsPayoutsAgent,
-            APIKEY: company.config.PAY_ASSIST.walletsPayoutsApiKey,
+    const response = await retryAxiosRequest(
+      async () => {
+        return await axios.get(
+          `${company.config.PAY_ASSIST.walletsPayoutsUrl}/checkBalance`,
+          {
+            headers: {
+              APIAGENT: company.config.PAY_ASSIST.walletsPayoutsAgent,
+              APIKEY: company.config.PAY_ASSIST.walletsPayoutsApiKey,
+            },
+            timeout: 15000, // 15 second timeout
+            maxRedirects: 3,
+            validateStatus: function (status) {
+              return status < 500;
+            },
           },
-          timeout: 15000, // 15 second timeout
-          maxRedirects: 3,
-          validateStatus: function (status) {
-            return status < 500;
-          }
-        },
-      );
-    }, 2, 500);
+        );
+      },
+      2,
+      500,
+    );
     return { balance: response.data.Response.Balance };
   } catch (error) {
-    logger.error(error);
+    logger.error(error.message);
     throw error;
   }
 };
@@ -1595,21 +1995,25 @@ const getTataPayBalanceService = async (company_id) => {
     const [company] = await getCompanyByIDDao({
       id: company_id,
     });
-    const response = await retryAxiosRequest(async () => {
-      return await axios.get(
-        `${company.config.TATA_PAY.walletsPayoutsUrl}/me`,
-        {
-          headers: {
-            'x-api-key': company.config.TATA_PAY.walletsPayoutsApiKey,
+    const response = await retryAxiosRequest(
+      async () => {
+        return await axios.get(
+          `${company.config.TATA_PAY.walletsPayoutsUrl}/me`,
+          {
+            headers: {
+              'x-api-key': company.config.TATA_PAY.walletsPayoutsApiKey,
+            },
+            timeout: 15000, // 15 second timeout
+            maxRedirects: 3,
+            validateStatus: function (status) {
+              return status < 500;
+            },
           },
-          timeout: 15000, // 15 second timeout
-          maxRedirects: 3,
-          validateStatus: function (status) {
-            return status < 500;
-          }
-        },
-      );
-    }, 2, 500);
+        );
+      },
+      2,
+      500,
+    );
     return { balance: response.data.user.credit };
   } catch (error) {
     logger.error(error);

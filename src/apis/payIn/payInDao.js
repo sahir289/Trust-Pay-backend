@@ -101,6 +101,7 @@ export const getPayInsBankResDao = async (filters = {}) => {
       user_submitted_utr,
       upi_short_code,
       amount,
+      config,
       status,
       bank_acc_id,
       created_at,
@@ -1211,6 +1212,8 @@ export const getPayinsWithoutHistoryDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payin_vendor_commission,
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code`;
     } else if (role === 'ADMIN' && designation === 'ADMIN') {
       commissionSelect = `
@@ -1224,6 +1227,8 @@ export const getPayinsWithoutHistoryDao = async (
         p.merchant_order_id,
         p.config AS payin_details,
         p.payin_vendor_commission,
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code,
         v.user_id AS vendor_user_id,
         p.upi_short_code,
@@ -1342,9 +1347,14 @@ export const getPayinsWithoutHistoryDao = async (
       delete filters.status;
     }
     if (filters.user_submitted_utr && filters.user_submitted_utr.trim()) {
-      conditions.push(
-        `(p.user_submitted_utr = $${paramIndex} OR br.utr = $${paramIndex})`,
-      );
+      conditions.push(`
+        (
+          p.user_submitted_utr = $${paramIndex}
+          OR p.bank_response_id IN (
+            SELECT id FROM public."BankResponse" WHERE utr = $${paramIndex}
+          )
+        )
+      `);
       queryParams.push(filters.user_submitted_utr.trim());
       paramIndex++;
       delete filters.user_submitted_utr;
@@ -1529,6 +1539,8 @@ export const getPayinsWithHistoryDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payin_vendor_commission,
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code`;
     } else if (role === 'ADMIN' && designation === 'ADMIN') {
       commissionSelect = `
@@ -1542,6 +1554,8 @@ export const getPayinsWithHistoryDao = async (
         p.merchant_order_id,
         p.config AS payin_details,
         p.payin_vendor_commission,
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code,
         v.user_id AS vendor_user_id,
         p.upi_short_code,
@@ -1686,9 +1700,14 @@ export const getPayinsWithHistoryDao = async (
       delete filters.status;
     }
     if (filters.user_submitted_utr && filters.user_submitted_utr.trim()) {
-      conditions.push(
-        `(p.user_submitted_utr = $${paramIndex} OR br.utr = $${paramIndex})`,
-      );
+      conditions.push(`
+        (
+          p.user_submitted_utr = $${paramIndex}
+          OR p.bank_response_id IN (
+            SELECT id FROM public."BankResponse" WHERE utr = $${paramIndex}
+          )
+        )
+      `);
       queryParams.push(filters.user_submitted_utr.trim());
       paramIndex++;
       delete filters.user_submitted_utr;
@@ -1916,6 +1935,20 @@ export const getPayInForCheckDao = async (filters = {}) => {
   try {
     const [sql, params] = buildSelectQuery(
       `SELECT id FROM "${tableName.PAYIN}" WHERE 1=1`,
+      filters,
+      // , page, limit
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error getting PayIn URLs:', error);
+    throw error;
+  }
+};
+export const getPayInForDuplicate = async (filters = {}) => {
+  try {
+    const [sql, params] = buildSelectQuery(
+      `SELECT id FROM "${tableName.PAYIN}" WHERE status != 'DUPLICATE' AND is_obsolete = false`,
       filters,
       // , page, limit
     );

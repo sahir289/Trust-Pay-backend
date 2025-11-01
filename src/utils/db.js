@@ -150,6 +150,9 @@ export async function closePool() {
 
 const beginTransaction = async (client) => {
   try {
+    if (!client || client.released) {
+      throw new InternalServerError('Invalid or released PostgreSQL client');
+    }
     await client.query('BEGIN');
     logger.info('Transaction started');
   } catch (error) {
@@ -458,51 +461,66 @@ export const transactionWrapper =
   (fn) =>
   async (...args) => {
     let conn;
-      try {
-        conn = await getConnection();
-        await beginTransaction(conn); // Ensure transaction starts properly
+    try {
+      conn = await getConnection();
+      await beginTransaction(conn);
 
-        const data = await fn(conn, ...args); // Ensure fn expects conn as the first argument
+      const data = await fn(conn, ...args);
 
-        await commit(conn); // Commit only if no errors
-        return data;
-      } catch (error) {
-        if (conn) {
-          try {
-            await rollback(conn); // Explicit rollback
+      await commit(conn);
+      return data;
+    } catch (error) {
+      // Only attempt rollback if the connection is still valid
+      if (conn) {
+        try {
+          if (!error.message?.includes('ECONNRESET')) {
+            await rollback(conn);
             logger.error('Transaction rolled back due to error:', error);
-          } catch (rollbackError) {
-            logger.error('Rollback failed:', rollbackError);
+          } else {
+            logger.error('Connection reset detected, skipping rollback');
           }
+        } catch (rollbackError) {
+          logger.error(
+            'Rollback failed (likely due to closed connection):',
+            rollbackError,
+          );
         }
-        
-        // Check if this is a deadlock error and we can retry
-        const isDeadlock = error.message && (
-          error.message.includes('deadlock') ||
+      }
+
+      // Check for retry able deadlock/serialization errors
+      const isDeadlock =
+        error.message &&
+        (error.message.includes('deadlock') ||
           error.message.includes('could not serialize access') ||
           error.message.includes('canceling statement due to lock timeout') ||
           error.message.includes('lock timeout') ||
-          error.code === '40P01' || // deadlock_detected
-          error.code === '40001' || // serialization_failure
-          error.code === '55P03'    // lock_not_available
-        );
+          ['40P01', '40001', '55P03'].includes(error.code));
 
-        if (isDeadlock) {
-          logger.warn(`Deadlock detected. Retrying transaction...`);
-          if (conn) {
-            conn.release();
-            conn = null;
-          }
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-        
-        throw error;
-      } finally {
+      if (isDeadlock) {
+        logger.warn('Deadlock detected. Retrying transaction...');
         if (conn) {
-          logger.info('Releasing connection');
-          conn.release(); // Always release connection
+          try {
+            conn.release();
+          } catch {
+            logger.error('Failed to release connection after deadlock:', error);
+          }
+          conn = null;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Retry the same transaction ONCE if we detected a deadlock
+        return await transactionWrapper(fn)(...args);
+      }
+
+      throw error;
+    } finally {
+      if (conn) {
+        try {
+          conn.release();
+        } catch (releaseErr) {
+          logger.error('Failed to release connection:', releaseErr);
         }
       }
+    }
   };
 
 /**

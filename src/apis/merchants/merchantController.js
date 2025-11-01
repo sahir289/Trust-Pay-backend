@@ -29,6 +29,10 @@ const createMerchant = async (req, res) => {
     ...payload,
     config: {
       ...payload.config,
+      allow_clickrr: false,
+      allow_tatapay: false,
+      allow_payassist: false,
+      is_h2h: payload.config?.is_h2h || false,
       urls: {
         payin_notify: payload.payin_notify,
         payout_notify: payload.payout_notify,

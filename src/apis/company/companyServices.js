@@ -56,6 +56,9 @@ const createCompanyService = async (conn, payload) => {
       allowPayAssist: '',
       allow_cashfree: false,
       allow_zentechind: false,
+      allow_nmplpay: false,
+      allowTataPay: false,
+      allow_clickrr: false,
       PAY_ASSIST: {
         walletsPayoutsUrl: 'https://payassist.co.in/apiPayout',
         walletsPayoutsAgentCode: '',
@@ -63,6 +66,12 @@ const createCompanyService = async (conn, payload) => {
         walletsPayoutsApiKey: '',
         defaultBankId: '',
       },
+      CLICKRR: {
+        api_key: "",
+        api_secret: "",
+        defaultBankId: ""
+      },
+      
     };
 
     const company = await createCompanyDao(conn, {

@@ -91,6 +91,7 @@ const createPayout = async (req, res) => {
     return sendNewSuccess(res, updateRes, 'Payout created successfully', 201);
   }
 };
+
 const getPayoutsById = async (req, res) => {
   const joiValidation = VALIDATE_PAYOUT_BY_ID.validate(req.params);
   if (joiValidation.error) {
@@ -151,7 +152,7 @@ const tataPayPayouts = async (req, res) => {
   const payload = req.body;
   payload.company_id = company_id;
 
-  let result = await transactionWrapper(tataPayPayoutsService)(
+  await transactionWrapper(tataPayPayoutsService)(
     payload,
     user_id,
     res,
@@ -160,7 +161,7 @@ const tataPayPayouts = async (req, res) => {
   logger.log('Payout updated successfully');
 
   // Send a success response to the client
-  return sendNewSuccess(res, result, 'Payout updated successfully', 201);
+  return sendNewSuccess(res, {}, 'Payout updated successfully');
 };
 
 const getWalletsBalance = async (req, res) => {
@@ -170,7 +171,7 @@ const getWalletsBalance = async (req, res) => {
   logger.log('Wallet Balance fetch successfully');
 
   // Send a success response to the client
-  return sendNewSuccess(res, result, 'Wallet Balance fetch successfully', 200);
+  return sendNewSuccess(res, result, 'Wallet Balance fetch successfully');
 };
 
 const getTataPayBalance = async (req, res) => {
@@ -227,6 +228,7 @@ const updatePayout = async (req, res) => {
     'Payout updated successfully',
   );
 };
+
 const assignedPayout = async (req, res) => {
   const { user_id, user_name, company_id } = req.user;
   const { id } = req.params;

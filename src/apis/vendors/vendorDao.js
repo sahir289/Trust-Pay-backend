@@ -5,6 +5,7 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
+import { getUserHierarchyVendor , updateUserHierarchyVendor } from '../userHierarchy/userHierarchyDao.js';
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { logger } from '../../utils/logger.js';
 import { enhanceVendorsWithSubVendors } from '../../utils/enhanceSubVendor.js';
@@ -37,17 +38,50 @@ export const getVendorCodeDao = async (id) => {
 
 export const getVendorsBankReponseDao = async (filters = {}) => {
   try {
-    const selectColumns = `
-      id,
-      user_id,
-      code,
-      balance,
-      payin_commission
+    let sql = `
+      SELECT 
+        v.id,
+        v.user_id,
+        v.code,
+        v.balance,
+        v.payin_commission,
+        v.config,
+        d.designation
+      FROM "${tableName.VENDOR}" v 
+      JOIN "${tableName.USER}" u ON v.user_id = u.id 
+      LEFT JOIN "${tableName.DESIGNATION}" d ON u.designation_id = d.id 
+      WHERE v.is_obsolete = false AND u.is_obsolete = false
     `;
-    const [sql, params] = buildSelectQuery(
-      `SELECT ${selectColumns} FROM "${tableName.VENDOR}" WHERE 1=1`,
-      filters,
-    );
+    
+    const params = [];
+    let paramIndex = 1;
+    
+    // Handle filters manually
+    if (filters.user_id) {
+      if (Array.isArray(filters.user_id)) {
+        sql += ` AND v.user_id = ANY($${paramIndex})`;
+        params.push(filters.user_id);
+      } else {
+        sql += ` AND v.user_id = $${paramIndex}`;
+        params.push(filters.user_id);
+      }
+      paramIndex++;
+    }
+    
+    if (filters.company_id) {
+      sql += ` AND v.company_id = $${paramIndex}`;
+      params.push(filters.company_id);
+      paramIndex++;
+    }
+    
+    if (filters.code) {
+      sql += ` AND v.code = $${paramIndex}`;
+      params.push(filters.code);
+      paramIndex++;
+    }
+    
+    sql += ` ORDER BY v.created_at DESC`;
+    
     const result = await executeQuery(sql, params);
     return result.rows || [];
   } catch (error) {
@@ -55,6 +89,7 @@ export const getVendorsBankReponseDao = async (filters = {}) => {
     throw error;
   }
 };
+
 export const getVendorsDashBoardReportDao = async (filters = {}) => {
   try {
     const selectColumns = `
@@ -282,6 +317,25 @@ export const getVendorsDao = async (
   }
 };
 
+export const getVendorIdsByUserIds = async (user_ids) => {
+  try {
+    const ids = Array.isArray(user_ids) ? user_ids : [user_ids];
+    if (ids.length === 0) return [];
+
+    const placeholders = ids.map((_, i) => `$${i + 1}`).join(', ');
+    const query = `
+      SELECT id
+      FROM "Vendor"
+      WHERE user_id IN (${placeholders})
+        AND is_obsolete = false
+    `;
+    const result = await executeQuery(query, ids);
+    return result.rows.map(row => row.id);
+  } catch (error) {
+    logger.error('Error in getVendorIdsByUserIds:', error);
+    throw error;
+  }
+};
 export const getAllVendorsDao = async (
   filters,
   page = 1,
@@ -423,6 +477,7 @@ export const getVendorsBySearchDao = async (
         `"Vendor".updated_by`,
         `"Vendor".company_id`,
         `"Vendor".config`,
+        `COALESCE("Vendor".config->>'is_owned') AS is_owned`,
         `"user_main".designation_id`,
         `u.user_name AS created_by`,
         `uu.user_name AS updated_by`,
@@ -755,127 +810,210 @@ export const isNetBalanceZeroForTwoHours = async (vendorUserId) => {
   }
 };
 
-/**
- * Link vendor to Vendor if net balance is zero for >2 hours
- */
+const getVendorCode = async (userId) => {
+  try {
+    const sql = `SELECT code FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
+    const { rows } = await executeQuery(sql, [userId]);
+    console.log(rows[0]?.code, 'ddcdf');
+    return rows[0]?.code;
+  } catch (error) {
+    logger.error('Error in getVendorCode:', error);
+    throw error;
+  }
+};
+
+const getVendorConfig = async (userId) => {
+  try {
+    const sql = `SELECT code, config FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
+    const { rows } = await executeQuery(sql, [userId]);
+    return { code: rows[0]?.code, config: rows[0]?.config || {} };
+  } catch (error) {
+    logger.error('Error in getVendorConfig:', error);
+    throw error;
+  }
+};
+
+const updateVendorConfig = async (userId, newConfig, updatedBy) => {
+  try {
+    const sql = `UPDATE "${tableName.VENDOR}"
+               SET config = $1, updated_by = $2
+               WHERE user_id = $3
+               RETURNING *;`;
+    const { rows } = await executeQuery(sql, [newConfig, updatedBy, userId]);
+    return rows[0];
+  } catch (error) {
+    logger.error('Error in updateVendorConfig:', error);
+    throw error;
+  }
+};
+
+// Helper functions for linking/unlinking/transfers vendors
+
+const addSubVendorToParent = (parentConfig, subVendorUserId) => {
+  const subVendors = parentConfig?.siblings?.sub_vendors || [];
+  const newList = Array.isArray(subVendors)
+    ? [...new Set([...subVendors, subVendorUserId])]
+    : [subVendorUserId];
+  return {
+    ...parentConfig,
+    siblings: {
+      ...(parentConfig.siblings || {}),
+      sub_vendors: newList,
+    },
+  };
+};
+
+const setParentInChild = (childConfig, parentUserId) => ({
+  ...childConfig,
+  parent: parentUserId,
+});
+const buildSubCode = (parentCode, childCode) => `${parentCode}(${childCode})`;
+const removeSubVendorFromParent = (parentConfig, subVendorUserId) => {
+  const subVendors = parentConfig?.siblings?.sub_vendors || [];
+  const newList = Array.isArray(subVendors)
+    ? subVendors.filter((id) => id !== subVendorUserId)
+    : [];
+
+  return {
+    ...parentConfig,
+    siblings: {
+      ...(parentConfig.siblings || {}),
+      sub_vendors: newList,
+    },
+  };
+};
+const clearParentInChild = (childConfig) => ({
+  ...childConfig,
+  parent: '',
+});
+
+const removeSubCodeFromVendor = (vendorConfig) => {
+  if (!('sub_code' in vendorConfig)) return vendorConfig;
+  return {
+    ...vendorConfig,
+    prev_sub_code: vendorConfig.sub_code || null,
+    sub_code: undefined,
+    is_owned: undefined,
+  };
+};
+
+const updateSubCodeWithHistory = (vendorConfig, newSubCode) => ({
+  ...vendorConfig,
+  prev_sub_code: vendorConfig.sub_code || null,
+  sub_code: newSubCode,
+});
+
+
+//linkVendorDao links a sub-vendor to a parent vendor
+
 export const linkVendorDao = async (vendorUserId, subVendorUserId, user_id) => {
   try {
-    // Fetch current config
-    const fetchSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
-    const fetchResult = await executeQuery(fetchSql, [vendorUserId]);
-    let currentConfig = fetchResult.rows[0]?.config || {};
-    let subVendors = currentConfig?.siblings?.sub_vendors || [];
-    // Add subVendorUserId to array if not present
-    subVendors = Array.isArray(subVendors)
-      ? [...new Set([...subVendors, subVendorUserId])]
-      : [subVendorUserId];
-    // Build new config
-    const newConfig = { ...currentConfig, siblings: { ...currentConfig.siblings, sub_vendors: subVendors } };
-    const sql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
-    const result = await executeQuery(sql, [newConfig, user_id, vendorUserId]);
+    const parentConfig = await getUserHierarchyVendor(vendorUserId);
+    const childConfig = await getUserHierarchyVendor(subVendorUserId);
 
-    // add sub_code in subVendorUserId's config in Vendor table to vendorUserId's code
-    const fetchNewVendorCodeSql = `SELECT code FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
-    const fetchNewVendorCodeResult = await executeQuery(fetchNewVendorCodeSql, [vendorUserId]);
-    const newVendorCode = fetchNewVendorCodeResult.rows[0]?.code;
-    if (newVendorCode) {
-      const fetchVendorConfigSql = `SELECT code, config FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
-      const fetchVendorConfigResult = await executeQuery(fetchVendorConfigSql, [subVendorUserId]);
-      let vendorConfig = fetchVendorConfigResult.rows[0]?.config || {};
-      const subCode = `${newVendorCode}(${fetchVendorConfigResult.rows[0]?.code})`;
-      vendorConfig.sub_code = subCode;
-      const updateVendorConfigSql = `UPDATE "${tableName.VENDOR}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
-      await executeQuery(updateVendorConfigSql, [vendorConfig, user_id, subVendorUserId]);
+    const newParentConfig = addSubVendorToParent(parentConfig, subVendorUserId);
+    const updatedParent = await updateUserHierarchyVendor(
+      vendorUserId,
+      newParentConfig,
+      user_id,
+    );
+
+    const newChildConfig = setParentInChild(childConfig, vendorUserId);
+    await updateUserHierarchyVendor(subVendorUserId, newChildConfig, user_id);
+
+    const parentCode = await getVendorCode(vendorUserId);
+    if (parentCode) {
+      const { code: childCode, config: vendorConfig } =
+        await getVendorConfig(subVendorUserId);
+      const subCode = buildSubCode(parentCode, childCode);
+
+      const updatedVendorConfig = { ...vendorConfig, sub_code: subCode };
+      await updateVendorConfig(subVendorUserId, updatedVendorConfig, user_id);
     }
 
-    return result.rows[0];
+    return updatedParent;
   } catch (error) {
     logger.error('Error in linkVendorDao:', error);
     throw error;
   }
 };
 
-/**
- * Unlink vendor from Vendor if net balance is zero for >2 hours
- */
-export const unlinkVendorDao = async (vendorUserId, subVendorUserId, user_id) => {
+//unlinkVendorDao unlinks a sub-vendor from its parent vendor
+
+export const unlinkVendorDao = async (
+  vendorUserId,
+  subVendorUserId,
+  user_id,
+) => {
   try {
-    // Fetch current config
-    const fetchSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
-    const fetchResult = await executeQuery(fetchSql, [vendorUserId]);
-    let currentConfig = fetchResult.rows[0]?.config || {};
-    let subVendors = currentConfig?.siblings?.sub_vendors || [];
-    // Remove subVendorUserId from array
-    subVendors = Array.isArray(subVendors)
-      ? subVendors.filter(id => id !== subVendorUserId)
-      : [];
-    // Build new config
-    const newConfig = { ...currentConfig, siblings: { ...currentConfig.siblings, sub_vendors: subVendors } };
-    const sql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
-    const result = await executeQuery(sql, [newConfig, user_id, vendorUserId]);
-
-    // Remove sub_code from config of subVendorUserId in Vendor table
-    const fetchVendorSql = `SELECT config FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
-    const fetchVendorResult = await executeQuery(fetchVendorSql, [subVendorUserId]);
-    let subVendorConfig = fetchVendorResult.rows[0]?.config || {};
-    if ('sub_code' in subVendorConfig) {
-      // Remove sub_code key using delete operator
-      delete subVendorConfig.sub_code;
-      const updateVendorSql = `UPDATE "${tableName.VENDOR}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
-      await executeQuery(updateVendorSql, [subVendorConfig, user_id, subVendorUserId]);
+    const parentConfig = await getUserHierarchyVendor(vendorUserId);
+    const childConfig = await getUserHierarchyVendor(subVendorUserId);
+    const newParentConfig = removeSubVendorFromParent(
+      parentConfig,
+      subVendorUserId,
+    );
+    const updatedParent = await updateUserHierarchyVendor(
+      vendorUserId,
+      newParentConfig,
+      user_id,
+    );
+    const newChildConfig = clearParentInChild(childConfig);
+    await updateUserHierarchyVendor(subVendorUserId, newChildConfig, user_id);
+    const { config: vendorConfig } = await getVendorConfig(subVendorUserId);
+    const cleanedVendorConfig = removeSubCodeFromVendor(vendorConfig);
+    if (cleanedVendorConfig !== vendorConfig) {
+      await updateVendorConfig(subVendorUserId, cleanedVendorConfig, user_id);
     }
-
-    return result.rows[0];
+    return updatedParent;
   } catch (error) {
     logger.error('Error in unlinkVendorDao:', error);
     throw error;
   }
 };
 
-/**
- * Transfer vendor to another vendor if net balance is zero for >2 hours
- */
-export const transferVendorDao = async (vendorUserId, newVendorUserId, currentVendorUserId, user_id) => {
+//transferVendorDao transfers a sub-vendor from one parent vendor to another
+export const transferVendorDao = async (
+  vendorUserId,
+  newVendorUserId,
+  currentVendorUserId,
+  user_id,
+) => {
   try {
-    // Remove vendorUserId from current vendor's sub_vendors array
-    const fetchCurrentSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
-    const fetchCurrentResult = await executeQuery(fetchCurrentSql, [currentVendorUserId]);
-    let currentConfig = fetchCurrentResult.rows[0]?.config || {};
-    let currentSubVendors = currentConfig?.siblings?.sub_vendors || [];
-    currentSubVendors = Array.isArray(currentSubVendors)
-      ? currentSubVendors.filter(id => id !== vendorUserId)
-      : [];
-    const updatedCurrentConfig = { ...currentConfig, siblings: { ...currentConfig.siblings, sub_vendors: currentSubVendors } };
-    const updateCurrentSql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
-    await executeQuery(updateCurrentSql, [updatedCurrentConfig, user_id, currentVendorUserId]);
-
-    // Add vendorUserId to new vendor's sub_vendors array
-    const fetchNewSql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
-    const fetchNewResult = await executeQuery(fetchNewSql, [newVendorUserId]);
-    let newConfig = fetchNewResult.rows[0]?.config || {};
-    let newSubVendors = newConfig?.siblings?.sub_vendors || [];
-    newSubVendors = Array.isArray(newSubVendors)
-      ? [...new Set([...newSubVendors, vendorUserId])]
-      : [vendorUserId];
-    const updatedNewConfig = { ...newConfig, siblings: { ...newConfig.siblings, sub_vendors: newSubVendors } };
-    const updateNewSql = `UPDATE "${tableName.USER_HIERARCHY}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
-    const result = await executeQuery(updateNewSql, [updatedNewConfig, user_id, newVendorUserId]);
-
-    // Update sub_code in vendorUserId's config in Vendor table to newVendorUserId's code
-    const fetchNewVendorCodeSql = `SELECT code FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
-    const fetchNewVendorCodeResult = await executeQuery(fetchNewVendorCodeSql, [newVendorUserId]);
-    const newVendorCode = fetchNewVendorCodeResult.rows[0]?.code;
-    if (newVendorCode) {
-      const fetchVendorConfigSql = `SELECT code, config FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
-      const fetchVendorConfigResult = await executeQuery(fetchVendorConfigSql, [vendorUserId]);
-      let vendorConfig = fetchVendorConfigResult.rows[0]?.config || {};
-      const subCode = `${newVendorCode}(${fetchVendorConfigResult.rows[0]?.code})`;
-      vendorConfig.sub_code = subCode;
-      const updateVendorConfigSql = `UPDATE "${tableName.VENDOR}" SET config = $1, updated_by = $2 WHERE user_id = $3 RETURNING *;`;
-      await executeQuery(updateVendorConfigSql, [vendorConfig, user_id, vendorUserId]);
+    const currentParentConfig = await getUserHierarchyVendor(currentVendorUserId);
+    const newParentConfig = await getUserHierarchyVendor(newVendorUserId);
+    const childConfig = await getUserHierarchyVendor(vendorUserId);
+    const updatedCurrentConfig = removeSubVendorFromParent(
+      currentParentConfig,
+      vendorUserId,
+    );
+    await updateUserHierarchyVendor(
+      currentVendorUserId,
+      updatedCurrentConfig,
+      user_id,
+    );
+    const updatedNewConfig = addSubVendorToParent(
+      newParentConfig,
+      vendorUserId,
+    );
+    const result = await updateUserHierarchyVendor(
+      newVendorUserId,
+      updatedNewConfig,
+      user_id,
+    );
+    const updatedChildConfig = setParentInChild(childConfig, newVendorUserId);
+    await updateUserHierarchyVendor(vendorUserId, updatedChildConfig, user_id);
+    const newParentCode = await getVendorCode(newVendorUserId);
+    if (newParentCode) {
+      const { code: childCode, config: vendorConfig } =
+        await getVendorConfig(vendorUserId);
+      const newSubCode = buildSubCode(newParentCode, childCode);
+      const finalVendorConfig = updateSubCodeWithHistory(
+        vendorConfig,
+        newSubCode,
+      );
+      await updateVendorConfig(vendorUserId, finalVendorConfig, user_id);
     }
-
-    return result.rows[0];
+    return result;
   } catch (error) {
     logger.error('Error in transferVendorDao:', error);
     throw error;

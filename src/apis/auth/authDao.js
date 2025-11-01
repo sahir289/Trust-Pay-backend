@@ -148,9 +148,10 @@ const getAllActiveSessionsDao = async (user_id, company_id) => {
 const getRoleByUserNameDao = async (userName) => {
   try {
     const query = `
-      SELECT d.designation
+      SELECT d.designation ,r.role
       FROM "${tableName.USER}" u
       JOIN "${tableName.DESIGNATION}" d ON u.designation_id = d.id
+      JOIN "${tableName.ROLE}" r ON u.role_id = r.id
       WHERE u.user_name = $1 AND u.is_obsolete = false
       LIMIT 1
     `;
