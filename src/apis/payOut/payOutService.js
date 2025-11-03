@@ -989,7 +989,7 @@ const getPayoutsService = async (
         }
       }
     } else if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
-      if (designation === Role.VENDOR) {
+      if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
         const userHierarchy = userHierarchys?.[0];
         const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -1096,7 +1096,7 @@ const getPayoutsBySearchService = async (
         }
       }
     } else if (role === Role.VENDOR) {
-      if (designation === Role.VENDOR) {
+      if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
         const userHierarchy = userHierarchys?.[0];
 
