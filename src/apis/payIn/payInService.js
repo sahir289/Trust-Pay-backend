@@ -994,7 +994,7 @@ export const updateDepositStatusService = async (
 
       updatePayInData.approved_at = new Date();
       updatePayInData.payin_merchant_commission = payinCommission;
-      updatePayInData.payin_vendor_commission = totalVendorCommission;
+      updatePayInData.payin_vendor_commission = vendorPayinCommission;
 
       // update merchant calculation table
       await updateCalculationTable(
@@ -1773,7 +1773,7 @@ export const processPayInService = async (
           actual_vendor_commission: vendorCommission,
         };
       }
-      updatePayInData.payin_vendor_commission = Number(totalVendorCommission);
+      updatePayInData.payin_vendor_commission = Number(vendorCommission);
 
       await updateCalculationTable(
         merchant[0].user_id,
@@ -2019,7 +2019,7 @@ export const processPayInWebHookService = async (conn, payload, updated_by) => {
 
       updatePayInData.approved_at = new Date();
       updatePayInData.payin_merchant_commission = merchantCommission;
-      updatePayInData.payin_vendor_commission = totalVendorCommission;
+      updatePayInData.payin_vendor_commission = vendorCommission;
 
       await updateCalculationTable(
         merchant.user_id,
@@ -2532,7 +2532,7 @@ export const disputeDuplicateTransactionService = async (
           status: newStatus,
           approved_at: new Date(),
           payin_merchant_commission: payinCommission,
-          payin_vendor_commission: totalVendorCommission,
+          payin_vendor_commission: vendorPayinCommission,
           bank_response_id: payIn.bank_response_id,
           updated_by,
           config: payinConfig,
@@ -2630,7 +2630,7 @@ export const disputeDuplicateTransactionService = async (
       updatePayload.status = Status.SUCCESS;
       updatePayload.amount = toAmount;
       updatePayload.payin_merchant_commission = payinCommission;
-      updatePayload.payin_vendor_commission = totalVendorCommission;
+      updatePayload.payin_vendor_commission = vendorPayinCommission;
       updatePayload.approved_at = new Date(); //add this for approved at
       updatePayload.config = payinConfig;
     } else {
@@ -2980,7 +2980,7 @@ export const checkPendingPayinStatusService = async (
             bank_response_id: bankResponse.id,
             // approved_at: new Date(),
             payin_merchant_commission: payinMerchantCommission,
-            payin_vendor_commission: totalVendorCommission, // Use total commission
+            payin_vendor_commission: payinVendorCommission, // Use total commission
             duration: duration,
             updated_by: user_id,
             config: payinConfig, // Include commission breakdown
@@ -3024,7 +3024,7 @@ export const checkPendingPayinStatusService = async (
             approved_at: new Date(),
             duration: duration,
             payin_merchant_commission: payinMerchantCommission,
-            payin_vendor_commission: totalVendorCommission, // Use total commission
+            payin_vendor_commission: payinVendorCommission, // Use total commission
             bank_response_id: botRes.id,
             updated_by: user_id,
             config: payinConfig, // Include commission breakdown
@@ -3695,7 +3695,7 @@ export const updatePayInService = async (
         logger.info(
           `Amount update in payIn - Sub-vendor commission calculated: sub=${vendorCommission}, parent=${parentCommission}, total=${amountTotalVendorCommission}, amountDiff=${amountDiff}`,
         );
-        payload.payin_vendor_commission = amountTotalVendorCommission;
+        payload.payin_vendor_commission = vendorCommission;
         payload.config = payinConfig;
         // totalVendorCommission = amountTotalVendorCommission; // Set the function-level variable
       } else {

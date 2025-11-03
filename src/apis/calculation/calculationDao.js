@@ -561,80 +561,89 @@ export const getCalculationsSumDao = async (filters) => {
 
     // Add vendor total calculations query
     let vendorTotalQuery = `
-      SELECT 
-        CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
-        CAST(ROUND(SUM(c.total_payin_amount)::NUMERIC, 2) AS FLOAT) AS total_payin_amount,
-        CAST(ROUND(SUM(c.total_payin_commission)::NUMERIC, 2) AS FLOAT) AS total_payin_commission,
-        CAST(SUM(c.total_payout_count) AS INTEGER) AS total_payout_count,
-        CAST(ROUND(SUM(c.total_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_payout_amount,
-        CAST(ROUND(SUM(c.total_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_payout_commission,
-        CAST(SUM(c.total_settlement_count) AS INTEGER) AS total_settlement_count,
-        CAST(ROUND(SUM(c.total_settlement_amount)::NUMERIC, 2) AS FLOAT) AS total_settlement_amount,
-        CAST(ROUND(SUM(c.total_settlement_commission)::NUMERIC, 2) AS FLOAT) AS total_settlement_commission,
-        CAST(SUM(c.total_chargeback_count) AS INTEGER) AS total_chargeback_count,
-        CAST(ROUND(SUM(c.total_chargeback_amount)::NUMERIC, 2) AS FLOAT) AS total_chargeback_amount,
-        CAST(SUM(c.total_reverse_payout_count) AS INTEGER) AS total_reverse_payout_count,
-        CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_amount,
-        CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC, 2) AS FLOAT) AS total_reverse_payout_commission,
-        CAST(SUM(c.total_adjustment_count) AS INTEGER) AS total_adjustment_count,
-        CAST(ROUND(SUM(c.total_adjustment_amount)::NUMERIC, 2) AS FLOAT) AS total_adjustment_amount,
-        CAST(ROUND(SUM(c.total_adjustment_commission)::NUMERIC, 2) AS FLOAT) AS total_adjustment_commission,
-        CAST(ROUND(SUM(c.current_balance)::NUMERIC, 2) AS FLOAT) AS current_balance,
-        CAST(ROUND(SUM(c.net_balance)::NUMERIC, 2) AS FLOAT) AS net_balance,
-        CAST(ROUND(SUM(COALESCE((c.config->>'total_bankSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankSettlement_amount,
-        CAST(ROUND(SUM(COALESCE((c.config->>'total_aedSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_aedSentSettlement_amount,
-        CAST(ROUND(SUM(COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankSentSettlement_amount,
-        CAST(ROUND(SUM(COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashSentSettlement_amount,
-        CAST(ROUND(SUM(COALESCE((c.config->>'total_internalSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_internalSettlement_amount,
-        CAST(ROUND(SUM(COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_aedReceivedSettlement_amount,
-        CAST(ROUND(SUM(COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankReceivedSettlement_amount,
-        CAST(ROUND(SUM(COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashReceivedSettlement_amount,
-        CAST(ROUND(SUM(COALESCE((c.config->>'total_internalBankSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_internalBankSettlement_amount,
-        CAST(ROUND(SUM(COALESCE((c.config->>'total_cryptoReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cryptoReceivedSettlement_amount,
-        -- vendor_commission: commission from sub-vendors (role-based filtering)
-        CAST(ROUND(SUM(CASE 
-          WHEN '${role}' = 'ADMIN' AND d.designation = 'SUB_VENDOR' THEN c.total_payin_commission 
-          WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR' THEN c.total_payin_commission 
-          ELSE 0 
-        END)::NUMERIC, 2) AS FLOAT) AS vendor_payin_commission,
-        CAST(ROUND(SUM(CASE 
-          WHEN '${role}' = 'ADMIN' AND d.designation = 'SUB_VENDOR' THEN c.total_payout_commission 
-          WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR' THEN c.total_payout_commission 
-          ELSE 0 
-        END)::NUMERIC, 2) AS FLOAT) AS vendor_payout_commission,
-        CAST(ROUND(SUM(CASE 
-          WHEN '${role}' = 'ADMIN' AND d.designation = 'SUB_VENDOR' THEN c.total_reverse_payout_commission 
-          WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR' THEN c.total_reverse_payout_commission 
-          ELSE 0 
-        END)::NUMERIC, 2) AS FLOAT) AS vendor_reverse_payout_commission,
-        -- mediator_commission: commission from vendor admins (role-based filtering)
-        CAST(ROUND(SUM(CASE 
-          WHEN '${role}' = 'ADMIN' AND d.designation IN ('ADMIN', 'TRANSACTIONS', 'OPERATIONS', 'VENDOR') THEN c.total_settlement_commission 
-          ELSE 0 
-        END)::NUMERIC, 2) AS FLOAT) AS mediator_settlement_commission,
-         CAST(ROUND(SUM(CASE 
-          WHEN '${role}' = 'ADMIN' AND d.designation IN ('ADMIN', 'TRANSACTIONS', 'OPERATIONS', 'VENDOR') THEN c.total_payin_commission 
-          WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR' THEN c.total_payin_commission 
-          ELSE 0 
-        END)::NUMERIC, 2) AS FLOAT) AS mediator_payin_commission,
-        CAST(ROUND(SUM(CASE 
-          WHEN '${role}' = 'ADMIN' AND d.designation IN ('ADMIN', 'TRANSACTIONS', 'OPERATIONS', 'VENDOR') THEN c.total_payout_commission 
-          WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR' THEN c.total_payout_commission 
-          ELSE 0 
-        END)::NUMERIC, 2) AS FLOAT) AS mediator_payout_commission,
-        CAST(ROUND(SUM(CASE 
-          WHEN '${role}' = 'ADMIN' AND d.designation IN ('ADMIN', 'TRANSACTIONS', 'OPERATIONS', 'VENDOR') THEN c.total_reverse_payout_commission 
-          WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR' THEN c.total_reverse_payout_commission 
-          ELSE 0 
-        END)::NUMERIC, 2) AS FLOAT) AS mediator_reverse_payout_commission
-      FROM "${tableName.CALCULATION}" c
-      JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
-      JOIN "${tableName.ROLE}" r ON u.role_id = r.id
-      JOIN "${tableName.VENDOR}" v ON c.user_id = v.user_id
-      LEFT JOIN "${tableName.DESIGNATION}" d ON u.designation_id = d.id
-      WHERE c.created_at BETWEEN '${startDate}' AND '${endDate}'
+     SELECT 
+      CAST(SUM(c.total_payin_count) AS INTEGER) AS total_payin_count,
+      CAST(ROUND(SUM(c.total_payin_amount)::NUMERIC, 2) AS FLOAT) AS total_payin_amount,
+      CAST(ROUND(SUM(c.total_payin_commission)::NUMERIC,2)  AS FLOAT)   AS total_payin_commission,
+  
+      CAST(SUM(c.total_payout_count)               AS INTEGER) AS total_payout_count,
+      CAST(ROUND(SUM(c.total_payout_amount)::NUMERIC,2)     AS FLOAT)   AS total_payout_amount,
+      CAST(ROUND(SUM(c.total_payout_commission)::NUMERIC,2) AS FLOAT)   AS total_payout_commission,
+  
+      CAST(SUM(c.total_settlement_count)           AS INTEGER) AS total_settlement_count,
+      CAST(ROUND(SUM(c.total_settlement_amount)::NUMERIC,2) AS FLOAT)   AS total_settlement_amount,
+      CAST(ROUND(SUM(c.total_settlement_commission)::NUMERIC,2) AS FLOAT) AS total_settlement_commission,
+  
+      CAST(SUM(c.total_chargeback_count)           AS INTEGER) AS total_chargeback_count,
+      CAST(ROUND(SUM(c.total_chargeback_amount)::NUMERIC,2) AS FLOAT)   AS total_chargeback_amount,
+  
+      CAST(SUM(c.total_reverse_payout_count)       AS INTEGER) AS total_reverse_payout_count,
+      CAST(ROUND(SUM(c.total_reverse_payout_amount)::NUMERIC,2) AS FLOAT) AS total_reverse_payout_amount,
+      CAST(ROUND(SUM(c.total_reverse_payout_commission)::NUMERIC,2) AS FLOAT) AS total_reverse_payout_commission,
+  
+      CAST(SUM(c.total_adjustment_count)           AS INTEGER) AS total_adjustment_count,
+      CAST(ROUND(SUM(c.total_adjustment_amount)::NUMERIC,2) AS FLOAT)   AS total_adjustment_amount,
+      CAST(ROUND(SUM(c.total_adjustment_commission)::NUMERIC,2) AS FLOAT) AS total_adjustment_commission,
+  
+      CAST(ROUND(SUM(c.current_balance)::NUMERIC,2) AS FLOAT) AS current_balance,
+      CAST(ROUND(SUM(c.net_balance)::NUMERIC,2)     AS FLOAT) AS net_balance,
+  
+      CAST(ROUND(SUM(COALESCE((c.config->>'total_bankSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_bankSettlement_amount,
+      CAST(ROUND(SUM(COALESCE((c.config->>'total_aedSentSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_aedSentSettlement_amount,
+      CAST(ROUND(SUM(COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_bankSentSettlement_amount,
+      CAST(ROUND(SUM(COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_cashSentSettlement_amount,
+      CAST(ROUND(SUM(COALESCE((c.config->>'total_internalSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_internalSettlement_amount,
+      CAST(ROUND(SUM(COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_aedReceivedSettlement_amount,
+      CAST(ROUND(SUM(COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_bankReceivedSettlement_amount,
+      CAST(ROUND(SUM(COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_cashReceivedSettlement_amount,
+      CAST(ROUND(SUM(COALESCE((c.config->>'total_internalBankSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_internalBankSettlement_amount,
+      CAST(ROUND(SUM(COALESCE((c.config->>'total_cryptoReceivedSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_cryptoReceivedSettlement_amount,
+  
+      CAST(ROUND(
+        SUM(CASE 
+              WHEN '${role}' = 'ADMIN'  AND d.designation = 'SUB_VENDOR' THEN c.total_payin_commission
+              WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR'      THEN c.total_payin_commission
+              ELSE 0
+            END)::NUMERIC,2) AS FLOAT) AS vendor_payin_commission,
+  
+      CAST(ROUND(
+        SUM(CASE 
+              WHEN '${role}' = 'ADMIN'  AND d.designation = 'SUB_VENDOR' THEN c.total_payout_commission
+              WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR'      THEN c.total_payout_commission
+              ELSE 0
+            END)::NUMERIC,2) AS FLOAT) AS vendor_payout_commission,
+  
+      CAST(ROUND(
+        SUM(CASE 
+              WHEN '${role}' = 'ADMIN'  AND d.designation = 'SUB_VENDOR' THEN c.total_reverse_payout_commission
+              WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR'      THEN c.total_reverse_payout_commission
+              ELSE 0
+            END)::NUMERIC,2) AS FLOAT) AS vendor_reverse_payout_commission,
+  
+      CAST(ROUND(
+        SUM(CASE WHEN d.designation = 'VENDOR_ADMIN' THEN c.total_settlement_commission ELSE 0 END)::NUMERIC,2) AS FLOAT) 
+        AS mediator_settlement_commission,
+  
+      CAST(ROUND(
+        SUM(CASE WHEN d.designation = 'VENDOR_ADMIN' THEN c.total_payin_commission ELSE 0 END)::NUMERIC,2) AS FLOAT) 
+        AS mediator_payin_commission,
+  
+      CAST(ROUND(
+        SUM(CASE WHEN d.designation = 'VENDOR_ADMIN' THEN c.total_payout_commission ELSE 0 END)::NUMERIC,2) AS FLOAT) 
+        AS mediator_payout_commission,
+  
+      CAST(ROUND(
+        SUM(CASE WHEN d.designation = 'VENDOR_ADMIN' THEN c.total_reverse_payout_commission ELSE 0 END)::NUMERIC,2) AS FLOAT) 
+        AS mediator_reverse_payout_commission
+  
+    FROM "${tableName.CALCULATION}" AS c
+    JOIN "${tableName.USER}"        AS u ON c.user_id = u.id AND u.is_obsolete = FALSE
+    JOIN "${tableName.ROLE}"        AS r ON u.role_id = r.id
+    JOIN "${tableName.VENDOR}"      AS v ON c.user_id = v.user_id
+    LEFT JOIN "${tableName.DESIGNATION}" AS d ON u.designation_id = d.id
+    WHERE c.created_at BETWEEN '${startDate}' AND '${endDate}'
       AND r.role = 'VENDOR'
-    `;
+  `;
 
     // Add role-based conditions
     if (role === Role.MERCHANT) {

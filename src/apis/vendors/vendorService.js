@@ -190,6 +190,7 @@ const getVendorsCodeService = async (
   includeOnlyVendors,
   excludeDisabledVendor,
   includeSeperateSubVendors,
+  includeVendorAdmin,
 ) => {
   let conn;
   try {
@@ -206,7 +207,7 @@ const getVendorsCodeService = async (
       const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys[0];
 
-      if (designation === Role.VENDOR) {
+      if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
         const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
         userIdFilter = [...new Set([...userIdFilter, ...subVendors])];
       } else if (designation === Role.VENDOR_OPERATIONS) {
@@ -242,6 +243,7 @@ const getVendorsCodeService = async (
       includeOnlyVendors,
       excludeDisabledVendor,
       includeSeperateSubVendors,
+      includeVendorAdmin,
     );
     await commit(conn);
     return codes;

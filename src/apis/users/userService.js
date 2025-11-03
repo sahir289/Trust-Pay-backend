@@ -474,7 +474,8 @@ const createUserService = async (conn, payload) => {
     ///for vendor sub-vendor
     if (
       userDesignation[0]?.designation === Role.VENDOR ||
-      userDesignation[0]?.designation === Role.SUB_VENDOR
+      userDesignation[0]?.designation === Role.SUB_VENDOR ||
+      userDesignation[0]?.designation === Role.VENDOR_ADMIN
     ) {
       let userCode;
       let sub_code;
@@ -501,8 +502,8 @@ const createUserService = async (conn, payload) => {
           ...(sub_code && { sub_code }),
           ...(is_owned && { is_owned }),
         },
-        payin_commission: Number(payload.payin_commission),
-        payout_commission: Number(payload.payout_commission),
+        payin_commission: Number(payload.payin_commission) || 1,
+        payout_commission: Number(payload.payout_commission) || 1,
         created_by: payload.created_by,
         updated_by: payload.updated_by,
         designation: userDesignation[0]?.designation,
