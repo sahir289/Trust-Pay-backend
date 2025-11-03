@@ -1329,7 +1329,7 @@ export const getPayinsBySearchService = async (
         }
       }
     } else if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
-      if (designation === Role.VENDOR) {
+      if (designation === Role.VENDOR_ADMIN || designation === Role.VENDOR) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
         const userHierarchy = userHierarchys?.[0];
 
