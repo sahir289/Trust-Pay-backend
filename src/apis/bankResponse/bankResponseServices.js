@@ -1346,7 +1346,7 @@ const getBankResponseBySearchService = async (
       }
     };
 
-    if (designation === Role.VENDOR) {
+    if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys?.[0];
 
