@@ -575,7 +575,7 @@ const getClientsAccountReportService = async (req) => {
         const designation = await getDesignationDao({
           id: user[0]?.designation_id,
         });
-        if (designation[0]?.designation === Role.VENDOR) {
+        if (designation[0]?.designation === Role.VENDOR || designation[0]?.designation === Role.VENDOR_ADMIN) {
           try {
             userHierarchy = await getUserHierarchysDao({ user_id: userIds });
             subVendors = userHierarchy
