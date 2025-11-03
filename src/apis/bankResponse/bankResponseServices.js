@@ -608,7 +608,7 @@ const createBankResponseService = async (
             approved_at: new Date(),
             duration,
             payin_merchant_commission: payinMerchantCommission,
-            payin_vendor_commission: totalVendorCommission,
+            payin_vendor_commission: payinVendorCommission,
             config: payinConfig,
             bank_response_id: botRes.id,
           };
@@ -1054,7 +1054,7 @@ const createBankResponseWebHookService = async (
         await updateCalculationTable(
           vendor[0].user_id,
           {
-            payinCommission: totalVendorCommission,
+            payinCommission: payinVendorCommission,
             amount: botRes.amount,
           },
           localConn,
