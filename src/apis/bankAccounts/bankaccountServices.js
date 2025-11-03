@@ -244,11 +244,8 @@ const createBankaccountService = async (
       const parentUserId = childHierarchy[0].config.parent;
       payload.user_id = parentUserId;
     }
-    if (designation === Role.VENDOR_ADMIN) {
-      const vendor = await getVendorsDao({ user_id });
-      if (vendor && vendor[0].designation_name === Role.VENDOR_ADMIN) {
+    if (designation === Role.VENDOR_ADMIN && !payload.user_id) {
         throw new BadRequestError('Vendor Admins are not allowed to create own bank accounts.');
-      }
     }
     const result = await createBankaccountDao(payload);
     // await notifyAdminsAndUsers({
