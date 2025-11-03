@@ -179,8 +179,9 @@ export const generatePayInUrl = async (req, res) => {
     if (!bank.is_enabled) return true;
     const config = bank.config || {};
     const isPhonepay = config.is_phonepay || false;
+    const isIntent = config.is_intent || false;
     return (
-      isPhonepay === false && bank.is_qr === false && bank.is_bank === false
+      isPhonepay === false && bank.is_qr === false && bank.is_bank === false && isIntent === false
     );
   });
 
