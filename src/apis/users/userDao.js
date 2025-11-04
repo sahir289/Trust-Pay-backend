@@ -31,9 +31,10 @@ export const getUsersContactDao = async (company_id, contact_no) => {
 export const getUsersNameDao = async (user_id) => {
   try {
     const sql = `
-      SELECT u.user_name, u.code, r.role
+      SELECT u.user_name, u.code, r.role , d.designation
       FROM "${tableName.USER}" u
       LEFT JOIN "${tableName.ROLE}" r ON u.role_id = r.id
+      LEFT JOIN "${tableName.DESIGNATION}" d ON u.designation_id = d.id
       WHERE u.is_obsolete = FALSE
         AND u.id = $1
     `;
