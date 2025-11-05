@@ -6,6 +6,7 @@ import { logger } from '../utils/logger.js';
 import formattedSuccessRatiosByMerchant from './successRatioCron.js';
 import gatherAllDataForAllCompanies from './gatherAllData.js';
 import gatherAllNetbalanceForAllCompanies from './gatherAllNetBalance.js';
+import collectPayoutData from './pendingPayout.js';
 // import  checkPendingStatus  from './pendingPayinCron.js';
 const router = express.Router();
 
@@ -131,5 +132,9 @@ router.get('/net-balance-cronjob', (req, res) => {
   logger.info('Calling gatherAllNetbalanceForAllCompanies CRONJOB');
   res.json({ message: 'Cron job is running for Net Balance' });
 });
-
+router.get('/pending_payout_cron', (req, res) => {
+  collectPayoutData();
+  logger.info('Calling collectPendingPayoutData CRONJOB');
+  res.json({ message: 'Cron job is running for Pending Payout' });
+});
 export default router;
