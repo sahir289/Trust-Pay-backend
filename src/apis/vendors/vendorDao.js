@@ -282,6 +282,21 @@ export const getVendorsDao = async (
   }
 };
 
+export const getVendorByIdDao = async (user_id, company_id) => {
+  try {
+    const sql = `SELECT id, user_id, payout_commission
+      FROM "${tableName.VENDOR}" WHERE user_id = $1 
+      AND company_id = $2 
+      AND is_obsolete = false`;
+    const params = [user_id, company_id];
+    const result = await executeQuery(sql, params);
+    return result.rows || null;
+  } catch (error) {
+    logger.error('Error fetching vendor by ID:', error);
+    throw error;
+  }
+}
+
 export const getAllVendorsDao = async (
   filters,
   page = 1,

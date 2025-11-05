@@ -635,6 +635,7 @@ const getBankByIdDao = async (filters) => {
     throw error;
   }
 };
+
 const createBankaccountDao = async (payload) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.BANK_ACCOUNT, payload);

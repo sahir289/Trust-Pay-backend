@@ -278,6 +278,22 @@ export const getMerchantsBankResponseDao = async (filters = {}) => {
   }
 };
 
+export const getMerchantByIdDao = async (id, company_id) => {
+  try {
+    const sql = `
+        SELECT id, user_id, payout_commission, config->'urls'->>'payout_notify' AS payout_notify 
+          FROM "${tableName.MERCHANT}" WHERE id = $1 
+          AND company_id = $2 
+          AND is_obsolete = false`;
+    const params = [id, company_id];
+    const result = await executeQuery(sql, params);
+    return result?.rows;
+  } catch (error) {
+    logger.error(`Error in getMerchantByIdDao for ID ${id}:`, error.message);
+    throw error;
+  }
+}
+
 export const getMerchantsDao = async (
   filters,
   page = 1,
@@ -353,6 +369,7 @@ export const getMerchantsDao = async (
     throw error;
   }
 };
+
 export const getMerchantsForDashboardReportDao = async (
   filters = {},
 ) => {

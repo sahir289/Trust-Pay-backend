@@ -280,6 +280,18 @@ export const getPayoutsDao = async (
   }
 };
 
+export const getPayoutByIdDao = async (id, company_id) => {
+  try {
+    const sql = `SELECT id, status FROM "${tableName.PAYOUT}" WHERE id = $1 AND company_id = $2 AND is_obsolete = false`;
+    const queryParams = [id, company_id];
+    const result = await executeQuery(sql, queryParams);
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (error) {
+    logger.error('Error fetching payout by utr id:', error.message);
+    throw error;
+  }
+}
+
 export const getPayoutByMerchantOrderIdDao = async (merchant_order_id, company_id) => {
   try {
     const sql = `SELECT id, merchant_order_id FROM "${tableName.PAYOUT}" WHERE merchant_order_id = $1 AND company_id = $2 AND is_obsolete = false`;
@@ -288,6 +300,18 @@ export const getPayoutByMerchantOrderIdDao = async (merchant_order_id, company_i
     return result.rows.length > 0 ? result.rows[0] : null;
   } catch (error) {
     logger.error('Error fetching payout by merchant order id:', error.message);
+    throw error;
+  }
+}
+
+export const getPayoutByUtrIdDao = async (utr_id, company_id) => {
+  try {
+    const sql = `SELECT id, utr_id FROM "${tableName.PAYOUT}" WHERE utr_id = $1 AND company_id = $2 AND is_obsolete = false`;
+    const queryParams = [utr_id, company_id];
+    const result = await executeQuery(sql, queryParams);
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (error) {
+    logger.error('Error fetching payout by utr id:', error.message);
     throw error;
   }
 }
