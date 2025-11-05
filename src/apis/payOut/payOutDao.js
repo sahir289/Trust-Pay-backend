@@ -1042,7 +1042,7 @@ export const getInitiatedAndPendingSummaryByMerchant = async (company_id) => {
       amount: parseFloat(row.total_amount) || 0,
     }));
   } catch (error) {
-    logger.error('Error in getInitiatedAndPendingSummaryByMerchant:', error);
+    logger.error('Error in getInitiatedAndPendingSummaryByMerchant:', error.message);
     throw error;
   }
 };

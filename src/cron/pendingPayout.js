@@ -52,7 +52,7 @@ const collectPayoutData = async () => {
       );
     }
   } catch (error) {
-    logger.error('Error while collecting payout data:', error);
+    logger.error('Error while collecting payout data:', error.message);
   }
 };
 
@@ -65,7 +65,7 @@ const sendPayoutTelegramMessage = async (
     await telegramSender(chatId, message, null, botToken);
     logger.info('Payout Telegram message sent successfully.');
   } catch (error) {
-    logger.error('Error sending payout Telegram message:', error);
+    logger.error('Error sending payout Telegram message:', error.message);
   }
 }
 
