@@ -1057,7 +1057,32 @@ export const getPayoutsBySearchDao = async (
     throw error;
   }
 };
-
+export const getInitiatedAndPendingSummaryByMerchant = async (company_id) => { 
+  try {
+    const queryText = `
+      SELECT 
+        COALESCE(m.code, 'Unknown') AS merchant_code,
+        COUNT(p.id) AS total_count,
+        COALESCE(SUM(p.amount), 0) AS total_amount
+      FROM public."Payout" p
+      LEFT JOIN public."Merchant" m ON p.merchant_id = m.id
+      WHERE p.company_id = $1
+        AND p.is_obsolete = false
+        AND p.status IN ('INITIATED', 'PENDING')
+      GROUP BY m.code
+      ORDER BY total_amount DESC, merchant_code;
+    `;
+    const result = await executeQuery(queryText, [company_id]); 
+    return result.rows.map(row => ({
+      merchant: row.merchant_code,
+      count: parseInt(row.total_count, 10) || 0,
+      amount: parseFloat(row.total_amount) || 0,
+    }));
+  } catch (error) {
+    logger.error('Error in getInitiatedAndPendingSummaryByMerchant:', error.message);
+    throw error;
+  }
+};
 export const getPayoutsCronDao = async (conn, payload) => {
   try {
     let baseQuery = `SELECT * FROM public."Payout" 
