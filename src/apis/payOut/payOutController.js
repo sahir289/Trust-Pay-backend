@@ -75,8 +75,6 @@ const createPayout = async (req, res) => {
       fromUI,
     );
   }
-  // Log success message
-  logger.log('Payout created successfully');
 
   const updateRes = {
     merchantOrderId: result.merchant_order_id,

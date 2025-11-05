@@ -5,6 +5,7 @@ import config from '../config/config.js';
 import { sendSuccess } from '../utils/responseHandlers.js';
 import { getClickrrDetailsByCompanyIdDao } from '../apis/company/companyDao.js';
 import { Status } from '../constants/index.js';
+import { BadRequestError } from '../utils/appErrors.js';
 
 /**
  * Generate an HMAC-SHA256 signature for API authentication.
@@ -57,6 +58,10 @@ export async function initiateClickrrPayout(payload, company_id) {
   };
 
   try {
+    const clickrrWalletBalance = await getClickrrWalletBalance({ company_id });
+    if (clickrrWalletBalance.data.wallet_balance < newPayload.amount) {
+      throw new BadRequestError('Insufficient Clickrr wallet balance');
+    }
     const clickrrDetails = await getClickrrDetailsByCompanyIdDao(company_id);
 
     const apiKey = clickrrDetails.api_key;
@@ -89,7 +94,7 @@ export async function initiateClickrrPayout(payload, company_id) {
 
 export async function getClickrrWalletBalance(reqOrParams, res) {
   try {
-    const isExpress = !!res; // if res exists → it’s an API route
+    const isExpress = !!res; // if res exists then it’s an API route
     const company_id = isExpress
       ? reqOrParams.user?.company_id
       : reqOrParams.company_id;

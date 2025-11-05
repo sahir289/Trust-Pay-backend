@@ -21,6 +21,7 @@ import {
   updatePayoutDao,
   getAllPayoutsDao,
   getPayoutBankDetailsDao,
+  getPayoutByMerchantOrderIdDao,
 } from './payOutDao.js';
 import {
   getMerchantsDao,
@@ -547,6 +548,7 @@ const createPayoutService = async (
     //       : columns.PAYOUT;
     const { code, amount, x_api_key, returnUrl, notifyUrl } = payload;
     const details = await getMerchantsByCodeDao(code);
+
     if (!details[0] || details[0].length === 0) {
       const data = {
         status: 404,
@@ -555,7 +557,7 @@ const createPayoutService = async (
       return data;
     }
 
-    if (details[0]?.config?.whitelist_ips) {
+    if (details[0]?.config?.whitelist_ips && role !== Role.ADMIN) {
       let whitelist = details[0].config.whitelist_ips;
       // Normalize whitelist to array of trimmed strings
       if (typeof whitelist === 'string') {
@@ -611,12 +613,12 @@ const createPayoutService = async (
       : details[0].company_id;
     payload.created_by = payload.created_by ? payload.created_by : user_id;
     payload.updated_by = payload.updated_by ? payload.updated_by : user_id;
-    const isOrderIdExist = await getPayoutsDao(
-      { merchant_order_id: merchant_order_id },
+    const isOrderIdExist = await getPayoutByMerchantOrderIdDao(
+      merchant_order_id,
       payload.company_id,
     );
 
-    if (isOrderIdExist.length > 0) {
+    if (isOrderIdExist) {
       const data = {
         status: 400,
         message: 'Merchant Order ID already exists',
@@ -653,24 +655,24 @@ const createPayoutService = async (
       return data;
     }
 
-    if (payload.merchant_order_id) {
-      const data = await getPayoutsDao(
-        { merchant_order_id: merchant_order_id },
-        payload.company_id,
-        null,
-        null,
-        'DESC',
-        role,
-        conn,
-      );
-      if (data.length > 0) {
-        const data = {
-          status: 400,
-          message: 'Merchant Order ID already exists',
-        };
-        return data;
-      }
-    }
+    // if (payload.merchant_order_id) {
+    //   const data = await getPayoutsDao(
+    //     { merchant_order_id: merchant_order_id },
+    //     payload.company_id,
+    //     null,
+    //     null,
+    //     'DESC',
+    //     role,
+    //     conn,
+    //   );
+    //   if (data.length > 0) {
+    //     const data = {
+    //       status: 400,
+    //       message: 'Merchant Order ID already exists',
+    //     };
+    //     return data;
+    //   }
+    // }
 
     delete payload.x_api_key;
     let data = await createPayoutDao(conn, payload);
@@ -695,17 +697,31 @@ const createPayoutService = async (
       }
     }
 
-    const { allow_clickrr, allow_tatapay, allow_payassist } =
-      details[0]?.config || {};
+    const {
+      allow_clickrr,
+      clickrr_auto_approval_limit,
+      allow_tatapay,
+      allow_payassist,
+    } = details[0]?.config || {};
 
     if (allow_clickrr) {
       const ids = { id: data.id, company_id: payload.company_id };
       const clickrrWalletBalance = await getClickrrWalletBalance({
         company_id: payload.company_id,
       });
-      console.log(clickrrWalletBalance?.data?.walletBalance, 'clickrr balance');
+
       let updatedData;
-      if (Number(payoutAmount) < Number(50000)) {
+      if (Number(payoutAmount) < Number(clickrr_auto_approval_limit)) {
+        if (
+          Number(clickrrWalletBalance?.data?.walletBalance) <
+          Number(payoutAmount)
+        ) {
+          data = {
+            status: 201,
+            message: 'Insufficient Balance in Wallet',
+          };
+          return data;
+        }
         // specific to clickrr max payout limit
         const updatedPayload = { config: { method: 'CLICKRR' } };
         updatedData = await updatePayoutService(conn, ids, updatedPayload);
