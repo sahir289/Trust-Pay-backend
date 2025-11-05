@@ -54,6 +54,7 @@ export const createPayoutDao = async (conn, data) => {
     throw error;
   }
 };
+
 export const assignedPayoutDao = async (
   payoutData,
   vendorId,
@@ -278,6 +279,18 @@ export const getPayoutsDao = async (
     throw error;
   }
 };
+
+export const getPayoutByMerchantOrderIdDao = async (merchant_order_id, company_id) => {
+  try {
+    const sql = `SELECT id, merchant_order_id FROM "${tableName.PAYOUT}" WHERE merchant_order_id = $1 AND company_id = $2 AND is_obsolete = false`;
+    const queryParams = [merchant_order_id, company_id];
+    const result = await executeQuery(sql, queryParams);
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (error) {
+    logger.error('Error fetching payout by merchant order id:', error.message);
+    throw error;
+  }
+}
 
 export const getPayoutBankDetailsDao = async (filters, company_id) => {
   try {
