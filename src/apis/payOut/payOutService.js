@@ -1406,7 +1406,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
       // Preserve existing config and only update commission keys
       payoutConfig = {
-        ...(payoutDetails[0]?.config || {}), // Preserve existing config
+        ...(payoutExists?.config || {}), // Preserve existing config
         actual_vendor_commission: vendorCommission,
         brokerage_commission: brokerageCommission,
       };
@@ -1420,7 +1420,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       );
       // Preserve existing config and only update commission keys
       payoutConfig = {
-        ...(payoutDetails[0]?.config || {}), // Preserve existing config
+        ...(payoutExists?.config || {}), // Preserve existing config
         actual_vendor_commission: vendorCommission,
       };
     }
