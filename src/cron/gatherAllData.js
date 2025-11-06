@@ -25,19 +25,26 @@ let hourlyRetryCount = 0;
 const MAX_RETRIES = 3; // Total attempts: 1 initial + 2 retries
 
 //run only on server - side /production level
-if (process.env.NODE_ENV === 'production') {
+if (config?.env === 'production') {
   cron.schedule('0 0 * * *', async () => {
     dailyRetryCount = 0; // Reset retry count for new day
     await executeWithRetry('daily', 'Daily gather all cron job at 12:00 AM IST (Attempt 1)');
   });
 
-  cron.schedule('0 1-23 * * *', async () => {
+  cron.schedule('30 * * * *', async () => {
     hourlyRetryCount = 0; // Reset retry count for new hour
     const currentHour = dayjs().tz('Asia/Kolkata').hour();
+    const now = dayjs().tz('Asia/Kolkata');
+    const hour = now.hour();
+    const minute = now.minute();
+    if (hour === 0 && minute === 0) {
+      logger.info('Skipped 00:00 30-min job - Daily job runs at this time');
+      return;
+    }
     await executeWithRetry('hourly', `Hourly gather all cron job at ${currentHour}:00 IST (Attempt 1)`);
   });
 } else {
-  logger.error('Cron jobs are disabled in non-production environments.');
+  logger.warn('Cron jobs are disabled in non-production environments.');
 }
 
 // Function to execute cron with retry mechanism
