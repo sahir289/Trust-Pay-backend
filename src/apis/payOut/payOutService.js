@@ -22,13 +22,16 @@ import {
   getAllPayoutsDao,
   getPayoutBankDetailsDao,
   getPayoutByMerchantOrderIdDao,
+  getPayoutByUtrIdDao,
+  getPayoutByIdDao,
 } from './payOutDao.js';
 import {
   getMerchantsDao,
   getMerchantByUserIdDao,
   getMerchantsByCodeDao,
+  getMerchantByIdDao,
 } from '../merchants/merchantDao.js';
-import { getVendorsDao, getVendorIdsByUserIds } from '../vendors/vendorDao.js';
+import { getVendorByIdDao, getVendorsDao, getVendorIdsByUserIds } from '../vendors/vendorDao.js';
 import {
   getCalculationDao,
   getCalculationforCronDao,
@@ -1198,11 +1201,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
     // Early validation for UTR uniqueness
     if (payload?.utr_id) {
-      const payoutDetails = await getPayoutsDao(
-        { utr_id: payload.utr_id },
+      const payoutDetails = await getPayoutByUtrIdDao(
+        payload.utr_id,
         ids.company_id,
       );
-      if (payoutDetails.length > 0) {
+      if (payoutDetails && payoutDetails.id !== ids.id) {
         throw new BadRequestError('UTR already exists');
       }
     }
@@ -1270,7 +1273,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     // Fetch related data in parallel
     const bankID = payload.bank_acc_id || singleWithdrawData.bank_acc_id;
     let [merchantArr, bankDataArr] = await Promise.all([
-      getMerchantsDao({ id: singleWithdrawData.merchant_id }),
+      getMerchantByIdDao(singleWithdrawData.merchant_id, ids.company_id),
       bankID ? getBankByIdDao({ id: bankID }) : Promise.resolve([]),
     ]);
 
@@ -1316,6 +1319,12 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     // }
 
     const data = await updatePayoutDao(ids, payload, conn);
+
+    const payoutExists = await getPayoutByIdDao(ids.id, ids.company_id);
+    if (payoutExists && payoutExists.status === data?.status) {
+      throw new BadRequestError(`Payout is already ${payoutExists[0].status}`);
+    }
+
     await newTableEntry(tableName.PAYOUT);
     if (data.status == Status.INITIATED) {
       return data;
@@ -1330,7 +1339,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
 
     const notifyUrl =
-      data.config?.urls?.notify || merchant.config?.urls?.payout_notify;
+      data.config?.urls?.notify || merchant?.payout_notify;
 
     // Early return if not approved
     if (!data.approved_at && data.status !== Status.PENDING) {
@@ -1356,7 +1365,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       throw new BadRequestError('Bank account is blocked');
     }
 
-    const vendorArr = await getVendorsDao({ user_id: bankData.user_id });
+    const vendorArr = await getVendorByIdDao(bankData.user_id, ids.company_id);
     const vendor = vendorArr[0];
     if (!vendor) {
       throw new NotFoundError('Vendor not found!');
@@ -1371,14 +1380,6 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       data.amount,
       vendor.payout_commission,
     );
-
-    const payoutDetails = await getPayoutsDao({ id: ids.id }, ids.company_id);
-    if (
-      payoutDetails.length !== 0 &&
-      payoutDetails[0]?.status === data?.status
-    ) {
-      throw new BadRequestError(`Payout is already ${payoutDetails[0].status}`);
-    }
 
     // Handle sub-vendor and parent commission logic
     let totalVendorCommission = vendorCommission;
@@ -1617,6 +1618,7 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
   await trackVendorsNetBalance(calculationData[0].user_id, conn, response);
   return response;
 };
+
 const processEkoPayout = async (singleWithdrawData, payload) => {
   try {
     const client_ref_id = Math.floor(Date.now() / 1000);
@@ -1905,7 +1907,7 @@ const ekoWalletBalanceEnquiryInternally = async () => {
     }
     return parsedData;
   } catch (error) {
-    logger.error(error);
+    logger.error(error.message);
   }
 };
 

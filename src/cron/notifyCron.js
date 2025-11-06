@@ -7,15 +7,15 @@ import {
 import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.js';
 import { logger } from '../utils/logger.js';
 import { calculateDuration } from '../helpers/index.js'; 
+import config from '../config/config.js';
 
-if (process.env.NODE_ENV == 'production') {
+if (config?.env == 'production') {
   cron.schedule('*/10 * * * * *', () => {
     collectPayinData('Asia/Kolkata');
   });
-
   logger.info('Running cron job in production environment');
 } else {
-  logger.error('Cron jobs are disabled in non-production environments.');
+  logger.warn('Cron jobs are disabled in non-production environments.');
 }
 
 const collectPayinData = async (timezone = 'Asia/Kolkata') => {
