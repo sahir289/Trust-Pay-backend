@@ -1109,7 +1109,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
     const payoutExists = await getPayoutByIdDao(ids.id, ids.company_id);
     if (payoutExists && payoutExists.status === data?.status) {
-      throw new BadRequestError(`Payout is already ${payoutExists[0].status}`);
+      throw new BadRequestError(`Payout is already ${payoutExists.status}`);
     }
 
     // await newTableEntry(tableName.PAYOUT);
