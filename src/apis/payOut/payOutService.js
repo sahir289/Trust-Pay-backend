@@ -992,7 +992,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         payload.utr_id,
         ids.company_id,
       );
-      if (payoutDetails && payoutDetails.id !== ids.id) {
+      if (payoutDetails && payoutDetails?.id !== ids.id) {
         throw new BadRequestError('UTR already exists');
       }
     }
@@ -1031,6 +1031,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
 
     // Status validation logic - consolidated
+    console.log(payload.status, 'payload.status++++++++++');
     if (payload.status && singleWithdrawData.status !== payload.status) {
       const currentStatus = singleWithdrawData.status;
       const newStatus = payload.status;
@@ -1107,11 +1108,6 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
     const data = await updatePayoutDao(ids, payload, conn);
 
-    const payoutExists = await getPayoutByIdDao(ids.id, ids.company_id);
-    if (payoutExists && payoutExists.status === data?.status) {
-      throw new BadRequestError(`Payout is already ${payoutExists[0].status}`);
-    }
-
     // await newTableEntry(tableName.PAYOUT);
     if (data.status == Status.INITIATED) {
       return data;
@@ -1167,6 +1163,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       data.amount,
       vendor.payout_commission,
     );
+
+    const payoutExists = await getPayoutByIdDao(ids.id, ids.company_id);
+    if (payoutExists && payoutExists?.status === data?.status) {
+      throw new BadRequestError(`Payout is already ${payoutExists.status}`);
+    }
 
     // Handle status-specific updates
     if (data.status === Status.APPROVED) {
