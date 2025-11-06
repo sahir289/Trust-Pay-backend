@@ -70,7 +70,7 @@ const sendPayoutTelegramMessage = async (
 }
 
 if (config?.env === 'production') {
-    cron.schedule('*/19 * * * *', collectPayoutData);
+    cron.schedule('0,30 * * * *', collectPayoutData);
     logger.info('Running payout data cron job in production.');
 } else {
   logger.warn('Cron jobs are disabled in non-production environments.');

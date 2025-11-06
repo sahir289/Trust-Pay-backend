@@ -86,6 +86,10 @@ export async function initiateClickrrPayout(payload, company_id) {
       merchant_order_id: payload?.merchant_order_id,
       data: response.data,
     });
+    logger.log('Clickrr payout initiated successfully:', {
+      merchant_order_id: payload?.merchant_order_id,
+      data: response.data,
+    });
     return response.data.data;
   } catch (error) {
     logger.error(
