@@ -33,7 +33,7 @@ import {
   updateBankaccountDao,
   getBankaccountCheckDao,
 } from '../bankAccounts/bankaccountDao.js';
-import { updateUserDao } from '../users/userDao.js';
+import { updateUserDao, getUsersNameDao } from '../users/userDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
 import { notifyBankResponseAccessUpdate } from '../../utils/sockets.js';
@@ -190,6 +190,7 @@ const getVendorsCodeService = async (
   includeOnlyVendors,
   excludeDisabledVendor,
   includeSeperateSubVendors,
+  includeVendorAdmin,
 ) => {
   let conn;
   try {
@@ -206,7 +207,7 @@ const getVendorsCodeService = async (
       const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys[0];
 
-      if (designation === Role.VENDOR) {
+      if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
         const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
         userIdFilter = [...new Set([...userIdFilter, ...subVendors])];
       } else if (designation === Role.VENDOR_OPERATIONS) {
@@ -242,6 +243,7 @@ const getVendorsCodeService = async (
       includeOnlyVendors,
       excludeDisabledVendor,
       includeSeperateSubVendors,
+      includeVendorAdmin,
     );
     await commit(conn);
     return codes;
@@ -363,15 +365,16 @@ const updateVendorService = async (ids, payload) => {
       );
     }
     if (payload.payin_commission || payload.payout_commission) {
-      const userHierarchys = await getUserHierarchysDao({
-        user_id: data.user_id,
-      });
-      const userHierarchy = userHierarchys[0];
-      const subVendors = userHierarchy?.config?.siblings?.sub_vendors || [];
-      if (subVendors.length > 0 && payload.payin_commission > 1 || payload.payout_commission > 1) {
-          throw new BadRequestError(
-            "Vendor commission must be less than or equal to 1%.",
-          );
+      const userHierarchys = await getUsersNameDao(
+         data.user_id,
+      );
+      if (
+        (userHierarchys.designation === Role.VENDOR_ADMIN)&& (payload.payin_commission > 1 ||
+        payload.payout_commission > 1)
+      ) {
+        throw new BadRequestError(
+          'Vendor commission must be less than or equal to 1%.',
+        );
       }
     }
     // await notifyAdminsAndUsers({
@@ -546,7 +549,7 @@ const linkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
       );
     }
     if (
-      parent.payin_commission > 1 ||
+      parent.payin_commission > 1 &&
       parent.payout_commission > 1
     ) {
       throw new BadRequestError(
@@ -655,7 +658,7 @@ const transferVendorService = async (
       );
     }
     if (
-      parent.payin_commission > 1 ||
+      parent.payin_commission > 1 &&
       parent.payout_commission > 1
     ) {
       throw new BadRequestError(

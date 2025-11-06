@@ -244,6 +244,9 @@ const createBankaccountService = async (
       const parentUserId = childHierarchy[0].config.parent;
       payload.user_id = parentUserId;
     }
+    if (designation === Role.VENDOR_ADMIN && !payload.user_id) {
+        throw new BadRequestError('Vendor Admins are not allowed to create own bank accounts.');
+    }
     const result = await createBankaccountDao(payload);
     // await notifyAdminsAndUsers({
     //   conn,
@@ -255,8 +258,8 @@ const createBankaccountService = async (
     // });
     return result;
   } catch (error) {
-    logger.error('error getting while  creating banks', error);
-    throw new BadRequestError('Error getting while  creating banks');
+    logger.error('error getting while  creating banks', error.message);
+    throw error;
   }
 };
 

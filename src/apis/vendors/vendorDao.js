@@ -114,6 +114,7 @@ export const getVendorsCodeDao = async (
   includeOnlyVendors = false,
   excludeDisabledVendor = false,
   includeSeperateSubVendors = false,
+  includeVendorAdmin = false,
 ) => {
   try {
     // Convert string to boolean
@@ -122,6 +123,9 @@ export const getVendorsCodeDao = async (
     }
     if (includeOnlyVendors) {
       includeOnlyVendors = includeOnlyVendors.toLowerCase() === 'true';
+    }
+    if (includeVendorAdmin) { 
+      includeVendorAdmin = includeVendorAdmin.toLowerCase() === 'true';
     }
     if (includeSeperateSubVendors) {
       includeSeperateSubVendors =
@@ -172,9 +176,29 @@ export const getVendorsCodeDao = async (
 
     const queryParams = [];
     let paramIndex = 1;
-
-    if (includeOnlyVendors) {
-      sql += `
+     if (includeVendorAdmin && includeOnlyVendors && includeSubVendors) {
+       sql += `
+         AND v.user_id IN (
+             SELECT u.id 
+             FROM "${tableName.USER}" u
+             JOIN "${tableName.DESIGNATION}" d 
+               ON u.designation_id = d.id 
+             WHERE d.designation IN ('VENDOR_ADMIN','VENDOR','SUB_VENDOR')  
+         )
+       `;
+     }
+     else if (includeVendorAdmin && includeOnlyVendors) {
+       sql += `
+         AND v.user_id IN (
+             SELECT u.id 
+             FROM "${tableName.USER}" u
+             JOIN "${tableName.DESIGNATION}" d 
+               ON u.designation_id = d.id 
+             WHERE d.designation IN ('VENDOR_ADMIN', 'VENDOR')  
+         )
+       `;
+     } else if (includeOnlyVendors && !includeVendorAdmin) {
+       sql += `
       AND v.user_id IN (
           SELECT u.id 
           FROM "${tableName.USER}" u
@@ -183,7 +207,27 @@ export const getVendorsCodeDao = async (
           WHERE d.designation = 'VENDOR'
         )
       `;
-    }
+     } else if (includeVendorAdmin && !includeOnlyVendors) {
+       sql += `
+      AND v.user_id IN (
+          SELECT u.id 
+          FROM "${tableName.USER}" u
+          JOIN "${tableName.DESIGNATION}" d 
+            ON u.designation_id = d.id 
+          WHERE d.designation = 'VENDOR_ADMIN'
+        )
+      `;
+     } else {
+       sql += `
+      AND v.user_id IN (
+          SELECT u.id 
+          FROM "${tableName.USER}" u
+          JOIN "${tableName.DESIGNATION}" d 
+            ON u.designation_id = d.id 
+          WHERE d.designation != 'VENDOR_ADMIN'
+      )
+    `;
+     }
 
     if (filters.company_id) {
       sql += ` AND v.company_id = $${paramIndex++}`;
@@ -201,7 +245,6 @@ export const getVendorsCodeDao = async (
     }
 
     sql += ` GROUP BY v.id, v.code, v.user_id ORDER BY v.code ASC`;
-
     const result = await conn.query(sql, queryParams);
     logger.log('Fetched Vendors:', result.rows.length, 'rows');
     return result.rows;
@@ -316,6 +359,21 @@ export const getVendorsDao = async (
     throw error;
   }
 };
+
+export const getVendorByIdDao = async (user_id, company_id) => {
+  try {
+    const sql = `SELECT id, user_id, payout_commission
+      FROM "${tableName.VENDOR}" WHERE user_id = $1 
+      AND company_id = $2 
+      AND is_obsolete = false`;
+    const params = [user_id, company_id];
+    const result = await executeQuery(sql, params);
+    return result.rows || null;
+  } catch (error) {
+    logger.error('Error fetching vendor by ID:', error);
+    throw error;
+  }
+}
 
 export const getVendorIdsByUserIds = async (user_ids) => {
   try {

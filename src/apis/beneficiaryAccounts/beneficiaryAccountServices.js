@@ -68,7 +68,7 @@ const getBeneficiaryAccountService = async (
         }
       }
     } else if (role === Role.VENDOR) {
-      if (designation === Role.VENDOR) {
+      if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
         filters.user_id = [user_id];
       } else if (designation === Role.VENDOR_OPERATIONS) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
@@ -172,7 +172,7 @@ const getBeneficiaryAccountBySearchService = async (
         }
       }
     } else if (role === Role.VENDOR) {
-      if (designation === Role.VENDOR) {
+      if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
         const subVendors =
           userHierarchy?.config?.siblings?.sub_vendor ?? [];
         if (Array.isArray(subVendors) && subVendors.length > 0) {

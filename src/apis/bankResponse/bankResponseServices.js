@@ -608,7 +608,7 @@ const createBankResponseService = async (
             approved_at: new Date(),
             duration,
             payin_merchant_commission: payinMerchantCommission,
-            payin_vendor_commission: totalVendorCommission,
+            payin_vendor_commission: payinVendorCommission,
             config: payinConfig,
             bank_response_id: botRes.id,
           };
@@ -1054,7 +1054,7 @@ const createBankResponseWebHookService = async (
         await updateCalculationTable(
           vendor[0].user_id,
           {
-            payinCommission: totalVendorCommission,
+            payinCommission: payinVendorCommission,
             amount: botRes.amount,
           },
           localConn,
@@ -1240,7 +1240,7 @@ const getBankResponseService = async (
       }
     };
 
-    if (designation === Role.VENDOR && !filters.bank_id) {
+    if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN && !filters.bank_id) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys?.[0];
 
@@ -1348,7 +1348,7 @@ const getBankResponseBySearchService = async (
       }
     };
 
-    if (designation === Role.VENDOR) {
+    if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys?.[0];
 

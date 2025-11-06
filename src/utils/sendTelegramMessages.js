@@ -47,13 +47,45 @@ export async function sendTelegramDashboardReportMessage(
   const istTime = new Date(
     now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }),
   );
-  let startHour = istTime.getHours() - 1;
-  let endHour = (startHour + 1) % 24;
-  const startAmpm = startHour >= 12 ? 'PM' : 'AM';
-  const endAmpm = endHour >= 12 ? 'PM' : 'AM';
-  startHour = startHour % 12 || 12;
-  endHour = endHour % 12 || 12;
-  const formattedTime = `${startHour}${startAmpm}-${endHour}${endAmpm}`;
+  //formatting time for 30 mins report
+  const currentMinutes = istTime.getMinutes();
+  const currentHours = istTime.getHours();
+  let startHour = currentHours;
+  let startMinutes = 0;
+  let endHour = currentHours;
+  let endMinutes = 0;
+  if (currentMinutes < 30) {
+    startHour = (currentHours - 1 + 24) % 24;
+    startMinutes = 30;
+    endHour = currentHours;
+    endMinutes = 0;
+  } else {
+    startHour = currentHours;
+    startMinutes = 0;
+    endHour = currentHours;
+    endMinutes = 30;
+  }
+  if (currentMinutes === 0) {
+    startHour = (currentHours - 1 + 24) % 24;
+    startMinutes = 30;
+    endHour = currentHours;
+    endMinutes = 0;
+  } else if (currentMinutes === 30) {
+    startHour = currentHours;
+    startMinutes = 0;
+    endHour = currentHours;
+    endMinutes = 30;
+  }
+  function formatTime(hour, minute) {
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    const displayMinute = minute.toString().padStart(2, '0');
+    return `${displayHour}:${displayMinute}${ampm}`;
+  }
+  const formattedTime = `${formatTime(startHour, startMinutes)}-${formatTime(
+    endHour,
+    endMinutes,
+  )}`;
   const timeStamp = type === 'Hourly Report' ? formattedTime  : date ? date : currentDate;
 
   const merchantPayInDetails = merchant

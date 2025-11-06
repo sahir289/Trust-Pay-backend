@@ -21,13 +21,17 @@ import {
   updatePayoutDao,
   getAllPayoutsDao,
   getPayoutBankDetailsDao,
+  getPayoutByMerchantOrderIdDao,
+  getPayoutByUtrIdDao,
+  getPayoutByIdDao,
 } from './payOutDao.js';
 import {
   getMerchantsDao,
   getMerchantByUserIdDao,
   getMerchantsByCodeDao,
+  getMerchantByIdDao,
 } from '../merchants/merchantDao.js';
-import { getVendorsDao, getVendorIdsByUserIds } from '../vendors/vendorDao.js';
+import { getVendorByIdDao, getVendorsDao, getVendorIdsByUserIds } from '../vendors/vendorDao.js';
 import {
   getCalculationDao,
   getCalculationforCronDao,
@@ -753,6 +757,7 @@ const createPayoutService = async (
     //       : columns.PAYOUT;
     const { code, amount, x_api_key, returnUrl, notifyUrl } = payload;
     const details = await getMerchantsByCodeDao(code);
+
     if (!details[0] || details[0].length === 0) {
       const data = {
         status: 404,
@@ -761,7 +766,7 @@ const createPayoutService = async (
       return data;
     }
 
-    if (details[0]?.config?.whitelist_ips) {
+    if (details[0]?.config?.whitelist_ips && role !== Role.ADMIN) {
       let whitelist = details[0].config.whitelist_ips;
       // Normalize whitelist to array of trimmed strings
       if (typeof whitelist === 'string') {
@@ -817,12 +822,12 @@ const createPayoutService = async (
       : details[0].company_id;
     payload.created_by = payload.created_by ? payload.created_by : user_id;
     payload.updated_by = payload.updated_by ? payload.updated_by : user_id;
-    const isOrderIdExist = await getPayoutsDao(
-      { merchant_order_id: merchant_order_id },
+    const isOrderIdExist = await getPayoutByMerchantOrderIdDao(
+      merchant_order_id,
       payload.company_id,
     );
 
-    if (isOrderIdExist.length > 0) {
+    if (isOrderIdExist) {
       const data = {
         status: 400,
         message: 'Merchant Order ID already exists',
@@ -859,24 +864,24 @@ const createPayoutService = async (
       return data;
     }
 
-    if (payload.merchant_order_id) {
-      const data = await getPayoutsDao(
-        { merchant_order_id: merchant_order_id },
-        payload.company_id,
-        null,
-        null,
-        'DESC',
-        role,
-        conn,
-      );
-      if (data.length > 0) {
-        const data = {
-          status: 400,
-          message: 'Merchant Order ID already exists',
-        };
-        return data;
-      }
-    }
+    // if (payload.merchant_order_id) {
+    //   const data = await getPayoutsDao(
+    //     { merchant_order_id: merchant_order_id },
+    //     payload.company_id,
+    //     null,
+    //     null,
+    //     'DESC',
+    //     role,
+    //     conn,
+    //   );
+    //   if (data.length > 0) {
+    //     const data = {
+    //       status: 400,
+    //       message: 'Merchant Order ID already exists',
+    //     };
+    //     return data;
+    //   }
+    // }
 
     delete payload.x_api_key;
     let data = await createPayoutDao(conn, payload);
@@ -901,17 +906,31 @@ const createPayoutService = async (
       }
     }
 
-    const { allow_clickrr, allow_tatapay, allow_payassist } =
-      details[0]?.config || {};
+    const {
+      allow_clickrr,
+      clickrr_auto_approval_limit,
+      allow_tatapay,
+      allow_payassist,
+    } = details[0]?.config || {};
 
     if (allow_clickrr) {
       const ids = { id: data.id, company_id: payload.company_id };
       const clickrrWalletBalance = await getClickrrWalletBalance({
         company_id: payload.company_id,
       });
-      console.log(clickrrWalletBalance?.data?.walletBalance, 'clickrr balance');
+
       let updatedData;
-      if (Number(payoutAmount) < Number(50000)) {
+      if (Number(payoutAmount) < Number(clickrr_auto_approval_limit)) {
+        if (
+          Number(clickrrWalletBalance?.data?.walletBalance) <
+          Number(payoutAmount)
+        ) {
+          data = {
+            status: 201,
+            message: 'Insufficient Balance in Wallet',
+          };
+          return data;
+        }
         // specific to clickrr max payout limit
         const updatedPayload = { config: { method: 'CLICKRR' } };
         updatedData = await updatePayoutService(conn, ids, updatedPayload);
@@ -989,7 +1008,7 @@ const getPayoutsService = async (
         }
       }
     } else if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
-      if (designation === Role.VENDOR) {
+      if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
         const userHierarchy = userHierarchys?.[0];
         const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -1096,7 +1115,7 @@ const getPayoutsBySearchService = async (
         }
       }
     } else if (role === Role.VENDOR) {
-      if (designation === Role.VENDOR) {
+      if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
         const userHierarchys = await getUserHierarchysDao({ user_id });
         const userHierarchy = userHierarchys?.[0];
 
@@ -1182,11 +1201,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
     // Early validation for UTR uniqueness
     if (payload?.utr_id) {
-      const payoutDetails = await getPayoutsDao(
-        { utr_id: payload.utr_id },
+      const payoutDetails = await getPayoutByUtrIdDao(
+        payload.utr_id,
         ids.company_id,
       );
-      if (payoutDetails.length > 0) {
+      if (payoutDetails && payoutDetails.id !== ids.id) {
         throw new BadRequestError('UTR already exists');
       }
     }
@@ -1254,7 +1273,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     // Fetch related data in parallel
     const bankID = payload.bank_acc_id || singleWithdrawData.bank_acc_id;
     let [merchantArr, bankDataArr] = await Promise.all([
-      getMerchantsDao({ id: singleWithdrawData.merchant_id }),
+      getMerchantByIdDao(singleWithdrawData.merchant_id, ids.company_id),
       bankID ? getBankByIdDao({ id: bankID }) : Promise.resolve([]),
     ]);
 
@@ -1300,6 +1319,12 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     // }
 
     const data = await updatePayoutDao(ids, payload, conn);
+
+    const payoutExists = await getPayoutByIdDao(ids.id, ids.company_id);
+    if (payoutExists && payoutExists.status === data?.status) {
+      throw new BadRequestError(`Payout is already ${payoutExists[0].status}`);
+    }
+
     await newTableEntry(tableName.PAYOUT);
     if (data.status == Status.INITIATED) {
       return data;
@@ -1314,7 +1339,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
 
     const notifyUrl =
-      data.config?.urls?.notify || merchant.config?.urls?.payout_notify;
+      data.config?.urls?.notify || merchant?.payout_notify;
 
     // Early return if not approved
     if (!data.approved_at && data.status !== Status.PENDING) {
@@ -1340,7 +1365,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       throw new BadRequestError('Bank account is blocked');
     }
 
-    const vendorArr = await getVendorsDao({ user_id: bankData.user_id });
+    const vendorArr = await getVendorByIdDao(bankData.user_id, ids.company_id);
     const vendor = vendorArr[0];
     if (!vendor) {
       throw new NotFoundError('Vendor not found!');
@@ -1355,14 +1380,6 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       data.amount,
       vendor.payout_commission,
     );
-
-    const payoutDetails = await getPayoutsDao({ id: ids.id }, ids.company_id);
-    if (
-      payoutDetails.length !== 0 &&
-      payoutDetails[0]?.status === data?.status
-    ) {
-      throw new BadRequestError(`Payout is already ${payoutDetails[0].status}`);
-    }
 
     // Handle sub-vendor and parent commission logic
     let totalVendorCommission = vendorCommission;
@@ -1389,7 +1406,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
 
       // Preserve existing config and only update commission keys
       payoutConfig = {
-        ...(payoutDetails[0]?.config || {}), // Preserve existing config
+        ...(payoutExists?.config || {}), // Preserve existing config
         actual_vendor_commission: vendorCommission,
         brokerage_commission: brokerageCommission,
       };
@@ -1403,7 +1420,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       );
       // Preserve existing config and only update commission keys
       payoutConfig = {
-        ...(payoutDetails[0]?.config || {}), // Preserve existing config
+        ...(payoutExists?.config || {}), // Preserve existing config
         actual_vendor_commission: vendorCommission,
       };
     }
@@ -1601,6 +1618,7 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
   await trackVendorsNetBalance(calculationData[0].user_id, conn, response);
   return response;
 };
+
 const processEkoPayout = async (singleWithdrawData, payload) => {
   try {
     const client_ref_id = Math.floor(Date.now() / 1000);
@@ -1889,7 +1907,7 @@ const ekoWalletBalanceEnquiryInternally = async () => {
     }
     return parsedData;
   } catch (error) {
-    logger.error(error);
+    logger.error(error.message);
   }
 };
 

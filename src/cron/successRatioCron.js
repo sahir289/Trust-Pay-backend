@@ -396,12 +396,12 @@ const formattedSuccessRatiosByMerchantUpdatedAt = async (company_id) => {
 };
 
 //run only on server - side /production level
-if (process.env.NODE_ENV === 'production') {
-  cron.schedule('*/10 * * * *', () => {
+if (config?.env === 'production') {
+  cron.schedule('*/13 * * * *', () => { // change time every 10 to 13 minutes for success ratio
     formattedSuccessRatiosForAllCompanies();
   });
 } else {
-  logger.error('Cron jobs are disabled in non-production environments.');
+  logger.warn('Cron jobs are disabled in non-production environments.');
 }
 
 export {
