@@ -223,6 +223,6 @@ export async function createClickrrPayout(
 
     logger.error('Clickrr payout error:', error.message);
     logger.warn('Clickrr payout error response', payload);
-    return payload;
+    return payload; 
   }
 }
