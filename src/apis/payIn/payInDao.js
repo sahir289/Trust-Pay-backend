@@ -121,25 +121,35 @@ export const getPayInsBankResDao = async (filters = {}) => {
 
 export const getPayInsForSuccessRatioDao = async (filters = {}) => {
   try {
-    const selectColumns = `
-      id,
-      merchant_id,
-      company_id,
-      status,
-      created_at,
-      updated_at,
-      user_submitted_utr
+    const now = new Date();
+    const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    const sql = `
+      SELECT 
+        id,
+        merchant_id,
+        company_id,
+        status,
+        created_at,
+        updated_at,
+        user_submitted_utr
+      FROM "${tableName.PAYIN}" 
+      WHERE 
+        is_obsolete = false
+        AND created_at >= $1
+        AND created_at <= $2
+        AND company_id = $3
+      ORDER BY created_at DESC
     `;
 
-    const [sql, params] = buildSelectQuery(
-      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
-      filters,
-    );
-
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, [
+      last24Hours,
+      now,
+      filters.company_id,
+    ]);
     return result.rows || [];
   } catch (error) {
-    logger.error('Error getting PayIns for success ratio:', error);
+    logger.error('Error in getPayInsForSuccessRatioDao (last 24h):', error);
     throw error;
   }
 };
