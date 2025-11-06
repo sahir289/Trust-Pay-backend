@@ -397,7 +397,7 @@ const formattedSuccessRatiosByMerchantUpdatedAt = async (company_id) => {
 
 //run only on server - side /production level
 if (config?.env === 'production') {
-  cron.schedule('*/13 * * * *', () => { // change time every 10 to 13 minutes for success ratio
+  cron.schedule('*/11 * * * *', () => { 
     formattedSuccessRatiosForAllCompanies();
   });
 } else {

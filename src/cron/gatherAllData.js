@@ -31,7 +31,7 @@ if (config?.env === 'production') {
     await executeWithRetry('daily', 'Daily gather all cron job at 12:00 AM IST (Attempt 1)');
   });
 
-  cron.schedule('30 * * * *', async () => {
+  cron.schedule('0,30 * * * *', async () => {
     hourlyRetryCount = 0; // Reset retry count for new hour
     const currentHour = dayjs().tz('Asia/Kolkata').hour();
     const now = dayjs().tz('Asia/Kolkata');
