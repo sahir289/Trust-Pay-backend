@@ -462,6 +462,25 @@ export const getMerchantByCodeDao = async (code) => {
     throw error;
   }
 };
+export const getMerchantsForSuccessRatioDao = async (filters = {}) => {
+  try {
+    const selectColumns = `
+      id,
+      code,
+      company_id
+    `;
+    const [sql, params] = buildSelectQuery(
+      `SELECT ${selectColumns} FROM "${tableName.MERCHANT}" WHERE is_obsolete = false`,
+      filters,
+    );
+    const result = await executeQuery(sql, params);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error in getMerchantsForSuccessRatioDao:', error);
+    throw error;
+  }
+};
+
 export const getAllMerchantsDao = async (
   filters,
   page = 1,
