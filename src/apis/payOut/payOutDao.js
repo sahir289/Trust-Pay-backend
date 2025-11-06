@@ -282,7 +282,7 @@ export const getPayoutsDao = async (
 
 export const getPayoutByIdDao = async (id, company_id) => {
   try {
-    const sql = `SELECT id, status FROM "${tableName.PAYOUT}" WHERE id = $1 AND company_id = $2 AND is_obsolete = false`;
+    const sql = `SELECT id, status, config FROM "${tableName.PAYOUT}" WHERE id = $1 AND company_id = $2 AND is_obsolete = false`;
     const queryParams = [id, company_id];
     const result = await executeQuery(sql, queryParams);
     return result.rows.length > 0 ? result.rows[0] : null;
