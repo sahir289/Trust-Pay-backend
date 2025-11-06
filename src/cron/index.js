@@ -132,7 +132,7 @@ router.get('/net-balance-cronjob', (req, res) => {
   logger.info('Calling gatherAllNetbalanceForAllCompanies CRONJOB');
   res.json({ message: 'Cron job is running for Net Balance' });
 });
-router.get('/pending_payout_cron', (req, res) => {
+router.get('/pending-payout-cronjob', (req, res) => {
   collectPayoutData();
   logger.info('Calling collectPendingPayoutData CRONJOB');
   res.json({ message: 'Cron job is running for Pending Payout' });

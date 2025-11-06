@@ -1024,7 +1024,7 @@ export const getInitiatedAndPendingSummaryByMerchant = async (company_id) => {
   try {
     const queryText = `
       SELECT 
-        COALESCE(m.code, 'Unknown') AS merchant_code,
+        m.code AS merchant_code,
         COUNT(p.id) AS total_count,
         COALESCE(SUM(p.amount), 0) AS total_amount
       FROM public."Payout" p
@@ -1036,10 +1036,10 @@ export const getInitiatedAndPendingSummaryByMerchant = async (company_id) => {
       ORDER BY total_amount DESC, merchant_code;
     `;
     const result = await executeQuery(queryText, [company_id]); 
-    return result.rows.map(row => ({
-      merchant: row.merchant_code,
-      count: parseInt(row.total_count, 10) || 0,
-      amount: parseFloat(row.total_amount) || 0,
+    return result?.rows?.map(row => ({
+      merchant: row?.merchant_code,
+      count: parseInt(row?.total_count, 10) || 0,
+      amount: parseFloat(row?.total_amount) || 0,
     }));
   } catch (error) {
     logger.error('Error in getInitiatedAndPendingSummaryByMerchant:', error.message);

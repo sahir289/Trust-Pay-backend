@@ -10,7 +10,7 @@ import {
 } from '../apis/calculation/calculationDao.js';
 import { getUsersForCronDao } from '../apis/users/userDao.js';
 import { logger } from '../utils/logger.js';
-
+import config from '../config/config.js'; 
 // Initialize dayjs plugins
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -22,7 +22,7 @@ let retryCount = 0;
 const MAX_RETRIES = 3; // Total attempts: 1 initial + 2 retries
 
 // Only run cron jobs in production environment
-if (process.env.NODE_ENV == 'production') {
+if (config?.env === 'production') {
   // Main cron job at midnight
   cron.schedule(
     '0 0 * * *',
@@ -35,7 +35,7 @@ if (process.env.NODE_ENV == 'production') {
     },
   );
 } else {
-  logger.error('Cron jobs are disabled in non-production environments.');
+  logger.warn('Cron jobs are disabled in non-production environments.');
 }
 
 // Function to execute cron with retry mechanism

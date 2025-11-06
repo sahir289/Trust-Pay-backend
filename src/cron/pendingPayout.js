@@ -3,7 +3,7 @@ import { logger } from '../utils/logger.js';
 import { getInitiatedAndPendingSummaryByMerchant } from '../apis/payOut/payOutDao.js';
 import { getCompanyDao } from '../apis/company/companyDao.js';
 import { createTelegramSender } from '../helpers/telegramApi.js';
-
+import config from '../config/config.js';
 // Helper: format number with commas and 2 decimals (Indian format)
 const formatINR = (num) => {
   if (!num && num !== 0) return '0.00';
@@ -69,8 +69,8 @@ const sendPayoutTelegramMessage = async (
   }
 }
 
-if (process.env.NODE_ENV === 'production') {
-    cron.schedule('*/20 * * * *', collectPayoutData);
+if (config?.env === 'production') {
+    cron.schedule('*/19 * * * *', collectPayoutData);
     logger.info('Running payout data cron job in production.');
 } else {
   logger.warn('Cron jobs are disabled in non-production environments.');
