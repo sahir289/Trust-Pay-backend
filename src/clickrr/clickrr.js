@@ -82,6 +82,14 @@ export async function initiateClickrrPayout(payload, company_id) {
 
     const url = `${baseUrl}${initiatePayoutUrl}`;
     const response = await axios.post(url, newPayload, { headers });
+    logger.log('Clickrr payout initiated successfully:', {
+      merchant_order_id: payload?.merchant_order_id,
+      data: response.data,
+    });
+    logger.log('Clickrr payout initiated successfully:', {
+      merchant_order_id: payload?.merchant_order_id,
+      data: response.data,
+    });
     return response.data.data;
   } catch (error) {
     logger.error(
@@ -207,6 +215,7 @@ export async function createClickrrPayout(
       payload.utr_id = checkClickrr?.utr || '';
     }
 
+    logger.info('Clickrr payout processed successfully:', payload);
     return payload;
   } catch (error) {
     payload.status = Status.REJECTED;
@@ -217,7 +226,7 @@ export async function createClickrrPayout(
     payload.rejected_at = new Date().toISOString();
 
     logger.error('Clickrr payout error:', error.message);
+    logger.warn('Clickrr payout error response', payload);
     return payload;
-
   }
 }

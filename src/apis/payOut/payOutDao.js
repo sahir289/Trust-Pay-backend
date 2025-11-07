@@ -1076,8 +1076,9 @@ export const getInitiatedAndPendingSummaryByMerchant = async (company_id) => {
       FROM public."Payout" p
       LEFT JOIN public."Merchant" m ON p.merchant_id = m.id
       WHERE p.company_id = $1
-        AND p.is_obsolete = false
-        AND p.status IN ('INITIATED', 'PENDING')
+      AND p.is_obsolete = false
+      AND m.is_obsolete = false
+      AND p.status IN ('INITIATED', 'PENDING')
       GROUP BY m.code
       ORDER BY total_amount DESC, merchant_code;
     `;

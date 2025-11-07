@@ -100,7 +100,7 @@ export const getTelegramFilePath = async (fileId) => {
     return res.data.result.file_path;
   } catch (error) {
     logger.error('Error while fetching telegram file path', error.message);
-    console.error('Error while fetching telegram file path', error);
+    console.error('Error while fetching telegram file path', error.message);
     throw error;
   }
 };
@@ -124,7 +124,7 @@ export const getTelegramImageBase64 = async (filePath) => {
     return globalThis.Buffer.from(res.data, 'binary').toString('base64');
   } catch (error) {
     logger.error('Error while fetching telegram file path', error.message);
-    console.error('Error while fetching telegram file path', error);
+    console.error('Error while fetching telegram file path', error.message);
     throw error;
   }
 };

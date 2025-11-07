@@ -1,7 +1,7 @@
 import { sendTelegramDashboardSuccessRatioMessage } from '../utils/sendTelegramMessages.js';
 import { getPayInsForSuccessRatioDao } from '../apis/payIn/payInDao.js';
 import cron from 'node-cron';
-import { getMerchantsDao } from '../apis/merchants/merchantDao.js';
+import { getMerchantsForSuccessRatioDao } from '../apis/merchants/merchantDao.js';
 import { getCompanyDao } from '../apis/company/companyDao.js';
 import config from '../config/config.js';
 import { logger } from '../utils/logger.js';
@@ -35,7 +35,7 @@ const formattedSuccessRatiosForAllCompanies = async () => {
         try {
           logger.info(`Processing success ratios for company: ${company.id}`);
           await formattedSuccessRatiosByMerchant(company.id);
-          await formattedSuccessRatiosByMerchantUpdatedAt(company.id);
+          // await formattedSuccessRatiosByMerchantUpdatedAt(company.id);
         } catch (error) {
           logger.error(`Error processing success ratios for company ${company.id}: ${error}`);
         }
@@ -97,7 +97,9 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
     const allPayIns = await getPayInsForSuccessRatioDao({
       company_id: company_id
     });
-    const merchants = await getMerchantsDao({ company_id: company_id }, null, null);
+    const merchants = await getMerchantsForSuccessRatioDao(
+      { company_id: company_id }
+    );
     // group transactions by merchant_id
     const transactionsByMerchant = allPayIns.reduce((map, payin) => {
       if (!map[payin.merchant_id]) map[payin.merchant_id] = [];
@@ -235,169 +237,169 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
 };
 export default formattedSuccessRatiosForAllCompanies;
 
-const formattedSuccessRatiosByMerchantUpdatedAt = async (company_id) => {
-  try {
-    logger.info(`Success Ratio CRON Started For Updated At for company: ${company_id}`);
+// const formattedSuccessRatiosByMerchantUpdatedAt = async (company_id) => {
+//   try {
+//     logger.info(`Success Ratio CRON Started For Updated At for company: ${company_id}`);
     
-    // Get company details with config
-    const companies = await getCompanyDao({ id: company_id });
-    const company = companies && companies.length > 0 ? companies[0] : null;
+//     // Get company details with config
+//     const companies = await getCompanyDao({ id: company_id });
+//     const company = companies && companies.length > 0 ? companies[0] : null;
     
-    if (!company) {
-      logger.error(`Company not found: ${company_id}`);
-      return;
-    }
+//     if (!company) {
+//       logger.error(`Company not found: ${company_id}`);
+//       return;
+//     }
 
-    // Get company-specific configurations or fallback to global config
-    const telegramRatioAlertsChatIdUpdatedData = company.config?.telegramRatioAlertsChatIdUpdatedData || config?.telegramRatioAlertsChatIdUpdatedData;
-    const telegramBotToken = company.config?.telegramBotToken || config?.telegramBotToken;
+//     // Get company-specific configurations or fallback to global config
+//     const telegramRatioAlertsChatIdUpdatedData = company.config?.telegramRatioAlertsChatIdUpdatedData || config?.telegramRatioAlertsChatIdUpdatedData;
+//     const telegramBotToken = company.config?.telegramBotToken || config?.telegramBotToken;
 
-    if (!telegramRatioAlertsChatIdUpdatedData || !telegramBotToken) {
-      logger.warn(`Missing Telegram config for company ${company_id}, skipping success ratio report`);
-      return;
-    }
+//     if (!telegramRatioAlertsChatIdUpdatedData || !telegramBotToken) {
+//       logger.warn(`Missing Telegram config for company ${company_id}, skipping success ratio report`);
+//       return;
+//     }
 
-    const now = new Date();
-    const intervals = [
-      { label: 'Last 5m', duration: 5 * 60 * 1000 },
-      { label: 'Last 15m', duration: 15 * 60 * 1000 },
-      { label: 'Last 30m', duration: 30 * 60 * 1000 },
-      { label: 'Last 1h', duration: 60 * 60 * 1000 },
-      { label: 'Last 3h', duration: 3 * 60 * 60 * 1000 },
-      { label: 'Last 24h', duration: 24 * 60 * 60 * 1000 },
-    ];
+//     const now = new Date();
+//     const intervals = [
+//       { label: 'Last 5m', duration: 5 * 60 * 1000 },
+//       { label: 'Last 15m', duration: 15 * 60 * 1000 },
+//       { label: 'Last 30m', duration: 30 * 60 * 1000 },
+//       { label: 'Last 1h', duration: 60 * 60 * 1000 },
+//       { label: 'Last 3h', duration: 3 * 60 * 60 * 1000 },
+//       { label: 'Last 24h', duration: 24 * 60 * 60 * 1000 },
+//     ];
 
-    // fetch all transactions
-    const allPayIns = await getPayInsForSuccessRatioDao({
-      company_id: company_id
-    });
-    const merchants = await getMerchantsDao({ company_id: company_id }, null, null);
-    // group transactions by merchant_id
-    const transactionsByMerchant = allPayIns.reduce((map, payin) => {
-      if (!map[payin.merchant_id]) map[payin.merchant_id] = [];
-      map[payin.merchant_id].push({
-        updated_at: new Date(payin.updated_at),
-        status: payin.status,
-        user_submitted_utr: payin.user_submitted_utr,
-      });
-      return map;
-    }, {});
+//     // fetch all transactions
+//     const allPayIns = await getPayInsForSuccessRatioDao({
+//       company_id: company_id
+//     });
+//     const merchants = await getMerchantsDao({ company_id: company_id }, null, null);
+//     // group transactions by merchant_id
+//     const transactionsByMerchant = allPayIns.reduce((map, payin) => {
+//       if (!map[payin.merchant_id]) map[payin.merchant_id] = [];
+//       map[payin.merchant_id].push({
+//         updated_at: new Date(payin.updated_at),
+//         status: payin.status,
+//         user_submitted_utr: payin.user_submitted_utr,
+//       });
+//       return map;
+//     }, {});
 
-    const merchantsWithTransactions = merchants.filter(
-      (merchant) =>
-        Array.isArray(transactionsByMerchant[merchant.id]) &&
-        transactionsByMerchant[merchant.id].length > 0,
-    );
+//     const merchantsWithTransactions = merchants.filter(
+//       (merchant) =>
+//         Array.isArray(transactionsByMerchant[merchant.id]) &&
+//         transactionsByMerchant[merchant.id].length > 0,
+//     );
 
-    const fullMessages = [];
-    // Sort merchants by code case-insensitively
-    const sortedMerchants = merchantsWithTransactions.sort((a, b) => {
-      const codeA = a.code ? a.code.toLowerCase() : '';
-      const codeB = b.code ? b.code.toLowerCase() : '';
-      return codeA.localeCompare(codeB);
-    });
+//     const fullMessages = [];
+//     // Sort merchants by code case-insensitively
+//     const sortedMerchants = merchantsWithTransactions.sort((a, b) => {
+//       const codeA = a.code ? a.code.toLowerCase() : '';
+//       const codeB = b.code ? b.code.toLowerCase() : '';
+//       return codeA.localeCompare(codeB);
+//     });
 
-    for (const merchant of sortedMerchants) {
-      const merchantTransactions = transactionsByMerchant[merchant.id];
+//     for (const merchant of sortedMerchants) {
+//       const merchantTransactions = transactionsByMerchant[merchant.id];
 
-      // Check both PayIn and UTR ratios for last 24 hours
-      const last24Hours = new Date(now - 24 * 60 * 60 * 1000);
-      const last24HoursTransactions = merchantTransactions.filter(
-        tx => tx.updated_at >= last24Hours
-      );
+//       // Check both PayIn and UTR ratios for last 24 hours
+//       const last24Hours = new Date(now - 24 * 60 * 60 * 1000);
+//       const last24HoursTransactions = merchantTransactions.filter(
+//         tx => tx.updated_at >= last24Hours
+//       );
 
-      const last24HoursTotal = last24HoursTransactions.length;
-      const last24HoursSuccess = last24HoursTransactions.filter(tx => tx.status === 'SUCCESS').length;
-      const last24HoursRatio = last24HoursTotal === 0 ? 0 : (last24HoursSuccess / last24HoursTotal) * 100;
+//       const last24HoursTotal = last24HoursTransactions.length;
+//       const last24HoursSuccess = last24HoursTransactions.filter(tx => tx.status === 'SUCCESS').length;
+//       const last24HoursRatio = last24HoursTotal === 0 ? 0 : (last24HoursSuccess / last24HoursTotal) * 100;
 
-      // Calculate UTR Submission Ratio
-      const last24HoursUTR = last24HoursTransactions.filter(tx => 
-        tx.user_submitted_utr && tx.user_submitted_utr.length > 0
-      ).length;
-      const last24HoursUTRRatio = last24HoursTotal === 0 ? 0 : (last24HoursUTR / last24HoursTotal) * 100;
+//       // Calculate UTR Submission Ratio
+//       const last24HoursUTR = last24HoursTransactions.filter(tx => 
+//         tx.user_submitted_utr && tx.user_submitted_utr.length > 0
+//       ).length;
+//       const last24HoursUTRRatio = last24HoursTotal === 0 ? 0 : (last24HoursUTR / last24HoursTotal) * 100;
 
-      // Skip if either PayIn or UTR ratio is 0%
-      if (last24HoursTotal === 0 || last24HoursRatio === 0 || last24HoursUTRRatio === 0) {
-        logger.info(`Skipping merchant ${merchant.code} (Updated At) - PayIn Ratio: ${last24HoursRatio}%, UTR Ratio: ${last24HoursUTRRatio}%`);
-        continue;
-      }
+//       // Skip if either PayIn or UTR ratio is 0%
+//       if (last24HoursTotal === 0 || last24HoursRatio === 0 || last24HoursUTRRatio === 0) {
+//         logger.info(`Skipping merchant ${merchant.code} (Updated At) - PayIn Ratio: ${last24HoursRatio}%, UTR Ratio: ${last24HoursUTRRatio}%`);
+//         continue;
+//       }
 
-      const intervalDetails = intervals
-        .map(({ label, duration }) => {
-          const startTime = new Date(now - duration);
+//       const intervalDetails = intervals
+//         .map(({ label, duration }) => {
+//           const startTime = new Date(now - duration);
 
-          const filteredTransactions = merchantTransactions.filter(
-            (tx) => tx.updated_at >= startTime,
-          );
+//           const filteredTransactions = merchantTransactions.filter(
+//             (tx) => tx.updated_at >= startTime,
+//           );
 
-          const total = filteredTransactions.length;
-          const success = filteredTransactions.filter(
-            (tx) => tx.status === 'SUCCESS',
-          ).length;
+//           const total = filteredTransactions.length;
+//           const success = filteredTransactions.filter(
+//             (tx) => tx.status === 'SUCCESS',
+//           ).length;
 
-          const successRatio =
-            total === 0
-              ? '0.00%'
-              : Math.min(((success / total) * 100).toFixed(2), 100) + '%';
-          const statusIcon = success === 0 ? '⚠️' : '✅';
+//           const successRatio =
+//             total === 0
+//               ? '0.00%'
+//               : Math.min(((success / total) * 100).toFixed(2), 100) + '%';
+//           const statusIcon = success === 0 ? '⚠️' : '✅';
 
-          return `${statusIcon} ${label}: ${success}/${total} = ${successRatio}`;
-        })
-        .join('\n');
+//           return `${statusIcon} ${label}: ${success}/${total} = ${successRatio}`;
+//         })
+//         .join('\n');
 
-      const intervalDetailsUtr = intervals
-        .map(({ label, duration }) => {
-          const startTime = new Date(now - duration);
+//       const intervalDetailsUtr = intervals
+//         .map(({ label, duration }) => {
+//           const startTime = new Date(now - duration);
 
-          const filteredTransactions = merchantTransactions.filter(
-            (tx) => tx.updated_at >= startTime,
-          );
+//           const filteredTransactions = merchantTransactions.filter(
+//             (tx) => tx.updated_at >= startTime,
+//           );
 
-          const total = filteredTransactions.length;
+//           const total = filteredTransactions.length;
 
-          const utrSubmission = filteredTransactions.filter(
-            (tx) => tx.user_submitted_utr && tx.user_submitted_utr.length > 0,
-          ).length;
+//           const utrSubmission = filteredTransactions.filter(
+//             (tx) => tx.user_submitted_utr && tx.user_submitted_utr.length > 0,
+//           ).length;
 
-          const statusIcon = utrSubmission === 0 ? '⚠️' : '✅';
+//           const statusIcon = utrSubmission === 0 ? '⚠️' : '✅';
 
-          const utrSubmissionRatio =
-            total === 0
-              ? '0.00%'
-              : Math.min(((utrSubmission / total) * 100).toFixed(2), 100) + '%';
+//           const utrSubmissionRatio =
+//             total === 0
+//               ? '0.00%'
+//               : Math.min(((utrSubmission / total) * 100).toFixed(2), 100) + '%';
 
-          return `${statusIcon} ${label}: ${utrSubmission}/${total} = ${utrSubmissionRatio}`;
-        })
-        .join('\n');
+//           return `${statusIcon} ${label}: ${utrSubmission}/${total} = ${utrSubmissionRatio}`;
+//         })
+//         .join('\n');
 
-      const fullMessage = {
-        merchantCode: merchant.code,
-        intervalDetails,
-        intervalDetailsUtr,
-      };
-      fullMessages.push(fullMessage);
-    }
+//       const fullMessage = {
+//         merchantCode: merchant.code,
+//         intervalDetails,
+//         intervalDetailsUtr,
+//       };
+//       fullMessages.push(fullMessage);
+//     }
 
-    // Only send message if there are merchants to report
-    if (fullMessages.length > 0) {
-      await sendTelegramDashboardSuccessRatioMessage(
-        telegramRatioAlertsChatIdUpdatedData,
-        fullMessages,
-        telegramBotToken
-      );
-    } else {
-      logger.info('No merchants with successful transactions in last 24 hours to report (Updated At)');
-    }
+//     // Only send message if there are merchants to report
+//     if (fullMessages.length > 0) {
+//       await sendTelegramDashboardSuccessRatioMessage(
+//         telegramRatioAlertsChatIdUpdatedData,
+//         fullMessages,
+//         telegramBotToken
+//       );
+//     } else {
+//       logger.info('No merchants with successful transactions in last 24 hours to report (Updated At)');
+//     }
 
-    logger.info(`Success Ratio CRON Ended for company: ${company_id}`);
-  } catch (error) {
-    logger.error('Error ', error.message);
-  }
-};
+//     logger.info(`Success Ratio CRON Ended for company: ${company_id}`);
+//   } catch (error) {
+//     logger.error('Error ', error.message);
+//   }
+// };
 
 //run only on server - side /production level
 if (config?.env === 'production') {
-  cron.schedule('*/13 * * * *', () => { // change time every 10 to 13 minutes for success ratio
+  cron.schedule('*/11 * * * *', () => { 
     formattedSuccessRatiosForAllCompanies();
   });
 } else {
