@@ -6,28 +6,60 @@ const errorHandler = (error, req, res, next) => {
   let statusCode = 500;
   let message = 'Server encountered a problem';
 
-  // Default safe object for client
   const errResponse = {
     statusCode,
     message,
   };
 
-  console.error('Getting Error in error handler ', {
-    message: error?.message,
-    stack: error?.stack,
-    name: error?.name,
-    code: error?.code,
-    response: error?.response?.data ? 'response.data exists' : undefined,
-  });
-  logger.error('Getting Error in error handler', {
-    message: error?.message,
-    stack: error?.stack,
-    name: error?.name,
-    code: error?.code,
-    response: error?.response?.data ? 'response.data exists' : undefined,
-  })
+  // Handle Axios / third-party API errors
+  if (error.isAxiosError) {
+    const { response, config, code } = error;
+    statusCode = response?.status || 502;
 
-  if (error instanceof HTTPError) {
+    errResponse.type = 'AxiosError';
+    errResponse.code = code || 'AXIOS_ERROR';
+    errResponse.message =
+      response?.data?.message ||
+      response?.statusText ||
+      error.message ||
+      'Third-party API error';
+
+    // Include API metadata (if captured by interceptors)
+    errResponse.api = {
+      method: config?.method?.toUpperCase(),
+      url: config?.url,
+      status: response?.status,
+      duration: config?.metadata?.duration || null,
+      retries: config?.metadata?.retryCount || 0,
+    };
+
+    // Trimmed response data for logging
+    const dataStr =
+      typeof response?.data === 'object'
+        ? JSON.stringify(response.data).slice(0, 800)
+        : String(response?.data || '').slice(0, 800);
+
+    console.error('AXIOS ERROR:', {
+      url: config?.url,
+      status: response?.status,
+      duration: config?.metadata?.duration,
+      retries: config?.metadata?.retryCount,
+      message: error.message,
+      data: dataStr + (dataStr.length === 800 ? '... [truncated]' : ''),
+    });
+
+    logger.error('AXIOS ERROR: ', {
+      url: config?.url,
+      status: response?.status,
+      duration: config?.metadata?.duration,
+      retries: config?.metadata?.retryCount,
+      message: error.message,
+      data: dataStr + (dataStr.length === 800 ? '... [truncated]' : ''),
+    });
+  }
+
+  // Handle Custom / HTTP errors
+  else if (error instanceof HTTPError) {
     statusCode = error.statusCode;
     errResponse.statusCode = error.statusCode;
     errResponse.name = error.name;
@@ -50,8 +82,28 @@ const errorHandler = (error, req, res, next) => {
     }
   }
 
+
+  // Log non-Axios errors
+  if (!error.isAxiosError) {
+    console.error('ERROR HANDLER LOG:', {
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name,
+      code: error?.code,
+      //response.data exists is a safe placeholder for large objects. Prevents recursive or huge data from crashing logs. Still tells you response.data was there
+      response: error?.response?.data ? 'response.data exists' : undefined,
+    });
+
+    logger.error('ERROR HANDLER LOG', {
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name,
+      code: error?.code,
+      response: error?.response?.data ? 'response.data exists' : undefined,
+    });
+  }
+
   res.status(statusCode).json({ error: errResponse });
 };
-
 
 export default errorHandler;
