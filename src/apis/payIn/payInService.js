@@ -62,6 +62,7 @@ import {
   updateBankResponseDao,
   updateBotResponseDao,
   getBankResponsePayinDao,
+  getBankResponseByJustUTRDao,
 } from '../bankResponse/bankResponseDao.js';
 import {
   getMerchantsByCodeDao,
@@ -1948,9 +1949,7 @@ export const processPayInWebHookService = async (conn, payload, updated_by) => {
       id: payIn?.bank_acc_id,
       company_id: payIn.company_id,
     });
-    let bankResponse = await getBankResponseDao({
-      utr: userSubmittedUtr,
-    });
+    let bankResponse = await getBankResponseByJustUTRDao(userSubmittedUtr);
     const [vendor] = await getVendorsDao({ user_id: bank.user_id });
     let [merchant] = await getMerchantsDao({ id: payIn.merchant_id });
 
@@ -1963,7 +1962,7 @@ export const processPayInWebHookService = async (conn, payload, updated_by) => {
       amount,
       user_submitted_utr: userSubmittedUtr,
       status: finalStatus,
-      bank_response_id: bankResponse.id,
+      bank_response_id: bankResponse?.id,
       is_url_expires: true,
       one_time_used: true,
       duration,

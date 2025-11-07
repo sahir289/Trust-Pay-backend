@@ -7,10 +7,21 @@ import { processPayInWebHookService } from '../payIn/payInService.js';
 import { generateHash } from '../../intent/createIntentTransaction.js';
 import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
 
+const processingSet = new Set();
+
 export const nmplPayWebhook = async (req, res) => {
   try {
     sendSuccess(res, 200, 'Webhook received successfully');
     const body = req.body?.transaction;
+    const merchantOrderId = body?.order_id
+    const utr = body?.utr;
+    if (processingSet.has(utr)) {
+      logger.warn(`Duplicate concurrent webhook skipped for ${utr} and merchantOrderId ${merchantOrderId}`);
+      return;
+    }
+
+    processingSet.add(utr);
+
     const hash = generateHash(body, 'nmplPay');
     if (hash !== body.hash) {
       logger.error('Invalid hash in nmplPay webhook');
@@ -27,10 +38,15 @@ export const nmplPayWebhook = async (req, res) => {
 
     const bankResponsePayload = `${body?.amount} nil ${payload.userSubmittedUtr} ${payIn.bank_acc_id}`;
 
-    const utrAlreadyExist = await getBankResponseByUTR(payload.userSubmittedUtr);
+    const utrAlreadyExist = await getBankResponseByUTR(
+      payload.userSubmittedUtr,
+    );
 
     if (utrAlreadyExist) {
-      logger.warn('Duplicate UTR received in nmplPay webhook:', payload.userSubmittedUtr);
+      logger.warn(
+        'Duplicate UTR received in nmplPay webhook:',
+        payload.userSubmittedUtr,
+      );
       return;
     }
 
@@ -52,5 +68,7 @@ export const nmplPayWebhook = async (req, res) => {
     logger.info('PayIn processed:', payin);
   } catch (error) {
     logger.error('nmplPay webhook error:', error);
+  } finally {
+    processingSet.delete(req.body?.transaction?.utr);
   }
 };

@@ -64,6 +64,28 @@ const getBankResponseDao = async (
   }
 };
 
+const getBankResponseByJustUTRDao = async (utr) => {
+  try {
+    const sql = `
+      SELECT 
+        id,
+        bank_id,
+        utr,
+        amount,
+        status,
+        is_used
+      FROM "${tableName.BANK_RESPONSE}"
+      WHERE utr = $1
+        AND is_obsolete = false
+    `;
+    const result = await executeQuery(sql, [utr]);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error in getBankResponseByJustUTRDao:', error);
+    throw error;
+  }
+}
+
 export const getBankResponsePayinDao = async (filters) => {
   try {
     let query = `
@@ -1201,6 +1223,7 @@ const updateBotResponseDao = async (id, data, conn) => {
 
 export {
   getBankResponseDao,
+  getBankResponseByJustUTRDao,
   getClaimResponseDao,
   getInternalBankResponseByUTR,
   createBankResponseDao,
