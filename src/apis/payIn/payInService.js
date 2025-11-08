@@ -62,6 +62,7 @@ import {
   updateBankResponseDao,
   updateBotResponseDao,
   getBankResponsePayinDao,
+  getBankResponseByJustUTRDao,
 } from '../bankResponse/bankResponseDao.js';
 import {
   getMerchantsByCodeDao,
@@ -1950,9 +1951,7 @@ export const processPayInWebHookService = async (conn, payload, updated_by) => {
       id: payIn?.bank_acc_id,
       company_id: payIn.company_id,
     });
-    let bankResponse = await getBankResponseDao({
-      utr: userSubmittedUtr,
-    });
+    let bankResponse = await getBankResponseByJustUTRDao(userSubmittedUtr);
     const [vendor] = await getVendorsDao({ user_id: bank.user_id });
     let [merchant] = await getMerchantsDao({ id: payIn.merchant_id });
 
@@ -1965,7 +1964,7 @@ export const processPayInWebHookService = async (conn, payload, updated_by) => {
       amount,
       user_submitted_utr: userSubmittedUtr,
       status: finalStatus,
-      bank_response_id: bankResponse.id,
+      bank_response_id: bankResponse?.id,
       is_url_expires: true,
       one_time_used: true,
       duration,
@@ -3249,15 +3248,16 @@ export const generateUpiUrlService = async (payload) => {
     const params = {
       tr: transactionId,
       am: parseFloat(payload.amount).toFixed(2),
-      pa: payload.payeeVPA,
-      pn: payload.payeeName?.trim() || '',
+      pa: 'ali.jomirul@freecharge' ,
+      pn: null ,
       tn: payload.transactionNote?.trim() || '',
       cu: 'INR',
+      featuretype: 'money_transfer',
     };
 
     // Optional fields
     if (payload.merchantCode) params.mc = payload.merchantCode;
-    if (payload.businessName) params.bn = payload.businessName.trim();
+    // if (payload.businessName) params.bn = payload.businessName.trim();
     if (payload.mode) params.mode = payload.mode;
     if (payload.purpose) params.purpose = payload.purpose;
     // params.appid = 'inb_admin'; // Optional, Paytm-specific
@@ -3265,7 +3265,7 @@ export const generateUpiUrlService = async (payload) => {
     const encodedParams = querystring.stringify(params);
 
     // Intent UPI links
-    const paytmUrl = `upi://pay?${encodedParams}&ap=net.one97.paytm`;
+    const paytmUrl = `upi://cash_wallet?${encodedParams}&ap=net.one97.paytm`;
     const gpayUrl = `upi://pay?${encodedParams}&ap=com.google.android.apps.nbu.paisa.user`;
     const phonepeUrl = `upi://pay?${encodedParams}&ap=com.phonepe.app`;
     const genericUpiUrl = `upi://pay?${encodedParams}`;
