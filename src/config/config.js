@@ -67,6 +67,9 @@ function config(Env) {
       url: Env?.NMPL_PAY_API_URL,
       salt: Env?.NMPL_PAY_SALT,
       collectionId: Env?.NMPL_PAY_COLLECTION_ID,
+      tickSalt: Env?.NMPL_PAY_TICK_SALT,
+      tickCollectionId: Env?.NMPL_PAY_TICK_COLLECTION_ID,
+      nmplPaySpecialMerchant: Env?.SPECIAL_NMPL_PAY_MERCHANT,
     },
     clickrr : {
       baseUrl: Env?.CLICKRR_BASE_API_URL,
