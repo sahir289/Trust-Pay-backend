@@ -618,23 +618,8 @@ export const getCalculationsSumDao = async (filters) => {
               WHEN '${role}' = 'ADMIN'  AND d.designation = 'SUB_VENDOR' THEN c.total_reverse_payout_commission
               WHEN '${role}' = 'VENDOR' AND d.designation = 'VENDOR'      THEN c.total_reverse_payout_commission
               ELSE 0
-            END)::NUMERIC,2) AS FLOAT) AS vendor_reverse_payout_commission,
+            END)::NUMERIC,2) AS FLOAT) AS vendor_reverse_payout_commission
   
-      CAST(ROUND(
-        SUM(CASE WHEN d.designation = 'VENDOR_ADMIN' THEN c.total_settlement_commission ELSE 0 END)::NUMERIC,2) AS FLOAT) 
-        AS mediator_settlement_commission,
-  
-      CAST(ROUND(
-        SUM(CASE WHEN d.designation = 'VENDOR_ADMIN' THEN c.total_payin_commission ELSE 0 END)::NUMERIC,2) AS FLOAT) 
-        AS mediator_payin_commission,
-  
-      CAST(ROUND(
-        SUM(CASE WHEN d.designation = 'VENDOR_ADMIN' THEN c.total_payout_commission ELSE 0 END)::NUMERIC,2) AS FLOAT) 
-        AS mediator_payout_commission,
-  
-      CAST(ROUND(
-        SUM(CASE WHEN d.designation = 'VENDOR_ADMIN' THEN c.total_reverse_payout_commission ELSE 0 END)::NUMERIC,2) AS FLOAT) 
-        AS mediator_reverse_payout_commission
   
     FROM "${tableName.CALCULATION}" AS c
     JOIN "${tableName.USER}"        AS u ON c.user_id = u.id AND u.is_obsolete = FALSE
