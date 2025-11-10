@@ -328,24 +328,26 @@ export const getPayInForDisputeServiceDao = async (filters = {}) => {
 export const getPayInIntentDao = async (merchantOrderId ) => {
   try {
     const selectColumns = `
-      id,
-      merchant_order_id,
-      user,
-      merchant_id,
-      status,
-      created_at,
-      amount,
-      company_id,
-      config,
-      bank_acc_id,
-      user_submitted_utr,
-      amount,
-      is_url_expires,
-      expiration_date,
-      bank_acc_id,
-      company_id
+      p.id,
+      p.merchant_order_id,
+      p.user,
+      p.merchant_id,
+      p.status,
+      p.created_at,
+      p.amount,
+      p.company_id,
+      p.config,
+      p.bank_acc_id,
+      p.user_submitted_utr,
+      p.is_url_expires,
+      p.expiration_date,
+      (
+        SELECT m.code
+        FROM "${tableName.MERCHANT}" m
+        WHERE m.id = p.merchant_id
+      ) AS merchant_code
     `;
-    const sql = `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE merchant_order_id = $1 AND is_obsolete = false`;
+    const sql = `SELECT ${selectColumns} FROM "${tableName.PAYIN}" p WHERE p.merchant_order_id = $1 AND p.is_obsolete = false`;
     const params = [merchantOrderId];
     const result = await executeQuery(sql, params);
     return result.rows[0] || [];
